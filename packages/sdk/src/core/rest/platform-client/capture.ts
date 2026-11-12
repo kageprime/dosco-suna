@@ -73,13 +73,19 @@ export interface CapturePolicy {
     paused: boolean;
     paused_until_ms: number | null;
     /**
-     * One screen frame every this many milliseconds, 500–10000, on every device
-     * (`CAPTURE_FRAME_INTERVALS_MS` lists the choices). Null or absent: the
-     * device default, `CAPTURE_DEVICE_DEFAULTS.intervalMs`.
+     * @deprecated Ignored by Kortix Capture 0.15.5 and later: the app sets its own
+     * frame rate (2 frames a second while someone works, one every 2 s otherwise).
+     * Kept so stored policies still parse.
      */
     interval_ms?: number | null;
     /** The frame height in pixels, at most. Null or absent: `CAPTURE_DEVICE_DEFAULTS.maxHeight`. */
     max_height?: CaptureMaxHeight | null;
+    /**
+     * Screen text recognition on every device. `off` reads no screen text (search finds
+     * apps, window titles and URLs only) and costs the least CPU. Null or absent: each
+     * device's own setting (`accurate` by default).
+     */
+    text_recognition?: 'accurate' | 'fast' | 'off' | null;
   };
   /** Text the device shows the person being recorded. */
   notice: string;
@@ -281,6 +287,28 @@ export interface CaptureDeviceMachine {
 }
 
 /**
+ * What Kortix Capture itself costs the computer: its own processes, sampled
+ * once a minute over the last ~10 minutes. CPU is a percentage of one core
+ * (100 = one core busy).
+ */
+export interface CaptureDeviceResources {
+  window_ms: number;
+  samples: number;
+  cpu_percent_avg: number;
+  /** The busiest minute of that span. */
+  cpu_percent_peak: number;
+  /** Working set (Windows) or resident size (macOS, Linux) of all processes at the last sample. */
+  memory_bytes: number;
+  memory_bytes_peak: number | null;
+  process_count: number;
+  /** One entry per executable name (`kortix-capture-engine`), the most CPU first. */
+  processes: { name: string; count: number; cpu_percent_avg: number; memory_bytes: number }[];
+  sampled_at: string | null;
+  /** Wall time of the computer's last process table read, in microseconds. */
+  read_micros: number | null;
+}
+
+/**
  * One computer's diagnostics, from its last `device.json` and `status.json`.
  * Every field the app did not send is null, so an older app version still
  * answers every key.
@@ -315,6 +343,8 @@ export interface CaptureDeviceDiagnostics {
   policy: { source: string | null; updated_at: string | null; fetched_at: string | null } | null;
   /** Null from an app version before the machine report. */
   machine: CaptureDeviceMachine | null;
+  /** Null from an app version without it, and in the first minute after the app starts. Absent from an older API. */
+  resources?: CaptureDeviceResources | null;
   encrypted: boolean;
   /** Enrolled by IT with an enrollment token. */
   managed: boolean;

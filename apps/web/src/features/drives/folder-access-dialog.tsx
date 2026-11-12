@@ -43,7 +43,7 @@ import {
   planFolderAccess,
 } from './folder-audience';
 
-export const FOLDER_LEVELS: FolderLevel[] = ['read', 'write', 'manage'];
+const FOLDER_LEVELS: FolderLevel[] = ['read', 'write', 'manage'];
 
 export function folderName(path: string, root: string): string {
   return path === '/' ? root : (path.split('/').filter(Boolean).pop() ?? root);

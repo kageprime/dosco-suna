@@ -37,8 +37,8 @@ describe('queued user message text', () => {
         </NextIntlClientProvider>,
       );
     expect(render('sending')).toContain('>Sending<');
-    expect(render('queued')).toContain('>Queued<');
-    expect(render('interrupted')).toContain('>Queued<');
+    expect(render('queued')).toContain('>Waiting<');
+    expect(render('interrupted')).toContain('>Waiting<');
     expect(render('sending')).toContain('data-queued-status="sending"');
     expect(render('queued')).toContain('data-queued-status="queued"');
     // Once delivery fails, progress is replaced with a terminal state and a retry action.

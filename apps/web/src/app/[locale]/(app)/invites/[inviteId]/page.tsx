@@ -19,6 +19,7 @@ import {
 } from '@kortix/ui/internal/auth/auth-consent';
 import { ErrorStrip, Rise, StepHeader } from '@kortix/ui/internal/auth/auth-primitives';
 import { useAuth } from '@/features/providers/auth-provider';
+import { useSignedOutRedirect } from '@/lib/auth/use-signed-out-redirect';
 import { inviteLandingPath } from '@kortix/ui/workspace/project-selector/project-selector-model';
 import { performSignOut } from '@/lib/auth/perform-sign-out';
 import { createClient as createBrowserSupabaseClient, fetchSamlEnabled } from '@/lib/supabase/client';
@@ -65,12 +66,7 @@ export default function InvitePage() {
   // here after sign-in/up. New users can have account/workspace invites
   // auto-claimed on first authenticated account resolution, so this page also
   // handles already-accepted invite rows by routing into the right surface.
-  useEffect(() => {
-    if (!authLoading && !user) {
-      const returnUrl = encodeURIComponent(`/invites/${inviteId}`);
-      router.replace(`/auth?returnUrl=${returnUrl}`);
-    }
-  }, [authLoading, user, inviteId, router]);
+  useSignedOutRedirect();
 
   const inviteQuery = useQuery({
     queryKey: ['invite', inviteId],

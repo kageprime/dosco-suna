@@ -22,6 +22,7 @@ import {
 } from '../session/turn/queued-prompt-bubbles';
 import { buildOptimisticPromptTextWithUploads } from '../session/composer/uploaded-file-refs';
 import { useInstantSessionSend } from '../session/composer/use-instant-session-send';
+import { useSessionComposerCall } from '../session/voice/composer-call';
 import { ProjectHomeWelcomeBody } from './home/welcome-body';
 import { useUiViewerId } from '../providers/ui-provider';
 import { cn } from '../lib/utils';
@@ -143,6 +144,15 @@ export function InstantSessionShell({
     enabled: !!projectId && !!sessionId,
   }).data;
   const viewerManagesSession = projectSessionRow?.can_manage_lifecycle !== false;
+  // Nothing typed: the Send button calls this session while its computer
+  // boots, as the real chat's does once it is up (flag `voice_call`). The call
+  // card rings until the box answers.
+  const call = useSessionComposerCall({
+    projectId,
+    sessionId,
+    agent: boundAgentName ?? projectSessionRow?.agent_name,
+    topLevel: !!projectSessionRow && !projectSessionRow.parent_session_id,
+  });
   const shellQueue = useMemo(
     () =>
       projectQueueRows({
@@ -275,6 +285,7 @@ export function InstantSessionShell({
       // control says Submit, never the boot-time Stop.
       submitLabel={queueEdit.editing ? tQueue('submitEdit') : null}
       onArrowUpAtStart={() => queueEdit.takeBack()}
+      call={call}
       autoFocus
       // Hero radius pre-submit (matches the project home); back to the default
       // card radius once docked so the crossfade into SessionChat doesn't pop.

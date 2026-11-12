@@ -474,7 +474,11 @@ export function registerAppsRoutes(): void {
       // now carries who you are, while the bare URL underneath stays shareable
       // with someone who has no Kortix account at all. The gate does not GATE a
       // public App either way; this only decides whether it can greet you.
-      const session = appAccessSessionUrl(appPublicUrl(row), row, loaded.userId);
+      // Only a browser session at aal2 marks the link. A PAT or an agent
+      // session token skips the MFA gate without a second factor, so the
+      // viewer token it leads to must not count as one.
+      const aal = c.get('authType') === 'supabase' && c.get('mfaAal') === 'aal2' ? 'aal2' : undefined;
+      const session = appAccessSessionUrl(appPublicUrl(row), row, loaded.userId, new Date(), aal);
       return c.json({ url: session.url, expires_at: session.expiresAt.toISOString() });
     },
   );

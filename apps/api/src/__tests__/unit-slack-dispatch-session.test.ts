@@ -16,7 +16,7 @@ function fakeSessionRow(sessionId: string): ProjectSessionRow {
   const now = new Date('2026-01-01T00:00:00Z');
   return {
     sessionId,
-    accountId: 'acc-1',
+    accountId: account,
     projectId: 'proj-1',
     branchName: 'session/test',
     baseRef: 'main',
@@ -55,6 +55,19 @@ function makeChain(): any {
   chain.then = (resolve: (rows: unknown[]) => unknown) => Promise.resolve(resolve(dbResults.shift() ?? []));
   return chain;
 }
+// One Slack workspace, one Kortix workspace (channels/slack/link.ts): this file's
+// rows describe the channel itself, so the link answers "no shared link here".
+/** Kortix workspaces that lost their Slack link (a stale thread owner). */
+const unlinkedProjects = new Set<string>();
+mock.module('../channels/slack/link', () => ({
+  linkedSlackProject: async () => null,
+  recordSlackChannel: async () => {},
+  slackProjectLink: async (projectId: string) => (unlinkedProjects.has(projectId) ? null : { teamId: 'T1' }),
+  holdsSlackWorkspace: async (projectId: string) => !unlinkedProjects.has(projectId),
+  moveSlackLink: async () => [],
+  hasOwnSlackApp: async () => false,
+}));
+
 mock.module('../shared/db', () => ({
   withDbTransaction: <T,>(action: () => Promise<T>): Promise<T> => action(),
   db: { select: () => makeChain(), insert: () => makeChain(), update: () => makeChain(), delete: () => makeChain() },
@@ -206,6 +219,7 @@ mock.module('../channels/slack-api', () => ({
   },
   publishHomeView: async () => {},
   removeReaction: async () => {},
+  setAssistantStatus: async () => {},
   startStream: async () => 'ts',
   stopStream: async () => {},
   updateBlocks: async () => {},
@@ -218,9 +232,14 @@ const { inboundMessageKey } = await import('../channels/slack/dedup');
 const { resetSlackSessionLifecycleForTest, setSlackSessionLifecycleForTest } = await import('../channels/slack/session');
 const originalRequireIdentity = config.SLACK_REQUIRE_USER_IDENTITY;
 
+// The account id reaching the member probe comes from a session or project
+// row: a uuid in prod. The reader carries the uuid guard, so a non-uuid id
+// answers no row without a DB read — well-formed synthetic ones here.
+const account = 'aaaaaaaa-1111-4111-8111-111111111111';
+const secondAccount = 'bbbbbbbb-2222-4222-8222-222222222222';
 const envelope = { team_id: 'T1', event: undefined } as any;
 const event = { type: 'app_mention', channel: 'C1', ts: '100.1', user: 'U1', thread_ts: '90.0', text: 'hi' } as any;
-const project = { projectId: 'proj-1', accountId: 'acc-1', defaultBranch: 'main', repoUrl: 'r', name: 'P', manifestPath: 'kortix.yaml' };
+const project = { projectId: 'proj-1', accountId: account, defaultBranch: 'main', repoUrl: 'r', name: 'P', manifestPath: 'kortix.yaml' };
 
 afterAll(() => {
   config.SLACK_REQUIRE_USER_IDENTITY = originalRequireIdentity;
@@ -700,7 +719,6 @@ describe('dispatchSlackEvent — exactly-once per inbound user message', () => {
     } as any;
 
     dbResults = [
-      [], // ensureProjectChannelBinding
       [{ eventId: 'slack:msg:proj-1:T1:C1:200.1' }], // claimInboundMessage → WON
       [project], // project account lookup before empty-mention help
       [], // resolveSlackActor identity lookup → unlinked
@@ -716,7 +734,6 @@ describe('dispatchSlackEvent — exactly-once per inbound user message', () => {
     });
 
     dbResults = [
-      [], // ensureProjectChannelBinding
       [], // same Slack message delivered again → duplicate suppressed
     ];
     await dispatchSlackEvent('proj-1', bareMention);
@@ -728,7 +745,6 @@ describe('dispatchSlackEvent — exactly-once per inbound user message', () => {
     deliverOutcome = 'delivered';
     // Delivery #1 — claim WON, known thread, delivered into the existing session.
     dbResults = [
-      [], // ensureProjectChannelBinding
       [{ eventId: 'slack:msg:proj-1:T1:C1:100.1' }], // claimInboundMessage → WON
       [project],
       [{ sessionId: 'sess-1', createdBy: 'user-1', metadata: {} }], // chat_threads lookup (known thread)
@@ -740,7 +756,6 @@ describe('dispatchSlackEvent — exactly-once per inbound user message', () => {
     // Delivery #2 — the SAME message redelivered (fan-out / retry / other replica):
     // a fresh event_id slips past the envelope dedup, but the message claim is lost.
     dbResults = [
-      [], // ensureProjectChannelBinding
       [], // claimInboundMessage → LOST
     ];
     await dispatchSlackEvent('proj-1', mention('100.1'));
@@ -778,7 +793,6 @@ describe('dispatchSlackEvent — a mention addressed to another workspace bot', 
   test('the project that WAS mentioned still answers', async () => {
     deliverOutcome = 'delivered';
     dbResults = [
-      [], // ensureProjectChannelBinding
       [{ eventId: 'slack:msg:proj-1:T1:C1:301.1' }], // claimInboundMessage → WON
       [project],
       [{ sessionId: 'sess-1', createdBy: 'user-1', metadata: {} }], // known thread
@@ -798,27 +812,52 @@ describe('dispatchSlackEvent — a mention addressed to another workspace bot', 
  * re-binds a channel, its older threads still belong to the original project).
  */
 describe('spawnAgentTurn — a thread owned by another project', () => {
-  const project2 = { ...project, projectId: 'proj-2', accountId: 'acc-2' };
+  const project2 = { ...project, projectId: 'proj-2', accountId: secondAccount };
   const foreignThread = { sessionId: 'sess-p1', projectId: 'proj-1', createdBy: 'user-1', metadata: {} };
 
-  test('the sender is re-authorized against the thread project; without access there, nothing is delivered', async () => {
+  test('a thread of another Kortix workspace that still holds a Slack link is refused, with a notice and no delivery', async () => {
     config.SLACK_REQUIRE_USER_IDENTITY = true;
     dbResults = [
       [project2], // dispatch project lookup
       [{ userId: 'user-1' }], // Slack identity exists
       [{ userId: 'user-1' }], // member of the dispatch project's account
-      [foreignThread], // the thread belongs to proj-1
-      [project], // re-dispatch: the thread project's account lookup
-      [{ userId: 'user-1' }], // Slack identity exists
-      [], // NOT a member of proj-1's account
+      [foreignThread], // the thread belongs to proj-1, which still holds a link
     ];
 
     await spawnAgentTurn('proj-2', envelope, event);
 
     expect(deliverCalls).toBe(0);
     expect(createSessionCalls).toBe(0);
-    expect(ephemerals).toHaveLength(1);
-    expect(ephemerals[0].text).toBe("You're connected, but don't have access to this Kortix workspace yet.");
+    expect(messages).toHaveLength(1);
+    expect(messages[0].text).toContain('belongs to a different Kortix workspace');
+  });
+
+  test('a thread of a Kortix workspace that lost the Slack link starts over here, in a new session', async () => {
+    config.SLACK_REQUIRE_USER_IDENTITY = true;
+    unlinkedProjects.add('proj-1');
+    try {
+      dbResults = [
+        [project2],
+        [{ userId: 'user-1' }],
+        [{ userId: 'user-1' }],
+        [foreignThread], // proj-1 no longer holds this Slack workspace
+        [], // delete the stale chat_threads mapping
+        [], // clearThreadErrorNotice → re-arm the failure notice for the new session
+        [project2], // projects lookup
+        [{ eventId: 'claim' }], // claimThreadCreate → WON
+        [], // re-check chat_threads → none
+        [], // channel selection → defaults
+        [], // remember owner participant
+      ];
+
+      await spawnAgentTurn('proj-2', envelope, event);
+
+      expect(deliverCalls).toBe(0);
+      expect(createSessionCalls).toBe(1);
+      expect(messages).toEqual([]);
+    } finally {
+      unlinkedProjects.clear();
+    }
   });
 
   test('a per-project app refuses a thread its project does not own, with a notice and no delivery', async () => {
@@ -855,7 +894,7 @@ describe('dispatchSlackEvent — bot sender boundary', () => {
   });
 
   test('another bot mentioning us reaches the existing session', async () => {
-    dbResults = [[], [{ eventId: 'claim' }], [project], [{ sessionId: 'sess-1', createdBy: 'user-1', metadata: {} }], []];
+    dbResults = [[{ eventId: 'claim' }], [project], [{ sessionId: 'sess-1', createdBy: 'user-1', metadata: {} }], []];
     await dispatchSlackEvent('proj-1', {
       type: 'event_callback', team_id: 'T1',
       event: { type: 'message', subtype: 'bot_message', channel_type: 'channel', channel: 'C1', ts: '400.2', user: 'U_OTHERBOT', bot_id: 'BOTHER', text: '<@B1> hello' },
@@ -867,7 +906,7 @@ describe('dispatchSlackEvent — bot sender boundary', () => {
   for (const text of ['<@B1>', '<@B1> hello']) {
     test(`unlinked bot receives no identity prompt for ${text}`, async () => {
       config.SLACK_REQUIRE_USER_IDENTITY = true;
-      dbResults = [[], [{ eventId: 'claim' }], [project], []];
+      dbResults = [[{ eventId: 'claim' }], [project], []];
       await dispatchSlackEvent('proj-1', {
         type: 'event_callback', team_id: 'T1',
         event: { type: 'app_mention', channel: 'C1', ts: '400.3', user: 'U_OTHERBOT', bot_id: 'BOTHER', text },

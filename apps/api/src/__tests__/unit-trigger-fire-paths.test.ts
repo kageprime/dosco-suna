@@ -367,6 +367,16 @@ mock.module('../platform/services/provider-balancer', () => ({
 // than served by the db shim: the gate's contract is the catalog's `enabled`
 // stamps, not the read models beneath them.
 const realServableCatalog = await import('../llm-gateway/models/servable-catalog');
+// The fire's model gate also asks for a Claude subscription account
+// (trigger-model-gate.ts). No trigger here has one, and the hermetic db shim
+// cannot run that query.
+const realClaudeAccounts = await import('../claude-subscription/accounts');
+mock.module('../claude-subscription/accounts', () => ({
+  ...realClaudeAccounts,
+  hasClaudeCredential: async () => false,
+  countUsableClaudeAccounts: async () => 0,
+}));
+
 mock.module('../llm-gateway/models/servable-catalog', () => ({
   ...realServableCatalog,
   servableProjectCatalog: async (input: Record<string, unknown>) => {
@@ -714,6 +724,16 @@ triggerDbMock.transaction = async (run: (tx: typeof triggerDbMock) => Promise<un
 mock.module('../shared/db', () => ({
   hasDatabase: true,
   db: triggerDbMock,
+}));
+
+// The fake db has no joins, and no project here holds a named provider key: the
+// one key reader (llm-gateway/credentials/gateway-keys.ts) finds none.
+const realAccountResource = await import('../secrets/account-resource');
+mock.module('../secrets/account-resource', () => ({
+  ...realAccountResource,
+  resolveProjectSharedProviderSecrets: async () => ({ coolingDown: false, secrets: [], withheld: 0 }),
+  resolveDefaultCodexAccountSecret: async () => null,
+  listGrantedGatewaySecretNames: async () => [],
 }));
 
 // The fake db has no joins: no trigger in these tests posts to a channel or DM.

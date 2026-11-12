@@ -123,8 +123,14 @@ describe('validate --fix', () => {
       const fixed = run(['--fix']);
       expect(fixed.exitCode).toBe(0);
       expect(fixed.stdout.toString()).toContain('team/agents.yaml: rewrote agents.worker.repository_access (agent-repository-access)');
+      // The rewrite it lands on is itself obsolete: a session never checks out the repository at boot.
+      expect(fixed.stdout.toString()).toContain('agents.worker.workspace (agent-workspace)');
       expect(readFileSync(join(cwd, 'kortix.yaml'), 'utf8')).toBe('# demo\nimports:\n  - team/agents.yaml\nproject:\n  name: fix-test\n');
-      expect(readFileSync(join(cwd, 'team/agents.yaml'), 'utf8')).toContain('    # keep the checkout\n    workspace:\n      project_repository: true\n');
+      const agents = readFileSync(join(cwd, 'team/agents.yaml'), 'utf8');
+      expect(agents).toContain('# keep the checkout');
+      expect(agents).not.toMatch(/^\s*(repository_access|workspace):/m);
+      // `repository_access: true` gave the agent the repository: it becomes the grant to clone it.
+      expect(agents).toContain('- workspace.gitops.read');
       expect(JSON.parse(run(['--json']).stdout.toString()).issues).toEqual([]);
     } finally {
       rmSync(cwd, { recursive: true, force: true });
@@ -210,7 +216,9 @@ describe('a legacy format (kortix_version 2, kortix.toml)', () => {
       expect(p.run(['validate', '--fix', '--no-dockerfile-lint']).exitCode).toBe(0);
       expect(p.read('kortix.yaml')).toContain('imports:\n  - team/agents.yaml\n');
       expect(p.read('kortix.yaml')).not.toContain('worker');
-      expect(p.read('team/agents.yaml')).toContain('workspace:\n      project_repository: false\n');
+      expect(p.read('team/agents.yaml')).not.toMatch(/^\s*(repository_access|workspace):/m);
+      // `repository_access: false`: no grant to clone.
+      expect(p.read('team/agents.yaml')).not.toContain('gitops');
       expect((JSON.parse(p.run(['validate', '--json', '--no-dockerfile-lint']).stdout.toString()) as Report).issues).toEqual([]);
     } finally {
       p.done();

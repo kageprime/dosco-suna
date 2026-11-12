@@ -4,6 +4,10 @@ import {
   repositoryDisconnectedBody,
 } from './shared/repository-health';
 import type { Context } from 'hono';
+import type { Router } from 'hono/router';
+import type { RouterRoute } from 'hono/types';
+import { RegExpRouter } from 'hono/router/reg-exp-router';
+import { TrieRouter } from 'hono/router/trie-router';
 import { HTTPException } from 'hono/http-exception';
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { isManifestSyntaxError } from '@kortix/manifest-schema';
@@ -27,12 +31,16 @@ import { previewBaseDomain } from './sandbox-proxy/preview-hosts';
 import { SecretUndecryptableError } from './secrets/undecryptable';
 import {
   DEAD_CREDENTIAL_BURST_SUPPRESSED,
-  deadCredentialLogDecision,
   deadCredentialLogKey,
+  isAccountMfaDenial,
+  isAgentGrantDenial,
+  isCredentialFenceDenial,
   isDeadCredential,
   isInvalidExpiredTokenRefusal,
+  isPreviewSandboxDenied,
 } from './shared/dead-credential-log';
 import { inspectDatabaseError } from './shared/database-errors';
+import { logWindowDecision, logWindowWarnDecision } from './shared/log-window';
 import { isDaytonaRateLimitError } from './shared/daytona-rate-limit';
 import {
   SANDBOX_STATE_CHANGE_IN_PROGRESS_CODE,
@@ -370,22 +378,63 @@ function handleHttpException(
   // body with no session_token_revoked code — only the line is throttled,
   // first per window per normalized key, next line carrying `suppressed`.
   // auth-audit's auditLoginFail at each throw site keeps exact accounting.
-  if (isDeadCredential(err) || isInvalidExpiredTokenRefusal(err.status, reason)) {
+  // The agent-grant denial family joins the same treatment (KRTX-4635): the
+  // typed body already names the permission and the remedy, and a caller that
+  // never acts on it — an in-sandbox agent looping a denied command — put 590
+  // warn lines in two hours on one prod route, 8.8k in eight days across ~10
+  // routes, all one reason (`agent_scope_insufficient`). Same line, same
+  // grouping; only the rate and the severity band change.
+  // The account-MFA step-up denial joins the same treatment (KRTX-4674): the
+  // typed body already tells the client to verify its second factor, and a
+  // caller that polls through it — the web app's workspace list panels —
+  // put 700+ warn lines in one hour across three routes, 0 in the 24 h
+  // before, until its people complete the step-up. Same line, same
+  // grouping; only the rate and the severity band change.
+  // The credential-fence denial joins the same treatment (KRTX-4731): the
+  // fence is fail closed by design and its typed body names the remedy
+  // (use a personal key or sign in), but a workspace-bound token looping a
+  // person route — POST /v1/mcp with an OAuth workspace token — put 31 warn
+  // lines in one hour, 0 in the 24 h before. Same line, same grouping; only
+  // the rate and the severity band change.
+  if (
+    isDeadCredential(err)
+    || isAgentGrantDenial(err)
+    || isAccountMfaDenial(err)
+    || isCredentialFenceDenial(err)
+    || isInvalidExpiredTokenRefusal(err.status, reason)
+    // The preview sandbox denial joins the same treatment (KRTX-4768): the
+    // web client polls the runtime surface of the session it has open every
+    // 5 s, and a box that died while its session row still reads `running`
+    // is refused forever — 89 warn lines in one hour against a 1.58/h
+    // baseline, one open tab. The refusal is the gate working; the LINE is
+    // the anomaly.
+    || isPreviewSandboxDenied(err.status, reason)
+  ) {
     // The bucket key normalizes the route's and the reason's token ids out
     // (deadCredentialLogKey), so KRTX-1564's named refusal cannot shard the
     // window one bucket per token. The line itself keeps the id.
-    const { log, suppressed } = deadCredentialLogDecision(
-      deadCredentialLogKey(method, path, err.status, reason),
-      Date.now(),
-    );
+    const key = deadCredentialLogKey(method, path, err.status, reason);
+    const { log, suppressed } = logWindowDecision(key, Date.now());
     // SEVERITY FOLLOWS THE VOLUME (KRTX-4454). The steady state of this class
     // is designed churn — every session stop leaves its box probing with a
     // dead credential, forever — so a flat warn level keeps a 0-baseline warn
     // pattern alive that re-trips the infra-sweep's new-pattern detector every
     // time. The pending count the decision just measured separates churn from
     // a caller ignoring the typed stop code: under the band ships at info
-    // (still queryable, same grouping), above it the line stays warn.
-    if (log) appLogger[suppressed >= DEAD_CREDENTIAL_BURST_SUPPRESSED ? 'warn' : 'info'](line, { ...fields, suppressed });
+    // (still queryable, same grouping), above it the line stays warn. The
+    // escalation itself is capped at one warn per key per hour
+    // (logWindowWarnDecision): the escalation is evaluated per window and is
+    // replica-local, so a grind hour made every window's line ship at warn —
+    // 16/15/15 per route across three replicas, 2026-11-11 09:00 UTC — above
+    // the sweep's 10/h new-warn-pattern bar (KRTX-4674 residual). The hour's
+    // other window lines drop to info, still carrying the suppressed count.
+    if (log) {
+      const severity =
+        suppressed >= DEAD_CREDENTIAL_BURST_SUPPRESSED && logWindowWarnDecision(key, Date.now())
+          ? 'warn'
+          : 'info';
+      appLogger[severity](line, { ...fields, suppressed });
+    }
   } else {
     appLogger[level](line, fields);
   }
@@ -738,12 +787,51 @@ function handleUnhandledError(err: Error, c: Context): Response {
   return handleDatabaseOrUnknownError(err, c, errName, method, path);
 }
 
+// KRTX-4704: a wrong method on a path that matches a registered route answers
+// 405 with the Allow list RFC 9110 §15.5.5 requires; 404 stays for unmatched
+// paths. Hono answers a bare 404 for both, and its router.match folds the
+// middleware (registered as ALL) into every match result, so the allow list is
+// computed from a fresh router over the registered route table only. ALL
+// entries are middleware or catch-alls that serve every method, so a request
+// matching one never lands in this handler.
+const ALLOW_PROBE_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const;
+
+function buildAllowRouter(routes: readonly RouterRoute[]): Router<null> {
+  const wire = (router: RegExpRouter<null> | TrieRouter<null>): Router<null> => {
+    for (const route of routes) {
+      if (route.method === 'ALL') continue;
+      router.add(route.method, route.path, null);
+    }
+    return router;
+  };
+  try {
+    const regExp = wire(new RegExpRouter<null>());
+    regExp.match('GET', '/__allow_router_warmup__'); // builds the matchers; UnsupportedPathError falls back below
+    return regExp;
+  } catch {
+    return wire(new TrieRouter<null>());
+  }
+}
+
+function allowedMethods(router: Router<null>, path: string): string[] {
+  const allow: string[] = ALLOW_PROBE_METHODS.filter((method) => router.match(method, path)[0].length > 0);
+  if (allow.includes('GET')) allow.push('HEAD'); // Hono serves HEAD by dispatching it as GET
+  return allow;
+}
+
 export function installHttpErrors(app: OpenAPIHono) {
   // === Error Handling ===
   app.onError(handleUnhandledError);
 
   // === 404 Handler ===
+  let allowRouter: Router<null> | null = null;
   app.notFound((c) => {
+    allowRouter ??= buildAllowRouter(app.routes);
+    const allow = allowedMethods(allowRouter, c.req.path);
+    if (allow.length && !allow.includes(c.req.method)) {
+      return c.body(null, 405, { Allow: allow.join(', ') });
+    }
+
     // A root-absolute link on a path-based preview (`<a href="/learn">` inside
     // /v1/p/{sandbox}/{port}/) resolves against THIS origin and lands here with
     // the prefix stripped. Put the navigation back where it belongs instead of

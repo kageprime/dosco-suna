@@ -4,7 +4,7 @@
  *
  * This is DATA generated from the same constants/enums the imperative
  * validator (`./index.ts`) uses (`GRANTABLE_KORTIX_PERMISSIONS`,
- * `CONNECTOR_PROVIDERS`, `AGENT_MODES_V2`, `WORKSPACE_MODES_V2`, …) so the
+ * `CONNECTOR_PROVIDERS`, `AGENT_MODES_V2`, …) so the
  * two can never silently drift apart — see the conformance test
  * (`__tests__/json-schema.conformance.test.ts`), which runs a shared fixture
  * corpus through both `validateManifest` and this schema (via ajv) and
@@ -84,7 +84,6 @@ import {
   REGISTRY_NAME_MAX,
   REGISTRY_NAME_RE,
   V2_RUNTIME_VALUES,
-  WORKSPACE_MODES_V2,
 } from './constants';
 import {
   CONNECTOR_HEADER_NAME_MAX_LENGTH,
@@ -997,34 +996,12 @@ function agentBlockV2Schema(): JsonSchemaFragment {
       },
       kortix_permissions: kortixPermissionsGrantSetSchema(),
       kortix_cli: deprecatedKortixCliGrantSetSchema(),
-      repository_access: { type: 'boolean', deprecated: true, description: 'Use workspace.project_repository.' },
-      workspace: {
-        description: 'What new sessions of this agent get in /workspace.',
-        oneOf: [
-          {
-            type: 'object',
-            properties: {
-              project_repository: {
-                type: 'boolean',
-                default: true,
-                description: 'Check out the project repository and allow repository access. Defaults to true.',
-              },
-            },
-            additionalProperties: false,
-          },
-          { type: 'string', enum: [...WORKSPACE_MODES_V2], deprecated: true },
-        ],
-      },
+      repository_access: { type: 'boolean', deprecated: true, description: 'Ignored: a session never checks out the project repository at boot.' },
+      workspace: { deprecated: true, description: 'Ignored: a session never checks out the project repository at boot.' },
       // This agent's pi packages, on top of the top-level list; `exclude` drops top-level ones.
       harnesses: harnessesSchema('agent'),
     },
     additionalProperties: false,
-    allOf: [
-      { if: { required: ['workspace'], properties: { workspace: { const: 'branch' } } }, then: { properties: { repository_access: { const: true } } } },
-      { if: { required: ['workspace'], properties: { workspace: { enum: ['runtime', 'read'] } } }, then: { properties: { repository_access: { const: false } } } },
-      { if: { required: ['workspace'], properties: { workspace: { type: 'object', required: ['project_repository'], properties: { project_repository: { const: true } } } } }, then: { properties: { repository_access: { const: true } } } },
-      { if: { required: ['workspace'], properties: { workspace: { type: 'object', required: ['project_repository'], properties: { project_repository: { const: false } } } } }, then: { properties: { repository_access: { const: false } } } },
-    ],
   };
 }
 
@@ -1277,7 +1254,7 @@ function agentBlockV3Schema(): JsonSchemaFragment {
         description: 'Which tool calls run, ask a person, or never run: `allow`, `ask` or `deny` (`"*"` and `all` also mean `allow`). `skill` and `task` belong to `skills` and `subagents`.',
       },
       prompt: { ...NON_BLANK_STRING, description: 'The system prompt. Set `prompt` or `prompt_file`, not both.' },
-      prompt_file: { type: 'string', pattern: AGENT_FILE_PATTERN, description: 'A repository path to a `.md` file. The whole file is the system prompt.' },
+      prompt_file: { type: 'string', pattern: AGENT_FILE_PATTERN, description: 'A repository path to a `.md` file. The file is the system prompt. A leading `---` frontmatter block is dropped, so an agent file another tool reads (`.claude/agents/<name>.md`) works as is.' },
       enabled: { type: 'boolean', default: true, description: '`false`: no session starts with the agent, and no agent starts it as a subagent.' },
       codemode: {
         type: 'string',
@@ -1321,22 +1298,6 @@ function agentBlockV3Schema(): JsonSchemaFragment {
         'Project permissions (`project.*`) the agent holds, whoever starts the session. `kortix validate --scopes` prints them. An account permission is an error.',
         v2.properties.kortix_permissions,
       ),
-      workspace: {
-        description: 'What new sessions of this agent get in /workspace. Any other key under `workspace` is an error.',
-        anyOf: [
-          { type: 'string', enum: ['branch', 'runtime', 'read'], deprecated: true, description: 'Deprecated: `branch` is `{ project_repository: true }`, `runtime` is `{ project_repository: false }`.' },
-          { type: 'object' },
-        ],
-        properties: {
-          project_repository: {
-            type: 'boolean',
-            default: false,
-            description:
-              '`true`: new sessions check out the project repository in `/workspace`, on their own session branch. `false`: no checkout, and repository calls answer `403` `session_repository_access_denied`. Project tools still load.',
-          },
-        },
-        additionalProperties: false,
-      },
       sandbox: { ...v2.properties.sandbox, description: 'A template slug, or `default` for the platform image. Default: `sandbox.default`.' },
       space: {
         type: 'string',
@@ -1352,7 +1313,52 @@ function agentBlockV3Schema(): JsonSchemaFragment {
       env: { ...v2.properties.secrets, deprecated: true, description: 'Deprecated: use `secrets` (same value).' },
       kortix_cli: { ...deprecatedKortixCliGrantSetSchema(), description: 'Deprecated: use `kortix_permissions` (same value).' },
       connectors_personal: { ...v2.properties.connectors_personal, deprecated: true, description: 'Deprecated: use `connectors_required` (same value).' },
-      repository_access: { type: 'boolean', deprecated: true, description: 'Deprecated: use `workspace: { project_repository: <bool> }`.' },
+      repository_access: { type: 'boolean', deprecated: true, description: 'Deprecated and ignored: a session never checks out the project repository at boot. Delete the key.' },
+      workspace: {
+        description:
+          "What this agent's sessions get to work in. Nothing is cloned and nothing runs unless it says so. `repos` and `setup` run in the background after the session starts: they never hold its first turn.",
+        anyOf: [
+          {
+            type: 'object',
+            properties: {
+              sandbox: { type: 'string', pattern: SLUG_SCHEMA.pattern, description: 'A `sandbox.templates` slug, or `default`: the machine. Same as the agent\'s `sandbox` key.' },
+              repos: {
+                type: 'array',
+                description: 'Explicit clones of the workspace repository, on the session branch. Needs `workspace.gitops.read` in `kortix_permissions`. None by default.',
+                items: {
+                  type: 'object',
+                  properties: {
+                    path: { type: 'string', pattern: '^/workspace(/.*)?$', description: 'Where the clone goes: `/workspace` or a folder under it. Default `/workspace`.' },
+                    sparse: { type: 'array', minItems: 1, items: { type: 'string', minLength: 1 }, description: 'Monorepo subset: the repository folders a cone sparse-checkout keeps.' },
+                  },
+                  additionalProperties: false,
+                },
+              },
+              setup: {
+                type: 'array',
+                description: 'Steps run in order after the clones, each in its own login shell with the agent\'s secrets, in the first clone\'s folder (or `/workspace`). A `cd` does not carry to the next step. A failure stops the rest; the session keeps running.',
+                items: {
+                  anyOf: [
+                    { type: 'string', minLength: 1 },
+                    {
+                      type: 'object',
+                      required: ['run'],
+                      properties: {
+                        run: { type: 'string', minLength: 1, description: 'The shell command.' },
+                        cwd: { type: 'string', minLength: 1, description: 'Where it runs: relative to the first clone\'s folder, or absolute under `/workspace`.' },
+                      },
+                      additionalProperties: false,
+                    },
+                  ],
+                },
+              },
+              project_repository: { type: 'boolean', deprecated: true, description: 'Deprecated: `true` becomes `workspace.gitops.read` in `kortix_permissions`.' },
+            },
+            additionalProperties: false,
+          },
+          { type: 'string', deprecated: true, description: 'Deprecated: `branch` becomes `workspace.gitops.read`; `runtime` and `read` mean nothing.' },
+        ],
+      },
     },
     additionalProperties: false,
     not: { required: ['prompt', 'prompt_file'] },

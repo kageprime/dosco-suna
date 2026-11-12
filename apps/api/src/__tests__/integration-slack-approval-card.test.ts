@@ -11,6 +11,7 @@
 import { afterAll, beforeAll, beforeEach, expect, mock, test } from 'bun:test';
 import {
   accountMembers,
+  chatInstalls,
   chatThreads,
   chatUserIdentities,
   connectorCalls,
@@ -124,6 +125,8 @@ beforeAll(async () => {
       projectRole: 'member',
     });
   }
+  // This Kortix workspace holds the Slack workspace: a card answers only there.
+  await db.insert(chatInstalls).values({ platform: 'slack', platformTeamId: TEAM, projectId: project.project_id });
   sessionId = crypto.randomUUID();
   otherSessionId = crypto.randomUUID();
   for (const [id, thread] of [
@@ -222,6 +225,22 @@ test('a session with no Slack thread posts nothing', async () => {
   expect(posted).toHaveLength(0);
 });
 
+test('a card of a Kortix workspace that no longer holds the Slack workspace decides nothing', async () => {
+  const executionId = await pending({
+    args_preview: { draft_id: 'r-1' },
+    args_preview_complete: true,
+    chat_card: { platform: 'slack', team_id: TEAM, channel: CHANNEL, ts: '200.0001' },
+  });
+  await db.delete(chatInstalls).where(eq(chatInstalls.projectId, project.project_id));
+  try {
+    await click('approve', executionId, SLACK.owner);
+  } finally {
+    await db.insert(chatInstalls).values({ platform: 'slack', platformTeamId: TEAM, projectId: project.project_id });
+  }
+  expect(await loadApprovalRow(project.project_id, executionId)).toMatchObject({ status: 'pending_approval' });
+  expect(spawned).toEqual([]);
+});
+
 test('a manager denies in the thread: the call is denied, the card shows it, the agent resumes in Slack', async () => {
   const executionId = await pending({
     args_preview: { draft_id: 'r-1' },
@@ -298,6 +317,28 @@ test('the launcher replies with a message: approve plus note reaches the agent',
       user: SLACK.launcher,
     },
   ]);
+});
+
+test('a reply modal opened before the Slack link moved decides nothing when submitted', async () => {
+  const executionId = await pending();
+  await click('reply', executionId, SLACK.launcher);
+  const view = modals[0] as { callback_id: string; private_metadata: string };
+  await db.delete(chatInstalls).where(eq(chatInstalls.projectId, project.project_id));
+  try {
+    await handleViewSubmission({
+      type: 'view_submission',
+      user: { id: SLACK.launcher },
+      view: {
+        callback_id: view.callback_id,
+        private_metadata: view.private_metadata,
+        state: { values: { approval_decision_block: { approval_decision_input: { selected_option: { value: 'approve' } } } } },
+      },
+    } as never);
+  } finally {
+    await db.insert(chatInstalls).values({ platform: 'slack', platformTeamId: TEAM, projectId: project.project_id });
+  }
+  expect((await loadApprovalRow(project.project_id, executionId))?.status).toBe('pending_approval');
+  expect(spawned).toHaveLength(0);
 });
 
 test('a call with nothing to review cannot be approved from the card', async () => {

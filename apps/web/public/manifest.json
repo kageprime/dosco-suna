@@ -1,43 +1,39 @@
 {
+  "id": "/",
   "name": "Dosco CompanyOS",
   "short_name": "Dosco",
-  "description": "Open-source CompanyOS: your agents, skills, memory, and connectors in one repo you own. Any model. Self-host or cloud.",
+  "description": "Your agents, skills, memory, and connectors in one workspace. Any model. Cloud or dedicated deployment.",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "launch_handler": { "client_mode": "focus-existing" },
   "background_color": "#000000",
   "theme_color": "#000000",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
+      "src": "/screenshots/workspace-wide.png",
+      "sizes": "1440x900",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "The Dosco workspace on desktop: sessions and the composer."
     },
     {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
+      "src": "/screenshots/workspace-narrow.png",
+      "sizes": "390x844",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-maskable-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "form_factor": "narrow",
+      "label": "The Dosco workspace on a phone, installable from the browser menu."
     }
   ],
-  "categories": [
-    "productivity",
-    "utilities",
-    "business"
-  ],
+  "categories": ["productivity", "utilities", "business"],
   "scope": "/",
   "lang": "en-US",
   "dir": "ltr",

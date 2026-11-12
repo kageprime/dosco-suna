@@ -7,8 +7,7 @@ import { createGatewayRouteResolver } from './resolve-route';
 import { planImageRoute, reachableImageModels } from './image-models';
 import { getProjectRoutingPolicy } from '../../repositories/project-routing-policies';
 import { getProjectGatewayResolution } from '../../repositories/project-model-access';
-import { listProjectSecretNamesForConsumer } from '../../projects/surface';
-import { listGrantedGatewaySecretNames } from '../../secrets/account-resource';
+import { connectedGatewayKeyNames } from '../credentials/gateway-keys';
 import { toWireModel } from '../resolution/effective';
 import { resolveDefaultModelForPrincipal } from '../resolution/default-model';
 
@@ -26,15 +25,14 @@ async function principalImageModels(principal: AuthedPrincipal): Promise<string[
     return reachableImageModels({ secretNames: new Set(), access: { disabledProviders: [], disabledModels: [] }, managedModels });
   }
   const personalUserId = principal.personalUserId === undefined ? principal.userId : principal.personalUserId;
-  const { access, pooledEnabled } = await getProjectGatewayResolution(projectId);
-  const [projectNames, pooledNames] = await Promise.all([
-    listProjectSecretNamesForConsumer({ projectId, principalUserId: personalUserId, consumer: 'llm_gateway' }),
+  const { access } = await getProjectGatewayResolution(projectId);
+  const secretNames = await connectedGatewayKeyNames({
+    accountId: principal.accountId, projectId, userId: principal.userId,
     // A gateway API key reaches only keys shared with the whole project (resolve-candidates.ts).
-    pooledEnabled
-      ? listGrantedGatewaySecretNames(principal.accountId, projectId, principal.userId, principal.keyId ? null : personalUserId)
-      : [],
-  ]);
-  return reachableImageModels({ secretNames: new Set([...projectNames, ...pooledNames]), access, managedModels });
+    grantUserId: principal.keyId ? null : personalUserId,
+    legacyPersonalUserId: personalUserId,
+  });
+  return reachableImageModels({ secretNames, access, managedModels });
 }
 
 const resolver = createGatewayRouteResolver({

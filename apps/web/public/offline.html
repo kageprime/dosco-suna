@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<!--
+  Kortix offline fallback (KRTX-4719). Served by the service worker when the
+  network is dead and no cached route HTML exists, so it must render with zero
+  network: one inline style block, one inline SVG, no script, no font, no
+  external resource. Palette is the manifest's own (#000000 / white); the
+  tokens.css var() rule cannot apply to a page that loads while caches are
+  empty.
+-->
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Kortix — offline</title>
+  <meta name="robots" content="noindex" />
+  <style>
+    :root {
+      color-scheme: dark light;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;
+      background: #000000;
+      color: #ffffff;
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      padding: max(1.5rem, env(safe-area-inset-top)) 1.5rem max(1.5rem, env(safe-area-inset-bottom));
+      -webkit-font-smoothing: antialiased;
+      text-align: center;
+    }
+    main {
+      max-width: 20rem;
+      display: grid;
+      justify-items: center;
+      gap: 0.75rem;
+    }
+    svg {
+      width: 1.875rem;
+      height: auto;
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-size: 1.125rem;
+      font-weight: 550;
+      margin: 0;
+    }
+    p {
+      margin: 0;
+      font-size: 0.875rem;
+      line-height: 1.5;
+      opacity: 0.64;
+    }
+    a {
+      margin-top: 0.75rem;
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 0.375rem;
+      color: #ffffff;
+      font-size: 0.875rem;
+      font-weight: 500;
+      text-decoration: none;
+    }
+    a:active {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    @media (prefers-color-scheme: light) {
+      body {
+        background: #ffffff;
+        color: #000000;
+      }
+      svg path {
+        fill: #000000;
+      }
+      a {
+        border-color: rgba(0, 0, 0, 0.24);
+        color: #000000;
+      }
+      a:active {
+        background: rgba(0, 0, 0, 0.06);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <svg width="30" height="25" viewBox="0 0 30 25" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M25.5614 24.916H29.8268C29.8268 19.6306 26.9378 15.0039 22.6171 12.4587C26.9377 9.91355 29.8267 5.28685 29.8267 0.00146484H25.5613C25.5613 5.00287 21.8906 9.18692 17.0654 10.1679V0.00146484H12.8005V10.1679C7.9526 9.20401 4.3046 5.0186 4.3046 0.00146484H0.0391572C0.0391572 5.28685 2.92822 9.91355 7.24884 12.4587C2.92818 15.0039 0.0390625 19.6306 0.0390625 24.916H4.30451C4.30451 19.8989 7.95259 15.7135 12.8005 14.7496V24.9206H17.0654V14.7496C21.9133 15.7134 25.5614 19.8989 25.5614 24.916Z" fill="white"/>
+    </svg>
+    <h1>You&rsquo;re offline</h1>
+    <p>Kortix needs a connection. Check yours, then try again &mdash; the app picks up where it left off.</p>
+    <a href="/">Try again</a>
+  </main>
+</body>
+</html>

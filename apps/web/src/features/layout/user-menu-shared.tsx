@@ -45,7 +45,6 @@ import {
   LifebuoyIcon,
   Moon,
   PaintBrushIcon,
-  PaperPlaneTiltIcon,
   QuestionIcon,
   ScrollIcon,
   ShieldCheckIcon,
@@ -57,7 +56,7 @@ import * as React from 'react';
 import { useState } from 'react';
 import { INTERFACE_THEME_OPTIONS, ThemeSwatch, useInterfaceTheme } from './interface-theme';
 
-export type MenuLink = {
+type MenuLink = {
   label: string;
   href: string;
   Icon: React.ComponentType<{ className?: string }>;
@@ -78,12 +77,11 @@ export type MenuLink = {
  * the sidebar and the header, so this render path is not rare.
  */
 export const HELP_LINKS: MenuLink[] = [
-  // One support row, not two. The /help and /support pages are gone; support
-  // requests go to the contact page.
-  { label: 'Support', href: '/contact', Icon: LifebuoyIcon },
+  // Things a person opens to get unstuck. Contact was a second row to the
+  // same /contact page as Support, and Blog is marketing, not help.
   { label: 'Docs', href: '/docs', Icon: BookOpenIcon },
+  { label: 'Support', href: '/contact', Icon: LifebuoyIcon },
   { label: 'Marketplace', href: '/marketplace', Icon: StorefrontIcon, internal: true },
-  { label: 'Contact', href: '/contact', Icon: PaperPlaneTiltIcon },
 ];
 
 /** Kept separate so a divider can hold the legal pages apart from the rest. */
@@ -236,7 +234,7 @@ export function HelpSubmenu({ onClose }: { onClose: () => void }) {
  * Log out, behind a confirmation.
  *
  * Returns the dialog as an element rather than rendering it inline, because it
- * MUST mount as a sibling of the dropdown, never inside its content: Radix
+ * MUST mount as a sibling of the dropdown, never inside its content: the menu
  * unmounts `DropdownMenuContent` on close, so a dialog living in there would be
  * torn down the instant the menu closed — which is the exact moment you click
  * "Log out".
@@ -255,7 +253,7 @@ export function useLogoutFlow(deferAfterClose: (fn: () => void) => void) {
   // change. There is nothing to prefetch: a document load does not read the
   // segment cache.
   //
-  // `preventDefault` keeps the dialog UP. Radix closes it on click, which used
+  // `preventDefault` keeps the dialog UP. The alert dialog closes it on click, which used
   // to leave the user staring at the unchanged app for as long as the sign-out
   // took — up to the full step budget on a broken network — with nothing on
   // screen saying anything was happening. The predictable response is a second

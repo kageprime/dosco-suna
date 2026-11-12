@@ -28,7 +28,7 @@
  */
 import * as React from 'react';
 import { View } from 'react-native';
-import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { SheetScrollView } from '@/components/kortix/sheet-parts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FilePreviewSheet } from '@/components/files/FilePreviewSheet';
@@ -138,7 +138,7 @@ function SessionFilesBody({
   }, [files, query]);
 
   return (
-    <BottomSheetScrollView
+    <SheetScrollView
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{
@@ -191,6 +191,6 @@ function SessionFilesBody({
           </Text>
         </View>
       ) : null}
-    </BottomSheetScrollView>
+    </SheetScrollView>
   );
 }

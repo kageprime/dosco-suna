@@ -425,8 +425,8 @@ function planSend({
   // through its delivery chain: a text-only send never overtakes an upload.
   //
   // The first send starts the session. A send typed while the first boots
-  // is an inbox row carrying its queue placement, drawn as a Quick Queue
-  // bubble or a Queue List row until the row lists it.
+  // is an inbox row carrying its placement, drawn as a transcript bubble or
+  // a waiting row above the composer until the row lists it.
   //
   // One exception: a first send that is not detached (no uploads, nothing
   // earlier still delivering) paints after its POST. The hero composer that

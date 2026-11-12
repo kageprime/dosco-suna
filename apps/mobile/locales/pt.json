@@ -1206,6 +1206,7 @@
     "call": "Ligar",
     "chartTapHint": "Toque para ver um valor",
     "checklistReady": "{{done}}/{{total}} prontos",
+    "closeMap": "Fechar mapa",
     "directions": "Rotas",
     "imageCount_one": "{{count}} imagem",
     "imageCount_other": "{{count}} imagens",
@@ -1216,7 +1217,9 @@
     "pick": "Recomendado",
     "pieFocus": "{{label}} é {{percent}}% do total",
     "pieOfTotal": "{{value}} de {{total}}",
+    "showAllPlaces": "Mostrar todos os lugares",
     "showData": "Mostrar dados",
+    "showOnMap": "Mostrar no mapa",
     "unavailable": "Não foi possível exibir este conteúdo.",
     "website": "Site"
   },
@@ -1297,6 +1300,7 @@
   "workspace": {
     "switcherTitle": "Espaços de trabalho",
     "create": "Criar espaço de trabalho",
+    "newWorkspace": "Novo espaço de trabalho",
     "createTitle": "Crie um espaço de trabalho",
     "createBody": "Um espaço de trabalho é onde sua empresa trabalha com o Kortix: pessoas, agentes e tudo o que eles criam.",
     "createOnWebTitle": "Criar um espaço de trabalho na web",
@@ -1352,5 +1356,47 @@
       "serverBody": "Tente novamente ou abra outro espaço de trabalho.",
       "signInAgain": "Entrar novamente"
     }
+  },
+  "artifacts": {
+    "title": "Artefatos",
+    "search": "Pesquisar artefatos",
+    "scope": {
+      "all": "Todos",
+      "mine": "Seus",
+      "shared": "Compartilhados com você",
+      "pinned": "Fixados"
+    },
+    "type": {
+      "doc": "Documento",
+      "html": "HTML"
+    },
+    "loadError": "Não foi possível carregar os artefatos.",
+    "retry": "Tentar novamente",
+    "empty": "Nenhum artefato ainda",
+    "emptyFiltered": "Nenhum artefato corresponde",
+    "pin": "Fixar",
+    "unpin": "Desafixar",
+    "rename": "Renomear",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "notFoundTitle": "Este artefato não está disponível",
+    "notFoundHint": "Ele foi excluído, ou o proprietário parou de compartilhá-lo.",
+    "remove": "Parar de compartilhar",
+    "removeTitle": "Parar de compartilhar este artefato?",
+    "removeHint": "Ele sai de Artefatos e seus links deixam de funcionar. Os arquivos continuam em Arquivos.",
+    "removed": "Não é mais compartilhado",
+    "shareLink": "Compartilhar link",
+    "openInBrowser": "Abrir no navegador",
+    "reload": "Recarregar",
+    "scopeEmpty": "Nada aqui ainda",
+    "pinDone": "Fixado",
+    "unpinDone": "Desafixado",
+    "actionFailed": "Não foi possível atualizar o artefato. Tente novamente.",
+    "renamed": "Artefato renomeado",
+    "namePlaceholder": "Nome do artefato",
+    "saving": "Salvando…",
+    "openError": "Não é possível abrir este artefato",
+    "more": "Ações do artefato",
+    "unavailable": "Os artefatos não estão disponíveis neste espaço de trabalho"
   }
 }

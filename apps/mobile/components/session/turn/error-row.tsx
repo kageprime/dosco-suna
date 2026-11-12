@@ -32,9 +32,9 @@ import { webSpace } from '@/lib/session/user-message';
 import { THEME, withAlpha } from '@/lib/utils/theme';
 
 /** `text-sm leading-snug` (1.375). */
-export const ITEM_TITLE_TYPE = { fontSize: 14, lineHeight: 14 * 1.375, fontFamily: FONT_MEDIUM } as const;
+const ITEM_TITLE_TYPE = { fontSize: 14, lineHeight: 14 * 1.375, fontFamily: FONT_MEDIUM } as const;
 
-export type ErrorTone = 'error' | 'warning';
+type ErrorTone = 'error' | 'warning';
 
 const TONE = {
   error: THEME.accent.red,

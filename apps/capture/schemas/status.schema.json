@@ -203,6 +203,111 @@
         }
       }
     },
+    "resources": {
+      "description": "What Kortix Capture itself costs this computer: the processes whose executable starts with kortix-capture or kortix-backend (or the macOS app Kortix Capture) that this user can read. Sampled once a minute; the report covers the last 10 samples. CPU is a percentage of one core (100 = one core busy; it can pass 100 on several cores). Memory is the working set (Windows) or resident size (macOS, Linux). Null during the first minute after start, and absent from app versions without it.",
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "windowMs",
+            "samples",
+            "cpuPercentAvg",
+            "cpuPercentPeak",
+            "memoryBytes",
+            "memoryBytesPeak",
+            "processCount",
+            "processes",
+            "sampledAtMs"
+          ],
+          "properties": {
+            "windowMs": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "The time the samples cover, about 600000."
+            },
+            "samples": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10,
+              "description": "One-minute intervals in the window."
+            },
+            "cpuPercentAvg": {
+              "type": "number",
+              "minimum": 0,
+              "description": "CPU over the whole window, percent of one core."
+            },
+            "cpuPercentPeak": {
+              "type": "number",
+              "minimum": 0,
+              "description": "The busiest interval of the window, percent of one core."
+            },
+            "memoryBytes": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "All processes together at the last sample."
+            },
+            "memoryBytesPeak": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "The highest total of the window."
+            },
+            "processCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Processes at the last sample."
+            },
+            "processes": {
+              "type": "array",
+              "maxItems": 16,
+              "description": "One entry per executable name, the most CPU first.",
+              "items": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "count",
+                  "cpuPercentAvg",
+                  "memoryBytes"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Lower case, no .exe: kortix-capture, kortix-capture-engine, kortix-backend, kortix capture."
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Processes with this name at the last sample (0: all exited)."
+                  },
+                  "cpuPercentAvg": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "memoryBytes": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            },
+            "sampledAtMs": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "readMicros": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "Wall time of the last process table read, in microseconds: what this report costs."
+            }
+          }
+        }
+      ]
+    },
     "update": {
       "description": "The self-update state from the machine service (update.json), or null on a computer without one.",
       "oneOf": [

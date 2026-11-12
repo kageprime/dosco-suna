@@ -20,9 +20,9 @@ import { useRouter } from 'next/navigation';
 import { SettingsTabHeader } from '@kortix/ui/customize/settings/settings-tab-header';
 import { useSettingsAccountId } from '../use-settings-account-id';
 
-export type ProviderRowStatus = 'loading' | 'connected' | 'disconnected' | 'error' | 'unavailable';
+type ProviderRowStatus = 'loading' | 'connected' | 'disconnected' | 'error' | 'unavailable';
 
-export interface ConnectedAccountsTabViewProps {
+interface ConnectedAccountsTabViewProps {
   canManageAccount?: boolean;
 
   githubStatus?: ProviderRowStatus;
@@ -38,7 +38,7 @@ export interface ConnectedAccountsTabViewProps {
   copy?: ConnectedAccountsTabCopy;
 }
 
-export interface ConnectedAccountsTabCopy {
+interface ConnectedAccountsTabCopy {
   checking: string;
   connectedAs: (name: string) => string;
   unavailable: string;

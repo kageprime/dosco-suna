@@ -10,7 +10,7 @@ import { sql } from 'drizzle-orm';
 import { loadObjectGrants } from '../../iam/authorize';
 import { objectGrantRows } from '../../iam/read-models';
 import { db } from '../../shared/db';
-import { accountGroupNamesAmong } from '../../iam/group-read';
+import { groupRows } from '../../iam/group-read';
 import { lookupEmailsByUserIds } from './access';
 
 export async function loadConnectionSharing(input: {
@@ -38,13 +38,13 @@ export async function loadConnectionSharing(input: {
   const groupIds = [
     ...new Set(grants.filter((g) => g.principalType === 'group').map((g) => g.principalId)),
   ];
-  const [emailByUser, groupRows] = await Promise.all([
+  const [emailByUser, groupRowList] = await Promise.all([
     memberIds.length ? lookupEmailsByUserIds(memberIds) : new Map<string, string | null>(),
     groupIds.length
-      ? accountGroupNamesAmong(input.accountId, groupIds)
+      ? groupRows({ accountId: input.accountId, groupIds })
       : Promise.resolve([] as Array<{ groupId: string; name: string }>),
   ]);
-  const groupNameById = new Map(groupRows.map((g) => [g.groupId, g.name] as const));
+  const groupNameById = new Map(groupRowList.map((g) => [g.groupId, g.name] as const));
   const agentNameById = await agentNames(
     grants.filter((g) => g.principalType === 'service_account').map((g) => g.principalId),
   );

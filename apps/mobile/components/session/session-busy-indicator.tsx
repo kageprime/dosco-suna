@@ -24,6 +24,7 @@ import Animated, {
   FadeIn,
   FadeOut,
   LayoutAnimationConfig,
+  useReducedMotion,
   withSpring,
   type EntryExitAnimationFunction,
 } from 'react-native-reanimated';
@@ -32,7 +33,6 @@ import { busyStatusText } from '@/lib/session/turn-body';
 
 import { Text } from '@/components/ui/text';
 import { SessionDotMatrix } from '@/components/session/dot-matrix/session-dot-matrix';
-import { useReduceMotion } from '@/components/session/dot-matrix/use-reduce-motion';
 import { TURN_TYPE, useTurnPalette } from '@/components/session/tool/shared/styles';
 import {
   BUSY_DEFAULT_STATUS,
@@ -90,7 +90,7 @@ interface SessionBusyIndicatorProps {
 
 function SessionBusyIndicatorImpl({ statusText, elapsedLabel, retryLabel, sessionId, style }: SessionBusyIndicatorProps) {
   const palette = useTurnPalette();
-  const reduceMotion = useReduceMotion();
+  const reduceMotion = useReducedMotion();
   const retryText = retryLabel?.trim();
   const status = statusText?.trim();
   const elapsed = elapsedLabel?.trim();

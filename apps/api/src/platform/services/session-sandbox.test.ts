@@ -354,18 +354,26 @@ mock.module('../../billing/services/compute-metering', () => ({
   },
 }));
 
+const realApiKeys = await import('../../repositories/api-keys');
 mock.module('../../repositories/api-keys', () => ({
+  ...realApiKeys,
   createApiKey: async (_opts: unknown) => ({ secretKey: 'sbx-key-1' }),
 }));
 
+// The stub spreads the real module: a real importer in this test's graph
+// links validateAccountToken (release suite 42696873451), so the stub must
+// carry every export the graph resolves, with the test's override on top.
+const realAccountTokens = await import('../../repositories/account-tokens');
 mock.module('../../repositories/account-tokens', () => ({
+  ...realAccountTokens,
   createAccountToken: async (opts: Record<string, unknown>) => {
     accountTokenCreateCalls.push(opts);
     return { secretKey: 'exec-tok-1' };
   },
 }));
 
-mock.module('../../repositories/service-accounts', () => ({
+const realServiceAccounts = await import('../../repositories/service-accounts');
+mock.module('../../repositories/service-accounts', () => ({ ...realServiceAccounts,
   ensureAgentServiceAccount: async (opts: Record<string, unknown>) => {
     serviceAccountCreateCalls.push(opts);
     return null;
@@ -391,7 +399,9 @@ mock.module('../../projects/agents', () => ({
   },
 }));
 
+const realSessionFailureNotifier = await import('../../shared/session-failure-notifier');
 mock.module('../../shared/session-failure-notifier', () => ({
+  ...realSessionFailureNotifier,
   notifySessionProvisioningFailed: async () => {},
 }));
 
@@ -516,8 +526,8 @@ describe('provisionSessionSandbox — mid-provision delete race', () => {
       agentGrant: {
         agent: 'mykortix',
         permissions: 'all',
-        connectors: [],
-        env: [],
+        connectors: 'all',
+        env: 'all',
       },
       serviceAccountId: null,
     });

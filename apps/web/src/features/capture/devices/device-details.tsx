@@ -19,9 +19,9 @@ import {
 } from '@kortix/ui/modal';
 import { useLocale, useTranslations } from '@/i18n/use-translations';
 
-import { diagnosticsText, formatBytes, versionView, type VersionState } from './device-diagnostics';
+import { diagnosticsText, formatBytes, usageMinutes, versionView, type VersionState } from './device-diagnostics';
 import { deviceStatus } from './device-status';
-import { StatusLabel } from './device-status-ui';
+import { StatusLabel } from './device-status-label';
 
 /** The version and, when it matters, its update state: "0.14.19 · Update failed". */
 export function VersionBadge({ device }: { device: CaptureDevice }) {
@@ -70,9 +70,9 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 /**
- * Device details: what the computer reports to Kortix, in four sections
- * (Capture, Machine, Recording and sync, Policy), and one button that copies
- * all of it as plain text for a support request.
+ * Device details: what the computer reports to Kortix, in five sections
+ * (Capture, Machine, Kortix Capture resource use, Recording and sync, Policy),
+ * and one button that copies all of it as plain text for a support request.
  */
 export function DeviceDetailsModal({
   device,
@@ -103,6 +103,9 @@ export function DeviceDetailsModal({
   const update = d?.update ?? null;
   const result = update?.last_result ?? null;
   const machine = d?.machine ?? null;
+  const resources = d?.resources ?? null;
+  // A percentage of one core: 100 % is one core fully busy.
+  const percent = (value: number) => new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 1 }).format(value / 100);
 
   return (
     <Modal open={device !== null} onOpenChange={(open) => (open ? null : onClose())}>
@@ -189,6 +192,46 @@ export function DeviceDetailsModal({
                 {machine?.timezone ? `${machine.timezone}${machine.utc_offset ? ` (${machine.utc_offset})` : ''}` : notReported}
               </Row>
               <Row label={t('locale')}>{text(machine?.locale)}</Row>
+            </Section>
+
+            <Section title={t('usage')}>
+              {resources ? (
+                <>
+                  <Row label={t('usageCpu')}>
+                    <span className="flex flex-col gap-0.5">
+                      <span className="tabular-nums">
+                        {t('usageCpuValue', { avg: percent(resources.cpu_percent_avg), peak: percent(resources.cpu_percent_peak) })}
+                      </span>
+                      <span className="text-muted-foreground text-xs">{t('usageCpuHint', { minutes: usageMinutes(resources.window_ms) })}</span>
+                    </span>
+                  </Row>
+                  <Row label={t('usageMemory')}>
+                    <span className="tabular-nums">
+                      {resources.memory_bytes_peak !== null && resources.memory_bytes_peak > resources.memory_bytes
+                        ? t('usageMemoryPeak', { now: formatBytes(resources.memory_bytes) ?? '', peak: formatBytes(resources.memory_bytes_peak) ?? '' })
+                        : formatBytes(resources.memory_bytes)}
+                    </span>
+                  </Row>
+                  <Row label={t('usageProcesses')}>
+                    <span className="flex flex-col gap-1">
+                      <span>{t('usageProcessCount', { count: resources.process_count })}</span>
+                      {resources.processes.map((p) => (
+                        <span key={p.name} className="flex items-baseline justify-between gap-3 text-xs">
+                          <span className="min-w-0 font-mono break-words">
+                            {p.name}
+                            {p.count > 1 ? <span className="text-muted-foreground"> ×{p.count}</span> : null}
+                          </span>
+                          <span className="text-muted-foreground shrink-0 tabular-nums">
+                            {t('usageProcessValue', { cpu: percent(p.cpu_percent_avg), memory: formatBytes(p.memory_bytes) ?? '' })}
+                          </span>
+                        </span>
+                      ))}
+                    </span>
+                  </Row>
+                </>
+              ) : (
+                <Row label={t('usageCpu')}>{t('usageNotReported')}</Row>
+              )}
             </Section>
 
             <Section title={t('recordingSync')}>

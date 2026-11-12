@@ -397,7 +397,7 @@ export function ShowHoverCard({
   children: ReactElement;
 }) {
   const [open, setOpen] = useState(false);
-  // A press means "I am clicking", not "tell me about this file". Radix also
+  // A press means "I am clicking", not "tell me about this file". The card also
   // opens on focus, which a click gives the tab, so without this the card pops
   // up right after every tab switch. Cleared when the pointer leaves.
   const pressed = useRef(false);

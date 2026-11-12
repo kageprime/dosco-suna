@@ -40,6 +40,8 @@ const ENDED: Record<CallEnd, { key: string; dot: string | null }> = {
  */
 export function VoiceCallCard() {
   const call = useVoiceCallStore((s) => s.call);
+  // Mounted, this host can run a call: the call controls show (`useVoiceCallsEnabled`).
+  useEffect(() => useVoiceCallStore.getState().mountCard(), []);
   if (!call || isDesktop()) return null;
   return <PlacedCall key={call.sessionId} call={call} />;
 }

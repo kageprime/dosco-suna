@@ -4,9 +4,7 @@ import { Keyboard, Platform, View, useWindowDimensions, type ViewStyle } from 'r
 import {
   ANIMATION_STATUS,
   BottomSheetModal,
-  BottomSheetView,
   BottomSheetBackdrop,
-  useBottomSheetModal,
   useBottomSheetInternal,
   type BottomSheetModalProps,
 } from '@gorhom/bottom-sheet';
@@ -29,6 +27,9 @@ import { SurfaceContext } from '@/components/kortix/surface-context';
 import { PinnedBarShiftContext } from '@/components/kortix/pinned-bar';
 import { SheetSettledContext } from '@/components/kortix/sheet-settled';
 import { GlassButtons, LIQUID_GLASS_AVAILABLE } from '@/components/kortix/liquid-glass';
+import { NATIVE_SHEET_AVAILABLE, NativeSheet } from '@/components/kortix/native-sheet';
+import { useNativeSheet } from '@/components/kortix/native-sheet-context';
+import { SheetView, useSheetDismiss } from '@/components/kortix/sheet-parts';
 
 /**
  * Shared bottom-sheet backdrop. Every gorhom sheet creator in the app
@@ -103,6 +104,31 @@ export const sheetHandleIndicatorStyle = (isDark: boolean): ViewStyle => ({
 export function useSheetBackground(): string {
   const { colorScheme } = useColorScheme();
   return getSheetBg(colorScheme === 'dark');
+}
+
+/**
+ * The bottom inset for a CONTENT-SIZED sheet's padding computed outside the
+ * sheet (in the component that renders `KortixBottomSheetModal`, where the
+ * sheet's own safe-area override does not reach). The iOS native sheet
+ * places a content-sized detent above the home indicator, so the inset is 0
+ * there; gorhom's sheet reaches the screen edge and needs the real inset.
+ * Inside a sheet body, `useSafeAreaInsets()` already returns the right value.
+ */
+export function useContentSheetBottomInset(): number {
+  const insets = useSafeAreaInsets();
+  return NATIVE_SHEET_AVAILABLE ? 0 : insets.bottom;
+}
+
+/**
+ * The colour this sheet's content sits on: `useSheetBackground()` in a gorhom
+ * sheet, the native sheet's colour in an iOS native sheet, and `null` on the
+ * iOS 26 system glass. Use it for anything painted in the sheet's colour (a
+ * `PinnedBar` fade, a pinned footer): on glass, paint nothing.
+ */
+export function useSheetSurface(): string | null {
+  const fallback = useSheetBackground();
+  const native = useNativeSheet();
+  return native ? native.surface : fallback;
 }
 
 /**
@@ -353,7 +379,66 @@ interface KortixBottomSheetModalProps extends BottomSheetModalProps {
   titleCenter?: React.ReactNode;
 }
 
-export const KortixBottomSheetModal = React.forwardRef<
+/**
+ * The sheet engine is fixed per binary: the iOS native sheet where the binary
+ * has it (`NATIVE_SHEET_AVAILABLE`, `native-sheet.tsx`), gorhom on Android and
+ * on an iOS binary without it (an OTA update on an older build). Both take the
+ * same props and the same ref. Content inside either imports its parts from
+ * `sheet-parts.tsx`.
+ */
+export const KortixBottomSheetModal = React.forwardRef<BottomSheetModal, KortixBottomSheetModalProps>(
+  (props, ref) =>
+    NATIVE_SHEET_AVAILABLE ? <NativeKortixSheet {...props} ref={ref} /> : <GorhomSheetModal {...props} ref={ref} />
+);
+KortixBottomSheetModal.displayName = 'KortixBottomSheetModal';
+
+/** The native sheet with the Kortix title row. The system draws the grabber. */
+const NativeKortixSheet = React.forwardRef<BottomSheetModal, KortixBottomSheetModalProps>(
+  ({ title, hideClose = false, titleLeading, titleTrailing, titleTrailingGlass = true, titleCenter, ...props }, ref) => (
+    <NativeSheet
+      {...props}
+      ref={ref}
+      header={
+        <NativeSheetHeader
+          title={title}
+          hideClose={hideClose}
+          leading={titleLeading}
+          trailing={titleTrailing}
+          trailingGlass={titleTrailingGlass}
+          center={titleCenter}
+        />
+      }
+    />
+  )
+);
+NativeKortixSheet.displayName = 'NativeKortixSheet';
+
+/**
+ * The top of a native sheet's content. The system grabber sits 5pt from the
+ * top and is 5pt tall, the same place as gorhom's indicator
+ * (`handlePaddingTop` + 5), so the title row starts where it does on gorhom.
+ * Without a title, the 24pt gorhom's default handle took, so a call site's own
+ * top padding lands where it did.
+ */
+function NativeSheetHeader(slots: Omit<TitleSlots, 'onClose'>) {
+  const native = useNativeSheet();
+  if (!slots.title) return <View style={{ height: 24 }} />;
+  return (
+    <View style={{ paddingTop: SHEET_DEFAULTS.handlePaddingTop + 5 }}>
+      <SheetTitleRow
+        title={slots.title}
+        hideClose={slots.hideClose}
+        leading={slots.leading}
+        trailing={slots.trailing}
+        trailingGlass={slots.trailingGlass}
+        center={slots.center}
+        onClose={() => native?.dismiss()}
+      />
+    </View>
+  );
+}
+
+const GorhomSheetModal = React.forwardRef<
   BottomSheetModal,
   KortixBottomSheetModalProps
 >(({ title, hideClose = false, backgroundStyle, handleComponent, snapPoints, topInset, children, ...rest }, ref) => {
@@ -472,7 +557,7 @@ export const KortixBottomSheetModal = React.forwardRef<
     </BottomSheetModal>
   );
 });
-KortixBottomSheetModal.displayName = 'KortixBottomSheetModal';
+GorhomSheetModal.displayName = 'GorhomSheetModal';
 
 /**
  * SheetFill — a box as tall as the sheet's visible content area
@@ -495,7 +580,22 @@ KortixBottomSheetModal.displayName = 'KortixBottomSheetModal';
  * sheet moves, the body keeps one height (`sheetFillHeight`) and a `PinnedBar`
  * inside follows the visible edge by a transform (`PinnedBarShiftContext`).
  */
-export function SheetFill({ children, style }: { children: React.ReactNode; style?: Omit<ViewStyle, 'flex' | 'height'> }) {
+export function SheetFill(props: { children: React.ReactNode; style?: Omit<ViewStyle, 'flex' | 'height'> }) {
+  // In a native sheet `NativeSheet`'s box already ends at the visible edge
+  // (`nativeSheetHiddenBottom`): `flex: 1` is that edge, and a `PinnedBar`
+  // needs no shift.
+  const native = useNativeSheet();
+  if (native) {
+    return (
+      <View style={[props.style, { flex: 1 }]}>
+        <PinnedBarShiftContext.Provider value={null}>{props.children}</PinnedBarShiftContext.Provider>
+      </View>
+    );
+  }
+  return <GorhomSheetFill {...props} />;
+}
+
+function GorhomSheetFill({ children, style }: { children: React.ReactNode; style?: Omit<ViewStyle, 'flex' | 'height'> }) {
   const {
     animatedLayoutState,
     animatedPosition,
@@ -690,7 +790,7 @@ export const Sheet = React.forwardRef<SheetRef, SheetProps>(
         onDismiss={onDismiss}
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore">
-        <BottomSheetView style={fullScreen ? { flex: 1 } : undefined}>
+        <SheetView style={fullScreen ? { flex: 1 } : undefined}>
           {fullScreen ? (
             // BottomSheetView content-sizes, so a concrete min-height is what
             // lets inner `flex-1` regions expand and pin content to the bottom.
@@ -704,7 +804,7 @@ export const Sheet = React.forwardRef<SheetRef, SheetProps>(
           ) : (
             children
           )}
-        </BottomSheetView>
+        </SheetView>
       </KortixBottomSheetModal>
     );
   }
@@ -729,7 +829,8 @@ function Header({
   hideClose?: boolean;
   leading?: React.ReactNode;
 }) {
-  const { dismiss } = useBottomSheetModal();
+  // The native sheet or the top-most gorhom modal, whichever this renders in.
+  const dismiss = useSheetDismiss();
   return (
     <SheetTitleRow
       title={title}

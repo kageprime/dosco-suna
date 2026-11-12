@@ -1,6 +1,6 @@
 /**
  * Every read and write the session lifecycle makes against a session's runtime:
- * the transcript, the daemon's Quick Queue control, the agent roster, and the
+ * the transcript, the agent roster, and the
  * prompt POST itself. Each call goes to a Kortix route (`runtimeVerbPaths`)
  * through the session's signed proxy endpoint or `forwardToSandbox`, and each
  * read fails OPEN on its own terms.
@@ -35,14 +35,44 @@ import {
   type ResolvedSessionRuntime,
 } from './runtime-fetch';
 import type { SessionLogMessage } from '@kortix/api-contract/session-log';
-import { sendQuickQueueControl } from './quick-queue-control';
-import { clearTurnStopRequest, markTurnStopRequested } from '../session-turn-ledger';
 import { db } from '../../shared/db';
 import type { SessionLifecycleCommandRow, PromptOverridesWire, PromptPartWire } from './store';
 import type { PlacementTipMessage } from './forwarded-placement';
 import { newestWireIdTime } from '../wire-message-id';
 
 export const DAEMON_PORT = 8000;
+
+/**
+ * An UNEXPECTED read failure (a provider-credential outage, a database error)
+ * repeats on every delivery attempt: the admission/redelivery ladder retries
+ * every few seconds, so one stuck session turned this optional read's warn
+ * into a log-pattern spike — 13 warns in 14 min for one session during the
+ * 2026-11-10 Daytona credential outage (KRTX-2349), against a 0 baseline.
+ * Every attempt is already reported elsewhere (`redelivery waits` per retry,
+ * the dead-letter's own error log), so per the rate-limit-the-retry-warning
+ * rule (learnings, KRTX-614): the FIRST occurrence per session warns, a
+ * repeat of the SAME error inside the interval stays quiet, and a DIFFERENT
+ * error warns immediately.
+ */
+const INBOX_READ_WARN_INTERVAL_MS = 300_000;
+let inboxReadWarnIntervalMs = INBOX_READ_WARN_INTERVAL_MS;
+// replica-local: one entry per session whose read failed unexpectedly — an
+// error string and a timestamp, bounded by the distinct failing sessions.
+const lastInboxReadWarnBySession = new Map<string, { error: string; at: number }>();
+
+function inboxReadWarnFirstPerInterval(sessionKey: string, error: string): boolean {
+  if (lastInboxReadWarnBySession.size > 1_000) lastInboxReadWarnBySession.clear();
+  const last = lastInboxReadWarnBySession.get(sessionKey);
+  const now = Date.now();
+  if (last && last.error === error && now - last.at < inboxReadWarnIntervalMs) return false;
+  lastInboxReadWarnBySession.set(sessionKey, { error, at: now });
+  return true;
+}
+
+export function __resetInboxReadWarnThrottleForTests(intervalMs = INBOX_READ_WARN_INTERVAL_MS): void {
+  lastInboxReadWarnBySession.clear();
+  inboxReadWarnIntervalMs = intervalMs;
+}
 
 /**
  * The signed proxy endpoint + runtime root id (`runtime_session_id`) for one session — the same
@@ -158,67 +188,6 @@ function externalIdFromSandboxUrlField(url: string | null): string | null {
   if (!url) return null;
   const match = url.match(/\/p\/([^/]+)\//);
   return match?.[1] ?? null;
-}
-
-/** Cancel a pending boundary interrupt when its inbox prompt is removed. */
-export async function disarmQuickQueueInterrupt(
-  sessionId: string,
-  actorUserId: string,
-  promptId: string,
-): Promise<void> {
-  const resolved = await resolveSessionRuntimeEndpoint(sessionId, actorUserId).catch(() => null);
-  if (!resolved) return;
-  await sendQuickQueueControl(resolved.endpoint, { kind: 'disarm', promptId });
-  // Only the head prompt arms an interrupt, so there is one mark to withdraw.
-  await clearTurnStopRequest(sessionId, 'QueueInterrupt');
-}
-
-/** Stop holds all inbox rows, so no automatic boundary interrupt may remain. */
-export async function disarmAllQuickQueueInterrupt(
-  sessionId: string,
-  actorUserId: string,
-): Promise<void> {
-  const resolved = await resolveSessionRuntimeEndpoint(sessionId, actorUserId).catch(() => null);
-  if (!resolved) return;
-  await sendQuickQueueControl(resolved.endpoint, { kind: 'disarm-all' });
-  await clearTurnStopRequest(sessionId, 'QueueInterrupt');
-}
-
-/**
- * Arm the daemon's abort-after-tool for this prompt's turn. `false` ONLY when
- * the runtime was asked and did not serve the interrupt (status, shape,
- * timeout, transport) — the caller then requeues the row on the
- * runtime-unreachable ladder instead of the 2 s order backoff. A skipped arm
- * (no endpoint, session mismatch) arms nothing and is not a failure: `true`.
- */
-export async function armQuickQueueInterrupt(
-  row: SessionLifecycleCommandRow,
-  identity: { runtimeSessionId: string; messageId: string },
-): Promise<boolean> {
-  const resolved = await resolveSessionRuntimeEndpoint(row.sessionId, row.actorUserId).catch(() => null);
-  if (!resolved || resolved.runtimeSessionId !== identity.runtimeSessionId) return true;
-  const outcome = await sendQuickQueueControl(resolved.endpoint, {
-    kind: 'arm',
-    promptId: row.commandId,
-    runtimeSessionId: identity.runtimeSessionId,
-    messageId: identity.messageId,
-  });
-  if (!outcome.ok) {
-    logger.warn('[session-lifecycle] Quick Queue boundary interrupt unavailable', {
-      sessionId: row.sessionId,
-      commandId: row.commandId,
-      reason: outcome.reason,
-    });
-    return false;
-  }
-  // The daemon now aborts this turn at its next tool boundary because the user
-  // sent a prompt into it. That abort is asked for, not a failure.
-  if (!row.sessionId) return true;
-  await markTurnStopRequested(row.sessionId, 'QueueInterrupt', {
-    runtimeSessionId: identity.runtimeSessionId,
-    messageId: identity.messageId,
-  });
-  return true;
 }
 
 /** What one read of the root transcript tells the drain about this prompt. */
@@ -358,7 +327,7 @@ export async function readInboxTranscriptState(
       // optional and fails open — see above — so that degrade is info, not
       // a warning. Only an unexpected failure warns.
       logger.info('[session-lifecycle] inbox transcript read deferred — proceeding without it', context);
-    } else {
+    } else if (inboxReadWarnFirstPerInterval(row.sessionId ?? row.commandId, error)) {
       console.warn('[session-lifecycle] inbox transcript read failed — proceeding without it', context);
     }
     return empty;
@@ -449,7 +418,7 @@ export class PromptNeverLandedError extends Error {
  * Thrown out of a `steer` POST that no running turn took. `turn_ended`: the
  * daemon answered `409 no_active_turn` (it stored nothing). `unsupported`: the
  * runtime cannot steer (`501`). The caller sends the
- * row as a Queue List prompt. Not a failed attempt.
+ * row as the next turn's prompt. Not a failed attempt.
  */
 export class SteerNotTaken extends Error {
   constructor(readonly reason: 'turn_ended' | 'unsupported') {

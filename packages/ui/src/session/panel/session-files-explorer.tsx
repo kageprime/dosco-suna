@@ -40,7 +40,7 @@ export type { SessionPanelMode };
  *   • All files — the Drive-style explorer pointed at the live sandbox.
  *   • Changes   — the diff for everything this session changed.
  *
- * It is a plain Radix `Tabs`. It used to be a hand-rolled tablist in a
+ * It is a plain `Tabs`. It used to be a hand-rolled tablist in a
  * `session-version-header.tsx` that reimplemented what `tabs.tsx` already
  * does — roving `tabIndex`, arrow/Home/End key handling, an absolutely
  * positioned underline `<span>`, and `panelId`/`sessionVersionTabId` threaded

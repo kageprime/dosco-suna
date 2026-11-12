@@ -1,9 +1,8 @@
-import { and, eq, gt, isNotNull, isNull, lt, sql } from 'drizzle-orm';
+import { and, eq, gt, isNotNull, lt } from 'drizzle-orm';
 import { chatPendingAuthMessages } from '@kortix/db';
 import { db } from '../../shared/db';
 import { respondViaUrl } from './util';
 import type { SlackEnvelope, SlackEvent } from './types';
-import { logger } from '../../lib/logger';
 
 const PENDING_AUTH_TTL_MS = 10 * 60 * 1000;
 
@@ -73,59 +72,6 @@ export async function consumePendingSlackAuthMessage(input: {
     };
   } catch (err) {
     console.warn('[slack-auth] failed to consume pending Slack message', err);
-    return null;
-  }
-}
-
-// The message that triggered a project picker, parked in the DB so the click
-// can replay it on whichever replica Slack delivers it to. The button value
-// carries only the returned id.
-export async function createPendingSlackPickerMessage(input: {
-  teamId: string;
-  envelope: SlackEnvelope;
-  ttlMs: number;
-}): Promise<string | null> {
-  const event = input.envelope.event;
-  if (!input.teamId || !event) return null;
-  try {
-    return await persistPendingSlackMessage(() => ({
-        projectId: null,
-        platform: 'slack',
-        platformTeamId: input.teamId,
-        platformUserId: event.user ?? '',
-        envelope: input.envelope as unknown as Record<string, unknown>,
-        event: event as unknown as Record<string, unknown>,
-        expiresAt: new Date(Date.now() + input.ttlMs),
-      }));
-  } catch (err) {
-    logger.warn('[slack-picker] failed to store pending picker message', { error: err instanceof Error ? err.message : String(err) });
-    return null;
-  }
-}
-
-// Take the parked picker message, once, and only in the channel it was sent
-// in: a click from elsewhere must not replay this message there.
-export async function consumePendingSlackPickerMessage(input: {
-  pendingId: string | undefined;
-  teamId: string;
-  channelId: string;
-}): Promise<SlackEnvelope | null> {
-  if (!input.pendingId || !input.teamId || !input.channelId) return null;
-  try {
-    const [row] = await db
-      .delete(chatPendingAuthMessages)
-      .where(and(
-        eq(chatPendingAuthMessages.pendingId, input.pendingId),
-        eq(chatPendingAuthMessages.platform, 'slack'),
-        eq(chatPendingAuthMessages.platformTeamId, input.teamId),
-        isNull(chatPendingAuthMessages.projectId),
-        gt(chatPendingAuthMessages.expiresAt, new Date()),
-        sql`${chatPendingAuthMessages.event}->>'channel' = ${input.channelId}`,
-      ))
-      .returning({ envelope: chatPendingAuthMessages.envelope });
-    return (row?.envelope as unknown as SlackEnvelope | undefined) ?? null;
-  } catch (err) {
-    logger.warn('[slack-picker] failed to consume pending picker message', { error: err instanceof Error ? err.message : String(err) });
     return null;
   }
 }

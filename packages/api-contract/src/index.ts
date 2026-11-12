@@ -1105,6 +1105,28 @@ export const SessionCreateInputSchema = z
     // means inject zero project secrets. Backend origin required — a non-backend
     // caller supplying it is rejected 403 (canOverride 'secrets').
     secrets: SessionSecretsAllowlistSchema.optional(),
+    /**
+     * Connectors (slugs) and project secrets (identifiers) My Kortix hands one
+     * colleague: an inline child that runs as My Kortix. Only a My Kortix
+     * session starting a colleague sends it. A person allows the exact list
+     * first; until then the create answers 409
+     * `COLLEAGUE_ACCESS_APPROVAL_REQUIRED` with the ask id, and no session exists.
+     */
+    colleague_access: z
+      .object({
+        connectors: z.array(z.string().min(1).max(128)).max(20).optional(),
+        secrets: z.array(z.string().min(1).max(128)).max(20).optional(),
+      })
+      .strict()
+      .optional(),
+    /**
+     * @deprecated The pre-W5 name of `model`. `kortix sessions new --model` in
+     * CLI v0.13.0–v0.14.19 sends `model` and `opencode_model` with the same
+     * value. This object is `.strict()`, so dropping the key (#11848) turned
+     * every such create into a 400. `model` wins; this is read only when
+     * `model` is absent.
+     */
+    opencode_model: z.string().min(1).optional(),
     // Deprecated camelCase compatibility accepted by the pre-contract route.
     // New SDK/API consumers use the snake_case fields above.
     baseRef: z.string().min(1).optional(),
@@ -2066,6 +2088,8 @@ export const TriggerSchema = z.object({
   auto_paused_at: z.string().nullable().optional(),
   /** Why it paused, e.g. `auto-paused: ran at max_runs_per_hour 60 for 2 hours in a row`. */
   auto_paused_reason: z.string().nullable().optional(),
+  // A pause that ends by itself once the account can run the trigger (trigger-setup-pause.ts).
+  auto_paused_code: z.enum(['billing', 'no_usable_model']).nullable().optional(),
   /**
    * (KRTX-1721) `skip` holds a fire while the trigger's previous run is still
    * active; in reuse, pinned and keyed mode, while its previous prompt still
@@ -2321,25 +2345,24 @@ export const SessionPromptPlacementSchema = z.enum(['transcript', 'composer']);
 export type SessionPromptPlacement = z.infer<typeof SessionPromptPlacementSchema>;
 
 /**
- * How a prompt reaches a session whose turn is running.
- * - `steer`: the running turn reads it at its next step boundary; the turn
- *   does not stop. Needs the runtime capability `session.steer` and the
- *   turn's own prompter; otherwise the row falls back to `queue`.
- * - `queue` (Queue List): waits for the turn to end, then runs as its own turn.
- * - `interrupt` (Quick Queue, "Stop and send"): ends the turn after the
- *   running tool, then runs as its own turn.
- * With no turn running, all three start a turn. `placement` is derived:
- * `interrupt` is `transcript`, the other two are `composer`.
+ * How a prompt reaches a session whose turn is running. There is one mode:
+ * `steer`. The running turn reads the prompt at its next step, after the
+ * running tool call returns; the turn does not stop. With no turn running, the
+ * prompt starts a turn. The API serves `steer` for every row.
+ *
+ * `queue` and `interrupt` are accepted from older clients and delivered as
+ * `steer`. @deprecated values, removed in the next major.
  */
 export const SessionPromptDeliverySchema = z.enum(['steer', 'queue', 'interrupt']);
 export type SessionPromptDelivery = z.infer<typeof SessionPromptDeliverySchema>;
 
 /**
- * Why a `steer` row was delivered as `queue` instead:
+ * Why a prompt did not steer the running turn and waits for the next turn:
  * - `unsupported`: the session's runtime does not list `session.steer`
- *   (OpenCode 1.18.14 or earlier, or an older daemon).
- * - `not_prompter`: the running turn belongs to another member.
+ *   (an older daemon).
  * - `turn_ended`: the turn ended before the message reached it.
+ * - `not_prompter`: @deprecated, never written since 2026-11-04 (anyone who
+ *   may send to the session steers it); old rows may still carry it.
  */
 export const SessionPromptSteerFallbackSchema = z.enum(['unsupported', 'not_prompter', 'turn_ended']);
 export type SessionPromptSteerFallback = z.infer<typeof SessionPromptSteerFallbackSchema>;
@@ -2353,7 +2376,7 @@ export const SessionPromptSchema = z.object({
   placement: SessionPromptPlacementSchema,
   /** Absent from an API built before steering: read it as `placement` implies. */
   delivery: SessionPromptDeliverySchema.optional(),
-  /** Set when a `steer` row fell back to `queue`; `delivery` then reads `queue`. */
+  /** Set when a prompt could not steer the running turn and waits for the next one. */
   steer_fallback: SessionPromptSteerFallbackSchema.nullable().optional(),
   /** Full accepted text. `text` is the capped preview. */
   full_text: z.string(),

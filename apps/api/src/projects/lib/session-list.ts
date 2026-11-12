@@ -171,6 +171,8 @@ function searchMatchSql(t: SessionTable, q: string): SQL {
 function startedBySql(filter: SessionStartedByFilter, viewerId: string): SQL {
   const t = projectSessions;
   if (filter === 'automated') return sql`(${t.initiatorType} is not null and ${t.initiatorType} <> 'member')`;
+  // `humans`: the complement — every person-started session, classified or not.
+  if (filter === 'humans') return sql`(${t.initiatorType} is null or ${t.initiatorType} = 'member')`;
   if (filter === 'me') return startedByPersonSql(viewerId);
   return sql`((${t.initiatorType} = 'member' and ${t.initiatorId} is distinct from ${viewerId})
     or (${t.initiatorType} is null and ${t.createdBy}::text is distinct from ${viewerId}))`;

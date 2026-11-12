@@ -6,10 +6,11 @@ afterEach(() => { globalThis.fetch = originalFetch; setSystemTime(); });
 let invalidated: unknown[][] = [];
 mock.module('@tanstack/react-query', () => ({
   useQuery: (options: unknown) => options,
+  useQueries: (options: unknown) => options,
   useMutation: (options: unknown) => options,
   useQueryClient: () => ({ invalidateQueries: async ({ queryKey }: { queryKey: unknown[] }) => { invalidated.push(queryKey); } }),
 }));
-const { useAccountSecretResources, useSessionProviderSecretPools, useSubscriptionUsage } = await import('./use-provider-secrets');
+const { useAccountSecretResources, useSessionProviderSecretPools, useSubscriptionUsage, useSubscriptionUsages } = await import('./use-provider-secrets');
 
 beforeEach(() => {
   invalidated = [];
@@ -86,4 +87,34 @@ test('subscription usage asks the server for one login, every minute while shown
   expect(query.refetchInterval).toBe(60_000);
   expect(await query.queryFn()).toEqual({ usage: null });
   expect(calls).toEqual([['POST', 'http://provider-secrets.test/accounts/account/secret-resources/secret/usage']]);
+});
+
+test('every login\'s usage at once shares each login\'s own query, so a list and its rows read one cache', async () => {
+  const logins = [
+    { secret_id: 'pooled', storage: 'account_resource' as const, active: true },
+    { secret_id: 'legacy', storage: 'project' as const, active: true },
+    { secret_id: 'off', storage: 'project' as const, active: false },
+    { secret_id: 'signed-out', storage: 'account_resource' as const, active: true, needs_reauth_at: '2026-11-01T00:00:00Z' },
+    { secret_id: 'lost', storage: 'account_resource' as const, active: true, status: 'undecryptable' as const },
+  ];
+  const { queries } = useSubscriptionUsages('account', 'project', logins) as any;
+  const single = useSubscriptionUsage('account', 'legacy', { projectId: 'project', storage: 'project' }) as any;
+  expect(queries.map((query: any) => query.queryKey)).toEqual([
+    ['subscription-usage', 'account', 'pooled', 'project', 'account_resource'],
+    single.queryKey,
+    ['subscription-usage', 'account', 'off', 'project', 'project'],
+    ['subscription-usage', 'account', 'signed-out', 'project', 'account_resource'],
+    ['subscription-usage', 'account', 'lost', 'project', 'account_resource'],
+  ]);
+  // Only a login the provider can still answer for is asked.
+  expect(queries.map((query: any) => query.enabled)).toEqual([true, true, false, false, false]);
+  expect(queries[0].refetchInterval).toBe(60_000);
+  expect((useSubscriptionUsages(null, 'project', logins) as any).queries.every((query: any) => !query.enabled)).toBe(true);
+  const calls: string[] = [];
+  globalThis.fetch = mock(async (url: unknown, init: RequestInit = {}) => {
+    calls.push(`${init.method} ${String(url)}`);
+    return Response.json({ usage: null });
+  }) as unknown as typeof fetch;
+  await queries[1].queryFn();
+  expect(calls).toEqual(['POST http://provider-secrets.test/accounts/account/subscription-connections/legacy/usage?project_id=project&storage=project']);
 });

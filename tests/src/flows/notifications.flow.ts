@@ -866,9 +866,9 @@ flow(
     const setWatch = (who: Principal, value: boolean) =>
       ctx.client.as(who).put(watchRoute, { watching: value }, { params }).then((r) => r.status(200).body().has('$.watching', value));
     try {
-      await ctx.step('ANON → 401; a user outside the account → 404 workspace_not_found', async () => {
+      await ctx.step('ANON → 401; a user outside the account → 403 workspace_access_denied', async () => {
         (await ctx.client.as(ctx.P.ANON).get(watchRoute, { params })).status(401);
-        (await ctx.client.as(ctx.P.NONMEMBER).get(watchRoute, { params })).status(404).body().has('$.code', 'workspace_not_found');
+        (await ctx.client.as(ctx.P.NONMEMBER).get(watchRoute, { params })).status(403).body().has('$.code', 'workspace_access_denied');
       });
 
       await ctx.step('the creator watches by default (true); a member who never wrote in it does not (false)', async () => {

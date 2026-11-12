@@ -276,8 +276,9 @@ export function SessionOverridesToolbar({
   const secretRead = useProjectCan(projectId, PROJECT_ACTIONS.PROJECT_SECRET_READ);
   const secretsDenied = !secretRead.isLoading && !secretRead.allowed;
   // Choosing a session's provider keys is a lifecycle action: the pools route
-  // refuses anyone who cannot manage the session (`mayChangeSessionModel`) and
-  // anyone without `project.secret.read` (the keys are that leaf's business).
+  // refuses anyone who cannot manage the session (`mayChangeSessionModel`) and,
+  // except the session's own person, anyone without `project.secret.read`. An
+  // existing session's pool list says which (`can_edit`).
   // A new session is the caller's own. An existing one shows the row only once
   // its row says the viewer manages it.
   const sessionRow = useProjectSession(projectId, sessionId, { enabled: !!sessionId }).data;
@@ -429,7 +430,7 @@ export function SessionOverridesToolbar({
     // card it showed. Credentials are not a session-minting decision: the agent
     // may use every account it is entitled to and names one at call time
     // (`kortix connectors call --account`, `accounts` to see them).
-    if (pooledSecretsEnabled && managesSession && !secretsDenied) list.push(providerKeysRow(projectId, sessionId,
+    if (pooledSecretsEnabled && managesSession && (!secretsDenied || (!!sessionId && providerPools.data?.can_edit === true))) list.push(providerKeysRow(projectId, sessionId,
       providerPoolDraft, providerDrafts, providerPools.isError, providerPools.isLoading,
       saving, onProviderDraftChange, onProviderSecretPoolsChange, tPooled));
     list.push(sandboxRow(sandboxSlot, sandbox, tI18nComplete));
@@ -461,6 +462,7 @@ export function SessionOverridesToolbar({
     saving,
     providerPools.isError,
     providerPools.isLoading,
+    providerPools.data?.can_edit,
     onProviderSecretPoolsChange,
     projectId,
     sessionId,

@@ -69,7 +69,7 @@ async function allPages(store: ReturnType<typeof fakeStore> | null, filters: Par
 describe.skipIf(!databaseUrl)('export across the archive and PostgreSQL — real database, in-memory store', () => {
   const wOld1 = weekStartOf(new Date(Date.now() - 130 * DAY));
   const wOld2 = weekStartOf(new Date(Date.now() - 110 * DAY));
-  const wKept = weekStartOf(new Date(Date.now() - 60 * DAY));
+  const wKept = weekStartOf(new Date(Date.now() - 7 * DAY));
   const store = fakeStore();
   const FILTERS: Array<[string, Partial<AuditFilterInput>]> = [
     ['no filter', {}],
@@ -108,12 +108,12 @@ describe.skipIf(!databaseUrl)('export across the archive and PostgreSQL — real
     for (let i = 0; i < 5; i += 1) await ins(A, i === 2 ? 'computer.shell' : 'connector.call', daysAgo(109 - i / 10));
     for (let i = 0; i < 4; i += 1) await ins(A, 'session.created', daysAgo(2 - i / 100), { project: P1 });
     await ins(A, 'iam.group.delete', daysAgo(1));
-    // A week inside the hot window: PostgreSQL serves it.
-    for (let i = 0; i < 3; i += 1) await ins(A, 'kept.in.postgres', daysAgo(60 - i / 10));
+    // A week inside the hot window (HOT_DAYS): PostgreSQL serves it.
+    for (let i = 0; i < 3; i += 1) await ins(A, 'kept.in.postgres', daysAgo(7 - i / 10));
     for (const [name, filters] of FILTERS) expected.set(name, await pgIds(filters));
     expected.set('micro', await pgIds({ actionPrefix: 'micro.' }));
     expect(expected.get('no filter')!.length).toBe(2 + 6 + 5 + 4 + 1 + 3);
-    // Archive and drop every week older than 90 days.
+    // Archive and drop every week older than HOT_DAYS.
     const result = await runArchivePass({ db, store, mode: 'COMPLIANCE', rowsPerSecond: 1_000_000, batchRows: 4 }, Date.now() + 120_000);
     expect(result.archived).toEqual(expect.arrayContaining([wOld1, wOld2]));
     const removed = await q(`SELECT week_start::text AS w FROM kortix.audit_archive_chunks WHERE status = 'removed'`);

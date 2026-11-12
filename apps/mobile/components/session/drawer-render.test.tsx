@@ -20,6 +20,8 @@ let navPills: any[] = [];
 // The IAM leaves the caller holds; null = every leaf (a project manager).
 let held: string[] | null = null;
 let appCount = 0;
+// The project stores a Drive (`useFeatureFlag(id, 'artifacts')`).
+let artifactsAvailable = false;
 let paged: Record<string, any> = {};
 const VirtualList = (props: any) => {
   // A virtualised list renders each cell as a PureComponent: a cell re-renders
@@ -70,6 +72,7 @@ const fakes: Record<string, Record<string, unknown>> = {
     useCans: (_: unknown, actions: string[]) =>
       Object.fromEntries(actions.map((a) => [a, { allowed: held === null || held.includes(a), isLoading: false }])),
     useProjectApps: () => ({ data: Array.from({ length: appCount }) }),
+    useFeatureFlag: (_: string, key: string) => ({ enabled: key === 'artifacts' && artifactsAvailable, isLoading: false }),
   },
   '@/contexts': { useAuthContext: () => ({ user: { id: 'me' } }) },
   '@/hooks/useProfileEditor': { useProfileEditor: () => profile },
@@ -139,6 +142,7 @@ beforeEach(() => {
   navPills = [];
   held = null;
   appCount = 0;
+  artifactsAvailable = false;
   // `p-1` is expanded below: its children block shows.
   paged = {
     me: page([row('s-1'), row('s-2'), row('p-1', { child_count: 2 })]),
@@ -251,6 +255,31 @@ describe('ProjectLeftDrawer renders', () => {
       tree = create(React.createElement(Drawer.ProjectLeftDrawer, { projectId: 'proj', ...handlers, open: true }));
     });
     expect([...new Set(navPills.map((props) => props.label))]).toEqual(['Search', 'Files', 'Apps']);
+  });
+
+  test('Artifacts follows Files when the project stores a Drive and the caller may read artifacts', async () => {
+    artifactsAvailable = true;
+    await act(async () => {
+      tree = create(React.createElement(Drawer.ProjectLeftDrawer, { projectId: 'proj', ...handlers, open: true }));
+    });
+    expect([...new Set(navPills.map((props) => props.label))]).toEqual(['Search', 'Files', 'artifacts.title', 'Review', 'Apps']);
+  });
+
+  test('no Drive, or no read leaf, hides Artifacts', async () => {
+    held = ['project.review.read'];
+    artifactsAvailable = true;
+    await act(async () => {
+      tree = create(React.createElement(Drawer.ProjectLeftDrawer, { projectId: 'proj', ...handlers, open: true }));
+    });
+    expect(navPills.map((props) => props.label)).not.toContain('artifacts.title');
+    held = ['project.artifact.read'];
+    artifactsAvailable = false;
+    navPills = [];
+    await act(async () => {
+      tree.unmount();
+      tree = create(React.createElement(Drawer.ProjectLeftDrawer, { projectId: 'proj', ...handlers, open: true }));
+    });
+    expect(navPills.map((props) => props.label)).not.toContain('artifacts.title');
   });
 
 });

@@ -17,13 +17,11 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import {
   Image,
   Pressable,
-  ScrollView,
   View,
   type LayoutChangeEvent,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
 } from 'react-native';
 import { useConfirmDialog } from '@/components/kortix/confirm-dialog';
+import { PagedGallery, GALLERY_PAGE_HEIGHT } from '@/components/kortix/paged-gallery';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -42,8 +40,6 @@ export const MarkdownImagesContext = createContext<MarkdownRemoteImages>('placeh
 
 /** An inline image is at most this tall; it keeps its own aspect ratio below it. */
 const MAX_INLINE_HEIGHT = 360;
-/** Every page of a gallery is this tall; each image fits inside it. */
-const GALLERY_HEIGHT = 280;
 
 const HTTP_URL = /^https?:\/\//i;
 const ANY_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
@@ -341,37 +337,21 @@ function FramedImage({
  * (each swipe snaps to the next image), and a "2 / 5" counter under the page.
  */
 export function MarkdownImageGallery({ images, isDark }: { images: MarkdownImageRef[]; isDark: boolean }) {
-  const [width, setWidth] = useState(0);
-  const [page, setPage] = useState(0);
-  const onLayout = useCallback((e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width), []);
-  const onScrollEnd = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      if (width > 0) setPage(Math.round(e.nativeEvent.contentOffset.x / width));
-    },
-    [width],
-  );
   return (
-    <View onLayout={onLayout} style={{ width: '100%' }} accessibilityLabel={`${images.length} images`}>
-      {width > 0 ? (
-        <ScrollView
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          decelerationRate="fast"
-          onMomentumScrollEnd={onScrollEnd}
-        >
-          {images.map((image, index) => (
-            <View key={`${index}-${image.src}`} style={{ width }}>
-              <MarkdownImage src={image.src} alt={image.alt} isDark={isDark} fixedHeight={GALLERY_HEIGHT} />
-            </View>
-          ))}
-        </ScrollView>
-      ) : (
-        <ImageFrame isDark={isDark} height={GALLERY_HEIGHT} />
+    <PagedGallery
+      count={images.length}
+      accessibilityLabel={`${images.length} images`}
+      placeholder={<ImageFrame isDark={isDark} height={GALLERY_PAGE_HEIGHT} />}
+      renderPage={(index, width) => (
+        <View key={`${index}-${images[index].src}`} style={{ width }}>
+          <MarkdownImage
+            src={images[index].src}
+            alt={images[index].alt}
+            isDark={isDark}
+            fixedHeight={GALLERY_PAGE_HEIGHT}
+          />
+        </View>
       )}
-      <Text variant="muted" className="mt-2 self-end tabular-nums">
-        {`${page + 1} / ${images.length}`}
-      </Text>
-    </View>
+    />
   );
 }

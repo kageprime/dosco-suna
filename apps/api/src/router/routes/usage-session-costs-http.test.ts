@@ -14,6 +14,8 @@ const SESSION_ID = 'session-cost-test';
 
 let authType = 'supabase';
 let sandboxId: string | null = null;
+/** A workspace-bound token (a session token): its workspace and account. */
+let tokenProjectId: string | null = null;
 let listInput: Record<string, unknown> | null = null;
 let detailInput: Record<string, unknown> | null = null;
 let detailFound = true;
@@ -77,6 +79,10 @@ mock.module('../../middleware/auth', () => ({
     c.set('userId', USER_ID);
     c.set('authType', authType);
     if (sandboxId) c.set('sandboxId', sandboxId);
+    if (tokenProjectId) {
+      c.set('tokenProjectId', tokenProjectId);
+      c.set('accountId', ACCOUNT_ID);
+    }
     await next();
   },
 }));
@@ -176,6 +182,7 @@ function createTestApp() {
 beforeEach(() => {
   authType = 'supabase';
   sandboxId = null;
+  tokenProjectId = null;
   directoryView = 'full';
   listInput = null;
   detailInput = null;
@@ -570,6 +577,27 @@ describe('GET /v1/usage/session-costs/{sessionId}', () => {
     );
 
     expect(response.status).toBe(403);
+    expect(detailInput).toBeNull();
+  });
+});
+
+describe('session costs with a workspace-bound token', () => {
+  test('lists and reads its own workspace sessions by default, never another workspace', async () => {
+    tokenProjectId = PROJECT_ID;
+    const app = createTestApp();
+    const list = await app.request(`/v1/usage/session-costs?account_id=${PROJECT_ID}`);
+    expect(list.status).toBe(200);
+    expect(listInput).toMatchObject({ accountId: ACCOUNT_ID, projectId: PROJECT_ID });
+    expect(projectCapabilityInput?.action).toBe('project.usage.read');
+    const detail = await app.request(`/v1/usage/session-costs/${SESSION_ID}`);
+    expect(detail.status).toBe(200);
+    expect(detailInput).toMatchObject({ accountId: ACCOUNT_ID, projectId: PROJECT_ID, sessionId: SESSION_ID });
+
+    listInput = null;
+    detailInput = null;
+    expect((await app.request(`/v1/usage/session-costs?project_id=${SECONDARY_ACCOUNT_ID}`)).status).toBe(403);
+    expect((await app.request(`/v1/usage/session-costs/${SESSION_ID}?account_id=${SECONDARY_ACCOUNT_ID}`)).status).toBe(403);
+    expect(listInput).toBeNull();
     expect(detailInput).toBeNull();
   });
 });

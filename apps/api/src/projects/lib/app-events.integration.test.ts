@@ -23,7 +23,8 @@ mock.module('./sessions', () => ({
   ...realSessions,
   createProjectSession: async (input: { body: { initial_prompt?: string }; metadata?: Record<string, unknown> }) => {
     creates.push({ prompt: String(input.body.initial_prompt ?? ''), metadata: input.metadata ?? {} });
-    return { error: { status: 402, body: { error: 'stubbed create', code: 'insufficient_credits' } } };
+    // A refusal that is not the account's: a billing code would pause the trigger (trigger-setup-pause).
+    return { error: { status: 409, body: { error: 'stubbed create', code: 'stubbed_create' } } };
   },
 }));
 

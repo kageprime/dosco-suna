@@ -21,7 +21,7 @@
  * `components/projects/schedule/schedule-detail-sheet.mutations.test.tsx`:
  * the real SDK transport (`updateProject` against a `configureKortix` fetch
  * override), the real `useDebounce` (real 500 ms settle), the real query
- * cache wiring — only the IAM probe, the Radix-tooltip hint and the toast
+ * cache wiring — only the IAM probe, the tooltip hint and the toast
  * sink are stubbed. The manifest `Input` (`id="manifest-path"`) drives the
  * shared effect; the branch picker edits the same two-field patch through a
  * closed popover, so the input exercises both fields.
@@ -57,7 +57,7 @@ const uiToastMock = () => ({
 mock.module('../../../primitives/toast', uiToastMock);
 mock.module('../../../primitives/toast', uiToastMock);
 // The IAM probe is a collaborator, not the subject: the effect under test
-// reads `canManage`, which this stub answers directly. `Hint` (a Radix
+// reads `canManage`, which this stub answers directly. `Hint` (a
 // tooltip, reached through `CopyButton`) needs a real DOM for its portal — a
 // passthrough keeps the harness DOM-free.
 const uiHintMock = () => ({ default: Passthrough });

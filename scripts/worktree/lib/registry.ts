@@ -30,11 +30,19 @@ export interface SlotEntry {
    */
   dbMode?: DbMode;
   createdAt: string;
+  /**
+   * Last time a command that means "I am using this worktree" ran:
+   * create, start, web, stop. Autoclean reads it as activity. Reads (list,
+   * status, git status) never write it.
+   */
+  lastUsedAt?: string;
   status: 'created' | 'running' | 'stopped';
 }
 export interface Registry {
   version: number;
   slots: Record<string, SlotEntry>;
+  /** ISO time `create` printed the one-time `autoclean --install-cron` hint. */
+  autocleanCronHintAt?: string;
 }
 
 function ensureHome() {

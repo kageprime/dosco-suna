@@ -28,6 +28,9 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '../../primitives/dropdown-menu';
 import Hint from '../../primitives/hint';
@@ -49,6 +52,7 @@ import {
   toastIcon,
   undoToast,
 } from '../../primitives/toast';
+import { EmptyArt } from '../../primitives/empty-art';
 import { EmptyState } from '../../primitives/empty-state';
 import { ErrorState } from '../../primitives/error-state';
 import { localizeUiCatalog } from '../../i18n/ui-catalog/localize-ui-catalog';
@@ -59,19 +63,22 @@ import { SelectionBar, type SelectionBarAction } from '../../internal/selection/
 import { selectRange, toggleId } from '../../internal/selection/selection';
 import type { ReviewVerdict } from '@kortix/sdk';
 import {
-  ArrowUUpLeftIcon as ArrowUUpLeft,
-  CheckIcon as Check,
+  ArrowLeftIcon as ArrowLeft,
+  ChatsIcon as Chats,
   CheckCircleIcon as CheckCircleSolid,
   CheckSquareIcon,
-  CaretDownIcon as ChevronDown,
-  ClockIcon as Clock,
+  ClockCountdownIcon as ClockCountdown,
   DotsThreeIcon as DotsThree,
+  FunnelSimpleIcon as FunnelSimple,
   MagnifyingGlassIcon as Search,
+  ShapesIcon as Shapes,
+  ShieldCheckIcon as ShieldCheck,
+  TrayIcon as Tray,
   WarningIcon,
   XIcon as X,
 } from '@phosphor-icons/react';
 import { useUiPathname, useUiRouter, useUiSearchParams } from '../../providers/ui-provider';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { statusToVerdict } from './map';
 import { getLocalizedMockItems } from './mock-data';
 import {
@@ -92,14 +99,17 @@ import { reviewArgsSummary } from '../../session/prompts/session-approval-review
 import { approvalIdentity } from '../../markdown/setup-links/approval-decision';
 import { ConnectorAppMark } from '../../markdown/setup-links/connector-handshake';
 import {
-  ApprovalDecisionModal,
+  ApprovalDecisionPane,
   reviewApprovalAsker,
   reviewApprovalDenyOnly,
   reviewApprovalDetails,
 } from './approval-modal';
-import { type ReviewActions, ReviewDetail, ReviewItemModal } from './review-detail';
+import { ClosePaneButton, type ReviewActions, ReviewDetail } from './review-detail';
 import {
-  KIND_META,
+  ROW_MERGED_GLYPH,
+  ROW_STATUS_GLYPH,
+  ROW_TILE,
+  ROW_TILE_NEUTRAL,
   reviewKindLabel,
   reviewStatusLabel,
 } from './review-meta';
@@ -133,9 +143,9 @@ function TimeAgo({ iso }: { iso: string }) {
   return <span className="tabular-nums">{mounted ? formatItemAge(iso) : ''}</span>;
 }
 
-/** "Expires in 3h" on a pending approval. Under one hour a clock glyph in the
- *  warning accent leads it; the text stays muted (an accent paints a glyph,
- *  never text). Client-only, like `TimeAgo`. Nothing once no time is left. */
+/** "Expires in 3h" on a pending approval. Under one hour a countdown glyph in
+ *  the warning accent leads it; the text stays muted (an accent paints a
+ *  glyph, never text). Client-only, like `TimeAgo`. Nothing once no time is left. */
 function ExpiresIn({ iso }: { iso: string }) {
   const tHardcodedUi = useTranslations('hardcodedUi');
   const [mounted, setMounted] = useState(false);
@@ -146,7 +156,7 @@ function ExpiresIn({ iso }: { iso: string }) {
     <>
       <Dot />
       {left.soon ? (
-        <Clock aria-hidden className="text-kortix-orange size-3.5 shrink-0" />
+        <ClockCountdown aria-hidden className="text-kortix-orange size-3.5 shrink-0" />
       ) : null}
       <span className="shrink-0 tabular-nums">
         {tHardcodedUi('approvalPage.expiresIn', { time: left.time })}
@@ -181,26 +191,63 @@ const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ['?'], label: 'This help' },
 ];
 
-/** Flat rows, no chrome — the row itself lifts on hover/focus/select. */
-const LIST_CLASS = 'space-y-1 py-2.5';
-
-/** One small glyph after the title says where the item landed; the row
- *  carries no status badge. `needs_you` has no glyph — its action button is
- *  the state. */
-const STATUS_GLYPH: Partial<Record<ReviewStatus, { icon: typeof Check; className: string }>> = {
-  approved: { icon: Check, className: 'text-kortix-green' },
-  done: { icon: Check, className: 'text-kortix-green' },
-  waiting: { icon: Clock, className: 'text-muted-foreground' },
-  changes_requested: { icon: ArrowUUpLeft, className: 'text-kortix-orange' },
-  rejected: { icon: X, className: 'text-kortix-red' },
-  dismissed: { icon: X, className: 'text-muted-foreground' },
-  expired: { icon: Clock, className: 'text-muted-foreground' },
-};
+/** Flat rows, no chrome: the row itself lifts on hover, focus and selection. */
+const LIST_CLASS = 'space-y-px';
 
 function Dot() {
   return (
     <span aria-hidden className="text-muted-foreground">
-      •
+      ·
+    </span>
+  );
+}
+
+/**
+ * The 32 px leading tile: a connector call shows its app's mark; every other
+ * kind its own glyph, tinted while it needs you and neutral once it does not.
+ * A small corner badge adds what the tile cannot say: a connector call is an
+ * approval, a change has merge conflicts.
+ */
+function RowTile({ item, className }: { item: ReviewItem; className?: string }) {
+  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+  const pending = item.status === 'needs_you';
+  const connector = item.kind === 'approval' ? reviewApprovalDetails(item) : null;
+  const who = connector ? approvalIdentity(connector) : null;
+  const tile = ROW_TILE[item.kind];
+  const conflicted = item.kind === 'change' && (item.detail.conflicts?.length ?? 0) > 0;
+  const badge = who
+    ? { icon: ShieldCheck, className: pending ? 'text-kortix-orange' : 'text-muted-foreground' }
+    : conflicted
+      ? { icon: WarningIcon, className: 'text-kortix-orange' }
+      : null;
+  return (
+    <span
+      className={cn('relative flex size-8 shrink-0', className)}
+      aria-label={reviewKindLabel(item.kind, tI18nComplete)}
+      role="img"
+    >
+      {who ? (
+        <ConnectorAppMark
+          name={who.connector ?? item.title}
+          slug={who.slug}
+          iconUrl={who.iconUrl}
+          size="md"
+        />
+      ) : (
+        <span
+          className={cn(
+            'flex size-8 items-center justify-center rounded-md',
+            pending ? tile.tint : ROW_TILE_NEUTRAL,
+          )}
+        >
+          <tile.icon className="size-4" />
+        </span>
+      )}
+      {badge ? (
+        <span className="bg-background absolute -right-1 -bottom-1 flex size-4 items-center justify-center rounded-full">
+          <badge.icon weight="fill" className={cn('size-3', badge.className)} />
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -209,6 +256,7 @@ function ItemRow({
   item,
   idx,
   focused,
+  active,
   fresh,
   sessionLabel,
   onOpen,
@@ -219,7 +267,10 @@ function ItemRow({
 }: {
   item: ReviewItem;
   idx: number;
+  /** The keyboard cursor sits here (no item open). */
   focused: boolean;
+  /** This row is the item open in the detail pane. */
+  active: boolean;
   /** Arrived on the last poll, not yet seen by the user. */
   fresh: boolean;
   /** The item's originating session name, when known — shown inline so a
@@ -244,41 +295,38 @@ function ItemRow({
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const tBulk = useTranslations('hardcodedUi.reviewBulk');
-  const kind = KIND_META[item.kind];
+  const tReview = useTranslations('hardcodedUi.approvalPage');
   const segment = segmentForStatus(item.status);
   const pending = segment === 'needs_you';
   const number = item.kind === 'change' ? item.detail.number : undefined;
   const diff = item.kind === 'change' ? item.detail.advanced : undefined;
-  const glyph = STATUS_GLYPH[item.status];
-  // Meta line: when · who · where. The session stands in for the repo; when
+  const glyph =
+    item.kind === 'change' && item.status === 'approved'
+      ? ROW_MERGED_GLYPH
+      : ROW_STATUS_GLYPH[item.status];
+  const statusLabel = reviewStatusLabel(item.status, tI18nComplete);
+  // Second line: who, then where. The session stands in for the repo; when
   // the group already names it, the row's own summary fills the slot.
   const where = sessionLabel ?? item.summary;
-  // Nothing to review: the modal offers only Deny, so the row says so in
+  // Nothing to review: the pane offers only Deny, so the row says so in
   // place of "awaiting approval". Nothing is denied automatically.
   const denyOnly = pending && reviewApprovalDenyOnly(item);
-  const tReview = useTranslations('hardcodedUi.approvalPage');
   const selecting = selection?.selecting ?? false;
   const selectable = !!selection && !selection.disabled;
+  const highRisk = segment !== 'done' && item.risk === 'high';
 
-  // The leading icon names the kind by shape and the outcome by color:
-  // blue while it needs you, then green/orange/red/muted once decided — the
-  // same tone as the status check beside the title.
-  const kindIcon = (
-    <kind.icon
-      className={cn(
-        'size-5 shrink-0',
-        glyph ? glyph.className : kind.iconColor,
-        selectable && !selecting && 'group-focus-within:hidden group-hover:hidden',
-      )}
-      aria-label={reviewKindLabel(item.kind, tI18nComplete)}
+  // One fixed 32 px slot: the tile, swapped for the checkbox on row hover and
+  // for the whole of select mode. Nothing shifts.
+  const tile = (
+    <RowTile
+      item={item}
+      className={cn(selectable && !selecting && 'group-focus-within:hidden group-hover:hidden')}
     />
   );
-  // One fixed 20 px slot: the kind icon, swapped for the checkbox on row
-  // hover and for the whole of select mode. Nothing shifts.
   const leading = !selectable || !selection ? (
-    kindIcon
+    tile
   ) : (
-    <span className="flex size-5 shrink-0 items-center justify-center">
+    <span className="flex size-8 shrink-0 items-center justify-center">
       {selecting ? (
         <Checkbox
           checked={selection.checked}
@@ -288,12 +336,12 @@ function ItemRow({
         />
       ) : (
         <>
-          {kindIcon}
+          {tile}
           <Checkbox
             checked={false}
             aria-label={tBulk('selectRow', { title: item.title })}
             onClick={(e) => {
-              // The row's own state decides; Radix skips its toggle.
+              // The row's own state decides; the checkbox skips its toggle.
               e.preventDefault();
               selection.onToggle(e.shiftKey);
             }}
@@ -306,61 +354,84 @@ function ItemRow({
 
   const body = (
     <>
-      <span className="flex items-center gap-1.5">
-        <span className="text-foreground truncate text-sm font-medium">{item.title}</span>
+      <span className="flex min-w-0 items-center gap-1.5">
+        {fresh ? (
+          <span
+            aria-label={tI18nComplete.raw('text18fdd549b2ed')}
+            role="img"
+            className="bg-kortix-blue size-1.5 shrink-0 rounded-full"
+          />
+        ) : null}
+        <span
+          className={cn(
+            'truncate text-sm',
+            pending || fresh ? 'text-foreground font-medium' : 'text-muted-foreground',
+          )}
+        >
+          {item.title}
+        </span>
         {number != null && (
           <span className="text-muted-foreground shrink-0 text-sm tabular-nums">#{number}</span>
         )}
-        {glyph && (
-          <Hint label={reviewStatusLabel(item.status, tI18nComplete)}>
-            <glyph.icon
-              className={cn('size-3.5 shrink-0', glyph.className)}
-              aria-label={reviewStatusLabel(item.status, tI18nComplete)}
-            />
-          </Hint>
-        )}
-        {fresh && (
-          <Badge variant="new" size="sm" className="shrink-0">
-            {tI18nComplete.raw('text18fdd549b2ed')}
-          </Badge>
-        )}
       </span>
       <span className="text-muted-foreground mt-0.5 flex min-w-0 items-center gap-1.5 text-xs">
-        <TimeAgo iso={item.createdAt} />
-        {item.kind === 'approval' && segment !== 'done' && item.expiresAt ? (
-          <ExpiresIn iso={item.expiresAt} />
-        ) : null}
-        <Dot />
-        <span className="truncate">{item.agent}</span>
         {denyOnly ? (
+          <span className="flex min-w-0 items-center gap-1">
+            <WarningIcon aria-hidden className="text-kortix-orange size-3.5 shrink-0" />
+            <span className="truncate">{tReview('canOnlyBeDenied')}</span>
+          </span>
+        ) : (
           <>
-            <Dot />
-            <span className="flex min-w-0 items-center gap-1">
-              <WarningIcon aria-hidden className="text-kortix-orange size-3.5 shrink-0" />
-              <span className="truncate">{tReview('canOnlyBeDenied')}</span>
-            </span>
+            <span className="max-w-[45%] shrink-0 truncate">{item.agent}</span>
+            {item.kind === 'approval' && segment !== 'done' && item.expiresAt ? (
+              <ExpiresIn iso={item.expiresAt} />
+            ) : diff && (diff.additions > 0 || diff.deletions > 0) ? (
+              <>
+                <Dot />
+                <DiffStat additions={diff.additions} deletions={diff.deletions} className="shrink-0 text-xs" />
+              </>
+            ) : where ? (
+              <>
+                <Dot />
+                <span className="truncate">{where}</span>
+              </>
+            ) : null}
           </>
-        ) : where ? (
-          <>
-            <Dot />
-            <span className="truncate">{where}</span>
-          </>
-        ) : null}
+        )}
       </span>
     </>
+  );
+
+  // Right column: where it stands on top, how old it is below.
+  const trailing = (
+    <span className="flex shrink-0 flex-col items-end gap-1 pt-0.5">
+      {/* A native span carries the label and Hint's ref: the weighted glyph
+          wrappers (review-meta.ts) forward only `className`. */}
+      <Hint label={statusLabel}>
+        <span role="img" aria-label={statusLabel} className="flex shrink-0">
+          <glyph.icon className={cn('size-4 shrink-0', glyph.className)} />
+        </span>
+      </Hint>
+      <span className="text-muted-foreground flex items-center gap-1 text-xs">
+        {highRisk ? (
+          <Hint label={tBulk('riskHigh')}>
+            <WarningIcon
+              weight="fill"
+              aria-label={tBulk('riskHigh')}
+              className="text-kortix-orange size-3.5 shrink-0"
+            />
+          </Hint>
+        ) : null}
+        <TimeAgo iso={item.createdAt} />
+      </span>
+    </span>
   );
 
   // The menu's Select hands focus to the row (select mode drops the menu), not
   // back to the trigger that is about to unmount.
   const enteringSelect = useRef(false);
 
-  const diffStat = diff ? (
-    <DiffStat
-      additions={diff.additions}
-      deletions={diff.deletions}
-      className="hidden text-xs sm:inline-flex"
-    />
-  ) : null;
+  const rowClass = 'relative flex items-start gap-3 rounded-md px-2.5 py-2.5';
 
   // Select mode: the whole row is the option (trigger-list.tsx), with no
   // open button and no menu inside it to steal the click.
@@ -380,15 +451,15 @@ function ItemRow({
           }
         }}
         className={cn(
-          'flex items-center gap-3 rounded-md px-3 py-1.5 outline-none select-none',
-          'focus-visible:ring-ring focus-visible:ring-2',
+          rowClass,
+          'outline-none select-none focus-visible:ring-ring focus-visible:ring-2',
           focused || selection.checked ? 'bg-active' : selectable && 'hover:bg-hover',
           selectable && 'cursor-pointer',
         )}
       >
         {leading}
         <span className="min-w-0 flex-1">{body}</span>
-        {diffStat ? <span className="flex shrink-0 items-center">{diffStat}</span> : null}
+        {trailing}
       </li>
     );
   }
@@ -396,83 +467,89 @@ function ItemRow({
   return (
     <li
       data-idx={idx}
+      aria-current={active || undefined}
       className={cn(
-        'group relative flex items-center gap-3 rounded-md px-3 py-1.5',
-        focused ? 'bg-active' : 'hover:bg-hover',
+        'group',
+        rowClass,
+        active ? 'bg-active' : focused ? 'bg-hover' : 'hover:bg-hover',
       )}
     >
       {leading}
 
       <button
         type="button"
+        data-row-open
         onClick={onOpen}
         className="focus-visible:ring-ring min-w-0 flex-1 rounded-sm text-left focus-visible:ring-2 focus-visible:outline-none"
       >
         {body}
       </button>
 
-      <div className="flex shrink-0 items-center gap-2">
-        {diffStat}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={tI18nComplete('textcbd7bbfcd257', { value0: item.title })}
-              className="text-muted-foreground"
+      <span className="relative flex shrink-0">
+        <span className="group-focus-within:invisible group-hover:invisible">{trailing}</span>
+        {/* The row menu takes the right column's place on hover and focus. */}
+        <span className="invisible absolute top-0 right-0 group-focus-within:visible group-hover:visible">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={tI18nComplete('textcbd7bbfcd257', { value0: item.title })}
+                className="text-muted-foreground"
+              >
+                <DotsThree className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-52"
+              onCloseAutoFocus={(e) => {
+                if (enteringSelect.current) e.preventDefault();
+                enteringSelect.current = false;
+              }}
             >
-              <DotsThree className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="w-52"
-            onCloseAutoFocus={(e) => {
-              if (enteringSelect.current) e.preventDefault();
-              enteringSelect.current = false;
-            }}
-          >
-            <DropdownMenuItem onClick={onOpen}>
-              {tI18nComplete.raw('texted077f3d8125')}
-              <DropdownMenuShortcut>↵</DropdownMenuShortcut>
-            </DropdownMenuItem>
-            {onOpenSession && (
-              <DropdownMenuItem onClick={onOpenSession}>
-                {tI18nComplete.raw('textb205bb47f81a')}
+              <DropdownMenuItem onClick={onOpen}>
+                {tI18nComplete.raw('texted077f3d8125')}
+                <DropdownMenuShortcut>↵</DropdownMenuShortcut>
               </DropdownMenuItem>
-            )}
-            {pending && (onAskChanges || onDismiss) && <DropdownMenuSeparator />}
-            {pending && onAskChanges && (
-              <DropdownMenuItem onClick={onAskChanges}>
-                {tI18nComplete.raw('text705364916412')}
-                <DropdownMenuShortcut>e</DropdownMenuShortcut>
-              </DropdownMenuItem>
-            )}
-            {pending && onDismiss && (
-              <DropdownMenuItem variant="destructive" onClick={onDismiss}>
-                {tI18nComplete.raw('text48845bff334a')}
-                <DropdownMenuShortcut>d</DropdownMenuShortcut>
-              </DropdownMenuItem>
-            )}
-            {/* The touch and Tab path into select mode (Triggers parity). */}
-            {selectable && selection ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={() => {
-                    enteringSelect.current = true;
-                    selection.onToggle(false);
-                  }}
-                >
-                  <CheckSquareIcon />
-                  {tI18nComplete.raw('text2a78025de6aa')}
-                  <DropdownMenuShortcut>x</DropdownMenuShortcut>
+              {onOpenSession && (
+                <DropdownMenuItem onClick={onOpenSession}>
+                  {tI18nComplete.raw('textb205bb47f81a')}
                 </DropdownMenuItem>
-              </>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+              )}
+              {pending && (onAskChanges || onDismiss) && <DropdownMenuSeparator />}
+              {pending && onAskChanges && (
+                <DropdownMenuItem onClick={onAskChanges}>
+                  {tI18nComplete.raw('text705364916412')}
+                  <DropdownMenuShortcut>e</DropdownMenuShortcut>
+                </DropdownMenuItem>
+              )}
+              {pending && onDismiss && (
+                <DropdownMenuItem variant="destructive" onClick={onDismiss}>
+                  {tI18nComplete.raw('text48845bff334a')}
+                  <DropdownMenuShortcut>d</DropdownMenuShortcut>
+                </DropdownMenuItem>
+              )}
+              {/* The touch and Tab path into select mode (Triggers parity). */}
+              {selectable && selection ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      enteringSelect.current = true;
+                      selection.onToggle(false);
+                    }}
+                  >
+                    <CheckSquareIcon />
+                    {tI18nComplete.raw('text2a78025de6aa')}
+                    <DropdownMenuShortcut>x</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </span>
+      </span>
     </li>
   );
 }
@@ -480,9 +557,9 @@ function ItemRow({
 /** One plain bar per row, row height, while the inbox loads. */
 function ListSkeleton({ rows = 4 }: { rows?: number }) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 p-1.5">
       {Array.from({ length: rows }).map((_, i) => (
-        <Skeleton key={i} className="h-12 w-full rounded-md" />
+        <Skeleton key={i} className="h-14 w-full rounded-md" />
       ))}
     </div>
   );
@@ -549,6 +626,27 @@ const RISK_BADGE: Record<
   high: { variant: 'destructive', key: 'riskHigh' },
 };
 
+/** `@3xl` in px: the inbox width from which list and detail sit side by side. */
+const TWO_PANE_PX = 768;
+
+/** Whether `ref`'s element is at least `min` px wide, kept current on resize.
+ *  True until measured: the server render and a desktop first paint agree. */
+function useContainerWide(ref: React.RefObject<HTMLElement | null>, min: number): boolean {
+  const [wide, setWide] = useState(true);
+  // Before paint: a narrow inbox mounts the asks deck above the list on its
+  // first frame, not one frame late.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const measure = () => setWide(el.getBoundingClientRect().width >= min);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref, min]);
+  return wide;
+}
+
 export function ReviewCenter({
   initialItems,
   segment: segmentProp,
@@ -568,8 +666,13 @@ export function ReviewCenter({
   verdictAllowed = EVERY_VERDICT,
   needsYouDeck,
 }: {
-  /** Shown at the top of Needs you: the asks deck (questions and approvals agents wait on). */
-  needsYouDeck?: ReactNode;
+  /**
+   * The asks deck (questions and approvals agents wait on): in the empty
+   * detail pane, or above the list on a narrow inbox. It stays mounted while
+   * an item is open, `paused`, so a staged answer keeps its Undo window and
+   * the deck's keys answer nothing out of sight.
+   */
+  needsYouDeck?: (opts: { paused: boolean }) => ReactNode;
   /** When provided, the inbox renders real data instead of the mock fixtures. */
   initialItems?: ReviewItem[];
   /** Connected mode: the segment is the server's filter, so the parent owns it. */
@@ -636,6 +739,12 @@ export function ReviewCenter({
   const setSegment = onSegmentChange ?? setLocalSegment;
   const [kindFilter, setKindFilter] = useState<ReviewKind | 'all'>('all');
   const [query, setQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const tPane = useTranslations('hardcodedUi.reviewPane');
+  // Two panes from `@3xl` (48rem) of the inbox's own width. CSS lays the panes
+  // out; this flag only decides where the asks deck mounts, once.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const wide = useContainerWide(rootRef, TWO_PANE_PX);
   // Per-session view: filter to one session, and/or group the list by session so
   // a session's reviews + approvals sit together. Both operate on `sessionId`.
   const [sessionFilter, setSessionFilter] = useState<string | 'all'>('all');
@@ -685,24 +794,36 @@ export function ReviewCenter({
   );
   const listLoaded = !connected || isFetched === true;
   const setSelectedId = useCallback(
-    (id: string | null) => {
+    (id: string | null, how?: 'push' | 'replace') => {
       const params = new URLSearchParams(search?.toString() ?? '');
       if (id) params.set('id', id);
       else params.delete('id');
       const suffix = params.toString();
       const href = suffix ? `${pathname}?${suffix}` : pathname;
-      // Opening pushes so the browser's Back returns to the inbox; closing
-      // replaces so Back never lands on the page you just left.
-      if (id) router.push(href, { scroll: false });
-      else router.replace(href, { scroll: false });
+      // Opening from nothing pushes, so the browser's Back returns to the
+      // empty pane. Moving between items (j/k, the next row after a verdict)
+      // and closing replace: Back never walks the list item by item.
+      if ((how ?? (id && !idParam ? 'push' : 'replace')) === 'push') {
+        router.push(href, { scroll: false });
+      } else {
+        router.replace(href, { scroll: false });
+      }
     },
-    [pathname, router, search],
+    [idParam, pathname, router, search],
   );
   const labelFor = useMemo(() => (id: string) => sessionLabels?.[id], [sessionLabels]);
   const visible = useMemo(
     () => filterItems(items, segment, kindFilter, query, sessionFilter),
     [items, segment, kindFilter, query, sessionFilter],
   );
+  /** After a verdict the item leaves its list: open the row that took its
+   *  place (the next one, else the one above).
+   *  Reads the list as it was before the verdict. */
+  const advanceFrom = (id: string) => {
+    const at = visible.findIndex((i) => i.id === id);
+    const next = at >= 0 ? (visible[at + 1] ?? visible[at - 1]) : undefined;
+    setSelectedId(next?.id ?? null, 'replace');
+  };
   const kindCounts = useMemo(() => {
     // Respect the active session filter so the kind-tab badges never contradict
     // the visible list when scoped to one session.
@@ -1116,35 +1237,76 @@ export function ReviewCenter({
         }
         return;
       }
-      // Help, a review page or the bulk confirm owns the keyboard.
-      if (helpOpen || selectedId || confirm.open) return;
+      // Help or the bulk confirm owns the keyboard. An open item does not:
+      // j/k walk the list beside it.
+      if (helpOpen || confirm.open) return;
       if (typing) return; // don't hijack search typing
+      if (hasOpenFloatingLayer()) return; // a menu or dialog owns its keys
 
       if (e.key === '/') {
         e.preventDefault();
-        document.getElementById('review-search')?.focus();
+        setSearchOpen(true);
+        requestAnimationFrame(() => document.getElementById('review-search')?.focus());
         return;
       }
       if (e.key === '1' || e.key === '2' || e.key === '3') {
         setSegment(segments[Number(e.key) - 1].value);
         return;
       }
+      // a/e/d decide the open item whenever one is open, even when a filter
+      // hides its row or empties the list: the verdict goes to what the pane
+      // shows. Select mode gives them no verb.
+      const openItem = selectedId
+        ? (items.find((i) => i.id === selectedId) ?? sourceItems.find((i) => i.id === selectedId))
+        : undefined;
+      if (openItem && !selectMode && (e.key === 'a' || e.key === 'e' || e.key === 'd')) {
+        if (e.key === 'a') quickPrimary(openItem);
+        else if (e.key === 'e') quickAskChanges(openItem);
+        else dismissIds([openItem.id]);
+        return;
+      }
       if (visible.length === 0) return;
-      const cur = visible[Math.min(focusedIdx, visible.length - 1)];
+      // j/k/x move from the open item's row when one is open, else from the
+      // cursor's row. Select mode moves the cursor, not the open item: there
+      // it wins.
+      const cur =
+        (selectedId && !selectMode ? visible.find((i) => i.id === selectedId) : undefined) ??
+        visible[Math.min(focusedIdx, visible.length - 1)];
       setKbNav(true);
 
-      if (e.key === 'j' || e.key === 'ArrowDown') {
+      if (e.key === 'j' || e.key === 'ArrowDown' || e.key === 'k' || e.key === 'ArrowUp') {
         e.preventDefault();
-        setFocusedIdx((i) => Math.min(visible.length - 1, i + 1));
-      } else if (e.key === 'k' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        setFocusedIdx((i) => Math.max(0, i - 1));
+        const down = e.key === 'j' || e.key === 'ArrowDown';
+        // From the open item's row when one is open (rows of a deep link
+        // can arrive after it), else from the keyboard cursor.
+        const openAt = cur ? visible.indexOf(cur) : -1;
+        const from = openAt >= 0 ? openAt : Math.min(focusedIdx, visible.length - 1);
+        const to = down ? Math.min(visible.length - 1, from + 1) : Math.max(0, from - 1);
+        setFocusedIdx(to);
+        // DOM focus follows the cursor out of the list (a click left it on a
+        // row), so a later Enter clicks the row the user sees.
+        const active = document.activeElement;
+        if (active && listRef.current?.contains(active)) {
+          listRef.current
+            .querySelector<HTMLElement>(`[data-idx="${to}"] [data-row-open]`)
+            ?.focus({ preventScroll: true });
+        }
+        // With an item open, the pane follows the cursor.
+        if (selectedId && !selectMode && visible[to]) setSelectedId(visible[to].id, 'replace');
       } else if (e.key === 'x') {
         if (cur && selectableIds.includes(cur.id)) toggleSelected(cur.id, false, 'key');
       } else if (selectMode) {
         // Select mode: a row's Space or Enter toggles it; no verb shortcut fires.
         return;
       } else if (e.key === 'Enter' || e.key === 'o') {
+        // Enter on a focused button or link (Approve, an answer, a session
+        // link) is that control's click, not "open the focused row".
+        if (
+          e.defaultPrevented ||
+          (e.key === 'Enter' && el instanceof HTMLElement && el.closest('button, a, [role="button"]'))
+        ) {
+          return;
+        }
         e.preventDefault();
         if (cur) setSelectedId(cur.id);
       } else if (e.key === 'a') {
@@ -1173,6 +1335,7 @@ export function ReviewCenter({
       item={item}
       idx={idx}
       focused={kbNav && idx === focusedIdx}
+      active={item.id === selectedId}
       fresh={freshIds.has(item.id)}
       sessionLabel={!inGroup && item.sessionId ? labelFor(item.sessionId) : undefined}
       onOpen={() => setSelectedId(item.id)}
@@ -1227,17 +1390,6 @@ export function ReviewCenter({
       </Button>
     </div>
   ) : null;
-
-  const shortcutsButton = (
-    <button
-      type="button"
-      onClick={() => setHelpOpen(true)}
-      className="text-muted-foreground hover:text-foreground duration-fast hidden items-center gap-1.5 text-xs transition-colors sm:flex"
-    >
-      <Kbd>?</Kbd>
-      {tI18nComplete.raw('text46e978d0c193')}
-    </button>
-  );
 
   const bulkActions: SelectionBarAction[] = [
     {
@@ -1319,173 +1471,319 @@ export function ReviewCenter({
             description: withList(tBulk('dismissDescription')),
           };
 
-  // A `?id=` we cannot resolve yet: hold the row skeleton until the list has
-  // fetched once, so a refresh never flashes the inbox on the way to the page.
-  if (idParam && !selected && !listLoaded && !isError) {
-    return (
-      <div className="flex h-full min-h-0 flex-col">
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="w-full p-4">
-            <ListSkeleton />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // A Connector call opens the standalone approve page's panel in a modal over
-  // the inbox, so it reads and decides the same way on both surfaces.
+  // A Connector call renders the standalone approve page's panel in the
+  // detail pane, so it reads and decides the same way on both surfaces.
   const approval = selected ? reviewApprovalDetails(selected) : null;
   const approvalCall =
     approval && selected?.kind === 'approval' ? selected.detail.actions?.[0] : undefined;
-  const approvalModal = (
-    <ApprovalDecisionModal
-      details={approval}
-      previewAuthorized={approvalCall?.previewAuthorized !== false}
-      resolvers={approvalCall?.resolvers}
-      {...(approval && selected ? reviewApprovalAsker(selected, sessionLabels) : null)}
-      busyDecision={selected && pendingId === selected.id ? pendingDecision : null}
-      onDecision={
-        // Only the viewer the API lets decide this call gets the decision.
-        connected && selected && verdictAllowed(selected, 'approve')
-          ? (decision, note) =>
-              actions.resolve(
-                selected.id,
-                decision === 'approve' ? 'approved' : 'rejected',
-                decision === 'approve'
-                  ? tI18nComplete.raw('text0674d4a026cb')
-                  : tI18nComplete.raw('text4341be8eb7f0'),
-                note,
-              )
-          : undefined
-      }
-      onOpenSession={
-        selected?.sessionId && onOpenSession
-          ? () => onOpenSession(selected.sessionId!)
-          : undefined
-      }
-      onClose={() => setSelectedId(null)}
-    />
-  );
 
-  // Every other item opens in a modal over the inbox, the same way.
-  const itemModal = (
-    <ReviewItemModal
-      item={selected && !approval && selected.kind !== 'change' ? selected : null}
-      actions={actions}
-      onClose={() => setSelectedId(null)}
-    />
-  );
+  // Filters set beyond the defaults, as removable chips under the list header.
+  const activeKind = kindFilter === 'all' ? null : kindFilters.find((f) => f.value === kindFilter);
+  const activeSession =
+    sessionFilter === 'all' ? null : sessionOpts.find((s) => s.sessionId === sessionFilter);
+  const filtered = !!activeKind || !!activeSession || grouped;
+  const showSearch = searchOpen || query.length > 0;
+  const clearFilters = () => {
+    setKindFilter('all');
+    setSessionFilter('all');
+    setGrouped(false);
+  };
+  const back = () => setSelectedId(null);
 
-  // A change request replaces the inbox in place: its diff needs the width.
-  // Escape and "Back to inbox" return to the list.
-  if (selected?.kind === 'change') {
-    return (
-      <div className="flex h-full min-h-0 flex-col">
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <ReviewDetail item={selected} actions={actions} onBack={() => setSelectedId(null)} />
-        </div>
-        <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
+  const listBody =
+    isError && items.length === 0 ? (
+      <ErrorState
+        size="sm"
+        title={tI18nComplete.raw('text23686ff6ba91')}
+        description={tI18nComplete.raw('text481859b689b0')}
+        action={
+          <Button variant="outline" size="sm" onClick={onRefresh} disabled={isFetching}>
+            {isFetching ? <Loading className="size-3.5 shrink-0" /> : null}
+            {tI18nComplete.raw('text942087cc2d41')}
+          </Button>
+        }
+      />
+    ) : isLoading && items.length === 0 ? (
+      <ListSkeleton />
+    ) : visible.length === 0 && loadMore ? (
+      // Nothing on the pages read so far matches, and more pages exist:
+      // offer them, never the empty state (KRTX-1727).
+      <div className="pt-6">{loadMoreButton}</div>
+    ) : visible.length === 0 && segment === 'needs_you' && needsYouDeck && !query && !wide ? (
+      // Narrow inbox: the deck above owns the Needs you empty state; an empty
+      // list under open asks must not say "all caught up". Once the deck
+      // draws nothing (`peer-empty`), it does.
+      <div className="hidden peer-empty:block">
+        <EmptyState
+          icon={CheckCircleSolid}
+          size="sm"
+          title={tI18nComplete.raw('text2f485b9971df')}
+          description={tI18nComplete.raw('text67735374cc20')}
+        />
       </div>
+    ) : visible.length === 0 ? (
+      <EmptyState
+        icon={CheckCircleSolid}
+        size="sm"
+        title={
+          query
+            ? tI18nComplete.raw('text2df01a03ff43')
+            : segment === 'needs_you' && needsYouDeck
+              ? // The asks deck beside the list still waits on you: not "all
+                // caught up", only no review items.
+                tI18nComplete.raw('textf4c7f41c12d6')
+              : segment === 'needs_you'
+                ? tI18nComplete.raw('text2f485b9971df')
+              : tI18nComplete.raw('textf4c7f41c12d6')
+        }
+        description={
+          query
+            ? tI18nComplete.raw('text2e6d79de50dc')
+            : segment === 'needs_you'
+              ? tI18nComplete.raw('text67735374cc20')
+              : segment === 'waiting'
+                ? tI18nComplete.raw('text2c192433a710')
+                : tI18nComplete.raw('text6a00736dae3c')
+        }
+      />
+    ) : grouped ? (
+      <div {...listProps} className="space-y-4">
+        {groups.map((g) => (
+          <section key={g.sessionId ?? '__none__'} className="space-y-1">
+            <div className="flex h-7 items-center gap-2 px-2.5">
+              <h2 className="text-muted-foreground truncate text-xs font-medium">{g.label}</h2>
+              <CountBadge count={g.items.length} />
+              {g.sessionId && onOpenSession && (
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground duration-fast ml-auto shrink-0 text-xs transition-colors"
+                  onClick={() => onOpenSession(g.sessionId!)}
+                >
+                  {tI18nComplete.raw('textb205bb47f81a')}
+                </button>
+              )}
+            </div>
+            <ul {...listboxProps} className={LIST_CLASS}>
+              {g.items.map((item) => renderRow(item, visibleIndexById.get(item.id) ?? 0, true))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    ) : (
+      <ul {...listProps} {...listboxProps} className={LIST_CLASS}>
+        {visible.map((item, idx) => renderRow(item, idx, false))}
+      </ul>
     );
-  }
+
+  /** Nothing open: a quiet prompt to pick a row. */
+  const paneEmpty = (
+    <div className="flex min-h-full flex-1 items-center justify-center px-6 py-8">
+      <EmptyState
+        media={<EmptyArt icon={Tray} />}
+        size="sm"
+        title={tPane('emptyTitle')}
+        description={tPane('emptyDescription')}
+      />
+    </div>
+  );
+
+  // The detail pane: the open item, else (Needs you, wide) what the agents
+  // ask of you, else a quiet prompt to pick a row.
+  const detail = selected ? (
+    approval ? (
+      <div className="flex min-h-full flex-col">
+        <div className="flex h-11 shrink-0 items-center px-4 @3xl/inbox:justify-end">
+          <ClosePaneButton onClick={back} />
+        </div>
+        <div className="flex flex-1 items-start justify-center px-6 py-8">
+          <ApprovalDecisionPane
+            key={selected.id}
+            details={approval}
+            previewAuthorized={approvalCall?.previewAuthorized !== false}
+            resolvers={approvalCall?.resolvers}
+            {...reviewApprovalAsker(selected, sessionLabels)}
+            busyDecision={pendingId === selected.id ? pendingDecision : null}
+            onDecision={
+              // Only the viewer the API lets decide this call gets the decision.
+              connected && verdictAllowed(selected, 'approve')
+                ? (decision, note) => {
+                    actions.resolve(
+                      selected.id,
+                      decision === 'approve' ? 'approved' : 'rejected',
+                      decision === 'approve'
+                        ? tI18nComplete.raw('text0674d4a026cb')
+                        : tI18nComplete.raw('text4341be8eb7f0'),
+                      note,
+                    );
+                    advanceFrom(selected.id);
+                  }
+                : undefined
+            }
+            onOpenSession={
+              selected.sessionId && onOpenSession
+                ? () => onOpenSession(selected.sessionId!)
+                : undefined
+            }
+          />
+        </div>
+      </div>
+    ) : (
+      <ReviewDetail
+        key={selected.id}
+        item={selected}
+        actions={actions}
+        onBack={back}
+        onResolved={() => advanceFrom(selected.id)}
+      />
+    )
+  ) : idParam && !listLoaded && !isError ? (
+    // A `?id=` we cannot resolve yet: hold a skeleton until the list has
+    // fetched once, so a refresh never flashes the empty pane on the way.
+    <div className="space-y-4 px-6 py-6">
+      <Skeleton className="h-6 w-2/3" />
+      <Skeleton className="h-4 w-1/3" />
+      <Skeleton className="h-40 w-full" />
+    </div>
+  ) : (
+    paneEmpty
+  );
+  // Wide inbox, Needs you: the asks deck holds the empty pane.
+  const deckInPane = wide && segment === 'needs_you' && !!needsYouDeck;
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {/* The select bar covers the list's last row: pad for it. */}
-        <div className={cn('w-full px-4', selectMode && segment === 'needs_you' && 'pb-20')}>
-          {/* One control row: what list you're in, then how to narrow it. */}
-          <div className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <Tabs
-              value={segment}
-              onValueChange={(v) => {
-                setSegment(v as ReviewSegment);
-                markSeen();
-              }}
-              className="min-w-0"
-            >
-              <TabsList className="flex w-full items-center justify-start">
-                {segments.map((s) => (
-                  <TabsTrigger key={s.value} value={s.value} size="sm">
-                    {s.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+    // Two panes in a named container: the inbox's own width picks the layout,
+    // not the viewport, since this view also mounts in the narrow settings
+    // panel. Below `@3xl` one pane shows at a time: the list, or the open item.
+    <div ref={rootRef} className="@container/inbox relative flex h-full min-h-0">
+      <div
+        className={cn(
+          'border-border min-h-0 w-full min-w-0 flex-col @3xl/inbox:flex @3xl/inbox:w-sm @3xl/inbox:shrink-0 @6xl/inbox:w-md @3xl/inbox:border-r',
+          selected ? 'hidden' : 'flex',
+        )}
+      >
+        {/* List header: which list on the left, how to narrow it on the right. */}
+        <div className="border-border flex h-11 shrink-0 items-center gap-1 border-b px-2.5">
+          <Tabs
+            value={segment}
+            onValueChange={(v) => {
+              setSegment(v as ReviewSegment);
+              markSeen();
+            }}
+            className="min-w-0"
+          >
+            <TabsList variant="secondary" size="sm">
+              {segments.map((s) => (
+                <TabsTrigger key={s.value} value={s.value} className="w-fit flex-none px-2.5">
+                  {s.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
 
-            <div className="flex items-center gap-2">
-              <DropdownMenu>
+          <div className="ml-auto flex shrink-0 items-center gap-0.5">
+            <Hint
+              label={
+                <span className="flex items-center gap-1.5">
+                  {tI18nComplete.raw('text49c266baaaa7')}
+                  <Kbd>/</Kbd>
+                </span>
+              }
+            >
+              <Button
+                type="button"
+                variant={showSearch ? 'secondary' : 'ghost'}
+                size="icon-sm"
+                aria-label={tI18nComplete.raw('text49c266baaaa7')}
+                aria-expanded={showSearch}
+                className={cn(!showSearch && 'text-muted-foreground')}
+                onClick={() => {
+                  if (showSearch && !query) {
+                    setSearchOpen(false);
+                    return;
+                  }
+                  setSearchOpen(true);
+                  requestAnimationFrame(() => document.getElementById('review-search')?.focus());
+                }}
+              >
+                <Search className="size-4" />
+              </Button>
+            </Hint>
+
+            {/* One filter control: each facet a submenu. */}
+            <DropdownMenu>
+              <Hint label={tI18nComplete.raw('text638e249f4a15')}>
                 <DropdownMenuTrigger asChild>
-                  <Button type="button" variant={kindFilter === 'all' ? 'outline' : 'secondary'}>
-                    {kindFilter === 'all'
-                      ? tI18nComplete.raw('textf10988e79e8d')
-                      : kindFilters.find((f) => f.value === kindFilter)?.label}
-                    <ChevronDown className="text-muted-foreground size-3.5 shrink-0" />
+                  <Button
+                    type="button"
+                    variant={filtered ? 'secondary' : 'ghost'}
+                    size="icon-sm"
+                    aria-label={tI18nComplete.raw('text638e249f4a15')}
+                    className={cn(!filtered && 'text-muted-foreground')}
+                  >
+                    <FunnelSimple className="size-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuLabel>{tI18nComplete.raw('textbaaddf70fb5d')}</DropdownMenuLabel>
-                  <DropdownMenuRadioGroup
-                    value={kindFilter}
-                    onValueChange={(v) => setKindFilter(v as ReviewKind | 'all')}
-                  >
-                    {kindFilters.map((f) => (
-                      <DropdownMenuRadioItem key={f.value} value={f.value} side="left">
-                        {f.label}
-                        {(kindCounts[f.value] ?? 0) > 0 && (
-                          <CountBadge count={kindCounts[f.value] ?? 0} className="ml-auto" />
-                        )}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Per-session view: filter to one session, and/or group by session
-                  so a session's reviews + approvals sit together. Only shown once
-                  the current segment actually has session-linked items. */}
-              {sessionOpts.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={sessionFilter === 'all' && !grouped ? 'outline' : 'secondary'}
-                      className="max-w-64"
+              </Hint>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Shapes />
+                    {tI18nComplete.raw('textbaaddf70fb5d')}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-52">
+                    <DropdownMenuRadioGroup
+                      value={kindFilter}
+                      onValueChange={(v) => setKindFilter(v as ReviewKind | 'all')}
                     >
-                      <span className="truncate">
-                        {sessionFilter === 'all'
-                          ? tI18nComplete.raw('text78648d4d6649')
-                          : (sessionOpts.find((s) => s.sessionId === sessionFilter)?.label ??
-                            'Session')}
-                      </span>
-                      <ChevronDown className="text-muted-foreground size-3.5 shrink-0" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="max-h-72 w-64 overflow-y-auto">
-                    <DropdownMenuLabel>{tI18nComplete.raw('text6959b4159575')}</DropdownMenuLabel>
-                    <DropdownMenuRadioGroup value={sessionFilter} onValueChange={setSessionFilter}>
-                      <DropdownMenuRadioItem value="all" side="left">
-                        {tI18nComplete.raw('text78648d4d6649')}
-                        <CountBadge
-                          count={filterItems(items, segment, kindFilter, query, 'all').length}
-                          className="ml-auto"
-                        />
-                      </DropdownMenuRadioItem>
-                      {sessionOpts.map((s) => (
-                        <DropdownMenuRadioItem key={s.sessionId} value={s.sessionId} side="left">
-                          <span className="truncate">{s.label}</span>
+                      {kindFilters.map((f) => {
+                        const Glyph = f.value === 'all' ? Shapes : ROW_TILE[f.value].icon;
+                        return (
+                          <DropdownMenuRadioItem key={f.value} value={f.value} side="left">
+                            <Glyph className="text-muted-foreground size-4 shrink-0" />
+                            {f.label}
+                            {(kindCounts[f.value] ?? 0) > 0 && (
+                              <CountBadge count={kindCounts[f.value] ?? 0} className="ml-auto" />
+                            )}
+                          </DropdownMenuRadioItem>
+                        );
+                      })}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                {/* Per-session view: filter to one session, and/or group by
+                    session. Only offered once the list has session-linked items. */}
+                {sessionOpts.length > 0 && (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <Chats />
+                      {tI18nComplete.raw('text6959b4159575')}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="max-h-72 w-64 overflow-y-auto">
+                      <DropdownMenuRadioGroup value={sessionFilter} onValueChange={setSessionFilter}>
+                        <DropdownMenuRadioItem value="all" side="left">
+                          {tI18nComplete.raw('text78648d4d6649')}
                           <CountBadge
-                            count={filterItems(items, segment, kindFilter, query, s.sessionId).length}
+                            count={filterItems(items, segment, kindFilter, query, 'all').length}
                             className="ml-auto"
                           />
                         </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
+                        {sessionOpts.map((s) => (
+                          <DropdownMenuRadioItem key={s.sessionId} value={s.sessionId} side="left">
+                            <span className="truncate">{s.label}</span>
+                            <CountBadge
+                              count={filterItems(items, segment, kindFilter, query, s.sessionId).length}
+                              className="ml-auto"
+                            />
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                )}
+                {sessionOpts.length > 0 && (
+                  <>
                     <DropdownMenuSeparator />
-                    {/* `pl-8` lines this label up with the radio rows above: their
-                        check is inline (px-2.5 + size-3.5 + gap-2), this one is
-                        absolute at left-2.5, so the text needs the same start. */}
+                    {/* `pl-8` lines this label up with the rows above. */}
                     <DropdownMenuCheckboxItem
                       checked={grouped}
                       onCheckedChange={setGrouped}
@@ -1493,11 +1791,27 @@ export function ReviewCenter({
                     >
                       {tI18nComplete.raw('text137f98df3b9b')}
                     </DropdownMenuCheckboxItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+                  </>
+                )}
+                {filtered ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={clearFilters}>
+                      {tI18nComplete.raw('text7179ea0035fc')}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
 
-              <InputGroupSearch className="sm:w-56">
+        {/* Second header row, only when it has something to show: the search
+            field and the filters in effect. */}
+        {showSearch || filtered ? (
+          <div className="border-border flex shrink-0 flex-col gap-2 border-b px-2.5 py-2">
+            {showSearch ? (
+              <InputGroupSearch className="w-full">
                 <InputGroupSearchIcon>
                   <Search />
                 </InputGroupSearchIcon>
@@ -1508,123 +1822,109 @@ export function ReviewCenter({
                     setQuery(e.target.value);
                     setFocusedIdx(0);
                   }}
+                  onBlur={() => {
+                    if (!query) setSearchOpen(false);
+                  }}
                   placeholder={tI18nComplete.raw('text49c266baaaa7')}
                   variant="popover"
                   size="sm"
                 />
-                {!query && <Kbd className="absolute top-1/2 right-2 -translate-y-1/2">/</Kbd>}
               </InputGroupSearch>
-            </div>
+            ) : null}
+            {filtered ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {activeKind ? (
+                  <FilterChip label={activeKind.label} onRemove={() => setKindFilter('all')} />
+                ) : null}
+                {activeSession ? (
+                  <FilterChip label={activeSession.label} onRemove={() => setSessionFilter('all')} />
+                ) : null}
+                {grouped ? (
+                  <FilterChip
+                    label={tI18nComplete.raw('text137f98df3b9b')}
+                    onRemove={() => setGrouped(false)}
+                  />
+                ) : null}
+              </div>
+            ) : null}
           </div>
-          {segment === 'needs_you' && needsYouDeck ? <div className="pb-4">{needsYouDeck}</div> : null}
+        ) : null}
 
-          {/* List */}
-          {isError && items.length === 0 ? (
-            <ErrorState
-              size="sm"
-              title={tI18nComplete.raw('text23686ff6ba91')}
-              description={tI18nComplete.raw('text481859b689b0')}
-              action={
-                <Button variant="outline" size="sm" onClick={onRefresh} disabled={isFetching}>
-                  {isFetching ? <Loading className="size-3.5 shrink-0" /> : null}
-                  {tI18nComplete.raw('text942087cc2d41')}
-                </Button>
-              }
-            />
-          ) : isLoading && items.length === 0 ? (
-            <ListSkeleton />
-          ) : visible.length === 0 && loadMore ? (
-            // Nothing on the pages read so far matches, and more pages exist:
-            // offer them, never the empty state (KRTX-1727).
-            <div className="pt-6">{loadMoreButton}</div>
-          ) : visible.length === 0 && segment === 'needs_you' && needsYouDeck && !query ? (
-            // The deck above owns the Needs you empty state: an empty list
-            // under open asks must not say "all caught up".
-            null
-          ) : visible.length === 0 ? (
-            <EmptyState
-              icon={CheckCircleSolid}
-              size="sm"
-              title={
-                query
-                  ? tI18nComplete.raw('text2df01a03ff43')
-                  : segment === 'needs_you'
-                    ? tI18nComplete.raw('text2f485b9971df')
-                    : tI18nComplete.raw('textf4c7f41c12d6')
-              }
-              description={
-                query
-                  ? tI18nComplete.raw('text2e6d79de50dc')
-                  : segment === 'needs_you'
-                    ? tI18nComplete.raw('text67735374cc20')
-                    : segment === 'waiting'
-                      ? tI18nComplete.raw('text2c192433a710')
-                      : tI18nComplete.raw('text6a00736dae3c')
-              }
-            />
-          ) : grouped ? (
-            <div {...listProps} className="space-y-5">
-              {groups.map((g) => (
-                <section key={g.sessionId ?? '__none__'} className="space-y-2">
-                  <div className="flex items-center gap-2 px-1">
-                    <h2 className="text-foreground truncate text-xs font-medium">{g.label}</h2>
-                    <Badge variant="secondary" size="xs" className="tabular-nums">
-                      {g.items.length}
-                    </Badge>
-                    {g.sessionId && onOpenSession && (
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-foreground duration-fast ml-auto shrink-0 text-xs transition-colors"
-                        onClick={() => onOpenSession(g.sessionId!)}
-                      >
-                        {tI18nComplete.raw('textb205bb47f81a')}
-                      </button>
-                    )}
-                  </div>
-                  <ul {...listboxProps} className={LIST_CLASS}>
-                    {g.items.map((item) =>
-                      renderRow(item, visibleIndexById.get(item.id) ?? 0, true),
-                    )}
-                  </ul>
-                </section>
-              ))}
-            </div>
-          ) : (
-            <ul {...listProps} {...listboxProps} className={LIST_CLASS}>
-              {visible.map((item, idx) => renderRow(item, idx, false))}
-            </ul>
+        {/* The list owns its scroll. The select bar covers the last row: pad for it. */}
+        <div
+          className={cn(
+            'min-h-0 flex-1 overflow-y-auto p-1.5',
+            selectMode && segment === 'needs_you' && 'pb-20',
           )}
-          {visible.length > 0 && loadMore ? loadMoreButton : null}
+        >
+          {/* Narrow inbox: no detail pane beside the list, so the deck sits
+              above it. It mounts in one place only, and never while an item
+              hides the list: its keys answer asks. */}
+          {segment === 'needs_you' && needsYouDeck && !wide ? (
+            // `peer`: when the deck draws nothing (its Undo window after the
+            // last card), the list's empty state below shows instead.
+            <div className="peer px-1 pt-1 pb-3 empty:hidden">
+              {needsYouDeck({ paused: !!selected })}
+            </div>
+          ) : null}
+          {listBody}
+          {visible.length > 0 && loadMore ? <div className="pt-2">{loadMoreButton}</div> : null}
+        </div>
 
-        </div>
-      </div>
-      {selectMode && segment === 'needs_you' ? (
-        // Pinned to the bottom of the list column, not to the end of the list:
-        // `sticky` stops where a short list ends (schedule-view.tsx).
-        <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex justify-center px-4">
-          <div className="pointer-events-auto w-full max-w-xl">
-            <SelectionBar
-              selectedCount={selectedItems.length}
-              allSelected={
-                selectableIds.length > 0 &&
-                selectedItems.length >= Math.min(BULK_MAX, selectableIds.length)
-              }
-              canSelectAll={selectableIds.length > 0}
-              onSelectAll={() => setSelectedIds(new Set(selectableIds.slice(0, BULK_MAX)))}
-              onClear={() => setSelectedIds(new Set())}
-              onExit={exitSelectMode}
-              actions={bulkActions}
-              progress={bulkProgress}
-              animateIn={selectMode !== 'key'}
-              note={
-                selectedItems.length >= BULK_MAX && selectableIds.length > BULK_MAX
-                  ? tBulk('limitNote', { count: BULK_MAX })
-                  : undefined
-              }
-            />
+        {selectMode && segment === 'needs_you' ? (
+          // Pinned to the bottom of the inbox, not to the end of the list
+          // (`sticky` stops where a short list ends, schedule-view.tsx), and
+          // across the whole inbox: the list column is too narrow for its verbs.
+          <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex justify-center px-4">
+            <div className="pointer-events-auto w-full max-w-xl">
+              <SelectionBar
+                selectedCount={selectedItems.length}
+                allSelected={
+                  selectableIds.length > 0 &&
+                  selectedItems.length >= Math.min(BULK_MAX, selectableIds.length)
+                }
+                canSelectAll={selectableIds.length > 0}
+                onSelectAll={() => setSelectedIds(new Set(selectableIds.slice(0, BULK_MAX)))}
+                onClear={() => setSelectedIds(new Set())}
+                onExit={exitSelectMode}
+                actions={bulkActions}
+                progress={bulkProgress}
+                animateIn={selectMode !== 'key'}
+                note={
+                  selectedItems.length >= BULK_MAX && selectableIds.length > BULK_MAX
+                    ? tBulk('limitNote', { count: BULK_MAX })
+                    : undefined
+                }
+              />
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
+
+      <div
+        className={cn(
+          'min-h-0 min-w-0 flex-1 flex-col @3xl/inbox:flex',
+          selected ? 'flex' : 'hidden',
+        )}
+      >
+        {deckInPane && needsYouDeck ? (
+          // Not keyed by the open item and kept mounted while one is open
+          // (`paused`, hidden): a staged answer keeps its Undo window.
+          <div className={cn('min-h-0 flex-1 flex-col overflow-y-auto', selected ? 'hidden' : 'flex')}>
+            <div className="peer mx-auto flex min-h-full w-full max-w-2xl flex-col justify-center px-6 py-8 empty:hidden">
+              {needsYouDeck({ paused: !!selected })}
+            </div>
+            {/* The deck draws nothing in its Undo window after the last card. */}
+            <div className="hidden min-h-full flex-1 peer-empty:flex">{paneEmpty}</div>
+          </div>
+        ) : null}
+        {selected || !deckInPane ? (
+          // Keyed by the open item: each one opens scrolled to its top.
+          <div key={selected?.id ?? 'none'} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+            {detail}
+          </div>
+        ) : null}
+      </div>
 
       <ConfirmDialog
         open={confirm.open}
@@ -1636,9 +1936,25 @@ export function ReviewCenter({
         onConfirm={() => void runBulk(confirm.verb)}
       />
 
-      {approvalModal}
-      {itemModal}
       <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
+  );
+}
+
+/** One filter in effect, under the list header: its name and a remove button. */
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+  return (
+    <Badge variant="secondary" size="sm" className="max-w-full gap-1 pr-1">
+      <span className="truncate">{label}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`${tI18nComplete.raw('text83b12c2216ef')} ${label}`}
+        className="text-muted-foreground hover:text-foreground duration-fast rounded-xs transition-colors"
+      >
+        <X className="size-3" />
+      </button>
+    </Badge>
   );
 }

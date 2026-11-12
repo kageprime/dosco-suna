@@ -101,10 +101,16 @@ describe('POST /v1/projects/:projectId/secret-requests — withheld names', () =
 
   test('a connector-scoped link never reaches the sandbox, so it is not judged', async () => {
     grantEnv = [];
-    const body = await (await mint({ names: ['API_KEY'] })).json();
+    const body = await (await mint({ names: ['API_KEY'], scope: 'connector' })).json();
     expect(body.scope).toBe('connector');
     expect(body.withheld).toBeUndefined();
     expect(lookups).toEqual([]);
+  });
+
+  test('an omitted scope is runtime: "store my key" reaches the agent', async () => {
+    const body = await (await mint({ names: ['API_KEY'] })).json();
+    expect(body.scope).toBe('runtime');
+    expect(body.url).toContain('/secret-intake/');
   });
 
   test('a caller with no session (laptop CLI, dashboard) is not judged', async () => {

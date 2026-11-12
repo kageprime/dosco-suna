@@ -35,6 +35,9 @@ export interface Assertion {
   expected: unknown;
   actual: unknown;
   pass: boolean;
+  /** Why it failed, for a response the assert can see: origin/edge classification
+   *  and the body, so a deployed 5xx names its own cause instead of a bare status. */
+  detail?: string;
 }
 
 export interface StepResult {

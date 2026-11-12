@@ -293,23 +293,30 @@ describe('web ECS migration', () => {
     expect(branchTeardown).not.toContain('gh api');
   });
 
-  it('never deploys the Vercel frontend from a git push', () => {
+  it('never builds the frontend on Vercel', () => {
     const config = JSON.parse(read('apps/web/vercel.json'));
-    const stagingWorkflow = read('.github/workflows/deploy-staging.yml');
+    const workflows = ['deploy-staging.yml', 'deploy-prod.yml'].map((name) =>
+      read(`.github/workflows/${name}`),
+    );
 
-    // Vercel deploys only from the CLI: deploy-staging.yml uploads and aliases
-    // staging.kortix.com, deploy-prod.yml's deploy-web-vercel job deploys
-    // kortix.com after verify-live-version. The Vercel project has no Git
-    // connection; this is the guard if someone reconnects it. A push to prod
-    // must never ship the frontend first: during the 2026-08-10 v0.12.7
-    // rollout the auto-deployed frontend called routes the still-old API
-    // lacked and every project load failed. Git builds that a script then
-    // cancelled still billed ~20 s of a 30-core build machine each: 1,892 of
-    // them from 2026-11-01 to 2026-11-07, ~77 % of the project's build cost.
+    // Vercel only hosts kortix.com and staging.kortix.com. A GitHub runner
+    // builds the output (infra/scripts/vercel-deploy-prebuilt.sh) and uploads
+    // it with --prebuilt, so Vercel bills no Build CPU Minutes: a build on its
+    // 30-core machine billed ~$0.56, ~$100-250 a month in 2026-11.
+    // deploy-prod.yml deploys kortix.com only after verify-live-version: during
+    // the 2026-08-10 v0.12.7 rollout a frontend built by a git push called
+    // routes the still-old API lacked and every project load failed. The
+    // project has no Git connection; vercel.json is the guard if someone
+    // reconnects it.
     expect(config.git?.deploymentEnabled).toBe(false);
     expect(config.ignoreCommand).toBeUndefined();
     expect(existsSync(resolve(root, 'apps/web/scripts/vercel-ignore.sh'))).toBe(false);
-    expect(stagingWorkflow).toContain('npx vercel alias set "$url" "$WEB_HOST"');
+    for (const workflow of workflows) {
+      expect(workflow).toContain('bash infra/scripts/vercel-deploy-prebuilt.sh ');
+      // A direct `vercel deploy` would build on Vercel again.
+      expect(workflow).not.toMatch(/vercel(@[\w.]+)? (deploy|build|redeploy)\b/);
+    }
+    expect(workflows[0]).toContain('npx vercel alias set "$url" "$WEB_HOST"');
   });
 
   it('deploys the prod Vercel frontend only after the API serves the release', () => {
@@ -427,9 +434,10 @@ describe('web ECS migration', () => {
     expect(end).toBeGreaterThan(start);
     const vercelJob = workflow.slice(start, end);
 
-    // `-b` is a BUILD env var: next.config.ts reads the commit at build time and
-    // inlines it, so `-e` (runtime) would not reach the health route's bundle.
-    expect(vercelJob).toContain('-b NEXT_PUBLIC_KORTIX_COMMIT="$SOURCE_SHA"');
+    // `--build-env` is a BUILD value: next.config.ts reads the commit at build
+    // time and inlines it, so `--env` (runtime) would not reach the health
+    // route's bundle.
+    expect(vercelJob).toContain('--build-env NEXT_PUBLIC_KORTIX_COMMIT="$SOURCE_SHA"');
     expect(vercelJob).toContain('SOURCE_SHA: ${{ needs.preflight.outputs.sha }}');
     // The same job aliases the host the browser shards drive, so the SHA it
     // stamps is the SHA the gate reads back.
@@ -467,13 +475,13 @@ describe('web ECS migration', () => {
    * VERSION syncs never ran.
    */
   it('uploads every Vercel deploy as one archive', () => {
-    for (const file of ['deploy-prod.yml', 'deploy-staging.yml']) {
-      const deploys = read(`.github/workflows/${file}`)
-        .split('\n')
-        .filter((line) => /vercel(@[\w.]+)? deploy /.test(line));
-      expect(deploys.length).toBeGreaterThan(0);
-      for (const line of deploys) expect(line).toContain('--archive=tgz');
-    }
+    // Both workflows deploy through this one script ("never builds the
+    // frontend on Vercel" above).
+    const deploys = read('infra/scripts/vercel-deploy-prebuilt.sh')
+      .split('\n')
+      .filter((line) => /^vercel deploy /.test(line));
+    expect(deploys).toHaveLength(1);
+    expect(deploys[0]).toContain('--prebuilt --archive=tgz');
     // An archive deploy does not promise git metadata, so prod stamps the commit.
     expect(read('.github/workflows/deploy-prod.yml')).toContain(
       '--build-env "NEXT_PUBLIC_KORTIX_COMMIT=${{ github.sha }}"',

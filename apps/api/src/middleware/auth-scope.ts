@@ -10,6 +10,7 @@ import {
   workspaceFenceVerdict,
   type AccountWorkspace,
 } from './workspace-binding';
+import { markCredentialFenceDenial } from '../shared/dead-credential-log';
 
 const PREVIEW_SESSION_COOKIE = '__preview_session';
 // ─── Internal helpers ────────────────────────────────────────────────────────
@@ -73,13 +74,18 @@ export async function enforceTokenProjectScope(
     `project=${workspaceId} path=${path}]`;
   // A typed body: the CLI picks its remedy from `code`, and no kortix.yaml
   // grant can lift a fence refusal, so it must never read as a grant miss.
-  throw new HTTPException(403, {
+  const err = new HTTPException(403, {
     message,
     res: new Response(
       JSON.stringify({ error: true, message, status: 403, code: CREDENTIAL_FENCE_REFUSED_CODE, check: verdict.check }),
       { status: 403, headers: { 'content-type': 'application/json' } },
     ),
   });
+  // The refusal is designed (the fence, fail closed) and the body above
+  // already names the remedy, so the LINE goes through the shared refusal
+  // throttle (KRTX-4731); the response ships untouched every time.
+  markCredentialFenceDenial(err);
+  throw err;
 }
 
 /** `account → workspace` for the fence: the one live workspace, `ambiguous`, or null. */

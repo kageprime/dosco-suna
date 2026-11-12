@@ -19,7 +19,7 @@ import { FONT_MEDIUM, TURN_TYPE, useTurnPalette } from '../shared/styles';
 import type { ToolProps } from '../shared/types';
 
 /** Web: the retired integration tool names, all rendered by this row. */
-export const REMOVED_CONNECTOR_TOOL_NAMES = [
+const REMOVED_CONNECTOR_TOOL_NAMES = [
   'integration-list',
   'integration-connect',
   'integration-search',

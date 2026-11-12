@@ -9,7 +9,7 @@ import { notAnAudienceGrant } from '../iam/audience-grants';
 import { invalidateIamCacheForUser, invalidateIamCacheForUsers } from '../iam/cache-invalidation';
 import { db } from '../shared/db';
 import { accountMembersAmong } from '../iam/membership-read';
-import { accountGroupFullRow, accountGroupListRows, accountGroupRow, groupMemberListRows, groupsForMemberRows } from '../iam/group-read';
+import { accountGroupListRows, groupMemberListRows, groupRow, groupsForMemberRows } from '../iam/group-read';
 
 // ─── Groups ────────────────────────────────────────────────────────────────
 
@@ -42,7 +42,7 @@ export async function listGroups(accountId: string): Promise<
 }
 
 export async function getGroup(accountId: string, groupId: string): Promise<AccountGroup | null> {
-  const [row] = await accountGroupFullRow(accountId, groupId);
+  const [row] = await groupRow(accountId, groupId);
   if (!row) return null;
   return { ...row, source: row.source as 'manual' | 'scim' };
 }
@@ -135,7 +135,7 @@ export const GROUP_MEMBER_LIST_CAP = 10_000;
 
 export async function listGroupMembers(accountId: string, groupId: string): Promise<GroupMember[]> {
   // Ensure the group belongs to the account before returning members.
-  const [group] = await accountGroupRow(accountId, groupId);
+  const [group] = await groupRow(accountId, groupId);
   if (!group) return [];
 
   return groupMemberListRows(groupId, GROUP_MEMBER_LIST_CAP);

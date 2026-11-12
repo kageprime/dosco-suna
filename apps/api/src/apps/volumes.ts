@@ -79,6 +79,35 @@ export function appVolumeExternalId(volumeId: string): string {
   return `kapp-${env}-${volumeId}`;
 }
 
+/** The documented volume-name rule (and its message), shared by create and fork. */
+function volumeName(name: string): string {
+  if (!VOLUME_NAME.test(name)) {
+    throw new AppVolumeError(400, 'volume_name_invalid', 'A volume name is 1-30 lowercase letters, digits or "_".');
+  }
+  return name;
+}
+
+/**
+ * The size a volume may be created with (`min` 1) or confirmed at (`min`
+ * null: Platinum allots the fixed size at create, so a confirm has no
+ * floor) — each caller's documented rule and message.
+ */
+function volumeSizeGb(sizeGb: number, min: number | null): number {
+  if (!Number.isInteger(sizeGb) || sizeGb > MAX_VOLUME_GB || (min !== null && sizeGb < min)) {
+    throw new AppVolumeError(400, 'volume_size_invalid',
+      min === null ? `size_gb must be at most ${MAX_VOLUME_GB}.` : `size_gb must be 1 to ${MAX_VOLUME_GB}.`);
+  }
+  return sizeGb;
+}
+
+/** The documented snapshot-retention rule. */
+function volumeRetentionDays(days: number): number {
+  if (!Number.isInteger(days) || days < 1 || days > 60) {
+    throw new AppVolumeError(400, 'volume_retention_invalid', 'snapshot_retention_days must be 1 to 60.');
+  }
+  return days;
+}
+
 function storeError(error: unknown): never {
   if (error instanceof AppVolumeStoreError && error.code === 'volume_busy') {
     throw new AppVolumeError(409, 'volume_attached', 'The volume is mounted on a machine; stop the machine first.');
@@ -241,12 +270,8 @@ export async function createAppVolume(input: {
   group?: string;
   retentionDays?: number;
 }): Promise<AppVolumeRow> {
-  if (!VOLUME_NAME.test(input.name)) {
-    throw new AppVolumeError(400, 'volume_name_invalid', 'A volume name is 1-30 lowercase letters, digits or "_".');
-  }
-  if (!Number.isInteger(input.sizeGb) || input.sizeGb < 1 || input.sizeGb > MAX_VOLUME_GB) {
-    throw new AppVolumeError(400, 'volume_size_invalid', `size_gb must be 1 to ${MAX_VOLUME_GB}.`);
-  }
+  volumeName(input.name);
+  volumeSizeGb(input.sizeGb, 1);
   return createVolume({
     appId: input.appId,
     accountId: input.accountId,
@@ -271,9 +296,7 @@ export async function updateAppVolume(
   const volume = await appVolume(appId, volumeId);
   let sizeGb: number | undefined;
   if (input.sizeGb !== undefined) {
-    if (!Number.isInteger(input.sizeGb) || input.sizeGb > MAX_VOLUME_GB) {
-      throw new AppVolumeError(400, 'volume_size_invalid', `size_gb must be at most ${MAX_VOLUME_GB}.`);
-    }
+    volumeSizeGb(input.sizeGb, null);
     sizeGb = (await appVolumeStore.info(volume.externalId).catch(() => {
       throw new AppVolumeError(503, 'volume_size_unknown', 'The provider did not report the volume size; retry.');
     })).size_gb;
@@ -281,9 +304,7 @@ export async function updateAppVolume(
       throw new AppVolumeError(400, 'volume_fixed_size', `The volume is ${sizeGb} GB, its fixed size: a volume cannot grow.`);
     }
   }
-  if (input.retentionDays !== undefined && (!Number.isInteger(input.retentionDays) || input.retentionDays < 1 || input.retentionDays > 60)) {
-    throw new AppVolumeError(400, 'volume_retention_invalid', 'snapshot_retention_days must be 1 to 60.');
-  }
+  if (input.retentionDays !== undefined) volumeRetentionDays(input.retentionDays);
   const [row] = await db.update(appVolumes).set({
     ...(sizeGb !== undefined ? { sizeGb } : {}),
     ...(input.retentionDays !== undefined ? { snapshotRetentionDays: input.retentionDays } : {}),
@@ -371,9 +392,7 @@ export async function forkVolume(
   input: { name: string; snapshotId?: string },
 ): Promise<AppVolumeRow> {
   const volume = await appVolume(appId, volumeId);
-  if (!VOLUME_NAME.test(input.name)) {
-    throw new AppVolumeError(400, 'volume_name_invalid', 'A volume name is 1-30 lowercase letters, digits or "_".');
-  }
+  volumeName(input.name);
   if (input.snapshotId && !SNAPSHOT_TAG.test(input.snapshotId)) throw new AppVolumeError(400, 'snapshot_invalid', 'Unknown snapshot.');
   return createVolume({
     appId,

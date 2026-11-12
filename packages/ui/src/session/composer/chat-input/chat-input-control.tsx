@@ -32,6 +32,7 @@ import {
 } from '../../../primitives/input-group';
 import Loading from '../../../primitives/loading';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../primitives/popover';
+import { foreignDialogOpen } from '../../../lib/z-stack';
 import { ModelSelector, type ModelDefaultControls } from '../../models/model-selector';
 import type { SessionOverrideRow } from '../../overrides/session-overrides-control';
 import {
@@ -84,16 +85,6 @@ const MORE_ROW = '__more';
 /** The extra rows, in the order the list shows them. */
 const EXTRA_ORDER = ['connectors', 'secrets', 'provider-keys', 'sandbox'];
 
-/** An open dialog that is not this panel: the Models dialog, an accounts modal. */
-function foreignDialogOpen(panel: HTMLElement | null): boolean {
-  for (const dialog of document.querySelectorAll<HTMLElement>(
-    '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
-  )) {
-    if (!panel || (dialog !== panel && !panel.contains(dialog) && !dialog.contains(panel)))
-      return true;
-  }
-  return false;
-}
 
 export type ChatInputRowId = 'agent' | 'model' | 'effort' | (string & {});
 
@@ -422,7 +413,7 @@ export function ChatInputControl({
     The panel opens from the composer card, not from the trigger: its left
     edge is the card's left edge and its bottom edge sits just above the
     card's top (or the top of the strip stacked on it: the queue, a notice).
-    Radix still anchors to the trigger; the offsets below move the panel from
+    The positioner still anchors to the trigger; the offsets below move the panel from
     the trigger to the card. Measured on open and on resize. A composer
     without a card (none found) keeps the trigger's position.
   */
@@ -819,13 +810,13 @@ export function ChatInputControl({
           }
         }}
         // The editors' selects open in their own portals, and a dialog opened
-        // from inside is outside too. Radix would close this panel under the cursor.
+        // from inside is outside too. The popover would close this panel under the cursor.
         onInteractOutside={(event) => {
           const target = event.target as HTMLElement | null;
           if (
             saving ||
             foreignDialogOpen(contentRef.current) ||
-            target?.closest('[data-radix-popper-content-wrapper], [role="dialog"]')
+            target?.closest('[data-kortix-floating], [role="dialog"]')
           )
             event.preventDefault();
         }}

@@ -156,7 +156,7 @@ describe('in the transcript', () => {
     };
   }
 
-  test('a notice turn draws one agent row, not the "Worker complete" card or a user bubble', () => {
+  test('a notice turn folds its one agent row into the Worked row — not the "Worker complete" card, not a user bubble (KRTX-4732)', () => {
     const turns = sessionLogTurns({
       schema: SESSION_LOG_SCHEMA, v: SESSION_LOG_MINOR, thread_id: 'synthetic', parent_thread_id: null, spawned_by: null,
       agent: null, title: null, created_at: '', messages: [
@@ -174,8 +174,9 @@ describe('in the transcript', () => {
         />,
       ),
     );
-    expect(html.match(/data-testid="subagent-notice"/g)).toHaveLength(1);
-    expect(html).toContain('data-agent-status="done"');
+    expect(html).toContain('Worked for');
+    // The row is fold content: it mounts when the reader opens the row.
+    expect(html).not.toContain('data-testid="subagent-notice"');
     const text = textOf(html);
     expect(text).not.toContain('Worker complete');
     expect(text).not.toContain('A background subagent you started has finished');

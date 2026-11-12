@@ -13,20 +13,14 @@ function baseConfig(workspace: string): Config {
     workspace,
     projectTarget: workspace,
     defaultBranch: 'main',
-    branchFetchAttempts: 60,
-    branchFetchDelaySec: 0.25,
-    autoClone: false,
     projectId: 'project-1',
     apiUrl: 'http://api.test/v1',
     repoUrl: undefined,
     branchName: undefined,
-    sessionFresh: false,
     baseSha: undefined,
     sandboxToken: 'test-token',
     gitUserName: 'Xera',
     gitUserEmail: 'xera@dosco.live',
-    cloneFilter: '',
-    cloneDepth: 1,
   }
 }
 

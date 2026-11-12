@@ -23,9 +23,11 @@ import {
   describeKeys,
   listChannelModels,
 } from '../model-access';
-import { chatUser, resolveChatActor } from '../core/identity';
+import { chatUser } from '../core/identity';
+import { resolveSlackActor } from './auto-link';
 import { authorizeChannelChange } from '../core/settings';
 import { settingsRefusalText, slackSettingsChannel, slackUserOf } from './settings-text';
+import { slackChannelIsDm } from './util';
 import { channelModelContext } from './model-gate';
 import { currentChannelSelection, setChannelModel } from './selection';
 import type { SlashResponse } from './types';
@@ -38,6 +40,8 @@ export interface SlackModelCtx {
   slackUserId: string;
   /** The slash command's name (`/kortix`), for the copy. */
   command: string;
+  /** The Kortix workspace whose own Slack app received the request, if any. */
+  projectScopedProjectId?: string;
 }
 
 /** Up to this many models are one button each; more become one searchable select. */
@@ -52,11 +56,6 @@ const PERSONAL_SCOPE_NOTE = 'Includes your own API keys and ChatGPT subscription
 const SHARED_SCOPE_NOTE =
   'Only keys shared with the whole Kortix workspace work here: this channel is shared. Your own keys and ChatGPT subscription work in a DM with me.';
 
-/** A DM with the bot. Slack DM channel ids start with `D`; group DMs and channels do not. */
-export function slackChannelIsDm(channelId: string): boolean {
-  return channelId.startsWith('D');
-}
-
 /**
  * Who this conversation's model decisions are made for; null when no project
  * is connected. With `SLACK_REQUIRE_USER_IDENTITY` off, sessions run as the
@@ -64,11 +63,11 @@ export function slackChannelIsDm(channelId: string): boolean {
  * keys count, linked or not.
  */
 export async function slackModelScope(ctx: SlackModelCtx): Promise<ChannelModelScope | null> {
-  const gate = await channelModelContext({ teamId: ctx.teamId, channelId: ctx.channelId });
+  const gate = await channelModelContext({ teamId: ctx.teamId, channelId: ctx.channelId, projectId: ctx.projectScopedProjectId });
   if (!gate) return null;
   const sender = config.SLACK_REQUIRE_USER_IDENTITY ? ctx.slackUserId : '';
   const actor = sender
-    ? await resolveChatActor(chatUser('slack', ctx.teamId, sender), gate).catch(() => null)
+    ? await resolveSlackActor(chatUser('slack', ctx.teamId, sender), gate).catch(() => null)
     : null;
   const pooledEnabled = await projectFeatureFlagEnabled(gate.projectId, 'pooled_provider_secrets').catch(() => false);
   return channelModelScope({
@@ -108,7 +107,7 @@ export async function buildSlackModelsResponse(ctx: SlackModelCtx): Promise<Slas
       blocks: [{ type: 'section', text: { type: 'mrkdwn', text: `*No Kortix workspace is connected to this channel yet.*\nRun \`${ctx.command}\` to connect one, then pick a model.` } }],
     };
   }
-  const selection = await currentChannelSelection({ teamId: ctx.teamId, channelId: ctx.channelId });
+  const selection = await currentChannelSelection({ teamId: ctx.teamId, channelId: ctx.channelId, projectId: ctx.projectScopedProjectId });
   const current = selection?.sessionModel ?? null;
 
   const { models, defaultModel } = await listChannelModels(scope);
@@ -202,7 +201,7 @@ export async function buildSlackModelsResponse(ctx: SlackModelCtx): Promise<Slas
  */
 export async function applySlackModelChoice(ctx: SlackModelCtx, choice: string): Promise<string> {
   const connect = `Connect a Kortix workspace first — run \`${ctx.command}\`.`;
-  const channelCtx = { teamId: ctx.teamId, channelId: ctx.channelId };
+  const channelCtx = { teamId: ctx.teamId, channelId: ctx.channelId, projectId: ctx.projectScopedProjectId };
   const id = choice.trim();
   const scope = await slackModelScope(ctx);
   if (!scope) return connect;

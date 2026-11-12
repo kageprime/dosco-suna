@@ -52,8 +52,8 @@ const stamped = {
   info: { ...message.info, time: { created: Date.UTC(2026, 7, 12, 9, 34) } },
 } as V1Row;
 
-/** `TooltipProvider` because an enabled rewind renders `Hint`, and Radix's
- *  tooltip throws without a provider above it — the app root supplies one. */
+/** `TooltipProvider` because an enabled rewind renders `Hint`, which the app
+ *  root wraps in one. */
 const render = (rewindDisabled: boolean, msg: V1Row = message) =>
   renderToStaticMarkup(
     <QueryClientProvider client={new QueryClient()}>
@@ -293,7 +293,7 @@ describe('UserMessage timestamp', () => {
   });
 
   test('the time is a tooltip on the label, not text beside it', () => {
-    // Radix renders tooltip *content* only while open, so the clock string
+    // The tooltip renders its *content* only while open, so the clock string
     // cannot appear in static markup — `message-time.test.ts` covers what it
     // says. What is observable here is that the `<time>` element is wired as
     // the trigger, which is what puts the time one hover away.

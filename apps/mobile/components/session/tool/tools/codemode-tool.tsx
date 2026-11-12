@@ -221,7 +221,7 @@ export function CodemodeTool({ call, defaultOpen, forceOpen, locked }: ToolProps
             <View style={{ position: 'relative' }}>
               <ToolScroll
                 maxHeight={BASH_PANE.commandMaxHeight}
-                style={{ backgroundColor: frame ? palette.muted40Bg : undefined }}
+                style={{ backgroundColor: palette.muted40Bg }}
                 showsVerticalScrollIndicator
               >
                 <View style={inset}>

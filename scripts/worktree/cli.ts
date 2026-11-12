@@ -13,6 +13,12 @@
  *   pnpm worktree nuke            (TTY: pick from a list, then confirm each)
  *   pnpm worktree list · doctor
  *   pnpm worktree sweep [--idle 60m] [--yes]   (delete build output in idle checkouts)
+ *   pnpm worktree autoclean [--dry-run] [--yes] [--install-cron | --uninstall-cron]
+ *     (sweep build output idle ≥24h, cap build output at 3 GB in stopped
+ *      checkouts, remove clean pushed worktrees idle ≥48h (merged ≥24h) and
+ *      Claude isolation worktrees, delete leftover worktree-agent-* branches,
+ *      pressure mode below 15 GB free; runs at the start of `create` and
+ *      `start` and every 15 min from $KORTIX_HOME/bin/worktree-autoclean.js)
  *
  * One command from a fresh clone sets up EVERYTHING (deps, git worktree, unique
  * ports, install, optional isolated Supabase, prereqs + node-pg-migrate) and boots the stack. Many
@@ -30,11 +36,19 @@ import {
   killTree, stackRoots, stackPids, listenersOn, psTable, cwdTable,
   listenPorts, buildRows, sortRows, filterRows, renderRail, renderDetail, toJsonRows,
   parseDuration, selectForPrune, type PruneCandidate, ARTIFACT_DIRS, sweepBusy,
+  autocleanConfig, parsePorcelain, meaningfulChanges, isNoise, lastActivity, decideAutoclean,
+  diskLevel, diskThresholds, parseDfFreeBytes, cronLine, hasCronLine, withCronLine, withoutCronLine,
+  autocleanPass, decideCap, capOwnerDir, fmtKb, cacheTrims, installRunning, RECENT_WRITE_MIN,
+  parseWorktreePorcelain, isClaudeWorktree, lockState, procStatStart, mergedPrIndex, prCovering, decideBranch,
+  BUNDLE_NAME, scheduledCommand, currentCronLine, generationOf, loopScript, isLoopFor, pickScheduler,
+  bundleRebuildReason, parseStamp,
+  type AutocleanCandidate, type AutocleanVerdict, type AutocleanConfig, type AutocleanPass, type CapDir, type CapVerdict,
+  type CacheTrim, type LockState, type MergedPr, type ScheduleTarget, type Scheduler, type BundleStamp, type RunningCode,
   type Registry, type SlotEntry, type Ports, type Tunnel, type StripeListen,
   type DbMode, type KillResult, type PrimaryDb, type SlotCreds,
 } from './lib';
-import { existsSync, rmSync, readFileSync, statSync } from 'node:fs';
-import { isAbsolute, join as joinPath } from 'node:path';
+import { existsSync, rmSync, statSync, fstatSync, linkSync, openSync, closeSync, writeFileSync, readFileSync, mkdirSync, renameSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join as joinPath } from 'node:path';
 import * as clack from '@clack/prompts';
 import pc from 'picocolors';
 
@@ -74,10 +88,25 @@ async function freeSlotPorts(ports: Ports): Promise<void> {
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-async function setStatus(name: string, status: SlotEntry['status']): Promise<void> {
+/**
+ * Record the status. `used` also stamps lastUsedAt: pass it only from commands
+ * a person runs on this one worktree (start, web, stop), never from bulk ones.
+ */
+async function setStatus(name: string, status: SlotEntry['status'], used = false): Promise<void> {
   await withLock(() => {
     const r = loadRegistry();
-    if (r.slots[name]) { r.slots[name].status = status; saveRegistry(r); }
+    if (r.slots[name]) {
+      r.slots[name].status = status;
+      if (used) r.slots[name].lastUsedAt = new Date().toISOString();
+      saveRegistry(r);
+    }
+  });
+}
+
+async function markUsed(name: string): Promise<void> {
+  await withLock(() => {
+    const r = loadRegistry();
+    if (r.slots[name]) { r.slots[name].lastUsedAt = new Date().toISOString(); saveRegistry(r); }
   });
 }
 
@@ -238,6 +267,7 @@ ${pc.bgCyan(pc.black(' pnpm worktree '))}  ${pc.dim('isolated multi-instance dev
   ${pc.cyan('pr')} ${pc.dim('<n> [--title … --base dev --draft --web]')}
   ${pc.cyan('list')} ${pc.dim('[name] [--json]')}   ${pc.cyan('status')} ${pc.dim('[n]')}   ${pc.cyan('doctor')} ${pc.dim('[--yes]')}
   ${pc.cyan('sweep')} ${pc.dim('[--idle 60m] [--yes]')}   ${pc.dim('delete .next/.turbo/dist/target/test output in idle checkouts; dry run without --yes')}
+  ${pc.cyan('autoclean')} ${pc.dim('[--dry-run] [--yes] [--install-cron | --uninstall-cron]')}   ${pc.dim('sweep idle ≥24h, cap build output 3 GB, remove clean pushed/merged worktrees; runs on create/start + every 15 min')}
 
 Each worktree gets a unique port block (base ${BASE.web}/${BASE.api}, +${STRIDE} per slot),
 shares the primary Supabase DB by default, and gets its own node_modules. Pass ${pc.cyan('--db')}
@@ -398,6 +428,9 @@ async function menu(): Promise<Args | null> {
 
 async function cmdCreate(a: Args) {
   const name = need(a.name);
+  await runAutoclean({ mode: 'auto', dryRun: false, current: name });
+  diskGuard('create');
+  ensureScheduleQuietly();
   const tunnel = !a.flags['no-tunnel'];
   const install = !!a.flags.yes;
   const requestedDbMode = dbModeFromFlags(a.flags);
@@ -447,6 +480,7 @@ async function cmdCreate(a: Args) {
         throw new Error(`worktree "${name}" already uses ${dbLabel(existingMode)}; nuke/recreate it to switch database modes`);
       }
       sub(`resuming existing worktree "${name}" (slot ${existing.slot}, ${dbLabel(existingMode, name)})`);
+      existing.lastUsedAt = new Date().toISOString(); saveRegistry(reg);
       return existing;
     }
     isNew = true;
@@ -464,7 +498,7 @@ async function cmdCreate(a: Args) {
       throw new Error(`could not find a free port block: slots ${clashes[0].slot}–${clashes.at(-1)!.slot} (${clashes.length} unregistered) each have a port in use`);
     }
     const ports = computePorts(slot);
-    const e: SlotEntry = { slot, projectId: `kortix-wt-${name}`, path: wtPath, branch, ports, dbMode: requestedDbMode, createdAt: new Date().toISOString(), status: 'created' };
+    const e: SlotEntry = { slot, projectId: `kortix-wt-${name}`, path: wtPath, branch, ports, dbMode: requestedDbMode, createdAt: new Date().toISOString(), lastUsedAt: new Date().toISOString(), status: 'created' };
     reg.slots[name] = e; saveRegistry(reg);
     return e;
   });
@@ -540,7 +574,7 @@ async function cmdCreate(a: Args) {
   if (await ensureRuntimeArtifacts(wtPath) !== 0) die('runtime artifact build failed');
 
   writeMarker(wtPath, entry);
-  await withLock(() => { const reg = loadRegistry(); if (reg.slots[name]) { reg.slots[name].status = 'created'; saveRegistry(reg); } });
+  await withLock(() => { const reg = loadRegistry(); if (reg.slots[name]) { reg.slots[name].status = 'created'; reg.slots[name].lastUsedAt = new Date().toISOString(); saveRegistry(reg); } });
 
   clack.note(
     `${pc.dim('path')}    ${wtPath}\n` +
@@ -552,7 +586,7 @@ async function cmdCreate(a: Args) {
     pc.green(`✓ worktree "${name}" ready`),
   );
   if (a.flags['no-start']) { ok(`start it:  ${pc.cyan('pnpm worktree start ' + name)}`); }
-  else { await cmdStart({ cmd: 'start', name, names: [name], flags: { ...(a.flags['no-tunnel'] ? { 'no-tunnel': true } : {}), ...(a.flags.stripe ? { stripe: true } : {}), ...(a.flags['no-web'] ? { 'no-web': true } : {}) } }); }
+  else { await cmdStart({ cmd: 'start', name, names: [name], flags: { 'skip-autoclean': true, ...(a.flags['no-tunnel'] ? { 'no-tunnel': true } : {}), ...(a.flags.stripe ? { stripe: true } : {}), ...(a.flags['no-web'] ? { 'no-web': true } : {}) } }); }
 }
 
 async function cmdStart(a: Args) {
@@ -561,6 +595,12 @@ async function cmdStart(a: Args) {
   const entry = reg.slots[name];
   if (!entry) die(`unknown worktree "${name}" — create it first`);
   if (!existsSync(entry!.path)) die(`worktree dir missing (${entry!.path}); run \`pnpm worktree nuke ${name}\` then recreate`);
+  if (!a.flags['skip-autoclean']) {
+    await runAutoclean({ mode: 'auto', dryRun: false, current: name });
+    diskGuard('start');
+    ensureScheduleQuietly();
+  }
+  capNextBeforeStart(entry!);
   if (!(await ensureDeps({ database: true, isolatedDatabase: dbModeOf(entry) !== 'shared', tunnel: !a.flags['no-tunnel'], install: false }))) {
     die('Missing dependencies above. Install them and retry.');
   }
@@ -620,7 +660,7 @@ async function cmdStart(a: Args) {
   if (await ensureRuntimeArtifacts(e.path) !== 0) die('runtime artifact build failed');
 
   for (const port of [e.ports.web, e.ports.api]) { const u = portInUse(port); if (u.inUse && u.pid) sh(['bash', '-lc', `kill ${u.pid} 2>/dev/null || true`]); }
-  await withLock(() => { const r = loadRegistry(); if (r.slots[name]) { r.slots[name].status = 'running'; saveRegistry(r); } });
+  await withLock(() => { const r = loadRegistry(); if (r.slots[name]) { r.slots[name].status = 'running'; r.slots[name].lastUsedAt = new Date().toISOString(); saveRegistry(r); } });
 
   let tunnel: Tunnel | null = null;
   if (!a.flags['no-tunnel']) {
@@ -721,10 +761,10 @@ async function cmdStart(a: Args) {
     await Promise.race([Promise.all([api.exited, gateway.exited, web?.exited]), Bun.sleep(4000)]);
     const res = await killTree(roots, { rows });
     if (res.survived.length) {
-      await setStatus(name, 'running');
+      await setStatus(name, 'running', true);
       warn(`${plural(res.survived.length, 'process', 'processes')} survived SIGKILL (${res.survived.join(', ')}) — "${name}" left marked running`);
     } else {
-      await setStatus(name, 'stopped');
+      await setStatus(name, 'stopped', true);
       ok(`stopped — ${plural(res.targeted.length, 'process', 'processes')} reaped.`);
     }
     process.exit(0);
@@ -743,6 +783,7 @@ async function cmdWeb(a: Args) {
   const e = loadRegistry().slots[name] ?? die(`unknown worktree "${name}" — create it first`);
   if (!portInUse(e.ports.api).inUse) die(`no API listens on :${e.ports.api} for "${name}" — start the stack first: pnpm worktree start ${name} --no-web`);
   if (portInUse(e.ports.web).inUse) die(`web port ${e.ports.web} is already in use — stop that process first`);
+  await markUsed(name);
   const mode = dbModeOf(e);
   const creds = mode === 'isolated' ? slotCredsFromStatus(e.ports, supaStatusEnv(name))
     : mode === 'branch' ? (await primaryForBranch()).creds
@@ -779,12 +820,12 @@ async function cmdStop(a: Args) {
   if (dbModeOf(e!) === 'isolated') sh([supabaseBin(), '--workdir', supaWorkdir(name), 'stop']);
   else sub('shared primary Supabase left running');
   if (res.survived.length) {
-    await setStatus(name, 'running');
+    await setStatus(name, 'running', true);
     warn(`${plural(res.survived.length, 'process', 'processes')} survived SIGKILL (${res.survived.join(', ')}) — "${name}" left marked running.`);
     sub(`inspect with ${pc.cyan(`ps -p ${res.survived.join(',')}`)}`);
     return;
   }
-  await setStatus(name, 'stopped');
+  await setStatus(name, 'stopped', true);
   ok(`stopped (data preserved). Restart with ${pc.cyan('pnpm worktree start ' + name)}.`);
 }
 
@@ -840,7 +881,13 @@ async function nukeOne(name: string, e: SlotEntry, flags: Record<string, string 
   // the nuke: everything below (branch delete, slot dir, registry entry) assumes
   // the worktree is gone, and dropping the slot for a directory that survived
   // orphans it beyond the reach of every `pnpm worktree` command.
-  if (existsSync(e.path)) { sub('removing git worktree…'); removeWorktree(root, e.path, Boolean(flags.force)); }
+  if (existsSync(e.path)) {
+    // A dev server rewrites NOISE_PATHS; that change alone must not block removal.
+    const noise = probeCheckout(e.path).noise;
+    if (noise.length) sh(['git', '-C', e.path, 'checkout', '--', ...noise]);
+    sub('removing git worktree…');
+    removeWorktree(root, e.path, Boolean(flags.force));
+  }
   sh(['git', '-C', root, 'worktree', 'prune']);
   if (e.branch) {
     const del = sh(['git', '-C', root, 'branch', '-d', e.branch]);
@@ -848,9 +895,12 @@ async function nukeOne(name: string, e: SlotEntry, flags: Record<string, string 
     // --force drops a branch only when every commit on it also exists on a remote.
     // A branch with unpushed commits is the only copy of that work: 2026-11-05 a
     // `nuke --force` deleted a 60-commit branch that had never been pushed.
-    else if (flags.force && sh(['git', '-C', root, 'rev-list', '--count', e.branch, '--not', '--remotes']).stdout.trim() === '0') {
+    // Autoclean passes `branch-pushed`: it drops the branch on the same rule, without --force's worktree removal.
+    else if ((flags.force || flags['branch-pushed']) && sh(['git', '-C', root, 'rev-list', '--count', e.branch, '--not', '--remotes']).stdout.trim() === '0') {
       sh(['git', '-C', root, 'branch', '-D', e.branch]); sub(`force-deleted branch "${e.branch}" (had unmerged commits, all pushed)`);
     }
+    // Autoclean passes `branch-merged` when the branch's PR is merged (or its every change is in origin/dev).
+    else if (flags['branch-merged']) { sh(['git', '-C', root, 'branch', '-D', e.branch]); sub(`deleted branch "${e.branch}" (merged into dev)`); }
     else if (flags.force) sub(`kept branch "${e.branch}": it has commits on no remote. Push it, or run \`git branch -D ${e.branch}\` to drop them`);
     else sub(`kept branch "${e.branch}" (unmerged commits) — \`git branch -D ${e.branch}\` or \`nuke --force\` to drop it`);
   }
@@ -865,28 +915,50 @@ async function nukeOne(name: string, e: SlotEntry, flags: Record<string, string 
  * `--yes` or a non-TTY stdin keeps the old non-interactive behavior for scripts.
  */
 /**
- * Snapshot one registry slot for the bulk selector. Impure by design: probes
- * live ports, `git status`, HEAD commit time and the worktree index mtime.
+ * What a checkout's git state says about it. Impure: runs `git` with
+ * --no-optional-locks so the probe never refreshes the index (a refreshed
+ * index used to read as "active 1m ago").
  */
+interface CheckoutProbe {
+  /** changed tracked + untracked (non-ignored) files that are not NOISE_PATHS. */
+  meaningful: string[];
+  /** NOISE_PATHS entries with a change, restorable with `git checkout --`. */
+  noise: string[];
+  headCommitMs: number | null;
+  /** commits on HEAD (and the registered branch) that no remote ref contains; null when unknown. */
+  unpushed: number | null;
+  changedMtimesMs: number[];
+}
+const git = (path: string, ...args: string[]) => sh(['git', '--no-optional-locks', '-C', path, ...args]);
+function probeCheckout(path: string, branch?: string): CheckoutProbe {
+  const entries = parsePorcelain(git(path, 'status', '--porcelain').stdout);
+  const meaningful = meaningfulChanges(entries);
+  const noise = entries.filter((x) => isNoise(x.path) && x.xy !== '??').map((x) => x.path);
+  const changedMtimesMs: number[] = [];
+  for (const x of meaningful.slice(0, 500)) {
+    try { changedMtimesMs.push(statSync(joinPath(path, x.path)).mtimeMs); } catch {}
+  }
+  const head = Number(git(path, 'log', '-1', '--format=%ct').stdout.trim());
+  const refs = ['HEAD', ...(branch && git(path, 'rev-parse', '--verify', '--quiet', `refs/heads/${branch}`).ok ? [`refs/heads/${branch}`] : [])];
+  const up = git(path, 'rev-list', '--count', ...refs, '--not', '--remotes');
+  const unpushed = up.ok && /^\d+$/.test(up.stdout.trim()) ? Number(up.stdout.trim()) : null;
+  return {
+    meaningful: meaningful.map((x) => x.path), noise,
+    headCommitMs: Number.isFinite(head) && head > 0 ? head * 1000 : null,
+    unpushed, changedMtimesMs,
+  };
+}
+
+/** Snapshot one registry slot for the `nuke --all` selector. */
 function pruneCandidate(name: string, e: SlotEntry, live: Set<number> | null): PruneCandidate {
   const isLive = live ? live.has(e.ports.web) || live.has(e.ports.api) : e.status === 'running';
   const missing = !existsSync(e.path);
-  let dirty = false;
-  let lastActivity: number | null = null;
-  if (!missing) {
-    dirty = sh(['git', '-C', e.path, 'status', '--porcelain', '--untracked-files=no']).stdout.trim().length > 0;
-    const head = Number(sh(['git', '-C', e.path, 'log', '-1', '--format=%ct']).stdout.trim());
-    if (Number.isFinite(head) && head > 0) lastActivity = head * 1000;
-    try {
-      // `<path>/.git` is a file: "gitdir: <repo>/.git/worktrees/<id>" — its index mtime is the last checkout/stage.
-      const gitFile = joinPath(e.path, '.git');
-      const gitdir = readFileSync(gitFile, 'utf8').replace(/^gitdir:\s*/, '').trim();
-      const idx = joinPath(isAbsolute(gitdir) ? gitdir : joinPath(e.path, gitdir), 'index');
-      const m = statSync(idx).mtimeMs;
-      lastActivity = lastActivity === null ? m : Math.max(lastActivity, m);
-    } catch {}
-  }
-  return { name, live: isLive, dirty, missing, createdAt: e.createdAt, lastActivity };
+  if (missing) return { name, live: isLive, dirty: false, missing, createdAt: e.createdAt, lastActivity: null };
+  const p = probeCheckout(e.path, e.branch);
+  return {
+    name, live: isLive, dirty: p.meaningful.length > 0, missing, createdAt: e.createdAt,
+    lastActivity: lastActivity({ createdAt: e.createdAt, lastUsedAt: e.lastUsedAt, headCommitMs: p.headCommitMs, changedMtimesMs: p.changedMtimesMs }),
+  };
 }
 
 /**
@@ -1018,31 +1090,40 @@ function cmdStatus(a: Args) {
  * and no file written within --idle. Tracked dirs (packages/ui/dist) are kept.
  * Without --yes it only reports. The next `pnpm dev` / build regenerates it.
  */
+function gitWorktreePaths(): string[] {
+  return sh(['git', '-C', repoRoot(), 'worktree', 'list', '--porcelain']).stdout
+    .split('\n').filter((l) => l.startsWith('worktree ')).map((l) => l.slice(9));
+}
+/** `find` inside one checkout, skipping node_modules, .git and nested worktrees (.claude/worktrees/*). */
+function findIn(wt: string, wts: string[], ...test: string[]): string[] {
+  const nested = wts.filter((o) => o !== wt && o.startsWith(`${wt}/`)).flatMap((o) => ['-path', o, '-prune', '-o']);
+  return sh(['find', wt, ...nested, '(', '-name', 'node_modules', '-o', '-name', '.git', ')', '-prune', '-o', ...test]).stdout
+    .split('\n').filter(Boolean);
+}
+/** ARTIFACT_DIRS in one checkout, minus anything under a src/ dir and any dir that holds a tracked file. */
+function artifactDirs(wt: string, wts: string[]): string[] {
+  return findIn(wt, wts, '-type', 'd', '(', ...ARTIFACT_DIRS.flatMap((n, i) => (i ? ['-o', '-name', n] : ['-name', n])), ')', '-prune', '-print')
+    .filter((d) => !d.slice(wt.length).includes('/src/'))
+    .filter((d) => !sh(['git', '-C', wt, 'ls-files', '--', d]).stdout.trim());
+}
+const recentWrite = (dir: string, minutes: number) => sh(['find', dir, '-type', 'f', '-mmin', `-${minutes}`, '-print', '-quit']).stdout.trim() !== '';
+const duKb = (d: string) => Number(sh(['du', '-sk', d]).stdout.split('\t')[0]) || 0;
+const gbOf = (kb: number) => fmtKb(kb);
+
 function cmdSweep(a: Args) {
   const idleMin = Math.ceil(parseDuration(typeof a.flags.idle === 'string' ? a.flags.idle : '60m') / 60_000);
-  const wts = sh(['git', '-C', repoRoot(), 'worktree', 'list', '--porcelain']).stdout
-    .split('\n').filter((l) => l.startsWith('worktree ')).map((l) => l.slice(9));
+  const wts = gitWorktreePaths();
   const cwds = cwdTable().map((r) => r.cwd);
   const commands = psTable().map((r) => r.command);
-  // A nested worktree (.claude/worktrees/*) is swept on its own terms, never as part of its parent.
-  const findIn = (wt: string, ...test: string[]) => {
-    const nested = wts.filter((o) => o !== wt && o.startsWith(`${wt}/`)).flatMap((o) => ['-path', o, '-prune', '-o']);
-    return sh(['find', wt, ...nested, '(', '-name', 'node_modules', '-o', '-name', '.git', ')', '-prune', '-o', ...test]).stdout
-      .split('\n').filter(Boolean);
-  };
-  const recent = (dir: string) => sh(['find', dir, '-type', 'f', '-mmin', `-${idleMin}`, '-print', '-quit']).stdout.trim() !== '';
   step(`Sweeping ${plural(wts.length, 'worktree', 'worktrees')} (idle ≥ ${idleMin}m)`);
   let kb = 0, dirs = 0, busy = 0;
   for (const wt of wts) {
     if (!existsSync(wt)) continue;
-    if (sweepBusy(wt, cwds, commands) || findIn(wt, '-type', 'f', '-mmin', `-${idleMin}`, '-print', '-quit').length) { busy++; continue; }
-    const found = findIn(wt, '-type', 'd', '(', ...ARTIFACT_DIRS.flatMap((n, i) => (i ? ['-o', '-name', n] : ['-name', n])), ')', '-prune', '-print')
-      .filter((d) => !d.slice(wt.length).includes('/src/'));
-    for (const d of found) {
-      if (sh(['git', '-C', wt, 'ls-files', '--', d]).stdout.trim()) continue;
-      const size = Number(sh(['du', '-sk', d]).stdout.split('\t')[0]) || 0;
+    if (sweepBusy(wt, cwds, commands) || findIn(wt, wts, '-type', 'f', '-mmin', `-${idleMin}`, '-print', '-quit').length) { busy++; continue; }
+    for (const d of artifactDirs(wt, wts)) {
+      const size = duKb(d);
       if (a.flags.yes) {
-        if (recent(d)) continue;
+        if (recentWrite(d, idleMin)) continue;
         rmSync(d, { recursive: true, force: true });
       }
       kb += size; dirs++;
@@ -1053,6 +1134,616 @@ function cmdSweep(a: Args) {
   ok(a.flags.yes
     ? `deleted ${plural(dirs, 'dir', 'dirs')}, ${gb} GB · skipped ${busy} busy`
     : `dry run: ${plural(dirs, 'dir', 'dirs')}, ${gb} GB · ${busy} busy · pass --yes to delete`);
+}
+
+/** The primary checkout: the directory that holds the shared `.git`. */
+function primaryRoot(): string {
+  const common = sh(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir']).stdout.trim();
+  return common ? dirname(common) : repoRoot();
+}
+
+const AUTOCLEAN_LOCK = joinPath(WT_HOME, 'autoclean.lock');
+const AUTOCLEAN_LOCK_STALE_MS = 15 * 60_000;
+/** One autoclean at a time on the box. A second caller skips instead of waiting. */
+function tryAutocleanLock(): (() => void) | null {
+  const acquire = () => {
+    const fd = openSync(AUTOCLEAN_LOCK, 'wx');
+    writeFileSync(fd, String(process.pid));
+    closeSync(fd);
+    return () => { try { rmSync(AUTOCLEAN_LOCK, { force: true }); } catch {} };
+  };
+  try { return acquire(); } catch { /* held, or stale: break a stale lock below */ }
+  try {
+    breakStaleAutocleanLock();
+    return acquire();
+  } catch { return null; }
+}
+/**
+ * Removes the autoclean lock only when it is older than 15 min. Never
+ * stat-then-delete by path: another caller can break and re-take the lock in
+ * between, and the delete would remove its fresh lock. The age is read from an
+ * open descriptor, the lock is moved aside with one atomic rename, and the moved
+ * file is deleted only when it is the same inode that was found stale. A fresh
+ * lock moved by mistake is linked back.
+ */
+function breakStaleAutocleanLock(): void {
+  const fd = openSync(AUTOCLEAN_LOCK, 'r');
+  let ino: number;
+  try {
+    const st = fstatSync(fd);
+    if (Date.now() - st.mtimeMs <= AUTOCLEAN_LOCK_STALE_MS) return;
+    ino = st.ino;
+  } finally { closeSync(fd); }
+  const moved = `${AUTOCLEAN_LOCK}.stale-${process.pid}`;
+  renameSync(AUTOCLEAN_LOCK, moved);
+  const movedFd = openSync(moved, 'r');
+  try {
+    if (fstatSync(movedFd).ino !== ino) { try { linkSync(moved, AUTOCLEAN_LOCK); } catch {} }
+  } finally { closeSync(movedFd); }
+  rmSync(moved, { force: true });
+}
+
+/** A checkout autoclean may touch: a registry slot, or a Claude Code isolation worktree. */
+interface Checkout {
+  kind: 'slot' | 'claude';
+  /** slot name, or `claude:<id>`. */
+  name: string;
+  path: string;
+  branch?: string;
+  entry?: SlotEntry;
+  lock: LockState;
+}
+interface AutocleanPlan {
+  verdict: AutocleanVerdict;
+  checkout: Checkout;
+  sweepDirs: string[];
+  sweepKb: number;
+  cap: CapVerdict[];
+  unpushed: number | null;
+  merged: boolean;
+}
+interface BranchPlan { name: string; remove: boolean; why: string }
+interface FullPlan {
+  pass: AutocleanPass;
+  freeBytes: number | null;
+  plans: AutocleanPlan[];
+  branches: BranchPlan[];
+  trims: CacheTrim[];
+  trimsBlocked: boolean;
+}
+
+const MERGED_CACHE = joinPath(WT_HOME, 'merged-prs.json');
+const MERGED_CACHE_TTL_MS = 10 * 60_000;
+let mergedIdx: Map<string, MergedPr[]> | null | undefined;
+/**
+ * Recently merged PRs of the repo, by head branch: one `gh` call (~6 s for
+ * 500 PRs), cached for 10 minutes so `create`/`start` rarely pay it. Null when
+ * `gh` is missing, signed out or offline: callers fall back to git.
+ */
+function mergedPrs(root: string): Map<string, MergedPr[]> | null {
+  if (mergedIdx !== undefined) return mergedIdx;
+  try {
+    // Age and content from one descriptor: a stat-then-read by path could read
+    // a cache another process replaced in between (CodeQL js/file-system-race).
+    const fd = openSync(MERGED_CACHE, 'r');
+    try {
+      if (Date.now() - fstatSync(fd).mtimeMs < MERGED_CACHE_TTL_MS) return (mergedIdx = mergedPrIndex(readFileSync(fd, 'utf8')));
+    } finally { closeSync(fd); }
+  } catch {}
+  if (!which('gh')) return (mergedIdx = null);
+  const r = sh(['gh', 'pr', 'list', '--state', 'merged', '--limit', '500', '--json', 'number,headRefName,headRefOid'], { cwd: root });
+  if (!r.ok) return (mergedIdx = null);
+  // Write aside and rename into place: a reader never sees a half-written
+  // cache, and the write never races the read above (CodeQL js/file-system-race).
+  try {
+    const tmp = `${MERGED_CACHE}.${process.pid}.tmp`;
+    writeFileSync(tmp, r.stdout);
+    renameSync(tmp, MERGED_CACHE);
+  } catch {}
+  return (mergedIdx = mergedPrIndex(r.stdout));
+}
+
+/**
+ * Every file the branch changed (merge-base..tip) is identical in origin/dev:
+ * merging it would change nothing. Catches a squash merge when `gh` is not
+ * available. Rename detection is off (it costs minutes on old branches).
+ */
+function treeInDev(root: string, tip: string): boolean {
+  const mb = sh(['git', '-C', root, 'merge-base', 'origin/dev', tip]).stdout.trim();
+  if (!mb) return false;
+  const files = sh(['git', '-C', root, 'diff', '--no-renames', '--name-only', '-z', mb, tip]).stdout.split('\0').filter(Boolean);
+  if (!files.length) return true;
+  if (files.length > 2000) return false;
+  const ls = (ref: string) => sh(['git', '-C', root, 'ls-tree', '-r', '--full-tree', ref, '--', ...files]);
+  const a = ls('origin/dev'), b = ls(tip);
+  return a.ok && b.ok && a.stdout === b.stdout;
+}
+
+/**
+ * Is the work on `tip` in dev? In order: the tip is an ancestor of origin/dev;
+ * a merged PR for `branch` covers the tip (`prCovering`); without `gh`, every
+ * changed file matches origin/dev (`treeInDev`, only when the branch has
+ * commits on no remote).
+ */
+function branchMerged(root: string, branch: string | undefined, tip: string | undefined, unpushed: number | null): boolean {
+  if (!tip) return false;
+  if (sh(['git', '-C', root, 'merge-base', '--is-ancestor', tip, 'origin/dev']).ok) return true;
+  const idx = mergedPrs(root);
+  if (idx) {
+    if (!branch) return false;
+    return prCovering(idx.get(branch), tip, (oid) => {
+      if (!sh(['git', '-C', root, 'cat-file', '-e', `${oid}^{commit}`]).ok) return null;
+      const r = sh(['git', '-C', root, 'rev-list', '--count', tip, '--not', oid, '--remotes']);
+      return r.ok && /^\d+$/.test(r.stdout.trim()) ? Number(r.stdout.trim()) : null;
+    }) !== null;
+  }
+  return unpushed !== 0 && treeInDev(root, tip);
+}
+
+/** Start time of a live pid (Linux /proc), undefined when alive but unknowable, null when gone. Signal 0 only probes. */
+function procStart(pid: number): string | null | undefined {
+  try { process.kill(pid, 0); } catch (e: any) { return e?.code === 'EPERM' ? undefined : null; }
+  try { return procStatStart(readFileSync(`/proc/${pid}/stat`, 'utf8')) ?? undefined; } catch { return undefined; }
+}
+
+const mtimeMs = (p: string) => { try { return statSync(p).mtimeMs; } catch { return NaN; } };
+const isoOr = (ms: number) => (Number.isFinite(ms) ? new Date(ms).toISOString() : undefined);
+
+function freeBytesOf(dir: string): number | null {
+  return parseDfFreeBytes(sh(['df', '-Pk', dir]).stdout);
+}
+
+/** Build output dirs of one checkout, with size, for the cap rule. `skip` = dirs already being swept. */
+function capDirsOf(path: string, wts: string[], cwds: string[], commands: string[], capBytes: number, skip: Set<string>): CapDir[] {
+  return artifactDirs(path, wts).filter((d) => !skip.has(d)).map((d) => {
+    const kb = duKb(d);
+    const over = kb * 1024 > capBytes;
+    return { dir: d, kb, recentWrite: over && recentWrite(d, RECENT_WRITE_MIN), pkgBusy: over && sweepBusy(capOwnerDir(d), cwds, commands) };
+  });
+}
+
+/**
+ * Probe every registry slot and every Claude Code isolation worktree, and
+ * decide. Never touches the primary checkout, a worktree git does not list,
+ * or a git worktree outside the registry and `<primary>/.claude/worktrees/`
+ * (scratchpad checkouts).
+ */
+function planAutoclean(cfg: AutocleanConfig, current: string | undefined, measure: boolean): FullPlan {
+  const reg = loadRegistry();
+  const primary = primaryRoot();
+  const freeBytes = freeBytesOf(dirname(primary));
+  const pass = autocleanPass(cfg, freeBytes);
+  const live = listenPorts();
+  const ps = psTable();
+  const cwds = cwdTable().map((r) => r.cwd);
+  const commands = ps.map((r) => r.command);
+  const gitWts = parseWorktreePorcelain(sh(['git', '-C', primary, 'worktree', 'list', '--porcelain']).stdout);
+  const wts = gitWts.map((w) => w.path);
+  const now = Date.now();
+  const commonDir = joinPath(primary, '.git');
+
+  const checkouts: Checkout[] = Object.entries(reg.slots).map(([name, e]) => ({ kind: 'slot', name, path: e.path, branch: e.branch, entry: e, lock: 'none' }));
+  for (const w of gitWts) {
+    if (!isClaudeWorktree(w.path, primary) || checkouts.some((c) => c.path === w.path)) continue;
+    checkouts.push({ kind: 'claude', name: `claude:${basename(w.path)}`, path: w.path, branch: w.branch, lock: lockState(w.locked, procStart) });
+  }
+
+  const plans: AutocleanPlan[] = [];
+  for (const co of checkouts) {
+    const e = co.entry;
+    const missing = !existsSync(co.path);
+    const listed = wts.includes(co.path);
+    const probe = missing || !listed ? null : probeCheckout(co.path, co.branch);
+    let activity: number | null;
+    if (co.kind === 'slot') {
+      activity = lastActivity({ createdAt: e!.createdAt, lastUsedAt: e!.lastUsedAt, headCommitMs: probe?.headCommitMs, changedMtimesMs: probe?.changedMtimesMs });
+    } else {
+      // No registry: the worktree's admin dir (HEAD, index, lock) changes when the agent works in it.
+      const admin = joinPath(commonDir, 'worktrees', basename(co.path));
+      const touched = Math.max(mtimeMs(admin), mtimeMs(joinPath(admin, 'HEAD')), mtimeMs(joinPath(admin, 'locked')));
+      activity = lastActivity({ lastUsedAt: isoOr(touched), headCommitMs: probe?.headCommitMs, changedMtimesMs: probe?.changedMtimesMs });
+    }
+    const unpushed = probe ? probe.unpushed : 0;
+    const cand: AutocleanCandidate = {
+      name: co.name,
+      primary: co.path.replace(/\/+$/, '') === primary,
+      live: e ? (live ? live.has(e.ports.web) || live.has(e.ports.api) : e.status === 'running') : false,
+      busy: (!missing && sweepBusy(co.path, cwds, commands)) || co.lock === 'agent-running' || co.lock === 'other',
+      missing,
+      unregistered: !missing && !listed,
+      meaningfulChanges: probe?.meaningful.length ?? 0,
+      unpushed,
+      lastActivity: activity,
+      current: co.kind === 'slot' && co.name === current,
+    };
+    // Merge detection costs git (and maybe one gh call): only ask when it can change the verdict.
+    const idle = activity === null ? 0 : now - activity;
+    const mayRemove = probe && !cand.live && !cand.busy && cand.meaningfulChanges === 0 && idle >= pass.mergedRemoveIdleMs;
+    cand.merged = mayRemove ? branchMerged(primary, co.branch, sh(['git', '-C', co.path, 'rev-parse', 'HEAD']).stdout.trim() || undefined, unpushed) : false;
+    const verdict = decideAutoclean(cand, pass, now);
+    const lockReason = co.kind === 'claude' ? gitWts.find((w) => w.path === co.path)?.locked : undefined;
+    if (co.lock === 'agent-running') verdict.why = 'Claude agent still running (worktree lock)';
+    if (co.lock === 'other') verdict.why = `locked by a person (${lockReason || 'no reason given'})`;
+    const sweepDirs = verdict.sweep ? artifactDirs(co.path, wts) : [];
+    if (verdict.sweep && !sweepDirs.length) { verdict.sweep = false; verdict.why = verdict.why.replace(/ — sweep build output$/, ' — no build output to sweep'); }
+    const sweepKb = measure ? sweepDirs.reduce((n, d) => n + duKb(d), 0) : 0;
+    const cap = verdict.remove || missing || !listed || cand.primary
+      ? []
+      : decideCap({ primary: cand.primary, live: cand.live }, capDirsOf(co.path, wts, cwds, commands, cfg.capBytes, new Set(sweepDirs)), cfg.capBytes);
+    plans.push({ verdict, checkout: co, sweepDirs, sweepKb, cap, unpushed, merged: !!cand.merged });
+  }
+
+  // Leftover worktree-agent-* branches: one rev-list finds every one that holds a commit on no remote.
+  const checkedOut = new Set(gitWts.map((w) => w.branch).filter(Boolean) as string[]);
+  const agentBranches = sh(['git', '-C', primary, 'for-each-ref', '--format=%(refname:short) %(objectname)', 'refs/heads/worktree-agent-*']).stdout
+    .split('\n').filter(Boolean).map((l) => l.split(' ') as [string, string]);
+  const unpushedTips = new Set(agentBranches.length
+    ? sh(['git', '-C', primary, 'rev-list', '--branches=worktree-agent-*', '--not', '--remotes']).stdout.split('\n').filter(Boolean)
+    : []);
+  const branches = agentBranches.map(([name, tip]) => {
+    const isOut = checkedOut.has(name);
+    const unp = unpushedTips.has(tip) ? 1 : 0;
+    const merged = !isOut && unp > 0 ? branchMerged(primary, name, tip, unp) : false;
+    const d = decideBranch({ name, checkedOut: isOut, unpushed: unp, merged });
+    return d.remove || d.why !== `${unp} commit(s) on no remote` ? d : { ...d, why: 'commits on no remote, not merged' };
+  });
+
+  const trims = pass.pressure ? cacheTrims((bin) => !!which(bin)) : [];
+  return { pass, freeBytes, plans, branches, trims, trimsBlocked: pass.pressure && installRunning(commands) };
+}
+
+/** Run `fn` with console.log captured; replay the lines only when it throws. */
+async function quietly(fn: () => Promise<void>): Promise<void> {
+  const lines: unknown[][] = [];
+  const log = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args); };
+  try { await fn(); } catch (err) { console.log = log; for (const l of lines) log(...l); throw err; } finally { console.log = log; }
+}
+
+/**
+ * Remove one Claude Code isolation worktree. A lock left by an agent that no
+ * longer runs is lifted first; `git worktree remove` without --force refuses
+ * a checkout with changes, so real work can never go. The branch goes too
+ * when its commits are on a remote or merged.
+ */
+function removeClaudeWorktree(p: AutocleanPlan): void {
+  const root = primaryRoot();
+  const { path, branch } = p.checkout;
+  const noise = probeCheckout(path).noise;
+  if (noise.length) sh(['git', '-C', path, 'checkout', '--', ...noise]);
+  if (p.checkout.lock === 'agent-gone') sh(['git', '-C', root, 'worktree', 'unlock', path]);
+  removeWorktree(root, path, false);
+  sh(['git', '-C', root, 'worktree', 'prune']);
+  if (!branch) return;
+  if (!sh(['git', '-C', root, 'branch', '-d', branch]).ok && (p.merged || p.unpushed === 0)) sh(['git', '-C', root, 'branch', '-D', branch]);
+}
+
+const gbs = (bytes: number | null) => (bytes === null ? '?' : fmtKb(bytes / 1024));
+
+/**
+ * Sweep build output (idle ≥ sweepIdle, any idle under pressure), delete
+ * build output over the cap in stopped checkouts, remove clean pushed or
+ * merged worktrees and Claude isolation worktrees idle past the threshold,
+ * delete leftover worktree-agent-* branches, and under pressure trim the
+ * machine caches. `auto` mode runs inside create/start and on the schedule:
+ * it acts without asking and prints one summary line, or nothing.
+ */
+async function runAutoclean(opts: { mode: 'auto' | 'explicit'; dryRun: boolean; current?: string; stamp?: boolean }): Promise<void> {
+  const { config, warnings } = autocleanConfig(process.env);
+  for (const w of warnings) warn(w);
+  if (opts.mode === 'auto' && !config.enabled) return;
+  const release = tryAutocleanLock();
+  if (!release) { if (opts.mode === 'explicit') warn('another autoclean is running — skipped'); return; }
+  try {
+    const explicit = opts.mode === 'explicit';
+    if (explicit) step(`Autoclean: sweep build output idle ≥ ${fmtMs(config.sweepIdleMs)}, cap build output at ${gbs(config.capBytes)}, remove clean pushed worktrees idle ≥ ${fmtMs(config.removeIdleMs)} (merged ≥ ${fmtMs(config.mergedRemoveIdleMs)})${opts.dryRun ? pc.dim(' (dry run)') : ''}`);
+    const plan = planAutoclean(config, opts.current, explicit);
+    const { plans, pass } = plan;
+    if (explicit) {
+      sub(pass.pressure
+        ? pc.yellow(`disk pressure: ${gbs(plan.freeBytes)} free < ${gbs(config.pressureFreeBytes)} — sweep every stopped checkout, remove idle ≥ ${fmtMs(pass.removeIdleMs)}, trim caches`)
+        : `disk: ${gbs(plan.freeBytes)} free (pressure mode below ${gbs(config.pressureFreeBytes)})`);
+      for (const p of plans) {
+        const tag = p.verdict.remove ? pc.red('remove') : p.verdict.sweep ? pc.yellow('sweep ') : pc.dim('keep  ');
+        const size = p.verdict.sweep ? pc.dim(` · ${gbOf(p.sweepKb)} in ${plural(p.sweepDirs.length, 'dir', 'dirs')}`) : '';
+        sub(`${tag} ${pc.bold(p.verdict.name)} ${pc.dim('— ' + p.verdict.why)}${size}`);
+        for (const c of p.cap) sub(`  ${c.remove ? pc.red('cap   ') : pc.dim('cap   ')} ${c.dir.slice(p.checkout.path.length + 1)} ${pc.dim('— ' + c.why)}`);
+      }
+      const del = plan.branches.filter((b) => b.remove);
+      const kept = plan.branches.filter((b) => !b.remove);
+      if (plan.branches.length) {
+        sub(`branches: delete ${plural(del.length, 'worktree-agent-* branch', 'worktree-agent-* branches')}${del.length ? pc.dim(` (${del.slice(0, 5).map((b) => b.name).join(', ')}${del.length > 5 ? ', …' : ''})`) : ''}`);
+        const why = new Map<string, number>();
+        for (const b of kept) why.set(b.why, (why.get(b.why) ?? 0) + 1);
+        for (const [w, n] of why) sub(`          keep ${n} ${pc.dim('— ' + w)}`);
+      }
+      if (plan.trims.length) sub(`caches: ${plan.trimsBlocked ? pc.dim('skipped — a package install or go build is running') : plan.trims.map((t) => t.label).join(' · ')}`);
+    }
+    const toSweep = plans.filter((p) => p.verdict.sweep);
+    const toRemove = plans.filter((p) => p.verdict.remove);
+    const toCap = plans.flatMap((p) => p.cap.filter((c) => c.remove).map((c) => ({ p, c })));
+    const toBranch = plan.branches.filter((b) => b.remove);
+    if (opts.dryRun) {
+      ok(`dry run: would sweep ${plural(toSweep.length, 'checkout', 'checkouts')} (${gbOf(toSweep.reduce((n, p) => n + p.sweepKb, 0))}), cap ${plural(toCap.length, 'dir', 'dirs')} (${gbOf(toCap.reduce((n, x) => n + x.c.kb, 0))}), remove ${plural(toRemove.length, 'worktree', 'worktrees')}, delete ${plural(toBranch.length, 'branch', 'branches')}${plan.trims.length && !plan.trimsBlocked ? `, trim ${plural(plan.trims.length, 'cache', 'caches')}` : ''}, keep ${plans.length - toSweep.length - toRemove.length}`);
+      return;
+    }
+    const trim = plan.trims.length > 0 && !plan.trimsBlocked;
+    if (!toSweep.length && !toRemove.length && !toCap.length && !toBranch.length && !trim) { if (explicit) ok('nothing to clean'); return; }
+
+    // Re-probe right before acting: a session may have started since the scan.
+    const live = listenPorts();
+    const cwds = cwdTable().map((r) => r.cwd);
+    const commands = psTable().map((r) => r.command);
+    const nowBusy = (co: Checkout) =>
+      (co.entry && live ? live.has(co.entry.ports.web) || live.has(co.entry.ports.api) : false) ||
+      (existsSync(co.path) && sweepBusy(co.path, cwds, commands));
+    const sweepMin = Math.max(RECENT_WRITE_MIN, Math.ceil(pass.sweepIdleMs / 60_000));
+    let swept = 0, sweptKb = 0, capped = 0, removed = 0, branchesDeleted = 0;
+    const failed: string[] = [];
+    for (const p of toSweep) {
+      if (nowBusy(p.checkout)) continue;
+      let n = 0;
+      for (const d of p.sweepDirs) {
+        if (recentWrite(d, sweepMin)) continue;
+        sweptKb += duKb(d);
+        rmSync(d, { recursive: true, force: true });
+        n++;
+      }
+      if (n) swept++;
+    }
+    for (const { p, c } of toCap) {
+      const co = p.checkout;
+      const isLive = co.entry && live ? live.has(co.entry.ports.web) || live.has(co.entry.ports.api) : false;
+      if (isLive || !existsSync(c.dir) || sweepBusy(capOwnerDir(c.dir), cwds, commands) || recentWrite(c.dir, RECENT_WRITE_MIN)) continue;
+      sweptKb += duKb(c.dir);
+      rmSync(c.dir, { recursive: true, force: true });
+      capped++;
+    }
+    for (const p of toRemove) {
+      const co = p.checkout;
+      if (nowBusy(co)) continue;
+      const kb = existsSync(co.path) ? duKb(joinPath(co.path, 'apps/web/.next')) : 0;
+      try {
+        if (co.kind === 'slot') await quietly(() => nukeOne(co.name, co.entry!, { 'branch-pushed': true, ...(p.merged ? { 'branch-merged': true } : {}) }));
+        else {
+          const w = parseWorktreePorcelain(sh(['git', '-C', primaryRoot(), 'worktree', 'list', '--porcelain']).stdout).find((x) => x.path === co.path);
+          if (!w || lockState(w.locked, procStart) === 'agent-running' || lockState(w.locked, procStart) === 'other') continue;
+          removeClaudeWorktree(p);
+        }
+        removed++; sweptKb += kb;
+      } catch (err: any) { failed.push(co.name); warn(`autoclean: "${co.name}" not removed: ${err?.message ?? err}`); }
+    }
+    const root = primaryRoot();
+    for (const b of toBranch) {
+      // `git branch -D` refuses a branch a worktree has checked out, so a new checkout since the scan is safe.
+      if (sh(['git', '-C', root, 'branch', '-D', b.name]).ok) branchesDeleted++;
+    }
+    sh(['git', '-C', root, 'worktree', 'prune']);
+    const trimmed: string[] = [];
+    if (trim && !installRunning(psTable().map((r) => r.command))) {
+      for (const t of plan.trims) if (sh(t.argv, { cwd: root }).ok) trimmed.push(t.label);
+    }
+    const freeAfter = freeBytesOf(dirname(root));
+    const parts = [];
+    if (swept) parts.push(`swept build output in ${plural(swept, 'checkout', 'checkouts')}`);
+    if (capped) parts.push(`deleted ${plural(capped, 'over-cap build dir', 'over-cap build dirs')}`);
+    if (removed) parts.push(`removed ${plural(removed, 'idle worktree', 'idle worktrees')} (${toRemove.filter((p) => !failed.includes(p.verdict.name)).map((p) => p.verdict.name).join(', ')})`);
+    if (branchesDeleted) parts.push(`deleted ${plural(branchesDeleted, 'worktree-agent-* branch', 'worktree-agent-* branches')}`);
+    if (trimmed.length) parts.push(`trimmed ${trimmed.join(', ')}`);
+    if (parts.length) {
+      const when = opts.stamp ? `${new Date().toISOString()} ` : '';
+      const disk = `${gbs(plan.freeBytes)} → ${gbs(freeAfter)} free${pass.pressure ? ' (pressure mode)' : ''}`;
+      ok(`${when}autoclean: ${parts.join(', ')} · ≥${gbOf(sweptKb)} build output · disk ${disk}${explicit ? '' : pc.dim(' · KORTIX_WORKTREE_AUTOCLEAN=0 turns this off')}`);
+    }
+  } finally { release(); }
+}
+
+const fmtMs = (ms: number) => (ms % 86_400_000 === 0 && ms > 2 * 86_400_000 ? `${ms / 86_400_000}d` : ms % 3_600_000 === 0 ? `${ms / 3_600_000}h` : `${Math.round(ms / 60_000)}m`);
+
+/**
+ * Free space on the filesystem that holds the worktrees. Below 10 GB: warn and
+ * name the 5 largest registered checkouts. Below 4 GB: `create` exits 2 and
+ * `start` only warns (a running stack needs no new checkout).
+ */
+function diskGuard(cmd: 'create' | 'start'): void {
+  const parent = dirname(primaryRoot());
+  const free = parseDfFreeBytes(sh(['df', '-Pk', parent]).stdout);
+  if (free === null) return;
+  const { warnBytes, refuseBytes } = diskThresholds(process.env);
+  const level = diskLevel(free, warnBytes, refuseBytes);
+  if (level === 'ok') return;
+  const freeGb = (free / 1024 ** 3).toFixed(1);
+  warn(`${freeGb} GB free on the disk that holds ${parent} (warn < ${+(warnBytes / 1024 ** 3).toFixed(1)} GB, refuse < ${+(refuseBytes / 1024 ** 3).toFixed(1)} GB)`);
+  // One du call, primary first: du counts a hardlinked file once, so each
+  // worktree is charged only for what it does not share with the ones before it.
+  const reg = loadRegistry();
+  const paths = Object.values(reg.slots).map((e) => e.path).filter((p) => existsSync(p));
+  const sizes = new Map<string, number>();
+  for (const line of sh(['du', '-sk', primaryRoot(), ...paths]).stdout.split('\n')) {
+    const [kb, path] = line.split('\t');
+    if (path) sizes.set(path, Number(kb) || 0);
+  }
+  const top = paths.map((p) => ({ p, kb: sizes.get(p) ?? 0 })).sort((x, y) => y.kb - x.kb).slice(0, 5);
+  for (const t of top) {
+    const next = joinPath(t.p, 'apps/web/.next');
+    sub(`${gbOf(t.kb).padStart(8)} unshared · .next ${existsSync(next) ? gbOf(duKb(next)) : '0.0 GB'}  ${t.p}`);
+  }
+  const fix = `free space: ${pc.cyan('pnpm worktree autoclean --yes')} · ${pc.cyan('pnpm worktree sweep --idle 1h --yes')} · ${pc.cyan('pnpm worktree nuke --all --idle 24h --dry-run')}`;
+  if (level === 'refuse' && cmd === 'create') {
+    console.error(`\n${pc.red('✗')} refusing to create a worktree with ${freeGb} GB free: a new worktree needs ~1.3 GB plus its build output.\n  ${fix}`);
+    process.exit(2);
+  }
+  sub(fix);
+}
+
+function readCrontab(): string | null {
+  if (!which('crontab')) return null;
+  const r = sh(['crontab', '-l']);
+  // `crontab -l` exits 1 with "no crontab for <user>" when there is none.
+  return r.ok ? r.stdout : '';
+}
+function writeCrontab(text: string): boolean {
+  const tmp = joinPath(WT_HOME, 'crontab.tmp');
+  writeFileSync(tmp, text);
+  const r = sh(['crontab', tmp]);
+  rmSync(tmp, { force: true });
+  return r.ok;
+}
+
+const KORTIX_HOME_DIR = dirname(WT_HOME);
+const BUNDLE = joinPath(KORTIX_HOME_DIR, 'bin', BUNDLE_NAME);
+const BUNDLE_STAMP = `${BUNDLE}.json`;
+const LOOP_GEN = joinPath(WT_HOME, 'autoclean-loop.gen');
+const SCHEDULE_OFF = joinPath(WT_HOME, 'autoclean-schedule.off');
+const AUTOCLEAN_LOG = joinPath(WT_HOME, 'autoclean.log');
+/** This file's directory: scripts/worktree in a checkout, $KORTIX_HOME/bin in the bundle. */
+const SOURCE_DIR = import.meta.dir;
+const runningFromBundle = () => !existsSync(joinPath(SOURCE_DIR, 'lib', 'autoclean.ts'));
+
+/** The committed version of scripts/worktree this process runs. */
+function runningCode(): RunningCode {
+  const [ct, rev] = sh(['git', '-C', SOURCE_DIR, 'log', '-1', '--format=%ct %H', '--', '.']).stdout.trim().split(' ');
+  const dirty = sh(['git', '-C', SOURCE_DIR, 'status', '--porcelain', '--', '.']).stdout.trim() !== '';
+  const ms = Number(ct) * 1000;
+  return { commitMs: Number.isFinite(ms) && ms > 0 ? ms : null, rev: rev ?? '', dirty };
+}
+
+/**
+ * Bundle this CLI into one file that runs without node_modules, prove it
+ * loads from `/`, then move it into place. Returns an error, or null.
+ */
+function buildBundle(code: RunningCode): string | null {
+  mkdirSync(dirname(BUNDLE), { recursive: true });
+  const tmp = joinPath(dirname(BUNDLE), `.worktree-autoclean.${process.pid}.js`);
+  try {
+    const b = sh([process.execPath, 'build', joinPath(SOURCE_DIR, 'cli.ts'), '--target', 'bun', '--outfile', tmp]);
+    if (!b.ok) return (b.stderr || b.stdout).trim().split('\n').pop() || 'bun build failed';
+    const check = sh([process.execPath, tmp, 'bundle-check'], { cwd: '/' });
+    if (!check.ok || !check.stdout.includes('bundle-check ok')) return `the bundle does not run standalone: ${(check.stderr || check.stdout).trim().split('\n').pop()}`;
+    renameSync(tmp, BUNDLE);
+    const stamp: BundleStamp = { sourceCommitMs: code.commitMs ?? 0, sourceRev: code.rev, dirty: code.dirty, builtAt: new Date().toISOString() };
+    writeFileSync(BUNDLE_STAMP, JSON.stringify(stamp, null, 2) + '\n');
+    return null;
+  } finally { rmSync(tmp, { force: true }); }
+}
+
+const cronDaemonRunning = () => psTable().some((r) => /(^|\/)(cron|crond)(\s|$)/.test(r.command));
+const scheduleTarget = (): ScheduleTarget => ({
+  repo: primaryRoot(), bun: process.execPath, bundle: BUNDLE,
+  path: process.env.PATH ?? '/usr/bin:/bin', kortixHome: KORTIX_HOME_DIR, log: AUTOCLEAN_LOG,
+});
+
+/** Start the fallback loop in its own session, so it outlives this command and its terminal. */
+function spawnLoop(script: string): void {
+  const argv = which('setsid') ? ['setsid', '-f', 'sh', '-c', script] : ['nohup', 'sh', '-c', script];
+  Bun.spawn(argv, { stdin: 'ignore', stdout: 'ignore', stderr: 'ignore' }).unref();
+}
+
+/**
+ * Keep the 15-minute schedule installed and current. Rebuilds the bundle when
+ * the code running now is newer (`bundleRebuildReason`), then installs the
+ * cron line or the fallback loop when it is missing or runs another command.
+ * Idempotent; a no-op inside the bundle, with KORTIX_WORKTREE_AUTOCLEAN=0, or
+ * after `--uninstall-cron` (unless `force`). Returns what it changed.
+ */
+function ensureSchedule(force: boolean): { changed: string[]; error?: string; scheduler: Scheduler } {
+  const changed: string[] = [];
+  const scheduler = pickScheduler({ platform: process.platform, hasCrontab: !!which('crontab'), cronDaemon: cronDaemonRunning(), hasSh: existsSync('/bin/sh') });
+  if (runningFromBundle()) return { changed, scheduler };
+  if (!force && (!autocleanConfig(process.env).config.enabled || existsSync(SCHEDULE_OFF))) return { changed, scheduler };
+  const code = runningCode();
+  const stamp = parseStamp(existsSync(BUNDLE_STAMP) ? readFileSync(BUNDLE_STAMP, 'utf8') : null);
+  const reason = force ? 'install requested' : bundleRebuildReason(stamp, existsSync(BUNDLE), code);
+  if (reason) {
+    const err = buildBundle(code);
+    if (err) return { changed, error: `bundle build failed: ${err}`, scheduler };
+    changed.push(`bundle rebuilt (${reason})`);
+  }
+  if (!existsSync(BUNDLE)) return { changed, scheduler };
+  const target = scheduleTarget();
+  if (scheduler === 'cron') {
+    const tab = readCrontab() ?? '';
+    const line = cronLine(target);
+    if (currentCronLine(tab) !== line) {
+      if (!writeCrontab(withCronLine(tab, line))) return { changed, error: 'crontab write failed', scheduler };
+      changed.push('cron line every 15 min installed');
+    }
+  } else if (scheduler === 'loop') {
+    const cmd = scheduledCommand(target);
+    const gen = generationOf(cmd);
+    if (!psTable().some((r) => isLoopFor(r.command, gen))) {
+      writeFileSync(LOOP_GEN, gen);
+      spawnLoop(loopScript({ cmd, genFile: LOOP_GEN, gen }));
+      changed.push('background loop every 15 min started (no cron daemon)');
+    }
+  }
+  return { changed, scheduler };
+}
+
+/** create/start: keep the schedule current, one line when something changed. Never fails the command. */
+function ensureScheduleQuietly(): void {
+  try {
+    const r = ensureSchedule(false);
+    if (r.error) warn(`autoclean schedule: ${r.error}`);
+    else if (r.changed.length) sub(`autoclean schedule: ${r.changed.join(', ')} · log ${AUTOCLEAN_LOG}`);
+  } catch (err: any) { warn(`autoclean schedule: ${err?.message ?? err}`); }
+}
+
+/** The scheduled run's log stays under ~1 MB: the old half moves to autoclean.log.1. */
+function rotateLog(): void {
+  try { if (statSync(AUTOCLEAN_LOG).size > 1_000_000) renameSync(AUTOCLEAN_LOG, `${AUTOCLEAN_LOG}.1`); } catch {}
+}
+
+/**
+ * `autoclean [--dry-run] [--yes] [--install-cron | --uninstall-cron]`. Without --yes it is a dry run.
+ * `--scheduled` (the cron line / loop) also fetches origin/dev and rotates the log.
+ */
+async function cmdAutoclean(a: Args) {
+  if (a.flags['uninstall-cron']) {
+    writeFileSync(SCHEDULE_OFF, new Date().toISOString() + '\n');
+    writeFileSync(LOOP_GEN, 'off\n');
+    const tab = readCrontab();
+    if (tab !== null && hasCronLine(tab) && !writeCrontab(withoutCronLine(tab))) die('crontab write failed');
+    ok('autoclean schedule removed: no cron line, and a running loop exits at its next tick (≤ 15 min)');
+    sub(`create/start no longer reinstall it · ${pc.cyan('pnpm worktree autoclean --install-cron')} turns it back on`);
+    return;
+  }
+  if (a.flags['install-cron']) {
+    if (runningFromBundle()) die('run --install-cron from a checkout: pnpm worktree autoclean --install-cron');
+    rmSync(SCHEDULE_OFF, { force: true });
+    const r = ensureSchedule(true);
+    if (r.error) die(`autoclean schedule: ${r.error}`);
+    if (r.scheduler === 'none') die('no scheduler on this machine: neither a cron daemon nor /bin/sh');
+    ok(`autoclean runs every 15 min via ${r.scheduler === 'cron' ? 'cron' : 'a background loop (no cron daemon on this machine)'}`);
+    sub(`bundle ${BUNDLE} · repo ${primaryRoot()} · log ${AUTOCLEAN_LOG}`);
+    for (const c of r.changed) sub(c);
+    sub(`remove it: ${pc.cyan('pnpm worktree autoclean --uninstall-cron')}`);
+    return;
+  }
+  if (a.flags.scheduled) {
+    rotateLog();
+    sh(['git', '-C', primaryRoot(), 'fetch', '--quiet', 'origin', 'dev']);
+  }
+  const dryRun = !!a.flags['dry-run'] || !a.flags.yes;
+  if (a.flags.quiet) { await runAutoclean({ mode: 'auto', dryRun, stamp: !!a.flags.scheduled }); return; }
+  await runAutoclean({ mode: 'explicit', dryRun });
+  if (dryRun) sub(`pass ${pc.cyan('--yes')} to act`);
+}
+
+/** `start`: an over-cap apps/web/.next goes before `next dev` boots it (the first page compiles cold). */
+function capNextBeforeStart(e: SlotEntry): void {
+  const { config } = autocleanConfig(process.env);
+  if (!config.enabled) return;
+  const next = joinPath(e.path, 'apps/web/.next');
+  if (!existsSync(next)) return;
+  const live = listenPorts();
+  if (live && (live.has(e.ports.web) || live.has(e.ports.api))) return;
+  const kb = duKb(next);
+  if (kb * 1024 <= config.capBytes) return;
+  // Never under a process that works in apps/web (a `next build`), never while it is being written.
+  if (recentWrite(next, RECENT_WRITE_MIN) || sweepBusy(joinPath(e.path, 'apps/web'), cwdTable().map((r) => r.cwd), psTable().map((r) => r.command))) return;
+  rmSync(next, { recursive: true, force: true });
+  sub(`deleted apps/web/.next (${gbOf(kb)} > cap ${gbs(config.capBytes)}) — the first page compiles cold · KORTIX_WORKTREE_NEXT_CAP_GB sets the cap`);
 }
 
 async function cmdDoctor(a: Args) {
@@ -1153,6 +1844,11 @@ async function cmdPr(a: Args) {
 }
 
 let a = parseArgs(process.argv.slice(2));
+// The scheduled run names its repo explicitly: cron and the loop start outside any checkout.
+if (a.cmd === 'autoclean') {
+  const repo = typeof a.flags.repo === 'string' ? a.flags.repo : process.env.KORTIX_WORKTREE_REPO;
+  if (repo) { try { process.chdir(repo); } catch { console.error(`✗ --repo ${repo}: no such directory`); process.exit(1); } }
+}
 const tty = !!process.stdin.isTTY && !!process.stdout.isTTY;
 try {
   if (tty && a.cmd === 'help' && !a.flags.help && process.argv.length <= 2) {
@@ -1191,6 +1887,8 @@ try {
     case 'pr': await cmdPr(a); break;
     case 'doctor': await cmdDoctor(a); break;
     case 'sweep': cmdSweep(a); break;
+    case 'autoclean': await cmdAutoclean(a); break;
+    case 'bundle-check': console.log('bundle-check ok'); break;
     default: usage();
   }
 } catch (e: any) {

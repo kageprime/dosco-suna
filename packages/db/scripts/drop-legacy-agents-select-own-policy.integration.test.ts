@@ -104,6 +104,8 @@ const FIXTURE = `
     '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-000000000002'
   );
+  -- The basejump stub exists when the migrations run, so freeze_legacy_suna_tables freezes it.
+  set kortix.legacy_write = 'on';
   insert into basejump.account_user (user_id, account_id, account_role) values
     ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-00000000000a', 'member');
 

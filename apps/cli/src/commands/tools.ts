@@ -3,6 +3,10 @@
  * kortix.yaml and its imports, and `eject`, which turns a Kortix tool into a
  * project tool the project owns.
  *
+ * With no local kortix.yaml (a session sandbox without a checkout), `ls` reads
+ * the manifest and its imports from the workspace repository through the same
+ * `GET /workspaces/:id/files/content` route `kortix files cat` uses.
+ *
  *   kortix tools ls [--json]          name, kind, source; and the removed Kortix tools
  *   kortix tools eject <name>         tools/<name>.ts + `tools.<name>: tools/<name>.ts`
  *
@@ -16,11 +20,16 @@ import {
   HARNESS_TOOL_NAMES,
   KORTIX_TOOL_NAMES,
   ManifestImportError,
+  type ManifestImportReader,
   TOOL_NAME_RE,
+  manifestCandidatePaths,
+  parseManifestText,
+  resolveManifestImports,
   safeToolFile,
 } from '@kortix/manifest-schema';
+import { ApiError, type ApiClient } from '../api/client.ts';
 import { splitHelp } from '../command-argv.ts';
-import { emitJson, takeFlagBool } from '../command-helpers.ts';
+import { emitJson, resolveProjectContext, surfaceApiError, takeFlagBool, takeFlagValue } from '../command-helpers.ts';
 import KORTIX_TOOL_SOURCES from '../kortix-tools.generated.json' with { type: 'json' };
 import { resolveLocalManifestImports } from '../manifest-imports.ts';
 import { setYamlMapEntry } from '../manifest-edit.ts';
@@ -36,17 +45,26 @@ module (\`<name>: <path to a .ts or .js module>\`), and a Kortix tool's name
 replaces that tool.
 
 Subcommands:
-  ls [--json]               List each tool the sessions get: name, kind
+  ls [--json] [--ref <ver>] List each tool the sessions get: name, kind
                             (kortix, kortix (overridden), workspace) and source.
+                            Reads ./kortix.yaml. Without one (a session with no
+                            checkout), or with --workspace or --ref, reads
+                            kortix.yaml and its imports from the workspace
+                            repository, as \`kortix files cat kortix.yaml\` does.
   eject <name> [--force]    Copy the Kortix tool <name> to tools/<name>.ts and
                             set \`tools.<name>: tools/<name>.ts\` in kortix.yaml.
                             The copy is yours to change; Kortix no longer
                             updates it. Refuses when tools/<name>.ts exists.
 
 Options:
-  --json        ls: machine-readable output.
-  --force       eject: overwrite tools/<name>.ts.
-  -h, --help    Show this help.
+  --json              ls: machine-readable output.
+  --ref <ver>         ls: the version (branch) to read when there is no local
+                      kortix.yaml. Default: the workspace's default branch.
+  --force             eject: overwrite tools/<name>.ts.
+  --workspace <id>    ls: the workspace to read when there is no local
+                      kortix.yaml (default: linked, or the session's).
+  --host <name>       ls: the Kortix host of that workspace.
+  -h, --help          Show this help.
 
 Limit the tools of one agent: \`agents.<name>.tools\` in kortix.yaml
 (\`tools: { exclude: [web_search] }\`).
@@ -99,13 +117,107 @@ function readManifest(): { file: string; raw: Record<string, unknown>; origins: 
   }
 }
 
-function toolsLs(json: boolean): number {
-  const manifest = readManifest();
-  if (typeof manifest === 'number') return manifest;
-  const tools = listTools(manifest.raw);
+/** Where `ls` reads the workspace manifest when there is no local checkout. */
+interface RemoteOpts {
+  projectArg?: string;
+  hostArg?: string;
+  ref?: string;
+}
+
+/** The repository-backed import reader: the same files the API resolves `imports:` from. */
+function remoteImportReader(client: ApiClient, base: string, refQ: string): ManifestImportReader {
+  const read = async (path: string) =>
+    (await client.get<{ content: string }>(`${base}/files/content?path=${encodeURIComponent(path)}${refQ}`)).content;
+  return {
+    async list(path) {
+      const entries = await client.get<Array<{ path: string }>>(`${base}/files?path=${encodeURIComponent(path)}${refQ}`);
+      if (entries.length > 0) return entries.map((entry) => ({ path: entry.path }));
+      // A file path lists nothing on some stores: a readable file is its own entry.
+      try {
+        await read(path);
+        return [{ path }];
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) return [];
+        throw err;
+      }
+    },
+    read,
+  };
+}
+
+/**
+ * The workspace repository's manifest, merged with its imports, or an exit
+ * code after printing why not. Tries the same names as a checkout
+ * (kortix.yaml, then kortix.yml).
+ */
+async function readRemoteManifest(
+  opts: RemoteOpts,
+): Promise<{ file: string; workspaceId: string; ref: string | null; raw: Record<string, unknown> } | number> {
+  const ctx = await resolveProjectContext({ projectArg: opts.projectArg, hostArg: opts.hostArg });
+  if (!ctx) {
+    process.stderr.write(
+      `${status.err('Manifest not found')}\n  ${C.dim}No ./kortix.yaml here, and no workspace to read it from. Run from your workspace root (the folder with kortix.yaml), or pass --workspace <id>.${C.reset}\n`,
+    );
+    return 2;
+  }
+  const base = `/workspaces/${ctx.projectId}`;
+  const refQ = opts.ref ? `&ref=${encodeURIComponent(opts.ref)}` : '';
+  try {
+    for (const file of manifestCandidatePaths()) {
+      let text: string;
+      try {
+        text = (await ctx.client.get<{ content: string }>(`${base}/files/content?path=${encodeURIComponent(file)}${refQ}`)).content;
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) continue;
+        throw err;
+      }
+      let raw: Record<string, unknown>;
+      try {
+        raw = parseManifestText(text);
+      } catch (err) {
+        process.stderr.write(`${status.err(`cannot parse ${file} in workspace ${ctx.projectId}: ${(err as Error).message}`)}\n`);
+        return 1;
+      }
+      const resolved = await resolveManifestImports({ path: file, raw }, remoteImportReader(ctx.client, base, refQ));
+      return { file, workspaceId: ctx.projectId, ref: opts.ref ?? null, raw: resolved.raw };
+    }
+  } catch (err) {
+    if (err instanceof ManifestImportError) {
+      process.stderr.write(`${status.err(err.message)}\n`);
+      return 1;
+    }
+    return surfaceApiError(err);
+  }
+  process.stderr.write(
+    `${status.err('Manifest not found')}\n  ${C.dim}No ./kortix.yaml here, and workspace ${ctx.projectId} has no kortix.yaml${opts.ref ? ` on ${opts.ref}` : ''}.${C.reset}\n`,
+  );
+  return 2;
+}
+
+async function toolsLs(json: boolean, remote: RemoteOpts): Promise<number> {
+  let file: string;
+  let raw: Record<string, unknown>;
+  let origin: { source: 'local' } | { source: 'workspace'; workspace_id: string; ref: string | null };
+  // An explicit --workspace or --ref names the repository copy; otherwise a checkout wins.
+  const wantsRemote = remote.projectArg !== undefined || remote.ref !== undefined;
+  if (!wantsRemote && resolveLocalManifest(process.cwd())) {
+    const manifest = readManifest();
+    if (typeof manifest === 'number') return manifest;
+    ({ file, raw } = manifest);
+    origin = { source: 'local' };
+  } else {
+    const manifest = await readRemoteManifest(remote);
+    if (typeof manifest === 'number') return manifest;
+    ({ file, raw } = manifest);
+    origin = { source: 'workspace', workspace_id: manifest.workspaceId, ref: manifest.ref };
+  }
+  const tools = listTools(raw);
   if (json) {
-    emitJson({ manifest: manifest.file, tools });
+    emitJson({ manifest: file, ...origin, tools });
     return 0;
+  }
+  if (origin.source === 'workspace') {
+    process.stdout.write(`${C.dim}From ${file} in workspace ${origin.workspace_id}${origin.ref ? ` (${origin.ref})` : ''}: no local kortix.yaml.${C.reset}\n`);
   }
   const nameWidth = Math.max(4, ...tools.map((row) => row.name.length)) + 2;
   const kindWidth = Math.max(4, ...tools.map((row) => (row.kind === 'project' ? 'workspace' : row.kind).length)) + 2;
@@ -120,6 +232,12 @@ function toolsEject(name: string | undefined, force: boolean): number {
     process.stderr.write(
       `${status.err(name ? `"${name}" is not a Kortix tool.` : 'Name the Kortix tool to eject.')}\n` +
         `  ${C.dim}Eject one of: ${KORTIX_TOOL_NAMES.join(', ')}.${C.reset}\n`,
+    );
+    return 2;
+  }
+  if (!resolveLocalManifest(process.cwd())) {
+    process.stderr.write(
+      `${status.err('Manifest not found')}\n  ${C.dim}eject writes tools/${name}.ts into a checkout: run it from your workspace root (the folder with kortix.yaml).${C.reset}\n`,
     );
     return 2;
   }
@@ -164,12 +282,21 @@ function toolsEject(name: string | undefined, force: boolean): number {
   return 0;
 }
 
-export function runTools(argv: string[]): number {
+export async function runTools(argv: string[]): Promise<number> {
   const helpCode = splitHelp(argv, HELP);
   if (helpCode !== null) return helpCode;
   const [sub, ...rest] = argv;
   const json = takeFlagBool(rest, ['--json']);
   const force = takeFlagBool(rest, ['--force']);
+  const remote: RemoteOpts = {};
+  try {
+    remote.projectArg = takeFlagValue(rest, ['--project', '--workspace']);
+    remote.hostArg = takeFlagValue(rest, ['--host']);
+    remote.ref = takeFlagValue(rest, ['--ref']);
+  } catch (err) {
+    process.stderr.write(`${(err as Error).message}\n\n${HELP}`);
+    return 2;
+  }
   const unknown = rest.find((arg) => arg.startsWith('-'));
   if (unknown) {
     process.stderr.write(`unknown option "${unknown}"\n\n${HELP}`);
@@ -178,7 +305,7 @@ export function runTools(argv: string[]): number {
   switch (sub) {
     case 'ls':
     case 'list':
-      return toolsLs(json);
+      return toolsLs(json, remote);
     case 'eject':
       return toolsEject(rest[0], force);
     default:

@@ -34,6 +34,33 @@ describe('headroom', () => {
   });
 });
 
+describe('headroom reads plan windows only', () => {
+  test('a full code-review, extra-usage or model window neither exhausts the account nor raises its usage', () => {
+    const base = usage(30, 40);
+    const withExtras = { ...base, windows: [...base.windows,
+      { id: 'code_review_weekly', window_minutes: 10080, used_percent: 100, resets_at: later(10) },
+      { id: 'extra_usage', window_minutes: null, used_percent: 100, resets_at: null },
+      { id: 'model_gpt_5_3_codex_spark_five_hour', window_minutes: 300, used_percent: 97, resets_at: later(1) },
+    ] };
+    expect(headroom(withExtras, NOW)).toEqual({ usedPercent: 40, exhausted: false });
+  });
+
+  test('a plan refusal ends when the plan windows reset, whatever display-only windows remain', () => {
+    const refused = { ...usage(100, 40, { limited: true, resetHours: -1 }), windows: [
+      { id: 'five_hour', window_minutes: 300, used_percent: 100, resets_at: later(-1) },
+      { id: 'weekly', window_minutes: 10080, used_percent: 40, resets_at: later(-1) },
+      { id: 'extra_usage', window_minutes: null, used_percent: 10, resets_at: null },
+      { id: 'code_review_weekly', window_minutes: 10080, used_percent: 5, resets_at: later(10) },
+    ] };
+    expect(headroom(refused, NOW)).toEqual({ usedPercent: 0, exhausted: false });
+  });
+
+  test('a full Claude model weekly window still exhausts the account for routing, as before', () => {
+    const base = usage(30, 40);
+    expect(headroom({ ...base, windows: [...base.windows, { id: '7d_opus', window_minutes: null, used_percent: 100, resets_at: later(10) }] }, NOW).exhausted).toBe(true);
+  });
+});
+
 describe('routeAccounts: a session stays on its account until that account runs out', () => {
   test('a new session starts on the account with the most headroom, ties in the given order', () => {
     expect(order([account('a', usage(60)), account('b', usage(20)), account('c', usage(20))])).toEqual({ ids: ['b', 'c', 'a'], pin: 'b' });

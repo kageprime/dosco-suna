@@ -21,6 +21,7 @@ const CHALLENGE = createHash('sha256').update(VERIFIER).digest('base64url');
 const { hashSecretKey } = await import('../shared/crypto');
 
 const DEACTIVATED_ID = '00000000-0000-4000-a000-000000000203';
+const APP_CLIENT_ID = '00000000-0000-4000-a000-000000000204';
 
 const clients: Record<string, Record<string, unknown>> = {
   [CONFIDENTIAL_ID]: {
@@ -40,6 +41,17 @@ const clients: Record<string, Record<string, unknown>> = {
     redirectUris: ['https://off.example/callback'],
     scopes: ['profile'],
     active: false,
+  },
+  // An App's implicit client, after an account admin gave it a redirect URI.
+  [APP_CLIENT_ID]: {
+    clientId: APP_CLIENT_ID,
+    appId: '00000000-0000-4000-a000-000000000301',
+    name: 'Kortix App — Factory',
+    clientType: 'public',
+    clientSecretHash: hashSecretKey('unused'),
+    redirectUris: ['https://spa.example/callback'],
+    scopes: ['profile', 'email', 'kortix'],
+    active: true,
   },
   [PUBLIC_ID]: {
     clientId: PUBLIC_ID,
@@ -226,6 +238,24 @@ describe('POST /v1/oauth/token', () => {
     expect((await refused.json()).error_description).toContain('public client');
   });
 
+  test("an App's implicit client runs no grant, even with a redirect URI: 401 invalid_client and no token", async () => {
+    requestedClientId = APP_CLIENT_ID;
+    const code = seedCode(APP_CLIENT_ID, 'https://spa.example/callback', ['profile', 'kortix']);
+    const res = await createApp().request(
+      '/v1/oauth/token',
+      form({
+        grant_type: 'authorization_code',
+        client_id: APP_CLIENT_ID,
+        code,
+        redirect_uri: 'https://spa.example/callback',
+        code_verifier: VERIFIER,
+      }),
+    );
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: 'invalid_client' });
+    expect(accessTokens).toHaveLength(0);
+  });
+
   test('a wrong code_verifier is invalid_grant and the code is burned (the same code then fails with the right verifier)', async () => {
     requestedClientId = CONFIDENTIAL_ID;
     const code = seedCode(CONFIDENTIAL_ID, 'https://client.example/callback', ['profile']);
@@ -307,6 +337,18 @@ describe('POST /v1/oauth/revoke', () => {
     );
     expect(res.status).toBe(401);
     expect(accessTokens[0].revokedAt).toBeUndefined();
+  });
+
+  test("an App's implicit client can still revoke its token", async () => {
+    accessTokens[0].clientId = APP_CLIENT_ID;
+    requestedClientId = APP_CLIENT_ID;
+    const res = await createApp().request(
+      '/v1/oauth/revoke',
+      form({ client_id: APP_CLIENT_ID, token: 'kortix_oat_whatever' }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ revoked: true });
+    expect(accessTokens[0].revokedAt).toBeInstanceOf(Date);
   });
 
   test('an unknown token still answers 200 revoked=false (RFC 7009 §2.2)', async () => {

@@ -3,6 +3,9 @@ import { Window } from 'happy-dom';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { CopyButton } from './copy-button';
 
+/** React always passes an event; Base UI's tooltip trigger reads `nativeEvent`. */
+const clickEvent = () => ({ nativeEvent: new Event('click'), preventDefault() {}, stopPropagation() {} });
+
 const originalGlobals = ['window', 'document', 'IS_REACT_ACT_ENVIRONMENT'].map((key) => ({
   key,
   descriptor: Object.getOwnPropertyDescriptor(globalThis, key),
@@ -48,7 +51,7 @@ test('announces success only after the command reaches the clipboard', async () 
   const root = renderer.root;
   expect(root.findByProps({ role: 'status' }).props.children).toBe('');
   await act(async () => {
-    await root.findByType('button').props.onClick();
+    await root.findByType('button').props.onClick(clickEvent());
   });
   expect(writes).toEqual(['echo synthetic']);
   expect(root.findByType('button').props['aria-label']).toBe('Copied');
@@ -60,7 +63,7 @@ test('announces success only after the command reaches the clipboard', async () 
   expect(root.findByType('button').props['aria-label']).toBe('Copy code');
   expect(root.findByProps({ role: 'status' }).props.children).toBe('');
   await act(async () => {
-    await root.findByType('button').props.onClick();
+    await root.findByType('button').props.onClick(clickEvent());
   });
   expect(writes).toEqual(['echo synthetic', 'echo synthetic']);
   expect(root.findByProps({ role: 'status' }).props.children).toBe('Copied');
@@ -83,7 +86,7 @@ test('announces a rejected clipboard write without claiming success', async () =
   if (!renderer) throw new Error('CopyButton did not mount');
   const root = renderer.root;
   await act(async () => {
-    await root.findByType('button').props.onClick();
+    await root.findByType('button').props.onClick(clickEvent());
   });
   expect(root.findByType('button').props['aria-label']).toBe('Copy code');
   expect(root.findByProps({ role: 'status' }).props.children).toBe(

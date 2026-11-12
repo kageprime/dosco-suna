@@ -40,6 +40,7 @@ import {
 } from "@kortix/registry";
 import type { MarketplaceSource } from "./sources-store";
 import { config } from "../config";
+import { logger } from "../lib/logger";
 import { safeEgressFetch } from "../shared/ssrf-guard";
 import { mapWithConcurrency } from "../shared/map-with-concurrency";
 
@@ -1059,9 +1060,16 @@ async function buildExternalCatalog(): Promise<Catalog> {
         );
         if (CACHE.sourceStatus[i]) CACHE.sourceStatus[i].status = "ready";
       } catch (err) {
-        console.warn(
-          `[marketplace] skipping external registry: ${(err as Error)?.message}`,
-        );
+        // A source whose registry.json (and SKILL.md scan) 404s is an expected
+        // state — a user-added repo with no registry content, surfaced in the
+        // UI as a per-source error. It re-logs on every cold build (each API
+        // container boot / deploy), so at warn level it spiked into a paged
+        // pattern (KRTX-4737). Note it at info; real faults (rate limits,
+        // network, egress refusals) stay warn.
+        const message = (err as Error)?.message ?? String(err);
+        if (/\bHTTP 404\b/.test(message))
+          logger.info(`[marketplace] skipping external registry: ${message}`);
+        else console.warn(`[marketplace] skipping external registry: ${message}`);
         if (CACHE.sourceStatus[i]) CACHE.sourceStatus[i].status = "error";
       } finally {
         CACHE.pending = Math.max(0, CACHE.pending - 1);

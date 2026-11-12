@@ -1,8 +1,8 @@
 ---
 title: Workspaces — one account, one project, one concept (the Slack model)
-status: Release 1 in progress (PR #11857, branch `workspaces`) — plan approved by Marko 2026-11-06 (D8–D11); Releases 2 and 3 specified in design.md, not built
-owner: marko
-updated: 2026-11-06
+status: Release 1 LIVE on prod (v0.15.3, 2026-11-10); Release 2 and 3 specified in design.md, not built; the split runs in dry_run until the sandbox-key fix is released
+owner: dimitrije (from marko, 2026-11-10)
+updated: 2026-11-10
 ---
 
 # Workspaces
@@ -135,6 +135,90 @@ Each stage is its own PR on branch `workspaces` or a sub-branch merged back.
 10. **Later, separate initiative:** code repos as connected resources of a
     workspace, so a developer with 5 repos has 1 workspace, not 5.
 
+## Status (2026-11-10, evening): Release 2 and 3 handed to Dimitrije
+
+Prod, read-only, 2026-11-10 ~15:00 UTC. It corrects the table below.
+
+| Gate item | Prod now |
+|---|---|
+| 0 `split_pending` projects | 1,036 in 401 accounts. Split still `dry_run` (no `workspace_split` setting). Plan: 635 moves, 358 from 311 free accounts, 277 from 90 paying accounts (all `account_has_billing`, 0 IdP). D12 removes the paying hold |
+| 0 NULL `workspace_id` | The `workspace-id-fill` job FINISHED at 02:00 UTC (`workspace_id_fill_progress.finished_at`); nothing it can fill is left. Of the NULL `credit_ledger` rows (1% sample), ~71% belong to `split_pending` accounts (filled when they split) and ~29% to deleted accounts (no `accounts` row; they stay NULL, see design.md §2) |
+
+Found before `apply`: the split left a moved session box's legacy sandbox key
+(`kortix.api_keys`, type `sandbox`) on the source account, so the git proxy
+refused it (`403 sandbox token is not scoped to this workspace`). ~3,200 keys
+sat on the projects to move, 382 used in the last 7 days. Fixed in
+`moveProjectRows` (transfer, split, repair and reverse); proven in
+`project-transfer.integration.test.ts`.
+
+Order from here (each prod step needs Dimitrije's go):
+
+1. Release the sandbox-key fix and D12 (one release driver).
+2. `workspace_split` = `apply` on prod; `workspace-invariants` after each batch.
+3. Build R2a (design.md §4) while the split runs; then R2b; R3 after a
+   rehearsal on a restored snapshot (§5).
+
+Of the decisions below, 2 (the confirmation window) is closed by D12, and 1
+(the owner email text) by D13 (2026-11-11, "no owner notices": the split
+sends no email and has no notice period). Still open: 3, the soak length.
+`apply` itself still needs Marko's go.
+
+## Status (2026-11-10)
+
+**Release 1 is live on prod** in v0.15.3 (release PR #12175, deployed
+2026-11-10 01:49 UTC). Feature PR #11857, plus #12014 (Docker build) and
+#12214 (migration fix, see below). Verified on prod with a synthetic user:
+15/15 checks (no workspace → `409 no_workspace`, `new_workspace` provision,
+`/v1/workspaces` and legacy `/v1/projects` routes, keys acting as me/bot,
+read scope `403`, revoke `401`).
+
+Prod state against the Release 2 gate (`design.md` §2), read-only, 2026-11-10:
+
+| Gate item | Prod now |
+|---|---|
+| 0 `split_pending` projects | 1,036 marked. The split worker runs in `dry_run`: last plan 2026-11-10 01:41 UTC, 635 moves, 0 owner emails sent |
+| 0 NULL `workspace_id` on the expand tables | the `workspace-id-fill` job is running; `credit_ledger` has 8.9 M of 9.6 M rows NULL (~0.73 M filled in the first ~9 h) |
+| 0 shadow mismatches for 7 days | the count starts when the split has run |
+| Invariants I1–I12 exit 0 | not run on prod yet |
+| 0 lint suppressions for direct `accounts`/`projects` imports | met |
+
+Decisions open with Marko (needed before any Release 2 work ships):
+
+1. The owner email text and switching the split to `apply` on prod
+   (`split-runbook.md`, "Mode").
+2. The confirmation window for held accounts (paying, IdP): 48 h, 7 days or
+   14 days. It sets the earliest Release 2 date.
+3. Whether the shadow-mismatch soak is 2 or 7 days.
+
+Schedules discussed 2026-11-10 (each step still needs Marko's go):
+
+| Plan | Split | Release 2a | Release 2b | Release 3 (~2 min) |
+|---|---|---|---|---|
+| Fast (48 h window, 2-day soak, accelerated fill) | 11-10 | 11-14 | 11-16 | 11-23 (R2b live 7 days; 11-19 at 3 days is the shortest I would back) |
+| Default (7-day window, 7-day soak) | 11-10 | 11-24 | 11-26 | 12-03 |
+
+Release 3 needs a rehearsal on a restored prod snapshot first (`design.md` §5).
+
+Incident from the Release 1 deploy (learnings ledger, 2026-11-10, "Never
+INCLUDE a jsonb..."): two intermediate gateway_logs covering indexes
+INCLUDEd `metadata`, which exceeds the btree tuple limit on prod rows. Prod
+was recovered by hand. #12214 skips both builds through a checksum-guarded
+runtime override, so a self-host upgrade passes. Self-host `:stable` was not
+moved; it should move only with a release that contains #12214.
+
+Other follow-ups:
+
+- Drata compliance-as-code reports 2 critical findings without an
+  infrastructure change. Its exclusions must be re-created on pipeline 28 by
+  someone with Drata access. The check is advisory in the release gate.
+- On staging and dev a free-tier account has no platform default model, so
+  its sessions never boot (`pi harness has no model`). Older than Release 1;
+  prod not checked.
+- `kortix whoami --json` through the MCP tool: #12197 bounds the accounts
+  list on `dev` (not yet released).
+- #12133 lets the session's own member pick their provider keys without
+  `project.secret.read` (it reverts part of #12063). Marko has not confirmed.
+
 ## Status (2026-11-06)
 
 - The current spec is `design.md` (§3 Release 1, §4 Release 2, §5 Release 3).
@@ -152,8 +236,9 @@ See `decisions.md`.
 
 ## Pick it up
 
-- Worktree: `../suna-workspaces`, branch `workspaces`
-  (`pnpm worktree start workspaces`).
+- Release 1 is merged and the `workspaces` worktree is removed. Start
+  Release 2 on a new canonical branch: `pnpm worktree create --name
+  workspaces-r2 --db --yes --no-start` (its migrations need an own database).
 - Prod numbers: read-only `DATABASE_URL` from `apps/api/.env.prod`,
   aggregates only, no IDs or names in tracked files.
 

@@ -15,7 +15,8 @@ import { assertSafeEgressUrl, UnsafeEgressError } from '../../shared/ssrf-guard'
 import { assertProjectCapability, loadProjectForUser } from '../lib/access';
 import { projectsApp } from '../lib/app';
 import { propagateProjectSecretsToActiveSandboxes } from '../lib/sandbox-env-sync';
-import { resolveProjectSecretsForConsumer } from '../secrets';
+import { firstGatewayKeyValue } from '../../llm-gateway/credentials/gateway-keys';
+import { moveLegacyProviderKeysNamed } from '../../secrets/llm-credential-move';
 
 const CustomLlmProviderSchema = z.object({
   id: z.string(),
@@ -49,9 +50,10 @@ function view(provider: CustomLlmProviderDefinition, secretNames: string[]): Cus
 
 /**
  * Models → Custom: a project's own OpenAI-compatible endpoints, served by the
- * LLM gateway (llm-gateway/custom-providers.ts). The key is the ordinary
- * project secret `CUSTOM_<ID>_API_KEY`, written and deleted through the
- * secrets routes.
+ * LLM gateway (llm-gateway/custom-providers.ts). The key is `CUSTOM_<ID>_API_KEY`,
+ * a named account of provider `<id>` (a write through the secrets routes lands
+ * there, `secrets/llm-credential-move.ts`), or a legacy project secret not
+ * moved yet.
  */
 export function registerCustomProvidersRoutes(): void {
   projectsApp.openapi(createRoute({
@@ -107,12 +109,15 @@ export function registerCustomProvidersRoutes(): void {
       }, 400);
     }
     // Save the key first: the endpoint's `GET /models` usually needs it.
-    const [key] = await resolveProjectSecretsForConsumer({
-      projectId, accountId: loaded.row.accountId, actorUserId: loaded.userId,
-      name: customProviderSecretName(providerId), consumer: 'llm_gateway',
+    const key = await firstGatewayKeyValue({
+      accountId: loaded.row.accountId, projectId, userId: loaded.userId, grantUserId: loaded.userId,
+      providerId, name: customProviderSecretName(providerId),
     });
-    const detected = await probeCustomModels(input.base_url, key?.value ?? null);
+    const detected = await probeCustomModels(input.base_url, key);
     const next = await writeProjectCustomProvider(projectId, providerId, input, detected);
+    // A key saved before its endpoint existed is a legacy secret (no provider
+    // to file it under yet): now that the provider exists it moves to the named store.
+    await moveLegacyProviderKeysNamed(projectId, customProviderSecretName(providerId));
     const { secretNames } = await listProjectCustomProviders(projectId);
     // Running sessions re-read the served model list.
     void propagateProjectSecretsToActiveSandboxes(projectId, { refreshModels: true });

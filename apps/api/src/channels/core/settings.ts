@@ -36,7 +36,8 @@ export { currentChannelSelection, setChannelAgent, setChannelModel, type Channel
 /** A channel as settings see it: `oneToOne` for a DM or personal chat with the bot. */
 export type SettingsChannel = ChannelCtx & { oneToOne?: boolean };
 
-export type SettingsRefusal = 'unlinked' | 'forbidden' | 'no_binding';
+/** `other_workspace`: the channel's settings belong to another Kortix workspace (its own Slack app here). */
+export type SettingsRefusal = 'unlinked' | 'forbidden' | 'no_binding' | 'other_workspace';
 
 export type SettingsChange<Ok extends object = object, Reason extends string = never> =
   | ({ ok: true } & Ok)
@@ -49,7 +50,13 @@ export async function authorizeChannelSettings(
   opts: { oneToOne?: boolean } = {},
 ): Promise<{ ok: true; userId: string } | { ok: false; reason: 'unlinked' | 'forbidden' }> {
   const action = opts.oneToOne ? PROJECT_ACTIONS.PROJECT_SESSION_START : PROJECT_ACTIONS.PROJECT_CONNECTOR_WRITE;
-  const actor = await resolveProjectChatActor(user, projectId, action);
+  let actor = await resolveProjectChatActor(user, projectId, action);
+  // An unlinked Slack person whose confirmed email is a member's is linked
+  // here, with no `/kortix login` (slack/auto-link.ts).
+  if ('reason' in actor && actor.reason === 'unlinked' && user.platform === 'slack') {
+    const { linkSlackPersonByEmail } = await import('../slack/auto-link');
+    if (await linkSlackPersonByEmail(user, projectId)) actor = await resolveProjectChatActor(user, projectId, action);
+  }
   if ('userId' in actor) return { ok: true, userId: actor.userId };
   return { ok: false, reason: actor.reason === 'unlinked' ? 'unlinked' : 'forbidden' };
 }
@@ -58,6 +65,9 @@ export async function authorizeChannelSettings(
 export async function authorizeChannelChange(user: ChatUser, channel: SettingsChannel): Promise<SettingsChange> {
   const selection = await currentChannelSelection(channel);
   if (!selection) return { ok: false, reason: 'no_binding' };
+  // One settings row per channel: a workspace changes only its own row, never
+  // the row of another workspace that runs its own Slack app in this channel.
+  if (selection.foreignRow) return { ok: false, reason: 'other_workspace' };
   return authorizeChannelSettings(user, selection.projectId, channel);
 }
 

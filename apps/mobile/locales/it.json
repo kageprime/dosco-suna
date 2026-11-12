@@ -1206,6 +1206,7 @@
     "call": "Chiama",
     "chartTapHint": "Tocca per leggere un valore",
     "checklistReady": "{{done}}/{{total}} pronti",
+    "closeMap": "Chiudi mappa",
     "directions": "Indicazioni",
     "imageCount_one": "{{count}} immagine",
     "imageCount_other": "{{count}} immagini",
@@ -1216,7 +1217,9 @@
     "pick": "Consigliato",
     "pieFocus": "{{label}} è il {{percent}}% del totale",
     "pieOfTotal": "{{value}} su {{total}}",
+    "showAllPlaces": "Mostra tutti i luoghi",
     "showData": "Mostra dati",
+    "showOnMap": "Mostra sulla mappa",
     "unavailable": "Impossibile visualizzare questo contenuto.",
     "website": "Sito web"
   },
@@ -1297,6 +1300,7 @@
   "workspace": {
     "switcherTitle": "Workspace",
     "create": "Crea workspace",
+    "newWorkspace": "Nuovo workspace",
     "createTitle": "Crea un workspace",
     "createBody": "Un workspace è dove la tua azienda lavora con Kortix: persone, agenti e tutto ciò che creano.",
     "createOnWebTitle": "Crea un workspace sul web",
@@ -1352,5 +1356,47 @@
       "serverBody": "Riprova, oppure apri un altro workspace.",
       "signInAgain": "Accedi di nuovo"
     }
+  },
+  "artifacts": {
+    "title": "Artefatti",
+    "search": "Cerca artefatti",
+    "scope": {
+      "all": "Tutti",
+      "mine": "Tuoi",
+      "shared": "Condivisi con te",
+      "pinned": "Fissati"
+    },
+    "type": {
+      "doc": "Documento",
+      "html": "HTML"
+    },
+    "loadError": "Impossibile caricare gli artefatti.",
+    "retry": "Riprova",
+    "empty": "Ancora nessun artefatto",
+    "emptyFiltered": "Nessun artefatto corrisponde",
+    "pin": "Fissa",
+    "unpin": "Rimuovi",
+    "rename": "Rinomina",
+    "save": "Salva",
+    "cancel": "Annulla",
+    "notFoundTitle": "Questo artefatto non è disponibile",
+    "notFoundHint": "È stato eliminato oppure il proprietario ha smesso di condividerlo.",
+    "remove": "Interrompi condivisione",
+    "removeTitle": "Interrompere la condivisione di questo artefatto?",
+    "removeHint": "Esce da Artefatti e i suoi link smettono di funzionare. I suoi file restano in File.",
+    "removed": "Non più condiviso",
+    "shareLink": "Condividi link",
+    "openInBrowser": "Apri nel browser",
+    "reload": "Ricarica",
+    "scopeEmpty": "Ancora niente qui",
+    "pinDone": "Fissato",
+    "unpinDone": "Non più fissato",
+    "actionFailed": "Impossibile aggiornare l’artefatto. Riprova.",
+    "renamed": "Artefatto rinominato",
+    "namePlaceholder": "Nome dell’artefatto",
+    "saving": "Salvataggio…",
+    "openError": "Impossibile aprire questo artefatto",
+    "more": "Azioni dell’artefatto",
+    "unavailable": "Gli artefatti non sono disponibili in questo workspace"
   }
 }

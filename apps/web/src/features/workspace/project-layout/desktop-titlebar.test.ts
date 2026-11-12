@@ -352,7 +352,7 @@ describe('nothing re-hard-codes the band', () => {
       '.kx-project-sidebar-header',
       "[role='dialog']",
       "[role='menu']",
-      '[data-radix-popper-content-wrapper]',
+      '[data-kortix-floating]',
     ]) {
       expect(scoped?.[1]).toContain(owner);
     }

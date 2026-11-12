@@ -12,6 +12,7 @@ import { renderPromptTemplate } from './trigger-payload';
 import { fireGitTrigger, markGitTriggerAttemptFailed, markGitTriggerFired } from './trigger-fire';
 import { raiseTriggerAlert } from './trigger-alerts';
 import { pauseTriggerIfAlwaysFailing } from './trigger-failure-pause';
+import { resumeSetupPausesTick } from './trigger-setup-pause';
 import { runProjectConnectorSweep } from './trigger-connector-sweep';
 import { schedulerHealth, triggerFireTimeoutMs, triggerScheduleClaimLimit, triggerExecutionConcurrency, connectorSweepIntervalMs, mapWithConcurrency, schedulerSweepIsStale, automaticFirePauseReason, withTimeout } from './trigger-scheduler-state';
 import { projectsView } from '../../workspaces/rows';
@@ -345,6 +346,16 @@ export function runProjectTriggerSchedulerTick(): void {
   checkAppTriggerSilence().catch((error) => {
     logger.warn('[app-trigger-silence] check failed', { error: error instanceof Error ? error.message : String(error) });
   });
+
+  // Triggers paused because the account could not run them (no model, no
+  // credits) resume once the cause is gone. At most every 2 minutes.
+  resumeSetupPausesTick()
+    .then((resumed) => {
+      if (resumed) logger.info('[trigger-setup-pause] resumed triggers whose account can run them again', { resumed });
+    })
+    .catch((error) => {
+      logger.warn('[trigger-setup-pause] resume pass failed', { error: error instanceof Error ? error.message : String(error) });
+    });
 
   // Connector reconcile backstop — slower cadence than the trigger sweep so
   // we don't re-read every manifest each tick. Catches out-of-band manifest

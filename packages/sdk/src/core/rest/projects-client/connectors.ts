@@ -1685,10 +1685,23 @@ export interface SessionConnectRequest {
   app: string;
   provider: string;
   connected: boolean;
+  /** The connector's display name ("Gmail"). Absent on older servers. */
+  name?: string;
+  /** The account row the sign-in lands on. Absent on older servers. */
+  connection_id?: string;
+  /** `project` (shared) or `member` (the caller's own). Absent on older servers. */
+  owner_type?: string;
+  /** The account's name. Absent on older servers. */
+  label?: string;
+  /** Who the account is signed in as, once known. Absent on older servers. */
+  connected_as?: string | null;
 }
 
 /**
  * The connectors a session is blocked on.
+ *
+ * Lists the shared accounts and the caller's own: another member's private
+ * account is theirs to sign in. Finish one with `connectionSignInSteps`.
  *
  * The agent mints a connect link mid-turn and stops. A host reads this to render
  * a real Connect button for that session instead of leaving the raw URL in the

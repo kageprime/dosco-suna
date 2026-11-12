@@ -82,7 +82,7 @@ export interface MenuRowProps {
  * row beneath a resting mouse, which fires enter, which drags the selection
  * straight back: the keyboard and the mouse fight and the keyboard loses.
  * `pointermove` fires only on real pointer travel, so a stationary mouse
- * cannot claim anything. (Same reason `cmdk` and Radix's menus use it.)
+ * cannot claim anything. (Same reason the command list and the menus use it.)
  *
  * Touch is excluded: a finger dragging across the list to scroll it is not
  * "hovering", and repainting the `/` menu's detail pane under the drag would

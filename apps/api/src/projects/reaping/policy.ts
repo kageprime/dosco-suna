@@ -64,6 +64,28 @@ export function isLifecycleTransitionInProgress(err: unknown): boolean {
   );
 }
 
+/**
+ * A Platinum transport timeout: `platinumFetch`'s budget expired before
+ * Platinum answered (`shared/platinum.ts` throws this shape, name `TimeoutError`,
+ * message `platinum <METHOD> <path> timed out after <n>ms (default)` or
+ * `platinum <METHOD> <path> timed out after caller-provided budget`). The request
+ * MAY already have run server-side (an exec, a stop), so it is never retried on
+ * another origin. As a reaper failure it means only "no answer this pass": every
+ * reaper action re-decides from fresh provider state on the next pass, so the
+ * timeout is that pass's transient — not an actionable error per box
+ * (KRTX-4687: one Platinum slowdown timed out every box's call and the reaper
+ * emitted an error line per box per pass, a 116x log spike).
+ */
+export function isPlatinumTransportTimeout(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    err.name === 'TimeoutError' &&
+    /^platinum [A-Z]+ \S+ timed out after (\d+ms \(default\)|caller-provided budget)$/.test(
+      err.message,
+    )
+  );
+}
+
 export function isAlreadyNotRunning(err: unknown): boolean {
   if (isProviderNotFound(err)) return true;
   // legacy: a stop refused because the box is already down carries no status

@@ -8,7 +8,7 @@ import {
 } from "./impersonation";
 import { isUuid } from "./validate";
 import { noWorkspaceError } from "./no-workspace";
-import { accountsView, projectsView } from "../workspaces/rows";
+import { accountKeyOfWorkspace, accountsView, projectsView } from "../workspaces/rows";
 
 /**
  * The account a billing request targets, from plain values: the caller's user
@@ -140,12 +140,7 @@ export async function workspaceIdsForAccounts(accountIds: readonly string[]): Pr
  */
 export async function accountKeyForWorkspaceId(id: string): Promise<string | null> {
   if (!isUuid(id)) return null;
-  const [row] = await db
-    .select({ accountId: projectsView.accountId })
-    .from(projectsView)
-    .where(and(eq(projectsView.projectId, id), eq(projectsView.status, "active")))
-    .limit(1);
-  return row?.accountId ?? null;
+  return accountKeyOfWorkspace(id, { activeOnly: true });
 }
 
 async function accountExists(accountId: string): Promise<boolean> {

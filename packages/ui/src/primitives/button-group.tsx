@@ -3,9 +3,9 @@
 // (19.2.18 for apps/web, 19.1.17 pulled in by `next` and `@sentry/react`), and
 // the UMD global binds to 19.1.17 — which still types `DOMAttributes.onChange`
 // as `FormEventHandler<T>` instead of 19.2.18's `ChangeEventHandler<T>`. That
-// version skew, not any real prop incompatibility, is what made the props bag
-// below fail against `Slot.Root`. The explicit import pins every `React.*` type
-// here to the same copy the JSX checker and `radix-ui` use.
+// version skew, not any real prop incompatibility, made the props bag below
+// fail to type-check. The explicit import pins every `React.*` type here to the
+// same copy the JSX checker uses.
 import { cva, type VariantProps } from 'class-variance-authority';
 import * as React from 'react';
 

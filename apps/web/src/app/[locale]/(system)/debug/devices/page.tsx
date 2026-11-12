@@ -3,14 +3,14 @@
 /**
  * Visual harness for Settings → Security → Devices. Auth-free: every state is
  * the pure `DevicesSection` fed fixture rows, so no sign-in and no API call.
- * Rows go through the same `describeUserAgent` the container uses, so a label
+ * Rows go through the same `deviceLabel` rule the container uses, so a label
  * here is the label a real user agent gets. Open /debug/devices.
  */
 import type { ReactNode } from 'react';
 
 import { useCopy } from '@kortix/ui/internal/hooks/use-copy';
 
-import { describeUserAgent } from '@/features/workspace/settings/tabs/device-label';
+import { deviceLabel, describeUserAgent } from '@/features/workspace/settings/tabs/device-label';
 import {
   DEFAULT_SECURITY_TAB_COPY,
   type DeviceRow,
@@ -60,7 +60,7 @@ function device(
   current = false,
 ): DeviceRow {
   const { browser, os, mobile, brand } = describeUserAgent(userAgent);
-  const label = browser && os ? `${browser} on ${os}` : (browser ?? os ?? 'Unknown device');
+  const label = deviceLabel({ browser, os });
   return { id, label, detail, ip, mobile, brand, current };
 }
 

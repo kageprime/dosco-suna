@@ -38,7 +38,7 @@ import {
 } from './jobs';
 import { KORTIX_TOOL, parseArgs, runCli } from './cli';
 import { CONNECTOR_TOOLS, isConnectorTool, runConnectorTool, type Host } from './connectors';
-import { blockedPath, canonicalPath, requestBodyShape, searchOperations, shapeTranscript, type Operation } from './shape';
+import { blockedPath, canonicalPath, logConversationRows, requestBodyShape, searchOperations, shapeTranscript, type Operation } from './shape';
 import { bearerToken } from '../shared/bearer-token';
 import { PROVISIONING_SESSION_STATUSES } from '../projects/surface';
 
@@ -460,7 +460,7 @@ const TOOLS = [
     name: 'read_session',
     title: 'Read a session',
     description:
-      "Read a session: its status, whether a turn is running, and the latest messages with each tool call's input and output. wait_seconds blocks until the agent is idle (up to 45 s); call again while `turn` is not `idle` (`booting`, `running` or `queued`). Tool inputs and outputs are cut per part (marked `[truncated: N of M chars]`); when the messages do not fit, the oldest are dropped (`omitted_older`). `last_turn_error` names a failed turn. Older history: call_api on the session's transcript route with shape=sync.",
+      "Read a session: its status, whether a turn is running, and the latest messages with each tool call's input and output. wait_seconds blocks until the agent is idle (up to 45 s); call again while `turn` is not `idle` (`booting`, `running` or `queued`). Tool inputs and outputs are cut per part (marked `[truncated: N of M chars]`); when the messages do not fit, the oldest are dropped (`omitted_older`). `last_turn_error` names a failed turn. Each message carries its `seq`. Older history: call_api GET /v1/workspaces/{workspaceId}/sessions/{session_id}/log with before_seq (the oldest `seq` you have) and limit: one page of the stored session log.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -853,27 +853,23 @@ export async function runTool(ctx: ToolContext, name: string, input: Record<stri
   }
 }
 
-async function listProjectsTool(ctx: ToolContext, input: Record<string, unknown>): Promise<ToolResult> {
-  const accounts = await callApi(ctx, 'GET', '/v1/accounts');
-  if (accounts.status >= 400) return apiResult(accounts);
-  const parsed = JSON.parse(accounts.body);
-  const list = (Array.isArray(parsed) ? parsed : (parsed.accounts ?? [])) as { account_id: string; name?: string }[];
-  const perAccount = await Promise.all(
-    list.map(async (account) => {
-      const r = await callApi(ctx, 'GET', '/v1/projects', { query: { account_id: account.account_id } });
-      const rows = r.status < 400 ? (JSON.parse(r.body) as any[]) : [];
-      return rows.map((p) => ({
-        project_id: p.project_id,
-        name: p.name,
-        account: account.name ?? account.account_id,
-        account_id: account.account_id,
-        repository: p.repo_url ?? null,
-        default_branch: p.default_branch ?? null,
-        role: p.effective_project_role ?? null,
-      }));
-    }),
-  );
-  const projects = perAccount.flat();
+async function listProjectsTool(ctx: ToolContext, _input: Record<string, unknown>): Promise<ToolResult> {
+  // One read: every workspace the caller may open, across accounts. A token
+  // bound to one workspace (what the consent screen issues) lists that one;
+  // `GET /v1/accounts` is a person's route and refuses it.
+  const r = await callApi(ctx, 'GET', '/v1/workspaces');
+  if (r.status >= 400) return apiResult(r);
+  const rows = JSON.parse(r.body) as Array<Record<string, any>>;
+  const projects = rows.map((p) => ({
+    project_id: p.project_id,
+    name: p.name,
+    // One account per workspace: the workspace name is the account's.
+    account: p.name ?? p.account_id,
+    account_id: p.account_id,
+    repository: p.repo_url ?? null,
+    default_branch: p.default_branch ?? null,
+    role: p.effective_project_role ?? null,
+  }));
   return text(JSON.stringify(projects, null, 2));
 }
 
@@ -924,13 +920,30 @@ async function readSessionTool(ctx: ToolContext, input: Record<string, unknown>)
   }
   if ('error' in activity) return apiResult(activity.error!);
   const late = Symbol('late');
-  const transcript = await Promise.race([
-    callApi(ctx, 'GET', `${path}/transcript`, { query: { limit, chars: 1500, detail: 'full' } }),
+  // The stored session log (`GET …/log`), never the v1 transcript route (P8.3 removes it).
+  const log = await Promise.race([
+    callApi(ctx, 'GET', `${path}/log`, { query: { limit } }),
     Bun.sleep(Math.max(ctx.deadline - Date.now() - 2_000, 0)).then(() => late),
   ]);
-  const note = typeof transcript === 'symbol' ? 'transcript: not read inside the request budget; call again' : transcript.status >= 400 ? `transcript: HTTP ${transcript.status} ${transcript.body}` : null;
+  // A session that saved nothing yet answers 404 `session_log_missing`: no messages, not an error.
+  const missing = typeof log !== 'symbol' && log.status === 404 && logMissing(log.body);
+  const note = typeof log === 'symbol' ? 'transcript: not read inside the request budget; call again' : log.status >= 400 && !missing ? `transcript: HTTP ${log.status} ${log.body}` : null;
   if (note) return text(`${JSON.stringify(activity.summary, null, 2)}\n\n${note}`);
-  return text(shapeTranscript(activity.summary, JSON.parse((transcript as ApiReply).body)));
+  if (missing) {
+    return text(shapeTranscript(activity.summary, { source: 'log', reason: 'nothing is saved for this session yet', messages: [], message_count: 0, complete: true }));
+  }
+  const page = JSON.parse((log as ApiReply).body) as { messages?: unknown[]; has_more?: boolean };
+  const rows = logConversationRows((page.messages ?? []) as never, 1500);
+  return text(shapeTranscript(activity.summary, { source: 'log', messages: rows, message_count: rows.length, complete: page.has_more === false }));
+}
+
+/** True when a 404 body is the log route's `session_log_missing` (the session saved nothing yet). */
+function logMissing(body: string): boolean {
+  try {
+    return (JSON.parse(body) as { code?: unknown }).code === 'session_log_missing';
+  } catch {
+    return false;
+  }
 }
 
 async function runCommandTool(ctx: ToolContext, input: Record<string, unknown>): Promise<ToolResult> {

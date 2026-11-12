@@ -118,9 +118,10 @@ const AgentBlockSchema = z
     // Deprecated request alias of kortix_permissions. The handler normalizes it
     // (normalizeKortixPermissionAliases) before serialization.
     kortix_cli: GrantSetSchema.optional(),
+    // Obsolete (a session never checks out the repository at boot): accepted from
+    // older clients and dropped.
     repository_access: z.boolean().optional(),
-    // Deprecated input alias for older clients.
-    workspace: z.enum(['runtime', 'read', 'branch']).optional(),
+    workspace: z.unknown().optional(),
     // Server-owned; accepted so a GET → PUT round trip keeps working. Only the
     // value already in effect (the block's `prompt_file`) is allowed.
     file: z.string().max(1024).optional(),

@@ -10,13 +10,14 @@
  * recorded card location, with the outcome blocks. It must stay green before
  * and after the inversion.
  *
- * Real: the connector_calls row, the project, the owner's role, the decision.
+ * Real: the connector_calls row, the project, the owner's role, the decision,
+ * and the Slack install that makes this project the one holding the Slack workspace.
  * Faked: Slack's HTTP surface (slack-api), the install token, and Supabase
  * JWT verification — this lane has no reachable GoTrue, and five repo test
  * files replace the same module (see middleware/auth.ts's comment).
  */
 import { afterAll, beforeAll, expect, mock, test } from 'bun:test';
-import { accountMembers, connectorCalls } from '@kortix/db';
+import { accountMembers, chatInstalls, connectorCalls } from '@kortix/db';
 import { eq } from 'drizzle-orm';
 import * as realSlackApi from '../channels/slack-api';
 import * as realInstallStore from '../channels/install-store';
@@ -86,6 +87,7 @@ async function waitForCardUpdate(): Promise<void> {
 
 beforeAll(async () => {
   project = await seedProject('approval-card-relay');
+  await db.insert(chatInstalls).values({ platform: 'slack', platformTeamId: TEAM, projectId: project.project_id });
   await insertIntoView(db, accountMembers, {
     userId: OWNER,
     accountId: project.account_id,
@@ -115,4 +117,31 @@ test('a web-route decision replaces the chat card with the outcome', async () =>
   expect(updated[0]).toMatchObject({ channel: CHANNEL, ts: '200.0001' });
   expect(updated[0]!.text).toBe('Denied: gmail.send_draft');
   expect(JSON.stringify(updated[0]!.blocks)).toContain('not this recipient');
+});
+
+test('a decision leaves the card alone in a Slack workspace the project no longer holds', async () => {
+  const { markApprovalCardDecided } = await import('../channels/approval-card-relay');
+  updated.length = 0;
+  const row = {
+    executionId: crypto.randomUUID(),
+    sessionId: null,
+    actingUserId: OWNER,
+    connectorId: null,
+    actionPath: 'gmail.send_draft',
+    status: 'pending_approval',
+    approvedBy: null,
+    resolvedAt: null,
+    resultSummary: { chat_card: { platform: 'slack', team_id: TEAM, channel: CHANNEL, ts: '200.0002' } },
+    expiresAt: null,
+  };
+  await db.delete(chatInstalls).where(eq(chatInstalls.projectId, project.project_id));
+  try {
+    await markApprovalCardDecided({ projectId: project.project_id, row, decision: 'deny', note: '', actorUserId: OWNER });
+    expect(updated).toHaveLength(0);
+  } finally {
+    await db.insert(chatInstalls).values({ platform: 'slack', platformTeamId: TEAM, projectId: project.project_id });
+  }
+  // Held again: the same call updates the card.
+  await markApprovalCardDecided({ projectId: project.project_id, row, decision: 'deny', note: '', actorUserId: OWNER });
+  expect(updated).toHaveLength(1);
 });

@@ -284,6 +284,29 @@ export function resolveAppViewerUserId(
   url: URL,
   app: Pick<AppAccessRow, 'appId' | 'accessMode' | 'accessRevision'>,
 ): string | null {
+  return resolveAppViewerSession(request, url, app)?.userId ?? null;
+}
+
+/**
+ * The second factor the gate's cookie records for `userId`: `'aal2'` only when
+ * the cookie names that viewer and `access-session` was asked by a browser
+ * session at aal2. A viewer named by a bearer credential gets none.
+ */
+export function appViewerSessionAal(
+  request: Request,
+  url: URL,
+  app: Pick<AppAccessRow, 'appId' | 'accessMode' | 'accessRevision'>,
+  userId: string,
+): 'aal2' | undefined {
+  const session = resolveAppViewerSession(request, url, app);
+  return session && session.userId === userId ? session.aal : undefined;
+}
+
+function resolveAppViewerSession(
+  request: Request,
+  url: URL,
+  app: Pick<AppAccessRow, 'appId' | 'accessMode' | 'accessRevision'>,
+): { userId: string; aal?: 'aal2' } | null {
   // A PUBLIC App still recognises whoever the gate signed in.
   //
   // This used to bail here for `public`, so the cookie was never even read and
@@ -304,8 +327,8 @@ export function resolveAppViewerUserId(
   const raw = cookieValue(request, appAccessCookieName(localHttp));
   if (!raw) return null;
   const payload = verifyAppAccessToken(raw, app.appId, appAccessSecret());
-  if (!payload || payload.kind !== 'kortix' || payload.revision !== app.accessRevision) return null;
-  return payload.userId ?? null;
+  if (!payload || payload.kind !== 'kortix' || payload.revision !== app.accessRevision || !payload.userId) return null;
+  return { userId: payload.userId, ...(payload.aal === 'aal2' ? { aal: 'aal2' as const } : {}) };
 }
 
 /**
@@ -362,6 +385,7 @@ export async function appViewerContextHeader(
             viewerTokenScope: scope,
           },
           liveUserId,
+          { aal: appViewerSessionAal(request, url, app, liveUserId) },
         )
         : null).catch((error) => {
           // An App must not go dark because a token could not be minted: the
@@ -539,6 +563,10 @@ export function renewedAppAccessCookie(
       appId: app.appId,
       kind: 'kortix',
       userId,
+      // No `aal`: a renewal drops the second factor. The level then lasts at
+      // most the 8 h of the cookie the access link was redeemed into, never
+      // past the browser session that proved it (Strix, 2026-11-11). Reopening
+      // the App from Kortix at aal2 marks a new cookie.
       revision: app.accessRevision,
       expiresAt: new Date(now.getTime() + APP_SESSION_SECONDS * 1000),
     },
@@ -572,6 +600,7 @@ export async function appViewerEndpointResponse(
       : mintAppViewerToken(
           { appId: app.appId, accountId: app.accountId, name: app.name, viewerTokenScope: scope },
           userId,
+          { aal: appViewerSessionAal(request, url, app, userId) },
         ),
   ]);
   return Response.json(
@@ -717,6 +746,7 @@ export async function authorizeAppRequest(
         appId: app.appId,
         kind: verified!.kind,
         userId: verified!.userId,
+        aal: verified!.aal,
         revision: app.accessRevision,
         expiresAt: new Date(Date.now() + 8 * 60 * 60_000),
       }, secret);

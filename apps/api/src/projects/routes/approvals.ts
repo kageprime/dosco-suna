@@ -27,6 +27,7 @@ import { markApprovalCardDecided } from '../../channels/approval-card-relay';
 import { approvalNotExpired } from '../../connectors/approval-expiry';
 import { callerKortixSessionId } from '../../middleware/caller-session';
 import { approvalCallerOf } from '../lib/http-approval-caller';
+import { listOpenColleagueAccessAsks } from '../lib/colleague-access';
 import { hiddenSpaceIds, sessionsInSpaces } from '../../shared/space-access';
 import { workspaceIdParam } from '../../shared/route-params';
 
@@ -198,6 +199,8 @@ export function registerApprovalsRoutes(): void {
         .select({ sessionId: sessionPendingPermissions.sessionId, surfaceSessionId: sessionPendingPermissions.surfaceSessionId })
         .from(sessionPendingPermissions)
         .where(pendingAskWhere(projectId, sessionPendingPermissions, sessionPendingPermissions.decidedAt));
+      // The access My Kortix asks for a colleague (lib/colleague-access.ts) waits on a person the same way.
+      const colleagueAccessRows = await listOpenColleagueAccessAsks({ projectId, limit: 500 });
 
       // Count per (Kortix) session id: the session that asked, and the
       // session a person opens for it when that differs (a hidden worker's
@@ -209,7 +212,7 @@ export function registerApprovalsRoutes(): void {
       }
       const questionsByKortix: Record<string, number> = {};
       const surfacesOf: Record<string, Set<string>> = {};
-      for (const r of [...questionRows, ...permissionRows]) {
+      for (const r of [...questionRows, ...permissionRows, ...colleagueAccessRows]) {
         questionsByKortix[r.sessionId] = (questionsByKortix[r.sessionId] ?? 0) + 1;
         if (r.surfaceSessionId && r.surfaceSessionId !== r.sessionId) {
           (surfacesOf[r.sessionId] ??= new Set()).add(r.surfaceSessionId);
@@ -343,7 +346,7 @@ export function registerApprovalsRoutes(): void {
         return c.json(
           result.reason === 'session_bound_caller'
             ? {
-                error: 'An agent cannot resolve its own approval — a human must approve or deny this',
+                error: "This approval waits for a person: the session's launcher or a project manager approves or denies it.",
                 code: 'APPROVAL_REQUIRES_HUMAN',
               }
             : result.reason === 'non_human_caller'

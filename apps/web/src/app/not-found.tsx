@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
+import { NextIntlClientProvider } from 'next-intl';
 
-import { getTranslations } from '@/i18n/get-translations';
+import { getLocale, getMessages, getTranslations } from '@/i18n/get-translations';
 import { siteMetadata } from '@kortix/ui/internal/lib/site-metadata';
 
 import NotFoundBoundary from './[locale]/not-found';
+import { notFoundMessages } from './not-found-messages';
 import './globals.css';
 
 /**
@@ -26,12 +28,25 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-const NotFound = () => (
-  <html lang="en" translate="no" suppressHydrationWarning>
-    <body className="notranslate text-foreground bg-background flex min-h-dvh w-full scroll-smooth flex-col font-sans font-medium tracking-normal antialiased">
-      <NotFoundBoundary />
-    </body>
-  </html>
-);
+/**
+ * It also brings its own `NextIntlClientProvider`: the client `NotFoundState`
+ * calls `useTranslations`, and without a provider next-intl throws an Error
+ * with an empty message in production. That failed every render of this page:
+ * the response was Next's error document, and each 404 logged an empty
+ * `Error:` (a POST to an unknown path answered 500).
+ */
+const NotFound = async () => {
+  const locale = await getLocale();
+  const messages = await getMessages();
+  return (
+    <html lang={locale} translate="no" suppressHydrationWarning>
+      <body className="notranslate text-foreground bg-background flex min-h-dvh w-full scroll-smooth flex-col font-sans font-medium tracking-normal antialiased">
+        <NextIntlClientProvider locale={locale} messages={notFoundMessages(messages)} timeZone="UTC">
+          <NotFoundBoundary />
+        </NextIntlClientProvider>
+      </body>
+    </html>
+  );
+};
 
 export default NotFound;

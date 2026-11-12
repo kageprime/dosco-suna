@@ -107,6 +107,62 @@ interface ConnectorAccountRow {
   connected_as?: string | null;
   /** When the upstream rejected the stored credential (401). Absent: not rejected. */
   credential_rejected_at?: string | null;
+  /** `sign_in_not_finished`: listed so it gets finished; a call cannot run as
+   *  it yet. Absent on older servers, which list connected accounts only. */
+  status?: 'connected' | 'sign_in_not_finished';
+}
+
+/**
+ * The human table of `kortix connectors accounts <slug>`: the accounts the
+ * person sees in Settings → Connectors, the ones a call can run as first.
+ */
+export function connectorAccountsLines(slug: string, accounts: readonly ConnectorAccountRow[]): string[] {
+  const unfinished = (account: ConnectorAccountRow) => account.status === 'sign_in_not_finished';
+  const callable = accounts.filter((account) => !unfinished(account));
+  const labelWidth = Math.max(5, ...accounts.map((account) => account.label.length));
+  const asWidth = connectedAsWidth(accounts);
+  const lines = [
+    '',
+    `  ${C.dim}${pad('LABEL', labelWidth)}  ${pad('CONNECTED AS', asWidth)}  OWNER    DEFAULT  CONNECTION ID${C.reset}`,
+  ];
+  for (const account of accounts) {
+    lines.push(
+      `  ${pad(account.label, labelWidth)}  ${pad(account.connected_as ?? '—', asWidth)}  ` +
+        `${pad(accountOwnerLabel(account.owner_type), 8)} ` +
+        `${pad(account.is_default ? 'yes' : 'no', 8)} ${account.connection_id}` +
+        `${account.is_default ? `  ${C.dim}(pinned default)${C.reset}` : ''}` +
+        `${account.credential_rejected_at ? `  ${C.red}(credential rejected — replace it)${C.reset}` : ''}` +
+        `${unfinished(account) ? `  ${C.yellow}(sign-in not finished)${C.reset}` : ''}`,
+    );
+  }
+  lines.push('');
+  // A ready-to-copy example per account a call can run as, plus the two
+  // selector words — this is what makes "which account do I pass?" a non-question.
+  for (const account of callable) {
+    lines.push(`  ${C.dim}kortix connectors call ${slug} <action> --account "${account.label}"${C.reset}`);
+  }
+  if (callable.length > 0) {
+    lines.push(
+      `  ${C.dim}kortix connectors call ${slug} <action> --account me${C.reset}       ${C.faded}# your default private account${C.reset}`,
+      `  ${C.dim}kortix connectors call ${slug} <action> --account workspace${C.reset}  ${C.faded}# the workspace's shared account${C.reset}`,
+      '',
+    );
+  }
+  if (callable.length < accounts.length) {
+    lines.push(
+      `  ${C.dim}Finish a sign-in in Settings → Connectors, or run ${C.reset}${C.cyan}kortix connectors connect ${slug}${C.reset}${C.dim} for a sign-in link. Do not add a second account.${C.reset}`,
+      '',
+    );
+  }
+  lines.push(`  ${C.dim}${accounts.length} account${accounts.length === 1 ? '' : 's'}${C.reset}`);
+  if (!callable.some((account) => account.is_default) && callable.length > 1) {
+    lines.push(
+      `  ${C.dim}No default pinned — unnamed calls will be refused with ${C.reset}account_required${C.dim}; ` +
+        `pass --account or pin one: ${C.reset}${C.cyan}kortix connectors accounts ${slug} --default <label>${C.reset}`,
+    );
+  }
+  lines.push('');
+  return lines;
 }
 
 /** One condition on a policy rule: a dot path into the call's arguments, the
@@ -238,7 +294,9 @@ Find and install:
           [--way <id>] [--name <n>] unless --way). Installing an app that is
           [--slug <s>] [--json]     already installed changes nothing and exits
           [--new-profile]           3; --new-profile makes a second profile
-                                    (only for another way or other base rules).
+          [--url <url>]             (only for another way or other base rules).
+                                    --url: the server URL of an MCP way the
+                                    catalogue lists without one.
   add <slug> --provider <p> [...]   Declare a profile by hand (an MCP URL, a
                                     spec). Add --apply to apply it now.
   rm <slug> [--apply]               Remove a profile.
@@ -687,16 +745,9 @@ export async function runConnectors(argv: string[]): Promise<number> {
         try {
           resp = await ctx.client.post<AddResult>(`${ex}/connectors`, draft);
         } catch (err) {
-          // An agent session may not add a server the project does not have:
-          // a person confirms it on the page the API links to.
-          const body = (err as { details?: { code?: string; setup_url?: string } }).details;
-          if (body?.code !== 'custom_connector_needs_human') throw err;
-          if (json) emitJson({ ok: false, ...body });
-          else
-            process.stderr.write(
-              `${status.err('A person must confirm a connector the catalog does not list.')}\n  Hand them this link: ${C.cyan}${body.setup_url ?? ''}${C.reset}\n`,
-            );
-          return 1;
+          const handOff = connectorApprovalHandOff(err, json);
+          if (handOff === null) throw err;
+          return handOff;
         }
         if (json) {
           emitJson(resp);
@@ -1222,44 +1273,7 @@ export async function runConnectors(argv: string[]): Promise<number> {
           );
           return 0;
         }
-        const labelWidth = Math.max(5, ...accounts.map((account) => account.label.length));
-        const asWidth = connectedAsWidth(accounts);
-        process.stdout.write('\n');
-        process.stdout.write(
-          `  ${C.dim}${pad('LABEL', labelWidth)}  ${pad('CONNECTED AS', asWidth)}  OWNER    DEFAULT  CONNECTION ID${C.reset}\n`,
-        );
-        for (const account of accounts) {
-          process.stdout.write(
-            `  ${pad(account.label, labelWidth)}  ${pad(account.connected_as ?? '—', asWidth)}  ` +
-              `${pad(accountOwnerLabel(account.owner_type), 8)} ` +
-              `${pad(account.is_default ? 'yes' : 'no', 8)} ${account.connection_id}` +
-              `${account.is_default ? `  ${C.dim}(pinned default)${C.reset}` : ''}` +
-              `${account.credential_rejected_at ? `  ${C.red}(credential rejected — replace it)${C.reset}` : ''}\n`,
-          );
-        }
-        process.stdout.write('\n');
-        // A ready-to-copy example per account, plus the two selector words —
-        // this is what makes "which account do I pass?" a non-question.
-        for (const account of accounts) {
-          process.stdout.write(
-            `  ${C.dim}kortix connectors call ${slug} <action> --account "${account.label}"${C.reset}\n`,
-          );
-        }
-        process.stdout.write(
-          `  ${C.dim}kortix connectors call ${slug} <action> --account me${C.reset}       ${C.faded}# your default private account${C.reset}\n` +
-            `  ${C.dim}kortix connectors call ${slug} <action> --account workspace${C.reset}  ${C.faded}# the workspace's shared account${C.reset}\n\n`,
-        );
-        const hasPinned = accounts.some((a) => a.is_default);
-        process.stdout.write(
-          `  ${C.dim}${accounts.length} account${accounts.length === 1 ? '' : 's'}${C.reset}\n`,
-        );
-        if (!hasPinned && accounts.length > 1) {
-          process.stdout.write(
-            `  ${C.dim}No default pinned — unnamed calls will be refused with ${C.reset}account_required${C.dim}; ` +
-              `pass --account or pin one: ${C.reset}${C.cyan}kortix connectors accounts ${slug} --default <label>${C.reset}\n`,
-          );
-        }
-        process.stdout.write('\n');
+        process.stdout.write(`${connectorAccountsLines(slug, accounts).join('\n')}\n`);
         return 0;
       }
       case 'rename':
@@ -1519,17 +1533,25 @@ export async function runConnectors(argv: string[]): Promise<number> {
             const marks = [
               v.recommended ? 'recommended' : '',
               v.oneClick ? '1-click' : '',
-              v.kind === 'kortix' ? 'built into Kortix, set up on its page' : !v.connector && v.kind !== 'composio' ? 'not installable' : '',
+              v.kind === 'kortix'
+                ? 'built into Kortix, set up on its page'
+                : v.kind === 'mcp' && !v.connector
+                  ? 'catalogue has no URL: install with --url <server url>'
+                  : !v.connector && v.kind !== 'composio'
+                    ? 'not installable'
+                    : '',
             ].filter(Boolean).join(', ');
             process.stdout.write(
               `  ${C.cyan}${pad(v.id, idW)}${C.reset}  ${pad(wayLabel(v.kind), 9)}  ${trim(v.name, 28)}${marks ? ` ${C.faded}(${marks})${C.reset}` : ''}${v.url ? `  ${C.dim}${v.url}${C.reset}` : ''}\n`,
             );
           }
+          if (detail.variants.some((v) => v.kind === 'composio')) {
+            process.stdout.write(
+              `\n  ${C.dim}Composio is a third-party partner that runs the sign-in for you (one click).${C.reset}\n`,
+            );
+          } else process.stdout.write('\n');
           process.stdout.write(
-            `\n  ${C.dim}Composio is a third-party partner that runs the sign-in for you (one click).${C.reset}\n`,
-          );
-          process.stdout.write(
-            `  ${C.dim}Install: kortix connectors catalog install ${detail.item.id} [--way <id>] [--name <name>]${C.reset}\n\n`,
+            `  ${C.dim}Install: kortix connectors catalog install ${detail.item.id} [--way <id>] [--name <name>] [--url <url>]${C.reset}\n\n`,
           );
           if (tools) printTools(id, tools, 25);
           return 0;
@@ -1576,7 +1598,7 @@ export async function runConnectors(argv: string[]): Promise<number> {
         if (action === 'install' || action === 'add') {
           const id = positional[1];
           if (!id) return missing('a catalogue record id');
-          const done = await ctx.client.post<{
+          type Installed = {
             slug: string;
             name: string;
             provider: string;
@@ -1586,13 +1608,22 @@ export async function runConnectors(argv: string[]): Promise<number> {
             existing?: boolean;
             /** With `next: 'fix'`: why the install's sync failed. */
             error?: string;
-          }>(`${ex}/discover/install`, {
-            id,
-            ...(f.way ? { way: f.way } : {}),
-            ...(f.name ? { name: f.name } : {}),
-            ...(f.slug ? { slug: f.slug } : {}),
-            ...(f.newProfile === 'true' ? { as_new_profile: true } : {}),
-          });
+          };
+          let done: Installed;
+          try {
+            done = await ctx.client.post<Installed>(`${ex}/discover/install`, {
+              id,
+              ...(f.way ? { way: f.way } : {}),
+              ...(f.name ? { name: f.name } : {}),
+              ...(f.slug ? { slug: f.slug } : {}),
+              ...(f.url ? { url: f.url } : {}),
+              ...(f.newProfile === 'true' ? { as_new_profile: true } : {}),
+            });
+          } catch (err) {
+            const handOff = connectorApprovalHandOff(err, json);
+            if (handOff === null) throw err;
+            return handOff;
+          }
           const nextStep =
             done.next === 'connect'
               ? `kortix connectors connect ${done.slug}`
@@ -2415,7 +2446,7 @@ function parseMetadata(value: string | undefined): Record<string, unknown> | und
 }
 
 /** Column width for CONNECTED AS: the longest identity, or the header. */
-function connectedAsWidth(rows: Array<{ connected_as?: string | null }>): number {
+function connectedAsWidth(rows: ReadonlyArray<{ connected_as?: string | null }>): number {
   return Math.max(12, ...rows.map((row) => (row.connected_as ?? '—').length));
 }
 
@@ -2426,6 +2457,32 @@ function connectionActionPastTense(action: 'revoke' | 'activate' | 'default'): s
 }
 
 // ── Local kortix.yaml config edits (source of truth; no cloud round-trip) ────
+
+/**
+ * The two answers that hand a step to a person instead of failing: a server
+ * nobody approved yet (`custom_connector_needs_human`, an agent session) and
+ * a catalogue way listed without its URL (`connector_needs_url`). Prints the
+ * link and returns the exit code (1), or null for any other error.
+ */
+function connectorApprovalHandOff(err: unknown, json: boolean): number | null {
+  const body = (err as { details?: { code?: string; error?: string; setup_url?: string | null; docs?: string | null } })
+    .details;
+  if (body?.code !== 'custom_connector_needs_human' && body?.code !== 'connector_needs_url') return null;
+  if (json) {
+    emitJson({ ok: false, ...body });
+    return 1;
+  }
+  const lead =
+    body.code === 'custom_connector_needs_human'
+      ? 'This connector needs a one-time approval from a person who manages connectors (an owner, admin or manager).'
+      : (body.error ?? 'The catalogue lists this way without its server URL. Pass it with --url <url>.');
+  process.stderr.write(
+    `${status.warn(lead)}\n` +
+      (body.setup_url ? `  ${C.dim}They approve it here:${C.reset} ${C.cyan}${body.setup_url}${C.reset}\n` : '') +
+      (body.docs ? `  ${C.dim}Where to find the URL:${C.reset} ${body.docs}\n` : ''),
+  );
+  return 1;
+}
 
 /** What a missing --provider usually means: a SaaS app, which the catalog installs. */
 const ADD_PROVIDER_HINT =

@@ -632,7 +632,6 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
           aria-modal="true"
           aria-label={tHardcodedUi.raw('componentsHomeNavbar.line322JsxAttrAriaLabelOpenMenu')}
           onKeyDown={onDrawerKeyDown}
-          data-lenis-prevent
           className="bg-background fixed inset-0 z-50 flex flex-col lg:hidden"
         >
           <div

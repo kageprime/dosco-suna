@@ -110,9 +110,8 @@ function app(over: Partial<Config>, opts: Parameters<typeof piControl>[1] = {}) 
   return buildDaemonApp(cfg, fakeHarness({ control: piControl(cfg, opts) }), Date.now())
 }
 
-/** An empty, repo-less project target. `/workspace` (the fixture default) is a
- *  real git checkout on a Kortix sandbox, where the "no repo here" 409 the
- *  auth tests assert would instead run the repo work. */
+/** An empty, checkout-less project target: what a fresh session's
+ *  `/workspace` looks like since sessions boot without a checkout. */
 function emptyTarget(): string {
   const dir = mkdtempSync(join(tmpdir(), 'kortix-refresh-empty-'))
   roots.push(dir)
@@ -152,13 +151,15 @@ describe('auth', () => {
 
   it('keeps an ordinary refresh open to a proxied caller', async () => {
     // Only the destructive flag needs the direct call: a user pulling their own
-    // workspace keeps working without it. No repo here, so the repo work
-    // answers 409; the gate did not refuse it.
+    // workspace keeps working without it. No checkout here, so there is nothing
+    // to fetch or pull: the refresh answers the no-op, and the gate did not
+    // refuse it.
     const res = await app({ projectTarget: emptyTarget() }).request('/kortix/refresh', {
       method: 'POST',
       headers: { Authorization: `Bearer ${TEST_SANDBOX_TOKEN}` },
     })
-    expect(res.status).toBe(409)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true, repo: { before: null, after: null } })
   })
 
 })

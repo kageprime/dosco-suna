@@ -79,6 +79,9 @@ export interface ConnectorRequirementRow {
   config: Record<string, unknown>;
   enabled: boolean;
   status: 'active' | 'disabled' | 'needs_auth' | 'error';
+  /** The connector-level broker secret name, when the caller selected it —
+   *  `deriveConnectorConnectionIdSets` reads it for the legacy-inheritance rule. */
+  authSecret?: string | null;
 }
 
 interface ConnectorConnectionRow {
@@ -104,7 +107,9 @@ function connectorRequiresAuthorization(connector: ConnectorRequirementRow): boo
 export async function connectorConnectionIsConnected(input: {
   connector: ConnectorRequirementRow;
   connection: ConnectorConnectionRow;
-  preloaded?: SessionConnectorResolutionData;
+  /** The two snapshot fields this check reads — `loadSessionConnectorResolutionData`
+   *  satisfies it structurally; a batch builds the same two fields in-place. */
+  preloaded?: Pick<SessionConnectorResolutionData, 'connectedConnectionIds' | 'channelInstalls'>;
 }): Promise<boolean> {
   const { connector, connection } = input;
   if (!connectorRequiresAuthorization(connector)) return true;
@@ -666,6 +671,59 @@ export interface SessionConnectorResolutionData {
   audiences: Map<string, ReturnType<typeof loadConnectionAudience>>;
 }
 
+/** The credential facts `deriveConnectorConnectionIdSets` reads per connector. */
+interface ConnectorCredentialFact {
+  connectorId: string;
+  connectionId: string | null;
+  userId: string | null;
+}
+
+/**
+ * Which connection ids hold a credential — or inherit the connector's legacy
+ * connector-level / broker-secret credential (the `account_required` rule's
+ * effective project default) — and which are additionally catalog-visible.
+ *
+ * ONE predicate source for both readers of `connectorConnectionIsConnected`:
+ * the session resolution snapshot builds it from batched reads, and
+ * `listEntitledConnectorConnectionsBatch` builds the same sets in-place
+ * (KRTX-4750: the batch loop previously asked `connectionCredentialExists`
+ * per connection — n=64-73 db queries for one admin list on prod).
+ */
+function deriveConnectorConnectionIdSets(input: {
+  connectors: ReadonlyArray<ConnectorRequirementRow>;
+  connections: ReadonlyArray<ConnectorConnectionRow & { connectorId: string }>;
+  credentials: ReadonlyArray<ConnectorCredentialFact>;
+  secretNames: ReadonlySet<string>;
+}): { connectedConnectionIds: Set<string>; catalogCredentialConnectionIds: Set<string> } {
+  const connectedConnectionIds = new Set<string>();
+  const catalogCredentialConnectionIds = new Set<string>();
+  for (const connector of input.connectors) {
+    const rows = input.connections.filter((row) => row.connectorId === connector.connectorId);
+    const projectRows = rows.filter((row) => row.ownerType === 'project');
+    const effectiveDefault = projectRows.find((row) => row.isDefault) ??
+      (projectRows.length === 1 ? projectRows[0] : undefined);
+    const connectorCredentials = input.credentials.filter((row) => row.connectorId === connector.connectorId);
+    // credentialExists(connectorId, null): legacy rows OR the effective
+    // default's credential, but only with a null userId.
+    const legacyConnected = connectorCredentials.some((row) => row.userId === null &&
+      (row.connectionId === null || row.connectionId === effectiveDefault?.connectionId));
+    const secretConnected = Boolean(connector.authSecret &&
+      input.secretNames.has(connector.authSecret.trim().toUpperCase()));
+    for (const row of rows) {
+      if (connectorCredentials.some((credential) => credential.connectionId === row.connectionId) ||
+        ((row.isDefault || row.connectionId === effectiveDefault?.connectionId) && legacyConnected)) {
+        catalogCredentialConnectionIds.add(row.connectionId);
+      }
+      if (connectorCredentials.some((credential) => credential.connectionId === row.connectionId) ||
+        (row.ownerType === 'project' && row.connectionId === effectiveDefault?.connectionId &&
+          (legacyConnected || secretConnected))) {
+        connectedConnectionIds.add(row.connectionId);
+      }
+    }
+  }
+  return { connectedConnectionIds, catalogCredentialConnectionIds };
+}
+
 export async function loadSessionConnectorResolutionData(input: {
   accountId: string;
   projectId: string;
@@ -745,32 +803,12 @@ export async function loadSessionConnectorResolutionData(input: {
     (row.strategy === 'broker' && row.consumer === 'connector') ||
     (row.scope === 'connector' && (row.consumer === 'connector' || row.consumer === 'sandbox')),
   ).map((row) => row.name));
-  const connectedConnectionIds = new Set<string>();
-  const catalogCredentialConnectionIds = new Set<string>();
-  for (const connector of connectorRows) {
-    const rows = connections.filter((row) => row.connectorId === connector.connectorId);
-    const projectRows = rows.filter((row) => row.ownerType === 'project');
-    const effectiveDefault = projectRows.find((row) => row.isDefault) ??
-      (projectRows.length === 1 ? projectRows[0] : undefined);
-    const connectorCredentials = credentials.filter((row) => row.connectorId === connector.connectorId);
-    // credentialExists(connectorId, null): legacy rows OR the effective
-    // default's credential, but only with a null userId.
-    const legacyConnected = connectorCredentials.some((row) => row.userId === null &&
-      (row.connectionId === null || row.connectionId === effectiveDefault?.connectionId));
-    const secretConnected = Boolean(connector.authSecret &&
-      secretNames.has(connector.authSecret.trim().toUpperCase()));
-    for (const row of rows) {
-      if (connectorCredentials.some((credential) => credential.connectionId === row.connectionId) ||
-        ((row.isDefault || row.connectionId === effectiveDefault?.connectionId) && legacyConnected)) {
-        catalogCredentialConnectionIds.add(row.connectionId);
-      }
-      if (connectorCredentials.some((credential) => credential.connectionId === row.connectionId) ||
-        (row.ownerType === 'project' && row.connectionId === effectiveDefault?.connectionId &&
-          (legacyConnected || secretConnected))) {
-        connectedConnectionIds.add(row.connectionId);
-      }
-    }
-  }
+  const { connectedConnectionIds, catalogCredentialConnectionIds } = deriveConnectorConnectionIdSets({
+    connectors: connectorRows,
+    connections,
+    credentials,
+    secretNames,
+  });
   return {
     session,
     bindings,
@@ -1041,6 +1079,9 @@ export interface EntitledConnectorConnection {
   isDefault: boolean;
   status: 'active' | 'revoked' | 'error';
   metadata: Record<string, unknown>;
+  /** Whether a call can run as it now. Set by `listEntitledConnectorConnections`;
+   *  `false` only with `includeNotConnected` (a sign-in that did not finish). */
+  connected?: boolean;
 }
 
 export async function listEntitledConnectorConnections(input: {
@@ -1059,6 +1100,10 @@ export async function listEntitledConnectorConnections(input: {
    *  skipped — the same row read twice per call was the resolution fan-out's
    *  duplicate. Mismatched hints fall back to the select, byte-identical. */
   connectorRow?: ConnectorRequirementRow | null;
+  /** Also return the reachable accounts a call cannot run as yet (sign-in not
+   *  finished), marked `connected: false`. For listings a person reads, never
+   *  for call resolution. */
+  includeNotConnected?: boolean;
 }): Promise<EntitledConnectorConnection[]> {
   const alias = canonicalConnectorAlias(input.alias);
   const actingUserId = input.actingUserId ?? '';
@@ -1178,7 +1223,8 @@ export async function listEntitledConnectorConnections(input: {
       continue;
     }
     if (connectionNeedsPrivateSession(connection.ownerType, audience) && visibility !== 'private') continue;
-    if (!(await connectorConnectionIsConnected({ connector, connection, preloaded: input.preloaded }))) continue;
+    const connected = await connectorConnectionIsConnected({ connector, connection, preloaded: input.preloaded });
+    if (!connected && !input.includeNotConnected) continue;
     entitled.push({
       connectionId: row.connectionId,
       connectorId: connector.connectorId,
@@ -1188,6 +1234,7 @@ export async function listEntitledConnectorConnections(input: {
       isDefault: row.isDefault,
       status: row.status,
       metadata: row.metadata ?? {},
+      connected,
     });
   }
   // Every member-owned row that survived the filter is the CALLER's own, so
@@ -1262,6 +1309,9 @@ export async function listEntitledConnectorConnectionsBatch(input: {
   }
 
   const connectorIds = eligible.map((c) => c.connectorId);
+  // No status filter: a revoked project row still decides which row is the
+  // connector's effective default (the legacy-credential inheritance in
+  // `deriveConnectorConnectionIdSets`); the loop below skips non-active rows.
   const rows = await db
     .select({
       connectorId: connectorConnections.connectorId,
@@ -1279,10 +1329,58 @@ export async function listEntitledConnectorConnectionsBatch(input: {
         eq(connectorConnections.accountId, input.accountId),
         eq(connectorConnections.projectId, input.projectId),
         inArray(connectorConnections.connectorId, connectorIds),
-        eq(connectorConnections.status, 'active'),
       ),
     )
     .orderBy(desc(connectorConnections.isDefault), connectorConnections.connectionId);
+
+  // The per-connection connectivity answer, batched. The loop below used to
+  // await `connectorConnectionIsConnected` per row with no snapshot, and each
+  // call re-selected `connection_credentials` for that one connection —
+  // n=64-73 db queries for one admin list on prod (KRTX-4750). Derive the
+  // same `connectedConnectionIds` set the session snapshot uses, once, from
+  // two bounded queries.
+  const [credentialRows, secretRows] = await Promise.all([
+    db
+      .select({
+        connectorId: connectionCredentials.connectorId,
+        connectionId: connectionCredentials.connectionId,
+        userId: connectionCredentials.userId,
+      })
+      .from(connectionCredentials)
+      .where(inArray(connectionCredentials.connectorId, connectorIds)),
+    db
+      .select({
+        name: projectSecrets.name,
+        scope: projectSecrets.scope,
+        strategy: projectSecrets.strategy,
+        consumer: projectSecrets.consumer,
+      })
+      .from(projectSecrets)
+      .where(
+        and(
+          eq(projectSecrets.projectId, input.projectId),
+          isNull(projectSecrets.ownerUserId),
+          eq(projectSecrets.active, true),
+        ),
+      ),
+  ]);
+  const secretNames = new Set(
+    secretRows
+      .filter((row) =>
+        (row.strategy === 'broker' && row.consumer === 'connector') ||
+        (row.scope === 'connector' && (row.consumer === 'connector' || row.consumer === 'sandbox')))
+      .map((row) => row.name),
+  );
+  const { connectedConnectionIds } = deriveConnectorConnectionIdSets({
+    connectors: eligible,
+    connections: rows,
+    credentials: credentialRows,
+    secretNames,
+  });
+  const preloaded = {
+    connectedConnectionIds,
+    channelInstalls: new Map<string, Promise<boolean>>(),
+  };
 
   const rowsByConnector = new Map<string, typeof rows>();
   for (const row of rows) {
@@ -1312,6 +1410,7 @@ export async function listEntitledConnectorConnectionsBatch(input: {
     let entitled: EntitledConnectorConnection[] = [];
     try {
       for (const row of connectorRows) {
+        if (row.status !== 'active') continue;
         const connection: ConnectorConnectionRow = {
           connectionId: row.connectionId,
           isDefault: row.isDefault,
@@ -1340,7 +1439,7 @@ export async function listEntitledConnectorConnectionsBatch(input: {
         if (connectionNeedsPrivateSession(connection.ownerType, audience) && visibility !== 'private') {
           continue;
         }
-        if (!(await connectorConnectionIsConnected({ connector, connection }))) continue;
+        if (!(await connectorConnectionIsConnected({ connector, connection, preloaded }))) continue;
         entitled.push({
           connectionId: row.connectionId,
           connectorId: connector.connectorId,
@@ -1638,6 +1737,7 @@ export async function resolveEffectiveSessionConnectorBindings(input: {
         config: connectors.config,
         enabled: connectors.enabled,
         status: connectors.status,
+        authSecret: connectors.authSecret,
       })
       .from(connectors)
       .where(

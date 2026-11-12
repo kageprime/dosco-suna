@@ -93,8 +93,24 @@ mock.module('../connectors/sync', () => ({
   },
 }));
 
+// One Slack workspace, one Kortix workspace: who holds the link decides whether
+// this install may take it (channels/slack/link.ts).
+let linkHolder: string | null = null;
+const moves: Array<[string, string]> = [];
+const realLink = await import('../channels/slack/link');
+mock.module('../channels/slack/link', () => ({
+  ...realLink,
+  linkedSlackProject: async () => linkHolder,
+  moveSlackLink: async (teamId: string, projectId: string) => {
+    moves.push([teamId, projectId]);
+    return [];
+  },
+}));
+
 const realFetch = globalThis.fetch;
 let slackResponse: Record<string, unknown> = {};
+/** The consenting person as `users.info` answers. */
+let consenting: Record<string, unknown> = { is_admin: false, is_owner: false };
 
 beforeEach(() => {
   projectRows = [{ projectId: PROJECT_ID }];
@@ -112,8 +128,12 @@ beforeEach(() => {
     team: { id: WORKSPACE_ID, name: 'KortixDev' },
     authed_user: { id: 'U_ADMIN' },
   };
-  globalThis.fetch = (async () => {
+  linkHolder = null;
+  moves.length = 0;
+  consenting = { is_admin: false, is_owner: false };
+  globalThis.fetch = (async (input: unknown) => {
     fetchCalls += 1;
+    if (String(input).includes('/users.info')) return Response.json({ ok: true, user: { id: 'U_ADMIN', ...consenting } });
     return new Response(JSON.stringify(slackResponse), {
       status: 200,
       headers: { 'content-type': 'application/json' },
@@ -205,6 +225,32 @@ describe('Slack OAuth completion', () => {
       botUserId: 'U_BOT',
       teamName: 'KortixDev',
     }]);
+  });
+
+  test('the install takes the Slack workspace link when no other Kortix workspace holds it', async () => {
+    const result = await complete();
+    expect(result).toEqual({ ok: true, redirectUrl: dashboard('success=1') });
+    expect(moves).toEqual([[WORKSPACE_ID, PROJECT_ID]]);
+  });
+
+  test("a plain Slack member cannot take the link from the Kortix workspace that holds it: nothing is saved or moved", async () => {
+    linkHolder = OTHER_PROJECT_ID;
+    const result = await complete();
+    expect(result).toEqual({ ok: true, redirectUrl: dashboard('error=slack_link_held_by_another_workspace') });
+    expect(saveCalls).toHaveLength(0);
+    expect(moves).toHaveLength(0);
+  });
+
+  test('a Slack admin or owner moves the link to this Kortix workspace', async () => {
+    linkHolder = OTHER_PROJECT_ID;
+    for (const role of [{ is_admin: true }, { is_owner: true }, { is_primary_owner: true }]) {
+      saveCalls.length = 0;
+      moves.length = 0;
+      consenting = role;
+      expect(await complete()).toEqual({ ok: true, redirectUrl: dashboard('success=1') });
+      expect(saveCalls).toHaveLength(1);
+      expect(moves).toEqual([[WORKSPACE_ID, PROJECT_ID]]);
+    }
   });
 
   test('another Kortix user is refused with 403 before the code is exchanged, and nothing is saved', async () => {

@@ -12,7 +12,7 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 
 import { autoClaimPendingInvites } from '../../accounts/core/app';
-import { ACCOUNT_ACTIONS, authorize, workspaceRoleFor, type WorkspaceRole } from '../../iam';
+import { ACCOUNT_ACTIONS, PROJECT_ACTIONS, authorize, workspaceRoleFor, type WorkspaceRole } from '../../iam';
 import { actorOf } from '../../iam/actor';
 import { projectRoleGrants } from '../../iam/read-models';
 import {
@@ -218,6 +218,18 @@ async function readWorkspaceWithoutLiveProject(c: Context<AppEnv>, gated: Canoni
   });
 }
 
+/**
+ * The role ladder (`workspaceRoleFor`) names people. A workspace agent's
+ * session authorizes as the agent's service account, which holds no rung, yet
+ * the engine lets it read its own workspace. It reads the record as `member`,
+ * the lowest rung: `kortix workspaces clone` probes this record from every
+ * session, so without it no workspace agent could get the code.
+ */
+async function readerWithoutRung(actor: Awaited<ReturnType<typeof actorOf>>, workspaceId: string): Promise<WorkspaceRole | null> {
+  const verdict = await authorize(actor, PROJECT_ACTIONS.PROJECT_READ, { type: 'project', id: workspaceId });
+  return verdict.allowed ? 'member' : null;
+}
+
 /** `GET /v1/workspaces/:id`: the Workspace. `404 workspace_not_found` for every id it does not serve. */
 export async function readWorkspace(c: Context<AppEnv>): Promise<Response> {
   const id = recordId(c);
@@ -231,7 +243,8 @@ export async function readWorkspace(c: Context<AppEnv>): Promise<Response> {
   const userId = c.get('userId') as string | undefined;
   const settings = await readWorkspaceSettings(id, userId ?? null);
   const ws = c.get(CANONICAL_WORKSPACE_VAR as never) as CanonicalWorkspace | undefined;
-  const role = await workspaceRoleFor(await actorOf(c, record.loaded.row.accountId), id);
+  const actor = await actorOf(c, record.loaded.row.accountId);
+  const role = (await workspaceRoleFor(actor, id)) ?? (await readerWithoutRung(actor, id));
   if (!role) return workspaceNotFound(c);
   return c.json(workspaceBody(record, settings, ws, role, await workspaceSplitNotice(record.loaded.row.accountId)));
 }

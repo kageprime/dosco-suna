@@ -83,12 +83,37 @@ function looksLocal(s: string): boolean {
   return s.startsWith('./') || s.startsWith('../') || s.startsWith('/') || s === '.' || s.startsWith('.\\');
 }
 
+/** Parse a github.com web URL into a github ref. `https://github.com/owner/repo`
+ *  and `/tree/<ref>/<subdir>` name the same registry as `owner/repo` shorthand —
+ *  mapping them here (instead of url kind) sends reads to raw.githubusercontent.com
+ *  with the SKILL.md scan fallback, where github.com's HTML host can never serve
+ *  a registry.json. Returns null for any other URL shape. */
+function parseGithubWebUrl(url: string): RegistryRef | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== 'https:' || !/^(www\.)?github\.com$/.test(parsed.hostname)) return null;
+  const segments = parsed.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+  if (segments.length < 2) return null; // an org/user page is not a registry
+  const owner = segments[0];
+  const { repo, ref } = splitRef(segments[1]);
+  if (segments[2] === 'tree' && segments[3]) {
+    const subdir = segments.length > 4 ? segments.slice(4).join('/') : undefined;
+    return { kind: 'github', owner, repo, ref: segments[3], subdir };
+  }
+  if (segments.length > 2) return null; // blob / issues / actions … not a registry address
+  return { kind: 'github', owner, repo, ref, subdir: undefined };
+}
+
 /** Parse an address that names a whole registry (no item component). */
 export function parseRegistryAddress(raw: string): RegistryRef {
   const trimmed = raw.trim();
   if (!trimmed) throw new Error('empty registry address');
 
-  if (isUrl(trimmed)) return { kind: 'url', url: trimmed };
+  if (isUrl(trimmed)) return parseGithubWebUrl(trimmed) ?? { kind: 'url', url: trimmed };
   if (looksLocal(trimmed)) return { kind: 'local', path: trimmed };
 
   if (trimmed.startsWith('@')) {

@@ -20,6 +20,7 @@ const rec = (fn: string) => (...args: unknown[]) => {
 mock.module('../channels/slack-api', () => ({
   addReaction: rec('addReaction'),
   removeReaction: rec('removeReaction'),
+  setAssistantStatus: async () => {},
   joinChannel: rec('joinChannel'),
   postMessage: rec('postMessage'),
   postBlocks: rec('postBlocks'),
@@ -73,7 +74,8 @@ describe('finalizeTurn — silent turn (the stuck "On it…" fix)', () => {
 
   test('bare handle + answer posts the reply + check reaction', async () => {
     await finalizeTurn(makeHandle(), { answer: 'here you go' });
-    const post = calls.find((c) => c.fn === 'postMessage');
+    // A session's answer is a block post: the body, then the footer.
+    const post = calls.find((c) => c.fn === 'postBlocks');
     expect(post).toBeDefined();
     expect(post!.args[2]).toBe('here you go');
     expect(fns()).toContain('removeReaction');
@@ -92,8 +94,8 @@ describe('finalizeTurn — silent turn (the stuck "On it…" fix)', () => {
     expect(upd).toBeDefined();
     expect(upd.args[3]).toBe('Task complete');
     const blocks = upd.args[4] as Array<{ type: string; tasks?: Array<{ status: string }> }>;
-    // no "_Done._" filler section; 'context' = the "Open session" footer link
-    expect(blocks.map((b) => b.type)).toEqual(['plan', 'context']);
+    // no "_Done._" filler section; 'actions' = the footer (Open in Kortix)
+    expect(blocks.map((b) => b.type)).toEqual(['plan', 'actions']);
     expect(blocks[0]!.tasks![0]!.status).toBe('complete'); // last step closed
   });
 
@@ -108,8 +110,8 @@ describe('finalizeTurn — silent turn (the stuck "On it…" fix)', () => {
     expect(upd.args[3]).toBe('Run failed');
     const blocks = upd.args[4] as Array<{ type: string; tasks?: Array<{ status: string }> }>;
     expect(blocks[0]!.tasks![0]!.status).toBe('error');
-    // error rendered as a section; 'context' = the "Open session" footer link
-    expect(blocks.map((b) => b.type)).toEqual(['plan', 'section', 'context']);
+    // error rendered as a section; 'actions' = the footer (Open in Kortix)
+    expect(blocks.map((b) => b.type)).toEqual(['plan', 'section', 'actions']);
     // an error is not a success — no check reaction
     expect(calls.some((c) => c.fn === 'addReaction' && c.args[3] === 'white_check_mark')).toBe(false);
   });
@@ -124,8 +126,8 @@ describe('finalizeTurn — silent turn (the stuck "On it…" fix)', () => {
     const upd = calls.find((c) => c.fn === 'updateBlocks')!;
     expect(upd.args[3]).toBe('Task complete');
     const blocks = upd.args[4] as Array<{ type: string }>;
-    // answer section + 'context' = the "Open session" footer link
-    expect(blocks.map((b) => b.type)).toEqual(['plan', 'section', 'context']);
+    // answer section + 'actions' = the footer (Open in Kortix)
+    expect(blocks.map((b) => b.type)).toEqual(['plan', 'section', 'actions']);
     expect(calls.some((c) => c.fn === 'addReaction' && c.args[3] === 'white_check_mark')).toBe(true);
   });
 
@@ -242,7 +244,8 @@ describe('plain posts do not acquire a block fallback', () => {
     test(`does not retry a plain post on ${failure}`, async () => {
       if (failure === 'throw') failFn = 'postMessage';
       else overrides.postMessage = null;
-      await finalizeTurn(makeHandle(), { answer: 'plain answer' });
+      // No session yet: nothing to open, so the answer is a plain post.
+      await finalizeTurn(makeHandle({ sessionId: '' }), { answer: 'plain answer' });
       expect(fns().filter(fn => fn === 'postMessage')).toHaveLength(1);
       expect(fns()).not.toContain('addReaction');
       expect(fns()).toContain('removeReaction');

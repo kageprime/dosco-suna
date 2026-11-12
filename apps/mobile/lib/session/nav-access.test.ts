@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { REVIEW_ACCESS, appsRowVisible, navAccessAllowed } from './nav-access';
+import { NAV_ACTIONS, REVIEW_ACCESS, appsRowVisible, artifactsRowVisible, navAccessAllowed } from './nav-access';
 
 const cans = (allowed: string[], loading = false) =>
   new Proxy({} as Record<string, { allowed: boolean; isLoading: boolean }>, {
@@ -25,4 +25,21 @@ describe('appsRowVisible', () => {
     expect(appsRowVisible(cans([]), undefined)).toBe(false);
   });
   test('hidden while the verdict loads', () => expect(appsRowVisible(cans([], true), 3)).toBe(false));
+});
+
+describe('artifactsRowVisible', () => {
+  test('a Drive and the read leaf show the row', () => {
+    expect(artifactsRowVisible(cans(['project.artifact.read']), true)).toBe(true);
+  });
+  test('no Drive on the platform hides it, whatever the leaf', () => {
+    expect(artifactsRowVisible(cans(['project.artifact.read']), false)).toBe(false);
+  });
+  test('without the read leaf, or before the verdict, it stays hidden', () => {
+    expect(artifactsRowVisible(cans([]), true)).toBe(false);
+    expect(artifactsRowVisible(cans(['project.artifact.read'], true), true)).toBe(false);
+    expect(artifactsRowVisible({}, true)).toBe(false);
+  });
+  test('the drawer batch asks for the read leaf', () => {
+    expect(NAV_ACTIONS).toContain('project.artifact.read');
+  });
 });

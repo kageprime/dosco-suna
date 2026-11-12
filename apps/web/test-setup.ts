@@ -1,3 +1,5 @@
+import '../../packages/ui/test-dom-globals';
+
 for (const key of Object.keys(process.env)) {
   const value = process.env[key];
   if (typeof value === 'string' && value.startsWith('encrypted:')) {

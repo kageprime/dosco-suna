@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import { SendStopControl, type SendStopControlProps } from './send-stop-control';
+import type { ComposerCall } from '../voice/composer-call';
+import { offersComposerCall, SendStopControl, type SendStopControlProps } from './send-stop-control';
 
 const idle: SendStopControlProps = {
   isSending: false,
@@ -108,4 +109,78 @@ describe('a follow-up typed during a turn', () => {
     expect(markup).toMatch(/<button[^>]*disabled=""[^>]*aria-label="Send message"|<button[^>]*aria-label="Send message"[^>]*disabled=""/);
     expect(markup).toMatch(/<button(?![^>]*disabled="")[^>]*aria-label="Stop/);
   });
+});
+
+// The voice call in Send's place (flag `voice_call`): an empty composer calls,
+// a draft sends, and every other state of the control is unchanged.
+describe('a host call on an empty composer', () => {
+  const call: ComposerCall = { onCall: () => {}, inCall: false };
+  const empty = { ...idle, hasText: false, canSubmit: false };
+  const named = (markup: string, name: string) =>
+    new RegExp(`<button[^>]*aria-label="${name}"[^>]*>`).exec(markup)?.[0];
+
+  test('takes the Send slot, enabled, and Send is gone', () => {
+    const markup = renderToStaticMarkup(<SendStopControl {...empty} call={call} />);
+    expect(named(markup, 'Start a voice call')).not.toMatch(/\sdisabled=""/);
+    expect(markup).not.toContain('aria-label="Send message"');
+  });
+
+  test('a draft turns it back into Send', () => {
+    const markup = renderToStaticMarkup(<SendStopControl {...idle} call={call} />);
+    expect(markup).toContain('aria-label="Send message"');
+    expect(markup).not.toContain('aria-label="Start a voice call"');
+  });
+
+  test('a call already in progress keeps the button, disabled', () => {
+    const markup = renderToStaticMarkup(<SendStopControl {...empty} call={{ ...call, inCall: true }} />);
+    expect(named(markup, 'Start a voice call')).toMatch(/\sdisabled=""/);
+  });
+
+  test('without a call the empty composer keeps its disabled Send', () => {
+    const markup = renderToStaticMarkup(<SendStopControl {...empty} />);
+    expect(named(markup, 'Send message')).toMatch(/\sdisabled=""/);
+    expect(markup).not.toContain('aria-label="Start a voice call"');
+  });
+
+  test('a running turn shows Stop, not the call', () => {
+    const markup = renderToStaticMarkup(<SendStopControl {...empty} call={call} isBusy onStop={() => {}} />);
+    expect(markup).toContain('aria-label="Stop');
+    expect(markup).not.toContain('aria-label="Start a voice call"');
+  });
+
+  test('with no agent, Send says why and no call is offered', () => {
+    const markup = renderToStaticMarkup(
+      <SendStopControl {...empty} call={call} agentUnavailable submitDisabled />,
+    );
+    expect(named(markup, 'Send message')).toContain('No agents available to you');
+    expect(markup).not.toContain('aria-label="Start a voice call"');
+  });
+});
+
+describe('offersComposerCall', () => {
+  const offer: Parameters<typeof offersComposerCall>[0] = {
+    call: { onCall: () => {}, inCall: false },
+    canSubmit: false,
+    lockForQuestion: false,
+    disabled: false,
+    modelUnavailable: false,
+  };
+
+  test('an empty, ready composer with a call offers it', () => {
+    expect(offersComposerCall(offer)).toBe(true);
+  });
+
+  const refusals: [string, Partial<Parameters<typeof offersComposerCall>[0]>][] = [
+    ['no call', { call: undefined }],
+    ['something to send', { canSubmit: true }],
+    ['a question holds the composer', { lockForQuestion: true }],
+    ['the composer is disabled', { disabled: true }],
+    ['no agent to run it', { agentUnavailable: true }],
+    ['no model to run it', { modelUnavailable: true }],
+  ];
+  for (const [why, change] of refusals) {
+    test(`${why}: no call`, () => {
+      expect(offersComposerCall({ ...offer, ...change })).toBe(false);
+    });
+  }
 });

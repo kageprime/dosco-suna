@@ -4,7 +4,7 @@ import { ApiError, clientFromAuth } from '../api/client.ts';
 import { activeHostEntry, defaultProject, getHost, listHosts } from '../api/config.ts';
 import type { AccountMembership, MeResponse } from '../api/types.ts';
 import { takeFlags } from '../command-argv.ts';
-import { emitJson, takeFlagBool, takeFlagValue, tokenRejectedLine } from '../command-helpers.ts';
+import { takeFlagBool, takeFlagValue, tokenRejectedLine } from '../command-helpers.ts';
 import { C, help, status } from '../style.ts';
 import { NO_WORKSPACE_LINE } from '../api/no-workspace.ts';
 import { boundWorkspaceId, listWorkspaceRowsReport } from '../project-bind.ts';
@@ -23,6 +23,81 @@ Options:
   --token-only      Print only the active token context.
   -h, --help        Show this help.
 `;
+
+/** The most memberships `whoami --json` lists; the rest is a count (`accounts_total`). */
+export const WHOAMI_ACCOUNTS_CAP = 50;
+
+/** The serialized-bytes ceiling of the whole `--json` output, inside the MCP
+ *  tool's 45 000-byte stdout capture (`STDOUT_CAP`, apps/api/src/mcp/cli.ts):
+ *  a capture cut at the cap is not valid JSON at all. Names are UTF-8
+ *  multi-byte, so the widest valid one (255 astral chars, the DB's
+ *  varchar(255)) is ~1.3 kB on its own — a count cap alone does not bound it. */
+export const WHOAMI_JSON_MAX_BYTES = 40_000;
+
+/** The accounts list for `--json`: the active account first, then the rest,
+ *  capped at WHOAMI_ACCOUNTS_CAP entries. */
+export function boundedAccounts(
+  accounts: AccountMembership[],
+  active: AccountMembership | undefined,
+): AccountMembership[] {
+  const ordered = accounts.length && active ? [active, ...accounts.filter((a) => a.account_id !== active.account_id)] : accounts;
+  return ordered.slice(0, WHOAMI_ACCOUNTS_CAP);
+}
+
+/** The exact `--json` output text (`emitJson`'s format), with the accounts list
+ *  bounded twice over: at most WHOAMI_ACCOUNTS_CAP entries (active first) and
+ *  within WHOAMI_JSON_MAX_BYTES serialized. A list cut by either bound reports
+ *  `accounts_total` (the full membership count) and always keeps the active
+ *  account. */
+export function renderWhoamiJson(
+  me: MeResponse,
+  auth: Auth,
+  resolvedHost: string | null,
+  active: AccountMembership | undefined,
+  def: DefaultProjectRef | null,
+): string {
+  const payload: {
+    host: string | null;
+    url: string;
+    user_id: string;
+    user_email: string | null;
+    workspace_id: string | null;
+    account_id: string | null;
+    account: AccountMembership | null;
+    accounts: AccountMembership[];
+    token_context: MeResponse['token_context'] | null;
+    default_project: DefaultProjectRef | null;
+    accounts_total?: number;
+  } = {
+    host: resolvedHost ?? null,
+    url: auth.api_base,
+    user_id: me.user_id,
+    user_email: me.email || null,
+    workspace_id: boundWorkspaceId(me) ?? def?.project_id ?? null,
+    account_id: active?.account_id ?? auth.account_id ?? null,
+    account: active ?? null,
+    accounts: boundedAccounts(me.accounts, active),
+    token_context: me.token_context ?? null,
+    default_project: def,
+  };
+  // A cut list (by entry count or by bytes) names the full membership count;
+  // a full list leaves the field off. The field is part of the measured text:
+  // it is in place before every size measurement, so the ceiling holds on the
+  // whole payload, not on everything but the last field.
+  const total = me.accounts.length;
+  const cut = () => void (total > payload.accounts.length && (payload.accounts_total = total));
+  cut();
+  let text = JSON.stringify(payload, null, 2);
+  while (
+    new TextEncoder().encode(text).length > WHOAMI_JSON_MAX_BYTES &&
+    payload.accounts.length > 1
+  ) {
+    payload.accounts.pop();
+    cut();
+    text = JSON.stringify(payload, null, 2);
+  }
+  return text;
+}
 
 export async function runWhoami(argv: string[]): Promise<number> {
   const flags = takeFlags(argv, HELP, (rest) => ({
@@ -152,18 +227,11 @@ function whoamiJson(
   active: AccountMembership | undefined,
   def: DefaultProjectRef | null,
 ): void {
-  emitJson({
-    host: resolvedHost ?? null,
-    url: auth.api_base,
-    user_id: me.user_id,
-    user_email: me.email || null,
-    workspace_id: boundWorkspaceId(me) ?? def?.project_id ?? null,
-    account_id: active?.account_id ?? auth.account_id ?? null,
-    account: active ?? null,
-    accounts: me.accounts,
-    token_context: me.token_context ?? null,
-    default_project: def,
-  });
+  // The payload is bounded in full (renderWhoamiJson): whoami is an identity
+  // answer, not an account listing, and a payload that grows with membership
+  // count breaks the machines that read it (the MCP tool's whole-reply budget,
+  // 2026-11-09 release gate).
+  process.stdout.write(`${renderWhoamiJson(me, auth, resolvedHost, active, def)}\n`);
 }
 
 /** The `--token-only` rendering: just the active token's context block. */

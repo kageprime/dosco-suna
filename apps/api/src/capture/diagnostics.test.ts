@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { cleanOsVersion, deviceDiagnostics, osNameFromVersion, parseUpdate, type DiagnosticsInput } from './diagnostics';
+import { cleanOsVersion, deviceDiagnostics, osNameFromVersion, parseResources, parseUpdate, type DiagnosticsInput } from './diagnostics';
 import { deviceFields } from './format';
 
 /** The committed format fixtures: the same files the app's schema test validates. */
@@ -36,6 +36,17 @@ describe('deviceDiagnostics', () => {
     expect(d.policy?.source).toBe('fixture-prefix/policy.json');
     expect(d.managed).toBe(true);
     expect(d.encrypted).toBe(false);
+    expect(d.resources).toEqual({
+      window_ms: 60000, samples: 1, cpu_percent_avg: 8, cpu_percent_peak: 8, memory_bytes: 383778816, memory_bytes_peak: 383778816,
+      process_count: 3,
+      processes: [
+        { name: 'kortix-capture-engine', count: 1, cpu_percent_avg: 6, memory_bytes: 184549376 },
+        { name: 'kortix-capture', count: 1, cpu_percent_avg: 1.5, memory_bytes: 148897792 },
+        { name: 'kortix-backend', count: 1, cpu_percent_avg: 0.5, memory_bytes: 50331648 },
+      ],
+      sampled_at: new Date(1790845320000).toISOString(),
+      read_micros: 310,
+    });
   });
 
   test('a failed update keeps its reason and when the skipped version is tried again', () => {
@@ -58,6 +69,7 @@ describe('deviceDiagnostics', () => {
     expect(d.machine).toBeNull();
     expect(d.update).toBeNull();
     expect(d.policy).toBeNull();
+    expect(d.resources).toBeNull();
     expect(d.recording.missing_permissions).toEqual([]);
     expect(d.reported_at).toBeNull();
   });
@@ -95,6 +107,21 @@ describe('OS names', () => {
     expect(osNameFromVersion('windows', '10.0.22000')).toEqual({ name: 'Windows 11', build: '22000' });
     expect(osNameFromVersion('windows', '10.0.19045.5011')).toEqual({ name: 'Windows 10', build: '19045.5011' });
     expect(osNameFromVersion('linux', 'Ubuntu 24.04.1 LTS')).toEqual({ name: 'Ubuntu 24.04.1 LTS', build: null });
+  });
+
+  test('parseResources is null without the required numbers and drops junk process entries', () => {
+    expect(parseResources(null)).toBeNull();
+    expect(parseResources({ windowMs: 60000, cpuPercentAvg: '4', cpuPercentPeak: 9, memoryBytes: 1, processCount: 1 })).toBeNull();
+    expect(parseResources({ windowMs: 60000, cpuPercentAvg: -1, cpuPercentPeak: 9, memoryBytes: 1, processCount: 1 })).toBeNull();
+    const r = parseResources({
+      windowMs: 600000, samples: 10, cpuPercentAvg: 4.2, cpuPercentPeak: 18, memoryBytes: 325058560, processCount: 7,
+      processes: [{ name: 'kortix-capture', count: 3, cpuPercentAvg: 1.1, memoryBytes: 1024 }, { name: '' }, 'x', { name: 'kortix-backend', cpuPercentAvg: 'n' }],
+    });
+    expect(r).toMatchObject({ cpu_percent_avg: 4.2, cpu_percent_peak: 18, memory_bytes_peak: null, sampled_at: null, read_micros: null });
+    expect(r?.processes).toEqual([
+      { name: 'kortix-capture', count: 3, cpu_percent_avg: 1.1, memory_bytes: 1024 },
+      { name: 'kortix-backend', count: 0, cpu_percent_avg: 0, memory_bytes: 0 },
+    ]);
   });
 
   test('parseUpdate is null without a machine service', () => {

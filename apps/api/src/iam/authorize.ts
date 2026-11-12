@@ -54,7 +54,7 @@ import {
   type ScopeType,
 } from './catalog';
 import { registerPrincipalScopedMemo, registerProjectScopedMemo } from './cache-invalidation';
-import { clearWorkspaceFacts, workspaceFactsOf } from './workspace-facts';
+import { clearWorkspaceFacts, tokenWorkspaceSharesAccount, workspaceFactsOf } from './workspace-facts';
 import { buildDenialError } from './denial-message';
 import type { WorkspaceRole } from './roles';
 import {
@@ -64,7 +64,7 @@ import {
   type Actor,
   type PrincipalRef,
 } from './actor';
-import { accountsView, projectsView } from '../workspaces/rows';
+import { accountsView, accountKeyOfWorkspace } from '../workspaces/rows';
 
 // ─── Public surface ─────────────────────────────────────────────────────────
 
@@ -115,6 +115,12 @@ export type Reason =
   | 'impersonation'
   | 'impersonation_scope'
   | 'token_out_of_scope'
+  /** A workspace-bound token asked for an account-scope action of its OWN
+   *  workspace's account, and that legacy account still holds other
+   *  workspaces (split_pending). The account rows (members, roles, groups,
+   *  keys, the audit log, the wallet) are shared with those workspaces, so no
+   *  workspace key reaches them; a person's own key does. */
+  | 'token_account_shared'
   | 'not_a_member'
   | 'super_admin'
   | 'account_mfa_required'
@@ -297,7 +303,15 @@ async function authorizeDecision(actor: Actor, action: string, obj: EvalObj): Pr
   // 4. A token bound to one workspace is refused on every other workspace. An
   // account-scope action is in scope when it names the token's own workspace:
   // the account is the workspace's, and the workspace is not split_pending.
-  if (!tokenScopeAllows(binding, tokenId, rec.kind, scope, obj, facts.soleProjectId)) return deny('token_out_of_scope');
+  if (!tokenScopeAllows(binding, tokenId, rec.kind, scope, obj, facts.soleProjectId)) {
+    // Name the constraint the caller can act on. Read only on this denial path.
+    const shared =
+      scope === 'account' &&
+      facts.splitPending &&
+      !!binding?.projectId &&
+      (await tokenWorkspaceSharesAccount(binding.projectId, actor.accountId));
+    return deny(shared ? 'token_account_shared' : 'token_out_of_scope');
+  }
 
   // 4a. SSO only. Above the super-admin bypass: the account creator holds
   // `is_super_admin`, and enforcement exists to close exactly that person's
@@ -670,8 +684,8 @@ export function isImplicitManager(accountRoleKey: string | null): boolean {
 
 /**
  * The one object an unscoped `closed` type still opens to every project member:
- * My Kortix, the built-in agent. It holds no connector or secret of its own and
- * acts with exactly the person's role, so an agent grant would add nothing; a
+ * My Kortix, the built-in agent. It acts with exactly the person's role and
+ * reach (every connector and secret they can use), so an agent grant would add nothing; a
  * hand-off it makes is a new session, authorized against that agent's grants.
  * Grant rows on it still decide, as on any object.
  */
@@ -1129,12 +1143,7 @@ const workspaceAccountMemo = ttlMemo({
   keyFn: (workspaceId: string) => `${workspaceId}|account`,
   loader: async (workspaceId: string): Promise<string | null> => {
     if (!isUuid(workspaceId)) return null;
-    const [row] = await db
-      .select({ accountId: projectsView.accountId })
-      .from(projectsView)
-      .where(eq(projectsView.projectId, workspaceId))
-      .limit(1);
-    return row?.accountId ?? null;
+    return accountKeyOfWorkspace(workspaceId);
   },
   shouldCache: (accountId) => accountId !== null,
 });

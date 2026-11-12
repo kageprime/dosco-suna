@@ -47,6 +47,31 @@ describe('Composio connector connection metadata', () => {
     expect(metadata.requesting_session_id).toBe('44444444-4444-4444-8444-444444444444');
   });
 
+  test('a start with no session behind it keeps the session that asked', () => {
+    // The person clicks Connect on the session's card: that request carries no
+    // session token, and the finalize must still tell the agent that asked.
+    const previous = { requesting_session_id: '55555555-5555-4555-8555-555555555555' };
+    const kept = composioConnectionMetadata({
+      toolkit: 'gmail',
+      stableUserId: 'kortix-connection:66666666-6666-4666-8666-666666666666',
+      sessionId: 'trs_second_start',
+      isNoAuth: false,
+      requestingSessionId: null,
+      previous,
+    });
+    expect(kept.requesting_session_id).toBe('55555555-5555-4555-8555-555555555555');
+
+    const replaced = composioConnectionMetadata({
+      toolkit: 'gmail',
+      stableUserId: 'kortix-connection:66666666-6666-4666-8666-666666666666',
+      sessionId: 'trs_third_start',
+      isNoAuth: false,
+      requestingSessionId: '77777777-7777-4777-8777-777777777777',
+      previous,
+    });
+    expect(replaced.requesting_session_id).toBe('77777777-7777-4777-8777-777777777777');
+  });
+
   test('accepts no-auth toolkits without a connected account', () => {
     const metadata = composioConnectionMetadata({
       toolkit: 'composio',

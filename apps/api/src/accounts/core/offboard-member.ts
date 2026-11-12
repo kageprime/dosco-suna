@@ -38,7 +38,7 @@ import { recordAuditEvent } from '../../shared/audit';
 import { db } from '../../shared/db';
 
 /** An admin removed the member, the member left, or the identity provider deprovisioned them. */
-export type OffboardReason = 'removed' | 'left' | 'deprovisioned';
+type OffboardReason = 'removed' | 'left' | 'deprovisioned';
 
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));
 

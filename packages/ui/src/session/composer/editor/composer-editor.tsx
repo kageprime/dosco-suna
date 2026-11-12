@@ -734,7 +734,7 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
             // page on focus for any input under 16px, and the composer is the one
             // field on the screen. `sm:text-sm` above 640px, which is the size
             // `styles/components.css`'s slash-trigger rule already documents.
-            'kortix-composer-editor w-full text-sm',
+            'kortix-composer-editor w-full text-base sm:text-sm',
             disabled && 'opacity-50',
           )}
         />

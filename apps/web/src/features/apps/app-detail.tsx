@@ -188,10 +188,8 @@ export function AppDetailModal({
   };
 
   return (
-    // Not modal: the view covers the whole window, so a scroll lock guards
-    // nothing — and Radix's lock (react-remove-scroll) is known to swallow
-    // wheel events over framed third-party content (radix-ui/primitives#1159).
-    // The App would not scroll until a click put focus in it.
+    // Not modal: the view covers the whole window, so a scroll lock and an
+    // outside-press backdrop guard nothing.
     <Modal modal={false} open={open} onOpenChange={onOpenChange}>
       <ModalContent
         side="fullscreen"
@@ -200,8 +198,8 @@ export function AppDetailModal({
         // Nothing sits outside a full-screen view except toasts and the
         // settings dialogs; a click on one of those must not close the App.
         onInteractOutside={(event) => event.preventDefault()}
-        // Focus the App itself, so it scrolls and takes keys at once. Radix
-        // would focus the first action in the bar, and a focused icon button
+        // Focus the App itself, so it scrolls and takes keys at once. The dialog
+        // would focus its first tabbable element, the first action in the bar, and a focused icon button
         // shows its Hint over the controls. No frame yet: focus the dialog;
         // the frame focuses itself when it arrives (`PooledFrame`).
         onOpenAutoFocus={(event) => {

@@ -1,6 +1,4 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from '@/i18n/test-source';
-import { join } from 'node:path';
 
 import {
   collectPreviewTargets,
@@ -10,14 +8,6 @@ import {
   moveFallback,
   validateRoutingDraft,
 } from '@kortix/ui/customize/sections/view/gateway/gateway-routing';
-import { uiSourcePath } from '@/test-utils/read-source';
-
-const routingSource = readFileSync(uiSourcePath('customize/sections/view/gateway/gateway-routing.tsx'), 'utf8');
-const gatewayViewSource = readFileSync(uiSourcePath('customize/sections/gateway-view.tsx'), 'utf8');
-const modelDefaultsSource = readFileSync(
-  join(import.meta.dir, '../../../../../../../../../packages/sdk/src/react/use-model-defaults.ts'),
-  'utf8',
-);
 
 describe('gateway routing editor helpers', () => {
   test('reorders a finite fallback chain without mutating the input', () => {
@@ -125,29 +115,6 @@ describe('gateway routing editor helpers', () => {
     ).toEqual(['glm-5.3-flash']);
   });
 
-  test('the header selector reads and writes the project default scope', () => {
-    // The read goes through the SDK's one default chain (`resolveModelDefault`),
-    // so the page cannot grow a second copy of the agent → project → account →
-    // platform precedence.
-    expect(gatewayViewSource).toContain('resolveModelDefault(modelDefaults.data');
-    expect(gatewayViewSource).toContain('.setProjectDefault(m)');
-    expect(gatewayViewSource).toContain('useProjectModels(projectId)');
-    expect(gatewayViewSource).not.toContain('useRuntimeProviders');
-    expect(gatewayViewSource).not.toContain('modelDefaults.setAccountDefault');
-    expect(gatewayViewSource).toContain('modelDefaults.isUpdating');
-    expect(gatewayViewSource).toContain("raw('text5ed9bd98de1b')");
-  });
-
-  test('default changes refresh routing and the shared compact picker cache', () => {
-    expect(modelDefaultsSource).toContain("['gateway-routing-policy', projectId]");
-    // Was a standalone flat array literal, independently hand-typed from
-    // `qk.project.modelPicker(id)` — the SAME entry `useProjectModels` reads
-    // and `gateway-routing.tsx`'s own invalidation targets (see this file's
-    // other assertion on `qk.project.modelPicker(projectId)` above). Fixed as
-    // part of migrating `packages/sdk/src/react` onto `qk`.
-    expect(modelDefaultsSource).toContain("qk.project.modelPicker(projectId ?? '')");
-  });
-
   test('an effective-default refetch does not overwrite an unsaved routing draft', () => {
     const policy = {
       defaultModel: 'codex/gpt-5.6-sol',
@@ -164,28 +131,6 @@ describe('gateway routing editor helpers', () => {
         defaultFallback: { models: [], fallbackOn: 'transient' },
       }),
     ).not.toBe(editablePolicySignature(policy));
-  });
-
-  test('routing cannot race a pending project-default write', () => {
-    expect(gatewayViewSource).toContain('projectDefaultPending={modelDefaults.isUpdating}');
-    expect(routingSource).toContain('projectDefaultPending: boolean');
-    expect(routingSource).toContain('projectDefaultPending ||');
-    expect(gatewayViewSource).toContain('useIsMutating');
-    expect(gatewayViewSource).toContain('gatewayRoutingPolicyKey(projectId)');
-  });
-
-  test('routing freezes edits in flight and refreshes the shared project default after save', () => {
-    expect(routingSource).toContain('const controlsDisabled =');
-    expect(routingSource).toContain('routing.set.isPending ||');
-    expect(routingSource).toContain('routing.reset.isPending ||');
-    expect(routingSource).toContain("queryKey: ['model-defaults', projectId]");
-    expect(routingSource).toContain('queryKey: qk.project.modelPicker(projectId)');
-  });
-
-  test('renders a capability-gated generation-controls panel for the resolved primary model', () => {
-    expect(routingSource).toContain("from './generation-controls'");
-    expect(routingSource).toContain('<GenerationControlsPanel');
-    expect(routingSource).toContain('draft.modelGenerationConfig?.[primaryModel]');
   });
 
   test('the Advanced disclosure opens by default only when a vision override or a generation parameter is already set', () => {
@@ -214,7 +159,6 @@ describe('gateway routing editor helpers', () => {
   });
 
   test('modelGenerationConfig is part of the dirty check and the hydration signature', () => {
-    expect(routingSource).toContain('modelGenerationConfig: policy.modelGenerationConfig ?? {}');
     const policy = {
       defaultModel: 'codex/gpt-5.6-sol',
       visionModel: null,

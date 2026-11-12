@@ -44,7 +44,9 @@ import {
   isLaunchableAgentName,
   loadProjectAgents,
 } from '../agents';
+import { isMyKortixAgentName } from '@kortix/shared';
 import { errorMessage } from '../../shared/error-message';
+import { readColleagueAccess, withColleagueAccess } from './colleague-access';
 
 /**
  * The grant could not be resolved (manifest unreadable, loader threw). Callers
@@ -215,6 +217,8 @@ export interface SessionSecretGrantInput {
   manifestPath: string | null | undefined;
   /** The agent this session is bound to (`project_sessions.agent_name`). */
   sessionAgent: string;
+  /** The session itself: a My Kortix colleague's allowed list is read by it (colleague-access.ts). */
+  sessionId?: string | null;
   /** The agent this prompt asked to run, when the caller is a prompt. Omit at
    *  boot — the session's own agent is the one that runs. */
   requestedAgent?: string | null;
@@ -323,8 +327,13 @@ async function loadGrantForRunningAgent(
     throw new SecretGrantResolutionError(runningAgent, err);
   }
 
-  const env = secretGrantEnvForRunningAgent(loaded, runningAgent);
-  return { grant: withGrantProvenance(grantFromLoadedAgents(runningAgent, loaded), loaded), env };
+  const grant = withGrantProvenance(grantFromLoadedAgents(runningAgent, loaded), loaded);
+  // A My Kortix colleague also holds the list a person allowed it (colleague-access.ts).
+  if (grant && input.sessionId && isMyKortixAgentName(runningAgent)) {
+    const colleague = withColleagueAccess(grant, await readColleagueAccess(input.sessionId));
+    return { grant: colleague, env: colleague.env };
+  }
+  return { grant, env: secretGrantEnvForRunningAgent(loaded, runningAgent) };
 }
 
 /**

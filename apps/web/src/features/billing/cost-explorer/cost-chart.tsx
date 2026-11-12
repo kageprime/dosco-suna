@@ -16,13 +16,12 @@ import { useLocalizedUiCatalog } from '@kortix/ui/i18n';
 
 import { formatSessionCostCredits } from '@kortix/ui/internal/billing/session-cost-format';
 
-// Monochrome + one accent per the Dosco palette law: llm_cost,
-// compute_cost and storage_cost are shades of the same warm chart ramp
-// (--chart-1 / --chart-2 / --chart-3), not unrelated colours competing for
-// attention.
+import { COST_TYPE_COLOR } from './cost-type-color';
+
+// The storage label comes from the app catalog (settings.credits).
 const chartConfig = {
-  llm_cost: { label: 'LLM', color: 'var(--chart-1)' },
-  compute_cost: { label: 'Compute', color: 'var(--chart-2)' },
+  compute_cost: { label: 'Compute', color: COST_TYPE_COLOR.compute_cost },
+  llm_cost: { label: 'LLM', color: COST_TYPE_COLOR.llm_cost },
 } satisfies ChartConfig;
 
 function formatDay(value: string, locale = 'en-US'): string {
@@ -52,7 +51,7 @@ export function CostChart({ series, isLoading }: CostChartProps) {
   const localizedBase = useLocalizedUiCatalog(chartConfig);
   const localizedChartConfig = {
     ...localizedBase,
-    storage_cost: { label: tCredits('storage'), color: 'var(--chart-3)' },
+    storage_cost: { label: tCredits('storage'), color: COST_TYPE_COLOR.storage_cost },
   } satisfies ChartConfig;
   if (isLoading) {
     // Skeleton only forwards `className`/`children` (see
@@ -115,13 +114,18 @@ export function CostChart({ series, isLoading }: CostChartProps) {
             />
           }
         />
-        <Bar dataKey="llm_cost" stackId="cost" fill="var(--color-llm_cost)" />
-        <Bar dataKey="compute_cost" stackId="cost" fill="var(--color-compute_cost)" />
+        {/* Compute at the base, LLM on it, storage on top: the order the hero
+            lists them, so the eye reads the stack and the legend the same way.
+            No grow-in: a range change redraws the bars, and an animation on
+            every redraw is motion the reader pays for each time. */}
+        <Bar dataKey="compute_cost" stackId="cost" fill="var(--color-compute_cost)" isAnimationActive={false} />
+        <Bar dataKey="llm_cost" stackId="cost" fill="var(--color-llm_cost)" isAnimationActive={false} />
         <Bar
           dataKey="storage_cost"
           stackId="cost"
           fill="var(--color-storage_cost)"
           radius={[2, 2, 0, 0]}
+          isAnimationActive={false}
         />
       </BarChart>
     </ChartContainer>

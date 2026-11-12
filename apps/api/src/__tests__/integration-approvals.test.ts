@@ -592,7 +592,7 @@ describe('approvals inbox + resolution', () => {
     // The self-approval refusal, not the generic sign-in wall: the token is
     // bound to the very session whose call it tries to approve.
     expect(await response.json()).toMatchObject({
-      error: 'An agent cannot resolve its own approval — a human must approve or deny this',
+      error: "This approval waits for a person: the session's launcher or a project manager approves or denies it.",
     });
     const [after] = await db
       .select()

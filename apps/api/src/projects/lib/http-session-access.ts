@@ -18,7 +18,6 @@ import type { Context } from 'hono';
 import {
   PUBLIC_SHARE_OWNER_ONLY_ERROR,
   TURN_SHARE_AGENT_ERROR,
-  TURN_SHARE_AGENT_REVOKE_ERROR,
   TURN_SHARE_OWNER_OR_MANAGER_ERROR,
   isHumanCaller,
   mayPublishTurn,
@@ -136,9 +135,10 @@ export async function guardTurnPublish(
 }
 
 /**
- * May the caller turn off a response link (DELETE)? A human who is the owner
- * or a project manager. No read check: revoking only removes access, so a
- * manager can end a link on a session they cannot open.
+ * May the caller turn off a response link (DELETE)? The owner or a project
+ * manager, or an agent session acting for one: turning a link off only
+ * removes access. No read check: a manager can end a link on a session they
+ * cannot open.
  */
 export async function guardTurnRevoke(
   c: Context,
@@ -147,7 +147,6 @@ export async function guardTurnRevoke(
 ): Promise<{ ok: true } | SessionAccessDenial> {
   const guard = await guardSessionSharing(c, loaded, sessionId, 'revoke');
   if (!guard.ok) return guard;
-  if (!requestIsHuman(c, loaded)) return { ok: false, status: 403, error: TURN_SHARE_AGENT_REVOKE_ERROR };
   return { ok: true };
 }
 

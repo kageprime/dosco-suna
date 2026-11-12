@@ -31,7 +31,7 @@ afterEach(() => {
 })
 
 describe('the notice text', () => {
-  test('names the commit, the checkout, and both ways to catch up', () => {
+  test('names the commit, says the box has no checkout, and how to change the config', () => {
     const body = renderConfigReleaseNotice({
       sourceCommit: COMMIT,
       sourcePaths: PI_RELEASE_SOURCE_PATHS,
@@ -40,12 +40,16 @@ describe('the notice text', () => {
     expect(body).toContain('commit 1234567890ab')
     // The full SHA is not the identity a human checks; the short one is.
     expect(body).not.toContain(COMMIT)
-    expect(body).toContain('`/workspace` is a separate checkout')
-    expect(body).toContain('git pull')
+    // The box never checks out the repository at boot: the notice must not send the agent to one.
+    expect(body).toContain('`/workspace` is this session\'s own folder')
+    expect(body).not.toContain('git pull')
+    expect(body).not.toContain('/workspace/kortix.yaml')
+    expect(body).toContain('kortix workspaces clone')
+    expect(body).toContain('kortix cr open')
     expect(body).toContain('kortix sessions reload ses-1')
     expect(body).toContain('does NOT change the config this')
-    expect(body).toContain('pushed to the base branch')
-    expect(body).toContain('commit and push a session branch and open a change request')
+    expect(body).toContain('lands on the base branch')
+    expect(body).toContain('`kortix cr open` against the base branch')
     expect(body).toContain('Review the Git diff of those source files')
     expect(body).toContain('no reverse mapping to kortix.yaml')
   })
@@ -73,18 +77,18 @@ describe('the notice text', () => {
 
   test('stays factual when the commit or the session id is unknown', () => {
     const body = renderConfigReleaseNotice({ sourceCommit: null, sourcePaths: PI_RELEASE_SOURCE_PATHS })
-    expect(body).toContain('may be behind the base branch')
     expect(body).toContain('kortix sessions reload <session id>')
-    expect(body).toContain('`/workspace/agents`, `/workspace/skills` or `/workspace/AGENTS.md`')
+    expect(body).toContain('`agents`, `skills` or `AGENTS.md`')
     expect(body).not.toContain('commit null')
     expect(body).not.toContain('undefined')
   })
 
-  test('names the manifest as the editable source for a root-layout project', () => {
+  test('names the manifest and the registered files as repository paths, never as /workspace paths', () => {
     const body = renderConfigReleaseNotice({ sourceCommit: COMMIT, sourcePaths: PI_RELEASE_SOURCE_PATHS })
-    expect(body).toContain('`/workspace/kortix.yaml`')
-    expect(body).toContain('`/workspace/agents`')
-    expect(body).toContain('`/workspace/skills`')
+    expect(body).toContain('`kortix.yaml`')
+    expect(body).toContain('`agents`')
+    expect(body).toContain('`skills`')
+    expect(body).not.toMatch(/`\/workspace\/[a-z]/)
   })
 })
 
@@ -110,7 +114,7 @@ describe('kortix.yaml issues (manifest_issues)', () => {
     expect(body).not.toContain('not.an.issue')
     expect(body).toContain('An agent or trigger with an error is off until the error is fixed.')
     expect(body).toContain('run `kortix validate`')
-    expect(body).toContain('open a change request against the base branch')
+    expect(body).toContain('`kortix cr open` against the base branch')
   })
 
   test('no issues, or an API that sends none: no section', () => {

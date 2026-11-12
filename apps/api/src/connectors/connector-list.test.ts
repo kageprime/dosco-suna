@@ -169,6 +169,40 @@ describe('buildAdminConnectorViews state', () => {
   });
 });
 
+describe('buildAdminConnectorViews error without a reason', () => {
+  const account = { connection_id: 'conn-synthetic', label: 'default', owner_type: 'project', is_default: true };
+
+  test('no account and no stored reason: needs_account, never a bare error', () => {
+    const [view] = buildAdminConnectorViews([candidate({ slug: 'edge', status: 'error', lastError: null, accounts: [] })], new Set());
+    expect([view?.state, view?.state_reason, view?.lastError]).toEqual(['needs_account', 'no account connected', null]);
+  });
+
+  test('a stored reason that sanitizes to nothing counts as no reason', () => {
+    const [view] = buildAdminConnectorViews([candidate({ slug: 'edge', status: 'error', lastError: ' \u0000 ' })], new Set());
+    expect(view?.state).toBe('needs_account');
+  });
+
+  test('a failed call with a reason stays error, with the sanitized reason', () => {
+    const [view] = buildAdminConnectorViews(
+      [candidate({ slug: 'edge', status: 'error', lastError: 'HTTP 500 at https://u:p@mcp.example/x?token=t', accounts: [account] })],
+      new Set(),
+    );
+    expect(view?.state).toBe('error');
+    expect(view?.state_reason).toBe('HTTP 500 at https://[REDACTED]@mcp.example/x?[REDACTED]');
+    expect(view?.lastError).toBe(view?.state_reason);
+  });
+
+  test('an account but no stored reason stays error with the fallback reason', () => {
+    const [view] = buildAdminConnectorViews([candidate({ slug: 'edge', status: 'error', lastError: null, accounts: [account] })], new Set());
+    expect([view?.state, view?.state_reason]).toEqual(['error', 'its tools could not be loaded']);
+  });
+
+  test('a recovered connector clears both', () => {
+    const [view] = buildAdminConnectorViews([candidate({ slug: 'edge', status: 'active', lastError: null, accounts: [account] })], new Set());
+    expect([view?.state, view?.state_reason, view?.lastError]).toEqual(['connected', null, null]);
+  });
+});
+
 describe('signedInComposioSlugs', () => {
   test('a Composio connector counts as connected only with a signed-in account, as the gateway decides', () => {
     const rows = [

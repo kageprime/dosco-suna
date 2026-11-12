@@ -580,8 +580,13 @@ export interface EmailMode {
   provider: EmailProvider;
   enabled?: boolean;
   managed_available: boolean;
-  /** Where a managed inbox lives: `<username>@<managed_domain>`. Older servers omit it. */
+  /** Where a managed inbox lives: `<username><managed_suffix>@<managed_domain>`. Older servers omit it. */
   managed_domain?: string;
+  /**
+   * What the server adds to a managed address before the @: `.dev`,
+   * `.staging` or `.preview` outside prod, `''` in prod. Older servers omit it.
+   */
+  managed_suffix?: string;
 }
 
 const DEFAULT_EMAIL_MODE: EmailMode = { provider: 'resend', managed_available: false };

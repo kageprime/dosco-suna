@@ -9,7 +9,11 @@ use anyhow::{Context, Result};
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use std::time::Duration;
 
-pub const SCHEMA_VERSION: i64 = 1;
+/// The schema this build writes. [`migrate`] does no work on a library at this
+/// version. Increase it for every change to `SCHEMA`, `INDEXES` or the added
+/// columns in [`migrate`]: a library at the old version then migrates once.
+/// 2: indexes for the sync queue, retention and remote retention queries.
+pub const SCHEMA_VERSION: i64 = 2;
 
 const SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS application (
@@ -77,7 +81,7 @@ CREATE TABLE IF NOT EXISTS frame (
     capture_reason TEXT,
     dhash TEXT,                                 -- perceptual hash
     image_hash TEXT,                            -- sha256 of the staged still
-    ocr_status INTEGER NOT NULL DEFAULT 0       -- 0 pending, 1 done, 2 copied, 3 failed
+    ocr_status INTEGER NOT NULL DEFAULT 0       -- 0 pending, 1 done, 2 copied, 3 failed, 4 off (no text read)
 );
 CREATE INDEX IF NOT EXISTS idx_frame_timestamp ON frame(timestamp);
 CREATE INDEX IF NOT EXISTS idx_frame_segment ON frame(segment);
@@ -302,6 +306,34 @@ BEGIN
 END;
 "#;
 
+/// Indexes on columns that [`migrate`] adds to old libraries, so they run after
+/// the added columns. They keep the sync and retention queries off full scans:
+/// the rows of these tables are never deleted, so a scan grows every day.
+/// - `*_unsent`: the upload queue (`uploaded_at IS NULL`), counted and summed from the index.
+/// - `*_status`: local rows (`status < 2`) for release and retention; the remote-only count.
+/// - `*_uploaded`: the uploaded count and the last upload time.
+/// - `*_remote_*`: rows with a bucket copy, for device.json and remote retention.
+const INDEXES: &str = r#"
+CREATE INDEX IF NOT EXISTS idx_video_unsent ON video(local_only, status, size_bytes) WHERE uploaded_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_video_status ON video(status, uploaded_at);
+CREATE INDEX IF NOT EXISTS idx_video_uploaded ON video(uploaded_at) WHERE uploaded_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_video_remote_start ON video(start_timestamp) WHERE remote_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_video_remote_end ON video(end_timestamp) WHERE remote_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_video_remote_age ON video(COALESCE(end_timestamp, start_timestamp, 0)) WHERE remote_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_audio_unsent ON audio(local_only, status, size_bytes) WHERE uploaded_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_audio_status ON audio(status, uploaded_at);
+CREATE INDEX IF NOT EXISTS idx_audio_uploaded ON audio(uploaded_at) WHERE uploaded_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_audio_remote_end ON audio(end_ms) WHERE remote_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_action_segment_unsent ON action_segment(local_only, status, size_bytes) WHERE uploaded_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_action_segment_status ON action_segment(status, uploaded_at);
+CREATE INDEX IF NOT EXISTS idx_action_segment_uploaded ON action_segment(uploaded_at) WHERE uploaded_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_action_segment_remote_end ON action_segment(end_ms) WHERE remote_key IS NOT NULL;
+"#;
+
+/// The WAL file shrinks to this size after a checkpoint. Without a limit it keeps
+/// its largest size (a long OCR backlog, a big retention pass) for good.
+const JOURNAL_SIZE_LIMIT: i64 = 64 * 1024 * 1024;
+
 fn configure(conn: &Connection) -> Result<()> {
     conn.busy_timeout(Duration::from_secs(10))?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
@@ -315,9 +347,38 @@ pub fn open(paths: &MemoryPaths) -> Result<Connection> {
         Connection::open(paths.db()).with_context(|| format!("open {}", paths.db().display()))?;
     conn.pragma_update(None, "journal_mode", "WAL")?;
     conn.pragma_update(None, "synchronous", "NORMAL")?;
+    conn.pragma_update(None, "journal_size_limit", JOURNAL_SIZE_LIMIT)?;
     configure(&conn)?;
     migrate(&conn)?;
     Ok(conn)
+}
+
+/// Periodic upkeep of a library that records for weeks. Call it from one
+/// long-lived connection (the recorder's finalize loop), not on every open.
+/// - `PRAGMA optimize` updates the planner statistics of tables that changed.
+///   `analysis_limit` keeps it to a sample, so it takes milliseconds on a big library.
+/// - `wal_checkpoint(TRUNCATE)` copies the WAL into the database and cuts the WAL
+///   file to zero bytes. While a reader holds an old snapshot it does less and
+///   reports busy; the next call finishes the work.
+pub fn maintain(conn: &Connection) -> Result<()> {
+    conn.pragma_update(None, "analysis_limit", 1000)?;
+    conn.execute_batch("PRAGMA optimize;")?;
+    let (busy, wal_pages, checkpointed): (i64, i64, i64) =
+        conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })?;
+    tracing::debug!(busy, wal_pages, checkpointed, "library maintenance");
+    Ok(())
+}
+
+/// The `schema_version` the library records; 0 for a new library.
+fn schema_version(conn: &Connection) -> i64 {
+    conn.query_row(
+        "SELECT CAST(value AS INTEGER) FROM metadata WHERE key = 'schema_version'",
+        [],
+        |r| r.get(0),
+    )
+    .unwrap_or(0)
 }
 
 /// Read-only connection for queries (CLI, UI). Works while the recorder writes.
@@ -338,7 +399,24 @@ pub fn open_readonly(paths: &MemoryPaths) -> Result<Connection> {
     Ok(conn)
 }
 
+/// Create or update the schema. A library at [`SCHEMA_VERSION`] (or newer) needs
+/// no work: this is one read. Otherwise one write transaction runs every
+/// idempotent step. Two processes that open an old library at the same time
+/// migrate it once: the second waits for the first (busy timeout), then skips.
 pub fn migrate(conn: &Connection) -> Result<()> {
+    if schema_version(conn) >= SCHEMA_VERSION {
+        return Ok(());
+    }
+    let tx = rusqlite::Transaction::new_unchecked(conn, rusqlite::TransactionBehavior::Immediate)?;
+    if schema_version(&tx) >= SCHEMA_VERSION {
+        return Ok(());
+    }
+    migrate_steps(&tx)?;
+    tx.commit()?;
+    Ok(())
+}
+
+fn migrate_steps(conn: &Connection) -> Result<()> {
     conn.execute_batch(SCHEMA)?;
     // Columns added after a table first shipped.
     for (table, column, decl) in [
@@ -374,6 +452,7 @@ pub fn migrate(conn: &Connection) -> Result<()> {
             conn.execute_batch(&format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"))?;
         }
     }
+    conn.execute_batch(INDEXES)?;
     set_meta(conn, "schema_version", &SCHEMA_VERSION.to_string())?;
     Ok(())
 }
@@ -567,6 +646,27 @@ mod tests {
         conn
     }
 
+    /// A directory under the system temp dir, removed on drop.
+    struct TmpDir(std::path::PathBuf);
+
+    impl TmpDir {
+        fn new() -> Self {
+            let dir =
+                std::env::temp_dir().join(format!("kcap-store-{}", uuid::Uuid::new_v4().simple()));
+            std::fs::create_dir_all(&dir).unwrap();
+            Self(dir)
+        }
+        fn path(&self) -> &std::path::Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TmpDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
     #[test]
     fn fts_tracks_frame_text() {
         let conn = mem();
@@ -596,6 +696,306 @@ mod tests {
             )
             .unwrap();
         assert_eq!(hits, 0, "update trigger reindexes");
+    }
+
+    /// A library from before schema 2: the sync columns that `migrate` adds later
+    /// are missing, none of `INDEXES` exists, and `schema_version` is 1.
+    fn old_library(path: &std::path::Path) -> Connection {
+        let conn = Connection::open(path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE video (id INTEGER PRIMARY KEY AUTOINCREMENT, height INTEGER NOT NULL,
+                 width INTEGER NOT NULL, path TEXT NOT NULL, num_frames INTEGER NOT NULL,
+                 status INTEGER NOT NULL DEFAULT 0, size_bytes INTEGER,
+                 start_timestamp INTEGER, end_timestamp INTEGER);
+             CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER);
+             INSERT INTO metadata VALUES ('schema_version', '1', 0);",
+        )
+        .unwrap();
+        for i in 0..500 {
+            conn.execute(
+                "INSERT INTO video(height, width, path, num_frames, status, size_bytes) VALUES (1, 1, ?1, 1, ?2, 10)",
+                params![format!("v{i}"), i % 4],
+            )
+            .unwrap();
+        }
+        conn
+    }
+
+    fn index_names(conn: &Connection) -> Vec<String> {
+        conn.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'idx_%' ORDER BY name")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap()
+    }
+
+    #[test]
+    fn migration_upgrades_an_old_library_once() {
+        let dir = TmpDir::new();
+        let db = dir.path().join("memory.db");
+        drop(old_library(&db));
+
+        let conn = Connection::open(&db).unwrap();
+        migrate(&conn).unwrap();
+        assert_eq!(schema_version(&conn), SCHEMA_VERSION);
+        let names = index_names(&conn);
+        for want in [
+            "idx_video_unsent",
+            "idx_video_status",
+            "idx_audio_unsent",
+            "idx_action_segment_remote_end",
+        ] {
+            assert!(
+                names.iter().any(|n| n == want),
+                "{want} missing in {names:?}"
+            );
+        }
+        assert!(has_column(&conn, "video", "local_only").unwrap());
+        let (rows, unsent): (i64, i64) = conn
+            .query_row(
+                "SELECT count(*), sum(uploaded_at IS NULL AND local_only = 0 AND status < 2) FROM video",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            (rows, unsent),
+            (500, 250),
+            "the rows stay, the new columns take their defaults"
+        );
+
+        // At the current version a second open writes nothing: not even the metadata row.
+        let before: i64 = conn
+            .query_row(
+                "SELECT updated_at FROM metadata WHERE key = 'schema_version'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let conn2 = Connection::open(&db).unwrap();
+        migrate(&conn2).unwrap();
+        let changes: i64 = conn2
+            .query_row("SELECT total_changes()", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(changes, 0);
+        let after: i64 = conn2
+            .query_row(
+                "SELECT updated_at FROM metadata WHERE key = 'schema_version'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(before, after);
+
+        // A library that a newer build migrated is not touched either.
+        set_meta(&conn2, "schema_version", &(SCHEMA_VERSION + 1).to_string()).unwrap();
+        migrate(&conn2).unwrap();
+        assert_eq!(schema_version(&conn2), SCHEMA_VERSION + 1);
+    }
+
+    #[test]
+    fn migration_is_idempotent_when_interrupted() {
+        // A migration that stopped before its commit leaves version 1; the next open
+        // runs every step again. `IF NOT EXISTS` and `has_column` make that safe.
+        let conn = mem();
+        set_meta(&conn, "schema_version", "1").unwrap();
+        migrate(&conn).unwrap();
+        assert_eq!(schema_version(&conn), SCHEMA_VERSION);
+        let n = index_names(&conn).len();
+        set_meta(&conn, "schema_version", "1").unwrap();
+        migrate(&conn).unwrap();
+        assert_eq!(index_names(&conn).len(), n);
+    }
+
+    #[test]
+    fn open_sets_wal_limit_and_maintain_truncates_the_wal() {
+        let dir = TmpDir::new();
+        let paths = MemoryPaths::at(dir.path());
+        let conn = open(&paths).unwrap();
+        let limit: i64 = conn
+            .query_row("PRAGMA journal_size_limit", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(limit, JOURNAL_SIZE_LIMIT);
+        let tx = conn.unchecked_transaction().unwrap();
+        for i in 0..2000 {
+            tx.execute(
+                "INSERT INTO frame(timestamp, foreground) VALUES (?1, 'some text to fill pages')",
+                [i],
+            )
+            .unwrap();
+        }
+        tx.commit().unwrap();
+        let wal = dir.path().join("memory.db-wal");
+        assert!(std::fs::metadata(&wal).unwrap().len() > 0);
+        maintain(&conn).unwrap();
+        assert_eq!(
+            std::fs::metadata(&wal).unwrap().len(),
+            0,
+            "TRUNCATE cuts the WAL to zero bytes"
+        );
+    }
+
+    /// Each query that runs every few seconds (the sync tick, the recorder tick) or on
+    /// a big table reads the index named here, and no table in full: a scan of these
+    /// tables, or of an index of every row, grows with the library.
+    /// The plans are checked without statistics (a new library) and after `ANALYZE`
+    /// (what `PRAGMA optimize` in [`maintain`] writes).
+    #[test]
+    fn hot_queries_use_an_index() {
+        use super::super::sync::{CHUNK_ERROR_SQL, QUEUE_KEY_SQL, QUEUE_SQL};
+        let queue_index: [&[&str]; 15] = [
+            &["idx_video_unsent"],
+            &[
+                "idx_video_unsent",
+                "idx_audio_unsent",
+                "idx_action_segment_unsent",
+            ],
+            &["idx_video_unsent"],
+            &["idx_video_unsent"],
+            &["idx_video_uploaded"],
+            &["idx_video_status"],
+            &[], // sync_tombstone: one row per pending remote delete
+            &[], // sync_multipart: one row per open upload
+            &["idx_audio_unsent"],
+            &["idx_audio_uploaded"],
+            &["idx_audio_status"],
+            &["idx_action_segment_unsent"],
+            &["idx_action_segment_uploaded"],
+            &["idx_action_segment_status"],
+            &[
+                "idx_video_uploaded",
+                "idx_audio_uploaded",
+                "idx_action_segment_uploaded",
+            ],
+        ];
+        let mut hot: Vec<(&str, &[&str])> = QUEUE_SQL.into_iter().zip(queue_index).collect();
+        hot.extend([
+            (CHUNK_ERROR_SQL, &["idx_video_unsent"][..]),
+            (
+                QUEUE_KEY_SQL,
+                &["idx_video_uploaded", "idx_audio_uploaded", "idx_action_segment_uploaded"],
+            ),
+            // recorder.rs: the OCR backlog, every tick.
+            ("SELECT count(*) FROM frame WHERE ocr_status = 0", &["idx_frame_ocr_pending"]),
+            // sync/mod.rs device_json, every pass.
+            ("SELECT min(start_timestamp) FROM video WHERE remote_key IS NOT NULL", &["idx_video_remote_start"]),
+            ("SELECT max(end_timestamp) FROM video WHERE remote_key IS NOT NULL", &["idx_video_remote_end"]),
+            // sync/mod.rs upload_pending, every pass.
+            (
+                "SELECT id FROM video WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0 AND COALESCE(next_upload_at, 0) <= ?1
+                   AND (?3 = 0 OR COALESCE(end_timestamp, start_timestamp, 0) >= ?3) ORDER BY id LIMIT ?2",
+                &["idx_video_unsent"],
+            ),
+            (
+                "SELECT id FROM audio WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0 AND transcript_status != ?4
+                   AND COALESCE(next_upload_at, 0) <= ?1 AND (?3 = 0 OR end_ms >= ?3) ORDER BY id LIMIT ?2",
+                &["idx_audio_unsent"],
+            ),
+            (
+                "SELECT id FROM action_segment WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0
+                   AND COALESCE(next_upload_at, 0) <= ?1 AND (?3 = 0 OR end_ms >= ?3) ORDER BY id LIMIT ?2",
+                &["idx_action_segment_unsent"],
+            ),
+            // sync/mod.rs release_local, every pass.
+            (
+                "SELECT id, path FROM video WHERE status < 2 AND remote_key IS NOT NULL AND uploaded_at IS NOT NULL AND +uploaded_at <= ?1",
+                &["idx_video_status"],
+            ),
+            (
+                "SELECT id, path FROM audio WHERE status < 2 AND remote_key IS NOT NULL AND uploaded_at IS NOT NULL AND +uploaded_at <= ?1",
+                &["idx_audio_status"],
+            ),
+            (
+                "SELECT id, path FROM action_segment WHERE status < 2 AND remote_key IS NOT NULL AND uploaded_at IS NOT NULL AND +uploaded_at <= ?1",
+                &["idx_action_segment_status"],
+            ),
+            // sync/mod.rs remote_retention, every pass when it is on.
+            (
+                "SELECT id, remote_key, COALESCE(start_timestamp, 0) FROM video
+                 WHERE remote_key IS NOT NULL AND COALESCE(end_timestamp, start_timestamp, 0) < ?1 ORDER BY +id LIMIT 1000",
+                &["idx_video_remote_age"],
+            ),
+            (
+                "SELECT id, remote_key, start_ms FROM audio WHERE remote_key IS NOT NULL AND end_ms < ?1 ORDER BY +id LIMIT 1000",
+                &["idx_audio_remote_end"],
+            ),
+            (
+                "SELECT id, remote_key, start_ms FROM action_segment WHERE remote_key IS NOT NULL AND end_ms < ?1 ORDER BY +id LIMIT 1000",
+                &["idx_action_segment_remote_end"],
+            ),
+            // retention.rs oldest_videos / oldest_audio, every 10 minutes.
+            (
+                "SELECT id, path FROM video WHERE status <= ?1 AND (?2 IS NULL OR COALESCE(end_timestamp, 0) < ?2)
+                   AND (?4 IS NULL OR uploaded_at IS NOT NULL OR local_only = 1 OR COALESCE(end_timestamp, 0) < ?4)
+                 ORDER BY +id LIMIT ?3",
+                &["idx_video_status"],
+            ),
+            (
+                "SELECT id, path FROM audio WHERE status = 0 AND (?1 IS NULL OR end_ms < ?1)
+                   AND (?3 IS NULL OR uploaded_at IS NOT NULL OR local_only = 1 OR end_ms < ?3) ORDER BY start_ms LIMIT ?2",
+                &["idx_audio_status"],
+            ),
+        ]);
+        let check = |conn: &Connection, when: &str| {
+            for (sql, want) in &hot {
+                let mut stmt = conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}")).unwrap();
+                let nulls = vec![rusqlite::types::Null; stmt.parameter_count()];
+                let plan: Vec<String> = stmt
+                    .query_map(rusqlite::params_from_iter(nulls), |r| r.get::<_, String>(3))
+                    .unwrap()
+                    .collect::<rusqlite::Result<_>>()
+                    .unwrap();
+                for step in &plan {
+                    let scans_big = ["video", "audio", "action_segment", "frame"]
+                        .iter()
+                        .any(|t| step == &format!("SCAN {t}"));
+                    assert!(!scans_big, "{when}: full scan in {plan:?} for {sql}");
+                }
+                for index in *want {
+                    assert!(
+                        plan.iter()
+                            .any(|step| step.contains(&format!("INDEX {index}"))),
+                        "{when}: {index} not in {plan:?} for {sql}"
+                    );
+                }
+            }
+        };
+        let conn = mem();
+        check(&conn, "no statistics");
+        // A library after weeks: most rows released (status 3), a few local, a few unsent.
+        let tx = conn.unchecked_transaction().unwrap();
+        for i in 0..3000i64 {
+            let (status, up, key) = match i {
+                0..=2899 => (3, Some(i), Some("k")),
+                2900..=2989 => (0, Some(i), Some("k")),
+                _ => (0, None, None),
+            };
+            tx.execute(
+                "INSERT INTO video(height, width, path, num_frames, status, size_bytes, start_timestamp, end_timestamp, uploaded_at, remote_key)
+                 VALUES (1, 1, 'v', 1, ?1, 10, ?2, ?2, ?3, ?4)",
+                params![status, i, up, key],
+            )
+            .unwrap();
+            tx.execute(
+                "INSERT INTO audio(start_ms, end_ms, path, status, uploaded_at, remote_key) VALUES (?1, ?1, 'a', ?2, ?3, ?4)",
+                params![i, status, up, key],
+            )
+            .unwrap();
+            tx.execute(
+                "INSERT INTO action_segment(start_ms, end_ms, path, status, uploaded_at, remote_key) VALUES (?1, ?1, 'a', ?2, ?3, ?4)",
+                params![i, status, up, key],
+            )
+            .unwrap();
+            tx.execute(
+                "INSERT INTO frame(timestamp, ocr_status) VALUES (?1, 1)",
+                [i],
+            )
+            .unwrap();
+        }
+        tx.commit().unwrap();
+        conn.execute_batch("ANALYZE").unwrap();
+        check(&conn, "after ANALYZE");
     }
 
     #[test]

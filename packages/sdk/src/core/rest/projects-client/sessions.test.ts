@@ -1800,6 +1800,9 @@ test('listProjectSessionsPage forwards parent, startedBy and q as parent, starte
   expect(url.searchParams.get('parent')).toBe('root');
   expect(url.searchParams.get('started_by')).toBe('automated');
   expect(url.searchParams.get('q')).toBe('nightly');
+  // KRTX-4705: the person-started default of the mobile Sessions page.
+  await listWorkspaceSessionsPage('P1', { startedBy: 'humans' });
+  expect(new URL(last().url).searchParams.get('started_by')).toBe('humans');
 });
 
 test('listProjectSessions sends a child parent id and trims q', async () => {

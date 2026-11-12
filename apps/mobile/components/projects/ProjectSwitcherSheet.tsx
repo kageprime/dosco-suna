@@ -1,7 +1,9 @@
 
 /**
  * ProjectSwitcherSheet — the one workspace switcher (COR-124, Workspaces
- * ux.md §3): a `KortixBottomSheetModal` titled "Workspaces", a search field,
+ * ux.md §3): a `KortixBottomSheetModal` titled "Workspaces", a search field
+ * under the title (`GlassSearchField`: Liquid Glass on iOS 26, with an X while
+ * focused),
  * the pending invitations first, then ONE flat list of every workspace the
  * user belongs to, the current one checked. No account headings, no account
  * tab, no "New account": a workspace is a project and its account, and a
@@ -41,7 +43,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { SheetScrollView } from '@/components/kortix/sheet-parts';
+import { GlassSearchField } from '@/components/kortix/bottom-search-bar';
+import { FadeEdges } from '@/components/kortix/fade-edges';
+import { GlassButtons } from '@/components/kortix/liquid-glass';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -53,7 +59,6 @@ import { Avatar } from '@/components/kortix/avatar';
 import { KortixBottomSheetModal, useSheetOpenMove, type SheetRef } from '@/components/kortix/sheet';
 import { KortixLoader } from '@/components/kortix/kortix-loader';
 import { SettingsGroup, SettingsRow } from '@/components/kortix/settings-list';
-import { SheetTextInput } from '@/components/kortix/SheetInput';
 import { WorkspaceInvitations } from '@/components/projects/WorkspaceInvitations';
 import { useWebCreateHandoff } from '@/components/projects/useWebCreateHandoff';
 import { WebHandoffSheet } from '@/components/session/WebHandoffSheet';
@@ -203,7 +208,7 @@ function WorkspaceList({
         isOpenableWorkspaceRow(row) ? (
           <SettingsRow
             key={row.project.project_id}
-            leading={<Avatar chalk size={28} fallbackText={row.project.name} />}
+            leading={<Avatar chalk size={28} fallbackText={row.project.name} emoji={row.project.icon} glyph={row.project.icon_glyph} />}
             label={row.project.name}
             checked={row.project.project_id === currentProjectId}
             right={null}
@@ -213,7 +218,7 @@ function WorkspaceList({
           // Set up or Restore first; the workspace opens after.
           <SettingsRow
             key={row.project.project_id}
-            leading={<Avatar chalk size={28} fallbackText={row.project.name} />}
+            leading={<Avatar chalk size={28} fallbackText={row.project.name} emoji={row.project.icon} glyph={row.project.icon_glyph} />}
             label={row.project.name}
             value={row.state === 'deleting' ? t('workspace.restore', 'Restore') : t('workspace.setUp', 'Set up')}
             disabled={stateAction.isPending}
@@ -328,17 +333,33 @@ export function ProjectSwitcherSheet({
       <KortixBottomSheetModal
         ref={sheetRef}
         title={t('workspace.switcherTitle', 'Workspaces')}
+        // [gear | plus] on one Liquid Glass capsule (Jay, 2026-11-11): Workspace
+        // settings (inside a workspace) and Create workspace.
+        titleTrailingGlass={false}
         titleTrailing={
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-full"
-            onPress={create.openHandoff}
-            disabled={create.webCreate.pending}
-            accessibilityLabel={createLabel}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Icon as={PlusIcon} size={20} className="text-foreground" />
-          </Button>
+          <GlassButtons shared>
+            {onOpenWorkspaceSettings && currentProjectId ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full"
+                onPress={openSettings}
+                accessibilityLabel={t('workspace.settings', 'Workspace settings')}
+                hitSlop={{ top: 10, bottom: 10 }}>
+                <Icon as={GearSixIcon} size={20} className="text-foreground" />
+              </Button>
+            ) : null}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full"
+              onPress={create.openHandoff}
+              disabled={create.webCreate.pending}
+              accessibilityLabel={createLabel}
+              hitSlop={{ top: 10, bottom: 10 }}>
+              <Icon as={PlusIcon} size={20} className="text-foreground" />
+            </Button>
+          </GlassButtons>
         }
         snapPoints={['100%']}
         enableDynamicSizing={false}
@@ -348,47 +369,51 @@ export function ProjectSwitcherSheet({
           handleDismiss();
         }}>
         <View style={{ flex: 1 }}>
-          <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
-            <SheetTextInput
+
+          {/* Search at the top, under the title (Jay, 2026-11-11). */}
+          <View style={{ paddingHorizontal: 16, paddingBottom: 4 }}>
+            <GlassSearchField
               value={query}
               onChangeText={setQuery}
               placeholder={t('workspace.search', 'Search workspaces')}
-              accessibilityLabel={t('workspace.search', 'Search workspaces')}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="search"
+              searchLabel={t('workspace.search', 'Search workspaces')}
             />
           </View>
 
-          <BottomSheetScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: listBottomInset, gap: 18 }}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}>
-            <WorkspaceInvitations invites={invites} onOpenInvite={openInvite} />
-            <WorkspaceList
-              workspaces={workspaces}
-              filtered={filtered}
-              query={query}
-              currentProjectId={currentProjectId}
-              openWorkspace={openWorkspace}
-            />
-            <SettingsGroup>
-              <SettingsRow
-                icon={PlusIcon}
-                label={createLabel}
-                right={null}
-                onPress={create.webCreate.pending ? undefined : create.openHandoff}
+          {/* The list fades out at its top and bottom edges (Jay, 2026-11-11):
+              an alpha mask, so it reads the same on the iOS 26 glass. */}
+          <FadeEdges>
+            <SheetScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: listBottomInset, gap: 18 }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}>
+              <WorkspaceInvitations invites={invites} onOpenInvite={openInvite} />
+              <WorkspaceList
+                workspaces={workspaces}
+                filtered={filtered}
+                query={query}
+                currentProjectId={currentProjectId}
+                openWorkspace={openWorkspace}
               />
-              {onOpenWorkspaceSettings && currentProjectId ? (
+              <SettingsGroup>
                 <SettingsRow
-                  icon={GearSixIcon}
-                  label={t('workspace.settings', 'Workspace settings')}
-                  onPress={openSettings}
+                  icon={PlusIcon}
+                  label={createLabel}
+                  right={null}
+                  onPress={create.webCreate.pending ? undefined : create.openHandoff}
                 />
-              ) : null}
-            </SettingsGroup>
-          </BottomSheetScrollView>
+                {onOpenWorkspaceSettings && currentProjectId ? (
+                  <SettingsRow
+                    icon={GearSixIcon}
+                    label={t('workspace.settings', 'Workspace settings')}
+                    onPress={openSettings}
+                  />
+                ) : null}
+              </SettingsGroup>
+            </SheetScrollView>
+          </FadeEdges>
+
         </View>
       </KortixBottomSheetModal>
 
@@ -402,3 +427,4 @@ export function ProjectSwitcherSheet({
     </>
   );
 }
+

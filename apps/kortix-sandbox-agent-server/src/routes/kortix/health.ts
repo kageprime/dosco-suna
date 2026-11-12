@@ -38,8 +38,7 @@ export function createHealthRouter(
       // The runtime-assets record names the release on disk when the adapter cannot tell.
       version: report.harness.version ?? (running.harness === report.harness.id ? running.harness_version : null),
     }
-    const repoError = context.bootState.repoMaterializationError
-    const runtimeReady = host.repo_ready && !repoError && harness.ready
+    const runtimeReady = harness.ready
     return c.json({
       daemon: 'ok',
       // Host-owned `/file` routes, the compiled agent config's gzip env form and
@@ -53,9 +52,9 @@ export function createHealthRouter(
         ...controlCapabilities,
         ...runtimeCapabilities,
       ],
-      status: runtimeReady ? 'ok' : repoError || harness.error ? 'error' : harness.state,
+      status: runtimeReady ? 'ok' : harness.error ? 'error' : harness.state,
       runtimeReady,
-      boot_error: repoError ?? harness.error,
+      boot_error: harness.error,
       ...host,
       harness,
       ...(report.config ? { config: report.config } : {}),

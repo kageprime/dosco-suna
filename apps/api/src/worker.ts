@@ -72,6 +72,7 @@ function health(path: string): Response {
 logger.info('[worker] Dosco Background Worker starting', {
   port: config.PORT,
   env: config.INTERNAL_KORTIX_ENV,
+  pid: process.pid,
   workers: 'ENABLED',
   database: Boolean(config.DATABASE_URL),
   providers: config.ALLOWED_SANDBOX_PROVIDERS,
@@ -80,7 +81,6 @@ logger.info('[worker] Dosco Background Worker starting', {
 if (import.meta.main) await loadManagedLineupAtBoot();
 
 logger.info(`[email] ${describeEmailChain()}`);
-
 await prepareProcess({ entry: true });
 
 const server = Bun.serve({ port: config.PORT, fetch: (req) => health(new URL(req.url).pathname) });

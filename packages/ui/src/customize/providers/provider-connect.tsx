@@ -64,6 +64,16 @@ import {
   useProjectModelPickerCatalog,
 } from '@kortix/sdk/react';
 import { useQuery } from '@tanstack/react-query';
+import { useCanShareProviderAccounts } from '../sections/view/account-secret-resources-panel';
+import {
+  SUBSCRIPTION_ROW,
+  SubscriptionRowMeter,
+  summarizeSubscriptions,
+  useLiveSubscriptionUsages,
+  useSubscriptionLogins,
+  useSubscriptionRowSummary,
+  type UsageTone,
+} from '../sections/view/subscription-usage';
 
 export {
   FIRST_CLASS_PROVIDER_IDS,
@@ -98,6 +108,8 @@ export interface ProviderListRow {
   via?: ConnectedVia;
   /** Inference turned off for this project; credentials are kept. */
   disabled?: boolean;
+  /** ChatGPT and Claude subscription usage across every login: the row's trailing line. */
+  usage?: { text: string; percent: number; tone: UsageTone } | null;
 }
 
 /**
@@ -228,6 +240,8 @@ function ProviderRow({
       </span>
       {row.disabled ? (
         <span className="text-muted-foreground shrink-0 text-xs">{t('turnedOff')}</span>
+      ) : row.usage ? (
+        <SubscriptionRowMeter {...row.usage} />
       ) : null}
       <CaretRightIcon
         className={cn(
@@ -439,9 +453,26 @@ export function ProviderConnect({
   const access = useModelAccess(enabled ? projectId : null);
   const managedProvider = useManagedProvider(enabled ? projectId : null);
   const pooled = usePooledProviderIds(projectId, enabled);
+  const canShare = useCanShareProviderAccounts(projectId);
   useLiveLlmProviderCatalog(projectId, enabled);
   const catalogRevision = useLlmProviderCatalogRevision();
   const { connectedProviders, providerStateLoading } = useConnectedProviders(projectId, enabled);
+  const subscriptionAccountId = enabled && pooled.pooledSecretsEnabled ? pooled.accountId : null;
+  const subscriptions = useSubscriptionLogins(subscriptionAccountId, projectId);
+  const liveUsage = useLiveSubscriptionUsages(subscriptionAccountId, projectId, subscriptions.logins);
+  const rowSummary = useSubscriptionRowSummary();
+  // Each subscription login's live usage, summed per provider row (ChatGPT → OpenAI, Claude → Anthropic).
+  const now = Math.max(subscriptions.dataUpdatedAt, liveUsage.updatedAt);
+  const usageByRow = useMemo(() => {
+    const byRow = new Map<string, typeof liveUsage.usages>();
+    for (const login of liveUsage.usages) {
+      const row = SUBSCRIPTION_ROW[login.secret.provider_id ?? ''];
+      if (row) byRow.set(row, [...(byRow.get(row) ?? []), login]);
+    }
+    return new Map([...byRow].map(([row, logins]) => [row, rowSummary(summarizeSubscriptions(logins, now), now)]));
+  // `liveUsage.usages` is a fresh array each render; `now` moves with every read it holds.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [now, subscriptions.logins, rowSummary]);
 
   const [search, setSearch] = useState('');
   const [visibleCount, setVisibleCount] = useState(PROVIDER_PAGE_SIZE);
@@ -489,13 +520,14 @@ export function ProviderConnect({
               : 'none',
         via: connectedVia(entry.id, connectedIds),
         disabled: disabledProviders.has(entry.id),
+        usage: usageByRow.get(entry.id) ?? null,
       };
     });
     return {
       inUse: rows.filter((row) => row.status !== 'none'),
       available: rows.filter((row) => row.status === 'none'),
     };
-  }, [searchable, connectedIds, pooled.pooledProviderIds, search, access.data]);
+  }, [searchable, connectedIds, pooled.pooledProviderIds, search, access.data, usageByRow]);
 
   const searching = search.trim().length > 0;
   const limit = searching ? available.length : visibleCount;
@@ -540,7 +572,7 @@ export function ProviderConnect({
       onSelect={onSelect}
       note={
         pooled.pooledSecretsEnabled
-          ? tPooled('sharedDescription')
+          ? tPooled(canShare ? 'sharedDescription' : 'sharedOnlyYouDescription')
           : canWrite
             ? undefined
             : t('readOnly')

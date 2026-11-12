@@ -5,18 +5,23 @@ import { resetAiIndexRateLimitsForTests } from '@/lib/seo/rate-limit';
 import { POST } from './route';
 
 const realFetch = globalThis.fetch;
-let inserted: unknown[] = [];
+let sent: Array<Record<string, unknown>> = [];
+let answer: () => Response;
+
+const stored = () =>
+  new Response(JSON.stringify({ ok: true, persisted: true, emailed: false }), {
+    status: 200, headers: { 'content-type': 'application/json' },
+  });
 
 beforeEach(() => {
   resetAiIndexRateLimitsForTests();
-  inserted = [];
-  process.env.SUPABASE_URL = 'http://supabase.test';
-  process.env.SUPABASE_ANON_KEY = 'anon';
-  process.env.SUPABASE_SERVICE_ROLE_KEY = 'synthetic-service-role';
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    if (String(input).includes('supabase.test') && init?.body) inserted.push(JSON.parse(String(init.body)));
-    return new Response('{}', { status: 201, headers: { 'content-type': 'application/json' } });
-  }) as typeof fetch;
+  sent = [];
+  answer = stored;
+  process.env.BACKEND_URL = 'http://api.test/v1';
+  globalThis.fetch = Object.assign(async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input) === 'http://api.test/v1/system/demo-request' && init?.body) sent.push(JSON.parse(String(init.body)));
+    return answer();
+  }, { preconnect: realFetch.preconnect }) as typeof fetch;
 });
 afterEach(() => {
   globalThis.fetch = realFetch;
@@ -26,49 +31,48 @@ function post(body: string, ip = '203.0.113.1') {
   return POST(
     new Request('http://localhost/api/demo-request', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-real-ip': ip },
+      headers: { 'content-type': 'application/json', 'x-real-ip': ip, 'user-agent': 'synthetic-browser/1.0' },
       body,
     }) as never,
   );
 }
 
 describe('POST /api/demo-request', () => {
-  test('persists with server-only credentials, never the public anonymous key', async () => {
-    const keys: string[] = [];
-    globalThis.fetch = Object.assign(async (_input: RequestInfo | URL, init?: RequestInit) => {
-      const key = new Headers(init?.headers).get('apikey');
-      if (key) keys.push(key);
-      return new Response('{}', { status: 201 });
-    }, { preconnect: realFetch.preconnect });
-    expect((await post(JSON.stringify({ email: 'agent@kortix.ai' }))).status).toBe(200);
-    expect(keys).toEqual(['synthetic-service-role']);
+  test('stores the submission through the API, which answers persisted', async () => {
+    const res = await post(JSON.stringify({ email: 'agent@kortix.ai' }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, persisted: true });
+    expect(sent).toEqual([{ email: 'agent@kortix.ai', user_agent: 'synthetic-browser/1.0' }]);
   });
 
-  test('database outage returns retryable failure, never success', async () => {
-    globalThis.fetch = Object.assign(async () => new Response('{"message":"unavailable"}', {
-      status: 503, headers: { 'content-type': 'application/json' },
-    }), { preconnect: realFetch.preconnect });
-    const res = await post(JSON.stringify({ email: 'agent@kortix.ai' }));
-    expect(res.status).toBe(503);
-    expect(res.headers.get('Retry-After')).toBe('5');
-    expect(await res.json()).not.toHaveProperty('ok', true);
+  test('an API failure returns a retryable 503, never success', async () => {
+    for (const failure of [
+      () => new Response('{"error":"Unable to save submission; please retry"}', { status: 503, headers: { 'content-type': 'application/json' } }),
+      () => new Response('{"error":"Too many requests"}', { status: 429, headers: { 'content-type': 'application/json' } }),
+      // A 200 that does not confirm the stored row.
+      () => new Response('{"ok":true,"emailed":true}', { status: 200, headers: { 'content-type': 'application/json' } }),
+    ]) {
+      answer = failure;
+      const res = await post(JSON.stringify({ email: 'agent@kortix.ai' }), `203.0.113.${sent.length + 20}`);
+      expect(res.status).toBe(503);
+      expect(res.headers.get('Retry-After')).toBe('5');
+      expect(await res.json()).not.toHaveProperty('ok', true);
+    }
   });
 
   test('refuses a body over 8 KB', async () => {
     const res = await post(JSON.stringify({ email: 'a@b.co', goal: 'x'.repeat(9000) }));
     expect(res.status).toBe(413);
-    expect(inserted).toEqual([]);
+    expect(sent).toEqual([]);
   });
 
-  test('stores only the known fields, truncated', async () => {
+  test('sends only the known fields, truncated, and the visitor user agent', async () => {
     const res = await post(
       JSON.stringify({ email: 'a@b.co', goal: 'g'.repeat(5000), junk: { a: 1 }, form: 'forged' }),
     );
     expect(res.status).toBe(200);
-    const row = (inserted[0] as { data: Record<string, unknown> }).data;
-    expect(Object.keys(row).sort()).toEqual(['email', 'form', 'goal', 'user_agent']);
-    expect(row.form).toBe('contact');
-    expect((row.goal as string).length).toBe(2000);
+    expect(Object.keys(sent[0]!).sort()).toEqual(['email', 'goal', 'user_agent']);
+    expect((sent[0]!.goal as string).length).toBe(2000);
   });
 
   test('limits one address to 5 submissions a minute', async () => {

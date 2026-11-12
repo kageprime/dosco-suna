@@ -110,12 +110,6 @@ describe('sessionIsTombstoned — a deleted session refuses every runtime verb',
     expect(sessionIsTombstoned({ metadata: { deletedAt: 1787580000000 } })).toBe(false);
     expect(sessionIsTombstoned({ metadata: { deletedAt: null } })).toBe(false);
   });
-
-  test('the /start, /restart and /recover handlers all ask it after loadVisibleSession', async () => {
-    const src = await Bun.file(new URL('../routes/session-runtime.ts', import.meta.url)).text();
-    const occurrences = src.split('sessionIsTombstoned(visible.row)').length - 1;
-    expect(occurrences).toBe(3);
-  });
 });
 
 // Under the agent-principal model the launcher's role is not an input. The

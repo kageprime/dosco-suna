@@ -123,3 +123,34 @@ describe('connector catalogue direct MCP URLs', () => {
     expect(urls.has('local')).toBe(false);
   });
 });
+
+describe('the catalogue is an index, never a list of what may be connected', () => {
+  test('a registry MCP record without a URL gets the verified one: listed, one click, installable', async () => {
+    const wispr = { ...item('discovered/wisprflow-ai-mcp', 'mcp', 'wisprflow.ai', 'wisprflow.ai'), feeds: ['discovered'] };
+    const surface = {
+      type: 'mcp',
+      transports: ['streamable-http'],
+      slug: 'wispr-flow-mcp-server',
+      name: 'Wispr Flow MCP server',
+      docs: 'https://docs.wisprflow.ai/articles/mcp',
+      auth: { status: 'required', entries: [] },
+    };
+    const catalogue = createConnectorCatalog({
+      fetch: (async (input: string | URL | Request) =>
+        new Response(JSON.stringify(String(input).endsWith('/surface') ? { surfaces: [surface] } : { data: [wispr] }), {
+          headers: { 'content-type': 'application/json' },
+        })) as unknown as typeof fetch,
+    });
+    const listed = (await catalogue.items()).find((entry) => entry.id === 'discovered/wisprflow-ai-mcp')!;
+    expect({ url: listed.url, mcpUrl: listed.mcpUrl, oneClick: listed.oneClick }).toEqual({
+      url: 'https://api.wisprflow.ai/connect/mcp',
+      mcpUrl: 'https://api.wisprflow.ai/connect/mcp',
+      oneClick: true,
+    });
+    const [way] = await catalogue.surfaces('wisprflow.ai');
+    expect(way).toMatchObject({
+      url: 'https://api.wisprflow.ai/connect/mcp',
+      connector: { provider: 'mcp', url: 'https://api.wisprflow.ai/connect/mcp', transport: 'http' },
+    });
+  });
+});

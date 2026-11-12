@@ -321,7 +321,7 @@ export function ScheduleBuilder({
   );
   const selectedWeekdays = new Set(state.weekdays);
   const intervalUnit = (value: number) =>
-    state.frequency === 'minutes' ? 'minutes' : `hour${value === 1 ? '' : 's'}`;
+    `${state.frequency === 'minutes' ? 'minute' : 'hour'}${value === 1 ? '' : 's'}`;
 
   return (
     <div className={cn('space-y-3', disabled && 'pointer-events-none opacity-60 select-none')}>

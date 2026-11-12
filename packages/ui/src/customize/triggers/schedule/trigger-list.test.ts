@@ -1,6 +1,7 @@
 import type { ProjectTrigger } from '@kortix/sdk';
 import { describe, expect, test } from 'bun:test';
 
+import { createTranslator, defaultUiMessages } from '../../../i18n';
 import { testUiTranslator } from '../../../test-utils/intl';
 
 import { lastRunLabel, nextRunIn } from '../../../internal/lib/trigger-clock';
@@ -50,6 +51,19 @@ describe('nextRunLabel (C09 trailing, line one)', () => {
     expect(nextRunLabel({ type: 'webhook', enabled: true, next_fire_at: null, ...autoPaused }, t, 'en', now)).toBe('Paused');
     expect(nextRunLabel(cron(null), t, 'en', now)).toBe('—');
   });
+  test('a pause the account state caused names its cause; a plain pause and an off trigger still read Paused', () => {
+    const tAutoPause = createTranslator({ locale: 'en', messages: defaultUiMessages, namespace: 'triggerAutoPause' });
+    const next = new Date(2026, 9, 19, 9, 0);
+    const paused = (code: 'billing' | 'no_usable_model' | null) => ({
+      ...cron(next),
+      auto_paused_at: '2026-10-19T08:00:00.000Z',
+      auto_paused_code: code,
+    });
+    expect(nextRunLabel(paused('billing'), t, 'en', now, tAutoPause)).toBe('No credits');
+    expect(nextRunLabel(paused('no_usable_model'), t, 'en', now, tAutoPause)).toBe('No model');
+    expect(nextRunLabel(paused(null), t, 'en', now, tAutoPause)).toBe('Paused');
+    expect(nextRunLabel({ ...paused('billing'), enabled: false }, t, 'en', now, tAutoPause)).toBe('Paused');
+  });
 });
 
 describe('lastRunLabel (C09 trailing, line two)', () => {
@@ -68,6 +82,15 @@ describe('lastRunLabel (C09 trailing, line two)', () => {
   });
   test('a trigger that never ran says so', () => {
     expect(lastRunLabel(ran(null), t, 'en', now)).toBe('Never run');
+  });
+  test('a trigger whose every attempt failed names the failure and when, never "Never run"', () => {
+    const failed = { last_fired_at: null, event: null, last_status: 'failed', last_attempt_at: new Date(now - 5 * MIN).toISOString() } as Pick<
+      ProjectTrigger, 'last_fired_at' | 'event' | 'last_status' | 'last_attempt_at'>;
+    expect(lastRunLabel(failed, t, 'en', now)).toBe('Failed · 5m ago');
+    // A failed attempt after an older fire: the failure is the latest news.
+    expect(lastRunLabel({ ...failed, last_fired_at: new Date(now - 2 * 3_600_000).toISOString() }, t, 'en', now)).toBe('Failed · 5m ago');
+    // A fire after the failure: the fire wins.
+    expect(lastRunLabel({ ...failed, last_status: 'fired', last_fired_at: new Date(now - MIN).toISOString() }, t, 'en', now)).toBe('1m ago');
   });
 });
 

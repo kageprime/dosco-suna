@@ -105,7 +105,7 @@ export function SessionOverridesControlContent({
 
   return (
     <div
-      // Radix reports how much room it actually has; without this the panel is
+      // The positioner reports how much room it actually has; without this the panel is
       // taller than the gap above the composer on a short or narrow viewport and
       // its first row slides off the top of the screen.
       className="flex h-[28rem] max-h-[var(--radix-popover-content-available-height,28rem)] flex-col overflow-hidden"
@@ -235,11 +235,11 @@ export function SessionOverridesControl({ onSave, ...contentProps }: SessionOver
         collisionPadding={12}
         className="w-[min(620px,calc(100vw-2rem))] overflow-hidden p-0"
         // The model, agent and effort editors are themselves popovers rendered
-        // into their own portal. Radix sees that portal as "outside", so an
+        // into their own portal. The popover sees that portal as "outside", so an
         // unguarded interaction there closes THIS panel under the user's cursor.
         onInteractOutside={(event) => {
           const target = event.target as HTMLElement | null;
-          if (contentProps.saving || target?.closest('[data-radix-popper-content-wrapper]')) event.preventDefault();
+          if (contentProps.saving || target?.closest('[data-kortix-floating]')) event.preventDefault();
         }}
       >
         <SessionOverridesControlContent {...contentProps} onSave={saveAndClose} />

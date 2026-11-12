@@ -67,7 +67,7 @@
     "oauthWaiting": "En attente d’autorisation…",
     "oauthFinishing": "Connecté. Enregistrement de votre compte…",
     "oauthExpired": "L’autorisation a expiré. Réessayez.",
-    "oauthPrivateDescription": "Utilisez votre abonnement ChatGPT Plus ou Pro dans cet espace de travail. Les nouveaux comptes restent privés jusqu’à ce que vous les partagiez.",
+    "oauthPrivateDescription": "Utilisez votre abonnement ChatGPT Plus ou Pro dans cet espace de travail. Les nouveaux comptes sont partagés avec tous les membres de l’espace de travail. Vous pouvez en rendre un privé.",
     "chatGptSubscription": "Abonnement ChatGPT",
     "manageChatGptAccounts": "Gérer les comptes ChatGPT",
     "connect": "Connecter",
@@ -95,7 +95,7 @@
     "deleteError": "Impossible de supprimer le secret",
     "accessError": "Impossible de modifier l’accès",
     "sharedTitle": "Connexions aux fournisseurs",
-    "sharedDescription": "Ajoutez des clés API, des comptes ChatGPT et des comptes Claude. Les nouveaux restent privés jusqu’à ce que vous les partagiez. Choisissez ceux que chaque session utilise.",
+    "sharedDescription": "Ajoutez des clés API, des comptes ChatGPT et des comptes Claude. Les nouveaux sont partagés avec tous les membres de l’espace de travail. Vous pouvez en rendre un privé. Choisissez ceux que chaque session utilise.",
     "legacyProjectKey": "Clé d’espace de travail existante · Utilisée si aucune clé n’est sélectionnée pour cette session",
     "keyCount": "{count, plural, one {# clé} other {# clés}}",
     "providerKeysFor": "Clés API de {provider}",
@@ -106,16 +106,14 @@
     "access": "Accès",
     "actions": "Actions",
     "coolingDown": "En attente après une limite",
-    "usageFiveHour": "5 heures",
-    "usageWeekly": "Hebdomadaire",
-    "usageWeeklyModel": "Hebdomadaire · {model}",
-    "usagePercent": "{percent} % utilisé",
-    "usagePercentResets": "{percent} % · réinitialisation {time}",
-    "usageLimitReached": "Limite atteinte",
-    "usageLimitResets": "Limite atteinte · réinitialisation {time}",
-    "usageNotSeen": "L’utilisation s’affiche après la première requête",
-    "usageObserved": "Mis à jour {time}",
-    "usageAriaLabel": "{window} : {percent} % utilisé",
+    "keyVerified": "Vérifiée : {provider} a accepté cette clé",
+    "keyInvalid": "{provider} a refusé cette clé : {message}",
+    "keyUnchecked": "Non vérifiée : {message}",
+    "checkKey": "Vérifier à nouveau",
+    "savedVerified": "Clé enregistrée et vérifiée",
+    "savedInvalid": "Clé enregistrée, mais {provider} l’a refusée : {message}",
+    "checkError": "La clé n’a pas pu être vérifiée",
+    "openProviderInModels": "Ouvrir {provider} dans Modèles",
     "member": "membre",
     "members": "membres",
     "actionsFor": "Actions pour {label}",
@@ -155,6 +153,9 @@
     "providerKeys": "Clés du fournisseur",
     "chooseSharedKeys": "Choisissez les clés partagées que cette session peut utiliser.",
     "sessionKeyPool": "Groupe de clés de session",
+    "subscriptionSwitcher": "Abonnement",
+    "subscriptionSwitcherDefault": "Alterne entre tous les abonnements connectés",
+    "subscriptionSwitcherUse": "Utiliser {label} pour cette session",
     "sharedSessionKeys": "Cette session est partagée avec l’espace de travail : seules les clés partagées avec tout l’espace de travail fonctionnent ici. Les clés qui vous sont attribuées fonctionnent dans vos sessions privées.",
     "promptedSessionKeys": "Un autre membre a écrit dans cette session, elle n’agit donc plus pour son propriétaire. Seules les clés partagées avec tout l’espace de travail fonctionnent ici.",
     "noPersonSessionKeys": "Cette session n’agit pour personne : elle a démarré avant l’arrivée des clés personnelles, ou sans surveillance. Seules les clés partagées avec tout l’espace de travail fonctionnent ici. Démarrez une nouvelle session pour utiliser vos propres clés.",
@@ -176,7 +177,7 @@
     "claudeAccounts": "Comptes Claude",
     "noClaudeAccounts": "Aucun compte Claude pour le moment",
     "connectClaude": "Se connecter avec Claude",
-    "claudeOauthPrivateDescription": "Utilisez votre forfait Claude Pro ou Max pour les modèles Claude de cet espace de travail. Les nouveaux comptes restent privés jusqu’à ce que vous les partagiez.",
+    "claudeOauthPrivateDescription": "Utilisez votre forfait Claude Pro ou Max pour les modèles Claude de cet espace de travail. Les nouveaux comptes sont partagés avec tous les membres de l’espace de travail. Vous pouvez en rendre un privé.",
     "claudeOauthCreationDescription": "Connectez-vous avec votre compte Claude Pro ou Max. Kortix stocke la connexion chiffrée et ne l’affiche jamais.",
     "claudeDefaultAccountLabel": "Claude · {name}",
     "claudeAccountConnected": "Compte Claude connecté",
@@ -184,7 +185,10 @@
     "claudeConnectFailed": "La connexion Claude n’a pas abouti. Réessayez.",
     "claudeReconnectDescription": "Reconnectez-vous avec Claude. Le compte conserve son nom, ses accès et les sélections de session.",
     "claudeAccountLabelPlaceholder": "p. ex. Mon compte Claude",
-    "claudeDeleteAccountConfirmTitle": "Supprimer ce compte Claude pour tout le monde ?"
+    "claudeDeleteAccountConfirmTitle": "Supprimer ce compte Claude pour tout le monde ?",
+    "sharedOnlyYouDescription": "Ajoutez des clés API, des comptes ChatGPT et des comptes Claude. Vous seul pouvez utiliser ceux que vous ajoutez. Un gestionnaire de l'espace de travail peut en partager un. Choisissez ceux que chaque session utilise.",
+    "oauthOnlyYouDescription": "Utilisez votre forfait ChatGPT Plus ou Pro dans cet espace de travail. Vous seul pouvez utiliser les comptes que vous ajoutez.",
+    "claudeOauthOnlyYouDescription": "Utilisez votre forfait Claude Pro ou Max pour les modèles Claude dans cet espace de travail. Vous seul pouvez utiliser les comptes que vous ajoutez."
   },
   "secrets": {
     "undecryptable": {
@@ -801,14 +805,8 @@
         "noResults": "Aucun thème trouvé"
       },
       "densities": {
-        "normal": {
-          "label": "Normale",
-          "description": "Les étapes et le raisonnement s'affichent en direct pendant que Kortix travaille."
-        },
-        "minimal": {
-          "label": "Minimale",
-          "description": "Une seule ligne d'état jusqu'à ce que vous la développiez."
-        }
+        "normal": "Normale",
+        "minimal": "Minimale"
       },
       "wallpapers": {
         "dither": "Tramage",
@@ -1315,7 +1313,7 @@
         },
         "voice_call": {
           "name": "Appels vocaux",
-          "description": "Appelle un agent depuis sa page (Personnaliser → Agents) et parle-lui. Un appel est une session à part de cet agent : il t'entend, répond à voix haute et voit l'écran que tu partages, et la conversation est le chat de cette session."
+          "description": "Appelle un agent depuis un champ de message vide, où le bouton d'envoi devient un bouton d'appel, ou depuis sa page (Personnaliser → Agents), et parle-lui. Dans une session, l'appel va à l'agent de cette session ; depuis l'accueil de l'espace de travail, il démarre une nouvelle session. L'agent t'entend, répond à voix haute et voit l'écran que tu partages, et la conversation est le chat de la session."
         },
         "shared_drives": {
           "name": "Drives partagés",
@@ -1393,7 +1391,15 @@
       "history": "Historique",
       "historyDescription": "Le coût de chaque session et tous les crédits ajoutés ou dépensés.",
       "openLedger": "Ouvrir le registre",
-      "unit": "{count, plural, one {crédit} other {crédits}}"
+      "unit": "{count, plural, one {crédit} other {crédits}}",
+      "dailySpend": "Dépenses quotidiennes",
+      "heatLess": "Moins",
+      "heatMore": "Plus",
+      "busiestDay": "{name} : {amount} le {day}, le jour le plus dépensier",
+      "noSpendInRange": "{name} : aucune dépense sur cette période",
+      "idleWorkspaces": "{count, plural, one {# espace de travail} other {# espaces de travail}} sans dépense sur cette période",
+      "showIdle": "Afficher",
+      "hideIdle": "Masquer"
     },
     "tokens": {
       "keyRevoked": "Clé API révoquée",
@@ -2047,7 +2053,13 @@
       "title": "Aucun modèle disponible",
       "description": "Connectez votre propre fournisseur pour commencer à utiliser cette session.",
       "upgradeDescription": "Mettez à niveau votre offre ou connectez votre propre fournisseur pour commencer à utiliser cette session."
-    }
+    },
+    "favorites": "Favoris",
+    "favoritesEmpty": "Ajoutez une étoile à un modèle pour le garder ici.",
+    "addFavorite": "Ajouter {model} aux favoris",
+    "removeFavorite": "Retirer {model} des favoris",
+    "groups": "Groupes de modèles",
+    "thinking": "Réflexion"
   },
   "sessionScope": {
     "resetDefault": "Rétablir la valeur par défaut",
@@ -2075,11 +2087,19 @@
   "sessionUi": {
     "modelGate": {
       "upgrade": "Passer à une offre supérieure",
-      "barTitle": "Aucun modèle connecté",
-      "barDescription": "connectez-en un pour commencer à discuter",
+      "offerTitle": "Utilisez votre abonnement ChatGPT ou Claude",
+      "connectChatGpt": "Connecter ChatGPT",
+      "connectClaude": "Connecter Claude",
+      "hidePlan": "Ne plus afficher {name}",
+      "chatGptPlan": "Abonnement Plus ou Pro",
+      "claudePlan": "Abonnement Pro ou Max",
       "connectModel": "Connecter un modèle",
       "imagesUnsupported": "{model} ne peut pas lire les images",
-      "imagesUnsupportedHint": "retirez-les ou choisissez un autre modèle"
+      "imagesUnsupportedHint": "retirez-les ou choisissez un autre modèle",
+      "noModelUpgradeReason": "Aucun modèle : passez au plan Credits ou ajoutez votre propre clé de fournisseur.",
+      "noModelKeyReason": "Aucun modèle : ajoutez votre propre clé de fournisseur.",
+      "noModelUpgradePlan": "Changer de plan",
+      "noModelAddProviderKey": "Ajouter une clé de fournisseur"
     },
     "providerRecovery": {
       "savedPrompt": "Prompt enregistré",
@@ -2324,7 +2344,7 @@
     "hintNewLine": "Appuie sur Shift+Enter pour une nouvelle ligne",
     "hintSettings": "Appuie sur {modifier}, pour ouvrir les paramètres",
     "hintCompact": "Demande à compacter la session lorsqu'elle devient longue",
-    "queueList": "Queue List",
+    "queueList": "Messages en attente",
     "quoteCount": "{count, plural, one {# citation} other {# citations}}",
     "expandQuotes": "Développer les citations",
     "collapseQuotes": "Réduire les citations",
@@ -2332,7 +2352,7 @@
     "stoppedBy": "Arrêté par {name}",
     "queued": "En attente",
     "queuedFiles": "{count, plural, one {# fichier} other {# fichiers}}",
-    "queuedCount": "{count} en file",
+    "queuedCount": "{count} en attente",
     "editingQueued": "En cours de modification",
     "queuedActions": "Actions du message",
     "steerNextStep": "Lu à la prochaine étape",
@@ -2341,11 +2361,11 @@
     "steerFallbackUnsupported": "Attend ce tour. Cette session n'accepte pas de messages pendant un tour.",
     "steerFallbackNotPrompter": "Attend ce tour. Un autre membre l'a lancé.",
     "steerFallbackTurnEnded": "S'exécute comme son propre tour. Le tour s'est terminé avant.",
-    "stopAndSend": "Arrêter et envoyer",
-    "stopAndSendFailed": "Impossible d'arrêter et d'envoyer ce message",
+    "stopAndSend": "Envoyer maintenant",
+    "stopAndSendFailed": "Impossible d'envoyer ce message maintenant",
     "submitEdit": "Valider",
-    "collapseQueue": "Réduire la file",
-    "expandQueue": "Développer la file",
+    "collapseQueue": "Réduire les messages en attente",
+    "expandQueue": "Développer les messages en attente",
     "myKortixRoutes": "Confie chaque tâche au bon agent",
     "chatInputReset": "Reset"
   },
@@ -2495,7 +2515,23 @@
         "askOwnerBody": "Seuls les propriétaires et les administrateurs de l'espace de travail peuvent gérer la facturation. Demandez à l'un d'eux de choisir un palier de crédits pour l'espace de travail.",
         "planTitle": "Forfait et crédits",
         "planDescription": "Modifiez votre forfait mensuel ou ajoutez des crédits pour ce mois.",
-        "topupSecondary": "Besoin de plus ce mois-ci ? Ajoutez des crédits"
+        "paymentFailedHint": "Mettez à jour la carte et Stripe relancera le prélèvement.",
+        "updatePaymentMethod": "Mettre à jour le moyen de paiement",
+        "topUpInstead": "Ajouter des crédits à la place",
+        "memberBody": "Seuls les propriétaires et les admins peuvent ajouter des crédits. Demandez-leur d’ici, ou envoyez à l’un d’eux le lien de facturation de cet espace de travail.",
+        "memberCopyLink": "Copier le lien de facturation",
+        "memberLinkCopied": "Lien copié",
+        "memberLinkCopyFailed": "Impossible de copier le lien",
+        "roleOwner": "Propriétaire",
+        "roleAdmin": "Admin",
+        "newBalance": "Nouveau solde",
+        "continue": "Continuer",
+        "balanceRetry": "Réessayer",
+        "addLine": "Ajoutez des crédits pour que vos agents continuent de tourner.",
+        "raiseLine": "Augmentez votre forfait pour que vos agents continuent de tourner.",
+        "subscribeLine": "Abonnez-vous pour que vos agents continuent de tourner.",
+        "switchToMonthly": "Vous préférez des crédits mensuels ? Changer de forfait",
+        "autoTopupRetired": "La recharge automatique ne s’applique plus à ce forfait."
       },
       "admin": {
         "plan": "Forfait",
@@ -2518,7 +2554,9 @@
           "growing": "Équipes en croissance",
           "scale": "Scale",
           "large": "Grandes organisations"
-        }
+        },
+        "once": "une fois",
+        "onceLabel": "Montant unique de crédits"
       }
     },
     "popular": "Populaire",
@@ -2686,8 +2724,8 @@
           "note": "Démarrez avec de vrais crédits sandbox.",
           "f1": "500 crédits / mois sur votre premier espace de travail",
           "f2": "Aucune carte requise",
-          "f3": "Apportez votre propre clé API pour n'importe quel modèle premium",
-          "f4": "Connectez votre abonnement ChatGPT"
+          "f3": "Les modèles fonctionnent avec votre propre clé API ou votre abonnement ChatGPT",
+          "f4": "Les modèles gérés par Kortix nécessitent Credits"
         },
         "credits": {
           "name": "Crédits",
@@ -2980,6 +3018,8 @@
         "title": "Consultez votre boîte e-mail",
         "description": "Nous avons envoyé un lien à <address>{email}</address>. Ouvrez-le pour continuer.",
         "confirmDescription": "Nous avons envoyé un e-mail de confirmation à <address>{email}</address>. Confirmez votre adresse e-mail pour continuer.",
+        "unknownDescription": "Nous avons envoyé un e-mail à <address>{email}</address> — un lien de connexion, ou un lien de confirmation pour un nouveau compte.",
+        "closedDescription": "Si <address>{email}</address> a un compte, son lien de connexion est en route.",
         "notReceived": "Vous n’avez pas reçu le lien ?",
         "confirmNotReceived": "Vous n’avez pas reçu l’e-mail de confirmation ?",
         "resendIn": "Renvoyer dans {seconds}",
@@ -3383,6 +3423,9 @@
     },
     "inbox": {
       "title": "Boîte de réception",
+      "viewReview": "Review",
+      "viewNotifications": "Notifications",
+      "viewLabel": "Vue de la boîte de réception",
       "description": "Les nouvelles des sessions, déclencheurs et artefacts qui vous concernent, dans tous les espaces de travail.",
       "unreadLabel": "Boîte de réception : {count} non lues",
       "unreadCount": "{count} non lues",
@@ -10353,6 +10396,8 @@
       "checkConnection": "Vérifiez votre connexion, puis réessayez."
     },
     "i18nComplete": {
+      "noModelAddProviderKey": "Ajouter une clé de fournisseur",
+      "noModelUpgradePlan": "Changer de plan",
       "authEmailRateLimit": "Impossible d’envoyer l’e-mail. Réessaie dans environ une heure.",
       "authRequestRateLimit": "Trop de demandes. Réessaie dans quelques minutes.",
       "text03217276a5f1": "Solde {value0} crédits",
@@ -10380,7 +10425,7 @@
       "text004bad6bfbd7": "Nouvelle tentative corrigée avec temporisation",
       "text0050aeb4cf77": "Ajoutez la revendication de groupe",
       "text0059798b7f70": "(facultatif)",
-      "text005b4c1dad87": "Rechercher des espaces de travail, des comptes, des propriétaires",
+      "text005b4c1dad87": "Rechercher des espaces de travail, des comptes, des propriétaires ou un ID",
       "text005c9bcbce1e": "Création du déclencheur…",
       "text005dc222581c": "Il a aussi lu le code",
       "text005ff7fe0036": "Copier le lien vers cette version",
@@ -10936,7 +10981,6 @@
       "text11b405209283": "Un seul endroit pour lancer, planifier, surveiller et arrêter chaque agent. Flux en direct, historique complet, dépenses et déclencheurs qui démarrent le travail sans intervention humaine.",
       "text11bd22785d4b": "SAML SSO et SCIM sont des fonctionnalités Enterprise",
       "text11c1a5b0fa54": "Un agent peut affiner son propre prompt, ajouter un skill ou renforcer une règle de permission. Chacune de ces actions correspond à un commit sur une branche, dans une demande de changement qu’une personne fusionne. Amélioration autonome, fusion humaine. Un agent ne fusionne jamais ses propres modifications.",
-      "text11c520bc9f1f": "super-administrateur",
       "text11d1b3d47709": "trouvé",
       "text11d5959da5d3": "ID du message",
       "text11e9a34decaa": "L’agent peut installer, exécuter et casser n’importe quoi — seuls les commits survivent",
@@ -11815,7 +11859,6 @@
       "text2bd873d6c734": "Fil d’Ariane",
       "text2bdb956493fd": "Lecture du gestionnaire de webhook",
       "text2bde665563d3": "Donnez-lui le ticket que personne n’a pris en charge.",
-      "text2be1f843485e": "{value0} {value1} sera bloqué jusqu'à ce qu'il s'inscrive à l'AMF :",
       "text2bf4ee86ea70": "Tester l’authentification unique",
       "text2bf623481fd8": "Définissez la valeur par défaut souhaitée",
       "text2bf70270bfde": "CompanyOS open source : vos agents, compétences, mémoire et connecteurs dans un dépôt qui vous appartient. N’importe quel modèle. Auto-hébergé ou cloud.",
@@ -12566,6 +12609,7 @@
       "text41ffc5e14073": "Définir sur {value0}",
       "text420962cdca94": "Le même espace de travail, les mêmes connecteurs, la même mémoire — et huit métiers différents en dessous. Chaque équipe écrit les compétences adaptées à son travail, sans mettre en place un second système.",
       "text420aaa63cba7": "Total de la page",
+      "textbe57ff2d7907": "Non attribué à une session",
       "text42113e7bf6fc": "Assistance Kortix",
       "text42117ed2a1f5": "La méthode habituelle",
       "text421c4b1fed48": "Produit / plan de contrôle",
@@ -17434,7 +17478,7 @@
       "textcdd7efcb7e2c": "politique résolue",
       "textcdef3f586a58": "text-kortix-yellow",
       "textce08e2abb642": "Solutions Kortix par rôle",
-      "textce0c20c05842": "Votre dernier paiement a échoué. Mettez à jour votre mode de paiement dans Gérer la facturation, ou ajoutez des crédits pour continuer entre-temps.",
+      "textce0c20c05842": "Votre dernier paiement a échoué. Mettez à jour votre mode de paiement pour que votre forfait continue.",
       "textce0faee27592": "facturation paiement carte bancaire abonnement gérer portefeuille formule plan limites aperçu dépenses",
       "textce18e358bf01": "Essayez un terme différent.",
       "textce1e609b7bf5": "Ports du bac à sable uniquement",
@@ -17983,7 +18027,6 @@
       "textdc6d1d15031b": "synchronisation des flux bancaires",
       "textdc70ef3b3338": "Un canal ne mérite d’être connecté que si la réponse arrive là où la question a été posée. Les fichiers circulent dans les deux sens, et les décisions dont l’agent a besoin sont des boutons dans le fil, pas un lien vers un autre endroit.",
       "textdc76dd6b1aff": "Se connecter à la CLI Kortix",
-      "textdc78f4d17256": "sans A2F — leur accès ne sera pas bloqué, mais pensez à leur demander de s’inscrire :",
       "textdc7ea87fdc45": "Les fichiers, dans les deux sens",
       "textdc8659db6d41": "Entrée",
       "textdc8d7c5c602b": "Registre source",
@@ -18096,7 +18139,6 @@
       "textdf964376e432": "xoxb-...",
       "textdfa16aeaca13": "Le référentiel de cet espace de travail est hébergé sur {value0}, qui ne prend pas en charge les invitations de collaborateurs de Kortix. Gérez l’accès là où se trouve le référentiel.",
       "textdfa2cff42f0c": "Pas d’expérience approfondie des systèmes",
-      "textdfad83e7eb69": "{value0} sont des gestionnaires implicites de cet espace de travail.",
       "textdfca5da56b8c": "Section",
       "textdfd7d37e2b63": "bouton dans la barre d’outils.",
       "textdfe0c2e802b1": "Erreur serveur",
@@ -20392,7 +20434,7 @@
       "text2b2c3ec032a6": "Espace de travail transféré",
       "text44f9fff8bdae": "Plan de crédits modifié",
       "text3fa17bba73e1": "Cet espace de travail n'a pas encore de forfait. Choisissez un montant mensuel de crédits pour lancer des sessions. Tous les membres partagent un seul pool.",
-      "text6821e42be2c1": "Votre portefeuille est vide, les sessions ne peuvent donc pas s'exécuter. Rechargez pour maintenir le calcul et les derniers modèles d'IA — votre forfait n'est pas affecté.",
+      "text6821e42be2c1": "Votre portefeuille est vide, les sessions ne peuvent donc pas s'exécuter. Ajoutez des crédits pour maintenir le calcul et les derniers modèles d'IA — votre forfait n'est pas affecté.",
       "text146aaf3c71fa": "Maintient SSO, SCIM, RBAC et audit activés pour un espace de travail Enterprise signé également facturé via un forfait payant, afin que le rapprochement Stripe ne les retire pas.",
       "text517105fd13ce": "Les crédits financent le calcul en sandbox : même un essai BYOK nécessite un solde de portefeuille pour exécuter des sessions. Le crédit de bienvenue gratuit est de 2 $.",
       "text2f1d17f50af8": "Enterprise débloque SAML SSO, la synchronisation d'annuaire SCIM, RBAC et l'accès à l'audit pour cet espace de travail. Le forfait facturé ne change pas.",
@@ -20748,7 +20790,7 @@
       "text03d5959d51bb": "Qui peut exécuter quel agent",
       "text144d11a3e58a": "Rôles par espace de travail et par ressource, agents par personne.",
       "text0e5f4cbdf444": "Les personnes approuvent",
-      "text313f92aeb061": "Chaque opération reçue fait l’objet d’une analyse complète. Les agents la confrontent au mandat, lisent les rapports et les données de marché, testent la thèse et le scénario baissier, puis rédigent le mémo d’investissement. Le comité d’investissement décide.",
+      "text4c72429d7a38": "Les agents confrontent chaque opération au mandat, soumettent la thèse à un test de résistance et rédigent le mémo d’investissement. Le comité d’investissement décide.",
       "textdc7f8ac95166": "Recherche de candidats autonome.",
       "textb5947f5f79c9": "Les agents recherchent les candidats de chaque mission et rédigent un profil pour chacun. Les consultants choisissent la short-list.",
       "textc81f1483737e": "La plateforme d'IA d'entreprise, construite à partir du code open source de Kortix.",
@@ -20983,7 +21025,7 @@
       "text2eb1d24bcc04": "Les agents conçoivent les tracés de fibre à partir des données SIG et de l’imagerie, puis établissent la nomenclature de chaque tracé.",
       "textf2d996d89263": "Kortix, exécuté sur Kortix.",
       "text34ff4020f800": "Notre entreprise est un espace de travail Kortix. Les agents trient et corrigent les issues, tiennent à jour les preuves SOC 2 et gèrent les ventes et le support. Les humains approuvent.",
-      "textdd57f275a118": "Chaque opération, évaluée par des agents.",
+      "textccf34f95f6b5": "Analyse autonome des opérations.",
       "textacf058bd8604": "Gestion d’actifs",
       "texteca665e8b7c8": "- HELPDESK_API_KEY",
       "text92a51dd3e468": "secrets: [HELPDESK_API_KEY]",
@@ -21281,7 +21323,35 @@
       "text4b892277843c": "Créer un espace de travail",
       "text41018e566b60": "nouvel espace de travail créer ajouter équipe",
       "texta99ac8f9050b": "Espace de travail · Accès",
-      "textfd8b8dae4421": "Zone de danger"
+      "textfd8b8dae4421": "Zone de danger",
+      "text674900a77b79": "LLM",
+      "text765a8cb04cf5": "Remboursement de réserve LLM",
+      "texta68ee4167406": "Proxy",
+      "texta69c4dece144": "Stockage",
+      "textab3aff8f7642": "Bonus de recharge",
+      "textc75e59f5d748": "— capacités",
+      "text58423a0108ea": "… capacités",
+      "textcd6f79740e17": "{count, plural, one {# capacité} other {# capacités}}",
+      "textd1e588d764a4": "utilisé par —",
+      "text66cbb5dfa6cf": "utilisé par …",
+      "text56c316b0bde4": "utilisé par {value0}",
+      "textb7e3e4aa4257": "Désactiver",
+      "texte80e342954ec": "Dernière livraison {value0}",
+      "textf1a1b16401b1": "{count, plural, one {# membre sera bloqué jusqu'à ce que la MFA soit configurée :} other {# membres seront bloqués jusqu'à ce que la MFA soit configurée :}}",
+      "text18cde09c22d3": "{count, plural, one {# super-admin sans MFA — il ne sera pas bloqué, mais envisagez de lui demander de configurer la MFA :} other {# super-admins sans MFA — ils ne seront pas bloqués, mais envisagez de leur demander de configurer la MFA :}}",
+      "textcf42cb2f1ca3": "Les Owners sont implicitement Manager sur cet espace de travail.",
+      "textd7e2d4bc4c80": "Les Admins sont implicitement Manager sur cet espace de travail.",
+      "textb9215e029e76": "Agents : tous",
+      "textd6acddc499aa": "Agents : aucun",
+      "text1edf7747d0b8": "Agents : {value0} sur {value1}",
+      "textd526776b77df": "Agents : {value0}",
+      "text002a4fd5f747": "Saisis un nombre entier de minutes, ou laisse le champ vide.",
+      "text9b8d62603858": "{value0} minutes (7 jours) : c'est le maximum que Kortix autorise.",
+      "text4510d8593ccc": "{value0} : saisis un nombre entier de jours, ou laisse le champ vide.",
+      "textb1f8e3109f1b": "{value0} : {value1} jours — c'est le maximum que Kortix autorise.",
+      "textac20a57bfde0": "Masquer",
+      "text268733ac2f60": "Impossible de mettre à jour l'application",
+      "text5d8926d4a4dd": "Impossible d'enregistrer l'application"
     },
     "publicShareConfirm": {
       "title": "Créer un lien public ?",
@@ -21402,7 +21472,8 @@
         "question": "Question",
         "permission": "Autorisation",
         "approval": "Approbation de connecteur"
-      }
+      },
+      "allowed": "Autorisé"
     },
     "reviewBulk": {
       "approve": "Approuver",
@@ -21473,7 +21544,28 @@
       "senderUnavailable": "Impossible de charger le compte d'envoi. Vérifie la ligne De.",
       "quoted": "« {text} »"
     },
-    "promptHistory": "Historique {index}/{total}"
+    "promptHistory": "Historique {index}/{total}",
+    "colleagueAccess": {
+      "headline": "My Kortix demande à donner un accès à un collègue",
+      "task": "Tâche",
+      "connector": "Connecteur",
+      "secret": "Secret",
+      "onlyThis": "Le collègue n’obtient que ceux-ci, pour cette seule tâche.",
+      "deny": "Refuser",
+      "allow": "Autoriser",
+      "allowed": "Accès autorisé",
+      "allowedDescription": "My Kortix démarre le collègue.",
+      "denied": "Accès refusé",
+      "deniedDescription": "My Kortix reçoit votre réponse.",
+      "failed": "Impossible d’envoyer votre décision. Réessayez."
+    },
+    "autoComponentsPwaPwaClientJsxTextAddKortixToYourHomeScreen83b6a02f": "Ajoutez Kortix à votre écran d'accueil pour une expérience plein écran, comme une app.",
+    "autoComponentsPwaPwaClientJsxTextOnIphoneAndIpadTapShareThenAddToHomb51e7c3a": "Sur iPhone et iPad : touchez Partager, puis Sur l'écran d'accueil.",
+    "autoComponentsPwaPwaClientJsxTextKortixWasUpdatedRefreshToGetTheNewVeae4f0718": "Kortix a été mis à jour. Actualisez pour obtenir la nouvelle version.",
+    "reviewPane": {
+      "emptyTitle": "Sélectionnez un élément",
+      "emptyDescription": "Ses détails s’ouvrent ici. Appuyez sur J et K pour parcourir la liste."
+    }
   },
   "commandPalette": {
     "title": "Palette de commandes",
@@ -21495,11 +21587,6 @@
   "personalWelcome": {
     "dismiss": "Fermer",
     "emailCopied": "Adresse e-mail copiée"
-  },
-  "repositoryAccess": {
-    "label": "Accès au dépôt de l’espace de travail",
-    "enabled": "Les nouvelles sessions reçoivent le dépôt de l’espace de travail. Les permissions Git restent applicables. Les sessions existantes conservent leur accès.",
-    "disabled": "Les nouvelles sessions fonctionnent sans le dépôt de l’espace de travail. Elles peuvent créer des fichiers et utiliser les outils autorisés. Les sessions existantes conservent leur accès."
   },
   "customProvider": {
     "intro": "Des endpoints absents du catalogue.",
@@ -21991,6 +22078,9 @@
     "addMcpUrlNamed": "Ajoute le connecteur {name}.",
     "addMcpUrlInvalid": "Saisissez une URL commençant par https://",
     "addMcpConnect": "Connecter",
+    "addMcpStageConnector": "Connexion au serveur et chargement de ses outils…",
+    "addMcpStageAccount": "Préparation du compte…",
+    "addMcpStageSignIn": "Lancement de la connexion…",
     "addMcpConnected": "{name} est connecté. Les agents peuvent utiliser ses outils.",
     "addMcpSignInFailed": "Impossible de lancer la connexion à {name} : {reason}",
     "addMcpFailed": "Impossible d'ajouter le serveur MCP",
@@ -22005,6 +22095,12 @@
     "noticeSignInTitle": "Se connecter à {name}",
     "noticeSignInBody": "Kortix a ajouté {name}. Terminez la connexion pour que les agents puissent utiliser ses outils.",
     "noticeSignInAction": "Se connecter",
+    "noticeSignInAgainTitle": "Reconnectez-vous à {name}",
+    "noticeSignInAgainBody": "La connexion a expiré ou a été révoquée. Les agents ne peuvent pas utiliser {name} tant que vous ne vous reconnectez pas.",
+    "noticeNoToolsTitle": "{name} n’a aucun outil",
+    "noticeNoToolsBody": "Il n’a aucune route, les agents n’ont donc rien à appeler. Ajoutez des routes à sa spécification de routes dans Paramètres.",
+    "noticeAddRoutesAction": "Ajouter des routes",
+    "statusNoTools": "Aucun outil",
     "connectAccount": "Connecter",
     "notSignedIn": "Non connecté",
     "credentialRejected": "Identifiant refusé : remplacez-le",
@@ -22968,7 +23064,11 @@
     "folderTree": "Dossiers",
     "treeYou": "{name} (vous)",
     "treeExpand": "Déplier {name}",
-    "treeCollapse": "Replier {name}"
+    "treeCollapse": "Replier {name}",
+    "emptyWorkspaces": "{count, plural, one {# espace de travail ne contient} other {# espaces de travail ne contiennent}} aucun fichier",
+    "storageMoreWorkspaces": "{count, plural, one {# autre espace de travail} other {# autres espaces de travail}}",
+    "storageWorkspaceLimit": "Chaque espace de travail peut contenir jusqu’à {limit}",
+    "storageShowFewer": "Afficher moins"
   },
   "genui": {
     "showData": "Afficher les données",
@@ -23261,6 +23361,16 @@
         "booted": "Démarré",
         "timezone": "Fuseau horaire",
         "locale": "Paramètres régionaux",
+        "usage": "Ressources utilisées par Kortix Capture",
+        "usageCpu": "Processeur",
+        "usageCpuValue": "{avg} en moyenne · {peak} au pic",
+        "usageCpuHint": "D'un cœur, {minutes, plural, one {dernière minute} other {# dernières minutes}}",
+        "usageMemory": "Mémoire",
+        "usageMemoryPeak": "{now} · {peak} au pic",
+        "usageProcesses": "Processus",
+        "usageProcessCount": "{count, plural, one {# processus} other {# processus}}",
+        "usageProcessValue": "{cpu} CPU · {memory}",
+        "usageNotReported": "Non signalé : une ancienne version de l'app, ou l'app a démarré il y a moins d'une minute",
         "recordingSync": "Enregistrement et synchronisation",
         "status": "État",
         "lastFrame": "Dernière image",
@@ -23377,12 +23487,16 @@
       "privacyControlsHint": "Afficher le masquage des données personnelles. Le désactiver le masque ; ce qui est défini continue de s’appliquer.",
       "maskingTitle": "Masquage",
       "framesTitle": "Images d'écran",
-      "interval": "Une image toutes les",
-      "intervalHint": "Des intervalles plus courts gardent plus de détails et utilisent plus de CPU et de stockage.",
-      "intervalOption": "{seconds, number} s",
       "resolution": "Résolution",
       "resolutionHint": "Les écrans plus grands sont réduits à cette hauteur. La 4K garde les détails fins, comme les dessins CAO.",
-      "framesHint": "Sans valeur, chaque ordinateur utilise la sienne (une image toutes les 2 s en 1440p). Avec une valeur, tous les ordinateurs l'utilisent et personne ne peut la modifier. Les clics, la saisie et le défilement sont enregistrés avec leurs propres captures, quel que soit l'intervalle.",
+      "textRecognition": "Reconnaissance de texte",
+      "textRecognitionHint": "Lit le texte à l'écran pour qu'il soit consultable. Désactivée, elle utilise le moins de CPU : la recherche trouve alors les apps, les titres de fenêtre et les URL.",
+      "textRecognitionOption": {
+        "accurate": "Précise",
+        "fast": "Rapide",
+        "off": "Désactivée"
+      },
+      "framesHint": "Kortix Capture choisit sa propre fréquence : jusqu'à 2 images par seconde pendant qu'une personne travaille, une toutes les 2 s sinon, moins sur un ordinateur chargé. Sans valeur, chaque ordinateur utilise 1440p et une reconnaissance de texte précise. Avec une valeur, tous les ordinateurs l'utilisent et personne ne peut la modifier. Les clics, la saisie et le défilement sont enregistrés avec leurs propres captures.",
       "computerDecides": "Chaque ordinateur décide",
       "included": {
         "title": "Apps et sites web",
@@ -23625,7 +23739,13 @@
   },
   "triggerAutoPause": {
     "title": "Mis en pause automatiquement",
-    "description": "Il ne lance plus d’exécutions pour la raison ci-dessous. Corrigez la cause, puis reprenez-le."
+    "description": "Il ne lance plus d’exécutions pour la raison ci-dessous. Corrigez la cause, puis reprenez-le.",
+    "billingTitle": "En pause : plus de crédits",
+    "billingDescription": "Aucune exécution ne peut être payée, il n’en lance donc plus. Il reprend tout seul quelques minutes après la recharge du solde.",
+    "modelTitle": "En pause : aucun modèle disponible",
+    "modelDescription": "Les automatisations n’utilisent que les clés de modèle et les comptes partagés avec tout l’espace de travail, et aucun n’est utilisable. Il reprend tout seul quelques minutes après l’ajout d’un modèle dans Modèles.",
+    "listBilling": "Plus de crédits",
+    "listModel": "Aucun modèle"
   },
   "featureGate": {
     "enable": "Activer {name}",
@@ -24772,8 +24892,6 @@
       "models": "Modèles",
       "tabCapabilities": "Capacités",
       "summaryExcept": "{all} except {list}",
-      "pinToSidebar": "Épingler dans la barre latérale",
-      "unpinFromSidebar": "Retirer de la barre latérale",
       "spaceHelp": "L’espace de cet agent : un identifiant comme engineering ou sales. Vide : tout l’espace de travail.",
       "spacePlaceholder": "p. ex. engineering"
     },
@@ -25216,6 +25334,7 @@
     "replacedBy": "Remplacé par {path}.",
     "projectTool": "Module {path}",
     "loadError": "Impossible de charger les outils, skills et extensions de cet agent.",
+    "skillsLoadError": "Impossible de charger les skills.",
     "retry": "Réessayer",
     "emptyProjectSkills": "Aucun skill d’espace de travail. Enregistrez-en un sous skills dans kortix.yaml.",
     "emptyProjectExtensions": "Aucune extension d’espace de travail. Enregistrez-en une sous extensions dans kortix.yaml.",
@@ -26016,6 +26135,7 @@
     "call": "Appeler",
     "calling": "Appel en cours…",
     "start": "Démarrer un appel vocal",
+    "inCall": "Vous êtes en appel",
     "end": "Terminer l’appel",
     "connecting": "Connexion…",
     "listening": "À l’écoute",
@@ -26039,7 +26159,6 @@
   "agentMounts": {
     "lead": "Dossiers de Fichiers montés par les sessions de cet agent. Une modification s’applique aussitôt à chaque nouvelle session.",
     "mount": "Mount folder",
-    "repository": "Dépôt de l’espace de travail",
     "viaAgent": "partagé avec cet agent",
     "viaProject": "partagé avec tout l’espace de travail",
     "from": "{path} · {who}",
@@ -26053,6 +26172,7 @@
     "skipped": "Not mounted, past the {slots} mount slots: {list}",
     "emptyTitle": "No folders mounted",
     "emptyDescription": "Montez un dossier de Fichiers pour fournir ses fichiers aux sessions de cet agent.",
+    "projectEmptyDescription": "Montez un dossier de Fichiers pour fournir ses fichiers à chaque nouvelle session.",
     "pickerTitle": "Mount a folder",
     "pickerDescription": "Pick a folder in Files. Sessions of {agent} see it under /drives.",
     "pickerPath": "Folder path",
@@ -26063,6 +26183,7 @@
     "alreadyMounted": "Mounted",
     "changeFailed": "Impossible de modifier ce montage.",
     "loadError": "Impossible de charger les montages de cet agent.",
+    "projectLoadError": "Impossible de charger les dossiers montés.",
     "retry": "Try again",
     "title": "Drives",
     "projectLead": "Dossiers Files que monte chaque nouvelle session.",
@@ -26384,48 +26505,37 @@
     "issue": "Ticket #{number}"
   },
   "subscriptionUsage": {
-    "fiveHour": "5-hour limit",
-    "weekly": "Weekly limit",
+    "fiveHour": "5 heures",
+    "weekly": "Hebdomadaire",
     "weeklyModel": "Weekly · {model}",
-    "reconnect": "Reconnect",
-    "disabledTitle": "L'utilisation de l'abonnement n'est pas disponible",
-    "disabledDescription": "Les connexions d’abonnement ne sont pas activées pour cet espace de travail.",
-    "text0": "Reconnect needed",
-    "text1": "Inactive",
-    "text2": "Refresh failed",
-    "text3": "Awaiting usage",
-    "text4": "Limit reached",
-    "text5": "Last known usage",
-    "text6": "Usage reported",
-    "text7": "Subscription",
-    "text8": "used",
-    "text9": "Heure de réinitialisation dépassée · actualisez pour voir l'utilisation actuelle",
-    "text10": "Heure de réinitialisation non communiquée",
-    "text11": "Checking provider usage…",
-    "text12": "Aucune utilisation signalée pour l'instant. Actualisez après avoir utilisé cet abonnement.",
-    "text13": "Mise à jour impossible. Affichage des dernières données connues.",
-    "text14": "En attente des données du fournisseur",
-    "text15": "Checking…",
-    "text16": "Refresh",
-    "text17": "Subscription usage",
-    "text18": "Suivez les limites de vos abonnements ChatGPT et Claude connectés.",
-    "text19": "Impossible de charger l'utilisation",
-    "text20": "Essayez de recharger vos abonnements connectés.",
-    "text21": "Retry",
-    "text22": "No connected subscriptions",
-    "text23": "Connectez ChatGPT ou Claude dans Fournisseurs pour voir l'utilisation signalée et les heures de réinitialisation.",
-    "text24": "Connect a subscription",
-    "text25": "L'utilisation est partagée entre les apps qui utilisent le même abonnement. Vérification automatique chaque minute tant que cet onglet est ouvert.",
-    "text26": "Les limites varient selon l'offre. Seules les fenêtres signalées par votre connexion apparaissent ici ; une donnée manquante ne signifie pas une utilisation illimitée. Les limites de fichiers ne sont pas signalées. Les dépenses d'API apparaissent dans Coûts.",
-    "resets": "Resets {time}",
+    "inactive": "Inactive",
+    "limitReached": "Limit reached",
+    "checking": "Checking provider usage…",
+    "title": "Subscription usage",
     "observed": "Observed {time}",
     "meterLabel": "{label}: {percent}% used",
-    "refreshLabel": "Refresh {label} usage",
-    "fiveHourNotReported": "Fenêtre de cinq heures non signalée par cette connexion.",
-    "fableIncluded": "L'utilisation de Fable compte aussi dans votre quota hebdomadaire global.",
-    "chatgptUsage": "ChatGPT subscription usage",
-    "claudeUsage": "Claude subscription usage",
-    "allSubscriptions": "All subscriptions"
+    "extraUsage": "Usage supplémentaire",
+    "apps": "Apps",
+    "codeReview": "Revue de code",
+    "percent": "{percent} %",
+    "percentResets": "{percent} % · réinitialisé {time}",
+    "percentBack": "{percent} % · de retour {time}",
+    "resetPassed": "Réinitialisé · mise à jour",
+    "notStarted": "Non démarré",
+    "reconnectToSee": "Reconnectez-vous pour voir l'usage",
+    "availableNow": "Disponibles maintenant",
+    "availableCount": "{available} sur {total, plural, one {# compte} other {# comptes}}",
+    "nextBack": "Prochain retour",
+    "rowPeak": "{window} · {percent} % utilisé",
+    "rowSomeLimited": "{limited} sur {total} à la limite",
+    "rowAllLimited": "Limite atteinte",
+    "rowAllLimitedBack": "Limite atteinte · de retour {time}",
+    "noUsageYet": "Aucun usage signalé pour le moment.",
+    "refreshFailed": "Actualisation impossible · dernier usage connu affiché.",
+    "loadFailed": "Impossible de charger l'usage.",
+    "rowSomeLimitedBack": "{limited} sur {total} à la limite · prochain retour {time}",
+    "weeklyAll": "Hebdomadaire · tous les modèles",
+    "notReported": "Non signalé"
   },
   "gatewayRouting": {
     "exceptions": "Exceptions",
@@ -26545,6 +26655,7 @@
         "help": "Aide",
         "plan": "Forfait",
         "usage": "Utilisation",
+        "agents": "Agents",
         "connectors": "Connecteurs",
         "skills": "Compétences",
         "triggers": "Déclencheurs",
@@ -26660,8 +26771,7 @@
     "menu": {
       "invite": "Inviter des personnes dans {name}",
       "leave": "Quitter {name}",
-      "invitePeople": "Inviter des personnes",
-      "more": "Plus"
+      "invitePeople": "Inviter des personnes"
     },
     "roles": {
       "owner": {
@@ -26736,5 +26846,24 @@
   "gatewayBudgets": {
     "capWorkspace": "Plafonnez les dépenses du gateway de cet espace de travail.",
     "capMember": "Plafonnez les dépenses du gateway de {who}."
+  },
+  "connectSignIn": {
+    "openSignIn": "Ouvrir la connexion {app}",
+    "checkingTitle": "Finalisation de la connexion",
+    "checkingDescription": "Kortix vérifie votre connexion à {app}. Cette page se met à jour toute seule.",
+    "signInUnfinished": "Connexion non terminée",
+    "finishSignIn": "Terminer la connexion",
+    "signInFinished": "Connexion terminée",
+    "cardHeadline": "Votre agent a besoin que vous vous connectiez",
+    "cardTitle": "Connecter {app}",
+    "cardShared": "Partagé avec l'espace de travail",
+    "cardPrivate": "Vous seul",
+    "signingIn": "Terminez la connexion à {app} dans la fenêtre ouverte.",
+    "connectedAs": "Connecté en tant que {account}",
+    "connected": "Connecté",
+    "connect": "Connecter",
+    "cardFailed": "Impossible de connecter {app}. Réessayez.",
+    "blockedTitle": "Ouvrez {app} pour vous connecter",
+    "blockedDescription": "Votre navigateur a bloqué la fenêtre de connexion. Ouvrez-la avec le bouton ci-dessous. Cette page se met à jour toute seule."
   }
 }

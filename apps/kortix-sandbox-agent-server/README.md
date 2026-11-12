@@ -59,32 +59,12 @@ import rules, and where new code goes; `bun run lint` enforces them.
    It only reads files off disk, so it comes up first and stays up regardless
    of repo/harness state — previews work while the agent is still booting.
    Non-fatal: a bind failure is logged and `static_web_port` reports `null`.
-3. Materialize the project repo in `/workspace/.kortix` through the
-   workspace provider (`src/services/workspace-provider/workspace-provider.ts`). A
-   baked checkout that IS the session's base is adopted first, in every mode.
-   Then `acquire` (`src/services/workspace-provider/acquire.ts`) reads
-   `KORTIX_PROJECT_SNAPSHOT_MODE` to select the transport: `git` (default)
-   is the legacy path — image-baked scaffold + API delta, or `git clone`;
-   `prefer-s3` fetches the PREPARED boot object pinned in
-   `KORTIX_PROJECT_SNAPSHOT_PIN` from object storage (descriptor from the Git
-   proxy, presigned GET into a stage file with the hash and the tar-header
-   guard on the stream, native `tar` extraction, verify, activate as a
-   blob-less partial clone) and falls back to the Git path on any acquisition
-   failure except an authorization denial or a cancellation; `require-s3`
-   fails closed. Nothing runs git on that boot path. Off it, the daemon
-   refreshes the index and imports the tip's blob pack (`git index-pack`),
-   reported as `workspace_provider.hydration` (`pending` → `ok` | `failed`; a
-   failed import leaves lazy blob fetches through the proxy). The outcome —
-   provider, expected vs actual SHA, extractor, classified S3 failure,
-   fallback, hydration, per-stage timings — is on `GET /kortix/health`
-   (`workspace_provider`). The workspace writes nothing into `boot_timeline`:
-   it is not config. The config release the runtime boots from is downloaded
-   in parallel by the config provider (`src/services/config-provider/`), from
-   the S3 project snapshot first and the API archive second, and never from
-   `/workspace`. A prepared-S3 start defers
-   the optional history backfill until the runtime is actually ready and the
-   hydration has settled. Materialization failures are logged but non-fatal in
-   non-required modes.
+3. Download the config release the runtime boots from, through the config
+   provider (`src/services/config-provider/`): the S3 project snapshot first,
+   the API archive second. The daemon never clones the project repository:
+   `/workspace` starts empty, and an agent that needs the files runs
+   `kortix workspaces clone`. `sandbox.on_boot` reads `kortix.yaml` from the
+   running config release and runs in `/workspace`.
 4. Resolve the skill directories. pi reads the managed system skills from the
    image's overlay directory first, then exactly the skill folders kortix.yaml
    registers. It writes nothing into the working tree. Every session takes its
@@ -105,8 +85,8 @@ import rules, and where new code goes; `bun run lint` enforces them.
 
 | Path                   | Purpose                                                               |
 | ---------------------- | --------------------------------------------------------------------- |
-| `GET /kortix/health`   | Daemon liveness + harness state + repo info (always 200 from daemon)  |
-| `POST /kortix/refresh` | Signed-context protected repo fast-forward + pi skill reload.         |
+| `GET /kortix/health`   | Daemon liveness + harness state + git info of `/workspace` (always 200 from daemon) |
+| `POST /kortix/refresh` | Signed-context protected fast-forward of a clone in `/workspace` + pi skill reload. |
 | `/kortix/runtime/*`    | The Runtime API: the Kortix contract clients build on (transcript, turn verbs, agents). |
 | `/*`                   | The harness's own routes, answered by pi. 503 with `code: "runtime_not_ready"` while the runtime is not ready. |
 
@@ -140,14 +120,14 @@ import rules, and where new code goes; `bun run lint` enforces them.
 
 - `daemon` is always `"ok"` if the route responds.
 - `harness` is the selected harness's closed block (E19). `runtimeReady` is
-  computed once in `routes/kortix/health.ts` from the host's repo checks and
-  `harness.ready`. `capabilities` lists the host features, then the session
+  `harness.ready` (`routes/kortix/health.ts`). Readiness has no repository
+  gate. `capabilities` lists the host features, then the session
   features pi serves (E1): `session.subagents`, `session.compact`,
   `session.commands`, `session.steer` and `session.log.v2`.
 - `harness.state` is `"ok"`, `"starting"` or `"down"`. A pi
   that cannot start reports `"down"` and its reason in `harness.error`.
-- `repo`, `branch`, `commit_sha` come from `git` in `KORTIX_PROJECT_TARGET` and
-  are `null` when no repo has been materialized.
+- `repo`, `branch`, `commit_sha` come from `git` in `KORTIX_PROJECT_TARGET`
+  (`/workspace`). They are `null` until an agent clones the repository there.
 
 ### `POST /kortix/refresh`
 
@@ -159,8 +139,8 @@ project's `sandbox.on_boot` command, for a direct service call only
 (`403 BOOT_HOOK_FORBIDDEN` otherwise). Every other query flag is ignored,
 including the OpenCode-era flags removed on 2026-10-30 (`base=1`, `base_sha`,
 `restart=0`, `base_config=1`, `config_dir=1`, `verify_fail=1`).
-Missing/invalid auth returns `401`; a refresh already running, no materialized
-repo or a non-fast-forward conflict returns `409`.
+Missing/invalid auth returns `401`. A refresh already running, no git
+repository in `/workspace` or a non-fast-forward conflict returns `409`.
 
 ## What lives elsewhere
 
@@ -179,16 +159,11 @@ KORTIX_SERVICE_PORT=8000
 KORTIX_HARNESS=pi                         # "pi"; "opencode" or unset (a box OpenCode booted) boots pi too (src/harness/harness.ts)
 KORTIX_STATIC_PORT=3211
 KORTIX_WORKSPACE=/workspace
-KORTIX_PROJECT_TARGET=/workspace/.kortix
+KORTIX_PROJECT_TARGET=/workspace         # the session's folder; the daemon never clones into it
 KORTIX_DEFAULT_BRANCH=main
-KORTIX_BRANCH_FETCH_ATTEMPTS=60
-KORTIX_BRANCH_FETCH_DELAY=0.25
-KORTIX_PROJECT_AUTO_CLONE=0
-KORTIX_PROJECT_SNAPSHOT_MODE=git          # git | prefer-s3 | require-s3 (src/services/workspace-provider)
-KORTIX_PROJECT_SNAPSHOT_PIN=              # <sha>:<archive-sha256>:<bytes> of a PREPARED archive, set by the API
-KORTIX_PROJECT_SNAPSHOT_DESCRIPTOR=       # base64 JSON of the presigned download descriptor for that pin, signed by the API at session create; first attempt only, the proxy route is the fallback
-KORTIX_REPO_URL=
-KORTIX_BRANCH_NAME=
+KORTIX_CONFIG_RELEASE=                    # base64 JSON of the published config release, signed by the API at session create
+KORTIX_REPO_URL=                          # for `kortix workspaces clone` / `git clone` by the agent
+KORTIX_BRANCH_NAME=                       # the session branch
 KORTIX_GITHUB_TOKEN=
 KORTIX_TOKEN=
 ```
@@ -207,7 +182,7 @@ built on macOS will not execute locally; that's expected. To smoke-test the
 daemon on macOS, run from source:
 
 ```
-KORTIX_PROJECT_AUTO_CLONE=0 KORTIX_SERVICE_PORT=9999 bun run src/main.ts
+KORTIX_SERVICE_PORT=9999 bun run src/main.ts
 curl -s http://localhost:9999/kortix/health
 ```
 

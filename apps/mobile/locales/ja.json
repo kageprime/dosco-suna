@@ -1206,6 +1206,7 @@
     "call": "電話",
     "chartTapHint": "タップして値を表示",
     "checklistReady": "{{done}}/{{total}} 完了",
+    "closeMap": "地図を閉じる",
     "directions": "経路",
     "imageCount_one": "{{count}}枚の画像",
     "imageCount_other": "{{count}}枚の画像",
@@ -1216,7 +1217,9 @@
     "pick": "おすすめ",
     "pieFocus": "{{label}}は合計の{{percent}}%",
     "pieOfTotal": "{{total}}のうち{{value}}",
+    "showAllPlaces": "すべての場所を表示",
     "showData": "データを表示",
+    "showOnMap": "地図で表示",
     "unavailable": "このコンテンツを表示できませんでした。",
     "website": "ウェブサイト"
   },
@@ -1292,6 +1295,7 @@
   "workspace": {
     "switcherTitle": "ワークスペース",
     "create": "ワークスペースを作成",
+    "newWorkspace": "新しいワークスペース",
     "createTitle": "ワークスペースを作成",
     "createBody": "ワークスペースは、会社が Kortix で働く場所です。メンバー、エージェント、そして彼らが作るすべてがここにあります。",
     "createOnWebTitle": "ウェブでワークスペースを作成",
@@ -1347,5 +1351,47 @@
       "serverBody": "もう一度お試しいただくか、別のワークスペースを開いてください。",
       "signInAgain": "もう一度サインイン"
     }
+  },
+  "artifacts": {
+    "title": "アーティファクト",
+    "search": "アーティファクトを検索",
+    "scope": {
+      "all": "すべて",
+      "mine": "自分",
+      "shared": "共有されたもの",
+      "pinned": "ピン留め"
+    },
+    "type": {
+      "doc": "ドキュメント",
+      "html": "HTML"
+    },
+    "loadError": "アーティファクトを読み込めませんでした。",
+    "retry": "再試行",
+    "empty": "アーティファクトはまだありません",
+    "emptyFiltered": "一致するアーティファクトはありません",
+    "pin": "ピン留め",
+    "unpin": "ピン留めを解除",
+    "rename": "名前を変更",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "notFoundTitle": "このアーティファクトは利用できません",
+    "notFoundHint": "削除されたか、所有者が共有を停止しました。",
+    "remove": "共有を停止",
+    "removeTitle": "このアーティファクトの共有を停止しますか？",
+    "removeHint": "アーティファクトから外れ、リンクは使えなくなります。ファイルはファイルに残ります。",
+    "removed": "共有を停止しました",
+    "shareLink": "リンクを共有",
+    "openInBrowser": "ブラウザで開く",
+    "reload": "再読み込み",
+    "scopeEmpty": "まだ何もありません",
+    "pinDone": "ピン留めしました",
+    "unpinDone": "ピン留めを外しました",
+    "actionFailed": "アーティファクトを更新できませんでした。もう一度お試しください。",
+    "renamed": "アーティファクトの名前を変更しました",
+    "namePlaceholder": "アーティファクト名",
+    "saving": "保存中…",
+    "openError": "このアーティファクトを開けません",
+    "more": "アーティファクトの操作",
+    "unavailable": "このワークスペースではアーティファクトを利用できません"
   }
 }

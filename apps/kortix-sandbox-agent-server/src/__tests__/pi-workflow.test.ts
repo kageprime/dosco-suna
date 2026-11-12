@@ -3,7 +3,7 @@
  * production pi runtime: pi boots against a local fake model gateway, and a
  * `Bun.serve` fake of the Kortix API on a real port answers the routes the box
  * calls: the child-session routes (`POST …/sessions`, `GET …/sessions/:id`,
- * `POST …/prompts`, `GET …/transcript`, `POST …/stop`) and the project files
+ * `POST …/prompts`, `GET …/log`, `POST …/stop`) and the project files
  * (`GET …/files/content`). Each `agent()` of a script is a
  * child session of that fake API, exactly as on a real box. A person's answer
  * to the run approval goes through the runtime's question broker, as the
@@ -111,8 +111,9 @@ function startFakeApi(parent = PARENT_SESSION) {
         return Response.json({ turns: [], ...(end ? { last_ended: { turn_token: 't1', end_reason: end.reason, ended_at: null, ...(end.error ? { error: { name: 'WorkflowError', message: end.error } } : {}) } } : {}) })
       }
       if (req.method === 'GET' && path === `${base}/${id}/log`) {
-        // The session-log page: each saved call is a pi tool_call block whose result carries its details.
-        const blocks = (savedParts.get(id) ?? []).map((part, i) => {
+        // The session-log page: the latest prompt, then the answer. Each saved call is a pi tool_call block of
+        // the answer whose result carries its details; a stalled child has written no answer yet.
+        const tools = (savedParts.get(id) ?? []).map((part, i) => {
           const state = part.state as ToolState
           const failed = state.status === 'error'
           return {
@@ -120,16 +121,14 @@ function startFakeApi(parent = PARENT_SESSION) {
             result: { content: [{ type: 'text', text: (failed ? state.error : state.output) ?? '' }], is_error: failed, ...(state.metadata ? { details: state.metadata } : {}) },
           }
         })
-        const message = {
-          message_id: 'msg-1', thread_id: id, seq: 1, role: 'assistant', kind: 'turn', status: 'complete', in_context: true, model: null, usage: null,
-          finish: 'stop', error: null, created_at: since(1), completed_at: since(1), producer: { harness: 'pi', version: '1.4.0' }, blocks,
-        }
-        return Response.json({ session: { title: null, created_at: since(0) }, generation: 1, threads: [{ thread_id: id, parent_thread_id: null }], thread_id: id, messages: [message], has_more: false })
-      }
-      if (path.endsWith('/transcript')) {
-        const user = { role: 'user', text: child.prompts.at(-1) }
-        if (now.stall) return Response.json({ messages: [user] })
-        return Response.json({ messages: [user, { role: 'assistant', text: now.answer ?? `answer: ${child.prompts[0]}` }] })
+        const message = (seq: number, role: 'user' | 'assistant', blocks: unknown[]) => ({
+          message_id: `msg-${seq}`, thread_id: id, seq, role, kind: 'turn', status: 'complete', in_context: true, model: null, usage: null,
+          finish: role === 'assistant' ? 'stop' : null, error: null, created_at: since(seq), completed_at: since(seq), producer: { harness: 'pi', version: '1.4.0' }, blocks,
+        })
+        const answer = now.stall ? [] : [{ id: 'blk_answer', type: 'text', text: now.answer ?? `answer: ${child.prompts[0]}` }]
+        const messages = [message(1, 'user', [{ id: 'blk_prompt', type: 'text', text: child.prompts.at(-1) ?? '' }])]
+        if (tools.length + answer.length > 0) messages.push(message(2, 'assistant', [...tools, ...answer]))
+        return Response.json({ session: { title: null, created_at: since(0) }, generation: 1, threads: [{ thread_id: id, parent_thread_id: null }], thread_id: id, messages, has_more: false })
       }
       if (req.method === 'GET' && path === `${base}/${id}`) {
         reads.push(id)
@@ -777,6 +776,8 @@ describe('pi workflow tool, always in the background from a top-level session', 
       'kortix.workflow.planned': 2,
       'kortix.workflow.handoff_sha256': sha256(handoffJson(runner.initial_prompt)),
       'kortix.subagent.depth': 1,
+      // The runner inherits the model the parent's turn runs.
+      'kortix.parent_model': 'kortix/test-model',
     })
     expect(api.reads).toEqual([])
     expect(part.status).toBe('completed')

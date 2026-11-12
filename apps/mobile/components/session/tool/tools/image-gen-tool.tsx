@@ -34,7 +34,7 @@
 
 import { useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import {
   formatImageGenElapsed,
@@ -48,7 +48,6 @@ import {
 import { formatMegabytes } from '@kortix/sdk/react';
 import { TextShimmer } from '@/components/kortix/text-shimmer';
 import { SessionDotMatrix } from '@/components/session/dot-matrix/session-dot-matrix';
-import { useReduceMotion } from '@/components/session/dot-matrix/use-reduce-motion';
 import { useSandboxImage, useSandboxUrl } from '@/components/session/turn/use-sandbox-image';
 import { rememberSharedImage, useSharedImage } from '@/lib/files/shared-image';
 import { Button } from '@/components/ui/button';
@@ -120,7 +119,7 @@ function FadeInImage({ uri, headers, alt, openLabel, onLoaded, onError, onPress,
   onError?: () => void;
   onPress?: () => void;
 }) {
-  const still = useReduceMotion();
+  const still = useReducedMotion();
   const opacity = useSharedValue(0);
   const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
   const image = (

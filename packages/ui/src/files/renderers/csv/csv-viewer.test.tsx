@@ -10,6 +10,9 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import { CsvViewer } from './csv-viewer';
 
+/** React always passes an event; Base UI's tooltip trigger reads `nativeEvent`. */
+const clickEvent = () => ({ nativeEvent: new Event('click'), preventDefault() {}, stopPropagation() {} });
+
 const originalActEnvironment = Object.getOwnPropertyDescriptor(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', { value: true, configurable: true });
 
@@ -30,7 +33,7 @@ for (const key of installedKeys) {
           : Reflect.get(win, key));
 }
 for (const key of Object.getOwnPropertyNames(win)) {
-  // Event classes too: Radix dispatches a `CustomEvent` on a happy-dom node,
+  // Event classes too: the overlay layer dispatches a `CustomEvent` on a happy-dom node,
   // which accepts only happy-dom's own events, not Bun's.
   if (/^[A-Z]/.test(key) && (!(key in globals) || key.endsWith('Event'))) {
     originals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
@@ -84,7 +87,7 @@ async function downloadFromViewer(props: { data: string; fileName?: string }) {
   if (!renderer) throw new Error('CsvViewer did not mount');
   const button = renderer.root.findByProps({ 'data-viewer-download': '' });
   await act(async () => {
-    button.props.onClick();
+    button.props.onClick(clickEvent());
   });
   expect(downloads).toHaveLength(1);
   return downloads[downloads.length - 1];

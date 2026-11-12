@@ -1,9 +1,8 @@
 /**
  * Real-Postgres contract for Slack thread binding: a session that posts in a
- * DM (no channel binding) binds its thread through the project's install, a
- * reply in that thread resolves to the session's project even when the
- * workspace has several projects installed, and a bound thread moves only by
- * `force` between one user's own sessions.
+ * DM (no channel row) binds its thread through the project's install, and a
+ * bound thread moves only by `force` between one user's own sessions. Where an
+ * event runs is the Slack workspace's link (link.integration.test.ts).
  */
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { accounts, chatThreads, projectSessions, projects } from '@kortix/db';
@@ -12,7 +11,6 @@ import { findChatThread } from '../core/threads';
 import { deleteSlackInstall, saveSlackInstall } from '../install-store';
 import { db } from '../../shared/db';
 import { bindSlackThreadToSession } from './binding';
-import { resolveOauthProject } from './dispatch';
 
 const ACCOUNT = crypto.randomUUID();
 const PROJECT = crypto.randomUUID();
@@ -44,7 +42,7 @@ beforeAll(async () => {
       createdBy: USER,
     },
   ]);
-  // Two projects installed in one workspace: an unbound DM is "ambiguous".
+  // Two projects, each with its own Slack app in one Slack workspace.
   for (const projectId of [PROJECT, OTHER_PROJECT]) {
     await saveSlackInstall({
       projectId,
@@ -65,9 +63,7 @@ afterAll(async () => {
 });
 
 describe('Slack thread binding — migrated PostgreSQL', () => {
-  test('a DM post binds through the project install, and the reply resolves to that project, not a picker', async () => {
-    expect(await resolveOauthProject(TEAM, DM)).toMatchObject({ kind: 'ambiguous' });
-
+  test('a DM post binds through the project install', async () => {
     const binding = await bindSlackThreadToSession({
       projectId: PROJECT,
       sessionId: WEB_SESSION,
@@ -79,10 +75,6 @@ describe('Slack thread binding — migrated PostgreSQL', () => {
       sessionId: WEB_SESSION,
       projectId: PROJECT,
     });
-
-    expect(await resolveOauthProject(TEAM, DM, '1700000000.000100')).toEqual({ kind: 'project', projectId: PROJECT });
-    // A top-level DM is a new thread and still asks which project.
-    expect(await resolveOauthProject(TEAM, DM, undefined)).toMatchObject({ kind: 'ambiguous' });
   });
 
   test('a bound thread is reported, never taken, without force', async () => {

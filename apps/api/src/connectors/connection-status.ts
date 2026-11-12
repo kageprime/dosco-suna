@@ -8,10 +8,10 @@
  * Composio finalize. Each transition is a compare-and-set
  * (`shared/status-transition.ts`):
  *
- *   - `connect`: a reconnect. Only its `person` authority (a click, a pasted
- *     credential, a paired machine) leaves `revoked` unconditionally; an
- *     `agent` authority (an agent session starting its own authorization)
- *     never does.
+ *   - `connect`: a reconnect. Only a `reconnect` (Activate, a pasted
+ *     credential, a paired machine) leaves `revoked` unconditionally; a
+ *     `start` (an authorization just begun, by a person or an agent session)
+ *     never does: the completion below decides.
  *   - `complete`: an in-flight completion. It leaves `revoked` only when the
  *     revoke (`metadata.revokedAt`) is older than the flow (`startedAt`): a
  *     sign-in a person started on a revoked account still reconnects it.
@@ -31,7 +31,7 @@ type ConnectionRow = typeof connectorConnections.$inferSelect;
 type ConnectionSet = PgUpdateSetSource<typeof connectorConnections>;
 type ConnectionStatus = ConnectionRow['status'];
 
-export const CONNECTION_TRANSITIONS = {
+const CONNECTION_TRANSITIONS = {
   connect: { from: ['active', 'error', 'revoked'], to: 'active' },
   complete: { from: ['active', 'error', 'revoked'], to: 'active' },
   fail: { from: ['active', 'error'], to: 'error' },
@@ -80,23 +80,25 @@ export async function completeConnection(
 }
 
 /**
- * WHO starts the (re)connect: `person` is a request only a person can make (a
- * click in Customize, a pasted credential, a paired machine); `agent` is
- * anything an agent session can reach on its own behalf.
+ * WHAT moves the account: `reconnect` is a deliberate turn-on (Activate, a
+ * pasted credential, a paired machine); `start` is an authorization just
+ * begun, whose sign-in has not happened yet. The kind of operation decides,
+ * never who calls: a person and an agent session acting for one are the same.
  */
-export type ConnectAuthority = 'person' | 'agent';
+export type ConnectAuthority = 'reconnect' | 'start';
 
 /**
- * An account connects from any status. Only a `person` may leave `revoked`: a
- * revoke is a person's decision, and an agent re-authorizing its own account
- * must not undo it (`agentMayTouchConnection`, projects/lib/connection-mutation.ts).
- * The guard makes that part of the UPDATE, so a concurrent revoke still wins.
+ * An account connects from any status. Only a `reconnect` leaves `revoked`
+ * here: a `start` on a revoked account waits for its completion
+ * (`completeConnection`), so a sign-in tab opened before the revoke cannot
+ * undo it. The guard makes that part of the UPDATE, so a concurrent revoke
+ * still wins.
  */
 export async function connectConnection(
   connectionId: string,
   set: ConnectionSet = {},
   exec: StatusExecutor = db,
-  authority: ConnectAuthority = 'agent',
+  authority: ConnectAuthority = 'start',
 ): Promise<ConnectionRow | null> {
   const moved = await transitionStatus(
     connectorConnections,
@@ -105,16 +107,16 @@ export async function connectConnection(
     {
       where: eq(connectorConnections.connectionId, connectionId),
       set: { ...set, metadata: set.metadata ?? sql`${connectorConnections.metadata} - 'revokedAt'`, updatedAt: new Date() },
-      ...(authority === 'person' ? {} : { guard: sql`${connectorConnections.status} <> 'revoked'` }),
+      ...(authority === 'reconnect' ? {} : { guard: sql`${connectorConnections.status} <> 'revoked'` }),
     },
     exec,
   );
-  if (!moved.applied && authority === 'agent') await expirePendingOAuthSessions(connectionId, exec);
+  if (!moved.applied && authority === 'start') await expirePendingOAuthSessions(connectionId, exec);
   return moved.applied ? moved.row : null;
 }
 
 /**
- * An agent's start that found the account revoked expires the sessions waiting
+ * A start that found the account revoked expires the sessions waiting
  * on it: a revoke expires the sessions of a row it moved, but a start on a row
  * that is ALREADY revoked never moved it, so its poll would otherwise find a
  * pending session and store a token on an account a person turned off.

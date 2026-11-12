@@ -12,7 +12,13 @@ let entries: DriveEntry[] = [];
 let status = { isLoading: false, isError: false, isSuccess: true, isFetching: false };
 const { getFileIcon } =
   await import('../../../../../packages/ui/src/files/project/components/file-icon');
+// Keep whatever the registry holds (the real barrel, or an earlier file's
+// mock) and re-add this graph's stubs: bun freezes a mocked module's static
+// export shape at the first `mock.module` in the process, so the first
+// registrant must spread the real barrel for later graphs to link.
+const files = await import('@kortix/ui/files');
 mock.module('@kortix/ui/files', () => ({
+  ...files,
   getFileIcon,
   useDriveFolder: () => ({ data: { entries }, ...status, refetch: () => {} }),
 }));

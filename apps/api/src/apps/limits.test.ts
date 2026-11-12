@@ -1,11 +1,20 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, mock, test } from 'bun:test';
 import {
   APP_MACHINE_LIMITS,
   AppLimitError,
   assertAppMachineWithinLimits,
+  maxAppsForAccount,
+  maxConcurrentAppRuntimes,
+  assertAppQuotaAvailable,
+  assertAppConcurrencyAvailable,
 } from './limits';
 import { appMonthlyEstimateUsd } from './cost';
 import { appRuntimeImageKey } from './deployment-worker';
+import { config } from '../config';
+
+// The cap tests answer the tier from here; the real read is a database join.
+const tier = { current: 'free' as string | null };
+mock.module('../shared/account-limits', () => ({ resolveAccountTier: async () => tier.current }));
 
 describe('App machine limits', () => {
   test('an App may not ask for a bigger machine than a session sandbox may', () => {
@@ -56,6 +65,57 @@ describe('always-on cost', () => {
     expect(appMonthlyEstimateUsd({ cpuCores: 2, memoryGb: 4, diskGb: 20 })).toBe(79.89);
   });
 
+});
+
+describe('the App caps', () => {
+  const MAX = Number.MAX_SAFE_INTEGER;
+  const overrides = ['KORTIX_APPS_MAX_PER_ACCOUNT', 'KORTIX_APPS_MAX_CONCURRENT_RUNTIMES'];
+
+  afterEach(() => {
+    config.KORTIX_BILLING_INTERNAL_ENABLED = false;
+    tier.current = 'free';
+    for (const name of overrides) delete process.env[name];
+  });
+
+  test('with billing off both caps lift entirely, overrides included, and no account row is read', async () => {
+    process.env.KORTIX_APPS_MAX_PER_ACCOUNT = '7';
+    process.env.KORTIX_APPS_MAX_CONCURRENT_RUNTIMES = '9';
+    expect(await maxAppsForAccount('account-1')).toBe(MAX);
+    expect(await maxConcurrentAppRuntimes('account-1')).toBe(MAX);
+    // No database in the unit lane: either call touching the count would throw.
+    await assertAppQuotaAvailable('account-1');
+    await assertAppConcurrencyAvailable('account-1');
+  });
+
+  test('a free account answers its tier appLimit for both caps', async () => {
+    config.KORTIX_BILLING_INTERNAL_ENABLED = true;
+    expect(await maxAppsForAccount('account-1')).toBe(50);
+    expect(await maxConcurrentAppRuntimes('account-1')).toBe(50);
+  });
+
+  test('Enterprise lifts the App count cap but not the runtime cap', async () => {
+    config.KORTIX_BILLING_INTERNAL_ENABLED = true;
+    tier.current = 'enterprise';
+    expect(await maxAppsForAccount('account-1')).toBe(MAX);
+    expect(await maxConcurrentAppRuntimes('account-1')).toBe(5000);
+  });
+
+  test('an operator override wins over the tier and over Enterprise', async () => {
+    config.KORTIX_BILLING_INTERNAL_ENABLED = true;
+    tier.current = 'enterprise';
+    process.env.KORTIX_APPS_MAX_PER_ACCOUNT = '7';
+    process.env.KORTIX_APPS_MAX_CONCURRENT_RUNTIMES = '9';
+    expect(await maxAppsForAccount('account-1')).toBe(7);
+    expect(await maxConcurrentAppRuntimes('account-1')).toBe(9);
+  });
+
+  test('an override that is not a positive integer is ignored', async () => {
+    config.KORTIX_BILLING_INTERNAL_ENABLED = true;
+    process.env.KORTIX_APPS_MAX_PER_ACCOUNT = '0';
+    process.env.KORTIX_APPS_MAX_CONCURRENT_RUNTIMES = '-3';
+    expect(await maxAppsForAccount('account-1')).toBe(50);
+    expect(await maxConcurrentAppRuntimes('account-1')).toBe(50);
+  });
 });
 
 describe('runtime refresh key', () => {

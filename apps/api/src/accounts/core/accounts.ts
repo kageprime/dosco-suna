@@ -50,8 +50,8 @@ export function registerAccountRoutes(): void {
       },
     }),
     async (c) => {
-      const userId = c.get('userId') as string;
-      const userEmail = c.get('userEmail') as string;
+      const userId = c.get('userId');
+      const userEmail = c.get('userEmail');
 
       // ACT-AS: the operator's OWN accounts are not part of this session. The
       // list is what the whole app scopes itself from — the sidebar reads it,
@@ -204,7 +204,7 @@ export function registerAccountRoutes(): void {
       const account = await createOwnedAccount({
         userId,
         name,
-        email: c.get('userEmail') as string | undefined,
+        email: c.get('userEmail'),
       });
 
       return c.json(
@@ -239,7 +239,7 @@ export function registerAccountRoutes(): void {
       },
     }),
     async (c) => {
-      const userId = c.get('userId') as string;
+      const userId = c.get('userId');
       const accountId = accountIdParam(c);
 
       const membership = await getMembership(userId, accountId);
@@ -275,7 +275,7 @@ export function registerAccountRoutes(): void {
 
       const displayNames = await resolveAccountDisplayNames(
         [{ accountId: row.accountId, name: row.name }],
-        { userId, email: c.get('userEmail') as string },
+        { userId, email: c.get('userEmail') },
       );
 
       const workspaceIds = await workspaceIdsForAccounts([row.accountId]);
@@ -316,7 +316,7 @@ export function registerAccountRoutes(): void {
       },
     }),
     async (c) => {
-      const userId = c.get('userId') as string;
+      const userId = c.get('userId');
       const accountId = accountIdParam(c);
 
       const membership = await getMembership(userId, accountId);

@@ -19,8 +19,9 @@ const CASES: Record<string, [string, string, Record<string, unknown>]> = {
     'agents.a.connectors_personal',
     { connectors: [{ slug: 'gh', provider: 'mcp', url: 'https://mcp.example.test' }], agents: { a: { prompt: 'x', tools: 'all', connectors: ['gh'], connectors_required: ['gh'] } } },
   ],
-  'agent-repository-access': ['agents:\n  a:\n    prompt: x\n    tools: all\n    repository_access: true\n', 'agents.a.repository_access', { agents: { a: { prompt: 'x', tools: 'all', workspace: { project_repository: true } } } }],
-  'agent-workspace-mode': ['agents:\n  a:\n    prompt: x\n    tools: all\n    workspace: branch\n', 'agents.a.workspace', { agents: { a: { prompt: 'x', tools: 'all', workspace: { project_repository: true } } } }],
+  'agent-repository-access': ['agents:\n  a:\n    prompt: x\n    tools: all\n    repository_access: true\n', 'agents.a.repository_access', { agents: { a: { prompt: 'x', tools: 'all', kortix_permissions: ['workspace.gitops.read'] } } }],
+  'agent-workspace-mode': ['agents:\n  a:\n    prompt: x\n    tools: all\n    workspace: branch\n', 'agents.a.workspace', { agents: { a: { prompt: 'x', tools: 'all', kortix_permissions: ['workspace.gitops.read'] } } }],
+  'agent-workspace': ['agents:\n  a:\n    prompt: x\n    tools: all\n    workspace: { project_repository: true }\n', 'agents.a.workspace', { agents: { a: { prompt: 'x', tools: 'all', kortix_permissions: ['workspace.gitops.read'] } } }],
   'sandbox-templates': ['sandboxes:\n  - slug: py\n    image: python:3.12-slim\n', 'sandboxes', { sandbox: { templates: [{ slug: 'py', image: 'python:3.12-slim' }] } }],
   'sandbox-singular': ['sandbox:\n  dockerfile: Dockerfile\n  context: .\n', 'sandbox', { sandbox: { templates: [{ slug: 'project', dockerfile: 'Dockerfile', context: '.' }], default: 'project' } }],
   'acp-runtimes': ['runtimes:\n  opencode:\n    harness: opencode\nagents:\n  a:\n    prompt: x\n    tools: all\n    runtime: opencode\n', 'runtimes', { agents: { a: { prompt: 'x', tools: 'all' } } }],
@@ -69,7 +70,7 @@ test('--fix changes only the lines a deprecation changes: no folding, padding, s
     '  a:',
     `    prompt: "${'x '.repeat(70).trim()}"`,
     '    tools: [read, bash]',
-    '    workspace: { project_repository: true }',
+    '    sandbox: default',
     '    skills:',
     '    - one',
     '    - two',
@@ -130,5 +131,36 @@ describe('every-grant-star', () => {
 
   test('an ordinary write keeps `all`; only --fix rewrites it', () => {
     expect(fixManifestText(old)).toEqual({ text: old, fixed: [] });
+  });
+});
+
+describe('agent-workspace keeps what project_repository: true meant: the agent may clone', () => {
+  const kortixPermissions = (block: string) =>
+    (parseManifestText(`agents:\n  a:\n    prompt: x\n${block}`).agents as Record<string, Record<string, unknown>>).a.kortix_permissions;
+  test('true adds workspace.gitops.read to every grant shape that lacks it', () => {
+    expect(kortixPermissions('    workspace: { project_repository: true }\n')).toEqual(['workspace.gitops.read']);
+    expect(kortixPermissions('    workspace: { project_repository: true }\n    kortix_permissions: none\n')).toEqual(['workspace.gitops.read']);
+    expect(kortixPermissions('    workspace: { project_repository: true }\n    kortix_permissions: [workspace.read]\n')).toEqual(['workspace.read', 'workspace.gitops.read']);
+    expect(kortixPermissions('    workspace: { project_repository: true }\n    kortix_permissions: [project.gitops.read]\n')).toEqual(['project.gitops.read']);
+    expect(kortixPermissions('    workspace: { project_repository: true }\n    kortix_permissions: "*"\n')).toBe('*');
+  });
+  test('false, read and an omitted value grant nothing', () => {
+    expect(kortixPermissions('    workspace: { project_repository: false }\n')).toBeUndefined();
+    expect(kortixPermissions('    workspace: read\n')).toBeUndefined();
+    expect(kortixPermissions('    workspace: runtime\n    kortix_permissions: [workspace.read]\n')).toEqual(['workspace.read']);
+  });
+});
+
+describe('agent-workspace leaves the current workspace map alone', () => {
+  const agent = (text: string) => (parseManifestText(text).agents as Record<string, Record<string, unknown>>).a;
+  test('a map with project_repository loses only that key, and true still grants the clone', () => {
+    const a = agent('agents:\n  a:\n    prompt: x\n    workspace:\n      project_repository: true\n      setup: [pnpm install]\n');
+    expect(a.workspace).toEqual({ setup: ['pnpm install'] });
+    expect(a.kortix_permissions).toEqual(['workspace.gitops.read']);
+  });
+  test('a current map is not a deprecation', () => {
+    const text = 'agents:\n  a:\n    prompt: x\n    workspace:\n      repos: [{ path: /workspace }]\n';
+    expect(agent(text).workspace).toEqual({ repos: [{ path: '/workspace' }] });
+    expect(validateManifest(text).issues.filter((issue) => issue.fix === 'agent-workspace')).toEqual([]);
   });
 });

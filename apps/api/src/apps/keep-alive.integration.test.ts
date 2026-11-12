@@ -64,6 +64,7 @@ mock.module('../billing/services/compute-metering', () => ({
 }));
 
 const { db } = await import('../shared/db');
+const { config } = await import('../config');
 const { runAppIdleReaper, runAppKeepAlive, KEEP_ALIVE_REFRESHES_PER_PASS, APPD_REVIVES_PER_HOUR, resetCrashEpisodesForTest, crashVerdict } = await import('./idle-reaper');
 const { APP_RUNTIME_VERSION, REFRESH_RETRY_AFTER_MS } = await import('./deployment-worker');
 
@@ -461,6 +462,25 @@ withDb('always-on Apps: supervisor refreshes', () => {
       .where(and(eq(appDeployments.actorType, 'system'), eq(appDeployments.status, 'queued')));
     expect(queued.length).toBe(KEEP_ALIVE_REFRESHES_PER_PASS);
     expect(new Set(queued.map((row) => row.runtimeVersion))).toEqual(new Set([APP_RUNTIME_VERSION]));
+  });
+
+  test('a refresh of a legacy Daytona App builds on Platinum when Platinum is enabled, and stays on Daytona when it is not', async () => {
+    const saved = { ALLOWED_SANDBOX_PROVIDERS: config.ALLOWED_SANDBOX_PROVIDERS, PLATINUM_API_KEY: config.PLATINUM_API_KEY };
+    try {
+      Object.assign(config, { ALLOWED_SANDBOX_PROVIDERS: ['daytona', 'platinum'], PLATINUM_API_KEY: 'test-platinum-key' });
+      await seed(ALWAYS, { alwaysOn: true, status: 'running', provider: 'daytona', runtimeVersion: 'older:appd-0000000000000000' });
+      expect((await runAppKeepAlive(new Date(), true))?.refreshed).toBe(1);
+      expect((await systemDeployments(ALWAYS.app)).map((row) => [row.status, row.hostingProvider])).toEqual([['queued', 'platinum']]);
+
+      await cleanup();
+      await seedTenant(ACCOUNT_ID, PROJECT_ID, ARTIFACT_ID);
+      Object.assign(config, { ALLOWED_SANDBOX_PROVIDERS: ['daytona'], PLATINUM_API_KEY: undefined });
+      await seed(ALWAYS, { alwaysOn: true, status: 'running', provider: 'daytona', runtimeVersion: 'older:appd-0000000000000000' });
+      expect((await runAppKeepAlive(new Date(), true))?.refreshed).toBe(1);
+      expect((await systemDeployments(ALWAYS.app)).map((row) => [row.status, row.hostingProvider])).toEqual([['queued', 'daytona']]);
+    } finally {
+      Object.assign(config, saved);
+    }
   });
 
   test('a refresh that failed deterministically is never queued again for the same artifact and supervisor', async () => {

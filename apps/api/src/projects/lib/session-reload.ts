@@ -513,38 +513,53 @@ export async function readSandboxConfigState(
   deps: SessionReloadDeps = defaultReloadDeps(),
 ): Promise<SandboxConfigState> {
   try {
-    const endpoint = await deps.endpoint(input.sessionId);
-    if (!endpoint) return UNREACHABLE_STATE;
-    const res = await deps.fetch(`${endpoint.baseUrl}/kortix/health${input.includeTurnState ? '?turn=1' : ''}`, {
-      headers: endpoint.headers,
-      signal: AbortSignal.timeout(input.timeoutMs ?? 10_000),
-    });
-    if (!res.ok) return UNREACHABLE_STATE;
-    const body = (await res.json()) as {
-      agent_config_etag?: unknown;
-      commit_sha?: unknown;
-      config_dir_sha?: unknown;
-      turn_in_flight?: unknown;
-      capabilities?: unknown;
-      config?: unknown;
-      runtime?: unknown;
-      runtime_truth?: unknown;
-    };
-    const configReleases = hasConfigReleaseCapability(body.capabilities);
-    return {
-      etag: typeof body.agent_config_etag === 'string' ? body.agent_config_etag : null,
-      commitSha: typeof body.commit_sha === 'string' ? body.commit_sha : null,
-      configDirSha: typeof body.config_dir_sha === 'string' ? body.config_dir_sha : null,
-      reachable: true,
-      // Tri-state on purpose: `true` busy, `false` idle, `null` could not tell.
-      // Absent (the caller did not ask) is also null.
-      turnInFlight:
-        body.turn_in_flight === true ? true : body.turn_in_flight === false ? false : null,
-      configReleases,
-      release: configReleases ? parseDaemonConfigReport(body.config) : null,
-      runtime: parseDaemonRuntimeReport(body.runtime),
-      runtimeTruth: parseActualRuntime(body.runtime_truth),
-    };
+    // The budget caps the WHOLE probe, not only the health fetch: the endpoint
+    // step before the fetch resolves the sandbox ingress through a provider
+    // API call, and a degraded provider holds it far past the fetch's own
+    // abort (KRTX-629 follow-up: 9.7-11.8 s `sandbox_state` stages with the
+    // fetch already capped at 3 s). Like the mirror fetch, the losing branch
+    // settles in the background; the catch degrades to the unreachable state.
+    return await withTimeout(
+      (async (): Promise<SandboxConfigState> => {
+        const endpoint = await deps.endpoint(input.sessionId);
+        if (!endpoint) return UNREACHABLE_STATE;
+        const res = await deps.fetch(
+          `${endpoint.baseUrl}/kortix/health${input.includeTurnState ? '?turn=1' : ''}`,
+          {
+            headers: endpoint.headers,
+            signal: AbortSignal.timeout(input.timeoutMs ?? 10_000),
+          },
+        );
+        if (!res.ok) return UNREACHABLE_STATE;
+        const body = (await res.json()) as {
+          agent_config_etag?: unknown;
+          commit_sha?: unknown;
+          config_dir_sha?: unknown;
+          turn_in_flight?: unknown;
+          capabilities?: unknown;
+          config?: unknown;
+          runtime?: unknown;
+          runtime_truth?: unknown;
+        };
+        const configReleases = hasConfigReleaseCapability(body.capabilities);
+        return {
+          etag: typeof body.agent_config_etag === 'string' ? body.agent_config_etag : null,
+          commitSha: typeof body.commit_sha === 'string' ? body.commit_sha : null,
+          configDirSha: typeof body.config_dir_sha === 'string' ? body.config_dir_sha : null,
+          reachable: true,
+          // Tri-state on purpose: `true` busy, `false` idle, `null` could not tell.
+          // Absent (the caller did not ask) is also null.
+          turnInFlight:
+            body.turn_in_flight === true ? true : body.turn_in_flight === false ? false : null,
+          configReleases,
+          release: configReleases ? parseDaemonConfigReport(body.config) : null,
+          runtime: parseDaemonRuntimeReport(body.runtime),
+          runtimeTruth: parseActualRuntime(body.runtime_truth),
+        };
+      })(),
+      input.timeoutMs ?? 10_000,
+      'sandbox config state',
+    );
   } catch {
     return UNREACHABLE_STATE;
   }

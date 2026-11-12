@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
 import { wireToModelKey } from '@kortix/sdk/react';
-import { uiSourcePath } from '@/test-utils/read-source';
 
 /**
  * The two default SCOPES this tab owns.

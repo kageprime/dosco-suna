@@ -29,6 +29,10 @@ const appsSource = () =>
 // probes are substituted; inventory and flag reads use real SDK hooks/cache data.
 const win = new Window();
 Object.assign(globalThis, { window: win, document: win.document, navigator: win.navigator });
+// Base UI's floating layers read DOM classes from globals.
+for (const name of ['Element', 'HTMLElement', 'Node', 'ShadowRoot', 'DocumentFragment', 'customElements']) {
+  Object.assign(globalThis, { [name]: Reflect.get(win, name) });
+}
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', { value: true, configurable: true });
 const projectId = 'project-apps-ga';
 mock.module('next/navigation', () => ({

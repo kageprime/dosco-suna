@@ -161,7 +161,7 @@ export async function secretsRequest(rest: string[], opts: CtxOpts, json = false
         ctx.auth.api_base,
         ctx.auth.token,
         ctx.projectId,
-        scope ?? 'connector',
+        scope ?? 'runtime',
         [...new Set(names)].sort(),
       ]),
     )

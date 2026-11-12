@@ -1,3 +1,5 @@
+import { createNotifier } from './notifier';
+
 /**
  * Dependency-inverted hook so the platform provisioning layer can tell a channel
  * (Slack, Teams, Telegram) that a session it spun up died during async provisioning —
@@ -27,17 +29,16 @@
 // caller); allow any so a Promise<boolean>-returning relay registers cleanly.
 type SessionFailureNotifier = (sessionId: string, message: string, failure?: { transient: boolean }) => unknown;
 
-const notifiers = new Set<SessionFailureNotifier>();
+const notifier = createNotifier<Parameters<SessionFailureNotifier>>((error, [sessionId], event) =>
+  console.warn(`[session-failure-notifier] relay ${event}`, { sessionId, err: (error as Error)?.message }),
+);
 
 /**
  * A channel registers its relay here at startup. Registering the same function
  * twice keeps one. Returns the function that removes it.
  */
 export function registerSessionFailureNotifier(fn: SessionFailureNotifier): () => void {
-  notifiers.add(fn);
-  return () => {
-    notifiers.delete(fn);
-  };
+  return notifier.register(fn);
 }
 
 /**
@@ -54,13 +55,5 @@ export function notifySessionProvisioningFailed(
   failure?: { transient: boolean },
 ): void {
   if (!sessionId) return;
-  for (const fn of notifiers) {
-    try {
-      void Promise.resolve(fn(sessionId, message, failure)).catch((err) =>
-        console.warn('[session-failure-notifier] relay failed', { sessionId, err: (err as Error)?.message }),
-      );
-    } catch (err) {
-      console.warn('[session-failure-notifier] relay threw', { sessionId, err: (err as Error)?.message });
-    }
-  }
+  notifier.notify(sessionId, message, failure);
 }

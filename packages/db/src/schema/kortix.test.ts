@@ -37,6 +37,11 @@ import {
   appArtifacts,
   appDeployments,
   appRuntimes,
+  appVolumes,
+  captureDeviceGrants,
+  cliDeviceGrants,
+  oauthAccessTokens,
+  oauthAuthorizationCodes,
   appDeploymentEvents,
   accountTokens,
   creditAccounts,
@@ -798,5 +803,39 @@ describe('canonical RBAC tables (PR2)', () => {
     // filters account_id = :id, so those rows are invisible to old code.
     const col = getTableConfig(iamRoles).columns.find((c) => c.name === 'account_id');
     expect(col?.notNull).toBe(false);
+  });
+});
+
+describe('workspaces M4 account_id indexes', () => {
+  // 20261106153050000_workspaces_account_id_indexes.concurrent.ts builds
+  // idx_<table>_account_id for the reconcile fill's UPDATE ... WHERE account_id
+  // (workspaces M4). kortix.ts must declare each one with its exact name or the
+  // shadow-db release-gate contract fails; the declaration is what keeps the
+  // index without a second migration file (no plain CREATE INDEX sql, no
+  // SQL-only entry).
+  const accountIndexes = [
+    [appRuntimes, 'idx_app_runtimes_account_id'],
+    [appVolumes, 'idx_app_volumes_account_id'],
+    [captureDeviceGrants, 'idx_capture_device_grants_account_id'],
+    [cliDeviceGrants, 'idx_cli_device_grants_account_id'],
+    [oauthAccessTokens, 'idx_oauth_access_tokens_account_id'],
+    [oauthAuthorizationCodes, 'idx_oauth_authorization_codes_account_id'],
+  ] as const;
+
+  test('declares the six account_id indexes with their exact names', () => {
+    for (const [table, name] of accountIndexes) {
+      expect(indexNames(table)).toContain(name);
+    }
+  });
+
+  test('the six indexes are plain non-unique indexes leading with account_id', () => {
+    for (const [table, name] of accountIndexes) {
+      const idx = getTableConfig(table).indexes.find((i) => i.config.name === name);
+      expect(idx).toBeDefined();
+      // The reconcile fill's WHERE clause is account_id only; a unique index
+      // would be wrong (several rows move per account).
+      expect(idx?.config.unique).toBe(false);
+      expect(idx?.config.columns.map((c) => ('name' in c ? c.name : undefined))).toEqual(['account_id']);
+    }
   });
 });

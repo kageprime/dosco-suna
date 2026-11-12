@@ -22,6 +22,13 @@ What is kept:
 `/drives/README.md` is the live map for THIS session: which folders are
 mounted, where, read-only or read-write, and any open conflicts. Kortix
 rewrites it whenever access changes. Read it first; never edit it.
+
+**No `/drives/README.md` means no Drive is mounted here.** A My Kortix
+session outside a Space thread mounts none, and nor does an inline colleague
+or a workflow agent it starts. Then the file tools cannot see Drive: reach it
+only with `kortix drive` (below), and save a file the user keeps with
+`kortix drive put <local> /Users/<name>/<file>`. `/workspace` is this
+session's alone: no other session and not the web app's Files read it.
 </overview>
 
 <layout>

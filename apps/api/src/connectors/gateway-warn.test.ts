@@ -7,14 +7,31 @@
  * limit the warning for expected backpressure"): the first failure of a call
  * path always warns, then at most one per interval.
  *
+ * KRTX-4759: the same warn carries no per-call identifier. The message embeds
+ * the call path, so one provider-side failure class (a Composio-edge WAF block
+ * hit `linear.run_query_or_mutation`, `linear.create_linear_comment` and
+ * `linear.update_linear_comment` for a week) hashed to one log-pattern key per
+ * action and filed a new Linear issue per action variant. The message is now
+ * identical for every call path; the path rides in the `connector_action`
+ * field the structured logger ships alongside it.
+ *
  * Pure unit test: every gateway dep is faked, the logger is mocked (the real
  * one ships to Better Stack), and the clock is fake. No PostgreSQL.
  */
 import { afterEach, expect, mock, spyOn, test } from 'bun:test';
 
 const warns: string[] = [];
+const warnContexts: (Record<string, unknown> | undefined)[] = [];
 mock.module('../lib/logger', () => ({
-  logger: { debug() {}, info() {}, error() {}, warn: (message: string) => warns.push(message) },
+  logger: {
+    debug() {},
+    info() {},
+    error() {},
+    warn: (message: string, context?: Record<string, unknown>) => {
+      warns.push(message);
+      warnContexts.push(context);
+    },
+  },
 }));
 
 import { type GatewayDeps, handleCall } from './gateway';
@@ -71,13 +88,15 @@ afterEach(() => {
   // A new test starts with an empty window, so test order cannot hide a
   // failure: a stale throttle entry would wrongly suppress the next first warn.
   warns.length = 0;
+  warnContexts.length = 0;
 });
 
 test('the first failure warns, repeats inside the interval stay silent, one after it warns again', async () => {
   restore = useFakeClock();
   expect(await call('run_query_or_mutation')).toMatchObject({ status: 'error' });
   expect(warns).toHaveLength(1);
-  expect(warns[0]).toContain('[connector] linear.run_query_or_mutation failed (upstream 502)');
+  expect(warns[0]).toContain('[connector] call failed (upstream 502)');
+  expect(warnContexts[0]).toEqual({ connector_action: 'linear.run_query_or_mutation' });
 
   // A repeated call ten seconds later is the same failure already reported.
   clock += 10_000;
@@ -97,4 +116,21 @@ test('a second failing call path warns independently inside the same interval', 
   expect(await call('run_query_or_mutation')).toMatchObject({ status: 'error' });
   expect(await call('get_linear_issue')).toMatchObject({ status: 'error' });
   expect(warns).toHaveLength(2); // one per call path, not one per interval overall
+});
+
+test('two failing call paths log the identical message; the path rides in connector_action (KRTX-4759)', async () => {
+  clock += 300_000; // step past every window the earlier tests opened
+  restore = useFakeClock();
+  expect(await call('run_query_or_mutation')).toMatchObject({ status: 'error' });
+  clock += 61_000; // past the throttle interval so the second path's warn is its own
+  expect(await call('get_linear_issue')).toMatchObject({ status: 'error' });
+  expect(warns).toHaveLength(2);
+  // One failure class, one message shape: a per-call identifier in the text
+  // splits one provider-side failure into one log-pattern key per call path.
+  expect(warns[1]).toBe(warns[0]);
+  expect(warns[0]).not.toContain('run_query_or_mutation');
+  expect(warns[0]).not.toContain('get_linear_issue');
+  // The structured field keeps the path queryable in Better Stack/ClickHouse.
+  expect(warnContexts[0]).toEqual({ connector_action: 'linear.run_query_or_mutation' });
+  expect(warnContexts[1]).toEqual({ connector_action: 'linear.get_linear_issue' });
 });

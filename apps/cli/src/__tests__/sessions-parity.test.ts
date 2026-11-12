@@ -882,7 +882,6 @@ describe('kortix sessions chat --steer', () => {
       placement: 'composer',
       parts: [{ type: 'text', text: 'also check the logs' }],
     });
-    expect(r.stdout).toContain('to steer the running turn');
     expect(r.stdout).toContain('reads it at its next step');
   });
 
@@ -1547,8 +1546,8 @@ describe('kortix sessions pin / unpin / archive / unarchive', () => {
     expect(r.code).toBe(0);
     const lists = calls('GET', `/v1/workspaces/${PROJECT}/sessions`).filter((c) => !c.path.includes('/sessions/'));
     expect(lists.map((c) => c.path)).toEqual([
-      `/v1/workspaces/${PROJECT}/sessions`,
-      `/v1/workspaces/${PROJECT}/sessions?archived=only`,
+      `/v1/workspaces/${PROJECT}/sessions?q=${SESSION_ARCHIVED.slice(0, 8)}&limit=200`,
+      `/v1/workspaces/${PROJECT}/sessions?archived=only&q=${SESSION_ARCHIVED.slice(0, 8)}&limit=200`,
     ]);
     expect(calls('PUT', `/v1/workspaces/${PROJECT}/sessions/`)).toEqual([
       {

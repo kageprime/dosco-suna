@@ -49,6 +49,8 @@ for (const key of [
 
 // The open item lives in `?id=`.
 let search = '';
+/** Every `router.replace` href: j/k move the open item with a replace. */
+const replaced: string[] = [];
 mock.module('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(search),
   usePathname: () => '/workspaces/p/review',
@@ -59,7 +61,14 @@ mock.module('@kortix/ui/providers/ui-provider', () => ({
   ...realUiProvider,
   useUiSearchParams: () => new URLSearchParams(search),
   useUiPathname: () => '/workspaces/p/review',
-  useUiRouter: () => ({ push() {}, replace() {}, prefetch() {}, back() {} }),
+  useUiRouter: () => ({
+    push() {},
+    replace(href: string) {
+      replaced.push(href);
+    },
+    prefetch() {},
+    back() {},
+  }),
 }));
 
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
@@ -131,6 +140,7 @@ afterEach(() => {
   host = null;
   search = '';
   calls.length = 0;
+  replaced.length = 0;
   document.body.innerHTML = '';
 });
 
@@ -169,7 +179,10 @@ describe('the row menu', () => {
       `button[aria-label="More actions for ${OUTPUT.title}"]`,
     )!;
     act(() => {
+      // A real tap: pointerdown, mousedown, then click. A touch press opens the menu on click.
       trigger.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+      trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+      trigger.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
     });
     return [...document.querySelectorAll('[role="menuitem"]')].map(
       (item) => item.textContent?.replace(/[ed↵]$/, '').trim() ?? '',
@@ -192,17 +205,22 @@ describe('the row menu', () => {
   });
 });
 
-describe('an output opens in a modal over the inbox, like a connector approval', () => {
-  const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]');
+describe('an item opens in the detail pane beside the list', () => {
+  /** The detail pane's item: `ReviewDetail` renders one `article`. */
+  const pane = () => document.querySelector<HTMLElement>('article');
 
-  test('the dialog holds the item, its files and its verdicts; the inbox stays behind it', () => {
+  test('the pane holds the item, its files and its verdicts; the list stays beside it', () => {
     search = `id=${OUTPUT.id}`;
     mount([OUTPUT, CHANGE], MANAGER);
-    expect(dialog()?.textContent).toContain(OUTPUT.title);
-    expect(dialog()?.textContent).toContain('the page');
-    expect(dialog()?.textContent).toContain('Approve & publish');
-    // The inbox list is still drawn: the change request's row is under the dialog.
+    expect(pane()?.textContent).toContain(OUTPUT.title);
+    expect(pane()?.textContent).toContain('the page');
+    expect(pane()?.textContent).toContain('Approve & publish');
+    // The list is still drawn: the change request's row sits beside the pane.
     expect(text()).toContain(CHANGE.title);
+    // The open item's row is marked as the current one.
+    expect(document.querySelector('li[aria-current="true"]')?.textContent).toContain(OUTPUT.title);
+    // No modal: the pane is part of the page.
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 
   test('an output that names nothing it made shows its note and no empty section', () => {
@@ -214,15 +232,16 @@ describe('an output opens in a modal over the inbox, like a connector approval',
     search = `id=${bare.id}`;
     mount([bare], MANAGER);
     const { note } = OUTPUT.detail as Extract<ReviewItem['detail'], { note: string }>;
-    expect(dialog()?.textContent).toContain(note);
-    expect(dialog()?.querySelectorAll('section')).toHaveLength(0);
+    expect(pane()?.textContent).toContain(note);
+    // The pane's one Description section holds no empty sub-section.
+    expect(pane()?.querySelectorAll('section section')).toHaveLength(0);
   });
 
-  test('a change request keeps its page: no dialog', () => {
+  test('a change request opens in the same pane: no dialog', () => {
     search = `id=${CHANGE.id}`;
     mount([CHANGE], MANAGER);
-    expect(text()).toContain(CHANGE.title);
-    expect(dialog()).toBeNull();
+    expect(pane()?.textContent).toContain(CHANGE.title);
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 });
 
@@ -329,13 +348,13 @@ describe('the review page of one item', () => {
       'Waiting for the person who started this session or anyone who manages this workspace to approve or deny it.',
     );
     expect(text()).not.toContain('Approved');
-    // The dialog's screen-reader title and description say the same: no
+    // The pane region's screen-reader title and description say the same: no
     // request for a decision this viewer cannot make.
-    const dialog = document.querySelector('[role="dialog"]');
-    expect(dialog).not.toBeNull();
-    expect(dialog?.textContent).not.toContain('An agent needs your approval');
-    expect(dialog?.textContent).not.toContain('Your decision applies to this call only.');
-    const labelledBy = dialog?.getAttribute('aria-labelledby');
+    const region = document.querySelector('section[aria-labelledby]');
+    expect(region).not.toBeNull();
+    expect(region?.textContent).not.toContain('An agent needs your approval');
+    expect(region?.textContent).not.toContain('Your decision applies to this call only.');
+    const labelledBy = region?.getAttribute('aria-labelledby');
     expect(labelledBy ? document.getElementById(labelledBy)?.textContent : null).toBe(
       'Needs approval',
     );
@@ -356,11 +375,11 @@ describe('the review page of one item', () => {
     expect(text()).not.toContain('the person who started this session');
   });
 
-  test('a resolver still gets the decision request, in the dialog title too', () => {
+  test('a resolver still gets the decision request, in the pane region title too', () => {
     search = 'id=call:exec-1';
     mount([call(true)], MEMBER);
-    const dialog = document.querySelector('[role="dialog"]');
-    const labelledBy = dialog?.getAttribute('aria-labelledby');
+    const region = document.querySelector('section[aria-labelledby]');
+    const labelledBy = region?.getAttribute('aria-labelledby');
     expect(labelledBy ? document.getElementById(labelledBy)?.textContent : null).toBe(
       'An agent needs your approval',
     );
@@ -412,5 +431,54 @@ describe('a pending approval row', () => {
   test('an approval with no expiry shows no label', () => {
     mount([APPROVAL], MANAGER);
     expect(expiryLabel()).toBeUndefined();
+  });
+});
+
+describe('j and k with an item open', () => {
+  test('move the open item to the next row, counted from the open row, not the top', () => {
+    const items = [OUTPUT, CHANGE, mockItem('rv-approval-1')];
+    // Read the list's order once, then open its middle row by deep link.
+    mount(items, MANAGER);
+    const order = [...document.querySelectorAll('li[data-idx]')].map(
+      (row) => items.find((item) => row.textContent?.includes(item.title))!.id,
+    );
+    expect(order).toHaveLength(3);
+    act(() => root?.unmount());
+    document.body.innerHTML = '';
+
+    search = `id=${encodeURIComponent(order[1])}`;
+    mount(items, MANAGER);
+    press('j');
+    expect(replaced.at(-1)).toContain(`id=${encodeURIComponent(order[2])}`);
+  });
+});
+
+describe('Enter with an item open', () => {
+  test('on a focused button in the pane is that button\'s, not "open the cursor row"', () => {
+    search = `id=${OUTPUT.id}`;
+    mount([OUTPUT, CHANGE], MANAGER);
+    const verdict = [...document.querySelectorAll<HTMLButtonElement>('article button')].find(
+      (b) => b.textContent?.trim() === 'Approve & publish',
+    )!;
+    act(() => verdict.focus());
+    act(() => {
+      verdict.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    // The shortcut stood aside: no navigation to any row.
+    expect(replaced).toEqual([]);
+  });
+});
+
+describe('a verdict shortcut with an item open', () => {
+  test('d dismisses the open item even when the list shows no row of it', () => {
+    // Opened from another list (a deep link to a Waiting item): the Needs you
+    // list beside it is empty, and the verdict still goes to the open item.
+    const waiting = { ...OUTPUT, status: 'waiting' } as ReviewItem;
+    search = `id=${waiting.id}`;
+    mount([waiting], MANAGER);
+    expect(document.querySelector('article')?.textContent).toContain(waiting.title);
+    expect(document.querySelectorAll('li[data-idx]')).toHaveLength(0);
+    press('d');
+    expect(calls).toEqual([`bulk ${waiting.id} dismiss`]);
   });
 });

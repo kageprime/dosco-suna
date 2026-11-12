@@ -50,13 +50,11 @@ agents:
     secrets: all
     kortix_permissions: all
     skills: all
-    workspace: { project_repository: true }
 
   slack-desk:                 # the same project, scoped to one job
     file: agents/slack-desk.md
     connectors: [linear, github]
     skills: [triage]
-    workspace: { project_repository: true }
 ```
 
 The second block is the argument. `slack-desk` reaches two connectors and one skill, and holds no secrets and no project permissions, because those lines were deleted and deletion grants none. It can still answer where it was asked: the channel that started a session is always callable from it ([connectors](https://kortix.com/docs/connect/connectors)).

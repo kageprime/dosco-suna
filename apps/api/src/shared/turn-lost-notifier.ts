@@ -9,29 +9,23 @@
  * Fire-and-forget: a relay failure never breaks the reaper.
  */
 import { logger } from '../lib/logger';
+import { createNotifier } from './notifier';
 
 type TurnLostNotifier = (sessionId: string, turnToken: string) => unknown;
 
-// replica-local: each replica registers the same relays at startup; the reaper that settles a turn calls them in its own process.
-const notifiers = new Set<TurnLostNotifier>();
+const notifier = createNotifier<[sessionId: string, turnToken: string]>((error, [sessionId]) =>
+  logger.warn('[turn-lost-notifier] relay failed', {
+    sessionId,
+    error: error instanceof Error ? error.message : String(error),
+  }),
+);
 
 /** Register a relay at startup. Registering the same function twice keeps one. Returns the remover. */
 export function registerTurnLostNotifier(fn: TurnLostNotifier): () => void {
-  notifiers.add(fn);
-  return () => {
-    notifiers.delete(fn);
-  };
+  return notifier.register(fn);
 }
 
 /** Tell every relay that `turnToken` of `sessionId` ended without its box. Never throws, never blocks. */
 export function notifyTurnLost(sessionId: string, turnToken: string): void {
-  for (const fn of notifiers) {
-    try {
-      void Promise.resolve(fn(sessionId, turnToken)).catch((err) =>
-        logger.warn('[turn-lost-notifier] relay failed', { sessionId, error: err instanceof Error ? err.message : String(err) }),
-      );
-    } catch (err) {
-      logger.warn('[turn-lost-notifier] relay failed', { sessionId, error: err instanceof Error ? err.message : String(err) });
-    }
-  }
+  notifier.notify(sessionId, turnToken);
 }

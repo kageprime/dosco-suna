@@ -8,6 +8,24 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
+/// The next 06:00 local time after `now_ms`, at most 24 h away (epoch ms).
+pub fn next_six_am_ms(now_ms: i64) -> i64 {
+    use chrono::{Duration as D, Local, TimeZone};
+    let local = Local.timestamp_millis_opt(now_ms).single().unwrap_or_else(Local::now);
+    let at = |day: chrono::NaiveDate| {
+        Local
+            .from_local_datetime(&day.and_hms_opt(6, 0, 0).unwrap_or_default())
+            .earliest()
+            .map(|d| d.timestamp_millis())
+    };
+    let today = at(local.date_naive()).filter(|t| *t > now_ms);
+    let next = today.or_else(|| at(local.date_naive() + D::days(1)));
+    next.unwrap_or(now_ms + 86_400_000).min(now_ms + 86_400_000)
+}
+
+/// Set to keep settings.json's capture-cost values (development and test scripts only).
+pub const TUNING_ENV: &str = "KORTIX_CAPTURE_TUNING";
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Settings {
@@ -38,6 +56,7 @@ pub struct Settings {
     /// Frames this long after the last keyboard/mouse input are marked inactive.
     pub inactivity_seconds: u64,
     /// "accurate" or "fast".
+    /// `accurate`, `fast`, or `off` (no screen text read while recording).
     pub ocr_level: String,
     /// BCP-47 languages for OCR; empty = automatic.
     pub ocr_languages: Vec<String>,
@@ -502,12 +521,69 @@ pub fn resolution_preset(name: &str) -> Option<(u32, u32)> {
 }
 
 impl Settings {
+    /// The level to ask the engine for when text must be read (local PII masking,
+    /// an agent asking for one frame's text): `fast` while recording is set to `off`.
+    pub fn ocr_engine_level(&self) -> &str {
+        if self.ocr_level == "off" {
+            "fast"
+        } else {
+            &self.ocr_level
+        }
+    }
+
     pub fn load(paths: &MemoryPaths) -> Self {
-        std::fs::read(paths.settings())
+        let mut s: Self = std::fs::read(paths.settings())
             .ok()
             .and_then(|bytes| serde_json::from_slice(&bytes).ok())
-            .unwrap_or_default()
+            .unwrap_or_default();
+        s.self_manage();
+        s
     }
+
+    /// Kortix Capture manages what recording costs the computer: capture rate,
+    /// screenshot size and quality, chunk length, text recognition, accessibility
+    /// reads. A person, the CLI or an older version cannot set them: any value in
+    /// settings.json is replaced with the managed one here, so every reader gets
+    /// it and the next save writes it back. Only the organization's policy, applied
+    /// after this, changes them. `KORTIX_CAPTURE_TUNING=1` keeps the file's values
+    /// for development and test scripts.
+    pub fn self_manage(&mut self) {
+        if std::env::var_os(TUNING_ENV).is_some() {
+            return;
+        }
+        let d = Self::default();
+        self.interval_ms = d.interval_ms;
+        self.capture_on_change = d.capture_on_change;
+        self.max_width = d.max_width;
+        self.max_height = d.max_height;
+        self.staging_quality = d.staging_quality;
+        self.video_quality = d.video_quality;
+        self.chunk_max_frames = d.chunk_max_frames;
+        self.inactivity_seconds = d.inactivity_seconds;
+        self.ocr_level = d.ocr_level;
+        self.ax_enabled = d.ax_enabled;
+    }
+
+    /// `key` (a top-level settings key) is one `self_manage` owns, so the
+    /// settings window, the API and the CLI refuse to set it.
+    pub fn managed_key(key: &str) -> bool {
+        std::env::var_os(TUNING_ENV).is_none() && Self::MANAGED_KEYS.contains(&key)
+    }
+
+    /// The settings keys `self_manage` owns.
+    pub const MANAGED_KEYS: &'static [&'static str] = &[
+        "interval_ms",
+        "capture_on_change",
+        "max_width",
+        "max_height",
+        "resolution",
+        "staging_quality",
+        "video_quality",
+        "chunk_max_frames",
+        "inactivity_seconds",
+        "ocr_level",
+        "ax_enabled",
+    ];
 
     /// What the recorder, audio, actions and sync obey: the person's settings
     /// narrowed by the operator's policy while sync is on (see `policy.rs`).
@@ -515,7 +591,35 @@ impl Settings {
         let mut s = Self::load(paths);
         s.apply_policy(paths);
         s.apply_host(paths);
+        s.bound_org_pause(paths, super::store::now_ms());
         s
+    }
+
+    /// On a computer that records for an organization (a policy applies), a
+    /// person's pause or off switch ends at the next 06:00 local time, at most
+    /// 24 h away: privacy breaks stay possible, and recording is never left off
+    /// for days. Turning recording off becomes a pause until then. The bound is
+    /// written to settings.json once, so the end time stays fixed. Returns
+    /// whether it changed anything.
+    pub fn bound_org_pause(&mut self, paths: &MemoryPaths, now_ms: i64) -> bool {
+        if self.policy.is_none() {
+            return false;
+        }
+        let limit = next_six_am_ms(now_ms);
+        let paused_until = match (self.recording_enabled, self.paused_until_ms) {
+            (false, _) => limit,
+            (true, Some(until)) if until > limit => limit,
+            _ => return false,
+        };
+        self.recording_enabled = true;
+        self.paused_until_ms = Some(paused_until);
+        let mut own = Self::load(paths);
+        own.recording_enabled = true;
+        own.paused_until_ms = Some(paused_until);
+        if let Err(err) = own.save(paths) {
+            tracing::warn!("could not save the bounded pause: {err:#}");
+        }
+        true
     }
 
     /// The app the service runs in, never recorded: its bundle id and executable name.
@@ -709,7 +813,7 @@ impl Settings {
         if self.inactivity_seconds == 0 {
             bail!("inactivity_seconds must be at least 1");
         }
-        one_of("ocr_level", &self.ocr_level, &["accurate", "fast"])?;
+        one_of("ocr_level", &self.ocr_level, &["accurate", "fast", "off"])?;
         for g in &self.enabled_exclusion_groups {
             let ids: Vec<&str> = exclusion_groups().iter().map(|x| x.id).collect();
             one_of("enabled_exclusion_groups", g, &ids)?;
@@ -780,6 +884,71 @@ impl Settings {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// On an organization's computer, off and long pauses end by the next 06:00,
+    /// once and for good; a personal computer keeps the person's choice.
+    #[test]
+    fn an_org_computer_never_stays_paused_past_the_next_morning() {
+        let paths = MemoryPaths::at(
+            std::env::temp_dir().join(format!("kc-orgpause-{}", uuid::Uuid::new_v4())),
+        );
+        paths.ensure().unwrap();
+        let write = |settings: &str, org: bool| {
+            std::fs::write(paths.settings(), settings).unwrap();
+            let policy = super::super::policy::path(&paths);
+            if org {
+                std::fs::write(&policy, r#"{"source": "orgs/a/policy.json", "fetched_at_ms": 1, "policy": {"schema": 2}}"#)
+                    .unwrap();
+            } else {
+                let _ = std::fs::remove_file(&policy);
+            }
+        };
+        let now = super::super::store::now_ms();
+        let day = 86_400_000;
+        // Off on an org computer: a pause until the next morning, saved.
+        write(r#"{"sync": {"enabled": true}, "recording_enabled": false}"#, true);
+        let s = Settings::effective(&paths);
+        let until = s.paused_until_ms.expect("a pause");
+        assert!(s.recording_enabled && until > now && until <= now + day + 1000, "{until}");
+        let own = Settings::load(&paths);
+        assert_eq!((own.recording_enabled, own.paused_until_ms), (true, Some(until)));
+        // A second read changes nothing: the end time stays fixed.
+        assert_eq!(Settings::effective(&paths).paused_until_ms, Some(until));
+        // A pause for a week is cut to the next morning.
+        write(&format!(r#"{{"sync": {{"enabled": true}}, "paused_until_ms": {}}}"#, now + 7 * day), true);
+        assert!(Settings::effective(&paths).paused_until_ms.unwrap() <= now + day + 1000);
+        // A personal computer (no policy) keeps its own choice.
+        write(r#"{"sync": {"enabled": false}, "recording_enabled": false}"#, false);
+        assert!(!Settings::effective(&paths).recording_enabled);
+        let _ = std::fs::remove_dir_all(&paths.root);
+    }
+
+    /// Hand-edited or out-of-range capture knobs load as Kortix Capture's own
+    /// values, and the next save writes those back.
+    #[test]
+    fn capture_knobs_a_person_set_are_replaced_on_load() {
+        let paths = MemoryPaths::at(
+            std::env::temp_dir().join(format!("kc-managed-{}", uuid::Uuid::new_v4())),
+        );
+        paths.ensure().unwrap();
+        std::fs::write(
+            paths.settings(),
+            r#"{"interval_ms": 500000, "max_height": 4000, "max_width": 9000, "ocr_level": "off",
+                "ax_enabled": false, "chunk_max_frames": 1, "excluded_domains": ["mine.example"]}"#,
+        )
+        .unwrap();
+        let s = Settings::load(&paths);
+        let d = Settings::default();
+        assert_eq!(
+            (s.interval_ms, s.max_width, s.max_height, s.ocr_level.as_str(), s.ax_enabled, s.chunk_max_frames),
+            (d.interval_ms, d.max_width, d.max_height, d.ocr_level.as_str(), d.ax_enabled, d.chunk_max_frames)
+        );
+        assert_eq!(s.excluded_domains, ["mine.example"], "the person's own settings stay");
+        s.save(&paths).unwrap();
+        let saved = std::fs::read_to_string(paths.settings()).unwrap();
+        assert!(saved.contains("\"interval_ms\": 2000"), "{saved}");
+        let _ = std::fs::remove_dir_all(&paths.root);
+    }
 
     #[test]
     fn keep_recordings_defaults_to_seven_days() {

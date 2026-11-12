@@ -41,10 +41,11 @@ mock.module('@/lib/utils/open-link', () => ({ openExternalLink: () => {}, openLi
 
 let MarkdownImage: typeof import('./markdown-image').MarkdownImage;
 let MarkdownImagesContext: typeof import('./markdown-image').MarkdownImagesContext;
+let MarkdownImageGallery: typeof import('./markdown-image').MarkdownImageGallery;
 
 beforeAll(async () => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-  ({ MarkdownImage, MarkdownImagesContext } = await import('./markdown-image'));
+  ({ MarkdownImage, MarkdownImagesContext, MarkdownImageGallery } = await import('./markdown-image'));
 });
 
 let tree: ReactTestRenderer | undefined;
@@ -132,5 +133,43 @@ describe('MarkdownImage compact mode', () => {
     const compact = render(<MarkdownImage src="/workspace/gone.png" alt="" isDark={false} look={{ compact: true }} />);
     expect(all(compact, 'pressable')).toHaveLength(1);
     expect(texts(compact)).toEqual([]);
+  });
+});
+
+describe('MarkdownImageGallery', () => {
+  const two = () => [
+    { src: 'https://example.com/a.png', alt: '' },
+    { src: 'https://example.com/b.png', alt: '' },
+  ];
+
+  test('one page per image, and the counter follows a swipe', () => {
+    const root = render(<MarkdownImageGallery images={two()} isDark={false} />, 'load');
+    expect(all(root, 'view').find((n) => n.props.accessibilityLabel === '2 images')).toBeDefined();
+    // No width yet: nothing to page, the placeholder frame and the "1 / 2" counter.
+    expect(all(root, 'scroll')).toHaveLength(0);
+    expect(texts(root)).toEqual(['1 / 2']);
+    act(() => all(root, 'view').find((n) => n.props.onLayout)!.props.onLayout({ nativeEvent: { layout: { width: 320 } } }));
+    const scroll = all(root, 'scroll').find((n) => n.props.onMomentumScrollEnd)!;
+    expect(scroll.props.pagingEnabled).toBe(true);
+    expect(all(scroll, 'image')).toHaveLength(2);
+    expect(texts(root)).toEqual(['1 / 2']);
+    act(() => scroll.props.onMomentumScrollEnd({ nativeEvent: { contentOffset: { x: 320 } } }));
+    expect(texts(root)).toEqual(['2 / 2']);
+  });
+
+  test('every page image sits in the shared 280pt page height', () => {
+    sandbox.phase = 'probe';
+    const root = render(
+      <MarkdownImageGallery
+        images={[
+          { src: '/workspace/a.png', alt: '' },
+          { src: '/workspace/b.png', alt: '' },
+        ]}
+        isDark={false}
+      />,
+    );
+    act(() => all(root, 'view').find((n) => n.props.onLayout)!.props.onLayout({ nativeEvent: { layout: { width: 320 } } }));
+    // Each page's image frame holds the page height until the image reports its own aspect.
+    expect(all(root, 'view').filter((n) => n.props.style?.height === 280)).toHaveLength(2);
   });
 });

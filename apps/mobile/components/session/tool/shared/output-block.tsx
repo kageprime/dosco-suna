@@ -142,7 +142,7 @@ export function ToolField({ label, value, mono = false }: { label: string; value
 
 // ─── MonoBlock — reusable monospace code block ───────────────────────────────
 
-export function MonoBlock({
+function MonoBlock({
   children,
   isDark,
   color,

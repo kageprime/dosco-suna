@@ -32,6 +32,21 @@ export function webhookTimestampFresh(timestamp: string | null | undefined, nowM
 }
 
 /**
+ * Why `X-Kortix-Timestamp` is refused, or null when it is fresh: `expired`
+ * (more than the tolerance old, the replay case) or `out_of_tolerance` (ahead
+ * of now, or not a number). Callers record the reason on the rejected run.
+ */
+export function webhookTimestampProblem(
+  timestamp: string | null | undefined,
+  nowMs = Date.now(),
+): 'missing' | 'expired' | 'out_of_tolerance' | null {
+  if (!timestamp || !timestamp.trim()) return 'missing';
+  if (webhookTimestampFresh(timestamp, nowMs)) return null;
+  const seconds = Number(timestamp);
+  return Number.isFinite(seconds) && seconds < nowMs / 1000 ? 'expired' : 'out_of_tolerance';
+}
+
+/**
  * HMAC-SHA256 of `<timestamp>.<body>`: the signature covers the freshness
  * stamp, so a captured signature cannot be paired with a newer timestamp.
  */

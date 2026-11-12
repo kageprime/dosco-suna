@@ -37,6 +37,11 @@ pub fn screenshot(_: Option<Rect>) -> Result<Shot> {
 pub fn displays() -> Vec<DisplayInfo> {
     Vec::new()
 }
+/// No frame generation here: every capture reads the pixels.
+pub fn frame_generation(_: &DisplayInfo) -> Option<u64> {
+    None
+}
+
 pub fn screenshot_display(_: &DisplayInfo) -> Result<RgbImage> {
     bail!("unsupported_platform")
 }

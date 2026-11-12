@@ -83,8 +83,9 @@ Anyone:
                       One goal: state, criteria (reported and verified), what
                       it waits on, owner, verifier, next wake, caps.
   new "<goal>" [--criterion "<text>"]... [--user <user_id>] [--agent <name>]
-                      Create a goal. A person only: inside a session the API
-                      refuses it; ask the person to create it on the Goals page.
+                      Create a goal. A person, or a chat session for the person
+                      it works for. A goal's own owner or verifier session may
+                      not start another goal.
   bind [<slug|goal_id>] --space <slug> | --agent <name> | --clear
                       Group the goal under a space or an agent. A person only.
 
@@ -751,8 +752,7 @@ async function newGoal(ctx: Ctx, brief: string, flags: Flags): Promise<number> {
       else {
         process.stderr.write(`${status.err(body.message)}\n`);
         process.stderr.write(
-          '  A goal\'s own session cannot start another goal. Note the follow-up in log.md, or ask the person to\n' +
-            '  create it from the Goals page.\n',
+          '  Note the follow-up in log.md, or ask the person to create it from the Goals page.\n',
         );
       }
       return 1;

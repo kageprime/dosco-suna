@@ -1,8 +1,8 @@
 /**
  * Dropdown menus (root and submenu), selects, popovers and tooltips open and
- * close with no animation (COR-74, KRTX-189). Radix Presence keeps a closing
- * panel mounted until its `animate-out` fires `animationend`, so any enter or
- * exit animation makes every open AND every close wait on it.
+ * close with no animation (COR-74, KRTX-189). Base UI keeps a closing panel
+ * mounted until the exit animation it detects ends, so any enter or exit
+ * animation makes every open AND every close wait on it.
  *
  * Each panel is rendered open on happy-dom (the not-found-title.test.tsx
  * pattern) and its RENDERED class list is checked, never the source text: a
@@ -31,7 +31,7 @@ globals.cancelAnimationFrame = (id: number) => clearTimeout(id);
 for (const key of Object.getOwnPropertyNames(win)) {
   if (/^[A-Z]/.test(key) && !(key in globals)) globals[key] = Reflect.get(win, key);
 }
-// Bun has its own event classes. Radix's focus and dismiss layers create
+// Bun has its own event classes. Base UI's focus and dismiss layers create
 // events by bare global name, and happy-dom dispatches only its own (the
 // change-request-detail-dialog-controls.test.tsx setup).
 for (const key of ['Event', 'CustomEvent', 'FocusEvent', 'KeyboardEvent', 'MouseEvent', 'PointerEvent']) {

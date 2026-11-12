@@ -9,7 +9,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text as RNText, View, useWindowDimensions } from 'react-native';
 import type { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { BottomSheetView, TouchableOpacity as BottomSheetTouchable } from '@gorhom/bottom-sheet';
+import { SheetView, SheetTouchableOpacity as BottomSheetTouchable } from '@/components/kortix/sheet-parts';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import type { MarkdownTextInput as MarkdownTextInputComponent } from '@expensify/react-native-live-markdown';
@@ -93,7 +93,7 @@ function TextSelectionModal({ sheetRef, text, isDark, onDismiss }: TextSelection
         elevation: Platform.OS === 'android' ? 50 : undefined,
       }}
     >
-      <BottomSheetView style={{ flex: 1 }}>
+      <SheetView style={{ flex: 1 }}>
         {/* Header - fixed at top */}
         <View style={[drawerStyles.header, { paddingHorizontal: 24 }]}>
           <RNText style={[drawerStyles.title, { color: colors.text }]}>
@@ -138,7 +138,7 @@ function TextSelectionModal({ sheetRef, text, isDark, onDismiss }: TextSelection
             ]}
           />
         </View>
-      </BottomSheetView>
+      </SheetView>
     </KortixBottomSheetModal>
   );
 }

@@ -6,10 +6,15 @@
 // ~0.5 s each, one at a time, and /detail failed with 503 `request_deadline`.
 // Every fetch into a store writes one pack (`fetch.unpackLimit=1`), so the pack
 // count is the fetch count.
+//
+// `readProjectSkillDescriptions` (the skill descriptions of
+// GET /v1/workspaces/:id/capabilities) gets the same guard (KRTX-4739,
+// 2026-11-11): a cold store paid one fetch per skill and 503'd the same
+// 25 s deadline.
 import { afterEach, expect, test } from 'bun:test';
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { loadProjectConfig, loadRepoConfigSummary, withKortixSkills } from './config';
+import { loadProjectConfig, loadRepoConfigSummary, readProjectSkillDescriptions, withKortixSkills } from './config';
 import { listRepoFiles } from './files';
 import { createPartialStoreFixture, type PartialStoreFixture } from './__tests__/partial-store-fixture';
 
@@ -69,4 +74,26 @@ test('a summary pinned to a commit reads that commit after the branch moved, and
   const live = await loadProjectConfig(fx.project);
   expect(live.skills.find((skill) => skill.name === 'alpha-skill-0')?.description).toBe('Changed.');
   expect(withKortixSkills(await loadRepoConfigSummary(fx.project))).toEqual(live);
+});
+
+// KRTX-4739: the capabilities route reads its skill descriptions through
+// `readProjectSkillDescriptions`. On a cold store it must pay one batched
+// fetch for every SKILL.md, not one per skill.
+test('a cold store reads 20 skill descriptions in a few fetches, not one per skill', async () => {
+  const skills = Array.from({ length: 20 }, (_, i) => `skill-${i}`);
+  fx = await createPartialStoreFixture(
+    Object.fromEntries(
+      skills.map((name) => [`skills/${name}/SKILL.md`, `---\nname: ${name}\ndescription: The ${name} skill.\n---\n\nBody of ${name}.\n`]),
+    ),
+  );
+
+  const descriptions = await readProjectSkillDescriptions(
+    fx.project,
+    Object.fromEntries(skills.map((name) => [name, `skills/${name}`])),
+  );
+  for (const name of skills) {
+    expect(descriptions[name]).toBe(`The ${name} skill.`);
+  }
+  // The clone, the trees, the skills. Per-file fetches made this 22.
+  expect(await packCount(fx.storePath())).toBeLessThanOrEqual(4);
 });

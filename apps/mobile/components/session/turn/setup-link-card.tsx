@@ -36,7 +36,7 @@ import { ConnectorHandoffContext } from '../tool/shared/connector-handoff-contex
 import { RESULT_ROW_TILE } from '../tool/shared/result-row';
 import { ConnectRowShell } from '../tool/tools/connector-connect-row';
 
-export interface SetupLinkCardProps {
+interface SetupLinkCardProps {
   kind: SetupLinkKind;
   /** Null while the link's URL is still streaming. */
   token: string | null;

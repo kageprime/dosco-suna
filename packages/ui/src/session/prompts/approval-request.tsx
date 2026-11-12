@@ -951,7 +951,7 @@ export function ApprovalAgentContext({
   if (!context) return null;
   const trigger = (
     <>
-      {/* Radix opens a hover card on pointer hover and on keyboard focus. */}
+      {/* The hover card opens on pointer hover and on keyboard focus. */}
       <HoverCard openDelay={150}>
         <HoverCardTrigger asChild>
           <Button

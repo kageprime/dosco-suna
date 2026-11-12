@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { describeUserAgent } from './device-label';
+import { deviceLabel, describeUserAgent } from './device-label';
 
 describe('describeUserAgent', () => {
   const cases: [string, ReturnType<typeof describeUserAgent>][] = [
@@ -44,4 +44,38 @@ describe('describeUserAgent', () => {
       expect(describeUserAgent(ua)).toEqual(expected);
     });
   }
+});
+
+describe('deviceLabel', () => {
+  // The label rule the settings container renders: both parts, one part, or
+  // the unknown-device fallback. Pinned before the container and the debug
+  // harness share it, so the dedupe cannot change a single label.
+  const t: Parameters<typeof deviceLabel>[1] = (key, values) =>
+    key === 'deviceName' ? `${values?.browser}!${values?.os}` : `unknown:${key}`;
+
+  test('browser and os: the translated "<browser> on <os>"', () => {
+    const { browser, os } = describeUserAgent(
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+    );
+    expect(deviceLabel({ browser, os }, t)).toBe('Chrome!macOS');
+  });
+
+  test('one part only: the part the UA names, untranslated', () => {
+    const { browser, os } = describeUserAgent('Bun/1.3.14');
+    expect(deviceLabel({ browser, os }, t)).toBe('Bun');
+  });
+
+  test('neither part: the unknown-device fallback', () => {
+    const { browser, os } = describeUserAgent(null);
+    expect(deviceLabel({ browser, os }, t)).toBe('unknown:unknownDevice');
+  });
+
+  test('no translator: the English default the debug fixtures render', () => {
+    const chromeMac = describeUserAgent(
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+    );
+    expect(deviceLabel(chromeMac)).toBe('Chrome on macOS');
+    expect(deviceLabel(describeUserAgent(null))).toBe('Unknown device');
+    expect(deviceLabel(describeUserAgent('Bun/1.3.14'))).toBe('Bun');
+  });
 });

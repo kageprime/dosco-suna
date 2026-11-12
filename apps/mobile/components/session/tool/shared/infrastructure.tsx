@@ -23,8 +23,7 @@
  *   ToolRunningContext / ToolOutcomeContext / StalePendingContext /
  *   TurnLiveContext / ToolDurationContext / ToolOpenContext / useToolOpen
  *                               here — ported
- *   ToolActivateContext / BoundActivateContext
- *                               here — ported (no mobile provider yet)
+ *   BoundActivateContext       here — ported (no mobile provider yet)
  *   ToolNavigationContext / useToolNavigation / useProxyUrl /
  *   useServicePreview / ServicePreviewActions / InlineServicePreview
  *                               `./navigation` — adapted: `useToolNavigation()`
@@ -34,7 +33,7 @@
  *                               (`SandboxPreviewSheet`), not the Browser tab
  *                               (no iframe on mobile)
  *   ToolOutputFallback / JsonFailureOutputCard / RawOutputBlock / ToolEmptyState /
- *   StatusIcon / DiffStat / DiffChanges
+ *   StatusIcon / DiffStat
  *                               here — ported
  *   ToolCodeCard / ToolCode / ToolMarkdownCard / MD_FLUSH_CLASSES
  *                               `./code-card` — ported (Shiki); `MD_FLUSH_CLASSES`
@@ -129,7 +128,6 @@ export {
 export {
   TOOL_INDENT,
   ToolCaret,
-  ToolCardFrame,
   ToolCopyButton,
   ToolDetailContext,
   ToolIconSlot,
@@ -189,10 +187,8 @@ export const ImageGenRunsContext = createContext<ReadonlyMap<string, ToolCallBlo
 export { RunningLoader, ToolMotionContext };
 export const ToolDurationContext = createContext<number | undefined>(undefined);
 /** Whether the row a trigger belongs to is expanded. */
-export const ToolOpenContext = createContext(false);
-/** Opens a tool call (by `callID`) in a detail surface. Mobile has none yet. */
-export const ToolActivateContext = createContext<((callID: string) => void) | null>(null);
-/** `ToolActivateContext` bound to one call: a row press activates instead of expanding. */
+const ToolOpenContext = createContext(false);
+/** A row press activates instead of expanding. */
 export const BoundActivateContext = createContext<(() => void) | null>(null);
 
 /** The call is in flight AND its turn is live: the only time a loading state may animate. */
@@ -237,16 +233,6 @@ export function DiffStat({ additions, deletions }: { additions?: number; deletio
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: TURN_SPACE.gap1_5, flexShrink: 0 }}>
       {additions ? <Text style={[base, { color: palette.success }]}>+{additions}</Text> : null}
       {deletions ? <Text style={[base, { color: palette.destructive }]}>{`−${deletions}`}</Text> : null}
-    </View>
-  );
-}
-
-/** Web `DiffChanges`: a `DiffStat` pushed to the row's right edge. */
-export function DiffChanges({ additions, deletions }: { additions: number; deletions: number }) {
-  if (additions === 0 && deletions === 0) return null;
-  return (
-    <View style={{ marginLeft: 'auto' }}>
-      <DiffStat additions={additions} deletions={deletions} />
     </View>
   );
 }
@@ -562,7 +548,7 @@ export function ToolEmptyState({ message }: { message: string }) {
  * `text-muted-foreground/80` (all `leading-relaxed`), and the HTTP status in
  * mono `text-muted-foreground/60`.
  */
-export function JsonFailureOutputCard({ failure }: { failure: ParsedJsonFailure; toolName?: string }) {
+function JsonFailureOutputCard({ failure }: { failure: ParsedJsonFailure; toolName?: string }) {
   const palette = useTurnPalette();
   const summary = cleanErrorMessage(failure.errorSummary);
   const detail = failure.nestedMessage ? cleanErrorMessage(failure.nestedMessage) : undefined;

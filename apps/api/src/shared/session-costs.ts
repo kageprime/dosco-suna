@@ -25,10 +25,32 @@ import { db } from './db';
 import {
   kortixBilledSpendSql,
   providerBilledSpendSql,
-  rowKortixBilledSpendSql,
+  rowDoscoBilledSpendSql,
   totalSpendSql,
 } from './llm-spend';
 import { projectsView } from '../workspaces/rows';
+import {
+  type SessionCostComputeLedgerEntry,
+  type SessionCostDetail,
+  type SessionCostLlmLedgerEntry,
+  type SessionCostLedgerEntry,
+  type SessionCostModelUsage,
+  type SessionCostReconciliation,
+  type SessionCostSummary,
+} from '@kortix/sdk';
+
+// The session-cost wire records live in @kortix/sdk, the source of truth for
+// wire types. Re-exported so the API's session-cost surface keeps its names
+// from one definition instead of a hand-copied set that drifts.
+export type {
+  SessionCostComputeLedgerEntry,
+  SessionCostDetail,
+  SessionCostLlmLedgerEntry,
+  SessionCostLedgerEntry,
+  SessionCostModelUsage,
+  SessionCostReconciliation,
+  SessionCostSummary,
+};
 
 type ProjectSessionStatus = typeof projectSessions.$inferSelect.status;
 
@@ -37,105 +59,6 @@ export class InvalidSessionCostQueryError extends Error {
     super(message);
     this.name = 'InvalidSessionCostQueryError';
   }
-}
-
-export interface SessionCostSummary {
-  session_id: string;
-  project_id: string;
-  project_name: string;
-  owner_id: string | null;
-  owner_type: 'user' | 'service_account' | 'unknown' | null;
-  owner_name: string | null;
-  owner_email: string | null;
-  status: ProjectSessionStatus;
-  created_at: string;
-  updated_at: string;
-  last_activity_at: string | null;
-  /** LLM charges debited from the Dosco wallet. Excludes provider-side BYOK spend. */
-  llm_cost: number;
-  /** Alias of `llm_cost`, retained for the additive payee breakdown. */
-  llm_kortix_cost: number;
-  /** Provider-side BYOK spend. Excluded from `llm_cost` and `total_cost`. */
-  llm_provider_cost: number;
-  compute_cost: number;
-  total_cost: number;
-  request_count: number;
-  error_count: number;
-  input_tokens: number;
-  output_tokens: number;
-  cached_tokens: number;
-  cache_write_tokens: number;
-  model_count: number;
-  compute_seconds: number;
-}
-
-export interface SessionCostModelUsage {
-  provider: string;
-  model: string;
-  request_count: number;
-  error_count: number;
-  input_tokens: number;
-  output_tokens: number;
-  cached_tokens: number;
-  cache_write_tokens: number;
-  cost: number;
-  last_at: string;
-}
-
-export interface SessionCostLlmLedgerEntry {
-  kind: 'llm';
-  id: string;
-  occurred_at: string;
-  cost: number;
-  provider: string;
-  model: string;
-  request_id: string;
-  status: number;
-  ok: boolean;
-  input_tokens: number;
-  output_tokens: number;
-  cached_tokens: number;
-  cache_write_tokens: number;
-  /** True when another workspace paid for this row: the request ran before the
-   *  session's project moved to this workspace. Absent from an older API. */
-  billed_elsewhere?: boolean;
-}
-
-export interface SessionCostComputeLedgerEntry {
-  kind: 'compute';
-  id: string;
-  started_at: string;
-  ended_at: string | null;
-  billed_through_at: string;
-  cost: number;
-  provider: string;
-  state: string;
-  compute_seconds: number;
-  cpu_cores: number;
-  memory_gb: number;
-  disk_gb: number;
-  gpu_count: number;
-  /** True when another workspace paid for this row (see the LLM entry). */
-  billed_elsewhere?: boolean;
-}
-
-export type SessionCostLedgerEntry = SessionCostLlmLedgerEntry | SessionCostComputeLedgerEntry;
-
-export interface SessionCostDetail extends SessionCostSummary {
-  model_usage: SessionCostModelUsage[];
-  ledger_entries: SessionCostLedgerEntry[];
-  /** The part of `total_cost` another workspace paid for: the session ran
-   *  before its project moved here. 0 when it all billed here. */
-  billed_elsewhere_cost?: number;
-}
-
-export interface SessionCostReconciliation {
-  llm_cost: number;
-  compute_cost: number;
-  total_cost: number;
-  request_count: number;
-  compute_window_count: number;
-  compute_seconds: number;
 }
 
 export interface SessionCostListResponse {
@@ -165,7 +88,7 @@ interface LlmAggregateRow {
   // field there compiles fine with the projection missing and silently reports
   // $0.00 for the split, which is the exact class of bug this module exists to
   // fix. Required makes the compiler catch a forgotten projection.
-  llmKortixCost: NumericValue;
+  llmDoscoCost: NumericValue;
   llmProviderCost: NumericValue;
   requestCount: NumericValue;
   errorCount: NumericValue;
@@ -239,6 +162,25 @@ function requiredIsoValue(value: TemporalValue): string {
   return isoValue(value) ?? new Date(0).toISOString();
 }
 
+// The four per-request token counters of an LLM wire record. One definition:
+// the summary, the model-usage rows and the LLM ledger entries each hand-
+// copied this block, and three copies drift the moment one is edited. The
+// request and error counts are NOT shared: a ledger row is one request, so
+// those two counters exist only on the aggregate records.
+function llmTokenWire(row: {
+  inputTokens?: NumericValue;
+  outputTokens?: NumericValue;
+  cachedTokens?: NumericValue;
+  cacheWriteTokens?: NumericValue;
+} | undefined) {
+  return {
+    input_tokens: numberValue(row?.inputTokens),
+    output_tokens: numberValue(row?.outputTokens),
+    cached_tokens: numberValue(row?.cachedTokens),
+    cache_write_tokens: numberValue(row?.cacheWriteTokens),
+  };
+}
+
 function latestIsoValue(...values: TemporalValue[]): string | null {
   let latest: string | null = null;
   for (const value of values) {
@@ -264,7 +206,7 @@ export function assembleSessionCostSummary(input: {
   llm?: LlmAggregateRow;
   compute?: ComputeAggregateRow;
 }): SessionCostSummary {
-  const llmCost = numberValue(input.llm?.llmKortixCost);
+  const llmCost = numberValue(input.llm?.llmDoscoCost);
   const computeCost = numberValue(input.compute?.computeCost);
   const ownerType = input.session.ownerId ? (input.owner?.type ?? 'unknown') : null;
 
@@ -281,16 +223,13 @@ export function assembleSessionCostSummary(input: {
     updated_at: requiredIsoValue(input.session.updatedAt),
     last_activity_at: latestIsoValue(input.llm?.lastAt, input.compute?.lastAt),
     llm_cost: llmCost,
-    llm_kortix_cost: numberValue(input.llm?.llmKortixCost),
+    llm_kortix_cost: numberValue(input.llm?.llmDoscoCost),
     llm_provider_cost: numberValue(input.llm?.llmProviderCost),
     compute_cost: computeCost,
     total_cost: sumCosts(llmCost, computeCost),
     request_count: numberValue(input.llm?.requestCount),
     error_count: numberValue(input.llm?.errorCount),
-    input_tokens: numberValue(input.llm?.inputTokens),
-    output_tokens: numberValue(input.llm?.outputTokens),
-    cached_tokens: numberValue(input.llm?.cachedTokens),
-    cache_write_tokens: numberValue(input.llm?.cacheWriteTokens),
+    ...llmTokenWire(input.llm),
     model_count: numberValue(input.llm?.modelCount),
     compute_seconds: numberValue(input.compute?.computeSeconds),
   };
@@ -360,16 +299,23 @@ export function mergeLegacyGatewaySessionRows(
 
 // The LLM aggregate columns, shared by the windowed subquery that feeds the
 // session list and the all-time scalar query that feeds the session detail.
-const llmAggregateFields = {
-  llmCost: kortixBilledSpendSql,
-  llmKortixCost: kortixBilledSpendSql,
-  llmProviderCost: providerBilledSpendSql,
+// The per-model usage aggregates. One definition: the session aggregates
+// and the per-model breakdown (loadModelUsage) both select them, and two
+// hand-written copies would drift the moment one is edited.
+const llmUsageFields = {
   requestCount: sql<number>`count(*)::int`,
   errorCount: sql<number>`count(*) filter (where not ${gatewayRequestLogs.ok})::int`,
   inputTokens: sql<number>`coalesce(sum(${gatewayRequestLogs.inputTokens}), 0)::float8`,
   outputTokens: sql<number>`coalesce(sum(${gatewayRequestLogs.outputTokens}), 0)::float8`,
   cachedTokens: sql<number>`coalesce(sum(${gatewayRequestLogs.cachedTokens}), 0)::float8`,
   cacheWriteTokens: sql<number>`coalesce(sum(${gatewayRequestLogs.cacheWriteTokens}), 0)::float8`,
+};
+
+const llmAggregateFields = {
+  llmCost: kortixBilledSpendSql,
+  llmDoscoCost: kortixBilledSpendSql,
+  llmProviderCost: providerBilledSpendSql,
+  ...llmUsageFields,
   // Refusal rows written by the gateway trace (KRTX-1749: post-auth 4xx and
   // attributed 401s) carry empty provider/model — they answered nothing. The
   // pair is real but says nothing about "models used", so keep it out of the
@@ -442,7 +388,7 @@ function llmAggregateSubquery(scope: CostScope, window: CostWindow) {
     .select({
       sessionId: gatewayRequestLogs.sessionId,
       llmCost: llmAggregateFields.llmCost.as('llm_cost'),
-      llmKortixCost: llmAggregateFields.llmKortixCost.as('llm_kortix_cost'),
+      llmDoscoCost: llmAggregateFields.llmDoscoCost.as('llm_kortix_cost'),
       llmProviderCost: llmAggregateFields.llmProviderCost.as('llm_provider_cost'),
       requestCount: llmAggregateFields.requestCount.as('request_count'),
       errorCount: llmAggregateFields.errorCount.as('error_count'),
@@ -508,7 +454,7 @@ async function loadSessionTotals(
     db
       .select({
         ...llmAggregateFields,
-        elsewhere: sql<number>`coalesce(sum(${rowKortixBilledSpendSql}) filter (where ${gatewayRequestLogs.accountId} <> ${scope.accountId}::uuid), 0)::float8`,
+        elsewhere: sql<number>`coalesce(sum(${rowDoscoBilledSpendSql}) filter (where ${gatewayRequestLogs.accountId} <> ${scope.accountId}::uuid), 0)::float8`,
       })
       .from(gatewayRequestLogs)
       .where(
@@ -576,9 +522,9 @@ async function loadReconciliation(
       .where(and(...llmConditions)),
     db
       .select({
-        cost: sql<number>`coalesce(sum(${sandboxComputeSessions.costUsd}), 0)::float8`,
+        cost: computeAggregateFields.computeCost,
         windows: sql<number>`count(*)::int`,
-        seconds: sql<number>`coalesce(sum(${billedComputeSecondsExpression}), 0)::float8`,
+        seconds: computeAggregateFields.computeSeconds,
       })
       .from(sandboxComputeSessions)
       .leftJoin(
@@ -710,7 +656,7 @@ export async function listSessionCosts(input: {
         createdAt: projectSessions.createdAt,
         updatedAt: projectSessions.updatedAt,
         llmCost: llm.llmCost,
-        llmKortixCost: llm.llmKortixCost,
+        llmDoscoCost: llm.llmDoscoCost,
         llmProviderCost: llm.llmProviderCost,
         requestCount: llm.requestCount,
         errorCount: llm.errorCount,
@@ -755,7 +701,7 @@ export async function listSessionCosts(input: {
       owner: row.ownerId ? ownerById.get(row.ownerId) : undefined,
       llm: {
         llmCost: row.llmCost,
-        llmKortixCost: row.llmKortixCost,
+        llmDoscoCost: row.llmDoscoCost,
         llmProviderCost: row.llmProviderCost,
         requestCount: row.requestCount,
         errorCount: row.errorCount,
@@ -793,14 +739,9 @@ async function loadModelUsage(
     .select({
       provider: gatewayRequestLogs.provider,
       model: gatewayRequestLogs.resolvedModel,
-      requestCount: sql<number>`count(*)::int`,
-      errorCount: sql<number>`count(*) filter (where not ${gatewayRequestLogs.ok})::int`,
-      inputTokens: sql<number>`coalesce(sum(${gatewayRequestLogs.inputTokens}), 0)::float8`,
-      outputTokens: sql<number>`coalesce(sum(${gatewayRequestLogs.outputTokens}), 0)::float8`,
-      cachedTokens: sql<number>`coalesce(sum(${gatewayRequestLogs.cachedTokens}), 0)::float8`,
-      cacheWriteTokens: sql<number>`coalesce(sum(${gatewayRequestLogs.cacheWriteTokens}), 0)::float8`,
+      ...llmUsageFields,
       cost: kortixBilledSpendSql,
-      lastAt: sql<Date>`max(${gatewayRequestLogs.createdAt})`,
+      lastAt: llmAggregateFields.lastAt,
     })
     .from(gatewayRequestLogs)
     .where(
@@ -814,10 +755,7 @@ async function loadModelUsage(
     model: row.model,
     request_count: numberValue(row.requestCount),
     error_count: numberValue(row.errorCount),
-    input_tokens: numberValue(row.inputTokens),
-    output_tokens: numberValue(row.outputTokens),
-    cached_tokens: numberValue(row.cachedTokens),
-    cache_write_tokens: numberValue(row.cacheWriteTokens),
+    ...llmTokenWire(row),
     cost: numberValue(row.cost),
     last_at: requiredIsoValue(row.lastAt),
   }));
@@ -832,7 +770,7 @@ async function loadLedgerEntries(
       .select({
         id: gatewayRequestLogs.logId,
         occurredAt: gatewayRequestLogs.createdAt,
-        cost: rowKortixBilledSpendSql,
+        cost: rowDoscoBilledSpendSql,
         provider: gatewayRequestLogs.provider,
         model: gatewayRequestLogs.resolvedModel,
         requestId: gatewayRequestLogs.requestId,
@@ -880,10 +818,7 @@ async function loadLedgerEntries(
     request_id: row.requestId,
     status: row.status,
     ok: row.ok,
-    input_tokens: row.inputTokens,
-    output_tokens: row.outputTokens,
-    cached_tokens: row.cachedTokens,
-    cache_write_tokens: row.cacheWriteTokens,
+    ...llmTokenWire(row),
     ...(row.accountId !== scope.accountId ? { billed_elsewhere: true } : {}),
   }));
 
@@ -969,13 +904,13 @@ export async function listProjectGatewaySessionSpend(input: {
     db
       .select({
         sessionId: gatewayRequestLogs.sessionId,
-        requests: sql<number>`count(*)::int`,
-        errors: sql<number>`count(*) filter (where not ${gatewayRequestLogs.ok})::int`,
+        requests: llmUsageFields.requestCount,
+        errors: llmUsageFields.errorCount,
         ...llmValueFields,
         cost: totalSpendSql,
         tokens: sql<number>`coalesce(sum(${gatewayRequestLogs.inputTokens} + ${gatewayRequestLogs.outputTokens}), 0)::float8`,
         models: sql<number>`count(distinct ${gatewayRequestLogs.requestedModel})::int`,
-        lastAt: sql<Date | null>`max(${gatewayRequestLogs.createdAt})`,
+        lastAt: llmAggregateFields.lastAt,
       })
       .from(gatewayRequestLogs)
       .where(
@@ -992,9 +927,9 @@ export async function listProjectGatewaySessionSpend(input: {
     db
       .select({
         sessionId: sandboxComputeSessions.sessionId,
-        cost: sql<number>`coalesce(sum(${sandboxComputeSessions.costUsd}), 0)::float8`,
-        seconds: sql<number>`coalesce(sum(${billedComputeSecondsExpression}), 0)::float8`,
-        lastAt: sql<string | null>`max(${sandboxComputeSessions.lastBilledAt})`,
+        cost: computeAggregateFields.computeCost,
+        seconds: computeAggregateFields.computeSeconds,
+        lastAt: computeAggregateFields.lastAt,
       })
       .from(sandboxComputeSessions)
       .innerJoin(sessionSandboxes, eq(sessionSandboxes.sessionId, sandboxComputeSessions.sessionId))

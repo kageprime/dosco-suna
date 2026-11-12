@@ -94,7 +94,7 @@ const notch = (y: '0' | '100%') =>
 const TICKET_TOP = { mask: notch('100%') };
 const TICKET_BOTTOM = { mask: notch('0') };
 
-export interface DemoQualifierModalProps {
+interface DemoQualifierModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   calLink: string;

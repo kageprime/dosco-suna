@@ -269,6 +269,43 @@ export function isMathFenceLanguage(language: string): boolean {
 }
 
 /**
+ * Mermaid diagram types: a fence whose first line starts with one of these
+ * renders as a Mermaid diagram. The web renderer's validators in `packages/ui`
+ * share this list.
+ */
+export const MERMAID_DIAGRAM_STARTERS: readonly string[] = [
+  'graph',
+  'flowchart',
+  'sequencediagram',
+  'classdiagram',
+  'statediagram',
+  'erdiagram',
+  'journey',
+  'gantt',
+  'pie',
+  'gitgraph',
+  'mindmap',
+  'timeline',
+  'sankey',
+  'block',
+  'quadrant',
+  'requirement',
+  'c4context',
+  'c4container',
+  'c4component',
+  'c4dynamic',
+];
+
+// Git graph specific patterns (gitgraph starts with these commands)
+const MERMAID_CODE_STARTERS: readonly string[] = [
+  ...MERMAID_DIAGRAM_STARTERS,
+  'commit',
+  'branch',
+  'checkout',
+  'merge',
+];
+
+/**
  * Detects if a code block contains Mermaid syntax
  */
 export function isMermaidCode(language: string, code: string): boolean {
@@ -283,36 +320,8 @@ export function isMermaidCode(language: string, code: string): boolean {
     const trimmed = code.trim();
     const firstLine = trimmed.split('\n')[0]?.toLowerCase().trim();
 
-    const mermaidStarters = [
-      'graph',
-      'flowchart',
-      'sequencediagram',
-      'classdiagram',
-      'statediagram',
-      'erdiagram',
-      'journey',
-      'gantt',
-      'pie',
-      'gitgraph',
-      'mindmap',
-      'timeline',
-      'sankey',
-      'block',
-      'quadrant',
-      'requirement',
-      'c4context',
-      'c4container',
-      'c4component',
-      'c4dynamic',
-      // Git graph specific patterns (gitgraph starts with these commands)
-      'commit',
-      'branch',
-      'checkout',
-      'merge',
-    ];
-
     // Only treat as Mermaid if the first line starts with a diagram declaration
-    return mermaidStarters.some((starter) => firstLine.startsWith(starter.toLowerCase()));
+    return MERMAID_CODE_STARTERS.some((starter) => firstLine.startsWith(starter.toLowerCase()));
   }
 
   return false;

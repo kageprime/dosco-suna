@@ -1,17 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import {
-  chmodSync,
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 // Black-box test of the .gitleaks.toml allowlist for the committed
 // apps/{api,web}/.env* profiles: the real config, the real gitleaks binary
@@ -26,6 +16,7 @@ import { join, resolve } from 'node:path';
 // key lines) stays exempt. The public-key exemption is shape-pinned too: a
 // credential pasted into the DOTENV_PUBLIC_KEY slot is caught.
 import { test } from 'node:test';
+import { pinnedGitleaks } from './lib/gitleaks-binary.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const CONFIG = join(ROOT, '.gitleaks.toml');
@@ -36,53 +27,8 @@ const PUBLIC_KEY = '0234a1376bedae4540554126a93ccf6f929206a5e61405a65da1bb7d4e91
 // other commits only, and this fixture is not a Stripe key anyway.
 const PLAINTEXT = ['sk', 'live', '51SyntheticRegressionFixtureOnly00'].join('_');
 
-// The exact build .github/workflows/secret-scan.yml installs. The test always
-// scans with THIS version: another release ships other rules, and a config test
-// that silently ran on a different binary would prove nothing. When PATH has no
-// gitleaks (CI lanes, a fresh laptop) it downloads the pinned release once into
-// ~/.cache/kortix/gitleaks.
-const PIN = '8.30.1';
-
-let resolved;
-function binary() {
-  if (resolved) return resolved;
-  const cached = join(homedir(), '.cache', 'kortix', 'gitleaks', PIN, 'gitleaks');
-  if (existsSync(cached)) {
-    resolved = cached;
-    return cached;
-  }
-  const base = `https://github.com/gitleaks/gitleaks/releases/download/v${PIN}`;
-  const archive = `gitleaks_${PIN}_${process.platform === 'darwin' ? 'darwin' : 'linux'}_${process.arch === 'arm64' ? 'arm64' : 'x64'}.tar.gz`;
-  const dir = mkdtempSync(join(tmpdir(), 'gitleaks-download-'));
-  // CWE-494, as secret-scan.yml does it: fetch the published checksum for THIS
-  // archive and refuse a mismatch before the downloaded binary ever runs.
-  execFileSync('curl', [
-    '-sSfL',
-    `${base}/gitleaks_${PIN}_checksums.txt`,
-    '-o',
-    join(dir, 'checksums.txt'),
-  ]);
-  const expected = readFileSync(join(dir, 'checksums.txt'), 'utf8')
-    .split('\n')
-    .find((line) => line.endsWith(` ${archive}`))
-    ?.split(' ')[0];
-  assert.ok(expected, `${archive} is missing from the published checksums.txt`);
-  execFileSync('curl', ['-sSfL', `${base}/${archive}`, '-o', join(dir, archive)]);
-  const actual = createHash('sha256')
-    .update(readFileSync(join(dir, archive)))
-    .digest('hex');
-  assert.equal(actual, expected, `${archive} does not match its published sha256`);
-  execFileSync('tar', ['-xzf', join(dir, archive), '-C', dir, 'gitleaks']);
-  mkdirSync(join(cached, '..'), { recursive: true });
-  copyFileSync(join(dir, 'gitleaks'), cached);
-  chmodSync(cached, 0o755);
-  rmSync(dir, { recursive: true, force: true });
-  resolved = cached;
-  return cached;
-}
-
 function scan(files) {
-  const gitleaks = binary();
+  const gitleaks = pinnedGitleaks();
   const dir = mkdtempSync(join(tmpdir(), 'gitleaks-allowlist-'));
   const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' });
   git('init', '-q', '-b', 'main');

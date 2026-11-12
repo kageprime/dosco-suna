@@ -72,7 +72,6 @@ import {
   type KebabItem,
   RBAC_UPSELL_MESSAGE,
   builtinRoleDescriptor,
-  pluralize,
 } from '@kortix/ui/access/access/index';
 import { AccessRow } from '@kortix/ui/access';
 import {
@@ -339,10 +338,10 @@ function RoleRow({
   }
 
   const capabilityLabel = permsQuery.isError
-    ? '— capabilities'
+    ? tI18nComplete.raw('textc75e59f5d748')
     : permsQuery.isLoading
-      ? '… capabilities'
-      : pluralize(permsQuery.data?.actions.length ?? 0, 'capability', 'capabilities');
+      ? tI18nComplete.raw('text58423a0108ea')
+      : tI18nComplete('textcd6f79740e17', { count: permsQuery.data?.actions.length ?? 0 });
 
   // A built-in role is described by the SHARED descriptor, not by whatever
   // prose the API row happens to carry — the Roles list, the role Select and
@@ -364,10 +363,10 @@ function RoleRow({
   const usageLabel = !isCustom
     ? null
     : usageQuery.isError
-      ? 'used by —'
+      ? tI18nComplete.raw('textd1e588d764a4')
       : usageQuery.isLoading
-        ? 'used by …'
-        : `used by ${usageQuery.data?.policy_count ?? 0}`;
+        ? tI18nComplete.raw('text66cbb5dfa6cf')
+        : tI18nComplete('text56c316b0bde4', { value0: usageQuery.data?.policy_count ?? 0 });
 
   return (
     <AccessRow
@@ -699,7 +698,7 @@ function RoleDialog(props: RoleDialogProps) {
             onClick={() => onOpenChange(false)}
             disabled={isPending}
           >
-            {isView ? 'Close' : 'Cancel'}
+            {isView ? tI18nComplete.raw('text7d9eb7acb13e') : tI18nComplete.raw('text19766ed6ccb2')}
           </Button>
           {!isView && (
             <Button onClick={() => mutation.mutate()} disabled={submitDisabled} className="gap-1.5">

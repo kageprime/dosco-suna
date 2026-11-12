@@ -1,6 +1,7 @@
 /** Catalogue browse routes: Discover (the Kortix catalog: Kortix apps, integrations.sh, Composio), easy-connect toolkits, Pipedream apps. */
 import { withDirectIds, withDirectMcpUrls } from '../connect-direct-twins';
-import { CatalogInstallError, catalogInstallDraft, connectorIdentity, freeSlug, installedSlugs } from '../catalog-install';
+import { CatalogInstallError, CatalogInstallNeedsUrl, catalogInstallDraft, connectorIdentity, freeSlug, installedSlugs } from '../catalog-install';
+import { customSourceRefusal } from './custom-source';
 import { type ConnectorCatalogDetail, canonicalCatalogId } from '../connector-catalog';
 import { allowedSourceValidationResponse } from './admin';
 import { type OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
@@ -182,6 +183,9 @@ const InstallBody = z.object({
   way: z.string().optional().openapi({ description: 'A variant id from the detail. Default: the recommended way.' }),
   name: z.string().optional().openapi({ description: 'Display name. Default: the app name.' }),
   slug: z.string().optional().openapi({ description: 'Slug in kortix.yaml. Default: from the name.' }),
+  url: z.string().optional().openapi({
+    description: 'The server URL of an MCP way the catalogue lists without one. From an agent session, a URL nobody approved yet answers 403 `custom_connector_needs_human` with `setup_url`.',
+  }),
   as_new_profile: z.boolean().optional().openapi({
     description: 'Add another profile of a way the project already has. Default: answer the existing profile (`existing: true`).',
   }),
@@ -276,10 +280,29 @@ function registerDiscoverToolsAndInstallRoutes(app: OpenAPIHono, deps: Connector
       try {
         built = catalogInstallDraft(detail, body);
       } catch (error) {
+        if (error instanceof CatalogInstallNeedsUrl) {
+          // Not a refusal: the person who has the URL adds it, from the CLI
+          // with --url or on the page setup_url opens.
+          return c.json(
+            {
+              error: error.message,
+              code: 'connector_needs_url',
+              way: { id: error.way.id, kind: error.way.kind, name: error.way.name },
+              docs: error.way.docs,
+              setup_url:
+                deps.customConnectorSetupUrl?.(projectId, { provider: 'mcp', name: body.name?.trim() || error.appName }) ?? null,
+            },
+            409,
+          );
+        }
         if (error instanceof CatalogInstallError) return c.json({ error: error.message }, 400);
         throw error;
       }
       const { draft, way } = built;
+      if (body.url) {
+        const refused = await customSourceRefusal(c, deps, projectId, draft);
+        if (refused) return c.json(refused, 403);
+      }
       const summary = {
         name: draft.name,
         provider: draft.provider,

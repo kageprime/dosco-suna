@@ -28,9 +28,9 @@
  *      typechecked; a missing array entry compiles fine.
  *   4. Another hand-written copy in that package's projects.test.ts
  *   5. An entry below, DECLARING its enforcement mode
- *   6. One `useFeatureFlag` call + one map entry in
- *      packages/ui/src/internal/lib/use-project-feature-flags.ts (and move the trailing
- *      `isLoading:` to the newly-last hook)
+ *   6. One map entry: the served-key list is one line per new key in
+ *      packages/sdk/src/react/use-feature-flag.ts (`useFeatureFlags`); every
+ *      other copy — gate reads, `requiresFlag`, the palette map — derives from it.
  *
  * Then gate its routes with `requireFeatureFlag` (enforcement: 'routes'), or
  * its runtime behavior on `resolveFeatureFlag` (enforcement: 'behavioral').
@@ -102,10 +102,11 @@
  * entry names the release and the spec section that ends it.
  *
  * The same state also serves INTERNAL-ONLY surfaces (`workspace_volume`):
- * not offered in Settings, enabled per project by a
+ * not offered in Settings, on by the operator default or per project by a
  * Kortix operator on request. Their 403 says "contact Kortix" instead of
  * naming a toggle the caller cannot see (gate.ts).
  */
+import { CHROME_LAUNCHED } from '@kortix/shared/chrome-launch';
 import { config } from '../config';
 import { platinumUsRegion } from '../shared/platinum-region';
 import type { FeatureFlagKey, FeatureFlagStability } from '@kortix/api-contract';
@@ -243,11 +244,16 @@ const FLAGS: readonly FeatureFlagDef[] = [
     description: 'Members connect their own ChatGPT and Claude subscriptions and provider keys, share them when needed, and choose which ones each session uses.',
     stability: 'experimental',
     available: () => true,
-    // On by default since 2026-10-31: every project gets private-by-default
-    // provider accounts. A project that turned it off keeps it off.
+    // On by default since 2026-10-31: every project gets named provider
+    // accounts, shared with the workspace by default for a person who may
+    // share (2026-11-11). A project that turned it off keeps it off.
+    // Since the one-store change (llm-credential-move.ts) named accounts are
+    // where every provider key lives: the flag no longer decides where a key
+    // is saved or whether the gateway reads it. It gates per-session key
+    // selection and the named ChatGPT/Claude sign-in only.
     platformDefault: () => true,
     enforcement: 'behavioral',
-    enforcementNote: 'Session selection and provider credential resolution reject or ignore resource secrets while disabled.',
+    enforcementNote: 'Session key selection and named ChatGPT/Claude sign-ins are refused while disabled. Provider keys are saved and read as named accounts either way.',
   },
   // `pi_harness` graduated (2026-10-23): every new session runs pi; OpenCode is
   // sunset (kortixd has no OpenCode harness since 2026-10-30). No flag, no
@@ -419,20 +425,24 @@ const FLAGS: readonly FeatureFlagDef[] = [
     // The key keeps its name: it is in the SDK's FeatureFlagKey and stored on projects.
     name: 'Stateless sandboxes',
     description:
-      "Every new Platinum session keeps only /workspace, on its own Platinum volume, so the sandbox is disposable: one stopped for an hour (KORTIX_SANDBOX_IDLE_DELETE_MINUTES) is deleted, and the next open boots a new sandbox on the same files and conversation. Programs that ran in the old sandbox are not running, and the agent is told so. Not a Settings toggle: Kortix enables it per workspace.",
+      "Every new Platinum session keeps only /workspace, on its own Platinum volume, so the sandbox is disposable: one stopped for an hour (KORTIX_SANDBOX_IDLE_DELETE_MINUTES) is deleted, and the next open boots a new sandbox on the same files and conversation. Programs that ran in the old sandbox are not running, and the agent is told so. Not a Settings toggle: Kortix turns it on.",
     stability: 'experimental',
     // Every workspace volume is a Platinum volume.
     available: () => Boolean(config.PLATINUM_API_KEY),
-    platformDefault: () => false,
-    // Internal-only: stateless sandboxes roll out project by project. A Kortix
-    // operator sets it (PUT /v1/admin/api/projects/:id/features).
+    // Off unless the operator sets KORTIX_WORKSPACE_VOLUMES=on (dev and prod
+    // do: deploy-dev.yml, deploy-prod.yml). Staging and self-host leave it unset.
+    platformDefault: () => workspaceVolumesSwitch() === 'on',
+    // Internal-only, never a Settings toggle. A Kortix operator sets one
+    // project's choice (PUT /v1/admin/api/projects/:id/features); `false` keeps
+    // that project off while the default is on.
     catalogHidden: true,
     enforcement: 'behavioral',
     enforcementNote:
       'BEHAVIORAL only. Read once per session, at POST /sessions (platform/services/workspace-volume.ts): on, a ' +
       'Platinum session is inserted with `metadata.workspace_volume` and every box it ever gets mounts volume ' +
       'kws-<session_id> at /workspace, in the region the volume was created in, with KORTIX_WORKSPACE_VOLUME=1 and ' +
-      'the session-log restore on. Turning the flag off changes no session that has a volume; ' +
+      'the session-log restore on. Turning the flag off changes no session that has a volume. ' +
+      'KORTIX_WORKSPACE_VOLUMES=on makes it the default for every project without its own choice; ' +
       'KORTIX_WORKSPACE_VOLUMES=off stops new volumes everywhere. A box stopped longer than ' +
       'KORTIX_SANDBOX_IDLE_DELETE_MINUTES (default 60) is deleted (projects/reaping/idle-volume-retire.ts). The ' +
       'volume is deleted with the session content: by the retention purge after the trash window ' +
@@ -462,7 +472,11 @@ const FLAGS: readonly FeatureFlagDef[] = [
     stability: 'experimental',
     // Off on staging and prod until the Chrome Web Store listing is public.
     available: () => config.KORTIX_CHROME_ENABLED,
-    platformDefault: () => true,
+    // Not launched (CHROME_LAUNCHED, #11436): the web has no Chrome surface, so
+    // no project gets it by default and the catalog does not offer it. An
+    // operator can still turn it on for one project (the extension's dev pairing).
+    platformDefault: () => CHROME_LAUNCHED,
+    ...(CHROME_LAUNCHED ? {} : { catalogHidden: true as const }),
     enforcement: 'routes',
     enforcementNote:
       'ROUTES: POST /v1/chrome/attach answers 403 `feature_disabled` when the calling session\'s project has it ' +
@@ -493,7 +507,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'voice_call',
     name: 'Voice calls',
     description:
-      'Call an agent from its page (Customize → Agents) and talk it through: a call is a session of its own on that agent, which hears you, answers in a voice and sees a screen you share; the conversation is that session\'s chat.',
+      'Call an agent from an empty message box, where the send button becomes a call button, or from its page (Customize → Agents), and talk it through. In a session, the call goes to that session\'s agent; on the workspace home, it starts a new session. The agent hears you, answers in a voice and sees a screen you share, and the conversation is the session\'s chat.',
     stability: 'experimental',
     wip: true,
     available: () => true,
@@ -502,7 +516,9 @@ const FLAGS: readonly FeatureFlagDef[] = [
     enforcementNote:
       'Off ⇒ nothing of the voice loads. BOX: absent from KORTIX_FEATURE_FLAGS (projects/lib/feature-flag-env.ts), so ' +
       'kortixd registers no voice extension and opens no voice port; a change reaches the next new box. WEB: no call ' +
-      'button on the agent page. The gateway\'s audio routes are inference like chat: billed per use, not gated here.',
+      'button on the agent page, and an empty composer keeps its Send (packages/ui/src/session/voice/composer-call.ts: ' +
+      'project home, the session boot shell and the session chat). The gateway\'s audio routes are inference like ' +
+      'chat: billed per use, not gated here.',
   },
   {
     key: 'chat_input',
@@ -674,6 +690,18 @@ export function buildFeatureFlagCatalog(metadata: unknown): FeatureFlagView[] {
       scope: 'project' as const,
     }];
   });
+}
+
+/**
+ * KORTIX_WORKSPACE_VOLUMES: `on` (or 1/true/yes) makes `workspace_volume` the
+ * default for a project without its own choice; `off` (or 0/false/no) gives
+ * no new session a volume; unset or anything else leaves it to each project.
+ */
+export function workspaceVolumesSwitch(): 'on' | 'off' | null {
+  const value = (config.KORTIX_WORKSPACE_VOLUMES ?? '').trim().toLowerCase();
+  if (/^(1|on|true|yes)$/.test(value)) return 'on';
+  if (/^(0|off|false|no)$/.test(value)) return 'off';
+  return null;
 }
 
 /** True when only a platform operator may write this flag. */

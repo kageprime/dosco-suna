@@ -52,6 +52,36 @@ export function isSnapshotStillBuilding(error: unknown): boolean {
   return (error as Error | null)?.name?.startsWith('Daytona') === true && /snapshot .+ is building/i.test(errorMessage(error));
 }
 
+/**
+ * One retry policy per failure class: the attempt budget and the delay between
+ * attempts. Snapshot-building keeps its separate long polling window; a fleet
+ * placement refusal gets the short quick-retry window
+ * (CAPACITY_QUICK_RETRY_DELAYS_MS); past it the create fails and the session's
+ * next `/start` re-attempts it with backoff.
+ */
+const PROVISION_RETRY_POLICY = {
+  'snapshot-building': {
+    maxAttempts: SNAPSHOT_BUILDING_MAX_ATTEMPTS,
+    delayMs: () => SNAPSHOT_BUILDING_RETRY_DELAY_MS,
+  },
+  'fleet-capacity': {
+    maxAttempts: 1 + CAPACITY_QUICK_RETRY_DELAYS_MS.length,
+    delayMs: (attempt: number) => CAPACITY_QUICK_RETRY_DELAYS_MS[attempt - 1] ?? CAPACITY_QUICK_RETRY_DELAYS_MS.at(-1)!,
+  },
+  capacity: { maxAttempts: 1, delayMs: () => 0 },
+  generic: {
+    maxAttempts: SANDBOX_INIT_MAX_ATTEMPTS,
+    delayMs: (attempt: number) => exponentialBackoffMs({ attempt, baseMs: RETRY_DELAY_BASE_MS, capMs: RETRY_DELAY_MAX_MS }),
+  },
+};
+
+/** Which retry policy applies: the failure class of one refused create. */
+function provisionRetryClass(error: unknown): keyof typeof PROVISION_RETRY_POLICY {
+  if (isSnapshotStillBuilding(error)) return 'snapshot-building';
+  if (!classifySandboxProvisioningFailure(error).isCapacity) return 'generic';
+  return isFleetPlacementRefusal(error) ? 'fleet-capacity' : 'capacity';
+}
+
 /** The failure keys every builder below drops before it writes its own. */
 const SANDBOX_INIT_FAILURE_KEYS = [
   'provisioningError',
@@ -194,7 +224,7 @@ export async function retrySandboxProvisionCreate(
   let lastError: unknown;
   // Outer bound is the longest patience-window we'd extend for any retry class.
   const HARD_CAP = SNAPSHOT_BUILDING_MAX_ATTEMPTS;
-  let currentMaxAttempts = SANDBOX_INIT_MAX_ATTEMPTS;
+  let currentMaxAttempts = PROVISION_RETRY_POLICY.generic.maxAttempts;
   for (let attempt = 1; attempt <= HARD_CAP; attempt++) {
     await hooks.onAttemptStart?.(attempt, currentMaxAttempts);
     try {
@@ -213,31 +243,12 @@ export async function retrySandboxProvisionCreate(
         await hooks.onAttemptFailure?.(attempt, error, false, currentMaxAttempts);
         throw error;
       }
-      const snapshotStillBuilding = isSnapshotStillBuilding(error);
-      const capacityLimited =
-        !snapshotStillBuilding && classifySandboxProvisioningFailure(error).isCapacity;
-      const quickCapacityRetry = capacityLimited && isFleetPlacementRefusal(error);
-      const maxAttempts = snapshotStillBuilding
-        ? SNAPSHOT_BUILDING_MAX_ATTEMPTS
-        : capacityLimited
-          ? quickCapacityRetry
-            ? 1 + CAPACITY_QUICK_RETRY_DELAYS_MS.length
-            : 1
-          : SANDBOX_INIT_MAX_ATTEMPTS;
-      currentMaxAttempts = maxAttempts;
-      const willRetry = attempt < maxAttempts;
-      await hooks.onAttemptFailure?.(attempt, error, willRetry, maxAttempts);
+      const retry = PROVISION_RETRY_POLICY[provisionRetryClass(error)];
+      currentMaxAttempts = retry.maxAttempts;
+      const willRetry = attempt < retry.maxAttempts;
+      await hooks.onAttemptFailure?.(attempt, error, willRetry, retry.maxAttempts);
       if (!willRetry) throw error;
-      // Snapshot-building keeps its separate long polling window. Capacity
-      // gets its short quick-retry window (CAPACITY_QUICK_RETRY_DELAYS_MS);
-      // past it the create fails and the session's next `/start` re-attempts
-      // it with backoff.
-      const delay = snapshotStillBuilding
-        ? SNAPSHOT_BUILDING_RETRY_DELAY_MS
-        : quickCapacityRetry
-          ? CAPACITY_QUICK_RETRY_DELAYS_MS[attempt - 1] ?? CAPACITY_QUICK_RETRY_DELAYS_MS.at(-1)!
-          : exponentialBackoffMs({ attempt, baseMs: RETRY_DELAY_BASE_MS, capMs: RETRY_DELAY_MAX_MS });
-      await sleep(delay);
+      await sleep(retry.delayMs(attempt));
     }
   }
   throw lastError instanceof Error ? lastError : new Error('Sandbox initialization failed');

@@ -156,6 +156,7 @@
   "https://api.vybit.net/v1/mcp": "dcr",
   "https://api.webhound.ai/api/v2/mcp": "dcr",
   "https://api.whack.ie/mcp": "none",
+  "https://api.wisprflow.ai/connect/mcp": "dcr",
   "https://api.you.com/mcp": "dcr",
   "https://api.zillapi.com/mcp": "dcr",
   "https://api2.jebbit.com/mcp/open_ai": "none",

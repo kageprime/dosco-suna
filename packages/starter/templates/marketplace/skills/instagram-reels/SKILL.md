@@ -148,12 +148,10 @@ agents:
     skills: [instagram-reels]
     secrets: [ELEVENLABS_API_KEY, OPENAI_API_KEY]   # SARVAM_API_KEY instead of ELEVENLABS_API_KEY when the user chose Sarvam
     connectors: []
-    workspace: { project_repository: true }
   reels-publisher:
     prompt_file: agents/reels-publisher.md    # load the skill; publish the oldest passed item with step 8; report the permalink
     skills: [instagram-reels]
     connectors: [instagram]
-    workspace: { project_repository: true }
 triggers:
   - { slug: make-reel,    type: cron, agent: reels-producer,  cron: "0 0 6 * * *",  timezone: UTC, enabled: false, overlap: allow }
   - { slug: publish-reel, type: cron, agent: reels-publisher, cron: "0 0 17 * * *", timezone: UTC, enabled: false, overlap: allow }

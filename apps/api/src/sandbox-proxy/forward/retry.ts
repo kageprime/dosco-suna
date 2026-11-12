@@ -1,6 +1,9 @@
 import { HTTPException } from 'hono/http-exception';
 import { logger } from '../../lib/logger';
 import { ingressTargetUrl } from '../../platform/providers/ingress-url';
+import { DEAD_CREDENTIAL_BURST_SUPPRESSED } from '../../shared/dead-credential-log';
+import { logWindowDecision, logWindowWarnDecision } from '../../shared/log-window';
+import { isPlatinumNotRunningVerdict } from '../../shared/platinum-not-running';
 import {
   buildSandboxUpstreamHeaders,
   invalidatePreviewLink,
@@ -32,9 +35,11 @@ import { isProviderIngressAuthFailure } from '../provider-auth';
 import { portFailureHop } from '../proxy-hop';
 import { shouldBypassIngressCache } from '../sse-stall';
 import type { ForwardRequest, ForwardState } from './context';
+import { clearDialDead, dialDeadKey, DIAL_LIVENESS_PATH, isDialDeadCandidate, maybeProbeDialDeadCandidate, recordDialTimeout, shouldFailFast } from './dial-dead';
 import { placePromptWireId, syncEnvBeforeTurnStart } from './turn-start';
 import {
   buildUpstreamRequestHeaders,
+  PROXY_CONNECT_TIMEOUT_MESSAGE,
   respondFromUpstream,
   sendUpstreamAttempt,
 } from './upstream';
@@ -144,6 +149,81 @@ export async function forwardWithRetry(
   return giveUpForward(req, state);
 }
 
+/**
+ * Ship the give-up line of an exhausted forward (every attempt answered
+ * 502/503) through the shared log-noise throttle
+ * (shared/log-window.ts); the client response is never throttled —
+ * every exhausted request still gets the port-unreachable page or the
+ * passthrough 502, and lands in the request-completion logs. The line fired
+ * once per failed request, and the failed-request rate IS the caller's poll
+ * rate: one browser preview pane polling a stopped dev server emitted 49
+ * warns in 15 min from ONE sandbox (KRTX-4695). First line per (sandbox,
+ * port) window ships; the next window's line carries `suppressed`; severity
+ * follows the window's volume (KRTX-4454) so a one-off dead port ships info
+ * and a hammered one stays warn. Keyed per sandbox and port — not on the
+ * message — so one dead port cannot mask another's first line.
+ */
+export function reportPortNotAnswering(
+  message: string,
+  sandboxId: string,
+  port: number,
+  now = Date.now(),
+): void {
+  reportPortOutcome(message, 'still-not-answering', sandboxId, port, now);
+}
+
+/**
+ * Ship the fast-fail line of a dial-dead box through the same throttle: the
+ * request never dialled (the box's last two dials timed out), and its rate is
+ * the caller's poll rate — the same burst cadence the give-up line throttles.
+ * Keyed per (sandbox, port) window, so the two settled outcomes (a request
+ * that dialled and exhausted, one that was skipped) each ship their own first
+ * line.
+ */
+export function reportDialDeadFastFail(sandboxId: string, port: number, now = Date.now()): void {
+  reportPortOutcome(
+    `[PREVIEW] Sandbox ${sandboxId}:${port} not dialled — marked dial-dead after repeated connect timeouts, failing this request fast`,
+    'dial-dead-fast-fail',
+    sandboxId,
+    port,
+    now,
+  );
+}
+
+/** Ship the ladder-stop line of an UNCONFIRMED candidate through the same
+ *  throttle: the box timed out twice, the HTTP probe has not settled yet, so
+ *  this request stops dialling without fast-failing later ones. Its own
+ *  message keeps the sweep's `marked dial-dead` line exclusive to confirmed
+ *  marks. */
+export function reportDialDeadLadderStop(sandboxId: string, port: number, now = Date.now()): void {
+  reportPortOutcome(
+    `[PREVIEW] Sandbox ${sandboxId}:${port} stopped dialling after repeated connect timeouts — HTTP probe settling the dial-dead mark`,
+    'dial-dead-stop',
+    sandboxId,
+    port,
+    now,
+  );
+}
+
+/** The shared log-noise throttle behind both settled-outcome lines. */
+function reportPortOutcome(
+  message: string,
+  kind: string,
+  sandboxId: string,
+  port: number,
+  now: number,
+): void {
+  const key = `preview port ${kind} ${sandboxId}:${port}`;
+  const { log, suppressed } = logWindowDecision(key, now);
+  if (!log) return;
+  const fields = { sandboxId, port, suppressed };
+  // The escalation shares the hourly warn cap of the other burst-band sites
+  // (logWindowWarnDecision): a grind hour cannot ship every window's line at
+  // warn and re-trip the infra-sweep's 10/h new-warn-pattern bar (KRTX-4674).
+  if (suppressed >= DEAD_CREDENTIAL_BURST_SUPPRESSED && logWindowWarnDecision(key, now)) logger.warn(message, fields);
+  else logger.info(message, fields);
+}
+
 /** One attempt: resolve ingress, prepare the turn, send, and classify the answer. */
 async function forwardAttempt(
   req: ForwardRequest,
@@ -153,6 +233,20 @@ async function forwardAttempt(
   budgetRemainingMs: number,
 ): Promise<Response | 'retry'> {
   const { sandboxId, port, method, remainingPath, queryString, upstreamPort, record, ingressRequest, ptl, userId, serviceKey } = req;
+  const dialKey = dialDeadKey(sandboxId, port);
+
+  // A confirmed dial-dead box (two connect timeouts AND an HTTP probe through
+  // the ingress that got no answer) gets no dial at all — the ladder's
+  // remaining attempts would each hang the full connect timer against a path
+  // that answers no request (KRTX-4459). Reads fail fast to the same give-up
+  // response they would have reached ~45 s later; writes keep the ladder and
+  // its ambiguity guards. Once per probe window one request dials again
+  // (shouldFailFast renews the slot), so a revived box is served again.
+  if (!plan.nonReplayableWrite && shouldFailFast(dialKey)) {
+    state.lastAttemptHop = portFailureHop(upstreamPort);
+    reportDialDeadFastFail(sandboxId, port);
+    return giveUpForward(req, state);
+  }
   state.lastAttemptHop = 'provider_ingress';
   if (req.isSseEventStreamRequest && attempt === 0 && shouldBypassIngressCache(plan.sseStallKey)) {
     console.warn(
@@ -172,6 +266,32 @@ async function forwardAttempt(
   state.lastAttemptHop = portFailureHop(upstreamPort);
   const previewUrl = ingress.url;
   const targetUrl = ingressTargetUrl(ingress, remainingPath + queryString);
+
+  // A candidate streak (two connect timeouts, not yet confirmed) asks the
+  // box's HTTP layer directly — the one observable the HTTPS provider edge
+  // passes through from the box (a TCP connect proves only the edge, and the
+  // streak only ever forms on header timeouts, so TCP is reachable for exactly
+  // the cases it holds). The probe dials the LIVENESS path, never the request's
+  // route: the connect timer bounds the header phase, so a probe of a hung
+  // route would hang with it and confirm the mark against a box whose other
+  // routes are healthy — an unknown path is the one request every real server
+  // answers from its own layer (typically a fast 404). The probe is detached:
+  // the request keeps today's ladder, and the probe's verdict fast-fails the
+  // requests after it. Writes skip it; the probe is shared per key, so a
+  // concurrent burst spawns one probe.
+  if (!plan.nonReplayableWrite) {
+    void maybeProbeDialDeadCandidate(dialKey, {
+      url: ingressTargetUrl(ingress, DIAL_LIVENESS_PATH),
+      headers: ingress.headers,
+    });
+    // The ladder also stops on the unconfirmed candidate: a third dial against
+    // a box that timed out twice buys another 15 s hang, and the probe settles
+    // the mark for the requests that follow.
+    if (attempt > 0 && isDialDeadCandidate(dialKey)) {
+      reportDialDeadLadderStop(sandboxId, port);
+      return giveUpForward(req, state);
+    }
+  }
 
   if (req.turnStartEnvSync) {
     const refusal = await syncEnvBeforeTurnStart(req, state, previewUrl, ingress.headers);
@@ -213,6 +333,9 @@ async function forwardAttempt(
   );
   if ('refusal' in sent) return sent.refusal;
   const upstream = sent.upstream;
+  // The dial reached the box — any answer, even an error status, proves the
+  // path and drops a dial-dead mark (a revived box is served again).
+  clearDialDead(plan.sseStallKey);
 
   const failure = await handleUpstreamFailureStatus(req, state, plan, upstream, previewUrl, attempt);
   if (failure) return failure;
@@ -383,17 +506,30 @@ async function handleUpstreamFailureStatus(
     }
     if ((!nonReplayableWrite || edgeRefused) && attempt < MAX_RETRIES) {
       // Port not ready yet — sandbox is booting (container running, port down).
-      // Only the runtime's own ports are ours to flag: a user's dev server that
-      // is down answers 502 on every client poll, and the log sweep filed each
-      // retry as a new warn pattern (KRTX-4365). The give-up 502 still logs.
-      const logNotReady = portFailureHop(upstreamPort) === 'daemon' ? logger.warn : logger.info;
-      logNotReady(
+      // Always `info`: the loop is actively recovering from this attempt, so a
+      // settled request must not page. A per-attempt `warn` makes the log rate
+      // polls x attempts during a transient — a half-hour provider blip turned
+      // every daemon-port poll into warns and paged the sweep at 186x baseline
+      // (KRTX-4673; same amplification class as KRTX-4365's user-port warns).
+      // The give-up line below is the one a failed request leaves, throttled
+      // (KRTX-4695).
+      logger.info(
         `[PREVIEW] Sandbox ${sandboxId}:${port} returned ${upstream.status} (port not ready, attempt ${attempt + 1}/${MAX_RETRIES + 1})`,
       );
       invalidatePreviewLink(sandboxId, port);
       await upstream.body?.cancel().catch(() => {});
       await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
       return 'retry';
+    }
+    // The port never answered within the retry budget. Only a genuinely failed
+    // request (every attempt answered 502/503) reaches the emit below; through
+    // the throttle its rate tracks hammered (sandbox, port) pairs, not polls.
+    if (attempt >= MAX_RETRIES) {
+      reportPortNotAnswering(
+        `[PREVIEW] Sandbox ${sandboxId}:${port} still not answering after ${MAX_RETRIES + 1} attempts (status ${upstream.status})`,
+        sandboxId,
+        port,
+      );
     }
     // Retries exhausted and the port still isn't answering. Show the friendly
     // "port unreachable" page to browsers instead of the upstream's bare 5xx;
@@ -517,8 +653,33 @@ async function recoverFromAttemptError(
     return 'stop';
   }
 
-  if (!state.wakeTriggered) {
-    await wakeSandbox(sandboxId);
+  // The proxy's own connect timer fired: the dial never reached the box.
+  // A stale cached ingress times out exactly once and the retry below
+  // re-resolves and recovers, so the FIRST timeout must not mark — the
+  // dial-dead mark needs a second consecutive timeout (dial-dead.ts).
+  if (err instanceof DOMException && err.message === PROXY_CONNECT_TIMEOUT_MESSAGE) {
+    recordDialTimeout(plan.sseStallKey);
+  }
+
+  // A provider control-plane not-running verdict (the typed 409
+  // `sandbox_not_running` the expose throws — matched by name, the contract
+  // its expose tests pin) is the provider CONFIRMING the box is dead: mark
+  // it, so the give-up below flips the row to 'error' and later requests
+  // fast-fail with a retryable `sandbox not ready` instead of every one of
+  // them burning the full 50 s retry budget against a confirmed-dead box
+  // (KRTX-4751) — the same confirmed-dead class as Daytona's "no IP address
+  // found" 400 in the response path. A bare 409 (empty body, a CP
+  // mid-degradation) is NOT this class — only the typed, body-confirmed
+  // signal counts.
+  if (isPlatinumNotRunningVerdict(err)) state.sawDeadSignal = true;
+
+  // One wake per request — EXCEPT a not-running verdict, which is the one
+  // error that changes the box's world: the provider itself just refused
+  // the box. It justifies a (re)start even after an earlier wake's status
+  // read came back stale — the provider can answer its GET `running` for a
+  // box its own expose/exec refuse (observed in prod for over an hour).
+  if (!state.wakeTriggered || isPlatinumNotRunningVerdict(err)) {
+    await wakeSandbox(sandboxId, err);
     state.wakeTriggered = true;
   }
   if (attempt < MAX_RETRIES) {

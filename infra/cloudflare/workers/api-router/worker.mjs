@@ -313,19 +313,23 @@ export default {
     const backendUrl = backends[active];
     if (!backendUrl) {
       const svc = isGateway ? 'gateway' : 'api';
-      return new Response(`Invalid ${svc} backend configuration: ${active}`, {
-        status: 500,
-      });
+      return addSecurityHeaders(
+        new Response(`Invalid ${svc} backend configuration: ${active}`, {
+          status: 500,
+        }),
+      );
     }
 
     if (url.protocol !== 'https:') {
       url.protocol = 'https:';
-      return new Response(null, {
-        status: 308,
-        headers: {
-          Location: url.toString(),
-        },
-      });
+      return addSecurityHeaders(
+        new Response(null, {
+          status: 308,
+          headers: {
+            Location: url.toString(),
+          },
+        }),
+      );
     }
 
     if (!isGateway && internalEdgeDenied(env, request, url)) {

@@ -451,12 +451,15 @@ export function ChatGptSubscriptionConnect({
   projectId,
   onConnected,
   accessSlot,
+  usageSlot,
   legacyOnly = false,
   kind = 'chatgpt',
 }: {
   projectId: string;
   onConnected: (providerId: string) => void;
   accessSlot?: ReactNode;
+  /** The login's plan windows, under its name (the legacy project login). */
+  usageSlot?: ReactNode;
   legacyOnly?: boolean;
   kind?: SubscriptionKind;
 }) {
@@ -494,6 +497,7 @@ export function ChatGptSubscriptionConnect({
         </div>
         {accessSlot}
       </div>
+      {usageSlot ? <div className="mt-3">{usageSlot}</div> : null}
 
       {waiting && isAntigravity && !challenge && error && (
         // The device flow was refused before any code arrived: the paste step

@@ -18,8 +18,8 @@ this page says.
 A layer is a set of folders, not a folder. The shared layer is `src/lib/` plus
 `src/types/`; `eslint.config.mjs` names that set `{sharedLayer}`.
 
-Why the harness is a layer of its own: it composes the services. It imports 10
-of them (`workspace-provider`, `config-provider`, `runtime-assets`,
+Why the harness is a layer of its own: it composes the services. It imports 9
+of them (`config-provider`, `runtime-assets`,
 `sandbox-env`, `event-bus`, `llm-proxy`, `egress-shim`, `resources`, `skills`,
 `tools`), and no service imports it. It sits above the services for the same
 reason the services sit above the shared layer. It is also where two services
@@ -36,7 +36,6 @@ provider, so neither service imports the other.
 | `src/routes/workspace/` | app | `/file`, `/find`, `/presentation`: daemon-owned access to `/workspace`, behind the user-context gate. |
 | `src/routes/proxy/` | app | `/proxy/:port`, `/web-proxy`, and the catch-all to the harness, behind the user-context gate. |
 | `src/harness/` | harness | `harness.ts` (resolver, `loadConfig`, boot context), `contract/` (ports app and routes call), `shared/` (boot and relay steps that are not pi-specific), `pi/` (the one adapter). See its [README](src/harness/README.md). |
-| `src/services/workspace-provider/` | services | Provides `/workspace` on a boot. `provideWorkspace` (`workspace-provider.ts`) adopts a baked checkout or calls `acquire` (`acquire.ts`), which takes the `git` or S3 transport by mode (`git`, `prefer-s3`, `require-s3`). `git.ts` is the git transport and the post-boot history backfill; `checkout.ts` is the session checkout every transport ends with. |
 | `src/services/config-provider/` | services | Provides the config release a boot needs: the store outside the repository, its descriptor, notice and API calls. `obtain.ts` builds a release from the store, the checkout, the project snapshot (`src/lib/project-snapshot/`) or the API archive. `compiled-agent-config.ts` reads and writes the compiled agent config in env, raw or gzip-encoded, for every harness and route. |
 | `src/services/runtime-assets/` | services | CLI, agent, skill-overlay and harness-asset convergence (self-update); the runtime-truth ledger. `port.ts` is the contract a harness implements. |
 | `src/services/chrome/` | services | Kortix in Chrome, sandbox side: the bridge socket the user's Chrome extension dials through the preview proxy, and the loopback CDP endpoint `127.0.0.1:9333` it serves to `agent-browser --cdp 9333`. Protocol: `.agents/skills/kortix-chrome/references/protocol.md`. |
@@ -98,7 +97,7 @@ Consequences:
 
 ```ts
 // src/harness/pi/boot.ts
-import { provideWorkspace } from '@/services/workspace-provider/workspace-provider' // another folder
+import { startEgressShim } from '@/services/egress-shim'                          // another folder
 import { runSandboxOnBoot } from '../shared/on-boot'                                 // same folder: harness/
 ```
 

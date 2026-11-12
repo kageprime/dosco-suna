@@ -172,7 +172,7 @@ describe('policy and status', () => {
   });
 
   test('the policy sets the screen frame interval and resolution; null keeps the device default', () => {
-    expect(DEFAULT_POLICY.recording).toEqual({ paused: false, paused_until_ms: null, interval_ms: null, max_height: null });
+    expect(DEFAULT_POLICY.recording).toEqual({ paused: false, paused_until_ms: null, interval_ms: null, max_height: null, text_recognition: null });
     // A policy stored before the fields existed reads back with the device defaults.
     expect(PolicySchema.parse({ recording: { paused: false, paused_until_ms: null } }).recording.interval_ms).toBeNull();
     const cad = PolicySchema.parse({ recording: { paused: false, paused_until_ms: null, interval_ms: 1000, max_height: 2160 } });
@@ -183,6 +183,11 @@ describe('policy and status', () => {
     expect(PolicySchema.safeParse(recording({ interval_ms: 10_001 })).success).toBe(false);
     expect(PolicySchema.safeParse(recording({ interval_ms: 1500.5 })).success).toBe(false);
     expect(PolicySchema.safeParse(recording({ max_height: 1000 })).success).toBe(false);
+    // Text recognition: a level sets it on every device; an unknown one is refused.
+    const off = PolicySchema.parse(recording({ text_recognition: 'off' }));
+    expect(off.recording.text_recognition).toBe('off');
+    conforms('policy', JSON.parse(policyDocument(off, 1)));
+    expect(PolicySchema.safeParse(recording({ text_recognition: 'best' })).success).toBe(false);
   });
 
   test('the policy carries the organization exclusions: defaults, normalization, known groups', () => {

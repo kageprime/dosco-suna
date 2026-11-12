@@ -8,7 +8,7 @@ import {
   type Icon,
 } from '@phosphor-icons/react';
 
-export interface CapabilityInfo {
+interface CapabilityInfo {
   key: string;
   label: string;
   description: string;
@@ -19,7 +19,7 @@ export interface CapabilityInfo {
  * What a paired computer may be asked to do. The approval page picks a subset;
  * the local agent config stays the hard ceiling on every call.
  */
-export const CAPABILITY_REGISTRY: CapabilityInfo[] = [
+const CAPABILITY_REGISTRY: CapabilityInfo[] = [
   {
     key: 'filesystem',
     label: 'Filesystem',

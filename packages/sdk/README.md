@@ -705,7 +705,7 @@ exhaustive — see `API-MAP.md` for the full per-domain surface:
 | `kortix.workspaces` | `list` (every workspace the caller can open, across accounts, one request) · `get` (role + state + settings) · `update` · `create` · `delete` · `restore`. See [Workspaces](#workspaces) |
 | `kortix.workspace(id)` | everything on `kortix.project(id)`, except that `get` / `update` read and change the `Workspace` and `tokens` manages workspace keys (the project CLI tokens are `cliTokens`), plus `delete` · `restore` · `setup` · `accountId` · `members.{list,invite,updateRole,remove,invites,cancelInvite,resendInvite}` · `leave` · `billing.state` · `iam.{assignments.{list,create,revoke},roles,groups,can,canBatch}` |
 | `kortix.projects` | project-named calls, kept permanently: list · get · detail · create · provision · createWorkspace · update · archive · llmCatalog · modelPicker · sandboxTemplates · sessions (+ more: `listForAccount`, `sandboxHealth`, `createSession`) |
-| `kortix.accounts` | list · get · create · members · invites · `secretResources.{list,create,rotate,retry,remove,grant,revoke,setAccess}` · `subscriptions.{list,usage}` (project-authorized usage for named and legacy ChatGPT logins; reads credentials in place) · `tokens.{list,create,revoke}` (account-scoped CLI PATs, `kortix_pat_…`) · `audit.{log,export,activity,webhooks.*}` (filterable project/session reconstruction log; `activity` = who was active and how often, per UTC day) · `branding.{get,update,uploadAsset,removeAsset,reset}` (Enterprise organization branding: logo / icon / favicon, light + dark, product name) (+ more: `updateName`, `leave`, `invite`, `removeMember`, `updateMemberRole`) |
+| `kortix.accounts` | list · get · create · members · invites · `secretResources.{list,create,rotate,retry,verify,remove,grant,revoke,setAccess}` (a provider API key is checked against its provider on create and rotate; `verify` checks it again; the result is `verification`) · `subscriptions.{list,usage}` (project-authorized usage for named and legacy ChatGPT logins; reads credentials in place) · `tokens.{list,create,revoke}` (account-scoped CLI PATs, `kortix_pat_…`) · `audit.{log,export,activity,webhooks.*}` (filterable project/session reconstruction log; `activity` = who was active and how often, per UTC day) · `branding.{get,update,uploadAsset,removeAsset,reset}` (Enterprise organization branding: logo / icon / favicon, light + dark, product name) (+ more: `updateName`, `leave`, `invite`, `removeMember`, `updateMemberRole`) |
 | `kortix.billing` | entitlement/usage reads: `accountState` · `accountStateMinimal` · `transactions` · `transactionsSummary` · `creditBreakdown` · `usageHistory` · `usageRollup` · `sessionCosts.{list,get}` · `tierConfigurations` (with `min_monthly_usd` / `max_monthly_usd`) — plus a curated mutation surface: `setPlan` (subscribe to or change the credits plan; `useSetBillingPlan()` in `@kortix/sdk/react`) · `subscription.{createPortalSession,cancel,reactivate}` · `credits.{purchase,redeem,autoTopupSettings,configureAutoTopup}` (`redeem({ code, accountId })` adds a credit code's amount to the non-expiring credits, once per account). `checkout.{createSession,confirmSession}`, `subscription.{scheduleDowngrade,cancelScheduledChange,prorationPreview}`, `createPerSeatCheckout` and `claimPerSeatBilling` are deprecated: they reject with `ENDPOINT_RETIRED` |
 | `kortix.marketplace` | public marketplace catalog browse + sources (not project-scoped): `items` · `item` · `itemFile` · `marketplaces` · `featured` · `sources.{list,add,remove}`. A project installs an item through `createMarketplaceInstallSession(projectId, itemId)`, which starts a session whose agent merges the item into the project and opens a change request; it resolves `{ session_id }` |
 | `kortix.github` | account-scoped GitHub App installs and repo linking: `getInstallation` · `listInstallations` · `listLinkableInstallations` (each entry carries `linked_to_other_accounts`, a count and never a tenant name) · `listRepositories` · `listRepositoryBranches` · `linkInstallation` · `saveInstallation` · `deleteInstallation` · `linkRepository` (`source: 'managed'` imports a repository the instance backend holds — self-host operator only, and mutually exclusive with `installation_id`) · `replaceProjectRepository` (changes an existing project's repository with an expected old URL; accepts a repository-scoped PAT or a temporary GitHub user proof for a repository-scoped App grant; can atomically copy selected shared runtime secrets from another project in the same account) |
@@ -735,16 +735,19 @@ await kortix.project(projectId).sessions.create({
 });
 ```
 
-Do not put credentials in this map. For a white-label/backend wrapper, create an
-operator-managed connection, store its credential through the dedicated
-credential endpoint, and pass only the non-secret connection id at session create:
+Do not put credentials in this map. For a white-label/backend wrapper, give each
+end user their own project: a project-owned connection is reachable by every
+session in its project, so the project is the isolation boundary. Create the
+connection in that user's project, store its credential through the dedicated
+credential endpoint, and pass only the non-secret connection id at session
+create:
 
 ```ts
-const project = kortix.project(projectId);
+// One project per end user: never put two end users' credentials in one project.
+const project = kortix.project(projectIdOfThisEndUser);
 const connection = await project.connectors.connections.reconcile({
   connector_alias: "customer-data",
-  owner_type: "external",
-  owner_id: wrapperUserId,
+  owner_type: "project",
   label: "Customer data",
   metadata: { tenant_ref: wrapperTenantReference },
 });
@@ -787,7 +790,13 @@ await project.sessions.create({
 Member connections are owner-only even for project managers, and sessions using
 one must remain private. A service account — an agent or a trigger — never
 reaches a member connection, only the shared project one. Project defaults
-remain shared; external/agent/subject connections remain operator-managed. Every connection is project/connector scoped
+remain shared. A project-owned connection is reachable by every session in the
+project, and any of them may bind it by id, so it must never hold one end user's
+credential in a project other end users' sessions run in: give each end user their
+own project instead. The owner types `external`, `agent` and `subject`
+are retired: the API refuses to create them (`409
+CONNECTOR_CONNECTION_OWNER_NOT_REACHABLE`) and no session reaches an existing one.
+They stay in the `ConnectionOwnerType` union so existing code compiles. Every connection is project/connector scoped
 and resolved on every Connector request, so revocation takes effect without a
 restart. Credentials are encrypted server-side and are never returned, placed
 in `KORTIX_SESSION_CONTEXT`, or injected into the sandbox environment. Raw env
@@ -1256,7 +1265,8 @@ reason.
 
 | Code | Status | Meaning | Predicate / constant |
 |---|---|---|---|
-| `workspace_not_found` | 404 | No such workspace, an account id on a canonical path, or no access | `WORKSPACE_NOT_FOUND_CODE` |
+| `workspace_not_found` | 404 | No such workspace, an account id on a canonical path, or a workspace being deleted | `WORKSPACE_NOT_FOUND_CODE` |
+| `workspace_access_denied` | 403 | The workspace exists and the caller cannot read it; `requestProjectAccess` asks its managers | — |
 | `workspace_setup_required` | 409 | The workspace has no repository yet: `setupWorkspace` | `WORKSPACE_SETUP_REQUIRED_CODE` |
 | `workspace_deleting` | 409 | The workspace is being deleted: an owner restores it first | `WORKSPACE_DELETING_CODE` |
 | `workspace_has_project` | 409 | The account already holds its workspace's project; the body names it (`workspace_id`). Create another workspace instead | `WORKSPACE_HAS_PROJECT_CODE` · `isWorkspaceHasProjectError` |
@@ -1538,9 +1548,9 @@ permanently:
 | `GET`/`POST /v1/workspaces` · `GET`/`PATCH /v1/workspaces/:id` · `/v1/workspaces/:id/tokens` | `/v1/accounts` · `/v1/accounts/:accountId` · `/v1/accounts/tokens` | Not aliases: deprecated in the OpenAPI spec (`x-kortix-replaced-by`) |
 
 **Ids.** A canonical path takes the workspace id only. An account id, an
-unknown id or a workspace the caller cannot read answers `404
-workspace_not_found` on every sub-path, so a caller cannot probe which ids
-exist. A legacy path accepts either id forever. Ids are case-insensitive. An
+unknown id answers `404 workspace_not_found` on every sub-path. A workspace
+the caller cannot read answers `403 workspace_access_denied`, so a person
+holding a link can ask for access. A legacy path accepts either id forever. Ids are case-insensitive. An
 `Account*` function that holds an account id calls the legacy name.
 
 An API older than the workspace routes answers a canonical name with its
@@ -1662,13 +1672,10 @@ for per-release changes.
 
 ### Agent repository access
 
-Agent configuration accepts `repository_access?: boolean`.
-The API stores it in `kortix.yaml` as `agents.<name>.workspace.project_repository` and always writes the value.
-An omitted value is `false`. `GET` returns the resolved value.
-Set `false` to run new sessions without the project repository or repository API access.
-Git, secret, connector, and tool permissions remain separate. Existing sessions retain their saved policy.
-`AgentConfigBlock.workspace` is deprecated. The SDK maps legacy `branch`/`runtime` to the boolean field.
-A legacy `read` write requires an explicit `repository_access` choice; it does not enable read-only repository access.
+A session never checks out the project repository at boot: `/workspace` starts empty.
+An agent that needs the files runs `kortix workspaces clone` in its sandbox.
+`AgentConfigBlock.repository_access` and `AgentConfigBlock.workspace` are deprecated and ignored.
+The SDK neither sends nor returns them, and the API drops them from `kortix.yaml` on the next write.
 
 
 ### Project provider and model access
@@ -1713,39 +1720,27 @@ subscription messages. This also corrects historical runtime costs. Token
 counts remain available. Mixed sessions retain paid API costs; OpenAI API
 models remain billable. Subscription coverage does not include sandbox compute.
 
-### Durable prompt placement
+### Prompt delivery: one mode, steer
 
-`createSessionPrompt` and `useSessionPrompts().enqueue` accept an optional
-`placement: 'transcript' | 'composer'`. `transcript` (Quick Queue) runs before
-every `composer` (Queue List) entry and ends the active response after its
-current tool call. `composer` waits for the active response to finish. Each
-placement keeps submission order. A row without placement keeps its submission
-order ahead of `composer` entries and is presented as `composer`.
+A prompt sent while a turn runs steers that turn: the running turn reads it at
+its next step, after its current tool call, and does not stop. A prompt sent
+while no turn runs starts one. The server decides this for every row;
+`createSessionPrompt`, `enqueue` and `send` deliver the same way.
 
-### Prompt delivery: steer, queue, interrupt
+`delivery: 'steer' | 'queue' | 'interrupt'` and `placement: 'transcript' |
+'composer'` are still accepted. `delivery` changes nothing and every row reads
+`delivery: 'steer'`. `placement` only says where a host draws a waiting row:
+`transcript` as a bubble, `composer` in the list above the composer.
 
-`createSessionPrompt` and `enqueue` also accept `delivery: 'steer' | 'queue' |
-'interrupt'`. It decides how a prompt reaches a running turn:
-
-- `steer`: the running turn reads the prompt at its next step boundary. The
-  turn does not stop.
-- `queue` (Queue List): the prompt waits for the turn to end.
-- `interrupt` (Quick Queue): the turn ends after its running tool, then the
-  prompt runs.
-
-With no turn running, every mode starts a turn. When only `delivery` is given,
-the SDK also sends the placement it implies (`interrupt` → `transcript`, the
-others → `composer`), so an API built before steering treats a steer prompt as
-a Queue List entry.
-
-A steer prompt falls back to `queue` when the runtime cannot take messages
-mid-turn, when another member's turn is running, or when the turn ended first.
-The row then reads `delivery: 'queue'` and `steer_fallback: 'unsupported' |
-'not_prompter' | 'turn_ended'`.
+Anyone who may send to the session steers its running turn. Rows reach the
+agent one at a time, in send order. A row that cannot reach the running turn
+starts the next turn and carries `steer_fallback: 'unsupported' | 'turn_ended'`.
+(`not_prompter` is no longer written; old rows may carry it.)
 
 `interruptSessionPrompt` (`session.prompts.interrupt`,
-`useSessionPrompts().interrupt`) is "Stop and send": it turns a row still
-waiting in the queue into Quick Queue. A row already on the wire answers `409`.
+`useSessionPrompts().interrupt`) is "Send now": a row still waiting goes next,
+ahead of older waiting rows. It does not stop the turn. A row already on the
+wire answers `409`.
 
 `SessionPrompt.full_text` preserves complete text for rendering after reload;
 `text` remains the bounded preview. List responses expose attachment names and
@@ -1763,10 +1758,10 @@ after admission succeeds. A confirmed active turn clears the pending presentatio
 even if the previous inbox snapshot still lists that prompt. Runtime activity
 preserves the active turn's message ID during this handoff.
 
-Web sends Enter while a turn runs as **steer**, Command/Ctrl+Enter as **Queue
-List**, and "Stop and send" on a queued row as **Quick Queue**. Enter on an idle
-session starts a turn. Queued entries advance automatically; Quick Queue entries run first. Queue List entries stay editable
-until delivery begins. Stop pauses pending entries; Resume releases that hold.
+Web sends Enter and Command/Ctrl+Enter the same way: a steer while a turn
+runs, a new turn while idle. Waiting entries stay editable until delivery
+begins. Stop ends the turn; the entries that waited go out together as the
+next turn.
 
 Pass the inbox IDs, in queue order, as `pendingMessageIds` to
 `groupMessagesIntoTurns(messages, { pendingMessageIds })`. Client-minted wire

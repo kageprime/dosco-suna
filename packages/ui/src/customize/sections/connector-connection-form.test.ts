@@ -1,10 +1,10 @@
 import { qk } from '@kortix/sdk/react';
 import { describe, expect, test } from 'bun:test';
 
+import { connectorConnectionQueryKeys } from '../../internal/hooks/connectors/invalidate-connections';
 import {
   buildEasyConnectConnectorDraft,
   buildEmailConnectorConnectionSlug,
-  connectorConnectionQueryKeys,
   connectorConnectionSlugAfterNameChange,
   connectorSyncErrorForSlug,
   createOnlyConnectorDraft,

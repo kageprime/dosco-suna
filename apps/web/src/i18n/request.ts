@@ -1,6 +1,7 @@
+import { notFound } from 'next/navigation';
 import { getRequestConfig } from 'next-intl/server';
 import { locale as rootLocale } from 'next/root-params';
-import { defaultLocale, type Locale } from './config';
+import { defaultLocale } from './config';
 import { normalizeLocale } from './locale';
 import { loadMessages } from './messages';
 
@@ -17,18 +18,32 @@ import { loadMessages } from './messages';
  * `X-NEXT-INTL-LOCALE` request header that the middleware sets on the rewrite.
  * Those surfaces are request-bound already, so the header read costs nothing.
  */
-async function readRootLocale(): Promise<Locale | null> {
+/**
+ * The `[locale]` segment of this render: a string under `app/[locale]`,
+ * `undefined` on a route without it (the root `/_not-found`), `null` where
+ * root params do not exist (Server Actions, Route Handlers).
+ */
+async function readRootLocaleSegment(): Promise<string | undefined | null> {
   try {
-    return normalizeLocale(await rootLocale());
+    return await rootLocale();
   } catch {
     return null;
   }
 }
 
 export default getRequestConfig(async (params) => {
+  const segment = await readRootLocaleSegment();
+  if (typeof segment === 'string') {
+    // Any first path segment matches app/[locale] (`/general/use-cases/x`).
+    // An unknown one is a 404, as in the [locale] layout. The header fallback
+    // below must not run here: it reads headers() inside a static page, and
+    // Next fails that render with a 500 ("changed from static to dynamic").
+    const locale = normalizeLocale(segment);
+    if (!locale) notFound();
+    return { locale, messages: await loadMessages(locale) };
+  }
   // Do NOT destructure `requestLocale`: it is a getter that reads headers(),
   // and touching it opts every page into dynamic rendering.
-  const locale =
-    (await readRootLocale()) ?? normalizeLocale(await params.requestLocale) ?? defaultLocale;
+  const locale = normalizeLocale(await params.requestLocale) ?? defaultLocale;
   return { locale, messages: await loadMessages(locale) };
 });

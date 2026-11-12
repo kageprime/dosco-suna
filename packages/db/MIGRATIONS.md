@@ -70,7 +70,11 @@ The baseline assumes these already exist (they do on every Supabase env):
 - A minimal `basejump.account_user` STUB (+ `basejump.account_role` enum) —
   retired legacy: the baseline still creates RLS policies that reference it
   (rewritten by `20260706120000000_retire_basejump` right after). No data, no
-  triggers; dropped entirely by the follow-up drop-schema migration.
+  triggers. `20261110135954872_freeze_legacy_suna_tables` freezes every
+  `public` and `basejump` table against INSERT and UPDATE (a fixture opts in
+  with `SET kortix.legacy_write = 'on'`); the parked
+  `migrations-pending/drop_legacy_suna_schemas.sql.pending` drops them after
+  the backup.
 - Roles: `anon`, `authenticated`, `service_role`
 
 On a truly bare Postgres run `scripts/test-prereqs.sql` first (the self-host

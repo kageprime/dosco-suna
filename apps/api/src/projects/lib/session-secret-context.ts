@@ -59,6 +59,7 @@ export async function loadSessionSecretContext(
         defaultBranch: project?.defaultBranch,
         manifestPath: project?.manifestPath,
         sessionAgent: session?.agentName ?? DEFAULT_AGENT_SENTINEL,
+        sessionId,
         requestedAgent,
         forceRefresh: 'tip-proof',
       }).finally(() => {

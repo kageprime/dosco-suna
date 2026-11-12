@@ -6,7 +6,11 @@ import { SplitNoticeBanner } from '../settings/split-notice-banner';
 import { useTranslations } from '../../i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { ComposerChatInput, type ComposerOptions } from '../../session/composer/composer-chat-input';
+import {
+  ComposerChatInput,
+  type ComposerChatCall,
+  type ComposerOptions,
+} from '../../session/composer/composer-chat-input';
 import { ComposerDropZone } from '../../session/composer/composer-drop-zone';
 import type { DraftScope } from '../../session/composer/draft/composer-draft';
 import type { AttachedFile } from '../../session/composer/session-chat-input';
@@ -40,6 +44,7 @@ import { composerSelectableAgents } from '../../session/composer/composer-agent-
 import { FirstChat } from '../home/first-chat';
 import { SandboxPicker } from '../home/sandbox-picker';
 import { ProjectHomeWallpaper, ProjectHomeWelcomeBody } from '../home/welcome-body';
+import { useProjectHomeCall } from './use-project-home-call';
 import { useProjectHomeSend } from './use-project-home-send';
 
 // This path is this view's public surface — the instant session shell and the
@@ -326,6 +331,28 @@ function ProjectHomeView({
     [metaSelected, selectedSlug, send, onboarding, projectId, queryClient],
   );
 
+  // Nothing typed: the Send button calls a new session instead (flag
+  // `voice_call`, `use-project-home-call.ts`), with the sandbox chosen here as
+  // a send gets it. Only with the default send: a host's own `onSend` decides
+  // what a new session is, and a call would bypass it. Not in the first chat:
+  // it is the onboarding, and its kickoff is a typed message.
+  const homeCall = useProjectHomeCall(projectId, { beforeSend });
+  const call = useMemo<ComposerChatCall | undefined>(() => {
+    if (!homeCall || onSend || firstChat) return undefined;
+    return {
+      inCall: homeCall.inCall,
+      onCall: (options) =>
+        homeCall.onCall({
+          ...options,
+          ...(metaSelected
+            ? { sandbox_slug: MY_KORTIX_SANDBOX_SLUG }
+            : selectedSlug
+              ? { sandbox_slug: selectedSlug }
+              : {}),
+        }),
+    };
+  }, [homeCall, onSend, firstChat, metaSelected, selectedSlug]);
+
   const isMobile = useIsMobile();
   const pendingPrefill = useComposerPrefillStore((s) => s.prefillByProject[projectId]);
   const consumePrefill = useComposerPrefillStore((s) => s.consume);
@@ -427,6 +454,7 @@ function ProjectHomeView({
       prefill={prefill}
       onAgentSelectionChange={setSelectedAgent}
       sandboxSlot={sandboxSlot}
+      call={call}
     />
   );
 

@@ -20,7 +20,7 @@ export function repositoryAccessFromSessionMetadata(metadata: unknown): boolean 
   return !Object.prototype.hasOwnProperty.call(record, 'workspace_mode') || record.workspace_mode === 'branch';
 }
 
-/** Project images contain repository bytes and require repository access. */
+/** A project image is built from the repository, so it needs repository access; My Kortix always boots the platform image. */
 export function projectImageAllowedForSession(
   agentName: string | null | undefined,
   repositoryAccess: boolean = true,

@@ -217,12 +217,6 @@ export const uncoveredAllow: AllowEntry[] = [
     path: "/v1/webhooks/teams/oauth/callback",
     reason: "Teams admin-consent OAuth callback — browser redirect from Microsoft (admin_consent+tenant), not an API client route; mirrors the slack oauth callback",
   },
-  {
-    method: "GET",
-    path: "/v1/git/:*/fast-boot-bundle",
-    reason:
-      "DEBT, not a considered exemption. Route shipped with the fast-git-boot work (#6976) but the manifest was not regenerated then; a canonical manifest regen surfaced it. Nothing covers it — this entry keeps the gap visible instead of re-hiding it behind a stale manifest.",
-  },
   // `ALL` passthroughs. dump-routes.ts lists real `.all()` handlers since the
   // one-contract wave; no flow can declare the method `ALL`, so each is listed
   // here with the reason its concrete traffic is not a local flow.

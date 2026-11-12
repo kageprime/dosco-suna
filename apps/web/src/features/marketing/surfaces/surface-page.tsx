@@ -1,10 +1,11 @@
 import Link from '@/components/site-link';
+import { localizedMarketingMetadata } from '@/lib/seo/metadata';
 import { cn } from '@kortix/ui';
 import { ArrowRightIcon } from '@phosphor-icons/react/dist/ssr';
 import { Fragment } from 'react';
 
 import { MarketingButton } from '../kit/marketing-button';
-import { Band, Heading, PageFrame } from '../kit/page-frame';
+import { Band, Heading, HeroBand, PageFrame, PageHero } from '../kit/page-frame';
 import { FaqSection } from '../landing-sections/faq-section';
 import { SURFACE_ORDER, SURFACES, type SurfaceContent, type SurfaceId } from './content';
 import { InlineCode } from './inline-code';
@@ -47,53 +48,52 @@ export function SurfacePage({ id }: { id: SurfaceId }) {
   );
 }
 
+/** A `/desktop`-style route: the surface's localized metadata plus its page.
+ *  Each route file re-exports both. */
+export function surfaceRoute(id: SurfaceId, pathname: string) {
+  return {
+    generateMetadata: () => localizedMarketingMetadata(pathname),
+    Page: () => <SurfacePage id={id} />,
+  };
+}
+
 function Hero({ content }: { content: SurfaceContent }) {
   const { hero } = content;
   return (
     <section id="hero" className="relative">
-      <div className="relative flex flex-col gap-7.5 px-8 pt-32 pb-18 lg:px-28 lg:pt-40">
-        <div className="flex flex-col gap-4 lg:gap-5">
-          <h1 className="max-w-261 text-3xl font-medium tracking-tight text-balance sm:text-4xl lg:text-[44px] lg:leading-13">
-            <span className="text-foreground block">{hero.title}</span>
-            <span className="text-muted-foreground block">{hero.titleMuted}</span>
-          </h1>
-          <p className="text-muted-foreground max-w-2xl text-base text-pretty sm:text-lg md:text-xl">
-            {hero.sub}
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 pt-2">
-          <div className="flex flex-wrap items-center gap-2.5">
-            {hero.install ? <InstallCommand /> : null}
-            {hero.actions.map((action) => (
-              <MarketingButton
-                key={action.href}
-                variant={action.primary ? 'primary' : 'secondary'}
-                size="md"
-                className="hit-area-y-1"
-                asChild
-              >
-                <Link
-                  href={action.href}
-                  {...(action.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+      <PageHero
+        title={hero.title}
+        titleMuted={hero.titleMuted}
+        sub={hero.sub}
+        actions={
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center gap-2.5">
+              {hero.install ? <InstallCommand /> : null}
+              {hero.actions.map((action) => (
+                <MarketingButton
+                  key={action.href}
+                  variant={action.primary ? 'primary' : 'secondary'}
+                  size="md"
+                  className="hit-area-y-1"
+                  asChild
                 >
-                  {action.icon ? <SurfaceMark id={action.icon} /> : null}
-                  {action.label}
-                </Link>
-              </MarketingButton>
-            ))}
+                  <Link
+                    href={action.href}
+                    {...(action.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                  >
+                    {action.icon ? <SurfaceMark id={action.icon} /> : null}
+                    {action.label}
+                  </Link>
+                </MarketingButton>
+              ))}
+            </div>
+            <p className="text-muted-foreground text-sm text-pretty">{hero.note}</p>
           </div>
-          <p className="text-muted-foreground text-sm text-pretty">{hero.note}</p>
-        </div>
-      </div>
-
-      <div className="kx-rail-fade relative border-y px-4 lg:px-17">
-        <div className="bg-card flex flex-col items-center gap-7 overflow-hidden px-4 py-8 lg:gap-10 lg:px-11 lg:pt-17 lg:pb-10">
-          <SurfaceStage id={content.id} />
-          <p className="text-foreground px-4 text-center text-base font-medium text-balance">
-            {hero.caption} <span className="text-muted-foreground">{hero.captionMuted}</span>
-          </p>
-        </div>
-      </div>
+        }
+      />
+      <HeroBand caption={hero.caption} captionMuted={hero.captionMuted} className="overflow-hidden">
+        <SurfaceStage id={content.id} />
+      </HeroBand>
     </section>
   );
 }

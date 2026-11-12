@@ -96,7 +96,7 @@ import {
   shouldPaintFatalCard,
   shouldPaintTerminalCard,
 } from '@kortix/ui/terminal';
-import { useAccountState } from '@kortix/ui/internal/billing/index';
+import { useAccountState, useFreeGrantUnspent } from '@kortix/ui/internal/billing/index';
 import { ReconnectGitHubButton, useRepositoryDisconnect } from '@kortix/ui/workspace/repository-disconnected';
 import { useSandboxConnection } from '@/hooks/platform/use-sandbox-connection';
 import {
@@ -242,6 +242,11 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
   const { data: accountState } = useAccountState({
     accountId: projectAccountId,
   });
+  // KRTX-4713: the person's free credits may sit unspent in their first
+  // workspace while THIS one holds none by design — then opening the session
+  // is not a paywall moment; the send gate owns the modal on an actual
+  // blocked turn.
+  const freeGrantUnspent = useFreeGrantUnspent(accountState);
   const openUpgradeDialog = useUpgradeDialogStore((s) => s.openUpgradeDialog);
   const accountLoaded = !!accountState;
   // ONE resolver for "what is this account's billing situation" (see
@@ -533,6 +538,9 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
   const billingGatedRef = useRef(false);
   useEffect(() => {
     if (!billingBlocked || billingGatedRef.current) return;
+    // Free credits unspent elsewhere (or the claimed workspace's state has not
+    // loaded): hold the modal until an actual blocked turn asks for it.
+    if (freeGrantUnspent !== false) return;
     billingGatedRef.current = true;
     openUpgradeDialog(
       billingDialogArgs(billingState, accountState, projectAccountId, tI18nComplete),
@@ -541,6 +549,7 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
     billingBlocked,
     billingState,
     accountState,
+    freeGrantUnspent,
     openUpgradeDialog,
     projectAccountId,
     tI18nComplete,

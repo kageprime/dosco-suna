@@ -1,8 +1,6 @@
-import { eq } from 'drizzle-orm';
-import { db } from '../../shared/db';
 import { PROJECT_ACTIONS } from '../../iam/actions';
 import { type ChatUser, resolveProjectChatActor } from './identity';
-import { projectsView } from '../../workspaces/rows';
+import { accountKeyOfWorkspace } from '../../workspaces/rows';
 
 /** What a refused Stop tells the presser, in Slack and in Teams. */
 export const CHAT_TURN_STOP_REFUSED =
@@ -47,18 +45,14 @@ export async function chatTurnStopVerdict(input: {
   const userId = 'userId' in actor ? actor.userId : null;
   if (input.sentIt) return userId || !input.requireIdentity ? { allowed: true, userId } : { allowed: false };
   if (!userId) return { allowed: false };
-  const [project] = await db
-    .select({ accountId: projectsView.accountId })
-    .from(projectsView)
-    .where(eq(projectsView.projectId, input.projectId))
-    .limit(1);
-  if (!project) return { allowed: false };
+  const projectAccountId = await accountKeyOfWorkspace(input.projectId);
+  if (!projectAccountId) return { allowed: false };
   // Lazily imported so the channel modules keep no static edge into the
   // session-lifecycle engine (the rule stop.ts follows for the abort).
   const { readRunningTurn, sessionLifecycleStandingFor, turnPrompterOf } = await import('../../projects/surface');
   const standing = await sessionLifecycleStandingFor({
     userId,
-    accountId: project.accountId,
+    accountId: projectAccountId,
     projectId: input.projectId,
     sessionId: input.sessionId,
   });

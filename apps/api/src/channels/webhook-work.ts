@@ -13,6 +13,30 @@
  * Either way the work is registered with the shutdown drain (`shared/drain.ts`),
  * so a deploy waits for it instead of cutting it.
  *
+ * Slow work is loud: when the ack budget elapses the log names the work's
+ * stage split (`dbMs`, `httpMs`) so a p95 rise on a webhook route attributes
+ * to DB stalls, outbound (Slack) latency, or handler compute without tracing
+ * (KRTX-4015: with no line here a >2s work was invisible — the request log
+ * shows only "2002ms").
+ *
+ * A failure that lands AFTER the ack went out is different from one before it:
+ * the provider got its 2xx and will not redeliver, so releasing the claim alone
+ * loses the event. A route that needs the event to survive passes `onFailure`
+ * and checks `acked` — the Slack event routes use it to enqueue a durable
+ * redelivery on the job queue (integrations/event-inbox.ts machinery);
+ * interactivity and Teams keep their 500-retry window and pass nothing.
+ * `claimsReleased` says whether the dedup claim actually freed: when it did
+ * not, a replay scheduled now would find the claim held and skip, so the
+ * scheduler must wait the claim out first.
+ *
+ * A background caller that must not complete while the work runs (the redelivery
+ * job: a completed job is never retried) passes `awaitSettlement`: the call
+ * then resolves to the work's settled outcome every way it ends — the timer,
+ * a late failure, a fast failure — and only after the failed path's claim
+ * release and `onFailure` hook finished. A settlement caller therefore always
+ * reads the hook's effect (whoever scheduled the redelivery set it) intact;
+ * a rushed one would retry the job on a claim that is still live.
+ *
  * Not covered: a crash (OOM, SIGKILL) while the work runs. The claim then holds
  * until it expires, and the event is lost.
  */
@@ -22,9 +46,26 @@ import { chatEventDedup } from '@kortix/db';
 import { db } from '../shared/db';
 import { logger } from '../lib/logger';
 import { trackDetached } from '../shared/drain';
+import { stageSnapshot } from '../lib/server-timing';
 
 /** Slack drops a webhook that has not answered after 3 s; stay well under it. */
 export const ACK_WAIT_MS = 2_000;
+
+/**
+ * Event-callback ack budget. The event routes' 200 body is `{ok: true}` — Slack
+ * reads nothing out of it, so holding the request for work costs only latency:
+ * with `ACK_WAIT_MS` (2026-11-03..05 prod p95 rows on `POST /v1/webhooks/slack`
+ * all pinned ~2002-2157 ms on this budget while the work — db statements, git
+ * mirrors, Slack posts — ran behind it). 250 ms keeps the quick-failure 500
+ * window (Slack retries a 5xx) while capping every event-callback response at
+ * ~250 ms — always inside the 438 ms p95 acceptance (1.5 x the 292 ms baseline,
+ * `infra:log:0e6410423224`) even with the ~150 ms post-budget jitter the pinned
+ * rows also showed. The Teams webhooks ack at 0 (`ackWaitMs: 0` in
+ * `channels/teams/routes.ts`) for the same reason; the interactivity routes keep
+ * `ACK_WAIT_MS` because their 200 body is read (`response_action`,
+ * close-modal).
+ */
+export const EVENT_ACK_WAIT_MS = 250;
 
 const claimScope = new AsyncLocalStorage<Set<string>>();
 
@@ -33,44 +74,120 @@ export function recordClaim(eventId: string): void {
   claimScope.getStore()?.add(eventId);
 }
 
-async function releaseClaims(keys: ReadonlySet<string>): Promise<void> {
-  if (keys.size === 0) return;
+async function releaseClaims(keys: ReadonlySet<string>): Promise<boolean> {
+  if (keys.size === 0) return true;
   try {
     await db.delete(chatEventDedup).where(inArray(chatEventDedup.eventId, [...keys]));
+    return true;
   } catch (error) {
     logger.error('[webhook-work] claim release failed', { error: error instanceof Error ? error.message : String(error) });
+    return false;
   }
 }
 
 export type WebhookOutcome = 'done' | 'pending' | 'failed';
 
+/** Where the work's time went so far: db vs outbound http (incl. GoTrue). */
+function stageFields(): Record<string, number> {
+  const stages = stageSnapshot();
+  const db = stages.db;
+  const outbound = (stages.http?.wallMs ?? 0) + (stages.gotrue?.wallMs ?? 0);
+  return {
+    dbMs: Math.round(db?.wallMs ?? 0),
+    dbOps: db?.count ?? 0,
+    httpMs: Math.round(outbound),
+    httpOps: (stages.http?.count ?? 0) + (stages.gotrue?.count ?? 0),
+  };
+}
+
 export async function runWebhookWork(
   label: string,
   work: () => Promise<void>,
-  options: { ackWaitMs?: number; releaseOnFailure?: boolean } = {},
+  options: {
+    ackWaitMs?: number;
+    releaseOnFailure?: boolean;
+    onFailure?: (info: { acked: boolean; claimsReleased: boolean }) => Promise<void> | void;
+    awaitSettlement?: boolean;
+  } = {},
 ): Promise<WebhookOutcome> {
+  const ackWaitMs = options.ackWaitMs ?? ACK_WAIT_MS;
+  const startedAt = Date.now();
   const claims = new Set<string>();
   let outcome: WebhookOutcome = 'pending';
+  let claimsReleased = true;
+  // Set inside the ack timer's callback, so a failure handler that runs after
+  // the ack went out sees it with no race. Work that merely ran long while
+  // blocking the loop still won the race, its duration is in the request log.
+  let ackedAt = 0;
   const running = claimScope.run(claims, work).then(
     () => {
       outcome = 'done';
+      if (ackedAt) {
+        logger.warn('[webhook-work] work finished after the ack', {
+          label,
+          workMs: Date.now() - startedAt,
+          ackWaitMs,
+          ...stageFields(),
+        });
+      }
     },
     async (error) => {
       outcome = 'failed';
-      logger.error(`[${label}] handler failed`, { error: error instanceof Error ? error.message : String(error) });
-      if (options.releaseOnFailure !== false) await releaseClaims(claims);
+      logger.error(`[${label}] handler failed`, {
+        error: error instanceof Error ? error.message : String(error),
+        workMs: Date.now() - startedAt,
+        ...stageFields(),
+      });
+      if (options.releaseOnFailure !== false) {
+        claimsReleased = await releaseClaims(claims);
+      }
+      if (options.onFailure) {
+        // The scheduler decides what a failure means: post-ack it is a lost
+        // event (enqueue a redelivery); a held claim (the release failed)
+        // means any replay scheduled now would skip. A failed schedule is
+        // loud, never fatal. A settlement caller waits for this hook before
+        // the call resolves — it reads the scheduler's effect through it —
+        // the HTTP routes keep it detached: their ack budget owns their return.
+        const scheduled = Promise.resolve()
+          .then(() => options.onFailure?.({ acked: Boolean(ackedAt), claimsReleased }))
+          .catch((err) =>
+            logger.error('[webhook-work] redelivery scheduling failed', {
+              label,
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          );
+        if (options.awaitSettlement) await scheduled;
+        else trackDetached(scheduled);
+      }
     },
   );
   trackDetached(running);
-  if ((options.ackWaitMs ?? ACK_WAIT_MS) > 0) {
+  if (ackWaitMs > 0) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     await Promise.race([
       running,
       new Promise<void>((resolve) => {
-        timer = setTimeout(resolve, options.ackWaitMs ?? ACK_WAIT_MS);
+        timer = setTimeout(() => {
+          ackedAt = Date.now();
+          resolve();
+        }, ackWaitMs);
       }),
     ]);
     if (timer) clearTimeout(timer);
+    // Still 'pending' here means the timer won: the provider got its ack and
+    // the work outlived it (request logs pin at the budget and say no more).
+    if (outcome === 'pending') {
+      logger.warn('[webhook-work] ack budget elapsed — work still running', {
+        label,
+        ackWaitMs,
+        ...stageFields(),
+      });
+    }
   }
+  // A settlement caller waits the work out on every path, not only the
+  // pending one: a fast failure whose release overlaps the ack timer has
+  // 'failed' set while the release (and the failure hook above) still run,
+  // and the awaiting caller must not return while they are in flight.
+  if (options.awaitSettlement) await running;
   return outcome;
 }

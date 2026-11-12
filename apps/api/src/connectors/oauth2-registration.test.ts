@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { HTTPException } from 'hono/http-exception';
 import {
   registerOAuth2Client,
   selectTokenEndpointAuthMethod,
@@ -137,7 +138,55 @@ describe('registerOAuth2Client — RFC 7591 dynamic client registration', () => 
           },
         },
       ),
-    ).rejects.toThrow('OAuth2 client registration failed (400): invalid_redirect_uri');
+    ).rejects.toThrow('invalid_redirect_uri');
     expect('scope' in body).toBe(false);
+  });
+
+  test('a provider that refuses the registration is a typed 400, not a server error (KRTX-4709)', async () => {
+    // The prod failure: the server advertises a registration_endpoint but its
+    // registration endpoint rejects the RFC 7591 request. That is a property of
+    // the server the user configured — the connect flow must answer it as a
+    // typed 400 (hono ignores HTTPException for Sentry), not an unhandled 500.
+    const error = await registerOAuth2Client(
+      {
+        registrationEndpoint: 'https://api.example.com/oauth/register',
+        redirectUri: 'https://api.kortix.com/v1/connectors/oauth2/callback',
+      },
+      {
+        fetchImpl: async () =>
+          Response.json({ error: 'invalid_client_metadata' }, { status: 400 }),
+      },
+    ).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(HTTPException);
+    expect((error as HTTPException).status).toBe(400);
+    expect((error as Error).message).toContain('invalid_client_metadata');
+  });
+
+  test('a provider registration outage keeps the upstream status in the message, answered as a typed 400', async () => {
+    const error = await registerOAuth2Client(
+      {
+        registrationEndpoint: 'https://api.example.com/oauth/register',
+        redirectUri: 'https://api.kortix.com/v1/connectors/oauth2/callback',
+      },
+      { fetchImpl: async () => new Response('boom', { status: 502 }) },
+    ).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(HTTPException);
+    // 400, not 502: handleHttpException captures any 5xx HTTPException to
+    // Sentry, which would re-create the paging pattern this fix removes.
+    expect((error as HTTPException).status).toBe(400);
+    expect((error as Error).message).toContain('502');
+  });
+
+  test('a 200 response with no client_id is a typed 400 naming the defect', async () => {
+    const error = await registerOAuth2Client(
+      {
+        registrationEndpoint: 'https://api.example.com/oauth/register',
+        redirectUri: 'https://api.kortix.com/v1/connectors/oauth2/callback',
+      },
+      { fetchImpl: async () => Response.json({}) },
+    ).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(HTTPException);
+    expect((error as HTTPException).status).toBe(400);
+    expect((error as Error).message).toContain('client_id');
   });
 });

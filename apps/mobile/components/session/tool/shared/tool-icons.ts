@@ -48,7 +48,7 @@ import type { ActivityIconKey } from '@/lib/session/activity';
  * (read) and `file-pen` (write/edit) use the glyphs apps/web's read and edit
  * renderers draw (`ReadCvLogo`, `PencilSimple`).
  */
-export const TOOL_ICON_MAP: Record<string, AppIcon> = {
+const TOOL_ICON_MAP: Record<string, AppIcon> = {
   terminal: Terminal,
   'file-pen': PencilSimpleIcon,
   search: Search,
@@ -90,7 +90,7 @@ export const ACTIVITY_ICONS: Record<ActivityIconKey, AppIcon> = {
  * returns the `AppIcon` so the caller sizes and tints it (`<ToolIconSlot icon={…}
  * size color />`); `showFileTypeIcon` resolves the extension first, then the type.
  */
-export function showTypeIcon(type: string): AppIcon {
+function showTypeIcon(type: string): AppIcon {
   switch (type) {
     case 'image':
       return ImageIcon;

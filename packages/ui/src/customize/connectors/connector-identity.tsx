@@ -8,7 +8,7 @@ import {
 import { useTranslations } from '../../i18n';
 import { ConnectorLogo } from '../../internal/connector-logo/connector-logo';
 import type { ConnectorLogoSource } from '../../internal/connector-logo/connector-logo-source';
-import { STATUS_DOT, STATUS_WORD, connectorStatusTone } from './detail/connector-status';
+import { STATUS_DOT, STATUS_WORD, connectorTone } from './detail/connector-status';
 import { ConnectorStatusBadge as ToneBadge } from './detail/status-badge';
 import { cn } from '../../internal/lib/utils';
 
@@ -56,7 +56,7 @@ export function ConnectorStatusBadge({
   connector: AdminConnector;
   accountCount?: number;
 }) {
-  const tone = connectorStatusTone(connector, accountCount);
+  const tone = connectorTone(connector, accountCount);
   return tone === 'connected' ? null : <ToneBadge tone={tone} />;
 }
 
@@ -77,7 +77,7 @@ export function ConnectorStatusLogo({
   accountCount?: number;
 }) {
   const t = useTranslations('connectorPages');
-  const tone = connectorStatusTone(connector, accountCount);
+  const tone = connectorTone(connector, accountCount);
   return (
     <span className="relative flex shrink-0">
       <ConnectorLogo source={source} size="lg" />

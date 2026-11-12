@@ -110,7 +110,7 @@ module "project_snapshots" {
 }
 
 # ── Audit-event archive (WORM) ────────────────────────────────────────────────
-# Weekly kortix.audit_events partitions older than the 90-day hot window,
+# Weekly kortix.audit_events partitions older than the 14-day hot window (HOT_DAYS),
 # exported by the API as gzip JSONL with Object Lock retention (365 days). The
 # task names it through AUDIT_ARCHIVE_BUCKET / AUDIT_ARCHIVE_REGION in the
 # deploy workflow. Applying this creates the bucket, its KMS key, and the

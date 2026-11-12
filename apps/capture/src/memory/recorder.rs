@@ -151,7 +151,9 @@ impl SettingsWatch {
         if self.mtime.is_none() || self.mtime.map(|m| m.0) != Some(settings_mtime) {
             match std::fs::read(self.paths.settings()) {
                 Ok(bytes) => match serde_json::from_slice::<Settings>(&bytes) {
-                    Ok(settings) => {
+                    Ok(mut settings) => {
+                        // The running recorder obeys the managed capture knobs too.
+                        settings.self_manage();
                         self.raw = settings;
                         self.loaded_valid_file = true;
                     }
@@ -175,6 +177,7 @@ impl SettingsWatch {
             self.current = self.raw.clone();
             self.current.apply_policy(&self.paths);
             self.current.apply_host(&self.paths);
+            self.current.bound_org_pause(&self.paths, now_ms());
             self.mtime = Some((settings_mtime, policy_mtime));
         }
         &self.current
@@ -512,11 +515,13 @@ fn capture_loop(paths: &MemoryPaths, stop: &AtomicBool) -> Result<()> {
     // Focus at the last capture decision, and why the next capture is early.
     let mut baseline: Option<Focus> = None;
     let mut next_reason: Option<&'static str> = None;
+    // When the last accessibility tree was read. See `AX_REFRESH`.
+    let mut ax_read_at: Option<Instant> = None;
 
     while !stop.load(Ordering::SeqCst) {
         let tick = Instant::now();
         let s = settings.refresh().clone();
-        let interval = Duration::from_millis(s.interval_ms.max(500));
+        let interval = capture_interval(&s, person_active());
         // The model is shared with the audio transcript writer (one copy per
         // process); it is locked only while a private frame is prepared.
         if s.privacy.redact_pii && s.privacy.use_local_model {
@@ -590,12 +595,17 @@ fn capture_loop(paths: &MemoryPaths, stop: &AtomicBool) -> Result<()> {
         let staged = paths.frames_dir().join(format!("unfinalized_{ts}.jpg"));
         // A capture a focus change pulled forward records the active display only.
         let only_focused = !first && next_reason.is_some();
-        let req = capture_request(
+        let mut req = capture_request(
             &s,
             &staged,
             &unchanged_request(&last_hash, ts),
             only_focused,
         );
+        let want_ax = s.ax_enabled && wants_ax_tree(first, next_reason, ax_read_at);
+        req["ax"] = json!(want_ax);
+        if want_ax {
+            ax_read_at = Some(Instant::now());
+        }
         // Private capture also completes OCR before returning. A stalled engine
         // is killed at the deadline, with no unfiltered fallback.
         match engine.request(
@@ -604,6 +614,7 @@ fn capture_loop(paths: &MemoryPaths, stop: &AtomicBool) -> Result<()> {
         ) {
             Ok(resp) => {
                 status.last_error = None;
+                note_idle_seconds(&resp);
                 if is_permission_skip(&resp) {
                     // Missing Screen Recording: report it and check again later.
                     // Nothing here asks macOS for it; only an explicit request
@@ -740,6 +751,10 @@ fn capture_loop(paths: &MemoryPaths, stop: &AtomicBool) -> Result<()> {
             sleep_until(tick + PERMISSION_RECHECK, stop);
             continue;
         }
+        // A slow computer spends longer per capture: pace the next one so
+        // capturing never takes more than half of the recorder's time.
+        let spent = tick.elapsed();
+        let interval = paced(interval, spent);
         if s.capture_on_change {
             let mut probe = || probe_focus(&mut engine);
             next_reason = wait_for_change(
@@ -748,7 +763,7 @@ fn capture_loop(paths: &MemoryPaths, stop: &AtomicBool) -> Result<()> {
                 tick + interval,
                 tick,
                 CHANGE_POLL,
-                CHANGE_MIN_GAP,
+                CHANGE_MIN_GAP.max(spent * 2),
                 stop,
             );
         } else {
@@ -764,6 +779,32 @@ const PERMISSION_RECHECK: Duration = Duration::from_secs(30);
 /// The engine skipped the capture because Screen Recording is not granted.
 fn is_permission_skip(resp: &Value) -> bool {
     resp.get("skipped").and_then(Value::as_str) == Some("permission_missing")
+}
+
+/// While the person works, a capture every this long (2 frames a second). An
+/// unchanged display costs almost nothing (the engine skips it), so the rate
+/// costs work only when the screen changes; `paced` stretches it on a slow computer.
+const CAPTURE_EVERY_ACTIVE: Duration = Duration::from_millis(500);
+/// Without input, a capture every this long.
+const CAPTURE_EVERY_IDLE: Duration = Duration::from_millis(2000);
+
+/// The capture rate. Kortix Capture sets it; no setting or policy does.
+/// `KORTIX_CAPTURE_TUNING` keeps `interval_ms` for development scripts.
+fn capture_interval(s: &Settings, active: bool) -> Duration {
+    if std::env::var_os(super::settings::TUNING_ENV).is_some() {
+        return Duration::from_millis(s.interval_ms.max(100));
+    }
+    if active {
+        CAPTURE_EVERY_ACTIVE
+    } else {
+        CAPTURE_EVERY_IDLE
+    }
+}
+
+/// The time from one capture's start to the next: `interval`, or twice what the
+/// capture took when that is longer (at most half the time capturing).
+fn paced(interval: Duration, spent: Duration) -> Duration {
+    interval.max(spent * 2)
 }
 
 /// Poll the focus this often between fixed ticks.
@@ -801,9 +842,21 @@ pub(crate) fn capture_request(
         "record_unknown": s.record_unknown_bundle_ids,
         "inactive_after_seconds": s.inactivity_seconds as f64,
         "ax": s.ax_enabled,
-        "level": s.ocr_level,
+        "level": s.ocr_engine_level(),
         "languages": s.ocr_languages,
     })
+}
+
+/// The longest a frame goes without a fresh accessibility tree while focus
+/// stays on one window. Each read runs inside the focused app (UI Automation
+/// on Windows), so it is taken on a focus change and otherwise this often,
+/// not on every 2 s tick.
+const AX_REFRESH: Duration = Duration::from_secs(30);
+
+/// Read the accessibility tree on the first capture, on a capture a focus
+/// change pulled forward, and at least every `AX_REFRESH`.
+fn wants_ax_tree(first: bool, focus_change: Option<&str>, last: Option<Instant>) -> bool {
+    first || focus_change.is_some() || last.is_none_or(|at| at.elapsed() >= AX_REFRESH)
 }
 
 /// What the user is looking at: frontmost app, focused window title, browser URL.
@@ -933,7 +986,9 @@ fn supervise(
         let wait = delay(failures);
         match outcome {
             Ok(Ok(())) => tracing::warn!("{name} returned; restart {failures} in {wait:?}"),
-            Ok(Err(err)) => tracing::error!("{name} stopped: {err:#}; restart {failures} in {wait:?}"),
+            Ok(Err(err)) => {
+                tracing::error!("{name} stopped: {err:#}; restart {failures} in {wait:?}")
+            }
             Err(_) => tracing::error!("{name} panicked; restart {failures} in {wait:?}"),
         }
         sleep(wait, stop);
@@ -970,6 +1025,13 @@ fn file_sha256(path: &Path) -> Option<String> {
 }
 
 /// Make sure an application row has an icon; fetched once per bundle id.
+/// How long an app whose icon lookup failed waits before the next try.
+const ICON_RETRY: Duration = Duration::from_secs(3600);
+
+/// Apps whose icon lookup failed, and when.
+static ICON_FAILED: std::sync::LazyLock<std::sync::Mutex<HashMap<String, Instant>>> =
+    std::sync::LazyLock::new(Default::default);
+
 fn ensure_icon(
     conn: &Connection,
     paths: &MemoryPaths,
@@ -993,8 +1055,27 @@ fn ensure_icon(
     let out = paths
         .icons_dir()
         .join(format!("{}.png", sanitize(bundle_id)));
+    // An app whose icon failed is asked again after ICON_RETRY, not on every
+    // frame: a slow lookup (an exe on a network share) times out and the
+    // timeout kills the engine that also captures.
+    let failed_recently = ICON_FAILED
+        .lock()
+        .ok()
+        .and_then(|m| m.get(bundle_id).map(|at| at.elapsed() < ICON_RETRY))
+        .unwrap_or(false);
+    if failed_recently {
+        return;
+    }
     let req = json!({"cmd": "icon", "bundle_id": bundle_id, "out": out.to_string_lossy()});
-    if let Ok(resp) = engine.request(req, Duration::from_secs(5)) {
+    let resp = engine.request(req, Duration::from_secs(5));
+    if let Ok(mut m) = ICON_FAILED.lock() {
+        if resp.is_err() {
+            m.insert(bundle_id.to_string(), Instant::now());
+        } else {
+            m.remove(bundle_id);
+        }
+    }
+    if let Ok(resp) = resp {
         let rel = paths.rel(&out);
         let color = resp.get("dominant_color").and_then(Value::as_i64);
         let _ = conn.execute(
@@ -1201,7 +1282,7 @@ fn insert_frame(
 /// The next frame to OCR: a staged still first, the focused display's frames
 /// before another display's, oldest first.
 const OCR_NEXT_SQL: &str = "SELECT id, image_path, image_hash, width, height, capture_display_x, capture_display_y,
-        capture_display_width, capture_display_height, display_id, display_focused, timestamp
+        capture_display_width, capture_display_height, display_id, display_focused, timestamp, dhash
  FROM frame WHERE ocr_status = 0 ORDER BY image_path IS NULL, COALESCE(display_focused, 1) = 0, id LIMIT 1";
 
 struct PendingFrame {
@@ -1215,6 +1296,8 @@ struct PendingFrame {
     /// The display held the focused window (frames before multi-display count as focused).
     focused: bool,
     ts: i64,
+    /// The engine's 64-bit difference hash of the still, hex.
+    dhash: Option<String>,
 }
 
 fn pending_frame(r: &rusqlite::Row) -> rusqlite::Result<PendingFrame> {
@@ -1233,6 +1316,7 @@ fn pending_frame(r: &rusqlite::Row) -> rusqlite::Result<PendingFrame> {
         display_id: r.get(9)?,
         focused: r.get::<_, Option<i64>>(10)?.is_none_or(|v| v != 0),
         ts: r.get(11)?,
+        dhash: r.get::<_, Option<String>>(12).ok().flatten(),
     })
 }
 
@@ -1251,12 +1335,30 @@ enum OcrPlan {
     Read,
 }
 
+/// Two stills whose difference hashes differ in at most this many of 64 bits
+/// look the same (a moved cursor or crosshair, a blinking caret).
+const NEAR_SAME_DHASH_BITS: u32 = 2;
+/// A still that looks the same as its display's last read copies that text
+/// while the read is younger than this; small edits are read by then.
+const NEAR_SAME_OCR_EVERY_MS: i64 = 20_000;
+
+fn dhash_distance(a: Option<&str>, b: Option<&str>) -> Option<u32> {
+    let p = |h: Option<&str>| u64::from_str_radix(h?, 16).ok();
+    Some((p(a)? ^ p(b)?).count_ones())
+}
+
 /// How a frame gets its text: copied from the previous frame of its display
 /// when the still is identical, when the display (without the focus) was read
 /// less than `NON_ACTIVE_OCR_EVERY_MS` ago, or when it churns (its last read
 /// found `CHURN_FRACTION` of it changed) and was read less than
 /// `CHURN_OCR_EVERY_MS` ago; else read. Every frame is written either way.
 fn ocr_plan(conn: &Connection, f: &PendingFrame) -> Result<OcrPlan> {
+    ocr_plan_with(conn, f, if person_active() { OCR_ACTIVE_EVERY_MS } else { 0 })
+}
+
+/// `ocr_plan` with the least time between two reads of one display
+/// (`OCR_ACTIVE_EVERY_MS` while the person works, else 0).
+fn ocr_plan_with(conn: &Connection, f: &PendingFrame, at_least_ms: i64) -> Result<OcrPlan> {
     let prev: Option<(i64, Option<String>)> = conn
         .query_row(
             "SELECT id, image_hash FROM frame
@@ -1273,22 +1375,27 @@ fn ocr_plan(conn: &Connection, f: &PendingFrame) -> Result<OcrPlan> {
         return Ok(OcrPlan::Copy(prev_id));
     }
     if f.display_id.is_some() {
-        let last_read: Option<(i64, Option<f64>)> = conn
+        let last_read: Option<(i64, Option<f64>, Option<String>)> = conn
             .query_row(
-                "SELECT timestamp, ocr_changed FROM frame WHERE id < ?1 AND ocr_status = 1 AND display_id IS ?2
+                "SELECT timestamp, ocr_changed, dhash FROM frame WHERE id < ?1 AND ocr_status = 1 AND display_id IS ?2
                  ORDER BY id DESC LIMIT 1",
                 params![f.id, f.display_id],
-                |r| Ok((r.get(0)?, r.get(1)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             )
             .optional()?;
-        if let Some((t, changed)) = last_read {
+        if let Some((t, changed, read_dhash)) = last_read {
+            let near_same = dhash_distance(f.dhash.as_deref(), read_dhash.as_deref())
+                .is_some_and(|d| d <= NEAR_SAME_DHASH_BITS);
             let every = if !f.focused {
                 NON_ACTIVE_OCR_EVERY_MS
+            } else if near_same {
+                NEAR_SAME_OCR_EVERY_MS
             } else if changed.is_some_and(|c| c >= CHURN_FRACTION) {
                 CHURN_OCR_EVERY_MS
             } else {
                 0
-            };
+            }
+            .max(at_least_ms);
             if f.ts - t < every {
                 return Ok(OcrPlan::Copy(prev_id));
             }
@@ -1296,6 +1403,39 @@ fn ocr_plan(conn: &Connection, f: &PendingFrame) -> Result<OcrPlan> {
     }
     Ok(OcrPlan::Read)
 }
+
+/// `ocr_level` that turns text recognition off: frames keep app, window title,
+/// URL and accessibility text; the screen text is not read.
+pub const OCR_OFF: &str = "off";
+
+/// While the person works (input in the last `ACTIVE_FOR_MS`), a display's text
+/// is read at most this often; the frames between copy the last text read.
+/// Identical stills copy it at any time. Work then goes to the person's apps.
+const OCR_ACTIVE_EVERY_MS: i64 = 30_000;
+
+/// The person counts as working this long after their last keyboard or mouse input.
+const ACTIVE_FOR_MS: i64 = 5_000;
+
+/// When the person last used the keyboard or mouse (epoch ms; 0: not known yet).
+/// The capture loop sets it from the engine's `idle_seconds`; background work
+/// (OCR, video encoding) reads it to stay out of the person's way.
+static LAST_INPUT_MS: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+
+fn note_idle_seconds(resp: &Value) {
+    if let Some(idle) = resp.get("idle_seconds").and_then(Value::as_f64) {
+        let at = now_ms() - (idle.max(0.0) * 1000.0) as i64;
+        LAST_INPUT_MS.store(at, Ordering::Relaxed);
+    }
+}
+
+/// The person used the keyboard or mouse in the last `ACTIVE_FOR_MS`.
+fn person_active() -> bool {
+    let at = LAST_INPUT_MS.load(Ordering::Relaxed);
+    at > 0 && now_ms() - at < ACTIVE_FOR_MS
+}
+
+/// OCR rests this many times as long as each read took (at most 20% of one core).
+const OCR_REST_FACTOR: u32 = 4;
 
 /// macOS VM pressure: 1 normal, 2 warning, 4 critical. Other OSes report normal.
 pub fn memory_pressure_level() -> u32 {
@@ -1336,9 +1476,28 @@ fn ocr_loop(paths: MemoryPaths, stop: Arc<AtomicBool>) -> Result<()> {
             std::thread::sleep(Duration::from_millis(500));
             continue;
         };
+        if settings.refresh().ocr_level == OCR_OFF {
+            // Text recognition is off: the frames are done without text (status 4),
+            // so the stills go on to video. Local PII masking reads its own text.
+            conn.execute(
+                "UPDATE frame SET ocr_status = 4 WHERE ocr_status = 0 AND pii_redacted = 0",
+                [],
+            )?;
+            std::thread::sleep(Duration::from_millis(500));
+            continue;
+        }
+        let started = Instant::now();
         if let Err(err) = ocr_one(&conn, &paths, &mut engine, settings.refresh(), &frame) {
             tracing::warn!("ocr frame {} failed: {err:#}", frame.id);
             conn.execute("UPDATE frame SET ocr_status = 3 WHERE id = ?1", [frame.id])?;
+        }
+        // Text recognition is the costliest step on a slow computer. Rest
+        // OCR_REST_FACTOR times as long as a read took (a copy takes no time),
+        // so OCR uses at most 1 / (1 + OCR_REST_FACTOR) of one core. Frames
+        // wait with ocr_status 0; the plan copies text across the gap.
+        let took = started.elapsed();
+        if took > Duration::from_millis(50) {
+            sleep_until(Instant::now() + took * OCR_REST_FACTOR, &stop);
         }
     }
     Ok(())
@@ -1899,19 +2058,29 @@ fn group_staged(staged: &[Staged], max: usize) -> Vec<Group<'_>> {
     groups
 }
 
+/// How often the finalize loop runs [`store::maintain`].
+const MAINTENANCE_EVERY: Duration = Duration::from_secs(3600);
+
 fn finalize_loop(paths: MemoryPaths, stop: Arc<AtomicBool>) -> Result<()> {
     let conn = store::open(&paths)?;
     let mut engine = Engine::new()?;
     let mut settings = SettingsWatch::new(&paths);
     let mut last_retention = Instant::now() - Duration::from_secs(3600);
+    // The first maintenance runs 10 minutes after the start, then every hour.
+    let mut last_maintenance = Instant::now() - MAINTENANCE_EVERY + Duration::from_secs(600);
     let favicon_rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
+    let mut last_finalize = Instant::now();
     while !stop.load(Ordering::SeqCst) {
         let s = settings.refresh().clone();
-        match finalize_pass(&conn, &paths, &mut engine, &s, false) {
-            Ok(_) => {}
-            Err(err) => tracing::warn!("finalize pass failed: {err:#}"),
+        // Video encoding waits while the person works, up to FINALIZE_DEFER_MAX:
+        // the stills stay staged on disk and encode in the next pause.
+        if !person_active() || last_finalize.elapsed() >= FINALIZE_DEFER_MAX {
+            last_finalize = Instant::now();
+            if let Err(err) = finalize_pass(&conn, &paths, &mut engine, &s, false) {
+                tracing::warn!("finalize pass failed: {err:#}");
+            }
         }
         if !s.airgap {
             if let Err(err) = fetch_favicons(&conn, &paths, &mut engine, &favicon_rt) {
@@ -1922,6 +2091,13 @@ fn finalize_loop(paths: MemoryPaths, stop: Arc<AtomicBool>) -> Result<()> {
             last_retention = Instant::now();
             if let Err(err) = retention::enforce(&conn, &paths, &mut engine, &s) {
                 tracing::warn!("retention pass failed: {err:#}");
+            }
+        }
+        // The one place that maintains the library: planner statistics and WAL size.
+        if last_maintenance.elapsed() > MAINTENANCE_EVERY {
+            last_maintenance = Instant::now();
+            if let Err(err) = store::maintain(&conn) {
+                tracing::warn!("library maintenance failed: {err:#}");
             }
         }
         for _ in 0..40 {
@@ -1936,6 +2112,9 @@ fn finalize_loop(paths: MemoryPaths, stop: Arc<AtomicBool>) -> Result<()> {
     let _ = finalize_pass(&conn, &paths, &mut engine, &s, true);
     Ok(())
 }
+
+/// The longest video encoding waits for a pause in the person's work.
+const FINALIZE_DEFER_MAX: Duration = Duration::from_secs(300);
 
 const FAVICON_RETRY_MS: i64 = 7 * 86_400_000;
 
@@ -2417,6 +2596,7 @@ mod tests {
             display_id: None,
             focused: true,
             ts: 3,
+            dhash: None,
         };
         ocr_one(
             &conn,
@@ -2847,6 +3027,44 @@ mod tests {
         run_once_tasks(&conn, &paths).unwrap();
         assert!(!Settings::load(&paths).pause_on_inactivity);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_running_recorder_ignores_capture_knobs_in_settings_json() {
+        let paths = MemoryPaths::at(
+            std::env::temp_dir().join(format!("kmem-watch-{}", uuid::Uuid::new_v4().simple())),
+        );
+        paths.ensure().unwrap();
+        std::fs::write(paths.settings(), r#"{"interval_ms": 500000, "ocr_level": "off"}"#).unwrap();
+        let mut watch = SettingsWatch::new(&paths);
+        let s = watch.refresh();
+        assert_eq!((s.interval_ms, s.ocr_level.as_str()), (2000, "accurate"));
+        let _ = std::fs::remove_dir_all(&paths.root);
+    }
+
+    #[test]
+    fn the_capture_rate_follows_the_person_and_no_setting() {
+        let mut s = Settings::default();
+        s.interval_ms = 500_000;
+        assert_eq!(capture_interval(&s, true), CAPTURE_EVERY_ACTIVE);
+        assert_eq!(capture_interval(&s, false), CAPTURE_EVERY_IDLE);
+    }
+
+    #[test]
+    fn a_slow_capture_stretches_the_interval_to_half_duty() {
+        let two = Duration::from_secs(2);
+        assert_eq!(paced(two, Duration::from_millis(300)), two);
+        assert_eq!(paced(two, Duration::from_millis(1500)), Duration::from_secs(3));
+    }
+
+    #[test]
+    fn the_accessibility_tree_is_read_on_focus_changes_and_every_30_s() {
+        let now = Instant::now();
+        assert!(wants_ax_tree(true, None, Some(now)));
+        assert!(wants_ax_tree(false, Some("app_switch"), Some(now)));
+        assert!(wants_ax_tree(false, None, None));
+        assert!(!wants_ax_tree(false, None, Some(now)));
+        assert!(wants_ax_tree(false, None, now.checked_sub(AX_REFRESH)));
     }
 
     #[test]
@@ -3377,14 +3595,78 @@ mod tests {
         ocr_frame(&conn, 4, false, 1_500, "other", 1);
         let f = ocr_frame(&conn, 1, true, 3_000, "same", 0);
         assert_eq!(
-            ocr_plan(&conn, &pending(&conn, f)).unwrap(),
+            ocr_plan_with(&conn, &pending(&conn, f), 0).unwrap(),
             OcrPlan::Copy(a)
         );
         let g = ocr_frame(&conn, 4, true, 3_100, "same", 0);
         assert_eq!(
-            ocr_plan(&conn, &pending(&conn, g)).unwrap(),
+            ocr_plan_with(&conn, &pending(&conn, g), 0).unwrap(),
             OcrPlan::Read,
             "another display's still is not this one's"
+        );
+        let _ = std::fs::remove_dir_all(&paths.root);
+    }
+
+    #[test]
+    fn while_the_person_works_a_display_is_read_at_most_every_30_s() {
+        let (paths, conn) = ocr_lib();
+        let read = ocr_frame(&conn, 1, true, 10_000, "v1", 1);
+        let next = ocr_frame(&conn, 1, true, 20_000, "v2", 0);
+        // Idle: a changed still on the focused display is read.
+        assert_eq!(
+            ocr_plan_with(&conn, &pending(&conn, next), 0).unwrap(),
+            OcrPlan::Read
+        );
+        // Working: it copies the last text until 30 s after that read.
+        assert_eq!(
+            ocr_plan_with(&conn, &pending(&conn, next), OCR_ACTIVE_EVERY_MS).unwrap(),
+            OcrPlan::Copy(read)
+        );
+        let later = ocr_frame(&conn, 1, true, 10_000 + OCR_ACTIVE_EVERY_MS, "v3", 0);
+        assert_eq!(
+            ocr_plan_with(&conn, &pending(&conn, later), OCR_ACTIVE_EVERY_MS).unwrap(),
+            OcrPlan::Read
+        );
+        let _ = std::fs::remove_dir_all(&paths.root);
+    }
+
+    #[test]
+    fn idle_seconds_mark_the_person_active_for_five_seconds() {
+        note_idle_seconds(&json!({"idle_seconds": 1.0}));
+        assert!(person_active());
+        note_idle_seconds(&json!({"idle_seconds": 60.0}));
+        assert!(!person_active());
+    }
+
+    #[test]
+    fn a_still_that_looks_the_same_copies_text_for_twenty_seconds() {
+        let (paths, conn) = ocr_lib();
+        let dh = |id: i64, h: &str| {
+            conn.execute("UPDATE frame SET dhash = ?1 WHERE id = ?2", params![h, id])
+                .unwrap();
+        };
+        let read = ocr_frame(&conn, 1, true, 10_000, "v1", 1);
+        dh(read, "00ff00ff00ff00ff");
+        // Two bits apart (a moved cursor): copied.
+        let near = ocr_frame(&conn, 1, true, 12_000, "v2", 0);
+        dh(near, "00ff00ff00ff00fc");
+        assert_eq!(
+            ocr_plan_with(&conn, &pending(&conn, near), 0).unwrap(),
+            OcrPlan::Copy(read)
+        );
+        // Three bits apart: read.
+        let moved = ocr_frame(&conn, 1, true, 12_500, "v3", 0);
+        dh(moved, "00ff00ff00ff00f8");
+        assert_eq!(
+            ocr_plan_with(&conn, &pending(&conn, moved), 0).unwrap(),
+            OcrPlan::Read
+        );
+        // Looks the same, but the last read is 20 s old: read.
+        let late = ocr_frame(&conn, 1, true, 10_000 + NEAR_SAME_OCR_EVERY_MS, "v4", 0);
+        dh(late, "00ff00ff00ff00ff");
+        assert_eq!(
+            ocr_plan_with(&conn, &pending(&conn, late), 0).unwrap(),
+            OcrPlan::Read
         );
         let _ = std::fs::remove_dir_all(&paths.root);
     }
@@ -3395,18 +3677,18 @@ mod tests {
         let read = ocr_frame(&conn, 4, false, 10_000, "v1", 1);
         let soon = ocr_frame(&conn, 4, false, 14_000, "v2", 0);
         assert_eq!(
-            ocr_plan(&conn, &pending(&conn, soon)).unwrap(),
+            ocr_plan_with(&conn, &pending(&conn, soon), 0).unwrap(),
             OcrPlan::Copy(read)
         );
         let later = ocr_frame(&conn, 4, false, 10_000 + NON_ACTIVE_OCR_EVERY_MS, "v3", 0);
         assert_eq!(
-            ocr_plan(&conn, &pending(&conn, later)).unwrap(),
+            ocr_plan_with(&conn, &pending(&conn, later), 0).unwrap(),
             OcrPlan::Read
         );
         // The active display is read every frame.
         let active = ocr_frame(&conn, 4, true, 15_000, "v4", 0);
         assert_eq!(
-            ocr_plan(&conn, &pending(&conn, active)).unwrap(),
+            ocr_plan_with(&conn, &pending(&conn, active), 0).unwrap(),
             OcrPlan::Read
         );
         let _ = std::fs::remove_dir_all(&paths.root);
@@ -3421,19 +3703,19 @@ mod tests {
             .unwrap();
         let next = ocr_frame(&conn, 1, true, 12_000, "c2", 0);
         assert_eq!(
-            ocr_plan(&conn, &pending(&conn, next)).unwrap(),
+            ocr_plan_with(&conn, &pending(&conn, next), 0).unwrap(),
             OcrPlan::Copy(read)
         );
         let later = ocr_frame(&conn, 1, true, 10_000 + CHURN_OCR_EVERY_MS, "c3", 0);
         assert_eq!(
-            ocr_plan(&conn, &pending(&conn, later)).unwrap(),
+            ocr_plan_with(&conn, &pending(&conn, later), 0).unwrap(),
             OcrPlan::Read
         );
         // A small change (typing) is read every frame.
         conn.execute("UPDATE frame SET ocr_changed = 0.05 WHERE id = ?1", [read])
             .unwrap();
         assert_eq!(
-            ocr_plan(&conn, &pending(&conn, next)).unwrap(),
+            ocr_plan_with(&conn, &pending(&conn, next), 0).unwrap(),
             OcrPlan::Read
         );
         let _ = std::fs::remove_dir_all(&paths.root);

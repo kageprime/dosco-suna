@@ -81,7 +81,7 @@ export function registerAutomationRoutes(): void {
       // `paused` is required: `{}` must never flip the switch.
       const body = await readJsonObject(c);
       if (typeof body.paused !== 'boolean') return c.json({ error: 'paused (boolean) is required' }, 400);
-      const pause = await setAccountAutomationsPaused({ accountId, paused: body.paused, userId: c.get('userId') as string });
+      const pause = await setAccountAutomationsPaused({ accountId, paused: body.paused, userId: c.get('userId') });
       return c.json(status(pause, true), 200);
     },
   );

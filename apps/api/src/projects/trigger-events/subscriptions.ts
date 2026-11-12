@@ -11,6 +11,9 @@ import { defaultConnectionIdForConnector } from '../../connectors/credentials';
 import { logger } from '../../lib/logger';
 import { connectionRowIsReachable } from '../lib/connection-access';
 import { loadConnectionAudience } from '../lib/connection-audience';
+import { activeAgentServiceAccountId } from '../../repositories/service-accounts';
+import { loadProjectAgents } from '../agents/parse';
+import { resolveSessionAgentName } from '../lib/session-create';
 import type { GitTriggerSpec } from '../trigger-types';
 import { db } from '../../shared/db';
 import { canonicalJson } from './canonical-json';
@@ -22,7 +25,13 @@ import { EventConnectionNotReadyError, type EventSourceConnection, type EventSou
 import { projectsView } from '../../workspaces/rows';
 
 type Resolution =
-  | { kind: 'ok'; provider: EventSourceProvider; connection: EventSourceConnection }
+  | {
+      kind: 'ok';
+      provider: EventSourceProvider;
+      connection: EventSourceConnection;
+      /** The agent service account the account is shared with, when that share (not a whole-workspace one) admits the trigger. A check calls the account as this agent. */
+      agentId?: string | null;
+    }
   | { kind: 'needs_connection'; message: string }
   | { kind: 'error'; message: string };
 
@@ -59,10 +68,51 @@ async function sharedConnectionIdByLabel(connectorId: string, label: string): Pr
 export const connectionIdentity = (row: { label: string; metadata: unknown }): string =>
   connectedAsOf(row.metadata) ?? row.label;
 
+/** The agent a trigger names, or null. `default` names none: the session resolves it when it starts. */
+const namedAgent = (agent: string | null | undefined): string | null => {
+  const name = agent?.trim();
+  return name && name !== 'default' ? name : null;
+};
+
+/**
+ * The agent a run of a trigger that names none starts as, or null when that
+ * cannot be known. Same rule as session creation (`resolveSessionAgentName`):
+ * a trigger run sends `agent_name: 'default'`, so neither a channel's agent
+ * nor My Kortix stands in; kortix.yaml's `default_agent` wins over the
+ * metadata mirror. An unreadable or invalid kortix.yaml answers null: the
+ * trigger then needs an account shared with the whole workspace.
+ */
+async function defaultRunAgent(projectId: string): Promise<string | null> {
+  const [project] = await db.select().from(projectsView).where(eq(projectsView.projectId, projectId)).limit(1);
+  if (!project) return null;
+  let manifestDefaultAgent: string | null;
+  try {
+    const loaded = await loadProjectAgents(project, { forceRefresh: 'tip-proof', rethrowReadErrors: true });
+    if (loaded.manifestSyntaxError) return null;
+    manifestDefaultAgent = loaded.defaultAgent?.trim() || null;
+  } catch (error) {
+    logger.warn('[trigger-events] kortix.yaml unreadable; a trigger with no agent needs a whole-workspace account', {
+      projectId,
+      error: errorText(error),
+    });
+    return null;
+  }
+  const mirrored = (project.metadata as Record<string, unknown> | null)?.default_agent;
+  return namedAgent(
+    resolveSessionAgentName({
+      requestedAgent: null,
+      manifestDefaultAgent,
+      mirroredDefaultAgent: typeof mirrored === 'string' && mirrored.trim() ? mirrored.trim() : null,
+    }),
+  );
+}
+
 export async function resolveSource(
   projectId: string,
   accountId: string,
   event: NonNullable<GitTriggerSpec['event']>,
+  /** The trigger's `agent`: its runs act as that agent's service account. */
+  agent?: string | null,
 ): Promise<Resolution & { providerId?: string }> {
   const [connector] = await db
     .select({
@@ -129,23 +179,46 @@ export async function resolveSource(
     .where(eq(connectorConnections.connectionId, connectionId))
     .limit(1);
   // Event data lands in a session prompt. An account narrowed to named people
-  // must not feed it, so only an account open to the whole project qualifies.
-  const audience = (await loadConnectionAudience({ projectId, accountId, userId: null }))(connectionId);
-  if (row && row.status === 'active' && audience !== 'open' && !named) {
+  // must not feed it. An account open to the whole project qualifies, and so
+  // does one shared with the agent the trigger's runs act as: the agent it
+  // names, else the project's default agent. That agent reads the account in
+  // every session it runs.
+  const audienceFor = async (agentId: string | null) =>
+    (await loadConnectionAudience({ projectId, accountId, userId: null, agentId }))(connectionId);
+  let agentName = namedAgent(agent);
+  let agentId = agentName ? await activeAgentServiceAccountId({ accountId, projectId, agentName }) : null;
+  let audience = await audienceFor(agentId);
+  // No agent named and the account is not open: the default agent is read only now,
+  // so a whole-workspace account never costs a kortix.yaml read (the poll loop runs this every check).
+  if (!namedAgent(agent) && audience !== 'open') {
+    agentName = await defaultRunAgent(projectId);
+    agentId = agentName ? await activeAgentServiceAccountId({ accountId, projectId, agentName }) : null;
+    if (agentId) audience = await audienceFor(agentId);
+  }
+  const usable = audience === 'open' || audience === 'agent';
+  if (row && row.status === 'active' && !usable && !named) {
     return {
       kind: 'error',
       providerId: provider.id,
-      message: `This ${label} account is shared with specific people only. Event triggers need an account shared with the whole project.`,
+      message: namedAgent(agent)
+        ? `This ${label} account is shared with specific people only. Share it with everyone in the workspace or with the agent "${agentName}" to activate this trigger.`
+        : agentName
+          ? `This ${label} account is shared with specific people only. Share it with everyone in the workspace or with the agent "${agentName}" (the workspace's default agent, which runs this trigger) to activate this trigger.`
+          : `This ${label} account is shared with specific people only. Event triggers need an account shared with the whole project.`,
     };
   }
   if (
     !row ||
     row.status !== 'active' ||
     // A named account that is narrowed to people is not usable by a trigger: same text as "not found".
-    (named && audience !== 'open') ||
+    (named && !usable) ||
     !connectionRowIsReachable(
       { ...row, providerType: connector.provider, connectorConfig: connector.config },
-      { userId: '', isServiceAccount: true, agentPrincipal: null },
+      // The agent is the principal, with no human behind it. A null visibility
+      // is not `private`, so no member account is ever reachable.
+      agentId
+        ? { userId: '', isServiceAccount: true, agentPrincipal: { agentId, onBehalfOfUserId: null, visibility: null } }
+        : { userId: '', isServiceAccount: true, agentPrincipal: null },
       audience,
     )
   ) {
@@ -159,7 +232,7 @@ export async function resolveSource(
       message: `Finish connecting the shared ${label} account to activate this trigger.`,
     };
   }
-  return { kind: 'ok', providerId: provider.id, provider, connection };
+  return { kind: 'ok', providerId: provider.id, provider, connection, agentId: audience === 'agent' ? agentId : null };
 }
 
 async function unsubscribeIfUnreferenced(
@@ -182,7 +255,7 @@ async function reconcileOne(
   // Flag off: the trigger stays declared but is never subscribed; a live instance is dropped below.
   const resolved: Resolution & { providerId?: string } = flagOff
     ? { kind: 'error', message: EVENT_TRIGGERS_OFF_MESSAGE }
-    : await resolveSource(projectId, accountId, event);
+    : await resolveSource(projectId, accountId, event, spec.agent);
   const providerId = resolved.providerId ?? prev?.provider ?? 'composio';
   // The source changed (a connector moved from Composio to Kortix): the old
   // instance belongs to the old source, and only that source can drop it, once

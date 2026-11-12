@@ -31,7 +31,7 @@ export interface NamedAccess {
   grantId?: string;
 }
 
-export interface FolderAudience {
+interface FolderAudience {
   mode: FolderAudienceMode;
   everyoneLevel: FolderLevel;
   /** This folder's own grant to everyone in the project. */
@@ -52,7 +52,7 @@ export interface FolderAccessDraft {
   named: NamedAccess[];
 }
 
-export interface FolderAccessPlan {
+interface FolderAccessPlan {
   put: Array<{ principalType: 'project' | 'user' | 'group' | 'agent'; principalId?: string; level: FolderLevel }>;
   remove: string[];
 }

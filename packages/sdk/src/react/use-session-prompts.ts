@@ -208,9 +208,8 @@ export function withEditedPromptText(
   );
 }
 
-/** The rows with ONE row turned into Quick Queue — "Stop and send"'s
- *  optimistic write, so the row leaves the list and paints in the transcript
- *  on the click. */
+/** The rows with ONE row sent now — "Send now"'s optimistic write, so the
+ *  row leaves the list and paints in the transcript on the click. */
 export function withInterruptedPrompt(
   prompts: readonly SessionPrompt[],
   promptId: string,
@@ -581,8 +580,8 @@ export interface UseSessionPromptsResult {
   /** Replace a waiting row's text in place. Sends nothing, keeps its place
    *  and any hold. Throws 409 for a row already on the wire. */
   edit: (promptId: string, text: string) => Promise<SessionPrompt>;
-  /** "Stop and send": a waiting row becomes Quick Queue. The running turn
-   *  ends after its running tool, then this row runs. Throws 409 for a row
+  /** "Send now": a waiting row goes next, ahead of older waiting rows, and
+   *  steers the running turn; the turn does not stop. Throws 409 for a row
    *  already on the wire. */
   interrupt: (promptId: string) => Promise<SessionPrompt>;
   /** Hold, or release, the whole queue. The Stop button holds; any new send,

@@ -27,6 +27,7 @@ describe('standalone gateway security headers', () => {
       expect(response.headers.get('cache-control')).toBe('private, no-store');
       expect(response.headers.get('content-security-policy')).toBe("default-src 'none';frame-ancestors 'none'");
       expect(response.headers.get('x-frame-options')).toBe('DENY');
+      expect(response.headers.get('referrer-policy')).toBe('strict-origin-when-cross-origin');
       const policy = response.headers.get('permissions-policy');
       expect(policy).not.toBeNull();
       for (const feature of ['camera', 'microphone', 'geolocation', 'sync-xhr', 'payment', 'usb', 'fullscreen', 'display-capture', 'publickey-credentials-get']) {
@@ -78,6 +79,19 @@ describe('standalone gateway security headers', () => {
     expect(response.headers.get('x-frame-options')).toBe('DENY');
     expect(response.headers.get('content-security-policy')).toBe("default-src 'none';frame-ancestors 'none'");
     expect(response.headers.get('permissions-policy')).toContain('camera=()');
+    expect(response.headers.get('referrer-policy')).toBe('strict-origin-when-cross-origin');
+    await response.text();
+  });
+
+  test('a route-set stricter referrer policy survives the global header', async () => {
+    const { app: strictApp } = buildServer();
+    strictApp.get('/test-strict-referrer', (c) => {
+      c.header('Referrer-Policy', 'no-referrer');
+      return c.text('ok');
+    });
+    const response = await strictApp.request('/test-strict-referrer');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('referrer-policy')).toBe('no-referrer');
     await response.text();
   });
 });

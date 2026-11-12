@@ -344,8 +344,10 @@ flow(
       if (held.length > 0) throw new Error(`${held.length} prompt(s) held by a refused stop`);
     });
 
-    await ctx.step('another member\'s "Stop and send" → 403, on a new prompt and on a queued one', async () => {
-      refused(
+    await ctx.step('another member\'s old "Stop and send" stops nothing: the prompt is accepted and the member\'s run keeps running', async () => {
+      // One delivery mode (2026-11-11): `delivery: interrupt` is served as steer. A row from someone who is not
+      // the turn's identity waits for the next turn (inbox-admission.ts `turnIdentity`).
+      (
         await asBystander.post(
           PROMPTS,
           {
@@ -357,8 +359,8 @@ flow(
             overrides: { agent: AGENT },
           },
           { params },
-        ),
-      );
+        )
+      ).status([200, 202]);
       const queued = await asBystander.post(
         PROMPTS,
         {
@@ -374,7 +376,9 @@ flow(
       );
       queued.status([200, 202]);
       const promptId = queued.json<{ prompt_id: string }>().prompt_id;
-      refused(await asBystander.patch(PROMPT, { delivery: 'interrupt' }, { params: { ...params, promptId } }));
+      (await asBystander.patch(PROMPT, { delivery: 'interrupt' }, { params: { ...params, promptId } })).status(200);
+      if ((await canStop(asPrompter)) !== true) throw new Error("the prompter can no longer stop their run: it was stopped");
+      if ((await canStop(asBystander)) !== false) throw new Error('no member run is running any more');
     });
 
     await ctx.step("the owner stops the member's run → 200; once it ends, every member reads the owner as its stopper", async () => {

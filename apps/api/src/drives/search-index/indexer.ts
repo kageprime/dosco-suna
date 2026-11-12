@@ -18,6 +18,7 @@
 
 import { logger } from '../../lib/logger';
 import { configuredTimeoutMs } from '../../shared/with-timeout';
+import { createDriveBackoff } from '../backoff';
 import { activeDriveIds } from '../conflicts';
 import { type DriveRow, driveVolume } from '../service';
 import {
@@ -54,10 +55,8 @@ const READ_CONCURRENCY = 4;
 /** The empty file that holds an otherwise empty folder in place (drives/routes.ts). */
 const FOLDER_MARKER = '.keep';
 const MAX_BACKOFF_MS = 30 * 60_000;
+const indexBackoff = createDriveBackoff(MAX_BACKOFF_MS);
 
-// replica-local: backoff per drive on the scheduler leader. A new leader
-// forgets it and tries each drive once more before backing off again.
-const backoff = new Map<string, { attempts: number; until: number }>();
 export interface DriveIndexResult {
   /** `current`: the index already held the head; `indexed`: it holds it now; `partial`: files are still owed. */
   state: 'current' | 'indexed' | 'partial' | 'missing';
@@ -219,14 +218,6 @@ export async function indexDrive(drive: DriveRow): Promise<DriveIndexResult> {
   return { ...result, state: 'indexed' };
 }
 
-function backoffFor(driveId: string, err: unknown): number {
-  const prev = backoff.get(driveId)?.attempts ?? 0;
-  const retryAfter = err instanceof DriveStorageError && err.retryAfterSeconds ? err.retryAfterSeconds * 1_000 : 0;
-  const wait = Math.min(MAX_BACKOFF_MS, Math.max(retryAfter, 30_000 * 2 ** Math.min(prev, 10)));
-  backoff.set(driveId, { attempts: prev + 1, until: Date.now() + wait });
-  return wait;
-}
-
 let indexing = false;
 
 /** One indexer pass (the `drive-index` job's tick). */
@@ -236,7 +227,7 @@ export async function runDriveIndexPass(): Promise<{ drives: number; failed: num
   let failed = 0;
   try {
     const now = Date.now();
-    const waiting = new Set([...backoff].filter(([, b]) => b.until > now).map(([id]) => id));
+    const waiting = indexBackoff.waiting(now);
     const active = await activeDriveIds().catch(() => [] as string[]);
     const due = (await dueDrives(DRIVES_PER_PASS + waiting.size, RECHECK_MS, active))
       .filter((d) => !waiting.has(d.driveId))
@@ -247,7 +238,7 @@ export async function runDriveIndexPass(): Promise<{ drives: number; failed: num
         const drive = due[i++]!;
         try {
           const r = await indexDrive(drive);
-          backoff.delete(drive.driveId);
+          indexBackoff.ok(drive.driveId);
           if (r.state === 'indexed' || r.state === 'partial') {
             logger.info(
               `[drive-index] drive ${drive.driveId}: ${r.state}, ${r.upserted} written (${r.read} read), ${r.deleted} removed, ${r.owed} owed`,
@@ -255,11 +246,14 @@ export async function runDriveIndexPass(): Promise<{ drives: number; failed: num
           }
         } catch (err) {
           failed++;
-          const wait = backoffFor(drive.driveId, err);
+          const { waitMs, firstFailure } = indexBackoff.fail(drive.driveId, err);
           await markIndexChecked(drive.driveId).catch(() => {});
-          logger.warn(`[drive-index] drive ${drive.driveId} failed; next try in ${Math.round(wait / 1000)} s:`, {
-            error: err instanceof Error ? err.message : String(err),
-          });
+          // The first failure of a failing state warns; the retries stay quiet
+          // (learnings 2026-09-28: never one warning per retry attempt).
+          if (firstFailure)
+            logger.warn(`[drive-index] drive ${drive.driveId} failed; next try in ${Math.round(waitMs / 1000)} s:`, {
+              error: err instanceof Error ? err.message : String(err),
+            });
         }
       }
     };

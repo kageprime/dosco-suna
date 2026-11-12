@@ -2,7 +2,6 @@ import { BlogCta } from '@/components/blog/blog-cta';
 import { CodeHighlight } from '@kortix/ui/markdown';
 import { INLINE_CODE } from '@kortix/ui/markdown';
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
-import { Badge } from '@kortix/ui/badge';
 import { CheckIcon as Check, MinusIcon as Minus } from '@/lib/icons/ssr';
 import { cn } from '@kortix/ui';
 import { useTranslations } from '@/i18n/use-translations';
@@ -155,20 +154,13 @@ function VerdictBlock({
 
 /* ── compare matrix (reuses the comparison-page look) ────────────────────── */
 
+const LEAN_OFF_CLASS = { them: 'text-muted-foreground/30', kortix: 'text-background/40' } as const;
+
 function LeanMark({ side, lean }: { side: 'them' | 'kortix'; lean: RowLean }) {
-  const on = lean === side || lean === 'both';
-  if (side === 'kortix') {
-    return on ? (
-      <Check className="text-ring mt-0.5 size-4 shrink-0" />
-    ) : (
-      <Minus className="text-background/40 mt-0.5 size-4 shrink-0" />
-    );
+  if (lean === side || lean === 'both') {
+    return <Check className="text-ring mt-0.5 size-4 shrink-0" />;
   }
-  return on ? (
-    <Check className="text-ring mt-0.5 size-4 shrink-0" />
-  ) : (
-    <Minus className="text-muted-foreground/30 mt-0.5 size-4 shrink-0" />
-  );
+  return <Minus className={cn(LEAN_OFF_CLASS[side], 'mt-0.5 size-4 shrink-0')} />;
 }
 
 function CompareBlock({ them, rows }: { them: string; rows: CompareRow[] }) {
@@ -284,50 +276,4 @@ export function BlockView({ block }: { block: Block }) {
         </div>
       );
   }
-}
-
-function blockContent(block: Block): string {
-  switch (block.type) {
-    case 'ul':
-      return block.items.join('|');
-    case 'code':
-      return block.code;
-    case 'logos':
-      return block.label ?? block.items.map((logo) => logo.domain).join('|');
-    case 'verdict':
-    case 'compare':
-      return block.them;
-    case 'cta':
-      return block.title;
-    default:
-      return block.text;
-  }
-}
-
-export function BlogContent({ blocks }: { blocks: Block[] }) {
-  const seen = new Map<string, number>();
-  return (
-    <div className="mt-10">
-      {blocks.map((block) => {
-        const base = `${block.type}:${blockContent(block).slice(0, 80)}`;
-        const n = seen.get(base) ?? 0;
-        seen.set(base, n + 1);
-        return <BlockView key={n ? `${base}#${n}` : base} block={block} />;
-      })}
-    </div>
-  );
-}
-
-/* Tags helper reused by the post header. */
-export function PostTags({ tags }: { tags: string[] }) {
-  if (!tags.length) return null;
-  return (
-    <div className="mb-4 flex flex-wrap gap-1.5">
-      {tags.map((tag) => (
-        <Badge key={tag} size="sm" variant="secondary">
-          {tag}
-        </Badge>
-      ))}
-    </div>
-  );
 }

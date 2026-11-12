@@ -23,6 +23,7 @@ import {
 } from '../__tests__/helpers/integration-fixtures';
 
 const { projectsApp } = await import('../projects/lib/app');
+const { verifyAppAccessToken } = await import('./access');
 const { registerAppsRoutes } = await import('./routes');
 registerAppsRoutes();
 
@@ -83,7 +84,12 @@ describe('a project-wide App in an account that requires MFA', () => {
 
     const session = await openSession();
     expect(session.status).toBe(200);
-    expect(((await session.json()) as { url: string }).url).toStartWith('http');
+    const url = ((await session.json()) as { url: string }).url;
+    expect(url).toStartWith('http');
+    // The link records the second factor, so the viewer token minted from its
+    // cookie counts as MFA-verified in this account (middleware/actor.ts).
+    const link = new URL(url).searchParams.get('__kortix_access')!;
+    expect(verifyAppAccessToken(link, APP_ID)).toMatchObject({ userId: MEMBER, aal: 'aal2' });
   });
 
   test('without the second factor the member neither lists nor opens it', async () => {

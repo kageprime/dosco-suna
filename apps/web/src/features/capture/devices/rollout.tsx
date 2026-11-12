@@ -1,28 +1,18 @@
 'use client';
 
-import type {
-  CaptureDevice,
-  CaptureEnrollment,
-  CaptureEnrollmentToken,
-  CaptureEnrollmentTokenSecret,
-} from '@kortix/sdk';
+import type { CaptureEnrollmentToken, CaptureEnrollmentTokenSecret } from '@kortix/sdk';
 import {
-  useApproveCaptureEnrollment,
-  useCaptureEnrollments,
   useCaptureEnrollmentTokens,
   useCreateCaptureEnrollmentToken,
-  useDenyCaptureEnrollment,
-  useLinkCaptureDevice,
   useRevokeCaptureEnrollmentToken,
 } from '@kortix/sdk/react';
-import { ArrowSquareOutIcon, DesktopIcon } from '@phosphor-icons/react';
+import { ArrowSquareOutIcon } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { useId, useState } from 'react';
 
 import { Badge } from '@kortix/ui/badge';
 import { Button } from '@kortix/ui/button';
 import { ConfirmDialog } from '@kortix/ui/confirm-dialog';
-import { CountBadge } from '@kortix/ui/count-badge';
 import { Input } from '@kortix/ui/input';
 import { Label } from '@kortix/ui/label';
 import Loading from '@kortix/ui/loading';
@@ -44,41 +34,33 @@ import {
 } from '@kortix/ui/select';
 import { Skeleton } from '@kortix/ui/skeleton';
 import { Switch } from '@kortix/ui/switch';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@kortix/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@kortix/ui/tabs';
 import { errorToast, successToast } from '@kortix/ui/toast';
 import { useLocale, useTranslations } from '@/i18n/use-translations';
 import { getEnv } from '@/lib/env-config';
-import { relativeTime } from '@kortix/ui/internal/lib/relative-time';
 
 import { useCaptureDirectory } from '@kortix/ui/internal/capture/use-capture-area';
 import {
   enrollmentUrl,
+  errorText,
   EXPIRY_DAYS,
   expiryDate,
   installCommand,
   parseDomains,
   parseLimit,
-  personLabel,
   ROLLOUT_OS,
   type ExpiryDays,
   type RolloutOs,
 } from './rollout-model';
 import { CopyBlock } from '../copy-block';
+import { MemberSelect } from './member-select';
 
-const errorText = (error: unknown, fallback: string) =>
-  error instanceof Error && error.message ? error.message : fallback;
+export { WaitingComputers } from './waiting-computers';
+export { LinkDeviceModal } from './link-device-modal';
 
 /**
  * "Roll out to computers" (`capture.manage`): the enrollment tokens IT installs
- * Dosco Capture with, and a form for a new one. A new token is shown once,
+ * Capture with, and a form for a new one. A new token is shown once,
  * with the silent install command.
  */
 export function RolloutModal({
@@ -397,307 +379,5 @@ function TokenRow({ accountId, token }: { accountId: string; token: CaptureEnrol
         }
       />
     </li>
-  );
-}
-
-// ─── Waiting computers ───────────────────────────────────────────────────────
-
-/**
- * Computers that presented an enrollment token and wait for a decision: their
- * person is no member yet, or the token approves each computer. Shown above
- * the device list while any waits.
- */
-export function WaitingComputers({ accountId }: { accountId: string }) {
-  const t = useTranslations('capture.rollout');
-  const waiting = useCaptureEnrollments(accountId, { status: 'pending' });
-  const rows = waiting.data?.enrollments ?? [];
-  const [approving, setApproving] = useState<CaptureEnrollment | null>(null);
-  if (rows.length === 0) return null;
-  return (
-    <section aria-label={t('waitingTitle')} className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Label>{t('waitingTitle')}</Label>
-        <CountBadge count={rows.length} tone="waiting" />
-      </div>
-      <p className="text-muted-foreground text-xs text-pretty">{t('waitingBody')}</p>
-      <Table className="min-w-3xl">
-        <TableHeader>
-          <TableRow>
-            <TableHead className="pl-4">{t('col.person')}</TableHead>
-            <TableHead>{t('col.computer')}</TableHead>
-            <TableHead>{t('col.reason')}</TableHead>
-            <TableHead>{t('col.lastSeen')}</TableHead>
-            <TableHead className="pr-4">
-              <span className="sr-only">{t('col.actions')}</span>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => (
-            <WaitingRow
-              key={row.enrollment_id}
-              accountId={accountId}
-              row={row}
-              onApprove={() => setApproving(row)}
-            />
-          ))}
-        </TableBody>
-      </Table>
-      <ApproveModal accountId={accountId} row={approving} onClose={() => setApproving(null)} />
-    </section>
-  );
-}
-
-function WaitingRow({
-  accountId,
-  row,
-  onApprove,
-}: {
-  accountId: string;
-  row: CaptureEnrollment;
-  onApprove: () => void;
-}) {
-  const t = useTranslations('capture.rollout');
-  const locale = useLocale();
-  const deny = useDenyCaptureEnrollment(accountId);
-  const [confirm, setConfirm] = useState(false);
-  const person = personLabel(row);
-  return (
-    <TableRow>
-      <TableCell className="pl-4">
-        <span className="text-foreground block truncate font-medium">{person}</span>
-        {row.principal_name && row.account_name ? (
-          <span className="text-muted-foreground block truncate text-xs">{row.account_name}</span>
-        ) : null}
-      </TableCell>
-      <TableCell>
-        <span className="flex items-center gap-2">
-          <DesktopIcon className="text-muted-foreground size-4 shrink-0" />
-          <span className="truncate">{row.device.name ?? t('unnamed')}</span>
-        </span>
-        <span className="text-muted-foreground block text-xs">{row.token_name}</span>
-      </TableCell>
-      <TableCell className="text-muted-foreground max-w-72 min-w-56 text-xs text-pretty whitespace-normal">
-        {t('reason.approval_required')}
-      </TableCell>
-      <TableCell className="text-muted-foreground text-xs tabular-nums">
-        {relativeTime(Date.parse(row.last_seen_at), locale)}
-      </TableCell>
-      <TableCell className="pr-4 text-right">
-        <span className="inline-flex items-center gap-1">
-          <Button variant="outline-ghost" size="sm" onClick={() => setConfirm(true)}>
-            {t('deny')}
-          </Button>
-          <Button size="sm" onClick={onApprove}>
-            {t('approve')}
-          </Button>
-        </span>
-        <ConfirmDialog
-          open={confirm}
-          onOpenChange={setConfirm}
-          title={t('denyTitle', { person })}
-          description={t('denyBody')}
-          confirmLabel={t('deny')}
-          confirmVariant="destructive"
-          isPending={deny.isPending}
-          onConfirm={() =>
-            deny.mutate(row.enrollment_id, {
-              onSuccess: () => {
-                successToast(t('denied'));
-                setConfirm(false);
-              },
-              onError: (error) => errorToast(errorText(error, t('decideFailed'))),
-            })
-          }
-        />
-      </TableCell>
-    </TableRow>
-  );
-}
-
-/** The Select value for "linked to no one". */
-const NO_ONE = 'none';
-
-/** A member of the account, or "linked to no one". */
-function MemberSelect({
-  accountId,
-  enabled,
-  value,
-  noneLabel,
-  labelledBy,
-  onChange,
-}: {
-  accountId: string;
-  enabled: boolean;
-  value: string | null;
-  /** The label of the null choice; default "Linked to no one". */
-  noneLabel?: string;
-  labelledBy?: string;
-  onChange: (userId: string | null) => void;
-}) {
-  const t = useTranslations('capture.rollout');
-  const people = useCaptureDirectory(accountId, enabled);
-  return (
-    <Select
-      value={value ?? NO_ONE}
-      onValueChange={(next) => onChange(next === NO_ONE ? null : next)}
-    >
-      <SelectTrigger
-        aria-label={labelledBy ? undefined : t('member')}
-        aria-labelledby={labelledBy}
-        className="w-full"
-      >
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={NO_ONE}>{noneLabel ?? t('noOne')}</SelectItem>
-        {people.members.map((member) => (
-          <SelectItem key={member.user_id} value={member.user_id}>
-            {member.email ?? member.user_id}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-/** Approve a waiting computer, linked to a member or to no one. The matched member is preselected. */
-function ApproveModal({
-  accountId,
-  row,
-  onClose,
-}: {
-  accountId: string;
-  row: CaptureEnrollment | null;
-  onClose: () => void;
-}) {
-  const t = useTranslations('capture.rollout');
-  const approve = useApproveCaptureEnrollment(accountId);
-  const [picked, setPicked] = useState<string | null | undefined>(undefined);
-  const userId = picked === undefined ? (row?.user_id ?? null) : picked;
-  const close = () => {
-    setPicked(undefined);
-    onClose();
-  };
-  return (
-    <Modal open={row !== null} onOpenChange={(open) => (open ? null : close())}>
-      <ModalContent className="lg:max-w-md">
-        <ModalHeader>
-          <ModalTitle>{t('approveTitle')}</ModalTitle>
-          <ModalDescription>
-            {row
-              ? t('approveBody', {
-                  person: personLabel(row),
-                  computer: row.device.name ?? t('unnamed'),
-                })
-              : null}
-          </ModalDescription>
-        </ModalHeader>
-        <ModalBody>
-          <MemberSelect
-            accountId={accountId}
-            enabled={row !== null}
-            value={userId}
-            onChange={setPicked}
-          />
-        </ModalBody>
-        <ModalFooter className="sm:justify-between">
-          <Button variant="ghost" size="sm" onClick={close}>
-            {t('cancel')}
-          </Button>
-          <Button
-            size="sm"
-            disabled={approve.isPending}
-            aria-busy={approve.isPending}
-            onClick={() =>
-              row &&
-              approve.mutate(
-                { enrollmentId: row.enrollment_id, userId },
-                {
-                  onSuccess: () => {
-                    successToast(t('approved'));
-                    close();
-                  },
-                  onError: (error) => errorToast(errorText(error, t('decideFailed'))),
-                },
-              )
-            }
-          >
-            {approve.isPending ? <Loading className="size-3.5 shrink-0" /> : null}
-            {t('approve')}
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
-  );
-}
-
-/**
- * Link a device to a Dosco user, or unlink it (`capture.manage`). What it
- * recorded linked to no one moves to the person; what it recorded for an
- * earlier person stays theirs.
- */
-export function LinkDeviceModal({
-  accountId,
-  device,
-  name,
-  onClose,
-}: {
-  accountId: string;
-  device: CaptureDevice | null;
-  name: string;
-  onClose: () => void;
-}) {
-  const t = useTranslations('capture.rollout');
-  const link = useLinkCaptureDevice(accountId);
-  const [picked, setPicked] = useState<string | null | undefined>(undefined);
-  const userId = picked === undefined ? (device?.user_id ?? null) : picked;
-  const close = () => {
-    setPicked(undefined);
-    onClose();
-  };
-  return (
-    <Modal open={device !== null} onOpenChange={(open) => (open ? null : close())}>
-      <ModalContent className="lg:max-w-md">
-        <ModalHeader>
-          <ModalTitle>{t('linkTitle', { name })}</ModalTitle>
-          <ModalDescription>{t('linkBody')}</ModalDescription>
-        </ModalHeader>
-        <ModalBody>
-          <MemberSelect
-            accountId={accountId}
-            enabled={device !== null}
-            value={userId}
-            onChange={setPicked}
-          />
-        </ModalBody>
-        <ModalFooter className="sm:justify-between">
-          <Button variant="ghost" size="sm" onClick={close}>
-            {t('cancel')}
-          </Button>
-          <Button
-            size="sm"
-            disabled={link.isPending || !device || userId === device.user_id}
-            aria-busy={link.isPending}
-            onClick={() =>
-              device &&
-              link.mutate(
-                { deviceId: device.device_id, userId },
-                {
-                  onSuccess: () => {
-                    successToast(userId ? t('linked') : t('unlinked'));
-                    close();
-                  },
-                  onError: (error) => errorToast(errorText(error, t('linkFailed'))),
-                },
-              )
-            }
-          >
-            {link.isPending ? <Loading className="size-3.5 shrink-0" /> : null}
-            {t('save')}
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
   );
 }

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { GenuiComponentProps } from '@kortix/sdk/genui/react';
 
 import { MarkdownImage, type MarkdownImageLook } from '@/components/markdown/markdown-image';
+import { GALLERY_PAGE_HEIGHT } from '@/components/kortix/paged-gallery';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -34,7 +35,7 @@ const CALLOUT = {
 export function GenuiBadge({ props }: GenuiComponentProps) {
   const tone = badgeTone(props.tone);
   return (
-    <View className={`self-start rounded-md px-2 py-0.5 ${tone.well}`}>
+    <View className={`max-w-full self-start rounded-md px-2 py-0.5 ${tone.well}`}>
       <Text variant="small" className="leading-5 text-foreground">
         {props.label}
       </Text>
@@ -73,11 +74,9 @@ export function GenuiImageView({ src, alt, fixedHeight, look }: { src: string; a
 /** Set inside an image gallery (layout.tsx): each `page` fits the gallery's fixed page height. */
 export const GenuiImageGridContext = createContext<false | 'page'>(false);
 
-/** Every gallery page is this tall, as the markdown gallery's (`markdown-image.tsx`); each image fits inside it. */
-export const GALLERY_PAGE_HEIGHT = 280;
-
-/** The picture of an Image with text is this wide; the text takes the rest of the row. */
+/** The picture of an Image with text is this wide, at 4:3; the text takes the rest of the row. */
 const FIGURE_WIDTH = 112;
+const FIGURE_HEIGHT = 84;
 
 /**
  * Paper Image 3F0H: the image in a dark letterbox well (the terminal surface in both themes, so a photo reads
@@ -91,8 +90,9 @@ export function GenuiImage({ props }: GenuiComponentProps) {
   if (props.text && !page) {
     return (
       <View className="flex-row items-start gap-3">
-        <View style={{ width: FIGURE_WIDTH }} className="overflow-hidden rounded-lg bg-secondary">
-          <GenuiImageView src={props.src} alt={props.alt} />
+        {/* A fixed 4:3 box on the neutral well, the photo cropped to fill it: the row never jumps while it loads. */}
+        <View style={{ width: FIGURE_WIDTH, height: FIGURE_HEIGHT }} className="overflow-hidden rounded-lg bg-secondary">
+          <GenuiImageView src={props.src} alt={props.alt} fixedHeight={FIGURE_HEIGHT} look={{ bare: true, resizeMode: 'cover', compact: true }} />
         </View>
         <Text style={TYPE.sm} className="flex-1">
           {props.text}

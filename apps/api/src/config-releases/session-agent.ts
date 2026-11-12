@@ -120,8 +120,10 @@ export function resolveSessionReleaseAgent(
  * The release variant for the agent a session ends up running.
  *
  * `project` compiles every declared agent and is what a session with
- * repository access gets — it already holds the files. Without repository
- * access exactly one agent is compiled, so nothing else is disclosed.
+ * repository access gets — it may read the files anyway. A session created
+ * before 2026-11-08 by an agent with `workspace: { project_repository: false }`
+ * carries `repository_access: false`: exactly one agent is compiled for it, so
+ * nothing else is disclosed.
  *
  * `none` is the answer for a session with no usable agent. It compiles to an
  * empty config (`{}`), whose etag is non-null, so `release_id` is never null
@@ -129,9 +131,7 @@ export function resolveSessionReleaseAgent(
  * agent minus the grant": compiling the default agent for an owner who may not
  * run it would hand that owner the agent's prompt and model through the box.
  *
- * `meta` is the platform coordinator, whatever `repositoryAccess` says: its
- * session metadata reads `repository_access: true`, but provisioning never
- * gives it a checkout (`KORTIX_PROJECT_AUTO_CLONE=0`).
+ * `meta` is the platform coordinator, whatever `repositoryAccess` says.
  */
 export function releaseVariantFor(agent: string | null, repositoryAccess: boolean): ConfigReleaseVariant {
   if (isMyKortixAgentName(agent)) return 'mykortix';

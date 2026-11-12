@@ -11,8 +11,14 @@ import { isAuthChallenge } from '../../sections/connector-connection-form';
  *
  *   no_account        — nothing is connected; add an account.
  *   needs_credential  — an account exists and cannot authenticate.
- *   sign_in           — an MCP server asked for sign-in (401/403); the
- *                       account still has to finish its OAuth sign-in.
+ *   sign_in           — the account still has to finish its sign-in: an MCP
+ *                       server asked for one (401/403), or an account on a
+ *                       connector that signs in (managed, one-click OAuth MCP)
+ *                       never finished one.
+ *   sign_in_again     — an account on a connector that signs in was signed in
+ *                       before and no longer is (expired, revoked, rejected).
+ *   no_tools          — an HTTP connector that works but has no routes, so it
+ *                       gives agents nothing to call.
  *   error             — the last attempt to load the connector's tools failed;
  *                       `reason` is the server's own words, when it sent any.
  */
@@ -21,6 +27,8 @@ export type ConnectorNotice =
   | { kind: 'no_account'; action: 'add_account' }
   | { kind: 'needs_credential'; action: 'set_credential' | 'open_accounts' }
   | { kind: 'sign_in' }
+  | { kind: 'sign_in_again' }
+  | { kind: 'no_tools' }
   | {
       kind: 'error';
       reason: string | null;
@@ -42,6 +50,13 @@ export function connectorNotice(input: {
   accountCount: number;
   /** The accounts list has answered; before that nothing is claimed. */
   accountsLoaded: boolean;
+  /** Accounts authorize through a sign-in window, not a typed credential:
+   *  a managed provider, or an MCP server with one-click OAuth. */
+  signsIn?: boolean;
+  /** The account the banner fixes never finished a sign-in (`accountNeverSignedIn`). */
+  neverSignedIn?: boolean;
+  /** How many tools the connector gives agents. Omitted = not known. */
+  toolCount?: number;
 }): ConnectorNotice {
   // Channels and computers connect through their own surfaces.
   if (input.provider === 'channel' || input.provider === 'computer') return { kind: 'none' };
@@ -72,9 +87,28 @@ export function connectorNotice(input: {
     };
   }
 
-  if (input.connected) return { kind: 'none' };
+  if (input.connected) {
+    // An HTTP connector's tools are its routes: none means agents can call nothing.
+    return input.provider === 'http' && input.toolCount === 0 ? { kind: 'no_tools' } : { kind: 'none' };
+  }
   if (input.accountCount === 0) return { kind: 'no_account', action: 'add_account' };
+  // A connector that signs in has no credential to type: say "sign in".
+  if (input.signsIn) return input.neverSignedIn ? { kind: 'sign_in' } : { kind: 'sign_in_again' };
   return { kind: 'needs_credential', action: fixAccount };
+}
+
+/**
+ * An account that never finished a sign-in: not authorized, and nothing on it
+ * says it was signed in before (no rejected credential, no known identity).
+ */
+export function accountNeverSignedIn(account: {
+  authorized?: boolean;
+  connected_as?: string | null;
+  metadata?: Record<string, unknown> | null;
+}): boolean {
+  if (account.authorized !== false) return false;
+  if (account.connected_as) return false;
+  return !account.metadata?.credential_rejected_at;
 }
 
 /**
@@ -108,14 +142,17 @@ export function noticeButton<T>(
   managed: boolean,
 ): {
   /** Which button: its words. `add_account` is the page's Add account control. */
-  kind: 'add_account' | 'sign_in' | 'set_credential' | 'connect' | 'reconnect';
-  run: 'add' | 'sign_in' | 'reconnect';
+  kind: 'add_account' | 'sign_in' | 'set_credential' | 'connect' | 'reconnect' | 'add_routes';
+  /** `settings` opens the Settings tab, where an HTTP connector's routes spec is. */
+  run: 'add' | 'sign_in' | 'reconnect' | 'settings';
   account: T | null;
 } | null {
   if (notice.kind === 'none') return null;
-  if (notice.kind === 'sign_in') {
+  if (notice.kind === 'no_tools') return { kind: 'add_routes', run: 'settings', account: null };
+  if (notice.kind === 'sign_in' || notice.kind === 'sign_in_again') {
     if (target === 'add') return { kind: 'sign_in', run: 'add', account: null };
-    return target ? { kind: 'sign_in', run: 'sign_in', account: target } : null;
+    // A managed account signs in through its provider window (`reconnect`).
+    return target ? { kind: 'sign_in', run: managed ? 'reconnect' : 'sign_in', account: target } : null;
   }
   if (notice.action === 'add_account') return { kind: 'add_account', run: 'add', account: null };
   if (notice.action === 'retry' || !target) return null;

@@ -175,7 +175,7 @@ console.log('OK: ' + js + ' JS exports imported, ' + browserOnly + ' browser-onl
     `${specs.map((spec, i) => `import * as m${i} from '${spec}';`).join('\n')}\nexport const all = [${specs.map((_, i) => `m${i}`).join(', ')}];\n`,
   );
   // JSX through the published types: fails when a dependency drags a second
-  // @types/react next to dist/ (cmdk@0.2.1 → react-remove-scroll@2.5.4 wants ^18),
+  // @types/react next to dist/ (a dependency with a React 18 types peer does),
   // which skipLibCheck alone does not see.
   writeFileSync(
     join(workdir, 'usage.tsx'),

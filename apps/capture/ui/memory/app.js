@@ -1992,7 +1992,6 @@ function neverRow(r) {
 }
 function renderSettings() {
   const s = settingsData.settings, st = settingsData.status, g = settingsData.groups;
-  const res = settingsData.resolution;
   const pp = policyPrivacy();
   const orgKnown = syncData?.status?.kortix?.account_name || '';
   const never = neverRows(s, g, pp, orgKnown);
@@ -2044,14 +2043,9 @@ function renderSettings() {
 
       <details class="adv"${draft.adv ? ' open' : ''}><summary>Advanced</summary>
         <div id="sec-sync-dest"><div id="sync-adv"></div></div>
-        ${orgRec.interval_ms != null
-          ? row('Capture interval', `Set by ${by}.`, `<span>${orgRec.interval_ms / 1000} s</span>`)
-          : row('Capture interval', '', `<span>${num('interval_ms', s.interval_ms, { min: 0.5, step: 0.5, type: 'float', scale: 1000 })} s</span>`)}
-        ${orgRec.max_height != null
-          ? row('Screenshot size', `Set by ${by}.`, `<span>${orgRec.max_height === 2160 ? '4K' : orgRec.max_height + 'p'}</span>`)
-          : row('Screenshot size', 'Screenshots are scaled down to fit, never up.',
-          `<select id="resolution">${settingsData.resolution_presets.map((p) => `<option value="${p.name}"${res === p.name ? ' selected' : ''}>${p.name} (${p.max_width} × ${p.max_height})</option>`).join('')}${res === 'custom' ? `<option value="custom" selected>Custom (${s.max_width} × ${s.max_height})</option>` : ''}</select>`)}
-        ${row('Text recognition', 'Fast uses less power and misses more small text.', `<select data-path="ocr_level" data-type="str">${[['accurate', 'Accurate'], ['fast', 'Fast']].map(([k, n]) => `<option value="${k}"${s.ocr_level === k ? ' selected' : ''}>${n}</option>`).join('')}</select>`)}
+        ${orgRec.max_height != null ? row('Screenshot size', `Set by ${by}.`, `<span>${orgRec.max_height === 2160 ? '4K' : orgRec.max_height + 'p'}</span>`) : ''}
+        ${orgRec.text_recognition != null ? row('Text recognition', `Set by ${by}.`, `<span>${{ accurate: 'Accurate', fast: 'Fast', off: 'Off' }[orgRec.text_recognition] || orgRec.text_recognition}</span>`) : ''}
+        ${row('Capture quality', 'Kortix Capture sets its own frame rate (up to 2 a second while you work, one every 2 s otherwise, slower on a busy computer), the screenshot size and text recognition.', '')}
       </details>
     </div></div>`;
   $('.panel-body', settingsEl).scrollTop = scroll;
@@ -2134,12 +2128,6 @@ settingsEl.addEventListener('change', async (e) => {
   if (t.id === 'keep-for') {
     const p = keepPatch(t.value);
     if (p) { patch(p); renderSettings(); }
-    return;
-  }
-  if (t.id === 'resolution') {
-    if (t.value !== 'custom') patch({ resolution: t.value });
-    settingsData.resolution = t.value;
-    renderSettings();
     return;
   }
   if (t.dataset.group) {

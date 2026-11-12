@@ -717,6 +717,86 @@ describe('getSessionCostRecord service', () => {
     });
   });
 
+  // Characterization: pins the exact wire record of an LLM ledger entry —
+  // field set, value coercion, and the billed_elsewhere conditional — so a
+  // refactor of the hand-built literal cannot change the payload silently.
+  test('llm ledger entries carry the exact wire fields, billed_elsewhere on a foreign payer', async () => {
+    resultForQuery = (fields, table) => {
+      if (table === projectSessions && 'projectName' in fields) return [baseSessionRow];
+      if (table === gatewayRequestLogs && 'occurredAt' in fields) {
+        return [
+          {
+            id: 'llm-elsewhere',
+            occurredAt: new Date('2026-07-01T11:05:00.000Z'),
+            cost: '0.75',
+            provider: 'bedrock',
+            model: 'anthropic/claude-sonnet-5',
+            requestId: 'request-two',
+            status: 429,
+            ok: false,
+            inputTokens: 30,
+            outputTokens: 40,
+            cachedTokens: 3,
+            cacheWriteTokens: 2,
+            accountId: '00000000-0000-4000-a000-000000000009',
+          },
+          {
+            id: 'llm-here',
+            occurredAt: new Date('2026-07-01T11:03:00.000Z'),
+            cost: '0.5',
+            provider: 'bedrock',
+            model: 'anthropic/claude-sonnet-5',
+            requestId: 'request-one',
+            status: 200,
+            ok: true,
+            inputTokens: 10,
+            outputTokens: 20,
+            cachedTokens: 2,
+            cacheWriteTokens: 1,
+            accountId,
+          },
+        ];
+      }
+      return [];
+    };
+
+    const detail = await getSessionCostRecord({ accountId, projectId, sessionId });
+
+    expect(detail?.ledger_entries).toEqual([
+      {
+        kind: 'llm',
+        id: 'llm-elsewhere',
+        occurred_at: '2026-07-01T11:05:00.000Z',
+        cost: 0.75,
+        provider: 'bedrock',
+        model: 'anthropic/claude-sonnet-5',
+        request_id: 'request-two',
+        status: 429,
+        ok: false,
+        input_tokens: 30,
+        output_tokens: 40,
+        cached_tokens: 3,
+        cache_write_tokens: 2,
+        billed_elsewhere: true,
+      },
+      {
+        kind: 'llm',
+        id: 'llm-here',
+        occurred_at: '2026-07-01T11:03:00.000Z',
+        cost: 0.5,
+        provider: 'bedrock',
+        model: 'anthropic/claude-sonnet-5',
+        request_id: 'request-one',
+        status: 200,
+        ok: true,
+        input_tokens: 10,
+        output_tokens: 20,
+        cached_tokens: 2,
+        cache_write_tokens: 1,
+      },
+    ]);
+  });
+
   test('returns null when the account and project scoped base session is absent', async () => {
     resultForQuery = () => [];
 

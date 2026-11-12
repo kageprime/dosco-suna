@@ -189,7 +189,7 @@ function holdingAnswer(args: OpenSessionArgs, row: OpenSessionRow, externalId: s
 }
 
 /** `/kortix/health?turn=1`, read fresh: the box's daemon changes during the hold. */
-async function readHealth(externalId: string, userId: string): Promise<Record<string, unknown> | null> {
+async function readHealth(externalId: string, userId: string | undefined): Promise<Record<string, unknown> | null> {
   try {
     const endpoint = await sandboxRuntimeEndpoint(externalId, userId);
     if (!endpoint) return null;
@@ -221,6 +221,35 @@ async function stampServing(row: OpenSessionRow, record: RuntimeFloorRecord, ext
       err: err instanceof Error ? err.message : String(err),
     }),
   );
+}
+
+/**
+ * The delivery fast path's stamp for a box no open has judged since it booted.
+ * A box's first open runs while it boots and returns before the stamp, and a
+ * session that no client polls (a subagent's child, a CLI, a trigger or a
+ * channel session) gets no second open until its first turn ends. Without
+ * this, every message into that first turn waited for the whole turn. Same
+ * rule as an open of a running box: its own health lists the floor
+ * capability. A box below the floor stays unstamped and takes the open path.
+ */
+export async function stampIfBoxServesRuntimeFloor(
+  sandboxId: string,
+  externalId: string,
+  metadata: Record<string, unknown> | null,
+): Promise<boolean> {
+  if (readRuntimeFloorRecord(metadata).below?.externalId === externalId) return false;
+  const health = await readHealth(externalId, undefined);
+  if (!health || !healthServesRuntimeFloor(health)) return false;
+  try {
+    await writeRecord(sandboxId, { current: { externalId, at: new Date().toISOString() } });
+    return true;
+  } catch (err) {
+    logger.warn('[runtime-floor] could not stamp the box as current', {
+      sandbox_id: sandboxId,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return false;
+  }
 }
 
 /** Replaces the whole record: a box below the floor loses its `current` stamp. */

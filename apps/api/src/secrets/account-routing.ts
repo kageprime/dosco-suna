@@ -29,12 +29,20 @@ function isUsage(value: unknown): value is SubscriptionUsage {
   return !!value && typeof value === 'object' && Array.isArray((value as { windows?: unknown }).windows);
 }
 
+/**
+ * Windows that say nothing about the plan a model call draws on: code review,
+ * paid extra usage, and a ChatGPT model's own limit (`model_*`). The usage
+ * endpoint stores them for display; routing reads the plan windows only.
+ */
+const NOT_ROUTED = /^(?:code_review|extra_usage|model_)/;
+
 /** The account's headroom now. A window whose reset time passed counts as empty. */
 export function headroom(usage: unknown, now = Date.now()): Headroom {
   if (!isUsage(usage)) return { usedPercent: 0, exhausted: false };
   let usedPercent = 0;
   let openSpent = false;
   for (const window of usage.windows) {
+    if (NOT_ROUTED.test(window.id)) continue;
     const reset = window.resets_at ? Date.parse(window.resets_at) : NaN;
     if (Number.isFinite(reset) && reset <= now) continue;
     const used = Number.isFinite(window.used_percent) ? window.used_percent : 0;
@@ -42,7 +50,9 @@ export function headroom(usage: unknown, now = Date.now()): Headroom {
     if (used >= 100) openSpent = true;
   }
   // `limited` holds until a window resets: once every window it named reset, it is stale.
+  // A display-only window (no reset, or its own allowance) never keeps a plan refusal alive.
   const limited = usage.limited && usage.windows.some((window) => {
+    if (NOT_ROUTED.test(window.id)) return false;
     const reset = window.resets_at ? Date.parse(window.resets_at) : NaN;
     return !Number.isFinite(reset) || reset > now;
   });

@@ -5,7 +5,7 @@ date: "2026-10-21"
 canonical: "https://kortix.com/blog/chatgpt-work-enterprise-controls-recheck"
 author: "team"
 tags: ["Field notes"]
-updated: "2026-10-21"
+updated: "2026-11-10"
 slug: "/chatgpt-work-enterprise-controls-recheck"
 ---
 If someone hands you a ChatGPT Work control list to sign off, ask for the sentence behind each cell and the page it came from. [OpenAI's ChatGPT Work overview](https://learn.chatgpt.com/docs/enterprise/chatgpt-work-overview) documents ten controls for Work, and every one can be tied to a sentence the page writes itself. The record holds all ten, each with its quote and its URL. Kortix is the open-source CompanyOS, and on 2026-10-21 all ten of those sentences were still there.
@@ -68,7 +68,7 @@ rows:
     source: overview
     quote: >-
       Compliance Logs Platform records: Remain available in the platform for 30 days.
-    kortix: 0 to 90 days live, 90 to 365 in a locked archive
+    kortix: 0 to 14 days live, 14 to 365 in a locked archive (export reads it)
     kortix_docs: https://kortix.com/docs/accounts#retention-and-export
 
   - control: Data residency

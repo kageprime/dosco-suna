@@ -56,6 +56,21 @@ describe('api-router worker', () => {
     expect(response.headers.get('Location')).toBe('https://gateway-dev.kortix.com/.well-known/security.txt');
   });
 
+  test('every edge-served response names a referrer policy, including synthetic ones', async () => {
+    // The HTTP→HTTPS redirect never touches an origin, but a browser still
+    // follows it with a Referer: the redirect itself carries the policy.
+    const redirect = await worker.fetch(new Request('http://gateway-dev.kortix.com/.well-known/security.txt'), env);
+    expect(redirect.status).toBe(308);
+    expect(redirect.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+    expect(redirect.headers.get('Strict-Transport-Security')).toBe('max-age=31536000');
+
+    // A misconfigured backend answers 500 from the edge before any origin.
+    const broken = await worker.fetch(new Request('https://api.kortix.com/v1/health'), {});
+    expect(broken.status).toBe(500);
+    expect(broken.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+    expect(broken.headers.get('X-Content-Type-Options')).toBe('nosniff');
+  });
+
   test.each(['GET', 'HEAD', 'POST'])('answers every request to the retired api-yolo host with 410 Gone at the edge, never an origin (%s)', async (method) => {
     globalThis.fetch = () => { throw new Error('the retired host must not fetch an origin'); };
     const response = await worker.fetch(new Request('https://api-yolo.kortix.com/api/v1/health', { method }), env);

@@ -28,9 +28,10 @@ import { loadMutableConnection } from '../lib/connection-mutation';
 import { readJsonObject } from '../../shared/http-body';
 import { ConnectionViewSchema, serializeConnection } from '../lib/connection-view';
 import { actorOf } from '../../iam/actor';
+import { assertAuthorized } from '../../iam/authorize';
+import { PROJECT_ACTIONS } from '../../iam';
 import { requireUserCredential } from '../../tunnel/routes/auth';
 import { assignRole } from '../../iam/assignments';
-import { isProjectSessionPrincipal } from '../../iam/agent-scope';
 import {
   startComposioConnect,
   finalizeComposioConnect,
@@ -146,18 +147,6 @@ export function registerConnectionActionsRoutes(): void {
       },
     }),
     async (c: any) => {
-      // Who may use an account is a person's decision (iam/assignments.ts
-      // `assertWriterMayAssign`). Checked on the request, so a session that
-      // borrows its launcher's authority (meta, a project with no agents) is refused too.
-      if (isProjectSessionPrincipal(c)) {
-        return c.json(
-          {
-            error: 'An agent cannot change who can use a connector account. A person changes it in Customize → Connectors.',
-            code: 'agent_session_forbidden',
-          },
-          403,
-        );
-      }
       const projectId = workspaceIdParam(c);
       const connectionId = c.req.param('connectionId');
       const parsed = ShareConnectionInput.safeParse(await readJsonObject(c));
@@ -218,11 +207,13 @@ export function registerConnectionActionsRoutes(): void {
           );
         }
       }
+      // The standard 403 names the permission and which side lacks it: the
+      // person's role, or the agent's grant.
       if (!mutable.mayManageSystemConnections) {
-        return c.json(
-          { error: "Sharing an account needs permission to manage the workspace's connections" },
-          403,
-        );
+        await assertAuthorized(await actorOf(c, loaded.row.accountId), PROJECT_ACTIONS.PROJECT_CONNECTOR_CONNECTIONS_MANAGE, {
+          type: 'project',
+          id: projectId,
+        });
       }
       // Shared accounts of one connector need distinct names. Sharing never
       // asks for a rename: a taken name gets the next free one ("Miro 2"),
@@ -482,14 +473,14 @@ export function registerConnectionActionsRoutes(): void {
             await revokeConnectionOAuth2(connectionId);
             await revokeConnections(eq(connectorConnections.connectionId, connectionId));
           } else {
-            // A person restores it now. Offboarding's revokedReason
+            // A deliberate turn-on: offboarding's revokedReason
             // (connectors/computers.ts) no longer holds. `loadMutableConnection`
-            // above already refused an agent session on a revoked row.
+            // above decided who may do it.
             await connectConnection(
               connectionId,
               { metadata: sql`${connectorConnections.metadata} - 'revokedReason' - 'revokedAt'` },
               db,
-              'person',
+              'reconnect',
             );
           }
         }
@@ -593,7 +584,7 @@ export function registerConnectionActionsRoutes(): void {
               ),
             );
           }
-          return c.json(await finalizeComposioConnect(projectId, connectionId, connection, app));
+          return c.json(await finalizeComposioConnect(projectId, connectionId, connection, app, loaded.userId));
         }
         if (!pipedreamConfigured()) {
           return c.json({ error: 'pipedream not configured' }, 501);

@@ -7,6 +7,8 @@ import {
 import { isSilentTimeoutError } from './timeout-toast-policy';
 import { openAccountSettings } from '../stores/account-settings-modal-store';
 import { useUpgradeDialogStore } from '../stores/upgrade-dialog-store';
+import { projectIdFromPathname } from '../stores/project-switch-store';
+import { capabilityTabHref } from './capability-tab-routes';
 import type { BillingState } from '@kortix/sdk';
 import { BillingError, formatBillingErrorForUI, isBillingError } from '@kortix/sdk/react';
 import { platformConfig } from '@kortix/sdk';
@@ -265,12 +267,44 @@ export const handleApiError = (
     (typeof errAny === 'object' ? errAny : null);
   const v2Code: string | undefined = v2Detail?.code ?? errAny?.code;
   const v2Message: string | undefined = v2Detail?.message ?? v2Detail?.error ?? errAny?.message;
-  const v2Balance: number = typeof v2Detail?.balance === 'number' ? v2Detail.balance : 0;
   // The blocked account (e.g. the project's team account), surfaced by the
   // billing 402s. Scopes the upgrade dialog so a non-billing member sees the
   // team's gated CTA, not their own primary account. Absent → primary account.
   const v2AccountId: string | undefined =
     typeof v2Detail?.account_id === 'string' ? v2Detail.account_id : undefined;
+
+  // Session create refused because no model can run (409 `no_model_available`):
+  // a Free account sees no Kortix model (managed models are Credits-plan
+  // only) and has no provider key. Say so with both ways out, instead of a
+  // composer that reads "No model" with Send disabled and no reason.
+  if (v2Code === 'no_model_available') {
+    if (!context?.silent) {
+      const projectId =
+        typeof window === 'undefined' ? null : projectIdFromPathname(window.location.pathname);
+      const actions = [
+        ...(platformConfig().billingEnabled
+          ? [{
+              label: tI18nComplete('noModelUpgradePlan'),
+              onClick: () =>
+                useUpgradeDialogStore.getState().openUpgradeDialog({
+                  reason: 'subscription_required',
+                  accountId: v2AccountId,
+                }),
+            }]
+          : []),
+        {
+          label: tI18nComplete('noModelAddProviderKey'),
+          onClick: () => {
+            if (!projectId || typeof window === 'undefined') return;
+            // Next.js syncs its router with native pushState (see openAccountPanel).
+            window.history.pushState(null, '', capabilityTabHref(projectId, 'models'));
+          },
+        },
+      ];
+      errorToast(v2Message ?? errorMessage, { actions, duration: 10000 });
+    }
+    return;
+  }
 
   // Marketplace imports can use either a paid managed model or a provider
   // key. Preserve the server's remedy instead of swallowing this BillingError
@@ -297,7 +331,6 @@ export const handleApiError = (
     useUpgradeDialogStore.getState().openUpgradeDialog({
       reason: v2Code,
       message: v2Message ?? '',
-      balance: v2Balance,
       accountId: v2AccountId,
       hasSubscription:
         typeof v2Detail?.has_subscription === 'boolean' ? v2Detail.has_subscription : undefined,

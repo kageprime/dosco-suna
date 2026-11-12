@@ -1657,8 +1657,78 @@
     {
       "idx": 234,
       "version": "7",
-      "when": 1794128400000,
-      "tag": "20261108090000_gateway_logs_served_model_usage_estimated",
+      "when": 1794243053023,
+      "tag": "20261109165053_session_colleague_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 235,
+      "version": "7",
+      "when": 1794250122042,
+      "tag": "20261109184842_workspaces_account_id_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 236,
+      "version": "7",
+      "when": 1794319131206,
+      "tag": "20261110135851_add_kortix_contact_forms",
+      "breakpoints": true
+    },
+    {
+      "idx": 237,
+      "version": "7",
+      "when": 1794359760048,
+      "tag": "20261111011600_access_requests_email_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 238,
+      "version": "7",
+      "when": 1794403699181,
+      "tag": "20261111132819_oauth_access_token_mfa_aal",
+      "breakpoints": true
+    },
+    {
+      "idx": 239,
+      "version": "7",
+      "when": 1794409525800,
+      "tag": "20261111150525_probe_merge_drift2",
+      "breakpoints": true
+    },
+    {
+      "idx": 240,
+      "version": "7",
+      "when": 1794437683132,
+      "tag": "20261111225443_llm_credential_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 241,
+      "version": "7",
+      "when": 1794439520538,
+      "tag": "20261111232520_account_secret_key_verification",
+      "breakpoints": true
+    },
+    {
+      "idx": 242,
+      "version": "7",
+      "when": 1794446896419,
+      "tag": "20261112012816_legacy_credential_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 243,
+      "version": "7",
+      "when": 1794450982100,
+      "tag": "20261112023622_llm_credential_backfill_account_nullable",
+      "breakpoints": true
+    },
+    {
+      "idx": 244,
+      "version": "7",
+      "when": 1794452225350,
+      "tag": "20261112025705_chat_installs_own_app",
       "breakpoints": true
     }
   ]

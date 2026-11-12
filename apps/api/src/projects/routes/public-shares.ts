@@ -168,7 +168,7 @@ export function registerPublicSharesRoutes(): void {
       // A member of a private channel may publish one of its threads; an
       // agent does not decide that.
       if (callerKortixSessionId(c) !== null && (await privateSpaceMemberIds(visible.row.spaceId)) !== null) {
-        return c.json({ error: 'An agent cannot publish a private channel\'s thread. A member must do it.', code: 'session_bound_caller' }, 403);
+        return c.json({ error: 'Publishing a private channel\'s thread to the public web is a member\'s decision: a member of the channel publishes it with Share on the thread.', code: 'session_bound_caller' }, 403);
       }
       const personal = await personalDataRefusal({ accountId: visible.row.accountId, projectId, sessionId });
       if (personal) return c.json(personal, 409);

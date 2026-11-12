@@ -68,7 +68,8 @@ kortix marketplace show <id> --json           # inspect one item: type, files, s
    anything. A value the user already gave you goes in with
    `kortix secrets set NAME=-`; otherwise mint a setup link
    (`kortix secrets request …` / `kortix connectors connect …`) and surface it.
-6. **Commit + open a CR.** `git add`/`commit`, `git push origin HEAD`, then
+6. **Commit + open a CR.** In your clone (`kortix workspaces clone`):
+   `git add`/`commit`, `git push origin HEAD`, then
    `kortix cr open --title "Import <item>"`. The user reviews the diff and merges
    — that's how it becomes permanent (see `kortix-system` for the CR mandate).
 

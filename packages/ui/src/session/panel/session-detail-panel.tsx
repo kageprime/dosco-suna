@@ -72,7 +72,7 @@ export function SessionDetailPanel() {
           </div>
         </DetailLayer>
 
-        {/* vaul unmounts `DrawerContent` on close, so the shell reconnects on
+        {/* The drawer unmounts `DrawerContent` on close, so the shell reconnects on
             every open — the tradeoff mobile has always accepted; there is no
             room for a persistent absolutely positioned layer inside a bottom
             sheet. */}

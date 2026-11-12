@@ -16,10 +16,8 @@ import {
 import { accountMayUseManagedModels, getCachedAccountTier } from '../../billing/services/entitlements';
 import { isPaidTier } from '../../billing/services/tiers';
 import { config } from '../../config';
-import {
-  getProjectSecretValueForConsumer,
-  resolveProjectSecretsForConsumer,
-} from '../../projects/secrets';
+import { firstGatewayKeyValue, type GatewayKeyScope, resolveGatewayKeyValues } from '../credentials/gateway-keys';
+import { BEDROCK_PROVIDER_ID, BEDROCK_REGION_NAME } from '../../secrets/llm-credential-names';
 import { CodexRefreshError, resolveCodexAccountCredential, resolveCodexCredential } from '../credentials/codex';
 import { opencodeInferenceBaseUrl, parseOpencodeLogin, resolveOpencodeLogin } from '../credentials/opencode-console';
 import { capabilitiesForModel } from '../models/catalog-models';
@@ -55,7 +53,7 @@ import { isAwsRegion } from './aws-region';
 // are collected by the dashboard's connect form too, but unused until the
 // SigV4 signing path lands (see transports/bedrock/request.ts's
 // TODO(bedrock-sigv4)); only the bearer token + region are read here today.
-const BEDROCK_REGION_ENV_VAR = 'AWS_REGION';
+const BEDROCK_REGION_ENV_VAR = BEDROCK_REGION_NAME;
 
 const PLAN_UPGRADE_SUGGESTION =
   'Your plan includes no Kortix-managed models. Upgrade to Credits, or connect your own provider key or ChatGPT account. List connected models with /v1/llm/v1/models?scope=picker in your project.';
@@ -186,6 +184,14 @@ async function codexSharedCandidates(context: Context): Promise<UpstreamDescript
   }
   if (shared.coolingDown) return chatGptAccountsResting('All ChatGPT connections shared with this project',
     shared.retryAfterSeconds, 'Retry after the cooldown, or connect another ChatGPT account.');
+  // A gateway API key is a workspace key: anyone who manages the workspace
+  // lists and revokes it, and it outlives its creator's session. So it never
+  // spends a member's private ChatGPT plan (see the doc above). A person's own
+  // token (a personal access token) acts as that person and does. Say so,
+  // instead of "Connect Codex" to someone whose account is connected.
+  if (principal.keyId && (shared.withheld ?? 0) > 0) return new GatewayResolutionError('provider_not_connected',
+    "This workspace's ChatGPT accounts are private to the members who connected them, and a gateway API key uses only ChatGPT accounts shared with everyone in the workspace.",
+    'Share a ChatGPT account with everyone in the workspace in Models, or call the gateway with your personal access token scoped to this workspace to use your own account.');
   return null;
 }
 
@@ -211,7 +217,7 @@ async function codexFallback(context: Context, sharedFailure: GatewayResolutionE
 }
 
 async function resolveCodexCandidates(context: Context): Promise<UpstreamDescriptor[]> {
-  const { principal, effectiveModel, personalUserId, pooledEnabled } = context;
+  const { principal, effectiveModel, personalUserId } = context;
   if (!principal.projectId) throw new GatewayResolutionError('provider_not_connected',
     'Connect Codex to use this model.', 'Connect your ChatGPT/Codex account in project settings, then retry.');
   const pool = await selectedPool(context, 'codex', 'CODEX_AUTH_JSON');
@@ -231,7 +237,9 @@ async function resolveCodexCandidates(context: Context): Promise<UpstreamDescrip
     throw new GatewayResolutionError('provider_reauth_required', accountsNeedReconnection(failed, 'selected'),
       `Reconnect ${failed.length === 1 ? 'it' : 'them'} in your ChatGPT accounts, or select another granted connection in session settings.`);
   }
-  if (pooledEnabled && personalUserId && !principal.keyId) {
+  // Named ChatGPT accounts serve whatever `pooled_provider_secrets` says: every
+  // sign-in writes them, and the backfill moved the legacy logins there.
+  if (personalUserId && !principal.keyId) {
     const personal = await resolveDefaultCodexAccountSecret(principal.accountId, principal.projectId, personalUserId);
     if (personal) {
         // Resting after a rate or usage limit: a shared account may serve,
@@ -261,7 +269,7 @@ async function resolveCodexCandidates(context: Context): Promise<UpstreamDescrip
         'Reconnect it in your ChatGPT accounts, then retry.');
     }
   }
-  const shared = pooledEnabled ? await codexSharedCandidates(context) : null;
+  const shared = await codexSharedCandidates(context);
   if (Array.isArray(shared)) return shared;
   return codexFallback(context, shared);
 }
@@ -304,11 +312,13 @@ async function byokDescriptors(context: Context, provider: string,
   const { principal, effectiveModel } = context;
   const resolvedModelId = effectiveModel.slice(provider.length + 1);
   const capabilities = capabilitiesForModel(provider, resolvedModelId);
+  // The region is a setting next to the key: a named `AWS_REGION` row of
+  // provider `amazon-bedrock` (the backfill moved the legacy secret there),
+  // else the legacy secret. It applies to every Bedrock key of the project.
   const bedrockRegion = byok.kind === 'bedrock'
-    ? (await getProjectSecretValueForConsumer({
-        projectId: principal.projectId!, accountId: principal.accountId,
-        sessionId: principal.sessionId, actorUserId: principal.userId,
-        name: BEDROCK_REGION_ENV_VAR, consumer: 'llm_gateway',
+    ? (await firstGatewayKeyValue({
+        ...keyScope(context), providerId: BEDROCK_PROVIDER_ID, name: BEDROCK_REGION_ENV_VAR,
+        sessionId: principal.sessionId,
       }))?.trim() || undefined
     : undefined;
   if (bedrockRegion && !isAwsRegion(bedrockRegion)) throw new GatewayResolutionError(
@@ -358,27 +368,75 @@ async function byokDescriptors(context: Context, provider: string,
   return descriptors;
 }
 
+/** Account keys as BYOK keys. A key this API cannot decrypt is skipped, as if it were absent. */
+function readableAccountKeys(secrets: Array<{ secretId: string; value: string | null }>) {
+  return secrets.flatMap((secret) => secret.value === null ? [] : [{ identifier: secret.secretId, secretId: secret.secretId, value: secret.value }]);
+}
+
+/** The scope of a request's own key reads (no session selection). */
+function keyScope(context: Context): GatewayKeyScope {
+  const { principal } = context;
+  return {
+    accountId: principal.accountId, projectId: principal.projectId!, userId: principal.userId,
+    // A gateway API key acts for no member: only keys shared with the whole workspace.
+    grantUserId: principal.keyId ? null : context.personalUserId,
+    // The legacy BYOK read never counted a personal override (only ChatGPT logins had one).
+    legacyPersonalUserId: null,
+  };
+}
+
+/**
+ * A provider's keys for a request. A session's selection is final. With no
+ * selection, the one key reader (`credentials/gateway-keys.ts`) serves: the
+ * named keys this principal may use, else a legacy key the backfill has not
+ * moved yet. Dispatch fails over only between keys of one store, so a hidden
+ * legacy key never serves ahead of a key the person can see.
+ */
 async function resolveByokCandidates(context: Context, provider: string,
-  byok: NonNullable<ReturnType<typeof resolveCatalogUpstream>>): Promise<UpstreamDescriptor[]> {
+  byok: NonNullable<ReturnType<typeof resolveCatalogUpstream>>): Promise<UpstreamDescriptor[] | ByokMiss> {
   const { principal } = context;
   const pool = await selectedPool(context, provider, byok.envVar);
-  const keys = pool?.configured
-    // A pooled key this API cannot decrypt is skipped, as if it were not selected.
-    ? pool.secrets.flatMap((secret) => secret.value === null ? [] : [{ identifier: secret.secretId, secretId: secret.secretId, value: secret.value }])
-    : await resolveProjectSecretsForConsumer({
-        projectId: principal.projectId!, accountId: principal.accountId,
-        sessionId: principal.sessionId, actorUserId: principal.userId,
-        name: byok.envVar, consumer: 'llm_gateway',
-      });
-  if (pool?.configured && !keys.length) throw new GatewayResolutionError(
-    pool.coolingDown ? 'provider_pool_rate_limited' : 'provider_not_connected',
-    pool.coolingDown ? `All selected ${provider} keys are cooling down after rate limits.` :
-      `No usable ${provider} key is selected for this session.`,
-    pool.coolingDown ? 'Retry after the provider cooldown, or select another granted key.' :
-      'Select a granted key in session settings.', pool.retryAfterSeconds);
+  if (pool?.configured) {
+    const keys = readableAccountKeys(pool.secrets);
+    if (!keys.length) throw new GatewayResolutionError(
+      pool.coolingDown ? 'provider_pool_rate_limited' : 'provider_not_connected',
+      pool.coolingDown ? `All selected ${provider} keys are cooling down after rate limits.` :
+        `No usable ${provider} key is selected for this session.`,
+      pool.coolingDown ? 'Retry after the provider cooldown, or select another granted key.' :
+        'Select a granted key in session settings.', pool.retryAfterSeconds);
+    return byokDescriptors(context, provider, byok, keys, true);
+  }
+  const shared = await resolveGatewayKeyValues({
+    ...keyScope(context), providerId: provider, name: byok.envVar,
+    sessionId: principal.sessionId, probe: context.options?.probe,
+  });
   // Never append a Kortix-managed fallback to BYOK keys: a failed BYOK key must
   // fail as BYOK, not silently become a Kortix credit charge.
-  return keys.length ? byokDescriptors(context, provider, byok, keys, !!pool?.configured) : [];
+  if (shared.keys.length) return byokDescriptors(context, provider, byok, shared.keys, shared.store === 'named');
+  if (shared.coolingDown) throw new GatewayResolutionError('provider_pool_rate_limited',
+    `All ${provider} keys this request may use are cooling down after rate limits.`,
+    'Retry after the provider cooldown, or add another key in Models.', shared.retryAfterSeconds);
+  return { withheld: shared?.withheld ?? 0 };
+}
+
+/** No key serves: how many keys of the provider exist in the workspace that this principal may not use. */
+type ByokMiss = { withheld: number };
+
+/**
+ * No key of a known provider serves this request. A workspace key the
+ * principal may not use is named, so "not connected" never contradicts the
+ * Models panel that lists it.
+ */
+function byokNotConnected(principal: AuthedPrincipal, provider: string, withheld: number): GatewayResolutionError {
+  if (withheld > 0 && principal.keyId) return new GatewayResolutionError('provider_not_connected',
+    `This workspace's ${provider} keys are private to the members who added them, and a gateway API key uses only keys shared with everyone in the workspace.`,
+    `Share a ${provider} key with everyone in the workspace in Models, then retry.`);
+  if (withheld > 0) return new GatewayResolutionError('provider_not_connected',
+    `This workspace's ${provider} keys are private to the members who added them, and this request may not use them.`,
+    `Ask the member who added one to share it with everyone in the workspace, or add your own ${provider} key in Models.`);
+  return new GatewayResolutionError(
+    'provider_not_connected', `No ${provider} API key is connected for this project.`,
+    `Add a ${provider} API key in project settings, then retry.`);
 }
 
 /** A project's own OpenAI-compatible endpoint (custom-providers.ts). Its key is optional. */
@@ -388,13 +446,12 @@ async function resolveCustomCandidates(context: Context, provider: CustomLlmProv
   if (!provider.models.some((model) => model.id === modelId)) throw new GatewayResolutionError(
     'model_not_found', `"${effectiveModel}" is not a model of the custom provider ${provider.name}.`,
     'Add the model to the provider in Models → Custom, or choose another model.');
-  // Like a project BYOK key: no pool, no agent-grant check.
-  const [key] = await resolveProjectSecretsForConsumer({
-    projectId: principal.projectId!, accountId: principal.accountId,
-    sessionId: principal.sessionId, actorUserId: principal.userId,
-    name: customProviderSecretName(provider.id), consumer: 'llm_gateway',
+  // Like a BYOK key with no session selection; the first usable key serves.
+  const { keys: [key] } = await resolveGatewayKeyValues({
+    ...keyScope(context), providerId: provider.id, name: customProviderSecretName(provider.id),
+    sessionId: principal.sessionId, probe: context.options?.probe,
   });
-  return [customProviderDescriptor(provider, modelId, key ? { value: key.value, secretId: key.secretId ?? key.identifier } : null)];
+  return [customProviderDescriptor(provider, modelId, key ? { value: key.value, secretId: key.secretId } : null)];
 }
 
 /**
@@ -525,18 +582,21 @@ export async function resolveCandidates(
   if (custom) return resolveCustomCandidates(context, custom);
 
   const byok = resolveCatalogUpstream(provider, provider ? effectiveModel.slice(provider.length + 1) : undefined);
+  let byokMiss: ByokMiss | null = null;
   if (byok && principal.projectId) {
-    const candidates = await resolveByokCandidates(context, provider, byok);
-    if (candidates.length) return candidates;
+    const resolved = await resolveByokCandidates(context, provider, byok);
+    if (Array.isArray(resolved)) {
+      if (resolved.length) return resolved;
+    } else {
+      byokMiss = resolved;
+    }
   }
   const candidates = await resolveManagedCandidates(principal, effectiveModel, access);
   if (candidates.length) return candidates;
 
   // A BYOK-recognized provider with no usable key wins over the generic
   // "model not found" — the model IS real, we just can't reach it right now.
-  if (byok && principal.projectId) throw new GatewayResolutionError(
-    'provider_not_connected', `No ${provider} API key is connected for this project.`,
-    `Add a ${provider} API key in project settings, then retry.`);
+  if (byok && principal.projectId) throw byokNotConnected(principal, provider, byokMiss?.withheld ?? 0);
 
   // The model id is a known managed-model id (in the lineup, or retired) but
   // didn't resolve above. Two distinct

@@ -141,11 +141,14 @@ One policy applies to every device of the workspace:
     Audio is not filtered by app: leave the audio layer off under an inclusion
     policy;
 - a workspace-wide pause;
-- **Screen frames**: one frame every 0.5 to 10 s, and the resolution (720p to
-  4K). Left on **Each computer decides**, a computer uses its own (one frame
-  every 2 s, 1440p). Set, every computer uses it and shows it locked. Clicks,
-  typing and scrolling are recorded with their own screenshots at any interval;
-  pick 1 s when screens change fast without input, such as live dashboards;
+- **Screen frames**: the resolution (720p to 4K) and text recognition
+  (accurate, fast or off). Left on **Each computer decides**, a computer uses
+  1440p and accurate text recognition. Set, every computer uses it and shows it
+  locked. Kortix Capture sets the frame rate itself: up to 2 frames a second
+  while someone works, one every 2 s otherwise, and fewer on a busy computer.
+  Clicks, typing and scrolling are recorded with their own screenshots;
+- on an organization's computer, a person's pause or off switch ends by itself
+  at the next 06:00 local time;
 - retention: **In Kortix** is how many days Kortix keeps recordings (`remote_days`, default 90, `0` keeps them without a limit), and **On the computer** is how many hours a computer keeps its local copy after upload (`local_hours`, default 0);
 - an optional notice: each person sees it once, and again when its text changes;
 - **Experimental → Privacy controls** (off by default) shows personal-data

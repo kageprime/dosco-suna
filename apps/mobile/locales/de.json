@@ -1206,6 +1206,7 @@
     "call": "Anrufen",
     "chartTapHint": "Tippen, um einen Wert zu lesen",
     "checklistReady": "{{done}}/{{total}} erledigt",
+    "closeMap": "Karte schließen",
     "directions": "Route",
     "imageCount_one": "{{count}} Bild",
     "imageCount_other": "{{count}} Bilder",
@@ -1216,7 +1217,9 @@
     "pick": "Empfehlung",
     "pieFocus": "{{label}} macht {{percent}} % der Summe aus",
     "pieOfTotal": "{{value}} von {{total}}",
+    "showAllPlaces": "Alle Orte zeigen",
     "showData": "Daten anzeigen",
+    "showOnMap": "Auf der Karte zeigen",
     "unavailable": "Dieser Inhalt konnte nicht angezeigt werden.",
     "website": "Website"
   },
@@ -1297,6 +1300,7 @@
   "workspace": {
     "switcherTitle": "Workspaces",
     "create": "Workspace erstellen",
+    "newWorkspace": "Neuer Workspace",
     "createTitle": "Workspace erstellen",
     "createBody": "In einem Workspace arbeitet dein Unternehmen mit Kortix: Menschen, Agenten und alles, was sie erstellen.",
     "createOnWebTitle": "Workspace im Web erstellen",
@@ -1352,5 +1356,47 @@
       "serverBody": "Versuche es erneut, oder öffne einen anderen Workspace.",
       "signInAgain": "Erneut anmelden"
     }
+  },
+  "artifacts": {
+    "title": "Artefakte",
+    "search": "Artefakte suchen",
+    "scope": {
+      "all": "Alle",
+      "mine": "Von dir",
+      "shared": "Mit dir geteilt",
+      "pinned": "Angeheftet"
+    },
+    "type": {
+      "doc": "Dokument",
+      "html": "HTML"
+    },
+    "loadError": "Artefakte konnten nicht geladen werden.",
+    "retry": "Erneut versuchen",
+    "empty": "Noch keine Artefakte",
+    "emptyFiltered": "Keine passenden Artefakte",
+    "pin": "Anheften",
+    "unpin": "Lösen",
+    "rename": "Umbenennen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "notFoundTitle": "Dieses Artefakt ist nicht verfügbar",
+    "notFoundHint": "Es wurde gelöscht, oder der Inhaber teilt es nicht mehr.",
+    "remove": "Nicht mehr teilen",
+    "removeTitle": "Dieses Artefakt nicht mehr teilen?",
+    "removeHint": "Es verschwindet aus den Artefakten, und seine Links funktionieren nicht mehr. Die Dateien bleiben in Dateien erhalten.",
+    "removed": "Wird nicht mehr geteilt",
+    "shareLink": "Link teilen",
+    "openInBrowser": "Im Browser öffnen",
+    "reload": "Neu laden",
+    "scopeEmpty": "Hier ist noch nichts",
+    "pinDone": "Angeheftet",
+    "unpinDone": "Losgelöst",
+    "actionFailed": "Das Artefakt konnte nicht aktualisiert werden. Versuche es erneut.",
+    "renamed": "Artefakt umbenannt",
+    "namePlaceholder": "Name des Artefakts",
+    "saving": "Wird gespeichert…",
+    "openError": "Dieses Artefakt kann nicht geöffnet werden",
+    "more": "Artefakt-Aktionen",
+    "unavailable": "Artefakte sind in diesem Workspace nicht verfügbar"
   }
 }

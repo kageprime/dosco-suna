@@ -63,6 +63,9 @@ describe('glyphFace', () => {
     expect(Object.keys(GLYPH_PATHS).sort()).toEqual([...PHOSPHOR_NAMES].sort());
     const onDisk = readFileSync(join(import.meta.dir, 'glyph-paths.generated.ts'), 'utf8');
     expect(onDisk).toBe(renderGlyphPathsModule());
+    // The mobile app's copy (its workspace tiles draw the same glyphs).
+    const mobile = readFileSync(join(import.meta.dir, '..', '..', '..', '..', 'apps', 'mobile', 'lib', 'workspace', 'glyph-paths.generated.ts'), 'utf8');
+    expect(mobile).toBe(renderGlyphPathsModule());
   });
 
   test('entity-avatar, rendered on every app page, does not import the full glyph registry', () => {

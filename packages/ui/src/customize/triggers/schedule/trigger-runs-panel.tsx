@@ -381,6 +381,9 @@ export function RunRow({
   const state = runState(run);
   const error = run.error ?? run.run_error;
   const failed = state === 'failed' || state === 'rejected';
+  // A skipped run carries its reason on the line too (a run cap, an overlap):
+  // without it the row read only "Skipped" until opened.
+  const showsReason = failed || state === 'skipped';
   const source = t.raw(SOURCE_LABEL_KEY[run.source]);
   // An App event run: its event, and the App's log of that event (one row per trigger it reached).
   const appEvent = appEventOf(run.payload);
@@ -440,7 +443,7 @@ export function RunRow({
             <span className="text-foreground max-w-full shrink-0 truncate font-medium">
               {t.raw(STATE_LABEL_KEY[state])}
             </span>
-            {failed && error ? (
+            {showsReason && error ? (
               <span className="text-muted-foreground min-w-0 truncate">{error}</span>
             ) : run.replay_of ? (
               <Badge variant="secondary" size="sm" className="font-sans normal-case">

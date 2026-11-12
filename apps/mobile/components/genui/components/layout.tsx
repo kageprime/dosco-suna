@@ -1,65 +1,43 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import type { GenuiNode } from '@kortix/sdk/genui';
 import type { GenuiComponentProps } from '@kortix/sdk/genui/react';
 import { CARD_TEXT_RATIO, cardImageShape, cardListLayout, type CardShape, masonryColumns, UNKNOWN_RATIO } from '@kortix/shared/genui-layout';
 import { useTranslation } from 'react-i18next';
 
+import { PagedGallery } from '@/components/kortix/paged-gallery';
 import type { MarkdownImageLook } from '@/components/markdown/markdown-image';
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { StarIcon } from '@/lib/icons';
 
-import { badgeTone, GALLERY_PAGE_HEIGHT, GenuiImageGridContext, GenuiImageView } from './inline';
+import { cardBadgePlacement } from './card-badges';
+import { badgeTone, GenuiImageGridContext, GenuiImageView } from './inline';
 import { openGenuiLink } from './open-link';
 
 export const kids = (value: unknown): GenuiNode[] => (Array.isArray(value) ? (value as GenuiNode[]) : []);
 
-/**
- * Two or more images: one per page, swiped sideways with native paging (each swipe snaps to the next
- * image), and a "2 / 5" counter under the page, as the markdown image gallery. Every page keeps its caption.
- */
-function GenuiGallery({ images, renderChild }: { images: GenuiNode[]; renderChild: GenuiComponentProps['renderChild'] }) {
-  const { t } = useTranslation();
-  const [width, setWidth] = useState(0);
-  const [page, setPage] = useState(0);
-  return (
-    <View
-      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-      accessibilityLabel={t('genui.imageCount', { defaultValue: '{{count}} images', count: images.length })}
-    >
-      {width > 0 ? (
-        <ScrollView
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          decelerationRate="fast"
-          onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / width))}
-        >
-          {images.map((image) => (
-            <View key={image.id} style={{ width }}>
-              <GenuiImageGridContext.Provider value="page">{renderChild(image)}</GenuiImageGridContext.Provider>
-            </View>
-          ))}
-        </ScrollView>
-      ) : (
-        <View style={{ height: GALLERY_PAGE_HEIGHT }} />
-      )}
-      <Text variant="muted" className="mt-2 self-end tabular-nums">
-        {`${page + 1} / ${images.length}`}
-      </Text>
-    </View>
-  );
-}
-
 /** Phones are narrow: a Stack is always a column on mobile; StatRow handles its own grid. */
 export function GenuiStack({ props, renderChild }: GenuiComponentProps) {
+  const { t } = useTranslation();
   const children = kids(props.children);
-  // Two or more images and nothing else read as one gallery, as on web.
+  // Two or more images and nothing else read as one gallery, as on web: one page per image, swiped
+  // sideways with native paging and a "2 / 5" counter under the page, as the markdown image gallery.
+  // Every page keeps its caption.
   if (children.length > 1 && children.every((child) => child.type === 'Image')) {
-    return <GenuiGallery images={children} renderChild={renderChild} />;
+    return (
+      <PagedGallery
+        count={children.length}
+        accessibilityLabel={t('genui.imageCount', { defaultValue: '{{count}} images', count: children.length })}
+        renderPage={(index, width) => (
+          <View key={children[index].id} style={{ width }}>
+            <GenuiImageGridContext.Provider value="page">{renderChild(children[index])}</GenuiImageGridContext.Provider>
+          </View>
+        )}
+      />
+    );
   }
   // Two or more Cards and nothing else read as one list or grid, as on web.
   if (children.length > 1 && children.every((child) => child.type === 'Card')) {
@@ -93,29 +71,51 @@ function CardRating({ rating, reviews, price }: { rating: unknown; reviews: unkn
   );
 }
 
+/** One list badge: a pill a step off the card in both themes (secondary is too close to bg-card); a good pick leads with a gold star. */
+function ListBadge({ badge }: { badge: GenuiNode }) {
+  return (
+    <View className="max-w-full shrink flex-row items-center gap-1.5 rounded-md bg-foreground/10 px-2 py-0.5">
+      {badge.props.tone === 'good' ? <Icon as={StarIcon} size={12} weight="fill" className="text-kortix-yellow" /> : null}
+      {/* One line at worst: a label wider than the card truncates instead of running past its edge. */}
+      <Text numberOfLines={1} className="shrink text-xs leading-4 text-secondary-foreground">
+        {String(badge.props.label)}
+      </Text>
+    </View>
+  );
+}
+
 /**
  * A card's text in either layout, as web's CardText: the title (underlined when it links) with the badges top
- * right (so a pick reads at a glance), rating, location line, and the description.
+ * right when they fit beside it (so a pick reads at a glance), else on their own line above it, so the title keeps
+ * the full width (`cardBadgePlacement`); then rating, location line, and the description. `estimatedWidth` is the
+ * column's width before it is measured, so the first frame already places the badges.
  */
-function CardText({ props }: { props: GenuiNode['props'] }) {
+function CardText({ props, estimatedWidth }: { props: GenuiNode['props']; estimatedWidth: number }) {
+  const { fontScale } = useWindowDimensions();
+  const [measured, setMeasured] = useState(0);
   const badges = kids(props.badges);
+  const title = String(props.title);
+  const placement = cardBadgePlacement({
+    width: measured || estimatedWidth,
+    title,
+    badges: badges.map((badge) => ({ label: String(badge.props.label), star: badge.props.tone === 'good' })),
+    fontScale,
+  });
+  const pills = badges.map((badge) => <ListBadge key={badge.id} badge={badge} />);
+  const titleText = <Text className={`font-medium ${placement === 'beside' ? 'flex-1' : ''} ${props.href ? 'underline' : ''}`}>{title}</Text>;
   return (
-    <View className="flex-1 gap-1">
-      <View className="flex-row items-baseline justify-between gap-3">
-        <Text className={`flex-1 font-medium ${props.href ? 'underline' : ''}`}>{String(props.title)}</Text>
-        {/* Web keeps the badges at their width; a phone row is narrow, so they wrap within half of it. */}
-        {badges.length > 0 ? (
-          <View className="max-w-[50%] flex-row flex-wrap justify-end gap-1.5">
-            {badges.map((badge) => (
-              // A pill a step off the card in both themes (secondary is too close to bg-card); a good pick (the recommendation) leads with a gold star at the text size.
-              <View key={badge.id} className="flex-row items-center gap-1.5 rounded-md bg-foreground/10 px-2 py-0.5">
-                {badge.props.tone === 'good' ? <Icon as={StarIcon} size={12} weight="fill" className="text-kortix-yellow" /> : null}
-                <Text className="text-xs leading-4 text-secondary-foreground">{String(badge.props.label)}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
-      </View>
+    <View className="flex-1 gap-1" onLayout={(e) => setMeasured(Math.round(e.nativeEvent.layout.width))}>
+      {badges.length > 0 && placement === 'above' ? (
+        <>
+          <View className="flex-row flex-wrap gap-1.5">{pills}</View>
+          {titleText}
+        </>
+      ) : (
+        <View className="flex-row items-baseline justify-between gap-3">
+          {titleText}
+          {badges.length > 0 ? <View className="max-w-[45%] shrink flex-row flex-wrap justify-end gap-1.5">{pills}</View> : null}
+        </View>
+      )}
       <CardRating rating={props.rating} reviews={props.reviews} price={props.price} />
       {/* Web's list subtitle: text-xs, muted. */}
       {props.subtitle ? <Text className="text-xs leading-4 text-muted-foreground">{String(props.subtitle)}</Text> : null}
@@ -131,6 +131,10 @@ const CARD_TWO_COLUMNS_MIN = 480;
 /** The grid's gap between columns and an inset tile's padding, in pt. */
 const GRID_GAP = 16;
 const INSET_PAD = 24;
+/** The transcript's side edge, and a list card's px-4 and its thumbnail gap (gap-3), in pt: the text column's estimate. */
+const TRANSCRIPT_EDGE = 16;
+const CARD_PAD_X = 16;
+const CARD_ROW_GAP = 12;
 
 /**
  * Two or more Cards, in web's two layouts (`cardListLayout`, shared with web): a grid of big images when
@@ -138,10 +142,11 @@ const INSET_PAD = 24;
  * `layout` hint wins. Without one, the list shows first and switches once the photos load.
  */
 function GenuiCardList({ cards, layout }: { cards: GenuiNode[]; layout?: 'list' | 'grid' }) {
+  const screen = useWindowDimensions();
   const [width, setWidth] = useState(0);
   const [shapes, setShapes] = useState<Record<string, CardShape>>({});
-  // Keyed by URL: a list thumbnail that failed to load drops its box, as on web.
-  const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
+  // Before the list is measured: the window less the transcript's 16pt edges.
+  const listWidth = width || screen.width - 2 * TRANSCRIPT_EDGE;
   const mode = cardListLayout(layout, Object.values(shapes));
   const look = (id: string, extra: MarkdownImageLook = {}): MarkdownImageLook => ({
     ...extra,
@@ -156,10 +161,10 @@ function GenuiCardList({ cards, layout }: { cards: GenuiNode[]; layout?: 'list' 
   if (mode === 'list') {
     return (
       // Each option is its own card with a gap between, so the list reads as separate choices, not one block of text.
-      <View className="gap-2">
+      <View className="gap-2" onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
         {cards.map(({ id, props }) => {
           const shape = shapes[id] ?? cardImageShape(0, 0);
-          const image = props.image && !failed.has(String(props.image)) ? String(props.image) : null;
+          const image = props.image ? String(props.image) : null;
           return (
             <View key={id}>
               <Pressable
@@ -169,16 +174,17 @@ function GenuiCardList({ cards, layout }: { cards: GenuiNode[]; layout?: 'list' 
                 className="flex-row gap-3 rounded-2xl bg-card px-4 py-3.5 active:opacity-70"
               >
                 {image ? (
+                  // The box keeps its size while the image loads and after it fails: the well, then the image icon.
                   <View style={{ width: THUMB, height: THUMB }} className={`overflow-hidden rounded-lg bg-secondary ${shape.inset ? 'p-1.5' : ''}`}>
                     <GenuiImageView
                       src={image}
                       alt=""
                       fixedHeight={shape.inset ? THUMB - 12 : THUMB}
-                      look={look(id, { resizeMode: shape.inset ? 'contain' : 'cover', compact: true, onError: () => setFailed((known) => new Set(known).add(image)) })}
+                      look={look(id, { resizeMode: shape.inset ? 'contain' : 'cover', compact: true })}
                     />
                   </View>
                 ) : null}
-                <CardText props={props} />
+                <CardText props={props} estimatedWidth={listWidth - 2 * CARD_PAD_X - (image ? THUMB + CARD_ROW_GAP : 0)} />
               </Pressable>
             </View>
           );
@@ -207,11 +213,11 @@ function GenuiCardList({ cards, layout }: { cards: GenuiNode[]; layout?: 'list' 
                           src={String(props.image)}
                           alt=""
                           fixedHeight={shape.inset ? tile - 2 * INSET_PAD : tile}
-                          look={look(id, { resizeMode: shape.fit })}
+                          look={look(id, { resizeMode: shape.fit, compact: true })}
                         />
                       </View>
                     ) : null}
-                    <CardText props={props} />
+                    <CardText props={props} estimatedWidth={columnWidth} />
                   </Pressable>
                 );
               })}
@@ -225,9 +231,10 @@ function GenuiCardList({ cards, layout }: { cards: GenuiNode[]; layout?: 'list' 
 /** A Card badge (web's Paper Card 07): a surface pill with a tone dot; the label stays ink. */
 function CardBadge({ badge, well }: { badge: GenuiNode; well: string }) {
   return (
-    <View className={`flex-row items-center gap-1.5 rounded-full px-2 py-0.5 ${well}`}>
+    <View className={`max-w-full shrink flex-row items-center gap-1.5 rounded-full px-2 py-0.5 ${well}`}>
       <View className={`size-1.5 rounded-full ${badgeTone(badge.props.tone).dot}`} />
-      <Text variant="small" className="leading-5">
+      {/* One line at worst: a long label truncates inside the pill, never past the card. */}
+      <Text variant="small" numberOfLines={1} className="shrink leading-5">
         {String(badge.props.label)}
       </Text>
     </View>
@@ -238,24 +245,46 @@ function CardBadge({ badge, well }: { badge: GenuiNode; well: string }) {
 const CARD_IMAGE_HEIGHT = 160;
 
 export function GenuiCard({ props }: GenuiComponentProps) {
+  const { fontScale, width: windowWidth } = useWindowDimensions();
+  const [textWidth, setTextWidth] = useState(0);
   const badges = kids(props.badges);
   const image = Boolean(props.image);
+  const subtitle = props.subtitle ? String(props.subtitle) : '';
+  // The mono subtitle sits top right when it fits beside the title, as on web; a long one ("Colaba, South Mumbai")
+  // takes its own line under the title instead of squeezing it (the badge rule, `cardBadgePlacement`).
+  const subtitleBeside =
+    !subtitle ||
+    cardBadgePlacement({
+      width: textWidth || windowWidth - 2 * TRANSCRIPT_EDGE - 2 * CARD_PAD_X,
+      title: String(props.title),
+      badges: [{ label: subtitle, star: false }],
+      fontScale,
+    }) === 'beside';
   const pills = (well: string) => badges.map((badge) => <CardBadge key={badge.id} badge={badge} well={well} />);
   const body = (
     // Paper Card 06, inset image well: a 6pt inset, so the image's radius nests inside the card's.
     <View className={`gap-3 rounded-2xl bg-card ${image ? 'p-1.5 pb-3.5' : 'px-4 py-3'}`}>
       {image ? (
-        <View className="overflow-hidden rounded-xl">
+        // A fixed box on the neutral well: the card keeps its height while the photo loads, and after it fails.
+        <View style={{ height: CARD_IMAGE_HEIGHT }} className="overflow-hidden rounded-xl bg-secondary">
           {/* Decorative: the title below names the item. The photo fills the well, which is its frame: no outline. */}
-          <GenuiImageView src={props.image} alt="" fixedHeight={CARD_IMAGE_HEIGHT} look={{ resizeMode: 'cover', bare: true }} />
-          {badges.length > 0 ? <View className="absolute left-2.5 top-2.5 flex-row flex-wrap gap-1.5">{pills('bg-background')}</View> : null}
+          <GenuiImageView src={props.image} alt="" fixedHeight={CARD_IMAGE_HEIGHT} look={{ resizeMode: 'cover', bare: true, compact: true }} />
+          {/* Both insets: the pills wrap inside the photo, never past its right edge. */}
+          {badges.length > 0 ? <View className="absolute inset-x-2.5 top-2.5 flex-row flex-wrap gap-1.5">{pills('bg-background')}</View> : null}
         </View>
       ) : null}
-      <View className={`gap-1 ${image ? 'px-2.5' : ''}`}>
-        <View className="flex-row items-baseline justify-between gap-3">
-          <Text className={`flex-1 font-medium ${props.href ? 'underline' : ''}`}>{props.title}</Text>
-          {props.subtitle ? <Text className="max-w-[50%] text-right font-mono text-xs text-foreground">{props.subtitle}</Text> : null}
-        </View>
+      <View className={`gap-1 ${image ? 'px-2.5' : ''}`} onLayout={(e) => setTextWidth(Math.round(e.nativeEvent.layout.width))}>
+        {subtitleBeside ? (
+          <View className="flex-row items-baseline justify-between gap-3">
+            <Text className={`flex-1 font-medium ${props.href ? 'underline' : ''}`}>{props.title}</Text>
+            {subtitle ? <Text className="max-w-[45%] shrink text-right font-mono text-xs text-foreground">{subtitle}</Text> : null}
+          </View>
+        ) : (
+          <>
+            <Text className={`font-medium ${props.href ? 'underline' : ''}`}>{props.title}</Text>
+            <Text className="font-mono text-xs text-foreground">{subtitle}</Text>
+          </>
+        )}
         <CardRating rating={props.rating} reviews={props.reviews} price={props.price} />
         {props.body ? <Text variant="muted">{props.body}</Text> : null}
         {/* Without an image the pills sit under the body, on the secondary well instead of the surface. */}

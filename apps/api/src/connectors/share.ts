@@ -515,8 +515,9 @@ export function isHumanCaller(input: { credentialKind: string | undefined; bound
   return input.boundSessionId === null && (input.credentialKind === 'jwt' || input.credentialKind === 'pat');
 }
 
-export const TURN_SHARE_AGENT_ERROR = 'An agent cannot share a response publicly';
-export const TURN_SHARE_AGENT_REVOKE_ERROR = 'An agent cannot turn off a public response link';
+/** A hand-off, not a refusal of the agent: putting text on the public web is the person's call (founder decision, 2026-10-23). */
+export const TURN_SHARE_AGENT_ERROR =
+  'Publishing a response to the public web is the person\'s decision: the session owner or a project manager publishes it with Share on the response.';
 export const TURN_SHARE_OWNER_OR_MANAGER_ERROR =
   'Only the session owner or a project manager can share a response publicly';
 

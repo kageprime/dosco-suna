@@ -5,6 +5,7 @@ import {
   dialogContentZ,
   dialogLayerLevel,
   dialogOverlayZ,
+  foreignDialogOpen,
   openDialogLayer,
   removeDialogLayer,
 } from './z-stack';
@@ -85,5 +86,43 @@ describe('dialog layer stack', () => {
     open('gone');
     removeDialogLayer('gone');
     expect(dialogLayerLevel('gone')).toBe(0);
+  });
+});
+
+describe('foreignDialogOpen', () => {
+  // A stand-in element: `contains` is all the check reads.
+  const el = (children: object[] = []) => {
+    const node = { contains: (other: object) => other === node || children.includes(other) };
+    return node;
+  };
+  const withOpenDialogs = (dialogs: object[], run: () => void) => {
+    const original = globalThis.document;
+    Object.defineProperty(globalThis, 'document', {
+      configurable: true,
+      value: { querySelectorAll: () => dialogs },
+    });
+    try {
+      run();
+    } finally {
+      Object.defineProperty(globalThis, 'document', { configurable: true, value: original });
+    }
+  };
+
+  test('a dialog that opens over the panel counts; the panel itself does not', () => {
+    const panel = el();
+    withOpenDialogs([panel], () => expect(foreignDialogOpen(panel as never)).toBe(false));
+    withOpenDialogs([panel, el()], () => expect(foreignDialogOpen(panel as never)).toBe(true));
+  });
+
+  test('a dialog already open under the panel (the trigger composer under its model picker) does not count', () => {
+    const panel = el();
+    const composer = el();
+    withOpenDialogs([composer, panel], () =>
+      expect(foreignDialogOpen(panel as never, new Set([composer as never]))).toBe(false),
+    );
+    // A new dialog over both still counts.
+    withOpenDialogs([composer, panel, el()], () =>
+      expect(foreignDialogOpen(panel as never, new Set([composer as never]))).toBe(true),
+    );
   });
 });

@@ -28,7 +28,6 @@ import {
 } from '../shared/audit';
 import { auditCredentialNames } from '../shared/audit-credential-names';
 import { readAuditActivity } from '../shared/audit-activity';
-import { requestClientIp } from '../middleware/client-ip';
 import {
   deliverTestEvent,
   generateWebhookSecret,
@@ -45,11 +44,12 @@ import {
 } from '../shared/audit-query';
 import { AuditActorTypeSchema, AuditListSchema } from '../shared/audit-schema';
 import { readExportPage } from '../shared/audit-archive/export-page';
+import { HOT_DAYS, RETENTION_DAYS } from '../shared/audit-archive/format';
 import { auditArchiveStore } from '../shared/audit-archive/store';
 import { reconcileAuditEvents } from '../shared/audit-reconciliation';
 import type { AppEnv } from '../types';
 import { buildFilters } from './audit-filters';
-import { requireEntitlement } from './iam/http-helpers';
+import { auditIam, requireEntitlement } from './iam/http-helpers';
 import { readJsonObject } from '../shared/http-body';
 import { accountIdParam } from '../shared/route-params';
 
@@ -123,6 +123,7 @@ auditRouter.openapi(
     path: '/{workspaceId}/audit',
     tags: ['accounts'],
     summary: 'List audit events (cursor-paginated)',
+    description: `Newest first. Covers the last ${HOT_DAYS} days, which PostgreSQL holds. Older events, up to ${RETENTION_DAYS} days: GET /{workspaceId}/audit/export.`,
     ...auth,
     request: {
       params: AccountIdParam,
@@ -425,7 +426,7 @@ auditRouter.openapi(
     tags: ['accounts'],
     summary: 'Export audit events as CSV or JSONL',
     description:
-      'Oldest first, 10,000 events per page (follow X-Audit-Next-Cursor). Reaches back 365 days: events older than 90 days are read from the S3 archive. The list endpoint covers the last 90 days only.',
+      `Oldest first, 10,000 events per page (follow X-Audit-Next-Cursor). Reaches back ${RETENTION_DAYS} days: events older than ${HOT_DAYS} days are read from the S3 archive. The list endpoint covers the last ${HOT_DAYS} days only.`,
     ...auth,
     request: {
       params: AccountIdParam,
@@ -499,7 +500,7 @@ auditRouter.openapi(
 
     await flushAuditEvents({ waitMs: AUDIT_READ_FLUSH_BARRIER_MS });
 
-    // Ascending, across the archive (weeks older than 90 days, S3) and PostgreSQL. A bucket that is
+    // Ascending, across the archive (weeks older than HOT_DAYS, S3) and PostgreSQL. A bucket that is
     // not configured means PostgreSQL only.
     const page = await readExportPage(
       { db, store: auditArchiveStore().configured ? auditArchiveStore() : null },
@@ -740,16 +741,12 @@ auditRouter.openapi(
       .returning();
 
     // Audit the webhook config itself — meta-auditing.
-    await recordAuditEvent({
+    await auditIam(c, {
       accountId,
-      actorUserId: userId,
       action: 'iam.audit.webhook.create',
       resourceType: 'audit_webhook',
       resourceId: row.webhookId,
       after: { name: row.name, url: row.url, action_prefix: row.actionPrefix },
-      ip:
-        requestClientIp(c),
-      userAgent: c.req.header('user-agent') || null,
     });
 
     // Fire a one-shot test delivery so a mistyped/unreachable URL surfaces at
@@ -821,17 +818,13 @@ auditRouter.openapi(
       .where(eq(auditWebhooks.webhookId, webhookId))
       .returning();
 
-    await recordAuditEvent({
+    await auditIam(c, {
       accountId,
-      actorUserId: userId,
       action: 'iam.audit.webhook.update',
       resourceType: 'audit_webhook',
       resourceId: webhookId,
       before: { name: before.name, enabled: before.enabled, action_prefix: before.actionPrefix },
       after: { name: updated.name, enabled: updated.enabled, action_prefix: updated.actionPrefix },
-      ip:
-        requestClientIp(c),
-      userAgent: c.req.header('user-agent') || null,
     });
 
     return c.json(serializeWebhook(updated));
@@ -978,16 +971,12 @@ auditRouter.openapi(
       .returning({ name: auditWebhooks.name, url: auditWebhooks.url });
     if (rows.length === 0) return c.json({ error: 'webhook not found' }, 404);
 
-    await recordAuditEvent({
+    await auditIam(c, {
       accountId,
-      actorUserId: userId,
       action: 'iam.audit.webhook.delete',
       resourceType: 'audit_webhook',
       resourceId: webhookId,
       before: { name: rows[0]!.name, url: rows[0]!.url },
-      ip:
-        requestClientIp(c),
-      userAgent: c.req.header('user-agent') || null,
     });
 
     return c.json({ deleted: true });

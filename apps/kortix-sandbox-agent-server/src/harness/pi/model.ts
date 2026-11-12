@@ -77,13 +77,26 @@ export async function fetchPickerCatalog(env: NodeJS.ProcessEnv): Promise<Record
  * limit instead, floored at pi's default and at the reserve a project configures, and capped at
  * half the window, so a model that claims most of its window as output still compacts.
  */
+/** The output limit pi asks for when the catalog reports none. */
+export const DEFAULT_OUTPUT_TOKENS = 32_768
+
+/**
+ * The `max_tokens` pi requests for a model: its catalog output limit, else
+ * `DEFAULT_OUTPUT_TOKENS`. Never the context window: a provider reserves funds
+ * for the whole `max_tokens`, and OpenRouter refused funded keys a request for
+ * a 1M-token answer ("requires more credits, or fewer max_tokens").
+ */
+export function requestOutputTokens(entry: CatalogModel | undefined): number {
+  return entry?.limit?.output ?? DEFAULT_OUTPUT_TOKENS
+}
+
 export function compactionSettings(catalog: Record<string, CatalogModel>, configuredReserve = 0) {
   const modelOverrides: Record<string, { reserveTokens: number }> = {}
   const floor = Math.max(Math.floor(configuredReserve), DEFAULT_COMPACTION_SETTINGS.reserveTokens)
   for (const [id, entry] of Object.entries(catalog)) {
     // The window and output pi will use (gatewayModel's fallbacks), so the reserve matches the request's cap.
     const window = entry?.limit?.context ?? 128_000
-    const output = entry?.limit?.output ?? entry?.limit?.context ?? 32_768
+    const output = requestOutputTokens(entry)
     const reserveTokens = Math.min(Math.max(Math.floor(output), floor), Math.floor(window / 2))
     if (reserveTokens > DEFAULT_COMPACTION_SETTINGS.reserveTokens) modelOverrides[`${KORTIX_PROVIDER_ID}/${id}`] = { reserveTokens }
   }
@@ -181,7 +194,7 @@ function gatewayModel(id: string, entry: CatalogModel | undefined, target: Gatew
     // No source knows the window: pi's own default for a model it cannot size.
     contextWindow: entry?.limit?.context ?? 128_000,
     // pi clamps a request's max_tokens to the room left in the window.
-    maxTokens: entry?.limit?.output ?? entry?.limit?.context ?? 32_768,
+    maxTokens: requestOutputTokens(entry),
     compat: { thinkingFormat: 'openai', supportsStore: false, supportsDeveloperRole: false },
     // pi-ai clamps `xhigh` and `max` down to `high` unless the model maps them.
     thinkingLevelMap: Object.fromEntries(

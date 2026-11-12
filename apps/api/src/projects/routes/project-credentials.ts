@@ -1,6 +1,7 @@
 /** Project credentials: project-scoped CLI tokens and the BYO git credential. */
 import { PROJECT_ACTIONS } from '../../iam';
 import { isProjectSessionPrincipal } from '../../iam/agent-scope';
+import { buildDenialError } from '../../iam/denial-message';
 import { keyScopeWire, type KeyScopes } from '../../iam/key-scope';
 import { auth, errors, json, lenientBody } from '../../openapi';
 import {
@@ -128,7 +129,7 @@ export function registerProjectCredentialsRoutes(): void {
     // session binding, not on the grant: a session of a project without
     // `[[agents]]` carries a NULL grant and is still a session credential.
     if (isProjectSessionPrincipal(c)) {
-      return c.json({ error: 'Agent-session tokens cannot mint project tokens' }, 403);
+      throw buildDenialError(PROJECT_ACTIONS.PROJECT_CREDENTIALS_ISSUE, 'agent_human_only_action');
     }
 
     // Body fields: `name` (defaults to "cli · <project name>") and an optional
@@ -215,7 +216,7 @@ export function registerProjectCredentialsRoutes(): void {
     // not revoke project tokens (it could knock out its own siblings / the human
     // CLI token as a DoS). Symmetric with the mint guard above.
     if (isProjectSessionPrincipal(c)) {
-      return c.json({ error: 'Agent-session tokens cannot manage project tokens' }, 403);
+      throw buildDenialError(PROJECT_ACTIONS.PROJECT_CREDENTIALS_ISSUE, 'agent_human_only_action');
     }
     const ok = await revokeAccountToken(tokenId, loaded.row.accountId, projectId);
     if (!ok) return c.json({ error: 'token not found or already revoked' }, 404);

@@ -179,8 +179,7 @@ describe('ProjectSelectorView — create or join', () => {
     expect(html).not.toContain('data-testid="selector-create"');
   });
 
-  test('a failed list offers Try again; a total failure replaces the list', () => {
-    expect(render({ workspaces: twoAccounts, partialFailure: true })).toContain('Could not load every workspace.');
+  test('a total failure replaces the list', () => {
     const total = render({ loadFailed: true });
     expect(total).toContain('Could not load your workspaces');
     expect(total).not.toContain('data-testid="selector-create"');

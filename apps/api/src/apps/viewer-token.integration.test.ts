@@ -88,6 +88,17 @@ describeWithDb('App viewer token cache — real PostgreSQL', () => {
     expect(verdict.scopes).toEqual(['profile', 'email', 'kortix']);
   });
 
+  test('the row records the second factor of the cookie it was minted from; the cache never mixes the two', async () => {
+    resetAppViewerCaches();
+    const plain = await mintAppViewerToken(APP, VIEWER_ID);
+    const verified = await mintAppViewerToken(APP, VIEWER_ID, { aal: 'aal2' });
+    expect(verified!.accessToken).not.toBe(plain!.accessToken);
+    expect((await validateOAuthAccessToken(plain!.accessToken)).mfaAal).toBeNull();
+    expect(await validateOAuthAccessToken(verified!.accessToken)).toMatchObject({ isValid: true, mfaAal: 'aal2', accountId: ACCOUNT_ID });
+    expect((await mintAppViewerToken(APP, VIEWER_ID))!.accessToken).toBe(plain!.accessToken);
+    expect((await mintAppViewerToken(APP, VIEWER_ID, { aal: 'aal2' }))!.accessToken).toBe(verified!.accessToken);
+  });
+
   test('an access-policy save revokes every live token, and the next request gets a working one', async () => {
     resetAppViewerCaches();
     const before = await mintAppViewerToken(APP, VIEWER_ID);

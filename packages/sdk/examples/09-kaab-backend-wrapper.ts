@@ -1,14 +1,17 @@
 /**
  * 09 — "Kortix as a Backend", the whole flow in one file.
  *
- * Wrap ONE shared Kortix agent + repo as the backend for MANY of your own
- * end-users. Your service holds a single Kortix API key; every session it
- * starts brings *that* user's connector, model, secrets, and identity BY
- * REFERENCE. Your end-users never log in to Kortix.
+ * Use Kortix as the backend for MANY of your own end-users. Your service holds
+ * a single Kortix API key and gives EACH end user their own Kortix project: the
+ * project is the isolation boundary. A project-owned connection is reachable by
+ * every session in its project, so one user's credential never shares a
+ * project with another user's sessions. Every session brings *that* user's
+ * connector, model, secrets, and identity BY REFERENCE. Your end-users never
+ * log in to Kortix.
  *
  * This example does the entire path with no browser:
  *   1. mint a CONNECTOR definition           (headless: mcp/http/openapi/graphql)
- *   2. mint a per-end-user connection (owner_type 'external' = your user)
+ *   2. mint the end user's connection in THEIR project (project-owned)
  *      + store that user's own credential + activate it            (by reference)
  *   3. start a BACKEND-origin session, binding the connection, pinning the model
  *      and agent, and narrowing secrets                              (overrides)
@@ -19,9 +22,11 @@
  *     KORTIX_API_URL=http://localhost:8008/v1 KORTIX_API_KEY=kortix_pat_... \
  *     KORTIX_PROJECT_ID=... \
  *       bun run examples/09-kaab-backend-wrapper.ts "Summarize my new signups"
+ *   (KORTIX_PROJECT_ID is the one demo user's project.)
  *
  *   Multi-tenant service → POST /run {endUserId, prompt}, re-emitted as SSE:
- *     MODE=serve KORTIX_API_URL=... KORTIX_API_KEY=kortix_pat_... KORTIX_PROJECT_ID=... \
+ *     MODE=serve KORTIX_API_URL=... KORTIX_API_KEY=kortix_pat_... \
+ *       KAAB_END_USER_PROJECTS='{"alice":"<alice's project id>","bob":"<bob's project id>"}' \
  *       bun run examples/09-kaab-backend-wrapper.ts
  *     curl -N localhost:8791/run -H 'content-type: application/json' \
  *       -d '{"endUserId":"alice","prompt":"Summarize my new signups"}'
@@ -45,7 +50,9 @@ import { createScopedKortix } from '../src/node/server';
 // ─── config (env) ────────────────────────────────────────────────────────────
 const backendUrl = process.env.KORTIX_API_URL ?? 'http://localhost:8008/v1';
 const upstreamApiKey = process.env.KORTIX_API_KEY; // the wrapper's own kortix_pat_ → origin 'backend'
-const projectId = process.env.KORTIX_PROJECT_ID;
+const projectId = process.env.KORTIX_PROJECT_ID; // one-shot mode: the demo user's project
+/** Serve mode: end user id → that user's own Kortix project id. */
+const endUserProjects = JSON.parse(process.env.KAAB_END_USER_PROJECTS ?? '{}') as Record<string, string>;
 const includeOverrides = process.env.KAAB_OVERRIDES !== 'off';
 
 // Which connector/agent/model/secret this wrapper drives — all overridable.
@@ -55,9 +62,22 @@ const AGENT_NAME = process.env.KAAB_AGENT; // undefined → project default agen
 const MODEL = process.env.KAAB_MODEL; // undefined → project/agent default model
 const SECRET_ID = process.env.KAAB_SECRET; // one project-secret identifier to narrow to
 
-if (!upstreamApiKey || !projectId) {
-  console.error('Set KORTIX_API_KEY (a kortix_pat_ from Settings → Tokens) and KORTIX_PROJECT_ID.');
+if (!upstreamApiKey || (!projectId && Object.keys(endUserProjects).length === 0)) {
+  console.error('Set KORTIX_API_KEY (a kortix_pat_ from Settings → Tokens) and KORTIX_PROJECT_ID or KAAB_END_USER_PROJECTS.');
   process.exit(1);
+}
+
+/**
+ * The end user's own Kortix project. One project per end user is the
+ * isolation boundary: every session in a project can bind that project's
+ * connections, so two end users never share one. A real wrapper creates the
+ * project when it onboards the user (`provisionWorkspace`, `POST /v1/projects/provision`) and stores
+ * the id in its own user table.
+ */
+function projectFor(endUserId: string): string {
+  const own = endUserProjects[endUserId] ?? (Object.keys(endUserProjects).length === 0 ? projectId : undefined);
+  if (!own) throw new Error(`no Kortix project for end user ${endUserId}`);
+  return own;
 }
 
 /**
@@ -65,8 +85,8 @@ if (!upstreamApiKey || !projectId) {
  * wrapper mints/stores one PAT per tenant (or scopes a shared one) in its own
  * auth store, keyed off the incoming request — never a hardcoded env var. Here
  * every user shares the wrapper's own key; origin still derives to 'backend',
- * and per-user isolation comes from wrapper-owned metadata and the end-user's
- * connection, not from distinct Kortix logins.
+ * and per-user isolation comes from each end user's own project
+ * (`projectFor`), not from distinct Kortix logins.
  */
 function upstreamTokenFor(_endUserId: string): string {
   return upstreamApiKey!;
@@ -78,8 +98,8 @@ function clientFor(endUserId: string) {
 }
 
 // ─── step 1: mint the connector definition (once per connector) ──────────────
-async function ensureConnector(kortix: ReturnType<typeof clientFor>): Promise<void> {
-  const project = kortix.project(projectId!);
+async function ensureConnector(kortix: ReturnType<typeof clientFor>, endUserId: string): Promise<void> {
+  const project = kortix.project(projectFor(endUserId));
   const existing = await project.connectors.list().catch(() => ({ connectors: [] as { slug: string }[] }));
   if (existing.connectors?.some((c) => c.slug === CONNECTOR_SLUG)) return;
 
@@ -102,20 +122,20 @@ async function ensureConnector(kortix: ReturnType<typeof clientFor>): Promise<vo
 // ─── step 2: mint + credential + activate this user's connection ─────────────
 /** Returns the `connection_id` you bind by reference, or null if the project has
  *  no connector declared (a bare project without kortix.yaml). Idempotent per
- *  (connector, owner). `owner_type: 'external'` = your app's user, independent
- *  of any Kortix member/agent. */
+ *  (connector, owner, label). It is project-owned, so it lives in THIS end
+ *  user's project only (`projectFor`): every session in a project can bind its
+ *  connections. The retired `owner_type: 'external'` is refused by the API. */
 async function ensureUserConnection(
   kortix: ReturnType<typeof clientFor>,
   endUserId: string,
   usersOwnCredential: string,
 ): Promise<string | null> {
-  const project = kortix.project(projectId!);
+  const project = kortix.project(projectFor(endUserId));
   try {
     const connection = await project.connectors.connections.reconcile({
       connector_alias: CONNECTOR_SLUG,
-      owner_type: 'external',
-      owner_id: endUserId,
-      label: `${CONNECTOR_SLUG} for ${endUserId}`,
+      owner_type: 'project',
+      label: CONNECTOR_SLUG,
     });
     // Store THAT user's own credential (never sent again; resolved server-side
     // at connector-call time — it never enters the sandbox env).
@@ -146,6 +166,7 @@ async function ensureUserConnection(
 // ─── step 3: start a backend-origin session bound to this user ───────────────
 async function startSession(
   kortix: ReturnType<typeof clientFor>,
+  endUserId: string,
   connectionId: string | null,
 ): Promise<string> {
   const body: Record<string, unknown> = {
@@ -157,7 +178,7 @@ async function startSession(
     // Backend-only secret narrowing. KAAB_OVERRIDES=off omits it.
     ...(includeOverrides && SECRET_ID ? { secrets: [SECRET_ID] } : {}),
   };
-  const session = await kortix.project(projectId!).sessions.create(body);
+  const session = await kortix.project(projectFor(endUserId)).sessions.create(body);
   console.error(
     `[session ${session.session_id}] origin=${session.origin ?? '(n/a)'}` +
       ` secrets=${JSON.stringify(session.secrets_allowlist ?? null)}`,
@@ -170,11 +191,12 @@ async function startSession(
  *  session goes idle (turn complete). */
 async function runTurn(
   kortix: ReturnType<typeof clientFor>,
+  endUserId: string,
   sessionId: string,
   prompt: string,
   onText: (delta: string) => void,
 ): Promise<void> {
-  const session = kortix.session(projectId!, sessionId);
+  const session = kortix.session(projectFor(endUserId), sessionId);
   // ensureReady() blocks — polling the sandbox cold start (up to ~3 min by
   // default; pass { readyTimeoutMs } to wait longer) — until the runtime is up,
   // THEN we stream, so the stream is connected before the prompt goes out and no
@@ -227,7 +249,7 @@ async function serveOneUser(endUserId: string, prompt: string, onText: (t: strin
   let connectionId: string | null = null;
   if (process.env.KAAB_NO_CONNECTOR !== '1') {
     try {
-      await ensureConnector(kortix);
+      await ensureConnector(kortix, endUserId);
       // In a real wrapper this credential is the user's own connected account.
       connectionId = await ensureUserConnection(
         kortix,
@@ -238,8 +260,8 @@ async function serveOneUser(endUserId: string, prompt: string, onText: (t: strin
       console.error(`[connector] unavailable, continuing without a binding: ${String(err)}`);
     }
   }
-  const sessionId = await startSession(kortix, connectionId);
-  await runTurn(kortix, sessionId, prompt, onText);
+  const sessionId = await startSession(kortix, endUserId, connectionId);
+  await runTurn(kortix, endUserId, sessionId, prompt, onText);
 }
 
 // ─── run modes ───────────────────────────────────────────────────────────────

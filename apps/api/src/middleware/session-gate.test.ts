@@ -91,7 +91,8 @@ mock.module('./auth-audit', () => ({
 
 const { accountSessionGate } = await import('./session-gate');
 const { installHttpErrors } = await import('../http-errors');
-const { resetDeadCredentialLogForTests, isDeadCredential } = await import('../shared/dead-credential-log');
+const { isDeadCredential } = await import('../shared/dead-credential-log');
+const { resetLogWindowsForTests } = await import('../shared/log-window');
 
 const ACCOUNT = 'a5ddd8d5-c8f2-4c54-9b64-842b2ad31ceb';
 const EFFECTIVE_PATH = `/v1/accounts/${ACCOUNT}/iam/members/22222222-2222-4222-8222-222222222222/effective`;
@@ -138,7 +139,7 @@ beforeEach(() => {
   logged.length = 0;
   markRevokedCalls.length = 0;
   verdict = 'allow';
-  resetDeadCredentialLogForTests();
+  resetLogWindowsForTests();
 });
 
 describe('session-gate refusal shape (KRTX-2369)', () => {

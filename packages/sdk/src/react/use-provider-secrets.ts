@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   listAccountSecretResources, listSessionProviderSecretPools, refreshAccountSecretUsage, setSessionProviderSecretPool,
   listSubscriptionConnections, refreshSubscriptionConnectionUsage, type SubscriptionConnection,
@@ -45,6 +45,28 @@ export function useSubscriptionUsage(accountId: string | null | undefined, secre
     enabled: Boolean(accountId && secretId) && options.enabled !== false,
     staleTime: 30_000,
     refetchInterval: 60_000,
+  });
+}
+
+/**
+ * The live plan usage of many ChatGPT and Claude logins at once: one query per
+ * login, under the same key `useSubscriptionUsage` uses, so a summary and the
+ * rows that show each login read one cache and one request per login. A login
+ * that is inactive, signed out or unreadable is not asked.
+ */
+export function useSubscriptionUsages(
+  accountId: string | null | undefined,
+  projectId: string,
+  logins: ReadonlyArray<Pick<SubscriptionConnection, 'secret_id' | 'storage' | 'active'> & Partial<Pick<SubscriptionConnection, 'needs_reauth_at' | 'status'>>>,
+) {
+  return useQueries({
+    queries: logins.map((login) => ({
+      queryKey: ['subscription-usage', accountId, login.secret_id, projectId, login.storage],
+      queryFn: () => refreshSubscriptionConnectionUsage(accountId!, login.secret_id, projectId, login.storage),
+      enabled: Boolean(accountId && projectId) && login.active && !login.needs_reauth_at && login.status !== 'undecryptable',
+      staleTime: 30_000,
+      refetchInterval: 60_000,
+    })),
   });
 }
 

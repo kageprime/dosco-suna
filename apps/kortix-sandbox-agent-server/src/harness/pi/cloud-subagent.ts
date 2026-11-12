@@ -15,7 +15,9 @@
  * (`middleware/caller-session.ts` → `session-create.ts` `parentSessionId` and
  * `metadata.spawned_by_session`). That same link authorizes every later read
  * of the child from this box (`agentSessionStanding`, connectors/share.ts):
- * the session row, its transcript, a follow-up prompt, a stop.
+ * the session row, its stored session log (`GET …/sessions/:id/log`), a
+ * follow-up prompt, a stop. No read goes through the v1 transcript route
+ * (`GET …/transcript`), which P8.3 of the session-log plan removes.
  *
  * The return shape is `SpawnSessionResult`, identical to the in-process path:
  * the tool part carries the child id in `metadata.sessionId` and the output
@@ -58,9 +60,10 @@
  * Workflow inputs (`extensions/workflow.ts`): `runtimeContext` adds keys to
  * the create body's `runtime_context` (the subagent keys win; the whole object
  * must fit the API's 16 KiB), `waitMs` replaces the 30 min wait ceiling, and
- * `stallMs` watches the child's transcript tail at most once a minute: no new
- * message, text or tool state, and no tool call still running, for `stallMs`
- * stops the child and returns an error with `stalled: true`.
+ * `stallMs` watches the tail of the child's session log at most once a minute:
+ * no new message, block, text or reasoning, no status change, and no tool call
+ * still running, for `stallMs` stops the child and returns an error with
+ * `stalled: true`.
  *
  * Names, teams and forks (`agent({ name, fork })`, `extensions/subagents.ts`):
  *  - `handle` stores metadata `agent_handle` (and `kortix.agent.handle` in
@@ -157,6 +160,9 @@ const RUNTIME_CONTEXT_MAX_BYTES = 16 * 1024
 const TOOL_NAME = /^[A-Za-z0-9_.:-]{1,128}$/
 
 /** The API callback target and this parent's limits, from the box env. */
+/** `runtime_context` key: the model the parent's turn runs, for a child created with no model (`session-create.ts`). */
+export const PARENT_MODEL_CONTEXT_KEY = 'kortix.parent_model'
+
 export interface CloudSubagentApi {
   /** `KORTIX_API_URL`, with or without the `/v1` suffix. */
   apiUrl: string
@@ -169,6 +175,12 @@ export interface CloudSubagentApi {
   parentAgent?: string
   /** This session is the platform coordinator (My Kortix): every spec prompt is its child's own system prompt. */
   coordinator?: boolean
+  /**
+   * The model this session's turn runs on (`provider/model`), set per call. A
+   * child the call names no model for inherits it, unless its agent pins one
+   * (the API decides that: this box may not compile the child's agent).
+   */
+  parentModel?: string
   /** This session's own subagent depth (0 for a root session). */
   depth: number
   maxDepth: number
@@ -277,10 +289,14 @@ const CLOUD_UNMAPPABLE_AGENTS = new Set(['general', 'explore', 'inline'])
 // ponytail: fixed 30 min ceiling + 2 s poll; make it env-tunable if a real subagent run needs longer.
 const WAIT_CEILING_MS = 30 * 60_000
 const POLL_INTERVAL_MS = 2_000
-/** A stall watch (`SpawnSessionInput.stallMs`) reads the child's transcript tail at most this often. */
+/** A stall watch (`SpawnSessionInput.stallMs`) reads the tail of the child's session log at most this often. */
 const STALL_CHECK_MS = 60_000
-/** Messages read back from the child's transcript to find its last report. */
+/** Messages of the child's session log one stall check reads. */
+const PROGRESS_MESSAGES = 3
+/** Messages read back from the child's session log to find its last report. */
 const READ_BACK_MESSAGES = 20
+/** The read-back report is cut here, as the v1 transcript's `detail=full` cut it. */
+const REPORT_MAX_CHARS = 16_000
 
 export interface CloudSubagentOptions {
   waitCeilingMs?: number
@@ -370,8 +386,11 @@ export async function cloudSpawnSession(
       return { sessionId: '', status: 'error', text: '', error: `child session create failed: ${errorText(err)}`, model }
     }
     if (created.status !== 201 && created.status !== 202) {
-      const body = (await created.text().catch(() => '')).slice(0, 500)
-      return { sessionId: '', status: 'error', text: '', error: `child session create answered ${created.status}: ${body}`, model }
+      const body = (await created.text().catch(() => '')).slice(0, 2000)
+      // A colleague whose access waits for the person: nothing started, and that is not a failure.
+      const pending = created.status === 409 ? accessApproval(body) : null
+      if (pending) return { sessionId: '', status: 'awaiting_approval', text: pending.text, ...(pending.askId ? { askId: pending.askId } : {}), model }
+      return { sessionId: '', status: 'error', text: '', error: `child session create answered ${created.status}: ${body.slice(0, 500)}`, model }
     }
     const createdJson = (await created.json().catch(() => null)) as { session_id?: string; sessionId?: string } | null
     const childId = createdJson?.session_id ?? createdJson?.sessionId ?? ''
@@ -484,6 +503,17 @@ function isWorkingBackgroundChild(row: SessionRow): boolean {
   return row.status === 'provisioning' || (row.status === 'running' && row.working?.state === 'working')
 }
 
+/** A start that waits for the person to allow its access (`COLLEAGUE_ACCESS_APPROVAL_REQUIRED`): the API's text and the ask. Null: another 409. */
+function accessApproval(body: string): { text: string; askId?: string } | null {
+  try {
+    const json = JSON.parse(body) as { code?: unknown; error?: unknown; ask_id?: unknown }
+    if (json.code !== 'COLLEAGUE_ACCESS_APPROVAL_REQUIRED' || typeof json.error !== 'string') return null
+    return { text: json.error, ...(typeof json.ask_id === 'string' ? { askId: json.ask_id } : {}) }
+  } catch {
+    return null
+  }
+}
+
 /** The create body. Throws on a spec the API would refuse, before any session exists. */
 function buildCreateBody(api: CloudSubagentApi, input: SpawnSessionInput): Record<string, unknown> {
   const named = input.agent && !CLOUD_UNMAPPABLE_AGENTS.has(input.agent) ? input.agent : undefined
@@ -518,6 +548,8 @@ function buildCreateBody(api: CloudSubagentApi, input: SpawnSessionInput): Recor
     ...(handle ? { [AGENT_HANDLE_CONTEXT_KEY]: handle } : {}),
     ...(teammate ? { [TEAM_LEAD_CONTEXT_KEY]: teammate.lead } : {}),
     ...(ownPrompt ? { [AGENT_INSTRUCTIONS_CONTEXT_KEY]: ownPrompt } : {}),
+    // No model on the call: the API runs the child on this turn's model unless its agent pins one.
+    ...(!input.model && api.parentModel ? { [PARENT_MODEL_CONTEXT_KEY]: api.parentModel } : {}),
   }
   const bytes = new TextEncoder().encode(JSON.stringify(runtimeContext)).byteLength
   if (bytes > RUNTIME_CONTEXT_MAX_BYTES) {
@@ -537,6 +569,7 @@ function buildCreateBody(api: CloudSubagentApi, input: SpawnSessionInput): Recor
     ...(context ? { initial_context: context } : {}),
     ...(Object.keys(metadata).length ? { metadata } : {}),
     ...(input.fork && api.sessionId ? { fork_from_session_id: api.sessionId } : {}),
+    ...(input.access ? { colleague_access: input.access } : {}),
     runtime_context: runtimeContext,
   }
 }
@@ -688,24 +721,48 @@ async function waitForIdle(
 }
 
 /**
- * The child's transcript tail as a signature (message ids, text lengths, tool
- * states), and whether a tool call still runs. Null when it could not be read:
- * an unreadable tail is never a stall.
+ * The tail of the child's session log as a signature (message ids, statuses,
+ * block counts, text and reasoning lengths, tool states), and whether a tool
+ * call of the newest message still runs. The box journals a running turn at
+ * most 5 s behind. Null when the tail could not be read: the probe itself
+ * never decides a stall.
  */
 async function progressProbe(http: Http, childId: string): Promise<{ signature: string; toolRunning: boolean } | null> {
   try {
-    const res = await http.fetchImpl(sessionUrl(http, childId, '/transcript?limit=3'), { headers: http.headers })
-    if (res.status !== 200) return null
-    const body = (await res.json().catch(() => null)) as { messages?: Array<CompactMessage & { id?: string | null; tools?: Array<{ status?: string | null }> }> } | null
-    const messages = body?.messages ?? []
-    const last = messages.at(-1)
+    const tail = await readLogTail(http, childId, PROGRESS_MESSAGES)
+    if (!tail.ok) return null
+    const calls = (m: LogMessage | undefined) => (m?.blocks ?? []).flatMap((b) => (b.type === 'tool_call' ? [b] : []))
+    const written = (m: LogMessage) =>
+      m.blocks.reduce((n, b) => n + (b.type === 'text' || b.type === 'reasoning' ? (b.text?.length ?? 0) : 0), 0)
     return {
-      signature: JSON.stringify(messages.map((m) => [m.id ?? null, m.role ?? null, m.text?.length ?? 0, (m.tools ?? []).map((t) => t.status ?? null)])),
-      toolRunning: (last?.tools ?? []).some((tool) => tool.status === 'running' || tool.status === 'pending'),
+      signature: JSON.stringify(tail.messages.map((m) => [m.message_id, m.status, m.blocks.length, written(m), calls(m).map((c) => c.status)])),
+      toolRunning: calls(tail.messages.at(-1)).some((call) => call.status === 'running' || call.status === 'pending'),
     }
   } catch {
     return null
   }
+}
+
+/** One message of a `GET …/log` page. */
+type LogMessage = SessionLogPage['messages'][number]
+type LogTail = { ok: true; messages: LogMessage[] } | { ok: false; status: number }
+
+/**
+ * The newest `limit` messages of the child's root thread, oldest first, from
+ * its stored session log: `GET …/sessions/:id/log`, the API's copy, which
+ * answers while the child's box is parked. A child that saved nothing yet
+ * (404 `session_log_missing`) reads as no messages. Any other non-200 is
+ * `{ ok: false, status }`. Throws on a network failure.
+ */
+async function readLogTail(http: Http, childId: string, limit: number): Promise<LogTail> {
+  const res = await http.fetchImpl(sessionUrl(http, childId, `/log?limit=${limit}`), { headers: http.headers })
+  if (res.status === 404) {
+    const body = (await res.json().catch(() => null)) as { code?: unknown } | null
+    return body?.code === 'session_log_missing' ? { ok: true, messages: [] } : { ok: false, status: 404 }
+  }
+  if (res.status !== 200) return { ok: false, status: res.status }
+  const page = (await res.json().catch(() => null)) as SessionLogPage | null
+  return { ok: true, messages: Array.isArray(page?.messages) ? page.messages : [] }
 }
 
 function delay(ms: number, signal: AbortSignal | undefined): Promise<void> {
@@ -873,43 +930,52 @@ async function stopChild(http: Http, childId: string): Promise<void> {
   }
 }
 
-interface CompactMessage {
-  role?: string
-  text?: string
-  error?: unknown
-}
-
 /**
- * The child's final assistant report, read back through the platform
- * transcript route (`GET …/sessions/:childId/transcript?detail=full`): the
- * route project automation reads, live from the child's box or from its saved
- * mirror. `detail=full` keeps the answer whole up to 16,000 characters.
+ * The child's final assistant report, read back from its stored session log
+ * (`GET …/sessions/:childId/log`, the newest {@link READ_BACK_MESSAGES}
+ * messages of its root thread).
  *
- * Only the turn this call started counts: the messages after the last user
- * message (the prompt just sent). An earlier turn's report is never returned
- * as this turn's result. If the newest assistant message of the turn failed,
- * the result is an error, even when an earlier message of the turn has text.
+ * Only the turn this call started counts: the conversation messages after the
+ * last user message (the prompt just sent). Compaction and context records are
+ * not conversation: a compaction inside the turn neither ends it nor becomes
+ * its report. An earlier turn's report is never returned as this turn's
+ * result. If the newest assistant message of the turn failed, the result is an
+ * error, even when an earlier message of the turn has text.
  */
 async function readFinalText(http: Http, childId: string): Promise<{ text: string; error?: string }> {
   const pointer = `The subagent ran as the Kortix child session ${childId}; its transcript is that session.`
-  let res: Response
+  let tail: LogTail
   try {
-    res = await http.fetchImpl(sessionUrl(http, childId, `/transcript?limit=${READ_BACK_MESSAGES}&detail=full`), { headers: http.headers })
+    tail = await readLogTail(http, childId, READ_BACK_MESSAGES)
   } catch (err) {
     logger.warn('[pi] cloud subagent read-back failed', { childId, err: errorText(err) })
     return { text: `${pointer} Its final report could not be read back: ${errorText(err)}.` }
   }
-  if (res.status !== 200) return { text: `${pointer} Its final report could not be read back: the API answered ${res.status}.` }
-  const body = (await res.json().catch(() => null)) as { messages?: CompactMessage[] } | null
-  const messages = body?.messages ?? []
+  if (!tail.ok) return { text: `${pointer} Its final report could not be read back: the API answered ${tail.status}.` }
+  const messages = tail.messages.filter((m) => m.kind === 'turn' && (m.role === 'user' || m.role === 'assistant'))
   // No user message in the window: the turn is longer than the window, so the whole window is this turn.
   const turn = messages.slice(messages.findLastIndex((m) => m.role === 'user') + 1)
   const assistants = turn.filter((m) => m.role === 'assistant')
   const last = assistants.at(-1)
-  if (last?.error) return { text: '', error: `the subagent's last turn failed: ${errorText(last.error)}` }
-  const report = [...assistants].reverse().find((m) => typeof m.text === 'string' && m.text.trim())
-  if (report) return { text: report.text!.trim() }
+  if (last?.error) return { text: '', error: `the subagent's last turn failed: ${last.error.message || last.error.code}` }
+  const report = [...assistants].reverse().map(reportText).find((text) => text !== '')
+  if (report) return { text: report }
   return { text: `${pointer} It finished without a text report.` }
+}
+
+/**
+ * A message's answer: its text blocks that are not synthetic, joined by line
+ * breaks and trimmed, cut at {@link REPORT_MAX_CHARS} with a marker. A text the
+ * API stored by reference (over 256 kB) arrives as its 16 KiB preview, so its
+ * report always carries the marker. '' when the message has no text.
+ */
+function reportText(message: LogMessage): string {
+  const blocks = message.blocks.flatMap((b) => (b.type === 'text' && !b.synthetic && b.text ? [b] : []))
+  const text = blocks.map((b) => b.text).join('\n').trim()
+  if (!text) return ''
+  const stored = blocks.reduce((n, b) => n + (b.ref !== undefined ? (b.bytes ?? 0) : 0), 0)
+  if (stored > 0) return `${text.slice(0, REPORT_MAX_CHARS)}…[truncated: ${Math.min(text.length, REPORT_MAX_CHARS)} chars of a stored text of ${stored} bytes]`
+  return text.length <= REPORT_MAX_CHARS ? text : `${text.slice(0, REPORT_MAX_CHARS)}…[truncated: ${REPORT_MAX_CHARS} of ${text.length} chars]`
 }
 
 function errorText(err: unknown): string {

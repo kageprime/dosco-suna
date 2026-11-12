@@ -1323,7 +1323,14 @@ jobs:
       # infra/terraform/modules/project-snapshots-bucket): that role has NO
       # s3:DeleteObject, and expiry is safe because the archive is a cache the
       # API rebuilds from its Git mirror.
-      KORTIX_ECS_ENV_OVERRIDES: '{"KORTIX_PREVIEW_BASE_DOMAIN":"p.kortix.com","KORTIX_CAPTURE_S3_BUCKET":"kortix-prod-capture-store","KORTIX_CAPTURE_S3_REGION":"eu-west-2","KORTIX_CAPTURE_SQS_QUEUE_URL":"https://sqs.eu-west-2.amazonaws.com/935064898258/kortix-prod-capture-store-manifests","KORTIX_CAPTURE_STS_ROLE_ARN":"arn:aws:iam::935064898258:role/kortix-prod-capture-store-device","AUDIT_ARCHIVE_BUCKET":"kortix-prod-audit-archive","AUDIT_ARCHIVE_REGION":"eu-west-2","KORTIX_CONFIG_ARCHIVE_S3_BUCKET":"kortix-prod-project-snapshots","KORTIX_CONFIG_ARCHIVE_S3_REGION":"eu-west-2","KORTIX_CONFIG_ARCHIVE_RETAIN_PER_PROJECT":"0"}'
+      #
+      # KORTIX_WORKSPACE_VOLUMES=on turns `workspace_volume` (stateless
+      # sandboxes) on for every prod project that has made no choice: each new
+      # session keeps /workspace on its own Platinum volume, and a box stopped
+      # for KORTIX_SANDBOX_IDLE_DELETE_MINUTES is deleted. A project an
+      # operator set to `false` stays off. Rollback: remove the key and
+      # redeploy; sessions that already have a volume keep it.
+      KORTIX_ECS_ENV_OVERRIDES: '{"KORTIX_PREVIEW_BASE_DOMAIN":"p.kortix.com","KORTIX_CAPTURE_S3_BUCKET":"kortix-prod-capture-store","KORTIX_CAPTURE_S3_REGION":"eu-west-2","KORTIX_CAPTURE_SQS_QUEUE_URL":"https://sqs.eu-west-2.amazonaws.com/935064898258/kortix-prod-capture-store-manifests","KORTIX_CAPTURE_STS_ROLE_ARN":"arn:aws:iam::935064898258:role/kortix-prod-capture-store-device","AUDIT_ARCHIVE_BUCKET":"kortix-prod-audit-archive","AUDIT_ARCHIVE_REGION":"eu-west-2","AUDIT_ARCHIVE_ENABLED":"true","KORTIX_CONFIG_ARCHIVE_S3_BUCKET":"kortix-prod-project-snapshots","KORTIX_CONFIG_ARCHIVE_S3_REGION":"eu-west-2","KORTIX_CONFIG_ARCHIVE_RETAIN_PER_PROJECT":"0","KORTIX_WORKSPACE_VOLUMES":"on"}'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Configure AWS credentials (OIDC)
@@ -1788,7 +1795,8 @@ jobs:
     name: Deploy prod web to Vercel (after API is live)
     needs: [version, verify-live-version]
     runs-on: ${{ vars.CI_RUNNER_M || 'ubuntu-24.04' }}
-    timeout-minutes: 20
+    # This runner builds the web app; Vercel only hosts the output.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Check out the aws-env action
@@ -1818,17 +1826,22 @@ jobs:
             echo "::error::VERCEL_PROJECT_ID resolves to '$linked', not the suna project — refusing to deploy the wrong project."
             exit 1
           fi
-      - name: Deploy the release frontend to production
+      - run: corepack enable pnpm
+      - name: Build the release frontend on this runner and deploy it to production
+        env:
+          npm_config_engine_strict: "false"
         run: |
           set -euo pipefail
+          # Vercel runs no build: this runner builds, Vercel only hosts the
+          # output (infra/scripts/vercel-deploy-prebuilt.sh, the same script as
+          # staging, so a green staging deploy proves this path).
           # Bind the release version to this deployment at build time and runtime.
           # KORTIX_PUBLIC_VERSION is the server-only alias that public-env-server
           # exposes as VERSION. Vercel rejects NEXT_PUBLIC_* Production variables
           # because its CLI treats them as secrets by default.
-          # --archive=tgz: Vercel refuses a deploy of more than 15,000 files, and
-          # the tree passed that at v0.14.9 (15,077 files). The commit goes in
-          # explicitly because an archive deploy does not promise git metadata.
-          npx --yes vercel@latest deploy --prod --yes --archive=tgz --token="$VERCEL_TOKEN" \
+          # The commit goes in explicitly because an archive deploy does not
+          # promise git metadata.
+          bash infra/scripts/vercel-deploy-prebuilt.sh production \
             --env "KORTIX_PUBLIC_VERSION=${{ needs.version.outputs.version }}" \
             --build-env "NEXT_PUBLIC_KORTIX_VERSION=${{ needs.version.outputs.version }}" \
             --build-env "NEXT_PUBLIC_KORTIX_COMMIT=${{ github.sha }}"

@@ -1,47 +1,45 @@
 /**
- * Slack and Teams connector reads, confined to the calling project's own
- * conversations.
+ * Slack and Teams connector reads, confined to what the calling project may
+ * see.
  *
- * The managed Slack app has one bot token per workspace, and the managed Teams
- * app mints one Graph token per tenant. Every project connected to the same
- * workspace or tenant resolves that SAME credential (`channelToken` in
- * db-deps.ts). The token alone let an agent in one project read every
- * conversation the bot is in: other projects' channels, DMs and threads
- * included (found in the 2026-09-29 permissions audit). This module is the rule
- * the gateway applies on top of the token.
+ * SLACK. One Slack workspace runs in one Kortix workspace, so its reads are
+ * gated by the link and by the person's own view of private conversations
+ * (slack-visibility.ts). This module only classifies Slack's actions.
  *
- * THE RULE. A read reaches a conversation only when it belongs to the calling
- * project:
+ * TEAMS. The managed Teams app mints one Graph token per tenant, and every
+ * project connected to the same tenant resolves that SAME credential
+ * (`channelToken` in db-deps.ts). The token alone let an agent in one project
+ * read every conversation the bot is in: other projects' channels and threads
+ * included (found in the 2026-09-29 permissions audit). This module is the
+ * rule the gateway applies on top of the token.
+ *
+ * THE TEAMS RULE. A read reaches a conversation only when it belongs to the
+ * calling project:
  *   1. A conversation or thread that belongs to another project is refused.
  *   2. One that belongs to this project is allowed.
  *   3. One that belongs to no project is allowed only while no other project is
- *      connected to the same Slack workspace or Teams tenant.
+ *      connected to the same Teams tenant.
  *
- * Ownership comes from rows only the chat paths write:
- *   - A thread belongs to its session's project (`chat_threads`). A thread's
- *     owner wins over its channel's: a session that posted into a channel
- *     reads its own thread there.
- *   - A Slack channel or DM belongs to the project it is bound to
- *     (`chat_channel_bindings`).
- *   - Teams binds each conversation, and every channel post is its own
- *     conversation (`19:…@thread.tacv2;messageid=…`). A Teams channel belongs
- *     to every project that has a conversation in it, and a per-thread binding
- *     decides a thread no session owns.
+ * Ownership comes from rows only the chat paths write: every channel post is
+ * its own conversation (`19:…@thread.tacv2;messageid=…`), a Teams channel
+ * belongs to every project that has a conversation in it, and a per-thread
+ * binding decides a thread no session owns.
  *
  * Not confined here: directory reads (people, teams, team members, the bot's
- * own identity) and the metadata of public Slack channels and standard Teams
- * channels. Every project in a workspace shares one directory, and the
- * platform shows it to every member. Writes are not confined here either.
+ * own identity) and the metadata of standard Teams channels. Writes are not
+ * confined here either.
  */
 import { and, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm';
 import { chatChannelBindings, chatInstalls, chatThreads } from '@kortix/db';
 import { db } from '../shared/db';
 import { isRecord } from '@kortix/shared/guards';
+import { SLACK_NOT_LINKED, SLACK_PRIVATE_CONVERSATION, gateSlackRead, type SlackReadDeps } from './slack-visibility';
+import { dbSlackReadDeps } from './slack-visibility-db';
 
 export const CONVERSATION_NOT_IN_PROJECT = 'conversation_not_in_project';
 
 export interface ChannelReadRefusal {
-  reason: typeof CONVERSATION_NOT_IN_PROJECT;
+  reason: typeof CONVERSATION_NOT_IN_PROJECT | typeof SLACK_NOT_LINKED | typeof SLACK_PRIVATE_CONVERSATION;
   /** What the agent reads: which conversation, why, and how to fix it. */
   message: string;
 }
@@ -50,6 +48,8 @@ export interface ChannelReadInput {
   projectId: string;
   /** The calling session, from its token; null for a call no session makes. Telegram writes are confined by it (channel-write-scope.ts). */
   sessionId?: string | null;
+  /** The Kortix user the call acts for. A Slack read reaches a private conversation only when this person is in it (slack-visibility.ts). */
+  userId?: string | null;
   /** The channel connector's platform. Reads are confined for `slack` and `teams`. */
   platform: string | null;
   actionPath: string;
@@ -135,7 +135,6 @@ type Owner = 'mine' | 'other' | 'none';
 
 interface Scope {
   projectId: string;
-  platform: Platform;
   workspaceIds: string[];
   shared: boolean;
   ownership: ChannelOwnership;
@@ -150,6 +149,7 @@ const PASS: ChannelReadGate = { refusal: null, answer: async (data) => ({ data }
 export async function gateChannelRead(
   input: ChannelReadInput,
   ownership: ChannelOwnership = dbChannelOwnership,
+  slack: SlackReadDeps = dbSlackReadDeps,
 ): Promise<ChannelReadGate> {
   const platform = input.platform === 'slack' || input.platform === 'teams' ? input.platform : null;
   if (!platform) return PASS;
@@ -159,31 +159,25 @@ export async function gateChannelRead(
     if (input.risk !== 'read') return PASS;
     return refuse(`The ${label(platform)} connector does not run read action "${input.actionPath}": it has no rule that keeps it to this workspace's conversations.`);
   }
-  if (kind === 'directory' || kind === 'write') return PASS;
+  // Slack: one Slack workspace, one Kortix workspace. The link and the
+  // person's own view of private conversations decide (slack-visibility.ts).
+  if (platform === 'slack') return gateSlackRead(input, kind, slack);
+  if (kind === 'directory' || kind === 'write' || kind === 'workspace') return PASS;
 
-  const installs = await ownership.installs(input.projectId, platform);
-  const scope: Scope = { projectId: input.projectId, platform, ...installs, ownership };
+  const installs = await ownership.installs(input.projectId, 'teams');
+  const scope: Scope = { projectId: input.projectId, ...installs, ownership };
 
-  if (kind === 'workspace') {
-    return mayReadUnowned(scope)
-      ? PASS
-      : refuse(
-          scope.workspaceIds.length === 0
-            ? noInstall(platform)
-            : `${input.actionPath} does not run while this Slack workspace is connected to more than one Kortix workspace: a search cannot be limited to this workspace's conversations. Read a channel with get_history or a thread with get_thread instead.`,
-        );
-  }
   if (kind === 'channel' || kind === 'thread') return gateTarget(scope, kind, input);
   return { refusal: null, answer: (data) => scopeAnswer(scope, kind, input, data) };
 }
 
 async function gateTarget(scope: Scope, kind: 'channel' | 'thread', input: ChannelReadInput): Promise<ChannelReadGate> {
-  const target = parseTarget(scope.platform, kind, input.args);
+  const target = parseTarget(kind, input.args);
   if ('invalid' in target) return refuse(target.invalid);
   const threadOwner = target.thread
     ? ((await threadOwners(scope, [target.thread])).get(target.thread) ?? 'none')
     : 'none';
-  if (threadOwner === 'other') return refuse(otherProject(scope.platform, target.subject));
+  if (threadOwner === 'other') return refuse(otherProject(target.subject));
   if (threadOwner === 'none') {
     const refusal = await channelRefusal(scope, target.channel, target.subject);
     if (refusal) return refuse(refusal);
@@ -200,82 +194,50 @@ async function channelRefusal(scope: Scope, channel: string, subject: string): P
 /**
  * The messages of a thread or a channel as this project may see them.
  *
- * A channel read drops every message of a thread another project owns: its
- * root and any reply broadcast to the channel. A thread read is refused when
- * the provider answered with a thread other than the one checked (Slack
- * answers a reply's `ts` with its whole thread).
+ * A channel read drops every message of a thread another project owns. A
+ * thread read is refused when Graph answered with a thread other than the one
+ * checked.
  */
 async function scopeMessages(scope: Scope, kind: 'channel' | 'thread', target: Target, data: unknown): Promise<Answer> {
-  const key = scope.platform === 'slack' ? 'messages' : 'value';
   // Graph answers `get_message` with the message itself, not a list.
-  const list = listOf(data, key) ?? (scope.platform === 'teams' && kind === 'thread' && isRecord(data) ? [data] : null);
+  const list = listOf(data, 'value') ?? (kind === 'thread' && isRecord(data) ? [data] : null);
   if (!list) return { data };
-  const rootOf = (m: unknown) => messageThread(scope.platform, target.channel, m);
+  const rootOf = (m: unknown) => messageThread(target.channel, m);
   const roots = [...new Set(list.map(rootOf).filter((r): r is string => !!r && r !== target.thread))];
   if (roots.length === 0) return { data };
   const owners = await threadOwners(scope, roots);
   if (kind === 'thread') {
-    return [...owners.values()].includes('other') ? deny(otherProject(scope.platform, target.subject)) : { data };
+    return [...owners.values()].includes('other') ? deny(otherProject(target.subject)) : { data };
   }
   const kept = list.filter((m) => owners.get(rootOf(m) ?? '') !== 'other');
-  return { data: kept.length === list.length ? data : { ...(data as Record<string, unknown>), [key]: kept } };
+  return { data: kept.length === list.length ? data : { ...(data as Record<string, unknown>), value: kept } };
 }
 
-/** Channel metadata, channel lists, and files: decided on the provider's answer. */
+/** Channel metadata and channel lists: decided on the provider's answer. */
 async function scopeAnswer(scope: Scope, kind: ChannelReadScope, input: ChannelReadInput, data: unknown): Promise<Answer> {
-  const slack = scope.platform === 'slack';
   if (kind === 'channel_meta') {
-    const channel = slack ? (isRecord(data) ? data.channel : null) : data;
-    if (!isRecord(channel) || isOpenChannel(scope.platform, channel)) return { data };
-    const id =
-      normalizedId(scope.platform, channel.id) ?? normalizedId(scope.platform, input.args[slack ? 'channel' : 'channel-id']) ?? '';
-    const refusal = await channelRefusal(scope, id, `${slack ? 'Slack conversation' : 'Teams channel'} ${id}`);
+    if (!isRecord(data) || isOpenChannel(data)) return { data };
+    const id = normalizedId(data.id) ?? normalizedId(input.args['channel-id']) ?? '';
+    const refusal = await channelRefusal(scope, id, `Teams channel ${id}`);
     return refusal ? deny(refusal) : { data };
   }
   if (kind === 'channel_list') {
-    const key = slack ? 'channels' : 'value';
-    const list = listOf(data, key);
+    const list = listOf(data, 'value');
     if (!list) return { data };
     const closedIds = list
-      .filter((c) => isRecord(c) && !isOpenChannel(scope.platform, c))
-      .map((c) => normalizedId(scope.platform, (c as Record<string, unknown>).id))
+      .filter((c) => isRecord(c) && !isOpenChannel(c))
+      .map((c) => normalizedId((c as Record<string, unknown>).id))
       .filter((id): id is string => !!id);
     const owners = await channelOwners(scope, closedIds);
     const kept = list.filter((c) => {
       if (!isRecord(c)) return false;
-      if (isOpenChannel(scope.platform, c)) return true;
-      const id = normalizedId(scope.platform, c.id);
+      if (isOpenChannel(c)) return true;
+      const id = normalizedId(c.id);
       return !!id && readable(scope, owners.get(id) ?? 'none');
     });
-    return { data: kept.length === list.length ? data : { ...(data as Record<string, unknown>), [key]: kept } };
-  }
-  if (kind === 'file' && isRecord(data) && isRecord(data.file)) {
-    const file = data.file;
-    const ids = [file.channels, file.groups, file.ims]
-      .flatMap((v) => (Array.isArray(v) ? v : []))
-      .map((id) => normalizedId(scope.platform, id))
-      .filter((id): id is string => !!id);
-    // A file shared nowhere belongs to no conversation.
-    const owners = ids.length ? [...(await channelOwners(scope, ids)).values()] : ['none' as const];
-    if (owners.some((owner) => readable(scope, owner))) return { data };
-    // A file posted in a thread this project owns is readable in any channel,
-    // as `get_thread` is: the thread's owner wins over its channel's.
-    const roots = sharedThreads(file);
-    if (roots.length && [...(await threadOwners(scope, roots)).values()].includes('mine')) return { data };
-    const subject = `Slack file ${typeof file.id === 'string' ? file.id : ''}`.trim();
-    return deny(refusalMessage(scope, owners.includes('other') ? 'other' : 'none', subject));
+    return { data: kept.length === list.length ? data : { ...(data as Record<string, unknown>), value: kept } };
   }
   return { data };
-}
-
-/** The Slack threads a file is shared in: each share's `thread_ts`, else its own `ts`. */
-function sharedThreads(file: Record<string, unknown>): string[] {
-  const shares = isRecord(file.shares) ? file.shares : {};
-  return [shares.public, shares.private]
-    .flatMap((byChannel) => (isRecord(byChannel) ? Object.values(byChannel) : []))
-    .flatMap((list) => (Array.isArray(list) ? list : []))
-    .map((share) => (isRecord(share) ? (share.thread_ts ?? share.ts) : null))
-    .filter((ts): ts is string => typeof ts === 'string' && SLACK_TS.test(ts));
 }
 
 /* ─── ids ───────────────────────────────────────────────────────────────────── */
@@ -289,41 +251,26 @@ interface Target {
   subject: string;
 }
 
-const SLACK_ID = /^[A-Za-z0-9]{2,64}$/;
 export const SLACK_TS = /^\d{1,12}\.\d{1,9}$/;
 const TEAMS_CHANNEL = /^19:[A-Za-z0-9._=-]{1,256}@thread\.[A-Za-z0-9]{1,16}$/;
 const TEAMS_MESSAGE = /^\d{1,24}$/;
 
 /**
- * An id as the ownership rows store it: Slack ids uppercase, Teams ids
- * lowercase (compared lowercase on both sides). Any other shape is refused,
- * not looked up: a padded or re-encoded id could match no row here and still
- * name a real conversation at the provider.
+ * A Teams channel id as the ownership rows store it, lowercase (compared
+ * lowercase on both sides). Any other shape is refused, not looked up: a
+ * padded or re-encoded id could match no row here and still name a real
+ * conversation at the provider.
  */
-function normalizedId(platform: Platform, value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  if (platform === 'slack') return SLACK_ID.test(value) ? value.toUpperCase() : null;
-  return TEAMS_CHANNEL.test(value) ? value.toLowerCase() : null;
+function normalizedId(value: unknown): string | null {
+  return typeof value === 'string' && TEAMS_CHANNEL.test(value) ? value.toLowerCase() : null;
 }
 
 function teamsThreadId(channel: string, messageId: string): string {
   return `${channel};messageid=${messageId}`.toLowerCase();
 }
 
-function parseTarget(
-  platform: Platform,
-  kind: 'channel' | 'thread',
-  args: Record<string, unknown>,
-): Target | { invalid: string } {
-  if (platform === 'slack') {
-    const channel = normalizedId('slack', args.channel);
-    if (!channel) return { invalid: '`channel` must be one Slack conversation id, for example C0123ABCD.' };
-    if (kind === 'channel') return { channel, subject: `Slack conversation ${channel}` };
-    const ts = typeof args.ts === 'string' && SLACK_TS.test(args.ts) ? args.ts : null;
-    if (!ts) return { invalid: '`ts` must be one Slack message timestamp, for example 1700000000.000100.' };
-    return { channel, thread: ts, subject: `Slack thread ${ts} in ${channel}` };
-  }
-  const channel = normalizedId('teams', args['channel-id']);
+function parseTarget(kind: 'channel' | 'thread', args: Record<string, unknown>): Target | { invalid: string } {
+  const channel = normalizedId(args['channel-id']);
   if (!channel) return { invalid: '`channel-id` must be one Teams channel id, for example 19:abc@thread.tacv2.' };
   if (kind === 'channel') return { channel, subject: `Teams channel ${channel}` };
   const message = args['message-id'];
@@ -333,21 +280,16 @@ function parseTarget(
   return { channel, thread: teamsThreadId(channel, message), subject: `Teams thread ${message} in ${channel}` };
 }
 
-/** The thread a provider message belongs to, normalized. */
-function messageThread(platform: Platform, channel: string, message: unknown): string | null {
+/** The thread a Graph message belongs to, normalized. */
+function messageThread(channel: string, message: unknown): string | null {
   if (!isRecord(message)) return null;
-  if (platform === 'slack') {
-    const root = message.thread_ts ?? message.ts;
-    return typeof root === 'string' ? root : null;
-  }
   const root = message.replyToId || message.id;
   return typeof root === 'string' && TEAMS_MESSAGE.test(root) ? teamsThreadId(channel, root) : null;
 }
 
-/** A public Slack channel or a standard Teams channel: its metadata is directory data. */
-function isOpenChannel(platform: Platform, channel: Record<string, unknown>): boolean {
-  if (platform === 'teams') return channel.membershipType === 'standard';
-  return channel.is_private === false && channel.is_im !== true && channel.is_mpim !== true;
+/** A standard Teams channel: its metadata is directory data. */
+function isOpenChannel(channel: Record<string, unknown>): boolean {
+  return channel.membershipType === 'standard';
 }
 
 /* ─── decisions ─────────────────────────────────────────────────────────────── */
@@ -363,7 +305,7 @@ function readable(scope: Scope, owner: Owner): boolean {
 async function channelOwners(scope: Scope, ids: string[]): Promise<Map<string, Owner>> {
   const unique = [...new Set(ids)];
   if (unique.length === 0 || scope.workspaceIds.length === 0) return new Map();
-  const projects = await scope.ownership.channelProjects(scope.platform, scope.workspaceIds, unique);
+  const projects = await scope.ownership.channelProjects('teams', scope.workspaceIds, unique);
   return new Map(
     unique.map((id) => {
       const owners = projects.get(id);
@@ -375,7 +317,7 @@ async function channelOwners(scope: Scope, ids: string[]): Promise<Map<string, O
 async function threadOwners(scope: Scope, ids: string[]): Promise<Map<string, Owner>> {
   const unique = [...new Set(ids)];
   if (unique.length === 0 || scope.workspaceIds.length === 0) return new Map();
-  const owners = await scope.ownership.threadOwners(scope.platform, scope.workspaceIds, unique);
+  const owners = await scope.ownership.threadOwners('teams', scope.workspaceIds, unique);
   return new Map([...owners].map(([id, projectId]) => [id, projectId === scope.projectId ? 'mine' : 'other']));
 }
 
@@ -396,19 +338,17 @@ function refuse(message: string): ChannelReadGate {
 }
 
 export function noInstall(platform: Platform): string {
-  return `This project has no ${label(platform)} install on record, so the connector cannot tell which conversations are its own. Connect ${label(platform)} again in Settings → Channels.`;
+  return `This project has no ${label(platform)} install on record, so the connector cannot tell which conversations are its own. Connect ${label(platform)} again in Customize → Connectors.`;
 }
 
-function otherProject(platform: Platform, subject: string): string {
-  return `${subject} belongs to another Kortix workspace. This workspace's ${label(platform)} connector reads only its own conversations.`;
+function otherProject(subject: string): string {
+  return `${subject} belongs to another Kortix workspace. This workspace's Microsoft Teams connector reads only its own conversations.`;
 }
 
 function refusalMessage(scope: Scope, owner: Owner, subject: string): string {
-  if (scope.workspaceIds.length === 0) return noInstall(scope.platform);
-  if (owner === 'other') return otherProject(scope.platform, subject);
-  return scope.platform === 'slack'
-    ? `${subject} is not connected to this Kortix workspace, and this Slack workspace is connected to more than one Kortix workspace. Connect it first: run \`/kortix switch\` in that conversation and pick this Kortix workspace.`
-    : `This Kortix workspace has no conversation in ${subject}, and this Microsoft 365 tenant is connected to more than one Kortix workspace. Mention the bot in that channel and pick this Kortix workspace first.`;
+  if (scope.workspaceIds.length === 0) return noInstall('teams');
+  if (owner === 'other') return otherProject(subject);
+  return `This Kortix workspace has no conversation in ${subject}, and this Microsoft 365 tenant is connected to more than one Kortix workspace. Mention the bot in that channel and pick this Kortix workspace first.`;
 }
 
 function listOf(data: unknown, key: string): unknown[] | null {
@@ -447,21 +387,6 @@ export const dbChannelOwnership: ChannelOwnership = {
       set.add(projectId);
       out.set(id, set);
     };
-    if (platform === 'slack') {
-      const rows = await db
-        .select({ id: chatChannelBindings.channelId, projectId: chatChannelBindings.projectId })
-        .from(chatChannelBindings)
-        .where(
-          and(
-            eq(chatChannelBindings.platform, 'slack'),
-            inArray(chatChannelBindings.platformTeamId, workspaceIds),
-            inArray(chatChannelBindings.channelId, channelIds),
-            isNotNull(chatChannelBindings.projectId),
-          ),
-        );
-      for (const r of rows) add(r.id, r.projectId);
-      return out;
-    }
     // A Teams conversation id is its channel id plus `;messageid=<root>` for a
     // channel thread, so the channel is the part before the first `;`.
     const bindingChannel = sql<string>`lower(split_part(${chatChannelBindings.channelId}, ';', 1))`;
@@ -507,7 +432,6 @@ export const dbChannelOwnership: ChannelOwnership = {
         ),
       );
     const out = new Map(threads.map((r) => [r.id, r.projectId]));
-    if (platform === 'slack') return out;
     // A Teams channel thread can be bound to a project before any session
     // owns it. The session, when there is one, decides.
     const bindingId = sql<string>`lower(${chatChannelBindings.channelId})`;

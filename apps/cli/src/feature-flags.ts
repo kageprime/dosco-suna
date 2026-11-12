@@ -13,6 +13,7 @@
 import { resolveProjectAuth, takeFlagValue } from './command-helpers.ts';
 import { clientFromAuth } from './api/client.ts';
 import { resolveProjectRef } from './project-link.ts';
+import { CHROME_LAUNCHED } from '@kortix/shared/chrome-launch';
 
 export const FEATURE_FLAGS_ENV_NAME = 'KORTIX_FEATURE_FLAGS';
 
@@ -71,5 +72,8 @@ export function featureOffMessage(what: string, flag: string, flags: Set<string>
   if (flags === null) {
     return `${what} is behind the \`${flag}\` feature flag, and this workspace's flags could not be read. Link a workspace (kortix workspaces use) or pass --workspace <id>.`;
   }
+  // Not launched: the web has no Chrome surface and the flag is not offered,
+  // so no admin can turn it on (CHROME_LAUNCHED, #11436).
+  if (flag === 'chrome' && !CHROME_LAUNCHED) return `${what} is not available yet: Kortix in Chrome has not launched.`;
   return `${what} is behind the \`${flag}\` feature flag, which is off for this workspace. A workspace admin turns it on: kortix workspaces features enable ${flag}`;
 }

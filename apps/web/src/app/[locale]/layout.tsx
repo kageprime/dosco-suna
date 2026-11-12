@@ -20,6 +20,7 @@ import { CHUNK_BOOT_RECOVERY_SCRIPT } from '@/lib/chunk-boot-recovery';
 import { DESKTOP_INIT_SCRIPT } from '@kortix/ui/internal/lib/desktop';
 import { DESKTOP_LEGACY_PATH_SCRIPT } from '@/lib/workspace-redirects';
 import { INTERFACE_THEME_INIT_SCRIPT } from '@/lib/interface-themes';
+import { LANDING_HOLD_SCRIPT } from '@/lib/auth/landing-hold';
 import { RouterBridge } from '@/lib/navigation/router-bridge-mount';
 import '@/lib/polyfills';
 import { readInstanceBranding } from '@/lib/instance-branding-server';
@@ -55,6 +56,9 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+  // The keyboard resizes the viewport instead of sliding over it, so the
+  // composer rides above the keyboard on phones (KRTX-4719).
+  interactiveWidget: 'resizes-content',
 };
 
 const ROOT_METADATA: Metadata = {
@@ -268,6 +272,12 @@ export default async function RootLayout({
         {/* Interface theme palettes on /new, /workspaces/** and /settings — set
             before first paint so the stored palette never flashes the default. */}
         <script dangerouslySetInnerHTML={{ __html: INTERFACE_THEME_INIT_SCRIPT }} />
+
+        {/* The landing's signed-in paint hold (lib/auth/landing-hold.ts): a
+            browser with a session cookie on a landing root gets an invisible
+            document until the route's LandingAuthGate resolves — a signed-in
+            visitor never sees the marketing home, not even for a frame. */}
+        <script dangerouslySetInnerHTML={{ __html: LANDING_HOLD_SCRIPT }} />
 
         {/* Font preloading is handled automatically by next/font/local in fonts/roobert.ts */}
 

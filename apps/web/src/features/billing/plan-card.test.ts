@@ -2,7 +2,7 @@ import type { AccountState } from '@kortix/sdk';
 import { describe, expect, test } from 'bun:test';
 
 import { describePlanStatus } from './account-overview';
-import { describePlanChange, planPickerView, scheduledDowngrade } from './plan-card';
+import { describePlanChange, planPickerView, recommendedPlanUsd, scheduledDowngrade } from './plan-card';
 
 /**
  * The Plan pane's model, tested without React.
@@ -266,5 +266,38 @@ describe('planPickerView', () => {
       currentUsd: null,
       initialUsd: null,
     });
+  });
+});
+
+// The out-of-credits slider opens on the account's own number (Paper v3, M2).
+describe('recommendedPlanUsd', () => {
+  const subscriber = (monthlyUsd: number, usedUsd: number) =>
+    stateWith({
+      has_active_subscription: true,
+      plan: { key: 'credits', family: 'credits', label: 'Credits', sublabel: null, monthly_usd: monthlyUsd },
+      usage_this_period: {
+        compute_usd: usedUsd,
+        llm_usd: 0,
+        total_usd: usedUsd,
+        period_start: null,
+        period_end: null,
+      },
+    } as Partial<AccountState>);
+
+  test('no subscription: the most common tier', () => {
+    expect(recommendedPlanUsd(stateWith({ has_active_subscription: false } as Partial<AccountState>))).toBe(200);
+  });
+
+  test('a subscriber: the smallest higher tier that covers usage with 20% to spare', () => {
+    // $184 used x 1.2 = $220.80, so $300 (the next tier above $200 that covers it).
+    expect(recommendedPlanUsd(subscriber(200, 184))).toBe(300);
+    // Light usage still moves one tier up: the plan ran out.
+    expect(recommendedPlanUsd(subscriber(200, 10))).toBe(300);
+    // Heavy usage skips tiers.
+    expect(recommendedPlanUsd(subscriber(100, 900))).toBe(1_500);
+  });
+
+  test('the top tier stays the top tier', () => {
+    expect(recommendedPlanUsd(subscriber(50_000, 80_000))).toBe(50_000);
   });
 });

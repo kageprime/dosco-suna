@@ -1,6 +1,5 @@
 /** Easy-connect routes: start and finalize an authorization, session connect requests, the Pipedream webhook. */
 import { type OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
-import { isProjectSessionPrincipal } from '../../iam/agent-scope';
 import { auth, errors, json, lenientBody } from '../../openapi';
 import { parseConnectorConnectOwner } from '../../projects/lib/connection-access';
 import { reconcileEventSubscriptionsFromCatalog } from '../../projects/surface';
@@ -9,16 +8,6 @@ import { OkSchema, OpaqueSchema, ProjectSlugParam, featureNotSupportedResponse }
 import { analyticsSource, isPersonSource } from '../../middleware/analytics-source';
 import { captureProductEvent } from '../../shared/product-analytics';
 import { workspaceIdParam } from '../../shared/route-params';
-
-/**
- * Connecting an account the whole project uses is a person's choice, and the
- * shared default it lands on may be one a person revoked. An agent session
- * connects its own account (owner `me`) instead.
- */
-const AGENT_PROJECT_CONNECT_REFUSAL = {
-  error: 'An agent cannot connect an account the whole workspace uses. A person connects it in Customize → Connectors; the agent can connect its own with owner "me".',
-  code: 'agent_session_forbidden',
-} as const;
 
 export function registerConnectRoutes(app: OpenAPIHono, deps: ConnectorRouterDeps): void {
   // ── Pipedream 1-click connect (admin) ────────────────────────────────────
@@ -66,10 +55,12 @@ export function registerConnectRoutes(app: OpenAPIHono, deps: ConnectorRouterDep
       }
       const owner = parseConnectorConnectOwner(rawOwner);
       if (!owner) return c.json({ error: 'owner must be "me" or "project"' }, 400);
-      // Connecting an account the whole project can then use is administration.
+      // Connecting an account the whole project can then use is administration:
+      // `project.connector.connections.manage`, for a person and for an agent
+      // session acting for one alike (the person's role ∩ the agent's grant).
       // `me` — the default — is self-service and needs nothing beyond the
-      // connector-write gate already asserted above.
-      if (owner === 'project' && isProjectSessionPrincipal(c)) return c.json(AGENT_PROJECT_CONNECT_REFUSAL, 403);
+      // connector-write gate already asserted above. Starting a connect hands
+      // back a sign-in URL; the person still signs in.
       if (owner === 'project' && deps.resolveConnectionsManager) {
         const manager = await deps.resolveConnectionsManager(c, projectId);
         if (!manager) return c.json({ error: 'forbidden' }, 403);
@@ -137,7 +128,6 @@ export function registerConnectRoutes(app: OpenAPIHono, deps: ConnectorRouterDep
       // STARTING a project-owned connection and still allowed to FINISH one —
       // sibling routes on one resource disagreeing about who may act (CWE-862).
       // `me` stays self-service on both routes.
-      if (owner === 'project' && isProjectSessionPrincipal(c)) return c.json(AGENT_PROJECT_CONNECT_REFUSAL, 403);
       if (owner === 'project' && deps.resolveConnectionsManager) {
         const manager = await deps.resolveConnectionsManager(c, projectId);
         if (!manager) return c.json({ error: 'forbidden' }, 403);
@@ -194,7 +184,7 @@ export function registerConnectRoutes(app: OpenAPIHono, deps: ConnectorRouterDep
       if (!deps.listSessionConnectRequests) {
         return featureNotSupportedResponse(c, 'session_connect_requests');
       }
-      return c.json({ connectors: await deps.listSessionConnectRequests(projectId, sessionId) });
+      return c.json({ connectors: await deps.listSessionConnectRequests(projectId, sessionId, admin.userId) });
     },
   );
 }

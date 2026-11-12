@@ -98,11 +98,30 @@ export const TYPE_FILTERS: Array<{ value: string; label: string }> = [
   { value: 'bundle', label: 'Bundles' },
 ];
 
-/** Section order + labels for the grouped (filter=All) gallery view. */
-export const TYPE_SECTIONS: Array<{ type: string; label: string }> = [
-  { type: 'registry:skill', label: 'Skills' },
-  { type: 'registry:agent', label: 'Agents' },
-  { type: 'registry:command', label: 'Commands' },
-  { type: 'registry:tool', label: 'Tools' },
-  { type: 'registry:bundle', label: 'Bundles' },
+/** The one type-label table: singular in `TYPE_META`, the plural derived
+ *  from it — one path, so the singular and the plural can't drift and both
+ *  translate through the same translator (the old hand-copied plural table
+ *  was untranslated and drifted). */
+function pluralize(label: string): string {
+  return label.endsWith('s') ? label : `${label}s`;
+}
+
+/** The translated plural section label for a type — the explore page's section
+ *  headings and `groupMarketplaceItemsByType`'s labels. */
+export function typeSectionLabel(type: string, tI18nComplete?: UiTranslator): string {
+  return pluralize(typeMeta(type, tI18nComplete).label);
+}
+
+/** Section order for the grouped (filter=All) gallery view and a project's
+ *  content sections — the types that earn their own section. Filters and
+ *  grouped sections auto-hide any type with no items (marketplace-browser
+ *  derives `typeOptions` from live typeCounts; marketplace-grid only emits a
+ *  section for present items), so listing a type here is safe even before
+ *  content exists. Anything not listed buckets to "Other". */
+export const TYPE_SECTION_ORDER: readonly string[] = [
+  'registry:skill',
+  'registry:agent',
+  'registry:command',
+  'registry:tool',
+  'registry:bundle',
 ];

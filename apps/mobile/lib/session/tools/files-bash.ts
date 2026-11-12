@@ -1,7 +1,8 @@
 /**
  * Pure logic of the `bash` tool row — a port of apps/web
- * `tool/tools/bash-tool.tsx` (`bashRowTitle`, `dedentCommand`, and the
- * branches `BashTool` / `BashTrigger` / `CommandBlock` take inline).
+ * `tool/tools/bash-tool.tsx` (the branches `BashTool` / `BashTrigger` /
+ * `CommandBlock` take inline). The row-title and dedent rules live once in
+ * `@kortix/shared/session/tool-row-text`; both hosts re-export them.
  *
  * The component (`components/session/tool/tools/bash-tool.tsx`) draws; every
  * decision it draws from lives here so `bun test` can pin it.
@@ -20,11 +21,10 @@ import {
   type ParsedSessionMeta,
 } from '@/lib/session/tool-output-parsers';
 import { webSpace } from '@/lib/session/user-message';
+import { dedentCommand } from '@kortix/shared/session/tool-row-text';
 
 /** apps/web `hardcodedUi.i18nComplete` English strings the row uses. */
 export const BASH_TEXT = {
-  ranCommand: 'Ran command',
-  commandFailed: 'Command failed',
   /** `text2afb17673ff9` */
   runningCommand: 'Running command',
   /** `textb93900bded31` */
@@ -35,36 +35,8 @@ export const BASH_TEXT = {
   exitCode: 'Exit code',
 } as const;
 
-/** The row title never runs past this; a trigger is one line, not a sentence. */
-const TITLE_MAX = 60;
-
-/** Web `bashRowTitle`: failure verdict → description (sentence-cased opener, ≤60) → "Ran command". */
-export function bashRowTitle(description: unknown, failed: boolean): string {
-  if (failed) return BASH_TEXT.commandFailed;
-  const summary = typeof description === 'string' ? description.replace(/\s+/g, ' ').trim() : '';
-  if (!summary) return BASH_TEXT.ranCommand;
-  const cased = /^[a-z]/.test(summary) ? summary[0].toUpperCase() + summary.slice(1) : summary;
-  if (cased.length <= TITLE_MAX) return cased;
-  return `${cased.slice(0, TITLE_MAX).trimEnd()}…`;
-}
-
-/**
- * Web `dedentCommand`: one line loses every leading horizontal blank; a script
- * loses only its common indent (so heredocs and nesting survive).
- */
-export function dedentCommand(raw: string): string {
-  const text = raw.replace(/^[\r\n]+/, '').trimEnd();
-  if (!text) return '';
-  const lines = text.split('\n');
-  if (lines.length === 1) return lines[0].replace(/^[^\S\r\n]+/, '');
-  let min = Infinity;
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    min = Math.min(min, /^[^\S\r\n]*/.exec(line)![0].length);
-  }
-  if (!min || min === Infinity) return text;
-  return lines.map((line) => line.slice(min)).join('\n');
-}
+/** The row-title and dedent rules live once in `@kortix/shared/session/tool-row-text`. */
+export { bashRowTitle, dedentCommand } from '@kortix/shared/session/tool-row-text';
 
 /** `input.command || metadata.command || streamingInput.command`, dedented. */
 export function bashCommand(

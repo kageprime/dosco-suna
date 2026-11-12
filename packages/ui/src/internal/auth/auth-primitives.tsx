@@ -15,6 +15,8 @@ import { useRef } from 'react';
 
 import { inputFocusClasses, inputSurfaceClasses } from '../../primitives/input';
 import { KortixLogo } from '../../primitives/kortix-logo';
+import { Button } from '../../primitives/button';
+import Loading from '../../primitives/loading';
 import {
   applyBackspace,
   applyBoxInput,
@@ -165,6 +167,73 @@ export function SuccessStrip({ message }: { message: string }) {
     <div className="bg-muted text-foreground mb-5 flex items-center gap-2 rounded-md px-3 py-2.5">
       <InfoCircleSolid weight="fill" className="text-kortix-green size-4 shrink-0" />
       <span className="text-sm">{message}</span>
+    </div>
+  );
+}
+
+/**
+ * The device-code row of an RFC 8628 approval page (Capture sign-in, computer
+ * pairing): the code the person checks against their other screen, and the
+ * time left to decide. `countdown` is the formatted `m:ss` remaining.
+ */
+export function DeviceCodeHeader({ code, countdown }: { code: string; countdown: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border px-3.5 py-3">
+      <span className="text-foreground font-mono text-lg font-medium tracking-widest tabular-nums">
+        {code}
+      </span>
+      <span className="text-muted-foreground font-mono text-xs tabular-nums">{countdown}</span>
+    </div>
+  );
+}
+
+/**
+ * The approve/deny pair of an approval page. One shared busy state: either
+ * mutation pending disables both buttons, its spinner on the button that is
+ * running. Failures render as the strip above the pair — pass only the errors
+ * the page shows. `approveDisabled` adds a page-side gate (no workspace
+ * picked yet), on top of the busy state.
+ */
+export function ApproveDenyActions({
+  approveLabel,
+  denyLabel,
+  onApprove,
+  onDeny,
+  approvePending,
+  denyPending,
+  approveError,
+  denyError,
+  approveDisabled = false,
+}: {
+  approveLabel: React.ReactNode;
+  denyLabel: React.ReactNode;
+  onApprove: () => void;
+  onDeny: () => void;
+  approvePending: boolean;
+  denyPending: boolean;
+  approveError?: string | null;
+  denyError?: string | null;
+  approveDisabled?: boolean;
+}) {
+  const busy = approvePending || denyPending;
+  return (
+    <div className="space-y-3">
+      {approveError ? <ErrorStrip message={approveError} /> : null}
+      {denyError ? <ErrorStrip message={denyError} /> : null}
+      <Button size="lg" className="w-full" onClick={onApprove} disabled={busy || approveDisabled}>
+        {approvePending ? <Loading className="size-4 shrink-0" /> : null}
+        {approveLabel}
+      </Button>
+      <Button
+        variant="outline"
+        size="lg"
+        className="text-destructive border-destructive/30 hover:bg-destructive/5 hover:text-destructive focus-visible:ring-destructive/35 w-full"
+        onClick={onDeny}
+        disabled={busy}
+      >
+        {denyPending ? <Loading className="text-destructive! size-4 shrink-0" /> : null}
+        {denyLabel}
+      </Button>
     </div>
   );
 }

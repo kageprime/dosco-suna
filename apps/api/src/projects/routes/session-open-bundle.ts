@@ -44,6 +44,7 @@
  */
 
 import { PROJECT_ACTIONS } from '../../iam';
+import { storedLogReadDenial } from '../../middleware/rate-limit';
 import { auth, errors, json } from '../../openapi';
 import { createRoute, z, type RouteHandler } from '@hono/zod-openapi';
 
@@ -116,13 +117,18 @@ const sessionSnapshotRoute = (path: string, summary: string) =>
     },
     responses: {
       200: json(SessionSnapshotSchema, 'Everything the session view needs to paint and arm'),
-      ...errors(400, 404),
+      ...errors(400, 404, 429),
     },
   });
 
 const handleSessionSnapshot: RouteHandler<ReturnType<typeof sessionSnapshotRoute>, AppEnv> = async (c) => {
     const { workspaceId: projectId, sessionId } = c.req.valid('param');
     if (!isUuid(sessionId)) return c.json({ error: 'Invalid session id' }, 400);
+    // The same stored-log read ceiling as `GET …/log` (KRTX-4696): the snapshot
+    // reads the log page among its legs and must not become the uncapped way
+    // around the log route's guard.
+    const denied = storedLogReadDenial(c, sessionId);
+    if (denied) return c.json(denied.body, 429, { 'Retry-After': denied.retryAfter });
 
     const transcriptLimit = parseBoundedPositiveInt(
       c.req.valid('query').transcript,

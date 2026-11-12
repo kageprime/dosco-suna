@@ -281,6 +281,30 @@ describe('filtered list caches (KRTX-639)', () => {
     expect(ids(qc, auto)).toEqual(['NEW']);
   });
 
+  // KRTX-4705: the mobile Sessions page's default list asks for person-started
+  // sessions only; a machine-started row waits for its own refetch.
+  test('a humans cache takes member-started roots, never machine-started ones', () => {
+    const qc = new QueryClient();
+    const humans = qk.project.sessionsPaged('P1', 'visible', { parent: 'root', startedBy: 'humans' });
+    qc.setQueryData(humans, pagedOf([]));
+    upsertCachedWorkspaceSession(
+      qc,
+      'P1',
+      withInitiator('NEW', { initiator: { type: 'member', id: 'u1', label: 'Ann' } }),
+    );
+    upsertCachedWorkspaceSession(
+      qc,
+      'P1',
+      withInitiator('BOT', { initiator: { type: 'trigger', id: 'nightly', label: 'nightly' } }),
+    );
+    upsertCachedWorkspaceSession(
+      qc,
+      'P1',
+      withInitiator('LEGACY', { initiator: undefined }),
+    );
+    expect(ids(qc, humans).sort()).toEqual(['LEGACY', 'NEW']);
+  });
+
   test('a child lands only in its parent children cache, never a root cache', () => {
     const qc = new QueryClient();
     const root = qk.project.sessionsPaged('P1', 'visible', { parent: 'root', startedBy: 'me' });

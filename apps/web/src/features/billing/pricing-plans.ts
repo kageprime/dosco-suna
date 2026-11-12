@@ -41,8 +41,10 @@ export const PRICING_PLANS: PricingPlan[] = [
     features: [
       '500 credits / month on your first workspace',
       'No card needed',
-      'Bring your own API key for any premium model',
-      'Connect your ChatGPT subscription',
+      // resolve-billing.ts `paysForManagedModels`: the free family never gets
+      // managed models, so the card states what sending needs (KRTX-4494).
+      'Models run on your own API key or ChatGPT subscription',
+      'Managed models are on the Credits plan only',
     ],
   },
   {

@@ -1,10 +1,10 @@
-import { localizedMarketingMetadata } from '@/lib/seo/metadata';
+import { marketingMetadataLayout } from '@/lib/seo/metadata';
 import { requireServicesPages } from '@/lib/services-pages-gate';
 import type { ReactNode } from 'react';
 
-export function generateMetadata() {
-  return localizedMarketingMetadata('/services');
-}
+const { generateMetadata } = marketingMetadataLayout('/services');
+
+export { generateMetadata };
 
 export default async function ServicesLayout({ children }: { children: ReactNode }) {
   await requireServicesPages();

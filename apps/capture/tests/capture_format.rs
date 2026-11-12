@@ -17,6 +17,7 @@
 
 use anyhow::Result;
 use base64::Engine as _;
+use kortix_backend::self_usage;
 use kortix_backend::memory::{
     actions, cli,
     paths::MemoryPaths,
@@ -576,6 +577,18 @@ fn generate(out: &Path) -> Result<()> {
     status["lastFrameMs"] = json!(T0 + 62_000);
     status["actionsRecording"] = json!(true);
     status["policy"] = json!({"source": format!("{PREFIX}/policy.json"), "updatedAtMs": T0, "fetchedAtMs": T0 + 60_000});
+    // `resources` from the real sampler, fed two synthetic samples a minute apart.
+    let proc = |pid: u32, name: &str, cpu_ms: u64, mb: u64| self_usage::Proc {
+        pid,
+        name: name.into(),
+        cpu_ns: cpu_ms * 1_000_000,
+        memory_bytes: mb << 20,
+    };
+    let mut sampler = self_usage::Sampler::default();
+    sampler.record(T0 + 60_000, vec![proc(4100, "kortix-capture", 9_000, 140), proc(4200, "kortix-capture-engine", 30_000, 180)]);
+    sampler.record(T0 + 120_000, vec![proc(4100, "kortix-capture", 9_900, 142), proc(4200, "kortix-capture-engine", 33_600, 176), proc(4300, "kortix-backend", 300, 48)]);
+    status["resources"] = sampler.report();
+    status["resources"]["readMicros"] = json!(310);
     put_json(&t, &format!("{DEVICE}/status.json"), &status);
 
     put_json(

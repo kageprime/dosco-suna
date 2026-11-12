@@ -8,7 +8,8 @@ import { detectPlatform } from '@kortix/ui/internal/lib/detect-os';
 import { DownloadOptions } from './download-options';
 
 /**
- * The /download page as a full-screen overlay, opened from the workspace menu.
+ * The /download page as a full-screen overlay, opened from the sidebar's
+ * Download app row.
  * Same header, cards, QR code and Terminal block as the page: `DownloadOptions`
  * is shared, so the two surfaces stay one design. Full screen, not a dialog
  * box: the cards need the page's width, and a centred box squeezed them.

@@ -3,7 +3,7 @@
  * GenuiDebugScreen — every generative UI block, rendered by the mobile renderer the transcript uses.
  *
  * The samples are `@kortix/shared/genui-samples`, the same list as the web page `/debug/genui`, so a
- * block can be compared side by side. Blocks render as UI whatever the Rich answers preference says,
+ * block can be compared side by side, then the phone edge cases in `components/genui/debug-edge-samples.ts`. Blocks render as UI whatever the Rich answers preference says,
  * and remote images load as in an agent reply. Open it from the project home's "Debug" button (→ Generative UI)
  * in a dev build, or with `kortix://genui-debug`.
  */
@@ -17,6 +17,7 @@ import { parseGenui } from '@kortix/sdk/genui';
 import { GenuiBlock } from '@kortix/sdk/genui/react';
 
 import { GenuiPending, mobileGenuiComponents } from '@/components/genui/components';
+import { MOBILE_EDGE_SAMPLES } from '@/components/genui/debug-edge-samples';
 import { MarkdownImagesContext } from '@/components/markdown/markdown-image';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -25,6 +26,9 @@ import { Text } from '@/components/ui/text';
 import { CaretLeftIcon } from '@/lib/icons';
 
 const fallback = (markdown: string) => <Text variant="muted">{markdown}</Text>;
+
+/** The shared samples, then the phone edge cases (long badges, broken images, the full-screen map). */
+const SAMPLES: readonly GenuiSample[] = [...GENUI_SAMPLES, ...MOBILE_EDGE_SAMPLES];
 
 function SampleSection({ sample }: { sample: GenuiSample }) {
   const issues = useMemo(() => parseGenui(sample.source).issues.length, [sample.source]);
@@ -64,7 +68,7 @@ export function GenuiDebugScreen() {
       {/* Images load as in an agent reply, where the blocks normally render. */}
       <MarkdownImagesContext.Provider value="load">
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 32 }}>
-          {GENUI_SAMPLES.map((sample, i) => (
+          {SAMPLES.map((sample, i) => (
             <View key={`${sample.component}-${sample.title ?? i}`}>
               {i > 0 ? <Separator /> : null}
               <SampleSection sample={sample} />

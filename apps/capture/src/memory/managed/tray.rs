@@ -87,6 +87,8 @@ struct View {
     sync_broken: bool,
     tooltip: String,
     managed: bool,
+    /// An organization's policy applies: a pause ends by the next morning.
+    org: bool,
     /// Screen Recording is missing: the status line asks for it when clicked.
     needs_permission: bool,
 }
@@ -128,6 +130,7 @@ fn view(paths: &MemoryPaths) -> View {
             format!("Kortix Capture — {}", status.to_lowercase_first_char())
         },
         needs_permission: state == "permission_missing",
+        org: Settings::effective(paths).policy.is_some(),
         status,
         managed,
         sync: sync.line,
@@ -159,7 +162,12 @@ fn menu(v: &View) -> (Menu, MenuItem, MenuItem) {
     let _ = menu.append(&PredefinedMenuItem::separator());
     let _ = menu.append(&MenuItem::with_id(OPEN, "Open Kortix Capture", true, None));
     let _ = menu.append(&MenuItem::with_id(SETTINGS, "Settings…", true, None));
-    for action in super::tray_actions(v.managed, v.paused) {
+    for action in super::tray_actions(v.managed, v.paused)
+        .into_iter()
+        // An organization's computer resumes by the next morning (settings.rs,
+        // `bound_org_pause`): "until I resume" would not be true there.
+        .filter(|a| !(v.org && *a == TrayAction::PauseForever))
+    {
         match action {
             TrayAction::Pause => {
                 let _ = menu.append(&MenuItem::with_id(PAUSE, "Pause for 1 hour", true, None));

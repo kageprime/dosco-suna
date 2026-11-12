@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 
-import { connectorNotice, noticeButton, noticeTarget, splitNoticeReason } from './connector-notice';
+import {
+  accountNeverSignedIn,
+  connectorNotice,
+  noticeButton,
+  noticeTarget,
+  splitNoticeReason,
+} from './connector-notice';
 
 const base = {
   provider: 'mcp' as const,
@@ -248,5 +254,89 @@ describe('noticeButton: what the banner button says and runs', () => {
 
   test('no single account of yours to fix: no button', () => {
     expect(noticeButton(setCredential, null, false)).toBeNull();
+  });
+});
+
+describe('connectorNotice: an account whose sign-in never finished', () => {
+  test('a managed account never signed in asks to sign in, not for a credential', () => {
+    expect(
+      connectorNotice({ ...base, managed: true, signsIn: true, neverSignedIn: true, accountCount: 1 }),
+    ).toEqual({ kind: 'sign_in' });
+  });
+
+  test('an OAuth MCP account never signed in asks to sign in', () => {
+    expect(connectorNotice({ ...base, signsIn: true, neverSignedIn: true, accountCount: 1 })).toEqual({
+      kind: 'sign_in',
+    });
+  });
+
+  test('a sign-in account that was signed in before asks to sign in again', () => {
+    expect(
+      connectorNotice({ ...base, managed: true, signsIn: true, neverSignedIn: false, accountCount: 1 }),
+    ).toEqual({ kind: 'sign_in_again' });
+  });
+
+  test('an API-key account still asks for a credential', () => {
+    expect(
+      connectorNotice({ ...base, signsIn: false, neverSignedIn: true, accountCount: 1 }),
+    ).toEqual({ kind: 'needs_credential', action: 'set_credential' });
+  });
+
+  test('a managed sign-in button opens the provider window on that account', () => {
+    const mine = { connection_id: 'mine-1' };
+    expect(noticeButton({ kind: 'sign_in' }, mine, true)).toEqual({
+      kind: 'sign_in',
+      run: 'reconnect',
+      account: mine,
+    });
+    expect(noticeButton({ kind: 'sign_in_again' }, mine, true)).toEqual({
+      kind: 'sign_in',
+      run: 'reconnect',
+      account: mine,
+    });
+    expect(noticeButton({ kind: 'sign_in_again' }, mine, false)).toEqual({
+      kind: 'sign_in',
+      run: 'sign_in',
+      account: mine,
+    });
+  });
+});
+
+describe('accountNeverSignedIn', () => {
+  test('unauthorized with no trace of a past sign-in', () => {
+    expect(accountNeverSignedIn({ authorized: false, metadata: {} })).toBe(true);
+  });
+  test('a rejected credential or a known identity means it was signed in before', () => {
+    expect(
+      accountNeverSignedIn({ authorized: false, metadata: { credential_rejected_at: '2026-01-01' } }),
+    ).toBe(false);
+    expect(accountNeverSignedIn({ authorized: false, connected_as: 'person@example.test' })).toBe(false);
+  });
+  test('a signed-in account is not unfinished', () => {
+    expect(accountNeverSignedIn({ authorized: true })).toBe(false);
+  });
+});
+
+describe('connectorNotice: an HTTP connector with no routes', () => {
+  test('connected with no tools says to add routes', () => {
+    const notice = connectorNotice({
+      ...base,
+      provider: 'http',
+      connected: true,
+      credentialSet: true,
+      accountCount: 1,
+      toolCount: 0,
+    });
+    expect(notice).toEqual({ kind: 'no_tools' });
+    expect(noticeButton(notice, 'add', false)).toEqual({ kind: 'add_routes', run: 'settings', account: null });
+  });
+
+  test('connected with tools says nothing; other providers are not told to add routes', () => {
+    expect(
+      connectorNotice({ ...base, provider: 'http', connected: true, credentialSet: true, accountCount: 1, toolCount: 3 }),
+    ).toEqual({ kind: 'none' });
+    expect(
+      connectorNotice({ ...base, provider: 'openapi', connected: true, credentialSet: true, accountCount: 1, toolCount: 0 }),
+    ).toEqual({ kind: 'none' });
   });
 });

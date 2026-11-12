@@ -1754,24 +1754,26 @@ pub fn remote_retention(
         return Ok(0);
     }
     let cutoff = now - s.remote_retention_days as i64 * MS_PER_DAY;
+    // `ORDER BY +id`: read the `*_remote_*` index and sort the few rows it finds.
+    // Without the `+`, SQLite walks every row in id order to skip the sort.
     let rows: Vec<(i64, String, i64)> = conn
         .prepare(
             "SELECT id, remote_key, COALESCE(start_timestamp, 0) FROM video
-             WHERE remote_key IS NOT NULL AND COALESCE(end_timestamp, start_timestamp, 0) < ?1 ORDER BY id LIMIT 1000",
+             WHERE remote_key IS NOT NULL AND COALESCE(end_timestamp, start_timestamp, 0) < ?1 ORDER BY +id LIMIT 1000",
         )?
         .query_map([cutoff], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
         .collect::<rusqlite::Result<_>>()?;
     let audio: Vec<(i64, String, i64)> = conn
         .prepare(
             "SELECT id, remote_key, start_ms FROM audio
-             WHERE remote_key IS NOT NULL AND end_ms < ?1 ORDER BY id LIMIT 1000",
+             WHERE remote_key IS NOT NULL AND end_ms < ?1 ORDER BY +id LIMIT 1000",
         )?
         .query_map([cutoff], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
         .collect::<rusqlite::Result<_>>()?;
     let actions: Vec<(i64, String, i64, String)> = conn
         .prepare(
             "SELECT id, remote_key, start_ms, screenshots FROM action_segment
-             WHERE remote_key IS NOT NULL AND end_ms < ?1 ORDER BY id LIMIT 1000",
+             WHERE remote_key IS NOT NULL AND end_ms < ?1 ORDER BY +id LIMIT 1000",
         )?
         .query_map([cutoff], |r| {
             Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
@@ -1819,8 +1821,10 @@ pub fn release_local(
     now: i64,
 ) -> Result<usize> {
     let cutoff = now - s.keep_local_hours as i64 * MS_PER_HOUR;
+    // `+uploaded_at`: find the local rows (`status < 2`) with the `*_status` index.
+    // Without the `+`, SQLite reads every uploaded row from the `*_uploaded` index.
     let rows: Vec<(i64, String)> = conn
-        .prepare("SELECT id, path FROM video WHERE status < 2 AND remote_key IS NOT NULL AND uploaded_at IS NOT NULL AND uploaded_at <= ?1")?
+        .prepare("SELECT id, path FROM video WHERE status < 2 AND remote_key IS NOT NULL AND uploaded_at IS NOT NULL AND +uploaded_at <= ?1")?
         .query_map([cutoff], |r| Ok((r.get(0)?, r.get(1)?)))?
         .collect::<rusqlite::Result<_>>()?;
     for (id, path) in &rows {
@@ -1835,7 +1839,7 @@ pub fn release_local(
     }
     // Audio segments follow the same "Keep on this Mac" window.
     let audio: Vec<(i64, String)> = conn
-        .prepare("SELECT id, path FROM audio WHERE status < 2 AND remote_key IS NOT NULL AND uploaded_at IS NOT NULL AND uploaded_at <= ?1")?
+        .prepare("SELECT id, path FROM audio WHERE status < 2 AND remote_key IS NOT NULL AND uploaded_at IS NOT NULL AND +uploaded_at <= ?1")?
         .query_map([cutoff], |r| Ok((r.get(0)?, r.get(1)?)))?
         .collect::<rusqlite::Result<_>>()?;
     for (id, path) in &audio {
@@ -1850,7 +1854,7 @@ pub fn release_local(
     }
     // Action segments too; their screenshots go once no local segment shows them.
     let actions: Vec<(i64, String)> = conn
-        .prepare("SELECT id, path FROM action_segment WHERE status < 2 AND remote_key IS NOT NULL AND uploaded_at IS NOT NULL AND uploaded_at <= ?1")?
+        .prepare("SELECT id, path FROM action_segment WHERE status < 2 AND remote_key IS NOT NULL AND uploaded_at IS NOT NULL AND +uploaded_at <= ?1")?
         .query_map([cutoff], |r| Ok((r.get(0)?, r.get(1)?)))?
         .collect::<rusqlite::Result<_>>()?;
     for (id, path) in &actions {
@@ -2202,7 +2206,7 @@ fn evict_cache(dir: &Path, cap: u64, keep: Option<&Path>) {
 }
 
 /// `<library>/sync.json`: what the CLI, tray and UI show.
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SyncState {
     pub enabled: bool,
@@ -2277,6 +2281,89 @@ pub struct Runtime {
     pub awake_since_ms: i64,
     /// End of the last loop iteration, to see a sleep gap.
     pub last_tick_ms: i64,
+    /// CPU and memory of Kortix Capture's own processes: status.json `resources`.
+    pub resources: crate::self_usage::Sampler,
+}
+
+/// The queue and progress counters of `sync.json`: the part that reads the database.
+/// Every query reads an index (`store::INDEXES`); `store` tests prove the plans.
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct QueueCounts {
+    pending: i64,
+    bytes_pending: i64,
+    /// Epoch ms of the oldest chunk not yet uploaded.
+    oldest_unsent_at: Option<i64>,
+    retrying: i64,
+    uploaded: i64,
+    remote_only: i64,
+    tombstones: i64,
+    multipart_in_progress: i64,
+    audio_pending: i64,
+    audio_uploaded: i64,
+    audio_remote_only: i64,
+    actions_pending: i64,
+    actions_uploaded: i64,
+    actions_remote_only: i64,
+    last_upload_ms: Option<i64>,
+    /// The newest upload error of a queued chunk: (message, class).
+    chunk_error: Option<(String, String)>,
+}
+
+/// The SQL of [`QueueCounts::read`], in field order. Public for the query-plan tests.
+pub const QUEUE_SQL: [&str; 15] = [
+    "SELECT count(*) FROM video WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0",
+    "SELECT (SELECT COALESCE(sum(size_bytes), 0) FROM video WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0)
+          + (SELECT COALESCE(sum(size_bytes), 0) FROM audio WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0)
+          + (SELECT COALESCE(sum(size_bytes), 0) FROM action_segment WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0)",
+    "SELECT min(COALESCE(end_timestamp, start_timestamp)) FROM video WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0",
+    "SELECT count(*) FROM video WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0 AND upload_attempts > 0",
+    "SELECT count(*) FROM video WHERE uploaded_at IS NOT NULL",
+    "SELECT count(*) FROM video WHERE status = 3",
+    "SELECT count(*) FROM sync_tombstone",
+    "SELECT count(*) FROM sync_multipart",
+    "SELECT count(*) FROM audio WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0",
+    "SELECT count(*) FROM audio WHERE uploaded_at IS NOT NULL",
+    "SELECT count(*) FROM audio WHERE status = 3",
+    "SELECT count(*) FROM action_segment WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0",
+    "SELECT count(*) FROM action_segment WHERE uploaded_at IS NOT NULL",
+    "SELECT count(*) FROM action_segment WHERE status = 3",
+    "SELECT max(t) FROM (SELECT max(uploaded_at) AS t FROM video WHERE uploaded_at IS NOT NULL UNION ALL SELECT max(uploaded_at) FROM audio WHERE uploaded_at IS NOT NULL UNION ALL SELECT max(uploaded_at) FROM action_segment WHERE uploaded_at IS NOT NULL)",
+];
+
+/// The newest upload error of a queued chunk. Public for the query-plan tests.
+pub const CHUNK_ERROR_SQL: &str =
+    "SELECT upload_error, COALESCE(upload_error_class, 'transient') FROM video
+     WHERE upload_error IS NOT NULL AND uploaded_at IS NULL AND local_only = 0 AND status < 2 ORDER BY id DESC LIMIT 1";
+
+impl QueueCounts {
+    pub fn read(conn: &Connection) -> Self {
+        let q = |i: usize| {
+            conn.query_row(QUEUE_SQL[i], [], |r| r.get::<_, Option<i64>>(0))
+                .ok()
+                .flatten()
+        };
+        let n = |i: usize| q(i).unwrap_or(0);
+        Self {
+            pending: n(0),
+            bytes_pending: n(1),
+            oldest_unsent_at: q(2),
+            retrying: n(3),
+            uploaded: n(4),
+            remote_only: n(5),
+            tombstones: n(6),
+            multipart_in_progress: n(7),
+            audio_pending: n(8),
+            audio_uploaded: n(9),
+            audio_remote_only: n(10),
+            actions_pending: n(11),
+            actions_uploaded: n(12),
+            actions_remote_only: n(13),
+            last_upload_ms: q(14),
+            chunk_error: conn
+                .query_row(CHUNK_ERROR_SQL, [], |r| Ok((r.get(0)?, r.get(1)?)))
+                .ok(),
+        }
+    }
 }
 
 /// Queue and progress counters from the database plus the runtime state.
@@ -2288,50 +2375,54 @@ pub fn compute_state(
     device: &str,
     rt: &Runtime,
 ) -> SyncState {
-    let q = |sql: &str| {
-        conn.query_row(sql, [], |r| r.get::<_, Option<i64>>(0))
-            .ok()
-            .flatten()
-    };
-    let chunk_error: Option<(String, String)> = conn
-        .query_row(
-            "SELECT upload_error, COALESCE(upload_error_class, 'transient') FROM video
-             WHERE upload_error IS NOT NULL AND uploaded_at IS NULL AND local_only = 0 AND status < 2 ORDER BY id DESC LIMIT 1",
-            [],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )
-        .ok();
-    let (last_error, last_error_class) = match (&rt.error, chunk_error) {
+    state_from(
+        &QueueCounts::read(conn),
+        paths,
+        s,
+        enabled,
+        device,
+        rt,
+        now_ms(),
+    )
+}
+
+fn state_from(
+    c: &QueueCounts,
+    paths: &MemoryPaths,
+    s: &Settings,
+    enabled: bool,
+    device: &str,
+    rt: &Runtime,
+    now: i64,
+) -> SyncState {
+    let (last_error, last_error_class) = match (&rt.error, &c.chunk_error) {
         (Some((msg, class)), _) => (Some(msg.clone()), Some(class.as_str().to_string())),
-        (None, Some((msg, class))) => (Some(msg), Some(class)),
+        (None, Some((msg, class))) => (Some(msg.clone()), Some(class.clone())),
         (None, None) => (None, None),
     };
-    let now = now_ms();
     SyncState {
         enabled,
         state: if !enabled { "off" } else if rt.error.is_some() { "error" } else { "ok" }.into(),
         device_id: device.to_string(),
-        pending: q("SELECT count(*) FROM video WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0").unwrap_or(0),
-        bytes_pending: q("SELECT (SELECT COALESCE(sum(size_bytes), 0) FROM video WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0)
-                          + (SELECT COALESCE(sum(size_bytes), 0) FROM audio WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0)
-                          + (SELECT COALESCE(sum(size_bytes), 0) FROM action_segment WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0)").unwrap_or(0),
-        oldest_unsent_ms: q("SELECT min(COALESCE(end_timestamp, start_timestamp)) FROM video WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0").map(|t| (now - t).max(0)),
-        retrying: q("SELECT count(*) FROM video WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0 AND upload_attempts > 0").unwrap_or(0),
-        uploaded: q("SELECT count(*) FROM video WHERE uploaded_at IS NOT NULL").unwrap_or(0),
-        remote_only: q("SELECT count(*) FROM video WHERE status = 3").unwrap_or(0),
-        tombstones: q("SELECT count(*) FROM sync_tombstone").unwrap_or(0),
-        multipart_in_progress: q("SELECT count(*) FROM sync_multipart").unwrap_or(0),
-        audio_pending: q("SELECT count(*) FROM audio WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0").unwrap_or(0),
-        audio_uploaded: q("SELECT count(*) FROM audio WHERE uploaded_at IS NOT NULL").unwrap_or(0),
-        audio_remote_only: q("SELECT count(*) FROM audio WHERE status = 3").unwrap_or(0),
-        actions_pending: q("SELECT count(*) FROM action_segment WHERE status < 2 AND uploaded_at IS NULL AND local_only = 0").unwrap_or(0),
-        actions_uploaded: q("SELECT count(*) FROM action_segment WHERE uploaded_at IS NOT NULL").unwrap_or(0),
-        actions_remote_only: q("SELECT count(*) FROM action_segment WHERE status = 3").unwrap_or(0),
+        pending: c.pending,
+        bytes_pending: c.bytes_pending,
+        oldest_unsent_ms: c.oldest_unsent_at.map(|t| (now - t).max(0)),
+        retrying: c.retrying,
+        uploaded: c.uploaded,
+        remote_only: c.remote_only,
+        tombstones: c.tombstones,
+        multipart_in_progress: c.multipart_in_progress,
+        audio_pending: c.audio_pending,
+        audio_uploaded: c.audio_uploaded,
+        audio_remote_only: c.audio_remote_only,
+        actions_pending: c.actions_pending,
+        actions_uploaded: c.actions_uploaded,
+        actions_remote_only: c.actions_remote_only,
         provider: s.sync.provider.clone(),
         sign_in_required: s.sync.provider == "kortix"
             && issuer::registration(paths).is_some_and(|r| r.rejected_at_ms.is_some()),
         status_reported_ms: (rt.status_at > 0).then_some(rt.status_at),
-        last_upload_ms: q("SELECT max(t) FROM (SELECT max(uploaded_at) AS t FROM video UNION ALL SELECT max(uploaded_at) FROM audio UNION ALL SELECT max(uploaded_at) FROM action_segment)"),
+        last_upload_ms: c.last_upload_ms,
         last_error,
         last_error_class,
         next_retry_ms: rt.error.as_ref().map(|_| rt.retry_at),
@@ -2341,6 +2432,91 @@ pub fn compute_state(
         key_id: (!s.sync.key_id.is_empty()).then(|| s.sync.key_id.clone()),
         clock_offset_ms: rt.clock_offset_ms,
         updated_at_ms: now,
+    }
+}
+
+/// The longest time the sync thread reuses its [`QueueCounts`], and the longest
+/// time `sync.json` keeps a stale `oldest_unsent_ms` (an age, so it changes every tick).
+pub const STATE_REFRESH_MS: i64 = 60_000;
+
+/// What changes when the queue changes, read in O(log n): the newest row and the
+/// newest upload of each table, the tombstones, and this connection's writes.
+/// A change that none of these sees (retention, `forget` in another process)
+/// shows within [`STATE_REFRESH_MS`]. Public for the query-plan tests.
+pub const QUEUE_KEY_SQL: &str =
+    "SELECT (SELECT max(id) FROM video), (SELECT max(id) FROM audio), (SELECT max(id) FROM action_segment),
+            (SELECT max(uploaded_at) FROM video WHERE uploaded_at IS NOT NULL),
+            (SELECT max(uploaded_at) FROM audio WHERE uploaded_at IS NOT NULL),
+            (SELECT max(uploaded_at) FROM action_segment WHERE uploaded_at IS NOT NULL),
+            (SELECT count(*) FROM sync_tombstone), total_changes()";
+
+fn queue_key(conn: &Connection) -> Option<[i64; 8]> {
+    conn.query_row(QUEUE_KEY_SQL, [], |r| {
+        let mut k = [0; 8];
+        for (i, v) in k.iter_mut().enumerate() {
+            *v = r.get::<_, Option<i64>>(i)?.unwrap_or(0);
+        }
+        Ok(k)
+    })
+    .ok()
+}
+
+/// The sync thread's `sync.json` writer. It reads the [`QueueCounts`] again only
+/// when [`queue_key`] changes or [`STATE_REFRESH_MS`] passed. It writes the file
+/// only when its content changes, ignoring `updated_at_ms`. A queue with an
+/// oldest unsent chunk also writes every [`STATE_REFRESH_MS`], so its age stays current.
+#[derive(Default)]
+pub struct StateWriter {
+    /// The key, when the counts were read, and the counts.
+    counts: Option<(Option<[i64; 8]>, i64, QueueCounts)>,
+    /// The last state written (with `updated_at_ms` and `oldest_unsent_ms` cleared) and when.
+    written: Option<(SyncState, i64)>,
+}
+
+impl StateWriter {
+    /// Returns true when it wrote `sync.json`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn tick(
+        &mut self,
+        conn: &Connection,
+        paths: &MemoryPaths,
+        s: &Settings,
+        enabled: bool,
+        device: &str,
+        rt: &Runtime,
+        now: i64,
+    ) -> bool {
+        let key = queue_key(conn);
+        let fresh = |k: &Option<[i64; 8]>, at: i64| {
+            key.is_some() && *k == key && now - at < STATE_REFRESH_MS
+        };
+        let counts = match &self.counts {
+            Some((k, at, c)) if fresh(k, *at) => c.clone(),
+            _ => {
+                let c = QueueCounts::read(conn);
+                self.counts = Some((key, now, c.clone()));
+                c
+            }
+        };
+        let st = state_from(&counts, paths, s, enabled, device, rt, now);
+        let stable = SyncState {
+            updated_at_ms: 0,
+            oldest_unsent_ms: None,
+            ..st.clone()
+        };
+        let due = match &self.written {
+            None => true,
+            Some((prev, at)) => {
+                *prev != stable
+                    || (st.oldest_unsent_ms.is_some() && now - at >= STATE_REFRESH_MS)
+                    || !state_path(paths).exists()
+            }
+        };
+        if due {
+            write_state(paths, &st);
+            self.written = Some((stable, now));
+        }
+        due
     }
 }
 
@@ -2564,6 +2740,7 @@ fn pass_with(conn: &Connection, ctx: &Ctx, s: &Settings, rt: &mut Runtime) -> Re
         let mut status = super::cli::device_status(ctx.paths, app_version());
         status["reportedAtMs"] = json!(now_ms());
         status["host"] = json!({"awakeSinceMs": rt.awake_since_ms});
+        status["resources"] = rt.resources.report();
         put_json(ctx, &format!("{device}/status.json"), &status)?;
         rt.status_at = now_ms();
     }
@@ -2620,9 +2797,11 @@ pub fn lock_passes(paths: &MemoryPaths, wait: bool) -> Result<Option<PassLock>> 
 pub fn run(paths: MemoryPaths, stop: Arc<AtomicBool>) -> Result<()> {
     let conn = store::open(&paths)?;
     let mut rt = Runtime::default();
+    let mut state = StateWriter::default();
     let mut last_target: Option<(String, String)> = None;
     while !stop.load(Ordering::SeqCst) {
         note_wake(&mut rt, now_ms());
+        rt.resources.tick(now_ms(), rt.awake_since_ms);
         let s = Settings::effective(&paths);
         let enabled = s.sync.enabled && !s.airgap;
         let device = device_id(&paths, &s);
@@ -2633,6 +2812,7 @@ pub fn run(paths: MemoryPaths, stop: Arc<AtomicBool>) -> Result<()> {
                 bytes_uploaded: rt.bytes_uploaded,
                 awake_since_ms: rt.awake_since_ms,
                 last_tick_ms: rt.last_tick_ms,
+                resources: std::mem::take(&mut rt.resources),
                 ..Runtime::default()
             };
             last_target = Some(here);
@@ -2663,10 +2843,7 @@ pub fn run(paths: MemoryPaths, stop: Arc<AtomicBool>) -> Result<()> {
             // The operator's policy applies only while this device syncs to their bucket.
             let _ = super::policy::write(&paths, None);
         }
-        write_state(
-            &paths,
-            &compute_state(&conn, &paths, &s, enabled, &device, &rt),
-        );
+        state.tick(&conn, &paths, &s, enabled, &device, &rt, now_ms());
         rt.last_tick_ms = now_ms();
         let until = Instant::now() + TICK;
         while Instant::now() < until && !stop.load(Ordering::SeqCst) {

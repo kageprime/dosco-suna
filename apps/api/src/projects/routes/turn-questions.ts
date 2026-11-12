@@ -423,7 +423,7 @@ export function registerTurnQuestionsRoutes(): void {
       // it would admit the self-answer on a stock grant. Answering is a human
       // operation. Same shape as the token-minting guard in project-credentials.ts.
       if (isProjectSessionPrincipal(c)) {
-        return c.json({ error: 'Agent-session tokens cannot answer their own question' }, 403);
+        return c.json({ error: 'This question waits for a person: the person the session works for answers it.' }, 403);
       }
       // Answering resumes a parked box and starts a turn, so this is a mutation
       // of the session — the same bar the question relay itself uses.

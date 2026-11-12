@@ -84,9 +84,9 @@ export function registerMemberInviteRoute(): void {
         ...errors(400, 401, 403, 404, 409),
       },
     }),
-    async (c: any) => {
-      const userId = c.get('userId') as string;
-      const callerEmail = (c.get('userEmail') as string | undefined) ?? null;
+    async (c) => {
+      const userId = c.get('userId');
+      const callerEmail = c.get('userEmail');
       const accountId = accountIdParam(c);
 
       const membership = await getMembership(userId, accountId);
@@ -344,8 +344,8 @@ export function registerInviteRoutes(): void {
         ...errors(401, 403),
       },
     }),
-    async (c: any) => {
-      const userId = c.get('userId') as string;
+    async (c) => {
+      const userId = c.get('userId');
       const accountId = accountIdParam(c);
 
       const membership = await getMembership(userId, accountId);
@@ -397,8 +397,8 @@ export function registerInviteRoutes(): void {
         ...errors(401, 403),
       },
     }),
-    async (c: any) => {
-      const userId = c.get('userId') as string;
+    async (c) => {
+      const userId = c.get('userId');
       const accountId = accountIdParam(c);
       const inviteId = c.req.param('inviteId');
 
@@ -447,9 +447,9 @@ export function registerInviteRoutes(): void {
         ...errors(401, 403, 404),
       },
     }),
-    async (c: any) => {
-      const userId = c.get('userId') as string;
-      const callerEmail = (c.get('userEmail') as string | undefined) ?? null;
+    async (c) => {
+      const userId = c.get('userId');
+      const callerEmail = c.get('userEmail');
       const accountId = accountIdParam(c);
       const inviteId = c.req.param('inviteId');
 

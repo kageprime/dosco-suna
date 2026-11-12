@@ -41,7 +41,7 @@
  *
  * ## Why the canvas is portalled
  *
- * The production host renders this INSIDE a Radix dialog, and a `fixed`
+ * The production host renders this INSIDE a dialog, and a `fixed`
  * element does not reliably escape one. `ModalContent`
  * (`packages/ui/src/primitives/modal.tsx:124-125`) is `fixed ... overflow-y-auto` and, from
  * the `lg` breakpoint up, `-translate-x-1/2 -translate-y-1/2`. A transform

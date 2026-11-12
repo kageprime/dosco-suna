@@ -4,7 +4,6 @@ import {
   type ConnectorSyncResult,
   type DiscoverConnectorTemplate,
 } from '@kortix/sdk';
-import { qk } from '@kortix/sdk/react';
 
 const MAX_CONNECTOR_SLUG_LENGTH = 128;
 
@@ -31,15 +30,6 @@ export {
   isConnectorAuthChallenge as isAuthChallenge,
   type ConnectorSetupStatus,
 } from '@kortix/sdk';
-
-export function connectorConnectionQueryKeys(projectId: string) {
-  return [
-    qk.project.connectors(projectId),
-    ['connections', projectId],
-    ['connections-all', projectId],
-    ['session-scope-catalog', projectId],
-  ] as const;
-}
 
 export function createOnlyConnectorDraft(draft: ConnectorDraftInput): ConnectorDraftInput {
   return { ...draft, create_only: true };

@@ -19,7 +19,7 @@ import {
 } from '../../iam/read-models';
 import { parseAssignableProjectRole, PROJECT_ROLE_INPUT_ERROR, type ProjectRole } from '../../iam/roles';
 import { auth, errors, json, lenientBody } from '../../openapi';
-import { accountGroupNames, groupInAccountRow, groupMemberAccountRows } from '../../iam/group-read';
+import { groupMemberAccountRows, groupRow, groupRows } from '../../iam/group-read';
 import { createRoute, z } from '@hono/zod-openapi';
 import { loadProjectForUser, parseExpiresAtBody, assertProjectCapability } from '../lib/access';
 import { GroupGrantSchema, projectsApp } from '../lib/app';
@@ -95,11 +95,11 @@ export function registerGroupGrantsRoutes(): void {
     // From `role_assignments`, the store the engine reads. The group NAME is
     // still identity data on `account_groups`, and the inner-join semantics are
     // kept: an attachment whose group was deleted is not listed.
-    const [assignments, groupRows] = await Promise.all([
+    const [assignments, groupRowList] = await Promise.all([
       groupProjectGrants({ accountId: loaded.row.accountId, projectId }),
-      accountGroupNames(loaded.row.accountId),
+      groupRows({ accountId: loaded.row.accountId }),
     ]);
-    const nameByGroup = new Map(groupRows.map((g) => [g.groupId, g.name] as const));
+    const nameByGroup = new Map(groupRowList.map((g) => [g.groupId, g.name] as const));
     const rows = assignments
       .filter((r) => nameByGroup.has(r.groupId))
       .map((r) => ({
@@ -226,7 +226,7 @@ export function registerGroupGrantsRoutes(): void {
 
     // Confirm the group exists and belongs to this account — prevents
     // attaching a foreign-account group via a guessed UUID.
-    const [group] = await groupInAccountRow(groupId, loaded.row.accountId);
+    const [group] = await groupRow(loaded.row.accountId, groupId);
     if (!group) return c.json({ error: 'group not found in this account' }, 404);
 
     // THE write. The route already asserted `project.members.manage` above, so

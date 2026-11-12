@@ -117,6 +117,17 @@ export async function clearAccountSecretCooldown(secretId: string, accountId: st
   return cleared.length > 0;
 }
 
+/** Store the outcome of a provider key check on its row (`verify_status`). Never changes the value. */
+export async function recordAccountKeyVerification(
+  secretId: string,
+  accountId: string,
+  result: { status: 'verified' | 'invalid' | 'unknown'; message: string; checkedAt: Date },
+): Promise<void> {
+  await db.update(accountSecretResources)
+    .set({ verifyStatus: result.status, verifyMessage: result.message.slice(0, 500), verifiedAt: result.checkedAt })
+    .where(and(eq(accountSecretResources.secretId, secretId), eq(accountSecretResources.accountId, accountId)));
+}
+
 /** Provider names visible to a member for model discovery. Never reads secret values. */
 export function secretUsableInProject(row: { projectId: string | null; accessMode: string }, projectId: string, granted: boolean): boolean {
   return (row.projectId === null || row.projectId === projectId) && (row.accessMode === 'project' || granted);
@@ -176,6 +187,8 @@ export interface UsableGatewaySecret {
   name: string;
   label: string;
   accessMode: string;
+  /** The last provider check of the key (`verify_status`): null when never checked. */
+  verifyStatus: string | null;
 }
 
 /** Which active gateway keys to read, and whose member grants count. */
@@ -204,6 +217,7 @@ function gatewaySecretRows(q: GatewaySecretQuery) {
     label: accountSecretResources.label,
     projectId: accountSecretResources.projectId,
     accessMode: accountSecretResources.accessMode,
+    verifyStatus: accountSecretResources.verifyStatus,
     grantUserId: accountSecretGrants.userId,
   }).from(accountSecretResources)
     .leftJoin(accountSecretGrants, and(
@@ -233,7 +247,10 @@ function usableRows(
     if (seen.has(row.secretId)) continue;
     if (!secretUsableInProject(row, q.projectId, personalKeyGranted(row.grantUserId, q.grantUserId))) continue;
     seen.add(row.secretId);
-    usable.push({ secretId: row.secretId, providerId: row.providerId, name: row.name, label: row.label, accessMode: row.accessMode });
+    usable.push({
+      secretId: row.secretId, providerId: row.providerId, name: row.name, label: row.label,
+      accessMode: row.accessMode, verifyStatus: row.verifyStatus,
+    });
   }
   return usable;
 }
@@ -360,6 +377,10 @@ export async function resolveDefaultProviderAccountSecret(
  * earliest one to free up.
  *
  * Resolved at use time, so a revoked grant or a deleted key affects the next call.
+ *
+ * With no usable key, `withheld` counts the provider's active keys in the
+ * project that the caller may not use (private to other members), so a
+ * refusal can say why instead of "not connected".
  */
 export async function resolveProjectSharedProviderSecrets(input: Omit<GatewaySecretQuery, 'providerId'> & {
   userId: string;
@@ -368,9 +389,18 @@ export async function resolveProjectSharedProviderSecrets(input: Omit<GatewaySec
   sessionId?: string | null;
   /** A probe (a turn gate, the picker) never moves the session's pin. */
   probe?: boolean;
-}): Promise<{ coolingDown: boolean; retryAfterSeconds?: number; secrets: ResolvedAccountSecret[] }> {
+}): Promise<{ coolingDown: boolean; retryAfterSeconds?: number; withheld?: number; secrets: ResolvedAccountSecret[] }> {
   const usable = await listUsableGatewaySecrets(input);
-  if (!usable.length) return { coolingDown: false, secrets: [] };
+  if (!usable.length) {
+    // Only a member who may read the project learns that keys are withheld
+    // from them. Anyone else gets nothing, not even the count.
+    if (!(await memberMayReadProject(input.accountId, input.projectId, input.userId))) {
+      return { coolingDown: false, secrets: [] };
+    }
+    const inProject = (await gatewaySecretRows({ ...input, grantUserId: null }))
+      .filter((row) => row.projectId === null || row.projectId === input.projectId);
+    return { coolingDown: false, secrets: [], withheld: inProject.length };
+  }
   const rows = await db.select({
     secretId: accountSecretResources.secretId,
     valueEnc: accountSecretResources.valueEnc,

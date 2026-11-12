@@ -9,6 +9,7 @@ import {
   billingDialogArgs,
   resolveBillingState,
 } from '@kortix/ui/internal/lib/billing/billing-gate-state';
+import { useFreeGrantUnspent } from '@kortix/ui/internal/billing/index';
 import { useProjectSendGate } from '@/hooks/projects/use-project-send-gate';
 import { isBillingEnabled } from '@/lib/config';
 import { useComposerPrefillStore } from '@kortix/ui/internal/stores/composer-prefill-store';
@@ -41,6 +42,11 @@ export default function ProjectIndexPage() {
   const projectAccountId = projectRow?.account_id ?? undefined;
   const { data: accountState } = useAccountState({ accountId: projectAccountId });
   const openUpgradeDialog = useUpgradeDialogStore((s) => s.openUpgradeDialog);
+  // KRTX-4713: a further workspace on Free holds no free credits by design —
+  // the person's grant sits unspent in their first workspace. Opening it must
+  // never greet them with the Out-of-credits modal; the send gate owns the
+  // modal on an actual blocked turn.
+  const freeGrantUnspent = useFreeGrantUnspent(accountState);
   // The send itself is the package's (`useProjectHomeSend` inside
   // ProjectHome). This gate runs first and refuses a send the account cannot run.
   const beforeSend = useProjectSendGate(projectId);
@@ -62,6 +68,9 @@ export default function ProjectIndexPage() {
   useEffect(() => {
     if (!isBillingEnabled() || !accountState || !projectAccountId) return;
     if (resolveBillingState(accountState) !== 'no_subscription') return;
+    // The person's free credits are still unspent elsewhere (or the claimed
+    // workspace's state has not loaded): no pitch on open.
+    if (freeGrantUnspent !== false) return;
 
     const storageKey = `${FREE_ONBOARDING_UPGRADE_MODAL_KEY}:${projectAccountId}`;
     if (window.localStorage.getItem(storageKey) === '1') return;
@@ -70,7 +79,7 @@ export default function ProjectIndexPage() {
     openUpgradeDialog(
       billingDialogArgs('no_subscription', accountState, projectAccountId, tI18nComplete),
     );
-  }, [accountState, projectAccountId, openUpgradeDialog, tI18nComplete]);
+  }, [accountState, projectAccountId, openUpgradeDialog, tI18nComplete, freeGrantUnspent]);
 
   // `/workspaces/start?q=<prompt>` forwards its query string onto this route
   // unchanged (see `withCurrentQuery` in `../start/page.tsx`), landing here as

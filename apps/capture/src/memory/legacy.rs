@@ -280,14 +280,14 @@ mod tests {
         paths.ensure().unwrap();
         std::fs::write(
             paths.settings(),
-            r#"{"interval_ms":3000,"control_plane":{"url":"http://localhost:3000"},"sync":{"enabled":true,"provider":"kortix"}}"#,
+            r#"{"excluded_domains":["mine.example"],"control_plane":{"url":"http://localhost:3000"},"sync":{"enabled":true,"provider":"kortix"}}"#,
         )
         .unwrap();
         std::fs::write(paths.root.join("memory.db-marker"), b"recordings").unwrap();
         assert!(migrate_legacy_settings(&paths));
         let s = crate::memory::settings::Settings::load(&paths);
         assert!(!s.sync.enabled, "Sync Off");
-        assert_eq!(s.interval_ms, 3000, "the person's own settings stay");
+        assert_eq!(s.excluded_domains, ["mine.example"], "the person's own settings stay");
         assert!(!std::fs::read_to_string(paths.settings()).unwrap().contains("control_plane"));
         assert!(paths.root.join("memory.db-marker").exists(), "recordings stay");
         assert!(!migrate_legacy_settings(&paths), "it runs once");

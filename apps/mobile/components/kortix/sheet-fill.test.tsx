@@ -140,6 +140,7 @@ mock.module('react-native-reanimated', () => ({
   // `SHEET_MOTION.close` builds its curve at module load.
   Easing: { bezier: () => (t: number) => t },
   useSharedValue: <T,>(value: T) => React.useRef(shared(value)).current,
+  useReducedMotion: () => false,
   // Registers with its output: sorted before every mapper that reads it.
   useDerivedValue: <T,>(updater: () => T, deps: unknown[] = []) => {
     const ref = React.useRef<Shared<T> | null>(null);
@@ -167,7 +168,7 @@ mock.module('react-native-reanimated', () => ({
     return style;
   },
 }));
-mock.module('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 20 }) }));
+mock.module('react-native-safe-area-context', () => ({ SafeAreaInsetsContext: React.createContext(null), useSafeAreaInsets: () => ({ top: 0, bottom: 20 }) }));
 mock.module('expo-linear-gradient', () => ({ LinearGradient: host('linear-gradient') }));
 mock.module('nativewind', () => ({ useColorScheme: () => ({ colorScheme: 'light' }) }));
 mock.module('@/lib/theme-colors', () => ({ getSheetBg: () => 'sheet-bg' }));

@@ -188,14 +188,13 @@ describe('PUT /default-reasoning-effort', () => {
     expect(setCalls).toHaveLength(0);
   });
 
-  test('a session-bound principal may not flip the project-wide default', async () => {
+  test('a session-bound principal with settings.write sets the default like a person (AGENT = HUMAN)', async () => {
     isSessionPrincipal = true;
 
     const res = await put({ effort: 'high' });
 
-    expect(res.status).toBe(403);
-    expect((await res.json()).code).toBe('agent_session_forbidden');
-    expect(setCalls).toHaveLength(0);
+    expect(res.status).toBe(200);
+    expect(setCalls).toHaveLength(1);
   });
 
   test('the response carries the re-validated field', async () => {

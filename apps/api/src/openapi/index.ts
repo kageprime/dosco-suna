@@ -361,7 +361,7 @@ export function mountOpenApiDocs(app: OpenAPIHono<any, any, any>, version: strin
         {
           name: 'workspaces',
           description:
-            'The canonical workspace API. A workspace is one company’s Kortix: its members, roles, billing, secrets, agents and sessions. Its id is `workspace_id` (equal to `project_id`). Canonical paths take the workspace id only; an account id, an unknown id or a workspace you cannot read answers 404 `workspace_not_found`. The legacy `/v1/projects` and `/v1/accounts/{accountId}` names stay served permanently and accept either id.',
+            'The canonical workspace API. A workspace is one company’s Kortix: its members, roles, billing, secrets, agents and sessions. Its id is `workspace_id` (equal to `project_id`). Canonical paths take the workspace id only; an account id or an unknown id answers 404 `workspace_not_found`, and a workspace you cannot read answers 403 `workspace_access_denied` (ask for access with `POST /v1/workspaces/{workspaceId}/access-requests`). The legacy `/v1/projects` and `/v1/accounts/{accountId}` names stay served permanently and accept either id.',
         },
       ],
     });

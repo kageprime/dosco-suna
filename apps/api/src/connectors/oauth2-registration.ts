@@ -6,6 +6,7 @@
  * connection's OAuth2 application.
  */
 import type { OAuth2TokenEndpointAuthMethod } from '@kortix/api-contract';
+import { HTTPException } from 'hono/http-exception';
 import { oauth2ApplicationTypeFor } from './oauth2-issuer';
 import {
   type OAuth2LifecycleRuntime,
@@ -80,12 +81,21 @@ export async function registerOAuth2Client(
   );
   const payload = await boundedJson(response);
   if (response.status !== 200 && response.status !== 201) {
-    throw new Error(
-      `OAuth2 client registration failed (${response.status}): ${safeError(payload)}`,
-    );
+    // The authorization server of the connection the user configured refused
+    // the registration (RFC 7591 `invalid_client_metadata`, KRTX-4709) or is
+    // failing: a property of that server, not a Kortix defect. Answer it as a
+    // typed 400 — the reason rides in the message — instead of an unhandled
+    // Error that 500s the connect flow and pages (handleHttpException captures
+    // every HTTPException ≥ 500 to Sentry, so the status stays 4xx here; the
+    // discovery path answers the same class of failure with a 400).
+    throw new HTTPException(400, {
+      message: `The authorization server refused the OAuth2 client registration (${response.status}): ${safeError(payload)}`,
+    });
   }
   if (typeof payload.client_id !== 'string' || !payload.client_id.trim()) {
-    throw new Error('OAuth2 client registration response has no client_id');
+    throw new HTTPException(400, {
+      message: 'The authorization server registration response has no client_id',
+    });
   }
   const issuedMethod = isSupportedAuthMethod(payload.token_endpoint_auth_method)
     ? payload.token_endpoint_auth_method
@@ -95,9 +105,9 @@ export async function registerOAuth2Client(
       ? payload.client_secret
       : undefined;
   if (issuedMethod !== 'none' && !clientSecret) {
-    throw new Error(
-      `OAuth2 client registration issued ${issuedMethod} without a client_secret`,
-    );
+    throw new HTTPException(400, {
+      message: `The authorization server issued ${issuedMethod} without a client_secret`,
+    });
   }
   return {
     client_id: payload.client_id.trim(),

@@ -125,11 +125,11 @@ export const prepare = internalAction({
           const dir = batchDir(p.run, b._id);
           await ensureFolder(driveId, dir);
           const body = new TextEncoder().encode(JSON.stringify(inputFor(p, b), null, 1));
-          await withRetry(() => uploadDriveFile(driveId, `${dir}/input.json`, body));
+          await uploadDriveFile(driveId, `${dir}/input.json`, body);
           if (p.library) {
             await ensureFolder(driveId, `${dir}/in`);
             const md = new TextEncoder().encode(p.library.body);
-            await withRetry(() => uploadDriveFile(driveId, `${dir}/${libraryFile(p.run.kind)}`, md));
+            await uploadDriveFile(driveId, `${dir}/${libraryFile(p.run.kind)}`, md);
           }
         }
       });
@@ -159,7 +159,7 @@ async function writeReduceRows(ctx: ActionCtx, run: Doc<"runs">, b: Doc<"runBatc
   await ensureFolder(driveId, `${batchDir(run, b._id)}/in`);
   await ensureFolder(driveId, dir);
   for (const r of rows) {
-    await withRetry(() => uploadDriveFile(driveId, `${dir}/${r.docId}.json`, new TextEncoder().encode(JSON.stringify(r.row, null, 1))));
+    await uploadDriveFile(driveId, `${dir}/${r.docId}.json`, new TextEncoder().encode(JSON.stringify(r.row, null, 1)));
   }
   return rows.length;
 }

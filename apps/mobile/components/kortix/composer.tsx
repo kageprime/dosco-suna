@@ -68,17 +68,14 @@ import { useDictation } from '@/hooks/useDictation';
  */
 export const COMPOSER_CONTROL_HIT_SLOP = 4;
 
+// The card's surface lives in `./composer-card` beside the popover and status
+// pill that draw it, so the floating surfaces never drift from the composer.
+export { COMPOSER_CARD_CLASS } from './composer-card';
+
 /** The composer's 36pt round icon controls: `icon-md`, round, 44pt touch target. */
 function ControlButton(props: React.ComponentProps<typeof Button>) {
   return <Button size="icon-md" className="rounded-full" hitSlop={COMPOSER_CONTROL_HIT_SLOP} {...props} />;
 }
-
-/**
- * The composer card's surface: corners, hairline border, page colour, inset.
- * A view that takes the composer's slot (the session failure card) uses it so
- * the two never drift.
- */
-export const COMPOSER_CARD_CLASS = 'rounded-3xl border border-border bg-background p-2';
 
 // The frosted card (web `backdrop-blur-sm`): a blur of what scrolls under the
 // floating composer, under a page-colour tint that keeps the text legible.

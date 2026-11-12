@@ -23,20 +23,21 @@ function baseConfig(over: Partial<Config> = {}): Config {
     workspace: '/workspace',
     projectTarget: '/workspace',
     defaultBranch: 'main',
-    branchFetchAttempts: 60,
-    branchFetchDelaySec: 0.25,
-    autoClone: false,
     projectId: 'proj-1',
     apiUrl: undefined,
     repoUrl: 'https://api.kortix.test/v1/git/proj-1.git',
     branchName: 'session-xyz',
-    sessionFresh: false,
     baseSha: undefined,
     sandboxToken: 'kortix_sb_secret',
+<<<<<<< HEAD
     gitUserName: 'Xera',
     gitUserEmail: 'xera@dosco.live',
     cloneFilter: '',
     cloneDepth: 1,
+=======
+    gitUserName: 'Kortix Agent',
+    gitUserEmail: 'agent@kortix.ai',
+>>>>>>> upstream/dev
     ...over,
   }
 }

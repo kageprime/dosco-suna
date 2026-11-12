@@ -24,7 +24,7 @@ mock.module('@kortix/sdk', () => ({
     return { ok: true };
   },
 }));
-// The dialog chrome is Radix's: render its confirm action only.
+// The dialog chrome renders through a portal: render its confirm action only.
 mock.module('../../primitives/confirm-dialog', () => ({
   ConfirmDialog: ({ onConfirm }: { onConfirm: () => void }) => (
     <button type="button" onClick={onConfirm}>

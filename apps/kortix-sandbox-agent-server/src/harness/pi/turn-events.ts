@@ -106,9 +106,62 @@ function errorStatus(text: string | null): number | undefined {
   return match ? Number(match[1]) : undefined
 }
 
+/**
+ * Gateway codes that a person fixes on the provider's account in Models: a
+ * missing or refused key, an expired login, a provider account with no funds.
+ */
+const PROVIDER_ACCOUNT_CODES = new Set([
+  'provider_not_connected',
+  'provider_key_rejected',
+  'provider_reauth_required',
+  'provider_payment_required',
+])
+/** Gateway codes for a rate limit or a pool at rest: retry later. */
+const RATE_LIMIT_CODES = new Set(['provider_pool_rate_limited', 'model_busy', 'upstream_rate_limited'])
+
+type GatewayEnvelope = { code?: string; provider?: string; model?: string }
+
+function text(value: unknown): string | undefined {
+  return typeof value === 'string' && value ? value : undefined
+}
+
+/**
+ * The LLM gateway's error envelope in pi's error text. pi-ai writes an OpenAI
+ * SDK error as `"<status>: <error JSON>"`, and the gateway's body carries
+ * `code`, `provider` and the models (`gatewayErrorBody`, `providerClientErrorBody`).
+ */
+export function gatewayEnvelope(detail: string | null): GatewayEnvelope | null {
+  if (!detail) return null
+  const start = detail.indexOf('{')
+  const end = detail.lastIndexOf('}')
+  if (start < 0 || end <= start) return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(detail.slice(start, end + 1))
+  } catch {
+    return null
+  }
+  if (!parsed || typeof parsed !== 'object') return null
+  const outer = parsed as Record<string, unknown>
+  const body = outer.error && typeof outer.error === 'object' ? (outer.error as Record<string, unknown>) : outer
+  const code = text(body.code) ?? text(body.type)
+  if (!code) return null
+  return {
+    code,
+    provider: text(body.provider),
+    model: text(body.resolved_model) ?? text(body.requested_model),
+  }
+}
+
+/** The provider a gateway model id names (`anthropic/claude-x` → `anthropic`), or undefined. */
+function providerOfModel(model: string | undefined): string | undefined {
+  const slash = model?.indexOf('/') ?? -1
+  return slash > 0 ? model!.slice(0, slash) : undefined
+}
+
 /** The `error` of a terminal pi assistant message, with its `TurnErrorCode`, or undefined. */
 export function assistantMessageError(
-  message: Pick<PiAssistantMessage, 'stopReason' | 'errorMessage'> & { provider?: string },
+  message: Pick<PiAssistantMessage, 'stopReason' | 'errorMessage'> & { provider?: string; model?: string },
 ): KortixMessageError | undefined {
   const detail = typeof message.errorMessage === 'string' && message.errorMessage.trim() ? message.errorMessage.trim() : null
   // A Claude subscription login is missing or Anthropic refused it: the person fixes it in Kortix.
@@ -130,6 +183,22 @@ export function assistantMessageError(
     return { name: 'ContextOverflowError', data: { message: detail ?? 'The conversation is too long for the model' }, code: 'context_length' }
   }
   const statusCode = errorStatus(detail)
+  // A gateway refusal that the person fixes in Models (a key the provider
+  // refused, no key, an expired login, a provider account with no funds) is a
+  // provider error that names its provider: the chat row links to it. The text
+  // stays whole, so a client still reads the envelope from it.
+  const envelope = gatewayEnvelope(detail)
+  if (envelope?.code && PROVIDER_ACCOUNT_CODES.has(envelope.code)) {
+    const providerID = envelope.provider || providerOfModel(envelope.model) || providerOfModel(message.model)
+    if (providerID) return { name: 'ProviderAuthError', data: { providerID, message: detail! }, code: 'auth' }
+  }
+  if (envelope?.code && RATE_LIMIT_CODES.has(envelope.code)) {
+    return {
+      name: 'UnknownError',
+      data: { message: detail!, ...(statusCode ? { statusCode } : {}) },
+      code: 'rate_limit',
+    }
+  }
   return {
     name: 'UnknownError',
     data: { message: detail ?? 'The model request failed', ...(statusCode ? { statusCode } : {}) },

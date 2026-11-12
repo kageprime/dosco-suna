@@ -16,7 +16,7 @@ import { useContentRevision } from './use-content-revision';
 import type { FileContentRendererProps } from './file-content-renderer';
 
 /** Categories that need a blob fetched via readFileAsBlob */
-const BLOB_CATEGORIES = ['docx', 'video', 'audio', 'pptx', 'zip'] as const;
+const BLOB_CATEGORIES = ['docx', 'video', 'audio', 'pptx', 'zip', 'xlsx'] as const;
 type BlobCategory = (typeof BLOB_CATEGORIES)[number];
 
 function isImageMime(mimeType?: string): boolean {
@@ -98,9 +98,10 @@ export function useFileContentState({
     dataUpdatedAt,
   } = useFileContent(isHeicImage || isZipArchive || sharedImagePath ? null : filePath);
 
-  // The agent's turn end refetches this file. The xlsx and sqlite renderers
-  // read their own bytes, so they remount only when the content really
-  // changed (structural sharing keeps the reference otherwise). The HTML frame
+  // The agent's turn end refetches this file. The sqlite renderer still
+  // reads its own bytes, and the xlsx renderer re-parses the blob its parent
+  // passes, so both remount only when the content really changed
+  // (structural sharing keeps the reference otherwise). The HTML frame
   // reloads on every refetch: its stylesheets can change while its markup
   // does not. Neither moves on the first load.
   const contentRevision = useContentRevision(fileContent);
@@ -182,12 +183,12 @@ export function useFileContentState({
     [fileDiagnostics],
   );
 
-  // Binary blob for DOCX, video, audio, PPTX — AND HEIC images.
+  // Binary blob for DOCX, video, audio, PPTX, XLSX — AND HEIC images.
   // PDFs intentionally use /file/content base64 so PdfRenderer can create a Blob URL from the string.
-  // A bytes-only source (the project's Files) also serves the spreadsheet and
-  // SQLite bytes: those renderers would otherwise read a sandbox path, and
-  // there is no sandbox behind Files.
-  const readsOwnBytes = fileCategory === 'xlsx' || fileCategory === 'sqlite';
+  // A bytes-only source (the project's Files) also serves the SQLite bytes:
+  // that renderer would otherwise read a sandbox path, and there is no
+  // sandbox behind Files.
+  const readsOwnBytes = fileCategory === 'sqlite';
   const blobPath =
     isBlobCategory(fileCategory) || isHeicImage || (source.bytesOnly && readsOwnBytes) ? filePath : null;
   const {

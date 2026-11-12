@@ -2,7 +2,7 @@
   "expo": {
     "name": "Dosco",
     "slug": "dosco",
-    "version": "1.6.0",
+    "version": "1.6.1",
     "orientation": "portrait",
     "icon": "./assets/images/AppIcon-Light.png",
     "scheme": "dosco",
@@ -202,7 +202,7 @@
       "typedRoutes": true
     },
     "owner": "ka9es-team",
-    "runtimeVersion": "1.6.0",
+    "runtimeVersion": "1.6.1",
     "updates": {
       "url": "https://u.expo.dev/2e700259-ff47-4127-9fcf-f9a435746a13",
       "checkAutomatically": "ON_LOAD",

@@ -19,12 +19,6 @@ export interface Redirect {
   missing?: Condition[];
 }
 
-export interface Rewrite {
-  source: string;
-  destination: string;
-  has?: Condition[];
-}
-
 /**
  * The installed desktop shells (Electron, every build before the Workspaces
  * release) load only their own list of app paths in the window: `/projects`
@@ -37,8 +31,10 @@ export interface Rewrite {
  *   - no `/projects` → `/workspaces` 308 for the shell (`missing` the UA);
  *   - an old `/projects/:id/<tab>` link redirects to its new page under
  *     `/projects` (an app path in every shell);
- *   - {@link workspaceDesktopRewrites} serves `/projects/…` and `/new` from
- *     the `/workspaces` pages;
+ *   - the middleware serves `/projects/…` and `/new` from the `/workspaces`
+ *     pages ({@link workspacePathOfDesktopLegacy}) when it rewrites the
+ *     request onto `app/[locale]`. A next.config rewrite cannot do it: it
+ *     runs after the middleware and sees only `/en/projects/…`;
  *   - `DesktopLegacyPathSync` (client) then shows the `/workspaces` URL with
  *     `history.replaceState`, which no shell gates.
  *
@@ -64,15 +60,6 @@ export function workspacePathOfDesktopLegacy(path: string): string | null {
   if (/^\/projects(?=$|[/?#])/.test(path)) return path.replace(/^\/projects/, '/workspaces');
   if (/^\/new(?=$|[?#])/.test(path)) return path.replace(/^\/new/, '/workspaces/new');
   return null;
-}
-
-/** `rewrites().beforeFiles` for the desktop shell: its legacy paths served from the `/workspaces` pages. */
-export function workspaceDesktopRewrites(): Rewrite[] {
-  return [
-    { source: '/projects', destination: '/workspaces', has: [DESKTOP] },
-    { source: '/projects/:path*', destination: '/workspaces/:path*', has: [DESKTOP] },
-    { source: '/new', destination: '/workspaces/new', has: [DESKTOP] },
-  ];
 }
 
 /**
@@ -112,21 +99,29 @@ function workspaceRedirectTable(locales: readonly string[]): Redirect[] {
       // top-level segments were shared in Slack, saved as bookmarks and baked
       // into agent transcripts, so every one keeps resolving. `agent` became
       // `agents`, `config` became `settings`; the rest kept their names.
-      // `review` is NOT in this list: `/workspaces/:id/review` is Review's own
-      // page (2026-11-04), and `customize/review/page.tsx` redirects to it.
+      // Review is the Inbox's Review tab (2026-11-08). Its old addresses
+      // (`/review`, its own page from 2026-11-04, and `/customize/review`)
+      // land there in one hop; `?id=` rides along and opens the item.
       {
-        source: `${prefix}/:id/agent/:path*`,
-        destination: '/workspaces/:id/customize/agents/:path*',
+        source: `${prefix}/:id/:old(review|customize/review)`,
+        destination: '/workspaces/:id/inbox?view=review',
+        permanent: false,
+      },
+      // Agents moved again on 2026-11-08, into Workspace settings
+      // (`/admin/agents`): Customize is that panel now.
+      {
+        source: `${prefix}/:id/:old(agent|customize/agents)/:path*`,
+        destination: '/workspaces/:id/admin/agents/:path*',
         permanent: false,
       },
       {
-        source: `${prefix}/:id/agent`,
-        destination: '/workspaces/:id/customize/agents',
+        source: `${prefix}/:id/:old(agent|customize/agents)`,
+        destination: '/workspaces/:id/admin/agents',
         permanent: false,
       },
       // The project-wide libraries and settings have one home, Project admin
-      // (`/workspaces/:id/admin/<section>`, 2026-10-27). Customize keeps Agents
-      // and Review. Every older address lands there in one hop: the
+      // (`/workspaces/:id/admin/<section>`, 2026-10-27); Agents joined it on
+      // 2026-11-08. Every older address lands there in one hop: the
       // top-level tabs, their `/customize/` successors, and the Project admin
       // `?section=` form.
       {
@@ -200,8 +195,8 @@ function workspaceRedirectTable(locales: readonly string[]): Redirect[] {
 
 /**
  * Runs in <head> before hydration. An installed desktop shell loads `/projects…`
- * and `/new` (served from the `/workspaces` pages by
- * {@link workspaceDesktopRewrites}); this shows the `/workspaces` URL with
+ * and `/new` (served from the `/workspaces` pages by the middleware, see
+ * {@link workspacePathOfDesktopLegacy}); this shows the `/workspaces` URL with
  * `history.replaceState`, so the App Router hydrates on the canonical path
  * (usePathname reads `/workspaces/…`). A same-document URL change fires no
  * shell navigation gate. Other browsers never see these paths (308).

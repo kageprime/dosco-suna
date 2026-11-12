@@ -84,14 +84,14 @@ describe('modalDismissesOnOutsideInteraction', () => {
   });
 
   // The regression this file exists for. A Select/DropdownMenu panel is portaled
-  // out of the modal's DOM, so Radix reports a click on it as "outside".
+  // out of the modal's DOM, so the modal's dismiss layer reports a click on it as "outside".
   // Dismissing there closed the entire modal the moment a chevron was clicked —
   // reproduced on the connector modal's Accounts, Tools and Settings tabs alike.
   const floatingPanels: Array<[string, Record<string, string>]> = [
     ['listbox (Select)', { role: 'listbox' }],
     ['menu (DropdownMenu)', { role: 'menu' }],
     ['tooltip', { role: 'tooltip' }],
-    ['popper wrapper', { 'data-radix-popper-content-wrapper': '' }],
+    ['popper wrapper', { 'data-kortix-floating': '' }],
   ];
 
   for (const [label, attrs] of floatingPanels) {

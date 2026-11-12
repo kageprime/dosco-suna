@@ -35,7 +35,7 @@ export function registerIamServiceAccountsRoutes(): void {
         ...errors(401, 403),
       },
     }),
-    async (c: any) => {
+    async (c) => {
     const accountId = accountIdParam(c);
     await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.TOKEN_CREATE);
     const rows = await listServiceAccounts(accountId);
@@ -68,9 +68,9 @@ export function registerIamServiceAccountsRoutes(): void {
         ...errors(400, 401, 403, 409),
       },
     }),
-    async (c: any) => {
+    async (c) => {
     if (c.get('authType') === 'oauth') return c.json({ error: 'Connected apps cannot create service accounts.' }, 403);
-    const userId = c.get('userId') as string;
+    const userId = c.get('userId');
     const accountId = accountIdParam(c);
     await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.TOKEN_CREATE);
 
@@ -137,8 +137,8 @@ export function registerIamServiceAccountsRoutes(): void {
         ...errors(401, 403, 404, 409),
       },
     }),
-    async (c: any) => {
-    const userId = c.get('userId') as string;
+    async (c) => {
+    const userId = c.get('userId');
     const accountId = accountIdParam(c);
     const saId = c.req.param('saId');
     await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.TOKEN_REVOKE);
@@ -184,10 +184,10 @@ export function registerIamServiceAccountsRoutes(): void {
       request: { params: z.object({ workspaceId: z.string(), saId: z.string() }) },
       responses: {
         200: json(z.object({ deleted: z.boolean() }), 'Deletion result'),
-        ...errors(401, 403, 404),
+        ...errors(401, 403, 404, 409),
       },
     }),
-    async (c: any) => {
+    async (c) => {
     const accountId = accountIdParam(c);
     const saId = c.req.param('saId');
     await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.TOKEN_REVOKE);
@@ -211,7 +211,7 @@ export function registerIamServiceAccountsRoutes(): void {
       resourceId: saId,
       before: { name: before.name },
     });
-    return c.json({ deleted: true });
+    return c.json({ deleted: true }, 200);
     },
   );
 }

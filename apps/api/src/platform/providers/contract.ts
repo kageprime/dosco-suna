@@ -319,7 +319,7 @@ export interface SandboxProvider {
     externalId: string,
     request: SandboxIngressRequest,
   ): Promise<ResolvedSandboxIngress>;
-  ensureRunning(externalId: string): Promise<void>;
+  ensureRunning(externalId: string, wakeReason?: unknown): Promise<void>;
   getProvisioningStatus(sandboxId: string): Promise<ProvisioningStatus | null>;
   /**
    * List the running boxes this deployment owns, for the orphan-box reaper

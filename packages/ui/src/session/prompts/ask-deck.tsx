@@ -5,9 +5,11 @@
  *
  * An ask never holds its session (the runtime parks it), so this deck is the
  * one place a person catches up: agent questions, tool calls the permission
- * policy sent to them, connector calls that wait for approval, across every
- * session they may decide. Each card shows what is asked, who asked and the
- * exact command or call. Yes / No decide it, Skip moves it to the back.
+ * policy sent to them, the connectors and secrets My Kortix asks to give a
+ * colleague, across every session they may decide. Connector approvals keep
+ * their full parameter review in the inbox list below the deck. Each card
+ * shows what is asked, who asked and the exact command, call or access list.
+ * Yes / No decide it, Skip moves it to the back.
  *
  * Keyboard: → or Y yes, ← or N no, S skip (the inbox list below owns j/k,
  * the arrows up and down, and 1–3). Touch:
@@ -19,7 +21,7 @@ import { resolveApproval, type SessionAsk } from '@kortix/sdk';
 import { qk, useAnswerSessionAsk, useSessionAsks } from '@kortix/sdk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowUpIcon, CheckIcon, ShieldWarningIcon } from '@phosphor-icons/react';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { useTranslations } from '../../i18n';
 import { cn } from '../../internal/lib/utils';
 import { Button } from '../../primitives/button';
@@ -31,11 +33,17 @@ import type { PermissionRequest, QuestionRequest } from '../../internal/session-
 import { COMPOSER_INPUT_SLOT_CLASS } from '../../session/composer/composer';
 import { QuestionPrompt, type QuestionAction, type QuestionPromptHandle } from '../../session/prompts/question-prompt';
 import { SessionPermissionPrompt } from '../../session/prompts/session-permission-prompt';
+import { SessionAccessNotice } from '../../session/prompts/session-access-prompt';
 
 /** How long a decision waits for Undo before it is sent. */
 const UNDO_MS = 5_000;
 /** How far a card moves before a swipe decides it. */
 const SWIPE_PX = 96;
+/**
+ * The kinds a deck card draws. A connector approval stays in the inbox list.
+ * A kind this build does not know is left out, never drawn as an empty card.
+ */
+export const DECK_KINDS: ReadonlySet<SessionAsk['kind']> = new Set(['question', 'permission', 'access']);
 
 type Verdict = 'yes' | 'no' | 'always';
 
@@ -67,7 +75,21 @@ export function deckOrder(asks: readonly SessionAsk[], skipped: readonly string[
   });
 }
 
-export function AskDeck({ projectId, onOpenSession }: { projectId: string; onOpenSession?: (sessionId: string) => void }) {
+export function AskDeck({
+  projectId,
+  onOpenSession,
+  empty,
+  paused = false,
+}: {
+  projectId: string;
+  /** The host shows something else over the deck: it draws nothing and its
+   *  keys answer nothing, but stays mounted so staged answers keep Undo. */
+  paused?: boolean;
+  onOpenSession?: (sessionId: string) => void;
+  /** Drawn once no card is left, in place of the deck's own "Nothing waits on
+   *  you" (a host that shows other waiting items beside the deck). */
+  empty?: ReactNode;
+}) {
   const t = useTranslations('hardcodedUi.askDeck');
   const queryClient = useQueryClient();
   const { data, isLoading, isError, refetch } = useSessionAsks(projectId);
@@ -78,7 +100,7 @@ export function AskDeck({ projectId, onOpenSession }: { projectId: string; onOpe
 
   // Connector approvals keep the full parameter review in the inbox list below.
   const deck = useMemo(
-    () => deckOrder((data?.asks ?? []).filter((ask) => ask.kind !== 'approval'), skipped, hidden),
+    () => deckOrder((data?.asks ?? []).filter((ask) => DECK_KINDS.has(ask.kind)), skipped, hidden),
     [data, skipped, hidden],
   );
   const current = deck[0] ?? null;
@@ -96,7 +118,12 @@ export function AskDeck({ projectId, onOpenSession }: { projectId: string; onOpe
             askId: entry.ask.id,
             answer: entry.verdict === 'no' || !entry.answers ? { dismiss: true } : { answers: entry.answers },
           });
-        } else {
+        } else if (entry.ask.kind === 'access') {
+          await answer.mutateAsync({
+            askId: entry.ask.id,
+            answer: { decision: entry.verdict === 'no' ? 'deny' : 'allow' },
+          });
+        } else if (entry.ask.kind === 'permission') {
           await answer.mutateAsync({
             askId: entry.ask.id,
             answer: { reply: entry.verdict === 'no' ? 'reject' : entry.verdict === 'always' ? 'always' : 'once' },
@@ -138,7 +165,10 @@ export function AskDeck({ projectId, onOpenSession }: { projectId: string; onOpe
       setHidden((prev) => new Set(prev).add(ask.id));
       const entry: Staged = { ask, verdict, answers, timer: setTimeout(() => void sendRef.current(entry), UNDO_MS) };
       staged.current.set(ask.id, entry);
-      const message = verdict === 'no' ? t(ask.kind === 'question' ? 'dismissed' : 'denied') : t(ask.kind === 'question' ? 'answered' : 'approved');
+      const message =
+        ask.kind === 'question'
+          ? t(verdict === 'no' ? 'dismissed' : 'answered')
+          : t(verdict === 'no' ? 'denied' : ask.kind === 'access' ? 'allowed' : 'approved');
       undoToast(message, {
         duration: UNDO_MS,
         undoLabel: t('undo'),
@@ -160,6 +190,7 @@ export function AskDeck({ projectId, onOpenSession }: { projectId: string; onOpe
 
   const skip = useCallback((ask: SessionAsk) => setSkipped((prev) => [...prev.filter((id) => id !== ask.id), ask.id]), []);
 
+  if (paused) return null;
   if (isLoading) return <Skeleton className="h-64 w-full rounded-lg" />;
   if (isError) {
     return (
@@ -175,6 +206,7 @@ export function AskDeck({ projectId, onOpenSession }: { projectId: string; onOpe
     );
   }
   if (!current) {
+    if (empty !== undefined) return empty;
     return <EmptyState icon={CheckIcon} title={t('emptyTitle')} description={t('emptyDescription')} />;
   }
   return (
@@ -198,7 +230,8 @@ export function AskDeck({ projectId, onOpenSession }: { projectId: string; onOpe
 
 /**
  * One ask, drawn exactly as the session draws it: the docked strip holds the
- * session's own `QuestionPrompt` or `SessionPermissionPrompt`, and the card
+ * session's own `QuestionPrompt`, `SessionPermissionPrompt` or
+ * `SessionAccessNotice`, and the card
  * under it is the composer's answer line (`composer.tsx` / `ComposerCard`).
  * Only the context row (where it was asked, Skip) is the deck's own.
  */
@@ -247,6 +280,8 @@ function AskCard({
     [ask],
   );
 
+  const access = ask.kind === 'access' && ask.access ? ask : null;
+
   // The composer's send button, as the session wires it: typed text is an
   // answer; with nothing typed it steps the question (Next) or submits it.
   const canSend = question ? typed.trim().length > 0 || (action.action !== 'send' && action.canAct) : false;
@@ -263,9 +298,9 @@ function AskCard({
   }, [typed]);
 
   const yes = useCallback(() => {
-    if (permission) onDecide('yes');
+    if (permission || access) onDecide('yes');
     else if (canSend) send();
-  }, [permission, onDecide, canSend, send]);
+  }, [permission, access, onDecide, canSend, send]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -329,6 +364,15 @@ function AskCard({
             permissions={[permission]}
             sessionControls={false}
             onReply={async (_id, reply) => onDecide(reply === 'reject' ? 'no' : reply === 'always' ? 'always' : 'yes')}
+          />
+        ) : access ? (
+          // The deck stages the decision behind Undo, so no request runs while the card shows.
+          <SessionAccessNotice
+            asks={[access]}
+            current={access.id}
+            deciding={null}
+            onSelect={() => undefined}
+            onDecide={(_ask, decision) => onDecide(decision === 'allow' ? 'yes' : 'no')}
           />
         ) : null}
       </div>

@@ -104,6 +104,19 @@ flow('GW-CUSTOM-1', {
       (await chat(`${id}/not-listed`)).status(400).body().has('$.error.code', 'model_not_found');
     });
 
+    await ctx.step('a key saved before its endpoint (the web form order) serves once the endpoint is saved', async () => {
+      const early = `${id}-early`;
+      const earlySecret = `CUSTOM_${early.toUpperCase().replace(/-/g, '_')}_API_KEY`;
+      (await owner.post('/v1/workspaces/:projectId/secrets', {
+        name: earlySecret, value: 'sk-early-key', strategy: 'broker', consumer: 'llm_gateway',
+      }, { params })).status(200);
+      (await owner.put(path, body, { params: { ...one, providerId: early } })).status(200).body().has('$.has_key', true);
+      (await chat(`${early}/m1`)).status(200).body().has('$.choices[0].message.content', 'CUSTOM-OK');
+      const last = received.at(-1);
+      if (last?.authorization !== 'Bearer sk-early-key') throw new Error(`stub saw ${JSON.stringify(last)}`);
+      (await owner.del(path, { params: { ...one, providerId: early } })).status(204);
+    });
+
     await ctx.step('a key with no endpoint lists as configured: false', async () => {
       (await owner.post('/v1/workspaces/:projectId/secrets', {
         name: 'CUSTOM_LEGACY_API_KEY', value: 'sk-legacy', strategy: 'broker', consumer: 'llm_gateway',

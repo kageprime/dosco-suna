@@ -12,8 +12,7 @@ mock.module('../../billing/services/entitlements', () => ({ accountMayUseManaged
 mock.module('../../shared/audit', () => ({ recordAuditEvent: async () => {} }));
 mock.module('../agents', () => ({
   loadProjectAgents: async () => ({ defaultAgent: 'default', builtinAgents: { my_kortix: false } }),
-  repositoryAccessFromLoadedAgents: () => false,
-  legacyReadWorkspaceFromLoadedAgents: () => false,
+  agentGrantAllowsRepository: () => false,
   sandboxFromLoadedAgents: () => null,
 }));
 mock.module('./session-connector-bindings', () => ({
@@ -33,10 +32,6 @@ mock.module('../../shared/db', () => ({
 }));
 mock.module('../../platform/services/session-sandbox', () => ({ provisionSessionSandbox: async () => {} }));
 mock.module('./git', () => ({ withProjectGitAuth: async (project: unknown) => project }));
-mock.module('../../git-proxy/project-snapshot', () => ({
-  resolveProjectSnapshotMode: () => 'git',
-  resolveProjectSnapshotPinForSession: async () => ({ pin: null, descriptor: null }),
-}));
 mock.module('./session-runtime-context', () => ({
   parseSessionRuntimeContext: () => ({ ok: true }),
   mergeSessionSandboxEnv: (env: unknown) => env,
@@ -54,6 +49,12 @@ mock.module('../../llm-gateway/models/served-managed-models', () => ({
   isPlatformDefaultModelId: (id: string) => id === 'deepseek-v4.1-flash',
   servedManagedModels: () => [],
   platformVisionModelId: () => '',
+}));
+
+// The models the box registers at boot. Empty = the box dies ("pi harness has no model").
+let catalogModels: Record<string, unknown> = { 'openai/gpt-x': {} };
+mock.module('../../llm-gateway/models/servable-catalog', () => ({
+  servableProjectCatalog: async () => ({ models: catalogModels }),
 }));
 
 import { createProjectSession } from './sessions';
@@ -140,6 +141,19 @@ test('an oversized initial_context is refused and inserts nothing', async () => 
 // The boot model of a session with nothing stored. The gateway refuses every
 // managed model to a FREE account, so it never boots pinned to the platform
 // default: it runs its own connected model, or none.
+test('a free-tier account with no model and an empty catalog is refused before any row: 409 no_model_available', async () => {
+  mayUseManagedModels = false;
+  catalogModels = {};
+  try {
+    const result = await createProjectSession({ project, userId: 'synthetic-user', requestingPrincipalType: 'human', body: {} });
+    expect(result.error?.status).toBe(409);
+    expect(result.error?.body).toMatchObject({ code: 'no_model_available', plan_upgrade: true });
+    expect(inserted).toBeUndefined();
+  } finally {
+    catalogModels = { 'openai/gpt-x': {} };
+  }
+});
+
 test('a fresh free-tier account never boots pinned to a managed model', async () => {
   mayUseManagedModels = false;
   const result = await createProjectSession({ project, userId: 'synthetic-user', requestingPrincipalType: 'human', body: {} });
@@ -191,4 +205,30 @@ test('a paid account keeps its default as the boot model; the first prompt still
   });
   expect(result.error).toBeUndefined();
   expect(inserted?.metadata).toMatchObject({ model: 'kortix/deepseek-v4.1-flash', model_source: 'platform' });
+});
+
+// KRTX-4724: the web's launch pick now rides the same top-level `model` the CLI
+// and mobile send. The pin lands on the row at create, so the starting
+// session's selector shows the launch model from the first read — before the
+// runtime is up — instead of the project default.
+test('a top-level create model pins the row with source explicit before the runtime starts', async () => {
+  const result = await createProjectSession({
+    project, userId: 'synthetic-user', requestingPrincipalType: 'human',
+    body: {
+      model: 'deepseek-v4.1-flash',
+      pending_prompt: { text: '', model: { providerID: 'kortix', modelID: 'deepseek-v4.1-flash' } },
+    },
+  });
+  expect(result.error).toBeUndefined();
+  expect(inserted?.metadata).toMatchObject({ model: 'kortix/deepseek-v4.1-flash', model_source: 'explicit' });
+});
+
+test('an unservable top-level create model refuses the create instead of pinning a dead model', async () => {
+  servable = (model) => model !== 'openrouter/x';
+  const result = await createProjectSession({
+    project, userId: 'synthetic-user', requestingPrincipalType: 'human',
+    body: { model: 'openrouter/x' },
+  });
+  expect(result.error).toMatchObject({ status: 400, body: { code: 'INVALID_SESSION_MODEL' } });
+  expect(((inserted as { metadata?: Record<string, unknown> } | undefined)?.metadata)?.model).toBeUndefined();
 });

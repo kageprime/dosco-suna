@@ -1,47 +1,28 @@
 'use client';
 
-import { Button } from '../../../primitives/button';
-import { KortixLoader } from '../../../primitives/kortix-loader';
-import { readRuntimeFileWithRetry } from '../../../internal/files/runtime-file-read';
-import { cn } from '../../../lib/utils';
-import {
-  FileXlsIcon as FileSpreadsheet,
-  ArrowClockwiseIcon as RefreshCw,
-} from '@phosphor-icons/react';
+import { FileXlsIcon as FileSpreadsheet } from '@phosphor-icons/react';
 import { useTranslations } from '../../../i18n';
 import { useIsDark } from '../../../hooks/use-is-dark';
-import { useCallback, useEffect, useState } from 'react';
+import { cn } from '../../../lib/utils';
 import { XlsxViewerPreview } from './xlsx-viewer';
 
-export function isBlobUrl(path: string): boolean {
-  return path.startsWith('blob:');
-}
-
 interface XlsxRendererProps {
-  content?: string | null;
-  filePath?: string;
+  /** The workbook bytes. The parent owns the read (useBinaryBlob), like it
+   *  does for the docx and pptx viewers — this renderer never reads a path. */
+  blob?: Blob | null;
   fileName: string;
   /** Extra controls for the viewer's own toolbar, rendered after zoom and
    *  before the file menu. */
   compact?: boolean;
   toolbarActions?: React.ReactNode;
   className?: string;
-  sandboxId?: string;
-  project?: {
-    sandbox?: {
-      id?: string;
-      sandbox_url?: string;
-    };
-  };
-  onDownload?: () => void;
-  isDownloading?: boolean;
   /** False when the host's own toolbar already has the Download button, so the
    *  viewer does not show a second one. */
   showDownload?: boolean;
 }
 
 export function XlsxRenderer({
-  filePath,
+  blob,
   fileName,
   className,
   compact = false,
@@ -50,58 +31,8 @@ export function XlsxRenderer({
 }: XlsxRendererProps) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const isDark = useIsDark();
-  const [src, setSrc] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
 
-  const xlsxPath = filePath || fileName;
-
-  useEffect(() => {
-    if (!xlsxPath) return;
-    let cancelled = false;
-    let objectUrl: string | null = null;
-    const abortController = new AbortController();
-
-    setSrc(null);
-    setError(null);
-
-    (async () => {
-      try {
-        if (isBlobUrl(xlsxPath)) {
-          if (!cancelled) setSrc(xlsxPath);
-          return;
-        }
-        const { readFileAsBlob } = await import('../../../internal/files/runtime-files');
-        const blob = await readRuntimeFileWithRetry(
-          xlsxPath,
-          async () => {
-            const blob = await readFileAsBlob(xlsxPath);
-            if (!blob || blob.size === 0) throw new Error('Empty file received');
-            return blob;
-          },
-          undefined,
-          abortController.signal,
-        );
-        if (cancelled) return;
-        objectUrl = URL.createObjectURL(blob);
-        setSrc(objectUrl);
-      } catch (e) {
-        if (abortController.signal.aborted) return;
-        console.error('[XlsxRenderer] Error:', e);
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load spreadsheet');
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      abortController.abort();
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [xlsxPath, attempt]);
-
-  const handleRetry = useCallback(() => setAttempt((n) => n + 1), []);
-
-  if (error) {
+  if (!blob) {
     return (
       <div className={cn('flex h-full w-full items-center justify-center', className)}>
         <div className="space-y-3 text-center">
@@ -112,28 +43,15 @@ export function XlsxRenderer({
             <h3 className="text-foreground text-lg font-medium">
               {tI18nComplete.raw('text29f7878c46b4')}
             </h3>
-            <p className="text-muted-foreground mt-1 text-xs">{error}</p>
           </div>
-          <Button onClick={handleRetry} variant="outline" size="sm">
-            <RefreshCw className="mr-2 h-3 w-3" />
-            {tI18nComplete.raw('text942087cc2d41')}
-          </Button>
         </div>
-      </div>
-    );
-  }
-
-  if (!src) {
-    return (
-      <div className={cn('flex h-full w-full items-center justify-center', className)}>
-        <KortixLoader size="medium" />
       </div>
     );
   }
 
   return (
     <XlsxViewerPreview
-      src={src}
+      workbook={blob}
       fileName={fileName}
       isDark={isDark}
       onIsDarkChange={() => {}}

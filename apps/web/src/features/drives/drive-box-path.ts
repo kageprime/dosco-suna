@@ -9,7 +9,7 @@ const within = (path: string, folder: string) => path === folder || path.startsW
  * your sessions. Null for any other folder: a shared Drive mounts only in the
  * sessions of the agents added to it, under the name their README gives.
  */
-export function boxPathOf(path: string, personal: string | null): string | null {
+function boxPathOf(path: string, personal: string | null): string | null {
   if (personal && within(path, personal)) return `~/Desktop${path.slice(personal.length)}`;
   return null;
 }

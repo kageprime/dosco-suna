@@ -95,6 +95,18 @@ export function nextAuditReconciliationFailureDecision(
 }
 
 /**
+ * Next-tick delay after a successful page: the scan never re-fires sooner
+ * than the cost the last page imposed on the database. A page that ran N ms
+ * waits N ms (a ~50% duty cycle for a page that heavy); a light page keeps the
+ * job's active floor. KRTX-3175: a heavy account's backfill fired
+ * multi-second pages back-to-back at a ~100% duty cycle and starved unrelated
+ * reads on the same database.
+ */
+export function activePageDelayMs(pageElapsedMs: number, floorMs: number): number {
+  return Math.max(floorMs, pageElapsedMs);
+}
+
+/**
  * Reconcile the next DUE account in UUID order.
  *
  * `afterAccountId` is an in-memory scan cursor. Durable progress is the

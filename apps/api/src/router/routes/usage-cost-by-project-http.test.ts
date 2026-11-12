@@ -6,6 +6,7 @@ import * as realAuthorize from '../../iam/authorize';
 
 const ACCOUNT_ID = '00000000-0000-4000-a000-000000000001';
 const PROJECT_ID = '00000000-0000-4000-a000-000000000002';
+const OTHER_ACCOUNT_ID = '00000000-0000-4000-a000-000000000009';
 
 let authType = 'supabase';
 let sandboxId: string | null = null;
@@ -238,7 +239,14 @@ describe('GET /v1/usage/cost-by-project', () => {
       expect(response.status).toBe(200);
       expect(listInput?.projectId).toBe(PROJECT_ID);
     }
-    for (const query of ['', `?project_id=${ACCOUNT_ID}`, `?project_id=${PROJECT_ID}&account_id=${ACCOUNT_ID}`]) {
+    // Omitted, or with its own account/workspace as account_id: still W only.
+    for (const query of ['', `?account_id=${ACCOUNT_ID}`, `?project_id=${PROJECT_ID}&account_id=${PROJECT_ID}`]) {
+      listInput = null;
+      expect((await app.request(`/v1/usage/cost-by-project${query}`)).status).toBe(200);
+      expect((listInput as Record<string, unknown> | null)?.projectId).toBe(PROJECT_ID);
+    }
+    // Another workspace or another account: refused, nothing read.
+    for (const query of [`?project_id=${ACCOUNT_ID}`, `?account_id=${OTHER_ACCOUNT_ID}`]) {
       listInput = null;
       expect((await app.request(`/v1/usage/cost-by-project${query}`)).status).toBe(403);
       expect(listInput).toBeNull();

@@ -19,7 +19,7 @@ import { config } from '../config';
 import { logger } from '../lib/logger';
 import { blockedPath, canonicalPath } from '../mcp/shape';
 import { APP_EDGE_HEADERS } from '../shared/edge-signature';
-import { APP_AUTHORIZATION_HEADER, liveAppViewerUserId, type AppAccessRow } from './public-proxy-access';
+import { APP_AUTHORIZATION_HEADER, appViewerSessionAal, liveAppViewerUserId, type AppAccessRow } from './public-proxy-access';
 import { APP_VIEWER_HEADER, APP_VIEWER_TOKEN_HEADER, mintAppViewerToken, normalizeViewerTokenScope } from './viewer';
 
 export const APP_API_PROXY_PREFIX = '/_kortix/api';
@@ -79,6 +79,7 @@ export async function appApiProxyResponse(
   const minted = await mintAppViewerToken(
     { appId: app.appId, accountId: app.accountId, name: app.name, viewerTokenScope: 'api' },
     userId,
+    { aal: appViewerSessionAal(request, url, app, userId) },
   ).catch((error) => {
     logger.warn('[apps] API proxy token mint failed', { appId: app.appId, error: String(error) });
     return null;

@@ -525,6 +525,11 @@ pub fn displays() -> Vec<DisplayInfo> {
     .unwrap_or_default()
 }
 
+/// No frame generation here: every capture reads the pixels.
+pub fn frame_generation(_: &DisplayInfo) -> Option<u64> {
+    None
+}
+
 pub fn screenshot_display(d: &DisplayInfo) -> Result<RgbImage> {
     with_conn(|k| {
         let root = k.c.get_geometry(k.root)?.reply()?;

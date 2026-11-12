@@ -17,7 +17,20 @@ export const PROXY_ATTEMPT_TIMEOUT_MS = 15_000;
 // progressive for a genuinely cold-booting port. The last attempt ends inside
 // the budget and one delay can follow it, so the budget, the attempt floor and
 // the longest delay together must stay under the ALB idle cut.
-export const PROXY_RETRY_DELAYS_MS = [250, 1_000, 3_000] as const;
+const retryDelaysMs: number[] = [250, 1_000, 3_000];
+
+/** The proxy's inter-attempt delays. `__setProxyRetryDelaysForTests` swaps the backing array. */
+export const PROXY_RETRY_DELAYS_MS: readonly number[] = retryDelaysMs;
+
+/** Test-only: swap the inter-attempt delays (pass 1–10 ms) so a give-up test does not sleep the real 4.25 s. */
+export function __setProxyRetryDelaysForTests(delays: readonly number[]): void {
+  retryDelaysMs.splice(0, retryDelaysMs.length, ...delays);
+}
+
+/** Test-only: restore the production delays. */
+export function __resetProxyRetryDelaysForTests(): void {
+  __setProxyRetryDelaysForTests([250, 1_000, 3_000]);
+}
 
 // The box's synchronous send-message endpoint: the daemon holds the response
 // open until the ENTIRE reasoning + tool-call turn finishes, then emits headers

@@ -1,14 +1,22 @@
+import { agentDisplayName } from '@kortix/shared';
 import type { SlackPersona } from '../slack-api';
+import { agentMarkUrl } from '../core/agent-mark';
 import { sessionAgentName } from '../core/session-agent';
 import { ensureSlackBotId } from '../install-store';
 
 /** Slack caps a message author name at 80 characters. */
 const MAX_USERNAME = 80;
 
-/** The Slack author for messages a Dosco agent writes; none for a blank name. */
+/**
+ * The Slack author for messages a Dosco agent writes: its display name ("My
+ * Dosco", "Session reviewer") and its face, as the web app shows them. None
+ * for a blank name.
+ */
 export function slackPersonaFor(agentName: string | null | undefined): SlackPersona | null {
-  const name = agentName?.trim();
-  return name ? { username: name.slice(0, MAX_USERNAME) } : null;
+  const slug = agentName?.trim();
+  if (!slug) return null;
+  const icon = agentMarkUrl(slug);
+  return { username: agentDisplayName(slug).slice(0, MAX_USERNAME), ...(icon ? { icon_url: icon } : {}) };
 }
 
 /**

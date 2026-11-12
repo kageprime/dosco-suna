@@ -69,7 +69,6 @@ agents:
     connectors: "*"
     secrets: "*"
     kortix_permissions: "*"
-    workspace: { project_repository: true }
 ```
 
 The block says what the agent is for, how much it may do without asking, and what it may reach. Its prompt lives in `agents/worker.md`, a markdown file a reviewer can read in a minute. A session runs on a branch of that repo, and the starter's agent puts the stakes plainly: work that is never committed and pushed is work that does not survive. The thing a company audits is a file.

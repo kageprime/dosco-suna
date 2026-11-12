@@ -169,7 +169,9 @@ export function AuditWebhooksCard({ accountId, canManage }: AuditWebhooksCardPro
             const kebab: KebabItem[] = canManage
               ? [
                   {
-                    label: h.enabled ? 'Disable' : 'Enable',
+                    label: h.enabled
+                      ? tI18nComplete.raw('textb7e3e4aa4257')
+                      : tI18nComplete.raw('text5342e09f2729'),
                     icon: <PowerIcon className="size-3.5 shrink-0" />,
                     onSelect: () => {
                       setTogglingId(h.webhook_id);
@@ -193,7 +195,9 @@ export function AuditWebhooksCard({ accountId, canManage }: AuditWebhooksCardPro
                 badges={
                   <>
                     <Badge variant={h.enabled ? 'success' : 'muted'} size="sm">
-                      {h.enabled ? 'enabled' : 'disabled'}
+                      {h.enabled
+                        ? tI18nComplete.raw('textfb9cf75606b4')
+                        : tI18nComplete.raw('text17eb3c0168d0')}
                     </Badge>
                     {h.action_prefix ? (
                       <Badge
@@ -211,7 +215,9 @@ export function AuditWebhooksCard({ accountId, canManage }: AuditWebhooksCardPro
                   <code key="url" className="font-mono">
                     {h.url}
                   </code>,
-                  `Last delivered ${formatRelative(h.last_delivered_at)}`,
+                  tI18nComplete('texte80e342954ec', {
+                    value0: formatRelative(h.last_delivered_at),
+                  }),
                   ...(h.last_error
                     ? [
                         <span key="error" className="text-kortix-red">

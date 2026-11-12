@@ -63,10 +63,6 @@ import {
   workspaceHasProjectDenial,
 } from '../workspaces/one-project';
 import {
-  buildCachedFastBootGitHint,
-  resolveFastBootGitHintWithCache,
-} from './lib/fast-boot-git-hint';
-import {
   classifyProvisionReplay,
   findIdempotentProvision,
   isProvisionIdempotencyConflict,
@@ -92,7 +88,7 @@ import {
   newWorkspaceConflict,
   resolveNewWorkspaceAccount,
 } from './new-workspace';
-import { deleteProjectRows, insertProjectRow, metadataMerge, type ProjectRowInsert, projectsView, updateProjectRows } from '../workspaces/rows';
+import { deleteProjectRows, insertProjectRow, metadataMergeGitSeed, type ProjectRowInsert, projectsView, updateProjectRows } from '../workspaces/rows';
 
 export const PROVISION_PHASES = [
   'validating',
@@ -103,8 +99,6 @@ export const PROVISION_PHASES = [
 
 export type ProvisionPhase = (typeof PROVISION_PHASES)[number];
 export type ProvisionEmit = (phase: ProvisionPhase) => void;
-
-const FAST_BOOT_SEED_HINT_TIMEOUT_MS = 8_000;
 
 /**
  * The exact status codes `runProvision` can produce, matching both routes'
@@ -939,64 +933,22 @@ async function seedProvisionedRepo(
           seed: verifiedSeedState,
         },
       };
-      // Persist ONLY the keys this step owns via a SQL-side atomic merge (never
-      // the whole object) so this creation-seed write can't revert a pin the
-      // prebuild kick may have activated concurrently. `row.metadata` above is
-      // the in-memory copy the creation response serializes.
+      // Persist ONLY the keys this step owns: `git` merges NESTED, in-SQL — a
+      // shallow top-level patch of the whole `git` object wiped `managed`,
+      // `url` and `auth` from the row the insert wrote microseconds earlier, so
+      // every seeded workspace served `metadata.git` without `managed` and the
+      // CLI read the managed repo as unmanaged. The composed write lives in
+      // `metadataMergeGitSeed` (workspaces/rows.ts) so the regression test
+      // exercises the same expression. `row.metadata` above stays the
+      // in-memory copy the creation response serializes.
       await updateProjectRows(eq(projectsView.projectId, row.projectId), {
-        metadata: metadataMerge({
-          ...(seededDefaultAgent ? { default_agent: seededDefaultAgent } : {}),
-          git: { seed: verifiedSeedState },
-        }),
+        metadata: metadataMergeGitSeed(
+          verifiedSeedState,
+          seededDefaultAgent ? { default_agent: seededDefaultAgent } : {},
+        ),
         updatedAt: new Date(),
       }).catch(() => {}); // best-effort — a mirror-write hiccup must not fail project creation
 
-      // Same switch as the create-time hint (#6973): a seeded project's FIRST
-      // session must already find its base tip + scaffold delta cached.
-      if (writeUpstream) {
-        const hintTask = resolveFastBootGitHintWithCache(
-          {
-            projectId: row.projectId,
-            repoUrl: writeUpstream.url,
-            defaultBranch: provisioned.defaultBranch,
-            manifestPath: row.manifestPath,
-            gitAuthToken: null,
-            gitAuthHeaders: writeUpstream.headers,
-          },
-          provisioned.defaultBranch,
-          null,
-        )
-          .then((hint) =>
-            buildCachedFastBootGitHint(provisioned.defaultBranch, hint),
-          )
-          .catch((error) => {
-            console.warn('[projects] fast-boot seed hint unavailable', {
-              projectId: row.projectId,
-              error: error instanceof Error ? error.message : String(error),
-            });
-            return null;
-          });
-        let timeout: ReturnType<typeof setTimeout> | undefined;
-        const cachedHint = await Promise.race([
-          hintTask,
-          new Promise<null>((resolve) => {
-            timeout = setTimeout(() => resolve(null), FAST_BOOT_SEED_HINT_TIMEOUT_MS);
-          }),
-        ]).finally(() => {
-          if (timeout) clearTimeout(timeout);
-        });
-        if (cachedHint) {
-          const currentMetadata = (row.metadata as Record<string, unknown> | null) ?? {};
-          const currentGit =
-            currentMetadata.git && typeof currentMetadata.git === 'object'
-              ? (currentMetadata.git as Record<string, unknown>)
-              : {};
-          row.metadata = {
-            ...currentMetadata,
-            git: { ...currentGit, fast_boot: cachedHint },
-          };
-        }
-      }
     } catch (error) {
       const stage = error instanceof ManagedRepoSeedError ? error.stage : 'push';
       console.error(

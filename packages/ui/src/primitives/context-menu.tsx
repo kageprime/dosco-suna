@@ -1,24 +1,28 @@
 'use client';
 
-import { CheckIcon as Check, CaretRightIcon as ChevronRight } from '@phosphor-icons/react';
-import * as ContextMenuPrimitive from '@radix-ui/react-context-menu';
+import { ContextMenu as ContextMenuPrimitive } from '@base-ui/react/context-menu';
 import * as React from 'react';
 
-import { withPortalContainer } from '../lib/portal-container';
+import { asChildRender, openState, stateRender } from '../lib/base-ui-compat';
 import { cn } from '../lib/utils';
-import { floatingZ, useDialogDepth } from '../lib/z-stack';
 import {
-  MENU_INDICATOR,
-  MENU_INDICATOR_ICON,
-  MENU_INSET,
-  MENU_INSET_END,
-  MENU_LABEL,
-  MENU_PANEL,
-  MENU_SEPARATOR,
-  MENU_SHORTCUT,
-  menuRow,
-  type MenuRowSize,
-} from './menu-recipe';
+  makeMenuCheckboxItem,
+  makeMenuItem,
+  makeMenuLabel,
+  makeMenuRadioItem,
+  makeMenuSeparator,
+  makeMenuSubTrigger,
+  MenuContentImpl,
+  MenuGroup,
+  MenuPortalPassthrough,
+  MenuPrimitive,
+  MenuRadioGroup,
+  MenuSub,
+  useMenuRoot,
+  type MenuContentProps,
+  type MenuRootProps,
+} from './menu-base';
+import { MENU_PANEL, MENU_SHORTCUT } from './menu-recipe';
 
 /**
  * A right-click menu is the same menu as a click menu. It shares the row
@@ -54,209 +58,104 @@ const CONTEXT_PANEL = cn(
   'min-w-[8rem] origin-(--radix-context-menu-content-transform-origin)',
 );
 
-const ContextMenu = ContextMenuPrimitive.Root;
+function ContextMenu({
+  onOpenChange,
+  dir: _dir,
+  children,
+  ...props
+}: Omit<MenuRootProps, 'open' | 'defaultOpen'> & { open?: boolean; defaultOpen?: boolean }) {
+  const root = useMenuRoot(onOpenChange);
+  return root.wrap(
+    <ContextMenuPrimitive.Root {...props} onOpenChange={root.onOpenChange}>
+      {children}
+    </ContextMenuPrimitive.Root>,
+  );
+}
 
-const ContextMenuTrigger = ContextMenuPrimitive.Trigger;
-
-const ContextMenuPortal = withPortalContainer(ContextMenuPrimitive.Portal);
-
-const ContextMenuSub = ContextMenuPrimitive.Sub;
-
-const ContextMenuRadioGroup = ContextMenuPrimitive.RadioGroup;
-
-const ContextMenuGroup = ContextMenuPrimitive.Group;
-
-/**
- * Takes the same `size` and `inset` props as `ContextMenuItem`, because a
- * submenu trigger is a row like any other and has to line up with its siblings.
- *
- * The caret is `size-3.5` against the leading icon's `size-4`: it is an
- * affordance, not content, and matching the icon's weight makes it compete with
- * the label. `text-muted-foreground` for the same reason.
- */
-const ContextMenuSubTrigger = React.forwardRef<
-  React.ElementRef<typeof ContextMenuPrimitive.SubTrigger>,
-  React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.SubTrigger> & {
-    inset?: boolean;
-    size?: MenuRowSize;
-  }
->(({ className, inset, size = 'sm', children, ...props }, ref) => (
-  <ContextMenuPrimitive.SubTrigger
-    ref={ref}
-    data-slot="context-menu-sub-trigger"
-    className={cn(menuRow(size, 'default'), inset && MENU_INSET, className)}
-    {...props}
-  >
-    {children}
-    <ChevronRight className="text-muted-foreground ml-auto size-3.5" />
-  </ContextMenuPrimitive.SubTrigger>
-));
-ContextMenuSubTrigger.displayName = ContextMenuPrimitive.SubTrigger.displayName;
-
-const ContextMenuSubContent = React.forwardRef<
-  React.ElementRef<typeof ContextMenuPrimitive.SubContent>,
-  React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.SubContent>
-  // `sideOffset={4}` matches the dropdown. Radix defaults a submenu to 0, which
-  // butts the two panels edge to edge and reads as one wider panel with a seam
-  // down it; 4px of daylight keeps them legible as parent and child. Radix's
-  // safe-polygon pointer tracking covers the gap, so the submenu does not close
-  // while the cursor crosses it.
->(({ className, sideOffset = 4, style, ...props }, ref) => {
-  const depth = useDialogDepth();
-
+/** The right-click area. A `<span>` unless `asChild`, as on Radix. */
+const ContextMenuTrigger = React.forwardRef<
+  HTMLSpanElement,
+  React.ComponentPropsWithoutRef<'span'> & { asChild?: boolean; disabled?: boolean }
+>(({ asChild, children, disabled: _disabled, ...props }, ref) => {
+  const slot = asChildRender(asChild, children);
   return (
-    <ContextMenuPrimitive.SubContent
-      ref={ref}
-      sideOffset={sideOffset}
-      data-slot="context-menu-sub-content"
-      className={cn(CONTEXT_PANEL, 'overflow-hidden', className)}
-      style={{ zIndex: floatingZ(depth), ...style }}
+    <ContextMenuPrimitive.Trigger
+      ref={ref as React.Ref<HTMLDivElement>}
       {...props}
-    />
+      render={stateRender('span', openState, slot.render)}
+    >
+      {slot.children}
+    </ContextMenuPrimitive.Trigger>
   );
 });
-ContextMenuSubContent.displayName = ContextMenuPrimitive.SubContent.displayName;
+ContextMenuTrigger.displayName = 'ContextMenuTrigger';
 
-const ContextMenuContent = React.forwardRef<
-  React.ElementRef<typeof ContextMenuPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Content>
->(({ className, style, ...props }, ref) => {
-  const depth = useDialogDepth();
+const ContextMenuPortal = MenuPortalPassthrough;
 
-  return (
-    <ContextMenuPortal>
-      <ContextMenuPrimitive.Content
+const ContextMenuSub = MenuSub;
+
+const ContextMenuRadioGroup = MenuRadioGroup;
+
+const ContextMenuGroup = MenuGroup;
+
+const ContextMenuSubTrigger = makeMenuSubTrigger('context-menu-sub-trigger');
+ContextMenuSubTrigger.displayName = 'ContextMenuSubTrigger';
+
+// `sideOffset={4}` matches the dropdown: 4px of daylight keeps the two panels
+// legible as parent and child, and the safe-polygon pointer tracking covers
+// the gap, so the submenu does not close while the cursor crosses it.
+const ContextMenuSubContent = React.forwardRef<HTMLDivElement, MenuContentProps>(
+  ({ className, sideOffset = 4, ...props }, ref) => {
+    return (
+      <MenuContentImpl
         ref={ref}
+        Positioner={MenuPrimitive.Positioner}
+        varName="context-menu"
+        {...props}
+        sideOffset={sideOffset}
+        data-slot="context-menu-sub-content"
+        className={cn(CONTEXT_PANEL, 'overflow-hidden', className)}
+      />
+    );
+  },
+);
+ContextMenuSubContent.displayName = 'ContextMenuSubContent';
+
+const ContextMenuContent = React.forwardRef<HTMLDivElement, MenuContentProps>(
+  ({ className, ...props }, ref) => {
+    return (
+      <MenuContentImpl
+        ref={ref}
+        Positioner={ContextMenuPrimitive.Positioner}
+        varName="context-menu"
+        {...props}
         data-slot="context-menu-content"
         className={cn(
           CONTEXT_PANEL,
           'max-h-(--radix-context-menu-content-available-height) overflow-x-hidden overflow-y-auto',
           className,
         )}
-        style={{ zIndex: floatingZ(depth), ...style }}
-        {...props}
       />
-    </ContextMenuPortal>
-  );
-});
-ContextMenuContent.displayName = ContextMenuPrimitive.Content.displayName;
+    );
+  },
+);
+ContextMenuContent.displayName = 'ContextMenuContent';
 
-const ContextMenuItem = React.forwardRef<
-  React.ElementRef<typeof ContextMenuPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Item> & {
-    inset?: boolean;
-    variant?: 'default' | 'destructive';
-    size?: MenuRowSize;
-  }
->(({ className, inset, variant = 'default', size = 'sm', ...props }, ref) => (
-  <ContextMenuPrimitive.Item
-    ref={ref}
-    data-slot="context-menu-item"
-    className={cn(menuRow(size, variant), inset && MENU_INSET, className)}
-    {...props}
-  />
-));
-ContextMenuItem.displayName = ContextMenuPrimitive.Item.displayName;
+const ContextMenuItem = makeMenuItem('context-menu-item');
+ContextMenuItem.displayName = 'ContextMenuItem';
 
-const ContextMenuCheckboxItem = React.forwardRef<
-  React.ElementRef<typeof ContextMenuPrimitive.CheckboxItem>,
-  React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.CheckboxItem> & {
-    reverse?: boolean;
-    size?: MenuRowSize;
-  }
->(({ className, children, checked, reverse, size = 'sm', ...props }, ref) => (
-  <ContextMenuPrimitive.CheckboxItem
-    ref={ref}
-    data-slot="context-menu-checkbox-item"
-    // Same geometry as `DropdownMenuCheckboxItem` — see there.
-    className={cn(menuRow(size, 'default'), reverse ? MENU_INSET_END : MENU_INSET, className)}
-    checked={checked}
-    {...props}
-  >
-    <span className={cn(MENU_INDICATOR, 'absolute', reverse ? 'right-2' : 'left-2')}>
-      <ContextMenuPrimitive.ItemIndicator>
-        <Check className={MENU_INDICATOR_ICON} />
-      </ContextMenuPrimitive.ItemIndicator>
-    </span>
-    {children}
-  </ContextMenuPrimitive.CheckboxItem>
-));
-ContextMenuCheckboxItem.displayName = ContextMenuPrimitive.CheckboxItem.displayName;
+// Same geometry as `DropdownMenuCheckboxItem` — see there.
+const ContextMenuCheckboxItem = makeMenuCheckboxItem('context-menu-checkbox-item');
+ContextMenuCheckboxItem.displayName = 'ContextMenuCheckboxItem';
 
-const ContextMenuRadioItem = React.forwardRef<
-  React.ElementRef<typeof ContextMenuPrimitive.RadioItem>,
-  React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.RadioItem> & {
-    size?: MenuRowSize;
-    side?: 'left' | 'right';
-  }
->(({ className, children, size = 'sm', side = 'right', ...props }, ref) => {
-  /**
-   * A check, not a dot, and the same check `ContextMenuCheckboxItem` uses.
-   *
-   * This was `<CircleIcon className="size-2 fill-current" />`, which could not
-   * work: Phosphor's CircleIcon is a stroked outline, so `fill-current` painted
-   * nothing, and the row recipe's `[&_svg]:size-4` — a descendant selector —
-   * outranked the `size-2` sitting on the icon itself. The mark rendered as a
-   * hollow ring. No consumer renders a RadioItem, so nobody saw it.
-   */
-  const indicator = (
-    <span className={MENU_INDICATOR}>
-      <ContextMenuPrimitive.ItemIndicator>
-        <Check className={MENU_INDICATOR_ICON} />
-      </ContextMenuPrimitive.ItemIndicator>
-    </span>
-  );
+const ContextMenuRadioItem = makeMenuRadioItem('context-menu-radio-item');
+ContextMenuRadioItem.displayName = 'ContextMenuRadioItem';
 
-  return (
-    <ContextMenuPrimitive.RadioItem
-      ref={ref}
-      data-slot="context-menu-radio-item"
-      className={cn(menuRow(size, 'default'), className)}
-      {...props}
-    >
-      {side === 'left' ? (
-        <>
-          {indicator}
-          <span className="flex min-w-0 flex-1 items-center gap-2">{children}</span>
-        </>
-      ) : (
-        <>
-          <span className="flex min-w-0 flex-1 items-center gap-2">{children}</span>
-          {indicator}
-        </>
-      )}
-    </ContextMenuPrimitive.RadioItem>
-  );
-});
-ContextMenuRadioItem.displayName = ContextMenuPrimitive.RadioItem.displayName;
+const ContextMenuLabel = makeMenuLabel('context-menu-label');
+ContextMenuLabel.displayName = 'ContextMenuLabel';
 
-const ContextMenuLabel = React.forwardRef<
-  React.ElementRef<typeof ContextMenuPrimitive.Label>,
-  React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Label> & {
-    inset?: boolean;
-  }
->(({ className, inset, ...props }, ref) => (
-  <ContextMenuPrimitive.Label
-    ref={ref}
-    data-slot="context-menu-label"
-    className={cn(MENU_LABEL, inset && MENU_INSET, className)}
-    {...props}
-  />
-));
-ContextMenuLabel.displayName = ContextMenuPrimitive.Label.displayName;
-
-const ContextMenuSeparator = React.forwardRef<
-  React.ElementRef<typeof ContextMenuPrimitive.Separator>,
-  React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Separator>
->(({ className, ...props }, ref) => (
-  <ContextMenuPrimitive.Separator
-    ref={ref}
-    data-slot="context-menu-separator"
-    className={cn(MENU_SEPARATOR, className)}
-    {...props}
-  />
-));
-ContextMenuSeparator.displayName = ContextMenuPrimitive.Separator.displayName;
+const ContextMenuSeparator = makeMenuSeparator('context-menu-separator');
+ContextMenuSeparator.displayName = 'ContextMenuSeparator';
 
 const ContextMenuShortcut = ({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) => {
   return (

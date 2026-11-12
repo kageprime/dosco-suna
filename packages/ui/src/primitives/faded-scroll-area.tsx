@@ -87,7 +87,8 @@ export const FadedScrollArea = React.forwardRef<
     ro.observe(el);
     el.addEventListener('scroll', updateScrollFades, { passive: true });
     window.addEventListener('resize', updateScrollFades);
-    // Keep wheel/touch scroll working inside Radix scroll-lock layers (Dialog/Modal).
+    // Stop wheel/touch events here, so a scroll lock listening on an ancestor
+    // layer (a dialog or modal) cannot cancel them.
     const stopScrollLockCapture = (e: Event) => e.stopPropagation();
     el.addEventListener('wheel', stopScrollLockCapture, { passive: false });
     el.addEventListener('touchmove', stopScrollLockCapture, { passive: false });

@@ -21,7 +21,7 @@ import { PROJECT_LANDING_PATH } from '@kortix/ui/internal/lib/onboarding/landing
 import { forgetLastProjectId } from '@kortix/ui/internal/lib/onboarding/last-project-cookie';
 import { useAppHome } from '@kortix/ui/internal/lib/onboarding/use-app-home';
 import { focusWithoutScroll } from '@kortix/ui/internal/lib/utils/focus-without-scroll';
-import { getProject, requestProjectAccess, restoreWorkspace } from '@kortix/sdk';
+import { getWorkspace, requestProjectAccess, restoreWorkspace, type WorkspaceState } from '@kortix/sdk';
 import { formatWorkspaceDate } from '@kortix/ui/workspace/project-selector/project-selector-model';
 import { prefetchSessionOpen, qk, useAdminImpersonate } from '@kortix/sdk/react';
 import { prefetchSessionRouteReads } from '@kortix/ui/session/status/session-route-prefetch';
@@ -177,8 +177,8 @@ export function resolveGateState(
   return waiting ?? errorState ?? 'unavailable';
 }
 
-/** What the boundary renders: the pending frame, the project, or a gate screen. */
-export type BoundaryView = 'pending' | 'project' | 'gate';
+/** What the boundary renders: the pending frame, the project, a deleting workspace, or a gate screen. */
+export type BoundaryView = 'pending' | 'project' | 'deleting' | 'gate';
 
 /**
  * Unresolved auth outranks everything, a cached project included: no result
@@ -194,10 +194,14 @@ export function resolveBoundaryView(input: {
   authReady: boolean;
   isPending: boolean;
   hasData: boolean;
+  workspaceState?: WorkspaceState;
   errorState: AccessGateState | null;
 }): BoundaryView {
   if (!input.authReady || input.isPending) return 'pending';
   if (input.hasData && input.errorState !== 'request' && input.errorState !== 'notFound') {
+    // K2: a deleted workspace stays readable to its owners until it is erased
+    // (`state: 'deleting'`). It opens nothing; the owner restores it or leaves.
+    if (input.workspaceState === 'deleting') return 'deleting';
     return 'project';
   }
   return 'gate';
@@ -210,7 +214,7 @@ export function routeSessionIdFromParams(params: Record<string, unknown> | null 
 }
 
 /**
- * The gate's read. It uses the shell's canonical `getProject` slot, so the
+ * The gate's read. It uses the shell's canonical project slot, so the
  * shell, ⌘K and settings read this answer instead of asking again (2 GETs per
  * load before). A user switch empties the cache before the new user is
  * published (`resetClientState`).
@@ -218,7 +222,7 @@ export function routeSessionIdFromParams(params: Record<string, unknown> | null 
 export function projectGateQuery(projectId: string) {
   return {
     queryKey: qk.project.summary(projectId),
-    queryFn: () => getProject(projectId, { showErrors: false }),
+    queryFn: () => getWorkspace(projectId, { showErrors: false }),
     retry: false,
   } as const;
 }
@@ -337,19 +341,17 @@ function ProjectAccessForUser({ projectId, children }: ProjectAccessBoundaryProp
     // still replaces it with the gate.
     isPending: query.isPending,
     hasData: query.data !== undefined,
+    workspaceState: query.data?.state,
     errorState,
   });
   if (view === 'pending') return <ProjectPendingScreen />;
 
-  // K2: a deleted workspace stays readable to its owners until it is erased
-  // (`state: 'deleting'`). It opens nothing; the owner restores it or leaves.
-  const deleting = (query.data as { state?: string; deletion_scheduled_for?: string | null } | undefined) ?? null;
-  if (view === 'project' && deleting?.state === 'deleting') {
+  if (view === 'deleting') {
     return (
       <DeletingWorkspaceScreen
         projectId={projectId}
-        name={(query.data as { name?: string } | undefined)?.name ?? ''}
-        deletionScheduledFor={deleting.deletion_scheduled_for ?? null}
+        name={query.data?.name ?? ''}
+        deletionScheduledFor={query.data?.deletion_scheduled_for ?? null}
         onRestored={() => void refetch()}
       />
     );
@@ -640,9 +642,10 @@ function AccessGateScreen({
                   </Link>
                 )}
                 {/*
-                  403 only. Acting as the account cannot resurrect a deleted
-                  project or clear a 500 — offering it on those screens is a
-                  dead control.
+                  403 only: the API answers a live workspace the caller cannot
+                  read with 403 workspace_access_denied, and a 404 means the
+                  workspace is gone. Acting as the account cannot resurrect a
+                  deleted workspace or clear a 500.
                 */}
                 {showAdminBypass ? (
                   <Button

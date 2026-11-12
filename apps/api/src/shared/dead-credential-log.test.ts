@@ -34,13 +34,25 @@ mock.module('../lib/logger', () => ({
 
 const {
   DEAD_CREDENTIAL_BURST_SUPPRESSED,
-  deadCredentialLogDecision,
   deadCredentialLogKey,
+  isCredentialFenceDenial,
   isDeadCredential,
+  isAgentGrantDenial,
+  markCredentialFenceDenial,
   markDeadCredential,
-  resetDeadCredentialLogForTests,
+  markAgentGrantDenial,
+  PREVIEW_SANDBOX_DENIED_MESSAGE,
 } = await import('./dead-credential-log');
+const { logWindowDecision, logWindowWarnDecision, resetLogWindowsForTests } = await import('./log-window');
 const { installHttpErrors } = await import('../http-errors');
+const { buildDenialError } = await import('../iam/denial-message');
+const { enforceTokenProjectScope } = await import('../middleware/auth-scope');
+
+// What authorizeV2 / assertAgentGrantAllows throw for an agent session whose
+// kortix_permissions lack the action: buildDenialError's typed 403, marked.
+function agentScopeDenialLike(action = 'workspace.gateway.spend.read'): HTTPException {
+  return buildDenialError(action, 'agent_scope_insufficient');
+}
 
 // What resolvePat throws for a dead credential: the typed deadCredential401
 // body, marked. middleware/auth.test.ts pins that deadCredential401 itself
@@ -57,62 +69,17 @@ function deadCredential401Like(message = 'PAT not found or revoked'): HTTPExcept
   return err;
 }
 
-describe('dead-credential log decision', () => {
-  test('the first refusal of a message logs, repeats inside the window are suppressed with the count kept', () => {
-    resetDeadCredentialLogForTests();
-    let now = 1_000_000;
-    expect(deadCredentialLogDecision('POST /p -> 401 [HTTPException] PAT not found or revoked', now)).toEqual({
-      log: true,
-      suppressed: 0,
-    });
-    for (let i = 1; i <= 4; i += 1) {
-      now += 5_000;
-      expect(deadCredentialLogDecision('POST /p -> 401 [HTTPException] PAT not found or revoked', now)).toEqual({
-        log: false,
-        suppressed: 0,
-      });
-    }
+// What denyProjectAccess throws when an account's "Require MFA" policy
+// denies an aal1 browser session: buildDenialError's typed 403, marked.
+function appWithMfaDenial(): OpenAPIHono {
+  const app = new OpenAPIHono();
+  installHttpErrors(app);
+  app.get('/v1/projects/:workspaceId/sessions', () => {
+    throw buildDenialError('project.session.read', 'account_mfa_required');
   });
+  return app;
+}
 
-  test('the next logged line after the window carries the volume suppressed since the previous one', () => {
-    resetDeadCredentialLogForTests();
-    let now = 2_000_000;
-    const key = 'POST /p -> 401 [HTTPException] PAT not found or revoked';
-    expect(deadCredentialLogDecision(key, now).log).toBe(true);
-    for (let i = 0; i < 3; i += 1) {
-      now += 1_000;
-      deadCredentialLogDecision(key, now);
-    }
-    now += 601_000;
-    const next = deadCredentialLogDecision(key, now);
-    expect(next.log).toBe(true);
-    expect(next.suppressed).toBe(3);
-    // The count resets with the window: a refusal long after the burst does
-    // not inherit the stale volume.
-    now += 601_000;
-    const later = deadCredentialLogDecision(key, now);
-    expect(later.log).toBe(true);
-    expect(later.suppressed).toBe(0);
-  });
-
-  test('a different message logs independently of another one inside its window', () => {
-    resetDeadCredentialLogForTests();
-    const now = 3_000_000;
-    expect(deadCredentialLogDecision('POST /p/turn-stream -> 401 [HTTPException] PAT not found or revoked', now).log).toBe(true);
-    expect(deadCredentialLogDecision('POST /p/audit/events -> 401 [HTTPException] PAT not found or revoked', now).log).toBe(true);
-    expect(deadCredentialLogDecision('POST /p/turn-stream -> 401 [HTTPException] PAT not found or revoked', now + 1_000).log).toBe(false);
-  });
-
-  test('the tracked-window map is bounded: the oldest key is evicted past the cap', () => {
-    resetDeadCredentialLogForTests();
-    const now = 4_000_000;
-    // Past the cap, the first key must have been evicted, so it logs again
-    // immediately instead of being suppressed forever.
-    expect(deadCredentialLogDecision('key-a', now).log).toBe(true);
-    for (let i = 0; i < 20_000; i += 1) deadCredentialLogDecision(`key-${i}`, now);
-    expect(deadCredentialLogDecision('key-a', now + 1_000).log).toBe(true);
-  });
-});
 
 describe('dead-credential exceptions are marked and throttled at the error handler', () => {
   // The route throws what resolvePat throws for a dead credential. Five
@@ -173,15 +140,15 @@ describe('dead-credential exceptions are marked and throttled at the error handl
   });
 
   test('a window whose suppressed count left the churn band ships the next line at warn (KRTX-4454)', async () => {
-    resetDeadCredentialLogForTests();
+    resetLogWindowsForTests();
     const path = '/v1/projects/p/turn-stream';
     const key = deadCredentialLogKey('POST', path, 401, 'PAT not found or revoked');
     // A burst in a window that already expired: one decision opens it, the
     // rest are suppressed and left pending.
     const past = Date.now() - 601_000;
-    expect(deadCredentialLogDecision(key, past).log).toBe(true);
+    expect(logWindowDecision(key, past).log).toBe(true);
     for (let i = 0; i < DEAD_CREDENTIAL_BURST_SUPPRESSED; i += 1) {
-      expect(deadCredentialLogDecision(key, past + 1_000).log).toBe(false);
+      expect(logWindowDecision(key, past + 1_000).log).toBe(false);
     }
     // The handler opens the next window and must ship the pending volume at
     // warn — a caller ignoring the typed stop code is not the designed churn.
@@ -196,7 +163,7 @@ describe('dead-credential exceptions are marked and throttled at the error handl
   });
 
   test('fifteen project paths share one refusal window', async () => {
-    resetDeadCredentialLogForTests();
+    resetLogWindowsForTests();
     const app = appWithDeadCredentialThrow();
     const before = logged.length;
     for (let i = 0; i < 15; i += 1) {
@@ -213,7 +180,7 @@ describe('dead-credential exceptions are marked and throttled at the error handl
     // The named refusal carries the dead row's id in the message. The throttle
     // key must normalize it out — otherwise every revoked token shards its own
     // bucket and the KRTX-1039 burst protection stops bounding the warn lines.
-    resetDeadCredentialLogForTests();
+    resetLogWindowsForTests();
     const app = new OpenAPIHono();
     installHttpErrors(app);
     app.post('/v1/projects/:projectId/turn-stream', () => {
@@ -244,7 +211,7 @@ describe('invalid or expired token warn is throttled at the error handler (KRTX-
   }
 
   test('the first refusal logs one info line; repeats inside the window are suppressed and the body is untouched', async () => {
-    resetDeadCredentialLogForTests();
+    resetLogWindowsForTests();
     const app = appWithExpiredTokenThrow();
     const before = logged.length;
     let lastBody = '';
@@ -267,7 +234,7 @@ describe('invalid or expired token warn is throttled at the error handler (KRTX-
   });
 
   test('a 401 with a different reason still logs one warn per refusal', async () => {
-    resetDeadCredentialLogForTests();
+    resetLogWindowsForTests();
     const app = new OpenAPIHono();
     installHttpErrors(app);
     app.get('/v1/auth/user', () => {
@@ -293,4 +260,371 @@ test('marking is what routes the line through the throttle', () => {
   markDeadCredential(marked);
   expect(isDeadCredential(marked)).toBe(true);
   expect(isDeadCredential(plain)).toBe(false);
+});
+
+describe('agent-grant denial warns are throttled at the error handler (KRTX-4635)', () => {
+  // The route throws what authorizeV2 / assertAgentGrantAllows throw when the
+  // requesting agent session's kortix_permissions lack the action. A caller
+  // that never reads the typed body — an in-sandbox agent looping a denied
+  // command — turns every refusal into a warn line: one prod lane put 590
+  // lines in two hours on one route (KRTX-4635). The mark routes the LINE
+  // through the same per-route window throttle without touching the typed
+  // 403 response, exactly as KRTX-1039 did for dead credentials.
+  function appWithAgentGrantDenial(): OpenAPIHono {
+    const app = new OpenAPIHono();
+    installHttpErrors(app);
+    app.get('/v1/workspaces/:workspaceId/gateway/sources', () => {
+      throw agentScopeDenialLike();
+    });
+    app.get('/v1/workspaces/:workspaceId/audit', () => {
+      // A 403 outside the agent-grant family: its constraint is not a stable
+      // principal property, so its line stays per-request.
+      throw buildDenialError('workspace.audit.read', 'sso_required');
+    });
+    return app;
+  }
+
+  test('five identical denials log one info line; the typed 403 body ships every time', async () => {
+    resetLogWindowsForTests();
+    const app = appWithAgentGrantDenial();
+    const before = logged.length;
+    let lastBody = '';
+    for (let i = 0; i < 5; i += 1) {
+      const res = await app.request('/v1/workspaces/w/gateway/sources');
+      expect(res.status).toBe(403);
+      lastBody = await res.text();
+    }
+    expect(JSON.parse(lastBody)).toMatchObject({ error: true, status: 403, code: 'agent_scope_insufficient' });
+    expect(logged.slice(before).filter((l) => l.level === 'warn')).toHaveLength(0);
+    const infos = logged.slice(before).filter((l) => l.level === 'info');
+    expect(infos).toHaveLength(1);
+    const first = infos[0];
+    if (!first) throw new Error('expected the first denial line');
+    expect(first.message).toContain('-> 403 [HTTPException] This agent session is not granted');
+    expect(first.context?.suppressed).toBe(0);
+  });
+
+  test('a window whose suppressed count left the churn band ships the next line at warn', async () => {
+    resetLogWindowsForTests();
+    const path = '/v1/workspaces/w/gateway/sources';
+    const reason = agentScopeDenialLike().message ?? '';
+    const key = deadCredentialLogKey('GET', path, 403, reason);
+    // A burst in a window that already expired: one decision opens it, the
+    // rest are suppressed and left pending.
+    const past = Date.now() - 601_000;
+    expect(logWindowDecision(key, past).log).toBe(true);
+    for (let i = 0; i < DEAD_CREDENTIAL_BURST_SUPPRESSED; i += 1) {
+      expect(logWindowDecision(key, past + 1_000).log).toBe(false);
+    }
+    // The handler opens the next window and must ship the pending volume at
+    // warn — an agent loop grinding on a denial it never acts on is not the
+    // designed churn (KRTX-4454's severity follows the volume).
+    const app = appWithAgentGrantDenial();
+    const before = logged.length;
+    const res = await app.request(path);
+    expect(res.status).toBe(403);
+    expect(logged.slice(before).filter((l) => l.level === 'info')).toHaveLength(0);
+    const warns = logged.slice(before).filter((l) => l.level === 'warn');
+    expect(warns).toHaveLength(1);
+    expect(warns[0]?.context?.suppressed).toBe(DEAD_CREDENTIAL_BURST_SUPPRESSED);
+  });
+
+  test('a denial outside the agent-grant family keeps its per-request line', async () => {
+    resetLogWindowsForTests();
+    const app = appWithAgentGrantDenial();
+    const before = logged.length;
+    for (let i = 0; i < 3; i += 1) await app.request('/v1/workspaces/w/audit');
+    expect(logged.slice(before).filter((l) => l.level === 'warn')).toHaveLength(3);
+  });
+
+  test('marking an agent-grant denial routes it and leaves a plain 403 unthrottled', () => {
+    const plain = new HTTPException(403, { message: 'no access' });
+    const marked = agentScopeDenialLike();
+    markAgentGrantDenial(marked);
+    expect(isAgentGrantDenial(marked)).toBe(true);
+    expect(isAgentGrantDenial(plain)).toBe(false);
+  });
+});
+
+describe('account-MFA step-up denials are throttled at the error handler (KRTX-4674)', () => {
+  // The route throws what denyProjectAccess throws when an account's
+  // "Require MFA" policy denies an aal1 browser session: buildDenialError's
+  // typed 403. A caller that polls through it — the web app's workspace
+  // panels refetch the sessions/triggers lists every few seconds — receives
+  // the same refusal until its person completes the step-up, and per-request
+  // logging turned that loop into a warn storm (KRTX-4674: 700+ lines in one
+  // hour across three list routes, 0 in the 24 h before). The mark routes
+  // the LINE through the shared window throttle; the typed 403 response,
+  // which the web app's step-up dialog keys on, ships untouched every time.
+
+  test('five identical denials log one info line; the typed 403 body ships every time', async () => {
+    resetLogWindowsForTests();
+    const app = appWithMfaDenial();
+    const before = logged.length;
+    let lastBody = '';
+    for (let i = 0; i < 5; i += 1) {
+      const res = await app.request('/v1/projects/p/sessions');
+      expect(res.status).toBe(403);
+      lastBody = await res.text();
+    }
+    expect(JSON.parse(lastBody)).toMatchObject({
+      error: 'This workspace requires multi-factor authentication. Verify your second factor and retry.',
+      code: 'account_mfa_required',
+    });
+    expect(logged.slice(before).filter((l) => l.level === 'warn')).toHaveLength(0);
+    const infos = logged.slice(before).filter((l) => l.level === 'info');
+    expect(infos).toHaveLength(1);
+    const first = infos[0];
+    if (!first) throw new Error('expected the first denial line');
+    expect(first.message).toContain('-> 403 [HTTPException] This workspace requires multi-factor authentication');
+    expect(first.context?.suppressed).toBe(0);
+  });
+
+  test('a window whose suppressed count left the churn band ships the next line at warn', async () => {
+    resetLogWindowsForTests();
+    const path = '/v1/projects/p/sessions';
+    const reason = buildDenialError('project.session.read', 'account_mfa_required').message ?? '';
+    const key = deadCredentialLogKey('GET', path, 403, reason);
+    // A burst in a window that already expired: one decision opens it, the
+    // rest are suppressed and left pending.
+    const past = Date.now() - 601_000;
+    expect(logWindowDecision(key, past).log).toBe(true);
+    for (let i = 0; i < DEAD_CREDENTIAL_BURST_SUPPRESSED; i += 1) {
+      expect(logWindowDecision(key, past + 1_000).log).toBe(false);
+    }
+    // The handler opens the next window and must ship the pending volume at
+    // warn — a fleet of locked-out sessions grinding their polls is not the
+    // designed churn (KRTX-4454's severity follows the volume).
+    const app = appWithMfaDenial();
+    const before = logged.length;
+    const res = await app.request(path);
+    expect(res.status).toBe(403);
+    expect(logged.slice(before).filter((l) => l.level === 'info')).toHaveLength(0);
+    const warns = logged.slice(before).filter((l) => l.level === 'warn');
+    expect(warns).toHaveLength(1);
+    expect(warns[0]?.context?.suppressed).toBe(DEAD_CREDENTIAL_BURST_SUPPRESSED);
+  });
+
+  test('fifteen workspace paths share one refusal window', async () => {
+    resetLogWindowsForTests();
+    const app = new OpenAPIHono();
+    installHttpErrors(app);
+    app.get('/v1/projects/:workspaceId/sessions', (c) => {
+      throw buildDenialError('project.session.read', 'account_mfa_required');
+    });
+    const before = logged.length;
+    for (let i = 0; i < 15; i += 1) {
+      const workspaceId = `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`;
+      const res = await app.request(`/v1/projects/${workspaceId}/sessions`);
+      expect(res.status).toBe(403);
+    }
+    expect(logged.slice(before).filter((entry) => entry.level === 'info')).toHaveLength(1);
+    expect(logged.slice(before).filter((entry) => entry.level === 'warn')).toHaveLength(0);
+  });
+});
+
+describe('the escalation is capped at one warn per key per hour (KRTX-4674 residual)', () => {
+  // The severity escalation is evaluated per ten-minute window and is
+  // replica-local, so a caller grinding past the burst band through a whole
+  // hour made EVERY window's line ship at warn: 16/15/15 lines per route
+  // across three replicas in the 2026-11-11 09:00 UTC hour — above the
+  // infra-sweep's new-warn-pattern bar (10/h per normalized pattern), which
+  // re-filed this issue. The engine now caps the escalation: the hour's
+  // first escalated line stays warn (the grind signal), the hour's other
+  // windows drop to info carrying the suppressed count.
+
+  test("the handler's second escalated window of the hour ships at info, suppressed carried", async () => {
+    resetLogWindowsForTests();
+    const path = '/v1/projects/p/sessions';
+    const reason = buildDenialError('project.session.read', 'account_mfa_required').message ?? '';
+    const key = deadCredentialLogKey('GET', path, 403, reason);
+    // The hour's warn is already spent: one escalated line shipped this hour.
+    expect(logWindowWarnDecision(key, Date.now())).toBe(true);
+    // An expired window holds the burst band pending (the trick the tests
+    // above use): the handler must open the next window and ship its pending
+    // volume — at info now, the hourly warn budget spent.
+    const past = Date.now() - 601_000;
+    logWindowDecision(key, past);
+    for (let i = 0; i < DEAD_CREDENTIAL_BURST_SUPPRESSED; i += 1) logWindowDecision(key, past + 1_000);
+    const app = appWithMfaDenial();
+    const before = logged.length;
+    const res = await app.request(path);
+    expect(res.status).toBe(403);
+    expect(logged.slice(before).filter((l) => l.level === 'warn')).toHaveLength(0);
+    const infos = logged.slice(before).filter((l) => l.level === 'info');
+    expect(infos).toHaveLength(1);
+    expect(infos[0]?.context?.suppressed).toBe(DEAD_CREDENTIAL_BURST_SUPPRESSED);
+  });
+});
+
+describe('credential-fence refusals are throttled at the error handler (KRTX-4731)', () => {
+  // The route throws what enforceTokenProjectScope throws for a
+  // workspace-bound credential on a person route (here /v1/notifications; the
+  // prod loop was POST /v1/mcp, rebound to the credential's own workspace on
+  // 2026-11-11). The typed
+  // 403 body already names the remedy (code credential_fence_refused, the
+  // check, "use a personal key or sign in"), so a caller that cannot or will
+  // not act on it — an OAuth workspace token looping the MCP endpoint —
+  // receives the SAME refusal forever, and per-request logging turned that
+  // loop into a warn storm (prod 2026-11-11: 31 warn lines in one hour on
+  // POST /v1/mcp, 0 in the 24 h before). The mark routes the LINE through the
+  // shared window throttle without touching the response, exactly as
+  // markAgentGrantDenial does (KRTX-4635).
+  function appWithFenceThrow(): OpenAPIHono {
+    const app = new OpenAPIHono();
+    installHttpErrors(app);
+    app.post('/v1/notifications', async (c) => {
+      await enforceTokenProjectScope(c, '00000000-0000-4000-8000-000000000001', {
+        principal: 'oauth-workspace-token',
+      });
+      return c.json({ ok: true });
+    });
+    return app;
+  }
+
+  test('five identical fence refusals log one info line; the typed 403 body ships every time', async () => {
+    resetLogWindowsForTests();
+    const app = appWithFenceThrow();
+    const before = logged.length;
+    let lastBody = '';
+    for (let i = 0; i < 5; i += 1) {
+      const res = await app.request('/v1/notifications', { method: 'POST' });
+      expect(res.status).toBe(403);
+      lastBody = await res.text();
+    }
+    expect(JSON.parse(lastBody)).toMatchObject({
+      error: true,
+      status: 403,
+      code: 'credential_fence_refused',
+      check: 'person-route',
+    });
+    expect(logged.slice(before).filter((l) => l.level === 'warn')).toHaveLength(0);
+    const infos = logged.slice(before).filter((l) => l.level === 'info');
+    expect(infos).toHaveLength(1);
+    const first = infos[0];
+    if (!first) throw new Error('expected the first refusal line');
+    expect(first.message).toContain('-> 403 [HTTPException] This workspace key cannot call a person');
+    expect(first.context?.suppressed).toBe(0);
+  });
+
+  test('a window whose suppressed count left the churn band ships the next line at warn', async () => {
+    const app = appWithFenceThrow();
+    // The reason the handler keys on: the thrown message, bounded at 200.
+    const probe = await app.request('/v1/notifications', { method: 'POST' });
+    expect(probe.status).toBe(403);
+    const reason = ((await probe.json()) as { message: string }).message.slice(0, 200);
+    const key = deadCredentialLogKey('POST', '/v1/notifications', 403, reason);
+    // Drop the probe's window, then stage the burst.
+    resetLogWindowsForTests();
+    // A burst in a window that already expired: one decision opens it, the
+    // rest are suppressed and left pending.
+    const past = Date.now() - 601_000;
+    expect(logWindowDecision(key, past).log).toBe(true);
+    for (let i = 0; i < DEAD_CREDENTIAL_BURST_SUPPRESSED; i += 1) {
+      expect(logWindowDecision(key, past + 1_000).log).toBe(false);
+    }
+    // The handler opens the next window and must ship the pending volume at
+    // warn — a caller grinding on a refusal it never acts on is not the
+    // designed churn (KRTX-4454's severity follows the volume).
+    const before = logged.length;
+    const res = await app.request('/v1/notifications', { method: 'POST' });
+    expect(res.status).toBe(403);
+    expect(logged.slice(before).filter((l) => l.level === 'info')).toHaveLength(0);
+    const warns = logged.slice(before).filter((l) => l.level === 'warn');
+    expect(warns).toHaveLength(1);
+    expect(warns[0]?.context?.suppressed).toBe(DEAD_CREDENTIAL_BURST_SUPPRESSED);
+  });
+
+  test('marking a fence refusal routes it and leaves a plain 403 unthrottled', () => {
+    const plain = new HTTPException(403, { message: 'no access' });
+    const marked = new HTTPException(403, { message: 'This workspace key cannot call platform routes' });
+    markCredentialFenceDenial(marked);
+    expect(isCredentialFenceDenial(marked)).toBe(true);
+    expect(isCredentialFenceDenial(plain)).toBe(false);
+  });
+});
+
+describe('preview sandbox denial warn is throttled at the error handler (KRTX-4768)', () => {
+  // What combinedAuth throws when a valid caller is refused a sandbox proxy
+  // route: the sandbox row is gone (the session stop deleted it) or the
+  // caller lost access. The web client's workflow poll keeps hitting the
+  // dead box's route every 5 s while its tab stays open, and per-request
+  // logging turned that poll into a warn storm (89 lines in one hour
+  // against a 1.58/h baseline, one tab on one dead box).
+  function appWithPreviewSandboxDenial(): OpenAPIHono {
+    const app = new OpenAPIHono();
+    installHttpErrors(app);
+    app.get('/v1/p/:sandboxId/:port/kortix/runtime/workflows', () => {
+      throw new HTTPException(403, { message: PREVIEW_SANDBOX_DENIED_MESSAGE });
+    });
+    return app;
+  }
+
+  test('the first refusal logs one info line; repeats inside the window are suppressed and the body is untouched', async () => {
+    resetLogWindowsForTests();
+    const app = appWithPreviewSandboxDenial();
+    const before = logged.length;
+    let lastBody = '';
+    for (let i = 0; i < 5; i += 1) {
+      const res = await app.request('/v1/p/sbx_01M768H27CG7KMXCPE764BX4KC/8000/kortix/runtime/workflows');
+      expect(res.status).toBe(403);
+      lastBody = await res.text();
+    }
+    expect(JSON.parse(lastBody)).toEqual({
+      error: true,
+      message: PREVIEW_SANDBOX_DENIED_MESSAGE,
+      status: 403,
+    });
+    const warns = logged.slice(before).filter((l) => l.level === 'warn');
+    expect(warns).toHaveLength(0);
+    const infos = logged.slice(before).filter((l) => l.level === 'info');
+    expect(infos).toHaveLength(1);
+    expect(infos[0]?.message).toContain(`-> 403 [HTTPException] ${PREVIEW_SANDBOX_DENIED_MESSAGE}`);
+    expect(infos[0]?.context?.suppressed).toBe(0);
+  });
+
+  test('distinct sandbox paths and the route-level suffixed variant share one window', async () => {
+    // The bucket key must normalize the sandbox id out of the path, or every
+    // polled box opens its own bucket and the throttle stops bounding the
+    // warn lines across a fleet (the UUID treatment of KRTX-1564).
+    resetLogWindowsForTests();
+    const app = new OpenAPIHono();
+    installHttpErrors(app);
+    app.get('/v1/p/:sandboxId/:port/kortix/runtime/workflows', (c) => {
+      throw new HTTPException(403, { message: PREVIEW_SANDBOX_DENIED_MESSAGE });
+    });
+    app.get('/v1/p/:sandboxId/:port/kortix/session/state', (c) => {
+      // What assertPreviewSandboxAccess throws at the proxy route.
+      throw new HTTPException(403, {
+        message: `${PREVIEW_SANDBOX_DENIED_MESSAGE}, userId: ${crypto.randomUUID()}, sandboxId: ${c.req.param('sandboxId')}`,
+      });
+    });
+    const before = logged.length;
+    for (const id of ['sbx_01M768H27CG7KMXCPE764BX4KC', 'sbx_01M764P1WMZFH1ANREWF3ZGT90']) {
+      const res = await app.request(`/v1/p/${id}/8000/kortix/runtime/workflows`);
+      expect(res.status).toBe(403);
+    }
+    const res = await app.request('/v1/p/sbx_01M75P8WFTDNS1RP08M2RHV6Z4/8000/kortix/session/state');
+    expect(res.status).toBe(403);
+    expect(logged.slice(before).filter((l) => l.level === 'warn')).toHaveLength(0);
+    // Two sandbox paths on one route share one window; the suffixed variant
+    // lives on its own route and gets its own window — one line per route.
+    expect(logged.slice(before).filter((l) => l.level === 'info')).toHaveLength(2);
+  });
+
+  test('a 403 with a different reason still logs one warn per refusal', async () => {
+    resetLogWindowsForTests();
+    const app = new OpenAPIHono();
+    installHttpErrors(app);
+    app.get('/v1/p/:sandboxId/:port/kortix/runtime/workflows', () => {
+      throw new HTTPException(403, { message: 'This sandbox is suspended' });
+    });
+    const before = logged.length;
+    for (let i = 0; i < 3; i += 1) {
+      const res = await app.request('/v1/p/sbx_01M768H27CG7KMXCPE764BX4KC/8000/kortix/runtime/workflows');
+      expect(res.status).toBe(403);
+    }
+    const warns = logged.slice(before).filter((l) => l.level === 'warn');
+    expect(warns).toHaveLength(3);
+  });
 });

@@ -48,9 +48,6 @@ export interface AgentSpec {
   model: string | null;
   /** Default sandbox template slug for sessions started with this agent. */
   sandbox?: string | null;
-  /** Project file delivery mode for sessions started with this agent. */
-  repositoryAccess?: boolean;
-  legacyReadWorkspace?: boolean;
 }
 
 export interface AgentParseError {

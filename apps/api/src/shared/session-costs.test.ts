@@ -1,4 +1,13 @@
 import { describe, expect, test } from 'bun:test';
+import type {
+  SessionCostComputeLedgerEntry as SdkSessionCostComputeLedgerEntry,
+  SessionCostDetail as SdkSessionCostDetail,
+  SessionCostLlmLedgerEntry as SdkSessionCostLlmLedgerEntry,
+  SessionCostLedgerEntry as SdkSessionCostLedgerEntry,
+  SessionCostModelUsage as SdkSessionCostModelUsage,
+  SessionCostReconciliation as SdkSessionCostReconciliation,
+  SessionCostSummary as SdkSessionCostSummary,
+} from '@kortix/sdk';
 import {
   InvalidSessionCostQueryError,
   assembleSessionCostSummary,
@@ -8,6 +17,36 @@ import {
   sessionCostSortKey,
   sortLedgerEntriesNewestFirst,
 } from './session-costs';
+import type {
+  SessionCostComputeLedgerEntry,
+  SessionCostDetail,
+  SessionCostLlmLedgerEntry,
+  SessionCostLedgerEntry,
+  SessionCostModelUsage,
+  SessionCostReconciliation,
+  SessionCostSummary,
+} from './session-costs';
+
+// Characterization: pins the cross-package wire-record parity. The session-cost
+// wire records this module serves and the ones @kortix/sdk declares must stay
+// the same type — a drift on either side changes the served payload, so the
+// parity must fail here instead of passing silently.
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+
+describe('session-cost wire records', () => {
+  test('the api wire records are the @kortix/sdk wire records', () => {
+    const summary: Same<SessionCostSummary, SdkSessionCostSummary> = true;
+    const modelUsage: Same<SessionCostModelUsage, SdkSessionCostModelUsage> = true;
+    const llmEntry: Same<SessionCostLlmLedgerEntry, SdkSessionCostLlmLedgerEntry> = true;
+    const computeEntry: Same<SessionCostComputeLedgerEntry, SdkSessionCostComputeLedgerEntry> = true;
+    const ledgerEntry: Same<SessionCostLedgerEntry, SdkSessionCostLedgerEntry> = true;
+    const detail: Same<SessionCostDetail, SdkSessionCostDetail> = true;
+    const reconciliation: Same<SessionCostReconciliation, SdkSessionCostReconciliation> = true;
+    expect([summary, modelUsage, llmEntry, computeEntry, ledgerEntry, detail, reconciliation]).toEqual([
+      true, true, true, true, true, true, true,
+    ]);
+  });
+});
 
 const baseSession = {
   sessionId: 'session-zero',

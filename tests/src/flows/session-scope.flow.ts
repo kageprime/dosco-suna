@@ -16,6 +16,7 @@ import { flow } from '../core/flow';
 import { waitFor } from '../core/poll';
 import type { FlowContext } from '../core/types';
 import { createDatabaseSession } from '../fixtures/database-project';
+import { lockProjectFirst } from '../fixtures/token-binding-lock';
 
 const UNKNOWN_SESSION_ID = '00000000-0000-4000-a000-000000000000';
 
@@ -98,9 +99,9 @@ async function seedBoundSession(
     [sessionId, accountId, project.id],
   );
   await db.query(
-    `UPDATE kortix.account_tokens
+    lockProjectFirst(`UPDATE kortix.account_tokens
         SET account_id = $2, user_id = $3, project_id = $4, session_id = $5
-      WHERE token_id = $1`,
+      WHERE token_id = $1`),
     [credential.token_id, accountId, ownerUserId, project.id, sessionId],
   );
   return { sessionId, tokenId: credential.token_id, token: credential.secret_key };
@@ -446,9 +447,9 @@ flow(
             { agent_name: 'mykortix', runtime_context: { 'kortix.subagent.depth': 1, 'kortix.agent.instructions': 'You are a product designer and prototyper.' } },
             { params },
           );
-        // Local: every create check passed and the loopback callback check answers.
+        // Local: every create check passed; the local profile serves no model, so the model check answers (SESS-64).
         if (ctx.env.target === 'local') {
-          r.status(503).body().has('$.code', 'KORTIX_URL_UNREACHABLE');
+          r.status(409).body().has('$.code', 'no_model_available');
         } else {
           r.status(201).body().has('$.agent_name', 'mykortix');
           ctx.track('session', r.json<{ session_id: string }>().session_id, { projectId: project.id });
@@ -457,9 +458,9 @@ flow(
 
       await ctx.step('a non-meta session asking for My Kortix by its old slug `meta` passes the recursion check and gets `mykortix`', async () => {
         const r = await ctx.client.withBearer(worker!.token, 'SESSION_TOKEN').post('/v1/workspaces/:projectId/sessions', { agent_name: 'meta' }, { params });
-        // Local: every create check passed and the loopback callback check answers.
+        // Local: every create check passed; the local profile serves no model, so the model check answers (SESS-64).
         if (ctx.env.target === 'local') {
-          r.status(503).body().has('$.code', 'KORTIX_URL_UNREACHABLE');
+          r.status(409).body().has('$.code', 'no_model_available');
         } else {
           r.status(201).body().has('$.agent_name', 'mykortix');
           ctx.track('session', r.json<{ session_id: string }>().session_id, { projectId: project.id });
@@ -648,7 +649,7 @@ flow(
         (await session.post('/v1/workspaces/:projectId/gateway/keys', { name: 'from-session' }, { params: { projectId: project.id } }))
           .status(403)
           .body()
-          .has('$.error', 'Agent-session tokens cannot manage gateway keys');
+          .has('$.code', 'agent_human_only_action');
         const made = await owner.post('/v1/workspaces/:projectId/gateway/keys', { name: 'scope-5' }, { params: { projectId: project.id } });
         made.status(200).body().exists('$.secret_key');
         const keyId = made.json<{ key_id: string }>().key_id;
@@ -1180,6 +1181,136 @@ flow(
       });
     } finally {
       await dropBoundSession(db, seeded);
+      await db.end();
+    }
+  },
+);
+
+flow(
+  'SCOPE-12',
+  {
+    domain: 'sessions',
+    requires: ['database'],
+    routes: [
+      'POST /v1/workspaces/:projectId/secrets',
+      'POST /v1/workspaces/:projectId/sessions',
+      'GET /v1/workspaces/:projectId/asks',
+      'POST /v1/workspaces/:projectId/asks/:askId/answer',
+    ],
+  },
+  async (ctx) => {
+    const db = await openDb(ctx);
+    const project = await ctx.fixtures.project({ seed: true });
+    const owner = ctx.client.as(ctx.P.OWNER);
+    const params = { projectId: project.id };
+    const instructions = { 'kortix.subagent.depth': 1, 'kortix.agent.instructions': 'You check invoices.' };
+    let meta: Awaited<ReturnType<typeof seedBoundSession>> | null = null;
+    let askId = '';
+    const sessionCount = async () =>
+      (await db.query<{ n: number }>('SELECT count(*)::int AS n FROM kortix.project_sessions WHERE project_id = $1::uuid', [project.id])).rows[0]?.n ?? 0;
+    const asMeta = () => ctx.client.withBearer(meta!.token, 'SESSION_TOKEN');
+    try {
+      await ctx.step('a My Kortix session holds a session-bound credential, and the project has the secret SCOPE12_INVOICE_KEY', async () => {
+        meta = await seedBoundSession(ctx, db, project, 'SCOPE-12 meta');
+        await db.query(`UPDATE kortix.project_sessions SET agent_name = 'mykortix' WHERE session_id = $1`, [meta.sessionId]);
+        (await owner.post('/v1/workspaces/:projectId/secrets', { name: 'SCOPE12_INVOICE_KEY', value: 'scope-12-synthetic' }, { params })).status(200);
+      });
+
+      await ctx.step('My Kortix starting a session that names no agent → 400 AGENT_REQUIRED with the agents to name, no session row', async () => {
+        const before = await sessionCount();
+        (await asMeta().post('/v1/workspaces/:projectId/sessions', { initial_prompt: 'do it' }, { params }))
+          .status(400)
+          .body()
+          .has('$.code', 'AGENT_REQUIRED')
+          .has('$.agents[0]', 'worker');
+        if ((await sessionCount()) !== before) throw new Error('a refused unnamed child wrote a session row');
+      });
+
+      await ctx.step('an access list on a named project agent → 400 COLLEAGUE_ACCESS_NOT_ALLOWED; a wrong shape → 400', async () => {
+        (await asMeta().post('/v1/workspaces/:projectId/sessions', { agent_name: 'worker', colleague_access: { secrets: ['SCOPE12_INVOICE_KEY'] } }, { params }))
+          .status(400)
+          .body()
+          .has('$.code', 'COLLEAGUE_ACCESS_NOT_ALLOWED');
+        (await asMeta().post('/v1/workspaces/:projectId/sessions', { agent_name: 'mykortix', runtime_context: instructions, colleague_access: { tools: ['bash'] } }, { params })).status(400);
+      });
+
+      await ctx.step('a colleague naming a secret the project lacks → 404 COLLEAGUE_ACCESS_UNKNOWN_SECRET with the names that exist', async () => {
+        (await asMeta().post('/v1/workspaces/:projectId/sessions', { agent_name: 'mykortix', runtime_context: instructions, colleague_access: { secrets: ['NO_SUCH_KEY'] } }, { params }))
+          .status(404)
+          .body()
+          .has('$.code', 'COLLEAGUE_ACCESS_UNKNOWN_SECRET')
+          .has('$.secrets[0]', 'SCOPE12_INVOICE_KEY');
+      });
+
+      await ctx.step('a colleague with a valid list waits for the person: no session row, an ask records the list', async () => {
+        const before = await sessionCount();
+        const r = await asMeta().post(
+          '/v1/workspaces/:projectId/sessions',
+          { agent_name: 'mykortix', name: 'Invoice check (inline agent)', runtime_context: instructions, colleague_access: { secrets: ['SCOPE12_INVOICE_KEY'] } },
+          { params },
+        );
+        if (ctx.env.target === 'local') {
+          // Local: the model check answers before the approval step (the local profile serves no model, SESS-64), so the ask is seeded as the API records it.
+          r.status(409).body().has('$.code', 'no_model_available');
+          const seeded = await db.query<{ id: string }>(
+            `INSERT INTO kortix.session_colleague_access
+               (account_id, project_id, session_id, surface_session_id, title, connectors, secrets, access_hash, expires_at)
+             VALUES ($1::uuid, $2::uuid, $3, $3, 'Invoice check', '[]'::jsonb, '["SCOPE12_INVOICE_KEY"]'::jsonb, $4, NOW() + interval '1 day')
+             RETURNING id`,
+            [project.accountId ?? ctx.P.OWNER.accountId!, project.id, meta!.sessionId, 'scope-12-'.padEnd(64, '0')],
+          );
+          askId = `access:${seeded.rows[0]!.id}`;
+        } else {
+          r.status(409).body().has('$.code', 'COLLEAGUE_ACCESS_APPROVAL_REQUIRED').has('$.secrets[0]', 'SCOPE12_INVOICE_KEY');
+          askId = r.json<{ ask_id: string }>().ask_id;
+        }
+        if ((await sessionCount()) !== before) throw new Error('a start that waits for the person wrote a session row');
+      });
+
+      await ctx.step('the owner sees the ask: kind access, the colleague and its list', async () => {
+        const r = await owner.get('/v1/workspaces/:projectId/asks', { params });
+        r.status(200);
+        const ask = r.json<{ asks: Array<{ id: string; kind: string; access?: { colleague: string; secrets: string[] } }> }>().asks.find((a) => a.id === askId);
+        if (!ask || ask.kind !== 'access' || ask.access?.colleague !== 'Invoice check' || ask.access.secrets[0] !== 'SCOPE12_INVOICE_KEY') {
+          throw new Error(`the access ask is not listed as expected: ${JSON.stringify(ask)}`);
+        }
+      });
+
+      await ctx.step('My Kortix answering its own ask with its session token → 403 ASK_REQUIRES_HUMAN; the ask stays open', async () => {
+        (await asMeta().post('/v1/workspaces/:projectId/asks/:askId/answer', { decision: 'allow' }, { params: { ...params, askId } }))
+          .status(403)
+          .body()
+          .has('$.code', 'ASK_REQUIRES_HUMAN');
+        const open = await db.query<{ n: number }>('SELECT count(*)::int AS n FROM kortix.session_colleague_access WHERE id = $1::uuid AND decided_at IS NULL', [askId.slice('access:'.length)]);
+        if (open.rows[0]?.n !== 1) throw new Error('a session token decided an access ask');
+      });
+
+      await ctx.step('the owner allows it → 200; a second decision → 409 ALREADY_DECIDED; the ask leaves the list', async () => {
+        (await owner.post('/v1/workspaces/:projectId/asks/:askId/answer', { decision: 'maybe' }, { params: { ...params, askId } })).status(400);
+        (await owner.post('/v1/workspaces/:projectId/asks/:askId/answer', { decision: 'allow' }, { params: { ...params, askId } })).status(200).body().has('$.ok', true);
+        (await owner.post('/v1/workspaces/:projectId/asks/:askId/answer', { decision: 'deny' }, { params: { ...params, askId } }))
+          .status(409)
+          .body()
+          .has('$.code', 'ALREADY_DECIDED');
+        const r = await owner.get('/v1/workspaces/:projectId/asks', { params });
+        r.status(200);
+        if (r.json<{ asks: Array<{ id: string }> }>().asks.some((a) => a.id === askId)) throw new Error('a decided ask is still listed');
+      });
+
+      if (ctx.env.target !== 'local') {
+        await ctx.step('the same start again uses the allow: the colleague runs as My Kortix', async () => {
+          const r = await asMeta().post(
+            '/v1/workspaces/:projectId/sessions',
+            { agent_name: 'mykortix', runtime_context: instructions, colleague_access: { secrets: ['SCOPE12_INVOICE_KEY'] } },
+            { params },
+          );
+          r.status(201).body().has('$.agent_name', 'mykortix');
+          ctx.track('session', r.json<{ session_id: string }>().session_id, { projectId: project.id });
+        });
+      }
+    } finally {
+      await db.query('DELETE FROM kortix.session_colleague_access WHERE project_id = $1::uuid', [project.id]).catch(() => {});
+      await dropBoundSession(db, meta);
       await db.end();
     }
   },

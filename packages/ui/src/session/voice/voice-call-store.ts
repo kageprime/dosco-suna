@@ -19,15 +19,28 @@ export interface ActiveCall {
  */
 interface VoiceCallStore {
   call: ActiveCall | null;
+  /**
+   * How many call cards are mounted. A call runs only in a card, and only a host that mounts one (apps/web's project
+   * shell) can run it: with none, no control offers a call (`useVoiceCallsEnabled`), so a placed call is never left
+   * with nothing to ring it.
+   */
+  cards: number;
   place: (call: Omit<ActiveCall, 'placedAt'>) => void;
   /** Ends the call (only that session's, when one is named). */
   end: (sessionId?: string) => void;
+  /** A call card mounted; the returned function unmounts it. */
+  mountCard: () => () => void;
 }
 
 export const useVoiceCallStore = create<VoiceCallStore>()((set, get) => ({
   call: null,
+  cards: 0,
   place: (call) => set({ call: { ...call, placedAt: Date.now() } }),
   end: (sessionId) => {
     if (!sessionId || get().call?.sessionId === sessionId) set({ call: null });
+  },
+  mountCard: () => {
+    set((s) => ({ cards: s.cards + 1 }));
+    return () => set((s) => ({ cards: s.cards - 1 }));
   },
 }));

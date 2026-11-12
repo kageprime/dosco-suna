@@ -1,4 +1,4 @@
-// @kortix/ui root barrel: light core primitives only (Radix, cva, motion).
+// @kortix/ui root barrel: light core primitives only (Base UI, cva, motion).
 // Heavy or app-shaped modules are reachable only through their own subpath,
 // never from here: charts ('@kortix/ui/chart'), maps ('@kortix/ui/map'), grids
 // ('@kortix/ui/data-grid'), mermaid, emoji data ('@kortix/ui/emoji-picker'),

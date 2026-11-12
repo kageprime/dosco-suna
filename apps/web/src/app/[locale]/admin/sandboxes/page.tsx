@@ -269,7 +269,7 @@ export default function AdminSandboxesPage() {
       }
     >
       {/* One Tabs root, not two. The list and the panels have to share a root
-          or Radix cannot wire `aria-controls` between them — which is why the
+          or `Tabs` cannot wire `aria-controls` between them — which is why the
           bar does not go in the shell's `filters` slot here. */}
       <Tabs value={tab} onValueChange={setTab} className="space-y-5">
         <TabsList>

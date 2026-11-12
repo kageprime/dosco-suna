@@ -20,7 +20,7 @@ import { json, errors, auth } from '../../openapi';
 import { eq } from 'drizzle-orm';
 import { objectGrantRows } from '../../iam/read-models';
 import { db } from '../../shared/db';
-import { accountGroupNamesAmong } from '../../iam/group-read';
+import { groupRows } from '../../iam/group-read';
 import { ACCOUNT_ACTIONS, assertAuthorized } from '../../iam';
 import { actorOf } from '../../iam/actor';
 import { lookupEmailsByUserIds } from '../../projects/lib/access';
@@ -59,7 +59,7 @@ export function registerIamResourceGrantsRoutes(): void {
         ...errors(401, 403),
       },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       // Read-only account-wide access-footprint view — same gate the member
       // detail page already uses for "which projects does this person reach"
@@ -136,8 +136,8 @@ export function registerIamResourceGrantsRoutes(): void {
         : new Map<string, string | null>();
       const groupNameById = new Map<string, string>();
       if (groupIds.length) {
-        const groupRows = await accountGroupNamesAmong(accountId, groupIds);
-        for (const g of groupRows) groupNameById.set(g.groupId, g.name);
+        const groupRowList = await groupRows({ accountId, groupIds });
+        for (const g of groupRowList) groupNameById.set(g.groupId, g.name);
       }
 
       return c.json({

@@ -74,6 +74,7 @@ export const PUBLIC_OPERATIONS: ReadonlySet<string> = new Set([
   'post /v1/access/check-email',
   'post /v1/access/request-access',
   'get /v1/apps/edge/tls-check',
+  'get /v1/agent-marks/{file}',
   'get /v1/edge/tls-check',
   'get /v1/setup-links/secret/{token}',
   'post /v1/setup-links/secret/{token}',

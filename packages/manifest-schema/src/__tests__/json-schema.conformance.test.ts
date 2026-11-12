@@ -754,17 +754,9 @@ const FIXTURES: Fixture[] = [
     valid: false,
     input: 'default_agent: w\nagents:\n  w:\n    kortix_cli: [billing.not_an_action]\n',
   },
-  { name: 'workspace.project_repository false', valid: true, input: 'default_agent: a\nagents:\n  a:\n    workspace:\n      project_repository: false\n' },
-  { name: 'workspace.project_repository true', valid: true, input: 'default_agent: a\nagents:\n  a:\n    workspace:\n      project_repository: true\n' },
-  { name: 'empty workspace map', valid: true, input: 'default_agent: a\nagents:\n  a:\n    workspace: {}\n' },
-  { name: 'workspace.project_repository "false"', valid: false, input: 'default_agent: a\nagents:\n  a:\n    workspace:\n      project_repository: "false"\n' },
-  { name: 'unknown workspace key', valid: false, input: 'default_agent: a\nagents:\n  a:\n    workspace:\n      project_repo: false\n' },
-  { name: 'workspace list', valid: false, input: 'default_agent: a\nagents:\n  a:\n    workspace: [project_repository]\n' },
-  {
-    name: 'unknown workspace value rejected',
-    valid: false,
-    input: 'default_agent: w\nagents:\n  w:\n    workspace: everywhere\n',
-  },
+  // `workspace` is obsolete: every old shape is accepted and ignored (deprecation `agent-workspace`).
+  { name: 'obsolete workspace map accepted', valid: true, input: 'default_agent: a\nagents:\n  a:\n    workspace:\n      project_repository: true\n' },
+  { name: 'obsolete workspace string accepted', valid: true, input: 'default_agent: w\nagents:\n  w:\n    workspace: everywhere\n' },
   {
     name: 'declarative agent egress policy accepted (not enforced)',
     valid: true,

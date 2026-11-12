@@ -22,7 +22,7 @@ globals.location = win.location;
 globals.history = win.history;
 globals.requestAnimationFrame = (cb: () => void) => setTimeout(cb, 0);
 globals.cancelAnimationFrame = (id: number) => clearTimeout(id);
-// The mobile sheet is a Radix dialog: its focus guards and dismissable layer
+// The mobile sheet is a dialog: its focus guards and dismiss layer
 // read DOM constructor globals at mount. Bun ships its own `Event` family, so
 // `key in globals` alone would leave happy-dom's document rejecting bun-realm
 // event objects. Mirror the happy-dom window OVER bun's DOM classes, except
@@ -203,7 +203,7 @@ test('the desktop rail keeps the Ctrl/Cmd+J shortcut hint on the New-session row
 
 test('the mobile sheet renders no keyboard shortcut hint (KRTX-2005)', async () => {
   await mountSidebar(390);
-  // The mobile sheet is a Radix portal: its content mounts into document.body,
+  // The mobile sheet renders through a portal: its content mounts into document.body,
   // not into the test container the provider renders into.
   expect(document.body.innerHTML).toContain('newSession');
   expect(document.body.innerHTML).not.toContain('data-slot="kbd-group"');
@@ -226,7 +226,7 @@ test('with chat on, the sidebar is Spaces only (Cmd+J still opens the new-sessio
   expect(html).not.toContain('oneChat');
   expect(html).not.toContain('spaces.directMessages');
   // Review first, then the person's own space (their chat with My Kortix, at /chat), then the channels.
-  const review = html.indexOf('href="/workspaces/synthetic-project/review"');
+  const review = html.indexOf('href="/workspaces/synthetic-project/inbox?view=review"');
   const personal = html.indexOf('href="/workspaces/synthetic-project/chat"');
   const general = html.indexOf('href="/workspaces/synthetic-project/c/general"');
   expect(review).toBeGreaterThan(-1);

@@ -21,7 +21,7 @@ export interface TrackRun {
   n?: number;
 }
 
-export interface LaidRun {
+interface LaidRun {
   s: TrackRun;
   x: number;
   w: number;

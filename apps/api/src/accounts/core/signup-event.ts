@@ -6,7 +6,7 @@ import { captureProductEvent } from '../../shared/product-analytics';
 import { getSupabase } from '../../shared/supabase';
 
 /** A sign-in this long after the auth user was created is not a sign-up. */
-export const SIGNUP_EVENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const SIGNUP_EVENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Report `user_signed_up` for a person who reached Kortix with no workspace.

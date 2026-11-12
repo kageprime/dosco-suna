@@ -47,6 +47,11 @@ export function useRuntimeConfig() {
     enabled: runtimeReady && supported,
     staleTime: Infinity,
     gcTime: 10 * 60 * 1000,
+    // The proxy already spent its full ~50 s retry budget before answering
+    // 502, so a replay can only burn it again: one poll against a dead box
+    // became four sequential 50-s burns (KRTX-4755). The document is
+    // immutable — refetching stays with focus, reconnect, remount.
+    retry: false,
   });
 }
 

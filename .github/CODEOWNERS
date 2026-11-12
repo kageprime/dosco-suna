@@ -14,10 +14,10 @@
 
 # --- Security-sensitive areas (explicit ownership for auditability) ---
 # Auth, IAM, crypto, secrets
-/apps/api/src/iam/                  @markokraemer
-/apps/api/src/middleware/auth.ts    @markokraemer
-/apps/api/src/shared/crypto.ts      @markokraemer
-/apps/api/src/projects/secrets.ts   @markokraemer
+/apps/api/src/iam/                  @markokraemer @kubet
+/apps/api/src/middleware/auth.ts    @markokraemer @kubet
+/apps/api/src/shared/crypto.ts      @markokraemer @kubet
+/apps/api/src/projects/secrets.ts   @markokraemer @kubet
 
 # Database schema & migrations (data-layer changes)
 /packages/db/                       @markokraemer

@@ -2,10 +2,14 @@
 // and its reader. Raw `audit_events_all` holds ~100M rows per 90 days; a per-project "who was here"
 // over it timed out on prod. The rollup turns that into an index range over a few hundred rows.
 import { sql } from 'drizzle-orm';
+import { HOT_DAYS } from './audit-archive/format';
 import { db } from './db';
 
-/** How far back the first run starts: the hot audit window (`HOT_DAYS` in audit-archive/format). */
-const BACKFILL_DAYS = 90;
+/**
+ * How far back the first run starts: the hot audit window. Older raw rows are archived, so the
+ * rollup cannot read them. The archive waits for the rollup (`rollupMark` in audit-archive).
+ */
+const BACKFILL_DAYS = HOT_DAYS;
 /** One slice of `audit_events_all` per tick: ~70k-250k rows on prod, 1.5-5 s. */
 const SLICE_MINUTES = 15;
 // ponytail: a row that lands more than LAG after its occurred_at (a sandbox replaying a backlog)

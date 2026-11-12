@@ -58,7 +58,7 @@ export function registerProjectGitRoutes(): void {
       throw buildDenialError(
         PROJECT_ACTIONS.PROJECT_GITOPS_PUSH,
         'agent_human_only_action',
-        'An agent session cannot receive a raw git push credential. Push through the Dosco git origin (git_origin_url).',
+        'A raw git push credential is never handed to a session. Push through the Dosco git origin (git_origin_url).',
       );
     }
 

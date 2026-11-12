@@ -9,7 +9,9 @@ import { resolveScopedAccountId } from '../../middleware/resolve-account';
 import { authorize } from '../../iam/authorize';
 import { actorOf } from '../../iam/actor';
 import { ACCOUNT_ACTIONS } from '../../iam/actions';
+import { denialReasonMessage } from '../../iam/denial-message';
 import { makeOpenApiApp, json, auth } from '../../openapi';
+import { OpaqueSchema } from './opaque-schema';
 
 export const accountStateRouter = makeOpenApiApp<AppEnv>();
 
@@ -19,17 +21,35 @@ export const accountStateRouter = makeOpenApiApp<AppEnv>();
 // enforce the same gate server-side (http-require-billing-write.ts) — so it
 // defaults to `true` on a probe error. `billing.read` gates the money fields
 // below, so it fails closed.
-async function billingVerdicts(c: Context<AppEnv>, accountId: string): Promise<{ read: boolean; write: boolean }> {
+async function billingVerdicts(
+  c: Context<AppEnv>,
+  accountId: string,
+): Promise<{ read: boolean; write: boolean; readReason?: string }> {
   try {
     const actor = await actorOf(c, accountId);
     const [read, write] = await Promise.all([
       authorize(actor, ACCOUNT_ACTIONS.BILLING_READ),
       authorize(actor, ACCOUNT_ACTIONS.BILLING_WRITE),
     ]);
-    return { read: read.allowed, write: write.allowed };
+    return { read: read.allowed, write: write.allowed, ...(read.allowed ? {} : { readReason: read.reason }) };
   } catch {
-    return { read: false, write: true };
+    return { read: false, write: true, readReason: 'probe_failed' };
   }
+}
+
+/**
+ * Why the credit amounts are absent, for a caller without `billing.read`. The
+ * amount keys stay out of the response (the allowlist below), and `hidden`
+ * names the constraint and the remedy, so the absence is never read as zero.
+ */
+export function hiddenCredits(readReason: string | undefined): {
+  hidden: { reason: string; message: string };
+} {
+  const reason = readReason ?? 'billing_read_required';
+  const message =
+    denialReasonMessage(ACCOUNT_ACTIONS.BILLING_READ, reason) ??
+    'Credit balances need the billing.read permission in this workspace. A workspace owner or admin grants it in Settings → People.';
+  return { hidden: { reason, message } };
 }
 
 // What a caller without `billing.read` sees: only the fields that gate the
@@ -38,13 +58,14 @@ async function billingVerdicts(c: Context<AppEnv>, accountId: string): Promise<{
 // project-bound token, an agent session or a custom role without
 // `billing.read` reached them before (pentest 2026-07 finding 1, BOLA).
 // An allowlist, so a field added to the state later stays hidden here.
-function gatingView(state: AccountStateResponse) {
+// The credit amounts are absent; `credits.hidden` says why (`hiddenCredits`).
+export function gatingView(state: AccountStateResponse, readReason?: string) {
   return {
     model_access: state.model_access,
     billing_state: state.billing_state,
     has_active_subscription: state.has_active_subscription,
     plan: state.plan && { ...state.plan, monthly_usd: null },
-    credits: { can_run: state.credits.can_run },
+    credits: { can_run: state.credits.can_run, ...hiddenCredits(readReason) },
     subscription: { tier_key: state.subscription.tier_key, tier_display_name: state.subscription.tier_display_name },
     tier: { name: state.tier.name, display_name: state.tier.display_name, entitlements: state.tier.entitlements },
     enterprise_license_available: state.enterprise_license_available,
@@ -55,8 +76,8 @@ function gatingView(state: AccountStateResponse) {
 }
 
 async function viewFor(c: Context<AppEnv>, accountId: string, state: AccountStateResponse): Promise<Record<string, unknown>> {
-  const { read, write } = await billingVerdicts(c, accountId);
-  if (!read) return { ...gatingView(state), can_manage_billing: false };
+  const { read, write, readReason } = await billingVerdicts(c, accountId);
+  if (!read) return { ...gatingView(state, readReason), can_manage_billing: false };
   // Per caller: where THIS person's free credits are, read only for a
   // workspace that has none (the line the Plan tab and the modal show).
   if (state.credits.free_grant && !state.credits.free_grant.eligible) {
@@ -66,9 +87,6 @@ async function viewFor(c: Context<AppEnv>, accountId: string, state: AccountStat
   return { ...state, can_manage_billing: write };
 }
 
-// Opaque account-state payload (credits, tier, subscription, …). Permissive on
-// purpose — the real shape is large and varies by mode (live / minimal / local mock).
-const AccountStateSchema = z.record(z.string(), z.any());
 const AccountStateQuerySchema = z.object({
   account_id: z.string().optional(),
   workspace_id: z.string().optional().openapi({ description: 'The workspace to read (the canonical name of account_id; either id works).' }),
@@ -83,7 +101,9 @@ accountStateRouter.openapi(
     ...auth,
     request: { query: AccountStateQuerySchema },
     responses: {
-      200: json(AccountStateSchema, 'Account billing state'),
+      // Opaque account-state payload (credits, tier, subscription, …). Permissive on
+      // purpose — the real shape is large and varies by mode (live / minimal / local mock).
+      200: json(OpaqueSchema, 'Account billing state'),
     },
   }),
   async (c) => {
@@ -117,7 +137,7 @@ accountStateRouter.openapi(
     ...auth,
     request: { query: AccountStateQuerySchema },
     responses: {
-      200: json(AccountStateSchema, 'Minimal account billing state'),
+      200: json(OpaqueSchema, 'Minimal account billing state'),
     },
   }),
   async (c) => {

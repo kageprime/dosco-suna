@@ -125,11 +125,56 @@ describe.skipIf(!databaseUrl)('audit archive — export, verify, remove (real Po
     expect(sleeps.reduce((a, b) => a + b, 0)).toBeGreaterThan(400);
   });
 
+  test('the legacy share of a week is read under the same rate cap, and each account merges both tables in order', async () => {
+    const inWeek = `occurred_at >= $1::date AND occurred_at < $1::date + 7`;
+    const legacyRows = (await q(`SELECT count(*)::int AS n FROM kortix.audit_events_legacy WHERE ${inWeek}`, [w1])).rows[0].n;
+    const allRows = (await q(`SELECT count(*)::int AS n FROM kortix.audit_events_all WHERE ${inWeek}`, [w1])).rows[0].n;
+    expect(legacyRows).toBe(9);
+    const sleeps: number[] = [];
+    const store = fakeStore();
+    const result = await exportWeek(deps(store, { rowsPerSecond: 1, sleep: async (ms: number) => void sleeps.push(ms) }), w1);
+    expect(result).toMatchObject({ rows: allRows, legacyRows });
+    // Tallied legacy rows count against the cap too: legacyRows + allRows rows at 1 row/s. The sleeps
+    // are recorded, not slept, so the last one is what the rows owe minus the real time spent
+    // (well under 3 s). Without the tally it would be at most allRows seconds.
+    expect(Math.max(...sleeps)).toBeGreaterThan((legacyRows + allRows) * 1000 - 3_000);
+    const a1 = [...store.objects].filter(([k]) => k.startsWith(`audit/${A1}/`)).flatMap(([, o]) => decodeRows(o.body));
+    const order = a1.map((row) => `${row.occurred_at}|${row.event_id}`);
+    expect(order).toEqual([...order].sort());
+    expect(new Set(a1.map((row) => row.event_id)).size).toBe(a1.length);
+    // The pass below archives w1 again, from scratch.
+    await q(`DELETE FROM kortix.audit_archive_chunks WHERE week_start = $1`, [w1]);
+  });
+
+  test('a pass waits for the activity rollup: a week it has not counted stays in PostgreSQL', async () => {
+    const before = (await q(`SELECT rolled_through FROM kortix.audit_activity_rollup WHERE id = 1`)).rows[0]?.rolled_through ?? null;
+    await q(
+      `INSERT INTO kortix.audit_activity_rollup (id, rolled_through) VALUES (1, $1)
+       ON CONFLICT (id) DO UPDATE SET rolled_through = EXCLUDED.rolled_through`,
+      [`${w1}T00:00:00Z`],
+    );
+    try {
+      const result = await runArchivePass(deps(fakeStore()), Date.now() + 120_000);
+      // Only weeks that end at or before the rollup mark (empty partitions here) may go.
+      const mark = new Date(`${w1}T00:00:00Z`).getTime();
+      expect(result.archived.every((week) => weekEnd(week).getTime() <= mark)).toBe(true);
+      expect(result.archived).not.toContain(w1);
+      expect(result.legacyRetired).toBe(false);
+      expect(result.removed).toEqual([]);
+      expect((await q(`SELECT status FROM kortix.audit_archive_chunks WHERE week_start = $1`, [w1])).rows).toHaveLength(0);
+    } finally {
+      if (before) await q(`UPDATE kortix.audit_activity_rollup SET rolled_through = $1 WHERE id = 1`, [before]);
+      else await q(`DELETE FROM kortix.audit_activity_rollup WHERE id = 1`);
+    }
+  });
+
   test('a pass archives every old week, retires the legacy table, and drops the archived partitions', async () => {
     const store = fakeStore();
     const result = await runArchivePass(deps(store), Date.now() + 120_000);
     expect(result.archived).toEqual(expect.arrayContaining([w1, w2]));
     expect(result.legacyRetired).toBe(true);
+    // Renamed inside the retirement transaction, dropped right after it.
+    expect((await q(`SELECT to_regclass('kortix.audit_events_legacy_retired') AS r`)).rows[0].r).toBeNull();
 
     // w3 (5 rows) was archived by an earlier test with its own store. This pass wrote the rest:
     // 8 + 1 + 1 legacy rows and 2 late rows.

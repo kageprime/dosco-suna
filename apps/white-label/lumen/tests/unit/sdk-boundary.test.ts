@@ -50,6 +50,17 @@ describe('white-label SDK boundary', () => {
     );
   });
 
+  test('rejects a direct Base UI or Radix import; the primitives come from @kortix/ui', () => {
+    const fixture = `
+      import { Dialog } from '@base-ui/react/dialog';
+      import * as Popover from '@radix-ui/react-popover';
+    `;
+    expect(scanSource(fixture).map((violation) => violation.rule)).toEqual([
+      'foreign-ui-kit',
+      'foreign-ui-kit',
+    ]);
+  });
+
   test('permits @kortix/ui imports and the sonner toast host', () => {
     const fixture = `
       import { Button } from '@kortix/ui/button';

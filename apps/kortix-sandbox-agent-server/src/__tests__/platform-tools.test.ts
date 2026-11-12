@@ -62,7 +62,7 @@ describe('kortix_agents', () => {
     const result = await run('kortix_agents', { action: 'list' })
     expect(result.ok).toBe(true)
     expect(result.card.title).toBe('2 agents')
-    expect(result.card.rows?.[0]).toEqual({ title: 'researcher', detail: 'Digs into a topic', href: '/workspaces/proj_1/customize/agents/researcher' })
+    expect(result.card.rows?.[0]).toEqual({ title: 'researcher', detail: 'Digs into a topic', href: '/workspaces/proj_1/admin/agents/researcher' })
     expect(result.card.rows?.[1]?.badge).toBe('built in')
     // My Kortix has no agent page (the project home starts it): its row links nowhere.
     expect(result.card.rows?.[1]?.href).toBeUndefined()
@@ -90,7 +90,8 @@ describe('kortix_agents', () => {
     fakeKortix(`'models ls --json') echo '{"models":{"deepseek-v4.1-flash":{"name":"DeepSeek V4.1 Flash","provider":"kortix","enabled":true,"reasoning":false,"limit":{"context":1000000},"cost":{"input":0.1,"output":0.4},"free":true},"openai/gpt-6":{"name":"GPT-6","provider":"openai","provider_name":"OpenAI","enabled":true,"reasoning":true,"attachment":true,"limit":{"context":400000},"cost":{"input":5,"output":20}},"kimi-k3":{"name":"Kimi K3","provider":"kortix","enabled":false},"anthropic/claude-x":{"name":"Claude X","provider":"anthropic","enabled":true,"available":false}},"catalog":{"glm-6":{"availability":"plan"}},"defaultModel":"deepseek-v4.1-flash","platformFeePercent":10,"claudeSubscription":{"providerId":"claude-agent","name":"Claude","connected":true,"models":[{"id":"claude-agent/claude-opus","name":"Claude Opus","description":"Deep work","limit":{"context":200000,"output":32000},"efforts":["low","high"],"requires":"claude_subscription","connected":true}]}}' ;;`)
     const result = await run('kortix_agents', { action: 'models' })
     expect(result.ok).toBe(true)
-    expect(result.card.title).toBe('3 models')
+    expect(result.card.title).toBe('3 models you can run')
+    expect(result.card.subtitle).toBe('3 offered in this workspace; 1 need a provider connected first.')
     // The default first; a model the project turned off, or one this person cannot reach, is left out.
     expect(result.card.rows).toEqual([
       { title: 'DeepSeek V4.1 Flash', detail: 'kortix/deepseek-v4.1-flash · fast · 1M context', badge: 'default' },
@@ -99,6 +100,11 @@ describe('kortix_agents', () => {
     ])
     expect(result.data).toMatchObject({
       default: 'kortix/deepseek-v4.1-flash',
+      default_runnable: true,
+      // offered is the enabled set `kortix models ls` counts: the one off model is out, the unreachable one is in.
+      offered: 3,
+      runnable: 3,
+      not_runnable: [{ id: 'kortix/anthropic/claude-x', name: 'Claude X', needs: 'a anthropic key (kortix providers set anthropic)' }],
       models: [
         { id: 'kortix/deepseek-v4.1-flash', name: 'DeepSeek V4.1 Flash', good_for: ['fast'], context: 1000000, default: true },
         { id: 'claude-agent/claude-opus', provider: 'Claude subscription', good_for: ['reasoning'] },
@@ -108,6 +114,24 @@ describe('kortix_agents', () => {
     // No price, cost, fee or "free" reaches the model or the card.
     expect(JSON.stringify(result)).not.toMatch(/cost|price|fee|free|\$/i)
     expect(argvs()).toEqual(['models ls --json'])
+  })
+
+  test('models: an offered default this person cannot run is still named, with default_runnable false', async () => {
+    fakeKortix(`'models ls --json') echo '{"models":{"codex/gpt-x":{"name":"GPT X","provider":"codex","enabled":true,"available":false,"availability":"login"},"kimi-k3":{"name":"Kimi K3","provider":"kortix","enabled":true},"glm-6":{"name":"GLM 6","provider":"kortix","enabled":false}},"defaultModel":"codex/gpt-x"}' ;;`)
+    const result = await run('kortix_agents', { action: 'models' })
+    expect(result.ok).toBe(true)
+    expect(result.card.title).toBe('1 model you can run')
+    expect(result.data).toMatchObject({
+      default: 'kortix/codex/gpt-x',
+      default_runnable: false,
+      offered: 2,
+      runnable: 1,
+      models: [{ id: 'kortix/kimi-k3', default: false }],
+      not_runnable: [{ id: 'kortix/codex/gpt-x', needs: 'a ChatGPT login (kortix providers login openai)' }],
+    })
+    // A model the workspace turned off appears nowhere.
+    expect(JSON.stringify(result)).not.toContain('glm-6')
+    expect((result.data as { note: string }).note).toContain('The workspace default is not runnable for this person')
   })
 
   test('a refusal names who can grant it, read from the project members', async () => {
@@ -133,6 +157,24 @@ describe('kortix_connectors', () => {
     const result = await run('kortix_connectors', { action: 'connect', slug: 'gmail' })
     expect(result.card.status).toBe('needs_you')
     expect(result.card.links).toEqual([{ label: 'Sign in', href: 'https://auth.example.com/connect?x=1' }])
+  })
+
+  // An e2e run on dev: "watch my Gmail" posted a private card, then a shared
+  // one, because a trigger runs only on the workspace's shared sign-in.
+  test('connect for a trigger mints ONE shared sign-in, never a private one first', async () => {
+    fakeKortix(`'connectors connect gmail --owner project') echo 'Open this link to sign in: https://auth.example.com/connect?shared=1' ;;`)
+    const result = await run('kortix_connectors', { action: 'connect', slug: 'gmail', for_trigger: true })
+    expect(result.card.subtitle).toBe('Everyone in the workspace will use this sign-in, so triggers can run on it.')
+    expect(result.card.links).toEqual([{ label: 'Sign in', href: 'https://auth.example.com/connect?shared=1' }])
+    expect(argvs()).toEqual(['connectors connect gmail --owner project'])
+  })
+
+  test('connect for a trigger that the person may not share is refused, with no private card', async () => {
+    fakeKortix(`'connectors connect gmail --owner project') echo '{"kortix_error":{"kind":"denied","message":"forbidden","status":403}}' >&2; exit 1 ;;
+  ${ROSTER}`)
+    const result = await run('kortix_connectors', { action: 'connect', slug: 'gmail', for_trigger: true })
+    expect(result.card.status).toBe('denied')
+    expect(argvs().filter((line) => line.startsWith('connectors connect'))).toEqual(['connectors connect gmail --owner project'])
   })
 })
 
@@ -317,6 +359,8 @@ describe('kortix_schedules follow-through', () => {
     // The example is a whole call the model can copy.
     const example = missing.error!.message.slice(missing.error!.message.indexOf('{'))
     expect(JSON.parse(example)).toMatchObject({ action: 'follow_up', in: '4d' })
+    // The card is the person's: the model's instructions and example never reach it.
+    expect(missing.card).toEqual({ title: 'The agent left out a required detail', status: 'error' })
     expect((await run('kortix_schedules', { action: 'wake_on', on: 'cr_merged', cr: '42' })).error?.message).toContain('{"action":"wake_on"')
     expect(argvs()).toHaveLength(2)
   })
@@ -362,6 +406,20 @@ describe('kortix_schedules follow-through', () => {
       schedules: [{ id: 'weekly-digest', text: 'Weekly digest', schedule: '0 9 * * 1', agent: null, next_fire: '2026-11-02T09:00:00.000Z', state: 'active' }],
     })
     expect(result.card.rows?.map((row) => row.detail)).toEqual(['Follow-up · every 3h · next 2026-10-31 15:00 UTC', 'Wakes when change request 42 merges', '0 9 * * 1 · next 2026-11-02 09:00 UTC'])
+  })
+
+  test('list with one unreadable source: the card says which in plain words, the reason goes to the model in data.errors', async () => {
+    fakeKortix(`'triggers ls --json') echo '{"triggers":[],"runtime":[]}' ;;`)
+    const result = await run('kortix_schedules', { action: 'list' })
+    expect(result.card.subtitle).toBe("This session's follow-ups could not be read.")
+    expect(typeof (result.data as { errors?: { follow_ups?: unknown } }).errors?.follow_ups).toBe('string')
+  })
+
+  test('an automate argument check reads as an incomplete call on the card', async () => {
+    fakeKortix('')
+    const result = await run('kortix_schedules', { action: 'automate', name: 'Not A Slug', on: 'schedule', every: '1d', agent: 'writer', prompt: 'x' })
+    expect(result.card).toEqual({ title: 'The agent left out a required detail', status: 'error' })
+    expect(result.error?.message).toContain('`name` is a short id')
   })
 
   test('remove routes by id: reminder.<id> → kortix loops, trigger.<id> → kortix triggers, a kortix.yaml slug → --apply; delete is an alias; pause and resume work for loops', async () => {
@@ -454,15 +512,98 @@ describe('kortix_change_requests', () => {
   const SHOW = `'cr show 3 --json') echo '{"change_request":${CR},"merge_preview":{"can_merge":true,"can_fast_forward":true,"conflicts":[],"is_up_to_date":false}}' ;;`
 
   test('list: the open change requests with number, title, author and status, each linked to Review', async () => {
-    fakeKortix(`'cr ls --status=open --json') echo '{"change_requests":[${CR}]}' ;;
+    fakeKortix(`'cr ls --status=open --limit=50 --json') echo '{"change_requests":[${CR}],"next_cursor":null}' ;;
   ${ROSTER}`)
     const result = await run('kortix_change_requests', { action: 'list' })
     expect(result.ok).toBe(true)
     expect(result.card.title).toBe('1 open change request')
-    expect(result.card.rows).toEqual([{ title: '#3 Upgrade the manifest', detail: 'Sam', badge: 'open', href: '/workspaces/proj_1/review?id=cr%3Acr-uuid-3' }])
+    expect(result.card.rows).toEqual([{ title: '#3 Upgrade the manifest', detail: 'Sam', badge: 'open', href: '/workspaces/proj_1/inbox?view=review&id=cr%3Acr-uuid-3' }])
     expect(result.data).toEqual({
       change_requests: [{ number: 3, cr_id: 'cr-uuid-3', title: 'Upgrade the manifest', author: 'Sam', status: 'open', from: 'kortix/session-a', into: 'main', session_id: 'ses_9', opened_at: '2026-10-30T09:00:00.000Z' }],
+      count: 1,
+      truncated: false,
+      next_cursor: null,
     })
+  })
+
+  /** A fake `kortix cr ls` over `total` merged change requests, newest first, as the real CLI pages them. */
+  function pagedCrList(total: number, honorsLimit: boolean, titlePad = 0) {
+    const rows = join(bin, 'rows.json')
+    writeFileSync(
+      rows,
+      JSON.stringify(
+        Array.from({ length: total }, (_, i) => {
+          const number = total - i
+          return { cr_id: `cr-${number}`, number, title: `Change ${number}${'x'.repeat(titlePad)}`, status: 'merged', base_ref: 'refs/heads/main', head_ref: `refs/heads/b-${number}`, created_by: 'u_sam', created_at: '2026-10-30T09:00:00.000Z' }
+        }),
+      ),
+    )
+    // bun answers as the CLI does: one page and next_cursor (honorsLimit), or every row (a CLI before --limit).
+    const page = join(bin, 'page.ts')
+    writeFileSync(
+      page,
+      `const all = JSON.parse(await Bun.file(${JSON.stringify(rows)}).text())
+const arg = (name) => process.argv.find((a) => a.startsWith('--' + name + '='))?.split('=')[1]
+if (!${honorsLimit}) { console.log(JSON.stringify({ change_requests: all })); process.exit(0) }
+const limit = Number(arg('limit')); const cursor = arg('cursor')
+const rest = cursor ? all.filter((cr) => cr.number < Number(cursor)) : all
+const rowsOut = rest.slice(0, limit)
+console.log(JSON.stringify({ change_requests: rowsOut, next_cursor: rest.length > limit ? String(rowsOut.at(-1).number) : null }))
+`,
+    )
+    fakeKortix(`'cr ls --status=merged '*'--json') ${JSON.stringify(process.execPath)} ${JSON.stringify(page)} "$@" ;;
+  ${ROSTER}`)
+  }
+
+  test('list over 998 change requests with long titles: each page is valid JSON under the output bound, and the cursor walks all of them once', async () => {
+    pagedCrList(998, true, 300)
+    const seen: number[] = []
+    let cursor: string | null = null
+    let pages = 0
+    do {
+      const raw = await runTool(
+        { ...PLATFORM_TOOLS.kortix_change_requests!, name: 'kortix_change_requests' },
+        { action: 'list', status: 'merged', limit: 100, ...(cursor ? { cursor } : {}) },
+        { sessionId: 'ses_1', agent: 'meta', directory: bin, env: env(), signal: new AbortController().signal },
+      )
+      // Under the 50 KB bound runTool cuts at: the model always gets parseable JSON.
+      expect(raw).not.toContain('[Output truncated')
+      expect(raw.length).toBeLessThan(50_000)
+      const result = JSON.parse(raw) as KortixToolResult
+      const data = result.data as { change_requests: Array<{ number: number; title: string }>; count: number; truncated: boolean; next_cursor: string | null }
+      expect(data.count).toBe(data.change_requests.length)
+      expect(data.change_requests.every((cr) => cr.title.length <= 200)).toBe(true)
+      seen.push(...data.change_requests.map((cr) => cr.number))
+      expect(data.truncated).toBe(data.next_cursor !== null)
+      cursor = data.next_cursor
+      pages += 1
+    } while (cursor && pages < 40)
+    // Long titles fill the byte budget before 100 rows: more pages, never a cut JSON.
+    expect(pages).toBeGreaterThan(10)
+    expect(seen).toEqual(Array.from({ length: 998 }, (_, i) => 998 - i))
+  })
+
+  test('list defaults to 50, caps limit at 100, and cuts a CLI that ignores --limit to the page', async () => {
+    pagedCrList(998, false)
+    const first = await run('kortix_change_requests', { action: 'list', status: 'merged' })
+    const data = first.data as { change_requests: Array<{ number: number }>; truncated: boolean; next_cursor: string | null; note?: string }
+    expect(data.change_requests).toHaveLength(50)
+    expect(data).toMatchObject({ truncated: true, next_cursor: '949' })
+    expect(data.note).toContain('next_cursor')
+    expect(first.card.title).toBe('50 merged change requests, newest first; more on the next page')
+    const next = await run('kortix_change_requests', { action: 'list', status: 'merged', limit: 500, cursor: '949' })
+    const page2 = next.data as { change_requests: Array<{ number: number }>; next_cursor: string | null }
+    expect(page2.change_requests).toHaveLength(100)
+    expect(page2.change_requests[0]!.number).toBe(948)
+    expect(page2.next_cursor).toBe('849')
+    expect(argvs().filter((argv) => argv.startsWith('cr ls'))).toEqual(['cr ls --status=merged --limit=50 --json', 'cr ls --status=merged --limit=100 --cursor=949 --json'])
+  })
+
+  test('list refuses a cursor that is not a next_cursor', async () => {
+    fakeKortix(ROSTER)
+    const result = await run('kortix_change_requests', { action: 'list', cursor: 'abc' })
+    expect(result.ok).toBe(false)
+    expect(argvs().filter((argv) => argv.startsWith('cr ls'))).toEqual([])
   })
 
   test('get: the summary, how many files it changes and whether it can merge', async () => {
@@ -669,6 +810,9 @@ describe('kortix_schedules automate tolerance', () => {
     const result = await run('kortix_schedules', { action: 'automate', name: 'form-leads', on: 'webhook', secret_env: 'FORM_SECRET', prompt: 'Draft a reply.' })
     expect(result.ok).toBe(false)
     expect(result.card.title).toBe('FORM_SECRET needs saving for webhooks')
+    // The person saves it from the card: one link, a plain note, no model instruction.
+    expect(result.card.links).toEqual([{ label: 'Save secret', href: 'https://app.example.test/secret-intake/ksl_abc123' }])
+    expect(result.card.subtitle).toBe('Save the value on the linked page. It never passes through chat.')
     expect(result.error?.message).toContain('https://app.example.test/secret-intake/ksl_abc123')
     expect((result as { data?: { secret_intake_url?: string } }).data?.secret_intake_url).toBe('https://app.example.test/secret-intake/ksl_abc123')
     expect(argvs()[1]).toBe('secrets request FORM_SECRET --scope=connector')
@@ -733,5 +877,22 @@ describe('runKortix', () => {
     chmodSync(join(bin, 'kortix'), 0o755)
     const result = await runKortix(['schedules', 'create', '--json'], { env: env() }, 'x'.repeat(1024 * 1024))
     expect(result.code).toBe(3)
+  })
+})
+
+describe('a failure card carries no text written for the model', () => {
+  test('fail(): an argument check reads as an incomplete call, a note shows, the message never does', async () => {
+    const { fail } = await import('@/services/tools/platform/platform')
+    const context = { env: {} }
+    const question = await fail('kortix_agents', 'create', 'Which agent?', { kind: 'invalid', message: 'Pass `name`.' }, context)
+    expect(question.card).toEqual({ title: 'The agent left out a required detail', status: 'error' })
+    expect(question.error).toEqual({ kind: 'invalid', message: 'Pass `name`.' })
+    const unknown = await fail('kortix_agents', 'nope', 'Unknown action', { kind: 'invalid', message: 'Use one of: list.' }, context)
+    expect(unknown.card.title).toBe('The agent left out a required detail')
+    // A server refusal of a well-formed call keeps its own title.
+    const conflict = await fail('kortix_agents', 'create', 'Could not create the agent', { kind: 'invalid', message: 'name taken (409)' }, context)
+    expect(conflict.card).toEqual({ title: 'Could not create the agent', status: 'error' })
+    const noted = await fail('kortix_memory', 'list', 'Memory is off in this workspace', { kind: 'failed', message: 'model text', note: 'Files is off.' }, context)
+    expect(noted.card).toEqual({ title: 'Memory is off in this workspace', subtitle: 'Files is off.', status: 'error' })
   })
 })

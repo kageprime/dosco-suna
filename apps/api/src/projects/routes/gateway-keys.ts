@@ -1,4 +1,5 @@
 import { isProjectSessionPrincipal } from '../../iam/agent-scope';
+import { buildDenialError } from '../../iam/denial-message';
 import { createRoute, z } from '@hono/zod-openapi';
 import { auth, errors, json } from '../../openapi';
 import { PROJECT_ACTIONS } from '../../iam/actions';
@@ -27,7 +28,7 @@ export function registerGatewayKeysRoutes(): void {
     async (c: any) => {
       // Same escalation guard as project-credentials: a durable `kgw_` key minted
       // or revoked by an agent session outlives the session and carries no grant.
-      if (isProjectSessionPrincipal(c)) return c.json({ error: 'Agent-session tokens cannot manage gateway keys' }, 403);
+      if (isProjectSessionPrincipal(c)) throw buildDenialError(PROJECT_ACTIONS.PROJECT_GATEWAY_KEYS_MANAGE, 'agent_human_only_action');
       const projectId = workspaceIdParam(c);
       const loaded = await loadProjectForUser(c, projectId, 'read');
       if (!loaded) return c.json({ error: 'Not found' }, 404);
@@ -79,7 +80,7 @@ export function registerGatewayKeysRoutes(): void {
       if (c.get('authType') === 'oauth') return c.json({ error: 'Connected apps cannot mint gateway keys.' }, 403);
       // Same escalation guard as project-credentials: a durable `kgw_` key minted
       // or revoked by an agent session outlives the session and carries no grant.
-      if (isProjectSessionPrincipal(c)) return c.json({ error: 'Agent-session tokens cannot manage gateway keys' }, 403);
+      if (isProjectSessionPrincipal(c)) throw buildDenialError(PROJECT_ACTIONS.PROJECT_GATEWAY_KEYS_MANAGE, 'agent_human_only_action');
       const projectId = workspaceIdParam(c);
       const loaded = await loadProjectForUser(c, projectId, 'read');
       if (!loaded) return c.json({ error: 'Not found' }, 404);
@@ -124,7 +125,7 @@ export function registerGatewayKeysRoutes(): void {
       responses: { 200: json(z.any(), 'Gateway API key revoked'), ...errors(403, 404) },
     }),
     async (c: any) => {
-      if (isProjectSessionPrincipal(c)) return c.json({ error: 'Agent-session tokens cannot manage gateway keys' }, 403);
+      if (isProjectSessionPrincipal(c)) throw buildDenialError(PROJECT_ACTIONS.PROJECT_GATEWAY_KEYS_MANAGE, 'agent_human_only_action');
       const projectId = workspaceIdParam(c);
       const keyId = c.req.param('keyId');
       const loaded = await loadProjectForUser(c, projectId, 'read');

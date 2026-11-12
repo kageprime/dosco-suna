@@ -144,7 +144,7 @@ const themeHits = (query: string) =>
 //    Enter always fires the first, so a duplicate is worse than the bug this
 //    file exists to fix. `item.id` used to guarantee uniqueness; removing it
 //    moves the guarantee onto the curated text, which is safe only while this
-//    passes. cmdk 0.2.1 has no `keywords` prop to separate the two concerns.
+//    passes. The command core (a cmdk 0.2.1 port) has no `keywords` prop to separate the two concerns.
 // ============================================================================
 
 describe('cmdk value uniqueness', () => {
@@ -545,7 +545,7 @@ describe('subscription usage destinations', () => {
   });
   test('subscription results select the Usage tab and matching provider', () => {
     const items = getItemsForSurface('commandPalette');
-    expect(items.find(item => item.id === 'proj-chatgpt-usage')?.href).toBe('/workspaces/{projectId}/admin/models?tab=usage');
-    expect(items.find(item => item.id === 'proj-claude-usage')?.href).toBe('/workspaces/{projectId}/admin/models?tab=usage');
+    expect(items.find(item => item.id === 'proj-chatgpt-usage')?.href).toBe('/workspaces/{projectId}/admin/models?tab=providers&provider=openai');
+    expect(items.find(item => item.id === 'proj-claude-usage')?.href).toBe('/workspaces/{projectId}/admin/models?tab=providers&provider=anthropic');
   });
 });

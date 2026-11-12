@@ -228,7 +228,7 @@ export type SetupWorkspaceInput = Omit<ProvisionProjectInput, 'account_id' | 'na
 
 /** 409: the account already holds its workspace's project. The body names it (`workspace_id`). */
 export const WORKSPACE_HAS_PROJECT_CODE = 'workspace_has_project' as const;
-/** 404: no such workspace, an account id on a canonical path, or no access. */
+/** 404: no such workspace, an account id on a canonical path, or a workspace being deleted. A live workspace the caller cannot read answers 403 `workspace_access_denied`. */
 export const WORKSPACE_NOT_FOUND_CODE = 'workspace_not_found' as const;
 /** 409: the workspace has no repository yet: {@link setupWorkspace}. */
 export const WORKSPACE_SETUP_REQUIRED_CODE = 'workspace_setup_required' as const;

@@ -152,7 +152,7 @@ export function projectContentGroups(data: MarketplaceItemDetail, tI18nComplete:
     .map((name) => byName.get(name))
     .filter((d): d is MarketplaceItemDetail['dependencyItems'][number] => Boolean(d))
     .map((d) => toItem(d.name, d.title, d.description, d.type, d.id));
-  const memberItemGroups = groupMarketplaceItemsByType(items);
+  const memberItemGroups = groupMarketplaceItemsByType(items, tI18nComplete);
   // A project's agents + triggers (parsed from kortix.yaml) rendered with the
   // SAME card + name-based icon heuristic as its skills — just non-navigable,
   // since they aren't their own catalog items.

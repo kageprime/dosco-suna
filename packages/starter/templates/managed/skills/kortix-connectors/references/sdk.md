@@ -76,7 +76,9 @@ for await (const page of crm.paginate('list_deals', { limit: 100 }, {
   the 202 body), repeat the identical call within 15 minutes after approval:
   it runs once.
 - `ConnectorCallError` (extends `ApiError`): `status`, `code` (the machine
-  reason: `connector_not_connected`, `account_required`, `upstream_timeout`,
+  reason: `connector_not_connected`, `connector_not_shared` (an account
+  exists but is not shared with the caller: its owner shares it, never sign
+  in again), `account_required`, `upstream_timeout`,
   `upstream_429`, `upstream_error` for a failure inside a 2xx, …), `reason`,
   `connectUrl`, `availableAccounts`, `upstreamStatus`, `retryAfterSeconds`,
   `binding`, `hint`.
@@ -239,7 +241,7 @@ export const syncDeals = internalAction({
 - Use a `'use node'` action. The SDK is not verified in the default Convex
   runtime.
 - The service account reaches only shared accounts nobody narrowed. A
-  private or narrowed account answers `403 connector_not_connected`.
+  private or narrowed account answers `403 connector_not_shared`.
 - Without a workspace role, every call answers `403`.
 - Anyone with the deployment admin key reads the bearer from the Convex env.
 - `kortix tokens service-accounts disable <id>` revokes it: calls answer `401`.

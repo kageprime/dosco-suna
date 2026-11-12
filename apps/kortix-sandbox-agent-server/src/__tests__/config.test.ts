@@ -16,38 +16,26 @@ const BASE_ENV = { KORTIX_WORKSPACE: '/workspace', KORTIX_REPO_URL: 'https://exa
 
 describe('loadConfig env contract', () => {
   test.each([
-    // Defaults a box boots with.
-    ['clone depth defaults to a shallow depth-1 clone', {}, { cloneDepth: 1 }],
-    ['no partial-clone filter by default (measured slower)', {}, { cloneFilter: '' }],
-    ['the one-time branch restore is off by default', {}, { sessionBranchRestore: false }],
-    // Mappings.
-    ['depth 0 opts back into a full-history clone', { KORTIX_CLONE_DEPTH: '0' }, { cloneDepth: 0 }],
-    ['an explicit depth is honoured', { KORTIX_CLONE_DEPTH: '25' }, { cloneDepth: 25 }],
     ['the sandbox credential comes from KORTIX_TOKEN', { KORTIX_TOKEN: 'sandbox-token' }, { sandboxToken: 'sandbox-token' }],
-    ['KORTIX_SESSION_BRANCH_RESTORE=1 arms the one-time branch restore', { KORTIX_SESSION_BRANCH_RESTORE: '1' }, { sessionBranchRestore: true }],
+    ['the repository the agent may clone comes from KORTIX_REPO_URL', {}, { repoUrl: 'https://example.test/r.git' }],
     ['/workspace is the box disk by default', {}, { workspaceVolume: false }],
     ['KORTIX_WORKSPACE_VOLUME=1 says /workspace is a volume', { KORTIX_WORKSPACE_VOLUME: '1' }, { workspaceVolume: true }],
-    [
-      'the fast-boot delta bundle and its parent commit reach the config',
-      {
-        KORTIX_GIT_DELTA_BUNDLE_BASE64: 'R0lUIEJVTkRMRQ==',
-        KORTIX_GIT_DELTA_PARENT_SHA: 'a'.repeat(40),
-        KORTIX_GIT_DELTA_PARENT_COMMIT_BASE64: 'dHJlZSBkZWFkYmVlZgo=',
-      },
-      {
-        gitDeltaBundleBase64: 'R0lUIEJVTkRMRQ==',
-        gitDeltaParentSha: 'a'.repeat(40),
-        gitDeltaParentCommitBase64: 'dHJlZSBkZWFkYmVlZgo=',
-      },
-    ],
   ] as const)('%s', (_name, env, expected) => {
     expect(loadConfig({ ...BASE_ENV, ...env } as NodeJS.ProcessEnv)).toMatchObject(expected)
   })
 
-  test.each([
-    ['a negative clone depth', { KORTIX_CLONE_DEPTH: '-1' }],
-  ])('rejects %s instead of passing it to git', (_name, env) => {
-    expect(() => loadConfig({ ...BASE_ENV, ...env } as NodeJS.ProcessEnv)).toThrow()
+  // The box never clones at boot: no clone setting reaches the config, whatever an older API sends.
+  test('clone-at-boot variables an older API may send leave no trace in the config', () => {
+    const config = loadConfig({
+      ...BASE_ENV,
+      KORTIX_PROJECT_AUTO_CLONE: '1',
+      KORTIX_CLONE_DEPTH: '0',
+      KORTIX_SESSION_BRANCH_RESTORE: '1',
+      KORTIX_GIT_DELTA_BUNDLE_BASE64: 'R0lUIEJVTkRMRQ==',
+    } as NodeJS.ProcessEnv) as Record<string, unknown>
+    for (const key of ['autoClone', 'cloneDepth', 'cloneFilter', 'sessionBranchRestore', 'gitDeltaBundleBase64']) {
+      expect([key, config[key]]).toEqual([key, undefined])
+    }
   })
 })
 

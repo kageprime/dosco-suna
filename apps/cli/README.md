@@ -84,9 +84,9 @@ my-workspace/
 
 `kortix.yaml` is the only manifest. It has one format and no version key. The
 workspace registers skills, tools, commands and extensions; each agent block
-enables them by name. Every starter agent sets
-`workspace: { project_repository: true }`, so its sessions get a checkout of
-the repository. A session reads no `harnesses/`, `.kortix/`, `.opencode/` or
+enables them by name. A session starts with an empty `/workspace`: Kortix
+never checks out the repository. An agent that needs the files runs
+`kortix workspaces clone` in its sandbox. A session reads no `harnesses/`, `.kortix/`, `.opencode/` or
 `.pi/` folder. Reference:
 <https://kortix.com/docs/developers#kortixyaml-reference>.
 

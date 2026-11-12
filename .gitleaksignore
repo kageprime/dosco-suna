@@ -146,3 +146,18 @@ c16b74338b9c53744201aac00694984253a52f0e:apps/api/src/connectors/one-click-mcp.j
 5ff9561db6f034631d87e14e5da9a5e5fdf4d1d3:.gitleaksignore:stripe-access-token:142
 86568ba13c873221ae9bed0257f77d80089df580:.gitleaksignore:stripe-access-token:142
 4aedc2099e18a97b46283e64b4920d5330d34589:apps/api/src/__tests__/integration-held-call-store.test.ts:stripe-access-token:151
+
+# v0.16.0 release PR (2026-11-09). WS-AUTH-10 (tests/src/flows/workspace-auth.flow.ts)
+# mints a workspace key and wraps it in a test Principal: keyPrincipal(...).secret_key,
+# 'WSA10_MINTER'). The flagged value is that Principal's display LABEL (a made-up
+# test constant, single use, asserted by nothing), not a credential; no live
+# wallet, key or token value appears on the line. Reviewed by the release train.
+45da88f99de472f388d7ed35efff89ab973aa22e:tests/src/flows/workspace-auth.flow.ts:generic-api-key:612
+
+# v0.15.3 release PR (2026-11-09). tests/unit/client-resilience.test.ts (#12154)
+# used a synthetic JWT-shaped string (`{"alg":"HS256"}.{"sub":"1"}.abc_sig`,
+# signature literally `abc_sig`) as the body a status-assert redaction test
+# must mask. Not a credential. The test now assembles it at runtime; these
+# are the commits where it was one literal (#12154 on dev, its staging cherry-pick).
+a707e3ec4aaae045708f2d04f70ac907e39be46e:tests/unit/client-resilience.test.ts:generic-api-key:343
+b214b7afb277b75ee9726ab828002b90e49245db:tests/unit/client-resilience.test.ts:generic-api-key:343

@@ -87,7 +87,7 @@ export function buildAdminConnectorViews(
  * derive it three ways. `status` and `secretSet` stay for older clients.
  */
 export function connectorState(
-  candidate: Pick<AdminConnectorCandidate, 'slug' | 'status' | 'requiresAuth' | 'lastError'>,
+  candidate: Pick<AdminConnectorCandidate, 'slug' | 'status' | 'requiresAuth' | 'lastError' | 'accounts'>,
   connectedSlugs: ReadonlySet<string>,
 ): Pick<AdminConnectorView, 'state' | 'state_reason' | 'auth_needed'> {
   const auth_needed = candidate.requiresAuth;
@@ -98,7 +98,15 @@ export function connectorState(
     return { state: 'needs_account', state_reason: 'no account connected', auth_needed };
   }
   if (candidate.status === 'error') {
-    return { state: 'error', state_reason: safeConnectorLastError(candidate.lastError) ?? 'its tools could not be loaded', auth_needed };
+    const reason = safeConnectorLastError(candidate.lastError);
+    // `error` needs a reason the caller can act on. A failed catalog with no
+    // stored reason and no account is a connector nobody connected yet (an
+    // MCP server that undeclared OAuth refuses until a sign-in): the fix is
+    // an account, the same answer as above.
+    if (!reason && (candidate.accounts ?? []).length === 0) {
+      return { state: 'needs_account', state_reason: 'no account connected', auth_needed };
+    }
+    return { state: 'error', state_reason: reason ?? 'its tools could not be loaded', auth_needed };
   }
   return { state: 'connected', state_reason: null, auth_needed };
 }

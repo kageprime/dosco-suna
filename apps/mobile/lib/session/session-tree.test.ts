@@ -28,8 +28,8 @@ const make = (overrides: Record<string, unknown> = {}): ProjectSession =>
   }) as unknown as ProjectSession;
 
 describe('startedByForScope', () => {
-  test('maps each chip to its started_by value; All sends none', () => {
-    expect(startedByForScope('all')).toBeUndefined();
+  test('All maps to humans (machine runs keep their own chip); each chip maps to its started_by value', () => {
+    expect(startedByForScope('all')).toBe('humans');
     expect(startedByForScope('mine')).toBe('me');
     expect(startedByForScope('shared')).toBe('others');
     expect(startedByForScope('automated')).toBe('automated');
@@ -176,8 +176,8 @@ describe('pinned and archived views', () => {
     expect(sessionsInView([pinned, archived, plain, legacy], 'archived').map((s) => s.session_id)).toEqual(['arch']);
   });
 
-  test('the Sessions page asks for top-level sessions, or with Archived on for every archived one', () => {
-    expect(sessionsPageFilter({ scope: 'all', archived: false, q: 'fix' })).toEqual({ parent: 'root', startedBy: undefined, q: 'fix' });
+  test('the Sessions page asks for person-started top-level sessions, or with Archived on for every archived one', () => {
+    expect(sessionsPageFilter({ scope: 'all', archived: false, q: 'fix' })).toEqual({ parent: 'root', startedBy: 'humans', q: 'fix' });
     expect(sessionsPageFilter({ scope: 'mine', archived: true })).toEqual({ view: 'archived', startedBy: 'me', q: undefined });
     // No `parent`: an archived sub-agent session left its parent's children,
     // so the Archived view is the way back to it.

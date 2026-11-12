@@ -50,6 +50,10 @@ app.use('*', async (c, next) => {
 app.use('*', async (c, next) => {
   await next();
   c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  // Uniform referrer policy on every origin-served response (KRTX-4702). Set only
+  // when absent: a route may choose a stricter value (the public share proxy's
+  // no-referrer) and must keep it.
+  if (!c.res.headers.has('Referrer-Policy')) c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
 });
 app.use('*', async (c, next) => {
   const path = c.req.path;

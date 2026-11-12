@@ -1,8 +1,8 @@
 ---
 title: Recover OpenCode-era conversations that never reached the session log
-status: prod plan + dry run 2026-11-06 found big stores over Platinum's 256 MiB download cap; the fix (parts, big-store pass) is verified on dev; the prod run waits for the release that ships it
+status: done and removed. Prod Platinum recovered (numbers under Status); Daytona written off; the script was deleted from the tree by the PR that set this status (restore it from git history: `git show 550757a87b:apps/api/src/scripts/recover-opencode-history.ts`)
 owner: platform
-updated: 2026-11-06
+updated: 2026-11-10
 ---
 
 # Recover OpenCode-era conversations that never reached the session log
@@ -74,7 +74,17 @@ cycle, for example a dry run a minute before) spends no attempt and does not
 count for the stop rules. A part download retries a network error or a 5xx
 twice.
 
+`invalid` is a log that failed `SessionLogSchema`. On prod all 9 were a todo whose
+status OpenCode had stored as free text outside the session-log enum. The
+converter now leaves such a todo out (and drops an unknown priority), and the
+candidate filter takes those `invalid` rows (detail `todos.…`) again, up to 3
+attempts.
+
 ## Runbook
+
+The script is no longer in the tree. To run it again, restore the 9 files
+from `550757a87b` (`apps/api/src/scripts/recover-opencode-history.ts` and the
+folder beside it) on a branch, ship them in a release, then follow this runbook.
 
 Run it as a one-off ECS task of the environment (the worker task definition: its
 env, IAM and VPC), never on a laptop for prod: the files are customer data.
@@ -107,7 +117,8 @@ runbig '["bun","src/scripts/recover-opencode-history.ts","--env","'$ENV'","--app
 ```
 
 `--max-store-mb` above 128 needs `--concurrency 1`. It takes the fresh candidates
-and every `too_large` set aside for its size under the new cap.
+and every `too_large` set aside for its size under the new cap. The cap goes up
+to 8192: at about 2.4 × the store, 16 GB holds a store up to ~6 GB.
 
 The output goes to the worker log group (`/ecs/kortix-<env>…`, stream prefix
 `worker`): one `[recover]` line per session, a `done` line with the outcome counts.
@@ -167,5 +178,31 @@ are stamped and skipped.
   a Daytona `--apply`, both exit 0 and 0 candidates. Dev totals: 868 `written`,
   47 `empty_store`, 3 `no_store`, 2 `box_gone`, 1 `retry` (a box stuck in Daytona
   `archiving`).
-- Open: the prod run after the release; pi sessions with no log (146 Platinum
-  since 08-19, `ses_pi…` roots) need a pi reader and are not covered.
+- 2026-11-07/08, prod on v0.15.1 (worker td `:11`): plan 6,425 Platinum
+  candidates. Dry run of 5, then `--limit 5 --apply`: 2 `written` (40 and 54
+  messages, read back from `session_log_messages`), 2 `too_large`, 1 `no_store`,
+  boxes archived. Full pass, concurrency 3: 6,420 sessions in 663.9 min, exit 0,
+  peak RSS 279 MB, ~560 sessions/h. Big pass at 2 vCPU / 16 GB (85 sessions,
+  35.2 min): 73 `written`. A Platinum stop can take over 10 s on a box with a big
+  disk: `release` then fails, a `written` session stays `written`, any other
+  outcome becomes `retry`.
+- 2026-11-10, final retry pass (td `:13`): 2 more `written`. Prod Platinum total:
+  6,258 `written`, 148 `empty_store`, 1 `no_store`. Not recovered: 9 `invalid`
+  (todo status, fixed above), 1 `too_large` of 4,213 MB (over the old 4096 cap),
+  and 8 `retry` with 3 attempts spent: disk input/output errors or a crash in the
+  box (4), a box that cannot start on its host (1), an attachment over 50 MiB
+  (1), a box still settling (1), a provider timeout (1).
+- 2026-11-10, Daytona: written off. Daytona answers `401 Invalid credentials`
+  to the key in `.env.prod` and `.env.dev` (unchanged in git; it worked on dev
+  on 11-05). The prod plan counted 8,453 Daytona candidates; the owner decided
+  not to recover them.
+- 2026-11-10 23:51Z, rerun after v0.15.4 shipped the todo fix (td `:14`,
+  2 vCPU / 16 GB, `--apply --max-store-mb 8192 --concurrency 1`, 12 sessions in
+  2.3 min): the 9 `invalid` sessions `written` (11 to 238 messages each; every
+  count matches `session_log_messages`), 1 more `no_store`. The 4,213 MB store
+  failed with `No space left on device`: the copy splits the whole store into the
+  box's `/tmp` before the download, and that box's disk cannot hold it. The owner
+  wrote it off. Final prod Platinum total: 6,267 `written`, 148 `empty_store`,
+  2 `no_store`, 9 not recovered.
+- Not covered: pi sessions with no log (146 Platinum since 08-19, `ses_pi…`
+  roots) need a pi reader.

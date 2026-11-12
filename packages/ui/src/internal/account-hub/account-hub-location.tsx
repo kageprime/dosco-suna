@@ -165,8 +165,8 @@ export const HubLink = forwardRef<
         if (event.button !== 0) return;
         event.preventDefault();
         // One frame later, not now. Many of these rows live inside a menu or
-        // another modal, and Radix restores focus to the trigger as that layer
-        // unmounts. Opening a focus-trapping dialog in the same tick lets that
+        // another modal, and a closing layer restores focus to its trigger as
+        // it unmounts. Opening a focus-trapping dialog in the same tick lets that
         // restore land last and pull focus back OUT of the hub. A frame is
         // imperceptible and puts the two in the right order.
         requestAnimationFrame(() => openAccountPanel(to));

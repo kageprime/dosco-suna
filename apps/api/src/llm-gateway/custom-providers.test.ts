@@ -14,6 +14,14 @@ const realSecrets = await import('../projects/secrets');
 mock.module('../projects/secrets', () => ({ ...realSecrets, resolveProjectSecretsForConsumer }));
 let modelsResponse: () => Response = () => Response.json({ data: [] });
 const safeEgressFetch = mock(async (_url: string, _init?: { headers?: Record<string, string> }) => modelsResponse());
+// No named key in this suite: the one key reader (credentials/gateway-keys.ts)
+// reads the named store first, whatever pooled_provider_secrets says.
+const realAccountResource = await import('../secrets/account-resource');
+mock.module('../secrets/account-resource', () => ({
+  ...realAccountResource,
+  resolveProjectSharedProviderSecrets: async () => ({ coolingDown: false, secrets: [], withheld: 0 }),
+  listGrantedGatewaySecretNames: async () => [],
+}));
 const realGuard = await import('../shared/ssrf-guard');
 mock.module('../shared/ssrf-guard', () => ({ ...realGuard, safeEgressFetch }));
 

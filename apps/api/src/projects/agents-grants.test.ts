@@ -11,6 +11,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   DEFAULT_AGENT_SENTINEL,
+  agentGrantAllowsRepository,
   extractAgents,
   grantFromLoadedAgents,
   resolveGovernedAgentGrant,
@@ -107,5 +108,29 @@ agents:
     expect(loaded.defaultAgent).toBe('writer');
     expect(loaded.specs[0]?.model).toBe('test/model');
     expect(grantFromLoadedAgents('writer', loaded)).toMatchObject({ connectors: ['github'], env: ['KEY'] });
+  });
+});
+
+describe('agentGrantAllowsRepository — repository bytes follow the agent grant', () => {
+  test('only a grant holding project.gitops.read (any spelling) may receive the repository', () => {
+    const cases: Array<[string, boolean]> = [
+      ['    kortix_permissions: "*"\n', true],
+      ['    kortix_permissions: [project.gitops.read]\n', true],
+      ['    kortix_permissions: [workspace.gitops.read]\n', true],
+      ['    kortix_permissions: [project.read]\n', false],
+      ['    kortix_permissions: none\n', false],
+      ['    prompt: hi\n', false],
+    ];
+    for (const [block, allowed] of cases) {
+      const loaded = extractAgents(v2(block));
+      expect(loaded.errors).toEqual([]);
+      expect([block, agentGrantAllowsRepository('w', loaded)]).toEqual([block, allowed]);
+      expect([block, agentGrantAllowsRepository(DEFAULT_AGENT_SENTINEL, loaded)]).toEqual([block, allowed]);
+    }
+  });
+
+  test('an undeclared agent of a governed project gets nothing; a project without agents is unrestricted', () => {
+    expect(agentGrantAllowsRepository('ghost', extractAgents(v2('    kortix_permissions: "*"\n')))).toBe(false);
+    expect(agentGrantAllowsRepository('w', extractAgents(parseManifestString('project:\n  name: p\n', 'kortix.yaml')))).toBe(true);
   });
 });

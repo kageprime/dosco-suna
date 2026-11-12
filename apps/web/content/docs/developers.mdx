@@ -118,7 +118,7 @@ my-agent/
 
 - `kortix.yaml` turns on My Kortix (`builtin_agents: { my_kortix: true }`) and sets `default_agent: mykortix`. A session that names no agent runs My Kortix, and My Kortix hands project work to `worker` by name.
 - `worker` is a general-purpose agent. Every grant it has is `"*"`: every name. A workspace created before `worker` existed keeps its `kortix` agent.
-- `worker` sets `workspace: { project_repository: true }`, so each session gets a checkout of the repository on its own branch in `/workspace`.
+- Each session starts with an empty `/workspace`. To work on the repository, `worker` runs `kortix workspaces clone` in its sandbox. The clone is on the session's own branch.
 - `kortix-cli` is the one Kortix skill in the folder. The other `kortix-*` skills are always registered and come with every session. The `skills` key in `kortix.yaml` lists the other 10.
 
 `kortix init` also writes files for the coding tools you picked. Codex, pi and Cursor get `AGENTS.md`. Codex, Claude Code and pi get a link to `skills/` in `.agents/`, `.claude/` or `.pi/`. Every key is in the [kortix.yaml reference](/docs/developers#kortixyaml-reference).
@@ -154,17 +154,16 @@ agents:
     description: "General-purpose worker: coding, research, writing, ops and data work."
     mode: primary
     permission: allow
-    prompt: "You work in this repository. Read AGENTS.md or CLAUDE.md first when it exists."
+    prompt: "Your session starts with an empty /workspace. Run `kortix workspaces clone` to get this repository, then read AGENTS.md or CLAUDE.md when it exists."
     tools: "*"
     skills: "*"
     connectors: "*"
     secrets: "*"
     kortix_permissions: "*"
-    workspace: { project_repository: true }
 ```
 
 3. Keep the agent setup this repository already has. Do not move, copy or edit those files.
-   - For each `.claude/agents/<name>.md`, add an agent `<name>` with `prompt_file: .claude/agents/<name>.md`, the `description` from its frontmatter, `mode: primary`, `tools: "*"` and `workspace: { project_repository: true }`.
+   - For each `.claude/agents/<name>.md`, add an agent `<name>` with `prompt_file: .claude/agents/<name>.md`, the `description` from its frontmatter, `mode: primary`, `tools: "*"` and `kortix_permissions: [workspace.gitops.read]`, so it can clone the repository.
    - For each folder that holds a `SKILL.md` (`.agents/skills/<name>`, `.claude/skills/<name>`, `skills/<name>`), add `<name>: <folder>` under `skills:`. Skip a name that starts with `kortix-`.
 4. Run `kortix validate`. Fix every error it prints and run it again until it exits 0.
 5. Commit only `kortix.yaml` with the message "chore: add kortix.yaml" and push it to the branch the workspace uses.
@@ -476,9 +475,39 @@ Kortix refuses the whole push when it refuses one ref. Git prints the reason for
 
 Each session works on its own branch. The branch name is the `session_id`, with no prefix. Kortix cuts the branch from the session's `base_ref`, which is the workspace default branch unless the session was created with another one.
 
-A session gets the branch and a checkout in `/workspace` only when its agent sets `workspace: { project_repository: true }`. The starter agents set it. Without it, repository calls answer `403` `session_repository_access_denied`.
+Kortix never checks out the repository at session start. `/workspace` starts empty. To work on the repository, the agent runs `kortix workspaces clone` (or `git clone "$KORTIX_REPO_URL"`) in its sandbox.
 
-Inside the sandbox, the branch is `$KORTIX_BRANCH_NAME`. The agent commits there and runs `git push origin HEAD`. [Inside a session sandbox](/docs/developers#inside-a-session-sandbox) lists the other variables.
+To have every session of an agent start with the code and a ready dev environment, declare it on the agent:
+
+```yaml
+agents:
+  dev:
+    kortix_permissions: [workspace.gitops.read]
+    workspace:
+      sandbox: node                # the machine: a sandbox.templates slug
+      repos:
+        - path: /workspace         # or a folder under it
+          sparse: [apps/web]       # optional: only these folders of a monorepo
+      setup:
+        - pnpm install                         # in the first clone's folder
+        - { run: pnpm build, cwd: apps/web }   # in a folder of it
+```
+
+- The session starts and takes its first turn at once. The clones and `setup` run in the background after it starts.
+- Each clone lands on the session branch. A session branch that already holds pushed work is checked out as it is.
+- `setup` steps run in order, each in its own login shell with the agent's secrets. A step runs in the first clone's folder (or `/workspace`), or in its `cwd`: relative to that folder, or absolute under `/workspace`. A `cd` in one step does not carry to the next. The first failure stops the rest. The session keeps running.
+- Progress is `/tmp/kortix/workspace-setup.json` in the sandbox and `workspace_setup` in `GET /p/<sandbox>/8000/kortix/health`. Output is `/tmp/kortix/workspace-setup.log`. The agent's prompt names both.
+- `repos` needs repository access (below). Without it, the session still runs `setup`, and the status says why nothing was cloned.
+- A session that resumes on its volume does not run the same setup again.
+
+A session may read the repository only when two grants hold:
+
+- the session's agent has `project.gitops.read` in `kortix_permissions` (for example `kortix_permissions: "*"`);
+- the person who launched the session holds `project.file.read`.
+
+Otherwise, repository calls answer `403` `session_repository_access_denied`, and the session's config release compiles only the session's own agent.
+
+Inside the sandbox, the branch is `$KORTIX_BRANCH_NAME`. The agent commits there and runs `git push origin HEAD`. The Git proxy accepts a push only to the session's own branch. [Inside a session sandbox](/docs/developers#inside-a-session-sandbox) lists the other variables.
 
 A pushed branch stays in the repository after the session stops and after the session is deleted. `/workspace` holds this session's files, kept for the life of the session. Work the agent did not push is gone when the session is deleted. See [Computers](/docs/guide#computers).
 
@@ -575,7 +604,7 @@ A grant that names `project.cr.open` or `project.cr.merge` counts as `project.gi
 
 | Command | Does |
 | --- | --- |
-| `kortix cr ls [--status <s>]` | Lists change requests. `<s>` is `open` (default), `merged`, `closed` or `all`. |
+| `kortix cr ls [--status <s>] [--limit <n>] [--cursor <c>]` | Lists change requests, newest first. `<s>` is `open` (default), `merged`, `closed` or `all`. With `--limit` or `--cursor` it prints one page of at most `<n>` (default 50); `--json` adds `next_cursor`. An unknown flag exits `2`. |
 | `kortix cr show <cr>` | Shows one change request. |
 | `kortix cr diff <cr>` | Prints the unified diff. |
 | `kortix cr open --head <branch> --title <t> [--base <branch>] [--description <t>]` | Opens a change request. Aliases: `--from`, `--into`, `--body`. |
@@ -588,7 +617,7 @@ A grant that names `project.cr.open` or `project.cr.merge` counts as `project.gi
 
 Each command takes `--project <id>` and `--host <name>`. `ls`, `show`, `diff`, `merge-preview`, `request-changes` and `version-diff` also take `--json`. The REST routes are under `/v1/workspaces/<project_id>/change-requests` in the [API reference](https://api.kortix.com/v1/docs).
 
-`GET /change-requests` returns one page, newest number first: 50 change requests by default, at most 500 with `limit` (a larger `limit` answers `400`). Pass `next_cursor` back as `cursor` for the next page; it is `null` on the last page. `kortix cr ls` follows it and lists every change request.
+`GET /change-requests` returns one page, newest number first: 50 change requests by default, at most 500 with `limit` (a larger `limit` answers `400`). Pass `next_cursor` back as `cursor` for the next page; it is `null` on the last page. `kortix cr ls` without `--limit` or `--cursor` follows it and lists every change request. `kortix cr ls --limit <n> [--cursor <c>] --json` prints one page and its `next_cursor`.
 
 #### Errors
 
@@ -799,7 +828,6 @@ agents:
     prompt: You answer questions about this project. Read the files before you answer.
     tools: "*"                               # every tool; omitted: every tool, with a warning
     skills: "*"                              # every skill; omitted: no skills
-    workspace: { project_repository: true }  # omitted: no repository in /workspace
 ```
 
 Every key is optional. No tool call of this agent waits for a person: an omitted `permission` is `allow`. A file with no `agents` runs only the built-in agents it turns on (`builtin_agents`).
@@ -883,7 +911,7 @@ Kortix reads the file and the files it points at as the format on this page: eac
 
 ### Deprecated keys
 
-Each row still works. `kortix validate --fix` writes the replacement with the same meaning.
+Each row still validates. `kortix validate --fix` writes the replacement with the same meaning. A session never checks out the repository at boot, so the old shapes of `agent-workspace`, `agent-repository-access` and `agent-workspace-mode` are replaced by a grant: an agent that had the checkout gets `workspace.gitops.read` in `kortix_permissions`, so it can still run `kortix workspaces clone`. `--fix` and every Kortix write delete the old keys. The current `workspace: { sandbox, repos, setup }` map is not a deprecation.
 
 | Fix id | Deprecated | Write instead |
 | --- | --- | --- |
@@ -894,8 +922,9 @@ Each row still works. `kortix validate --fix` writes the replacement with the sa
 | `agent-env` | An agent's `env` | `secrets` |
 | `agent-kortix-cli` | `kortix_cli` | `kortix_permissions` |
 | `agent-connectors-personal` | `connectors_personal` | `connectors_required` |
-| `agent-repository-access` | `repository_access: true` | `workspace: { project_repository: true }` |
-| `agent-workspace-mode` | `workspace: branch` or `workspace: runtime` | `workspace: { project_repository: true }` or `false` |
+| `agent-repository-access` | `repository_access: true` | `kortix_permissions` gains `workspace.gitops.read`; the key goes (deprecation `agent-workspace`). |
+| `agent-workspace-mode` | `workspace: branch` or `workspace: runtime` | `branch` adds `workspace.gitops.read`; `runtime` adds nothing; the key goes (deprecation `agent-workspace`). |
+| `agent-workspace` | An agent's `workspace: branch \| runtime \| read`, `workspace: { project_repository }` or `repository_access: …` | `project_repository: true` adds `workspace.gitops.read` to `kortix_permissions` (`"*"` already holds it); any other value adds nothing. The old key goes; a `workspace` map keeps its other keys. To clone at start, use `workspace: { repos: [...] }`. |
 | `sandbox-templates` | The top-level `sandboxes` list | `sandbox.templates` |
 | `sandbox-singular` | Image keys (`image`, `dockerfile`, `context`, …) set on `sandbox` itself | One `sandbox.templates` entry, named as `sandbox.default` |
 | `acp-runtimes` | `runtimes`, and an agent's `runtime` and `agent` | Nothing: delete them. Every session runs pi. |
@@ -988,8 +1017,7 @@ agents:
     extensions: [web-access]
     connectors: [helpdesk]
     secrets: [HELPDESK_TOKEN]
-    kortix_permissions: [project.session.read, project.gitops.push]
-    workspace: { project_repository: true }
+    kortix_permissions: [project.session.read, project.gitops.read, project.gitops.push]
   researcher:
     description: Looks up an order's history. Never edits files.
     mode: subagent
@@ -1057,12 +1085,12 @@ The workspace registers what exists. Each agent enables what it uses, by name. A
 - **A grant** is `"*"` (every name), `none` (or `""`), or a list of names. Quote the `*`: a bare `*` is a YAML alias, and `kortix validate` prints the quoted line. `all` is the accepted alias of `"*"`, and a list that contains `"*"` is every name too.
 - **Omitted means none.** An omitted `skills`, `subagents`, `commands`, `extensions`, `connectors`, `secrets`, `apps` or `kortix_permissions` grants nothing.
 - **Three keys are open by default:** `tools` is `"*"` (`kortix validate` warns when an agent omits it), `permission` is `allow`, and `codemode` is `on`.
-- **`workspace.project_repository` defaults to `false`.** Set `true` on every agent that reads or changes the repository, runs its scripts, or opens change requests.
+- **No session gets a checkout.** `/workspace` starts empty. An agent that reads or changes the repository runs `kortix workspaces clone`, and needs `project.gitops.read` in `kortix_permissions`.
 - **Names must exist.** A listed skill, command, extension, subagent or tool that is not registered or built in is an error.
 - **`secrets` reaches the sandbox.** A granted secret is an environment variable or a network-enforced secret in the agent's sandbox. Model logins, connector and git credentials stay with Kortix services: the agent's model and connector settings decide their use.
 - **Built in, with no entry.** The Kortix skills: `kortix-cli`, `kortix-memory` and the other `kortix-*` skills. The Kortix tools: `web_search`, `image_search`, `image_gen`, `scrape_webpage`, `show`. See [Kortix tools](/docs/developers#kortix-tools). The built-in tools: `bash`, `read`, `write`, `edit`, `glob`, `grep`, `question`, `task`. An agent loads a Kortix skill only when its `skills` grant names it or is `"*"`.
 - **My Kortix runs only when the file turns it on.** `builtin_agents: { my_kortix: true }` turns it on, and the starter sets it. No key, `false`, or a file Kortix cannot read leaves it off. With it off, a request for the agent `mykortix` returns `409 builtin_agent_disabled`.
-- **Which agent a session runs.** A session or trigger that names no agent runs `default_agent`. With My Kortix on and no `default_agent`, it runs My Kortix. A colleague My Kortix starts without naming an agent (an inline agent, `general`, a fork) runs as My Kortix, with My Kortix's own access and its own instructions. Any other session My Kortix starts names its agent: when `default_agent` is `mykortix`, a create that names none is refused with 400 `AGENT_REQUIRED` and the agents to name. Nothing picks an agent for it. The starter manifest sets `builtin_agents.my_kortix: true`, `default_agent: mykortix` and one workspace agent, `worker`, so a new workspace runs My Kortix, and My Kortix hands project work to `worker` by name. A workspace made before `worker` existed keeps its `kortix` agent.
+- **Which agent a session runs.** A session or trigger that names no agent runs `default_agent`. With My Kortix on and no `default_agent`, it runs My Kortix. A colleague My Kortix starts without naming an agent (an inline agent, `general`, a fork) runs as My Kortix, with My Kortix's own access and its own instructions. Any other session My Kortix starts names its agent: a create that names none is refused with 400 `AGENT_REQUIRED` and the agents to name, whatever `default_agent` is. Nothing picks an agent for it. A create that names My Kortix without inline instructions is refused with 400 `META_AGENT_RECURSION`. Both refusals carry `agents`, the project agents to name, and a message that names the fix: `agent_name` in the API, `--agent <name>` in `kortix sessions new`. `kortix doctor` run from a My Kortix session retries its test session once with the first agent listed. The starter manifest sets `builtin_agents.my_kortix: true`, `default_agent: mykortix` and one workspace agent, `worker`, so a new workspace runs My Kortix, and My Kortix hands project work to `worker` by name. A workspace made before `worker` existed keeps its `kortix` agent.
 - **A file with an error** still runs My Kortix when it sets `my_kortix: true`, so My Kortix can fix the file.
 - **Extensions** are packages for the agent runtime. A package holds runtime extensions, skills, prompts or themes. The change request merge builds npm packages, and a session never installs them. A session loads its extensions when its runtime starts, so a change reaches a running session at its next start.
 
@@ -1124,11 +1152,13 @@ The workspace registers what exists. Each agent enables what it uses, by name. A
 | `secrets` | grant | `none` | Secret names the agent's sandbox receives. |
 | `apps` | grant | `none` | App slugs the agent may open when the App's access is restricted or private. |
 | `kortix_permissions` | grant | `none` | Project permissions (`project.*`) the agent holds, whoever starts the session. `kortix validate --scopes` prints them. An account permission is an error. See [Agents](/docs/guide#agents). |
-| `workspace` | `branch`, `runtime`, `read` | — | What new sessions of this agent get in /workspace. Any other key under `workspace` is an error. |
-| `workspace.project_repository` | boolean | `false` | `true`: new sessions check out the project repository in `/workspace`, on their own session branch. `false`: no checkout, and repository calls answer `403` `session_repository_access_denied`. Project tools still load. |
 | `sandbox` | string | `sandbox.default` | A template slug, or `default` for the platform image. |
 | `space` | string | — | The space the agent works in (a key of the top-level `spaces` map, or a bare slug). Grouping only. |
 | `network_egress` | map | — | Only `{ version: 1, default: deny, rules: [] }`. It validates with a warning: Kortix does not enforce it. |
+| `workspace` | map or string | — | What this agent's sessions get to work in. Nothing is cloned and nothing runs unless it says so. `repos` and `setup` run in the background after the session starts: they never hold its first turn. |
+| `workspace.sandbox` | string | — | A `sandbox.templates` slug, or `default`: the machine. Same as the agent's `sandbox` key. |
+| `workspace.repos` | list | — | Explicit clones of the workspace repository, on the session branch. Needs `workspace.gitops.read` in `kortix_permissions`. None by default. |
+| `workspace.setup` | list | — | Steps run in order after the clones, each in its own login shell with the agent's secrets, in the first clone's folder (or `/workspace`). A `cd` does not carry to the next step. A failure stops the rest; the session keeps running. |
 
 ### Registry entries
 
@@ -1438,7 +1468,7 @@ Kortix maintains five tools. Every workspace registers all five with no entry. E
 | `scrape_webpage` | Fetches one or more pages and returns them as Markdown. |
 | `show` | Presents a file, image, URL, document, or text to the person in the session. Each shown item whose path is an image file (png, jpg, jpeg, webp, gif, avif, svg) of at most 32 MiB carries `sha256`, the lowercase hex SHA-256 of its bytes, when the file is read within 2 s. |
 
-- **See what a session gets:** run `kortix tools ls` from the workspace root.
+- **See what a session gets:** run `kortix tools ls`. It reads `./kortix.yaml` and its imports. With no local `kortix.yaml` (a session with no checkout), or with `--workspace <id>` or `--ref <branch>`, it reads them from the workspace repository, as `kortix files cat kortix.yaml` does. `--json` names the `source`: `local` or `workspace`.
 - **Own a Kortix tool:** `kortix tools eject <name>` writes the source the sandbox runs to `tools/<name>.ts` and points the tool at it. The copy imports only `node:*` modules. `web_search`, `image_search`, and `scrape_webpage` call the Kortix API with `KORTIX_API_URL` and `KORTIX_TOKEN` from `context.env`. `image_gen` calls the Kortix LLM gateway with `KORTIX_LLM_BASE_URL` and `KORTIX_TOKEN`. `show` works on files in the workspace checkout.
 - **`memory` is not a Kortix tool.** A `kortix.yaml` that names `memory` in an agent's `tools` gets a warning and the name does nothing; `kortix validate --fix` deletes it. A workspace that registers its own `tools.memory` module keeps it. Agents edit `memory/` with `read`, `write` and `edit`. My Kortix remembers each person with [`kortix_memory`](#my-kortix-memory).
 - **`context.turnId`** is optional in the `context` that a tool's `execute(args, context)` receives. It is the turn the call belongs to, the same for every call of one turn, including calls from a `codemode` script or a subagent. `context.signal` can differ per call. Key a per-turn limit on `turnId`.
@@ -1456,10 +1486,12 @@ My Kortix, the built-in agent, has nine more tools. Eight run the in-sandbox `ko
 | `kortix_people` | `list`, `pending`, `invite`, `set_role`, `remove` | `kortix access ls`, `access pending`, `access invite`, `access grant`, `access revoke` |
 | `kortix_access` | `me`, `who_can_grant` | `kortix whoami`, `kortix access ls` |
 | `kortix_usage` | `summary`, `top_sessions` | `kortix billing costs` |
-| `kortix_change_requests` | `list`, `get`, `merge`, `close` | `kortix cr ls`, `cr show`, `cr diff`, `cr merge`, `cr close` |
+| `kortix_change_requests` | `list`, `get`, `merge`, `close` | `kortix cr ls --limit --cursor`, `cr show`, `cr diff`, `cr merge`, `cr close` |
 | `kortix_memory` | `list`, `view`, `save`, `delete` | No CLI: `/v1/workspaces/:id/memory/me/agent/mykortix`. See [My Kortix memory](#my-kortix-memory). |
 
 - **`kortix_schedules`.** `follow_up`, `wake_on`, `list`, `create`, `pause`, `resume`, `remove` and `run_now` change runtime rows that apply at once, with no change to the workspace files. `automate` writes a standing trigger to `kortix.yaml` on the default branch, for a schedule, a webhook, a connector event or an App event. `test` runs it with a sample payload and fires nothing. `runs` lists its recent runs.
+- **`kortix_change_requests` `list`** returns one page, newest first: `limit` (default 50, at most 100) and `cursor`. `data` has `count`, `truncated` and `next_cursor`; pass `next_cursor` back as `cursor` for the next page. A page also stops before its rows pass 36 KB, so the output is always whole JSON.
+- **`kortix_agents` `models`** lists the models the session can run now. `data.offered` is the count of every model the workspace offers, the enabled set `kortix models ls` lists. `data.not_runnable` names the offered models that need a provider connected first. `data.default` is the workspace default, with `default_runnable`.
 - **Permissions.** Each tool acts with the session token, so Kortix checks every action against the person's own workspace role. A refusal comes back as `error.kind: "denied"` with `error.grantors`: the workspace managers, workspace owners and admins who can grant it. The card shows them.
 - **Machine-readable errors.** The CLI writes one `{"kortix_error":{…}}` line to stderr instead of its human footer when `KORTIX_ERROR_FORMAT=json` is set. The line has `kind` (`denied` or `failed`), `status`, `code`, `action` and `message`, each when known. Any program that runs the CLI can set it.
 - **Start work** with the `agent` tool, not with these tools. Each hand-off is its own session. From My Kortix it runs in the background by default: the call returns the child's `task_id` at once, and the API delivers the child's report into the calling session as a new message when the child finishes. See [Agents working together](#agents-working-together).
@@ -1607,12 +1639,12 @@ A session shapes each child to its job in the call. Nothing is saved to the work
 
 | Call | Options |
 | --- | --- |
-| `agent` tool | `subagent_type`: a workspace agent's name. Or `agent: { instructions, model?, tools?, description? }`: an inline agent for this call only. Pass one, not both: a call carrying both is refused. A top-level `model` runs the named agent on another model. |
+| `agent` tool | `subagent_type`: a workspace agent's name. Or `agent: { instructions, model?, tools?, description?, connectors?, secrets? }`: an inline agent for this call only (`connectors` and `secrets`: My Kortix only, see **Access**). Pass one, not both: a call carrying both is refused. A top-level `model` runs the named agent on another model. |
 | workflow `agent(prompt, opts)` | `agent` (a workspace agent's name), `instructions`, `model`, `tools` and `schema`, plus `label`, `phase`, `strict` and `stallMs`. See [Workflows](#workflows). |
 
 - **Model.** A `provider/model` ref. A gateway model is `kortix/<id>`; a Claude subscription model is `claude-agent/<id>`. My Kortix lists the workspace's models with `kortix_agents` `models`: each row has the exact `id`, the name, `fast` (from the model name), `reasoning` and `images` when they apply, and the context size. Another agent reads the same catalog with `kortix models ls --json`, by wire id: prefix a gateway id with `kortix/`. With no `model`, the child runs on its agent's model, else on the caller's. Use a fast model for bulk and parallel work and the strongest reasoning model for synthesis and judgment.
 - **Tools.** `tools` is a list of tool names. The child keeps only the names its agent has: a name it lacks is dropped, never added. When the caller's own tools are narrowed, the child also gets only names the caller has (`childToolAllowlist`). No `tools`: the child keeps its agent's tools, inside the caller's when those are narrowed. A read-only researcher gets `["read", "grep", "glob"]`, without `edit`, `write` or `bash`.
-- **Access.** A child that names no workspace agent (an inline agent, `general`, `explore`, a fork) runs as its caller's own agent, My Kortix included. Its grant, connectors, secrets, computer type and originating channel are the caller's, never another agent's: a colleague of a session Slack started reads and posts in that Slack thread. An inline agent's `instructions` are its whole system prompt, in place of its agent's (at most 4,096 characters in a separate session). A child of My Kortix has My Kortix's access: no project connector, secret or checkout. Work that needs one goes to the workspace agent that has it, by `subagent_type`.
+- **Access.** A child that names no workspace agent (an inline agent, `general`, `explore`, a fork) runs as its caller's own agent, My Kortix included. Its grant, connectors, secrets, computer type and originating channel are the caller's, never another agent's: a colleague of a session Slack started reads and posts in that Slack thread. An inline agent's `instructions` are its whole system prompt, in place of its agent's (at most 4,096 characters in a separate session). A child of My Kortix has My Kortix's access: no project connector, secret or checkout. Work that needs one goes to the workspace agent that has it, by `subagent_type`, or to a colleague that lists exactly what it needs: `agent: { instructions, connectors: ["gmail"], secrets: ["STRIPE_KEY"] }`. A person allows that exact list first. Until then the create answers 409 `COLLEAGUE_ACCESS_APPROVAL_REQUIRED`, starts nothing, and an ask of kind `access` waits in the chat and in Review (`GET /projects/:id/asks`, decided with `POST …/asks/access:<id>/answer` `{ decision: "allow" | "deny" }`). Only a person decides it: the session's own token gets 403 `ASK_REQUIRES_HUMAN`. My Kortix hears the decision as a new message; after an allow, its next start with the same list uses the allow once, and that colleague holds the list on every turn and as env vars. A member allows only connectors and secrets some enabled agent already has; anything else needs a workspace manager (403 `COLLEAGUE_ACCESS_NEEDS_MANAGER`).
 - **Extensions.** The inline spec has no extensions option. A child has the extensions that its agent's grant gives it.
 - **A new tool or extension** is a change to the workspace files: `tools/<name>.ts`, or `extensions/<name>.ts` or a pinned npm package, registered in `kortix.yaml` (see [tools entries](#tools-entries) and [extensions entries](#extensions-entries)). An agent with the repository writes it and opens a change request. After the merge, every agent whose grant lists it can use it. My Kortix has no checkout: it hands this work to such an agent.
 
@@ -2100,6 +2132,7 @@ Commands an agent uses:
 
 | Command | Purpose |
 | --- | --- |
+| `kortix workspaces clone` | Clone the workspace repository. `/workspace` starts empty: a session gets no checkout. The sandbox also has `KORTIX_REPO_URL` and the session branch `KORTIX_BRANCH_NAME`. |
 | `kortix connectors call <slug> <action> [json]` | Call a connector action. See [Connectors](/docs/guide#connectors). |
 | `kortix secrets request <NAME>` | Mint a link, valid for 7 days, for a person to enter a secret value. |
 | `kortix secrets sync` | Pull this session's secrets and grants now. |
@@ -2251,8 +2284,8 @@ The commands below are `kortix sessions <subcommand>`. `kortix sessions --help` 
 | --- | --- |
 | `chat [<session_id>]` | A line chat with the agent. With no ID it picks your most recent running session. `--new` starts one. |
 | `chat <session_id> -p "<text>"` | Send one prompt, print the reply and exit. `--json` prints the reply as JSON. |
-| `chat <session_id> -p "<text>" --queue` | Store the prompt in the session's inbox and return at once. It survives a sleeping or busy sandbox. |
-| `chat <session_id> -p "<text>" --steer` | Give the prompt to the running turn. The agent reads it at its next step. With no turn running, it starts one. |
+| `chat <session_id> -p "<text>" --queue` | Store the prompt in the session's inbox and return at once. A running turn reads it at its next step; with no turn running, it starts one. It survives a sleeping sandbox. |
+| `chat <session_id> -p "<text>" --steer` | Same as `--queue`. |
 | `queue <session_id>` | The inbox: `ls`, `rm <prompt-id>`, `now <prompt-id>`, `hold`, `release`. |
 | `message <to> "<text>"` | Send another session a message from this one (`$KORTIX_SESSION_ID`, else `--from <session_id>`). `--summary`, `--notify-idle`. Exit `1` when it was not sent. See [Messages between sessions](#messages-between-sessions). |
 | `reachable` | The sessions this one can message. `--scope project` lists every live session. |
@@ -2620,8 +2653,10 @@ permanently, so a script written against them keeps working.
 | `GET /v1/workspaces` · `POST /v1/workspaces` · `GET`/`PATCH /v1/workspaces/:workspaceId` · `/v1/workspaces/:workspaceId/tokens` | `GET`/`POST /v1/accounts` · `GET`/`PATCH /v1/accounts/:accountId` · `/v1/accounts/tokens` | Different routes with their own meaning, deprecated in `/v1/openapi.json` (`x-kortix-replaced-by` names the route to call). |
 
 **Ids.** A canonical path takes the workspace id (`workspace_id`, equal to
-`project_id`) only. An account id, an unknown id or a workspace you cannot
-read answers `404 workspace_not_found` on every sub-path. A legacy path accepts
+`project_id`) only. An account id or an unknown id answers
+`404 workspace_not_found` on every sub-path. A workspace you cannot read
+answers `403 workspace_access_denied`: ask its managers for access with
+`POST /v1/workspaces/:workspaceId/access-requests`. A legacy path accepts
 either id. Ids are case-insensitive. Every response that names a workspace
 carries `workspace_id` next to `project_id` (records, sessions, secrets, keys,
 access and member rows). `account_id` stays and is deprecated.
@@ -2688,7 +2723,8 @@ These are the codes clients branch on most. The linked section explains each fix
 | `session_sandbox_removal_pending` | `409` | A restore came before the provider confirmed the deleted session's sandbox removed, or while a sandbox that was starting at the delete can still arrive. | Retry the restore in a minute. [Computers](/docs/guide#computers) |
 | `session_purged` | `410` | The session was deleted more than 30 days ago. Its messages, files and branch are deleted. | [Computers](/docs/guide#computers) |
 | `project_archived` | `404` | The workspace was deleted. | Use another workspace. |
-| `workspace_not_found` | `404` | A canonical path named no workspace you can read: an account id, an unknown id, or no access. | [Workspace routes](#workspace-routes) |
+| `workspace_not_found` | `404` | A canonical path named no workspace: an account id, an unknown id, or a workspace being deleted. | [Workspace routes](#workspace-routes) |
+| `workspace_access_denied` | `403` | The workspace exists and you cannot read it. Ask for access with `POST /v1/workspaces/:workspaceId/access-requests`. | [Workspace routes](#workspace-routes) |
 | `workspace_setup_required` | `409` | The workspace pays but has no repository yet. | `POST /v1/workspaces/:id/setup` |
 | `workspace_deleting` | `409` | The workspace is being deleted. An owner restores it first. | `POST /v1/workspaces/:id/restore` |
 | `workspace_has_project` | `409` | The account already holds its workspace's project. The body names it (`workspace_id`). | Create another workspace: `POST /v1/workspaces`. |
@@ -4251,7 +4287,7 @@ Other rules that keep a domain clear of these filters:
 2. **Connect managed git.** Open `/admin/git`. Kortix creates and pushes every new workspace repository through this one GitHub identity. Pick **Create a GitHub App** (recommended), **Paste an existing App**, or **Use an access token**. Until it is set, Kortix cannot create workspace repositories. You can still connect an existing repository. See [Git](/docs/developers#git).
 3. **Create the team's workspace** at `/workspaces/new`. A workspace holds its people, agents, sessions, connectors, files and billing. A self-hosted instance lets only platform admins create a workspace by default (`KORTIX_RESTRICT_ACCOUNT_CREATION`); everyone else joins by invite.
 4. **Invite your team and set up SSO** in **Workspace settings** → **Members** and → **Identity**. A legacy personal account (one made at sign-up before Workspaces) cannot hold SAML SSO (`403` `sso_personal_account`); create a new workspace for the team instead.
-5. **Add a model key** in the workspace: **Customize** → **Models** → **Providers**, or `kortix providers set <provider>`. Each workspace needs its own key. A self-hosted instance has no Kortix-managed models. A workspace can connect **Platinum** as its provider with a Platinum API key. See [Connect your own provider](/docs/guide#models).
+5. **Add a model key** in the workspace: **Customize** → **Models** → **Providers**, or `kortix providers set <provider>`. Both add the key to the same Providers list. A key added with `kortix providers set` is shared with everyone in the workspace; add `--private` to keep it to you. Each workspace needs its own key. A self-hosted instance has no Kortix-managed models. A workspace can connect **Platinum** as its provider with a Platinum API key. See [Connect your own provider](/docs/guide#models).
 6. **Turn on email.** Set one connection string:
 
    ```sh
@@ -4473,6 +4509,19 @@ Later versions do not convert the v1 store. Their `kortix-migrate` step refuses 
 3. Move back to your channel: `kortix self-host update`.
 
 A new install updates without these steps.
+
+#### Upgrading: provider keys move to Models → Providers
+<a id="legacy-credential-backfill" />
+
+Older versions kept LLM provider keys (API keys, ChatGPT and OpenCode logins, the Bedrock region, custom provider keys) as project secrets. They now live in **Models → Providers**. From version `0.15.9`, the leader API container moves the old keys there by itself: once a few seconds after it starts, then once a day. It moves each key once, deletes nothing and never logs a value. When a pass ends, `kortix self-host logs kortix-api` shows a line that contains:
+
+```text
+[legacy-credential-backfill] done
+```
+
+The line lists how many keys it moved (`copied`), found moved before (`unchanged`) or left in place (`skipped_*`). The same pass also moves connector secrets stored in an old format and revokes connections of a retired owner type.
+
+A later version stops reading the old project-secret keys. Run `0.15.9` or later until that line appears before you move past it, or a provider key that never moved stops working. `LEGACY_CREDENTIAL_BACKFILL_MODE` controls the pass: `apply` (the self-host default), `dry_run` (log what it would move, change nothing) or `off`. Set it with `kortix self-host env set LEGACY_CREDENTIAL_BACKFILL_MODE=dry_run`.
 
 ### Operate and tune
 
@@ -5607,9 +5656,9 @@ s.setAgent('reviewer');
 
 Precedence: the `send()` option, then `setModel()` / `setAgent()` on this handle, then the session's saved default. Model ids come from `kortix.projects.modelPicker(projectId)`. Agent names come from `kortix.projects.detail(projectId)`, in `config.agents`. To change the saved model, see [Control the session](#control-the-session).
 
-#### Steer, queue or interrupt
+#### Sending while the agent works
 
-`send()` queues: the prompt waits for the running turn to end. To choose how a prompt reaches a running turn, write it with `s.prompts.create()`:
+A prompt sent while a turn runs steers that turn: the agent reads it at its next step, after its current tool call. The turn does not stop. A prompt sent while no turn runs starts one. `send()` and `s.prompts.create()` deliver the same way, and so does every Kortix surface (web, desktop, mobile, CLI, TUI):
 
 ```ts
 import { mintWireMessageId } from '@kortix/sdk';
@@ -5619,22 +5668,18 @@ await s.prompts.create({
   clientMessageId: messageId,
   messageId,
   remintOnDelivery: true,
-  delivery: 'steer',
   parts: [{ type: 'text', text: 'Use the staging database.' }],
 });
 ```
 
-| `delivery` | While a turn runs |
-| --- | --- |
-| `steer` | The running turn reads the prompt at its next step. The turn does not stop. |
-| `queue` | The prompt waits for the turn to end, then runs as its own turn. |
-| `interrupt` | The turn ends after the running tool. Then the prompt runs as its own turn. |
+Anyone who may send to the session steers its running turn, an agent's own subagents included. Prompts reach the agent one at a time, in send order. A prompt that cannot reach the running turn starts the next turn, and its inbox row says why in `steer_fallback`:
 
-With no turn running, all three start a turn. A `steer` needs the runtime capability `session.steer` and must come from the member who started the turn. Otherwise the server delivers it as `queue` and sets `steer_fallback` on the inbox row:
-
-- `unsupported`: the runtime does not list `session.steer`.
-- `not_prompter`: another member started the running turn.
+- `unsupported`: the runtime does not list `session.steer` (an older sandbox).
 - `turn_ended`: the turn ended before the prompt reached it.
+
+Stop ends the running turn. The prompts that waited go out together as the next turn, and the agent answers them once.
+
+`delivery` (`steer`, `queue`, `interrupt`) is accepted for older clients and changes nothing: every row reads `delivery: 'steer'`.
 
 #### The inbox
 
@@ -5644,10 +5689,10 @@ The inbox lists only the prompts that the session did not deliver yet.
 | --- | --- |
 | `s.prompts.list()` | `{ prompts }`: the waiting prompts, oldest first, each with `state`, `reason` and `steer_fallback`. |
 | `s.prompts.edit(promptId, text)` | Replaces the text of a waiting prompt. `409` when the prompt is on its way to the runtime. |
-| `s.prompts.interrupt(promptId)` | Turns a waiting prompt into an `interrupt`. |
+| `s.prompts.interrupt(promptId)` | Sends a waiting prompt next, ahead of older waiting prompts. It does not stop the turn. |
 | `s.prompts.retry(promptId)` | Retries a `failed` prompt. |
 | `s.prompts.remove(promptId)` | Removes a prompt and returns it. `409` when the agent already reads it. |
-| `s.prompts.hold(held)` | Holds (`true`) or releases (`false`) the whole queue. |
+| `s.prompts.hold(held)` | `true` is Stop: it ends the running turn, and the waiting prompts then go out as the next turn. `false` releases a hold. |
 
 #### Attach files
 
@@ -7510,7 +7555,7 @@ Install the same release version of `@kortix/ui` and `@kortix/sdk`. Version rule
 | `@phosphor-icons/react@2.1.10` | Your own icons. Pin the version `@kortix/ui` uses, so `IconProvider` reaches your icons too. |
 
 <Callout type="info">
-Name `react@19 react-dom@19` in the install. An unversioned `react` lets npm pick React 18 to satisfy the React 18 peer of `cmdk@0.2.1`, and the install does not finish. `Command` works on React 19. A host with `strict-peer-dependencies` must allow the React peer of `cmdk`.
+Name `react@19 react-dom@19` in the install. `@kortix/ui` needs React 19. `Command` works on React 19. A host with `strict-peer-dependencies` must allow the React peer of `cmdk`.
 </Callout>
 
 #### Import map
@@ -8467,7 +8512,7 @@ Arguments, `HeadlessAuthError` codes and limits are in [Sign users in headlessly
 | `invites(accountId)` · `cancelInvite(accountId, inviteId)` · `resendInvite(accountId, inviteId)` | Pending invites. |
 | `tokens.list(accountId?, { mine? })` · `tokens.create({ accountId?, name, expiresAt?, projectId? })` · `tokens.revoke(tokenId, accountId?)` | Personal access keys (`kortix_pat_…`). `mine: true` lists only the caller's keys. `projectId` binds the key to one workspace. |
 | `connectedApps.list()` · `connectedApps.revoke(…)` | OAuth and MCP clients the person approved, across all accounts. Route `/oauth/grants`. |
-| `secretResources.list` · `.create` · `.rotate` · `.retry` · `.remove` · `.grant` · `.revoke` · `.setAccess` | Workspace-level provider secrets and the workspaces that may use them. |
+| `secretResources.list` · `.create` · `.rotate` · `.retry` · `.verify` · `.remove` · `.grant` · `.revoke` · `.setAccess` | Workspace-level provider secrets and the workspaces that may use them. `create` and `rotate` check a provider API key against its provider with one cheap call; `verify` checks it again. Each row carries `verification` (`verified`, `invalid` or `unknown`, with the provider's message). |
 | `subscriptions.list(accountId, projectId)` · `.usage(accountId, secretId, projectId, storage)` | Read subscription usage for named accounts and existing ChatGPT logins. `storage` identifies `account_resource` or `project`; credentials stay in their original store. |
 | `branding.get(accountId)` · `.update(accountId, { app_name })` · `.uploadAsset(accountId, kind, file)` · `.removeAsset(accountId, kind)` · `.reset(accountId)` | Organization branding. `kind`: `logo`, `icon`, `favicon`, `logo_dark`, `icon_dark`, `favicon_dark`. |
 | `audit.log(accountId, filters?)` · `audit.export(accountId, { format: 'csv' \| 'jsonl', …filters })` | The audit log, filtered by workspace, session, actor, source, outcome, request, resource, action or time · the same events as a file. |
@@ -8932,6 +8977,7 @@ Every hook is in `@kortix/sdk/react`. Most are React Query hooks: unless a row s
 | `useConnectorQuery(projectId, slug, action, args, { account, enabled, staleTime })` | One connector action's output as a cached query. Use it only for read actions: every fetch runs the action. |
 | `useConnectorSetup(token, { backendUrl, storage, openPopup, onOpened })` | The flow behind a connect link (`/connect/<token>`): `phase` (`loading`, `ready`, `starting`, `opened`, `connected`, `error`), `info`, `error`, `connectedAs`, `connect()`. You supply the popup opener. |
 | `useFeatureFlag(projectId, key)` | `{ enabled, isLoading }`. Loading and errors read `false`. |
+| `useFeatureFlags(projectId)` | Every served flag in one `{ flags, isLoading }` — one row read, keys listed in the SDK (`FEATURE_FLAG_KEYS` plus the still-served `volumes`, `drives`, `artifacts`, `session_log`). Same fail-closed read as `useFeatureFlag`. |
 | `useCan(target, action)` · `useCans(target, actions)` | `{ allowed, reason, isLoading, isError }` · one request for several actions, a map keyed by action (keep `actions` stable across renders). `target` is `{ accountId }`, `{ accountId, resource }` or `{ projectId }`. Loading and errors read `allowed: false`. |
 | `usePermissionsFor(accountId, memberUserId, probes)` | What another member can do. Needs `member.read`. |
 | `useSetBillingPlan()` | A mutation over `billing.setPlan`. |
@@ -9212,7 +9258,7 @@ The grouping and status functions accept the structural types `PartLike`, `Messa
 | Every name that contains `OpenCode` (for example `useOpenCodeSessions`, `opencodeKeys`, `OpencodeClient`, `OpenCodeEvent`) | The same name with `Runtime` (`useRuntimeSessions`, `runtimeKeys`, `RuntimeClient`, `RuntimeEvent`). |
 | The OpenCode-only hooks: MCP (`useAddMcpServer`, `useMcpAuthStart`, …), `useShareSession`, `useUnshareSession`, `useUpdatePart`, `useDeletePart`, `useRuntimeTools`, `useUpdateRuntimeSession`, `useRuntimeSessionDiff`, `useInitSession`, `useSendRuntimeMessage`, `useRuntimeAgent`, `useUpdateRuntimeConfig`, the provider auth calls (`authorizeRuntimeProvider`, …), `getRuntimeConfig`, `updateRuntimeConfig`, `refreshRuntimeConfiguration`, `logRuntimeEvent`, the `RuntimeConfigInvalidError` helpers, `NoCompactionModelError` | No replacement: pi does not serve these routes. Send a prompt with `useSession().send`; read the diff with `useRuntimeVcsDiff`. |
 | The retired admin hooks (`use-admin-analytics`, `use-admin-feedback`, `use-system-status`, `use-admin-billing`, the per-sandbox admin hooks, `useAdminAccountSandboxes`, `useAdminSetManagedModels`, `useAdminSetEnterpriseDemo`, `useAdminSetEnterpriseEntitled`) and the tunnel permission hooks (`useTunnelPermissions`, `useTunnelAuditLogs`, …) | No replacement: the API removed the routes. |
-| Field aliases `opencode_session_id`, `opencode_sessions`, `opencode_version`, `opencode_model`, `opencode_reload` on sessions, turns, transcripts, audit events and session starts, and `opencodeModel` on channel bindings | The neutral field with the same value: `runtime_session_id`, `runtime_sessions`, `harness_version`, `model`, `runtime_reload`, and `model` on channel bindings. The API no longer sends the old names. |
+| Field aliases `opencode_session_id`, `opencode_sessions`, `opencode_version`, `opencode_model`, `opencode_reload` on sessions, turns, transcripts, audit events and session starts, and `opencodeModel` on channel bindings | The neutral field with the same value: `runtime_session_id`, `runtime_sessions`, `harness_version`, `model`, `runtime_reload`, and `model` on channel bindings. The API no longer sends the old names. Session create still accepts `opencode_model` as a deprecated alias of `model` (`model` wins), because CLIs before 0.15.0 send both. |
 | Session `metadata` keys `opencode_model`, `opencode_model_source`, `opencode_model_*` and `opencode_sessions` | `model`, `model_source`, `model_*` and `runtime_sessions`. A migration renamed the keys on every stored session. |
 
 ### Deprecated names

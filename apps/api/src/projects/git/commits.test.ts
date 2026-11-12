@@ -42,7 +42,6 @@ const {
   resolveCommitShaAt,
   UnexpectedRevParseOutputError,
 } = await import('./commits');
-const { resolveFastBootGitHint, resolveScaffoldDeltaBoundary } = await import('./fast-boot-bundle');
 
 const project: GitBackedProject = {
   projectId: 'proj_unit-test',
@@ -179,44 +178,5 @@ describe('project-level wrappers keep their own mapping', () => {
     script({ stdout: `${'d'.repeat(40)}\n`, stderr: '' });
     await expect(resolveBranchTip(project, 'feature-x')).resolves.toBe('d'.repeat(40));
     expect(runGitCalls.at(-1)).toEqual(['rev-parse', '--verify', 'refs/heads/feature-x^{commit}']);
-  });
-});
-
-describe('fast-boot callers map the shared helper', () => {
-  test('resolveScaffoldDeltaBoundary maps the hex failure to null', async () => {
-    script({ stdout: 'garbage\n', stderr: '' });
-    await expect(resolveScaffoldDeltaBoundary('/repo', 'main')).resolves.toBeNull();
-  });
-
-  test('resolveScaffoldDeltaBoundary rethrows a real git failure', async () => {
-    script(new Error('fatal: Needed a single revision'));
-    await expect(resolveScaffoldDeltaBoundary('/repo', 'main')).rejects.toThrow(
-      'fatal: Needed a single revision',
-    );
-  });
-
-  test('resolveFastBootGitHint rethrows the hex failure for the base tip', async () => {
-    script({ stdout: 'garbage\n', stderr: '' });
-    await expect(resolveFastBootGitHint(project, 'main')).rejects.toThrow(
-      'Unexpected git rev-parse output for main: garbage',
-    );
-  });
-
-  test('resolveFastBootGitHint swallows a delta-build git failure into a bare hint', async () => {
-    script({ stdout: `${'a'.repeat(40)}\n`, stderr: '' }, new Error('fatal: bad object'));
-    await expect(resolveFastBootGitHint(project, 'main')).resolves.toEqual({
-      baseSha: 'a'.repeat(40),
-    });
-  });
-
-  test('resolveFastBootGitHint skips the delta when the starter tree is unavailable', async () => {
-    script({ stdout: `${'a'.repeat(40)}\n`, stderr: '' });
-    scaffoldTreeImpl = async () => {
-      throw new Error('starter tree unavailable');
-    };
-    await expect(resolveFastBootGitHint(project, 'main')).resolves.toEqual({
-      baseSha: 'a'.repeat(40),
-    });
-    scaffoldTreeImpl = async () => 'b'.repeat(40);
   });
 });

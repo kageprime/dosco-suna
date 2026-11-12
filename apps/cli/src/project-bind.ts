@@ -38,6 +38,15 @@ export interface WorkspaceListFailure {
   error: unknown;
 }
 
+/** A workspace the CLI lists. A `deleting` workspace (deleted, inside its
+ *  14-day restore window) opens nothing — its project record 404s and no CLI
+ *  command restores it — so the lists that answer "what can I use" leave it
+ *  out (KRTX-4714). The API keeps serving it to owners for the web's restore
+ *  flow, and a read of the id (`workspaces info`) still works. */
+export function listableWorkspace(project: ProjectSummary): boolean {
+  return project.state !== 'deleting';
+}
+
 /** The workspace a workspace-bound credential (a workspace key, a session or
  *  agent token) is bound to, from `/accounts/me`. Null for a person credential. */
 export function boundWorkspaceId(me: MeResponse): string | null {
@@ -62,7 +71,8 @@ function membershipOf(me: MeResponse, project: ProjectSummary): AccountMembershi
 
 /**
  * Every workspace the caller belongs to on one host, flat: one row per
- * workspace, across every account.
+ * workspace, across every account. A `deleting` workspace (restore window,
+ * KRTX-4714) is left out: it opens nothing.
  *
  * - A workspace-bound credential lists its one workspace
  *   (`GET /v1/workspaces/<bound id>`). It never reads another account's list.
@@ -111,7 +121,10 @@ export async function listWorkspaceRowsReport(
     try {
       const listed = await clientFromAuth(auth).get<ProjectSummary[]>('/workspaces');
       if (Array.isArray(listed) && listed.length > 0 && listed.every((p) => typeof p.state === 'string')) {
-        return { rows: listed.map((project) => ({ project, account: membershipOf(me, project) })), failed: [] };
+        return {
+          rows: listed.filter(listableWorkspace).map((project) => ({ project, account: membershipOf(me, project) })),
+          failed: [],
+        };
       }
     } catch {
       // Fall through to the per-account read, which names each failure.
@@ -143,8 +156,9 @@ export async function listWorkspaceRowsReport(
   const seen = new Set<string>();
   for (const { account, projects } of lists) {
     for (const project of projects) {
-      // An older server may answer an account-scoped list unscoped: keep each
-      // project once.
+      // A `deleting` workspace opens nothing (KRTX-4714); an older server may
+      // answer an account-scoped list unscoped: keep each the rest once.
+      if (!listableWorkspace(project)) continue;
       if (seen.has(project.project_id)) continue;
       seen.add(project.project_id);
       rows.push({ project, account: project.role ? { ...account, role: project.role } : account });
@@ -191,7 +205,7 @@ async function bindableWorkspaces(auth: Auth, accountId?: string): Promise<Works
     const projects = await clientFromAuth(auth, { accountId: accountId ?? bindableAccountId(auth) }).get<
       ProjectSummary[]
     >('/workspaces');
-    return projects.map((project) => ({
+    return projects.filter(listableWorkspace).map((project) => ({
       project,
       account: { account_id: project.account_id, slug: project.account_id.slice(0, 8), name: '', role: '' },
     }));

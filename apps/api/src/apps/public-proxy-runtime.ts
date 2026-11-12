@@ -15,6 +15,18 @@ import { transitionAppRuntime } from './runtime-status';
 const WAKE_LEASE_MS = 2 * 60_000;
 
 /**
+ * Someone else's wake was still running when the wait ended: the machine is
+ * starting, not broken. Expected concurrent-start state, so callers answer it
+ * with the starting contract instead of a 500 (KRTX-4730).
+ */
+export class AppWakeInProgressError extends Error {
+  constructor() {
+    super('App cold start did not finish in time');
+    this.name = 'AppWakeInProgressError';
+  }
+}
+
+/**
  * One query for the App and its active deployment. A static deployment needs
  * nothing more, so a static asset costs one query (the manifest and blobs are
  * cached per replica). Only a server App reads its runtime. The App row is
@@ -148,7 +160,7 @@ async function waitForWake(runtimeId: string, deadline: number) {
     }
     await Bun.sleep(250);
   }
-  throw new Error('App cold start timed out');
+  throw new AppWakeInProgressError();
 }
 
 /**

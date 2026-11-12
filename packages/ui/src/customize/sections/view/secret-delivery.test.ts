@@ -93,6 +93,14 @@ describe('secretUsageIsAssigned', () => {
     expect(secretUsageIsAssigned(null)).toBe(false);
     expect(secretUsageIsAssigned(undefined)).toBe(false);
   });
+
+  test('a connector-only row that no connector uses is the owner\'s to deliver', () => {
+    // A value typed into a connector-scoped setup link and never bound: nothing
+    // reads it, so hiding the picker leaves its owner no way to deliver it.
+    expect(secretUsageIsAssigned('connector', { connectorBound: false })).toBe(false);
+    expect(secretUsageIsAssigned('connector', { connectorBound: true })).toBe(true);
+    expect(secretUsageIsAssigned('llm_gateway', { connectorBound: false })).toBe(true);
+  });
 });
 
 describe('secretDeliveryTarget', () => {
@@ -114,6 +122,19 @@ describe('secretDeliveryTarget', () => {
         consumer,
       });
     }
+  });
+
+  test('an unbound connector row keeps its pair until the owner picks an exposure', () => {
+    const row = { strategy: 'broker', consumer: 'connector' } as const;
+    // An unrelated save (a new value) must not move it.
+    expect(secretDeliveryTarget('disabled', row, { connectorBound: false, picked: false })).toEqual(row);
+    // Picking Environment variable writes the runtime pair.
+    expect(secretDeliveryTarget('environment', row, { connectorBound: false, picked: true })).toEqual({
+      strategy: 'runtime',
+      consumer: 'sandbox',
+    });
+    // A bound one stays assigned whatever is picked.
+    expect(secretDeliveryTarget('environment', row, { connectorBound: true, picked: true })).toEqual(row);
   });
 
   test('a legacy HTTPS-broker row that stays enforced keeps its pair', () => {

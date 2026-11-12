@@ -3,7 +3,7 @@
  * the one place to decide it (lib/session-asks.ts has the model).
  *
  * GET  /v1/projects/:projectId/asks                  open asks the caller may decide
- * POST /v1/projects/:projectId/asks/:askId/answer    answer a question, decide a permission ask
+ * POST /v1/projects/:projectId/asks/:askId/answer    answer a question, decide a permission or access ask
  *
  * A connector approval is listed here and decided over `POST /approvals/:executionId`.
  */
@@ -19,6 +19,8 @@ import { loadProjectForUser } from '../lib/access';
 import { approvalCallerOf } from '../lib/http-approval-caller';
 import { mayResolveApproval, type ApprovalCaller } from '../lib/approval-authority';
 import { listOpenAsks, parseAskId, type SessionAsk } from '../lib/session-asks';
+import { getColleagueAccessAsk } from '../lib/colleague-access';
+import { answerColleagueAccessAsk } from '../lib/colleague-access-answer';
 import { readAskSessions, type AskSessionRow } from '../lib/session-ask-sessions';
 import {
   decidePendingPermission,
@@ -61,7 +63,7 @@ export function registerSessionAsksRoutes(): void {
       tags: ['sessions'],
       summary: 'List the open asks that wait on a person',
       description:
-        'Questions, permission asks and connector approvals that wait on a person, newest first. ' +
+        'Questions, permission asks, connector approvals and colleague access asks that wait on a person, newest first. ' +
         'Only asks the caller may decide: a project manager sees every session, a member the sessions they launched. ' +
         '`surface_session_id` keeps the asks shown on that session (a hidden worker\'s asks show on its root).',
       ...auth,
@@ -100,10 +102,11 @@ export function registerSessionAsksRoutes(): void {
       method: 'post',
       path: '/{workspaceId}/asks/{askId}/answer',
       tags: ['sessions'],
-      summary: 'Answer a question or decide a permission ask',
+      summary: 'Answer a question or decide a permission or access ask',
       description:
         'A question takes `{ answers: string[][] }` (one list per question) or `{ dismiss: true }`. ' +
         'A permission ask takes `{ reply: "once" | "always" | "reject" }`. ' +
+        'A colleague access ask takes `{ decision: "allow" | "deny" }`; a member allows only what an enabled agent already holds. ' +
         'A call that still waits live gets the decision at once; a parked one hears it as a new message in the session that asked. ' +
         'A connector approval is decided over POST /approvals/:executionId.',
       ...auth,
@@ -122,12 +125,36 @@ export function registerSessionAsksRoutes(): void {
       }
       // An ask exists so the agent yields to a person: its own token never answers it.
       if (isProjectSessionPrincipal(c)) {
-        return c.json({ error: 'An agent cannot answer its own ask — a person must', code: 'ASK_REQUIRES_HUMAN' }, 403);
+        return c.json({ error: "This ask waits for a person: the person the session works for answers it.", code: 'ASK_REQUIRES_HUMAN' }, 403);
       }
       const loaded = await loadProjectForUser(c, projectId, 'session');
       if (!loaded) return c.json({ error: 'Not found' }, 404);
       const body = await readJsonObject(c);
       const caller = await approvalCallerOf(c, loaded, projectId);
+
+      if (parsed.kind === 'access') {
+        const ask = await getColleagueAccessAsk(projectId, parsed.id);
+        if (!ask) return c.json({ error: 'Not found' }, 404);
+        const decision = body.decision;
+        if (decision !== 'allow' && decision !== 'deny') {
+          return c.json({ error: "decision must be 'allow' or 'deny'" }, 400);
+        }
+        const sessions = await readAskSessions(projectId, [ask.sessionId, ask.surfaceSessionId ?? ask.sessionId]);
+        if (askInHiddenSpace(sessions, ask, await hiddenSpaceIds(projectId, loaded.userId, callerKortixSessionId(c)))) {
+          return c.json({ error: 'Not found' }, 404);
+        }
+        if (!mayDecide(caller, sessions, { session_id: ask.sessionId, surface_session_id: ask.surfaceSessionId ?? ask.sessionId })) {
+          return c.json({ error: 'Only a workspace manager or the session launcher can decide this' }, 403);
+        }
+        const answer = await answerColleagueAccessAsk({
+          ask,
+          decision,
+          decidedBy: loaded.userId,
+          isManager: caller.isManager,
+          project: loaded.row,
+        });
+        return c.json(answer.body, answer.status);
+      }
 
       if (parsed.kind === 'permission') {
         const ask = await getPendingPermission(projectId, parsed.id);

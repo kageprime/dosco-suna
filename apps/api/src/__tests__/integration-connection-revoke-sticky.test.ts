@@ -242,7 +242,7 @@ describe('a connector connection revoke is sticky', () => {
 
   test('a person clicking connect revives a revoked account', async () => {
     const conn = await seedConnection('revoke-sticky-person-connect', 'revoked', minutesAgo(10));
-    expect(await connectConnection(conn.connectionId, {}, undefined, 'person')).not.toBeNull();
+    expect(await connectConnection(conn.connectionId, {}, undefined, 'reconnect')).not.toBeNull();
     expect(await state(conn.connectionId)).toEqual({ status: 'active', credentials: 0 });
   });
 });

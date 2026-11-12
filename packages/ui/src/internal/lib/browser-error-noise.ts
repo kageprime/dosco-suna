@@ -63,6 +63,7 @@ export {
   isOneTrustJsonParseNoise,
   isRedefineInjectedWalletNoise,
   isRedefineWebdriverNoise,
+  isTrackingPixelResponseJsonNoise,
   isVercelLiveFeedbackNoise,
 } from './browser-noise/rules/injected-scripts';
 export {

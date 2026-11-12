@@ -1,6 +1,7 @@
 'use client';
 
 import { successToast } from '@kortix/ui/toast';
+import { CreditsAddedDialog, useCreditsAddedStore } from '@/features/billing/credits-added-dialog';
 import { useAuth } from '@/features/providers/auth-provider';
 import { invalidateAccountState } from '@kortix/ui/internal/billing/index';
 import { fireConfetti } from '@/lib/confetti';
@@ -26,7 +27,7 @@ import { useLocalizedUiCatalog } from '@kortix/ui/i18n';
  * handling is route-independent now (mounted once in the `(app)` layout), so a
  * return can land wherever the user actually belongs.
  */
-export type BillingReturn = {
+type BillingReturn = {
   /** Query param Stripe echoes back. */
   param: string;
   /** Value that marks success. Anything else is ignored. */
@@ -35,6 +36,9 @@ export type BillingReturn = {
   settle: (queryClient: QueryClient, accountId?: string) => void | Promise<void>;
   title: string;
   description: string;
+  /** `dialog`: a receipt with the new balance (the one-time top-up). Default:
+   *  confetti and a toast. */
+  ack?: 'toast' | 'dialog';
 };
 
 const RETURNS = [
@@ -65,13 +69,14 @@ const RETURNS = [
     settle: (queryClient, accountId) => invalidateAccountState(queryClient, true, true, accountId),
     title: 'Credits added',
     description: 'Your top-up landed — compute and the latest AI models are ready to go.',
+    ack: 'dialog',
   },
 ] as const satisfies readonly BillingReturn[];
 
 export const BILLING_RETURNS: readonly BillingReturn[] = RETURNS;
 
 /** The marker params this module owns — a closed set, not an open string. */
-export type BillingReturnParam = (typeof RETURNS)[number]['param'];
+type BillingReturnParam = (typeof RETURNS)[number]['param'];
 
 /** For callers that must carry a return across their own redirect. */
 export const BILLING_RETURN_PARAMS: readonly string[] = RETURNS.map((r) => r.param);
@@ -120,6 +125,18 @@ export function useBillingReturn(): void {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const handled = useRef<string | null>(null);
+  const showCreditsAdded = useCreditsAddedStore((store) => store.show);
+  // Only an unmount drops the acknowledgement. A per-run `cancelled` flag was
+  // set by every effect re-run (React's dev double-invoke, a translator that
+  // changed identity), and `handled` then stopped the re-run from trying
+  // again, so the receipt or toast never showed.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     const match = billingReturns.find((r) => searchParams.get(r.param) === r.value);
@@ -127,28 +144,27 @@ export function useBillingReturn(): void {
     handled.current = match.param;
 
     const accountId = searchParams.get('accountId') || undefined;
-    let cancelled = false;
     void (async () => {
       try {
         await match.settle(queryClient, accountId);
-        if (cancelled) return;
-        fireConfetti();
-        successToast(match.title, { description: match.description });
+        if (!mounted.current) return;
+        if (match.ack === 'dialog') {
+          showCreditsAdded({ accountId, title: match.title, description: match.description });
+        } else {
+          fireConfetti();
+          successToast(match.title, { description: match.description });
+        }
       } catch {
         invalidateAccountState(queryClient, true, true, accountId);
       } finally {
         stripParam(match.param);
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [billingReturns, searchParams, queryClient]);
+  }, [billingReturns, searchParams, queryClient, showCreditsAdded]);
 }
 
-/** Mount once, app-wide. Renders nothing. */
+/** Mount once, app-wide. Renders only the top-up receipt, when it is open. */
 export function BillingReturnWatcher() {
   useBillingReturn();
-  return null;
+  return <CreditsAddedDialog />;
 }

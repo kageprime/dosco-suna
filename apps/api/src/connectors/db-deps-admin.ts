@@ -31,6 +31,7 @@ import {
 } from './policy';
 import { type PolicyArgCondition, isValidMatcher } from '@kortix/manifest-schema';
 import { COMPUTER_SLUG, withComputerCatalog } from './computers';
+import { unannotatedActionRisk } from './action-risk';
 import { likelyToolRisk } from './policy-templates';
 import {
   ensureComputerConnector,
@@ -210,7 +211,13 @@ export async function getConnectorPolicies(
       .select()
       .from(connectorActions)
       .where(eq(connectorActions.connectorId, row.connectorId))
-      .then((stored) => withComputerCatalog(row.connectorId, row.providerType, stored)),
+      .then((stored) =>
+        withComputerCatalog(row.connectorId, row.providerType, stored).map((a) => ({
+          ...a,
+          // The risk the gateway enforces (action-risk.ts).
+          risk: unannotatedActionRisk(row.providerType, { path: a.path, description: a.description, risk: a.risk as Risk }),
+        })),
+      ),
   ]);
   const sensitive = (row.config as { sensitive?: unknown } | null)?.sensitive === true;
   const effective = projectEffectivePolicies(slug, row.providerType, actions, projectPolicies, base, setRules, defaultMode, sensitive);

@@ -90,13 +90,18 @@ flow("AUTH-4", { domain: "auth", tags: ["deployed"], routes: ["POST /v1/auth/sig
   });
   // One auth email per address per minute (apps/api/src/auth/email-cooldown.ts):
   // a click-happy visitor must not get one email per click.
-  await ctx.step("cooldown: check-email reports the seconds left; a second send inside the minute → 429, no email", async () => {
-    const check = await ctx.client.as(ctx.P.ANON).post("/v1/access/check-email", { email });
-    check.status(200).body().has("$.mode", "signin");
-    const left = check.json<any>().email_retry_after_seconds;
-    if (!(typeof left === "number" && left > 0 && left <= 60)) throw new Error(`email_retry_after_seconds = ${left}`);
+  await ctx.step("cooldown: a second send inside the minute → 429, no email", async () => {
     const again = await ctx.client.as(ctx.P.ANON).post("/v1/auth/sign-in/magic-link", { email, redirect_to: "https://app.example.test/cb" });
     again.status(429).body().has("$.error", "over_email_send_rate_limit");
+  });
+  // KRTX-3504: check-email stays mode-less and existence-blind — the account
+  // this flow just created, the users it did not, and the send window it is
+  // inside all answer the same eligible body.
+  await ctx.step("check-email: the just-created account gets the eligible body", async () => {
+    const check = await ctx.client.as(ctx.P.ANON).post("/v1/access/check-email", { email });
+    check.status(200);
+    const body = check.json<any>();
+    if (JSON.stringify(body) !== JSON.stringify({ allowed: true })) throw new Error(`check-email = ${JSON.stringify(body)}`);
   });
   await ctx.step("verify-otp: a bogus code → 4xx with GoTrue's error; a non-http redirect is ignored, not fatal", async () => {
     const r = await ctx.client.as(ctx.P.ANON).post("/v1/auth/verify-otp", { email, token: "000000", type: "magiclink" });

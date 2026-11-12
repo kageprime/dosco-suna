@@ -10,7 +10,7 @@ import { ImageRenderer } from './image-renderer';
 // its toolbar labels (see show-tool.test.tsx for the same requirement), so
 // it needs a IntlTestProvider ancestor even though this render never
 // reaches an interactive state. Its floating toolbar also renders `Hint`
-// (a Radix `Tooltip`), which needs a `TooltipProvider` ancestor.
+// (a `Tooltip`), so the test wraps it in a `TooltipProvider` as the app does.
 function withIntl(node: ReactNode) {
   return (
     <IntlTestProvider locale="en" onError={() => {}}>

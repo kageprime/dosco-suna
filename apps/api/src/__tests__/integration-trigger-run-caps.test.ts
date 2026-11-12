@@ -216,11 +216,11 @@ describe('a capped cron trigger (the real drain)', () => {
     await settleTriggerAlerts();
 
     expect(await slots(slug)).toEqual([
-      expect.objectContaining({ status: 'skipped', lastError: 'throttled: 1 runs in the last hour (max_runs_per_hour 1)' }),
+      expect.objectContaining({ status: 'skipped', lastError: 'throttled: 1 run in the last hour (max_runs_per_hour 1)' }),
     ]);
     expect(creates).toEqual([]);
     expect(await alertsOf(slug)).toEqual([
-      { userId: WATCHER, kind: 'automation_failed', body: 'throttled: 1 runs in the last hour (max_runs_per_hour 1)' },
+      { userId: WATCHER, kind: 'automation_failed', body: 'throttled: 1 run in the last hour (max_runs_per_hour 1)' },
     ]);
   });
 
@@ -244,12 +244,12 @@ describe('a fire by source', () => {
     await seedRun(slug, new Date(), 2);
     creates.length = 0;
     const result = await fireGitTrigger({ spec: hook as never, project: await projectRow(), payload: {}, renderedPrompt: 'Run it.', source: 'webhook' });
-    expect(result).toEqual({ status: 'skipped', reason: 'throttled: 1 runs in the last hour (max_runs_per_hour 1)' });
+    expect(result).toEqual({ status: 'skipped', reason: 'throttled: 1 run in the last hour (max_runs_per_hour 1)' });
     expect(triggerRunFromFire(result)).toEqual({
       status: 'skipped',
       sessionId: null,
       commandId: null,
-      error: 'throttled: 1 runs in the last hour (max_runs_per_hour 1)',
+      error: 'throttled: 1 run in the last hour (max_runs_per_hour 1)',
     });
     expect(creates).toEqual([]);
   });
@@ -315,7 +315,7 @@ describe('auto-pause (a sustained breach of max_runs_per_hour)', () => {
 
     // The last 2 hours still hold the runaway's runs: held, not paused again.
     const held = await fireGitTrigger({ spec: hook as never, project: await projectRow(), payload: {}, renderedPrompt: 'Run it.', source: 'webhook' });
-    expect(held).toEqual({ status: 'skipped', reason: 'throttled: 1 runs in the last hour (max_runs_per_hour 1)' });
+    expect(held).toEqual({ status: 'skipped', reason: 'throttled: 1 run in the last hour (max_runs_per_hour 1)' });
     expect((await autoPause(slug))?.at).toBeNull();
 
     // A resume older than 2 hours no longer shields it.
@@ -333,7 +333,7 @@ describe('auto-pause (a sustained breach of max_runs_per_hour)', () => {
     await seedTrigger(burst, bursty);
     await seedRun(burst, new Date(), 5);
     const result = await fireGitTrigger({ spec: bursty as never, project: await projectRow(), payload: {}, renderedPrompt: 'Run it.', source: 'webhook' });
-    expect(result).toEqual({ status: 'skipped', reason: 'throttled: 1 runs in the last hour (max_runs_per_hour 1)' });
+    expect(result).toEqual({ status: 'skipped', reason: 'throttled: 1 run in the last hour (max_runs_per_hour 1)' });
     expect(await autoPause(burst)).toEqual({ at: null, reason: null, resumedAt: null });
   });
 

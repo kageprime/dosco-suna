@@ -53,11 +53,11 @@ export interface LegacyConversion {
 const LEGACY_OPENCODE_CONFIG_DIR = '.kortix/opencode';
 const OPENCODE_CONFIG_DIR = 'harnesses/opencode';
 const BEHAVIOR_KEYS = ['description', 'mode', 'model', 'variant', 'temperature', 'top_p', 'steps', 'options', 'color', 'hidden'];
-const KEEP_KEYS = ['enabled', 'connectors', 'connectors_required', 'secrets', 'apps', 'kortix_permissions', 'workspace', 'sandbox', 'network_egress'];
+const KEEP_KEYS = ['enabled', 'connectors', 'connectors_required', 'secrets', 'apps', 'kortix_permissions', 'sandbox', 'network_egress'];
 /** The agent block keys the conversion reads; every other key is kept as written. */
-const CONVERTED_BLOCK_KEYS = new Set([...KEEP_KEYS, 'file', 'harnesses', 'repository_access', 'disable', 'kortix_cli', 'connectors_personal', 'skills', 'tools']);
+const CONVERTED_BLOCK_KEYS = new Set([...KEEP_KEYS, 'file', 'harnesses', 'repository_access', 'workspace', 'disable', 'kortix_cli', 'connectors_personal', 'skills', 'tools']);
 const TOP_LEVEL_ORDER = ['project', 'default_agent', 'runtime', 'imports', 'env', 'sandbox', 'skills', 'tools', 'commands', 'extensions', 'connectors', 'apps', 'policy', 'policies', 'approvals', 'agents', 'triggers'];
-const AGENT_ORDER = [...BEHAVIOR_KEYS, 'prompt_file', 'permission', 'enabled', 'tools', 'skills', 'subagents', 'commands', 'extensions', 'codemode', 'connectors', 'connectors_required', 'secrets', 'apps', 'kortix_permissions', 'workspace', 'sandbox', 'network_egress'];
+const AGENT_ORDER = [...BEHAVIOR_KEYS, 'prompt_file', 'permission', 'enabled', 'tools', 'skills', 'subagents', 'commands', 'extensions', 'codemode', 'connectors', 'connectors_required', 'secrets', 'apps', 'kortix_permissions', 'sandbox', 'network_egress'];
 const SCHEMA_LINE = '# yaml-language-server: $schema=https://kortix.com/schema/kortix.schema.json';
 
 const table = (value: unknown): Table | null => (value && typeof value === 'object' && !Array.isArray(value) ? (value as Table) : null);
@@ -187,13 +187,24 @@ function subagentsGrant(task: unknown): unknown {
   return named.length > 0 ? named : undefined;
 }
 
-/** v2 `workspace` / `repository_access`, where an omitted value cloned the repository. */
-function projectRepository(block: Table): boolean | undefined {
+/**
+ * v2 `workspace` / `repository_access` set to give the repository. Explicit only:
+ * v2 also cloned when the key was omitted, but an imported file is read through the
+ * `agent-workspace` rewrite before this converter sees it, which deletes an explicit
+ * `false` — so "omitted" can no longer be told from "false", and granting on it
+ * would widen an agent that opted out. Fail closed: omitted grants nothing.
+ */
+function v2ClonedRepository(block: Table): boolean {
   if (typeof block.repository_access === 'boolean') return block.repository_access;
-  if (block.workspace === 'read') return undefined;
   if (typeof block.workspace === 'string') return block.workspace === 'branch';
-  const value = table(block.workspace)?.project_repository;
-  return typeof value === 'boolean' ? value : true;
+  return table(block.workspace)?.project_repository === true;
+}
+
+/** A `kortix_permissions` grant that also holds `workspace.gitops.read`. */
+function withRepositoryRead(grant: unknown): unknown {
+  if (typeof grant === 'string' && isEveryGrant(grant)) return grant;
+  const list = Array.isArray(grant) ? grant : [];
+  return list.some((entry) => entry === 'workspace.gitops.read' || entry === 'project.gitops.read') ? list : [...list, 'workspace.gitops.read'];
 }
 
 /** A manifest object as YAML. The root file carries the schema line. */
@@ -435,9 +446,9 @@ function convertAgentBlock(name: string, block: Table, parts: AgentParts, ctx: C
   if (frontmatter.disable === true || block.disable === true) next.enabled = false;
   if (block.kortix_cli !== undefined && next.kortix_permissions === undefined) next.kortix_permissions = block.kortix_cli;
   if (block.connectors_personal !== undefined && next.connectors_required === undefined) next.connectors_required = block.connectors_personal;
-  // v2 cloned the repository when the key was omitted; the latest shape does not: pin the v2 value.
-  const repository = projectRepository(block);
-  next.workspace = repository === undefined ? undefined : { project_repository: repository };
+  // The latest shape never clones: an agent v2 gave the repository clones on demand,
+  // which needs `workspace.gitops.read`.
+  if (v2ClonedRepository(block)) next.kortix_permissions = withRepositoryRead(next.kortix_permissions);
   const skillGrant = block.skills;
   next.skills = Array.isArray(skillGrant) ? skillGrant.filter((skill) => typeof skill === 'string' && (skill.startsWith('kortix-') || skills[skill] !== undefined)) : skillGrant;
   if (Array.isArray(skillGrant) && (next.skills as unknown[]).length !== skillGrant.length) {

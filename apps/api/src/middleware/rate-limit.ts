@@ -104,6 +104,55 @@ const feedbackLimiter = new TokenBucketRateLimiter('feedback');
 const deviceTokenReleaseLimiter = new TokenBucketRateLimiter('device_token_release');
 
 /**
+ * Per-session ceiling on the stored-log reads (`GET …/log`, `GET …/transcript`,
+ * `GET …/snapshot` and its `/open-bundle` alias, `KORTIX_SESSION_LOG_READS_PER_MIN`,
+ * 300). INCIDENT 2026-11-10 23:38 UTC (KRTX-4696): one CLI client polled the stored
+ * log of ONE session in waves that peaked near 24 requests/s for minutes (about 50k
+ * requests against the one session in an evening). Every poll pays the full
+ * session-read gate plus the page read and a multi-100 kB serialize+gzip, so the
+ * route's p50 hit 1.25 s (p95 2.6 s) and the API-wide p95 rose with it.
+ *
+ * The bucket is keyed on (caller, session): a caller can only spend their own
+ * bucket, never another caller's or another session's (the caller part is the
+ * authenticated user id, else the client key). The guard runs in front of the
+ * session-read gate, so a hot poller costs one in-memory check per poll; 300/min
+ * per caller per session keeps every real watcher unthrottled (the CLI wait loop
+ * polls at 60/min per waiter, the web sync on events). Replica-local, like every
+ * limiter here.
+ */
+const sessionLogReadLimiter = new TokenBucketRateLimiter('session_log_read');
+
+/**
+ * The stored-log read denial for one GET (null = allowed). The handler answers it
+ * with `c.json(denied.body, 429, { 'Retry-After': denied.retryAfter })` — header
+ * inline, never `c.header(...)` first (KRTX-2737); the body fits the ErrorEnvelope
+ * the routes declare for 429, and the SDK's log sync backs off on `Retry-After`.
+ */
+export interface StoredLogReadDenial {
+  body: { error: string; message: string; retry_after_seconds: number };
+  retryAfter: string;
+}
+
+export function storedLogReadDenial(c: Context, sessionId: string): StoredLogReadDenial | null {
+  const userId = c.get('userId');
+  const caller = typeof userId === 'string' && userId ? userId : requestClientKey(c);
+  const result = sessionLogReadLimiter.check(`${caller}:${sessionId}`, {
+    limit: positiveInt(config.KORTIX_SESSION_LOG_READS_PER_MIN, 300),
+    windowMs: 60_000,
+  });
+  if (result.allowed) return null;
+  const retryAfterSeconds = Math.ceil((result.retryAfterMs ?? result.resetMs) / 1000);
+  return {
+    body: {
+      error: 'rate_limit_exceeded',
+      message: 'This session is being read faster than the stored-log read limit. Slow the polling or honor Retry-After.',
+      retry_after_seconds: retryAfterSeconds,
+    },
+    retryAfter: String(retryAfterSeconds),
+  };
+}
+
+/**
  * Per-project budget on secret WRITES (POST/PUT/PATCH/DELETE under
  * /:projectId/secrets*). Reads pass untouched.
  *
@@ -410,12 +459,14 @@ export function createDeviceTokenReleaseRateLimitMiddleware() {
 /**
  * A webhook delivery rejected before authentication is stored as a run, so
  * the owner can see it and replay it. Anyone holding the URL can send them,
- * so at most one is recorded per trigger per 10 s per replica: a request
- * flood never becomes a database-write flood. Over budget, the route still
+ * so at most one is recorded per trigger and reason per 10 s per replica: a
+ * request flood never becomes a database-write flood. The reason is part of
+ * the key (a closed set of about ten codes), so a bad signature does not hide
+ * the expired timestamp sent a second later. Over budget, the route still
  * answers 401; it only skips the write.
  */
-export function consumeProjectWebhookRejectedRunBudget(projectId: string, slug: string): boolean {
-  return projectWebhookRejectedRunLimiter.check(`${projectId}:${slug}`, {
+export function consumeProjectWebhookRejectedRunBudget(projectId: string, slug: string, reason: string): boolean {
+  return projectWebhookRejectedRunLimiter.check(`${projectId}:${slug}:${reason}`, {
     limit: 1,
     windowMs: 10_000,
   }).allowed;

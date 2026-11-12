@@ -29,7 +29,7 @@ import { getLocalizedCareersContent } from './content';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** The same lead pipeline "Book your demo" uses: `POST /api/demo-request`
- *  persists the whole submission verbatim into `public.contact_forms` and fires
+ *  stores the submission through the API in `kortix.contact_forms` and fires
  *  the internal notification email. Applications land exactly where demo
  *  requests already land — no second inbox, no ATS.
  *

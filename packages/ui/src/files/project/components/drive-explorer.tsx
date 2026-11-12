@@ -66,6 +66,7 @@ import {
 import {
   droppedEntries,
   type DroppedEntry,
+  folderMaker,
   hasFolder,
   readDroppedTree,
   type TreeFile,
@@ -604,20 +605,27 @@ export function DriveExplorer({
   }, []);
 
   /**
-   * Send one file and track it in the tray. The mutation settles after its
-   * listing refetch, so the pending row hands over to the real one in place.
+   * Send one file and track it in the tray. `before` makes the file's folder
+   * first (a folder upload); a failure there fails the row like a failed send,
+   * and Retry runs it again. The mutation settles after its listing refetch,
+   * so the pending row hands over to the real one in place.
    */
   const uploadAsync = uploadMutation.mutateAsync;
   const runUpload = useCallback(
-    async (upload: DriveUpload, shownIn: string | null) => {
+    async (upload: DriveUpload, shownIn: string | null, before?: () => Promise<void>) => {
       const patch = (next: Partial<DriveUpload>) => useDriveUploads.getState().patch(upload.id, next);
       patch({ status: 'uploading', sent: 0, error: undefined });
       let ok = false;
       try {
+        await before?.();
         await uploadAsync({
           file: upload.file,
           targetPath: upload.targetPath,
-          onProgress: (sent) => patch({ sent }),
+          // The SDK resends a busy-server failure from byte 0: the bar holds its high mark.
+          onProgress: (sent) => {
+            const prev = useDriveUploads.getState().uploads.find((u) => u.id === upload.id)?.sent ?? 0;
+            if (sent > prev) patch({ sent });
+          },
         });
         ok = true;
         patch({ status: 'done', sent: upload.file.size });
@@ -649,27 +657,36 @@ export function DriveExplorer({
 
   /**
    * Put files in the tray with their previews, then send them, 4 at a time.
+   * Each item names the folder view its pending row is in (`shownIn`, or
+   * `null` for none) and, for a folder upload, the folder to make first.
    * `landedIn` is the folder the batch lands in, for the toast's "Open folder".
    */
   const startBatch = useCallback(
     async (
-      items: { file: File; targetPath?: string }[],
-      shownIn: string | null,
+      items: {
+        file: File;
+        targetPath?: string;
+        shownIn: string | null;
+        before?: () => Promise<void>;
+        /** Run before a Retry: lets a folder that failed be made again. */
+        reset?: () => void;
+      }[],
       landedIn: string,
     ) => {
-      const batch: DriveUpload[] = items.map(({ file, targetPath }) => {
+      const batch = items.map(({ file, targetPath, shownIn, before, reset }) => {
         const upload: DriveUpload = { id: crypto.randomUUID(), file, targetPath, status: 'queued' };
         upload.retry = () => {
+          reset?.();
           previewUpload?.(file, targetPath);
-          void runUpload(upload, null);
+          void runUpload(upload, null, before);
         };
-        return upload;
+        return { upload, shownIn, before };
       });
-      useDriveUploads.getState().add(batch);
-      for (const u of batch) previewUpload?.(u.file, u.targetPath);
+      useDriveUploads.getState().add(batch.map((b) => b.upload));
+      for (const { upload } of batch) previewUpload?.(upload.file, upload.targetPath);
       let failed = 0;
-      await forEachLimit(batch, UPLOAD_CONCURRENCY, async (u) => {
-        if (!(await runUpload(u, shownIn))) failed++;
+      await forEachLimit(batch, UPLOAD_CONCURRENCY, async ({ upload, shownIn, before }) => {
+        if (!(await runUpload(upload, shownIn, before))) failed++;
       });
       // One toast for the whole batch; a failure stays in the tray with Retry.
       if (failed === 0) {
@@ -711,8 +728,7 @@ export function DriveExplorer({
         ]);
       }
       await startBatch(
-        accepted.map((file) => ({ file, targetPath })),
-        shownIn,
+        accepted.map((file) => ({ file, targetPath, shownIn })),
         targetDirPath ?? currentPath,
       );
     },
@@ -720,9 +736,12 @@ export function DriveExplorer({
   );
 
   /**
-   * Upload a tree (a picked or dropped folder) into `base`: its folders are
-   * made first, one depth at a time (a level in parallel), then its files go
-   * up into them. Top folders landing in the folder in view show at once.
+   * Upload a tree (a picked or dropped folder, or several) into `base`. Every
+   * file enters the tray at once, so progress shows from the first click; each
+   * file then makes its own folder chain on demand (`folderMaker`: each folder
+   * once, parents first) and goes up. A folder that fails to make fails only
+   * the files inside it, each with Retry. Top folders landing in the folder in
+   * view show at once.
    */
   const uploadTree = useCallback(
     async (tree: TreeFile[], base: string) => {
@@ -734,45 +753,47 @@ export function DriveExplorer({
 
       const root = base === '/' ? '' : base.replace(/\/+$/, '');
       const at = (rel: string) => (root && rel ? `${root}/${rel}` : root || rel);
-      const levels = treeLevels(items);
-      const tops = levels[0] ?? [];
+      const tops = treeLevels(items)[0] ?? [];
 
       const dir = currentPath;
       const inView = root === normalizedCurrentPath;
+      const unsettled = new Set(inView ? tops : []);
       if (inView) {
         setPending((prev) => [...prev, ...tops.map((top) => ({ dir, node: pendingNode(top, 'directory') }))]);
       }
-      let ok = true;
-      try {
-        for (const level of levels) {
-          await Promise.all(
-            level.map((d) =>
-              mkdirMutation.mutateAsync({ dirPath: at(d) }).catch((err: unknown) => {
-                // Already there (an earlier upload of the same folder): reuse it.
-                if ((err as { status?: number } | null)?.status !== 409) throw err;
-              }),
-            ),
-          );
+      const ensure = folderMaker(async (rel) => {
+        const settle = () => {
+          // A top folder's pending row hands over once the server has it.
+          if (unsettled.delete(rel)) settlePending(dir, rel, true);
+        };
+        try {
+          await mkdirMutation.mutateAsync({ dirPath: at(rel) });
+          settle();
+        } catch (err) {
+          // Already there (an earlier upload of the same folder): reuse it.
+          if ((err as { status?: number } | null)?.status === 409) settle();
+          throw err;
         }
-      } catch (err) {
-        ok = false;
-        errorToast(
-          tHardcodedUi('i18nComplete.text5334297c9387', {
-            value0: err instanceof Error ? err.message : tHardcodedUi.raw('i18nComplete.text27c2ccd962c2'),
-          }),
+      });
+      try {
+        await startBatch(
+          items.map(({ file, dir: rel }) => ({
+            file,
+            targetPath: at(rel) || undefined,
+            // Loose files dropped beside the folders land in the view.
+            shownIn: inView && !rel ? currentPath : null,
+            before: rel ? () => ensure(rel) : undefined,
+            reset: rel ? () => ensure.forget(rel) : undefined,
+          })),
+          tops.length === 1 ? at(tops[0]!) : root || '/',
         );
       } finally {
-        if (inView) for (const top of tops) settlePending(dir, top, ok);
+        // A top folder that never got made drops its pending row.
+        for (const top of unsettled) settlePending(dir, top, false);
+        unsettled.clear();
       }
-      if (!ok) return;
-      await startBatch(
-        items.map(({ file, dir: rel }) => ({ file, targetPath: at(rel) || undefined })),
-        // Loose files dropped beside the folders land in the view.
-        inView ? currentPath : null,
-        tops.length === 1 ? at(tops[0]!) : root || '/',
-      );
     },
-    [currentPath, normalizedCurrentPath, pendingNode, settlePending, mkdirMutation, startBatch, tHardcodedUi, uploadLimit, describeRejection],
+    [currentPath, normalizedCurrentPath, pendingNode, settlePending, mkdirMutation, startBatch, uploadLimit, describeRejection],
   );
 
   /** The folder picker (`webkitRelativePath` is `Picked/sub/file.png`). The browser already asked. */

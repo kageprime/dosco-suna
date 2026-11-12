@@ -1,8 +1,8 @@
 'use client';
 
-import * as SeparatorPrimitive from '@radix-ui/react-separator';
 import * as React from 'react';
 
+import { Slot } from '../lib/base-ui-compat';
 import { cn } from '../lib/utils';
 
 function Separator({
@@ -10,17 +10,30 @@ function Separator({
   orientation = 'horizontal',
   decorative = true,
   ...props
-}: React.ComponentProps<typeof SeparatorPrimitive.Root>) {
+}: React.ComponentProps<'div'> & {
+  orientation?: 'horizontal' | 'vertical';
+  /** Purely visual: hidden from assistive tech (`role="none"`). */
+  decorative?: boolean;
+  asChild?: boolean;
+}) {
+  const { asChild, ...rest } = props;
+  const Comp = (asChild ? Slot : 'div') as 'div';
+  // Base UI's Separator is never decorative, so this renders the Radix contract itself.
   return (
-    <SeparatorPrimitive.Root
+    <Comp
       data-slot="separator"
-      decorative={decorative}
-      orientation={orientation}
+      data-orientation={orientation}
+      {...(decorative
+        ? { role: 'none' }
+        : {
+            role: 'separator',
+            'aria-orientation': orientation === 'vertical' ? ('vertical' as const) : undefined,
+          })}
       className={cn(
         'bg-border shrink-0 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px',
         className,
       )}
-      {...props}
+      {...rest}
     />
   );
 }

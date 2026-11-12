@@ -12,7 +12,9 @@
  *
  * The list fades at both ends (`scroll-fade`): the bottom always, the top once a
  * row has scrolled under the search field. The content pads by the bottom fade,
- * so the last row can rest above it.
+ * so the last row can rest above it. With `bottomInset` (a page with a
+ * `BottomSearchBar`, iOS) the content pads by that inset instead, the bar
+ * draws the bottom fade, and a drag on the list closes the keyboard.
  *
  * Rows come one of two ways:
  * - `data` + `renderItem` + `keyExtractor`: a virtualised `FlatList` (COR-155),
@@ -58,6 +60,8 @@ interface PageListProps<T = unknown> {
   /** Which rows are on screen (Apps mounts a preview only for those). Pass a stable function. */
   onViewableItemsChanged?: FlatListProps<T>['onViewableItemsChanged'];
   viewabilityConfig?: FlatListProps<T>['viewabilityConfig'];
+  /** End padding for a list under a `BottomSearchBar` (`useBottomSearchInset()`). Replaces the bottom fade. */
+  bottomInset?: number;
 }
 
 export function PageList<T = unknown>({
@@ -74,6 +78,7 @@ export function PageList<T = unknown>({
   keyExtractor,
   onViewableItemsChanged,
   viewabilityConfig,
+  bottomInset,
 }: PageListProps<T>) {
   const insets = useSafeAreaInsets();
   const { onScroll, topFadeStyle } = useScrollFade();
@@ -87,7 +92,9 @@ export function PageList<T = unknown>({
   const refreshControl = onRefresh ? (
     <RefreshControl refreshing={pulling} onRefresh={handlePull} />
   ) : undefined;
-  const contentContainerStyle = { paddingBottom: BOTTOM_FADE_HEIGHT + insets.bottom };
+  const underBar = bottomInset != null;
+  const contentContainerStyle = { paddingBottom: underBar ? bottomInset : BOTTOM_FADE_HEIGHT + insets.bottom };
+  const keyboardDismissMode = underBar ? ('on-drag' as const) : undefined;
   const state = isLoading ? 'loading' : errorMessage ? 'error' : emptyLabel ? 'empty' : 'rows';
 
   const flatRenderItem = React.useCallback<ListRenderItem<T>>(
@@ -123,12 +130,13 @@ export function PageList<T = unknown>({
           contentContainerStyle={contentContainerStyle}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={keyboardDismissMode}
           initialNumToRender={16}
           windowSize={11}
           refreshControl={refreshControl}
         />
         <TopFade style={topFadeStyle} />
-        <BottomFade />
+        {underBar ? null : <BottomFade />}
       </View>
     );
   }
@@ -142,6 +150,7 @@ export function PageList<T = unknown>({
         contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={keyboardDismissMode}
         refreshControl={refreshControl}>
         {state === 'rows' ? (
           <>
@@ -159,7 +168,7 @@ export function PageList<T = unknown>({
         {footer}
       </Animated.ScrollView>
       <TopFade style={topFadeStyle} />
-      <BottomFade />
+      {underBar ? null : <BottomFade />}
     </View>
   );
 }

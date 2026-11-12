@@ -126,8 +126,8 @@ async function viewerOf(c: Ctx, accountId: string): Promise<{ viewer: string | n
 }
 
 /** What IAM lets this human (not an agent) do with other people's capture. */
-async function capturePowers(c: Ctx, accountId: string, sessionId: string | null) {
-  if (sessionId) return { readsAll: false, manages: false };
+/** The capture permissions of the caller: a person, or an agent session acting for one (their role ∩ its grant). */
+async function capturePowers(c: Ctx, accountId: string) {
   const actor = await actorOf(c, accountId);
   const [readAll, manage] = await Promise.all([
     authorize(actor, ACCOUNT_ACTIONS.CAPTURE_READ_ALL),
@@ -151,13 +151,13 @@ export async function captureAccessFor(
   bindAuditPrincipal({ accountId });
   if (!(await readWorkspace(accountId)).enabled) return c.json(CAPTURE_DISABLED, 403);
   let subject: Who | null = opts.accountWide ? null : (opts.userId ?? viewer);
-  let powers = subject === viewer ? { readsAll: false, manages: false } : await capturePowers(c, accountId, sessionId);
+  let powers = subject === viewer ? { readsAll: false, manages: false } : await capturePowers(c, accountId);
   // A device linked to no person (an IT rollout) is read as itself by capture.read_all;
   // anyone else asking for it reads their own rows of it.
   if (!opts.accountWide && !opts.userId && opts.deviceId) {
     const device = await deviceInAccount(accountId, opts.deviceId);
     if (device && device.userId === null) {
-      powers = await capturePowers(c, accountId, sessionId);
+      powers = await capturePowers(c, accountId);
       if (powers.readsAll) subject = { unlinkedDevice: device.deviceId };
     }
   }
@@ -183,7 +183,7 @@ export async function captureAccessFor(
 export async function captureAccessWithPowers(c: Ctx): Promise<Access | Response> {
   const access = await captureAccess(c);
   if (isResponse(access)) return access;
-  return { ...access, ...(await capturePowers(c, access.accountId, access.sessionId)) };
+  return { ...access, ...(await capturePowers(c, access.accountId)) };
 }
 
 /** Access for an account route: the account is the `:accountId` path segment. */
@@ -324,7 +324,7 @@ async function frameResponse(c: Ctx, access: Access, frameId: string) {
 
 /** The workspace as a person sees it. */
 async function workspaceView(c: Ctx, accountId: string, sessionId: string | null) {
-  const [workspace, powers] = await Promise.all([readWorkspace(accountId), capturePowers(c, accountId, sessionId)]);
+  const [workspace, powers] = await Promise.all([readWorkspace(accountId), capturePowers(c, accountId)]);
   return {
     account_id: accountId,
     enabled: workspace.enabled,
@@ -368,10 +368,9 @@ accountsRouter.openapi(
     const accountId = accountIdParam(c);
     const who = await viewerOf(c, accountId);
     if (who === 'wrong_account' || !who.viewer) return c.json({ error: 'Not found', code: 'capture_not_found' }, 404);
-    if (who.sessionId) return refuse(c, 403, 'capture_forbidden', 'An agent cannot turn Capture on or off');
     if (!(await isAccountMember(accountId, who.viewer))) return c.json({ error: 'Not found', code: 'capture_not_found' }, 404);
     bindAuditPrincipal({ accountId });
-    if (!(await capturePowers(c, accountId, null)).manages) {
+    if (!(await capturePowers(c, accountId)).manages) {
       return refuse(c, 403, 'capture_forbidden', 'Turning Capture on or off needs the capture.manage permission');
     }
     const { enabled } = c.req.valid('json');
@@ -424,7 +423,6 @@ accountsRouter.openapi(
   async (c) => {
     const access = await captureAccessWithPowers(c);
     if (isResponse(access)) return access as never;
-    if (access.sessionId) return refuse(c, 403, 'capture_forbidden', 'An agent cannot revoke a capture device');
     const device = await loadDevice(access, c.req.valid('param').deviceId, { write: true });
     if (!device) return c.json({ error: 'Not found', code: 'capture_not_found' }, 404);
     return c.json(deviceView(await revokeDevice(device.deviceId, access.viewer), Date.now(), await latestCaptureVersion()), 200);

@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@kortix/ui/dropdown-menu';
 import Loading from '@kortix/ui/loading';
+import { UserAvatar } from '@kortix/ui/user-avatar';
 import { useTranslations } from '@/i18n/use-translations';
 
 // Client only: the inbox is per signed-in person and polls, so the server
@@ -35,7 +36,10 @@ const InboxButton = dynamic(
  * first ("am I in the right account?").
  *
  * Presentational on purpose: the page owns sign-out (`performSignOut` replaces
- * the document, so `signingOut` is never cleared) and passes the state in.
+ * the document, so `signingOut` is never cleared) and passes the state in —
+ * including the profile picture, which the page reads from the auth metadata
+ * (`user_metadata.avatar_url`) where Settings → Profile stores it. Without it
+ * this bar rendered text-only even after an upload (KRTX-4492).
  *
  * `kx-desktop-band-row` keeps the row under the desktop title-bar band, clear
  * of the macOS traffic lights and the Win/Linux window controls.
@@ -43,6 +47,7 @@ const InboxButton = dynamic(
 export function AccountTopBar({
   email,
   name,
+  avatarUrl,
   signingOut,
   onLogOut,
   back,
@@ -51,6 +56,8 @@ export function AccountTopBar({
 }: {
   email: string | null;
   name?: string | null;
+  /** `/storage/v1/object/public/avatars/…` from `user_metadata.avatar_url`; null falls back to initials. */
+  avatarUrl?: string | null;
   signingOut: boolean;
   onLogOut: () => void;
   /** Rendered as a ghost link on the left. Omit on a page with nowhere to go back to. */
@@ -91,6 +98,10 @@ export function AccountTopBar({
               aria-label={identity ? `${t('account.loggedInAs')} ${identity}` : t('account.label')}
               className="hover:bg-hover data-[state=open]:bg-hover focus-visible:ring-ring flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left transition-colors duration-(--duration-normal) ease-out focus-visible:ring-2 focus-visible:outline-none"
             >
+              {/* The picture Settings → Profile stored, initials while it is
+                  empty — the same `UserAvatar` the session members and menus
+                  use, so identity renders identically everywhere. */}
+              <UserAvatar email={email ?? ''} name={name ?? null} avatarUrl={avatarUrl ?? null} size="sm" />
               <span className="flex min-w-0 flex-col">
                 <span className="text-muted-foreground text-xs">{t('account.loggedInAs')}</span>
                 <span className="text-foreground max-w-56 truncate text-sm">

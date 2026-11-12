@@ -1,7 +1,8 @@
 /**
  * A Claude account is added the way a ChatGPT account is: a name, who may use
- * it (private by default), then the provider's sign-in. Claude's sign-in opens
- * claude.com and takes the code it shows (`claude setup-token` on the server).
+ * it (everyone in the workspace by default; only the creator when they may not
+ * share), then the provider's sign-in. Claude's sign-in opens claude.com and
+ * takes the code it shows (`claude setup-token` on the server).
  *
  * Runs the real panel against `happy-dom`; the SDK calls, the member list, the
  * auth context and the permission probe are stubs.
@@ -41,6 +42,8 @@ const starts: unknown[] = [];
 const completes: unknown[] = [];
 const opened: string[] = [];
 let completeError: Error | null = null;
+/** The `project.secret.write` probe's answer. */
+let mayShare = true;
 
 const sdk = await import('@kortix/sdk');
 mock.module('@kortix/sdk', () => ({
@@ -68,7 +71,7 @@ mock.module('@kortix/sdk/react', () => ({
 const realUiProvider = { ...(await import('../../../providers/ui-provider')) };
 mock.module('../../../providers/ui-provider', () => ({ ...realUiProvider, useUiViewer: () => ({ id: ME }) }));
 const projectCan = await import('../../../internal/lib/use-project-can');
-mock.module('../../../internal/lib/use-project-can', () => ({ ...projectCan, useProjectCan: () => ({ allowed: true }) }));
+mock.module('../../../internal/lib/use-project-can', () => ({ ...projectCan, useProjectCan: () => ({ allowed: mayShare }) }));
 
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 const { IntlTestProvider: NextIntlClientProvider } = await import('../../../test-utils/intl');
@@ -102,7 +105,7 @@ afterEach(() => {
   act(() => root?.unmount());
   host?.remove();
   root = null; host = null;
-  starts.length = 0; completes.length = 0; opened.length = 0; completeError = null;
+  starts.length = 0; completes.length = 0; opened.length = 0; completeError = null; mayShare = true;
   document.body.innerHTML = '';
 });
 
@@ -116,20 +119,31 @@ function type(input: HTMLInputElement, value: string) {
   });
 }
 
-async function startSignIn() {
+const radio = (choice: 'private' | 'project' | 'members') => document.querySelector<HTMLButtonElement>(`#create-claude-agent-${choice}`)!;
+
+/** Opens the add dialog and names the account; "Who can use it?" stays as the dialog set it. */
+async function nameAccount() {
   mount();
   expect(document.body.textContent).toContain('No Claude accounts yet');
   act(() => button('Sign in with Claude')!.click());
   await settle();
   type(document.querySelector('#provider-key-label-claude-agent') as HTMLInputElement, 'Work Max');
+}
+
+async function startSignIn() {
+  await nameAccount();
   act(() => button('Connect account')!.click());
   await settle(10);
 }
 
 describe('a Claude account, connected like a ChatGPT account', () => {
-  test('signs in on claude.com with the name and a private sharing choice, then stores the pasted code', async () => {
-    await startSignIn();
-    expect(starts).toEqual([['p1', { resourceLabel: 'Work Max', sharing: { mode: 'private', ownerId: ME } }]]);
+  test('signs in on claude.com with the name and the workspace-wide default, then stores the pasted code', async () => {
+    await nameAccount();
+    expect(radio('project').getAttribute('data-state')).toBe('checked');
+    expect(radio('private').getAttribute('data-state')).toBe('unchecked');
+    act(() => button('Connect account')!.click());
+    await settle(10);
+    expect(starts).toEqual([['p1', { resourceLabel: 'Work Max', sharing: { mode: 'project' } }]]);
     // The tab opens inside the click, then moves to the sign-in link.
     expect(opened).toEqual(['about:blank', 'https://claude.com/cai/oauth/authorize?x=1']);
     const code = document.querySelector('input[aria-label="Code from claude.com"], [data-provider-claude-code] input') as HTMLInputElement;
@@ -138,6 +152,16 @@ describe('a Claude account, connected like a ChatGPT account', () => {
     act(() => (document.querySelector('[data-provider-claude-code] form') as HTMLFormElement).requestSubmit());
     await settle(10);
     expect(completes).toEqual([['p1', { flowId: 'flow-1', code: 'abc#def' }]]);
+  });
+
+  test('a member who may not share gets "Only you" and signs in with an account only they can use', async () => {
+    mayShare = false;
+    await nameAccount();
+    expect(radio('private').getAttribute('data-state')).toBe('checked');
+    expect(radio('project').disabled).toBe(true);
+    act(() => button('Connect account')!.click());
+    await settle(10);
+    expect(starts).toEqual([['p1', { resourceLabel: 'Work Max', sharing: { mode: 'private', ownerId: ME } }]]);
   });
 
   test('a refused code shows the reason and offers the sign-in again', async () => {

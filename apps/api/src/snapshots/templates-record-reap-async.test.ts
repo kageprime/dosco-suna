@@ -40,13 +40,13 @@ const { recordTemplateBuilt, settlePredecessorReapsForTests } = await import('./
 describe('recordTemplateBuilt reaps the predecessor off the caller path', () => {
   test('returns while the provider delete is still pending, then the reap completes', async () => {
     answers.push(
-      [{ templateId: 'tpl', providerSnapshotName: 'kortix-default-old', provider: 'platinum' }], // getTemplateById
+      [{ templateId: 'tpl', providerSnapshotName: 'kortix-tpl-old', provider: 'platinum' }], // getTemplateById
       [], // update … set … where (repoint)
       [], // still referenced by another row? no
     );
     let returned = false;
     await recordTemplateBuilt('tpl', {
-      snapshotName: 'kortix-default-new',
+      snapshotName: 'kortix-tpl-new',
       contentHash: 'h',
       provider: 'platinum',
     }).then(() => {
@@ -60,7 +60,7 @@ describe('recordTemplateBuilt reaps the predecessor off the caller path', () => 
       await new Promise((resolve) => setTimeout(resolve, 1));
     }
     await settlePredecessorReapsForTests();
-    expect(deleted).toEqual(['kortix-default-old']);
+    expect(deleted).toEqual(['kortix-tpl-old']);
   });
 });
 
@@ -69,10 +69,10 @@ describe('recordTemplateBuilt across providers', () => {
     deleted.length = 0;
     releaseDelete = () => {};
     answers.push(
-      [{ templateId: 'tpl', providerSnapshotName: 'kortix-default-old', provider: 'platinum', providerState: 'active' }],
+      [{ templateId: 'tpl', providerSnapshotName: 'kortix-tpl-old', provider: 'platinum', providerState: 'active' }],
       [],
     );
-    await recordTemplateBuilt('tpl', { snapshotName: 'kortix-default-new', contentHash: 'h', provider: 'daytona' });
+    await recordTemplateBuilt('tpl', { snapshotName: 'kortix-tpl-new', contentHash: 'h', provider: 'daytona' });
     for (let i = 0; i < 20; i++) {
       releaseDelete();
       await new Promise((resolve) => setTimeout(resolve, 1));

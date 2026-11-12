@@ -1,6 +1,5 @@
 'use client';
-import { connectorConnectionQueryKeys } from '../../sections/connector-connection-form';
-import { invalidateConnections } from '../invalidate-connections';
+import { connectorConnectionQueryKeys, invalidateConnections } from '../../../internal/hooks/connectors/invalidate-connections';
 import {
   ConnectorNoticeRow,
   NOTICE_BODY,
@@ -9,7 +8,13 @@ import {
 } from './connector-notice-view';
 import { DetailPageShell, DETAIL_PAGE_COLUMN as PAGE_COLUMN } from './detail-page-shell';
 
-import { getProjectDetail, listConnectors, syncConnectors, type AdminConnector } from '@kortix/sdk';
+import {
+  connectorAccountSignInStarted,
+  getProjectDetail,
+  listConnectors,
+  syncConnectors,
+  type AdminConnector,
+} from '@kortix/sdk';
 import { contract, FRESHNESS, qk, useProjectAccountId } from '@kortix/sdk/react';
 import { CaretLeftIcon, PlugIcon, PlusIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -40,14 +45,15 @@ import { useProjectCan } from '../../../internal/lib/use-project-can';
 import { isManagedConnectorProvider } from '../provider-label';
 import { ConnectorDetailTabs } from './connector-detail-tabs';
 import { ConnectorMoveRow, useConnectorMove } from './connector-move-row';
-import { connectorNotice, noticeButton, noticeTarget } from './connector-notice';
+import { accountNeverSignedIn, connectorNotice, noticeButton, noticeTarget } from './connector-notice';
 import { connectHandoff, connectorPageState } from './connector-page-state';
-import { connectorRunsOver, connectorStatusTone } from './connector-status';
+import { connectorRunsOver, connectorTone } from './connector-status';
 import { CONNECTOR_TAB_LABEL_KEY, connectorTabs, type ConnectorTab } from './connector-tabs';
 import { useConnectorEventTriggers } from './connector-triggers';
 import { ProviderInfo, providerName } from './provider-info';
 import { ConnectorStatusBadge } from './status-badge';
 import { useConnectorDetail } from './use-connector-detail';
+import { useMcpOAuthSignIn } from './use-mcp-oauth-sign-in';
 
 /** The column `CapabilityPageShell` gives the list page beside this one. */
 
@@ -251,6 +257,7 @@ export function ConnectorDetailView({
   const t = useTranslations('connectorPages');
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const tSharing = useTranslations('accessSharing');
+  const tSignIn = useTranslations('connectSignIn');
   const search = useUiSearchParams();
   const router = useUiRouter();
   const pathname = useUiPathname();
@@ -394,6 +401,18 @@ export function ConnectorDetailView({
     ? tSharing('everyone', { project: projectName })
     : tSharing('visibilityEveryone');
 
+  // The account the banner's button fixes (see `noticeTarget`).
+  const target = noticeTarget(accounts);
+  const targetAccount = target && target !== 'add' ? target : null;
+  // An MCP server with one-click OAuth signs in like a managed app: its
+  // accounts say "Sign in", never "credential". Any account answers for it.
+  const oauthMcp = useMcpOAuthSignIn(
+    projectId,
+    connector,
+    (targetAccount ?? accounts.find((account) => account.authorized === false) ?? null)
+      ?.connection_id ?? null,
+  );
+  const signsIn = isManagedProvider || oauthMcp;
   // One banner says what is wrong and carries the button that fixes it.
   const notice = connectorNotice({
     provider: connector.provider,
@@ -405,6 +424,9 @@ export function ConnectorDetailView({
     managed: isManagedProvider,
     accountCount: accounts.length,
     accountsLoaded: connectionsQuery.isSuccess,
+    signsIn,
+    neverSignedIn: targetAccount ? accountNeverSignedIn(targetAccount) : true,
+    toolCount: connector.actions.length,
   });
   // Re-read the connector's tools. The list refetch that follows shows the
   // new status, or the same error with its reason.
@@ -437,9 +459,10 @@ export function ConnectorDetailView({
   // A Pipedream connector that can move: the move is the fix. A new Pipedream
   // account would only have to sign in again after the move.
   const move = useConnectorMove(projectId, connector);
-  const fix = move?.to ? null : noticeButton(notice, noticeTarget(accounts), isManagedProvider);
+  const fix = move?.to ? null : noticeButton(notice, target, isManagedProvider);
   const runFix = () => {
-    if (fix?.run === 'add') requestAdd();
+    if (fix?.run === 'settings') setTab('settings');
+    else if (fix?.run === 'add') requestAdd();
     else if (fix?.run === 'sign_in' && fix.account) signIn.mutate(fix.account);
     else if (fix?.account) reconnectAccount(fix.account);
   };
@@ -449,7 +472,7 @@ export function ConnectorDetailView({
   const connectAccount = (account: (typeof accounts)[number]) =>
     isManagedProvider ? reconnectAccount(account) : signIn.mutate(account);
 
-  const tone = connectorStatusTone(
+  const tone = connectorTone(
     connector,
     connectionsQuery.isSuccess ? accounts.length : undefined,
   );
@@ -585,15 +608,27 @@ export function ConnectorDetailView({
                 ) : null}
                 {fix?.kind === 'add_account' ? (
                   addAccountControl
+                ) : fix?.kind === 'add_routes' ? (
+                  // The routes spec is on the Settings tab, which only writers see.
+                  canWrite ? (
+                    <Button size="sm" variant="secondary" onClick={runFix}>
+                      {t('noticeAddRoutesAction')}
+                    </Button>
+                  ) : null
                 ) : fix?.kind === 'sign_in' ? (
                   <Button
                     size="sm"
                     className="gap-1.5"
                     onClick={runFix}
-                    disabled={signIn.isPending}
+                    disabled={signIn.isPending || connectPending}
                   >
-                    {signIn.isPending ? <SessionDotMatrix size={14} className="shrink-0" /> : null}
-                    {t('noticeSignInAction')}
+                    {signIn.isPending || connectPending ? (
+                      <SessionDotMatrix size={14} className="shrink-0" />
+                    ) : null}
+                    {/* A sign-in someone started and nobody finished (an agent's link, a closed window). */}
+                    {fix.account && connectorAccountSignInStarted(fix.account)
+                      ? tSignIn('finishSignIn')
+                      : t('noticeSignInAction')}
                   </Button>
                 ) : fix ? (
                   // Fix it here: credential entry for a direct account, the
@@ -652,6 +687,7 @@ export function ConnectorDetailView({
                 onRemoved: onLeave,
                 onSetCredential: setCredentialTarget,
                 onConnect: needsSignIn ? connectAccount : undefined,
+                signsIn,
                 showAccountInfo: true,
               }}
               settings={{

@@ -307,6 +307,9 @@ async function clearLegacyAuthUserReferences(userId: string): Promise<void> {
       JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
      WHERE c.contype = 'f' AND c.confrelid = ${target}::regclass AND c.confdeltype IN ('a', 'r')`;
   await db.transaction(async (tx) => {
+    // The legacy tables refuse INSERT and UPDATE (migration freeze_legacy_suna_tables); this
+    // transaction NULLs references to the deleted person and may write them. Transaction-local.
+    await tx.execute(sql`SELECT set_config('kortix.legacy_write', 'on', true)`);
     const personal: string[] = [];
     const [exists] = (await tx.execute(
       sql`SELECT to_regclass('basejump.accounts') IS NOT NULL AS has`,

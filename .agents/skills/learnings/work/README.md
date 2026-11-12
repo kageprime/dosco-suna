@@ -18,7 +18,7 @@ planned, in flight, or parked, so another person or agent can pick it up.
 
 | Topic | Status |
 |---|---|
-| [`opencode-history-recovery/`](opencode-history-recovery/README.md) | big-store fix on dev (`recover-opencode-history`): copy OpenCode-era conversations that never reached the session log off archived boxes; prod run after the release that ships the fix |
+| [`opencode-history-recovery/`](opencode-history-recovery/README.md) | done and removed: OpenCode-era conversations copied off archived Platinum boxes on prod (6,267 written); Daytona written off; script deleted, restorable from `550757a87b` |
 | [`harness-architecture-diagram/`](harness-architecture-diagram/README.md) | designed, not built: the home-page harness diagram (mock + box copy); placement A (own section) or B (replaces the Framework tab) open |
 | [`project-repository-access/`](project-repository-access/README.md) | phase 1 on dev (#11492 partial object store, #11501 named image steps); target decided: one Platinum volume per project (git inside, external repos only a sync target); interim: box checkouts off the API, branch-scoped refreshes, shared config snapshot |
 | [`stateless-sessions/`](stateless-sessions/README.md) | target decided: a session is its workspace + transcript on its volume, the transcript file is the one source of truth, the sandbox is disposable; stage 1 on dev (#11503), the rest not started |
@@ -34,3 +34,4 @@ planned, in flight, or parked, so another person or agent can pick it up.
 | [`workspaces/`](workspaces/README.md) | planning: Project → Workspace, 1 account = 1 project (the Slack model); D2–D4 open |
 | [`prompt-identity/`](prompt-identity/README.md) | building (`prompt-identity`): one id per prompt, visible from accept to answer |
 | [`my-kortix-account-actions/`](my-kortix-account-actions/README.md) | planned: account-level My Kortix actions as server-side held approvals |
+| [`oauth-mfa-level/`](oauth-mfa-level/README.md) | closed, not needed: bound grants pass the MFA gate; only grants made before v0.15.3 need a reconnect. The App viewer half shipped in #12423 |

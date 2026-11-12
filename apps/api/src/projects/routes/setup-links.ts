@@ -55,7 +55,7 @@ export function registerSetupLinksRoutes(): void {
             name: z.string().optional().openapi({ description: 'A single secret name. Alternative to names.' }),
             labels: z.record(z.string(), z.any()).optional().openapi({ description: 'Map of secret name to a label shown to the person.' }),
             descriptions: z.record(z.string(), z.any()).optional().openapi({ description: 'Map of secret name to a help text shown to the person.' }),
-            scope: z.string().optional().openapi({ description: 'Where the secret applies.' }),
+            scope: z.string().optional().openapi({ description: 'Where the secret applies: `runtime` (default) delivers it to the agent as an environment variable; `connector` keeps it server-side for a connector.' }),
             expires_in_minutes: z.number().optional().openapi({ description: 'Link lifetime in minutes.' }),
           }) } } },
       },
@@ -113,10 +113,11 @@ export function registerSetupLinksRoutes(): void {
       if (requestedScope && requestedScope !== 'runtime' && requestedScope !== 'connector') {
         return c.json({ error: 'scope must be "runtime" or "connector"' }, 400);
       }
-      // Setup links are commonly minted by connector tooling. Omission must not
-      // turn a server-side credential into plaintext sandbox environment state.
-      // Runtime delivery remains available only through an explicit opt-in.
-      const scope = requestedScope === 'runtime' ? 'runtime' : 'connector';
+      // Omitted scope is runtime, the same default as POST /secrets: a person
+      // asked to store a key for the agent to use, so the agent must receive it.
+      // A key only a connector consumes stays server-side through an explicit
+      // `scope: "connector"`, which connector tooling always sends.
+      const scope = requestedScope === 'connector' ? 'connector' : 'runtime';
       const sessionId = (c.get('sessionId') as string | undefined) ?? null;
       const { token, expiresAt } = await mintSecretLink(
         projectId,

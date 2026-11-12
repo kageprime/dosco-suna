@@ -381,7 +381,7 @@ jobs:
       # infra/terraform/modules/project-snapshots-bucket): that role has NO
       # s3:DeleteObject, and expiry is safe because the archive is a cache the
       # API rebuilds from its Git mirror.
-      KORTIX_ECS_ENV_OVERRIDES: '{"KORTIX_PREVIEW_BASE_DOMAIN":"p.kortix.com","KORTIX_PROJECT_SNAPSHOT_S3_BUCKET":"kortix-staging-euw2-project-snapshots","KORTIX_PROJECT_SNAPSHOT_S3_REGION":"eu-west-2","KORTIX_CAPTURE_S3_BUCKET":"kortix-staging-euw2-capture-store","KORTIX_CAPTURE_S3_REGION":"eu-west-2","KORTIX_CAPTURE_SQS_QUEUE_URL":"https://sqs.eu-west-2.amazonaws.com/935064898258/kortix-staging-euw2-capture-store-manifests","KORTIX_CAPTURE_STS_ROLE_ARN":"arn:aws:iam::935064898258:role/kortix-staging-euw2-capture-store-device","AUDIT_ARCHIVE_BUCKET":"kortix-staging-euw2-audit-archive","AUDIT_ARCHIVE_REGION":"eu-west-2","KORTIX_CONFIG_ARCHIVE_S3_BUCKET":"kortix-staging-euw2-project-snapshots","KORTIX_CONFIG_ARCHIVE_S3_REGION":"eu-west-2","KORTIX_CONFIG_ARCHIVE_RETAIN_PER_PROJECT":"0"}'
+      KORTIX_ECS_ENV_OVERRIDES: '{"KORTIX_PREVIEW_BASE_DOMAIN":"p.kortix.com","KORTIX_PROJECT_SNAPSHOT_S3_BUCKET":"kortix-staging-euw2-project-snapshots","KORTIX_PROJECT_SNAPSHOT_S3_REGION":"eu-west-2","KORTIX_CAPTURE_S3_BUCKET":"kortix-staging-euw2-capture-store","KORTIX_CAPTURE_S3_REGION":"eu-west-2","KORTIX_CAPTURE_SQS_QUEUE_URL":"https://sqs.eu-west-2.amazonaws.com/935064898258/kortix-staging-euw2-capture-store-manifests","KORTIX_CAPTURE_STS_ROLE_ARN":"arn:aws:iam::935064898258:role/kortix-staging-euw2-capture-store-device","AUDIT_ARCHIVE_BUCKET":"kortix-staging-euw2-audit-archive","AUDIT_ARCHIVE_REGION":"eu-west-2","AUDIT_ARCHIVE_ENABLED":"true","KORTIX_CONFIG_ARCHIVE_S3_BUCKET":"kortix-staging-euw2-project-snapshots","KORTIX_CONFIG_ARCHIVE_S3_REGION":"eu-west-2","KORTIX_CONFIG_ARCHIVE_RETAIN_PER_PROJECT":"0"}'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Configure AWS credentials (OIDC)
@@ -636,7 +636,8 @@ jobs:
     # so a failed ECS roll still cannot pass silently.
     needs: [preflight, wire-cloudflare, sync-secret]
     runs-on: ${{ vars.CI_RUNNER_M || 'ubuntu-24.04' }}
-    timeout-minutes: 20
+    # This runner builds the web app; Vercel only hosts the output.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -660,8 +661,10 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
-      - name: Deploy and alias staging.kortix.com
+      - run: corepack enable pnpm
+      - name: Build on this runner, deploy and alias staging.kortix.com
         env:
+          npm_config_engine_strict: "false"
           VERSION: ${{ needs.preflight.outputs.version }}
           # The release gate compares this value against RELEASE_SOURCE_SHA
           # (tests/src/core/target-smoke.ts). Pass it explicitly: without it
@@ -678,14 +681,11 @@ jobs:
           if [ -z "${NEXT_PUBLIC_SUPABASE_URL:-}" ] || [ "${NEXT_PUBLIC_SUPABASE_URL:-}" = "-" ] || [ -z "${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}" ] || [ "${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}" = "-" ]; then
             echo "::error::staging Supabase URL and anon key are required."; exit 1
           fi
-          mkdir -p .vercel
-          jq -n --arg org "$VERCEL_TEAM_ID" --arg project "$VERCEL_PROJECT_ID" \
-            '{orgId:$org, projectId:$project}' > .vercel/project.json
           export VERCEL_ORG_ID="$VERCEL_TEAM_ID"
 
-          # Staging values go to the build AND the runtime. Vercel builds bake the
+          # Staging values go to the build AND the runtime. The build bakes the
           # runtime config into prerendered marketing pages (lib/runtime-config-mode.ts),
-          # and `-e` alone reaches only the runtime: the build would bake the
+          # and `--env` alone reaches only the runtime: the build would bake the
           # project's generic Preview values instead of staging's.
           staging_env=(
             NEXT_PUBLIC_BACKEND_URL="https://${PUBLIC_API_HOST}/v1"
@@ -711,13 +711,13 @@ jobs:
             KORTIX_PUBLIC_AUTH_METHODS="magic,password"
           )
           env_flags=()
-          for kv in "${staging_env[@]}"; do env_flags+=(-e "$kv" -b "$kv"); done
+          for kv in "${staging_env[@]}"; do env_flags+=(--env "$kv" --build-env "$kv"); done
 
-          url="$(npx vercel deploy --yes --target preview --archive=tgz \
-            --token "$VERCEL_TOKEN" \
+          # Vercel runs no build: this runner builds, Vercel only hosts the output.
+          url="$(bash infra/scripts/vercel-deploy-prebuilt.sh preview \
             "${env_flags[@]}" \
-            -b NEXT_PUBLIC_KORTIX_VERSION="$VERSION" \
-            -b NEXT_PUBLIC_KORTIX_COMMIT="$SOURCE_SHA" \
+            --build-env NEXT_PUBLIC_KORTIX_VERSION="$VERSION" \
+            --build-env NEXT_PUBLIC_KORTIX_COMMIT="$SOURCE_SHA" \
             | tail -n1)"
           echo "Vercel deployment: ${url}"
           npx vercel alias set "$url" "$WEB_HOST" --token "$VERCEL_TOKEN"

@@ -9,7 +9,7 @@ const RETRY_MS = 60_000;
 
 // Leader only, serial: add one closed 15-minute slice of audit events to
 // audit_activity_daily per tick. Every second while behind (the first run backfills
-// 90 days), every 5 minutes once caught up.
+// the hot audit window, HOT_DAYS), every 5 minutes once caught up.
 const worker = leaderTimer(async () => {
   try {
     const rolled = await runWorkerTick('audit-activity', rollupNextAuditActivitySlice);

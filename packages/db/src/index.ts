@@ -7,6 +7,7 @@ export * as schema from './schema';
 export {
   // Schema namespace
   kortixSchema,
+  contactForms,
   salesEventOutbox,
   usedRefreshTokens,
   cliDeviceGrants,
@@ -67,6 +68,8 @@ export {
   accountSecretResources,
   accountSecretGrants,
   sessionProviderSecretPools,
+  llmCredentialBackfill,
+  legacyCredentialBackfill,
   projectSessionSecretHandles,
   projectSecretHandleStatusEnum,
   projectSecretConsumerEnum,
@@ -222,6 +225,7 @@ export {
   appDeploymentEvents,
   sessionPendingQuestions,
   sessionPendingPermissions,
+  sessionColleagueAccess,
   yoloMemberTokens,
   stripeWebhookEventsProcessed,
   // Tunnel

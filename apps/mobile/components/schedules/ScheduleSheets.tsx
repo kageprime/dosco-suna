@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { SheetScrollView, SheetRawTextInput } from '@/components/kortix/sheet-parts';
 import { type TriggerControls } from '@kortix/sdk';
 import {
   ClockIcon as Clock,
@@ -126,7 +126,7 @@ export function ScheduleCreateSheet({
     <View style={{ flex: 1 }}>
       <SheetTitleRow title="New schedule" onClose={() => { haptics.tap(); onClose(); }} />
 
-      <BottomSheetScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <SheetScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* mode */}
         <View style={{ flexDirection: 'row', backgroundColor: inputBg, borderRadius: 9999, padding: 3, marginBottom: 16 }}>
           {([{ k: 'recurring', l: 'Recurring' }, { k: 'once', l: 'Run once' }] as const).map((o) => {
@@ -153,7 +153,7 @@ export function ScheduleCreateSheet({
               })}
             </View>
             <Text style={{ fontSize: 12, fontFamily: 'Roobert-Medium', color: muted, marginBottom: 6 }}>Custom cron</Text>
-            <BottomSheetTextInput value={cron} onChangeText={setCron} placeholder="0 9 * * *" placeholderTextColor={muted} autoCapitalize="none" autoCorrect={false} style={[input, { fontFamily: MONO }]} />
+            <SheetRawTextInput value={cron} onChangeText={setCron} placeholder="0 9 * * *" placeholderTextColor={muted} autoCapitalize="none" autoCorrect={false} style={[input, { fontFamily: MONO }]} />
             {/* No helper line (inputs carry no descriptions); a line shows only
                 when the cron is invalid: it names the field and the range, or
                 the 5-field format. Create stays disabled until it is valid. */}
@@ -195,10 +195,10 @@ export function ScheduleCreateSheet({
         )}
 
         <Text style={{ fontSize: 12, fontFamily: 'Roobert-Medium', color: muted, marginTop: 18, marginBottom: 6 }}>Name</Text>
-        <BottomSheetTextInput value={name} onChangeText={setName} placeholder="Daily digest" placeholderTextColor={muted} maxLength={64} style={input} />
+        <SheetRawTextInput value={name} onChangeText={setName} placeholder="Daily digest" placeholderTextColor={muted} maxLength={64} style={input} />
 
         <Text style={{ fontSize: 12, fontFamily: 'Roobert-Medium', color: muted, marginTop: 14, marginBottom: 6 }}>Prompt</Text>
-        <BottomSheetTextInput value={prompt} onChangeText={setPrompt} placeholder="What should the agent do when this fires?" placeholderTextColor={muted} multiline style={[input, { height: 96, paddingTop: 10, textAlignVertical: 'top' }]} />
+        <SheetRawTextInput value={prompt} onChangeText={setPrompt} placeholder="What should the agent do when this fires?" placeholderTextColor={muted} multiline style={[input, { height: 96, paddingTop: 10, textAlignVertical: 'top' }]} />
 
         <AgentPickerField projectId={projectId} value={agent} onChange={setAgent} isDark={isDark} />
         <ModelPickerField projectId={projectId} value={model} onChange={setModel} isDark={isDark} />
@@ -208,7 +208,7 @@ export function ScheduleCreateSheet({
             <Text style={{ fontSize: 13, color: destructiveColor }}>{err}</Text>
           </View>
         )}
-      </BottomSheetScrollView>
+      </SheetScrollView>
 
       <View style={{ padding: 16, paddingBottom: insets.bottom + 16, borderTopWidth: 1, borderTopColor: withAlpha(fg, 0.08) }}>
         <Button size="lg" onPress={handleSave} disabled={!canSave} className="rounded-full">
@@ -334,7 +334,7 @@ export function ScheduleDetailSheet({
       <SheetTitleRow title={trigger.name || trigger.slug} onClose={() => { haptics.tap(); onClose(); }} />
 
       <View style={{ flex: 1 }}>
-      <BottomSheetScrollView
+      <SheetScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: barInset, gap: 16 }}
         showsVerticalScrollIndicator={false}
@@ -369,7 +369,7 @@ export function ScheduleDetailSheet({
           <SettingsRow label="Last fired" value={relativeTime(trigger.last_fired_at)} />
           <SettingsRow label="Source" value={trigger.path} />
         </SettingsGroup>
-      </BottomSheetScrollView>
+      </SheetScrollView>
 
       {/* Pinned action bar, floating over a fade of the sheet, the content
           scrolling under it — the agent and skill detail's fade (Jay,

@@ -1,6 +1,9 @@
 /**
- * ProjectLeftDrawer — the project sidebar. It opens full width from every
- * project page (the hamburger, or an edge swipe on any project route).
+ * ProjectLeftDrawer — the project sidebar. It opens from every project page
+ * (the hamburger, or a rightward swipe) as the ChatGPT-style peek card: the
+ * sidebar takes 82% of the window (max 360pt, `projectDrawerWidth`) and the
+ * page slides right as a rounded card (`DrawerPeekCard`, ProjectScreen); a
+ * tap or a swipe on the visible strip closes it.
  *
  * Top to bottom:
  * - Switcher row (COR-124/COR-157, Task 4): the account avatar overlapped
@@ -45,9 +48,11 @@
  *   Long press opens `SessionActionsSheet` (Rename, Share, Pin, Archive,
  *   Restart sandbox, Stop, Delete) over the drawer — the drawer stays open, the same
  *   exception the switcher row makes.
- * - Pinned bottom bar over a fade of the drawer surface: the user's profile
- *   photo in its plan's gradient ring (`PlanRingAvatar`; → the Account page at
- *   /projects/[id]/account) · New session (large primary pill).
+ * - Pinned bottom bar (`PinnedBar`, a fade of the drawer surface): the user's
+ *   profile photo in its plan's gradient ring (`PlanRingAvatar`; → the Account
+ *   page at /projects/[id]/account) · New session (large pill). On iOS 26 both
+ *   sit on native Liquid Glass (`GlassButtons`: the button inside the glass);
+ *   elsewhere the avatar is bare and New session the primary pill.
  *
  * Every action closes the drawer first, except the switcher row: it opens a
  * sheet over the drawer, and only a pick inside that sheet closes the drawer.
@@ -69,12 +74,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
+  CardsThreeIcon,
   FoldersIcon,
   CaretDownIcon,
   CaretRightIcon,
   MagnifyingGlassIcon,
   SquaresFourIcon,
-  NavigationArrowIcon,
+  PlusIcon,
   SealCheckIcon,
 } from '@/lib/icons';
 import { useDrawerProgress } from 'react-native-drawer-layout';
@@ -96,6 +102,8 @@ import { PixelDeadFlower } from '@/components/kortix/PixelDeadFlower';
 import { DrawerSessionNode, NESTED_SESSION_INDENT, useSessionStarterOf } from './DrawerSessionRows';
 import { SubsessionTreeMemory } from '@/components/session/SessionSubsessionTree';
 import { CountBadge } from '@/components/kortix/count-badge';
+import { GlassButtons, LIQUID_GLASS_AVAILABLE } from '@/components/kortix/liquid-glass';
+import { PinnedBar, usePinnedBarInset } from '@/components/kortix/pinned-bar';
 import { NavPill, SwitcherRow } from './DrawerNavRows';
 import { SessionChildren, type SessionChildrenProps } from '@/components/session/SessionTreeParts';
 import { PlanRingAvatar } from '@/components/settings/PlanRingAvatar';
@@ -103,13 +111,14 @@ import { useActivePlanName } from '@/hooks/useActivePlanName';
 import { useProfileEditor } from '@/hooks/useProfileEditor';
 import { haptics } from '@/lib/haptics';
 import { useRefetchOnOpen } from '@/components/session/use-refetch-on-open';
-import { useCans, useProjectApps } from '@kortix/sdk/react';
+import { useCans, useFeatureFlag, useProjectApps } from '@kortix/sdk/react';
 import { useProject, useProjectSessionsPaged } from '@/lib/projects/hooks';
-import { NAV_ACTIONS, REVIEW_ACCESS, appsRowVisible, navAccessAllowed } from '@/lib/session/nav-access';
+import { NAV_ACTIONS, REVIEW_ACCESS, appsRowVisible, artifactsRowVisible, navAccessAllowed } from '@/lib/session/nav-access';
 import { sessionListState, shouldLoadMoreSessions } from '@/lib/session/session-pages';
 import type { ProjectSession } from '@/lib/projects/projects-client';
 import {
   PROJECT_ACCOUNT_ROUTE,
+  PROJECT_ARTIFACTS_ROUTE,
   PROJECT_FILES_ROUTE,
   PROJECT_SESSIONS_ROUTE,
   type ProjectDrawerRoute,
@@ -132,12 +141,25 @@ import { THEME, withAlpha } from '@/lib/utils/theme';
 
 /** `Button size="lg"` height: the New session pill and the avatar match it. */
 const BAR_CONTROL_HEIGHT = 44;
-/** Gap between the bottom bar's controls and the safe-area edge. */
-const BAR_BOTTOM_GAP = 16;
-/** How far the bottom bar's fade reaches above its controls. */
-const BAR_FADE_ABOVE = 36;
-/** Space between the last scroll row and the bottom bar's controls. */
-const LIST_END_GAP = 16;
+/** The drawer's bottom bar sits this far above the home indicator (the shared bar's 16, plus 8). */
+const DRAWER_BAR_BOTTOM_GAP = 24;
+/** Extra room between the list's last row and the bottom bar. */
+const DRAWER_LIST_END_EXTRA = 16;
+/**
+ * The avatar inside its 44pt glass circle on iOS 26: a 4pt rim of glass shows
+ * around it. Without glass the avatar is the whole 44pt control.
+ */
+const AVATAR_ON_GLASS = 36;
+/**
+ * Every row sits in a 4pt column (`px-1`). Rows pad 16pt (`px-4`), so icons,
+ * status marks and section labels start on the 20pt line.
+ */
+const ROW_COLUMN = 'px-1';
+/**
+ * "Show more" under a section: the ghost button's 12pt padding puts its label
+ * on the row titles' edge (4 + 16 + 20pt slot + 12pt gap = 52 = 40 + 12).
+ */
+const SHOW_MORE_INSET = 'pl-10';
 /**
  * Height of the fade at the top of the session list. It also is the scroll
  * distance over which the fade appears: invisible at rest, so the first row is
@@ -176,6 +198,24 @@ const DrawerOpenContext = React.createContext(false);
 function DrawerSessionChildren(props: Omit<SessionChildrenProps, 'showLoader'>) {
   const open = React.useContext(DrawerOpenContext);
   return <SessionChildren {...props} showLoader={open} />;
+}
+
+/** A section's "Show more": "Loading…" and disabled while its page loads. */
+function ShowMoreRow({ loading = false, onPress }: { loading?: boolean; onPress: () => void }) {
+  return (
+    <View className={`${ROW_COLUMN} ${SHOW_MORE_INSET} items-start`}>
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={loading}
+        onPress={() => {
+          haptics.tap();
+          onPress();
+        }}>
+        <Text>{loading ? 'Loading…' : 'Show more'}</Text>
+      </Button>
+    </View>
+  );
 }
 
 // ─── ProjectLeftDrawer ───────────────────────────────────────────────────────
@@ -282,6 +322,9 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
   const appsQuery = useProjectApps(projectId);
   const showReview = navAccessAllowed(navCans, REVIEW_ACCESS);
   const showApps = appsRowVisible(navCans, appsQuery.data?.length);
+  // Artifacts: the platform stores a Drive, and the caller may read artifacts.
+  const artifactsFlag = useFeatureFlag(projectId, 'artifacts');
+  const showArtifacts = artifactsRowVisible(navCans, artifactsFlag.enabled);
 
   // The switcher row's workspace tile and name.
   const { data: project } = useProject(projectId);
@@ -473,7 +516,6 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
     void refetchAll();
   }, [refetchAll]);
   const handleShowMoreSessions = useCallback(() => {
-    haptics.tap();
     void fetchNextPage();
   }, [fetchNextPage]);
   const handleEndReached = useCallback(() => {
@@ -488,12 +530,12 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
   // The avatar's ring colour.
   const planName = useActivePlanName();
 
-  // The bar's controls sit 16pt above the safe-area edge (home indicator).
-  const barBottom = insets.bottom + BAR_BOTTOM_GAP;
-  // The fade starts BAR_FADE_ABOVE over the controls and reaches the screen edge.
-  const fadeHeight = barBottom + BAR_CONTROL_HEIGHT + BAR_FADE_ABOVE;
-  // The list scrolls under the fade; its last row must rest above the controls.
-  const listBottomPadding = barBottom + BAR_CONTROL_HEIGHT + LIST_END_GAP;
+  // The list scrolls under the bottom bar's fade; its last row rests above
+  // the controls.
+  // More room at the drawer's foot (Jay, 2026-11-11): the bar sits
+  // DRAWER_BAR_BOTTOM_GAP above the home indicator, and the list ends
+  // DRAWER_LIST_END_EXTRA further above the bar.
+  const listBottomPadding = usePinnedBarInset(BAR_CONTROL_HEIGHT, DRAWER_BAR_BOTTOM_GAP) + DRAWER_LIST_END_EXTRA;
 
   // Top fade: follows the scroll offset on the UI thread (no re-render per frame).
   const listScrollY = useSharedValue(0);
@@ -546,6 +588,11 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
 
   const goToFiles = useCallback(
     () => navigateOnce(() => onNavigateRoute(PROJECT_FILES_ROUTE)),
+    [navigateOnce, onNavigateRoute]
+  );
+
+  const goToArtifacts = useCallback(
+    () => navigateOnce(() => onNavigateRoute(PROJECT_ARTIFACTS_ROUTE)),
     [navigateOnce, onNavigateRoute]
   );
 
@@ -614,7 +661,7 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
             accessibilityRole="button"
             accessibilityLabel={`${item.title}, ${item.open ? 'collapse' : 'expand'}`}
             accessibilityState={{ expanded: item.open }}
-            className="flex-row items-center gap-1 px-2 -mx-1 pb-1 pt-3">
+            className={`flex-row items-center gap-1 ${ROW_COLUMN} pb-1 pt-3`}>
             <Text variant="muted" className="pl-4">
               {item.title}
             </Text>
@@ -629,24 +676,11 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
             : item.section === 'shared'
               ? [sharedFetchingNext, fetchNextShared]
               : [automatedFetchingNext, fetchNextAutomated];
-        return (
-          <View className="px-2 -mx-1 items-start pl-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={fetchingNext}
-              onPress={() => {
-                haptics.tap();
-                void fetchNext();
-              }}>
-              <Text>{fetchingNext ? 'Loading…' : 'Show more'}</Text>
-            </Button>
-          </View>
-        );
+        return <ShowMoreRow loading={fetchingNext} onPress={() => void fetchNext()} />;
       }
       if (item.kind === 'children') {
         return (
-          <View className="px-2 -mx-1">
+          <View className={ROW_COLUMN}>
             <DrawerSessionChildren
               projectId={projectId}
               parent={item.session}
@@ -658,7 +692,7 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
       }
       const shown = item.session.session_id === activeProjectSessionId;
       return (
-        <View className="px-2 -mx-1">
+        <View className={ROW_COLUMN}>
           <DrawerSessionNode
             session={item.session}
             shown={shown}
@@ -700,7 +734,7 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
   // sits under it.
   const mutedColor = isDark ? THEME.dark.mutedForeground : THEME.light.mutedForeground;
   const stateBlock = (
-    <View className="px-2 -mx-1">
+    <View className={ROW_COLUMN}>
       {sessionsListState === 'loading' ? (
         <View className="items-center py-8">{open ? <KortixLoader size="small" /> : null}</View>
       ) : sessionsListState === 'error' ? (
@@ -727,11 +761,7 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
         // No row on the pages read so far, and the viewer's own list has a
         // next page (KRTX-1727): offer it. While it loads, the footer loader
         // shows. A Shared or Automated next page has its section's Show more.
-        <View className="items-start pl-4">
-          <Button variant="ghost" size="sm" onPress={handleShowMoreSessions}>
-            <Text>Show more</Text>
-          </Button>
-        </View>
+        <ShowMoreRow onPress={handleShowMoreSessions} />
       ) : null}
     </View>
   );
@@ -740,9 +770,10 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
   const listHeader = useMemo(
     () => (
       <View>
-        <View className="px-2 -mx-1 space-y-1">
+        <View className={ROW_COLUMN}>
           <NavPill icon={MagnifyingGlassIcon} label="Search" onPress={goToSearch} />
           <NavPill icon={FoldersIcon} label="Files" onPress={goToFiles} />
+          {showArtifacts ? <NavPill icon={CardsThreeIcon} label={t('artifacts.title')} onPress={goToArtifacts} /> : null}
           {showReview ? (
             <NavPill
               icon={SealCheckIcon}
@@ -755,7 +786,7 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
           {showApps ? <NavPill icon={SquaresFourIcon} label="Apps" onPress={goToApps} /> : null}
         </View>
         {needsYouSessions.length > 0 ? (
-          <View className="px-2 -mx-1">
+          <View className={ROW_COLUMN}>
             <Text variant="muted" className="px-4 pb-1 pt-3">
               Needs you
             </Text>
@@ -780,10 +811,13 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
     [
       goToSearch,
       goToFiles,
+      goToArtifacts,
+      t,
       goToReview,
       goToApps,
       showReview,
       showApps,
+      showArtifacts,
       reviewNeedsYouCount,
       needsYouSessions,
       needsYouBySession,
@@ -829,46 +863,52 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
     [showPageLoader]
   );
 
-  // The drawer surface (bg-chrome-background), transparent → opaque, so rows
-  // fade out under the bottom bar instead of stopping at a hard edge.
+  // The drawer surface (bg-chrome-background): the bottom bar's fade ends on
+  // it, and the top fade (rows scrolling up under the switcher row) starts on it.
   const chrome = isDark ? THEME.dark.chromeBackground : THEME.light.chromeBackground;
-  const fadeColors = [withAlpha(chrome, 0), withAlpha(chrome, 0.85), withAlpha(chrome, 1)] as const;
-  // The same fade, reversed, where rows scroll up under the switcher row.
   const topFadeColors = [withAlpha(chrome, 1), withAlpha(chrome, 0)] as const;
+  const glassy = LIQUID_GLASS_AVAILABLE;
+  // New session's glass tint: the primary fill, near-black in light mode and white in dark.
+  const primaryFill = isDark ? THEME.dark.primary : THEME.light.primary;
 
   return (
-    <>
-    {/* One icon column: nav icons, session status marks, and the Previous
-        Chats clock each sit in a 20pt slot starting 20pt from the drawer edge
-        (centre 30pt, label 52pt). Nav and session rows are px-4 inside a
-        4pt column (px-2 -mx-1); Previous Chats is px-3 inside px-2. */}
-    <View className="flex-1 bg-chrome-background" style={{ paddingTop: insets.top }}>
-      <SwitcherRow projectName={project?.name ?? ''} onPress={openSwitcher} />
+    // One icon column: nav icons and session status marks each sit in a 20pt
+    // slot whose left edge is 20pt from the drawer edge (a 4pt `px-1` column,
+    // then the row's `px-4`). `insets.left`: a landscape notch.
+    // No fill of its own: the Drawer's root paints the same chrome surface
+    // (`useDrawerBackdropColor`), so the page card's soft shadow falls across
+    // the sidebar's edge instead of being cut off by it (an opaque sidebar
+    // drew a darker band with a hard seam between it and the card).
+    <View className="flex-1" style={{ paddingTop: insets.top, paddingLeft: insets.left }}>
+      <SwitcherRow
+        projectName={project?.name ?? ''}
+        projectIcon={project?.icon}
+        projectGlyph={project?.icon_glyph}
+        onPress={openSwitcher}
+      />
 
       <View className="flex-1">
         <DrawerOpenContext.Provider value={open}>
-        {/* Expanded sub-session trees survive virtualisation; the drawer stays
-            mounted, so they stay expanded while the project is open. */}
-        <SubsessionTreeMemory>
-        <Animated.FlatList
-          style={{ flex: 1 }}
-          data={items}
-          keyExtractor={drawerItemKey}
-          renderItem={renderItem}
-          showsVerticalScrollIndicator={false}
-          onScroll={onListScroll}
-          scrollEventThrottle={16}
-          contentContainerStyle={{ paddingBottom: listBottomPadding }}
-          ListHeaderComponent={listHeader}
-          // Load the next page about one screen before the end of the list.
-          onEndReached={handleEndReached}
-          onEndReachedThreshold={0.6}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={mutedColor} />
-          }
-          ListFooterComponent={listFooter}
-        />
-        </SubsessionTreeMemory>
+          {/* Expanded sub-session trees survive virtualisation; the drawer stays
+              mounted, so they stay expanded while the project is open. */}
+          <SubsessionTreeMemory>
+            <Animated.FlatList
+              style={{ flex: 1 }}
+              data={items}
+              keyExtractor={drawerItemKey}
+              renderItem={renderItem}
+              showsVerticalScrollIndicator={false}
+              onScroll={onListScroll}
+              scrollEventThrottle={16}
+              contentContainerStyle={{ paddingBottom: listBottomPadding }}
+              ListHeaderComponent={listHeader}
+              // Load the next page about one screen before the end of the list.
+              onEndReached={handleEndReached}
+              onEndReachedThreshold={0.6}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={mutedColor} />}
+              ListFooterComponent={listFooter}
+            />
+          </SubsessionTreeMemory>
         </DrawerOpenContext.Provider>
         {/* Top fade: rows fade out under the switcher row instead of a hard edge. */}
         <Animated.View
@@ -878,47 +918,47 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
         </Animated.View>
       </View>
 
-      {/* Pinned bottom bar: avatar · New session, over a fade of the drawer
-          surface. Touches on the transparent top of the fade reach the rows. */}
-      <View
-        pointerEvents="box-none"
-        className="absolute inset-x-0 bottom-0"
-        style={{ height: fadeHeight }}>
-        <LinearGradient
-          pointerEvents="none"
-          colors={fadeColors}
-          locations={[0, 0.45, 1]}
-          style={StyleSheet.absoluteFill}
-        />
-        <View
-          pointerEvents="box-none"
-          className="absolute inset-x-0 flex-row items-center justify-between px-5"
-          style={{ bottom: barBottom }}>
-          {/* Avatar left, New session right (Jay, 2026-09-23). The avatar
-              wears its plan's gradient ring. */}
-          <Pressable
+      {/* Avatar left, New session right (Jay, 2026-09-23), over the drawer
+          surface's fade. On iOS 26 each is a Liquid Glass button (the Button
+          draws inside the glass). New session is the primary pill: black
+          with white text in light mode, inverted in dark (Jay, 2026-11-11);
+          on iOS 26 that is glass tinted in the primary colour, elsewhere the
+          solid primary fill. */}
+      <PinnedBar controlHeight={BAR_CONTROL_HEIGHT} background={chrome} blur dark={isDark} bottomGap={DRAWER_BAR_BOTTOM_GAP} className="justify-between px-5">
+        <GlassButtons>
+          <Button
+            variant="ghost"
+            size="icon-lg"
+            className="rounded-full"
             onPress={goToAccount}
-            accessibilityRole="button"
             accessibilityLabel={planName ? `Account, ${planName} plan` : 'Account'}
-            hitSlop={2}
-            className="rounded-full active:opacity-70">
-            <PlanRingAvatar
-              imageUrl={profile.avatarUrl}
-              fallbackText={profile.displayName}
-              email={profile.email}
-              planName={planName}
-              size={BAR_CONTROL_HEIGHT}
-              gapColor={chrome}
-            />
-          </Pressable>
-          <Button size="lg" className="rounded-full" onPress={handleNewSession}>
-            {/* Web's New session glyph (project-sidebar.tsx), flipped horizontally: tip up-right. */}
-            <Icon as={NavigationArrowIcon} size={20} style={{ transform: [{ scaleX: -1 }] }} />
+            hitSlop={2}>
+            {/* The avatar wears its plan's gradient ring. */}
+            <View pointerEvents="none">
+              <PlanRingAvatar
+                imageUrl={profile.avatarUrl}
+                fallbackText={profile.displayName}
+                email={profile.email}
+                planName={planName}
+                size={glassy ? AVATAR_ON_GLASS : BAR_CONTROL_HEIGHT}
+                gapColor={chrome}
+              />
+            </View>
+          </Button>
+        </GlassButtons>
+        <GlassButtons tintColor={primaryFill}>
+          <Button
+            size="lg"
+            variant="default"
+            // On glass the tint is the fill: the solid primary would hide the glass.
+            className={glassy ? 'rounded-full bg-transparent dark:bg-transparent' : 'rounded-full'}
+            onPress={handleNewSession}>
+            {/* A plus, as the Claude iOS sidebar's New session (Jay, 2026-11-11). */}
+            <Icon as={PlusIcon} size={20} />
             <Text maxFontSizeMultiplier={BUTTON_LABEL_MAX_FONT_SCALE.lg}>New session</Text>
           </Button>
-        </View>
-      </View>
+        </GlassButtons>
+      </PinnedBar>
     </View>
-    </>
   );
 });

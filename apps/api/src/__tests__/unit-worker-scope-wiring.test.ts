@@ -61,6 +61,7 @@ const WORKERS: Record<string, string> = {
   'tunnel-forward-expiry': 'worker/jobs/tunnel-forward-expiry.ts',
   'workspace-split': 'worker/jobs/workspace-split.ts',
   'workspace-id-fill': 'worker/jobs/workspace-id-fill.ts',
+  'legacy-credential-backfill': 'worker/jobs/legacy-credential-backfill.ts',
   'tunnel-rpc-forwarder': 'tunnel/core/cluster-forwarder.ts',
   'billing-trial-expiry': 'worker/jobs/billing-rotation.ts',
   'billing-yearly-rotation': 'worker/jobs/billing-rotation.ts',

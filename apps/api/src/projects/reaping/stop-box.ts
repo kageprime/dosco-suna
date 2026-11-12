@@ -24,7 +24,7 @@ import {
   claimExpiredSandboxStop,
   releaseSandboxStopClaim,
 } from './box-queries';
-import { isAlreadyNotRunning, isLifecycleTransitionInProgress } from './policy';
+import { isAlreadyNotRunning, isLifecycleTransitionInProgress, isPlatinumTransportTimeout } from './policy';
 import { applyStoppedState } from './sandbox-state-sync';
 
 export type StopBoxOutcome = 'stopped' | 'skipped' | 'errors';
@@ -281,6 +281,16 @@ export async function stopExpiredBox(
     if (isProviderName(row.provider)) await getProvider(row.provider).stop(row.externalId);
   } catch (err) {
     if (isLifecycleTransitionInProgress(err)) {
+      await releaseSandboxStopClaim(row.sandboxId, claimToken);
+      return 'skipped';
+    }
+    if (isPlatinumTransportTimeout(err)) {
+      // The stop POST's answer never arrived, so the stop may already have run;
+      // nothing is confirmed either way. Release the claim and let the next
+      // pass's getStatus reconcile the real state — the same "no answer this
+      // pass" handling as a transition in progress. An error line here repeats
+      // once per box per pass for as long as the provider stays slow
+      // (KRTX-4687).
       await releaseSandboxStopClaim(row.sandboxId, claimToken);
       return 'skipped';
     }

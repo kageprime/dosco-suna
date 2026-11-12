@@ -21,6 +21,7 @@ import {
   gatewayRequestLogs,
   notifications,
   projectSessions,
+  sessionColleagueAccess,
   sessionContentPurges,
   sessionSandboxIdentities,
   sessionLifecycleCommands,
@@ -85,6 +86,10 @@ async function seedContent(project: SeededProject, opts: { deletedAt?: Date } = 
   await db.insert(voiceCallTurns).values({ sessionId, projectId: project.project_id, callId: 'call', role: 'user', text: 'synthetic' });
   await db.insert(notifications).values({ ...scope, userId: USER, kind: 'turn_done', title: 'synthetic', body: 'synthetic' });
   await db.insert(connectorCalls).values({ ...scope, actionPath: 'a.b', status: 'ok', resultSummary: { text: 'synthetic' } });
+  // A colleague access ask names the colleague's task.
+  await db.insert(sessionColleagueAccess).values({
+    ...scope, title: 'synthetic task', secrets: ['SYNTHETIC_KEY'], accessHash: 'h', expiresAt: day(1).toISOString(),
+  });
   bucket.objects.set(object, new Blob(['abc']));
   // An orphan the capture left behind: no blob row names it.
   bucket.objects.set(`${project.project_id}/${sessionId}/00000000-0000-4000-8000-000000000002`, new Blob(['orphan']));
@@ -96,13 +101,17 @@ const markDeleted = (sessionId: string, at: Date) =>
 const markUndeleted = (sessionId: string) =>
   db.update(projectSessions).set({ metadata: sql`metadata - 'deletedAt'` }).where(eq(projectSessions.sessionId, sessionId));
 
-const count = async (table: typeof sessionLogs | typeof sessionLogThreads | typeof sessionLogMessages | typeof sessionLogBlobs, sessionId: string) =>
+const count = async (
+  table: typeof sessionLogs | typeof sessionLogThreads | typeof sessionLogMessages | typeof sessionLogBlobs | typeof sessionColleagueAccess,
+  sessionId: string,
+) =>
   Number((await db.execute(sql`select count(*)::int as n from ${table} where session_id = ${sessionId}`))[0]!.n);
 const rowsOf = async (sessionId: string) => ({
   logs: await count(sessionLogs, sessionId),
   threads: await count(sessionLogThreads, sessionId),
   messages: await count(sessionLogMessages, sessionId),
   blobs: await count(sessionLogBlobs, sessionId),
+  colleagueAccess: await count(sessionColleagueAccess, sessionId),
   ...(await copiesOf(sessionId)),
 });
 /** The content of the copies: rows that billing or audit counts stay, without it. */
@@ -116,8 +125,8 @@ const copiesOf = async (sessionId: string) => {
   return row as { modelBodies: number; prompts: number; voice: number; notifications: number; connectorResults: number };
 };
 const COPIES = { modelBodies: 1, prompts: 1, voice: 1, notifications: 1, connectorResults: 1 };
-const ALL = { logs: 1, threads: 1, messages: 1, blobs: 1, ...COPIES };
-const NONE = { logs: 0, threads: 0, messages: 0, blobs: 0, modelBodies: 0, prompts: 0, voice: 0, notifications: 0, connectorResults: 0 };
+const ALL = { logs: 1, threads: 1, messages: 1, blobs: 1, colleagueAccess: 1, ...COPIES };
+const NONE = { logs: 0, threads: 0, messages: 0, blobs: 0, colleagueAccess: 0, modelBodies: 0, prompts: 0, voice: 0, notifications: 0, connectorResults: 0 };
 const objectsOf = (c: { projectId: string; sessionId: string }) => [...bucket.objects.keys()].filter((k) => k.startsWith(`${c.projectId}/${c.sessionId}/`)).length;
 const bookkeeping = async (sessionId: string) => (await db.select().from(sessionContentPurges).where(eq(sessionContentPurges.sessionId, sessionId)))[0];
 
@@ -492,6 +501,7 @@ const SESSION_TABLES: Record<string, 'purged' | 'scrubbed' | `kept: ${string}`> 
   'voice_call_turns.session_id': 'purged',
   'session_pending_permissions.session_id': 'purged',
   'session_pending_questions.session_id': 'purged',
+  'session_colleague_access.session_id': 'purged',
   'session_runtime_projections.session_id': 'purged',
   'project_session_runtime_contexts.session_id': 'purged',
   'chat_turn_streams.session_id': 'purged',

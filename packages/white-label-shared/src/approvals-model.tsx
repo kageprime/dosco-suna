@@ -124,7 +124,7 @@ export function approvalFailure(err: unknown): ApprovalFailure {
       title: 'A human has to decide this one',
       detail:
         serverText ||
-        'An agent cannot resolve its own approval — a human must approve or deny this.',
+        "This approval waits for a person: the session's launcher or a project manager approves or denies it.",
     };
   }
   if (status === 409) {

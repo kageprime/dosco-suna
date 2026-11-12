@@ -168,7 +168,6 @@ agents:
     skills: [instagram-content-studio]
     connectors: [instagram]
     secrets: [ELEVENLABS_API_KEY, OPENAI_API_KEY]   # SARVAM_API_KEY instead of ELEVENLABS_API_KEY when the user chose Sarvam
-    workspace: { project_repository: true }
 triggers:
   - { slug: ig-story, type: cron, agent: ig-studio, cron: "0 30 3 * * *",  timezone: UTC, enabled: false, overlap: allow,
       prompt: "Format: story. Skip if state/published/story-<today>.json exists." }

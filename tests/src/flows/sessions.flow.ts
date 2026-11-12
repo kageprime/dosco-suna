@@ -20,6 +20,7 @@ import { waitFor } from '../core/poll';
 import { createDatabaseSession, fundDatabaseAccount } from '../fixtures/database-project';
 import { seedSessionTranscript } from '../fixtures/session-transcript';
 import { openFlowDb, seedTurnSession } from '../fixtures/turn-end';
+import { lockProjectFirst } from '../fixtures/token-binding-lock';
 
 flow(
   'SESS-1',
@@ -924,8 +925,8 @@ flow(
       (await anon.post(sharesRoute, { transcript: true }, { params })).status(401);
     });
 
-    await ctx.step('NONMEMBER: {transcript:true} → 404 workspace_not_found, no share is written', async () => {
-      (await ctx.client.as(ctx.P.NONMEMBER).post(sharesRoute, { transcript: true }, { params })).status(404).body().has('$.code', 'workspace_not_found');
+    await ctx.step('NONMEMBER: {transcript:true} → 403 workspace_access_denied, no share is written', async () => {
+      (await ctx.client.as(ctx.P.NONMEMBER).post(sharesRoute, { transcript: true }, { params })).status(403).body().has('$.code', 'workspace_access_denied');
       const list = await owner.get(sharesRoute, { params });
       list.status(200);
       if (list.json<{ shares: unknown[] }>().shares.length !== 0) throw new Error('a refused mint wrote a share');
@@ -1432,11 +1433,11 @@ flow(
       (await ctx.client.as(ctx.P.ANON).get(byId, { params: { sessionId: sharedId } })).status(401);
     });
 
-    await ctx.step('a caller outside the account gets 404 by id, as for an unknown id; the workspace route answers 404 workspace_not_found', async () => {
+    await ctx.step('a caller outside the account gets 404 by id, as for an unknown id; the workspace route answers 403 workspace_access_denied', async () => {
       const outsider = ctx.client.as(ctx.P.NONMEMBER);
       (await outsider.get(byId, { params: { sessionId: sharedId } })).status(404);
       (await outsider.get(byId, { params: { sessionId: crypto.randomUUID() } })).status(404);
-      (await outsider.get(inProject, { params: { projectId: project.id, sessionId: sharedId } })).status(404).body().has('$.code', 'workspace_not_found');
+      (await outsider.get(inProject, { params: { projectId: project.id, sessionId: sharedId } })).status(403).body().has('$.code', 'workspace_access_denied');
     });
 
     await ctx.step('a deleted session is gone by id → 404', async () => {
@@ -1587,11 +1588,11 @@ flow(
       (await owner.put('/v1/workspaces/:projectId/sessions/:sessionId/archive', { archived: 'yes' }, { params: params(s1) })).status(400);
     });
 
-    await ctx.step('a session the caller cannot see → 404; ANON → 401; outside the account → 404 workspace_not_found', async () => {
+    await ctx.step('a session the caller cannot see → 404; ANON → 401; outside the account → 403 workspace_access_denied', async () => {
       (await pin(privateId, true, ctx.client.as(member))).status(404);
       (await pin(crypto.randomUUID(), true)).status(404);
       (await pin(s1, true, ctx.client.as(ctx.P.ANON))).status(401);
-      (await archive(s1, true, ctx.client.as(ctx.P.NONMEMBER))).status(404).body().has('$.code', 'workspace_not_found');
+      (await archive(s1, true, ctx.client.as(ctx.P.NONMEMBER))).status(403).body().has('$.code', 'workspace_access_denied');
     });
 
     await ctx.step('a deleted session cannot be pinned or archived → 404', async () => {
@@ -1937,11 +1938,13 @@ flow(
     const project = await ctx.fixtures.project({ managedGit: true, seed: true });
     const owner = ctx.client.as(ctx.P.OWNER);
     let restrictedSessionId = '';
+    // Repository access is decided by grants at session create: the agent's
+    // project.gitops.read (and the starting person's file read). No session
+    // ever gets a checkout: /workspace starts empty either way.
     for (const access of [false, true]) {
-      await ctx.step(`create repository_access=${access} session and prove checkout plus session-token authorization`, async () => {
+      await ctx.step(`an agent ${access ? 'with' : 'without'} project.gitops.read starts a session with repository_access=${access}, no checkout, and repository calls answering ${access ? 200 : 403}`, async () => {
         const config = await owner.put('/v1/workspaces/:projectId/agents/:agentName/config', {
-          repository_access: access,
-          kortix_permissions: ['project.file.read', 'project.gitops.read'],
+          kortix_permissions: access ? ['project.file.read', 'project.gitops.read'] : ['project.file.read'],
         }, { params: { projectId: project.id, agentName: 'kortix' } });
         config.status(200);
         const created = await owner.post('/v1/workspaces/:projectId/sessions', {
@@ -1953,6 +1956,7 @@ flow(
         ctx.track('session', sessionId, { projectId: project.id });
         if (!access) restrictedSessionId = sessionId;
         const params = { projectId: project.id, sessionId };
+        // The caller's metadata cannot pick the policy: the server writes it from grants.
         const read = await owner.get('/v1/workspaces/:projectId/sessions/:sessionId', { params });
         read.status(200).body().has('$.metadata.repository_access', access)
           .has('$.metadata.workspace_mode', access ? 'branch' : 'runtime');
@@ -1974,7 +1978,7 @@ flow(
         const script = `const fs = require("node:fs");
 const expected = ${access};
 const checkout = fs.existsSync("/workspace/.git");
-if (checkout !== expected) throw new Error("unexpected checkout: " + checkout);
+if (checkout) throw new Error("a session got a checkout at boot");
 const base = process.env.KORTIX_API_URL.replace(/\\/$/, "");
 const headers = { Authorization: "Bearer " + process.env.KORTIX_TOKEN };
 const files = await fetch(base + "/projects/${project.id}/files", { headers });
@@ -1983,18 +1987,18 @@ await files.body?.cancel();
 const git = await fetch(base + "/git/${project.id}.git/info/refs?service=git-upload-pack", { headers });
 if (git.status !== (expected ? 200 : 403)) throw new Error("git status: " + git.status);
 await git.body?.cancel();
-console.log(JSON.stringify({ checkout, files: files.status, git: git.status }));`;
+console.log(JSON.stringify({ checkout, files: files.status, git: git.status, branch: process.env.KORTIX_BRANCH_NAME ?? null }));`;
         const command = `bun -e '${script.replace(/'/g, "'\\''")}'`;
         const execution = await owner.post(`/v1/p/${externalId}/8000/kortix/env-rpc`,
           { op: 'exec', args: { command, timeout: 30_000 } }, { timeoutMs: 40_000 });
         execution.status(200).body().has('$.ok', true).has('$.value.exitCode', 0);
         const proof = JSON.parse(execution.json<any>().value.stdout.trim());
-        if (proof.checkout !== access || proof.files !== (access ? 200 : 403) || proof.git !== (access ? 200 : 403)) {
+        if (proof.checkout !== false || proof.files !== (access ? 200 : 403) || proof.git !== (access ? 200 : 403) || proof.branch !== sessionId) {
           throw new Error(`unexpected repository proof: ${JSON.stringify(proof)}`);
         }
       });
     }
-    await ctx.step('changing the agent to enabled leaves its existing restricted session restricted', async () => {
+    await ctx.step('widening the agent grant leaves its existing restricted session restricted', async () => {
       const read = await owner.get('/v1/workspaces/:projectId/sessions/:sessionId', {
         params: { projectId: project.id, sessionId: restrictedSessionId },
       });
@@ -2446,9 +2450,9 @@ flow(
           [sessionId, project.accountId, project.id],
         );
         await db.query(
-          `UPDATE kortix.account_tokens
+          lockProjectFirst(`UPDATE kortix.account_tokens
               SET account_id = $2, user_id = $3, project_id = $4, session_id = $5
-            WHERE token_id = $1`,
+            WHERE token_id = $1`),
           [tokenId, project.accountId, ownerUserId, project.id, sessionId],
         );
       });
@@ -2570,6 +2574,10 @@ flow(
 
     await ctx.step('started_by=others lists the MEMBER’s shared chat', async () => {
       expectIds(await rows(owner, { parent: 'root', started_by: 'others' }), [memberChat], 'others');
+    });
+
+    await ctx.step('started_by=humans lists every person-started chat: mine and shared, never a machine run (KRTX-4705)', async () => {
+      expectIds(await rows(owner, { parent: 'root', started_by: 'humans' }), [memberChat, myChat], 'humans');
     });
 
     await ctx.step('q searches server-side: a title match is `self`, a worker match returns its coordinator as `child`', async () => {
@@ -2965,9 +2973,9 @@ flow(
         if (view.total !== 1 || view.multi_user) throw new Error(`unshared: ${JSON.stringify(view)}`);
       });
 
-      await ctx.step('unknown session → 404; NONMEMBER → 404 workspace_not_found; ANON → 401', async () => {
+      await ctx.step('unknown session → 404; NONMEMBER → 403 workspace_access_denied; ANON → 401', async () => {
         (await owner.get(path, { params: { projectId: project.id, sessionId: crypto.randomUUID() } })).status(404);
-        (await ctx.client.as(ctx.P.NONMEMBER).get(path, { params })).status(404).body().has('$.code', 'workspace_not_found');
+        (await ctx.client.as(ctx.P.NONMEMBER).get(path, { params })).status(403).body().has('$.code', 'workspace_access_denied');
         (await ctx.client.as(ctx.P.ANON).get(path, { params })).status(401);
       });
     } finally {
@@ -3622,7 +3630,7 @@ flow(
         const credential = minted.json<{ token_id: string; secret_key: string }>();
         // The sandbox credential the platform issues: an account token bound to the project and the
         // session, live while the session's sandbox row is (the SLOG-1 pattern).
-        await db.query('UPDATE kortix.account_tokens SET project_id = $2, session_id = $3 WHERE token_id = $1', [credential.token_id, project.id, sessionId]);
+        await db.query(lockProjectFirst('UPDATE kortix.account_tokens SET project_id = $2, session_id = $3 WHERE token_id = $1'), [credential.token_id, project.id, sessionId]);
         await db.query(
           "INSERT INTO kortix.session_sandboxes (sandbox_id, session_id, account_id, project_id, status) VALUES ($1::uuid, $1, $2, $3, 'active')",
           [sessionId, team.id, project.id],
@@ -3632,7 +3640,7 @@ flow(
           (await agent.put(shareRoute, undefined, { params: turn }))
             .status(403)
             .body()
-            .has('$.error', 'An agent cannot share a response publicly');
+            .has('$.error', "Publishing a response to the public web is the person's decision: the session owner or a project manager publishes it with Share on the response.");
         } finally {
           await db.query('DELETE FROM kortix.session_sandboxes WHERE session_id = $1 AND external_id IS NULL', [sessionId]);
         }

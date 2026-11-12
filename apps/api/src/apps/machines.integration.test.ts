@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import { accounts, appArtifacts, appDeployments, appLinks, appRuntimes, appVolumes, apps, projects } from '@kortix/db';
 import { resolveAppReleaseConfig, type AppReleaseConfig } from '@kortix/shared/app-config';
 import { and, asc, eq, inArray, notInArray } from 'drizzle-orm';
+import type { AppdStatus, AppRuntimeHandle, StartAppRuntimeInput } from './hosting';
 
 process.env.KORTIX_APPS_WORKER_ENABLED = 'false';
 
@@ -17,24 +18,31 @@ process.env.KORTIX_APPS_WORKER_ENABLED = 'false';
 const calls: string[] = [];
 let createdBoxes = 0;
 let failReadyFor = new Set<string>();
+/** One-shot 40P01 victims the metering fake throws (a deadlock after the row insert committed). */
+let meterFailures = 0;
 
 const realHosting = await import('./hosting');
 mock.module('./hosting', () => ({
   ...realHosting,
-  AppHostingProvider: class {
-    async createRuntime(input: { runtimeId: string; volumes?: Record<string, { volume: string }> }) {
+  // Extends the real class: machines.ts's destroy and create-failure paths roll a
+  // runtime back through hosting.remove (machines.ts:230, :568), and a hand-rolled
+  // stub without it masked the real pg error with `hosting.remove is not a function`.
+  // The inherited methods resolve providers through the mocked getProvider below.
+  AppHostingProvider: class extends realHosting.AppHostingProvider {
+    override async createRuntime(input: StartAppRuntimeInput): Promise<AppRuntimeHandle> {
       createdBoxes += 1;
       const externalId = `box-${createdBoxes}`;
       const mounts = Object.entries(input.volumes ?? {}).map(([path, spec]) => `${path}=${spec.volume}`);
       calls.push(`create ${externalId}${mounts.length ? ` mount ${mounts.join(',')}` : ''}`);
-      return { externalId, controlTokenHash: `hash-${input.runtimeId}`, metadata: {} };
+      return { externalId, baseUrl: '', metadata: {}, provider: input.provider, runtimeId: input.runtimeId, controlTokenHash: `hash-${input.runtimeId}` };
     }
-    async waitUntilReady(_provider: string, externalId: string) {
+    override async waitUntilReady(_provider: string, externalId: string): Promise<AppdStatus> {
       calls.push(`ready? ${externalId}`);
       if (failReadyFor.has(externalId)) throw new Error('kortix-appd failed: exit 1');
+      return { status: 'running', ready: true };
     }
-    async stop(_provider: string, externalId: string) { calls.push(`stop ${externalId}`); }
-    async start(_provider: string, externalId: string) { calls.push(`start ${externalId}`); }
+    override async stop(_provider: string, externalId: string) { calls.push(`stop ${externalId}`); }
+    override async start(_provider: string, externalId: string) { calls.push(`start ${externalId}`); }
   },
 }));
 const realProviders = await import('../platform/providers');
@@ -63,7 +71,12 @@ mock.module('../projects/secrets', () => ({ ...realSecrets, listResolvedProjectS
 const realMetering = await import('../billing/services/compute-metering');
 mock.module('../billing/services/compute-metering', () => ({
   ...realMetering,
-  startComputeSession: async () => {},
+  startComputeSession: async () => {
+    if (meterFailures > 0) {
+      meterFailures -= 1;
+      throw Object.assign(new Error('deadlock detected'), { name: 'PostgresError', code: '40P01' });
+    }
+  },
   pauseComputeSession: async () => {},
 }));
 
@@ -88,6 +101,10 @@ const USER_ID = '00000000-0000-4000-a000-00000000f105';
 const PROVIDER = 'platinum';
 
 async function cleanup(): Promise<void> {
+  // A setAppScale leaves a background reconcile running (fire-and-forget by
+  // design). Settle it before the cascade below, or the reconcile's in-flight
+  // app_runtimes insert deadlocks against this delete (40P01, release gate).
+  await machines.settleAppReconciles(APP_ID);
   await db.update(apps).set({ activeDeploymentId: null }).where(eq(apps.projectId, PROJECT_ID));
   await db.delete(apps).where(eq(apps.projectId, PROJECT_ID));
   await db.delete(appArtifacts).where(eq(appArtifacts.projectId, PROJECT_ID));
@@ -149,6 +166,7 @@ withDb('machines and volumes — real PostgreSQL', () => {
     calls.length = 0;
     createdBoxes = 0;
     failReadyFor = new Set();
+    meterFailures = 0;
     await cleanup();
   });
   afterEach(cleanup);
@@ -233,6 +251,22 @@ withDb('machines and volumes — real PostgreSQL', () => {
     expect(after!.attachedRuntimeId).toBe(restored!.runtimeId);
   });
 
+  test('a failed runtime insert surfaces as itself and removes the box it just created', async () => {
+    await seedApp();
+    const v1 = await deploy(stateless, 1);
+    const [live] = await liveInstances(v1.deploymentId);
+    const app = await appRow();
+    calls.length = 0;
+    // A second live row for the same machine violates app_runtimes_one_live_per_machine:
+    // the rollback removes the box and rethrows the real error, never a masking TypeError.
+    await expect(machines.createInstance({
+      hosting: new AppHostingProvider(), app, deployment: v1, config: stateless,
+      env: await machines.releaseEnvironment(app, v1),
+      group: 'app', machineId: live!.machineId!,
+    })).rejects.toThrow(/insert into "kortix"\."app_runtimes"/);
+    expect(calls).toContain('remove box-2');
+  });
+
   test('scale reconcile: up creates machines (a mounted group gets one new volume each), down destroys the newest and keeps their volumes', async () => {
     await seedApp();
     const v1 = await deploy(stateful, 1);
@@ -247,6 +281,18 @@ withDb('machines and volumes — real PostgreSQL', () => {
     const kept = await db.select().from(appVolumes).where(eq(appVolumes.appId, APP_ID));
     expect(kept).toHaveLength(3);
     expect(kept.filter((row) => row.attachedRuntimeId)).toHaveLength(1);
+  });
+
+  test('scale reconcile: a 40P01 victim after the row insert — the retry meters and readies the committed starting machine', async () => {
+    await seedApp({ app: 1 });
+    const v1 = await deploy(stateless, 1);
+    await db.update(apps).set({ scale: { app: 2 } }).where(eq(apps.appId, APP_ID));
+    // The victim hits the metering call AFTER createInstance's insert committed:
+    // the retry re-reads, sees the 'starting' row count toward target, and must
+    // finish its meter and readiness — not skip it and strand it in starting.
+    meterFailures = 1;
+    expect(await machines.reconcileAppMachines(APP_ID, { hosting: new AppHostingProvider() })).toEqual({ created: 1, destroyed: 0 });
+    expect((await liveInstances(v1.deploymentId)).map((instance) => instance.status)).toEqual(['running', 'running']);
   });
 
   test('a machine gets KORTIX_USES_URL_<SLUG> for every live App its App uses (a server reaches a backend without the browser binding)', async () => {

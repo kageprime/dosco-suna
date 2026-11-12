@@ -90,7 +90,8 @@ import {
   useLlmProviderCatalogRevision,
 } from '../sections/llm-provider/use-live-catalog';
 import { orderProviderRows } from '../sections/llm-provider/utils';
-import { AccountSecretResourcesPanel } from '../sections/view/account-secret-resources-panel';
+import { AccountSecretResourcesPanel, PooledProvidersNote } from '../sections/view/account-secret-resources-panel';
+import { LegacyChatGptUsage, SubscriptionUsageSection } from '../sections/view/subscription-usage';
 import { useTranslations } from '../../i18n';
 import { LLM_PROVIDERS, LLM_PROVIDER_BY_ID, type LlmProviderEntry } from '../../internal/lib/llm-providers';
 import { cn } from '../../internal/lib/utils';
@@ -660,6 +661,7 @@ function ExpandedBody({
   } else if (pooled.pooledSecretsEnabled && pooled.accountId && entry.id === 'openai') {
     content = (
       <div className="border-border space-y-3 border-t py-3">
+        <SubscriptionUsageSection accountId={pooled.accountId} projectId={projectId} providerId="codex" compact />
         <p className="text-foreground text-xs font-medium">{tPooled('chatGptAccounts')}</p>
         <AccountSecretResourcesPanel
           accountId={pooled.accountId}
@@ -670,7 +672,17 @@ function ExpandedBody({
           canWrite
           oauth={{ projectId, onConnected: () => undefined }}
         />
-        <ChatGptSubscriptionConnect projectId={projectId} onConnected={() => undefined} legacyOnly />
+        <ChatGptSubscriptionConnect projectId={projectId} onConnected={() => undefined} legacyOnly usageSlot={<LegacyChatGptUsage accountId={pooled.accountId} projectId={projectId} />} />
+        {/* OpenAI API keys below the ChatGPT accounts, as Anthropic lists its keys below Claude accounts. */}
+        <p className="text-foreground pt-3 text-xs font-medium">{tPooled('providerKeysFor', { provider: entry.label })}</p>
+        <AccountSecretResourcesPanel
+          accountId={pooled.accountId}
+          projectId={projectId}
+          providerId={entry.id}
+          providerName={entry.label}
+          envVar={entry.envVars[0]!}
+          canWrite
+        />
       </div>
     );
   } else if (pooled.pooledSecretsEnabled && pooled.accountId && entry.id === 'anthropic') {
@@ -678,6 +690,7 @@ function ExpandedBody({
     content = (
       <>
         <div className="border-border space-y-3 border-t py-3">
+          <SubscriptionUsageSection accountId={pooled.accountId} projectId={projectId} providerId="claude-agent" compact />
           <p className="text-foreground text-xs font-medium">{tPooled('claudeAccounts')}</p>
           <AccountSecretResourcesPanel
             accountId={pooled.accountId}
@@ -759,6 +772,8 @@ export interface ProviderAccordionProps {
   projectId: string;
   canWrite?: boolean;
   enabled?: boolean;
+  /** The row that starts expanded — the composer's "Connect ChatGPT" lands on OpenAI. */
+  defaultExpandedId?: string | null;
   className?: string;
 }
 
@@ -766,6 +781,7 @@ export function ProviderAccordion({
   projectId,
   canWrite = false,
   enabled = true,
+  defaultExpandedId = null,
   className,
 }: ProviderAccordionProps) {
   const t = useTranslations('providerSheet');
@@ -786,7 +802,7 @@ export function ProviderAccordion({
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PROVIDER_PAGE_SIZE);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(defaultExpandedId);
   const [addingId, setAddingId] = useState<string | null>(null);
 
   const connectedIds = useMemo(
@@ -880,7 +896,8 @@ export function ProviderAccordion({
       entry.envVars.length === 1 &&
       !SUBSCRIPTION_BY_PROVIDER[entry.id] &&
       !(pooled.pooledSecretsEnabled && supportsPooledProviderKey(entry));
-    const keyConnected = connectedIds.has(entry.id);
+    // A key saved through the form lands in the named store ("Workspace key").
+    const keyConnected = connectedIds.has(entry.id) || pooled.pooledProviderIds.has(entry.id);
 
     if (addingId === row.id && singleKey && canWrite) {
       return (
@@ -992,9 +1009,11 @@ export function ProviderAccordion({
       ) : null}
 
       {pooled.pooledSecretsEnabled || !canWrite ? (
-        <p className="text-muted-foreground px-1 pb-2 text-xs text-pretty">
-          {pooled.pooledSecretsEnabled ? tPooled('sharedDescription') : t('readOnly')}
-        </p>
+        pooled.pooledSecretsEnabled ? (
+          <PooledProvidersNote projectId={projectId} className="text-muted-foreground px-1 pb-2 text-xs text-pretty" />
+        ) : (
+          <p className="text-muted-foreground px-1 pb-2 text-xs text-pretty">{t('readOnly')}</p>
+        )
       ) : null}
 
       {empty ? (

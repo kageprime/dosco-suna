@@ -62,17 +62,14 @@ type Frame = Record<string, any>;
 /** A control socket played from the extension's side. */
 class Control {
   private frames: Frame[] = [];
-  private listeners: Array<() => void> = [];
   closed: { code: number; reason: string } | null = null;
 
   private constructor(readonly ws: WebSocket) {
     ws.onmessage = (event) => {
       this.frames.push(JSON.parse(String(event.data)));
-      this.listeners.forEach((l) => l());
     };
     ws.onclose = (event) => {
       this.closed = { code: event.code, reason: event.reason };
-      this.listeners.forEach((l) => l());
     };
   }
 
@@ -104,20 +101,15 @@ class Control {
 
   /** Wait for the first frame that matches; remove and return it. */
   async take(match: (f: Frame) => boolean, timeoutMs = 10_000): Promise<Frame> {
-    const deadline = Date.now() + timeoutMs;
-    for (;;) {
-      const at = this.frames.findIndex(match);
-      if (at >= 0) return this.frames.splice(at, 1)[0];
-      if (this.closed) throw new Error(`socket closed ${this.closed.code} ${this.closed.reason} while waiting for a frame`);
-      if (Date.now() >= deadline) throw new Error(`no matching frame in ${timeoutMs} ms; got ${JSON.stringify(this.frames)}`);
-      await new Promise<void>((resolve) => {
-        const t = setTimeout(resolve, 200);
-        this.listeners.push(() => {
-          clearTimeout(t);
-          resolve();
-        });
-      });
-    }
+    return (await waitFor(
+      () => {
+        const at = this.frames.findIndex(match);
+        if (at >= 0) return this.frames.splice(at, 1)[0];
+        if (this.closed) throw new Error(`socket closed ${this.closed.code} ${this.closed.reason} while waiting for a frame`);
+        return null;
+      },
+      { until: (f) => f !== null, timeoutMs, intervalMs: 100, description: 'matching frame' },
+    ))!;
   }
 
   /** Wait for the socket to close; returns the close code. */
@@ -479,10 +471,12 @@ flow(
     const attach = (extra: Record<string, unknown> = {}) => session.sandbox.post('/v1/chrome/attach', { ticket, ...extra });
     let attachmentId = '';
     try {
-      await ctx.step("the project's chrome flag off → attach 403 feature_disabled; cleared, it is on by default", async () => {
+      await ctx.step("the project's chrome flag off → attach 403 feature_disabled; cleared it stays off until launch (CHROME_LAUNCHED), so an operator turns it on", async () => {
         await setFeatureAsOperator(ctx, project.id, 'chrome', false);
         (await attach()).status(403).body().has('$.code', 'feature_disabled').has('$.feature', 'chrome');
         await setFeatureAsOperator(ctx, project.id, 'chrome', null);
+        (await attach()).status(403).body().has('$.code', 'feature_disabled').has('$.feature', 'chrome');
+        await setFeatureAsOperator(ctx, project.id, 'chrome', true);
       });
 
       await ctx.step('mode always: attach → 200; the extension gets an attach frame without a prompt', async () => {
@@ -514,7 +508,7 @@ flow(
         // A session can always let go: release is not behind the flag.
         await setFeatureAsOperator(ctx, project.id, 'chrome', false);
         (await session.sandbox.post('/v1/chrome/release', { attachmentId })).status(204);
-        await setFeatureAsOperator(ctx, project.id, 'chrome', null);
+        await setFeatureAsOperator(ctx, project.id, 'chrome', true);
         const frame = await control.take((f) => f.type === 'detach');
         if (frame.attachmentId !== attachmentId) throw new Error(JSON.stringify(frame));
         const mine = (await listOf(ctx.client.as(owner))).find((b) => b.id === chrome.id);
@@ -540,7 +534,7 @@ flow(
         attachmentId = frame.attachmentId;
       });
 
-      await ctx.step('Stop in Chrome → detached "stopped"; the next attach → 403 chrome_denied with connectUrl', async () => {
+      await ctx.step('Stop in Chrome → detached "stopped"; the next attach → 403 chrome_denied, no connectUrl before launch', async () => {
         control.send({ type: 'detached', attachmentId, reason: 'stopped' });
         await waitFor(() => attach(), {
           until: (r) => r.statusCode === 403,
@@ -549,8 +543,9 @@ flow(
           description: 'deny after Stop',
         });
         const r = await attach();
-        r.status(403).body().has('$.code', 'chrome_denied').exists('$.error').exists('$.connectUrl');
-        if (!String(r.json<{ connectUrl: string }>().connectUrl).endsWith('/settings/chrome')) throw new Error('connectUrl');
+        r.status(403).body().has('$.code', 'chrome_denied').exists('$.error');
+        // The web app has no /settings/chrome page before launch (CHROME_LAUNCHED, #11436).
+        if ('connectUrl' in r.json<Record<string, unknown>>()) throw new Error('connectUrl names a page that does not exist');
       });
 
       await ctx.step('ask=true shows a new prompt; deny in Chrome → 403 chrome_denied', async () => {

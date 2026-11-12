@@ -22,11 +22,18 @@ import { TriggerTile } from './trigger-tile';
 
 /** "next in 5 minutes", "next in 3 hours", "next in 2 days"; "On event" for webhooks and app events; "Paused" while paused. */
 export function nextRunLabel(
-  trigger: Pick<ProjectTrigger, 'type' | 'enabled' | 'next_fire_at' | 'next_cron_at' | 'auto_paused_at'>,
+  trigger: Pick<ProjectTrigger, 'type' | 'enabled' | 'next_fire_at' | 'next_cron_at' | 'auto_paused_at' | 'auto_paused_code'>,
   t: UiTranslator,
   locale: string,
   now: number,
+  /** The `triggerAutoPause` catalog: names a pause the account state caused. */
+  tAutoPause?: (key: 'listBilling' | 'listModel') => string,
 ): string {
+  // A pause that ends by itself names its cause: "No credits", "No model".
+  if (trigger.enabled && trigger.auto_paused_at && tAutoPause) {
+    if (trigger.auto_paused_code === 'billing') return tAutoPause('listBilling');
+    if (trigger.auto_paused_code === 'no_usable_model') return tAutoPause('listModel');
+  }
   // An auto-pause (KRTX-1721) is runtime state: the manifest still says enabled.
   if (!trigger.enabled || trigger.auto_paused_at) return t.raw('texte159b06187d3');
   if (trigger.type !== 'cron') return t.raw('text84b05fbb7f76');
@@ -123,6 +130,7 @@ function TriggerRow({
   projectPaused: boolean;
 }) {
   const t = useTranslations('hardcodedUi.i18nComplete');
+  const tAutoPause = useTranslations('triggerAutoPause');
   const locale = useLocale();
   const name = triggerName(trigger);
   const subtitle = triggerSubtitle(
@@ -131,6 +139,8 @@ function TriggerRow({
     trigger.prompt_template,
   );
   const selecting = checked !== null;
+  // Paused by the account state (no credits, no model): the cause shows in the row, the reason on hover.
+  const setupPaused = Boolean(trigger.enabled && trigger.auto_paused_at && trigger.auto_paused_code);
   const rowClass = cn(
     'flex h-14 w-full items-center gap-3 rounded-md px-3 text-left outline-none',
     'transition-[background-color] duration-(--duration-fast)',
@@ -168,14 +178,17 @@ function TriggerRow({
       {/* min-w, not w: a fixed width let a wider label spill over the name (KRTX-4380). */}
       <span className="flex min-w-24 shrink-0 flex-col items-end text-xs tabular-nums">
         <span
-          title={projectPaused ? undefined : describeNextRun(trigger) ?? undefined}
+          title={projectPaused ? undefined : setupPaused ? (trigger.auto_paused_reason ?? undefined) : describeNextRun(trigger) ?? undefined}
           className={cn(
             'whitespace-nowrap',
-            trigger.enabled && !trigger.auto_paused_at && !projectPaused ? 'text-foreground' : 'text-muted-foreground',
+            // A cause the person must act on reads like a live trigger, not muted like a plain pause.
+            (setupPaused || (trigger.enabled && !trigger.auto_paused_at)) && !projectPaused
+              ? 'text-foreground'
+              : 'text-muted-foreground',
           )}
         >
           {/* The project switch stops every schedule: never show a next run it will not make. */}
-          {nextRunLabel(projectPaused ? { ...trigger, enabled: false } : trigger, t, locale, now)}
+          {nextRunLabel(projectPaused ? { ...trigger, enabled: false } : trigger, t, locale, now, tAutoPause)}
         </span>
         {running ? (
           <span className="flex h-4 items-center">

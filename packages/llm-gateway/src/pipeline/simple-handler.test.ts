@@ -537,6 +537,47 @@ describe('simple gateway pipeline', () => {
     expect(traces.at(-1)).toMatchObject({ errorCode: 'upstream_error', errorMessage: 'Input is too long for requested model.' });
   });
 
+  test('an own provider key the provider refuses names provider_key_rejected and the provider', async () => {
+    const traces: GatewayTrace[] = [];
+    const own: UpstreamDescriptor = { ...primary, provider: 'anthropic', billingMode: 'none', markup: 0 };
+    const response = await handleChatCompletions(
+      {
+        hooks: { ...hooks([], traces), resolveUpstream: async () => [own] },
+        logger: { info() {}, warn() {}, error() {} },
+        fetchImpl: async () => new Response(JSON.stringify({ error: { type: 'authentication_error', message: 'invalid x-api-key' } }), {
+          status: 401, headers: { 'content-type': 'application/json' },
+        }),
+      },
+      { authorization: 'Bearer token', rawBody: JSON.stringify({ model: 'anthropic/claude', stream: true, messages: [{ role: 'user', content: 'hi' }] }) },
+    );
+    expect(response.status).toBe(401);
+    expect((await response.json()).error).toEqual({
+      message: 'invalid x-api-key', type: 'invalid_request_error', code: 'provider_key_rejected', provider: 'anthropic',
+    });
+    await Bun.sleep(0);
+    expect(traces.at(-1)).toMatchObject({ status: 401, errorCode: 'provider_key_rejected', errorMessage: 'invalid x-api-key' });
+  });
+
+  test('an own provider 429 on a stream reaches the client unchanged and its trace names the failure', async () => {
+    const traces: GatewayTrace[] = [];
+    const own: UpstreamDescriptor = { ...primary, provider: 'openrouter', billingMode: 'none', markup: 0 };
+    const upstreamBody = JSON.stringify({ error: { message: 'Rate limit exceeded: free-models-per-day', code: 429 } });
+    const response = await handleChatCompletions(
+      {
+        hooks: { ...hooks([], traces), resolveUpstream: async () => [own] },
+        logger: { info() {}, warn() {}, error() {} },
+        fetchImpl: async () => new Response(upstreamBody, { status: 429, headers: { 'content-type': 'application/json' } }),
+      },
+      { authorization: 'Bearer token', rawBody: JSON.stringify({ model: 'openrouter/x', stream: true, messages: [{ role: 'user', content: 'hi' }] }) },
+    );
+    expect(response.status).toBe(429);
+    expect(await response.text()).toBe(upstreamBody);
+    await Bun.sleep(0);
+    expect(traces.at(-1)).toMatchObject({
+      status: 429, ok: false, errorCode: 'upstream_rate_limited', errorMessage: 'Rate limit exceeded: free-models-per-day',
+    });
+  });
+
   test('settles one successful response exactly once', async () => {
     const usage: UsageEvent[] = [];
     const traces: GatewayTrace[] = [];

@@ -51,9 +51,12 @@ export function LiquidGlass({
   children,
   radius,
   interactive = true,
+  tintColor,
   style,
 }: {
   children: React.ReactNode;
+  /** Tints the glass (a prominent glass button: the primary colour). */
+  tintColor?: string;
   /** Fixed corner radius. Omit for a capsule. */
   radius?: number;
   /** The system press response. */
@@ -72,6 +75,7 @@ export function LiquidGlass({
     <GlassView
       glassEffectStyle="regular"
       isInteractive={interactive}
+      tintColor={tintColor}
       // The app's theme, not the system's: the glass tints with the app.
       colorScheme={colorScheme === 'dark' ? 'dark' : 'light'}
       onLayout={radius == null ? onLayout : undefined}
@@ -80,6 +84,8 @@ export function LiquidGlass({
     </GlassView>
   );
 }
+
+const ROW: ViewStyle = { flexDirection: 'row', alignItems: 'center' };
 
 const FILL_CENTER: StyleProp<ViewStyle> = [StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }];
 
@@ -91,17 +97,24 @@ const FILL_CENTER: StyleProp<ViewStyle> = [StyleSheet.absoluteFill, { alignItems
  *   button behind the content, and the content (the button's row and gap)
  *   takes no touches, so a press lands on the glass.
  */
-const ownGlass: GlassButtonContent = (children, size) =>
-  size?.startsWith('icon') ? (
-    <LiquidGlass style={FILL_CENTER}>{children}</LiquidGlass>
-  ) : (
-    <>
-      <LiquidGlass style={StyleSheet.absoluteFill}>{null}</LiquidGlass>
-      <View pointerEvents="none" className={size === 'sm' ? 'flex-row items-center gap-1.5' : 'flex-row items-center gap-2'}>
+const glassContent =
+  (tintColor?: string): GlassButtonContent =>
+  (children, size) =>
+    size?.startsWith('icon') ? (
+      <LiquidGlass tintColor={tintColor} style={FILL_CENTER}>
         {children}
-      </View>
-    </>
-  );
+      </LiquidGlass>
+    ) : (
+      <>
+        <LiquidGlass tintColor={tintColor} style={StyleSheet.absoluteFill}>
+          {null}
+        </LiquidGlass>
+        <View pointerEvents="none" className={size === 'sm' ? 'flex-row items-center gap-1.5' : 'flex-row items-center gap-2'}>
+          {children}
+        </View>
+      </>
+    );
+const ownGlass = glassContent();
 /** The group's shared capsule already draws the glass. */
 const sharedGlass: GlassButtonContent = (children) => children;
 
@@ -118,10 +131,23 @@ const sharedGlass: GlassButtonContent = (children) => children;
  *
  * Elsewhere (Android, iOS before 26) it renders its children unchanged.
  */
-export function GlassButtons({ children, shared = false }: { children: React.ReactNode; shared?: boolean }) {
-  if (!LIQUID_GLASS_AVAILABLE) return <>{children}</>;
+export function GlassButtons({
+  children,
+  shared = false,
+  tintColor,
+}: {
+  children: React.ReactNode;
+  shared?: boolean;
+  /** Tints each button's own glass: a prominent (primary) glass button. Not with `shared`. */
+  tintColor?: string;
+}) {
+  const tinted = React.useMemo(() => (tintColor ? glassContent(tintColor) : ownGlass), [tintColor]);
+  // A group stays one row without glass too: in a column slot (a sheet title
+  // row's trailing slot) its buttons would stack (the Android workspace
+  // switcher's gear and plus).
+  if (!LIQUID_GLASS_AVAILABLE) return shared ? <View style={ROW}>{children}</View> : <>{children}</>;
   const provided = (
-    <GlassButtonContext.Provider value={shared ? sharedGlass : ownGlass}>{children}</GlassButtonContext.Provider>
+    <GlassButtonContext.Provider value={shared ? sharedGlass : tinted}>{children}</GlassButtonContext.Provider>
   );
-  return shared ? <LiquidGlass style={{ flexDirection: 'row', alignItems: 'center' }}>{provided}</LiquidGlass> : provided;
+  return shared ? <LiquidGlass style={ROW}>{provided}</LiquidGlass> : provided;
 }

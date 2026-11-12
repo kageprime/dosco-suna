@@ -5,6 +5,7 @@ import {
   WORKSPACE_NAME_MAX_LENGTH,
   suggestWorkspaceName,
   validateWorkspaceName,
+  workspaceNameMessage,
 } from './workspace-name';
 
 describe('validateWorkspaceName', () => {
@@ -46,6 +47,35 @@ describe('validateWorkspaceName', () => {
   test('accepts a name exactly at the ceiling', () => {
     const exact = 'a'.repeat(WORKSPACE_NAME_MAX_LENGTH);
     expect(validateWorkspaceName(exact)).toEqual({ ok: true, name: exact });
+  });
+});
+
+describe('workspaceNameMessage', () => {
+  const t = (key: 'validation.nameRequired' | 'validation.nameCharacters' | 'validation.nameTooLong', vars?: { max: number }) =>
+    key === 'validation.nameTooLong' ? `tooLong:${vars?.max}` : key;
+
+  test('a valid name renders no message', () => {
+    expect(workspaceNameMessage(validateWorkspaceName('Amber Atlas'), false, t)).toBeNull();
+    expect(workspaceNameMessage(validateWorkspaceName('Amber Atlas'), true, t)).toBeNull();
+  });
+
+  test('an illegal character reports itself live, before the field is left', () => {
+    // KRTX-4627: the error disables submit the moment it exists, so the
+    // message must be there when the button goes dark.
+    expect(workspaceNameMessage(validateWorkspaceName('bad/name!'), false, t)).toBe(
+      'validation.nameCharacters',
+    );
+  });
+
+  test('a too-long name reports itself live with the limit', () => {
+    expect(
+      workspaceNameMessage(validateWorkspaceName('a'.repeat(WORKSPACE_NAME_MAX_LENGTH + 1)), false, t),
+    ).toBe(`tooLong:${WORKSPACE_NAME_MAX_LENGTH}`);
+  });
+
+  test('"required" waits for the field to be left once', () => {
+    expect(workspaceNameMessage(validateWorkspaceName(''), false, t)).toBeNull();
+    expect(workspaceNameMessage(validateWorkspaceName('   '), true, t)).toBe('validation.nameRequired');
   });
 });
 

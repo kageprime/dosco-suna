@@ -14,7 +14,7 @@ import { localizeUiCatalog } from '@kortix/ui/i18n';
  *  - SAML 2.0 only, never OIDC. SOC 2 Type I verified, never Type II.
  *  - Approval rules are off until you set them (`default_mode` defaults to
  *    `allow_all`). Never write "risky calls pause by default".
- *  - Kortix does not filter a cloud computer's outbound traffic. No egress
+ *  - Dosco does not filter a cloud computer's outbound traffic. No egress
  *    claim. Never "air-gapped".
  *  - No price references, no unmeasured metrics, no license names, no
  *    customer names. Sample data is the fictional Arcadia; people are
@@ -48,7 +48,7 @@ export type Step = { readonly id: StepId; readonly label: string; readonly line:
    approvals: guide.mdx "Connectors → Approving a held action" (project
      manager or session starter, one exact action, 24 h).
    audit: guide.mdx "Audit log"; accounts/audit.ts (export, webhooks);
-     shared/audit-webhooks.ts (X-Kortix-Signature, HMAC-SHA256). */
+     shared/audit-webhooks.ts (X-Dosco-Signature, HMAC-SHA256). */
 export const steps: readonly Step[] = [
   {
     id: 'sso',
@@ -166,7 +166,7 @@ export const pillars = {
 
 /* Topics, one tab each.
    identity: guide.mdx "Single sign-on and directory sync"; sso.ts group
-     mappings (claim value → Kortix group, synced on sign-in); scim/index.ts
+     mappings (claim value → Dosco group, synced on sign-in); scim/index.ts
      (request patterns Okta and Azure AD use).
    access: guide.mdx "Teams" (account and project roles, groups, Agents: All
      agents or Only these…, an end date); accounts/iam/custom-roles.ts (custom
@@ -214,7 +214,7 @@ export const topics = {
       description: 'Read it, export it, stream it.',
       body: [
         'Dosco records who did what, when, how they signed in, and whether it was allowed. An agent’s row names the person it acted for.',
-        'Export CSV or JSONL, or stream each new event to a signed webhook. Events stay readable for 90 days, then sit in a locked archive to day 365.',
+        'Export CSV or JSONL, or stream each new event to a signed webhook. The log shows the last 14 days; older events sit in a locked archive to day 365, and the export reads them.',
       ],
     },
   ],
@@ -222,7 +222,7 @@ export const topics = {
 
 export type TopicId = (typeof topics.tabs)[number]['id'];
 
-/** sso.ts group mappings: a claim value from the identity provider → a Kortix group. */
+/** sso.ts group mappings: a claim value from the identity provider → a Dosco group. */
 export const groupMappings = [
   { claim: 'arcadia-eng', group: 'Engineering' },
   { claim: 'arcadia-support', group: 'Support' },
@@ -291,7 +291,7 @@ export const trust = {
    audit: guide.mdx "Audit log"; accounts/audit.ts.
    oversight: accounts/iam/session-oversight.ts.
    soc2: claims.md Compliance row.
-   selfhost: guide.mdx "Run Kortix on your own infrastructure". */
+   selfhost: guide.mdx "Run Dosco on your own infrastructure". */
 export const faqItems = [
   {
     id: 'compliance-idp',
@@ -321,7 +321,7 @@ export const faqItems = [
     id: 'compliance-audit',
     question: 'How long is the audit log kept?',
     answer:
-      'Events stay readable for 90 days. Events from 90 to 365 days old sit in a locked archive that nobody can shorten or delete, and you can export them.',
+      'The log shows the last 14 days. Events from 14 to 365 days old sit in a locked archive that nobody can shorten or delete, and you can export them.',
   },
   {
     id: 'compliance-oversight',

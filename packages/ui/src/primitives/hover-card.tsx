@@ -1,8 +1,19 @@
 'use client';
 
-import { HoverCard as HoverCardPrimitive } from 'radix-ui';
+import { PreviewCard as HoverCardPrimitive } from '@base-ui/react/preview-card';
 import * as React from 'react';
 
+import {
+  asChildRender,
+  openState,
+  radixPositionVars,
+  splitPosition,
+  stateRender,
+  useDismissRoot,
+  type DismissHandlers,
+  type LegacyPositionProps,
+  FLOATING_LAYER_ATTR,
+} from '../lib/base-ui-compat';
 import { withPortalContainer } from '../lib/portal-container';
 import { cn } from '../lib/utils';
 import { floatingZ, useDialogDepth } from '../lib/z-stack';
@@ -10,12 +21,80 @@ import { FLOATING_PANEL, FLOATING_PANEL_SURFACE } from './menu-recipe';
 
 const HoverCardPortal = withPortalContainer(HoverCardPrimitive.Portal);
 
-function HoverCard({ ...props }: React.ComponentProps<typeof HoverCardPrimitive.Root>) {
-  return <HoverCardPrimitive.Root data-slot="hover-card" {...props} />;
+// Radix's defaults, kept so an unconfigured card opens and closes as it did.
+const DEFAULT_OPEN_DELAY = 700;
+const DEFAULT_CLOSE_DELAY = 300;
+
+/**
+ * The card's own context: its delays and its dismiss registry. Its own, not
+ * the shared `DismissProvider`, so a content rendered inside a nested root of
+ * another kind still reaches this card.
+ */
+const HoverCardContext = React.createContext<{
+  openDelay: number;
+  closeDelay: number;
+  dismiss: React.MutableRefObject<DismissHandlers> | null;
+}>({
+  openDelay: DEFAULT_OPEN_DELAY,
+  closeDelay: DEFAULT_CLOSE_DELAY,
+  dismiss: null,
+});
+
+export interface HoverCardProps {
+  open?: boolean;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  openDelay?: number;
+  closeDelay?: number;
+  children?: React.ReactNode;
 }
 
-function HoverCardTrigger({ ...props }: React.ComponentProps<typeof HoverCardPrimitive.Trigger>) {
-  return <HoverCardPrimitive.Trigger data-slot="hover-card-trigger" {...props} />;
+function HoverCard({
+  open,
+  defaultOpen,
+  onOpenChange,
+  openDelay = DEFAULT_OPEN_DELAY,
+  closeDelay = DEFAULT_CLOSE_DELAY,
+  children,
+}: HoverCardProps) {
+  const dismiss = useDismissRoot(onOpenChange);
+  const registry = dismiss.registry;
+  const value = React.useMemo(
+    () => ({ openDelay, closeDelay, dismiss: registry }),
+    [openDelay, closeDelay, registry],
+  );
+  return (
+    <HoverCardContext.Provider value={value}>
+      <HoverCardPrimitive.Root
+        data-slot="hover-card"
+        open={open}
+        defaultOpen={defaultOpen}
+        onOpenChange={dismiss.onOpenChange}
+      >
+        {children}
+      </HoverCardPrimitive.Root>
+    </HoverCardContext.Provider>
+  );
+}
+
+function HoverCardTrigger({
+  asChild,
+  children,
+  ...props
+}: React.ComponentProps<'a'> & { asChild?: boolean }) {
+  const { openDelay, closeDelay } = React.useContext(HoverCardContext);
+  const slot = asChildRender(asChild, children);
+  return (
+    <HoverCardPrimitive.Trigger
+      data-slot="hover-card-trigger"
+      delay={openDelay}
+      closeDelay={closeDelay}
+      {...props}
+      render={stateRender('a', openState, slot.render)}
+    >
+      {slot.children}
+    </HoverCardPrimitive.Trigger>
+  );
 }
 
 /**
@@ -29,7 +108,7 @@ function HoverCardTrigger({ ...props }: React.ComponentProps<typeof HoverCardPri
  * its call site. The recipe owns the surface and the enter/exit now.
  *
  * Two things stay local because they are this primitive's own: the transform
- * origin (the Radix variable is named per primitive) and the `motion-reduce`
+ * origin (the variable is named per primitive) and the `motion-reduce`
  * guard, which no other panel ships and which must survive the move.
  *
  * `animated={false}` takes `FLOATING_PANEL_SURFACE` instead, the same split
@@ -44,24 +123,57 @@ function HoverCardContent({
   sideOffset = 4,
   animated = true,
   style,
-  ...props
-}: React.ComponentProps<typeof HoverCardPrimitive.Content> & { animated?: boolean }) {
+  asChild,
+  forceMount,
+  children,
+  onEscapeKeyDown,
+  onPointerDownOutside,
+  onFocusOutside,
+  onInteractOutside,
+  ...rest
+}: React.ComponentProps<'div'> &
+  LegacyPositionProps &
+  DismissHandlers & {
+    animated?: boolean;
+    asChild?: boolean;
+    forceMount?: true;
+  }) {
   // Inside a dialog the card stacks above it, as a popover does (`floatingZ`).
   const depth = useDialogDepth();
+  const { dismiss } = React.useContext(HoverCardContext);
+  React.useLayoutEffect(() => {
+    if (dismiss) {
+      dismiss.current = {
+        onEscapeKeyDown,
+        onPointerDownOutside,
+        onFocusOutside,
+        onInteractOutside,
+      };
+    }
+  });
+  const { positioner, rest: props } = splitPosition({
+    align,
+    sideOffset,
+    ...rest,
+  });
+  const slot = asChildRender(asChild, children);
   return (
-    <HoverCardPortal data-slot="hover-card-portal">
-      <HoverCardPrimitive.Content
-        data-slot="hover-card-content"
-        align={align}
-        sideOffset={sideOffset}
-        className={cn(
-          animated ? FLOATING_PANEL : FLOATING_PANEL_SURFACE,
-          'w-64 origin-(--radix-hover-card-content-transform-origin) p-4 outline-hidden motion-reduce:animate-none motion-reduce:transition-none',
-          className,
-        )}
-        style={{ zIndex: floatingZ(depth), ...style }}
-        {...props}
-      />
+    <HoverCardPortal data-slot="hover-card-portal" keepMounted={forceMount}>
+      <HoverCardPrimitive.Positioner {...positioner} {...FLOATING_LAYER_ATTR} style={{ zIndex: floatingZ(depth) }}>
+        <HoverCardPrimitive.Popup
+          data-slot="hover-card-content"
+          className={cn(
+            animated ? FLOATING_PANEL : FLOATING_PANEL_SURFACE,
+            'w-64 origin-(--radix-hover-card-content-transform-origin) p-4 outline-hidden motion-reduce:animate-none motion-reduce:transition-none',
+            className,
+          )}
+          style={{ ...radixPositionVars('hover-card'), ...style }}
+          {...props}
+          render={stateRender('div', openState, slot.render)}
+        >
+          {slot.children}
+        </HoverCardPrimitive.Popup>
+      </HoverCardPrimitive.Positioner>
     </HoverCardPortal>
   );
 }

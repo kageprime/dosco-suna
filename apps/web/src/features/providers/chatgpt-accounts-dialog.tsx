@@ -8,7 +8,10 @@ import { Button } from '@kortix/ui/button';
 import Loading from '@kortix/ui/loading';
 import { Modal, ModalBody, ModalContent, ModalDescription, ModalHeader, ModalTitle } from '@kortix/ui/modal';
 import { ErrorState } from '@kortix/ui/error-state';
-import { AccountSecretResourcesPanel } from '@kortix/ui/customize/sections/view/account-secret-resources-panel';
+import {
+  AccountSecretResourcesPanel,
+  useCanShareProviderAccounts,
+} from '@kortix/ui/customize/sections/view/account-secret-resources-panel';
 
 /**
  * Bring your own ChatGPT subscription from where a member picks a model.
@@ -30,13 +33,14 @@ export function ChatGptAccountsDialog({ projectId, open, onOpenChange }: {
     ...contract('config'),
   });
   const accountId = project.data?.project?.account_id;
+  const canShare = useCanShareProviderAccounts(projectId);
 
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent className="lg:max-w-md">
         <ModalHeader>
           <ModalTitle>{t('chatGptSubscription')}</ModalTitle>
-          <ModalDescription>{t('oauthPrivateDescription')}</ModalDescription>
+          <ModalDescription>{t(canShare ? 'oauthPrivateDescription' : 'oauthOnlyYouDescription')}</ModalDescription>
         </ModalHeader>
         <ModalBody>
           {accountId ? (

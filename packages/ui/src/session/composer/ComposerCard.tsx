@@ -212,6 +212,7 @@ export function ComposerCard({
   agentPickerCompact = false,
   slashMenuPlacement = 'above',
   cardClassName,
+  call,
 }: ComposerCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const { attachAccept, modelPickerEnabled } = useUiHostConfig();
@@ -520,6 +521,7 @@ export function ComposerCard({
             disabled={disabled}
             modelUnavailable={modelUnavailable}
             agentUnavailable={agentUnavailable}
+            call={call}
             onSubmit={() => handleSubmit()}
           />
         </div>
@@ -528,14 +530,12 @@ export function ComposerCard({
 
     {/*
       Directly under the card, and BEFORE the underbar — the bar is a tray
-      that hangs off the card's bottom edge (see `ModelConnectionBar` for the
-      overlap), so it has to be the card's next sibling. Below the underbar it
-      was a third detached box under a second detached box.
+      that hangs off the card's bottom edge (see `ComposerTray` for the
+      overlap), so it has to be the card's next sibling.
 
       The card is `isolate z-10` and this is `z-0`, so the card paints over
       the overlap and only the tray's exposed strip shows.
     */}
-    <ModelConnectionBar show={noModelsConnected} />
     <ImagesUnsupportedBar modelName={noModelsConnected ? null : modelRejectingImages} />
 
     {/*
@@ -563,6 +563,13 @@ export function ComposerCard({
         chatInput={chatInput}
       />
     )}
+
+    {/*
+      The connect prompt is NOT a tray: it is the next step, so it sits a gap
+      below everything the composer owns (card and underbar) as a row of its
+      own. See `ModelConnectionBar`.
+    */}
+    <ModelConnectionBar show={noModelsConnected} />
 
     {/*
       The `'below'` dock. Absolute, not in flow: `top-full` hangs it off the

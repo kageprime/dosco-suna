@@ -1,7 +1,8 @@
 import { useCallback, useRef } from 'react';
 import { Platform, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { SheetScrollView } from '@/components/kortix/sheet-parts';
 import { CheckIcon as Check, CaretRightIcon as ChevronRight, UserPlusIcon as UserPlus } from '@/lib/icons';
 import { useColorScheme } from 'nativewind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -69,7 +70,7 @@ export function GlobalUpgradeSheet() {
       enablePanDownToClose
       onDismiss={handleDismiss}
 >
-      <BottomSheetScrollView
+      <SheetScrollView
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: 8,
@@ -118,7 +119,7 @@ export function GlobalUpgradeSheet() {
             <Text>{t('upgrade.notNow', 'Not now')}</Text>
           </Button>
         </View>
-      </BottomSheetScrollView>
+      </SheetScrollView>
     </KortixBottomSheetModal>
   );
 }

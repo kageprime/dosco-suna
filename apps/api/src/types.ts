@@ -1,4 +1,4 @@
-import type { AgentGrant } from '@kortix/db';
+import type { AgentGrant, StoredKeyScopes } from '@kortix/db';
 import type { BillingState } from './billing/services/billing-state';
 
 // === Billing Types (Router billing service) ===
@@ -38,6 +38,9 @@ export interface AuthVariables {
   oauthScopes?: string[];
   /** Sign in with Kortix: the `oauth_access_tokens` row id of the token. */
   oauthTokenId?: string;
+  /** An OAuth token whose row records `mfa_aal = 'aal2'`: its account. The
+   *  token counts as MFA-verified in that account only (`middleware/actor.ts`). */
+  oauthMfaAccountId?: string;
   keyId?: string;
   sandboxId?: string;
   /** Set for project-scoped CLI PATs — enforced against the URL :projectId. */
@@ -46,6 +49,12 @@ export interface AuthVariables {
   sessionId?: string;
   /** PAT token identity for the IAM engine (token-as-principal evaluation). */
   iamTokenId?: string;
+  /** The token's IAM binding, set by `middleware/auth-principal.ts` when the validated
+   *  PAT names its `service_account_id`. Read directly for the `token_context`
+   *  probe and by `middleware/actor.ts` instead of re-reading the token row. */
+  iamTokenBinding?: TokenBinding & { tokenId: string };
+  /** The Supabase session's MFA assurance level (`aal1`/`aal2`), from `auth-principal`. */
+  mfaAal?: string;
   /** Per-agent authorization grant — non-null only for agent-session tokens.
    *  Read by assertAgentScope() to gate Kortix CLI/API actions on top of the
    *  user's own role (net = userRole ∩ agentGrant). Null = full access. */
@@ -69,6 +78,29 @@ export interface AuthVariables {
   pathWorkspaceId?: string;
   /** True when that workspace's account still holds other active projects (`split_pending`). */
   pathWorkspaceSplitPending?: boolean;
+}
+
+/**
+ * The IAM binding of the token behind a request (`iam/actor.ts` reads it from
+ * the `account_tokens` row; `middleware/auth-principal.ts` seeds the context
+ * with it). Its fields are package types only, so this shared types module can
+ * declare them and `iam/actor.ts` re-exports the name.
+ */
+export interface TokenBinding {
+  projectId: string | null;
+  agentGrant: AgentGrant | null;
+  serviceAccountId: string | null;
+  /** The session the token belongs to. A session token that names no service
+   *  account (My Kortix, or a failed agent service-account ensure) still is an
+   *  agent session: `isAgentSessionToken` reads this. */
+  sessionId?: string | null;
+  /** Only on the binding the auth middleware read this request. The memo never
+   *  carries it: every turn rewrites it (`bindSessionTurnIdentity`), and a
+   *  15 s copy on another replica would name the previous prompter. */
+  onBehalfOfUserId?: string | null;
+  /** A workspace key's scope inside its creator's role (`iam/key-scope.ts`).
+   *  Null = full. Immutable after mint, so the memo may carry it. */
+  scopes?: StoredKeyScopes | null;
 }
 
 // Hono environment type — Variables match exactly what the auth middleware sets.

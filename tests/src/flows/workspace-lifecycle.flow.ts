@@ -224,7 +224,7 @@ flow(
     const setup = (who: Principal) =>
       ctx.client.as(who).post('/v1/workspaces/:workspaceId/setup', { name: ctx.fixtures.name('life4') }, { params: { workspaceId } });
 
-    await ctx.step('a non-member → 404 workspace_not_found', async () => {
+    await ctx.step('a non-member → 404 workspace_not_found (a project-less workspace that does not pay is served to nobody)', async () => {
       (await setup(ctx.P.NONMEMBER)).status(404).body().has('$.code', 'workspace_not_found');
     });
     await ctx.step('a project-less workspace that does not pay is never served on a canonical path → 404 workspace_not_found; the legacy name answers 409 workspace_setup_not_required', async () => {

@@ -1,11 +1,10 @@
 /**
  * QuestionPrompt — the agent's question, shown in place of the chat input.
  *
- * The card is the `Composer` card (`rounded-3xl border border-border
- * bg-background p-2`, same `px-4 pb-3 pt-1` inset), so answering reads as
- * typing a reply. One question at a time: the question, its options as plain
- * rows, a text field for your own answer, then the composer's control row
- * (Skip · Back · step · send).
+ * The card is the composer card (`ComposerCard`), same `px-4 pb-3 pt-1`
+ * inset, so answering reads as typing a reply. One question at a time: the
+ * question, its options as plain rows, a text field for your own answer, then
+ * the composer's control row (Skip · Back · step · send).
  *
  * A single-choice option answers on tap and moves on. Multi-choice options
  * toggle; send moves on. The last step sends every answer. Rules live in
@@ -13,11 +12,13 @@
  */
 
 import { useCallback, useRef, useState } from 'react';
-import { ScrollView, TextInput, View } from 'react-native';
+import { TextInput, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { COMPOSER_CONTROL_HIT_SLOP } from '@/components/kortix/composer';
+import { ComposerCard } from '@/components/kortix/composer-card';
+import { ComposerList } from '@/components/kortix/composer-popover';
 import { PressableSurface } from '@/components/kortix/pressable-surface';
 import { INPUT_FONT_FAMILY, INPUT_FONT_SIZE } from '@/components/kortix/pill-input';
 import { ArrowUpIcon, CheckIcon } from '@/lib/icons';
@@ -30,9 +31,6 @@ import {
   questionStepLabel,
 } from '@/lib/session/question-prompt';
 import type { QuestionAnswer, QuestionRequest } from '@/lib/session/types';
-
-/** About five option rows, then the list scrolls. */
-const MAX_OPTIONS_HEIGHT = 260;
 
 interface QuestionPromptProps {
   request: QuestionRequest;
@@ -120,7 +118,7 @@ export function QuestionPrompt({ request, onReply, onReject, autoFocus }: Questi
 
   return (
     <View className="px-4 pb-3 pt-1">
-      <View className="rounded-3xl border border-border bg-background p-2">
+      <ComposerCard>
         <View className="gap-0.5 px-2 pb-2 pt-1">
           <Text className="font-roobert-medium text-base leading-6">{question.question}</Text>
           {isMulti ? (
@@ -129,11 +127,7 @@ export function QuestionPrompt({ request, onReply, onReject, autoFocus }: Questi
         </View>
 
         {options.length > 0 ? (
-          <ScrollView
-            style={{ maxHeight: MAX_OPTIONS_HEIGHT }}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
+          <ComposerList keyboardShouldPersistTaps="handled">
             {options.map((opt) => {
               const isPicked = picked.includes(opt.label);
               return (
@@ -165,7 +159,7 @@ export function QuestionPrompt({ request, onReply, onReject, autoFocus }: Questi
                 </PressableSurface>
               );
             })}
-          </ScrollView>
+          </ComposerList>
         ) : null}
 
         {showCustom ? (
@@ -240,7 +234,7 @@ export function QuestionPrompt({ request, onReply, onReject, autoFocus }: Questi
             </Button>
           ) : null}
         </View>
-      </View>
+      </ComposerCard>
     </View>
   );
 }

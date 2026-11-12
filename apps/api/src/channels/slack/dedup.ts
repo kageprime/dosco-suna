@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, lt } from 'drizzle-orm';
 import { chatEventDedup } from '@kortix/db';
 import { db } from '../../shared/db';
 import { EVENT_DEDUPE_TTL_MS } from './app';
@@ -6,9 +6,10 @@ import { recordClaim } from '../webhook-work';
 
 // Cross-replica dedup. Slack can redeliver the same event_id (retries); with >1
 // API replica an in-memory set only dedups within one process, so a redelivery
-// to another replica re-fires the turn. An INSERT … ON CONFLICT DO NOTHING makes
-// "already handled?" one shared decision: a row came back ⇒ we're the first to
-// claim it; empty ⇒ someone already has.
+// to another replica re-fires the turn. One atomic INSERT … ON CONFLICT makes
+// "already handled?" a shared decision: a row came back ⇒ someone still holds
+// the claim; empty ⇒ we won it. The conflict is expiry-aware (see
+// `claimExpiringKey`) so an expired claim frees its key.
 //
 // The claim is namespaced by the project that received it: a per-project (BYO)
 // Slack app is a separate Slack app with its own event id space, so two projects
@@ -16,25 +17,58 @@ import { recordClaim } from '../webhook-work';
 // a scope of its own. Unlike this envelope layer, the message gate below is
 // namespaced by TEAM, not project — two BYO apps in one workspace share it; that
 // sibling gap is KRTX-4447, out of scope here by the issue's own instruction.
+
+// One atomic claim on the shared dedup table: `inverted` marks the envelope
+// check (its insert means "already handled", not "we won"), `record` registers
+// a won claim for release, `onDbError` is the branch a DB hiccup takes (fail
+// open proceeds), and `log`/`error` keep each site's own line and level.
+export interface ClaimPolicy {
+  inverted?: boolean;
+  record?: boolean;
+  onDbError: boolean;
+  log: string;
+  error?: true;
+}
+
+export async function claimExpiringKey(key: string, ttlMs: number, opts: ClaimPolicy): Promise<boolean> {
+  try {
+    const expiresAt = new Date(Date.now() + ttlMs);
+    // The conflict is expiry-aware: a LIVE claim (expiresAt ≥ now) still wins the
+    // conflict (the update's WHERE excludes it, no row comes back), while an
+    // EXPIRED one is re-taken — refreshed and returned — so a claim left behind
+    // by a failed release or held past its TTL during a redelivery never
+    // suppresses the delivery again (the lost-event window the redelivery
+    // consumers otherwise complete undelivered).
+    const inserted = await db
+      .insert(chatEventDedup)
+      .values({ eventId: key, expiresAt })
+      .onConflictDoUpdate({
+        target: chatEventDedup.eventId,
+        set: { expiresAt },
+        setWhere: lt(chatEventDedup.expiresAt, new Date()),
+      })
+      .returning({ eventId: chatEventDedup.eventId });
+    if (inserted.length > 0 && opts.record) recordClaim(key);
+    return opts.inverted ? inserted.length === 0 : inserted.length > 0;
+  } catch (err) {
+    console[opts.error ? 'error' : 'warn'](`[slack-webhook] ${opts.log}`, err);
+    return opts.onDbError;
+  }
+}
+
 export async function alreadyHandled(
   eventId: string | undefined,
   scope?: { projectId: string },
 ): Promise<boolean> {
   if (!eventId) return false;
   const key = scope ? `slack:event:${scope.projectId}:${eventId}` : `slack:event:${eventId}`;
-  try {
-    const inserted = await db
-      .insert(chatEventDedup)
-      .values({ eventId: key, expiresAt: new Date(Date.now() + EVENT_DEDUPE_TTL_MS) })
-      .onConflictDoNothing({ target: chatEventDedup.eventId })
-      .returning({ eventId: chatEventDedup.eventId });
-    if (inserted.length > 0) recordClaim(key);
-    return inserted.length === 0;
-  } catch (err) {
+  return claimExpiringKey(key, EVENT_DEDUPE_TTL_MS, {
+    inverted: true,
+    record: true,
     // Never let a dedup hiccup wedge the webhook — fail open (process the event).
-    console.warn('[slack-webhook] event dedup check failed', err);
-    return false;
-  }
+    onDbError: false,
+    log: 'event dedup check failed',
+  });
 }
 
 // ── Exactly-once gate for an inbound user MESSAGE ────────────────────────────
@@ -72,18 +106,12 @@ export function inboundMessageKey(
 // entire incident class — and we'd rather risk a rare duplicate during a DB
 // outage than silently drop a user's message. Errors are logged loudly.
 export async function claimInboundMessage(key: string): Promise<boolean> {
-  try {
-    const inserted = await db
-      .insert(chatEventDedup)
-      .values({ eventId: key, expiresAt: new Date(Date.now() + EVENT_DEDUPE_TTL_MS) })
-      .onConflictDoNothing({ target: chatEventDedup.eventId })
-      .returning({ eventId: chatEventDedup.eventId });
-    if (inserted.length > 0) recordClaim(key);
-    return inserted.length > 0;
-  } catch (err) {
-    console.error('[slack-webhook] inbound message claim failed (fail-open)', err);
-    return true;
-  }
+  return claimExpiringKey(key, EVENT_DEDUPE_TTL_MS, {
+    record: true,
+    onDbError: true,
+    log: 'inbound message claim failed (fail-open)',
+    error: true,
+  });
 }
 
 // ── One-shot "this thread's session terminally failed" notice ────────────────
@@ -109,20 +137,10 @@ function threadErrorNoticeKey(teamId: string, threadId: string): string {
 
 export async function claimThreadErrorNotice(teamId: string, threadId: string): Promise<boolean> {
   if (!teamId || !threadId) return false;
-  try {
-    const inserted = await db
-      .insert(chatEventDedup)
-      .values({
-        eventId: threadErrorNoticeKey(teamId, threadId),
-        expiresAt: new Date(Date.now() + ERROR_NOTICE_TTL_MS),
-      })
-      .onConflictDoNothing({ target: chatEventDedup.eventId })
-      .returning({ eventId: chatEventDedup.eventId });
-    return inserted.length > 0;
-  } catch (err) {
-    console.warn('[slack-webhook] thread error-notice claim failed (suppressing notice)', err);
-    return false;
-  }
+  return claimExpiringKey(threadErrorNoticeKey(teamId, threadId), ERROR_NOTICE_TTL_MS, {
+    onDbError: false,
+    log: 'thread error-notice claim failed (suppressing notice)',
+  });
 }
 
 // Re-arm the notice when this thread is revived onto a genuinely NEW session (the

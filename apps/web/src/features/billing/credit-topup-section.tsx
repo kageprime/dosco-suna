@@ -7,13 +7,14 @@ import { Alert as BannerAlert, AlertDescription as BannerAlertDescription} from 
 import Loading from '@kortix/ui/loading';
 import { errorToast } from '@kortix/ui/toast';
 import { useBillingReturnUrl } from '@/features/billing/billing-return';
-import { topUpBonusCredits } from '@kortix/ui/internal/billing/compute-pricing';
+import { formatWholeUsd, topUpBonusCredits } from '@kortix/ui/internal/billing/compute-pricing';
 import { spring, cn } from '@kortix/ui';
 import { useBillingAccountId } from '@kortix/ui/internal/stores/billing-account-context';
 import { useAccountState } from '@kortix/ui/internal/billing/use-account-state';
 import { purchaseCredits } from '@kortix/sdk';
 import { dollarsToCredits, formatCredits } from '@kortix/shared';
 import { m } from 'motion/react';
+import { CreditLadder } from '@/features/marketing/pricing/credit-ladder';
 import { useLocale, useTranslations } from '@/i18n/use-translations';
 
 /**
@@ -126,15 +127,6 @@ const DEFAULT_TOPUP_COPY: TopupCopy = {
   locale: 'en-US',
 };
 
-function formatWholeUsd(amount: number, locale: string): string {
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
 /** Whole-naira figure for pre-redirect display ("≈ ₦37,500 charged"). */
 function formatNgn(amountNgn: number): string {
   return new Intl.NumberFormat('en-NG', {
@@ -151,25 +143,31 @@ interface CreditTopupSectionProps {
   /** Where Stripe returns on cancel. Defaults to the current URL. */
   cancelUrl?: string;
   className?: string;
+  /**
+   * `row` (default): the segmented amount control with the action beside it,
+   * for the Billing tab and `/accounts/[id]`.
+   * `hero`: the /pricing slider over the one-off presets and a full-width
+   * action, for the out-of-credits modal where buying is the only question.
+   */
+  variant?: 'row' | 'hero';
 }
 
-export function CreditTopupSection({ successUrl, cancelUrl, className }: CreditTopupSectionProps) {
+export function CreditTopupSection({ variant = 'row', ...props }: CreditTopupSectionProps) {
+  return variant === 'hero' ? <HeroTopup {...props} /> : <RowTopup {...props} />;
+}
+
+/** The Stripe checkout round-trip both layouts share. */
+function useCreditPurchase({ successUrl, cancelUrl }: { successUrl?: string; cancelUrl?: string }) {
   const t = useTranslations('billing.topup');
-  const locale = useLocale();
   const billingAccountId = useBillingAccountId();
   const billingReturnUrl = useBillingReturnUrl();
-  // The sliding indicator is a shared layout animation. Two of these can be
-  // mounted at once (the Billing tab behind the out-of-credits modal), and a
-  // duplicate `layoutId` would make one instance's indicator fly across the
-  // screen to the other's cell.
-  const indicatorId = `credit-topup-${useId()}`;
-  const [selectedPrice, setSelectedPrice] = useState<number | null>(null);
-  const [customValue, setCustomValue] = useState('');
-  const [isCustom, setIsCustom] = useState(false);
   const { data: fxAccountState } = useAccountState();
   const fxRate = fxAccountState?.billing_fx?.usd_ngn_rate ?? null;
+  // Paystack is the default provider; Stripe is the card fallback.
+  const [provider, setProvider] = useState<'stripe' | 'paystack'>('paystack');
   const [isPurchasing, setIsPurchasing] = useState(false);
   const purchasingRef = useRef(false);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
   // Back from Stripe restores this page from the back/forward cache with the
   // button still "processing": open it again.
   useEffect(() => {
@@ -181,48 +179,11 @@ export function CreditTopupSection({ successUrl, cancelUrl, className }: CreditT
     window.addEventListener('pageshow', onPageShow);
     return () => window.removeEventListener('pageshow', onPageShow);
   }, []);
-  const [purchaseError, setPurchaseError] = useState<string | null>(null);
-  const [provider, setProvider] = useState<'stripe' | 'paystack'>('paystack');
 
-  // The dollar amount that would actually be charged. Custom wins when the
-  // custom cell is active; otherwise the selected preset.
-  const amount = useMemo(() => {
-    if (isCustom) {
-      const parsed = Number.parseFloat(customValue);
-      return Number.isFinite(parsed) ? parsed : null;
-    }
-    return selectedPrice;
-  }, [isCustom, customValue, selectedPrice]);
-
-  const { canBuy, hint, actionLabel } = describeTopup(
-    amount,
-    isPurchasing,
-    {
-      minimum: (value) => t('minimum', { amount: value }),
-      contactSales: (value) => t('contactSales', { amount: value }),
-      creditHint: (credits) => t('creditHint', { credits }),
-      creditHintBonus: (credits, bonus) => t('creditHintBonus', { credits, bonus }),
-      noExpiry: t('noExpiry'),
-      processing: t('processing'),
-      addAmount: (value) => t('addAmount', { amount: value }),
-      addCredits: t('addCredits'),
-      locale,
-    },
-    provider === 'paystack' && fxRate && amount !== null
-      ? `≈ ${formatNgn(Math.round(Math.round(amount) * fxRate))} charged`
-      : null,
-  );
-
-  const select = (price: number) => {
-    setSelectedPrice(price);
-    setIsCustom(false);
-    setPurchaseError(null);
-  };
-
-  const handlePurchase = async () => {
+  const purchase = async (amount: number) => {
     // Synchronous guard: a second click before the re-render made a second
     // Stripe Checkout Session.
-    if (amount === null || !canBuy || purchasingRef.current) return;
+    if (purchasingRef.current) return;
     purchasingRef.current = true;
     setIsPurchasing(true);
     setPurchaseError(null);
@@ -252,6 +213,131 @@ export function CreditTopupSection({ successUrl, cancelUrl, className }: CreditT
     }
   };
 
+  return { isPurchasing, purchaseError, setPurchaseError, purchase, provider, setProvider, fxRate };
+}
+
+function useTopupCopy(): TopupCopy {
+  const t = useTranslations('billing.topup');
+  const locale = useLocale();
+  return {
+    minimum: (value) => t('minimum', { amount: value }),
+    contactSales: (value) => t('contactSales', { amount: value }),
+    creditHint: (credits) => t('creditHint', { credits }),
+    creditHintBonus: (credits, bonus) => t('creditHintBonus', { credits, bonus }),
+    noExpiry: t('noExpiry'),
+    processing: t('processing'),
+    addAmount: (value) => t('addAmount', { amount: value }),
+    addCredits: t('addCredits'),
+    locale,
+  };
+}
+
+/** The hero layout's starting amount: the first preset on the bonus ladder. */
+const HERO_DEFAULT_USD = 100;
+
+/** The steps of the hero slider, in dollars: the presets, widened to the
+ *  amounts an Enterprise or granted account buys. Any other amount goes
+ *  through the Billing tab's Custom field. */
+const LADDER_PRESETS: readonly number[] = [25, 50, 100, 250, 500, 1000, 2500, 5000];
+
+/**
+ * The /pricing slider over the one-off presets, then one full-width action
+ * that names the charge (Paper "Out of credits — v3", M4 and M5). The line
+ * under the action carries the credits and the bonus, or why the amount
+ * cannot be bought.
+ */
+function HeroTopup({ successUrl, cancelUrl, className }: Omit<CreditTopupSectionProps, 'variant'>) {
+  const tTiers = useTranslations('billing.credits.tiers');
+  const copy = useTopupCopy();
+  const { isPurchasing, purchaseError, setPurchaseError, purchase, provider, setProvider, fxRate } = useCreditPurchase({
+    successUrl,
+    cancelUrl,
+  });
+  const [amount, setAmount] = useState(HERO_DEFAULT_USD);
+  const ngnLabel =
+    provider === 'paystack' && fxRate
+      ? `≈ ${formatNgn(Math.round(Math.round(amount) * fxRate))} charged`
+      : null;
+  const { canBuy, hint, actionLabel } = describeTopup(amount, isPurchasing, copy, ngnLabel);
+
+  return (
+    <div className={cn('space-y-6', className)} data-testid="topup-ladder">
+      <CreditLadder
+        value={amount}
+        onChange={(next) => {
+          setAmount(next);
+          setPurchaseError(null);
+        }}
+        steps={LADDER_PRESETS}
+        suffix={tTiers('once')}
+        label={tTiers('onceLabel')}
+        disabled={isPurchasing}
+        stackBelowXl={false}
+      />
+      <div className="space-y-3">
+        <Button
+          onClick={() => canBuy && void purchase(amount)}
+          disabled={!canBuy}
+          size="lg"
+          className="w-full gap-1.5 motion-safe:active:scale-[0.96]"
+        >
+          {isPurchasing ? <Loading className="size-3.5 shrink-0" /> : null}
+          {actionLabel}
+        </Button>
+        <p className="text-muted-foreground text-center text-xs tabular-nums">{hint}</p>
+      </div>
+      {purchaseError && (
+        <BannerAlert variant="destructive" className="w-full">
+          <BannerAlertDescription>{purchaseError}</BannerAlertDescription>
+        </BannerAlert>
+      )}
+    </div>
+  );
+}
+
+function RowTopup({ successUrl, cancelUrl, className }: Omit<CreditTopupSectionProps, 'variant'>) {
+  const t = useTranslations('billing.topup');
+  const locale = useLocale();
+  // The sliding indicator is a shared layout animation. Two of these can be
+  // mounted at once (the Billing tab behind the out-of-credits modal), and a
+  // duplicate `layoutId` would make one instance's indicator fly across the
+  // screen to the other's cell.
+  const indicatorId = `credit-topup-${useId()}`;
+  const [selectedPrice, setSelectedPrice] = useState<number | null>(null);
+  const [customValue, setCustomValue] = useState('');
+  const [isCustom, setIsCustom] = useState(false);
+  const copy = useTopupCopy();
+  const { isPurchasing, purchaseError, setPurchaseError, purchase, provider, setProvider, fxRate } = useCreditPurchase({
+    successUrl,
+    cancelUrl,
+  });
+
+  // The dollar amount that would actually be charged. Custom wins when the
+  // custom cell is active; otherwise the selected preset.
+  const amount = useMemo(() => {
+    if (isCustom) {
+      const parsed = Number.parseFloat(customValue);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return selectedPrice;
+  }, [isCustom, customValue, selectedPrice]);
+
+  const ngnLabel =
+    provider === 'paystack' && fxRate && amount !== null
+      ? `≈ ${formatNgn(Math.round(Math.round(amount) * fxRate))} charged`
+      : null;
+  const { canBuy, hint, actionLabel } = describeTopup(amount, isPurchasing, copy, ngnLabel);
+
+  const select = (price: number) => {
+    setSelectedPrice(price);
+    setIsCustom(false);
+    setPurchaseError(null);
+  };
+
+  const handlePurchase = async () => {
+    if (amount === null || !canBuy) return;
+    await purchase(amount);
+  };
   return (
     <div className={cn('space-y-2.5', className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -302,7 +388,7 @@ export function CreditTopupSection({ successUrl, cancelUrl, className }: CreditT
                   setCustomValue(e.target.value);
                   setPurchaseError(null);
                 }}
-                className="text-foreground placeholder:text-muted-foreground/60 relative z-10 h-7 w-[4.5rem] [appearance:textfield] bg-transparent pr-2 pl-5 text-xs font-medium tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="text-foreground placeholder:text-muted-foreground relative z-10 h-7 w-[4.5rem] [appearance:textfield] bg-transparent pr-2 pl-5 text-xs font-medium tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
             </div>
           ) : (

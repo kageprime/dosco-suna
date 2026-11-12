@@ -14,9 +14,9 @@ import { PlanAccessNotice } from '@/features/billing/plan-access-notice';
 import { TopupControls } from '@/features/billing/topup-controls';
 import { useAuth } from '@/features/providers/auth-provider';
 import {
-  accountStateKeys,
   accountStateSelectors,
   invalidateAccountState,
+  useAccountState,
   useCancelSubscription,
   useCreatePortalSession,
   useReactivateSubscription,
@@ -25,8 +25,7 @@ import { useLocale, useTranslations } from '@/i18n/use-translations';
 import { isBillingEnabled } from '@/lib/config';
 import { useBillingAccountId } from '@kortix/ui/internal/stores/billing-account-context';
 import { useUserSettingsModalStore } from '@/stores/user-settings-modal-store';
-import { getAccountState, type AccountState } from '@kortix/sdk';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
 /**
@@ -81,15 +80,7 @@ export function BillingTab({
     data: accountState,
     isLoading: isLoadingSubscription,
     error: subscriptionError,
-  } = useQuery<AccountState>({
-    queryKey: accountStateKeys.state(billingAccountId),
-    queryFn: () => getAccountState({ accountId: billingAccountId }),
-    enabled: !!session && !authLoading,
-    staleTime: 1000 * 60 * 2,
-    gcTime: 1000 * 60 * 15,
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
-  });
+  } = useAccountState({ accountId: billingAccountId, enabled: !!session && !authLoading });
 
   const createPortalSessionMutation = useCreatePortalSession();
   const cancelSubscriptionMutation = useCancelSubscription();

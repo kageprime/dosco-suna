@@ -1,6 +1,8 @@
 'use client';
 
 import { marketingButtonVariants } from '@/components/ui/marketing/button';
+import { Select as SelectPrimitive } from '@base-ui/react/select';
+import { cn } from '@kortix/ui';
 import {
   Select,
   SelectContent,
@@ -10,9 +12,7 @@ import {
   SelectSeparator,
   SelectValue,
 } from '@kortix/ui/select';
-import { cn } from '@kortix/ui';
 import { CaretDownIcon } from '@phosphor-icons/react';
-import * as SelectPrimitive from '@radix-ui/react-select';
 import * as React from 'react';
 
 type SelectSize = 'default' | 'sm' | 'lg';
@@ -22,7 +22,7 @@ function SelectTrigger({
   size = 'default',
   children,
   ...props
-}: Omit<React.ComponentProps<typeof SelectPrimitive.Trigger>, 'size'> & {
+}: Omit<React.ComponentProps<'button'>, 'size' | 'value'> & {
   size?: SelectSize;
 }) {
   return (
@@ -36,7 +36,7 @@ function SelectTrigger({
       {...props}
     >
       {children}
-      <SelectPrimitive.Icon asChild>
+      <SelectPrimitive.Icon className="flex shrink-0">
         <CaretDownIcon className="size-4 shrink-0 opacity-50" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>

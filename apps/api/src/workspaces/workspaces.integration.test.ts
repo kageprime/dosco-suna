@@ -21,6 +21,7 @@ import { isWorkspaceOnePerAccountConflict, WORKSPACE_HAS_PROJECT_CODE } from './
 import { resolveCanonicalWorkspace, resolveWorkspace, WorkspaceAmbiguousError } from './resolve';
 import { shadowMismatchCount } from './shadow';
 import { checkWorkspaceInvariants } from './split/invariants';
+import { accountKeyOfWorkspace, accountKeysOfWorkspaces } from './rows';
 import { getWorkspace, listUserWorkspaceCandidates, workspaceIdOfAccount } from './store';
 
 const confirmed = Boolean(
@@ -339,6 +340,20 @@ withDb('workspaces identity', () => {
     expect(await db.select().from(accountDeletionRequests).where(eq(accountDeletionRequests.accountId, LEGACY_ACCOUNT))).toEqual([]);
     expect((await getWorkspace(LEGACY_P1))?.splitPending).toBe(false);
     expect(await getWorkspace(LEGACY_P2)).toBeNull();
+  });
+
+  test('accountKeyOfWorkspace: the account of a project row, any status unless activeOnly; the batch is distinct', async () => {
+    expect(await accountKeyOfWorkspace(ONE_PROJECT)).toBe(ONE_ACCOUNT);
+    expect(await accountKeyOfWorkspace(ARCHIVED_PROJECT)).toBe(ONE_ACCOUNT);
+    expect(await accountKeyOfWorkspace(ARCHIVED_PROJECT, { activeOnly: true })).toBeNull();
+    // A project-less workspace has no project row; an unknown id has nothing.
+    expect(await accountKeyOfWorkspace(EMPTY_ACCOUNT)).toBeNull();
+    expect(await accountKeyOfWorkspace(NEW_PROJECT)).toBeNull();
+    expect((await accountKeysOfWorkspaces([LEGACY_P1, LEGACY_P2, ONE_PROJECT, NEW_PROJECT])).sort()).toEqual([ONE_ACCOUNT, LEGACY_ACCOUNT].sort());
+    expect(await accountKeysOfWorkspaces([])).toEqual([]);
+    // Fresh, never cached: a moved project answers its new account at once.
+    await db.update(projects).set({ accountId: EMPTY_ACCOUNT }).where(eq(projects.projectId, ONE_PROJECT));
+    expect(await accountKeyOfWorkspace(ONE_PROJECT)).toBe(EMPTY_ACCOUNT);
   });
 
   test('invariants I9, I10 and I12 hold after the scenarios above', async () => {

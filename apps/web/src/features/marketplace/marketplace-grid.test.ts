@@ -1,14 +1,34 @@
 import { describe, expect, test } from 'bun:test';
+import { createTranslator } from 'next-intl';
 
 import type { MarketplaceItem } from '@/lib/marketplace-client';
 import {
   buildMarketplaceGridRows,
   flattenMarketplaceItems,
+  groupMarketplaceItemsByType,
   MARKETPLACE_GRID_COLUMNS,
   marketplaceGridRowKey,
   shouldFetchNextMarketplacePage,
   shouldVirtualizeMarketplacePagedGrid,
 } from './marketplace-grid';
+import messages from '../../../translations/en.json';
+
+/** A translator whose catalog translates the "Skill" label, so a section label
+ *  can be asserted to have gone through the translator. */
+const translatingTranslator = createTranslator({
+  locale: 'en',
+  messages: {
+    ...messages,
+    hardcodedUi: {
+      ...messages.hardcodedUi,
+      i18nComplete: {
+        ...messages.hardcodedUi.i18nComplete,
+        text6df1bb18a59a: 'Faehigkeit',
+      },
+    },
+  },
+  namespace: 'hardcodedUi.i18nComplete',
+});
 
 function makeItems(type: string, ids: string[]): MarketplaceItem[] {
   return ids.map((id) => ({ id, type, name: id, title: id }) as unknown as MarketplaceItem);
@@ -135,6 +155,40 @@ describe('company explore paged grid bounding (A4)', () => {
 
     expect(rows.length).toBe(Math.ceil(items.length / 2));
     expect(rows.length).toBeLessThan(items.length);
+  });
+});
+
+describe('groupMarketplaceItemsByType', () => {
+  test('sections follow the type order and unknown types bucket to Other', () => {
+    const items = [
+      ...makeItems('registry:skill', ['s1']),
+      ...makeItems('registry:bundle', ['b1']),
+      ...makeItems('registry:widget', ['w1']),
+      ...makeItems('registry:agent', ['a1']),
+    ];
+
+    const groups = groupMarketplaceItemsByType(items);
+
+    expect(groups.map((g) => [g.label, g.items.map((it) => it.id)])).toEqual([
+      ['Skills', ['s1']],
+      ['Agents', ['a1']],
+      ['Bundles', ['b1']],
+      ['Other', ['w1']],
+    ]);
+  });
+
+  test('a project skill section is labelled through the translator; unknown types still bucket to Other', () => {
+    const items = [
+      ...makeItems('registry:skill', ['s1']),
+      ...makeItems('registry:widget', ['w1']),
+    ];
+
+    const groups = groupMarketplaceItemsByType(items, translatingTranslator);
+
+    expect(groups.map((g) => [g.label, g.items.map((it) => it.id)])).toEqual([
+      ['Faehigkeits', ['s1']],
+      ['Other', ['w1']],
+    ]);
   });
 });
 

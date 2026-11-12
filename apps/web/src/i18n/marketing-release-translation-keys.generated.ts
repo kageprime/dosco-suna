@@ -34,10 +34,10 @@ export const MARKETING_RELEASE_TRANSLATION_KEYS = {
   'Kortix, run on Kortix.': 'textf2d996d89263',
   'Our company is one Kortix workspace. Agents triage and fix issues, keep SOC 2 evidence current and run sales and support. People approve.':
     'text34ff4020f800',
-  'Every deal, evaluated by agents.': 'textdd57f275a118',
+  'Autonomous deal analysis.': 'textccf34f95f6b5',
   'Asset management': 'textacf058bd8604',
-  'Every deal that comes in gets a full analysis. Agents screen it against the mandate, read the filings and market data, stress-test the thesis and the downside, and write the investment memo. The investment committee decides.':
-    'text313f92aeb061',
+  'Agents screen every deal against the mandate, stress-test the thesis and write the investment memo. The investment committee decides.':
+    'text4c72429d7a38',
   'Autonomous candidate research.': 'textdc7f8ac95166',
   'Agents research candidates for every search and write a profile of each one. Consultants choose the shortlist.':
     'textb5947f5f79c9',

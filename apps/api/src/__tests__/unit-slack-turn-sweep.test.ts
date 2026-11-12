@@ -16,6 +16,7 @@ const rec = (fn: string) => (...args: unknown[]) => {
 mock.module('../channels/slack-api', () => ({
   addReaction: rec('addReaction'),
   removeReaction: rec('removeReaction'),
+  setAssistantStatus: async () => {},
   joinChannel: rec('joinChannel'),
   postMessage: rec('postMessage'),
   postBlocks: rec('postBlocks'),

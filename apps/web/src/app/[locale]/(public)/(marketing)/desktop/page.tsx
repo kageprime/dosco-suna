@@ -1,13 +1,7 @@
-import { SurfacePage } from '@/features/marketing/surfaces/surface-page';
-import { localizedMarketingMetadata } from '@/lib/seo/metadata';
-import type { Metadata } from 'next';
-import type { ReactNode } from 'react';
-
-export function generateMetadata(): Promise<Metadata> {
-  return localizedMarketingMetadata('/desktop');
-}
+import { surfaceRoute } from '@/features/marketing/surfaces/surface-page';
 
 /** `/desktop`: copy in features/marketing/surfaces/content.ts, layout in surface-page.tsx. */
-export default function Page(): ReactNode {
-  return <SurfacePage id="desktop" />;
-}
+const { generateMetadata, Page } = surfaceRoute('desktop', '/desktop');
+
+export { generateMetadata };
+export default Page;

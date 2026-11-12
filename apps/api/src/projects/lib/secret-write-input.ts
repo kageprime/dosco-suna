@@ -20,6 +20,14 @@ import { parseEgressPolicy } from '../../secrets/strategy';
 import { isValidIdentifier, isValidSecretName } from '../secrets';
 import { CODEX_AUTH_JSON_SECRET_NAME, isTeamsInstallSecretName, normalizeString } from './serializers';
 
+/**
+ * The hand-off an agent session gets when it sets a secret's delivery policy:
+ * the policy names the hosts the value may reach, so a person approves it,
+ * like an exact connector URL. Not a refusal of the agent as such.
+ */
+export const SECRET_DELIVERY_NEEDS_PERSON =
+  "A secret's delivery policy decides which hosts may receive its value, so a person approves it: an owner, admin or manager sets it in Customize → Secrets. An agent session may create a plain runtime secret or a connector-scoped one.";
+
 export type SecretWriteInput = {
   name: string;
   identifier: string;
@@ -172,7 +180,7 @@ export function resolveSecretWriteInput(
       ? requestedConsumerData === undefined || requestedConsumerData === 'sandbox'
       : requestedStrategy === 'broker' && requestedConsumerData === 'connector');
   if (isAgentSession && !agentAllowedDelivery) {
-    return { ok: false, status: 403, body: { error: 'Agent sessions cannot change secret delivery policy' } };
+    return { ok: false, status: 403, body: { error: SECRET_DELIVERY_NEEDS_PERSON, code: 'secret_delivery_needs_person' } };
   }
   // The server does NOT infer delivery from the secret's NAME.
   //

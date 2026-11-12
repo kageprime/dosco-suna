@@ -36,6 +36,7 @@ import { GearSixIcon } from '@phosphor-icons/react';
 import { railGroups, type SettingsRailTranslator } from '@kortix/ui/customize/settings/rail';
 import type { SettingsTab } from '@kortix/ui/customize/settings/settings-tabs';
 import type { RailItem } from '@kortix/ui/customize/settings/type';
+import { matchesAllWords, paletteWords } from './palette-match';
 
 /**
  * Mirrors `ACCOUNT_SCOPED_SETTINGS_TABS` (settings-panel.tsx) — the tabs that
@@ -270,8 +271,7 @@ export function settingsPaletteSearchText(item: SettingsPaletteItem): string {
  * the same affordance `filterRailGroups` gives the rail.
  */
 export function settingsPaletteItemMatches(item: SettingsPaletteItem, words: string[]): boolean {
-  const haystack = settingsPaletteSearchText(item).toLowerCase();
-  return words.every((word) => haystack.includes(word));
+  return matchesAllWords(settingsPaletteSearchText(item), words);
 }
 
 /** The grouped list narrowed to a query, with empty groups dropped. */
@@ -279,7 +279,7 @@ export function filterSettingsPaletteGroups(
   groups: SettingsPaletteGroup[],
   query: string,
 ): SettingsPaletteGroup[] {
-  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const words = paletteWords(query);
   if (words.length === 0) return groups;
   const filtered: SettingsPaletteGroup[] = [];
   for (const group of groups) {

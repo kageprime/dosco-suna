@@ -160,7 +160,7 @@ group by 1 order by 2 desc;
 - `apps/api/src/projects/reaping/idle-volume-retire.ts` — deletes a stopped stateless sandbox.
 - `apps/api/src/projects/session-open/resume-stopped-sandbox.ts` — the stateful reopen (to delete).
 - `apps/sandbox/entrypoint.sh` — waits for `/workspace` to be a mountpoint when `KORTIX_WORKSPACE_VOLUME=1`.
-- `apps/kortix-sandbox-agent-server/src/services/workspace-provider/` — fills `/workspace` on the first boot (Git or the S3 project snapshot).
+- (deleted 2026-11-10, #12136) `services/workspace-provider/` filled `/workspace` on the first boot; no session checks out the repository at boot any more, so `/workspace` holds only what the agent writes.
 - `apps/kortix-sandbox-agent-server/src/harness/pi/config.ts` — `piStateDir` (`KORTIX_PI_STATE_DIR`).
 - `apps/kortix-sandbox-agent-server/src/harness/pi/runtime.ts` — pi's store (`piDumpPath`, `SessionManager.inMemory`).
 - `apps/kortix-sandbox-agent-server/src/harness/shared/session-log-boot.ts`, `session-log-journal.ts`, `session-log-restore.ts` — the Postgres journal and rebuild (to delete in step 4).

@@ -85,6 +85,17 @@ describe('subscriptionUsageFromHeaders', () => {
     expect(usage?.windows[0]?.used_percent).toBe(100);
   });
 
+  test('a full Opus weekly window in Claude headers stops Opus only: the login is not limited', () => {
+    const usage = subscriptionUsageFromHeaders(new Headers({
+      'anthropic-ratelimit-unified-status': 'allowed',
+      'anthropic-ratelimit-unified-5h-utilization': '0.2',
+      'anthropic-ratelimit-unified-7d-utilization': '0.3',
+      'anthropic-ratelimit-unified-7d_opus-utilization': '1.0',
+    }), NOW);
+    expect(usage?.windows.find((window) => window.id === '7d_opus')?.used_percent).toBe(100);
+    expect(usage?.limited).toBe(false);
+  });
+
   test('a response without usage headers yields null', () => {
     expect(subscriptionUsageFromHeaders(new Headers({ 'content-type': 'application/json' }), NOW)).toBeNull();
     expect(subscriptionUsageFromHeaders(new Headers({ 'x-codex-primary-used-percent': 'garbage' }), NOW)).toBeNull();

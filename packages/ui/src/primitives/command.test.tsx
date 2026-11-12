@@ -55,7 +55,7 @@ describe('command module surface', () => {
   });
 
   test('the popover/dialog wrappers are real components, not undefined', () => {
-    // The Radix passthroughs cannot render their overlay without a live DOM,
+    // The dialog and popover wrappers cannot render their overlay without a live DOM,
     // so they are pinned as present-callable exports instead.
     expect(typeof commandModule.CommandDialog).toBe('function');
     expect(typeof commandModule.CommandPopover).toBe('function');

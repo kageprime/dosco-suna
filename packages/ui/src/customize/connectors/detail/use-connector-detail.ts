@@ -3,6 +3,7 @@
 import {
   type AdminConnector,
   type Connection,
+  connectorAccountSignInStarted,
   listConnections,
   listedConnectorAccounts as connectorAccounts,
 } from '@kortix/sdk';
@@ -15,6 +16,7 @@ import { isManagedConnectorProvider } from '../provider-label';
 import { connectorSetupStatus } from '../../sections/connector-connection-form';
 import { usePipedreamConnectMember } from '../../../internal/hooks/connectors/use-pipedream-connect-member';
 import { usePipedreamConnectProject } from '../../../internal/hooks/connectors/use-pipedream-connect-project';
+import { useFinishSignIn } from '../../../internal/hooks/connectors/use-finish-sign-in';
 import { useNewProjectSession } from '../../../internal/hooks/projects/use-new-project-session';
 import { PROJECT_ACTIONS } from '../../../internal/lib/project-actions';
 import { useProjectCan } from '../../../internal/lib/use-project-can';
@@ -78,6 +80,7 @@ export function useConnectorDetail({
   };
   const connectShared = usePipedreamConnectProject(projectId, connector.slug, refreshAccounts);
   const connectMine = usePipedreamConnectMember(projectId, connector.slug, refreshAccounts);
+  const finishSignIn = useFinishSignIn(projectId, connector.slug, refreshAccounts);
 
   // `accountId` rides the qk.project.detail(id) cache the connectors page
   // already filled, so the connections probe resolves on the first render
@@ -125,6 +128,12 @@ export function useConnectorDetail({
    *  credential entry for a direct one. */
   const reconnectAccount = (account: Connection) => {
     const owner = account.owner_type === 'project' ? 'project' : 'me';
+    // A sign-in that started and never finished: ask the provider first, and
+    // record it when it finished there (an agent's link used outside Kortix).
+    if (isManagedProvider && account.authorized === false && connectorAccountSignInStarted(account)) {
+      finishSignIn.mutate(account);
+      return;
+    }
     if (isManagedProvider) {
       // Reconciling the SAME label re-points this row, never a second account.
       if (owner === 'project') connectShared.mutate({ label: account.label });
@@ -147,7 +156,7 @@ export function useConnectorDetail({
     connected,
     canManageConnections,
     headerCta,
-    connectPending: connectShared.isPending || connectMine.isPending,
+    connectPending: connectShared.isPending || connectMine.isPending || finishSignIn.isPending,
     refreshAccounts,
     replaceSoleAccount,
     startPrivateSession,

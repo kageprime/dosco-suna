@@ -85,9 +85,9 @@ if (process.env.INTERNAL_KORTIX_ENV === 'prod') {
   process.exit(2);
 }
 
-/** A stable uuid for (kind, index): md5 of this script's namespace. */
+/** A stable uuid for (kind, index): sha256 (32 hex chars) of this script's namespace. */
 function sid(kind: string, ...index: Array<number | string>): string {
-  const hex = createHash('md5').update(`${NAMESPACE}:${kind}:${index.join(':')}`).digest('hex');
+  const hex = createHash('sha256').update(`${NAMESPACE}:${kind}:${index.join(':')}`).digest('hex').slice(0, 32);
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 const email = (user: string) => `${user.slice(0, 8)}@example.test`;

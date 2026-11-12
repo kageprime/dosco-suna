@@ -12,6 +12,7 @@ import { PromptNeverLandedError } from './runtime-client';
 import { armSessionRuntimeActive } from './runtime-active-signal';
 import { transitionSession } from './status-transitions';
 import { boxServesRuntimeFloor } from '../session-open/runtime-floor-policy';
+import { stampIfBoxServesRuntimeFloor } from '../session-open/runtime-floor';
 import { projectsView } from '../../workspaces/rows';
 
 // After a session's runtime reports `ready` we still have to hand the prompt to
@@ -324,7 +325,9 @@ function notLandedOutcome(error: unknown): SessionDeliveryOutcome {
 /**
  * The delivery target for a session whose box is ALREADY awake, from the DB
  * alone — or null, which means "take the full open path". Cheap: two indexed
- * reads, no provider or daemon round-trip.
+ * reads, no provider or daemon round-trip. One exception: an awake box that no
+ * open has stamped at the runtime floor yet gets one health read, once per box
+ * (`stampIfBoxServesRuntimeFloor`).
  *
  * The two reads are keyed on the same session id and neither consumes the
  * other's result, so they go out TOGETHER: one round trip instead of two on
@@ -363,7 +366,10 @@ export async function awakeDeliveryTarget(sessionId: string): Promise<DeliveryTa
   // Only a box an open proved at the runtime floor. An old box being updated
   // is `active` too, and a message must wait for its open, not reach its old
   // daemon (session-open/runtime-floor.ts).
-  if (!boxServesRuntimeFloor(box.metadata as Record<string, unknown> | null, box.externalId)) return null;
+  if (
+    !boxServesRuntimeFloor(box.metadata as Record<string, unknown> | null, box.externalId) &&
+    !(await stampIfBoxServesRuntimeFloor(box.sandboxId, box.externalId, box.metadata as Record<string, unknown> | null))
+  ) return null;
   const serviceKey = (box.config as { serviceKey?: unknown } | null)?.serviceKey;
   return {
     stage: 'ready',

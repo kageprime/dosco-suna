@@ -22,7 +22,7 @@ import Loading from '@kortix/ui/loading';
 import { useTranslations } from '@/i18n/use-translations';
 import { performSignOut } from '@/lib/auth/perform-sign-out';
 
-export const SSO_REQUIRED_EVENT = 'kortix:sso-required';
+const SSO_REQUIRED_EVENT = 'kortix:sso-required';
 
 export function SsoRequiredProvider({ children }: { children?: React.ReactNode }) {
   const t = useTranslations('ssoRequired');

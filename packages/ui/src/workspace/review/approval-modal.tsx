@@ -7,9 +7,9 @@ import {
   useApprovalWaitingText,
 } from '../../session/prompts/approval-request';
 import { ApprovalDecisionPanel } from '../../markdown/setup-links/approval-decision';
-import { Modal, ModalContent, ModalDescription, ModalTitle } from '../../primitives/modal';
 import { useTranslations } from '../../i18n';
 import type { ApprovalLinkDetails } from '@kortix/sdk';
+import { useId } from 'react';
 
 import { connectorCallId } from './review-actions';
 import type { ReviewItem } from './types';
@@ -85,29 +85,28 @@ export function reviewApprovalAsker(
 }
 
 /**
- * The standalone approve page (`/approve/[token]`), in a modal over the inbox.
- * One approval UI everywhere: the same panel, the same rows, the same decision.
- * No `onDecision` = the viewer may read the call but not decide it.
+ * The standalone approve page (`/approve/[token]`), inline in the inbox's
+ * detail pane. One approval UI everywhere: the same panel in the same bordered
+ * card, the same rows, the same decision. No `onDecision` = the viewer may read
+ * the call but not decide it.
  */
-export function ApprovalDecisionModal({
+export function ApprovalDecisionPane({
   details,
   previewAuthorized,
   busyDecision,
   onDecision,
   onOpenSession,
-  onClose,
   resolvers = null,
   agentName = null,
   sessionTitle = null,
 }: {
-  details: ApprovalLinkDetails | null;
+  details: ApprovalLinkDetails;
   previewAuthorized?: boolean;
   /** Who decides the call, for a viewer who may not (KRTX-1724). */
   resolvers?: ApprovalResolvers | null;
   busyDecision: ApprovalDecisionValue | null;
   onDecision?: (decision: ApprovalDecisionValue, note?: string) => void;
   onOpenSession?: () => void;
-  onClose: () => void;
   /** The agent that asked. Null: "An agent". */
   agentName?: string | null;
   /** The session that asked, by its title. Null: not named. */
@@ -116,45 +115,29 @@ export function ApprovalDecisionModal({
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const waitingText = useApprovalWaitingText(resolvers);
   // The panel's own rule: a pending call with no decision on offer waits on
-  // someone else, so the dialog is not announced as a request to this viewer.
-  const waiting = details?.pending === true && !onDecision;
+  // someone else, so the region is not announced as a request to this viewer.
+  const waiting = details.pending === true && !onDecision;
+  const titleId = useId();
   return (
-    <Modal open={details !== null} onOpenChange={(open) => !open && onClose()}>
-      {/* The panel's header carries the expiry chip where the close button
-          sits; Escape and a click outside close the dialog. `space-y-0`: the
-          modal's own `space-y-4` puts a 16 px bottom margin on the panel (the
-          close-button row renders after it), a blank band under the decisions. */}
-      <ModalContent
-        showCloseButton={false}
-        // Focus the dialog itself, not its first control: that is the
-        // description's info trigger, and focus would open its hover card.
-        onOpenAutoFocus={(event) => {
-          event.preventDefault();
-          (event.currentTarget as HTMLElement | null)?.focus();
-        }}
-        className="space-y-0 lg:h-auto lg:max-h-[85svh] lg:max-w-md"
-      >
-        <ModalTitle className="sr-only">
-          {waiting ? tI18nComplete.raw('textdb0e960b68b5') : tI18nComplete.raw('text1862f81ed9d6')}
-        </ModalTitle>
-        <ModalDescription className="sr-only">
-          {waiting ? waitingText : tI18nComplete.raw('text32c6817c8380')}
-        </ModalDescription>
-        {details ? (
-          <ApprovalDecisionPanel
-            details={details}
-            outcome={null}
-            busyDecision={busyDecision}
-            error={null}
-            onDecision={onDecision}
-            onOpenSession={onOpenSession}
-            previewAuthorized={previewAuthorized}
-            resolvers={resolvers}
-            agentName={agentName}
-            sessionTitle={sessionTitle}
-          />
-        ) : null}
-      </ModalContent>
-    </Modal>
+    <section aria-labelledby={titleId} className="mx-auto w-full max-w-xl">
+      <h2 id={titleId} className="sr-only">
+        {waiting ? tI18nComplete.raw('textdb0e960b68b5') : tI18nComplete.raw('text1862f81ed9d6')}
+      </h2>
+      <p className="sr-only">{waiting ? waitingText : tI18nComplete.raw('text32c6817c8380')}</p>
+      <div className="border-border overflow-hidden rounded-xl border">
+        <ApprovalDecisionPanel
+          details={details}
+          outcome={null}
+          busyDecision={busyDecision}
+          error={null}
+          onDecision={onDecision}
+          onOpenSession={onOpenSession}
+          previewAuthorized={previewAuthorized}
+          resolvers={resolvers}
+          agentName={agentName}
+          sessionTitle={sessionTitle}
+        />
+      </div>
+    </section>
   );
 }

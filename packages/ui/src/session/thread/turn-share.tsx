@@ -16,18 +16,17 @@ import { type TurnShare, getTurnShare, shareTurn, unshareTurn } from '@kortix/sd
 import { useProjectSession } from '@kortix/sdk/react';
 import { CheckIcon, ShareNetworkIcon, WarningCircleIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { RadioGroup as RadioGroupPrimitive } from 'radix-ui';
 import { useEffect, useRef, useState } from 'react';
 
-import { Copy } from '../../icons/copy';
 import { useTranslations } from '../../i18n';
+import { Copy } from '../../icons/copy';
 import { cn } from '../../lib/utils';
 import { Button } from '../../primitives/button';
 import Hint from '../../primitives/hint';
 import { Input } from '../../primitives/input';
 import { Label } from '../../primitives/label';
 import { Modal, ModalContent, ModalTitle } from '../../primitives/modal';
-import { RadioGroup } from '../../primitives/radio-group';
+import { RadioGroup, RadioGroupItemBase } from '../../primitives/radio-group';
 import { Separator } from '../../primitives/separator';
 import { Switch } from '../../primitives/switch';
 import { successToast } from '../../primitives/toast';
@@ -168,7 +167,8 @@ function TurnShareDialogContent({ target }: { target: TurnShareTarget }) {
   });
 
   const pending = query.isLoading || publish.isPending || unpublish.isPending;
-  const shownError = error ?? (query.isError ? (serverMessage(query.error) ?? t('loadError')) : null);
+  const shownError =
+    error ?? (query.isError ? (serverMessage(query.error) ?? t('loadError')) : null);
 
   const pickScope = (value: string) => {
     const next = value === 'prompt';
@@ -331,14 +331,14 @@ function ScopeTile({
   withPrompt: boolean;
 }) {
   return (
-    <RadioGroupPrimitive.Item
+    <RadioGroupItemBase
       value={value}
       className={cn(
         'border-border flex flex-col gap-2.5 rounded-xl border p-2 text-left',
         'hover:bg-hover transition-colors',
         'data-[state=checked]:border-foreground',
         'focus-visible:ring-ring outline-none focus-visible:ring-2',
-        'disabled:pointer-events-none disabled:opacity-50',
+        'disabled:pointer-events-none disabled:opacity-50 data-disabled:pointer-events-none data-disabled:opacity-50',
       )}
     >
       <span aria-hidden="true" className="bg-background flex h-24 flex-col gap-1.5 rounded-sm p-3">
@@ -351,6 +351,6 @@ function ScopeTile({
         <span className="text-foreground text-sm font-medium">{title}</span>
         <span className="text-muted-foreground text-xs">{hint}</span>
       </span>
-    </RadioGroupPrimitive.Item>
+    </RadioGroupItemBase>
   );
 }

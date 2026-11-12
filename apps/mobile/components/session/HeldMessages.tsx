@@ -45,7 +45,7 @@ export function HeldMessageCard({ message, pending, onApprove, onDeny }: HeldMes
           <Text numberOfLines={1} style={[TURN_TYPE.sm, { flex: 1, color: palette.mutedForeground }]}>
             {verb}
           </Text>
-          <SessionStatusMark status="needs-you" />
+          <SessionStatusMark status="needs-you" waitingOn="answer" />
         </View>
         {/* The whole message: a person approves only what they can read. */}
         {message.summary?.trim() ? <Text style={[TURN_TYPE.sm, { color: palette.mutedForeground }]}>{message.summary.trim()}</Text> : null}

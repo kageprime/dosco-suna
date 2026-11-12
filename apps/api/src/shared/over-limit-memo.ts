@@ -21,7 +21,7 @@
  */
 import { BoundedMap } from './bounded-map';
 
-export type OverLimitProducer = 'config-archive' | 'project-snapshot' | 'fast-boot-bundle';
+export type OverLimitProducer = 'config-archive' | 'project-snapshot';
 
 export const OVER_LIMIT_MEMO_TTL_MS = 6 * 60 * 60 * 1000;
 const MAX_OVER_LIMIT_ENTRIES = 5_000;

@@ -1,10 +1,13 @@
 import type { ProjectSession, ProjectSessionInitiatorType } from '@kortix/sdk';
+import { classifySessionStarter } from '@kortix/shared/session/session-starter';
 
 /**
- * Who started the RUN a session belongs to, read from the server-derived
- * `initiator` (never from `created_by`: a child keeps its creator's ownership
- * but shows its run's starter). A row the backfill could not classify has no
- * initiator and reads as a member: the session's creator.
+ * Who started the RUN a session belongs to. The classification lives once in
+ * `@kortix/shared/session/session-starter` (the server-derived `initiator`:
+ * member/trigger/channel/api/system, "You" only when the starter is the
+ * viewer); this host derives the row's wording from it — `labels.you`, the
+ * member's name with the owner fallbacks, `labels.unknown` when nothing names
+ * the starter.
  */
 export interface SessionStarter {
   type: ProjectSessionInitiatorType;
@@ -23,20 +26,12 @@ export function sessionStarter(
   viewerId: string | null,
   labels: { you: string; unknown: string },
 ): SessionStarter {
-  const initiator = session.initiator;
-  if (!initiator || initiator.type === 'member') {
-    const id = initiator?.id ?? session.created_by ?? null;
-    // No initiator: fall back to the viewer-relative `is_owner`. With an
-    // initiator, compare its id to the viewer when we know who they are.
-    const isViewer =
-      initiator?.id && viewerId ? initiator.id === viewerId : session.is_owner !== false;
-    const name = initiator?.label || session.owner_name || session.owner_email || null;
-    return { type: 'member', id, isViewer, label: isViewer ? labels.you : (name ?? labels.unknown) };
+  const core = classifySessionStarter(session, viewerId);
+  if (core.type === 'member') {
+    return {
+      ...core,
+      label: core.isViewer ? labels.you : core.label ?? session.owner_name ?? session.owner_email ?? labels.unknown,
+    };
   }
-  return {
-    type: initiator.type,
-    id: initiator.id,
-    isViewer: false,
-    label: initiator.label || initiator.id || labels.unknown,
-  };
+  return { ...core, label: core.label || core.id || labels.unknown };
 }

@@ -50,7 +50,6 @@ describe('harness ownership boundary', () => {
       control: {
         bind: () => ({
           applyEnvironment: unexpected, refresh: unexpected, abort: unexpected,
-          armAbortAfterTool: unexpected, disarmAbortAfterTool: unexpected,
         }),
       },
       diagnostics: {
@@ -90,14 +89,14 @@ describe('harness ownership boundary', () => {
 
     // The transport controller preserves features that are not common methods.
     // The host auth gate above rejects unauthenticated requests before this call.
-    const transport = createRuntimeProxyRouter({ cfg, bootState: { repoMaterializationError: null, timeline: [] } }, service.proxy)
+    const transport = createRuntimeProxyRouter({ cfg, bootState: { timeline: [] } }, service.proxy)
     const native = await transport.request('/exclusive-feature', { method: 'POST', body: 'native input' })
     expect(native.status).toBe(201)
     expect(await native.json()).toEqual({ nativeFeature: '/exclusive-feature', input: 'native input' })
 
     // A runtime that cannot take a request answers one machine code beside the adapter's own details.
     const booting = createRuntimeProxyRouter(
-      { cfg, bootState: { repoMaterializationError: null, timeline: [] } },
+      { cfg, bootState: { timeline: [] } },
       { ...service.proxy, readiness: async () => ({ ready: false, phase: 'boot', details: { error: 'adapter wording' } }) },
     )
     const refused = await booting.request('/exclusive-feature')

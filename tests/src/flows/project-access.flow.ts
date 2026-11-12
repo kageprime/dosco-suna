@@ -1117,7 +1117,7 @@ flow(
         );
       r.status(400);
     });
-    await ctx.step('NONMEMBER cannot invite → 404 workspace_not_found (not a member of the workspace)', async () => {
+    await ctx.step('NONMEMBER cannot invite → 403 workspace_access_denied (not a member of the workspace)', async () => {
       const r = await ctx.client
         .as(ctx.P.NONMEMBER)
         .post(
@@ -1125,7 +1125,7 @@ flow(
           { email: 'stranger@example.com', role: 'user' },
           { params: { projectId: p.id } },
         );
-      r.status(404).body().has('$.code', 'workspace_not_found');
+      r.status(403).body().has('$.code', 'workspace_access_denied');
     });
   },
 );

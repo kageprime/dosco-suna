@@ -216,8 +216,8 @@ marketplaceApp.openapi(
       ...errors(404),
     },
   }),
-  async (c: Context<AppEnv>) => {
-    const detail = await getCatalogItemDetail(c.req.param('id') ?? '');
+  async (c) => {
+    const detail = await getCatalogItemDetail(c.req.valid('param').id);
     if (!detail) return c.json({ error: 'Not found' }, 404);
     return c.json(detail);
   },
@@ -238,8 +238,8 @@ marketplaceApp.openapi(
       ...errors(404),
     },
   }),
-  async (c: Context<AppEnv>) => {
-    const file = await getCatalogItemFile(c.req.param('id') ?? '', c.req.query('path') ?? '');
+  async (c) => {
+    const file = await getCatalogItemFile(c.req.valid('param').id, c.req.valid('query').path);
     if (!file) return c.json({ error: 'Not found' }, 404);
     return c.json(file);
   },
@@ -348,8 +348,8 @@ marketplaceApp.openapi(
       ...errors(401, 404),
     },
   }),
-  async (c: Context<AppEnv>) => {
-    const removed = await removeSource(c.req.param('id') ?? '');
+  async (c) => {
+    const removed = await removeSource(c.req.valid('param').id);
     if (!removed) return c.json({ error: 'Not found' }, 404);
     _resetExternalCache();
     warmMarketplaceCatalog();

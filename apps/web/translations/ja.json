@@ -67,7 +67,7 @@
     "oauthWaiting": "認証を待機中…",
     "oauthFinishing": "サインインしました。アカウントを保存しています…",
     "oauthExpired": "認証がタイムアウトしました。もう一度お試しください。",
-    "oauthPrivateDescription": "このワークスペースで ChatGPT Plus または Pro プランを使用します。新しいアカウントは共有するまで自分専用です。",
+    "oauthPrivateDescription": "このワークスペースで ChatGPT Plus または Pro プランを使用します。新しいアカウントはワークスペースのすべてのメンバーと共有されます。自分専用にすることもできます。",
     "chatGptSubscription": "ChatGPT サブスクリプション",
     "manageChatGptAccounts": "ChatGPT アカウントを管理",
     "connect": "接続",
@@ -95,7 +95,7 @@
     "deleteError": "シークレットを削除できませんでした",
     "accessError": "アクセス権を変更できませんでした",
     "sharedTitle": "プロバイダー接続",
-    "sharedDescription": "API キー、ChatGPT アカウント、Claude アカウントを追加します。新しいものは共有するまで自分専用です。各セッションで使うものを選びます。",
+    "sharedDescription": "API キー、ChatGPT アカウント、Claude アカウントを追加します。新しいものはワークスペースのすべてのメンバーと共有されます。自分専用にすることもできます。各セッションで使うものを選びます。",
     "legacyProjectKey": "既存のワークスペースキー · このセッションでキーを選択していない場合に使用",
     "keyCount": "{count, plural, other {# 個のキー}}",
     "providerKeysFor": "{provider} の API キー",
@@ -106,16 +106,14 @@
     "access": "アクセス",
     "actions": "アクション",
     "coolingDown": "クールダウン中",
-    "usageFiveHour": "5時間",
-    "usageWeekly": "週間",
-    "usageWeeklyModel": "週間 · {model}",
-    "usagePercent": "{percent}% 使用",
-    "usagePercentResets": "{percent}% · {time} にリセット",
-    "usageLimitReached": "上限に達しました",
-    "usageLimitResets": "上限に達しました · {time} にリセット",
-    "usageNotSeen": "最初のリクエスト後に使用量が表示されます",
-    "usageObserved": "{time} に更新",
-    "usageAriaLabel": "{window}: {percent}% 使用",
+    "keyVerified": "確認済み: {provider} がこのキーを受け付けました",
+    "keyInvalid": "{provider} がこのキーを拒否しました: {message}",
+    "keyUnchecked": "未確認: {message}",
+    "checkKey": "再確認",
+    "savedVerified": "キーを保存して確認しました",
+    "savedInvalid": "キーを保存しましたが、{provider} が拒否しました: {message}",
+    "checkError": "キーを確認できませんでした",
+    "openProviderInModels": "モデルで {provider} を開く",
     "member": "メンバー",
     "members": "人のメンバー",
     "actionsFor": "{label} の操作",
@@ -155,6 +153,9 @@
     "providerKeys": "プロバイダーキー",
     "chooseSharedKeys": "このセッションで使用できる共有キーを選択します。",
     "sessionKeyPool": "セッションのキープール",
+    "subscriptionSwitcher": "サブスクリプション",
+    "subscriptionSwitcherDefault": "接続済みのすべてのサブスクリプションを順番に使います",
+    "subscriptionSwitcherUse": "このセッションで {label} を使う",
     "sharedSessionKeys": "このセッションはワークスペースと共有されているため、ここではワークスペース全体で共有されているキーのみ使用できます。自分に付与されたキーは、自分の非公開セッションで使用できます。",
     "promptedSessionKeys": "別のメンバーがこのセッションでプロンプトを送信したため、所有者の代理として動作しなくなりました。ここではワークスペース全体で共有されたキーのみが使えます。",
     "noPersonSessionKeys": "このセッションは特定のユーザーの代理として動作していません。個人キーの導入前に、または無人で開始されました。ここではワークスペース全体で共有されたキーのみが使えます。自分のキーを使うには新しいセッションを開始してください。",
@@ -176,7 +177,7 @@
     "claudeAccounts": "Claude アカウント",
     "noClaudeAccounts": "Claude アカウントはまだありません",
     "connectClaude": "Claude でサインイン",
-    "claudeOauthPrivateDescription": "このワークスペースの Claude モデルで Claude Pro または Max プランを使います。新しいアカウントは共有するまで自分専用です。",
+    "claudeOauthPrivateDescription": "このワークスペースの Claude モデルで Claude Pro または Max プランを使います。新しいアカウントはワークスペースのすべてのメンバーと共有されます。自分専用にすることもできます。",
     "claudeOauthCreationDescription": "Claude Pro または Max のアカウントでサインインします。Kortix はログインを暗号化して保存し、表示しません。",
     "claudeDefaultAccountLabel": "Claude · {name}",
     "claudeAccountConnected": "Claude アカウントを接続しました",
@@ -184,7 +185,10 @@
     "claudeConnectFailed": "Claude のサインインが完了しませんでした。もう一度お試しください。",
     "claudeReconnectDescription": "もう一度 Claude でサインインします。アカウントの名前、アクセス、セッションの選択はそのまま残ります。",
     "claudeAccountLabelPlaceholder": "例: 自分の Claude アカウント",
-    "claudeDeleteAccountConfirmTitle": "この Claude アカウントを全員分削除しますか?"
+    "claudeDeleteAccountConfirmTitle": "この Claude アカウントを全員分削除しますか?",
+    "sharedOnlyYouDescription": "API キー、ChatGPT アカウント、Claude アカウントを追加します。追加したものはあなただけが使えます。ワークスペースの管理者は共有できます。各セッションで使うものを選びます。",
+    "oauthOnlyYouDescription": "このワークスペースで ChatGPT Plus または Pro プランを使います。追加したアカウントはあなただけが使えます。",
+    "claudeOauthOnlyYouDescription": "このワークスペースの Claude モデルで Claude Pro または Max プランを使います。追加したアカウントはあなただけが使えます。"
   },
   "secrets": {
     "undecryptable": {
@@ -801,14 +805,8 @@
         "noResults": "テーマが見つかりません"
       },
       "densities": {
-        "normal": {
-          "label": "標準",
-          "description": "Kortix の作業中に手順と思考をリアルタイムで表示します。"
-        },
-        "minimal": {
-          "label": "最小",
-          "description": "展開するまで 1 行のステータスだけを表示します。"
-        }
+        "normal": "標準",
+        "minimal": "最小"
       },
       "wallpapers": {
         "dither": "ディザー",
@@ -1315,7 +1313,7 @@
         },
         "voice_call": {
           "name": "音声通話",
-          "description": "エージェントのページ（カスタマイズ → エージェント）から電話して話せます。通話はそのエージェントの独立したセッションで、あなたの声を聞き、音声で答え、共有した画面を見ます。会話はそのセッションのチャットになります。"
+          "description": "空のメッセージ欄（送信ボタンが通話ボタンに変わります）またはエージェントのページ（カスタマイズ → エージェント）から電話して話せます。セッション内ではそのセッションのエージェントに、ワークスペースのホームからは新しいセッションでつながります。エージェントはあなたの声を聞き、音声で答え、共有した画面を見ます。会話はそのセッションのチャットになります。"
         },
         "shared_drives": {
           "name": "共有ドライブ",
@@ -1393,7 +1391,15 @@
       "history": "履歴",
       "historyDescription": "各セッションの費用と、追加または使用されたすべてのクレジット。",
       "openLedger": "台帳を開く",
-      "unit": "{count, plural, other {クレジット}}"
+      "unit": "{count, plural, other {クレジット}}",
+      "dailySpend": "日別の利用額",
+      "heatLess": "少",
+      "heatMore": "多",
+      "busiestDay": "{name}: {day} に {amount}（最も多い日）",
+      "noSpendInRange": "{name}: この期間の利用はありません",
+      "idleWorkspaces": "この期間に利用のないワークスペース {count, plural, other {# 件}}",
+      "showIdle": "表示",
+      "hideIdle": "非表示"
     },
     "tokens": {
       "keyRevoked": "API キーを取り消しました",
@@ -2047,7 +2053,13 @@
       "title": "利用できるモデルがありません",
       "description": "自分のプロバイダーに接続すると、このセッションを利用できます。",
       "upgradeDescription": "アップグレードするか、自分のプロバイダーに接続すると、このセッションを利用できます。"
-    }
+    },
+    "favorites": "お気に入り",
+    "favoritesEmpty": "モデルにスターを付けるとここに表示されます。",
+    "addFavorite": "{model} をお気に入りに追加",
+    "removeFavorite": "{model} をお気に入りから削除",
+    "groups": "モデルグループ",
+    "thinking": "思考"
   },
   "sessionScope": {
     "resetDefault": "デフォルトに戻す",
@@ -2075,11 +2087,19 @@
   "sessionUi": {
     "modelGate": {
       "upgrade": "アップグレード",
-      "barTitle": "モデル未接続",
-      "barDescription": "接続してチャットを開始",
+      "offerTitle": "ChatGPT または Claude のプランを使う",
+      "connectChatGpt": "ChatGPT を接続",
+      "connectClaude": "Claude を接続",
+      "hidePlan": "{name} を表示しない",
+      "chatGptPlan": "Plus または Pro プラン",
+      "claudePlan": "Pro または Max プラン",
       "connectModel": "モデルを接続",
       "imagesUnsupported": "{model} は画像を読み取れません",
-      "imagesUnsupportedHint": "画像を削除するか、別のモデルを選択してください"
+      "imagesUnsupportedHint": "画像を削除するか、別のモデルを選択してください",
+      "noModelUpgradeReason": "モデルがありません: Credits プランにアップグレードするか、自分のプロバイダーキーを追加してください。",
+      "noModelKeyReason": "モデルがありません: 自分のプロバイダーキーを追加してください。",
+      "noModelUpgradePlan": "プランをアップグレード",
+      "noModelAddProviderKey": "プロバイダーキーを追加"
     },
     "providerRecovery": {
       "savedPrompt": "保存済みプロンプト",
@@ -2324,7 +2344,7 @@
     "hintNewLine": "Shift+Enter を押して改行",
     "hintSettings": "{modifier}, を押して設定を開く",
     "hintCompact": "長くなったセッションの圧縮を依頼",
-    "queueList": "Queue List",
+    "queueList": "待機中のメッセージ",
     "quoteCount": "{count, plural, other {#件の引用}}",
     "expandQuotes": "引用を展開",
     "collapseQuotes": "引用を折りたたむ",
@@ -2332,7 +2352,7 @@
     "stoppedBy": "{name}が停止",
     "queued": "待機中",
     "queuedFiles": "{count, plural, other {#個のファイル}}",
-    "queuedCount": "{count} 件キュー中",
+    "queuedCount": "{count} 件待機中",
     "editingQueued": "編集中",
     "queuedActions": "メッセージの操作",
     "steerNextStep": "次のステップで読み取り",
@@ -2341,11 +2361,11 @@
     "steerFallbackUnsupported": "このターンの終了を待ちます。このセッションはターン中にメッセージを受け取れません。",
     "steerFallbackNotPrompter": "このターンの終了を待ちます。別のメンバーが開始したターンです。",
     "steerFallbackTurnEnded": "独立したターンとして実行します。先にターンが終了しました。",
-    "stopAndSend": "停止して送信",
-    "stopAndSendFailed": "停止して送信できませんでした",
+    "stopAndSend": "今すぐ送信",
+    "stopAndSendFailed": "今すぐ送信できませんでした",
     "submitEdit": "送信",
-    "collapseQueue": "キューを折りたたむ",
-    "expandQueue": "キューを展開",
+    "collapseQueue": "待機中のメッセージを折りたたむ",
+    "expandQueue": "待機中のメッセージを展開",
     "myKortixRoutes": "各タスクを適したエージェントへ",
     "chatInputReset": "Reset"
   },
@@ -2495,7 +2515,23 @@
         "askOwnerBody": "請求を管理できるのはワークスペースのオーナーと管理者だけです。どちらかにワークスペースのクレジットのティアを選んでもらってください。",
         "planTitle": "プランとクレジット",
         "planDescription": "月額プランを変更するか、今月分のクレジットを追加します。",
-        "topupSecondary": "今月はもっと必要ですか？クレジットを追加"
+        "paymentFailedHint": "カードを更新すると、Stripe が請求を再試行します。",
+        "updatePaymentMethod": "支払い方法を更新",
+        "topUpInstead": "代わりにクレジットを追加",
+        "memberBody": "クレジットを追加できるのはオーナーと管理者のみです。ここから依頼するか、このワークスペースの請求リンクをいずれかに送ってください。",
+        "memberCopyLink": "請求リンクをコピー",
+        "memberLinkCopied": "リンクをコピーしました",
+        "memberLinkCopyFailed": "リンクをコピーできませんでした",
+        "roleOwner": "オーナー",
+        "roleAdmin": "管理者",
+        "newBalance": "新しい残高",
+        "continue": "続ける",
+        "balanceRetry": "再試行",
+        "addLine": "クレジットを追加して、エージェントの実行を続けましょう。",
+        "raiseLine": "プランを上げて、エージェントの実行を続けましょう。",
+        "subscribeLine": "サブスクライブして、エージェントの実行を続けましょう。",
+        "switchToMonthly": "月額クレジットをご希望ですか？プランを変更",
+        "autoTopupRetired": "このプランでは自動チャージは適用されなくなりました。"
       },
       "admin": {
         "plan": "プラン",
@@ -2518,7 +2554,9 @@
           "growing": "成長中のチーム",
           "scale": "スケール",
           "large": "大規模組織"
-        }
+        },
+        "once": "1回",
+        "onceLabel": "1回分のクレジット額"
       }
     },
     "popular": "人気",
@@ -2686,8 +2724,8 @@
           "note": "実際のサンドボックスクレジットで始めましょう。",
           "f1": "最初のワークスペースで月 500 クレジット",
           "f2": "カード不要",
-          "f3": "任意のプレミアムモデルに自分の API キーを利用可能",
-          "f4": "ChatGPT のサブスクリプションを接続"
+          "f3": "モデルは自分の API キーか ChatGPT のサブスクリプションで利用できます",
+          "f4": "Kortix のマネージドモデルには Credits が必要です"
         },
         "credits": {
           "name": "クレジット",
@@ -2980,6 +3018,8 @@
         "title": "メールを確認してください",
         "description": "<address>{email}</address> にリンクを送信しました。リンクを開いて続行してください。",
         "confirmDescription": "<address>{email}</address> に確認メールを送信しました。メールを確認して続行してください。",
+        "unknownDescription": "<address>{email}</address> にメールを送信しました — サインイン用リンク、または新規アカウント用の確認リンクです。",
+        "closedDescription": "<address>{email}</address> のアカウントがある場合、サインイン用リンクを送信しました。",
         "notReceived": "リンクが届きませんか？",
         "confirmNotReceived": "確認メールが届きませんか？",
         "resendIn": "{seconds}秒後に再送信",
@@ -3383,6 +3423,9 @@
     },
     "inbox": {
       "title": "受信トレイ",
+      "viewReview": "Review",
+      "viewNotifications": "通知",
+      "viewLabel": "受信トレイの表示",
       "description": "あなたに関係するセッション、トリガー、アーティファクトの最新情報を、すべてのワークスペースから表示します。",
       "unreadLabel": "受信トレイ：未読 {count} 件",
       "unreadCount": "未読 {count} 件",
@@ -10353,6 +10396,8 @@
       "checkConnection": "接続を確認してから、再試行してください。"
     },
     "i18nComplete": {
+      "noModelAddProviderKey": "プロバイダーキーを追加",
+      "noModelUpgradePlan": "プランをアップグレード",
       "authEmailRateLimit": "メールを送信できませんでした。約1時間後にもう一度お試しください。",
       "authRequestRateLimit": "リクエストが多すぎます。数分後にもう一度お試しください。",
       "text03217276a5f1": "残高 {value0} クレジット",
@@ -10380,7 +10425,7 @@
       "text004bad6bfbd7": "リトライのバックオフを修正しました",
       "text0050aeb4cf77": "グループクレームを追加",
       "text0059798b7f70": "（任意）",
-      "text005b4c1dad87": "ワークスペース、アカウント、所有者の検索",
+      "text005b4c1dad87": "ワークスペース、アカウント、所有者、ID を検索",
       "text005c9bcbce1e": "トリガーを作成中…",
       "text005dc222581c": "コードベースも読みます",
       "text005ff7fe0036": "このリリースへのリンクをコピー",
@@ -10936,7 +10981,6 @@
       "text11b405209283": "すべてのエージェントを起動、スケジュール、監視、停止する場所。ライブストリーム、完全な履歴、支出、人の介在なしに作業を開始するトリガーを備えています。",
       "text11bd22785d4b": "SAML SSOとSCIMはEnterprise機能です",
       "text11c1a5b0fa54": "エージェントは自分のプロンプトを改善したり、skillを追加したり、権限ルールを厳格化したりできます。いずれも、人間がマージする変更リクエスト内のブランチへのcommitです。自己改善も、人間がマージします。エージェントが自分でマージすることはありません。",
-      "text11c520bc9f1f": "スーパー管理者",
       "text11d1b3d47709": "発掘済み",
       "text11d5959da5d3": "メッセージID",
       "text11e9a34decaa": "エージェントは何でもインストール、実行、壊すことができます。生き残るのはコミットだけです",
@@ -11815,7 +11859,6 @@
       "text2bd873d6c734": "パンくずリスト",
       "text2bdb956493fd": "webhook ハンドラーを読み取りました",
       "text2bde665563d3": "誰も引き取らなかったチケットを任せる。",
-      "text2be1f843485e": "{value0} {value1} は、MFA を登録するまでロックアウトされます。",
       "text2bf4ee86ea70": "シングルサインオンをテスト",
       "text2bf623481fd8": "望むデフォルトを設定",
       "text2bf70270bfde": "オープンソースの CompanyOS。エージェント、スキル、メモリ、コネクタを、所有するひとつのリポジトリに集約。任意のモデルに対応。セルフホストでもクラウドでも。",
@@ -12566,6 +12609,7 @@
       "text41ffc5e14073": "{value0} に設定します",
       "text420962cdca94": "同じワークスペース、同じコネクタ、同じメモリ。その下で8つの異なる仕事が動きます。各チームが自分の仕事に必要なスキルを書き、別のシステムを立ち上げる必要はありません。",
       "text420aaa63cba7": "ページ合計",
+      "textbe57ff2d7907": "セッションに紐付いていない",
       "text42113e7bf6fc": "Kortixサポート",
       "text42117ed2a1f5": "従来の方法",
       "text421c4b1fed48": "プロダクト／コントロールプレーン",
@@ -13564,7 +13608,7 @@
       "text5ebe32e1b916": "コネクタの認証情報がサンドボックスに入ることはありません",
       "text5ec6ae29f4b6": "追加でインストール：",
       "text5ec9729027c3": "ユーザーの声を、出荷できる形に変えます。",
-      "text5ecbbab0d8d8": "ウォレットが空のため、セッションを開始できません。計算リソースと最新のAIモデルを使い続けるにはチャージしてください — {value0}には影響ありません。",
+      "text5ecbbab0d8d8": "ウォレットが空のため、セッションを開始できません。計算リソースと最新のAIモデルを使い続けるにはクレジットを追加してください — {value0}には影響ありません。",
       "text5ecf97e61ad9": "このコードをコピーし、認証ページを開いて入力するとChatGPTに接続できます。",
       "text5ed9bd98de1b": "ワークスペースの既定値を更新できませんでした",
       "text5eeb1e6ce9d5": "⌘P",
@@ -17434,7 +17478,7 @@
       "textcdd7efcb7e2c": "ポリシーを解決済み",
       "textcdef3f586a58": "text-kortix-yellow",
       "textce08e2abb642": "役割別Kortixソリューション",
-      "textce0c20c05842": "前回のお支払いが完了しませんでした。「請求を管理」で支払い方法を更新するか、当面の利用を続けるためにチャージしてください。",
+      "textce0c20c05842": "前回のお支払いが完了しませんでした。プランを継続するには支払い方法を更新してください。",
       "textce0faee27592": "請求 支払い クレジットカード サブスクリプション 管理 ウォレット ティア プラン 制限 概要 支出",
       "textce18e358bf01": "別の用語を試してください。",
       "textce1e609b7bf5": "サンドボックスのポートのみ",
@@ -17983,7 +18027,6 @@
       "textdc6d1d15031b": "銀行フィード同期",
       "textdc70ef3b3338": "質問した場所に答えが届いてこそ、チャンネルを接続する価値があります。ファイルは双方向にやり取りでき、エージェントがあなたに求める判断は、別の場所へのリンクではなくスレッド内のボタンになります。",
       "textdc76dd6b1aff": "Kortix CLIにサインイン",
-      "textdc78f4d17256": "MFA未登録 — ロックアウトされませんが、登録を依頼することをおすすめします:",
       "textdc7ea87fdc45": "ファイルは双方向",
       "textdc8659db6d41": "Enter",
       "textdc8d7c5c602b": "ソース台帳",
@@ -18096,7 +18139,6 @@
       "textdf964376e432": "xoxb-...",
       "textdfa16aeaca13": "このワークスペースのリポジトリは {value0} でホストされており、Kortix からのコラボレーターの招待はサポートされていません。リポジトリが存在する場所へのアクセスを管理します。",
       "textdfa2cff42f0c": "システム面の深い経験なし",
-      "textdfad83e7eb69": "{value0} は、このワークスペースの暗黙のマネージャーです。",
       "textdfca5da56b8c": "セクション",
       "textdfd7d37e2b63": "切り替えをクリックしてください。",
       "textdfe0c2e802b1": "サーバーエラー",
@@ -20392,7 +20434,7 @@
       "text2b2c3ec032a6": "ワークスペースを移管しました",
       "text44f9fff8bdae": "クレジットプランを変更しました",
       "text3fa17bba73e1": "このワークスペースにはまだプランがありません。セッションを実行するには、月間クレジットの金額を選んでください。すべてのメンバーが 1 つのプールを共有します。",
-      "text6821e42be2c1": "ウォレットが空のため、セッションを実行できません。チャージして計算と最新の AI モデルを使い続けてください。プランには影響ありません。",
+      "text6821e42be2c1": "ウォレットが空のため、セッションを実行できません。クレジットを追加して計算と最新の AI モデルを使い続けてください。プランには影響ありません。",
       "text146aaf3c71fa": "契約済みで有料プランでも請求されているエンタープライズワークスペースについて、SSO、SCIM、RBAC、監査の権限を維持し、Stripe の突合で外されないようにします。",
       "text517105fd13ce": "クレジットはサンドボックスの計算に使われます。BYOK のトライアルでも、セッションの実行にはウォレット残高が必要です。無料のウェルカム付与は 2 ドルです。",
       "text2f1d17f50af8": "エンタープライズにより、このワークスペースで SAML SSO、SCIM ディレクトリ同期、RBAC、監査アクセスが有効になります。請求プランは変わりません。",
@@ -20773,7 +20815,7 @@
       "text2eb1d24bcc04": "エージェントがGISデータと画像から光ファイバーのルートを設計し、ルートごとに部材表を作成します。",
       "textf2d996d89263": "Kortixは、Kortix上で稼働。",
       "text34ff4020f800": "当社そのものが1つのKortixワークスペースです。エージェントがIssueを振り分けて修正し、SOC 2のエビデンスを最新に保ち、営業とサポートを担います。承認は人が行います。",
-      "textdd57f275a118": "すべての案件を、エージェントが評価。",
+      "textccf34f95f6b5": "自律型の案件分析。",
       "textacf058bd8604": "資産運用",
       "text870f1d541d5e": "自分で運用するためのすべて。",
       "text6dd6c4c5f703": "セルフホスティングの仕組み。",
@@ -21120,7 +21162,7 @@
       "texte09094c1111d": "チームのためのワークスペース。",
       "text95b74a4f4d4b": "アーキテクチャを見る",
       "textcdd1c348fade": "全員が同じエージェント、スキル、メモリ、コネクタを使って作業します。Webアプリ、Slack、Microsoft Teamsのいずれかでセッションを開始できます。",
-      "text313f92aeb061": "届いた案件はすべて、徹底的に分析されます。エージェントが運用方針に照らしてスクリーニングし、開示書類と市場データを読み、投資仮説と下振れシナリオをストレステストし、投資メモを書きます。判断するのは投資委員会です。",
+      "text4c72429d7a38": "エージェントがすべての案件を運用方針に照らしてスクリーニングし、投資論拠をストレステストして投資メモを作成します。投資委員会が判断します。",
       "textdc7f8ac95166": "自律型の候補者リサーチ。",
       "textb5947f5f79c9": "エージェントが案件ごとに候補者をリサーチし、一人ひとりのプロフィールを書きます。最終候補を選ぶのはコンサルタントです。",
       "textc81f1483737e": "Kortixのオープンソースコードから構築されたエンタープライズAIプラットフォーム。",
@@ -21281,7 +21323,35 @@
       "text4b892277843c": "ワークスペースを作成",
       "text41018e566b60": "新規 ワークスペース 作成 追加 チーム",
       "texta99ac8f9050b": "ワークスペース · アクセス",
-      "textfd8b8dae4421": "危険な操作"
+      "textfd8b8dae4421": "危険な操作",
+      "text674900a77b79": "LLM",
+      "text765a8cb04cf5": "LLM保留返金",
+      "texta68ee4167406": "プロキシ",
+      "texta69c4dece144": "ストレージ",
+      "textab3aff8f7642": "トップアップボーナス",
+      "textc75e59f5d748": "— 権限",
+      "text58423a0108ea": "… 権限",
+      "textcd6f79740e17": "{count, plural, other {# 権限}}",
+      "textd1e588d764a4": "使用中：—",
+      "text66cbb5dfa6cf": "使用中：…",
+      "text56c316b0bde4": "使用中：{value0}",
+      "textb7e3e4aa4257": "無効化",
+      "texte80e342954ec": "最終配信 {value0}",
+      "textf1a1b16401b1": "{count, plural, other {# 名のメンバーが MFA を設定するまでロックされます：}}",
+      "text18cde09c22d3": "{count, plural, other {# 名のスーパー管理者が MFA 未設定 — ロックはされませんが、設定を促してください：}}",
+      "textcf42cb2f1ca3": "Owner はこのワークスペースで暗黙的に Manager です。",
+      "textd7e2d4bc4c80": "Admin はこのワークスペースで暗黙的に Manager です。",
+      "textb9215e029e76": "Agents：すべて",
+      "textd6acddc499aa": "Agents：なし",
+      "text1edf7747d0b8": "Agents：{value0}/{value1}",
+      "textd526776b77df": "Agents：{value0}",
+      "text002a4fd5f747": "分数は整数で入力するか、空欄にしてください。",
+      "text9b8d62603858": "{value0} 分（7 日）が Kortix の上限です。",
+      "text4510d8593ccc": "{value0}: 日数は整数で入力するか、空欄にしてください。",
+      "textb1f8e3109f1b": "{value0}: {value1} 日が Kortix の上限です。",
+      "textac20a57bfde0": "隠す",
+      "text268733ac2f60": "そのアプリを更新できませんでした",
+      "text5d8926d4a4dd": "そのアプリを登録できませんでした"
     },
     "publicShareConfirm": {
       "title": "公開リンクを作成しますか？",
@@ -21402,7 +21472,8 @@
         "question": "質問",
         "permission": "権限",
         "approval": "コネクタ承認"
-      }
+      },
+      "allowed": "許可しました"
     },
     "reviewBulk": {
       "approve": "承認",
@@ -21473,7 +21544,28 @@
       "senderUnavailable": "送信アカウントを読み込めませんでした。差出人の行を確認してください。",
       "quoted": "「{text}」"
     },
-    "promptHistory": "履歴 {index}/{total}"
+    "promptHistory": "履歴 {index}/{total}",
+    "colleagueAccess": {
+      "headline": "My Kortix が同僚へのアクセスを求めています",
+      "task": "タスク",
+      "connector": "コネクター",
+      "secret": "シークレット",
+      "onlyThis": "同僚が受け取るのはこれだけで、このタスク限りです。",
+      "deny": "拒否",
+      "allow": "許可",
+      "allowed": "アクセスを許可しました",
+      "allowedDescription": "My Kortix が同僚を開始します。",
+      "denied": "アクセスを拒否しました",
+      "deniedDescription": "My Kortix にあなたの回答が届きます。",
+      "failed": "決定を送信できませんでした。もう一度お試しください。"
+    },
+    "autoComponentsPwaPwaClientJsxTextAddKortixToYourHomeScreen83b6a02f": "Kortixをホーム画面に追加して、全画面のアプリらしい操作性をお試しください。",
+    "autoComponentsPwaPwaClientJsxTextOnIphoneAndIpadTapShareThenAddToHomb51e7c3a": "iPhone・iPadの場合：共有をタップし、「ホーム画面に追加」を選択してください。",
+    "autoComponentsPwaPwaClientJsxTextKortixWasUpdatedRefreshToGetTheNewVeae4f0718": "Kortixが更新されました。再読み込みして新しいバージョンを入手してください。",
+    "reviewPane": {
+      "emptyTitle": "項目を選択してください",
+      "emptyDescription": "詳細はここに表示されます。J と K でリストを移動できます。"
+    }
   },
   "commandPalette": {
     "title": "コマンドパレット",
@@ -21495,11 +21587,6 @@
   "personalWelcome": {
     "dismiss": "閉じる",
     "emailCopied": "メールアドレスをコピーしました"
-  },
-  "repositoryAccess": {
-    "label": "ワークスペースリポジトリへのアクセス",
-    "enabled": "新しいセッションにワークスペースリポジトリを提供します。Git の権限は引き続き適用されます。既存のセッションのアクセス設定は変わりません。",
-    "disabled": "新しいセッションはワークスペースリポジトリなしで実行されます。ファイルの作成と許可されたツールの使用は可能です。既存のセッションのアクセス設定は変わりません。"
   },
   "customProvider": {
     "intro": "カタログにないエンドポイント。",
@@ -21991,6 +22078,9 @@
     "addMcpUrlNamed": "コネクタ {name} を追加します。",
     "addMcpUrlInvalid": "https:// で始まる URL を入力してください",
     "addMcpConnect": "接続",
+    "addMcpStageConnector": "サーバーに接続してツールを読み込んでいます…",
+    "addMcpStageAccount": "アカウントを準備しています…",
+    "addMcpStageSignIn": "サインインを開始しています…",
     "addMcpConnected": "{name} に接続しました。エージェントはそのツールを使用できます。",
     "addMcpSignInFailed": "{name} のサインインを開始できませんでした: {reason}",
     "addMcpFailed": "MCP サーバーを追加できませんでした",
@@ -22005,6 +22095,12 @@
     "noticeSignInTitle": "{name} にサインイン",
     "noticeSignInBody": "Kortix は {name} を追加しました。エージェントがツールを使えるよう、サインインを完了してください。",
     "noticeSignInAction": "サインイン",
+    "noticeSignInAgainTitle": "{name} に再度サインイン",
+    "noticeSignInAgainBody": "サインインの有効期限が切れたか、取り消されました。再度サインインするまで、エージェントは {name} を使用できません。",
+    "noticeNoToolsTitle": "{name} にツールがありません",
+    "noticeNoToolsBody": "ルートがないため、エージェントが呼び出せるものはありません。設定でルート仕様にルートを追加してください。",
+    "noticeAddRoutesAction": "ルートを追加",
+    "statusNoTools": "ツールなし",
     "connectAccount": "接続",
     "notSignedIn": "未サインイン",
     "credentialRejected": "認証情報が拒否されました: 置き換えてください",
@@ -22968,7 +23064,11 @@
     "folderTree": "フォルダー",
     "treeYou": "{name}（あなた）",
     "treeExpand": "{name} を開く",
-    "treeCollapse": "{name} を閉じる"
+    "treeCollapse": "{name} を閉じる",
+    "emptyWorkspaces": "ファイルのないワークスペース {count, plural, other {# 件}}",
+    "storageMoreWorkspaces": "他 {count, plural, other {# 件のワークスペース}}",
+    "storageWorkspaceLimit": "各ワークスペースの上限は {limit} です",
+    "storageShowFewer": "表示を減らす"
   },
   "genui": {
     "showData": "データを表示",
@@ -23261,6 +23361,16 @@
         "booted": "起動",
         "timezone": "タイムゾーン",
         "locale": "ロケール",
+        "usage": "Kortix Capture のリソース使用量",
+        "usageCpu": "CPU",
+        "usageCpuValue": "平均 {avg} · ピーク {peak}",
+        "usageCpuHint": "1 コアあたり、直近 {minutes, plural, other {# 分}}",
+        "usageMemory": "メモリ",
+        "usageMemoryPeak": "{now} · ピーク {peak}",
+        "usageProcesses": "プロセス",
+        "usageProcessCount": "{count, plural, other {# 個のプロセス}}",
+        "usageProcessValue": "CPU {cpu} · {memory}",
+        "usageNotReported": "未報告: 古いアプリのバージョンか、アプリの起動から 1 分未満です",
         "recordingSync": "記録と同期",
         "status": "状態",
         "lastFrame": "最後のフレーム",
@@ -23377,12 +23487,16 @@
       "privacyControlsHint": "個人データのマスキングを表示します。オフにすると非表示になりますが、設定内容は引き続き適用されます。",
       "maskingTitle": "マスキング",
       "framesTitle": "画面フレーム",
-      "interval": "フレーム間隔",
-      "intervalHint": "間隔を短くすると詳細が増え、CPUとストレージの使用量も増えます。",
-      "intervalOption": "{seconds, number} 秒",
       "resolution": "解像度",
       "resolutionHint": "大きな画面はこの高さに縮小されます。4KはCAD図面などの細部を保ちます。",
-      "framesHint": "未設定の場合、各コンピューターが独自の設定を使います（1440p で 2 秒ごとに 1 枚）。設定すると、すべてのコンピューターがその値を使い、ユーザーは変更できません。クリック、入力、スクロールは間隔に関係なく専用のスクリーンショット付きで記録されます。",
+      "textRecognition": "テキスト認識",
+      "textRecognitionHint": "画面上のテキストを読み取り、検索できるようにします。オフにすると CPU 使用量が最も少なくなり、検索ではアプリ、ウィンドウタイトル、URL が見つかります。",
+      "textRecognitionOption": {
+        "accurate": "高精度",
+        "fast": "高速",
+        "off": "オフ"
+      },
+      "framesHint": "Kortix Capture はフレームレートを自動で決めます。作業中は最大で毎秒 2 枚、それ以外は 2 秒ごとに 1 枚で、負荷の高いコンピューターではさらに減らします。未設定の場合、各コンピューターは 1440p と高精度のテキスト認識を使います。設定すると、すべてのコンピューターがその値を使い、ユーザーは変更できません。クリック、入力、スクロールは専用のスクリーンショット付きで記録されます。",
       "computerDecides": "各コンピューターに任せる",
       "included": {
         "title": "アプリとウェブサイト",
@@ -23625,7 +23739,13 @@
   },
   "triggerAutoPause": {
     "title": "自動で一時停止しました",
-    "description": "以下の理由で実行の開始を停止しました。原因を解消してから再開してください。"
+    "description": "以下の理由で実行の開始を停止しました。原因を解消してから再開してください。",
+    "billingTitle": "一時停止中: クレジット不足",
+    "billingDescription": "実行の料金を支払えないため、実行の開始を停止しました。残高をチャージすると数分以内に自動で再開します。",
+    "modelTitle": "一時停止中: 使えるモデルがありません",
+    "modelDescription": "自動化はワークスペース全体で共有されたモデルキーとアカウントだけを使いますが、使えるものがありません。モデルで追加すると数分以内に自動で再開します。",
+    "listBilling": "クレジット不足",
+    "listModel": "モデルなし"
   },
   "featureGate": {
     "enable": "{name}を有効にする",
@@ -24772,8 +24892,6 @@
       "models": "モデル",
       "tabCapabilities": "機能",
       "summaryExcept": "{all} except {list}",
-      "pinToSidebar": "サイドバーに固定",
-      "unpinFromSidebar": "サイドバーから固定解除",
       "spaceHelp": "このエージェントが作業するスペース。engineeringやsalesなどの識別子を指定します。空欄の場合はワークスペース全体です。",
       "spacePlaceholder": "例: engineering"
     },
@@ -25216,6 +25334,7 @@
     "replacedBy": "{path} に置き換えられています。",
     "projectTool": "モジュール {path}",
     "loadError": "このエージェントのツール、スキル、拡張機能を読み込めませんでした。",
+    "skillsLoadError": "スキルを読み込めませんでした。",
     "retry": "再試行",
     "emptyProjectSkills": "ワークスペースのスキルはありません。kortix.yaml の skills に登録してください。",
     "emptyProjectExtensions": "ワークスペースの拡張機能はありません。kortix.yaml の extensions に登録してください。",
@@ -26016,6 +26135,7 @@
     "call": "通話",
     "calling": "呼び出し中…",
     "start": "音声通話を開始",
+    "inCall": "通話中です",
     "end": "通話を終了",
     "connecting": "接続中…",
     "listening": "聞いています",
@@ -26039,7 +26159,6 @@
   "agentMounts": {
     "lead": "このエージェントのセッションが「ファイル」からマウントするフォルダーです。変更は直ちに適用され、すべての新しいセッションに反映されます。",
     "mount": "Mount folder",
-    "repository": "ワークスペースのリポジトリ",
     "viaAgent": "このエージェントと共有",
     "viaProject": "このワークスペース全員と共有",
     "from": "{path} · {who}",
@@ -26053,6 +26172,7 @@
     "skipped": "Not mounted, past the {slots} mount slots: {list}",
     "emptyTitle": "No folders mounted",
     "emptyDescription": "「ファイル」からフォルダーをマウントして、このエージェントのセッションにファイルを渡します。",
+    "projectEmptyDescription": "「ファイル」からフォルダーをマウントして、新しいセッションごとにファイルを渡します。",
     "pickerTitle": "Mount a folder",
     "pickerDescription": "Pick a folder in Files. Sessions of {agent} see it under /drives.",
     "pickerPath": "Folder path",
@@ -26063,6 +26183,7 @@
     "alreadyMounted": "Mounted",
     "changeFailed": "このマウントを変更できませんでした。",
     "loadError": "このエージェントのマウントを読み込めませんでした。",
+    "projectLoadError": "マウントしたフォルダーを読み込めませんでした。",
     "retry": "Try again",
     "title": "Drives",
     "projectLead": "新しいセッションがマウントする Files のフォルダー。",
@@ -26384,48 +26505,37 @@
     "issue": "課題 #{number}"
   },
   "subscriptionUsage": {
-    "fiveHour": "5-hour limit",
-    "weekly": "Weekly limit",
+    "fiveHour": "5時間",
+    "weekly": "週間",
     "weeklyModel": "Weekly · {model}",
-    "reconnect": "Reconnect",
-    "disabledTitle": "サブスクリプションの使用状況は利用できません",
-    "disabledDescription": "このワークスペースではサブスクリプション接続が有効になっていません。",
-    "text0": "Reconnect needed",
-    "text1": "Inactive",
-    "text2": "Refresh failed",
-    "text3": "Awaiting usage",
-    "text4": "Limit reached",
-    "text5": "Last known usage",
-    "text6": "Usage reported",
-    "text7": "Subscription",
-    "text8": "used",
-    "text9": "リセット時刻を過ぎました · 更新して最新の使用状況を確認",
-    "text10": "リセット時刻が報告されていません",
-    "text11": "Checking provider usage…",
-    "text12": "使用状況はまだ報告されていません。このサブスクリプションを使用した後に更新してください。",
-    "text13": "更新できませんでした。最後に取得したデータを表示しています。",
-    "text14": "プロバイダーのデータを待っています",
-    "text15": "Checking…",
-    "text16": "Refresh",
-    "text17": "Subscription usage",
-    "text18": "接続済みのChatGPTとClaudeのサブスクリプションの上限を確認できます。",
-    "text19": "使用状況を読み込めませんでした",
-    "text20": "接続済みのサブスクリプションをもう一度読み込んでください。",
-    "text21": "Retry",
-    "text22": "No connected subscriptions",
-    "text23": "プロバイダーでChatGPTまたはClaudeを接続すると、報告された使用状況とリセット時刻を確認できます。",
-    "text24": "Connect a subscription",
-    "text25": "使用状況は、同じサブスクリプションを使うアプリ間で共有されます。このタブを開いている間は1分ごとに自動で確認します。",
-    "text26": "上限はプランによって異なります。接続から報告された期間のみ表示され、データがないことは無制限を意味しません。ファイルの上限は報告されません。APIの支出はコストに表示されます。",
-    "resets": "Resets {time}",
+    "inactive": "Inactive",
+    "limitReached": "Limit reached",
+    "checking": "Checking provider usage…",
+    "title": "Subscription usage",
     "observed": "Observed {time}",
     "meterLabel": "{label}: {percent}% used",
-    "refreshLabel": "Refresh {label} usage",
-    "fiveHourNotReported": "この接続では5時間枠が報告されていません。",
-    "fableIncluded": "Fableの使用量は、週間の総合上限にも含まれます。",
-    "chatgptUsage": "ChatGPT subscription usage",
-    "claudeUsage": "Claude subscription usage",
-    "allSubscriptions": "All subscriptions"
+    "extraUsage": "追加使用量",
+    "apps": "アプリ",
+    "codeReview": "コードレビュー",
+    "percent": "{percent}%",
+    "percentResets": "{percent}% · {time} にリセット",
+    "percentBack": "{percent}% · {time} に再開",
+    "resetPassed": "リセット済み · 更新中",
+    "notStarted": "未開始",
+    "reconnectToSee": "使用状況を見るには再接続してください",
+    "availableNow": "現在利用可能",
+    "availableCount": "{total, plural, other {# 件}}中 {available} 件",
+    "nextBack": "次の再開",
+    "rowPeak": "{window} · {percent}% 使用",
+    "rowSomeLimited": "{total} 件中 {limited} 件が上限",
+    "rowAllLimited": "上限に到達",
+    "rowAllLimitedBack": "上限に到達 · {time} に再開",
+    "noUsageYet": "まだ使用状況が報告されていません。",
+    "refreshFailed": "更新できませんでした · 最後に確認した使用状況を表示しています。",
+    "loadFailed": "使用状況を読み込めませんでした。",
+    "rowSomeLimitedBack": "{total} 件中 {limited} 件が上限 · 次の再開 {time}",
+    "weeklyAll": "週間 · 全モデル",
+    "notReported": "未報告"
   },
   "gatewayRouting": {
     "exceptions": "例外",
@@ -26545,6 +26655,7 @@
         "help": "ヘルプ",
         "plan": "プラン",
         "usage": "使用量",
+        "agents": "エージェント",
         "connectors": "コネクター",
         "skills": "スキル",
         "triggers": "トリガー",
@@ -26660,8 +26771,7 @@
     "menu": {
       "invite": "{name} にメンバーを招待",
       "leave": "{name} から退出",
-      "invitePeople": "メンバーを招待",
-      "more": "その他"
+      "invitePeople": "メンバーを招待"
     },
     "roles": {
       "owner": {
@@ -26736,5 +26846,24 @@
   "gatewayBudgets": {
     "capWorkspace": "このワークスペースのゲートウェイ支出に上限を設定します。",
     "capMember": "{who} のゲートウェイ支出に上限を設定します。"
+  },
+  "connectSignIn": {
+    "openSignIn": "{app} のサインインを開く",
+    "checkingTitle": "サインインを完了しています",
+    "checkingDescription": "Kortix が {app} のサインインを確認します。このページは自動で更新されます。",
+    "signInUnfinished": "サインイン未完了",
+    "finishSignIn": "サインインを完了",
+    "signInFinished": "サインインが完了しました",
+    "cardHeadline": "エージェントがあなたのサインインを待っています",
+    "cardTitle": "{app} を接続",
+    "cardShared": "ワークスペースで共有",
+    "cardPrivate": "自分のみ",
+    "signingIn": "開いたウィンドウで {app} へのサインインを完了してください。",
+    "connectedAs": "{account} として接続済み",
+    "connected": "接続済み",
+    "connect": "接続",
+    "cardFailed": "{app} を接続できませんでした。もう一度お試しください。",
+    "blockedTitle": "{app} を開いてサインイン",
+    "blockedDescription": "ブラウザがサインインウィンドウをブロックしました。下のボタンから開いてください。このページは自動で更新されます。"
   }
 }

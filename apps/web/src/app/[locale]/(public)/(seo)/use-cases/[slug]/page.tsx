@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 import { BlogProse } from '@/components/blog/blog-prose';
+import { PostCard } from '@/components/blog/post-card';
 import {
   Callout,
   CopyBlock,
@@ -22,7 +23,7 @@ import {
   ToolNeed,
 } from '@/components/use-cases/mdx';
 import { UseTemplateButton } from '@/components/use-cases/template-install-dialog';
-import { UseCaseCard, UseCaseCover } from '@/components/use-cases/use-case-card';
+import { UseCaseCover } from '@/components/use-cases/use-case-card';
 import { UseCaseMdxImage } from '@/components/use-cases/use-case-mdx-image';
 import { UseCaseToc, type TocItem } from '@/components/use-cases/use-case-toc';
 import { MarketingButton } from '@/features/marketing/kit/marketing-button';
@@ -269,7 +270,10 @@ export default async function UseCasePage(props: PageProps) {
             <ul className="grid grid-cols-1 gap-y-12 sm:grid-cols-2 lg:col-span-3 lg:grid-cols-3">
               {more.map((item) => (
                 <li key={item.slug} className="sm:pr-6 lg:pr-8">
-                  <UseCaseCard post={item} />
+                  <PostCard
+                    post={item}
+                    cover={<UseCaseCover post={item} className="aspect-video w-full shrink-0" />}
+                  />
                 </li>
               ))}
             </ul>

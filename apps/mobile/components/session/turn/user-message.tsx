@@ -51,7 +51,8 @@ import { PeerMessage } from './peer-message';
 import { KortixLogo } from '@/components/kortix/KortixLogo';
 import { SourcePill } from './source-pill';
 import { CopyContentButton, KortixBottomSheetModal } from '@/components/kortix/sheet';
-import { BottomSheetScrollView, type BottomSheetModal } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { SheetScrollView } from '@/components/kortix/sheet-parts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { detectCommandFromText } from '@/lib/session/detect-command';
 import { formatMegabytes } from '@kortix/sdk/react';
@@ -982,11 +983,11 @@ function FullMessageSheet({
       enableDynamicSizing={false}
       enablePanDownToClose
     >
-      <BottomSheetScrollView
+      <SheetScrollView
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: Math.max(insets.bottom, 16) + 16 }}
       >
         <SelectableMessageText text={text} isDark={isDark} textStyle={SHEET_TEXT_STYLE} />
-      </BottomSheetScrollView>
+      </SheetScrollView>
     </KortixBottomSheetModal>
   );
 }

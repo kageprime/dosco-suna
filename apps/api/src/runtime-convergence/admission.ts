@@ -2,15 +2,30 @@
  * Rule 4 — admission control (the runtime-convergence contract (PR #7785)).
  *
  * "Before a box is handed to a session, it must prove its runtime identity —
- * `config.release.v1` present, `daemon_build >= floor`, `catalog_fingerprint`
- * current. A box that fails admission is replaced, not used. The floor is a
- * constant in the API, raised deliberately, never read from the box."
+ * `config.release.v1` present, `daemon_build >= floor`. A box that fails
+ * admission is replaced, not used. The floor is a constant in the API, raised
+ * deliberately, never read from the box."
+ *
+ * The contract's third check — a current `catalog_fingerprint` — left this
+ * verdict (KRTX-4642): its box-side reporter was OpenCode-only and deleted
+ * with the OpenCode sunset (PR #11218), and pi has no model catalog to prove
+ * — its lineup is fetched live from the API at every runtime boot, so the
+ * stale-lineup box the check existed for cannot exist. Demanding a proof no
+ * box can give refused EVERY box forever (~4,000 observe-only warns a day)
+ * and deadlocked the enforce rollout. Re-add this check ONLY together with a
+ * box-side reporter hashing a canonical document both sides agree on. The
+ * desired document's `catalog_fingerprint` stays (Rule 1's diff,
+ * `GET /config`), where a box that never reports it reads as `unknown` — a
+ * diff, never a pass.
  *
  * This is the part that makes the top-of-file promise hold for every session
  * from the moment it ships, independent of every box that already exists —
- * see the incident this closes: a box whose boot-time managed-model fetch
- * failed kept the daemon's bundled lineup for 30 days, and after the platform
- * lineup rotated it had no model either side would accept.
+ * the incident that motivated the contract: a box whose boot-time
+ * managed-model fetch failed kept the daemon's bundled lineup for 30 days,
+ * and after the platform lineup rotated it had no model either side would
+ * accept. On pi the lineup is never bundled, so the remaining checks guard
+ * the same promise: a box proves the identity it CAN prove, or it is
+ * replaced.
  *
  * `evaluateAdmission` is pure and total: every input is already-parsed data
  * (this module never fetches a health endpoint itself — see
@@ -66,7 +81,7 @@ export function runtimeAdmissionEnforced(): boolean {
   return raw === 'true' || raw === '1';
 }
 
-export type RuntimeAdmissionCheck = 'config_release_capability' | 'daemon_build_floor' | 'catalog_fingerprint';
+export type RuntimeAdmissionCheck = 'config_release_capability' | 'daemon_build_floor';
 
 export type RuntimeAdmissionVerdict =
   | { admitted: true }
@@ -75,10 +90,8 @@ export type RuntimeAdmissionVerdict =
 export interface RuntimeAdmissionInput {
   /** The daemon lists `config.release.v1` in its health `capabilities`. */
   hasConfigReleaseCapability: boolean;
-  /** `daemon_build` and `catalog_fingerprint`, as the box reports them (Rule 1's actual document). */
-  actual: { daemon_build: string | number | null; catalog_fingerprint: string | null };
-  /** The platform's current fingerprint — the desired document's opinion, never the box's. */
-  desiredCatalogFingerprint: string;
+  /** `daemon_build`, as the box reports it (Rule 1's actual document). */
+  actual: { daemon_build: string | number | null };
 }
 
 function buildMeetsFloor(reported: string | number | null, floor: number): boolean {
@@ -88,11 +101,11 @@ function buildMeetsFloor(reported: string | number | null, floor: number): boole
 }
 
 /**
- * Fixed check order — capability, then build floor, then catalog — so a box
- * failing several checks at once is refused for ONE named reason rather than
- * an ambiguous bundle. Every later check is skipped once one refuses: a
- * refused box is refused, and enumerating every other thing ALSO wrong with it
- * tells the operator nothing the first cause didn't already say clearly.
+ * Fixed check order — capability, then build floor — so a box failing several
+ * checks at once is refused for ONE named reason rather than an ambiguous
+ * bundle. Every later check is skipped once one refuses: a refused box is
+ * refused, and enumerating every other thing ALSO wrong with it tells the
+ * operator nothing the first cause didn't already say clearly.
  */
 export function evaluateAdmission(
   input: RuntimeAdmissionInput,
@@ -117,16 +130,6 @@ export function evaluateAdmission(
         input.actual.daemon_build === null
           ? `the box does not report a daemon_build, so it cannot prove build >= ${floor}`
           : `daemon_build ${input.actual.daemon_build} is below the floor ${floor}`,
-    };
-  }
-  if (input.actual.catalog_fingerprint === null || input.actual.catalog_fingerprint !== input.desiredCatalogFingerprint) {
-    return {
-      admitted: false,
-      failedCheck: 'catalog_fingerprint',
-      cause:
-        input.actual.catalog_fingerprint === null
-          ? 'the box does not report a catalog_fingerprint, so it cannot prove its model lineup is current'
-          : `catalog_fingerprint ${input.actual.catalog_fingerprint} does not match the platform's current ${input.desiredCatalogFingerprint}`,
     };
   }
   return { admitted: true };

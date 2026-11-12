@@ -12,7 +12,7 @@ describe('animated-bg left arc', () => {
   for (const tone of TONES) {
     it(`renders the ${tone} tone`, () => {
       const markup = renderToStaticMarkup(
-        <ArcSvg cfg={LEFT_ARC} size={400} tone={tone} opacity={0.1} blurAmount={19} />,
+        <ArcSvg cfg={LEFT_ARC} size={400} tone={tone} opacity={0.1} />,
       );
 
       expect(markup).toMatchSnapshot();
@@ -24,7 +24,7 @@ describe('animated-bg right arc', () => {
   for (const tone of TONES) {
     it(`renders the ${tone} tone`, () => {
       const markup = renderToStaticMarkup(
-        <ArcSvg cfg={RIGHT_ARC} size={620} tone={tone} opacity={0.23} blurAmount={1} />,
+        <ArcSvg cfg={RIGHT_ARC} size={620} tone={tone} opacity={0.23} />,
       );
 
       expect(markup).toMatchSnapshot();

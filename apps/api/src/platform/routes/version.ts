@@ -190,29 +190,60 @@ function tagMetadata(tag: DockerHubTag): Pick<VersionEntry, 'version' | 'channel
     };
 }
 
-async function getAllVersions(): Promise<VersionEntry[]> {
+/**
+ * The upstream feeds a collection reads. A caller selects what it needs, so a
+ * channel-filtered `/changelog` never awaits the feed its channel does not
+ * come from: an unrelated feed outage cannot delay the response, and a
+ * dev-only request does not spend the GitHub budget.
+ */
+interface FeedSelection {
+  github: boolean;
+  dockerHub: boolean;
+}
+
+/**
+ * One walk over the selected upstream feeds, mapped and sorted once; `/all`
+ * and `/changelog` project it. A prerelease GitHub release lists in `/all` as
+ * channel dev; the changelog skips it.
+ */
+async function collectVersionEntries(
+  feeds: FeedSelection,
+): Promise<Array<VersionEntry & { prerelease: boolean }>> {
   const runningVersion = getRunningVersion();
-  const versions: VersionEntry[] = [];
+  const entries: Array<VersionEntry & { prerelease: boolean }> = [];
 
-  for (const release of await githubReleases()) {
-    const metadata = releaseMetadata(release);
-    versions.push({
-      ...metadata,
-      channel: release.prerelease ? 'dev' : 'stable',
-      body: release.body || undefined,
-      current: metadata.version === runningVersion,
-    });
+  if (feeds.github) {
+    for (const release of await githubReleases()) {
+      const metadata = releaseMetadata(release);
+      entries.push({
+        ...metadata,
+        channel: release.prerelease ? 'dev' : 'stable',
+        body: release.body || undefined,
+        prerelease: release.prerelease,
+        current: metadata.version === runningVersion,
+      });
+    }
   }
 
-  for (const tag of (await dockerHubDevTags()).slice(0, 20)) {
-    versions.push({
-      ...tagMetadata(tag),
-      current: tag.name === runningVersion,
-    });
+  if (feeds.dockerHub) {
+    for (const tag of (await dockerHubDevTags()).slice(0, 20)) {
+      entries.push({ ...tagMetadata(tag), prerelease: false, current: tag.name === runningVersion });
+    }
   }
 
-  versions.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
-  return versions;
+  entries.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+  return entries;
+}
+
+/** A channel-filtered changelog reads only the feed its channel comes from. */
+function changelogFeeds(channel: string): FeedSelection {
+  if (channel === 'stable') return { github: true, dockerHub: false };
+  if (channel === 'dev') return { github: false, dockerHub: true };
+  return { github: channel === 'all', dockerHub: channel === 'all' };
+}
+
+async function getAllVersions(): Promise<VersionEntry[]> {
+  return (await collectVersionEntries({ github: true, dockerHub: true })).map(({ prerelease: _prerelease, ...entry }) => entry);
 }
 
 const ChannelSchema = z.enum(['stable', 'dev']);
@@ -340,33 +371,25 @@ versionRouter.openapi(
     },
   }),
   async (c) => {
-  const channel = c.req.query('channel') || 'all';
-  const entries: Array<Record<string, unknown>> = [];
+    const channel = c.req.query('channel') || 'all';
+    const entries: Array<Record<string, unknown>> = [];
 
-  if (channel === 'stable' || channel === 'all') {
-    for (const release of await githubReleases()) {
-      if (release.prerelease) continue;
+    for (const entry of await collectVersionEntries(changelogFeeds(channel))) {
+      const stable = entry.channel === 'stable' && (channel === 'stable' || channel === 'all');
+      const dev = entry.channel === 'dev' && !entry.prerelease && (channel === 'dev' || channel === 'all');
+      if (!stable && !dev) continue;
       entries.push({
-        ...releaseMetadata(release),
-        channel: 'stable',
-        description: release.body || '',
+        version: entry.version,
+        channel: entry.channel,
+        date: entry.date,
+        title: entry.title,
+        ...(entry.sha ? { sha: entry.sha } : {}),
+        description: entry.body ?? '',
         changes: [],
       });
     }
-  }
 
-  if (channel === 'dev' || channel === 'all') {
-    for (const tag of (await dockerHubDevTags()).slice(0, 20)) {
-      entries.push({
-        ...tagMetadata(tag),
-        description: '',
-        changes: [],
-      });
-    }
-  }
-
-  entries.sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')));
-  return c.json({ changelog: entries });
+    return c.json({ changelog: entries });
   },
 );
 

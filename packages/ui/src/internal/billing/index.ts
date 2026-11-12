@@ -47,6 +47,9 @@ export { COST_PAGE_SIZE, useCostByProject, useCostSummary } from './use-cost-exp
 // Download restriction for free tier
 export { useDownloadRestriction } from './use-download-restriction';
 
+// The on-open paywall gate for a further workspace (KRTX-4713)
+export { useFreeGrantUnspent } from './use-free-grant-unspent';
+
 // =============================================================================
 // TYPE EXPORTS
 // =============================================================================

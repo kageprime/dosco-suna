@@ -17,7 +17,7 @@ show its size; the project's sandbox template sets it.
 ## General Env
 
 The runtime user is `kortix`. It has passwordless `sudo` access.
-The project repository and its configuration are in `/workspace`.
+`/workspace` is this session's own folder; it starts empty. The project repository is not checked out at boot: run `kortix workspaces clone` to work on it (the clone is on your session branch, the one branch you can push).
 
 Use `pnpm` for JavaScript and TypeScript dependencies. Use `pnpm dlx` for temporary package commands.
 Python 3 is available as `python` and `python3`. For a Python package that is not pre-installed, use `uv run --with "pkg1,pkg2" script.py` — declare dependencies inline, comma-separated, version pins allowed. Do not create venvs or use `pip install` for one-off scripts.

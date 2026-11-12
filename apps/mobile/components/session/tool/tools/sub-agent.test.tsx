@@ -30,6 +30,8 @@ mock.module('@/components/session/session-retry-display', () => ({
   useRetrySecondsLeft: () => 0,
 }));
 mock.module('@/components/session/SessionErrorBanner', () => ({ TurnErrorDisplay: () => null }));
+// The platform card body (#12113) pulls the router and native links; no row here draws one.
+mock.module('./platform-card-body', () => ({ hasPlatformCardBody: () => false, PlatformCardBody: () => null }));
 mock.module('../shared/infrastructure', () => ({
   ToolRunningContext: React.createContext(false),
   ToolOutcomeContext: React.createContext('ok'),

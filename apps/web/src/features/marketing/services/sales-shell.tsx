@@ -5,7 +5,6 @@ import { ConsentGate } from '@/components/consent-gate';
 import { Navbar } from '@/components/home/navbar';
 import Link from '@/components/site-link';
 import { MARKETING_CONTAINER } from '@/features/marketing/kit/section';
-import { SmoothScroll } from '@/features/marketing/kit/smooth-scroll';
 import { cn } from '@kortix/ui';
 import type { ReactNode } from 'react';
 
@@ -19,7 +18,6 @@ export function SalesShell({ children }: { children: ReactNode }) {
   return (
     <div className="bg-background relative min-h-dvh w-full">
       <ConsentGate />
-      <SmoothScroll />
       {/* The site's own navbar, the same as on every CompanyOS page: Product,
           Resources, Pricing, and the CompanyOS / Services switcher in the middle. */}
       <div className="fixed top-0 right-0 left-0 z-50" data-kx-titlebar-owner="">

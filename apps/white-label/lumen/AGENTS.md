@@ -173,7 +173,7 @@ page Lumen does not serve is `null`, so its links are hidden).
 A missing primitive or chat slot is added to `packages/ui`, not to this app.
 
 `scripts/sdk-boundary.mjs` rejects: any file under `src/components/ui`,
-imports of a local UI primitive, `lucide-react`, `radix-ui`, `@radix-ui/*`,
+imports of a local UI primitive, `lucide-react`, `radix-ui`, `@radix-ui/*`, `@base-ui/*`,
 `class-variance-authority`, `next-themes` or `react-markdown`, a direct sonner
 `toast` import, `@kortix/ui/dialog` (use `modal` or `confirm-dialog`), native
 feature controls (`<button>`, `<input>`, …) and feature-level spinners.

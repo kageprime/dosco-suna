@@ -12,7 +12,7 @@ import { Button } from '../../../primitives/button';
 import { Input } from '../../../primitives/input';
 import Loading from '../../../primitives/loading';
 import { RadioGroup, RadioGroupItem } from '../../../primitives/radio-group';
-import { connectorConnectionQueryKeys } from '../../sections/connector-connection-form';
+import { connectorConnectionQueryKeys } from '../../../internal/hooks/connectors/invalidate-connections';
 import { usePipedreamConnectProject } from '../../../internal/hooks/connectors/use-pipedream-connect-project';
 import { useTranslations as useI18nTranslations } from '../../../i18n';
 import { cn } from '../../../internal/lib/utils';

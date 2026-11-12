@@ -67,29 +67,31 @@ import { PlatinumHttpError } from '../shared/platinum';
 const originalFetch = globalThis.fetch;
 const originalWarn = console.warn;
 
+beforeAll(() => {
+  console.warn = ((message?: unknown, ...rest: unknown[]) => {
+    warnLines.push([String(message), rest[0]]);
+  }) as typeof console.warn;
+});
+
+afterAll(() => {
+  globalThis.fetch = originalFetch;
+  console.warn = originalWarn;
+});
+
 const row = { commandId: 'cmd-1', sessionId: SESSION_ID, actorUserId: null } as never;
 
-async function readWithFetchThrowing(throwable: () => unknown) {
+async function readWithFetchThrowing(throwable: () => unknown, target = row) {
   globalThis.fetch = (async () => {
     throw throwable();
   }) as unknown as typeof fetch;
   const { readInboxTranscriptState } = await import('../projects/session-lifecycle/runtime-client');
-  return readInboxTranscriptState(row, []);
+  return readInboxTranscriptState(target, []);
 }
 
 describe('readInboxTranscriptState: the log level follows the cause', () => {
-  beforeAll(() => {
-    console.warn = ((message?: unknown, ...rest: unknown[]) => {
-      warnLines.push([String(message), rest[0]]);
-    }) as typeof console.warn;
-  });
   beforeEach(() => {
     infoLines.length = 0;
     warnLines.length = 0;
-  });
-  afterAll(() => {
-    globalThis.fetch = originalFetch;
-    console.warn = originalWarn;
   });
 
   test('a stopped box (the provider 409 expose answer) logs info, not warn', async () => {
@@ -115,5 +117,58 @@ describe('readInboxTranscriptState: the log level follows the cause', () => {
     await readWithFetchThrowing(() => Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:5432'), { code: 'ECONNREFUSED' }));
     expect(warnLines.some(([m]) => m.includes('inbox transcript read failed'))).toBe(true);
     expect(infoLines.some(([m]) => m.includes('inbox transcript read deferred'))).toBe(false);
+  });
+});
+
+describe('readInboxTranscriptState: a persistent failure warns once, not per retry attempt', () => {
+  /** The 2026-11-10 outage shape: a provider 401 answer surfaced through the SDK. */
+  const daytonaAuthFailure = () => Object.assign(new Error('Invalid credentials'), { name: 'DaytonaError' });
+  const otherRow = { commandId: 'cmd-2', sessionId: 'sess-inbox-throttle-2', actorUserId: null } as never;
+
+  let resetThrottle: (intervalMs?: number) => void;
+  beforeAll(async () => {
+    ({ __resetInboxReadWarnThrottleForTests: resetThrottle } = (await import(
+      '../projects/session-lifecycle/runtime-client'
+    )) as { __resetInboxReadWarnThrottleForTests(intervalMs?: number): void });
+  });
+
+  beforeEach(() => {
+    infoLines.length = 0;
+    warnLines.length = 0;
+    resetThrottle();
+  });
+
+  test('the first unexpected failure warns', async () => {
+    const state = await readWithFetchThrowing(daytonaAuthFailure);
+    expect(state.read).toBe(false);
+    expect(warnLines).toHaveLength(1);
+  });
+
+  test('a repeat of the same failure inside the interval stays quiet, still failing open', async () => {
+    await readWithFetchThrowing(daytonaAuthFailure);
+    const state = await readWithFetchThrowing(daytonaAuthFailure);
+    await readWithFetchThrowing(daytonaAuthFailure);
+    expect(state.read).toBe(false);
+    expect(warnLines).toHaveLength(1);
+  });
+
+  test('a different error for the same session warns immediately', async () => {
+    await readWithFetchThrowing(daytonaAuthFailure);
+    await readWithFetchThrowing(() => new Error('connect ECONNREFUSED 127.0.0.1:5432'));
+    expect(warnLines).toHaveLength(2);
+  });
+
+  test('a different session warns independently', async () => {
+    await readWithFetchThrowing(daytonaAuthFailure);
+    await readWithFetchThrowing(daytonaAuthFailure, otherRow);
+    expect(warnLines).toHaveLength(2);
+  });
+
+  test('the same error after the interval warns again', async () => {
+    resetThrottle(10);
+    await readWithFetchThrowing(daytonaAuthFailure);
+    await new Promise((resolve) => setTimeout(resolve, 15));
+    await readWithFetchThrowing(daytonaAuthFailure);
+    expect(warnLines).toHaveLength(2);
   });
 });

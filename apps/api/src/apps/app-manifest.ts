@@ -18,7 +18,7 @@ import { mutateManifestWithRetry, type ManifestCommitResult } from '../connector
 import { withProjectGitAuth, withoutAppTriggers } from '../projects/surface';
 import { db } from '../shared/db';
 import { AppLimitError, assertAppMachineWithinLimits } from './limits';
-import { UnknownLinkedAppError, resolveAppLinks } from './links';
+import { UnknownLinkedAppError, resolveAppLinks, writeAppLinks } from './links';
 import { projectsView } from '../workspaces/rows';
 
 export interface AppManifestFields {
@@ -36,6 +36,11 @@ const RESOURCE_KEYS = ['cpu', 'memory_gb', 'disk_gb'] as const;
 const TOP_KEYS = ['idle_timeout_seconds', 'always_on', 'labels', 'display', 'uses'] as const;
 type Row = Record<string, unknown>;
 const isRow = (value: unknown): value is Row => typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** The project a manifest commit loaded, or the answer it must return. */
+type ProjectLoad =
+  | { ok: true; project: Awaited<ReturnType<typeof withProjectGitAuth>> }
+  | { ok: false; error: string; status: number };
 
 /** The fields of an App update that kortix.yaml can declare. */
 export function manifestFieldsOf(input: Row): AppManifestFields {
@@ -67,19 +72,29 @@ export function declaredAppFields(block: unknown): AppManifestFields {
 }
 
 /**
+ * The project row and git session a manifest commit reads kortix.yaml
+ * through: 404 when the project does not exist, 400 when the file cannot be
+ * read. Both commits (write and remove) answer the same refusals.
+ */
+async function loadManifestProject(projectId: string): Promise<ProjectLoad> {
+  const [row] = await db.select().from(projectsView).where(eq(projectsView.projectId, projectId)).limit(1);
+  if (!row) return { ok: false, error: 'project not found', status: 404 };
+  try {
+    return { ok: true, project: await withProjectGitAuth(row) };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message || 'failed to read kortix.yaml', status: 400 };
+  }
+}
+
+/**
  * Commit `fields` to `apps.<slug>` in the project's kortix.yaml (adding the
  * block when the App has none). Nothing is committed for an empty change.
  */
 export async function commitAppFields(projectId: string, slug: string, fields: AppManifestFields): Promise<ManifestCommitResult> {
   if (Object.keys(fields).length === 0) return { ok: true };
-  const [row] = await db.select().from(projectsView).where(eq(projectsView.projectId, projectId)).limit(1);
-  if (!row) return { ok: false, error: 'project not found', status: 404 };
-  let project: Awaited<ReturnType<typeof withProjectGitAuth>>;
-  try {
-    project = await withProjectGitAuth(row);
-  } catch (error) {
-    return { ok: false, error: (error as Error).message || 'failed to read kortix.yaml', status: 400 };
-  }
+  const loaded = await loadManifestProject(projectId);
+  if (!loaded.ok) return loaded;
+  const project = loaded.project;
   return mutateManifestWithRetry(project, `the App ${slug} was being updated`, (manifest) => {
     const appsNode: Row = isRow(manifest.raw.apps) ? { ...manifest.raw.apps } : {};
     const before = JSON.stringify(appsNode[slug] ?? null);
@@ -126,14 +141,9 @@ export type AppRemovalResult = (ManifestCommitResult & { ok: false }) | { ok: tr
  * delete never removes a trigger its caller could not delete.
  */
 export async function commitAppRemoval(projectId: string, slug: string, options: { mayRemoveTriggers: boolean }): Promise<AppRemovalResult> {
-  const [row] = await db.select().from(projectsView).where(eq(projectsView.projectId, projectId)).limit(1);
-  if (!row) return { ok: false, error: 'project not found', status: 404 };
-  let project: Awaited<ReturnType<typeof withProjectGitAuth>>;
-  try {
-    project = await withProjectGitAuth(row);
-  } catch (error) {
-    return { ok: false, error: (error as Error).message || 'failed to read kortix.yaml', status: 400 };
-  }
+  const loaded = await loadManifestProject(projectId);
+  if (!loaded.ok) return loaded;
+  const project = loaded.project;
   let removedTriggers: string[] = [];
   const result = await mutateManifestWithRetry(project, `the App ${slug} was being deleted`, (manifest) => {
     const retired = withoutAppTriggers(manifest, slug);
@@ -210,10 +220,7 @@ export async function syncDeclaredApps(projectId: string, appsNode: unknown): Pr
     }
     if (Object.keys(update).length === 0 && !links) continue;
     await db.transaction(async (tx) => {
-      if (links) {
-        await tx.delete(appLinks).where(eq(appLinks.appId, row.appId));
-        if (links.length) await tx.insert(appLinks).values(links.map((link) => ({ appId: row.appId, usesAppId: link.appId })));
-      }
+      if (links) await writeAppLinks(tx, row.appId, links);
       if (Object.keys(update).length) await tx.update(apps).set({ ...update, updatedAt: new Date() }).where(eq(apps.appId, row.appId));
     });
     result.updated.push(slug);

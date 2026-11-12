@@ -17,6 +17,8 @@ import {
   ProjectsLevelContent,
   projectSortDirection,
   type ProjectTableRow,
+  isIdleRow,
+  workspacesNeedingSeries,
 } from './projects-level';
 import { collectElementsByType } from './react-element-tree';
 
@@ -844,7 +846,7 @@ describe('ProjectsLevelContent', () => {
   // a header that looks clickable and reorders nothing is worse than one that
   // never invited the click.
 
-  test('Project and Total are buttons; Sessions, LLM, Compute and Storage are not', () => {
+  test('Workspace and Total are buttons; Daily spend and Sessions are not', () => {
     const html = renderContent({ page: twoProjectPage });
     const header = html.match(/<thead[\s\S]*?<\/thead>/)![0];
 
@@ -854,10 +856,10 @@ describe('ProjectsLevelContent', () => {
     // Scoped per cell: a whole-header check would pass with the buttons on
     // the wrong two columns.
     const cells = header.match(/<th[\s\S]*?<\/th>/g) ?? [];
-    expect(cells).toHaveLength(6);
-    expect(cells[4]).toContain('Storage');
+    expect(cells).toHaveLength(4);
+    expect(cells[1]).toContain('Daily spend');
     const hasButton = cells.map((cell) => cell.includes('<button'));
-    expect(hasButton).toEqual([true, false, false, false, false, true]);
+    expect(hasButton).toEqual([true, false, false, true]);
   });
 
   test('the sortable headers are real buttons with a visible focus ring', () => {
@@ -909,7 +911,7 @@ describe('ProjectsLevelContent', () => {
   // inside it rather than being floated out of the flow.
   test('the Total header keeps the numeric right alignment', () => {
     const header = renderContent({ page: twoProjectPage }).match(/<thead[\s\S]*?<\/thead>/)![0];
-    const totalCell = (header.match(/<th[\s\S]*?<\/th>/g) ?? [])[4]!;
+    const totalCell = (header.match(/<th[\s\S]*?<\/th>/g) ?? [])[3]!;
     expect(totalCell).toContain('text-right');
     expect(totalCell).not.toContain('float');
   });
@@ -931,19 +933,115 @@ describe('ProjectsLevelContent', () => {
     expect(clicked).toEqual(['name', 'total']);
   });
 
-  test('renders the column headers in order: Project, Sessions, LLM, Compute, Total', () => {
-    const html = renderContent({ page: twoProjectPage });
-    const projectIndex = html.indexOf('>Workspace<');
-    const sessionsIndex = html.indexOf('>Sessions<');
-    const llmIndex = html.indexOf('>LLM<');
-    const computeIndex = html.indexOf('>Compute<');
-    const totalIndex = html.indexOf('>Total (credits)<');
+  test('renders the column headers in order: Workspace, Daily spend, Sessions, Total', () => {
+    const header = renderContent({ page: twoProjectPage }).match(/<thead[\s\S]*?<\/thead>/)![0];
+    const projectIndex = header.indexOf('>Workspace<');
+    const dailyIndex = header.indexOf('Daily spend');
+    const sessionsIndex = header.indexOf('>Sessions<');
+    const totalIndex = header.indexOf('>Total (credits)<');
 
     expect(projectIndex).toBeGreaterThan(-1);
-    expect(sessionsIndex).toBeGreaterThan(projectIndex);
-    expect(llmIndex).toBeGreaterThan(sessionsIndex);
-    expect(computeIndex).toBeGreaterThan(llmIndex);
-    expect(totalIndex).toBeGreaterThan(computeIndex);
+    expect(dailyIndex).toBeGreaterThan(projectIndex);
+    expect(sessionsIndex).toBeGreaterThan(dailyIndex);
+    expect(totalIndex).toBeGreaterThan(sessionsIndex);
+  });
+
+  // The heatmap column. Each real workspace draws one cell per day of the
+  // account series, coloured by that day's spend against the page maximum;
+  // the unassigned row has no workspace to ask, so it draws no strip at all.
+  test('draws a day strip per workspace, one cell per day, on the kortix-blue ramp', () => {
+    const summary: CostSummary = {
+      ...summaryWithTotal(20),
+      series: [
+        { day: '2026-07-01', llm_cost: 0, compute_cost: 0, total_cost: 0 },
+        { day: '2026-07-02', llm_cost: 1, compute_cost: 1, total_cost: 2 },
+        { day: '2026-07-03', llm_cost: 4, compute_cost: 4, total_cost: 8 },
+        { day: '2026-07-04', llm_cost: 0.1, compute_cost: 0, total_cost: 0.1 },
+      ],
+    };
+    const html = renderContent({
+      page: twoProjectPage,
+      summary,
+      dailySeries: {
+        p1: [
+          { day: '2026-07-02', llm_cost: 1, compute_cost: 1, total_cost: 2 },
+          { day: '2026-07-03', llm_cost: 4, compute_cost: 4, total_cost: 8 },
+          { day: '2026-07-04', llm_cost: 0.1, compute_cost: 0, total_cost: 0.1 },
+        ],
+        p2: [],
+      },
+    });
+    const strips = html.match(/<div role="img"[\s\S]*?<\/div>/g) ?? [];
+    expect(strips).toHaveLength(2);
+    // Alpha: idle, a quarter of the peak (half on the square-root scale), the
+    // peak, and a tiny day that must still read as spend, not idle.
+    expect((strips[0]!.match(/<span /g) ?? []).length).toBe(4);
+    expect(strips[0]).toContain('bg-muted');
+    expect(strips[0]).toContain('bg-kortix-blue/40');
+    expect(strips[0]).toContain('bg-kortix-blue/25');
+    expect(strips[0]).toMatch(/bg-kortix-blue"/);
+    expect(strips[0]).toContain('aria-label="Alpha: 800 credits on Jul 3, the busiest day"');
+    // Beta: no spend in the window, every cell the idle well.
+    expect(strips[1]).toContain('aria-label="Beta: no spend in this range"');
+    expect(strips[1]).not.toContain('bg-kortix-blue');
+  });
+
+  test('a workspace whose series request failed draws nothing, not a strip that never loads', () => {
+    const summary: CostSummary = {
+      ...summaryWithTotal(20),
+      series: [{ day: '2026-07-01', llm_cost: 1, compute_cost: 1, total_cost: 2 }],
+    };
+    const html = renderContent({ page: twoProjectPage, summary, dailySeries: { p1: null, p2: null } });
+    expect(html).not.toContain('role="img"');
+    expect(html).not.toContain('animate-pulse');
+  });
+
+  test('only workspaces that spent in the window are asked for a series', () => {
+    const page: ProjectCostPage = {
+      ...twoProjectPage,
+      projects: [twoProjectPage.projects[0]!, { ...twoProjectPage.projects[1]!, total_cost: 0 }],
+    };
+    expect(workspacesNeedingSeries(page)).toEqual(['p1']);
+    expect(workspacesNeedingSeries(undefined)).toEqual([]);
+  });
+
+  test('a zero-spend workspace draws its idle strip without waiting for a series', () => {
+    const summary: CostSummary = {
+      ...summaryWithTotal(10),
+      series: [{ day: '2026-07-01', llm_cost: 1, compute_cost: 1, total_cost: 2 }],
+    };
+    const page: ProjectCostPage = {
+      ...twoProjectPage,
+      projects: [twoProjectPage.projects[0]!, { ...twoProjectPage.projects[1]!, total_cost: 0 }],
+    };
+    const html = renderContent({ page, summary, dailySeries: { p1: undefined }, showIdle: true });
+    expect(html).toContain('aria-label="Beta: no spend in this range"');
+  });
+
+  test('zero-spend workspaces fold into one line under the active ones until shown', () => {
+    const page: ProjectCostPage = {
+      ...twoProjectPage,
+      projects: [twoProjectPage.projects[0]!, { ...twoProjectPage.projects[1]!, total_cost: 0 }],
+    };
+    const folded = renderContent({ page, summary: summaryWithTotal(10), onToggleIdle: noop });
+    expect(folded).toContain('Alpha');
+    expect(folded).not.toContain('Beta');
+    expect(folded).toContain('1 workspace with no spend in this range');
+    expect(folded).toContain('>Show<');
+
+    const shown = renderContent({ page, summary: summaryWithTotal(10), showIdle: true, onToggleIdle: noop });
+    expect(shown).toContain('Beta');
+    expect(shown).toContain('>Hide<');
+  });
+
+  test('a workspace whose series has not arrived draws a loading strip, never zeros', () => {
+    const summary: CostSummary = {
+      ...summaryWithTotal(20),
+      series: [{ day: '2026-07-01', llm_cost: 1, compute_cost: 1, total_cost: 2 }],
+    };
+    const html = renderContent({ page: twoProjectPage, summary });
+    expect(html).not.toContain('role="img"');
+    expect(html).toContain('animate-pulse');
   });
 
   test('renders project rows in the order the page provides, with unassigned always last', () => {
@@ -991,7 +1089,7 @@ describe('ProjectsLevelContent', () => {
   // `summary.totals.total_cost` instead of summing the rendered rows would
   // still pass this test. The next test below is what actually
   // distinguishes the two: a page where they diverge.
-  test('the footer reconciles on all four numeric columns, including unassigned', () => {
+  test('the footer reconciles sessions and total, including unassigned', () => {
     const html = renderContent({ page: twoProjectPage, summary: summaryWithTotal(20) });
     // Alpha: $10.00, Beta: $3.25, Unassigned: $20 - 13.25 = $6.75.
     expect(html).toContain('>1,000<');
@@ -1001,20 +1099,8 @@ describe('ProjectsLevelContent', () => {
     const footerHtml = extractFooterHtml(html);
     // Sessions: 4 + 2 + 0 (unassigned) = 6.
     expect(footerHtml).toContain('>6<');
-    // LLM: $6 + $3 + $0 (unassigned) = $9.00.
-    expect(footerHtml).toContain('>900<');
-    // Compute: $4 + $0.25 + $0 (unassigned) = $4.25.
-    expect(footerHtml).toContain('>425<');
     // Total: $10 + $3.25 + $6.75 (unassigned) = $20.00 — the account total.
     expect(footerHtml).toContain('>2,000<');
-
-    // Read the four assertions above literally: each footer cell equals the
-    // sum of ITS column. They do not equal each other across the row —
-    // $9.00 + $4.25 = $13.25, not $20.00. That is not a defect in the sum; the
-    // API reports unassigned spend without an LLM/compute split, so the row
-    // contributes to Total alone and renders the other two cells as an em
-    // dash. "The footer adds up to itself" is a claim that holds only in the
-    // row-HIDDEN state. See `buildProjectTableRows`' consequence 2.
   });
 
   // The test that actually proves the footer sums the *rendered rows*,
@@ -1053,8 +1139,6 @@ describe('ProjectsLevelContent', () => {
 
     const footerHtml = extractFooterHtml(html);
     expect(footerHtml).toContain('>3<');
-    expect(footerHtml).toContain('>250<');
-    expect(footerHtml).toContain('>150<');
     expect(footerHtml).toContain('>400<');
     expect(footerHtml).not.toContain('999');
   });
@@ -1139,5 +1223,12 @@ describe('ProjectsLevelContent', () => {
     const nextMatch = html.match(/<button[^>]*>Next<\/button>/);
     expect(previousMatch![0]).not.toContain('disabled=""');
     expect(nextMatch![0]).toContain('disabled=""');
+  });
+});
+
+describe('isIdleRow', () => {
+  test('a workspace with no spend is idle; one with any spend is not', () => {
+    expect(isIdleRow({ ...twoProjectPage.projects[0]!, total_cost: 0 })).toBe(true);
+    expect(isIdleRow(twoProjectPage.projects[0]!)).toBe(false);
   });
 });

@@ -118,11 +118,13 @@ fn oldest_videos(
     limit: i64,
 ) -> Result<Vec<VideoRow>> {
     let unsent_before = unsent_cutoff(s, older_than_ms);
+    // `ORDER BY +id`: read the local rows from `idx_video_status` and sort them.
+    // Without the `+`, SQLite walks every released and deleted row in id order.
     let mut stmt = conn.prepare(
         "SELECT id, path, num_frames, status, COALESCE(size_bytes, 0) FROM video
          WHERE status <= ?1 AND (?2 IS NULL OR COALESCE(end_timestamp, 0) < ?2)
            AND (?4 IS NULL OR uploaded_at IS NOT NULL OR local_only = 1 OR COALESCE(end_timestamp, 0) < ?4)
-         ORDER BY id LIMIT ?3",
+         ORDER BY +id LIMIT ?3",
     )?;
     let rows = stmt.query_map(
         params![max_status, older_than_ms, limit, unsent_before],

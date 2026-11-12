@@ -26,7 +26,7 @@ export async function buildActor(c: Context, accountIdOverride?: string): Promis
 
   const ctx = {
     ip: requestClientIp(c) ?? undefined,
-    mfaAal: (c.get('mfaAal') as string | undefined) ?? undefined,
+    mfaAal: requestMfaAal(c, accountId),
   };
 
   const authType = c.get('authType') as string | undefined;
@@ -76,6 +76,28 @@ export async function buildActor(c: Context, accountIdOverride?: string): Promis
   }
 
   return { userId, accountId, credential: { kind: 'jwt' }, ctx };
+}
+
+/**
+ * The MFA level this request carries for `accountId`.
+ *
+ * A browser session carries its own (`aal` claim). An OAuth token carries the
+ * level recorded on its row at mint time (`mfa_aal`), and only in the account
+ * the row names. Today only the Apps gate records one: for a viewer whose App
+ * cookie a browser session at aal2 opened. Without it, every App that acts as
+ * its viewer got `403 account_mfa_required` in an MFA account (2026-11-11).
+ *
+ * Never inferred from the kind of token: an App cookie that predates the MFA
+ * requirement, or a viewer token minted for a PAT or an agent session token,
+ * never passed a second factor. Never request-wide (`c.set('mfaAal')`):
+ * account secrets, notifications and the chat identity bind read that with no
+ * account check.
+ */
+function requestMfaAal(c: Context, accountId: string): string | undefined {
+  const own = c.get('mfaAal') as string | undefined;
+  if (own) return own;
+  const mfaAccountId = c.get('oauthMfaAccountId') as string | undefined;
+  return mfaAccountId && mfaAccountId === accountId ? 'aal2' : undefined;
 }
 
 /**

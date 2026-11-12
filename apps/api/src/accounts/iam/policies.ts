@@ -58,7 +58,7 @@ export function registerIamPoliciesRoutes(): void {
         ...errors(401, 403, 404),
       },
     }),
-    async (c: any) => {
+    async (c) => {
     const accountId = accountIdParam(c);
     await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ACCOUNT_READ);
 
@@ -92,7 +92,7 @@ export function registerIamPoliciesRoutes(): void {
         ...errors(400, 401, 403, 404),
       },
     }),
-    async (c: any) => {
+    async (c) => {
     const accountId = accountIdParam(c);
     await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ACCOUNT_WRITE);
 
@@ -125,7 +125,7 @@ export function registerIamPoliciesRoutes(): void {
         body.idle_timeout_minutes ?? body.idleTimeoutMinutes,
       );
     } catch (err) {
-      if (err instanceof HttpError) return c.json({ error: err.message }, err.status);
+      if (err instanceof HttpError) return c.json({ error: err.message }, err.status as never);
       throw err;
     }
 
@@ -186,7 +186,7 @@ export function registerIamPoliciesRoutes(): void {
         ...errors(401, 403),
       },
     }),
-    async (c: any) => {
+    async (c) => {
     const accountId = accountIdParam(c);
     await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.MEMBER_READ);
 
@@ -234,8 +234,8 @@ export function registerIamPoliciesRoutes(): void {
         ...errors(401, 403, 404),
       },
     }),
-    async (c: any) => {
-    const actorUserId = c.get('userId') as string;
+    async (c) => {
+    const actorUserId = c.get('userId');
     const accountId = accountIdParam(c);
     const sessionId = c.req.param('sessionId');
     // Gate on member.remove — force-logout is roughly "kick this user off
@@ -288,7 +288,7 @@ export function registerIamPoliciesRoutes(): void {
         ...errors(401, 403, 404),
       },
     }),
-    async (c: any) => {
+    async (c) => {
     const accountId = accountIdParam(c);
     await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ACCOUNT_READ);
 
@@ -328,7 +328,7 @@ export function registerIamPoliciesRoutes(): void {
         ...errors(400, 401, 403, 404),
       },
     }),
-    async (c: any) => {
+    async (c) => {
     const accountId = accountIdParam(c);
     await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ACCOUNT_WRITE);
 
@@ -376,7 +376,7 @@ export function registerIamPoliciesRoutes(): void {
         requireExpiry = reqRaw;
       }
     } catch (err) {
-      if (err instanceof HttpError) return c.json({ error: err.message }, err.status);
+      if (err instanceof HttpError) return c.json({ error: err.message }, err.status as never);
       throw err;
     }
 

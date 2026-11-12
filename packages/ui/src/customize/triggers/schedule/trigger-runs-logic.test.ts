@@ -124,6 +124,16 @@ describe('bucketRuns', () => {
     expect(b!.cost).toBe(0.75);
   });
 
+  test('runs inside one minute still spread the axis: one minute per slice, ending at the newest run', () => {
+    const buckets = bucketRuns([run(0, 'fired'), run(0, 'failed')], 48);
+    expect(buckets[47]!.end).toBe(Date.parse(at(0)));
+    expect(buckets[47]!.total).toBe(2);
+    expect(buckets[47]!.end - buckets[0]!.start).toBe(48 * 60_000);
+    // The ticks read 0, 11, 23 and 35 slices in: four different clock minutes.
+    const minutes = [0, 11, 23, 35].map((i) => Math.floor(buckets[i]!.start / 60_000));
+    expect(new Set(minutes).size).toBe(4);
+  });
+
   test('no runs, no bars', () => {
     expect(bucketRuns([], 48)).toEqual([]);
   });

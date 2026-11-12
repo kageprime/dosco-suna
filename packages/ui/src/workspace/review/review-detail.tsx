@@ -2,10 +2,9 @@
 
 import { useTranslations } from '../../i18n';
 /**
- * Review Center — one item. A change request opens as a page that replaces the
- * inbox in place: a status + title header, the branch/diff facts, and the live
- * file diffs. Every other kind opens in `ReviewItemModal`, over the inbox, the
- * way a connector approval does.
+ * Review Center — one item, in the inbox's detail pane (`ReviewDetail`): a
+ * toolbar with the kind, state and verdicts, then the title, the facts, the
+ * kind's body and, for a change, the live file diffs.
  *
  * Actions mutate parent state optimistically via the passed handlers.
  */
@@ -15,14 +14,6 @@ import { Button } from '../../primitives/button';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '../../primitives/item';
 import { Kbd } from '../../primitives/kbd';
 import Loading from '../../primitives/loading';
-import {
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalDescription,
-  ModalHeader,
-  ModalTitle,
-} from '../../primitives/modal';
 import { DiffStat } from '../../primitives/status';
 import { infoToast, successToast } from '../../primitives/toast';
 import { useProjectContext } from '../../files/project/context';
@@ -47,13 +38,15 @@ import {
   CheckCircleIcon as CheckCircleSolid,
   EyeIcon as Eye,
   SparkleIcon as SparklesSolid,
+  XIcon as X,
 } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
 import { ChangeFiles } from './change-files';
 import { formatItemAgeLong } from './review-actions';
 import {
   APPROVAL_ACTION_ICON,
-  KIND_META,
+  ROW_TILE,
+  ROW_TILE_NEUTRAL,
   STATUS_META,
   VERIFICATION_BADGE,
   reviewKindLabel,
@@ -222,7 +215,7 @@ function ChangeBody({
 
 // ── approval ──────────────────────────────────────────────────────────────
 // Connector calls never reach this page: the inbox opens them in
-// `ApprovalDecisionModal`. What is left here is the native multi-action approval.
+// `ApprovalDecisionPane`. What is left here is the native multi-action approval.
 function ApprovalActionRow({
   action,
   connected,
@@ -330,9 +323,12 @@ function ApprovalActionRow({
 function ApprovalBody({
   item,
   actions,
+  onResolved,
 }: {
   item: Extract<ReviewItem, { kind: 'approval' }>;
   actions: ReviewActions;
+  /** The item got its verdict: the inbox moves on to the next row. */
+  onResolved: () => void;
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const list = item.detail.actions ?? [];
@@ -362,6 +358,7 @@ function ApprovalBody({
                   onApprove={() => {
                     if (actions.connected) {
                       actions.resolve(item.id, 'approved', `Approved · ${a.title}`);
+                      onResolved();
                       return;
                     }
                     actions.decideAction(item.id, a.id, 'approved');
@@ -370,6 +367,7 @@ function ApprovalBody({
                   onDeny={() => {
                     if (actions.connected) {
                       actions.resolve(item.id, 'rejected', `Denied · ${a.title}`);
+                      onResolved();
                       return;
                     }
                     actions.decideAction(item.id, a.id, 'denied');
@@ -389,9 +387,10 @@ function ApprovalBody({
                     variant="ghost"
                     size="sm"
                     disabled={busy}
-                    onClick={() =>
-                      actions.resolve(item.id, 'rejected', `Denied all ${list.length} actions`)
-                    }
+                    onClick={() => {
+                      actions.resolve(item.id, 'rejected', `Denied all ${list.length} actions`);
+                      onResolved();
+                    }}
                   >
                     {busy && actions.pendingDecision === 'deny' ? (
                       <Loading className="size-3.5 shrink-0" />
@@ -401,9 +400,10 @@ function ApprovalBody({
                   <Button
                     size="sm"
                     disabled={busy}
-                    onClick={() =>
-                      actions.resolve(item.id, 'approved', `Approved all ${list.length} actions`)
-                    }
+                    onClick={() => {
+                      actions.resolve(item.id, 'approved', `Approved all ${list.length} actions`);
+                      onResolved();
+                    }}
                   >
                     {busy && actions.pendingDecision === 'approve' ? (
                       <Loading className="size-3.5 shrink-0" />
@@ -837,7 +837,7 @@ function KindBody({
     case 'change':
       return <ChangeBody item={item} actions={actions} onClose={onClose} conflicts={conflicts} />;
     case 'approval':
-      return <ApprovalBody item={item} actions={actions} />;
+      return <ApprovalBody item={item} actions={actions} onResolved={onClose} />;
     case 'output':
       return <OutputBody item={item} />;
     case 'decision':
@@ -875,14 +875,67 @@ function ChangesComposer({
   );
 }
 
+/**
+ * Leaves the open item. On a narrow inbox it is Back to the list; with both
+ * panes it is Close, which brings the empty pane (and the asks deck) back.
+ * `part` renders one of the two where a toolbar places them apart.
+ */
+export function ClosePaneButton({
+  onClick,
+  part = 'both',
+}: {
+  onClick: () => void;
+  part?: 'back' | 'close' | 'both';
+}) {
+  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+  return (
+    <>
+      {part !== 'close' ? (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onClick}
+          aria-label={tI18nComplete.raw('text76900f1bfd16')}
+          className="text-muted-foreground -ml-1.5 @3xl/inbox:hidden"
+        >
+          <ArrowLeft className="size-4" />
+        </Button>
+      ) : null}
+      {part !== 'back' ? (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onClick}
+          aria-label={tI18nComplete.raw('text7d9eb7acb13e')}
+          className="text-muted-foreground -mr-1.5 hidden @3xl/inbox:inline-flex"
+        >
+          <X className="size-4" />
+        </Button>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * One review item in the inbox's detail pane. A sticky toolbar names the kind
+ * and state and holds the verdicts; below it the title, the facts, the body
+ * and (for a change) the file diffs. Every kind but a connector call renders
+ * here; a connector call renders `ApprovalDecisionPane`.
+ *
+ * `onBack` returns to the list on a narrow inbox (the Back button shows only
+ * below the two-pane width). `onResolved` runs after a verdict: the inbox
+ * moves on to the next row.
+ */
 export function ReviewDetail({
   item,
   actions,
   onBack,
+  onResolved,
 }: {
   item: ReviewItem;
   actions: ReviewActions;
   onBack: () => void;
+  onResolved: () => void;
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const crId = item.kind === 'change' ? (item.detail.crId ?? null) : null;
@@ -900,7 +953,7 @@ export function ReviewDetail({
           : []
         : (item.detail.conflicts ?? [])
       : [];
-  const kind = KIND_META[item.kind];
+  const tile = ROW_TILE[item.kind];
   const number = item.kind === 'change' ? item.detail.number : undefined;
   // A change waiting on you is "Open", the way a pull request is; every other
   // state keeps the inbox's own label.
@@ -912,186 +965,74 @@ export function ReviewDetail({
   const secondaryLabel = item.secondaryAction;
 
   return (
-    <div className="w-full p-4">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-3">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onBack}
-              className="text-muted-foreground hover:text-foreground -ml-2.5"
-            >
-              <ArrowLeft className="size-3.5 shrink-0" />
-              {tI18nComplete.raw('text76900f1bfd16')}
-            </Button>
-            <Badge variant={statusBadge} size="sm">
-              {statusLabel}
-            </Badge>
-            {item.kind !== 'change' && (
-              <Badge variant="outline" size="sm">
-                {reviewKindLabel(item.kind, tI18nComplete)}
-              </Badge>
-            )}
-          </div>
-          <div className="mt-10 space-y-2">
-            <p className="text-muted-foreground text-xs">
-              {item.project}
-              {number != null && <span className="tabular-nums"> #{number}</span>}
-            </p>
-            <h1 className="text-foreground line-clamp-2 truncate text-2xl font-semibold tracking-tight text-pretty">
-              {item.title}
-            </h1>
-          </div>
+    <article className="flex min-h-full w-full flex-col">
+      {/* The pane's toolbar: what this is and its state on the left, what you
+          can do on the right. It stays put while the body scrolls. */}
+      <header className="border-border bg-background sticky top-0 z-10 flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b px-4 py-1.5">
+        <ClosePaneButton onClick={onBack} part="back" />
+        <span
+          className={cn(
+            'flex size-6 shrink-0 items-center justify-center rounded-sm',
+            item.status === 'needs_you' ? tile.tint : ROW_TILE_NEUTRAL,
+          )}
+        >
+          <tile.icon className="size-3.5" />
+        </span>
+        <span className="text-muted-foreground truncate text-sm">
+          {item.kind === 'change' ? item.project : reviewKindLabel(item.kind, tI18nComplete)}
+          {number != null && <span className="tabular-nums"> #{number}</span>}
+        </span>
+        <Badge variant={statusBadge} size="sm" className="shrink-0">
+          {statusLabel}
+        </Badge>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <ActionBar
+            item={item}
+            actions={actions}
+            onBack={onResolved}
+            conflicts={conflicts}
+            checkingConflicts={Boolean(crId) && mergePreview.isLoading}
+            composing={composing}
+            setComposing={setComposing}
+          />
+          <ClosePaneButton onClick={onBack} part="close" />
+        </div>
+      </header>
+
+      <div className="mx-auto w-full max-w-4xl px-6 pt-6 pb-10">
+        <div className="space-y-2">
+          <h1 className="text-foreground text-xl font-semibold tracking-tight text-pretty wrap-anywhere">
+            {item.title}
+          </h1>
           <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
             <span>{item.agent}</span>
             {item.kind === 'change' && <ChangeFacts item={item} />}
             <span>{formatItemAgeLong(item.createdAt)}</span>
           </div>
         </div>
-        <div className="shrink-0">
-          <ActionBar
-            item={item}
-            actions={actions}
-            onBack={onBack}
-            conflicts={conflicts}
-            checkingConflicts={Boolean(crId) && mergePreview.isLoading}
-            composing={composing}
-            setComposing={setComposing}
-          />
-        </div>
-      </header>
 
-      <div className="mt-8 space-y-8">
-        {composing && secondaryLabel && item.kind !== 'approval' && (
-          <ChangesComposer
-            item={item}
-            actions={actions}
-            onCancel={() => setComposing(false)}
-            onSent={onBack}
-          />
-        )}
-
-        <section className="space-y-3">
-          <h2 className="text-foreground text-sm font-medium">
-            {tI18nComplete.raw('text526e0087cc3f')}
-          </h2>
-          <div className="space-y-4">
-            <KindBody item={item} actions={actions} onClose={onBack} conflicts={conflicts} />
-          </div>
-        </section>
-
-        {crId && <ChangeFiles crId={crId} />}
-      </div>
-    </div>
-  );
-}
-
-/** The open item in its modal: who made it, its title, its body, its verdict. */
-function ReviewItemDialog({
-  item,
-  actions,
-  onClose,
-}: {
-  item: ReviewItem;
-  actions: ReviewActions;
-  onClose: () => void;
-}) {
-  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
-  const [composing, setComposing] = useState(false);
-  const kind = KIND_META[item.kind];
-  // A question and a native approval decide inside their body.
-  const decidesInBody =
-    (item.kind === 'decision' || item.kind === 'approval') && item.status === 'needs_you';
-  return (
-    <>
-      <ModalHeader className="shrink-0 gap-3 pr-12 pb-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <span
-            className={cn(
-              'flex size-8 shrink-0 items-center justify-center rounded-sm',
-              kind.tile,
-            )}
-          >
-            <kind.icon className={cn('size-4', kind.iconColor)} />
-          </span>
-          <div className="flex min-w-0 flex-col">
-            <p className="text-foreground truncate text-sm leading-5 font-medium">
-              {reviewKindLabel(item.kind, tI18nComplete)}
-            </p>
-            <ModalDescription className="truncate text-xs leading-4">
-              {item.agent} · {formatItemAgeLong(item.createdAt)}
-            </ModalDescription>
-          </div>
-        </div>
-        <ModalTitle className="text-xl leading-snug wrap-anywhere">{item.title}</ModalTitle>
-      </ModalHeader>
-      <ModalBody className="min-h-0 space-y-5 overflow-y-auto pb-5">
-        <KindBody item={item} actions={actions} onClose={onClose} conflicts={[]} />
-      </ModalBody>
-      {decidesInBody ? null : (
-        <div className="border-border flex shrink-0 justify-end border-t px-5 pt-4 pb-5">
-          {composing && item.secondaryAction ? (
-            <div className="w-full">
-              <ChangesComposer
-                item={item}
-                actions={actions}
-                onCancel={() => setComposing(false)}
-                onSent={onClose}
-              />
-            </div>
-          ) : (
-            <ActionBar
+        <div className="mt-8 space-y-8">
+          {composing && secondaryLabel && item.kind !== 'approval' && (
+            <ChangesComposer
               item={item}
               actions={actions}
-              onBack={onClose}
-              conflicts={[]}
-              checkingConflicts={false}
-              composing={composing}
-              setComposing={setComposing}
+              onCancel={() => setComposing(false)}
+              onSent={onResolved}
             />
           )}
-        </div>
-      )}
-    </>
-  );
-}
 
-/**
- * Every review item but a change request opens here, over the inbox, the way a
- * connector approval does (`ApprovalDecisionModal`). A change keeps its page:
- * its diff needs the width. Null closes the modal.
- */
-export function ReviewItemModal({
-  item,
-  actions,
-  onClose,
-}: {
-  item: ReviewItem | null;
-  actions: ReviewActions;
-  onClose: () => void;
-}) {
-  // The last item stays drawn while the modal fades out.
-  const [shown, setShown] = useState(item);
-  if (item && item !== shown) setShown(item);
-  return (
-    <Modal open={item !== null} onOpenChange={(open) => !open && onClose()}>
-      {/* `space-y-0` and `lg:h-auto`: the modal's own `space-y-4` and full
-          height would add a band under each part and stretch a short item.
-          Only the body scrolls, so the verdict stays in view. */}
-      <ModalContent
-        // Focus the dialog, not its first control: a file row or the video
-        // would open with a focus ring nobody asked for.
-        onOpenAutoFocus={(event) => {
-          event.preventDefault();
-          (event.currentTarget as HTMLElement | null)?.focus();
-        }}
-        className="flex flex-col space-y-0 overflow-hidden lg:h-auto lg:max-h-[85svh] lg:max-w-2xl"
-      >
-        {shown ? (
-          <ReviewItemDialog key={shown.id} item={shown} actions={actions} onClose={onClose} />
-        ) : null}
-      </ModalContent>
-    </Modal>
+          <section className="space-y-3">
+            <h2 className="text-foreground text-sm font-medium">
+              {tI18nComplete.raw('text526e0087cc3f')}
+            </h2>
+            <div className="space-y-4">
+              <KindBody item={item} actions={actions} onClose={onResolved} conflicts={conflicts} />
+            </div>
+          </section>
+
+          {crId && <ChangeFiles crId={crId} />}
+        </div>
+      </div>
+    </article>
   );
 }

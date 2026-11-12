@@ -136,6 +136,11 @@ export function describeCadence(expression: string): string {
     return n === 1 ? 'Every minute' : `Every ${n} minutes`;
   }
 
+  // Every minute: `*` in the minute field, as `kortix.yaml` often writes it.
+  if (minute === '*' && hour === '*' && day === '*' && month === '*' && weekday === '*') {
+    return 'Every minute';
+  }
+
   // Every N hours, on a given minute.
   if (hour.startsWith('*/') && day === '*' && weekday === '*') {
     const n = Number(hour.slice(2));

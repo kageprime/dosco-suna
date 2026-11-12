@@ -1,7 +1,8 @@
-import type { NoiseRule } from '../evidence';
+import type { NoiseFrame, NoiseRule } from '../evidence';
 import {
   isBrowserBundleSource,
   isFirstPartyResolvedSource,
+  isResolvableFrameSource,
   normalizeString,
   sourcesOf,
   stripErrorWrappers,
@@ -258,8 +259,17 @@ export function isInjectedWalletProviderWriteNoise(input: {
  * googletag` (WebKit). Better Stack, Kortix Frontend prod, 2026-10-27
  * (KRTX-3549): 71 events in 2 s from one `<anonymous>` frame, 0 users. Kortix
  * never loads or calls `googletag`; its Google Tag Manager writes only to
- * `dataLayer`. A frame in our bundles or resolved first-party source keeps
- * reporting.
+ * `dataLayer`.
+ *
+ * KRTX-4571 recurrence (2026-11-09): 39 events in 1 s from a ByteDance web
+ * crawler (Bytespider) rendering the marketing site, 0 users, and the stack
+ * now carried a FIRST-PARTY frame — Sentry's `browserapierrors.setInterval`
+ * instrumentation wrapper, compiled into an `app:///_next/…` chunk, sits
+ * OUTERMOST in the reported stack around the third-party callback it
+ * instrumented. A bundled frame in the stack would have meant our own code
+ * threw under the old rule; the throw site decides instead. A first-party
+ * bundle frame at the INNERMOST (throw-site) position keeps reporting; a
+ * de-minified `apps/web/src/…` source anywhere keeps reporting.
  */
 const GOOGLETAG_UNDEFINED_MESSAGE = /^(?:googletag is not defined|Can't find variable: googletag)$/;
 
@@ -268,10 +278,40 @@ export function isGoogletagUndefinedNoise(input: {
   filename?: unknown;
   frames?: Array<{ filename?: unknown } | undefined>;
 }): boolean {
-  return (
-    GOOGLETAG_UNDEFINED_MESSAGE.test(stripErrorWrappers(normalizeString(input.message))) &&
-    !sourcesOf(input).some((source) => isBrowserBundleSource(source) || isFirstPartyResolvedSource(source))
+  if (!GOOGLETAG_UNDEFINED_MESSAGE.test(stripErrorWrappers(normalizeString(input.message)))) {
+    return false;
+  }
+  // A de-minified first-party frame means our own code referenced `googletag`
+  // → an actionable first-party regression; keep so the call site can be
+  // found + fixed.
+  if (sourcesOf(input).some(isFirstPartyResolvedSource)) {
+    return false;
+  }
+  // Location evidence decides, never the outmost wrapper frame Sentry's
+  // browserapierrors instrumentation adds around third-party callbacks:
+  // the throw site is the innermost resolvable frame in the stack (sent)
+  // or the `onerror` `filename` (runtime captures carry no frames). A
+  // first-party bundle frame THERE means our own code threw → keep
+  // reporting; anything else — the `<anonymous>` eval frame of an injected
+  // tag, a third-party script URL — is third-party noise. No location
+  // evidence at all (frameless global `onerror`, the `undefined` filename
+  // placeholder) → the throw is unattributable; the message class only
+  // ever comes from third-party GPT code → noise.
+  const frames = (input.frames ?? []).filter((frame): frame is { filename?: unknown } =>
+    Boolean(frame),
   );
+  const throwSite =
+    frames.length > 0
+      ? [...frames]
+          .reverse()
+          .find((frame) => isResolvableFrameSource(frame.filename))?.filename
+      : isResolvableFrameSource(input.filename)
+        ? input.filename
+        : undefined;
+  if (throwSite === undefined) {
+    return true;
+  }
+  return !isBrowserBundleSource(throwSite);
 }
 
 /**
@@ -298,6 +338,100 @@ function isRedeclaredInjectedIdentifierNoise(input: {
   );
 }
 
+// Third-party tracking-pixel `Response.json()` noise. A marketing pixel
+// (observed: Vector, `https://cdn.vector.co/pixel.js`, loaded on the marketing
+// site by the visitor-identification vendor chain,
+// `apps/web/src/components/analytics/visitor-pixel.tsx`) fetches its own API
+// (`https://api.vector.co/pixel/ip-info`) and calls `response.json()` without
+// checking `response.ok`. When the site's bot protection 403s the request with
+// an empty body, `Response.json()` rejects with the canonical DOM
+// `SyntaxError: Failed to execute 'json' on 'Response': Unexpected end of JSON
+// input`. The pixel catches the rejection into a `console.error`, but it still
+// surfaces as an UNCAUGHT unhandled rejection, so Sentry's global handler
+// captures it (`mechanism auto.browser.global_handlers.onunhandledrejection`,
+// `handled:false`) and it pages Better Stack.
+//
+// Better Stack pattern
+// 19329ead41e26241a830a6706a19f206329d24f5a39f133f8963f7b46b69e4af
+// (Kortix Frontend prod, application_id 2346967): 1 occurrence / 0 identified
+// users, first/last 2026-11-10 05:51:06 UTC, request URL `https://kortix.com/`
+// (marketing root), browser Chrome 153 on Windows tagged `browser.type: "bot"`
+// (Naver's Yeti crawler, `Yeti/1.1; +https://naver.me/spd`). Breadcrumbs: the
+// pixel's own fetches to `api.vector.co` both 403'd (bot blocked), then its
+// `console.error` logged the SyntaxError with the raw vendor stack
+// `https://cdn.vector.co/pixel.js`. Stack frames (5, all `in_app:true`, all the
+// vendor script — Sentry's Next.js frame normalization rewrites the
+// cross-origin URL to the `app:///pixel.js` shape, the same normalization the
+// Chromium-extension frames get at beforeSend): `a` → `s` → `Generator.next` →
+// `Generator.<anonymous>` → `e.<anonymous>` (throw site, the `.json()` call).
+// NO first-party `apps/web/src/…` frame.
+//
+// First-party code cannot fix the vendor's missing `response.ok` check, and
+// the empty body only happens when a blocked bot is denied — 0 identified
+// users. A real first-party `response.json()` regression in our own code
+// throws the SAME DOM wording, so matching the message alone would swallow
+// real bugs: require the EXACT message AND the throw site (the innermost
+// resolvable frame) to be a `pixel.js` script that is not a first-party
+// bundle, with a NEGATIVE guard that keeps any de-minified `apps/web/src/…` /
+// `packages/ui/src/…` frame reporting. A frameless capture is unattributable
+// and this wording routinely comes from first-party fetch code — keep
+// reporting (unlike `isGoogletagUndefinedNoise`, whose message class only ever
+// comes from third-party GPT code). Deliberately NOT added to
+// `sentry.client.config.ts`'s `ignoreErrors` list — that gate has no frame
+// context; the frame-aware `beforeSend` hook is the only safe gate.
+// `appliesTo: 'sentry'`: the runtime gate's unhandledrejection capture carries
+// neither frames nor a filename, so it can never confirm the vendor origin.
+const PIXEL_RESPONSE_JSON_NOISE_MESSAGE =
+  /^Failed to execute 'json' on 'Response': Unexpected end of JSON input$/;
+const LINE_TERMINATOR = /[\n\r\u2028\u2029]/;
+
+/**
+ * True when the source's last line names a `pixel.js` script, optionally
+ * followed by a query or fragment: the same set `/pixel\.js(?:[?#].*)?$/`
+ * matches, in linear time. That unanchored regex backtracks quadratically on a
+ * frame filename of many `pixel.js#` repetitions (CodeQL
+ * js/polynomial-redos), and frame filenames are page-controlled.
+ */
+function endsWithPixelScript(source: string): boolean {
+  const line = source.split(LINE_TERMINATOR).pop() ?? '';
+  for (let i = line.indexOf('pixel.js'); i !== -1; i = line.indexOf('pixel.js', i + 1)) {
+    const next = line[i + 'pixel.js'.length];
+    if (next === undefined || next === '?' || next === '#') return true;
+  }
+  return false;
+}
+
+function isTrackingPixelScriptSource(filename: unknown): boolean {
+  const source = normalizeString(filename);
+  return endsWithPixelScript(source) && !isBrowserBundleSource(source);
+}
+
+export function isTrackingPixelResponseJsonNoise(input: {
+  message?: unknown;
+  frames?: Array<NoiseFrame | undefined>;
+}): boolean {
+  const stripped = stripErrorWrappers(normalizeString(input.message));
+  if (!PIXEL_RESPONSE_JSON_NOISE_MESSAGE.test(stripped)) {
+    return false;
+  }
+  const frames = (input.frames ?? []).filter((frame): frame is { filename?: unknown } =>
+    Boolean(frame),
+  );
+  // Negative guard: a resolved first-party source frame means our own code
+  // called `response.json()` on a bad body → actionable regression; keep
+  // reporting so the call site can be found + fixed.
+  if (frames.some((frame) => isFirstPartyResolvedSource(frame.filename))) {
+    return false;
+  }
+  // The throw site decides (the innermost resolvable frame — the `.json()`
+  // call), never an outer instrumentation wrapper (the googletag lesson,
+  // KRTX-4571).
+  const throwSite = [...frames]
+    .reverse()
+    .find((frame) => isResolvableFrameSource(frame.filename))?.filename;
+  return throwSite !== undefined && isTrackingPixelScriptSource(throwSite);
+}
+
 /** Vercel toolbar frames have a reserved source path outside app bundles. */
 export function isVercelLiveFeedbackNoise(input: {
   filename?: unknown;
@@ -318,6 +452,7 @@ export const INJECTED_SCRIPT_RULES: readonly NoiseRule[] = [
   { id: 'googletag-undefined', appliesTo: 'both', match: isGoogletagUndefinedNoise },
   { id: 'redeclared-injected-identifier', appliesTo: 'both', match: isRedeclaredInjectedIdentifierNoise },
   { id: 'vercel-live-feedback', appliesTo: 'both', match: isVercelLiveFeedbackNoise },
+  { id: 'injected-tracking-pixel-response-json', appliesTo: 'sentry', match: isTrackingPixelResponseJsonNoise },
   {
     // KRTX-4387: an injected `tracking_script.js` (no Kortix code, GTM tag or
     // vendor loads it) asks Closure's jsloader for the gapi client. The CSP

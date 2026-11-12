@@ -6,7 +6,13 @@ import { fileContentKeys, useRuntimeStore } from '@kortix/sdk/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { readRuntimeFileWithRetry } from '../../../internal/files/runtime-file-read';
 import { readFile } from '../../../internal/files/runtime-files';
-import { sandboxWakingRefetchInterval } from '../../../internal/files/file-read-retry';
+import {
+  clearMissingFileRead,
+  missingFileReadError,
+  missingFileSuppressed,
+  noteMissingFileRead,
+  sandboxWakingRefetchInterval,
+} from '../../../internal/files/file-read-retry';
 import { useServerHealth } from './use-server-health';
 import { isSystemDirectoryPath } from './system-dir';
 
@@ -30,8 +36,22 @@ export function useFileContent(
 
   return useQuery<FileContent>({
     queryKey: filePath ? fileContentKeys.file(serverUrl, filePath) : [],
-    queryFn: ({ signal }) =>
-      readRuntimeFileWithRetry(filePath!, () => readFile(filePath!), undefined, signal),
+    // A path whose file is gone fails forever (404), and the event stream
+    // invalidates every open file query on each file write and turn end. A
+    // miss this fresh answers its refetches without a re-read; see the gate
+    // in internal/files/file-read-retry.
+    queryFn: ({ signal }) => {
+      if (missingFileSuppressed(serverUrl, filePath)) throw missingFileReadError();
+      return readRuntimeFileWithRetry(filePath!, () => readFile(filePath!), undefined, signal)
+        .then((content) => {
+          clearMissingFileRead(serverUrl, filePath!);
+          return content;
+        })
+        .catch((error: unknown) => {
+          noteMissingFileRead(serverUrl, filePath!, error);
+          throw error;
+        });
+    },
     enabled: !!filePath && !isSystemDirectoryPath(filePath) && options?.enabled !== false,
     staleTime: options?.staleTime ?? 10_000,
     gcTime: 5 * 60_000,

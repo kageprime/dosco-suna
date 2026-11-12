@@ -1,11 +1,11 @@
 /**
- * Admin ledger → the customer-facing ledger table.
+ * Admin ledger → the customer-facing ledger feed.
  *
  * `GET /admin/api/accounts/{id}/ledger` and `GET /billing/transactions` return
  * the same `credit_ledger` rows under different field names, and the admin one
  * ships its amounts as numeric strings (NUMERIC columns over JSON). This is the
  * whole adapter — with it, the admin sheet renders
- * {@link CreditTransactionsTable} instead of a second, drifting list.
+ * `CreditActivityFeed` instead of a second, drifting list.
  */
 import type { CreditTransactionRow } from '@/features/billing/transactions-table';
 import type { AdminLedgerEntry } from '@/hooks/admin/use-admin-accounts';

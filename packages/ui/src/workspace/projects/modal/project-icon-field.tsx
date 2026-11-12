@@ -142,10 +142,9 @@ export function ProjectIconField({
   const reduceMotion = useReducedMotion();
 
   // Adjusting state during render: React's documented alternative to an effect
-  // for "reset state when a prop changes". Radix drives `open` through
-  // useControllableState, where a CONTROLLED prop that changes value on
-  // re-render is simply recomputed and fires nothing — onOpenChange only runs
-  // from setValue. So the `open && !disabled` guard below would close the
+  // for "reset state when a prop changes". The popover root fires
+  // `onOpenChange` only for changes it makes itself; a CONTROLLED `open` that
+  // changes on re-render fires nothing. So the `open && !disabled` guard below would close the
   // popover when `disabled` goes true without ever telling us, leaving local
   // `open` stuck at true; the next time `disabled` went false the guard would
   // re-evaluate to true and the picker would reopen with no user action. Task 7
@@ -168,26 +167,13 @@ export function ProjectIconField({
     // Button already stops a click reaching us (a disabled button fires none,
     // and button.tsx adds disabled:pointer-events-none).
     //
-    // `modal` is what makes the picker scrollable with a wheel or trackpad.
     // In workspace Settings this field renders inside `CustomizeSectionWrapper`
-    // -> `customize-panel.tsx`'s `Modal`, a Radix Dialog, and Radix wraps the
-    // dialog's OVERLAY in react-remove-scroll with
-    // `shards: [contentRef]` (react-dialog dist/index.mjs:110). That side-car
-    // installs a non-passive `wheel` listener on `document` and calls
-    // preventDefault() on every wheel whose target is neither inside the
-    // overlay's React subtree nor inside the content shard. A popover portals
-    // to document.body, so it is in neither: the picker's own overflow-y-auto
-    // viewport never received the scroll. Dragging its scrollbar still worked,
-    // which is what made the bug read as "only the scrollbar responds" — a
-    // scrollbar drag is a pointer gesture, not a wheel event.
-    //
-    // `modal` makes Radix wrap THIS popover's content in its own RemoveScroll
-    // (react-popover dist/index.mjs:134). react-remove-scroll keeps one
-    // module-level `lockStack`, and its `shouldPrevent` returns early for any
-    // lock that is not the last one pushed — so while the picker is open the
-    // dialog's lock stands down and the picker's own lock takes over, with the
-    // popover content as its container. Its boundary logic then walks into the
-    // emoji viewport, finds scroll left to give, and lets the wheel through.
+    // -> `customize-panel.tsx`'s `Modal`. The picker must scroll with a wheel
+    // or trackpad there. The modal locks page scroll with `overflow: hidden`
+    // on the document and cancels no wheel event, so the picker's own
+    // overflow-y-auto viewport receives the wheel. `modal` on the popover
+    // traps focus in the picker and blocks pointer input outside it while it
+    // is open.
     //
     // Rejected alternative: portalling the popover into the dialog's content
     // element (PopoverContent already accepts `container`). ModalContent is
@@ -331,7 +317,7 @@ export function ProjectIconField({
         Width: the emoji grid's exact width. 12 columns of `size-8` cells in rows
         padded `px-3` is 12*8 + 2*3 = 102 `--spacing` units; `+2px` is the 1px
         border per side. The Icons tab fills the same width with 10 columns.
-        p-0 because each panel owns its padding. Radix gives the content
+        p-0 because each panel owns its padding. The popover gives the content
         role="dialog", so it carries a label.
       */}
       <PopoverContent

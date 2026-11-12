@@ -36,12 +36,16 @@ export function NoticeLogLine({ reason }: { reason: string }) {
 export const NOTICE_TITLE = {
   error: 'noticeErrorTitle',
   sign_in: 'noticeSignInTitle',
+  sign_in_again: 'noticeSignInAgainTitle',
+  no_tools: 'noticeNoToolsTitle',
   no_account: 'noticeNoAccountTitle',
   needs_credential: 'noticeCredentialTitle',
 };
 export const NOTICE_BODY = {
   error: 'noticeErrorBody',
   sign_in: 'noticeSignInBody',
+  sign_in_again: 'noticeSignInAgainBody',
+  no_tools: 'noticeNoToolsBody',
   no_account: 'noticeNoAccountBody',
   needs_credential: 'noticeCredentialBody',
 };

@@ -26,6 +26,7 @@ import { slackSigned, withDb } from "../fixtures/chat";
 import { waitFor } from "../core/poll";
 import { CliSandbox } from "../fixtures/cli";
 import { createDatabaseSession } from "../fixtures/database-project";
+import { lockProjectFirst } from '../fixtures/token-binding-lock';
 
 const UNKNOWN = "00000000-0000-4000-a000-000000000000";
 
@@ -1396,8 +1397,8 @@ flow(
   },
   async (ctx) => {
     const p = await ctx.fixtures.project();
-    // Another project with a channel in the same workspace: a thread there is
-    // not this project's to bind.
+    // Another Kortix workspace: it left a channel settings row in this Slack
+    // workspace, and later takes the Slack workspace over.
     const other = await ctx.fixtures.sharedProject();
     const own = randomUUID();
     const sibling = randomUUID();
@@ -1434,14 +1435,15 @@ flow(
           [own, accountId, p.id],
         );
         await db.query(
-          "UPDATE kortix.account_tokens SET account_id = $2, user_id = $3, project_id = $4, session_id = $5 WHERE token_id = $1",
+          lockProjectFirst("UPDATE kortix.account_tokens SET account_id = $2, user_id = $3, project_id = $4, session_id = $5 WHERE token_id = $1"),
           [tokenId, accountId, ownerUserId, p.id, own],
         );
-        // The workspace the project's Slack install proved (the install paths
-        // write this row), and the other project's channel in it.
+        // The Slack workspace the project's install proved (the install paths
+        // write this row): this project holds it. A channel settings row left
+        // by another Kortix workspace stays in it.
         await db.query(
-          "INSERT INTO kortix.chat_installs (platform, workspace_id, project_id) VALUES ('slack', $1, $2), ('slack', $1, $3) ON CONFLICT DO NOTHING",
-          [team, p.id, other.id],
+          "INSERT INTO kortix.chat_installs (platform, workspace_id, project_id) VALUES ('slack', $1, $2) ON CONFLICT DO NOTHING",
+          [team, p.id],
         );
         await db.query(
           "INSERT INTO kortix.chat_channel_bindings (platform, workspace_id, channel_id, project_id) VALUES ('slack', $1, 'CKE2EOTHER', $2)",
@@ -1481,22 +1483,13 @@ flow(
         if (rows) throw new Error("CHN-30: a thread was bound in a workspace the project never installed");
       });
 
-      await ctx.step("a thread in another project's channel → 403 CONVERSATION_NOT_IN_PROJECT, and no mapping is written", async () => {
+      await ctx.step("a thread in a channel another workspace's settings row names binds: channels are settings, not ownership → 200", async () => {
         const r = await agent.post(
           "/v1/workspaces/:projectId/channels/slack/bind-thread",
           { session_id: own, channel: "CKE2EOTHER", thread_ts: "1700000000.000260", workspace_id: team },
           { params: { projectId: p.id } },
         );
-        r.status(403).body().has("$.code", "CONVERSATION_NOT_IN_PROJECT");
-        const rows = await withDb(ctx, async (db) =>
-          (
-            await db.query(
-              "SELECT 1 FROM kortix.chat_threads WHERE platform = 'slack' AND workspace_id = $1 AND thread_id = $2",
-              [team, "1700000000.000260"],
-            )
-          ).rowCount,
-        );
-        if (rows) throw new Error("CHN-30: a thread in another project's channel was bound");
+        r.status(200).body().has("$.bound", true).has("$.session_id", own);
       });
 
       await ctx.step("the session token binds a thread to ITS OWN session → 200, and the mapping names that session", async () => {
@@ -1610,6 +1603,30 @@ flow(
           ).rows[0]?.session_id,
         );
         if (owner !== foreign) throw new Error(`CHN-30: force moved another user's thread to ${owner}`);
+      });
+
+      await ctx.step("once another Kortix workspace takes the Slack workspace, this one binds nothing → 400, no mapping", async () => {
+        await withDb(ctx, async (db) => {
+          await db.query(
+            "INSERT INTO kortix.chat_installs (platform, workspace_id, project_id, connected_at) VALUES ('slack', $1, $2, now() + interval '1 minute')",
+            [team, other.id],
+          );
+        });
+        const r = await agent.post(
+          "/v1/workspaces/:projectId/channels/slack/bind-thread",
+          { session_id: own, channel: "CKE2E", thread_ts: "1700000000.000600", workspace_id: team },
+          { params: { projectId: p.id } },
+        );
+        r.status(400).body().has("$.bound", false);
+        const rows = await withDb(ctx, async (db) =>
+          (
+            await db.query(
+              "SELECT 1 FROM kortix.chat_threads WHERE platform = 'slack' AND workspace_id = $1 AND thread_id = $2",
+              [team, "1700000000.000600"],
+            )
+          ).rowCount,
+        );
+        if (rows) throw new Error("CHN-30: a workspace that lost the Slack workspace bound a thread");
       });
     } finally {
       await withDb(ctx, async (db) => {
@@ -2198,6 +2215,24 @@ flow(
       r.status([403, 404]);
       const anon = await ctx.client.as(ctx.P.ANON).get("/v1/workspaces/:projectId/channels/email/inboxes", params);
       anon.status(401);
+    });
+  },
+);
+
+// CHN-35 — an agent's face as a PNG, public: Slack fetches it as the message icon (`icon_url`).
+flow(
+  "CHN-35",
+  { domain: "channels", tags: ["smoke"], routes: ["GET /v1/agent-marks/:file"] },
+  async (ctx) => {
+    await ctx.step("ANON GET /v1/agent-marks/mykortix.png → 200 image/png, PNG bytes", async () => {
+      const r = await ctx.client.as(ctx.P.ANON).get("/v1/agent-marks/mykortix.png");
+      r.status(200).headerEquals("content-type", "image/png");
+      // The PNG signature is \x89 P N G; a text decode keeps the three letters.
+      if (r.text().slice(1, 4) !== "PNG") throw new Error("agent mark body is not a PNG");
+    });
+    await ctx.step("a file that is not <slug>.png, or a slug outside [a-z0-9_-], → 404", async () => {
+      (await ctx.client.as(ctx.P.ANON).get("/v1/agent-marks/mykortix.jpg")).status(404);
+      (await ctx.client.as(ctx.P.ANON).get("/v1/agent-marks/My%20Agent.png")).status(404);
     });
   },
 );

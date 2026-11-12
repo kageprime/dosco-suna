@@ -2,7 +2,7 @@
 
 import { useTranslations } from '../../../i18n';
 import type { AdminConnector } from '@kortix/sdk';
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+import { VisuallyHidden } from '../../../lib/base-ui-compat';
 
 import { Button } from '../../../primitives/button';
 import { Modal, ModalClose, ModalContent, ModalTitle } from '../../../primitives/modal';

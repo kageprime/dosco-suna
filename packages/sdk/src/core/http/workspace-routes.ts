@@ -117,7 +117,8 @@ const LEGACY_ONLY_PATHS: readonly RegExp[] = [
 ];
 
 function isLegacyOnly(legacyUrl: string): boolean {
-  const path = legacyUrl.replace(/[?#].*$/, '');
+  const cut = [legacyUrl.indexOf('?'), legacyUrl.indexOf('#')].filter((at) => at !== -1);
+  const path = cut.length === 0 ? legacyUrl : legacyUrl.slice(0, Math.min(...cut));
   const v1 = path.indexOf('/v1/');
   if (v1 === -1) return false;
   return LEGACY_ONLY_PATHS.some((re) => re.test(path.slice(v1)));
@@ -164,7 +165,8 @@ function splitCanonical(url: string, apiBase?: string): SplitUrl | null {
     const legacy = legacyWorkspaceRoute(path.slice(start));
     return legacy === null ? null : { base: path.slice(0, start), legacyUrl: `${path.slice(0, start)}${legacy}${suffix}` };
   }
-  const base = apiBase?.replace(/\/+$/, '');
+  let base = apiBase;
+  while (base?.endsWith('/')) base = base.slice(0, -1);
   if (!base || !path.startsWith(`${base}/`)) return null;
   const legacy = legacyWorkspaceRoute(`/v1${path.slice(base.length)}`);
   return legacy === null ? null : { base, legacyUrl: `${base}${legacy.slice('/v1'.length)}${suffix}` };

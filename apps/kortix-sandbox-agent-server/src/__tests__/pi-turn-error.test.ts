@@ -17,6 +17,32 @@ describe('pi turn errors carry a TurnErrorCode', () => {
     expect(failed('500 upstream broke')).toMatchObject({ data: { statusCode: 500 }, code: 'unknown' })
   })
 
+  // pi-ai writes the gateway's refusal as "<status>: <error JSON>" (formatProviderError).
+  test('a gateway refusal fixed in Models is a ProviderAuthError naming the provider', () => {
+    const notConnected = '400: {"message":"No anthropic API key is connected for this project.","type":"provider_not_connected","code":"provider_not_connected","provider":"","requested_model":"anthropic/claude-sonnet-4.6","resolved_model":"anthropic/claude-sonnet-4.6","suggestion":"Add a anthropic API key in project settings, then retry."}'
+    expect(failed(notConnected)).toEqual({
+      name: 'ProviderAuthError',
+      data: { providerID: 'anthropic', message: notConnected },
+      code: 'auth',
+    })
+    const rejected = '401: {"message":"invalid x-api-key","type":"invalid_request_error","code":"provider_key_rejected","provider":"anthropic"}'
+    expect(failed(rejected)).toMatchObject({ name: 'ProviderAuthError', data: { providerID: 'anthropic' }, code: 'auth' })
+    // A provider account out of funds is the provider's, not Kortix credits.
+    const unfunded = '402: {"message":"This request requires more credits, or fewer max_tokens.","type":"invalid_request_error","code":"provider_payment_required","provider":"openrouter"}'
+    expect(failed(unfunded)).toMatchObject({ name: 'ProviderAuthError', data: { providerID: 'openrouter' }, code: 'auth' })
+    // No provider in the envelope: the turn's model names it.
+    const bare = '401: {"message":"bad key","code":"provider_key_rejected"}'
+    expect(assistantMessageError({ stopReason: 'error', errorMessage: bare, model: 'openai/gpt-5' }))
+      .toMatchObject({ name: 'ProviderAuthError', data: { providerID: 'openai' } })
+  })
+
+  test('a pool at rest is rate_limit; the session token refusal stays auth by status, not a provider error', () => {
+    expect(failed('429: {"message":"All selected openai keys are cooling down after rate limits.","code":"provider_pool_rate_limited","provider":"openai"}'))
+      .toMatchObject({ name: 'UnknownError', data: { statusCode: 429 }, code: 'rate_limit' })
+    expect(failed('400: {"message":"All openai keys are cooling down.","code":"provider_pool_rate_limited"}')?.code).toBe('rate_limit')
+    expect(failed('401: {"message":"Invalid token","code":"invalid_token"}')).toMatchObject({ name: 'UnknownError', code: 'auth' })
+  })
+
   test('a number that is not a leading status stays unknown', () => {
     expect(failed('Stream ended without finish_reason')).toEqual({
       name: 'UnknownError',

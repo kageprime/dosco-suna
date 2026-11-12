@@ -17,13 +17,14 @@ test.describe('free-tier pricing and onboarding surface', () => {
 
     await expect(page.getByText('500 credits / month on your first workspace').first()).toBeVisible();
     await expect(page.getByText('No card needed', { exact: true }).first()).toBeVisible();
-    await expect(page.getByText('Bring your own API key for any premium model')).toBeVisible();
+    // The Free card states the model requirement (KRTX-4494): the free family
+    // never gets managed models (resolve-billing.ts `paysForManagedModels`), so
+    // sending needs the user's own key or a paid plan.
+    await expect(page.getByText('Models run on your own API key or ChatGPT subscription')).toBeVisible();
+    await expect(page.getByText('Managed models are on the Credits plan only')).toBeVisible();
     // The Credits card states the shared pool.
     await expect(page.getByText('Unlimited members, one shared credit pool')).toBeVisible();
     await expect(page.getByText('Unused credits roll over one month')).toBeVisible();
-    await expect(
-      page.getByText('Connect your ChatGPT subscription', { exact: true }),
-    ).toBeVisible();
 
     // Models and sandbox compute are billed apart: the agent-hours and models sections.
     await expect(page.getByRole('heading', { name: /1 credit buys about \d+ minutes of agent computer/ })).toBeVisible();

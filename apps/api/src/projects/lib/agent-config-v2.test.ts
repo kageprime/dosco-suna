@@ -190,7 +190,7 @@ describe('grantSecretToAgentV2', () => {
     const res = grantSecretToAgentV2(committed(), 'support', 'ALPHA');
     expect(res).toMatchObject({ ok: true, alreadyGranted: false, adoptedGovernance: true });
     if (!res.ok) return;
-    expect(res.raw.agents).toEqual({ support: { secrets: ['ALPHA'], workspace: { project_repository: false } } });
+    expect(res.raw.agents).toEqual({ support: { secrets: ['ALPHA'] } });
   });
 
   test('a malformed `agents:` value is refused instead of overwritten', () => {
@@ -221,6 +221,6 @@ describe('a YAML null agent entry parses past the validator — each path pins b
   test('the secret-grant path upserts it (an absent entry is widened, not rewritten)', () => {
     const res = grantSecretToAgentV2(committed(nullEntry), 'support', 'ALPHA_KEY');
     expect(res).toMatchObject({ ok: true, alreadyGranted: false, adoptedGovernance: false });
-    expect(blockOf(res).support).toEqual({ secrets: ['ALPHA_KEY'], workspace: { project_repository: false } });
+    expect(blockOf(res).support).toEqual({ secrets: ['ALPHA_KEY'] });
   });
 });

@@ -34,6 +34,7 @@ const fakes: Record<string, Record<string, unknown>> = {
     StyleSheet: { flatten: (s: unknown) => s, create: (s: unknown) => s },
     Platform: { OS: 'ios', select: (o: Record<string, unknown>) => o.ios },
     useWindowDimensions: () => ({ width: 400, height: 800 }),
+    Keyboard: { addListener: () => ({ remove: () => {} }), dismiss: () => {} },
   },
   // The base component drives gorhom's modal directly; the head drives it
   // through `KortixBottomSheetModal`. Both get the same imperative handle:
@@ -51,8 +52,10 @@ const fakes: Record<string, Record<string, unknown>> = {
       }));
       return React.createElement('BottomSheetModal', null, props.children);
     }),
-    BottomSheetScrollView: host('Scroll'),
   },
+  // The sheet's content parts (`sheet-parts.tsx`): the gorhom part in a gorhom
+  // sheet, the plain one in the iOS native sheet. A host stands in for both.
+  '@/components/kortix/sheet-parts': { SheetScrollView: host('Scroll') },
   'expo-router': { useRouter: () => ({ push: (href: string) => pushCalls.push(href), replace: () => {} }) },
   'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
   'react-native-reanimated': { useDerivedValue: (v: unknown) => v },
@@ -86,10 +89,13 @@ const fakes: Record<string, Record<string, unknown>> = {
   },
   '@/components/kortix/kortix-loader': { KortixLoader: host('KortixLoader') },
   '@/components/kortix/settings-list': { SettingsGroup: host('Group'), SettingsRow: host('Row') },
-  '@/components/kortix/SheetInput': {
-    SheetTextInput: (props: any) => {
+  // The edge fade is a native mask: here it passes its children through.
+  '@/components/kortix/liquid-glass': { GlassButtons: ({ children }: { children: React.ReactNode }) => children },
+  '@/components/kortix/fade-edges': { FadeEdges: ({ children }: { children: React.ReactNode }) => children },
+  '@/components/kortix/bottom-search-bar': {
+    GlassSearchField: (props: any) => {
       searchInput = props.onChangeText;
-      return React.createElement('SheetTextInput', null);
+      return React.createElement('GlassSearchField', null);
     },
   },
   '@/components/projects/useWebCreateHandoff': {

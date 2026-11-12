@@ -669,6 +669,96 @@ describe('useSessionLogSync: negotiation, the first page and the stream', () => 
       expect(held()).toEqual(page().messages.map((m) => m.message_id));
       expect(joined.at(-1)!.options.schema).toBe('v2');
     });
+
+    test('three consecutive box failures stop the box reads for 10 min (a wedged box answers every read 502 after the proxy budget); a success or a new box resets', async () => {
+      let boxReads = 0;
+      let boxAnswers = false;
+      mount({
+        loader: async () => page(),
+        livePage: async () => { boxReads++; if (!boxAnswers) throw new Error('connect timeout'); return boxPage(); },
+      });
+      await flush();
+      expect(boxReads).toBe(1); // the first read failed once
+      const v2 = joined.at(-1)!;
+      const reconnect = async () => {
+        act(() => v2.options.onConnectionChange(false));
+        act(() => v2.options.onConnectionChange(true));
+        await flush();
+      };
+      await reconnect();
+      await reconnect();
+      expect(boxReads).toBe(3); // three consecutive failures arm the skip
+      await reconnect();
+      expect(boxReads).toBe(3); // the box page is skipped; the API page still re-read
+      // The window passes: the box is asked again (and fails, so the skip re-arms).
+      setSystemTime(Date.now() + 10 * 60_000 + 1_000);
+      await reconnect();
+      expect(boxReads).toBe(4);
+      // The box answers again: the skip is gone and stays gone while it answers.
+      setSystemTime(Date.now() + 10 * 60_000 + 1_000);
+      boxAnswers = true;
+      await reconnect();
+      expect(boxReads).toBe(5);
+      await reconnect();
+      await reconnect();
+      expect(boxReads).toBe(7);
+      setSystemTime(); // restore the real clock
+    });
+
+    test('overlapping reload triggers share one in-flight box read', async () => {
+      let boxReads = 0;
+      let hang = false;
+      let release: ((v: unknown) => void) | null = null;
+      mount({
+        loader: async () => page(),
+        livePage: () => {
+          boxReads++;
+          if (!hang) return Promise.resolve(boxPage());
+          return new Promise((resolve) => { release = () => resolve(null); });
+        },
+      });
+      await flush();
+      expect(boxReads).toBe(1);
+      const v2 = joined.at(-1)!;
+      // Two reconnect cycles fire while the first (hung) box read is still in flight.
+      hang = true;
+      act(() => v2.options.onConnectionChange(false));
+      act(() => v2.options.onConnectionChange(true));
+      act(() => v2.options.onConnectionChange(false));
+      act(() => v2.options.onConnectionChange(true));
+      await flush();
+      expect(boxReads).toBe(2); // the second reload joined the in-flight read
+      await act(async () => release?.(undefined));
+      await flush();
+      expect(boxReads).toBe(2); // the failed read counted once; one failure arms nothing
+      // A later reconnect reads again (one failure so far).
+      act(() => v2.options.onConnectionChange(false));
+      act(() => v2.options.onConnectionChange(true));
+      await flush();
+      expect(boxReads).toBe(3);
+    });
+
+    test('a different box loader (a failover) never inherits the old box\'s skip', async () => {
+      let boxReads = 0;
+      const state = mount({ loader: async () => page(), livePage: async () => { boxReads++; throw new Error('connect timeout'); } });
+      await flush();
+      const v2 = joined.at(-1)!;
+      act(() => v2.options.onConnectionChange(false));
+      act(() => v2.options.onConnectionChange(true));
+      await flush();
+      act(() => v2.options.onConnectionChange(false));
+      act(() => v2.options.onConnectionChange(true));
+      await flush();
+      expect(boxReads).toBe(3); // armed
+      // A failover: the session moved to a new box, so a new loader arrives.
+      act(() => state.setLivePage(async () => { boxReads++; return boxPage(); }));
+      await flush();
+      act(() => v2.options.onConnectionChange(false));
+      act(() => v2.options.onConnectionChange(true));
+      await flush();
+      expect(boxReads).toBe(4); // the new box's first read runs despite the old box's skip
+      expect(state.dialect).toBe('v2');
+    });
   });
 
   test('session_log_missing while a turn runs: the page is read again within seconds, one pending read at a time, not only at the turn end', async () => {

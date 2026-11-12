@@ -135,8 +135,12 @@ async function autoBaselineIfNeeded(base: Record<string, unknown>, databaseUrl: 
  * `relation "basejump.account_user" does not exist`.
  *
  * Deployed cloud/dev databases already have these objects (provided by the
- * platform / historical migrations now archived), so this is gated on basejump
- * being ABSENT — it is a no-op on every provisioned DB and idempotent on re-run.
+ * platform / historical migrations now archived), so this is gated on a FRESH
+ * database: basejump ABSENT and the managed schema (`kortix.accounts`) ABSENT.
+ * It is a no-op on every provisioned DB and idempotent on re-run. The second
+ * check matters once the legacy schemas are dropped
+ * (packages/db/migrations-pending/drop_legacy_suna_schemas.sql.pending): a
+ * migrated database without basejump must not get the bootstrap again.
  *
  * Sequencing: the bootstrap installs a trigger ON auth.users (welcome email),
  * so it must run AFTER Supabase Auth (GoTrue) has created the auth schema. We
@@ -157,11 +161,11 @@ async function selfHostBootstrapIfFresh(databaseUrl: string): Promise<void> {
       await new Promise((res) => setTimeout(res, 2000));
     }
 
-    const { rows: [bj] } = await client.query<{ ok: boolean }>(
-      "select to_regclass('basejump.account_user') is not null as ok",
+    const { rows: [present] } = await client.query<{ basejump: boolean; managed: boolean }>(
+      "select to_regclass('basejump.account_user') is not null as basejump, to_regclass('kortix.accounts') is not null as managed",
     );
-    if (bj?.ok) {
-      console.log('[migrate] basejump prerequisites already present — skipping bootstrap.');
+    if (present?.basejump || present?.managed) {
+      console.log('[migrate] prerequisites already present (basejump stub or managed schema) — skipping bootstrap.');
       return;
     }
 

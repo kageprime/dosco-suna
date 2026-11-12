@@ -1,10 +1,10 @@
 /**
  * ComposerStatusPill — the composer card's status bar, one component for
  * every pill that sits directly above the chat input. It draws the composer
- * card, exactly (`components/kortix/composer.tsx`): the `px-4` edge, the
- * `rounded-3xl border border-border bg-background p-2` row, the dot + label
- * line on the composer's text inset, and the composer's `secondary` `sm`
- * action pills (Jay, 2026-09-23).
+ * card, exactly (`ComposerCard`, `components/kortix/composer-card.tsx`): the
+ * `px-4` edge, the card as its row, the dot + label line on the composer's
+ * text inset, and the composer's `secondary` `sm` action pills (Jay,
+ * 2026-09-23).
  *
  * `SandboxHealthPill` (unreachable computer) and `LiveUpdatesPausedPill`
  * (paused stream) mount it. A new status pill mounts it too, instead of
@@ -16,6 +16,7 @@ import { Animated, View } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
+import { ComposerCard } from '@/components/kortix/composer-card';
 import type { AppIcon } from '@/lib/icons';
 
 /** The composer's action pill: `secondary` `sm`, rounded-full, 14pt icon. */
@@ -63,7 +64,7 @@ export function ComposerStatusPill({ dotColor, ping, label, elapsed, actions, ..
   const dot = { width: 8, height: 8, borderRadius: 4, backgroundColor: dotColor };
   return (
     <View className="px-4 pb-2" {...viewProps}>
-      <View className="flex-row items-center gap-2 rounded-3xl border border-border bg-background p-2">
+      <ComposerCard className="flex-row items-center gap-2">
         {/* Orange dot with ping halo. `px-2` in the row puts it on the
             composer's text inset (8pt card + 8pt input padding). */}
         <View className="flex-1 flex-row items-center gap-2 px-2">
@@ -88,7 +89,7 @@ export function ComposerStatusPill({ dotColor, ping, label, elapsed, actions, ..
           </Text>
         </View>
         {actions}
-      </View>
+      </ComposerCard>
     </View>
   );
 }

@@ -30,7 +30,7 @@ import { authCookieOptions, hasPanelMarker, panelAuthUrl } from '@/lib/supabase/
 import { redirectPreservingCookies } from '@/lib/supabase/redirect-preserving-session';
 import { createServerClient } from '@supabase/ssr';
 import type { NextRequest } from 'next/server';
-import { desktopShellPath, isDesktopShell } from './lib/workspace-redirects';
+import { desktopShellPath, isDesktopShell, workspacePathOfDesktopLegacy } from './lib/workspace-redirects';
 import { NextResponse } from 'next/server';
 
 type Locale = (typeof locales)[number];
@@ -143,8 +143,8 @@ const PROTECTED_APP_PREFIXES = [
   '/panel',
   '/presentations',
   '/workspaces',
-  // An installed desktop shell keeps the pre-Workspaces app paths; next.config
-  // serves them from /workspaces (src/lib/workspace-redirects.ts).
+  // An installed desktop shell keeps the pre-Workspaces app paths; the locale
+  // rewrite below serves them from /workspaces (src/lib/workspace-redirects.ts).
   '/projects',
   '/new',
   '/rauch',
@@ -287,6 +287,11 @@ function isDecodablePath(pathname: string): boolean {
 }
 
 export async function middleware(request: NextRequest) {
+  // Every flow below (auth, cookies marked Secure) assumes the secure origin:
+  // move a plain-HTTP visitor there before any content or auth decision.
+  const httpsRedirect = httpsRedirectTarget(request);
+  if (httpsRedirect) return NextResponse.redirect(httpsRedirect, 308);
+
   let { pathname } = request.nextUrl;
   // These are probes for server files, not product routes. A plain response also
   // avoids rendering the translated application shell for sensitive-file probes.
@@ -614,6 +619,15 @@ export async function middleware(request: NextRequest) {
     return finalizeEnvironmentAccess(response);
   }
 
+  // The page an installed desktop shell gets for its legacy paths (/projects…,
+  // /new): the same page under /workspaces, served in place. The mapping must
+  // happen here. A next.config rewrite runs after this middleware and sees only
+  // the locale path (/en/projects/start), so it never matched: every signed-in
+  // shell launch hit a 404. See src/lib/workspace-redirects.ts.
+  const pagePathname =
+    (isDesktopShell(request.headers.get('user-agent')) && workspacePathOfDesktopLegacy(pathname)) ||
+    pathname;
+
   // Every unprefixed page URL is rewritten onto app/[locale] (see the
   // cookieLocale definition above for where the locale comes from).
   const rewriteToLocale = (locale: Locale, base?: NextResponse) => {
@@ -622,7 +636,7 @@ export async function middleware(request: NextRequest) {
     requestHeaders.set('x-locale', locale);
     requestHeaders.set(NEXT_INTL_LOCALE_HEADER, locale);
     const target = request.nextUrl.clone();
-    target.pathname = localizedPathname(locale, pathname);
+    target.pathname = localizedPathname(locale, pagePathname);
     const response = NextResponse.rewrite(target, { request: { headers: requestHeaders } });
     if (base) {
       // Carry refreshed/cleared Supabase cookies and headers set on the base.
@@ -931,6 +945,57 @@ export async function middleware(request: NextRequest) {
     console.error('Middleware error:', error);
     return finalizeEnvironmentAccess(rewriteToLocale(signedInLocale(), supabaseResponse));
   }
+}
+
+/**
+ * The https URL to move a plain-HTTP visitor to, or null when the request
+ * already arrived over https (KRTX-3380, pentest http.contract). The edge
+ * (Cloudflare -> ALB) forwards the visitor's scheme in `x-forwarded-proto`
+ * — comma list, client hop leftmost — and, when it strips that header, in
+ * its own `cf-visitor` JSON; checking both covers either proxy behavior.
+ * `/api/health` is exempt: the target group probes it inside the VPC, and a
+ * 308 there would flip healthy targets out of rotation. Defined below
+ * `middleware` on purpose: middleware-desktop-routes.test.ts scrapes the
+ * source between DESKTOP_ALLOWED_ROUTES and the middleware export for
+ * route literals, and this helper's health path is not a desktop route.
+ */
+const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0']);
+
+function httpsRedirectTarget(request: NextRequest): URL | null {
+  if (request.nextUrl.pathname === '/api/health') return null;
+  // Local dev serves plain HTTP and Next dev stamps `x-forwarded-proto: http`
+  // on every request, so without this every local page 308s to an https
+  // origin nothing listens on. The `Host` header decides, not `nextUrl`: the
+  // standalone server builds `nextUrl` from its bind address (`0.0.0.0`), so
+  // a container's own health probe of `http://localhost:3000/` was sent to
+  // `https://0.0.0.0:3000/` and every self-host frontend update rolled back
+  // (2026-11-11, v0.15.5).
+  const host = hostnameOf(
+    request.headers.get('x-forwarded-host')?.split(',')[0].trim() || request.headers.get('host') || request.nextUrl.host,
+  );
+  if (LOCAL_HOSTNAMES.has(host)) return null;
+  const forwardedProto = request.headers.get('x-forwarded-proto')?.split(',')[0].trim();
+  if (forwardedProto !== 'http') {
+    let cfScheme: string | undefined;
+    try {
+      cfScheme = JSON.parse(request.headers.get('cf-visitor') ?? '')?.scheme;
+    } catch {
+      cfScheme = undefined;
+    }
+    if (cfScheme !== 'http') return null;
+  }
+  const url = request.nextUrl.clone();
+  url.protocol = 'https:';
+  // The visitor's host, on the default https port: never the bind address.
+  url.host = host;
+  url.port = '';
+  return url;
+}
+
+/** `localhost:3000` → `localhost`, `[::1]:3000` → `[::1]`. */
+function hostnameOf(host: string): string {
+  if (host.startsWith('[')) return host.slice(0, host.indexOf(']') + 1);
+  return host.split(':')[0];
 }
 
 export const config = {

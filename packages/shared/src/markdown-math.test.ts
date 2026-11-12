@@ -172,6 +172,45 @@ describe('isMermaidCode', () => {
     expect(isMermaidCode('ts', 'graph TD')).toBe(false);
     expect(isMermaidCode('Mermaid', 'graph TD')).toBe(false);
   });
+
+  test('every diagram starter routes its first line to Mermaid', () => {
+    for (const firstLine of [
+      'graph',
+      'flowchart',
+      'sequencediagram',
+      'classdiagram',
+      'statediagram',
+      'erdiagram',
+      'journey',
+      'gantt',
+      'pie',
+      'gitgraph',
+      'mindmap',
+      'timeline',
+      'sankey',
+      'block',
+      'quadrant',
+      'requirement',
+      'c4context',
+      'c4container',
+      'c4component',
+      'c4dynamic',
+    ]) {
+      expect(isMermaidCode('', firstLine)).toBe(true);
+    }
+  });
+
+  test('a git command stream without a gitGraph header still routes to Mermaid', () => {
+    expect(isMermaidCode('', 'commit id: "a1"')).toBe(true);
+    expect(isMermaidCode('', 'branch feature')).toBe(true);
+    expect(isMermaidCode('', 'checkout main')).toBe(true);
+    expect(isMermaidCode('', 'merge develop')).toBe(true);
+    expect(isMermaidCode('text', '  branch x')).toBe(true);
+  });
+
+  test('a git command mentioned later is not mermaid', () => {
+    expect(isMermaidCode('', 'hello\nmerge develop')).toBe(false);
+  });
 });
 
 describe('hasReferenceDefinitionOutsideFences', () => {

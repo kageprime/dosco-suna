@@ -5,6 +5,9 @@ import { act, create } from 'react-test-renderer';
 import type { ChangeRequest } from '@kortix/sdk';
 import { ChangeRequestsCard } from './change-requests-card';
 
+/** React always passes an event; Base UI's tooltip trigger reads `nativeEvent`. */
+const clickEvent = () => ({ nativeEvent: new Event('click'), preventDefault() {}, stopPropagation() {} });
+
 function request(number: number, overrides: Partial<ChangeRequest> = {}): ChangeRequest {
   return {
     cr_id: `cr_${number}`, number, title: `Proposal ${number}`, description: '',
@@ -61,8 +64,8 @@ describe('ChangeRequestsCard', () => {
     />); });
     if (!renderer) throw new Error('Card did not mount');
     const buttons = renderer.root.findAllByType('button');
-    await act(async () => { buttons.find((button) => button.props['data-cr-id'] === 'cr_2')?.props.onClick(); });
-    await act(async () => { await buttons.find((button) => button.props['aria-label'] === 'Jump to response for #1')?.props.onClick(); });
+    await act(async () => { buttons.find((button) => button.props['data-cr-id'] === 'cr_2')?.props.onClick(clickEvent()); });
+    await act(async () => { await buttons.find((button) => button.props['aria-label'] === 'Jump to response for #1')?.props.onClick(clickEvent()); });
     expect(opened).toEqual(['cr_2']);
     expect(jumped).toEqual(['cr_1']);
     await act(async () => renderer?.unmount());

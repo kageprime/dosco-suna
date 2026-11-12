@@ -14,7 +14,7 @@ import { scimError } from '../middleware/scim-auth';
 import { auth, errors, json } from '../openapi';
 import { db } from '../shared/db';
 import { scimMemberRow, scimMemberRows } from '../iam/membership-read';
-import { accountGroupsAmong, scimGroupIdsOfUser } from '../iam/group-read';
+import { groupRows, scimGroupIdsOfUser } from '../iam/group-read';
 import { buildDirectoryUser, directoryUserById, directoryUserByEmail, saveDirectoryUser, directoryGroupIds, type DirectoryUser } from './directory-users';
 import {
   ScimResource,
@@ -162,7 +162,7 @@ async function applyDirectoryState(c: any, user: DirectoryUser, active: boolean,
       roleBestEffort: true,
     });
     if (groupIds.length) {
-      const groups = await accountGroupsAmong(user.accountId, groupIds);
+      const groups = await groupRows({ accountId: user.accountId, groupIds });
       if (groups.length) await db.insert(accountGroupMembers).values(groups.map(g => ({ groupId: g.groupId, userId }))).onConflictDoNothing();
     }
     invalidateIamCacheForUser(userId);

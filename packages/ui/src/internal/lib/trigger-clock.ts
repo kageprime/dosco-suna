@@ -27,16 +27,34 @@ export const CLOCK_TONE = {
   paused: YELLOW,
 } as const satisfies Record<ClockState, { reflection: string; dot: string }>;
 
-/** "2d ago", "9h ago", "3w ago" in the viewer's locale, or "Never run". */
+/**
+ * "2d ago", "9h ago", "3w ago" in the viewer's locale, or "Never run". A failed
+ * attempt newer than the last fire reads "Failed · 5m ago": a failed fire does
+ * not advance `last_fired_at` (the scheduler retries it), so a trigger whose
+ * every attempt failed read "Never run".
+ */
 export function lastRunLabel(
-  trigger: Pick<ProjectTrigger, 'last_fired_at' | 'event'>,
+  trigger: Pick<ProjectTrigger, 'last_fired_at' | 'event'> &
+    Partial<Pick<ProjectTrigger, 'last_status' | 'last_attempt_at'>>,
   t: UiTranslator,
   locale: string,
   now: number = Date.now(),
 ): string {
   const iso = trigger.last_fired_at ?? trigger.event?.last_event_at ?? null;
-  const at = iso ? Date.parse(iso) : Number.NaN;
-  if (!Number.isFinite(at)) return t.raw('text3d40a69d3160');
+  const fired = iso ? Date.parse(iso) : Number.NaN;
+  const attempted = trigger.last_attempt_at ? Date.parse(trigger.last_attempt_at) : Number.NaN;
+  if (
+    trigger.last_status === 'failed' &&
+    Number.isFinite(attempted) &&
+    !(Number.isFinite(fired) && fired >= attempted)
+  ) {
+    return `${t.raw('text031a8f0f659d')} · ${ago(attempted, locale, now)}`;
+  }
+  if (!Number.isFinite(fired)) return t.raw('text3d40a69d3160');
+  return ago(fired, locale, now);
+}
+
+function ago(at: number, locale: string, now: number): string {
   const rtf = new Intl.RelativeTimeFormat(locale, { style: 'narrow', numeric: 'auto' });
   const min = Math.floor(Math.max(0, now - at) / 60_000);
   if (min < 1) return rtf.format(0, 'second');

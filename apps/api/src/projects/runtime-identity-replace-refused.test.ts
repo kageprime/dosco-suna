@@ -146,7 +146,7 @@ describe('retireRefusedRuntime', () => {
   test('claims, stops the provider OUTSIDE any transaction, then settles + deletes INSIDE one', async () => {
     const ok = await retireRefusedRuntime(
       RUNNING_ROW as Parameters<typeof retireRefusedRuntime>[0],
-      'runtime_admission_refused:catalog_fingerprint',
+      'runtime_admission_refused:config_release_capability',
     );
 
     expect(ok).toBe(true);
@@ -173,7 +173,7 @@ describe('retireRefusedRuntime', () => {
 
     const ok = await retireRefusedRuntime(
       serving as Parameters<typeof retireRefusedRuntime>[0],
-      'runtime_admission_refused:catalog_fingerprint',
+      'runtime_admission_refused:config_release_capability',
     );
 
     expect(ok).toBe(false);
@@ -188,7 +188,7 @@ describe('retireRefusedRuntime', () => {
 
     const ok = await retireRefusedRuntime(
       RUNNING_ROW as Parameters<typeof retireRefusedRuntime>[0],
-      'runtime_admission_refused:catalog_fingerprint',
+      'runtime_admission_refused:config_release_capability',
     );
 
     expect(ok).toBe(false);
@@ -205,7 +205,7 @@ describe('retireRefusedRuntime', () => {
 
     const ok = await retireRefusedRuntime(
       RUNNING_ROW as Parameters<typeof retireRefusedRuntime>[0],
-      'runtime_admission_refused:catalog_fingerprint',
+      'runtime_admission_refused:config_release_capability',
     );
 
     expect(ok).toBe(false);

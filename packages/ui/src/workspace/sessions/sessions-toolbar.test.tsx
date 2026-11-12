@@ -7,7 +7,7 @@
  * type-checks, lints, renders a perfectly normal-looking button — and drops the
  * trigger's onClick and ref on the floor. Clicking it does nothing at all.
  *
- * Radix stamps `aria-haspopup="menu"` onto whatever DOM node the trigger
+ * The menu trigger stamps `aria-haspopup="menu"` onto whatever DOM node it
  * resolves to. If that lands on the <button>, the composition is right; if the
  * order is inverted the attribute never reaches the button.
  */

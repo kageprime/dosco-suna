@@ -18,12 +18,21 @@ describe('oauthScopeAllowsPath', () => {
     ['POST', '/v1/platform/github-app/pat'],
     ['POST', '/v1/auth/mfa/factors'],
     ['PATCH', '/v1/auth/user/'],
+    ['POST', '/v1/oauth/authorize/consent'],
+    ['PATCH', '/v1/accounts/acc/iam/mfa-required'],
+    ['PATCH', '/v1/workspaces/ws/iam/mfa-required'],
+    ['PATCH', '/v1/workspaces/ws/iam/session-policy'],
+    ['PUT', '/v1/workspaces/ws/iam/sso/provider'],
+    ['DELETE', '/v1/accounts/acc/iam/sso/provider'],
+    ['POST', '/v1/workspaces/ws/iam/sso/mappings'],
   ])('a kortix token may not %s %s', (method, path) => {
     expect(oauthScopeAllowsPath(KORTIX, path, method)).toBe(false);
   });
 
   test('a kortix token still reads those routes and writes everything else', () => {
     expect(oauthScopeAllowsPath(KORTIX, '/v1/accounts/tokens', 'GET')).toBe(true);
+    expect(oauthScopeAllowsPath(KORTIX, '/v1/workspaces/ws/iam/mfa-required', 'GET')).toBe(true);
+    expect(oauthScopeAllowsPath(KORTIX, '/v1/workspaces/ws/iam/sso/provider', 'GET')).toBe(true);
     expect(oauthScopeAllowsPath(KORTIX, '/v1/projects/p1/sessions', 'POST')).toBe(true);
     expect(oauthScopeAllowsPath(KORTIX, '/v1/projects/p1/git-token', 'POST')).toBe(true);
   });

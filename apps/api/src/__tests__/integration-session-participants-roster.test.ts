@@ -247,7 +247,7 @@ describe('GET /sessions/:id/participants — the roster read (KRTX-2727)', () =>
   test('no account_groups read — the roster does not build the access view', async () => {
     const m = await warmAndMeasure(SESSION_PROJECT);
     expect(m.status).toBe(200);
-    // `accountGroupNames` exists for the access screen's group labels and the
+    // `groupRows` exists for the access screen's group labels and the
     // account switcher, not for "who can open this session".
     expect(m.queries.filter(isAccountGroupsRead)).toHaveLength(0);
   });

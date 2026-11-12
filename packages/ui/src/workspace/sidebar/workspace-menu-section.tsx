@@ -92,7 +92,7 @@ export function WorkspaceMenuSection({
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('find')}
             aria-label={t('find')}
-            // A Radix menu runs typeahead on printable keys and moves focus off
+            // A menu runs typeahead on printable keys and moves focus off
             // the field. Stopping propagation keeps the keystrokes here.
             onKeyDown={(e) => e.stopPropagation()}
             className="h-8 pr-2 pl-8 text-sm"

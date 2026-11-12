@@ -183,3 +183,51 @@ export function pixelMarkShape(slug: string) {
     height: PIXEL_MARK_SIZE,
   };
 }
+
+// ── The tile tone ─────────────────────────────────────────────────────────
+// A second hash of the slug picks the tile tone; the face and the tone
+// together are the agent's mark wherever it appears (web, mobile, Slack).
+
+export interface PixelMarkTone {
+  name: string;
+  tile: string;
+  ink: string;
+  /** Dark theme: the pair inverts, so the tile stays visible on a dark page. */
+  tileDark: string;
+  inkDark: string;
+}
+
+const tone = (name: string, tile: string, ink: string): PixelMarkTone => ({
+  name,
+  tile,
+  ink,
+  tileDark: ink,
+  inkDark: tile,
+});
+
+export const PIXEL_MARK_TONES: readonly PixelMarkTone[] = [
+  tone('graphite', '#EDEDED', '#191919'),
+  tone('sand', '#F1EBDD', '#6B5A3A'),
+  tone('moss', '#E6EDE0', '#3F5A33'),
+  tone('sea', '#E2ECF0', '#2E5566'),
+  tone('blue', '#E6EEFF', '#2457C5'),
+  tone('plum', '#EEE6F0', '#5E3A68'),
+  tone('clay', '#F3E6E0', '#7A4532'),
+  tone('slate', '#E4E7EC', '#3B4656'),
+];
+
+/** The starter's `kortix` agent and My Kortix (slug `mykortix`) keep the brand tile. */
+const BRAND: PixelMarkTone = {
+  name: 'brand',
+  tile: '#1F1F1F',
+  ink: '#FFFFFF',
+  tileDark: '#2C2C2C',
+  inkDark: '#FFFFFF',
+};
+const RESERVED_TONES: Record<string, PixelMarkTone> = { kortix: BRAND, mykortix: BRAND, meta: BRAND, dot: BRAND, xera: BRAND };
+
+/** The agent's mark: its shape and its tile tone. */
+export function pixelMark(slug: string) {
+  const tone = RESERVED_TONES[slug] ?? PIXEL_MARK_TONES[fnv1a(`${slug}#tone`) % PIXEL_MARK_TONES.length];
+  return { ...pixelMarkShape(slug), tone };
+}

@@ -5,7 +5,7 @@
  * that replace `iam/authorize` wholesale keep the real reader.
  */
 import { isUuid } from '../shared/validate';
-import { readAccountEngineFacts } from '../workspaces/surface';
+import { readAccountEngineFacts, resolveWorkspace } from '../workspaces/surface';
 import { ttlMemo } from '../shared/ttl-memo';
 import { invalidateIamCacheForProjectResources, registerProjectScopedMemo } from './cache-invalidation';
 
@@ -67,4 +67,19 @@ export function invalidateWorkspaceFactsForAccount(accountId: string): void {
 /** Test hook. */
 export function clearWorkspaceFacts(): void {
   workspaceFactsMemo.clear();
+}
+
+/**
+ * True when `workspaceId` (a bound token's workspace) is a workspace of the
+ * split_pending account `accountId`: the token's own account holds other
+ * workspaces too. Read only on a denial path, to pick the refusal reason.
+ * A lookup error answers false (the generic `token_out_of_scope` stays).
+ */
+export async function tokenWorkspaceSharesAccount(workspaceId: string, accountId: string): Promise<boolean> {
+  try {
+    const resolved = await resolveWorkspace(workspaceId);
+    return resolved !== null && resolved.splitPending && resolved.accountId === accountId;
+  } catch {
+    return false;
+  }
 }

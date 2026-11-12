@@ -37,7 +37,8 @@ Read the active account's plan, credits and spend. Read-only: plan changes,
 top-ups and payment methods are dashboard flows.
 Credit balances and transaction amounts use 100 credits per USD, including --json.
 Prices, fields named *_usd, and costs JSON/CSV remain in USD.
-JSON credit objects include a units map for their monetary fields.
+JSON credit objects include a units map for the monetary fields they carry.
+Without billing.read the credit amounts are absent and credits.hidden says why.
 
 Subcommands:
   status                            Plan, credits, subscription. --json.
@@ -193,6 +194,9 @@ interface AccountStateView {
     lifetime_purchased?: number;
     lifetime_used?: number;
     can_run?: boolean;
+    /** Present when the caller may not read the amounts (no `billing.read`):
+     *  the amounts are null and this names the reason and the remedy. */
+    hidden?: { reason?: string; message?: string };
   };
   billing_state?: string;
   plan?: { label?: string; key?: string; family?: string; monthly_usd?: number | null };
@@ -215,18 +219,22 @@ interface AccountStateView {
   usage_this_period?: { compute_usd?: number; llm_usd?: number; total_usd?: number } | null;
 }
 
-// Convert only monetary credit fields; preserve prices, counts and optional values.
-function creditAmounts<T extends object>(data: T, keys: readonly (keyof T)[]): T {
+// Convert only monetary credit fields; preserve prices, counts and optional
+// values. `units` names only the fields that carry a number: a units entry for
+// an absent or null field describes nothing (F03).
+export function creditAmounts<T extends object>(data: T, keys: readonly (keyof T)[]): T {
   const result = { ...data };
+  const present: (keyof T)[] = [];
   for (const key of keys) {
     const value = data[key];
     if (typeof value === 'number') {
       Object.assign(result, { [key]: value * CREDITS_PER_DOLLAR });
+      present.push(key);
     }
   }
   return {
     ...result,
-    units: Object.fromEntries(keys.map((key) => [key, 'credits'])),
+    ...(present.length > 0 ? { units: Object.fromEntries(present.map((key) => [key, 'credits'])) } : {}),
   };
 }
 
@@ -297,7 +305,11 @@ async function statusCommand(ctx: AccountContext, f: Flags): Promise<number> {
   process.stdout.write(`\n  ${C.bold}Billing — ${ctx.accountId}${C.reset}\n\n`);
   process.stdout.write(row('plan', plan));
   process.stdout.write(row('state', state.billing_state ?? sub.status ?? '—'));
-  process.stdout.write(row('credits', credits(state.credits?.total)));
+  if (state.credits?.hidden) {
+    process.stdout.write(row('credits', `${C.yellow}hidden${C.reset} — ${state.credits.hidden.message ?? 'billing.read required'}`));
+  } else {
+    process.stdout.write(row('credits', credits(state.credits?.total)));
+  }
   if (state.credits?.can_run === false) {
     process.stdout.write(row('', `${C.yellow}blocked — out of credits${C.reset}`));
   }

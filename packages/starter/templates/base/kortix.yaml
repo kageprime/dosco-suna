@@ -34,7 +34,6 @@ agents:
     connectors: "*"
     secrets: "*"
     kortix_permissions: "*"
-    workspace: { project_repository: true }
 
 # More you can add here, each with an example in the reference:
 #   sandbox.templates   a custom image or Dockerfile for sessions

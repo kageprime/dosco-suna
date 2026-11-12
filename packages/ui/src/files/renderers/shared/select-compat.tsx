@@ -2,13 +2,9 @@
 
 // Vendored extend.ai viewers (e.g. pdf-viewer.tsx) are written against
 // extend.ai's own base-ui-powered `Select` (`modal` on the root,
-// `alignItemWithTrigger` on the content/popup), which doesn't line up with
-// this repo's shadcn/Radix-based `@/components/ui/select`. Radix's
-// `Select.Root` has no `modal` concept and shadcn's `SelectContent` has no
-// `alignItemWithTrigger` concept — both are already effectively "off" in the
-// Radix version, so this shim just accepts (and drops) those two props for
-// API parity instead of widening the app-wide select component or pulling
-// in `@base-ui/react`.
+// `alignItemWithTrigger` on the content/popup). `@kortix/ui`'s `Select` runs
+// on Base UI too and accepts both props, but this shim drops them, so these
+// viewers keep the non-modal, popper-positioned select they have always had.
 import {
   SelectContent as SelectContentPrimitive,
   SelectItem,

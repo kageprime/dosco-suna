@@ -9,7 +9,7 @@ import { useTranslations } from '../../../i18n';
 import { getChildSessionId } from '../../../internal/session-types';
 import { useContext, useMemo, useState } from 'react';
 import type { ProjectSession, SessionLogThread } from '@kortix/sdk';
-import { useProjectSession, useSessionStateStore } from '@kortix/sdk/react';
+import { useProjectSession, useSessionAsks, useSessionStateStore } from '@kortix/sdk/react';
 import { agentDisplayName } from '../../../internal/components/agent-mark';
 import { useSessionIds } from '../../../providers/session-ids';
 import type { SessionDisplayStatus } from '../../actions/session-label';
@@ -48,9 +48,14 @@ export function TaskTool({ call, defaultOpen, forceOpen, locked }: ToolProps) {
   // truthy non-string used to crash the render tree (`e.replace is not a
   // function`, KRTX-4511). Read each field by type, never by cast — an empty
   // or junk value falls through to the same fallback as an absent one.
+  // pi's `agent` field is an object by schema: an inline agent spec
+  // (`{ instructions, model?, tools?, description? }`). Its child runs as the
+  // `inline` agent (`INLINE_AGENT` in the pi subagents extension), so the row
+  // names it that way, never as `general`.
   const subagentType =
     (typeof input.subagent_type === 'string' && input.subagent_type) ||
     (typeof input.agent === 'string' && input.agent) ||
+    (typeof input.agent === 'object' && input.agent !== null ? INLINE_AGENT : '') ||
     'general';
   const name = typeof input.name === 'string' ? input.name : '';
   const description = useMemo(
@@ -80,9 +85,16 @@ export function TaskTool({ call, defaultOpen, forceOpen, locked }: ToolProps) {
   const ids = useSessionIds();
   const childRow = useProjectSession(ids.projectId, childSessionId, { enabled: !!ids.projectId && !!childSessionId });
   const child = childRow.data ? agentRowOf(childRow.data as ProjectSession) : null;
+  // A colleague whose access waits for the person (pi `awaitingApproval`): no session exists yet.
+  // "Needs you" while its ask is open; once decided, the call is over and a new call starts the colleague.
+  const askId = !childSessionId && partMetadata(call).awaitingApproval === true ? partMetadata(call).askId : undefined;
+  const openAsks = useSessionAsks(ids.projectId ?? '', { enabled: !!ids.projectId && typeof askId === 'string' });
+  const awaitingApproval = typeof askId === 'string' && !!openAsks.data?.asks.some((ask) => ask.id === askId);
   const state: AgentRowState = errorText
     ? 'failed'
-    : (child?.state ?? (isRunning || (background && backgroundWorking) ? 'working' : status === 'completed' ? 'completed' : 'idle'));
+    : awaitingApproval
+      ? 'needs_input'
+      : (child?.state ?? (isRunning || (background && backgroundWorking) ? 'working' : status === 'completed' ? 'completed' : 'idle'));
   // The name its parent gave it (`agent({ name })`) reads best; else the kind of agent.
   const handle = name || (child?.named ? child.handle : '') || subagentType;
   const title = name || (child?.named ? child.handle : '') || agentDisplayName(subagentType);
@@ -123,6 +135,9 @@ export function TaskTool({ call, defaultOpen, forceOpen, locked }: ToolProps) {
     </AgentRowScope>
   );
 }
+
+/** The agent name an inline agent spec's child runs under (pi `INLINE_AGENT`). */
+const INLINE_AGENT = 'inline';
 
 /** The session-list glyph an agent's state draws. */
 const STATE_GLYPH: Record<AgentRowState, SessionDisplayStatus> = {

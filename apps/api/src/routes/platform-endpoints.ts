@@ -3,6 +3,8 @@ import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { auth, errors, json } from '../openapi';
 import { supabaseAuth } from '../middleware/auth';
 import { sendDemoRequestNotification } from '../lib/demo-request-email';
+import { logger } from '../lib/logger';
+import { CONTACT_FORM_MAX_FIELD_CHARS, saveContactForm } from '../platform/services/contact-forms';
 import {
   DEFAULT_MAINTENANCE,
   MaintenanceSchema,
@@ -116,21 +118,27 @@ app.openapi(
 
 // ─── Demo request (public lead capture) ─────────────────────────────────────
 // POST /v1/system/demo-request — public, unauthenticated. The marketing site's
-// "Book a demo" qualifier form POSTs the first-step details here (via the web
-// server); we email an internal notification to DEMO_LEAD_NOTIFY_EMAIL on every
-// submission, whether or not the lead goes on to book a Cal slot. The email uses
-// the API's email-provider credentials (AWS Secrets Manager), so the Vercel
-// frontend never needs the secret. IP rate-limited; no configured email
-// provider is a graceful skip, so lead capture never fails on account of email.
+// "Book a demo" qualifier and the careers form POST here (via the web server,
+// apps/web /api/demo-request). The submission is stored in kortix.contact_forms
+// first: the row and its Sales outbox event commit together, and a failed write
+// answers 503 so the visitor retries. Then an internal notification goes to
+// DEMO_LEAD_NOTIFY_EMAIL with the API's email-provider credentials, best effort:
+// lead capture never fails on account of email. IP rate-limited (a relayed call is
+// keyed on the web server's address).
+const demoText = z.string().max(CONTACT_FORM_MAX_FIELD_CHARS).optional();
 const DemoRequestSchema = z
   .object({
-    name: z.string().max(200).optional(),
+    name: demoText,
     email: z.string().email(),
-    company_name: z.string().max(200).optional(),
-    company_size: z.string().max(50).optional(),
-    goal: z.string().max(2000).optional(),
+    company_name: demoText,
+    company_size: demoText,
+    goal: demoText,
     qualified: z.boolean().optional(),
-    source: z.string().max(100).optional(),
+    source: demoText,
+    opening: demoText,
+    owned: demoText,
+    link: demoText,
+    user_agent: z.string().max(500).optional(),
   })
   .openapi('DemoRequest');
 
@@ -139,17 +147,17 @@ app.openapi(
     method: 'post',
     path: '/v1/system/demo-request',
     tags: ['system'],
-    summary: 'Submit a public demo request (emails an internal notification)',
+    summary: 'Submit a public demo request or job application (stored, then emails an internal notification)',
     middleware: [createDemoRequestRateLimitMiddleware()] as const,
     request: {
       body: { content: { 'application/json': { schema: DemoRequestSchema } } },
     },
     responses: {
       200: json(
-        z.object({ ok: z.boolean(), emailed: z.boolean() }).openapi('DemoRequestResult'),
-        'Accepted',
+        z.object({ ok: z.boolean(), persisted: z.boolean(), emailed: z.boolean() }).openapi('DemoRequestResult'),
+        'Stored',
       ),
-      ...errors(400, 429),
+      ...errors(400, 429, 503),
     },
   }),
   async (c: any) => {
@@ -157,6 +165,16 @@ app.openapi(
     const email = String(body?.email ?? '').trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return c.json({ error: 'Invalid email' }, 400);
+    }
+    try {
+      await saveContactForm({
+        fields: { ...body, email },
+        // The web server relays the visitor's user agent; a direct caller's own header otherwise.
+        userAgent: typeof body.user_agent === 'string' ? body.user_agent : (c.req.header('user-agent') ?? null),
+      });
+    } catch (error) {
+      logger.error('[system/demo-request] submission not stored', { error: (error as Error).message });
+      return c.json({ error: 'Unable to save submission; please retry' }, 503, { 'Retry-After': '5' });
     }
     const result = await sendDemoRequestNotification({
       name: typeof body.name === 'string' ? body.name : undefined,
@@ -166,12 +184,12 @@ app.openapi(
       goal: typeof body.goal === 'string' ? body.goal : undefined,
       qualified: typeof body.qualified === 'boolean' ? body.qualified : undefined,
       source: typeof body.source === 'string' ? body.source : undefined,
-      user_agent: c.req.header('user-agent')?.slice(0, 500) ?? null,
+      user_agent: typeof body.user_agent === 'string' ? body.user_agent.slice(0, 500) : (c.req.header('user-agent')?.slice(0, 500) ?? null),
     });
     if (!result.ok && !('skipped' in result && result.skipped)) {
-      console.error('[system/demo-request] notification not sent:', result);
+      logger.error('[system/demo-request] notification not sent', { result });
     }
-    return c.json({ ok: true, emailed: result.ok });
+    return c.json({ ok: true, persisted: true, emailed: result.ok });
   },
 );
 }

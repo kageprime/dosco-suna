@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 
-import { BlogFeaturedPost, BlogPostCard } from '@/components/blog/blog-post-card';
+import { BlogCover } from '@/components/blog/blog-cover';
+import { BlogFeaturedPost } from '@/components/blog/blog-post-card';
+import { PostCard } from '@/components/blog/post-card';
 import { EmptyState } from '@kortix/ui/empty-state';
 import { MARKETING_CONTAINER } from '@/features/marketing/kit/section';
 import { getTranslations } from '@/i18n/get-translations';
@@ -88,7 +90,17 @@ export default async function BlogIndexPage() {
             {rest.length > 0 ? (
               <div className="mt-16 grid grid-cols-1 gap-x-6 gap-y-16 border-t pt-16 sm:grid-cols-2 lg:mt-24 lg:grid-cols-3 lg:pt-24">
                 {rest.map((post) => (
-                  <BlogPostCard key={post.slug} post={post} />
+                  <PostCard
+                    key={post.slug}
+                    post={post}
+                    cover={
+                      <BlogCover
+                        logos={post.data.coverLogos ?? []}
+                        withKortix={post.data.coverKortix ?? true}
+                        className="aspect-video w-full"
+                      />
+                    }
+                  />
                 ))}
               </div>
             ) : null}

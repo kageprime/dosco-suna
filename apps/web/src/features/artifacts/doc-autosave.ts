@@ -55,7 +55,7 @@ const realTimers: Timers = {
   clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
 
-export interface DocSaverDeps {
+interface DocSaverDeps {
   artifactId: string;
   /** Write the entry; resolves to its new version. */
   write(text: string, baseVersion: string | null): Promise<string | null>;

@@ -1,7 +1,7 @@
 {
   "generatedAt": "static",
-  "count": 1753,
-  "aliases": 675,
+  "count": 1755,
+  "aliases": 676,
   "routes": [
     {
       "method": "GET",
@@ -973,6 +973,11 @@
       "aliasOf": "/v1/workspaces/:workspaceId/secret-resources/:secretId/value"
     },
     {
+      "method": "POST",
+      "path": "/v1/accounts/:workspaceId/secret-resources/:secretId/verify",
+      "aliasOf": "/v1/workspaces/:workspaceId/secret-resources/:secretId/verify"
+    },
+    {
       "method": "GET",
       "path": "/v1/accounts/:workspaceId/subscription-connections",
       "aliasOf": "/v1/workspaces/:workspaceId/subscription-connections"
@@ -1195,6 +1200,10 @@
     {
       "method": "POST",
       "path": "/v1/admin/api/sandboxes/:sessionId/migrate"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/agent-marks/:file"
     },
     {
       "method": "GET",
@@ -2088,10 +2097,6 @@
     {
       "method": "GET",
       "path": "/v1/generation"
-    },
-    {
-      "method": "GET",
-      "path": "/v1/git/:project/fast-boot-bundle"
     },
     {
       "method": "POST",
@@ -6997,6 +7002,10 @@
     {
       "method": "PUT",
       "path": "/v1/workspaces/:workspaceId/secret-resources/:secretId/value"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/workspaces/:workspaceId/secret-resources/:secretId/verify"
     },
     {
       "method": "GET",

@@ -46,7 +46,7 @@ import { useQuery } from '@tanstack/react-query';
 import { isAccountGraduatedSection, legacySectionRedirect } from '@kortix/ui/customize/settings/settings-tabs';
 import { useSettingsAccountId } from './use-settings-account-id';
 
-export interface LegacySectionRedirect {
+interface LegacySectionRedirect {
   /** Where to go, or `null` when the section resolves nowhere. */
   href: string | null;
   /** True while an account-scoped section is still waiting on its account id.

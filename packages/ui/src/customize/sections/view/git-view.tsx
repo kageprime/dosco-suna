@@ -298,7 +298,7 @@ function SaveStatus() {
  * The default-branch picker: a searchable list, not a `<Select>`.
  *
  * A long-lived project's remote holds one branch per session, thousands of
- * refs. A Radix `<Select>` mounts every option, so opening this pane on such
+ * refs. A `<Select>` mounts every option, so opening this pane on such
  * a project froze the tab and then crashed it. This list renders at most
  * `BRANCH_PICKER_LIMIT` rows (`filterBranchNames`) and filters as the person
  * types. The current value always renders, also before `/branches` answers.

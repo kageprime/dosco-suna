@@ -11,8 +11,6 @@
  * asked to link; the bearer proves which Kortix user is accepting.
  */
 import { createRoute, z } from '@hono/zod-openapi';
-import { inArray } from 'drizzle-orm';
-import { db } from '../../shared/db';
 import { config } from '../../config';
 import { auth, errors, json, makeOpenApiApp } from '../../openapi';
 import { combinedAuth } from '../../middleware/auth';
@@ -29,7 +27,7 @@ import { chatUser, completeChatLogin } from '../core/identity';
 import { readJsonObject } from '../../shared/http-body';
 import { buildDenialError } from '../../iam/denial-message';
 import { PROJECT_ACTIONS } from '../../iam/actions';
-import { projectsView } from '../../workspaces/rows';
+import { accountKeysOfWorkspaces } from '../../workspaces/rows';
 
 export const slackIdentityApp = makeOpenApiApp();
 
@@ -161,11 +159,7 @@ slackIdentityApp.openapi(
     if (projectIds.length === 0) {
       return c.json({ error: 'This Slack workspace is not connected to any Kortix workspace.' }, 403);
     }
-    const accountRows = await db
-      .select({ accountId: projectsView.accountId })
-      .from(projectsView)
-      .where(inArray(projectsView.projectId, projectIds));
-    const accountIds = Array.from(new Set(accountRows.map((r) => r.accountId)));
+    const accountIds = await accountKeysOfWorkspaces(projectIds);
 
     // Link regardless of membership. Connecting your Kortix account is decoupled
     // from having access: we establish WHO this Slack user is so a non-member can

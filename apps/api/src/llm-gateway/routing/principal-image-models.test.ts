@@ -46,13 +46,14 @@ describe('the image models a principal reaches', () => {
     listGrantedGatewaySecretNames.mockClear();
   });
 
-  test('a session reaches its project secrets; with pooled keys off no grant is read', async () => {
+  // One store (2026-11-11): the named keys are read whatever the flag says.
+  test('a session reaches its project secrets and its granted keys, with pooled keys off too', async () => {
     projectNames = ['CODEX_AUTH_JSON', 'GOOGLE_GENERATIVE_AI_API_KEY'];
     expect(await planned(session)).toEqual(['codex/gpt-image-2', 'google/gemini-2.5-flash-image']);
     expect(listProjectSecretNamesForConsumer).toHaveBeenCalledWith({
       projectId: 'proj-1', principalUserId: 'user-1', consumer: 'llm_gateway',
     });
-    expect(listGrantedGatewaySecretNames).not.toHaveBeenCalled();
+    expect(listGrantedGatewaySecretNames).toHaveBeenCalledWith('acct-1', 'proj-1', 'user-1', 'user-1');
   });
 
   test('with pooled keys on, a session also reaches the keys granted to it', async () => {

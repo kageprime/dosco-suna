@@ -92,6 +92,10 @@ mock.module('../../../accounts/core/app', () => ({
   lookupEmailsByUserIds: async () => new Map(),
 }));
 
+// No Slack workspace is linked here unless a test says so.
+const realLink = await import('../link');
+mock.module('../link', () => ({ ...realLink, linkedSlackProject: async () => null }));
+
 const { handleSlashCommand } = await import('../commands');
 const { setChannelModel } = (await import('../selection')) as any;
 
@@ -115,21 +119,24 @@ beforeEach(() => {
 });
 
 describe('bare /kortix → channel panel', () => {
-  test('renders the project + inline change buttons (one command for everything)', async () => {
+  test('renders the linked workspace + inline change buttons (one command for everything)', async () => {
     dbResults = [[{ projectId: 'p1', name: 'acme/api', repoUrl: 'https://github.com/acme/api', metadata: {} }]];
     const resp = await handleSlashCommand('', '', ctx);
     const ids = actionIds(resp);
     expect(ids).toContain('cfg_open_models');
     expect(ids).toContain('cfg_open_agents');
-    expect(ids).toContain('cfg_open_projects');
+    // One Slack workspace runs in one Kortix workspace: no project picker, an Open button.
+    expect(ids).toContain('panel_open_p1');
+    expect(ids).not.toContain('cfg_open_projects');
     // honest effective-model + source line
     expect(JSON.stringify(resp.blocks)).toContain('workspace default');
   });
 
-  test('unconnected channel → a Connect button, not a "type switch" instruction', async () => {
+  test('a Slack workspace with no linked Kortix workspace → how to connect one, no picker', async () => {
     selection = null;
     const resp = await handleSlashCommand('config', '', ctx);
-    expect(actionIds(resp)).toContain('cfg_open_projects');
+    expect(JSON.stringify(resp)).toContain('No Kortix workspace is connected to this Slack workspace');
+    expect(actionIds(resp)).not.toContain('cfg_open_projects');
   });
 });
 

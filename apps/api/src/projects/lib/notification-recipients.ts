@@ -8,7 +8,7 @@ import type { SelectedFields } from 'drizzle-orm/pg-core';
 import { CHANNEL_PLATFORM_IDS } from '@kortix/shared/channel-descriptors';
 import { and, desc, eq } from 'drizzle-orm';
 import type { SecretGrant, SharingIntent } from '../../connectors/share';
-import { accountGroupsAmong, groupMemberRows } from '../../iam/group-read';
+import { groupMemberRows, groupRows } from '../../iam/group-read';
 import { accountMembersAmong } from '../../iam/membership-read';
 import { logger } from '../../lib/logger';
 import { filterSessionRecipients, loadSessionAccessRows, personsAmong } from '../../notifications/access';
@@ -224,7 +224,7 @@ export async function notifySessionShared(
     const groupIds = (change.intent.groupIds ?? []).filter(isUuid);
     const [members, groups] = await Promise.all([
       memberIds.length ? accountMembersAmong(change.accountId, memberIds) : [],
-      groupIds.length ? accountGroupsAmong(change.accountId, groupIds) : [],
+      groupIds.length ? groupRows({ accountId: change.accountId, groupIds }) : [],
     ]);
     const priorGroupIds = change.priorGrants.filter((g) => g.principalType === 'group').map((g) => g.principalId);
     const [groupMembers, priorGroupMembers] = await Promise.all([

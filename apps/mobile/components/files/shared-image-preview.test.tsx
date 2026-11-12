@@ -43,6 +43,7 @@ mock.module('@/lib/utils/theme', () => ({
 }));
 /** Every Reanimated timing the caption disclosure started: its target and duration. A timing completes at once. */
 const timings: { to: number; duration: number }[] = [];
+let reduceMotion = false;
 mock.module('react-native-reanimated', () => ({
   default: { View: host('animated') },
   Easing: { bezier: (...curve: number[]) => curve, out: () => 0, cubic: 0 },
@@ -55,9 +56,8 @@ mock.module('react-native-reanimated', () => ({
     done?.(true);
     return to;
   },
+  useReducedMotion: () => reduceMotion,
 }));
-let reduceMotion = false;
-mock.module('@/components/session/dot-matrix/use-reduce-motion', () => ({ useReduceMotion: () => reduceMotion }));
 mock.module('@/lib/utils/mono-font', () => ({ MONO_FONT_FAMILY: 'mono' }));
 mock.module('@/lib/logger', () => ({ log: { error: none, warn: none } }));
 mock.module('@/lib/utils/open-link', () => ({ openLink: async () => {} }));

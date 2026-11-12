@@ -170,6 +170,8 @@ async function seed(): Promise<void> {
 }
 
 async function cleanup(): Promise<void> {
+  // kortix.api_keys has no foreign key to the account: delete its rows by hand.
+  await db.execute(sql`DELETE FROM kortix.api_keys WHERE account_id IN (${SOURCE_ACCOUNT}, ${TARGET_ACCOUNT})`);
   await db.delete(projectSessionConnectorBindings).where(eq(projectSessionConnectorBindings.projectId, PROJECT_ID));
   await db.delete(connectionOAuthApplications).where(eq(connectionOAuthApplications.projectId, PROJECT_ID));
   await db.delete(accounts).where(eq(accounts.accountId, SOURCE_ACCOUNT));
@@ -594,6 +596,46 @@ withDb('project transfer', () => {
     }
   });
 
+  test('a box\'s legacy sandbox key follows the project, both ways, and the git proxy still accepts it', async () => {
+    // Sandboxes from before 2026-08-24 still authenticate with a `kortix_sb_`
+    // key (kortix.api_keys, keyed by account and sandbox). The git proxy
+    // accepts it only when the box's session_sandboxes row has the key's
+    // account: left behind, a moved session's git calls get 403.
+    const { sessionSandboxes, kortixApiKeys } = await import('@kortix/db');
+    const { createApiKey } = await import('../../repositories/api-keys');
+    const { authorizeGitProxy, __resetGitProxyAuthzMemoForTests } = await import('./git');
+    const BOX = '00000000-0000-4000-a000-00000000a142';
+    const OTHER_BOX = '00000000-0000-4000-a000-00000000a143';
+    const KEYED_SESSION = 'transfer-test-session-keyed';
+    await db.insert(projectSessions).values({ sessionId: KEYED_SESSION, accountId: SOURCE_ACCOUNT, projectId: PROJECT_ID, branchName: KEYED_SESSION });
+    await db.insert(sessionSandboxes).values({
+      sandboxId: BOX, sessionId: KEYED_SESSION, accountId: SOURCE_ACCOUNT, projectId: PROJECT_ID, provider: 'platinum', externalId: 'sbx-keyed', status: 'active',
+    });
+    const key = await createApiKey({ sandboxId: BOX, accountId: SOURCE_ACCOUNT, title: 'synthetic sandbox key', type: 'sandbox' });
+    // A key of a box this project does not own stays with the source.
+    const other = await createApiKey({ sandboxId: OTHER_BOX, accountId: SOURCE_ACCOUNT, title: 'synthetic other key', type: 'sandbox' });
+    // The session's own token: the git proxy reads its person's role.
+    await db.update(accountTokens).set({ sessionId: KEYED_SESSION }).where(eq(accountTokens.tokenId, TOKEN_ID));
+    await db.insert(accountMemberships).values({ userId: OWNER_A, accountId: TARGET_ACCOUNT });
+    await db.insert(roleAssignments).values({
+      accountId: TARGET_ACCOUNT, principalType: 'user', principalId: OWNER_A, roleId: await systemRoleId('owner', 'account'), scopeType: 'account',
+    });
+    const keyAccount = async (keyId: string) =>
+      (await db.select({ accountId: kortixApiKeys.accountId }).from(kortixApiKeys).where(eq(kortixApiKeys.keyId, keyId)))[0]?.accountId;
+    const gitRead = async () => {
+      __resetGitProxyAuthzMemoForTests();
+      const verdict = await authorizeGitProxy(key.secretKey, PROJECT_ID, 'read');
+      return verdict.ok ? 'ok' : `${verdict.status} ${verdict.message}`;
+    };
+    expect(await gitRead()).toBe('ok');
+
+    for (const [fromAccountId, toAccountId] of [[SOURCE_ACCOUNT, TARGET_ACCOUNT], [TARGET_ACCOUNT, SOURCE_ACCOUNT]] as const) {
+      await transferProjectOwnership({ projectId: PROJECT_ID, fromAccountId, toAccountId });
+      expect(await gitRead()).toBe('ok');
+      expect([await keyAccount(key.keyId), await keyAccount(other.keyId)]).toEqual([toAccountId, SOURCE_ACCOUNT]);
+    }
+  });
+
   test('a parked tool-call permission follows the project', async () => {
     const { sessionPendingPermissions } = await import('@kortix/db');
     const [parked] = await db.insert(sessionPendingPermissions).values({
@@ -602,6 +644,17 @@ withDb('project transfer', () => {
     }).returning();
     await transferProjectOwnership({ projectId: PROJECT_ID, fromAccountId: SOURCE_ACCOUNT, toAccountId: TARGET_ACCOUNT });
     const [moved] = await db.select().from(sessionPendingPermissions).where(eq(sessionPendingPermissions.id, parked!.id));
+    expect(moved?.accountId).toBe(TARGET_ACCOUNT);
+  });
+
+  test('a colleague access ask follows the project', async () => {
+    const { sessionColleagueAccess } = await import('@kortix/db');
+    const [ask] = await db.insert(sessionColleagueAccess).values({
+      accountId: SOURCE_ACCOUNT, projectId: PROJECT_ID, sessionId: SESSION_ID, title: 'synthetic task',
+      secrets: ['SYNTHETIC_KEY'], accessHash: 'a'.repeat(64), expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+    }).returning();
+    await transferProjectOwnership({ projectId: PROJECT_ID, fromAccountId: SOURCE_ACCOUNT, toAccountId: TARGET_ACCOUNT });
+    const [moved] = await db.select().from(sessionColleagueAccess).where(eq(sessionColleagueAccess.id, ask!.id));
     expect(moved?.accountId).toBe(TARGET_ACCOUNT);
   });
 

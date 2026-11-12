@@ -21,16 +21,43 @@ mock.module('../sandbox-frontend-url', () => ({
 
 let fetchStatus = 404;
 let fetchBody: Record<string, unknown> = { error: 'not found', code: 'not_found' };
+let fetchCalls: Array<{ method: string; path: string }> = [];
 
 beforeEach(() => {
   fetchStatus = 404;
   fetchBody = { error: 'not found', code: 'not_found' };
-  globalThis.fetch = (async () =>
-    new Response(JSON.stringify(fetchBody), {
+  fetchCalls = [];
+  globalThis.fetch = (async (input: string | Request, init?: RequestInit) => {
+    const method = (init?.method ?? 'GET').toUpperCase();
+    const path = String(input);
+    fetchCalls.push({ method, path });
+    return new Response(JSON.stringify(fetchBody), {
       status: fetchStatus,
       headers: { 'Content-Type': 'application/json' },
-    })) as unknown as typeof fetch;
+    });
+  }) as unknown as typeof fetch;
 });
+
+function startCallCount(): number {
+  return fetchCalls.filter((call) => call.method === 'POST' && call.path.endsWith('/start')).length;
+}
+
+/** The control plane's started answer: a plain 200 whose state reads running. */
+function answerStartWithRunning(): void {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: string | Request, init?: RequestInit) => {
+    const method = (init?.method ?? 'GET').toUpperCase();
+    const path = String(input);
+    fetchCalls.push({ method, path });
+    if (method === 'POST' && path.endsWith('/start')) {
+      return new Response(JSON.stringify({ state: 'running' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return realFetch(input, init);
+  }) as unknown as typeof fetch;
+}
 
 test('getStatus() reports missing Platinum sandboxes as removed', async () => {
   const { PlatinumProvider } = await import('./platinum');
@@ -49,14 +76,56 @@ test('getStatus() does not read a 500 whose text says "not found" as removed', a
   await expect(provider.getStatus('sbx_live')).resolves.toBe('unknown');
 });
 
-test('getStatus() preserves transitional Platinum failures as unknown', async () => {
+test('getStatus() reads the control-plane not-running verdict as stopped', async () => {
+  // Platinum answers a GET for a box it has natively auto-stopped with the
+  // SAME 409 sandbox_not_running its expose/exec give — there is no state
+  // body. That verdict IS the stopped state, not a transitional one: the box
+  // never reaches `running` without a /start, and reading it as `unknown`
+  // made every wake a silent no-op while open session views polled the dead
+  // box through the preview proxy (502 bursts; the box never started).
+  // A box that is STARTING answers 200 with a state body instead, so this
+  // branch cannot misread a boot.
   fetchStatus = 409;
   fetchBody = { error: 'sandbox not running', code: 'sandbox_not_running' };
 
   const { PlatinumProvider } = await import('./platinum');
   const provider = new PlatinumProvider();
 
-  await expect(provider.getStatus('sbx_starting')).resolves.toBe('unknown');
+  await expect(provider.getStatus('sbx_autostopped')).resolves.toBe('stopped');
+});
+
+test('ensureRunning() starts a box whose GET answers the not-running verdict', async () => {
+  fetchStatus = 409;
+  fetchBody = { error: 'sandbox not running', code: 'sandbox_not_running' };
+  answerStartWithRunning();
+
+  const { PlatinumProvider } = await import('./platinum');
+  const provider = new PlatinumProvider();
+
+  await provider.ensureRunning('sbx_autostopped');
+
+  expect(startCallCount()).toBe(1);
+});
+
+test('ensureRunning() starts on a wake-reason verdict even when the GET says running', async () => {
+  // The control plane can contradict itself: its GET answered `running` for a
+  // box whose own exec refused with sandbox_not_running minutes later (one
+  // prod box, over an hour). The freshest verdict wins — a wake that watched
+  // the verdict MUST start the box without re-trusting the GET.
+  fetchStatus = 200;
+  fetchBody = { state: 'running' };
+  answerStartWithRunning();
+
+  const { PlatinumProvider } = await import('./platinum');
+  const { PlatinumSandboxNotRunningError } = await import('../../shared/platinum');
+  const provider = new PlatinumProvider();
+
+  await provider.ensureRunning(
+    'sbx_divergent',
+    new PlatinumSandboxNotRunningError('platinum POST /v1/sandboxes/sbx_divergent/expose -> 409'),
+  );
+
+  expect(startCallCount()).toBe(1);
 });
 
 test('recoverInPlace() restores a terminal sandbox backup without changing identity', async () => {

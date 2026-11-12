@@ -74,7 +74,8 @@ type Stamp = (Option<(SystemTime, u64)>, Option<(SystemTime, u64)>);
 struct Effective {
     checked: Instant,
     stamp: Stamp,
-    settings: Settings,
+    /// Shared, not cloned: the gate reads it for every input event.
+    settings: Arc<Settings>,
 }
 
 struct Counter {
@@ -111,7 +112,7 @@ impl ActionExclusions {
             effective: Mutex::new(Effective {
                 checked: Instant::now(),
                 stamp: stamp(paths),
-                settings: Settings::effective(paths),
+                settings: Arc::new(Settings::effective(paths)),
             }),
             counter: Mutex::new(Counter {
                 count: read_count(paths),
@@ -122,17 +123,29 @@ impl ActionExclusions {
     }
 
     /// The effective settings, re-read when settings.json or the policy changed.
-    fn settings(&self) -> Settings {
+    fn settings(&self) -> Arc<Settings> {
         let mut e = self.effective.lock();
         if e.checked.elapsed() >= SETTINGS_CHECK {
             e.checked = Instant::now();
             let now = stamp(&self.paths);
             if now != e.stamp {
                 e.stamp = now;
-                e.settings = Settings::effective(&self.paths);
+                e.settings = Arc::new(Settings::effective(&self.paths));
             }
         }
         e.settings.clone()
+    }
+
+    /// Whether an event taken now would be kept, judged by the window in front
+    /// alone (no count, no wait). The screen recorder asks this before each
+    /// screenshot so a frame `admit` would drop is never captured.
+    pub fn front_admitted(&self) -> bool {
+        let s = self.settings();
+        match self.source.latest() {
+            Some(front) => excluded_reason(&s, &front).is_none(),
+            // Record only included fails closed, as in `admit`.
+            None => !s.record_only_included,
+        }
     }
 
     /// Keep `event` (true) or drop it unwritten (false).
@@ -196,7 +209,7 @@ impl ActionExclusions {
 
     #[cfg(test)]
     fn settings_for_test(&self) -> Settings {
-        self.settings()
+        (*self.settings()).clone()
     }
 }
 
@@ -266,8 +279,13 @@ fn front_of(resp: &Value) -> Option<Front> {
     })
 }
 
+/// The probe engine between sessions. An action session lasts one 60 s
+/// segment; the next session takes this engine instead of starting a new
+/// process (about 1,440 process starts a day, each scanned by antivirus).
+static IDLE_ENGINE: Mutex<Option<super::engine::Engine>> = Mutex::new(None);
+
 fn probe_loop(reading: &(Mutex<Reading>, Condvar), stop: &AtomicBool) {
-    let mut engine: Option<super::engine::Engine> = None;
+    let mut engine: Option<super::engine::Engine> = IDLE_ENGINE.lock().take();
     while !stop.load(Ordering::SeqCst) {
         let started = Instant::now();
         if engine.is_none() {
@@ -296,6 +314,9 @@ fn probe_loop(reading: &(Mutex<Reading>, Condvar), stop: &AtomicBool) {
             Duration::from_secs(5)
         };
         std::thread::sleep(wait.saturating_sub(started.elapsed()));
+    }
+    if let Some(engine) = engine {
+        *IDLE_ENGINE.lock() = Some(engine);
     }
 }
 
@@ -409,6 +430,25 @@ pub(crate) mod tests {
         gate.flush();
         assert_eq!(status(&paths)["excluded_events"], json!(4));
         assert_eq!(status(&paths)["last_reason"], json!("private_browsing"));
+        let _ = std::fs::remove_dir_all(&paths.root);
+    }
+
+    /// The screen recorder's gate agrees with `admit` and counts nothing.
+    #[test]
+    fn the_capture_gate_follows_the_front_window_without_counting() {
+        let mut s = Settings::default();
+        s.record_only_included = true;
+        s.included_bundle_ids = vec!["editor.exe".into()];
+        let paths = library(&s);
+        let fake = Arc::new(FakeFront::default());
+        let gate = ActionExclusions::new(&paths, fake.clone());
+        assert!(!gate.front_admitted(), "an unknown front window is not included");
+        *fake.now.lock() = Some(front("editor.exe", None, "Document1"));
+        assert!(gate.front_admitted());
+        *fake.now.lock() = Some(front("mail.exe", None, "Inbox"));
+        assert!(!gate.front_admitted());
+        gate.flush();
+        assert_eq!(status(&paths)["excluded_events"], json!(0));
         let _ = std::fs::remove_dir_all(&paths.root);
     }
 

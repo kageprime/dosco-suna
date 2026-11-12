@@ -38,6 +38,27 @@ export interface DiagnosticsMachine {
   locale: string | null;
 }
 
+/**
+ * What Kortix Capture itself costs the computer (status.json `resources`): its
+ * own processes, sampled once a minute over the last ~10 minutes. CPU is a
+ * percentage of one core (100 = one core busy).
+ */
+export interface DiagnosticsResources {
+  window_ms: number;
+  samples: number;
+  cpu_percent_avg: number;
+  cpu_percent_peak: number;
+  /** Working set (Windows) or resident size (macOS, Linux) of all processes at the last sample. */
+  memory_bytes: number;
+  memory_bytes_peak: number | null;
+  process_count: number;
+  /** One entry per executable name, the most CPU first. */
+  processes: { name: string; count: number; cpu_percent_avg: number; memory_bytes: number }[];
+  sampled_at: string | null;
+  /** Wall time of the device's last process table read: what the report costs. */
+  read_micros: number | null;
+}
+
 export interface DeviceDiagnostics {
   os: { family: string | null; name: string | null; version: string | null; build: string | null; arch: string | null };
   /** Null when the device masks it (encryption or local PII masking on). */
@@ -66,6 +87,8 @@ export interface DeviceDiagnostics {
   policy: { source: string | null; updated_at: string | null; fetched_at: string | null } | null;
   /** Null from an app version before the machine report. */
   machine: DiagnosticsMachine | null;
+  /** Null from an app version without it, and in the first minute after the app starts. */
+  resources: DiagnosticsResources | null;
   encrypted: boolean;
   /** Enrolled by IT with an enrollment token. */
   managed: boolean;
@@ -172,6 +195,44 @@ function parseMachine(raw: unknown): DiagnosticsMachine | null {
   };
 }
 
+/** status.json `resources`; null when the app did not send it or a required number is missing. */
+export function parseResources(raw: unknown): DiagnosticsResources | null {
+  const r = record(raw);
+  if (!r) return null;
+  const nonNegative = (value: unknown): number | null => {
+    const n = num(value);
+    return n !== null && n >= 0 ? n : null;
+  };
+  const window = nonNegative(r.windowMs);
+  const cpuAvg = nonNegative(r.cpuPercentAvg);
+  const cpuPeak = nonNegative(r.cpuPercentPeak);
+  const memory = nonNegative(r.memoryBytes);
+  const count = nonNegative(r.processCount);
+  if (window === null || cpuAvg === null || cpuPeak === null || memory === null || count === null) return null;
+  const processes = (Array.isArray(r.processes) ? r.processes : [])
+    .map(record)
+    .filter((p): p is Record<string, unknown> => p !== null && text(p.name, 100) !== null)
+    .slice(0, 16)
+    .map((p) => ({
+      name: text(p.name, 100)!,
+      count: nonNegative(p.count) ?? 0,
+      cpu_percent_avg: nonNegative(p.cpuPercentAvg) ?? 0,
+      memory_bytes: nonNegative(p.memoryBytes) ?? 0,
+    }));
+  return {
+    window_ms: window,
+    samples: nonNegative(r.samples) ?? 0,
+    cpu_percent_avg: cpuAvg,
+    cpu_percent_peak: cpuPeak,
+    memory_bytes: memory,
+    memory_bytes_peak: nonNegative(r.memoryBytesPeak),
+    process_count: count,
+    processes,
+    sampled_at: iso(r.sampledAtMs),
+    read_micros: nonNegative(r.readMicros),
+  };
+}
+
 export function deviceDiagnostics(device: DiagnosticsInput): DeviceDiagnostics {
   const info = record(device.deviceInfo) ?? {};
   const status = record(device.status) ?? {};
@@ -211,6 +272,7 @@ export function deviceDiagnostics(device: DiagnosticsInput): DeviceDiagnostics {
     sync: { state: text(sync.state), pending: num(sync.pending), error_class: text(sync.errorClass), last_upload_at: iso(sync.lastUploadMs) },
     policy: policy ? { source: text(policy.source), updated_at: iso(policy.updatedAtMs), fetched_at: iso(policy.fetchedAtMs) } : null,
     machine: parseMachine(machine),
+    resources: parseResources(status.resources),
     encrypted: record(info.encryption) !== null,
     managed: device.enrollmentTokenId !== null,
     described_at: iso(info.updated_at_ms),

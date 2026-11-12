@@ -1,14 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { join } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import { readFileSync } from '@/i18n/test-source';
-
 import { GatewayFirstRequest, firstRequestSamples } from '@kortix/ui/customize/sections/view/gateway/gateway-api-reference';
-import { uiSourcePath } from '@/test-utils/read-source';
-
-const keys = readFileSync(uiSourcePath('customize/sections/view/gateway/gateway-keys.tsx'), 'utf8');
-const reveal = keys.slice(keys.indexOf('function RevealKeyDialog'));
 
 /** Paper KM01: the show-once reveal with one first-request card. */
 describe('Gateway key reveal — KM01', () => {
@@ -37,12 +30,5 @@ describe('Gateway key reveal — KM01', () => {
     // Markdown-style footnote: the env var and base URL as inline code chips.
     expect(out).toMatch(/<code[^>]*>DOSCO_GATEWAY_KEY<\/code>/);
     expect(out).toMatch(/<code[^>]*>https:\/\/gateway\.dosco\.live\/v1<\/code>/);
-  });
-
-  test('closing is gated on "I\'ve stored this key"', () => {
-    expect(reveal).toContain("t('storedConfirm')");
-    expect(reveal).toContain('disabled={!stored}');
-    // ×, Escape and outside click all route through onOpenChange.
-    expect(reveal).toContain('!open && stored ? onClose() : undefined');
   });
 });

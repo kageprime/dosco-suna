@@ -37,10 +37,35 @@ interface ConnectorLinkInfoOptions {
   storage?: LinkInfoStorage | null;
 }
 
+/**
+ * A window the host opened inside the click, before any request. The hook
+ * sends it to the hosted page once the start answers, or closes it.
+ */
+export interface ConnectorPopupHandle {
+  navigate: (url: string) => void;
+  close: () => void;
+}
+
 /** What driving the connect flow needs: the info adapters plus the popup. */
 export interface ConnectorSetupOptions extends ConnectorLinkInfoOptions {
-  /** Opens the provider's hosted page; the host owns popups, not this hook. */
+  /**
+   * Opens the provider's hosted page; the host owns popups, not this hook.
+   * Used only when `reservePopup` is absent: it runs after the start request,
+   * outside the click, and a browser may block it without a message.
+   */
   openPopup: ConnectorPopupOpener;
+  /**
+   * Open an empty window now, inside the click (`connect` calls it before its
+   * first await). Return null when the browser blocked it: the hook still
+   * polls, and `blockedUrl` carries the hosted page for a visible link.
+   */
+  reservePopup?: () => ConnectorPopupHandle | null;
+  /**
+   * The person came back from the provider's page (the page URL carries
+   * `?returned=1`): skip the Connect step and poll finalize, which records a
+   * finished sign-in and names who it is.
+   */
+  returned?: boolean;
   /** Called once per popup opening, after `openPopup`. */
   onOpened?: () => void;
 }
@@ -122,7 +147,8 @@ export function useConnectorSetup(
   // after a hard refresh), so the dialog opens `ready` with the app's logo on
   // its first frame instead of a loading state.
   const [seed] = useState(() => cache.peek(token));
-  const [phase, setPhase] = useState<ConnectorSetupPhase>(seed ? 'ready' : 'loading');
+  const settledPhase: ConnectorSetupPhase = options.returned ? 'opened' : 'ready';
+  const [phase, setPhase] = useState<ConnectorSetupPhase>(seed ? settledPhase : 'loading');
   const [info, setInfo] = useState<ConnectorSetupLinkInfo | null>(seed ?? null);
   const [error, setError] = useState<string | null>(null);
   // Bumped every time the popup is opened, so reopening restarts the poll
@@ -136,6 +162,9 @@ export function useConnectorSetup(
   // True when /start found the slot already holding an active account. The
   // provider reuses it instead of re-authorizing, so there was no popup.
   const [alreadyConnected, setAlreadyConnected] = useState(false);
+  // The hosted page the browser refused to open in a window. The host shows
+  // it as a link: a click on a link is its own user activation.
+  const [blockedUrl, setBlockedUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,7 +173,7 @@ export function useConnectorSetup(
         const body = await cache.load(token);
         if (cancelled) return;
         setInfo(body);
-        setPhase((current) => (current === 'loading' ? 'ready' : current));
+        setPhase((current) => (current === 'loading' ? settledPhase : current));
       } catch (cause) {
         // A seeded dialog already shows the link; a failed refresh is not an error.
         if (!cancelled && !seed) {
@@ -160,7 +189,7 @@ export function useConnectorSetup(
     return () => {
       cancelled = true;
     };
-  }, [backendUrl, token, seed, cache]);
+  }, [backendUrl, token, seed, cache, settledPhase]);
 
   // Ask the API whether the connection landed, until it says yes or the poll
   // window closes. One request is in flight at a time by construction: the next
@@ -204,12 +233,16 @@ export function useConnectorSetup(
   }, [phase, openCount, token, backendUrl]);
 
   async function connect() {
+    // Before the first await: a window opened later is outside the click.
+    const reserved = options.reservePopup ? options.reservePopup() : undefined;
     setPhase('starting');
     setError(null);
+    setBlockedUrl(null);
     const outcome = await resolveConnectorStart({
       start: () => startConnectorSetupLink(token, { backendUrl }),
       finalize: () => finalizeConnectorSetupLink(token, { backendUrl }),
     });
+    if (outcome.kind !== 'popup') reserved?.close();
     if (outcome.kind === 'error') {
       setError(outcome.message);
       setPhase('ready');
@@ -221,11 +254,13 @@ export function useConnectorSetup(
       setPhase('connected');
       return;
     }
-    options.openPopup(outcome.url);
+    if (reserved) reserved.navigate(outcome.url);
+    else if (reserved === null) setBlockedUrl(outcome.url);
+    else options.openPopup(outcome.url);
     setOpenCount((count) => count + 1);
     setPhase('opened');
     options.onOpened?.();
   }
 
-  return { phase, info, error, connectedAs, alreadyConnected, connect };
+  return { phase, info, error, connectedAs, alreadyConnected, blockedUrl, connect };
 }

@@ -6,6 +6,7 @@
  * that Chrome. Protocol: .agents/skills/kortix-chrome/references/protocol.md.
  * `ls` talks to the API; use/status/release talk to kortixd on loopback.
  */
+import { CHROME_LAUNCHED } from '@kortix/shared/chrome-launch';
 import { splitHelp } from '../command-argv.ts';
 import {
   emitJson,
@@ -22,8 +23,7 @@ import { C, help, status } from '../style.ts';
 const HELP = help`Usage: kortix chrome <subcommand> [options]
 
 Control the user's own Chrome (their logins, their real session) from this
-session. The user installs the Kortix extension once; see
-https://kortix.com/settings/chrome.
+session. The user installs the Kortix extension once.
 
 Subcommands:
   ls                    List the user's connected browsers.
@@ -155,8 +155,10 @@ export async function runChrome(argv: string[]): Promise<number> {
     if (!ctx) return 1;
     try {
       const list = await ctx.client.get<ChromeInfo[]>('/chrome/connections');
+      // Before launch the web app has no page to connect a browser on.
+      const connectUrl = CHROME_LAUNCHED ? `${webBase(ctx.client.apiBase)}/settings/chrome` : undefined;
       if (json) emitJson(list);
-      else process.stdout.write(`${formatChromeList(list, `${webBase(ctx.client.apiBase)}/settings/chrome`)}\n`);
+      else process.stdout.write(`${formatChromeList(list, connectUrl)}\n`);
       return 0;
     } catch (err) {
       return surfaceApiError(err);

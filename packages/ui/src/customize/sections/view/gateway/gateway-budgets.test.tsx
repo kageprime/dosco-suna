@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, describe, expect, mock, test } from 'bun:test';
+import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+
+// `act` needs the flag React 18+ expects (the same line apps/web act tests set).
+Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', { value: true, configurable: true });
 
 import type { GatewayBudgetRow, GatewayBudgetsResponse } from '@kortix/sdk';
 
@@ -18,6 +23,22 @@ mock.module('@kortix/sdk/react', () => ({
   useSetGatewayBudget: () => ({ mutate: () => {}, isPending: false }),
   useDeleteGatewayBudget: () => ({ mutate: () => {}, isPending: false }),
 }));
+// The dialog's shell renders through a portal, which the test renderer cannot
+// traverse; the shell is not the subject, so render it inline and keep the
+// segmented controls (the Tabs primitive) real.
+const host = (tag: string) =>
+  function Collaborator({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) {
+    return React.createElement(tag, props, children);
+  };
+mock.module(
+  '../../../../primitives/modal',
+  () =>
+    Object.fromEntries(
+      ['Modal', 'ModalBody', 'ModalContent', 'ModalDescription', 'ModalFooter', 'ModalHeader', 'ModalTitle'].map(
+        (name) => [name, host('div')],
+      ),
+    ),
+);
 
 const { GatewayBudgetSection, budgetLimitInput, budgetLimitUsd } = await import('./gateway-budgets');
 
@@ -203,5 +224,42 @@ describe('the budget dialog takes credits and sends USD', () => {
     expect(budgetLimitInput({ limit_usd: 20 })).toBe('2000');
     expect(budgetLimitInput({ limit_usd: 12.345 })).toBe('1235');
     expect(budgetLimitInput(null)).toBe('');
+  });
+});
+
+describe('the budget dialog’s segmented controls', () => {
+  test('Period and At limit are the design system’s tabs, named by their labels', async () => {
+    data = { project_spend: { requests: 0, cost: 0 }, budgets: [], members: [] };
+    let renderer: ReactTestRenderer | undefined;
+    await act(async () => {
+      renderer = create(<GatewayBudgetSection projectId="p1" canWrite />);
+    });
+    if (!renderer) throw new Error('Renderer was not created');
+    const setBudget = renderer.root
+      .findAllByType('button')
+      .find((node) => node.children.includes('Set budget'));
+    expect(setBudget).toBeDefined();
+    if (!setBudget) throw new Error('Missing button: Set budget');
+    await act(async () => setBudget.props.onClick());
+    // The two segmented controls render as real tabs: a named tablist whose
+    // triggers are the choices the dialog takes (KRTX-4630 keeps the old
+    // "comes from the design system" pin as a render assertion). `asChild`
+    // composition reports each element twice (composite + host); host nodes
+    // only.
+    const isHost = (node: { type: unknown }) => typeof node.type === 'string';
+    const lists = renderer.root
+      .findAll((node) => node.props.role === 'tablist')
+      .filter(isHost);
+    expect(lists.map((node) => node.props['aria-label'])).toEqual(['Period', 'At limit']);
+    const triggers = renderer.root
+      .findAll((node) => node.props.role === 'tab')
+      .filter(isHost);
+    expect(triggers.map((node) => node.props.children)).toEqual([
+      'Daily',
+      'Weekly',
+      'Monthly',
+      'Block',
+      'Warn only',
+    ]);
   });
 });

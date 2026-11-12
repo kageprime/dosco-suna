@@ -20,6 +20,7 @@ import { View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useFrameCallback,
+  useReducedMotion,
   useSharedValue,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -34,8 +35,6 @@ import {
   type DotMatrixTrack,
 } from '@/lib/session/dot-matrix';
 
-import { useReduceMotion } from './use-reduce-motion';
-
 export interface SessionDotMatrixProps {
   /** Picks the glyph. Absent → `dotm-square-14`. */
   sessionId?: string;
@@ -48,7 +47,7 @@ export interface SessionDotMatrixProps {
 
 function SessionDotMatrixImpl({ sessionId, size = 14, color, style }: SessionDotMatrixProps) {
   const palette = useTurnPalette();
-  const still = useReduceMotion();
+  const still = useReducedMotion();
   const loopMotion = useContext(LoopMotionContext);
   const looping = !still && loopMotion;
   const entry = useMemo(() => sessionDotMatrixVariant(sessionId), [sessionId]);

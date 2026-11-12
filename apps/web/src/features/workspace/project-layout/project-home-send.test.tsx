@@ -106,6 +106,8 @@ mock.module('@kortix/sdk/react', () => ({
   ...realSdkReact,
   contract: () => ({}),
   invalidateProject: async () => {},
+  // A pending roster blocks nothing; the no-agent state has its own tests.
+  useRuntimeAgents: () => ({ data: undefined }),
   qk: {
     ...realSdkReact.qk,
     project: {

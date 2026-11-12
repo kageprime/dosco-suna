@@ -7,6 +7,7 @@ import {
   partitionUploadBatch,
   resolveUploadTarget,
   rowDragIntent,
+  trayOrder,
   uploadRejectionReason,
 } from './upload-batch';
 
@@ -169,5 +170,21 @@ describe('size guard — a source with its own limit', () => {
   test('a number refuses above it and names that limit', () => {
     expect(uploadRejectionReason(candidate('a.bin', 10 * 1024 * 1024), 5 * 1024 * 1024)).toBe('a.bin is 10.0 MB — the upload limit is 5.0 MB');
     expect(partitionUploadBatch([candidate('b.bin', 5 * 1024 * 1024)], 5 * 1024 * 1024).rejected).toEqual([]);
+  });
+});
+
+describe('tray order', () => {
+  test('files going up come first, then failures, then the queue; finished ones sink to the bottom', () => {
+    const row = (id: string, status: 'queued' | 'uploading' | 'done' | 'error') => ({ id, status });
+    const ordered = trayOrder([
+      row('a', 'done'),
+      row('b', 'queued'),
+      row('c', 'uploading'),
+      row('d', 'error'),
+      row('e', 'done'),
+      row('f', 'uploading'),
+      row('g', 'queued'),
+    ]);
+    expect(ordered.map((u) => u.id)).toEqual(['c', 'f', 'd', 'b', 'g', 'a', 'e']);
   });
 });

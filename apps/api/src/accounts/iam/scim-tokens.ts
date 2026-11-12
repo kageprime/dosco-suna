@@ -30,16 +30,17 @@ export function registerIamScimTokensRoutes(): void {
       request: { params: AccountIdParam },
       responses: {
         200: json(z.object({ tokens: z.array(ScimTokenSchema) }), 'SCIM tokens'),
-        ...errors(401, 403),
+        ...errors(401, 403, 404),
       },
     }),
-    async (c: any) => {
+    async (c) => {
     const accountId = accountIdParam(c);
     if (!isUuid(accountId)) return c.json({ error: 'Account not found' }, 404);
     await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ACCOUNT_WRITE);
 
     const tokens = await listScimTokens(accountId);
-    return c.json({
+    return c.json(
+      {
       tokens: tokens.map((t) => ({
         token_id: t.tokenId,
         name: t.name,
@@ -50,7 +51,9 @@ export function registerIamScimTokensRoutes(): void {
         expires_at: t.expiresAt?.toISOString() ?? null,
         revoked_at: t.revokedAt?.toISOString() ?? null,
       })),
-    });
+      },
+      200,
+    );
     },
   );
 
@@ -64,11 +67,11 @@ export function registerIamScimTokensRoutes(): void {
       request: { params: AccountIdParam, body: { content: { 'application/json': { schema: z.object({ name: z.string(), expires_at: z.string().optional(), expiresAt: z.string().optional() }) } } } },
       responses: {
         201: json(ScimTokenSchema, 'The minted SCIM token (secret shown once)'),
-        ...errors(400, 401, 402, 403),
+        ...errors(400, 401, 402, 403, 404),
       },
     }),
-    async (c: any) => {
-    const userId = c.get('userId') as string;
+    async (c) => {
+    const userId = c.get('userId');
     const accountId = accountIdParam(c);
     // A connected app's revocable `kortix_oat_` token must not mint a durable credential.
     if (c.get('authType') === 'oauth') return c.json({ error: 'Connected apps cannot mint SCIM tokens.' }, 403);
@@ -79,7 +82,7 @@ export function registerIamScimTokensRoutes(): void {
     // no agent session mints one, whatever its grant.
     await assertAuthorized(actor, ACCOUNT_ACTIONS.TOKEN_CREATE);
     const denied = await requireEntitlement(c, accountId, 'scim');
-    if (denied) return denied;
+    if (denied) return denied as never;
 
     const body = await readJsonObject(c);
     const name = typeof body.name === 'string' ? body.name.trim() : '';
@@ -150,10 +153,10 @@ export function registerIamScimTokensRoutes(): void {
       request: { params: z.object({ workspaceId: z.string(), tokenId: z.string() }) },
       responses: {
         200: json(z.object({ revoked: z.boolean() }), 'Revocation result'),
-        ...errors(401, 403),
+        ...errors(401, 403, 404),
       },
     }),
-    async (c: any) => {
+    async (c) => {
     const accountId = accountIdParam(c);
     if (!isUuid(accountId)) return c.json({ error: 'Account not found' }, 404);
     const tokenId = c.req.param('tokenId');

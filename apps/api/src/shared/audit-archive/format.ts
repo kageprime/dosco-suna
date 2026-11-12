@@ -10,8 +10,19 @@ import { createHash } from 'node:crypto';
 import { gunzipSync, gzipSync } from 'node:zlib';
 
 const DAY_MS = 86_400_000;
-/** Postgres keeps this long; older weeks are archived and their partition dropped. */
-export const HOT_DAYS = 90;
+/**
+ * PostgreSQL keeps this long; older weeks are archived and their partition dropped. The audit
+ * list (GET /accounts/{id}/audit) reads PostgreSQL only, so it covers this window; the export
+ * reaches back RETENTION_DAYS through the archive. Every other window derives from this value.
+ */
+export const HOT_DAYS = 14;
+/**
+ * The oldest row a writer may still add: runtime ingestion stores an older instant as the start of
+ * today, and reconciliation never reconstructs one. A week is exported only once its END is
+ * HOT_DAYS old, so a row this old lands in a week the archive reaches at least 4 days later:
+ * no row arrives in a week after its export.
+ */
+export const LATE_ROW_MAX_AGE_DAYS = HOT_DAYS - 4;
 /** Privacy policy: application logs are kept up to 365 days. */
 export const RETENTION_DAYS = 365;
 export const ARCHIVE_PART_ROWS = 100_000;

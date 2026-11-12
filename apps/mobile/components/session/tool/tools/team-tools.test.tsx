@@ -51,7 +51,9 @@ mock.module('./agent-spawn-tool', () => ({ AgentSpawnTool: () => React.createEle
 mock.module('./agent-task-update-tool', () => ({ AgentTaskUpdateTool: () => React.createElement('legacy') }));
 mock.module('./task-list-tool', () => ({ TaskListTool: () => React.createElement('legacy') }));
 
-const { MultiAgentToolCard } = await import('./team-tools');
+// The import registers the team tools (`ToolRegistry.register` runs at load);
+// `MultiAgentToolCard` itself is module-private now.
+await import('./team-tools');
 const { ToolRegistry } = await import('../shared/registry');
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let tree: ReactTestRenderer | undefined;
@@ -133,5 +135,4 @@ test('list_agents rows open their agent', async () => {
   const row = t.root.findAll((node) => node.props?.accessibilityLabel === 'Open @scout, working')[0]!;
   await act(async () => row.props.onPress());
   expect(openSession).toHaveBeenCalledWith('ses_9');
-  expect(MultiAgentToolCard).toBeDefined();
 });

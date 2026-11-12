@@ -5,10 +5,11 @@
  * fire the real ones through sonner.
  *
  * The "Session error" cases are synthetic `session.error` payloads. Each one
- * runs through the reader the SDK notification uses (the gateway sentence,
- * else `unwrapError`), is checked against the expected sentence, and renders
- * the real `SessionFailedCard`. No network, no session. Theme: the /debug
- * toggle, or press `D`.
+ * runs through the SDK's `sessionErrorSentence` — the sentence rule the
+ * notification paths share — and renders the real `SessionFailedCard`. The
+ * six expected sentences are asserted in
+ * `packages/sdk/src/core/turns/errors.test.ts`. No network, no session.
+ * Theme: the /debug toggle, or press `D`.
  */
 
 import { useState } from 'react';
@@ -27,19 +28,14 @@ import {
   type ToastVariant,
 } from '@kortix/ui/toast';
 import { SessionFailedCard, SessionStackCard } from '@kortix/ui/internal/notifications/session-toast-cards';
-import { extractGatewayErrorDetails, unwrapError } from '@kortix/sdk';
-import { CheckCircleIcon, ClockIcon, GitPullRequestIcon, XCircleIcon } from '@phosphor-icons/react';
+import { sessionErrorSentence } from '@kortix/sdk';
+import { ClockIcon, GitPullRequestIcon } from '@phosphor-icons/react';
 
 const noop = () => {};
-
-/** The sentence a session-error notification shows — the SDK's rule. */
-const sentenceOf = (error: unknown) =>
-  extractGatewayErrorDetails(error)?.message || unwrapError(error);
 
 interface ErrorCase {
   title: string;
   error: unknown;
-  sentence: string;
 }
 
 const ERROR_CASES: ErrorCase[] = [
@@ -52,7 +48,6 @@ const ERROR_CASES: ErrorCase[] = [
         isRetryable: false,
       },
     },
-    sentence: "The 'gpt-5.5' model is not supported when using Codex with a ChatGPT account.",
   },
   {
     title: 'Gateway body behind the HTTP status text',
@@ -66,7 +61,6 @@ const ERROR_CASES: ErrorCase[] = [
         }),
       },
     },
-    sentence: 'Insufficient credits.',
   },
   {
     title: 'Provider body serialized into the message',
@@ -74,7 +68,6 @@ const ERROR_CASES: ErrorCase[] = [
       name: 'UnknownError',
       data: { message: '{"message":"Provided authentication token is expired.","code":401}' },
     },
-    sentence: 'Provided authentication token is expired.',
   },
   {
     title: 'Provider auth error',
@@ -82,7 +75,6 @@ const ERROR_CASES: ErrorCase[] = [
       name: 'ProviderAuthError',
       data: { providerID: 'anthropic', message: 'Invalid API key.' },
     },
-    sentence: 'Invalid API key.',
   },
   {
     title: 'Long sentence (wraps, never truncates mid-word)',
@@ -93,13 +85,10 @@ const ERROR_CASES: ErrorCase[] = [
           'The request was rejected because the conversation is longer than the context window of the selected model. Start a new session or compact this one, then send the message again.',
       },
     },
-    sentence:
-      'The request was rejected because the conversation is longer than the context window of the selected model. Start a new session or compact this one, then send the message again.',
   },
   {
     title: 'No message at all',
     error: { name: 'MessageOutputLengthError', data: {} },
-    sentence: 'An error occurred',
   },
 ];
 
@@ -133,20 +122,8 @@ function Slot({ children }: { children: React.ReactNode }) {
   return <div className="w-full max-w-[22rem] [--width:22rem]">{children}</div>;
 }
 
-function Verdict({ ok }: { ok: boolean }) {
-  return ok ? (
-    <CheckCircleIcon weight="fill" className="text-kortix-green size-4" />
-  ) : (
-    <XCircleIcon weight="fill" className="text-kortix-red size-4" />
-  );
-}
-
 export default function ToastsDebugPage() {
-  const results = ERROR_CASES.map((c) => {
-    const actual = sentenceOf(c.error);
-    return { ...c, actual, ok: actual === c.sentence };
-  });
-  const failed = results.filter((r) => !r.ok).length;
+  const results = ERROR_CASES.map((c) => ({ ...c, actual: sessionErrorSentence(c.error) }));
   const [now] = useState(() => Date.now());
 
   return (
@@ -155,7 +132,7 @@ export default function ToastsDebugPage() {
         <header className="flex flex-col gap-1">
           <h1 className="text-base font-medium">Toasts</h1>
           <p className="text-muted-foreground text-xs">
-            Session error sentences: {results.length - failed} of {results.length} pass.
+            Session error sentences, composed by the SDK’s sessionErrorSentence.
           </p>
         </header>
 
@@ -244,16 +221,8 @@ export default function ToastsDebugPage() {
           <div className="grid gap-6 sm:grid-cols-2">
             {results.map((r) => (
               <div key={r.title} className="flex flex-col gap-2">
-                <div className="flex items-start gap-2">
-                  <Verdict ok={r.ok} />
-                  <div className="flex min-w-0 flex-col">
-                    <p className="text-xs font-medium">{r.title}</p>
-                    {!r.ok && (
-                      <p className="text-kortix-red text-xs">
-                        Expected “{r.sentence}”, got “{r.actual}”.
-                      </p>
-                    )}
-                  </div>
+                <div className="flex min-w-0 flex-col">
+                  <p className="text-xs font-medium">{r.title}</p>
                 </div>
                 <Slot>
                   <SessionFailedCard

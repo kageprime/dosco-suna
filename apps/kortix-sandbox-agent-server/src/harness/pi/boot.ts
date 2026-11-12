@@ -2,12 +2,11 @@
  * The pi session boot.
  *
  * The host steps — git identity, egress shim, agent env file, proxy up FIRST —
- * then the config and the workspace in parallel, and the runtime on the config
- * alone. "Start the runtime"
+ * then the config, and the runtime on the config. "Start the runtime"
  * is building an in-process object (tens of milliseconds), not spawning and
  * probing a server. There is no early-spawn, no config-dir dance, no
  * bind-window and no readiness lottery. `pi-ready` follows the config release
- * (`config-release-proven`), never the workspace checkout.
+ * (`config-release-proven`). The box never checks out the project repository.
  */
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -27,19 +26,17 @@ import {
   turnEndAfterBegin,
 } from '../shared/turn-relay'
 import { resolveKortixRuntimeStateDirectory } from '@/lib/config/runtime-state-dir'
-import { scheduleHistoryBackfill } from '@/services/workspace-provider/git'
-import { backfillAfterHydration, provideWorkspace } from '@/services/workspace-provider/workspace-provider'
 import { startEgressShim } from '@/services/egress-shim'
 import {
   configureGitCredentialHelper,
   configureGlobalGitIdentity,
-  configureRepoCredentialHelper,
 } from '@/lib/git/git'
 import type { HarnessBootContext } from '../harness'
 import { kortixEventBus } from '@/services/event-bus/kortix-event-bus'
 import { startLlmProxy } from '@/services/llm-proxy/llm-proxy'
 import { logger } from '@/lib/log/logger'
 import { runSandboxOnBoot } from '../shared/on-boot'
+import { parseWorkspaceSetup, runWorkspaceSetup } from '../shared/workspace-setup'
 import { createProjectEnvStore } from '@/services/sandbox-env/project-env'
 import { configureRuntimeConvergence, scheduleRuntimeAssetsReconcile } from '@/services/runtime-assets/runtime-assets'
 import { configureRuntimeTruth, startRuntimeTruthTicker } from '@/services/runtime-assets/runtime-truth'
@@ -93,8 +90,8 @@ export async function runPi(context: HarnessBootContext & { cfg: PiConfig; bootS
   const home = homedir()
 
   // Git identity and the credential helper write ~/.gitconfig with a few git
-  // spawns (~45 ms). Only the workspace checkout and the runtime (its tools run
-  // git) read them, so they run beside the serve and config steps, not before them.
+  // spawns (~45 ms). Only the runtime (its tools run git, and `kortix workspaces
+  // clone`) reads them, so they run beside the serve and config steps, not before them.
   const gitReady = (async () => {
     try {
       await configureGlobalGitIdentity(cfg, home)
@@ -149,12 +146,12 @@ export async function runPi(context: HarnessBootContext & { cfg: PiConfig; bootS
     onTurnBegin: ({ rootId, messageId }) => {
       turnOrder.begin(messageId, relayTurnBegin(rootId, messageId))
     },
-    onTurnEnd: ({ rootId, messageId, status, error }) => {
+    onTurnEnd: ({ rootId, messageId, status, error, finalText }) => {
       assetsGate.turnEnded()
       kortixEventBus().publishDaemon('kortix.turn', { runtime_session_id: rootId, verdict: status, error: error ?? null }, rootId)
       const begun = turnOrder.end(messageId)
       if (relayedTurnEnds.has(messageId)) return
-      void begun.then(() => relayTurnEnd({ runtimeSessionId: rootId, messageId, status, error })).then((settled) => {
+      void begun.then(() => relayTurnEnd({ runtimeSessionId: rootId, messageId, status, error, finalText })).then((settled) => {
         if (settled) relayedTurnEnds.add(messageId)
       })
     },
@@ -194,7 +191,7 @@ export async function runPi(context: HarnessBootContext & { cfg: PiConfig; bootS
       ).catch((err: unknown) => (err instanceof Error ? err : new Error(String(err))))
     : Promise.resolve(null)
 
-  // The first turn's claim is a read; prefetch it while the workspace lands.
+  // The first turn's claim is a read; prefetch it while the runtime starts.
   const claimPromise = bootstrapSession && sessionId
     ? claimInitialTurn()
         .then((claim) => {
@@ -218,49 +215,14 @@ export async function runPi(context: HarnessBootContext & { cfg: PiConfig; bootS
     }
   }
 
-  // Two independent providers, started together:
-  //   - the config provider (config-release.ts) downloads the release pi
-  //     boots from, from S3 first, and never reads `/workspace`;
-  //   - the workspace provider (git | prefer-s3 | require-s3) checks out the
-  //     project for the agent's tools.
-  // pi starts on the config alone. The workspace gates turns, not the runtime:
-  // the readiness gate (service.ts) holds every turn until it lands.
+  // pi boots from the config release (config-release.ts), which never reads
+  // `/workspace`. The box never checks out the project repository: `/workspace`
+  // starts empty, and an agent that needs the files runs `kortix workspaces clone`.
   const configReady = harness.releases.boot(bootMark)
   // pi's start loads the coding agent, its tools and extensions after the
   // release lands. Load them while that fetch is in flight instead.
   preloadPiRuntimeModules()
-  if (cfg.autoClone) bootState.workspaceReady = false
-  const workspace: Promise<string | null> = cfg.autoClone
-    ? gitReady
-        .then(() =>
-          provideWorkspace(cfg, {
-            onSummary: (summary) => {
-              bootState.workspaceProvider = summary
-            },
-          }),
-        )
-        .then(async (result) => {
-          if (result.provider === 's3') bootState.deferredHistoryBackfill = backfillAfterHydration(cfg, result)
-          if (!bootState.deferredHistoryBackfill) scheduleHistoryBackfill(cfg, cfg.projectTarget)
-          await configureRepoCredentialHelper(cfg, cfg.projectTarget).catch((err) => {
-            logger.warn('[boot] repo-local git credential helper setup failed', { err: (err as Error).message })
-          })
-          return null
-        })
-        .catch((err) => {
-          bootState.repoMaterializationError = err instanceof Error ? err.message : String(err)
-          logger.error('[boot] repo materialization failed', err)
-          return bootState.repoMaterializationError
-        })
-        .finally(() => {
-          bootState.workspaceReady = true
-        })
-    : Promise.resolve('this box does not clone the project')
-
   await configReady
-  // Releases off (an API from before they graduated, or no API): the working
-  // tree IS the config, so pi waits for it. The only wait on the workspace.
-  if (harness.releases.projectRoot() === undefined) await workspace
 
   const logBoot = await sessionLog
   if (logBoot instanceof Error) {
@@ -292,9 +254,17 @@ export async function runPi(context: HarnessBootContext & { cfg: PiConfig; bootS
   assetsGate.start()
 
   // Everything below runs in the project: hooks, the first turn.
-  await workspace
-  if (bootState.repoMaterializationError) return
-  runSandboxOnBoot(cfg)
+  runSandboxOnBoot(cfg, undefined, harness.releases.projectRoot())
+  // The agent's `workspace: { repos, setup }`: detached, so it never holds readiness or the first turn.
+  const workspaceSetup = parseWorkspaceSetup(process.env.KORTIX_WORKSPACE_SETUP)
+  if (workspaceSetup) {
+    void runWorkspaceSetup(workspaceSetup, {
+      workspace: cfg.projectTarget || cfg.workspace,
+      repoUrl: cfg.repoUrl,
+      branch: cfg.branchName,
+      baseRef: cfg.defaultBranch,
+    })
+  }
 
   if (!sessionId) {
     // A builder boot with no session (image warm-up): nothing to claim or pin.
@@ -339,11 +309,6 @@ export async function runPi(context: HarnessBootContext & { cfg: PiConfig; bootS
   bootMark('runtime-ready')
   logger.info('[boot] pi session ready', { rootId: runtime.rootId, timeline: bootState.timeline })
   relayBootTimelineToApi(bootState.timeline)
-  if (bootState.deferredHistoryBackfill) {
-    const run = bootState.deferredHistoryBackfill
-    bootState.deferredHistoryBackfill = null
-    run()
-  }
   scheduleRuntimeProjectionPush('boot')
   assetsGate.request()
 }

@@ -59,7 +59,8 @@ import { type IamAuditEvent, type ListAuditFilter, listAuditEvents } from '@/lib
 import { CREDENTIAL_KINDS, CREDENTIAL_LABEL_KEYS, credentialVia } from '@kortix/ui/session/panel/audit/audit-credential-label';
 import { AuditSessionPicker } from './audit-session-picker';
 import { cn } from '@kortix/ui';
-import { downloadAccountAudit, listAccountMembers, listProjectsForAccount } from '@kortix/sdk';
+import { useAccountMembers } from '@kortix/ui/internal/account-hub/use-account-members';
+import { downloadAccountAudit, listProjectsForAccount } from '@kortix/sdk';
 import { contract, qk } from '@kortix/sdk/react';
 import {
   type AuditActionDescription,
@@ -215,11 +216,6 @@ export function AuditTab({ accountId }: { accountId: string }) {
   const [qInput, setQInput] = useState('');
   const [exporting, setExporting] = useState(false);
 
-  const membersQuery = useQuery({
-    queryKey: ['account-members', accountId],
-    queryFn: () => listAccountMembers(accountId),
-    staleTime: 30_000,
-  });
   // Same key + fetcher `ProjectSelect` uses, so the filter control and the
   // Scope column's name lookup share one round-trip instead of two.
   const projectsQuery = useQuery({
@@ -227,13 +223,7 @@ export function AuditTab({ accountId }: { accountId: string }) {
     queryFn: () => listProjectsForAccount(accountId),
     ...contract('inventory'),
   });
-  const emailByUserId = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const member of membersQuery.data ?? []) {
-      if (member.email) map.set(member.user_id, member.email);
-    }
-    return map;
-  }, [membersQuery.data]);
+  const { emailByUserId } = useAccountMembers(accountId);
   const projectNameById = useMemo(
     () => new Map((projectsQuery.data ?? []).map((project) => [project.project_id, project.name])),
     [projectsQuery.data],

@@ -94,7 +94,6 @@ import { CapabilityPageShell } from '../shared/capability-page-shell';
 import { GatewayAccessTab } from './gateway-access-tab';
 import { CustomProviderPanel } from './llm-provider/custom-provider-panel';
 import { ModelsTab } from './llm-provider/models-tab';
-import { SubscriptionUsageTab, useHasSubscriptions } from './view/subscription-usage-tab';
 import { GatewayLogs } from './view/gateway/gateway-logs';
 import { GatewayOverview } from './view/gateway/gateway-overview';
 import { GatewayRouting } from './view/gateway/gateway-routing';
@@ -108,7 +107,7 @@ export const MODELS_PAGE_TITLE = 'Models';
 export const MODELS_PAGE_DESCRIPTION = 'Choose the providers and models this workspace can use.';
 
 type LlmTab =
-  'providers' | 'models' | 'custom' | 'gateway' | 'routing' | 'overview' | 'logs' | 'usage';
+  'providers' | 'models' | 'custom' | 'gateway' | 'routing' | 'overview' | 'logs';
 
 interface LlmTabEntry {
   /** `agent` exists only on the agent variant (`AGENT_LLM_TABS`). */
@@ -136,7 +135,8 @@ export const LLM_TABS: LlmTabEntry[] = [
   // file's own render switch keep working unchanged.
   { id: 'overview', label: 'Costs' },
   { id: 'logs', label: 'Logs' },
-  { id: 'usage', label: 'Usage' },
+  // ChatGPT and Claude subscription usage lives in the provider's sheet
+  // (OpenAI, Anthropic), beside the accounts it describes: not a tab.
 ];
 
 /**
@@ -280,7 +280,7 @@ export function ProjectDefaultPicker({ projectId }: { projectId: string }) {
  * character.
  *
  * One section at a time, by the caller's state — NOT seven `TabsContent`
- * panels. Radix keeps every panel in the tree and each one used to open its
+ * panels. `Tabs` keeps every panel element in the tree and each one used to open its
  * own `overflow-y-auto`, which is how this page ended up with three nested
  * scroll containers under a shell that already had one.
  *
@@ -306,7 +306,8 @@ export function LlmSections({
   canWrite: boolean;
   /** Gates the provider list's fetch. False while the host is closed. */
   enabled: boolean;
-  /** The provider open in the host's `SplitSheet` (`ProviderSheetSplit`). */
+  /** `split`: the provider open in the host's `SplitSheet` (`ProviderSheetSplit`).
+   *  `accordion`: the row that starts expanded. */
   selectedProviderId?: string | null;
   onSelectProvider: (providerId: string) => void;
   /** `split`: the page's list + SplitSheet. `accordion`: the quick dialog's
@@ -318,7 +319,12 @@ export function LlmSections({
   return (
     <>
       {tab === 'providers' && providersVariant === 'accordion' && (
-        <ProviderAccordion projectId={projectId} canWrite={canWrite} enabled={enabled} />
+        <ProviderAccordion
+          projectId={projectId}
+          canWrite={canWrite}
+          enabled={enabled}
+          defaultExpandedId={selectedProviderId ?? null}
+        />
       )}
       {tab === 'providers' && providersVariant === 'split' && (
         /* JAY-510: this path mounts `ProviderConnect` DIRECTLY — no nested
@@ -356,9 +362,6 @@ export function LlmSections({
           used to live one tab over. */}
       {tab === 'overview' && <GatewayOverview projectId={projectId} canWrite={canWrite} />}
       {tab === 'logs' && <GatewayLogs projectId={projectId} />}
-      {tab === 'usage' && (
-        <SubscriptionUsageTab projectId={projectId} onConnect={() => onTabChange('providers')} />
-      )}
     </>
   );
 }
@@ -387,12 +390,7 @@ export function LlmManagementView({
   const agentScoped = surface.kind === 'agent' && agentSettings !== undefined;
   const urlTab = !agentScoped ? LLM_TABS.find(entry => entry.id === requestedTab)?.id as LlmTab | undefined : undefined;
   const tAgentScope = useTranslations('agentScope');
-  // No ChatGPT or Claude login, no Usage tab: it would only say "connect one".
-  const subscriptions = useHasSubscriptions(projectId);
-  const pageTabs = useMemo(
-    () => (subscriptions.has ? LLM_TABS : LLM_TABS.filter((entry) => entry.id !== 'usage')),
-    [subscriptions.has],
-  );
+  const pageTabs = LLM_TABS;
   const agentTabs = useMemo<LlmTabEntry[]>(
     () => [{ id: AGENT_TAB, label: tAgentScope('thisAgent') }, ...pageTabs],
     [tAgentScope, pageTabs],
@@ -424,18 +422,32 @@ export function LlmManagementView({
     navigate(`${pathname}?${params}`, { replace: true });
   }, [searchParams, pathname, navigate, agentScoped]);
 
-  // A link to Usage after the last subscription was disconnected lands on Providers.
-  useEffect(() => {
-    if (tab === 'usage' && subscriptions.ready && !subscriptions.has) selectTab('providers');
-  }, [tab, subscriptions.ready, subscriptions.has, selectTab]);
-
-  const [providerId, setProviderId] = useState<string | null>(null);
+  // `?provider=openai` opens that provider's sheet: search and the command
+  // palette link ChatGPT and Claude subscription usage there. The retired
+  // `?tab=usage` has no tab and lands on Providers.
+  // The open sheet and the URL move together, so the same link opens it again
+  // after it was closed.
+  const requestedProvider = searchParams.get('provider');
+  const [providerId, setProviderId] = useState<string | null>(requestedProvider);
+  const [linkedProvider, setLinkedProvider] = useState(requestedProvider);
+  if (linkedProvider !== requestedProvider) {
+    setLinkedProvider(requestedProvider);
+    setProviderId(requestedProvider);
+  }
+  const changeProvider = useCallback((next: string | null) => {
+    setProviderId(next);
+    if (agentScoped) return;
+    const params = new URLSearchParams(searchParams.toString());
+    if (next) params.set('provider', next);
+    else params.delete('provider');
+    navigate(`${pathname}?${params}`, { replace: true });
+  }, [searchParams, pathname, navigate, agentScoped]);
 
   return (
     <ProviderSheetSplit
       projectId={projectId}
       providerId={tab === 'providers' ? providerId : null}
-      onProviderChange={setProviderId}
+      onProviderChange={changeProvider}
       canWrite={canWrite}
     >
     <CapabilityPageShell
@@ -478,7 +490,7 @@ export function LlmManagementView({
           canWrite={canWrite}
           enabled={open}
           selectedProviderId={providerId}
-          onSelectProvider={setProviderId}
+          onSelectProvider={changeProvider}
         />
       )}
     </CapabilityPageShell>

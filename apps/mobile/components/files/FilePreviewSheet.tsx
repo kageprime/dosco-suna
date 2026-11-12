@@ -45,8 +45,7 @@ import { MOTION, THEME } from '@/lib/utils/theme';
 import type { FileCaption } from '@/stores/tool-file-preview-store';
 import { FilePreviewCaption } from '@/components/files/file-preview-caption';
 import { DisclosureContent } from '@/components/session/chain-of-thought';
-import { useReduceMotion } from '@/components/session/dot-matrix/use-reduce-motion';
-import { Easing } from 'react-native-reanimated';
+import { Easing, useReducedMotion } from 'react-native-reanimated';
 
 /** What the sheet needs of a file. A tool path knows only its name and path. */
 export interface PreviewFile {
@@ -163,7 +162,7 @@ export function FilePreviewBody({
   // toggle opens it, as on web; open, it sits above the bar and the preview ends at it.
   const { t } = useTranslation();
   const [captionOpen, setCaptionOpen] = React.useState(false);
-  const reduceMotion = useReduceMotion();
+  const reduceMotion = useReducedMotion();
   // With a caption, the preview always ends at the caption band above the bar,
   // so only the caption's own height moves when it opens or closes.
   const contentInset = file.caption ? 0 : barInset;

@@ -134,7 +134,8 @@ describe('pi config releases: boot', () => {
     expect(releases.governanceOwned()).toBe(true)
     const notice = releases.notice()!
     expect(notice).toContain(one.descriptor.source_commit!.slice(0, 12))
-    expect(notice).toContain('`/workspace/kortix.yaml`')
+    expect(notice).toContain('`kortix.yaml`')
+    expect(notice).not.toContain('/workspace/kortix.yaml')
     expect(notice).not.toContain('kortix.yaml has issues')
     // A second call joins the first; nothing is fetched again.
     const requests = api.descriptorRequests.length

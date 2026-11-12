@@ -1,12 +1,7 @@
 'use client';
 
-import type { ArtifactType, ArtifactVisibility } from '@kortix/sdk';
-import { BrowserIcon, FileTextIcon, GlobeSimpleIcon, LockSimpleIcon, UsersThreeIcon, type Icon } from '@phosphor-icons/react';
-
-export const ARTIFACT_TYPE_ICON: Record<ArtifactType, Icon> = {
-  doc: FileTextIcon,
-  html: BrowserIcon,
-};
+import type { ArtifactVisibility } from '@kortix/sdk';
+import { GlobeSimpleIcon, LockSimpleIcon, UsersThreeIcon, type Icon } from '@phosphor-icons/react';
 
 export const VISIBILITY_ICON: Record<ArtifactVisibility, Icon> = {
   private: LockSimpleIcon,
@@ -34,6 +29,3 @@ export function relativeTime(iso: string, locale: string): string {
   if (abs < 86400 * 30) return fmt.format(Math.round(seconds / 86400), 'day');
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(iso));
 }
-
-/** The `sm` UserAvatar's edge in px: an agent's mark tile lines up with a person's face. */
-export const AVATAR_SM_EDGE = 22;

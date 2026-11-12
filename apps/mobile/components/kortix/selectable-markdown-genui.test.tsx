@@ -36,6 +36,7 @@ mock.module('expo-linear-gradient', () => ({ LinearGradient: host('linear-gradie
 mock.module('react-native-reanimated', () => ({ default: { View: host('animated-view') }, Easing: { bezier: () => 0 }, Keyframe: class { duration() { return this; } } }));
 mock.module('@gorhom/bottom-sheet', () => ({ BottomSheetModal: none, BottomSheetView: none, TouchableOpacity: none }));
 mock.module('@/components/kortix/sheet', () => ({ KortixBottomSheetModal: none }));
+mock.module('@/components/kortix/sheet-parts', () => ({ SheetView: none, SheetScrollView: none, SheetTouchableOpacity: none }));
 mock.module('@expensify/react-native-live-markdown/src/MarkdownTextInput', () => ({ default: none }));
 mock.module('expo-haptics', () => ({}));
 mock.module('expo-clipboard', () => ({}));

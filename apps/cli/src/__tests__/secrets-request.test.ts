@@ -96,7 +96,7 @@ test('request --show recovers the original link without minting and isolates cre
     expect((await run()).code).toBe(0);
     expect(statSync(cache).mode & 0o777).toBe(0o600);
     expect(minted).toBe(2);
-    expect((await run('--show', '--scope', 'runtime')).code).toBe(2);
+    expect((await run('--show', '--scope', 'connector')).code).toBe(2);
     expect((await run('--show', '--expires', '5')).code).toBe(2);
     writeFileSync(
       cache,

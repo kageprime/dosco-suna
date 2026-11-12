@@ -130,10 +130,10 @@ describe('admin accounts — Overrides card', () => {
     const rows =
       pageSource.match(/OVERRIDE_ENTITLEMENT_ROWS[\s\S]*?=\s*\[([\s\S]*?)\];/)?.[1] ?? '';
     expect(rows).not.toBe('');
-    for (const key of ['sso', 'scim', 'rbac', 'auditAccess', 'branding', 'managedModels', 'byokFee', 'storageBilling']) {
+    for (const key of ['sso', 'scim', 'rbac', 'auditAccess', 'branding', 'managedModels', 'byokFee', 'storageBilling', 'canPurchaseCredits']) {
       expect(rows).toContain(`key: '${key}'`);
     }
-    expect(rows.match(/key: '/g)).toHaveLength(8);
+    expect(rows.match(/key: '/g)).toHaveLength(9);
   });
 
   test('the entitlement rows are tri-state — inherit, force on, force off', () => {
@@ -154,8 +154,8 @@ describe('admin accounts — Overrides card', () => {
 });
 
 describe('admin accounts — Ledger tab', () => {
-  test('the ledger renders the customer-facing table, not a second list', () => {
-    expect(pageSource).toContain('<CreditTransactionsTable rows={adminLedgerRows(entries)} />');
+  test('the ledger renders the customer-facing feed, not a second list', () => {
+    expect(pageSource).toContain('<CreditActivityFeed rows={adminLedgerRows(entries)} />');
     // The hand-rolled row markup is gone: no per-entry amount coloring left in
     // the page, which is what drifted from the customer surface.
     expect(pageSource).not.toContain('text-emerald-600 dark:text-emerald-400');

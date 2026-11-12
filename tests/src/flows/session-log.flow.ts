@@ -28,6 +28,7 @@ import { flow } from "../core/flow";
 import { CliSandbox, throwIfCliInfraFailure } from "../fixtures/cli";
 import { createDatabaseSession } from "../fixtures/database-project";
 import { seedSessionTranscript } from "../fixtures/session-transcript";
+import { lockProjectFirst } from '../fixtures/token-binding-lock';
 
 const JOURNAL = "/v1/workspaces/:projectId/sessions/:sessionId/log/journal";
 const MANIFEST = "/v1/workspaces/:projectId/sessions/:sessionId/log/manifest";
@@ -54,7 +55,7 @@ async function sandboxCredential(ctx: FlowContext, projectId: string, sessionId:
   const credential = minted.json<{ token_id: string; secret_key: string }>();
   const db = new Client({ connectionString: ctx.env.databaseUrl!, ssl: /localhost|127\.0\.0\.1/.test(ctx.env.databaseUrl!) ? false : { rejectUnauthorized: false } });
   await db.connect();
-  await db.query("UPDATE kortix.account_tokens SET project_id = $2, session_id = $3 WHERE token_id = $1", [credential.token_id, projectId, sessionId]);
+  await db.query(lockProjectFirst("UPDATE kortix.account_tokens SET project_id = $2, session_id = $3 WHERE token_id = $1"), [credential.token_id, projectId, sessionId]);
   await db.query("INSERT INTO kortix.session_sandboxes (sandbox_id, session_id, account_id, project_id, status) VALUES ($1::uuid, $1, $2, $3, 'active')", [sessionId, ctx.P.OWNER.accountId, projectId]);
   return {
     secret: credential.secret_key,
@@ -504,8 +505,8 @@ flow(
         }
       });
 
-      await ctx.step("a user with no membership in the project's account → 404 workspace_not_found, no report", async () => {
-        (await preflight("pi", ctx.client.as(ctx.P.NONMEMBER))).status(404).body().has("$.code", "workspace_not_found");
+      await ctx.step("a user with no membership in the project's account → 403 workspace_access_denied, no report", async () => {
+        (await preflight("pi", ctx.client.as(ctx.P.NONMEMBER))).status(403).body().has("$.code", "workspace_access_denied");
       });
     } finally {
       await close();

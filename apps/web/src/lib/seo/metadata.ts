@@ -1,10 +1,11 @@
-import type { Metadata } from 'next';
 import { getLocale, getTranslations } from '@/i18n/get-translations';
+import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 
 import { defaultLocale, locales, type Locale } from '@/i18n/config';
-import { localizeUiCatalog } from '@kortix/ui/i18n';
 import { PUBLIC_METADATA_TRANSLATION_KEYS } from '@/i18n/public-metadata-translation-keys.generated';
 import { getMarketingRecord } from '@/lib/seo/public-content';
+import { localizeUiCatalog } from '@kortix/ui/i18n';
 import { CANONICAL_ORIGIN, siteMetadata } from '@kortix/ui/internal/lib/site-metadata';
 
 export const DEFAULT_OG_IMAGE = {
@@ -106,7 +107,9 @@ const OPEN_GRAPH_LOCALE: Record<Locale, string> = {
 export function openGraphLocales(locale: Locale): { locale: string; alternateLocale: string[] } {
   return {
     locale: OPEN_GRAPH_LOCALE[locale],
-    alternateLocale: locales.filter((other) => other !== locale).map((other) => OPEN_GRAPH_LOCALE[other]),
+    alternateLocale: locales
+      .filter((other) => other !== locale)
+      .map((other) => OPEN_GRAPH_LOCALE[other]),
   };
 }
 
@@ -141,5 +144,16 @@ export async function localizedMarketingMetadata(pathname: string): Promise<Meta
     ...(pathname === '/' ? { title: { absolute: record?.title ?? siteMetadata.title } } : {}),
     alternates: { canonical, languages: languageAlternates(pathname) },
     openGraph: { ...base.openGraph, url: canonical, ...openGraphLocales(locale) },
+  };
+}
+
+/** The pass-through layout every locale-routed marketing page shares: the
+ *  route's localized metadata plus a layout that renders its children alone.
+ *  Each `layout.tsx` re-exports both, so the route keeps its own segment and
+ *  its own route config. */
+export function marketingMetadataLayout(pathname: string) {
+  return {
+    generateMetadata: () => localizedMarketingMetadata(pathname),
+    Layout: ({ children }: { children: ReactNode }) => children,
   };
 }

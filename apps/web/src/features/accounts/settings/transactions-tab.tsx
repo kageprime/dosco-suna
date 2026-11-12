@@ -21,7 +21,7 @@ export function TransactionsTab() {
       <TabsContent value="session-costs">
         <CostExplorer />
       </TabsContent>
-      <TabsContent value="credit-ledger">
+      <TabsContent value="credit-ledger" className="space-y-6">
         <AccountOverviewTab />
         <CreditTransactions />
       </TabsContent>

@@ -11,9 +11,7 @@
  * allow/deny check must read the project row fresh instead. Only a found
  * project is cached.
  */
-import { eq } from 'drizzle-orm';
-import { db } from './db';
-import { projectsView } from '../workspaces/rows';
+import { accountKeyOfWorkspace } from '../workspaces/rows';
 
 const TTL_MS = 5 * 60 * 1000;
 const cache = new Map<string, { accountId: string; expiresAt: number }>();
@@ -22,17 +20,13 @@ export async function resolveProjectAccountId(projectId: string): Promise<string
   const now = Date.now();
   const hit = cache.get(projectId);
   if (hit && hit.expiresAt > now) return hit.accountId;
-  const [row] = await db
-    .select({ accountId: projectsView.accountId })
-    .from(projectsView)
-    .where(eq(projectsView.projectId, projectId))
-    .limit(1);
-  if (!row?.accountId) return null;
-  cache.set(projectId, { accountId: row.accountId, expiresAt: now + TTL_MS });
+  const accountId = await accountKeyOfWorkspace(projectId);
+  if (!accountId) return null;
+  cache.set(projectId, { accountId, expiresAt: now + TTL_MS });
   if (cache.size > 10_000) {
     for (const [key, value] of cache) if (value.expiresAt <= now) cache.delete(key);
   }
-  return row.accountId;
+  return accountId;
 }
 
 export function __clearProjectAccountLookupForTests(): void {

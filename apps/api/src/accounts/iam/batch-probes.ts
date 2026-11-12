@@ -38,7 +38,7 @@ export type BatchProbe = {
   target: Obj | undefined;
 };
 
-export type BatchProbeResult = {
+type BatchProbeResult = {
   action: string;
   /** The same action's workspace name (`@kortix/shared/workspace-actions`). */
   workspace_action: string;
@@ -53,7 +53,7 @@ export type BatchProbeResult = {
  *  on the logger (which would pull the @logtail transport into the unit test).
  *  Declared as a `type` (not `interface`) so it's assignable to the logger's
  *  `Record<string, unknown>` context param. */
-export type BatchProbeErrorContext = {
+type BatchProbeErrorContext = {
   accountId: string;
   action: string;
   resourceType: string | undefined;

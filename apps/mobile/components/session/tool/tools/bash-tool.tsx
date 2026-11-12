@@ -96,7 +96,7 @@ function CommandBlock({
     <View style={[{ position: 'relative', overflow: 'hidden' }, frame]}>
       <ToolScroll
         maxHeight={BASH_PANE.commandMaxHeight}
-        style={{ backgroundColor: frame ? palette.muted40Bg : undefined }}
+        style={{ backgroundColor: palette.muted40Bg }}
         showsVerticalScrollIndicator
       >
         <View style={paneInset}>

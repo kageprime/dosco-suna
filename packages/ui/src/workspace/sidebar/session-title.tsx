@@ -18,8 +18,8 @@ import { cn } from '../../internal/lib/utils';
  *    says "something is happening here" a second time, in a place that cannot
  *    say WHAT — so the two indicators competed and neither read cleanly.
  *
- * No `title` attribute either. The native tooltip it produced fought the Radix
- * tooltips the row already uses: different delay, different placement, different
+ * No `title` attribute either. The native tooltip it produced fought the
+ * `Tooltip`s the row already uses: different delay, different placement, different
  * paint, and it fired over the whole row instead of over one control.
  */
 export function SessionTitle({ title, className }: { title: string; className?: string }) {

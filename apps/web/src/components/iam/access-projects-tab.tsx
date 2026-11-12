@@ -1,6 +1,7 @@
 'use client';
 
 import { useLocale, useTranslations } from '@/i18n/use-translations';
+import type { UiTranslator } from '@/i18n/translator';
 /**
  * `AccessProjectsTab` — the account-level "Projects" tab inside Account
  * Settings' Access section. The single place to see and manage every
@@ -337,8 +338,10 @@ export function accessVia(
 }
 
 /** "Agents: all" when nothing narrows them, else "Agents: 3 of 5" (or just
- *  "Agents: 3" when the project's agent roster is not readable here). */
+ *  "Agents: 3" when the project's agent roster is not readable here). Each
+ *  clause is one catalog key, so a locale translates the whole sentence. */
 export function agentsMetaPart(
+  t: UiTranslator,
   granted: number,
   projectAgentCount: number | undefined,
   /** Whether the row holds the manager tier (project admin, or an account
@@ -346,9 +349,9 @@ export function agentsMetaPart(
    *  agent" for that tier and "no agent" for a member. */
   managerTier = true,
 ): string {
-  if (granted === 0) return managerTier ? 'Agents: all' : 'Agents: none';
-  if (projectAgentCount == null) return `Agents: ${granted}`;
-  return `Agents: ${granted} of ${projectAgentCount}`;
+  if (granted === 0) return managerTier ? t.raw('textb9215e029e76') : t.raw('textd6acddc499aa');
+  if (projectAgentCount == null) return t('textd526776b77df', { value0: granted });
+  return t('text1edf7747d0b8', { value0: granted, value1: projectAgentCount });
 }
 
 function ExpiryMeta({ expiresAt }: { expiresAt: string | null | undefined }) {
@@ -371,13 +374,14 @@ function ExpiryMeta({ expiresAt }: { expiresAt: string | null | undefined }) {
  * nothing.
  */
 function oneFact(
+  t: UiTranslator,
   via: string | null,
   agentCount: number,
   projectAgentCount: number | undefined,
   expiresAt: string | null | undefined,
 ): ReactNode[] {
   if (via) return [via];
-  if (agentCount > 0) return [agentsMetaPart(agentCount, projectAgentCount)];
+  if (agentCount > 0) return [agentsMetaPart(t, agentCount, projectAgentCount)];
   if (expiresAt) return [<ExpiryMeta key="expires" expiresAt={expiresAt} />];
   return [];
 }
@@ -1535,7 +1539,7 @@ function MemberAccessRow({
   const fact =
     displayRole.kind === 'none'
       ? []
-      : oneFact(via, agentGrants.length, projectAgentCount, expiresAt);
+      : oneFact(tI18nComplete, via, agentGrants.length, projectAgentCount, expiresAt);
   const hint =
     !editable && canManageMembers && (member.has_implicit_access || inheritedOnly)
       ? member.has_implicit_access
@@ -1634,7 +1638,7 @@ function GroupAccessRowView({
       ]
     : [];
 
-  const fact = oneFact(null, agentGrants.length, projectAgentCount, expiresAt);
+  const fact = oneFact(tI18nComplete, null, agentGrants.length, projectAgentCount, expiresAt);
 
   return (
     // Kind reads from the avatar (the group glyph) and the email column.

@@ -1,7 +1,7 @@
 import { useSyncStore } from '../../browser/stores/sync-store';
 import { isAbortError } from '../../core/http/abort-error';
 import { getClient } from '../../core/runtime/client';
-import { extractGatewayErrorDetails, unwrapError } from '../../core/turns/errors';
+import { sessionErrorSentence } from '../../core/turns/errors';
 import { notifySessionError, notifyTaskComplete } from '../../platform/ui';
 import { type MessageWithParts, type Session, runtimeKeys } from '../use-runtime-sessions';
 import type { HandlerContext } from './handler-context';
@@ -181,7 +181,7 @@ function handleSessionFailure(event: RuntimeEvent, ctx: HandlerContext) {
         stopCompaction(sessionID);
         // The sentence the transcript row shows (`getTurnError`), never the
         // class name ("APIError") or the HTTP status text ("Bad Request").
-        const errorTitle = extractGatewayErrorDetails(error)?.message || unwrapError(error);
+        const errorTitle = sessionErrorSentence(error);
         // An abort is the effect of a Stop, not a failure: the transcript
         // already says who stopped the run, and a "Session Error" beside it
         // told every other viewer something broke.

@@ -8,6 +8,7 @@ import { auth, errors, json } from '../../openapi';
 import { createRoute, z } from '@hono/zod-openapi';
 import { loadVisibleSession, loadVisibleSessionsForList, assertProjectCapability, sessionIsTombstoned } from '../lib/access';
 import { callerKortixSessionId } from '../../middleware/caller-session';
+import { storedLogReadDenial } from '../../middleware/rate-limit';
 import { AnyObject, projectsApp, SessionTranscriptReadSchema } from '../lib/app';
 import { parseBoundedPositiveInt } from '../lib/serializers';
 import { isUuid } from '../../shared/validate';
@@ -54,6 +55,9 @@ const SessionUsageTreeSchema = z
   })
   .openapi('SessionUsageTree');
 
+/** `GET …/transcript` is deprecated since 2026-11-11 00:00 UTC: an RFC 9745 `Deprecation` date (`@` unix seconds). */
+export const TRANSCRIPT_DEPRECATED_AT = '@1794355200';
+
 export function registerSessionTranscriptsRoutes(): void {
   // GET /v1/projects/:projectId/sessions/:sessionId/transcript
   // Server-side transcript read for project automation. Unlike the raw /v1/p
@@ -82,7 +86,12 @@ export function registerSessionTranscriptsRoutes(): void {
       method: 'get',
       path: '/{workspaceId}/sessions/{sessionId}/transcript',
       tags: ['sessions'],
-      summary: 'Read the transcript of a session',
+      summary: 'Read the transcript of a session (deprecated: read the session log)',
+      description:
+        'Deprecated since 2026-11-11 and scheduled for removal: read `GET /v1/workspaces/{workspaceId}/sessions/{sessionId}/log` ' +
+        '(`SessionLogPage`) instead. Every answer carries `Deprecation: @1794355200` (RFC 9745) and ' +
+        '`Link: <…/log>; rel="successor-version"`.',
+      deprecated: true,
       ...auth,
       request: {
         params: z.object({ workspaceId: z.string(), sessionId: z.string() }),
@@ -98,13 +107,22 @@ export function registerSessionTranscriptsRoutes(): void {
       },
       responses: {
         200: json(SessionTranscriptReadSchema, 'The transcript: compact digest, or the sync window with `shape=sync`'),
-        ...errors(400, 403, 404),
+        ...errors(400, 403, 404, 429),
       },
     }),
     async (c) => {
       const projectId = workspaceIdParam(c);
       const sessionId = c.req.param('sessionId');
+      // Deprecated (session-log plan P8.3): every answer says so (RFC 9745) and names the
+      // successor, the session log. No Kortix client or box reads this route any more.
+      c.header('Deprecation', TRANSCRIPT_DEPRECATED_AT);
+      c.header('Link', `</v1/workspaces/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(sessionId)}/log>; rel="successor-version"`);
       if (!isUuid(sessionId)) return c.json({ error: 'Invalid session id' }, 400);
+      // The same stored-log read ceiling as `GET …/log` (KRTX-4696): the transcript
+      // serves the same log, heavier per request, and must not become the uncapped
+      // way around the log route's guard.
+      const denied = storedLogReadDenial(c, sessionId);
+      if (denied) return c.json(denied.body, 429, { 'Retry-After': denied.retryAfter });
 
       const limit = parseBoundedPositiveInt(c.req.query('limit'), 40, 1, 500, 'limit');
       if (!limit.ok) return c.json({ error: limit.error }, 400);

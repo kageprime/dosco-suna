@@ -1,4 +1,4 @@
-import { Slot } from '@radix-ui/react-slot';
+import { Slot } from '@kortix/ui/slot';
 import { type ComponentProps } from 'react';
 
 import { cn } from '@kortix/ui';

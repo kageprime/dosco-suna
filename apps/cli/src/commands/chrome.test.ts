@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 
+import { featureOffMessage } from '../feature-flags.ts';
 import { stripAnsi } from '../style.ts';
 import { chromeLabel, formatChromeError, formatChromeList, formatUsed, runChrome } from './chrome.ts';
 
@@ -117,5 +118,16 @@ describe('runChrome against a daemon', () => {
     const r = await capture(['use']);
     expect(r.code).toBe(1);
     expect(r.err).toContain('https://kortix.com/settings/chrome');
+  });
+});
+
+describe('feature-off line before launch', () => {
+  test('names no enable command for chrome: the flag is not offered (CHROME_LAUNCHED)', () => {
+    const line = featureOffMessage('`kortix chrome`', 'chrome', new Set());
+    expect(line).not.toContain('features enable');
+    expect(line).toContain('not available yet');
+  });
+  test('other flags keep the enable hint', () => {
+    expect(featureOffMessage('`kortix goals`', 'goals', new Set())).toContain('kortix workspaces features enable goals');
   });
 });

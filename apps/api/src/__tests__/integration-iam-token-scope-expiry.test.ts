@@ -20,6 +20,10 @@ const P1 = crypto.randomUUID();
 const P2 = crypto.randomUUID();
 const OWNER = crypto.randomUUID();
 const SCOPED_TOKEN = crypto.randomUUID();
+// A 1:1 account (one workspace, not split_pending) and its workspace key.
+const SOLO_ACCOUNT = crypto.randomUUID();
+const SOLO_PROJECT = crypto.randomUUID();
+const SOLO_TOKEN = crypto.randomUUID();
 const UNSCOPED_TOKEN = crypto.randomUUID();
 const uid = () => crypto.randomUUID();
 const proj = (id: string) => ({ type: 'project' as const, id });
@@ -37,10 +41,19 @@ beforeAll(async () => {
     // An account-wide PAT (no project binding).
     { tokenId: UNSCOPED_TOKEN, accountId: ACCOUNT, userId: OWNER, name: 'unscoped', publicKey: `pk_u_${UNSCOPED_TOKEN.slice(0, 8)}`, secretKeyHash: `h_u_${UNSCOPED_TOKEN.slice(0, 8)}`, projectId: null },
   ]);
+  await db.insert(accounts).values({ accountId: SOLO_ACCOUNT, name: 'token-scope-solo' });
+  await db.insert(projects).values({ projectId: SOLO_PROJECT, accountId: SOLO_ACCOUNT, name: 'solo', repoUrl: 'https://example.com/solo.git' });
+  await insertIntoView(db, accountMembers, { userId: OWNER, accountId: SOLO_ACCOUNT, accountRole: 'owner' });
+  await db.insert(accountTokens).values({
+    tokenId: SOLO_TOKEN, accountId: SOLO_ACCOUNT, userId: OWNER, name: 'solo-scoped',
+    publicKey: `pk_o_${SOLO_TOKEN.slice(0, 8)}`, secretKeyHash: `h_o_${SOLO_TOKEN.slice(0, 8)}`, projectId: SOLO_PROJECT,
+  });
 });
 afterAll(async () => {
   await db.delete(projects).where(eq(projects.accountId, ACCOUNT));
   await db.delete(accounts).where(eq(accounts.accountId, ACCOUNT)); // cascades tokens/members
+  await db.delete(projects).where(eq(projects.accountId, SOLO_ACCOUNT));
+  await db.delete(accounts).where(eq(accounts.accountId, SOLO_ACCOUNT));
 });
 
 describe('token project-scope', () => {
@@ -51,10 +64,30 @@ describe('token project-scope', () => {
     const otherProj = await authorize(await actorForToken(OWNER, ACCOUNT, SCOPED_TOKEN), PROJECT_ACTIONS.PROJECT_READ, proj(P2));
     expect(otherProj.allowed).toBe(false);
     expect(otherProj.reason).toBe('token_out_of_scope');
-    // Account-level action → out of scope.
-    const acct = await authorize(await actorForToken(OWNER, ACCOUNT, SCOPED_TOKEN), ACCOUNT_ACTIONS.MEMBER_READ);
-    expect(acct.allowed).toBe(false);
-    expect(acct.reason).toBe('token_out_of_scope');
+    // Account-level action of its own split_pending account → refused, and
+    // the reason says the account is shared (the remedy is a personal key).
+    for (const action of [ACCOUNT_ACTIONS.MEMBER_READ, ACCOUNT_ACTIONS.AUDIT_READ, ACCOUNT_ACTIONS.BILLING_READ]) {
+      const acct = await authorize(await actorForToken(OWNER, ACCOUNT, SCOPED_TOKEN), action);
+      expect(acct.allowed).toBe(false);
+      expect(acct.reason).toBe('token_account_shared');
+    }
+  });
+
+  test('a 1:1 workspace key reads its own account rows; another account stays token_out_of_scope', async () => {
+    const own = await actorForToken(OWNER, SOLO_ACCOUNT, SOLO_TOKEN);
+    for (const action of [ACCOUNT_ACTIONS.MEMBER_READ, ACCOUNT_ACTIONS.AUDIT_READ, ACCOUNT_ACTIONS.BILLING_READ]) {
+      expect((await authorize(own, action)).allowed).toBe(true);
+    }
+    expect((await authorize(own, PROJECT_ACTIONS.PROJECT_READ, proj(SOLO_PROJECT))).allowed).toBe(true);
+    // The split_pending account's own key on the solo account: neither its
+    // workspace nor its account, so the shared-account reason never fires.
+    const foreign = await authorize(await actorForToken(OWNER, SOLO_ACCOUNT, SCOPED_TOKEN), ACCOUNT_ACTIONS.MEMBER_READ);
+    expect(foreign.allowed).toBe(false);
+    expect(foreign.reason).toBe('token_out_of_scope');
+    // The solo key on the split_pending account: not shared with it either.
+    const foreignShared = await authorize(await actorForToken(OWNER, ACCOUNT, SOLO_TOKEN), ACCOUNT_ACTIONS.MEMBER_READ);
+    expect(foreignShared.allowed).toBe(false);
+    expect(foreignShared.reason).toBe('token_out_of_scope');
   });
 
   test('an unscoped account PAT is not project-restricted', async () => {

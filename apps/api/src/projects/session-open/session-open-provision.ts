@@ -109,7 +109,6 @@ export async function allocateRuntimeOnOpen(
         defaultBranch: loaded.row.defaultBranch,
         manifestPath: loaded.row.manifestPath,
         repositoryAccess: repositoryAccessFromSessionMetadata(session.metadata),
-        restoreSessionBranch: true,
       }),
     resolveGitProject: async () => withProjectGitAuth(loaded.row),
   });

@@ -75,7 +75,7 @@ export function BackgroundApps({
 }
 
 /** "Server · Sleeps when idle · Called by poll-inbox": what the App is and what wakes it. */
-export function backgroundMeta(app: App, triggers: ProjectTrigger[], t: UiTranslator): string {
+function backgroundMeta(app: App, triggers: ProjectTrigger[], t: UiTranslator): string {
   const caller = appTriggers(app, triggers).calledBy[0];
   const kind = app.external_url
     ? [t.raw('text68c114ea9c8c')]

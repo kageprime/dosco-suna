@@ -155,3 +155,49 @@ describe('materializeMigrationRuntimeDirectory', () => {
     ]);
   });
 });
+
+describe('superseded gateway_logs covering indexes', () => {
+  const file = '20261107145000000_gateway_logs_project_time_covering_v2.concurrent.ts';
+  const source = [
+    'export const up = (pgm) => {',
+    '  pgm.noTransaction();',
+    "  pgm.sql(`set lock_timeout = '180s'`);",
+    '  pgm.sql(`',
+    '    create index concurrently if not exists idx_gateway_logs_project_time_covering_v2',
+    '      on kortix.gateway_request_logs (project_id, created_at) include (ok, metadata)',
+    '  `);',
+    '};',
+    '',
+  ].join('\n');
+  const sha = createHash('sha256').update(source).digest('hex');
+
+  function migrations(text: string): string {
+    const root = mkdtempSync(join(tmpdir(), 'kortix-migration-runtime-'));
+    const dir = join(root, 'migrations');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, file), text);
+    roots.push(root);
+    return dir;
+  }
+
+  test('skips the metadata-including build only in the runtime copy and keeps the session settings', () => {
+    const dir = migrations(source);
+    const runtime = materializeMigrationRuntimeDirectory(dir, { supersededIndexExpectedSha256: { [file]: sha } });
+    try {
+      const rewritten = readFileSync(join(runtime.path, file), 'utf8');
+      expect(rewritten).not.toContain('create index');
+      expect(rewritten).toContain("set lock_timeout = '180s'");
+      expect(readFileSync(join(dir, file), 'utf8')).toBe(source);
+      expect(runtime.appliedOverrides.join('\n')).toContain('skip the superseded idx_gateway_logs_project_time_covering_v2 build');
+    } finally {
+      runtime.cleanup();
+    }
+  });
+
+  test('fails closed when the migration does not match the approved checksum', () => {
+    const dir = migrations(source.replace('ok, metadata', 'ok'));
+    expect(() => materializeMigrationRuntimeDirectory(dir, { supersededIndexExpectedSha256: { [file]: sha } })).toThrow(
+      'checksum mismatch',
+    );
+  });
+});

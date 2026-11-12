@@ -19,8 +19,8 @@ function ownsKeys(target: EventTarget | null): boolean {
 
 /**
  * Theme control on every /debug page. A click cannot reach it while a modal is
- * open — Radix sets `pointer-events: none` on `body` and treats the click as a
- * backdrop dismiss — so `D` flips light/dark without closing the stack.
+ * open — the modal's backdrop covers the page and treats the click as an
+ * outside press that dismisses — so `D` flips light/dark without closing the stack.
  */
 export function DebugThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();

@@ -98,9 +98,19 @@ async function add(app: string, context: PlatformToolContext) {
   )
 }
 
-async function connect(slug: string, shared: boolean, context: PlatformToolContext) {
+/**
+ * Whose sign-in a connect link makes. A trigger or automation runs only on the
+ * workspace's shared account, so `for_trigger` means shared: one card, never a
+ * private card first and a shared one after it (an e2e run on dev got both).
+ * A person who may not share gets the refusal and who can grant it, not a
+ * private sign-in the trigger could never use.
+ */
+async function connect(slug: string, shared: boolean, forTrigger: boolean, context: PlatformToolContext) {
   const started = await cliRun(['connectors', 'connect', slug, '--owner', shared ? 'project' : 'me'], context)
-  if ('error' in started) return fail(TOOL, 'connect', `Could not start the sign-in for ${slug}`, started.error, context)
+  if ('error' in started) {
+    const title = forTrigger ? `A workspace manager must sign in to ${slug} for triggers` : `Could not start the sign-in for ${slug}`
+    return fail(TOOL, 'connect', title, started.error, context)
+  }
   const url = started.text.match(/https?:\/\/\S+/)?.[0]
   if (!url) return ok(TOOL, 'connect', { title: `${slug} is ready`, subtitle: 'It needs no sign-in.' }, { slug, ready: true })
   return ok(
@@ -108,7 +118,11 @@ async function connect(slug: string, shared: boolean, context: PlatformToolConte
     'connect',
     {
       title: `Sign in to ${slug}`,
-      subtitle: shared ? 'Everyone in the workspace will use this sign-in.' : 'Only you will use this sign-in.',
+      subtitle: !shared
+        ? 'Only you will use this sign-in.'
+        : forTrigger
+          ? 'Everyone in the workspace will use this sign-in, so triggers can run on it.'
+          : 'Everyone in the workspace will use this sign-in.',
       status: 'needs_you',
       links: [{ label: 'Sign in', href: url }],
     },
@@ -120,7 +134,9 @@ export default {
   description:
     'Outside apps agents may use (Gmail, Google Drive, Notion, Slack, a CRM…). Actions: `list` (what is added and signed in); ' +
     '`find` (query: search every app Kortix can connect); `add` (app: an id from find); ' +
-    '`connect` (slug: get the sign-in link for the person; shared=true makes the sign-in the whole workspace\'s). ' +
+    '`connect` (slug: get the sign-in link for the person; shared=true makes the sign-in the whole workspace\'s; ' +
+    'for_trigger=true when the sign-in is for a trigger, wake-up or other automation: those run only on the shared sign-in, so it mints that one). ' +
+    'Mint ONE link per app and end the turn: never a private link first and a shared one after it. ' +
     'Never ask for a password: the person signs in through the link. To let an agent use a connector, use kortix_agents set_access.',
   parameters: {
     type: 'object',
@@ -129,7 +145,8 @@ export default {
       query: { type: 'string', description: 'For find: the app to look for.' },
       app: { type: 'string', description: 'For add: the app id find returned.' },
       slug: { type: 'string', description: 'For connect: the connector slug list shows.' },
-      shared: { type: 'boolean', description: 'For connect: share the sign-in with the whole workspace. Default: only this person.' },
+      shared: { type: 'boolean', description: 'For connect: share the sign-in with the whole workspace. Default: only this person, or shared when for_trigger is true.' },
+      for_trigger: { type: 'boolean', description: 'For connect: the sign-in is for a trigger, wake-up or automation. It is then the workspace\'s shared sign-in.' },
     },
     required: ['action'],
   },
@@ -142,7 +159,7 @@ export default {
     if (bad) return fail(TOOL, action, 'Which app?', { kind: 'invalid', message: bad }, context)
     if (action === 'find') return text('query') ? find(text('query'), context) : fail(TOOL, action, 'Which app?', { kind: 'invalid', message: 'Pass query.' }, context)
     if (action === 'add') return text('app') ? add(text('app'), context) : fail(TOOL, action, 'Which app?', { kind: 'invalid', message: 'Pass app, an id from find.' }, context)
-    if (action === 'connect') return text('slug') ? connect(text('slug'), args.shared === true, context) : fail(TOOL, action, 'Which connector?', { kind: 'invalid', message: 'Pass slug.' }, context)
+    if (action === 'connect') return text('slug') ? connect(text('slug'), args.shared === true || (args.for_trigger === true && args.shared !== false), args.for_trigger === true, context) : fail(TOOL, action, 'Which connector?', { kind: 'invalid', message: 'Pass slug.' }, context)
     return fail(TOOL, action, 'Unknown action', { kind: 'invalid', message: `Use one of: ${ACTIONS.join(', ')}.` }, context)
   },
 }

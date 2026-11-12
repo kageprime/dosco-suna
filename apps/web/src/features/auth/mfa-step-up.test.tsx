@@ -109,7 +109,7 @@ const uiToastMock = () => ({
 });
 mock.module('@kortix/ui/toast', uiToastMock);
 
-// The real Dialog reaches through Radix portals and the z-stack; these tests
+// The real Dialog reaches through portals and the z-stack; these tests
 // assert the gate's decisions, not the overlay. A conditional render keeps the
 // tree assertable.
 const host = (tag: string) =>

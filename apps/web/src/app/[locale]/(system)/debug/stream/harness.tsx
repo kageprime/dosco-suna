@@ -9,6 +9,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
+import { Button } from '@kortix/ui/button';
 import { SESSION_TRANSCRIPT_CLASS } from '@kortix/ui/session/thread/session-body';
 import { SessionBusyIndicator, ThrottledMarkdown } from '@kortix/ui/session';
 
@@ -119,27 +120,6 @@ const SCENARIOS: Scenario[] = [
 const TICK_MS = 40;
 const CHARS_PER_TICK = 4;
 
-function Control({
-  label,
-  onClick,
-  active = false,
-}: {
-  label: string;
-  onClick: () => void;
-  active?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className="border-border text-muted-foreground hover:text-foreground aria-pressed:bg-muted aria-pressed:text-foreground rounded-md border px-3 py-1.5 text-xs"
-    >
-      {label}
-    </button>
-  );
-}
-
 /**
  * The first state, from `?scenario=…&at=…&working=…`. `until=<text>` stops just
  * after the first occurrence of that text, so a check can name a phase without
@@ -212,42 +192,54 @@ export function DebugStreamHarness() {
             </div>
             <div className="flex flex-wrap gap-2">
               {SCENARIOS.map((s) => (
-                <Control
+                <Button
                   key={s.id}
-                  label={s.label}
-                  active={s.id === scenario.id}
+                  size="xs"
+                  variant={s.id === scenario.id ? 'secondary' : 'ghost'}
+                  aria-pressed={s.id === scenario.id}
                   onClick={() => restart(s.id)}
-                />
+                >
+                  {s.label}
+                </Button>
               ))}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Control
-                label={playing ? 'Pause' : 'Play'}
+              <Button
+                size="xs"
                 onClick={() => {
                   if (at >= text.length) setAt(0);
                   setWorking(true);
                   setPlay(!playing);
                 }}
-              />
-              <Control
-                label="Step +8"
+              >
+                {playing ? 'Pause' : 'Play'}
+              </Button>
+              <Button
+                size="xs"
                 onClick={() => {
                   setPlay(false);
                   setAt((a) => Math.min(text.length, a + 8));
                 }}
-              />
-              <Control
-                label="To end"
+              >
+                Step +8
+              </Button>
+              <Button
+                size="xs"
                 onClick={() => {
                   setPlay(false);
                   setAt(text.length);
                 }}
-              />
-              <Control
-                label={working ? 'Turn: working' : 'Turn: ended'}
-                active={!working}
+              >
+                To end
+              </Button>
+              <Button
+                size="xs"
+                variant={!working ? 'secondary' : 'ghost'}
+                aria-pressed={!working}
                 onClick={() => setWorking((w) => !w)}
-              />
+              >
+                {working ? 'Turn: working' : 'Turn: ended'}
+              </Button>
               <span
                 data-testid="stream-position"
                 className="text-muted-foreground font-mono text-xs tabular-nums"

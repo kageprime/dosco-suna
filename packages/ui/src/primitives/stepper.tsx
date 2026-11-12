@@ -1,9 +1,9 @@
 'use client';
 
-import { Slot } from '@radix-ui/react-slot';
 import * as React from 'react';
 import { createContext, useContext } from 'react';
 
+import { Slot } from '../lib/base-ui-compat';
 import { cn } from '../lib/utils';
 
 type StepperContextValue = {

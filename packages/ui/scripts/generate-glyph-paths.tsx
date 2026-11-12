@@ -11,10 +11,20 @@
  *   bun packages/ui/scripts/generate-glyph-paths.tsx
  * glyph-face.test.tsx fails while the file is stale.
  */
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { renderGlyphPathsModule } from '../src/primitives/glyph-paths-source';
 
-const target = join(import.meta.dir, '..', 'src', 'primitives', 'glyph-paths.generated.ts');
-writeFileSync(target, renderGlyphPathsModule());
-console.log(`wrote ${target}`);
+const source = renderGlyphPathsModule();
+// The web module, and a copy for the mobile app (apps/mobile does not depend
+// on @kortix/ui; its workspace tiles draw the same glyphs). glyph-face.test.tsx
+// fails while either copy is stale.
+const targets = [
+  join(import.meta.dir, '..', 'src', 'primitives', 'glyph-paths.generated.ts'),
+  join(import.meta.dir, '..', '..', '..', 'apps', 'mobile', 'lib', 'workspace', 'glyph-paths.generated.ts'),
+];
+for (const target of targets) {
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, source);
+  console.log(`wrote ${target}`);
+}

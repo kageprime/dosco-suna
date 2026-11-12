@@ -1,13 +1,7 @@
-import { SurfacePage } from '@/features/marketing/surfaces/surface-page';
-import { localizedMarketingMetadata } from '@/lib/seo/metadata';
-import type { Metadata } from 'next';
-import type { ReactNode } from 'react';
-
-export function generateMetadata(): Promise<Metadata> {
-  return localizedMarketingMetadata('/teams');
-}
+import { surfaceRoute } from '@/features/marketing/surfaces/surface-page';
 
 /** `/teams`: copy in features/marketing/surfaces/content.ts, layout in surface-page.tsx. */
-export default function Page(): ReactNode {
-  return <SurfacePage id="teams" />;
-}
+const { generateMetadata, Page } = surfaceRoute('teams', '/teams');
+
+export { generateMetadata };
+export default Page;

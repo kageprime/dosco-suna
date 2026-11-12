@@ -1,12 +1,12 @@
 /**
  * The pooled provider keys a session runs a model on.
  *
- * A model reached only through pooled keys (`pooled_provider_secrets`: keys
- * shared with the project, keys granted to one member, ChatGPT connections)
- * needs its session to select them: the gateway never picks a pooled key on
- * its own. The web asks the person which keys. A caller that names only a
- * model — the CLI, the SDK, a chat channel — gets every key it may use for
- * that model's provider, so they rotate.
+ * A session with no selection for a provider runs on every pooled key it may
+ * use (`pooled_provider_secrets`: keys shared with the project, keys granted to
+ * the session's person), resolved by the gateway at each call
+ * (`resolve-candidates.ts`). A selection narrows that: the web lets a person
+ * pick keys, a chat channel stores its conversation's keys, and a share
+ * replaces keys the shared session could no longer use.
  */
 import { CODEX_AUTH_SECRET_NAME } from '../llm-gateway/models/codex-models';
 import { resolveCatalogUpstream } from '../llm-gateway/models/provider-registry';

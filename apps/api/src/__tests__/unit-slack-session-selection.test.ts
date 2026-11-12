@@ -58,6 +58,16 @@ function makeChain(): any {
 }
 // Every table a delete targeted, so a released claim can be asserted.
 const deletedFrom: unknown[] = [];
+// One Slack workspace, one Kortix workspace (channels/slack/link.ts): this file's
+// project holds its Slack workspace, and the rows describe the channel itself.
+mock.module('../channels/slack/link', () => ({
+  linkedSlackProject: async () => null,
+  recordSlackChannel: async () => {},
+  slackProjectLink: async () => ({ teamId: 'T1' }),
+  holdsSlackWorkspace: async () => true,
+  moveSlackLink: async () => [],
+}));
+
 mock.module('../shared/db', () => ({
   withDbTransaction: <T,>(action: () => Promise<T>): Promise<T> => action(),
   db: {
@@ -189,6 +199,7 @@ mock.module('../channels/slack-api', () => ({
   postMessage: async () => 'ts',
   publishHomeView: async () => {},
   removeReaction: async () => {},
+  setAssistantStatus: async () => {},
   startStream: async () => 'ts',
   stopStream: async () => {},
   updateBlocks: async () => {},

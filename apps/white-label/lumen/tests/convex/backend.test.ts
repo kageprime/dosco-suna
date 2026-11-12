@@ -250,7 +250,7 @@ describe('restricted matters: their own folder and agent, out of every firm sess
       { path: `/Lumen/Walled/${id}`, principalType: 'agent', principalId: `lumen-m-${id}`, level: 'write' },
       { path: '/Lumen/Kit', principalType: 'agent', principalId: `lumen-m-${id}`, level: 'read' },
     ]);
-    expect(kortixFake.calls.agents.find((a) => a.name === `lumen-m-${id}`)?.block).toMatchObject({ kortix_permissions: 'none', repository_access: false });
+    expect(kortixFake.calls.agents.find((a) => a.name === `lumen-m-${id}`)?.block).toMatchObject({ kortix_permissions: 'none' });
     // The proxy gets the matter's agent and folder, never the firm's, for this matter.
     expect(await token(alice.as, id)).toMatchObject({ agent: `lumen-m-${id}`, matterDir: `/drives/${id}` });
     await expect(token(bob.as, id)).rejects.toThrow(/403/);
@@ -381,8 +381,8 @@ describe('provisionFirm: one shared project, one folder + agent + service accoun
     expect(c.uploads).toContain(`/Lumen/Kit/${KIT.version}/skills/lumen-citations/SKILL.md`);
     expect(c.uploads.at(-1) === '/Lumen/Kit/CURRENT' || c.uploads.includes('/Lumen/Kit/CURRENT')).toBe(true);
     expect(c.defaults).toEqual(['lumen-none']);
-    expect(c.agents.find((a) => a.name === 'lumen-none')?.block).toMatchObject({ kortix_permissions: 'none', repository_access: false });
-    expect(c.agents.find((a) => a.name === 'kortix')?.block).toMatchObject({ enabled: false, kortix_permissions: 'none', repository_access: false });
+    expect(c.agents.find((a) => a.name === 'lumen-none')?.block).toMatchObject({ kortix_permissions: 'none' });
+    expect(c.agents.find((a) => a.name === 'kortix')?.block).toMatchObject({ enabled: false, kortix_permissions: 'none' });
     expect(await t.run((ctx) => ctx.db.query('deployment').collect())).toMatchObject([
       { status: 'ready', projectId: 'proj_shared', accountId: 'acc_operator', driveId: 'drive_shared', kitVersion: KIT.version, kitHash: KIT.hash },
     ]);
@@ -396,7 +396,7 @@ describe('provisionFirm: one shared project, one folder + agent + service accoun
     const agent = `lumen-f-${firm}`;
     expect(c.folders).toEqual(expect.arrayContaining([`/Lumen/Firms/${firm}`, `/Lumen/Firms/${firm}/Matters`, `/Lumen/Firms/${firm}/Runs`, `/Lumen/Firms/${firm}/Library`]));
     expect(c.agents.find((a) => a.name === agent)?.block).toMatchObject({
-      enabled: true, kortix_permissions: 'none', repository_access: false, behavior: { mode: 'primary', prompt: KIT.agents['lumen-counsel'] },
+      enabled: true, kortix_permissions: 'none', behavior: { mode: 'primary', prompt: KIT.agents['lumen-counsel'] },
     });
     expect(c.grants).toEqual([
       { path: `/Lumen/Firms/${firm}`, principalType: 'agent', principalId: agent, level: 'write' },

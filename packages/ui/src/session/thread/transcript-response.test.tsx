@@ -9,7 +9,7 @@ import { TurnAssistantBlock } from '../index';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', { value: true, configurable: true });
 // The streaming cadence paces on animation frames; Bun has none. Scoped to this file, so no other test sees them.
-const hadFrames = 'requestAnimationFrame' in globalThis;
+const hadFrames = typeof globalThis.requestAnimationFrame === 'function';
 beforeAll(() => {
   if (hadFrames) return;
   globalThis.requestAnimationFrame = ((fn: FrameRequestCallback) => setTimeout(() => fn(performance.now()), 16)) as never;

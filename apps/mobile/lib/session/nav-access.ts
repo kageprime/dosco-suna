@@ -34,7 +34,11 @@ const NAV_ACCESS = [SCHEDULES_ACCESS, SECRETS_ACCESS, MEMBERS_ACCESS, CONNECTORS
 
 /** Every leaf the navigation rows read: one `useCans` batch. */
 export const NAV_ACTIONS: readonly string[] = [
-  ...new Set([...NAV_ACCESS.flatMap((a) => [a.read, ...(a.manage ?? [])]), A.PROJECT_APP_DEPLOY]),
+  ...new Set([
+    ...NAV_ACCESS.flatMap((a) => [a.read, ...(a.manage ?? [])]),
+    A.PROJECT_APP_DEPLOY,
+    A.PROJECT_ARTIFACT_READ,
+  ]),
 ];
 
 const settled = (cans: Cans, actions: readonly string[]) =>
@@ -55,4 +59,14 @@ export function appsRowVisible(cans: Cans, appCount: number | undefined): boolea
   if (allowed(cans, A.PROJECT_APP_DEPLOY)) return true;
   if (!settled(cans, [A.PROJECT_APP_DEPLOY])) return false;
   return (appCount ?? 0) > 0;
+}
+
+/**
+ * Artifacts row: the project stores a Drive (`artifacts` availability, which
+ * fails closed while unknown) and the caller may read artifacts. Read is
+ * enough: a member who can only view still opens what is shared with them.
+ */
+export function artifactsRowVisible(cans: Cans, available: boolean): boolean {
+  if (!available || !settled(cans, [A.PROJECT_ARTIFACT_READ])) return false;
+  return allowed(cans, A.PROJECT_ARTIFACT_READ);
 }

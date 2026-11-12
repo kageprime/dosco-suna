@@ -130,7 +130,7 @@ function subscribeToBody(onChange: () => void) {
 /** Serialized so an unchanged DOM yields an identical snapshot. */
 function readOpenLayers(): string {
   const layers: InspectedLayer[] = [];
-  // Document order is open order: each Radix portal appends to `body`.
+  // Document order is open order: each overlay portal appends to `body`.
   const dialogs = document.querySelectorAll<HTMLElement>(
     '[role="dialog"][data-state="open"],[role="alertdialog"][data-state="open"],[role="dialog"][aria-modal="true"]',
   );
@@ -343,7 +343,7 @@ function NestedScenario() {
                 </ModalTrigger>
                 <DemoModalContent
                   title="Inner modal"
-                  description="Uncontrolled: Radix owns no state here, the stack still sees it."
+                  description="Uncontrolled: the dialog owns its own state, the stack still sees it."
                   treeDepth={3}
                   widthLevel={2}
                 />

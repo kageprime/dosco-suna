@@ -93,7 +93,8 @@ def env_for(library, engine):
     # Explicit synthetic test credentials override any inherited S3 settings.
     for key in ("KORTIX_CAPTURE_S3_ACCESS_KEY_ID", "KORTIX_CAPTURE_S3_SECRET_ACCESS_KEY", "KORTIX_CAPTURE_S3_SESSION_TOKEN"):
         env.pop(key, None)
-    env.update(KORTIX_CAPTURE_DIR=str(library), KORTIX_CAPTURE_ENGINE=str(engine))
+    # The test settings tune capture speed and quality: keep them (settings.rs, TUNING_ENV).
+    env.update(KORTIX_CAPTURE_DIR=str(library), KORTIX_CAPTURE_ENGINE=str(engine), KORTIX_CAPTURE_TUNING="1")
     return env
 
 def settings(library, endpoint, enabled, prefix):

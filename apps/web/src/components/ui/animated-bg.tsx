@@ -1,8 +1,7 @@
 'use client';
 
-import { cn } from '@kortix/ui';
-import { m, useMotionValue, useTransform } from 'motion/react';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { m } from 'motion/react';
+import { useEffect, useId, useState } from 'react';
 
 type Tone = 'light' | 'medium' | 'dark';
 
@@ -49,7 +48,6 @@ export const ArcSvg = ({
   opacity,
   style,
   className,
-  blurAmount,
 }: {
   cfg: ArcDef;
   size: number;
@@ -57,7 +55,6 @@ export const ArcSvg = ({
   opacity: number; // 0.22–0.38
   style?: React.CSSProperties;
   className?: string;
-  blurAmount?: number;
 }) => {
   const uid = useId();
   const colors = ARC_TONES[tone];
@@ -123,15 +120,9 @@ export const ArcSvg = ({
       </defs>
 
       <g opacity={opacity}>
-        <g
-          style={{
-            filter: blurAmount && blurAmount > 0 ? `blur(${blurAmount}px)` : undefined,
-          }}
-        >
-          {cfg.gradients.map((_, i) => (
-            <path key={i} d={cfg.d} fill={`url(#${cfg.prefix}${i}_${tone}_${uid})`} />
-          ))}
-        </g>
+        {cfg.gradients.map((_, i) => (
+          <path key={i} d={cfg.d} fill={`url(#${cfg.prefix}${i}_${tone}_${uid})`} />
+        ))}
 
         <g
           mask={`url(#${cfg.prefix}mask_${uid})`}
@@ -155,7 +146,7 @@ type ArcCfg = {
   x: number[];
   y: number[];
   scale: number[];
-  blur: string[]; // DOF: more blur when smaller
+  blur: number[]; // DOF: more blur when smaller
 };
 
 const Arc = ({ left, cfg, duration = 4.6 }: { left?: boolean; cfg: ArcCfg; duration?: number }) => {
@@ -169,35 +160,6 @@ const Arc = ({ left, cfg, duration = 4.6 }: { left?: boolean; cfg: ArcCfg; durat
     WebkitBackfaceVisibility: 'hidden',
   };
 
-  // Convert blur strings to numbers for Safari compatibility
-  const blurValues = useMemo(() => cfg.blur.map((b) => parseFloat(b)), [cfg.blur]);
-
-  // Use motion value for better performance (no re-renders)
-  const animationProgress = useMotionValue(0);
-
-  // Transform animation progress to blur value
-  const blurAmount = useTransform(
-    animationProgress,
-    [0, 0.33, 0.66, 1],
-    [blurValues[0], blurValues[1], blurValues[2], blurValues[0]],
-  );
-
-  const [currentBlur, setCurrentBlur] = useState(blurValues[0]);
-
-  useEffect(() => {
-    // Only update blur at most 30 times per second (throttled) for better performance
-    let lastUpdate = 0;
-    const unsubscribe = blurAmount.on('change', (latest) => {
-      const now = Date.now();
-      if (now - lastUpdate > 33) {
-        // ~30fps max
-        setCurrentBlur(latest);
-        lastUpdate = now;
-      }
-    });
-    return unsubscribe;
-  }, [blurAmount]);
-
   return (
     <m.div
       className="absolute"
@@ -207,6 +169,7 @@ const Arc = ({ left, cfg, duration = 4.6 }: { left?: boolean; cfg: ArcCfg; durat
         x: cfg.x,
         y: cfg.y,
         scale: cfg.scale,
+        filter: cfg.blur.map((b) => `blur(${b}px)`),
       }}
       transition={{
         duration,
@@ -216,84 +179,25 @@ const Arc = ({ left, cfg, duration = 4.6 }: { left?: boolean; cfg: ArcCfg; durat
         repeatType: 'loop',
         times: [0, 0.33, 0.66, 1],
       }}
-      onUpdate={() => {
-        // Update animation progress for blur interpolation
-        const startTime = cfg.delay * 1000;
-        const elapsed = (Date.now() - startTime) % (duration * 1000);
-        animationProgress.set(elapsed / (duration * 1000));
-      }}
     >
       <ArcSvg
         cfg={left ? LEFT_ARC : RIGHT_ARC}
         size={cfg.size}
         tone={cfg.tone}
         opacity={cfg.opacity}
-        blurAmount={currentBlur}
       />
     </m.div>
   );
 };
 
 interface AnimatedBgProps {
-  variant?: 'hero' | 'header';
-  blurMultiplier?: number; // 0.5 = half blur, 2 = double blur
-  sizeMultiplier?: number; // 0.8 = 80% size, 1.5 = 150% size
   /** Animation loop duration in seconds (default 4.6) */
   duration?: number;
-  customArcs?: {
-    left?: Partial<ArcCfg>[];
-    right?: Partial<ArcCfg>[];
-  };
 }
 
-export function AnimatedBg({
-  variant = 'hero',
-  blurMultiplier = 1,
-  sizeMultiplier = 1,
-  duration = 4.6,
-  customArcs,
-}: AnimatedBgProps) {
+export function AnimatedBg({ duration = 4.6 }: AnimatedBgProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-
-  // Show a static placeholder immediately to improve FCP
-  // The animated version will replace it after hydration
-  if (!mounted) {
-    return (
-      <div
-        className={cn(
-          'pointer-events-none absolute inset-0 overflow-hidden',
-          variant === 'header' ? 'z-0' : '-z-10',
-        )}
-        aria-hidden="true"
-      >
-        {/* Static gradient placeholder matching the animated bg */}
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            background:
-              'radial-gradient(ellipse at 20% 30%, rgba(200, 200, 200, 0.15) 0%, transparent 50%), radial-gradient(ellipse at 80% 40%, rgba(180, 180, 180, 0.12) 0%, transparent 45%)',
-          }}
-        />
-        {variant === 'hero' && (
-          <div className="from-background pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t to-transparent" />
-        )}
-      </div>
-    );
-  }
-
-  // Helper function to apply blur multiplier
-  const adjustBlur = (blurValues: string[]): string[] => {
-    return blurValues.map((blur) => {
-      const value = parseFloat(blur);
-      return `${value * blurMultiplier}px`;
-    });
-  };
-
-  // Helper function to apply size multiplier
-  const adjustSize = (size: number): number => {
-    return Math.round(size * sizeMultiplier);
-  };
 
   // Hero variant - original full-page configuration
   const heroLeft: ArcCfg[] = [
@@ -306,7 +210,7 @@ export function AnimatedBg({
       x: [0, 20, -10, 0],
       y: [0, 15, -8, 0],
       scale: [0.78, 1.1, 0.9, 0.78],
-      blur: ['19px', '500px', '50px', '500px'],
+      blur: [19, 500, 50, 500],
     },
     {
       pos: { left: -60, top: 240 },
@@ -317,7 +221,7 @@ export function AnimatedBg({
       x: [0, 22, -14, 0],
       y: [0, 16, -12, 0],
       scale: [0.82, 1.15, 0.95, 0.82],
-      blur: ['1px', '0px', '0', '1px'],
+      blur: [1, 0, 0, 1],
     },
   ];
 
@@ -331,7 +235,7 @@ export function AnimatedBg({
       x: [0, -25, 15, 0],
       y: [0, 18, -12, 0],
       scale: [0.84, 1.2, 1.0, 0.84],
-      blur: ['1px', '0px', '0px', '1px'],
+      blur: [1, 0, 0, 1],
     },
     {
       pos: { right: -0, top: 570 },
@@ -342,110 +246,42 @@ export function AnimatedBg({
       x: [0, -20, 10, 0],
       y: [0, 15, -8, 0],
       scale: [0.8, 1.1, 0.9, 0.8],
-      blur: ['500px', '500px', '500px', '500px'],
+      blur: [500, 500, 500, 500],
     },
   ];
 
-  // Header variant - optimized for smaller page header component
-  const headerLeft: ArcCfg[] = [
-    {
-      pos: { left: -150, top: -50 },
-      size: adjustSize(450),
-      tone: 'light',
-      opacity: 0.2,
-      delay: 0.02,
-      x: [0, 15, -8, 0],
-      y: [0, 10, -5, 0],
-      scale: [0.85, 1.05, 0.95, 0.85],
-      blur: adjustBlur(['12px', '18px', '15px', '12px']),
-    },
-    {
-      pos: { left: -40, top: 100 },
-      size: adjustSize(520),
-      tone: 'medium',
-      opacity: 0.25,
-      delay: 0.8,
-      x: [0, 18, -10, 0],
-      y: [0, 12, -8, 0],
-      scale: [0.88, 1.12, 0.98, 0.88],
-      blur: adjustBlur(['8px', '4px', '6px', '8px']),
-    },
-  ];
-
-  const headerRight: ArcCfg[] = [
-    {
-      pos: { right: -140, top: -50 },
-      size: adjustSize(550),
-      tone: 'dark',
-      opacity: 0.28,
-      delay: 1.2,
-      x: [0, -20, 12, 0],
-      y: [0, 14, -9, 0],
-      scale: [0.9, 1.15, 1.0, 0.9],
-      blur: adjustBlur(['10px', '4px', '7px', '10px']),
-    },
-    {
-      pos: { right: 300, top: 140 },
-      size: adjustSize(280),
-      tone: 'light',
-      opacity: 0.18,
-      delay: 0.4,
-      x: [0, -15, 8, 0],
-      y: [0, 10, -6, 0],
-      scale: [0.92, 1.08, 0.98, 0.92],
-      blur: adjustBlur(['20px', '28px', '24px', '20px']),
-    },
-  ];
-
-  // Helper function to merge custom arcs with defaults
-  const mergeArcs = (defaultArcs: ArcCfg[], customArcs?: Partial<ArcCfg>[]): ArcCfg[] => {
-    if (!customArcs || customArcs.length === 0) return defaultArcs;
-
-    return customArcs.map((customArc, i) => {
-      const defaultArc = defaultArcs[i] || defaultArcs[0];
-      return {
-        pos: customArc.pos || defaultArc.pos,
-        size: customArc.size || defaultArc.size,
-        tone: customArc.tone || defaultArc.tone,
-        opacity: customArc.opacity !== undefined ? customArc.opacity : defaultArc.opacity,
-        delay: customArc.delay !== undefined ? customArc.delay : defaultArc.delay,
-        x: customArc.x || defaultArc.x,
-        y: customArc.y || defaultArc.y,
-        scale: customArc.scale || defaultArc.scale,
-        blur: customArc.blur || defaultArc.blur,
-      } as ArcCfg;
-    });
-  };
-
-  const baseLeft = variant === 'header' ? headerLeft : heroLeft;
-  const baseRight = variant === 'header' ? headerRight : heroRight;
-
-  const left = customArcs?.left ? mergeArcs(baseLeft, customArcs.left) : baseLeft;
-  const right = customArcs?.right ? mergeArcs(baseRight, customArcs.right) : baseRight;
-
+  // Show a static gradient placeholder immediately to improve FCP; it matches
+  // the animated bg and the animated version replaces it after hydration.
   return (
     <div
-      className={cn(
-        'pointer-events-none absolute inset-0 overflow-hidden',
-        variant === 'header' ? 'z-0' : '-z-10',
-      )}
+      className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+      aria-hidden="true"
       style={{
         transform: 'translateZ(0)',
         WebkitTransform: 'translateZ(0)',
       }}
     >
-      <div className="absolute inset-0">
-        {left.map((cfg, i) => (
-          <Arc key={`L${i}`} left cfg={cfg} duration={duration} />
-        ))}
-        {right.map((cfg, i) => (
-          <Arc key={`R${i}`} cfg={cfg} duration={duration} />
-        ))}
-      </div>
-      {/* Bottom gradient fade overlay */}
-      {variant === 'hero' && (
-        <div className="from-background pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t to-transparent" />
+      {!mounted && (
+        <div
+          className="absolute inset-0 opacity-20"
+          style={{
+            background:
+              'radial-gradient(ellipse at 20% 30%, rgba(200, 200, 200, 0.15) 0%, transparent 50%), radial-gradient(ellipse at 80% 40%, rgba(180, 180, 180, 0.12) 0%, transparent 45%)',
+          }}
+        />
       )}
+      {mounted && (
+        <div className="absolute inset-0">
+          {heroLeft.map((cfg, i) => (
+            <Arc key={`L${i}`} left cfg={cfg} duration={duration} />
+          ))}
+          {heroRight.map((cfg, i) => (
+            <Arc key={`R${i}`} cfg={cfg} duration={duration} />
+          ))}
+        </div>
+      )}
+      {/* Bottom gradient fade overlay */}
+      <div className="from-background pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t to-transparent" />
     </div>
   );
 }

@@ -35,7 +35,7 @@ import {
   withUpstreamHeadersTimeout,
 } from './dispatch';
 import { breakerKey, tripsBreaker, upstreamBreakers } from './circuit-breaker';
-import { clampRetryAfterSeconds, gatewayErrorResponse, providerClientErrorBody, requestTooLarge } from './error-response';
+import { clampRetryAfterSeconds, gatewayErrorResponse, providerClientErrorBody, providerFailureCode, requestTooLarge } from './error-response';
 import { parseUpstreamErrorBody } from '../http/parse-upstream-error';
 import { DEFAULT_IMAGE_WINDOW, type ImageWindowOptions, applyImageWindow } from './image-window';
 import { conversationError, requestFieldError } from './request-fields';
@@ -876,7 +876,7 @@ export async function handleChatCompletions(
     const providerFailure =
       !publicError && error instanceof UpstreamHttpError && error.status < 500 && error.status !== 429
         ? (requestTooLarge(error.status, error.body, sentRequestBytes) ?? {
-            code: 'upstream_error',
+            code: providerFailureCode(error.status) ?? 'upstream_error',
             message: parseUpstreamErrorBody(error.body, error.message).message.slice(0, 500),
           })
         : null;
@@ -1106,20 +1106,27 @@ export async function handleChatCompletions(
     });
   }
 
-  if (!upstream.ok && upstream.status < 500 && upstream.status !== 429) {
+  if (!upstream.ok) {
     const upstreamText = await upstream.text().catch(() => '');
-    // The trace records the refusal the client receives, with the provider's own text.
+    // The trace records the refusal the client receives, with the provider's
+    // own text. A 429 or 5xx reaches the client unchanged, as before; it is
+    // read here so its trace row names the failure (it was blank before).
+    const clientError = upstream.status < 500 && upstream.status !== 429;
     publicFailure = {
       status: upstream.status,
-      ...(requestTooLarge(upstream.status, upstreamText, sentRequestBytes) ?? {
-        code: 'upstream_error',
-        message: parseUpstreamErrorBody(upstreamText).message.slice(0, 500),
+      ...((clientError ? requestTooLarge(upstream.status, upstreamText, sentRequestBytes) : null) ?? {
+        code: providerFailureCode(upstream.status) ??
+          (upstream.status === 429 ? 'upstream_rate_limited' : upstream.status >= 500 ? 'upstream_unavailable' : 'upstream_error'),
+        message: parseUpstreamErrorBody(upstreamText, `upstream HTTP ${upstream.status}`).message.slice(0, 500),
       }),
     };
     await settle(null);
     const headers = passthroughHeaders(upstream.headers);
-    headers.set('content-type', 'application/json');
-    return new Response(providerClientErrorBody(upstream.status, upstreamText, sentRequestBytes), { status: upstream.status, headers });
+    if (clientError) headers.set('content-type', 'application/json');
+    return new Response(
+      clientError ? providerClientErrorBody(upstream.status, upstreamText, sentRequestBytes, served.provider) : upstreamText,
+      { status: upstream.status, headers },
+    );
   }
 
   // KRTX-3369: an answer names the model the client asked for and the model

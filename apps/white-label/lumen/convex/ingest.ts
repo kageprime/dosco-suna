@@ -43,7 +43,7 @@ export const writeIndex = internalAction({
       if (target) {
         const index = await ctx.runQuery(internal.documents.matterIndex, { matterId });
         const body = new TextEncoder().encode(JSON.stringify(index, null, 1));
-        await asOperator(() => withRetry(() => uploadDriveFile(target.driveId, `${target.driveFolder}/index.json`, body)));
+        await asOperator(() => uploadDriveFile(target.driveId, `${target.driveFolder}/index.json`, body));
         // The folder moved during the write: the copy at the old path names the matter's
         // documents where other sessions may see them. placed() writes the index again.
         const now = await ctx.runQuery(internal.documents.folderNow, { matterId });
@@ -102,8 +102,8 @@ export const ingest = internalAction({
       const textFile = `${doc.driveFolder}/Text/${documentId}.md`;
       await asOperator(async () => {
         for (const p of [doc.driveFolder, `${doc.driveFolder}/Docs`, `${doc.driveFolder}/Text`]) await ensureFolder(driveId, p);
-        await withRetry(() => uploadDriveFile(driveId, driveFile, bytes));
-        await withRetry(() => uploadDriveFile(driveId, textFile, new TextEncoder().encode(renderText(documentId, doc.filename, pages.length, paras))));
+        await uploadDriveFile(driveId, driveFile, bytes);
+        await uploadDriveFile(driveId, textFile, new TextEncoder().encode(renderText(documentId, doc.filename, pages.length, paras)));
       });
       // Backstop for ISO-R2-1: the folder moved while the files were written. Remove the
       // copies at the old path (it may now be outside the matter's walls) and ingest again.

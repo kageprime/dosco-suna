@@ -310,9 +310,9 @@ How it stays themable:
   with their variable (`--text-sm`, `--shadow-md`, `--ease-default`, bare
   `rounded`) live in `@theme inline reference`, so Tailwind never emits the
   `--x: var(--x)` cycle into `:root`.
-- Every Radix portal goes through `withPortalContainer`
+- Every overlay portal goes through `withPortalContainer`
   (`src/lib/portal-container.tsx`). Without a `ThemeScope` it portals to
-  `document.body`, as before.
+  `document.body`.
 - A new component reads tokens only: no hex, no palette class, no fixed
   radius. `apps/web` must look identical: every new variable defaults to the
   value it replaces.
@@ -320,11 +320,11 @@ How it stays themable:
 ## Known issues
 
 - Server rendering: the entries that render sessions or files (`session`, `composer`, `session-panel`, `workspace`, `files`, `file-viewer`, `markdown`, `genui`, `customize`) import CSS (KaTeX and others) from JS, so plain Node cannot evaluate them (`ERR_UNKNOWN_FILE_EXTENSION ".css"`). A Vite SSR host adds `ssr: { noExternal: ['@kortix/ui'] }`. A Next.js host lists `@kortix/ui` in `transpilePackages`. Or load those blocks on the client only (`lazyClient`). The root, `theme`, `i18n`, `icons`, `diff`, `changes`, `terminal`, `browser`, `apps` and `access` entries evaluate in Node.
-- `cmdk@0.2.1` declares a React 18 peer and nests `@radix-ui/react-dialog@1.0.0`.
-  `Command` works on React 19. A host with `strict-peer-dependencies` must allow
-  `cmdk`'s React peer. `cmdk` 1.x
-  changes the selection model `command.tsx` is tuned to, and `apps/web` imports
-  `cmdk` directly, so the upgrade is its own change.
+- `Command` does not depend on the `cmdk` package. `src/primitives/command-core.tsx`
+  is a vendored MIT port of `cmdk` 0.2.1 without its Radix dialog. It keeps cmdk's
+  selection model, filter scoring and `[cmdk-*]` attributes, which `command.tsx`
+  and the ⌘K palette are tuned to. `useCommandState` is exported from
+  `@kortix/ui/command`.
 
 ## Rules
 

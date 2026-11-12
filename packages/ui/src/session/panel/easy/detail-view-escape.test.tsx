@@ -14,6 +14,7 @@ for (const key of [
   "Node",
   "KeyboardEvent",
   "PointerEvent",
+  "MouseEvent",
   "MutationObserver",
   "CustomEvent",
   "NodeFilter",
@@ -164,11 +165,15 @@ test("Escape closes the floating comment menu, then Comments, then the embedded 
   const trigger = [...document.querySelectorAll("button")].find(
     (button) => button.textContent === "Comment actions",
   )!;
-  await act(async () =>
+  // A real press: the menu opens on `mousedown`, which follows `pointerdown`.
+  await act(async () => {
     trigger.dispatchEvent(
       new PointerEvent("pointerdown", { bubbles: true, button: 0 }),
-    ),
-  );
+    );
+    trigger.dispatchEvent(
+      new MouseEvent("mousedown", { bubbles: true, button: 0 }),
+    );
+  });
   const menu = document.querySelector('[role="menu"]');
   expect(menu).not.toBeNull();
   await escape(menu!);

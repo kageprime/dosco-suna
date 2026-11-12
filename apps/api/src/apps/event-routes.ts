@@ -9,6 +9,7 @@
  * (app.ts).
  */
 import { createRoute, z } from '@hono/zod-openapi';
+import type { Context, TypedResponse } from 'hono';
 import { auth, errors, json, makeOpenApiApp } from '../openapi';
 import { cancelAppRun, ingestAppEvents, insertAppRun, parseAppEventsBody } from '../projects/surface';
 import { scheduleDelaySeconds } from './events';
@@ -35,18 +36,42 @@ const RunRequest = z.object({
 });
 const MAX_RUN_AHEAD_MS = 366 * 86_400_000;
 
-/** The App behind the token, or the response to answer. */
-async function tokenApp(authorization: string | undefined, projectId: string, appId: string): Promise<{ slug: string } | 401 | 404> {
-  const token = bearerToken(authorization);
-  if (!token || !appEventTokenMatches(appId, token)) return 401;
-  return (await scopedApp(projectId, appId)) ?? 404;
-}
 const TOKEN_ERROR = { error: 'Send the App token: Authorization: Bearer $KORTIX_APP_TOKEN', code: 'app_token_invalid' } as const;
 const rateLimitBody = (retryAfterSeconds: number) => ({
   error: 'This App sent too many requests this minute. Send events in batches ({ "events": [...] }, at most 50) and retry shortly.',
   code: 'rate_limit_exceeded',
   retry_after_seconds: retryAfterSeconds,
 });
+
+/**
+ * The refusals the App-token gate answers itself, typed exactly what `c.json`
+ * returns (the routes declare these codes' envelopes with `errors(…)`, and
+ * `{ error: string }` fits the all-optional `ErrorEnvelope`): the missing App
+ * token (401), the per-App rate limit (429) and the App's existence (404). A
+ * route whose declared responses lack one of these statuses fails the API
+ * compiler.
+ */
+type EventGateRefusal = Response &
+  (
+    | TypedResponse<typeof TOKEN_ERROR, 401, 'json'>
+    | TypedResponse<ReturnType<typeof rateLimitBody>, 429, 'json'>
+    | TypedResponse<{ error: string }, 404, 'json'>
+  );
+
+/**
+ * The App behind the request, or the response to answer: the App's own token
+ * (401), its per-App rate limit (429), then its existence (404), in that
+ * order. The body gets the App's slug and its answer becomes the route's.
+ */
+async function authorizeEventApp<T>(c: Context, projectId: string, appId: string, body: (app: { slug: string }) => Promise<T>): Promise<T | EventGateRefusal> {
+  const token = bearerToken(c.req.header('authorization'));
+  if (!token || !appEventTokenMatches(appId, token)) return c.json(TOKEN_ERROR, 401);
+  const app = await scopedApp(projectId, appId);
+  const limited = appEventRateLimited(c, projectId, appId);
+  if (limited) return c.json(rateLimitBody(limited.retryAfterSeconds), 429);
+  if (!app) return c.json({ error: 'Not found' }, 404);
+  return body(app);
+}
 
 export function registerAppEventRoutes(): void {
   appEventsApp.openapi(
@@ -83,15 +108,12 @@ export function registerAppEventRoutes(): void {
     }),
     async (c) => {
       const { workspaceId: projectId, appId } = c.req.valid('param');
-      const app = await tokenApp(c.req.header('authorization'), projectId, appId);
-      if (app === 401) return c.json(TOKEN_ERROR, 401);
-      const limited = appEventRateLimited(c, projectId, appId);
-      if (limited) return c.json(rateLimitBody(limited.retryAfterSeconds), 429);
-      if (app === 404) return c.json({ error: 'Not found' }, 404);
-      const events = parseAppEventsBody(await readJsonObject(c));
-      if ('error' in events) return c.json({ error: events.error }, 400);
-      const result = await ingestAppEvents({ projectId, appId, appSlug: app.slug, events });
-      return c.json(result, 202);
+      return authorizeEventApp(c, projectId, appId, async (app) => {
+        const events = parseAppEventsBody(await readJsonObject(c));
+        if ('error' in events) return c.json({ error: events.error }, 400);
+        const result = await ingestAppEvents({ projectId, appId, appSlug: app.slug, events });
+        return c.json(result, 202);
+      });
     },
   );
 
@@ -107,23 +129,20 @@ export function registerAppEventRoutes(): void {
     }),
     async (c) => {
       const { workspaceId: projectId, appId } = c.req.valid('param');
-      const app = await tokenApp(c.req.header('authorization'), projectId, appId);
-      if (app === 401) return c.json(TOKEN_ERROR, 401);
-      const limited = appEventRateLimited(c, projectId, appId);
-      if (limited) return c.json(rateLimitBody(limited.retryAfterSeconds), 429);
-      if (app === 404) return c.json({ error: 'Not found' }, 404);
-      const body = RunRequest.safeParse(await readJsonObject(c));
-      if (!body.success) return c.json({ error: body.error.issues[0]?.message ?? 'invalid body' }, 400);
-      const { run_after, run_at, path = '/', method = 'POST', payload = {} } = body.data;
-      if ((run_after === undefined) === (run_at === undefined)) return c.json({ error: 'send exactly one of run_after or run_at' }, 400);
-      const when = run_at !== undefined ? new Date(run_at) : new Date(Date.now() + scheduleDelaySeconds(run_after!) * 1000);
-      if (Number.isNaN(when.getTime())) return c.json({ error: 'run_after is a duration such as 30s, 10m, 2h or 7d; run_at is an ISO-8601 instant' }, 400);
-      if (when.getTime() - Date.now() > MAX_RUN_AHEAD_MS) return c.json({ error: 'a run is at most 366 days ahead' }, 400);
-      if (!path.startsWith('/') || /[\r\n]/.test(path) || path.length > 2048) return c.json({ error: 'path must start with /' }, 400);
-      if (JSON.stringify(payload).length > 64 * 1024) return c.json({ error: 'payload is at most 64 KiB' }, 400);
-      const run = await insertAppRun({ projectId, app: app.slug, runAt: when, method, path, payload });
-      if ('error' in run) return c.json({ error: run.error }, 409);
-      return c.json({ run_id: run.runId, run_at: run.runAt.toISOString() }, 201);
+      return authorizeEventApp(c, projectId, appId, async (app) => {
+        const body = RunRequest.safeParse(await readJsonObject(c));
+        if (!body.success) return c.json({ error: body.error.issues[0]?.message ?? 'invalid body' }, 400);
+        const { run_after, run_at, path = '/', method = 'POST', payload = {} } = body.data;
+        if ((run_after === undefined) === (run_at === undefined)) return c.json({ error: 'send exactly one of run_after or run_at' }, 400);
+        const when = run_at !== undefined ? new Date(run_at) : new Date(Date.now() + scheduleDelaySeconds(run_after!) * 1000);
+        if (Number.isNaN(when.getTime())) return c.json({ error: 'run_after is a duration such as 30s, 10m, 2h or 7d; run_at is an ISO-8601 instant' }, 400);
+        if (when.getTime() - Date.now() > MAX_RUN_AHEAD_MS) return c.json({ error: 'a run is at most 366 days ahead' }, 400);
+        if (!path.startsWith('/') || /[\r\n]/.test(path) || path.length > 2048) return c.json({ error: 'path must start with /' }, 400);
+        if (JSON.stringify(payload).length > 64 * 1024) return c.json({ error: 'payload is at most 64 KiB' }, 400);
+        const run = await insertAppRun({ projectId, app: app.slug, runAt: when, method, path, payload });
+        if ('error' in run) return c.json({ error: run.error }, 409);
+        return c.json({ run_id: run.runId, run_at: run.runAt.toISOString() }, 201);
+      });
     },
   );
 
@@ -137,12 +156,10 @@ export function registerAppEventRoutes(): void {
     }),
     async (c) => {
       const { workspaceId: projectId, appId, runId } = c.req.valid('param');
-      const app = await tokenApp(c.req.header('authorization'), projectId, appId);
-      if (app === 401) return c.json(TOKEN_ERROR, 401);
-      const limited = appEventRateLimited(c, projectId, appId);
-      if (limited) return c.json(rateLimitBody(limited.retryAfterSeconds), 429);
-      if (app === 404 || !(await cancelAppRun(projectId, app.slug, runId))) return c.json({ error: 'Not found' }, 404);
-      return c.json({ cancelled: true as const }, 200);
+      return authorizeEventApp(c, projectId, appId, async (app) => {
+        if (!(await cancelAppRun(projectId, app.slug, runId))) return c.json({ error: 'Not found' }, 404);
+        return c.json({ cancelled: true as const }, 200);
+      });
     },
   );
 }

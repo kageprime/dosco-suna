@@ -44,6 +44,7 @@ import {
   validateAppTriggerTarget,
 } from '../lib/triggers';
 import { clearTriggerAutoPause } from '../lib/trigger-run-caps';
+import { gateTriggerSetup } from '../lib/trigger-setup-pause';
 // From the leaf, not the barrel: suites that stub '../lib/triggers' by listing
 // its exports would otherwise lose this name.
 import { ACCOUNT_STATE_FIRE_CODES, markGitTriggerAttemptFailed } from '../lib/trigger-fire';
@@ -505,6 +506,9 @@ export function registerTriggersRoutes(): void {
         access,
         pinnedSessionId: draft.pinnedSessionId,
       });
+      // A trigger the account has no model for pauses with the reason now,
+      // not at its first fire (trigger-setup-pause.ts). The save stands.
+      await gateTriggerSetup({ projectId, accountId: loaded.row.accountId, specs: createdSpecs.filter((s) => s.slug === draft.slug) });
       await followTrigger(c, loaded.row, projectId, draft.slug);
       capturePersonEvent(c, loaded, projectId, 'trigger_created', { type: draft.type });
 
@@ -735,9 +739,10 @@ export function registerTriggersRoutes(): void {
           result.status as 400 | 404 | 409 | 502,
         );
       }
+      let updatedSpecs: ReturnType<typeof extractTriggers>['specs'] | null = null;
       if (touchesManifest) {
         if (!committedManifest) throw new Error('trigger update completed without a manifest');
-        const updatedSpecs = extractTriggers(committedManifest).specs;
+        updatedSpecs = extractTriggers(committedManifest).specs;
         await reconcileProjectTriggerRuntime(projectId, updatedSpecs);
         await reconcileEventSubscriptions(projectId, loaded.row.accountId, updatedSpecs);
       }
@@ -755,6 +760,9 @@ export function registerTriggersRoutes(): void {
       // Turning a trigger on also resumes it from an auto-pause (KRTX-1721):
       // the same Resume control and `kortix triggers enable` clear both.
       if (body.enabled === true) await clearTriggerAutoPause(projectId, slug);
+      // After the resume: a trigger still on and still without a model pauses
+      // again with the reason (trigger-setup-pause.ts). The save stands.
+      if (updatedSpecs) await gateTriggerSetup({ projectId, accountId: loaded.row.accountId, specs: updatedSpecs.filter((s) => s.slug === slug) });
       await followTrigger(c, loaded.row, projectId, slug);
 
       return c.json(await loadTriggersForResponse(projectId, loaded.row, { userId: loaded.userId, bound: callerKortixSessionId(c) }));

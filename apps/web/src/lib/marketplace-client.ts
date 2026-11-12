@@ -161,11 +161,6 @@ export function defaultProjectMarketplaceItems(
     );
 }
 
-export async function listDefaultProjectMarketplaceItems(): Promise<MarketplaceItem[]> {
-  const page = await listMarketplaceItems({ source: 'kortix', type: 'skill' });
-  return defaultProjectMarketplaceItems(page.items);
-}
-
 export interface MarketplaceSummary {
   id: string;
   label: string;

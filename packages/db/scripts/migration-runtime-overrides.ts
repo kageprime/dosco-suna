@@ -58,11 +58,46 @@ DELETE FROM kortix.role_permissions rp
 ALTER TABLE kortix.role_permissions
   VALIDATE CONSTRAINT role_permissions_action_permissions_fk;`;
 
+// Two intermediate covering indexes of the gateway_logs index chain INCLUDE
+// the `metadata` jsonb column. Prod rows carry metadata up to ~25 KB, past the
+// 2,704-byte btree tuple limit, so both builds fail there (deploy-prod
+// 42732045038: "index row size 4944 exceeds btree version 4 maximum 2704").
+// Both indexes are dropped later in the same chain (20261107164458570 and
+// 20261108090000500), and v4 (20261108090000300) replaces them without
+// metadata. On a database that has not run them, the build is skipped.
+const SUPERSEDED_GATEWAY_INDEX_MIGRATIONS = [
+  {
+    file: '20261107145000000_gateway_logs_project_time_covering_v2.concurrent.ts',
+    sha256: '15ea45fea1f2f8bb6a5ae57e168a7bf6ff3b63ea155f8470e68b1cfc1e4142fc',
+    index: 'idx_gateway_logs_project_time_covering_v2',
+  },
+  {
+    file: '20261107164457464_gateway_logs_project_time_covering_v3.concurrent.ts',
+    sha256: 'cf95e4114020843b8d65fc93d49d21c1b6be262af1591e88798584cf33105a52',
+    index: 'idx_gateway_logs_project_time_covering_v3',
+  },
+] as const;
+
+/** The one `pgm.sql(...)` block that builds `index`, and the no-op that replaces it. */
+function supersededIndexBuild(source: string, index: string): string | null {
+  const start = source.indexOf(`  pgm.sql(\`\n    create index concurrently if not exists ${index}\n`);
+  if (start < 0 || source.indexOf(`create index concurrently if not exists ${index}`, start + 1) !== source.lastIndexOf(`create index concurrently if not exists ${index}`)) return null;
+  const end = source.indexOf('\n  `);\n', start);
+  if (end < 0) return null;
+  return source.slice(start, end + '\n  `);\n'.length);
+}
+
+const SUPERSEDED_INDEX_NO_OP =
+  '  // Runtime correction: superseded by idx_gateway_logs_project_time_covering_v4,\n' +
+  '  // and dropped later in this chain. Its INCLUDE (metadata) cannot be built\n' +
+  '  // where a row\'s metadata exceeds the btree tuple limit.\n';
+
 interface RuntimeOverrideOptions {
   /** Test seam. Production always uses the committed migration checksum above. */
   expectedSha256?: string;
   removeLocalDockerExpectedSha256?: string;
   rbacCutoverViewsExpectedSha256?: string;
+  supersededIndexExpectedSha256?: Record<string, string>;
 }
 
 interface MigrationRuntimeDirectory {
@@ -91,7 +126,25 @@ export function materializeMigrationRuntimeDirectory(
   const hasAuditOverride = existsSync(auditPath);
   const hasRemoveLocalDockerOverride = existsSync(removeLocalDockerPath);
   const hasRbacCutoverViewsOverride = existsSync(rbacCutoverViewsPath);
-  if (!hasAuditOverride && !hasRemoveLocalDockerOverride && !hasRbacCutoverViewsOverride) {
+  const supersededIndexSources = SUPERSEDED_GATEWAY_INDEX_MIGRATIONS.flatMap((migration) => {
+    const path = join(sourceDirectory, migration.file);
+    if (!existsSync(path)) return [];
+    const source = readFileSync(path, 'utf8');
+    const expectedSha256 = options.supersededIndexExpectedSha256?.[migration.file] ?? migration.sha256;
+    const actualSha256 = sha256(source);
+    if (actualSha256 !== expectedSha256) {
+      throw new Error(`${migration.file} checksum mismatch: expected ${expectedSha256}, received ${actualSha256}`);
+    }
+    const block = supersededIndexBuild(source, migration.index);
+    if (!block) throw new Error(`${migration.file} expected exactly one ${migration.index} build statement`);
+    return [{ ...migration, source, block }];
+  });
+  if (
+    !hasAuditOverride &&
+    !hasRemoveLocalDockerOverride &&
+    !hasRbacCutoverViewsOverride &&
+    supersededIndexSources.length === 0
+  ) {
     return { path: sourceDirectory, appliedOverrides: [], cleanup: () => {} };
   }
 
@@ -185,6 +238,15 @@ export function materializeMigrationRuntimeDirectory(
       );
       appliedOverrides.push(
         `${RBAC_CUTOVER_VIEWS_MIGRATION}: retire project.cr.*/trigger.* role_permissions rows before the catalog-FK VALIDATE (${RBAC_CUTOVER_VIEWS_SHA256})`,
+      );
+    }
+    for (const migration of supersededIndexSources) {
+      writeFileSync(
+        join(runtimeDirectory, migration.file),
+        migration.source.replace(migration.block, SUPERSEDED_INDEX_NO_OP),
+      );
+      appliedOverrides.push(
+        `${migration.file}: skip the superseded ${migration.index} build (${migration.sha256})`,
       );
     }
   } catch (error) {

@@ -22,6 +22,7 @@ import { db } from '../shared/db';
 import { ttlMemo } from '../shared/ttl-memo';
 import { registerPrincipalScopedMemo } from './cache-invalidation';
 import { agentPrincipalModeFor } from './agent-principal';
+import type { TokenBinding } from '../types';
 import { readKeyScopes, type KeyScopes } from './key-scope';
 
 /**
@@ -222,22 +223,7 @@ const TTL_MS = (() => {
   return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 15_000;
 })();
 
-export interface TokenBinding {
-  projectId: string | null;
-  agentGrant: AgentGrant | null;
-  serviceAccountId: string | null;
-  /** The session the token belongs to. A session token that names no service
-   *  account (My Kortix, or a failed agent service-account ensure) still is an
-   *  agent session: `isAgentSessionToken` reads this. */
-  sessionId?: string | null;
-  /** Only on the binding the auth middleware read this request. The memo below
-   *  never carries it: every turn rewrites it (`bindSessionTurnIdentity`), and a
-   *  15 s copy on another replica would name the previous prompter. */
-  onBehalfOfUserId?: string | null;
-  /** A workspace key's scope inside its creator's role (`iam/key-scope.ts`).
-   *  Null = full. Immutable after mint, so the memo below may carry it. */
-  scopes?: KeyScopes | null;
-}
+export type { TokenBinding } from '../types';
 
 /**
  * `account_tokens` row for the acting token. Positive-only cache: a token row
@@ -438,3 +424,4 @@ export function actorForServiceAccount(serviceAccountId: string, accountId: stri
     ctx: {},
   };
 }
+

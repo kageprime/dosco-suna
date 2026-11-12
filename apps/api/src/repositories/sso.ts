@@ -13,7 +13,7 @@ import { isUuid } from '../shared/validate';
 import { db } from '../shared/db';
 import { nonSsoIdentitySql, ssoProviderIdOf } from '../shared/auth-identity';
 import { selfHostOperatorAllowlist } from '../shared/self-host-operator';
-import { accountGroupNameRow, ssoGroupByNameRow } from '../iam/group-read';
+import { groupRow, ssoGroupByNameRow } from '../iam/group-read';
 import { invalidateIamCacheForAccount } from '../iam/cache-invalidation';
 
 export type SsoProvider = {
@@ -322,7 +322,7 @@ export async function createSsoGroupMapping(args: {
 }): Promise<SsoGroupMapping | null> {
   // Verify group belongs to the account first — guard against pointing
   // a mapping at a group from a different tenant.
-  const [grp] = await accountGroupNameRow(args.accountId, args.groupId);
+  const [grp] = await groupRow(args.accountId, args.groupId);
   if (!grp) return null;
 
   const [row] = await db

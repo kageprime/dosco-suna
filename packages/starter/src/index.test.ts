@@ -166,13 +166,14 @@ describe('getStarterFiles', () => {
     expect(byPath(files).has('kortix.yaml')).toBe(true);
   });
 
-  test('every starter agent declares its project repository explicitly', () => {
+  test('the starter agent may clone the repository on demand and is never checked out at boot', () => {
     const manifest = byPath(getStarterFiles({ projectName: 'X' })).get('kortix.yaml') ?? '';
     const agents = manifest.slice(manifest.indexOf('\nagents:\n'));
     const names = [...agents.matchAll(/^  ([a-z][a-z0-9-]*):$/gm)].map((m) => m[1]);
     expect(names).toEqual(['worker']);
-    // One explicit, uncommented line per agent: the format defaults it to false.
-    expect(agents.match(/^    workspace: \{ project_repository: true \}/gm)?.length).toBe(names.length);
+    // `"*"` holds workspace.gitops.read: `kortix workspaces clone` works. No `workspace:` key: that is gone.
+    expect(agents).toMatch(/^    kortix_permissions: "\*"$/m);
+    expect(agents).not.toMatch(/^\s*workspace:/m);
   });
 
   test('default starter ships the general knowledge worker skills; internal minimal does not', () => {

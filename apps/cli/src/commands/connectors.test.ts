@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import {
+  connectorAccountsLines,
   connectorRulesLines,
   connectorSecretBindingInput,
   oauth2AuthorizeSteps,
@@ -199,5 +200,33 @@ describe('oauth2AuthorizeSteps', () => {
         {},
       ),
     ).toEqual({ error: 'No authorization server metadata could be discovered.' });
+  });
+});
+
+describe('connectorAccountsLines', () => {
+  const strip = (lines: string[]) => lines.join('\n').replace(/\x1b\[[0-9;]*m/g, '');
+
+  test('an unfinished sign-in is marked and gets no call example', () => {
+    const out = strip(
+      connectorAccountsLines('notion', [
+        { connection_id: 'c-1', label: 'Work', owner_type: 'member', is_default: false, status: 'connected' },
+        { connection_id: 'c-2', label: 'Notion', owner_type: 'member', is_default: false, status: 'sign_in_not_finished' },
+      ]),
+    );
+    expect(out).toMatch(/Notion .*c-2 {2}\(sign-in not finished/);
+    expect(out).toContain('--account "Work"');
+    expect(out).not.toContain('--account "Notion"');
+    expect(out).toContain('kortix connectors connect notion');
+  });
+
+  test('an account from an older server (no status) is connected', () => {
+    const out = strip(
+      connectorAccountsLines('gmail', [
+        { connection_id: 'c-1', label: 'Work', owner_type: 'member', is_default: true },
+      ]),
+    );
+    expect(out).not.toContain('sign-in not finished');
+    expect(out).toContain('--account "Work"');
+    expect(out).toContain('1 account');
   });
 });

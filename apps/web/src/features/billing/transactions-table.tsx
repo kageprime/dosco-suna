@@ -1,33 +1,20 @@
-'use client';
 
 /**
- * The credit ledger table — one implementation, two callers.
+ * The credit ledger row model and its labels, shared by every ledger view.
  *
- * Account settings (Billing → Credit ledger) renders it from
- * `GET /billing/transactions`; the admin account sheet renders it from
+ * Account settings (Usage → Credit ledger) feeds it from
+ * `GET /billing/transactions`; the admin account sheet feeds it from
  * `GET /admin/api/accounts/{id}/ledger`. Both are the same `credit_ledger`
- * rows, so they get the same table: an operator looking at a support ticket
- * sees exactly what the customer sees, in the same order, with the same labels.
+ * rows, and both render through `CreditActivityFeed`, so an operator looking
+ * at a support ticket sees exactly what the customer sees.
  *
- * Presentational ONLY — it fetches nothing and owns no filter state. The
- * caller supplies rows (see {@link CreditTransactionRow}); the admin adapter
- * lives in `app/admin/accounts/ledger-rows.ts`.
+ * The admin adapter lives in `app/admin/accounts/ledger-rows.ts`.
  */
 
 import { Badge } from '@kortix/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@kortix/ui/table';
 import { APP_REGISTRY_TRANSLATION_KEYS } from '@kortix/ui/i18n/ui-catalog/app-registry-translation-keys.generated';
 import { localizeUiCatalog } from '@kortix/ui/i18n';
-import { cn } from '@kortix/ui';
 import { formatUsdAsCredits } from '@kortix/shared';
-import { useTranslations } from '@/i18n/use-translations';
 
 /** One `credit_ledger` row, normalized across the two endpoints. */
 export interface CreditTransactionRow {
@@ -46,7 +33,7 @@ export interface CreditTransactionRow {
 
 type BadgeVariant = React.ComponentProps<typeof Badge>['variant'];
 
-const TRANSACTION_BADGES: Record<string, { label: string; variant: BadgeVariant }> = {
+export const TRANSACTION_BADGES: Record<string, { label: string; variant: BadgeVariant }> = {
   tier_grant: { label: 'Tier Grant', variant: 'default' },
   free_tier_grant: { label: 'Tier Grant', variant: 'secondary' },
   purchase: { label: 'Purchase', variant: 'default' },
@@ -62,12 +49,20 @@ const TRANSACTION_BADGES: Record<string, { label: string; variant: BadgeVariant 
   token_overage: { label: 'LLM Overage', variant: 'outline' },
   compute_debit: { label: 'Sandbox', variant: 'outline' },
   compute_refund: { label: 'Sandbox Refund', variant: 'secondary' },
+  llm_reservation_refund: { label: 'LLM Hold Refund', variant: 'secondary' },
   proxy_debit: { label: 'Proxy', variant: 'outline' },
   storage_debit: { label: 'Storage', variant: 'outline' },
   refund: { label: 'Refund', variant: 'secondary' },
   adjustment: { label: 'Adjustment', variant: 'outline' },
   expired: { label: 'Expired', variant: 'destructive' },
 };
+
+/** The badges in the active locale. `t` is `useTranslations('hardcodedUi.i18nComplete')`. */
+export function localizedTransactionBadges(
+  t: Parameters<typeof localizeUiCatalog>[1],
+): typeof TRANSACTION_BADGES {
+  return localizeUiCatalog(TRANSACTION_BADGES, t, APP_REGISTRY_TRANSLATION_KEYS);
+}
 
 /**
  * Label and badge variant for a ledger type. An unknown type renders as its own
@@ -78,107 +73,14 @@ export function creditTransactionBadge(type: string): { label: string; variant: 
   return TRANSACTION_BADGES[type] ?? { label: type, variant: 'outline' };
 }
 
-// Hoisted so render does not rebuild the formatter per row — same fixed
-// locale and options as the previous inline `toLocaleString` call.
-const TRANSACTION_DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-});
-
-function formatDate(value: string | null): string {
-  if (!value) return '—';
-  return TRANSACTION_DATE_FORMAT.format(new Date(value));
-}
-
-export function CreditTransactionsTable({ rows }: { rows: CreditTransactionRow[] }) {
-  // Two headers are translated (the rest of this table was never localized).
-  // Keeping the same keys keeps the customer surface byte-identical in all
-  // nine locales; the admin console renders under the same I18nProvider.
-  const tHardcodedUi = useTranslations('hardcodedUi');
-  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
-  const transactionBadges = localizeUiCatalog(
-    TRANSACTION_BADGES,
-    tI18nComplete,
-    APP_REGISTRY_TRANSLATION_KEYS,
-  );
-
-  // `Table` already renders the `bg-popover rounded-md border` surface, so
-  // there is no second bordered box around it — that was a doubled 1px ring at
-  // the same radius, and nested rounding is what the design system forbids.
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-[180px]">
-            {tHardcodedUi.raw('i18nComplete.text99c40ab40592')}
-          </TableHead>
-          <TableHead>{tHardcodedUi.raw('i18nComplete.textbaaddf70fb5d')}</TableHead>
-          <TableHead>{tHardcodedUi.raw('i18nComplete.text526e0087cc3f')}</TableHead>
-          <TableHead className="text-center">
-            {tHardcodedUi.raw('componentsBillingCreditTransactions.line198JsxTextCreditType')}
-          </TableHead>
-          <TableHead className="text-right">
-            {tHardcodedUi.raw('i18nComplete.text2a6b24ad2872')}
-          </TableHead>
-          <TableHead className="text-right">
-            {tHardcodedUi.raw('componentsBillingCreditTransactions.line200JsxTextCreditsAfter')}
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((row) => {
-          const badge = transactionBadges[row.type] ?? creditTransactionBadge(row.type);
-          return (
-            <TableRow key={row.id}>
-              <TableCell className="font-mono text-xs">{formatDate(row.createdAt)}</TableCell>
-              <TableCell>
-                <Badge variant={badge.variant} size="sm">
-                  {badge.label}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-sm">
-                {row.description || tHardcodedUi.raw('i18nComplete.textbcd8cc53f40e')}
-              </TableCell>
-              <TableCell className="text-center">
-                {row.isExpiring !== undefined && (
-                  <span className="text-muted-foreground text-xs">
-                    {row.isExpiring ? 'Expiring' : 'Permanent'}
-                    {row.isExpiring && row.expiresAt && Number.isFinite(Date.parse(row.expiresAt)) && (
-                      <time dateTime={row.expiresAt} className="block">
-                        {formatDate(row.expiresAt)}
-                      </time>
-                    )}
-                  </span>
-                )}
-              </TableCell>
-              <TableCell
-                className={cn(
-                  'text-right font-mono font-medium tabular-nums',
-                  row.amount >= 0 ? 'text-kortix-green' : 'text-kortix-red',
-                )}
-              >
-                {formatSignedCredits(row.amount)}
-              </TableCell>
-              <TableCell className="text-right font-mono tabular-nums">
-                {formatUsdAsCredits(row.balanceAfter)}
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
-  );
-}
-
 /**
- * A ledger amount in credits with its sign: `+2,500`, `-0.43`. The ledger
- * stores USD (1 credit = $0.01); the columns are headed "Credits", so the
- * cells convert. A zero reads `+0`, never `-0`.
+ * A ledger amount in credits with its sign: `+2,500`, `-125`. A debit too
+ * small to show reads `<0.01` with no sign (`-<0.01` is two symbols for one
+ * idea); a credit that small keeps its `+`, so a tiny refund and a tiny
+ * charge still read differently.
  */
 export function formatSignedCredits(usd: number): string {
   const magnitude = formatUsdAsCredits(Math.abs(usd));
+  if (magnitude.startsWith('<')) return usd > 0 ? `+${magnitude}` : magnitude;
   return `${usd < 0 && magnitude !== '0' ? '-' : '+'}${magnitude}`;
 }

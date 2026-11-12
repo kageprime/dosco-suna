@@ -11,8 +11,8 @@
  */
 
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState, useSyncExternalStore } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useState, useSyncExternalStore } from 'react';
 
 import { Button } from '@kortix/ui/button';
 import { AuthFrame } from '@kortix/ui/internal/auth/auth-card-shell';
@@ -24,6 +24,7 @@ import type { RedeemCreditCodeResult } from '@kortix/sdk';
 import { dollarsToCredits, formatCredits } from '@kortix/shared';
 import { RedeemCodeForm } from '@/features/billing/redeem-code-form';
 import { useAuth } from '@/features/providers/auth-provider';
+import { useSignedOutRedirect } from '@/lib/auth/use-signed-out-redirect';
 import { useLocale, useTranslations } from '@/i18n/use-translations';
 
 const subscribeToNothing = () => () => {};
@@ -31,7 +32,6 @@ const subscribeToNothing = () => () => {};
 function RedeemContent() {
   const t = useTranslations('billing.redeem');
   const locale = useLocale();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const code = searchParams.get('code') ?? '';
   const { user, isLoading: authLoading } = useAuth();
@@ -41,11 +41,7 @@ function RedeemContent() {
   const homeHref = useSyncExternalStore(subscribeToNothing, () => appHome, () => PROJECT_LANDING_PATH);
   const [result, setResult] = useState<RedeemCreditCodeResult | null>(null);
 
-  useEffect(() => {
-    if (authLoading || user) return;
-    const returnUrl = `/redeem${code ? `?${new URLSearchParams({ code })}` : ''}`;
-    router.replace(`/auth?returnUrl=${encodeURIComponent(returnUrl)}`);
-  }, [authLoading, user, code, router]);
+  useSignedOutRedirect();
 
   if (authLoading || !user) return <AuthPendingScreen footer={false} />;
 

@@ -1,24 +1,16 @@
 import Link from '@/components/site-link';
+import { PillarsBand } from '@/features/marketing/component/pillars-band';
 import { MarketingButton } from '@/features/marketing/kit/marketing-button';
-import { Band, Heading } from '@/features/marketing/kit/page-frame';
 import { FaqSection } from '@/features/marketing/landing-sections/faq-section';
 
 import { useTranslations } from '@/i18n/use-translations';
 
-import {
-  BrainIcon,
-  CheckIcon,
-  CodeIcon,
-  CpuIcon,
-  FolderSimpleIcon,
-  GitBranchIcon,
-  HardDrivesIcon,
-} from '@phosphor-icons/react/dist/ssr';
+import { CodeIcon, CpuIcon, GitBranchIcon, HardDrivesIcon } from '@phosphor-icons/react/dist/ssr';
 import type { ComponentType, ReactNode } from 'react';
 
 import { localizeMarketingContent as localizeContent } from './content';
 import { SovereignHero } from './sovereign-hero';
-import { TopicTabs } from './topic-tabs';
+import { SovereignTopics } from './topic-panels';
 
 /**
  * `/sovereign`: open source, your infrastructure, any model, your files, in
@@ -28,50 +20,13 @@ import { TopicTabs } from './topic-tabs';
 
 type Glyph = ComponentType<{ className?: string }>;
 
-const PILLAR_ICONS: Record<string, Glyph> = {
-  code: CodeIcon,
-  infra: HardDrivesIcon,
-  models: BrainIcon,
-  files: FolderSimpleIcon,
-};
-
 const LOCK_IN_ICONS: Glyph[] = [CodeIcon, HardDrivesIcon, CpuIcon, GitBranchIcon];
 
 function Pillars() {
   const tMarketing = useTranslations('hardcodedUi.i18nComplete');
   const { pillars } = localizeContent(tMarketing);
 
-  return (
-    <section id="pillars" className="scroll-mt-16 py-14 lg:py-20">
-      <Heading title={pillars.title} titleMuted={pillars.titleMuted} />
-      <Band className="mt-12">
-        <ul className="bg-border grid grid-cols-1 gap-px sm:grid-cols-2 xl:grid-cols-4">
-          {pillars.items.map(({ id, name, line, facts }) => {
-            const Icon = PILLAR_ICONS[id];
-            return (
-              <li key={id} className="bg-background flex flex-col gap-5 p-6 lg:p-10">
-                <Icon className="text-foreground size-6" aria-hidden />
-                <h3 className="text-foreground text-2xl font-medium tracking-tight text-balance">
-                  {name}
-                  <span className="text-muted-foreground mt-1 block text-lg leading-snug">
-                    {line}
-                  </span>
-                </h3>
-                <ul className="mt-auto flex flex-col gap-2 text-sm">
-                  {facts.map((fact) => (
-                    <li key={fact} className="text-foreground flex items-start gap-2">
-                      <CheckIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-                      {fact}
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            );
-          })}
-        </ul>
-      </Band>
-    </section>
-  );
+  return <PillarsBand pillars={pillars} />;
 }
 
 /** The home page's trust band shape: dark in both themes. */
@@ -135,7 +90,7 @@ export function SovereignPage(): ReactNode {
       />
       <SovereignHero />
       <Pillars />
-      <TopicTabs />
+      <SovereignTopics />
       <LockIn />
       <FaqSection
         title={tMarketing('text5c7379ce0dce')}

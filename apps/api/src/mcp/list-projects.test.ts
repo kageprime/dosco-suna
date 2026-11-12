@@ -2,14 +2,14 @@ import { describe, expect, test } from 'bun:test';
 import { runTool, type ToolResult } from './index';
 
 // list_projects reaches the API through ctx.dispatch, the same in-process
-// dispatch the real route table gets. A canned dispatch answers the two reads
-// the tool makes (GET /v1/accounts, GET /v1/projects?account_id=…) with the
-// JSON bodies an empty account and a populated one produce.
-function api(bodies: Record<string, unknown>) {
+// dispatch the real route table gets. A canned dispatch answers the one read
+// the tool makes (GET /v1/workspaces): every workspace the caller may open, or
+// the one a workspace-bound token is bound to.
+function api(bodies: Record<string, unknown>, status = 200) {
   return async (req: Request) => {
     const body = bodies[new URL(req.url).pathname];
     return new Response(JSON.stringify(body ?? { error: 'unrouted' }), {
-      status: body === undefined ? 500 : 200,
+      status: body === undefined ? 500 : status,
       headers: { 'content-type': 'application/json' },
     });
   };
@@ -32,48 +32,38 @@ function dataText(r: ToolResult): string {
   return first.text;
 }
 
-const account = { account_id: '11111111-1111-1111-1111-111111111111', name: 'Personal' };
-const project = {
+const workspace = {
   project_id: '22222222-2222-2222-2222-222222222222',
+  workspace_id: '22222222-2222-2222-2222-222222222222',
+  account_id: '11111111-1111-1111-1111-111111111111',
   name: 'dogfood-test',
   effective_project_role: 'owner',
 };
 
 describe('list_projects', () => {
-  test('an account with no projects answers a JSON array, not prose', async () => {
-    const r = await runTool(ctx(api({ '/v1/accounts': [] })), 'list_projects', {});
+  test('no workspaces answers a JSON array, not prose', async () => {
+    const r = await runTool(ctx(api({ '/v1/workspaces': [] })), 'list_projects', {});
     expect(r.isError).toBeFalsy();
     expect(JSON.parse(dataText(r))).toEqual([]);
   });
 
-  test('an account whose project list is empty answers a JSON array, not prose', async () => {
-    const r = await runTool(ctx(api({ '/v1/accounts': [account], '/v1/projects': [] })), 'list_projects', {});
-    expect(r.isError).toBeFalsy();
-    expect(JSON.parse(dataText(r))).toEqual([]);
-  });
-
-  test('the legacy {accounts: []} body shape answers a JSON array too', async () => {
-    const r = await runTool(ctx(api({ '/v1/accounts': { accounts: [] } })), 'list_projects', {});
-    expect(r.isError).toBeFalsy();
-    expect(JSON.parse(dataText(r))).toEqual([]);
-  });
-
-  test('a populated account keeps the array of project rows', async () => {
-    const r = await runTool(
-      ctx(api({ '/v1/accounts': [account], '/v1/projects': [project] })),
-      'list_projects',
-      {},
-    );
+  test('a workspace keeps the project row shape clients already read', async () => {
+    const r = await runTool(ctx(api({ '/v1/workspaces': [workspace] })), 'list_projects', {});
     expect(JSON.parse(dataText(r))).toEqual([
       {
         project_id: '22222222-2222-2222-2222-222222222222',
         name: 'dogfood-test',
-        account: 'Personal',
+        account: 'dogfood-test',
         account_id: '11111111-1111-1111-1111-111111111111',
         repository: null,
         default_branch: null,
         role: 'owner',
       },
     ]);
+  });
+
+  test('a refused read is an isError result with the API status', async () => {
+    const r = await runTool(ctx(api({ '/v1/workspaces': { error: 'nope' } }, 403)), 'list_projects', {});
+    expect(r.isError).toBe(true);
   });
 });

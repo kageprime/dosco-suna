@@ -1,6 +1,5 @@
-import { providerEvents } from '@kortix/db';
-import { db } from '../../shared/db';
 import { logger } from '../../lib/logger';
+import { recordProviderEvent } from './provider-events';
 
 export type BootTimelineMark = { label: string; atMs: number };
 
@@ -40,16 +39,13 @@ export function recordBootTimeline(input: BootTimelineInput): void {
     boot_ms: totalMs,
     marks: Object.fromEntries(input.timeline.map((m) => [m.label, m.atMs])),
   });
-  void db
-    .insert(providerEvents)
-    .values({
-      provider: input.provider,
-      kind: 'boot',
-      outcome: 'ok',
-      totalMs,
-      marks: input.timeline,
-      sessionId: input.sessionId,
-      accountId: input.accountId ?? null,
-    })
-    .catch((err) => console.warn('[boot-timeline-store] insert failed (ignored):', err?.message ?? err));
+  recordProviderEvent({
+    provider: input.provider,
+    kind: 'boot',
+    outcome: 'ok',
+    totalMs,
+    marks: input.timeline,
+    sessionId: input.sessionId,
+    accountId: input.accountId ?? null,
+  });
 }

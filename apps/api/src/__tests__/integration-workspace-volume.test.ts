@@ -153,6 +153,31 @@ describe('workspace_volume', () => {
     expect(callLines()).toEqual([`PUT ${PT_US}/v1/volumes/kws-${sessionId}`]);
   });
 
+  test('KORTIX_WORKSPACE_VOLUMES=on: a project without its own choice is on (listed read-only) and gets a volume; one that chose off gets none', async () => {
+    config.KORTIX_WORKSPACE_VOLUMES = 'on';
+    const res = await app.request(`/v1/projects/${project.project_id}`, { headers: { Authorization: `Bearer ${ownerSecret}` } });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { experimental: Record<string, boolean>; experimental_features: Array<{ key: string }> };
+    expect(body.experimental.workspace_volume).toBe(true);
+    expect(body.experimental_features.find((f) => f.key === 'workspace_volume')).toMatchObject({
+      enabled: true,
+      overridden: false,
+      operator_only: true,
+    });
+
+    const sessionId = crypto.randomUUID();
+    const volume = startWorkspaceVolume({ sessionId, projectMetadata: {}, location: undefined });
+    expect(volume).toEqual({ name: `kws-${sessionId}`, location: null });
+    await newSessionWithId(sessionId, volume);
+    expect(await resolveWorkspaceVolume(sessionId)).toEqual(volume);
+    expect(callLines()).toEqual([`PUT ${PT}/v1/volumes/kws-${sessionId}`]);
+
+    calls = [];
+    const optedOut = { experimental: { workspace_volume: false } };
+    expect(startWorkspaceVolume({ sessionId: crypto.randomUUID(), projectMetadata: optedOut, location: undefined })).toBeNull();
+    expect(calls).toEqual([]);
+  });
+
   test('flag off, kill switch on, no record or a forged record: no volume, no Platinum call', async () => {
     const id = crypto.randomUUID();
     expect(startWorkspaceVolume({ sessionId: id, projectMetadata: {}, location: undefined })).toBeNull();

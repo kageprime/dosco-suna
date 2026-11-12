@@ -4,6 +4,7 @@ import {
   WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS,
   verifyWebhookSignature,
   webhookTimestampFresh,
+  webhookTimestampProblem,
 } from './trigger-webhook-auth';
 
 // KRTX-4098 (CWE-294): a captured signed delivery replayed forever, because the
@@ -55,4 +56,13 @@ describe('webhook timestamp (KRTX-4098)', () => {
     expect(webhookTimestampFresh('not-a-number', now)).toBe(false);
     expect(webhookTimestampFresh(null, now)).toBe(false);
   });
+});
+
+test('webhookTimestampProblem names why a timestamp is refused: missing, expired (old), out_of_tolerance (ahead or not a number)', () => {
+  expect(webhookTimestampProblem(String(at), now)).toBeNull();
+  expect(webhookTimestampProblem(null, now)).toBe('missing');
+  expect(webhookTimestampProblem('  ', now)).toBe('missing');
+  expect(webhookTimestampProblem(String(at - 3600), now)).toBe('expired');
+  expect(webhookTimestampProblem(String(at + 3600), now)).toBe('out_of_tolerance');
+  expect(webhookTimestampProblem('not-a-number', now)).toBe('out_of_tolerance');
 });

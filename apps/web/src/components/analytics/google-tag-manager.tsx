@@ -1,10 +1,8 @@
 'use client';
 
 import Script from 'next/script';
-import { useEffect, useState } from 'react';
 
-import { isAnalyticsExcludedPath } from '@/lib/analytics/gtm';
-import { isDesktop } from '@kortix/ui/internal/lib/desktop';
+import { useAnalyticsPageEnabled } from '@/lib/analytics/gtm';
 
 /**
  * Google Tag Manager, loaded after the page is done: on `window.load`, then
@@ -22,24 +20,9 @@ import { isDesktop } from '@kortix/ui/internal/lib/desktop';
  * and is processed in order when the container boots. Consent is unchanged:
  * CookieYes is itself a GTM tag, so the consent banner and every tag it gates
  * move together.
- *
- * Never loads inside the desktop app (its user agent carries
- * `DESKTOP_UA_TOKEN`); GTM carries visitor de-anonymization tags that have no
- * place in the authenticated native client.
- *
- * Never loads when the document opens on a signed-in or capability-token page
- * (`isAnalyticsExcludedPath`: /workspaces, /admin, /secret-intake, …). Scripts
- * GTM injects run with the page's privileges, and the Supabase session cookie
- * is readable from script. The decision is made once per document: a script
- * cannot be unloaded, so a visitor who opens a marketing page and then
- * navigates into the app in the same tab keeps the container that page loaded.
  */
 export function GoogleTagManager({ gtmId }: { gtmId: string }) {
-  const [enabled, setEnabled] = useState(false);
-  useEffect(
-    () => setEnabled(!isDesktop() && !isAnalyticsExcludedPath(window.location.pathname)),
-    [],
-  );
+  const enabled = useAnalyticsPageEnabled();
   if (!enabled) return null;
   return (
     <>

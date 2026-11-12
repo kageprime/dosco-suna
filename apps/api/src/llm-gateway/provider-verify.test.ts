@@ -5,7 +5,7 @@
 import { afterEach, describe, expect, mock, spyOn, test } from 'bun:test';
 import { GatewayResolutionError } from '@kortix/llm-gateway';
 import type { AuthedPrincipal, UpstreamDescriptor } from '@kortix/llm-gateway';
-import { verifyProviderConnection, type ProviderVerifyDeps, type ProviderVerifyResult } from './provider-verify';
+import { verifyAccountKey, verifyAndRecordAccountKey, verifyProviderConnection, type ProviderVerifyDeps, type ProviderVerifyResult } from './provider-verify';
 
 const PRINCIPAL: AuthedPrincipal = { userId: 'user-1', accountId: 'acct-1', projectId: 'project-1' };
 
@@ -180,4 +180,63 @@ describe('HTTP verdict parity', () => {
       });
     }
   }
+});
+
+// A key saved in the Models panel is checked on its own: the check makes the
+// key the selection, so resolution serves exactly it, and the row records the
+// verdict. The save never depends on the check.
+describe('verifyAndRecordAccountKey', () => {
+  const row = { secretId: 'sec-1', accountId: 'acct-1', projectId: 'project-1', providerId: 'openai', name: 'OPENAI_API_KEY' };
+  const checkedAt = new Date('2026-11-11T12:00:00Z');
+
+  test('the provider rejecting the key records invalid with its words', async () => {
+    const recorded: unknown[] = [];
+    stubFetch(() => new Response('{"error":{"message":"Incorrect API key provided"}}', { status: 401 }));
+    const result = await verifyAndRecordAccountKey(row, 'user-1', {
+      verify: (principal, key) => verifyAccountKey(principal, key, deps({
+        resolveCandidates: async (_p, _m) => [OPENAI_COMPAT],
+      })),
+      record: async (...args) => void recorded.push(args),
+      budget: async () => {},
+      now: () => checkedAt,
+    });
+    expect(result).toEqual({ status: 'invalid', message: 'Incorrect API key provided', checkedAt });
+    expect(recorded).toEqual([['sec-1', 'acct-1', { status: 'invalid', message: 'Incorrect API key provided', checkedAt }]]);
+    // One cheap call: 16 output tokens at most.
+    expect(fetchCalls.map((call) => call.body.max_tokens)).toEqual([16]);
+  });
+
+  test('a network failure records unknown, never invalid', async () => {
+    stubFetch(() => { throw new TypeError('fetch failed'); });
+    const result = await verifyAndRecordAccountKey(row, 'user-1', {
+      verify: (principal, key) => verifyAccountKey(principal, key, deps()),
+      record: async () => {},
+      budget: async () => {},
+      now: () => checkedAt,
+    });
+    expect(result?.status).toBe('unknown');
+  });
+
+  test('the check selects exactly the saved key', async () => {
+    const seen: unknown[] = [];
+    stubFetch(() => new Response('{"choices":[]}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    const result = await verifyAccountKey(PRINCIPAL, { secretId: 'sec-1', providerId: 'openai' }, {
+      pickVerificationModel: () => 'openai/gpt-4o-mini',
+      resolveCandidates: async (...args) => { seen.push(args); return [OPENAI_COMPAT]; },
+    });
+    expect(result.status).toBe('verified');
+    expect(seen).toHaveLength(1);
+  });
+
+  test('a ChatGPT login, a key with no project, or an unknown provider is not checked', async () => {
+    const record = mock(async () => {});
+    for (const other of [
+      { ...row, providerId: 'codex', name: 'CODEX_AUTH_JSON' },
+      { ...row, projectId: null },
+      { ...row, providerId: 'made-up', name: 'MADE_UP_API_KEY' },
+    ]) {
+      expect(await verifyAndRecordAccountKey(other, 'user-1', { record, budget: async () => {} })).toBeNull();
+    }
+    expect(record).not.toHaveBeenCalled();
+  });
 });

@@ -120,7 +120,8 @@ export function AgentRow({
             )}
             {state ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: webSpace(1.5), flexShrink: 0, paddingLeft: webSpace(3) }}>
-                {glyph ? <SessionStatusMark status={glyph} /> : null}
+                {/* A held message waits on your answer, never on a review (web's AgentStateMark). */}
+                {glyph ? <SessionStatusMark status={glyph} waitingOn="answer" /> : null}
                 <Text style={[TURN_TYPE.xs, { color: palette.mutedForeground }]}>{state}</Text>
               </View>
             ) : null}

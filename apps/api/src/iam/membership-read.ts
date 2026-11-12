@@ -2,10 +2,8 @@
 // and `kortix.account_memberships` (the table). Every membership read outside
 // iam/ goes through here, so one module decides who is in an account.
 //
-// Each function returns the query its caller ran inline, unexecuted and
-// verbatim: the caller awaits it where it awaited the inline query, so every
-// request sends the same statements in the same order. Two functions that
-// differ only in predicate order stay two, because the order is in the SQL.
+// One reader per table and projection family (KRTX-4587): a caller that
+// needs one field reads it off the full row, it does not add a new export.
 import { accountMembers, accountMemberships, iamRoles, roleAssignments } from '@kortix/db';
 import { type SQL, and, asc, count, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
 import { db } from '../shared/db';
@@ -36,7 +34,10 @@ export function userAccountNameRows(userId: string) {
     })
     .from(accountMembers)
     .innerJoin(accountsView, eq(accountMembers.accountId, accountsView.accountId))
-    .where(eq(accountMembers.userId, userId));
+    .where(eq(accountMembers.userId, userId))
+    // A fixed order: without it two reads of /v1/me may list the same
+    // accounts in a different order (WS-ROUTE-3 saw it under load).
+    .orderBy(asc(accountMembers.joinedAt), asc(accountMembers.accountId));
 }
 
 /**
@@ -65,42 +66,18 @@ export function countAccountMembers(accountId: string) {
     .where(eq(accountMembers.accountId, accountId));
 }
 
-/** `{ userId }` when the user is in the account (account predicate first). */
+/** The full `account_members` row when the user is in the account. */
 export function accountMemberRow(accountId: string, userId: string) {
-  return db.select({ userId: accountMembers.userId }).from(accountMembers)
-    .where(and(eq(accountMembers.accountId, accountId), eq(accountMembers.userId, userId))).limit(1);
-}
-
-/** `{ userId }` when the user is in the account (user predicate first). */
-export function userAccountMemberRow(userId: string, accountId: string) {
-  return db
-    .select({ userId: accountMembers.userId })
-    .from(accountMembers)
-    .where(and(eq(accountMembers.userId, userId), eq(accountMembers.accountId, accountId)))
-    .limit(1);
-}
-
-/** `{ accountRole }` when the user is in the account. */
-export function accountMemberRoleRow(accountId: string, userId: string) {
-  return db
-    .select({ accountRole: accountMembers.accountRole })
-    .from(accountMembers)
-    .where(and(eq(accountMembers.accountId, accountId), eq(accountMembers.userId, userId)))
-    .limit(1);
-}
-
-/** `{ accountId }` when the user is in the account. */
-export function userAccountMembershipRow(userId: string, accountId: string) {
   // A malformed account id (a slug, a truncated id, a stray path segment) is
   // never a membership, and letting it reach the uuid-typed `account_members`
   // predicate dies as SQLSTATE 22P02 → an opaque 500 (Better Stack pattern
   // 97669531, KRTX-211). A non-uuid is exactly a miss: resolve to no rows
   // without a DB read, so the caller's existing miss branch answers.
-  if (!isUuid(accountId)) return Promise.resolve([] as { accountId: string }[]);
+  if (!isUuid(accountId)) return Promise.resolve([]);
   return db
-    .select({ accountId: accountMembers.accountId })
+    .select()
     .from(accountMembers)
-    .where(and(eq(accountMembers.userId, userId), eq(accountMembers.accountId, accountId)))
+    .where(and(eq(accountMembers.accountId, accountId), eq(accountMembers.userId, userId)))
     .limit(1);
 }
 
@@ -111,14 +88,6 @@ export function anyAccountMembershipOf(userId: string) {
     .from(accountMembers)
     .where(eq(accountMembers.userId, userId))
     .limit(1);
-}
-
-/** Every member's user id. */
-export function accountMemberUserIds(accountId: string) {
-  return db
-    .select({ userId: accountMembers.userId })
-    .from(accountMembers)
-    .where(eq(accountMembers.accountId, accountId));
 }
 
 /** The users of `userIds` that are members of the account. */
@@ -295,26 +264,12 @@ export async function superAdminAccountIds(userId: string, accountIds: readonly 
   return new Set(rows.map((row) => row.accountId));
 }
 
-/** The member's `is_super_admin` flag, from the membership table. */
-export function membershipSuperAdminRow(accountId: string, userId: string) {
+/** The full `account_memberships` row when the membership table has the user in the account. */
+export function membershipRow(accountId: string, userId: string) {
   return db
-    .select({ isSuperAdmin: accountMemberships.isSuperAdmin })
+    .select()
     .from(accountMemberships)
-    .where(
-      and(
-        eq(accountMemberships.accountId, accountId),
-        eq(accountMemberships.userId, userId),
-      ),
-    )
-    .limit(1);
-}
-
-/** `{ userId }` when the membership table has the user in the account. */
-export function membershipRow(userId: string, accountId: string) {
-  return db
-    .select({ userId: accountMemberships.userId })
-    .from(accountMemberships)
-    .where(and(eq(accountMemberships.userId, userId), eq(accountMemberships.accountId, accountId)))
+    .where(and(eq(accountMemberships.accountId, accountId), eq(accountMemberships.userId, userId)))
     .limit(1);
 }
 
@@ -375,12 +330,6 @@ export function accountPrimaryOwnerEmailSql(accountIdColumn: SQL) {
 export function accountMemberCountSql(accountIdColumn: SQL) {
   return sql<number>`(
       SELECT count(*)::int FROM kortix.account_members am WHERE am.account_id = ${accountIdColumn})`;
-}
-
-/** SQL predicate: a member of the account in `accountIdColumn` has an email ILIKE `pattern`. */
-export function accountHasMemberEmailLikeSql(accountIdColumn: SQL, pattern: string): SQL {
-  return sql`EXISTS (SELECT 1 FROM auth.users au INNER JOIN kortix.account_members am ON am.user_id = au.id
-                      WHERE am.account_id = ${accountIdColumn} AND au.email ILIKE ${pattern})`;
 }
 
 /**

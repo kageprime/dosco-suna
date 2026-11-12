@@ -125,7 +125,7 @@ export function MessageTimeLabel({ timestamp, className }: MessageTimeLabelProps
   // than ellipse.
   //
   // `Hint` wraps the `<time>` element directly rather than this component, so
-  // Radix's `asChild` trigger clones a real DOM node and has a ref to attach.
+  // the `asChild` trigger clones a real DOM node and has a ref to attach.
   return (
     <Hint label={rendered.exact} side="top" align="center">
       <time

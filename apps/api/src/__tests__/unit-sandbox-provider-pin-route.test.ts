@@ -121,37 +121,27 @@ function patchProvider(principal: Principal, body: Record<string, unknown> = { p
   });
 }
 
-describe('PATCH /v1/projects/:projectId/sandbox-provider — agent sessions cannot flip the pin', () => {
+describe('PATCH /v1/projects/:projectId/sandbox-provider — project.settings.write decides for people and agents alike', () => {
   beforeEach(() => {
     transitionCalls.length = 0;
     capabilityCalls.length = 0;
   });
 
-  test('a session-bound token (the CLI inside an agent sandbox) is refused and the pin write never runs', async () => {
-    const response = await patchProvider({
-      authType: 'pat',
-      // What a session token validates as: an account-token row bound to the
-      // session (middleware/auth-principal.ts patPrincipal sets sessionId).
-      sessionId: 'sess-123',
-    });
+  test('a session-bound token (the CLI inside an agent sandbox) routes the pin write like a person (AGENT = HUMAN)', async () => {
+    const response = await patchProvider({ authType: 'pat', sessionId: 'sess-123' });
 
-    expect(response.status).toBe(403);
-    const body = await response.json();
-    expect(body).toMatchObject({ code: 'agent_session_forbidden' });
-    expect(typeof body.error).toBe('string');
-    // The refusal happens BEFORE the pin write: the provider is unchanged.
-    expect(transitionCalls).toEqual([]);
+    expect(response.status).toBe(200);
+    expect(transitionCalls).toEqual([{ projectId: PROJECT_ID, targetRaw: 'daytona' }]);
   });
 
-  test('a governed agent grant (all permissions) is refused too — no grant unlocks this', async () => {
+  test('a governed agent grant routes it too: project.settings.write decides, not the caller kind', async () => {
     const response = await patchProvider({
       authType: 'pat',
       agentGrant: { agent: 'security-factory', permissions: 'all', connectors: [] },
     });
 
-    expect(response.status).toBe(403);
-    expect(await response.json()).toMatchObject({ code: 'agent_session_forbidden' });
-    expect(transitionCalls).toEqual([]);
+    expect(response.status).toBe(200);
+    expect(transitionCalls).toHaveLength(1);
   });
 
   test('the web UI (a Supabase session) still routes the pin write', async () => {
@@ -166,14 +156,6 @@ describe('PATCH /v1/projects/:projectId/sandbox-provider — agent sessions cann
 
     expect(response.status).toBe(200);
     expect(transitionCalls).toHaveLength(1);
-  });
-
-  test('a clearing request from an agent session is refused the same way', async () => {
-    const response = await patchProvider({ authType: 'pat', sessionId: 'sess-123' }, { provider: null });
-
-    expect(response.status).toBe(403);
-    expect(await response.json()).toMatchObject({ code: 'agent_session_forbidden' });
-    expect(transitionCalls).toEqual([]);
   });
 
   test('the capability leaf is still asserted before the write for a human caller', async () => {

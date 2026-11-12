@@ -125,10 +125,10 @@ function CatalogProvider({
       }
     };
 
-    window.addEventListener(LOCALE_CHANGE_EVENT as any, handleLocaleChange as EventListener);
+    window.addEventListener(LOCALE_CHANGE_EVENT, handleLocaleChange);
 
     return () => {
-      window.removeEventListener(LOCALE_CHANGE_EVENT as any, handleLocaleChange as EventListener);
+      window.removeEventListener(LOCALE_CHANGE_EVENT, handleLocaleChange);
     };
   }, [loadTranslations]);
 

@@ -14,12 +14,12 @@ mock.module('react-native-reanimated', () => ({
   FadeIn: { duration: () => ({ easing: () => ({}) }) },
   FadeOut: { duration: () => ({ easing: () => ({}) }) },
   LayoutAnimationConfig: host('layout-config'),
+  useReducedMotion: () => false,
   withSpring: () => ({}),
 }));
 mock.module('@/components/kortix/text-shimmer', () => ({ TextShimmer: host('text-shimmer') }));
 mock.module('@/components/ui/text', () => ({ Text: host('text') }));
 mock.module('@/components/session/dot-matrix/session-dot-matrix', () => ({ SessionDotMatrix: host('dot-matrix') }));
-mock.module('@/components/session/dot-matrix/use-reduce-motion', () => ({ useReduceMotion: () => false }));
 mock.module('@/components/session/tool/shared/styles', () => ({
   TURN_TYPE: { sm: { lineHeight: 20 } },
   useTurnPalette: () => ({ mutedForeground: 'gray', muted70: 'gray' }),

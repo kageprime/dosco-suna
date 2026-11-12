@@ -227,9 +227,22 @@ describe.skipIf(!databaseUrl)('centralized audit v2 — migrated PostgreSQL', ()
        RETURNING command_id`,
       [PROJECT, SESSION, ACCOUNT, ACTOR],
     );
+    // A claim and put-back stays between queued and running: the queue's own
+    // churn writes no audit row (20261110132451645_audit_lifecycle_command_skip_queue_churn).
+    await client!.query(
+      `UPDATE kortix.session_lifecycle_commands SET status = 'running', attempts = 1
+       WHERE command_id = $1`,
+      [lifecycle.rows[0]!.command_id],
+    );
+    await client!.query(
+      `UPDATE kortix.session_lifecycle_commands SET status = 'queued', attempts = 0
+       WHERE command_id = $1`,
+      [lifecycle.rows[0]!.command_id],
+    );
     await client!.query(
       `UPDATE kortix.session_lifecycle_commands
-       SET attempts = 1, result = '{"private":"raw prompt and output"}'::jsonb,
+       SET status = 'failed', attempts = 1,
+           result = '{"private":"raw prompt and output"}'::jsonb,
            last_error = 'Bearer private-credential'
        WHERE command_id = $1`,
       [lifecycle.rows[0]!.command_id],
@@ -253,10 +266,10 @@ describe.skipIf(!databaseUrl)('centralized audit v2 — migrated PostgreSQL', ()
       projected.rows.map((row) => [row.source_ledger, row.phase, row.source_revision]),
     ).toEqual([
       ['connector_calls', 'pending', 'pending_approval'],
+      ['session_lifecycle_commands', 'failed', 'failed:1'],
       ['session_lifecycle_commands', 'queued', 'queued:0'],
-      ['session_lifecycle_commands', 'queued', 'queued:1'],
     ]);
-    const retried = projected.rows.at(-1)!;
+    const retried = projected.rows.find((row) => row.phase === 'failed')!;
     expect(retried.output_summary).toEqual({ has_error: true, has_result: true });
     expect(retried.output_sha256).toHaveLength(64);
     expect(retried.error_message).toBeNull();

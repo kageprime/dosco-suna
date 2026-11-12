@@ -34,8 +34,6 @@ import {
 } from '@kortix/ui/dropdown-menu';
 import { Hint } from '@kortix/ui/hint';
 import { PROJECT_LANDING_PATH } from '@kortix/ui/internal/lib/onboarding/landing-destination';
-import { readLastProjectId } from '@kortix/ui/internal/lib/onboarding/last-project-cookie';
-import { useComposerPrefillStore } from '@kortix/ui/internal/stores/composer-prefill-store';
 import { cn } from '@kortix/ui/lib/utils';
 import Loading from '@kortix/ui/loading';
 import { Popover, PopoverContent, PopoverTrigger } from '@kortix/ui/popover';
@@ -53,35 +51,12 @@ import { useTranslations } from '@/i18n/use-translations';
 import { isInExtensionPanel } from '@/lib/supabase/panel-cookies';
 
 import { usePanelChannel, type PanelContext, type PanelTab } from './panel-channel';
-import {
-  isReadPage,
-  pageAttachment,
-  screenshotAttachment,
-  sendTabs,
-  withActTab,
-  withQuote,
-  type PanelMode,
-} from './panel-prompt';
+import { sendTabs, type PanelMode } from './panel-prompt';
+import { usePanelProject } from './use-panel-project';
+import { usePanelSend } from './use-panel-send';
 
 /** How many of the project's sessions the new chat lists. */
 const RECENT_SESSIONS = 3;
-const projectKey = (userId: string) => `kortix.panel.project.${userId}`;
-
-function rememberedProject(userId: string): string | null {
-  try {
-    return window.localStorage.getItem(projectKey(userId));
-  } catch {
-    return null;
-  }
-}
-
-function rememberProject(userId: string, projectId: string) {
-  try {
-    window.localStorage.setItem(projectKey(userId), projectId);
-  } catch {
-    // A blocked store only loses the remembered project.
-  }
-}
 
 export function ChromePanelHome() {
   const t = useTranslations('chrome.panel');
@@ -91,12 +66,7 @@ export function ChromePanelHome() {
 
   const { openable: workspaces, listsLoading } = useProjectSelectorData();
   const projects = useMemo(() => workspaces.map((row) => row.project), [workspaces]);
-  const [picked, setPicked] = useState<string | null>(null);
-  const projectId = useMemo(() => {
-    const known = (id: string | null) => (id && projects.some((p) => p.project_id === id) ? id : null);
-    const stored = userId ? known(rememberedProject(userId)) ?? known(readLastProjectId(userId)) : null;
-    return known(picked) ?? stored ?? projects[0]?.project_id ?? null;
-  }, [picked, projects, userId]);
+  const { projectId, pickProject } = usePanelProject({ userId, projects });
   const project = projects.find((p) => p.project_id === projectId);
 
   const [text, setText] = useState('');
@@ -104,7 +74,6 @@ export function ChromePanelHome() {
   const [follow, setFollow] = useState(true);
   const [added, setAdded] = useState<PanelTab[]>([]);
   const [quote, setQuote] = useState<PanelContext | null>(null);
-  const [sending, setSending] = useState(false);
   /** Send also attaches a JPEG of the visible tab. */
   const [shot, setShot] = useState(false);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -136,51 +105,7 @@ export function ChromePanelHome() {
     else input.current?.focus();
   }, [router]);
 
-  const pickProject = (id: string) => {
-    setPicked(id);
-    if (userId) rememberProject(userId, id);
-  };
-
-  // A quick action reads the page whatever the switch says.
-  const send = async (override?: string, sendMode: PanelMode = mode) => {
-    const body = (override ?? text).trim();
-    if (!body || !projectId || sending) return;
-    setSending(true);
-    try {
-      let prompt = quote?.quote ? withQuote(body, quote.quote, quote.tab) : body;
-      const readable = tabs.filter((tab) => tab.readable);
-      let files: ReturnType<typeof pageAttachment>[] = [];
-      if (sendMode === 'act') {
-        const tab = readable[0] ?? quote?.tab;
-        if (tab?.readable) {
-          prompt = withActTab(prompt, tab);
-          channel.handAct(tab.id);
-        }
-      } else if (readable.length) {
-        const pages = await channel.readTabs(readable.map((tab) => tab.id));
-        const read = pages.filter(isReadPage);
-        if (!read.length) throw new Error(t('readFailed'));
-        const readAt = new Date();
-        files = read.map((page) => pageAttachment(page, readAt));
-      }
-      if (shot) {
-        // Chrome captures the window's visible tab: the one the first chip shows.
-        const dataUrl = await channel.capture();
-        if (!dataUrl) throw new Error(t('captureFailed'));
-        files = [...files, screenshotAttachment(dataUrl, channel.activeTab?.title ?? '', new Date())];
-      }
-      // Project home sends it as if the person pressed Enter there, then opens the session here.
-      // 'when-ready': a one-shot submit on landing is dropped when the composer is still loading.
-      useComposerPrefillStore
-        .getState()
-        .setPrefill(projectId, prompt, { submit: 'when-ready', ...(files.length ? { files } : {}) });
-      // nav-contract: prefetch-only — project home consumes the prefill and opens the new session
-      router.push(`/workspaces/${projectId}`);
-    } catch (error) {
-      errorToast(error instanceof Error && error.message ? error.message : t('readFailed'));
-      setSending(false);
-    }
-  };
+  const { send, sending } = usePanelSend({ text, projectId, quote, tabs, mode, shot, channel });
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;

@@ -147,6 +147,86 @@ export function mergeProjectCostRows(
   return [...byProject.values()];
 }
 
+/** What every account-led LLM cost scan filters on. */
+export interface CostLlmScope {
+  accountId: string;
+  projectId?: string;
+  sessionId?: string;
+}
+
+function llmScopeWhere(scope: CostLlmScope, w: CostWindow) {
+  const conditions = [
+    eq(gatewayRequestLogs.accountId, scope.accountId),
+    // createdAt is a Date-mode timestamp, so the bounds are Date objects.
+    gte(gatewayRequestLogs.createdAt, w.from),
+    lt(gatewayRequestLogs.createdAt, w.to),
+  ];
+  if (scope.projectId) conditions.push(eq(gatewayRequestLogs.projectId, scope.projectId));
+  if (scope.sessionId) conditions.push(eq(gatewayRequestLogs.sessionId, scope.sessionId));
+  return and(...conditions);
+}
+
+// The account+window LLM scans of the cost explorer (getCostSummary and
+// listCostByProject), exported as builders the way gateway-series exports
+// gatewaySeriesQuery: integration-cost-rollups-covering-index.test.ts runs
+// them under EXPLAIN and fails unless the plan is an Index Only Scan of
+// idx_gateway_logs_account_time_covering (the KRTX-4022 rule — every column
+// an aggregate reads must live in that index's INCLUDE list, or the scan
+// heap-fetches every wide request/response row in the window).
+
+export function costByProjectLlmQuery(accountId: string, window: CostWindow, projectId?: string) {
+  return db
+    .select({
+      projectId: gatewayRequestLogs.projectId,
+      llmCost: kortixBilledSpendSql,
+      llmKortixCost: kortixBilledSpendSql,
+      llmProviderCost: providerBilledSpendSql,
+      sessionCount: sql<number>`count(distinct ${gatewayRequestLogs.sessionId})::int`,
+      lastAt: sql<Date | null>`max(${gatewayRequestLogs.createdAt})`,
+    })
+    .from(gatewayRequestLogs)
+    .where(
+      and(
+        llmScopeWhere({ accountId, projectId }, window),
+        sql`${gatewayRequestLogs.projectId} is not null`,
+      ),
+    )
+    .groupBy(gatewayRequestLogs.projectId);
+}
+
+export function costLlmGroupedQuery(scope: CostLlmScope, w: CostWindow) {
+  return db
+    .select({
+      setId: LLM_SET_ID,
+      provider: gatewayRequestLogs.provider,
+      model: gatewayRequestLogs.resolvedModel,
+      day: LLM_DAY_EXPRESSION,
+      projectId: gatewayRequestLogs.projectId,
+      llmCost: kortixBilledSpendSql,
+      llmKortixCost: kortixBilledSpendSql,
+      llmProviderCost: providerBilledSpendSql,
+      requestCount: sql<number>`count(*)::int`,
+      sessionCount: sql<number>`count(distinct ${gatewayRequestLogs.sessionId})::int`,
+    })
+    .from(gatewayRequestLogs)
+    .where(llmScopeWhere(scope, w))
+    .groupBy(
+      sql`grouping sets (
+        (${gatewayRequestLogs.provider}, ${gatewayRequestLogs.resolvedModel}),
+        (${LLM_DAY_EXPRESSION}),
+        (${gatewayRequestLogs.projectId}),
+        ()
+      )`,
+    );
+}
+
+export function costLlmPriorQuery(scope: CostLlmScope, w: CostWindow) {
+  return db
+    .select({ cost: kortixBilledSpendSql })
+    .from(gatewayRequestLogs)
+    .where(llmScopeWhere(scope, w));
+}
+
 // The JS mirror of the project rollup's order. This IS the sort, not a
 // redundant re-statement of one Postgres already did: listCostByProject pages
 // entirely in memory (see the comment there), so nothing upstream orders
@@ -197,27 +277,7 @@ export async function listCostByProject(input: {
 
   const storageDays = storageDayRange(window);
   const [llmRows, computeRows, projectRows, storageRows] = await Promise.all([
-    db
-      .select({
-        projectId: gatewayRequestLogs.projectId,
-        llmCost: kortixBilledSpendSql,
-        llmKortixCost: kortixBilledSpendSql,
-        llmProviderCost: providerBilledSpendSql,
-        sessionCount: sql<number>`count(distinct ${gatewayRequestLogs.sessionId})::int`,
-        lastAt: sql<Date | null>`max(${gatewayRequestLogs.createdAt})`,
-      })
-      .from(gatewayRequestLogs)
-      .where(
-        and(
-          eq(gatewayRequestLogs.accountId, accountId),
-          input.projectId ? eq(gatewayRequestLogs.projectId, input.projectId) : undefined,
-          // createdAt is a Date-mode timestamp, so the bounds are Date objects.
-          gte(gatewayRequestLogs.createdAt, window.from),
-          lt(gatewayRequestLogs.createdAt, window.to),
-          sql`${gatewayRequestLogs.projectId} is not null`,
-        ),
-      )
-      .groupBy(gatewayRequestLogs.projectId),
+    costByProjectLlmQuery(accountId, window, input.projectId),
     db
       .select({
         projectId: projectSessions.projectId,
@@ -427,18 +487,7 @@ export async function getCostSummary(input: {
   window: CostWindow;
 }): Promise<CostSummary> {
   const { accountId, projectId, sessionId, window } = input;
-
-  const llmScope = (w: CostWindow) => {
-    const conditions = [
-      eq(gatewayRequestLogs.accountId, accountId),
-      // createdAt is a Date-mode timestamp, so the bounds are Date objects.
-      gte(gatewayRequestLogs.createdAt, w.from),
-      lt(gatewayRequestLogs.createdAt, w.to),
-    ];
-    if (projectId) conditions.push(eq(gatewayRequestLogs.projectId, projectId));
-    if (sessionId) conditions.push(eq(gatewayRequestLogs.sessionId, sessionId));
-    return and(...conditions);
-  };
+  const llmScope: CostLlmScope = { accountId, projectId, sessionId };
 
   // Compute rows carry no project_id of their own — reaching it means
   // joining project_sessions (session_id is its primary key, as in
@@ -512,33 +561,8 @@ export async function getCostSummary(input: {
   };
 
   const [llmGroupRows, llmPriorRows, computeGroupRows, computePriorRows, storageDayRows, storagePriorRows] = await Promise.all([
-    db
-      .select({
-        setId: LLM_SET_ID,
-        provider: gatewayRequestLogs.provider,
-        model: gatewayRequestLogs.resolvedModel,
-        day: LLM_DAY_EXPRESSION,
-        projectId: gatewayRequestLogs.projectId,
-        llmCost: kortixBilledSpendSql,
-        llmKortixCost: kortixBilledSpendSql,
-        llmProviderCost: providerBilledSpendSql,
-        requestCount: sql<number>`count(*)::int`,
-        sessionCount: sql<number>`count(distinct ${gatewayRequestLogs.sessionId})::int`,
-      })
-      .from(gatewayRequestLogs)
-      .where(llmScope(window))
-      .groupBy(
-        sql`grouping sets (
-          (${gatewayRequestLogs.provider}, ${gatewayRequestLogs.resolvedModel}),
-          (${LLM_DAY_EXPRESSION}),
-          (${gatewayRequestLogs.projectId}),
-          ()
-        )`,
-      ),
-    db
-      .select({ cost: kortixBilledSpendSql })
-      .from(gatewayRequestLogs)
-      .where(llmScope(previous)),
+    costLlmGroupedQuery(llmScope, window),
+    costLlmPriorQuery(llmScope, previous),
     db
       .select({
         setId: COMPUTE_SET_ID,

@@ -143,9 +143,9 @@ flow("PROJ-6", { domain: "projects", routes: ["GET /v1/workspaces/:projectId/det
     const r = await ctx.client.as(ctx.P.OWNER).get("/v1/workspaces/:projectId/detail", { params: { projectId: p.id } });
     r.status(200);
   });
-  await ctx.step("NONMEMBER → 404 workspace_not_found", async () => {
+  await ctx.step("NONMEMBER → 403 workspace_access_denied", async () => {
     const r = await ctx.client.as(ctx.P.NONMEMBER).get("/v1/workspaces/:projectId/detail", { params: { projectId: p.id } });
-    r.status(404).body().has("$.code", "workspace_not_found");
+    r.status(403).body().has("$.code", "workspace_access_denied");
   });
   if (ctx.env.target === "local") {
     await ctx.step("detail of a git-backed project: manager role, a config block, and file_count equal to the files listed", async () => {
@@ -161,18 +161,18 @@ flow("PROJ-6", { domain: "projects", routes: ["GET /v1/workspaces/:projectId/det
   }
   if (ctx.env.capabilities.admin) {
     const admin = ctx.client.withBearer(ctx.env.adminToken!, "ADMIN_TOKEN");
-    await ctx.step("platform admin WITHOUT the bypass header → no standing access (404 workspace_not_found)", async () => {
+    await ctx.step("platform admin WITHOUT the bypass header → no standing access (403 workspace_access_denied)", async () => {
       const r = await admin.get("/v1/workspaces/:projectId/detail", { params: { projectId: p.id } });
-      r.status(404).body().has("$.code", "workspace_not_found");
+      r.status(403).body().has("$.code", "workspace_access_denied");
     });
     // The header is retired (#10246): an admin opens a project by acting as
     // its account (IMP-2), so the header must grant nothing here either.
-    await ctx.step("platform admin WITH the retired x-kortix-admin-bypass header → still no access (404 workspace_not_found)", async () => {
+    await ctx.step("platform admin WITH the retired x-kortix-admin-bypass header → still no access (403 workspace_access_denied)", async () => {
       const r = await admin.get("/v1/workspaces/:projectId/detail", {
         params: { projectId: p.id },
         headers: { "x-kortix-admin-bypass": "1" },
       });
-      r.status(404).body().has("$.code", "workspace_not_found");
+      r.status(403).body().has("$.code", "workspace_access_denied");
     });
   }
 });

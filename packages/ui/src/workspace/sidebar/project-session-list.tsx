@@ -1094,10 +1094,10 @@ function SessionListSection({
  *  Hover-revealed via `group/section-header` on the header row only (not the
  *  whole `group/section` disclosure), so hovering a row inside the section
  *  doesn't also fade in the header's `⋯`; stays visible while its own menu is
- *  open via `data-[state=open]`, which Radix stamps on this trigger directly
+ *  open via `data-[state=open]`, which the menu stamps on this trigger directly
  *  (not the group). Both the click AND keydown (Enter/Space) handlers stop
  *  propagation so opening the menu — by pointer or keyboard — never also
- *  toggles the disclosure, which Radix's `pointerdown` open would otherwise
+ *  toggles the disclosure, which the menu's press-to-open would otherwise
  *  race against the header's `onKeyDown`-driven `toggle()` — same pattern as
  *  the row-level `⋯` in `ProjectSessionRow`. The hit area extends past the
  *  visible button with `before:absolute before:-inset-1` instead of growing

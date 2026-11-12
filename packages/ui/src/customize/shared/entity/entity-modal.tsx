@@ -144,13 +144,11 @@ export function EntityDetailModal({
   source,
   onOpenChange,
 }: EntityDetailModalProps) {
-  // A skill/command with no description renders no `ModalDescription`, so
-  // Radix's Dialog can't find one to auto-associate via `aria-describedby`
-  // and logs a dev-only "Missing Description" warning. Passing
-  // `aria-describedby={undefined}` explicitly (as its own prop key, not just
-  // omitting the attribute) is Radix's documented opt-out — the warning
-  // message itself names this exact fix. Only applied when there truly is no
-  // description; when one exists, `ModalDescription` wires up normally.
+  // A skill/command with no description renders no `ModalDescription`.
+  // Passing `aria-describedby={undefined}` explicitly (as its own prop key,
+  // not just omitting the attribute) states that the dialog has no
+  // description. Only applied when there truly is no description; when one
+  // exists, `ModalDescription` wires up `aria-describedby` normally.
   const suppressDescriptionWarning = !entity?.description;
 
   return (
@@ -184,8 +182,8 @@ export function EntityDetailModal({
  * has not arrived. Shape-matched to `EntityModalBody` — same header, same
  * `lg:w-64` file rail — so the handover fills placeholders in place.
  *
- * `ModalTitle` is real, not decorative: Radix's Dialog requires an accessible
- * name for the whole time it is open, including this window.
+ * `ModalTitle` is real, not decorative: a dialog needs an accessible name for
+ * the whole time it is open, including this window.
  */
 function EntityModalSkeleton({ kind }: { kind: EntityKind }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
@@ -285,7 +283,7 @@ function EntityModalBody({
   // The click does not send the prompt directly — `configure.start` opens a
   // whole new chat, which is a bigger commitment than a pencil icon implies,
   // so an AlertDialog confirms first. The dialog nests inside this modal's
-  // React tree on purpose: rendered as a sibling, Radix would read every
+  // React tree on purpose: rendered as a sibling, the modal would read every
   // click in the alert as an outside-click and dismiss the modal underneath
   // (see packages/ui/src/primitives/alert-dialog.tsx).
   // Kortix's own files (a `source`) are read-only here.

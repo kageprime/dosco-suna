@@ -1,13 +1,13 @@
 import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { chatEventDedup, chatInstalls, chatUserIdentities, projectAccessRequests } from '@kortix/db';
 import { db } from '../../shared/db';
-import { userAccountMemberRow } from '../../iam/membership-read';
+import { accountMemberRow } from '../../iam/membership-read';
 import { authorize } from '../../iam';
 import { mfaGateBlocks } from '../../iam/authorize';
 import { actorForUser } from '../../iam/actor';
 import { PROJECT_ACTIONS } from '../../iam/actions';
 import { lookupEmailsByUserIds } from '../../projects/lib/access';
-import { accountsView, projectsView } from '../../workspaces/rows';
+import { accountsView, projectsView, accountKeyOfWorkspace } from '../../workspaces/rows';
 
 /**
  * The chat identity link: which Dosco user a person on a chat platform acts
@@ -61,12 +61,14 @@ export type ChatLinkResult = { ok: true } | { ok: false; reason: 'linked_to_othe
  * `/logout` in the chat first. A sign-in link links whoever opens it, so
  * replacing live links let anyone holding one take over a linked identity
  * (2026-09-29 permissions audit). `mfaVerified` records whether the Dosco
- * session making the link had passed a second factor.
+ * session making the link had passed a second factor. `createOnly`: link only
+ * a chat identity that has no row yet, live or revoked (a link made by email
+ * never revives one its person revoked with `/logout`).
  */
 export async function linkChatIdentity(
   user: ChatUser,
   userId: string,
-  opts: { mfaVerified?: boolean } = {},
+  opts: { mfaVerified?: boolean; createOnly?: boolean } = {},
 ): Promise<ChatLinkResult> {
   const now = new Date();
   const rows = await db
@@ -90,7 +92,9 @@ export async function linkChatIdentity(
           : sql`case when ${chatUserIdentities.revokedAt} is null then ${chatUserIdentities.mfaVerifiedAt} end`,
       },
       // One statement, so two racing links cannot both replace a live link.
-      setWhere: or(isNotNull(chatUserIdentities.revokedAt), eq(chatUserIdentities.userId, userId)),
+      setWhere: opts.createOnly
+        ? sql`false`
+        : or(isNotNull(chatUserIdentities.revokedAt), eq(chatUserIdentities.userId, userId)),
     })
     .returning({ identityId: chatUserIdentities.identityId });
   return rows.length > 0 ? { ok: true } : { ok: false, reason: 'linked_to_other' };
@@ -168,7 +172,7 @@ export async function revokeChatIdentity(user: ChatUser): Promise<boolean> {
 }
 
 /** The chat user a Dosco user is linked as in a workspace (to DM them), or null. */
-export async function lookupChatUserForKortixUser(
+export async function lookupChatUserForDoscoUser(
   platform: ChatPlatform,
   workspaceId: string,
   userId: string,
@@ -189,7 +193,7 @@ export async function lookupChatUserForKortixUser(
 }
 
 export async function isAccountMember(userId: string, accountId: string): Promise<boolean> {
-  const [row] = await userAccountMemberRow(userId, accountId);
+  const [row] = await accountMemberRow(accountId, userId);
   return !!row;
 }
 
@@ -235,13 +239,9 @@ export async function resolveProjectChatActor(
   projectId: string,
   action: string = PROJECT_ACTIONS.PROJECT_SESSION_START,
 ): Promise<ChatActor> {
-  const [project] = await db
-    .select({ accountId: projectsView.accountId })
-    .from(projectsView)
-    .where(eq(projectsView.projectId, projectId))
-    .limit(1);
-  if (!project) return { reason: 'not_member' };
-  return resolveChatActor(user, { projectId, accountId: project.accountId }, action);
+  const accountId = await accountKeyOfWorkspace(projectId);
+  if (!accountId) return { reason: 'not_member' };
+  return resolveChatActor(user, { projectId, accountId }, action);
 }
 
 export type ChatAccessRequestOutcome =

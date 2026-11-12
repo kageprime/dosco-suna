@@ -21,8 +21,8 @@ import { useId, useState, type ReactNode } from 'react';
 /**
  * The info icon with a hover card. The only way a block on this page explains
  * itself beyond its name. It opens on hover and on keyboard focus (a button),
- * and on tap (read on pointerdown, because the Radix trigger cancels the click
- * on touch). The card is the one
+ * and on tap (read on pointerdown, because a hover card does not open on
+ * touch by itself). The card is the one
  * animated floating panel (motion.md, D4a). The content carries an id and the
  * trigger points at it with `aria-describedby`, so a screen reader hears the
  * explanation when the card is open.
@@ -47,11 +47,10 @@ export function InfoHint({
           aria-label={label}
           aria-expanded={open}
           aria-describedby={open ? contentId : undefined}
-          // Touch: Radix's trigger calls preventDefault on touchstart, which
-          // cancels the synthesized click, so the tap is read on pointerdown,
-          // which fires first. Outside taps and Escape close through Radix's
-          // dismiss layer. Mouse hover and keyboard focus open through Radix's
-          // own timers. A mouse click does nothing, so it never races them; a
+          // Touch: the hover card (Base UI's preview card) opens for mouse and
+          // keyboard only, so the tap is read on pointerdown. Outside taps and
+          // Escape close through the card's dismiss layer. Mouse hover and
+          // keyboard focus open through the card's own timers. A mouse click does nothing, so it never races them; a
           // keyboard activation (click with detail 0) reopens after Escape.
           onPointerDown={(event) => {
             if (event.pointerType !== 'touch') return;

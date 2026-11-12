@@ -20,7 +20,7 @@ const touched = [
   // The transcript's stores read `localStorage` when they load: run standalone, the file needs one.
   'localStorage',
   ...Object.getOwnPropertyNames(windowObject).filter((key) => /^[A-Z]/.test(key) && !(key in globalThis)),
-  // Bun ships its own event classes; Radix and React dispatch happy-dom's.
+  // Bun ships its own event classes; Base UI and React dispatch happy-dom's.
   'Event',
   'CustomEvent',
   'FocusEvent',

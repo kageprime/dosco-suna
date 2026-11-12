@@ -32,7 +32,7 @@ npm i tw-animate-css tailwind-scrollbar tailwind-scrollbar-hide   # Tailwind v4 
 The module entries this guide uses (`session`, `workspace`, `files`, `theme`) need 0.14.4 or later.
 Inside `kortix-ai/CompanyOS`, use `"workspace:*"`.
 Without `@openuidev/lang-core`, `vite build` fails with `Missing export` in `@kortix/sdk/dist/genui`.
-Name `react@19 react-dom@19`: with an unversioned `react`, npm picks React 18 for `cmdk`'s peer and the install never finishes.
+Name `react@19 react-dom@19`: `@kortix/ui` needs React 19.
 
 Server rendering: the entries that render sessions or files (`session`, `composer`, `session-panel`,
 `workspace`, `files`, `file-viewer`, `markdown`, `genui`, `customize`) import CSS (KaTeX and others)

@@ -33,6 +33,7 @@ import {
   type ReleaseEnvironment,
 } from './machines';
 import { releaseConfigOf } from './release-config';
+import { chooseReleaseProvider } from './volumes';
 import { AppAccountUnfundedError, AppLimitError, assertAppComputeAllowed } from './limits';
 import { appRuntimeArtifactDigest } from './runtime-artifacts';
 import { appDeploymentFailureDisposition } from './deployment-failures';
@@ -95,6 +96,26 @@ const DETERMINISTIC_REFRESH_FAILURES = new Set([
 ]);
 /** A refresh that failed for a reason that may pass is retried at most once per hour. */
 export const REFRESH_RETRY_AFTER_MS = 60 * 60_000;
+
+/**
+ * The provider a runtime refresh builds on. It is the choice a redeploy makes
+ * (`chooseReleaseProvider`): Platinum when it is enabled, else the
+ * deployment's own provider. A static deployment has no provider.
+ *
+ * A refresh used to copy the old provider. On 2026-11-10 that rebuilt every
+ * legacy Daytona App on Daytona, whose key no longer worked, and each rebuild
+ * failed with "Snapshot build failed: Invalid credentials".
+ */
+export function refreshHostingProvider(previous: string | null): string | null {
+  if (!previous) return null;
+  return chooseReleaseProvider({
+    requested: null,
+    hasMounts: false,
+    previous,
+    platinumEnabled: config.isPlatinumEnabled(),
+    platformDefault: config.getDefaultProvider(),
+  }).provider;
+}
 
 /**
  * Queue one immutable rebuild when a cold runtime uses an older App supervisor.
@@ -164,7 +185,7 @@ export async function enqueueCurrentAppRuntime(
       status: 'queued',
       sourceKind: deployment.sourceKind,
       hostingType: deployment.hostingType,
-      hostingProvider: deployment.hostingProvider,
+      hostingProvider: refreshHostingProvider(deployment.hostingProvider),
       runtimeSpec: {},
       buildSpec: deployment.buildSpec,
       config: deployment.config,

@@ -1,27 +1,8 @@
 /**
- * GitHub / git-transport backlog flows: PROJ-4, GH-4, GH-5, GH-8.
+ * GitHub / git-transport backlog flows: GH-4, GH-8.
  *
  * Behaviour DERIVED from apps/api/src/projects/index.ts (spec text is treated as
  * a hint, not the contract):
- *
- *  - PROJ-4  POST /v1/projects/create-repo — PROJECT_CREATE-gated repo creation.
- *    The black-box-testable path WITHOUT a real GitHub App install: a fresh
- *    account with no installation → resolveGitHubRepoAuth throws
- *    GitHubInstallationRequiredError → 409 { error, install_url }. If GitHub is
- *    not configured on the server at all → 503. ANON → 401 (supabaseAuth),
- *    missing name → 400, invalid chars → 400. (Same route as GH-14; coverage is
- *    a union so the dual declaration is intentional — this flow pins PROJ-4's
- *    distinct spec assertion: no-install ⇒ 409 + install_url.)
- *
- *  - GH-5  git transport resolution (`resolveProjectGitAuth`). This is an
- *    INTERNAL function, not a route. Its observable boundary is
- *    POST /v1/projects/:projectId/git-token (the "mint scoped push token"
- *    branch): a generic (non-managed / BYO) project → 409 "Project is not a
- *    managed repo" (the spec's `project_secret` / `none` path); a managed
- *    project whose backend resolves no credential → 503; resolved → 200
- *    { push_token }. ANON → 401, unknown project → 404, NONMEMBER → 404
- *    (loadProjectForUser returns null ⇒ 404, never 403). Same route as GH-7;
- *    GH-5 pins the resolution OUTCOMES rather than the auth matrix.
  *
  *  - GH-8  GET/POST/DELETE /v1/projects/:projectId/cli-token[/:tokenId] —
  *    project-scoped CLI tokens. GET = loadProjectForUser('read'); POST/DELETE =
@@ -85,93 +66,6 @@ flow(
           installation_id: "not-a-github-installation-id",
         });
       r.status(400).body().has("$.error", "installation_id must be a GitHub installation id");
-    });
-  },
-);
-
-// ── PROJ-4 — create a new GitHub repo (no install ⇒ 409 install_url) ────────
-
-flow(
-  "PROJ-4",
-  { domain: "git", routes: ["POST /v1/projects/create-repo"] },
-  async (ctx) => {
-    await ctx.step("ANON → 401", async () => {
-      const r = await ctx.client.as(ctx.P.ANON).post("/v1/projects/create-repo", { name: "ke2e-repo" });
-      r.status(401);
-    });
-    await ctx.step("missing name → 400", async () => {
-      const r = await ctx.client.as(ctx.P.OWNER).post("/v1/projects/create-repo", {});
-      r.status(400);
-    });
-    await ctx.step("invalid name chars → 400", async () => {
-      const r = await ctx.client
-        .as(ctx.P.OWNER)
-        .post("/v1/projects/create-repo", { name: "bad name/with spaces" });
-      r.status(400);
-    });
-    await ctx.step("fresh account with no GitHub App install → 409 + install_url (or 503 if GitHub unconfigured)", async () => {
-      // A brand-new team account is guaranteed to have no GitHub App
-      // installation, so resolveGitHubRepoAuth throws → 409 {error, install_url}.
-      // If the server has no GitHub App configured at all the handler returns 503.
-      const team = await ctx.fixtures.team();
-      const name = ctx.fixtures.name("repo").replace(/[^a-zA-Z0-9._-]/g, "-");
-      const r = await ctx.client
-        .as(ctx.P.OWNER)
-        .post("/v1/projects/create-repo", { name, private: true, account_id: team.id });
-      r.status([409, 503]);
-      // The spec's defining assertion: the no-install path surfaces an install_url.
-      if (r.statusCode === 409) r.body().exists("$.install_url");
-    });
-    await ctx.step("an unknown or retired marketplace project id → 400 before any GitHub call", async () => {
-      // A fresh team with no install would otherwise answer 409: the 400 proves
-      // the catalog gate runs before anything is created upstream.
-      const team = await ctx.fixtures.team();
-      const name = ctx.fixtures.name("repo-src").replace(/[^a-zA-Z0-9._-]/g, "-");
-      const r = await ctx.client.as(ctx.P.OWNER).post("/v1/projects/create-repo", {
-        name,
-        private: true,
-        account_id: team.id,
-        source_item_id: "kortix-projects:seo-department",
-      });
-      r.status(400).body().has("$.error", 'Unknown or non-cloneable project item "kortix-projects:seo-department"');
-    });
-  },
-);
-
-// ── GH-5 — git transport resolution (resolveProjectGitAuth via git-token) ──
-
-flow(
-  "GH-5",
-  { domain: "git", routes: ["POST /v1/workspaces/:projectId/git-token"] },
-  async (ctx) => {
-    const p = await ctx.fixtures.sharedProject();
-    await ctx.step("ANON → 401", async () => {
-      const r = await ctx.client
-        .as(ctx.P.ANON)
-        .post("/v1/workspaces/:projectId/git-token", {}, { params: { projectId: p.id } });
-      r.status(401);
-    });
-    await ctx.step("generic (non-managed / BYO) project → 409 'not a managed repo'", async () => {
-      // resolveProjectGitAuth's `none`/project_secret branch: a generic local
-      // project has no managed remote, so the mint-push-token path 409s before
-      // ever calling the backend. A managed project would resolve a token (200)
-      // or, if the backend can't mint one, 503.
-      const r = await ctx.client
-        .as(ctx.P.OWNER)
-        .post("/v1/workspaces/:projectId/git-token", {}, { params: { projectId: p.id } });
-      r.status([200, 409, 503]);
-    });
-    await ctx.step("unknown project → 404", async () => {
-      const r = await ctx.client
-        .as(ctx.P.OWNER)
-        .post("/v1/workspaces/:projectId/git-token", {}, { params: { projectId: UNKNOWN } });
-      r.status(404);
-    });
-    await ctx.step("NONMEMBER cannot resolve transport → 404 (project not loadable)", async () => {
-      const r = await ctx.client
-        .as(ctx.P.NONMEMBER)
-        .post("/v1/workspaces/:projectId/git-token", {}, { params: { projectId: p.id } });
-      r.status([403, 404]);
     });
   },
 );

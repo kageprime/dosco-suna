@@ -40,6 +40,14 @@ const customerEmails = () => sent.filter((m) => !m.subject.startsWith('[Dosco co
 const privacyReports = () => sent.filter((m) => m.subject.startsWith('[Dosco compliance]'));
 const savedEnv = config.INTERNAL_KORTIX_ENV;
 
+
+/** A Suna-era owner row. basejump is frozen (freeze_legacy_suna_tables): the write opts in. */
+async function legacyOwner(userId: string, accountId: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT set_config('kortix.legacy_write', 'on', true)`);
+    await tx.execute(sql`insert into basejump.account_user (user_id, account_id, account_role) values (${userId}::uuid, ${accountId}::uuid, 'owner')`);
+  });
+}
 beforeAll(async () => {
   paid = await seedProject('subproc-paid');
   free = await seedProject('subproc-free');
@@ -58,7 +66,7 @@ beforeAll(async () => {
     { accountId: LEGACY_ACCOUNT, tier: 'tier_2_20' },
     { accountId: UNREACHABLE_ACCOUNT, tier: 'credits' },
   ]);
-  await db.execute(sql`insert into basejump.account_user (user_id, account_id, account_role) values (${LEGACY_OWNER}::uuid, ${LEGACY_ACCOUNT}::uuid, 'owner')`);
+  await legacyOwner(LEGACY_OWNER, LEGACY_ACCOUNT);
   setOwnerAlertSenderForTest(async (message) => {
     sent.push(message);
     return { ok: true, provider: 'mailpit', status: 200 };
@@ -139,7 +147,7 @@ describe('the subprocessor notice sweep', () => {
     await db.execute(sql`
       insert into auth.users (id, email, instance_id, aud, role)
       values (${owner}::uuid, ${email(owner, 'late-owner')}, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated')`);
-    await db.execute(sql`insert into basejump.account_user (user_id, account_id, account_role) values (${owner}::uuid, ${UNREACHABLE_ACCOUNT}::uuid, 'owner')`);
+    await legacyOwner(owner, UNREACHABLE_ACCOUNT);
     try {
       expect(await runSubprocessorNoticeSweep(new Date('2026-10-20T11:00:00Z'), ROWS)).toEqual({ accountsNotified: 1 });
       expect(customerEmails().flatMap((message) => message.to)).toEqual([email(owner, 'late-owner')]);

@@ -22,7 +22,7 @@ import { UnifiedMarkdown } from '@kortix/ui/markdown';
 import { Badge } from '@kortix/ui/badge';
 import { Button } from '@kortix/ui/button';
 import { FadedScrollArea } from '@kortix/ui/faded-scroll-area';
-import { FileTree, FileTreeNav } from '@kortix/ui/file-tree';
+import { FileTree, FileTreeNav, type FileTreeNode } from '@kortix/ui/file-tree';
 import { Portal } from '@kortix/ui/portal';
 import { Copy } from '@kortix/ui/icons';
 import { Github } from '@kortix/ui/internal/icons/github';
@@ -176,6 +176,42 @@ function BundleMemberRow({
   );
 }
 
+/** The part-of-project row — navigates to the project the way `BundleMemberRow`
+ *  navigates to a member: a route link on public, a detail-store button in the
+ *  in-project overlay. */
+function PartOfProjectRow({ id, title }: { id: string; title: string }) {
+  const surface = useMarketplaceSurface();
+  const body = (
+    <>
+      <span className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-lg">
+        <Boxes className="size-4" />
+      </span>
+      <span className="text-foreground truncate text-sm font-medium group-hover:underline">
+        {title}
+      </span>
+    </>
+  );
+  if (surface.variant === 'public') {
+    return (
+      <Link
+        href={marketplaceItemHref(id)}
+        className="group bg-popover hover:bg-muted/50 flex items-center gap-3 rounded-md border px-3 py-2.5 transition-colors"
+      >
+        {body}
+      </Link>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => surface.openItem(id)}
+      className="group bg-popover hover:bg-muted/50 flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors"
+    >
+      {body}
+    </button>
+  );
+}
+
 /** The README renders in full (no collapse) — it's the primary content. */
 function ReadmeMarkdown({ content }: { content: string }) {
   return (
@@ -320,26 +356,144 @@ function ItemActions({
   );
 }
 
+/** The item's identity block — avatar, title, type label, description and the
+ *  add action — one component for both detail surfaces: `layout='rail'` is the
+ *  stacked overlay-sidebar block (large avatar, full-width action + source
+ *  link), `layout='page'` is the public page header (row, medium avatar,
+ *  compact action beside the title; provenance lives in the page rail). */
+function ItemIdentity({
+  data,
+  itemTitle,
+  company,
+  layout,
+}: {
+  data: MarketplaceItemDetail;
+  itemTitle: string;
+  company?: MarketplaceSummary;
+  layout: 'rail' | 'page';
+}) {
+  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+  const tm = typeMeta(data.type, tI18nComplete);
+  const sourceUrl = company?.sourceUrl ?? data.sourceUrl;
+  const avatar = (
+    <MarketplaceItemAvatar item={data} size={layout === 'page' ? 'md' : 'lg'} showSource={false} />
+  );
+  const titleBlock = (
+    <div className="min-w-0 space-y-1">
+      <h1 className="text-foreground text-2xl font-semibold tracking-tight text-balance capitalize">
+        {itemTitle}
+      </h1>
+      <span className="text-muted-foreground inline-flex items-center gap-1.5 text-xs">
+        <tm.Icon className="size-3.5 shrink-0" />
+        {tm.label}
+      </span>
+    </div>
+  );
+  const description = <ExpandableText text={data.description || emptyDescriptionCopy(data.type)} />;
+
+  if (layout === 'page') {
+    return (
+      <>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-4">
+            {avatar}
+            {titleBlock}
+          </div>
+          <div className="shrink-0">
+            <ItemActions data={data} compact />
+          </div>
+        </div>
+        {description}
+      </>
+    );
+  }
+  return (
+    <div className="space-y-4">
+      {avatar}
+      {titleBlock}
+      {description}
+      <div className="flex flex-col items-start gap-2">
+        <ItemActions data={data} />
+        {sourceUrl ? (
+          <Link
+            href={sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs transition-colors"
+          >
+            <Github className="size-3.5" />
+            {tI18nComplete.raw('text6ee818aa2de3')}
+          </Link>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/** The files rail — the one `FileTree` + `FileTreeNav` wiring for the item's
+ *  install targets. The public page rail passes `scroll` (the tree can run
+ *  long there, so it fades and scrolls); the overlay sidebar renders the tree
+ *  inline. */
+function FilesRail({
+  nodes,
+  selected,
+  onSelect,
+  itemTitle,
+  scroll = false,
+}: {
+  nodes: FileTreeNode[];
+  selected: string | undefined;
+  onSelect: (target: string) => void;
+  itemTitle: string;
+  scroll?: boolean;
+}) {
+  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+  const nav = (
+    <FileTreeNav
+      nodes={nodes}
+      selectedPath={selected}
+      onSelect={onSelect}
+      label={`${itemTitle} files`}
+    />
+  );
+  if (!scroll) {
+    return <FileTree title={tI18nComplete.raw('textabc7e9892806')}>{nav}</FileTree>;
+  }
+  return (
+    // `-mx-2.5` pulls the trigger and row fills out past the column
+    // so their TEXT lands on the rail's left edge, in line with the
+    // breadcrumb; the hover fills bleed into the gutter instead.
+    <FileTree title={tI18nComplete.raw('textabc7e9892806')} className="-mx-2.5">
+      <FadedScrollArea
+        fadeColor="from-background"
+        rootClassName="h-auto max-h-144"
+        className="overscroll-contain"
+      >
+        {nav}
+      </FadedScrollArea>
+    </FileTree>
+  );
+}
+
 /** Identity + actions + metadata — the left rail (page) / top block (overlay). */
 function ItemSidebar({
   data,
   company,
   itemTitle,
-  fileTargets,
+  fileNodes,
   selectedFile,
   onSelectFile,
 }: {
   data: MarketplaceItemDetail;
   company?: MarketplaceSummary;
   itemTitle: string;
-  /** Install targets for the Files tree (drives the main-column file view). */
-  fileTargets: string[];
+  /** The item's files as tree rows (drives the main-column file view). */
+  fileNodes: FileTreeNode[];
   selectedFile: string | undefined;
   onSelectFile: (target: string) => void;
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const surface = useMarketplaceSurface();
-  const tm = typeMeta(data.type, tI18nComplete);
   const isProject = data.type === 'registry:project';
   const companyLabel = displayCompanyLabel(data.marketplaceId, data.marketplaceLabel);
   const sourceUrl = company?.sourceUrl ?? data.sourceUrl;
@@ -347,78 +501,17 @@ function ItemSidebar({
 
   return (
     <>
-      <div className="space-y-4">
-        <MarketplaceItemAvatar item={data} size="lg" showSource={false} />
-
-        <div className="space-y-1">
-          <h1 className="text-foreground text-2xl font-semibold tracking-tight text-balance capitalize">
-            {itemTitle}
-          </h1>
-          <span className="text-muted-foreground inline-flex items-center gap-1.5 text-xs">
-            <tm.Icon className="size-3.5 shrink-0" />
-            {tm.label}
-          </span>
-        </div>
-
-        <ExpandableText text={data.description || emptyDescriptionCopy(data.type)} />
-
-        <div className="flex flex-col items-start gap-2">
-          <ItemActions data={data} />
-          {sourceUrl ? (
-            <Link
-              href={sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs transition-colors"
-            >
-              <Github className="size-3.5" />
-              {tI18nComplete.raw('text6ee818aa2de3')}
-            </Link>
-          ) : null}
-        </div>
-      </div>
+      <ItemIdentity data={data} itemTitle={itemTitle} company={company} layout="rail" />
 
       {data.partOfProject ? (
         <div>
           <SectionLabel>{tI18nComplete.raw('textc41720e33d45')}</SectionLabel>
-          {surface.variant === 'public' ? (
-            <Link
-              href={marketplaceItemHref(data.partOfProject.id)}
-              className="group bg-popover hover:bg-muted/50 flex items-center gap-3 rounded-md border px-3 py-2.5 transition-colors"
-            >
-              <span className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-lg">
-                <Boxes className="size-4" />
-              </span>
-              <span className="text-foreground truncate text-sm font-medium group-hover:underline">
-                {data.partOfProject.title}
-              </span>
-            </Link>
-          ) : (
-            <button
-              type="button"
-              onClick={() => surface.openItem(data.partOfProject!.id)}
-              className="group bg-popover hover:bg-muted/50 flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors"
-            >
-              <span className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-lg">
-                <Boxes className="size-4" />
-              </span>
-              <span className="text-foreground truncate text-sm font-medium group-hover:underline">
-                {data.partOfProject.title}
-              </span>
-            </button>
-          )}
+          <PartOfProjectRow id={data.partOfProject.id} title={data.partOfProject.title} />
         </div>
       ) : null}
 
-      {fileTargets.length > 0 ? (
-        <FileTree title={tI18nComplete.raw('textabc7e9892806')}>
-          <FileTreeNav
-            nodes={marketplaceFileNodes(fileTargets)}
-            selectedPath={selectedFile}
-            onSelect={onSelectFile}
-            label={`${itemTitle} files`}
-          />
-        </FileTree>
+      {fileNodes.length > 0 ? (
+        <FilesRail nodes={fileNodes} selected={selectedFile} onSelect={onSelectFile} itemTitle={itemTitle} />
       ) : null}
 
       {companyClickable ? (
@@ -471,8 +564,8 @@ export interface DetailNav {
 /**
  * Derives the `DetailPager` nav from a sibling id list + the currently open
  * id — 1-based position, and prev/next callbacks clamped at the ends.
- * Shared by the public detail page (`MarketplaceDetailPublic`, which routes
- * between item pages) and the in-project overlay (`MarketplaceView`, which
+ * Shared by the public detail page (this component, routed between item
+ * pages) and the in-project overlay (`MarketplaceView`, which
  * drives the detail store instead) — they differ only in what `goTo` does.
  */
 export function useDetailNav(
@@ -735,23 +828,13 @@ export function MarketplaceDetail({
         sidebar={
           <div className="space-y-8">
             {fileNodes.length > 0 ? (
-              // `-mx-2.5` pulls the trigger and row fills out past the column
-              // so their TEXT lands on the rail's left edge, in line with the
-              // breadcrumb; the hover fills bleed into the gutter instead.
-              <FileTree title={tI18nComplete.raw('textabc7e9892806')} className="-mx-2.5">
-                <FadedScrollArea
-                  fadeColor="from-background"
-                  rootClassName="h-auto max-h-144"
-                  className="overscroll-contain"
-                >
-                  <FileTreeNav
-                    nodes={fileNodes}
-                    selectedPath={selectedFile}
-                    onSelect={setSelectedFile}
-                    label={`${itemTitle} files`}
-                  />
-                </FadedScrollArea>
-              </FileTree>
+              <FilesRail
+                nodes={fileNodes}
+                selected={selectedFile}
+                onSelect={setSelectedFile}
+                itemTitle={itemTitle}
+                scroll
+              />
             ) : null}
 
             {/* Provenance as a two-lane list: labels in one fixed column,
@@ -816,18 +899,7 @@ export function MarketplaceDetail({
               <ArrowLeft className="size-4" aria-hidden />
               {tI18nComplete.raw('text76900f1bfd16')}
             </Link>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex min-w-0 items-center gap-4">
-                <MarketplaceItemAvatar item={data} size="md" showSource={false} />
-                <h1 className="text-foreground min-w-0 text-2xl font-semibold tracking-tight text-balance capitalize">
-                  {itemTitle}
-                </h1>
-              </div>
-              <div className="shrink-0">
-                <ItemActions data={data} compact />
-              </div>
-            </div>
-            <ExpandableText text={data.description || emptyDescriptionCopy(data.type)} />
+            <ItemIdentity data={data} itemTitle={itemTitle} company={company} layout="page" />
           </header>
 
           <InstallCommand itemId={data.id} />
@@ -874,7 +946,7 @@ export function MarketplaceDetail({
             data={data}
             company={company}
             itemTitle={itemTitle}
-            fileTargets={fileTargets}
+            fileNodes={fileNodes}
             selectedFile={selectedFile}
             onSelectFile={setSelectedFile}
           />

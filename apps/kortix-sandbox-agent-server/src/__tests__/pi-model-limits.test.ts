@@ -30,8 +30,8 @@ test('pi sizes a model from the live picker catalog', async () => {
   expect(models.live).toBe(true)
   const big = models.select('myendpoint/big').model
   expect(big.contextWindow).toBe(1_048_576)
-  // No output limit reported: pi clamps max_tokens to the room left in the window.
-  expect(big.maxTokens).toBe(1_048_576)
+  // No output limit reported: pi asks for the default answer size, not the whole window.
+  expect(big.maxTokens).toBe(32_768)
 })
 
 test('a picker that fails once is asked again', async () => {
@@ -68,14 +68,14 @@ test('the compaction reserve is the model output limit, so the answer always has
     'agent/greedy': { limit: { context: 1_048_576, output: 943_718 } },
     // pi's own default already covers a small output limit: no override.
     'agent/small': { limit: { context: 64_000, output: 8_000 } },
-    // No output limit reported: pi caps the request at the window, so the reserve is capped too.
+    // No output limit reported: pi asks for the default answer size, and reserves that.
     'agent/window-only': { limit: { context: 1_048_576 } },
   }).modelOverrides
   expect(overrides).toEqual({
     'kortix/agent/big': { reserveTokens: 32_768 },
     'kortix/agent/long-answer': { reserveTokens: 64_000 },
     'kortix/agent/greedy': { reserveTokens: 524_288 },
-    'kortix/agent/window-only': { reserveTokens: 524_288 },
+    'kortix/agent/window-only': { reserveTokens: 32_768 },
   })
 })
 

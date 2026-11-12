@@ -101,7 +101,10 @@ const WorkspaceIdParam = z.object({
   }),
 });
 
-const NotFound = { 404: json(ErrorSchema, 'No such workspace, or the caller cannot read it (`workspace_not_found`)') };
+const NotFound = {
+  403: json(ErrorSchema, 'The caller cannot read this workspace (`workspace_access_denied`)'),
+  404: json(ErrorSchema, 'No such workspace (`workspace_not_found`)'),
+};
 
 const CREATE_FIELDS = {
   name: z.string().openapi({ description: 'The workspace name, 1–255 characters.' }),

@@ -9,7 +9,8 @@ import {
   type Agent,
   flattenModels,
   modelProviderMode,
-  useRuntimeProviders,
+  projectLlmCatalogToProviderList,
+  useWorkspaceModelPickerCatalog,
 } from '@kortix/sdk/react';
 import { useMemo, useRef } from 'react';
 
@@ -19,12 +20,15 @@ import type { ComposerDraft } from './trigger-composer-logic';
 
 /** Then: what the agent does, which agent, which model. */
 export function ThenFields({
+  projectId,
   agents,
   draft,
   patch,
   payloadSchema,
   error,
 }: {
+  /** The workspace whose servable models the Model picker lists. */
+  projectId: string;
   agents: Agent[];
   draft: ComposerDraft;
   patch: PatchDraft;
@@ -34,7 +38,14 @@ export function ThenFields({
 }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const promptRef = useRef<AutosizeTextAreaRef | null>(null);
-  const { data: providers } = useRuntimeProviders();
+  // The workspace's servable catalog (`GET /workspaces/:id/model-picker`), read
+  // by id: a trigger runs outside any session, so the session runtime's
+  // provider list is not the source.
+  const catalog = useWorkspaceModelPickerCatalog(projectId);
+  const providers = useMemo(
+    () => (catalog ? projectLlmCatalogToProviderList(catalog) : undefined),
+    [catalog],
+  );
   const models = useMemo(
     () => flattenModels(providers, { providerMode: modelProviderMode(providers) }),
     [providers],
@@ -93,6 +104,7 @@ export function ThenFields({
           <ModelSelector
             models={models}
             providers={providers}
+            modelsLoading={!catalog}
             selectedModel={draft.model}
             unsetLabel={tI18nComplete.raw('text57069bbd0d2e')}
             appearance="field"

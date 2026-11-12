@@ -1,5 +1,11 @@
+import {
+  RUNTIME_AUDIT_SECRET_VALUE_RE,
+  RUNTIME_AUDIT_STRUCTURAL_WRAPPER_KEYS,
+  RUNTIME_AUDIT_SUMMARY_KEYS,
+} from '@kortix/api-contract/runtime-relay';
 import type { RuntimeAuditBatch, RuntimeAuditEvent } from '@kortix/api-contract/runtime-relay';
 import type { auditEvents } from '@kortix/db';
+import { LATE_ROW_MAX_AGE_DAYS } from './audit-archive/format';
 
 /**
  * A batch and its events as received: each contract field may be absent or
@@ -24,82 +30,20 @@ const INITIATOR_TYPES = new Set(['human', 'agent', 'service_account', 'system'])
  *  of the boundary cannot drift apart. */
 export const MAX_BATCH_SIZE = 200;
 const MAX_SUMMARY_BYTES = 16_384;
-const SECRET_VALUE_RE =
-  /(?:bearer\s+[a-z0-9._~+/=-]+|sk-[a-z0-9_-]{12,}|gh[opusr]_[a-z0-9_]{12,}|kortix_(?:pat|sbx)_[a-z0-9_-]+|(?:token|secret|password|api[_-]?key)=\S+)/i;
 
-const SUMMARY_KEYS = new Set([
-  'id',
-  'sessionID',
-  'sessionId',
-  'session_id',
-  'parentID',
-  'parentId',
-  'messageID',
-  'messageId',
-  'partID',
-  'partId',
-  'callID',
-  'callId',
-  'toolCallID',
-  'toolCallId',
-  'executionID',
-  'executionId',
-  'tool',
-  'name',
-  'status',
-  'role',
-  'type',
-  'path',
-  'filename',
-  'mime',
-  'size',
-  'bytes',
-  'duration',
-  'durationMs',
-  'agent',
-  'agentID',
-  'agentId',
-  'agentName',
-  'depth',
-  'multiple',
-  'session',
-  'message',
-  'part',
-  'error',
-  'info',
-  'count',
-  'state',
-  'time',
-  'start',
-  'end',
-  'created',
-  'completed',
-  'updated',
-  'compacting',
-  'archived',
-  'providerID',
-  'modelID',
-  'mode',
-  'delivery',
-]);
-
-// These keys are structural wrappers in the runtime event contract. A
-// compromised sandbox can otherwise put a prompt or provider response in a
-// primitive `message`, `error`, or `part` value and pass the general string
-// allowlist. Keep only their recursively allowlisted object shape.
-const STRUCTURAL_WRAPPER_KEYS = new Set(['session', 'message', 'part', 'info', 'error', 'state']);
 
 type AuditInsert = typeof auditEvents.$inferInsert;
 
 /**
- * `kortix.audit_events` is partitioned by week and keeps 90 days hot. An instant outside
- * [now - 80 days, now + 1 day] (a sandbox offline for months, a skewed clock) has no weekly
- * partition and would land in the default partition, where retention never reaches it.
- * It is stored as the start of today (UTC) instead; the instant the sandbox reported stays in
- * `metadata.original_occurred_at`. The value is the same for every re-send within the UTC
- * day, so the unique dedupe key (source tuple + occurred_at) still matches a retry.
+ * `kortix.audit_events` is partitioned by week and keeps HOT_DAYS in PostgreSQL. An instant
+ * outside [now - LATE_ROW_MAX_AGE_DAYS, now + 1 day] (a sandbox offline for days, a skewed
+ * clock) would land in a week the archive already exported, or in the default partition, where
+ * retention never reaches it. It is stored as the start of today (UTC) instead; the instant the
+ * sandbox reported stays in `metadata.original_occurred_at`. The value is the same for every
+ * re-send within the UTC day, so the unique dedupe key (source tuple + occurred_at) still
+ * matches a retry.
  */
-const MAX_EVENT_AGE_MS = 80 * 86_400_000;
+const MAX_EVENT_AGE_MS = LATE_ROW_MAX_AGE_DAYS * 86_400_000;
 const MAX_EVENT_SKEW_MS = 86_400_000;
 
 export interface RuntimeAuditScope {
@@ -170,7 +114,7 @@ function sanitizeSummary(
       if (candidate.length > 512) fail(index, `has an oversized ${field}`);
       const origin = originOnlyUrl(candidate);
       if (origin) return origin;
-      if (SECRET_VALUE_RE.test(candidate)) {
+      if (RUNTIME_AUDIT_SECRET_VALUE_RE.test(candidate)) {
         fail(index, `has a credential-shaped ${field} value`);
       }
       return candidate;
@@ -179,8 +123,8 @@ function sanitizeSummary(
     if (typeof candidate !== 'object') fail(index, `has an invalid ${field}`);
     const result: Record<string, unknown> = {};
     for (const [key, child] of Object.entries(candidate as Record<string, unknown>)) {
-      if (!SUMMARY_KEYS.has(key)) fail(index, `has a disallowed ${field} key: ${key}`);
-      if (STRUCTURAL_WRAPPER_KEYS.has(key)) {
+      if (!RUNTIME_AUDIT_SUMMARY_KEYS.has(key)) fail(index, `has a disallowed ${field} key: ${key}`);
+      if (RUNTIME_AUDIT_STRUCTURAL_WRAPPER_KEYS.has(key)) {
         if (child && typeof child === 'object' && !Array.isArray(child)) {
           result[key] = visit(child, depth + 1);
         }
@@ -258,6 +202,142 @@ function canonicalRuntimeAction(
   return `agent.${type}`;
 }
 
+/**
+ * One event's contract, as received: validate every field the event carries
+ * and assemble the row. `batch` is what the event inherits from its batch —
+ * the fixed source tag and the harness. Throws `events[i] …` on the first
+ * invalid field.
+ */
+function parseRuntimeAuditEvent(
+  item: unknown,
+  index: number,
+  scope: RuntimeAuditScope,
+  batch: { source: string; harness: string },
+): AuditInsert {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) {
+    fail(index, 'is invalid');
+  }
+  const event = item as ReceivedAuditEvent;
+  const { source, harness } = batch;
+  const eventId = requiredSha256(event.event_id, index, 'event_id');
+  const type =
+    typeof event.type === 'string' && EVENT_TYPE_RE.test(event.type)
+      ? event.type
+      : fail(index, 'has an invalid type');
+  const occurredAt = new Date(String(event.occurred_at ?? ''));
+  if (
+    typeof event.occurred_at !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(
+      event.occurred_at,
+    ) ||
+    Number.isNaN(occurredAt.getTime())
+  ) {
+    fail(index, 'has an invalid occurred_at');
+  }
+  const now = scope.now ?? new Date();
+  const outOfRange =
+    occurredAt.getTime() < now.getTime() - MAX_EVENT_AGE_MS ||
+    occurredAt.getTime() > now.getTime() + MAX_EVENT_SKEW_MS;
+  const storedAt = outOfRange
+    ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+    : occurredAt;
+  const outcome = event.outcome ?? 'success';
+  if (typeof outcome !== 'string' || !OUTCOMES.has(outcome)) {
+    fail(index, 'has an invalid outcome');
+  }
+  const phase = event.phase ?? 'completed';
+  if (typeof phase !== 'string' || !PHASE_RE.test(phase)) {
+    fail(index, 'has an invalid phase');
+  }
+  const initiatorActorType = event.initiator_actor_type ?? null;
+  if (
+    initiatorActorType != null &&
+    (typeof initiatorActorType !== 'string' || !INITIATOR_TYPES.has(initiatorActorType))
+  ) {
+    fail(index, 'has an invalid initiator_actor_type');
+  }
+  const delegationDepth = event.delegation_depth ?? 0;
+  if (
+    typeof delegationDepth !== 'number' ||
+    !Number.isInteger(delegationDepth) ||
+    delegationDepth < 0 ||
+    delegationDepth > 100
+  ) {
+    fail(index, 'has an invalid delegation_depth');
+  }
+  const errorCode = event.error_code ?? null;
+  if (errorCode != null && (typeof errorCode !== 'string' || !ERROR_CODE_RE.test(errorCode))) {
+    fail(index, 'has an invalid error_code');
+  }
+
+  const inputSummary = sanitizeSummary(event.input_summary, index, 'input_summary');
+  const outputSummary = sanitizeSummary(event.output_summary, index, 'output_summary');
+  const reportedProvenance = {
+    runtime_session_id: optionalIdentifier(
+      event.runtime_session_id,
+      index,
+      'runtime_session_id',
+    ),
+    agent_id: optionalIdentifier(event.agent_id, index, 'agent_id'),
+    agent_name: optionalIdentifier(event.agent_name, index, 'agent_name'),
+    initiator_actor_type: initiatorActorType,
+    initiator_actor_id: optionalIdentifier(event.initiator_actor_id, index, 'initiator_actor_id'),
+    correlation_id: optionalIdentifier(event.correlation_id, index, 'correlation_id'),
+    causation_id: optionalIdentifier(event.causation_id, index, 'causation_id'),
+    delegation_depth: delegationDepth,
+  };
+  const trusted = scope.trustedProvenance;
+
+  return {
+    accountId: scope.accountId,
+    projectId: scope.projectId,
+    sessionId: scope.sessionId,
+    runtimeSessionId: trusted?.runtimeSessionId ?? null,
+    turnId: optionalIdentifier(event.turn_id, index, 'turn_id'),
+    messageId: optionalIdentifier(event.message_id, index, 'message_id'),
+    toolCallId: optionalIdentifier(event.tool_call_id, index, 'tool_call_id'),
+    executionId: optionalIdentifier(event.execution_id, index, 'execution_id'),
+    actorType: 'agent',
+    agentId: trusted?.agentId ?? null,
+    agentName: trusted?.agentName ?? null,
+    initiatorActorType: trusted?.initiatorActorType ?? null,
+    initiatorActorId: trusted?.initiatorActorId ?? null,
+    onBehalfOfUserId: trusted?.onBehalfOfUserId ?? null,
+    delegationDepth: trusted?.delegationDepth ?? 0,
+    source,
+    authoritativeSource: source,
+    outcome,
+    action: canonicalRuntimeAction(type, inputSummary),
+    phase,
+    resourceType: 'agent_event',
+    resourceId: eventId,
+    correlationId: trusted?.correlationId ?? null,
+    causationId: trusted?.causationId ?? null,
+    sourceLedger: 'agent_events',
+    sourceRecordId: eventId,
+    // One runtime emission can repeat the same phase with identical raw
+    // properties. The relay assigns an occurrence UUID before durable
+    // spooling, so transport retries dedupe while genuine repeats remain.
+    sourceRevision: optionalIdentifier(event.source_revision, index, 'source_revision') ?? phase,
+    inputSummary,
+    outputSummary,
+    inputSha256: requiredSha256(event.input_sha256, index, 'input_sha256'),
+    outputSha256: optionalSha256(event.output_sha256, index, 'output_sha256'),
+    errorCode,
+    // Runtime error strings can contain prompts or provider response bodies.
+    // The canonical ledger stores only the bounded error code and digests.
+    errorMessage: null,
+    metadata: {
+      ...sanitizeMetadata(event.metadata, index),
+      ...(outOfRange ? { original_occurred_at: occurredAt.toISOString() } : {}),
+      provenance_trust: 'sandbox_reported',
+      reported_provenance: reportedProvenance,
+      harness,
+    },
+    occurredAt: storedAt,
+  };
+}
+
 export function parseRuntimeAuditBatch(
   body: unknown,
   scope: RuntimeAuditScope,
@@ -276,129 +356,9 @@ export function parseRuntimeAuditBatch(
   const harness =
     typeof batch.harness === 'string' && IDENTIFIER_RE.test(batch.harness) ? batch.harness : 'unknown';
 
-  const values = events.map((item, index): AuditInsert => {
-    if (!item || typeof item !== 'object' || Array.isArray(item)) {
-      fail(index, 'is invalid');
-    }
-    const event = item as ReceivedAuditEvent;
-    const eventId = requiredSha256(event.event_id, index, 'event_id');
-    const type =
-      typeof event.type === 'string' && EVENT_TYPE_RE.test(event.type)
-        ? event.type
-        : fail(index, 'has an invalid type');
-    const occurredAt = new Date(String(event.occurred_at ?? ''));
-    if (
-      typeof event.occurred_at !== 'string' ||
-      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(
-        event.occurred_at,
-      ) ||
-      Number.isNaN(occurredAt.getTime())
-    ) {
-      fail(index, 'has an invalid occurred_at');
-    }
-    const now = scope.now ?? new Date();
-    const outOfRange =
-      occurredAt.getTime() < now.getTime() - MAX_EVENT_AGE_MS ||
-      occurredAt.getTime() > now.getTime() + MAX_EVENT_SKEW_MS;
-    const storedAt = outOfRange
-      ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-      : occurredAt;
-    const outcome = event.outcome ?? 'success';
-    if (typeof outcome !== 'string' || !OUTCOMES.has(outcome)) {
-      fail(index, 'has an invalid outcome');
-    }
-    const phase = event.phase ?? 'completed';
-    if (typeof phase !== 'string' || !PHASE_RE.test(phase)) {
-      fail(index, 'has an invalid phase');
-    }
-    const initiatorActorType = event.initiator_actor_type ?? null;
-    if (
-      initiatorActorType != null &&
-      (typeof initiatorActorType !== 'string' || !INITIATOR_TYPES.has(initiatorActorType))
-    ) {
-      fail(index, 'has an invalid initiator_actor_type');
-    }
-    const delegationDepth = event.delegation_depth ?? 0;
-    if (
-      typeof delegationDepth !== 'number' ||
-      !Number.isInteger(delegationDepth) ||
-      delegationDepth < 0 ||
-      delegationDepth > 100
-    ) {
-      fail(index, 'has an invalid delegation_depth');
-    }
-    const errorCode = event.error_code ?? null;
-    if (errorCode != null && (typeof errorCode !== 'string' || !ERROR_CODE_RE.test(errorCode))) {
-      fail(index, 'has an invalid error_code');
-    }
-
-    const inputSummary = sanitizeSummary(event.input_summary, index, 'input_summary');
-    const outputSummary = sanitizeSummary(event.output_summary, index, 'output_summary');
-    const reportedProvenance = {
-      runtime_session_id: optionalIdentifier(
-        event.runtime_session_id,
-        index,
-        'runtime_session_id',
-      ),
-      agent_id: optionalIdentifier(event.agent_id, index, 'agent_id'),
-      agent_name: optionalIdentifier(event.agent_name, index, 'agent_name'),
-      initiator_actor_type: initiatorActorType,
-      initiator_actor_id: optionalIdentifier(event.initiator_actor_id, index, 'initiator_actor_id'),
-      correlation_id: optionalIdentifier(event.correlation_id, index, 'correlation_id'),
-      causation_id: optionalIdentifier(event.causation_id, index, 'causation_id'),
-      delegation_depth: delegationDepth,
-    };
-    const trusted = scope.trustedProvenance;
-
-    return {
-      accountId: scope.accountId,
-      projectId: scope.projectId,
-      sessionId: scope.sessionId,
-      runtimeSessionId: trusted?.runtimeSessionId ?? null,
-      turnId: optionalIdentifier(event.turn_id, index, 'turn_id'),
-      messageId: optionalIdentifier(event.message_id, index, 'message_id'),
-      toolCallId: optionalIdentifier(event.tool_call_id, index, 'tool_call_id'),
-      executionId: optionalIdentifier(event.execution_id, index, 'execution_id'),
-      actorType: 'agent',
-      agentId: trusted?.agentId ?? null,
-      agentName: trusted?.agentName ?? null,
-      initiatorActorType: trusted?.initiatorActorType ?? null,
-      initiatorActorId: trusted?.initiatorActorId ?? null,
-      onBehalfOfUserId: trusted?.onBehalfOfUserId ?? null,
-      delegationDepth: trusted?.delegationDepth ?? 0,
-      source,
-      authoritativeSource: source,
-      outcome,
-      action: canonicalRuntimeAction(type, inputSummary),
-      phase,
-      resourceType: 'agent_event',
-      resourceId: eventId,
-      correlationId: trusted?.correlationId ?? null,
-      causationId: trusted?.causationId ?? null,
-      sourceLedger: 'agent_events',
-      sourceRecordId: eventId,
-      // One runtime emission can repeat the same phase with identical raw
-      // properties. The relay assigns an occurrence UUID before durable
-      // spooling, so transport retries dedupe while genuine repeats remain.
-      sourceRevision: optionalIdentifier(event.source_revision, index, 'source_revision') ?? phase,
-      inputSummary,
-      outputSummary,
-      inputSha256: requiredSha256(event.input_sha256, index, 'input_sha256'),
-      outputSha256: optionalSha256(event.output_sha256, index, 'output_sha256'),
-      errorCode,
-      // Runtime error strings can contain prompts or provider response bodies.
-      // The canonical ledger stores only the bounded error code and digests.
-      errorMessage: null,
-      metadata: {
-        ...sanitizeMetadata(event.metadata, index),
-        ...(outOfRange ? { original_occurred_at: occurredAt.toISOString() } : {}),
-        provenance_trust: 'sandbox_reported',
-        reported_provenance: reportedProvenance,
-        harness,
-      },
-      occurredAt: storedAt,
-    };
-  });
+  const values = events.map((item, index) =>
+    parseRuntimeAuditEvent(item, index, scope, { source, harness }),
+  );
 
   return { accepted: events.length, values };
 }

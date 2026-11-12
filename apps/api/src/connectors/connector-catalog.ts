@@ -8,6 +8,7 @@ import {
 } from '@kortix/shared/connector-sections';
 import { logger } from '../lib/logger';
 import oneClickMcp from './one-click-mcp.json';
+import verifiedMcpUrls from './mcp-urls.json';
 
 /** MCP endpoints a client connects to with the URL alone, from the last
  *  `scripts/probe-one-click-mcp.ts` run. */
@@ -16,6 +17,23 @@ const ONE_CLICK_MCP: ReadonlySet<string> = new Set(Object.keys(oneClickMcp.serve
 /** A client connects to this MCP server with its URL alone. */
 export const isOneClickMcpUrl = (url: string | null | undefined): boolean =>
   !!url && ONE_CLICK_MCP.has(url.trim());
+
+/**
+ * MCP servers the registry lists without a URL, by domain. Each URL was
+ * checked: its RFC 9728 protected-resource metadata names it as the
+ * resource. The registry is an index, so a missing URL is filled here, never
+ * read as "Kortix cannot install this app". `scripts/probe-one-click-mcp.ts`
+ * probes these URLs with the registry's.
+ */
+const VERIFIED_MCP_URLS: Readonly<Record<string, string>> = verifiedMcpUrls;
+
+/** The registry's MCP surface with its URL filled from `VERIFIED_MCP_URLS`. */
+function withVerifiedMcpUrl(variant: ConnectorSurfaceVariant, domain: string): ConnectorSurfaceVariant {
+  const url = VERIFIED_MCP_URLS[domain];
+  if (variant.kind !== 'mcp' || variant.url || !url) return variant;
+  const transport: 'http' | 'sse' = variant.transports.includes('sse') && !variant.transports.includes('streamable-http') ? 'sse' : 'http';
+  return { ...variant, url, connector: { provider: 'mcp', url, transport } };
+}
 
 const INTEGRATIONS_BASE_URL = 'https://integrations.sh';
 const DEFAULT_TTL_MS = 15 * 60_000;
@@ -200,22 +218,23 @@ function normalizeItem(value: unknown): ConnectorCatalogItem | null {
   const name = nullableString(raw.name);
   const domain = nullableString(raw.domain);
   if (!id || !slug || !name || !domain) return null;
+  const connectUrl = kind === 'mcp' ? (httpsUrl(raw.connectUrl) ?? VERIFIED_MCP_URLS[domain] ?? null) : null;
   return {
     id,
     kind,
     slug,
     name,
     description: nullableString(raw.description),
-    url: nullableString(raw.url),
+    url: nullableString(raw.url) ?? connectUrl,
     icon: nullableString(raw.icon),
     domain,
     categories: strings(raw.categories),
     feeds: strings(raw.feeds),
     popularity:
       typeof raw.popularity === 'number' && Number.isFinite(raw.popularity) ? raw.popularity : null,
-    ...(kind === 'mcp' && httpsUrl(raw.connectUrl) ? { mcpUrl: httpsUrl(raw.connectUrl)! } : {}),
+    ...(connectUrl ? { mcpUrl: connectUrl } : {}),
     ...((raw.auth as { kind?: unknown } | undefined)?.kind === 'oauth' ? { oauth: true } : {}),
-    ...(kind === 'mcp' && ONE_CLICK_MCP.has(String(raw.connectUrl).trim()) ? { oneClick: true } : {}),
+    ...(connectUrl && ONE_CLICK_MCP.has(connectUrl.trim()) ? { oneClick: true } : {}),
   };
 }
 
@@ -370,7 +389,8 @@ function normalizeSurface(value: unknown, index: number): ConnectorSurfaceVarian
   return null;
 }
 
-function boundedCount(value: number | undefined, fallback: number, max: number): number {
+/** A caller-supplied count clamped to `[fallback, max]`: `undefined`/non-positive → the fallback. */
+export function boundedCount(value: number | undefined, fallback: number, max: number): number {
   return value && value > 0 ? Math.min(Math.floor(value), max) : fallback;
 }
 
@@ -523,7 +543,8 @@ export function createConnectorCatalog(options: CatalogOptions = {}) {
           throw new Error('integrations.sh returned an invalid surface');
         const variants = body.surfaces
           .map(normalizeSurface)
-          .filter((variant): variant is ConnectorSurfaceVariant => variant !== null);
+          .filter((variant): variant is ConnectorSurfaceVariant => variant !== null)
+          .map((variant) => withVerifiedMcpUrl(variant, domain));
         surfaceCache.set(domain, { value: variants, at: now() });
         return variants;
       } catch (error) {

@@ -42,6 +42,42 @@ describe('requestDeadline exemptions', () => {
   ])('leaves existing exemption %s unchanged', (path) => {
     expect(isExempt(ctx(path))).toBe(true);
   });
+
+  // KRTX-4615: the daemon's config-release descriptor tick (the 60 s
+  // runtime-truth poll). Its cold build is git-bound (mirror fetch, tree
+  // reads, archive tar+gzip — each op bounded by its own 30–60 s timeout),
+  // and the client aborts at 20 s: the 25 s guard only 503'd work that
+  // finished and cached anyway. The legacy `/v1/workspaces` spelling must
+  // exempt identically (`asLegacyWorkspaceRoute`).
+  test.each([
+    '/v1/projects/00000000-0000-4000-a000-000000000001/sessions/00000000-0000-4000-a000-000000000002/config-release',
+    '/v1/workspaces/00000000-0000-4000-a000-000000000001/sessions/00000000-0000-4000-a000-000000000002/config-release',
+  ])('exempts the config-release descriptor tick %s', (path) => {
+    expect(isExempt(ctx(path))).toBe(true);
+  });
+
+  // The exemption is method+path anchored, not a `path.includes()` fragment:
+  // a fragment would also sweep up the agent-config read of an agent named
+  // `config-release`, a GET on the descriptor path, and deeper child paths.
+  test('still bounds the config etag read, which the fragment must not sweep up', () => {
+    expect(
+      isExempt(ctx('/v1/projects/00000000-0000-4000-a000-000000000001/sessions/00000000-0000-4000-a000-000000000002/config', 'GET')),
+    ).toBe(false);
+  });
+
+  test('still bounds an agent named config-release and every non-tick config-release path', () => {
+    for (const [path, method] of [
+      // The agent-config route shape (agent-config.ts): agentName=config-release.
+      ['/v1/projects/00000000-0000-4000-a000-000000000001/agents/config-release/config', 'GET'],
+      // Only the daemon's POST tick is exempt, never a GET on the same path.
+      ['/v1/projects/00000000-0000-4000-a000-000000000001/sessions/00000000-0000-4000-a000-000000000002/config-release', 'GET'],
+      // A deeper child path keeps the deadline too (the pattern anchors at $).
+      ['/v1/projects/00000000-0000-4000-a000-000000000001/sessions/00000000-0000-4000-a000-000000000002/config-release/config', 'POST'],
+    ] as const) {
+      expect(isExempt(ctx(path, method))).toBe(false);
+      expect(requestDeadlineMs(ctx(path, method))).not.toBeNull();
+    }
+  });
 });
 
 /**
@@ -126,5 +162,42 @@ describe('attachment completion has its own request deadline', () => {
     const general = requestDeadlineMs(ctx('/v1/marketplace/items', 'GET'));
     expect(requestDeadlineMs(ctx(blob, 'GET'))).toBe(general);
     expect(requestDeadlineMs(ctx(`${blob}/extra`, 'PUT'))).toBe(general);
+  });
+});
+
+/**
+ * KRTX-4738: an App machine exec (`POST …/apps/:appId/exec`) runs one command
+ * under the caller's own timeout (`timeout_s` 1–300, default 60; the provider
+ * call aborts at `timeoutMs + 30 s`, and the SDK client waits 120 s), but the
+ * general 25 s deadline killed every exec that outlived it — prod: 4 execs
+ * against a machine that had just restarted each died at exactly 25 s while
+ * their siblings answered 178 ms–17.9 s. The route gets the same 95 s
+ * completion deadline as attachment completion: it answers before Cloudflare's
+ * 100 s proxy timeout and still bounds database waits. It is not exempt.
+ */
+describe('App machine exec has the 95 s completion deadline', () => {
+  const project = '/v1/projects/00000000-0000-4000-a000-000000000001';
+  const workspace = '/v1/workspaces/00000000-0000-4000-a000-000000000001';
+
+  test('POST exec is bounded at 95 s, under the 100 s Cloudflare proxy timeout', () => {
+    const exec = ctx(`${project}/apps/00000000-0000-4000-a000-000000000003/exec`);
+    expect(isExempt(exec)).toBe(false);
+    expect(requestDeadlineMs(exec)).toBe(95_000);
+  });
+
+  test('the /v1/workspaces alias gets the same 95 s deadline', () => {
+    expect(requestDeadlineMs(ctx(`${workspace}/apps/00000000-0000-4000-a000-000000000003/exec`))).toBe(95_000);
+  });
+
+  test('the anchoring is exact: other methods and paths keep the general deadline', () => {
+    const general = requestDeadlineMs(ctx('/v1/marketplace/items', 'GET'));
+    for (const [path, method] of [
+      [`${project}/apps/00000000-0000-4000-a000-000000000003/exec`, 'GET'],
+      [`${project}/apps/00000000-0000-4000-a000-000000000003/exec/extra`, 'POST'],
+      [`${project}/apps/00000000-0000-4000-a000-000000000003/machines`, 'POST'],
+    ] as const) {
+      expect(isExempt(ctx(path, method))).toBe(false);
+      expect(requestDeadlineMs(ctx(path, method))).toBe(general);
+    }
   });
 });

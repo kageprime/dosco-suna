@@ -87,7 +87,7 @@ export function registerIamOauthClientsRoutes(): void {
         ...errors(401, 403),
       },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.TOKEN_CREATE);
       const rows = await listOAuthClients(accountId);
@@ -123,9 +123,9 @@ export function registerIamOauthClientsRoutes(): void {
         ...errors(400, 401, 403),
       },
     }),
-    async (c: any) => {
+    async (c) => {
       if (c.get('authType') === 'oauth') return c.json({ error: 'Connected apps cannot create OAuth clients.' }, 403);
-      const userId = c.get('userId') as string;
+      const userId = c.get('userId');
       const accountId = accountIdParam(c);
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.TOKEN_CREATE);
 
@@ -173,7 +173,7 @@ export function registerIamOauthClientsRoutes(): void {
       request: { params: ClientParams },
       responses: { 200: json(OAuthClientSchema, 'The client'), ...errors(401, 403, 404) },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       const clientId = c.req.param('clientId');
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.TOKEN_CREATE);
@@ -208,7 +208,7 @@ export function registerIamOauthClientsRoutes(): void {
       },
       responses: { 200: json(OAuthClientSchema, 'The updated client'), ...errors(400, 401, 403, 404) },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       const clientId = c.req.param('clientId');
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.TOKEN_CREATE);
@@ -261,7 +261,7 @@ export function registerIamOauthClientsRoutes(): void {
       request: { params: ClientParams },
       responses: { 200: json(OAuthClientSchema, 'The client with its new secret'), ...errors(400, 401, 403, 404) },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       if (c.get('authType') === 'oauth') return c.json({ error: 'Connected apps cannot rotate OAuth client secrets.' }, 403);
       const clientId = c.req.param('clientId');
@@ -293,7 +293,7 @@ export function registerIamOauthClientsRoutes(): void {
       request: { params: ClientParams },
       responses: { 200: json(z.object({ deleted: z.boolean() }), 'Deleted'), ...errors(401, 403, 404) },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       const clientId = c.req.param('clientId');
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.TOKEN_REVOKE);

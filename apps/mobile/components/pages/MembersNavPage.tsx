@@ -23,7 +23,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useColorScheme } from 'nativewind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { SheetScrollView } from '@/components/kortix/sheet-parts';
 import {
   UserPlusIcon as UserPlus,
   EnvelopeIcon as Mail,
@@ -39,13 +40,12 @@ import { PageHeader } from '@/components/kortix/page-header';
 import { PageContent } from '@/components/kortix/page-content';
 import { PageList } from '@/components/kortix/page-list';
 import { SettingsGroup, SettingsRow } from '@/components/kortix/settings-list';
-import { SheetTextInput } from '@/components/kortix/SheetInput';
+import { SearchPill } from '@/components/kortix/search-pill';
 import { useToast } from '@/components/kortix/toast-provider';
 import { useConfirmDialog, type ConfirmRequest } from '@/components/kortix/confirm-dialog';
 import { KortixBottomSheetModal } from '@/components/kortix/sheet';
 import { THEME } from '@/lib/utils/theme';
 import {
-  useProject,
   useProjectAccess,
   usePendingProjectInvites,
   useInviteWorkspaceMember,
@@ -162,12 +162,12 @@ function RolePicker({
 function SheetBody({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   return (
-    <BottomSheetScrollView
+    <SheetScrollView
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: insets.bottom + 24, gap: 16 }}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}>
       {children}
-    </BottomSheetScrollView>
+    </SheetScrollView>
   );
 }
 
@@ -199,19 +199,26 @@ function InviteSheet({ projectId, onClose }: { projectId: string; onClose: () =>
 
   return (
     <SheetBody>
-      <SheetTextInput
-        value={email}
-        onChangeText={setEmail}
-        placeholder="Email"
-        accessibilityLabel="Email"
-        autoCapitalize="none"
-        autoCorrect={false}
-        autoFocus
-        keyboardType="email-address"
-        returnKeyType="send"
-        onSubmitEditing={submit}
-        editable={!invite.isPending}
-      />
+      {/* The list pages' search pill (`SearchPill`), with the envelope: one
+          input look across the app. A row holds it: the pill is `flex-1`. */}
+      <View className="flex-row">
+        <SearchPill
+          value={email}
+          onChangeText={setEmail}
+          placeholder="Email"
+          icon={Mail}
+          clearLabel="Clear email"
+          inputProps={{
+            accessibilityLabel: 'Email',
+            autoFocus: true,
+            keyboardType: 'email-address',
+            textContentType: 'emailAddress',
+            returnKeyType: 'send',
+            onSubmitEditing: submit,
+            editable: !invite.isPending,
+          }}
+        />
+      </View>
       <SettingsGroup title="Role">
         {INVITE_ROLES.map((r) => (
           <SettingsRow
@@ -360,9 +367,7 @@ export function MembersNavPage({
   const isDark = colorScheme === 'dark';
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
-  const projectQuery = useProject(projectId);
   const accessQuery = useProjectAccess(projectId);
-  const project = projectQuery.data;
   const canManage = useCan({ projectId }, PROJECT_ACTIONS.PROJECT_MEMBERS_MANAGE).allowed;
   const invitesQuery = usePendingProjectInvites(projectId, canManage);
 

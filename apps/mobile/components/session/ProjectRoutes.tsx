@@ -36,7 +36,7 @@
  * through ProjectRouteProvider. The tab store still decides WHICH page or
  * thread shows. The routes mirror only whether the project is on its home:
  *   - home route: the store leaves the home state → push `view`
- *   - covering route (sessions, files, account, inbox): the store leaves the home
+ *   - covering route (sessions, files, artifacts, account, inbox): the store leaves the home
  *     state → replace this route with `view`
  *   - view route: the store returns to the home state (deleted session, New
  *     session) → pop to home
@@ -74,6 +74,7 @@ import { haptics } from '@/lib/haptics';
 
 export {
   PROJECT_ACCOUNT_ROUTE,
+  PROJECT_ARTIFACTS_ROUTE,
   PROJECT_FILES_ROUTE,
   PROJECT_HOME_ROUTE,
   PROJECT_INBOX_ROUTE,

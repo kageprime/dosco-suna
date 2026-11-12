@@ -554,6 +554,16 @@ describe('kortix triggers info — webhook signing', () => {
     const text = await runCli(['triggers', 'info', 'nightly', '--project', PROJECT], apiConfig);
     expect(text.stdout).not.toContain('X-Kortix-Signature');
   });
+
+  // An e2e run on dev: `triggers add --model deepseek-v4.1-flash --apply`
+  // stored the model, but `info` printed no model row.
+  test('info names the trigger model, or the workspace default when none is set', async () => {
+    const cfg = writeConfig(startServer([{ ...CRON_TRIGGER, model: 'deepseek-v4.1-flash' }, { ...CRON_TRIGGER, slug: 'plain', model: null }]));
+    const pinned = await runCli(['triggers', 'info', 'nightly', '--project', PROJECT], cfg);
+    expect(pinned.stdout).toMatch(/model\s+deepseek-v4.1-flash/);
+    const plain = await runCli(['triggers', 'info', 'plain', '--project', PROJECT], cfg);
+    expect(plain.stdout).toMatch(/model\s+default \(the workspace default model\)/);
+  });
 });
 
 describe('kortix triggers — events', () => {

@@ -4,73 +4,23 @@ import type { HarnessDiagnosticsContext } from '../contract/diagnostics'
 import { readRepoInfo } from '@/lib/git/git'
 import { runtimeConvergenceReport } from '@/services/runtime-assets/runtime-assets'
 import { runtimeTruthReport } from '@/services/runtime-assets/runtime-truth'
-
-/**
- * The branch this VM's session is supposed to be on, read from the host-
- * written env file rather than process.env: warm-seed forks resume a process
- * whose env predates the session (adoption reloads it ~250ms later), but
- * /etc/pt-env carries the session's KORTIX_BRANCH_NAME from the instant the
- * VM exists — so the readiness gate below is correct even pre-adoption.
- * Empty when this VM is a seed builder (no session) → gate inert.
- */
-const PT_ENV_PATH = '/etc/pt-env'
-
-/** The env file THIS read consults. `KORTIX_PT_ENV_PATH` is read at call time so
- *  a test can pin it after this module has loaded: a Kortix box's own
- *  /etc/pt-env would otherwise answer for a rig that has no session env file. */
-const ptEnvPath = () => process.env.KORTIX_PT_ENV_PATH || PT_ENV_PATH
-
-function wantedSessionBranch(): string {
-  try {
-    const m = readFileSync(ptEnvPath(), 'utf8').match(/^KORTIX_BRANCH_NAME=(\S+)/m)
-    if (m?.[1]) return m[1]
-  } catch { /* no env file (local dev) */ }
-  return (process.env.KORTIX_BRANCH_NAME ?? '').trim()
-}
-
-/**
- * Whether THIS sandbox's session expects a repo — from the host-written env
- * file, NOT the frozen process env. A warm-snapshot fork resumes a daemon
- * whose process booted as a repo-less warm seed (autoClone unset), so
- * cfg.autoClone said "no repo required" and health reported ready ~100ms
- * after fork while adoption was still fetching the repo — the frontend then
- * stormed a mid-adoption runtime and stuck (caught live 2026-06-12, second
- * variant of the same class as wantedSessionBranch).
- */
-function sessionWantsRepo(cfgAutoClone: boolean): boolean {
-  if (cfgAutoClone) return true
-  try {
-    return /^KORTIX_PROJECT_AUTO_CLONE=1/m.test(readFileSync(ptEnvPath(), 'utf8'))
-  } catch {
-    return false
-  }
-}
+import { workspaceSetupStatus } from './workspace-setup'
 
 /**
  * The `/kortix/health` fields the host owns. Every harness reports them with
  * the same meaning; `routes/kortix/health.ts` adds the harness block and
- * computes `runtimeReady` from `repo_ready` plus the harness's own readiness.
+ * computes `runtimeReady` from the harness's own readiness. `repo`, `branch` and
+ * `commit_sha` describe a checkout in `/workspace` when an agent cloned one;
+ * the box never clones at boot, so none is required.
  */
 export async function readHostHealth(context: HarnessDiagnosticsContext) {
   const { cfg, bootState } = context
   const repoInfo = await readRepoInfo(cfg.projectTarget).catch(() => null)
-  const repoRequired = sessionWantsRepo(cfg.autoClone)
-  // A repo on disk isn't ready until it's on the SESSION branch: the clone
-  // path renames the repo into place BEFORE the branch checkout (which can
-  // wait seconds on a remote-branch fetch), and warm-seed forks resume on
-  // the seed's default branch until adoption re-checks-out. Without the
-  // branch gate, runtimeReady=true had a window where a prompt would land
-  // on the default branch (observed live: `main` at ready, session branch
-  // +3s). Seed builders have no session branch → gate inert for capture.
-  const wantBranch = repoRequired ? wantedSessionBranch() : ''
-  const repoReady = !repoRequired || (repoInfo !== null && (!wantBranch || repoInfo.branch === wantBranch))
   return {
     uptime_s: Math.floor((Date.now() - context.bootTime) / 1000),
     // Static web server (preview/static files). The bound port when up, else
     // null — surfaces "preview won't load because static-web never bound".
     static_web_port: context.staticWebPort,
-    repo_required: repoRequired,
-    repo_ready: repoReady,
     repo: repoInfo?.remoteUrl ?? null,
     branch: repoInfo?.branch ?? null,
     commit_sha: repoInfo?.commit ?? null,
@@ -93,14 +43,12 @@ export async function readHostHealth(context: HarnessDiagnosticsContext) {
     // the two; this is only the box's own answer. A pure read — never
     // triggers a reconcile attempt, so polling health cannot itself cause work.
     runtime_truth: await runtimeTruthReport(),
-    // The `/workspace` checkout, reported on its own: which transport
-    // delivered it (git | s3), the expected vs actual SHA, per-stage timings,
-    // and — when S3 was attempted and Git delivered instead — the classified
-    // reason. The workspace is not config: none of this is in `boot_timeline`.
-    workspace_provider: bootState.workspaceProvider ?? null,
+    // The agent's `workspace: { repos, setup }`, prepared in the background after start:
+    // null when it declares none. Never part of readiness.
+    workspace_setup: workspaceSetupStatus(),
     // In-container boot timeline (ms since process start): the daemon, the
     // config release the runtime boots from (`config-release-*`), and the
-    // runtime. No workspace step is in it; `workspace_provider` has those.
+    // runtime.
     boot_timeline: bootState.timeline,
     // Visible auth posture so misconfiguration doesn't silently downgrade.
     auth: cfg.sandboxToken ? 'configured' : 'unconfigured',

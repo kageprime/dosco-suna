@@ -131,10 +131,11 @@ describe('errors', () => {
     expect(status('chrome_denied')).toBe(403);
     expect(status('chrome_consent_timeout')).toBe(408);
   });
-  test('the body names the code and the connect URL', () => {
+  test('before launch the body names the code and no connect page', () => {
     const body = chromeErrorBody('chrome_offline', 'https://dosco.live/');
     expect(body.code).toBe('chrome_offline');
-    expect(body.connectUrl).toBe('https://dosco.live/settings/chrome');
+    // The web app has no /settings/chrome page until CHROME_LAUNCHED (#11436).
+    expect('connectUrl' in body).toBe(false);
     expect(body.error.length).toBeGreaterThan(10);
   });
 });

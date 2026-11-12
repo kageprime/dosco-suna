@@ -1,12 +1,24 @@
 'use client';
 
-import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import * as React from 'react';
 
+import { cva, VariantProps } from 'class-variance-authority';
 import { Close } from '../icons/close';
+import {
+  asChildRender,
+  composeRefs,
+  DismissProvider,
+  focusProps,
+  openState,
+  stateRender,
+  useDismissContent,
+  useDismissRoot,
+  useNativeButton,
+  type DismissHandlers,
+} from '../lib/base-ui-compat';
 import { withPortalContainer } from '../lib/portal-container';
 import { cn } from '../lib/utils';
-import { useUiStrings } from '../providers/ui-provider';
 import {
   dialogContentZ,
   DialogDepthProvider,
@@ -14,59 +26,97 @@ import {
   useDialogDepth,
   useDialogRootLayer,
 } from '../lib/z-stack';
-import { cva, VariantProps } from 'class-variance-authority';
+import { useUiStrings } from '../providers/ui-provider';
 import { buttonVariants } from './button';
 import { triggerVariants, type TriggerVariantProps } from './trigger-variants';
 
+export interface DialogProps {
+  open?: boolean;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  modal?: boolean;
+  children?: React.ReactNode;
+}
+
 /** @deprecated In feature code use `Modal` (`@kortix/ui/modal`). `Dialog` is the primitive other components build on. */
-const Dialog = ({ open, defaultOpen, onOpenChange, ...props }: DialogPrimitive.DialogProps) => {
+const Dialog = ({ open, defaultOpen, onOpenChange, modal, children }: DialogProps) => {
   const layer = useDialogRootLayer({ open, defaultOpen, onOpenChange });
+  const dismiss = useDismissRoot(layer.onOpenChange);
 
   return (
     <DialogDepthProvider depth={layer.depth}>
-      <DialogPrimitive.Root {...props} open={layer.open} onOpenChange={layer.onOpenChange} />
+      <DismissProvider kind="dialog" registry={dismiss.registry}>
+        <DialogPrimitive.Root open={layer.open} onOpenChange={dismiss.onOpenChange} modal={modal}>
+          {children}
+        </DialogPrimitive.Root>
+      </DismissProvider>
     </DialogDepthProvider>
   );
 };
 
-const DialogTrigger = ({
-  className,
-  variant,
-  size,
-  asChild,
-  ...props
-}: Omit<React.ComponentProps<typeof DialogPrimitive.Trigger>, 'size'> & TriggerVariantProps) => (
-  <DialogPrimitive.Trigger
-    asChild={asChild}
-    // With `asChild` the child owns its styling — merging ours would double it.
-    className={asChild ? className : cn(triggerVariants({ variant, size }), className)}
-    {...props}
-  />
+type ButtonLikeProps = Omit<React.ComponentPropsWithoutRef<'button'>, 'size'> & {
+  asChild?: boolean;
+};
+
+const DialogTrigger = React.forwardRef<HTMLButtonElement, ButtonLikeProps & TriggerVariantProps>(
+  ({ className, variant, size, asChild, children, ...props }, ref) => {
+    const slot = asChildRender(asChild, children);
+    const native = useNativeButton(asChild, children);
+    return (
+      <DialogPrimitive.Trigger
+        ref={composeRefs(ref, native.ref)}
+        {...props}
+        // With `asChild` the child owns its styling — merging ours would double it.
+        className={asChild ? className : cn(triggerVariants({ variant, size }), className)}
+        render={stateRender('button', openState, slot.render)}
+        nativeButton={native.nativeButton}
+      >
+        {slot.children}
+      </DialogPrimitive.Trigger>
+    );
+  },
 );
+DialogTrigger.displayName = 'DialogTrigger';
 
 const DialogPortal = withPortalContainer(DialogPrimitive.Portal);
 
-const DialogClose = DialogPrimitive.Close;
+const DialogClose = React.forwardRef<HTMLButtonElement, ButtonLikeProps>(
+  ({ asChild, children, ...props }, ref) => {
+    const slot = asChildRender(asChild, children);
+    const native = useNativeButton(asChild, children);
+    return (
+      <DialogPrimitive.Close
+        ref={composeRefs(ref, native.ref)}
+        {...props}
+        render={slot.render}
+        nativeButton={native.nativeButton}
+      >
+        {slot.children}
+      </DialogPrimitive.Close>
+    );
+  },
+);
+DialogClose.displayName = 'DialogClose';
 
-const DialogOverlay = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Overlay>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
->(({ className, style, ...props }, ref) => {
-  const depth = useDialogDepth();
+const DialogOverlay = React.forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<'div'>>(
+  ({ className, style, ...props }, ref) => {
+    const depth = useDialogDepth();
 
-  return (
-    <DialogPrimitive.Overlay
-      ref={ref}
-      className={cn(
-        'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 bg-black/65 backdrop-blur-xs duration-moderate',
-        className,
-      )}
-      style={{ zIndex: dialogOverlayZ(depth), ...style }}
-      {...props}
-    />
-  );
-});
-DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
+    return (
+      <DialogPrimitive.Backdrop
+        ref={ref}
+        className={cn(
+          'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-moderate fixed inset-0 bg-black/65 backdrop-blur-xs',
+          className,
+        )}
+        style={{ zIndex: dialogOverlayZ(depth), ...style }}
+        render={stateRender('div', openState)}
+        {...props}
+      />
+    );
+  },
+);
+DialogOverlay.displayName = 'DialogOverlay';
 
 const DialogVariants = cva(
   cn(
@@ -85,10 +135,62 @@ const DialogVariants = cva(
   },
 );
 
+/** The Radix `Content` props the dialog family still accepts. */
+export type DialogContentBaseProps = React.ComponentPropsWithoutRef<'div'> &
+  DismissHandlers & {
+    asChild?: boolean;
+    forceMount?: true;
+    onOpenAutoFocus?: (event: Event) => void;
+    onCloseAutoFocus?: (event: Event) => void;
+  };
+
+/**
+ * The dialog popup with the Radix content contract: `data-state`, dismiss
+ * handlers, auto-focus handlers and `forceMount`. `DialogContent`, `Sheet`,
+ * `Modal` and `AlertDialog` build on it.
+ */
+const DialogPopup = React.forwardRef<HTMLDivElement, DialogContentBaseProps>(
+  (
+    {
+      asChild,
+      children,
+      forceMount: _forceMount,
+      onEscapeKeyDown,
+      onPointerDownOutside,
+      onFocusOutside,
+      onInteractOutside,
+      onOpenAutoFocus,
+      onCloseAutoFocus,
+      ...props
+    },
+    ref,
+  ) => {
+    useDismissContent('dialog', {
+      onEscapeKeyDown,
+      onPointerDownOutside,
+      onFocusOutside,
+      onInteractOutside,
+    });
+    const slot = asChildRender(asChild, children);
+    const popupRef = React.useRef<HTMLDivElement | null>(null);
+    return (
+      <DialogPrimitive.Popup
+        ref={composeRefs(ref, popupRef)}
+        {...props}
+        {...focusProps(() => popupRef.current, onOpenAutoFocus, onCloseAutoFocus)}
+        render={stateRender('div', openState, slot.render)}
+      >
+        {slot.children}
+      </DialogPrimitive.Popup>
+    );
+  },
+);
+DialogPopup.displayName = 'DialogPopup';
+
 /** @deprecated In feature code use `ModalContent` (`@kortix/ui/modal`). */
 const DialogContent = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> &
+  HTMLDivElement,
+  DialogContentBaseProps &
     VariantProps<typeof DialogVariants> & {
       hideCloseButton?: boolean;
       showOverlay?: boolean;
@@ -103,6 +205,8 @@ const DialogContent = React.forwardRef<
       showOverlay = true,
       overlayClassName,
       style,
+      forceMount,
+      variant: _variant,
       ...props
     },
     ref,
@@ -111,9 +215,9 @@ const DialogContent = React.forwardRef<
     const strings = useUiStrings();
 
     return (
-      <DialogPortal>
+      <DialogPortal keepMounted={forceMount}>
         {showOverlay && <DialogOverlay className={overlayClassName} />}
-        <DialogPrimitive.Content
+        <DialogPopup
           ref={ref}
           className={cn(DialogVariants({ variant: 'default' }), className)}
           style={{ zIndex: dialogContentZ(depth), ...style }}
@@ -131,12 +235,12 @@ const DialogContent = React.forwardRef<
               <span className="sr-only">{strings.close}</span>
             </DialogPrimitive.Close>
           )}
-        </DialogPrimitive.Content>
+        </DialogPopup>
       </DialogPortal>
     );
   },
 );
-DialogContent.displayName = DialogPrimitive.Content.displayName;
+DialogContent.displayName = 'DialogContent';
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div className={cn('flex flex-col space-y-1.5 text-center sm:text-left', className)} {...props} />
@@ -152,28 +256,30 @@ const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
 DialogFooter.displayName = 'DialogFooter';
 
 const DialogTitle = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Title>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
->(({ className, ...props }, ref) => (
+  HTMLHeadingElement,
+  React.ComponentPropsWithoutRef<'h2'> & { asChild?: boolean }
+>(({ className, asChild, children, ...props }, ref) => (
   <DialogPrimitive.Title
+    {...asChildRender(asChild, children)}
     ref={ref}
     className={cn('text-lg leading-none font-semibold tracking-tight', className)}
     {...props}
   />
 ));
-DialogTitle.displayName = DialogPrimitive.Title.displayName;
+DialogTitle.displayName = 'DialogTitle';
 
 const DialogDescription = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Description>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
->(({ className, ...props }, ref) => (
+  HTMLParagraphElement,
+  React.ComponentPropsWithoutRef<'p'> & { asChild?: boolean }
+>(({ className, asChild, children, ...props }, ref) => (
   <DialogPrimitive.Description
+    {...asChildRender(asChild, children)}
     ref={ref}
     className={cn('text-muted-foreground text-sm', className)}
     {...props}
   />
 ));
-DialogDescription.displayName = DialogPrimitive.Description.displayName;
+DialogDescription.displayName = 'DialogDescription';
 
 export {
   Dialog,
@@ -183,6 +289,7 @@ export {
   DialogFooter,
   DialogHeader,
   DialogOverlay,
+  DialogPopup,
   DialogPortal,
   DialogTitle,
   DialogTrigger,

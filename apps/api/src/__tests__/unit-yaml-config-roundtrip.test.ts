@@ -190,8 +190,8 @@ describe('a non-trigger edit keeps the file as written', () => {
     'agents:',
     '  worker:',
     '    tools: [read, bash]',
-    '    # Full checkout: this agent edits files.',
-    '    workspace: { project_repository: true }',
+    '    # Its own machine: the platform image.',
+    '    sandbox: default',
     '    secrets: all',
     '',
   ].join('\n');
@@ -206,7 +206,7 @@ describe('a non-trigger edit keeps the file as written', () => {
     const written = serializeManifest(manifest);
     for (const comment of SOURCE.match(/#.*/g) ?? []) expect(written).toContain(comment);
     expect(written).toContain('    tools: [read, bash]\n');
-    expect(written).toContain('    workspace: { project_repository: true }\n');
+    expect(written).toContain('    sandbox: default\n');
     expect(parseManifestString(written, 'kortix.yaml').raw).toEqual(manifest.raw);
   });
 });

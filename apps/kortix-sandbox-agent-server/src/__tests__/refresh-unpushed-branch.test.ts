@@ -89,6 +89,19 @@ function cfg(): Config {
 }
 
 describe('refreshRepo with an unpushed session branch', () => {
+  test('a session with no checkout at all is a no-op, not a failure', async () => {
+    // A fresh session boots with an empty /workspace — no clone, no .git.
+    // There is nothing to fetch or pull, so the refresh reports the absence
+    // ({before: null, after: null}) instead of failing the reload.
+    const empty = join(root, 'no-checkout')
+    mkdirSync(empty)
+
+    const result = await refreshRepo({ ...cfg(), projectTarget: empty })
+
+    expect(result.before).toBeNull()
+    expect(result.after).toBeNull()
+  })
+
   test('does not throw, and the session keeps its own commits on its own branch', async () => {
     // Before the fix this rejected with
     // `git fetch refresh failed: fatal: couldn't find remote ref …`.
@@ -99,8 +112,8 @@ describe('refreshRepo with an unpushed session branch', () => {
 
     const result = await refreshRepo(cfg())
 
-    expect(result.before.commit).toBe(head)
-    expect(result.after.commit).toBe(head)
+    expect(result.before?.commit).toBe(head)
+    expect(result.after?.commit).toBe(head)
     expect(gitOut(['rev-parse', 'HEAD'], work)).toBe(head)
     expect(gitOut(['rev-parse', '--abbrev-ref', 'HEAD'], work)).toBe(SESSION_ID)
   })
@@ -121,7 +134,7 @@ describe('refreshRepo with an unpushed session branch', () => {
     const result = await refreshRepo(cfg())
 
     expect(gitOut(['rev-parse', 'HEAD'], work)).toBe(expected)
-    expect(result.after.commit).toBe(expected)
+    expect(result.after?.commit).toBe(expected)
   })
 
   test('a genuine fetch failure is still fatal', async () => {

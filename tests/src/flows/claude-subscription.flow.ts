@@ -8,6 +8,7 @@ import { Client } from '../core/client';
 import { flow } from '../core/flow';
 import { waitFor } from '../core/poll';
 import { createDatabaseSession } from '../fixtures/database-project';
+import { lockProjectFirst } from '../fixtures/token-binding-lock';
 
 // Synthetic: the shape `claude setup-token` prints, not a real token.
 const TOKEN = `sk-ant-oat01-${'e2eSyntheticClaudeToken_'.repeat(3)}0123456789`;
@@ -294,7 +295,7 @@ flow(
         const minted = (await asHolder.post('/v1/accounts/tokens', { name: 'Claude session', account_id: team.id })).status(201)
           .json<{ token_id: string; secret_key: string }>();
         await db.query("INSERT INTO kortix.session_sandboxes (sandbox_id, session_id, account_id, project_id, status) VALUES ($1::uuid, $1, $2, $3, 'active')", [sessionId, team.id, project.id]);
-        await db.query('UPDATE kortix.account_tokens SET project_id = $2, session_id = $3, agent_grant = $4::jsonb, account_id = $5 WHERE token_id = $1', [
+        await db.query(lockProjectFirst('UPDATE kortix.account_tokens SET project_id = $2, session_id = $3, agent_grant = $4::jsonb, account_id = $5 WHERE token_id = $1'), [
           minted.token_id, project.id, sessionId, JSON.stringify({ agent: 'worker', permissions: 'all', connectors: 'all', env: 'all' }), team.id,
         ]);
         sessionKey = minted.secret_key;

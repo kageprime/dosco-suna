@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@kortix/ui';
-import { AnimatePresence, m } from 'motion/react';
+import { m } from 'motion/react';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import {
@@ -23,9 +23,10 @@ export function KortixLetterField({ seed = 3382, className }: KortixLetterFieldP
   const [grid, setGrid] = useState<GridLayout>(() => computeGrid(1200, 800));
   // Resolved foreground color + dark-mode flag, read live from the container so
   // the SVG (rendered as a background image, which can't use `currentColor`)
-  // still tracks `--foreground` and theme toggles.
-  const [color, setColor] = useState('rgb(20,20,20)');
-  const [isDark, setIsDark] = useState(false);
+  // still tracks `--foreground` and theme toggles. One state object: both
+  // values are only ever set together in `readColor`, so a resize or theme
+  // flip costs one render.
+  const [palette, setPalette] = useState({ color: 'rgb(20,20,20)', isDark: false });
 
   useLayoutEffect(() => {
     const el = containerRef.current;
@@ -33,11 +34,11 @@ export function KortixLetterField({ seed = 3382, className }: KortixLetterFieldP
 
     const readColor = () => {
       const resolved = window.getComputedStyle(el).color;
-      setColor(resolved || 'rgb(20,20,20)');
       // `.dark` is the theme class (see globals.css `@custom-variant dark`).
-      setIsDark(
-        el.closest('.dark') !== null || document.documentElement.classList.contains('dark'),
-      );
+      setPalette({
+        color: resolved || 'rgb(20,20,20)',
+        isDark: el.closest('.dark') !== null || document.documentElement.classList.contains('dark'),
+      });
     };
 
     const update = () => {
@@ -83,31 +84,30 @@ export function KortixLetterField({ seed = 3382, className }: KortixLetterFieldP
   // `<span>` grid leaked scrambled `t p e x 1 o c i0…` tokens into the page's
   // text content. See `kortix-letter-field.cells.ts` for the pure helpers
   // (and `kortix-letter-field.cells.test.ts` for the coverage).
+  const { color, isDark } = palette;
   const backgroundImage = useMemo(() => {
     const svg = buildFieldSvg(tokens, grid, color, isDark);
     return `url("${svgToDataUri(svg)}")`;
   }, [tokens, grid, color, isDark]);
 
   return (
-    <AnimatePresence>
-      <m.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5, ease: 'easeInOut' }}
-        ref={containerRef}
-        className={cn(
-          'text-foreground pointer-events-none absolute inset-0 overflow-hidden select-none',
-          className,
-        )}
-        aria-hidden
-        data-a11y-decorative
-        style={{
-          backgroundImage,
-          backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'center',
-          backgroundSize: 'cover',
-        }}
-      />
-    </AnimatePresence>
+    <m.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5, ease: 'easeInOut' }}
+      ref={containerRef}
+      className={cn(
+        'text-foreground pointer-events-none absolute inset-0 overflow-hidden select-none',
+        className,
+      )}
+      aria-hidden
+      data-a11y-decorative
+      style={{
+        backgroundImage,
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'center',
+        backgroundSize: 'cover',
+      }}
+    />
   );
 }

@@ -22,7 +22,7 @@ globals.requestAnimationFrame = (cb: () => void) => setTimeout(cb, 0);
 globals.cancelAnimationFrame = (id: number) => clearTimeout(id);
 globals.getComputedStyle = win.getComputedStyle.bind(win);
 for (const key of Object.getOwnPropertyNames(win)) {
-  // Radix dispatches happy-dom's own event classes, not Bun's.
+  // Base UI dispatches happy-dom's own event classes, not Bun's.
   if (/^[A-Z]/.test(key) && (!(key in globals) || key.endsWith('Event'))) {
     globals[key] = Reflect.get(win, key);
   }

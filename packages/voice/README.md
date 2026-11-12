@@ -16,6 +16,8 @@ With the flag off, nothing here is imported and no port opens.
 
 ## The call, from the browser
 
+A person places a call from an empty composer, whose send button becomes a call button (`packages/ui/src/session/voice/composer-call.ts`): in a session it calls that session, and on the project home it creates a session and calls it. The agent page (Customize → Agents) has a Call button too. Either way the call card (`packages/ui/src/session/voice/voice-call-card.tsx`) runs the call.
+
 The web app reaches the relay through the sandbox port proxy: `wss://<api>/v1/p/<sandbox>/6902/stream?session=<id>&token=<jwt>`.
 
 | Direction | Message |

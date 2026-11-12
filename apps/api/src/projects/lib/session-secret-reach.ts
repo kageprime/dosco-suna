@@ -90,6 +90,7 @@ export async function resolveSessionSecretReach(
     defaultBranch: project.defaultBranch,
     manifestPath: project.manifestPath,
     sessionAgent: agent,
+    sessionId,
     // The human may have just changed the grant in Customize; read it fresh.
     forceRefresh: true,
   });
@@ -137,7 +138,8 @@ export function withheldSecretsFix(agent: string, withheld: WithheldSecret[]): s
     parts.push(
       `${byGrant.join(', ')} ${byGrant.length === 1 ? 'is' : 'are'} not in agent "${agent}"'s secrets grant, ` +
         'so this session never receives the value, even when it is set. ' +
-        'An agent session cannot widen its own grant; a person with project access must. ' +
+        'Widening the grant needs project.agent.write and project.secret.read: an owner, admin or manager holds both, ' +
+        'and so does an agent session acting for one when its kortix_permissions list them. ' +
         `Fix: in the web app open Customize → Agents → ${agent} → Secrets and enable ` +
         `${byGrant.length === 1 ? 'it' : 'them'} (or, from their own CLI: \`${grantCommand}\`). ` +
         'Dosco pushes the change to this session when it is saved; run `kortix secrets sync` ' +

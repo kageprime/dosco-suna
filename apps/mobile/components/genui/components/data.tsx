@@ -43,9 +43,10 @@ export function GenuiStat({ props }: GenuiComponentProps) {
   return (
     <View className={inRow ? 'flex-1 gap-0.5 px-4 py-3' : 'gap-0.5 rounded-2xl bg-card px-4 py-3'}>
       <Text variant="muted">{props.label}</Text>
-      <View className="flex-row items-baseline gap-1">
+      {/* Wraps: at a large text size in a half-width cell a long value and its unit break onto two lines, never past the card. */}
+      <View className="flex-row flex-wrap items-baseline gap-x-1">
         {/* `large` / `h4` for the size; medium, as on web: the number is not a heading. */}
-        <Text variant={inRow ? 'large' : 'h4'} className="font-medium tabular-nums">
+        <Text variant={inRow ? 'large' : 'h4'} className="shrink font-medium tabular-nums">
           {props.value}
         </Text>
         {props.unit ? <Text variant="muted">{props.unit}</Text> : null}
@@ -181,10 +182,13 @@ export function GenuiCompare({ props }: GenuiComponentProps) {
             </Text>
           </View>
           {/* Keyed by position: a model may repeat a spec label or a note. */}
+          {/* The label takes at most 45% and wraps; the value takes the rest, right-aligned, so neither pushes the other off the card. */}
           {specs.map((spec, i) => (
             <View key={i} className="flex-row justify-between gap-3">
-              <Text variant="muted">{spec}</Text>
-              <Text className="shrink text-right">{strings(item.props.values)[i] ?? '—'}</Text>
+              <Text variant="muted" className="max-w-[45%] shrink">
+                {spec}
+              </Text>
+              <Text className="flex-1 text-right">{strings(item.props.values)[i] ?? '—'}</Text>
             </View>
           ))}
           {strings(item.props.pros).map((pro, i) => (

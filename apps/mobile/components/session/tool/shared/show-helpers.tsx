@@ -4,7 +4,8 @@
  * Mirrors apps/web `tool/shared/show-helpers.tsx`:
  * - `useShowOpenInTab` — an HTML file → its static-server preview, a localhost
  *   URL → the sandbox preview, both in-session (`SandboxPreviewSheet`, KRTX-602);
- *   a safe http(s) URL → external; a path → the file viewer (`showOpenTarget`;
+ *   an app link to an artifact of this project → the artifact viewer sheet
+ *   (`openArtifactLink`); any other safe http(s) URL → external; a path → the file viewer (`showOpenTarget`;
  *   see `navigation.tsx` for each mobile target);
  * - `ShowFileActions` — web: Refresh · Full screen · "Preview". Mobile: Refresh
  *   · "Preview" inline, Refresh · Full screen in the panel (`showFileActions`):
@@ -23,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { ArrowClockwiseIcon, ArrowsOutSimpleIcon, type AppIcon } from '@/lib/icons';
+import { openArtifactLink } from '@/lib/artifacts/open-artifact-link';
 import { fileKeys } from '@/lib/files/hooks';
 import { showFileActions, showOpenTarget, type ShowRowModel } from '@/lib/session/tools/web-show';
 import { useSandboxImage } from '@/components/session/turn/use-sandbox-image';
@@ -53,6 +55,9 @@ export function useShowOpenInTab(props: { type: string; url: string; path: strin
       return;
     }
     if (target.kind === 'external') {
+      // An artifact of this project opens in the artifact viewer, over the
+      // session; any other link (a public share link included) in the browser.
+      if (enabled && openArtifactLink(target.url, title)) return;
       openExternal(target.url);
       return;
     }

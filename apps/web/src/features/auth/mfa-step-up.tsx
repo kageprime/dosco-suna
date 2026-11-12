@@ -142,7 +142,7 @@ export function MfaChallengeDialog({ open, dismissible, onDismiss, onVerified }:
       }}
     >
       {/* Full screen: the challenge replaces the page instead of floating on a
-          dimmed one. Radix still owns focus, Escape and the a11y tree. */}
+          dimmed one. The dialog still owns focus, Escape and the a11y tree. */}
       <DialogContent
         showOverlay={false}
         hideCloseButton

@@ -1,3 +1,4 @@
+import { MERMAID_DIAGRAM_STARTERS } from '@kortix/shared/markdown-math';
 import type { Mermaid } from 'mermaid';
 /**
  * Mermaid configuration and render cleanup, kept apart from the component so
@@ -82,29 +83,11 @@ export async function renderMermaidSvg(source: string, onStart: () => void): Pro
   // Check for basic Mermaid syntax
   const firstLine = source.split('\n')[0].toLowerCase().trim();
   const validStarters = [
-    'graph',
-    'flowchart',
-    'sequencediagram',
+    ...MERMAID_DIAGRAM_STARTERS,
+    // Short aliases only `includes` matching reaches.
     'sequence',
-    'classdiagram',
     'class',
-    'statediagram',
     'state',
-    'erdiagram',
-    'journey',
-    'gantt',
-    'pie',
-    'gitgraph',
-    'mindmap',
-    'timeline',
-    'sankey',
-    'block',
-    'quadrant',
-    'requirement',
-    'c4context',
-    'c4container',
-    'c4component',
-    'c4dynamic',
   ];
 
   const hasValidStarter = validStarters.some(

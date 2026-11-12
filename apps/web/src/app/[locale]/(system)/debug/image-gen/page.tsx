@@ -23,6 +23,7 @@ import '@kortix/ui/session/tool/tools/register';
 import { sessionLogOfV1Rows, sessionLogTurns } from '@kortix/sdk';
 import { binaryBlobKeys, useRuntimeStore, useSessionStateStore } from '@kortix/sdk/react';
 import { SessionTurn, TurnViewport } from '@kortix/ui/session';
+import { Button } from '@kortix/ui/button';
 import { SESSION_TRANSCRIPT_CLASS } from '@kortix/ui/session/thread/session-body';
 
 const SESSION_ID = 'ses_DebugImageGenRun';
@@ -136,19 +137,6 @@ async function drawImage(shape: Shape, index: number): Promise<Blob> {
   return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob!), 'image/png'));
 }
 
-function ShapeButton({ shape, active, onClick }: { shape: Shape; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className="border-border text-muted-foreground hover:text-foreground aria-pressed:text-foreground aria-pressed:bg-muted rounded-md border px-3 py-1.5 text-xs"
-    >
-      {shape}
-    </button>
-  );
-}
-
 export default function ImageGenRunPage() {
   const [shape, setShape] = useState<Shape>('9:16');
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { enabled: false, retry: false } } }));
@@ -185,7 +173,15 @@ export default function ImageGenRunPage() {
           <header className="border-border bg-background sticky top-0 z-10 flex items-center gap-2 border-b px-4 py-3">
             <p className="mr-auto text-sm font-medium">Image run</p>
             {(Object.keys(SHAPES) as Shape[]).map((one) => (
-              <ShapeButton key={one} shape={one} active={one === shape} onClick={() => setShape(one)} />
+              <Button
+                key={one}
+                size="xs"
+                variant={one === shape ? 'secondary' : 'ghost'}
+                aria-pressed={one === shape}
+                onClick={() => setShape(one)}
+              >
+                {one}
+              </Button>
             ))}
           </header>
           <div role="log" data-testid="image-gen-run" className={SESSION_TRANSCRIPT_CLASS}>

@@ -24,6 +24,11 @@ import type { ReactNode } from 'react';
 import { Badge } from '../../primitives/badge';
 import { Close } from '../../icons/close';
 import { cn } from '../../lib/utils';
+import {
+  attachmentExtension,
+  isPreviewableImage,
+  splitFilenameForTile,
+} from '@kortix/shared/session/attachment-tile';
 
 /** The square every attachment is. `size-28` (~103px on the 0.23rem scale) —
  *  Jay's call, 2026-09-06: the 88px square read as cramped beside the name. */
@@ -37,52 +42,14 @@ export const TILE_SURFACE =
 export const TILE_INTERACTIVE =
   'hover:bg-accent cursor-pointer transition-colors duration-fast active:scale-[0.96]';
 
-/**
- * Which files the tile shows AS A PICTURE. Raster images only. An SVG is text
- * that happens to draw — a logo file on a tile is a black blob at 100px, and
- * its name is what tells it from the next logo file (Jay, 2026-09-06). It
- * gets the named treatment, badge and all.
- */
-export function isPreviewableImage(filename: string, mime?: string): boolean {
-  const ext = attachmentExtension(filename, mime);
-  if (ext === 'svg') return false;
-  return (mime ?? '').toLowerCase().startsWith('image/');
-}
-
-/** What the tile prints in the file's corner. Lowercase, from the name first
- *  and the MIME subtype second; empty when neither says anything. */
-export function attachmentExtension(filename: string, mime?: string): string {
-  const dot = filename.lastIndexOf('.');
-  if (dot > 0 && dot < filename.length - 1) {
-    const ext = filename
-      .slice(dot + 1)
-      .trim()
-      .toLowerCase();
-    if (ext.length > 0 && ext.length <= 8 && !/\s/.test(ext)) return ext;
-  }
-  const subtype = (mime ?? '').split('/')[1]?.split(';')[0]?.trim().toLowerCase() ?? '';
-  if (!subtype) return '';
-  // `svg+xml` → `svg`, `x-icon` → `icon`, `vnd.ms-excel` → `excel`.
-  return subtype.split('+')[0]!.replace(/^x-/, '').split('.').pop() ?? '';
-}
-
-/**
- * How a name is laid out on the tile.
- *
- * A short name wraps over two lines as the browser sees fit. A long one is
- * split: the first line is the head, ellipsized by CSS at the tile's edge, and
- * the second line is the last ten characters verbatim — the part that carries
- * the extension and tells `…-chatux.md` from `…-ux.md`. A single middle
- * ellipsis in one string wrapped wherever the browser chose, and left a
- * dangling hyphen at the end of line one (2026-09-06).
- */
-export const LONG_NAME_THRESHOLD = 24;
-export const NAME_TAIL_CHARS = 10;
-
-export function splitFilenameForTile(name: string): { head: string; tail: string } | null {
-  if (name.length <= LONG_NAME_THRESHOLD) return null;
-  return { head: name.slice(0, -NAME_TAIL_CHARS), tail: name.slice(-NAME_TAIL_CHARS) };
-}
+/** The five tile rules live once in `@kortix/shared/session/attachment-tile`. */
+export {
+  LONG_NAME_THRESHOLD,
+  NAME_TAIL_CHARS,
+  attachmentExtension,
+  isPreviewableImage,
+  splitFilenameForTile,
+} from '@kortix/shared/session/attachment-tile';
 
 /** A tile previews the head of the paste only: the clamp shows four lines, and the DOM need not hold 100 kB. */
 export const PASTE_PREVIEW_CHARS = 400;

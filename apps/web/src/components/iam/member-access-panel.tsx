@@ -91,8 +91,8 @@ import {
 } from '@/lib/iam-client';
 import { usePermission, usePermissionsFor } from '@kortix/ui/workspace';
 import { cn } from '@kortix/ui';
+import { useAccountMembers } from '@kortix/ui/internal/account-hub/use-account-members';
 import {
-  listAccountMembers,
   listProjectResourceGrants,
   removeAccountMember,
   type IamPolicy,
@@ -195,11 +195,7 @@ export function MemberAccessPanel({
   const [editOpen, setEditOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
 
-  const membersQuery = useQuery({
-    queryKey: ['account-members', accountId],
-    queryFn: () => listAccountMembers(accountId),
-    ...contract('directory'),
-  });
+  const membersQuery = useAccountMembers(accountId);
 
   // Server-side derivation of this member's group memberships. Drives the
   // "Groups" section so admins can see at a glance which policies the user
@@ -679,9 +675,9 @@ function MemberProjectAccessSection({
           title={tI18nComplete.raw('text5b9616df2058')}
           description={
             isAdminLike
-              ? tI18nComplete('textdfad83e7eb69', {
-                  value0: accountRole === 'owner' ? 'Owners' : 'Admins',
-                })
+              ? accountRole === 'owner'
+                ? tI18nComplete.raw('textcf42cb2f1ca3')
+                : tI18nComplete.raw('textd7e2d4bc4c80')
               : tI18nComplete.raw('text25cc3dcfa2a5')
           }
         />

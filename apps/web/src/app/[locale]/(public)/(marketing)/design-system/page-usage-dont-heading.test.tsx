@@ -72,6 +72,12 @@ beforeAll(() => {
       scrollY: 0,
       setTimeout,
       clearTimeout,
+      // Floating UI (behind Base UI's popups) checks `node instanceof window.Element`;
+      // this stub has no DOM, so nothing is an element.
+      Element: class {},
+      HTMLElement: class {},
+      Node: class {},
+      ShadowRoot: class {},
     },
     configurable: true,
   });

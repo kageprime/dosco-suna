@@ -2,6 +2,7 @@ import { runWorkerTick } from '../../shared/audit-scope';
 import { leaderTimer } from '../../shared/leader-timer';
 import {
   type AuditReconciliationFailureState,
+  activePageDelayMs,
   AuditReconciliationPageError,
   nextAuditReconciliationCursor,
   nextAuditReconciliationFailureDecision,
@@ -18,6 +19,7 @@ const job = leaderTimer(
   () =>
     runWorkerTick('audit-reconciliation', async () => {
       try {
+        const pageStartedAt = Date.now();
         const previousAccountId = lastScannedAccountId;
         const page = await runAuditReconciliationPage(previousAccountId);
         failureState = { consecutiveFailures: 0, failingAccountId: null };
@@ -26,7 +28,9 @@ const job = leaderTimer(
           // source-ledger page. Advancing here limited a large backfill to one
           // page per full account scan (and one scan per idle interval).
           lastScannedAccountId = nextAuditReconciliationCursor(previousAccountId, page);
-          return ACTIVE_DELAY_MS;
+          // Self-paced duty cycle: a page that just cost N ms of database
+          // re-fires no sooner than N ms later (activePageDelayMs).
+          return activePageDelayMs(Date.now() - pageStartedAt, ACTIVE_DELAY_MS);
         } else {
           lastScannedAccountId = null;
           return IDLE_DELAY_MS;

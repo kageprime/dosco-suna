@@ -251,6 +251,13 @@ describe('actionableSuggestion', () => {
 });
 
 describe('describeTurnErrorRow', () => {
+  test("a provider's own out-of-credits refusal is not the Dosco credits card", () => {
+    const gateway = { code: 'provider_payment_required', provider: 'openrouter' };
+    expect(describeTurnErrorRow({ text: 'Insufficient credits. Add more using https://openrouter.ai/credits', gateway }).kind)
+      .toBe('checkpoint');
+    expect(describeTurnErrorRow({ text: 'Insufficient credits. Balance: -6 credits' }).kind).toBe('billing-card');
+  });
+
   test('a Dosco entitlement sentence routes to the boxed card', () => {
     expect(describeTurnErrorRow({ text: 'Free usage exceeded, subscribe to Go' })).toEqual({
       kind: 'billing-card',

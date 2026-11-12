@@ -1,5 +1,5 @@
-import { and, eq, inArray } from 'drizzle-orm';
-import { chatChannelBindings, chatInstalls } from '@kortix/db';
+import { and, eq } from 'drizzle-orm';
+import { chatChannelBindings } from '@kortix/db';
 import { db } from '../../shared/db';
 import { config } from '../../config';
 import { lookupEmailsByUserIds } from '../../accounts/core/app';
@@ -7,9 +7,10 @@ import { labelForModelRef } from '../../llm-gateway/models/picker';
 import { resolveEffectiveModel } from '../../llm-gateway/resolution/default-model';
 import { chooseEffectiveAgent } from '../../llm-gateway/resolution/effective';
 import { lookupChatIdentity } from '../core/identity';
-import { changeChannelAgent, changeChannelPolicy, unbindChannel } from '../core/settings';
+import { changeChannelAgent, changeChannelPolicy } from '../core/settings';
 import { applySlackModelChoice, buildSlackModelsResponse } from './model-choice';
-import { settingsRefusalText, slackSettingsChannel, slackUserOf } from './settings-text';
+import { linkedSlackProject } from './link';
+import { settingsRefusalText, slackSettingsChannel, slackUserOf, slashChannel } from './settings-text';
 import { buildAgentPickerBlocks, loadScopedChannelAgents } from './agent-picker';
 import { channelModelContext } from './model-gate';
 import { conversationPolicyLabel, normalizeConversationPolicy } from './participants';
@@ -25,6 +26,9 @@ import { projectsView } from '../../workspaces/rows';
 // lives in core/settings.ts.
 
 const ephemeral = (text: string): SlashResponse => ({ response_type: 'ephemeral', text });
+
+/** The answer when this Slack workspace runs in no Kortix workspace. */
+export const NO_LINK_TEXT = 'No Kortix workspace is connected to this Slack workspace. Add Kortix to Slack from a Kortix workspace: Customize → Connectors → Slack.';
 
 /** The reply for an agent change, shared by `/kortix agent` and the agent picker buttons. */
 export function agentChangeText(
@@ -46,7 +50,6 @@ export function agentChangeText(
 
 // ── Projects ─────────────────────────────────────────────────────────────────
 
-type WorkspaceProject = { projectId: string; name: string; repoUrl: string };
 
 /** The repository line: a link people can open, or "Hosted by Kortix" for a private Kortix-hosted repo. */
 function repoLine(repoUrl: string): string {
@@ -55,135 +58,21 @@ function repoLine(repoUrl: string): string {
 }
 
 /**
- * `/kortix projects` (`list`) and `/kortix switch` (`switch`): the projects
- * installed in this workspace, with the channel's current one marked. Every
- * card offers "Switch to this"; the switch itself is `switch_project_*`.
+ * `/kortix workspaces`, `switch`, `use`, `unbind`: one Slack workspace runs in
+ * one Kortix workspace (slack/link.ts), so there is nothing to pick per
+ * channel. The answer names the Kortix workspace and how to move the link.
  */
-async function projectPicker(ctx: SlashCtx, mode: 'list' | 'switch'): Promise<SlashResponse> {
-  const rows = await listWorkspaceProjects(ctx.teamId);
-  const dashboard = dashboardBase(config.FRONTEND_URL);
-  if (rows.length === 0) {
-    return {
-      response_type: 'ephemeral',
-      blocks: [
-        {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: mode === 'list'
-              ? '*No Kortix workspaces connected yet.*\nHead to your Kortix dashboard to link one to this Slack workspace.'
-              : '*No other Kortix workspace to switch to.*\nLink a Kortix workspace to this Slack workspace from your Kortix dashboard first.',
-          },
-          accessory: {
-            type: 'button',
-            text: { type: 'plain_text', text: 'Open dashboard', emoji: true },
-            style: 'primary',
-            url: dashboard,
-            action_id: mode === 'list' ? 'projects_empty_dashboard' : 'switch_empty_dashboard',
-          },
-        },
-      ],
-    };
-  }
-  const current = await currentChannelProjectId(ctx);
-  const header = mode === 'list' ? `Connected workspaces · ${rows.length}` : 'Switch this channel to…';
-  const blocks: Array<Record<string, unknown>> = [
-    { type: 'header', text: { type: 'plain_text', text: header, emoji: true } },
-  ];
-  if (rows.length >= 2) {
-    blocks.push({ type: 'carousel', elements: rows.map((p) => projectCard(p, p.projectId === current, ctx.channelId, mode)) });
-    return { response_type: 'ephemeral', blocks };
-  }
-  const p = rows[0];
-  const isBound = p.projectId === current;
-  const repo = repoLine(p.repoUrl);
-  if (mode === 'switch') {
-    blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `Only one Kortix workspace connected: *${escapeMrkdwn(p.name)}*\n${repo}` } });
-    return { response_type: 'ephemeral', blocks };
-  }
-  const og = (await repoPreviewImages([p.repoUrl], { waitMs: SLACK_PREVIEW_WAIT_MS })).get(p.repoUrl);
-  blocks.push({
-    type: 'section',
-    text: { type: 'mrkdwn', text: `${isBound ? '✓ ' : '🟢 '}*${escapeMrkdwn(p.name)}*\n${repo}\n${isBound ? '🟢  Bound to this channel.' : ''}` },
-    ...(og ? { accessory: { type: 'image', image_url: og, alt_text: `${p.name} repo` } } : {}),
-  });
-  blocks.push({
-    type: 'actions',
-    elements: [
-      {
-        type: 'button',
-        text: { type: 'plain_text', text: 'Open workspace', emoji: true },
-        style: 'primary',
-        url: `${dashboard}/workspaces/${p.projectId}`,
-        action_id: `projects_open_${p.projectId}`,
-      },
-    ],
-  });
-  return { response_type: 'ephemeral', blocks };
-}
-
-function projectCard(p: WorkspaceProject, isBound: boolean, channelId: string, mode: 'list' | 'switch'): Record<string, unknown> {
-  const switchValue = JSON.stringify({ p: p.projectId, c: channelId });
-  const title = { type: 'mrkdwn', text: `${isBound ? '✓ ' : ''}*${escapeMrkdwn(p.name)}*` };
-  const subtitle = { type: 'mrkdwn', text: `_${escapeMrkdwn(repoDisplayLabel(p.repoUrl) ?? '')}_` };
-  if (mode === 'switch') {
-    return {
-      type: 'card',
-      block_id: `switch_${p.projectId}`,
-      title,
-      subtitle,
-      body: { type: 'mrkdwn', text: isBound ? 'Currently bound to this channel.' : 'Pick this to route `@`-mentions here to this Kortix workspace.' },
-      actions: [
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: isBound ? '✓ Current' : 'Pick this', emoji: true },
-          style: isBound ? undefined : 'primary',
-          action_id: `switch_project_${p.projectId}`,
-          value: switchValue,
-        },
-      ],
-    };
-  }
-  return {
-    type: 'card',
-    block_id: `proj_${p.projectId}`,
-    title,
-    subtitle,
-    body: {
-      type: 'mrkdwn',
-      text: isBound ? '🟢  Bound to this channel — `@`-mentions here go to this Kortix workspace.' : '🟢  Connected to this Slack workspace.',
-    },
-    actions: [
-      {
-        type: 'button',
-        text: { type: 'plain_text', text: 'Open', emoji: true },
-        style: 'primary',
-        url: `${dashboardBase(config.FRONTEND_URL)}/workspaces/${p.projectId}`,
-        action_id: `projects_open_${p.projectId}`,
-      },
-      ...(!isBound
-        ? [{ type: 'button', text: { type: 'plain_text', text: 'Switch to this', emoji: true }, action_id: `switch_project_${p.projectId}`, value: switchValue }]
-        : []),
-    ],
-  };
-}
-
-export const slashProjects = (ctx: SlashCtx) => projectPicker(ctx, 'list');
-export const slashSwitch = (ctx: SlashCtx) => projectPicker(ctx, 'switch');
-
-export async function slashUnbind(ctx: SlashCtx): Promise<SlashResponse> {
-  if (!ctx.channelId) return ephemeral('No channel context — run this from inside a channel.');
-  const result = await unbindChannel(slackUserOf(ctx), slackSettingsChannel(ctx));
-  if (!result.ok) return ephemeral(settingsRefusalText(result.reason, ctx.command, ''));
-  return {
-    response_type: 'ephemeral',
-    blocks: [
-      {
-        type: 'section',
-        text: { type: 'mrkdwn', text: '*Unbound.*\nThe next `@`-mention will show the workspace picker again.' },
-      },
-    ],
-  };
+export async function slashLinkInfo(ctx: SlashCtx): Promise<SlashResponse> {
+  const projectId = await linkedSlackProject(ctx.teamId);
+  const [p] = projectId
+    ? await db.select({ name: projectsView.name }).from(projectsView).where(eq(projectsView.projectId, projectId)).limit(1)
+    : [];
+  const text = p
+    ? `This Slack workspace runs in the Kortix workspace *${escapeMrkdwn(p.name)}*: every channel and DM here. ` +
+      `Choose a channel's agent with \`${ctx.command} agents\`.\n` +
+      'To move Slack to another Kortix workspace, add Kortix to Slack from that workspace (Customize → Connectors → Slack). The connection moves there.'
+    : NO_LINK_TEXT;
+  return { response_type: 'ephemeral', blocks: [{ type: 'section', text: { type: 'mrkdwn', text } }] };
 }
 
 // ── Panel ────────────────────────────────────────────────────────────────────
@@ -229,62 +118,18 @@ function sourceLabel(source: string): string {
 // demand, is the only git-touching path.
 export async function slashPanel(ctx: SlashCtx): Promise<SlashResponse> {
   const identityBlocks = config.SLACK_REQUIRE_USER_IDENTITY ? [await buildIdentityContext(ctx)] : [];
-  const selection = await currentChannelSelection(ctx);
+  const selection = await currentChannelSelection(slashChannel(ctx));
   const currentId = selection?.projectId ?? null;
-  if (!currentId) {
-    return {
-      response_type: 'ephemeral',
-      blocks: [
-        ...identityBlocks,
-        {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: `*No Kortix workspace is connected to this channel yet.*\nConnect one to start working here.`,
-          },
-        },
-        {
-          type: 'actions',
-          elements: [
-            {
-              type: 'button',
-              text: { type: 'plain_text', text: 'Connect a Kortix workspace', emoji: true },
-              style: 'primary',
-              action_id: 'cfg_open_projects',
-              value: JSON.stringify({ c: ctx.channelId }),
-            },
-          ],
-        },
-      ],
-    };
-  }
-  const [p] = await db
-    .select({ projectId: projectsView.projectId, name: projectsView.name, repoUrl: projectsView.repoUrl, metadata: projectsView.metadata })
-    .from(projectsView)
-    .where(eq(projectsView.projectId, currentId))
-    .limit(1);
+  const [p] = currentId
+    ? await db
+        .select({ projectId: projectsView.projectId, name: projectsView.name, repoUrl: projectsView.repoUrl, metadata: projectsView.metadata })
+        .from(projectsView)
+        .where(eq(projectsView.projectId, currentId))
+        .limit(1)
+    : [];
   if (!p) {
-    return {
-      response_type: 'ephemeral',
-      blocks: [
-        {
-          type: 'section',
-          text: { type: 'mrkdwn', text: `*This channel's connected Kortix workspace no longer exists.*\nReconnect one below.` },
-        },
-        {
-          type: 'actions',
-          elements: [
-            {
-              type: 'button',
-              text: { type: 'plain_text', text: 'Connect a Kortix workspace', emoji: true },
-              style: 'primary',
-              action_id: 'cfg_open_projects',
-              value: JSON.stringify({ c: ctx.channelId }),
-            },
-          ],
-        },
-      ],
-    };
+    const info = await slashLinkInfo(ctx);
+    return { ...info, blocks: [...identityBlocks, ...(info.blocks ?? [])] };
   }
   const og = (await repoPreviewImages([p.repoUrl], { waitMs: SLACK_PREVIEW_WAIT_MS })).get(p.repoUrl);
 
@@ -296,7 +141,7 @@ export async function slashPanel(ctx: SlashCtx): Promise<SlashResponse> {
   const agent = chooseEffectiveAgent({ explicit: selection?.agentName ?? null, projectDefault: projectDefaultAgent });
 
   // Effective MODEL (channel override → project/account/platform), with source.
-  const gate = await channelModelContext(ctx);
+  const gate = await channelModelContext(slashChannel(ctx));
   let modelText = '`not configured` · platform default';
   if (gate) {
     const eff = await resolveEffectiveModel({
@@ -316,7 +161,7 @@ export async function slashPanel(ctx: SlashCtx): Promise<SlashResponse> {
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: `🟢  *${escapeMrkdwn(p.name)}*  ·  connected to this channel\n${repoLine(p.repoUrl)}`,
+      text: `🟢  *${escapeMrkdwn(p.name)}*  ·  this Slack workspace runs here\n${repoLine(p.repoUrl)}`,
     },
   };
   if (og) section.accessory = { type: 'image', image_url: og, alt_text: `${p.name} repo` };
@@ -350,12 +195,6 @@ export async function slashPanel(ctx: SlashCtx): Promise<SlashResponse> {
           },
           {
             type: 'button',
-            text: { type: 'plain_text', text: 'Change workspace', emoji: true },
-            action_id: 'cfg_open_projects',
-            value: JSON.stringify({ c: ctx.channelId }),
-          },
-          {
-            type: 'button',
             text: { type: 'plain_text', text: 'Open in Kortix ↗', emoji: true },
             style: 'primary',
             url: `${dashboardBase(config.FRONTEND_URL)}/workspaces/${p.projectId}`,
@@ -379,11 +218,11 @@ export async function slashPanel(ctx: SlashCtx): Promise<SlashResponse> {
 // ── Policy ───────────────────────────────────────────────────────────────────
 
 export async function slashPolicy(ctx: SlashCtx, arg: string): Promise<SlashResponse> {
-  const selection = await currentChannelSelection(ctx);
+  const selection = await currentChannelSelection(slashChannel(ctx));
   if (!selection) {
     return {
       response_type: 'ephemeral',
-      blocks: [{ type: 'section', text: { type: 'mrkdwn', text: `*No Kortix workspace bound to this channel.*\nRun \`${ctx.command} switch\` first.` } }],
+      blocks: (await slashLinkInfo(ctx)).blocks,
     };
   }
 
@@ -432,11 +271,11 @@ export async function slashAgents(ctx: SlashCtx, arg: string): Promise<SlashResp
   // `/kortix agents <name>` is a convenient alias for setting the agent.
   if (arg.trim()) return slashSetAgent(ctx, arg);
 
-  const selection = await currentChannelSelection(ctx);
+  const selection = await currentChannelSelection(slashChannel(ctx));
   if (!selection) {
     return {
       response_type: 'ephemeral',
-      blocks: [{ type: 'section', text: { type: 'mrkdwn', text: `*No Kortix workspace bound to this channel.*\nRun \`${ctx.command} switch\` first, then pick an agent.` } }],
+      blocks: (await slashLinkInfo(ctx)).blocks,
     };
   }
   // Listing agents touches git — too slow for the synchronous 3s window. Ack
@@ -464,7 +303,7 @@ export async function slashSetAgent(ctx: SlashCtx, arg: string): Promise<SlashRe
     return ephemeral(`Usage: \`${ctx.command} agent <name>\` (or \`${ctx.command} agents\` to pick).`);
   }
   const result = await changeChannelAgent(slackUserOf(ctx), slackSettingsChannel(ctx), name);
-  return ephemeral(agentChangeText(result, name, ctx.command, `Bind a Kortix workspace first with \`${ctx.command} switch\`.`));
+  return ephemeral(agentChangeText(result, name, ctx.command, NO_LINK_TEXT));
 }
 
 // ── Models ───────────────────────────────────────────────────────────────────
@@ -476,19 +315,6 @@ export function slashModels(ctx: SlashCtx): Promise<SlashResponse> {
 export async function slashSetModel(ctx: SlashCtx, arg: string): Promise<SlashResponse> {
   if (!arg.trim()) return slashModels(ctx);
   return ephemeral(await applySlackModelChoice(ctx, arg));
-}
-
-export async function listWorkspaceProjects(teamId: string): Promise<WorkspaceProject[]> {
-  const installs = await db
-    .select({ projectId: chatInstalls.projectId })
-    .from(chatInstalls)
-    .where(and(eq(chatInstalls.platform, 'slack'), eq(chatInstalls.platformTeamId, teamId)));
-  if (installs.length === 0) return [];
-  const ids = installs.map((i) => i.projectId);
-  return db
-    .select({ projectId: projectsView.projectId, name: projectsView.name, repoUrl: projectsView.repoUrl })
-    .from(projectsView)
-    .where(inArray(projectsView.projectId, ids));
 }
 
 export async function currentChannelProjectId(ctx: { teamId: string; channelId: string }): Promise<string | null> {

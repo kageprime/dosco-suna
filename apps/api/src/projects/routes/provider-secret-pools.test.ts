@@ -83,6 +83,8 @@ mock.module('../lib/access', () => ({
     // The real assertion throws this 403 (a role without the leaf) before the handler runs.
     if (deniedLeaves.includes(action)) throw buildDenialError(action, 'project_role_insufficient');
   },
+  projectCapabilityAllowed: async (_c: unknown, _userId: string, _accountId: string, _projectId: string, action: string) =>
+    !deniedLeaves.includes(action),
   loadVisibleSession: async (_loaded: unknown, target: string, caller: string | null, bound: string | null) => {
     // `PUT /model` passes the raw context session id: a browser login's is not a Dosco session.
     if ((caller && caller !== 'browser-login' && caller !== target) || (bound && bound !== target)) return null;
@@ -446,6 +448,22 @@ test('a caller that holds project.secret.read selects and is handed the key ids'
   });
   expect(pools.get('anthropic')).toEqual([keyId(1)]);
   expect(capabilityChecks).toEqual(['project.session.stop', 'project.secret.read']);
+});
+
+// pooled_provider_secrets lets a member choose their own ChatGPT or Claude
+// account for their session. The session's own person skips the leaf (each id
+// is still checked as theirs to use); the list answers can_edit for them too.
+test("the session's own person without project.secret.read selects, and the list says can_edit", async () => {
+  callerId = ownerId;
+  deniedLeaves = ['project.secret.read'];
+  keys = [projectKey(1)];
+  const response = await put('anthropic', [keyId(1)]);
+  expect(response.status).toBe(200);
+  expect(pools.get('anthropic')).toEqual([keyId(1)]);
+  expect(capabilityChecks).toEqual(['project.session.stop']);
+  expect((await (await app.request(base)).json()).can_edit).toBe(true);
+  callerId = managerId;
+  expect((await (await app.request(base)).json()).can_edit).toBe(false);
 });
 
 // Proves the mock gate actually refuses on this route: the same caller, the

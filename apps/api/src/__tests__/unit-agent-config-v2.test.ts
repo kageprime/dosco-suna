@@ -46,8 +46,9 @@ describe('readAgentBlockV2', () => {
       secrets: ['STRIPE_KEY'],
       skills: ['pdf-export'],
       kortix_permissions: ['project.session.start'],
-      repository_access: false,
     });
+    expect(read.block).not.toHaveProperty('repository_access');
+    expect(read.block).not.toHaveProperty('workspace');
     expect(read.block).not.toHaveProperty('opencode');
     expect(read.block).not.toHaveProperty('description');
     expect(read.block).not.toHaveProperty('model');
@@ -102,7 +103,6 @@ describe('applyAgentBlockV2', () => {
       connectors: 'all',
       secrets: 'none',
       skills: ['pdf-export', 'web-research'],
-      workspace: 'branch',
     });
     expect(applied.ok).toBe(true);
     if (!applied.ok) return;
@@ -110,7 +110,8 @@ describe('applyAgentBlockV2', () => {
     expect(agents.support.connectors).toBe('all');
     expect(agents.support.secrets).toBe('none');
     expect(agents.support.skills).toEqual(['pdf-export', 'web-research']);
-    expect(agents.support.workspace).toEqual({ project_repository: true });
+    // The saved block drops the obsolete `workspace: runtime` the fixture declared.
+    expect(agents.support).not.toHaveProperty('workspace');
     expect(agents.support).not.toHaveProperty('repository_access');
     // Sibling agents / default_agent are untouched by a single-agent edit.
     expect(applied.raw.default_agent).toBe('support');
@@ -137,15 +138,6 @@ describe('applyAgentBlockV2', () => {
     expect(applied.ok).toBe(false);
     if (applied.ok) return;
     expect(applied.error).toContain('kortix_permissions');
-  });
-
-  test('rejects an unknown workspace value', () => {
-    const applied = applyAgentBlockV2(v2Manifest(), 'support', {
-      workspace: 'everywhere' as never,
-    });
-    expect(applied.ok).toBe(false);
-    if (applied.ok) return;
-    expect(applied.error).toContain('workspace');
   });
 
   test('refuses an edit that adds an error, accepts one that leaves an existing error alone', () => {
@@ -287,48 +279,17 @@ describe('connectors_required — the config route validation gate', () => {
 });
 
 
-describe('repository access', () => {
-  test('writes workspace.project_repository to kortix.yaml and reads it back as repository_access', () => {
-    for (const value of [false, true]) {
-      const saved = applyAgentBlockV2(v2Manifest(), 'support', { repository_access: value });
+describe('repository access is obsolete', () => {
+  test('a write that still sends repository_access or workspace drops both from kortix.yaml, and a read never returns them', () => {
+    for (const block of [{ repository_access: true }, { repository_access: false }, { workspace: 'branch' }, { workspace: { project_repository: true } }]) {
+      const saved = applyAgentBlockV2(v2Manifest(), 'support', block as never);
       expect(saved.ok).toBe(true);
       if (!saved.ok) return;
-      expect((saved.raw.agents as any).support).toEqual({ workspace: { project_repository: value } });
+      const support = (saved.raw.agents as Record<string, Record<string, unknown>>).support;
+      expect(support).not.toHaveProperty('workspace');
+      expect(support).not.toHaveProperty('repository_access');
       const read = readAgentBlockV2({ ...v2Manifest(), raw: saved.raw }, 'support');
-      expect(read.ok && read.block).toEqual({ repository_access: value });
+      expect(read.ok && read.block).not.toHaveProperty('repository_access');
     }
-  });
-  test('writes an undeclared value explicitly as the default (false) and reads it back', () => {
-    const saved = applyAgentBlockV2(v2Manifest(), 'support', { connectors: 'none' });
-    expect(saved.ok).toBe(true);
-    if (!saved.ok) return;
-    expect((saved.raw.agents as any).support.workspace).toEqual({ project_repository: false });
-    expect(extractAgents({ ...v2Manifest(), raw: saved.raw }).specs[0]?.repositoryAccess).toBe(false);
-    const read = readAgentBlockV2(v2Manifest(V2.replace('    workspace: runtime\n', '')), 'support');
-    expect(read.ok && read.block?.repository_access).toBe(false);
-  });
-  test('rejects conflicting aliases and invalid boolean values', () => {
-    for (const block of [
-      { repository_access: true, workspace: 'runtime' },
-      { repository_access: 'false' },
-      { repository_access: true, workspace: { project_repository: false } },
-      { workspace: { project_repository: 'no' } },
-      { workspace: { project_repo: false } },
-    ]) {
-      expect(applyAgentBlockV2(v2Manifest(), 'support', block as any).ok).toBe(false);
-    }
-  });
-  test('keeps legacy read unavailable until a boolean is explicitly saved', () => {
-    const saved = applyAgentBlockV2(v2Manifest(), 'support', { workspace: 'read' });
-    expect(saved.ok).toBe(true);
-    if (!saved.ok) return;
-    const agents = extractAgents({ ...v2Manifest(), raw: saved.raw });
-    expect(agents.specs[0]?.legacyReadWorkspace).toBe(true);
-    const resolved = applyAgentBlockV2({ ...v2Manifest(), raw: saved.raw }, 'support', { repository_access: false });
-    expect(resolved.ok).toBe(true);
-    if (!resolved.ok) return;
-    const updated = extractAgents({ ...v2Manifest(), raw: resolved.raw });
-    expect(updated.specs[0]?.legacyReadWorkspace).toBe(false);
-    expect(updated.specs[0]?.repositoryAccess).toBe(false);
   });
 });

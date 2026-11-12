@@ -11,7 +11,6 @@ import {
   normalizeSnapshotRef,
   parseManifest,
   projectSnapshotRetryDelayMs,
-  resolveProjectSnapshotMode,
 } from './project-snapshot';
 import {
   PROJECT_SNAPSHOT_FORMAT,
@@ -95,15 +94,5 @@ describe('retry schedule', () => {
     expect(projectSnapshotRetryDelayMs(3)).toBe(120_000);
     expect(projectSnapshotRetryDelayMs(20)).toBe(3_600_000);
     expect(PROJECT_SNAPSHOT_MAX_ATTEMPTS).toBe(5);
-  });
-});
-
-describe('mode resolution', () => {
-  test('platform env by default, per-project metadata override wins, garbage ignored', () => {
-    expect(resolveProjectSnapshotMode({})).toBe(config.KORTIX_PROJECT_SNAPSHOT_MODE);
-    expect(resolveProjectSnapshotMode(null)).toBe(config.KORTIX_PROJECT_SNAPSHOT_MODE);
-    expect(resolveProjectSnapshotMode({ project_snapshot_mode: 'require-s3' })).toBe('require-s3');
-    expect(resolveProjectSnapshotMode({ project_snapshot_mode: 'git' })).toBe('git');
-    expect(resolveProjectSnapshotMode({ project_snapshot_mode: 'bogus' })).toBe(config.KORTIX_PROJECT_SNAPSHOT_MODE);
   });
 });

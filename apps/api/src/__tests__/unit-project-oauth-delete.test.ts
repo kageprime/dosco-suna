@@ -34,7 +34,8 @@ mock.module('../shared/db', () => ({
     delete: (table: unknown) => ({
       where: (cond: unknown) => {
         deleteCalls.push({ table, where: cond });
-        return Promise.resolve();
+        // The route reads back the deleted ids to remove their named copies.
+        return Object.assign(Promise.resolve(), { returning: async () => [] });
       },
     }),
   },

@@ -3,11 +3,15 @@ import {
   gatewayErrorResponse, gatewayOverloadedResponse, readAdmittedBody, readAdmittedBytes,
   releaseWhenResponseEnds, requestTooLargeResponse, type InflightBudget,
 } from '@kortix/llm-gateway';
+import { createIdempotencyReplay, type ReplayRequest } from './idempotency';
 import type { AudioRequest, ClaudeCodeRequest, RequestOrigin, VoicesRequest } from '@kortix/llm-gateway';
 import type { Hono } from 'hono';
-import { cloudflareSafe, messagesAuthorization, perRequestCapBytes } from './server';
+import { type GatewayApp, cloudflareSafe, messagesAuthorization, perRequestCapBytes } from './server';
 
-type Protocol = 'chat' | 'messages' | 'responses' | 'images' | 'audio';
+// The image operations are distinct replay scopes (`images:generations` vs
+// `images:edits`): a body with prompt + images[] is valid on both ingresses
+// — generations ignores images[] — so the protocol tag must separate them.
+type Protocol = 'chat' | 'messages' | 'responses' | 'audio' | `images:${'generations' | 'edits'}`;
 type InferenceRequest = { authorization: string | undefined; rawBody: string; signal?: AbortSignal; origin?: RequestOrigin };
 type Gateway = {
   chatCompletions: (request: InferenceRequest) => Promise<Response>;
@@ -36,6 +40,7 @@ function inference(
   inflight: InflightBudget,
   recordOutcome: (status: number) => void,
   protocol: Protocol,
+  replay: ReturnType<typeof createIdempotencyReplay>,
   call: (request: InferenceRequest) => Promise<Response>,
 ) {
   return async (c: { req: { raw: Request; header: (name: string) => string | undefined } }) => {
@@ -72,7 +77,11 @@ function inference(
           origin: readRequestOrigin((name) => c.req.header(name)),
         };
         body.body = '';
-        const res = await cloudflareSafe(await call(request));
+        const res = await cloudflareSafe(
+          // A retried request that carries a client `Idempotency-Key` is served
+          // the first 2xx answer instead of executing and metering again.
+          await replay(protocol, c.req.header('idempotency-key'), request, call),
+        );
         recordOutcome(res.status);
         return releaseWhenResponseEnds(res, body.release);
       } catch (error) {
@@ -182,27 +191,34 @@ function claudeCode(gateway: Gateway, inflight: InflightBudget, recordOutcome: (
  * managed audio models and billed at the price the upstream reports.
  */
 export function registerRoutes(
-  app: Hono,
+  app: GatewayApp,
   gateway: Gateway,
   inflight: InflightBudget,
   recordOutcome: (status: number) => void,
-  rateLimit: (request: Request, headers?: Headers) => Response | null,
+  rateLimit: (request: Request, headers?: Headers, source?: string | null) => Response | null,
+  reauthorize?: (request: ReplayRequest) => Promise<boolean>,
 ) {
   // Every model route checks the per-credential limit first (token-rate-limit.ts).
-  const limited = <C extends { req: { raw: Request } }>(handler: (c: C) => Promise<Response>) =>
+  const limited = <C extends { req: { raw: Request }; env?: { clientIp?: string | null } }>(
+    handler: (c: C) => Promise<Response>,
+  ) =>
     async (c: C) => {
       const headers = new Headers();
-      const response = rateLimit(c.req.raw, headers) ?? await handler(c);
+      const response = rateLimit(c.req.raw, headers, c.env?.clientIp ?? null) ?? (await handler(c));
       headers.forEach((value, name) => response.headers.set(name, value));
       return response;
     };
-  const chat = limited(inference(inflight, recordOutcome, 'chat', gateway.chatCompletions));
-  const messages = limited(inference(inflight, recordOutcome, 'messages', gateway.messages));
-  const responses = limited(inference(inflight, recordOutcome, 'responses', gateway.responses));
+  // One replay cache per server: the entries are per credential + key + body,
+  // so tests get an isolated cache per buildServer(). Every hit re-validates
+  // the credential through the host's reauthorize (a replay is a request).
+  const replay = createIdempotencyReplay(undefined, reauthorize ? { reauthorize } : undefined);
+  const chat = limited(inference(inflight, recordOutcome, 'chat', replay, gateway.chatCompletions));
+  const messages = limited(inference(inflight, recordOutcome, 'messages', replay, gateway.messages));
+  const responses = limited(inference(inflight, recordOutcome, 'responses', replay, gateway.responses));
   // The project's ChatGPT login generates and edits images (pipeline/images.ts).
   // A thrown error gets the Responses-style 503 envelope.
   const images = (operation: 'generations' | 'edits') =>
-    limited(inference(inflight, recordOutcome, 'images', (request) => gateway.images({ ...request, operation })));
+    limited(inference(inflight, recordOutcome, `images:${operation}`, replay, (request) => gateway.images({ ...request, operation })));
   const generations = images('generations');
   const edits = images('edits');
   const transcriptions = limited(audio(gateway, inflight, recordOutcome, 'transcriptions'));

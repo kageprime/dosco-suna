@@ -20,7 +20,7 @@ import {
   requeueForAdmission,
 } from './store';
 import { clearTriggerAlert, commandTriggerSlug } from '../lib/trigger-alerts';
-import { INBOX_ORDER_BACKOFF_MS } from './inbox-admission';
+import { INBOX_ORDER_BACKOFF_MS, INBOX_STALE_ORDER_BACKOFF_MS } from './inbox-admission';
 import { withCommandLeaseHeartbeat } from './command-lease';
 import { claimsStopped, forgetClaim, trackClaims } from './claim-handover';
 import { claimDueSessionInboxSiblings } from './inbox-rows';
@@ -265,13 +265,18 @@ async function drainSessionLifecycleQueueTick(
         const batch = lane.slice(i, j).sort(compareInboxSendOrder);
         i = j;
         // Claims mark every sibling `running`. Release the tail before the
-        // head reaches admission, or `hasInFlightPrompt` sees that tail and
-        // rejects the head as if another delivery were already on the wire.
+        // head reaches admission, so no sibling is on the wire beside it.
+        // A sibling behind the head waits the minute: every exit of the head
+        // wakes the next row (`promoteNextInboxRow`). The short clock stays
+        // for a row that may go before the head finishes: a promoted row, and
+        // a steer. Prod
+        // 2026-11-09: a tail released at 300 ms made 9 of every 10 claims of
+        // a parked session's queue a claim and a put-back for nothing.
         for (const sibling of batch.slice(1)) {
           await requeueForAdmission(
             sibling,
             'older_prompt_pending',
-            new Date(Date.now() + INBOX_ORDER_BACKOFF_MS),
+            new Date(Date.now() + (mayGoBeforeHead(sibling) ? INBOX_ORDER_BACKOFF_MS : INBOX_STALE_ORDER_BACKOFF_MS)),
           );
           forgetClaim(sibling);
           out.queued += 1;
@@ -281,6 +286,13 @@ async function drainSessionLifecycleQueueTick(
     }),
   );
   return out;
+}
+
+/** A sibling the admission gate may let out before the batch head is done:
+ *  "send now" skips queue order, and a steer waits only for older steers. */
+function mayGoBeforeHead(row: SessionLifecycleCommandRow): boolean {
+  if ((row.result as { promoted?: unknown } | null)?.promoted === true) return true;
+  return (row.payload as { delivery?: unknown } | null)?.delivery === 'steer';
 }
 
 /** An inbox prompt row: a `continue_session` with the client's own

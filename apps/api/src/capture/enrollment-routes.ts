@@ -247,11 +247,10 @@ const EnrollmentSchema = z.object({
   last_seen_at: z.string(),
 });
 
-/** A person (not an agent) with `capture.manage` in the account, or the refusal. */
+/** A caller with `capture.manage` in the account (a person, or an agent session acting for one), or the refusal. */
 async function manager(c: Ctx) {
   const access = await captureAccessWithPowers(c);
   if (isResponse(access)) return access;
-  if (access.sessionId) return refuse(c, 403, 'capture_forbidden', 'An agent cannot manage the Capture rollout');
   if (!access.manages) return refuse(c, 403, 'capture_forbidden', 'Managing the Capture rollout needs the capture.manage permission');
   return access;
 }

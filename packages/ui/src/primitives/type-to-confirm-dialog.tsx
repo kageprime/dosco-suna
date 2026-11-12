@@ -29,7 +29,7 @@
  * workspace.
  *
  * The matcher is `confirmationPhraseMatches` below, exported and tested
- * separately: this dialog renders through a Radix portal, which emits nothing
+ * separately: this dialog renders through a portal, which emits nothing
  * under `renderToStaticMarkup`, so a test that reached for the button's
  * `disabled` attribute in rendered output would silently be unable to fail.
  * See `type-to-confirm-dialog.test.ts`.
@@ -115,8 +115,8 @@ export function TypeToConfirmDialog({ open, onOpenChange, ...content }: TypeToCo
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent className="lg:max-w-md">
         {/* The typed text lives in `TypeToConfirmBody`, one level down, and
-            that is load-bearing rather than tidiness. Radix unmounts portal
-            children on close, so the state is born fresh on every open — which
+            that is load-bearing rather than tidiness. The dialog portal unmounts
+            its children on close, so the state is born fresh on every open — which
             is what stops the "type the name, dismiss, reopen, find the button
             already armed" bug WITHOUT a reset effect. State that has to be
             reset by an effect is state whose remount boundary is in the wrong
@@ -210,8 +210,9 @@ function TypeToConfirmBody({
               autoCorrect="off"
               autoCapitalize="none"
               spellCheck={false}
-              // Radix focuses the first tabbable child on open, which is this
-              // input — the user can start typing immediately.
+              // The dialog focuses its first tabbable child on open (a touch open
+              // focuses the popup instead), which is this input — the user can
+              // start typing immediately.
               aria-describedby={`${inputId}-hint`}
             />
             {/* Read on focus (via aria-describedby) AND announced at the

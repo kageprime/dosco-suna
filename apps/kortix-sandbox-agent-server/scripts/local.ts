@@ -27,7 +27,9 @@ import { openaiCodexProvider } from '@earendil-works/pi-ai/providers/openai-code
 import { createGateway } from '../../../packages/llm-gateway/src/index.ts'
 import type { UpstreamDescriptor } from '../../../packages/llm-gateway/src/index.ts'
 import { OPENCODE_USER_AGENT } from '../../../packages/shared/src/runtime-versions.ts'
-import CODEX_MODELS from '../../api/src/llm-gateway/models/codex-models.seed.json'
+// The offline Codex lineup, owned by @kortix/llm-catalog beside the models.dev
+// snapshot — shared with apps/api's gateway instead of importing across apps.
+import { CODEX_SEED_MODEL_IDS as CODEX_MODELS } from '../../../packages/llm-catalog/src/codex-seed.ts'
 
 const ROOT = join(homedir(), '.kortix', 'local')
 const AUTH_FILE = join(ROOT, 'codex-auth.json')

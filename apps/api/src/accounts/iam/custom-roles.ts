@@ -144,7 +144,7 @@ function workspaceLadderRoles(system: ReadonlyArray<{ key: string; name: string;
   });
 }
 
-const Any = z.any();
+const Any = z.unknown();
 const RoleIdParam = z.object({ workspaceId: z.string(), roleId: z.string() });
 
 // ─── Auto-provisioned agent identities (picker principal source) ───────────
@@ -186,7 +186,7 @@ export type AgentIdentity = {
 
 export type EagerProvisionProjectRow = Parameters<typeof loadConfigWithFilesCached>[0];
 
-export interface EagerProvisionDeps {
+interface EagerProvisionDeps {
   // `enabled` is optional on purpose: the config summary lists disabled agents
   // (`enabled: false`) and this loader may stand in for one.
   loadConfig: (row: EagerProvisionProjectRow) => Promise<{ agents: Array<{ name: string; enabled?: boolean }> }>;
@@ -269,10 +269,10 @@ export function registerIamCustomRolesRoutes(): void {
       request: { params: AccountIdParam },
       responses: { 200: json(z.object({ actions: z.array(Any) }), 'Action catalog'), ...errors(401, 403) },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ROLE_READ);
-      return c.json({ actions: ACTION_CATALOG_WIRE });
+      return c.json({ actions: ACTION_CATALOG_WIRE }, 200);
     },
   );
 
@@ -288,7 +288,7 @@ export function registerIamCustomRolesRoutes(): void {
       request: { params: AccountIdParam },
       responses: { 200: json(z.object({ roles: z.array(Any) }), 'Roles'), ...errors(401, 403) },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ROLE_READ);
       // Both halves from `kortix.iam_roles`: the seeded system rows (account_id
@@ -308,16 +308,20 @@ export function registerIamCustomRolesRoutes(): void {
       if (isCanonicalWorkspacePath(c.req.path)) {
         // Every canonical row carries the same two fields: a custom role is a
         // workspace role off the ladder. `resource_type` stays the stored scope.
-        return c.json({
-          roles: [
-            ...workspaceLadderRoles(listed),
-            ...custom.map((role) => ({ ...serializeCustomRole(role), ladder: false, scope: 'workspace' as const })),
-          ],
-        });
+        return c.json(
+          {
+            roles: [
+              ...workspaceLadderRoles(listed),
+              ...custom.map((role) => ({ ...serializeCustomRole(role), ladder: false, scope: 'workspace' as const })),
+            ],
+          },
+          200,
+        );
       }
-      return c.json({
-        roles: [...listed.map(serializeSystemRole), ...custom.map(serializeCustomRole)],
-      });
+      return c.json(
+        { roles: [...listed.map(serializeSystemRole), ...custom.map(serializeCustomRole)] },
+        200,
+      );
     },
   );
 
@@ -331,12 +335,12 @@ export function registerIamCustomRolesRoutes(): void {
       request: { params: AccountIdParam, body: { content: { 'application/json': { schema: Any } } } },
       responses: { 201: json(Any, 'Created role'), ...errors(400, 401, 403, 409) },
     }),
-    async (c: any) => {
-      const userId = c.get('userId') as string;
+    async (c) => {
+      const userId = c.get('userId');
       const accountId = accountIdParam(c);
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ROLE_CREATE);
       const denied = await requireEntitlement(c, accountId, 'rbac');
-      if (denied) return denied;
+      if (denied) return denied as never;
 
       const body = await readJsonObject(c);
       const key = typeof body.key === 'string' ? body.key.trim() : '';
@@ -389,12 +393,12 @@ export function registerIamCustomRolesRoutes(): void {
       request: { params: RoleIdParam, body: { content: { 'application/json': { schema: Any } } } },
       responses: { 200: json(Any, 'Updated role'), ...errors(400, 401, 403, 404) },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       const roleId = c.req.param('roleId');
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ROLE_UPDATE);
       const denied = await requireEntitlement(c, accountId, 'rbac');
-      if (denied) return denied;
+      if (denied) return denied as never;
       if (await isSystemRoleId(roleId)) return c.json({ error: 'built-in roles cannot be edited' }, 400);
       const role = await loadCustomRole(accountId, roleId);
       if (!role) return c.json({ error: 'role not found' }, 404);
@@ -427,7 +431,7 @@ export function registerIamCustomRolesRoutes(): void {
       request: { params: RoleIdParam },
       responses: { 200: json(z.object({ deleted: z.boolean() }), 'Deleted'), ...errors(400, 401, 403, 404) },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       const roleId = c.req.param('roleId');
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ROLE_DELETE);
@@ -462,7 +466,7 @@ export function registerIamCustomRolesRoutes(): void {
       request: { params: RoleIdParam },
       responses: { 200: json(z.object({ role_id: z.string(), key: z.string(), actions: z.array(z.string()), workspace_actions: z.array(z.string()) }), 'Actions'), ...errors(401, 403, 404) },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       const roleId = c.req.param('roleId');
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ROLE_READ);
@@ -487,7 +491,7 @@ export function registerIamCustomRolesRoutes(): void {
       if (!role) return c.json({ error: 'role not found' }, 404);
       const rows = await roleActionRows(roleId);
       const actions = rows.map((r) => r.action).filter((action) => VALID_ACTIONS.has(action));
-      return c.json({ role_id: roleId, key: role.key, actions, workspace_actions: actions.map(toWorkspaceAction) });
+      return c.json({ role_id: roleId, key: role.key, actions, workspace_actions: actions.map(toWorkspaceAction) }, 200);
     },
   );
 
@@ -501,12 +505,12 @@ export function registerIamCustomRolesRoutes(): void {
       request: { params: RoleIdParam, body: { content: { 'application/json': { schema: Any } } } },
       responses: { 200: json(z.object({ role_id: z.string(), actions: z.array(z.string()), workspace_actions: z.array(z.string()) }), 'Updated'), ...errors(400, 401, 403, 404) },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       const roleId = c.req.param('roleId');
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ROLE_UPDATE);
       const denied = await requireEntitlement(c, accountId, 'rbac');
-      if (denied) return denied;
+      if (denied) return denied as never;
       if (await isSystemRoleId(roleId)) return c.json({ error: 'built-in role permissions are fixed' }, 400);
       const role = await loadCustomRole(accountId, roleId);
       if (!role) return c.json({ error: 'role not found' }, 404);
@@ -546,7 +550,7 @@ export function registerIamCustomRolesRoutes(): void {
       request: { params: RoleIdParam },
       responses: { 200: json(z.object({ role_id: z.string(), policy_count: z.number() }), 'Usage'), ...errors(401, 403) },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       const roleId = c.req.param('roleId');
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ROLE_READ);
@@ -569,7 +573,7 @@ export function registerIamCustomRolesRoutes(): void {
       request: { params: AccountIdParam },
       responses: { 200: json(z.object({ agents: z.array(Any) }), 'Agent identities'), ...errors(401, 403) },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.POLICY_READ);
 

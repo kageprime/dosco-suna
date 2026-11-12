@@ -604,3 +604,46 @@ describe('kortix files download', () => {
     expect(r.stderr).toContain('Archive a more specific path instead');
   });
 });
+
+describe('kortix projects ls drops a deleted workspace (KRTX-4714)', () => {
+  /** The list a server serves an owner after a confirmed delete: the live
+   *  workspace, and the deleted one — the archived project row with the API
+   *  state `deleting`. The web keeps the row for restore; the CLI lists must
+   *  not. */
+  function serveList(): void {
+    failWith['GET /v1/workspaces'] = {
+      status: 200,
+      body: [
+        project({ state: 'active' }),
+        project({ project_id: 'proj_deleted', name: 'Dogfood Run', status: 'archived', state: 'deleting' }),
+      ],
+    };
+  }
+
+  test('projects ls --json lacks the deleted workspace and keeps the live one', async () => {
+    serveList();
+    const config = writeConfig(startServer());
+    const r = await runCli(['projects', 'ls', '--json'], config);
+    expect(r.code).toBe(0);
+    const rows = JSON.parse(r.stdout) as Array<{ project_id: string }>;
+    expect(rows.map((p) => p.project_id)).toEqual([PROJECT]);
+  });
+
+  test('workspaces ls --json lacks the deleted workspace (single-request read)', async () => {
+    serveList();
+    const config = writeConfig(startServer());
+    const r = await runCli(['workspaces', 'ls', '--json'], config);
+    expect(r.code).toBe(0);
+    const rows = JSON.parse(r.stdout) as Array<{ project_id: string }>;
+    expect(rows.map((p) => p.project_id)).toEqual([PROJECT]);
+  });
+
+  test('workspaces ls --account reads per account and still lacks it', async () => {
+    serveList();
+    const config = writeConfig(startServer());
+    const r = await runCli(['workspaces', 'ls', '--account', 'acct_1', '--json'], config);
+    expect(r.code).toBe(0);
+    const rows = JSON.parse(r.stdout) as Array<{ project_id: string }>;
+    expect(rows.map((p) => p.project_id)).toEqual([PROJECT]);
+  });
+});

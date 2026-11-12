@@ -161,7 +161,7 @@ rejects, in client code:
 - a constructed runtime proxy path, session runtime REST path, or `previewUrl()` / `proxyUrl()` call;
 - a legacy runtime store;
 - a raw request to the Kortix backend, or to a BFF route outside the allowlist;
-- a local UI kit: a file under `src/components/ui`, `lucide-react`, `radix-ui`,
+- a local UI kit: a file under `src/components/ui`, `lucide-react`, `radix-ui`, `@radix-ui/*`, `@base-ui/*`,
   `class-variance-authority`, `next-themes`, `react-markdown`, a direct sonner `toast` call,
   or the `@kortix/ui/dialog` primitive.
 

@@ -57,7 +57,6 @@ agents:
     connectors: "*"
     secrets: "*"
     kortix_permissions: "*"
-    workspace: { project_repository: true }
 ```
 
 The block is the whole agent: what it is for, how much it may do without asking, and every grant. Its prompt lives beside it as a markdown file, in the starter's own text:

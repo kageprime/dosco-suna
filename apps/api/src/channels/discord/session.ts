@@ -34,7 +34,7 @@ import { logger } from '../../lib/logger';
 import { db } from '../../shared/db';
 import { DISCORD_CHANNEL_CONNECTOR_SLUG } from '../../connectors/channels';
 import { gateSender, refusedPressText } from '../core/channel-access';
-import { CHANNEL_COMMANDS, parseChannelCommand, type ParsedCommand } from '../core/command-list';
+import { CHANNEL_COMMANDS, kortixCommandsSentence, parseChannelCommand, type ParsedCommand } from '../core/command-list';
 import { isCommandPressData } from '../core/command-press';
 import { type CommandReply, rememberCommandMenu, runChannelCommand, runCommandPress } from '../core/commands';
 import {
@@ -46,7 +46,7 @@ import {
   routeChannelMessage,
   type TurnSettlement,
 } from '../core/conversation';
-import { chatSessionStart, chatTurnModel } from '../core/model-choice';
+import { chatSessionPlan, chatTurnModel } from '../core/model-choice';
 import { connectorReply } from '../core/prompt';
 import {
   answerQuestionInChat,
@@ -56,11 +56,11 @@ import {
   questionPicksSoFar,
 } from '../core/questions';
 import { registerSessionPort } from '../core/session-notice';
-import { claimThreadCreate } from '../core/threads';
+import { claimThreadCreate, threadCreateClaim } from '../core/threads';
 import type { SettingsChannel } from '../core/settings';
 import { classifyTurnError } from '../slack/errors';
 import { sessionWebUrl } from '../slack/util';
-import { DISCORD_START_ERROR_COMMANDS, startErrorMessage } from '../start-error';
+import { DISCORD_START_ERROR_COMMANDS, runErrorAdvice, startErrorMessage } from '../start-error';
 import { discordAccessPort } from './access';
 import { DiscordApiError, discordCall, discordDownload, discordPost, discordUnreachable } from './api';
 import { bindDiscordChannel, claimDiscordChannel, isProjectPress, parseProjectPress } from './connect';
@@ -290,21 +290,6 @@ const discordQuestions: QuestionPort = {
   },
 };
 
-/** Plain-text next step per `classifyTurnError` title (slack/errors.ts). Another title ('Run failed') gets the fallback. */
-const RUN_ERROR_ADVICE: Partial<Record<string, string>> = {
-  'Out of credits': 'A workspace admin can top up credits in Kortix. Then send your message again.',
-  'Usage limit reached': 'Wait, then send your message again. A workspace admin can also pick another model in Kortix.',
-  'Response too long': 'Ask the agent to continue, or narrow the request.',
-  'Conversation too long': 'Use /new to start a new conversation.',
-  'Agent unavailable': 'Use /agent to pick another agent, then /new and your message again. A workspace admin can also fix the agent in Kortix.',
-  'Model unavailable': 'Use /model to pick another model, then send your message again.',
-  'ChatGPT login needs reconnection': 'Whoever connected the ChatGPT account must reconnect it in Kortix. Then send your message again.',
-  'Provider rejected the request': 'A workspace admin can check the model provider settings in Kortix. Then send your message again.',
-  'Provider unavailable': 'Send your message again to retry.',
-  'Request blocked': 'Rephrase the request, then send it again.',
-};
-const RUN_ERROR_FALLBACK_ADVICE = 'Send your message again, or use /new to start a new conversation.';
-
 /** The conversation's settings row key (`chat_channel_bindings`): a thread's parent channel, or the DM. */
 const discordSettings = (target: ChannelTarget, settingsId: string): SettingsChannel => ({
   platform: 'discord',
@@ -353,7 +338,7 @@ export function discordNotice(target: ChannelTarget, notice: ChannelNotice): str
       // The title comes from a closed set: the provider's own message never reaches the chat.
       return [
         `Kortix could not finish this run: ${title}.`,
-        RUN_ERROR_ADVICE[title] ?? RUN_ERROR_FALLBACK_ADVICE,
+        runErrorAdvice(title, DISCORD_START_ERROR_COMMANDS),
         `Details: ${sessionWebUrl(config.FRONTEND_URL, target.projectId, notice.sessionId)}`,
       ].join('\n');
     }
@@ -429,10 +414,6 @@ function senderName(user: { username?: string; global_name?: string | null }, ni
   return shown || (user.username ? `@${user.username}` : 'unknown');
 }
 
-/** "/new, /stop, … and /help": the commands the agent never receives. */
-const COMMAND_NAMES = CHANNEL_COMMANDS.map((c) => `/${c.name}`);
-const KORTIX_COMMANDS = `${COMMAND_NAMES.slice(0, -1).join(', ')} and ${COMMAND_NAMES.at(-1)}`;
-
 /** Where a conversation is, for the prompt header and the Channels page. */
 function discordWhere(c: DiscordConversation): string {
   if (c.direct) return 'direct message';
@@ -469,8 +450,8 @@ export function discordEnvelope(
       `While you work on a long task, show typing: ${connectorReply(DISCORD_CHANNEL_CONNECTOR_SLUG, 'trigger_typing', { channel_id: threadId })}.`,
       'The bot token is resolved server-side. Do not look for it in the sandbox.',
       everyMessage
-        ? `The next message in this conversation continues this session. Kortix answers ${KORTIX_COMMANDS} itself; those commands never reach you.`
-        : `The next message that mentions you in this ${conversation.threadId !== conversation.settingsId ? 'thread' : 'channel'} continues this session; people's other messages there do not reach you. Kortix answers ${KORTIX_COMMANDS} itself; those commands never reach you.`,
+        ? `The next message in this conversation continues this session. Kortix answers ${kortixCommandsSentence()} itself; those commands never reach you.`
+        : `The next message that mentions you in this ${conversation.threadId !== conversation.settingsId ? 'thread' : 'channel'} continues this session; people's other messages there do not reach you. Kortix answers ${kortixCommandsSentence()} itself; those commands never reach you.`,
       ...(conversation.direct || messageContent
         ? []
         : [
@@ -479,9 +460,6 @@ export function discordEnvelope(
     ],
   };
 }
-
-const createClaimOf = (projectId: string, target: Pick<ChannelTarget, 'workspaceId' | 'threadId'>) =>
-  `discord:threadcreate:${projectId}:${target.workspaceId}:${target.threadId}`;
 
 /**
  * The thread a mention starts: on the message, so its id is the message's. A retry finds it made.
@@ -625,32 +603,15 @@ export async function handleDiscordMessage(
       keys: {
         followUp: `discord:${conversation.guildId}:${event.id}`,
         create: `discord:create:${conversation.guildId}:${event.id}`,
-        createClaim: createClaimOf(event.projectId, target),
+        createClaim: threadCreateClaim('discord', event.projectId, target.workspaceId, target.threadId),
       },
       followUp: picks ? { ...envelope, text: `${picks}\n\n${envelope.text}` } : envelope,
       files,
-      plan: async () => {
-        const start = await chatSessionStart(settings, project).catch((error) => {
-          logger.warn('[discord] chat settings unreadable; the session starts on the defaults', { projectId: event.projectId, error: String(error) });
-          return { agentName: 'default' } as Awaited<ReturnType<typeof chatSessionStart>>;
-        });
-        if (start.unavailableModel) {
-          await postMessage(
-            target.threadId,
-            { content: `Kortix did not send your message: this channel's model ${start.unavailableModel} is not available any more. Pick another with /model, then send your message again.` },
-            message.id,
-          );
-          return null;
-        }
-        return {
+      plan: () =>
+        chatSessionPlan({
+          settings,
           project,
-          visibility: 'project',
-          body: {
-            agent_name: start.agentName,
-            ...(start.model ? { model: start.model } : {}),
-            ...(start.pools ? { provider_secret_pools: start.pools } : {}),
-            title_source: text || null,
-          },
+          titleSource: text,
           metadata: {
             discord: {
               guild_id: conversation.direct ? null : conversation.guildId,
@@ -660,10 +621,15 @@ export async function handleDiscordMessage(
               message_id: message.id,
             },
           },
-          // A new session never asked the questions: the message alone.
           prompt: envelope,
-        };
-      },
+          onUnavailableModel: async (model) => {
+            await postMessage(
+              target.threadId,
+              { content: `Kortix did not send your message: this channel's model ${model} is not available any more. Pick another with /model, then send your message again.` },
+              message.id,
+            );
+          },
+        }),
     },
     run,
   );
@@ -681,7 +647,7 @@ function answerFollowUp(
     keys: {
       followUp: `discord:${conversation.guildId}:${event.id}`,
       create: `discord:create:${conversation.guildId}:${event.id}`,
-      createClaim: createClaimOf(event.projectId, { workspaceId: conversation.guildId, threadId }),
+      createClaim: threadCreateClaim('discord', event.projectId, conversation.guildId, threadId),
     },
     followUp: discordEnvelope({ ...conversation, threadId }, { user, nick }, answer, event.id),
   });
@@ -703,7 +669,7 @@ function commandContext(ctx: DiscordCommandContext) {
     project: ctx.project,
     settings: ctx.settings,
     label: { name: discordWhere(ctx.conversation), type: ctx.conversation.direct ? 'dm' : 'channel' },
-    createClaim: createClaimOf(ctx.project.projectId, ctx.target),
+    createClaim: threadCreateClaim('discord', ctx.project.projectId, ctx.target.workspaceId, ctx.target.threadId),
     // A channel another project holds moves only through /connect, which checks the presser.
     keepsOtherProjects: true,
     questions: discordQuestions,

@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from '@/i18n/test-source';
+import { CompareTable } from '@/features/marketing/pricing/compare-table';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { join } from 'node:path';
 
 import { PRICING_FEATURE_COUNTS, PRICING_PLANS } from './pricing-plans';
@@ -113,6 +116,30 @@ describe('pricing copy', () => {
     expect(models.kortix.body).toContain('{fee}% platform fee');
     expect(models.summary).toContain('5% of model usage past $1,000 a month');
     expect(english.billing.pricing.faq.models.answer).toContain('{fee}% platform fee');
+  });
+
+  // resolve-billing.ts `paysForManagedModels`: the free family never gets managed
+  // models, so the Free card must say what sending needs (KRTX-4494).
+  test('the Free plan states models run on your own key, and managed models are paid', () => {
+    const free = PRICING_PLANS.find((plan) => plan.id === 'free');
+    if (!free) throw new Error('the Free plan card is missing from PRICING_PLANS');
+    const features = free.features.join(' ');
+    expect(features).toContain('Models run on your own API key or ChatGPT subscription');
+    expect(features).toContain('Managed models are on the Credits plan only');
+    expect(features).not.toContain('premium model');
+    expect(english.billing.pricing.faq.free.answer).toContain('Kortix-managed models need Credits');
+  });
+
+  test('the compare table renders managed models off for Free, and names no retired model', () => {
+    const html = renderToStaticMarkup(createElement(CompareTable, { plans: PRICING_PLANS, locale: 'en' }));
+    // The row's three data cells read as the screen-reader marks, in plan order: Free, Credits, Enterprise.
+    const row = html
+      .split('<tr')
+      .find((segment) => segment.includes('Managed models: DeepSeek, GLM'));
+    if (!row) throw new Error('the Managed models row is missing from the rendered compare table');
+    const marks = [...row.matchAll(/>(Included|Not included)</g)].map((m) => m[1]);
+    expect(marks).toEqual(['Not included', 'Included', 'Included']);
+    expect(html).not.toContain('Kimi');
   });
 
   test('the top-up FAQ states the bonus ladder from compute-pricing, not literals', () => {

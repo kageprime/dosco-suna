@@ -18,11 +18,7 @@ export interface LiveTurn {
   originatingEvent: SlackEvent;
 }
 
-export type ProjectResolution =
-  | { kind: 'project'; projectId: string }
-  | { kind: 'ambiguous'; projectIds: string[] }
-  | { kind: 'pending' }
-  | { kind: 'none' };
+export type ProjectResolution = { kind: 'project'; projectId: string } | { kind: 'none' };
 
 export type SlashResponse = { response_type: 'ephemeral' | 'in_channel'; text?: string; blocks?: unknown[] };
 
@@ -115,8 +111,9 @@ export interface SlackInteractionPayload {
   type: string;
   /** Single-use, expires in ~3s. Present on block_actions; required by views.open. */
   trigger_id?: string;
-  /** Present on `view_submission`: the modal being submitted. */
+  /** Present on `view_submission`, and on a click inside a modal: the modal. */
   view?: {
+    id?: string;
     callback_id?: string;
     private_metadata?: string;
     state?: {

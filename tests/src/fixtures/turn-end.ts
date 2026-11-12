@@ -15,6 +15,7 @@ import { Client as PgClient } from 'pg';
 import { mintAccountToken, type Client } from '../core/client';
 import type { Env } from '../core/env';
 import type { FlowContext, Principal } from '../core/types';
+import { lockProjectFirst } from './token-binding-lock';
 
 /** A pg connection to the target database (TLS off only for a local one). */
 export async function openFlowDb(env: Env): Promise<PgClient> {
@@ -68,7 +69,7 @@ async function bindTurnSession(
     );
     // SESS-35: a token bound to the session is that session sandbox's credential.
     await db.query(
-      'UPDATE kortix.account_tokens SET account_id = $2, user_id = $3, project_id = $4, session_id = $5 WHERE token_id = $1',
+      lockProjectFirst('UPDATE kortix.account_tokens SET account_id = $2, user_id = $3, project_id = $4, session_id = $5 WHERE token_id = $1'),
       [tokenId, ids.accountId, ids.creatorId, ids.projectId, ids.sessionId],
     );
   } catch (error) {

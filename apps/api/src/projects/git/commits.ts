@@ -122,8 +122,7 @@ export async function readMirrorCommitSha(project: GitBackedProject, ref?: strin
 
 /**
  * `git rev-parse --verify <ref>^{commit}` against an already-resolved repo —
- * no mirror refresh. The one rev-parse site for commits.ts and
- * fast-boot-bundle.ts. Git command failures propagate untouched; only a
+ * no mirror refresh. The one rev-parse site for commits.ts. Git command failures propagate untouched; only a
  * non-hex answer becomes the typed error below, so each caller keeps its own
  * mapping (the boundary returns null, the project wrappers rethrow).
  */

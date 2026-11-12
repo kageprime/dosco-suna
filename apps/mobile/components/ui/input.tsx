@@ -1,23 +1,24 @@
 import { cn } from '@/lib/utils/index';
-import { BottomSheetTextInput, useBottomSheetInternal } from '@gorhom/bottom-sheet';
+import { SheetRawTextInput, useInSheet } from '@/components/kortix/sheet-parts';
 import { cssInterop } from 'nativewind';
 import { Platform, TextInput, type TextInputInstance } from 'react-native';
 
-// NativeWind patches only React Native's `TextInput`; give gorhom's input the
+// NativeWind patches only React Native's `TextInput`; give the sheet input the
 // same className → style mapping so `Input` looks identical in and out of a sheet.
-cssInterop(BottomSheetTextInput, {
+cssInterop(SheetRawTextInput, {
   className: { target: 'style', nativeStyleToProp: { textAlign: true } },
 });
 
 /**
- * Inside a gorhom sheet the field renders `BottomSheetTextInput`: gorhom lifts
- * the sheet above the keyboard only for a focused input it registered, so a
- * plain `TextInput` there stays under the keyboard. Outside a sheet
+ * Inside a sheet the field renders `SheetRawTextInput`: in a gorhom sheet that
+ * is `BottomSheetTextInput` (gorhom lifts the sheet above the keyboard only for
+ * a focused input it registered, so a plain `TextInput` there stays under the
+ * keyboard), in a native sheet React Native's `TextInput`. Outside a sheet
  * `BottomSheetTextInput` throws, so the plain `TextInput` renders.
  */
 function Input({ className, ...props }: React.ComponentProps<typeof TextInput> & React.RefAttributes<TextInputInstance>) {
-  const inSheet = useBottomSheetInternal(true) !== null;
-  const Field = (inSheet ? BottomSheetTextInput : TextInput) as typeof TextInput;
+  const inSheet = useInSheet();
+  const Field = (inSheet ? SheetRawTextInput : TextInput) as typeof TextInput;
   return (
     <Field
       className={cn(

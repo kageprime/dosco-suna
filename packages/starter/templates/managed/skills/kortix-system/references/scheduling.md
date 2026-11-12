@@ -1,9 +1,9 @@
 # Scheduling playbook
 
 Read this when you decide whether and how to schedule work, every time you
-start something whose result comes later, and before a long job. The decision tables are in
-`SKILL.md` → `<scheduling>`; trigger fields are in `kortix/kortix-yaml.md`
-→ triggers.
+start something whose result comes later, and before a long job. The decision
+tables and `403 feature_disabled` are in `SKILL.md` → `<scheduling>`; trigger fields
+are in `kortix/kortix-yaml.md` → triggers.
 
 ## Follow-through
 
@@ -69,11 +69,6 @@ wake-up is a promise nobody keeps: the session sleeps until someone types.
 teammate or a workflow (each reports back to you by itself), for a question
 to the person in this chat (ask it now, then end the turn), or for anything
 the person said not to track.
-
-**Loops off.** `kortix loop` answers `403 feature_disabled`: tell the person
-Loops are off and that a workspace admin turns them on (`kortix workspaces
-features enable reminders`). Meanwhile, a one-off `at` trigger starts a fresh
-session at the time; put the full context in its prompt.
 
 ### Worked example: quote requests to 12 printers
 

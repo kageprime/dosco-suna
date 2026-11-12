@@ -709,13 +709,6 @@
   );
 }
 
-/* Lenis (features/marketing/kit/smooth-scroll.tsx) drives the page scroll on
-   marketing routes. The base `scroll-behavior: smooth` above would animate
-   every scrollTo it issues a second time, so it steps aside while Lenis runs. */
-html.lenis {
-  scroll-behavior: auto;
-}
-
 /* Catalogue card reveal — the cards a "View all" uncovers in a category grid.
 
    Deliberately NOT `.kx-fade-up`. That is page-enter motion for a handful of
@@ -1327,7 +1320,7 @@ html[data-desktop-titlebar='overlay']
     [role='alertdialog'],
     [role='menu'],
     [role='listbox'],
-    [data-radix-popper-content-wrapper],
+    [data-kortix-floating],
     [data-sonner-toaster]
   )
   :is(
@@ -1360,7 +1353,7 @@ html[data-desktop-platform='macos']
     [role='alertdialog'],
     [role='menu'],
     [role='listbox'],
-    [data-radix-popper-content-wrapper],
+    [data-kortix-floating],
     [data-sonner-toaster]
   )
   :is(
@@ -1544,4 +1537,27 @@ html[data-desktop-platform='macos'] .kx-settings-mobile-titlebar .kx-settings-mo
 [data-sidebar-resizing] * {
   cursor: col-resize !important;
   user-select: none !important;
+}
+
+/* ── Mobile input floor and app-chrome hygiene (KRTX-4719) ───────────────────
+   iOS Safari force-zooms the page when a focused control renders under 16px.
+   The UI kit ships `text-sm` (14px) on Input/Textarea and native selects at
+   every width, so one rule restores the 16px floor below the 640px
+   breakpoint; `!important` is what beats the one-class utilities without
+   touching every primitive. The composer carries its own `text-base
+   sm:text-sm` (packages/ui/src/session/composer). Desktop keeps 14px. */
+@media (max-width: 639.98px) {
+  input,
+  textarea,
+  select {
+    font-size: 1rem !important;
+  }
+}
+
+/* The app never bounces or pull-refreshes like a document: the root scroller
+   eats the overscroll (the installed PWA especially), and taps keep no
+   materialize flash (inherited, so one rule covers every surface). */
+html {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
 }

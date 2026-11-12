@@ -67,7 +67,7 @@ import { CopyButton, displayModel } from './_shared';
  *    roving tabindex, and controls no panel. Assistive tech saw three unselected
  *    tabs; keyboard users got no arrow-key movement. It is also not the house
  *    filter control. Replaced with the sanctioned `Tabs`/`TabsList` pair
- *    (Radix — real `aria-selected`, real roving tabindex), same as the analytics
+ *    (real `aria-selected`, real roving tabindex), same as the analytics
  *    range picker.
  * 2. The header read `Live · {logs.length}`, which looked like a total but was
  *    the page size. `All` and `Success` both showed `100` (the server caps a

@@ -43,6 +43,7 @@ import type { Client, Res } from '../core/client';
 import { fail, type BodyAssert } from '../core/expect';
 import type { FlowContext } from '../core/types';
 import { AgentPrincipalsWorld, driveOf, hasStorage, openWorld } from '../fixtures/agent-principals';
+import { lockProjectFirst } from '../fixtures/token-binding-lock';
 
 const R = {
   layer: 'GET /v1/projects/:projectId/memory/layers/:layerKey',
@@ -121,7 +122,7 @@ async function thread(
     .status(201)
     .json<{ token_id: string; secret_key: string }>();
   world.tokens.push(minted.token_id);
-  await world.db.query('UPDATE kortix.account_tokens SET session_id = $2 WHERE token_id = $1::uuid', [minted.token_id, sessionId]);
+  await world.db.query(lockProjectFirst('UPDATE kortix.account_tokens SET session_id = $2 WHERE token_id = $1::uuid'), [minted.token_id, sessionId]);
   // The person a session acts for (`on_behalf_of`): a human-started session's token carries it.
   if (opts.onBehalfOf) await world.db.query('UPDATE kortix.account_tokens SET on_behalf_of_user_id = $2::uuid WHERE token_id = $1::uuid', [minted.token_id, opts.onBehalfOf]);
   return { sessionId, client: ctx.client.withBearer(minted.secret_key, `thread ${sessionId.slice(0, 8)}`) };

@@ -48,3 +48,28 @@ test('answerSessionAsk throws the API error of an ask already decided', async ()
   nextResponse = { status: 409, body: { error: 'This ask was already decided', code: 'ALREADY_DECIDED' } };
   await expect(answerSessionAsk('P1', 'permission:a1', { reply: 'once' })).rejects.toThrow('This ask was already decided');
 });
+
+test('a colleague access ask lists with its connectors and secrets, and is decided allow or deny', async () => {
+  const ask = {
+    id: 'access:c1',
+    kind: 'access' as const,
+    session_id: 'mk1',
+    surface_session_id: 'mk1',
+    request_id: 'c1',
+    title: 'A colleague for "Invoice check" needs connector gmail and secret STRIPE_KEY',
+    asked_at: '2026-11-09T00:00:00Z',
+    expires_at: '2026-11-10T00:00:00Z',
+    session_title: null,
+    access: { colleague: 'Invoice check', connectors: ['gmail'], secrets: ['STRIPE_KEY'] },
+  };
+  nextResponse = { status: 200, body: { asks: [ask], total: 1 } };
+  const listed = await listSessionAsks('P1');
+  expect(listed.asks[0]?.access).toEqual({ colleague: 'Invoice check', connectors: ['gmail'], secrets: ['STRIPE_KEY'] });
+
+  nextResponse = { status: 200, body: { ok: true, delivery: 'queued' } };
+  await answerSessionAsk('P1', 'access:c1', { decision: 'allow' });
+  expect(last().url).toBe('http://test.local/workspaces/P1/asks/access%3Ac1/answer');
+  expect(last().body).toEqual({ decision: 'allow' });
+  await answerSessionAsk('P1', 'access:c1', { decision: 'deny' });
+  expect(last().body).toEqual({ decision: 'deny' });
+});

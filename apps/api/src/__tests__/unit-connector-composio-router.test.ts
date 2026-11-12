@@ -62,9 +62,9 @@ describe('connector router provider-neutral connect routes', () => {
   test('connect-requests lists what this session asked a human to authorize', async () => {
     const app = createConnectorRouter(
       deps({
-        listSessionConnectRequests: async (projectId, sessionId) => [
-          { slug: 'gmail', app: 'gmail', provider: 'composio', connected: false },
-          { slug: `${projectId}:${sessionId}`, app: 'slack', provider: 'pipedream', connected: true },
+        listSessionConnectRequests: async (projectId, sessionId, userId) => [
+          { slug: 'gmail', name: 'Gmail', app: 'gmail', provider: 'composio', connected: false, connection_id: 'c1', owner_type: 'project', label: 'Gmail', connected_as: null },
+          { slug: `${projectId}:${sessionId}`, name: 'Slack', app: 'slack', provider: 'pipedream', connected: true, connection_id: userId, owner_type: 'member', label: 'Slack', connected_as: 'person@example.com' },
         ],
       }),
     );
@@ -75,8 +75,9 @@ describe('connector router provider-neutral connect routes', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       connectors: [
-        { slug: 'gmail', app: 'gmail', provider: 'composio', connected: false },
-        { slug: `${PROJECT}:session-abc`, app: 'slack', provider: 'pipedream', connected: true },
+        { slug: 'gmail', name: 'Gmail', app: 'gmail', provider: 'composio', connected: false, connection_id: 'c1', owner_type: 'project', label: 'Gmail', connected_as: null },
+        // The caller's user id reaches the dep, which lists only their own private rows.
+        { slug: `${PROJECT}:session-abc`, name: 'Slack', app: 'slack', provider: 'pipedream', connected: true, connection_id: 'user-1', owner_type: 'member', label: 'Slack', connected_as: 'person@example.com' },
       ],
     });
   });

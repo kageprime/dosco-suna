@@ -119,6 +119,7 @@ function queryResult(fields: Record<string, unknown> | undefined) {
     ? {
         secretId: row.secretId,
         name: row.name,
+        scope: row.scope,
         strategy: row.strategy,
         consumer: row.consumer,
         rotatedAt: row.rotatedAt,
@@ -206,8 +207,10 @@ const databaseMock = {
     if (table === projectSecretTombstones) return { where: async () => undefined };
     if (table !== projectSecrets) throw new Error('unexpected table');
     return {
-      where: async () => {
+      where: () => {
         row = null;
+        // `DELETE /oauth` reads back the deleted ids to remove their named copies.
+        return Object.assign(Promise.resolve(), { returning: async () => [] });
       },
     };
   },
@@ -414,7 +417,9 @@ describe('PUT /v1/projects/:projectId/secrets/:identifier/strategy', () => {
     expect(audits).toHaveLength(0);
   });
 
-  test('configures the LLM gateway without a network policy', async () => {
+  // One store for provider keys (2026-11-11): a secret is never moved into the
+  // legacy gateway delivery; the key is added as a named account instead.
+  test('refuses to move a secret into the LLM gateway, with where to add the key', async () => {
     const response = await buildApp().request(
       `/v1/projects/${PROJECT_ID}/secrets/SERVICE_API_KEY/strategy`,
       {
@@ -424,18 +429,9 @@ describe('PUT /v1/projects/:projectId/secrets/:identifier/strategy', () => {
       },
     );
 
-    expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({
-      strategy: 'broker',
-      consumer: 'llm_gateway',
-      delivery_status: 'available',
-      egress_policy: null,
-    });
-    expect(updates[0]).toMatchObject({
-      strategy: 'broker',
-      consumer: 'llm_gateway',
-      egressPolicy: null,
-    });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: 'provider_key_store' });
+    expect(updates).toHaveLength(0);
   });
 
   test('configures a connector consumer without a network policy', async () => {
@@ -815,8 +811,70 @@ describe('PUT /v1/projects/:projectId/secrets/:identifier/strategy', () => {
     expect(updates).toHaveLength(0);
   });
 
+  test('rejects a locked model subscription credential', async () => {
+    row = secretRow({ strategyLocked: true, strategy: 'broker', consumer: 'llm_gateway' });
+
+    const response = await buildApp().request(
+      `/v1/projects/${PROJECT_ID}/secrets/SERVICE_API_KEY/strategy`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ strategy: 'runtime' }),
+      },
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: 'secret_strategy_locked' });
+    expect(updates).toHaveLength(0);
+  });
+
+  test('moves a locked connector-only link secret with no connector binding to runtime', async () => {
+    // A value a person typed into a setup link: never exposed (rotatedAt = the
+    // write), kept server-side because the link said `connector`, bound to no
+    // connector. Its owner may choose environment delivery.
+    row = secretRow({
+      strategyLocked: true,
+      strategy: 'broker',
+      consumer: 'connector',
+      scope: 'connector',
+      rotatedAt: new Date('2026-08-03T10:00:00.000Z'),
+      updatedAt: new Date('2026-08-03T10:00:00.000Z'),
+    });
+
+    const response = await buildApp().request(
+      `/v1/projects/${PROJECT_ID}/secrets/SERVICE_API_KEY/strategy`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ strategy: 'runtime' }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(updates).toHaveLength(1);
+    // The env build skips `scope = connector` rows: environment delivery needs the runtime scope too.
+    expect(updates[0]).toMatchObject({ strategy: 'runtime', consumer: 'sandbox', scope: 'runtime' });
+  });
+
+  test('repairs the scope of a link secret already moved to runtime while its scope stayed connector', async () => {
+    row = secretRow({ strategy: 'runtime', consumer: 'sandbox', scope: 'connector' });
+
+    const response = await buildApp().request(
+      `/v1/projects/${PROJECT_ID}/secrets/SERVICE_API_KEY/strategy`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ strategy: 'runtime' }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(updates).toHaveLength(1);
+    expect(updates[0]).toMatchObject({ scope: 'runtime' });
+  });
+
   test('rejects a locked strategy', async () => {
-    row = secretRow({ strategyLocked: true });
+    row = secretRow({ strategyLocked: true, strategy: 'broker', consumer: 'llm_gateway' });
 
     const response = await buildApp().request(
       `/v1/projects/${PROJECT_ID}/secrets/SERVICE_API_KEY/strategy`,

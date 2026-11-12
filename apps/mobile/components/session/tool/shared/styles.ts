@@ -117,7 +117,7 @@ export const TURN_SPACE = {
 export type TurnPalette = ReturnType<typeof turnPalette>;
 
 /** Every colour a turn row uses, derived from THEME tokens (web opacity modifiers → `withAlpha`). */
-export function turnPalette(isDark: boolean) {
+function turnPalette(isDark: boolean) {
   const t = isDark ? THEME.dark : THEME.light;
   return {
     foreground: t.foreground,

@@ -91,7 +91,7 @@ function SearchPicker({
     <Popover open={open} onOpenChange={handleOpenChange} modal={false}>
       <PopoverTrigger asChild>
         {/* The same field trigger as every Select on the form (Git account,
-            Account): surface, height, caret, and the open-state ring. Radix's
+            Account): surface, height, caret, and the open-state ring. The
             trigger sets `aria-expanded`, `aria-controls` and `aria-haspopup`
             on this button itself. */}
         <button

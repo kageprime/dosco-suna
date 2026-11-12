@@ -483,7 +483,11 @@ pub fn enforce_cap(paths: &MemoryPaths, cap_bytes: u64, sync_on: bool) -> Result
         if !uploaded && sync_on && start > week_ago {
             continue;
         }
-        let _ = std::fs::remove_file(dir(paths).join(&path));
+        let file = dir(paths).join(&path);
+        let len = std::fs::metadata(&file).map(|m| m.len()).unwrap_or(0);
+        if std::fs::remove_file(&file).is_ok() {
+            total = total.saturating_sub(len);
+        }
         if uploaded {
             conn.execute(
                 "UPDATE action_segment SET status = ?1 WHERE id = ?2",
@@ -493,11 +497,23 @@ pub fn enforce_cap(paths: &MemoryPaths, cap_bytes: u64, sync_on: bool) -> Result
             conn.execute("DELETE FROM action_segment WHERE id = ?1", [id])?;
         }
         freed += 1;
+        // Assets and the folder sizes are re-read once per batch, not per
+        // segment: each pass lists every asset and parses every segment row.
+        if freed % CAP_BATCH == 0 {
+            gc_assets(&conn, paths)?;
+            total = local_bytes(paths);
+        }
+    }
+    if freed % CAP_BATCH != 0 {
         gc_assets(&conn, paths)?;
-        total = local_bytes(paths);
     }
     Ok(freed)
 }
+
+/// Segments `enforce_cap` removes between two asset collections. Between
+/// them the total counts only segment files, so assets the batch frees are
+/// seen at the next collection.
+const CAP_BATCH: usize = 32;
 
 /// `<library>/actions.json`: the action recorder's heartbeat, written by the
 /// service every tick (30 s) while it runs, so the recorder's sync thread can

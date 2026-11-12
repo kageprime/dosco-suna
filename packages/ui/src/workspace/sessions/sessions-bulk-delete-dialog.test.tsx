@@ -5,7 +5,7 @@ import { describe, expect, mock, test } from 'bun:test';
 import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-// The real dialog is a Radix portal; the subject here is what this dialog hands it.
+// The real dialog renders through a portal; the subject here is what this dialog hands it.
 const uiConfirmDialogMock = () => ({
   ConfirmDialog: (props: { open: boolean; title: ReactNode; description: ReactNode; confirmLabel: string }) =>
     props.open ? (

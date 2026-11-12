@@ -198,7 +198,7 @@ measured locally), and each restricted matter adds a fourth (below):
 
 1. **A folder**, `/Lumen/Firms/<firmId>/` (`Matters/`, `Runs/`, `Library/`), shared `write` with
    the firm's agent only.
-2. **An agent**, `lumen-f-<firmId>`: `kortix_permissions: none`, `repository_access: false`, the
+2. **An agent**, `lumen-f-<firmId>`: `kortix_permissions: none` (so its sessions get no repository access), the
    counsel prompt from the kit, and two folder grants: its firm folder (`write`) and
    `/Lumen/Kit` (`read`).
 3. **A service account**, `lumen-firm-<firmId>`, project role `member`, plus an `agent-user`
@@ -229,7 +229,7 @@ measured locally, 94 s for the first bootstrap).
 | I3 | The kit is read-only | `read` grant → `ro` mount | `echo x > /drives/kit/evil.txt` → "Read-only file system" |
 | I4 | Firm A's credential cannot read or drive firm B's sessions | Kortix: a backend-created session is private to its creator | Firm A's service account: firm B's session `404`, its transcript `404`, its sandbox `/p/<sbx>/8000/kortix/health` `403` (firm B's own: `200`) |
 | I5 | The sandbox token reaches nothing | The firm agent has `kortix_permissions: none` | From inside firm A's sandbox: another session `403`, the session list `403`, `/drives` `403` |
-| I6 | No session sees another firm's repository work | Every agent in the project has `repository_access: false` | `/workspace` is not a git repository |
+| I6 | No session sees another firm's repository work | Every agent in the project has `kortix_permissions: none`: Kortix never checks out the repository, and a session whose agent lacks `project.gitops.read` gets `repository_access: false` (only its own agent compiled, Git proxy `403`) | `/workspace` is not a git repository; `git clone "$KORTIX_REPO_URL"` from the sandbox is refused |
 | I7 | A firm's credential cannot change the project | Service account role `member` | `GET …/secrets` `403` |
 | I8 | A member's session runs on the matter's agent: the firm's agent, or a restricted matter's own | The proxy overwrites `agent_name` and drops every per-prompt agent (`memberSessionCreateBody`, `memberPromptBody`) | `POST /api/kortix/…/sessions` with firm B's agent from a firm A member → `agent_name: lumen-f-<firmA>` |
 | I9 | A member reads only their firm's agent | The proxy scopes the project detail (`redactIdentity`) | `GET /api/kortix/…/detail` → `agents: [lumen-f-<firmA>]`, no manifest, no files |

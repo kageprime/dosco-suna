@@ -29,6 +29,9 @@ import {
 import { resolveCandidates as realResolveCandidates } from './resolution/resolve-candidates';
 import { runtimeModelCatalog } from './models/runtime-catalog';
 import { fetchPlatinumModels, PlatinumModelsError } from './models/managed-models';
+import { resolveCatalogUpstream } from './models/provider-registry';
+import { assertGatewayBudget, GatewayBudgetExceededError } from './hooks';
+import { recordAccountKeyVerification } from '../secrets/account-resource';
 
 export type ProviderVerifyStatus = 'verified' | 'invalid' | 'unknown' | 'not_connected';
 
@@ -218,4 +221,75 @@ async function verifyPlatinum(principal: AuthedPrincipal, deps: ProviderVerifyDe
     }
     return { status: 'unknown', message: "Couldn't reach Platinum to verify the key." };
   }
+}
+
+/** What a stored key's row records after a check (`account_secret_resources.verify_status`). */
+export type StoredKeyStatus = 'verified' | 'invalid' | 'unknown';
+
+/**
+ * Check ONE saved provider API key (an `account_secret_resources` row), not
+ * whichever key the project would pick: the key is the session selection of
+ * the check, so resolution serves exactly it. `principal` is the member who
+ * saved it, in the key's project. Never throws; `not_connected` (the member
+ * may not use the key in this project) records as `unknown`.
+ */
+export async function verifyAccountKey(
+  principal: AuthedPrincipal,
+  key: { secretId: string; providerId: string },
+  overrides: Partial<ProviderVerifyDeps> = {},
+): Promise<{ status: StoredKeyStatus; message: string }> {
+  const pools = { providerSecretPools: { [key.providerId]: [key.secretId] }, probe: true };
+  const result = await verifyProviderConnection(principal, key.providerId, {
+    resolveCandidates: (p, model) => realResolveCandidates(p, model, pools),
+    ...overrides,
+  }).catch((err: unknown) => ({
+    status: 'unknown' as const,
+    message: err instanceof Error ? err.message : "Couldn't verify the key.",
+  }));
+  return {
+    status: result.status === 'not_connected' ? 'unknown' : result.status,
+    message: result.message.slice(0, 500),
+  };
+}
+
+/** The checked fields of a saved key row, as the Models panel shows them. */
+export interface KeyVerification {
+  status: StoredKeyStatus;
+  message: string;
+  checkedAt: Date;
+}
+
+/**
+ * Check a saved provider API key with one cheap completion and record the
+ * outcome on its row. Only a provider API key in a project is checked (not a
+ * ChatGPT or Claude login, which have their own reconnect state); null for any
+ * other row. A network failure, a timeout or an exceeded budget records
+ * `unknown`: the key stays saved and usable either way.
+ */
+export async function verifyAndRecordAccountKey(
+  row: { secretId: string; accountId: string; projectId: string | null; providerId: string | null; name: string },
+  userId: string,
+  deps: {
+    verify?: typeof verifyAccountKey;
+    record?: typeof recordAccountKeyVerification;
+    budget?: (principal: AuthedPrincipal) => Promise<void>;
+    now?: () => Date;
+  } = {},
+): Promise<KeyVerification | null> {
+  if (!row.projectId || !row.providerId) return null;
+  if (resolveCatalogUpstream(row.providerId)?.envVar !== row.name) return null;
+  const principal: AuthedPrincipal = { userId, accountId: row.accountId, projectId: row.projectId };
+  let result: { status: StoredKeyStatus; message: string };
+  try {
+    await (deps.budget ?? assertGatewayBudget)(principal);
+    result = await (deps.verify ?? verifyAccountKey)(principal, { secretId: row.secretId, providerId: row.providerId });
+  } catch (err) {
+    result = {
+      status: 'unknown',
+      message: err instanceof GatewayBudgetExceededError ? `Not checked: ${err.message}` : "Couldn't verify the key.",
+    };
+  }
+  const verification = { ...result, checkedAt: (deps.now ?? (() => new Date()))() };
+  await (deps.record ?? recordAccountKeyVerification)(row.secretId, row.accountId, verification);
+  return verification;
 }

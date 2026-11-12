@@ -78,8 +78,8 @@ use windows::Win32::System::Threading::{
 };
 use windows::Win32::UI::Accessibility::*;
 use windows::Win32::UI::HiDpi::{
-    GetDpiForMonitor, SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
-    MDT_EFFECTIVE_DPI,
+    GetDpiForMonitor, SetProcessDpiAwarenessContext, SetThreadDpiAwarenessContext,
+    DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, MDT_EFFECTIVE_DPI,
 };
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
 use windows::Win32::UI::Shell::PropertiesSystem::{
@@ -616,6 +616,9 @@ struct Dup {
     /// orientation. `clockwise` is decided on the first frame of a 90/270 monitor.
     rotation: DXGI_MODE_ROTATION,
     clockwise: Option<bool>,
+    /// Counts the desktop images copied into `staging`. An equal value means
+    /// the monitor shows the same pixels as at the last read.
+    generation: u64,
 }
 
 /// How long a monitor whose duplication failed uses BitBlt before trying again.
@@ -674,6 +677,7 @@ fn open_dup(mon: HMONITOR) -> Result<Dup> {
                     staging: None,
                     rotation: desc.Rotation,
                     clockwise: None,
+                    generation: 0,
                 });
             }
         }
@@ -699,6 +703,12 @@ fn is_access_lost(e: &anyhow::Error) -> bool {
 }
 
 fn duplicate_once(mon: HMONITOR, r: RECT) -> Result<RgbImage> {
+    with_fresh_dup(mon, |d| unsafe { read_staging(d, r) })
+}
+
+/// Take the monitor's newest desktop image into `staging` when one is ready,
+/// then run `f` on the duplication.
+fn with_fresh_dup<T>(mon: HMONITOR, f: impl FnOnce(&mut Dup) -> Result<T>) -> Result<T> {
     let key = mon.0 as isize;
     DUPS.with(|cell| {
         let mut dups = cell.borrow_mut();
@@ -718,10 +728,15 @@ fn duplicate_once(mon: HMONITOR, r: RECT) -> Result<RgbImage> {
                 match d.dup.AcquireNextFrame(wait, &mut info, &mut res) {
                     Ok(()) => {
                         let fresh = d.staging.is_none();
-                        let copied = if fresh && info.LastPresentTime == 0 && attempt < 3 {
-                            Ok(false)
+                        // LastPresentTime 0: only the pointer moved. The pointer is
+                        // not in the desktop image, so staging is still current.
+                        let copied = if info.LastPresentTime == 0 && (!fresh || attempt < 3) {
+                            Ok(!fresh)
                         } else {
-                            copy_frame(d, res).map(|_| true)
+                            copy_frame(d, res).map(|_| {
+                                d.generation += 1;
+                                true
+                            })
                         };
                         let _ = d.dup.ReleaseFrame();
                         if copied? {
@@ -733,9 +748,34 @@ fn duplicate_once(mon: HMONITOR, r: RECT) -> Result<RgbImage> {
                     Err(e) => return Err(anyhow::Error::new(e).context("AcquireNextFrame")),
                 }
             }
-            read_staging(d, r)
+            f(d)
         }
     })
+}
+
+/// The desktop-image generation of display `d`: equal values mean the
+/// monitor shows the same pixels. None when the monitor is not duplicated
+/// (BitBlt fallback, no frame yet), so the caller must read the pixels.
+pub fn frame_generation(d: &DisplayInfo) -> Option<u64> {
+    let mon = HMONITOR(d.id as _);
+    let key = mon.0 as isize;
+    let now = unsafe { GetTickCount() };
+    let waiting = RETRY_AT.with(|t| {
+        t.borrow()
+            .get(&key)
+            .is_some_and(|at| (now.wrapping_sub(*at) as i32) < 0)
+    });
+    if waiting || !DUPS.with(|c| c.borrow().contains_key(&key)) {
+        return None;
+    }
+    match with_fresh_dup(mon, |d| Ok(d.staging.is_some().then_some(d.generation))) {
+        Ok(g) => g,
+        Err(_) => {
+            // The next read goes through `grab`, which reopens or falls back.
+            DUPS.with(|c| c.borrow_mut().remove(&key));
+            None
+        }
+    }
 }
 
 /// Copy the acquired desktop texture into the CPU-readable staging texture.
@@ -798,11 +838,12 @@ unsafe fn read_staging(d: &mut Dup, r: RECT) -> Result<RgbImage> {
     d.ctx.Map(staging, 0, D3D11_MAP_READ, 0, Some(&mut map))?;
     let pitch = map.RowPitch as usize;
     let src = std::slice::from_raw_parts(map.pData as *const u8, pitch * h as usize);
-    let mut rgb = Vec::with_capacity((w * h * 3) as usize);
-    for row in src.chunks_exact(pitch) {
-        for px in row[..w as usize * 4].chunks_exact(4) {
-            rgb.extend_from_slice(&[px[2], px[1], px[0]]);
-        }
+    let mut rgb = vec![0u8; (w * h * 3) as usize];
+    for (dst, row) in rgb
+        .chunks_exact_mut(w as usize * 3)
+        .zip(src.chunks_exact(pitch))
+    {
+        bgra_to_rgb(&row[..w as usize * 4], dst);
     }
     d.ctx.Unmap(staging, 0);
     let panel = RgbImage::from_raw(w, h, rgb).ok_or_else(|| anyhow!("frame buffer size"))?;
@@ -857,6 +898,15 @@ fn turns_clockwise(panel: &RgbImage, r: RECT) -> Result<bool> {
     Ok(cw < ccw)
 }
 
+/// BGRA pixels to RGB into a preallocated buffer (no per-pixel push).
+fn bgra_to_rgb(src: &[u8], dst: &mut [u8]) {
+    for (d, s) in dst.chunks_exact_mut(3).zip(src.chunks_exact(4)) {
+        d[0] = s[2];
+        d[1] = s[1];
+        d[2] = s[0];
+    }
+}
+
 /// The pixels of one rectangle of the virtual screen (GDI `BitBlt`).
 fn blit(r: RECT) -> Result<RgbImage> {
     let (w, h) = (r.right - r.left, r.bottom - r.top);
@@ -899,10 +949,8 @@ fn blit(r: RECT) -> Result<RgbImage> {
         if lines == 0 {
             bail!("GetDIBits failed");
         }
-        let mut rgb = Vec::with_capacity((w * h * 3) as usize);
-        for px in buf.chunks_exact(4) {
-            rgb.extend_from_slice(&[px[2], px[1], px[0]]);
-        }
+        let mut rgb = vec![0u8; (w * h * 3) as usize];
+        bgra_to_rgb(&buf, &mut rgb);
         RgbImage::from_raw(w as u32, h as u32, rgb).ok_or_else(|| anyhow!("frame buffer size"))
     }
 }
@@ -965,6 +1013,49 @@ pub fn screenshot_display(d: &DisplayInfo) -> Result<RgbImage> {
             bottom: d.rect.bottom(),
         },
     )
+}
+
+/// One monitor's pixels as the engine reads them (Desktop Duplication, else
+/// BitBlt), for the in-process action recorder. `mon` is an HMONITOR value.
+/// `unless`: a generation from an earlier call; when the monitor still shows
+/// that desktop image, returns None without reading the pixels. The returned
+/// generation is None when the image came from BitBlt.
+pub fn grab_monitor(mon: isize, unless: Option<u64>) -> Result<Option<(RgbImage, Option<u64>)>> {
+    // Physical pixels: Desktop Duplication hands them out, and the size check
+    // in `read_staging` compares against this thread's monitor rectangle.
+    unsafe {
+        let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    }
+    let mon = HMONITOR(mon as _);
+    let mut mi = MONITORINFO {
+        cbSize: size_of::<MONITORINFO>() as u32,
+        ..Default::default()
+    };
+    if !unsafe { GetMonitorInfoW(mon, &mut mi) }.as_bool() {
+        bail!("no_display");
+    }
+    let r = mi.rcMonitor;
+    let info = DisplayInfo {
+        id: mon.0 as i64,
+        rect: Rect {
+            x: r.left,
+            y: r.top,
+            w: r.right - r.left,
+            h: r.bottom - r.top,
+        },
+        name: String::new(),
+        main: false,
+        scale: 1.0,
+    };
+    if let (Some(g), Some(last)) = (frame_generation(&info), unless) {
+        if g == last {
+            return Ok(None);
+        }
+    }
+    let image = grab(mon, r)?;
+    let key = mon.0 as isize;
+    let generation = DUPS.with(|c| c.borrow().get(&key).map(|d| d.generation));
+    Ok(Some((image, generation)))
 }
 
 // ------------------------------------------------------ UI Automation (AX)
@@ -1036,103 +1127,151 @@ fn role_name(id: UIA_CONTROLTYPE_ID) -> &'static str {
         .unwrap_or("Unknown")
 }
 
-fn element_value(el: &IUIAutomationElement) -> Option<String> {
+/// The longest one tree walk may take. Every UI Automation call is answered
+/// on the target app's UI thread, so a long walk stalls that app (a large
+/// ribbon, a docked pane, a dialog with many fields). A walk that hits the budget returns what it
+/// has, marked partial.
+const AX_BUDGET: Duration = Duration::from_millis(250);
+
+/// One cache request for every property a node records. A node then costs one
+/// cross-process call (`...BuildCache` on the walker) instead of one per property.
+fn ax_cache_request(auto: &IUIAutomation) -> Option<IUIAutomationCacheRequest> {
+    unsafe {
+        let req = auto.CreateCacheRequest().ok()?;
+        for id in [
+            UIA_ControlTypePropertyId,
+            UIA_NamePropertyId,
+            UIA_HelpTextPropertyId,
+            UIA_BoundingRectanglePropertyId,
+            UIA_IsOffscreenPropertyId,
+            UIA_IsEnabledPropertyId,
+            UIA_ValueValuePropertyId,
+        ] {
+            req.AddProperty(id).ok()?;
+        }
+        req.AddPattern(UIA_ValuePatternId).ok()?;
+        Some(req)
+    }
+}
+
+fn cached_value(el: &IUIAutomationElement) -> Option<String> {
     let pattern =
-        unsafe { el.GetCurrentPatternAs::<IUIAutomationValuePattern>(UIA_ValuePatternId) }.ok()?;
-    let v = unsafe { pattern.CurrentValue() }.ok()?.to_string();
+        unsafe { el.GetCachedPatternAs::<IUIAutomationValuePattern>(UIA_ValuePatternId) }.ok()?;
+    let v = unsafe { pattern.CachedValue() }.ok()?.to_string();
     (!v.is_empty()).then_some(v)
 }
 
-fn ax_node(
-    auto: &IUIAutomation,
-    walker: &IUIAutomationTreeWalker,
-    el: &IUIAutomationElement,
-    depth: usize,
+struct AxWalk<'a> {
+    walker: &'a IUIAutomationTreeWalker,
+    cache: &'a IUIAutomationCacheRequest,
     max_depth: usize,
-    budget: &mut usize,
-) -> Option<Value> {
-    if *budget == 0 {
-        return None;
-    }
-    *budget -= 1;
-    let mut node = Map::new();
-    let ct = unsafe { el.CurrentControlType() }.unwrap_or_default();
-    node.insert("role".into(), json!(format!("UIA{}", role_name(ct))));
-    if let Ok(n) = unsafe { el.CurrentName() } {
-        if !n.is_empty() {
-            node.insert("title".into(), json!(n.to_string()));
+    budget: usize,
+    deadline: Instant,
+    /// Set when the node budget or the deadline cut the walk short.
+    cut: bool,
+}
+
+impl AxWalk<'_> {
+    fn spent(&mut self) -> bool {
+        if self.budget == 0 || Instant::now() >= self.deadline {
+            self.cut = true;
         }
+        self.cut
     }
-    if let Ok(n) = unsafe { el.CurrentHelpText() } {
-        if !n.is_empty() {
-            node.insert("description".into(), json!(n.to_string()));
+
+    /// `el` carries the cached properties of `ax_cache_request`.
+    fn node(&mut self, el: &IUIAutomationElement, depth: usize) -> Option<Value> {
+        if self.spent() {
+            return None;
         }
-    }
-    let valued = [
-        UIA_EditControlTypeId,
-        UIA_DocumentControlTypeId,
-        UIA_ComboBoxControlTypeId,
-        UIA_TextControlTypeId,
-        UIA_SpinnerControlTypeId,
-        UIA_SliderControlTypeId,
-        UIA_HyperlinkControlTypeId,
-    ];
-    if valued.contains(&ct) {
-        if let Some(v) = element_value(el) {
-            node.insert(
-                "value".into(),
-                json!(v.chars().take(4000).collect::<String>()),
-            );
+        self.budget -= 1;
+        let mut node = Map::new();
+        let ct = unsafe { el.CachedControlType() }.unwrap_or_default();
+        node.insert("role".into(), json!(format!("UIA{}", role_name(ct))));
+        if let Ok(n) = unsafe { el.CachedName() } {
+            if !n.is_empty() {
+                node.insert("title".into(), json!(n.to_string()));
+            }
         }
-    }
-    if let Ok(r) = unsafe { el.CurrentBoundingRectangle() } {
-        node.insert("x".into(), json!(r.left));
-        node.insert("y".into(), json!(r.top));
-        node.insert("w".into(), json!(r.right - r.left));
-        node.insert("h".into(), json!(r.bottom - r.top));
-    }
-    if unsafe { el.CurrentIsOffscreen() }
-        .map(|b| b.as_bool())
-        .unwrap_or(false)
-    {
-        node.insert("hidden".into(), json!(true));
-    }
-    if !unsafe { el.CurrentIsEnabled() }
-        .map(|b| b.as_bool())
-        .unwrap_or(true)
-    {
-        node.insert("disabled".into(), json!(true));
-    }
-    let first = unsafe { walker.GetFirstChildElement(el) }.ok();
-    if depth < max_depth {
-        let mut kids = Vec::new();
-        let mut child = first;
-        while let Some(c) = child {
-            let Some(k) = ax_node(auto, walker, &c, depth + 1, max_depth, budget) else {
-                break;
-            };
-            kids.push(k);
-            child = unsafe { walker.GetNextSiblingElement(&c) }.ok();
+        if let Ok(n) = unsafe { el.CachedHelpText() } {
+            if !n.is_empty() {
+                node.insert("description".into(), json!(n.to_string()));
+            }
         }
-        if !kids.is_empty() {
-            node.insert("children".into(), Value::Array(kids));
+        let valued = [
+            UIA_EditControlTypeId,
+            UIA_DocumentControlTypeId,
+            UIA_ComboBoxControlTypeId,
+            UIA_TextControlTypeId,
+            UIA_SpinnerControlTypeId,
+            UIA_SliderControlTypeId,
+            UIA_HyperlinkControlTypeId,
+        ];
+        if valued.contains(&ct) {
+            if let Some(v) = cached_value(el) {
+                node.insert(
+                    "value".into(),
+                    json!(v.chars().take(4000).collect::<String>()),
+                );
+            }
         }
-    } else if first.is_some() {
-        node.insert("truncated".into(), json!(true));
+        if let Ok(r) = unsafe { el.CachedBoundingRectangle() } {
+            node.insert("x".into(), json!(r.left));
+            node.insert("y".into(), json!(r.top));
+            node.insert("w".into(), json!(r.right - r.left));
+            node.insert("h".into(), json!(r.bottom - r.top));
+        }
+        if unsafe { el.CachedIsOffscreen() }
+            .map(|b| b.as_bool())
+            .unwrap_or(false)
+        {
+            node.insert("hidden".into(), json!(true));
+        }
+        if !unsafe { el.CachedIsEnabled() }
+            .map(|b| b.as_bool())
+            .unwrap_or(true)
+        {
+            node.insert("disabled".into(), json!(true));
+        }
+        if depth < self.max_depth {
+            let mut kids = Vec::new();
+            let mut child =
+                unsafe { self.walker.GetFirstChildElementBuildCache(el, self.cache) }.ok();
+            while let Some(c) = child {
+                let Some(k) = self.node(&c, depth + 1) else {
+                    break;
+                };
+                kids.push(k);
+                child = unsafe { self.walker.GetNextSiblingElementBuildCache(&c, self.cache) }.ok();
+            }
+            if !kids.is_empty() {
+                node.insert("children".into(), Value::Array(kids));
+            }
+        } else if unsafe { self.walker.GetFirstChildElement(el) }.is_ok() {
+            node.insert("truncated".into(), json!(true));
+        }
+        Some(Value::Object(node))
     }
-    Some(Value::Object(node))
 }
 
 pub fn ax_tree(fg: &Foreground, max_depth: usize, max_nodes: usize) -> Option<AxResult> {
     let auto = automation()?;
-    let root = unsafe { auto.ElementFromHandle(hwnd_from(fg.id)) }.ok()?;
+    let cache = ax_cache_request(&auto)?;
+    let root = unsafe { auto.ElementFromHandleBuildCache(hwnd_from(fg.id), &cache) }.ok()?;
     let walker = unsafe { auto.ControlViewWalker() }.ok()?;
-    let mut budget = max_nodes;
-    let tree = ax_node(&auto, &walker, &root, 0, max_depth, &mut budget)?;
+    let mut walk = AxWalk {
+        walker: &walker,
+        cache: &cache,
+        max_depth,
+        budget: max_nodes,
+        deadline: Instant::now() + AX_BUDGET,
+        cut: false,
+    };
+    let tree = walk.node(&root, 0)?;
     Some(AxResult {
         tree,
-        node_count: max_nodes - budget,
-        partial: budget == 0,
+        node_count: max_nodes - walk.budget,
+        partial: walk.cut,
     })
 }
 
@@ -1154,14 +1293,69 @@ fn looks_like_url(v: &str) -> bool {
     !v.contains(' ') && (v.contains("://") || v.contains('.') || v.starts_with("localhost"))
 }
 
+thread_local! {
+    /// The address-bar element of the last browser window searched: (window, element).
+    static ADDRESS_BAR: RefCell<Option<(u64, IUIAutomationElement)>> = const { RefCell::new(None) };
+}
+
+/// The URL in a value read from an address bar, or None when it is not one.
+fn as_url(v: &str) -> Option<String> {
+    if !looks_like_url(v) {
+        return None;
+    }
+    let v = v.trim().to_string();
+    Some(if v.contains("://") { v } else { format!("https://{v}") })
+}
+
 /// Address-bar text of a browser window: first Edit control (breadth first,
 /// so the toolbar wins over page content) whose value looks like a URL.
+///
+/// Read fresh on every call: this text alone decides whether the page in front
+/// is on an excluded site, and whether record only included records it. What
+/// is kept between calls is the address-bar element, not its text, so a
+/// steady probe costs one or two calls into the browser instead of a walk of
+/// up to 900 elements. A stale element, or one that no longer holds a URL,
+/// starts a full search.
 pub fn browser_url(fg: &Foreground) -> Option<String> {
     if !BROWSERS.contains(&fg.bundle_id.to_lowercase().as_str()) {
         return None;
     }
+    let cached = ADDRESS_BAR.with(|c| {
+        c.borrow()
+            .as_ref()
+            .filter(|(w, _)| *w == fg.id)
+            .map(|(_, el)| el.clone())
+    });
+    if let Some(url) = cached.and_then(|el| current_value(&el)).and_then(|v| as_url(&v)) {
+        return Some(url);
+    }
+    let found = find_address_bar(fg);
+    ADDRESS_BAR.with(|c| {
+        *c.borrow_mut() = found.as_ref().map(|(_, el)| (fg.id, el.clone()));
+    });
+    found.map(|(url, _)| url)
+}
+
+fn current_value(el: &IUIAutomationElement) -> Option<String> {
+    let pattern =
+        unsafe { el.GetCurrentPatternAs::<IUIAutomationValuePattern>(UIA_ValuePatternId) }.ok()?;
+    let v = unsafe { pattern.CurrentValue() }.ok()?.to_string();
+    (!v.is_empty()).then_some(v)
+}
+
+/// The whole search: breadth first over up to 900 elements, one cached call per
+/// element. No time budget: a search cut short would report no URL, and no URL
+/// must not let an excluded site through.
+fn find_address_bar(fg: &Foreground) -> Option<(String, IUIAutomationElement)> {
     let auto = automation()?;
-    let root = unsafe { auto.ElementFromHandle(hwnd_from(fg.id)) }.ok()?;
+    let cache = unsafe {
+        let req = auto.CreateCacheRequest().ok()?;
+        req.AddProperty(UIA_ControlTypePropertyId).ok()?;
+        req.AddProperty(UIA_ValueValuePropertyId).ok()?;
+        req.AddPattern(UIA_ValuePatternId).ok()?;
+        req
+    };
+    let root = unsafe { auto.ElementFromHandleBuildCache(hwnd_from(fg.id), &cache) }.ok()?;
     let walker = unsafe { auto.ControlViewWalker() }.ok()?;
     let mut queue = std::collections::VecDeque::from([root]);
     let mut visited = 0;
@@ -1170,24 +1364,17 @@ pub fn browser_url(fg: &Foreground) -> Option<String> {
         if visited > 900 {
             break;
         }
-        if unsafe { el.CurrentControlType() }
+        if unsafe { el.CachedControlType() }
             .map(|c| c == UIA_EditControlTypeId)
             .unwrap_or(false)
         {
-            if let Some(v) = element_value(&el) {
-                if looks_like_url(&v) {
-                    let v = v.trim().to_string();
-                    return Some(if v.contains("://") {
-                        v
-                    } else {
-                        format!("https://{v}")
-                    });
-                }
+            if let Some(url) = cached_value(&el).and_then(|v| as_url(&v)) {
+                return Some((url, el));
             }
         }
-        let mut child = unsafe { walker.GetFirstChildElement(&el) }.ok();
+        let mut child = unsafe { walker.GetFirstChildElementBuildCache(&el, &cache) }.ok();
         while let Some(c) = child {
-            child = unsafe { walker.GetNextSiblingElement(&c) }.ok();
+            child = unsafe { walker.GetNextSiblingElementBuildCache(&c, &cache) }.ok();
             queue.push_back(c);
         }
     }
@@ -1799,4 +1986,55 @@ pub fn encode_audio(input: &str, out: &str, rate: u32, _bitrate: u32) -> Result<
         writer.Finalize()?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use windows::Win32::UI::WindowsAndMessaging::FindWindowW;
+
+    /// The cached walk reads a real window's tree (Notepad: a window, a menu
+    /// bar, an edit or document control) within its time budget.
+    #[test]
+    fn the_accessibility_tree_of_a_real_window_is_read_within_budget() {
+        init();
+        let mut child = std::process::Command::new("notepad.exe")
+            .spawn()
+            .expect("start notepad");
+        let mut hwnd = HWND::default();
+        for _ in 0..50 {
+            hwnd = unsafe { FindWindowW(&HSTRING::from("Notepad"), windows::core::PCWSTR::null()) }
+                .unwrap_or_default();
+            if !hwnd.is_invalid() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        assert!(!hwnd.is_invalid(), "no Notepad window");
+        let fg = Foreground {
+            id: hwnd.0 as usize as u64,
+            pid: 0,
+            bundle_id: "notepad.exe".into(),
+            aliases: Vec::new(),
+            name: "Notepad".into(),
+            version: String::new(),
+            title: String::new(),
+            rect: None,
+        };
+        let started = Instant::now();
+        let ax = ax_tree(&fg, 40, 4000).expect("an accessibility tree");
+        let took = started.elapsed();
+        let _ = child.kill();
+        let text = ax.tree.to_string();
+        assert_eq!(ax.tree["role"], json!("UIAWindow"), "{text}");
+        assert!(ax.node_count > 3, "{} nodes: {text}", ax.node_count);
+        assert!(
+            text.contains("UIAEdit") || text.contains("UIADocument"),
+            "no text control: {text}"
+        );
+        assert!(
+            took < AX_BUDGET + Duration::from_millis(250),
+            "walk took {took:?}"
+        );
+    }
 }

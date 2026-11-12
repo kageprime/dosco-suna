@@ -323,7 +323,7 @@ test('the branch picker shows the current branch before /branches answers', () =
   expect(filterBranchNames([], 'main', '')).toEqual({ visible: ['main'], hidden: 0 });
 });
 
-test('the default branch is never a Radix <Select> of every remote branch', () => {
+test('the default branch is never a <Select> of every remote branch', () => {
   expect(code).toContain('<BranchPicker');
   expect(code).not.toMatch(/branchNames\.map\(\(branch\) => \(\s*<SelectItem/);
 });

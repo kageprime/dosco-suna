@@ -4,8 +4,10 @@
  * on top, then its name and runtime state — and a tap that opens it, the same
  * two hops web's `?open_app=` link runs, a short-lived access session then
  * the URL, in the in-app browser instead of an iframe. Apps are deployed from
- * a sandbox with `kortix apps deploy`, so the page has no create action and
- * no search: it is a list you open things from.
+ * a sandbox with `kortix apps deploy`, so the page has no create action: it
+ * is a list you open things from. The Schedules page's search pill sits under
+ * the header and filters the cards by name and slug; on iOS the search sits at
+ * the bottom instead (`BottomSearchBar fieldAtRest`: the full-width field, with an X while it is focused; no action).
  *
  * The preview (KRTX-2183; rules in `lib/projects/app-preview.ts`) is a
  * WebView that takes no input, mounted only while its card is on screen, the
@@ -20,7 +22,7 @@ import { useAppAccess } from '@kortix/sdk/react';
 import { useQuery } from '@tanstack/react-query';
 import { useIsFocused } from 'expo-router';
 import { useColorScheme } from 'nativewind';
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState, Pressable, View, type ListViewToken } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -28,6 +30,8 @@ import { KortixLoader } from '@/components/kortix/kortix-loader';
 import { PageContent } from '@/components/kortix/page-content';
 import { PageHeader } from '@/components/kortix/page-header';
 import { PageList } from '@/components/kortix/page-list';
+import { SearchListHeader } from '@/components/kortix/search-list-header';
+import { BottomSearchBar, useBottomSearchInset, usesBottomSearch } from '@/components/kortix/bottom-search-bar';
 import { SettingsGroupItem, SettingsRow } from '@/components/kortix/settings-list';
 import { useToast } from '@/components/kortix/toast-provider';
 import { Icon } from '@/components/ui/icon';
@@ -47,6 +51,7 @@ import { projectKeys } from '@/lib/projects/hooks';
 import { openLink } from '@/lib/utils/open-link';
 import { THEME } from '@/lib/utils/theme';
 import { decidePreviewNavigation } from '@/lib/utils/html-embed';
+import { filterByQuery, noResultsLabel } from '@/lib/ui/search-filter';
 
 import type { PageTab } from '@/stores/tab-store';
 
@@ -73,6 +78,10 @@ export function AppsPage({ page, projectId, onOpenDrawer }: AppsPageProps) {
     staleTime: 10_000,
   });
   const apps = data ?? [];
+  const [search, setSearch] = useState('');
+  const filtered = useMemo(() => filterByQuery(data ?? [], search, (app) => [app.name, app.slug]), [data, search]);
+  const bottomSearch = usesBottomSearch();
+  const bottomInset = useBottomSearchInset();
 
   // Previews run only while someone can see them.
   const focused = useIsFocused();
@@ -133,6 +142,8 @@ export function AppsPage({ page, projectId, onOpenDrawer }: AppsPageProps) {
       <PageHeader title={page.label} onOpenDrawer={onOpenDrawer} />
 
       <PageContent>
+        {bottomSearch ? null : <SearchListHeader value={search} onChangeText={setSearch} placeholder="Search apps" />}
+
         <PageList<App>
           isLoading={isLoading}
           errorMessage={
@@ -142,9 +153,10 @@ export function AppsPage({ page, projectId, onOpenDrawer }: AppsPageProps) {
           }
           onRetry={() => void refetch()}
           onRefresh={refresh}
-          emptyLabel={apps.length === 0 ? 'No apps yet' : null}
+          emptyLabel={apps.length === 0 ? 'No apps yet' : filtered.length === 0 ? noResultsLabel(search) : null}
           header={<View className="h-1" />}
-          data={apps}
+          bottomInset={bottomSearch ? bottomInset : undefined}
+          data={filtered}
           keyExtractor={(app) => app.app_id}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={VIEWABILITY}
@@ -162,6 +174,8 @@ export function AppsPage({ page, projectId, onOpenDrawer }: AppsPageProps) {
           )}
         />
       </PageContent>
+
+      <BottomSearchBar value={search} onChangeText={setSearch} placeholder="Search apps" fieldAtRest background={bgColor} />
     </View>
   );
 }

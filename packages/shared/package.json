@@ -12,6 +12,7 @@
     "./artifact-doc": "./src/artifact-doc.ts",
     "./brand-css": "./src/brand-css.generated.ts",
     "./wordmark": "./src/wordmark.ts",
+    "./chrome-launch": "./src/chrome-launch.ts",
     "./pixel-mark": "./src/pixel-mark.ts",
     "./tools": "./src/tools/index.ts",
     "./utils": "./src/utils/index.ts",
@@ -46,7 +47,11 @@
     "./well-known": "./src/well-known.ts",
     "./workspace-actions": "./src/workspace-actions.ts",
     "./workspace-routes": "./src/workspace-routes.ts",
-    "./workspace-settings": "./src/workspace-settings.ts"
+    "./workspace-settings": "./src/workspace-settings.ts",
+    "./session/attachment-tile": "./src/session/attachment-tile.ts",
+    "./session/tool-row-text": "./src/session/tool-row-text.ts",
+    "./session/session-starter": "./src/session/session-starter.ts",
+    "./session/stop-refusal": "./src/session/stop-refusal.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit --incremental --tsBuildInfoFile node_modules/.cache/tsgo.tsbuildinfo",

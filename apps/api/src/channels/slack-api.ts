@@ -1,3 +1,5 @@
+import { logger } from '../lib/logger';
+
 const SLACK_API_BASE = 'https://slack.com/api';
 
 interface SlackApiResult {
@@ -132,6 +134,8 @@ export async function getFileInfo(token: string, fileId: string): Promise<SlackA
  */
 export interface SlackPersona {
   username: string;
+  /** The agent's face (`agentMarkUrl`). None: Slack shows the app's picture. */
+  icon_url?: string;
 }
 
 /**
@@ -146,7 +150,12 @@ async function createWithPersona(
   persona: SlackPersona | null | undefined,
 ): Promise<SlackApiResult> {
   if (!persona) return slackApiCall(token, method, args, { idempotent: false });
-  const r = await slackApiCall(token, method, { ...args, username: persona.username }, { idempotent: false });
+  const r = await slackApiCall(
+    token,
+    method,
+    { ...args, username: persona.username, ...(persona.icon_url ? { icon_url: persona.icon_url } : {}) },
+    { idempotent: false },
+  );
   if (!r.ok && r.error === 'missing_scope') return slackApiCall(token, method, args, { idempotent: false });
   return r;
 }
@@ -156,6 +165,16 @@ export async function authTestBotId(token: string): Promise<string | null> {
   try {
     const r = await slackApiCall(token, 'auth.test', {});
     return r.ok && typeof r.bot_id === 'string' ? r.bot_id : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The Slack workspace this token is for (`auth.test`), or null when Slack does not answer with one. */
+export async function authTestTeamId(token: string): Promise<string | null> {
+  try {
+    const r = await slackApiCall(token, 'auth.test', {});
+    return r.ok && typeof r.team_id === 'string' ? r.team_id : null;
   } catch {
     return null;
   }
@@ -355,6 +374,26 @@ export async function addReaction(
   }
 }
 
+/**
+ * The assistant pane's own "is working…" line under the app's name
+ * (`assistant.threads.setStatus`, scope `assistant:write`). Slack clears it
+ * when the app posts in the thread; an empty `status` clears it at once.
+ * Cosmetic: one attempt, a refusal is logged and dropped.
+ */
+export async function setAssistantStatus(token: string, channel: string, threadTs: string, status: string): Promise<void> {
+  try {
+    const r = await slackApiCall(
+      token,
+      'assistant.threads.setStatus',
+      { channel_id: channel, thread_ts: threadTs, status: status.slice(0, 120) },
+      { retries: 0 },
+    );
+    if (!r.ok) logger.warn('[slack-api] assistant.threads.setStatus failed', { error: r.error });
+  } catch (err) {
+    logger.warn('[slack-api] assistant.threads.setStatus error', { err: (err as Error)?.message });
+  }
+}
+
 export async function removeReaction(
   token: string,
   channel: string,
@@ -518,18 +557,32 @@ export async function openModal(
   token: string,
   triggerId: string,
   view: Record<string, unknown>,
-): Promise<boolean> {
+): Promise<{ viewId: string | null } | null> {
   try {
     const r = await slackApiCall(token, 'views.open', { trigger_id: triggerId, view });
     if (!r.ok) {
       // `expired_trigger_id` is the one worth recognising: it means the handler
       // did work before opening, not that the view was malformed.
       console.warn('[slack-api] views.open failed', { error: r.error });
-      return false;
+      return null;
     }
-    return true;
+    // The opened view's id: `updateModal` replaces its content.
+    const id = (r.view as { id?: unknown } | undefined)?.id;
+    return { viewId: typeof id === 'string' && id ? id : null };
   } catch (err) {
     console.warn('[slack-api] views.open error', err);
+    return null;
+  }
+}
+
+/** Replace an open modal's content (`views.update`). False when Slack refused it. */
+export async function updateModal(token: string, viewId: string, view: Record<string, unknown>): Promise<boolean> {
+  try {
+    const r = await slackApiCall(token, 'views.update', { view_id: viewId, view });
+    if (!r.ok) logger.warn('[slack-api] views.update failed', { error: r.error });
+    return r.ok;
+  } catch (err) {
+    logger.warn('[slack-api] views.update error', { err: (err as Error)?.message });
     return false;
   }
 }
@@ -596,6 +649,85 @@ export async function isBotUser(token: string, userId: string): Promise<boolean 
     return Boolean(u.is_bot || u.is_app_user);
   } catch (err) {
     console.warn('[slack-api] users.info error', err);
+    return null;
+  }
+}
+
+/** A Slack person's email, when Slack confirmed it. Null for a bot, a deleted user, or any failure. */
+export async function slackConfirmedEmail(token: string, userId: string): Promise<string | null> {
+  try {
+    const r = await slackApiCall(token, 'users.info', { user: userId }, { form: true });
+    const u = r.ok ? (r.user as SlackPerson | undefined) : undefined;
+    return u && isConfirmedPerson(u) ? u.profile!.email!.trim().toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The Slack person with this confirmed email, or null. */
+export async function slackPersonByEmail(token: string, email: string): Promise<string | null> {
+  try {
+    const r = await slackApiCall(token, 'users.lookupByEmail', { email }, { form: true });
+    const u = r.ok ? (r.user as SlackPerson | undefined) : undefined;
+    return u && isConfirmedPerson(u) && typeof u.id === 'string' ? u.id : null;
+  } catch {
+    return null;
+  }
+}
+
+interface SlackPerson {
+  id?: string;
+  deleted?: boolean;
+  is_bot?: boolean;
+  is_app_user?: boolean;
+  is_email_confirmed?: boolean;
+  profile?: { email?: string };
+}
+
+function isConfirmedPerson(u: SlackPerson): boolean {
+  return !u.deleted && !u.is_bot && !u.is_app_user && u.is_email_confirmed === true && Boolean(u.profile?.email?.trim());
+}
+
+/** One conversation `users.conversations` lists: its id and, for a DM, the other person. */
+export interface SlackMembership {
+  id: string;
+  isIm: boolean;
+  /** The person a DM is with. */
+  user: string | null;
+}
+
+/**
+ * The conversations of `types` the token's bot is in, or with `user`, the ones
+ * that person is in among those the bot can see (`users.conversations`). Null
+ * on any failure or past 10 pages of 1000, so the caller fails closed.
+ */
+export async function slackMemberships(
+  token: string,
+  types: string,
+  user?: string,
+): Promise<SlackMembership[] | null> {
+  const out: SlackMembership[] = [];
+  let cursor = '';
+  try {
+    for (let page = 0; page < 10; page++) {
+      const r = await slackApiCall(
+        token,
+        'users.conversations',
+        { types, limit: 1000, exclude_archived: false, ...(user ? { user } : {}), ...(cursor ? { cursor } : {}) },
+        { form: true },
+      );
+      if (!r.ok) return null;
+      for (const c of (r.channels as Array<{ id?: unknown; is_im?: unknown; user?: unknown }> | undefined) ?? []) {
+        if (typeof c.id !== 'string') continue;
+        out.push({ id: c.id.toUpperCase(), isIm: c.is_im === true, user: typeof c.user === 'string' ? c.user : null });
+      }
+      cursor = (r.response_metadata as { next_cursor?: string } | undefined)?.next_cursor ?? '';
+      if (!cursor) return out;
+    }
+    // Past the cap the list is incomplete, and a conversation missing from it
+    // would read as public: answer "unknown" instead.
+    return null;
+  } catch {
     return null;
   }
 }

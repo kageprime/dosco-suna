@@ -32,6 +32,18 @@ export interface SubscriptionAccount {
   plan: string | null;
 }
 
+/**
+ * The last check of a saved provider API key against its provider: one cheap
+ * completion when the key is saved or rotated, and on `verifyAccountSecretResource`.
+ * `invalid`: the provider refused the key (`message` is its words). `unknown`:
+ * no clean answer (timeout, network, rate limit); the key stays usable.
+ */
+export interface AccountKeyVerification {
+  status: 'verified' | 'invalid' | 'unknown';
+  message: string;
+  checked_at: string;
+}
+
 export interface AccountSecretResource {
   secret_id: string;
   account_id: string;
@@ -72,6 +84,9 @@ export interface AccountSecretResource {
    *  again with `rotateAccountSecretResource` (a ChatGPT login: reconnect).
    *  Absent from APIs older than this field. */
   status?: SecretValueStatus;
+  /** The provider API key's last check; `null` for a ChatGPT or Claude login
+   *  and for a key never checked. Absent from APIs older than this field. */
+  verification?: AccountKeyVerification | null;
 }
 
 /** Storage identity is separate from the ID: older logins remain in their original store. */
@@ -122,6 +137,10 @@ export async function createAccountSecretResource(accountId: string, input: Crea
 }
 export async function rotateAccountSecretResource(accountId: string, secretId: string, value: string) {
   return unwrap(await backendApi.put<AccountSecretResource>(`${secretPath(accountId, secretId)}/value`, { value }));
+}
+/** Check one saved provider API key against its provider again (owner, admin or creator). */
+export async function verifyAccountSecretResource(accountId: string, secretId: string) {
+  return unwrap(await backendApi.post<AccountSecretResource>(`${secretPath(accountId, secretId)}/verify`));
 }
 /** End the rate-limit rest of one stored account now (owner, admin or creator). */
 export async function retryAccountSecretResource(accountId: string, secretId: string) {

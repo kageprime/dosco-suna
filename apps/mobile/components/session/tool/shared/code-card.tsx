@@ -212,7 +212,7 @@ export function ToolMarkdownCard({ code }: { code: string }) {
   return (
     <PayloadCard copyText={code}>
       {frontmatter ? <MarkdownFrontmatterCard data={frontmatter} /> : null}
-      <ToolMarkdown content={body} surface={frame?.backgroundColor} />
+      <ToolMarkdown content={body} surface={frame.backgroundColor} />
     </PayloadCard>
   );
 }

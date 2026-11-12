@@ -27,7 +27,13 @@ import { runWithContext } from '../lib/request-context';
 import { isPtyWebSocketPath } from '../platform/providers/pty-ingress';
 import * as realProviders from '../platform/providers';
 import * as realPreviewOwnership from '../shared/preview-ownership';
+import { resetLogWindowsForTests } from '../shared/log-window';
 import { __resetPromptModelSignatureCacheForTests } from '../projects/lib/sandbox-env-sync';
+import {
+  __resetProxyRetryDelaysForTests,
+  __setProxyRetryDelaysForTests,
+  PROXY_RETRY_DELAYS_MS,
+} from '../sandbox-proxy/preview-retry-budget';
 
 // ─── Mock state ──────────────────────────────────────────────────────────────
 
@@ -499,6 +505,16 @@ const { verifyKortixUserContext, KORTIX_USER_CONTEXT_HEADER } = await import(
 );
 const { resolvePreviewWsUpstream } = await import('../sandbox-proxy/routes/preview');
 const { invalidateSandbox } = await import('../sandbox-proxy/backend');
+const {
+  __resetDialDeadForTests,
+  __setDialProbeBudgetForTests,
+  __setDialProbeForTests,
+  recordDialTimeout,
+  clearDialDead,
+  dialDeadKey,
+  maybeProbeDialDeadCandidate,
+  DIAL_LIVENESS_PATH,
+} = await import('../sandbox-proxy/forward/dial-dead');
 const { preparePreviewWsUpgrade } = await import('../sandbox-proxy/ws-proxy');
 const { __resetPromptDedupe } = await import('../sandbox-proxy/prompt-dedupe');
 
@@ -540,10 +556,48 @@ function createProxyTestApp() {
   return app;
 }
 
+/** The dial-dead tests' upstream + clock: a fetch that never resolves unless
+ *  the attempt's connect timer aborts it (the fake clock below fires every
+ *  timer synchronously, so an attempt costs exactly its connect timeout), and
+ *  a setTimeout that fires instantly. Returns the restore function. */
+function stubHangingUpstreamAndSyncClock(): () => void {
+  const savedFetch = globalThis.fetch;
+  const savedSetTimeout = globalThis.setTimeout;
+  globalThis.fetch = ((_url: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    mockFetchCallCount += 1; // the harness's dial counter: these stubs replace mockFetch
+    const signal = init?.signal;
+    return new Promise<Response>((_resolve, reject) => {
+      const abortWith = () =>
+        reject(signal?.reason ?? new DOMException('proxy attempt connect timeout', 'TimeoutError'));
+      if (signal?.aborted) {
+        abortWith();
+        return;
+      }
+      signal?.addEventListener('abort', abortWith);
+    });
+  }) as typeof globalThis.fetch;
+  globalThis.setTimeout = ((callback: TimerHandler) => {
+    if (typeof callback === 'function') callback();
+    return 0;
+  }) as typeof globalThis.setTimeout;
+  return () => {
+    globalThis.fetch = savedFetch;
+    globalThis.setTimeout = savedSetTimeout;
+  };
+}
+
 // ─── Reset ───────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
   __resetPromptDedupe();
+  __resetProxyRetryDelaysForTests();
+  __resetDialDeadForTests();
+  // The harness's dead-box tests run against a mocked network; the HTTP
+  // confirmation probe must not dial the real one, and the harness's stub
+  // answers what a dead path answers: nothing. The slow-handler regression
+  // below replaces the stub with the answer a live path gives.
+  __setDialProbeForTests(async () => false);
+  resetLogWindowsForTests();
   invalidateSandbox(TEST_SANDBOX_ID);
   invalidateSandbox('platinum-oc-http');
   invalidateSandbox('daytona-oc-http');
@@ -825,14 +879,13 @@ describe('Preview proxy: forwarding', () => {
     expect(mockFetchReturned[0]!.bodyUsed).toBe(true);
   });
 
-  // A user's own dev server that is down answers 502 on every poll, and each
-  // retry used to log a `warn` that the log sweep filed as a new pattern
-  // (KRTX-4365: one client polling a dead app port, 60 lines in an hour). Only
-  // the runtime's ports (the session-data ports) keep the warn.
-  test.each([
-    [TEST_PORT, 'warn', 'info'],
-    [8000, 'info', 'warn'],
-  ] as const)('a not-ready 502 on port %p retries at the right log level', async (port, quiet, loud) => {
+  // A transient 502 the very next attempt recovers from is not a page: the
+  // per-attempt line is `info` on EVERY port. A provider blip (2026-11-10,
+  // KRTX-4673) answered 28 sandboxes' daemon port with transient 503s for half
+  // an hour while every client poll logged 1-3 warns and paged the log sweep
+  // at 186x baseline — the affected requests all recovered to 200. The settled
+  // give-up below is the one warn a failed request leaves behind.
+  test.each([TEST_PORT, 8000] as const)('a recovered not-ready 502 on port %p retries at info, never warn', async (port) => {
     mockFetchResponses = [
       { status: 502, body: 'bad gateway' },
       { status: 200, body: 'ok' },
@@ -850,8 +903,101 @@ describe('Preview proxy: forwarding', () => {
       for (const spy of spies) spy.mockRestore();
     }
     const notReady = (l: string[]) => l.filter((x) => x.includes('port not ready'));
-    expect(notReady(lines[quiet])).toHaveLength(0);
-    expect(notReady(lines[loud])).toHaveLength(1);
+    expect(notReady(lines.warn)).toHaveLength(0);
+    expect(notReady(lines.info)).toHaveLength(1);
+  });
+
+  // Retries exhausted on the runtime's own port: exactly ONE line per (sandbox,
+  // port) window — the settled outcome of the request, not one per attempt
+  // (KRTX-4673), and not one per re-failing poll either: a browser preview
+  // pane polling a stopped dev server re-failed the request every ~5 s and
+  // turned the per-request warn into 49 lines in 15 min from ONE sandbox
+  // (KRTX-4695). The line ships through the shared log-noise throttle; every
+  // response is still the real 502.
+  test('a give-up on the daemon port logs one line per window, not one per attempt or per re-failing poll', async () => {
+    __setProxyRetryDelaysForTests([1, 1, 1]);
+    mockFetchResponses = [{ status: 502, body: 'bad gateway' }];
+    const lines: Record<'warn' | 'info', string[]> = { warn: [], info: [] };
+    const spies = (['warn', 'info'] as const).map((level) =>
+      spyOn(logger, level).mockImplementation((message: string) => void lines[level].push(message)),
+    );
+    try {
+      // No `Accept: text/html` → not a browser navigation → the upstream 502
+      // passes through to the programmatic client after the last attempt.
+      for (let i = 0; i < 3; i += 1) {
+        const res = await createProxyTestApp().request(`/v1/p/${TEST_SANDBOX_ID}/8000/page`, {
+          headers: { Authorization: 'Bearer test' },
+        });
+        expect(res.status).toBe(502);
+      }
+    } finally {
+      for (const spy of spies) spy.mockRestore();
+    }
+    const notReady = (l: string[]) => l.filter((x) => x.includes('port not ready'));
+    const giveUp = (l: string[]) => l.filter((x) => x.includes('not answering after'));
+    // Three exhausted requests inside one window ship ONE line, at info: the
+    // window's first, in the churn band (KRTX-4454). The per-request accounting
+    // stays in these request-completion lines and the 502 passthroughs.
+    expect(giveUp(lines.info)).toHaveLength(1);
+    expect(giveUp(lines.warn)).toHaveLength(0);
+    expect(notReady(lines.info)).toHaveLength(PROXY_RETRY_DELAYS_MS.length * 3);
+    expect(notReady(lines.warn)).toHaveLength(0);
+  });
+
+  // The window rollover and the severity band through the real app: the first
+  // line after the window carries `suppressed`, and a window whose volume sat
+  // above the burst band (KRTX-4454) ships its next line at warn — a preview
+  // pane polling a dead port every ~5 s stays warn, a one-off give-up does not.
+  test('the throttled give-up line rolls over its window with a suppressed count, severity by volume', async () => {
+    __setProxyRetryDelaysForTests([1, 1, 1]);
+    mockFetchResponses = [{ status: 502, body: 'bad gateway' }];
+    const realNow = Date.now;
+    const realSetTimeout = globalThis.setTimeout;
+    let now = 1_700_000_000_000;
+    Date.now = () => now;
+    // Every retry delay advances the fake clock and fires at once. A timer
+    // longer than a test delay is an app-internal TTL (an ingress cache, a
+    // queue flush): on the real clock, detached — firing it synchronously
+    // would roll the throttle's 10-minute window mid-test.
+    globalThis.setTimeout = ((fn: () => void, ms?: number) => {
+      if (Number(ms ?? 0) > 10) return realSetTimeout(fn, ms);
+      now += Number(ms ?? 0);
+      fn();
+      return 0;
+    }) as any;
+    const shipped: Array<{ level: 'warn' | 'info'; args: unknown[] }> = [];
+    const spies = (['warn', 'info'] as const).map((level) =>
+      spyOn(logger, level).mockImplementation((...args: unknown[]) => {
+        shipped.push({ level, args });
+      }),
+    );
+    const poll = () =>
+      createProxyTestApp().request(`/v1/p/${TEST_SANDBOX_ID}/8000/page`, {
+        headers: { Authorization: 'Bearer test' },
+      });
+    try {
+      // One exhausted request: the window's first line, churn band → info.
+      expect((await poll()).status).toBe(502);
+      // Twelve more inside the window push the suppressed count past the
+      // burst band; each still answers the real 502.
+      for (let i = 0; i < 12; i += 1) {
+        expect((await poll()).status).toBe(502);
+      }
+      // Eleven minutes later: the window has rolled, the line ships again.
+      now += 11 * 60_000;
+      expect((await poll()).status).toBe(502);
+    } finally {
+      for (const spy of spies) spy.mockRestore();
+      Date.now = realNow;
+      globalThis.setTimeout = realSetTimeout;
+    }
+    const giveUp = shipped.filter(
+      (line) => typeof line.args[0] === 'string' && (line.args[0] as string).includes('not answering after'),
+    );
+    expect(giveUp).toHaveLength(2);
+    expect(giveUp[0]?.level).toBe('info');
+    expect(giveUp[1]?.level).toBe('warn');
+    expect((giveUp[1]?.args[1] as Record<string, unknown>).suppressed).toBe(12);
   });
 
   // A port the API exposed a moment ago: Platinum's routes lag the expose by up
@@ -886,6 +1032,7 @@ describe('Preview proxy: forwarding', () => {
   });
 
   test('a browser that gets the port-unreachable page leaves no upstream body unreleased', async () => {
+    __setProxyRetryDelaysForTests([1, 1, 1]);
     mockFetchResponses = [{ status: 502, body: 'bad gateway' }];
     const app = createProxyTestApp();
     const res = await app.request(`/v1/p/${TEST_SANDBOX_ID}/${TEST_PORT}/`, {
@@ -896,7 +1043,7 @@ describe('Preview proxy: forwarding', () => {
     // MAX_RETRIES = 3 → four attempts, every answer dropped.
     expect(mockFetchReturned).toHaveLength(4);
     expect(mockFetchReturned.every((r) => r.bodyUsed)).toBe(true);
-  }, 15_000);
+  });
 
   test('proxies POST request with body', async () => {
     mockFetchResponses = [{ status: 201, body: '{"id":"created"}' }];
@@ -1174,7 +1321,8 @@ describe('Preview proxy: forwarding', () => {
 
     expect(res.status).toBe(502);
     const body = await res.json();
-    expect(body.error).toContain('env sync failed: 401');
+    // The 502 body is stable and termless: the upstream status stays server-side.
+    expect(body.error).toContain('Project env sync failed. Retry the request or check the sandbox logs.');
     expect(mockFetchCalls).toHaveLength(1);
     expect(mockFetchCalls[0].url).toBe('https://preview.daytona.io/proxy-url/kortix/env');
   });
@@ -1195,7 +1343,7 @@ describe('Preview proxy: forwarding', () => {
 
     expect(res.status).toBe(502);
     const body = await res.json();
-    expect(body.error).toContain('env sync failed: 500');
+    expect(body.error).toContain('Project env sync failed. Retry the request or check the sandbox logs.');
     expect(mockWakeCalls).toEqual([]);
     expect(mockFetchCalls).toHaveLength(1);
     expect(mockFetchCalls[0].url).toBe('https://preview.daytona.io/proxy-url/kortix/env');
@@ -1656,19 +1804,25 @@ describe('Preview proxy: retry exhaustion', () => {
       }
     }
 
-    test('an ordinary request answers before the ALB idle cut, each attempt shrunk to the budget left', async () => {
+    // Two consecutive connect timeouts mark the box dial-dead (dial-dead.ts):
+    // attempt 1 (stale-ingress chance) still retries, attempt 2 proves the box
+    // never answers TCP, and the ladder stops instead of dialling a third and
+    // fourth time (KRTX-4459). The 50 s budget still bounds any request whose
+    // attempts don't time out — the response-path give-up below covers that.
+    test('an ordinary request answers before the ALB idle cut; the second connect timeout stops the ladder', async () => {
       const run = await hangingRun('/');
       expect(run.status).toBe(502);
-      expect(run.dials).toBe(4);
+      expect(run.dials).toBe(2);
       expect(run.elapsedMs).toBeLessThan(60_000);
     });
 
-    // Each ingress resolution takes 1 s. Three attempts end at 52.25 s, past
-    // the 50 s budget, so the loop answers instead of dialling a fourth time.
-    test('no attempt starts once the budget is spent', async () => {
+    // The mark holds regardless of how much budget is left: once the box has
+    // proven dial-dead, no attempt starts, budget or not (the 1 s ingress
+    // resolutions would otherwise buy the ladder two more full dials).
+    test('no attempt starts once the box is marked dial-dead', async () => {
       const run = await hangingRun('/', 'GET', 1_000);
       expect(run.status).toBe(502);
-      expect(run.dials).toBe(3);
+      expect(run.dials).toBe(2);
       expect(run.elapsedMs).toBeLessThan(60_000);
     });
   });
@@ -1826,7 +1980,7 @@ describe('Preview proxy: long-turn completion timeout', () => {
     expect(mockWakeCalls.length).toBe(0);
   });
 
-  test('an ordinary connect-timer abort (non-message path) still wakes + retries as before', async () => {
+  test('an ordinary connect-timer abort (non-message path) wakes, then stops dialling after the second timeout', async () => {
     const savedFetch = globalThis.fetch;
     const origSetTimeout = globalThis.setTimeout;
     let callCount = 0;
@@ -1835,7 +1989,7 @@ describe('Preview proxy: long-turn completion timeout', () => {
       const signal = init?.signal;
       return new Promise((_resolve, reject) => {
         const abortWith = () =>
-          reject((signal as any)?.reason ?? new DOMException('aborted', 'TimeoutError'));
+          reject(signal?.reason ?? new DOMException('proxy attempt connect timeout', 'TimeoutError'));
         if (signal?.aborted) {
           abortWith();
           return;
@@ -1857,10 +2011,216 @@ describe('Preview proxy: long-turn completion timeout', () => {
     globalThis.fetch = savedFetch;
 
     // Unchanged prior behavior: a plain GET that never gets bytes is a real
-    // stall, not a long-turn completion — full retry/wake path still applies.
+    // stall, not a long-turn completion. The FIRST timeout still wakes +
+    // retries (one timeout is the stale-ingress case a re-resolve recovers
+    // from); the SECOND consecutive timeout marks the box dial-dead and the
+    // ladder stops dialling a box that never answers TCP (KRTX-4459) — two
+    // dials, then the give-up 502, instead of four dials against a dead box.
     expect(res.status).toBe(502);
-    expect(callCount).toBe(4);
+    expect(callCount).toBe(2);
     expect(mockWakeCalls.length).toBe(1);
+  });
+
+  // The dial-dead mark (KRTX-4459): once a box PROVES dial-dead at the HTTP
+  // layer (two connect timeouts AND an HTTP probe through the ingress that got
+  // no answer), the requests that follow fail fast WITHOUT dialling — the
+  // observed dead-box cadence was ~7-request bursts every ~2-3 min, each
+  // request burning the full ~50 s ladder before the give-up 502, which put
+  // the route's p95 at 15-45 s while its p50 stayed at ~90 ms. Two timeouts
+  // alone are only a CANDIDATE: the connect timer bounds the header phase too,
+  // so a healthy-but-slow handler must never mark (the next request must still
+  // dial). The probe is detached, so the confirming request keeps today's
+  // ladder; the probe's verdict fast-fails the requests after it.
+  describe('Preview proxy: dial-dead fast-fail', () => {
+    // Marks key on the EXTERNAL id the proxy resolves the request to (the DB
+    // row's), which is TEST_SANDBOX_ID here — not the URL's spelling.
+    const deadSandbox = TEST_SANDBOX_ID;
+
+    test('the candidate request keeps the ladder; the confirmed mark fails the next request fast', async () => {
+      // A deferred probe: the verdict arrives only when the test releases it,
+      // like the real 30 s probe arrives after the confirming request gave up.
+      let settleProbe!: (answered: boolean) => void;
+      __setDialProbeForTests(
+        () =>
+          new Promise<boolean>((resolve) => {
+            settleProbe = resolve;
+          }),
+      );
+      recordDialTimeout(dialDeadKey(deadSandbox, 8000));
+      recordDialTimeout(dialDeadKey(deadSandbox, 8000));
+      const restoreClock = stubHangingUpstreamAndSyncClock();
+      try {
+        const app = createProxyTestApp();
+        const res = await app.request(`/v1/p/${deadSandbox}/8000/kortix/runtime/pending`, {
+          headers: { Authorization: 'Bearer test' },
+        });
+        // Unconfirmed candidate: the request still dialled once (attempt 0
+        // always does), then the ladder stopped — a further dial buys another
+        // 15 s hang — and the give-up 502 arrived as before.
+        expect(res.status).toBe(502);
+        expect(mockFetchCallCount).toBe(1);
+        expect(mockWakeCalls.length).toBe(1);
+        // The probe settles unanswered: the box proved its HTTP path dead.
+        settleProbe(false);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        // Every request AFTER the confirmation fails fast with zero dials.
+        const res2 = await app.request(`/v1/p/${deadSandbox}/8000/kortix/runtime/pending`, {
+          headers: { Authorization: 'Bearer test' },
+        });
+        expect(res2.status).toBe(502);
+        expect(mockFetchCallCount).toBe(1);
+        expect(mockWakeCalls.length).toBe(1);
+        // The answer attributes the hop it never reached (the port's own).
+        expect(res2.headers.get('X-Kortix-Proxy-Hop')).toBe('daemon');
+      } finally {
+        restoreClock();
+        __setDialProbeForTests(async () => false);
+      }
+    });
+
+    test('a revival clears the mark and the next request dials again', async () => {
+      recordDialTimeout(dialDeadKey(deadSandbox, 8000));
+      recordDialTimeout(dialDeadKey(deadSandbox, 8000));
+      clearDialDead(dialDeadKey(deadSandbox, 8000));
+      const app = createProxyTestApp();
+      const res = await app.request(`/v1/p/${deadSandbox}/8000/kortix/runtime/pending`, {
+        headers: { Authorization: 'Bearer test' },
+      });
+      expect(res.status).toBe(200);
+      expect(mockFetchCallCount).toBe(1);
+    });
+
+    test('a replayable POST fast-fails like a GET (only prompt deliveries and uploads keep the ladder)', async () => {
+      // A plain POST is replayable — nothing reached the box, so the same
+      // zero-dial give-up is safe. The non-replayable classes (prompt
+      // delivery, upload, env-rpc) skip this gate entirely and keep today's
+      // ladder and their own ambiguity guards.
+      recordDialTimeout(dialDeadKey(deadSandbox, TEST_PORT));
+      recordDialTimeout(dialDeadKey(deadSandbox, TEST_PORT));
+      const restoreClock = stubHangingUpstreamAndSyncClock();
+      try {
+        const app = createProxyTestApp();
+        // The GET confirms the mark (the harness probe stub answers
+        // unreachable); the ladder ran to its give-up first.
+        const get = await app.request(`/v1/p/${deadSandbox}/${TEST_PORT}/api/x`, {
+          headers: { Authorization: 'Bearer test' },
+        });
+        expect(get.status).toBe(502);
+        const dialsAfterGet = mockFetchCallCount;
+        expect(dialsAfterGet).toBeGreaterThan(0);
+        const res = await app.request(`/v1/p/${deadSandbox}/${TEST_PORT}/api/x`, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer test' },
+        });
+        expect(res.status).toBe(502);
+        expect(mockFetchCallCount).toBe(dialsAfterGet);
+      } finally {
+        restoreClock();
+        __setDialProbeForTests(async () => false);
+      }
+    });
+
+    // The reviewer's regression (2026-11-11): the connect timer bounds the
+    // HEADER phase too, so a healthy-but-slow handler (a busy box answering
+    // headers in >15 s) produces the same TimeoutError as a dead dial. Two of
+    // those must NOT mark the port — the probe receives an answer from the
+    // path (the one observable the provider edge passes through) and clears
+    // the streak, so the next request dials normally.
+    test('a healthy-but-slow handler never marks the port: the probe answers and clears the streak', async () => {
+      // The e2e harness's beforeEach stubs the probe; this test needs the
+      // probe to answer what the box's HTTP layer answers for a LIVE port.
+      // A real fetch against a real Bun.serve would work, but the proxy's
+      // fake clock replaces globalThis.setTimeout with a synchronous fake for
+      // the whole test, which fires the real probe's budget timer instantly
+      // and answers "no answer" for every target. So the probe stub here IS
+      // the backend's answer: true = the path served a response.
+      __setDialProbeForTests(async () => true);
+      const restoreClock = stubHangingUpstreamAndSyncClock();
+      try {
+        const app = createProxyTestApp();
+        const res = await app.request(`/v1/p/${deadSandbox}/${TEST_PORT}/`, {
+          headers: { Authorization: 'Bearer test' },
+        });
+        // The probe proved the path answers; the streak cleared; the request
+        // stopped after its second dial instead of a third against the
+        // slow-but-alive upstream, and nothing was marked.
+        expect(res.status).toBe(502);
+        expect(mockFetchCallCount).toBe(2);
+        // The next request dials normally: no fast-fail mark.
+        const res2 = await app.request(`/v1/p/${deadSandbox}/${TEST_PORT}/`, {
+          headers: { Authorization: 'Bearer test' },
+        });
+        expect(res2.status).toBe(502);
+        expect(mockFetchCallCount).toBe(4);
+      } finally {
+        restoreClock();
+        __setDialProbeForTests(async () => false);
+      }
+    });
+
+    // The reviewer's regression (2026-11-12): the probe must not dial the
+    // request's own route. Probing a hung route hangs WITH it, confirms the
+    // mark, and every later read on the port — healthy or not — fails fast
+    // with zero dials (a real server hung only /slow; /health served 200;
+    // reads were still suppressed). The wiring dials the LIVENESS path with
+    // the REAL probe, so a live box answers it (a fast 404 is an answer) and
+    // its siblings keep being served; a box whose whole HTTP path is dead
+    // hangs there too and still confirms (dial-dead.test.ts pins that one).
+    test('one hung route never marks the port: the real probe dials the liveness path, siblings keep being served', async () => {
+      __setDialProbeForTests(null); // the REAL probe — its target wiring is what's under test
+      __setDialProbeBudgetForTests(1_000);
+      const savedFetch = globalThis.fetch;
+      const savedSetTimeout = globalThis.setTimeout;
+      const answeredPaths: string[] = [];
+      // The box's HTTP layer: /slow hangs forever; every other path — a
+      // healthy sibling AND the liveness probe — answers from the same server.
+      globalThis.fetch = ((url: string | URL | Request, init?: RequestInit): Promise<Response> => {
+        mockFetchCallCount += 1;
+        const pathname = new URL(String(url)).pathname;
+        if (pathname.endsWith('/slow')) {
+          const signal = init?.signal;
+          return new Promise<Response>((_resolve, reject) => {
+            const abortWith = () =>
+              reject(signal?.reason ?? new DOMException('proxy attempt connect timeout', 'TimeoutError'));
+            if (signal?.aborted) {
+              abortWith();
+              return;
+            }
+            signal?.addEventListener('abort', abortWith);
+          });
+        }
+        answeredPaths.push(pathname);
+        return Promise.resolve(new Response('ok', { status: 200 }));
+      }) as typeof globalThis.fetch;
+      globalThis.setTimeout = ((callback: TimerHandler) => {
+        if (typeof callback === 'function') callback();
+        return 0;
+      }) as typeof globalThis.setTimeout;
+      try {
+        const app = createProxyTestApp();
+        // Two /slow connect timeouts form the candidate; the detached probe
+        // settles while the ladder runs, then the give-up 502 arrives.
+        const res = await app.request(`/v1/p/${deadSandbox}/${TEST_PORT}/slow`, {
+          headers: { Authorization: 'Bearer test' },
+        });
+        expect(res.status).toBe(502);
+        // Await the detached probe's verdict through the shared in-flight
+        // handle (a no-op once settled): the confirmation must be in before
+        // the sibling request reads the mark.
+        await maybeProbeDialDeadCandidate(dialDeadKey(deadSandbox, TEST_PORT), { url: '', headers: {} });
+        // The probe asked the liveness path — never the hung route.
+        expect(answeredPaths.some((p) => p.endsWith(DIAL_LIVENESS_PATH))).toBe(true);
+        // The healthy sibling is served: dialled, answered, no fast-fail mark.
+        const healthy = await app.request(`/v1/p/${deadSandbox}/${TEST_PORT}/health`, {
+          headers: { Authorization: 'Bearer test' },
+        });
+        expect(healthy.status).toBe(200);
+      } finally {
+        globalThis.fetch = savedFetch;
+        globalThis.setTimeout = savedSetTimeout;
+        __resetDialDeadForTests();
+      }
+    });
   });
 });
 

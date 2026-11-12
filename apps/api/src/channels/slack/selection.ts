@@ -6,9 +6,10 @@ import { listRepoFiles, loadProjectConfig } from '../../projects/git';
 import { savedProjectConfig } from '../../projects/surface';
 import { projectsView } from '../../workspaces/rows';
 
-// Per-channel agent + model selection. A Slack channel is bound to a project
-// (chat_channel_bindings); these helpers read/write the optional agent + model
-// overrides on that binding. A session started from the channel inherits them
+// Per-channel agent + model selection. A Slack channel's settings row
+// (chat_channel_bindings) belongs to the Kortix workspace its Slack workspace
+// is linked to; these helpers read/write the optional agent + model overrides
+// on that row. A session started from the channel inherits them
 // (see session.ts) — null means "use the project/platform default".
 
 export interface ChannelSelection {
@@ -16,6 +17,12 @@ export interface ChannelSelection {
   agentName: string | null;
   sessionModel: string | null;
   conversationPolicy: string | null;
+  /**
+   * The channel's settings row belongs to another Kortix workspace (its own
+   * Slack app here): these are the caller's defaults, and the caller may not
+   * change that row.
+   */
+  foreignRow?: boolean;
 }
 
 export interface ChannelCtx {
@@ -25,11 +32,37 @@ export interface ChannelCtx {
    *  Channels API (routes/channel-bindings.ts) passes the binding's own
    *  platform so these setters stay reusable without duplicating the queries. */
   platform?: string;
+  /**
+   * The Kortix workspace the caller runs for, when it is fixed already (a
+   * session being launched or joined). A channel row of another Kortix
+   * workspace then sets nothing: one Slack workspace can run the shared app
+   * for one Kortix workspace and another's own app beside it, and each runs
+   * with its own settings.
+   */
+  projectId?: string;
 }
 
-/** The channel's bound project + its agent/model overrides, or null if unbound. */
+/**
+ * The channel's Kortix workspace and its agent/model overrides, or null when
+ * the channel runs in none. A Slack channel runs in the Kortix workspace its
+ * Slack workspace is linked to: its settings row is recorded for that
+ * workspace first (slack/link.ts), so every channel has settings, with no
+ * binding step.
+ */
+/** `foreignRow` when a row exists and names another Kortix workspace. */
+const foreign = (binding: { projectId: string | null } | undefined) => (binding?.projectId ? { foreignRow: true } : {});
+
 export async function currentChannelSelection(ctx: ChannelCtx): Promise<ChannelSelection | null> {
   if (!ctx.channelId) return null;
+  let linked: string | null = null;
+  if ((ctx.platform ?? 'slack') === 'slack') {
+    const { linkedSlackProject, recordSlackChannel } = await import('./link');
+    linked = await linkedSlackProject(ctx.teamId);
+    // The row is recorded for the workspace the caller runs for (an own app's
+    // request), else for the linked one.
+    const recorder = ctx.projectId ?? linked;
+    if (recorder) await recordSlackChannel(recorder, ctx.teamId, ctx.channelId);
+  }
   let binding: { projectId: string | null; agentName: string | null; sessionModel: string | null; conversationPolicy: string | null } | undefined;
   try {
     [binding] = await db
@@ -51,6 +84,16 @@ export async function currentChannelSelection(ctx: ChannelCtx): Promise<ChannelS
     console.warn('[slack-selection] optional channel override columns missing; falling back to project-only routing');
     const projectId = await currentChannelProjectId(ctx);
     return projectId ? { projectId, agentName: null, sessionModel: null, conversationPolicy: null } : null;
+  }
+  // The caller runs for a Kortix workspace that is not the row's: its own
+  // defaults apply, never another workspace's agent, model or policy.
+  if (ctx.projectId && binding?.projectId !== ctx.projectId) {
+    return { projectId: ctx.projectId, agentName: null, sessionModel: null, conversationPolicy: null, ...foreign(binding) };
+  }
+  // A row of another Kortix workspace (one running its own Slack app in this
+  // Slack workspace) never sets the linked workspace's agent, model or policy.
+  if (!ctx.projectId && linked && binding?.projectId !== linked) {
+    return { projectId: linked, agentName: null, sessionModel: null, conversationPolicy: null, ...foreign(binding) };
   }
   if (!binding?.projectId) return null;
   return {

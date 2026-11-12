@@ -38,6 +38,7 @@ import { type SandboxProvider, type SandboxStatus, getProvider, isProviderName }
 import { invalidateSandbox } from '../../sandbox-proxy/backend';
 import { isDaytonaRateLimitError } from '../../shared/daytona-rate-limit';
 import { isDaytonaTransientProviderError } from '../../shared/daytona-transient';
+import { PlatinumExecOutcomeUnknownError } from '../../shared/platinum';
 import { logger } from '../../lib/logger';
 import { sandboxBelongsToThisInstance } from '../instance-scope';
 import { scheduleLegacyRuntimeBootstrap } from '../lib/legacy-runtime-bootstrap-wiring';
@@ -78,7 +79,7 @@ import {
   selectReapCandidates,
 } from './box-queries';
 import { finalizeHuskTurn } from './husk-finalizer';
-import { decideReconcile } from './policy';
+import { decideReconcile, isPlatinumTransportTimeout } from './policy';
 import {
   applyStoppedState,
   clearPendingStopObservation,
@@ -1131,15 +1132,21 @@ async function reconcileNotRunningSandbox(
 /** Count one row's failure. An expected, transient provider failure is counted and never logged. */
 function countReapFailure(result: ReapResult, row: ReapCandidate, err: unknown): void {
   // An expected, transient provider failure — a Daytona org-wide 429
-  // (`ThrottlerException`) or a gateway blip — is the provider working as
-  // designed. Every other call site classifies it (`shared/daytona-rate-limit.ts`,
-  // `shared/daytona-transient.ts`) so it never pages; the reaper must too,
-  // or one org throttle across a live fleet emits an error line per box.
+  // (`ThrottlerException`), a gateway blip, or a Platinum transport timeout — is
+  // the provider working as designed. Every other call site classifies it
+  // (`shared/daytona-rate-limit.ts`, `shared/daytona-transient.ts`,
+  // `classifyPlatinumPollError`) so it never pages; the reaper must too,
+  // or one org throttle — or one Platinum slowdown, which times out every
+  // box's 20s default-budget call (KRTX-4687) — emits an error line per box.
   // Counting it separately and logging NOTHING here keeps this page quiet
   // while the next pass still retries the renewal.
   if (
     isDaytonaRateLimitError(err) ||
     isDaytonaTransientProviderError(err) ||
+    isPlatinumTransportTimeout(err) ||
+    // Platinum's 504 for an exec whose outcome is unknown: the idempotent
+    // `true` no-op makes "did it run?" safe to answer with a retry next pass.
+    err instanceof PlatinumExecOutcomeUnknownError ||
     (row.provider === 'platinum' &&
       err instanceof Error &&
       /^platinum POST \/v1\/sandboxes\/[^/]+\/exec -> 429\b/.test(err.message) &&
@@ -1147,8 +1154,12 @@ function countReapFailure(result: ReapResult, row: ReapCandidate, err: unknown):
     (row.provider === 'platinum' &&
       err instanceof Error &&
       err.message.includes('Platinum lifecycle renewal failed') &&
-      err.message.includes('guest vsock') &&
-      err.message.includes('unreachable after 5s: EOF'))
+      // The guest never completed the no-op exec inside its budget — with a
+      // transport timeout (no answer) or a completed answer that reports the
+      // guest timeout (`exit -1: timeout`, the detail renewLifecycle quotes).
+      // Both mean "no usable renewal this pass"; the next pass re-decides
+      // (KRTX-685 for the vsock shape, KRTX-4718 for the guest timeout).
+      (err.message.includes('guest vsock') || err.message.endsWith(': timeout')))
   ) {
     result.transient += 1;
   } else {

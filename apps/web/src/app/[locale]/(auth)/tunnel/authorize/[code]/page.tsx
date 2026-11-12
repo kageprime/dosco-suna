@@ -2,18 +2,24 @@
 
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react';
 import { useTranslations } from '@/i18n/use-translations';
-import { useParams, useRouter } from 'next/navigation';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { Suspense, useMemo, useState } from 'react';
 
-import { Button } from '@kortix/ui/button';
 import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '@kortix/ui/alert';
 import { Input } from '@kortix/ui/input';
-import Loading from '@kortix/ui/loading';
 import { RadioGroup, RadioGroupItem } from '@kortix/ui/radio-group';
 import { AuthFrame } from '@kortix/ui/internal/auth/auth-card-shell';
 import { AuthPendingScreen, AuthStatusScreen } from '@kortix/ui/internal/auth/auth-consent';
-import { ErrorStrip, FieldLabel, Rise, StepHeader } from '@kortix/ui/internal/auth/auth-primitives';
+import {
+  ApproveDenyActions,
+  DeviceCodeHeader,
+  FieldLabel,
+  Rise,
+  StepHeader,
+} from '@kortix/ui/internal/auth/auth-primitives';
 import { useAuth } from '@/features/providers/auth-provider';
+import { useSignedOutRedirect } from '@/lib/auth/use-signed-out-redirect';
+import { formatClock } from '@/lib/format-clock';
 import { ComputerCapabilities } from '@kortix/ui/internal/tunnel/computer-connect';
 import { localizedCapabilityRegistry } from '@/features/tunnel/types';
 import { useProjectSelectorData } from '@/features/workspace/project-selector/use-project-selector-data';
@@ -21,6 +27,7 @@ import {
   useApproveDeviceAuth,
   useDenyDeviceAuth,
   useDeviceAuthInfo,
+  useNow,
 } from '@/hooks/tunnel/use-tunnel';
 import { PROJECT_ACTIONS, useProjectCan } from '@kortix/ui/workspace';
 
@@ -51,9 +58,10 @@ function DeviceAuthorize() {
   const tSharing = useTranslations('accessSharing');
   const capabilities = useMemo(() => localizedCapabilityRegistry(tI18nComplete), [tI18nComplete]);
   const params = useParams();
-  const router = useRouter();
   const code = params.code as string;
   const { user, isLoading: authLoading } = useAuth();
+
+  useSignedOutRedirect();
 
   const { data: info, isLoading, error } = useDeviceAuthInfo(code);
   const approve = useApproveDeviceAuth();
@@ -78,30 +86,17 @@ function DeviceAuthorize() {
       .allowed === true;
   const effectiveShare: Share = canShare ? share : 'me';
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.replace(`/auth?returnUrl=${encodeURIComponent(`/tunnel/authorize/${code}`)}`);
-    }
-  }, [user, authLoading, router, code]);
-
   const registered = info?.registered ?? null;
   // macOS appends " (4)" to a name another device on the network already
   // uses. That suffix is noise in a name people pick their computer by.
   const name =
     typedName ?? registered?.name ?? (info?.machineHostname ?? '').replace(/ \(\d+\)$/, '');
 
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const now = useNow();
 
   const remaining = info?.expiresAt
     ? Math.max(0, Math.floor((new Date(info.expiresAt).getTime() - now) / 1000))
     : 0;
-
-  const minutes = Math.floor(remaining / 60);
-  const seconds = remaining % 60;
 
   const handleApprove = async () => {
     await approve.mutateAsync({
@@ -158,8 +153,6 @@ function DeviceAuthorize() {
     );
   }
 
-  const busy = approve.isPending || deny.isPending;
-
   return (
     <AuthFrame>
       <Rise>
@@ -171,14 +164,7 @@ function DeviceAuthorize() {
 
       <Rise delay={0.06}>
         <div className="space-y-5">
-          <div className="flex items-center justify-between gap-3 rounded-md border px-3.5 py-3">
-            <span className="text-foreground font-mono text-lg font-medium tracking-widest tabular-nums">
-              {info.deviceCode}
-            </span>
-            <span className="text-muted-foreground font-mono text-xs tabular-nums">
-              {minutes}:{seconds.toString().padStart(2, '0')}
-            </span>
-          </div>
+          <DeviceCodeHeader code={info.deviceCode} countdown={formatClock(remaining)} />
 
           {/* Pairing binds the computer to the signed-in account: say which. */}
           {user?.email ? (
@@ -242,28 +228,15 @@ function DeviceAuthorize() {
             </div>
           </div>
 
-          <div className="space-y-3">
-            {approve.error ? <ErrorStrip message={approve.error.message} /> : null}
-            <Button
-              size="lg"
-              className="w-full"
-              onClick={() => void handleApprove().catch(() => undefined)}
-              disabled={busy}
-            >
-              {approve.isPending ? <Loading className="size-4 shrink-0" /> : null}
-              {registered ? t('reconnect') : tI18nComplete.raw('textf4da86da1210')}
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="text-destructive border-destructive/30 hover:bg-destructive/5 hover:text-destructive focus-visible:ring-destructive/35 w-full"
-              onClick={() => void handleDeny().catch(() => undefined)}
-              disabled={busy}
-            >
-              {deny.isPending ? <Loading className="text-destructive! size-4 shrink-0" /> : null}
-              {tI18nComplete.raw('texte7369074de00')}
-            </Button>
-          </div>
+          <ApproveDenyActions
+            approveLabel={registered ? t('reconnect') : tI18nComplete.raw('textf4da86da1210')}
+            denyLabel={tI18nComplete.raw('texte7369074de00')}
+            onApprove={() => void handleApprove().catch(() => undefined)}
+            onDeny={() => void handleDeny().catch(() => undefined)}
+            approvePending={approve.isPending}
+            denyPending={deny.isPending}
+            approveError={approve.error?.message ?? null}
+          />
         </div>
       </Rise>
     </AuthFrame>

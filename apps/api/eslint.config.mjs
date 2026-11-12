@@ -288,6 +288,21 @@ export default tseslint.config(
           selector: ':function > Identifier[name="c"] > TSTypeAnnotation > TSAnyKeyword',
           message: 'Type the Hono context. `(c: any)` hides the route contract from the compiler.',
         },
+        // AGENT = HUMAN (2026-11-10): an agent session acting for a person gets
+        // that person's answer (role ∩ the agent's grant), never a refusal for
+        // being an agent. A step only a person can take is a hand-off that says
+        // who does it and where; a missing permission is the standard 403.
+        {
+          selector: 'Literal[value=/agent_session_forbidden/]',
+          message:
+            'agent_session_forbidden is deleted: let authorize() decide (role ∩ agent grant), or hand the step to the person with a message that says who does it.',
+        },
+        {
+          selector:
+            'Literal[value=/\\b(agent sessions? cannot|agent-session tokens? cannot|an agent cannot|agents cannot)\\b/i], TemplateElement[value.raw=/\\b(agent sessions? cannot|agent-session tokens? cannot|an agent cannot|agents cannot)\\b/i]',
+          message:
+            'Never refuse for being an agent. Name the missing permission and who holds it, or hand the step to the person (who does it, where).',
+        },
       ],
     },
   },

@@ -53,6 +53,7 @@ import { logger } from '../../lib/logger';
 import { PROJECT_ACTIONS } from '../../iam';
 import { callerKortixSessionId } from '../../middleware/caller-session';
 import { isSessionSandboxCredential } from '../../middleware/session-sandbox-credential';
+import { storedLogReadDenial } from '../../middleware/rate-limit';
 import { auth, boundedIssues, errors, json } from '../../openapi';
 import type { AppEnv } from '../../types';
 import { assertProjectCapability, loadVisibleSession, sessionIsTombstoned } from '../lib/access';
@@ -374,6 +375,9 @@ export function registerSessionLogRoutes(): void {
         'window answers fewer than `limit` with `has_more: true`, the newest message served however large it is. ' +
         'Session read permission, ' +
         'the same gate as `GET .../transcript`: a session-bound token reads the sessions that route serves it. ' +
+        'Per-session read guard: past `KORTIX_SESSION_LOG_READS_PER_MIN` (300) reads a minute the route answers ' +
+        '429 `rate_limit_exceeded` with `Retry-After` (KRTX-4696: a hot CLI poll loop against one session ' +
+        'degraded the route and the API with it). ' +
         '404 when the session has no stored log (`code: session_log_missing`) or no such thread.',
       ...auth,
       request: {
@@ -382,11 +386,18 @@ export function registerSessionLogRoutes(): void {
       },
       responses: {
         200: json(SessionLogPageSchema, 'One page of the session log'),
-        ...errors(400, 403, 404),
+        ...errors(400, 403, 404, 429),
       },
     }),
     async (c) => {
       const { workspaceId: projectId, sessionId } = c.req.valid('param');
+      // In front of the gate: a hot poller costs one in-memory check per poll, not
+      // the IAM stack. The guard is keyed on (caller, session), so a caller can only
+      // spend their own bucket. The request deadline may have answered this request
+      // already, so the 429 headers are inline (KRTX-2737); the body shape is the one
+      // the SDK's log sync already backs off on.
+      const denied = storedLogReadDenial(c, sessionId);
+      if (denied) return c.json(denied.body, 429, { 'Retry-After': denied.retryAfter });
       const query = c.req.valid('query');
       const limit = parseBoundedPositiveInt(query.limit, 40, 1, 500, 'limit');
       if (!limit.ok) return c.json({ error: limit.error }, 400);

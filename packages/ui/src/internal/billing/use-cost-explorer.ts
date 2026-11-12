@@ -1,13 +1,14 @@
 import {
   getCostSummary,
   listCostByProject,
+  type CostSeriesPoint,
   type CostSummary,
   type GetCostSummaryOptions,
   type ListCostByProjectOptions,
   type ProjectCostPage,
   type ProjectCostSort,
 } from '@kortix/sdk';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 
 import { useBillingAccountId } from '../stores/billing-account-context';
 
@@ -145,4 +146,37 @@ export function useCostByProject(input: {
       offset: input.offset,
     }),
   );
+}
+
+/**
+ * One daily cost series per workspace, for the workspace-by-day heatmap on the
+ * top level of the explorer. Each entry is the same `cost-summary` query the
+ * drill-down issues for that workspace (`useCostSummary({ projectId })`), with
+ * the same key, so opening a workspace after seeing its heatmap row reads from
+ * cache instead of fetching again.
+ *
+ * Bounded by the caller: it passes the workspaces on the visible page (at most
+ * `COST_PAGE_SIZE`). A workspace whose series has not arrived maps to
+ * `undefined`, which the heatmap draws as a loading strip, never as zeros. A
+ * workspace whose request failed maps to `null`: no series to draw, and no
+ * loading strip that would never end.
+ */
+export function useWorkspaceDailySeries(input: {
+  projectIds: readonly string[];
+  from?: string;
+  to?: string;
+}): Record<string, CostSeriesPoint[] | null | undefined> {
+  const accountId = useBillingAccountId();
+  return useQueries({
+    queries: input.projectIds.map((projectId) =>
+      buildCostSummaryQuery({ accountId, projectId, sessionId: null, from: input.from, to: input.to }),
+    ),
+    combine: (results) => {
+      const byProject: Record<string, CostSeriesPoint[] | null | undefined> = {};
+      results.forEach((result, index) => {
+        byProject[input.projectIds[index]!] = result.isError ? null : result.data?.series;
+      });
+      return byProject;
+    },
+  });
 }

@@ -147,7 +147,7 @@ approvalLinksApp.openapi(createRoute({
     return c.json(
       verdict.reason === 'session_bound_caller'
         ? {
-            error: 'An agent cannot resolve its own approval — a human must approve or deny this',
+            error: "This approval waits for a person: the session's launcher or a project manager approves or denies it.",
             code: 'APPROVAL_REQUIRES_HUMAN',
           }
         : verdict.reason === 'non_human_caller'

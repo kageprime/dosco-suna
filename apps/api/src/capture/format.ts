@@ -334,8 +334,10 @@ export const PolicySchema = z.object({
       remote_days: z.number().int().min(0).max(CAPTURE_RETENTION_LIMITS.remoteDays),
     })
     .prefault({ local_hours: 0, remote_days: 90 }),
-  // `interval_ms` and `max_height` SET the device's capture rate and size (null: the device
-  // default); the engine applies them over the person's own settings.
+  // `max_height` and `text_recognition` SET the device's screenshot size and screen text
+  // recognition (null: the device default). `text_recognition: 'off'` reads no screen text: the
+  // least CPU per frame. `interval_ms` is kept so stored policies parse; Capture 0.15.5 and later
+  // ignore it and set their own frame rate (2 a second while someone works, one every 2 s else).
   recording: z
     .object({
       paused: z.boolean(),
@@ -352,6 +354,7 @@ export const PolicySchema = z.object({
         .refine((height): height is CaptureMaxHeight => (CAPTURE_MAX_HEIGHTS as readonly number[]).includes(height), 'not a capture resolution')
         .nullable()
         .default(null),
+      text_recognition: z.enum(['accurate', 'fast', 'off']).nullable().default(null),
     })
     .prefault({ paused: false, paused_until_ms: null }),
   notice: z.string().max(2000).default(''),

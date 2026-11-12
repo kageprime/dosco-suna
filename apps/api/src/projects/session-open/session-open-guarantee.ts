@@ -9,7 +9,6 @@ import { runtimeAdmissionEnforced } from '../../runtime-convergence/admission';
 import { admitRunningSandbox } from '../../runtime-convergence/admit-running-sandbox';
 import { sessionHoldsTurnAuthority } from '../session-lifecycle/inbox-admission';
 import type { StartCallLog } from '../session-lifecycle/start-envelope';
-import { repositoryAccessFromSessionMetadata } from '../lib/session-sandbox-metadata';
 import { pinnedRuntimeMayServe } from '../lib/pinned-runtime';
 import type { OpenSessionArgs, OpenSessionRow } from './session-open-context';
 import { replaceRefusedRuntimeOnOpen } from './session-open-provision';
@@ -207,16 +206,6 @@ export async function enforceAdmission(
     const admission = await admitRunningSandbox({
       externalId: runningExternalId,
       userId: loaded.userId,
-      project: {
-        projectId,
-        repoUrl: loaded.row.repoUrl,
-        defaultBranch: loaded.row.defaultBranch,
-        manifestPath: loaded.row.manifestPath ?? 'kortix.yaml',
-        gitAuthToken: null,
-      },
-      baseRef: visible.row.baseRef ?? loaded.row.defaultBranch,
-      sessionAgent: visible.row.agentName ?? null,
-      repositoryAccess: repositoryAccessFromSessionMetadata(visible.row.metadata),
       sessionId,
     }).catch(() => ({ admitted: true as const }));
     // `admitRunningSandbox` already logged the refusal (observable from the

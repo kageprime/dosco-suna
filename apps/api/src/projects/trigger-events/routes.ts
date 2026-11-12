@@ -30,12 +30,12 @@ export function registerEventIngressRoutes(): void {
     tags: ['triggers'],
     summary: 'Receive a connector event',
     description:
-      'Authenticated by the event provider signature, not a bearer token. Fans each delivery out to the event triggers subscribed to it. Answers 500 when any fire failed, so the provider retries; the idempotency key dedupes the fires that succeeded.',
+      'Authenticated by the event provider signature, not a bearer token. Fans each delivery out to the event triggers subscribed to it. Answers 500 when any fire failed, so the provider retries; the idempotency key dedupes the fires that succeeded. When every failure is an account-state refusal (no usable model, no credits — billing gate) it answers 402 with its code instead: the provider cannot fix that by retrying.',
     // No body schema: the provider signs the raw bytes, so nothing may parse them first.
     request: { params: z.object({ provider: z.string() }) },
     responses: {
       200: json(IngressResultSchema, 'Every delivery fired, skipped or ignored'),
-      ...errors(401, 404, 413, 500, 503),
+      ...errors(401, 402, 404, 413, 500, 503),
     },
   }), async (c) => {
     const provider = eventSourceFor(c.req.param('provider'));
@@ -54,6 +54,14 @@ export function registerEventIngressRoutes(): void {
 
     await applyNotices(provider.id, received.notices);
     const tally = await deliverEvents(provider.id, received.deliveries);
+    // Account state (billing gate) is not a server fault: answer the 402
+    // convention (trigger-webhooks.ts, KRTX-1505) so the provider stops
+    // retrying an event no retry can fix. A mixed batch answers 500 instead:
+    // a failure a retry could fix must not hide behind a 402, and the refusals
+    // repeat on that retry until only they remain.
+    if (tally.accountState && tally.refused === tally.failed) {
+      return c.json({ error: tally.accountState.error, code: tally.accountState.code }, 402);
+    }
     if (tally.failed > 0) return c.json({ error: 'Failed to fire an event trigger' }, 500);
     return c.json({
       accepted: received.deliveries.length,

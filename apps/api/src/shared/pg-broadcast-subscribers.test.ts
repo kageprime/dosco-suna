@@ -67,6 +67,36 @@ describe('pg-broadcast subscriber isolation', () => {
     expect(seen).toEqual([UUID]);
   });
 
+  test('base move: a handler registered twice runs twice (the trunk registry array kept every registration)', () => {
+    const seen: string[] = [];
+    const transport = broadcast.configBaseMoveTransport();
+    const handler = (id: string) => seen.push(id);
+    transport.subscribe(handler);
+    transport.subscribe(handler);
+    fire(broadcast.BASE_MOVE_CHANNEL, UUID);
+    expect(seen).toEqual([UUID, UUID]);
+  });
+
+  test('base move: a handler registered during delivery still runs in that pass (the trunk deliver iterated its live array)', () => {
+    const seen: string[] = [];
+    const transport = broadcast.configBaseMoveTransport();
+    transport.subscribe((id) => {
+      seen.push(`first:${id}`);
+      transport.subscribe((id2) => seen.push(`new:${id2}`));
+    });
+    fire(broadcast.BASE_MOVE_CHANNEL, UUID);
+    expect(seen).toEqual([`first:${UUID}`, `new:${UUID}`]);
+  });
+
+  test('session changed: one registration per handler (the trunk registry Set kept one)', () => {
+    const seen: string[] = [];
+    const handler = (id: string) => seen.push(id);
+    broadcast.onSessionChanged(handler);
+    broadcast.onSessionChanged(handler);
+    fire(broadcast.SESSION_CHANGED_CHANNEL, UUID);
+    expect(seen).toEqual([UUID]);
+  });
+
   test('session changed: throwing subscriber isolated, unsubscribe during delivery honored by the snapshot', () => {
     const seen: string[] = [];
     let unsubB = () => {};

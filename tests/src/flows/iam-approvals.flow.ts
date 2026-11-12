@@ -27,11 +27,26 @@ flow(
     routes: [
       'POST /v1/workspaces/:projectId/access-requests',
       'GET /v1/workspaces/:projectId/access-requests',
+      'GET /v1/workspaces/:projectId',
     ],
   },
   async (ctx) => {
     const team = await ctx.fixtures.team();
     const project = await team.project();
+
+    await ctx.step(
+      'an outsider holding the link reads the workspace → 403 workspace_access_denied (the ask-for-access screen); an unknown id → 404 workspace_not_found',
+      async () => {
+        const outsider = ctx.client.as(ctx.P.NONMEMBER);
+        const denied = (await outsider.get('/v1/workspaces/:projectId', { params: { projectId: project.id } })).status(403);
+        // The body names nothing about the workspace: only the code and a generic message.
+        deepStrictEqual(denied.json(), { error: 'You do not have access to this workspace', code: 'workspace_access_denied' });
+        (await outsider.get('/v1/workspaces/:projectId', { params: { projectId: crypto.randomUUID() } }))
+          .status(404)
+          .body()
+          .has('$.code', 'workspace_not_found');
+      },
+    );
 
     await ctx.step(
       'an outsider (no account membership) requests access → 201 created',
@@ -79,14 +94,16 @@ flow(
     });
 
     await ctx.step(
-      'a plain member with no project grant of this split_pending account cannot review requests: canonical 404 workspace_not_found, legacy 403',
+      'a plain member cannot review requests: 403 project_role_insufficient on both names',
       async () => {
         const bare = await team.addMember('member');
         const params = { params: { projectId: project.id } };
+        // Membership is read access (C3), so the member passes the workspace
+        // gate; the route refuses the review for the role.
         (await ctx.client.as(bare).get('/v1/workspaces/:projectId/access-requests', params))
-          .status(404)
+          .status(403)
           .body()
-          .has('$.code', 'workspace_not_found');
+          .has('$.code', 'project_role_insufficient');
         (await ctx.client.as(bare).get('/v1/projects/:projectId/access-requests', params)).status(403);
       },
     );
@@ -273,13 +290,13 @@ flow(
     });
 
     await ctx.step(
-      'a plain member with no project grant of this split_pending account cannot read the manager-only inbox: canonical 404, legacy 403 with the workspace action',
+      'a plain member with no project grant of this split_pending account cannot read the manager-only inbox: canonical 403, legacy 403 with the workspace action',
       async () => {
         const bare = await team.addMember('member');
         (await ctx.client.as(bare).get('/v1/workspaces/:projectId/approvals', { params: { projectId: project.id } }))
-          .status(404)
+          .status(403)
           .body()
-          .has('$.code', 'workspace_not_found');
+          .has('$.code', 'workspace_access_denied');
         const r = await ctx.client
           .as(bare)
           .get('/v1/projects/:projectId/approvals', { params: { projectId: project.id } });
@@ -323,12 +340,12 @@ flow(
       r.status(200).body().has('$.total', 0);
     });
 
-    await ctx.step('a non-member has no visibility into needs-input: canonical 404 workspace_not_found, legacy 403', async () => {
+    await ctx.step('a non-member has no visibility into needs-input: canonical 403 workspace_access_denied, legacy 403', async () => {
       const params = { params: { projectId: project.id } };
       (await ctx.client.as(ctx.P.NONMEMBER).get('/v1/workspaces/:projectId/approvals/needs-input', params))
-        .status(404)
+        .status(403)
         .body()
-        .has('$.code', 'workspace_not_found');
+        .has('$.code', 'workspace_access_denied');
       (await ctx.client.as(ctx.P.NONMEMBER).get('/v1/projects/:projectId/approvals/needs-input', params)).status(403);
     });
   },
@@ -383,7 +400,7 @@ flow(
     });
 
     await ctx.step(
-      'a non-project-member cannot resolve anything on this project → 404 workspace_not_found',
+      'a non-project-member cannot resolve anything on this project → 403 workspace_access_denied',
       async () => {
         const r = await ctx.client
           .as(ctx.P.NONMEMBER)
@@ -392,7 +409,7 @@ flow(
             { decision: 'approve' },
             { params: { projectId: project.id, executionId: UNKNOWN_UUID } },
           );
-        r.status(404).body().has('$.code', 'workspace_not_found');
+        r.status(403).body().has('$.code', 'workspace_access_denied');
       },
     );
   },

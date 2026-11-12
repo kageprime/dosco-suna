@@ -1,3 +1,5 @@
+import './test-dom-globals';
+
 // In-memory localStorage for the bun test process, only when the runtime has
 // none. Writable so a test can swap in its own store and restore it.
 if (typeof globalThis.localStorage === 'undefined') {

@@ -259,6 +259,30 @@ export async function ensureAgentServiceAccount(args: {
   return winner.id;
 }
 
+/**
+ * The ACTIVE standing identity of a project's agent, or null when the agent
+ * has none. Read-only: unlike `ensureAgentServiceAccount`, it never creates one.
+ */
+export async function activeAgentServiceAccountId(args: {
+  accountId: string;
+  projectId: string;
+  agentName: string;
+}): Promise<string | null> {
+  const [row] = await db
+    .select({ id: serviceAccounts.serviceAccountId })
+    .from(serviceAccounts)
+    .where(
+      and(
+        eq(serviceAccounts.accountId, args.accountId),
+        eq(serviceAccounts.projectId, args.projectId),
+        eq(serviceAccounts.agentName, args.agentName),
+        eq(serviceAccounts.status, 'active'),
+      ),
+    )
+    .limit(1);
+  return row?.id ?? null;
+}
+
 export async function disableServiceAccount(args: {
   accountId: string;
   serviceAccountId: string;

@@ -60,6 +60,12 @@ export function forwardsClientEncoding(port: number, remainingPath: string): boo
 // loses nothing.
 const previewUseThrottle = createExtendThrottle(60_000);
 
+/** The connect timer's abort reason (see `sendUpstreamAttempt`). `retry.ts`
+ *  matches this exact message to tell the proxy's own connect timeout from any
+ *  other TimeoutError — a client abort reuses the DOMException name with a
+ *  different message. */
+export const PROXY_CONNECT_TIMEOUT_MESSAGE = 'proxy attempt connect timeout';
+
 /**
  * Build forwarding headers: copy the client's (minus stripped), force
  * identity encoding, regenerate trace headers, then apply the sandbox
@@ -171,7 +177,7 @@ export async function sendUpstreamAttempt(
   const connectTimer = setTimeout(
     () =>
       attemptController.abort(
-        new DOMException('proxy attempt connect timeout', 'TimeoutError'),
+        new DOMException(PROXY_CONNECT_TIMEOUT_MESSAGE, 'TimeoutError'),
       ),
     proxyAttemptTimeoutMs(budgetRemainingMs, {
       method,

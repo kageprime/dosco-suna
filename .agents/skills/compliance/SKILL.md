@@ -55,6 +55,14 @@ runs hourly in the billing worker, on prod only (`INTERNAL_KORTIX_ENV=prod`).
 
 ## Evidence for an auditor
 
+`kortix.audit_events` holds the last 14 days (`HOT_DAYS`,
+`apps/api/src/shared/audit-archive/format.ts`). Older weeks, up to 365 days,
+are in the account's archive: read them with
+`GET /v1/accounts/<account_id>/audit/export?action=legal.subprocessor_notice.sent`
+(owner or admin, Enterprise), or from the `<env>-audit-archive` bucket
+(`audit/<account_id>/<yyyy>/<week>.<part>.jsonl.gz`). The query below finds
+the last 14 days only.
+
 ```sql
 select account_id, created_at, output_summary
 from kortix.audit_events
@@ -170,6 +178,9 @@ from kortix.audit_events
 where account_id = '<account_id>' and action like 'admin.impersonate.%'
 order by created_at desc;
 ```
+
+That query reaches 14 days back. Older events: the export,
+`GET /v1/accounts/<account_id>/audit/export?action=admin.impersonate.`.
 
 Contract: flows `IMP-1` and `IMP-2` (`pnpm test -- --id IMP-2`).
 

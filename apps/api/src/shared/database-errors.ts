@@ -1,4 +1,5 @@
 import { DrizzleQueryError } from 'drizzle-orm/errors';
+import { errorChain, TRANSIENT_DATABASE_CODES } from './error-cause';
 
 export interface DatabaseErrorDetails {
   isDatabaseError: true;
@@ -14,52 +15,8 @@ export interface DatabaseErrorDetails {
   hint: string | null;
 }
 
-interface ErrorRecord {
-  name?: unknown;
-  message?: unknown;
-  code?: unknown;
-  severity?: unknown;
-  table?: unknown;
-  schema?: unknown;
-  schema_name?: unknown;
-  detail?: unknown;
-  hint?: unknown;
-  cause?: unknown;
-}
-
-const TRANSIENT_DATABASE_CODES = new Set([
-  '40001',
-  '40P01',
-  '53300',
-  '57P01',
-  '57P02',
-  '57P03',
-  // postgres.js connection-phase failure: the connection never established,
-  // so the statement never reached the server (plain Error, driver's own
-  // code — not a SQLSTATE). Reads may be retried.
-  'CONNECT_TIMEOUT',
-  'ECONNRESET',
-  'ETIMEDOUT',
-  'EMAXCONNSESSION',
-]);
-
 function stringField(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
-}
-
-function errorChain(error: unknown): ErrorRecord[] {
-  const chain: ErrorRecord[] = [];
-  const seen = new Set<unknown>();
-  let current = error;
-
-  while (current && typeof current === 'object' && !seen.has(current) && chain.length < 8) {
-    seen.add(current);
-    const record = current as ErrorRecord;
-    chain.push(record);
-    current = record.cause;
-  }
-
-  return chain;
 }
 
 function isPostgresCode(code: string | null): boolean {
@@ -67,7 +24,9 @@ function isPostgresCode(code: string | null): boolean {
 }
 
 export function inspectDatabaseError(error: unknown): DatabaseErrorDetails | null {
-  const chain = errorChain(error);
+  // Eager, like the trunk's database walk: every link up to 8 is read before
+  // any check, so a throwing `cause` getter throws here exactly as before.
+  const chain = Array.from(errorChain(error, 8));
   if (chain.length === 0) return null;
 
   const postgresNode = chain.find((node) => {
@@ -115,7 +74,7 @@ export function rethrowDatabaseError(error: unknown): void {
 
 /** True when `error`, or an error in its cause chain, came from the database driver. */
 export function isDatabaseError(error: unknown): boolean {
-  return errorChain(error).some(
+  return Array.from(errorChain(error, 8)).some(
     (node) => node instanceof DrizzleQueryError || stringField(node.name) === 'PostgresError',
   );
 }
@@ -127,7 +86,7 @@ export function isDatabaseError(error: unknown): boolean {
  */
 export function databaseErrorSummary(error: unknown): string | null {
   if (!isDatabaseError(error)) return null;
-  const chain = errorChain(error);
+  const chain = Array.from(errorChain(error, 8));
   const sqlstate = chain.map((node) => stringField(node.code)).find((code) => code !== null);
   const driverMessage = chain
     .map((node) => stringField(node.message))
@@ -137,7 +96,9 @@ export function databaseErrorSummary(error: unknown): string | null {
 }
 
 export function isTransientDatabaseError(error: unknown): boolean {
-  const chain = errorChain(error);
+  // One eager walk shared by both halves, like the trunk's 8-link array: a
+  // throwing `cause` getter throws before any check, exactly as before.
+  const chain = Array.from(errorChain(error, 8));
   for (const node of chain) {
     const code = stringField(node.code);
     if (code?.startsWith('08') || (code && TRANSIENT_DATABASE_CODES.has(code))) {

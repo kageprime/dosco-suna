@@ -44,8 +44,8 @@ const cases = [
 
   // services/<name>/ — own folder and the shared layer; never another service
   // (every pair is generated below)
-  ['service to own folder', 'src/services/workspace-provider/workspace-provider.ts', "import './types';", true],
-  ['service to lib', 'src/services/workspace-provider/workspace-provider.ts', "import '@/lib/git/git';", true],
+  ['service to own folder', 'src/services/config-provider/obtain.ts', "import './release';", true],
+  ['service to lib', 'src/services/config-provider/obtain.ts', "import '@/lib/git/git';", true],
   ['service to types', 'src/services/runtime-assets/runtime-truth.ts', "import type { ConfigReleaseReport } from '@/types/config-release';", true],
   ['config-provider to the project snapshot', 'src/services/config-provider/obtain.ts', "import '@/lib/project-snapshot/archive';", true],
   ['runtime-assets to the release-store lock', 'src/services/runtime-assets/runtime-assets.ts', "import '@/lib/release-store-lock';", true],
@@ -71,7 +71,7 @@ const cases = [
   ['adapter to own nested folder', 'src/harness/pi/runtime.ts', "import './extensions/host';", true],
   ['adapter to the contract', 'src/harness/pi/boot.ts', "import type { SandboxBootState } from '../contract/boot-state';", true],
   ['adapter to shared', 'src/harness/pi/boot.ts', "import '../shared/on-boot';", true],
-  ['adapter to a service', 'src/harness/pi/boot.ts', "import '@/services/workspace-provider/workspace-provider';", true],
+  ['adapter to a service', 'src/harness/pi/boot.ts', "import '@/services/egress-shim';", true],
   ['adapter to types', 'src/harness/pi/boot.ts', "import type { InitialTurnClaim } from '@/types/control-plane';", true],
   ['adapter to app', 'src/harness/pi/boot.ts', "import '@/app/server';", false],
   ['adapter to a route', 'src/harness/pi/boot.ts', "import '@/routes/kortix/health';", false],
@@ -163,8 +163,8 @@ test('architecture: a file outside every layer is rejected', async () => {
 // src/, relative inside one (kortixd/import-style).
 const styleCases = [
   ['relative inside one folder', 'src/harness/pi/boot.ts', "import '../shared/on-boot';", null],
-  ['@/ across folders', 'src/harness/pi/boot.ts', "import '@/services/workspace-provider/workspace-provider';", null],
-  ['relative across folders', 'src/harness/pi/boot.ts', "import '../../services/workspace-provider/workspace-provider';", 'useAlias'],
+  ['@/ across folders', 'src/harness/pi/boot.ts', "import '@/services/egress-shim';", null],
+  ['relative across folders', 'src/harness/pi/boot.ts', "import '../../services/egress-shim';", 'useAlias'],
   ['@/ inside one folder', 'src/harness/pi/boot.ts', "import '@/harness/shared/on-boot';", 'useRelative'],
   ['main.ts is its own folder', 'src/main.ts', "import './app/server';", 'useAlias'],
   ['a type-only import across folders', 'src/lib/log/logger.ts', "import type { InitialTurnClaim } from '../../types/control-plane';", 'useAlias'],

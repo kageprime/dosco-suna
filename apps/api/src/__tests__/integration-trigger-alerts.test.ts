@@ -62,6 +62,7 @@ mock.module('../projects/lib/sessions', () => ({
 const { drainTriggerExecutionQueue } = await import('../projects/lib/trigger-scheduler');
 const { drainSessionLifecycleQueue } = await import('../projects/session-lifecycle');
 const { markGitTriggerFired } = await import('../projects/lib/trigger-fire');
+const { clearTriggerAutoPause } = await import('../projects/lib/trigger-run-caps');
 const { recordTriggerRunEnd } = await import('../projects/lib/trigger-run-outcome');
 const { alertTriggerAutoPaused, raiseTriggerAlert, raiseTriggerHealthAlert, setTriggerAlertNotifierForTest, settleTriggerAlerts } = await import('../projects/lib/trigger-alerts');
 const { updateNotificationPreferences } = await import('../notifications/preferences');
@@ -246,7 +247,9 @@ describe('a cron trigger that dead-letters on an empty wallet (acceptance 7)', (
     expect(usersOf(rows)).not.toContain(OWNER);
   });
 
-  test('a second dead letter in the same streak alerts nobody', async () => {
+  test('the dead letter paused the trigger (trigger-setup-pause.ts): the next slot starts nothing and alerts nobody', async () => {
+    const [runtime] = await db.select().from(projectTriggerRuntime).where(and(eq(projectTriggerRuntime.projectId, project.project_id), eq(projectTriggerRuntime.slug, slug)));
+    expect(runtime?.autoPausedReason).toStartWith('auto-paused: billing: ');
     await seedDueExecution(slug, spec);
     await drainCron();
 
@@ -270,6 +273,8 @@ describe('a cron trigger that dead-letters on an empty wallet (acceptance 7)', (
   test('a queued fire does not end the streak; a new streak alerts again, by email to a watcher who opted in', async () => {
     await updateNotificationPreferences(MEMBER, { kinds: { automation_failed: { email: true } } });
     emails.length = 0;
+    // A person resumes it on a still-empty wallet: the next slot dead-letters again.
+    expect(await clearTriggerAutoPause(project.project_id, slug)).toBe(true);
     await seedDueExecution(slug, spec);
     await drainCron();
     await markGitTriggerFired(project.project_id, slug, new Date(), 'queued');

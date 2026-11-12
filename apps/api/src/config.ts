@@ -18,6 +18,16 @@ hydrateEnvironmentSecret();
 export const SANDBOX_VERSION = process.env.SANDBOX_VERSION || 'unknown';
 
 /**
+ * The release this API serves, as /health reports it, and the commit it was
+ * built from. Prod overrides KORTIX_VERSION on the task to the clean `X.Y.Z`;
+ * the image itself is the staging build, so the sandbox CLI inside it was
+ * stamped `X.Y.Z-staging.<sha8>`. Sessions receive both values so that CLI can
+ * report the release it is part of (apps/cli/src/cli-version.ts).
+ */
+export const RELEASE_VERSION = process.env.KORTIX_VERSION || 'dev';
+export const RELEASE_COMMIT = process.env.KORTIX_COMMIT || '';
+
+/**
  * The environment of a child process: this process's environment plus
  * `extra`. A child process is the one reader of the raw environment outside
  * this file.
@@ -258,6 +268,16 @@ export const envSchema = z.object({
   ACCOUNT_DELETION_SWEEP_PAUSED: optBoolFalse,
   RETENTION_ERASURE_MODE: z.enum(['off', 'dry_run', 'execute']).optional().default('dry_run'),
   WORKSPACE_SPLIT_MODE: z.preprocess(
+    (value) => (typeof value === 'string' ? value.trim().toLowerCase().replace('-', '_') : value),
+    z.enum(['off', 'dry_run', 'apply']).optional(),
+  ),
+  // The legacy credential backfills (secrets/legacy-credential-boot.ts) on the
+  // leader at boot and then daily: `apply` moves legacy LLM keys and connector
+  // rows to their canonical stores, `dry_run` logs what it would move, `off`
+  // skips. Unset: `apply` locally and on self-host (no operator runs the
+  // scripts there), `off` on a cloud deployment (INTERNAL_KORTIX_ENV set), where
+  // an operator runs apps/api/scripts/*-backfill.ts.
+  LEGACY_CREDENTIAL_BACKFILL_MODE: z.preprocess(
     (value) => (typeof value === 'string' ? value.trim().toLowerCase().replace('-', '_') : value),
     z.enum(['off', 'dry_run', 'apply']).optional(),
   ),
@@ -672,9 +692,11 @@ export const envSchema = z.object({
   // mounts, with the folders synced in by the box's daemon.
   KORTIX_DRIVES_SESSION_MOUNT: optStr,
   KORTIX_DRIVES_SYNC: optStr,
+  // `on` (or 1/true/yes): `workspace_volume` (stateless sandboxes) is on for
+  // every project without its own choice; dev and prod set it.
   // `off` (or 0/false/no): no new session gets a /workspace volume, whatever its
-  // project's `workspace_volume` flag says. A session that already has one keeps
-  // it (platform/services/workspace-volume.ts).
+  // project's flag says. Unset: each project's own choice, default off. A
+  // session that already has a volume keeps it (platform/services/workspace-volume.ts).
   KORTIX_WORKSPACE_VOLUMES: optStr,
   // The `us_region` default for a project that has made no choice: true puts
   // its new Files and sessions in KORTIX_PLATINUM_US_REGION. Off by default;
@@ -697,6 +719,8 @@ export const envSchema = z.object({
   // a rollout. Credentials: the explicit pair below, else the AWS SDK default
   // chain (env, shared config, ECS/EKS task role). Endpoint + path style are
   // the MinIO/S3-compatible overrides; leave them unset on AWS.
+  // Ignored since 2026-11-08: a session never checks out the repository, so no
+  // session acquires its workspace from an archive. Kept so deploys that still set it parse.
   KORTIX_PROJECT_SNAPSHOT_MODE: z
     .enum(['git', 'prefer-s3', 'require-s3'])
     .optional()
@@ -743,7 +767,7 @@ export const envSchema = z.object({
   KORTIX_PROJECT_SNAPSHOT_MAX_ARCHIVE_BYTES: optInt(512 * 1024 * 1024),
 
   // ── Audit archive (optional) ────────────────────────────────────────────
-  // Weeks of kortix.audit_events older than 90 days are exported to this S3 bucket (Object Lock,
+  // Weeks of kortix.audit_events older than HOT_DAYS (14, shared/audit-archive/format.ts) are exported to this S3 bucket (Object Lock,
   // retained until the week's end + 365 days) and their PostgreSQL partition is dropped. Off
   // unless AUDIT_ARCHIVE_ENABLED is true AND the bucket is set AND the bucket has Object Lock.
   // Credentials: the AWS SDK default chain (the ECS task role). Endpoint + path style: MinIO.
@@ -754,7 +778,7 @@ export const envSchema = z.object({
   AUDIT_ARCHIVE_FORCE_PATH_STYLE: optBoolFalse,
   AUDIT_ARCHIVE_ACCESS_KEY_ID: optStr,
   AUDIT_ARCHIVE_SECRET_ACCESS_KEY: optStr,
-  /** Export read rate cap (rows per second): the job must not compete with ingest for IO. */
+  /** Read rate cap (rows per second) for the export and the legacy-table tally: the job must not compete with ingest for IO. */
   AUDIT_ARCHIVE_ROWS_PER_SECOND: optInt(5_000),
 
   // ── Config releases (optional) ──────────────────────────────────────────
@@ -983,6 +1007,9 @@ export const envSchema = z.object({
   // directly (LLM_GATEWAY_BASE_URL) are bound too.
   KORTIX_LLM_GATEWAY_REQS_PER_MIN: optInt(600),
   KORTIX_PROXY_REQS_PER_MIN: optInt(600),
+  // Per-session ceiling on stored-log reads (GET /v1/workspaces/:id/sessions/:id/log);
+  // why and how it sits: the sessionLogReadLimiter in middleware/rate-limit.ts (KRTX-4696).
+  KORTIX_SESSION_LOG_READS_PER_MIN: optInt(300),
   // Proxies in front of the API that APPEND to X-Forwarded-For. The client is
   // the entry this many places from the right; everything to its left was
   // written by the client. Cloud: Cloudflare + ALB = 2. Self-host Caddy
@@ -1505,6 +1532,8 @@ export const config = {
   RETENTION_ERASURE_AFTER_DAYS: env.RETENTION_ERASURE_AFTER_DAYS,
   WORKSPACE_SPLIT_MODE: (env.WORKSPACE_SPLIT_MODE
     ?? (process.env.INTERNAL_KORTIX_ENV ? 'dry_run' : 'off')) as 'off' | 'dry_run' | 'apply',
+  LEGACY_CREDENTIAL_BACKFILL_MODE: (env.LEGACY_CREDENTIAL_BACKFILL_MODE
+    ?? (process.env.INTERNAL_KORTIX_ENV ? 'off' : 'apply')) as 'off' | 'dry_run' | 'apply',
   KORTIX_SANDBOX_EGRESS_PIN_ENFORCED: env.KORTIX_SANDBOX_EGRESS_PIN_ENFORCED,
   KORTIX_CONNECTOR_EGRESS_ALLOW_HOSTS: env.KORTIX_CONNECTOR_EGRESS_ALLOW_HOSTS.split(',')
     .map((host) => host.trim())
@@ -1823,6 +1852,7 @@ export const config = {
   KORTIX_LLM_ROUTER_REQS_PER_MIN_PAID: env.KORTIX_LLM_ROUTER_REQS_PER_MIN_PAID,
   KORTIX_LLM_GATEWAY_REQS_PER_MIN: env.KORTIX_LLM_GATEWAY_REQS_PER_MIN,
   KORTIX_PROXY_REQS_PER_MIN: env.KORTIX_PROXY_REQS_PER_MIN,
+  KORTIX_SESSION_LOG_READS_PER_MIN: env.KORTIX_SESSION_LOG_READS_PER_MIN,
   KORTIX_TRUSTED_PROXY_HOPS: env.KORTIX_TRUSTED_PROXY_HOPS,
   KORTIX_UNKNOWN_TOKEN_ATTEMPTS_PER_MIN: env.KORTIX_UNKNOWN_TOKEN_ATTEMPTS_PER_MIN,
   KORTIX_TRIGGER_MAX_PROVISIONING_SESSIONS_PER_PROJECT:

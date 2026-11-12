@@ -36,8 +36,10 @@
  * in `workspace_split_runs.copied_ids` and {@link reverseProjectSplit} deletes
  * exactly those rows.
  *
- * Stays with the source (the keeper): OAuth clients and tokens, API keys,
+ * Stays with the source (the keeper): OAuth clients and tokens, user API keys,
  * account tokens with no project, Capture, tunnels, ledgers, audit history.
+ * The moved session boxes' legacy sandbox keys follow the project
+ * (`moveProjectRows`).
  */
 import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';

@@ -7,6 +7,7 @@ import { SessionDotMatrix } from '@kortix/ui/dot-matrix/session-dot-matrix';
 import { SolidCheckIcon } from '@kortix/ui/internal/icons/solid-check-icon';
 import { StepHeader } from '@kortix/ui/internal/auth/auth-primitives';
 import { useLocalizedUiCatalog } from '@kortix/ui/i18n';
+import { useTranslations } from '@/i18n/use-translations';
 import { useConnectorSetup, type ConnectorSetupPhase } from '@kortix/sdk/react';
 import { connectorHeadline } from '@kortix/sdk';
 import type { ConnectorSetupLinkInfo } from '@kortix/sdk';
@@ -65,14 +66,44 @@ function fill(template: string, values: Record<string, string>): string {
  * module keeps the presentation and the host adapters: the API base, the
  * browser's storage and the popup window itself.
  */
+/**
+ * An empty window, opened now, that `useConnectorSetup` sends to the hosted
+ * page. Null when the browser blocked it. `noopener` is not passed: with it,
+ * `window.open` returns null and the window could not be navigated. The
+ * opener is cut by hand instead, before the window leaves this origin.
+ */
+function reserveSignInWindow() {
+  const popup = window.open('', '_blank', 'popup,width=520,height=720');
+  if (!popup) return null;
+  try {
+    popup.opener = null;
+  } catch {
+    // A read-only `opener` (some WindowProxy implementations).
+  }
+  return {
+    navigate: (url: string) => popup.location.replace(url),
+    close: () => {
+      try {
+        popup.close();
+      } catch {
+        // A browser policy can refuse close(); the flow result still stands.
+      }
+    },
+  };
+}
+
 export function useConnectorIntake(
   token: string,
-  { onOpened }: { onOpened?: () => void } = {},
+  { onOpened, returned }: { onOpened?: () => void; returned?: boolean } = {},
 ) {
   return useConnectorSetup(token, {
     backendUrl: setupLinkApiBase(),
     storage: browserLinkInfoStorage(),
     openPopup: (url) => window.open(url, '_blank', 'noopener,noreferrer,width=520,height=720'),
+    // Opened inside the click, before the start request: a window opened after
+    // an await is blocked by the browser without a message.
+    reservePopup: reserveSignInWindow,
+    returned,
     onOpened,
   });
 }
@@ -81,15 +112,18 @@ export function ConnectorIntake({
   token,
   onOpened,
   onConnected,
+  returned,
 }: {
   token: string;
   onOpened?: () => void;
+  /** Back from the provider's page: finish the sign-in on load. */
+  returned?: boolean;
   /** Fired once the finalize poll confirms the connection landed. */
   onConnected?: () => void;
 }) {
-  const { phase, info, error, connectedAs, alreadyConnected, connect } = useConnectorIntake(
+  const { phase, info, error, connectedAs, alreadyConnected, blockedUrl, connect } = useConnectorIntake(
     token,
-    { onOpened },
+    { onOpened, returned },
   );
 
   useEffect(() => {
@@ -103,6 +137,8 @@ export function ConnectorIntake({
       error={error}
       connectedAs={connectedAs}
       alreadyConnected={alreadyConnected}
+      blockedUrl={blockedUrl}
+      returned={returned}
       onConnect={connect}
     />
   );
@@ -119,6 +155,8 @@ export function ConnectorIntakeView({
   error,
   connectedAs,
   alreadyConnected,
+  blockedUrl = null,
+  returned = false,
   onConnect,
 }: {
   phase: ConnectorSetupPhase;
@@ -126,9 +164,14 @@ export function ConnectorIntakeView({
   error: string | null;
   connectedAs: string | null;
   alreadyConnected: boolean;
+  /** The hosted page the browser refused to open in a window: shown as a link. */
+  blockedUrl?: string | null;
+  /** Back from the provider's page: the poll reads as a check, not a wait for a window. */
+  returned?: boolean;
   onConnect: () => void;
 }) {
   const copy = useLocalizedUiCatalog(COPY);
+  const tSignIn = useTranslations('connectSignIn');
   const headline = info ? connectorHeadline(info) : null;
   const app = headline?.app || copy.fallbackApp;
   const connected = phase === 'connected';
@@ -153,7 +196,11 @@ export function ConnectorIntakeView({
     : connected
       ? fill(alreadyConnected ? copy.alreadyConnectedTitle : copy.connectedTitle, { app })
       : opened
-        ? copy.openedTitle
+        ? blockedUrl
+          ? tSignIn('blockedTitle', { app })
+          : returned
+            ? tSignIn('checkingTitle')
+            : copy.openedTitle
         : headline?.project
           ? fill(copy.titleToProject, { app, project: headline.project })
           : fill(copy.title, { app });
@@ -163,7 +210,11 @@ export function ConnectorIntakeView({
     : connected
       ? fill(copy.connectedDescription, { app })
       : opened
-        ? fill(copy.openedDescription, { app })
+        ? blockedUrl
+          ? tSignIn('blockedDescription')
+          : returned
+            ? tSignIn('checkingDescription', { app })
+          : fill(copy.openedDescription, { app })
         : phase === 'loading'
           ? copy.loading
           : fill(copy.readyDescription, { app });
@@ -197,10 +248,23 @@ export function ConnectorIntakeView({
             <Loading className="size-4 shrink-0" />
             <p className="text-foreground text-sm">{fill(copy.waiting, { app })}</p>
           </div>
-          <Button variant="outline-ghost" className="w-full" onClick={onConnect}>
-            <ArrowSquareOutIcon className="size-4" />
-            {copy.reopen}
-          </Button>
+          {blockedUrl ? (
+            // A click on a link is its own user activation, so this opens
+            // where the blocked window did not.
+            <div data-testid="connector-intake-blocked">
+              <Button asChild className="w-full">
+                <a href={blockedUrl} target="_blank" rel="noopener noreferrer">
+                  <ArrowSquareOutIcon className="size-4" />
+                  {tSignIn('openSignIn', { app })}
+                </a>
+              </Button>
+            </div>
+          ) : (
+            <Button variant="outline-ghost" className="w-full" onClick={onConnect}>
+              <ArrowSquareOutIcon className="size-4" />
+              {copy.reopen}
+            </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-4">

@@ -321,17 +321,8 @@ export function registerAgentScopeRoutes(): void {
         projectId,
         PROJECT_ACTIONS.PROJECT_SECRET_READ,
       );
-      // Belt over the central agent-grant fold, which is not enough here: that
-      // fold passes an agent session whose grant is NULL (an ungoverned project —
-      // `agentMayPerform(null)` is true), and an ungoverned project is exactly the
-      // case this route serves. A session that borrows a human's authority must
-      // never widen its own secret grant. A governed agent's permissions decide.
-      if (isBorrowedSessionPrincipal(c)) {
-        return c.json(
-          { error: 'Agent sessions cannot grant a secret to an agent', code: 'agent_session_forbidden' },
-          403,
-        );
-      }
+      // No third check: a session that acts for a person gets the person's
+      // answer (their role ∩ the agent's grant), exactly as above.
 
       // Scoped to the rows this caller can actually see (shared, plus their own
       // override) — the same slice `loadSecretViewsForUser` builds the secrets

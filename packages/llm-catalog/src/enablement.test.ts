@@ -201,4 +201,19 @@ describe('autoSeedDefaultModel — never auto-seeds a bare Bedrock id', () => {
     ]);
     expect(picked?.id).toBe('gpt-6.1-sol');
   });
+
+  // A paid workspace saved an OpenRouter key and its default became
+  // `baidu/ernie-5.5-flash-preview:free`: rate-limited, preview, first chat failed.
+  test('never auto-seeds a free-tier or preview model, even when it is the only newer one', () => {
+    const picked = autoSeedDefaultModel([
+      { id: 'anthropic/claude-sonnet-5', released: '2026-09-01' },
+      { id: 'baidu/ernie-5.5-flash-preview:free', released: '2026-11-10' },
+      { id: 'meta/llama-5:free', released: '2026-11-05' },
+      { id: 'google/gemini-4-pro-preview', released: '2026-11-01' },
+      { id: 'qwen/qwen-4-free', released: '2026-10-30' },
+    ]);
+    expect(picked?.id).toBe('anthropic/claude-sonnet-5');
+    expect(autoSeedDefaultModel([{ id: 'x/only-preview', released: '2026-11-01' }, { id: 'y/z:free' }])).toBeUndefined();
+    expect(autoSeedableModels([{ id: 'openai/gpt-6.1-sol' }, { id: 'a/b:free' }]).map((m) => m.id)).toEqual(['openai/gpt-6.1-sol']);
+  });
 });

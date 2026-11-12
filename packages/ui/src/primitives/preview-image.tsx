@@ -1,37 +1,58 @@
 'use client';
 
-import * as DialogPrimitive from '@radix-ui/react-dialog';
-import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
+import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import * as React from 'react';
 
 import { Close } from '../icons/close';
-import { withPortalContainer } from '../lib/portal-container';
+import { VisuallyHidden } from '../lib/base-ui-compat';
 import { cn } from '../lib/utils';
 import { Button } from './button';
+import { DialogClose, DialogPopup, DialogPortal, DialogTrigger, type DialogContentBaseProps } from './dialog';
 
-const PreviewImage = DialogPrimitive.Root;
+/** The image preview root. It sits outside the dialog layer stack: its content carries its own z-index. */
+function PreviewImage({
+  open,
+  defaultOpen,
+  onOpenChange,
+  modal,
+  children,
+}: {
+  open?: boolean;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  modal?: boolean;
+  children?: React.ReactNode;
+}) {
+  return (
+    <DialogPrimitive.Root
+      open={open}
+      defaultOpen={defaultOpen}
+      onOpenChange={onOpenChange ? (next) => onOpenChange(next) : undefined}
+      modal={modal}
+    >
+      {children}
+    </DialogPrimitive.Root>
+  );
+}
 
-const PreviewImageTrigger = DialogPrimitive.Trigger;
+const PreviewImageTrigger = DialogTrigger;
 
-const PreviewImagePortal = withPortalContainer(DialogPrimitive.Portal);
+const PreviewImagePortal = DialogPortal;
 
-const PreviewImageClose = DialogPrimitive.Close;
+const PreviewImageClose = DialogClose;
 
-const PreviewImageOverlay = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Overlay>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Overlay
-    ref={ref}
-    className={cn('fixed inset-0 z-50 bg-black/40', className)}
-    {...props}
-  />
-));
-PreviewImageOverlay.displayName = DialogPrimitive.Overlay.displayName;
+const PreviewImageOverlay = React.forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<'div'>>(
+  ({ className, ...props }, ref) => (
+    <DialogPrimitive.Backdrop
+      ref={ref}
+      className={cn('fixed inset-0 z-50 bg-black/40', className)}
+      {...props}
+    />
+  ),
+);
+PreviewImageOverlay.displayName = 'PreviewImageOverlay';
 
-interface PreviewImageContentProps extends React.ComponentPropsWithoutRef<
-  typeof DialogPrimitive.Content
-> {
+interface PreviewImageContentProps extends DialogContentBaseProps {
   fileContent?: string;
   fileName?: string;
   fullscreen?: boolean;
@@ -45,10 +66,7 @@ const DEFAULT_ORIGIN = '50% 50%';
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-const PreviewImageContent = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
-  PreviewImageContentProps
->(({ className, fileContent, fileName, ...props }, ref) => {
+const PreviewImageContent = React.forwardRef<HTMLDivElement, PreviewImageContentProps>(({ className, fileContent, fileName, ...props }, ref) => {
   const [zoomLevel, setZoomLevel] = React.useState(DEFAULT_ZOOM);
   const [transformOrigin, setTransformOrigin] = React.useState(DEFAULT_ORIGIN);
 
@@ -92,7 +110,7 @@ const PreviewImageContent = React.forwardRef<
   return (
     <PreviewImagePortal>
       <PreviewImageOverlay />
-      <DialogPrimitive.Content
+      <DialogPopup
         ref={ref}
         className={cn(
           'fixed top-[50%] left-[50%] z-[99999] grid h-full w-full -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-4 shadow-lg duration-moderate sm:rounded-lg',
@@ -100,9 +118,9 @@ const PreviewImageContent = React.forwardRef<
         )}
         {...props}
       >
-        <VisuallyHidden.Root>
+        <VisuallyHidden>
           <DialogPrimitive.Title>Image preview</DialogPrimitive.Title>
-        </VisuallyHidden.Root>
+        </VisuallyHidden>
 
         <div
           className="absolute top-3 right-3 z-[60] flex gap-1"
@@ -144,11 +162,11 @@ const PreviewImageContent = React.forwardRef<
             ) : null}
           </div>
         </div>
-      </DialogPrimitive.Content>
+      </DialogPopup>
     </PreviewImagePortal>
   );
 });
-PreviewImageContent.displayName = DialogPrimitive.Content.displayName;
+PreviewImageContent.displayName = 'PreviewImageContent';
 
 export {
   PreviewImage,

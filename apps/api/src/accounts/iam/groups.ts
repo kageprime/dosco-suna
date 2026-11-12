@@ -94,7 +94,7 @@ export function registerIamGroupsRoutes(): void {
         ...errors(401, 403),
       },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       // `group.read` lists every group; a plain member lists the groups they
       // share access with (iam/directory-visibility.ts).
@@ -148,12 +148,12 @@ export function registerIamGroupsRoutes(): void {
         ...errors(400, 401, 403, 409),
       },
     }),
-    async (c: any) => {
-      const userId = c.get('userId') as string;
+    async (c) => {
+      const userId = c.get('userId');
       const accountId = accountIdParam(c);
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.GROUP_CREATE);
       const denied = await requireEntitlement(c, accountId, 'rbac');
-      if (denied) return denied;
+      if (denied) return denied as never;
 
       const body = await readJsonObject(c);
       const name = typeof body.name === 'string' ? body.name.trim() : '';
@@ -205,7 +205,7 @@ export function registerIamGroupsRoutes(): void {
         ...errors(401, 403, 404),
       },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       const groupId = c.req.param('groupId');
       // A group the caller may not see reads as missing, not as forbidden.
@@ -249,12 +249,12 @@ export function registerIamGroupsRoutes(): void {
         ...errors(400, 401, 403, 404, 409),
       },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       const groupId = c.req.param('groupId');
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.GROUP_UPDATE);
       const denied = await requireEntitlement(c, accountId, 'rbac');
-      if (denied) return denied;
+      if (denied) return denied as never;
 
       const body = await readJsonObject(c);
       const patch: { name?: string; description?: string | null } = {};
@@ -312,7 +312,7 @@ export function registerIamGroupsRoutes(): void {
         ...errors(401, 403, 404),
       },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       const groupId = c.req.param('groupId');
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.GROUP_DELETE);
@@ -362,7 +362,7 @@ export function registerIamGroupsRoutes(): void {
         ...errors(401, 403, 404),
       },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       const groupId = c.req.param('groupId');
       const { groupIds } = await visibleGroups(c, accountId);
@@ -404,13 +404,13 @@ export function registerIamGroupsRoutes(): void {
         ...errors(400, 401, 403, 404, 409),
       },
     }),
-    async (c: any) => {
-      const userId = c.get('userId') as string;
+    async (c) => {
+      const userId = c.get('userId');
       const accountId = accountIdParam(c);
       const groupId = c.req.param('groupId');
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.GROUP_MEMBERS_MANAGE);
       const denied = await requireEntitlement(c, accountId, 'rbac');
-      if (denied) return denied;
+      if (denied) return denied as never;
 
       const group = await getGroup(accountId, groupId);
       if (!group) return c.json({ error: 'group not found' }, 404);
@@ -460,7 +460,7 @@ export function registerIamGroupsRoutes(): void {
         ...errors(401, 403, 404, 409),
       },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       const groupId = c.req.param('groupId');
       const targetUserId = c.req.param('userId');
@@ -514,7 +514,7 @@ export function registerIamGroupsRoutes(): void {
         ...errors(401, 403, 404),
       },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       const groupId = c.req.param('groupId');
       const visible = await visibleGroups(c, accountId);

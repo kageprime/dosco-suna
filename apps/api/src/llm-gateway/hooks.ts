@@ -5,6 +5,7 @@ import type {
   GatewayTrace,
   UsageEvent,
 } from '@kortix/llm-gateway';
+import { withFailureDetail } from '@kortix/llm-gateway';
 import { BillingGateError, assertBillingActive } from '../billing/services/billing-gate';
 import { accountMayUseManagedModels, getCachedAccountTier } from '../billing/services/entitlements';
 import { resolveAccountBilling } from '../billing/services/billing-cache';
@@ -665,9 +666,12 @@ export function emitGatewayGenAiSpan(trace: GatewayTrace): void {
 }
 
 /** Persist a request trace to gateway_request_logs (skips unauthenticated traces), then evaluate warn budgets. */
-export async function persistGatewayTrace(trace: GatewayTrace): Promise<void> {
+export async function persistGatewayTrace(received: GatewayTrace): Promise<void> {
   // Unknown credentials carry no accountId — nothing useful to attribute.
-  if (!trace.accountId) return;
+  if (!received.accountId) return;
+  // A failed row always names a code and a message, also for a trace from a
+  // gateway build that left them blank (429s and 5xx relayed as received).
+  const trace = withFailureDetail(received);
   // KRTX-2631: account-only refusals intentionally remain DB-forensics-only.
   // Persist their real accountId with projectId = null; do not infer a project.
   // Product list/detail readers stay project-scoped. An account-scoped reader

@@ -5,7 +5,7 @@ import { create } from 'zustand';
 /**
  * Which session row's brief is showing, for the whole sidebar at once.
  *
- * Radix HoverCard has no group concept — each instance owns its own delays and
+ * `HoverCard` has no group concept — each instance owns its own delays and
  * knows nothing about its siblings — so moving between two rows played out as
  * "row A closes after 100ms, row B opens after 200ms": the card vanished and
  * came back somewhere else. `Tooltip.Provider` solves this with

@@ -8,12 +8,14 @@ import {
   connectorCalls,
   connectorHeldCalls,
   connectorProjectSettings,
+  projectSessions,
 } from '@kortix/db';
 import { appAuthorizationForConnectorCall } from '../apps/connector-assertion';
 import { and, desc, eq, gt, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { resolveEmailApiKey } from '../channels/resend-email-api';
 import { bindSlackThreadToSession } from '../channels/slack/binding';
 import { slackUserNames } from '../channels/slack/labels';
+import { slackAgentPersona } from '../channels/slack/persona';
 import {
   emailOwnKeyForAccount,
   emailOwnKeyForInbox,
@@ -36,6 +38,7 @@ import {
 } from '../projects/secrets';
 import {
   canonicalConnectorAlias,
+  listEntitledConnectorConnections,
   resolveSessionConnectorConnectionOutcome,
 } from '../projects/lib/session-connector-bindings';
 import { db } from '../shared/db';
@@ -45,7 +48,13 @@ import { APPROVAL_RERUN_WINDOW_MS, DEFAULT_APPROVAL_TTL_SECONDS, approvalNotExpi
 import { connectorAttachmentStore } from './attachments';
 import { gateChannelRead } from './channel-read-scope';
 import { gateChannelWrite } from './channel-write-scope';
-import { resolveCredentialValue, resolveConnectionCredentialValue } from './credentials';
+import {
+  connectionIdsWithCredentials,
+  connectionSignedIn,
+  resolveCredentialValue,
+  resolveConnectionCredentialValue,
+} from './credentials';
+import { recordFinishedComposioAuthorization } from './db-deps-connect';
 import { connectorEgressFetch } from './egress';
 import { CredentialNotSharedError } from './gateway';
 import type { ExecutionRecord, GatewayAction, GatewayConnector, GatewayDeps, HeldApprovalVerdict } from './gateway';
@@ -53,8 +62,11 @@ import { HELD_RUN_CEILING_MS, sealHeldInput } from './held-call-store';
 import { graphToken } from '../channels/teams-auth';
 import { runPipedreamAction, runPipedreamProxy } from './pipedream';
 import type { ConnectorPrincipal } from './router-contract';
+import { closestActionPaths } from './action-suggest';
 import { COMPUTER_SLUG, withComputerCatalog } from './computers';
 import { ensureProjectComputer } from './sync';
+import { isUuid } from '../shared/validate';
+import { unannotatedActionRisk } from './action-risk';
 import type { ActionBinding, Risk } from './types';
 import {
   type ConnectorRow,
@@ -64,7 +76,6 @@ import {
   composioConnectedAccountId,
   composioConnectionIsNoAuth,
   headersOf,
-  isUuid,
   loadConnectorPoliciesFor,
   loadConnectorPolicySetFor,
   loadDefaultModeFor,
@@ -545,6 +556,65 @@ export function makeDbGatewayDeps(principal: ConnectorPrincipal): GatewayDeps {
           .limit(1);
         if (unpaired) return 'computer_unpaired';
       }
+      // A signed-in account exists that this caller cannot reach (another
+      // member's, a shared one narrowed away from this agent, or one this
+      // session may not enter). A sign-in would only add a duplicate account:
+      // its owner shares it instead. A channel's credential is its install, so
+      // it is never "not shared".
+      if (row.providerType !== 'channel') {
+        const named = principal.requestedConnectorAccount?.trim().toLowerCase();
+        const live = await db
+          .select({
+            connectionId: connectorConnections.connectionId,
+            label: connectorConnections.label,
+            metadata: connectorConnections.metadata,
+          })
+          .from(connectorConnections)
+          .where(
+            and(
+              eq(connectorConnections.connectorId, row.connectorId),
+              eq(connectorConnections.status, 'active'),
+              or(eq(connectorConnections.ownerType, 'project'), eq(connectorConnections.ownerType, 'member')),
+            ),
+          );
+        const candidates = named
+          ? live.filter(
+              (connection) =>
+                connection.connectionId.toLowerCase() === named ||
+                connection.label.trim().toLowerCase() === named,
+            )
+          : live;
+        if (candidates.length > 0) {
+          const credentialed = await connectionIdsWithCredentials(candidates.map((connection) => connection.connectionId));
+          const signedIn = candidates.filter((connection) =>
+            connectionSignedIn(connection.metadata ?? {}, credentialed.has(connection.connectionId)),
+          );
+          if (signedIn.length > 0) {
+            // Reachable under the owner/audience and visibility rules, so only
+            // the session's own connector scope left it out: that is a session
+            // started without it, not an unshared account.
+            const [session] = principal.sessionId
+              ? await db
+                  .select({ visibility: projectSessions.visibility })
+                  .from(projectSessions)
+                  .where(eq(projectSessions.sessionId, principal.sessionId))
+                  .limit(1)
+              : [];
+            const reachable = await listEntitledConnectorConnections({
+              accountId: principal.accountId,
+              projectId,
+              alias: slug,
+              actingUserId: principal.userId,
+              visibility: session?.visibility ?? (principal.agentPrincipal ? 'project' : 'private'),
+              agentPrincipal: principal.agentPrincipal ?? null,
+            });
+            const reachableIds = new Set(reachable.map((connection) => connection.connectionId));
+            if (!signedIn.some((connection) => reachableIds.has(connection.connectionId))) {
+              return 'connector_not_shared';
+            }
+          }
+        }
+      }
       return 'connector_not_connected';
     },
     loadAction: async (connectorId, relPath, providerType) => {
@@ -566,9 +636,45 @@ export function makeDbGatewayDeps(principal: ConnectorPrincipal): GatewayDeps {
         path: a.path,
         relPath: a.path,
         inputSchema: a.inputSchema ?? null,
-        risk: a.risk as Risk,
+        // Composio and Pipedream store a fallback `write`; the reviewed
+        // classifier decides for them (action-risk.ts).
+        risk: unannotatedActionRisk(providerType, {
+          path: a.path,
+          description: a.description,
+          risk: a.risk as Risk,
+          bindingKind: (a.binding as { kind?: string } | null)?.kind ?? null,
+        }),
         binding: a.binding as unknown as ActionBinding,
       } satisfies GatewayAction;
+    },
+    suggestActions: async (connectorId, relPath, providerType) => {
+      const paths =
+        providerType === 'computer'
+          ? withComputerCatalog(connectorId, 'computer', []).map((row) => row.path)
+          : (
+              await db
+                .select({ path: connectorActions.path })
+                .from(connectorActions)
+                .where(eq(connectorActions.connectorId, connectorId))
+            ).map((row) => row.path);
+      return closestActionPaths(relPath, paths);
+    },
+    completeComposioAuthorization: async ({ projectId, connector }) => {
+      if (!connector.connectionId) return null;
+      try {
+        return await recordFinishedComposioAuthorization({
+          projectId,
+          slug: connector.slug,
+          connectionId: connector.connectionId,
+          metadata: connector.connectionMetadata ?? {},
+        });
+      } catch (error) {
+        logger.warn('[composio] recording a finished sign-in failed; the call answers needs_auth', {
+          connectionId: connector.connectionId,
+          error: error instanceof Error ? error.message.split('\n')[0] : String(error),
+        });
+        return null;
+      }
     },
     resolveCredential: async (connector, userId) => {
       // Channel connectors resolve to their platform install token (server-side);
@@ -645,6 +751,7 @@ export function makeDbGatewayDeps(principal: ConnectorPrincipal): GatewayDeps {
       ),
     gateChannelRead: (input) => gateChannelRead(input),
     gateChannelWrite: (input) => gateChannelWrite(input),
+    slackAuthor: (input) => slackAgentPersona(input),
     loadEmailSessionContext: async () => null,
     // No selected account: the project's default inbox.
     loadEmailConnectorContext: async (projectId) => {

@@ -91,6 +91,20 @@ export function uploadedFraction(
   return sent / total;
 }
 
+const TRAY_RANK = { uploading: 0, error: 1, queued: 2, done: 3 } as const;
+
+/**
+ * Tray rows in reading order: files going up now, then failures with their
+ * Retry (in view, not under a long queue), then files waiting, then finished
+ * files. Stable inside each group, so a second batch queues under the first.
+ */
+export function trayOrder<T extends { status: keyof typeof TRAY_RANK }>(uploads: readonly T[]): T[] {
+  return uploads
+    .map((u, i) => ({ u, i }))
+    .sort((a, b) => TRAY_RANK[a.u.status] - TRAY_RANK[b.u.status] || a.i - b.i)
+    .map(({ u }) => u);
+}
+
 /** Files sent at once. Enough to fill the pipe, few enough not to starve the listing. */
 export const UPLOAD_CONCURRENCY = 4;
 

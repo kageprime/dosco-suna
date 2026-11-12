@@ -138,12 +138,12 @@ export function registerIamSsoRoutes(): void {
         ...errors(401, 403),
       },
     }),
-    async (c: any) => {
+    async (c) => {
     const accountId = accountIdParam(c);
     await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ACCOUNT_READ);
     const p = await getSsoProvider(accountId);
-    if (!p) return c.json({ provider: null });
-    return c.json({ provider: ssoProviderResponse(p) });
+    if (!p) return c.json({ provider: null }, 200);
+    return c.json({ provider: ssoProviderResponse(p) }, 200);
     },
   );
 
@@ -160,14 +160,14 @@ export function registerIamSsoRoutes(): void {
         ...errors(400, 401, 402, 403, 500),
       },
     }),
-    async (c: any) => {
-    const userId = c.get('userId') as string;
+    async (c) => {
+    const userId = c.get('userId');
     const accountId = accountIdParam(c);
     await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ACCOUNT_WRITE);
     const personal = await refusePersonalAccountSso(c, accountId);
-    if (personal) return personal;
+    if (personal) return personal as never;
     const denied = await requireEntitlement(c, accountId, 'sso');
-    if (denied) return denied;
+    if (denied) return denied as never;
 
     const body = await readJsonObject(c);
     const supabaseSsoProviderId = (body.supabase_sso_provider_id ?? body.supabaseSsoProviderId) as unknown;
@@ -259,8 +259,8 @@ export function registerIamSsoRoutes(): void {
       },
     });
 
-    if (revokedSessions === null) return signOutFailed(c);
-    return c.json({ provider: ssoProviderResponse(provider) });
+    if (revokedSessions === null) return signOutFailed(c) as never;
+    return c.json({ provider: ssoProviderResponse(provider) }, 200);
     },
   );
 
@@ -300,14 +300,14 @@ export function registerIamSsoRoutes(): void {
         ...errors(400, 401, 402, 403, 409),
       },
     }),
-    async (c: any) => {
-      const userId = c.get('userId') as string;
+    async (c) => {
+      const userId = c.get('userId');
       const accountId = accountIdParam(c);
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ACCOUNT_WRITE);
       const personal = await refusePersonalAccountSso(c, accountId);
-      if (personal) return personal;
+      if (personal) return personal as never;
       const denied = await requireEntitlement(c, accountId, 'sso');
-      if (denied) return denied;
+      if (denied) return denied as never;
 
       const body = await readJsonObject(c);
       const name = body.name as unknown;
@@ -389,7 +389,7 @@ export function registerIamSsoRoutes(): void {
         },
       });
 
-      return c.json({ provider: ssoProviderResponse(provider) });
+      return c.json({ provider: ssoProviderResponse(provider) }, 200);
     },
   );
 
@@ -411,19 +411,19 @@ export function registerIamSsoRoutes(): void {
         ...errors(401, 402, 403, 404, 409, 422, 500, 502),
       },
     }),
-    async (c: any) => {
-      const userId = c.get('userId') as string;
+    async (c) => {
+      const userId = c.get('userId');
       const accountId = accountIdParam(c);
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ACCOUNT_WRITE);
       const denied = await requireEntitlement(c, accountId, 'sso');
-      if (denied) return denied;
+      if (denied) return denied as never;
 
       const provider = await getSsoProvider(accountId);
       if (!provider) return c.json({ error: 'no SSO provider configured' }, 404);
       if (isSsoDomainVerified(provider)) {
         // A repeat after `sso_sign_out_failed` retries the sign-out.
         const revokedSessions = await endRefusedSignIns(accountId, userId);
-        if (revokedSessions === null) return signOutFailed(c);
+        if (revokedSessions === null) return signOutFailed(c) as never;
         if (revokedSessions > 0) {
           await auditIam(c, {
             accountId,
@@ -434,7 +434,7 @@ export function registerIamSsoRoutes(): void {
             after: { primary_domain: provider.primaryDomain, domain_verified: true, method: 'retry', revoked_sessions: revokedSessions },
           });
         }
-        return c.json({ provider: ssoProviderResponse(provider) });
+        return c.json({ provider: ssoProviderResponse(provider) }, 200);
       }
 
       if (await domainVerifiedByOtherAccount(accountId, provider.primaryDomain)) {
@@ -491,8 +491,8 @@ export function registerIamSsoRoutes(): void {
           revoked_sessions: revokedSessions,
         },
       });
-      if (revokedSessions === null) return signOutFailed(c);
-      return c.json({ provider: ssoProviderResponse(verified) });
+      if (revokedSessions === null) return signOutFailed(c) as never;
+      return c.json({ provider: ssoProviderResponse(verified) }, 200);
     },
   );
 
@@ -509,7 +509,7 @@ export function registerIamSsoRoutes(): void {
         ...errors(401, 403, 404),
       },
     }),
-    async (c: any) => {
+    async (c) => {
     const accountId = accountIdParam(c);
     await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ACCOUNT_WRITE);
     // Disconnecting SSO must never 402 — an account that lost its entitlement
@@ -546,7 +546,7 @@ export function registerIamSsoRoutes(): void {
         : null,
     });
 
-    return c.json({ deleted: true });
+    return c.json({ deleted: true }, 200);
     },
   );
 
@@ -565,7 +565,7 @@ export function registerIamSsoRoutes(): void {
         ...errors(401, 403),
       },
     }),
-    async (c: any) => {
+    async (c) => {
     const accountId = accountIdParam(c);
     const actor = await actorOf(c, accountId);
     await assertAuthorized(actor, ACCOUNT_ACTIONS.ACCOUNT_READ);
@@ -597,12 +597,12 @@ export function registerIamSsoRoutes(): void {
         ...errors(400, 401, 402, 403, 404, 409),
       },
     }),
-    async (c: any) => {
-    const userId = c.get('userId') as string;
+    async (c) => {
+    const userId = c.get('userId');
     const accountId = accountIdParam(c);
     await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ACCOUNT_WRITE);
     const denied = await requireEntitlement(c, accountId, 'sso');
-    if (denied) return denied;
+    if (denied) return denied as never;
 
     const body = await readJsonObject(c);
     const claimValue = (body.claim_value ?? body.claimValue) as unknown;
@@ -672,7 +672,7 @@ export function registerIamSsoRoutes(): void {
         ...errors(401, 403, 404),
       },
     }),
-    async (c: any) => {
+    async (c) => {
     const accountId = accountIdParam(c);
     const mappingId = c.req.param('mappingId');
     await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ACCOUNT_WRITE);
@@ -688,7 +688,7 @@ export function registerIamSsoRoutes(): void {
       resourceId: mappingId,
     });
 
-    return c.json({ deleted: true });
+    return c.json({ deleted: true }, 200);
     },
   );
 }

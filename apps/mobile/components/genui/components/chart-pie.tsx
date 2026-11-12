@@ -185,14 +185,15 @@ function PieFigure({
           ) : null}
         </View>
         {/* A tap shows the block's data here: the small ones have no room for text. */}
-        <View className="h-5 flex-row items-center gap-2">
+        {/* One line: a long label truncates before the value does, at any text size. */}
+        <View className="min-h-5 flex-row items-center gap-2">
           {shown ? (
             <>
               {swatch(shown.fill)}
-              <Text variant="small" className="leading-5">
+              <Text variant="small" numberOfLines={1} className="shrink leading-5">
                 {shown.label}
               </Text>
-              <Text variant="muted" className="font-mono tabular-nums">{`${withUnit(shown.value)} · ${shown.percent}%`}</Text>
+              <Text variant="muted" numberOfLines={1} className="font-mono tabular-nums">{`${withUnit(shown.value)} · ${shown.percent}%`}</Text>
             </>
           ) : null}
         </View>

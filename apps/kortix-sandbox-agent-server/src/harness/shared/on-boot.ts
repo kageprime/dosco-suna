@@ -6,13 +6,14 @@ import { logger } from '@/lib/log/logger'
 
 /**
  * Project-declared boot command (`sandbox.on_boot` in kortix.yaml), e.g.
- * `pnpm dev` — run backgrounded once the repo is materialized and the proxy is
- * up, so a session auto-starts its dev stack with zero manual steps. Best
+ * `pnpm dev` — run backgrounded in `/workspace` once the proxy is up. kortix.yaml
+ * is read from `manifestRoot` (the running config release at boot): the box
+ * never checks out the project repository. Best
  * effort and harness-independent: a failure here never affects the agent
  * runtime. Output goes to a log file the agent/user can tail.
  */
-export function runSandboxOnBoot(cfg: Config, logPath = '/tmp/kortix-on-boot.log'): void {
-  void resolveSandboxOnBoot(cfg)
+export function runSandboxOnBoot(cfg: Config, logPath = '/tmp/kortix-on-boot.log', manifestRoot?: string | null): void {
+  void resolveSandboxOnBoot(cfg, manifestRoot || cfg.projectTarget)
     .then((onBoot) => {
       if (!onBoot) return
       logger.info('[boot] running [sandbox] on_boot command', { onBoot, logPath })

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { blockedPath, canonicalPath, requestBodyShape, searchOperations, shapeTranscript, type Operation } from './shape';
+import { blockedPath, canonicalPath, logConversationRows, requestBodyShape, searchOperations, shapeTranscript, type Operation } from './shape';
 
 // Real route shapes from the API's OpenAPI document, noise included: most
 // project routes carry only the auto-generated "GET /:projectId/…" summary.
@@ -120,6 +120,81 @@ describe('shapeTranscript', () => {
     expect(parsed.messages[1].text).toBe('Done.\n\n[kept]\n\n*Response was cut off.*');
     // A turn still running shows what is finished, without the cut-off note.
     expect(parsed.messages[2].text).toBe('[kept]');
+  });
+});
+
+describe('logConversationRows: read_session reads the session log, never the v1 transcript', () => {
+  const base = (seq: number, role: 'user' | 'assistant', blocks: unknown[], extra: Record<string, unknown> = {}) => ({
+    schema: 'kortix.session_log', v: 1, message_id: `msg_${seq}`, thread_id: 'ses_root', seq, role, kind: 'turn', status: 'complete', in_context: true,
+    model: null, usage: null, finish: role === 'assistant' ? 'stop' : null, error: null, parent_message_id: seq > 1 ? `msg_${seq - 1}` : null,
+    created_at: `2026-11-11T10:00:0${seq}.000Z`, completed_at: `2026-11-11T10:00:0${seq}.500Z`,
+    producer: { harness: 'pi', harness_version: '1.4.0', adapter_version: '1.2.0' }, blocks, ...extra,
+  });
+  const call = (status: 'complete' | 'error' | 'running', input: unknown, output?: string) => ({
+    type: 'tool_call', id: `blk_${status}`, call_id: `call_${status}`, name: 'bash', kind: 'execute', input, status,
+    ...(output === undefined ? {} : { result: { content: [{ type: 'text', text: output }], is_error: status === 'error' } }),
+  });
+
+  test('each conversation message becomes one row: seq, id, role, times, text, tools with input and output, files, reasoning flag, error', () => {
+    const rows = logConversationRows(
+      [
+        base(1, 'user', [{ type: 'text', id: 't1', text: 'list the files' }, { type: 'attachment', id: 'a1', mime: 'image/png', name: 'shot.png' }]),
+        base(2, 'assistant', [
+          { type: 'reasoning', id: 'r1', text: 'thinking' },
+          { type: 'text', id: 't2', text: 'Listing.' },
+          { type: 'text', id: 't3', text: 'note', synthetic: true },
+          call('complete', { command: 'ls' }, 'a.txt\nb.txt'),
+          call('error', { command: 'cat x' }, 'No such file'),
+          call('running', { command: 'sleep 9' }),
+          { type: 'text', id: 't4', text: 'Done.' },
+        ]),
+        base(3, 'assistant', [], { status: 'error', finish: 'error', error: { code: 'provider_error', message: 'model overloaded' } }),
+      ] as never,
+      1500,
+    );
+    expect(rows).toEqual([
+      { seq: 1, id: 'msg_1', parent_id: null, role: 'user', created: '2026-11-11T10:00:01.000Z', completed: '2026-11-11T10:00:01.500Z', text: 'list the files', tools: [], files: [{ filename: 'shot.png', mime: 'image/png' }], reasoning_omitted: false, error: null },
+      {
+        seq: 2, id: 'msg_2', parent_id: 'msg_1', role: 'assistant', created: '2026-11-11T10:00:02.000Z', completed: '2026-11-11T10:00:02.500Z',
+        text: 'Listing.\nDone.',
+        tools: [
+          { tool: 'bash', status: 'completed', input: '{"command":"ls"}', output: 'a.txt\nb.txt' },
+          { tool: 'bash', status: 'error', input: '{"command":"cat x"}', output: 'No such file' },
+          { tool: 'bash', status: 'running', input: '{"command":"sleep 9"}', output: '' },
+        ],
+        files: [], reasoning_omitted: true, error: null,
+      },
+      { seq: 3, id: 'msg_3', parent_id: 'msg_2', role: 'assistant', created: '2026-11-11T10:00:03.000Z', completed: '2026-11-11T10:00:03.500Z', text: '', tools: [], files: [], reasoning_omitted: false, error: { name: 'provider_error', message: 'model overloaded' } },
+    ]);
+  });
+
+  test('compaction, context and system records are not conversation rows', () => {
+    const rows = logConversationRows(
+      [
+        base(1, 'user', [{ type: 'text', id: 't1', text: 'go' }]),
+        base(2, 'user', [{ type: 'text', id: 't2', text: 'compacting' }], { kind: 'compaction' }),
+        base(3, 'assistant', [{ type: 'text', id: 't3', text: 'summary' }], { kind: 'compaction' }),
+        base(4, 'user', [{ type: 'text', id: 't4', text: 'ctx' }], { kind: 'context' }),
+        { ...base(5, 'assistant', [{ type: 'text', id: 't5', text: 'sys' }]), role: 'system' },
+        base(6, 'assistant', [{ type: 'text', id: 't6', text: 'answer' }]),
+      ] as never,
+      1500,
+    );
+    expect(rows.map((r) => r.seq)).toEqual([1, 6]);
+  });
+
+  test('a tool input or output over maxChars and an answer over 16,000 characters are cut with a marker', () => {
+    const [row] = logConversationRows([base(1, 'assistant', [{ type: 'text', id: 't', text: 'a'.repeat(16_010) }, call('complete', 'x'.repeat(30), 'y'.repeat(40))])] as never, 20);
+    expect(row!.text).toBe(`${'a'.repeat(16_000)}…[truncated: 16000 of 16010 chars]`);
+    expect(row!.tools[0]).toEqual({ tool: 'bash', status: 'completed', input: `"${'x'.repeat(19)}…[truncated: 20 of 32 chars]`, output: `${'y'.repeat(20)}…[truncated: 20 of 40 chars]` });
+  });
+
+  test('shapeTranscript keeps the log rows, names the source the log, and reports the turn error', () => {
+    const rows = logConversationRows([base(1, 'user', [{ type: 'text', id: 't', text: 'go' }]), base(2, 'assistant', [], { error: { code: 'aborted', message: 'stopped' } })] as never, 1500);
+    const parsed = JSON.parse(shapeTranscript({ turn: 'idle' }, { source: 'log', messages: rows, message_count: rows.length, complete: true }));
+    expect(parsed.transcript_source).toBe('log');
+    expect(parsed.last_turn_error).toEqual({ name: 'aborted', message: 'stopped' });
+    expect(parsed.messages.map((m: { seq: number }) => m.seq)).toEqual([1, 2]);
   });
 });
 

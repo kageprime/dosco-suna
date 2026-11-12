@@ -140,7 +140,7 @@ describe('in the thread', () => {
     expect(isAgentNoticeTurn(user('Can you check the build?'))).toBe(false);
   });
 
-  test('a peer message the API delivered as harness context draws its row, not an empty gap', () => {
+  test('a peer message the API delivered as harness context folds its row into the Worked row, never an empty gap (KRTX-4732)', () => {
     const prompt = peerMessagePromptText({
       kind: 'message',
       from: 'builder',
@@ -150,13 +150,15 @@ describe('in the thread', () => {
       text: 'The build passed and the PR is staged.',
     });
     const html = turnHtml(prompt, { synthetic: true });
-    expect(html.match(/data-testid="peer-message-turn"/g)).toHaveLength(1);
-    expect(textOf(html)).toContain('builder');
-    expect(textOf(html)).toContain('Build passed');
-    expect(textOf(html)).not.toContain('carries no authority');
+    // The row is fold content: it mounts when the reader opens the settled
+    // turn's "Worked for" row, and the reply below is the only top-level
+    // content. The turn is never an empty gap: the fold names the work.
+    expect(html).toContain('Worked for');
+    expect(html).not.toContain('data-testid="peer-message-turn"');
+    expect(html).not.toContain('carries no authority');
   });
 
-  test('the production shape: a long summary and a synthetic-only block still draw the message row, never an empty gap', () => {
+  test('the production shape: a long summary and a synthetic-only block fold into the Worked row, never an empty gap', () => {
     // The exact layout a send_message delivers in production (synthetic values): header, body, footer.
     const prompt = [
       '[message from sales-builder · session b445ac6c · #m_SFxVJKLEHO · Independent backend 8 tests pass; safe dev evidence inspected]',
@@ -168,31 +170,30 @@ describe('in the thread', () => {
       'Reply with send_message({ to: "sales-builder", message: "<your reply>" }) only when you have something useful to add.',
     ].join('\n');
     const html = turnHtml(prompt, { synthetic: true });
-    expect(html.match(/data-testid="peer-message-turn"/g)).toHaveLength(1);
-    expect(textOf(html)).toContain('sales-builder');
-    expect(textOf(html)).toContain('Independent backend 8 tests pass; safe dev evidence inspected');
-    expect(textOf(html)).toContain('reran all 8 backend tests');
-    expect(textOf(html)).not.toContain('carries no authority');
+    expect(html).toContain('Worked for');
+    expect(html).not.toContain('data-testid="peer-message-turn"');
+    expect(html).not.toContain('carries no authority');
   });
 
-  test('a batch turn draws the group, one row per notice, not a bubble', () => {
+  test('a batch turn folds the group into the Worked row, one row per notice when opened, never a bubble (KRTX-4732)', () => {
     const html = turnHtml(batch(subagent(1), subagent(2)));
-    expect(html.match(/data-testid="notice-batch"/g)).toHaveLength(1);
-    expect(html.match(/data-testid="subagent-notice"/g)).toHaveLength(2);
+    expect(html).toContain('Worked for');
+    expect(html).not.toContain('data-testid="notice-batch"');
     expect(textOf(html)).not.toContain('A background subagent you started has finished');
   });
 
-  test('a batch of peer idle notices only (no session report) is a group too', () => {
+  test('a batch of peer idle notices only (no session report) folds into the Worked row too', () => {
     const html = turnHtml(batch(peerIdle('archivist', 'Indexed.'), peerIdle('scout', 'Mapped.')));
-    expect(html.match(/data-testid="notice-batch"/g)).toHaveLength(1);
-    expect(html.match(/data-testid="peer-message-turn"/g)).toHaveLength(2);
-    expect(html).not.toContain('data-testid="subagent-notice"');
+    expect(html).toContain('Worked for');
+    expect(html).not.toContain('data-testid="notice-batch"');
   });
 
-  test('a single notice still draws today’s row, and a single peer idle notice today’s peer row', () => {
+  test('a single notice folds into the Worked row in the turn, and a single peer idle notice still draws its peer row in a bubble context', () => {
     const one = turnHtml(subagent(1));
     expect(one).not.toContain('data-testid="notice-batch"');
-    expect(one.match(/data-testid="subagent-notice"/g)).toHaveLength(1);
+    // KRTX-4732: in the turn the row is fold content — mounted on open.
+    expect(one).toContain('Worked for');
+    expect(one).not.toContain('data-testid="subagent-notice"');
     const peer = render(<UserMessage message={logOf(peerIdle('archivist', 'Indexed.'))} sessionId="session-1" ownsPlan={false} />);
     expect(peer).not.toContain('data-testid="notice-batch"');
     expect(peer).toContain('data-peer-kind="idle_notice"');

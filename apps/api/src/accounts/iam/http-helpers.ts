@@ -64,7 +64,7 @@ export async function auditIam(
   try {
     await recordAuditEvent({
       accountId: args.accountId,
-      actorUserId: c.get('userId') as string | undefined,
+      actorUserId: c.get('userId'),
       action: args.action,
       resourceType: args.resourceType,
       resourceId: args.resourceId ?? null,

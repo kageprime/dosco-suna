@@ -15,6 +15,12 @@ import { getTranslations } from '@/i18n/get-translations';
 import { ArrowRightIcon } from '@/lib/icons/ssr';
 import type { ReactNode } from 'react';
 
+import { marketingMetadataLayout } from '@/lib/seo/metadata';
+
+const { generateMetadata } = marketingMetadataLayout('/white-label');
+
+export { generateMetadata };
+
 function Bullets({ title, items }: { title: string; items: readonly string[] }): ReactNode {
   return (
     <div className="border-border bg-card flex h-full flex-col rounded-sm border p-6 sm:p-8">

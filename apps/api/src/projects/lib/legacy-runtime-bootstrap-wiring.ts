@@ -389,7 +389,18 @@ export function scheduleLegacyRuntimeBootstrap(
 ): boolean {
   if (!legacyRuntimeBootstrapEnabled()) return false;
   if (!row.externalId) return false;
-  if (inFlight.has(row.sandboxId) || inFlight.size >= MAX_IN_FLIGHT) return false;
+  if (inFlight.has(row.sandboxId) || inFlight.size >= MAX_IN_FLIGHT) {
+    // A refused repair is exactly the "requested a relaunch, nothing happened"
+    // case; say why or the box is unexplainable from logs (KRTX-4754). The
+    // callers' own request gates (a 4-minute dead-daemon budget, the edge
+    // refusal's metadata window) bound this line's rate.
+    logger.info(
+      `[legacy-bootstrap] repair refused for ${row.sandboxId}: ${
+        inFlight.has(row.sandboxId) ? 'a repair is already in flight' : `${MAX_IN_FLIGHT} repairs in flight on this replica`
+      }`,
+    );
+    return false;
+  }
   inFlight.add(row.sandboxId);
   void runner(row, reason)
     .catch((err) =>

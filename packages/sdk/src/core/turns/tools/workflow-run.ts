@@ -376,6 +376,9 @@ function documentOf(fields: [string, unknown][]): string | null {
   return fields.map(([key, value]) => `## ${fieldTitle(key)}\n\n${value.trim()}`).join('\n\n');
 }
 
+const JSON_SPACE = new Set([' ', '\t', '\n', '\r']);
+const isJsonSpace = (char: string | undefined): boolean => char !== undefined && JSON_SPACE.has(char);
+
 /**
  * The `"key": "value"` pairs of a JSON object cut short, in order, with the
  * escapes decoded; the last value runs to the cut. Linear time, no regex backtracking.
@@ -419,10 +422,11 @@ function cutStringFields(body: string): [string, string][] | null {
     }
     fields.push([decodeKey(head[1]!), value]);
     if (!closed) break;
-    const comma = /\s*,/y;
-    comma.lastIndex = i;
-    if (!comma.exec(body)) break;
-    at = comma.lastIndex;
+    // `\s*,` — inline scan, no regex: cutStringFields past the comma loops again.
+    at = i;
+    while (isJsonSpace(body[at])) at += 1;
+    if (body[at] !== ',') break;
+    at += 1;
   }
   return fields;
 }

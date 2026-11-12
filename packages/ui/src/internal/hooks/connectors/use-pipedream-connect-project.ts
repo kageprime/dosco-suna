@@ -1,6 +1,7 @@
 'use client';
 
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateConnections } from './invalidate-connections';
 import { useTranslations } from '../../../i18n';
 
 import { errorToast, successToast } from '../../../primitives/toast';
@@ -33,6 +34,7 @@ export function usePipedreamConnectProject(
   onConnected: () => void,
 ) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input?: {
       label?: string;
@@ -54,5 +56,8 @@ export function usePipedreamConnectProject(
       onConnected();
     },
     onError: (error: Error) => errorToast(error.message),
+    // Settled either way: a window closed before the provider answered still
+    // left the account row, and every list must show it without a reload.
+    onSettled: () => invalidateConnections(queryClient, projectId),
   });
 }

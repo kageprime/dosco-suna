@@ -8,7 +8,7 @@ import {
   isImpersonatingAccount,
   isImpersonationBlockedAccount,
 } from '../../shared/impersonation';
-import { accountOwnersByJoinDate, userAccountMembershipRow } from '../../iam/membership-read';
+import { accountMemberRow, accountOwnersByJoinDate } from '../../iam/membership-read';
 import { accountRoleFor, countAccountOwners } from '../../iam/read-models';
 import { SYSTEM_ACTOR } from '../../iam/assignments';
 import { addWorkspaceMember } from '../../iam/workspace-members';
@@ -195,11 +195,11 @@ export async function resolveAccountForUser(
   override: string | undefined,
 ): Promise<string> {
   if (override) {
-    const [membership] = await userAccountMembershipRow(userId, override);
+    const [membership] = await accountMemberRow(override, userId);
     if (membership) return membership.accountId;
     // The override may name the workspace by its public id (`project_id`).
     const accountKey = await accountKeyForWorkspaceId(override);
-    const [viaWorkspace] = accountKey ? await userAccountMembershipRow(userId, accountKey) : [];
+    const [viaWorkspace] = accountKey ? await accountMemberRow(accountKey, userId) : [];
     if (!viaWorkspace) {
       throw new Error('not a member of the requested workspace');
     }
@@ -218,12 +218,6 @@ export function normalizeEmail(value: unknown): string | null {
   const lower = raw.toLowerCase();
   if (!lower.includes('@')) return null;
   return lower;
-}
-
-export function parseRole(value: unknown, allowed: AccountRole[]): AccountRole | null {
-  if (typeof value !== 'string') return null;
-  const v = value.trim().toLowerCase();
-  return (allowed as string[]).includes(v) ? (v as AccountRole) : null;
 }
 
 export async function getMembership(userId: string, accountId: string) {

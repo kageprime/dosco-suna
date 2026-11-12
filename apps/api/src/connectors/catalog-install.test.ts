@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { CatalogInstallError, catalogInstallDraft, catalogSlug, connectorIdentity, freeSlug, installedSlugs } from './catalog-install';
+import { CatalogInstallError, CatalogInstallNeedsUrl, catalogInstallDraft, catalogSlug, connectorIdentity, freeSlug, installedSlugs } from './catalog-install';
 import type { ConnectorCatalogDetail } from './connector-catalog';
 import { specOperations } from './catalog-tools';
 
@@ -97,4 +97,26 @@ describe('one profile per way: the identity an install matches on', () => {
     expect(freeSlug('stripe', ['linear'])).toBe('stripe');
     expect(freeSlug('stripe', ['stripe', 'stripe-2'])).toBe('stripe-3');
   });
+
+  test('an MCP way listed without its URL never refuses: it asks for the URL, and installs with one', () => {
+    const wispr: ConnectorCatalogDetail = {
+      item: { ...detail.item, id: 'discovered/wisprflow-ai-mcp', slug: 'wisprflow-ai', name: 'wisprflow.ai', domain: 'wisprflow.ai' },
+      variants: [
+        { id: 'wispr-flow-mcp-server', kind: 'mcp', name: 'Wispr Flow MCP server', url: null, docs: 'https://docs.wisprflow.ai/mcp', description: null, transports: ['streamable-http'], requiresAuth: true, command: null, connector: null },
+      ],
+    };
+    expect(() => catalogInstallDraft(wispr)).toThrow(CatalogInstallNeedsUrl);
+    expect(() => catalogInstallDraft(wispr)).toThrow('https://docs.wisprflow.ai/mcp');
+    expect(catalogInstallDraft(wispr, { url: 'https://api.wisprflow.ai/connect/mcp' }).draft).toEqual({
+      slug: 'wisprflow-ai',
+      name: 'wisprflow.ai',
+      provider: 'mcp',
+      url: 'https://api.wisprflow.ai/connect/mcp',
+      transport: 'http',
+      create_only: true,
+    });
+    // A URL for an app whose ways all have one is ignored: the recommended way installs.
+    expect(catalogInstallDraft(detail, { url: 'https://elsewhere.example.test/mcp' }).draft).toMatchObject({ url: 'https://mcp.stripe.com' });
+  });
 });
+

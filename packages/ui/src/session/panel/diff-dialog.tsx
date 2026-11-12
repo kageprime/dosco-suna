@@ -5,7 +5,7 @@ import { useTranslations } from '../../i18n';
 import { Modal, ModalContent, ModalTitle } from '../../primitives/modal';
 import { SessionDiffViewer } from './session-diff-viewer';
 import { cn } from '../../lib/utils';
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+import { VisuallyHidden } from '../../lib/base-ui-compat';
 import { useState } from 'react';
 
 interface DiffDialogProps {

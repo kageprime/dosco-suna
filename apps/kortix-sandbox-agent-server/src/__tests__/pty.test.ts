@@ -14,20 +14,14 @@ function baseConfig(over: Partial<Config> = {}): Config {
     workspace: '/tmp',
     projectTarget: '/tmp',
     defaultBranch: 'main',
-    branchFetchAttempts: 60,
-    branchFetchDelaySec: 0.25,
-    autoClone: false,
     projectId: undefined,
     apiUrl: undefined,
     repoUrl: undefined,
     branchName: undefined,
-    sessionFresh: false,
     baseSha: undefined,
     sandboxToken: TEST_TOKEN,
     gitUserName: 'Xera',
     gitUserEmail: 'xera@dosco.live',
-    cloneFilter: '',
-    cloneDepth: 1,
     ...over,
   }
 }
@@ -55,7 +49,7 @@ function authHeaders(): Record<string, string> {
 }
 
 function startTestProxy(cfg: Config = baseConfig()) {
-  return startProxy(cfg, fakeHarness(), Date.now(), { repoMaterializationError: null, timeline: [] })
+  return startProxy(cfg, fakeHarness(), Date.now(), { timeline: [] })
 }
 
 interface PtyMeta {

@@ -36,7 +36,6 @@ mock.module('@/lib/session/activity', () => ({
   shimmerBandCenter: () => 0,
   shimmerSpread: (text: string, perChar: number) => text.length * perChar,
 }));
-mock.module('@/components/session/dot-matrix/use-reduce-motion', () => ({ useReduceMotion: () => reduceMotion }));
 mock.module('react-native-reanimated', () => ({
   default: { View: host('animated-view') },
   Easing: { linear: 'linear', ease: 'ease', inOut: (easing: unknown) => easing },

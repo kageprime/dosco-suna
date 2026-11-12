@@ -58,9 +58,9 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '../../primitives/tabs';
 import { EmptyState } from '../../primitives/empty-state';
 import {
-  connectorConnectionQueryKeys,
   connectorSetupStatus,
 } from '../sections/connector-connection-form';
+import { connectorConnectionQueryKeys } from '../../internal/hooks/connectors/invalidate-connections';
 
 import { PROJECT_ACTIONS } from '../../internal/lib/project-actions';
 import { useProjectCan } from '../../internal/lib/use-project-can';
@@ -325,6 +325,23 @@ export function ConnectorsPage({
   // The catalogue app whose own MCP server the MCP dialog connects. Null for
   // a server the user pastes (New → MCP server).
   const [mcpApp, setMcpApp] = useState<McpServerApp | null>(null);
+  // An agent's `setup_url` (`?custom=1&provider=mcp&url=…&name=…`): the one
+  // approval of an exact server. The MCP dialog opens prefilled; adding it is
+  // the approval. Read once, then dropped from the URL so closing the dialog
+  // does not reopen it.
+  const [setupLink, setSetupLink] = useState<{ url: string; name?: string } | null>(null);
+  useEffect(() => {
+    const link = setupLinkFromParams(search);
+    if (!link) return;
+    if (link.provider === 'mcp') {
+      setMcpApp(null);
+      setSetupLink({ url: link.url ?? '', ...(link.name ? { name: link.name } : {}) });
+      setPanel('mcp');
+    } else setPanel('custom');
+    replaceParams((params) => {
+      for (const key of SETUP_LINK_PARAMS) params.delete(key);
+    });
+  }, [search, replaceParams]);
   // The catalogue opens on the apps that connect in one click.
   const [oneClick, setOneClick] = useState(true);
   const [kindFilter, setKindFilter] = useState<CatalogKindFilter>('all');
@@ -770,11 +787,15 @@ export function ConnectorsPage({
           )}
 
           <AddMcpServerDialog
-            key={mcpApp?.url ?? 'paste'}
+            key={mcpApp?.url ?? setupLink?.url ?? 'paste'}
             projectId={projectId}
             app={mcpApp}
+            initial={mcpApp ? null : setupLink}
             open={panel === 'mcp'}
-            onOpenChange={(open) => setPanel(open ? 'mcp' : null)}
+            onOpenChange={(open) => {
+              setPanel(open ? 'mcp' : null);
+              if (!open) setSetupLink(null);
+            }}
             takenSlugs={connectors.map((connector) => connector.slug)}
             onAdded={invalidate}
           />
@@ -795,8 +816,7 @@ export function ConnectorsPage({
           own, so unlike the `AddAppPanel` this replaced it gets a real visible
           `ModalHeader` rather than a `VisuallyHidden` title — the dialog needs
           an accessible name and the user needs to know what the form is for.
-          That is why `@radix-ui/react-visually-hidden` is no longer imported
-          on this page. */}
+          That is why no visually hidden title is needed on this page. */}
           <Modal open={panel === 'custom'} onOpenChange={(open) => !open && setPanel(null)}>
             <ModalContent className="lg:max-w-3xl">
               <ModalHeader>
@@ -847,6 +867,17 @@ function useSearchInUrl(
     const suffix = params.toString();
     shallowNavigate(suffix ? `${pathname}?${suffix}` : pathname, { replace: true });
   }, [debouncedValue, search, pathname, shallowNavigate]);
+}
+
+/** The query keys of an agent's `setup_url` (`customConnectorSetupUrl` in the API). */
+const SETUP_LINK_PARAMS = ['custom', 'provider', 'url', 'transport', 'endpoint', 'spec', 'base_url', 'name'] as const;
+
+/** The server an agent's `setup_url` asks a person to approve, or null. */
+export function setupLinkFromParams(
+  search: { get(key: string): string | null } | null | undefined,
+): { provider: string; url: string | null; name: string | null } | null {
+  if (search?.get('custom') !== '1') return null;
+  return { provider: search.get('provider') ?? 'mcp', url: search.get('url'), name: search.get('name') };
 }
 
 function useConnectorNavigation(projectId: string) {

@@ -203,7 +203,7 @@ describe('withSseKeepalive', () => {
       },
     }
     const router = createRuntimeProxyRouter(
-      { cfg: {} as Config, bootState: { repoMaterializationError: null, timeline: [] } },
+      { cfg: {} as Config, bootState: { timeline: [] } },
       runtime,
     )
 

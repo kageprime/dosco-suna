@@ -241,7 +241,7 @@ async function runOpenSession(
   const observed = await observeProviderStatus(args, log, establishedRow, stoppedProviderStatus);
   const { provider, providerStatus } = observed;
 
-  const removed = await openRemovedBox(args, log, establishedRow, provider, providerStatus);
+  const removed = await openRemovedBox(args, log, establishedRow, providerStatus);
   if (removed) return removed;
 
   const notRunning = await openNotRunningBox(args, log, establishedRow, provider, providerStatus);

@@ -2,7 +2,7 @@
  * ReviewFileDiff — one file's diff, pushed inside `ReviewDetailSheet` when a
  * row of its Files list is tapped (Jay, 2026-09-27).
  *
- * Virtualized: a `BottomSheetFlatList` of the file's lines, so only the lines
+ * Virtualized: a `SheetFlatList` of the file's lines, so only the lines
  * near the screen are native views, whatever the file's size. The sheet used
  * to mount the whole patch (up to 2000 rows, each a view and two texts), which
  * made opening the sheet — and Merge, which closes it — stall the device.
@@ -14,8 +14,8 @@
  */
 import * as React from 'react';
 import { View } from 'react-native';
-import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 
+import { SheetFlatList } from '@/components/kortix/sheet-parts';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { parsePatchFile, type DiffRow } from '@/lib/diff/parse-patch';
@@ -56,7 +56,7 @@ export function ReviewFileDiff({ patch, path, isLoading, isError, isDark, bottom
   );
 
   return (
-    <BottomSheetFlatList
+    <SheetFlatList
       data={parsed && !parsed.binary ? parsed.rows : []}
       renderItem={renderItem}
       keyExtractor={(_row: DiffRow, index: number) => String(index)}

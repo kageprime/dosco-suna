@@ -9,11 +9,11 @@ import type { ReactNode } from 'react';
  * that `SessionThread` mounts. Rendered for real (react-dom on happy-dom), so a
  * click on the actual Preview button is what opens it.
  *
- * The DOM globals exist before any UI module loads: Radix decides at import
+ * The DOM globals exist before any UI module loads: Base UI decides at import
  * time whether layout effects run, and without a document its portals never
  * mount. Hence the dynamic imports in `beforeAll`.
  */
-// Overridden even where Bun has its own: React and Radix must see happy-dom's.
+// Overridden even where Bun has its own: React and Base UI must see happy-dom's.
 const OVERRIDE = ['window', 'document', 'navigator', 'HTMLElement', 'Node', 'Element', 'Event', 'CustomEvent', 'KeyboardEvent', 'MouseEvent', 'PointerEvent', 'FocusEvent', 'getComputedStyle', 'requestAnimationFrame', 'cancelAnimationFrame', 'localStorage', 'sessionStorage'];
 const saved: Record<string, unknown> = {};
 

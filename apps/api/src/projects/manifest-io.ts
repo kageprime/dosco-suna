@@ -218,10 +218,6 @@ export function synthesizeBlankManifest(project: {
           connectors: EVERY_GRANT,
           secrets: EVERY_GRANT,
           kortix_permissions: EVERY_GRANT,
-          // Nobody declared this agent, so it keeps the project checkout
-          // (KRTX-165). Without it a blank project's first session boots with
-          // no repo and fails to compile.
-          workspace: { project_repository: true },
         },
       },
     },

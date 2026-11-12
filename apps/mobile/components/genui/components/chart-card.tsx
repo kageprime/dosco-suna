@@ -7,7 +7,7 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import type { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { SheetScrollView } from '@/components/kortix/sheet-parts';
 import { useTranslation } from 'react-i18next';
 
 import { KortixBottomSheetModal } from '@/components/kortix/sheet';
@@ -118,7 +118,7 @@ export function ChartCard({
           {legend.map((name, i) => (
             <LegendItem key={i} focus={focus} index={i} className="gap-1.5 px-1.5 py-0.5">
               <View style={{ backgroundColor: palette[i] }} className="size-2.5 rounded-sm" />
-              <Text variant="muted" className={focus?.focused === i ? 'text-foreground' : undefined}>
+              <Text variant="muted" className={`shrink ${focus?.focused === i ? 'text-foreground' : ''}`}>
                 {name}
               </Text>
             </LegendItem>
@@ -128,12 +128,12 @@ export function ChartCard({
       {children}
       <KortixBottomSheetModal ref={sheet} title={t('genui.showData', 'Show data')} snapPoints={['60%']} enableDynamicSizing={false}>
         {/* The table scrolls inside the sheet, so a 365-point series keeps the title row in view. */}
-        <BottomSheetScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}>
+        <SheetScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}>
           <Text variant="muted" className="pb-2">
             {title}
           </Text>
           <DataTable head={head} rows={rows} format={format} />
-        </BottomSheetScrollView>
+        </SheetScrollView>
       </KortixBottomSheetModal>
     </View>
   );

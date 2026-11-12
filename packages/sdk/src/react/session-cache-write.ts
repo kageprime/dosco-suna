@@ -99,6 +99,8 @@ function sessionBelongsInList(projectId: string, query: Query, session: ProjectS
   if (!filters.startedBy) return true;
   const isMember = (session.initiator?.type ?? 'member') === 'member';
   if (filters.startedBy === 'automated') return !isMember;
+  // KRTX-4705: `humans` takes every member-started row, mine or shared.
+  if (filters.startedBy === 'humans') return isMember;
   return isMember && (filters.startedBy === 'me') === (session.is_owner !== false);
 }
 

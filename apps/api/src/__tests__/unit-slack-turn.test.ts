@@ -30,6 +30,7 @@ mock.module('../channels/slack-api', () => ({
     return '99.99';
   },
   removeReaction: async (...a: unknown[]) => record('removeReaction')(...a),
+  setAssistantStatus: async () => {},
   startStream: async (...a: unknown[]) => {
     record('startStream')(...a);
     return '11.11';
@@ -112,6 +113,7 @@ mock.module('../shared/db', () => ({
 }));
 
 const {
+  answerFooter,
   finalizeTurn,
   repaintLivePlan,
   relayTurnAnswerDetailed,
@@ -186,7 +188,7 @@ describe('finalizeTurn (chat.update only — no streaming)', () => {
     expect(updates[0]!.args[3]).toBe('Task complete');
     const blocks = updates[0]!.args[4] as Array<{ type: string; tasks?: Array<{ status: string }> }>;
     // silent close invents no answer body; 'context' = the "Open session" footer
-    expect(blocks.map((b) => b.type)).toEqual(['plan', 'context']);
+    expect(blocks.map((b) => b.type)).toEqual(['plan', 'actions']);
     expect(blocks[0]!.tasks![0]!.status).toBe('complete'); // last step closed
 
     expect(calls('removeReaction').length).toBe(1);
@@ -204,7 +206,7 @@ describe('finalizeTurn (chat.update only — no streaming)', () => {
     const blocks = updates[0]!.args[4] as Array<{ type: string; tasks?: Array<{ status: string }> }>;
     expect(blocks[0]!.type).toBe('plan');
     expect(blocks[0]!.tasks![0]!.status).toBe('complete');
-    expect(blocks.map((b) => b.type)).toEqual(['plan', 'section', 'context']);
+    expect(blocks.map((b) => b.type)).toEqual(['plan', 'section', 'actions']);
     expect(calls('addReaction').length).toBe(1);
   });
 
@@ -217,7 +219,7 @@ describe('finalizeTurn (chat.update only — no streaming)', () => {
     expect(update.args[3]).toBe('Run failed');
     const blocks = update.args[4] as Array<{ type: string; tasks?: Array<{ status: string }> }>;
     expect(blocks[0]!.tasks![0]!.status).toBe('error');
-    expect(blocks.map((b) => b.type)).toEqual(['plan', 'section', 'context']);
+    expect(blocks.map((b) => b.type)).toEqual(['plan', 'section', 'actions']);
     expect(calls('addReaction').length).toBe(0);
   });
 
@@ -226,8 +228,13 @@ describe('finalizeTurn (chat.update only — no streaming)', () => {
     await finalizeTurn(handle, { answer: 'Quick reply.' });
 
     expect(calls('updateBlocks').length).toBe(0);
-    expect(calls('postMessage').length).toBe(1);
-    expect(String(calls('postMessage')[0]!.args[2])).toBe('Quick reply.');
+    expect(calls('postMessage').length).toBe(0);
+    const [post] = calls('postBlocks');
+    expect(String(post!.args[2])).toBe('Quick reply.');
+    // The answer, then the footer that opens the session.
+    const blocks = post!.args[3] as Array<{ type: string; elements?: Array<{ url?: string }> }>;
+    expect(blocks.map((b) => b.type)).toEqual(['section', 'actions']);
+    expect(blocks[1]!.elements![0]!.url).toContain('sess-1');
     expect(calls('addReaction').length).toBe(1);
   });
 
@@ -337,7 +344,7 @@ describe('answer rescue when the GC already deleted the row', () => {
     expect(post?.args[1]).toBe('C1'); // channel
     expect(post?.args[4]).toBe('10.10'); // posted in-thread, not top-level
     const blocks = post?.args[3] as Array<{ type: string }>;
-    expect(blocks.map((b) => b.type)).toEqual(['section', 'context']);
+    expect(blocks.map((b) => b.type)).toEqual(['section', 'actions']);
   });
 
   test('stays silent for a session that did not come from Slack', async () => {
@@ -409,6 +416,31 @@ describe('relayTurnEnd', () => {
     expect(calls('removeReaction').length).toBe(1);
   });
 
+  test('idle with the final text posts it when the agent sent no reply, and marks the message ✅', async () => {
+    dbResults = [
+      [streamRow({ messageTs: null, steps: [] })], // loadTurn
+      [{ sessionId: 'sess-1' }], // claimFinalize
+      [], // deleteTurn
+    ];
+
+    const ok = await relayTurnEnd('sess-1', 'idle', undefined, { finalText: 'The **deploy** is green.' });
+    expect(ok).toBe(true);
+    expect(calls('postBlocks').map((c) => c.args[2])).toEqual(['The *deploy* is green.']);
+    expect(calls('addReaction').map((c) => c.args[3])).toEqual(['white_check_mark']);
+    expect(calls('removeReaction').length).toBe(1);
+  });
+
+  test('idle with the final text on a fresh turn posts at once, not after the replay window', async () => {
+    dbResults = [
+      [streamRow({ messageTs: null, steps: [], expiresAt: new Date(Date.now() + 15 * 60 * 1000) })], // loadTurn: active now
+      [{ sessionId: 'sess-1' }], // claimFinalize
+      [], // deleteTurn
+    ];
+
+    expect(await relayTurnEnd('sess-1', 'idle', undefined, { finalText: 'hi' })).toBe(true);
+    expect(calls('postBlocks').map((c) => c.args[2])).toEqual(['hi']);
+  });
+
   test('error close on a turn with no plan message posts failure copy + session footer', async () => {
     dbResults = [
       [streamRow({ messageTs: null, steps: [] })], // loadTurn
@@ -423,7 +455,7 @@ describe('relayTurnEnd', () => {
     const posted = calls('postBlocks')[0]!;
     expect(String(posted.args[2])).toContain('error');
     const blocks = posted.args[3] as Array<{ type: string }>;
-    expect(blocks.map((b) => b.type)).toEqual(['section', 'context']);
+    expect(blocks.map((b) => b.type)).toEqual(['section', 'actions']);
     expect(calls('addReaction').length).toBe(0);
   });
 
@@ -474,7 +506,7 @@ describe('relayTurnEnd', () => {
     expect(update.args[3]).toBe('Run stopped');
     const blocks = update.args[4] as Array<{ type: string; tasks?: Array<{ status: string }> }>;
     // No failure section — just the (re-titled) plan + the footer.
-    expect(blocks.map((b) => b.type)).toEqual(['plan', 'context']);
+    expect(blocks.map((b) => b.type)).toEqual(['plan', 'actions']);
     expect(blocks[0]!.tasks![0]!.status).toBe('complete'); // not 'error'
     expect(calls('addReaction').length).toBe(0);
   });
@@ -563,5 +595,25 @@ describe('relayTurnStep: mentions in a step', () => {
     dbResults = [[streamRow()], []];
     await relayTurnStep('sess-1', 'Reading the logs', { detail: 'from <https://example.test|the dashboard>' });
     expect(nameLookups).toEqual([]);
+  });
+});
+
+describe('answerFooter', () => {
+  const persona = { username: 'My Kortix', icon_url: 'https://api.example.com/v1/agent-marks/mykortix.png?v=1' };
+  const turn = { channel: 'C1', projectId: 'proj-1', sessionId: 'sess-1' };
+
+  test('every answer ends with Switch agent and Open in Kortix; the author already names the agent', () => {
+    const blocks = answerFooter(turn, persona) as any[];
+    expect(blocks.map((b) => b.type)).toEqual(['actions']);
+    expect(blocks[0].elements.map((e: any) => [e.action_id, e.text.text])).toEqual([
+      ['answer_switch_agent', 'Switch agent'],
+      ['session_open', 'Open in Kortix ↗'],
+    ]);
+    expect(JSON.stringify(blocks)).not.toContain('Auto-selected');
+  });
+
+  test('without an agent author there is nothing to switch: only Open in Kortix', () => {
+    const blocks = answerFooter(turn, null) as any[];
+    expect(blocks[0].elements.map((e: any) => e.action_id)).toEqual(['session_open']);
   });
 });

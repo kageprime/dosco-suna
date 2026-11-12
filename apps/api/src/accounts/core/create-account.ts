@@ -9,7 +9,7 @@ import { db } from '../../shared/db';
 import { syncSignupContactToMailtrap } from '../mailtrap-contacts';
 import { insertAccountRow, type AccountRow } from '../../workspaces/rows';
 
-export type CreatedAccountRow = AccountRow;
+type CreatedAccountRow = AccountRow;
 
 /**
  * Create an account and make `userId` its owner. The ONE place an account is

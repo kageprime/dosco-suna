@@ -70,6 +70,12 @@ pub fn audio_supported() -> bool {
     false
 }
 
+/// Asked before each action screenshot: false when the window in front would
+/// be dropped anyway (an excluded app, or not an included one). The screen
+/// recorder then takes no screenshot instead of capturing, encoding and
+/// discarding it.
+pub type CaptureGate = Arc<dyn Fn() -> bool + Send + Sync>;
+
 impl RecorderBundle {
     pub fn new(
         callback: EventCallback,
@@ -77,6 +83,7 @@ impl RecorderBundle {
         enable_audio: bool,
         audio_path: Option<PathBuf>,
         a11y_hash_history: Option<A11yHashHistory>,
+        capture_gate: Option<CaptureGate>,
     ) -> Self {
         let mut recorders: Vec<Box<dyn Recorder>> = Vec::new();
         let activity = ActivityTracker::new();
@@ -111,6 +118,7 @@ impl RecorderBundle {
             activity,
             #[cfg(feature = "native-recorders")]
             screenshot_capture_mode,
+            capture_gate,
         )));
 
         #[cfg(all(
@@ -356,6 +364,7 @@ struct NativeScreenRecorder {
     frame_queue_capacity: usize,
     activity: ActivityTracker,
     capture_mode: ScreenshotCaptureMode,
+    capture_gate: Option<CaptureGate>,
     running: Arc<AtomicBool>,
     frame_queue: Option<Arc<ScreenshotFrameQueue>>,
     capture_thread: Option<JoinHandle<()>>,
@@ -379,6 +388,7 @@ impl NativeScreenRecorder {
         frame_queue_capacity: usize,
         activity: ActivityTracker,
         capture_mode: ScreenshotCaptureMode,
+        capture_gate: Option<CaptureGate>,
     ) -> Self {
         Self {
             callback,
@@ -394,6 +404,7 @@ impl NativeScreenRecorder {
             frame_queue_capacity: sanitize_screen_frame_queue_capacity(frame_queue_capacity),
             activity,
             capture_mode,
+            capture_gate,
             running: Arc::new(AtomicBool::new(false)),
             frame_queue: None,
             capture_thread: None,
@@ -428,6 +439,7 @@ impl Recorder for NativeScreenRecorder {
         let scale_factor = sanitize_scale_factor(self.scale_factor);
         let quality = self.quality.clamp(1, 100) as u8;
         let capture_mode = self.capture_mode;
+        let capture_gate = self.capture_gate.clone();
         let frame_queue = Arc::new(ScreenshotFrameQueue::new(self.frame_queue_capacity));
         let encode_queue = frame_queue.clone();
         let callback = self.callback.clone();
@@ -456,6 +468,7 @@ impl Recorder for NativeScreenRecorder {
                     burst_after,
                     idle_after,
                     scale_factor,
+                    capture_gate,
                 );
             }) {
             Ok(thread) => thread,
@@ -519,6 +532,7 @@ impl ScreenRecorderPlaceholder {
         quality: u32,
         frame_queue_capacity: usize,
         activity: ActivityTracker,
+        _capture_gate: Option<CaptureGate>,
     ) -> Self {
         Self {
             callback,
@@ -627,13 +641,15 @@ fn screenshot_capture_dhash(capture: &CapturedDesktop, scale_factor: f64) -> u64
     hash
 }
 
+/// A 64-bit difference hash. An area-averaged 9x8 thumbnail of the image:
+/// one pass over the pixels, no full-size resize. A display that was not read
+/// (empty image) hashes to 0.
 #[cfg(feature = "native-recorders")]
-fn screenshot_dhash(image: &RgbaImage, scale_factor: f64) -> u64 {
-    let target_width = scaled_dimension(image.width(), scale_factor);
-    let target_height = scaled_dimension(image.height(), scale_factor);
-    let resized = image::imageops::resize(image, target_width, target_height, FilterType::Triangle);
-    let gray = DynamicImage::ImageRgba8(resized).to_luma8();
-    let hash_image = image::imageops::resize(&gray, 9, 8, FilterType::Triangle);
+fn screenshot_dhash(image: &RgbaImage, _scale_factor: f64) -> u64 {
+    if image.width() == 0 || image.height() == 0 {
+        return 0;
+    }
+    let hash_image = DynamicImage::ImageRgba8(image::imageops::thumbnail(image, 9, 8)).to_luma8();
     let mut hash = 0u64;
     for y in 0..8 {
         for x in 0..8 {
@@ -756,6 +772,12 @@ struct CapturedDesktop {
     image: RgbaImage,
     bounds: ScreenBounds,
     displays: Vec<CapturedDisplay>,
+    /// The display under the pointer when the capture was taken, when the
+    /// capture read only that display (Windows). Encoding then keeps exactly
+    /// the display that was read. None: encoding asks for the pointer itself.
+    pointer: Option<u32>,
+    /// The focused window's display at capture time, when the capture knew it.
+    focused: Option<u32>,
 }
 
 #[cfg(feature = "native-recorders")]
@@ -784,6 +806,7 @@ fn capture_screenshot_frames(
     burst_after: Duration,
     idle_after: Duration,
     scale_factor: f64,
+    capture_gate: Option<CaptureGate>,
 ) {
     let start = Instant::now();
     let active_interval = Duration::from_secs_f64(1.0 / fps as f64);
@@ -805,6 +828,21 @@ fn capture_screenshot_frames(
             idle_interval,
         );
 
+        if capture_gate.as_ref().is_some_and(|admits| !admits()) {
+            // The front window's frames would be dropped: look again soon.
+            last_emitted_hash = None;
+            sleep_until_next_frame(
+                &running,
+                &activity,
+                burst_after,
+                idle_after,
+                burst_interval,
+                frame_started,
+                GATED_RECHECK,
+                GATED_RECHECK,
+            );
+            continue;
+        }
         match capture_desktop_capture(capture_mode) {
             Ok(capture) => {
                 let capture_duration = frame_started.elapsed();
@@ -869,6 +907,10 @@ fn capture_screenshot_frames(
 
     queue.close();
 }
+
+/// How often a gated recorder asks the gate again.
+#[cfg(feature = "native-recorders")]
+const GATED_RECHECK: Duration = Duration::from_millis(200);
 
 // Decides whether an idle-state screenshot should be emitted. The first idle
 // frame (no prior emission) and heartbeat frames always emit; otherwise the
@@ -1017,8 +1059,12 @@ fn encode_captured_screenshot_with(
     scale_factor: f64,
     quality: u8,
 ) -> Result<EncodedScreenshot> {
-    let pointer_display_id = current_pointer_display_id(&capture.displays);
-    let focused_display_id = current_focus_display_id(&capture.displays);
+    let pointer_display_id = capture
+        .pointer
+        .or_else(|| current_pointer_display_id(&capture.displays));
+    let focused_display_id = capture
+        .focused
+        .or_else(|| current_focus_display_id(&capture.displays));
     let active_display_id = active_display_id(focused_display_id, pointer_display_id);
     match capture.mode {
         ScreenshotCaptureMode::Stitched => {
@@ -1041,7 +1087,11 @@ fn encode_captured_screenshot_with(
             let mut fallback: Option<(u8, EncodedScreenshot)> = None;
 
             for (index, display) in capture.displays.into_iter().enumerate() {
-                if !keeps_display_image(display.id, pointer_display_id, focused_display_id) {
+                // A display the capture did not read (empty image) keeps its layout
+                // only, also when the pointer moved to it since.
+                if display.image.width() == 0
+                    || !keeps_display_image(display.id, pointer_display_id, focused_display_id)
+                {
                     // The screen recorder's video already holds this display; an
                     // action needs only the display the person works on.
                     let mut value = display_screenshot_payload(
@@ -1109,7 +1159,7 @@ fn encode_screenshot_image(
 ) -> Result<EncodedScreenshot> {
     let target_width = scaled_dimension(image.width(), scale_factor);
     let target_height = scaled_dimension(image.height(), scale_factor);
-    let resized = image::imageops::resize(image, target_width, target_height, FilterType::Triangle);
+    let resized = downscale(image, target_width, target_height);
     let rgb = DynamicImage::ImageRgba8(resized).to_rgb8();
 
     let mut encoded = Vec::new();
@@ -1254,8 +1304,89 @@ fn display_id_for_point(displays: &[CapturedDisplay], x: f64, y: f64) -> Option<
         .map(|display| display.id)
 }
 
-#[cfg(feature = "native-recorders")]
+/// Windows: read only the display under the pointer, through the capture
+/// engine's Desktop Duplication (GPU-drawn content such as a 3D canvas or video is in
+/// the frame; GDI paints it black). The other displays keep their layout and
+/// an empty image: encoding drops their pixels anyway. A display that shows
+/// the same desktop image as at the last read reuses that read.
+#[cfg(all(feature = "native-recorders", target_os = "windows"))]
 fn capture_desktop_capture(mode: ScreenshotCaptureMode) -> Result<CapturedDesktop> {
+    if mode == ScreenshotCaptureMode::Stitched {
+        return capture_every_display(mode);
+    }
+    let screens = screenshots::Screen::all().context("failed to enumerate screens")?;
+    if screens.is_empty() {
+        bail!("no screens available for screenshot capture");
+    }
+    let bounds = ScreenBounds::from_screens(&screens)
+        .context("failed to calculate virtual screen bounds")?;
+    let mut displays: Vec<CapturedDisplay> = screens
+        .iter()
+        .map(|screen| CapturedDisplay {
+            id: screen.display_info.id,
+            is_primary: screen.display_info.is_primary,
+            x: screen.display_info.x as f64,
+            y: screen.display_info.y as f64,
+            width: screen.display_info.width as f64,
+            height: screen.display_info.height as f64,
+            image: RgbaImage::new(0, 0),
+        })
+        .collect();
+    let Some(pointer) = current_pointer_display_id(&displays) else {
+        return capture_every_display(mode);
+    };
+    let screen = screens
+        .iter()
+        .find(|s| s.display_info.id == pointer)
+        .context("pointer display vanished")?;
+    let image = LAST_READ
+        .with(|cell| -> Result<RgbaImage> {
+            let mut last = cell.borrow_mut();
+            let unless = last
+                .as_ref()
+                .filter(|(id, _, _)| *id == pointer)
+                .and_then(|(_, g, _)| *g);
+            let monitor = screen.display_info.raw_handle.0 as isize;
+            match crate::capture_engine::grab_monitor(monitor, unless)? {
+                Some((rgb, generation)) => {
+                    let rgba = DynamicImage::ImageRgb8(rgb).to_rgba8();
+                    *last = Some((pointer, generation, rgba.clone()));
+                    Ok(rgba)
+                }
+                None => last
+                    .as_ref()
+                    .map(|(_, _, image)| image.clone())
+                    .context("no earlier read to reuse"),
+            }
+        })
+        .with_context(|| format!("failed to capture screen {pointer}"))?;
+    if let Some(display) = displays.iter_mut().find(|d| d.id == pointer) {
+        display.image = image;
+    }
+    Ok(CapturedDesktop {
+        mode,
+        image: RgbaImage::new(0, 0),
+        bounds,
+        displays,
+        pointer: Some(pointer),
+        focused: None,
+    })
+}
+
+#[cfg(all(feature = "native-recorders", target_os = "windows"))]
+thread_local! {
+    /// The last display read: (display id, desktop-image generation, image).
+    static LAST_READ: std::cell::RefCell<Option<(u32, Option<u64>, RgbaImage)>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(all(feature = "native-recorders", not(target_os = "windows")))]
+fn capture_desktop_capture(mode: ScreenshotCaptureMode) -> Result<CapturedDesktop> {
+    capture_every_display(mode)
+}
+
+#[cfg(feature = "native-recorders")]
+fn capture_every_display(mode: ScreenshotCaptureMode) -> Result<CapturedDesktop> {
     let screens = screenshots::Screen::all().context("failed to enumerate screens")?;
     if screens.is_empty() {
         bail!("no screens available for screenshot capture");
@@ -1263,30 +1394,39 @@ fn capture_desktop_capture(mode: ScreenshotCaptureMode) -> Result<CapturedDeskto
 
     let bounds = ScreenBounds::from_screens(&screens)
         .context("failed to calculate virtual screen bounds")?;
-    let mut displays = Vec::with_capacity(screens.len());
-
-    for screen in &screens {
-        let image = screen
-            .capture()
-            .with_context(|| format!("failed to capture screen {}", screen.display_info.id))?;
-        displays.push(CapturedDisplay {
+    let mut displays: Vec<CapturedDisplay> = screens
+        .iter()
+        .map(|screen| CapturedDisplay {
             id: screen.display_info.id,
             is_primary: screen.display_info.is_primary,
             x: screen.display_info.x as f64,
             y: screen.display_info.y as f64,
             width: screen.display_info.width as f64,
             height: screen.display_info.height as f64,
-            image,
-        });
+            image: RgbaImage::new(0, 0),
+        })
+        .collect();
+    // An action keeps the image of the pointer's display and the focused
+    // window's display only (`keeps_display_image`): read just those. With
+    // neither known, or for a stitched desktop, read every display.
+    let (pointer, focused) = match mode {
+        ScreenshotCaptureMode::AllDisplays => (
+            current_pointer_display_id(&displays),
+            current_focus_display_id(&displays),
+        ),
+        ScreenshotCaptureMode::Stitched => (None, None),
+    };
+    for (screen, display) in screens.iter().zip(displays.iter_mut()) {
+        if keeps_display_image(display.id, pointer, focused) {
+            display.image = screen
+                .capture()
+                .with_context(|| format!("failed to capture screen {}", screen.display_info.id))?;
+        }
     }
 
     let image = match mode {
-        ScreenshotCaptureMode::AllDisplays => displays
-            .iter()
-            .find(|display| display.is_primary)
-            .or_else(|| displays.first())
-            .map(|display| display.image.clone())
-            .context("no display screenshots were captured")?,
+        // The idle hash reads the displays; this image is not encoded.
+        ScreenshotCaptureMode::AllDisplays => RgbaImage::new(0, 0),
         ScreenshotCaptureMode::Stitched => stitch_logical_desktop(&bounds, &displays)?,
     };
 
@@ -1295,6 +1435,8 @@ fn capture_desktop_capture(mode: ScreenshotCaptureMode) -> Result<CapturedDeskto
         image,
         bounds,
         displays,
+        pointer,
+        focused,
     })
 }
 
@@ -1325,6 +1467,52 @@ fn stitch_logical_desktop(
     }
 
     Ok(desktop)
+}
+
+/// Scale `image` to `width` x `height`. Halves with a 2x2 box average while
+/// the image is at least twice the target, then resizes the rest. The default
+/// 0.5 scale is one halving: one pass over the pixels instead of a Triangle
+/// filter over a 4K frame.
+#[cfg(feature = "native-recorders")]
+fn downscale(image: &RgbaImage, width: u32, height: u32) -> RgbaImage {
+    let mut halved: Option<RgbaImage> = None;
+    loop {
+        let src = halved.as_ref().unwrap_or(image);
+        if src.width() < width * 2 || src.height() < height * 2 {
+            break;
+        }
+        halved = Some(halve(src));
+    }
+    let src = halved.as_ref().unwrap_or(image);
+    if src.dimensions() == (width, height) {
+        return halved.unwrap_or_else(|| image.clone());
+    }
+    image::imageops::resize(src, width, height, FilterType::Triangle)
+}
+
+/// Half the width and height, each pixel the average of a 2x2 block (an odd
+/// last row or column is dropped).
+#[cfg(feature = "native-recorders")]
+fn halve(image: &RgbaImage) -> RgbaImage {
+    let (w, h) = (image.width() / 2, image.height() / 2);
+    let stride = image.width() as usize * 4;
+    let src = image.as_raw();
+    let mut out = vec![0u8; w as usize * h as usize * 4];
+    for (y, dst) in out.chunks_exact_mut(w as usize * 4).enumerate() {
+        let top = &src[2 * y * stride..][..stride];
+        let bottom = &src[(2 * y + 1) * stride..][..stride];
+        for (x, px) in dst.chunks_exact_mut(4).enumerate() {
+            let i = x * 8;
+            for c in 0..4 {
+                let sum = u16::from(top[i + c])
+                    + u16::from(top[i + 4 + c])
+                    + u16::from(bottom[i + c])
+                    + u16::from(bottom[i + 4 + c]);
+                px[c] = ((sum + 2) / 4) as u8;
+            }
+        }
+    }
+    RgbaImage::from_raw(w, h, out).expect("halved buffer size")
 }
 
 #[cfg(feature = "native-recorders")]
@@ -1620,6 +1808,18 @@ fn run_windows_input_hook_listener(
     };
 
     unsafe {
+        // Every keyboard and mouse event on the computer waits for this thread
+        // to return from the hook. The process runs below normal priority so the
+        // foreground app wins the CPU; this one thread must not, or a busy
+        // app makes the pointer lag system-wide. Its callbacks only queue.
+        {
+            use windows::Win32::System::Threading::{
+                GetCurrentThread, SetThreadPriority, THREAD_PRIORITY_TIME_CRITICAL,
+            };
+            if SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL).is_err() {
+                tracing::warn!("input hook thread priority not raised");
+            }
+        }
         let keyboard_hook = SetWindowsHookExA(
             WH_KEYBOARD_LL,
             Some(windows_keyboard_hook_callback),
@@ -2888,6 +3088,8 @@ mod screenshot_capture_tests {
                     displays: Vec::new(),
                 },
                 displays: Vec::new(),
+                pointer: None,
+                focused: None,
             },
             enqueued_at: Instant::now(),
             raw_queue_depth: 0,
@@ -3155,6 +3357,70 @@ mod screenshot_capture_tests {
         assert_eq!(display_id_for_point(&displays, -1.0, -1.0), None);
     }
 
+    #[test]
+    fn halving_averages_each_2x2_block() {
+        let image = RgbaImage::from_fn(4, 2, |x, _| {
+            let v = if x < 2 { 10 } else { 200 };
+            image::Rgba([v, v + 1, v + 2, 255])
+        });
+        let half = halve(&image);
+        assert_eq!(half.dimensions(), (2, 1));
+        assert_eq!(half.get_pixel(0, 0).0, [10, 11, 12, 255]);
+        assert_eq!(half.get_pixel(1, 0).0, [200, 201, 202, 255]);
+    }
+
+    #[test]
+    fn downscale_lands_on_the_target_size() {
+        let image = RgbaImage::new(3840, 2160);
+        assert_eq!(downscale(&image, 1920, 1080).dimensions(), (1920, 1080));
+        assert_eq!(downscale(&image, 960, 540).dimensions(), (960, 540));
+        assert_eq!(downscale(&image, 1280, 720).dimensions(), (1280, 720));
+        let odd = RgbaImage::new(2561, 1441);
+        assert_eq!(downscale(&odd, 1281, 721).dimensions(), (1281, 721));
+        assert_eq!(downscale(&odd, 2561, 1441).dimensions(), (2561, 1441));
+    }
+
+    #[test]
+    fn a_display_that_was_not_read_hashes_to_zero() {
+        assert_eq!(screenshot_dhash(&RgbaImage::new(0, 0), 0.5), 0);
+    }
+
+    /// Two displays, only the pointer's read: the frame's image is that
+    /// display's, and the other keeps its layout with no image.
+    #[test]
+    fn an_unread_display_keeps_its_layout_and_no_image() {
+        let display = |id: u32, x: f64, image: RgbaImage| CapturedDisplay {
+            id,
+            is_primary: id == 1,
+            x,
+            y: 0.0,
+            width: 16.0,
+            height: 16.0,
+            image,
+        };
+        let read = RgbaImage::from_pixel(16, 16, image::Rgba([90, 90, 90, 255]));
+        let capture = CapturedDesktop {
+            mode: ScreenshotCaptureMode::AllDisplays,
+            image: RgbaImage::new(0, 0),
+            bounds: ScreenBounds {
+                x: 0.0,
+                y: 0.0,
+                width: 32.0,
+                height: 16.0,
+                displays: Vec::new(),
+            },
+            displays: vec![display(1, 0.0, RgbaImage::new(0, 0)), display(2, 16.0, read)],
+            pointer: Some(2),
+            focused: None,
+        };
+        let encoded = encode_captured_screenshot(capture, 0.5, 60).expect("encoded");
+        assert_eq!((encoded.width, encoded.height), (8, 8));
+        let displays = encoded.data["displays"].as_array().expect("displays");
+        let by_id = |id: u32| displays.iter().find(|d| d["display_id"] == json!(id)).unwrap();
+        assert!(by_id(1)["image"].is_null(), "{}", by_id(1));
+        assert!(by_id(2)["image"].as_str().is_some_and(|s| !s.is_empty()));
+    }
+
     fn solid_capture(luma: u8) -> CapturedDesktop {
         let mut image = RgbaImage::new(16, 16);
         for pixel in image.pixels_mut() {
@@ -3171,6 +3437,8 @@ mod screenshot_capture_tests {
                 displays: Vec::new(),
             },
             displays: Vec::new(),
+            pointer: None,
+            focused: None,
         }
     }
 

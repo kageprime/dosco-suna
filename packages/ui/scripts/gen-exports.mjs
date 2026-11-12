@@ -43,6 +43,9 @@ export const INTERNAL = new Set([
   'files/renderers/pptx-viewer.css',
   // UiProvider's LazyMotion chunk.
   'providers/motion-features.ts',
+  // Shared internals of dropdown-menu/context-menu and command.
+  'primitives/menu-base.tsx',
+  'primitives/command-core.tsx',
 ]);
 
 // One curated barrel per module: the public API. Explicit names, no `export *`.

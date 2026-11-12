@@ -1,9 +1,9 @@
 'use client';
 
-import { useTranslations } from '@/i18n/use-translations';
+import { useLocale, useTranslations } from '@/i18n/use-translations';
 import { useState, type ReactNode } from 'react';
 
-import type { CostSummary, ProjectCostPage, ProjectCostSort } from '@kortix/sdk';
+import type { CostSeriesPoint, CostSummary, ProjectCostPage, ProjectCostSort } from '@kortix/sdk';
 import { ReceiptIcon as ReceiptText } from '@phosphor-icons/react';
 
 import { Button } from '@kortix/ui/button';
@@ -25,9 +25,11 @@ import {
   COST_PAGE_SIZE,
   useCostByProject,
   useCostSummary,
+  useWorkspaceDailySeries,
 } from '@kortix/ui/internal/billing/use-cost-explorer';
 
 import { formatSessionCostCredits } from '@kortix/ui/internal/billing/session-cost-format';
+import { CostDayStrip, CostDayStripLegend, maxDailyCost } from './cost-day-strip';
 import { CostExportButton } from './cost-export-button';
 import { CostLevelShell } from './cost-level-shell';
 import { CostSortHeader } from './cost-sort-header';
@@ -280,6 +282,32 @@ export interface ProjectsLevelContentProps {
   onSelectProject: (projectId: string) => void;
   onPreviousPage: () => void;
   onNextPage: () => void;
+  /** Each visible workspace's daily series, by project id, for the heatmap
+   *  column. A missing or `undefined` entry draws a loading strip; `null`
+   *  (the request failed) leaves the cell empty. */
+  dailySeries?: Record<string, CostSeriesPoint[] | null | undefined>;
+  /** Whether workspaces with no spend in the window are listed, or folded
+   *  into one line under the active ones. Folded by default. */
+  showIdle?: boolean;
+  onToggleIdle?: () => void;
+}
+
+const NO_DAILY_SERIES: Record<string, CostSeriesPoint[] | null | undefined> = {};
+const NO_SPEND: CostSeriesPoint[] = [];
+
+/** A workspace with no spend in the window: folded under the active rows by
+ *  default. The unassigned row is never idle, it only exists when it has spend. */
+export function isIdleRow(row: ProjectTableRow): boolean {
+  return row.project_id !== null && row.total_cost === 0;
+}
+
+/** The workspaces worth asking for a daily series: the ones that spent
+ *  anything in the window. A zero-total row draws its idle strip from no data
+ *  at all, so a page of mostly idle workspaces costs one request per active one. */
+export function workspacesNeedingSeries(page: ProjectCostPage | undefined): string[] {
+  return (page?.projects ?? [])
+    .filter((project) => project.total_cost > 0)
+    .map((project) => project.project_id);
 }
 
 /**
@@ -304,10 +332,35 @@ export function ProjectsLevelContent({
   onSelectProject,
   onPreviousPage,
   onNextPage,
+  dailySeries = NO_DAILY_SERIES,
+  showIdle = false,
+  onToggleIdle,
 }: ProjectsLevelContentProps) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const tCredits = useTranslations('settings.credits');
+  const locale = useLocale();
   const rows = page ? buildProjectTableRows(page, summary) : [];
+  const idleCount = rows.filter(isIdleRow).length;
+  // Every row draws the same columns: the account series' days. One maximum
+  // for the whole page, so a darker cell means more spend in any row.
+  const days = summary?.series.map((point) => point.day) ?? [];
+  const max = maxDailyCost(Object.values(dailySeries));
+  const strip: StripContext = {
+    days,
+    max,
+    locale,
+    describe: (name, peak) =>
+      peak
+        ? tCredits('busiestDay', {
+            name,
+            amount: tCredits('creditCount', {
+              count: peak.usd * 100,
+              formatted: formatSessionCostCredits(peak.usd, locale),
+            }),
+            day: peak.day,
+          })
+        : tCredits('noSpendInRange', { name }),
+  };
 
   const offset = page?.offset ?? 0;
   const total = page?.total ?? 0;
@@ -365,18 +418,21 @@ export function ProjectsLevelContent({
       <Table>
         <TableHeader>
           <TableRow>
-            {/* Only Project and Total are sortable — those are the two the
-                route can order by (see `ProjectSortColumn`). Sessions, LLM,
-                Compute and Storage stay plain `TableHead`s rather than dead controls. */}
+            {/* Only Workspace and Total are sortable, the two the route can order
+                by (see `ProjectSortColumn`). Daily spend and Sessions stay plain
+                `TableHead`s rather than dead controls. */}
             <CostSortHeader
               label={tI18nComplete.raw('text985959785319')}
               direction={projectSortDirection(sort, 'name')}
               onSort={() => onSort('name')}
             />
+            <TableHead className="hidden w-full md:table-cell">
+              <span className="flex items-center justify-between gap-3">
+                {tCredits('dailySpend')}
+                <CostDayStripLegend less={tCredits('heatLess')} more={tCredits('heatMore')} />
+              </span>
+            </TableHead>
             <TableHead className="text-right">{tI18nComplete.raw('text6fa3cbf451b2')}</TableHead>
-            <TableHead className="text-right">LLM</TableHead>
-            <TableHead className="text-right">{tI18nComplete.raw('textcedc516df056')}</TableHead>
-            <TableHead className="text-right">{tCredits('storage')}</TableHead>
             <CostSortHeader
               label={tI18nComplete.raw('text607d4d4de45d')}
               align="right"
@@ -386,13 +442,44 @@ export function ProjectsLevelContent({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((row) => (
+          {rows.filter((row) => showIdle || !isIdleRow(row)).map((row) => (
             <ProjectRow
               key={row.project_id ?? UNASSIGNED_LABEL}
               row={row}
               onSelectProject={onSelectProject}
+              strip={strip}
+              series={
+                !row.project_id
+                  ? undefined
+                  : row.total_cost > 0
+                    ? dailySeries[row.project_id]
+                    : NO_SPEND
+              }
             />
           ))}
+          {idleCount > 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={4} className="py-2">
+                <span className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground text-xs">
+                    {tCredits('idleWorkspaces', { count: idleCount })}
+                  </span>
+                  {onToggleIdle ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={onToggleIdle}
+                      aria-expanded={showIdle}
+                      aria-label={`${showIdle ? tCredits('hideIdle') : tCredits('showIdle')}: ${tCredits('idleWorkspaces', { count: idleCount })}`}
+                    >
+                      {showIdle ? tCredits('hideIdle') : tCredits('showIdle')}
+                    </Button>
+                  ) : null}
+                </span>
+              </TableCell>
+            </TableRow>
+          ) : null}
         </TableBody>
         <TableFooter>
           <TableRow>
@@ -407,19 +494,11 @@ export function ProjectsLevelContent({
                 projects on page 2 account for. Two quantities that are not
                 the same quantity do not get the same label. */}
             <TableCell className="font-medium">{tI18nComplete.raw('text420aaa63cba7')}</TableCell>
-            <TableCell className="text-right font-mono tabular-nums">
+            <TableCell className="hidden md:table-cell" />
+            <TableCell className="text-right tabular-nums">
               {sumBy(rows, (row) => row.session_count).toLocaleString('en-US')}
             </TableCell>
-            <TableCell className="text-right font-mono tabular-nums">
-              {formatSessionCostCredits(sumBy(rows, (row) => row.llm_cost))}
-            </TableCell>
-            <TableCell className="text-right font-mono tabular-nums">
-              {formatSessionCostCredits(sumBy(rows, (row) => row.compute_cost))}
-            </TableCell>
-            <TableCell className="text-right font-mono tabular-nums">
-              {formatSessionCostCredits(sumBy(rows, (row) => row.storage_cost ?? 0))}
-            </TableCell>
-            <TableCell className="text-right font-mono font-medium tabular-nums">
+            <TableCell className="text-right font-medium tabular-nums">
               {formatSessionCostCredits(sumBy(rows, (row) => row.total_cost))}
             </TableCell>
           </TableRow>
@@ -479,12 +558,25 @@ export function ProjectsLevelContent({
   );
 }
 
+/** What every heatmap strip on the page shares: the window's days, the
+ *  page-wide maximum, and the translated accessible summary. */
+interface StripContext {
+  days: readonly string[];
+  max: number;
+  locale: string;
+  describe: (name: string, peak: { day: string; usd: number } | null) => string;
+}
+
 function ProjectRow({
   row,
   onSelectProject,
+  strip,
+  series,
 }: {
   row: ProjectTableRow;
   onSelectProject: (projectId: string) => void;
+  strip: StripContext;
+  series: CostSeriesPoint[] | null | undefined;
 }) {
   const clickable = isProjectRowClickable(row);
   // A moved project keeps its breakdown: the money was spent here.
@@ -530,19 +622,23 @@ function ProjectRow({
           {row.project_name}
         </p>
       </TableCell>
-      <TableCell className="text-right font-mono tabular-nums">
+      {/* The unassigned row has no workspace to ask for a series, so its strip
+          cell stays empty rather than drawing a loading strip that never ends. */}
+      <TableCell className="hidden md:table-cell">
+        {hasBreakdown ? (
+          <CostDayStrip
+            days={strip.days}
+            series={series}
+            max={strip.max}
+            locale={strip.locale}
+            describe={(peak) => strip.describe(row.project_name, peak)}
+          />
+        ) : null}
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
         {hasBreakdown ? row.session_count.toLocaleString('en-US') : '—'}
       </TableCell>
-      <TableCell className="text-right font-mono tabular-nums">
-        {hasBreakdown ? formatSessionCostCredits(row.llm_cost) : '—'}
-      </TableCell>
-      <TableCell className="text-right font-mono tabular-nums">
-        {hasBreakdown ? formatSessionCostCredits(row.compute_cost) : '—'}
-      </TableCell>
-      <TableCell className="text-right font-mono tabular-nums">
-        {hasBreakdown ? formatSessionCostCredits(row.storage_cost ?? 0) : '—'}
-      </TableCell>
-      <TableCell className="text-right font-mono font-medium tabular-nums">
+      <TableCell className="text-right font-medium tabular-nums">
         {formatSessionCostCredits(row.total_cost)}
       </TableCell>
     </>
@@ -588,6 +684,7 @@ export interface ProjectsLevelProps {
  * of a rule each call site has to remember.
  */
 export function ProjectsLevel({ range, onRangeChange, onSelectProject }: ProjectsLevelProps) {
+  const [showIdle, setShowIdle] = useState(false);
   const [query, setQuery] = useState<ProjectsLevelQueryState>({
     sort: DEFAULT_PROJECTS_SORT,
     offset: 0,
@@ -599,6 +696,12 @@ export function ProjectsLevel({ range, onRangeChange, onSelectProject }: Project
     to: range.to,
     sort: query.sort,
     offset: query.offset,
+  });
+
+  const dailySeries = useWorkspaceDailySeries({
+    projectIds: workspacesNeedingSeries(projectsQuery.data),
+    from: range.from,
+    to: range.to,
   });
 
   const handleRangeChange = (next: CostRange) => {
@@ -625,6 +728,9 @@ export function ProjectsLevel({ range, onRangeChange, onSelectProject }: Project
       sort={query.sort}
       onSort={(column) => setQuery((current) => applyProjectSort(current, column))}
       onSelectProject={onSelectProject}
+      dailySeries={dailySeries}
+      showIdle={showIdle}
+      onToggleIdle={() => setShowIdle((current) => !current)}
       onPreviousPage={() =>
         setQuery((current) => ({
           ...current,

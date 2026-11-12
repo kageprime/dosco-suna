@@ -37,6 +37,7 @@ for (const key of [
   'KeyboardEvent',
   'MouseEvent',
   'PointerEvent',
+  'MouseEvent',
 ]) {
   globals[key] = Reflect.get(win, key);
 }
@@ -196,13 +197,16 @@ describe('selecting rows', () => {
     expect(text()).not.toContain('selected');
   });
 
-  test('the row menu Select enters select mode on that row (touch and Tab path)', () => {
+  test('the row menu Select enters select mode on that row (touch and Tab path)', async () => {
     mount([call(1), call(2)]);
     const trigger = document.querySelector<HTMLButtonElement>(
       'button[aria-label="More actions for Send report 2"]',
     )!;
-    act(() => {
+    await act(async () => {
+      // A real tap: pointerdown, mousedown, then click. A touch press opens the menu on click.
       trigger.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+      trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+      trigger.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
     });
     const item = [...document.querySelectorAll('[role="menuitem"]')].find((el) =>
       el.textContent?.startsWith('Select'),

@@ -1447,16 +1447,16 @@ flow(
     });
     let grantId = "";
 
-    await ctx.step("without a grant the admin cannot read the workspace → 404 workspace_not_found", async () => {
+    await ctx.step("without a grant the admin cannot read the workspace → 403 workspace_access_denied", async () => {
       const r = await admin.get("/v1/workspaces/:projectId", { params: { projectId } });
-      r.status(404).body().has("$.code", "workspace_not_found");
+      r.status(403).body().has("$.code", "workspace_access_denied");
     });
-    await ctx.step("the retired x-kortix-admin-bypass header opens nothing → 404 workspace_not_found", async () => {
+    await ctx.step("the retired x-kortix-admin-bypass header opens nothing → 403 workspace_access_denied", async () => {
       const r = await admin.get("/v1/workspaces/:projectId", {
         params: { projectId },
         headers: { "x-kortix-admin-bypass": "1" },
       });
-      r.status(404).body().has("$.code", "workspace_not_found");
+      r.status(403).body().has("$.code", "workspace_access_denied");
     });
     await ctx.step("a malformed project id → 400, an unknown one → 404", async () => {
       (await admin.post("/v1/admin/api/impersonate", { project_id: "not-a-uuid" })).status(400);
@@ -1494,8 +1494,8 @@ flow(
       });
       r.status(200).body().has("$.session_id", sessionId);
     });
-    await ctx.step("without the header, the same admin still sees nothing → 404 workspace_not_found", async () => {
-      (await admin.get("/v1/workspaces/:projectId/sessions", { params: { projectId } })).status(404).body().has("$.code", "workspace_not_found");
+    await ctx.step("without the header, the same admin still sees nothing → 403 workspace_access_denied", async () => {
+      (await admin.get("/v1/workspaces/:projectId/sessions", { params: { projectId } })).status(403).body().has("$.code", "workspace_access_denied");
     });
     await ctx.step("revoked, the grant opens nothing on the next request → 403", async () => {
       (await admin.del("/v1/admin/api/impersonate/:grantId", { params: { grantId } })).status(200);

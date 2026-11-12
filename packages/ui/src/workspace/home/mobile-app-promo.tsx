@@ -76,7 +76,7 @@ export function MobileAppPromo() {
       }}
     >
       {/* No entrance animation: it opens on its own when the project page
-          loads, so it appears at once. Closing still fades (Radix exit). */}
+          loads, so it appears at once. Closing still fades (the exit animation). */}
       <ModalContent
         animation="none"
         overlayClassName="data-[state=closed]:animate-out data-[state=closed]:fade-out-0 duration-(--duration-moderate)"

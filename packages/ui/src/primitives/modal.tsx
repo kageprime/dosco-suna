@@ -41,55 +41,45 @@
  * ```
  */
 
-import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { cva, type VariantProps } from 'class-variance-authority';
 import * as React from 'react';
 
 import { Close } from '../icons/close';
-import { withPortalContainer } from '../lib/portal-container';
+import {
+  asChildRender,
+  openState,
+  stateRender,
+  type LegacyDismissEvent,
+} from '../lib/base-ui-compat';
 import { cn } from '../lib/utils';
 import {
-  DialogDepthProvider,
   dialogContentZ,
   dialogOverlayZ,
   hasOpenFloatingLayer,
   isFloatingLayerTarget,
   useDialogDepth,
-  useDialogRootLayer,
 } from '../lib/z-stack';
 import { Button } from './button';
-import { triggerVariants, type TriggerVariantProps } from './trigger-variants';
+import {
+  Dialog,
+  DialogClose,
+  DialogPopup,
+  DialogPortal,
+  DialogTrigger,
+  type DialogContentBaseProps,
+} from './dialog';
 
 // Stacks by open order, not only by JSX nesting: a Modal opened while another
-// is open sits above it even when the two share no React ancestor.
-const Modal = ({ open, defaultOpen, onOpenChange, ...props }: DialogPrimitive.DialogProps) => {
-  const layer = useDialogRootLayer({ open, defaultOpen, onOpenChange });
+// is open sits above it even when the two share no React ancestor. `Dialog`
+// owns that layer stack.
+const Modal = Dialog;
 
-  return (
-    <DialogDepthProvider depth={layer.depth}>
-      <DialogPrimitive.Root {...props} open={layer.open} onOpenChange={layer.onOpenChange} />
-    </DialogDepthProvider>
-  );
-};
+const ModalTrigger = DialogTrigger;
 
-const ModalTrigger = ({
-  className,
-  variant,
-  size,
-  asChild,
-  ...props
-}: Omit<React.ComponentProps<typeof DialogPrimitive.Trigger>, 'size'> & TriggerVariantProps) => (
-  <DialogPrimitive.Trigger
-    asChild={asChild}
-    // With `asChild` the child owns its styling — merging ours would double it.
-    className={asChild ? className : cn(triggerVariants({ variant, size }), className)}
-    {...props}
-  />
-);
+const ModalClose = DialogClose;
 
-const ModalClose = DialogPrimitive.Close;
-
-const ModalPortal = withPortalContainer(DialogPrimitive.Portal);
+const ModalPortal = DialogPortal;
 
 const overlayAnimationClasses = {
   default:
@@ -98,15 +88,16 @@ const overlayAnimationClasses = {
 } as const;
 
 const ModalOverlay = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Overlay>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay> & {
+  HTMLDivElement,
+  React.ComponentPropsWithoutRef<'div'> & {
     animation?: keyof typeof overlayAnimationClasses;
   }
 >(({ className, style, animation = 'default', ...props }, ref) => {
   const depth = useDialogDepth();
 
   return (
-    <DialogPrimitive.Overlay
+    <DialogPrimitive.Backdrop
+      render={stateRender('div', openState)}
       className={cn(
         'fixed inset-0 bg-black/65 backdrop-blur-xs',
         overlayAnimationClasses[animation],
@@ -118,7 +109,7 @@ const ModalOverlay = React.forwardRef<
     />
   );
 });
-ModalOverlay.displayName = DialogPrimitive.Overlay.displayName;
+ModalOverlay.displayName = 'ModalOverlay';
 
 const ModalVariants = cva(
   cn(
@@ -182,10 +173,7 @@ const ModalVariants = cva(
   },
 );
 
-interface ModalContentProps
-  extends
-    React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>,
-    VariantProps<typeof ModalVariants> {
+interface ModalContentProps extends DialogContentBaseProps, VariantProps<typeof ModalVariants> {
   closeClassName?: string;
   closeLabel?: string;
   modalClassName?: string;
@@ -198,7 +186,7 @@ interface ModalContentProps
 /**
  * Should an "outside" interaction actually dismiss the modal?
  *
- * Two cases both look like backdrop clicks to Radix and must NOT dismiss:
+ * Two cases both look like backdrop clicks to the dialog and must NOT dismiss:
  *
  * 1. The click lands on a portaled Select / DropdownMenu / tooltip panel.
  *    Those portal to `document.body`, outside the modal's DOM subtree, so
@@ -206,7 +194,7 @@ interface ModalContentProps
  *
  * 2. A *modal* DropdownMenu is open and the click lands anywhere else —
  *    including visually on the modal body, or on the dark overlay. While the
- *    menu is open Radix sets `pointer-events: none` on everything under it, so
+ *    menu is open it sets `pointer-events: none` on everything under it, so
  *    the event target is `body` / the overlay, not the menu. Checking the
  *    target alone fails; Escape already uses `hasOpenFloatingLayer()` for the
  *    same reason. The gesture owns the floating layer: dismiss that first, and
@@ -221,10 +209,7 @@ export function modalDismissesOnOutsideInteraction(
   return !isFloatingLayerTarget(target);
 }
 
-const ModalContentInner = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
-  ModalContentProps
->(
+const ModalContentInner = React.forwardRef<HTMLDivElement, ModalContentProps>(
   (
     {
       side = 'bottom',
@@ -246,13 +231,7 @@ const ModalContentInner = React.forwardRef<
   ) => {
     const depth = useDialogDepth();
 
-    const handleInteractOutside = (
-      event: Parameters<
-        NonNullable<
-          React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>['onInteractOutside']
-        >
-      >[0],
-    ) => {
+    const handleInteractOutside = (event: LegacyDismissEvent) => {
       if (
         !modalDismissesOnOutsideInteraction(event.detail.originalEvent.target, closeOnOutsideClick)
       ) {
@@ -263,8 +242,8 @@ const ModalContentInner = React.forwardRef<
     // Same asymmetry for the keyboard: Escape aimed at an open select or menu must
     // dismiss that panel, not the modal underneath it.
     //
-    // Deliberately NOT guarded on `hasOpenNestedDialog()`. Radix runs this handler
-    // on the top-most layer only, so a nested modal would see its own parent in
+    // Deliberately NOT guarded on `hasOpenNestedDialog()`. The dialog runs this
+    // handler on the top-most layer only, so a nested modal would see its own parent in
     // that count, prevent its own dismissal, and leave Escape dead. Callers that
     // need the nested-dialog guard pass their own `onEscapeKeyDown` — it lands in
     // `...props` below and replaces this one (see the legacy Customize panel).
@@ -275,7 +254,7 @@ const ModalContentInner = React.forwardRef<
     };
 
     return (
-      <DialogPrimitive.Content
+      <DialogPopup
         ref={ref}
         className={cn(
           ModalVariants({ side, animation, className: modalClassName, variant }),
@@ -306,26 +285,24 @@ const ModalContentInner = React.forwardRef<
             </ModalClose>
           )}
         </div>
-      </DialogPrimitive.Content>
+      </DialogPopup>
     );
   },
 );
 ModalContentInner.displayName = 'ModalContentInner';
 
-const ModalContent = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
-  ModalContentProps
->(({ animation = 'default', overlayClassName, ...props }, ref) => {
+const ModalContent = React.forwardRef<HTMLDivElement, ModalContentProps>(
+  ({ animation = 'default', overlayClassName, forceMount, ...props }, ref) => {
   const resolvedAnimation = animation ?? 'default';
 
   return (
-    <ModalPortal>
+    <ModalPortal keepMounted={forceMount}>
       <ModalOverlay animation={resolvedAnimation} className={overlayClassName} />
       <ModalContentInner animation={resolvedAnimation} {...props} ref={ref} />
     </ModalPortal>
   );
 });
-ModalContent.displayName = DialogPrimitive.Content.displayName;
+ModalContent.displayName = 'ModalContent';
 
 const ModalHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div className={cn('flex flex-col space-y-0 text-left', 'px-5 pt-5', className)} {...props} />
@@ -345,28 +322,30 @@ const ModalFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
 ModalFooter.displayName = 'ModalFooter';
 
 const ModalTitle = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Title>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
->(({ className, ...props }, ref) => (
+  HTMLHeadingElement,
+  React.ComponentPropsWithoutRef<'h2'> & { asChild?: boolean }
+>(({ className, asChild, children, ...props }, ref) => (
   <DialogPrimitive.Title
+    {...asChildRender(asChild, children)}
     ref={ref}
     className={cn('text-foreground text-base font-semibold', className)}
     {...props}
   />
 ));
-ModalTitle.displayName = DialogPrimitive.Title.displayName;
+ModalTitle.displayName = 'ModalTitle';
 
 const ModalDescription = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Description>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
->(({ className, ...props }, ref) => (
+  HTMLParagraphElement,
+  React.ComponentPropsWithoutRef<'p'> & { asChild?: boolean }
+>(({ className, asChild, children, ...props }, ref) => (
   <DialogPrimitive.Description
+    {...asChildRender(asChild, children)}
     ref={ref}
     className={cn('text-muted-foreground text-sm', className)}
     {...props}
   />
 ));
-ModalDescription.displayName = DialogPrimitive.Description.displayName;
+ModalDescription.displayName = 'ModalDescription';
 
 const ModalBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div className={cn('flex-1 space-y-4 p-5 pt-0', className)} {...props} />

@@ -1,9 +1,8 @@
 import { chatInstalls, projectSecrets } from '@kortix/db';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '../../shared/db';
 import {
   deleteProjectSecrets,
-  listProjectsForWorkspace,
   readSecret,
   upsertSecret,
 } from '../install-store';
@@ -51,14 +50,20 @@ interface SlackOauthInstallInput {
 
 export async function saveSlackInstall(input: SlackInstallInput): Promise<SlackInstallSummary> {
   const { projectId } = input;
+  // The workspace's own Slack app: its own bot and token (slack/link.ts).
   await db
     .insert(chatInstalls)
     .values({
       platform: 'slack',
       platformTeamId: input.teamId,
       projectId,
+      ownApp: true,
     })
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      target: [chatInstalls.platform, chatInstalls.platformTeamId, chatInstalls.projectId],
+      // A reinstall is the newest install: it wrote the secrets (slack/link.ts).
+      set: { ownApp: true, connectedAt: new Date() },
+    });
   await upsertSecret(projectId, SLACK_BOT_TOKEN, input.botToken);
   await upsertSecret(projectId, SLACK_SIGNING_SECRET, input.signingSecret);
   await upsertSecret(projectId, SLACK_TEAM_ID, input.teamId);
@@ -72,6 +77,30 @@ export async function saveSlackInstall(input: SlackInstallInput): Promise<SlackI
   };
 }
 
+/** The Dosco workspace's Slack secrets (bot token, team, bot ids), without its install rows. */
+/**
+ * Delete a Dosco workspace's Slack secrets. `keepSigningSecret`: its own
+ * Slack app is still installed in another Slack workspace, and only that
+ * app's install writes `SLACK_SIGNING_SECRET`.
+ */
+export async function deleteSlackSecrets(projectId: string, opts: { keepSigningSecret?: boolean } = {}): Promise<void> {
+  const keys = opts.keepSigningSecret ? SLACK_KEYS.filter((k) => k !== SLACK_SIGNING_SECRET) : SLACK_KEYS;
+  // The rows the install wrote (`upsertSecret`) only: connector-scoped,
+  // ownerless, identifier = name. A detach runs for another Dosco workspace
+  // than the caller's, and a member's own secret with one of these names stays.
+  await db
+    .delete(projectSecrets)
+    .where(
+      and(
+        eq(projectSecrets.projectId, projectId),
+        inArray(projectSecrets.name, keys),
+        sql`${projectSecrets.identifier} = ${projectSecrets.name}`,
+        eq(projectSecrets.scope, 'connector'),
+        isNull(projectSecrets.ownerUserId),
+      ),
+    );
+}
+
 export async function deleteSlackInstall(projectId: string): Promise<void> {
   await deleteProjectSecrets(projectId, SLACK_KEYS);
   await db
@@ -79,11 +108,12 @@ export async function deleteSlackInstall(projectId: string): Promise<void> {
     .where(and(eq(chatInstalls.platform, 'slack'), eq(chatInstalls.projectId, projectId)));
 }
 
-// Universal Dosco Slack App install. Records this project's membership of the
-// workspace, then fans the bot token + workspace metadata out to every project
-// on the workspace — Slack issues one token per (app, workspace) and a re-auth
-// rotates it, so all sharing projects must be kept current. The signing secret
-// is the master Dosco one and stays server-side; it is never persisted here.
+// Universal Dosco Slack App install. Records this project's install of the
+// Slack workspace and stores the bot token and workspace metadata for it. One
+// Slack workspace has one linked Dosco workspace on the shared app
+// (slack/link.ts): the OAuth completion moves the link here, which detaches
+// the others, so the token is never fanned out to another project. The
+// signing secret is the master Dosco one and stays server-side.
 export async function saveSlackOauthInstall(
   input: SlackOauthInstallInput,
 ): Promise<SlackInstallSummary> {
@@ -93,18 +123,16 @@ export async function saveSlackOauthInstall(
       platform: 'slack',
       platformTeamId: input.workspaceId,
       projectId: input.projectId,
+      ownApp: false,
     })
-    .onConflictDoNothing();
-
-  const projectIds = await listProjectsForWorkspace('slack', input.workspaceId);
-  if (!projectIds.includes(input.projectId)) projectIds.push(input.projectId);
-  for (const projectId of projectIds) {
-    await upsertSecret(projectId, SLACK_BOT_TOKEN, input.botToken);
-    await upsertSecret(projectId, SLACK_TEAM_ID, input.workspaceId);
-    await upsertSecret(projectId, SLACK_BOT_USER_ID, input.botUserId);
-    await upsertSecret(projectId, SLACK_TEAM_NAME, input.teamName ?? '');
-  }
-
+    .onConflictDoUpdate({
+      target: [chatInstalls.platform, chatInstalls.platformTeamId, chatInstalls.projectId],
+      set: { ownApp: false, connectedAt: new Date() },
+    });
+  await upsertSecret(input.projectId, SLACK_BOT_TOKEN, input.botToken);
+  await upsertSecret(input.projectId, SLACK_TEAM_ID, input.workspaceId);
+  await upsertSecret(input.projectId, SLACK_BOT_USER_ID, input.botUserId);
+  await upsertSecret(input.projectId, SLACK_TEAM_NAME, input.teamName ?? '');
   return {
     workspaceId: input.workspaceId,
     workspaceName: input.teamName,

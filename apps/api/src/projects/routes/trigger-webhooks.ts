@@ -19,7 +19,7 @@ import { ACCOUNT_STATE_FIRE_CODES, markGitTriggerAttemptFailed } from '../lib/tr
 import { takeThrottledRunSlot } from '../lib/trigger-run-caps';
 import { raiseTriggerAlert } from '../lib/trigger-alerts';
 import { recordTriggerRun, triggerRunFromFire } from '../trigger-execution-store';
-import { extractWebhookToken, fireGitTrigger, markGitTriggerFired, renderPromptTemplate, triggerFilterMatches, verifyWebhookSignature, verifyWebhookToken, webhookPayload, webhookTimestampFresh } from '../lib/triggers';
+import { extractWebhookToken, fireGitTrigger, markGitTriggerFired, renderPromptTemplate, triggerFilterMatches, verifyWebhookSignature, verifyWebhookToken, webhookPayload, webhookTimestampProblem } from '../lib/triggers';
 import { PROJECT_TRIGGERS_PAUSED_REASON, automaticFirePauseReason } from '../lib/trigger-scheduler-state';
 import {
   validateWebhookSecretConfiguration,
@@ -154,7 +154,7 @@ export function registerTriggerWebhooksRoutes(): void {
     // Not awaited: the write must not make a real trigger's 401 slower than a
     // missing one's. recordTriggerRun never throws.
     const rejectRun = (reason: string, extra?: Record<string, unknown>) => {
-      if (consumeProjectWebhookRejectedRunBudget(projectId, slug)) {
+      if (consumeProjectWebhookRejectedRunBudget(projectId, slug, reason)) {
         void recordTriggerRun({ projectId, slug, source: 'webhook', spec, payload: runPayload(), verified: false, status: 'rejected', error: reason, now: new Date() });
       }
       return reject(reason, extra);
@@ -188,8 +188,8 @@ export function registerTriggerWebhooksRoutes(): void {
     const timestampHeader = c.req.header('x-kortix-timestamp') ?? null;
     if (signatureHeader) {
       // 401 like every other miss before authentication, so no existence oracle.
-      if (!timestampHeader) return rejectRun('timestamp_missing');
-      if (!webhookTimestampFresh(timestampHeader)) return rejectRun('timestamp_out_of_tolerance');
+      const timestampProblem = webhookTimestampProblem(timestampHeader);
+      if (timestampProblem) return rejectRun(`timestamp_${timestampProblem}`);
     }
     const authed = signatureHeader
       ? verifyWebhookSignature(rawBody, timestampHeader, secret, signatureHeader)

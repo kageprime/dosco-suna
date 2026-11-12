@@ -100,6 +100,49 @@ export async function listAllChangeRequests(
 }
 
 /**
+ * One page of at most `limit` change requests, newest first, from `cursor`
+ * (a previous page's `next_cursor`). A limit above `maxPerRequest` (the API's
+ * cap) walks several requests, each sized to the rows still wanted, so the
+ * last request's `next_cursor` is exactly where this page ends. An older API
+ * that ignores `limit` and `cursor` sends its full list; the page is cut
+ * here, after the cursor, to `limit` rows.
+ */
+export async function listChangeRequestPage(
+  ctx: { client: ApiClient; projectId: string },
+  status: string,
+  limit: number,
+  cursor: string | undefined,
+  maxPerRequest: number,
+): Promise<{ change_requests: ChangeRequest[]; next_cursor: string | null }> {
+  const rows: ChangeRequest[] = [];
+  let next: string | null | undefined = cursor;
+  let first = true;
+  while (rows.length < limit && (first || next)) {
+    first = false;
+    const want = Math.min(limit - rows.length, maxPerRequest);
+    const query = new URLSearchParams({ status, limit: String(want) });
+    if (next) query.set('cursor', next);
+    const page = await ctx.client.get<ChangeRequestsListResponse>(
+      `/workspaces/${ctx.projectId}/change-requests?${query}`,
+    );
+    if (page.change_requests.length > want) {
+      const after = next ? page.change_requests.filter((cr) => cr.number < Number(next)) : page.change_requests;
+      const kept = after.slice(0, want);
+      if (kept.length === 0) {
+        next = null;
+        break;
+      }
+      rows.push(...kept);
+      next = after.length > want ? String(kept[kept.length - 1]!.number) : null;
+      break;
+    }
+    rows.push(...page.change_requests);
+    next = page.next_cursor ?? null;
+  }
+  return { change_requests: rows, next_cursor: next ?? null };
+}
+
+/**
  * Resolve a user-supplied CR reference (`3` or a uuid) to the live CR row.
  * A number walks the list, newest first, until the page that holds it.
  */

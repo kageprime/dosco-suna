@@ -17,7 +17,7 @@
  * (`kortix.account_github_installations`, one account's own installations).
  */
 
-import { createCachedPlatformSetting } from './platform-setting-cache';
+import { createCachedPlatformSetting, settingFacade, str } from './platform-setting-cache';
 
 export const GITHUB_APP_IDENTITY_KEY = 'github_app_identity';
 
@@ -50,10 +50,6 @@ export interface StoredAppIdentity {
   webhookSecret?: string;
   stateSecret?: string;
   slug?: string;
-}
-
-function str(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 function parse(value: unknown): StoredAppIdentity {
@@ -154,20 +150,10 @@ export function storedAppIdentity(): StoredAppIdentity {
   return setting.read();
 }
 
-export function refreshAppIdentity(): Promise<void> {
-  return setting.refresh();
-}
-
-/** Overwrite the stored identity whole. Partial writes are not a thing here. */
-export async function writeAppIdentity(identity: StoredAppIdentity): Promise<void> {
-  await setting.write(identity);
-}
-
-export async function clearAppIdentity(): Promise<void> {
-  await setting.clear();
-}
-
-/** Test-only: seed the cache without a database. */
-export function __setStoredAppIdentityForTests(value: unknown): void {
-  setting.__setForTests(value);
-}
+/** The four one-line setting exports, from the shared facade. */
+export const {
+  refresh: refreshAppIdentity,
+  write: writeAppIdentity,
+  clear: clearAppIdentity,
+  setForTests: __setStoredAppIdentityForTests,
+} = settingFacade(setting);

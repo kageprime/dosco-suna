@@ -153,7 +153,7 @@ export function registerIamAssignmentsRoutes(): void {
         ...errors(400, 401, 403),
       },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.POLICY_READ);
 
@@ -216,7 +216,7 @@ export function registerIamAssignmentsRoutes(): void {
         ...errors(400, 401, 402, 403, 404, 409),
       },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       const body = await readJsonObject(c);
 
@@ -287,7 +287,7 @@ export function registerIamAssignmentsRoutes(): void {
         if (!role) return c.json({ error: 'role not found in this account' }, 404);
         if (role.roleAccountId !== null) {
           const denied = await requireEntitlement(c, accountId, 'rbac');
-          if (denied) return denied;
+          if (denied) return denied as never;
         }
       }
 
@@ -325,7 +325,7 @@ export function registerIamAssignmentsRoutes(): void {
         ...errors(401, 403, 404, 409),
       },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       const assignmentId = c.req.param('assignmentId');
       if (!isUuid(assignmentId)) return c.json({ error: 'assignment not found' }, 404);
@@ -333,7 +333,7 @@ export function registerIamAssignmentsRoutes(): void {
       // place that sees every revoke path (route, SCIM deprovision, expiry).
       const row = await revokeAssignment(await actorOf(c, accountId), accountId, assignmentId);
       resyncSecretAudience(row);
-      return c.json({ revoked: true, assignment: serialize(row, (await workspaceFactsOf(accountId)).soleProjectId) });
+      return c.json({ revoked: true, assignment: serialize(row, (await workspaceFactsOf(accountId)).soleProjectId) }, 200);
     },
   );
 
@@ -359,7 +359,7 @@ export function registerIamAssignmentsRoutes(): void {
         ...errors(401, 403),
       },
     }),
-    async (c: any) => {
+    async (c) => {
       const accountId = accountIdParam(c);
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ROLE_READ);
       const scopeType = oneOf(SCOPE_TYPES, c.req.query('scope_type'));
@@ -381,7 +381,7 @@ export function registerIamAssignmentsRoutes(): void {
           level: p.level,
           implies: p.implies,
         }));
-      return c.json({ permissions: rows });
+      return c.json({ permissions: rows }, 200);
     },
   );
 }

@@ -33,7 +33,7 @@ const fakes: Record<string, Record<string, unknown>> = {
   'react-native': { View: host('View'), useWindowDimensions: () => ({ width: 400, height: 800 }) },
   nativewind: { useColorScheme: () => ({ colorScheme: 'light' }) },
   'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
-  '@gorhom/bottom-sheet': { BottomSheetFooter: host('Footer'), BottomSheetScrollView: host('Scroll') },
+  '@/components/kortix/sheet-parts': { SheetFooter: host('Footer'), SheetScrollView: host('Scroll') },
   '@kortix/sdk/react': {
     useCans: (target: unknown, actions: readonly string[]) => {
       probes.push({ target, actions });

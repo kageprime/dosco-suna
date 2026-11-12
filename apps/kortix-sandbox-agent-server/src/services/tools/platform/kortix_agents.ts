@@ -81,6 +81,8 @@ interface PickerModel {
   modalities?: { input?: string[] }
   limit?: { context?: number }
   description?: string
+  /** For `available: false`: `login` (a ChatGPT login) or `provider` (a provider key). */
+  availability?: 'login' | 'provider'
 }
 
 interface ModelPicker {
@@ -106,6 +108,14 @@ const KORTIX_REF = 'kortix/'
 /** A name that marks a small, quick model. The catalog has no speed field. */
 const FAST_NAME = /\b(flash|mini|nano|lite|haiku|fast|turbo|small|air)\b/i
 
+/** The workspace default as the ref a spawn takes: a gateway wire id gains `kortix/`; a Claude subscription ref stays. */
+function defaultRefOf(picker: ModelPicker): string | null {
+  const wire = picker.defaultModel
+  if (!wire) return null
+  if (wire.startsWith('claude-agent/')) return wire
+  return `${KORTIX_REF}${wire.replace(/^kortix\//, '')}`
+}
+
 function contextWords(tokens: number | undefined): string | null {
   if (!tokens || tokens <= 0) return null
   return tokens >= 1_000_000 ? `${Math.round(tokens / 100_000) / 10}M context` : `${Math.round(tokens / 1000)}k context`
@@ -121,7 +131,7 @@ function strengths(id: string, model: { name?: string; reasoning?: boolean; atta
 
 /** The models this project may run: offered, and reachable for this person. Default first. */
 function usableModels(picker: ModelPicker): UsableModel[] {
-  const fallback = picker.defaultModel ? `${KORTIX_REF}${picker.defaultModel.replace(/^kortix\//, '')}` : null
+  const fallback = defaultRefOf(picker)
   const gateway = Object.entries(picker.models ?? {})
     .filter(([, model]) => model.enabled !== false && model.available !== false)
     .map(([wire, model]): UsableModel => {
@@ -145,27 +155,52 @@ function usableModels(picker: ModelPicker): UsableModel[] {
           provider: 'Claude subscription',
           good_for: strengths(model.id, { name: model.name, reasoning: (model.efforts?.length ?? 0) > 0 }),
           ...(model.limit?.context ? { context: model.limit.context } : {}),
-          default: false,
+          default: model.id === fallback,
           ...(model.description ? { description: model.description } : {}),
         }))
     : []
   return [...gateway, ...claude].sort((a, b) => Number(b.default) - Number(a.default) || a.name.localeCompare(b.name))
 }
 
+/** The most offered-but-not-runnable models `models` names; the rest are counted. */
+const NOT_RUNNABLE_MAX = 60
+
+/**
+ * The workspace's offered models this person cannot run yet: `kortix models ls`
+ * counts them as offered (enabled), the gateway refuses them until a provider
+ * is connected for this person. Each names the step that makes it runnable.
+ */
+function notRunnable(picker: ModelPicker): Array<{ id: string; name: string; needs: string }> {
+  return Object.entries(picker.models ?? {})
+    .filter(([, model]) => model.enabled !== false && model.available === false)
+    .map(([wire, model]) => ({
+      id: `${KORTIX_REF}${wire}`,
+      name: model.name || wire,
+      needs: model.availability === 'login' ? 'a ChatGPT login (kortix providers login openai)' : `a ${model.provider_name || model.provider || wire.split('/')[0]} key (kortix providers set ${model.provider || wire.split('/')[0]})`,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
 async function models(context: PlatformToolContext) {
   const read = await cliJson<ModelPicker>(['models', 'ls', '--json'], context)
   if ('error' in read) return fail(TOOL, 'models', 'Could not list the models', read.error, context)
-  const usable = usableModels(read.value)
+  const picker = read.value
+  const usable = usableModels(picker)
+  const blocked = notRunnable(picker)
+  // `kortix models ls` counts every model the workspace offers (enabled), runnable or not.
+  const offered = Object.values(picker.models ?? {}).filter((model) => model.enabled !== false).length
+  const defaultRef = defaultRefOf(picker)
+  const defaultRunnable = defaultRef ? usable.some((model) => model.id === defaultRef) : false
   if (usable.length === 0) {
-    return fail(TOOL, 'models', 'No models to run', { kind: 'failed', message: 'This workspace offers no model you can run. A workspace admin connects a provider or turns a model on in Workspace settings → Models.' }, context)
+    return fail(TOOL, 'models', 'No models to run', { kind: 'failed', message: `This workspace offers no model you can run${offered > 0 ? ` (${offered} offered, none connected for you)` : ''}. A workspace admin connects a provider or turns a model on in Workspace settings → Models.` }, context)
   }
-  const fallback = usable.find((model) => model.default)?.id ?? null
+  const runnableWord = usable.length === 1 ? '1 model you can run' : `${usable.length} models you can run`
   return ok(
     TOOL,
     'models',
     {
-      title: usable.length === 1 ? '1 model' : `${usable.length} models`,
-      subtitle: 'Pass an id as `model` to a hand-off, a workflow agent or an agent setting.',
+      title: runnableWord,
+      ...(blocked.length > 0 ? { subtitle: `${offered} offered in this workspace; ${blocked.length} need a provider connected first.` } : {}),
       rows: capRows(
         usable.map((model) => ({
           title: model.name,
@@ -176,9 +211,19 @@ async function models(context: PlatformToolContext) {
       links: [{ label: 'Models', href: adminHref(context.env, 'models') }],
     },
     {
-      default: fallback,
+      scope: 'models: the offered models this session can run now. offered: every model the workspace offers (the enabled set `kortix models ls` lists), runnable or not.',
+      default: defaultRef,
+      default_runnable: defaultRunnable,
+      offered,
+      runnable: usable.length,
       models: usable,
-      note: 'Use `id` exactly as written. Omit `model` to run on the default. Pick a fast model for bulk and parallel work, the strongest reasoning model for synthesis and judgment.',
+      ...(blocked.length > 0
+        ? { not_runnable: blocked.slice(0, NOT_RUNNABLE_MAX), ...(blocked.length > NOT_RUNNABLE_MAX ? { not_runnable_more: blocked.length - NOT_RUNNABLE_MAX } : {}) }
+        : {}),
+      note:
+        'Use `id` exactly as written. Omit `model` to run on the default. Pick a fast model for bulk and parallel work, the strongest reasoning model for synthesis and judgment. ' +
+        'A model in not_runnable fails until its provider is connected: never pick one.' +
+        (defaultRef && !defaultRunnable ? ' The workspace default is not runnable for this person: name a model from models.' : ''),
     },
   )
 }
@@ -279,7 +324,7 @@ async function setAccess(name: string, args: Record<string, any>, context: Platf
 export default {
   description:
     "The project's agents: each one is a colleague with one job, its own instructions and model, and a limited set of connectors, secrets and apps it may use. " +
-    'Actions: `list`; `models` (the models a project agent, a hand-off or a workflow agent may run on: each `id` is the exact `model` value, with what it is good for); `get` (name); `create` (name, description, instructions, optional model, connectors, skills, tools); ' +
+    'Actions: `list`; `models` (the models a project agent, a hand-off or a workflow agent can run now: each `id` is the exact `model` value, with what it is good for; `offered` counts every model the workspace offers, and `not_runnable` names the offered ones that need a provider connected first); `get` (name); `create` (name, description, instructions, optional model, connectors, skills, tools); ' +
     '`update` (name, plus only the fields to change); `set_access` (name, connectors / secrets / apps: a list, "all" or "none"). ' +
     'Before `set_access` or an `update` that gives an agent more access, show the person what changes and ask once. ' +
     'The result shows the person a card; tell them the outcome in plain words.',

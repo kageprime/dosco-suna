@@ -162,7 +162,7 @@ Do **not** reset padding to zero on Shadcn `<Textarea />`:
 
 ## Avatar Component
 
-Use the existing Shadcn Avatar components (or Radix Avatar) unless the user requests otherwise. Use `AvatarFallback` when there's no image for `AvatarImage`.
+Use the existing Shadcn Avatar components (built on Base UI Avatar) unless the user requests otherwise. Use `AvatarFallback` when there's no image for `AvatarImage`.
 
 ## Buttons Over Images
 

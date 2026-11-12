@@ -14,6 +14,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { resolveProvider } from '../provider'
 import { combinedAuth } from '../../middleware/auth'
 import { canAccessPreviewSandbox } from '../../shared/preview-ownership'
+import { PREVIEW_SANDBOX_DENIED_MESSAGE } from '../../shared/dead-credential-log'
 import { makeOpenApiApp, json, errors, auth } from '../../openapi'
 import { shareUpstreamResult } from '../share-upstream'
 
@@ -98,7 +99,7 @@ async function ensureShareAccess(c: Context, sandboxId: string): Promise<
   if (accountId && await canAccessPreviewSandbox({ previewSandboxId: sandboxId, accountId })) {
     return null
   }
-  return c.json({ error: 'Not authorized to access this sandbox' }, 403)
+  return c.json({ error: PREVIEW_SANDBOX_DENIED_MESSAGE }, 403)
 }
 
 // The one sandbox-proxy ceremony the three handlers share (KRTX-4477): the

@@ -241,6 +241,8 @@ describe('user_memories RLS auth_rls_initplan migration', () => {
            ON CONFLICT (id) DO NOTHING`,
           [ACCOUNT_A, ACCOUNT_B, USER_A, USER_B],
         );
+        // The basejump stub exists when the migrations run, so freeze_legacy_suna_tables freezes it.
+        await admin.query(`SET kortix.legacy_write = 'on'`);
         await admin.query(
           `INSERT INTO basejump.account_user (user_id, account_id, account_role)
            VALUES ($1, $3, 'owner'), ($2, $4, 'owner'), ($5, $4, 'member')

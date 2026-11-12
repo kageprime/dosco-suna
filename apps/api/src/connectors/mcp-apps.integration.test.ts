@@ -7,6 +7,7 @@
  */
 import { afterAll, beforeAll, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
+import { HTTPException } from 'hono/http-exception';
 import { accounts, connectionCredentials, connectorConnections, connectors, projects } from '@kortix/db';
 import { eq } from 'drizzle-orm';
 import { config } from '../config';
@@ -96,6 +97,32 @@ test('a server outside the catalogue gets no Dosco client, even when it names Go
     }),
   ).rejects.toThrow('Dosco has no OAuth client for this server');
   expect(await loadOAuth2Application(evil.connectionId)).toBeNull();
+});
+
+test('an authorization server that refuses dynamic registration fails as a typed 400 and saves nothing (KRTX-4709)', async () => {
+  const refused = await connection('refusing', 'https://mcp.refusing.example/mcp');
+  const error = await registerConnectionOAuth2Client(
+    {
+      identity: refused,
+      registration: {
+        registration_endpoint: 'https://authn.refusing.example/oauth/register',
+        token_url: 'https://authn.refusing.example/oauth/token',
+        authorization_url: 'https://authn.refusing.example/oauth/authorize',
+      },
+      callbackUrl: CALLBACK,
+      createdBy: USER,
+    },
+    {
+      fetchImpl: async () =>
+        Response.json({ error: 'invalid_client_metadata' }, { status: 400 }),
+    },
+  ).catch((e: unknown) => e);
+  // A typed 400 the connect flow answers to the user, not an unhandled 500.
+  expect(error).toBeInstanceOf(HTTPException);
+  expect((error as HTTPException).status).toBe(400);
+  expect((error as Error).message).toContain('invalid_client_metadata');
+  // The refusal leaves no half-registered application behind.
+  expect(await loadOAuth2Application(refused.connectionId)).toBeNull();
 });
 
 test('X: start, callback, stored credential and refresh with Kortix’s X client, against a stubbed X token endpoint', async () => {

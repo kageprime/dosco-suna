@@ -387,8 +387,8 @@ export function AgentSelector({
           It stays MOUNTED either way, just visually hidden, and that is
           deliberate: cmdk drives arrow-key navigation from a keydown handler
           on its own root, and the input is the only focusable descendant
-          inside it. Unmounting it would leave focus on the Radix content
-          wrapper — the parent — where keydown never reaches cmdk at all, so
+          inside it. Unmounting it would leave focus on the popover content
+          — the parent — where keydown never reaches cmdk at all, so
           the arrow keys would silently stop working on exactly the short
           lists this is meant to simplify.
         */}

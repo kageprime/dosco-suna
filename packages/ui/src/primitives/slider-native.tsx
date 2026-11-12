@@ -1,17 +1,23 @@
 'use client';
 
-import { Slider as SliderPrimitive } from 'radix-ui';
+import { Slider as SliderPrimitive } from '@base-ui/react/slider';
 import * as React from 'react';
 
-import Hint from './hint';
 import { cn } from '../lib/utils';
+import Hint from './hint';
+import type { SliderRootProps } from './slider';
 
-const thumb = (
+// `has-focus-visible`: the thumb's focusable node is its hidden range input.
+const thumb = (index: number) => (
   <SliderPrimitive.Thumb
     data-slot="slider-thumb"
-    className="border-ring ring-ring/50 hit-area-4 relative block size-3.5 shrink-0 rounded-full border bg-white transition-[color,box-shadow] select-none after:absolute after:-inset-2 hover:ring-3 focus-visible:ring-3 focus-visible:outline-hidden active:ring-3 disabled:pointer-events-none disabled:opacity-50"
+    index={index}
+    className="border-ring ring-ring/50 hit-area-4 relative block size-3.5 shrink-0 rounded-full border bg-white transition-[color,box-shadow] select-none after:absolute after:-inset-2 hover:ring-3 focus-visible:ring-3 focus-visible:outline-hidden active:ring-3 has-focus-visible:ring-3 data-disabled:pointer-events-none data-disabled:opacity-50"
   />
 );
+
+const asArray = (value: number | readonly number[]) =>
+  (Array.isArray(value) ? [...value] : [value as number]) as number[];
 
 function NativeSlider({
   className,
@@ -20,8 +26,13 @@ function NativeSlider({
   min = 0,
   max = 100,
   tooltip,
+  onValueChange,
+  onValueCommit,
+  minStepsBetweenThumbs,
+  inverted: _inverted,
+  orientation,
   ...props
-}: React.ComponentProps<typeof SliderPrimitive.Root> & {
+}: SliderRootProps & {
   /** Shown in a Hint above the thumb while hovering it. */
   tooltip?: React.ReactNode;
 }) {
@@ -37,29 +48,39 @@ function NativeSlider({
       value={value}
       min={min}
       max={max}
+      orientation={orientation}
+      data-orientation={orientation ?? 'horizontal'}
+      minStepsBetweenValues={minStepsBetweenThumbs}
+      onValueChange={onValueChange ? (next) => onValueChange(asArray(next)) : undefined}
+      onValueCommitted={onValueCommit ? (next) => onValueCommit(asArray(next)) : undefined}
       className={cn(
         'relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-[orientation=vertical]:h-full data-[orientation=vertical]:min-h-40 data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col',
         className,
       )}
-      {...props}
+      {...(props as Omit<typeof props, 'ref'>)}
     >
-      <SliderPrimitive.Track
-        data-slot="slider-track"
-        className="bg-kortix-base/60 relative grow overflow-hidden rounded-full data-[orientation=horizontal]:h-1 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1"
+      <SliderPrimitive.Control
+        data-slot="slider-control"
+        className="relative flex w-full grow items-center data-[orientation=vertical]:h-full data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col"
       >
-        <SliderPrimitive.Range
-          data-slot="slider-range"
-          className="bg-kortix-blue absolute select-none data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full"
-        />
-      </SliderPrimitive.Track>
-      {Array.from({ length: _values.length }, (_, index) => {
-        if (tooltip == null) return <React.Fragment key={index}>{thumb}</React.Fragment>;
-        return (
-          <Hint key={index} side="top" label={tooltip}>
-            {thumb}
-          </Hint>
-        );
-      })}
+        <SliderPrimitive.Track
+          data-slot="slider-track"
+          className="bg-kortix-base/60 relative grow overflow-hidden rounded-full data-[orientation=horizontal]:h-1 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1"
+        >
+          <SliderPrimitive.Indicator
+            data-slot="slider-range"
+            className="bg-kortix-blue absolute select-none data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full"
+          />
+        </SliderPrimitive.Track>
+        {Array.from({ length: _values.length }, (_, index) => {
+          if (tooltip == null) return <React.Fragment key={index}>{thumb(index)}</React.Fragment>;
+          return (
+            <Hint key={index} side="top" label={tooltip}>
+              {thumb(index)}
+            </Hint>
+          );
+        })}
+      </SliderPrimitive.Control>
     </SliderPrimitive.Root>
   );
 }

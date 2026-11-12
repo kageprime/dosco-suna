@@ -18,6 +18,7 @@ import {
   machineIdOf,
   reconcileAppMachines,
   stopInstance,
+  trackBackgroundReconcile,
   type InstanceRow,
 } from './machines';
 import { ensureAppRuntimeRunning } from './public-proxy-runtime';
@@ -167,9 +168,9 @@ export async function setAppScale(
   }
   const scale = { ...(app.scale as Record<string, number>), ...counts };
   await db.update(apps).set({ scale, updatedAt: new Date() }).where(eq(apps.appId, app.appId));
-  void reconcileAppMachines(app.appId).catch((error) => {
+  trackBackgroundReconcile(app.appId, reconcileAppMachines(app.appId).catch((error) => {
     logger.error('[apps] scale reconcile failed', { appId: app.appId, error: String(error) });
-  });
+  }));
   return scale;
 }
 

@@ -93,7 +93,7 @@ const RULES = [
     scope: 'client',
     rule: 'foreign-ui-kit',
     pattern:
-      /['"](?:lucide-react|radix-ui|@radix-ui\/[^'"]+|class-variance-authority|next-themes|react-markdown)['"]/g,
+      /['"](?:lucide-react|radix-ui|@radix-ui\/[^'"]+|@base-ui\/[^'"]+|class-variance-authority|next-themes|react-markdown)['"]/g,
     message:
       'Compose @kortix/ui (Phosphor icons, @kortix/ui/session for markdown); do not build a second UI kit.',
   },

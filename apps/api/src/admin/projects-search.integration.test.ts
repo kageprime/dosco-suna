@@ -39,6 +39,9 @@ test('project email search scans users once instead of probing users per members
   for (const [search, expected] of [
     ['project-search-42@', 1], ['synthetic project', 1], ['synthetic account', 1],
     ['no-match', 0], ['%', 0], ['_', 0],
+    // A workspace link carries the project id; the account page offers the account id.
+    ['c0000000-0000-4000-8000-000000000001', 1], [' C0000000-0000-4000-8000-000000000001 ', 1],
+    ['b0000000-0000-4000-8000-000000000001', 1], ['d0000000-0000-4000-8000-000000000001', 0],
   ] as const) {
     const rows = await db.select({ id: projects.projectId }).from(projects)
       .innerJoin(accounts, eq(accounts.accountId, projects.accountId))

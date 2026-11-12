@@ -23,20 +23,14 @@ function baseConfig(): Config {
     workspace: WORKSPACE,
     projectTarget: WORKSPACE,
     defaultBranch: 'main',
-    branchFetchAttempts: 60,
-    branchFetchDelaySec: 0.25,
-    autoClone: false,
     projectId: 'project-1',
     apiUrl: 'http://api.test/v1',
     repoUrl: undefined,
     branchName: undefined,
-    sessionFresh: false,
     baseSha: undefined,
     sandboxToken: TEST_TOKEN,
     gitUserName: 'Xera',
     gitUserEmail: 'xera@dosco.live',
-    cloneFilter: '',
-    cloneDepth: 1,
   }
 }
 
@@ -47,7 +41,7 @@ function b64url(s: string): string {
   return Buffer.from(s).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-/** Mint a valid X-Kortix-User-Context header signed with TEST_TOKEN. */
+/** Mint a valid X-Dosco-User-Context header signed with TEST_TOKEN. */
 function signContext(): string {
   const now = Math.floor(Date.now() / 1000)
   const payload = b64url(
@@ -546,7 +540,7 @@ describe('daemon file read + list + status + find routes', () => {
     WS = await fs.mkdtemp(path.join(os.tmpdir(), 'kortix-read-test-'))
     git('init', '-q')
     git('config', 'user.email', 'test@dosco.live')
-    git('config', 'user.name', 'Kortix Test')
+    git('config', 'user.name', 'Dosco Test')
 
     await fs.writeFile(`${WS}/hello.txt`, 'line one\nline two\n')
     await fs.mkdir(`${WS}/sub`, { recursive: true })

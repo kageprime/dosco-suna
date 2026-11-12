@@ -46,7 +46,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { FactorInfo } from '@/lib/supabase/mfa';
 import { cn } from '@kortix/ui';
 import { SettingsTabHeader } from '@kortix/ui/customize/settings/settings-tab-header';
-import { type DeviceBrand, describeUserAgent } from './device-label';
+import { deviceLabel, type DeviceBrand, describeUserAgent } from './device-label';
 
 const BRAND_MARK: Record<DeviceBrand, (props: { className?: string }) => React.JSX.Element> = {
   chrome: Chrome,
@@ -126,7 +126,7 @@ export function formatSecret(secret: string): string {
  *  One real input sits over six drawn cells, so paste, autofill
  *  (`one-time-code`) and screen readers all see a single field. The
  *  container verifies as soon as the sixth digit lands. */
-export function EnrollDialog({
+function EnrollDialog({
   enrolling,
   code,
   onCodeChange,
@@ -244,7 +244,7 @@ export function EnrollDialog({
   );
 }
 
-export interface SecurityTabViewProps {
+interface SecurityTabViewProps {
   // Two-factor authentication
   factors?: FactorInfo[];
   factorsLoading?: boolean;
@@ -299,7 +299,7 @@ export interface DeviceRow {
   current?: boolean;
 }
 
-export interface SecurityTabCopy {
+interface SecurityTabCopy {
   twoFactorTitle: string;
   twoFactorDescription: string;
   authenticatorApp: string;
@@ -707,8 +707,7 @@ export function SecurityTab() {
   );
   const devices: DeviceRow[] = (deviceQuery.data ?? []).map((device) => {
     const { browser, os, mobile, brand } = describeUserAgent(device.user_agent);
-    const label =
-      browser && os ? t('deviceName', { browser, os }) : (browser ?? os ?? t('unknownDevice'));
+    const label = deviceLabel({ browser, os }, t);
     const when = device.current
       ? t('deviceSignedInAt', { date: dateFormat.format(new Date(device.signed_in_at)) })
       : t('deviceLastActive', { date: dateTimeFormat.format(new Date(device.last_active_at)) });

@@ -296,6 +296,43 @@ jobs:
             echo "- Terraform (dev + dev-web): ${{ steps.outputs.outputs.terraform }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  # ── Typecheck the tree the deploys boot ─────────────────────────────────────
+  # The three surfaces below run TS source under bun at task start
+  # (`CMD bun run src/index.ts`), and the web build sets `ignoreBuildErrors:
+  # true`: a bun image build resolves named exports only when a task starts.
+  # Two separately-green PRs can therefore disagree on a renamed export and
+  # crash-loop dev once both squashes land (2026-11-10: three Deploy Dev runs
+  # rolled back on a stale `deadCredentialLogDecision` import; KRTX-4672).
+  # tsgo on this exact tree catches that before any ECS service takes the roll.
+  # Runs beside the build jobs, so a healthy deploy gains no wall clock.
+  typecheck-deploy-tree:
+    name: Typecheck the deploy tree
+    needs: detect-changes
+    if: >-
+      ${{ always()
+        && github.ref == 'refs/heads/dev'
+        && (needs.detect-changes.outputs.api == 'true'
+          || needs.detect-changes.outputs.gateway == 'true'
+          || needs.detect-changes.outputs.frontend == 'true') }}
+    runs-on: ${{ vars.CI_RUNNER_L || 'ubuntu-24.04' }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 22 }
+      - name: Install workspace dependencies
+        run: |
+          corepack enable pnpm
+          pnpm install --frozen-lockfile
+        env:
+          npm_config_engine_strict: "false"
+      - name: Typecheck API
+        run: pnpm --filter kortix-api typecheck
+      - name: Typecheck gateway
+        run: pnpm --filter @kortix/llm-gateway-server typecheck
+      - name: Typecheck web
+        run: pnpm --filter Kortix-Computer-Frontend typecheck
+
   # ── Apply dev Terraform before any image rolls ──────────────────────────────
   # Infrastructure first, then the image that runs on it. Two roots, applied in
   # order: environments/dev-us-east-2 (API + gateway) then dev-web-us-east-2
@@ -565,7 +602,7 @@ jobs:
   # ── Roll the freshly-built image onto the dev ECS Fargate service ───────────
   deploy-api-ecs:
     name: Deploy API to dev (ECS Fargate)
-    needs: [detect-changes, build-api, migrate-db, terraform-dev-api]
+    needs: [detect-changes, build-api, migrate-db, terraform-dev-api, typecheck-deploy-tree]
     # `always()` is required because terraform-dev-api is SKIPPED whenever no
     # dev Terraform changed — without it GitHub would skip this job too. Every
     # other upstream is still required to have succeeded. The web root
@@ -577,6 +614,7 @@ jobs:
         && needs.detect-changes.outputs.api == 'true'
         && needs.build-api.result == 'success'
         && needs.migrate-db.result == 'success'
+        && needs.typecheck-deploy-tree.result == 'success'
         && (needs.terraform-dev-api.result == 'success' || needs.terraform-dev-api.result == 'skipped') }}
     runs-on: ${{ vars.CI_RUNNER_S || 'ubuntu-24.04' }}
     # Release gate (25 min cap) + worker roll (17 min cap) + API roll (15 min
@@ -647,13 +685,19 @@ jobs:
       # remove the key and redeploy; Files already created in us-east stay
       # there, and their sessions keep running there.
       #
+      # KORTIX_WORKSPACE_VOLUMES=on turns `workspace_volume` (stateless
+      # sandboxes) on for every dev project that has made no choice: each new
+      # session keeps /workspace on its own Platinum volume, and a box stopped
+      # for KORTIX_SANDBOX_IDLE_DELETE_MINUTES is deleted. Rollback: remove the
+      # key and redeploy; sessions that already have a volume keep it.
+      #
       # KORTIX_PLATINUM_RESIDENTIAL_PROXY=true honors a sandbox template's
       # `residential_proxy` on dev and starts the worker that debits Platinum's
       # residential charges from credits. Staging and prod leave it unset, so a
       # template that asks for it fails the session closed there. Rollback:
       # remove the key and redeploy.
       KORTIX_ECS_ENV_OVERRIDES: >-
-        {"KORTIX_PREVIEW_BASE_DOMAIN":"p.kortix.com","KORTIX_PROJECT_SNAPSHOT_MODE":"prefer-s3","KORTIX_PROJECT_SNAPSHOT_S3_BUCKET":"kortix-dev-use2-project-snapshots","KORTIX_PROJECT_SNAPSHOT_S3_REGION":"us-east-2","KORTIX_PROJECT_SNAPSHOT_S3_ACCELERATE":"false","KORTIX_CAPTURE_S3_BUCKET":"kortix-dev-use2-capture-store","KORTIX_CAPTURE_S3_REGION":"us-east-2","KORTIX_CAPTURE_SQS_QUEUE_URL":"https://sqs.us-east-2.amazonaws.com/935064898258/kortix-dev-use2-capture-store-manifests","KORTIX_CAPTURE_STS_ROLE_ARN":"arn:aws:iam::935064898258:role/kortix-dev-use2-capture-store-device","AUDIT_ARCHIVE_BUCKET":"kortix-dev-use2-audit-archive","AUDIT_ARCHIVE_REGION":"us-east-2","KORTIX_CONFIG_ARCHIVE_S3_BUCKET":"kortix-dev-use2-project-snapshots","KORTIX_CONFIG_ARCHIVE_S3_REGION":"us-east-2","KORTIX_CONFIG_ARCHIVE_RETAIN_PER_PROJECT":"0","KORTIX_PLATINUM_US_REGION":"us-east","KORTIX_PLATINUM_US_REGION_DEFAULT":"true","KORTIX_CHROME_ENABLED":"true","KORTIX_PLATINUM_RESIDENTIAL_PROXY":"true"}
+        {"KORTIX_PREVIEW_BASE_DOMAIN":"p.kortix.com","KORTIX_PROJECT_SNAPSHOT_MODE":"prefer-s3","KORTIX_PROJECT_SNAPSHOT_S3_BUCKET":"kortix-dev-use2-project-snapshots","KORTIX_PROJECT_SNAPSHOT_S3_REGION":"us-east-2","KORTIX_PROJECT_SNAPSHOT_S3_ACCELERATE":"false","KORTIX_CAPTURE_S3_BUCKET":"kortix-dev-use2-capture-store","KORTIX_CAPTURE_S3_REGION":"us-east-2","KORTIX_CAPTURE_SQS_QUEUE_URL":"https://sqs.us-east-2.amazonaws.com/935064898258/kortix-dev-use2-capture-store-manifests","KORTIX_CAPTURE_STS_ROLE_ARN":"arn:aws:iam::935064898258:role/kortix-dev-use2-capture-store-device","AUDIT_ARCHIVE_BUCKET":"kortix-dev-use2-audit-archive","AUDIT_ARCHIVE_REGION":"us-east-2","KORTIX_CONFIG_ARCHIVE_S3_BUCKET":"kortix-dev-use2-project-snapshots","KORTIX_CONFIG_ARCHIVE_S3_REGION":"us-east-2","KORTIX_CONFIG_ARCHIVE_RETAIN_PER_PROJECT":"0","KORTIX_PLATINUM_US_REGION":"us-east","KORTIX_PLATINUM_US_REGION_DEFAULT":"true","KORTIX_WORKSPACE_VOLUMES":"on","KORTIX_CHROME_ENABLED":"true","KORTIX_PLATINUM_RESIDENTIAL_PROXY":"true"}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Configure AWS credentials (OIDC)
@@ -915,7 +959,7 @@ jobs:
 
   deploy-gateway-ecs:
     name: Deploy gateway to dev (ECS Fargate)
-    needs: [detect-changes, build-gateway, terraform-dev-api]
+    needs: [detect-changes, build-gateway, terraform-dev-api, typecheck-deploy-tree]
     # Waits for dev Terraform like deploy-api-ecs: a gateway task started before
     # the apply lacks the security group that reaches the API's private path
     # (#10463), so every private call from it timed out and fell back to the
@@ -925,6 +969,7 @@ jobs:
       ${{ always()
         && needs.detect-changes.outputs.gateway == 'true'
         && needs.build-gateway.result == 'success'
+        && needs.typecheck-deploy-tree.result == 'success'
         && (needs.terraform-dev-api.result == 'success' || needs.terraform-dev-api.result == 'skipped') }}
     runs-on: ${{ vars.CI_RUNNER_S || 'ubuntu-24.04' }}
     timeout-minutes: 25
@@ -1149,7 +1194,7 @@ jobs:
 
   deploy-web-ecs:
     name: Deploy frontend to dev (ECS Fargate)
-    needs: [detect-changes, build-frontend, terraform-dev-api, terraform-dev]
+    needs: [detect-changes, build-frontend, terraform-dev-api, terraform-dev, typecheck-deploy-tree]
     # Same soft dependency as deploy-api-ecs: environments/dev-web-us-east-2 owns the web
     # ALB, WAF association, and task roles this image runs behind, and
     # environments/dev-us-east-2 must have converged before it.
@@ -1157,6 +1202,7 @@ jobs:
       ${{ always()
         && needs.detect-changes.outputs.frontend == 'true'
         && needs.build-frontend.result == 'success'
+        && needs.typecheck-deploy-tree.result == 'success'
         && (needs.terraform-dev-api.result == 'success' || needs.terraform-dev-api.result == 'skipped')
         && (needs.terraform-dev.result == 'success' || needs.terraform-dev.result == 'skipped') }}
     runs-on: ${{ vars.CI_RUNNER_M || 'ubuntu-24.04' }}

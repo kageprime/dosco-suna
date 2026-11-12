@@ -49,7 +49,6 @@ agents:
     secrets: all
     kortix_permissions: all
     skills: all
-    workspace: { project_repository: true }
 ```
 
 The block grants the default agent what it needs to work. It contains no `policy:` key, so nothing in the file holds a connector call. Add one:

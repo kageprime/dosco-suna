@@ -11,6 +11,8 @@ import {
   REQUIRED_RUNTIME_CAPABILITIES,
   bootstrapExecCommand,
   bootstrapLegacyRuntime,
+  type LegacyBootstrapInput,
+  type LegacyBootstrapOutcome,
   classifyDaemonHealth,
   DEAD_DAEMON_REPAIR_BUDGET_MS,
   DEAD_DAEMON_REPAIR_REQUESTED_KEY,
@@ -703,6 +705,73 @@ describe('bootstrapLegacyRuntime', () => {
     );
     expect(calls.execs).toHaveLength(1);
     expect(r.outcome).toBe('converged');
+  });
+});
+
+describe('every skipped repair says why (KRTX-4754)', () => {
+  // 2026-11-11 prod: 43 dead-daemon relaunch requests, ZERO repair runs and
+  // ZERO log lines all day — every skip returned silently and a dead box was
+  // unexplainable from logs alone. Each decision that touches nothing must
+  // leave one line; the converged `not-legacy` answers stay silent.
+  const capture = (over: Parameters<typeof makeDeps>[0], calls: Calls, clock?: { t: number }) => {
+    const logs: string[] = [];
+    const deps = makeDeps(
+      { ...over, log: (message: string) => logs.push(String(message)) },
+      calls,
+      clock,
+    );
+    return { deps, logs };
+  };
+
+  test('a box the provider does not report running is skipped, and the skip is logged', async () => {
+    const calls: Calls = { patches: [], audits: [], execs: [] };
+    const { deps, logs } = capture({ health: [null, null] }, calls);
+    const r = await bootstrapLegacyRuntime(input(), deps);
+    expect(r.outcome).toBe('unreachable');
+    expect(calls.execs).toHaveLength(0);
+    expect(logs).toEqual(['legacy runtime bootstrap skipped: unreachable']);
+  });
+
+  test('cooldown, exhausted, busy, recent-check and unsupported skips are logged', async () => {
+    const clock = { t: Date.parse('2026-09-01T12:00:00Z') };
+    const failedRecord = (attempts: number, ageMs: number) => ({
+      [LEGACY_BOOTSTRAP_METADATA_KEY]: {
+        state: 'failed',
+        attempts,
+        manifestBuild: 1788044234,
+        lastAttemptAt: new Date(clock.t - ageMs).toISOString(),
+      },
+    });
+    const outcomes: Array<[() => LegacyBootstrapInput, Parameters<typeof makeDeps>[0], LegacyBootstrapOutcome]> = [
+      [() => input(failedRecord(1, 60_000)), {}, 'skipped-cooldown'],
+      [() => input(failedRecord(LEGACY_BOOTSTRAP_MAX_ATTEMPTS, LEGACY_BOOTSTRAP_COOLDOWN_MS * 2)), {}, 'skipped-exhausted'],
+      [() => input(), { turn: true }, 'skipped-busy'],
+      [() => input({ [LEGACY_CHECK_METADATA_KEY]: { at: new Date(clock.t - LEGACY_CHECK_TTL_MS / 2).toISOString(), klass: 'current', manifestBuild: 1788044234, externalId: 'sbx_1' } }), {}, 'skipped-recent-check'],
+      [() => input(null, 'local'), {}, 'skipped-unsupported'],
+    ];
+    for (const [meta, over, outcome] of outcomes) {
+      const calls: Calls = { patches: [], audits: [], execs: [] };
+      const { deps, logs } = capture(over, calls, clock);
+      const r = await bootstrapLegacyRuntime(meta(), deps);
+      expect(r.outcome).toBe(outcome);
+      expect(logs).toEqual([`legacy runtime bootstrap skipped: ${outcome}`]);
+    }
+  });
+
+  test('a fresh running claim is not duplicated, and the skip is logged', async () => {
+    const calls: Calls = { patches: [], audits: [], execs: [] };
+    const clock = { t: Date.parse('2026-09-01T12:00:00Z') };
+    const meta = { [LEGACY_BOOTSTRAP_METADATA_KEY]: { state: 'running', attempts: 1, manifestBuild: 1788044234, lastAttemptAt: new Date(clock.t - 60_000).toISOString() } };
+    const { deps, logs } = capture({}, calls, clock);
+    expect((await bootstrapLegacyRuntime(input(meta), deps)).outcome).toBe('skipped-in-progress');
+    expect(logs).toEqual(['legacy runtime bootstrap skipped: skipped-in-progress']);
+  });
+
+  test('a converged (current) box stays silent — the fleet-normal answer', async () => {
+    const calls: Calls = { patches: [], audits: [], execs: [] };
+    const { deps, logs } = capture({ health: [CURRENT_HEALTH] }, calls);
+    expect((await bootstrapLegacyRuntime(input(), deps)).outcome).toBe('not-legacy');
+    expect(logs).toEqual([]);
   });
 });
 

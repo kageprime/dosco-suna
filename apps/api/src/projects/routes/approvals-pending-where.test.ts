@@ -1,7 +1,8 @@
 /**
  * KRTX-4437: `GET /approvals` and `GET /approvals/needs-input` read the same
- * pending-approval set, and needs-input counts open agent questions and
- * permission asks with the same unresolved-and-unexpired rule. The SQL each
+ * pending-approval set, and needs-input counts open agent questions,
+ * permission asks and colleague access asks with the same
+ * unresolved-and-unexpired rule. The SQL each
  * read sends is rendered and pinned, so building the predicates once changes
  * nothing the database sees.
  */
@@ -78,11 +79,20 @@ test('GET /approvals filters the project, pending_approval, unapproved, unresolv
   expect(rendered()).toEqual([PENDING_APPROVAL]);
 });
 
-test('GET /approvals/needs-input sends the same pending-approval filter, then the open question and permission filters', async () => {
+// A colleague access ask always carries an expiry (`expires_at` is NOT NULL).
+const C = '"kortix"."session_colleague_access"';
+const OPEN_COLLEAGUE_ACCESS: QueryWithTypings = {
+  sql: `(${C}."project_id" = $1 and ${C}."decided_at" is null and ${C}."expires_at" > NOW())`,
+  params: [PROJECT_ID],
+  typings: ['uuid'],
+};
+
+test('GET /approvals/needs-input sends the same pending-approval filter, then the open question, permission and colleague access filters', async () => {
   expect((await projectsApp.request(`/${PROJECT_ID}/approvals/needs-input`)).status).toBe(200);
   expect(rendered()).toEqual([
     PENDING_APPROVAL,
     openAsk('session_pending_questions', 'answered_at'),
     openAsk('session_pending_permissions', 'decided_at'),
+    OPEN_COLLEAGUE_ACCESS,
   ]);
 });

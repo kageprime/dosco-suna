@@ -28,6 +28,12 @@ export interface MapDocumentInput {
   labels: { directions: string; website: string; call: string };
   /** false: a still picture for the transcript (no pan, zoom, controls, or popups); the full-screen map is interactive. */
   interactive?: boolean;
+  /**
+   * The full-screen map's native chrome over the page, in pt: `top` under the Back and Close buttons, `bottom` over
+   * the place panel. The camera frames the places inside the uncovered area (MapLibre `setPadding`), and the zoom
+   * buttons and the attribution move clear of it. `window.kxInset(top, bottom)` updates it after the page loads.
+   */
+  chrome?: { top: number; bottom: number };
 }
 
 /** Only a figure goes in a pin (a rating, a price); a word ("Luxury") does not, as web's `pinValue`. */
@@ -65,10 +71,14 @@ export function mapDocument(input: MapDocumentInput): string {
     route: route.length > 1 ? route : [],
     zoom: input.zoom ?? null,
     routeColor: input.routeColor,
+    chrome: input.chrome ? { top: Math.round(input.chrome.top), bottom: Math.round(input.chrome.bottom) } : null,
   });
+  const top = Math.round(input.chrome?.top ?? 0);
+  const bottom = Math.round(input.chrome?.bottom ?? 0);
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <style>${input.css.replace(/<\/style/gi, '<\\/style')}
 html,body,#map{margin:0;height:100%;background:${input.background}}
+:root{--kx-top:${top}px;--kx-bottom:${bottom}px}.maplibregl-ctrl-top-right{top:var(--kx-top)}.maplibregl-ctrl-bottom-left,.maplibregl-ctrl-bottom-right{bottom:var(--kx-bottom)}
 .maplibregl-popup-content{background:${input.pin.surface};color:${input.pin.ink};border-radius:12px;padding:12px;box-shadow:0 4px 16px ${input.pin.shadow}}
 .maplibregl-popup-anchor-bottom .maplibregl-popup-tip{border-top-color:${input.pin.surface}}.maplibregl-popup-anchor-top .maplibregl-popup-tip{border-bottom-color:${input.pin.surface}}
 .maplibregl-popup-close-button{color:${input.pin.ink};font-size:18px;padding:0 6px}
@@ -88,9 +98,11 @@ html,body,#map{margin:0;height:100%;background:${input.background}}
   var d = ${data};
   // The camera is set at construction, so the page never shows the whole world first.
   var points = d.markers.map(function (m) { return m.lngLat; }).concat(d.route);
+  var bounds = null;
   var camera = { center: points[0] || [0, 0], zoom: d.zoom || (points.length ? 14 : 1) };
+  var single = { center: camera.center, zoom: camera.zoom };
   if (points.length > 1) {
-    var bounds = new maplibregl.LngLatBounds();
+    bounds = new maplibregl.LngLatBounds();
     points.forEach(function (p) { bounds.extend(p); });
     camera = { bounds: bounds, fitBoundsOptions: { padding: 48, maxZoom: d.zoom || 16 } };
   }
@@ -118,6 +130,44 @@ html,body,#map{margin:0;height:100%;background:${input.background}}
   map.on('style.load', function () { styled = true; });
   map.on('error', function () { if (!styled) send({ type: 'map', state: 'error' }); });
   if (d.interactive) map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+  // The full-screen map: the overview frame, a selected place, and the native chrome (kxInset, kxOverview, kxSelect).
+  var popups = [];
+  var selected = null;
+  var moved = false;
+  function overview(animate) {
+    var duration = animate ? 400 : 0;
+    if (bounds) map.fitBounds(bounds, { padding: 48, maxZoom: d.zoom || 16, duration: duration });
+    else map.easeTo({ center: single.center, zoom: single.zoom, duration: duration });
+  }
+  if (d.chrome) {
+    map.setPadding({ top: d.chrome.top, bottom: d.chrome.bottom, left: 0, right: 0 });
+    overview(false);
+  }
+  // Only a gesture counts: a camera move the page makes itself does not stop a later reframe.
+  map.on('movestart', function (e) { if (e && e.originalEvent) moved = true; });
+  window.kxInset = function (top, bottom) {
+    var root = document.documentElement;
+    if (root && root.style) {
+      root.style.setProperty('--kx-top', top + 'px');
+      root.style.setProperty('--kx-bottom', bottom + 'px');
+    }
+    map.setPadding({ top: top, bottom: bottom, left: 0, right: 0 });
+    if (!moved && selected === null) overview(false);
+  };
+  window.kxOverview = function () {
+    popups.forEach(function (p) { if (p.isOpen()) p.remove(); });
+    selected = null;
+    moved = false;
+    overview(true);
+  };
+  window.kxSelect = function (index) {
+    var popup = popups[index];
+    var m = d.markers[index];
+    if (!popup || !m) return;
+    popups.forEach(function (p, i) { if (i !== index && p.isOpen()) p.remove(); });
+    if (!popup.isOpen()) markers[index].togglePopup();
+    map.easeTo({ center: m.lngLat, zoom: Math.max(map.getZoom(), 14), duration: 400 });
+  };
   function el(tag, className, text) {
     var node = document.createElement(tag);
     if (className) node.className = className;
@@ -153,6 +203,7 @@ html,body,#map{margin:0;height:100%;background:${input.background}}
     pop.appendChild(acts);
     return pop;
   }
+  var markers = [];
   d.markers.forEach(function (m, index) {
     // Web's MapPin: the figure in a bubble (or a dot without one), the place name under it.
     var pin = document.createElement('div');
@@ -166,8 +217,19 @@ html,body,#map{margin:0;height:100%;background:${input.background}}
     name.textContent = m.label;
     pin.appendChild(name);
     var marker = new maplibregl.Marker({ element: pin, anchor: 'top' }).setLngLat(m.lngLat);
-    if (d.interactive) marker.setPopup(new maplibregl.Popup({ offset: 24, maxWidth: 'none' }).setDOMContent(card(m, index)));
-    marker.addTo(map);
+    if (d.interactive) {
+      var popup = new maplibregl.Popup({ offset: 24, maxWidth: 'none' }).setDOMContent(card(m, index));
+      // Native follows the open popup: Back closes it before it closes the map.
+      popup.on('open', function () { selected = index; send({ type: 'select', index: index }); });
+      popup.on('close', function () {
+        if (selected !== index) return;
+        selected = null;
+        send({ type: 'select', index: null });
+      });
+      popups[index] = popup;
+      marker.setPopup(popup);
+    }
+    markers.push(marker.addTo(map));
   });
   map.on('load', function () {
     send({ type: 'map', state: 'load' });

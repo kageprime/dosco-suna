@@ -50,19 +50,21 @@ test('overlays portal to a themed host in body; a nested scope host carries both
   globals.document = win.document;
   globals.navigator = win.navigator;
   globals.getComputedStyle = win.getComputedStyle.bind(win);
-  // Radix picks its layout-effect hook when the module loads, so it loads after the DOM globals.
+  for (const name of ['Element', 'HTMLElement', 'Node', 'ShadowRoot', 'DocumentFragment']) {
+    globals[name] = (win as unknown as Record<string, unknown>)[name];
+  }
+  // The overlay library picks its layout-effect hook when the module loads, so it loads after the DOM globals.
   const { createRoot } = await import('react-dom/client');
-  const DialogPrimitive = await import('@radix-ui/react-dialog');
-  const { DialogPortal } = await import('../primitives/dialog');
+  const { Dialog, DialogPortal } = await import('../primitives/dialog');
   const container = win.document.createElement('div');
   win.document.body.appendChild(container);
   const root = createRoot(container as never);
   const dialog = (testId: string) => (
-    <DialogPrimitive.Root open modal={false}>
+    <Dialog open modal={false}>
       <DialogPortal>
         <div data-testid={testId} />
       </DialogPortal>
-    </DialogPrimitive.Root>
+    </Dialog>
   );
   await act(async () => {
     root.render(
@@ -89,7 +91,8 @@ test('overlays portal to a themed host in body; a nested scope host carries both
   expect(nestedHost?.classList.contains('dark')).toBe(true);
   const outside = win.document.querySelector('[data-testid="outside"]');
   expect(outside?.closest('[data-kortix-theme]')).toBeNull();
-  expect(outside?.parentElement).toBe(win.document.body);
+  expect(outside?.closest('[data-kortix-portal-host]')).toBeNull();
+  expect(outside?.parentElement?.parentElement).toBe(win.document.body);
   expect(outer!.querySelector('[data-kortix-portal-host]')).toBeNull();
   act(() => root.unmount());
   expect(win.document.querySelector('[data-kortix-portal-host]')).toBeNull();

@@ -20,7 +20,7 @@ import { companyIdFromSlug, marketplaceSourceHref } from '@/lib/marketplace-slug
 import { cn, useDebounce } from '@kortix/ui';
 import { AddMarketplaceModal } from './add-marketplace-modal';
 import { MARKETPLACE_GRID_COLUMNS } from './marketplace-grid';
-import { typeMeta } from './marketplace-meta';
+import { typeSectionLabel } from './marketplace-meta';
 import { rememberMarketplaceListHref } from './marketplace-return';
 import { MarketplaceShell, type MarketplaceCrumb } from './marketplace-shell';
 
@@ -32,10 +32,6 @@ const ALL_SOURCES = 'all';
 
 function sectionId(type: string): string {
   return `type-${type.replace('registry:', '')}`;
-}
-
-function pluralize(label: string): string {
-  return label.endsWith('s') ? label : `${label}s`;
 }
 
 function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
@@ -281,7 +277,7 @@ export function MarketplaceExplore({
         const items = byType.get(type)!;
         return {
           type,
-          label: pluralize(typeMeta(type, tI18nComplete).label),
+          label: typeSectionLabel(type, tI18nComplete),
           items,
         };
       });

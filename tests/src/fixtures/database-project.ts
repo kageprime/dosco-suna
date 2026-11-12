@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Env } from "../core/env";
 import type { CreatedProject } from "../core/types";
+import { lockProjectFirst } from './token-binding-lock';
 
 interface ProjectDb {
   query(text: string, values?: unknown[]): Promise<unknown>;
@@ -215,6 +216,27 @@ export async function setDatabaseProjectFeature(
         [projectId, feature, enabled],
       );
   
+  });
+}
+
+/**
+ * Record a provider check result on one saved provider key, as
+ * `POST /v1/accounts/:accountId/secret-resources/:secretId/verify` does after
+ * the provider answers. The local profile has no provider to ask.
+ */
+export async function setDatabaseKeyVerification(
+  env: Env,
+  secretId: string,
+  status: "verified" | "invalid" | "unknown",
+  open: OpenProjectDb = openProjectDb,
+): Promise<void> {
+  return withProjectDb(env, "record a key check for", open, async (client) => {
+    await client.query(
+      `UPDATE kortix.account_secret_resources
+       SET verify_status = $2, verify_message = 'set by the test', verified_at = now()
+       WHERE secret_id = $1::uuid`,
+      [secretId, status],
+    );
   });
 }
 
@@ -532,9 +554,9 @@ export async function bindDatabaseSessionCredential(
         [input.sessionId, input.accountId, input.projectId],
       );
       await client.query(
-        `UPDATE kortix.account_tokens
+        lockProjectFirst(`UPDATE kortix.account_tokens
          SET session_id = $2
-         WHERE token_id = $1::uuid`,
+         WHERE token_id = $1::uuid`),
         [input.tokenId, input.sessionId],
       );
       await client.query(

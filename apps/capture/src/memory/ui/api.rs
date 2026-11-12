@@ -901,6 +901,15 @@ impl Ctx {
     fn settings_set(&self, body: &[u8]) -> Result<Response> {
         let patch: Value =
             serde_json::from_slice(body).map_err(|e| anyhow!("invalid JSON: {e}"))?;
+        if let Some(key) = patch
+            .as_object()
+            .and_then(|o| o.keys().find(|k| Settings::managed_key(k)))
+        {
+            return Ok(Response::error(
+                400,
+                &format!("{key} is managed by Kortix Capture and cannot be set"),
+            ));
+        }
         let mut cur = serde_json::to_value(Settings::load(&self.paths))?;
         if let Some(name) = patch
             .get("resolution")
@@ -1736,62 +1745,26 @@ mod tests {
     }
 
     #[test]
-    fn settings_resolution_presets_round_trip() {
+    fn the_window_shows_but_never_sets_what_kortix_capture_manages() {
         let (_d, ctx) = library();
         let g = get(&ctx, "/api/settings");
         assert_eq!(g["resolution"], "1440p");
-        assert_eq!(g["resolution_presets"].as_array().unwrap().len(), 4);
-        assert_eq!(
-            g["resolution_presets"][1],
-            json!({"name": "1080p", "max_width": 1920, "max_height": 1080})
-        );
-        let r = ctx.handle("POST", "/api/settings", None, br#"{"resolution": "1080p"}"#);
+        for body in [
+            r#"{"resolution": "1080p"}"#,
+            r#"{"max_width": 1600, "max_height": 900}"#,
+            r#"{"interval_ms": 500000}"#,
+            r#"{"capture_on_change": false}"#,
+        ] {
+            let r = ctx.handle("POST", "/api/settings", None, body.as_bytes());
+            assert_eq!(r.status, 400, "{body}");
+        }
+        let s = Settings::load(&ctx.paths);
+        assert_eq!((s.max_width, s.max_height, s.interval_ms), (2560, 1440, 2000));
+        // The person's own settings still save.
+        let r = ctx.handle("POST", "/api/settings", None, br#"{"storage": {"reserve_mb": 0}}"#);
         assert_eq!(r.status, 200);
-        let s = Settings::load(&ctx.paths);
-        assert_eq!((s.max_width, s.max_height), (1920, 1080));
-        assert_eq!(get(&ctx, "/api/settings")["resolution"], "1080p");
-        assert!(
-            !s.extra.contains_key("resolution"),
-            "the preset name is not stored"
-        );
-        // Custom values keep working, and win over a preset in the same request.
-        ctx.handle(
-            "POST",
-            "/api/settings",
-            None,
-            br#"{"max_width": 1600, "max_height": 900}"#,
-        );
-        assert_eq!(get(&ctx, "/api/settings")["resolution"], "custom");
-        ctx.handle(
-            "POST",
-            "/api/settings",
-            None,
-            br#"{"resolution": "4k", "max_width": 3000}"#,
-        );
-        let s = Settings::load(&ctx.paths);
-        assert_eq!((s.max_width, s.max_height), (3000, 2160));
-        assert_eq!(
-            ctx.handle("POST", "/api/settings", None, br#"{"resolution": "8k"}"#)
-                .status,
-            500
-        );
-        assert_eq!(
-            Settings::load(&ctx.paths).max_width,
-            3000,
-            "a bad name changes nothing"
-        );
-        // The new storage and capture settings come through the same merge.
-        ctx.handle(
-            "POST",
-            "/api/settings",
-            None,
-            br#"{"capture_on_change": false, "storage": {"reserve_mb": 0}}"#,
-        );
-        let s = Settings::load(&ctx.paths);
-        assert!(!s.capture_on_change);
-        assert_eq!(s.storage.reserve_mb, 0);
+        assert_eq!(Settings::load(&ctx.paths).storage.reserve_mb, 0);
     }
-
     #[test]
     fn privacy_setting_round_trips_through_the_ui_api() {
         let (_d, ctx) = library();
@@ -1908,13 +1881,9 @@ mod tests {
         "storage.cap_action",
         "storage.retention_days",
         "storage.retention_action",
-        "interval_ms",
-        "max_width",
-        "max_height",
-        "ocr_level",
     ];
-    /// Written through a helper under another name (the resolution select, the keep choice).
-    const WINDOW_ONLY_VIA_HELPER: &[&str] = &["max_width", "max_height"];
+    /// Written through a helper under another name.
+    const WINDOW_ONLY_VIA_HELPER: &[&str] = &[];
 
     fn leaves(v: &Value, at: &str, out: &mut Vec<String>) {
         match v.as_object() {
@@ -1957,6 +1926,11 @@ mod tests {
                 patch = json!({ part: patch });
             }
             let (status, body) = post(&ctx, "/api/settings", patch);
+            if Settings::managed_key(path.split('.').next().unwrap()) {
+                // Kortix Capture manages it: refused, and the managed value stays.
+                assert_eq!(status, 400, "{path}: {body}");
+                continue;
+            }
             assert_eq!(status, 200, "{path}: {body}");
             let mut got = &get(&ctx, "/api/settings")["settings"];
             for part in path.split('.') {

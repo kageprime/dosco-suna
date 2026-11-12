@@ -60,6 +60,7 @@ import { currentInstanceId } from '../../projects/instance-scope';
 import { isOpencodePort } from '../../shared/opencode-ports';
 import { logger } from '../../lib/logger';
 import { platinumJson, platinumJsonResponse, type PlatinumHttpError } from '../../shared/platinum';
+import { isPlatinumNotRunningVerdict } from '../../shared/platinum-not-running';
 import { sandboxFrontendBaseUrl } from '../sandbox-frontend-url';
 import { serviceKeyForExternalId } from '../service-key';
 import type {
@@ -1402,6 +1403,18 @@ export class PlatinumProvider implements SandboxProvider {
       return 'unknown'; // provisioning / starting / resuming / migrating — transitional
     } catch (err) {
       if (isProviderNotFound(err)) return 'removed';
+      // The control plane's own not-running verdict (a GET answered 409
+      // sandbox_not_running — the same verdict its expose/exec give a box
+      // they refuse to serve) IS the stopped state, not a transitional one:
+      // a box this verdict describes never reaches `running` without a
+      // /start. Reading it as `unknown` made every wake a silent no-op while
+      // open session views polled the dead box through the preview proxy
+      // (502 bursts for as long as the view stayed open). A box that is
+      // STARTING answers 200 with a state body instead, so this branch
+      // cannot misread a boot. Matched by the pinned class NAME, not an
+      // instanceof: the expose-not-running tests establish the name as the
+      // contract, and a name survives every test's module mock.
+      if (isPlatinumNotRunningVerdict(err)) return 'stopped';
       return 'unknown';
     }
   }
@@ -1593,7 +1606,17 @@ export class PlatinumProvider implements SandboxProvider {
     return { url: ingress.url, headers };
   }
 
-  async ensureRunning(externalId: string): Promise<void> {
+  async ensureRunning(externalId: string, wakeReason?: unknown): Promise<void> {
+    // The freshest verdict wins: the caller may have just watched the control
+    // plane refuse an expose/exec with sandbox_not_running AFTER this box's
+    // GET last answered `running` — the control plane can contradict itself,
+    // and the verdict is the authoritative half. Start without re-trusting
+    // the GET.
+    if (isPlatinumNotRunningVerdict(wakeReason)) {
+      logger.warn(`[PLATINUM] Sandbox ${externalId} is stopped (control-plane verdict), waking up...`);
+      await this.start(externalId);
+      return;
+    }
     const status = await this.getStatus(externalId);
     if (status === 'running') return;
     // Only a stopped sandbox can be started; poking a transitional one would

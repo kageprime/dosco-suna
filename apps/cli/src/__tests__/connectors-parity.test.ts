@@ -750,7 +750,7 @@ describe('kortix connectors — capability-page parity', () => {
     expect(bad.code).not.toBe(0);
   });
 
-  test('add of a server the catalog lacks, refused for an agent, hands back the setup link', async () => {
+  test('an agent adding a server nobody approved yet gets the approval link, never a refusal', async () => {
     const config = writeConfig(startServer());
     const r = await runCli(['connectors', 'add', 'acme', '--provider', 'mcp', '--url', 'https://mcp.acme.test/mcp', '--apply', '--project', PROJECT], config);
     expect(r.code).toBe(1);

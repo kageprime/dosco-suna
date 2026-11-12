@@ -15,6 +15,8 @@
 // its own `kortix_sa_` bearer; the list shows that bearer as a bot key too.
 import { createRoute, z } from '@hono/zod-openapi';
 import type { Context } from 'hono';
+
+import type { AppEnv } from '../../types';
 import { isMyKortixAgentName } from '@kortix/shared';
 import { json, errors, auth } from '../../openapi';
 import { ACCOUNT_ACTIONS, assertAuthorized, authorize } from '../../iam';
@@ -56,15 +58,10 @@ import {
   actsAsFullIdentity,
   isPersonCaller,
   keyWire,
-  mintTokenFromBody,
+  mintAccountToken,
   pathAccountOf,
   pathTokenBinding,
 } from './tokens';
-
-export type KeyPrincipalKind = 'me' | 'agent' | 'bot';
-
-/** The OpenAPI router's handler type, as in `workspaces/routes.ts`: the handlers take a plain `Context`. */
-type AnyHandler = any;
 
 const ActsAsSchema = z
   .object({
@@ -76,7 +73,7 @@ const ActsAsSchema = z
   })
   .openapi('WorkspaceKeyActsAs');
 
-export const WorkspaceKeySchema = z
+const WorkspaceKeySchema = z
   .object({
     key_id: z.string(),
     name: z.string(),
@@ -115,29 +112,29 @@ type WorkspaceKeyWire = z.infer<typeof WorkspaceKeySchema>;
 
 const iso = (d: Date | null | undefined) => d?.toISOString() ?? null;
 
-/** The workspace in the path and its account, or the refusal to send. */
+/** The workspace in the path and its account, or the refusal to answer with:
+ *  a per-status shape, so each call site `c.json`s a declared response of its
+ *  route. */
+type WorkspaceRefusal =
+  | { ok: false; status: 409; body: { error: string; code: string } }
+  | { ok: false; status: 404; body: { error: string } }
+  | { ok: false; status: 403; body: { error: string } };
 async function keysWorkspace(
-  c: Context,
-): Promise<{ ok: true; workspaceId: string; accountId: string } | { ok: false; res: Response }> {
-  const userId = c.get('userId') as string;
+  c: Context<AppEnv>,
+): Promise<{ ok: true; workspaceId: string; accountId: string } | WorkspaceRefusal> {
+  const userId = c.get('userId');
   const binding = await pathTokenBinding(c);
   if (binding.kind === 'ambiguous') {
-    return {
-      ok: false,
-      res: c.json(
-        { error: 'This account holds several workspaces. Name one: use /v1/workspaces/<workspace id>/keys.', code: WORKSPACE_AMBIGUOUS_CODE },
-        409,
-      ),
-    };
+    return { ok: false, status: 409, body: { error: 'This account holds several workspaces. Name one: use /v1/workspaces/<workspace id>/keys.', code: WORKSPACE_AMBIGUOUS_CODE } };
   }
-  if (binding.kind !== 'workspace') return { ok: false, res: c.json({ error: 'Workspace not found' }, 404) };
+  if (binding.kind !== 'workspace') return { ok: false, status: 404, body: { error: 'Workspace not found' } };
   try {
     const accountId = await resolveAccountForUser(userId, pathAccountOf(c));
     return { ok: true, workspaceId: binding.projectId, accountId };
   } catch (err) {
     rethrowDatabaseError(err);
     if (isNoWorkspaceError(err)) throw err;
-    return { ok: false, res: c.json({ error: (err as Error).message }, 403) };
+    return { ok: false, status: 403, body: { error: (err as Error).message } };
   }
 }
 
@@ -157,12 +154,14 @@ function tokenRow(
   actsAs: WorkspaceKeyWire['acts_as'],
   createdBy: string | null,
   emails: Map<string, string | null>,
+  /** An account-token key (`kortix_pat_`), or an older bot's own bearer. */
+  credential: WorkspaceKeyWire['credential'] = 'token',
 ): WorkspaceKeyWire {
   return {
     key_id: t.tokenId,
     name: t.name,
     acts_as: actsAs,
-    credential: 'token',
+    credential,
     public_key: t.publicKey,
     status: t.status,
     expires_at: iso(t.expiresAt),
@@ -176,7 +175,7 @@ function tokenRow(
 }
 
 /** The agents a key may act as: enabled kortix.yaml agents with a grant, never My Kortix. Empty when the manifest cannot be read. */
-async function keyableAgents(c: Context, workspaceId: string): Promise<Map<string, ReturnType<typeof grantsByAgent> extends Map<string, infer G> ? G : never>> {
+async function keyableAgents(c: Context<AppEnv>, workspaceId: string): Promise<Map<string, ReturnType<typeof grantsByAgent> extends Map<string, infer G> ? G : never>> {
   const loaded = await loadProjectForUser(c, workspaceId, 'read');
   if (!loaded?.row) return new Map();
   const agents = await loadProjectAgents(loaded.row, { forceRefresh: 'tip-proof', rethrowReadErrors: true });
@@ -191,13 +190,16 @@ async function keyableAgents(c: Context, workspaceId: string): Promise<Map<strin
  * bearer. A person's personal keys (bound to no workspace) are listed in
  * Preferences › Personal keys (`GET /v1/me/tokens`).
  */
-async function listKeys(c: Context) {
+async function listKeys(c: Context<AppEnv>) {
   if (c.get('authType') === 'service_account') {
     return c.json({ error: 'A service account cannot list keys', code: 'not_a_member' }, 403);
   }
-  const userId = c.get('userId') as string;
+  const userId = c.get('userId');
   const ws = await keysWorkspace(c);
-  if (!ws.ok) return ws.res;
+  if (!ws.ok) {
+    const { status, body } = ws;
+    return status === 403 ? c.json(body, 403) : status === 409 ? c.json(body, 409) : c.json(body, 404);
+  }
   const { workspaceId, accountId } = ws;
   const actor = await actorOf(c, accountId);
   await assertAuthorized(actor, ACCOUNT_ACTIONS.TOKEN_READ);
@@ -237,21 +239,25 @@ async function listKeys(c: Context) {
     ...bots
       .filter((b) => b.bearerIssued)
       .map(
-        (b): WorkspaceKeyWire => ({
-          key_id: b.serviceAccountId,
-          name: b.name,
-          acts_as: { type: 'bot', name: b.name, service_account_id: b.serviceAccountId },
-          credential: 'service_account_bearer',
-          public_key: b.publicPrefix,
-          status: b.status === 'active' ? 'active' : 'revoked',
-          expires_at: iso(b.expiresAt),
-          last_used_at: iso(b.lastUsedAt),
-          created_at: b.createdAt.toISOString(),
-          revoked_at: iso(b.disabledAt),
-          created_by: b.createdBy,
-          created_by_email: b.createdBy ? (emails.get(b.createdBy) ?? null) : null,
-          ...keyWire({ scopes: null, expiryRenewDays: null }),
-        }),
+        (b): WorkspaceKeyWire =>
+          tokenRow(
+            {
+              tokenId: b.serviceAccountId,
+              name: b.name,
+              publicKey: b.publicPrefix,
+              status: b.status === 'active' ? 'active' : 'revoked',
+              expiresAt: b.expiresAt,
+              lastUsedAt: b.lastUsedAt,
+              createdAt: b.createdAt,
+              revokedAt: b.disabledAt,
+              scopes: null,
+              expiryRenewDays: null,
+            },
+            { type: 'bot', name: b.name, service_account_id: b.serviceAccountId },
+            b.createdBy,
+            emails,
+            'service_account_bearer',
+          ),
       ),
   ].sort((a, b) => b.created_at.localeCompare(a.created_at));
 
@@ -264,16 +270,19 @@ async function listKeys(c: Context) {
         has_role: await loadServiceAccountActivation(b.serviceAccountId, accountId),
       })),
   );
-  return c.json({
-    keys,
-    can_manage_principals: canManage,
-    agents: agents.map((name) => ({ name })),
-    bots: botChoices,
-  });
+  return c.json(
+    {
+      keys,
+      can_manage_principals: canManage,
+      agents: agents.map((name) => ({ name })),
+      bots: botChoices,
+    },
+    200,
+  );
 }
 
 /** `acts_as: agent | bot`: a key that authorizes as a service account. */
-async function mintServiceAccountKey(c: Context, body: Record<string, unknown>, kind: 'agent' | 'bot') {
+async function mintServiceAccountKey(c: Context<AppEnv>, body: Record<string, unknown>, kind: 'agent' | 'bot') {
   if (c.get('authType') === 'oauth') {
     return c.json({ error: 'Connected apps cannot mint keys.' }, 403);
   }
@@ -285,12 +294,15 @@ async function mintServiceAccountKey(c: Context, body: Record<string, unknown>, 
       403,
     );
   }
-  const userId = c.get('userId') as string;
+  const userId = c.get('userId');
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   if (!name) return c.json({ error: 'name is required' }, 400);
   if (name.length > 255) return c.json({ error: 'name too long (max 255 chars)' }, 400);
   const ws = await keysWorkspace(c);
-  if (!ws.ok) return ws.res;
+  if (!ws.ok) {
+    const { status, body } = ws;
+    return status === 403 ? c.json(body, 403) : status === 409 ? c.json(body, 409) : c.json(body, 404);
+  }
   const { workspaceId, accountId } = ws;
   const actor = await actorOf(c, accountId);
   await assertAuthorized(actor, ACCOUNT_ACTIONS.TOKEN_CREATE);
@@ -417,41 +429,37 @@ async function mintServiceAccountKey(c: Context, body: Record<string, unknown>, 
   );
 }
 
-async function mintKey(c: Context) {
+async function mintKey(c: Context<AppEnv>) {
   const body = await readJsonObject(c);
   const raw = body.acts_as ?? 'me';
   if (raw !== 'me' && raw !== 'agent' && raw !== 'bot') {
     return c.json({ error: 'acts_as must be "me", "agent" or "bot"', code: 'invalid_acts_as' }, 400);
   }
   if (raw !== 'me') return mintServiceAccountKey(c, body, raw);
-  // `me`: exactly the workspace-key mint of `POST …/tokens`, answered as a key row.
+  // `me`: exactly the workspace-key mint of `POST …/tokens`, answered as a key
+  // row rendered off the inserted token — not off a re-parse of the mint reply.
   const ws = await keysWorkspace(c);
-  if (!ws.ok) return ws.res;
-  const res = await mintTokenFromBody(c, { ...body, project_id: undefined });
-  if (res.status !== 201) return res;
-  const t = (await res.json()) as Record<string, unknown>;
-  const userId = c.get('userId') as string;
+  if (!ws.ok) {
+    const { status, body } = ws;
+    return status === 403 ? c.json(body, 403) : status === 409 ? c.json(body, 409) : c.json(body, 404);
+  }
+  const mint = await mintAccountToken(c, { ...body, project_id: undefined });
+  if (!mint.ok) {
+    const { status, body: refusal } = mint;
+    return status === 400 ? c.json(refusal, 400) : status === 403 ? c.json(refusal, 403) : c.json(refusal, 409);
+  }
+  const userId = c.get('userId');
   const emails = await lookupEmailsByUserIds([userId]);
   return c.json(
     {
-      key_id: String(t.token_id),
-      name: String(t.name),
-      acts_as: { type: 'me', name: null, service_account_id: null },
-      credential: 'token',
-      public_key: String(t.public_key),
-      status: String(t.status),
-      expires_at: (t.expires_at as string | null) ?? null,
-      last_used_at: null,
-      created_at: String(t.created_at),
-      revoked_at: null,
-      created_by: userId,
-      created_by_email: emails.get(userId) ?? null,
-      scope: t.scope as 'full' | 'read' | 'custom',
-      permissions: (t.permissions as string[] | null) ?? null,
-      workspace_permissions: (t.workspace_permissions as string[] | null) ?? null,
-      expiry_renews: t.expiry_renews === true,
-      secret_key: String(t.secret_key),
-    } satisfies WorkspaceKeyWire,
+      ...tokenRow(
+        { ...mint.token, lastUsedAt: null, revokedAt: null, expiryRenewDays: mint.expiryRenewDays },
+        { type: 'me', name: null, service_account_id: null },
+        userId,
+        emails,
+      ),
+      secret_key: mint.token.secretKey,
+    },
     201,
   );
 }
@@ -462,26 +470,29 @@ async function mintKey(c: Context) {
  * need `token.revoke`. `?delete_revoked=true` removes a revoked key of the
  * caller's own, or a disabled bot's bearer.
  */
-async function revokeKey(c: Context) {
-  const userId = c.get('userId') as string;
+async function revokeKey(c: Context<AppEnv>) {
+  const userId = c.get('userId');
   const keyId = c.req.param('keyId') ?? '';
   if (!isUuid(keyId)) return c.json({ error: `"${keyId}" is not a valid key id (a key id is a UUID)` }, 400);
   const ws = await keysWorkspace(c);
-  if (!ws.ok) return ws.res;
+  if (!ws.ok) {
+    const { status, body } = ws;
+    return status === 403 ? c.json(body, 403) : status === 409 ? c.json(body, 409) : c.json(body, 404);
+  }
   const { workspaceId, accountId } = ws;
   const actor = await actorOf(c, accountId);
   const deleteRevoked = c.req.query('delete_revoked') === 'true';
 
   const owner = await getAccountTokenOwner(keyId, accountId);
-  if (owner?.personal && owner.userId === userId && actsAsFullIdentity(c.get('authType') as string | undefined, actor)) {
+  if (owner?.personal && owner.userId === userId && actsAsFullIdentity(c.get('authType'), actor)) {
     await assertAuthorized(actor, ACCOUNT_ACTIONS.TOKEN_PERSONAL_REVOKE);
     if (deleteRevoked) {
       return (await deleteRevokedPersonalAccountToken(keyId, accountId))
-        ? c.json({ ok: true, deleted: true })
+        ? c.json({ ok: true, deleted: true }, 200)
         : c.json({ error: 'revoked key not found' }, 404);
     }
     return (await revokeAccountToken(keyId, accountId, workspaceId))
-      ? c.json({ ok: true })
+      ? c.json({ ok: true }, 200)
       : c.json({ error: 'key not found or already revoked' }, 404);
   }
 
@@ -490,7 +501,7 @@ async function revokeKey(c: Context) {
   await assertAuthorized(actor, ACCOUNT_ACTIONS.TOKEN_REVOKE);
   if (await getServiceAccountKey(keyId, accountId, workspaceId)) {
     return (await revokeAccountToken(keyId, accountId, workspaceId))
-      ? c.json({ ok: true })
+      ? c.json({ ok: true }, 200)
       : c.json({ error: 'key not found or already revoked' }, 404);
   }
   const bot = await getServiceAccount(accountId, keyId);
@@ -499,7 +510,7 @@ async function revokeKey(c: Context) {
       if (bot.status === 'active') return c.json({ error: 'Revoke the bot bearer before deleting it.', code: 'key_active' }, 409);
       await deleteServiceAccount(accountId, keyId);
       invalidateIamCacheForUser(keyId);
-      return c.json({ ok: true, deleted: true });
+      return c.json({ ok: true, deleted: true }, 200);
     }
     const ok = await disableServiceAccount({ accountId, serviceAccountId: keyId, disabledBy: userId });
     if (!ok) return c.json({ error: 'key not found or already revoked' }, 404);
@@ -512,77 +523,75 @@ async function revokeKey(c: Context) {
       before: { name: bot.name, status: bot.status },
       after: { name: bot.name, status: 'disabled' },
     });
-    return c.json({ ok: true });
+    return c.json({ ok: true }, 200);
   }
   return c.json({ error: 'key not found' }, 404);
 }
 
-export function registerWorkspaceKeyRoutes(): void {
-  accountsRouter.openapi(
-    createRoute({
-      method: 'get',
-      path: '/{workspaceId}/keys',
-      tags: ['accounts'],
-      summary: 'List the API keys of a workspace: yours, and with token.create every agent and bot key',
-      ...auth,
-      request: { params: AccountIdParam },
-      responses: { 200: json(KeysListSchema, 'The keys and the principals a new key can act as'), ...errors(401, 403, 404, 409) },
-    }),
-    ((c: AnyHandler) => listKeys(c)) as AnyHandler,
-  );
+/** GET /{workspaceId}/keys — the list the keys page renders. */
+const keysListRoute = createRoute({
+  method: 'get',
+  path: '/{workspaceId}/keys',
+  tags: ['accounts'],
+  summary: 'List the API keys of a workspace: yours, and with token.create every agent and bot key',
+  ...auth,
+  request: { params: AccountIdParam },
+  responses: { 200: json(KeysListSchema, 'The keys and the principals a new key can act as'), ...errors(401, 403, 404, 409) },
+});
 
-  accountsRouter.openapi(
-    createRoute({
-      method: 'post',
-      path: '/{workspaceId}/keys',
-      tags: ['accounts'],
-      summary: 'Create an API key that acts as you, an agent, or a bot (secret returned once)',
-      ...auth,
-      request: {
-        params: AccountIdParam,
-        body: {
-          content: {
-            'application/json': {
-              schema: z.object({
-                name: z.string(),
-                acts_as: z.enum(['me', 'agent', 'bot']).optional().openapi({
-                  description:
-                    '`me` (default): you, in your current role; revoked when you leave. `agent`: the agent named in `agent` (its kortix.yaml grant ∩ its role); `token.create`. `bot`: the bot named in `bot` (its roles); a new name creates the bot with the Member role; `token.create`.',
-                }),
-                agent: z.string().optional(),
-                bot: z.string().optional(),
-                scopes: z.union([z.enum(['full', 'read']), z.array(z.string())]).optional().openapi({
-                  description: "`full` (default; the principal's whole rights), `read` (every `*.read` permission; GET requests only) or a list of permissions inside the principal's rights.",
-                }),
-                expires_at: z.string().nullable().optional().openapi({
-                  description: 'ISO-8601 expiry. Omitted: 90 days (or the workspace maximum, when shorter). At most 365 days by default. `null`: no expiry, only when the workspace key policy allows it.',
-                }),
-              }),
-            },
-          },
+/** POST /{workspaceId}/keys — the one mint route that asks who the key acts as */
+const keysMintRoute = createRoute({
+  method: 'post',
+  path: '/{workspaceId}/keys',
+  tags: ['accounts'],
+  summary: 'Create an API key that acts as you, an agent, or a bot (secret returned once)',
+  ...auth,
+  request: {
+    params: AccountIdParam,
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            name: z.string(),
+            acts_as: z.enum(['me', 'agent', 'bot']).optional().openapi({
+              description:
+                '`me` (default): you, in your current role; revoked when you leave. `agent`: the agent named in `agent` (its kortix.yaml grant ∩ its role); `token.create`. `bot`: the bot named in `bot` (its roles); a new name creates the bot with the Member role; `token.create`.',
+            }),
+            agent: z.string().optional(),
+            bot: z.string().optional(),
+            scopes: z.union([z.enum(['full', 'read']), z.array(z.string())]).optional().openapi({
+              description: "`full` (default; the principal's whole rights), `read` (every `*.read` permission; GET requests only) or a list of permissions inside the principal's rights.",
+            }),
+            expires_at: z.string().nullable().optional().openapi({
+              description: 'ISO-8601 expiry. Omitted: 90 days (or the workspace maximum, when shorter). At most 365 days by default. `null`: no expiry, only when the workspace key policy allows it.',
+            }),
+          }),
         },
       },
-      responses: { 201: json(WorkspaceKeySchema, 'The new key (secret_key returned once)'), ...errors(400, 401, 403, 404, 409) },
-    }),
-    ((c: AnyHandler) => mintKey(c)) as AnyHandler,
-  );
+    },
+  },
+  responses: { 201: json(WorkspaceKeySchema, 'The new key (secret_key returned once)'), ...errors(400, 401, 403, 404, 409) },
+});
 
-  accountsRouter.openapi(
-    createRoute({
-      method: 'delete',
-      path: '/{workspaceId}/keys/{keyId}',
-      tags: ['accounts'],
-      summary: 'Revoke an API key of a workspace, or delete a revoked one (delete_revoked=true)',
-      ...auth,
-      request: {
-        params: z.object({ workspaceId: z.string().uuid(), keyId: z.string() }),
-        query: z.object({ delete_revoked: z.enum(['true', 'false']) }).partial(),
-      },
-      responses: {
-        200: json(z.object({ ok: z.literal(true), deleted: z.boolean().optional() }), 'Revocation or deletion result'),
-        ...errors(400, 401, 403, 404, 409),
-      },
-    }),
-    ((c: AnyHandler) => revokeKey(c)) as AnyHandler,
-  );
+/** DELETE /{workspaceId}/keys/{keyId} — revoke a key of the workspace. */
+const keysRevokeRoute = createRoute({
+  method: 'delete',
+  path: '/{workspaceId}/keys/{keyId}',
+  tags: ['accounts'],
+  summary: 'Revoke an API key of a workspace, or delete a revoked one (delete_revoked=true)',
+  ...auth,
+  request: {
+    params: z.object({ workspaceId: z.string().uuid(), keyId: z.string() }),
+    query: z.object({ delete_revoked: z.enum(['true', 'false']) }).partial(),
+  },
+  responses: {
+    200: json(z.object({ ok: z.literal(true), deleted: z.boolean().optional() }), 'Revocation or deletion result'),
+    ...errors(400, 401, 403, 404, 409),
+  },
+});
+
+export function registerWorkspaceKeyRoutes(): void {
+  accountsRouter.openapi(keysListRoute, (c) => listKeys(c));
+  accountsRouter.openapi(keysMintRoute, (c) => mintKey(c));
+  accountsRouter.openapi(keysRevokeRoute, (c) => revokeKey(c));
 }

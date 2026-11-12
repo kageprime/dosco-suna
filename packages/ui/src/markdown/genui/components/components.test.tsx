@@ -364,10 +364,15 @@ s3 = Step("Airport One", "Check in and board.")`);
     expect(renderer.root.findAll((node) => node.type === 'span' && node.props.children === 'Valid passport')[0]!.props.className).toBe('text-foreground');
     const boxes = renderer.root.findAll((node) => node.type === 'button' && node.props.role === 'checkbox');
     expect(boxes).toHaveLength(3);
-    await act(async () => boxes[1]!.props.onClick({ preventDefault() {}, defaultPrevented: false }));
+    // The checkbox toggles through its hidden input, which the button's click
+    // reaches through the DOM. This renderer has no DOM, so change the input.
+    const inputs = renderer.root.findAll((node) => node.type === 'input' && node.props.type === 'checkbox');
+    const toggle = (checked: boolean) =>
+      inputs[1]!.props.onChange({ nativeEvent: new Event('change'), currentTarget: { checked }, target: { checked }, preventDefault() {} });
+    await act(async () => toggle(true));
     expect(text()).toContain('1/3 ready');
     expect(text()).toContain('line-through');
-    await act(async () => boxes[1]!.props.onClick({ preventDefault() {}, defaultPrevented: false }));
+    await act(async () => toggle(false));
     expect(text()).toContain('0/3 ready');
     expect(text()).not.toContain('line-through');
     await act(async () => renderer.unmount());

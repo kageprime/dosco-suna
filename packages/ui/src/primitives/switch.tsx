@@ -1,12 +1,22 @@
 'use client';
 
-import { spring } from '../lib/springs';
-import { cn } from '../lib/utils';
-import * as SwitchPrimitive from '@radix-ui/react-switch';
+import { Switch as SwitchPrimitive } from '@base-ui/react/switch';
 import { animate, m, useMotionValue } from 'motion/react';
 import { forwardRef, useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
+import { checkedState, stateRender, controlRender } from '../lib/base-ui-compat';
+import { spring } from '../lib/springs';
+import { cn } from '../lib/utils';
 
-type SwitchProps = Omit<ComponentProps<typeof SwitchPrimitive.Root>, 'asChild'> & {
+type SwitchProps = Omit<
+  ComponentProps<'button'>,
+  'value' | 'checked' | 'defaultChecked' | 'onChange' | 'ref'
+> & {
+  checked?: boolean;
+  defaultChecked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  name?: string;
+  value?: string;
+  required?: boolean;
   label?: string;
 };
 
@@ -60,7 +70,7 @@ const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
     }, [thumbX, motionX]);
 
     const handlePointerDown = useCallback(
-      (e: React.PointerEvent<HTMLButtonElement>) => {
+      (e: React.PointerEvent<HTMLElement>) => {
         if (disabled) return;
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         setPressed(true);
@@ -76,7 +86,7 @@ const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
     );
 
     const handlePointerMove = useCallback(
-      (e: React.PointerEvent<HTMLButtonElement>) => {
+      (e: React.PointerEvent<HTMLElement>) => {
         if (!pointerStart.current) return;
         const delta = e.clientX - pointerStart.current.clientX;
 
@@ -136,7 +146,7 @@ const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
           'group/switch relative h-[20px] w-[34px] shrink-0 touch-none rounded-full outline-none', // pointer comes from the global rule; disabled keeps the default cursor
           'transition-colors duration-80',
           'focus-visible:ring-ring focus-visible:ring-offset-background focus-visible:ring-1 focus-visible:ring-offset-2',
-          // Colours come from Radix's `data-state`, never from JS state.
+          // Colours come from `data-state` (checked / unchecked), never from JS state.
           // Off is translucent ink, so one class reads in both themes and on
           // any panel. Thumb vs track (WCAG 1.4.11, 3:1), worst of page /
           // card / muted: rest 3.13:1, hover 4.13:1. On: white thumb 3.23:1.
@@ -155,27 +165,34 @@ const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
           if (didDrag.current) return;
           onCheckedChange?.(nextChecked);
         }}
-        {...props}
+        // The root renders a <button> (`nativeButton`), so button props are right at runtime.
+        {...(props as unknown as ComponentProps<typeof SwitchPrimitive.Root>)}
+        nativeButton
+        render={controlRender(checkedState)}
       >
-        <SwitchPrimitive.Thumb asChild>
-          <m.span
-            className={cn(
-              'duration-fast absolute top-0 left-0 rounded-full shadow-sm transition-colors',
-              'data-[state=checked]:bg-white',
-              // A white thumb on the light off track would be ~1.25:1.
-              'data-[state=unchecked]:bg-foreground/45 group-hover/switch:data-[state=unchecked]:bg-foreground/55',
-            )}
-            initial={false}
-            // Motion value binding for drag, not a colour or layout style.
-            style={{ x: motionX }}
-            animate={{
-              y: thumbY,
-              width: thumbWidth,
-              height: thumbHeight,
-            }}
-            transition={hasMounted.current ? spring.moderate : { duration: 0 }}
-          />
-        </SwitchPrimitive.Thumb>
+        <SwitchPrimitive.Thumb
+          render={stateRender(
+            'span',
+            checkedState,
+            <m.span
+              className={cn(
+                'duration-fast absolute top-0 left-0 rounded-full shadow-sm transition-colors',
+                'data-[state=checked]:bg-white',
+                // A white thumb on the light off track would be ~1.25:1.
+                'data-[state=unchecked]:bg-foreground/45 group-hover/switch:data-[state=unchecked]:bg-foreground/55',
+              )}
+              initial={false}
+              // Motion value binding for drag, not a colour or layout style.
+              style={{ x: motionX }}
+              animate={{
+                y: thumbY,
+                width: thumbWidth,
+                height: thumbHeight,
+              }}
+              transition={hasMounted.current ? spring.moderate : { duration: 0 }}
+            />,
+          )}
+        />
       </SwitchPrimitive.Root>
     );
 

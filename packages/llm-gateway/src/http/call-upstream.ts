@@ -3,6 +3,11 @@ import type { UpstreamDescriptor } from '../domain';
 import { ClientAbortError, UpstreamHttpError, UpstreamMisconfiguredError } from '../errors';
 import type { AiSdkFetch } from '../transports/ai-sdk';
 import { resolveTransportKind } from '../transports/route-kind';
+import {
+  exposeGeminiThoughtSignaturesInResponse,
+  isGoogleOpenAiUpstream,
+  restoreGeminiThoughtSignatures,
+} from './gemini-thought-signatures';
 // The SHARED implementation. This module carried its own copy using
 // `value.replace(/\/+$/, '')`, which CodeQL flags as `js/polynomial-redos`
 // (high, alert #5907): on a long run of slashes that is not at the end, the
@@ -215,8 +220,13 @@ export async function callUpstream(
   const transportKind = resolveTransportKind(body, descriptor);
   if (transportKind === 'openai-compat' || transportKind === 'custom') {
     const streaming = body.stream === true;
-    const response = await directOpenAiRequest(body, descriptor, opts);
-    return streaming ? openDirectStream(response, descriptor.provider, { signal: clientSignal }) : response;
+    // Gemini thought signatures travel in `extra_content`, which pi drops
+    // (see gemini-thought-signatures.ts).
+    const google = isGoogleOpenAiUpstream(descriptor);
+    const sent = google ? restoreGeminiThoughtSignatures(body, descriptor.resolvedModel) : body;
+    const response = await directOpenAiRequest(sent, descriptor, opts);
+    const opened = streaming ? await openDirectStream(response, descriptor.provider, { signal: clientSignal }) : response;
+    return google ? exposeGeminiThoughtSignaturesInResponse(opened, streaming) : opened;
   }
 
   const fetchImpl: AiSdkFetch | undefined = opts.fetchImpl

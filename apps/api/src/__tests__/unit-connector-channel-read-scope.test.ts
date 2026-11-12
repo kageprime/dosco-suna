@@ -1,21 +1,18 @@
 /**
- * The gateway and the `/call` route apply the Slack/Teams read confinement
- * (connectors/channel-read-scope.ts) in the right order:
- *   - a read of another project's conversation is denied before the credential,
- *     the approval gate or the provider, and the denial is audited;
+ * The gateway and the `/call` route apply the Slack read and write gates
+ * (connectors/slack-visibility.ts, channel-write-scope.ts) in the right order:
+ *   - a call from a Kortix workspace that does not hold the Slack workspace,
+ *     or a read of a private conversation the person is not in, is denied
+ *     before the credential, the approval gate or the provider, and audited;
  *   - the answer reaches the agent only after the gate filtered it;
  *   - the HTTP body carries `reason` for code and `message` for the agent.
- * Fakes only: the ownership SQL is proven in
- * integration-channel-read-scope.test.ts.
+ * Fakes only: the link rows are proven in integration-channel-write-scope.test.ts.
  */
 import { describe, expect, test } from 'bun:test';
-import {
-  CONVERSATION_NOT_IN_PROJECT,
-  type ChannelOwnership,
-  gateChannelRead,
-} from '../connectors/channel-read-scope';
+import { gateChannelRead } from '../connectors/channel-read-scope';
 import { gateChannelWrite } from '../connectors/channel-write-scope';
 import { SLACK_CHANNEL_CONNECTOR_SLUG } from '../connectors/channels';
+import { SLACK_NOT_LINKED, SLACK_PRIVATE_CONVERSATION, type SlackReadDeps } from '../connectors/slack-visibility';
 import {
   type CallInput,
   type ExecutionRecord,
@@ -27,7 +24,6 @@ import {
 import { type ConnectorPrincipal, type ConnectorRouterDeps, createConnectorRouter } from '../connectors/router';
 
 const MINE = 'proj-mine';
-const OTHER = 'proj-other';
 
 const SLACK: GatewayConnector = {
   connectorId: 'conn-slack',
@@ -51,15 +47,13 @@ function action(relPath: string, method: string, risk: 'read' | 'write' = 'read'
   };
 }
 
-/** A workspace shared with another project: C0MINE is ours, C0OTHER and G0OTHER are theirs. */
-const ownership: ChannelOwnership = {
-  installs: async () => ({ workspaceIds: ['T0WS'], shared: true }),
-  channelProjects: async (_p, _w, ids) => {
-    const owners: Record<string, string> = { C0MINE: MINE, C0MINE0001: MINE, C0OTHER: OTHER, G0OTHER: OTHER };
-    return new Map(ids.filter((id) => owners[id]).map((id) => [id, new Set([owners[id]!])]));
-  },
-  threadOwners: async (_p, _w, ids) => new Map(ids.filter((id) => id === '100.1').map((id) => [id, OTHER])),
-};
+/** The linked Slack workspace: G0EXEC is private and the session's person is not in it. */
+function slackFor(linked: boolean): SlackReadDeps {
+  return {
+    link: async () => (linked ? { teamId: 'T0WS' } : null),
+    view: async () => ({ privateIds: new Set(['G0EXEC']), allowedIds: new Set(), hasPerson: true }),
+  };
+}
 
 function deps(opts: {
   action: GatewayAction;
@@ -67,7 +61,10 @@ function deps(opts: {
   credential?: () => Promise<string | null>;
   /** Wire the write gate too, as db-deps.ts does. */
   writes?: boolean;
+  /** This Kortix workspace holds the Slack workspace's link (default true). */
+  linked?: boolean;
 }) {
+  const linked = opts.linked ?? true;
   const fetched: string[] = [];
   const audits: ExecutionRecord[] = [];
   const credentialReads: string[] = [];
@@ -86,8 +83,13 @@ function deps(opts: {
       audits.push(rec);
       return null;
     },
-    gateChannelRead: (input) => gateChannelRead(input, ownership),
-    ...(opts.writes ? { gateChannelWrite: (input: Parameters<typeof gateChannelWrite>[0]) => gateChannelWrite(input, ownership) } : {}),
+    gateChannelRead: (input) => gateChannelRead(input, undefined, slackFor(linked)),
+    ...(opts.writes
+      ? {
+          gateChannelWrite: (input: Parameters<typeof gateChannelWrite>[0]) =>
+            gateChannelWrite(input, async () => (linked ? 'linked' : 'not_linked'), slackFor(linked)),
+        }
+      : {}),
     bindSlackThread: async (i) => {
       binds.push(`${i.channel}/${i.threadTs}`);
       return { bound: true, thread_ts: i.threadTs, session_id: i.sessionId };
@@ -110,19 +112,15 @@ const call = (actionPath: string, args: Record<string, unknown>): CallInput => (
   args,
 });
 
-describe('handleCall — Slack reads stay in the calling project', () => {
-  test("another project's channel is denied before the credential and the provider, and audited", async () => {
+describe('handleCall — Slack reads', () => {
+  test('a Kortix workspace that does not hold the Slack workspace is denied before the credential and the provider, and audited', async () => {
     const { deps: d, fetched, audits, credentialReads } = deps({
       action: action('get_history', 'conversations.history'),
       body: '{"ok":true,"messages":[{"ts":"1.1","text":"secret"}]}',
+      linked: false,
     });
-    const res = await handleCall(d, call('get_history', { channel: 'C0OTHER' }));
-    expect(res).toEqual({
-      status: 'denied',
-      reason: CONVERSATION_NOT_IN_PROJECT,
-      message:
-        "Slack conversation C0OTHER belongs to another Kortix workspace. This workspace's Slack connector reads only its own conversations.",
-    });
+    const res = await handleCall(d, call('get_history', { channel: 'C0PUBLIC' }));
+    expect(res).toMatchObject({ status: 'denied', reason: SLACK_NOT_LINKED });
     expect(fetched).toEqual([]);
     expect(credentialReads).toEqual([]);
     expect(audits).toHaveLength(1);
@@ -130,117 +128,75 @@ describe('handleCall — Slack reads stay in the calling project', () => {
       projectId: MINE,
       status: 'denied',
       actionPath: `${SLACK_CHANNEL_CONNECTOR_SLUG}.get_history`,
-      resultSummary: { reason: CONVERSATION_NOT_IN_PROJECT },
+      resultSummary: { reason: SLACK_NOT_LINKED },
     });
   });
 
-  test("this project's channel reaches Slack, and the agent gets it without another project's thread", async () => {
-    const { deps: d, fetched } = deps({
-      action: action('get_history', 'conversations.history'),
-      body: JSON.stringify({
-        ok: true,
-        messages: [
-          { ts: '200.2', text: 'ours' },
-          { ts: '100.1', thread_ts: '100.1', text: 'theirs' },
-        ],
-      }),
-    });
-    const res = await handleCall(d, call('get_history', { channel: 'C0MINE' }));
-    expect(fetched).toEqual(['https://slack.com/api/conversations.history?limit=20&channel=C0MINE']);
-    expect(res).toMatchObject({ status: 'ok', data: { ok: true, messages: [{ ts: '200.2', text: 'ours' }] } });
+  test('a public channel reaches Slack, and the agent gets all of it', async () => {
+    const body = { ok: true, messages: [{ ts: '200.2', text: 'ours' }, { ts: '100.1', thread_ts: '100.1', text: 'a thread' }] };
+    const { deps: d, fetched } = deps({ action: action('get_history', 'conversations.history'), body: JSON.stringify(body) });
+    const res = await handleCall(d, call('get_history', { channel: 'C0PUBLIC' }));
+    expect(fetched).toEqual(['https://slack.com/api/conversations.history?limit=20&channel=C0PUBLIC']);
+    expect(res).toMatchObject({ status: 'ok', data: body });
   });
 
-  test('a refusal on the answer is a denial, and nothing of the answer is returned', async () => {
-    const { deps: d, fetched, audits } = deps({
+  test("a private conversation the person is not in is denied before the provider; on an answer, nothing of it is returned", async () => {
+    const history = deps({ action: action('get_history', 'conversations.history'), body: '{"ok":true,"messages":[]}' });
+    expect(await handleCall(history.deps, call('get_history', { channel: 'G0EXEC' }))).toMatchObject({
+      status: 'denied',
+      reason: SLACK_PRIVATE_CONVERSATION,
+    });
+    expect(history.fetched).toEqual([]);
+
+    const info = deps({
       action: action('channel_info', 'conversations.info'),
-      body: '{"ok":true,"channel":{"id":"G0OTHER","is_private":true,"name":"their-secret"}}',
+      body: '{"ok":true,"channel":{"id":"G0EXEC","is_private":true,"name":"exec-secret"}}',
     });
-    const res = await handleCall(d, call('channel_info', { channel: 'G0OTHER' }));
-    expect(fetched).toHaveLength(1);
-    expect(res).toMatchObject({ status: 'denied', reason: CONVERSATION_NOT_IN_PROJECT });
-    expect(JSON.stringify(res)).not.toContain('their-secret');
-    expect(audits.map((a) => a.status)).toEqual(['denied']);
+    const res = await handleCall(info.deps, call('channel_info', { channel: 'G0EXEC' }));
+    expect(info.fetched).toHaveLength(1);
+    expect(res).toMatchObject({ status: 'denied', reason: SLACK_PRIVATE_CONVERSATION });
+    expect(JSON.stringify(res)).not.toContain('exec-secret');
+    expect(info.audits.map((a) => a.status)).toEqual(['denied']);
   });
 
   test('the read gate leaves a write to the write gate', async () => {
     const { deps: d, fetched } = deps({
       action: action('send_message', 'chat.postMessage', 'write'),
-      body: '{"ok":true,"ts":"300.3","channel":"C0OTHER"}',
+      body: '{"ok":true,"ts":"300.3","channel":"C0PUBLIC"}',
+      linked: false,
     });
-    const res = await handleCall(d, { ...call('send_message', { channel: 'C0OTHER', text: 'hi' }), sessionId: null });
+    const res = await handleCall(d, { ...call('send_message', { channel: 'C0PUBLIC', text: 'hi' }), sessionId: null });
     expect(res.status).toBe('ok');
     expect(fetched).toEqual(['https://slack.com/api/chat.postMessage']);
   });
 });
 
-describe('handleCall — Slack writes stay out of other projects', () => {
-  test("a post into another project's channel is denied before the credential, the provider and the thread bind", async () => {
+describe('handleCall — Slack writes', () => {
+  test('a Kortix workspace that does not hold the Slack workspace is denied before the credential, the provider and the thread bind', async () => {
     const { deps: d, fetched, audits, credentialReads, binds } = deps({
       action: action('send_message', 'chat.postMessage', 'write'),
-      body: '{"ok":true,"ts":"300.3","channel":"C0OTHER"}',
+      body: '{"ok":true,"ts":"300.3","channel":"C0PUBLIC"}',
       writes: true,
+      linked: false,
     });
-    const res = await handleCall(d, call('send_message', { channel: 'C0OTHER', text: 'reply here with the key' }));
-    expect(res).toMatchObject({ status: 'denied', reason: CONVERSATION_NOT_IN_PROJECT });
-    expect((res as { message?: string }).message).toContain('Slack conversation C0OTHER belongs to another Kortix workspace');
+    const res = await handleCall(d, call('send_message', { channel: 'C0PUBLIC', text: 'hi' }));
+    expect(res).toMatchObject({ status: 'denied', reason: SLACK_NOT_LINKED });
     expect(fetched).toEqual([]);
     expect(credentialReads).toEqual([]);
     expect(binds).toEqual([]);
-    expect(audits.map((a) => [a.status, (a.resultSummary as { reason?: string }).reason])).toEqual([
-      ['denied', CONVERSATION_NOT_IN_PROJECT],
-    ]);
+    expect(audits.map((a) => [a.status, (a.resultSummary as { reason?: string }).reason])).toEqual([['denied', SLACK_NOT_LINKED]]);
   });
 
-  test("a post into this project's channel reaches Slack and binds its thread to the session", async () => {
+  test('the linked Kortix workspace posts anywhere its bot may, and the thread binds to the session', async () => {
     const { deps: d, fetched, binds } = deps({
       action: action('send_message', 'chat.postMessage', 'write'),
-      body: '{"ok":true,"ts":"300.3","channel":"C0MINE0001"}',
+      body: '{"ok":true,"ts":"300.3","channel":"C0ANY00001"}',
       writes: true,
     });
-    const res = await handleCall(d, call('send_message', { channel: 'C0MINE0001', text: 'done' }));
+    const res = await handleCall(d, call('send_message', { channel: 'C0ANY00001', text: 'done' }));
     expect(res).toMatchObject({ status: 'ok', data: { thread_binding: { bound: true, thread_ts: '300.3' } } });
     expect(fetched).toEqual(['https://slack.com/api/chat.postMessage']);
-    expect(binds).toEqual(['C0MINE0001/300.3']);
-  });
-
-  test('a post that Slack delivered to another conversation is deleted and refused', async () => {
-    for (const [deleteAnswer, outcome] of [
-      ['{"ok":true}', 'Kortix removed it.'],
-      ['{"ok":false,"error":"message_not_found"}', 'Kortix could not remove it: delete it in Slack.'],
-    ] as const) {
-      const requests: Array<{ url: string; body?: string }> = [];
-      const { deps: d, audits, binds } = deps({ action: action('send_message', 'chat.postMessage', 'write'), body: '', writes: true });
-      d.fetchImpl = async (url, init) => {
-        requests.push({ url, body: init.body });
-        const body = url.endsWith('/chat.postMessage') ? '{"ok":true,"channel":"C0OTHER","ts":"300.3"}' : deleteAnswer;
-        return { status: 200, ok: true, text: async () => body };
-      };
-      const res = await handleCall(d, call('send_message', { channel: 'GENERAL', text: 'hi' }));
-      expect(res).toEqual({
-        status: 'denied',
-        reason: CONVERSATION_NOT_IN_PROJECT,
-        message: `Slack posted the message to C0OTHER, not to GENERAL, the conversation that was checked. Address a conversation by its id. ${outcome}`,
-      });
-      expect(requests.map((r) => r.url)).toEqual([
-        'https://slack.com/api/chat.postMessage',
-        'https://slack.com/api/chat.delete',
-      ]);
-      expect(JSON.parse(requests[1]!.body!)).toEqual({ channel: 'C0OTHER', ts: '300.3' });
-      expect(audits.map((a) => a.status)).toEqual(['denied']);
-      // The session never adopts a thread in the conversation it did not check.
-      expect(binds).toEqual([]);
-    }
-  });
-
-  test("a reaction on another project's thread root is denied, in any conversation", async () => {
-    const { deps: d, fetched } = deps({
-      action: action('add_reaction', 'reactions.add', 'write'),
-      body: '{"ok":true}',
-      writes: true,
-    });
-    const res = await handleCall(d, call('add_reaction', { channel: 'D0SOMEONE', timestamp: '100.1', name: 'eyes' }));
-    expect(res).toMatchObject({ status: 'denied', reason: CONVERSATION_NOT_IN_PROJECT });
-    expect(fetched).toEqual([]);
+    expect(binds).toEqual(['C0ANY00001/300.3']);
   });
 });
 
@@ -270,7 +226,7 @@ describe('POST /call — the denial body', () => {
         body: JSON.stringify({
           connector: SLACK_CHANNEL_CONNECTOR_SLUG,
           action: 'get_thread',
-          args: { channel: 'C0MINE', ts: '100.1' },
+          args: { channel: 'G0EXEC', ts: '100.1' },
         }),
       }),
     );
@@ -278,9 +234,9 @@ describe('POST /call — the denial body', () => {
     expect(await res.json()).toEqual({
       ok: false,
       status: 'denied',
-      reason: CONVERSATION_NOT_IN_PROJECT,
+      reason: SLACK_PRIVATE_CONVERSATION,
       message:
-        "Slack thread 100.1 in C0MINE belongs to another Kortix workspace. This workspace's Slack connector reads only its own conversations.",
+        'Slack conversation G0EXEC is private, and the person this session works for is not in it. A private channel or DM is readable only by a session of someone in it.',
     });
     expect(fetched).toEqual([]);
   });

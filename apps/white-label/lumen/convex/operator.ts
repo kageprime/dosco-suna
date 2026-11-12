@@ -62,12 +62,12 @@ export async function withRetry<T>(fn: () => Promise<T>, delays = [1000, 4000, 1
 }
 
 /**
- * mkdir with the shared retry. "Already exists" (409) is done, so re-runs are no-ops.
- * A transient 5xx (e.g. Drive 503) is retried, never surfaced as a failed upload.
+ * mkdir. "Already exists" (409) is done, so re-runs are no-ops. The SDK
+ * resends a transient failure (e.g. Drive 503), so it never surfaces as a failed upload.
  */
 export async function ensureFolder(driveId: string, path: string): Promise<void> {
   try {
-    await withRetry(() => makeDriveFolder(driveId, path));
+    await makeDriveFolder(driveId, path);
   } catch (err) {
     if (statusOf(err) !== 409) throw err;
   }

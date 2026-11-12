@@ -40,30 +40,11 @@ import { errorToast, successToast } from '@kortix/ui/toast';
 import { ErrorState } from '@kortix/ui/error-state';
 import { type PatPolicy, getPatPolicy, updatePatPolicy } from '@/lib/iam-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { parseOptionalIntField, toField } from './optional-int-field';
 
 /** Backend caps, mirrored here so the error arrives before the request does. */
 const MAX_LIFETIME_DAYS = 365 * 2;
 const MAX_IDLE_DAYS = 365;
-
-type DaysField = { ok: true; value: number | null } | { ok: false; error: string };
-
-/** Blank means "no rule" — the field is optional, not invalid. */
-export function parseDaysField(label: string, raw: string, max: number): DaysField {
-  const trimmed = raw.trim();
-  if (trimmed === '') return { ok: true, value: null };
-  const parsed = Number(trimmed);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    return { ok: false, error: `${label}: use a whole number of days, or leave it empty.` };
-  }
-  if (parsed > max) {
-    return { ok: false, error: `${label}: ${max} days is the most Dosco allows.` };
-  }
-  return { ok: true, value: parsed };
-}
-
-function toField(value: number | null | undefined): string {
-  return value == null ? '' : String(value);
-}
 
 /**
  * Identity of a saved policy, used as the form's React `key`.
@@ -160,13 +141,21 @@ function KeyRulesForm({
 
   function save() {
     // The labels are the row labels verbatim, so the message points at a
-    // control the reader can see.
-    const lifetime = parseDaysField('Longest a key can last', maxLifetime, MAX_LIFETIME_DAYS);
+    // control the reader can see. Both come from the catalog, like the rows.
+    const lifetimeLabel = tI18nComplete.raw('textbcb9069a33fc');
+    const idleLabel = tI18nComplete.raw('text02707e927e25');
+    const lifetime = parseOptionalIntField(maxLifetime, MAX_LIFETIME_DAYS, {
+      notInteger: tI18nComplete('text4510d8593ccc', { value0: lifetimeLabel }),
+      overMax: tI18nComplete('textb1f8e3109f1b', { value0: lifetimeLabel, value1: MAX_LIFETIME_DAYS }),
+    });
     if (!lifetime.ok) {
       setError(lifetime.error);
       return;
     }
-    const idle = parseDaysField('Turn off unused keys', idleRevoke, MAX_IDLE_DAYS);
+    const idle = parseOptionalIntField(idleRevoke, MAX_IDLE_DAYS, {
+      notInteger: tI18nComplete('text4510d8593ccc', { value0: idleLabel }),
+      overMax: tI18nComplete('textb1f8e3109f1b', { value0: idleLabel, value1: MAX_IDLE_DAYS }),
+    });
     if (!idle.ok) {
       setError(idle.error);
       return;

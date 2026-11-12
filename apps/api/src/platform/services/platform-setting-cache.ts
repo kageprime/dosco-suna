@@ -110,3 +110,21 @@ export function createCachedPlatformSetting<T>(
     },
   };
 }
+
+/** A trimmed non-empty string from a stored JSON field, else undefined. */
+export function str(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+/**
+ * The one-line exports every platform-setting module re-exports for its
+ * setting: refresh, write whole, clear, and the test-only cache seed.
+ */
+export function settingFacade<S>(setting: CachedPlatformSetting<S>) {
+  return {
+    refresh: () => setting.refresh(),
+    write: (value: S) => setting.write(value),
+    clear: () => setting.clear(),
+    setForTests: (value: unknown) => setting.__setForTests(value),
+  };
+}

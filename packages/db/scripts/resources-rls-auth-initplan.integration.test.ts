@@ -181,7 +181,8 @@ async function legacyFixture(): Promise<void> {
       PRIMARY KEY (user_id, account_id)
     )`);
   }
-  await raw(`INSERT INTO basejump.account_user (user_id, account_id, account_role)
+  // The basejump stub exists when the migrations run, so freeze_legacy_suna_tables freezes it.
+  await raw(`SET kortix.legacy_write = 'on'; INSERT INTO basejump.account_user (user_id, account_id, account_role)
     VALUES ('${USER_A}', '${ACCOUNT_A}', 'owner'), ('${USER_B}', '${ACCOUNT_B}', 'owner')
     ON CONFLICT DO NOTHING`);
 

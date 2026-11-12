@@ -99,7 +99,7 @@ export function buildDaemonApp(
   cfg: Config,
   harness: HarnessService,
   bootTime: number,
-  bootState: SandboxBootState = { repoMaterializationError: null, timeline: [] },
+  bootState: SandboxBootState = { timeline: [] },
   projectEnv?: ProjectEnvStore,
   staticWebPort: number | null = null,
   ptyRegistry?: PtyRegistry,
@@ -220,7 +220,7 @@ export function startProxy(
   cfg: Config,
   harness: HarnessService,
   bootTime: number,
-  bootState: SandboxBootState = { repoMaterializationError: null, timeline: [] },
+  bootState: SandboxBootState = { timeline: [] },
   projectEnv?: ProjectEnvStore,
   staticWebPort: number | null = null,
 ): ProxyServer {

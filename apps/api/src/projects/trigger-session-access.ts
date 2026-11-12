@@ -10,7 +10,7 @@ import {
 import { and, eq, inArray, ne, sql } from 'drizzle-orm';
 import { db } from '../shared/db';
 import { accountMembersAmong } from '../iam/membership-read';
-import { accountGroupsAmong } from '../iam/group-read';
+import { groupRows } from '../iam/group-read';
 import { resolveAgentRunAttribution } from './session-lifecycle/actor';
 import { triggerSessionAccessToVisibility } from './trigger-session-access-policy';
 
@@ -45,7 +45,7 @@ export async function validateTriggerSessionAccessPrincipals(
   if (access.mode !== 'members') return null;
   const [members, groups] = await Promise.all([
     access.memberIds.length ? accountMembersAmong(accountId, access.memberIds) : [],
-    access.groupIds.length ? accountGroupsAmong(accountId, access.groupIds) : [],
+    access.groupIds.length ? groupRows({ accountId, groupIds: access.groupIds }) : [],
   ]);
   const foundMembers = new Set(members.map((row) => row.userId));
   const foundGroups = new Set(groups.map((row) => row.groupId));

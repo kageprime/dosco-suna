@@ -13,8 +13,8 @@
  *
  * Bodies are the same self-contained surfaces Advanced mode's panel tabs
  * mount (`SessionTerminalPanel`, `BrowserPanel`, `SessionFilesExplorer`,
- * `SessionAuditPanel`), so both panel modes get identical tools here. vaul
- * unmounts the content on close, so the terminal reconnects per open — the
+ * `SessionAuditPanel`), so both panel modes get identical tools here. The
+ * drawer unmounts the content on close, so the terminal reconnects per open — the
  * tradeoff every mobile drawer in this feature already accepts.
  */
 

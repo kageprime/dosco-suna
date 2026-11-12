@@ -99,7 +99,7 @@ describe('daemon proxy auth gate', () => {
     expect(body.harness.details).toMatchObject({ pid: null, port: 4096 })
     expect(HarnessHealthSchema.parse(body.harness).details.port).toBe(4096)
     expect(body.runtime_truth).toBeDefined()
-    const host = await readHostHealth({ cfg, bootTime: Date.now(), bootState: { repoMaterializationError: null, timeline: [] }, staticWebPort: null, resources: () => null })
+    const host = await readHostHealth({ cfg, bootTime: Date.now(), bootState: { timeline: [] }, staticWebPort: null, resources: () => null })
     expect(Object.keys(body)).toEqual(expect.arrayContaining(Object.keys(host)))
   })
 
@@ -110,40 +110,6 @@ describe('daemon proxy auth gate', () => {
     expect(body.auth).toBe('unconfigured')
   })
 
-  it('reports runtime not ready and blocks the runtime proxy when repo materialization failed', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'kortix-repo-failed-'))
-    try {
-      const target = join(root, 'workspace')
-      mkdirSync(target)
-      const cfg = baseConfig({ autoClone: true, projectTarget: target })
-      const app = buildApp(cfg, piHarness(cfg), { repoMaterializationError: 'git clone failed: authentication required', timeline: [] })
-
-      const health = await app.request('/kortix/health')
-      expect(health.status).toBe(200)
-      const healthBody = (await health.json()) as {
-        status: string
-        runtimeReady: boolean
-        repo_ready: boolean
-        boot_error: string
-      }
-      expect(healthBody.status).toBe('error')
-      expect(healthBody.runtimeReady).toBe(false)
-      expect(healthBody.repo_ready).toBe(false)
-      expect(healthBody.boot_error).toContain('git clone failed')
-
-      const signed = signTestUserContext({ userId: 'u', sandboxId: 's', sandboxRole: 'owner' }, TEST_TOKEN)
-      const res = await app.request('/session?directory=%2Fworkspace', {
-        headers: { [KORTIX_USER_CONTEXT_HEADER]: signed },
-      })
-      expect(res.status).toBe(503)
-      const body = (await res.json()) as { error: string; reason: string }
-      expect(body.error).toBe('sandbox runtime not ready')
-      expect(body.reason).toBe('repo_materialization_failed')
-    } finally {
-      rmSync(root, { recursive: true, force: true })
-    }
-  })
-
   it('names the boot phase on every not-ready answer so the API can measure progress', async () => {
     // A resume that sat through a slow first runtime init was parked as
     // runtime_boot_failed by a fixed 90 s budget. The header lets the API
@@ -152,9 +118,9 @@ describe('daemon proxy auth gate', () => {
     try {
       const target = join(root, 'workspace')
       mkdirSync(target)
-      const cfg = baseConfig({ autoClone: false, projectTarget: target })
+      const cfg = baseConfig({ projectTarget: target })
       const timeline: { label: string; atMs: number }[] = [{ label: 'config-deps', atMs: 1 }]
-      const app = buildApp(cfg, piHarness(cfg), { repoMaterializationError: null, timeline })
+      const app = buildApp(cfg, piHarness(cfg), { timeline })
       const signed = signTestUserContext({ userId: 'u', sandboxId: 's', sandboxRole: 'owner' }, TEST_TOKEN)
       const first = await app.request('/session?directory=%2Fworkspace', {
         headers: { [KORTIX_USER_CONTEXT_HEADER]: signed },
@@ -175,47 +141,13 @@ describe('daemon proxy auth gate', () => {
       expect(secondPhase).not.toBe(firstPhase)
 
       // A box still waiting on its initial session names that wait.
-      const waiting = buildApp(cfg, piHarness(cfg), { repoMaterializationError: null, timeline, initialRuntimeSessionRequired: true, initialRuntimeSessionId: null })
+      const waiting = buildApp(cfg, piHarness(cfg), { timeline, initialRuntimeSessionRequired: true, initialRuntimeSessionId: null })
       const third = await waiting.request('/session?directory=%2Fworkspace', {
         headers: { [KORTIX_USER_CONTEXT_HEADER]: signed },
       })
       expect(third.status).toBe(503)
       expect(third.headers.get('x-kortix-boot-phase')).toContain('initial_session_pending')
       expect(third.headers.get('x-kortix-boot-phase')).not.toBe(secondPhase)
-    } finally {
-      rmSync(root, { recursive: true, force: true })
-    }
-  })
-
-  it('holds every caller off until the workspace is complete, then lifts that gate', async () => {
-    const cfg = baseConfig()
-    const bootState = { repoMaterializationError: null, timeline: [], workspaceReady: false }
-    const app = buildApp(cfg, piHarness(cfg), bootState)
-    const signed = signTestUserContext({ userId: 'u', sandboxId: 's', sandboxRole: 'owner' }, TEST_TOKEN)
-    const request = () =>
-      app.request('/session?directory=%2Fworkspace', { headers: { [KORTIX_USER_CONTEXT_HEADER]: signed } })
-
-    const held = await request()
-    expect(held.status).toBe(503)
-    expect(((await held.json()) as { reason: string }).reason).toBe('workspace_not_ready')
-
-    bootState.workspaceReady = true
-    // Past the workspace gate: the never-started runtime is the next answer.
-    expect(((await (await request()).json()) as { reason: string }).reason).toBe('pi_not_ready')
-  })
-
-  it('keeps the runtime proxy disabled when auto-clone is enabled but no repo is present', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'kortix-empty-workspace-'))
-    try {
-      const cfg = baseConfig({ autoClone: true, projectTarget: root })
-      const app = buildApp(cfg, piHarness(cfg))
-      const signed = signTestUserContext({ userId: 'u', sandboxId: 's', sandboxRole: 'owner' }, TEST_TOKEN)
-      const res = await app.request('/session?directory=%2Fworkspace', {
-        headers: { [KORTIX_USER_CONTEXT_HEADER]: signed },
-      })
-      expect(res.status).toBe(503)
-      const body = (await res.json()) as { reason: string }
-      expect(body.reason).toBe('repo_not_materialized')
     } finally {
       rmSync(root, { recursive: true, force: true })
     }

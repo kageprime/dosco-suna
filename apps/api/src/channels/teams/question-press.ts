@@ -24,7 +24,7 @@ import { type TeamsInvokeResponse, cardResponse, messageResponse } from './invok
 import { type TeamsFollowUp, admitTeamsFollowUp, deliverAdmittedFollowUp, resolveTeamsTurnActor } from './session';
 import { noticeOnLiveCard, startTurn } from './turn';
 import type { TeamsActivity, TeamsLiveTurn } from './types';
-import { projectsView } from '../../workspaces/rows';
+import { projectsView, accountKeyOfWorkspace } from '../../workspaces/rows';
 
 /** The card once a press settled it: each question, then `line`, and no buttons. */
 const settledCard = (questions: RuntimeQuestion[], line: string) =>
@@ -67,8 +67,8 @@ const NOT_TAKEN = 'Your answer was not taken. Follow the message I sent you, the
  * kept to replay, and their card keeps its inputs for the press after login.
  */
 export async function unlinkedPresser(activity: TeamsActivity, projectId: string, tenantId: string): Promise<TeamsInvokeResponse | null> {
-  const [project] = await db.select({ accountId: projectsView.accountId }).from(projectsView).where(eq(projectsView.projectId, projectId)).limit(1);
-  const userId = project && (await resolveTeamsTurnActor(project.accountId, projectId, tenantId, activity, undefined, false));
+  const projectAccountId = await accountKeyOfWorkspace(projectId);
+  const userId = projectAccountId && (await resolveTeamsTurnActor(projectAccountId, projectId, tenantId, activity, undefined, false));
   return userId ? null : messageResponse(NOT_TAKEN);
 }
 

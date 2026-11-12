@@ -126,6 +126,18 @@ function claudeWindows(headers: Headers): UsageWindowInput[] {
 }
 
 /**
+ * Whether a full window stops the login's model calls. Code review has its
+ * own allowance, extra usage is paid overflow, and a model's own limit stops
+ * that model only: ChatGPT `model_*`, Claude `seven_day_opus` / `7d_sonnet`.
+ * Claude's OAuth-apps window stays blocking until it is known which allowance
+ * Kortix's Claude Code traffic draws on. The client's twin is
+ * `isBlockingWindow` in packages/ui/src/customize/sections/view/subscription-usage.tsx.
+ */
+export function isBlockingWindow(id: string): boolean {
+  return !/^(?:code_review|extra_usage|model_|seven_day_(?!oauth_apps$)|7d_(?!oauth_apps$))/.test(id);
+}
+
+/**
  * One provider-named window of a plan-usage read, before the snapshot shapes
  * it: the stable id comes from the window's length, with `fallback` for a
  * length that is not one of the stable ones.
@@ -161,7 +173,7 @@ export function usageSnapshot(
   const shaped = windows.map(({ fallback, ...window }) => ({ id: windowId(window.window_minutes, fallback), ...window, used_percent: percent(window.used_percent) }));
   return {
     windows: shaped,
-    limited: options.limited || shaped.some((window) => window.used_percent >= 100),
+    limited: options.limited || shaped.some((window) => isBlockingWindow(window.id) && window.used_percent >= 100),
     observed_at: new Date(options.now).toISOString(),
     source: options.source,
   };

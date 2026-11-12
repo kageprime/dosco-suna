@@ -1,5 +1,5 @@
 'use client';
-import { invalidateConnections } from '../invalidate-connections';
+import { invalidateConnections } from '../../../internal/hooks/connectors/invalidate-connections';
 
 import {
   checkMcpServerSignIn,

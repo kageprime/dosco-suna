@@ -29,6 +29,7 @@ import { CHANNEL_PLATFORM_IDS, CHANNELS } from '@kortix/shared/channel-descripto
 import { config } from '../config';
 import { logger } from '../lib/logger';
 import { composioVisibleToolkits, publicToolkit } from './composio-catalog-search';
+import { connectorIdentity } from './catalog-install';
 import { appNameKey } from './connect-direct-twins';
 import {
   type ComposioCatalogCard,
@@ -399,6 +400,14 @@ export function composioCatalogItem(card: ComposioCatalogCard, domain: string | 
   };
 }
 
+/** The name label of a domain: `wisprflow` for `wisprflow.ai`, `acme` for `app.acme.co.uk`. */
+export function domainLabel(domain: string): string {
+  const labels = domain.toLowerCase().split('.').filter(Boolean);
+  if (labels.length < 2) return labels[0] ?? '';
+  const secondLevel = labels.length > 2 && labels.at(-2)!.length <= 3 && labels.at(-1)!.length === 2;
+  return labels.at(secondLevel ? -3 : -2)!;
+}
+
 /** One app across the catalogues: `appNameKey`, a trailing "API" or
  *  "GraphQL" dropped too ("Bitbucket API" is Bitbucket). Empty: no key. */
 export function v2AppKey(name: string): string {
@@ -453,6 +462,13 @@ export async function connectorsV2Items(
     const key = v2AppKey(item.name);
     if (key && !domainOf.has(key)) domainOf.set(key, item.domain);
   }
+  // A discovered record is named after its domain ("wisprflow.ai"): its app
+  // name is the domain's label, so Composio's "Wispr Flow MCP" joins it.
+  for (const item of direct) {
+    if (item.name.toLowerCase() !== item.domain) continue;
+    const key = v2AppKey(domainLabel(item.domain));
+    if (key && !domainOf.has(key)) domainOf.set(key, item.domain);
+  }
   // A toolkit whose name matches no record joins the registry's `<slug>.com`:
   // Composio's YouTube (`youtube`) is the registry's "YouTube Data"
   // (youtube.com), Twitter is "twitter.com – current". Without this the app
@@ -497,6 +513,14 @@ export async function connectorsV2Items(
   }
   const placed = new Set([...curatedApps, ...turns]);
   return [...curatedApps, ...turns, ...groups.filter((group) => !placed.has(group))].flat();
+}
+
+/** The catalogue publishes `url` as an app's MCP server: a registry record or a Kortix app. */
+export async function catalogPublishesMcpUrl(url: string): Promise<boolean> {
+  const key = connectorIdentity({ provider: 'mcp', url });
+  if (!key) return false;
+  const items = await connectorsV2Items();
+  return items.some((item) => item.mcpUrl && connectorIdentity({ provider: 'mcp', url: item.mcpUrl }) === key);
 }
 
 /** The Discover catalogue every project browses. */

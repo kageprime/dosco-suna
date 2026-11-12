@@ -1,16 +1,11 @@
 import { Button } from '@kortix/ui/button';
-import { AuthFrame } from '@kortix/ui/internal/auth/auth-card-shell';
-import { OutcomeTitle } from '@kortix/ui/internal/auth/auth-consent';
-import { Rise, StepHeader } from '@kortix/ui/internal/auth/auth-primitives';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
 
 import Link from '@/components/site-link';
 import { getTranslations } from '@/i18n/get-translations';
 
-import { SHARE_PAGE_ROOT_CLASS } from '../../session/[token]/share-layout';
+import { ShareChrome, ShareHeader, ShareUnavailable } from '../../share-chrome';
 
 import { loadPublicResponse, plainTextExcerpt } from './public-response';
 import { ResponseMarkdown, SharedPrompt } from './response-markdown';
@@ -56,25 +51,15 @@ export default async function PublicResponsePage({ params }: PublicResponseRoute
   if (result.kind === 'missing') notFound();
 
   // Revoked or busy: the quiet auth frame, the same one an unavailable session
-  // share shows (share/session/[token]/page.tsx).
+  // share shows (ShareUnavailable).
   if (result.kind === 'revoked' || result.kind === 'busy') {
     const revoked = result.kind === 'revoked';
     return (
-      <AuthFrame footerVariant="none">
-        <Rise>
-          <StepHeader
-            title={
-              <OutcomeTitle tone="muted">{revoked ? t('goneTitle') : t('busyTitle')}</OutcomeTitle>
-            }
-            description={revoked ? t('goneHint') : t('busyHint')}
-          />
-        </Rise>
-        <Rise delay={0.06}>
-          <Button size="lg" variant="secondary" className="w-full" asChild>
-            <Link href="/">{t('tryKortix')}</Link>
-          </Button>
-        </Rise>
-      </AuthFrame>
+      <ShareUnavailable
+        title={revoked ? t('goneTitle') : t('busyTitle')}
+        description={revoked ? t('goneHint') : t('busyHint')}
+        cta={<Link href="/">{t('tryKortix')}</Link>}
+      />
     );
   }
 
@@ -90,29 +75,28 @@ export default async function PublicResponsePage({ params }: PublicResponseRoute
   // (symbol + title left, one secondary action right), and a rounded
   // bg-background sheet below. The sheet scrolls; the bar stays.
   return (
-    <main className={SHARE_PAGE_ROOT_CLASS}>
-      <header className="flex h-12 shrink-0 items-center gap-3 pr-3 pl-4">
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          <KortixLogo variant="symbol" size={16} className="shrink-0" />
-          <h1 className="truncate text-sm font-medium">{title}</h1>
-        </div>
-        <Button size="sm" variant="secondary" asChild>
-          <Link href="/">{t('tryKortix')}</Link>
-        </Button>
-      </header>
-      <section className="bg-background border-border relative min-h-0 flex-1 overflow-y-auto rounded-t-md border-x border-t">
-        <article className="mx-auto w-full max-w-3xl px-6 py-10">
-          {respondedOn ? (
-            <p className="text-muted-foreground mb-6 text-xs">{respondedOn}</p>
-          ) : null}
-          {response.prompt ? (
-            <div className="mb-6">
-              <SharedPrompt text={response.prompt} />
-            </div>
-          ) : null}
-          <ResponseMarkdown markdown={response.markdown} />
-        </article>
-      </section>
-    </main>
+    <ShareChrome
+      header={
+        <ShareHeader
+          title={title}
+          actions={
+            <Button size="sm" variant="secondary" asChild>
+              <Link href="/">{t('tryKortix')}</Link>
+            </Button>
+          }
+        />
+      }
+      sheetClassName="bg-background border-border relative min-h-0 flex-1 overflow-y-auto rounded-t-md border-x border-t"
+    >
+      <article className="mx-auto w-full max-w-3xl px-6 py-10">
+        {respondedOn ? <p className="text-muted-foreground mb-6 text-xs">{respondedOn}</p> : null}
+        {response.prompt ? (
+          <div className="mb-6">
+            <SharedPrompt text={response.prompt} />
+          </div>
+        ) : null}
+        <ResponseMarkdown markdown={response.markdown} />
+      </article>
+    </ShareChrome>
   );
 }

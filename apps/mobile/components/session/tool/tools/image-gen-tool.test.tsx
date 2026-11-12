@@ -27,6 +27,7 @@ mock.module('react-native-reanimated', () => ({
   default: { View: host('view') },
   Easing: { out: () => () => 0, cubic: () => 0 },
   useAnimatedStyle: () => ({}),
+  useReducedMotion: () => false,
   useSharedValue: (value: unknown) => ({ value }),
   withTiming: (value: unknown) => value,
 }));
@@ -54,7 +55,6 @@ mock.module('@/components/ui/text', () => ({ Text }));
 mock.module('@/components/ui/button', () => ({ Button: host('button') }));
 mock.module('@/components/kortix/text-shimmer', () => ({ TextShimmer: Text }));
 mock.module('@/components/session/dot-matrix/session-dot-matrix', () => ({ SessionDotMatrix: () => null }));
-mock.module('@/components/session/dot-matrix/use-reduce-motion', () => ({ useReduceMotion: () => false }));
 /** What every `useSandboxImage` mount reports: `error` stands for a load the native loader gave up on. */
 let imagePhase: 'probing' | 'load' | 'error' = 'load';
 mock.module('@/components/session/turn/use-sandbox-image', () => ({

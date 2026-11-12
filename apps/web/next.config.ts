@@ -3,8 +3,9 @@ import type { NextConfig } from 'next';
 import createNextIntlPlugin from 'next-intl/plugin';
 import path from 'path';
 import { BLOG_ORIGIN } from './src/config/blog-origin';
+import { resolveTurbopackFileSystemCacheForBuild } from './src/config/turbopack-build-cache';
 import { locales } from './src/i18n/catalog.mjs';
-import { workspaceDesktopRewrites, workspaceRedirects } from './src/lib/workspace-redirects';
+import { workspaceRedirects } from './src/lib/workspace-redirects';
 import { SHIPPED_ICON_WEIGHTS } from '@kortix/ui/lib/icon-config';
 import {
   embedContentSecurityPolicy,
@@ -243,6 +244,10 @@ const nextConfig = (): NextConfig => ({
   // file. Disable standalone on Vercel, where the platform does not use it.
   // See https://github.com/vercel/next.js/issues/96646.
   output: IS_PREVIEW_BUILD || process.env.VERCEL ? undefined : 'standalone',
+  // Skew Protection on Vercel. The deploy builds on a GitHub runner
+  // (infra/scripts/vercel-deploy-prebuilt.sh), where Vercel does not supply a
+  // deployment ID, so the script sets a unique one. Unset everywhere else.
+  deploymentId: process.env.KORTIX_VERCEL_DEPLOYMENT_ID || undefined,
   // Inline the resolved version so NEXT_PUBLIC_KORTIX_VERSION is available in
   // both the server (runtime-config) and client bundles, even on Vercel.
   env: {
@@ -280,11 +285,13 @@ const nextConfig = (): NextConfig => ({
 
   // --- Next.js 16.3 posture ------------------------------------------------
   // Recording WHY each 16.3 knob is set or left alone, so nobody "adds the
-  // missing config" later or wonders whether we missed the release. The only
-  // knobs we set are turbopackMemoryEviction and turbopackFileSystemCacheForDev
+  // missing config" later or wonders whether we missed the release. The knobs
+  // we set are turbopackMemoryEviction and turbopackFileSystemCacheForDev
   // (both below) — and both only as escape hatches that default to upstream's
   // value when their env var is unset. 16.4 adds turbopackGc (below), which we
-  // turn on: upstream defaults it off.
+  // turn on: upstream defaults it off. turbopackFileSystemCacheForBuild (also
+  // below) defaults to upstream's on, except on machines that cannot hold its
+  // memory: it OOM-killed the build on an 11 GB sandbox (KRTX-4741).
   //
   // Already default-ON in 16.3 — restating them here would be dead config that
   // silently diverges the day upstream changes a default:
@@ -421,6 +428,12 @@ const nextConfig = (): NextConfig => ({
     // aborts the dev server and takes the whole browser shard with it — the
     // full rationale is on resolveTurbopackFileSystemCacheForDev above.
     turbopackFileSystemCacheForDev: resolveTurbopackFileSystemCacheForDev(),
+    // One-shot sandbox builds (11 GB RAM, no swap) cannot hold the persistent
+    // build cache in memory: it pushed the build to 9.5 GB RSS and the kernel
+    // OOM killer SIGKILLed it (exit 137, KRTX-4741). Small machines default the
+    // build cache off; 16 GB CI runners keep it (and its warm 36.3 s -> 1.9 s
+    // compile). KORTIX_TURBOPACK_BUILD_CACHE=on|off overrides.
+    turbopackFileSystemCacheForBuild: resolveTurbopackFileSystemCacheForBuild(),
     // Without GC (the default, and the only mode before 16.4) the persistent
     // cache keeps every task it ever computed. Each `git merge origin/dev`
     // adds a new set, so a busy worktree's .next/dev/cache/turbopack reached
@@ -472,7 +485,6 @@ const nextConfig = (): NextConfig => ({
       'recharts',
       'date-fns',
       '@tanstack/react-query',
-      'cmdk',
       'next-intl',
       '@radix-ui/react-accordion',
       '@radix-ui/react-alert-dialog',
@@ -1040,9 +1052,6 @@ const nextConfig = (): NextConfig => ({
       { type: 'header' as const, key: 'accept', value: '(?:.*,)?\\s*text/markdown.*' },
     ];
     const beforeFiles = [
-      // An installed desktop shell keeps /projects and /new, served in place
-      // (src/lib/workspace-redirects.ts).
-      ...workspaceDesktopRewrites(),
       {
         source: '/docs',
         has: acceptsMarkdown,

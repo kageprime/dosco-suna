@@ -12,6 +12,11 @@ const host = (name: string) => ({ children, ...props }: any) => React.createElem
 
 mock.module('react-native', () => ({ Text: host('text'), View: host('view') }));
 mock.module('nativewind', () => ({ useColorScheme: () => ({ colorScheme: 'light' }) }));
+mock.module('react-native-svg', () => ({ default: host('svg'), Path: host('svg-path') }));
+mock.module('@/lib/utils/theme', () => ({
+  THEME: { light: { secondary: 'secondary-light' }, dark: { secondary: 'secondary-dark' } },
+  withAlpha: (color: string, alpha: number) => `${color}@${alpha}`,
+}));
 mock.module('@/components/ui/avatar', () => ({
   Avatar: host('avatar-root'),
   AvatarFallback: host('avatar-fallback'),
@@ -92,4 +97,26 @@ test("the caller's style wins: a style borderColor overrides the chalk border (D
   const style = tileStyle(root);
   expect(style.borderColor).toBe('#ff005a'); // hex-allowlist: test literal
   expect(style.borderColor).not.toBe(chalk.border);
+});
+
+test("a workspace emoji replaces the letter on a neutral tile", () => {
+  const root = render(<Avatar chalk size={36} fallbackText="Kortix" emoji="🚀" />);
+  expect(root.findAllByType('avatar-root' as never)).toHaveLength(0);
+  expect(tileText(root)).toBe('🚀');
+});
+
+test("a workspace glyph draws its path in its colour on a wash, and beats the emoji (web's precedence)", () => {
+  const root = render(<Avatar chalk size={36} fallbackText="Kortix" emoji="🚀" glyph={{ name: 'Acorn', color: 'blue' }} />);
+  const path = root.findByType('svg-path' as never);
+  expect(String(path.props.d).startsWith('M232,104')).toBe(true);
+  expect(path.props.fill).toBe('hsl(213 74% 53%)');
+  expect(root.findAllByType('text' as never)).toHaveLength(0);
+});
+
+test('a glyph name with no path (a Kortix mark) falls back to the emoji, then the letter', () => {
+  let root = render(<Avatar chalk size={36} fallbackText="Kortix" emoji="🚀" glyph={{ name: 'KortixMark', color: 'blue' }} />);
+  expect(tileText(root)).toBe('🚀');
+  act(() => tree?.unmount());
+  root = render(<Avatar chalk size={36} fallbackText="kortix" glyph={{ name: 'KortixMark', color: 'blue' }} />);
+  expect(tileText(root)).toBe('K');
 });

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { hasFolder, readDroppedTree, treeLevels } from './drop-tree';
+import { folderMaker, hasFolder, readDroppedTree, treeLevels } from './drop-tree';
 
 const file = (name: string) => ({
   isFile: true,
@@ -53,5 +53,36 @@ describe('dropped folders', () => {
   test('a drop of plain files has no folder', () => {
     expect(hasFolder([file('a') as never])).toBe(false);
     expect(hasFolder([folder('x', []) as never])).toBe(true);
+  });
+
+  test('a folder is made once, after its parents, while files wait on it', async () => {
+    const made: string[] = [];
+    const ensure = folderMaker(async (rel) => {
+      await Promise.resolve();
+      made.push(rel);
+    });
+    await Promise.all([ensure('eng/docs'), ensure('eng/docs'), ensure('eng'), ensure('')]);
+    expect(made).toEqual(['eng', 'eng/docs']);
+  });
+
+  test('a folder that is already there (409) counts as made', async () => {
+    const ensure = folderMaker(async () => {
+      throw Object.assign(new Error('exists'), { status: 409 });
+    });
+    await expect(ensure('eng/docs')).resolves.toBeUndefined();
+  });
+
+  test('a failed folder fails its other files at once, and is tried again only after forget', async () => {
+    let calls = 0;
+    const ensure = folderMaker(async (rel) => {
+      calls++;
+      if (calls === 1) throw Object.assign(new Error(`busy ${rel}`), { status: 503 });
+    });
+    await expect(ensure('eng/docs')).rejects.toThrow('busy eng');
+    await expect(ensure('eng/docs')).rejects.toThrow('busy eng');
+    expect(calls).toBe(1);
+    ensure.forget('eng/docs');
+    await expect(ensure('eng/docs')).resolves.toBeUndefined();
+    expect(calls).toBe(3);
   });
 });

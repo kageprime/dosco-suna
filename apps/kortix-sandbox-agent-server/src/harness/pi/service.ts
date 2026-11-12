@@ -7,7 +7,6 @@
 import { homedir } from 'node:os'
 import type { ProjectEnvStore } from '@/services/sandbox-env/project-env'
 import type { HarnessDefinition, HarnessService, HarnessStartupOptions } from '../harness'
-import { isRepoMaterialized } from '@/services/workspace-provider/checkout'
 import { runtimeAssetsActivity } from '@/services/runtime-assets/runtime-assets'
 import { compiledAgentConfigFromEnv } from '@/services/config-provider/compiled-agent-config'
 import { createPiAssetsService, registerPiSkillReload } from './assets'
@@ -86,18 +85,13 @@ export function createPiHarnessService(
     },
     proxy: {
       blockedPorts: () => [],
-      async readiness({ cfg: current, bootState }) {
+      async readiness({ bootState }) {
         const state: PiBootState = bootState
         const notReady = (reason: string, body: Record<string, unknown>) => ({
           ready: false as const,
           phase: [state.timeline.at(-1)?.label ?? 'boot', `pi=${runtime.getState()}`, runtimeAssetsActivity() ?? '', reason].filter(Boolean).join('|'),
           details: { error: 'sandbox runtime not ready', ...body },
         })
-        if (state.repoMaterializationError) {
-          return notReady('repo_materialization_failed', { reason: 'repo_materialization_failed', message: state.repoMaterializationError })
-        }
-        if (current.autoClone && !(await isRepoMaterialized(current.projectTarget))) return notReady('repo_not_materialized', { reason: 'repo_not_materialized' })
-        if (state.workspaceReady === false) return notReady('workspace_not_ready', { reason: 'workspace_not_ready' })
         if (state.initialRuntimeSessionError) {
           return notReady('initial_session_failed', { reason: 'initial_runtime_session_failed', message: state.initialRuntimeSessionError })
         }
@@ -132,7 +126,6 @@ export const piDefinition: HarnessDefinition = {
     resolvePiSkillDirectories(parseCompiledAgentConfig(compiledAgentConfigFromEnv(process.env))?.skills, cfg.projectTarget || cfg.workspace || '/workspace'),
   loadConfig: loadPiEnvironment,
   createBootState: (): PiBootState => ({
-    repoMaterializationError: null,
     timeline: [],
     initialRuntimeSessionRequired: (process.env.KORTIX_BOOTSTRAP_RUNTIME_SESSION ?? '').trim() === '1',
     initialRuntimeSessionId: null,

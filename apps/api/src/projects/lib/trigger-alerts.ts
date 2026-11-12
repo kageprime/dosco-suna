@@ -29,7 +29,7 @@ import { clip, INBOX_BODY_MAX_CHARS } from '../../notifications/inbox-store';
 import { deliver, liveNotifierDeps, type NotifierDeps } from '../../notifications/notifier';
 import { db } from '../../shared/db';
 import { resolveTriggerWatchers } from './trigger-watchers';
-import { projectsView } from '../../workspaces/rows';
+import { accountKeyOfWorkspace } from '../../workspaces/rows';
 import { errorMessage } from '../../shared/error-message';
 
 /**
@@ -267,10 +267,5 @@ export function commandTriggerSlug(row: { commandType: string; source: string; p
 }
 
 async function accountOf(projectId: string): Promise<string | null> {
-  const [row] = await db
-    .select({ accountId: projectsView.accountId })
-    .from(projectsView)
-    .where(eq(projectsView.projectId, projectId))
-    .limit(1);
-  return row?.accountId ?? null;
+  return accountKeyOfWorkspace(projectId);
 }

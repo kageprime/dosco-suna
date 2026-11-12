@@ -18,7 +18,7 @@
  */
 
 import { locales } from '@/i18n/catalog.mjs';
-import { analyticsLocation, isAnalyticsExcludedPath } from '@/lib/analytics/gtm';
+import { analyticsLocation, isAnalyticsExcludedPath } from '@/lib/analytics/url-policy';
 
 /** EU Cloud project 334925, which collects kortix.com. Public: a write-only client key. */
 export const POSTHOG_PROJECT_KEY = 'phc_nPL2v9FLjKUyXvaabr4tdvCCRTCUw4nUt6GqsnAeTAHs';

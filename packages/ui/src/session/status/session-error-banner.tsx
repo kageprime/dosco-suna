@@ -8,6 +8,8 @@ import { chatGptConnectionAction } from '../models/chatgpt-connection-action';
 import { ChatGptConnectionSlot } from '../models/chatgpt-connection-button';
 import { ClaudeConnectionSlot, claudeConnectionAction } from '../models/claude-connection-slot';
 import { AskOwnerForCreditsButton } from '../models/ask-owner-for-credits-button';
+import { providerKeyFix } from '../models/provider-key-action';
+import { ProviderKeySlot } from '../models/provider-key-slot';
 
 import { Button } from '../../primitives/button';
 import { ChainOfThoughtStep } from '../../primitives/chain-of-thought';
@@ -259,7 +261,7 @@ function InsufficientCreditsCard({
 
 type TurnErrorGatewayDetails = Pick<
   GatewayErrorDetails,
-  'provider' | 'code' | 'suggestion' | 'requestId' | 'attemptFailures' | 'requestedModel' | 'resolvedModel'
+  'provider' | 'code' | 'suggestion' | 'requestId' | 'attemptFailures' | 'requestedModel' | 'resolvedModel' | 'upstreamStatus'
 >;
 
 function failureTarget(failure: NonNullable<GatewayErrorDetails['attemptFailures']>[number]) {
@@ -374,7 +376,7 @@ export function describeTurnErrorRow({
   gateway?: TurnErrorGatewayDetails;
   raw?: string;
 }): { kind: 'billing-card' | 'checkpoint'; expandable: boolean } {
-  if (isInsufficientCreditsError(text) || isUsageLimitError(text)) {
+  if (!providerKeyFix(gateway) && (isInsufficientCreditsError(text) || isUsageLimitError(text))) {
     return { kind: 'billing-card', expandable: false };
   }
   const hasMeta = Boolean(gateway?.provider || gateway?.code || gateway?.requestId);
@@ -615,15 +617,21 @@ export function TurnErrorDisplay({
     return <InsufficientCreditsCard errorText={text} className={className} />;
   }
 
+  // A provider key the person fixes in Models (none, refused, expired, or a
+  // provider account with no funds). Decided before the credits sniff: an
+  // OpenRouter "Insufficient credits" is the provider's account, not Kortix
+  // credits, and the Kortix top-up card would not fix it.
+  const providerFix = providerKeyFix(gateway);
+
   // Insufficient credits → actionable card with buy/auto-topup buttons.
   // Also covers turn-level errors passed as plain `errorText`, which never
   // go through `classifySendError`.
-  if (isInsufficientCreditsError(text)) {
+  if (!providerFix && isInsufficientCreditsError(text)) {
     return <InsufficientCreditsCard errorText={text} className={className} />;
   }
 
   // Free-tier / subscription / budget limit → actionable upgrade card
-  if (isUsageLimitError(text)) {
+  if (!providerFix && isUsageLimitError(text)) {
     return <UsageLimitCard errorText={text} className={className} />;
   }
 
@@ -640,7 +648,8 @@ export function TurnErrorDisplay({
       gateway={gateway}
       raw={errorRaw}
       defaultOpen={defaultDetailsOpen}
-      action={chatGpt ? <ChatGptConnectionSlot action={chatGpt} /> : claude ? <ClaudeConnectionSlot action={claude} /> : undefined}
+      action={chatGpt ? <ChatGptConnectionSlot action={chatGpt} /> : claude ? <ClaudeConnectionSlot action={claude} />
+        : providerFix ? <ProviderKeySlot providerId={providerFix.providerId} /> : undefined}
       modelOptions={modelOptions}
       className={className}
     />

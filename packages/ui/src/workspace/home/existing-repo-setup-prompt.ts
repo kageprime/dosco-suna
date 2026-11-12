@@ -40,17 +40,16 @@ agents:
     description: "General-purpose worker: coding, research, writing, ops and data work."
     mode: primary
     permission: allow
-    prompt: "You work in this repository. Read AGENTS.md or CLAUDE.md first when it exists."
+    prompt: "Your session starts with an empty /workspace. Run \`kortix workspaces clone\` to get this repository, then read AGENTS.md or CLAUDE.md when it exists."
     tools: "*"
     skills: "*"
     connectors: "*"
     secrets: "*"
     kortix_permissions: "*"
-    workspace: { project_repository: true }
 \`\`\`
 
 3. Keep the agent setup this repository already has. Do not move, copy or edit those files.
-   - For each \`.claude/agents/<name>.md\`, add an agent \`<name>\` with \`prompt_file: .claude/agents/<name>.md\`, the \`description\` from its frontmatter, \`mode: primary\`, \`tools: "*"\` and \`workspace: { project_repository: true }\`.
+   - For each \`.claude/agents/<name>.md\`, add an agent \`<name>\` with \`prompt_file: .claude/agents/<name>.md\`, the \`description\` from its frontmatter, \`mode: primary\`, \`tools: "*"\` and \`kortix_permissions: [workspace.gitops.read]\`, so it can clone the repository.
    - For each folder that holds a \`SKILL.md\` (\`.agents/skills/<name>\`, \`.claude/skills/<name>\`, \`skills/<name>\`), add \`<name>: <folder>\` under \`skills:\`. Skip a name that starts with \`kortix-\`.
 4. Run \`kortix validate\`. Fix every error it prints and run it again until it exits 0.
 5. Commit only \`kortix.yaml\` with the message "chore: add kortix.yaml" and push it to \`${branch}\`.

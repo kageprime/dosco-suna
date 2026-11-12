@@ -62,8 +62,6 @@ export interface EnqueueContinueSessionCommandInput {
    *  `QueuedContinueSessionPayload.bindTurnIdentity`. */
   bindTurnIdentity?: boolean;
   authorSessionId?: string | null;
-  /** See `QueuedContinueSessionPayload.mayStopAnyTurn`. */
-  mayStopAnyTurn?: boolean;
   noReply?: boolean;
   directFollowUp?: boolean;
   /** See `QueuedContinueSessionPayload.resumesTurn`. */
@@ -90,7 +88,6 @@ export function buildContinueSessionCommandValues(input: EnqueueContinueSessionC
     ...(input.overrides ? { overrides: input.overrides } : {}),
     ...(input.bindTurnIdentity ? { bindTurnIdentity: true } : {}),
     ...(input.authorSessionId ? { authorSessionId: input.authorSessionId } : {}),
-    ...(input.mayStopAnyTurn ? { mayStopAnyTurn: true } : {}),
     ...(input.noReply ? { noReply: true } : {}),
     ...(input.directFollowUp ? { directFollowUp: true } : {}),
     ...(input.resumesTurn ? { resumesTurn: input.resumesTurn } : {}),

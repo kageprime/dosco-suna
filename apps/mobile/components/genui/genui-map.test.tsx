@@ -23,7 +23,9 @@ mock.module('@/lib/utils/open-link', () => ({
   },
 }));
 
+let mockScreen = { width: 375, height: 812, fontScale: 1, scale: 3 };
 mock.module('react-native', () => ({
+  AccessibilityInfo: { announceForAccessibility: () => {} },
   StyleSheet: { flatten: (s: unknown) => s, create: (s: unknown) => s },
   View: host('view'),
   Text: host('rntext'),
@@ -31,6 +33,8 @@ mock.module('react-native', () => ({
   ScrollView: host('scroll'),
   Image: host('image'),
   Platform: { OS: 'ios', select: (o: Record<string, unknown>) => o.ios },
+  // A 375pt phone at the default text size; a test sets mockScreen to change it.
+  useWindowDimensions: () => mockScreen,
 }));
 mock.module('react-native-reanimated', () => ({
   default: { View: host('animated-view') },
@@ -349,5 +353,23 @@ a = Marker(48.85, 2.35, "Louvre")`,
       act(() => tree?.unmount());
       tree = undefined;
     }
+  });
+
+  test("a place card shows web's PlaceCard facts: the photo, then the pin's figure and the kind under the name", () => {
+    const root = renderNodes(
+      [
+        { lat: 19.04, lng: 72.82, label: 'Harbor Hotel', description: 'Seafront', value: '★ 4.6', kind: 'Hotel', image: 'https://img.example.com/h.jpg' },
+        { lat: 19.05, lng: 72.83, label: 'Corner Cafe' },
+      ],
+      'off',
+    );
+    expect(texts(root)).toContain('★ 4.6 · Hotel');
+    // One photo: the place without an image gets no empty box.
+    const photos = all(root, 'markdown-image');
+    expect(photos).toHaveLength(1);
+    expect(photos[0]!.props.src).toBe('https://img.example.com/h.jpg');
+    expect(photos[0]!.props.look).toMatchObject({ resizeMode: 'cover' });
+    // No facts line for a place with neither a value nor a kind.
+    expect(texts(root).filter((t) => t.includes(' · '))).toEqual(['★ 4.6 · Hotel']);
   });
 });

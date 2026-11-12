@@ -85,6 +85,7 @@ import {
   sessionLogs,
   sessionLogThreads,
   sessionPendingPermissions,
+  sessionColleagueAccess,
   sessionPendingQuestions,
   sessionPeerMessages,
   sessionTasks,
@@ -253,6 +254,8 @@ async function purgeRows(row: DueSession, now: Date): Promise<void> {
     await tx.delete(sessionPendingQuestions).where(eq(sessionPendingQuestions.sessionId, id));
     // A permission ask carries the tool call's arguments: content, gone with the questions.
     await tx.delete(sessionPendingPermissions).where(eq(sessionPendingPermissions.sessionId, id));
+    // A colleague access ask names the colleague's task: gone with the asks.
+    await tx.delete(sessionColleagueAccess).where(eq(sessionColleagueAccess.sessionId, id));
     // Cross-session messages it sent or received, and its team's task list: words, gone with the rest.
     await tx.delete(sessionPeerMessages).where(or(eq(sessionPeerMessages.fromSessionId, id), eq(sessionPeerMessages.toSessionId, id)));
     await tx.delete(sessionTasks).where(eq(sessionTasks.leadSessionId, id));

@@ -51,7 +51,6 @@ export const SERVICES = [
   'skills',
   'static-web',
   'tools',
-  'workspace-provider',
 ]
 // The wire contract is shared with apps/api through a tsconfig path (see
 // tsconfig.json). An aliased file outside the plugin root arrives as an

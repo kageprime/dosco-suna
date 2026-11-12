@@ -1,8 +1,8 @@
 // Read model of roles: `kortix.roles` and `kortix.role_permissions`. Every role
 // read outside iam/ goes through here.
 //
-// Each function returns the query its caller ran inline, unexecuted and
-// verbatim (see membership-read.ts): same statements, same order.
+// One reader per table and projection family (KRTX-4587): a caller that
+// needs one field reads it off the full row, it does not add a new export.
 import { iamRoleActions, iamRoles } from '@kortix/db';
 import { and, eq, isNull, or } from 'drizzle-orm';
 import { db } from '../shared/db';

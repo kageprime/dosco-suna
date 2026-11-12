@@ -3,7 +3,7 @@
 import { WarningIcon as AlertTriangle } from '@phosphor-icons/react';
 import { useTranslations } from '../../i18n';
 import { PowerPointViewer, type ViewerTheme } from 'pptx-react-viewer';
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { I18nextProvider } from 'react-i18next';
 
 import { Button } from '../../primitives/button';
@@ -14,6 +14,7 @@ import { cn } from '../../lib/utils';
 import { getPptxI18n } from './pptx-i18n';
 import './pptx-viewer.css';
 import { Download } from '../../internal/icons/download';
+import { useStageFitScale } from './shared/use-stage-fit-scale';
 
 interface PptxRendererProps {
   content?: string | null;
@@ -80,28 +81,10 @@ const PPTX_DESKTOP_STAGE_WIDTH = 1040;
 
 /**
  * Scales the fixed-width desktop stage down to fit a narrower viewport, never
- * up. Uses a callback ref (rather than a plain `useRef`) so the observer
- * attaches exactly when the viewport element mounts — it doesn't exist yet on
- * first render, since the viewer only appears once the file bytes finish
- * loading.
+ * up — one call into the shared fit-scale hook (the presentation slide's
+ * iframe is the other consumer, with upscale allowed).
  */
-function usePptxStageScale(): [(node: HTMLDivElement | null) => void, number] {
-  const [node, setNode] = useState<HTMLDivElement | null>(null);
-  const [scale, setScale] = useState(1);
-
-  useLayoutEffect(() => {
-    if (!node || typeof ResizeObserver === 'undefined') return;
-
-    const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? node.clientWidth;
-      setScale(Math.min(1, width / PPTX_DESKTOP_STAGE_WIDTH));
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [node]);
-
-  return [setNode, scale];
-}
+const usePptxStageScale = () => useStageFitScale(PPTX_DESKTOP_STAGE_WIDTH, undefined, { allowUpscale: false });
 
 /**
  * PptxRenderer — renders `.pptx`/`.ppt` decks inline with pptx-react-viewer,

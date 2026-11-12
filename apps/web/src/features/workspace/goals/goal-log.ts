@@ -1,7 +1,12 @@
 /** A `log.md` line: `- <ISO 8601 time> <what happened>`, as `createProjectGoal` and the CLI write it. */
 const LOG_LINE = /^[-*]\s+(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)\s+(.*)$/;
 
-export type GoalLogBlock = { kind: 'entry'; at: string; text: string } | { kind: 'text'; markdown: string };
+type GoalLogBlock = { kind: 'entry'; at: string; text: string } | { kind: 'text'; markdown: string };
+
+/** A goal file under its own heading: drop the file's leading `# Title`. */
+export function withoutTitle(markdown: string): string {
+  return markdown.replace(/^\s*# [^\n]*\n+/, '');
+}
 
 /**
  * log.md as blocks in file order: each timed line is an entry, and the
@@ -18,7 +23,7 @@ export function parseGoalLog(markdown: string): GoalLogBlock[] {
   };
   // The open fence (its run of ``` or ~~~), or null: a fenced code block is text as written, timestamps and all.
   let fence: string | null = null;
-  for (const line of markdown.replace(/^\s*# [^\n]*\n+/, '').split('\n')) {
+  for (const line of withoutTitle(markdown).split('\n')) {
     const run = /^\s*(`{3,}|~{3,})/.exec(line)?.[1];
     // A backtick fence's info string has no backtick: "```js``` x" is inline code, not a fence.
     const marker: string | undefined = run && (run[0] === '~' || fence !== null || !line.trim().slice(run.length).includes('`')) ? run : undefined;

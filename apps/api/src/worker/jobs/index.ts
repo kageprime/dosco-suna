@@ -52,6 +52,7 @@ import { startTunnelCleanup, stopTunnelCleanup } from './tunnel-cleanup';
 import { startTunnelForwardExpiry, stopTunnelForwardExpiry } from './tunnel-forward-expiry';
 import { startWorkspaceIdFillWorker, stopWorkspaceIdFillWorker } from './workspace-id-fill';
 import { startWorkspaceSplitWorker, stopWorkspaceSplitWorker } from './workspace-split';
+import { startLegacyCredentialBackfillWorker, stopLegacyCredentialBackfillWorker } from './legacy-credential-backfill';
 
 import { startSalesOutbox, stopSalesOutbox } from './sales-outbox';
 
@@ -74,6 +75,9 @@ export const JOBS: readonly Job[] = [
   // Mint the platform-default sandbox image once per leadership term, so the
   // first session anywhere lands on a cache hit. One shot, no timer.
   { ticks: { 'startup-prebuild': null }, start: kickStartupPreBuild, stop: () => {} },
+  // Move legacy LLM keys and connector rows to their canonical stores: at
+  // boot, then daily. On by default on self-host, off on Kortix cloud.
+  { ticks: { 'legacy-credential-backfill': 26 * HOUR }, start: startLegacyCredentialBackfillWorker, stop: stopLegacyCredentialBackfillWorker },
   // Resume durable sandbox-provider migrations a stop left mid-flight.
   { ticks: { 'provider-transition': 30 * MIN }, start: startProviderTransitionWorker, stop: stopProviderTransitionWorker },
   { ticks: { 'app-deployments': 60 * MIN }, start: startAppDeploymentWorker, stop: stopAppDeploymentWorker },

@@ -12,7 +12,7 @@
  * A refresh the provider refuses keeps the last stored snapshot.
  */
 import { accountSecretResources } from '@kortix/db';
-import { byWindowLength, resetIso, usageSnapshot, type SubscriptionUsage, type UsageWindowInput } from '@kortix/llm-gateway';
+import { byWindowLength, isBlockingWindow, resetIso, usageSnapshot, type SubscriptionUsage, type UsageWindowInput } from '@kortix/llm-gateway';
 import { and, eq, sql } from 'drizzle-orm';
 import { z } from '@hono/zod-openapi';
 import { db } from '../shared/db';
@@ -24,13 +24,17 @@ import { parseAntigravityAuth } from './credentials/antigravity';
 
 export const SUBSCRIPTION_PROVIDERS = new Set(['codex', 'claude-agent', 'antigravity']);
 
+/** Every window a login reports fits: Claude names up to 7, ChatGPT 4 plus 2 per model limit (10 models). */
+const MAX_WINDOWS = 24;
+
+
 export const SubscriptionUsageSchema = z.object({
   windows: z.array(z.object({
     id: z.string().min(1).max(40),
     window_minutes: z.number().int().positive().nullable(),
     used_percent: z.number().min(0).max(100),
     resets_at: z.string().datetime().nullable(),
-  })).max(8),
+  })).max(MAX_WINDOWS),
   limited: z.boolean(),
   observed_at: z.string().datetime(),
   source: z.enum(['response', 'usage_endpoint']),
@@ -107,17 +111,42 @@ export function storedSubscriptionUsage(value: unknown): SubscriptionUsage | nul
   return parsed.success ? parsed.data : null;
 }
 
+/** `seven_day_opus` and `7d_opus` name one window: the endpoint and the headers spell it differently. */
+function windowKey(id: string): string {
+  return id.replace(/^seven_day_/, '7d_');
+}
+
+/**
+ * The windows a model response's headers never carry (code review, extra
+ * usage, a model's own limit) stay until their reset passes: a response
+ * snapshot replaces the windows it names and keeps the rest. A usage-endpoint
+ * read names every window, so it replaces the whole snapshot.
+ */
+export function mergeSubscriptionUsage(stored: SubscriptionUsage | null, next: SubscriptionUsage): SubscriptionUsage {
+  if (next.source === 'usage_endpoint' || !stored) return next;
+  const named = new Set(next.windows.map(window => windowKey(window.id)));
+  const now = Date.parse(next.observed_at);
+  const kept = stored.windows.filter(window => !named.has(windowKey(window.id))
+    && (!window.resets_at || Date.parse(window.resets_at) > now));
+  return kept.length ? { ...next, windows: [...next.windows, ...kept].slice(0, MAX_WINDOWS) } : next;
+}
+
 /**
  * Store a snapshot unless a newer one is already stored: two replicas may
- * report the same login out of order.
+ * report the same login out of order. A response snapshot keeps the stored
+ * windows it does not name (`mergeSubscriptionUsage`).
  */
 export async function recordSubscriptionUsage(secretId: string, accountId: string, usage: SubscriptionUsage): Promise<void> {
-  await db.update(accountSecretResources).set({ usage })
-    .where(and(
-      eq(accountSecretResources.secretId, secretId),
-      eq(accountSecretResources.accountId, accountId),
-      sql`coalesce((${accountSecretResources.usage}->>'observed_at')::timestamptz, '-infinity') <= ${usage.observed_at}::timestamptz`,
-    ));
+  const where = and(eq(accountSecretResources.secretId, secretId), eq(accountSecretResources.accountId, accountId));
+  // Read, merge and write under the row lock: a concurrent write cannot land
+  // between the read and the merge and be dropped.
+  await db.transaction(async (tx) => {
+    const [row] = await tx.select({ usage: accountSecretResources.usage }).from(accountSecretResources).where(where).for('update');
+    if (!row) return;
+    const stored = storedSubscriptionUsage(row.usage);
+    if (stored && Date.parse(stored.observed_at) > Date.parse(usage.observed_at)) return;
+    await tx.update(accountSecretResources).set({ usage: mergeSubscriptionUsage(stored, usage) }).where(where);
+  });
 }
 
 type FetchImpl = (input: string, init: RequestInit) => Promise<Response>;
@@ -125,10 +154,11 @@ type FetchImpl = (input: string, init: RequestInit) => Promise<Response>;
 const REFRESH_EVERY_MS = 60_000;
 const PROVIDER_TIMEOUT_MS = 8_000;
 
-/** ChatGPT's `wham/usage` body: `rate_limit.{primary,secondary}_window`, `used_percent` 0–100. */
-export function codexUsageFromBody(body: unknown, now = Date.now()): SubscriptionUsage | null {
-  const rateLimit = (body as { rate_limit?: Record<string, unknown> } | null)?.rate_limit;
-  if (!rateLimit || typeof rateLimit !== 'object') return null;
+type CodexRateLimit = Record<string, unknown> | null | undefined;
+
+/** The `{primary,secondary}_window` pair of one ChatGPT rate limit, shortest first. */
+function codexWindows(rateLimit: CodexRateLimit, now: number): UsageWindowInput[] {
+  if (!rateLimit || typeof rateLimit !== 'object') return [];
   const windows: UsageWindowInput[] = [];
   for (const slot of ['primary', 'secondary'] as const) {
     const window = rateLimit[`${slot}_window`] as Record<string, unknown> | null | undefined;
@@ -141,12 +171,57 @@ export function codexUsageFromBody(body: unknown, now = Date.now()): Subscriptio
       resets_at: resetIso(window.reset_at, now, window.reset_after_seconds),
     });
   }
-  return usageSnapshot(windows.sort(byWindowLength), { limited: rateLimit.limit_reached === true || rateLimit.allowed === false, now, source: 'usage_endpoint' });
+  return windows.sort(byWindowLength);
 }
 
-const CLAUDE_WINDOWS: Record<string, number | null> = { five_hour: 300, seven_day: 7 * 24 * 60, seven_day_opus: 7 * 24 * 60, seven_day_sonnet: 7 * 24 * 60, seven_day_fable: 7 * 24 * 60 };
+/** `GPT-5.3 Codex Spark` → `gpt_5_3_codex_spark`: a window id fragment. */
+function slug(value: unknown): string | null {
+  const text = typeof value === 'string' ? value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') : '';
+  return text ? text.slice(0, 24) : null;
+}
 
-/** Claude's `oauth/usage` body: `{ five_hour, seven_day, seven_day_opus, … }`, `utilization` 0–100. */
+/** A secondary limit's windows under their own id prefix: `code_review_weekly`, `model_spark_five_hour`. */
+function prefixed(prefix: string, rateLimit: CodexRateLimit, now: number): SubscriptionUsage['windows'] {
+  const snapshot = usageSnapshot(codexWindows(rateLimit, now), { limited: false, now, source: 'usage_endpoint' });
+  return (snapshot?.windows ?? []).map(window => ({ ...window, id: `${prefix}_${window.id}` }));
+}
+
+/** `limited` from the windows that stop model calls, or the provider's own word. */
+function withLimit(usage: SubscriptionUsage | null, refused: boolean): SubscriptionUsage | null {
+  if (!usage) return null;
+  const limited = refused || usage.windows.some(window => isBlockingWindow(window.id) && window.used_percent >= 100);
+  return { ...usage, limited, windows: usage.windows.slice(0, MAX_WINDOWS) };
+}
+
+/**
+ * ChatGPT's `wham/usage` body: `rate_limit.{primary,secondary}_window`
+ * (`used_percent` 0–100), the code-review allowance
+ * `code_review_rate_limit`, and per-model limits in
+ * `additional_rate_limits[].{limit_name,rate_limit}`.
+ */
+export function codexUsageFromBody(body: unknown, now = Date.now()): SubscriptionUsage | null {
+  if (!body || typeof body !== 'object') return null;
+  const record = body as Record<string, unknown>;
+  const rateLimit = record.rate_limit as CodexRateLimit;
+  const main = usageSnapshot(codexWindows(rateLimit, now), { limited: false, now, source: 'usage_endpoint' });
+  const extra = [...prefixed('code_review', record.code_review_rate_limit as CodexRateLimit, now)];
+  for (const limit of Array.isArray(record.additional_rate_limits) ? record.additional_rate_limits : []) {
+    const name = slug((limit as Record<string, unknown> | null)?.limit_name ?? (limit as Record<string, unknown> | null)?.metered_feature);
+    if (name) extra.push(...prefixed(`model_${name}`, (limit as Record<string, unknown>).rate_limit as CodexRateLimit, now));
+  }
+  const windows = [...(main?.windows ?? []), ...extra];
+  if (!windows.length) return null;
+  const refused = Boolean(rateLimit && typeof rateLimit === 'object' && (rateLimit.limit_reached === true || rateLimit.allowed === false));
+  return withLimit({ windows, limited: false, observed_at: new Date(now).toISOString(), source: 'usage_endpoint' }, refused);
+}
+
+const CLAUDE_WINDOWS: Record<string, number | null> = { five_hour: 300, seven_day: 7 * 24 * 60, seven_day_opus: 7 * 24 * 60, seven_day_sonnet: 7 * 24 * 60, seven_day_fable: 7 * 24 * 60, seven_day_oauth_apps: 7 * 24 * 60 };
+
+/**
+ * Claude's `oauth/usage` body: `{ five_hour, seven_day, seven_day_opus, … }`
+ * with `utilization` 0–100, and `extra_usage` (`is_enabled`, `utilization`)
+ * when the plan pays for usage past its limits.
+ */
 export function claudeUsageFromBody(body: unknown, now = Date.now()): SubscriptionUsage | null {
   if (!body || typeof body !== 'object') return null;
   const windows: UsageWindowInput[] = [];
@@ -161,7 +236,11 @@ export function claudeUsageFromBody(body: unknown, now = Date.now()): Subscripti
       resets_at: resetIso(window.resets_at, now),
     });
   }
-  return usageSnapshot(windows.sort(byWindowLength), { limited: false, now, source: 'usage_endpoint' });
+  const extra = (body as { extra_usage?: { is_enabled?: unknown; utilization?: unknown } | null }).extra_usage;
+  if (extra?.is_enabled === true && typeof extra.utilization === 'number') {
+    windows.push({ fallback: 'extra_usage', used_percent: extra.utilization, window_minutes: null, resets_at: null });
+  }
+  return withLimit(usageSnapshot(windows.sort(byWindowLength), { limited: false, now, source: 'usage_endpoint' }), false);
 }
 
 type UsageRow = Pick<typeof accountSecretResources.$inferSelect,

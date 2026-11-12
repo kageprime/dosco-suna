@@ -7,13 +7,13 @@ import { AuthMobileLogo, Rise, StepHeader, SuccessStrip } from '@kortix/ui/inter
 import { OtpVerification } from '@/features/auth/phone-verification/otp-verification';
 import { PhoneInput } from '@/features/auth/phone-verification/phone-input';
 import {
+  MFA_FACTORS_QUERY_KEY,
   useCreateChallenge,
   useEnrollPhoneNumber,
-  useGetAAL,
-  useListFactors,
+  useMfaFactors,
   useUnenrollFactor,
   useVerifyChallenge,
-} from '@/hooks/auth';
+} from '@/hooks/account/use-mfa';
 import { performSignOut } from '@/lib/auth/perform-sign-out';
 import { useAppHome } from '@kortix/ui/internal/lib/onboarding/use-app-home';
 import { SignOutIcon as LogOut } from '@phosphor-icons/react';
@@ -51,49 +51,39 @@ export default function PhoneVerificationPage() {
   const unenrollMutation = useUnenrollFactor();
 
   // Add debugging hooks
-  const { data: factors } = useListFactors();
-  const { data: aalData } = useGetAAL();
+  const { data: factors } = useMfaFactors();
 
-  // Check for existing verified factors on component mount
+  // One factor lookup on mount: a verified factor wins; else the first
+  // unverified one is re-verifiable. Both arms performed the same four
+  // assignments, so they are one branch now.
   useEffect(() => {
     // Don't interfere while we're submitting a phone number
     if (isSubmittingPhone) {
       return;
     }
 
-    if (factors?.factors) {
-      const phoneFactors = factors.factors.filter((f) => f.factor_type === 'phone');
-      const verifiedPhoneFactor = phoneFactors.find((f) => f.status === 'verified');
+    const phoneFactors = factors?.factors.filter((f) => f.factor_type === 'phone') ?? [];
+    const factor =
+      phoneFactors.find((f) => f.status === 'verified') ?? phoneFactors.find((f) => f.status !== 'verified');
+    if (!factor) return;
+    setStep('otp');
+    factorId.current = factor.id;
+    setPhoneNumber(factor.phone || '');
+    setHasExistingFactor(true);
+    // Don't set challengeId yet - let user choose to send code
+  }, [factors, isSubmittingPhone]);
 
-      if (verifiedPhoneFactor) {
-        // User already has a verified factor - show options
-        setStep('otp');
-        factorId.current = verifiedPhoneFactor.id;
-        setPhoneNumber(verifiedPhoneFactor.phone || '');
-        setHasExistingFactor(true);
-        // Don't set challengeId yet - let user choose to send code
-      } else {
-        // No verified factor found - check for unverified factors
-        const unverifiedPhoneFactor = phoneFactors.find((f) => f.status !== 'verified');
-        if (unverifiedPhoneFactor) {
-          factorId.current = unverifiedPhoneFactor.id;
-          setPhoneNumber(unverifiedPhoneFactor.phone || '');
-          setStep('otp');
-          setHasExistingFactor(true);
-          // Don't set challengeId yet - let user choose to send code
-        }
-      }
-    }
-  }, [factors, aalData, isSubmittingPhone]);
+  // The one create-challenge → setChallengeId → setSuccess path shared by the
+  // enroll, existing-factor and resend flows; `successKey` picks the message.
+  const startChallenge = async (factor_id: string, successKey: 'verificationCodeSent' | 'newVerificationCodeSent') => {
+    const challengeResponse = await challengeMutation.mutateAsync({ factor_id });
+    setChallengeId(challengeResponse.id);
+    setSuccess(t(successKey));
+  };
 
   const handleCreateChallengeForExistingFactor = async () => {
     try {
-      const challengeResponse = await challengeMutation.mutateAsync({
-        factor_id: factorId.current,
-      });
-
-      setChallengeId(challengeResponse.id);
-      setSuccess(t('verificationCodeSent'));
+      await startChallenge(factorId.current, 'verificationCodeSent');
     } catch (err) {
       console.error('❌ Failed to create challenge for existing factor:', err);
     }
@@ -126,16 +116,11 @@ export default function PhoneVerificationPage() {
       });
 
       // Step 2: Create a challenge (sends SMS)
-      const challengeResponse = await challengeMutation.mutateAsync({
-        factor_id: enrollResponse.id,
-      });
-
+      await startChallenge(enrollResponse.id, 'verificationCodeSent');
       setPhoneNumber(phone);
       factorId.current = enrollResponse.id;
-      setChallengeId(challengeResponse.id);
       setStep('otp');
       setHasExistingFactor(false);
-      setSuccess(t('verificationCodeSent'));
     } catch (err) {
       console.error('❌ Phone submission failed:', err);
 
@@ -145,7 +130,7 @@ export default function PhoneVerificationPage() {
         // stale, so invalidate that query; reloading the document threw away
         // the whole React tree and re-ran the Supabase session bootstrap to
         // achieve the same refetch.
-        void queryClient.invalidateQueries({ queryKey: ['phone-verification-factors'] });
+        void queryClient.invalidateQueries({ queryKey: MFA_FACTORS_QUERY_KEY });
       }
     } finally {
       setIsSubmittingPhone(false);
@@ -176,12 +161,7 @@ export default function PhoneVerificationPage() {
   const handleResendCode = async () => {
     try {
       // Create a new challenge for the enrolled factor
-      const challengeResponse = await challengeMutation.mutateAsync({
-        factor_id: factorId.current,
-      });
-
-      setChallengeId(challengeResponse.id);
-      setSuccess(t('newVerificationCodeSent'));
+      await startChallenge(factorId.current, 'newVerificationCodeSent');
     } catch (err) {
       console.error('❌ Resend failed:', err);
     }
@@ -271,7 +251,6 @@ export default function PhoneVerificationPage() {
                 onRemovePhone={handleUnenrollFactor}
                 isLoading={isLoading}
                 error={error}
-                showExistingOptions={hasExistingFactor}
                 challengeId={challengeId}
               />
             )}

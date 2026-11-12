@@ -805,17 +805,10 @@ async function assertWriterMayAssign(
 ): Promise<void> {
   if (writer === SYSTEM_ACTOR) return;
   const projectObj: Obj = scopeId ? { type: 'project', id: scopeId } : { type: 'account' };
-  // Who may use a secret value or a connector account is a person's decision.
-  // An agent that may write either could otherwise widen one narrowed away
-  // from it, or name itself in the audience, and then use it.
-  if ((objectType === 'secret' || objectType === 'connection') && writer.credential.kind === 'agent_session') {
-    throw new HTTPException(403, {
-      message:
-        objectType === 'secret'
-          ? 'An agent cannot change who can use a secret. A person changes it in Customize → Secrets.'
-          : 'An agent cannot change who can use a connector account. A person changes it in Customize → Connectors.',
-    });
-  }
+  // Who may use a secret value or a connector account: the same permission
+  // for a person and for an agent session acting for one (the person's role ∩
+  // the agent's grant). An agent widens an audience only when its grant holds
+  // the permission a person gave it.
   if (objectType === 'secret') {
     await assertAuthorized(writer, 'project.secret.write', projectObj);
     return;

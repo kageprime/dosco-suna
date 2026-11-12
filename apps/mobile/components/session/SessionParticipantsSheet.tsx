@@ -7,7 +7,7 @@
  */
 import * as React from 'react';
 import { View } from 'react-native';
-import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { SheetScrollView } from '@/components/kortix/sheet-parts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { SessionParticipants } from '@kortix/sdk';
 
@@ -43,7 +43,7 @@ export const SessionParticipantsSheet = React.forwardRef<SheetRef, SessionPartic
         }
         topInset={insets.top}
         enablePanDownToClose>
-        <BottomSheetScrollView
+        <SheetScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 8 }}>
           <View className="px-4">
@@ -65,7 +65,7 @@ export const SessionParticipantsSheet = React.forwardRef<SheetRef, SessionPartic
               </Text>
             ) : null}
           </View>
-        </BottomSheetScrollView>
+        </SheetScrollView>
       </KortixBottomSheetModal>
     );
   },

@@ -59,6 +59,10 @@ describe('denialNext', () => {
     expect(denialNext('connector_not_connected', { available_accounts: ['A'] })).toContain('available_accounts');
     expect(denialNext('something_else', {})).toBeUndefined();
   });
+
+  test('connector_not_assigned tells the agent never to retry by starting another agent (KRTX-4643)', () => {
+    expect(denialNext('connector_not_assigned', {})).toContain('Do not start another agent');
+  });
 });
 
 test('every connector tool is titled, described, strict, and names project_id', () => {

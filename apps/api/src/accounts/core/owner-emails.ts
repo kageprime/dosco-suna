@@ -20,8 +20,8 @@ import { db } from '../../shared/db';
 
 // Owner emails change rarely and only decorate a display name, so a short TTL
 // is the right trade. Bounded so a large tenant cannot grow the map without end.
-export const OWNER_EMAIL_TTL_MS = 5 * 60 * 1000;
-export const OWNER_EMAIL_CACHE_MAX = 5_000;
+const OWNER_EMAIL_TTL_MS = 5 * 60 * 1000;
+const OWNER_EMAIL_CACHE_MAX = 5_000;
 
 interface CacheEntry {
   email: string | null;

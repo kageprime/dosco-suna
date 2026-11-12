@@ -46,9 +46,9 @@ export type SettingsTab =
   | 'sessions'
   | 'preferences'
   | 'connected'
-  // The browsers a person connected with the Kortix Chrome extension. The API
-  // and the CLI link here (`/settings/chrome`) when an agent needs a browser
-  // and none is connected.
+  // The browsers a person connected with the Kortix Chrome extension. After
+  // launch (CHROME_LAUNCHED) the API and the CLI link here (`/settings/chrome`)
+  // when an agent needs a browser and none is connected; before it, nothing does.
   | 'chrome'
   // API keys came BACK, and only half of what left returned. The old
   // `api-keys` tab listed three kinds of credential at once — a person's own

@@ -13,10 +13,10 @@
  * them. My Kortix's image is the platform default image rendered here, plus
  * one line (my-kortix-dockerfile.ts).
  *
- * The project workspace is NOT baked in — the daemon git-clones it at boot
- * via `KORTIX_PROJECT_AUTO_CLONE`. That keeps the image identity decoupled
- * from project source code, so a code change never invalidates a snapshot
- * and most projects share a single global default image.
+ * The project workspace is NOT baked in, and no session checks it out at boot:
+ * an agent clones it on demand. That keeps the image identity decoupled from
+ * project source code, so a code change never invalidates a snapshot and most
+ * projects share a single global default image.
  *
  * The layer requires apt (Debian/Ubuntu family base) and always overrides the
  * user's ENTRYPOINT.

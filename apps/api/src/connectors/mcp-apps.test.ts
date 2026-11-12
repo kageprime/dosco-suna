@@ -175,6 +175,30 @@ describe('the ways to connect one app (catalogue detail)', () => {
     expect(v2AppKey('API')).toBe('');
   });
 
+  test('Wispr Flow is one app: a record named after its domain joins Composio\'s "Wispr Flow MCP", and its own one-click server leads', async () => {
+    const items = () =>
+      connectorsV2Items({
+        apps: () => [],
+        index: async () => [record('discovered/wisprflow-ai-mcp', 'mcp', 'wisprflow.ai', 'wisprflow.ai', { feeds: ['discovered'], mcpUrl: 'https://api.wisprflow.ai/connect/mcp', oneClick: true })],
+        toolkits: async () => [toolkit('wispr_flow_mcp', 'Wispr Flow MCP')],
+      });
+    expect((await items()).find((entry) => entry.kind === 'composio')?.domain).toBe('wisprflow.ai');
+    const ways = await connectorsV2Surfaces('wisprflow.ai', {
+      items,
+      surfaces: async () => [
+        {
+          id: 'wispr-flow-mcp-server', kind: 'mcp', name: 'Wispr Flow MCP server', url: 'https://api.wisprflow.ai/connect/mcp', docs: null, description: null,
+          transports: ['streamable-http'], requiresAuth: true, command: null,
+          connector: { provider: 'mcp', url: 'https://api.wisprflow.ai/connect/mcp', transport: 'http' },
+        },
+      ],
+    });
+    expect(ways.map((way) => [way.id, way.kind, way.recommended === true])).toEqual([
+      ['wispr-flow-mcp-server', 'mcp', true],
+      ['composio:wispr_flow_mcp', 'composio', false],
+    ]);
+  });
+
   test('YouTube is one app: the toolkit whose name matches no record joins the registry\'s <slug>.com', async () => {
     const catalog = createConnectorCatalog({
       source: {

@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test';
 import { createHmac } from 'node:crypto';
+import type { SlackInbound } from '../channels/slack/inbound';
 
 let loadSigningSecretCalls = 0;
 let projectSigningSecret: string | null = null;
@@ -44,15 +45,49 @@ mock.module('../channels/slack/inbound', () => ({
 }));
 const handledInbound: unknown[] = [];
 const dispatchedEvents: unknown[] = [];
+/** > 0 simulates the dispatch work still running when the test asserts the ack. */
+let slowDispatchMs = 0;
+/** Makes the dispatch work throw (after `slowDispatchMs` when that is set). */
+let dispatchFails = false;
 const slashCalls: unknown[] = [];
 const realDispatch = await import('../channels/slack/dispatch');
+const realLink = await import('../channels/slack/link');
 mock.module('../channels/slack/dispatch', () => ({
   ...realDispatch,
   maybeHandleDmCommand: async () => false,
   dispatchSlackEvent: async (projectId: string, envelope: unknown, opts: unknown) => {
+    if (slowDispatchMs > 0) await new Promise((r) => setTimeout(r, slowDispatchMs));
+    if (dispatchFails) throw new Error('dispatch failed');
     dispatchedEvents.push({ projectId, envelope, opts });
   },
-  ensureProjectChannelBinding: async () => {},
+}));
+/** Whether this project still holds the Slack workspace its own app proved. */
+let holdsWorkspace = true;
+mock.module('../channels/slack/link', () => ({
+  ...realLink,
+  recordSlackChannel: async () => {},
+  holdsSlackWorkspace: async () => holdsWorkspace,
+}));
+// The durable redelivery inbox: a post-ack failure must enqueue the event here
+// (the job queue retries it), a pre-ack failure must not (Slack retries a 5xx).
+const redeliveries: unknown[] = [];
+const redeliveryOpts: unknown[] = [];
+/** > 0 makes the next N enqueue attempts throw (a DB blip the retry must survive). */
+let enqueueFailures = 0;
+let slackRedeliveryConsumer: ((event: unknown) => Promise<void>) | null = null;
+mock.module('../integrations/event-inbox', () => ({
+  emitIntegrationEvent: async (event: unknown, opts: unknown) => {
+    if (enqueueFailures > 0) {
+      enqueueFailures--;
+      throw new Error('enqueue down');
+    }
+    redeliveries.push(event);
+    redeliveryOpts.push(opts);
+    return true;
+  },
+  registerEventConsumer: (_prefix: string, consumer: (event: unknown) => Promise<void>) => {
+    slackRedeliveryConsumer = consumer;
+  },
 }));
 const realCommands = await import('../channels/slack/commands');
 mock.module('../channels/slack/commands', () => ({
@@ -77,6 +112,7 @@ mock.module('../channels/slack/interactivity', () => ({
 }));
 
 (await import('../channels/slack/routes')).registerSlackWebhookRoutes();
+const { REDELIVERY_RETRY_DELAYS_MS, enqueueSlackEventRedelivery } = await import('../channels/slack/routes');
 const { slackWebhookApp } = await import('../channels/slack/app');
 
 afterAll(() => {
@@ -84,6 +120,7 @@ afterAll(() => {
 });
 
 beforeEach(() => {
+  holdsWorkspace = true;
   loadSigningSecretCalls = 0;
   projectSigningSecret = null;
   handledBlockActions.length = 0;
@@ -91,7 +128,15 @@ beforeEach(() => {
   dispatchedEvents.length = 0;
   slashCalls.length = 0;
   provenTeams = ['T1'];
+  slowDispatchMs = 0;
+  dispatchFails = false;
+  enqueueFailures = 0;
+  redeliveries.length = 0;
+  redeliveryOpts.length = 0;
 });
+
+const BYO_PROJECT = '3f1c2b7e-0000-4000-8000-000000000001';
+const BYO_INBOUND: SlackInbound = { kind: 'project', projectId: BYO_PROJECT, teamId: 'T1' };
 
 function signed(body: string, contentType: string): RequestInit {
   const timestamp = String(Math.floor(Date.now() / 1000));
@@ -130,6 +175,16 @@ describe('a per-project Slack app reaches only the workspace its install proved'
     expect(handledInbound).toEqual([{ kind: 'project', projectId: '3f1c2b7e-0000-4000-8000-000000000001', teamId: 'T1' }]);
   });
 
+  test('a project that no longer holds the proven workspace refuses its interactivity', async () => {
+    projectSigningSecret = 'signing-secret';
+    holdsWorkspace = false;
+    const payload = { ...foreignPayload, team: { id: 'T1' } };
+    const body = new URLSearchParams({ payload: JSON.stringify(payload) }).toString();
+    const res = await slackWebhookApp.request('/3f1c2b7e-0000-4000-8000-000000000001/interactivity', signed(body, 'application/x-www-form-urlencoded'));
+    expect(res.status).toBe(403);
+    expect(handledInbound).toEqual([]);
+  });
+
   test('a slash command naming another workspace is refused and never run', async () => {
     projectSigningSecret = 'signing-secret';
     const body = new URLSearchParams({ command: '/kortix', text: 'logout', team_id: 'T_OTHER', user_id: 'U1', channel_id: 'C1' }).toString();
@@ -158,6 +213,166 @@ describe('a per-project Slack app reaches only the workspace its install proved'
     expect(res.status).toBe(403);
     await new Promise((r) => setTimeout(r, 10));
     expect(dispatchedEvents).toEqual([]);
+  });
+
+  test('an event_callback acks at EVENT_ACK_WAIT_MS, not the 2 s webhook budget', async () => {
+    projectSigningSecret = 'signing-secret';
+    // A mention whose work outlasts the event-callback ack budget (a session
+    // spawn on prod takes 300 ms - 2 s); the 2 s route budget would return at
+    // the work's wall time, the event budget returns at the budget.
+    slowDispatchMs = 900;
+    const body = JSON.stringify({
+      type: 'event_callback',
+      event_id: 'EvSlow',
+      team_id: 'T1',
+      event: { type: 'app_mention', channel: 'C1', user: 'U1', ts: '1.0', text: 'hi' },
+    });
+    const started = Date.now();
+    const res = await slackWebhookApp.request(
+      '/3f1c2b7e-0000-4000-8000-000000000001',
+      signed(body, 'application/json'),
+    );
+    const elapsed = Date.now() - started;
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+    expect(slowDispatchMs).toBe(900);
+    // Work still dispatches after the ack (the route reads the dispatch itself).
+    await new Promise((r) => setTimeout(r, 750));
+    expect(dispatchedEvents).toHaveLength(1);
+    // The 250 ms event budget gated the ack; with the shared 2 s budget this
+    // request answered at the 900 ms work (and ≥2 s when the work is slower).
+    expect(elapsed).toBeGreaterThanOrEqual(200);
+    expect(elapsed).toBeLessThan(500);
+  });
+
+  test('a dispatch that fails after the ack is queued for durable redelivery', async () => {
+    projectSigningSecret = 'signing-secret';
+    slowDispatchMs = 900; // the failure lands after the 250 ms ack went out
+    dispatchFails = true;
+    const body = JSON.stringify({
+      type: 'event_callback',
+      event_id: 'EvFail',
+      team_id: 'T1',
+      event: { type: 'app_mention', channel: 'C1', user: 'U1', ts: '1.0', text: 'hi' },
+    });
+    const res = await slackWebhookApp.request(`/${BYO_PROJECT}`, signed(body, 'application/json'));
+    expect(res.status).toBe(200); // the ack does not wait for the failure
+    // The detached work fails at ~900 ms; poll for its durable redelivery.
+    for (let i = 0; i < 40 && redeliveries.length === 0; i++) {
+      await new Promise((r) => setTimeout(r, 30));
+    }
+    expect(redeliveries).toHaveLength(1);
+    const event = redeliveries[0] as {
+      id: string;
+      type: string;
+      source: string;
+      data: { envelope: { event_id: string }; inbound: unknown };
+    };
+    expect(event.id).toBe('EvFail');
+    expect(event.type).toBe('slack.event.redelivery');
+    expect(event.source).toBe(`slack:${BYO_PROJECT}`);
+    expect(event.data.envelope.event_id).toBe('EvFail');
+    expect(event.data.inbound).toEqual(BYO_INBOUND);
+  });
+
+  test('a dispatch that fails inside the ack window answers 500 and queues no redelivery', async () => {
+    projectSigningSecret = 'signing-secret';
+    dispatchFails = true; // fails at once — inside the 250 ms ack window
+    const body = JSON.stringify({
+      type: 'event_callback',
+      event_id: 'EvFast',
+      team_id: 'T1',
+      event: { type: 'app_mention', channel: 'C1', user: 'U1', ts: '1.0', text: 'hi' },
+    });
+    const res = await slackWebhookApp.request(`/${BYO_PROJECT}`, signed(body, 'application/json'));
+    expect(res.status).toBe(500); // Slack retries a 5xx: that retry is the redelivery
+    await new Promise((r) => setTimeout(r, 50));
+    expect(redeliveries).toEqual([]);
+  });
+
+  test('a failed enqueue is retried before the redelivery is scheduled', async () => {
+    projectSigningSecret = 'signing-secret';
+    slowDispatchMs = 900;
+    dispatchFails = true;
+    enqueueFailures = 2; // the first two enqueue attempts throw; the third lands
+    REDELIVERY_RETRY_DELAYS_MS.splice(0, REDELIVERY_RETRY_DELAYS_MS.length, 0, 5, 5);
+    const body = JSON.stringify({
+      type: 'event_callback',
+      event_id: 'EvRetry',
+      team_id: 'T1',
+      event: { type: 'app_mention', channel: 'C1', user: 'U1', ts: '1.0', text: 'hi' },
+    });
+    const res = await slackWebhookApp.request(`/${BYO_PROJECT}`, signed(body, 'application/json'));
+    expect(res.status).toBe(200);
+    for (let i = 0; i < 40 && redeliveries.length === 0; i++) {
+      await new Promise((r) => setTimeout(r, 30));
+    }
+    expect(redeliveries).toHaveLength(1); // the retry, not the failure, schedules the redelivery
+    REDELIVERY_RETRY_DELAYS_MS.splice(0, REDELIVERY_RETRY_DELAYS_MS.length, 0, 1_000, 5_000);
+  });
+
+  test('a redelivery scheduled while the dedup claim still holds waits out the claim TTL', async () => {
+    projectSigningSecret = 'signing-secret';
+    REDELIVERY_RETRY_DELAYS_MS.splice(0, REDELIVERY_RETRY_DELAYS_MS.length, 0);
+    const envelope = { type: 'event_callback', event_id: 'EvHold', event: { type: 'app_mention' } };
+    await enqueueSlackEventRedelivery(envelope, BYO_INBOUND, { claimsReleased: false });
+    const held = redeliveryOpts[0] as { runAt?: Date };
+    // The claim's TTL (5 min) plus margin: before it, the consumer would find
+    // the stale claim held and skip the replay.
+    expect(held.runAt?.getTime()).toBeGreaterThan(Date.now() + 5 * 60_000);
+
+    await enqueueSlackEventRedelivery({ ...envelope, event_id: 'EvFree' }, BYO_INBOUND, {
+      claimsReleased: true,
+    });
+    const freed = redeliveryOpts[1] as { runAt?: Date };
+    expect(freed.runAt).toBeUndefined(); // the claim released: the queue can run the replay at once
+    REDELIVERY_RETRY_DELAYS_MS.splice(0, REDELIVERY_RETRY_DELAYS_MS.length, 0, 1_000, 5_000, 30_000, 60_000, 120_000, 300_000);
+  });
+
+  test('a redelivery replays the stored event through the same dispatch', async () => {
+    projectSigningSecret = 'signing-secret';
+    if (!slackRedeliveryConsumer) throw new Error('the slack redelivery consumer did not register');
+    await slackRedeliveryConsumer({
+      id: 'EvAgain',
+      source: `slack:${BYO_PROJECT}`,
+      type: 'slack.event.redelivery',
+      time: new Date().toISOString(),
+      subject: null,
+      projectId: BYO_PROJECT,
+      data: {
+        envelope: {
+          type: 'event_callback',
+          event_id: 'EvAgain',
+          event: { type: 'app_mention', channel: 'C1', user: 'U1', ts: '1.0', text: 'hi' },
+        },
+        inbound: BYO_INBOUND,
+      },
+    });
+    expect(dispatchedEvents).toHaveLength(1);
+  });
+
+  test('a redelivery whose work fails throws so the job queue retries it', async () => {
+    projectSigningSecret = 'signing-secret';
+    dispatchFails = true;
+    if (!slackRedeliveryConsumer) throw new Error('the slack redelivery consumer did not register');
+    await expect(
+      slackRedeliveryConsumer({
+        id: 'EvAgainFail',
+        source: `slack:${BYO_PROJECT}`,
+        type: 'slack.event.redelivery',
+        time: new Date().toISOString(),
+        subject: null,
+        projectId: BYO_PROJECT,
+        data: {
+          envelope: {
+            type: 'event_callback',
+            event_id: 'EvAgainFail',
+            event: { type: 'app_mention', channel: 'C1', user: 'U1', ts: '1.0', text: 'hi' },
+          },
+          inbound: BYO_INBOUND,
+        },
+      }),
+    ).rejects.toThrow('redelivery');
   });
 
   test('an install with no proven workspace refuses every signed callback', async () => {
@@ -229,6 +444,36 @@ describe('BYO Slack Events API URL verification', () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('');
     expect(handledBlockActions).toEqual([payload]);
+  });
+});
+
+describe('the Slack webhook app refuses an oversized body unread', () => {
+  test('a declared body over the 1 MiB ceiling answers 413 without reading it or checking a signature', async () => {
+    const res = await slackWebhookApp.request('/3f1c2b7e-0000-4000-8000-000000000001/commands', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: 'x'.repeat(1024 * 1024 + 1),
+    });
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({ error: 'Payload too large' });
+    // Refused ahead of the route: no signing secret was even loaded.
+    expect(loadSigningSecretCalls).toBe(0);
+  });
+
+  test('an oversized chunked stream is cut at the ceiling instead of fully buffered', async () => {
+    // No Content-Length: the middleware counts the stream.
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.enqueue(new Uint8Array(64 * 1024).fill(120));
+      },
+    });
+    const res = await slackWebhookApp.request('/3f1c2b7e-0000-4000-8000-000000000001/commands', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: stream,
+    });
+    expect(res.status).toBe(413);
+    expect(loadSigningSecretCalls).toBe(0);
   });
 });
 

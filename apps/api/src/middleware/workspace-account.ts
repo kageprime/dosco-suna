@@ -6,9 +6,12 @@
  *   - Canonical paths (`/v1/workspaces/:workspaceId/…`,
  *     `/v1/connectors/workspaces/:workspaceId/…`, `/scim/v2/workspaces/:workspaceId/…`)
  *     take the workspace id ONLY. An account id, an unknown id or a workspace
- *     the caller cannot read answers `404 { code: 'workspace_not_found' }` on
- *     every sub-path, so a caller cannot probe which ids exist. Input uuids are
- *     case-insensitive.
+ *     being deleted answers `404 { code: 'workspace_not_found' }` on every
+ *     sub-path. A live workspace the signed-in caller cannot read answers
+ *     `403 { code: 'workspace_access_denied' }`, so a person holding a link
+ *     can ask for access (`POST …/access-requests`). Workspace ids are random
+ *     uuids: the 403 confirms only an id the caller already holds. Input uuids
+ *     are case-insensitive.
  *   - Legacy paths (`/v1/accounts/:accountId/…`, `/v1/projects/:projectId/…`,
  *     `/scim/v2/accounts/:accountId/…`) keep their old tolerance forever: the
  *     account key or the workspace id, and their old status codes.
@@ -43,6 +46,7 @@ export const PATH_WORKSPACE_SPLIT_PENDING_VAR = 'pathWorkspaceSplitPending';
 export const CANONICAL_WORKSPACE_VAR = 'canonicalWorkspace';
 
 export const WORKSPACE_NOT_FOUND_CODE = 'workspace_not_found';
+export const WORKSPACE_ACCESS_DENIED_CODE = 'workspace_access_denied';
 export const WORKSPACE_SETUP_REQUIRED_CODE = 'workspace_setup_required';
 export const WORKSPACE_DELETING_CODE = 'workspace_deleting';
 
@@ -129,6 +133,14 @@ export function workspaceNotFound(c: Context): Response {
   return c.json({ error: 'Workspace not found', code: WORKSPACE_NOT_FOUND_CODE }, 404);
 }
 
+/**
+ * `403 workspace_access_denied`: the workspace exists and is live, and the
+ * signed-in caller may not read it. The body names nothing about the workspace.
+ */
+export function workspaceAccessDenied(c: Context): Response {
+  return c.json({ error: 'You do not have access to this workspace', code: WORKSPACE_ACCESS_DENIED_CODE }, 403);
+}
+
 /** Denials the handler answers itself with a coded 403 the client acts on (step-up, SSO). */
 const ACTIONABLE_DENIALS = new Set(['account_mfa_required', 'sso_required']);
 
@@ -137,7 +149,8 @@ const ACTIONABLE_DENIALS = new Set(['account_mfa_required', 'sso_required']);
  * the workspace under `CANONICAL_WORKSPACE_VAR`), a Response answers it.
  *
  * - The id is not a workspace id (account id, unknown, tombstone) → 404.
- * - An actor exists (auth ran) and may not read the workspace → 404. A denial
+ * - An actor exists (auth ran) and may not read the workspace → 403
+ *   workspace_access_denied (404 while the workspace is closing). A denial
  *   the caller can act on (MFA step-up, SSO) passes through to the handler's
  *   coded 403. A request without an actor (SCIM, whose bearer is judged after
  *   this) is not judged here.
@@ -167,7 +180,7 @@ export async function canonicalWorkspaceDecision(
       verdict.allowed ||
       ACTIONABLE_DENIALS.has(verdict.reason) ||
       (ws.projectId === null && (await workspaceRoleFor(actor, ws.workspaceId)) !== null);
-    if (!reachable) return workspaceNotFound(c);
+    if (!reachable) return ws.lifecycle === 'closing' ? workspaceNotFound(c) : workspaceAccessDenied(c);
   }
 
   if (ws.lifecycle === 'closing') {

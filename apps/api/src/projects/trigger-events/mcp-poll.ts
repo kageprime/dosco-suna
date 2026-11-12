@@ -129,6 +129,8 @@ interface Loaded {
   def: EventDefinition;
   label: string;
   owner: string;
+  /** The agent service account the check reads the account as; null reads it as the owner. */
+  agentId: string | null;
   metadata: unknown;
   /** The shortest interval of the triggers on this stream: a shared check serves the fastest one. */
   intervalSeconds: number;
@@ -168,10 +170,15 @@ async function load(stream: PollStream, now: number): Promise<Loaded | null> {
   }
   // The reconciler owns the account check (revoked, narrowed to people, another default):
   // when the account no longer resolves to this stream, it re-decides every trigger on it.
+  // Every trigger is checked as its own agent: an account shared with one agent feeds only that agent's triggers.
   const specs = await triggerSpecs(stream.projectId, consumers.map((r) => r.slug));
-  const spec = specs[0];
-  const resolved = spec?.event ? await resolveSource(stream.projectId, stream.accountId, spec.event) : null;
-  if (!resolved || resolved.kind !== 'ok' || resolved.connection.connectionId !== stream.connectionId) {
+  const resolutions = await Promise.all(
+    specs.map((s) => resolveSource(stream.projectId, stream.accountId, s.event!, s.agent)),
+  );
+  if (
+    resolutions.length === 0 ||
+    resolutions.some((resolved) => resolved.kind !== 'ok' || resolved.connection.connectionId !== stream.connectionId)
+  ) {
     // Same resolveSource as the reconciler: it moves the triggers and drops or replaces this stream.
     await skip(stream, now, false);
     await reconcileEventSubscriptionsFromCatalog(stream.projectId, stream.accountId);
@@ -208,7 +215,17 @@ async function load(stream: PollStream, now: number): Promise<Loaded | null> {
     return null;
   }
   const shortest = Math.min(...specs.map((s) => intervalSeconds(s.event!.config ?? {})));
-  return { def, label, owner, metadata: project.metadata, intervalSeconds: Number.isFinite(shortest) ? shortest : stream.intervalSeconds };
+  // An account shared with agents, not with the whole workspace: every trigger here resolved
+  // through an agent share, so the check reads the account as one of those agents. As the
+  // owner it is not reachable, and the check would answer "not signed in".
+  let agentId: string | null = null;
+  for (const resolved of resolutions) {
+    if (resolved.kind === 'ok' && resolved.agentId) {
+      agentId = resolved.agentId;
+      break;
+    }
+  }
+  return { def, label, owner, agentId, metadata: project.metadata, intervalSeconds: Number.isFinite(shortest) ? shortest : stream.intervalSeconds };
 }
 
 /**
@@ -220,6 +237,7 @@ async function load(stream: PollStream, now: number): Promise<Loaded | null> {
 async function checkDeps(
   stream: PollStream,
   owner: string,
+  agentId: string | null,
   okRecords: ExecutionRecord[],
 ): Promise<{ deps: GatewayDeps; writeAudit: GatewayDeps['recordExecution'] }> {
   const { makeDbGatewayDeps } = await import('../../connectors/db-deps-gateway');
@@ -231,6 +249,8 @@ async function checkDeps(
     subject: { userId: owner, groupIds: [] },
     agentGrant: null,
     requestedConnectorAccount: stream.connectionId,
+    // The agent with no human behind it: no member account is ever reachable.
+    agentPrincipal: agentId ? { agentId, onBehalfOfUserId: null } : null,
     // What a check reads reaches every session its triggers open: only what the whole project may use.
     secretsAsProject: true,
   });
@@ -270,10 +290,10 @@ export async function runPoll(stream: PollStream, now = Date.now()): Promise<voi
 async function check(claimed: PollStream, now: number): Promise<void> {
   const loaded = await load(claimed, now);
   if (!loaded) return;
-  const { def, label, owner } = loaded;
+  const { def, label, owner, agentId } = loaded;
   const stream: PollStream = { ...claimed, intervalSeconds: loaded.intervalSeconds };
   const okRecords: ExecutionRecord[] = [];
-  const { deps, writeAudit } = await checkDeps(stream, owner, okRecords);
+  const { deps, writeAudit } = await checkDeps(stream, owner, agentId, okRecords);
   const { handleCall } = await import('../../connectors/gateway');
   const floor = floorFor(stream.fireAfter.getTime(), now);
   let request;

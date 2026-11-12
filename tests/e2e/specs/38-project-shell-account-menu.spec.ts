@@ -77,20 +77,30 @@ test.describe('38 — The project shell knows who you are', () => {
         await page.setViewportSize({ width: 1280, height: 900 });
       });
 
-      await test.step('the workspace menu leads with the workspace and its actions, then the person', async () => {
+      await test.step('the workspace menu is flat: the workspace, then the person, then Help and Log out', async () => {
         await page.getByRole('button', { name: 'Switch workspace' }).click();
         const menu = page.getByRole('menu');
-        // Header: the workspace only. The caller's role is not shown here.
-        await expect(menu.getByTestId('workspace-menu-header')).toContainText(projectName);
-        await expect(menu.getByTestId('workspace-menu-header')).not.toContainText('Owner');
         const rows = await menu.getByRole('menuitem').allInnerTexts();
-        const order = ['Invite people', 'Workspace settings', 'Switch workspace', 'Preferences', 'More', 'Log out'].map((label) =>
-          rows.findIndex((row) => row.startsWith(label)),
-        );
+        const order = [
+          'Switch workspace',
+          'Workspace settings',
+          'Invite people',
+          'Preferences',
+          'Apps and extensions',
+          'Help',
+          'Log out',
+        ].map((label) => rows.findIndex((row) => row.startsWith(label)));
         expect(order.every((index) => index >= 0)).toBe(true);
         expect([...order].sort((x, y) => x - y)).toEqual(order);
-        // Log out names the session it ends; no row is a bare "Settings".
-        await expect(menu.getByRole('menuitem', { name: /Log out/ })).toContainText(email);
+        // Rows with a better home are gone for an owner: Leave (Workspace
+        // settings › Danger zone), Appearance (Preferences), Download app
+        // (sidebar footer).
+        for (const gone of ['More', 'Leave', 'Appearance', 'Download app']) {
+          expect(rows.some((row) => row.startsWith(gone))).toBe(false);
+        }
+        // Log out is a plain row: no name or email under it. No row is a bare "Settings".
+        await expect(menu.getByRole('menuitem', { name: 'Log out', exact: true })).toBeVisible();
+        await expect(menu.getByRole('menuitem', { name: /Log out/ })).not.toContainText(email);
         expect(rows.some((row) => row.trim() === 'Settings')).toBe(false);
       });
 

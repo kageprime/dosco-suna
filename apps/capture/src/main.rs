@@ -80,7 +80,14 @@ fn init_tracing() -> anyhow::Result<Option<WorkerGuard>> {
         tracing_subscriber::fmt().with_env_filter(filter).init();
         return Ok(None);
     }
-    let file_appender = tracing_appender::rolling::never(log_dir, "kortix-backend.log");
+    // One file a day, the last 7 kept: the action service runs for weeks.
+    let file_appender = tracing_appender::rolling::RollingFileAppender::builder()
+        .rotation(tracing_appender::rolling::Rotation::DAILY)
+        .filename_prefix("kortix-backend")
+        .filename_suffix("log")
+        .max_log_files(7)
+        .build(&log_dir)
+        .map_err(|e| anyhow::anyhow!("failed to open the log file: {e}"))?;
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
     tracing_subscriber::fmt()
         .with_env_filter(filter)

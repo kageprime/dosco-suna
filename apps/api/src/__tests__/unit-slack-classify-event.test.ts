@@ -18,7 +18,7 @@ let dbResults: unknown[][] = [];
 let lastWhere: unknown = null;
 function makeChain(): any {
   const chain: any = {};
-  for (const m of ['from', 'limit']) chain[m] = () => chain;
+  for (const m of ['from', 'limit', 'innerJoin']) chain[m] = () => chain;
   chain.where = (cond: unknown) => {
     lastWhere = cond;
     return chain;
@@ -79,13 +79,14 @@ mock.module('../channels/slack-api', () => ({
   postMessage: async () => 'ts',
   publishHomeView: async () => {},
   removeReaction: async () => {},
+  setAssistantStatus: async () => {},
   startStream: async () => 'ts',
   stopStream: async () => {},
   updateBlocks: async () => {},
   updateMessage: async () => {},
 }));
 
-const { classifyEvent } = await import('../channels/slack/dispatch');
+const { classifyEvent, isStarterReplyInOwnThread } = await import('../channels/slack/dispatch');
 
 const BOT = 'B1';
 const ev = (e: Record<string, unknown>) => ({ type: 'message', ...e }) as any;
@@ -270,5 +271,35 @@ describe('classifyEvent — an app_mention addressed to a DIFFERENT bot', () => 
   test('an empty mention of OUR bot is still ours (the help-text path)', async () => {
     const cls = await classifyEvent('T1', mention('<@B1>'), BOT);
     expect(cls).toBe('mention');
+  });
+});
+
+describe('isStarterReplyInOwnThread — the person who started the thread needs no @mention', () => {
+  const origin = { slack: { user: 'U_STARTER', channel: 'C1', thread_ts: '100.0' } };
+  const reply = (over: Record<string, unknown> = {}) =>
+    ({ type: 'message', channel: 'C1', channel_type: 'channel', user: 'U_STARTER', ts: '101.0', thread_ts: '100.0', text: 'and the EU numbers?', ...over }) as any;
+  const sessionRow = (metadata: unknown) => [{ sessionId: 'sess-1', projectId: 'proj-1', metadata }];
+
+  test("the starter's plain reply in the agent's own thread reaches it", async () => {
+    dbResults = [sessionRow(origin)];
+    expect(await isStarterReplyInOwnThread('proj-1', 'T1', reply())).toBe(true);
+  });
+
+  test('anyone else in the thread still tags the agent', async () => {
+    dbResults = [sessionRow(origin)];
+    expect(await isStarterReplyInOwnThread('proj-1', 'T1', reply({ user: 'U_OTHER' }))).toBe(false);
+  });
+
+  test('a thread the agent posted into later is not its origin thread', async () => {
+    dbResults = [sessionRow({ slack: { ...origin.slack, thread_ts: '50.0' } })];
+    expect(await isStarterReplyInOwnThread('proj-1', 'T1', reply())).toBe(false);
+  });
+
+  test('no session for the thread, a top-level message, a bot, or an edit: never', async () => {
+    dbResults = [[]];
+    expect(await isStarterReplyInOwnThread('proj-1', 'T1', reply())).toBe(false);
+    expect(await isStarterReplyInOwnThread('proj-1', 'T1', reply({ thread_ts: undefined }))).toBe(false);
+    expect(await isStarterReplyInOwnThread('proj-1', 'T1', reply({ bot_id: 'B1' }))).toBe(false);
+    expect(await isStarterReplyInOwnThread('proj-1', 'T1', reply({ subtype: 'message_changed' }))).toBe(false);
   });
 });

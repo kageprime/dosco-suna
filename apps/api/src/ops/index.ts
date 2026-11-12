@@ -198,7 +198,6 @@ opsApp.openapi(
     sessionStatus,
     sandboxStatus,
     sandboxProviders,
-    triggerEventStatus,
     audit24h,
     migrationStatus,
     usage,
@@ -232,10 +231,6 @@ opsApp.openapi(
       FROM kortix.session_sandboxes
       GROUP BY provider
     `),
-    // Triggers are file-defined (kortix.yaml) now; the project_trigger_events
-    // table is gone and the git path doesn't persist events, so this is always
-    // empty. Field kept for dashboard compatibility.
-    Promise.resolve<Record<string, number>>({}),
     safeCount(
       'audit_events_24h',
       sql`
@@ -253,7 +248,6 @@ opsApp.openapi(
     safeRecentAuditEvents(),
   ]);
 
-  const queuedTriggerEvents = triggerEventStatus.queued ?? 0;
   const erroredSessions = sessionStatus.failed ?? 0;
   const erroredSandboxes = sandboxStatus.error ?? 0;
 
@@ -280,11 +274,14 @@ opsApp.openapi(
       errored: erroredSandboxes,
     },
     queues: {
-      trigger_events_by_status: triggerEventStatus,
+      // Triggers are file-defined (kortix.yaml) now; the project_trigger_events
+      // table is gone and the git path doesn't persist events, so this is always
+      // empty. Field kept for dashboard compatibility.
+      trigger_events_by_status: {},
       // Channel events are file-defined now (no queue table); kept for dashboard
       // shape compatibility so the UI never reads an undefined map.
       channel_events_by_status: {},
-      queued_total: queuedTriggerEvents,
+      queued_total: 0,
     },
     audit: {
       // null when the audit_events 24h count failed (e.g. pre-index timeout).

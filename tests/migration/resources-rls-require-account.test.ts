@@ -123,6 +123,7 @@ function seedLegacyShape(): void {
 const suite = dockerOk ? describe : describe.skip;
 
 suite('public.resources RLS requires an account (throwaway Postgres)', () => {
+  let revokedAfterBatch = '';
   let before = {
     member: '',
     stranger: '',
@@ -175,7 +176,20 @@ suite('public.resources RLS requires an account (throwaway Postgres)', () => {
     };
     const code = await runMigrate(ROOT, ports);
     if (code !== 0) throw new Error('migrations failed');
+    // 20261110135954872_freeze_legacy_suna_tables, later in the same batch, revokes every legacy
+    // table from authenticated and freezes it. The checks below are about the RLS policies, so put
+    // the grant back and lift the freeze on this throwaway copy only.
+    revokedAfterBatch = psql(`select has_table_privilege('authenticated', 'public.resources', 'SELECT')`);
+    psql(`
+      grant select, insert, update, delete on public.resources to authenticated;
+      grant select on basejump.account_user to authenticated;
+      drop trigger kortix_legacy_freeze on public.resources;
+    `);
   }, 240_000);
+
+  test('the full batch leaves authenticated no privilege on the legacy table', () => {
+    expect(revokedAfterBatch).toBe('f');
+  });
 
   afterAll(() => {
     sh(['docker', 'rm', '-f', '-v', CONTAINER]);

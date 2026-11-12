@@ -14,7 +14,7 @@ const save = mock(async (providerId: string, _input: unknown) => {
 let providers: unknown[] = [];
 
 mock.module('../../../primitives/toast', () => ({ successToast, errorToast }));
-// The Radix switch reads `HTMLFormElement`; react-test-renderer has no DOM.
+// The switch needs a DOM (its hidden form input); react-test-renderer has none.
 mock.module('../../../primitives/switch', () => ({
   Switch: ({ checked, onCheckedChange, ...props }: { checked: boolean; onCheckedChange: (v: boolean) => void }) => (
     <button {...props} role="switch" aria-checked={checked} onClick={() => onCheckedChange(!checked)} />

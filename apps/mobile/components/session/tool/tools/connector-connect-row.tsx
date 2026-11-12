@@ -78,7 +78,7 @@ export function ConnectRowShell({
   );
 }
 
-export interface ConnectorConnectRowProps {
+interface ConnectorConnectRowProps {
   slug: string;
   label: string;
   /** The agent's own `connect_url` — the `ConnectorAuthSheet` fallback. */

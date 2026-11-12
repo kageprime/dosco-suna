@@ -17,7 +17,7 @@ import {
   loadTelegramInstall,
   loadDiscordInstall,
 } from '../channels/install-store';
-import { agentPolicySet } from '../iam/agent-scope';
+import { callPolicySetOf, principalMayUseConnector } from './principal-access';
 import { canonicalConnectorAlias, resolveSessionConnectorConnection } from '../projects/lib/session-connector-bindings';
 import { db } from '../shared/db';
 import {
@@ -26,8 +26,7 @@ import {
   connectionCredentialExists,
 } from './credentials';
 import type { ConnectorAuth } from './call';
-import { type DefaultMode, type Policy, type Risk, parseStoredConditions, resolveEffectiveAction } from './policy';
-import { principalMayUseConnector } from './principal-access';
+import { type DefaultMode, type Policy, type PolicyAction, type Risk, parseStoredConditions, resolveEffectiveAction } from './policy';
 import type { ConnectorPrincipal } from './router-contract';
 
 const DEFAULT_AUTH: ConnectorAuth = {
@@ -36,12 +35,6 @@ const DEFAULT_AUTH: ConnectorAuth = {
   name: null,
   prefix: null,
 };
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export function isUuid(value: string): boolean {
-  return UUID_REGEX.test(value);
-}
 
 export type ConnectorRow = typeof connectors.$inferSelect;
 
@@ -210,10 +203,12 @@ export async function resolveActiveConnectorConnection(principal: ConnectorPrinc
  * Whether the agent's own `<slug>.<actionPath>` call with these args would run
  * without approval. `principal` is the one the agent's session token names
  * (`resolveTokenPrincipal`). The gateway's checks, in its order: the connector
- * is assigned to the agent, enabled, has an active account this session may
- * use, and has the action. Then its policy layers (project, the agent's policy
- * set, connector, `sensitive`, the default mode), with the exact args. For a
- * server post that stands in for that call.
+ * is assigned to the agent (its own grant, its channel, or its spawn line's
+ * inherited grants), enabled, has an active account this session may use, and
+ * has the action. Then its policy layers (project, the policy set
+ * `callPolicySetOf` resolves — the caller's own grant, else the nearest
+ * ancestor's that reaches the connector, connector, `sensitive`, the default
+ * mode), with the exact args. For a server post that stands in for that call.
  */
 export async function connectorActionAlwaysRuns(input: {
   principal: ConnectorPrincipal;
@@ -230,7 +225,11 @@ export async function connectorActionAlwaysRuns(input: {
     .where(and(eq(connectors.projectId, principal.projectId), eq(connectors.slug, input.slug)))
     .limit(1);
   if (!row?.enabled || !(await resolveActiveConnectorConnection(principal, row))) return false;
-  const setName = agentPolicySet(principal.agentGrant ?? null, alias);
+  // The same resolution the gateway's /call runs: the caller's own grant when
+  // it reaches the connector, else the nearest ancestor's set — a server post
+  // standing in for a delegated session answers to the set that session's own
+  // call answers to, never to its own (unreaching) grant's map.
+  const setName = callPolicySetOf(principal, alias)?.name ?? null;
   const [[action], connectorPolicies, projectPolicies, defaultMode, setPolicies] = await Promise.all([
     db
       .select({ risk: connectorActions.risk })
@@ -260,18 +259,24 @@ export async function connectorActionAlwaysRuns(input: {
   );
 }
 
-export async function loadConnectorPoliciesFor(connectorId: string): Promise<Policy[]> {
-  const rows = await db
-    .select()
-    .from(connectorPolicies)
-    .where(eq(connectorPolicies.connectorId, connectorId));
-  return rows.map((r) => ({
+/** One stored rule row → the engine's `Policy`. `connector_policies`,
+ *  `connector_project_policies` and a stored set's rules carry the same shape. */
+function toPolicy(r: { match: string; action: PolicyAction; position: number; conditions: unknown }): Policy {
+  return {
     match: r.match,
     action: r.action,
     position: r.position,
     // Conditions are re-validated on READ, never trusted from storage.
     ...parseStoredConditions(r.conditions),
-  }));
+  };
+}
+
+export async function loadConnectorPoliciesFor(connectorId: string): Promise<Policy[]> {
+  const rows = await db
+    .select()
+    .from(connectorPolicies)
+    .where(eq(connectorPolicies.connectorId, connectorId));
+  return rows.map(toPolicy);
 }
 
 /** `loadConnectorPoliciesFor`, batched over many connectors in one query
@@ -286,12 +291,7 @@ export async function loadConnectorPoliciesForMany(
     .from(connectorPolicies)
     .where(inArray(connectorPolicies.connectorId, connectorIds));
   for (const r of rows) {
-    const policy: Policy = {
-      match: r.match,
-      action: r.action,
-      position: r.position,
-      ...parseStoredConditions(r.conditions),
-    };
+    const policy = toPolicy(r);
     const list = map.get(r.connectorId);
     if (list) list.push(policy);
     else map.set(r.connectorId, [policy]);
@@ -310,7 +310,7 @@ export function policiesOfStoredSet(raw: unknown): Policy[] | null {
     if (typeof match !== 'string' || (action !== 'always_run' && action !== 'require_approval' && action !== 'block')) {
       return null;
     }
-    out.push({ match, action, position, ...parseStoredConditions(conditions) });
+    out.push(toPolicy({ match, action, position, conditions }));
   }
   return out;
 }
@@ -351,12 +351,7 @@ export async function loadProjectPoliciesFor(projectId: string): Promise<Policy[
     .select()
     .from(connectorProjectPolicies)
     .where(eq(connectorProjectPolicies.projectId, projectId));
-  return rows.map((r) => ({
-    match: r.match,
-    action: r.action,
-    position: r.position,
-    ...parseStoredConditions(r.conditions),
-  }));
+  return rows.map(toPolicy);
 }
 
 export async function loadDefaultModeFor(projectId: string): Promise<DefaultMode> {

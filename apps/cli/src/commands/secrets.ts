@@ -87,9 +87,10 @@ Subcommands:
                                     workspace and credential. Never mints.
                                     Links minted elsewhere are not available.
                                     --scope runtime|connector  --expires <min>
-                                    connector by default: server-side only,
-                                    never in the sandbox env. Use runtime
-                                    explicitly to expose the real value.
+                                    runtime by default: the agent receives
+                                    it as an env var. Pass connector for a
+                                    key only a connector spends (server-side
+                                    only, never in the sandbox env).
   sync                              Re-push secrets into sandboxes. In an agent
                                     session: pulls THIS session's secrets and
                                     grant now (the per-prompt sync, on

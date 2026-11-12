@@ -47,7 +47,7 @@ const fakes: Record<string, Record<string, unknown>> = {
   'react-native': { View: host('View'), Pressable: host('Pressable'), ScrollView: host('ScrollView') },
   nativewind: { useColorScheme: () => ({ colorScheme: 'light' }) },
   'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
-  '@gorhom/bottom-sheet': { BottomSheetScrollView: host('SheetScroll'), BottomSheetTextInput: host('SheetInput') },
+  '@/components/kortix/sheet-parts': { SheetScrollView: host('SheetScroll'), SheetRawTextInput: host('SheetInput') },
   '@kortix/sdk/react': {
     useCans: (target: unknown, actions: readonly string[]) => {
       probes.push({ target, actions });

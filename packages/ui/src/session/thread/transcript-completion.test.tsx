@@ -12,6 +12,10 @@ import { SessionTurn } from './transcript';
 const browser = new Window();
 Object.defineProperty(globalThis, 'window', { value: browser, configurable: true });
 Object.defineProperty(globalThis, 'document', { value: browser.document, configurable: true });
+// The tooltip's positioning library tests nodes with `instanceof Element`.
+for (const name of ['Element', 'HTMLElement', 'Node', 'ShadowRoot']) {
+  Object.defineProperty(globalThis, name, { value: Reflect.get(browser, name), configurable: true });
+}
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', { value: true, configurable: true });
 let mounted: ReactTestRenderer | undefined;
 afterEach(async () => { await act(async () => mounted?.unmount()); });

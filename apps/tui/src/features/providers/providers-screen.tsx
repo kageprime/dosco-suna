@@ -165,7 +165,7 @@ function ProvidersScreenBody({
           active={pane === 'list'}
           note={
             data.pooled
-              ? 'New API keys, ChatGPT and Claude accounts are private to you until you share them.'
+              ? 'New API keys, ChatGPT and Claude accounts are shared with every workspace member. You can make one private.'
               : data.canWrite
                 ? null
                 : 'Ask an owner of this workspace to add a key.'

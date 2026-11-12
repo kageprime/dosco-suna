@@ -52,7 +52,7 @@ export type DisclosureProviderProps = {
 
 /**
  * Controlled OR uncontrolled, with exactly one source of truth for `open` —
- * the same contract every Radix primitive in this codebase uses.
+ * the same contract every `@kortix/ui` primitive uses.
  *
  * This replaces a mirrored-state design that copied `open` into internal state
  * and reconciled the two in a `useEffect`. That shape produced the reported
@@ -233,7 +233,7 @@ export function DisclosureTrigger({
             if (e.defaultPrevented) return;
             if (e.key === 'Enter' || e.key === ' ') {
               // Activate before preventing the default: a composed handler
-              // (Radix's tooltip close) skips a prevented event.
+              // (a tooltip trigger's) may skip a prevented event.
               activate(e);
               e.preventDefault();
             }

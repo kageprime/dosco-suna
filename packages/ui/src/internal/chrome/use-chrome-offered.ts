@@ -2,6 +2,7 @@
 
 import { listChromeConnections } from '@kortix/sdk';
 import { chromeKeys } from '@kortix/sdk/react';
+import { CHROME_LAUNCHED } from '@kortix/shared/chrome-launch';
 import { useQuery } from '@tanstack/react-query';
 
 /**
@@ -10,9 +11,10 @@ import { useQuery } from '@tanstack/react-query';
  * no sidebar row and no card in Apps and extensions. Off on every deployment
  * until launch: the probe below logged a 404 in the console on staging and
  * prod, where the API's KORTIX_CHROME_ENABLED is off. Set true to bring the
- * surfaces back where the API serves the routes.
+ * surfaces back where the API serves the routes. The value is
+ * `CHROME_LAUNCHED`, which the API and the CLI read too.
  */
-export const CHROME_UI_ENABLED = false;
+export const CHROME_UI_ENABLED = CHROME_LAUNCHED;
 
 /**
  * Whether this platform offers Kortix in Chrome at all. The API answers 404

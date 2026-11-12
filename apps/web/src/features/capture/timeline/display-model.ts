@@ -60,7 +60,7 @@ export function coveredAt(
  * every 2 s. A display is recorded from a frame until its next frame, for at
  * most this long.
  */
-export const KEEPALIVE_MS = 32_000;
+const KEEPALIVE_MS = 32_000;
 
 /** Whether `T` is recorded by the frame at `frameTs` (the last frame at or before `T`). */
 export function recordedSince(frameTs: number | null, T: number): boolean {
@@ -68,9 +68,9 @@ export function recordedSince(frameTs: number | null, T: number): boolean {
 }
 
 /** Behind the device by more than this, Live says it is uploading. */
-export const LIVE_SLACK_MS = 15_000;
+const LIVE_SLACK_MS = 15_000;
 
-export type LiveState =
+type LiveState =
   | { kind: 'live' | 'uploading'; behindMs: number }
   | { kind: Exclude<DeviceStatusKey, 'recording'>; behindMs: number | null };
 
@@ -97,7 +97,7 @@ export function liveState({
   return { kind: deviceAhead ? 'uploading' : 'live', behindMs: behindMs ?? 0 };
 }
 
-export interface DisplayRect {
+interface DisplayRect {
   id: number;
   left: number;
   top: number;

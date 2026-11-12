@@ -9,6 +9,8 @@
  *   dcr   401 → RFC 9728 protected-resource metadata → the authorization
  *         server lists `registration_endpoint` (RFC 7591)
  *   cimd  the authorization server sets `client_id_metadata_document_supported`
+ * The URLs `src/connectors/mcp-urls.json` fills in for registry records that
+ * list none are probed too.
  * Everything else (an own OAuth app, an API key, a 403 edge wall, dead) is left
  * out. `*.googleapis.com` answers initialize openly but needs a Google Cloud
  * project for every tool call, so it is left out too. No OAuth client is
@@ -236,12 +238,17 @@ const data = (
 ).data;
 // A connect URL that carries a credential in its query is someone's key: never commit it.
 const CREDENTIAL_QUERY = /[?&](token|key|api[_-]?key|subscription-key|access[_-]?token|secret)=/i;
+// The MCP URLs Kortix fills in where the registry lists none (`mcp-urls.json`).
+const verified = Object.values(
+  (await Bun.file(new URL("../src/connectors/mcp-urls.json", import.meta.url).pathname).json()) as Record<string, string>,
+);
 const urls = [
-  ...new Set(
-    data
+  ...new Set([
+    ...data
       .filter((x) => x.kind === "mcp" && x.connectUrl && !CREDENTIAL_QUERY.test(x.connectUrl))
       .map((x) => x.connectUrl.trim()),
-  ),
+    ...verified,
+  ]),
 ];
 const out: Record<string, any> = {};
 let done = 0;

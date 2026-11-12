@@ -193,8 +193,6 @@ describe('Models page — the eight tabs', () => {
       "{ id: 'routing', label: 'Routing' }",
       "{ id: 'overview', label: 'Costs' }",
       "{ id: 'logs', label: 'Logs' }",
-      // Connected ChatGPT/Claude plan usage (#11816).
-      "{ id: 'usage', label: 'Usage' }",
     ]) {
       expect(gatewaySource).toContain(pair);
     }
@@ -206,8 +204,9 @@ describe('Models page — the eight tabs', () => {
       'routing',
       'overview',
       'logs',
-      'usage',
     ]);
+    // ChatGPT and Claude subscription usage lives in the provider sheet, not a tab.
+    expect(LLM_TABS.map((t) => t.id)).not.toContain('usage');
     // "API keys" named a tab that held keys pointing in both directions. Two
     // tabs name their direction now, and neither reuses the old label.
     expect(LLM_TABS.map((t) => t.label)).not.toContain('API keys');

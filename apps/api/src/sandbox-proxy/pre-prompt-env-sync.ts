@@ -308,13 +308,19 @@ export async function runPrePromptEnvSync(
     // (sandbox-env-push.ts). A failed bind refuses the turn like a failed grant
     // re-mint: no turn runs as the previous prompter.
     if (input.bindTurnIdentity && userId) {
-      await deps
+      const bindFailed = await deps
         .bindTurnIdentity({ accountId: record.accountId, sessionId: record.sessionId, prompterUserId: userId })
-        .catch((err) => {
-          // The cause stays in the log; the client gets no SQL text.
-          console.warn(`[PREVIEW] Turn identity bind failed for ${sandboxId}: ${errorMessage(err, 'bind failed')}`);
-          throw new Error('could not bind the session to the person starting this turn');
-        });
+        .then(
+          () => false,
+          (err) => {
+            // The cause stays in the log; the client gets no SQL text.
+            console.warn(`[PREVIEW] Turn identity bind failed for ${sandboxId}: ${errorMessage(err, 'bind failed')}`);
+            return true;
+          },
+        );
+      if (bindFailed) {
+        return jsonProxyError({ error: 'could not bind the session to the person starting this turn' }, 502, origin);
+      }
     }
     await deps.syncEnv({
       projectId: record.projectId,
@@ -359,7 +365,9 @@ export async function runPrePromptEnvSync(
       throw new Error(message);
     }
     console.warn(`[PREVIEW] Project env sync failed for ${sandboxId}:${port}: ${message}`);
-    return jsonProxyError({ error: message }, 502, origin);
+    // The body stays stable and termless: an internal failure's own message
+    // can name stack-level context, already logged server-side.
+    return jsonProxyError({ error: 'Project env sync failed. Retry the request or check the sandbox logs.' }, 502, origin);
   }
   return null;
 }

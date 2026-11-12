@@ -53,8 +53,8 @@ defaults keep today's behavior, so a valid file stays valid.
 alias, so `tools: *` does not parse and `kortix validate` prints the quoted
 line. `all` is the accepted alias, and a list that holds `"*"` is every name
 too.
-| `workspace` | `{ project_repository: true }` checks out the repository in `/workspace`. Default `false`. |
 | `sandbox` | A template slug, or `default`. |
+| `workspace` | What the agent's sessions get to work in: `sandbox` (same as above), `repos` (clones onto the session branch: `path` under `/workspace`, optional `sparse` folders; needs `workspace.gitops.read`) and `setup` (steps after the clones: a command, or `{ run, cwd }`; each its own shell, in the first clone's folder unless `cwd` says otherwise). Both run in the background after start; progress in `/tmp/kortix/workspace-setup.json`. |
 | `space` | Work in progress: the space the agent works in. Grouping only, never a grant. |
 | `network_egress` | Only `{ version: 1, default: deny, rules: [] }`. Declared, not enforced. |
 

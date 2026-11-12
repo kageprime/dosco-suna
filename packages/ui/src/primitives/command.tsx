@@ -1,18 +1,32 @@
 'use client';
 
-import { Command as CommandPrimitive } from 'cmdk';
-import { useUiStrings } from '../providers/ui-provider';
 import * as React from 'react';
+import { useUiStrings } from '../providers/ui-provider';
 
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from './dialog';
-import { Popover, PopoverContent, PopoverTrigger } from './popover';
+  CommandEmptyCore,
+  CommandGroupCore,
+  CommandInputCore,
+  CommandItemCore,
+  CommandListCore,
+  CommandRoot,
+  CommandSeparatorCore,
+  useCommandState,
+} from './command-core';
+
 import { cn } from '../lib/utils';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './dialog';
+import { Popover, PopoverContent, PopoverTrigger } from './popover';
+
+/** The headless cmdk-compatible parts (`./command-core`), named as cmdk names them. */
+const CommandPrimitive = Object.assign(CommandRoot, {
+  Input: CommandInputCore,
+  List: CommandListCore,
+  Empty: CommandEmptyCore,
+  Group: CommandGroupCore,
+  Separator: CommandSeparatorCore,
+  Item: CommandItemCore,
+});
 
 const CMDK_SHARED_CLASSES = [
   '[&_[cmdk-group]]:px-1.5',
@@ -23,7 +37,7 @@ const CMDK_SHARED_CLASSES = [
  * `data-nav` records which input moved the highlight last: `pointer` or
  * `keyboard`. `CommandItem` reads it to pick ONE highlight source.
  *
- * cmdk 0.2.1 selects a row on every `pointermove` through its store, so
+ * The command core (cmdk 0.2.1) selects a row on every `pointermove` through its store, so
  * `data-selected` moves only after React re-renders the whole list. In the ⌘K
  * palette that re-render trails the cursor: the row you left stays lit until
  * it lands, which reads as a hover transition. In pointer mode the row paints
@@ -89,10 +103,10 @@ function CommandDialog({
         // `data-[state=closed]:animate-none!` on the panel AND the overlay: the
         // palette closes on the frame you dismiss it, with no exit animation.
         // `DialogContent` and `DialogOverlay` both play a 200ms `animate-out`
-        // (fade, plus a zoom to 95% on the panel), and Radix Presence keeps the
-        // node mounted until `animationend` — so Escape, a selected command,
+        // (fade, plus a zoom to 95% on the panel), and the dialog keeps the
+        // node mounted until the animation ends — so Escape, a selected command,
         // or an outside click left the palette on screen for 200ms after it
-        // was done. With `animation-name: none`, Presence unmounts at once.
+        // was done. With `animation-name: none`, it unmounts at once.
         // `!` because tailwind-merge does not know `animate-out` (it comes from
         // tw-animate-css) and keeps both classes; without it, the winner would
         // be whichever utility Tailwind happens to emit last.
@@ -102,7 +116,7 @@ function CommandDialog({
         // day, almost always from the keyboard — read as late and as growing
         // out of the page. The palette now paints complete on the first frame.
         className={cn(
-          'p-0 shadow-[0_0_50px_0] shadow-black/10 data-[state=open]:animate-none! data-[state=closed]:animate-none! border',
+          'border p-0 shadow-[0_0_50px_0] shadow-black/10 data-[state=closed]:animate-none! data-[state=open]:animate-none!',
           className,
         )}
         hideCloseButton={!showCloseButton}
@@ -334,7 +348,11 @@ function CommandPopoverContent({
         className,
       )}
     >
-      <Command shouldFilter={shouldFilter} defaultValue={defaultValue} className={CMDK_SHARED_CLASSES}>
+      <Command
+        shouldFilter={shouldFilter}
+        defaultValue={defaultValue}
+        className={CMDK_SHARED_CLASSES}
+      >
         {children}
       </Command>
     </PopoverContent>
@@ -355,4 +373,5 @@ export {
   CommandPopoverTrigger,
   CommandSeparator,
   CommandShortcut,
+  useCommandState,
 };

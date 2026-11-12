@@ -8,6 +8,7 @@ import {
   type Database,
   projectTriggerRuntime,
   projects,
+  serviceAccounts,
   sessionLifecycleCommands,
 } from '@kortix/db';
 import { and, eq } from 'drizzle-orm';
@@ -16,7 +17,10 @@ import { clearAuthorizeCaches } from '../../iam/authorize';
 import type { GitTriggerSpec } from '../trigger-types';
 
 const fires: Array<Record<string, any>> = [];
-let fireStatus: 'fired' | 'failed' | 'retryable' | 'deduped' | 'throws' = 'fired';
+type FireKind = 'fired' | 'failed' | 'retryable' | 'account_state' | 'deduped' | 'throws';
+let fireStatus: FireKind = 'fired';
+/** Per-fire plan for a mixed batch: each entry is consumed before `fireStatus` applies. */
+let firePlan: FireKind[] = [];
 /** The create command a fire leaves under its key, as `createSession` does. */
 let leftCommand: 'dead_lettered' | 'queued' | null = null;
 const actualTriggers = await import('../lib/triggers');
@@ -24,6 +28,7 @@ mock.module('../lib/triggers', () => ({
   ...actualTriggers,
   fireGitTrigger: async (input: Record<string, any>) => {
     fires.push(input);
+    const kind = firePlan.shift() ?? fireStatus;
     if (leftCommand) {
       await testDb().insert(sessionLifecycleCommands).values({
         commandType: 'create_session',
@@ -34,10 +39,12 @@ mock.module('../lib/triggers', () => ({
         idempotencyKey: input.idempotencyKey,
       });
     }
-    if (fireStatus === 'failed') return { status: 'failed', error: 'boom', retryable: false };
-    if (fireStatus === 'retryable') return { status: 'failed', error: 'The sandbox provider is busy', retryable: true };
-    if (fireStatus === 'throws') throw new Error('sandbox unavailable');
-    return { status: 'fired', sessionId: 'sess_synthetic', deduped: fireStatus === 'deduped' };
+    if (kind === 'failed') return { status: 'failed', error: 'boom', retryable: false };
+    if (kind === 'retryable') return { status: 'failed', error: 'The sandbox provider is busy', retryable: true };
+    if (kind === 'account_state')
+      return { status: 'failed', error: 'No usable model for this account. Connect a provider key or upgrade the plan, then fire again.', errorCode: 'no_usable_model', retryable: false };
+    if (kind === 'throws') throw new Error('sandbox unavailable');
+    return { status: 'fired', sessionId: 'sess_synthetic', deduped: kind === 'deduped' };
   },
 }));
 
@@ -54,6 +61,20 @@ mock.module('../../connectors/db-deps', () => ({
         .where(eq(connectorConnections.connectionId, selector.connectionId));
       return { provider: 'composio', connected: true };
     },
+  },
+}));
+
+// kortix.yaml, as the git mirror reads it: only its `default_agent` matters here.
+// `Error` stands for a file that cannot be read.
+let manifestDefaultAgent: string | null | Error = null;
+let manifestReads = 0;
+const actualAgents = await import('../agents/parse');
+mock.module('../agents/parse', () => ({
+  ...actualAgents,
+  loadProjectAgents: async () => {
+    manifestReads += 1;
+    if (manifestDefaultAgent instanceof Error) throw manifestDefaultAgent;
+    return { specs: [], errors: [], defaultAgent: manifestDefaultAgent, builtinAgents: { my_kortix: false }, manifest: null };
   },
 }));
 
@@ -78,6 +99,7 @@ const PROJECT_ID = '00000000-0000-4000-a000-000000009822';
 const CONNECTOR_ID = '00000000-0000-4000-a000-000000009823';
 const CONNECTION_ID = '00000000-0000-4000-a000-000000009824';
 const SECOND_CONNECTION_ID = '00000000-0000-4000-a000-000000009826';
+const AGENT_SERVICE_ACCOUNT_ID = '00000000-0000-4000-a000-000000009828';
 
 let integrationDb: Database | null = null;
 function testDb(): Database {
@@ -150,6 +172,27 @@ const catalog = async (s: GitTriggerSpec) =>
     enabled: s.enabled,
     scheduleSpec: s as unknown as Record<string, unknown>,
   });
+/** The standing identity of the project's agent `agentName`, as `ensureAgentServiceAccount` writes it. */
+const agentIdentity = (agentName: string) =>
+  testDb().insert(serviceAccounts).values({
+    serviceAccountId: AGENT_SERVICE_ACCOUNT_ID,
+    accountId: ACCOUNT_ID,
+    projectId: PROJECT_ID,
+    agentName,
+    name: agentName,
+    secretHash: `event-agent-${AGENT_SERVICE_ACCOUNT_ID}`,
+    publicPrefix: 'kortix_sa_event',
+  });
+/** Narrow a shared account to the agent identity alone (a `connection` grant). */
+const shareOnlyWithAgent = async (connectionId = CONNECTION_ID) => {
+  await assignRole(SYSTEM_ACTOR, ACCOUNT_ID, {
+    principal: { type: 'service_account', id: AGENT_SERVICE_ACCOUNT_ID },
+    roleKey: 'agent-user',
+    scope: { type: 'project', id: PROJECT_ID },
+    object: { type: 'connection', id: connectionId },
+  });
+  clearAuthorizeCaches();
+};
 const status = async (slug: string) => (await store.get(PROJECT_ID, slug))?.status;
 /** The trigger's own row: what the triggers API reports as last_status / last_error. */
 const runtime = async (slug: string) => {
@@ -166,8 +209,11 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
     calls.length = 0;
     fires.length = 0;
     fireStatus = 'fired';
+    firePlan = [];
     leftCommand = null;
     subscribeError = null;
+    manifestDefaultAgent = null;
+    manifestReads = 0;
     setEventSourceForTest('composio', fake);
     const db = testDb();
     await db.insert(accounts).values({ accountId: ACCOUNT_ID, name: 'Event reconcile proof' });
@@ -240,6 +286,150 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
     clearAuthorizeCaches();
   });
 
+  test("a shared account granted only to the trigger's agent activates that agent's trigger", async () => {
+    await connect();
+    await agentIdentity('inbox-agent');
+    await shareOnlyWithAgent();
+    await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [spec('a', { agent: 'inbox-agent' })]);
+    const row = await store.get(PROJECT_ID, 'a');
+    expect(row?.status).toBe('active');
+    expect(row?.connectionId).toBe(CONNECTION_ID);
+    expect(row?.lastError).toBeNull();
+    expect(calls).toEqual(['subscribe:EXAMPLE_NEW_MESSAGE']);
+    clearAuthorizeCaches();
+  });
+
+  test('an account granted to one agent never feeds a trigger of another agent or of no agent', async () => {
+    await connect();
+    await agentIdentity('inbox-agent');
+    await shareOnlyWithAgent();
+    await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [spec('other', { agent: 'billing-agent' }), spec('none')]);
+    expect(await status('other')).toBe('error');
+    expect((await store.get(PROJECT_ID, 'other'))?.lastError).toBe(
+      'This Inbox account is shared with specific people only. Share it with everyone in the workspace or with the agent "billing-agent" to activate this trigger.',
+    );
+    expect(await status('none')).toBe('error');
+    expect((await store.get(PROJECT_ID, 'none'))?.lastError).toBe(
+      'This Inbox account is shared with specific people only. Event triggers need an account shared with the whole project.',
+    );
+    expect(calls).toEqual([]);
+    clearAuthorizeCaches();
+  });
+
+  test("an agent identity disabled after the grant no longer carries it", async () => {
+    await connect();
+    await agentIdentity('inbox-agent');
+    await shareOnlyWithAgent();
+    await testDb().update(serviceAccounts).set({ status: 'disabled' }).where(eq(serviceAccounts.serviceAccountId, AGENT_SERVICE_ACCOUNT_ID));
+    await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [spec('a', { agent: 'inbox-agent' })]);
+    expect(await status('a')).toBe('error');
+    expect((await store.get(PROJECT_ID, 'a'))?.lastError).toContain('or with the agent "inbox-agent"');
+    expect(calls).toEqual([]);
+    clearAuthorizeCaches();
+  });
+
+  test('an agent trigger whose account loses the agent grant drops its instance', async () => {
+    await connect();
+    await agentIdentity('inbox-agent');
+    await shareOnlyWithAgent();
+    await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [spec('a', { agent: 'inbox-agent' })]);
+    expect(await status('a')).toBe('active');
+    // The agent is retired: its identity goes, so its grant reaches nobody.
+    await testDb().delete(serviceAccounts).where(eq(serviceAccounts.serviceAccountId, AGENT_SERVICE_ACCOUNT_ID));
+    clearAuthorizeCaches();
+    await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [spec('a', { agent: 'inbox-agent' })]);
+    const row = await store.get(PROJECT_ID, 'a');
+    expect(row?.status).toBe('error');
+    expect(row?.externalId).toBeNull();
+    expect(calls).toEqual(['subscribe:EXAMPLE_NEW_MESSAGE', 'unsubscribe:ti_EXAMPLE_NEW_MESSAGE_{}']);
+    clearAuthorizeCaches();
+  });
+
+  describe("a trigger with no agent runs as the project's default agent", () => {
+    const mirror = (defaultAgent: string) =>
+      testDb().update(projects).set({ metadata: { experimental: { event_triggers: true }, default_agent: defaultAgent } }).where(eq(projects.projectId, PROJECT_ID));
+
+    test("an account shared only with kortix.yaml's default_agent activates it", async () => {
+      manifestDefaultAgent = 'inbox-agent';
+      await connect();
+      await agentIdentity('inbox-agent');
+      await shareOnlyWithAgent();
+      await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [spec('none'), spec('unset', { agent: '' })]);
+      for (const slug of ['none', 'unset']) {
+        const row = await store.get(PROJECT_ID, slug);
+        expect(row).toMatchObject({ status: 'active', connectionId: CONNECTION_ID, lastError: null });
+      }
+      expect(calls).toEqual(['subscribe:EXAMPLE_NEW_MESSAGE', 'subscribe:EXAMPLE_NEW_MESSAGE']);
+      clearAuthorizeCaches();
+    });
+
+    test('kortix.yaml wins over a stale metadata mirror: the mirror agent\'s share does not count', async () => {
+      manifestDefaultAgent = 'billing-agent';
+      await mirror('inbox-agent');
+      await connect();
+      await agentIdentity('inbox-agent');
+      await shareOnlyWithAgent();
+      await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [spec('none')]);
+      expect(await status('none')).toBe('error');
+      expect((await store.get(PROJECT_ID, 'none'))?.lastError).toContain('or with the agent "billing-agent" (the workspace\'s default agent');
+      expect(calls).toEqual([]);
+      clearAuthorizeCaches();
+    });
+
+    test('the default agent with an identity but no share names itself in the error', async () => {
+      manifestDefaultAgent = 'inbox-agent';
+      await connect();
+      await agentIdentity('inbox-agent');
+      const groupId = '00000000-0000-4000-a000-000000009829';
+      await testDb().insert(accountGroups).values({ groupId, accountId: ACCOUNT_ID, name: 'Narrowed audience' });
+      await assignRole(SYSTEM_ACTOR, ACCOUNT_ID, {
+        principal: { type: 'group', id: groupId },
+        roleKey: 'agent-user',
+        scope: { type: 'project', id: PROJECT_ID },
+        object: { type: 'connection', id: CONNECTION_ID },
+      });
+      clearAuthorizeCaches();
+      await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [spec('none')]);
+      expect((await store.get(PROJECT_ID, 'none'))?.lastError).toBe(
+        'This Inbox account is shared with specific people only. Share it with everyone in the workspace or with the agent "inbox-agent" (the workspace\'s default agent, which runs this trigger) to activate this trigger.',
+      );
+      expect(calls).toEqual([]);
+      clearAuthorizeCaches();
+    });
+
+    test('with no default_agent in kortix.yaml the metadata mirror names the agent, as session creation does', async () => {
+      await mirror('inbox-agent');
+      await connect();
+      await agentIdentity('inbox-agent');
+      await shareOnlyWithAgent();
+      await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [spec('none')]);
+      expect(await status('none')).toBe('active');
+      clearAuthorizeCaches();
+    });
+
+    test('an unreadable kortix.yaml fails closed: the agent share does not count', async () => {
+      manifestDefaultAgent = new Error('git mirror unavailable');
+      await mirror('inbox-agent');
+      await connect();
+      await agentIdentity('inbox-agent');
+      await shareOnlyWithAgent();
+      await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [spec('none')]);
+      expect(await status('none')).toBe('error');
+      expect((await store.get(PROJECT_ID, 'none'))?.lastError).toBe(
+        'This Inbox account is shared with specific people only. Event triggers need an account shared with the whole project.',
+      );
+      expect(calls).toEqual([]);
+      clearAuthorizeCaches();
+    });
+
+    test('an account open to the whole workspace activates without reading kortix.yaml', async () => {
+      await connect();
+      await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [spec('none')]);
+      expect(await status('none')).toBe('active');
+      expect(manifestReads).toBe(0);
+    });
+  });
+
   describe('account selection (two shared accounts on one connector)', () => {
     const onAccount = (slug: string, account?: string) =>
       spec(slug, { event: { connector: 'inbox', ...(account ? { account } : {}), type: 'EXAMPLE_NEW_MESSAGE', config: {} } });
@@ -298,6 +488,22 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
       await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [onAccount('a', 'acme-bot')]);
       expect(await status('a')).toBe('needs_connection');
       expect(calls).toEqual([]);
+      clearAuthorizeCaches();
+    });
+
+    test("a named account granted to the trigger's agent feeds that agent's trigger only", async () => {
+      await agentIdentity('inbox-agent');
+      await shareOnlyWithAgent(SECOND_CONNECTION_ID);
+      await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [
+        { ...onAccount('a', 'acme-bot'), agent: 'inbox-agent' },
+        { ...onAccount('b', 'acme-bot'), agent: 'billing-agent' },
+        onAccount('c', 'acme-bot'),
+      ]);
+      expect(await status('a')).toBe('active');
+      expect((await store.get(PROJECT_ID, 'a'))?.connectionId).toBe(SECOND_CONNECTION_ID);
+      expect(await status('b')).toBe('needs_connection');
+      expect(await status('c')).toBe('needs_connection');
+      expect(calls).toEqual(['subscribe:EXAMPLE_NEW_MESSAGE']);
       clearAuthorizeCaches();
     });
   });
@@ -403,7 +609,7 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
     const tally = await deliverEvents('composio', [
       { externalId: 'ti_EXAMPLE_NEW_MESSAGE_{}', eventId: 'msg_parked', type: 'EXAMPLE_NEW_MESSAGE', occurredAt: new Date().toISOString(), data: {} },
     ]);
-    expect(tally).toEqual({ fired: 0, skipped: 1, ignored: 0, failed: 0 });
+    expect(tally).toEqual({ fired: 0, skipped: 1, ignored: 0, failed: 0, refused: 0 });
     expect(fires).toHaveLength(0);
   });
 
@@ -505,7 +711,7 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
       expect(await status('a')).toBe('active');
       await setFlag(false);
       const tally = await deliverEvents('composio', [delivery]);
-      expect(tally).toEqual({ fired: 0, skipped: 1, ignored: 0, failed: 0 });
+      expect(tally).toEqual({ fired: 0, skipped: 1, ignored: 0, failed: 0, refused: 0 });
       expect(fires).toHaveLength(0);
       await setFlag(true);
       expect((await deliverEvents('composio', [{ ...delivery, eventId: 'msg_on' }])).fired).toBe(1);
@@ -567,7 +773,7 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
 
     test('fires with the payload roots, the preamble and the idempotency key', async () => {
       await armed({ filter: { 'event.data.subject': 'Hello' } });
-      expect(await deliverEvents('composio', [delivery()])).toEqual({ fired: 1, skipped: 0, ignored: 0, failed: 0 });
+      expect(await deliverEvents('composio', [delivery()])).toEqual({ fired: 1, skipped: 0, ignored: 0, failed: 0, refused: 0 });
       expect(fires).toHaveLength(1);
       expect(fires[0]!.source).toBe('event');
       expect(fires[0]!.idempotencyKey).toBe(`trigger:event:${PROJECT_ID}:a:msg_synthetic1`);
@@ -582,7 +788,7 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
     test('an unknown external id is ignored and never unsubscribed', async () => {
       await armed();
       calls.length = 0;
-      expect(await deliverEvents('composio', [delivery({ externalId: 'ti_other_env' })])).toEqual({ fired: 0, skipped: 0, ignored: 1, failed: 0 });
+      expect(await deliverEvents('composio', [delivery({ externalId: 'ti_other_env' })])).toEqual({ fired: 0, skipped: 0, ignored: 1, failed: 0, refused: 0 });
       expect(calls).toEqual([]);
       expect(fires).toHaveLength(0);
     });
@@ -628,6 +834,40 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
       // A failure no redelivery can fix opens an alert on its first attempt (KRTX-1742).
       expect(await runtime('a')).toMatchObject({ alertSource: 'fire' });
       expect((await runtime('a'))?.alertFailingSince).toBeInstanceOf(Date);
+      await settleTriggerAlerts();
+    });
+
+    test('an account-state refusal counts as failed and carries the billing-gate code (KRTX-4771)', async () => {
+      await armed();
+      fireStatus = 'account_state';
+      const tally = await deliverEvents('composio', [delivery()]);
+      expect(tally.failed).toBe(1);
+      expect(tally.refused).toBe(1);
+      expect(tally.accountState).toEqual({
+        error: 'No usable model for this account. Connect a provider key or upgrade the plan, then fire again.',
+        code: 'no_usable_model',
+      });
+      await settleTriggerAlerts();
+    });
+
+    test('a refusal beside a transient failure tallies both, so the ingress keeps the 500-retry contract (KRTX-4771)', async () => {
+      // Two triggers subscribed to one event: one refuses (billing gate), one fails transiently.
+      await armed();
+      await catalog(spec('b'));
+      await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [spec('a'), spec('b')]);
+      firePlan = ['account_state', 'retryable'];
+      const tally = await deliverEvents('composio', [delivery()]);
+      expect(tally).toEqual({
+        fired: 0,
+        skipped: 0,
+        ignored: 0,
+        failed: 2,
+        refused: 1,
+        accountState: {
+          error: 'No usable model for this account. Connect a provider key or upgrade the plan, then fire again.',
+          code: 'no_usable_model',
+        },
+      });
       await settleTriggerAlerts();
     });
 

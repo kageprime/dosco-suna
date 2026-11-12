@@ -33,7 +33,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { oauthAccessTokens, oauthClients } from '@kortix/db';
 import { db } from '../shared/db';
 import { groupIdsOfUser, groupsForMemberRows } from '../iam/group-read';
-import { accountMemberRoleRow } from '../iam/membership-read';
+import { accountMemberRow } from '../iam/membership-read';
 import { hashSecretKey, randomAlphanumeric } from '../shared/crypto';
 import { validateOAuthAccessToken } from '../oauth/access-token';
 /*
@@ -227,7 +227,7 @@ export async function resolveAppViewerIdentity(userId: string, accountId?: strin
     (accountId ? groupsForMemberRows(accountId, userId) : groupIdsOfUser(userId)).catch(
       () => [] as Array<{ groupId: string; name?: string }>,
     ),
-    accountId ? accountMemberRoleRow(accountId, userId).catch(() => []) : Promise.resolve([]),
+    accountId ? accountMemberRow(accountId, userId).catch(() => []) : Promise.resolve([]),
   ]);
   const value: ViewerIdentity = {
     email: emails.get(userId) ?? null,
@@ -329,15 +329,24 @@ export interface MintedAppViewerToken {
  * The plaintext is cached in-process (the row stores only a hash, so it cannot
  * be read back). A second API replica mints its own; both stay valid until they
  * expire, which is what makes this safe to run on every replica.
+ *
+ * `opts.aal` is the second factor the gate's cookie recorded
+ * (`appViewerSessionAal`). The row keeps it as `mfa_aal`; the API honors it in
+ * the App's account only (`middleware/actor.ts`). A viewer named by a bearer
+ * credential passes none, so its token meets the account MFA gate as before.
  */
 export async function mintAppViewerToken(
   app: AppViewerTokenApp,
   userId: string,
+  opts: { aal?: 'aal2' } = {},
 ): Promise<MintedAppViewerToken | null> {
   const scope = normalizeViewerTokenScope(app.viewerTokenScope);
   if (scope === 'off') return null;
   const scopes = appViewerScopes(scope);
-  const key = `${app.appId}:${userId}:${scope}`;
+  const aal = opts.aal === 'aal2' ? 'aal2' : null;
+  // The level is part of the key: a session without the second factor never
+  // reuses a token minted for one that has it.
+  const key = `${app.appId}:${userId}:${scope}:${aal ?? 'none'}`;
   const hit = tokenCache.get(key);
   // A hit is re-checked with the API's own validator. The row can die outside
   // this process — another replica's access-policy save, `/v1/oauth/revoke`, a
@@ -361,6 +370,7 @@ export async function mintAppViewerToken(
     accountId: app.accountId,
     scopes,
     expiresAt,
+    mfaAal: aal,
   });
 
   if (tokenCache.size >= TOKEN_CACHE_MAX) tokenCache.clear();

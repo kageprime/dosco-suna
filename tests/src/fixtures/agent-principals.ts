@@ -59,6 +59,7 @@ import { fail } from '../core/expect';
 import type { FlowContext, Principal } from '../core/types';
 import { sleep } from '../core/poll';
 import { withTransientGitRetry } from './git-transient';
+import { lockProjectFirst } from './token-binding-lock';
 
 export interface Db {
   query<R = any>(sql: string, params?: unknown[]): Promise<{ rows: R[]; rowCount: number | null }>;
@@ -358,10 +359,10 @@ export class AgentPrincipalsWorld {
     const onBehalfOfColumn = await this.hasOnBehalfOfColumn();
     for (const tokenId of [credential.token_id, resolver?.token_id].filter(Boolean) as string[]) {
       await this.db.query(
-        `UPDATE kortix.account_tokens
+        lockProjectFirst(`UPDATE kortix.account_tokens
            SET account_id = $2, user_id = $3, project_id = $4, session_id = $5,
                service_account_id = $6, agent_grant = NULL
-         WHERE token_id = $1`,
+         WHERE token_id = $1`),
         [tokenId, this.accountId, userId, this.projectId, sessionId, serviceAccountId],
       );
       if (onBehalfOfColumn) {

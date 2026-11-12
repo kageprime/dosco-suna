@@ -1,10 +1,8 @@
 'use client';
 
 import Script from 'next/script';
-import { useEffect, useState } from 'react';
 
-import { isAnalyticsExcludedPath } from '@/lib/analytics/gtm';
-import { isDesktop } from '@kortix/ui/internal/lib/desktop';
+import { useAnalyticsPageEnabled } from '@/lib/analytics/gtm';
 
 const VISITOR_PIXEL_SRC =
   'https://d2mvefebd70kbz.cloudfront.net/scripts/019e82ba-9ec3-733e-8a8e-9ff5cc2e1d35.js';
@@ -23,20 +21,11 @@ function isKortixSiteHost(hostname: string): boolean {
  *
  * Loads ONLY on the production site host: never on localhost (CI, local dev)
  * or preview hosts, where the vendor 400s the beacon — which failed every PR's
- * browser lane at the admin console's "no bad responses" guard. Never inside
- * the desktop app. Both checks run in the browser, so the root layout needs
- * no request headers for it.
+ * browser lane at the admin console's "no bad responses" guard. Both checks
+ * run in the browser, so the root layout needs no request headers for it.
  */
 export function VisitorPixel() {
-  const [enabled, setEnabled] = useState(false);
-  useEffect(() => {
-    // Same page gate as GTM, decided once per document; see google-tag-manager.tsx.
-    setEnabled(
-      isKortixSiteHost(window.location.hostname) &&
-        !isDesktop() &&
-        !isAnalyticsExcludedPath(window.location.pathname),
-    );
-  }, []);
+  const enabled = useAnalyticsPageEnabled((location) => isKortixSiteHost(location.hostname));
   if (!enabled) return null;
   return (
     <Script

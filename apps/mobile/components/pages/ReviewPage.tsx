@@ -27,7 +27,8 @@
 import { HEADER_BUTTON_SIZE, HEADER_ICON_SIZE } from '@/components/kortix/header-button';
 import * as React from 'react';
 import { RefreshControl, ScrollView, View, useWindowDimensions } from 'react-native';
-import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { SheetScrollView } from '@/components/kortix/sheet-parts';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useCans } from '@kortix/sdk/react';
@@ -337,7 +338,7 @@ export function ReviewPage({
         maxDynamicContentSize={Math.floor(height * 0.8)}
         enablePanDownToClose
 >
-        <BottomSheetScrollView
+        <SheetScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingTop: 4, paddingBottom: Math.max(insets.bottom, 16) + 8 }}>
           {branchesQuery.isLoading ? (
@@ -379,7 +380,7 @@ export function ReviewPage({
               </SettingsGroup>
             </View>
           )}
-        </BottomSheetScrollView>
+        </SheetScrollView>
       </KortixBottomSheetModal>
 
       <ReviewDetailSheet

@@ -2,6 +2,12 @@ import { defaultLocale, locales, type Locale } from './config';
 
 export const LOCALE_CHANGE_EVENT = 'locale-change';
 
+declare global {
+  interface WindowEventMap {
+    [LOCALE_CHANGE_EVENT]: CustomEvent<Locale>;
+  }
+}
+
 type UserWithLocale = {
   user_metadata?: {
     locale?: unknown;

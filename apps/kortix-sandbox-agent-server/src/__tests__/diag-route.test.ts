@@ -49,7 +49,7 @@ describe('GET /kortix/diag', () => {
         cfg,
         staticWebPort: null,
         bootTime: Date.now() - 5_000,
-        bootState: { repoMaterializationError: null, timeline: [{ label: 'proxy-up', atMs: 12 }] },
+        bootState: { timeline: [{ label: 'proxy-up', atMs: 12 }] },
         resources: () => monitor,
       }, createPiDiagnosticsService(() => null, () => null, createPiConfigReleases({ cfg, env: {} })))
       const res = await app.request('http://d/?tail=50', { headers: { Authorization: `Bearer ${token}` } })
@@ -78,7 +78,7 @@ describe('GET /kortix/diag', () => {
       cfg,
       staticWebPort: null,
       bootTime: Date.now(),
-      bootState: { repoMaterializationError: null, timeline: [] },
+      bootState: { timeline: [] },
       resources: () => null,
     }
     const diagnostics = {

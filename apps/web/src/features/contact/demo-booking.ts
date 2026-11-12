@@ -28,7 +28,7 @@ export function subscribeBookingSuccess(
   return () => cal('off', { action: 'bookingSuccessfulV2', callback });
 }
 
-export interface BookedSlot {
+interface BookedSlot {
   month: string;
   day: string;
   weekday: string;

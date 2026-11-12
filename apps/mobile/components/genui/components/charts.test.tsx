@@ -13,6 +13,7 @@ const flatten = (style: unknown): Record<string, unknown> =>
   Array.isArray(style) ? Object.assign({}, ...style.map(flatten)) : ((style ?? {}) as Record<string, unknown>);
 
 mock.module('react-native', () => ({
+  AccessibilityInfo: { announceForAccessibility: () => {} },
   StyleSheet: { flatten, create: (s: unknown) => s },
   View: host('view'),
   Text: host('rntext'),

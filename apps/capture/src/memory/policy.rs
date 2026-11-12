@@ -7,8 +7,10 @@
 //! settings, so a change lands within one poll. A policy narrows privacy and
 //! retention: a layer the policy turns off stops even when the person turned it
 //! on, and a layer the policy allows still needs the person's own switch. The
-//! capture rate and size (`recording.interval_ms`, `recording.max_height`) are
-//! the one exception: when present, they set the value on every device.
+//! screenshot size and text recognition (`recording.max_height`,
+//! `recording.text_recognition`) are the one exception: when present, they set
+//! the value on every device. `recording.interval_ms` is read and ignored: the
+//! capture rate is Kortix Capture's own.
 //!
 //! The policy applies while sync is on. Turning sync off (or airgap) drops it.
 //! Without a reachable bucket the last copy keeps applying.
@@ -89,12 +91,15 @@ pub struct PolicyRecording {
     pub paused: bool,
     /// With `paused`: until then (epoch ms); null pauses until the operator resumes.
     pub paused_until_ms: Option<i64>,
-    /// One screen frame per display every this many ms (500..=10000, clamped).
-    /// Sets `interval_ms` on every device; null keeps the device's own value.
+    /// Ignored: Kortix Capture sets its own capture rate (2 frames a second while
+    /// the person works, one every 2 s otherwise). Read so older policies parse.
     pub interval_ms: Option<u64>,
     /// Frame height cap: 720, 1080, 1440 or 2160 (the width follows the preset).
     /// Sets `max_height`/`max_width`; null or another value keeps the device's own.
     pub max_height: Option<u32>,
+    /// Screen text recognition: `accurate`, `fast` or `off`. Sets `ocr_level`
+    /// on every device; null or another value keeps the device's own.
+    pub text_recognition: Option<String>,
 }
 
 /// The range `recording.interval_ms` is clamped to.
@@ -135,9 +140,6 @@ impl Policy {
     /// policy names them. Layers and pause are read through [`Settings::policy`]
     /// by the gates; the knobs with a number are capped here.
     pub fn apply(&self, s: &mut Settings) {
-        if let Some(ms) = self.recording.interval_ms {
-            s.interval_ms = ms.clamp(*INTERVAL_MS_RANGE.start(), *INTERVAL_MS_RANGE.end());
-        }
         if let Some((w, h)) = self
             .recording
             .max_height
@@ -145,6 +147,14 @@ impl Policy {
             .and_then(|h| super::settings::resolution_preset(&format!("{h}p")))
         {
             (s.max_width, s.max_height) = (w, h);
+        }
+        if let Some(level) = self
+            .recording
+            .text_recognition
+            .as_deref()
+            .filter(|l| matches!(*l, "accurate" | "fast" | "off"))
+        {
+            s.ocr_level = level.to_string();
         }
         if !self.layers.audio {
             s.audio.enabled = false;
@@ -306,6 +316,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_org_sets_text_recognition_and_ignores_unknown_levels() {
+        let apply = |json: &str| {
+            let p: Policy = serde_json::from_str(json).unwrap();
+            let mut s = Settings::default();
+            p.apply(&mut s);
+            s.ocr_level
+        };
+        assert_eq!(apply(r#"{"recording": {"text_recognition": "off"}}"#), "off");
+        assert_eq!(apply(r#"{"recording": {"text_recognition": "fast"}}"#), "fast");
+        assert_eq!(apply(r#"{"recording": {"text_recognition": "best"}}"#), "accurate");
+        assert_eq!(apply(r#"{"recording": {}}"#), "accurate");
+    }
+
+    #[test]
     fn org_exclusions_join_the_persons_and_never_drop_theirs() {
         let p: Policy = serde_json::from_str(
             r#"{"schema": 2, "privacy": {"excluded_bundle_ids": ["com.example.Secret", "com.tinyspeck.slackmacgap"],
@@ -448,41 +472,20 @@ mod tests {
     }
 
     #[test]
-    fn the_policy_sets_the_capture_rate_and_size_in_both_directions() {
+    fn the_policy_sets_the_size_and_never_the_capture_rate() {
         let mut s = Settings::default();
-        s.interval_ms = 5000;
-        s.max_width = 1280;
-        s.max_height = 720;
-        let p = parse(br#"{"schema": 2, "recording": {"interval_ms": 1000, "max_height": 2160}}"#)
+        let p = parse(br#"{"schema": 2, "recording": {"interval_ms": 10000, "max_height": 2160}}"#)
             .unwrap();
         p.apply(&mut s);
-        assert_eq!(
-            (s.interval_ms, s.max_width, s.max_height),
-            (1000, 3840, 2160)
-        );
-        // Lower than the person's own value works too: the policy sets, it does not cap.
-        let p = parse(br#"{"recording": {"interval_ms": 8000, "max_height": 1080}}"#).unwrap();
+        assert_eq!((s.interval_ms, s.max_width, s.max_height), (2000, 3840, 2160));
+        let p = parse(br#"{"recording": {"max_height": 1080}}"#).unwrap();
         p.apply(&mut s);
-        assert_eq!(
-            (s.interval_ms, s.max_width, s.max_height),
-            (8000, 1920, 1080)
-        );
-        // Out of range is clamped; an unknown height is ignored.
-        let p = parse(br#"{"recording": {"interval_ms": 50, "max_height": 999}}"#).unwrap();
+        assert_eq!((s.max_width, s.max_height), (1920, 1080));
+        // An unknown height is ignored.
+        let p = parse(br#"{"recording": {"max_height": 999}}"#).unwrap();
         p.apply(&mut s);
-        assert_eq!((s.interval_ms, s.max_height), (500, 1080));
-        let p = parse(br#"{"recording": {"interval_ms": 600000}}"#).unwrap();
-        p.apply(&mut s);
-        assert_eq!(s.interval_ms, 10_000);
-        s.policy = None;
-        s.validate().unwrap();
-        // Absent: the device keeps its own values.
-        let mut own = Settings::default();
-        own.interval_ms = 3000;
-        Policy::default().apply(&mut own);
-        assert_eq!((own.interval_ms, own.max_height), (3000, 1440));
+        assert_eq!(s.max_height, 1080);
     }
-
     #[test]
     fn pause_has_an_optional_end_and_newer_schemas_are_refused() {
         let mut p = Policy::default();

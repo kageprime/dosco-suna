@@ -29,8 +29,8 @@ export type { CatalogSectionDef } from '@kortix/shared/connector-sections';
 export const CATEGORY_ROW_CAP = 6;
 
 /**
- * The category `Select`'s "no category" value. Radix `SelectItem` cannot hold
- * an empty string, so this needs a sentinel no real category can collide with.
+ * The category `Select`'s "no category" value. `Select` reads an empty string
+ * as "no value", so this needs a sentinel no real category can collide with.
  * `groupIntoSections` trims every key and every curated key is
  * lowercase-kebab, so a leading space is unreachable by construction — this is
  * provably distinct rather than merely unlikely.

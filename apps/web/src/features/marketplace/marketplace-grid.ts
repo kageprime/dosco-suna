@@ -1,5 +1,6 @@
+import type { UiTranslator } from '@/i18n/translator';
 import type { MarketplaceItem } from '@/lib/marketplace-client';
-import { TYPE_SECTIONS } from './marketplace-meta';
+import { TYPE_SECTION_ORDER, typeSectionLabel } from './marketplace-meta';
 
 /** Card columns per virtualized grid row (matches `md:grid-cols-3` in the CSS
  *  grid below). Row height is corrected post-render via `measureElement`, so
@@ -36,21 +37,28 @@ export function flattenMarketplaceItems(pages: { items: MarketplaceItem[] }[]): 
   return out;
 }
 
-/** Groups items by their `TYPE_SECTIONS` label, preserving section order and
- *  bucketing anything unmatched into "Other". Extracted from the old
- *  `sections` useMemo so it's independently testable. Also reused by the project
- *  detail to render a project's contents in the same typed sections + grid as
- *  the marketplace gallery. */
+/** Groups items by their type's section label (`typeSectionLabel`), preserving
+ *  section order and bucketing anything unmatched into "Other". Extracted from
+ *  the old `sections` useMemo so it's independently testable. Also reused by the
+ *  project detail to render a project's contents in the same typed sections +
+ *  grid as the marketplace gallery. Labels go through the same translator as
+ *  `typeMeta`, so a project's content sections read translated. */
 export function groupMarketplaceItemsByType(
   items: MarketplaceItem[],
+  tI18nComplete?: UiTranslator,
 ): { label: string; items: MarketplaceItem[] }[] {
   const byLabel = new Map<string, MarketplaceItem[]>();
   for (const it of items) {
-    const label = TYPE_SECTIONS.find((s) => s.type === it.type)?.label ?? 'Other';
+    const label = TYPE_SECTION_ORDER.includes(it.type)
+      ? typeSectionLabel(it.type, tI18nComplete)
+      : 'Other';
     if (!byLabel.has(label)) byLabel.set(label, []);
     byLabel.get(label)!.push(it);
   }
-  const order = [...new Set(TYPE_SECTIONS.map((s) => s.label)), 'Other'];
+  const order = [
+    ...TYPE_SECTION_ORDER.map((type) => typeSectionLabel(type, tI18nComplete)),
+    'Other',
+  ];
   return [...byLabel.entries()]
     .sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]))
     .map(([label, list]) => ({ label, items: list }));

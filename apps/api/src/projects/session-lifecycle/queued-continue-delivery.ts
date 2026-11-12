@@ -29,7 +29,7 @@ async function settleDelivery(row: SessionLifecycleCommandRow, delivery: Exclude
     const parked = await parkPromptForUnreachableRuntime(row, DELIVERY_FAILURE_COPY[delivery], { sessionId: row.sessionId });
     if (parked.parked) return 'queued';
     await markCommandFailed(row, `${DELIVERY_FAILURE_COPY.unreachable} after ${MAX_RUNTIME_UNREACHABLE_RETRIES} attempts`,
-      { retryable: false, attempts: row.attempts, sessionId: row.sessionId });
+      { retryable: false, attempts: row.attempts, sessionId: row.sessionId, runtimeUnreachable: true });
     return 'failed';
   }
   if (delivery === 'not-landed') {
@@ -224,7 +224,8 @@ async function steerWireMessageId(row: SessionLifecycleCommandRow, payload: Queu
  *   it, so a read-back right after the POST reports it missing.
  * - No placement repair: a steer sits below the running step's assistant
  *   until the next step reads it. That is the strand shape the repair removes.
- * - No turn-identity bind: admission proved the sender is the turn's prompter.
+ * - No turn-identity bind: anyone allowed to send to the session steers its
+ *   live turn (2026-11-04); the steered message carries its own author.
  *
  * It keeps one step of placement: a row marked `remintOnDelivery` gets a new
  * id above the live transcript before the POST. That id is either minted
@@ -237,8 +238,9 @@ async function steerWireMessageId(row: SessionLifecycleCommandRow, payload: Queu
  * (`keepsWireIdOnStableRuntime`): the web's order by user message id is the
  * only reason left to re-mint.
  *
- * `turn_ended` (409 `no_active_turn`) and `unsupported` (501) fall back to
- * `queue` and requeue the row due now, with the claim's attempt given back.
+ * `turn_ended` (409 `no_active_turn`) and `unsupported` (501) requeue the row
+ * due now, with the claim's attempt given back. `turn_ended` records the
+ * refused turn, so the row starts the next turn instead of re-steering.
  */
 export async function deliverSteer(row: SessionLifecycleCommandRow, payload: QueuedContinueSessionPayload,
   text: string, steerInto: string, tl: ProvisionTimeline): Promise<Status> {
@@ -249,7 +251,9 @@ export async function deliverSteer(row: SessionLifecycleCommandRow, payload: Que
     if (payload.clientMessageId) await assertInboxDeliveryActive(row);
     const target = await awakeDeliveryTarget(sessionId);
     if (!target?.externalId || !target.runtimeSessionId) throw new SteerNotTaken('turn_ended');
-    const wireMessageId = payload.remintOnDelivery
+    // A producer that minted no wire id (a trigger, a first prompt) gets one
+    // above the live transcript, like a `remintOnDelivery` row.
+    const wireMessageId = payload.remintOnDelivery || !payload.wireMessageId
       ? await steerWireMessageId(row, payload, target.externalId)
       : payload.wireMessageId!;
     const delivery = await postPrompt(target.externalId, target.runtimeSessionId, promptText, row.actorUserId!, sessionId,
@@ -270,7 +274,7 @@ export async function deliverSteer(row: SessionLifecycleCommandRow, payload: Que
       logger.info('[session-lifecycle] steer not taken — sending it as a queued prompt', {
         session_id: sessionId, command_id: row.commandId, reason: e.reason,
       });
-      await recordSteerFallback(row, e.reason);
+      await recordSteerFallback(row, e.reason, e.reason === 'turn_ended' ? steerInto : undefined);
       await requeueForAdmission(row, 'turn_active', new Date());
       return 'queued';
     }

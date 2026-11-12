@@ -30,6 +30,16 @@ export interface ComposerOptions {
 }
 
 /**
+ * The voice call this composer offers in Send's place while nothing is typed
+ * (`SessionChatInputProps.call`). `onCall` gets the composer's picks, as a send
+ * does, with the agent it shows: the call is offered only once one resolved.
+ */
+export interface ComposerChatCall {
+  onCall: (options: ComposerOptions & { agent: string }) => void;
+  inCall: boolean;
+}
+
+/**
  * The canonical "compose a first message" input: {@link SessionChatInput}
  * pre-wired with the model / agent / variant / command selectors (the
  * four catalog queries + per-session selection state). Used by the home composer
@@ -74,6 +84,7 @@ export function ComposerChatInput({
   promptAttachments,
   submitLabel,
   onArrowUpAtStart,
+  call,
 }: {
   onSend: (
     text: string,
@@ -152,6 +163,8 @@ export function ComposerChatInput({
   submitLabel?: SessionChatInputProps['submitLabel'];
   /** Up in an empty composer: open the latest queued message for editing. */
   onArrowUpAtStart?: SessionChatInputProps['onArrowUpAtStart'];
+  /** A voice call in Send's place while nothing is typed. See `ComposerChatCall`. */
+  call?: ComposerChatCall;
 }) {
   const contextAutoFocus = useContext(ComposerAutoFocusContext);
   const { data: rosterAgents } = useRuntimeAgents({ projectId });
@@ -358,6 +371,11 @@ export function ComposerChatInput({
       draftActive={draftActive}
       submitLabel={submitLabel}
       onArrowUpAtStart={onArrowUpAtStart}
+      call={
+        call && selectedAgentName
+          ? { inCall: call.inCall, onCall: () => call.onCall({ ...options(), agent: selectedAgentName }) }
+          : undefined
+      }
     />
   );
 }

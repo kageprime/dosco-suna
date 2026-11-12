@@ -2,7 +2,7 @@ import { afterAll, beforeAll, expect, test } from 'bun:test';
 import { accounts, projects, chatPendingAuthMessages } from '@kortix/db';
 import { eq } from 'drizzle-orm';
 import { db } from '../shared/db';
-import { createPendingSlackAuthMessage, createPendingSlackPickerMessage } from '../channels/slack/auth-resume';
+import { createPendingSlackAuthMessage } from '../channels/slack/auth-resume';
 import type { SlackEnvelope, SlackEvent } from '../channels/slack/types';
 
 const accountId = crypto.randomUUID();
@@ -20,28 +20,22 @@ afterAll(async () => {
   await db.delete(accounts).where(eq(accounts.accountId, accountId));
 });
 
-test('auth and picker persist exact payloads, ownership and independent TTLs; next insertion cleans expired rows', async () => {
+test('an auth message persists its exact payload, owner and TTL; the next insertion cleans expired rows', async () => {
   const before = Date.now();
   const authId = await createPendingSlackAuthMessage({ projectId, teamId, slackUserId: 'auth-user', envelope, event });
-  const pickerId = await createPendingSlackPickerMessage({ teamId, envelope, ttlMs: 120_000 });
   const rows = await db.select().from(chatPendingAuthMessages).where(eq(chatPendingAuthMessages.platformTeamId, teamId));
-  expect(rows).toHaveLength(2);
+  expect(rows).toHaveLength(1);
   const auth = rows.find(row => row.pendingId === authId);
-  const picker = rows.find(row => row.pendingId === pickerId);
   expect(auth).toMatchObject({ projectId, platform: 'slack', platformTeamId: teamId, platformUserId: 'auth-user', envelope, event });
-  expect(picker).toMatchObject({ projectId: null, platform: 'slack', platformTeamId: teamId, platformUserId: 'synthetic-user', envelope, event });
   expect(auth?.expiresAt.getTime()).toBeGreaterThanOrEqual(before + 600_000);
-  expect(picker?.expiresAt.getTime()).toBeGreaterThanOrEqual(before + 120_000);
-  const expiredId = await createPendingSlackPickerMessage({ teamId, envelope, ttlMs: -1 });
-  await createPendingSlackPickerMessage({ teamId, envelope: { ...envelope, event: { ...event, user: undefined } }, ttlMs: 60_000 });
+  await db.update(chatPendingAuthMessages).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(chatPendingAuthMessages.pendingId, authId!));
+  await createPendingSlackAuthMessage({ projectId, teamId, slackUserId: 'next-user', envelope, event });
   const remaining = await db.select().from(chatPendingAuthMessages).where(eq(chatPendingAuthMessages.platformTeamId, teamId));
-  expect(remaining.some(row => row.pendingId === expiredId)).toBe(false);
-  expect(remaining.some(row => row.platformUserId === '')).toBe(true);
+  expect(remaining.some(row => row.pendingId === authId)).toBe(false);
+  expect(remaining.some(row => row.platformUserId === 'next-user')).toBe(true);
 });
 
 test('invalid caller guards store no rows', async () => {
   expect(await createPendingSlackAuthMessage({ projectId, teamId: '', slackUserId: 'user', envelope, event })).toBeNull();
   expect(await createPendingSlackAuthMessage({ projectId, teamId, slackUserId: '', envelope, event })).toBeNull();
-  expect(await createPendingSlackPickerMessage({ teamId, envelope: { type: 'event_callback' }, ttlMs: 1000 })).toBeNull();
-  expect(await createPendingSlackPickerMessage({ teamId: '', envelope, ttlMs: 1000 })).toBeNull();
 });

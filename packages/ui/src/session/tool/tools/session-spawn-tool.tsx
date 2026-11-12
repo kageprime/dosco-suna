@@ -28,10 +28,13 @@ export function SessionSpawnTool({ call, forceOpen }: ToolProps) {
   const { projectId, sessionId } = useSessionIds();
   const Link = useUiLink();
 
-  const agentName = capitalizeWords((input.agent as string) || 'kortix');
-  const description = (input.description as string) || '';
-  const projectName = (input.project as string) || '';
-  const fullPrompt = (input.prompt as string) || '';
+  // Tool input is the model's JSON (`unknown` at runtime): read each field by
+  // type, so a non-string takes the absent-field fallback instead of throwing
+  // in `capitalizeWords` or `split` (KRTX-4511).
+  const agentName = capitalizeWords((typeof input.agent === 'string' && input.agent) || 'kortix');
+  const description = typeof input.description === 'string' ? input.description : '';
+  const projectName = typeof input.project === 'string' ? input.project : '';
+  const fullPrompt = typeof input.prompt === 'string' ? input.prompt : '';
 
   const childSessionId: string | undefined = useMemo(() => getChildSessionId(call), [call]);
 

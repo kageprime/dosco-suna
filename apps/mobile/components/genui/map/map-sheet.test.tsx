@@ -1,6 +1,7 @@
 /**
- * The full-screen map: it reads the bundled MapLibre assets, then loads one inline document into a
- * locked-down WebView. Native modules are host stubs. Run with `bun test --isolate`.
+ * The full-screen map: a full-screen Modal that reads the bundled MapLibre assets, then loads one inline document
+ * into a locked-down WebView, with Back and Close over it and a place panel under it. Native modules are host stubs.
+ * Run with `bun test --isolate`.
  */
 import { afterEach, beforeAll, describe, expect, jest, mock, test } from 'bun:test';
 import React from 'react';
@@ -12,12 +13,21 @@ const host = (name: string) => ({ children, ...props }: HostProps) => React.crea
 const files = { fail: false, reads: [] as string[] };
 const opened: string[] = [];
 
+const scrolled: unknown[] = [];
+const injected: string[] = [];
 mock.module('react-native', () => ({
+  AccessibilityInfo: { announceForAccessibility: () => {} },
   View: host('view'),
   Text: host('rntext'),
   ScrollView: host('scroll'),
+  Pressable: host('pressable'),
+  Modal: host('modal'),
+  Platform: { OS: 'ios', select: (o: Record<string, unknown>) => o.ios },
   useWindowDimensions: () => ({ width: 390, height: 844 }),
 }));
+mock.module('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }) }));
+mock.module('@/components/kortix/liquid-glass', () => ({ GlassButtons: host('glass'), LIQUID_GLASS_AVAILABLE: true }));
+mock.module('@/components/kortix/header-button', () => ({ HEADER_BUTTON_PT: 44, HEADER_BUTTON_SIZE: 'icon-lg', HEADER_ICON_SIZE: 22 }));
 mock.module('react-native-webview', () => ({ WebView: host('webview') }));
 mock.module('@/assets/maplibre/maplibre-gl.webjs', () => ({ default: 'script-asset' }));
 mock.module('@/assets/maplibre/maplibre-gl-css.webjs', () => ({ default: 'css-asset' }));
@@ -37,18 +47,14 @@ mock.module('expo-file-system', () => ({
 mock.module('expo-router/react-navigation', () => ({ DefaultTheme: {}, DarkTheme: {} }));
 mock.module('nativewind', () => ({ useColorScheme: () => ({ colorScheme: 'dark' }) }));
 mock.module('react-i18next', () => ({ useTranslation: () => ({ t: (_key: string, fallback: string) => fallback }) }));
-mock.module('@/components/ui/dialog', () => ({
-  Dialog: host('dialog'),
-  DialogContent: host('dialog-content'),
-  DialogTitle: host('dialog-title'),
-  DialogClose: host('dialog-close'),
-}));
 mock.module('@/components/ui/button', () => ({ Button: host('button') }));
 mock.module('@/components/ui/icon', () => ({ Icon: host('icon') }));
 mock.module('@/components/ui/text', () => ({ Text: host('text') }));
 mock.module('@/components/ui/separator', () => ({ Separator: host('separator') }));
 mock.module('@/components/kortix/kortix-loader', () => ({ KortixLoader: host('loader') }));
-mock.module('@/lib/icons', () => ({ XIcon: 'x' }));
+// The place photo (`place-list.tsx`): the GenUI image view, without the markdown renderer's graph.
+mock.module('../components/inline', () => ({ GenuiImageView: host('genui-image') }));
+mock.module('@/lib/icons', () => ({ XIcon: 'x', CaretLeftIcon: 'caret-left' }));
 mock.module('@/lib/utils/open-link', () => ({
   openExternalLink: (href: string) => opened.push(href),
   openLink: async (href: string) => {
@@ -70,6 +76,9 @@ afterEach(() => {
   files.fail = false;
   files.reads.length = 0;
   opened.length = 0;
+  closed.length = 0;
+  injected.length = 0;
+  scrolled.length = 0;
   jest.useRealTimers();
 });
 
@@ -86,12 +95,22 @@ const DATA = {
 };
 const closed: number[] = [];
 
+/** The WebView and the panel's ScrollView as refs: they record what native asks of them. */
+const createNodeMock = (element: { type: unknown }) =>
+  element.type === 'webview'
+    ? { injectJavaScript: (code: string) => injected.push(code) }
+    : element.type === 'scroll'
+      ? { scrollTo: (to: unknown) => scrolled.push(to) }
+      : null;
+
 async function open(Sheet: typeof MapSheet = MapSheet) {
   await act(async () => {
-    tree = create(<Sheet title="Louvre" data={DATA} onClose={() => closed.push(1)} />);
+    tree = create(<Sheet title="Louvre" data={DATA} onClose={() => closed.push(1)} />, { createNodeMock });
   });
   return tree!.root;
 }
+const button = (root: ReactTestInstance, label: string) => all(root, 'button').find((b) => b.props.accessibilityLabel === label)!;
+const press = (node: ReactTestInstance) => act(() => (node.props.onPress as () => void)());
 const all = (root: ReactTestInstance, type: string) => root.findAll((n) => n.type === (type as never));
 const texts = (root: ReactTestInstance) => all(root, 'text').flatMap((n) => n.children.filter((c) => typeof c === 'string'));
 /** The place rows: what a failed basemap shows in its place, with every button. */
@@ -115,7 +134,6 @@ describe('MapSheet', () => {
 
   test('the WebView loads only the inline map document, private and uncached, in theme colors', async () => {
     const root = await open();
-    expect(all(root, 'dialog-title')[0]!.children).toEqual(['Louvre']);
     const [webview] = all(root, 'webview');
     const { html, baseUrl } = webview!.props.source as { html: string; baseUrl: string };
     expect(baseUrl).toBe('');
@@ -149,17 +167,18 @@ describe('MapSheet', () => {
     expect(opened).toEqual(['https://www.openstreetmap.org/copyright', 'https://maplibre.org/']);
   });
 
-  test('the asset is read once per app run, and dismissing the dialog closes the sheet', async () => {
-    // A fresh module instance starts with an empty cache, whatever ran before this test.
+  test('the asset is read once per app run', async () => {
+    // The read-once cache lives in lib/utils/asset-text.ts now, app-global: a fresh MapSheet module
+    // instance reads nothing again, whatever ran before this test. One app run reads each asset at
+    // most once (pinned in lib/utils/asset-text.test.ts); two opens of one still draw the map.
     const cold: string = './map-sheet?cold';
     const { MapSheet: Cold } = (await import(cold)) as typeof import('./map-sheet');
     await open(Cold);
     act(() => tree!.unmount());
     const root = await open(Cold);
-    expect(files.reads).toEqual(['file:///script-asset', 'file:///css-asset']);
+    const seen = new Set<string>();
+    expect(files.reads.filter((uri) => (seen.has(uri) ? true : (seen.add(uri), false)))).toEqual([]);
     expect(all(root, 'webview')).toHaveLength(1);
-    act(() => (all(root, 'dialog')[0]!.props.onOpenChange as (open: boolean) => void)(false));
-    expect(closed).toEqual([1]);
   });
 
   test("a popup action reaches native through the message bridge and opens that place's link; anything else opens nothing", async () => {
@@ -197,6 +216,99 @@ describe('MapSheet', () => {
     const directions = all(root, 'button').find((b) => b.props.accessibilityLabel === 'Directions: Louvre')!;
     act(() => (directions.props.onPress as () => void)());
     expect(opened).toEqual(['https://www.google.com/maps/dir/?api=1&destination=48.85,2.35']);
+  });
+
+  test('the map is a full-screen modal that slides up, edge to edge under the status bar', async () => {
+    const root = await open();
+    const [modal] = all(root, 'modal');
+    expect(modal!.props).toMatchObject({
+      visible: true,
+      animationType: 'slide',
+      presentationStyle: 'fullScreen',
+      statusBarTranslucent: true,
+      navigationBarTranslucent: true,
+    });
+    // Back and Close float in the safe area, each a button inside its own glass circle.
+    const controls = all(root, 'view').find((v) => (v.props.style as { top?: number } | undefined)?.top === 59 + 8)!;
+    expect(controls.findAll((n) => n.type === ('glass' as never))).toHaveLength(2);
+    expect(controls.findAll((n) => n.type === ('button' as never)).map((b) => b.props.accessibilityLabel)).toEqual(['Back', 'Close map']);
+    // The page frames the places below the controls: safe area 59 + 8 + the 44pt button + 8.
+    const { html } = all(root, 'webview')[0]!.props.source as { html: string };
+    expect(html).toContain('"chrome":{"top":119,"bottom":0}');
+  });
+
+  test('Close, Back and the Android back button each close the map when no place is selected', async () => {
+    const root = await open();
+    press(button(root, 'Close map'));
+    press(button(root, 'Back'));
+    act(() => (all(root, 'modal')[0]!.props.onRequestClose as () => void)());
+    expect(closed).toEqual([1, 1, 1]);
+    expect(injected).toEqual([]);
+  });
+
+  test('with a place selected, Back and the Android back button go back to every place; Close still closes', async () => {
+    const root = await open();
+    // A pin tap opens its popup: the page reports the place.
+    send(root, { type: 'select', index: 1 });
+    expect(scrolled).toEqual([{ x: 1 * (Math.min(390 - 32 - 24, 320) + 12), animated: true }]);
+    press(button(root, 'Show all places'));
+    expect(injected).toEqual(['window.kxOverview && window.kxOverview(); true;']);
+    expect(closed).toEqual([]);
+    // Back again, with nothing selected, closes.
+    press(button(root, 'Back'));
+    expect(closed).toEqual([1]);
+    // The Android back button follows Back.
+    send(root, { type: 'select', index: 0 });
+    act(() => (all(root, 'modal')[0]!.props.onRequestClose as () => void)());
+    expect(closed).toEqual([1]);
+    expect(injected).toHaveLength(2);
+    send(root, { type: 'select', index: 0 });
+    press(button(root, 'Close map'));
+    expect(closed).toEqual([1, 1]);
+  });
+
+  test('a popup the user closes in the page deselects; an unknown index changes nothing', async () => {
+    const root = await open();
+    send(root, { type: 'select', index: 0 });
+    send(root, { type: 'select', index: 9 });
+    send(root, { type: 'select', index: '1' });
+    expect(button(root, 'Show all places')).toBeDefined();
+    send(root, { type: 'select', index: null });
+    press(button(root, 'Back'));
+    expect(closed).toEqual([1]);
+  });
+
+  test('the place panel: one card per place; a tap on its name shows that place on the map, its actions open links', async () => {
+    const root = await open();
+    const names = all(root, 'pressable').map((p) => p.props.accessibilityLabel);
+    expect(names).toEqual(['Show on map: Louvre', 'Show on map: Harbor Hotel']);
+    press(all(root, 'pressable')[1]!);
+    expect(injected).toEqual(['window.kxSelect && window.kxSelect(1); true;']);
+    expect(button(root, 'Show all places')).toBeDefined();
+    press(button(root, 'Website: Harbor Hotel'));
+    expect(opened).toEqual(['https://harbor.example.com/']);
+  });
+
+  test('the measured panel reaches the loaded page through kxInset, without a reload', async () => {
+    const root = await open();
+    const html = (all(root, 'webview')[0]!.props.source as { html: string }).html;
+    send(root, { type: 'map', state: 'load' });
+    const panel = all(root, 'view').find((v) => typeof v.props.onLayout === 'function')!;
+    act(() => (panel.props.onLayout as (e: unknown) => void)({ nativeEvent: { layout: { height: 180.4 } } }));
+    expect(injected.at(-1)).toBe('window.kxInset && window.kxInset(119, 180); true;');
+    expect((all(root, 'webview')[0]!.props.source as { html: string }).html).toBe(html);
+  });
+
+  test('with the rows instead of the map, Back closes and the rows clear the controls', async () => {
+    const root = await open();
+    send(root, { type: 'select', index: 0 });
+    send(root, { type: 'map', state: 'error' });
+    // The rows hold no Show on map, and they start below the controls.
+    expect(all(root, 'pressable').map((p) => p.props.accessibilityLabel)).toEqual([undefined, undefined]);
+    expect(all(root, 'scroll')[0]!.props.contentContainerStyle).toMatchObject({ paddingTop: 119 + 8, paddingBottom: 34 });
+    expect(button(root, 'Back')).toBeDefined();
+    press(button(root, 'Back'));
+    expect(closed).toEqual([1]);
   });
 
   for (const handler of ['onError', 'onHttpError', 'onContentProcessDidTerminate', 'onRenderProcessGone'] as const) {

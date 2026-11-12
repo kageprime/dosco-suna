@@ -59,10 +59,15 @@ export function NavPill({
 
 export function SwitcherRow({
   projectName,
+  projectIcon,
+  projectGlyph,
   onPress,
 }: {
   /** The open workspace's name. */
   projectName: string;
+  /** The workspace's emoji and glyph: the tile shows them as on web. */
+  projectIcon?: string | null;
+  projectGlyph?: { name: string; color: string } | null;
   onPress: () => void;
 }) {
   const { t } = useLanguage();
@@ -84,7 +89,7 @@ export function SwitcherRow({
         accessibilityLabel={label}
         className="flex-row items-center gap-3 rounded-full px-3 py-2 active:bg-foreground/5">
         <View pointerEvents="none">
-          <Avatar chalk size={36} fallbackText={projectName} />
+          <Avatar chalk size={36} fallbackText={projectName} emoji={projectIcon} glyph={projectGlyph} />
         </View>
         <View pointerEvents="none" className="min-w-0 flex-1">
           <Text

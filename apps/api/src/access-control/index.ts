@@ -7,7 +7,6 @@ import { ssoEnforcedForEmail } from '../repositories/sso';
 import { areSignupsEnabled, canSignUp } from '../shared/access-control-cache';
 import { db } from '../shared/db';
 import { createCheckEmailRateLimitMiddleware } from '../middleware/rate-limit';
-import { authEmailState } from '../auth/email-cooldown';
 
 export const accessControlApp = makeOpenApiApp();
 
@@ -45,15 +44,23 @@ accessControlApp.openapi(
   async (c) => c.json({ branding: await instanceBranding() }),
 );
 
-// `mode` drives the unified auth flow: 'signin' when the address already has
-// an account, 'signup' when it may register, 'closed' when signups are off and
-// the address isn't allowlisted, 'sso' when the domain's org enforces SSO-only
-// sign-in on a verified domain (the password/email-code paths must refuse; the
-// API's headless sign-in routes refuse too). This is deliberately a
-// flow directive, not a raw "exists" boolean — and the per-IP rate limit above
-// it is what keeps the endpoint useless for bulk account enumeration
-// (`allowed` already implied existence whenever signups were closed, so this
-// widens nothing new).
+// KRTX-3504: this endpoint is public, so its answer must not depend on whether
+// the address already has an account — that was an account-existence oracle an
+// anonymous caller could sweep against the user base. The answer therefore
+// splits only on instance/domain policy, never on account history, and comes
+// with no `mode` when the address is simply eligible:
+//   { allowed: true }        — every address that may hold an account here
+//   { allowed: false, mode:"closed" } — signups closed, address not allowlisted
+//   { allowed: true,  mode:"sso" }    — the domain's org enforces SSO-only
+//                                       sign-in (the password/email-code paths
+//                                       refuse; the headless routes refuse too)
+// Eligibility is re-enforced at account creation (web actions, headless
+// /auth/signup), and the sign-in door exists for every address: GoTrue answers
+// an unknown address exactly like a wrong password. A web client that gets no
+// `mode` renders its neutral/adaptive step and signs the visitor in through
+// the sign-up path, which falls back to sign-in when the account exists.
+// `mode` values 'signin'/'signup' remain in the enum for older deployments;
+// a client may still receive them from an API predating this change.
 accessControlApp.openapi(
   createRoute({
     method: 'post',
@@ -68,17 +75,8 @@ accessControlApp.openapi(
     },
     responses: {
       200: json(
-        z.object({
-          allowed: z.boolean(),
-          mode: z.enum(['signin', 'signup', 'closed', 'sso']),
-          email_retry_after_seconds: z
-            .number()
-            .int()
-            .positive()
-            .optional()
-            .describe('Present when an auth email went to this address less than a minute ago: seconds until another may be sent.'),
-        }),
-        'Whether the email may sign up, and which auth-flow mode applies',
+        z.object({ allowed: z.boolean(), mode: z.enum(['signin', 'signup', 'closed', 'sso']).optional() }),
+        'Whether the email may sign up, and which auth-flow mode applies; `mode` is absent while the address is simply eligible (no account-history signal)',
       ),
       ...errors(400, 429),
     },
@@ -97,19 +95,14 @@ accessControlApp.openapi(
     if (await ssoEnforcedForEmail(email).catch(() => null)) {
       return c.json({ allowed: true, mode: 'sso' as const });
     }
-    // Shared pool: a public, rate-limited route must not open a Postgres
-    // connection per request.
-    const account = await authEmailState(email);
-    if (account.exists) {
-      // The sign-in form uses the cooldown to answer "already sent" instead of
-      // asking GoTrue for another email (auth/email-cooldown.ts).
-      return c.json({
-        allowed: true,
-        mode: 'signin' as const,
-        ...(account.retryAfterSeconds ? { email_retry_after_seconds: account.retryAfterSeconds } : {}),
-      });
-    }
-    if (canSignUp(email)) return c.json({ allowed: true, mode: 'signup' as const });
+    // Eligibility, not account history: an address that holds an account and
+    // one that may create one get the identical body. The one-email-per-minute
+    // cooldown is enforced (and answered 429) on the email-sending routes
+    // (auth/email-cooldown.ts) — disclosing it HERE would re-open the oracle:
+    // its only source is the auth DB, which exists for accounts and not for
+    // the rest, so a triggered send plus this answer would again say who
+    // holds an account.
+    if (canSignUp(email)) return c.json({ allowed: true });
     return c.json({ allowed: false, mode: 'closed' as const });
   },
 );
@@ -146,11 +139,16 @@ accessControlApp.openapi(
     if (!body || typeof body.email !== 'string') {
       return c.json({ error: true, message: 'Validation failed', status: 400 }, 400);
     }
-    await db.insert(accessRequests).values({
-      email: body.email.trim().toLowerCase(),
-      company: body.company || null,
-      useCase: body.useCase || null,
-    });
+    // Idempotent (KRTX-4699): a replayed identical submission collapses into
+    // the existing row (unique index on email) and answers the same 200.
+    await db
+      .insert(accessRequests)
+      .values({
+        email: body.email.trim().toLowerCase(),
+        company: body.company || null,
+        useCase: body.useCase || null,
+      })
+      .onConflictDoNothing();
     return c.json({ success: true, message: 'Access request submitted' });
   },
 );

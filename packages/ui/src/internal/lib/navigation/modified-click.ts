@@ -18,8 +18,8 @@ export function isModifiedClick(event: MouseEvent<HTMLElement>): boolean {
     event.ctrlKey ||
     event.shiftKey ||
     event.altKey ||
-    // 0 = primary. Radix's keyboard activation synthesises a click with
-    // button 0, so Enter still counts as an ordinary activation.
+    // 0 = primary. Keyboard activation (Enter on a button or menu item) fires
+    // a click with button 0, so Enter still counts as an ordinary activation.
     event.button !== 0
   );
 }

@@ -781,10 +781,12 @@ fn spawn_logged(
     stdin_pipe: bool,
 ) -> Result<tokio::process::Child> {
     fs::create_dir_all(log_dir)?;
+    let path = log_dir.join(format!("{name}.log"));
+    crate::os_proc::rotate_log(&path, crate::os_proc::LOG_MAX_BYTES);
     let log = fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(log_dir.join(format!("{name}.log")))?;
+        .open(&path)?;
     let mut cmd = tokio::process::Command::new(program);
     cmd.args(args)
         .stdout(log.try_clone()?)

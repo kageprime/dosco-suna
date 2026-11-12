@@ -5,7 +5,7 @@ const realReact = await import('react');
 /**
  * Characterization: the live contract of `useDownloadRestriction`.
  *
- * The sole consumer (`FullScreenPresentationViewer`) reads exactly
+ * The sole consumer (`PresentationExportMenu`) reads exactly
  * `isRestricted` and `openUpgradeModal`. These tests pin that contract —
  * including the resolved-plan semantics behind `isFreeTier` (a stored
  * `tier_key: 'free'` on an admin trial stays unrestricted) — so the dead

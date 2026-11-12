@@ -9,6 +9,23 @@ import { canonicalCatalogId, type ConnectorCatalogDetail, type ConnectorSurfaceV
 
 export class CatalogInstallError extends Error {}
 
+/**
+ * The catalogue lists the way but not its server URL. The catalogue is an
+ * index, not a list of what may be connected: the caller passes the URL, or a
+ * person adds it on the page `setup_url` opens.
+ */
+export class CatalogInstallNeedsUrl extends CatalogInstallError {
+  constructor(
+    readonly way: ConnectorSurfaceVariant,
+    readonly appName: string,
+  ) {
+    super(
+      `The catalogue lists ${way.name} without its server URL. Pass the URL (kortix connectors catalog install <id> --url <url>)` +
+        `${way.docs ? `; ${way.docs} says where to find it` : ''}.`,
+    );
+  }
+}
+
 /** How each Dosco integration is set up outside the web. Telegram has no CLI command yet. */
 const KORTIX_SETUP_COMMAND: Record<string, string> = {
   slack: 'kortix channels connect',
@@ -26,8 +43,11 @@ export function catalogSlug(name: string): string {
     .slice(0, 63);
 }
 
+/** An MCP way the catalogue lists without its server URL. */
+const urlLessMcp = (variant: ConnectorSurfaceVariant) => variant.kind === 'mcp' && !variant.connector;
+
 /** The way to install: `way` by id, else the recommended one. */
-function catalogWay(detail: ConnectorCatalogDetail, requestedWay?: string): ConnectorSurfaceVariant {
+function catalogWay(detail: ConnectorCatalogDetail, requestedWay?: string, url?: string): ConnectorSurfaceVariant {
   const way = requestedWay ? canonicalCatalogId(requestedWay) : undefined;
   const installable = detail.variants.filter((variant) => variant.connector || variant.kind === 'composio');
   const recommended = detail.variants.find((variant) => variant.recommended);
@@ -36,11 +56,20 @@ function catalogWay(detail: ConnectorCatalogDetail, requestedWay?: string): Conn
     ? detail.variants.find((variant) => variant.id === way)
     : recommended?.kind === 'kortix'
       ? recommended
-      : (installable.find((variant) => variant.recommended) ?? installable[0]);
+      : ((url ? detail.variants.find(urlLessMcp) : undefined) ??
+        installable.find((variant) => variant.recommended) ??
+        installable[0] ??
+        detail.variants.find(urlLessMcp));
   if (!picked) {
     throw new CatalogInstallError(
-      way ? `"${way}" is not a way to connect ${detail.item.name}` : `${detail.item.name} has no way Dosco can install`,
+      way
+        ? `"${way}" is not a way to connect ${detail.item.name}`
+        : `The catalogue lists no way to connect ${detail.item.name}. Add its server by URL: kortix connectors add <slug> --provider mcp --url <url>`,
     );
+  }
+  if (urlLessMcp(picked)) {
+    if (!url) throw new CatalogInstallNeedsUrl(picked, detail.item.name);
+    return { ...picked, url, connector: { provider: 'mcp', url, transport: picked.transports.includes('sse') && !picked.transports.includes('streamable-http') ? 'sse' : 'http' } };
   }
   if (picked.kind === 'kortix') {
     const command = KORTIX_SETUP_COMMAND[picked.kortix?.app ?? ''];
@@ -57,9 +86,9 @@ function catalogWay(detail: ConnectorCatalogDetail, requestedWay?: string): Conn
 /** The `POST /connectors` body for one way, named `name` (default: the app's name). */
 export function catalogInstallDraft(
   detail: ConnectorCatalogDetail,
-  input: { way?: string; name?: string; slug?: string } = {},
+  input: { way?: string; name?: string; slug?: string; url?: string } = {},
 ): { draft: Record<string, unknown>; way: ConnectorSurfaceVariant } {
-  const way = catalogWay(detail, input.way);
+  const way = catalogWay(detail, input.way, input.url?.trim() || undefined);
   const name = input.name?.trim() || detail.item.name;
   const slug = input.slug?.trim() || catalogSlug(name);
   if (!slug) throw new CatalogInstallError('the connector needs a name with a letter or a digit');

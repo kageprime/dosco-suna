@@ -4,6 +4,7 @@ import { errorToast, infoToast, successToast } from '@kortix/ui/toast';
 import { useBillingReturnUrl } from '@/features/billing/billing-return';
 import { formatWholeUsd, monthlyCreditsForUsd } from '@kortix/ui/internal/billing/compute-pricing';
 import { invalidateAccountState, useCreatePortalSession } from '@kortix/ui/internal/billing/index';
+import { formatShortDate } from '@/features/billing/plan-status';
 import { useLocale, useTranslations } from '@/i18n/use-translations';
 import { useBillingAccountId } from '@kortix/ui/internal/stores/billing-account-context';
 import { useUpgradeDialogStore } from '@kortix/ui/internal/stores/upgrade-dialog-store';
@@ -73,9 +74,7 @@ export function useChangeCreditPlan() {
           successToast(t('scheduled'), {
             description: t('scheduledDescription', {
               amount,
-              date: result.effective_at
-                ? new Date(result.effective_at).toLocaleDateString(locale, { month: 'short', day: 'numeric' })
-                : '',
+              date: formatShortDate(result.effective_at, locale) ?? '',
             }),
           });
         } else if (result.change === 'kept') {

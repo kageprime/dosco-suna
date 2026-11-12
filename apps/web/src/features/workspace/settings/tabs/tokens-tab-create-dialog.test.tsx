@@ -64,7 +64,7 @@ function Pass({ children }: { children?: ReactNode }) {
   return createElement(Fragment, null, children);
 }
 
-// The real Modal and Select are Radix portals; the wiring under test is the
+// The real Modal and Select render through portals; the wiring under test is the
 // form's submit guard, which stays real. A div keeps the tree assertable.
 const uiModalMock = () => {
   const Modal = ({ open, children }: { open: boolean; children?: ReactNode }) =>

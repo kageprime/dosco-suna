@@ -34,6 +34,7 @@ import { qualifiedColumn } from '../shared/sql-qualified-column';
 import { resolveAppRuntimeEnvironment } from './environment';
 import { AppHostingProvider, type AppMachineSpec } from './hosting';
 import { teardownAppRuntimes } from './images';
+import { retryOnDeadlock } from '../shared/error-cause';
 import { groupAlwaysOn, groupScale, releaseConfigOf } from './release-config';
 import { appRuntimeIdentityEnv } from './viewer';
 import { appServiceUrl } from './hostnames';
@@ -167,6 +168,27 @@ export async function releaseInstances(deploymentId: string): Promise<InstanceRo
     .orderBy(asc(appRuntimes.createdAt));
 }
 
+/** Open (or reuse) a box's compute meter. Idempotent: an open meter for the runtime is reused. */
+async function meterInstance(
+  app: AppRow,
+  deployment: DeploymentRow,
+  config: AppReleaseConfig,
+  group: string,
+  instance: Pick<InstanceRow, 'runtimeId' | 'accountId' | 'provider' | 'machineId'>,
+): Promise<void> {
+  const provider = instance.provider as SandboxProviderName;
+  await startComputeSession({
+    sandboxId: instance.runtimeId,
+    accountId: instance.accountId,
+    actorUserId: deployment.createdBy,
+    provider,
+    spec: { ...machineSize(app, config, group, provider), gpuCount: 0 },
+    workloadType: 'app',
+    appRuntimeId: instance.runtimeId,
+    metadata: { deploymentId: deployment.deploymentId, appId: app.appId, machineId: instance.machineId, processGroup: group },
+  });
+}
+
 /** Create one instance of a release for a machine: its volume (locked first), its box, its row and its meter. */
 export async function createInstance(input: {
   hosting: AppHostingProvider;
@@ -231,16 +253,7 @@ export async function createInstance(input: {
     if (volume) await releaseVolume(volume.volumeId, runtimeId);
     throw error;
   });
-  await startComputeSession({
-    sandboxId: runtimeId,
-    accountId: app.accountId,
-    actorUserId: deployment.createdBy,
-    provider,
-    spec: { ...machine, gpuCount: 0 },
-    workloadType: 'app',
-    appRuntimeId: runtimeId,
-    metadata: { deploymentId: deployment.deploymentId, appId: app.appId, machineId, processGroup: group },
-  });
+  await meterInstance(app, deployment, config, group, { runtimeId, accountId: app.accountId, provider, machineId });
   await event(deployment.deploymentId, 'runtime_created', `Machine ${machineId.slice(0, 8)} (${group}) created`, {
     provider, externalId: handle.externalId, machineId, processGroup: group, volumeId: volume?.volumeId ?? null,
   }, runtimeId);
@@ -473,6 +486,20 @@ export async function reconcileAppMachines(
   appId: string,
   options: { hosting?: AppHostingProvider; exceptDeploymentId?: string } = {},
 ): Promise<{ created: number; destroyed: number; skipped?: string }> {
+  // The reconcile is idempotent: it re-reads state, the provider calls it
+  // re-runs are remove-safe (the create's insert-catch cleans a rolled-back
+  // box), the per-write transactions commit separately, and a pass that died
+  // mid-instance leaves its committed 'starting' row to the next pass's
+  // resume below. A 40P01 deadlock victim (two reconcile passes deleting the
+  // same release's app_runtimes — release run 42716922285, the db-suites
+  // lane) therefore just re-runs.
+  return retryOnDeadlock(() => reconcileAppMachinesOnce(appId, options));
+}
+
+async function reconcileAppMachinesOnce(
+  appId: string,
+  options: { hosting?: AppHostingProvider; exceptDeploymentId?: string } = {},
+): Promise<{ created: number; destroyed: number; skipped?: string }> {
   const hosting = options.hosting ?? new AppHostingProvider();
   const [app] = await db.select().from(apps).where(and(eq(apps.appId, appId), isNull(apps.deletedAt))).limit(1);
   if (!app?.activeDeploymentId) return { created: 0, destroyed: 0, skipped: 'no_release' };
@@ -500,6 +527,18 @@ export async function reconcileAppMachines(
     const own = instances.filter((instance) => instance.processGroup === group);
     const target = groupScale(app.scale, group);
     for (const extra of own.slice(target).reverse()) await destroy(extra);
+    // A pass that died mid-instance (a 40P01 victim after the insert, a
+    // crash) left committed 'starting' rows: the box exists and counts toward
+    // target, but its meter and readiness never ran. Finish them — resuming
+    // the meter is idempotent — or the retry's own skip below strands the box
+    // in 'starting' forever. A row under a wake lease belongs to a wake in
+    // flight; its wakeReady finishes it.
+    for (const instance of own.slice(0, target)) {
+      if (instance.status !== 'starting' || instance.wakeLeaseOwner) continue;
+      await meterInstance(app, deployment, config, group, instance);
+      await waitInstanceReady(hosting, instance);
+      created += 1;
+    }
     if (own.length >= target || app.desiredState !== 'running') continue;
     env ??= await releaseEnvironment(app, deployment);
     const reuse = appMountFor(config, group) ? await orphanedMachineIds(appId, group) : [];
@@ -516,6 +555,37 @@ export async function reconcileAppMachines(
     await event(deployment.deploymentId, 'machines_reconciled', `Scaled: ${created} created, ${destroyed} destroyed`, { created, destroyed });
   }
   return { created, destroyed };
+}
+
+/**
+ * The background reconciles still running per app. A same-app write that
+ * cascades (today only the machines test's cleanup) settles them first, so its
+ * FK cascade never deadlocks against an in-flight reconcile's insert; the same
+ * settle is the first building block for an App's delete later.
+ *
+ * replica-local: the map only remembers reconciles THIS replica dispatched
+ * (the setAppScale call site). Settling is always safe and only ever waits; a
+ * delete that lands on another replica sees none of these and keeps today's
+ * behavior, so a replica-local copy is correct rather than merely tolerated.
+ */
+const backgroundReconciles = new Map<string, Set<Promise<unknown>>>();
+
+/** Register a fire-and-forget reconcile so `settleAppReconciles` can await it. */
+export function trackBackgroundReconcile(appId: string, run: Promise<unknown>): void {
+  const set = backgroundReconciles.get(appId) ?? new Set<Promise<unknown>>();
+  backgroundReconciles.set(appId, set);
+  set.add(run);
+  const clean = (): void => {
+    set.delete(run);
+    // Prune the (empty) set and its key; only ours, never a newer one.
+    if (set.size === 0 && backgroundReconciles.get(appId) === set) backgroundReconciles.delete(appId);
+  };
+  void run.then(clean, clean);
+}
+
+/** Resolve when every background reconcile of the app has settled (ok or failed). */
+export async function settleAppReconciles(appId: string): Promise<void> {
+  await Promise.allSettled([...(backgroundReconciles.get(appId) ?? [])]);
 }
 
 /**

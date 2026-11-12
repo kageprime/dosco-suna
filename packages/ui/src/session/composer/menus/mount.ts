@@ -13,7 +13,7 @@ const CARET_GAP = 4;
  *
  * The plugin appends the popup to `document.body` and sets NO z-index, so paint
  * order is decided purely by document order against everything else the app
- * portals into `body` (Radix popovers, dropdowns, toasts). `60` puts the menu
+ * portals into `body` (popovers, dropdowns, toasts). `60` puts the menu
  * above the app's own overlay layers — it is opened by an explicit keystroke
  * inside a focused editor, so nothing it can cover is more current than it.
  */

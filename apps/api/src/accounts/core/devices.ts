@@ -36,8 +36,8 @@ export function registerDeviceRoutes(): void {
     }),
     async (c) => {
       if (c.get('authType') !== 'supabase') return c.json(BROWSER_ONLY, 403);
-      const current = c.get('sessionId') as string | undefined;
-      const rows = await listSignedInDevices(c.get('userId') as string);
+      const current = c.get('sessionId');
+      const rows = await listSignedInDevices(c.get('userId'));
       return c.json({ devices: rows.map((r) => ({ ...r, current: r.session_id === current })) });
     },
   );
@@ -62,7 +62,7 @@ export function registerDeviceRoutes(): void {
       if (sessionId === c.get('sessionId')) {
         return c.json({ error: 'This is the current device. Sign out instead.' }, 400);
       }
-      const userId = c.get('userId') as string;
+      const userId = c.get('userId');
       const ok = await signOutDevice(userId, sessionId);
       if (!ok) return c.json({ error: 'Device not found.' }, 404);
       return c.json({ ok: true });

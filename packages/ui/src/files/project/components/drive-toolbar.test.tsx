@@ -14,7 +14,7 @@ import { DriveNewMenu, DriveNewMenuItems, DrivePathBar, hasWriteActions } from '
  *
  * The menu's own entries live in `DriveNewMenuItems` — injectable exactly like
  * `FolderDriveMenuItems` — so they can be rendered and driven without a live
- * Radix portal (portal content is absent from static markup).
+ * portal (portal content is absent from static markup).
  */
 function render(node: ReactNode) {
   // Every label under test is literal English in the component. next-intl only

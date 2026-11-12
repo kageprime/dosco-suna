@@ -108,7 +108,7 @@ function getInitials(name: string): string {
 
 type DeletionType = 'grace-period' | 'immediate';
 
-export interface ProfileTabCopy {
+interface ProfileTabCopy {
   profilePicture: string;
   profilePictureDescription: string;
   remove: string;
@@ -211,7 +211,7 @@ export const DEFAULT_PROFILE_TAB_COPY: ProfileTabCopy = {
     'This cancels the scheduled deletion. Your account and its data stay exactly as they are.',
 };
 
-export interface ProfileTabViewProps {
+interface ProfileTabViewProps {
   // Profile picture
   userName?: string;
   avatarUrl?: string;
@@ -271,13 +271,13 @@ export interface ProfileTabViewProps {
 }
 
 /** What deleting the person does, with workspace names resolved for display. */
-export interface ProfileDeletionPlan {
+interface ProfileDeletionPlan {
   deleteNames: string[];
   leaveNames: string[];
   blockers: Array<{ name: string; memberCount: number }>;
 }
 
-export interface DeletionPlanCopy {
+interface DeletionPlanCopy {
   deleted: string;
   left: string;
   blockersTitle: string;

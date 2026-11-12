@@ -1,5 +1,4 @@
 import { submitDemoRequest } from '@kortix/sdk';
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { clientIp, consumeRateLimit } from '@/lib/seo/rate-limit';
@@ -8,10 +7,13 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 // ---------------------------------------------------------------------------
-// POST /api/demo-request — public lead capture for the /contact qualifier.
+// POST /api/demo-request — public lead capture for the /contact qualifier and
+// the careers form.
 //
-// Persistence (including the transactional Sales outbox trigger) must commit
-// before success. Notification email remains best-effort and unchanged.
+// The API stores the submission (POST /v1/system/demo-request: one row in
+// kortix.contact_forms and its Sales outbox event, in one transaction) and then
+// sends the internal notification email, best effort. Success needs the stored
+// row: anything else answers 503 so the visitor retries.
 
 function isValidEmail(value: string): boolean {
   if (value.length === 0 || value.length > 254) return false;
@@ -25,18 +27,6 @@ function isValidEmail(value: string): boolean {
   return dot > 0 && dot < domain.length - 1;
 }
 
-function serverClient() {
-  // Runtime (non-NEXT_PUBLIC_) vars first — NEXT_PUBLIC_ are inlined at build
-  // time and hold placeholders in Docker builds. Mirrors lib/supabase/server.ts.
-  const url =
-    process.env.SUPABASE_SERVER_URL ||
-    process.env.SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
 function backendUrl() {
   return (
     process.env.BACKEND_URL ||
@@ -46,27 +36,17 @@ function backendUrl() {
   ).replace(/\/$/, '');
 }
 
-// Notify us of every submission via the API (which holds the email-provider creds).
-// Best-effort: never throws, never blocks the user's flow on a failed email.
-async function notify(body: Record<string, unknown>): Promise<void> {
+/** Store the submission through the API. True only when the API confirms the stored row. */
+async function store(body: Record<string, unknown>, userAgent: string | null): Promise<boolean> {
   try {
-    await submitDemoRequest(
-      {
-        name: typeof body.name === 'string' ? body.name : undefined,
-        email: String(body.email ?? '').trim(),
-        company_name: typeof body.company_name === 'string' ? body.company_name : undefined,
-        company_size: typeof body.company_size === 'string' ? body.company_size : undefined,
-        goal: typeof body.goal === 'string' ? body.goal : undefined,
-        qualified: typeof body.qualified === 'boolean' ? body.qualified : undefined,
-        source: typeof body.source === 'string' ? body.source : undefined,
-      },
-      {
-        backendUrl: backendUrl(),
-        signal: AbortSignal.timeout(10_000),
-      },
-    );
+    const result = (await submitDemoRequest(
+      { ...body, email: String(body.email ?? '').trim(), user_agent: userAgent ?? undefined },
+      { backendUrl: backendUrl(), signal: AbortSignal.timeout(10_000) },
+    )) as { persisted?: unknown } | null;
+    return result?.persisted === true;
   } catch (err) {
-    console.warn('[api/demo-request] notify failed:', (err as Error).message);
+    console.error('[api/demo-request] not stored:', (err as Error).message);
+    return false;
   }
 }
 
@@ -125,26 +105,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid email' }, { status: 400 });
   }
 
-  const data = {
-    ...body,
-    form: body.opening || String(body.source ?? '').startsWith('careers') ? 'careers' : 'contact',
-    user_agent: request.headers.get('user-agent')?.slice(0, 500) ?? null,
-  };
-
-  let persisted = false;
-  const supabase = serverClient();
-  if (!supabase) {
-    console.error('[api/demo-request] Supabase env missing; lead not persisted');
-  } else {
-    const { error } = await supabase.from('contact_forms').insert({ data });
-    if (error) console.error('[api/demo-request] insert failed:', error.message);
-    else persisted = true;
-  }
-
+  const persisted = await store(body, request.headers.get('user-agent')?.slice(0, 500) ?? null);
   if (!persisted) {
     return NextResponse.json({ error: 'Unable to save submission; please retry' },
       { status: 503, headers: { 'Retry-After': '5' } });
   }
-  await notify(body);
   return NextResponse.json({ ok: true, persisted });
 }

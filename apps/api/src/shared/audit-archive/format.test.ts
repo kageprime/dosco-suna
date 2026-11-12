@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  HOT_DAYS,
+  LATE_ROW_MAX_AGE_DAYS,
   archiveObjectKey,
   decodeRows,
   encodeRows,
@@ -32,12 +34,23 @@ describe('audit archive format', () => {
     expect(retainUntil('2026-09-28').toISOString()).toBe('2027-10-05T00:00:00.000Z');
   });
 
-  test('a week is ready once its END is more than 90 days old, and expired once its lock would end within a day', () => {
+  test('a week is ready once its END is more than HOT_DAYS (14) old, and expired once its lock would end within a day', () => {
+    expect(HOT_DAYS).toBe(14);
     const end = weekEnd('2026-07-06').getTime(); // 2026-07-13
-    expect(isReadyToArchive('2026-07-06', new Date(end + 90 * 86_400_000 - 1))).toBe(false);
-    expect(isReadyToArchive('2026-07-06', new Date(end + 90 * 86_400_000 + 1))).toBe(true);
+    expect(isReadyToArchive('2026-07-06', new Date(end + HOT_DAYS * 86_400_000 - 1))).toBe(false);
+    expect(isReadyToArchive('2026-07-06', new Date(end + HOT_DAYS * 86_400_000 + 1))).toBe(true);
     expect(isExpired('2026-07-06', new Date(end + 363 * 86_400_000))).toBe(false);
     expect(isExpired('2026-07-06', new Date(end + 365 * 86_400_000 - 3_600_000))).toBe(true);
+  });
+
+  test('a late row no writer may add older than LATE_ROW_MAX_AGE_DAYS lands in a week the archive has not exported', () => {
+    // The newest week that holds a row of that age is exported at the earliest when its end is
+    // HOT_DAYS old: at least 4 days after the row was written.
+    for (let hour = 0; hour < 7 * 24; hour += 1) {
+      const now = new Date(Date.UTC(2026, 10, 2) + hour * 3_600_000);
+      const oldest = new Date(now.getTime() - LATE_ROW_MAX_AGE_DAYS * 86_400_000);
+      expect(isReadyToArchive(weekStartOf(oldest), new Date(now.getTime() + 4 * 86_400_000 - 1))).toBe(false);
+    }
   });
 
   test('rows round-trip through gzip JSONL, and equal input gives equal bytes (a retry matches the stored object)', () => {

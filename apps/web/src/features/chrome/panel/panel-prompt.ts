@@ -3,7 +3,7 @@ import type { AttachedFile } from '@kortix/ui/composer';
 import type { PanelPage, PanelTab } from './panel-channel';
 
 export type PanelMode = 'read' | 'act';
-export type ReadPage = Extract<PanelPage, { text: string }>;
+type ReadPage = Extract<PanelPage, { text: string }>;
 
 export const isReadPage = (page: PanelPage): page is ReadPage => 'text' in page;
 

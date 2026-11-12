@@ -74,3 +74,48 @@ export function treeLevels(items: readonly TreeFile[]): string[][] {
   }
   return levels.map((level) => [...level]);
 }
+
+/** `ensure(rel)` makes `rel` and its parents; `forget(rel)` lets a failed one be tried again. */
+export interface FolderMaker {
+  (rel: string): Promise<void>;
+  forget: (rel: string) => void;
+}
+
+/**
+ * Make the folders of an uploading tree on demand: `ensure(rel)` resolves once
+ * `rel` and every parent above it exist. Each folder is asked for once, so a
+ * file waits only on its own folder and the upload starts with the first one
+ * made, not after the whole tree. A folder already there (409) counts as
+ * made. A failure is kept for the batch, so the other files in that folder
+ * fail at once instead of asking a busy server again; `forget` (a Retry)
+ * clears it and the failed parents above it. `''` is the folder the tree
+ * lands in, which already exists.
+ */
+export function folderMaker(mkdir: (rel: string) => Promise<unknown>): FolderMaker {
+  const made = new Map<string, Promise<void>>();
+  const failed = new Set<string>();
+  const parentOf = (rel: string) => (rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '');
+  const ensure = ((rel: string): Promise<void> => {
+    if (!rel) return Promise.resolve();
+    const known = made.get(rel);
+    if (known) return known;
+    const run = ensure(parentOf(rel))
+      .then(() => mkdir(rel))
+      .then(
+        () => undefined,
+        (err: unknown) => {
+          if ((err as { status?: number } | null)?.status === 409) return;
+          failed.add(rel);
+          throw err;
+        },
+      );
+    made.set(rel, run);
+    return run;
+  }) as FolderMaker;
+  ensure.forget = (rel) => {
+    for (let at = rel; at; at = parentOf(at)) {
+      if (failed.delete(at)) made.delete(at);
+    }
+  };
+  return ensure;
+}

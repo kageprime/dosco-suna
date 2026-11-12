@@ -1,8 +1,11 @@
 /**
  * What a tool likely does, for grouping and rule templates (`likely_risk` on
- * the admin connector list). The gateway enforces the stored `risk`, never
- * this. The stored risk of an MCP or managed-app tool with no annotation is
- * the fail-closed fallback `write`, so there the name decides
+ * the admin connector list). The gateway enforces `risk`, never this: for a
+ * Composio or Pipedream tool that is the reviewed classifier's answer
+ * (action-risk.ts), which says `read` only with no write word in the name or
+ * the description. The risk of an MCP tool with no annotation, and of a
+ * managed-app tool the classifier could not prove a read, is the fail-closed
+ * fallback `write`, so there the name decides
  * (`inferToolRisk`); an HTTP method, a GraphQL mutation or an annotation is
  * authoritative. `destructive` is a write.
  *

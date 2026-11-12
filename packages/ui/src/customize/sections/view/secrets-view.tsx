@@ -1141,14 +1141,27 @@ function SecretDialog({
    */
   const [pickedExposure, setPickedExposure] = useState<SecretExposure | null>(null);
   const exposure = pickedExposure ?? defaultSecretExposure(row, classification);
-  const { strategy, consumer: nextConsumer } = secretDeliveryTarget(exposure, row);
+  /**
+   * A connector-only row that no connector resolves (a value typed into a
+   * connector-scoped setup link, never bound) has no owning flow: its owner
+   * may move it to environment delivery. Unknown while connectors load.
+   */
+  const connectorBound =
+    row?.consumer !== 'connector' ||
+    connectorsLoading ||
+    connectors.some((connector) => connector.secretIdentifier === row?.identifier);
+  const unboundConnectorRow = row?.consumer === 'connector' && !connectorBound;
+  const usageContext = { connectorBound, picked: pickedExposure !== null };
+  const { strategy, consumer: nextConsumer } = secretDeliveryTarget(exposure, row, usageContext);
   /**
    * The LLM gateway, a connector, or the git connection owns this row's
    * usage, so the picker must not be shown at all. It writes three
    * `(strategy, consumer)` pairs and none of them is the one this row has;
    * rendering it would silently disconnect whatever assigned it.
    */
-  const usageAssigned = secretUsageIsAssigned(row?.consumer);
+  const usageAssigned = secretUsageIsAssigned(row?.consumer, usageContext);
+  /** The picker's value: an unbound connector row reads as Connector until moved. */
+  const pickerValue = unboundConnectorRow && pickedExposure === null ? 'connector' : exposure;
   const [selectedConnectorSlugs, setSelectedConnectorSlugs] = useState<string[] | null>(null);
   const effectiveSelectedConnectorSlugs =
     selectedConnectorSlugs ??
@@ -1195,7 +1208,8 @@ function SecretDialog({
   const prepareSavePlan = (): SecretSavePlan => {
     const finalKey = (row?.key ?? key).trim().toUpperCase();
     const finalIdentifier = (row?.identifier ?? identifier).trim() || finalKey;
-    const nextConnectorSlugs = row?.consumer === 'connector' ? effectiveSelectedConnectorSlugs : [];
+    const keepsConnector = row?.consumer === 'connector' && nextConsumer === 'connector';
+    const nextConnectorSlugs = keepsConnector ? effectiveSelectedConnectorSlugs : [];
     const bindingChanges = connectorBindingChanges(connectors, finalIdentifier, nextConnectorSlugs);
     if (!SECRET_NAME_REGEX.test(finalKey)) {
       throw new Error('Key: use A-Z, 0-9, _ only. Must start with a letter or _. Max 64 chars.');
@@ -1215,7 +1229,9 @@ function SecretDialog({
     if (needsHosts && !enforcedPolicy) {
       throw new Error('Add at least one exact HTTPS host.');
     }
-    if (row?.consumer === 'connector' && nextConnectorSlugs.length === 0) {
+    // An unbound connector row may be saved unbound (a new value); a bound one
+    // keeps at least one connector.
+    if (keepsConnector && connectorBound && nextConnectorSlugs.length === 0) {
       throw new Error('Select at least one connector.');
     }
     if (!nextSharedWith) {
@@ -1427,6 +1443,7 @@ function SecretDialog({
       ? `Edit ${row.identifier}`
       : `Set ${row.identifier}`;
   const selectedDelivery = secretDeliveryPresentation(strategy, nextConsumer, { tI18nComplete });
+  const connectorOnlyDelivery = secretDeliveryPresentation('broker', 'connector', { tI18nComplete });
   const bindingIdentifier = (row?.identifier ?? identifier).trim() || key.trim().toUpperCase();
   const connectorOptions = connectorBindingOptions(connectors, bindingIdentifier, tI18nComplete);
   // Offer "Enforce at the network" only when the experimental flag is on, or
@@ -1642,8 +1659,10 @@ function SecretDialog({
                   </div>
                 ) : (
                   <Select
-                    value={exposure}
-                    onValueChange={(next) => setPickedExposure(next as SecretExposure)}
+                    value={pickerValue}
+                    onValueChange={(next) =>
+                      setPickedExposure(next === 'connector' ? null : (next as SecretExposure))
+                    }
                     disabled={save.isPending}
                   >
                     <SelectTrigger id="secret-dialog-delivery" className="min-h-10 w-full">
@@ -1652,6 +1671,11 @@ function SecretDialog({
                     {/* One list, three values, no second screen and no
                         grouping: every item answers the label's question. */}
                     <SelectContent>
+                      {unboundConnectorRow && (
+                        <SelectItem value="connector" description={connectorOnlyDelivery.description}>
+                          {connectorOnlyDelivery.label}
+                        </SelectItem>
+                      )}
                       {exposureOptions.map((option) => (
                         <SelectItem
                           key={option.exposure}
@@ -1816,7 +1840,7 @@ function SecretDialog({
               {/* The connector binding keeps its own control: the usage above
                   is read-only, but WHICH connectors resolve this secret is a
                   real choice and this is where it is made. */}
-              {row?.consumer === 'connector' && (
+              {row?.consumer === 'connector' && nextConsumer === 'connector' && (
                 <div className="border-border bg-sidebar space-y-4 rounded-md border p-3">
                   <Field>
                     <FieldLabel>{tI18nComplete.raw('textc3d2e79ebdd0')}</FieldLabel>

@@ -68,7 +68,7 @@ const TITLE_MAX = 200;
 /** The URL keys of the search and the filters. */
 const FILTER_PARAMS = ['q', 'pinned', 'by', 'added'] as const;
 type FilterParam = (typeof FILTER_PARAMS)[number];
-/** The radio value of a facet's "Any" row (Radix needs a non-empty value). */
+/** The radio value of a facet's "Any" row (a radio item needs a non-empty value). */
 const ANY = 'any';
 
 /** "example.com/x" becomes "https://example.com/x"; a value with a scheme is kept as typed. */

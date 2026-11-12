@@ -3,7 +3,8 @@ import { providerEvents } from '@kortix/db';
 
 export type ProviderEventInput = {
   provider: string;
-  kind: 'provision' | 'migrate';
+  /** 'provision' (a sandbox-create attempt) | 'migrate' (a cross-provider move) | 'boot' (the in-guest boot timeline, boot-timeline-store.ts). */
+  kind: 'provision' | 'migrate' | 'boot';
   outcome: 'ok' | 'error' | 'stopped';
   totalMs?: number | null;
   marks?: unknown[];

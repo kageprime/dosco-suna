@@ -36,7 +36,7 @@ const ACCOUNT = crypto.randomUUID();
 const PROJECT = crypto.randomUUID();
 const USER_A = crypto.randomUUID();
 
-const OPENAPI_CONNECTOR_COUNT = 4;
+const OPENAPI_CONNECTOR_COUNT = 20;
 const COMPOSIO_CONNECTOR_COUNT = 4;
 
 const openapiConnectorIds = Array.from({ length: OPENAPI_CONNECTOR_COUNT }, () => crypto.randomUUID());
@@ -116,7 +116,7 @@ afterAll(async () => {
 });
 
 describe('listConnectors issues a bounded number of queries, not O(connector count)', () => {
-  test('8 connectors (4 Composio) stay well under an O(n) ceiling', async () => {
+  test('24 connectors (20 credentialed + 4 Composio) stay well under an O(n) ceiling', async () => {
     // Every project holds the built-in computer connector; the first listing
     // creates it once. Measure the steady state.
     await ensureProjectComputer(PROJECT, null);
@@ -145,6 +145,15 @@ describe('listConnectors issues a bounded number of queries, not O(connector cou
     // enough to tolerate incidental fixed-cost queries without being flaky.
     // Measured (2026-09-27, this fixture): 13 queries. The old per-connector
     // design would have issued at least 45-60 for the same 8 connectors.
+    //
+    // KRTX-4750: the batched design still awaited `connectorConnectionIsConnected`
+    // per connection with no snapshot, and each call re-selected that one
+    // connection's `connection_credentials` row — one query per credentialed
+    // connection on top of the batched reads (prod: `db;dur=…;desc="n=64-73"`
+    // on every >=1s completion of GET /v1/connectors/workspaces/:id/connectors).
+    // The fixture is 20 openapi connectors so that per-connection term alone
+    // crosses the ceiling: pre-fix this file measures ~29 (9 batched + 20
+    // per-connection), post-fix ~15 — 20 is met only by a fully batched design.
     expect(dbQueryCount).toBeGreaterThan(0);
     expect(dbQueryCount).toBeLessThanOrEqual(20);
   });

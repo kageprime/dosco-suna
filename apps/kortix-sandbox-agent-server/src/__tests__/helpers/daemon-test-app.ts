@@ -15,20 +15,14 @@ export function testConfig(over: Partial<Config> = {}): Config {
     workspace: '/workspace',
     projectTarget: `/tmp/kortix-test-workspace-${process.pid}`,
     defaultBranch: 'main',
-    branchFetchAttempts: 60,
-    branchFetchDelaySec: 0.25,
-    autoClone: false,
     projectId: undefined,
     apiUrl: undefined,
     repoUrl: undefined,
     branchName: undefined,
-    sessionFresh: false,
     baseSha: undefined,
     sandboxToken: TEST_SANDBOX_TOKEN,
     gitUserName: 'Kortix Agent',
     gitUserEmail: 'agent@kortix.ai',
-    cloneFilter: '',
-    cloneDepth: 1,
     ...over,
   }
 }
@@ -54,7 +48,6 @@ export function fakeHarness(over: Partial<HarnessService> = {}): HarnessService 
     control: {
       bind: () => ({
         applyEnvironment: unused('control.applyEnvironment'), refresh: unused('control.refresh'), abort: unused('control.abort'),
-        armAbortAfterTool: unused('control.armAbortAfterTool'), disarmAbortAfterTool: unused('control.disarmAbortAfterTool'),
       }),
     },
     diagnostics: {

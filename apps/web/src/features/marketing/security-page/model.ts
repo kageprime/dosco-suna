@@ -385,7 +385,7 @@ export const faqItems = [
     id: 'faq-audit',
     question: 'What does the audit log record, and can we export it?',
     answer:
-      'Who did what, when, how they signed in, and whether it was allowed, refusals included. When an agent acts, the row names the person it acted for. Events stay readable for 90 days and sit in a locked archive to day 365. Reading, exporting and streaming the log is an Enterprise feature.',
+      'Who did what, when, how they signed in, and whether it was allowed, refusals included. When an agent acts, the row names the person it acted for. The log shows the last 14 days; older events sit in a locked archive to day 365, and the export reads them. Reading, exporting and streaming the log is an Enterprise feature.',
   },
   {
     id: 'faq-retention',

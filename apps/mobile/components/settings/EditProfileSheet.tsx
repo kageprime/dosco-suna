@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { KortixLoader } from '@/components/kortix/kortix-loader';
-import { Sheet, SheetBody, SheetHeader, useSheetBackground, type SheetRef } from '@/components/kortix/sheet';
+import { Sheet, SheetBody, SheetHeader, useSheetSurface, type SheetRef } from '@/components/kortix/sheet';
 import { SheetTextInput } from '@/components/kortix/SheetInput';
 import { ProfilePicture } from '@/components/settings/ProfilePicture';
 import { useLanguage } from '@/contexts';
@@ -109,7 +109,8 @@ function ProfilePhoto({
   // The badge's ring matches the sheet surface (`--popover`), not the page's
   // `--background` — the two tokens diverge in dark mode (rule 7, CLAUDE.md
   // Color: map by rendered appearance, not by name).
-  const sheetBg = useSheetBackground();
+  // On the iOS 26 glass sheet there is no surface colour: the badge drops its ring.
+  const sheetBg = useSheetSurface();
   return (
     <View className="items-center">
       <Pressable
@@ -128,7 +129,7 @@ function ProfilePhoto({
         {/* The ring in the sheet colour cuts the badge out of the photo edge. */}
         <View
           className="absolute -bottom-0.5 -right-0.5 size-7 items-center justify-center rounded-full border-2 bg-secondary"
-          style={{ borderColor: sheetBg }}>
+          style={sheetBg ? { borderColor: sheetBg } : { borderWidth: 0 }}>
           <Icon as={Camera} size={14} className="text-foreground" />
         </View>
       </Pressable>

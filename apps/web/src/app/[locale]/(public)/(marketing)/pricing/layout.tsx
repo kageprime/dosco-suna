@@ -1,10 +1,6 @@
-import { localizedMarketingMetadata } from '@/lib/seo/metadata';
-import type { ReactNode } from 'react';
+import { marketingMetadataLayout } from '@/lib/seo/metadata';
 
-export function generateMetadata() {
-  return localizedMarketingMetadata('/pricing');
-}
+const { generateMetadata, Layout } = marketingMetadataLayout('/pricing');
 
-export default function PricingLayout({ children }: { children: ReactNode }) {
-  return children;
-}
+export { generateMetadata };
+export default Layout;

@@ -54,3 +54,20 @@ export function describeUserAgent(userAgent: string | null): {
   const brand = (browser && BRAND_OF[browser]) || (os && BRAND_OF[os]) || null;
   return { browser, os, mobile: os === 'iOS' || os === 'Android', brand };
 }
+
+/**
+ * The device-row label: "<browser> on <os>" when the UA names both, the one it
+ * names alone, else "Unknown device". One rule for every caller: the settings
+ * container passes its translator, fixtures that render without a locale use
+ * the English default below.
+ */
+export function deviceLabel(
+  { browser, os }: { browser: string | null; os: string | null },
+  t: (
+    key: 'deviceName' | 'unknownDevice',
+    values?: { browser: string; os: string },
+  ) => string = (key, values) =>
+    key === 'deviceName' && values ? `${values.browser} on ${values.os}` : 'Unknown device',
+): string {
+  return browser && os ? t('deviceName', { browser, os }) : (browser ?? os ?? t('unknownDevice'));
+}

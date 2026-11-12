@@ -27,6 +27,32 @@ export function validateWorkspaceName(raw: string): WorkspaceNameResult {
   return { ok: true, name };
 }
 
+/**
+ * The message a workspace-name field renders for `result`, or null.
+ *
+ * Every error but `required` reports itself live: it can exist only after the
+ * user typed a character, and the form model (`isSubmittable`) already
+ * disables submit the moment it exists — a disabled button with no visible
+ * reason strands the user (KRTX-4627). `required` is also true before the
+ * first keystroke, the normal state while typing a name, so it waits for the
+ * field to be left once.
+ */
+export function workspaceNameMessage(
+  result: WorkspaceNameResult,
+  touched: boolean,
+  t: (
+    key: 'validation.nameRequired' | 'validation.nameCharacters' | 'validation.nameTooLong',
+    vars?: { max: number },
+  ) => string,
+): string | null {
+  if (result.ok) return null;
+  if (result.error === 'Name is required') return touched ? t('validation.nameRequired') : null;
+  if (result.error.startsWith('Name must be')) {
+    return t('validation.nameTooLong', { max: WORKSPACE_NAME_MAX_LENGTH });
+  }
+  return t('validation.nameCharacters');
+}
+
 const NAME_ADJECTIVES = [
   'Amber',
   'Bright',

@@ -16,6 +16,8 @@ import {
   pipedreamFinalizeConnection,
   reconcileConnection,
 } from '../rest/projects-client/connectors';
+import { backendApi } from '../http/api-client';
+import { unwrap } from '../rest/projects-client/shared';
 
 /** How often the finalize route is polled while the person signs in. */
 export const CONNECT_LINK_POLL_INTERVAL_MS = 2_000;
@@ -218,3 +220,109 @@ export function workspaceConnectionConnectSteps(
 
 /** @deprecated Use `workspaceConnectionConnectSteps`. Kept permanently. */
 export const projectConnectionConnectSteps = workspaceConnectionConnectSteps;
+
+// ─── Finish the sign-in of one existing account ──────────────────────────────
+
+/** The REST calls {@link connectionSignInSteps} makes. */
+export interface ConnectionSignInDeps {
+  connectConnection: (projectId: string, connectionId: string) => Promise<ConnectorConnectResult>;
+  finalizeConnection: (projectId: string, connectionId: string) => Promise<ConnectorFinalizeResult>;
+  connectConnector: (
+    projectId: string,
+    slug: string,
+    options: { owner: 'me' | 'project' },
+  ) => Promise<ConnectorConnectResult>;
+  finalizeConnector: (
+    projectId: string,
+    slug: string,
+    options: { owner: 'me' | 'project'; connectionId: string },
+  ) => Promise<ConnectorFinalizeResult>;
+}
+
+/**
+ * A connection-scoped connect route, without the client's error toast: its 409
+ * for an effective default account is expected, and the steps then use the
+ * connector route. The caller reports any other error itself.
+ */
+async function quietConnectionRoute<T>(
+  projectId: string,
+  connectionId: string,
+  operation: 'connect' | 'connect/finalize',
+): Promise<T> {
+  return unwrap(
+    await backendApi.post<T>(
+      `/workspaces/${projectId}/connections/${connectionId}/${operation}`,
+      {},
+      { showErrors: false },
+    ),
+  );
+}
+
+/** The REST calls {@link connectionSignInSteps} makes by default. */
+export const connectionSignInRestDeps: ConnectionSignInDeps = {
+  connectConnection: (projectId, connectionId) =>
+    quietConnectionRoute<ConnectorConnectResult>(projectId, connectionId, 'connect'),
+  finalizeConnection: (projectId, connectionId) =>
+    quietConnectionRoute<ConnectorFinalizeResult>(projectId, connectionId, 'connect/finalize'),
+  connectConnector: connectorConnect,
+  finalizeConnector: connectorFinalize,
+};
+
+/**
+ * The `start`/`finalize` pair that finishes the sign-in of one account that
+ * already exists: a row whose sign-in started and never finished (a link an
+ * agent posted, an abandoned window), or one to sign in again.
+ *
+ * `start` first asks the provider through finalize. A sign-in that finished on
+ * the provider's page with no Kortix page open is recorded then, and the
+ * result is `connected: true` with no link, so a host opens no window. Only an
+ * unfinished one mints a new link, for the same account. `finalize` polls the
+ * same route. The connection routes refuse an effective default account with
+ * 409; that account uses the connector route with its owner and id.
+ */
+export function connectionSignInSteps(
+  projectId: string,
+  slug: string,
+  account: { connection_id: string; owner_type: string },
+  deps: ConnectionSignInDeps = connectionSignInRestDeps,
+): {
+  start: () => Promise<ConnectorConnectResult>;
+  finalize: () => Promise<ConnectorFinalizeResult>;
+} {
+  const owner: 'me' | 'project' = account.owner_type === 'project' ? 'project' : 'me';
+  let connectionId = account.connection_id;
+  let route: ProjectConnectRoute = 'connection';
+
+  const finalize = async (): Promise<ConnectorFinalizeResult> => {
+    if (route === 'connector') return deps.finalizeConnector(projectId, slug, { owner, connectionId });
+    try {
+      return await deps.finalizeConnection(projectId, connectionId);
+    } catch (error) {
+      if (!isSharedDefaultConnectConflict(error)) throw error;
+      route = 'connector';
+      return deps.finalizeConnector(projectId, slug, { owner, connectionId });
+    }
+  };
+
+  return {
+    start: async () => {
+      const current = await finalize();
+      if (current.connected) return { connected: true, connectionId };
+      if (route === 'connector') {
+        const started = await deps.connectConnector(projectId, slug, { owner });
+        if (started.connectionId) connectionId = started.connectionId;
+        return started;
+      }
+      try {
+        return await deps.connectConnection(projectId, connectionId);
+      } catch (error) {
+        if (!isSharedDefaultConnectConflict(error)) throw error;
+        route = 'connector';
+        const started = await deps.connectConnector(projectId, slug, { owner });
+        if (started.connectionId) connectionId = started.connectionId;
+        return started;
+      }
+    },
+    finalize,
+  };
+}

@@ -42,9 +42,12 @@ interface Recorded {
 let server: ReturnType<typeof Bun.serve>;
 const requests: Recorded[] = [];
 
-/** Records every request; answers a new pooled key like the API does. */
+/** Records every API request; answers a new pooled key like the API does. */
 async function record(request: Request): Promise<Response> {
   const url = new URL(request.url);
+  // The SDK calls only `/v1/…`. A host port scanner (a dev box's link probe
+  // sends `HEAD /`) can reach this port too, and is not the sheet's request.
+  if (!url.pathname.startsWith('/v1/')) return new Response(null, { status: 404 });
   requests.push({ method: request.method, path: url.pathname, body: await request.text() });
   if (url.pathname.endsWith('/secret-resources') && request.method === 'POST') {
     return Response.json({ secret_id: 'sec-new', label: 'Work', provider_id: 'acme' });
@@ -304,9 +307,8 @@ describe('<ProviderSheet/> pooled key accounts (`pooled-key` sheet)', () => {
 
     let frame = view.captureCharFrame();
     expect(frame).toContain('Who can use this connection?');
-    expect(frame).toContain('● 1 Only you');
-    await key(view, 'j');
-    expect(view.captureCharFrame()).toContain('● 2 Everyone in this workspace');
+    expect(frame).toContain('○ 1 Only you');
+    expect(frame).toContain('● 2 Everyone in this workspace');
     await key(view, 'j');
     frame = view.captureCharFrame();
     expect(frame).toContain('● 3 Specific members');
@@ -355,6 +357,48 @@ describe('<ProviderSheet/> pooled key accounts (`pooled-key` sheet)', () => {
     expect(view.log.toasts).toEqual([['Secret saved', undefined]]);
     // Label → access → members swap the flow in place; opening the key step signals busy again.
     expect(view.log.busy).toEqual([true, true, false]);
+    view.renderer.destroy();
+  });
+
+  test('a viewer who may share gets "Everyone in this workspace" by default and saves a project-wide key', async () => {
+    const view = await mount('acme', 'none', { pooled: true });
+    await key(view, 'a');
+    await type(view, 'Team');
+    await key(view, 'return');
+    expect(view.captureCharFrame()).toContain('● 2 Everyone in this workspace');
+    await key(view, 'return');
+    await type(view, 'sk2');
+    await key(view, 'return');
+    await settleWrite(view);
+
+    const writes = requests.filter((request) => request.method !== 'GET');
+    expect(writes.map((request) => [request.method, request.path])).toEqual([
+      ['POST', '/v1/accounts/acc-1/secret-resources'],
+    ]);
+    expect(JSON.parse(writes[0]?.body ?? '')).toMatchObject({ label: 'Team', value: 'sk2', access_mode: 'project', user_ids: [] });
+    view.renderer.destroy();
+  });
+
+  test('a viewer who may not share gets "Only you" by default and saves a key only they can use', async () => {
+    const view = await mount('acme', 'none', { pooled: true, canWrite: false });
+    await key(view, 'a');
+    await type(view, 'Mine');
+    await key(view, 'return');
+    let frame = view.captureCharFrame();
+    expect(frame).toContain('● 1 Only you');
+    expect(frame).toContain('○ 2 Everyone in this workspace');
+    expect(frame).toContain('Sharing with others requires permission to manage workspace secrets.');
+    // The shared choices are locked: j keeps "Only you".
+    await key(view, 'j');
+    frame = view.captureCharFrame();
+    expect(frame).toContain('● 1 Only you');
+    await key(view, 'return');
+    await type(view, 'sk3');
+    await key(view, 'return');
+    await settleWrite(view);
+
+    const writes = requests.filter((request) => request.method !== 'GET');
+    expect(JSON.parse(writes[0]?.body ?? '')).toMatchObject({ label: 'Mine', value: 'sk3', access_mode: 'members', user_ids: [] });
     view.renderer.destroy();
   });
 

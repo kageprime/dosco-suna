@@ -72,7 +72,7 @@ export function registerIamEnterpriseDemoRoutes(): void {
     async (c) => {
       const accountId = accountIdParam(c);
       const { enabled } = c.req.valid('json');
-      const userId = c.get('userId') as string;
+      const userId = c.get('userId');
       // A platform admin switches any account (support, or withdrawing a
       // demo); everyone else needs billing.write on this account.
       if (!(await isPlatformAdmin(userId))) {
@@ -101,7 +101,7 @@ export function registerIamEnterpriseDemoRoutes(): void {
         await notifySales({
           accountId,
           signal: 'demo_on',
-          userEmail: (c.get('userEmail') as string | undefined) ?? null,
+          userEmail: c.get('userEmail'),
           enterprise: after.state,
         });
       }

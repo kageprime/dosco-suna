@@ -89,6 +89,8 @@ export async function relayTurnEnd(
   sessionId: string,
   status: 'idle' | 'error' = 'idle',
   errorInfo?: TurnErrorInfo,
+  /** The turn's last assistant text, for a thread the agent did not answer (Slack). */
+  finalText?: string,
 ): Promise<boolean> {
   // Runtime ends arrive for every session, not only chat-channel sessions.
   // Keep late channel errors observable, but do not invent a Slack recipient.
@@ -96,7 +98,7 @@ export async function relayTurnEnd(
   if (!platform) return false;
   return platform === 'teams'
     ? teams.relayTurnEnd(sessionId, status, errorInfo)
-    : slack.relayTurnEnd(sessionId, status, errorInfo);
+    : slack.relayTurnEnd(sessionId, status, errorInfo, { finalText });
 }
 
 export async function relayTurnQuestion(

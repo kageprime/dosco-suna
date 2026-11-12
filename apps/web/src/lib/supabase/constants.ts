@@ -1,3 +1,5 @@
+import { getEnv } from '@/lib/env-config';
+
 /**
  * Scope the local-dev auth cookie to the actual frontend port so running
  * multiple local frontends on the same host (localhost:3000, localhost:13737)
@@ -8,11 +10,27 @@
  * app can overwrite or clear the other's session cookie.
  */
 function resolveAuthCookieName() {
-  const appUrl =
-    process.env.KORTIX_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_URL ||
-    process.env.PUBLIC_URL;
+  // Resolve through the RUNTIME env reader, not a raw process.env read. A
+  // raw read makes the browser bundle's name depend on whatever APP_URL was
+  // inlined at BUILD time, while the server's runtime env can name a
+  // different origin: a mismatch seeds the PKCE verifier cookie under a name
+  // the /auth/callback exchange never reads, and every fresh email-link
+  // signup dies on "The link is invalid or expired" (KRTX-4628).
+  // getEnv() prefers `window.__KORTIX_RUNTIME_CONFIG` in the browser and
+  // process.env on the server, so both sides compute the SAME name.
+  let appUrl: string | undefined;
+  try {
+    appUrl = getEnv().APP_URL;
+  } catch {
+    // getEnv() throws when required runtime env is absent (bare unit-test
+    // process, page-data collection). Keep the historical precedence so the
+    // module never throws at import time.
+    appUrl =
+      process.env.KORTIX_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_URL ||
+      process.env.PUBLIC_URL;
+  }
 
   if (!appUrl) return 'sb-kortix-auth-token';
 

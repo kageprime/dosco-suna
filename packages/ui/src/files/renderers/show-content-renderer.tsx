@@ -6,16 +6,13 @@ import { useTranslations } from '../../i18n';
  * show tool content inline in the session chat and side panel.
  *
  * Architecture:
- *  Binary files (image, video, audio, docx, pptx)
+ *  Binary files (image, video, audio, docx, pptx, xlsx)
  *    → loaded via useBinaryBlob (/file/raw endpoint, direct binary fetch)
  *    → rendered with shared leaf renderers (ImageRenderer, PdfRenderer, etc.)
  *
  *  Text data files (csv)
  *    → loaded via useFileContent (SDK text read)
  *    → rendered with CsvRenderer
- *
- *  Self-loading (xlsx)
- *    → XlsxRenderer handles its own data loading
  *
  *  Generic file (json, yaml, ts, py, etc.)
  *    → delegated to FileContentRenderer (handles text/code rendering)
@@ -202,7 +199,7 @@ function isLocalSandboxFilePath(value: string): boolean {
 }
 
 /** Types loaded via useBinaryBlob (/file/raw, direct binary fetch) */
-const BLOB_TYPES = new Set(['image', 'video', 'audio', 'docx', 'pptx']);
+const BLOB_TYPES = new Set(['image', 'video', 'audio', 'docx', 'pptx', 'xlsx']);
 
 /**
  * Where a show's binary viewer reads its bytes from, or null for no blob read.
@@ -535,7 +532,10 @@ export function ShowContentRenderer({
     if (isMermaid && !content && path && sandboxPath) return null;
     // Binary/media types backed by useBinaryBlob — and a PDF whose stored copy
     // is read the same way.
-    if ((isImage || isVideo || isAudio || isDocx || isPptx || (isPdf && storedCopy)) && path) {
+    if (
+      (isImage || isVideo || isAudio || isDocx || isPptx || isXlsx || (isPdf && storedCopy)) &&
+      path
+    ) {
       if (blobError) return 'error';
       if (blobLoading || (isImage && heicConverting)) return 'loading';
       return 'ready';
@@ -548,8 +548,8 @@ export function ShowContentRenderer({
     }
     // CSV backed by useFileContent (text).
     if (isCsv && path) return csvLoading ? 'loading' : 'ready';
-    // Everything else (url link, xlsx self-loading, code/markdown/text/html/
-    // error, localhost/html iframe, fallback) renders without a fetch we track.
+    // Everything else (url link, code/markdown/text/html/error, localhost/html
+    // iframe, fallback) renders without a fetch we track.
     return 'ready';
   }, [
     effectiveType,
@@ -798,22 +798,33 @@ export function ShowContentRenderer({
   }
 
   // ═════════════════════════════════════════════════════════════════════════
-  // XLSX — XlsxRenderer (self-loading via filePath prop)
+  // XLSX — loaded via useBinaryBlob → rawBlob → XlsxRenderer
   // ═════════════════════════════════════════════════════════════════════════
-  if (isXlsx && path && sandboxPath) {
+  if (isXlsx && path) {
+    if (blobLoading) return <RendererFallback className={mediaH} />;
+    if (blobError) return <LoadError message={blobError} />;
+    if (rawBlob) {
+      return (
+        <Suspense fallback={<RendererFallback className={mediaH} />}>
+          <div className={cn(mediaH, 'overflow-hidden')}>
+            {framed(
+              <XlsxRenderer
+                blob={rawBlob}
+                fileName={fileName}
+                className="h-full"
+                {...viewerChrome}
+              />,
+            )}
+          </div>
+        </Suspense>
+      );
+    }
     return (
-      <Suspense fallback={<RendererFallback className={mediaH} />}>
-        <div className={cn(mediaH, 'overflow-hidden')}>
-          {framed(
-            <XlsxRenderer
-              filePath={sandboxPath}
-              fileName={fileName}
-              className="h-full"
-              {...viewerChrome}
-            />,
-          )}
-        </div>
-      </Suspense>
+      <FileCard
+        title={title || tI18nComplete.raw('text1931491100e0')}
+        fileName={fileName}
+        path={path}
+      />
     );
   }
 

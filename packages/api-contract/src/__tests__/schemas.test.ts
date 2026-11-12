@@ -587,6 +587,27 @@ describe('pending session prompt contract', () => {
   });
 });
 
+describe('session create from an old CLI', () => {
+  // `kortix sessions new --model` in CLI v0.13.0–v0.14.19 sends the pin twice:
+  // `body.model = body.opencode_model = <id>`. #11848 removed `opencode_model`
+  // from this strict schema, so every such create answered 400
+  // `unrecognized_keys` from v0.15.0 on, although `model` was right beside it.
+  test('accepts the body a v0.14 CLI sends with --model', () => {
+    const parsed = SessionCreateInputSchema.parse({
+      initial_prompt: 'Reply with OK.',
+      title_source: 'Reply with OK.',
+      model: 'kortix/glm-5.3-flash',
+      opencode_model: 'kortix/glm-5.3-flash',
+    });
+    expect(parsed.model).toBe('kortix/glm-5.3-flash');
+    expect(parsed.opencode_model).toBe('kortix/glm-5.3-flash');
+  });
+
+  test('still refuses a key no client ever sent', () => {
+    expect(() => SessionCreateInputSchema.parse({ model: 'kortix/glm-5.3-flash', zz_probe: 1 })).toThrow();
+  });
+});
+
 describe('ProjectSessionSandboxSchema', () => {
   test('accepts every provider the platform can emit', () => {
     for (const provider of ['platinum', 'daytona']) {

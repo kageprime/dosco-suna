@@ -8,7 +8,7 @@ import { UnsafeEgressError } from '../../shared/ssrf-guard';
 import type { ConnectorAuthDiscovery } from '../auth-discovery';
 import { discoverProtectedResourceOAuth2, mcpSignInCheck } from '../oauth2-resource-discovery';
 import type { ConnectorRouterDeps, CrudOutcome } from '../router';
-import { connectorIdentity } from '../catalog-install';
+import { customSourceRefusal } from './custom-source';
 
 /** The CLI's `kortix connectors credential --oauth2-client-credentials` body. */
 const OAuth2ConnectionBody = z
@@ -564,40 +564,4 @@ export function registerConnectorAdminRoutes(app: OpenAPIHono, deps: ConnectorRo
         : c.json({ error: result.error }, result.status as 404 | 409);
     },
   );
-}
-
-/** The remote address a draft points calls at, or null (a toolkit, a repo file). */
-function remoteSourceOf(draft: Record<string, unknown>): string | null {
-  for (const key of ['url', 'endpoint', 'baseUrl', 'spec'] as const) {
-    const value = draft[key];
-    if (typeof value === 'string' && /^[a-z][a-z0-9+.-]*:\/\//i.test(value.trim())) return value.trim();
-  }
-  return null;
-}
-
-/**
- * An agent session adds only servers the project already has, or catalogue
- * apps (`discover/install`): a prompt can then never point the project's
- * tools at a server nobody chose. A person confirms a custom server on the
- * page `setup_url` opens. A `baseUrl` from an agent always needs a person: it
- * redirects every call of an existing profile.
- */
-async function customSourceRefusal(
-  c: Context,
-  deps: ConnectorRouterDeps,
-  projectId: string,
-  draft: Record<string, unknown>,
-): Promise<Record<string, unknown> | null> {
-  const source = remoteSourceOf(draft);
-  if (!source || !deps.isAgentCaller?.(c)) return null;
-  const identity = connectorIdentity(draft as Parameters<typeof connectorIdentity>[0]);
-  const known = identity
-    ? ((await deps.listConnectorIdentities?.(projectId)) ?? []).some((p) => p.identity === identity)
-    : false;
-  if (known && draft.baseUrl === undefined) return null;
-  return {
-    error: `An agent cannot add the custom server ${source}. A person adds it at setup_url, or the agent installs a catalogue app (add_connector with app).`,
-    code: 'custom_connector_needs_human',
-    setup_url: deps.customConnectorSetupUrl?.(projectId, draft) ?? null,
-  };
 }

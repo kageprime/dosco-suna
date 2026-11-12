@@ -1,12 +1,6 @@
-import type { Metadata } from 'next';
-import type { ReactNode } from 'react';
+import { marketingMetadataLayout } from '@/lib/seo/metadata';
 
-import { localizedMarketingMetadata } from '@/lib/seo/metadata';
+const { generateMetadata, Layout } = marketingMetadataLayout('/legal');
 
-export function generateMetadata(): Promise<Metadata> {
-  return localizedMarketingMetadata('/legal');
-}
-
-export default function LegalLayout({ children }: { children: ReactNode }) {
-  return children;
-}
+export { generateMetadata };
+export default Layout;

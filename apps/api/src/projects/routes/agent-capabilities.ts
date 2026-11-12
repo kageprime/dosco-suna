@@ -4,12 +4,11 @@
 // it; the agent's grants in kortix.yaml decide which ones are on.
 
 import { createRoute, z } from '@hono/zod-openapi';
-import { parseFrontmatter } from '@kortix/registry';
 import { PROJECT_ACTIONS } from '../../iam/actions';
 import { auth, errors, json } from '../../openapi';
 import { listManagedSkills } from '../../skills/catalog';
 import { agentNotDeclaredError } from '../agents';
-import { readRepoFile } from '../git';
+import { readProjectSkillDescriptions } from '../git';
 import { assertProjectCapability, loadProjectForUser } from '../lib/access';
 import { buildAgentCapabilities } from '../lib/agent-capabilities';
 import { projectsApp } from '../lib/app';
@@ -56,30 +55,30 @@ async function projectCatalog(c: Parameters<typeof loadProjectForUser>[0], proje
   await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_AGENT_READ);
 
   const gitProject = await withProjectGitAuth(loaded.row);
-  const manifest = await readManifest(gitProject).catch(() => null);
-  if (!manifest) {
+  // `rethrowReadErrors`: a failed git read throws, so only a repository with
+  // no kortix.yaml reads as null. That repository (a linked repo before setup)
+  // still has the built-in catalog: Customize › Skills lists it instead of an error.
+  const manifest = await readManifest(gitProject, { rethrowReadErrors: true }).catch(() => undefined);
+  if (manifest === undefined) {
     return { error: { body: { error: 'The project has no readable kortix.yaml.', code: 'manifest_read' }, status: 400 as const } };
   }
-  if (agentName !== null) {
+  if (manifest === null && agentName !== null) {
+    return { error: { body: { error: `No agent "${agentName}" declared: the project has no kortix.yaml.`, code: 'agent_not_found' }, status: 404 as const } };
+  }
+  const raw: Record<string, unknown> = manifest?.raw ?? {};
+  if (manifest && agentName !== null) {
     const builtin = enabledBuiltinAgentKey(agentName, projectBuiltinAgents(manifest.raw));
     const notDeclared = builtin ? null : agentNotDeclaredError(manifest, agentName);
     if (notDeclared) return { error: { body: notDeclared, status: 404 as const } };
   }
 
-  const registered = manifest.raw.skills;
-  const folders = registered && typeof registered === 'object' && !Array.isArray(registered) ? Object.entries(registered) : [];
-  const projectSkillDescriptions = Object.fromEntries(
-    await Promise.all(
-      folders.map(async ([name, folder]) => {
-        const text = await readRepoFile(gitProject, `${String(folder)}/SKILL.md`, loaded.row.defaultBranch).catch(() => null);
-        return [name, text ? (parseFrontmatter(text).description ?? null) : null] as const;
-      }),
-    ),
-  );
+  const registered = raw.skills;
+  // One batched fetch for every SKILL.md, not one per skill (`readProjectSkillDescriptions`, KRTX-4739).
+  const projectSkillDescriptions = await readProjectSkillDescriptions(gitProject, registered, loaded.row.defaultBranch);
   return {
     catalog: buildAgentCapabilities({
       agentName: agentName ?? '',
-      manifest: manifest.raw,
+      manifest: raw,
       managedSkills: listManagedSkills(),
       projectSkillDescriptions,
       enabledFlags: new Set(featureFlagsEnvValue(loaded.row.metadata).split(',')),

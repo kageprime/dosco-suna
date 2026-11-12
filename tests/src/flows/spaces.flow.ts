@@ -420,7 +420,7 @@ flow('SPACE-7', flowMeta('spaces', [ROUTES.create, ROUTES.update, ROUTES.dm, SES
       if (rows.length !== 0) throw new Error(`a refused create stored ${rows.length} session(s)`);
     });
 
-    await ctx.step('the caller’s own DM passes the space check and runs the DM’s agent over a different agent_name (201, or the local profile’s no-sandbox 503)', async () => {
+    await ctx.step('the caller’s own DM passes the space check and runs the DM’s agent over a different agent_name (201, or the local profile’s no-model 409)', async () => {
       const ownDmId = (await world.owner.post(DM, { agent_name: 'kortix' }, { params })).status(200).json<Space>().space_id;
       // The manifest declares no such agent: without the DM override the agent gate refuses it.
       const r = await world.owner.post(SESSIONS, { space_id: ownDmId, agent_name: 'ke2e-not-the-dm-agent' }, { params });
@@ -428,7 +428,8 @@ flow('SPACE-7', flowMeta('spaces', [ROUTES.create, ROUTES.update, ROUTES.dm, SES
         ctx.track('session', r.json<Session>().session_id, { projectId: project.id });
         r.body().has('$.space_id', ownDmId).has('$.visibility', 'private').has('$.agent_name', 'kortix');
       } else {
-        r.status(503).body().has('$.code', 'KORTIX_URL_UNREACHABLE');
+        // The local profile serves no model: the model check runs after the space and agent gates (SESS-64).
+        r.status(409).body().has('$.code', 'no_model_available');
       }
     });
   } finally {

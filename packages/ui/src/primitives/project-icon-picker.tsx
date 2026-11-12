@@ -24,8 +24,8 @@ import { cn } from '../lib/utils';
  * outlives a single tab switch, rather than inside `GlyphPicker` itself,
  * which would reset it every time the tab remounts.
  *
- * Radix only mounts the ACTIVE `TabsContent` (`Presence` gates on
- * `forceMount || isSelected`), so switching to Icon is also the first moment
+ * `TabsContent` mounts its children only while active (or with
+ * `forceMount`), so switching to Icon is also the first moment
  * `GlyphPicker` renders — cheap, since unlike `EmojiPicker` it fetches
  * nothing.
  */

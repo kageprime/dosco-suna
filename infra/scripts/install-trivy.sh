@@ -37,4 +37,13 @@ curl --fail --silent --show-error --location --retry 3 \
   --output "$INSTALLER"
 echo "2304dcc0c1883e802d376eae1b514c923b7427a7d88091dfcaf83967e6f55a7c  $INSTALLER" | sha256sum --check
 # The upstream installer verifies the release archive against its SHA-256 manifest.
-bash "$INSTALLER" -b "${1:?installation directory required}" "$TAG"
+# Its curl has no retry and, at its default log level, exits 1 with no output
+# on a non-200 download (2026-11-09 nightly: a silent exit 1 on a vulcan
+# runner). -d prints the HTTP status; three attempts absorb a transient 5xx.
+BINDIR="${1:?installation directory required}"
+for attempt in 1 2 3; do
+  if bash "$INSTALLER" -d -b "$BINDIR" "$TAG"; then exit 0; fi
+  echo "trivy install: attempt ${attempt}/3 of the upstream installer failed" >&2
+  if [ "$attempt" -lt 3 ]; then sleep $((attempt * 5)); fi
+done
+exit 1

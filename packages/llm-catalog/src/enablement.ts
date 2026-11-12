@@ -146,15 +146,26 @@ export function defaultEnabledModelIds(
 export function autoSeedableModels<T extends { id: string; status?: string; tool_call?: boolean }>(
   models: T[],
 ): T[] {
+  // A free-tier (`:free`, `-free`) or preview id is never chosen for anyone:
+  // OpenRouter's newest model is often `…-preview:free`, rate-limited and
+  // short-lived, and a paid workspace's first chat failed on one. A person
+  // can still pick it; with nothing else left, nothing is auto-selected.
+  const candidates = models.filter((model) => !isFreeOrPreviewModelId(model.id));
   // models.dev marks experiments and retirees `beta`/`deprecated`, and an
   // agent default must call tools; nothing is auto-selected from those while
   // a stable, tool-capable model exists.
-  const stable = models.filter(
+  const stable = candidates.filter(
     (model) => model.status !== 'deprecated' && model.status !== 'beta' && model.tool_call !== false,
   );
-  const pool = stable.length > 0 ? stable : models;
+  const pool = stable.length > 0 ? stable : candidates;
   if (!pool.some((model) => bedrockInferenceProfileRank(model.id) > 0)) return pool;
   return pool.filter((model) => bedrockInferenceProfileRank(model.id) > 0);
+}
+
+/** A free-tier (`:free`, `-free`) or preview model id, which nothing auto-selects. */
+export function isFreeOrPreviewModelId(id: string): boolean {
+  const lower = id.toLowerCase();
+  return /(?::|-)free$/.test(lower) || /(?:^|[-_.:/])preview(?:$|[-_.:/])/.test(lower);
 }
 
 /**

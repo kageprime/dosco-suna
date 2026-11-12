@@ -73,11 +73,16 @@ mock.module('../../shared/db', () => ({
 /** A provider whose `getStatus` answers from a per-test queue. */
 let providerStatuses: string[] = [];
 let recoverInPlaceResult: 'running' | 'recovering' | 'unavailable' = 'unavailable';
+/** When set, the provider's `recoverInPlace` call itself fails — a thrown probe. */
+let recoverInPlaceThrows = false;
 mock.module('../../platform/providers', () => ({
   ...realProviders,
   getProvider: (name: string) => ({
     getStatus: async () => providerStatuses.shift() ?? 'unknown',
-    recoverInPlace: async () => recoverInPlaceResult,
+    recoverInPlace: async () => {
+      if (recoverInPlaceThrows) throw new Error('gateway 429');
+      return recoverInPlaceResult;
+    },
     start: async () => {},
     stop: async () => {},
     name,
@@ -212,6 +217,7 @@ beforeEach(() => {
   preservedRows = [];
   wakeStarted = 0;
   recoverInPlaceResult = 'unavailable';
+  recoverInPlaceThrows = false;
   healthBodies = [];
 });
 
@@ -353,6 +359,86 @@ describe('openSession response envelope — one pin per orchestration branch', (
     expect(result.runtime_url).toBe('/p/ext-1/8000');
     expect(result.sandbox?.metadata).toEqual({ runtimeIdentityState: 'recovering' });
     expect(result.action).toBe('restored');
+  });
+
+  test('a thrown in-place recovery probe answers the retryable recovery card, never a loss report', async () => {
+    // The probe THREW — a failed round-trip (a 429, a 5xx, a network error),
+    // never a provider verdict. The shared background gate (KRTX-4567) maps a
+    // throw to "indeterminate"; the open path must too: only an explicit
+    // `unavailable` answer authorizes the loss.
+    const removedAt = new Date(NOW_MS() - 10 * 60_000).toISOString();
+    selectQueue = [[row('active', { initSucceededAt: removedAt })]];
+    providerStatuses = ['removed'];
+    recoverInPlaceThrows = true;
+    recoveryClaims = [{ row: row('active', { initSucceededAt: removedAt }), id: 'claim-1' }];
+
+    const result = await openSession(args('default', 'oc-current'));
+
+    expect(result.stage).toBe('starting');
+    expect(result.retriable).toBe(true);
+    expect(result.reason).toBe('runtime_recovery_in_progress');
+    expect(result.runtime_url).toBe('/p/ext-1/8000');
+    expect(result.sandbox?.external_id).toBe('ext-1');
+    // No loss write happened: the preserve path was never reached.
+    expect(preservedRows).toEqual([]);
+    // The recovery lease ends nothing: no accepted-recovery row either.
+    expect(recoveryAcceptedRows).toEqual([]);
+  });
+
+  test('a removed box whose recovery probe answers unavailable preserves-and-reports the loss once', async () => {
+    // The provider SPOKE: its explicit `unavailable` is the sole loss
+    // authority. The open path preserves the identity and reports exactly
+    // once — this is the branch a thrown probe must not piggyback onto.
+    const removedAt = new Date(NOW_MS() - 10 * 60_000).toISOString();
+    selectQueue = [[row('active', { initSucceededAt: removedAt })]];
+    providerStatuses = ['removed'];
+    recoverInPlaceResult = 'unavailable';
+    recoveryClaims = [{ row: row('active', { initSucceededAt: removedAt }), id: 'claim-1' }];
+
+    const result = await openSession(args('default', 'oc-current'));
+
+    expect(result.stage).toBe('failed');
+    expect(result.retriable).toBe(false);
+    expect(result.reason).toBe('runtime_identity_unavailable');
+    expect(result.runtime_url).toBe('/p/ext-1/8000');
+    expect(preservedRows).toHaveLength(1);
+  });
+
+  test('a recovery claim another caller owns answers the retryable recovery card', async () => {
+    // The claim was lost to a concurrent owner: the row is already under a
+    // live recovery lease, so the answer is the same retryable card.
+    const removedAt = new Date(NOW_MS() - 10 * 60_000).toISOString();
+    selectQueue = [[row('active', { initSucceededAt: removedAt })]];
+    providerStatuses = ['removed'];
+    recoveryClaims = [];
+
+    const result = await openSession(args('default', 'oc-current'));
+
+    expect(result.stage).toBe('starting');
+    expect(result.retriable).toBe(true);
+    expect(result.reason).toBe('runtime_recovery_in_progress');
+    expect(preservedRows).toEqual([]);
+  });
+
+  test('a recovery this open claimed but lost mid-mark answers the same retryable card', async () => {
+    // The claim was won and the provider answered, but the accept-write was
+    // raced by another writer: the row is recovering somewhere else, so the
+    // answer is the retryable card, not a terminal one and not a loss.
+    const removedAt = new Date(NOW_MS() - 10 * 60_000).toISOString();
+    selectQueue = [[row('active', { initSucceededAt: removedAt })]];
+    providerStatuses = ['removed'];
+    recoverInPlaceResult = 'recovering';
+    recoveryClaims = [{ row: row('active', { initSucceededAt: removedAt }), id: 'claim-1' }];
+    recoveryAcceptedRows = [];
+
+    const result = await openSession(args('default', 'oc-current'));
+
+    expect(result.stage).toBe('starting');
+    expect(result.retriable).toBe(true);
+    expect(result.reason).toBe('runtime_recovery_in_progress');
+    expect(preservedRows).toEqual([]);
+    // The provider still recovered: nothing must undo or report it.
+    expect(recoveryAcceptedRows).toEqual([]);
   });
 
   test('a removed box already parked as lost skips the recovery claim and answers the terminal card', async () => {

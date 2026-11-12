@@ -4,7 +4,7 @@
  * automations, setup state), read from `kortix.workspaces`.
  */
 import { effectiveBranding } from '../accounts/branding';
-import { accountMemberRoleRow, countBillableAccountMembers } from '../iam/membership-read';
+import { accountMemberRow, countBillableAccountMembers } from '../iam/membership-read';
 import { getWorkspace } from './store';
 
 export interface WorkspaceSettings {
@@ -43,7 +43,7 @@ export async function readWorkspaceSettings(
   const [members, branding, roleRows] = await Promise.all([
     countBillableAccountMembers(row.accountId),
     effectiveBranding(row.accountId, row.branding),
-    callerUserId ? accountMemberRoleRow(row.accountId, callerUserId) : Promise.resolve([]),
+    callerUserId ? accountMemberRow(row.accountId, callerUserId) : Promise.resolve([]),
   ]);
   const countRows =
     (members as unknown as { rows?: Array<{ n: number }> }).rows ??

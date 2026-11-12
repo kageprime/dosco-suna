@@ -2,6 +2,7 @@
 
 import { Button } from '../../../primitives/button';
 import Hint from '../../../primitives/hint';
+import Loading from '../../../primitives/loading';
 import { SolidCheckIcon } from '../../../internal/icons/solid-check-icon';
 import { useTranslations } from '../../../i18n';
 import { cn } from '../../../lib/utils';
@@ -10,7 +11,7 @@ import { CaretDownIcon, WarningCircleIcon, XIcon } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
 
 import { type DriveUpload, useDriveUploads } from '../store/upload-store';
-import { uploadedFraction } from '../upload-batch';
+import { trayOrder, uploadedFraction } from '../upload-batch';
 import { getFileIcon } from './file-icon';
 
 export type { DriveUpload };
@@ -72,7 +73,8 @@ function UploadGauge({ value, className }: { value: number; className?: string }
  * Every upload of the open project, one row per file, docked bottom-right of
  * the window. It lives in the project shell, not in a folder view, so a batch
  * keeps reporting when the user leaves the folder or Drive. The header counts
- * files and fills by bytes; a failed row keeps its reason and a Retry.
+ * files and fills by bytes; a failed row keeps its reason and a Retry. Rows
+ * read top down: going up now, waiting, failed, then finished at the bottom.
  */
 export function DriveUploadTray() {
   const t = useTranslations('drives');
@@ -154,7 +156,7 @@ export function DriveUploadTray() {
 
       {!collapsed ? (
         <ul className="border-border/60 max-h-64 overflow-y-auto border-t py-1">
-          {uploads.map((u) => (
+          {trayOrder(uploads).map((u) => (
             <li key={u.id} className="flex min-h-9 items-center gap-2.5 px-3 py-1.5">
               {getFileIcon(u.file.name, { className: 'text-muted-foreground size-4 shrink-0' })}
               <span className="flex min-w-0 flex-1 flex-col">
@@ -191,7 +193,15 @@ function UploadStatus({ upload, onRetry }: { upload: DriveUpload; onRetry: () =>
         </span>
       );
     case 'uploading':
-      return <UploadGauge value={(upload.sent ?? 0) / Math.max(1, upload.file.size)} />;
+      // A row spins while it is in flight: a small file sends its bytes in one
+      // event and then waits on the server, so a byte gauge sat empty or full.
+      // The header gauge carries the byte share of the whole run.
+      return (
+        <span className="flex shrink-0">
+          <Loading variant="spokes" className="size-4 shrink-0" />
+          <span className="sr-only">{t('uploadingFile', { name: upload.file.name })}</span>
+        </span>
+      );
     case 'done':
       return <SolidCheckIcon className="text-kortix-green" />;
     case 'error':

@@ -17,69 +17,74 @@ import { useTranslations } from '@/i18n/use-translations';
  * Cancel button that calls it only ever renders while `enrolling` is set.
  * That guarded version is what this hook keeps.
  *
+ * KRTX-4748 merged the phone-verification page's second copies of these
+ * queries (its own factor key + a second `['mfa-aal']` policy) into this
+ * file; the four phone challenge mutations moved here too, so this module is
+ * the one home every MFA hook is imported from.
+ *
  * `FactorRow` (the pure per-factor row) and `totpQrSrc` (the QR data-URL
  * normalizer) are NOT here — they're view code, not state, and this file
  * stays hook-only (`.ts`, no JSX). They now live in `profile-tab.tsx`, their
  * sole remaining consumer.
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { errorToast, successToast } from '@kortix/ui/toast';
 import { invalidateTokenCache } from '@/lib/auth-token';
-import { createClient } from '@/lib/supabase/client';
-import { mfaChallengeRequired, supabaseMFAService } from '@/lib/supabase/mfa';
+import { useAuth } from '@/features/providers/auth-provider';
+import {
+  mfaChallengeRequired,
+  supabaseMFAService,
+  type EnrollingFactor,
+} from '@/lib/supabase/mfa';
+
+export type { EnrollingFactor };
 
 export const MFA_FACTORS_QUERY_KEY = ['mfa-factors'] as const;
 export const MFA_AAL_QUERY_KEY = ['mfa-aal'] as const;
 
-export interface EnrollingFactor {
-  factorId: string;
-  qr: string;
-  secret?: string;
+// One factor-list cache entry for both surfaces (the Security tab and the
+// phone-verification page, KRTX-4748): the phone page previously read the
+// same service under its own key, so a factor enrolled there never
+// invalidated the list the Security tab renders. The enabled guard is the
+// phone copy's (the page runs pre-login, where `listFactors` throws) and the
+// short staleTime the Security-tab copy's. Finite window so enrolled/
+// unenrolled factors picked up elsewhere refetch on mount/focus (mutations
+// still invalidate explicitly) — was Infinity, which never refetched despite
+// the "2 minutes" intent.
+export function useMfaFactors() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: MFA_FACTORS_QUERY_KEY,
+    queryFn: () => supabaseMFAService.listFactors(),
+    enabled: !!user,
+    staleTime: 10_000,
+  });
 }
 
 export function useMfa() {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
-  const supabase = createClient();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const [enrolling, setEnrolling] = useState<EnrollingFactor | null>(null);
   const [enrollCode, setEnrollCode] = useState('');
   const [removeFactorTarget, setRemoveFactorTarget] = useState<string | null>(null);
 
-  const factorsQuery = useQuery({
-    queryKey: MFA_FACTORS_QUERY_KEY,
-    queryFn: () => supabaseMFAService.listFactors(),
-    staleTime: 10_000,
-  });
+  const factorsQuery = useMfaFactors();
 
   const aalQuery = useQuery({
     queryKey: MFA_AAL_QUERY_KEY,
     queryFn: () => supabaseMFAService.getAAL(),
+    enabled: !!user,
     staleTime: 10_000,
   });
 
   const startEnrollMutation = useMutation({
-    mutationFn: async () => {
-      // An unverified factor is an enrollment someone walked away from (a
-      // closed tab, a reload). It can never sign anyone in, and it holds the
-      // friendly name the new one wants, so clear it before starting over.
-      const { data: listed } = await supabase.auth.mfa.listFactors();
-      for (const stale of listed?.all ?? []) {
-        if (stale.factor_type === 'totp' && stale.status === 'unverified') {
-          await supabase.auth.mfa.unenroll({ factorId: stale.id });
-        }
-      }
-      const { data, error } = await supabase.auth.mfa.enroll({
-        factorType: 'totp',
-        friendlyName: `Authenticator (${new Date().toISOString().slice(0, 10)})`,
-      });
-      if (error) throw new Error(error.message);
-      if (!data?.totp?.qr_code) throw new Error('Enrollment returned no QR code');
-      return { factorId: data.id, qr: data.totp.qr_code, secret: data.totp.secret };
-    },
+    mutationFn: () => supabaseMFAService.enrollTotp(),
     onSuccess: (data) => {
       setEnrolling(data);
       setEnrollCode('');
@@ -165,3 +170,53 @@ export function useMfa() {
     isRemovingFactor: removeFactorMutation.isPending,
   };
 }
+
+// The phone-verification challenge mutations. Their onSuccess invalidates
+// this module's exported key constants, so an enroll or verify on the
+// phone-verification page reaches the Security tab's cache entry directly.
+function invalidateMfaCaches(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: MFA_FACTORS_QUERY_KEY });
+  queryClient.invalidateQueries({ queryKey: MFA_AAL_QUERY_KEY });
+}
+
+export const useEnrollPhoneNumber = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: supabaseMFAService.enrollPhoneNumber,
+    onSuccess: () => {
+      // Invalidate factors list after enrollment
+      invalidateMfaCaches(queryClient);
+    },
+  });
+};
+
+export const useCreateChallenge = () => {
+  return useMutation({
+    mutationFn: supabaseMFAService.createChallenge,
+  });
+};
+
+export const useVerifyChallenge = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: supabaseMFAService.verifyChallenge,
+    onSuccess: () => {
+      // Invalidate all phone verification related caches after successful verification
+      invalidateMfaCaches(queryClient);
+    },
+  });
+};
+
+export const useUnenrollFactor = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: supabaseMFAService.unenrollFactor,
+    onSuccess: () => {
+      // Invalidate caches after unenrolling
+      invalidateMfaCaches(queryClient);
+    },
+  });
+};

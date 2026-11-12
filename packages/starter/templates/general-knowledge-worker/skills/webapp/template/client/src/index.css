@@ -182,8 +182,8 @@
  * <element className="hover-elevate" />
  * <element className="active-elevate-2" />
  *
- * // Using the tailwind utility when a data attribute is "on"
- * <element className="toggle-elevate data-[state=on]:toggle-elevated" />
+ * // Using the tailwind utility when a toggle is pressed (Base UI sets data-pressed)
+ * <element className="toggle-elevate data-[pressed]:toggle-elevated" />
  * // Or manually controlling the toggle state
  * <element className="toggle-elevate toggle-elevated" />
  *

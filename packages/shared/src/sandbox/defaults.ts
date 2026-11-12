@@ -413,9 +413,9 @@ export function kortixDefaultsTail(opts: KortixArtifactLayerOpts): string {
     // that tooling's build-cache key. See kortixShellProfileScript.
     kortixShellProfileRun(),
     '',
-    // The daemon clones the project workspace at boot using KORTIX_PROJECT_AUTO_CLONE
-    // — nothing project-specific is baked into the image. /workspace is created
-    // empty here; the daemon's materializeRepo path fills it.
+    // Nothing project-specific is baked into the image, and the daemon never
+    // clones the project at boot: /workspace is created empty here and stays
+    // empty until an agent runs `kortix workspaces clone`.
     'ENV KORTIX_WORKSPACE=/workspace',
     'USER kortix',
     ...piSystemPackageWarmLines(PI_SYSTEM_PACKAGES),

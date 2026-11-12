@@ -13,6 +13,7 @@ import * as realPreviewOwnership from '../shared/preview-ownership';
 import * as realKortixUserContext from '../shared/kortix-user-context';
 
 let ensureRunningCalls: string[] = [];
+let ensureRunningReasons: unknown[] = [];
 let deadlineAt: Date | null = new Date(Date.now() + 60 * 60_000);
 
 mock.module('../config', () => ({ config: {} }));
@@ -44,8 +45,9 @@ mock.module('../platform/providers', () => ({
     async getStatus() {
       return providerStatusBeforeWake;
     },
-    async ensureRunning(externalId: string) {
+    async ensureRunning(externalId: string, wakeReason?: unknown) {
       ensureRunningCalls.push(externalId);
+      ensureRunningReasons.push(wakeReason);
     },
   }),
 }));
@@ -91,6 +93,7 @@ const { wakeSandbox } = await import('./backend');
 
 function reset(nextDeadline: Date | null) {
   ensureRunningCalls = [];
+  ensureRunningReasons = [];
   recoveryCalls.length = 0;
   providerStatusBeforeWake = 'running';
   deadlineAt = nextDeadline;
@@ -146,5 +149,43 @@ describe('wakeSandbox — a provider start obeys the deadline', () => {
     await wakeSandbox('ext-1');
 
     expect(ensureRunningCalls).toEqual([]);
+  });
+
+  test('a stale running GET does not skip recovery when the wake reason says not-running', async () => {
+    // The control plane can contradict itself: its GET answered `running` for
+    // a box whose own expose/exec it refused with the not-running verdict (one
+    // prod box, over an hour). That verdict is what justifies the start past
+    // the stale GET (ensureRunning starts on it) — and the box WAS stopped, so
+    // the turns open on it are over and recovery must fire here exactly as it
+    // does for a GET that honestly said `stopped`. Trusting the contradictory
+    // GET alone left the interrupted prompts unsettled and never redelivered.
+    reset(new Date(Date.now() + 60 * 60_000));
+    providerStatusBeforeWake = 'running';
+    const reason = Object.assign(
+      new Error('platinum POST /v1/sandboxes/ext-1/expose -> 409 {"code":"sandbox_not_running"}'),
+      { name: 'PlatinumSandboxNotRunningError' },
+    );
+
+    await wakeSandbox('ext-1', reason);
+
+    expect(ensureRunningCalls).toEqual(['ext-1']);
+    expect(recoveryCalls).toEqual([
+      { sandboxId: 'sb-1', sessionId: 'sess-1', externalId: 'ext-1', hold: false },
+    ]);
+  });
+
+  test('hands the wake reason (the observed attempt error) to the provider', async () => {
+    // The provider classifies the reason itself (a control-plane
+    // sandbox_not_running verdict starts the box without re-trusting its GET
+    // state). The wake's job is only to carry the freshest evidence through.
+    reset(new Date(Date.now() + 60 * 60_000));
+    const reason = new Error(
+      'platinum POST /v1/sandboxes/ext-1/expose -> 409 {"code":"sandbox_not_running"}',
+    );
+
+    await wakeSandbox('ext-1', reason);
+
+    expect(ensureRunningCalls).toEqual(['ext-1']);
+    expect(ensureRunningReasons[0]).toBe(reason);
   });
 });

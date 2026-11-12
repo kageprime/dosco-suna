@@ -29,7 +29,7 @@ import {
   type SessionInbound,
 } from '@kortix/api-contract/multi-agent';
 import type { SessionWorking } from '@kortix/api-contract';
-import { connectorCalls, sessionPendingPermissions, sessionPendingQuestions, sessionTurns } from '@kortix/db';
+import { connectorCalls, sessionColleagueAccess, sessionPendingPermissions, sessionPendingQuestions, sessionTurns } from '@kortix/db';
 import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 import { approvalNotExpired } from '../../connectors/approval-expiry';
 import { pendingAskNotExpired } from './session-asks';
@@ -133,7 +133,7 @@ export function deriveSessionBoard(input: {
 async function readAttention(sessionIds: string[]): Promise<Map<string, SessionAttention>> {
   const out = new Map<string, SessionAttention>();
   const uuids = sessionIds.filter(isUuid);
-  const [questions, permissions, approvals] = await Promise.all([
+  const [questions, permissions, approvals, colleagueAccess] = await Promise.all([
     db.select({ sessionId: sessionPendingQuestions.sessionId, surfaceSessionId: sessionPendingQuestions.surfaceSessionId })
       .from(sessionPendingQuestions)
       .where(and(
@@ -159,12 +159,20 @@ async function readAttention(sessionIds: string[]): Promise<Map<string, SessionA
           isNull(connectorCalls.resolvedAt),
           approvalNotExpired,
         )),
+    db.select({ sessionId: sessionColleagueAccess.sessionId, surfaceSessionId: sessionColleagueAccess.surfaceSessionId })
+      .from(sessionColleagueAccess)
+      .where(and(
+        or(inArray(sessionColleagueAccess.sessionId, sessionIds), inArray(sessionColleagueAccess.surfaceSessionId, sessionIds)),
+        isNull(sessionColleagueAccess.decidedAt),
+        pendingAskNotExpired(sessionColleagueAccess.expiresAt),
+      )),
   ]);
   const mark = (ids: Array<string | null>, kind: SessionAttention) => {
     for (const id of ids) if (id && (kind === 'question' || !out.has(id))) out.set(id, kind);
   };
   for (const row of approvals) mark([row.sessionId ? String(row.sessionId) : null], 'approval');
   for (const row of permissions) mark([row.sessionId, row.surfaceSessionId], 'approval');
+  for (const row of colleagueAccess) mark([row.sessionId, row.surfaceSessionId], 'approval');
   for (const row of questions) mark([row.sessionId, row.surfaceSessionId], 'question');
   return out;
 }

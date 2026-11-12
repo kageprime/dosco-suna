@@ -66,7 +66,11 @@ function normalizeHeaders(h: RequestInit['headers']): Record<string, string> {
   return { ...(h as Record<string, string>) };
 }
 
-mock.module('../../shared/platinum', () => ({
+// The stub spreads the real module: the workspace-volume import in this test's
+// graph links platinumRateLimitWaitMs (release suite 42696873451), so the stub
+// must carry every export the graph resolves, with the test's overrides on top.
+const realPlatinum = await import('../../shared/platinum');
+mock.module('../../shared/platinum', () => ({ ...realPlatinum,
   isPlatinumConfigured: () => true,
   platinumJsonResponse: async () => {
     throw new Error('unexpected Platinum materialization request');

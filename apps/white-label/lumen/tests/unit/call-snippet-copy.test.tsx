@@ -12,6 +12,11 @@ Object.defineProperties(globalThis, {
   requestAnimationFrame: { value: window.requestAnimationFrame.bind(window), configurable: true },
   cancelAnimationFrame: { value: window.cancelAnimationFrame.bind(window), configurable: true },
   IS_REACT_ACT_ENVIRONMENT: { value: true, configurable: true },
+  // Base UI's positioning (Floating UI) reads these DOM classes as bare globals.
+  Element: { value: window.Element, configurable: true },
+  HTMLElement: { value: window.HTMLElement, configurable: true },
+  Node: { value: window.Node, configurable: true },
+  ShadowRoot: { value: window.ShadowRoot, configurable: true },
 });
 const success = mock();
 const error = mock();

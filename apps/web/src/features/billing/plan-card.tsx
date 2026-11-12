@@ -17,6 +17,7 @@
 import { Button } from '@kortix/ui/button';
 import Loading from '@kortix/ui/loading';
 import {
+  CREDIT_TIERS,
   DEFAULT_TIER_USD,
   FREE_MONTHLY_CREDITS,
   formatWholeUsd,
@@ -27,6 +28,7 @@ import {
 import { CreditExpiry } from '@/features/billing/credit-expiry';
 import { FreeGrantNotice, showsFreeGrantNotice } from '@/features/billing/free-grant-notice';
 import { CreditTierSelect } from '@/features/billing/credit-tier-select';
+import { CreditLadder } from '@/features/marketing/pricing/credit-ladder';
 import { useChangeCreditPlan } from '@/features/billing/use-change-credit-plan';
 import { useLocale, useTranslations } from '@/i18n/use-translations';
 import { accountHasLiveSubscription } from '@kortix/ui/internal/lib/billing/billing-gate-state';
@@ -39,6 +41,7 @@ import { formatCredits } from '@kortix/shared';
 import { useState } from 'react';
 
 import { describePlanStatus } from './account-overview';
+import { PlanStatusDot, formatShortDate, usePlanStatusCopy } from './plan-status';
 
 export type PlanChangeKind = 'subscribe' | 'raise' | 'cut' | 'keep' | 'unchanged' | 'invalid';
 
@@ -75,12 +78,6 @@ export function scheduledDowngrade(
   return { monthlyUsd, effectiveAt: change.effective_date };
 }
 
-function formatShortDate(iso: string | null | undefined, locale: string): string {
-  if (!iso) return '';
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
-}
-
 /** A charge due now: cents matter here, unlike the whole-dollar plan prices. */
 function formatChargeUsd(amount: number, locale: string): string {
   return new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(amount);
@@ -99,21 +96,7 @@ export function PlanCard({ state }: { state: AccountState }) {
   const t = useTranslations('billing.plan');
   const tCredits = useTranslations('billing.credits');
   const locale = useLocale();
-  const planCopy = {
-    locale,
-    perMonth: (amount: string) => t('perMonth', { amount }),
-    cancels: (date: string) => t('cancels', { date }),
-    cancelsAtPeriodEnd: t('cancelsAtPeriodEnd'),
-    renews: (date: string) => t('renews', { date }),
-    active: t('active'),
-    noSubscription: t('noSubscription'),
-    graceUntil: (date: string) => t('graceUntil', { date }),
-    compedUntil: (date: string) => t('compedUntil', { date }),
-    status: (status: string) =>
-      t.has(`statuses.${status}`)
-        ? t(`statuses.${status}`)
-        : t('status', { status: status.replace(/_/g, ' ') }),
-  };
+  const planCopy = usePlanStatusCopy();
   const { name, sublabel, detail, isActive, isWindingDown } = describePlanStatus(state, planCopy);
   const credits = currentPlanCredits(state);
 
@@ -147,23 +130,13 @@ export function PlanCard({ state }: { state: AccountState }) {
           {state.credits.monthly > 0 && <CreditExpiry expiresAt={state.credits.expires_at} />}
           {state.plan_comp ? (
             <p className="text-muted-foreground mt-1.5 max-w-md text-xs text-pretty" data-testid="plan-comp-note">
-              {t('compedNote', { date: formatShortDate(state.plan_comp.until, locale) })}
+              {t('compedNote', { date: formatShortDate(state.plan_comp.until, locale) ?? '' })}
             </p>
           ) : null}
           <FreeGrantNotice state={state} className="mt-1.5 max-w-md" />
         </div>
         <span className="flex min-w-0 shrink-0 items-center gap-1.5">
-          {isActive ? (
-            // Optical, not geometric: a 6px dot centred on a 20px line box
-            // sits a hair high against the x-height of the text beside it.
-            <span
-              aria-hidden
-              className={cn(
-                'mt-px size-1.5 shrink-0 rounded-full',
-                isWindingDown ? 'bg-kortix-orange' : 'bg-kortix-green',
-              )}
-            />
-          ) : null}
+          <PlanStatusDot isActive={isActive} isWindingDown={isWindingDown} />
           <span className="text-muted-foreground truncate text-xs leading-5 first-letter:capitalize">
             {detail}
           </span>
@@ -195,13 +168,41 @@ export function planPickerView(state: AccountState): PlanPickerView {
 }
 
 /**
+ * The tier the out-of-credits modal opens on. No subscription: the default
+ * tier. A subscriber: the smallest tier above the current one that covers this
+ * period's usage with 20% to spare, so the suggestion is the account's own
+ * number, not a pitch. The top tier when nothing larger fits.
+ */
+export function recommendedPlanUsd(state: AccountState): number {
+  const { currentUsd } = planPickerView(state);
+  if (!accountHasLiveSubscription(state) || currentUsd === null) return DEFAULT_TIER_USD;
+  const target = (state.usage_this_period?.total_usd ?? 0) * 1.2;
+  const next = CREDIT_TIERS.find((tier) => tier.monthlyUsd > currentUsd && tier.monthlyUsd >= target);
+  return next?.monthlyUsd ?? CREDIT_TIERS[CREDIT_TIERS.length - 1].monthlyUsd;
+}
+
+/**
  * Pick a monthly amount and apply it. Renders nothing when billing is off, and
  * shows who to ask to anyone who may not change billing.
+ *
+ * `card` (default): the tier select in the Plan pane. `ladder`: the /pricing
+ * slider with a full-width action, for the out-of-credits modal, opening on
+ * `recommendedPlanUsd`.
  */
-export function PlanChanger({ state, className }: { state: AccountState; className?: string }) {
+export function PlanChanger({
+  state,
+  className,
+  variant = 'card',
+}: {
+  state: AccountState;
+  className?: string;
+  variant?: 'card' | 'ladder';
+}) {
   const t = useTranslations('billing.credits.planCard');
   const locale = useLocale();
-  const { currentUsd, initialUsd } = planPickerView(state);
+  const view = planPickerView(state);
+  const currentUsd = view.currentUsd;
+  const initialUsd = variant === 'ladder' ? recommendedPlanUsd(state) : view.initialUsd;
   const hasSubscription = accountHasLiveSubscription(state);
   const scheduled = scheduledDowngrade(state);
   const [monthlyUsd, setMonthlyUsd] = useState<number | null>(initialUsd);
@@ -227,14 +228,17 @@ export function PlanChanger({ state, className }: { state: AccountState; classNa
   }
 
   const amount = monthlyUsd !== null ? formatWholeUsd(monthlyUsd, locale) : '';
-  const renewal = formatShortDate(
-    scheduled?.effectiveAt ??
-      (state.subscription?.current_period_end
-        ? new Date(state.subscription.current_period_end * 1000).toISOString()
-        : null),
-    locale,
-  );
+  const renewal =
+    formatShortDate(
+      scheduled?.effectiveAt ??
+        (state.subscription?.current_period_end
+          ? new Date(state.subscription.current_period_end * 1000).toISOString()
+          : null),
+      locale,
+    ) ?? '';
   const due = preview.data ? formatChargeUsd(preview.data.due_now_usd, locale) : null;
+  const actionDisabled =
+    isPending || kind === 'invalid' || kind === 'unchanged' || (kind === 'raise' && preview.isLoading);
   const creditsNow = preview.data ? formatCredits(preview.data.credits_now, { locale }) : null;
 
   const hint =
@@ -269,6 +273,33 @@ export function PlanChanger({ state, className }: { state: AccountState; classNa
             ? t('keepAction')
             : t('chooseAction');
 
+  if (variant === 'ladder') {
+    return (
+      <section className={cn('space-y-6', className)} data-testid="plan-ladder">
+        <CreditLadder
+          value={monthlyUsd ?? DEFAULT_TIER_USD}
+          onChange={setMonthlyUsd}
+          disabled={isPending}
+          stackBelowXl={false}
+        />
+        <div className="space-y-3">
+          <Button
+            size="lg"
+            className="w-full gap-1.5 motion-safe:active:scale-[0.96]"
+            disabled={actionDisabled}
+            onClick={() => monthlyUsd !== null && change(monthlyUsd)}
+          >
+            {isPending ? <Loading className="size-4 shrink-0" /> : null}
+            {label}
+          </Button>
+          <p className="text-muted-foreground text-center text-xs text-balance" aria-live="polite">
+            {hint}
+          </p>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className={cn('space-y-3 px-4 py-4', className)}>
       <div className="space-y-0.5">
@@ -280,7 +311,7 @@ export function PlanChanger({ state, className }: { state: AccountState; classNa
           <p className="text-foreground min-w-0 flex-1 text-xs">
             {t('scheduledNotice', {
               amount: formatWholeUsd(scheduled.monthlyUsd, locale),
-              date: formatShortDate(scheduled.effectiveAt, locale),
+              date: formatShortDate(scheduled.effectiveAt, locale) ?? '',
             })}
           </p>
           <Button
@@ -306,12 +337,7 @@ export function PlanChanger({ state, className }: { state: AccountState; classNa
         <Button
           size="sm"
           className="gap-1.5"
-          disabled={
-            isPending ||
-            kind === 'invalid' ||
-            kind === 'unchanged' ||
-            (kind === 'raise' && preview.isLoading)
-          }
+          disabled={actionDisabled}
           onClick={() => monthlyUsd !== null && change(monthlyUsd)}
         >
           {isPending ? <Loading className="size-4 shrink-0" /> : null}

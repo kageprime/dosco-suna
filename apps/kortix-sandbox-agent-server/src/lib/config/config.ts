@@ -5,27 +5,13 @@ import { workspaceIdFromEnv } from './workspace-id'
  * Env contract for kortix-sandbox-agent-server.
  *
  * Names must stay aligned with apps/api/src/projects/index.ts: the API
- * passes KORTIX_PROJECT_AUTO_CLONE / KORTIX_REPO_URL / KORTIX_BRANCH_NAME /
+ * passes KORTIX_REPO_URL / KORTIX_BRANCH_NAME /
  * KORTIX_DEFAULT_BRANCH / KORTIX_PROJECT_ID / KORTIX_API_URL /
  * KORTIX_SERVICE_PORT to Daytona at sandbox creation time. The provider layer
  * injects one session-scoped KORTIX_TOKEN. It authenticates daemon, CLI,
  * connector, Git-proxy and LLM-gateway requests. Each API route applies its own
  * narrower authorization. Upstream credentials remain server-side.
  */
-
-const BoolFlag = z.preprocess((v) => {
-  if (typeof v !== 'string') return false
-  const s = v.trim().toLowerCase()
-  return s === '1' || s === 'true' || s === 'yes' || s === 'on'
-}, z.boolean())
-
-/**
- * S3 workspace acquisition mode (src/services/workspace-provider). `git` never attempts
- * S3 and is the rollback mode; `prefer-s3` tries a prepared archive and falls
- * back to the Git path on acquisition failure; `require-s3` fails closed.
- */
-export const ProjectSnapshotModeSchema = z.enum(['git', 'prefer-s3', 'require-s3'])
-export type ProjectSnapshotMode = z.infer<typeof ProjectSnapshotModeSchema>
 
 const Schema = z.object({
   KORTIX_SERVICE_PORT: z.coerce.number().int().positive().default(8000),
@@ -34,35 +20,20 @@ const Schema = z.object({
   // build preview URLs against this exact port via /proxy/3211 and p3211-* .
   KORTIX_STATIC_PORT: z.coerce.number().int().positive().default(3211),
   KORTIX_WORKSPACE: z.string().default('/workspace'),
-  // Project repo is cloned directly into the workspace. The repo's
-  // Kortix-owned files live under <workspace>/.kortix/ (Dockerfile + pi
-  // config dir) — no intermediate clone-target directory.
+  // The session's working folder. The box never checks out the project
+  // repository into it: an agent that needs the files runs `kortix workspaces clone`.
   KORTIX_PROJECT_TARGET: z.string().default('/workspace'),
   KORTIX_DEFAULT_BRANCH: z.string().default('main'),
-  KORTIX_BRANCH_FETCH_ATTEMPTS: z.coerce.number().int().positive().default(60),
-  KORTIX_BRANCH_FETCH_DELAY: z.coerce.number().positive().default(0.25),
-  KORTIX_PROJECT_AUTO_CLONE: BoolFlag.default(false),
   KORTIX_PROJECT_ID: z.string().optional(),
   KORTIX_API_URL: z.string().optional(),
   KORTIX_REPO_URL: z.string().optional(),
   KORTIX_BRANCH_NAME: z.string().optional(),
-  KORTIX_SESSION_FRESH: z.string().optional(),
-  KORTIX_SESSION_BRANCH_RESTORE: z.string().optional(),
   // `1`: /workspace is a Platinum volume the API mounted, the only copy of the
-  // session's files. The workspace provider never clears it.
+  // session's files.
   KORTIX_WORKSPACE_VOLUME: z.string().optional(),
   KORTIX_BASE_SHA: z.string().optional(),
-  KORTIX_GIT_DELTA_BUNDLE_BASE64: z.string().optional(),
-  KORTIX_GIT_DELTA_PARENT_SHA: z.string().optional(),
-  KORTIX_GIT_DELTA_PARENT_COMMIT_BASE64: z.string().optional(),
-  KORTIX_GIT_DELTA_BUNDLE_REMOTE: z.string().optional(),
-  KORTIX_PROJECT_SNAPSHOT_MODE: ProjectSnapshotModeSchema.default('git'),
-  // `<commit-sha>:<archive-sha256>:<archive-bytes>` of a PREPARED archive at
-  // KORTIX_BASE_SHA. Identity only, never a URL: the daemon exchanges it for
-  // a short-lived download descriptor at the Git proxy with KORTIX_TOKEN.
-  KORTIX_PROJECT_SNAPSHOT_PIN: z.string().optional(),
-  // The presigned download descriptor for that pin (base64 JSON), signed by
-  // the API at session create. Optional: absent or expired → the daemon
+  // A presigned project-snapshot download descriptor (base64 JSON) from an API
+  // released before 2026-11-08. Current APIs never send it. Optional: absent or expired → the daemon
   // fetches one from the Git proxy with KORTIX_TOKEN.
   KORTIX_PROJECT_SNAPSHOT_DESCRIPTOR: z.string().optional(),
   // The published config release (base64 JSON: release ID and signed store
@@ -72,30 +43,6 @@ const Schema = z.object({
   KORTIX_TOKEN: z.string().optional(),
   KORTIX_GIT_USER_NAME: z.string().default('Xera'),
   KORTIX_GIT_USER_EMAIL: z.string().default('xera@dosco.live'),
-  // Depth of the boot-time `git clone`. 1 (the default) is a SHALLOW clone:
-  // one commit, no history — the only thing a fresh session's working tree
-  // actually needs at boot. History is restored right after boot by a
-  // background `fetch --unshallow` (see scheduleHistoryBackfill in git.ts), so
-  // `git log`/`blame`/`diff` work by the time an agent could ask for them.
-  // 0 clones full history inline (the old behaviour).
-  //
-  // Measured 2026-07-25 on kortix-ai/company, direct to GitHub: full 5462ms
-  // (27MB / 758 commits) vs --depth 1 3516ms (25MB / 1 commit). A real but
-  // MODEST win — history is only ~2MB of that repo, so shallow buys ~1.5x, not
-  // an order of magnitude. The bulk of a clone is the working tree, which no
-  // depth setting avoids; only baking the repo into the image does (warm
-  // images). Do not expect this flag alone to fix boot latency.
-  //
-  // --filter=blob:none measured 6161ms — SLOWER than a full clone — on top of
-  // stalling on lazy blob fetches through the git proxy, which is why the API
-  // forces no filter. Shallow has neither problem: one pack, no on-demand
-  // fetches.
-  KORTIX_CLONE_DEPTH: z.coerce.number().int().min(0).default(1),
-  // Partial-clone filter for the boot-time `git clone`. Empty (the default)
-  // means no filter. Prefer KORTIX_CLONE_DEPTH — a blobless clone measured
-  // slower than a full one and defers cost into unpredictable mid-session
-  // stalls. Kept for remotes where shallow is unavailable.
-  KORTIX_CLONE_FILTER: z.string().default(''),
   // ── Harness selection ────────────────────────────────────────────────────
   // apps/api sets `pi` on every box (session-runtime-env.ts). A box OpenCode
   // booted before the sunset says `opencode` or nothing and boots pi too
@@ -116,27 +63,13 @@ export type Config = {
   workspace: string
   projectTarget: string
   defaultBranch: string
-  branchFetchAttempts: number
-  branchFetchDelaySec: number
-  autoClone: boolean
   projectId: string | undefined
   apiUrl: string | undefined
   repoUrl: string | undefined
   branchName: string | undefined
-  sessionFresh: boolean
-  sessionBranchRestore?: boolean
   /** /workspace is a volume (KORTIX_WORKSPACE_VOLUME=1): never cleared. */
   workspaceVolume?: boolean
   baseSha: string | undefined
-  gitDeltaBundleBase64?: string
-  gitDeltaParentSha?: string
-  gitDeltaParentCommitBase64?: string
-  /** Delta exceeds the env cap: fetch it with one GET from the API (KORTIX_GIT_DELTA_BUNDLE_REMOTE=1). */
-  gitDeltaBundleRemote?: boolean
-  /** S3 workspace acquisition mode; absent/`git` = never attempt S3. Optional so hand-built test configs stay valid. */
-  projectSnapshotMode?: ProjectSnapshotMode
-  /** Prepared-archive identity `<sha>:<sha256>:<bytes>`, when the API pinned one. */
-  projectSnapshotPin?: string
   /** Presigned download descriptor for that pin (base64 JSON), when the API signed one at create. */
   projectSnapshotDescriptor?: string
   /** The published config release (base64 JSON), when the API signed one at create. */
@@ -146,8 +79,6 @@ export type Config = {
   sandboxToken: string | undefined
   gitUserName: string
   gitUserEmail: string
-  cloneFilter: string
-  cloneDepth: number
 }
 
 /**
@@ -161,31 +92,18 @@ export function loadHostConfig(env: NodeJS.ProcessEnv = process.env): Config {
     KORTIX_WORKSPACE: env.KORTIX_WORKSPACE,
     KORTIX_PROJECT_TARGET: env.KORTIX_PROJECT_TARGET,
     KORTIX_DEFAULT_BRANCH: env.KORTIX_DEFAULT_BRANCH,
-    KORTIX_BRANCH_FETCH_ATTEMPTS: env.KORTIX_BRANCH_FETCH_ATTEMPTS,
-    KORTIX_BRANCH_FETCH_DELAY: env.KORTIX_BRANCH_FETCH_DELAY,
-    KORTIX_PROJECT_AUTO_CLONE: env.KORTIX_PROJECT_AUTO_CLONE,
     // KORTIX_WORKSPACE_ID first, then the older KORTIX_PROJECT_ID (same value).
     KORTIX_PROJECT_ID: workspaceIdFromEnv(env) || undefined,
     KORTIX_API_URL: env.KORTIX_API_URL,
     KORTIX_REPO_URL: env.KORTIX_REPO_URL,
     KORTIX_BRANCH_NAME: env.KORTIX_BRANCH_NAME,
-    KORTIX_SESSION_FRESH: env.KORTIX_SESSION_FRESH,
-    KORTIX_SESSION_BRANCH_RESTORE: env.KORTIX_SESSION_BRANCH_RESTORE,
     KORTIX_WORKSPACE_VOLUME: env.KORTIX_WORKSPACE_VOLUME,
     KORTIX_BASE_SHA: env.KORTIX_BASE_SHA,
-    KORTIX_GIT_DELTA_BUNDLE_BASE64: env.KORTIX_GIT_DELTA_BUNDLE_BASE64,
-    KORTIX_GIT_DELTA_PARENT_SHA: env.KORTIX_GIT_DELTA_PARENT_SHA,
-    KORTIX_GIT_DELTA_PARENT_COMMIT_BASE64: env.KORTIX_GIT_DELTA_PARENT_COMMIT_BASE64,
-    KORTIX_GIT_DELTA_BUNDLE_REMOTE: env.KORTIX_GIT_DELTA_BUNDLE_REMOTE,
-    KORTIX_PROJECT_SNAPSHOT_MODE: env.KORTIX_PROJECT_SNAPSHOT_MODE,
-    KORTIX_PROJECT_SNAPSHOT_PIN: env.KORTIX_PROJECT_SNAPSHOT_PIN,
     KORTIX_PROJECT_SNAPSHOT_DESCRIPTOR: env.KORTIX_PROJECT_SNAPSHOT_DESCRIPTOR,
     KORTIX_CONFIG_RELEASE: env.KORTIX_CONFIG_RELEASE,
     KORTIX_TOKEN: env.KORTIX_TOKEN,
     KORTIX_GIT_USER_NAME: env.KORTIX_GIT_USER_NAME,
     KORTIX_GIT_USER_EMAIL: env.KORTIX_GIT_USER_EMAIL,
-    KORTIX_CLONE_FILTER: env.KORTIX_CLONE_FILTER,
-    KORTIX_CLONE_DEPTH: env.KORTIX_CLONE_DEPTH,
     KORTIX_HARNESS: env.KORTIX_HARNESS,
   })
 
@@ -197,30 +115,17 @@ export function loadHostConfig(env: NodeJS.ProcessEnv = process.env): Config {
     workspace: parsed.KORTIX_WORKSPACE,
     projectTarget: parsed.KORTIX_PROJECT_TARGET,
     defaultBranch: parsed.KORTIX_DEFAULT_BRANCH,
-    branchFetchAttempts: parsed.KORTIX_BRANCH_FETCH_ATTEMPTS,
-    branchFetchDelaySec: parsed.KORTIX_BRANCH_FETCH_DELAY,
-    autoClone: parsed.KORTIX_PROJECT_AUTO_CLONE,
     projectId: parsed.KORTIX_PROJECT_ID,
     apiUrl: parsed.KORTIX_API_URL,
     repoUrl: parsed.KORTIX_REPO_URL,
     branchName: parsed.KORTIX_BRANCH_NAME,
-    sessionFresh: parsed.KORTIX_SESSION_FRESH === '1',
-    sessionBranchRestore: parsed.KORTIX_SESSION_BRANCH_RESTORE === '1',
     workspaceVolume: parsed.KORTIX_WORKSPACE_VOLUME === '1',
     baseSha: parsed.KORTIX_BASE_SHA,
-    gitDeltaBundleBase64: parsed.KORTIX_GIT_DELTA_BUNDLE_BASE64,
-    gitDeltaParentSha: parsed.KORTIX_GIT_DELTA_PARENT_SHA,
-    gitDeltaParentCommitBase64: parsed.KORTIX_GIT_DELTA_PARENT_COMMIT_BASE64,
-    gitDeltaBundleRemote: parsed.KORTIX_GIT_DELTA_BUNDLE_REMOTE === '1',
-    projectSnapshotMode: parsed.KORTIX_PROJECT_SNAPSHOT_MODE,
-    projectSnapshotPin: parsed.KORTIX_PROJECT_SNAPSHOT_PIN?.trim() || undefined,
     projectSnapshotDescriptor: parsed.KORTIX_PROJECT_SNAPSHOT_DESCRIPTOR?.trim() || undefined,
     configRelease: parsed.KORTIX_CONFIG_RELEASE?.trim() || undefined,
     sandboxToken: parsed.KORTIX_TOKEN,
     gitUserName: parsed.KORTIX_GIT_USER_NAME,
     gitUserEmail: parsed.KORTIX_GIT_USER_EMAIL,
-    cloneFilter: parsed.KORTIX_CLONE_FILTER,
-    cloneDepth: parsed.KORTIX_CLONE_DEPTH,
   }
 }
 
@@ -231,12 +136,13 @@ export function loadHostConfig(env: NodeJS.ProcessEnv = process.env): Config {
  * stack (e.g. `on_boot: "pnpm dev"`). Null when unset, empty, or the file does
  * not parse.
  */
-export async function resolveSandboxOnBoot(cfg: Config): Promise<string | null> {
+/** `root`: the folder that holds kortix.yaml — the running config release's root at boot (the box has no checkout of the project). */
+export async function resolveSandboxOnBoot(cfg: Config, root: string = cfg.projectTarget): Promise<string | null> {
   const { readFile } = await import('node:fs/promises')
   for (const file of ['kortix.yaml', 'kortix.yml']) {
     let body: string
     try {
-      body = await readFile(`${cfg.projectTarget}/${file}`, 'utf8')
+      body = await readFile(`${root}/${file}`, 'utf8')
     } catch {
       continue
     }

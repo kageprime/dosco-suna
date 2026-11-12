@@ -18,6 +18,7 @@ import { loadSlackTokenForProject } from './install-store';
 import { postBlocks, updateBlocks } from './slack-api';
 import { buildApprovalCardBlocks, buildApprovalOutcomeBlocks, slackUserIdsIn } from './slack/approval-card';
 import { slackUserNames } from './slack/labels';
+import { holdsSlackWorkspace } from './slack/link';
 import { deleteTurn, finalizeTurn, loadTurn } from './slack/turn';
 import { updateCard } from './teams-api';
 import { postTeamsApprovalCard } from './teams/approval';
@@ -92,6 +93,8 @@ export async function postApprovalCard(input: PostApprovalCardInput): Promise<{ 
     return { posted: true };
   }
   if (thread.projectId !== input.projectId) return { posted: false };
+  // A Kortix workspace that no longer holds the Slack workspace posts nothing there.
+  if (!(await holdsSlackWorkspace(thread.projectId, thread.teamId))) return { posted: false };
 
   const names = await slackUserNames(thread.token, thread.teamId, slackUserIdsIn(argsPreview));
   const blocks = buildApprovalCardBlocks(cardInput, names);
@@ -202,6 +205,8 @@ export async function markApprovalCardDecided(input: {
     }
     return;
   }
+  // A card in a Slack workspace this Kortix workspace no longer holds stays as it is.
+  if (!(await holdsSlackWorkspace(input.projectId, card.team_id))) return;
   const token = await loadSlackTokenForProject(input.projectId);
   if (!token) return;
   const blocks = buildApprovalOutcomeBlocks({

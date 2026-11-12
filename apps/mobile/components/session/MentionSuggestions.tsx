@@ -2,18 +2,19 @@
  * The suggestion list above the chat input: `@` mentions, `#` skills, and `/`
  * commands (Jay, 2026-09-24).
  *
- * One look for all three, the `Composer` card's: `rounded-3xl border
- * border-border bg-background p-2`, on the composer's 16pt edge, no shadow.
- * Rows are the question prompt's option rows — 16pt label, radius 16, the
- * `secondary` fill when highlighted or pressed. No section headers, no
- * descriptions. A mention keeps one muted glyph (agent, session, folder, file
- * type, skill) so the kinds stay apart; a file adds its folder, muted.
+ * One look for all three, the composer card's (`SuggestionCard` renders
+ * `ComposerPopover`), on the composer's 16pt edge, no shadow. Rows are the
+ * question prompt's option rows — 16pt label, radius 16, the `secondary` fill
+ * when highlighted or pressed. No section headers, no descriptions. A mention
+ * keeps one muted glyph (agent, session, folder, file type, skill) so the
+ * kinds stay apart; a file adds its folder, muted.
  */
 
 import React from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 import { PressableSurface } from '@/components/kortix/pressable-surface';
 import { KortixLoader } from '@/components/kortix/kortix-loader';
+import { ComposerPopover } from '@/components/kortix/composer-popover';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { fileIcon } from '@/components/files/file-icons';
@@ -28,25 +29,11 @@ import { THEME } from '@/lib/utils/theme';
 import { useTone } from '@/lib/utils/tone';
 import type { MentionItem } from './useMentions';
 
-/** About five rows, then the list scrolls. */
-const MAX_LIST_HEIGHT = 260;
-
 // ─── Shared card + row ───────────────────────────────────────────────────────
 
 /** The composer card, floating above the input on the composer's edge. */
 export function SuggestionCard({ children }: { children: React.ReactNode }) {
-  return (
-    <View className="mx-4 mb-2 overflow-hidden rounded-3xl border border-border bg-background">
-      <ScrollView
-        style={{ maxHeight: MAX_LIST_HEIGHT }}
-        keyboardShouldPersistTaps="always"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 8 }}
-      >
-        {children}
-      </ScrollView>
-    </View>
-  );
+  return <ComposerPopover cardClassName="mx-4 mb-2 overflow-hidden">{children}</ComposerPopover>;
 }
 
 export function SuggestionRow({

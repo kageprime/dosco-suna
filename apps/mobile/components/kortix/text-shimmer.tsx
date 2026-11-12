@@ -41,13 +41,13 @@ import Animated, {
   Easing,
   cancelAnimation,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withRepeat,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import { KortixLoader } from '@/components/kortix/kortix-loader';
-import { useReduceMotion } from '@/components/session/dot-matrix/use-reduce-motion';
 import { Text } from '@/components/ui/text';
 import { SHIMMER, shimmerBandCenter, shimmerSpread } from '@/lib/session/activity';
 import { THEME, withAlpha } from '@/lib/utils/theme';
@@ -123,7 +123,7 @@ export const TextShimmer = memo(function TextShimmer({
   const { base, highlight } = useMemo(() => shimmerColors(tone, colorScheme === 'dark'), [tone, colorScheme]);
   const toolMotion = useContext(ToolMotionContext);
   const loopMotion = useContext(LoopMotionContext);
-  const reduceMotion = useReduceMotion();
+  const reduceMotion = useReducedMotion();
   // All hooks run every render: a mounted label's contexts flip when a turn
   // ends or a segment is appended. With motion off the sweep never starts.
   const motionOn = toolMotion && loopMotion && !reduceMotion;

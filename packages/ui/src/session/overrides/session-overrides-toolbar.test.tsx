@@ -137,6 +137,17 @@ test('a viewer without project.secret.read gets no Provider keys row', () => {
   expect(render()).toEqual([]);
 });
 
+// The session's own person picks their own accounts without the leaf: the pools
+// route answers can_edit for them, and the row follows it on an existing session.
+test('an existing session whose pool list says can_edit keeps the Provider keys row without the leaf', () => {
+  poolEnabled = true;
+  secretAllowed = false;
+  secretLoading = false;
+  selection = {};
+  expect(render(true).map((row) => row.id)).toEqual(['provider-keys', 'sandbox']);
+  secretAllowed = true;
+});
+
 // An unresolved probe is not a denial: the row stays while it loads, so it does
 // not blink out and back on every session open.
 test('an unresolved project.secret.read probe keeps the Provider keys row', () => {

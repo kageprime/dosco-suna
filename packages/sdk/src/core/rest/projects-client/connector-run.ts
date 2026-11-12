@@ -38,6 +38,8 @@ export interface ConnectorCallErrorFields extends ApiErrorFields {
  * with a failure (`upstream_429`, `upstream_404`), `upstream_error` for a
  * failure the upstream reported inside a 2xx, otherwise the leading
  * `snake_case` token of `reason` (`connector_not_connected`,
+ * `connector_not_shared` (an account exists but is not shared with the
+ * caller: its owner shares it, a new sign-in only duplicates it),
  * `account_required`, `credential_not_shared`, `credential_undecryptable`, `policy_block`,
  * `upstream_timeout`, `computer_offline`, `invalid_json`, …), else
  * `connector_error`. `status` is the HTTP status of the

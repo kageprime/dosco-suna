@@ -1,10 +1,25 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 const deleted: number[] = [];
+/** Makes the next claim-release delete reject (a DB blip during the release). */
+let deleteFails = false;
+/** Held open: the next claim-release delete only settles when the test calls
+ * its gate — a release that overlaps the work's settlement like a slow DB.
+ */
+let releaseGates: Array<(release: () => void) => void> = [];
 mock.module('../shared/db', () => ({
   db: {
     delete: () => ({
       where: () => {
+        if (deleteFails) return Promise.reject(new Error('db down'));
+        if (releaseGates.length) {
+          return new Promise<void>((resolve) => {
+            releaseGates[0](() => {
+              deleted.push(1);
+              resolve();
+            });
+          });
+        }
         deleted.push(1);
         return Promise.resolve();
       },
@@ -12,11 +27,30 @@ mock.module('../shared/db', () => ({
   },
 }));
 
+const warnings: Array<{ message: string; context?: Record<string, unknown> }> = [];
+const errors: Array<{ message: string; context?: Record<string, unknown> }> = [];
+mock.module('../lib/logger', () => ({
+  logger: {
+    warn: (message: string, context?: Record<string, unknown>) => {
+      warnings.push({ message, context });
+    },
+    error: (message: string, context?: Record<string, unknown>) => {
+      errors.push({ message, context });
+    },
+  },
+}));
+
 const { runWebhookWork, recordClaim } = await import('./webhook-work');
 const { inflightCount, resetDrainForTests } = await import('../shared/drain');
+const { runWithContext } = await import('../lib/request-context');
+const { beginStage } = await import('../lib/server-timing');
 
 beforeEach(() => {
   deleted.length = 0;
+  warnings.length = 0;
+  errors.length = 0;
+  deleteFails = false;
+  releaseGates = [];
   resetDrainForTests();
 });
 
@@ -66,5 +100,225 @@ describe('runWebhookWork', () => {
   test('ackWaitMs 0 returns at once', async () => {
     const outcome = await runWebhookWork('t', () => new Promise<void>(() => {}), { ackWaitMs: 0 });
     expect(outcome).toBe('pending');
+  });
+
+  test('an ack budget that elapses warns, and the late finish logs its duration and stage split', async () => {
+    let finish!: () => void;
+    const outcome = await runWebhookWork(
+      'slack-oauth-event',
+      async () => {
+        await new Promise<void>((resolve) => (finish = resolve));
+      },
+      { ackWaitMs: 20 },
+    );
+    expect(outcome).toBe('pending');
+    const elapsed = warnings.find((w) => w.message.includes('ack budget elapsed'));
+    expect(elapsed).toBeDefined();
+    expect(elapsed?.context?.label).toBe('slack-oauth-event');
+    expect(elapsed?.context?.dbMs).toBe(0);
+    expect(elapsed?.context?.httpMs).toBe(0);
+    finish();
+    await Bun.sleep(30);
+    const late = warnings.find((w) => w.message.includes('finished after the ack'));
+    expect(late).toBeDefined();
+    expect(late?.context?.label).toBe('slack-oauth-event');
+    expect(late?.context?.workMs).toBeGreaterThanOrEqual(20);
+    expect(late?.context?.dbMs).toBe(0);
+  });
+
+  test('sync work that outlasts the budget but wins the race stays silent', async () => {
+    const outcome = await runWebhookWork(
+      't',
+      async () => {
+        // Blocks the loop past the budget: the timer fires late, the work
+        // settles first, and the request log already shows the true duration.
+        const end = Date.now() + 30;
+        while (Date.now() < end) {}
+      },
+      { ackWaitMs: 20 },
+    );
+    expect(outcome).toBe('done');
+    expect(warnings).toHaveLength(0);
+  });
+
+  test('stage fields carry real db and http time inside a request scope', async () => {
+    let finish!: () => void;
+    await runWithContext('POST', '/v1/webhooks/slack', async () => {
+      beginStage('http'); // left in-flight: counts up at every snapshot
+      const outcome = await runWebhookWork(
+        'slack-oauth-event',
+        async () => {
+          const dbEnd = beginStage('db');
+          await Bun.sleep(10);
+          dbEnd();
+          await new Promise<void>((resolve) => (finish = resolve));
+        },
+        { ackWaitMs: 20 },
+      );
+      expect(outcome).toBe('pending');
+      const elapsed = warnings.find((w) => w.message.includes('ack budget elapsed'));
+      expect(elapsed).toBeDefined();
+      expect(elapsed?.context?.dbMs).toBeGreaterThanOrEqual(5);
+      expect(elapsed?.context?.httpMs).toBeGreaterThan(0);
+      finish();
+      await Bun.sleep(30);
+      const late = warnings.find((w) => w.message.includes('finished after the ack'));
+      expect(late).toBeDefined();
+      expect(late?.context?.dbMs).toBeGreaterThanOrEqual(5);
+      expect(late?.context?.httpMs).toBeGreaterThan(0);
+    });
+  });
+
+  test('a failure after the ack carries the stage split on the error log', async () => {
+    let fail!: () => void;
+    await runWithContext('POST', '/v1/webhooks/slack', async () => {
+      const outcome = await runWebhookWork(
+        't',
+        async () => {
+          const dbEnd = beginStage('db');
+          await Bun.sleep(10);
+          dbEnd();
+          await new Promise<void>((_, reject) => (fail = () => reject(new Error('late'))));
+        },
+        { ackWaitMs: 20 },
+      );
+      expect(outcome).toBe('pending');
+      fail();
+      await Bun.sleep(30);
+      const err = errors.find((e) => e.message.includes('handler failed'));
+      expect(err).toBeDefined();
+      expect(err?.context?.workMs).toBeGreaterThanOrEqual(20);
+      expect(err?.context?.dbMs).toBeGreaterThanOrEqual(5);
+    });
+  });
+
+  test('work inside the ack budget stays silent', async () => {
+    const outcome = await runWebhookWork('t', async () => {}, { ackWaitMs: 500 });
+    expect(outcome).toBe('done');
+    expect(warnings).toHaveLength(0);
+  });
+
+  test('a failure after the ack schedules the redelivery; a fast failure does not', async () => {
+    let fail!: () => void;
+    const ackedFlags: boolean[] = [];
+    const outcome = await runWebhookWork(
+      't',
+      async () => {
+        await new Promise<void>((_, reject) => (fail = () => reject(new Error('late'))));
+      },
+      { ackWaitMs: 20, onFailure: (info) => void ackedFlags.push(info.acked) },
+    );
+    expect(outcome).toBe('pending'); // the ack went out; the provider will not retry
+    fail();
+    await Bun.sleep(30);
+    expect(ackedFlags).toEqual([true]); // the route enqueues the redelivery on this one
+
+    const fastAcked: boolean[] = [];
+    const fast = await runWebhookWork(
+      't2',
+      async () => {
+        throw new Error('fast');
+      },
+      { ackWaitMs: 500, onFailure: (info) => void fastAcked.push(info.acked) },
+    );
+    expect(fast).toBe('failed'); // answered 500: Slack's retry is the redelivery
+    expect(fastAcked).toEqual([false]); // the route does not enqueue; it answers 500
+  });
+
+  test('awaitSettlement holds the caller until the work settles', async () => {
+    const lost: boolean[] = [];
+    const done = await runWebhookWork('t', async () => {
+      await Bun.sleep(60);
+    }, { ackWaitMs: 20, awaitSettlement: true });
+    expect(done).toBe('done');
+    const outcome = await runWebhookWork(
+      't2',
+      async () => {
+        await Bun.sleep(60);
+        throw new Error('late');
+      },
+      { ackWaitMs: 20, awaitSettlement: true, onFailure: (info) => void lost.push(info.acked) },
+    );
+    expect(outcome).toBe('failed'); // the caller sees the settled outcome, not 'pending'
+    expect(lost).toEqual([true]);
+  });
+
+  test('the redelivery scheduler learns whether the dedup claim released', async () => {
+    let fail!: () => void;
+    const lost: Array<{ acked: boolean; claimsReleased: boolean }> = [];
+    const outcome = await runWebhookWork(
+      't',
+      async () => {
+        recordClaim('slack:event:release-ok');
+        await new Promise<void>((_, reject) => (fail = () => reject(new Error('late'))));
+      },
+      { ackWaitMs: 20, onFailure: (info) => void lost.push({ ...info }) },
+    );
+    expect(outcome).toBe('pending');
+    fail();
+    await Bun.sleep(30);
+    expect(deleted.length).toBe(1);
+    expect(lost[0]?.acked).toBe(true);
+    expect(lost[0]?.claimsReleased).toBe(true);
+
+    let fail2!: () => void;
+    const outcome2 = await runWebhookWork(
+      't2',
+      async () => {
+        recordClaim('slack:event:release-failed');
+        await new Promise<void>((_, reject) => (fail2 = () => reject(new Error('late'))));
+      },
+      { ackWaitMs: 20, onFailure: (info) => void lost.push({ ...info }) },
+    );
+    expect(outcome2).toBe('pending');
+    deleteFails = true;
+    fail2();
+    await Bun.sleep(30);
+    expect(lost[1]?.claimsReleased).toBe(false); // the held claim must time out before a replay can re-take it
+  });
+
+  test('a redelivery scheduler that itself fails is logged, never thrown', async () => {
+    let fail!: () => void;
+    const outcome = await runWebhookWork(
+      't',
+      async () => {
+        await new Promise<void>((_, reject) => (fail = () => reject(new Error('late'))));
+      },
+      {
+        ackWaitMs: 20,
+        onFailure: () => {
+          throw new Error('enqueue down');
+        },
+      },
+    );
+    expect(outcome).toBe('pending');
+    fail();
+    await Bun.sleep(30);
+    const logged = errors.find((e) => e.message.includes('redelivery scheduling failed'));
+    expect(logged).toBeDefined();
+  });
+
+  test('awaitSettlement waits out a fast failure whose claim release overlaps the ack timer', async () => {
+    let release!: () => void;
+    releaseGates.push((open) => (release = open));
+    const hookCalls: Array<{ acked: boolean; claimsReleased: boolean }> = [];
+    const settled = runWebhookWork(
+      'slack-event-redelivery',
+      async () => {
+        recordClaim('slack:event:held');
+        throw new Error('fast failure');
+      },
+      { ackWaitMs: 20, awaitSettlement: true, onFailure: (info) => void hookCalls.push({ ...info }) },
+    );
+    // The timer fired while the release sat on the DB: `outcome` is already
+    // 'failed', which must not shortcut the settlement wait.
+    await Bun.sleep(40);
+    expect(hookCalls).toEqual([]); // the release has not settled, so the hook has not run
+    release(); // the delete comes back
+    expect(await settled).toBe('failed');
+    // Settlement held the caller until the release finished and the hook ran:
+    // the redeliver reads `claimsReleased` straight out of it for its TTL hold.
+    expect(hookCalls).toEqual([{ acked: true, claimsReleased: true }]);
+    expect(deleted).toHaveLength(1);
   });
 });

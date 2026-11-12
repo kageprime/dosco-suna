@@ -13,7 +13,8 @@
 import React, { createContext, memo, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Pressable, Text as RNText, View, type StyleProp, type ViewStyle } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
-import { BottomSheetScrollView, type BottomSheetModal } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { SheetScrollView } from '@/components/kortix/sheet-parts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CopyContentButton, KortixBottomSheetModal } from '@/components/kortix/sheet';
@@ -285,9 +286,9 @@ function CodeSheet({
       onDismiss={onDismiss}
     >
       {/* The lines' own 14.72pt side padding keeps the code off the sheet's edges. */}
-      <BottomSheetScrollView contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 16 }}>
+      <SheetScrollView contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 16 }}>
         <CodeLines lines={lines} color={color} wrap />
-      </BottomSheetScrollView>
+      </SheetScrollView>
     </KortixBottomSheetModal>
   );
 }

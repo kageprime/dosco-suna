@@ -166,6 +166,23 @@ export function rewriteMovedFromImages(dockerfile: string): string {
   );
 }
 
+/**
+ * The runtime block both container sources share: the command, the port (0 =
+ * a worker-only release; the supervisor runs the process and serves nothing),
+ * the readiness path and the restart limit.
+ */
+function containerRuntimeSpec(
+  source: { port?: number; readinessPath?: string; restartLimit?: number }, appCommand: string[],
+): Record<string, unknown> {
+  return {
+    command: appCommand,
+    // No port: a worker-only release; the supervisor runs the process and serves nothing.
+    target_port: source.port === undefined ? 0 : targetPort(source.port),
+    readiness_path: readinessPath(source.readinessPath),
+    restart_limit: restartLimit(source.restartLimit),
+  };
+}
+
 export async function normalizeAppBuild(
   source: AppSourceSpec,
   extractedSourceDir?: string,
@@ -231,12 +248,8 @@ export async function normalizeAppBuild(
         sourceDir: extractedSourceDir,
         dockerfile: rewriteMovedFromImages(loaded.contents),
         runtimeSpec: {
-          command: command(source.command),
+          ...containerRuntimeSpec(source, command(source.command)),
           workdir: finalDockerfileWorkdir(loaded.contents),
-          // No port: a worker-only release; the supervisor runs the process and serves nothing.
-          target_port: source.port === undefined ? 0 : targetPort(source.port),
-          readiness_path: readinessPath(source.readinessPath),
-          restart_limit: restartLimit(source.restartLimit),
         },
         buildSpec: { dockerfile: loaded.path },
       };
@@ -252,13 +265,7 @@ export async function normalizeAppBuild(
       return {
         sourceKind: source.kind,
         dockerfile: `FROM ${movedImageReference(source.image)}`,
-        runtimeSpec: {
-          command: appCommand,
-          // No port: a worker-only release; the supervisor runs the process and serves nothing.
-          target_port: source.port === undefined ? 0 : targetPort(source.port),
-          readiness_path: readinessPath(source.readinessPath),
-          restart_limit: restartLimit(source.restartLimit),
-        },
+        runtimeSpec: containerRuntimeSpec(source, appCommand),
         buildSpec: { image: source.image },
       };
     }

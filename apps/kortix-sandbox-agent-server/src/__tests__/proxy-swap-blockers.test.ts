@@ -37,7 +37,7 @@ import {
   type AgentSwapDecision,
 } from '@/services/runtime-assets/runtime-assets'
 import { ptyIsAbandoned, PTY_ABANDONED_AFTER_MS } from '@/routes/kortix/pty'
-import { kortixEventBus, resetKortixEventBusForTests, sessionLogEventBus } from '@/services/event-bus/kortix-event-bus'
+import { kortixEventBus, resetDoscoEventBusForTests, sessionLogEventBus } from '@/services/event-bus/kortix-event-bus'
 
 const TEST_TOKEN = 'test-kortix-token-32-chars-1234567890'
 
@@ -48,20 +48,14 @@ function baseConfig(over: Partial<Config> = {}): Config {
     workspace: '/tmp',
     projectTarget: '/tmp',
     defaultBranch: 'main',
-    branchFetchAttempts: 60,
-    branchFetchDelaySec: 0.25,
-    autoClone: false,
     projectId: undefined,
     apiUrl: undefined,
     repoUrl: undefined,
     branchName: undefined,
-    sessionFresh: false,
     baseSha: undefined,
     sandboxToken: TEST_TOKEN,
     gitUserName: 'Xera',
     gitUserEmail: 'xera@dosco.live',
-    cloneFilter: '',
-    cloneDepth: 1,
     ...over,
   }
 }
@@ -88,7 +82,6 @@ function fakeHarness(convergenceInFlight: () => boolean): HarnessService {
       convergenceInFlight,
       bind: () => ({
         applyEnvironment: unexpected, refresh: unexpected, abort: unexpected,
-        armAbortAfterTool: unexpected, disarmAbortAfterTool: unexpected,
       }),
     },
     diagnostics: { capabilities: async () => [], health: unexpected, report: unexpected, logSources: () => [], readLog: unexpected },
@@ -185,7 +178,7 @@ test('the pty blocker uses the abandoned-pty bound, not a bare status check', ()
 test('sse-subscriber (opt-in): a v2-only subscriber blocks the swap; the internal taps alone do not; no subscriber unblocks (P4.3b)', async () => {
   const saved = process.env.KORTIX_AGENT_SWAP_REQUIRE_UNATTENDED
   process.env.KORTIX_AGENT_SWAP_REQUIRE_UNATTENDED = '1'
-  resetKortixEventBusForTests()
+  resetDoscoEventBusForTests()
   try {
     proxy = startProxy(baseConfig(), fakeHarness(() => false), Date.now())
     const swap = async () => {
@@ -206,6 +199,6 @@ test('sse-subscriber (opt-in): a v2-only subscriber blocks the swap; the interna
   } finally {
     if (saved === undefined) delete process.env.KORTIX_AGENT_SWAP_REQUIRE_UNATTENDED
     else process.env.KORTIX_AGENT_SWAP_REQUIRE_UNATTENDED = saved
-    resetKortixEventBusForTests()
+    resetDoscoEventBusForTests()
   }
 })

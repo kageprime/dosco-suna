@@ -222,6 +222,51 @@ test('the limit counts trimmed characters: trailing spaces past 120 stay valid',
   await unmount(renderer);
 });
 
+const CHARSET_MESSAGE = 'Use only letters, numbers, spaces, hyphens, underscores or dots';
+
+// KRTX-4627: `isSubmittable` refuses an illegal-character name the moment it is
+// typed, so Create disables live — and a disabled button can never fire the
+// submit that sets `touched`. An error that blocks submit live must therefore
+// report itself live, exactly like the too-long case above, or the customer is
+// stranded on a disabled button with no reason.
+test('typing an illegal character shows the charset message before the field is left', async () => {
+  const renderer = await renderPage();
+  await type(renderer, 'bad/name!');
+  expect(errorText(renderer)).toBe(CHARSET_MESSAGE);
+  await unmount(renderer);
+});
+
+test('an illegal-character name sets aria-invalid and aria-describedby', async () => {
+  const renderer = await renderPage();
+  await type(renderer, 'bad/name!');
+  const input = findInput(renderer);
+  expect(input.props['aria-invalid']).toBe(true);
+  expect(input.props['aria-describedby']).toBe('workspace-name-error');
+  await unmount(renderer);
+});
+
+test('an illegal-character name keeps Create disabled and fires no request', async () => {
+  const renderer = await renderPage();
+  await type(renderer, 'bad/name!');
+  expect(findSubmit(renderer).props.disabled).toBe(true);
+  await act(async () => {
+    findForm(renderer).props.onSubmit({ preventDefault: () => {} });
+  });
+  expect(creates).toBe(0);
+  await unmount(renderer);
+});
+
+test('a valid name after an illegal one clears the message and the aria flags', async () => {
+  const renderer = await renderPage();
+  await type(renderer, 'bad/name!');
+  expect(errorText(renderer)).toBe(CHARSET_MESSAGE);
+  await type(renderer, 'dogfood-name');
+  expect(errorText(renderer)).toBeNull();
+  expect(findInput(renderer).props['aria-invalid']).toBeUndefined();
+  expect(findInput(renderer).props['aria-describedby']).toBeUndefined();
+  await unmount(renderer);
+});
+
 test('the other name errors still wait for the field to be left', async () => {
   const renderer = await renderPage();
   await type(renderer, '');

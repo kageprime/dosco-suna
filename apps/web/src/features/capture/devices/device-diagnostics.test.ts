@@ -33,6 +33,16 @@ const diagnostics = (over: Partial<CaptureDeviceDiagnostics> = {}): CaptureDevic
     cpu: 'Synthetic CPU', cpu_cores: 8, memory_bytes: 17179869184, disk_free_bytes: 107374182400, disk_total_bytes: 536870912000,
     gpus: ['Synthetic GPU'], booted_at: '2026-11-04T08:00:00.000Z', timezone: 'W. Europe Standard Time', utc_offset: '+01:00', locale: 'de-DE',
   },
+  resources: {
+    window_ms: 600000, samples: 10, cpu_percent_avg: 4.25, cpu_percent_peak: 18, memory_bytes: 325058560, memory_bytes_peak: 331350016,
+    process_count: 7,
+    processes: [
+      { name: 'kortix-capture-engine', count: 2, cpu_percent_avg: 3.1, memory_bytes: 184549376 },
+      { name: 'kortix-capture', count: 3, cpu_percent_avg: 1, memory_bytes: 104857600 },
+    ],
+    sampled_at: '2026-11-04T10:00:00.000Z',
+    read_micros: 310,
+  },
   encrypted: false,
   managed: true,
   described_at: '2026-11-04T09:30:00.000Z',
@@ -93,11 +103,14 @@ describe('diagnosticsText', () => {
     expect(lines).toContain('sync: ok, 0 pending, error none, last upload 2026-11-04T10:00:00.000Z');
     expect(lines).toContain('health: attention: update_failed');
     expect(lines).toContain('managed: yes (enrollment token)');
+    expect(lines).toContain('capture_usage: cpu 4.3% avg, 18% peak (of one core, last 10 min), memory 310.0 MB (peak 316.0 MB), 7 process(es)');
+    expect(lines).toContain('capture_processes: kortix-capture-engine x2 3.1% 176.0 MB; kortix-capture x3 1% 100.0 MB');
   });
 
   test('an older app says what it did not report instead of leaving blanks', () => {
-    const text = diagnosticsText(device(diagnostics({ update: null, machine: null })), 'Fixture PC');
+    const text = diagnosticsText(device(diagnostics({ update: null, machine: null, resources: null })), 'Fixture PC');
     expect(text).toContain('update: not reported (no machine service)');
+    expect(text).toContain('capture_usage: not reported');
     expect(text).toContain('machine: not reported (app version before the machine report)');
     expect(diagnosticsText(device(undefined), 'Fixture PC')).toContain('os: windows 10.0.26200.9448 (build ?, x86_64)');
   });

@@ -23,6 +23,7 @@ import {
 } from '../../channels/resend-email-api';
 import { deleteEmailInbox } from '../../channels/email/inbox-delete';
 import { compileEmailSenderRegex } from '../../channels/email/sender-policy-regex';
+import { managedInboxLocalPart, managedInboxSuffix } from '../../channels/email/managed-address';
 import {
   type EmailInboxAccount,
   type EmailSenderPolicy,
@@ -208,8 +209,10 @@ export function registerChannelEmailRoutes(): void {
         provider: 'resend',
         enabled: emailChannelOn(loaded.row.metadata),
         managed_available: Boolean(managed),
-        // Where a managed inbox lives: `<username>@<managed_domain>`.
+        // Where a managed inbox lives: `<username><managed_suffix>@<managed_domain>`.
         managed_domain: managed,
+        // `.dev`, `.staging`, `.preview` outside prod; '' in prod.
+        managed_suffix: managedInboxSuffix(config.INTERNAL_KORTIX_ENV),
       });
     },
   );
@@ -635,8 +638,14 @@ async function addEmailInbox(
     if (!username) {
       return { response: c.json({ error: 'Enter a name before the @', code: 'invalid_username', provider: 'resend' }, 400) };
     }
+    // The managed domain is one namespace for dev, staging and prod (one
+    // Resend team): reserved names are refused, and non-prod adds `.<env>`.
+    const local = ownKey ? { localPart: username } : managedInboxLocalPart(username, config.INTERNAL_KORTIX_ENV);
+    if ('error' in local) {
+      return { response: c.json({ error: local.error, code: 'reserved_username', provider: 'resend' }, 400) };
+    }
     try {
-      inbox = await createResendInbox({ apiKey, address: `${username}@${domain}`, fromName: displayName });
+      inbox = await createResendInbox({ apiKey, address: `${local.localPart}@${domain}`, fromName: displayName });
     } catch (err) {
       return { response: emailConnectError(c, err, 'inbox_create') };
     }

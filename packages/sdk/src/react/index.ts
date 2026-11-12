@@ -150,7 +150,7 @@ export {
   type UseWorkspaceOptions,
 } from './use-workspaces';
 export { useWorkspaceSecrets, useProjectSecrets, workspaceSecretsKey, projectSecretsKey } from './use-project-secrets';
-export { useAccountSecretResources, useSessionProviderSecretPools, useSubscriptionUsage, useSubscriptionConnections } from './use-provider-secrets';
+export { useAccountSecretResources, useSessionProviderSecretPools, useSubscriptionUsage, useSubscriptionUsages, useSubscriptionConnections } from './use-provider-secrets';
 export {
   useWorkspaceTriggers, useProjectTriggers,
   workspaceTriggersKey, projectTriggersKey,

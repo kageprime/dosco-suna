@@ -128,7 +128,7 @@ async function projectAgentCheck(loaded: LoadedProject): Promise<(name: string) 
  * person (`sessionSpaceEditor`).
  */
 const SESSION_BOUND_CALLER = {
-  error: 'An agent cannot do this. A person must do it.',
+  error: 'A person creates, joins or changes the visibility of a channel, in the channel list. A session changes a channel\'s name, description, agents and members for its person.',
   code: 'session_bound_caller',
 } as const;
 

@@ -3,6 +3,7 @@ import * as sessionLogContract from '@kortix/api-contract/session-log';
 import type { V1Row } from '@kortix/api-contract/session-log';
 import { Client } from 'pg';
 import type { Env } from '../core/env';
+import { lockProjectFirst } from './token-binding-lock';
 
 // Playwright loads the package as CommonJS, where its re-exported names sit on `default`;
 // Bun reads them from the namespace.
@@ -14,11 +15,6 @@ type SavedMessage = {
   parts: Array<Record<string, unknown>>;
 };
 
-/**
- * A stopped session with saved history in its session log, written the way a box's daemon
- * writes it: `fromV1` of the rows under producer `opencode`, posted to `POST …/log/journal` with
- * a session sandbox credential minted for the call (`journalSessionLog`).
- */
 /**
  * The default prompt and reply a seeded transcript stores when the caller does
  * not bring its own: one user message and one assistant reply, ids fixed so a
@@ -74,6 +70,11 @@ function defaultSavedMessages(root: string, created: number): SavedMessage[] {
   ];
 }
 
+/**
+ * A stopped session with saved history in its session log, written the way a box's daemon
+ * writes it: `fromV1` of the rows under producer `opencode`, posted to `POST …/log/journal` with
+ * a session sandbox credential minted for the call (`journalSessionLog`).
+ */
 export async function seedSessionTranscript(
   env: Env,
   input: {
@@ -150,7 +151,7 @@ export async function journalSessionLog(
   db.on('error', () => {});
   await db.connect();
   // The credential a box holds: bound to the project and the session, live while its sandbox row is active.
-  await db.query('UPDATE kortix.account_tokens SET project_id = $2, session_id = $3 WHERE token_id = $1', [
+  await db.query(lockProjectFirst('UPDATE kortix.account_tokens SET project_id = $2, session_id = $3 WHERE token_id = $1'), [
     credential.token_id,
     input.projectId,
     input.sessionId,

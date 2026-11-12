@@ -72,9 +72,10 @@ test('code success keeps explicit recovery destination', async () => {
   expect(location(await GET(request('code=synthetic&returnUrl=/auth/reset-password'))).pathname).toBe('/auth/reset-password');
 });
 test('provider error with CR/LF logs one line and keeps the redirect', async () => {
+  // A provider error is a handled outcome, logged as a warning.
   const errorLog = mock((..._args: unknown[]) => {});
-  const original = console.error;
-  console.error = errorLog;
+  const original = console.warn;
+  console.warn = errorLog;
   try {
     const forged = encodeURIComponent('bad\r\n[INFO] forged line');
     const response = await GET(request(`error=access_denied&error_code=x&error_description=${forged}`));
@@ -84,6 +85,6 @@ test('provider error with CR/LF logs one line and keeps the redirect', async () 
     expect(logged).toContain('forged line');
     expect(logged).not.toMatch(/[\r\n]/);
   } finally {
-    console.error = original;
+    console.warn = original;
   }
 });

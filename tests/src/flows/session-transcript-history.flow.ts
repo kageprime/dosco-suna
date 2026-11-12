@@ -96,13 +96,18 @@ storeFlow(
     await ctx.step(
       "a stopped session's saved messages read from PostgreSQL without waking it, in the contract shape",
       async () => {
-        (await owner.get(route, options))
+        const read = await owner.get(route, options);
+        read
           .status(200)
           .body()
           .has("$.source", "mirror")
           .has("$.available", true)
           .has("$.message_count", 2)
           .schema(SessionTranscriptSyncEnvelopeSchema);
+        // P8.3: the route says it is deprecated (RFC 9745) and names the session log as its successor.
+        if (read.header("deprecation") !== "@1794355200") throw new Error(`Deprecation: ${read.header("deprecation")}`);
+        const link = `</v1/workspaces/${project.id}/sessions/${sessionId}/log>; rel="successor-version"`;
+        if (read.header("link") !== link) throw new Error(`Link: ${read.header("link")}`);
       },
     );
     await ctx.step(

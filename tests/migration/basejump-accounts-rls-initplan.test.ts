@@ -99,6 +99,7 @@ function seedLegacyShape(): void {
 const suite = dockerOk ? describe : describe.skip;
 
 suite('basejump.accounts RLS initplan (throwaway Postgres)', () => {
+  let revokedAfterBatch = '';
   let beforePerRow: string[] = [];
   let beforeVisibility = { a: '', b: '' };
 
@@ -150,7 +151,16 @@ suite('basejump.accounts RLS initplan (throwaway Postgres)', () => {
     beforeVisibility = { a: visibleAccounts(OWNER_A), b: visibleAccounts(OWNER_B) };
     const code = await runMigrate(ROOT, ports);
     if (code !== 0) throw new Error('migrations failed');
+    // 20261110135954872_freeze_legacy_suna_tables, later in the same batch, revokes every legacy
+    // table from authenticated. The visibility check is about the RLS policy, so put the grant
+    // back on this throwaway copy only.
+    revokedAfterBatch = psql(`select has_table_privilege('authenticated', 'basejump.accounts', 'SELECT')`);
+    psql(`grant select on basejump.accounts to authenticated`);
   }, 240_000);
+
+  test('the full batch leaves authenticated no privilege on the legacy table', () => {
+    expect(revokedAfterBatch).toBe('f');
+  });
 
   afterAll(() => {
     sh(['docker', 'rm', '-f', '-v', CONTAINER]);

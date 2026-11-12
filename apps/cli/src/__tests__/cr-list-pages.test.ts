@@ -181,4 +181,67 @@ describe('kortix cr — a list longer than one page', () => {
     expect(JSON.parse(r.stdout).change_requests).toHaveLength(TOTAL);
     expect(paths).toEqual([`/v1/workspaces/${PROJECT}/change-requests?status=all`]);
   });
+
+  test('ls --limit 3 --json returns one page of 3 and its next_cursor', async () => {
+    const config = writeConfig(startServer());
+    const r = await runCli(['cr', 'ls', '--status', 'all', '--limit', '3', '--json', '--project', PROJECT], config);
+    expect(r.code).toBe(0);
+    const body = JSON.parse(r.stdout);
+    expect(body.change_requests.map((cr: { number: number }) => cr.number)).toEqual([120, 119, 118]);
+    expect(body.next_cursor).toBe('118');
+    expect(paths).toEqual([`/v1/workspaces/${PROJECT}/change-requests?status=all&limit=3`]);
+  });
+
+  test('--cursor walks the whole list once, with no duplicates, and ends with null', async () => {
+    const config = writeConfig(startServer());
+    const seen: number[] = [];
+    let cursor: string | null = null;
+    let pages = 0;
+    do {
+      const args = ['cr', 'ls', '--status', 'all', '--limit', '50', '--json', '--project', PROJECT];
+      if (cursor) args.push('--cursor', cursor);
+      const r = await runCli(args, config);
+      expect(r.code).toBe(0);
+      const body = JSON.parse(r.stdout);
+      seen.push(...body.change_requests.map((cr: { number: number }) => cr.number));
+      cursor = body.next_cursor;
+      pages += 1;
+    } while (cursor && pages < 10);
+    expect(pages).toBe(3);
+    expect(seen).toEqual(Array.from({ length: TOTAL }, (_, i) => TOTAL - i));
+  }, 60_000);
+
+  test('the table prints the command for the next page', async () => {
+    const config = writeConfig(startServer());
+    const r = await runCli(['cr', 'ls', '--limit', '2', '--project', PROJECT], config);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain('2 change requests');
+    expect(r.stdout).toContain('kortix cr ls --status open --limit 2 --cursor 119');
+  });
+
+  test('an older API that ignores limit is cut to the page here', async () => {
+    paged = false;
+    const config = writeConfig(startServer());
+    const r = await runCli(['cr', 'ls', '--status', 'all', '--limit', '3', '--json', '--project', PROJECT], config);
+    expect(r.code).toBe(0);
+    const body = JSON.parse(r.stdout);
+    expect(body.change_requests).toHaveLength(3);
+    expect(body.next_cursor).toBe('118');
+  });
+
+  test('an unknown flag or a bad --limit exits 2 before any request', async () => {
+    const config = writeConfig(startServer());
+    for (const args of [
+      ['cr', 'ls', '--limt', '3'],
+      ['cr', 'ls', '--limit', '0'],
+      ['cr', 'ls', '--limit', 'three'],
+      ['cr', 'ls', '--cursor', 'abc'],
+      ['cr', 'show', '3', '--bogus'],
+    ]) {
+      const r = await runCli([...args, '--project', PROJECT], config);
+      expect(r.code).toBe(2);
+      expect(r.stderr).toContain('kortix cr --help');
+    }
+    expect(paths).toEqual([]);
+  }, 60_000);
 });

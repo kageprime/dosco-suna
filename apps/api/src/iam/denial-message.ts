@@ -6,9 +6,29 @@
 
 import { HTTPException } from 'hono/http-exception';
 import { toWorkspaceAction } from '@kortix/shared/workspace-actions';
+import { markAccountMfaDenial, markAgentGrantDenial } from '../shared/dead-credential-log';
 
 const MFA_DENIAL_MESSAGE =
   'This workspace requires multi-factor authentication. Verify your second factor and retry.';
+
+/**
+ * The agent-principal refusal family: every reason whose constraint is a
+ * STABLE property of the caller (its kortix_permissions grant, its ceiling,
+ * its service-account role) and whose remedy the typed body already names.
+ * Their warn lines share the log throttle — see shared/dead-credential-log.ts
+ * (KRTX-4635). Deliberately outside: `sso_required` (one redirect fixes it),
+ * whose constraint clears in-session, and the generic fallbacks, whose cause
+ * is unknown here. `account_mfa_required` joined the throttle separately
+ * (KRTX-4674): its constraint clears only through the step-up dialog, so a
+ * caller that polls instead of stepping up receives the same refusal forever.
+ */
+const AGENT_GRANT_DENIAL_REASONS = new Set([
+  'agent_scope_insufficient',
+  'agent_ceiling_insufficient',
+  'agent_grant_escalation',
+  'agent_human_only_action',
+  'service_account_scope_insufficient',
+]);
 
 /**
  * The message for a denial whose REASON — not the action — names what the
@@ -45,7 +65,7 @@ export function denialReasonMessage(rawAction: string, reason?: string): string 
       // cannot fix this.
       return `This agent's role does not allow "${action}". Ask a workspace admin to raise the role bound to this agent.`;
     case 'agent_human_only_action':
-      return `"${action}" is reserved for people (minting credentials or moving money). No agent can perform it, whatever its kortix_permissions or role.`;
+      return `"${action}" mints a credential or moves money, so the person does it themselves: API keys in Settings → API keys, payments in Billing. Hand them that link; no kortix_permissions entry or role changes this.`;
     case 'service_account_scope_insufficient':
       // The session authorizes AS the agent's service account (an admin gave it
       // a standing role), so the launching user's role is irrelevant here.
@@ -60,6 +80,10 @@ export function denialReasonMessage(rawAction: string, reason?: string): string 
       return `This key's scope does not include "${action}". Mint a key with that permission, or use a full key.`;
     case 'token_out_of_scope':
       return 'This key is bound to one workspace and cannot be used for this request.';
+    case 'token_account_shared':
+      // The token's own workspace, but its legacy account still holds other
+      // workspaces: the account rows are theirs too. No grant or flag lifts it.
+      return `"${action}" reads or changes account-wide data that this workspace still shares with other workspaces of the same legacy account, so a workspace key or session token cannot use it. Use a personal key: run \`kortix login\` on your own machine, or open the web app.`;
     case 'workspace_closed':
       return 'This workspace is being deleted. Only its owners can open it, to restore it.';
     case 'resource_scope_insufficient':
@@ -79,6 +103,9 @@ export function denialReasonMessage(rawAction: string, reason?: string): string 
  * its step-up dialog on it (the SDK's ApiError already lifts `code` from error
  * bodies).
  */
+/** Denials where the person's role (not an agent grant) lacks the action. */
+const ROLE_REASONS: ReadonlySet<string> = new Set(['project_role_insufficient', 'account_role_insufficient']);
+
 export function buildDenialError(
   action: string,
   reason?: string,
@@ -87,12 +114,23 @@ export function buildDenialError(
 ): HTTPException {
   const workspaceAction = toWorkspaceAction(action);
   if (reason === 'account_mfa_required') {
-    return new HTTPException(403, {
+    const mfaErr = new HTTPException(403, {
       message: MFA_DENIAL_MESSAGE,
       res: jsonResponse({ error: MFA_DENIAL_MESSAGE, code: 'account_mfa_required', action, workspace_action: workspaceAction }),
     });
+    // An account-policy refusal a polling caller can receive forever, so its
+    // LINE joins the log throttle (KRTX-4674). The response is untouched.
+    markAccountMfaDenial(mfaErr);
+    return mfaErr;
   }
-  const base = messageOverride ?? denialReasonMessage(action, reason) ?? humanizePermissionDenial(action);
+  const base =
+    messageOverride ??
+    denialReasonMessage(action, reason) ??
+    // The person's role is the side that lacks it, whether they call directly
+    // or through an agent session that acts for them: say who grants it.
+    (ROLE_REASONS.has(reason ?? '')
+      ? `${humanizePermissionDenial(action).replace(/\.$/, '')}. A workspace owner or admin grants "${workspaceAction}" in Settings → People.`
+      : humanizePermissionDenial(action));
   // A caller who belongs to the workspace already knows its name; the route
   // passes it only then, never on a no-access denial (no existence probe).
   const message = opts.workspaceName ? `${base.replace(/\.$/, '')} in "${opts.workspaceName}".` : base;
@@ -101,7 +139,7 @@ export function buildDenialError(
   // keeps the global error handler's `{error, message, status}` shape and adds
   // the two fields, so a client that reads `message` is unchanged. The CLI
   // picks its remedy hint from `code` (apps/cli/src/token-denial.ts).
-  return new HTTPException(403, {
+  const err = new HTTPException(403, {
     message,
     res: jsonResponse({
       error: true,
@@ -113,6 +151,11 @@ export function buildDenialError(
       workspace_action: workspaceAction,
     }),
   });
+  // A stable agent-principal denial is the one 4xx a caller can receive
+  // forever, so its LINE joins the log throttle (KRTX-4635). The response is
+  // untouched — the body keeps carrying code, action and the remedy.
+  if (reason && AGENT_GRANT_DENIAL_REASONS.has(reason)) markAgentGrantDenial(err);
+  return err;
 }
 
 function jsonResponse(body: Record<string, unknown>): Response {

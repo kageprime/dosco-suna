@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import messages from '../../../../../translations/en.json';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-// The app's Bun tests have no DOM and Radix's portal renders nothing under
+// The app's Bun tests have no DOM and the dialog portal renders nothing under
 // `renderToStaticMarkup`; the dialog-content tests below need that markup, so
 // the portal-based `Modal` is replaced by a flat stand-in — the same handling
 // as `legacy-subagent-chat.test.tsx`. The real modal behavior

@@ -16,30 +16,27 @@ import { mintAccountToken, type Client } from '../core/client';
 import { flow } from '../core/flow';
 import type { FlowContext } from '../core/types';
 import { AgentPrincipalsWorld } from '../fixtures/agent-principals';
+import { lockProjectFirst } from '../fixtures/token-binding-lock';
 
 const R = {
-  list: 'GET /v1/projects/:projectId/goals',
-  create: 'POST /v1/projects/:projectId/goals',
-  read: 'GET /v1/projects/:projectId/goals/:goalId',
-  edit: 'PATCH /v1/projects/:projectId/goals/:goalId',
-  events: 'GET /v1/projects/:projectId/goals/:goalId/events',
-  criteria: 'PUT /v1/projects/:projectId/goals/:goalId/criteria',
-  activate: 'POST /v1/projects/:projectId/goals/:goalId/activate',
-  wait: 'POST /v1/projects/:projectId/goals/:goalId/wait',
-  answer: 'POST /v1/projects/:projectId/goals/:goalId/answer',
-  progress: 'POST /v1/projects/:projectId/goals/:goalId/progress',
-  verify: 'POST /v1/projects/:projectId/goals/:goalId/request-verification',
-  verdict: 'POST /v1/projects/:projectId/goals/:goalId/verdict',
-  handover: 'POST /v1/projects/:projectId/goals/:goalId/handover',
-  pause: 'POST /v1/projects/:projectId/goals/:goalId/pause',
-  resume: 'POST /v1/projects/:projectId/goals/:goalId/resume',
-  stop: 'POST /v1/projects/:projectId/goals/:goalId/stop',
-  restart: 'POST /v1/projects/:projectId/goals/:goalId/restart',
+  list: '/v1/projects/:projectId/goals',
+  create: '/v1/projects/:projectId/goals',
+  read: '/v1/projects/:projectId/goals/:goalId',
+  edit: '/v1/projects/:projectId/goals/:goalId',
+  events: '/v1/projects/:projectId/goals/:goalId/events',
+  criteria: '/v1/projects/:projectId/goals/:goalId/criteria',
+  activate: '/v1/projects/:projectId/goals/:goalId/activate',
+  wait: '/v1/projects/:projectId/goals/:goalId/wait',
+  answer: '/v1/projects/:projectId/goals/:goalId/answer',
+  progress: '/v1/projects/:projectId/goals/:goalId/progress',
+  verify: '/v1/projects/:projectId/goals/:goalId/request-verification',
+  verdict: '/v1/projects/:projectId/goals/:goalId/verdict',
+  handover: '/v1/projects/:projectId/goals/:goalId/handover',
+  pause: '/v1/projects/:projectId/goals/:goalId/pause',
+  resume: '/v1/projects/:projectId/goals/:goalId/resume',
+  stop: '/v1/projects/:projectId/goals/:goalId/stop',
+  restart: '/v1/projects/:projectId/goals/:goalId/restart',
 } as const;
-const path = (route: string) => route.slice(route.indexOf(' ') + 1);
-const GOALS = path(R.list);
-const GOAL = path(R.read);
-const verb = (route: string) => path(route);
 const MANIFEST = 'project:\n  name: ke2e-goals\ndefault_agent: kortix\nagents:\n  kortix:\n    kortix_permissions: all\n';
 
 interface Goal {
@@ -84,20 +81,20 @@ async function ownerCredential(ctx: FlowContext, world: AgentPrincipalsWorld, se
   world.tokens.push(credential.token_id);
   const serviceAccountId = await world.serviceAccountId('kortix');
   await world.db.query(
-    `UPDATE kortix.account_tokens SET account_id = $2, user_id = $3, project_id = $4, session_id = $5, service_account_id = $6, agent_grant = NULL WHERE token_id = $1`,
+    lockProjectFirst(`UPDATE kortix.account_tokens SET account_id = $2, user_id = $3, project_id = $4, session_id = $5, service_account_id = $6, agent_grant = NULL WHERE token_id = $1`),
     [credential.token_id, world.accountId, ctx.P.OWNER.userId, world.projectId, sessionId, serviceAccountId],
   );
   return ctx.client.withBearer(credential.secret_key, 'GOAL_OWNER');
 }
 
 async function createGoal(owner: Client, projectId: string, body: Record<string, unknown> = {}): Promise<Goal> {
-  const r = await owner.post(GOALS, { goal_id: randomUUID(), brief: `Publish the synthetic report ${randomUUID().slice(0, 6)}\nFor the review.`, criteria: ['The report is in Files', 'The owner signed off'], agent: 'kortix', ...body }, { params: { projectId }, timeoutMs: 60_000 });
+  const r = await owner.post(R.create, { goal_id: randomUUID(), brief: `Publish the synthetic report ${randomUUID().slice(0, 6)}\nFor the review.`, criteria: ['The report is in Files', 'The owner signed off'], agent: 'kortix', ...body }, { params: { projectId }, timeoutMs: 60_000 });
   r.status(201);
   return r.json<{ goal: Goal }>().goal;
 }
 
 const read = async (client: Client, projectId: string, goalId: string) =>
-  (await client.get(GOAL, { params: { projectId, goalId } })).status(200).json<{ goal: Goal }>().goal;
+  (await client.get(R.read, { params: { projectId, goalId } })).status(200).json<{ goal: Goal }>().goal;
 
 function expectError(r: { statusCode: number; json<T>(): T; text(): string }, status: number, code: string) {
   if (r.statusCode !== status) throw new Error(`expected ${status} ${code}, got ${r.statusCode}: ${r.text()}`);
@@ -111,30 +108,30 @@ flow(
     domain: 'goals',
     requires: ['database'],
     timeoutMs: 240_000,
-    routes: [R.list, R.create, R.read, R.events, 'PATCH /v1/projects/:projectId/features'],
+    routes: [`GET ${R.list}`, `POST ${R.create}`, `GET ${R.read}`, `GET ${R.events}`, 'PATCH /v1/projects/:projectId/features'],
   },
   async (ctx) => {
     const { project, world, owner } = await openWorld(ctx);
     const params = { projectId: project.id };
     try {
       await ctx.step('an anonymous caller → 401 on the list', async () => {
-        (await ctx.client.as(ctx.P.ANON).get(GOALS, { params })).status(401);
+        (await ctx.client.as(ctx.P.ANON).get(R.list, { params })).status(401);
       });
 
       await ctx.step('the flag off → every goals route answers 403 feature_disabled; on again → 200', async () => {
         await world.setFeature('goals', false);
-        expectError(await owner.get(GOALS, { params }), 403, 'feature_disabled');
-        expectError(await owner.post(GOALS, { goal_id: randomUUID(), brief: 'x' }, { params }), 403, 'feature_disabled');
+        expectError(await owner.get(R.list, { params }), 403, 'feature_disabled');
+        expectError(await owner.post(R.create, { goal_id: randomUUID(), brief: 'x' }, { params }), 403, 'feature_disabled');
         await world.setFeature('goals', true);
-        (await owner.get(GOALS, { params })).status(200);
+        (await owner.get(R.list, { params })).status(200);
       });
 
       await ctx.step('a body without brief, or with 9 criteria → 422 goal_invalid with violations, nothing stored', async () => {
-        const r = await owner.post(GOALS, { goal_id: randomUUID() }, { params });
+        const r = await owner.post(R.create, { goal_id: randomUUID() }, { params });
         expectError(r, 422, 'goal_invalid');
         if (!r.json<{ violations?: string[] }>().violations?.length) throw new Error('no violations');
-        expectError(await owner.post(GOALS, { goal_id: randomUUID(), brief: 'x', criteria: Array.from({ length: 9 }, (_, i) => `c${i}`) }, { params }), 422, 'goal_invalid');
-        const listed = (await owner.get(GOALS, { params })).json<{ goals: Goal[] }>().goals;
+        expectError(await owner.post(R.create, { goal_id: randomUUID(), brief: 'x', criteria: Array.from({ length: 9 }, (_, i) => `c${i}`) }, { params }), 422, 'goal_invalid');
+        const listed = (await owner.get(R.list, { params })).json<{ goals: Goal[] }>().goals;
         if (listed.length !== 0) throw new Error(`expected no goal, got ${listed.length}`);
       });
 
@@ -152,7 +149,7 @@ flow(
       await ctx.step('a retry with the same goal_id returns the same goal: one row, one folder', async () => {
         const again = await createGoal(owner, project.id, { goal_id: goalId, brief: 'Ship the synthetic launch notes\nShort and plain.' });
         if (again.goal_id !== goalId || again.folder !== goal!.folder) throw new Error(JSON.stringify(again));
-        const listed = (await owner.get(GOALS, { params })).json<{ goals: Goal[] }>().goals;
+        const listed = (await owner.get(R.list, { params })).json<{ goals: Goal[] }>().goals;
         if (listed.filter((g) => g.goal_id === goalId).length !== 1) throw new Error('duplicate goal');
       });
 
@@ -164,19 +161,19 @@ flow(
       await ctx.step('read back → 200 with capabilities; the events start with `created`', async () => {
         const back = await read(owner, project.id, goalId);
         if (back.goal_id !== goalId) throw new Error('wrong goal');
-        const events = (await owner.get(path(R.events), { params: { ...params, goalId } })).status(200).json<{ events: Array<{ kind: string; actor_kind: string }> }>().events;
+        const events = (await owner.get(R.events, { params: { ...params, goalId } })).status(200).json<{ events: Array<{ kind: string; actor_kind: string }> }>().events;
         const created = events.find((e) => e.kind === 'created');
         if (!created || created.actor_kind !== 'user') throw new Error(JSON.stringify(events));
       });
 
       await ctx.step('the owner session credential cannot create a goal → 403 goal_forbidden', async () => {
         const session = await ownerCredential(ctx, world, goal!.owner_session_id!);
-        expectError(await session.post(GOALS, { goal_id: randomUUID(), brief: 'x' }, { params }), 403, 'goal_forbidden');
+        expectError(await session.post(R.create, { goal_id: randomUUID(), brief: 'x' }, { params }), 403, 'goal_forbidden');
       });
 
       await ctx.step('an unknown or malformed goal id → 404 goal_not_found', async () => {
-        expectError(await owner.get(GOAL, { params: { ...params, goalId: randomUUID() } }), 404, 'goal_not_found');
-        expectError(await owner.get(GOAL, { params: { ...params, goalId: 'not-a-uuid' } }), 404, 'goal_not_found');
+        expectError(await owner.get(R.read, { params: { ...params, goalId: randomUUID() } }), 404, 'goal_not_found');
+        expectError(await owner.get(R.read, { params: { ...params, goalId: 'not-a-uuid' } }), 404, 'goal_not_found');
       });
     } finally {
       await world.close();
@@ -190,7 +187,7 @@ flow(
     domain: 'goals',
     requires: ['database'],
     timeoutMs: 240_000,
-    routes: [R.create, R.criteria, R.activate, R.wait, R.answer, R.progress, R.verify, R.verdict, R.read],
+    routes: [`POST ${R.create}`, `PUT ${R.criteria}`, `POST ${R.activate}`, `POST ${R.wait}`, `POST ${R.answer}`, `POST ${R.progress}`, `POST ${R.verify}`, `POST ${R.verdict}`, `GET ${R.read}`],
   },
   async (ctx) => {
     const { project, world, owner } = await openWorld(ctx);
@@ -202,47 +199,47 @@ flow(
       let goal = draft;
 
       await ctx.step('the owner session sets 2 criteria on its draft → 200, criteria revision 1', async () => {
-        const r = (await session.put(verb(R.criteria), { revision: goal.revision, criteria: ['The report is in Files', 'The owner signed off'] }, at)).status(200);
+        const r = (await session.put(R.criteria, { revision: goal.revision, criteria: ['The report is in Files', 'The owner signed off'] }, at)).status(200);
         goal = r.json<{ goal: Goal }>().goal;
         if (goal.criteria.length !== 2 || goal.criteria_revision !== 1) throw new Error(JSON.stringify(goal));
       });
 
       await ctx.step('a person cannot activate; the owner session activates → active', async () => {
-        expectError(await owner.post(verb(R.activate), { revision: goal.revision, reason: 'x' }, at), 403, 'goal_forbidden');
-        goal = (await session.post(verb(R.activate), { revision: goal.revision, reason: 'criteria are checkable' }, at)).status(200).json<{ goal: Goal }>().goal;
+        expectError(await owner.post(R.activate, { revision: goal.revision, reason: 'x' }, at), 403, 'goal_forbidden');
+        goal = (await session.post(R.activate, { revision: goal.revision, reason: 'criteria are checkable' }, at)).status(200).json<{ goal: Goal }>().goal;
         if (goal.state !== 'active') throw new Error(goal.state);
       });
 
       await ctx.step('after activation the owner can no longer change the criteria → 403', async () => {
-        expectError(await session.put(verb(R.criteria), { revision: goal.revision, criteria: ['easy'] }, at), 403, 'goal_forbidden');
+        expectError(await session.put(R.criteria, { revision: goal.revision, criteria: ['easy'] }, at), 403, 'goal_forbidden');
       });
 
       await ctx.step('the owner session waits on a question → waiting_on_user', async () => {
-        goal = (await session.post(verb(R.wait), { revision: goal.revision, question: 'Which region?' }, at)).status(200).json<{ goal: Goal }>().goal;
+        goal = (await session.post(R.wait, { revision: goal.revision, question: 'Which region?' }, at)).status(200).json<{ goal: Goal }>().goal;
         if (goal.state !== 'waiting_on_user') throw new Error(goal.state);
-        expectError(await session.post(verb(R.wait), { revision: goal.revision, question: 'x', chase_at: new Date(Date.now() + 60_000).toISOString() }, at), 409, 'goal_conflict');
+        expectError(await session.post(R.wait, { revision: goal.revision, question: 'x', chase_at: new Date(Date.now() + 60_000).toISOString() }, at), 409, 'goal_conflict');
       });
 
       await ctx.step('the person answers → active; the same answer_id again changes nothing; the session cannot answer → 403', async () => {
         const answerId = randomUUID();
-        const first = (await owner.post(verb(R.answer), { answer_id: answerId, text: 'EU only' }, at)).status(200).json<{ goal: Goal }>().goal;
+        const first = (await owner.post(R.answer, { answer_id: answerId, text: 'EU only' }, at)).status(200).json<{ goal: Goal }>().goal;
         if (first.state !== 'active') throw new Error(first.state);
-        const again = (await owner.post(verb(R.answer), { answer_id: answerId, text: 'EU only' }, at)).status(200).json<{ goal: Goal }>().goal;
+        const again = (await owner.post(R.answer, { answer_id: answerId, text: 'EU only' }, at)).status(200).json<{ goal: Goal }>().goal;
         if (again.revision !== first.revision) throw new Error('a repeated answer wrote again');
-        expectError(await session.post(verb(R.answer), { answer_id: randomUUID(), text: 'x' }, at), 403, 'goal_forbidden');
+        expectError(await session.post(R.answer, { answer_id: randomUUID(), text: 'x' }, at), 403, 'goal_forbidden');
         goal = again;
       });
 
       await ctx.step('progress reports met + evidence and never verifies; a path outside evidence/ → 422', async () => {
-        const bad = await session.post(verb(R.progress), { revision: goal.revision, criteria: [{ id: 'c1', reported_met: true, evidence: '../GOAL.md' }] }, at);
+        const bad = await session.post(R.progress, { revision: goal.revision, criteria: [{ id: 'c1', reported_met: true, evidence: '../GOAL.md' }] }, at);
         expectError(bad, 422, 'goal_invalid');
-        goal = (await session.post(verb(R.progress), { revision: goal.revision, summary: 'drafted', criteria: [{ id: 'c1', reported_met: true, evidence: 'evidence/report.md' }, { id: 'c2', reported_met: true, evidence: 'evidence/signoff.md' }] }, at))
+        goal = (await session.post(R.progress, { revision: goal.revision, summary: 'drafted', criteria: [{ id: 'c1', reported_met: true, evidence: 'evidence/report.md' }, { id: 'c2', reported_met: true, evidence: 'evidence/signoff.md' }] }, at))
           .status(200).json<{ goal: Goal }>().goal;
         if (goal.criteria.some((c) => c.verified) || !goal.criteria.every((c) => c.reported_met)) throw new Error(JSON.stringify(goal.criteria));
       });
 
       await ctx.step('verification needs the evidence files to exist → 422 goal_invalid; state stays active', async () => {
-        const r = await session.post(verb(R.verify), { revision: goal.revision }, at);
+        const r = await session.post(R.verify, { revision: goal.revision }, at);
         expectError(r, 422, 'goal_invalid');
         if (!r.json<{ violations?: string[] }>().violations?.length) throw new Error('no violations');
         if ((await read(owner, project.id, goal.goal_id)).state !== 'active') throw new Error('state moved');
@@ -250,8 +247,8 @@ flow(
 
       await ctx.step('neither the owner session nor a person can give a verdict → 403; the goal is not done', async () => {
         const results = [{ criterion_id: 'c1', result: 'pass', note: '' }, { criterion_id: 'c2', result: 'pass', note: '' }];
-        expectError(await session.post(verb(R.verdict), { revision: goal.revision, results }, at), 403, 'goal_forbidden');
-        expectError(await owner.post(verb(R.verdict), { revision: goal.revision, results }, at), 403, 'goal_forbidden');
+        expectError(await session.post(R.verdict, { revision: goal.revision, results }, at), 403, 'goal_forbidden');
+        expectError(await owner.post(R.verdict, { revision: goal.revision, results }, at), 403, 'goal_forbidden');
         const back = await read(owner, project.id, goal.goal_id);
         if (back.state === 'done' || back.criteria.some((c) => c.verified)) throw new Error('forged done');
       });
@@ -267,7 +264,7 @@ flow(
     domain: 'goals',
     requires: ['database'],
     timeoutMs: 240_000,
-    routes: [R.create, R.read, R.list, R.edit, R.pause, R.resume],
+    routes: [`POST ${R.create}`, `GET ${R.read}`, `GET ${R.list}`, `PATCH ${R.edit}`, `POST ${R.pause}`, `POST ${R.resume}`],
   },
   async (ctx) => {
     const { team, project, world, owner } = await openWorld(ctx);
@@ -283,36 +280,36 @@ flow(
       const at = { params: { ...params, goalId: goal.goal_id } };
 
       await ctx.step('a project member who is neither creator, assignee nor admin cannot see it → 404, and the list leaves it out', async () => {
-        expectError(await asMember.get(GOAL, at), 404, 'goal_not_found');
-        const listed = (await asMember.get(GOALS, { params })).status(200).json<{ goals: Goal[] }>().goals;
+        expectError(await asMember.get(R.read, at), 404, 'goal_not_found');
+        const listed = (await asMember.get(R.list, { params })).status(200).json<{ goals: Goal[] }>().goals;
         if (listed.some((g) => g.goal_id === goal.goal_id)) throw new Error('listed to an outsider');
-        expectError(await asMember.post(verb(R.pause), { revision: goal.revision }, at), 404, 'goal_not_found');
+        expectError(await asMember.post(R.pause, { revision: goal.revision }, at), 404, 'goal_not_found');
       });
 
       await ctx.step('the assigned person reads it with pause/stop/answer capabilities and pauses it → 200', async () => {
         const seen = await read(asAssignee, project.id, goal.goal_id);
         if (!seen.capabilities.pause || !seen.capabilities.answer || seen.capabilities.restart) throw new Error(JSON.stringify(seen.capabilities));
-        const paused = (await asAssignee.post(verb(R.pause), { revision: seen.revision, reason: 'waiting for budget' }, at)).status(200).json<{ goal: Goal }>().goal;
+        const paused = (await asAssignee.post(R.pause, { revision: seen.revision, reason: 'waiting for budget' }, at)).status(200).json<{ goal: Goal }>().goal;
         if (!paused.paused_at || paused.capabilities.pause || !paused.capabilities.resume) throw new Error(JSON.stringify(paused));
       });
 
       await ctx.step('the owner session cannot resume, pause or edit its goal → 403 goal_forbidden', async () => {
         const session = await ownerCredential(ctx, world, goal.owner_session_id!);
         const now = await read(owner, project.id, goal.goal_id);
-        expectError(await session.post(verb(R.resume), { revision: now.revision }, at), 403, 'goal_forbidden');
-        expectError(await session.patch(GOAL, { revision: now.revision, max_wakes_per_day: 48 }, at), 403, 'goal_forbidden');
+        expectError(await session.post(R.resume, { revision: now.revision }, at), 403, 'goal_forbidden');
+        expectError(await session.patch(R.edit, { revision: now.revision, max_wakes_per_day: 48 }, at), 403, 'goal_forbidden');
         const sessionView = await read(session, project.id, goal.goal_id);
         if (Object.entries(sessionView.capabilities).some(([k, v]) => k !== 'read' && v)) throw new Error(`session capabilities ${JSON.stringify(sessionView.capabilities)}`);
       });
 
       await ctx.step('the creator resumes and edits the caps within bounds; above the hard cap → 422', async () => {
         const now = await read(owner, project.id, goal.goal_id);
-        const resumed = (await owner.post(verb(R.resume), { revision: now.revision }, at)).status(200).json<{ goal: Goal }>().goal;
+        const resumed = (await owner.post(R.resume, { revision: now.revision }, at)).status(200).json<{ goal: Goal }>().goal;
         if (resumed.paused_at) throw new Error('still paused');
-        expectError(await owner.patch(GOAL, { revision: resumed.revision, max_wakes_per_day: 49 }, at), 422, 'goal_invalid');
+        expectError(await owner.patch(R.edit, { revision: resumed.revision, max_wakes_per_day: 49 }, at), 422, 'goal_invalid');
         // The agent is an authorization decision: one without Files (My Kortix) is refused like on create.
-        expectError(await owner.patch(GOAL, { revision: resumed.revision, agent: 'mykortix' }, at), 422, 'goal_invalid');
-        const edited = (await owner.patch(GOAL, { revision: resumed.revision, max_wakes_per_day: 6, title: 'Publish the synthetic report v2' }, at)).status(200).json<{ goal: Goal & { max_wakes_per_day: number } }>().goal;
+        expectError(await owner.patch(R.edit, { revision: resumed.revision, agent: 'mykortix' }, at), 422, 'goal_invalid');
+        const edited = (await owner.patch(R.edit, { revision: resumed.revision, max_wakes_per_day: 6, title: 'Publish the synthetic report v2' }, at)).status(200).json<{ goal: Goal & { max_wakes_per_day: number } }>().goal;
         if (edited.max_wakes_per_day !== 6 || edited.title !== 'Publish the synthetic report v2') throw new Error(JSON.stringify(edited));
       });
     } finally {
@@ -327,7 +324,7 @@ flow(
     domain: 'goals',
     requires: ['database'],
     timeoutMs: 240_000,
-    routes: [R.create, R.activate, R.pause, R.resume, R.progress, R.stop, R.restart, R.handover, R.read],
+    routes: [`POST ${R.create}`, `POST ${R.activate}`, `POST ${R.pause}`, `POST ${R.resume}`, `POST ${R.progress}`, `POST ${R.stop}`, `POST ${R.restart}`, `POST ${R.handover}`, `GET ${R.read}`],
   },
   async (ctx) => {
     const { project, world, owner } = await openWorld(ctx);
@@ -336,35 +333,35 @@ flow(
       const created = await createGoal(owner, project.id);
       const at = { params: { ...params, goalId: created.goal_id } };
       const session = await ownerCredential(ctx, world, created.owner_session_id!);
-      let goal = (await session.post(verb(R.activate), { revision: created.revision, reason: 'go' }, at)).status(200).json<{ goal: Goal }>().goal;
+      let goal = (await session.post(R.activate, { revision: created.revision, reason: 'go' }, at)).status(200).json<{ goal: Goal }>().goal;
 
       await ctx.step('a stale revision → 409 goal_conflict carrying the goal as it is now', async () => {
-        const r = await owner.post(verb(R.pause), { revision: goal.revision - 1 }, at);
+        const r = await owner.post(R.pause, { revision: goal.revision - 1 }, at);
         expectError(r, 409, 'goal_conflict');
         if (r.json<{ goal?: Goal }>().goal?.revision !== goal.revision) throw new Error(r.text());
       });
 
       await ctx.step('after a pause the owner session cannot write even with the current revision → 409', async () => {
-        goal = (await owner.post(verb(R.pause), { revision: goal.revision }, at)).status(200).json<{ goal: Goal }>().goal;
-        expectError(await session.post(verb(R.progress), { revision: goal.revision, summary: 'still going' }, at), 409, 'goal_conflict');
-        goal = (await owner.post(verb(R.resume), { revision: goal.revision }, at)).status(200).json<{ goal: Goal }>().goal;
-        (await session.post(verb(R.progress), { revision: goal.revision, summary: 'going again' }, at)).status(200);
+        goal = (await owner.post(R.pause, { revision: goal.revision }, at)).status(200).json<{ goal: Goal }>().goal;
+        expectError(await session.post(R.progress, { revision: goal.revision, summary: 'still going' }, at), 409, 'goal_conflict');
+        goal = (await owner.post(R.resume, { revision: goal.revision }, at)).status(200).json<{ goal: Goal }>().goal;
+        (await session.post(R.progress, { revision: goal.revision, summary: 'going again' }, at)).status(200);
         goal = await read(owner, project.id, goal.goal_id);
       });
 
       await ctx.step('stop → stopped; a retry with any revision → 200 stopped; the owner session is fenced → 409', async () => {
-        goal = (await owner.post(verb(R.stop), { revision: goal.revision, reason: 'not needed' }, at)).status(200).json<{ goal: Goal }>().goal;
+        goal = (await owner.post(R.stop, { revision: goal.revision, reason: 'not needed' }, at)).status(200).json<{ goal: Goal }>().goal;
         if (goal.state !== 'stopped' || !goal.capabilities.restart) throw new Error(JSON.stringify(goal));
-        const retried = (await owner.post(verb(R.stop), { revision: 1 }, at)).status(200).json<{ goal: Goal }>().goal;
+        const retried = (await owner.post(R.stop, { revision: 1 }, at)).status(200).json<{ goal: Goal }>().goal;
         if (retried.state !== 'stopped' || retried.revision !== goal.revision) throw new Error(JSON.stringify(retried));
-        expectError(await session.post(verb(R.handover), { revision: goal.revision, note: 'x' }, at), 409, 'goal_conflict');
+        expectError(await session.post(R.handover, { revision: goal.revision, note: 'x' }, at), 409, 'goal_conflict');
       });
 
       await ctx.step('restart → active again (it has criteria); the session cannot restart → 403', async () => {
-        expectError(await session.post(verb(R.restart), { revision: goal.revision }, at), 403, 'goal_forbidden');
-        goal = (await owner.post(verb(R.restart), { revision: goal.revision }, at)).status(200).json<{ goal: Goal }>().goal;
+        expectError(await session.post(R.restart, { revision: goal.revision }, at), 403, 'goal_forbidden');
+        goal = (await owner.post(R.restart, { revision: goal.revision }, at)).status(200).json<{ goal: Goal }>().goal;
         if (goal.state !== 'active') throw new Error(goal.state);
-        expectError(await owner.post(verb(R.restart), { revision: goal.revision }, at), 409, 'goal_conflict');
+        expectError(await owner.post(R.restart, { revision: goal.revision }, at), 409, 'goal_conflict');
       });
     } finally {
       await world.close();
@@ -379,9 +376,9 @@ flow(
     requires: ['database'],
     timeoutMs: 240_000,
     routes: [
-      R.create,
-      R.activate,
-      R.events,
+      `POST ${R.create}`,
+      `POST ${R.activate}`,
+      `GET ${R.events}`,
       'GET /v1/projects/:projectId/sessions/:sessionId/reminders',
       'PATCH /v1/projects/:projectId/sessions/:sessionId/reminders/:reminderId',
       'DELETE /v1/projects/:projectId/sessions/:sessionId/reminders/:reminderId',
@@ -410,7 +407,7 @@ flow(
           .json<{ reminders: Array<{ id: string; state: string; prompt: string }> }>().reminders.filter((r) => r.prompt.includes(`goal ${created.goal_id}`));
         if (list.length !== 1 || list[0]!.state !== 'paused') throw new Error(JSON.stringify(list));
         heartbeat = list[0]!.id;
-        const active = (await session.post(verb(R.activate), { revision: created.revision, reason: 'go' }, at)).status(200).json<{ goal: Goal }>().goal;
+        const active = (await session.post(R.activate, { revision: created.revision, reason: 'go' }, at)).status(200).json<{ goal: Goal }>().goal;
         expected = active.blocked_reason === 'setup' ? 'paused' : 'active';
         const after = (await owner.get('/v1/projects/:projectId/sessions/:sessionId/reminders', reminders)).json<{ reminders: Array<{ id: string; state: string }> }>().reminders;
         if (after.find((r) => r.id === heartbeat)?.state !== expected) throw new Error(`expected ${expected}: ${JSON.stringify(after)}`);
@@ -431,7 +428,7 @@ flow(
       });
 
       await ctx.step('the events log every move with its actor: created, activated by the session', async () => {
-        const events = (await owner.get(path(R.events), at)).status(200).json<{ events: Array<{ kind: string; actor_kind: string; actor_id: string | null }> }>().events;
+        const events = (await owner.get(R.events, at)).status(200).json<{ events: Array<{ kind: string; actor_kind: string; actor_id: string | null }> }>().events;
         const activated = events.find((e) => e.kind === 'activated');
         if (activated?.actor_kind !== 'session' || activated.actor_id !== created.owner_session_id) throw new Error(JSON.stringify(events));
       });

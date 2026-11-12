@@ -24,7 +24,6 @@ export * from './git-history';
 export * from './change-requests';
 export * from './sessions';
 export * from './manifest-spaces';
-export * from './spaces';
 export * from './session-groups';
 export * from './memory';
 export * from './session-prompt-actions';

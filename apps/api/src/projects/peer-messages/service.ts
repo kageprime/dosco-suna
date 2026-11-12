@@ -66,7 +66,7 @@ import { stopSession } from '../session-lifecycle/stop';
 import { enqueueSessionNotice } from '../session-notice-batch';
 import { teamHandle } from '../team-tasks/service';
 import { mintWireMessageId } from '../wire-message-id';
-import { projectsView } from '../../workspaces/rows';
+import { accountKeyOfWorkspace } from '../../workspaces/rows';
 
 /**
  * A cross-project address names only a project of the caller's account. The
@@ -75,8 +75,8 @@ import { projectsView } from '../../workspaces/rows';
  * hand the old owner's sessions access to the new owner's project.
  */
 async function requireAccountProject(projectId: string, accountId: string): Promise<void> {
-  const [project] = await db.select({ accountId: projectsView.accountId }).from(projectsView).where(eq(projectsView.projectId, projectId)).limit(1);
-  if (!project || project.accountId !== accountId) throw new PeerMessageError(404, 'Project not found', 'project_not_found');
+  const projectAccountId = await accountKeyOfWorkspace(projectId);
+  if (!projectAccountId || projectAccountId !== accountId) throw new PeerMessageError(404, 'Project not found', 'project_not_found');
 }
 
 /** Sessions one reachable list returns at most. */

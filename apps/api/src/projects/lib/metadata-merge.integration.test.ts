@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { eq } from 'drizzle-orm';
 import { createDb, accounts, projects, type Database } from '@kortix/db';
-import { metadataClearSubtreeKey, metadataMerge, metadataMergeSubtree } from '../../workspaces/rows';
+import { metadataClearSubtreeKey, metadataMerge, metadataMergeGitSeed, metadataMergeSubtree } from '../../workspaces/rows';
 import { activateWithCas } from '../provider-transition/provider-transition-activate';
 import {
   ACTIVE_EXTERNAL_ID_META_KEY, ACTIVE_SNAPSHOT_NAME_META_KEY, PIN_META_KEY, readActiveRouting,
@@ -131,6 +131,45 @@ d('atomic merge preserves the routing pin (throwaway Postgres)', () => {
     meta = await readMeta(projectId);
     expect(meta.experimental).toBeUndefined();
     expect(meta[PIN_META_KEY]).toBe('platinum');
+  });
+
+  test('the provision seed write merges git NESTED: metadata.git.managed survives (KRTX-4626)', async () => {
+    // The provision insert writes metadata.git with managed/url/auth, then the
+    // post-seed write persists the verified seed state. A shallow top-level
+    // patch of the whole `git` object (metadataMerge({ git: { seed } })) wipes
+    // those siblings — every seeded workspace then served `metadata.git`
+    // without `managed` and the CLI read the managed repo as unmanaged.
+    const projectId = await freshProject();
+    const seededGit = {
+      managed: true,
+      url: 'https://github.com/managed-kortix/demo.git',
+      provider: 'kortix-managed',
+      auth: { method: 'project_secret', ref: 'ref_1' },
+    };
+    await db.update(projects).set({ metadata: metadataMerge({ git: seededGit }) }).where(eq(projects.projectId, projectId));
+
+    // The OLD post-seed expression, kept here as the defect's witness.
+    await db.update(projects).set({ metadata: metadataMerge({ default_agent: 'mykortix', git: { seed: { seeded: true, reason: 'seeded' } } }) }).where(eq(projects.projectId, projectId));
+    const wiped = await readMeta(projectId);
+    expect((wiped.git as Record<string, unknown>).managed).toBeUndefined();
+
+    // Redo the insert state and run the SHIPPED write expression (the same
+    // helper seedProvisionedRepo calls): the nested merge keeps managed/url/auth,
+    // lands the seed, and the disjoint top-level default_agent patch rides the
+    // same write.
+    await db.update(projects).set({ metadata: metadataMerge({ git: seededGit }) }).where(eq(projects.projectId, projectId));
+    await db
+      .update(projects)
+      .set({ metadata: metadataMergeGitSeed({ seeded: true, reason: 'seeded' }, { default_agent: 'mykortix' }) })
+      .where(eq(projects.projectId, projectId));
+
+    const after = await readMeta(projectId);
+    const git = after.git as Record<string, unknown>;
+    expect(git.managed).toBe(true);
+    expect(git.url).toBe(seededGit.url);
+    expect(git.auth).toEqual(seededGit.auth);
+    expect(git.seed).toEqual({ seeded: true, reason: 'seeded' });
+    expect(after.default_agent).toBe('mykortix');
   });
 
   test('the generation CAS still rejects a stale activation (unchanged by the merge conversion)', async () => {

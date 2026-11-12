@@ -30,7 +30,7 @@ export interface ExclusionRow {
   name: string;
 }
 
-export interface ExclusionGroupView {
+interface ExclusionGroupView {
   id: string;
   name: string;
   description: string;

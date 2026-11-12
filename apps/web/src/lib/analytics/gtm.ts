@@ -10,11 +10,14 @@
 // null (reading 'getItem')`. This module runs on every route (the root-layout
 // RouteChangeTracker), so an unguarded access would crash analytics on the
 // marketing site for those browsers.
-import { locales } from '@/i18n/catalog.mjs';
+import { useEffect, useEffectEvent, useState } from 'react';
 import {
   safeSessionGetItem,
   safeSessionSetItem,
 } from '@kortix/ui/internal/lib/storage/managed-storage';
+import { isDesktop } from '@kortix/ui/internal/lib/desktop';
+import { track } from '@/lib/track';
+import { analyticsLocation, isAnalyticsExcludedPath } from './url-policy';
 
 // Extend the Window interface to include dataLayer
 interface GTMWindow extends Window {
@@ -24,69 +27,34 @@ interface GTMWindow extends Window {
 declare const window: GTMWindow;
 
 /**
- * Query parameters that may reach GTM. Everything else is dropped from
- * `page_location` and `page_referrer`: auth pages carry the user's email,
- * return URLs and handoff state in the query, and none of it is analytics.
+ * Whether this document may load a third-party analytics script: never inside
+ * the desktop app (its user agent carries `DESKTOP_UA_TOKEN`); GTM carries
+ * visitor de-anonymization tags that have no place in the authenticated native
+ * client.
+ *
+ * Never loads when the document opens on a signed-in or capability-token page
+ * (`isAnalyticsExcludedPath`: /workspaces, /admin, /secret-intake, …). Scripts
+ * GTM injects run with the page's privileges, and the Supabase session cookie
+ * is readable from script. The decision is made once per document: a script
+ * cannot be unloaded, so a visitor who opens a marketing page and then
+ * navigates into the app in the same tab keeps the container that page loaded.
+ *
+ * `extra` is the caller's own guard, evaluated once on mount with
+ * `window.location`. `useEffectEvent` keeps the caller's callback out of the
+ * effect's dependencies, so the decision is structurally once per document,
+ * however the caller builds its callback.
  */
-const ANALYTICS_QUERY_ALLOWLIST = new Set([
-  'utm_source',
-  'utm_medium',
-  'utm_campaign',
-  'utm_term',
-  'utm_content',
-  'gclid',
-  'gbraid',
-  'wbraid',
-  'fbclid',
-  'msclkid',
-]);
-
-/** `origin + pathname`, plus only the allowlisted query parameters. Never a hash. */
-export function analyticsLocation(origin: string, pathname: string, search?: string): string {
-  const params = new URLSearchParams(search ?? '');
-  const kept = new URLSearchParams();
-  for (const [key, value] of params) {
-    if (ANALYTICS_QUERY_ALLOWLIST.has(key)) kept.append(key, value);
-  }
-  const query = kept.toString();
-  return `${origin}${pathname}${query ? `?${query}` : ''}`;
-}
-
-/**
- * Pages where no third-party analytics script may load: signed-in app
- * surfaces and pages whose URL carries a capability token. Checked on the
- * path without its locale prefix.
- */
-const ANALYTICS_EXCLUDED_PREFIXES = [
-  '/workspaces',
-  '/admin',
-  '/settings',
-  '/connections',
-  '/invites',
-  '/setup',
-  '/workspaces/new',
-  '/secret-intake',
-  '/connect',
-  '/approve',
-  '/share',
-  '/slack',
-  '/teams',
-  '/tunnel',
-  '/cli',
-  '/oauth',
-  '/preview',
-  '/github',
-];
-
-export function isAnalyticsExcludedPath(pathname: string): boolean {
-  const segments = pathname.split('/');
-  const withoutLocale =
-    segments.length > 1 && (locales as readonly string[]).includes(segments[1]!)
-      ? `/${segments.slice(2).join('/')}`
-      : pathname;
-  return ANALYTICS_EXCLUDED_PREFIXES.some(
-    (prefix) => withoutLocale === prefix || withoutLocale.startsWith(`${prefix}/`),
-  );
+export function useAnalyticsPageEnabled(extra?: (location: Location) => boolean): boolean {
+  const [enabled, setEnabled] = useState(false);
+  const onGate = useEffectEvent((location: Location) => extra?.(location) ?? true);
+  useEffect(() => {
+    setEnabled(
+      !isDesktop() &&
+        !isAnalyticsExcludedPath(window.location.pathname) &&
+        onGate(window.location),
+    );
+  }, []);
+  return enabled;
 }
 
 /**
@@ -118,92 +86,83 @@ export interface ContainerLoadData {
 export const TRACKED_PAGE_TYPES = ['home', 'auth', 'plans', 'order_confirm'] as const;
 export type TrackedPageType = (typeof TRACKED_PAGE_TYPES)[number];
 
+/**
+ * The page context per pathname class, first match wins. The predicates are
+ * the ones the old if-chain ran, in the same order; the fallback for any
+ * pathname no rule matches is the `other` context below.
+ */
+type PageRule = Omit<ContainerLoadData, 'language'> & {
+  match: (pathname: string) => boolean;
+};
+
+const PAGE_RULES: readonly PageRule[] = [
+  // Homepage
+  {
+    match: (pathname) => pathname === '/' || pathname === '',
+    master_group: 'General',
+    content_group: 'Other',
+    page_type: 'home',
+  },
+  // Auth pages
+  {
+    match: (pathname) => pathname.startsWith('/auth'),
+    master_group: 'General',
+    content_group: 'User',
+    page_type: 'auth',
+  },
+  // Dashboard (main dashboard page only)
+  {
+    match: (pathname) => pathname === '/dashboard',
+    master_group: 'Platform',
+    content_group: 'Dashboard',
+    page_type: 'home',
+  },
+  // Plans/Subscription page
+  {
+    match: (pathname) => pathname === '/subscription' || pathname.startsWith('/subscription'),
+    master_group: 'Platform',
+    content_group: 'Dashboard',
+    page_type: 'plans',
+  },
+  // Checkout page (Stripe embedded checkout)
+  {
+    match: (pathname) => pathname === '/checkout' || pathname.startsWith('/checkout'),
+    master_group: 'Platform',
+    content_group: 'Dashboard',
+    page_type: 'checkout',
+  },
+  // Workspace/Threads - NOT tracked for routeChange (internal navigation)
+  {
+    match: (pathname) =>
+      pathname.startsWith('/workspaces') ||
+      pathname.startsWith('/workspace') ||
+      pathname.startsWith('/thread'),
+    master_group: 'Platform',
+    content_group: 'Dashboard',
+    page_type: 'thread',
+  },
+  // Settings - NOT tracked for routeChange (internal navigation)
+  {
+    match: (pathname) => pathname.startsWith('/settings'),
+    master_group: 'Platform',
+    content_group: 'User',
+    page_type: 'settings',
+  },
+];
+
 export function getPageContext(pathname: string): ContainerLoadData {
   // Determine language from document or default to 'en'
   const language = typeof document !== 'undefined' ? document.documentElement.lang || 'en' : 'en';
 
-  // Map pathname to page context
-  // Homepage
-  if (pathname === '/' || pathname === '') {
-    return {
-      master_group: 'General',
-      content_group: 'Other',
-      page_type: 'home',
-      language,
-    };
-  }
-
-  // Auth pages
-  if (pathname.startsWith('/auth')) {
-    return {
-      master_group: 'General',
-      content_group: 'User',
-      page_type: 'auth',
-      language,
-    };
-  }
-
-  // Dashboard (main dashboard page only)
-  if (pathname === '/dashboard') {
-    return {
-      master_group: 'Platform',
-      content_group: 'Dashboard',
-      page_type: 'home',
-      language,
-    };
-  }
-
-  // Plans/Subscription page
-  if (pathname === '/subscription' || pathname.startsWith('/subscription')) {
-    return {
-      master_group: 'Platform',
-      content_group: 'Dashboard',
-      page_type: 'plans',
-      language,
-    };
-  }
-
-  // Checkout page (Stripe embedded checkout)
-  if (pathname === '/checkout' || pathname.startsWith('/checkout')) {
-    return {
-      master_group: 'Platform',
-      content_group: 'Dashboard',
-      page_type: 'checkout',
-      language,
-    };
-  }
-
-  // Workspace/Threads - NOT tracked for routeChange (internal navigation)
-  if (
-    pathname.startsWith('/workspaces') ||
-    pathname.startsWith('/workspace') ||
-    pathname.startsWith('/thread')
-  ) {
-    return {
-      master_group: 'Platform',
-      content_group: 'Dashboard',
-      page_type: 'thread',
-      language,
-    };
-  }
-
-  // Settings - NOT tracked for routeChange (internal navigation)
-  if (pathname.startsWith('/settings')) {
-    return {
-      master_group: 'Platform',
-      content_group: 'User',
-      page_type: 'settings',
-      language,
-    };
-  }
-
+  // Map pathname to page context: the first matching rule wins
+  const rule = PAGE_RULES.find(({ match }) => match(pathname));
   // Default for other pages
-  return {
+  const { master_group, content_group, page_type } = rule ?? {
     master_group: 'General',
     content_group: 'Other',
     page_type: 'other',
-    language,
   };
+  return { language, master_group, content_group, page_type };
 }
 
 /**
@@ -409,9 +368,6 @@ export function trackLogin(method: AuthMethod) {
 export function trackCtaSignup() {
   if (typeof window === 'undefined') return;
 
-  // Lazy: lib/track → posthog-config imports this module.
-  const location = window.location.pathname;
-  void import('@/lib/track').then(({ track }) => track('cta_signup_clicked', { location }));
   initDataLayer();
 
   const ctaEvent = {
@@ -423,4 +379,7 @@ export function trackCtaSignup() {
   if (process.env.NODE_ENV === 'development') {
     console.log('[GTM] cta_signup pushed:', ctaEvent);
   }
+
+  // The same event for PostHog, with the page path as its location.
+  track('cta_signup_clicked', { location: window.location.pathname });
 }

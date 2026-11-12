@@ -714,6 +714,10 @@ export async function reclaimAppDeploymentImages(
   }
 
   const providers = io.providers();
+  // Providers whose listing succeeded this pass. One API key serves listing
+  // and release, so a provider that could not list cannot release either —
+  // its shared images skip this pass instead of failing per image below.
+  const listedProviders: string[] = [];
   for (const { name, adapter } of providers) {
     let images: string[];
     try {
@@ -728,6 +732,7 @@ export async function reclaimAppDeploymentImages(
       });
       continue;
     }
+    listedProviders.push(name);
     result.providers += 1;
     result.listed += images.length;
 
@@ -765,7 +770,7 @@ export async function reclaimAppDeploymentImages(
 
   // Shared images: tracked in this database, so no provider listing is needed.
   try {
-    const unused = await io.loadUnusedImages(maxPerPass + 1, providers.map((provider) => provider.name));
+    const unused = await io.loadUnusedImages(maxPerPass + 1, listedProviders);
     result.reclaimable += unused.length;
     result.deferred += Math.max(0, unused.length - maxPerPass);
     for (const image of unused.slice(0, maxPerPass)) {

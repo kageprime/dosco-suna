@@ -118,7 +118,7 @@ function ProjectSessionListItem({
           }}
         />
       )}
-      <SessionStatusMark status={status} />
+      <SessionStatusMark status={status} waitingOn={needsYou?.waitingOn} />
       {needsYou || starter ? (
         <View className="min-w-0 flex-1">
           <Text numberOfLines={1}>{title}</Text>

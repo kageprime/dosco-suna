@@ -218,7 +218,7 @@ describe('POST /v1/projects/:projectId/secrets/:identifier/grant', () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ agent: 'newcomer', already_granted: false });
-    expect(agentsOf(commits[0]!.raw).newcomer).toEqual({ secrets: ['BROKER_KEY'], workspace: { project_repository: false } });
+    expect(agentsOf(commits[0]!.raw).newcomer).toEqual({ secrets: ['BROKER_KEY'] });
     expect(agentsOf(commits[0]!.raw).support.secrets).toEqual(['OTHER_KEY']);
   });
 
@@ -229,7 +229,7 @@ describe('POST /v1/projects/:projectId/secrets/:identifier/grant', () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ adopted_governance: true });
-    expect(agentsOf(commits[0]!.raw)).toEqual({ support: { secrets: ['BROKER_KEY'], workspace: { project_repository: false } } });
+    expect(agentsOf(commits[0]!.raw)).toEqual({ support: { secrets: ['BROKER_KEY'] } });
   });
 
   test('reports adopted_governance when the repo carries no manifest at all', async () => {
@@ -243,7 +243,7 @@ describe('POST /v1/projects/:projectId/secrets/:identifier/grant', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ adopted_governance: true });
     // A new agent gets no checkout unless it asks for one.
-    expect(agentsOf(commits[0]!.raw).newcomer).toEqual({ secrets: ['BROKER_KEY'], workspace: { project_repository: false } });
+    expect(agentsOf(commits[0]!.raw).newcomer).toEqual({ secrets: ['BROKER_KEY'] });
   });
 
   test('a second grant on an already-governed project does NOT adopt governance', async () => {
@@ -341,15 +341,21 @@ describe('POST /v1/projects/:projectId/secrets/:identifier/grant', () => {
     expect(await response.json()).toMatchObject({ code: 'manifest_read' });
   });
 
-  test('an agent session cannot widen its own grant', async () => {
+  test('an agent session acting for its person gets the person\'s answer (AGENT = HUMAN)', async () => {
+    const person = await grant('BROKER_KEY', 'support');
+    const personBody = await person.json();
+    const personCommits = commits.splice(0);
+    manifest = governedManifest();
     authType = 'pat';
     sessionId = '55555555-5555-4555-8555-555555555555';
 
     const response = await grant('BROKER_KEY', 'support');
 
-    expect(response.status).toBe(403);
-    expect(await response.json()).toMatchObject({ code: 'agent_session_forbidden' });
-    expect(commits).toHaveLength(0);
+    expect({ status: response.status, body: await response.json(), commits: commits.map((c) => c.raw) }).toEqual({
+      body: personBody,
+      status: person.status,
+      commits: personCommits.map((c) => c.raw),
+    });
   });
 
   test('rejects a malformed identifier and a blank agent before any read', async () => {

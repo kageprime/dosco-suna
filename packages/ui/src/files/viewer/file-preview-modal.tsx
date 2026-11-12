@@ -112,17 +112,16 @@ const NO_REFRESH: FileRefreshResult = {
  * source down; this component owns all the chrome so every surface looks and
  * behaves identically (one full-bleed brand style, no variants).
  *
- * It portals to <body>. Two things make it survive being nested inside a
- * parent Radix modal Dialog (the Customize overlay), which would otherwise
- * make it inert:
- *  1. `pointer-events-auto` on the backdrop + surface — Radix sets body
- *     `pointer-events:none` on everything outside its own content, so without
- *     this every click is dead.
- *  2. A native `wheel`/`touchmove` listener that stops propagation before the
- *     event reaches `document`, where Radix's `react-remove-scroll` would call
- *     `preventDefault` and kill mouse-wheel scrolling. (Keyboard scroll never
- *     hit that path, which is why only the mouse appeared broken.)
- * Z-index is dialog-depth aware so it always stacks above its host overlay.
+ * It portals to <body>, also when nested inside a parent modal dialog (the
+ * Customize overlay). That dialog blocks outside pointer input with a
+ * full-screen backdrop and locks page scroll. Three things keep this preview
+ * usable on top of it:
+ *  1. Z-index is dialog-depth aware, so it stacks above the host's backdrop.
+ *  2. `pointer-events-auto` on the backdrop + surface, so an ancestor that
+ *     sets `pointer-events:none` cannot make it inert.
+ *  3. A native `wheel`/`touchmove` listener that stops propagation before the
+ *     event reaches `document`, so no document-level wheel handler can cancel
+ *     scrolling here.
  */
 export function FilePreviewModal({
   selectedFilePath,
@@ -197,13 +196,13 @@ export function FilePreviewModal({
   }, [selectedFilePath, targetLine]);
 
   // Keyboard navigation. Capture-phase + stopImmediatePropagation so ESC only
-  // closes the preview, not a host Radix dialog underneath (Customize overlay).
+  // closes the preview, not a host dialog underneath (Customize overlay).
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       // Focus trap: keep Tab cycling within the dialog. Only acts when focus is
-      // already inside our surface, so when nested under the Customize Radix
-      // dialog (whose own FocusScope owns focus) we don't hijack its Tab order.
+      // already inside our surface, so when nested under the Customize
+      // dialog (whose own focus trap owns focus) we don't hijack its Tab order.
       if (e.key === "Tab") {
         const surface = surfaceRef.current;
         if (surface && surface.contains(document.activeElement)) {
@@ -279,7 +278,7 @@ export function FilePreviewModal({
 
   // Move focus into the dialog on open and restore it to the triggering element
   // on close. Standalone (session Files tab) this completes the focus trap;
-  // nested under the Customize Radix dialog, Radix's FocusScope may keep focus —
+  // nested under the Customize dialog, that dialog's focus trap may keep focus —
   // we make a single, non-looping attempt and don't fight it (no regression).
   useEffect(() => {
     // Inline (embedded) viewers must not steal focus from the chat composer.
@@ -304,10 +303,10 @@ export function FilePreviewModal({
     }
   }, [isOpen, fullscreen]);
 
-  // Keep wheel/touch scroll alive when nested under a Radix modal Dialog:
-  // stop the event before it reaches document, where react-remove-scroll would
+  // Keep wheel/touch scroll alive when nested under a modal dialog: stop the
+  // event before it reaches document, where a scroll-lock listener could
   // preventDefault it. Native listener (not React onWheel) so it fires during
-  // real DOM bubbling, ahead of the document-level listener.
+  // real DOM bubbling, ahead of any document-level listener.
   const contentRef = useRef<HTMLDivElement | null>(null);
   // A host theme with larger controls, or a narrow panel: the toolbar drops the
   // Download label, the previous/next pair (the arrow keys still step), the

@@ -10,6 +10,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 let canWrite = true;
 let emailChannel = true;
 let inboxes: Array<Record<string, unknown>> = [];
+// The Teams row renders from the persisted install: publish outcome, update notice.
+let teamsInstall: Record<string, unknown> | null = null;
+let teamsMode: Record<string, unknown> | null = null;
 const emailInboxes = mock((projectId: string | null) => ({ data: projectId ? inboxes : [], isLoading: false, refetch: mock() }));
 const disconnected = () => ({ data: null, isLoading: false });
 const disconnect = () => ({ isPending: false, mutate: mock() });
@@ -26,9 +29,10 @@ mock.module('@kortix/sdk/react', () => ({
     `${providerID}/${modelID}`,
   flattenModels: () => [],
   modelProviderMode: () => 'gateway' as const,
-  // channels-view reads Teams from the SDK directly.
-  useTeamsInstall: disconnected,
-  useTeamsMode: disconnected,
+  // channels-view reads Teams from the SDK directly; the row's publish
+  // outcome and update notice render from this install.
+  useTeamsInstall: () => ({ data: teamsInstall, isLoading: false }),
+  useTeamsMode: () => ({ data: teamsMode, isLoading: false }),
   useDisconnectTeams: disconnect,
 }));
 mock.module('@kortix/ui/internal/lib/use-project-can', () => ({
@@ -116,6 +120,8 @@ beforeEach(() => {
   canWrite = true;
   emailChannel = true;
   inboxes = [];
+  teamsInstall = null;
+  teamsMode = null;
   emailInboxes.mockClear();
 });
 
@@ -176,5 +182,57 @@ describe('ChannelsSection — Email', () => {
     const markup = renderEmail();
     expect(markup).toContain('Give your agent an inbox');
     expect(markup).not.toContain('>Add an inbox</button>');
+  });
+});
+
+// A connected Teams row renders the PERSISTED org-catalog publish outcome, and
+// the server's appUpdateAvailable verdict announces an outdated catalog app
+// (KRTX-4630: the deleted source-text pins' outcomes, as render assertions).
+describe('ChannelsSection — Teams publish outcome', () => {
+  test('a failed org-catalog publish says why and offers Retry next to Disconnect', () => {
+    teamsInstall = {
+      teamName: 'Acme',
+      tenantId: 't1',
+      publishState: 'failed',
+      publishError: 'Graph said no',
+    };
+    teamsMode = { enabled: true, orgConsentUrl: 'https://login.example.test/consent' };
+    const markup = renderEmail();
+    expect(markup).toContain('Catalog publish failed');
+    // The Graph reason, verbatim, under the row.
+    expect(markup).toContain('Acme · Graph said no');
+    // The consent URL doubles as the retry.
+    expect(markup).toContain('href="https://login.example.test/consent"');
+    expect(markup.replace(/<[^>]+>/g, ' ')).toMatch(/\bRetry\b/);
+    expect(markup).toContain('>Disconnect<');
+  });
+
+  test('an outdated catalog app announces the update, names both versions, and the row button publishes it', () => {
+    teamsInstall = {
+      tenantId: 't1',
+      appUpdateAvailable: true,
+      appVersion: '1.0.0',
+      latestAppVersion: '1.2.0',
+    };
+    teamsMode = { enabled: true, orgConsentUrl: 'https://login.example.test/consent' };
+    const markup = renderEmail();
+    expect(markup).toContain('Update the Kortix app in Teams');
+    expect(markup).toContain('Your Teams catalog has version 1.0.0 of the Kortix app. Version 1.2.0');
+    expect(markup.replace(/<[^>]+>/g, ' ')).toMatch(/Publish app update/);
+  });
+
+  test('a catalog of an unknown version still announces, naming the latest', () => {
+    teamsInstall = {
+      tenantId: 't1',
+      appUpdateAvailable: true,
+      appVersion: null,
+      latestAppVersion: '1.2.0',
+    };
+    teamsMode = { enabled: true, orgConsentUrl: 'https://login.example.test/consent' };
+    const markup = renderEmail();
+    expect(markup).toContain('Update the Kortix app in Teams');
+    expect(markup).toContain('Kortix has no record of the app version');
+    expect(markup).toContain('1.2.0');
+    expect(markup).not.toContain('Your Teams catalog has version');
   });
 });

@@ -54,6 +54,7 @@ import {
   withGrantProvenance,
 } from './secret-grant';
 import { errorMessage } from '../../shared/error-message';
+import { readColleagueAccess, withColleagueAccess } from './colleague-access';
 
 /** The re-mint could not be written. The caller must FAIL the prompt: letting it
  *  through would run the new agent against the previous agent's grant, which is
@@ -316,6 +317,7 @@ async function resolveCurrentGrant(input: {
       defaultBranch: project?.defaultBranch,
       manifestPath: project?.manifestPath,
       sessionAgent: input.sessionAgent,
+      sessionId: input.sessionId,
       requestedAgent: input.runningAgent,
       forceRefresh: input.forceRefresh,
     });
@@ -616,6 +618,10 @@ export async function reconcileStoredSessionAgentGrant(input: {
     running = null;
   } else if (loaded) {
     running = withGrantProvenance(grantFromLoadedAgents(runningAgent, loaded), loaded);
+    // A My Kortix colleague also holds the list a person allowed it (colleague-access.ts).
+    if (running && isMyKortixAgentName(runningAgent)) {
+      running = withColleagueAccess(running, await readColleagueAccess(input.sessionId));
+    }
   } else {
     // Unreachable with `rethrowReadErrors: true` (a failed read throws, and a
     // successful one returns agents); if it ever happens, serve the stored

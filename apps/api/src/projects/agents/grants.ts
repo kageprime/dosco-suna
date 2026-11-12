@@ -1,6 +1,7 @@
 import type { AgentGrant } from '@kortix/db';
 import { isMyKortixAgentName } from '@kortix/shared';
-import { canonicalizeGrantActions, canonicalizeGrantConnectors } from '../../iam/agent-scope';
+import { PROJECT_ACTIONS } from '../../iam/actions';
+import { agentMayPerform, canonicalizeGrantActions, canonicalizeGrantConnectors } from '../../iam/agent-scope';
 import type { GitBackedProject } from '../git';
 import { disabledMyKortixAgentGrant, myKortixAgentGrant } from '../lib/my-kortix-agent';
 import { RUNTIME_BUILTIN_AGENTS } from '@kortix/manifest-schema';
@@ -174,7 +175,13 @@ export function grantFromLoadedAgents(agentName: string, loaded: LoadedAgents): 
   // A project that does not run My Kortix (no `builtin_agents.my_kortix: true`)
   // strips an existing `mykortix` session of every project action on its next prompt.
   if (isMyKortixAgentName(agentName)) {
-    return loaded.builtinAgents?.my_kortix === true ? myKortixAgentGrant() : disabledMyKortixAgentGrant();
+    const platform = loaded.builtinAgents?.my_kortix === true ? myKortixAgentGrant() : disabledMyKortixAgentGrant();
+    // Repair mode (an unparseable manifest): My Kortix still runs so the file
+    // can be fixed, but the project cannot prove what any agent may use — so
+    // it receives no project secret, the same fail-closed rule every other
+    // agent answers on an error (secret-grant.ts). Permissions and connectors
+    // stay person-capped; fixing kortix.yaml needs a write, never a secret.
+    return loaded.manifestSyntaxError ? { ...platform, env: [] } : platform;
   }
 
   // No `agents` parsed and no errors → project hasn't adopted
@@ -225,6 +232,18 @@ export function grantFromLoadedAgents(agentName: string, loaded: LoadedAgents): 
   return { agent: agentName, permissions: [], connectors: [], env: [] };
 }
 
+/**
+ * Does the agent's own grant (the one its session token is minted with) allow
+ * repository reads? A session never checks out the repository at boot
+ * (2026-11-08); this decides whether its box may receive repository bytes at
+ * all: the full config release, every agent's compiled config, the project's
+ * template image, and the repository routes. Session create ANDs it with the
+ * launching person's `project.file.read`.
+ */
+export function agentGrantAllowsRepository(agentName: string, loaded: LoadedAgents): boolean {
+  return agentMayPerform(canonicalizeGrantActions(grantFromLoadedAgents(agentName, loaded)), PROJECT_ACTIONS.PROJECT_GITOPS_READ);
+}
+
 /** Resolve the selected agent's sandbox template without repository I/O. */
 export function sandboxFromLoadedAgents(agentName: string, loaded: LoadedAgents): string | null {
   const concreteName =
@@ -232,23 +251,6 @@ export function sandboxFromLoadedAgents(agentName: string, loaded: LoadedAgents)
       ? loaded.defaultAgent
       : agentName;
   return loaded.specs.find((spec) => spec.name === concreteName && spec.enabled)?.sandbox ?? null;
-}
-
-/** Resolve the selected agent's project file delivery mode without repository I/O.
- *  An agent block that fails to parse, or is off, gets no repository: a typo in
- *  `workspace` must not grant the checkout it tried to withhold. */
-export function repositoryAccessFromLoadedAgents(agentName: string, loaded: LoadedAgents): boolean {
-  const name = agentName === DEFAULT_AGENT_SENTINEL && loaded.defaultAgent ? loaded.defaultAgent : agentName;
-  if (loaded.errors.some((error) => error.name === name)) return false;
-  const spec = loaded.specs.find((candidate) => candidate.name === name);
-  if (spec && !spec.enabled) return false;
-  return spec?.repositoryAccess ?? true;
-}
-
-/** Legacy read remains unavailable until its owner explicitly chooses a boolean policy. */
-export function legacyReadWorkspaceFromLoadedAgents(agentName: string, loaded: LoadedAgents): boolean {
-  const name = agentName === DEFAULT_AGENT_SENTINEL && loaded.defaultAgent ? loaded.defaultAgent : agentName;
-  return loaded.specs.find((spec) => spec.name === name && spec.enabled)?.legacyReadWorkspace ?? false;
 }
 
 /**

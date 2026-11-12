@@ -54,6 +54,7 @@ import {
   PrincipalPicker,
   type PrincipalSelection,
 } from './principal-picker';
+import { applyShareSelection, shareSelectionView } from './share-selection';
 
 /** The object a `share` dialog narrows. Connections are the one kind today. */
 export interface ShareableObject {
@@ -157,11 +158,15 @@ export function ShareAccessBody({
       return next;
     });
 
-  const grantedMemberIds = privateOwner
-    ? [privateOwner.userId]
-    : current
-        .filter((grant) => grant.principal_type === 'member' && !removed.has(grant.grant_id))
-        .map((grant) => grant.principal_id);
+  // A shared account: the picker shows who has access as checked, and
+  // unchecking one is the same as its Remove button (`share-selection.ts`).
+  const pickerValue = privateOwner ? picked : shareSelectionView(current, removed, picked);
+  const onPickerChange = (next: PrincipalSelection) => {
+    if (privateOwner) return setPicked(next);
+    const split = applyShareSelection(current, removed, next);
+    setPicked(split.picked);
+    setRemoved(split.removed);
+  };
 
   return (
     <Modal
@@ -297,9 +302,9 @@ export function ShareAccessBody({
               // which takes people and groups; an agent joins once it is shared.
               kinds={privateOwner ? ['member', 'group'] : ['member', 'group', 'agent']}
               everyone={{ label: everyoneLabel }}
-              excludeUserIds={grantedMemberIds}
-              value={picked}
-              onChange={setPicked}
+              excludeUserIds={privateOwner ? [privateOwner.userId] : undefined}
+              value={pickerValue}
+              onChange={onPickerChange}
               disabled={save.isPending}
               autoFocus={false}
               emptyLabel={tI18nComplete.raw('textd2600c68a9ff')}

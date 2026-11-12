@@ -11,6 +11,11 @@
  * Pending invitations show first. With no workspace and no invitation the
  * page hands over to `/new`, the create-or-join screen: never an empty list.
  * Search shows at 8+ rows (`shouldShowWorkspacePageSearch`).
+ *
+ * iOS: search and New workspace sit at the bottom (`BottomSearchBar`: the
+ * search circle bottom left, the New workspace pill bottom right), and the
+ * header holds only the logo and the title. Elsewhere the header's search
+ * button opens `SearchHeader` and its New button creates.
  */
 
 import * as React from 'react';
@@ -37,6 +42,7 @@ import type { SheetRef } from '@/components/kortix/sheet';
 import { ProjectActions } from '@/components/projects/ProjectActions';
 import { PlatformButton } from '@/components/kortix/platform-button';
 import { SearchHeader } from '@/components/kortix/search-header';
+import { BottomSearchBar, useBottomSearchInset, usesBottomSearch } from '@/components/kortix/bottom-search-bar';
 import { useAuthContext, useLanguage } from '@/contexts';
 import { KORTIX_WEB_URL } from '@/lib/kortix-web';
 import { useMyInvites } from '@/lib/invites/hooks';
@@ -81,8 +87,11 @@ export default function ProjectsPage() {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { user } = useAuthContext();
-  // The last row clears the home indicator by 24pt.
-  const bottomPadding = useSafeAreaInsets().bottom + 24;
+  // The last row clears the home indicator by 24pt; on iOS it clears the bottom search bar.
+  const bottomSearch = usesBottomSearch();
+  const bottomSearchInset = useBottomSearchInset();
+  const safeBottomPadding = useSafeAreaInsets().bottom + 24;
+  const bottomPadding = bottomSearch ? bottomSearchInset : safeBottomPadding;
 
   const setSelectedAccountId = useCurrentAccountStore((s) => s.setSelectedAccountId);
   const [query, setQuery] = React.useState('');
@@ -115,8 +124,9 @@ export default function ProjectsPage() {
   // Archiving rows while searching can leave search mode.
   const canSearch = shouldShowWorkspacePageSearch(total);
   React.useEffect(() => {
-    if (!canSearch && searchOpen) closeSearch();
-  }, [canSearch, searchOpen, closeSearch]);
+    // The bottom search (iOS) has no `searchOpen`: its text is the state.
+    if (!canSearch && (searchOpen || query)) closeSearch();
+  }, [canSearch, searchOpen, query, closeSearch]);
 
   // No workspace and no invitation: the create-or-join screen, never an
   // empty list. Wait for the invite list so an invitee keeps the Join rows.
@@ -201,7 +211,7 @@ export default function ProjectsPage() {
             accessibilityRole="button"
             style={({ pressed }) => (pressed ? { transform: [{ scale: 0.99 }] } : undefined)}
             className="mx-4 mb-2.5 flex-row items-center gap-3 rounded-xl bg-secondary/70 px-4 py-3.5 active:bg-secondary">
-            <Avatar chalk fallbackText={item.project.name} size={42} />
+            <Avatar chalk fallbackText={item.project.name} size={42} emoji={item.project.icon} glyph={item.project.icon_glyph} />
             <View className="min-w-0 flex-1">
               <Text variant="small" className="leading-5 text-muted-foreground" numberOfLines={1}>
                 {row.title}
@@ -233,7 +243,7 @@ export default function ProjectsPage() {
           }}
           style={({ pressed }) => (pressed ? { transform: [{ scale: 0.99 }] } : undefined)}
           className="mx-4 mb-2.5 flex-row items-center gap-3 rounded-xl bg-secondary/70 px-4 py-3.5 active:bg-secondary">
-          <Avatar chalk fallbackText={item.project.name} size={42} />
+          <Avatar chalk fallbackText={item.project.name} size={42} emoji={item.project.icon} glyph={item.project.icon_glyph} />
           <View className="min-w-0 flex-1">
             <Text variant="small" className="leading-5 text-foreground" numberOfLines={1}>
               {row.title}
@@ -288,6 +298,7 @@ export default function ProjectsPage() {
             </Text>
           </View>
 
+          {bottomSearch ? null : (
           <View className="flex-row items-center gap-2">
             {/* Search: icon-size button that switches the header to search mode. */}
             {canSearch && (
@@ -312,6 +323,7 @@ export default function ProjectsPage() {
               onPress={openCreate}
             />
           </View>
+          )}
           </>
           )}
         </View>
@@ -346,6 +358,7 @@ export default function ProjectsPage() {
       ) : showNoResults ? (
         <ScrollView
           contentInsetAdjustmentBehavior={SCROLL_INSET_ADJUSTMENT}
+          keyboardDismissMode={bottomSearch ? 'on-drag' : undefined}
           contentContainerStyle={{ flexGrow: 1, paddingBottom: bottomPadding }}
           refreshControl={refreshControl}>
           <View className="flex-1 px-4 pt-4">
@@ -366,8 +379,24 @@ export default function ProjectsPage() {
           contentContainerStyle={{ paddingTop: 12, paddingBottom: bottomPadding }}
           refreshControl={refreshControl}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={bottomSearch ? 'on-drag' : undefined}
         />
       )}
+
+      <BottomSearchBar
+        value={query}
+        onChangeText={setQuery}
+        placeholder={t('workspace.search', 'Search workspaces')}
+        searchLabel={t('workspace.search', 'Search workspaces')}
+        searchEnabled={canSearch}
+        action={{
+          label: t('workspace.newWorkspace', 'New workspace'),
+          icon: Plus,
+          onPress: () => createHandoffRef.current?.open(),
+          disabled: webCreate.pending,
+        }}
+        background={isDark ? THEME.dark.background : THEME.light.background}
+      />
 
       <ProjectActions project={menuProject} onOpenProject={openWorkspace} onClose={closeRowMenu} />
 

@@ -136,7 +136,8 @@ CRs. Only the orchestrating reflection agent writes.
 <landing-rules>
 **In-session refinement (session branch — immediate):**
 
-1. Apply the edits in `/workspace`. They do not change the config this
+1. Apply the edits in your clone of the repository (`kortix workspaces clone`;
+   `/workspace` has none at boot). They do not change the config this
    session runs: agents, skills and tools compile from the base branch.
    They take effect once the change request merges, in new sessions and in
    running ones when they are idle (`kortix sessions reload <session id>`

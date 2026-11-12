@@ -1,5 +1,7 @@
 /** The connector lists: the gateway catalog a principal can use (listCatalog) and the admin dashboard list (listConnectors). */
+import { unannotatedActionRisk } from './action-risk';
 import { likelyToolRisk } from './policy-templates';
+import type { Risk } from './types';
 import { mapLimit } from '@kortix/registry';
 import {
   connectorConnections,
@@ -199,7 +201,17 @@ export async function listCatalog(
         !preloaded.catalogCredentialConnectionIds.has(connection.connectionId)) return null;
     }
     const connectorPolicies = policiesByConnector.get(row.connectorId) ?? [];
-    const actions = actionsByConnector.get(row.connectorId) ?? [];
+    // The risk the gateway enforces (action-risk.ts), so the catalog filters
+    // and labels actions the way a call is gated.
+    const actions = (actionsByConnector.get(row.connectorId) ?? []).map((a) => ({
+      ...a,
+      risk: unannotatedActionRisk(row.providerType, {
+        path: a.path,
+        description: a.description,
+        risk: a.risk as Risk,
+        bindingKind: (a.binding as { kind?: string } | null)?.kind ?? null,
+      }),
+    }));
     // The same set layer the gateway applies: the catalog never advertises a
     // tool the agent's set blocks, and a missing set lists no tool at all.
     const setName = agentPolicySet(p.agentGrant, canonicalConnectorAlias(row.slug));
@@ -566,18 +578,21 @@ export async function listConnectors(
       actions: (config?.catalog_source === 'member' && !catalogVisible(row.connectorId)
         ? []
         : (actionsByConnector.get(row.connectorId) ?? [])
-      ).map((a) => ({
+      ).map((a) => {
+        const risk = unannotatedActionRisk(row.providerType, { path: a.path, description: a.description, risk: a.risk as Risk });
+        return {
         path: a.path,
         name: a.name,
         description: a.description ?? '',
-        risk: a.risk,
-        likely_risk: likelyToolRisk(row.providerType, a.path, a.risk),
+        risk,
+        likely_risk: likelyToolRisk(row.providerType, a.path, risk),
         // The full per-action JSON Schema is the bulk of this route's payload
         // (1.6 MB on prod). It is included unless the caller passes
         // `includeSchemas: false` (`?include_schemas=false`): baked sandbox
         // CLIs read it and cannot be updated in place.
         inputSchema: options.includeSchemas === false ? null : (a.inputSchema ?? null),
-      })),
+        };
+      }),
       requestAuthType: auth.type,
       requiresAuth: hasAuth,
       secretIdentifier: row.authSecret,

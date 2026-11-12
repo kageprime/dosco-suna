@@ -11,8 +11,17 @@
  * files come from git.
  *
  * Layout (Jay, 2026-09-22):
- * - `PageHeader` with the large title and the `···`; no controls beside it.
- * - Search, then the breadcrumb (chips, never clipped). Inside a folder the
+ * - `PageHeader` with the large title and one right button, View options
+ *   (sliders; a glass circle on iOS 26+, the Schedules page's `+` slot). On
+ *   iOS it is the system pull-down menu (`NativeMenuButton`; Jay,
+ *   2026-11-11): a Sort submenu and a View submenu (the active choice
+ *   checked), then Download. Elsewhere it opens the View options sheet with
+ *   the same three groups: Sort (four rows), View (Grid · List) and Download
+ *   (this folder, or every file).
+ * - Search (the Schedules page's `SearchListHeader`), then the breadcrumb
+ *   (chips, never clipped). On iOS the search sits at the bottom instead
+ *   (`BottomSearchBar`): the search circle sits bottom left, the version
+ *   switcher bottom right (Jay, 2026-11-11). Inside a folder the
  *   hamburger (or, as a sub-page, Go back) stays: a crumb, or Android back,
  *   goes up one folder, never to home. Go back on the sub-page leaves the
  *   page from any folder.
@@ -22,8 +31,10 @@
  * - Search covers the whole repository, not the open folder: the server
  *   matches filenames, and `searchFileTree` ranks them and adds the folders
  *   their paths name (COR-155). Each result shows its folder under its name.
- * - The pinned bar (`PinnedBar`, the project drawer's bottom bar): version ·
- *   sort · list/grid `Tabs` · download, floating over a fade of the page.
+ * - The pinned bar (`PinnedBar`, the project drawer's bottom bar) holds only
+ *   the version switcher, bottom left, floating over a fade of the page. On
+ *   iOS 26+ it is a Liquid Glass button (`GlassButtons`: the glass is inside
+ *   the button, never a layer behind it); elsewhere the secondary fill.
  *   Refresh is a pull on the list; there is no button.
  * - No scale, no opacity, no spring on a press: rows use `SettingsRow`'s
  *   pressed fill; tiles use `active:bg-accent`.
@@ -37,7 +48,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BackHandler, Platform, Pressable, RefreshControl, ScrollView, View, type ListRenderItem } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
-import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { SheetScrollView } from '@/components/kortix/sheet-parts';
 import { useColorScheme } from 'nativewind';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -50,17 +62,20 @@ import { getFilePreviewType } from '@/lib/files/preview-type';
 import { KortixLoader } from '@/components/kortix/kortix-loader';
 import { PageContent } from '@/components/kortix/page-content';
 import { PageHeader } from '@/components/kortix/page-header';
+import { HEADER_BUTTON_SIZE, HEADER_ICON_SIZE } from '@/components/kortix/header-button';
+import { GlassButtons, LIQUID_GLASS_AVAILABLE } from '@/components/kortix/liquid-glass';
 import { PinnedBar, usePinnedBarInset } from '@/components/kortix/pinned-bar';
 import { TopFade, useScrollFade } from '@/components/kortix/scroll-fade';
 import { SearchListHeader } from '@/components/kortix/search-list-header';
+import { BottomSearchBar, useBottomSearchInset, usesBottomSearch } from '@/components/kortix/bottom-search-bar';
 import { SettingsGroup, SettingsGroupItem, SettingsRow } from '@/components/kortix/settings-list';
-import { CopyContentButton, KortixBottomSheetModal, SheetTitleRow } from '@/components/kortix/sheet';
+import { CopyContentButton, KortixBottomSheetModal, SheetTitleRow, useContentSheetBottomInset } from '@/components/kortix/sheet';
+import { NATIVE_MENU_AVAILABLE, NativeMenuButton } from '@/components/kortix/native-menu-button';
 import { POP_IN, PUSH_IN, SheetBackButton } from '@/components/kortix/sheet-push';
 import { useToast } from '@/components/kortix/toast-provider';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { FileGlyph } from '@/components/files/file-icons';
 import { downloadFailureMessage } from '@/lib/files/download-status';
@@ -69,8 +84,8 @@ import { buildFilesListItems, type FilesListItem } from '@/lib/files/files-list-
 import { directoryChildren, isCutDirectory, searchFileTree, searchResultLocation, type TreeSearchEntry } from '@/lib/files/tree-search';
 import { folderTone } from '@/lib/files/folder-tone';
 import { haptics } from '@/lib/haptics';
+import { noResultsLabel } from '@/lib/ui/search-filter';
 import {
-  ArrowsDownUpIcon,
   CaretRightIcon,
   ClockCounterClockwiseIcon,
   DownloadSimpleIcon,
@@ -78,6 +93,7 @@ import {
   GitBranchIcon,
   GitCommitIcon,
   ListIcon,
+  SlidersHorizontalIcon,
   SquaresFourIcon,
 } from '@/lib/icons';
 import {
@@ -114,6 +130,20 @@ const ELEVATED = new Set(['.kortix']);
 type SortBy = 'name' | 'type';
 type SortOrder = 'asc' | 'desc';
 type ViewMode = 'list' | 'grid';
+
+/** The View options sheet's Sort rows, in the order the old sort button cycled them. */
+const SORT_OPTIONS: ReadonlyArray<{ by: SortBy; order: SortOrder; label: string }> = [
+  { by: 'name', order: 'asc', label: 'Name, A to Z' },
+  { by: 'name', order: 'desc', label: 'Name, Z to A' },
+  { by: 'type', order: 'asc', label: 'Type, A to Z' },
+  { by: 'type', order: 'desc', label: 'Type, Z to A' },
+];
+const VIEW_OPTIONS: ReadonlyArray<{ mode: ViewMode; label: string; icon: typeof ListIcon }> = [
+  { mode: 'grid', label: 'Grid', icon: SquaresFourIcon },
+  { mode: 'list', label: 'List', icon: ListIcon },
+];
+/** Space between the View options sheet's groups (the settings screens' gap). */
+const OPTIONS_GROUP_GAP = 18;
 
 /** A row or tile of the list. `parent` is set on a search result: its folder. */
 type FileRow = SandboxFile & { parent?: string };
@@ -202,7 +232,7 @@ function VersionSheet({
   const insets = useSafeAreaInsets();
   const sorted = useMemo(() => orderVersions(branches, defaultBranch), [branches, defaultBranch]);
   return (
-    <BottomSheetScrollView
+    <SheetScrollView
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: Math.max(insets.bottom, 16) + 8 }}>
       {isLoading && sorted.length === 0 ? (
@@ -232,7 +262,7 @@ function VersionSheet({
           ))}
         </SettingsGroup>
       )}
-    </BottomSheetScrollView>
+    </SheetScrollView>
   );
 }
 
@@ -296,7 +326,7 @@ function FileSheetBody({
     return (
       <Animated.View key={view.commit.hash} entering={PUSH_IN} style={{ flex: 1 }}>
         <SheetTitleRow title={view.commit.short_hash} leading={<SheetBackButton onPress={() => goTo({ kind: 'history' }, true)} />} />
-        <BottomSheetScrollView
+        <SheetScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: contentInset, gap: 12 }}
           showsVerticalScrollIndicator={false}>
@@ -307,7 +337,7 @@ function FileSheetBody({
             </Text>
           </View>
           <CommitDiff projectId={projectId} sha={view.commit.hash} path={file.path} isDark={isDark} />
-        </BottomSheetScrollView>
+        </SheetScrollView>
       </Animated.View>
     );
   }
@@ -317,7 +347,7 @@ function FileSheetBody({
     return (
       <Animated.View key="history" entering={returning ? POP_IN : PUSH_IN} style={{ flex: 1 }}>
         <SheetTitleRow title="History" leading={<SheetBackButton onPress={() => goTo({ kind: 'preview' }, true)} />} />
-        <BottomSheetScrollView
+        <SheetScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: contentInset }}
           showsVerticalScrollIndicator={false}>
@@ -348,7 +378,7 @@ function FileSheetBody({
               ))}
             </SettingsGroup>
           )}
-        </BottomSheetScrollView>
+        </SheetScrollView>
       </Animated.View>
     );
   }
@@ -461,9 +491,14 @@ export function FilesNavPage({
   const isDark = colorScheme === 'dark';
   const pageBackground = THEME[isDark ? 'dark' : 'light'].background;
   const insets = useSafeAreaInsets();
+  const sheetBottomInset = useContentSheetBottomInset();
   const toast = useToast();
   const scrollFade = useScrollFade();
-  const contentInset = usePinnedBarInset(BAR_CONTROL_HEIGHT);
+  // iOS: the search sits in the bottom bar with the version switcher (`BottomSearchBar`, 44pt).
+  const bottomSearch = usesBottomSearch();
+  const pinnedBarInset = usePinnedBarInset(BAR_CONTROL_HEIGHT);
+  const bottomSearchInset = useBottomSearchInset();
+  const contentInset = bottomSearch ? bottomSearchInset : pinnedBarInset;
 
   const [ref_, setRef] = useState('');
   const [path, setPath] = useState('');
@@ -476,6 +511,7 @@ export function FilesNavPage({
   const [downloadingDir, setDownloadingDir] = useState(false);
   const versionSheetRef = React.useRef<BottomSheetModal>(null);
   const fileSheetRef = React.useRef<BottomSheetModal>(null);
+  const optionsSheetRef = React.useRef<BottomSheetModal>(null);
 
   const branchesQuery = useProjectBranches(projectId);
   const defaultBranch = branchesQuery.data?.default_branch ?? '';
@@ -635,19 +671,13 @@ export function FilesNavPage({
     [onRowPress, searching],
   );
 
-  const cycleSort = () => {
+  const chooseSort = (by: SortBy, order: SortOrder) => {
     haptics.selection();
-    if (sortBy === 'name' && sortOrder === 'asc') setSortOrder('desc');
-    else if (sortBy === 'name') {
-      setSortBy('type');
-      setSortOrder('asc');
-    } else if (sortOrder === 'asc') setSortOrder('desc');
-    else {
-      setSortBy('name');
-      setSortOrder('asc');
-    }
+    setSortBy(by);
+    setSortOrder(order);
   };
-  const sortLabel = `Sorted by ${sortBy}, ${sortOrder === 'asc' ? 'ascending' : 'descending'}`;
+  // A partial folder keeps the server's order (see `dirPartial`).
+  const sortDisabled = dirPartial && !searching;
 
   const downloadDir = async () => {
     if (downloadingDir || !ref_) return;
@@ -681,11 +711,30 @@ export function FilesNavPage({
       ? ((listQuery.error as Error)?.message ?? 'Unable to load the files')
       : visible.length === 0 && !moreEntries
         ? query
-          ? 'No matching files'
+          ? noResultsLabel(query)
           : path
             ? 'This folder is empty'
             : 'No files in this version'
         : null;
+
+  const currentVersion = ref_ ? versionLabel(ref_, branchesQuery.data?.branches) : null;
+  const versionSwitcher = (
+    <GlassButtons>
+      <Button
+        variant={LIQUID_GLASS_AVAILABLE ? 'ghost' : 'secondary'}
+        // `lg` beside the bottom search's 44pt circle; 40pt alone.
+        size={bottomSearch ? 'lg' : 'default'}
+        className="shrink rounded-full"
+        onPress={() => {
+          haptics.tap();
+          versionSheetRef.current?.present();
+        }}
+        accessibilityLabel={`Version, ${currentVersion ?? 'none'}`}>
+        <Icon as={GitBranchIcon} size={16} className="text-foreground" />
+        <Text numberOfLines={1}>{currentVersion ?? '…'}</Text>
+      </Button>
+    </GlassButtons>
+  );
 
   return (
     <View className="flex-1 bg-background">
@@ -694,10 +743,70 @@ export function FilesNavPage({
         title={path ? basename(path) : page.label}
         onBack={onBack}
         onOpenDrawer={onBack ? undefined : onOpenDrawer}
+        rightActions={
+          NATIVE_MENU_AVAILABLE ? (
+            // iOS: the system pull-down menu (Jay, 2026-11-11), Sort and View as
+            // submenus with the active choice checked, then Download.
+            <NativeMenuButton
+              systemImage="slider.horizontal.3"
+              accessibilityLabel="View options"
+              items={[
+                {
+                  type: 'submenu',
+                  title: 'Sort',
+                  systemImage: 'arrow.up.arrow.down',
+                  disabled: sortDisabled,
+                  items: SORT_OPTIONS.map((option) => ({
+                    type: 'action' as const,
+                    title: option.label,
+                    checked: option.by === sortBy && option.order === sortOrder,
+                    onPress: () => chooseSort(option.by, option.order),
+                  })),
+                },
+                {
+                  type: 'submenu',
+                  title: 'View',
+                  systemImage: viewMode === 'grid' ? 'square.grid.2x2' : 'list.bullet',
+                  items: VIEW_OPTIONS.map((option) => ({
+                    type: 'action' as const,
+                    title: option.label,
+                    systemImage: option.mode === 'grid' ? 'square.grid.2x2' : 'list.bullet',
+                    checked: viewMode === option.mode,
+                    onPress: () => {
+                      haptics.selection();
+                      setViewMode(option.mode);
+                    },
+                  })),
+                },
+                {
+                  type: 'action',
+                  title: downloadingDir ? 'Downloading…' : path ? 'Download this folder' : 'Download all files',
+                  systemImage: 'arrow.down.circle',
+                  disabled: downloadingDir || !ref_,
+                  onPress: () => void downloadDir(),
+                },
+              ]}
+            />
+          ) : (
+          <Button
+            variant="ghost"
+            size={HEADER_BUTTON_SIZE}
+            className="rounded-full"
+            onPress={() => {
+              haptics.tap();
+              optionsSheetRef.current?.present();
+            }}
+            accessibilityLabel="View options"
+            accessibilityHint="Sort, grid or list, and download"
+            hitSlop={{ top: 10, bottom: 10 }}>
+            <Icon as={SlidersHorizontalIcon} size={HEADER_ICON_SIZE} className="text-foreground" />
+          </Button>
+          )
+        }
       />
 
       <PageContent>
-        <SearchListHeader value={search} onChangeText={setSearch} placeholder="Search files" />
+        {bottomSearch ? null : <SearchListHeader value={search} onChangeText={setSearch} placeholder="Search files" />}
 
         {/* Breadcrumb: chips on one 40pt line, never clipped. The current
             folder is the last chip; every earlier chip goes back to it. */}
@@ -751,6 +860,7 @@ export function FilesNavPage({
             contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: contentInset }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={bottomSearch ? 'on-drag' : undefined}
             refreshControl={
               <RefreshControl
                 refreshing={pulling}
@@ -812,58 +922,83 @@ export function FilesNavPage({
           />
           <TopFade style={scrollFade.topFadeStyle} />
 
-          {/* The project drawer's pinned bar: version · sort · view · refresh ·
-              download, floating over a fade of the page. */}
-          <PinnedBar controlHeight={BAR_CONTROL_HEIGHT} background={pageBackground} className="gap-2 px-4">
-            <Button
-              variant="secondary"
-              className="shrink rounded-full"
-              onPress={() => {
-                haptics.tap();
-                versionSheetRef.current?.present();
-              }}
-              accessibilityLabel={`Version, ${ref_ ? versionLabel(ref_, branchesQuery.data?.branches) : 'none'}`}>
-              <Icon as={GitBranchIcon} size={16} className="text-foreground" />
-              <Text numberOfLines={1}>{ref_ ? versionLabel(ref_, branchesQuery.data?.branches) : '…'}</Text>
-            </Button>
-            <View className="flex-1" />
-            <Button
-              variant="secondary"
-              size="icon"
-              className="rounded-full"
-              disabled={dirPartial && !searching}
-              onPress={cycleSort}
-              accessibilityLabel={sortLabel}>
-              <Icon as={ArrowsDownUpIcon} size={18} className="text-foreground" />
-            </Button>
-            {/* The list / grid toggle: the app's Tabs, as a 40pt pill. */}
-            <Tabs
-              value={viewMode}
-              onValueChange={(value) => {
-                haptics.selection();
-                setViewMode(value as ViewMode);
-              }}>
-              <TabsList className="h-10 rounded-full bg-secondary p-1">
-                <TabsTrigger value="list" className="h-8 w-9 rounded-full px-0" accessibilityLabel="Show as list">
-                  <Icon as={ListIcon} size={16} className="text-foreground" />
-                </TabsTrigger>
-                <TabsTrigger value="grid" className="h-8 w-9 rounded-full px-0" accessibilityLabel="Show as grid">
-                  <Icon as={SquaresFourIcon} size={16} className="text-foreground" />
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <Button
-              variant="secondary"
-              size="icon"
-              className="rounded-full"
-              onPress={downloadDir}
-              disabled={downloadingDir || !ref_}
-              accessibilityLabel={path ? 'Download this folder' : 'Download all files'}>
-              <Icon as={DownloadSimpleIcon} size={18} className="text-foreground" />
-            </Button>
-          </PinnedBar>
+          {/* The project drawer's pinned bar: the version switcher, bottom
+              left, floating over a fade of the page. iOS 26+: Liquid Glass
+              inside the button (`GlassButtons`), so a press lands on the
+              glass; elsewhere the secondary fill. On iOS the bar is
+              `BottomSearchBar`: the switcher is its `leading`, the search
+              circle sits at the right. */}
+          {bottomSearch ? (
+            <BottomSearchBar
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search files"
+              trailing={versionSwitcher}
+              background={pageBackground}
+            />
+          ) : (
+            <PinnedBar controlHeight={BAR_CONTROL_HEIGHT} background={pageBackground} className="px-4">
+              {versionSwitcher}
+            </PinnedBar>
+          )}
         </View>
       </PageContent>
+
+      {/* View options: Sort · View · Download (the header's sliders button).
+          Sort and View apply at once and keep the sheet open; Download
+          closes it first, so the result toast is not under the sheet. */}
+      <KortixBottomSheetModal ref={optionsSheetRef} title="View options" enableDynamicSizing enablePanDownToClose>
+        {/* A sheet scroll view, not a plain View: gorhom's dynamic sizing
+            needs its measured content height, and in landscape or at large
+            text the seven rows outgrow the capped sheet, so they must scroll. */}
+        <SheetScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: Math.max(sheetBottomInset, 16) + 8, gap: OPTIONS_GROUP_GAP }}>
+          <SettingsGroup title="Sort">
+            {SORT_OPTIONS.map((option) => (
+              <SettingsRow
+                key={`${option.by}-${option.order}`}
+                label={option.label}
+                checked={option.by === sortBy && option.order === sortOrder}
+                right={null}
+                disabled={sortDisabled}
+                onPress={() => chooseSort(option.by, option.order)}
+              />
+            ))}
+          </SettingsGroup>
+          {sortDisabled ? (
+            <Text variant="muted" className="-mt-2 px-2">
+              Sorting applies once every item is loaded.
+            </Text>
+          ) : null}
+          <SettingsGroup title="View">
+            {VIEW_OPTIONS.map((option) => (
+              <SettingsRow
+                key={option.mode}
+                icon={option.icon}
+                label={option.label}
+                checked={viewMode === option.mode}
+                right={null}
+                onPress={() => {
+                  haptics.selection();
+                  setViewMode(option.mode);
+                }}
+              />
+            ))}
+          </SettingsGroup>
+          <SettingsGroup>
+            <SettingsRow
+              icon={DownloadSimpleIcon}
+              label={path ? 'Download this folder' : 'Download all files'}
+              value={downloadingDir ? 'Downloading…' : undefined}
+              disabled={downloadingDir || !ref_}
+              right={null}
+              onPress={() => {
+                optionsSheetRef.current?.dismiss();
+                void downloadDir();
+              }}
+            />
+          </SettingsGroup>
+        </SheetScrollView>
+      </KortixBottomSheetModal>
 
       {/* Version picker */}
       <KortixBottomSheetModal ref={versionSheetRef} title="Version" enableDynamicSizing maxDynamicContentSize={Math.floor(insets.top + 600)} enablePanDownToClose>

@@ -1,5 +1,6 @@
 import { copySessionLog, withForkAttachmentCleanup } from '../session-log-fork';
 import { platformDefaultModelId } from '../../llm-gateway/models/served-managed-models';
+import { servableProjectCatalog } from '../../llm-gateway/models/servable-catalog';
 import { randomUUID } from 'node:crypto';
 import { SESSION_INITIAL_CONTEXT_MAX_CHARS, SessionCreateInputSchema } from '@kortix/api-contract';
 import { projectSessionConnectorBindings, projectSessionGrants, projectSessionRuntimeContexts, projectSessions, sessionLifecycleCommands, sessionProviderSecretPools } from '@kortix/db';
@@ -11,8 +12,7 @@ import { accountMayUseManagedModels } from '../../billing/services/entitlements'
 import { type SandboxProviderName, config } from '../../config';
 
 
-import { agentMayUseConnector, agentMayUseEnv } from '../../iam/agent-scope';
-import { usableProviderKeys } from '../../secrets/provider-key-selection';
+import { agentMayUseConnector } from '../../iam/agent-scope';
 import { decideSessionOnBehalfOf } from './on-behalf-of';
 import {
   loadSessionGrants,
@@ -49,8 +49,7 @@ import {
   projectRequiresDeclaredAgents,
   resolveGovernedAgentGrant,
   sandboxFromLoadedAgents,
-  repositoryAccessFromLoadedAgents,
-  legacyReadWorkspaceFromLoadedAgents,
+  agentGrantAllowsRepository,
 } from '../agents';
 import { convertPendingPromptToInboxRow } from '../session-lifecycle/pending-prompt';
 
@@ -59,7 +58,6 @@ import { listResolvedProjectSecrets, parseSessionSecretsAllowlist, secretKeyColl
 
 import { withProjectGitAuth } from './git';
 import { repositoryGeneration } from './repository-generation';
-import { resolveFastBootGitHintWithCache } from './fast-boot-git-hint';
 import { resolveSessionProvider, sessionProviderIsLocked } from './provider-precedence';
 import {
   DEPRECATED_PROVIDER_CODE,
@@ -102,17 +100,29 @@ import { FIRST_PROMPT_MAX_CHARS, SPACE_NOT_FOUND, ensureDefaultSpace, findForkSo
 import { liveTriggerSpace, triggerRunSpace } from './trigger-space';
 
 import {
-  resolveProjectSnapshotMode,
-  resolveProjectSnapshotPinForSession,
 } from '../../git-proxy/project-snapshot';
 
 import { buildSessionSandboxEnvVars } from './session-sandbox-env-build';
 import { sandboxCallbackUnreachableReason, sandboxCallbackDeadTunnelReason } from './session-callback-probe';
-import type { Actor } from '../../iam/actor';
+import { actorForUser, type Actor } from '../../iam/actor';
+import { PROJECT_ACTIONS } from '../../iam/actions';
+import { authorize } from '../../iam/authorize';
 import { loadVisibleSession, sessionIsTombstoned } from './session-visibility';
 import { HUMAN_SESSION_SURFACES } from './session-surface';
 import { isWorkflowRunnerContext, sessionIsWorkflowRunner } from './workflow-runner';
 import { isInlineColleagueContext } from './inline-colleague';
+import {
+  askColleagueAccess,
+  checkColleagueAccessItems,
+  type ColleagueAccess,
+  colleagueAccessHash,
+  colleagueAccessPendingText,
+  consumeColleagueAccessAllow,
+  COLLEAGUE_ACCESS_APPROVAL_REQUIRED,
+  findColleagueAccessAllow,
+  parseColleagueAccess,
+} from './colleague-access';
+import { surfaceSessionIdOf } from './session-asks';
 import { childSessionLimitRefusal } from './child-session-limit';
 import type { SessionInvocationSource } from '../session-lifecycle/types';
 import { captureProductEvent } from '../../shared/product-analytics';
@@ -543,6 +553,7 @@ async function resolveSessionAgent(params: {
     agentName: string;
     platformMetaAgent: boolean;
     repositoryAccess: boolean;
+    myKortixColleague: boolean;
   }>
 > {
   const { input, projectId } = params;
@@ -602,11 +613,6 @@ async function resolveSessionAgent(params: {
           manifestDefaultAgent,
           mirroredDefaultAgent,
         });
-  // My Kortix starting a session without naming an agent, in a project whose
-  // `default_agent` is My Kortix. Nothing is guessed: a router's child is a My
-  // Kortix worker and an inline colleague runs as My Kortix (both below);
-  // anything else is refused with the agents to name.
-  const unnamedMyKortixChild = callerIsMeta && !requestedAgent && isMyKortixAgentName(agentName);
   // kortix.yaml is not YAML: repair mode. Only My Kortix runs, so the file can
   // be fixed. Any other agent is a typed refusal that names the error, never a 500.
   if (loadedAgents.manifestSyntaxError && !isMyKortixAgentName(agentName)) {
@@ -663,46 +669,138 @@ async function resolveSessionAgent(params: {
       };
     }
   }
-  // An inline colleague (inline-colleague.ts) has My Kortix's own access and its own prompt.
-  const myKortixColleague = platformMetaAgent && callerIsMeta && isInlineColleagueContext(body.runtime_context);
-  if (platformMetaAgent && callerIsMeta && !myKortixWorkflowRunner && !frontWorker && !myKortixColleague) {
-    if (unnamedMyKortixChild) {
-      const agents = loadedAgents.specs.filter((spec) => spec.enabled && !spec.subagent).map((spec) => spec.name);
-      return {
-        error: {
-          status: 400,
-          body: {
-            error: `My Kortix is this workspace's default agent, so a session My Kortix starts names its agent: ${agents.join(', ') || 'none is declared'}. To start a colleague with your own access, give the agent tool inline instructions.`,
-            code: 'AGENT_REQUIRED',
-            agents,
-          },
-        },
-      };
-    }
+  // My Kortix names who works: a project agent, or itself for a colleague or a
+  // workflow runner. Nothing is picked for it from `default_agent` or the order
+  // of the agents: an unnamed child is refused with the agents to name. A
+  // router's worker is the exception: the router picks by space (above).
+  // Both refusals list the project agents and the exact field to set, so a
+  // caller (the CLI's `--agent`, an SDK host) can retry without guessing.
+  const startableAgents = () =>
+    loadedAgents.specs
+      .filter((spec) => spec.enabled && !spec.subagent && !isMyKortixAgentName(spec.name))
+      .map((spec) => spec.name);
+  if (callerIsMeta && !requestedAgent && !callerIsFront && !isWorkflowRunnerContext(body.runtime_context)) {
+    const agents = startableAgents();
     return {
       error: {
         status: 400,
         body: {
-          error:
-            'My Kortix cannot start another My Kortix session. Pick a project agent.',
-          code: 'META_AGENT_RECURSION',
+          error: `A session My Kortix starts names its agent. ${nameAnAgentHint(agents)} To start a colleague, give the agent tool inline instructions, and list the connectors and secrets it needs.`,
+          code: 'AGENT_REQUIRED',
+          agents,
         },
       },
     };
   }
-  const repositoryAccess = repositoryAccessFromLoadedAgents(agentName, loadedAgents);
-  if (legacyReadWorkspaceFromLoadedAgents(agentName, loadedAgents)) {
+  // An inline colleague (inline-colleague.ts) has My Kortix's own access, the list a person allowed it, and its own prompt.
+  const myKortixColleague = platformMetaAgent && callerIsMeta && isInlineColleagueContext(body.runtime_context);
+  if (platformMetaAgent && callerIsMeta && !myKortixWorkflowRunner && !frontWorker && !myKortixColleague) {
+    const agents = startableAgents();
     return {
       error: {
-        status: 409,
+        status: 400,
         body: {
-          error: 'workspace mode "read" requires restricted workspace artifacts',
-          code: 'WORKSPACE_MODE_UNAVAILABLE',
+          error: `My Kortix cannot start another My Kortix session. ${nameAnAgentHint(agents)} To start a colleague, give the agent tool inline instructions.`,
+          code: 'META_AGENT_RECURSION',
+          agents,
         },
       },
     };
   }
-  return { loadedAgents, projectDefaultAgent, agentName, platformMetaAgent, repositoryAccess };
+  // Whether this session's box may receive repository bytes (the full config
+  // release, every agent's compiled config, the project image) and use the
+  // repository routes. Decided by grants, never by kortix.yaml: the agent's
+  // grant must allow `project.gitops.read` and the launching person must hold
+  // `project.file.read`. A service account is governed by its own grant alone.
+  const repositoryAccess =
+    agentGrantAllowsRepository(agentName, loadedAgents) &&
+    (input.requestingPrincipalType === 'service_account' ||
+      (await authorize(actorForUser(input.userId, project.accountId), PROJECT_ACTIONS.PROJECT_FILE_READ, {
+        type: 'project',
+        id: projectId,
+      })).allowed);
+
+  return { loadedAgents, projectDefaultAgent, agentName, platformMetaAgent, repositoryAccess, myKortixColleague };
+}
+
+/** The fix for an unnamed or My Kortix child: the field, the CLI flag and the agents to name. */
+function nameAnAgentHint(agents: string[]): string {
+  if (agents.length === 0) {
+    return 'No project agent is declared: add one under `agents:` in kortix.yaml, then set `agent_name` (CLI: `--agent <name>`).';
+  }
+  return `Set \`agent_name\` (CLI: \`--agent <name>\`) to one of: ${agents.join(', ')}.`;
+}
+
+/**
+ * The connectors and secrets My Kortix hands this colleague
+ * (colleague-access.ts), checked with the request: the shape, that the caller
+ * is My Kortix starting a colleague, and that every item exists. Null: no
+ * access asked. Records nothing.
+ */
+async function checkColleagueAccessForCreate(params: {
+  input: CreateProjectSessionInput;
+  projectId: string;
+  colleague: boolean;
+}): Promise<SessionCreateStep<{ colleagueAccess: ColleagueAccess | null }>> {
+  const { input, projectId } = params;
+  const parsed = parseColleagueAccess(input.body.colleague_access);
+  if (!parsed.ok) return { error: { status: 400, body: { error: parsed.error, code: 'INVALID_COLLEAGUE_ACCESS' } } };
+  if (!parsed.value) return { colleagueAccess: null };
+  if (!params.colleague || !input.callerSessionId) {
+    return {
+      error: {
+        status: 400,
+        body: {
+          error: 'colleague_access is only for a colleague My Kortix starts: the agent tool with inline instructions. A project agent brings its own access.',
+          code: 'COLLEAGUE_ACCESS_NOT_ALLOWED',
+        },
+      },
+    };
+  }
+  const checked = await checkColleagueAccessItems({ projectId, userId: input.userId, access: parsed.value });
+  if (!checked.ok) return { error: { status: checked.status, body: checked.body } };
+  return { colleagueAccess: checked.access };
+}
+
+/**
+ * The person's allow of this exact list for the calling session: its id, used
+ * in the insert. Without one, an ask for the person, and a 409 no session
+ * follows. The last step before the row, so nothing after it refuses a start
+ * the person was just asked about.
+ */
+async function resolveColleagueAccessApproval(params: {
+  input: CreateProjectSessionInput;
+  projectId: string;
+  accountId: string;
+  access: ColleagueAccess | null;
+}): Promise<SessionCreateStep<{ colleagueAccessAllowId: string | null }>> {
+  const { input, projectId, accountId, access } = params;
+  if (!access || !input.callerSessionId) return { colleagueAccessAllowId: null };
+  const accessHash = colleagueAccessHash(access);
+  const allowId = await findColleagueAccessAllow(input.callerSessionId, accessHash);
+  if (allowId) return { colleagueAccessAllowId: allowId };
+  const title = (normalizeString(input.body.name) ?? 'A colleague').replace(/ \(inline agent\)$/, '');
+  const ask = await askColleagueAccess({
+    accountId,
+    projectId,
+    sessionId: input.callerSessionId,
+    surfaceSessionId: await surfaceSessionIdOf(input.callerSessionId),
+    title,
+    access,
+    accessHash,
+  });
+  return {
+    error: {
+      status: 409,
+      body: {
+        error: colleagueAccessPendingText(access),
+        code: COLLEAGUE_ACCESS_APPROVAL_REQUIRED,
+        ask_id: `access:${ask.id}`,
+        connectors: access.connectors,
+        secrets: access.secrets,
+      },
+    },
+  };
 }
 
 /**
@@ -722,10 +820,47 @@ export function firstPromptModelRef(pendingPrompt: unknown): string | null {
   return claude.kind === 'valid' ? claude.ref : ref;
 }
 
+/** The parent turn's model a child's create carries in `runtime_context` (kortixd `cloud-subagent.ts`). */
+function parentTurnModel(runtimeContext: unknown): string | null {
+  if (!runtimeContext || typeof runtimeContext !== 'object') return null;
+  const value = (runtimeContext as Record<string, unknown>)['kortix.parent_model'];
+  return typeof value === 'string' && value.trim() && !/\s/.test(value.trim()) ? value.trim() : null;
+}
+
 /**
  * Resolve and validate the session model, and the provider key selection a
  * pooled-key model needs. Runs before the billing hold.
  */
+/** The session-create refusal when no model can run the session. */
+export function noModelAvailableBody(freeModelsOnly: boolean): { error: string; code: 'no_model_available'; plan_upgrade: boolean } {
+  return {
+    error: freeModelsOnly
+      ? 'No model: upgrade to the Credits plan or add your own provider key.'
+      : 'No model: add a provider key or turn on Kortix Managed Models in Models.',
+    code: 'no_model_available',
+    // The Free plan has no managed models; upgrading is one of the two fixes.
+    plan_upgrade: freeModelsOnly,
+  };
+}
+
+/** True when the project's servable catalog (what the box registers at boot) is empty, refused keys not counted. */
+async function projectHasNoServableModel(input: {
+  projectId: string;
+  accountId: string;
+  userId: string;
+  personalUserId: string | null | undefined;
+}): Promise<boolean> {
+  const catalog = await servableProjectCatalog({
+    projectId: input.projectId,
+    accountId: input.accountId,
+    principalUserId: input.userId,
+    ...(input.personalUserId !== undefined ? { personalUserId: input.personalUserId } : {}),
+    // pi would select a model of a refused key and die on the provider's 401.
+    withoutRefusedKeys: true,
+  });
+  return Object.keys(catalog.models ?? {}).length === 0;
+}
+
 async function resolveSessionModel(params: {
   input: CreateProjectSessionInput;
   accountId: string;
@@ -748,9 +883,29 @@ async function resolveSessionModel(params: {
   if (body.provider_secret_pools !== undefined && !pooledProviderSecrets) {
     return { error: { status: 403, body: { error: 'Provider secret pools are unavailable' } } };
   }
-  // The key selection this session starts with: the caller's, or the one
-  // chosen below for a model that runs only on pooled keys.
-  let providerSecretPools = body.provider_secret_pools as Record<string, string[]> | undefined;
+  // The key selection this session starts with: the caller's, else none, and
+  // the gateway uses every key the session may use when it runs.
+  const providerSecretPools = body.provider_secret_pools as Record<string, string[]> | undefined;
+  // Whose personal keys the gateway will use for this session (spec 2026-09-22
+  // §2.3): a private session's person, nobody for a shared or unattended one.
+  // Every model check below uses it, so a model reached only through one
+  // person's keys is not accepted for a session that cannot use them. A child
+  // session's person is its parent's, unknown here: undefined keeps the
+  // creator's scope.
+  const personalUserId = input.callerSessionId
+    ? undefined
+    : visibility === 'private'
+      ? decideSessionOnBehalfOf({
+          userId,
+          origin,
+          // The metadata the session will carry: the request's, then the caller's.
+          metadata: { ...normalizeJsonObject(body.metadata), ...normalizeJsonObject(input.metadata) },
+          isAccountMember: true,
+          slackRequiresUserIdentity: config.SLACK_REQUIRE_USER_IDENTITY !== false,
+          teamsRequiresUserIdentity: config.TEAMS_REQUIRE_USER_IDENTITY !== false,
+        })
+      : null;
+  const scope = personalUserId === undefined ? {} : { personalUserId };
 
   // Model: normalize + fail-fast at create. Validate against the same
   // servability resolver the gateway uses and store the runtime ref form
@@ -761,7 +916,9 @@ async function resolveSessionModel(params: {
   //
   // Runs BEFORE the billing hold so a bad model never costs a credit
   // reservation. Mirrors the channel-model gate (routes/channel-bindings.ts).
-  const requestedModel = normalizeString(body.model);
+  // `opencode_model` is the pin an old CLI (v0.13.0–v0.14.19) sends beside
+  // `model`; `model` wins (see SessionCreateInputSchema).
+  const requestedModel = normalizeString(body.model ?? body.opencode_model);
   let sessionModel: string | null = null;
   let sessionModelSource: ModelSource | null = null;
   if (requestedModel) {
@@ -784,54 +941,18 @@ async function resolveSessionModel(params: {
       const missing = await missingClaudeSubscription({ accountId, projectId, userId, model: claudeAgent.ref });
       if (missing) return { error: { status: 409, body: claudeSubscriptionRequiredBody(missing) } };
     }
-    let servable = await isModelServableForAccount({
+    // A caller that names only the model (the CLI, the SDK, a chat channel)
+    // selects no keys: the gateway serves the model with every key the
+    // session may use, the Models panel's keys included.
+    const servable = await isModelServableForAccount({
       userId,
       accountId,
       projectId,
       freeModelsOnly,
       model: requestedModel,
       providerSecretPools,
+      ...scope,
     });
-    // A model reached only through pooled keys needs a key selection, and a
-    // caller that names only the model (the CLI, the SDK, a chat channel)
-    // names none: it was refused here. Select every key the caller may use
-    // for its provider, so they rotate — the same keys the web offers.
-    // Personal keys only in a session private to them that acts on their
-    // behalf (spec 2026-09-22 §2.3); a child session's human is its
-    // parent's, unknown here, so it gets shared keys only.
-    if (!servable && providerSecretPools === undefined && pooledProviderSecrets) {
-      const personal =
-        visibility === 'private' && !input.callerSessionId
-          ? decideSessionOnBehalfOf({
-              userId,
-              origin,
-              // The metadata the session will carry: the request's, then the caller's.
-              metadata: { ...normalizeJsonObject(body.metadata), ...normalizeJsonObject(input.metadata) },
-              isAccountMember: true,
-              slackRequiresUserIdentity: config.SLACK_REQUIRE_USER_IDENTITY !== false,
-              teamsRequiresUserIdentity: config.TEAMS_REQUIRE_USER_IDENTITY !== false,
-            })
-          : null;
-      const selection = await usableProviderKeys({
-        accountId,
-        projectId,
-        userId,
-        grantUserId: personal,
-        model: requestedModel,
-      }).catch(() => null);
-      if (selection && agentMayUseEnv(grantFromLoadedAgents(agentName, loadedAgents), selection.envVar)) {
-        const selected = { [selection.providerId]: selection.secretIds };
-        servable = await isModelServableForAccount({
-          userId,
-          accountId,
-          projectId,
-          freeModelsOnly,
-          model: requestedModel,
-          providerSecretPools: selected,
-        });
-        if (servable) providerSecretPools = selected;
-      }
-    }
     if (!servable) {
       return {
         error: {
@@ -855,7 +976,22 @@ async function resolveSessionModel(params: {
         explicit: null,
         freeModelsOnly,
         providerSecretPools,
+        ...scope,
       });
+      // A child session (another session called create) whose agent pins no
+      // model runs on the model its parent's turn runs, not the project
+      // default: a hand-off from a chat on model A must not quietly switch to
+      // model B. The parent's box sends it as `kortix.parent_model`. An agent's
+      // own pin still wins, and an unservable parent model falls through.
+      const parentModel = input.callerSessionId && resolved.source !== 'agent' ? parentTurnModel(body.runtime_context) : null;
+      if (
+        parentModel &&
+        (await isModelServableForAccount({ userId, accountId, projectId, freeModelsOnly, model: parentModel, providerSecretPools, ...scope }))
+      ) {
+        sessionModel = toSessionModelRef(parentModel);
+        sessionModelSource = 'explicit';
+        return { providerSecretPools, sessionModel, sessionModelSource };
+      }
       // An account without managed models gets no platform default: it runs
       // its own connected model (already in `resolved`) or none.
       const concreteModel = resolved.model ?? (freeModelsOnly ? null : platformDefaultModelId() || null);
@@ -866,9 +1002,15 @@ async function resolveSessionModel(params: {
         // No default: the box would boot with no model, and pi does not start
         // without one. The web names the person's pick only on the first prompt.
         const picked = firstPromptModelRef(body.pending_prompt);
-        if (picked && (await isModelServableForAccount({ userId, accountId, projectId, freeModelsOnly, model: picked, providerSecretPools }))) {
+        if (picked && (await isModelServableForAccount({ userId, accountId, projectId, freeModelsOnly, model: picked, providerSecretPools, ...scope }))) {
           sessionModel = toSessionModelRef(picked);
           sessionModelSource = 'explicit';
+        } else if (await projectHasNoServableModel({ projectId, accountId, userId, personalUserId: scope.personalUserId })) {
+          // No KORTIX_MODEL and an empty catalog is exactly the box that never
+          // boots ("pi harness has no model", harness/pi/model.ts). Refuse
+          // before a sandbox, a billing hold or a row exists. A non-empty
+          // catalog is fine: pi selects its first model.
+          return { error: { status: 409, body: noModelAvailableBody(freeModelsOnly) } };
         }
       }
     } catch (error) {
@@ -1337,6 +1479,8 @@ async function insertSessionAndBindings(
     pendingPromptConversion: PendingPromptConversion | null;
     inheritedGrants: SecretGrant[];
     spaceId: string | null;
+    /** A person's allow of this colleague's access, used once here (colleague-access.ts). */
+    colleagueAccessAllowId: string | null;
   },
   runtimeContext: SessionRuntimeContextValue,
   connectorBindings: ValidatedSessionConnectorBindings,
@@ -1361,6 +1505,7 @@ async function insertSessionAndBindings(
     pendingPromptConversion,
     inheritedGrants,
     spaceId,
+    colleagueAccessAllowId,
   } = params;
   const { userId, body } = input;
   return db.transaction(async (tx) => {
@@ -1485,6 +1630,15 @@ async function insertSessionAndBindings(
         })),
       );
     }
+    // The allow and the colleague land together: a failed create leaves it unused, a second start cannot reuse it.
+    if (colleagueAccessAllowId) {
+      const used = await consumeColleagueAccessAllow(tx, { id: colleagueAccessAllowId, colleagueSessionId: sessionId });
+      if (!used) {
+        throw new HTTPException(409, {
+          message: 'Another start used this access approval first. Start the colleague again; the person is asked again.',
+        });
+      }
+    }
     return row;
   });
 }
@@ -1498,44 +1652,6 @@ async function mergeCreatedSessionMetadata(sessionId: string, extra: Record<stri
       updatedAt: new Date(),
     })
     .where(eq(projectSessions.sessionId, sessionId));
-}
-
-/** The project snapshot pin the new session boots with (S3 config provider). */
-async function resolveCreatedSessionProjectSnapshot(
-  params: { project: ProjectRow; projectId: string; sessionId: string; baseRef: string; tl: ProvisionTimeline },
-  fastBootGitHint: Awaited<ReturnType<typeof resolveFastBootGitHintWithCache>> | undefined,
-) {
-  const { project, projectId, sessionId, baseRef, tl } = params;
-  // S3 config provider: pin a PREPARED archive for the exact base tip
-  // and presign its download descriptor right here (local signing, no
-  // bucket call on the create path), or record the miss and queue the
-  // build for the next session. One indexed read.
-  const projectSnapshotMode = resolveProjectSnapshotMode(project.metadata);
-  const projectSnapshot =
-    projectSnapshotMode === 'git'
-      ? { pin: null, descriptor: null, cache: 'unconfigured' as const }
-      : await resolveProjectSnapshotPinForSession({
-          projectId,
-          ref: baseRef,
-          commitSha: fastBootGitHint?.baseSha,
-          repoUrl: project.repoUrl,
-        }).catch((err) => {
-          console.warn('[project-snapshot] pin lookup failed; session boots from git', {
-            projectId,
-            sessionId,
-            error: err instanceof Error ? err.message : String(err),
-          });
-          return { pin: null, descriptor: null, cache: 'miss' as const };
-        });
-  if (projectSnapshotMode !== 'git') {
-    tl.mark(`project-snapshot-${projectSnapshot.cache}`);
-  }
-  return {
-    fastBootGitHint,
-    projectSnapshotMode,
-    projectSnapshotPin: projectSnapshot.pin,
-    projectSnapshotDescriptor: projectSnapshot.descriptor,
-  };
 }
 
 /** Build the env and kick off provisionSessionSandbox() for a new session row. */
@@ -1579,61 +1695,20 @@ async function provisionCreatedSession(params: {
       tl.mark('git-auth');
       return gitProject;
     });
-    // Resolve the base tip from the API's existing mirror and package its
-    // one-commit scaffold delta. This moves the small object transfer into
-    // sandbox creation and removes the slow in-guest Git negotiation.
-    // Best-effort + timeout-guarded (never block create): on failure/timeout
-    // the hint is omitted → daemon delta-fetches as before. Runs CONCURRENTLY
-    // with gitAuth (folded into the env-build chain, not awaited inline).
-    let fastBootHintTimeout: ReturnType<typeof setTimeout> | undefined;
-    // The hint is what lets the daemon boot with ZERO proxied git requests
-    // (scaffold + delta) and start the runtime before the checkout. Bounded by the 2 s race below; a miss
-    // just means the daemon's fetch fallback.
-    const fastBootGitHintPromise = Promise.race([
-      projectWithGitAuthPromise
-        .then((projectWithGitAuth) =>
-          resolveFastBootGitHintWithCache(
-            projectWithGitAuth,
-            baseRef,
-            project.metadata,
-          ),
-        )
-        .catch(() => undefined),
-      new Promise<undefined>((resolve) => {
-        fastBootHintTimeout = setTimeout(() => resolve(undefined), 2_000);
-      }),
-    ]).finally(() => {
-      if (fastBootHintTimeout) clearTimeout(fastBootHintTimeout);
-    });
-    const envPromise = fastBootGitHintPromise
-      .then((fastBootGitHint) =>
-        resolveCreatedSessionProjectSnapshot({ project, projectId, sessionId, baseRef, tl }, fastBootGitHint),
-      )
-      .then(({ fastBootGitHint, projectSnapshotMode, projectSnapshotPin, projectSnapshotDescriptor }) =>
-        buildSessionSandboxEnvVars({
-          accountId,
-          projectId,
-          sessionId,
-          userId,
-          repoUrl: project.repoUrl,
-          baseRef,
-          agentName,
-          sessionModel,
-          platformMetaAgent,
-          freshSession: true,
-          projectSnapshotMode,
-          projectSnapshotPin,
-          projectSnapshotDescriptor,
-          baseSha: fastBootGitHint?.baseSha,
-          gitDeltaBundleBase64: fastBootGitHint?.gitDeltaBundleBase64,
-          gitDeltaBundleRemote: fastBootGitHint?.gitDeltaBundleRemote,
-          gitDeltaParentSha: fastBootGitHint?.gitDeltaParentSha,
-          gitDeltaParentCommitBase64: fastBootGitHint?.gitDeltaParentCommitBase64,
-          defaultBranch: project.defaultBranch,
-          manifestPath: project.manifestPath,
-          repositoryAccess,
-        }),
-      )
+    const envPromise = buildSessionSandboxEnvVars({
+      accountId,
+      projectId,
+      sessionId,
+      userId,
+      repoUrl: project.repoUrl,
+      baseRef,
+      agentName,
+      sessionModel,
+      platformMetaAgent,
+      defaultBranch: project.defaultBranch,
+      manifestPath: project.manifestPath,
+      repositoryAccess,
+    })
       .then((envVars) => {
         tl.mark('env-vars');
         return envVars;
@@ -1861,6 +1936,9 @@ export async function createProjectSession(input: {
   const agent = await resolveSessionAgent({ input, projectId, channelAgents });
   if (agent.error) return { error: agent.error };
   const { loadedAgents, projectDefaultAgent, agentName, platformMetaAgent, repositoryAccess } = agent;
+  const colleagueAccessCheck = await checkColleagueAccessForCreate({ input, projectId, colleague: agent.myKortixColleague });
+  if (colleagueAccessCheck.error) return { error: colleagueAccessCheck.error };
+  const { colleagueAccess } = colleagueAccessCheck;
 
   const model = await resolveSessionModel({
     input,
@@ -1947,6 +2025,11 @@ export async function createProjectSession(input: {
     return billingCheck;
   }
 
+  // Last check before the row: a list that waits for a person records an ask, so nothing after it may refuse.
+  const approval = await resolveColleagueAccessApproval({ input, projectId, accountId, access: colleagueAccess });
+  if (approval.error) return { error: approval.error };
+  const { colleagueAccessAllowId } = approval;
+
   if (typeof body.fork_from_session_id === 'string') {
     if (!config.SESSION_LOG_RESTORE_ENABLED || !config.SESSION_LOG_INGEST_ENABLED) {
       return { error: { status: 503, body: { error: 'Session log restore is off' } } };
@@ -2025,6 +2108,7 @@ export async function createProjectSession(input: {
         pendingPromptConversion,
         inheritedGrants,
         spaceId,
+        colleagueAccessAllowId,
       },
       runtimeContext,
       validatedConnectorBindings.bindings,

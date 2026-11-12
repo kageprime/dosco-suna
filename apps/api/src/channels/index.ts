@@ -12,3 +12,4 @@ export { discordOauthApp, registerDiscordOauthRoutes } from "./discord/oauth";
 export { channelAppWebhookRoutes, channelWebhookRoutes } from "./inbound/webhook-routes";
 export { slackOauthApp } from "./slack-oauth";
 export { slackIdentityApp } from "./slack/identity-routes";
+export { agentMarkApp, registerAgentMarkRoutes } from "./agent-mark-routes";

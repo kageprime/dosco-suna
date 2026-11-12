@@ -1237,6 +1237,27 @@ async function authorizeGitProxyUncached(
     return verdict.allowed;
   };
 
+  /**
+   * May this SESSION use the repository at all? A session never gets a checkout
+   * at boot (2026-11-08), so this is the whole repository boundary: the
+   * session's actor (its owner's project role ∩ its agent's grant) must hold
+   * `project.gitops.read`. A push is further bounded to the session's own
+   * branch by the ref policy (git-proxy/ref-policy.ts). An agent with
+   * `kortix_permissions: none` cannot clone, whatever token it holds.
+   */
+  const sessionMayUseRepository = async (
+    userId: string | null | undefined,
+    actingTokenId: string | null | undefined,
+  ): Promise<boolean> => {
+    if (!userId) return false;
+    const verdict = await authorize(
+      await actorForToken(userId, project.accountId, actingTokenId ?? undefined, { ctx: requestCtx }),
+      PROJECT_ACTIONS.PROJECT_GITOPS_READ,
+      { type: 'project', id: projectId },
+    );
+    return verdict.allowed;
+  };
+
   // CLI PAT first — `isKortixToken` also matches the `kortix_pat_` prefix, so
   // the account-token check MUST run before the API-key check (mirrors the auth
   // middleware ordering).
@@ -1288,6 +1309,9 @@ async function authorizeGitProxyUncached(
       }
       if (!sessionRow.branchName) {
         return { ok: false, status: 403, message: 'session has no branch to push' };
+      }
+      if (!(await sessionMayUseRepository(result.userId, result.tokenId))) {
+        return { ok: false, status: 403, message: 'session is not authorized for repository access' };
       }
       sessionPrincipal = {
         kind: 'session',
@@ -1410,6 +1434,9 @@ async function authorizeGitProxyUncached(
           ),
         )
         .limit(1);
+      if (!(await sessionMayUseRepository(grantRow?.userId, grantRow?.tokenId))) {
+        return { ok: false, status: 403, message: 'session is not authorized for repository access' };
+      }
       return {
         ok: true,
         project,

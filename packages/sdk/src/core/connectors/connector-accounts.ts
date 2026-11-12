@@ -62,7 +62,28 @@ export function emptyWorkspaceConnectionSlot(
   }
   const shared = rows.filter((row) => row.owner_type === 'project');
   const slot = shared.length === 1 ? shared[0]! : null;
-  return slot?.authorized === false && slot.metadata?.default_slot === 'project' ? slot : null;
+  // A slot whose sign-in started is an account someone is adding: it is
+  // listed, so the person can finish the sign-in from it.
+  return slot?.authorized === false &&
+    slot.metadata?.default_slot === 'project' &&
+    !connectorAccountSignInStarted(slot)
+    ? slot
+    : null;
+}
+
+/**
+ * A sign-in started on this account: a provider start left its session or
+ * request on the row (Composio `session_id`, `auth_request_id`), or a session's
+ * agent asked for it (`requesting_session_id`). With `authorized: false`, the
+ * sign-in did not finish yet.
+ */
+export function connectorAccountSignInStarted(connection: {
+  metadata?: Record<string, unknown> | null;
+}): boolean {
+  const metadata = connection.metadata ?? {};
+  return ['session_id', 'auth_request_id', 'requesting_session_id'].some(
+    (key) => typeof metadata[key] === 'string' && metadata[key] !== '',
+  );
 }
 
 /** @deprecated Use `emptyWorkspaceConnectionSlot`. Kept permanently. */

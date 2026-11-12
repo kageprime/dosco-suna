@@ -52,6 +52,7 @@ import {
   type MirrorRefresh,
 } from '../git';
 import { manifestIssueSummary } from '../manifest-io';
+import { prefetchRepoFiles } from '../git/files';
 import { reportedManifestIssues } from './manifest-health';
 
 /**
@@ -464,6 +465,41 @@ export function manifestPiCodemode(raw: unknown, agentName?: string | null): 'of
   return manifestAgentBlock(raw as Record<string, unknown>, agentName)?.codemode ?? null;
 }
 
+/** What an agent's `workspace` asks the box to prepare after it starts: explicit clones and setup commands. */
+export interface SessionWorkspaceSetup {
+  repos: Array<{ path: string; sparse?: string[] }>;
+  /** Every step as `{ run, cwd? }`; a plain string step becomes `{ run }`. */
+  setup: Array<{ run: string; cwd?: string }>;
+}
+
+/**
+ * The session agent's `workspace: { repos, setup }`, normalized (a repo's path defaults to
+ * `/workspace`). Null when it declares neither: nothing is cloned and nothing runs. The
+ * validator already refused a bad shape; anything it let through that is not a string is
+ * dropped here rather than sent to the box.
+ */
+export function manifestWorkspaceSetup(raw: unknown, agentName?: string | null): SessionWorkspaceSetup | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const workspace = (manifestAgentBlock(raw as Record<string, unknown>, agentName) as { workspace?: unknown } | undefined)?.workspace;
+  if (!workspace || typeof workspace !== 'object' || Array.isArray(workspace)) return null;
+  const { repos, setup } = workspace as { repos?: unknown; setup?: unknown };
+  const normalizedRepos = (Array.isArray(repos) ? repos : []).flatMap((repo) => {
+    if (!repo || typeof repo !== 'object') return [];
+    const { path, sparse } = repo as { path?: unknown; sparse?: unknown };
+    const at = (typeof path === 'string' && path.trim() ? path.trim().replace(/\/+$/, '') : '') || '/workspace';
+    const dirs = Array.isArray(sparse) ? sparse.filter((dir): dir is string => typeof dir === 'string' && dir.trim() !== '') : [];
+    return [{ path: at, ...(dirs.length ? { sparse: dirs } : {}) }];
+  });
+  const commands = (Array.isArray(setup) ? setup : []).flatMap((step): Array<{ run: string; cwd?: string }> => {
+    if (typeof step === 'string') return step.trim() ? [{ run: step }] : [];
+    if (!step || typeof step !== 'object') return [];
+    const { run, cwd } = step as { run?: unknown; cwd?: unknown };
+    if (typeof run !== 'string' || !run.trim()) return [];
+    return [{ run, ...(typeof cwd === 'string' && cwd.trim() ? { cwd: cwd.trim() } : {}) }];
+  });
+  return normalizedRepos.length || commands.length ? { repos: normalizedRepos, setup: commands } : null;
+}
+
 /** Every distinct non-empty package list the manifest's agents resolve to: what a merge builds. */
 export function manifestPiPackageLists(raw: unknown): unknown[][] {
   if (!raw || typeof raw !== 'object') return [];
@@ -517,10 +553,17 @@ interface CompileReadOptions {
  * ~380 KB from ~40 files (2026-10-30).
  */
 // replica-local: a cache of immutable per-commit output; a miss recompiles.
-const compiledAtCommit = new Map<string, { raw: Record<string, unknown>; compiled: string | null }>();
-const COMPILED_AT_COMMIT_MAX = 32;
+const compiledAtCommit = new Map<string, { raw: Record<string, unknown>; compiled: string | null; bytes: number }>();
+let compiledAtBytes = 0;
+/** Holds the ACTIVE fleet's (project x selection) keys — prod 2026-11-11 ticks
+ *  ~30 projects an hour; at 32 every tick evicted and recompiled. Byte-bounded
+ *  like the read cache (`MAX_CACHE_BYTES`): 64 MiB of compiled-config strings
+ *  per process, so even a working set over 1,000 entries evicts, never grows.
+ *  The count bound is the same ladder rung: a working set the fleet fits. */
+const COMPILED_AT_COMMIT_MAX = 1_000;
+let COMPILED_AT_COMMIT_MAX_BYTES = 64 * 1024 * 1024;
 
-function compiledAt(key: string | null): { raw: Record<string, unknown>; compiled: string | null } | undefined {
+function compiledAt(key: string | null): { raw: Record<string, unknown>; compiled: string | null; bytes: number } | undefined {
   const hit = key ? compiledAtCommit.get(key) : undefined;
   if (hit) {
     // Re-insert: the Map's insertion order is the eviction order.
@@ -532,9 +575,19 @@ function compiledAt(key: string | null): { raw: Record<string, unknown>; compile
 
 function rememberCompiled(key: string | null, entry: { raw: Record<string, unknown>; compiled: string | null }): void {
   if (!key) return;
-  compiledAtCommit.set(key, entry);
-  while (compiledAtCommit.size > COMPILED_AT_COMMIT_MAX) {
-    compiledAtCommit.delete(compiledAtCommit.keys().next().value!);
+  // Byte-accounted like the read cache (UTF-16 strings, 2 bytes/char): the
+  // cached strings are tenant-controlled, so the budget, not the count, is
+  // the bound that cannot grow with a tenant's config.
+  const bytes = (JSON.stringify(entry.raw)?.length + (entry.compiled?.length ?? 0)) * 2;
+  const previous = compiledAtCommit.get(key);
+  if (previous) compiledAtBytes -= previous.bytes;
+  const stored = { ...entry, bytes };
+  compiledAtCommit.set(key, stored);
+  compiledAtBytes += bytes;
+  while (compiledAtCommit.size > COMPILED_AT_COMMIT_MAX || compiledAtBytes > COMPILED_AT_COMMIT_MAX_BYTES) {
+    const oldest = compiledAtCommit.keys().next().value!;
+    compiledAtBytes -= compiledAtCommit.get(oldest)!.bytes;
+    compiledAtCommit.delete(oldest);
   }
 }
 
@@ -546,6 +599,12 @@ function commitKey(project: GitBackedProject, found: { commit: string | null; pa
 /** Test seam: start from a cold cache. */
 export function __resetCompiledAtCommitForTests(): void {
   compiledAtCommit.clear();
+  compiledAtBytes = 0;
+}
+
+/** Test seam: size the byte budget. */
+export function __setCompiledAtCommitBudgetForTests(bytes: number): void {
+  COMPILED_AT_COMMIT_MAX_BYTES = bytes;
 }
 
 /**
@@ -558,6 +617,12 @@ async function readPromptFiles(project: GitBackedProject, raw: Record<string, un
   for (const block of [...Object.values(mapOf<{ prompt_file?: unknown }>(raw.agents)), ...Object.values(mapOf<{ prompt_file?: unknown }>(raw.commands))]) {
     if (typeof block?.prompt_file === 'string' && safeAgentFile(block.prompt_file)) paths.add(block.prompt_file);
   }
+  // One batched object fetch for every prompt file, before the reads: a
+  // partial store faults blobs one `git fetch` at a time, and the fetches of
+  // one store run serially — the per-file reads would pay one fetch per file
+  // (KRTX-4740: a prompt-heavy project's tick paid 40-260 of them, p95 7.9 s).
+  // A converted legacy file (in the overlay) reads without the repo.
+  await prefetchRepoFiles(project, [...paths].filter((path) => overlay[path] === undefined), ref);
   const files: Record<string, string> = {};
   await Promise.all([...paths].map(async (path) => {
     // A converted legacy file: the prompt without its frontmatter, or a command moved out of the harness folder.

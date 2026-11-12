@@ -1,6 +1,12 @@
 import { HTTPException } from 'hono/http-exception';
+import {
+  DEAD_CREDENTIAL_BURST_SUPPRESSED,
+  PREVIEW_SANDBOX_DENIED_MESSAGE,
+} from '../../shared/dead-credential-log';
+import { logWindowDecision, logWindowWarnDecision } from '../../shared/log-window';
 import { PROJECT_ACTIONS, authorize } from '../../iam';
 import { actorForUser } from '../../iam/actor';
+import { logger } from '../../lib/logger';
 import { setContextField } from '../../lib/request-context';
 import { canAccessPreviewSandbox, canAccessSandboxSession, takeSessionAccessRefusal } from '../../shared/preview-ownership';
 import type { SandboxRecord } from '../backend';
@@ -21,7 +27,7 @@ export type PreviewProxyAccess =
        *  this is what separates them. Null means a non-session-bound principal.
        *  REQUIRED so a new entry point cannot silently omit it and fail open. */
       callerSessionId: string | null;
-      /** The caller's AGENT/SANDBOX token binding — `callerKortixSessionId(c)`,
+      /** The caller's AGENT/SANDBOX token binding — `callerDoscoSessionId(c)`,
        *  never the raw `c.get('sessionId')`. Only the trigger-session manager
        *  override reads it (see connectors/share.ts). REQUIRED for the same
        *  reason as the two fields around it. */
@@ -42,6 +48,30 @@ export type PreviewProxyAccess =
 
 export function principalUserId(access: PreviewProxyAccess): string {
   return access.kind === 'principal' ? access.userId : '';
+}
+
+/**
+ * Ship one `[preview] session access refused` line through the shared
+ * log-noise throttle (shared/dead-credential-log.ts); responses are never
+ * throttled — every refused request still 403s and still lands in the
+ * request-completion logs for exact accounting. A session-bound client
+ * polling a designed-refused surface emitted one warn per request: 416 lines
+ * in 14 h from ONE client against one box, 5.88x the pattern's baseline
+ * (KRTX-4683). First line per window ships; the next window's line carries
+ * `suppressed`; severity follows the window's volume (KRTX-4454) so designed
+ * churn ships at info and cannot keep a 0-baseline warn pattern alive for the
+ * infra sweep, while a client hammering the gate stays warn.
+ */
+export function reportSessionAccessRefusal(payload: Record<string, unknown>, now = Date.now()): void {
+  const message = '[preview] session access refused';
+  const { log, suppressed } = logWindowDecision(message, now);
+  if (!log) return;
+  const fields = { ...payload, suppressed };
+  // The escalation shares the hourly warn cap of the other burst-band sites
+  // (logWindowWarnDecision): a grind hour cannot ship every window's line at
+  // warn and re-trip the infra-sweep's 10/h new-warn-pattern bar (KRTX-4674).
+  if (suppressed >= DEAD_CREDENTIAL_BURST_SUPPRESSED && logWindowWarnDecision(message, now)) logger.warn(message, fields);
+  else logger.info(message, fields);
 }
 
 /**
@@ -76,7 +106,7 @@ export async function assertPreviewSandboxAccess(
     }))
   ) {
     throw new HTTPException(403, {
-      message: `Not authorized to access this sandbox, userId: ${userId}, sandboxId: ${sandboxId}`,
+      message: `${PREVIEW_SANDBOX_DENIED_MESSAGE}, userId: ${userId}, sandboxId: ${sandboxId}`,
     });
   }
 }
@@ -132,7 +162,7 @@ export async function refuseSessionOrControlAccess(input: {
       boundCredentialSessionId,
       spawnAncestorRead,
     });
-    console.warn('[preview] session access refused', {
+    reportSessionAccessRefusal({
       userId,
       port: upstreamPort,
       ...(refusal ?? {
@@ -169,7 +199,7 @@ export async function refuseSessionOrControlAccess(input: {
   // never decides one here, as `POST /asks/:askId/answer` refuses it. Without
   // this the proxy also records the agent's reply as decided by the launcher.
   if (access.kind === 'principal' && access.sandboxAuthored && isProxiedAskDecision(upstreamPort, method, remainingPath)) {
-    return jsonProxyError({ error: 'An agent cannot answer its own ask — a person must', code: 'ASK_REQUIRES_HUMAN' }, 403, origin);
+    return jsonProxyError({ error: "This ask waits for a person: the person the session works for answers it.", code: 'ASK_REQUIRES_HUMAN' }, 403, origin);
   }
   if (isProxiedBaseReset(upstreamPort, remainingPath, queryString)) {
     console.warn(`[PREVIEW] Refused base=1 branch reset on ${sandboxId} from a proxied caller`);

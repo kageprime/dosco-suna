@@ -187,15 +187,15 @@ flow(
     });
 
     await ctx.step(
-      "cross-project principal cannot inspect the App (404 workspace_not_found)",
+      "cross-project principal cannot inspect the App (403 workspace_access_denied)",
       async () => {
         const response = await ctx.client
           .as(ctx.P.NONMEMBER)
           .get("/v1/workspaces/:projectId/apps/:appId", {
             params: { ...projectParams, appId },
           });
-        // Canonical paths answer an unreadable workspace with 404 workspace_not_found.
-        response.status(404).body().has("$.code", "workspace_not_found");
+        // Canonical paths answer an unreadable workspace with 403 workspace_access_denied.
+        response.status(403).body().has("$.code", "workspace_access_denied");
       },
     );
 
@@ -757,7 +757,7 @@ flow(
       const response = await ctx.client
         .as(ctx.P.NONMEMBER)
         .get("/v1/workspaces/:projectId/apps", { params: projectParams });
-      response.status(404).body().has("$.code", "workspace_not_found");
+      response.status(403).body().has("$.code", "workspace_access_denied");
     });
 
     await ctx.step("delete the test App", async () => {
@@ -1081,6 +1081,8 @@ flow(
       "POST /v1/workspaces/:projectId/sessions",
       "GET /v1/me",
       "GET /v1/workspaces/:projectId",
+      "PATCH /v1/accounts/:accountId/iam/mfa-required",
+      "POST /v1/oauth/authorize/consent",
       "DELETE /v1/workspaces/:projectId/apps/:appId",
     ],
   },
@@ -1172,6 +1174,14 @@ flow(
         refused.status(403).body().has("$.code", "no_agent_access");
       });
 
+      await ctx.step("the token cannot approve another OAuth grant: POST /v1/oauth/authorize/consent → 403", async () => {
+        // Otherwise an App could register a client, approve it with its
+        // viewer's token, and keep a 30-day refresh token that App deletion
+        // never revokes.
+        (await asToken(firstToken).post("/v1/oauth/authorize/consent", { request_id: crypto.randomUUID(), approve: true }))
+          .status(403);
+      });
+
       await ctx.step("the token acts as the viewer: /v1/accounts/me answers as them, not as the App's author", async () => {
         const me = await asToken(firstToken).get("/v1/me");
         me.status(200).body()
@@ -1208,6 +1218,33 @@ flow(
         }
         const oauth = await gate("/_kortix/api/v1/oauth/clients", { cookie, "sec-fetch-site": "same-origin" });
         if (oauth.status !== 404) throw new Error(`expected 404 for /v1/oauth through the gate, got ${oauth.status}`);
+      });
+
+      await ctx.step("in a workspace that requires MFA, an App opened without a second factor does not act as its viewer: the viewer's session, /_kortix/api/v1/projects/:projectId and the viewer token each get 403 account_mfa_required, and the App cannot be reopened", async () => {
+        // A local session has no second factor (local Supabase has MFA off), so
+        // this App cookie records none: what a cookie opened before the account
+        // required MFA looks like. A viewer token counts as the second factor
+        // only when access-session was asked by a browser session at aal2
+        // (apps/api/src/apps/viewer-session-aal.test.ts; verified on dev).
+        const cookie = await signIn();
+        const token = (await viewerToken(cookie)).access_token!;
+        const mfa = (enabled: boolean) => owner.patch("/v1/accounts/:accountId/iam/mfa-required", { enabled },
+          { params: { accountId: team.id } });
+        (await mfa(true)).status(200).body().has("$.enabled", true);
+        try {
+          (await viewer.get("/v1/workspaces/:projectId", { params: projectParams })).status(403)
+            .body().has("$.code", "account_mfa_required");
+          const read = await gate(`/_kortix/api/v1/projects/${project.id}`, { cookie, "sec-fetch-site": "same-origin" });
+          if (read.status !== 403 || read.body?.code !== "account_mfa_required") {
+            throw new Error(`expected 403 account_mfa_required through the gate, got ${read.status} ${read.text.slice(0, 300)}`);
+          }
+          (await asToken(token).get("/v1/workspaces/:projectId", { params: projectParams })).status(403)
+            .body().has("$.code", "account_mfa_required");
+          (await viewer.post("/v1/workspaces/:projectId/apps/:appId/access-session", {},
+            { params: { ...projectParams, appId } })).status(403).body().has("$.code", "account_mfa_required");
+        } finally {
+          (await mfa(false)).status(200);
+        }
       });
 
       await ctx.step("kortix apps access --viewer identity switches the scope and keeps mode and members", async () => {
@@ -1334,7 +1371,7 @@ flow(
         if (!IN_PROGRESS.includes(status)) throw new Error(`409 named a finished status: ${status}`);
       });
 
-      await ctx.step("an unknown deployment answers 404; a cross-project principal gets 404 workspace_not_found", async () => {
+      await ctx.step("an unknown deployment answers 404; a cross-project principal gets 403 workspace_access_denied", async () => {
         (await owner.del(
           "/v1/workspaces/:projectId/apps/:appId/deployments/:deploymentId",
           { params: { ...projectParams, appId, deploymentId: UNKNOWN_ID } },
@@ -1342,7 +1379,7 @@ flow(
         (await ctx.client.as(ctx.P.NONMEMBER).del(
           "/v1/workspaces/:projectId/apps/:appId/deployments/:deploymentId",
           { params: deploymentParams() },
-        )).status(404).body().has("$.code", "workspace_not_found");
+        )).status(403).body().has("$.code", "workspace_access_denied");
       });
 
       await ctx.step("kortix apps delete --deployment requires --yes, names the deployments that exist, and relays the 409", async () => {

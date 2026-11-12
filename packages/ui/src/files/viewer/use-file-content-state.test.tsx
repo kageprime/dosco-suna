@@ -4,6 +4,10 @@ import { act, create } from 'react-test-renderer';
 import { FileSourceProvider, type FileSource } from './file-source';
 import { useFileContentState } from './use-file-content-state';
 
+// Floating UI (behind Base UI's tooltip) checks `node instanceof window.Element`;
+// this hand-built window has no DOM, so nothing is an element.
+const NO_DOM_CLASSES = { Element: class {}, HTMLElement: class {}, Node: class {}, ShadowRoot: class {} };
+
 test('a rejected save stays dirty and can be retried', async () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
   let rejectSave = true;
@@ -26,7 +30,7 @@ test('a rejected save stays dirty and can be retried', async () => {
   try {
     await act(async () => { root = create(<FileSourceProvider value={source}><Probe /></FileSourceProvider>); });
     // The hook's beforeunload listener needs a browser event target.
-    Object.defineProperty(globalThis, 'window', { configurable: true, value: Object.assign(new EventTarget(), { clearTimeout, setTimeout }) });
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: Object.assign(new EventTarget(), { clearTimeout, setTimeout, ...NO_DOM_CLASSES }) });
     await act(async () => { state?.setHasUnsavedChanges(true); });
     await act(async () => { await expect(state?.handleSave('edited')).rejects.toThrow('409 conflict'); });
     expect(state?.hasUnsavedChanges).toBe(true);
@@ -67,7 +71,7 @@ test('a dirty draft keeps its original revision through a content refetch', asyn
   }
   const view = () => <FileSourceProvider value={source}><Probe /></FileSourceProvider>;
   let root: ReturnType<typeof create> | undefined;
-  Object.defineProperty(globalThis, 'window', { configurable: true, value: Object.assign(new EventTarget(), { clearTimeout, setTimeout }) });
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: Object.assign(new EventTarget(), { clearTimeout, setTimeout, ...NO_DOM_CLASSES }) });
   Object.defineProperty(globalThis, 'document', { configurable: true, value: new EventTarget() });
   try {
     await act(async () => { root = create(view()); });
@@ -118,7 +122,7 @@ test('a newer draft remains dirty when an earlier save finishes', async () => {
     return null;
   }
   let root: ReturnType<typeof create> | undefined;
-  Object.defineProperty(globalThis, 'window', { configurable: true, value: Object.assign(new EventTarget(), { clearTimeout, setTimeout }) });
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: Object.assign(new EventTarget(), { clearTimeout, setTimeout, ...NO_DOM_CLASSES }) });
   try {
     await act(async () => { root = create(<FileSourceProvider value={source}><Probe /></FileSourceProvider>); });
     await act(async () => { state?.handleEditorChange('first'); state?.setHasUnsavedChanges(true); });

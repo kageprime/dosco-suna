@@ -18,7 +18,6 @@ import { resolveDesiredRelease } from '../../config-releases/desired';
 import { ownerMayUseAgent } from '../../config-releases/repoint';
 import { recordDaemonConfigReport } from '../../config-releases/quarantine';
 import { isReleaseStale, toSessionConfigRelease } from '../lib/session-config-release';
-import { LATEST_ETAG_BUDGET_MS } from '../lib/session-reload';
 import { repositoryAccessFromSessionMetadata } from '../lib/session-sandbox-metadata';
 import {
   combineConfigStaleness,
@@ -54,19 +53,33 @@ async function runtimeBlockFor(releaseId: string | null, running: SandboxConfigS
 }
 
 /**
- * One mirror-work budget, spent across the stages of ONE GET /config request
- * that can block on the project mirror's network ops (`latest_etag`,
- * `desired_release`, `config_dir`). A mirror fetch has a 30s per-op timeout and
- * retries 3 times, so an unbounded stage outran the 25s request deadline and
- * turned every poll against a slow mirror into a 5xx (KRTX-818: `git;dur`
- * pinned at 24.4–25.0s on every deadline 503). Each stage races what is left
- * of the budget; on timeout it answers its own "could not tell" value instead
- * of a 503, and the fetch the caller abandoned keeps running so the next poll
- * finds the mirror warm.
+ * The mirror-work budget for ONE freshness poll, spent across the stages of a
+ * GET /config request that can block on the project mirror's network ops
+ * (`latest_etag`, `desired_release`, `config_dir`). A mirror fetch has a 30s
+ * per-op timeout and retries 3 times, so an unbounded stage outran the 25s
+ * request deadline and turned every poll against a slow mirror into a 5xx
+ * (KRTX-818: `git;dur` pinned at 24.4–25.0s on every deadline 503). Each
+ * stage races what is left of the budget; on timeout it answers its own
+ * "could not tell" value instead of a 503, and the fetch the caller abandoned
+ * keeps running so the next poll finds the mirror warm.
  */
 function budgetLeft(spendFrom: number): number {
-  return Math.max(1_000, LATEST_ETAG_BUDGET_MS - (Date.now() - spendFrom));
+  return Math.max(1_000, SANDBOX_CONFIG_MIRROR_BUDGET_MS - (Date.now() - spendFrom));
 }
+
+/**
+ * The poll-sized mirror budget behind `budgetLeft`. A GET /config only
+ * REPORTS freshness — a mirror that cannot answer inside the budget degrades
+ * to `stale: null` ("could not tell"), the state every client of this route
+ * already handles — so the poll chooses how long it holds its client, the
+ * same rule as the 3 s probe beside it. Sized to keep the whole read (probe,
+ * the two budget stages, the compute stages) under the ~9.5 s tail the
+ * route's acceptance tracks: the slow-mirror resolutions this replaces ran
+ * 10.8–20 s against the old 20 s reload budget, 5 reads ≥9.5 s in the fix's
+ * first 24 h alone (KRTX-629 follow-up). Reloads and convergences keep
+ * `LATEST_ETAG_BUDGET_MS` because they act on the answer.
+ */
+const SANDBOX_CONFIG_MIRROR_BUDGET_MS = 5_000;
 
 /**
  * Cap on the box-health probe inside ONE GET /config read (the

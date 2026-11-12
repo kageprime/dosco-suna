@@ -175,6 +175,9 @@ impl RecordingService {
             &crate::memory::paths::MemoryPaths::resolve(),
             crate::memory::action_exclusions::ProbeFront::start(),
         ));
+        let gate_exclusions = exclusions.clone();
+        let capture_gate: crate::recorders::CaptureGate =
+            Arc::new(move || gate_exclusions.front_admitted());
         let callback = guarded_action_callback(action_policy.clone(), Some(exclusions), callback);
         let mut recorders = RecorderBundle::new(
             callback,
@@ -182,6 +185,7 @@ impl RecordingService {
             effective_audio_enabled,
             effective_audio_enabled.then_some(audio_file_path.clone()),
             a11y_hash_history,
+            Some(capture_gate),
         );
         recorders
             .start()

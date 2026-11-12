@@ -13,8 +13,6 @@ const PROJECT_ID = 'b06a70f1-be0a-4fd0-b052-26fffb92713f';
 const SHA = 'a'.repeat(40);
 
 const ROUTES = [
-  `/${PROJECT_ID}/fast-boot-bundle`,
-  `/${PROJECT_ID}/fast-boot-bundle?ref=main&tip=${SHA}&parent=${SHA}`,
   `/${PROJECT_ID}/project-snapshot`,
   `/${PROJECT_ID}/project-snapshot?sha=${SHA}`,
   `/${PROJECT_ID}/info/refs?service=bogus`,

@@ -74,9 +74,9 @@ Do:
 **Rule.** The explanation of a label, a setting or a block is an info icon
 (`InfoIcon`, `size-3.5`, `text-muted-foreground hover:text-foreground`) that opens
 a `HoverCard` on hover, on focus and on tap (controlled `open`; the tap is read
-on `pointerdown` with `pointerType === 'touch'`, because the Radix trigger
-cancels the click on touch; a mouse click does nothing, so it never races Radix's
-hover and focus timers; a keyboard activation reopens after Escape; Radix's
+on `pointerdown` with `pointerType === 'touch'`, because a hover card opens for
+mouse and keyboard only; a mouse click does nothing, so it never races the card's
+hover and focus timers; a keyboard activation reopens after Escape; the card's
 dismiss layer closes on an outside tap or Escape). Its name is "About {the thing}", and the content's `id`
 is the trigger's `aria-describedby` while open. One sentence, two at most, `text-xs
 text-muted-foreground`, `w-72`. A `Hint` (tooltip) is for the name of an
@@ -100,8 +100,8 @@ const contentId = useId();
       aria-label="About retention"
       aria-expanded={open}
       aria-describedby={open ? contentId : undefined}
-      // Radix cancels the click on touch; read the tap on pointerdown. Hover
-      // and focus open through Radix's own timers; a keyboard activation
+      // A hover card does not open on touch; read the tap on pointerdown. Hover
+      // and focus open through the card's own timers; a keyboard activation
       // (click with detail 0) reopens after Escape. A mouse click does nothing.
       onPointerDown={(e) => {
         if (e.pointerType !== 'touch') return;

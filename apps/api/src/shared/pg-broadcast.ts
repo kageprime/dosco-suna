@@ -116,24 +116,11 @@ export const SESSION_LIST_BUST_CHANNEL = 'kortix_session_list_bust';
  */
 export const CHROME_COMMAND_CHANNEL = 'kortix_chrome_cmd';
 
-type Handler = (projectId: string) => void;
-
 let listener: postgres.Sql | null = null;
 // `bun --hot` re-evaluates this module but keeps globalThis. The last evaluation's
 // stop lives there, so a re-evaluated start ends that LISTEN client first instead
 // of orphaning it (postgres.js re-LISTENs on reconnect, so an orphan never dies).
 const hot = globalThis as typeof globalThis & { __kortixPgBroadcastStop?: () => Promise<void> };
-let handlers: Handler[] = [];
-let publish: ((projectId: string) => void) | null = null;
-let tunnelForwardHandler: ((payload: string) => void) | null = null;
-let commandDueHandler: ((dueAtMs: number) => void) | null = null;
-let promptsChangedHandler: ((sessionId: string) => void) | null = null;
-let chromeCommandHandler: ((payload: string) => void) | null = null;
-// replica-local: subscribers in this process; the NOTIFY reaches every replica.
-const sessionChangedHandlers = new Set<(sessionId: string) => void>();
-let iamCacheBustHandler: ((payload: string) => void) | null = null;
-let spaceAccessBustHandler: ((projectId: string) => void) | null = null;
-let sessionListBustHandler: ((projectId: string) => void) | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 const LISTEN_RETRY_MS = 60_000;
 
@@ -173,35 +160,122 @@ export function waitForLifecycleCommandSettle(commandId: string, ms: number): { 
   return { done, cancel };
 }
 
-function wakeSettleWaiters(commandId: string): void {
-  for (const wake of settleWaiters.get(commandId) ?? []) wake();
+// ——— The channel registry ———
+
+/** Validate a payload that must be one uuid (a project or session id). Anything
+ * else on the channel is not ours; dropping it costs a TTL window, acting on
+ * it would not. */
+function parseUuid(payload: string): string | null {
+  return isUuid(payload) ? payload : null;
 }
+
+/** Validate a payload that must be one finite number (an epoch ms). */
+function parseFiniteNumber(payload: string): number | null {
+  const dueAtMs = Number(payload);
+  return Number.isFinite(dueAtMs) ? dueAtMs : null;
+}
+
+/** A payload passed through unvalidated (a command or request id, an instance id, a frame). */
+function parseRaw(payload: string): string | null {
+  return payload;
+}
+
+/** A channel's subscriber slot: the single handler the `on*` setter registered
+ * (`set(null)` clears it) or a fan-out — every registration gets the value,
+ * each isolated (a throw never stops the next). The fan-out keeps each
+ * channel's trunk delivery loop: the base-move transport's array was iterated
+ * live (`repeated` — the same handler registered twice runs twice, and a
+ * handler registered during delivery joins that pass), the trunk Sets iterated
+ * the snapshot at dispatch start (an unsubscribe during delivery is honored on
+ * the next). Kept across stop/start; `clear` drops the transport's
+ * subscribers. */
+function slot<TArg>(repeated = false) {
+  let handlers: ((value: TArg) => void)[] = [];
+  return {
+    set(next: ((value: TArg) => void) | null) {
+      handlers = next ? [next] : [];
+    },
+    subscribe(handler: (value: TArg) => void) {
+      if (repeated || !handlers.includes(handler)) handlers.push(handler);
+      return () => {
+        const at = handlers.indexOf(handler);
+        if (at !== -1) handlers.splice(at, 1);
+      };
+    },
+    clear() {
+      // A new array, like the trunk's `handlers = []`: a live delivery already
+      // iterating the old one runs to its end instead of stopping short.
+      handlers = [];
+    },
+    dispatch(value: TArg) {
+      for (const handler of repeated ? handlers : [...handlers]) invokeSubscriber(handler, value);
+    },
+  };
+}
+
+/** The one LISTEN body every channel runs: `parse` validates the raw NOTIFY
+ * payload (null drops it) and `dispatch` hands the parsed value to the
+ * channel's subscribers, never throwing. */
+function wired<TValue>(entry: {
+  parse: (payload: string) => TValue | null;
+  dispatch: (value: TValue) => void;
+}): (payload: string) => void {
+  return (payload) => {
+    const value = entry.parse(payload);
+    if (value !== null) entry.dispatch(value);
+  };
+}
+
+/** The one publish body: fire-and-forget on the LISTEN connection's own pool —
+ * it runs no other statements, so a NOTIFY never queues behind request traffic.
+ * The caller is inside the write and must not wait; without the LISTEN it is a
+ * no-op, the caller's TTL or poll being the backstop. */
+function notify(channel: string, payload: string): void {
+  if (listener) void listener.notify(channel, payload).catch(() => {});
+}
+
+/** The channel registry: one entry per LISTEN channel. The `on*` setters write
+ * a channel's slot, the `publish*` helpers notify its channel, and
+ * startConfigBaseMoveBroadcast wires every entry with the same `wired` body,
+ * in this order. */
+const CHANNELS = {
+  // The trunk's registry was an array here: every registration is delivered.
+  baseMove: { channel: BASE_MOVE_CHANNEL, parse: parseUuid, ...slot<string>(true) },
+  // The payload is one id and nothing else, passed through unvalidated.
+  tunnelForward: { channel: TUNNEL_FORWARD_CHANNEL, parse: parseRaw, ...slot<string>() },
+  // The payload is one command id and nothing else.
+  commandSettled: {
+    channel: LIFECYCLE_COMMAND_SETTLED_CHANNEL,
+    parse: parseRaw,
+    dispatch: (commandId: string): void => {
+      for (const wake of settleWaiters.get(commandId) ?? []) wake();
+    },
+  },
+  commandDue: { channel: LIFECYCLE_COMMAND_DUE_CHANNEL, parse: parseFiniteNumber, ...slot<number>() },
+  // The payload is a session id and nothing else.
+  promptsChanged: { channel: SESSION_PROMPTS_CHANGED_CHANNEL, parse: parseUuid, ...slot<string>() },
+  // replica-local: subscribers in this process; the NOTIFY reaches every replica.
+  sessionChanged: { channel: SESSION_CHANGED_CHANNEL, parse: parseUuid, ...slot<string>() },
+  iamCacheBust: { channel: IAM_CACHE_BUST_CHANNEL, parse: parseRaw, ...slot<string>() },
+  chromeCommand: { channel: CHROME_COMMAND_CHANNEL, parse: parseRaw, ...slot<string>() },
+  // The payload is a project id and nothing else.
+  spaceAccessBust: { channel: SPACE_ACCESS_BUST_CHANNEL, parse: parseUuid, ...slot<string>() },
+  sessionListBust: { channel: SESSION_LIST_BUST_CHANNEL, parse: parseUuid, ...slot<string>() },
+};
 
 /** The drain worker registers on start. Kept across stop/start of the LISTEN. */
 export function onLifecycleCommandDue(handler: ((dueAtMs: number) => void) | null): void {
-  commandDueHandler = handler;
-}
-
-function deliverCommandDue(payload: string): void {
-  const dueAtMs = Number(payload);
-  if (!Number.isFinite(dueAtMs)) return;
-  invokeSubscriber(commandDueHandler, dueAtMs);
+  CHANNELS.commandDue.set(handler);
 }
 
 /** The control reconciler registers once, at import. Kept across stop/start. */
 export function onSessionPromptsChanged(handler: ((sessionId: string) => void) | null): void {
-  promptsChangedHandler = handler;
-}
-
-function deliverPromptsChanged(payload: string): void {
-  // The payload is a session id and nothing else.
-  if (!isUuid(payload)) return;
-  invokeSubscriber(promptsChangedHandler, payload);
+  CHANNELS.promptsChanged.set(handler);
 }
 
 /** The chrome registry registers once, at import. Kept across stop/start. */
 export function onChromeCommand(handler: ((payload: string) => void) | null): void {
-  chromeCommandHandler = handler;
+  CHANNELS.chromeCommand.set(handler);
 }
 
 /**
@@ -211,15 +285,12 @@ export function onChromeCommand(handler: ((payload: string) => void) | null): vo
  * of on their next poll. Without the LISTEN it is a no-op: the polls still run.
  */
 export function publishSessionChanged(sessionId: string): void {
-  if (listener && isUuid(sessionId)) void listener.notify(SESSION_CHANGED_CHANNEL, sessionId).catch(() => {});
+  if (isUuid(sessionId)) notify(SESSION_CHANGED_CHANNEL, sessionId);
 }
 
 /** Subscribe to `kortix_session_changed`. Returns the unsubscribe. Kept across stop/start. */
 export function onSessionChanged(handler: (sessionId: string) => void): () => void {
-  sessionChangedHandlers.add(handler);
-  return () => {
-    sessionChangedHandlers.delete(handler);
-  };
+  return CHANNELS.sessionChanged.subscribe(handler);
 }
 
 /**
@@ -245,59 +316,39 @@ export function waitForSessionChange(sessionId: string, ms: number, signal: Abor
   });
 }
 
-function deliverSessionChanged(payload: string): void {
-  // The payload is a session id and nothing else.
-  if (!isUuid(payload)) return;
-  for (const handler of [...sessionChangedHandlers]) {
-    invokeSubscriber(handler, payload);
-  }
-}
-
 /** `iam/cache-invalidation.ts` registers once, at import. Kept across stop/start. */
 export function onIamCacheBust(handler: ((payload: string) => void) | null): void {
-  iamCacheBustHandler = handler;
+  CHANNELS.iamCacheBust.set(handler);
 }
 
 /** Tell every replica to drop an authz cache entry. Without the LISTEN it is a no-op: the TTL is the backstop. */
 export function publishIamCacheBust(payload: string): void {
-  if (listener) void listener.notify(IAM_CACHE_BUST_CHANNEL, payload).catch(() => {});
+  notify(IAM_CACHE_BUST_CHANNEL, payload);
 }
 
 /** `shared/space-access.ts` registers once, at import. Kept across stop/start. */
 export function onSpaceAccessBustNotify(handler: ((projectId: string) => void) | null): void {
-  spaceAccessBustHandler = handler;
+  CHANNELS.spaceAccessBust.set(handler);
 }
 
 /** Tell every replica (this one included) to drop a project's private-channel access memo. Without the LISTEN it is a no-op: the TTL is the backstop. */
 export function publishSpaceAccessBust(projectId: string): void {
-  if (listener) void listener.notify(SPACE_ACCESS_BUST_CHANNEL, projectId).catch(() => {});
-}
-
-function deliverSpaceAccessBust(payload: string): void {
-  // The payload is a project id and nothing else.
-  if (!isUuid(payload)) return;
-  invokeSubscriber(spaceAccessBustHandler, payload);
+  notify(SPACE_ACCESS_BUST_CHANNEL, projectId);
 }
 
 /** `projects/lib/session-list-poll-memo.ts` registers once, at import. Kept across stop/start. */
 export function onSessionListBustNotify(handler: ((projectId: string) => void) | null): void {
-  sessionListBustHandler = handler;
+  CHANNELS.sessionListBust.set(handler);
 }
 
 /** Tell every replica (this one included) to drop a project's session-list memo. Without the LISTEN it is a no-op: the 2 s TTL is the backstop. */
 export function publishSessionListBust(projectId: string): void {
-  if (listener) void listener.notify(SESSION_LIST_BUST_CHANNEL, projectId).catch(() => {});
-}
-
-function deliverSessionListBust(payload: string): void {
-  // The payload is a project id and nothing else.
-  if (!isUuid(payload)) return;
-  invokeSubscriber(sessionListBustHandler, payload);
+  notify(SESSION_LIST_BUST_CHANNEL, projectId);
 }
 
 /** The forwarder registers once, at import. Kept across stop/start. */
 export function onTunnelForwardNotify(handler: (payload: string) => void): void {
-  tunnelForwardHandler = handler;
+  CHANNELS.tunnelForward.set(handler);
 }
 
 /**
@@ -315,20 +366,11 @@ export function isPgBroadcastListening(): boolean {
  */
 export function configBaseMoveTransport(): DesiredInvalidationTransport {
   return {
-    publish: (projectId) => publish?.(projectId),
+    publish: (projectId) => notify(BASE_MOVE_CHANNEL, projectId),
     subscribe: (handler) => {
-      handlers.push(handler);
+      CHANNELS.baseMove.subscribe(handler);
     },
   };
-}
-
-function deliver(payload: string): void {
-  // The payload is a project id and nothing else. Anything else on this channel
-  // is not ours; dropping it costs a TTL window, acting on it would not.
-  if (!isUuid(payload)) return;
-  for (const handler of handlers) {
-    invokeSubscriber(handler, payload);
-  }
 }
 
 /**
@@ -357,24 +399,17 @@ export async function startConfigBaseMoveBroadcast(): Promise<boolean> {
     });
     // postgres.js re-issues the LISTEN itself when the connection drops and
     // comes back, so a database restart does not need handling here.
-    await sql.listen(BASE_MOVE_CHANNEL, deliver);
-    // `sql.listen` keeps one connection for every channel of this client.
-    await sql.listen(TUNNEL_FORWARD_CHANNEL, (payload) => invokeSubscriber(tunnelForwardHandler, payload));
-    await sql.listen(LIFECYCLE_COMMAND_SETTLED_CHANNEL, wakeSettleWaiters);
-    await sql.listen(LIFECYCLE_COMMAND_DUE_CHANNEL, deliverCommandDue);
-    await sql.listen(SESSION_PROMPTS_CHANGED_CHANNEL, deliverPromptsChanged);
-    await sql.listen(SESSION_CHANGED_CHANNEL, deliverSessionChanged);
-    await sql.listen(IAM_CACHE_BUST_CHANNEL, (payload) => invokeSubscriber(iamCacheBustHandler, payload));
-    await sql.listen(CHROME_COMMAND_CHANNEL, (payload) => invokeSubscriber(chromeCommandHandler, payload));
-    await sql.listen(SPACE_ACCESS_BUST_CHANNEL, deliverSpaceAccessBust);
-    await sql.listen(SESSION_LIST_BUST_CHANNEL, deliverSessionListBust);
+    await sql.listen(CHANNELS.baseMove.channel, wired(CHANNELS.baseMove));
+    await sql.listen(CHANNELS.tunnelForward.channel, wired(CHANNELS.tunnelForward));
+    await sql.listen(CHANNELS.commandSettled.channel, wired(CHANNELS.commandSettled));
+    await sql.listen(CHANNELS.commandDue.channel, wired(CHANNELS.commandDue));
+    await sql.listen(CHANNELS.promptsChanged.channel, wired(CHANNELS.promptsChanged));
+    await sql.listen(CHANNELS.sessionChanged.channel, wired(CHANNELS.sessionChanged));
+    await sql.listen(CHANNELS.iamCacheBust.channel, wired(CHANNELS.iamCacheBust));
+    await sql.listen(CHANNELS.chromeCommand.channel, wired(CHANNELS.chromeCommand));
+    await sql.listen(CHANNELS.spaceAccessBust.channel, wired(CHANNELS.spaceAccessBust));
+    await sql.listen(CHANNELS.sessionListBust.channel, wired(CHANNELS.sessionListBust));
     listener = sql;
-    publish = (projectId: string) => {
-      // Fire-and-forget on the LISTEN connection's own pool: it runs no other
-      // statements, so a NOTIFY never queues behind request traffic. The caller
-      // is inside the write that moved the branch and must not wait.
-      void sql.notify(BASE_MOVE_CHANNEL, projectId).catch(() => {});
-    };
     console.log(
       `[config-releases] base-move broadcast listening on ${BASE_MOVE_CHANNEL}, ${TUNNEL_FORWARD_CHANNEL}, ${LIFECYCLE_COMMAND_SETTLED_CHANNEL}, ${LIFECYCLE_COMMAND_DUE_CHANNEL}, ${SESSION_PROMPTS_CHANGED_CHANNEL}, ${SESSION_CHANGED_CHANNEL}, ${IAM_CACHE_BUST_CHANNEL}, ${SPACE_ACCESS_BUST_CHANNEL}, ${SESSION_LIST_BUST_CHANNEL}, ${CHROME_COMMAND_CHANNEL}`,
     );
@@ -401,8 +436,7 @@ export async function stopConfigBaseMoveBroadcast(): Promise<void> {
   retryTimer = null;
   const sql = listener;
   listener = null;
-  publish = null;
-  handlers = [];
+  CHANNELS.baseMove.clear();
   if (!sql) return;
   await sql.end({ timeout: 2 }).catch(() => {});
 }

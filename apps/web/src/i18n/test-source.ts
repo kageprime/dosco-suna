@@ -23,7 +23,7 @@ function englishValue(key: string): string | undefined {
  * Product source keeps one copy of the text in en.json. Existing architecture
  * tests can continue to assert the rendered words beside their code shape.
  */
-export function expandI18nSource(source: string): string {
+function expandI18nSource(source: string): string {
   const expanded = source.replace(
     /\b[A-Za-z_$][\w$]*\.raw\((['"])([^'"]+)\1\)/g,
     (call, _quote: string, key: string) => {

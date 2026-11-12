@@ -100,7 +100,8 @@ export interface SessionCostDetail extends SessionCostSummary {
   model_usage: SessionCostModelUsage[];
   ledger_entries: SessionCostLedgerEntry[];
   /** The part of `total_cost` another workspace paid for: the session ran
-   *  before its project moved here. Absent from an older API. */
+   *  before its project moved here. 0 when it all billed here. Absent from an
+   *  older API. */
   billed_elsewhere_cost?: number;
 }
 

@@ -125,7 +125,7 @@ export async function resolveSessionOnBehalfOf(input: {
     const metadata = (session.metadata ?? {}) as Record<string, unknown>;
     const parentId = typeof metadata.spawned_by_session === 'string' ? metadata.spawned_by_session : null;
     const [membership, parent] = await Promise.all([
-      membershipRow(input.userId, input.accountId),
+      membershipRow(input.accountId, input.userId),
       parentId
         ? db
             .select({ onBehalfOfUserId: accountTokens.onBehalfOfUserId })

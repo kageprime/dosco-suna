@@ -485,7 +485,7 @@ pub fn grab_screen(paths: &MemoryPaths, a: GrabScreenArgs, json_out: bool) -> Re
             "exclude_private": s.exclude_private_browsing, "record_unknown": s.record_unknown_bundle_ids,
             "only_included": s.record_only_included, "include_bundle_ids": s.included_bundle_ids, "include_domains": s.effective_included_domains(),
             "max_idle_seconds": 0.0, "ax": false,
-            "level": s.ocr_level, "languages": s.ocr_languages,
+            "level": s.ocr_engine_level(), "languages": s.ocr_languages,
         }),
         Duration::from_secs(20),
     )?;
@@ -511,7 +511,7 @@ pub fn grab_screen(paths: &MemoryPaths, a: GrabScreenArgs, json_out: bool) -> Re
         if let Some(layout) = private_layout {
             v["ocr_text"] = json!(format!("{}{}", layout.foreground, layout.background));
         } else {
-            let r = engine.request(json!({"cmd": "ocr", "path": out.to_string_lossy(), "level": s.ocr_level, "languages": s.ocr_languages}), Duration::from_secs(60))?;
+            let r = engine.request(json!({"cmd": "ocr", "path": out.to_string_lossy(), "level": s.ocr_engine_level(), "languages": s.ocr_languages}), Duration::from_secs(60))?;
             let boxes = r
                 .get("boxes")
                 .and_then(Value::as_array)

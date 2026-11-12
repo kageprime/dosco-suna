@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '@kortix/ui/select';
 import { Skeleton } from '@kortix/ui/skeleton';
-import { CreditTransactionsTable } from '@/features/billing/transactions-table';
+import { CreditActivityFeed } from '@/features/billing/credit-activity-feed';
 import { useTransactions } from '@kortix/ui/internal/billing/use-transactions';
 import { isBillingEnabled } from '@/lib/config';
 import { CoinsIcon as Coins, ArrowClockwiseIcon as RefreshCw } from '@phosphor-icons/react';
@@ -154,7 +154,7 @@ export default function CreditTransactions({ accountId }: Props) {
         </p>
       ) : (
         <>
-          <CreditTransactionsTable
+          <CreditActivityFeed
             rows={transactions.map((tx) => ({
               id: tx.id,
               createdAt: tx.created_at,

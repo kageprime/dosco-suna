@@ -347,7 +347,7 @@ function FactRow({
 /**
  * The approval itself, without the page frame: the standalone page wraps it in
  * a bordered card inside `AuthFrame`; the Review Center opens the same panel in
- * `ApprovalDecisionModal`, so a call reads and decides the same way on both.
+ * `ApprovalDecisionPane`, so a call reads and decides the same way on both.
  *
  * Top to bottom (Paper V01, sentence-first): the connector and action with the
  * time left; one plain sentence of what the agent wants; the agent's own

@@ -17,12 +17,12 @@ import { useColorScheme } from 'nativewind';
 
 import { KortixLogo } from '@/components/kortix/KortixLogo';
 import { SheetBody } from '@/components/kortix/sheet';
-import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { ArrowUpRightIcon, CheckIcon, PlugIcon } from '@/lib/icons';
+import { CheckIcon, PlugIcon } from '@/lib/icons';
 import { THEME } from '@/lib/utils/theme';
+import { HandoffBody } from './handoff-sheet';
 
 interface ConnectorAppMarkProps {
   name: string;
@@ -140,13 +140,9 @@ export function ConnectorHandshake({ name, iconUrl }: Pick<ConnectorAppMarkProps
 
 /**
  * The body of a connect hand-off sheet (`ConnectorAuthSheet`,
- * `ConnectProviderSheet`): the handshake, what gets connected, one line on
- * what happens next, then the two pills.
- *
- * The primary pill names where it goes ("Continue to GitHub") and carries the
- * leaves-the-app arrow beside its label. Both pills are `lg` and full width,
- * so the pair reads as one stack; "Not now" is `secondary`, as on the upgrade
- * sheet.
+ * `ConnectProviderSheet`): the connector handshake leading the shared
+ * hand-off body (`HandoffBody`, `handoff-sheet.tsx`), whose primary pill
+ * carries the leaves-the-app arrow.
  */
 export function HandoffSheetBody({
   name,
@@ -166,22 +162,15 @@ export function HandoffSheetBody({
 }) {
   return (
     <SheetBody className="items-center pt-4">
-      <ConnectorHandshake name={name} iconUrl={iconUrl} />
-      <Text variant="large" className="mt-6 text-center" accessibilityRole="header">
-        {title}
-      </Text>
-      <Text variant="muted" className="mt-2 px-4 text-center leading-5">
-        {body}
-      </Text>
-      <View className="mt-8 w-full" style={{ gap: 8 }}>
-        <Button size="lg" className="rounded-full" onPress={onContinue}>
-          <Text>{action}</Text>
-          <Icon as={ArrowUpRightIcon} size={16} />
-        </Button>
-        <Button variant="secondary" size="lg" className="rounded-full" onPress={onClose}>
-          <Text>Not now</Text>
-        </Button>
-      </View>
+      <HandoffBody
+        leading={<ConnectorHandshake name={name} iconUrl={iconUrl} />}
+        title={title}
+        line={body}
+        action={action}
+        onContinue={onContinue}
+        onClose={onClose}
+        leavesApp
+      />
     </SheetBody>
   );
 }

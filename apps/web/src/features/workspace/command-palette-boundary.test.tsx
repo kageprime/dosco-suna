@@ -5,7 +5,7 @@ import { Window } from 'happy-dom';
 
 const win = new Window();
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', { value: true, configurable: true });
-for (const [key, value] of Object.entries({ window: win, document: win.document, navigator: win.navigator, getComputedStyle: win.getComputedStyle.bind(win) })) {
+for (const [key, value] of Object.entries({ window: win, document: win.document, navigator: win.navigator, getComputedStyle: win.getComputedStyle.bind(win), requestAnimationFrame: win.requestAnimationFrame.bind(win), cancelAnimationFrame: win.cancelAnimationFrame.bind(win) })) {
   Object.defineProperty(globalThis, key, { value, configurable: true, writable: true });
 }
 for (const key of Object.getOwnPropertyNames(win)) {

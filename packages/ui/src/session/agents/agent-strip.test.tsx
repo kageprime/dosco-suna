@@ -18,7 +18,7 @@ const originals = ['window', 'document', 'IS_REACT_ACT_ENVIRONMENT'].map((key) =
 Object.defineProperty(globalThis, 'window', { value: windowObject, configurable: true });
 Object.defineProperty(globalThis, 'document', { value: windowObject.document, configurable: true });
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', { value: true, configurable: true });
-// Radix (the popover, its focus and dismiss layers) reads these by bare global name, and
+// Base UI (the popover, its focus and dismiss layers) reads these by bare global name, and
 // happy-dom dispatches only its own event classes (the floating-panel-motion.test.tsx setup).
 const radixGlobals = [
   'navigator',
@@ -73,7 +73,7 @@ mock.module('@kortix/sdk/react', () => ({
   }),
 }));
 
-// Imported after the globals above: Radix picks its layout effect when its module loads,
+// Imported after the globals above: Base UI picks its layout effect when its module loads,
 // and a module loaded before `document` exists never mounts a portal.
 const { TooltipProvider } = await import('../../primitives/tooltip');
 const { resolveEffectiveBusy } = await import('../status/session-chat-busy');
@@ -358,7 +358,7 @@ describe('AgentsPanel — the popover rows', () => {
     expect(tab.textContent).toContain('1');
     expect(body.querySelector('[aria-label="Team tasks"]')).toBeNull();
     await act(async () => {
-      // Radix tabs activate on mousedown.
+      // Tabs activate on mousedown.
       tab.dispatchEvent(new windowObject.MouseEvent('mousedown', { bubbles: true, button: 0 }));
     });
     expect(body.querySelector('[aria-label="Team tasks"]')).not.toBeNull();

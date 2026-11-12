@@ -19,6 +19,8 @@ const OC_SESSION_ID = 'oc-fail-open-1';
 mock.module('../config', () => ({
   config: { KORTIX_URL: 'https://api.test' },
   SANDBOX_VERSION: 'test',
+  RELEASE_VERSION: 'test',
+  RELEASE_COMMIT: '',
   KNOWN_PROVIDERS: ['platinum', 'daytona'],
   childProcessEnv: (extra: Record<string, string> = {}) => ({ ...process.env, ...extra }),
 }));

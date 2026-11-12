@@ -103,7 +103,7 @@
       "icu-minify@>=4.0.0 <4.9.2": "4.9.2",
       "zod@>=4.0.0 <4.6.6": "4.6.7",
       "nodemailer@>=10.0.0 <10.1.4": "10.2.1",
-      "node-forge@<1.4.1": "1.4.1",
+      "node-forge@<1.4.3": "1.4.3",
       "body-parser@>=2.0.0 <2.4.0": "2.4.0",
       "qs@>=6.7.0 <6.16.1": "6.16.1",
       "postcss-selector-parser@>=6.0.0 <6.1.5": "6.1.5",
@@ -179,7 +179,8 @@
       "postgres@3.4.9": "patches/postgres@3.4.9.patch",
       "undici@8.12.2": "patches/undici@8.12.2.patch",
       "@electron/asar@3.4.1": "patches/@electron__asar@3.4.1.patch",
-      "rimraf@2.6.3": "patches/rimraf@2.6.3.patch"
+      "rimraf@2.6.3": "patches/rimraf@2.6.3.patch",
+      "next@16.4.2": "patches/next@16.4.2.patch"
     }
   },
   "version": "1.0.0",

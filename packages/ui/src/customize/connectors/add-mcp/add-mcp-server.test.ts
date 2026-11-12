@@ -218,6 +218,32 @@ describe('addMcpServer', () => {
     ).rejects.toThrow();
     expect(calls).toEqual([]);
   });
+
+  test('the stages fire in order as each phase starts, so the dialog can show the wait (KRTX-4640)', async () => {
+    // A server with nothing to sign in to stops after the account: no sign-in stage.
+    const { deps } = fakes({ signInPending: false });
+    const stages: string[] = [];
+    await addMcpServer(
+      'p1',
+      { url: 'https://mcp.linear.app/mcp', audience: 'private', takenSlugs: [], returnUrl: () => 'x' },
+      { ...deps, onStage: (stage) => stages.push(stage) },
+    );
+    expect(stages).toEqual(['connector', 'account']);
+  });
+
+  test('a sign-in attempt reports its stage even when the start throws', async () => {
+    const { deps } = fakes();
+    deps.startSignIn = async () => {
+      throw new Error('OAuth2 client registration failed (400): invalid_redirect_uri');
+    };
+    const stages: string[] = [];
+    await addMcpServer(
+      'p1',
+      { url: 'https://mcp.linear.app/mcp', audience: 'private', takenSlugs: [], returnUrl: () => 'x' },
+      { ...deps, onStage: (stage) => stages.push(stage) },
+    );
+    expect(stages).toEqual(['connector', 'account', 'sign-in']);
+  });
 });
 
 describe('mcpAppIdentity', () => {

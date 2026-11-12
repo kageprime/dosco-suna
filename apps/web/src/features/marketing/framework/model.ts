@@ -42,7 +42,7 @@ export type Excerpt = {
 
 function excerpt(from: string, to: string, focus: readonly [string, string]): Excerpt {
   // `to` and `focus` are searched from `from` on: a line such as
-  // `workspace: ...` repeats in MANIFEST.
+  // `connectors: ...` repeats in MANIFEST.
   const at = (line: string, after = 0) => {
     const i = MANIFEST.indexOf(line as (typeof MANIFEST)[number], after);
     if (i < 0) throw new Error(`MANIFEST has no line "${line}" after line ${after}`);
@@ -60,7 +60,7 @@ function excerpt(from: string, to: string, focus: readonly [string, string]): Ex
 
 /* The hero walkthrough: a part of kortix.yaml, then what Kortix runs from it.
    Sources: developers.mdx "Agent keys" (description, prompt_file, tools,
-   connectors, skills, workspace.project_repository), "Registries and grants"
+   connectors, skills), "Registries and grants"
    (omitted means none); "Connector rules and approvals" (require_approval
    holds the call); guide.mdx "Connectors" (Kortix holds the login, makes and
    records each call), "Approving a held action" (24 h default);
@@ -99,9 +99,9 @@ export const walk: readonly WalkStep[] = [
 ];
 
 export const walkFiles = {
-  agents: excerpt('  # Engineering', '    workspace: { project_repository: true }', [
+  agents: excerpt('  # Engineering', '    extensions: [triage-policy]', [
     '  eng-triage:',
-    '    workspace: { project_repository: true }',
+    '    extensions: [triage-policy]',
   ]),
   connectors: excerpt('connectors:', '        action: require_approval', [
     '  - slug: linkedin',

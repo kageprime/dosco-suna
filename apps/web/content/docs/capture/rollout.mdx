@@ -136,6 +136,33 @@ Get-Process kortix-capture | Select-Object Id, SessionId
 The service is `RUNNING`, and a `kortix-capture` process runs in each
 signed-in session.
 
+## What Kortix Capture costs a computer
+
+Kortix Capture runs below normal priority and, on Windows 11, in efficiency
+mode, so the apps a person works in always win the CPU. The keyboard and mouse
+hook never waits on Capture's own work.
+
+- **With record only included apps** (for example only the apps a team works in),
+  Capture takes no screenshots, reads no text and walks no app's accessibility
+  tree while another app is in front.
+- **While a person works**, Capture defers what can wait: text recognition
+  reads each screen at most every 30 seconds, and video encoding waits for a
+  pause (at most 5 minutes).
+- **Text recognition can be off.** In Kortix, **Capture → Settings → Screen
+  frames → Text recognition → Off** reads no screen text on any computer: the
+  least CPU. Search then finds apps, window titles and URLs.
+- **On a slow computer**, Capture slows itself down: a capture or a text read
+  that takes longer is followed by a longer rest, so screen capture uses at most
+  half and text recognition at most a fifth of one core.
+- **Device details** in **Devices** shows what Capture used on each computer in
+  the last 10 minutes: CPU (average and peak, as a share of one core), memory,
+  and each Capture process.
+
+Antivirus scans each new file. To keep that scanning off the recorder, exclude
+the library folder `%APPDATA%\ai.kortix.capture` and the processes
+`kortix-capture.exe`, `kortix-capture-engine.exe` and `kortix-backend.exe`
+(Microsoft Defender: Intune → Endpoint security → Antivirus → exclusions).
+
 ## Remove a computer or stop a rollout
 
 | To | Do |

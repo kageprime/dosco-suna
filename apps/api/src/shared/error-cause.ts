@@ -10,6 +10,40 @@
  */
 
 /**
+ * The cause chain as nodes: `error` itself first, then each `.cause` link.
+ * Every field a classifier reads is an optional `unknown`, because a thrown
+ * value can be anything.
+ *
+ * Bounded and cycle-safe. These run on an error path, where a hang is the worst
+ * possible outcome — worse than a missing detail — so the walk refuses to
+ * revisit a node and gives up after `maxDepth` links (16 by default; a
+ * classifier whose own walk differed before the consolidation passes its
+ * bound — `postgres-errors.ts` walks 4 links, `database-errors.ts` 8, and
+ * `isAuditContentionError` walked acyclic chains with no cutoff at all, so it
+ * passes `Infinity` and leans on the revisit guard to terminate).
+ *
+ * Lazy: a node's `cause` is read only when the consumer pulls the NEXT node,
+ * so a classifier that returns at a match — the trunk's `errorSqlstate`,
+ * `isUniqueViolation`, `uniqueViolationConstraint` and `isAuditContentionError`
+ * all stopped there — never reads past it, and a throwing `cause` getter below
+ * a matched code cannot break the match. A consumer that needs the whole chain
+ * materializes it (`Array.from`), reading every link up to the bound.
+ *
+ * The one walk every classifier reads (`errorSqlstate`'s first code,
+ * `innermostMessage`'s deepest message, the transient sets over every node,
+ * the driver-node find), so "what does this chain say" has one answer.
+ */
+export function* errorChain(error: unknown, maxDepth = 16): Generator<Record<string, unknown>> {
+  const seen = new Set<unknown>();
+  let node = error;
+  for (let depth = 0; depth < maxDepth && node != null && typeof node === 'object' && !seen.has(node); depth++) {
+    seen.add(node);
+    yield node as Record<string, unknown>;
+    node = (node as { cause?: unknown }).cause;
+  }
+}
+
+/**
  * The first `code` found walking down the cause chain.
  *
  * FIRST, not deepest, and deliberately so: this is the behaviour
@@ -20,14 +54,11 @@
  * code is the one the thrower meant us to act on.
  */
 export function errorSqlstate(error: unknown): string | null {
-  return walk(
-    error,
-    (node) => {
-      const code = (node as { code?: unknown }).code;
-      return typeof code === 'string' && code.length > 0 ? code : null;
-    },
-    'first',
-  );
+  for (const node of errorChain(error)) {
+    const code = node.code;
+    if (typeof code === 'string' && code.length > 0) return code;
+  }
+  return null;
 }
 
 /**
@@ -52,43 +83,10 @@ export async function retryOnDeadlock<T>(run: () => Promise<T>): Promise<T> {
  * the fault.
  */
 export function innermostMessage(error: unknown): string | null {
-  return walk(
-    error,
-    (node) => {
-      const message = (node as { message?: unknown }).message;
-      return typeof message === 'string' && message.length > 0 ? message : null;
-    },
-    'last',
-  );
-}
-
-/**
- * Walk `.cause`, returning either the first or the last non-null `pick`.
- *
- * Bounded and cycle-safe. These run on an error path, where a hang is the worst
- * possible outcome — worse than a missing detail — so the walk refuses to
- * revisit a node and gives up after 16 links.
- */
-function walk(
-  error: unknown,
-  pick: (node: object) => string | null,
-  take: 'first' | 'last',
-): string | null {
-  let current = error;
   let found: string | null = null;
-  const seen = new Set<unknown>();
-  for (let depth = 0; depth < 16 && current != null; depth++) {
-    if (typeof current !== 'object') break;
-    if (seen.has(current)) break;
-    seen.add(current);
-    const value = pick(current);
-    if (value !== null) {
-      if (take === 'first') return value;
-      found = value;
-    }
-    const cause = (current as { cause?: unknown }).cause;
-    if (cause == null) break;
-    current = cause;
+  for (const node of errorChain(error)) {
+    const message = node.message;
+    if (typeof message === 'string' && message.length > 0) found = message;
   }
   return found;
 }
@@ -113,6 +111,10 @@ function walk(
  * database-free (its own tests mock `@kortix/db` without a live pool), so the
  * classifier — like `errorSqlstate` above — lives in this leaf and is
  * re-exported from `audit-db.ts` for its existing callers.
+ *
+ * This table is the audit classifier's membership alone. The database read
+ * retry (`isTransientDatabaseError`) keeps its own table below: a code added
+ * for one retry policy must never silently widen the other.
  */
 const AUDIT_CONTENTION_SQLSTATES = new Set([
   '57014', // query_canceled — statement_timeout fired while queued on a lock
@@ -164,19 +166,47 @@ const AUDIT_TRANSIENT_DRIVER_CODES = new Set([
 ]);
 
 /**
+ * The database read retry's own transient set: the codes
+ * `isTransientDatabaseError` (database-errors.ts) retried before 2026-11,
+ * kept as its own table rather than merged into the audit pair above — a
+ * code added for one retry policy must never silently widen the other. The
+ * `08…` connection SQLSTATEs need no entry (that classifier's
+ * `startsWith('08')` rule covers them); `EMAXCONNSESSION` is the
+ * session-mode pool's max clients.
+ */
+export const TRANSIENT_DATABASE_CODES: ReadonlySet<string> = new Set([
+  '40001',
+  '40P01',
+  '53300',
+  '57P01',
+  '57P02',
+  '57P03',
+  // postgres.js connection-phase failure: the connection never established,
+  // so the statement never reached the server (plain Error, driver's own
+  // code — not a SQLSTATE). Reads may be retried.
+  'CONNECT_TIMEOUT',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'EMAXCONNSESSION',
+]);
+
+/**
  * True when a failed audit write is backpressure (retry it) rather than a
- * defect (dead-letter it). Mirrors `errorSqlstate`'s cause-walk but checks
- * EVERY node's own code against the contention sets, not only the first code
- * found on the chain — a synthetic wrapper code that itself isn't in either
- * set must not shadow a genuinely contended cause underneath it.
+ * defect (dead-letter it). Checks EVERY node's own code against the
+ * contention sets, not only the first code found on the chain — a synthetic
+ * wrapper code that itself isn't in either set must not shadow a genuinely
+ * contended cause underneath it.
+ *
+ * Walks the chain with no depth cutoff (`Infinity`): the pre-consolidation
+ * classifier recursed down `.cause` until the chain ran out, so a deeply
+ * wrapped contention code must still classify — a truncated walk would make
+ * `AuditQueue.flush` dead-letter backpressure instead of requeueing it. The
+ * shared walk's revisit guard (not a depth bound) terminates a cause cycle.
  */
 export function isAuditContentionError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const code = (error as { code?: unknown }).code;
-  if (typeof code === 'string') {
-    if (AUDIT_CONTENTION_SQLSTATES.has(code)) return true;
-    if (AUDIT_TRANSIENT_DRIVER_CODES.has(code)) return true;
+  for (const node of errorChain(error, Infinity)) {
+    const code = node.code;
+    if (typeof code === 'string' && (AUDIT_CONTENTION_SQLSTATES.has(code) || AUDIT_TRANSIENT_DRIVER_CODES.has(code))) return true;
   }
-  const cause = (error as { cause?: unknown }).cause;
-  return cause != null && cause !== error ? isAuditContentionError(cause) : false;
+  return false;
 }

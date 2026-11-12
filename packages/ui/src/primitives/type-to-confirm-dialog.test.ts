@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test';
 import { confirmationPhraseMatches } from './type-to-confirm-dialog';
 
 /**
- * `TypeToConfirmDialog` renders through a Radix portal, which emits NOTHING
+ * `TypeToConfirmDialog` renders through a portal, which emits NOTHING
  * under `renderToStaticMarkup` (`general-tab.test.tsx` documents the same
  * constraint for `ConfirmDialog`), and `apps/web` has no DOM test harness. A
  * test that tried to assert on the rendered confirm button's `disabled`

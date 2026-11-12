@@ -11,6 +11,7 @@ import { normalizeDefaultReasoningEffort } from './effort-default';
 import { type accountGithubInstallations, type projectGitConnections, type projectGitCredentials, projectSecrets, type projectSessions } from '@kortix/db';
 import { and, desc, eq, isNull, or } from 'drizzle-orm';
 import { sessionInitiatorLabel } from './session-initiator';
+import { projectSecretRowNotMoved } from '../../secrets/llm-credential-ledger';
 import { sessionRestoreUntil } from '../session-log-purge';
 import { type SandboxProviderName, config } from '../../config';
 import { mayManageSessionSharing, type SecretGrant, visibilityToIntent } from '../../connectors/share';
@@ -37,6 +38,7 @@ import { isPlaceholderSessionTitle, runtimeRootTitleFromSnapshot } from './sessi
 import { normalizeProjectGlyph } from './project-glyph';
 import { normalizeProjectIcon } from './project-icon';
 import { probeProjectSecret } from '../secrets/envelope';
+import { secretStrategyLockHolds } from '../../secrets/strategy';
 import { isDeprecatedProvider } from '../../platform/providers/deprecated';
 import { driveStorageAvailable } from '../../drives/volumes';
 import { projectsView } from '../../workspaces/rows';
@@ -669,7 +671,7 @@ export function buildSecretView(input: {
     // field reads as "unknown" to them, a `false` would falsely disable the UI.
     network_boundary_available: true,
     egress_policy: deliveryRow?.egressPolicy ?? null,
-    strategy_locked: deliveryRow?.strategyLocked ?? false,
+    strategy_locked: deliveryRow ? secretStrategyLockHolds(deliveryRow) : false,
     last_rotated_at: deliveryRow?.rotatedAt?.toISOString() ?? null,
     requires_rotation: requiresRotation,
     // One decrypt of the SHARED value, the one a shared write replaces; the
@@ -706,6 +708,9 @@ export async function loadSecretViewsForUser(input: {
         userId
           ? or(isNull(projectSecrets.ownerUserId), eq(projectSecrets.ownerUserId, userId))
           : isNull(projectSecrets.ownerUserId),
+        // A provider key that moved to the named store is listed there
+        // (Models → Providers), not here.
+        projectSecretRowNotMoved(),
       ),
     )
     .orderBy(desc(projectSecrets.updatedAt));

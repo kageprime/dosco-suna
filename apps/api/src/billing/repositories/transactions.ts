@@ -1,8 +1,35 @@
-import { eq, desc, sql, and, gte, inArray } from 'drizzle-orm';
+import { eq, desc, sql, and, gte, inArray, type SQL } from 'drizzle-orm';
+import type { PgTable } from 'drizzle-orm/pg-core';
 import { creditLedger, creditUsage, creditPurchases } from '@kortix/db';
 import { db } from '../../shared/db';
 
 // Reads only. Every credit_ledger write goes through billing/wallet.
+
+/**
+ * The most rows a pagination count may scan. `SELECT count(*) WHERE
+ * account_id = $1` reads the account's whole ledger slice on every page view,
+ * and for a heavy account the planner turns it into a parallel seq scan of the
+ * whole table (KRTX-3175, measured 2026-11-10: a 1M-row account counted
+ * through a full-table scan). Bounded at 10k the count is a
+ * single-digit-millisecond index read. `total` stays exact below the cap; at
+ * or above it, `total` reports the cap and pagination stops there — the
+ * manual 50-row pager never pages that deep.
+ */
+export const COUNT_SCAN_CAP = 10_000;
+
+/** `min(exact total, COUNT_SCAN_CAP)`: counts at most COUNT_SCAN_CAP rows of
+ * `table` under `where`, stopping at the cap instead of scanning the account's
+ * whole slice. */
+async function boundedCount(table: PgTable, where: SQL): Promise<number> {
+  const bounded = db
+    .$with('counted_rows')
+    .as(db.select({ one: sql`1` }).from(table).where(where).limit(COUNT_SCAN_CAP));
+  const [countResult] = await db
+    .with(bounded)
+    .select({ count: sql<number>`count(*)` })
+    .from(bounded);
+  return Number(countResult?.count ?? 0);
+}
 
 export async function getTransactions(
   accountId: string,
@@ -34,12 +61,7 @@ export async function getTransactions(
     .limit(limit)
     .offset(offset);
 
-  const [countResult] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(creditLedger)
-    .where(where);
-
-  return { rows, total: Number(countResult?.count ?? 0) };
+  return { rows, total: await boundedCount(creditLedger, where) };
 }
 
 export async function getTransactionsSummary(accountId: string, days: number) {
@@ -66,20 +88,16 @@ export async function getUsageRecords(
   limit: number,
   offset: number,
 ) {
+  const accountFilter = eq(creditUsage.accountId, accountId);
   const rows = await db
     .select()
     .from(creditUsage)
-    .where(eq(creditUsage.accountId, accountId))
+    .where(accountFilter)
     .orderBy(desc(creditUsage.createdAt))
     .limit(limit)
     .offset(offset);
 
-  const [countResult] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(creditUsage)
-    .where(eq(creditUsage.accountId, accountId));
-
-  return { rows, total: Number(countResult?.count ?? 0) };
+  return { rows, total: await boundedCount(creditUsage, accountFilter) };
 }
 
 export async function insertPurchase(data: typeof creditPurchases.$inferInsert) {

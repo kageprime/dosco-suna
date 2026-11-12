@@ -10,6 +10,7 @@ import { currentRecorder } from './context';
 import { assert, BodyAssert } from './expect';
 import { log } from './log';
 import type { Captured } from './result';
+import { scrubSecretShapes } from './scrub';
 
 export type Auth =
   | { mode: 'none' }
@@ -26,6 +27,41 @@ export interface Identity {
 }
 
 export const ANON: Identity = { label: 'ANON', auth: { mode: 'none' } };
+
+/**
+ * A marked-retryable failure carrying its provenance as typed fields.
+ *
+ * `ke2ePreCommit` is the replay guarantee: true only when the API's own
+ * response BODY classified the failure as a transient pre-commit degradation
+ * (`git_mirror_unavailable` / `retry: true`). An ambiguous mark — a
+ * edge-laundered synthetic 503 or a network error, where the origin may have
+ * already committed — carries `ke2ePreCommit: false`, so a caller that re-sends
+ * creates (the sandbox pre-build) must retry on the proven shape only.
+ */
+export class Ke2eRetryableError extends Error {
+  readonly ke2eRetryable = true;
+  readonly ke2eRetryAfterMs?: number;
+  readonly ke2ePreCommit: boolean;
+
+  constructor(
+    message: string,
+    opts: { retryAfterMs?: number; preCommit?: boolean } = {},
+  ) {
+    super(message);
+    this.name = 'Ke2eRetryableError';
+    this.ke2eRetryAfterMs = opts.retryAfterMs;
+    this.ke2ePreCommit = opts.preCommit === true;
+  }
+}
+
+/**
+ * True when a marked-retryable error was PROVEN pre-commit by the API's own
+ * response body — the only shape re-sending a POST/GET-create cannot duplicate
+ * resources on. An ambiguous mark must fail to the caller.
+ */
+export function isKe2ePreCommitRetryableError(error: unknown): boolean {
+  return error instanceof Ke2eRetryableError && error.ke2ePreCommit;
+}
 
 /** True when the HTTP client marked an error as a transient network failure. */
 export function isKe2eRetryableError(error: unknown): boolean {
@@ -161,12 +197,32 @@ export class Res {
       (error as any).ke2eRetryAfterMs = retryAfterMs(this.header('retry-after'));
       throw error;
     }
+    if (!codes.includes(this.statusCode) && isTypedRetryableApiDegradation(this)) {
+      // The API itself classified this failure: `code: 'git_mirror_unavailable'`
+      // (a session's git-mirror cold-clone/fetch failed for a TRANSIENT upstream
+      // reason — projects/git/mirror.ts) or `retry: true` on a 5xx (the deploy
+      // in progress, session insert). Both are PRE-COMMIT and PROVEN by the
+      // origin's response body (its x-request-id signature — see
+      // isTypedRetryableApiDegradation), so the flow-level budget and the
+      // pre-build may re-send.
+      // The in-request retry stays untouched: POST is still never re-sent here.
+      throw new Ke2eRetryableError(
+        `typed retryable api degradation ${this.statusCode}; expected [${codes.join(', ')}] ` +
+          `body=${describeTypedRetryableResponse(this)}`,
+        { retryAfterMs: retryAfterMs(this.header('retry-after')), preCommit: true },
+      );
+    }
     assert({
       kind: 'status',
       description: `status in [${codes.join(', ')}]`,
       expected: codes,
       actual: this.statusCode,
       pass: codes.includes(this.statusCode),
+      // A failed status assert keeps what the response says: origin vs edge and
+      // the body, cut. A deployed smoke's 5xx body names the cause (provider
+      // capacity, GITHUB_RATE_LIMITED, …) — without it the run log is a bare
+      // status and every triage starts from zero (release gate 42666114535).
+      ...(codes.includes(this.statusCode) ? {} : { detail: statusAssertDetail(this) }),
     });
     return this;
   }
@@ -202,6 +258,58 @@ export class Res {
   body(): BodyAssert {
     return new BodyAssert(this.json());
   }
+}
+
+/**
+ * The API's own documented-retryable mirror 503 code. When a project's git
+ * mirror is momentarily unavailable (a freshly provisioned managed repo whose
+ * credential/visibility has not settled), the API answers 503 with the stable
+ * code `git_mirror_unavailable` and `Retry-After` — the same contract the
+ * SDK (`packages/sdk` `response-error.ts`) classifies and retries. The client
+ * honors it like the SDK does instead of failing the assertion (release run
+ * 42666114535: the deployed smoke's warm-up session create answered this 503
+ * on every attempt while the mirror's own bounded clone retries never
+ * outlasted the blip).
+ */
+export const GIT_MIRROR_UNAVAILABLE_CODE = 'git_mirror_unavailable';
+
+/**
+ * Detect the API's own TYPED, proven-PRE-COMMIT retryable degradation.
+ *
+ * `git_mirror_unavailable` (a session's git-mirror cold clone/fetch failed
+ * for a transient, upstream reason — see `projects/git/mirror.ts`; only the
+ * 503 carries that contract — KRTX-4578) and a 5xx body carrying
+ * `retry: true` (the deploy in progress, the session insert) are the API's
+ * own declaration that it took no committed action and the caller may
+ * re-send. But a body is proven only when it is the origin's: without
+ * `x-request-id` the body may be the edge's synthetic laundering, and those
+ * responses stay in the ambiguous gateway lane below
+ * (`isKe2eTransientGatewayResponse`, which matches host failures by the
+ * ABSENCE of x-request-id) — never replayed. The provenance a POST re-send
+ * needs is the proven-pre-commit contract the sandbox pre-build retries on
+ * (`isKe2ePreCommitRetryableError`); folding KRTX-4578's gateway marking of
+ * the same mirror 503 here is where the provenance is actually checked
+ * before anything replays. Without this, a response the API already promised
+ * is retryable breaks `.status()` as a plain contract assertion.
+ */
+export function isTypedRetryableApiDegradation(response: Res): boolean {
+  if (response.statusCode < 500) return false;
+  if (response.header('x-request-id') === undefined) return false;
+  const body = response.captured.res.json as
+    | { code?: unknown; retry?: unknown; message?: unknown }
+    | undefined;
+  if (typeof body !== 'object' || body === null) return false;
+  if (body.code === GIT_MIRROR_UNAVAILABLE_CODE) return response.statusCode === 503;
+  return body.retry === true;
+}
+
+function describeTypedRetryableResponse(response: Res): string {
+  const body = response.captured.res.json as
+    | { code?: unknown; message?: unknown }
+    | undefined;
+  const code = typeof body?.code === 'string' ? body.code : '<no code>';
+  const message = typeof body?.message === 'string' ? body.message : '<no message>';
+  return `${code}: ${message.slice(0, 160)}`;
 }
 
 /**
@@ -334,6 +442,20 @@ export function describeEdgeResponse(
     `x-maintenance-mode=${maintenance ?? 'absent'} ` +
     `x-request-id=${requestId ? 'present' : 'absent'}]`
   );
+}
+
+/** The `detail` a failed status assert carries: origin/edge classification plus
+ *  the body, cut. A deployed 5xx body names its cause ("provider at capacity",
+ *  `GITHUB_RATE_LIMITED`, `KORTIX_URL_UNREACHABLE`) — a bare "got 503" does not.
+ *  The body goes through the same redaction as a captured response (key-based,
+ *  capture-time) and then the shape scrub (`scrub.ts`, the last line the runner
+ *  writes to public CI logs — Strix CWE-532 on the first version of this line). */
+function statusAssertDetail(res: Res): string {
+  const body = redactBodyText(res.text().trim()) ?? '';
+  return [
+    describeEdgeResponse(res.statusCode, res.captured.res.headers),
+    body ? `body=${scrubSecretShapes(body).slice(0, 500)}` : 'body=<empty>',
+  ].join(' ');
 }
 
 const RETRY_BASE_DELAY_MS = Number(process.env.KE2E_RETRY_BASE_DELAY_MS ?? 500);

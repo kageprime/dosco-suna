@@ -21,9 +21,9 @@ import { sdkAddMcpServerDeps } from '../../connectors/add-mcp/add-mcp-server-dep
 import { connectorHref } from '../../connectors/connector-routes';
 import {
   buildEasyConnectConnectorDraft,
-  connectorConnectionQueryKeys,
   connectorSyncErrorForSlug,
 } from '../../sections/connector-connection-form';
+import { connectorConnectionQueryKeys } from '../../../internal/hooks/connectors/invalidate-connections';
 import { runConnectLinkFlow } from '../../../internal/hooks/connectors/use-connect-link';
 import { useTranslations } from '../../../i18n';
 import { PROJECT_ACTIONS } from '../../../internal/lib/project-actions';

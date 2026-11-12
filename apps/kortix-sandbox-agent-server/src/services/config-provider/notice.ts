@@ -6,12 +6,12 @@ import { z } from 'zod'
  * Telling the SESSION, in words, which config it runs.
  *
  * A config release is served from a read-only directory under
- * `/opt/kortix/config`. `/workspace` is a separate, editable checkout that may
- * be behind the commit the release was built from. Without being told, an
- * agent reads `/workspace/kortix.yaml` or `/workspace/skills`, sees
- * different bytes from the ones it is running, and edits files that change
- * nothing. When kortix.yaml has issues, the notice lists them, so the agent
- * can fix the file through a change request.
+ * `/opt/kortix/config`. `/workspace` is the session's own folder: the box never
+ * checks out the project repository at boot. Without being told, an agent
+ * looks for `kortix.yaml` in `/workspace`, finds nothing or a stale clone, and
+ * edits files that change nothing. The notice says where the config is and how
+ * to change it (a clone, a commit on the session branch, a change request).
+ * When kortix.yaml has issues, the notice lists them.
  *
  * CHANNEL: the agent's system prompt. pi appends this file to it, as it does
  * the `secret-capabilities.ts` file. Chosen over posting a message into the
@@ -104,8 +104,8 @@ function renderManifestIssues(issues: readonly ManifestIssue[]): string[] {
     ...issues.slice(0, MAX_MANIFEST_ISSUES).map((issue) => `- ${issueLine(issue)}`),
     '',
     ...(errors > 0 ? ['An agent or trigger with an error is off until the error is fixed.'] : []),
-    'To fix kortix.yaml: edit `/workspace/kortix.yaml`, run `kortix validate` until it reports no error,',
-    'then commit, push a session branch and open a change request against the base branch.',
+    'To fix kortix.yaml: run `kortix workspaces clone`, edit `kortix.yaml` in the clone, run `kortix validate`',
+    'until it reports no error, then commit, `git push`, and `kortix cr open` against the base branch.',
   ]
 }
 
@@ -116,10 +116,11 @@ function short(sha: string): string {
 
 export function renderConfigReleaseNotice(notice: ConfigReleaseNotice): string {
   const commit = notice.sourceCommit ? short(notice.sourceCommit) : null
-  const paths = notice.sourcePaths.map((path) => `\`/workspace/${path}\``)
-  const sourceFiles = notice.sourcePaths.length > 1 ? ['`/workspace/kortix.yaml`', ...paths] : paths
+  // Repository paths: the box holds no checkout at boot, so a `/workspace/…` path would name nothing.
+  const paths = notice.sourcePaths.map((path) => `\`${path}\``)
+  const sourceFiles = notice.sourcePaths.length > 1 ? ['`kortix.yaml`', ...paths] : paths
   const editedPaths =
-    paths.length > 1 ? `${paths.slice(0, -1).join(', ')} or ${paths.at(-1)}` : (paths[0] ?? '`/workspace`')
+    paths.length > 1 ? `${paths.slice(0, -1).join(', ')} or ${paths.at(-1)}` : (paths[0] ?? 'the repository')
   const reload = notice.sessionId ? `kortix sessions reload ${notice.sessionId}` : 'kortix sessions reload <session id>'
   const at = commit ? ` at commit ${commit}` : ''
   const servedFrom = notice.releaseDir ?? '/opt/kortix/config/<release>'
@@ -128,21 +129,22 @@ export function renderConfigReleaseNotice(notice: ConfigReleaseNotice): string {
     "# This session's agent config",
     '',
     `This session runs the project's agent config from the base branch${at}. The`,
-    `platform serves it read-only from \`${servedFrom}\`; it is not the copy in`,
-    '`/workspace`.',
+    `platform serves it read-only from \`${servedFrom}\`.`,
     '',
-    `- \`/workspace\` is a separate checkout and may be behind${commit ? ` commit ${commit}` : ' the base branch'}.`,
-    '  Run `git pull` in `/workspace` to read the same files.',
-    `- Editing a file under ${editedPaths} does NOT change the config this`,
-    '  session runs. The change takes effect after it is pushed to the base branch.',
-    `- To change this agent, edit ${sourceFiles.join(', ')} in the Git checkout,`,
-    '  then commit and push a session branch and open a change request against the base branch.',
+    "- `/workspace` is this session's own folder. It holds no copy of the project",
+    '  repository unless you cloned one there.',
+    `- The config is ${sourceFiles.join(', ')} in the project repository. Editing a copy of`,
+    `  ${editedPaths} does NOT change the config this session runs. A change takes effect`,
+    '  after it lands on the base branch.',
+    '- To change this agent: run `kortix workspaces clone` (it checks out your session branch),',
+    '  edit those files in the clone, commit, `git push`, then `kortix cr open` against the base branch.',
     '  Review the Git diff of those source files. Do not edit or commit the compiled',
     '  runtime config: it is generated and has no reverse mapping to kortix.yaml.',
+    '  Agent settings also change without a clone: `kortix agents config <name> --set <key>=<value>`.',
     `- Writing into \`${servedFrom}\` fails with a permission error, on purpose.`,
-    '  That copy is the platform\'s; edit the project\'s files in `/workspace`.',
-    `- \`${reload}\` refreshes the \`/workspace\` checkout and moves this`,
-    "  session onto the base branch's current config, in one command.",
+    "  That copy is the platform's; edit the project's files in a clone.",
+    `- \`${reload}\` moves this session onto the base branch's current config,`,
+    '  in one command.',
     ...(repoint ? ['', '## This session\'s agent', '', repoint] : []),
     ...renderManifestIssues(notice.manifestIssues ?? []),
     '',

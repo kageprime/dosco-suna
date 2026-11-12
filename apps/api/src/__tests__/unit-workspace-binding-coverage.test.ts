@@ -120,6 +120,11 @@ describe('the fence decides each credential × route class', () => {
     ['GET', '/v1/capture/me/timeline', sessionPat, true],
     ['POST', '/v1/capture/me/timeline', sessionPat, 'person-route'],
     ['GET', '/v1/projects/current', projectPat, true],
+    // session costs: the handler pins a bound credential to its own workspace
+    ['GET', '/v1/usage/session-costs', sessionPat, true],
+    ['GET', '/v1/usage/session-costs/x', sessionPat, true],
+    ['GET', '/v1/usage/cost-summary', sessionPat, true],
+    ['GET', '/v1/usage', sessionPat, 'person-route'],
     ['PATCH', '/v1/projects/current', projectPat, 'cross-workspace'],
     // drives
     ['GET', '/v1/drives', projectPat, true],
@@ -134,6 +139,10 @@ describe('the fence decides each credential × route class', () => {
     // the person's own surfaces
     ['GET', '/v1/accounts', projectPat, 'person-route'],
     ['POST', '/v1/accounts', projectPat, 'person-route'],
+    // The MCP server: every tool call re-enters the fence with the same credential.
+    ['POST', '/v1/mcp', projectPat, true],
+    ['POST', '/v1/mcp', sessionPat, true],
+    ['GET', '/v1/notifications', projectPat, 'person-route'],
     ['GET', '/v1/accounts/me/devices', projectPat, 'person-route'],
     ['POST', '/v1/accounts/tokens', sessionPat, 'person-route'],
     ['GET', '/v1/me/tokens', projectPat, 'person-route'],
@@ -194,8 +203,19 @@ describe('a key of a split_pending workspace never reaches the shared account ro
   const splitDeps = { ...deps, workspaceSplitPending: async (id: string) => id === WS };
   test('account families answer account-wider-than-workspace; the workspace own routes pass', async () => {
     for (const path of [`/v1/workspaces/${WS}/members`, `/v1/workspaces/${WS}/iam/groups`, `/v1/accounts/${WS}/members`, `/v1/workspaces/${WS}/tokens`]) {
-      expect(await workspaceFenceVerdict('GET', path, projectPat, splitDeps)).toMatchObject({ allowed: false, check: 'account-wider-than-workspace' });
+      const verdict = await workspaceFenceVerdict('GET', path, projectPat, splitDeps);
+      expect(verdict).toMatchObject({ allowed: false, check: 'account-wider-than-workspace' });
+      // The path already names the workspace: the refusal names the
+      // credential that works, never "name the workspace".
+      const reason = verdict.allowed ? '' : verdict.reason;
+      expect(reason).toContain('kortix login');
+      expect(reason).not.toContain('name the workspace');
     }
+    // Another workspace of the same account stays cross-workspace.
+    expect(await workspaceFenceVerdict('GET', `/v1/workspaces/${OTHER}/members`, projectPat, splitDeps)).toMatchObject({
+      allowed: false,
+      check: 'cross-workspace',
+    });
     for (const path of [`/v1/workspaces/${WS}`, `/v1/workspaces/${WS}/sessions`, `/v1/workspaces/${WS}/audit`]) {
       expect(await workspaceFenceVerdict('GET', path, projectPat, splitDeps)).toEqual({ allowed: true });
     }

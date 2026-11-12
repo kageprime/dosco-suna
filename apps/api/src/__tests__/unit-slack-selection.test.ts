@@ -20,6 +20,17 @@ function makeChain(): any {
   };
   return chain;
 }
+// One Slack workspace, one Kortix workspace (channels/slack/link.ts): this file's
+// rows describe the channel itself, so the link answers "no shared link here".
+mock.module('../channels/slack/link', () => ({
+  linkedSlackProject: async () => null,
+  recordSlackChannel: async () => {},
+  slackProjectLink: async () => ({ teamId: 'T1' }),
+  holdsSlackWorkspace: async () => true,
+  moveSlackLink: async () => [],
+  hasOwnSlackApp: async () => false,
+}));
+
 mock.module('../shared/db', () => ({
   db: { select: () => makeChain(), update: () => makeChain() },
   hasDatabase: () => true,

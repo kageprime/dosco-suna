@@ -1,6 +1,7 @@
 /**
  * kortix_change_requests: the project's change requests, a proposed change to
- * the project files that waits for someone to approve it. List the open ones,
+ * the project files that waits for someone to approve it. List them one
+ * bounded page at a time (`limit`, `cursor` → `next_cursor`),
  * read one (its summary, how many files it changes, and whether it can merge),
  * merge one once the person agreed, or close one. An agent with the project
  * files opens a change request; this tool never opens one.
@@ -37,7 +38,8 @@ interface ShowAnswer {
 
 /** The Review tab with this request open (`?id=cr:<cr_id>`, the Review Center's item id). */
 function reviewHref(context: PlatformToolContext, cr?: ChangeRequestRow): string {
-  return projectHref(context.env, cr?.cr_id ? `/review?id=${encodeURIComponent(`cr:${cr.cr_id}`)}` : '/review')
+  // The Inbox's Review tab (2026-11-08); `/review` still redirects there.
+  return projectHref(context.env, cr?.cr_id ? `/inbox?view=review&id=${encodeURIComponent(`cr:${cr.cr_id}`)}` : '/inbox?view=review')
 }
 
 /** `refs/heads/main` → `main`. */
@@ -67,17 +69,60 @@ function summary(cr: ChangeRequestRow, names: Map<string, string>) {
   }
 }
 
-async function list(status: string, context: PlatformToolContext) {
-  const read = await cliJson<{ change_requests?: ChangeRequestRow[] }>(['cr', 'ls', `--status=${status}`, '--json'], context)
+/** `list` returns one page: at most LIST_DEFAULT_LIMIT rows unless the call asks for more, never above LIST_MAX_LIMIT. */
+const LIST_DEFAULT_LIMIT = 50
+const LIST_MAX_LIMIT = 100
+/** A title longer than this is cut. */
+const TITLE_MAX = 200
+/**
+ * The most bytes the page's rows may take in the tool output (`toolText`
+ * prints two-space JSON). `runTool` cuts an output over 49 KB to its head,
+ * which is not parseable JSON: rows past this budget
+ * move to the next page instead, so the result always stays whole.
+ */
+const ROWS_BYTE_BUDGET = 36_000
+
+/** A `limit` argument as a page size, or the default. */
+function pageSize(value: unknown): number {
+  const n = typeof value === 'number' ? value : typeof value === 'string' && /^\d+$/.test(value.trim()) ? Number(value) : NaN
+  return Number.isInteger(n) && n >= 1 ? Math.min(n, LIST_MAX_LIMIT) : LIST_DEFAULT_LIMIT
+}
+
+/**
+ * One page of change requests, newest first, from `kortix cr ls --limit --cursor`.
+ * A CLI that predates `--limit` ignores it and sends every row: the page is cut
+ * here too, after `cursor`, so the result stays bounded and valid JSON either way.
+ */
+async function list(status: string, limit: number, cursor: string | null, context: PlatformToolContext) {
+  const args = ['cr', 'ls', `--status=${status}`, `--limit=${limit}`, ...(cursor ? [`--cursor=${cursor}`] : []), '--json']
+  const read = await cliJson<{ change_requests?: ChangeRequestRow[]; next_cursor?: string | null }>(args, context)
   if ('error' in read) return fail(TOOL, 'list', 'Could not list the change requests', read.error, context)
-  const rows = Array.isArray(read.value.change_requests) ? read.value.change_requests : []
-  const names = rows.length > 0 ? await authors(context) : new Map<string, string>()
+  const all = Array.isArray(read.value.change_requests) ? read.value.change_requests : []
+  const after = cursor ? all.filter((cr) => typeof cr.number === 'number' && cr.number < Number(cursor)) : all
+  const names = after.length > 0 ? await authors(context) : new Map<string, string>()
+  const rows: ChangeRequestRow[] = []
+  const out: Array<ReturnType<typeof summary>> = []
+  let bytes = 2
+  for (const cr of after.slice(0, limit)) {
+    const row = summary(cr, names)
+    const line = row.title.length > TITLE_MAX ? { ...row, title: `${row.title.slice(0, TITLE_MAX - 1)}…` } : row
+    // As `toolText` prints it: two-space JSON, a row three levels deep.
+    const size = Buffer.byteLength(JSON.stringify(line, null, 2).replaceAll('\n', '\n      ')) + 8
+    if (out.length > 0 && bytes + size > ROWS_BYTE_BUDGET) break
+    bytes += size
+    rows.push(cr)
+    out.push(line)
+  }
+  const cut = after.length > rows.length
+  const last = rows[rows.length - 1]?.number
+  const nextCursor = cut ? (typeof last === 'number' ? String(last) : null) : (read.value.next_cursor ?? null)
   const word = status === 'all' ? '' : `${status} `
+  const count = rows.length === 1 ? `1 ${word}change request` : `${rows.length} ${word}change requests`
   return ok(
     TOOL,
     'list',
     {
-      title: rows.length === 1 ? `1 ${word}change request` : `${rows.length} ${word}change requests`,
+      title: nextCursor ? `${count}, newest first; more on the next page` : count,
       rows: capRows(
         rows.map((cr) => {
           const author = summary(cr, names).author
@@ -86,7 +131,13 @@ async function list(status: string, context: PlatformToolContext) {
       ),
       links: [{ label: 'Review', href: reviewHref(context) }],
     },
-    { change_requests: rows.map((cr) => summary(cr, names)) },
+    {
+      change_requests: out,
+      count: out.length,
+      truncated: nextCursor !== null,
+      next_cursor: nextCursor,
+      ...(nextCursor ? { note: 'More change requests exist. Call list again with cursor set to next_cursor for the next page.' } : {}),
+    },
   )
 }
 
@@ -203,7 +254,8 @@ async function close(id: string, context: PlatformToolContext) {
 export default {
   description:
     "The project's change requests: a proposed change to the project files, waiting for someone to approve it. " +
-    'Actions: `list` (status: open (default) | merged | closed | all; each with its number, title, author and status); ' +
+    'Actions: `list` (status: open (default) | merged | closed | all; limit: page size, default 50, at most 100; cursor: the next_cursor of the previous page. ' +
+    'One page, newest first, each with its number, title, author and status; `truncated: true` and a `next_cursor` mean more exist); ' +
     '`get` (id: its summary, how many files it changes, and whether it can merge); `merge` (id, optional message); `close` (id: closes it without merging). ' +
     'id is the number ("3" or "#3") or the cr_id. ' +
     'Merging and closing change the project for everyone: first say what will merge or close, ask once, and merge only after the person agreed in this conversation. ' +
@@ -214,6 +266,8 @@ export default {
       action: { type: 'string', enum: [...ACTIONS], description: 'What to do.' },
       id: { type: 'string', description: 'For get, merge and close: the change request number ("3" or "#3") or its cr_id.' },
       status: { type: 'string', enum: [...STATUSES], description: 'For list: which ones. Default open.' },
+      limit: { type: 'integer', minimum: 1, maximum: LIST_MAX_LIMIT, description: `For list: how many per page. Default ${LIST_DEFAULT_LIMIT}, at most ${LIST_MAX_LIMIT}.` },
+      cursor: { type: 'string', description: 'For list: the next_cursor of the previous page, to read the next one.' },
       message: { type: 'string', description: 'For merge: the merge message. Optional.' },
     },
     required: ['action'],
@@ -222,7 +276,9 @@ export default {
     const action = String(args.action ?? '')
     if (action === 'list') {
       const status = (STATUSES as readonly string[]).includes(args.status) ? String(args.status) : 'open'
-      return list(status, context)
+      const cursor = typeof args.cursor === 'string' && args.cursor.trim() ? args.cursor.trim() : typeof args.cursor === 'number' ? String(args.cursor) : null
+      if (cursor !== null && !/^\d+$/.test(cursor)) return fail(TOOL, 'list', 'Which page?', { kind: 'invalid', message: 'cursor is the next_cursor a previous list returned.' }, context)
+      return list(status, pageSize(args.limit), cursor, context)
     }
     if (!(ACTIONS as readonly string[]).includes(action)) return fail(TOOL, action, 'Unknown action', { kind: 'invalid', message: `Use one of: ${ACTIONS.join(', ')}.` }, context)
     const id = typeof args.id === 'string' ? args.id.trim().replace(/^#/, '') : typeof args.id === 'number' ? String(args.id) : ''

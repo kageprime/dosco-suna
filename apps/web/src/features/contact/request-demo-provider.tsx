@@ -8,7 +8,7 @@ const CAL_NAMESPACE = 'kortix-demo';
 
 const DEFAULT_SOURCE = 'request-demo';
 
-export interface OpenDemoOptions {
+interface OpenDemoOptions {
   /** Where the modal was opened from — recorded on the lead + the notification
    *  email so we can see which surface drove the request (e.g. 'accounts-audit'). */
   source?: string;

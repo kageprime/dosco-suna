@@ -33,7 +33,7 @@ export const APP_MACHINE_LIMITS = SANDBOX_SPEC_LIMITS;
 const LIVE_APP_RUNTIME_STATUSES = ['provisioning', 'starting', 'running'] as const;
 
 function billingEnabled(): boolean {
-  return Boolean((config as unknown as { KORTIX_BILLING_INTERNAL_ENABLED?: boolean }).KORTIX_BILLING_INTERNAL_ENABLED);
+  return config.KORTIX_BILLING_INTERNAL_ENABLED;
 }
 
 function positiveIntEnv(name: string): number | null {
@@ -119,18 +119,44 @@ export async function assertAppAccountFunded(accountId: string): Promise<void> {
 /* ─── 3. App count ───────────────────────────────────────────────────────── */
 
 /**
+ * The App cap an account answers to: the tier's `appLimit`, lifted entirely
+ * when billing is off (local / self-hosted), an operator override winning
+ * over the tier. The one difference between the two caps is a named argument:
+ * the App count is uncapped for Enterprise, the runtime cap is not.
+ */
+async function appCapForAccount(
+  accountId: string,
+  overrideEnv: string,
+  options: { uncappedForEnterprise: boolean },
+): Promise<number> {
+  if (!billingEnabled()) return Number.MAX_SAFE_INTEGER;
+  const override = positiveIntEnv(overrideEnv);
+  if (override !== null) return override;
+  const tier = (await resolveAccountTier(accountId)) ?? 'free';
+  if (options.uncappedForEnterprise && tier === 'enterprise') return Number.MAX_SAFE_INTEGER;
+  return getTier(tier).appLimit;
+}
+
+/** An uncapped account (`Number.MAX_SAFE_INTEGER`) is never counted; an at-or-over-the-cap account gets `failure`. */
+async function assertUnderCap(
+  limit: number,
+  count: () => Promise<number>,
+  failure: (limit: number, current: number) => AppLimitError,
+): Promise<void> {
+  if (limit === Number.MAX_SAFE_INTEGER) return;
+  const current = await count();
+  if (current < limit) return;
+  throw failure(limit, current);
+}
+
+/**
  * Apps an account may own: the tier's `appLimit` (the number the retired
  * concurrent-session cap used to be, kept so Apps did not change when sessions
  * became unlimited). Uncapped when billing is off (local / self-hosted) and for
  * Enterprise; an operator can override it.
  */
 export async function maxAppsForAccount(accountId: string): Promise<number> {
-  if (!billingEnabled()) return Number.MAX_SAFE_INTEGER;
-  const override = positiveIntEnv('KORTIX_APPS_MAX_PER_ACCOUNT');
-  if (override !== null) return override;
-  const tier = (await resolveAccountTier(accountId)) ?? 'free';
-  if (tier === 'enterprise') return Number.MAX_SAFE_INTEGER;
-  return getTier(tier).appLimit;
+  return appCapForAccount(accountId, 'KORTIX_APPS_MAX_PER_ACCOUNT', { uncappedForEnterprise: true });
 }
 
 export async function countAccountApps(accountId: string): Promise<number> {
@@ -143,16 +169,8 @@ export async function countAccountApps(accountId: string): Promise<number> {
 }
 
 export async function assertAppQuotaAvailable(accountId: string): Promise<void> {
-  const limit = await maxAppsForAccount(accountId);
-  if (limit === Number.MAX_SAFE_INTEGER) return;
-  const current = await countAccountApps(accountId);
-  if (current < limit) return;
-  throw new AppLimitError(
-    'app_quota_exceeded',
-    `This account has reached its App limit (${limit}). Delete an App or upgrade the plan.`,
-    402,
-    { limit, current },
-  );
+  await assertUnderCap(await maxAppsForAccount(accountId), () => countAccountApps(accountId), (limit, current) =>
+    new AppLimitError('app_quota_exceeded', `This account has reached its App limit (${limit}). Delete an App or upgrade the plan.`, 402, { limit, current }));
 }
 
 /* ─── The gate ───────────────────────────────────────────────────────────── */
@@ -179,11 +197,7 @@ export async function assertAppComputeAllowed(
  * An operator can override it.
  */
 export async function maxConcurrentAppRuntimes(accountId: string): Promise<number> {
-  if (!billingEnabled()) return Number.MAX_SAFE_INTEGER;
-  const override = positiveIntEnv('KORTIX_APPS_MAX_CONCURRENT_RUNTIMES');
-  if (override !== null) return override;
-  const tier = (await resolveAccountTier(accountId)) ?? 'free';
-  return getTier(tier).appLimit;
+  return appCapForAccount(accountId, 'KORTIX_APPS_MAX_CONCURRENT_RUNTIMES', { uncappedForEnterprise: false });
 }
 
 export async function countLiveAppRuntimes(
@@ -213,14 +227,6 @@ export async function assertAppConcurrencyAvailable(
   accountId: string,
   excludeRuntimeId?: string,
 ): Promise<void> {
-  const limit = await maxConcurrentAppRuntimes(accountId);
-  if (limit === Number.MAX_SAFE_INTEGER) return;
-  const running = await countLiveAppRuntimes(accountId, excludeRuntimeId);
-  if (running < limit) return;
-  throw new AppLimitError(
-    'app_concurrency_limit',
-    `This account already runs its maximum number of Apps (${limit}). Stop an App or upgrade the plan.`,
-    429,
-    { limit, running },
-  );
+  await assertUnderCap(await maxConcurrentAppRuntimes(accountId), () => countLiveAppRuntimes(accountId, excludeRuntimeId), (limit, running) =>
+    new AppLimitError('app_concurrency_limit', `This account already runs its maximum number of Apps (${limit}). Stop an App or upgrade the plan.`, 429, { limit, running }));
 }

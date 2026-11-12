@@ -192,7 +192,7 @@ function ArtifactViewerContent({ projectId, artifactId, onClose }: ArtifactViewe
   const [asking, setAsking] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const titleButton = useRef<HTMLButtonElement>(null);
-  // Set by the ⋯ menu's Rename: Radix returns focus to ⋯ when the menu closes, which would leave
+  // Set by the ⋯ menu's Rename: the menu returns focus to ⋯ when it closes, which would leave
   // the new field without the keyboard. The menu's `onCloseAutoFocus` reads it and keeps focus.
   const renameFromMenu = useRef(false);
   // One rename ends once: Enter or Escape unmounts the field, and its blur must not save again.

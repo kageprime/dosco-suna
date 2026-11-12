@@ -29,18 +29,23 @@ function createRng(seed: number) {
   };
 }
 
+// Module-level default so the `words` memo dependency keeps a stable identity
+// across renders; a default parameter would build a fresh array every render
+// and re-run the seeded fill below.
+const DEFAULT_WORDS = ['kortix'];
+
 export default function KortixGrid({
   count,
   cols = 9,
   rows = 12,
-  words = ['kortix'],
+  words = DEFAULT_WORDS,
   seed = 1,
   gradient = 'linear-gradient(to top left, var(--kortix-green), var(--kortix-purple), var(--kortix-green))',
   speed = 15,
 }: KortixGridProps) {
   const gridItems = useMemo(() => {
     const totalCells = cols * rows;
-    const cells: GridCell[] = new Array(totalCells).fill(null).map((_, i) => ({
+    const cells: GridCell[] = Array.from({ length: totalCells }, (_, i) => ({
       id: `cell-${i}`,
       word: null,
     }));

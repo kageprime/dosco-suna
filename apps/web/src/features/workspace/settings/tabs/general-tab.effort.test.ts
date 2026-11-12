@@ -48,7 +48,7 @@ mock.module('@kortix/ui/internal/lib/use-project-can', () => ({
 mock.module('@kortix/ui/workspace/projects/modal/project-icon-field', () => ({
   ProjectIconField: Passthrough,
 }));
-// Radix tooltips read `window`, which this renderer has none of.
+// Tooltips read `window`, which this renderer has none of.
 mock.module('@kortix/ui/tooltip', () => ({
   Tooltip: Passthrough,
   TooltipContent: Passthrough,

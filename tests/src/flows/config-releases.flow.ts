@@ -27,6 +27,7 @@ import {
 } from '../fixtures/session-run';
 import { withTransientGitRetry } from '../fixtures/git-transient';
 import { isKe2eRetryableError, transientRetryDelayMs } from '../core/client';
+import { lockProjectFirst } from '../fixtures/token-binding-lock';
 
 /**
  * `fetch` for the idempotent reads and descriptor mints of this file. Bun
@@ -146,10 +147,9 @@ const MANIFEST = [
   '    description: main agent',
   '    mode: primary',
   '    prompt_file: agents/kortix.md',
-  // An agent boots without a checkout unless it opts in. The box flows run a
-  // repository-backed session, whose release carries an archive.
-  '    workspace:',
-  '      project_repository: true',
+  // The box flows run a repository-backed session (its agent may read the
+  // repository), whose release carries an archive.
+  '    kortix_permissions: [workspace.gitops.read]',
   '    skills: all',
   '    tools: all',
   '  reviewer:',
@@ -379,9 +379,9 @@ async function setup(ctx: FlowContext): Promise<Fixture> {
       );
       // Bind the API-minted credential exactly as the sandbox's KORTIX_TOKEN is bound.
       await db.query(
-        `UPDATE kortix.account_tokens
+        lockProjectFirst(`UPDATE kortix.account_tokens
             SET account_id = $2, user_id = $3, project_id = $4, session_id = $5, agent_grant = $6::jsonb
-          WHERE token_id = $1`,
+          WHERE token_id = $1`),
         [
           tokenId,
           team.id,

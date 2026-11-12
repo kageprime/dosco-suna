@@ -1,4 +1,5 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { describe, test, expect, beforeEach, jest } from 'bun:test';
+import { resolve } from 'node:path';
 import {
   createMockCreditAccount,
   mockRegistry,
@@ -193,5 +194,73 @@ describe('processYearlyCreditRotation', () => {
     expect(result.processed).toBe(1);
     expect(walletResets).toEqual([]);
     expect(updateCreditAccountCalls.map((call) => call.accountId)).toEqual(['acc_zero']);
+  });
+
+  // KRTX-4566: the key's month is the UTC month, not the process's local zone.
+  // Pinned on both sides of a UTC month edge under a controlled clock: a
+  // local-time key mints a second grant at the edge on any replica whose zone
+  // is behind or ahead of UTC.
+  test('the idempotency key carries the UTC month at both sides of a month edge', async () => {
+    yearlyAccountsDueResult = [
+      createMockCreditAccount({
+        accountId: 'acc_edge',
+        tier: 'credits',
+        planMonthlyUsd: '50',
+        planType: 'yearly',
+        nextCreditGrant: new Date(Date.now() - 86400000).toISOString(),
+        stripeSubscriptionStatus: 'active',
+        paymentStatus: 'active',
+      }),
+    ];
+
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date('2027-01-01T00:30:00Z'));
+      await processYearlyCreditRotation();
+      expect(walletResets[0]!.key.event).toBe('yearly_rotation_acc_edge_2027-01');
+
+      walletResets.length = 0;
+      jest.setSystemTime(new Date('2026-12-31T23:30:00Z'));
+      await processYearlyCreditRotation();
+      expect(walletResets[0]!.key.event).toBe('yearly_rotation_acc_edge_2026-12');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  // The case above cannot catch a local-getter `rotationMonth` when the
+  // runner's zone is UTC (local fields equal UTC fields there, and CI and the
+  // sandboxes run UTC), so the discriminating case runs the real
+  // `rotateDueAccounts` in a child process pinned behind UTC: at
+  // 2027-01-01T00:30:00Z a local-getter key reads December 2026 where the
+  // UTC key reads January 2027. The spec is the module's own injection seam,
+  // so the child needs no database and no mocks.
+  test('the month key stays the UTC month in a replica behind UTC', async () => {
+    const modulePath = resolve(import.meta.dir, '../../billing/services/rotation-batch.ts');
+    const script = `
+      const { rotateDueAccounts } = await import(${JSON.stringify(modulePath)});
+      const keys = [];
+      for (const at of ['2027-01-01T00:30:00Z', '2026-12-31T23:30:00Z']) {
+        await rotateDueAccounts(
+          {
+            select: async () => [{ accountId: 'acc_zone' }],
+            keyPrefix: 'yearly_rotation',
+            logPrefix: 'zone-probe',
+            errorLabel: 'zone-probe',
+            grant: async (_account, _now, key) => {
+              keys.push(key);
+            },
+          },
+          new Date(at),
+        );
+      }
+      console.log(JSON.stringify(keys));
+    `;
+    const run = Bun.spawnSync(['bun', '-e', script], {
+      env: { ...process.env, TZ: 'America/Los_Angeles' },
+    });
+    expect(run.exitCode).toBe(0);
+    const keys = JSON.parse(run.stdout.toString().trim().split('\n').at(-1)!);
+    expect(keys).toEqual(['yearly_rotation_acc_zone_2027-01', 'yearly_rotation_acc_zone_2026-12']);
   });
 });

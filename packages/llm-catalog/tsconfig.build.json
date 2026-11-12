@@ -15,6 +15,6 @@
     "outDir": "dist",
     "rootDir": "src"
   },
-  "include": ["src/index.ts"],
+  "include": ["src/index.ts", "src/codex-seed.ts"],
   "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
 }

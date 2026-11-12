@@ -7,6 +7,11 @@ import * as realAccess from '../projects/lib/access';
 // contract the interactivity router dispatches on, and (2) the branch logic of
 // filing an access request.
 
+// The account id reaching isAccountMember comes from a project row: a uuid in
+// prod. The member reader (membership-read.ts) carries the uuid guard, so a
+// non-uuid id answers no row without a DB read — the fixtures use a
+// well-formed synthetic one.
+const UUID_ACCOUNT = 'aaaaaaaa-1111-4111-8111-111111111111';
 // ─── DB mock: FIFO of query results ──────────────────────────────────────────
 let dbResults: unknown[][] = [];
 let authorizeAllowed = true;
@@ -152,51 +157,51 @@ describe('createSlackAccessRequest — file (or find) a project access request',
   test('already able to run sessions → already-member (no request filed)', async () => {
     dbResults = [
       [{ userId: 'u1' }], // identity
-      [{ accountId: 'a1' }], // project, installed for this team
+      [{ accountId: UUID_ACCOUNT }], // project, installed for this team
       [{ userId: 'u1' }], // resolveChatActor: identity
       [{ userId: 'u1' }], // isAccountMember → member
     ];
     const r = await createSlackAccessRequest({ teamId: 'T1', slackUserId: 'U1', projectId: 'proj-1' });
-    expect(r).toEqual({ status: 'already-member', requesterUserId: 'u1', accountId: 'a1' });
+    expect(r).toEqual({ status: 'already-member', requesterUserId: 'u1', accountId: UUID_ACCOUNT });
   });
 
   test('org member without project access can still request Slack access', async () => {
     authorizeAllowed = false;
     dbResults = [
       [{ userId: 'u1' }], // identity
-      [{ accountId: 'a1' }], // project
+      [{ accountId: UUID_ACCOUNT }], // project
       [{ userId: 'u1' }], // resolveChatActor: identity
       [{ userId: 'u1' }], // isAccountMember → member
       [], // no existing pending
       [], // insert
     ];
     const r = await createSlackAccessRequest({ teamId: 'T1', slackUserId: 'U1', projectId: 'proj-1' });
-    expect(r).toEqual({ status: 'created', requesterUserId: 'u1', accountId: 'a1' });
+    expect(r).toEqual({ status: 'created', requesterUserId: 'u1', accountId: UUID_ACCOUNT });
   });
 
   test('already has a pending request → pending (idempotent, no duplicate)', async () => {
     dbResults = [
       [{ userId: 'u1' }], // identity
-      [{ accountId: 'a1' }], // project
+      [{ accountId: UUID_ACCOUNT }], // project
       [{ userId: 'u1' }], // resolveChatActor: identity
       [], // not a member
       [{ requestId: 'r1' }], // existing pending request
     ];
     const r = await createSlackAccessRequest({ teamId: 'T1', slackUserId: 'U1', projectId: 'proj-1' });
-    expect(r).toEqual({ status: 'pending', requesterUserId: 'u1', accountId: 'a1' });
+    expect(r).toEqual({ status: 'pending', requesterUserId: 'u1', accountId: UUID_ACCOUNT });
   });
 
   test('connected non-member, none pending → created', async () => {
     dbResults = [
       [{ userId: 'u1' }], // identity
-      [{ accountId: 'a1' }], // project
+      [{ accountId: UUID_ACCOUNT }], // project
       [{ userId: 'u1' }], // resolveChatActor: identity
       [], // not a member
       [], // no existing pending
       [], // insert
     ];
     const r = await createSlackAccessRequest({ teamId: 'T1', slackUserId: 'U1', projectId: 'proj-1' });
-    expect(r).toEqual({ status: 'created', requesterUserId: 'u1', accountId: 'a1' });
+    expect(r).toEqual({ status: 'created', requesterUserId: 'u1', accountId: UUID_ACCOUNT });
   });
 });
 

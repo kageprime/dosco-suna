@@ -154,7 +154,7 @@ describe('GeneralTabView', () => {
     expect(out).not.toContain('Delete workspace');
   });
 
-  test('renders cleanly with the confirm dialog open — ConfirmDialog is Radix AlertDialog-portal-based and renders nothing under renderToStaticMarkup regardless of `open`, same as ModalContent (see settings-panel.tsx); this only pins that the rest of the tree still renders', () => {
+  test('renders cleanly with the confirm dialog open — ConfirmDialog renders through the AlertDialog portal and renders nothing under renderToStaticMarkup regardless of `open`, same as ModalContent (see settings-panel.tsx); this only pins that the rest of the tree still renders', () => {
     expect(() =>
       renderToStaticMarkup(<GeneralTabView archiveOpen workspaceName="My Workspace" />),
     ).not.toThrow();

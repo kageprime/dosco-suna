@@ -80,7 +80,7 @@ import { useTranslations } from '../../../i18n';
 import { PROJECT_ACTIONS } from '../../../internal/lib/project-actions';
 import { useProjectCan } from '../../../internal/lib/use-project-can';
 
-import { connectorRunsOver, connectorStatusTone } from './connector-status';
+import { connectorRunsOver, connectorTone } from './connector-status';
 import { ProviderInfo, providerName } from './provider-info';
 import { ConnectorStatusBadge } from './status-badge';
 
@@ -498,7 +498,7 @@ function CatalogAppPage({ projectId, appSegment }: { projectId: string; appSegme
           </h2>
           <ul className={ROW_GROUP}>
             {inProject.map((connector) => {
-              const tone = connectorStatusTone(
+              const tone = connectorTone(
                 connector,
                 connectionsQuery.data ? connectorAccounts(connectionsQuery.data.connections, connector).length : undefined,
               );

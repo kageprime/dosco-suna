@@ -15,7 +15,7 @@
  * It renders nothing while a side panel is mounted. See `panel-fallback-store.ts`.
  */
 
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+import { VisuallyHidden } from '../../lib/base-ui-compat';
 import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 
 import { FilePreviewHost } from '../../files/file-preview-host';

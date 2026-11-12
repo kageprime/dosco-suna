@@ -27,7 +27,7 @@ its config from `kortix.yaml` and the files it names.
   the workspace. No key is needed in the sandbox.
 - Workspace tools from `tools:` run like the Kortix tools (`kortix/tools.md`).
 - `agents.<name>.codemode`: `on` (default), `only` (the model sees only
-  `codemode`), `off`. A script cannot call `agent` or `question`.
+  `codemode`), `off`. A script may call `agent` (each hand-off gets its own card); `question` and `workflow` stay direct calls.
 - Not on pi: `webfetch`, `websearch`, `todowrite`, `lsp`, `apply_patch`,
   `skill`, `list`, MCP tools. Fetch a page with `scrape_webpage`. Read a
   skill with `read`. Keep a process running with
@@ -77,13 +77,9 @@ Arguments: `description`, `prompt`, `subagent_type` (a declared agent) or
   `all`, named in the caller's `subagents` grant. pi has no built-in
   `general` or `explore` subagent. An inline agent needs no grant: leave
   `agent` and `task` out of `tools` to stop an agent from delegating.
-- A subagent runs with its own prompt, model and permission. A call must
-  pass both the subagent's rules and the caller's: a `deny` from either wins.
-  A child never gets a tool its caller lacks.
-- An inline agent runs as the caller's own agent, with the caller's access:
-  its grant, connectors, secrets, computer type and the channel the caller's
-  chat came from. Its `instructions` are its whole system prompt (at most
-  4,096 characters in a separate session).
+- A subagent runs with its own prompt, model and permission. A call must pass both the subagent's rules and the caller's: a `deny` from either wins. A child never gets a tool its caller lacks.
+- An inline agent runs as the caller's own agent, with the caller's access: its grant, connectors, secrets, computer type and the channel the caller's chat came from. Its `instructions` are its whole system prompt (at most 4,096 characters in a separate session).
+- Only My Kortix may give an inline agent more: `connectors` and `secrets` in the spec. A person allows that exact list first; the call starts nothing until then and says so, and the decision arrives as a new message. After an allow, the same call starts the colleague with exactly that list.
 - `session: "separate"` (the default) runs the subagent in its own new
   session with its own sandbox and branch. The one call waits until that
   session finishes (up to 30 minutes) and returns its final message: ask the

@@ -1,0 +1,1105 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`public marketing layouts resolve their route metadata home resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/",
+    "languages": {
+      "de": "https://kortix.com/de",
+      "en": "https://kortix.com/",
+      "es": "https://kortix.com/es",
+      "fr": "https://kortix.com/fr",
+      "it": "https://kortix.com/it",
+      "ja": "https://kortix.com/ja",
+      "pt": "https://kortix.com/pt",
+      "sr": "https://kortix.com/sr",
+      "x-default": "https://kortix.com/",
+      "zh": "https://kortix.com/zh",
+    },
+  },
+  "description": "Open-source CompanyOS: your agents, skills, memory, and connectors in one repo you own. Any model. Self-host or cloud.",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "Open-source CompanyOS: your agents, skills, memory, and connectors in one repo you own. Any model. Self-host or cloud.",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "Kortix CompanyOS – the open-source operating system for your company",
+    "type": "website",
+    "url": "https://kortix.com/",
+  },
+  "title": {
+    "absolute": "Kortix CompanyOS – the open-source operating system for your company",
+  },
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "Open-source CompanyOS: your agents, skills, memory, and connectors in one repo you own. Any model. Self-host or cloud.",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "Kortix CompanyOS – the open-source operating system for your company",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata case-studies resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/case-studies",
+    "languages": {
+      "de": "https://kortix.com/de/case-studies",
+      "en": "https://kortix.com/case-studies",
+      "es": "https://kortix.com/es/case-studies",
+      "fr": "https://kortix.com/fr/case-studies",
+      "it": "https://kortix.com/it/case-studies",
+      "ja": "https://kortix.com/ja/case-studies",
+      "pt": "https://kortix.com/pt/case-studies",
+      "sr": "https://kortix.com/sr/case-studies",
+      "x-default": "https://kortix.com/case-studies",
+      "zh": "https://kortix.com/zh/case-studies",
+    },
+  },
+  "description": "What runs on CompanyOS: a science agent at City University of Hong Kong, and agents that write software, research candidates, match invoices and evaluate…",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "What runs on CompanyOS: a science agent at City University of Hong Kong, and agents that write software, research candidates, match invoices and evaluate…",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "Case studies",
+    "type": "website",
+    "url": "https://kortix.com/case-studies",
+  },
+  "title": "Case studies",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "What runs on CompanyOS: a science agent at City University of Hong Kong, and agents that write software, research candidates, match invoices and evaluate…",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "Case studies",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata compliance resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/compliance",
+    "languages": {
+      "de": "https://kortix.com/de/compliance",
+      "en": "https://kortix.com/compliance",
+      "es": "https://kortix.com/es/compliance",
+      "fr": "https://kortix.com/fr/compliance",
+      "it": "https://kortix.com/it/compliance",
+      "ja": "https://kortix.com/ja/compliance",
+      "pt": "https://kortix.com/pt/compliance",
+      "sr": "https://kortix.com/sr/compliance",
+      "x-default": "https://kortix.com/compliance",
+      "zh": "https://kortix.com/zh/compliance",
+    },
+  },
+  "description": "0 directory sync, roles and groups, approval rules you set, and an audit log you can export or stream. SOC 2 Type I verified.",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "0 directory sync, roles and groups, approval rules you set, and an audit log you can export or stream. SOC 2 Type I verified.",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "Compliance",
+    "type": "website",
+    "url": "https://kortix.com/compliance",
+  },
+  "title": "Compliance",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "0 directory sync, roles and groups, approval rules you set, and an audit log you can export or stream. SOC 2 Type I verified.",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "Compliance",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata contact resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/contact",
+    "languages": {
+      "de": "https://kortix.com/de/contact",
+      "en": "https://kortix.com/contact",
+      "es": "https://kortix.com/es/contact",
+      "fr": "https://kortix.com/fr/contact",
+      "it": "https://kortix.com/it/contact",
+      "ja": "https://kortix.com/ja/contact",
+      "pt": "https://kortix.com/pt/contact",
+      "sr": "https://kortix.com/sr/contact",
+      "x-default": "https://kortix.com/contact",
+      "zh": "https://kortix.com/zh/contact",
+    },
+  },
+  "description": "Request a tailored Kortix walkthrough for cloud, VPC, or on-prem deployment.",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "Request a tailored Kortix walkthrough for cloud, VPC, or on-prem deployment.",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "Contact sales and book a demo",
+    "type": "website",
+    "url": "https://kortix.com/contact",
+  },
+  "title": "Contact sales and book a demo",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "Request a tailored Kortix walkthrough for cloud, VPC, or on-prem deployment.",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "Contact sales and book a demo",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata developers resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/developers",
+    "languages": {
+      "de": "https://kortix.com/de/developers",
+      "en": "https://kortix.com/developers",
+      "es": "https://kortix.com/es/developers",
+      "fr": "https://kortix.com/fr/developers",
+      "it": "https://kortix.com/it/developers",
+      "ja": "https://kortix.com/ja/developers",
+      "pt": "https://kortix.com/pt/developers",
+      "sr": "https://kortix.com/sr/developers",
+      "x-default": "https://kortix.com/developers",
+      "zh": "https://kortix.com/zh/developers",
+    },
+  },
+  "description": "Build with Kortix from the terminal: drive workspaces, sessions, and agents through the CLI and SDK, wire triggers and connectors, and land every change…",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "Build with Kortix from the terminal: drive workspaces, sessions, and agents through the CLI and SDK, wire triggers and connectors, and land every change…",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "Developers: CLI, SDK and API for AI agents",
+    "type": "website",
+    "url": "https://kortix.com/developers",
+  },
+  "title": "Developers: CLI, SDK and API for AI agents",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "Build with Kortix from the terminal: drive workspaces, sessions, and agents through the CLI and SDK, wire triggers and connectors, and land every change…",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "Developers: CLI, SDK and API for AI agents",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata enterprise resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/enterprise",
+    "languages": {
+      "de": "https://kortix.com/de/enterprise",
+      "en": "https://kortix.com/enterprise",
+      "es": "https://kortix.com/es/enterprise",
+      "fr": "https://kortix.com/fr/enterprise",
+      "it": "https://kortix.com/it/enterprise",
+      "ja": "https://kortix.com/ja/enterprise",
+      "pt": "https://kortix.com/pt/enterprise",
+      "sr": "https://kortix.com/sr/enterprise",
+      "x-default": "https://kortix.com/enterprise",
+      "zh": "https://kortix.com/zh/enterprise",
+    },
+  },
+  "description": "One CompanyOS for every team: agents, skills and memory in one place you own, on Kortix Cloud, your VPC or on-prem, with any model.",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "One CompanyOS for every team: agents, skills and memory in one place you own, on Kortix Cloud, your VPC or on-prem, with any model.",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "Kortix for Enterprise",
+    "type": "website",
+    "url": "https://kortix.com/enterprise",
+  },
+  "title": "Kortix for Enterprise",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "One CompanyOS for every team: agents, skills and memory in one place you own, on Kortix Cloud, your VPC or on-prem, with any model.",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "Kortix for Enterprise",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata framework resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/framework",
+    "languages": {
+      "de": "https://kortix.com/de/framework",
+      "en": "https://kortix.com/framework",
+      "es": "https://kortix.com/es/framework",
+      "fr": "https://kortix.com/fr/framework",
+      "it": "https://kortix.com/it/framework",
+      "ja": "https://kortix.com/ja/framework",
+      "pt": "https://kortix.com/pt/framework",
+      "sr": "https://kortix.com/sr/framework",
+      "x-default": "https://kortix.com/framework",
+      "zh": "https://kortix.com/zh/framework",
+    },
+  },
+  "description": "Kortix is a backend framework for AI agents: a project is a git repository, kortix.yaml declares the agents, skills, tools and triggers, every session…",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "Kortix is a backend framework for AI agents: a project is a git repository, kortix.yaml declares the agents, skills, tools and triggers, every session…",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "The Kortix framework",
+    "type": "website",
+    "url": "https://kortix.com/framework",
+  },
+  "title": "The Kortix framework",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "Kortix is a backend framework for AI agents: a project is a git repository, kortix.yaml declares the agents, skills, tools and triggers, every session…",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "The Kortix framework",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata mobile resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/mobile",
+    "languages": {
+      "de": "https://kortix.com/de/mobile",
+      "en": "https://kortix.com/mobile",
+      "es": "https://kortix.com/es/mobile",
+      "fr": "https://kortix.com/fr/mobile",
+      "it": "https://kortix.com/it/mobile",
+      "ja": "https://kortix.com/ja/mobile",
+      "pt": "https://kortix.com/pt/mobile",
+      "sr": "https://kortix.com/sr/mobile",
+      "x-default": "https://kortix.com/mobile",
+      "zh": "https://kortix.com/zh/mobile",
+    },
+  },
+  "description": "Start, steer and approve Kortix sessions from your phone: live streaming, dictation, attachments, tool approvals, change-request review and push…",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "Start, steer and approve Kortix sessions from your phone: live streaming, dictation, attachments, tool approvals, change-request review and push…",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "Kortix mobile app for iPhone, iPad and Android",
+    "type": "website",
+    "url": "https://kortix.com/mobile",
+  },
+  "title": "Kortix mobile app for iPhone, iPad and Android",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "Start, steer and approve Kortix sessions from your phone: live streaming, dictation, attachments, tool approvals, change-request review and push…",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "Kortix mobile app for iPhone, iPad and Android",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata multiplayer resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/multiplayer",
+    "languages": {
+      "de": "https://kortix.com/de/multiplayer",
+      "en": "https://kortix.com/multiplayer",
+      "es": "https://kortix.com/es/multiplayer",
+      "fr": "https://kortix.com/fr/multiplayer",
+      "it": "https://kortix.com/it/multiplayer",
+      "ja": "https://kortix.com/ja/multiplayer",
+      "pt": "https://kortix.com/pt/multiplayer",
+      "sr": "https://kortix.com/sr/multiplayer",
+      "x-default": "https://kortix.com/multiplayer",
+      "zh": "https://kortix.com/zh/multiplayer",
+    },
+  },
+  "description": "One AI for the whole team: the same agents, skills, Drive and connectors for everyone, in the web, desktop and mobile apps, Slack and Microsoft Teams,…",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "One AI for the whole team: the same agents, skills, Drive and connectors for everyone, in the web, desktop and mobile apps, Slack and Microsoft Teams,…",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "Multiplayer AI",
+    "type": "website",
+    "url": "https://kortix.com/multiplayer",
+  },
+  "title": "Multiplayer AI",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "One AI for the whole team: the same agents, skills, Drive and connectors for everyone, in the web, desktop and mobile apps, Slack and Microsoft Teams,…",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "Multiplayer AI",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata pricing resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/pricing",
+    "languages": {
+      "de": "https://kortix.com/de/pricing",
+      "en": "https://kortix.com/pricing",
+      "es": "https://kortix.com/es/pricing",
+      "fr": "https://kortix.com/fr/pricing",
+      "it": "https://kortix.com/it/pricing",
+      "ja": "https://kortix.com/ja/pricing",
+      "pt": "https://kortix.com/pt/pricing",
+      "sr": "https://kortix.com/sr/pricing",
+      "x-default": "https://kortix.com/pricing",
+      "zh": "https://kortix.com/zh/pricing",
+    },
+  },
+  "description": "Current plans and included features.",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "Current plans and included features.",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "Pricing",
+    "type": "website",
+    "url": "https://kortix.com/pricing",
+  },
+  "title": "Pricing",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "Current plans and included features.",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "Pricing",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata security resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/security",
+    "languages": {
+      "de": "https://kortix.com/de/security",
+      "en": "https://kortix.com/security",
+      "es": "https://kortix.com/es/security",
+      "fr": "https://kortix.com/fr/security",
+      "it": "https://kortix.com/it/security",
+      "ja": "https://kortix.com/ja/security",
+      "pt": "https://kortix.com/pt/security",
+      "sr": "https://kortix.com/sr/security",
+      "x-default": "https://kortix.com/security",
+      "zh": "https://kortix.com/zh/security",
+    },
+  },
+  "description": "How Kortix is built to survive a security review: an isolated machine per session, connector credentials brokered server-side that never enter that…",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "How Kortix is built to survive a security review: an isolated machine per session, connector credentials brokered server-side that never enter that…",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "AI agent security: isolation, permissions, audit",
+    "type": "website",
+    "url": "https://kortix.com/security",
+  },
+  "title": "AI agent security: isolation, permissions, audit",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "How Kortix is built to survive a security review: an isolated machine per session, connector credentials brokered server-side that never enter that…",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "AI agent security: isolation, permissions, audit",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata self-hosted resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/self-hosted",
+    "languages": {
+      "de": "https://kortix.com/de/self-hosted",
+      "en": "https://kortix.com/self-hosted",
+      "es": "https://kortix.com/es/self-hosted",
+      "fr": "https://kortix.com/fr/self-hosted",
+      "it": "https://kortix.com/it/self-hosted",
+      "ja": "https://kortix.com/ja/self-hosted",
+      "pt": "https://kortix.com/pt/self-hosted",
+      "sr": "https://kortix.com/sr/self-hosted",
+      "x-default": "https://kortix.com/self-hosted",
+      "zh": "https://kortix.com/zh/self-hosted",
+    },
+  },
+  "description": "Run the same Kortix on your own box. One Docker Compose stack, the same images the managed cloud runs, your database and your files on disk you control.",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "Run the same Kortix on your own box. One Docker Compose stack, the same images the managed cloud runs, your database and your files on disk you control.",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "Self-hosted AI agents on your infrastructure",
+    "type": "website",
+    "url": "https://kortix.com/self-hosted",
+  },
+  "title": "Self-hosted AI agents on your infrastructure",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "Run the same Kortix on your own box. One Docker Compose stack, the same images the managed cloud runs, your database and your files on disk you control.",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "Self-hosted AI agents on your infrastructure",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata slack resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/slack",
+    "languages": {
+      "de": "https://kortix.com/de/slack",
+      "en": "https://kortix.com/slack",
+      "es": "https://kortix.com/es/slack",
+      "fr": "https://kortix.com/fr/slack",
+      "it": "https://kortix.com/it/slack",
+      "ja": "https://kortix.com/ja/slack",
+      "pt": "https://kortix.com/pt/slack",
+      "sr": "https://kortix.com/sr/slack",
+      "x-default": "https://kortix.com/slack",
+      "zh": "https://kortix.com/zh/slack",
+    },
+  },
+  "description": "Mention Kortix in a Slack thread.",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "Mention Kortix in a Slack thread.",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "Kortix in Slack: one thread, one session",
+    "type": "website",
+    "url": "https://kortix.com/slack",
+  },
+  "title": "Kortix in Slack: one thread, one session",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "Mention Kortix in a Slack thread.",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "Kortix in Slack: one thread, one session",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata sovereign resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/sovereign",
+    "languages": {
+      "de": "https://kortix.com/de/sovereign",
+      "en": "https://kortix.com/sovereign",
+      "es": "https://kortix.com/es/sovereign",
+      "fr": "https://kortix.com/fr/sovereign",
+      "it": "https://kortix.com/it/sovereign",
+      "ja": "https://kortix.com/ja/sovereign",
+      "pt": "https://kortix.com/pt/sovereign",
+      "sr": "https://kortix.com/sr/sovereign",
+      "x-default": "https://kortix.com/sovereign",
+      "zh": "https://kortix.com/zh/sovereign",
+    },
+  },
+  "description": "Kortix is open source.",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "Kortix is open source.",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "Sovereign and open",
+    "type": "website",
+    "url": "https://kortix.com/sovereign",
+  },
+  "title": "Sovereign and open",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "Kortix is open source.",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "Sovereign and open",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata teams resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/teams",
+    "languages": {
+      "de": "https://kortix.com/de/teams",
+      "en": "https://kortix.com/teams",
+      "es": "https://kortix.com/es/teams",
+      "fr": "https://kortix.com/fr/teams",
+      "it": "https://kortix.com/it/teams",
+      "ja": "https://kortix.com/ja/teams",
+      "pt": "https://kortix.com/pt/teams",
+      "sr": "https://kortix.com/sr/teams",
+      "x-default": "https://kortix.com/teams",
+      "zh": "https://kortix.com/zh/teams",
+    },
+  },
+  "description": "Kortix agent sessions in Teams chats, group chats and channels: a live progress card, approval cards with feedback, and per-person identity.",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "Kortix agent sessions in Teams chats, group chats and channels: a live progress card, approval cards with feedback, and per-person identity.",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "Kortix in Microsoft Teams",
+    "type": "website",
+    "url": "https://kortix.com/teams",
+  },
+  "title": "Kortix in Microsoft Teams",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "Kortix agent sessions in Teams chats, group chats and channels: a live progress card, approval cards with feedback, and per-person identity.",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "Kortix in Microsoft Teams",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata white-label resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/white-label",
+    "languages": {
+      "de": "https://kortix.com/de/white-label",
+      "en": "https://kortix.com/white-label",
+      "es": "https://kortix.com/es/white-label",
+      "fr": "https://kortix.com/fr/white-label",
+      "it": "https://kortix.com/it/white-label",
+      "ja": "https://kortix.com/ja/white-label",
+      "pt": "https://kortix.com/pt/white-label",
+      "sr": "https://kortix.com/sr/white-label",
+      "x-default": "https://kortix.com/white-label",
+      "zh": "https://kortix.com/zh/white-label",
+    },
+  },
+  "description": "Fork Kortix, put your brand on it, and sell it as your own product. The license is free. The one requirement is that your compute runs on Platinum.dev.",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "Fork Kortix, put your brand on it, and sell it as your own product. The license is free. The one requirement is that your compute runs on Platinum.dev.",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "White-label: your AI product on Platinum.dev compute",
+    "type": "website",
+    "url": "https://kortix.com/white-label",
+  },
+  "title": "White-label: your AI product on Platinum.dev compute",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "Fork Kortix, put your brand on it, and sell it as your own product. The license is free. The one requirement is that your compute runs on Platinum.dev.",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "White-label: your AI product on Platinum.dev compute",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata services resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/services",
+    "languages": {
+      "de": "https://kortix.com/de/services",
+      "en": "https://kortix.com/services",
+      "es": "https://kortix.com/es/services",
+      "fr": "https://kortix.com/fr/services",
+      "it": "https://kortix.com/it/services",
+      "ja": "https://kortix.com/ja/services",
+      "pt": "https://kortix.com/pt/services",
+      "sr": "https://kortix.com/sr/services",
+      "x-default": "https://kortix.com/services",
+      "zh": "https://kortix.com/zh/services",
+    },
+  },
+  "description": "AI strategy, transformation and education: we map how your company works, unify your data, automate the work, build your software and train your team.",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "AI strategy, transformation and education: we map how your company works, unify your data, automate the work, build your software and train your team.",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "AI Transformation, done for you",
+    "type": "website",
+    "url": "https://kortix.com/services",
+  },
+  "title": "AI Transformation, done for you",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "AI strategy, transformation and education: we map how your company works, unify your data, automate the work, build your software and train your team.",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "AI Transformation, done for you",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata legal resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/legal",
+    "languages": {
+      "de": "https://kortix.com/de/legal",
+      "en": "https://kortix.com/legal",
+      "es": "https://kortix.com/es/legal",
+      "fr": "https://kortix.com/fr/legal",
+      "it": "https://kortix.com/it/legal",
+      "ja": "https://kortix.com/ja/legal",
+      "pt": "https://kortix.com/pt/legal",
+      "sr": "https://kortix.com/sr/legal",
+      "x-default": "https://kortix.com/legal",
+      "zh": "https://kortix.com/zh/legal",
+    },
+  },
+  "description": "Kortix terms of service and privacy policy.",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "Kortix terms of service and privacy policy.",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "Legal",
+    "type": "website",
+    "url": "https://kortix.com/legal",
+  },
+  "title": "Legal",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "Kortix terms of service and privacy policy.",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "Legal",
+  },
+}
+`;
+
+exports[`public marketing layouts resolve their route metadata download resolves its canonical URL, title and hreflang set 1`] = `
+{
+  "alternates": {
+    "canonical": "https://kortix.com/download",
+    "languages": {
+      "de": "https://kortix.com/de/download",
+      "en": "https://kortix.com/download",
+      "es": "https://kortix.com/es/download",
+      "fr": "https://kortix.com/fr/download",
+      "it": "https://kortix.com/it/download",
+      "ja": "https://kortix.com/ja/download",
+      "pt": "https://kortix.com/pt/download",
+      "sr": "https://kortix.com/sr/download",
+      "x-default": "https://kortix.com/download",
+      "zh": "https://kortix.com/zh/download",
+    },
+  },
+  "description": "Get Kortix for macOS, Windows, Linux, iOS, and Android.",
+  "openGraph": {
+    "alternateLocale": [
+      "de_DE",
+      "it_IT",
+      "zh_CN",
+      "ja_JP",
+      "pt_BR",
+      "fr_FR",
+      "es_ES",
+      "sr_RS",
+    ],
+    "description": "Get Kortix for macOS, Windows, Linux, iOS, and Android.",
+    "images": [
+      {
+        "alt": "Kortix CompanyOS – the open-source operating system for your company",
+        "height": 630,
+        "url": "/banner.png",
+        "width": 1200,
+      },
+    ],
+    "locale": "en_US",
+    "siteName": "Kortix CompanyOS",
+    "title": "Download the desktop app and CLI",
+    "type": "website",
+    "url": "https://kortix.com/download",
+  },
+  "title": "Download the desktop app and CLI",
+  "twitter": {
+    "card": "summary_large_image",
+    "creator": "@kortix",
+    "description": "Get Kortix for macOS, Windows, Linux, iOS, and Android.",
+    "images": [
+      "/banner.png",
+    ],
+    "site": "@kortix",
+    "title": "Download the desktop app and CLI",
+  },
+}
+`;

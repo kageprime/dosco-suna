@@ -21,6 +21,8 @@ export function teamsSettingsRefusal(reason: SettingsRefusal, noBinding: string)
       return "Only a workspace manager, or a workspace owner or admin, can change this conversation's settings.";
     case 'no_binding':
       return noBinding;
+    case 'other_workspace':
+      return "This conversation's settings belong to another Kortix workspace.";
   }
 }
 

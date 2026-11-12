@@ -8,6 +8,41 @@ function ensureTTY(): void {
   }
 }
 
+/** Stdin closed (EOF: `</dev/null`, a pipe that ended, a closed pty) before the prompt got a line. */
+export class EndOfInputError extends Error {
+  constructor() {
+    super('stdin closed before an answer arrived');
+    this.name = 'EndOfInputError';
+  }
+}
+
+/**
+ * Ask one question on `rl` and close it. `rl.question`'s callback never fires
+ * on EOF, so without the `close` listener the promise stayed pending, the event
+ * loop drained, and the process exited 0 at the prompt with nothing done.
+ * Rejects with {@link EndOfInputError} when the input ends first.
+ *
+ * A last line with no newline (`printf %s code | kortix …`) reaches only the
+ * `line` event, never the question callback (Bun and Node): it is the answer too.
+ */
+function askOnce(rl: readline.Interface, label: string, afterPrompt?: () => void): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    let answered = false;
+    const answer = (value: string) => {
+      if (answered) return;
+      answered = true;
+      rl.close();
+      resolve(value);
+    };
+    rl.once('line', answer);
+    rl.once('close', () => {
+      if (!answered) reject(new EndOfInputError());
+    });
+    rl.question(label, answer);
+    afterPrompt?.();
+  });
+}
+
 /**
  * Plain-text prompt with optional default. Returns whatever the user
  * typed (trimmed), or `defaultValue` when they hit enter.
@@ -46,16 +81,12 @@ export async function promptSecret(label: string): Promise<string> {
  * echoed read when stdin is not a TTY (piped input can't be muted) — callers
  * that must refuse piped secrets should check `process.stdin.isTTY` first.
  * The label is used verbatim (callers append their own separator). Returns
- * the raw value, not trimmed.
+ * the raw value, not trimmed. Throws {@link EndOfInputError} when stdin closes
+ * before a line arrives.
  */
 export async function readSecret(label: string): Promise<string> {
   if (process.stdin.isTTY !== true) {
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    try {
-      return await new Promise<string>((resolve) => rl.question(label, (answer) => resolve(answer)));
-    } finally {
-      rl.close();
-    }
+    return askOnce(readline.createInterface({ input: process.stdin, output: process.stdout }), label);
   }
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
   let muted = false;
@@ -67,31 +98,22 @@ export async function readSecret(label: string): Promise<string> {
   ) {
     if (!muted) this.output.write(str);
   };
-  try {
-    const value = await new Promise<string>((resolve) => {
-      rl.question(label, (answer) => resolve(answer));
-      muted = true; // question() writes the prompt synchronously above
-    });
-    process.stdout.write('\n'); // the muted Enter never printed a newline
-    return value;
-  } finally {
-    rl.close();
-  }
+  const value = await askOnce(rl, label, () => {
+    muted = true; // question() writes the prompt synchronously above
+  });
+  process.stdout.write('\n'); // the muted Enter never printed a newline
+  return value;
 }
 
 /**
  * Read a plain (non-secret) value with normal echoed input — e.g. a region,
  * which isn't sensitive and is easier to verify visibly. No TTY requirement:
- * the caller decides when an interactive read is safe.
+ * the caller decides when an interactive read is safe. Throws
+ * {@link EndOfInputError} when stdin closes before a line arrives.
  */
 export async function readVisible(label: string): Promise<string> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise((resolve) => {
-    rl.question(label, (answer) => {
-      rl.close();
-      resolve(answer.trim());
-    });
-  });
+  return (await askOnce(rl, label)).trim();
 }
 
 /**

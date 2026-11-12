@@ -11,6 +11,7 @@ const HOUR_MS = 60 * 60_000;
 const NEEDS_CONNECTION = new Set([
   'needs_auth',
   'connector_not_connected',
+  'connector_not_shared',
   'account_required',
   'account_not_found',
   'credential_undecryptable',

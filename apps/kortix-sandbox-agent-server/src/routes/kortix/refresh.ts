@@ -59,9 +59,9 @@ export function createRefreshRouter(
       } catch (err) {
         const message = (err as Error).message || 'refresh failed'
         logger.error('[refresh] failed', err)
-        const status = message.includes('not materialized') || message.includes('git pull refresh failed')
-          ? 409
-          : 500
+        // A missing checkout is a no-op above, so this 409 is only the real
+        // pull failure: the refresh ran and the fast-forward could not.
+        const status = message.includes('git pull refresh failed') ? 409 : 500
         return c.json({ error: 'refresh failed', message }, status)
       } finally {
         refreshInFlight = null

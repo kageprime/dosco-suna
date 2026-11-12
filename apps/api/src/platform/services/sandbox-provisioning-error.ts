@@ -111,6 +111,46 @@ const INVALID_SECRET_BOUNDARY_POLICY_PATTERN =
   /both target .+ header |Network-boundary secret |Network-boundary delivery |invalid header injection/i;
 
 /**
+ * One policy per failure category: the copy a user sees (`FROM_RAW` — the
+ * raw message, already prefix-stripped by the branch that knows the prefix),
+ * and whether the same input can succeed on a later attempt. `isCapacity` and
+ * `isGitAuth` derive from the category in `failure`.
+ */
+const FROM_RAW = Symbol('fromRaw');
+
+const CATEGORY_POLICY: Record<
+  SandboxProvisioningFailureCategory,
+  { userMessage: string | typeof FROM_RAW; transient: boolean | ((rawMessage: string) => boolean) }
+> = {
+  'provider-capacity': { userMessage: SANDBOX_PROVIDER_CAPACITY_MESSAGE, transient: true },
+  'git-auth': {
+    userMessage: "Couldn't access the project's Git repository. Check the project's Git credentials and try again.",
+    transient: false,
+  },
+  'invalid-secret-boundary-policy': { userMessage: INVALID_SECRET_BOUNDARY_POLICY_MESSAGE, transient: false },
+  'snapshot-too-large': { userMessage: SNAPSHOT_TOO_LARGE_MESSAGE, transient: false },
+  'drives-unavailable': { userMessage: FROM_RAW, transient: (raw) => raw === WORKSPACE_VOLUME_UNREACHABLE_MESSAGE },
+  'sandbox-provider': { userMessage: SANDBOX_PROVIDER_FAILURE_MESSAGE, transient: (raw) => TRANSIENT_HTTP_PATTERN.test(raw) },
+};
+
+/** One failure from its category's policy. */
+function failure(
+  category: SandboxProvisioningFailureCategory,
+  rawMessage: string,
+  userMessage?: string,
+  transient?: boolean,
+): SandboxProvisioningFailure {
+  const policy = CATEGORY_POLICY[category];
+  return {
+    category,
+    userMessage: userMessage ?? (policy.userMessage === FROM_RAW ? rawMessage : policy.userMessage),
+    isCapacity: category === 'provider-capacity',
+    isGitAuth: category === 'git-auth',
+    transient: transient ?? (typeof policy.transient === 'function' ? policy.transient(rawMessage) : policy.transient),
+  };
+}
+
+/**
  * Convert a provider or initialization error into one stable user contract.
  * The raw provider message remains in diagnostic metadata. It is not user copy.
  */
@@ -123,76 +163,33 @@ export function classifySandboxProvisioningFailure(error: unknown): SandboxProvi
   // mounts (platform/services/workspace-volume.ts).
   const storagePrefix = ['[drives] ', '[workspace] '].find((p) => rawMessage.startsWith(p));
   if (storagePrefix) {
-    return {
-      category: 'drives-unavailable',
-      userMessage: rawMessage.slice(storagePrefix.length),
-      isCapacity: false,
-      isGitAuth: false,
-      transient: rawMessage === WORKSPACE_VOLUME_UNREACHABLE_MESSAGE,
-    };
+    return failure('drives-unavailable', rawMessage, rawMessage.slice(storagePrefix.length));
   }
   if (rawMessage.startsWith(RESIDENTIAL_PROXY_PREFIX)) {
-    return {
-      category: 'sandbox-provider',
-      userMessage: rawMessage.slice(RESIDENTIAL_PROXY_PREFIX.length),
-      isCapacity: false,
-      isGitAuth: false,
-      transient: false,
-    };
+    return failure('sandbox-provider', rawMessage, rawMessage.slice(RESIDENTIAL_PROXY_PREFIX.length), false);
   }
   const isStorageFull = STORAGE_FULL_PATTERN.test(rawMessage);
   const isCapacity = isStorageFull || CAPACITY_PATTERN.test(rawMessage);
   const isGitAuth = !isCapacity && GIT_AUTH_PATTERN.test(rawMessage);
 
   if (INVALID_SECRET_BOUNDARY_POLICY_PATTERN.test(rawMessage)) {
-    return {
-      category: 'invalid-secret-boundary-policy',
-      userMessage: INVALID_SECRET_BOUNDARY_POLICY_MESSAGE,
-      isCapacity: false,
-      isGitAuth: false,
-      transient: false,
-    };
+    return failure('invalid-secret-boundary-policy', rawMessage);
   }
 
   // Before the capacity branch: a provider at capacity is transient, this is
   // not, and a message that says "try again in a minute" for a 10 GB image is
   // worse than no message.
   if (SNAPSHOT_TOO_LARGE_PATTERN.test(rawMessage)) {
-    return {
-      category: 'snapshot-too-large',
-      userMessage: SNAPSHOT_TOO_LARGE_MESSAGE,
-      isCapacity: false,
-      isGitAuth: false,
-      transient: false,
-    };
+    return failure('snapshot-too-large', rawMessage);
   }
 
   if (isCapacity) {
-    return {
-      category: 'provider-capacity',
-      userMessage: isStorageFull ? SANDBOX_PROVIDER_STORAGE_FULL_MESSAGE : SANDBOX_PROVIDER_CAPACITY_MESSAGE,
-      isCapacity: true,
-      isGitAuth: false,
-      transient: true,
-    };
+    return failure('provider-capacity', rawMessage, isStorageFull ? SANDBOX_PROVIDER_STORAGE_FULL_MESSAGE : undefined);
   }
 
   if (isGitAuth) {
-    return {
-      category: 'git-auth',
-      userMessage:
-        "Couldn't access the project's Git repository. Check the project's Git credentials and try again.",
-      isCapacity: false,
-      isGitAuth: true,
-      transient: false,
-    };
+    return failure('git-auth', rawMessage);
   }
 
-  return {
-    category: 'sandbox-provider',
-    userMessage: SANDBOX_PROVIDER_FAILURE_MESSAGE,
-    isCapacity: false,
-    isGitAuth: false,
-    transient: TRANSIENT_HTTP_PATTERN.test(rawMessage),
-  };
+  return failure('sandbox-provider', rawMessage);
 }

@@ -33,6 +33,12 @@ function runPage(input: Partial<MapDocumentInput>, events: string[] = ['load']) 
     layers: [] as unknown[],
     pins: [] as string[][],
     controls: 0,
+    /** Every camera call after construction, as `name:args`. */
+    moves: [] as string[],
+    open: [] as boolean[],
+    window: {} as Record<string, unknown>,
+    /** A tap on pin n: its popup opens or closes. */
+    toggles: [] as (() => void)[],
   };
   const handlers: Record<string, () => void> = {};
   const element = (tag: string): El => {
@@ -58,6 +64,18 @@ function runPage(input: Partial<MapDocumentInput>, events: string[] = ['load']) 
       on(event: string, handler: () => void) {
         handlers[event] = handler;
       }
+      setPadding(padding: unknown) {
+        seen.moves.push(`setPadding:${JSON.stringify(padding)}`);
+      }
+      fitBounds(_bounds: unknown, options: unknown) {
+        seen.moves.push(`fitBounds:${JSON.stringify(options)}`);
+      }
+      easeTo(options: unknown) {
+        seen.moves.push(`easeTo:${JSON.stringify(options)}`);
+      }
+      getZoom() {
+        return 10;
+      }
       addSource() {}
       addLayer(layer: unknown) {
         seen.layers.push(layer);
@@ -65,12 +83,34 @@ function runPage(input: Partial<MapDocumentInput>, events: string[] = ['load']) 
     },
     NavigationControl: class {},
     Popup: class {
+      index = seen.open.length;
+      events: Record<string, () => void> = {};
+      constructor() {
+        seen.open.push(false);
+      }
       setDOMContent(el: El) {
         seen.popups.push(flat(el));
         return this;
       }
+      on(event: string, handler: () => void) {
+        this.events[event] = handler;
+        return this;
+      }
+      isOpen() {
+        return seen.open[this.index]!;
+      }
+      /** The page's own open and close, as MapLibre fires them. */
+      toggle() {
+        seen.open[this.index] = !seen.open[this.index];
+        this.events[seen.open[this.index] ? 'open' : 'close']?.();
+      }
+      remove() {
+        if (seen.open[this.index]) this.toggle();
+        return this;
+      }
     },
     Marker: class {
+      popup: { toggle: () => void } | null = null;
       constructor(options?: { element?: El }) {
         const pin = options?.element;
         if (pin) seen.pins.push(pin.children.map((c) => `${c.className}:${c.textContent}`));
@@ -79,7 +119,13 @@ function runPage(input: Partial<MapDocumentInput>, events: string[] = ['load']) 
         seen.markers.push(point);
         return this;
       }
-      setPopup() {
+      setPopup(popup: { toggle: () => void }) {
+        this.popup = popup;
+        seen.toggles.push(() => popup.toggle());
+        return this;
+      }
+      togglePopup() {
+        this.popup?.toggle();
         return this;
       }
       addTo() {
@@ -87,7 +133,8 @@ function runPage(input: Partial<MapDocumentInput>, events: string[] = ['load']) 
       }
     },
   };
-  const window = { ReactNativeWebView: { postMessage: (message: string) => seen.posted.push(JSON.parse(message)) } };
+  const window: Record<string, unknown> = { ReactNativeWebView: { postMessage: (message: string) => seen.posted.push(JSON.parse(message)) } };
+  seen.window = window;
   new Function('maplibregl', 'document', 'window', page)(maplibregl, { createElement: element }, window);
   for (const event of events) handlers[event]?.();
   return seen;
@@ -276,5 +323,59 @@ describe('map document', () => {
     expect(runPage({}, ['style.load', 'error', 'load']).posted).toEqual([{ type: 'map', state: 'load' }]);
     // No WebGL: MapLibre throws in its constructor, before any event.
     expect(runPage({ styleUrl: 'throw' }, []).posted).toEqual([{ type: 'map', state: 'error' }]);
+  });
+
+  test('full screen: the camera frames the places inside the area the native chrome leaves, and the controls move clear', () => {
+    const markers = [
+      { lat: 48.85, lng: 2.35, label: 'A' },
+      { lat: 48.86, lng: 2.36, label: 'B' },
+    ];
+    const html = mapDocument({ script: '', css: '', styleUrl: 's', markers, background: 'white', routeColor: 'black', pin: PIN, labels: LABELS, chrome: { top: 119.4, bottom: 180 } });
+    expect(html).toContain(':root{--kx-top:119px;--kx-bottom:180px}');
+    expect(html).toContain('.maplibregl-ctrl-top-right{top:var(--kx-top)}');
+    const seen = runPage({ markers, chrome: { top: 119, bottom: 180 } });
+    expect(seen.moves).toEqual(['setPadding:{"top":119,"bottom":180,"left":0,"right":0}', 'fitBounds:{"padding":48,"maxZoom":16,"duration":0}']);
+    // One place: centred in the uncovered area, at its zoom.
+    const one = runPage({ markers: [markers[0]!], chrome: { top: 119, bottom: 180 } });
+    expect(one.moves.at(-1)).toBe('easeTo:{"center":[2.35,48.85],"zoom":14,"duration":0}');
+    // The inline map has no chrome: no padding, no reframe.
+    expect(runPage({ markers }).moves).toEqual([]);
+  });
+
+  test('full screen: an open popup is the selected place; kxSelect opens one, kxOverview closes it and frames every place', () => {
+    const markers = [
+      { lat: 48.85, lng: 2.35, label: 'A' },
+      { lat: 48.86, lng: 2.36, label: 'B' },
+    ];
+    const seen = runPage({ markers, chrome: { top: 100, bottom: 100 } });
+    seen.posted.length = 0;
+    seen.moves.length = 0;
+    // A pin tap.
+    seen.toggles[0]!();
+    expect(seen.posted).toEqual([{ type: 'select', index: 0 }]);
+    // A panel card: the other popup closes, this one opens, the camera eases to it.
+    (seen.window.kxSelect as (i: number) => void)(1);
+    expect(seen.open).toEqual([false, true]);
+    expect(seen.posted.slice(1)).toEqual([{ type: 'select', index: null }, { type: 'select', index: 1 }]);
+    expect(seen.moves).toEqual(['easeTo:{"center":[2.36,48.86],"zoom":14,"duration":400}']);
+    (seen.window.kxSelect as (i: number) => void)(7);
+    expect(seen.open).toEqual([false, true]);
+    // Back.
+    (seen.window.kxOverview as () => void)();
+    expect(seen.open).toEqual([false, false]);
+    expect(seen.posted.at(-1)).toEqual({ type: 'select', index: null });
+    expect(seen.moves.at(-1)).toBe('fitBounds:{"padding":48,"maxZoom":16,"duration":400}');
+  });
+
+  test('full screen: kxInset moves the frame while the user has not moved the map, and only the padding after', () => {
+    const markers = [{ lat: 48.85, lng: 2.35, label: 'A' }];
+    const seen = runPage({ markers, chrome: { top: 100, bottom: 0 } });
+    seen.moves.length = 0;
+    (seen.window.kxInset as (t: number, b: number) => void)(100, 180);
+    expect(seen.moves).toEqual(['setPadding:{"top":100,"bottom":180,"left":0,"right":0}', 'easeTo:{"center":[2.35,48.85],"zoom":14,"duration":0}']);
+    seen.toggles[0]!();
+    seen.moves.length = 0;
+    (seen.window.kxInset as (t: number, b: number) => void)(100, 200);
+    expect(seen.moves).toEqual(['setPadding:{"top":100,"bottom":200,"left":0,"right":0}']);
   });
 });

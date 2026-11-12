@@ -17,7 +17,7 @@ import {
 } from '../lib/project-resources';
 import { auth, errors, json, lenientBody } from '../../openapi';
 import { accountMemberRow } from '../../iam/membership-read';
-import { accountGroupNamesAmong, accountGroupRow } from '../../iam/group-read';
+import { groupRow, groupRows } from '../../iam/group-read';
 import { createRoute, z } from '@hono/zod-openapi';
 import { loadProjectForUser, lookupEmailsByUserIds, parseExpiresAtBody, assertProjectCapability } from '../lib/access';
 import { projectsApp } from '../lib/app';
@@ -162,8 +162,8 @@ export function registerResourceGrantsRoutes(): void {
         : new Map<string, string>();
       const groupNameById = new Map<string, string>();
       if (groupIds.length) {
-        const groupRows = await accountGroupNamesAmong(loaded.row.accountId, groupIds);
-        for (const g of groupRows) groupNameById.set(g.groupId, g.name);
+        const groupRowList = await groupRows({ accountId: loaded.row.accountId, groupIds });
+        for (const g of groupRowList) groupNameById.set(g.groupId, g.name);
       }
 
       const elapsed = Math.round(performance.now() - started);
@@ -267,7 +267,7 @@ export function registerResourceGrantsRoutes(): void {
         const [m] = await accountMemberRow(loaded.row.accountId, principalId);
         if (!m) return c.json({ error: 'member not found in this account' }, 404);
       } else {
-        const [g] = await accountGroupRow(loaded.row.accountId, principalId);
+        const [g] = await groupRow(loaded.row.accountId, principalId);
         if (!g) return c.json({ error: 'group not found in this account' }, 404);
       }
 

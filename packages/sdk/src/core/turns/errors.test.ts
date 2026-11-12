@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { extractGatewayErrorDetails, rawErrorText, unwrapError } from './errors';
+import { extractGatewayErrorDetails, rawErrorText, sessionErrorSentence, unwrapError } from './errors';
 
 // The gateway's structured error envelope — mirrors gatewayErrorBody()
 // (packages/llm-gateway/src/pipeline/error-response.ts) exactly, both the
@@ -421,6 +421,94 @@ describe('unwrapError — unparseable stream chunks', () => {
     expect(
       unwrapError('JSON parsing failed: Text: {"choices":[. Error message: Unexpected end of JSON input'),
     ).toBe('The model response could not be read.');
+  });
+});
+
+// Moved verbatim from the /debug/toasts gallery
+// (apps/web/src/app/[locale]/(system)/debug/toasts/page.tsx): the six
+// session.error payload shapes it rendered, and the sentence each
+// notification must show. They run here now, so a wrong sentence fails the
+// suite instead of colouring the debug page red.
+interface ErrorCase {
+  title: string;
+  error: unknown;
+  sentence: string;
+}
+
+const ERROR_CASES: ErrorCase[] = [
+  {
+    title: 'Model not available on the account (the reported toast)',
+    error: {
+      name: 'APIError',
+      data: {
+        message: "The 'gpt-5.5' model is not supported when using Codex with a ChatGPT account.",
+        isRetryable: false,
+      },
+    },
+    sentence: "The 'gpt-5.5' model is not supported when using Codex with a ChatGPT account.",
+  },
+  {
+    title: 'Gateway body behind the HTTP status text',
+    error: {
+      name: 'APIError',
+      data: {
+        message: 'Bad Request',
+        statusCode: 400,
+        responseBody: JSON.stringify({
+          error: { message: 'Insufficient credits.', code: 'insufficient_credits' },
+        }),
+      },
+    },
+    sentence: 'Insufficient credits.',
+  },
+  {
+    title: 'Provider body serialized into the message',
+    error: {
+      name: 'UnknownError',
+      data: { message: '{"message":"Provided authentication token is expired.","code":401}' },
+    },
+    sentence: 'Provided authentication token is expired.',
+  },
+  {
+    title: 'Provider auth error',
+    error: {
+      name: 'ProviderAuthError',
+      data: { providerID: 'anthropic', message: 'Invalid API key.' },
+    },
+    sentence: 'Invalid API key.',
+  },
+  {
+    title: 'Long sentence (wraps, never truncates mid-word)',
+    error: {
+      name: 'UnknownError',
+      data: {
+        message:
+          'The request was rejected because the conversation is longer than the context window of the selected model. Start a new session or compact this one, then send the message again.',
+      },
+    },
+    sentence:
+      'The request was rejected because the conversation is longer than the context window of the selected model. Start a new session or compact this one, then send the message again.',
+  },
+  {
+    title: 'No message at all',
+    error: { name: 'MessageOutputLengthError', data: {} },
+    sentence: 'An error occurred',
+  },
+];
+
+describe('sessionErrorSentence — the six gallery cases', () => {
+  for (const ERROR_CASE of ERROR_CASES) {
+    test(ERROR_CASE.title, () => {
+      expect(sessionErrorSentence(ERROR_CASE.error)).toBe(ERROR_CASE.sentence);
+    });
+  }
+
+  test('shows the same sentence on both notification paths for a serialized gateway body', () => {
+    // The gateway-body case. Before the helper, the turn-end hand-off path
+    // passed `unwrapError(error)` alone and showed the raw status text —
+    // the live-stream path already preferred the gateway message.
+    expect(unwrapError(ERROR_CASES[1].error)).toBe('Bad Request');
+    expect(sessionErrorSentence(ERROR_CASES[1].error)).toBe('Insufficient credits.');
   });
 });
 

@@ -1,6 +1,12 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 import {
+  MISSING_FILE_SUPPRESS_MS,
+  clearMissingFileRead,
+  clearMissingFileReadsForTests,
+  missingFileSuppressed,
+  noteMissingFileRead,
+  setMissingFileClockForTests,
   IMAGE_WAKING_ATTEMPTS,
   imageWaitedOut,
   imageWakingRefetchInterval,
@@ -13,6 +19,55 @@ import {
   SANDBOX_PARKED_REFETCH_INTERVAL_MS,
   SANDBOX_WAKING_REFETCH_INTERVAL_MS,
 } from './file-read-retry';
+
+/**
+ * The missing-file gate's registry, unit-pinned: both file hooks call these
+ * with the same `<serverUrl>|<path>` key, so this block is the contract a
+ * refactor of either hook must keep — a miss marks only when the failure is
+ * missing-shaped, a found file clears the mark while fresh, an expired mark
+ * evicts on its next read (no sweeper).
+ */
+describe('missing-file gate registry', () => {
+  let now = 1_000_000;
+
+  beforeEach(() => {
+    now = 1_000_000;
+    setMissingFileClockForTests(() => now);
+    clearMissingFileReadsForTests();
+  });
+
+  test('a 404 read marks only its own path, and never a non-missing failure', () => {
+    noteMissingFileRead(null, '/drives/me/dead.png', { status: 404 });
+    expect(missingFileSuppressed(null, '/drives/me/dead.png')).toBe(true);
+    expect(missingFileSuppressed(null, '/drives/me/live.png')).toBe(false);
+    noteMissingFileRead(null, '/drives/me/other.png', { status: 403 });
+    expect(missingFileSuppressed(null, '/drives/me/other.png')).toBe(false);
+  });
+
+  test('a found file clears the mark while the mark is still fresh', () => {
+    noteMissingFileRead('https://srv-1', '/a.png', { status: 404 });
+    expect(missingFileSuppressed('https://srv-1', '/a.png')).toBe(true);
+    clearMissingFileRead('https://srv-1', '/a.png');
+    expect(missingFileSuppressed('https://srv-1', '/a.png')).toBe(false);
+  });
+
+  test('a different server URL does not share the mark', () => {
+    noteMissingFileRead('https://srv-1', '/a.png', { status: 404 });
+    expect(missingFileSuppressed('https://srv-2', '/a.png')).toBe(false);
+  });
+
+  test('no sweeper: an expired mark evicts on its next read', () => {
+    noteMissingFileRead(null, '/dead.png', { status: 404 });
+    expect(missingFileSuppressed(null, '/dead.png')).toBe(true);
+    expect(MISSING_FILE_SUPPRESS_MS).toBe(5 * 60_000);
+    now += MISSING_FILE_SUPPRESS_MS + 1;
+    expect(missingFileSuppressed(null, '/dead.png')).toBe(false);
+    // Evicted, not just expired: the mark is gone, not refreshed.
+    expect(missingFileSuppressed(null, '/dead.png')).toBe(false);
+  });
+
+  afterEach(clearMissingFileReadsForTests);
+});
 
 describe('file read retry policy', () => {
   test('detects uploaded workspace paths', () => {

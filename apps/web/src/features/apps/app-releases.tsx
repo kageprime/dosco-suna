@@ -35,7 +35,7 @@ export type HistoryItem =
   | { kind: 'failed-run'; key: string; deployments: AppDeployment[] };
 
 /** Two or more failed builds in a row fold into one entry. A lone failure stays a row. */
-export function historyItems(deployments: AppDeployment[]): HistoryItem[] {
+function historyItems(deployments: AppDeployment[]): HistoryItem[] {
   const items: HistoryItem[] = [];
   let run: AppDeployment[] = [];
   const flush = () => {

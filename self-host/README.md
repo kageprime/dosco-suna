@@ -237,10 +237,10 @@ devices get `503 capture_credentials_unavailable` and keep recording locally.
 
 The same `capture-store` holds a second bucket, `kortix-project-snapshots`.
 After each push or merge to a project's base branch, the API builds one archive
-of that commit and stores it there. A new session downloads that one archive
-instead of cloning the repository over Git, and its agents and skills come from
-the same archive. A repository over the 32 MiB config archive limit gets this
-too. Without it, such a repository cloned twice over Git on every new session.
+of that commit and stores it there. A new session's agents and skills come
+from that one archive. A session never clones the repository at boot. A
+repository over the 32 MiB config archive limit gets this too. Without it, such
+a repository's config comes over Git on every new session.
 
 - **Same origin.** A sandbox downloads a presigned URL on the API origin,
   `https://api.<your domain>/kortix-project-snapshots/…`. Caddy routes the
@@ -251,12 +251,9 @@ too. Without it, such a repository cloned twice over Git on every new session.
   is built again on the next session that needs it.
 - **Failure.** Any download or verification failure falls back to Git, so a
   session never fails because of a snapshot.
-- **Turn it off.** `kortix self-host env set KORTIX_PROJECT_SNAPSHOT_MODE=git`
-  sends the checkout back to Git. The config still uses an archive when one
-  exists, verified file by file against the commit.
 - **External Capture store.** `KORTIX_CAPTURE_STORE=external` removes the
-  on-box MinIO, so it also removes the snapshot wiring: new sessions clone over
-  Git again. To keep snapshots, give them a bucket of your own (on AWS):
+  on-box MinIO, so it also removes the snapshot wiring: new sessions read their
+  config over Git again. To keep snapshots, give them a bucket of your own (on AWS):
   1. Create a private bucket in the server's region with a 30-day expiry rule.
      The API does not create it in this mode.
   2. Grant the server's identity `s3:PutObject` and `s3:GetObject` on
@@ -264,9 +261,8 @@ too. Without it, such a repository cloned twice over Git on every new session.
      answers `404`, not `403`). On EC2 that is the instance role: the API uses
      the default AWS credential chain when
      `KORTIX_PROJECT_SNAPSHOT_S3_ACCESS_KEY_ID` is unset.
-  3. Set three keys. This rolls `kortix-api`:
-     `kortix self-host env set KORTIX_PROJECT_SNAPSHOT_MODE=prefer-s3
-     KORTIX_PROJECT_SNAPSHOT_S3_BUCKET=<bucket>
+  3. Set two keys. This rolls `kortix-api`:
+     `kortix self-host env set KORTIX_PROJECT_SNAPSHOT_S3_BUCKET=<bucket>
      KORTIX_PROJECT_SNAPSHOT_S3_REGION=<region>`
 
   Sandboxes download over presigned AWS URLs, so the bucket stays private and
@@ -280,8 +276,8 @@ too. Without it, such a repository cloned twice over Git on every new session.
 - **Check it.** With the bundled store,
   `curl -s https://api.<your domain>/kortix-project-snapshots/` answers MinIO's
   S3 XML error (`AccessDenied`), never the API's JSON `404`. With either store,
-  a new session's daemon log shows `[workspace-provider] complete` with
-  `"provider":"s3"` and `"fallback":null`.
+  a new session's daemon log shows `[boot-config] release materialized` with
+  `"transport":"snapshot"`.
 
 ## 4. Day-2 operations
 

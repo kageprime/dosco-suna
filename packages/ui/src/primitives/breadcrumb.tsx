@@ -1,5 +1,5 @@
 import { DotsThreeIcon as MoreHorizontal } from '@phosphor-icons/react';
-import { Slot } from '@radix-ui/react-slot';
+import { Slot } from '../lib/base-ui-compat';
 import * as React from 'react';
 
 import { cn } from '../lib/utils';

@@ -28,6 +28,8 @@ interface ConnectorAccountsProps {
   showAccountInfo?: boolean;
   /** Sign an unsigned account in (the row's Connect). */
   onConnect?: (connection: Connection) => void;
+  /** Accounts sign in through a provider window: rows say "Sign in". */
+  signsIn?: boolean;
   /** Bumped to open "Add account" (a header button, or right after Install). */
   addRequest?: number;
   onAddRequestHandled?: () => void;
@@ -70,6 +72,7 @@ export function ConnectorAccounts({
   onSetCredential,
   showAccountInfo = false,
   onConnect,
+  signsIn,
   addRequest,
   onAddRequestHandled,
 }: ConnectorAccountsProps) {
@@ -104,6 +107,7 @@ export function ConnectorAccounts({
         onStartSession={onStartSession}
         onSetCredential={onSetCredential}
         onConnect={onConnect}
+        signsIn={signsIn}
         addRequest={addRequest}
         onAddRequestHandled={onAddRequestHandled}
         addVariant="default"

@@ -271,7 +271,6 @@ export {
   TRIGGER_TYPES,
   MONITOR_REMOVED_MESSAGE,
   V2_RUNTIME_VALUES,
-  WORKSPACE_MODES_V2,
   CODEMODE_VALUES,
   CONTEXT_VALUES,
   EXTENSION_HARNESSES,
@@ -310,9 +309,6 @@ export {
 // cycle that `constants.ts` had to break.
 export {
   type AgentModeV2,
-  type AgentWorkspaceV2,
-  type ProjectRepositoryResult,
-  resolveProjectRepository,
   type RuntimeV2,
   type PermissionActionV2,
   type PermissionRuleV2,

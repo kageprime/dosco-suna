@@ -3,6 +3,7 @@
  * them without the API's environment: path guard, route search, transcript shaping.
  */
 
+import type { SessionLogPage } from '@kortix/api-contract/session-log';
 import { genuiToMarkdown } from '@kortix/sdk/genui';
 
 /** Paths a tool may not reach: the OAuth server and the MCP endpoint itself. */
@@ -63,6 +64,66 @@ export function searchOperations(ops: Operation[], query: string, limit: number)
 
 /** A tool result is cut at 60 000 chars; leave room for the wrapper. */
 const TRANSCRIPT_BUDGET_CHARS = 58_000;
+
+/** One message of a `GET …/sessions/:id/log` page. */
+type LogMessage = SessionLogPage['messages'][number];
+
+/** A read_session message's text is cut here; a tool call's input and output at the caller's `maxChars`. */
+const ANSWER_MAX_CHARS = 16_000;
+
+/** The log's tool-call status in the words read_session has always printed. */
+const TOOL_STATUS: Record<string, string> = { complete: 'completed' };
+
+/** Like a plain cut, but says how much was kept and how long the whole was. */
+function cutMarked(s: string, max: number): string {
+  return s.length <= max ? s : `${s.slice(0, max)}…[truncated: ${max} of ${s.length} chars]`;
+}
+
+/**
+ * The read_session rows of a `GET …/log` page, oldest first: the conversation
+ * only (turn messages of users and assistants; no compaction, context or
+ * system record). A row: `seq` (page older with `before_seq`), id, parent id,
+ * role, times, the text (its non-synthetic text blocks, cut at 16,000
+ * characters), each tool call with its input and output cut at `maxChars`,
+ * attachments, whether reasoning was left out, and the message error.
+ */
+export function logConversationRows(messages: LogMessage[], maxChars: number) {
+  return messages
+    .filter((m) => m.kind === 'turn' && (m.role === 'user' || m.role === 'assistant'))
+    .map((m) => ({
+      seq: m.seq,
+      id: m.message_id,
+      parent_id: m.parent_message_id ?? null,
+      role: m.role,
+      created: m.created_at,
+      completed: m.completed_at,
+      text: cutMarked(
+        m.blocks
+          .flatMap((b) => (b.type === 'text' && !b.synthetic && b.text ? [b.text] : []))
+          .join('\n')
+          .trim(),
+        ANSWER_MAX_CHARS,
+      ),
+      tools: m.blocks.flatMap((b) =>
+        b.type === 'tool_call'
+          ? [
+              {
+                tool: b.name,
+                status: TOOL_STATUS[b.status] ?? b.status,
+                input: cutMarked(JSON.stringify(b.input ?? {}), maxChars),
+                output: cutMarked(
+                  (b.result?.content ?? []).flatMap((c) => (c.type === 'text' ? [c.text] : [])).join('\n'),
+                  maxChars,
+                ),
+              },
+            ]
+          : [],
+      ),
+      files: m.blocks.flatMap((b) => (b.type === 'attachment' ? [{ filename: b.name ?? null, mime: b.mime }] : [])),
+      reasoning_omitted: m.blocks.some((b) => b.type === 'reasoning'),
+      error: m.error ? { name: m.error.code, message: m.error.message } : null,
+    }));
+}
 
 type WireMessage = { role?: string; error?: any } & Record<string, unknown>;
 

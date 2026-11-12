@@ -12,7 +12,6 @@ import { useTranslations as useI18nTranslations } from '../../../i18n';
 
 import { Button } from '../../../primitives/button';
 import Hint from '../../../primitives/hint';
-import { Switch } from '../../../primitives/switch';
 import { capabilityTabHref } from '../../../internal/lib/capability-tab-routes';
 import { useOptionalSettingsNav } from '../../../internal/layout/settings-nav-context';
 import {
@@ -283,7 +282,6 @@ export function WorkspaceSection({
   defaultSandboxSlug: string | null;
 }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
-  const tRepository = useI18nTranslations('repositoryAccess');
   const tTabs = useI18nTranslations('agentEditor.tabs');
   const pinned = draft.sandbox ? sandboxTemplates.find((t) => t.slug === draft.sandbox) : undefined;
   const projectDefault = defaultSandboxSlug
@@ -339,17 +337,6 @@ export function WorkspaceSection({
               <CaretDownIcon className="text-muted-foreground size-3.5 shrink-0" />
             </Button>
           }
-        />
-      </SettingRow>
-
-      <SettingRow
-        label={tRepository('label')}
-        help={tRepository(draft.repository_access === false ? 'disabled' : 'enabled')}
-      >
-        <Switch
-          aria-label={tRepository('label')}
-          checked={draft.repository_access ?? true}
-          onCheckedChange={(enabled) => set('repository_access', enabled)}
         />
       </SettingRow>
 

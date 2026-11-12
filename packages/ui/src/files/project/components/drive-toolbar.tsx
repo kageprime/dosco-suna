@@ -522,7 +522,7 @@ type DriveMenuItemComponent = ComponentType<{
 
 /**
  * Contents of the "New" menu, injectable like `FolderDriveMenuItems` so the
- * entries can be rendered — and their handlers driven — without a live Radix
+ * entries can be rendered — and their handlers driven — without a live
  * portal.
  */
 export function DriveNewMenuItems({

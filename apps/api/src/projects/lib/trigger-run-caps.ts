@@ -38,6 +38,9 @@ export interface TriggerRunCapVerdict {
   sustained: boolean;
 }
 
+/** "1 run", "3 runs": the count a run-cap reason names. */
+const runCount = (n: number) => `${n} run${n === 1 ? '' : 's'}`;
+
 /** Why this fire may not start a run, or null when it may. */
 export async function triggerRunCapVerdict(input: {
   projectId: string;
@@ -74,11 +77,11 @@ export async function triggerRunCapVerdict(input: {
   const day = counts?.day ?? 0;
   if (hour >= perHour) {
     return {
-      reason: `throttled: ${hour} runs in the last hour (max_runs_per_hour ${perHour})`,
+      reason: `throttled: ${runCount(hour)} in the last hour (max_runs_per_hour ${perHour})`,
       sustained: (counts?.previousHour ?? 0) >= perHour && !(input.resumedAt && input.resumedAt > twoHoursAgo),
     };
   }
-  if (perDay !== null && day >= perDay) return { reason: `throttled: ${day} runs today, UTC (max_runs_per_day ${perDay})`, sustained: false };
+  if (perDay !== null && day >= perDay) return { reason: `throttled: ${runCount(day)} today, UTC (max_runs_per_day ${perDay})`, sustained: false };
   return null;
 }
 

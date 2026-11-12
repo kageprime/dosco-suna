@@ -230,7 +230,7 @@ function mockApi(extra?: (url: string, method: string) => Response | undefined) 
         kind: 'secret',
         url: 'https://app.test/secret-intake/ksl_test',
         names: input.names,
-        scope: input.scope ?? 'connector',
+        scope: input.scope ?? 'runtime',
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString(),
         ...mintExtra,
       });

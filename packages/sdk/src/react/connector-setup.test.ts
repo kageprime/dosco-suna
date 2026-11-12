@@ -45,7 +45,12 @@ const INFO = {
 /** Drive the hook through one host-shaped harness: mocked fetch, fake timers. */
 let harnessSeq = 0;
 
-function harness(options: { openPopup: (url: string) => void; onOpened?: () => void }) {
+function harness(options: {
+  openPopup: (url: string) => void;
+  onOpened?: () => void;
+  reservePopup?: () => { navigate: (url: string) => void; close: () => void } | null;
+  returned?: boolean;
+}) {
   // A unique token per harness: the shared link-info cache is per tab by
   // design, so two tests must not hand each other a settled entry.
   const token = `ksl_probe_${(harnessSeq += 1)}`;
@@ -358,5 +363,105 @@ test('a start that rejects surfaces its message and returns to ready', async () 
   expect(openedUrls).toEqual([]);
   expect(setup.value?.phase).toBe('ready');
   expect(setup.value?.error).toBeTruthy();
+  await setup.unmount();
+});
+
+test('a reserved window opens before the start request, then goes to the hosted page', async () => {
+  // Browsers allow a window only inside the click. The start request is an
+  // await, so a window opened after it is blocked with no message (prod audit
+  // 2026-11-11: 63% of unfinished connects never reached the provider page).
+  const events: string[] = [];
+  const start = deferred<Response>();
+  globalThis.fetch = (async (url: unknown) => {
+    if (String(url).endsWith('/start')) {
+      events.push('start-request');
+      return start.promise;
+    }
+    return Response.json({ connected: false });
+  }) as unknown as typeof fetch;
+  const setup = harness({
+    openPopup: (url) => events.push(`legacy-open:${url}`),
+    reservePopup: () => {
+      events.push('reserve');
+      return { navigate: (url) => events.push(`navigate:${url}`), close: () => events.push('close') };
+    },
+  });
+  await setup.mount();
+  let connecting: Promise<void> | undefined;
+  await act(async () => {
+    connecting = setup.value?.connect();
+  });
+  expect(events[0]).toBe('reserve');
+  await act(async () => {
+    start.resolve(Response.json({ connect_url: 'https://composio.test/connect' }));
+    await connecting;
+  });
+  expect(events).toEqual(['reserve', 'start-request', 'navigate:https://composio.test/connect']);
+  expect(setup.value?.phase).toBe('opened');
+  expect(setup.value?.blockedUrl).toBeNull();
+  await setup.unmount();
+});
+
+test('a blocked window keeps polling and hands the host the link to show', async () => {
+  globalThis.fetch = (async (url: unknown) => {
+    if (String(url).endsWith('/start')) return Response.json({ connect_url: 'https://composio.test/connect' });
+    return Response.json({ connected: false });
+  }) as unknown as typeof fetch;
+  const opened: string[] = [];
+  const setup = harness({ openPopup: (url) => opened.push(url), reservePopup: () => null });
+  await setup.mount();
+  await setup.connect();
+  // No second window attempt outside the click: the host shows the link instead.
+  expect(opened).toEqual([]);
+  expect(setup.value?.phase).toBe('opened');
+  expect(setup.value?.blockedUrl).toBe('https://composio.test/connect');
+  await setup.unmount();
+});
+
+test('a reserved window closes when no hosted page is needed', async () => {
+  globalThis.fetch = (async (url: unknown) => {
+    if (String(url).endsWith('/start')) {
+      return Response.json({ connect_url: null, connected: true, already_connected: true });
+    }
+    return Response.json({ connected: true });
+  }) as unknown as typeof fetch;
+  const events: string[] = [];
+  const setup = harness({
+    openPopup: () => events.push('legacy-open'),
+    reservePopup: () => ({ navigate: () => events.push('navigate'), close: () => events.push('close') }),
+  });
+  await setup.mount();
+  await setup.connect();
+  expect(events).toEqual(['close']);
+  expect(setup.value?.phase).toBe('connected');
+  await setup.unmount();
+});
+
+test('a person back from the provider page lands on the poll, and a finished sign-in shows who it is', async () => {
+  // The provider redirects an agent-started sign-in to `/connect/<token>?returned=1`.
+  const calls: string[] = [];
+  globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+    calls.push(`${init?.method ?? 'GET'} ${String(url)}`);
+    if (String(url).endsWith('/finalize')) return Response.json({ connected: true, connected_as: 'person@example.test' });
+    return Response.json(INFO);
+  }) as unknown as typeof fetch;
+  jest.useFakeTimers();
+  const setup = harness({ openPopup: () => undefined, returned: true });
+  try {
+    await setup.mount();
+    await act(async () => {
+      for (let hop = 0; hop < 20; hop++) await Promise.resolve();
+    });
+    expect(setup.value?.phase).toBe('opened');
+    await act(async () => {
+      jest.advanceTimersByTime(3_000);
+      for (let hop = 0; hop < 20; hop++) await Promise.resolve();
+    });
+    expect(calls.some((c) => c.endsWith('/start'))).toBe(false);
+    expect(setup.value?.phase).toBe('connected');
+    expect(setup.value?.connectedAs).toBe('person@example.test');
+  } finally {
+    jest.useRealTimers();
+  }
   await setup.unmount();
 });

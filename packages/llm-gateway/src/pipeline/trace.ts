@@ -58,6 +58,35 @@ function logTrace(logger: GatewayLogger, trace: GatewayTrace): void {
   );
 }
 
+const STATUS_FAILURES: Record<number, { code: string; reason: string }> = {
+  401: { code: 'provider_key_rejected', reason: 'key rejected' },
+  402: { code: 'provider_payment_required', reason: 'payment required' },
+  403: { code: 'provider_key_rejected', reason: 'access denied' },
+  408: { code: 'upstream_timeout', reason: 'timeout' },
+  429: { code: 'upstream_rate_limited', reason: 'rate limited' },
+  504: { code: 'upstream_timeout', reason: 'timeout' },
+};
+
+/**
+ * A failed trace always names a code and a message. A path that failed with
+ * neither (a provider 429 or 5xx relayed as is) gets both from its HTTP
+ * status, so no failed `gateway_request_logs` row is blank. A code or message
+ * already set is kept.
+ */
+export function withFailureDetail<T extends { ok: boolean; status: number; errorCode?: string; errorMessage?: string }>(
+  fields: T,
+): T & { errorCode?: string; errorMessage?: string } {
+  if (fields.ok || (fields.errorCode && fields.errorMessage)) return fields;
+  const { status } = fields;
+  const known = STATUS_FAILURES[status];
+  const code = known?.code ?? (status >= 500 ? 'upstream_unavailable' : 'upstream_error');
+  const reason = known?.reason ?? (status >= 500 ? 'unavailable' : undefined);
+  const message = status > 0
+    ? `The provider answered HTTP ${status}${reason ? ` (${reason})` : ''} with no error message.`
+    : 'The provider sent no response.';
+  return { ...fields, errorCode: fields.errorCode || code, errorMessage: fields.errorMessage || message };
+}
+
 export function createTraceEmitter(
   hooks: GatewayHooks,
   logger: GatewayLogger,
@@ -91,7 +120,8 @@ export function createTraceEmitter(
       Object.entries(segments).filter((entry): entry is [string, number] => entry[1] !== undefined),
     );
   };
-  const emit = ((fields) => {
+  const emit = ((input) => {
+    const fields = withFailureDetail(input);
     const split = timing();
     const trace: GatewayTrace = {
       requestId,

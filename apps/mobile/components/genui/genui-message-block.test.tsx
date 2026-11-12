@@ -16,7 +16,9 @@ const flatten = (style: unknown): Record<string, unknown> =>
 const opened: unknown[] = [];
 const motion = { reduced: false, timings: [] as unknown[] };
 
+let mockScreen = { width: 375, height: 812, fontScale: 1, scale: 3 };
 mock.module('react-native', () => ({
+  AccessibilityInfo: { announceForAccessibility: () => {} },
   StyleSheet: { flatten, create: (s: unknown) => s },
   View: host('view'),
   Text: host('rntext'),
@@ -24,6 +26,8 @@ mock.module('react-native', () => ({
   ScrollView: host('scroll'),
   Image: host('image'),
   Platform: { OS: 'ios', select: (o: Record<string, unknown>) => o.ios },
+  // A 375pt phone at the default text size; a test sets mockScreen to change it.
+  useWindowDimensions: () => mockScreen,
 }));
 mock.module('react-native-reanimated', () => ({
   default: { View: host('animated-view') },
@@ -105,6 +109,7 @@ beforeAll(async () => {
 
 let tree: ReactTestRenderer | undefined;
 afterEach(() => {
+  mockScreen = { width: 375, height: 812, fontScale: 1, scale: 3 };
   act(() => tree?.unmount());
   tree = undefined;
   opened.length = 0;
@@ -492,9 +497,15 @@ g = Badge("Best for a first project", "good")`);
     expect([image().props.fixedHeight, image().props.look.resizeMode]).toEqual([84, 'contain']);
     expect(className(thumbs[0]!)).toContain('p-1.5');
     expect(texts(root)).toEqual(expect.arrayContaining(['Python', '4.7', '(1,200)', 'Free', 'Language', 'General-purpose.', 'Popular', 'Go']));
-    // The badges sit on the title row, top right, as secondary pills; not a muted "A · B" line, no tone dot.
-    const row = all(root, 'view').find((n) => className(n).includes('justify-between') && texts(n).includes('Python'))!;
+    // Beside a 96pt thumbnail on a 375pt phone the text column is ~200pt: the badges take their own line above the
+    // title, so the title keeps the full width. Secondary pills; not a muted "A · B" line, no tone dot.
+    const text = all(root, 'view').find((n) => typeof n.props.onLayout === 'function' && className(n) === 'flex-1 gap-1' && texts(n).includes('Python'))!;
+    const row = text.children[0] as ReactTestInstance;
+    expect(className(row)).toBe('flex-row flex-wrap gap-1.5');
+    expect(texts(text).slice(0, 3)).toEqual(['Popular', 'Best for a first project', 'Python']);
     const pills = all(row, 'view').filter((n) => className(n).includes('bg-foreground/10'));
+    // A label wider than the card truncates to one line inside its pill.
+    for (const pill of pills) expect(all(pill, 'text').map((n) => n.props.numberOfLines)).toEqual([1]);
     expect(pills.map((n) => texts(n).join(''))).toEqual(['Popular', 'Best for a first project']);
     expect(all(root, 'view').some((n) => /bg-kortix-\w+$|bg-kortix-\w+ /.test(className(n)))).toBe(false);
     // Only the good pick leads with a gold star, at the label's size.
@@ -511,15 +522,43 @@ g = Badge("Best for a first project", "good")`);
     expect(opened).toEqual(['https://python.org/']);
   });
 
-  test('a list thumbnail that fails to load drops its box, as on web', () => {
+  test('a list thumbnail keeps its 96pt box on the neutral well while it loads and after it fails (the compact image icon)', () => {
     const root = render(`root = Stack([a, b])
 a = Card("Python", null, null, "https://example.com/python.png")
 b = Card("Go", null, null, "https://example.com/go.png")`);
-    expect(all(root, 'view').filter((n) => n.props.style?.width === 96)).toHaveLength(2);
-    act(() => (all(root, 'markdown-image')[0]!.props.look.onError as () => void)());
-    expect(all(root, 'view').filter((n) => n.props.style?.width === 96)).toHaveLength(1);
-    expect(all(root, 'markdown-image').map((n) => n.props.src)).toEqual(['https://example.com/go.png']);
-    expect(texts(root)).toEqual(expect.arrayContaining(['Python', 'Go']));
+    const thumbs = all(root, 'view').filter((n) => n.props.style?.width === 96);
+    expect(thumbs.map((n) => [n.props.style.height, className(n).includes('overflow-hidden rounded-lg bg-secondary')])).toEqual([
+      [96, true],
+      [96, true],
+    ]);
+    // No onError: MarkdownImage draws its compact placeholder inside the same box instead of dropping it.
+    expect(all(root, 'markdown-image').map((n) => [n.props.look.onError, n.props.look.compact])).toEqual([
+      [undefined, true],
+      [undefined, true],
+    ]);
+  });
+
+  test('a badge goes beside the title only when it fits; a long one takes its own line; large text moves it too', () => {
+    const code = `root = Stack([a, b])
+a = Card("Jawhar outskirts", "Quiet.", null, null, null, [near])
+b = Card("Khuri village and the Barna side", "Dunes.", null, null, null, [desert])
+near = Badge("Top", "good")
+desert = Badge("Desert first choice", "good")`;
+    const placement = (root: ReactTestInstance, title: string) => {
+      const text = all(root, 'view').find((n) => className(n) === 'flex-1 gap-1' && texts(n).includes(title))!;
+      return className(text.children[0] as ReactTestInstance).includes('justify-between') ? 'beside' : 'above';
+    };
+    // No image: the column is the card's full text width (375 − 32 − 32 = 311pt).
+    let root = render(code);
+    expect([placement(root, 'Jawhar outskirts'), placement(root, 'Khuri village and the Barna side')]).toEqual(['beside', 'above']);
+    // Beside, the title is flex-1 and the badges at most 45%, shrinking: they cannot overlap it.
+    const beside = all(root, 'view').find((n) => className(n).includes('justify-between') && texts(n).includes('Jawhar outskirts'))!;
+    expect(className(beside.children[1] as ReactTestInstance)).toContain('max-w-[45%] shrink');
+    act(() => tree?.unmount());
+    // The largest accessibility text size: even the short badge moves above.
+    mockScreen = { ...mockScreen, fontScale: 3.1 };
+    root = render(code);
+    expect([placement(root, 'Jawhar outskirts'), placement(root, 'Khuri village and the Barna side')]).toEqual(['above', 'above']);
   });
 
   test('cards switch to the grid once most loaded images prove to be photos; logos keep the list', () => {

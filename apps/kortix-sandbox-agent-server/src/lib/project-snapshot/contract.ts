@@ -1,14 +1,13 @@
 /**
  * The project snapshot: one commit's working tree in S3, verified on the way
- * in. Two services read it: workspace-provider builds the session checkout
- * from it, and config-provider builds a config release from its files.
+ * in. config-provider builds a config release from its files. (No session
+ * checks out the repository at boot since 2026-11-08.)
  *
  *   descriptor (Git proxy, KORTIX_TOKEN)  →  two presigned GETs (no credential)
  *   boot object  →  stage FILE (sha256 + byte cap + inactivity watchdog on the
  *                   stream, tar headers guarded on a tee of the same stream)
  *                →  digest verified  →  native `tar` extraction (in-process
  *                   fallback)  →  marker / .git/config / HEAD verified
- *                →  (workspace-provider) activate
  *   hydration    →  `git index-pack --stdin` fed from the stream, sha256 on
  *                   the way, pack marked promisor
  *

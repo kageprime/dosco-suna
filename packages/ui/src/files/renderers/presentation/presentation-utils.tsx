@@ -7,6 +7,11 @@ export enum DownloadFormat {
   PPTX = 'pptx',
 }
 
+// Helper function to sanitize filename (matching backend logic)
+export function sanitizeFilename(name: string): string {
+  return name.replace(/[^a-zA-Z0-9\-_]/g, '').toLowerCase();
+}
+
 /** Trigger a browser "save as" for a generated blob. */
 function saveBlob(blob: Blob, filename: string): void {
   const url = window.URL.createObjectURL(blob);

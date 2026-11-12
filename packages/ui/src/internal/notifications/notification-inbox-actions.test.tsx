@@ -120,7 +120,7 @@ test('the Needs you tab keeps only what waits on the person; All shows every row
   expect(rowTitles()).toEqual(['Release notes', 'Weekly digest']);
   const needs = Array.from(host.querySelectorAll('[role="tab"]')).find((tab) => tab.textContent?.startsWith('Needs you'));
   expect(needs?.textContent).toBe('Needs you1');
-  // Radix tabs switch on mousedown with the primary button.
+  // Tabs switch on mousedown with the primary button.
   await act(async () => {
     needs?.dispatchEvent(new browser.MouseEvent('mousedown', { bubbles: true, button: 0 }) as unknown as Event);
   });

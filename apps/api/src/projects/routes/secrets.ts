@@ -6,6 +6,7 @@
  * lib/secret-write-input.ts.
  */
 import { randomUUID } from 'node:crypto';
+import { isMyKortixAgentName } from '@kortix/shared';
 import { PROJECT_ACTIONS } from '../../iam';
 import { agentMayUseEnv, getAgentGrant, isBorrowedSessionPrincipal, isProjectSessionPrincipal } from '../../iam/agent-scope';
 import { auth, errors, json, lenientBody } from '../../openapi';
@@ -29,6 +30,8 @@ import {
 import { propagateProjectSecretsToActiveSandboxes } from '../lib/sandbox-env-sync';
 import { isGatewayManagedEnv } from '../../llm-gateway/sandbox-credentials';
 import { seedProjectDefaultModelOnConnect } from '../../llm-gateway/models/seed-default';
+import { verifyAndRecordAccountKey } from '../../llm-gateway/provider-verify';
+import { deleteWorkspaceProviderKeys, writeWorkspaceProviderKey } from '../../secrets/llm-credential-move';
 import { createRoute, z } from '@hono/zod-openapi';
 import { featureDisabledBody } from '../../feature-flags/gate';
 import { resolveFeatureFlag } from '../../feature-flags/registry';
@@ -58,7 +61,7 @@ import {
   connectorSecretBindings,
   summarizeDeliverySync,
 } from '../lib/secret-writes';
-import { resolveSecretWriteInput } from '../lib/secret-write-input';
+import { SECRET_DELIVERY_NEEDS_PERSON, resolveSecretWriteInput } from '../lib/secret-write-input';
 import { callerKortixSessionId } from '../../middleware/caller-session';
 import { loadConnectionSharing } from '../lib/connection-sharing';
 import {
@@ -224,7 +227,8 @@ export function registerSecretsRoutes(): void {
       agentGrants,
     }))
       .filter((item) => !item.system)
-      .filter((item) => agentMayUseEnv(agentGrant, item.identifier));
+      // My Kortix holds every secret its person can use. This route never returns a value.
+      .filter((item) => agentMayUseEnv(agentGrant, item.identifier) || isMyKortixAgentName(agentGrant?.agent ?? ''));
 
     // Audience of each shared value, for the person and agent this read acts
     // for. A value
@@ -343,11 +347,50 @@ export function registerSecretsRoutes(): void {
       resolved.input;
     const sharedWith = parseSecretSharedWith(body.shared_with);
     if (!sharedWith.ok) return c.json({ error: sharedWith.error }, 400);
-    if (sharedWith.value && isBorrowedSessionPrincipal(c)) {
-      return c.json(
-        { error: 'An agent cannot change who can use a secret. A person changes it in Customize → Secrets.' },
-        403,
-      );
+
+    // An LLM provider key lives in one store: the named accounts the Models
+    // panel lists (secrets/llm-credential-move.ts). This route still accepts
+    // the old shape (older CLIs, the multi-field connect forms) and writes the
+    // project's "Workspace key" account; it never writes a project secret for
+    // a name the gateway reads.
+    // A write with no consumer to an existing provider key row (the web
+    // secrets manager, an agent) is the same provider key write.
+    const redirectProviderKey = async (): Promise<Response | null> => {
+      if (sharedWith.value && sharedWith.value.length > 0) {
+        return c.json({
+          error: 'A provider key is shared from Models → Providers, not with shared_with.',
+          code: 'provider_key_sharing',
+        }, 400);
+      }
+      const moved = await writeWorkspaceProviderKey({
+        accountId: loaded.row.accountId, projectId, userId: loaded.userId, name, value: value!,
+      });
+      if (!moved) return null;
+      void propagateProjectSecretsToActiveSandboxes(projectId, { refreshModels: true });
+      if (moved.created) {
+        capturePersonEvent(c, loaded, projectId, 'provider_configured', { provider: moved.providerId, method: 'api_key' });
+      }
+      // The same check the Models panel's save runs, off the response path:
+      // this route's older clients read no verification. The default-model
+      // seed waits for it, as on the Models panel path.
+      void verifyAndRecordAccountKey({
+        secretId: moved.secretId, accountId: loaded.row.accountId, projectId, providerId: moved.providerId, name,
+      }, loaded.userId)
+        .then((verification) => seedProjectDefaultModelOnConnect({
+          projectId, accountId: loaded.row.accountId, userId: loaded.userId, secretName: name,
+          ...(verification ? { keyCheck: verification.status } : {}),
+        }))
+        .catch(() => undefined);
+      return c.json({
+        identifier, name, strategy: 'broker', consumer: 'llm_gateway', configured: true,
+        // Where the key went: a named account, listed in Models → Providers.
+        stored_in: 'provider_account', secret_resource_id: moved.secretId, provider_id: moved.providerId,
+        delivery_sync: null,
+      }, 200);
+    };
+    if (explicitConsumer === 'llm_gateway' && value !== null) {
+      const redirected = await redirectProviderKey();
+      if (redirected) return redirected;
     }
 
     // The one ladder check that needs the database: a policy that parses and
@@ -378,6 +421,10 @@ export function registerSecretsRoutes(): void {
       .limit(1);
     if (!existing && value === null) {
       return c.json({ error: 'value is required' }, 400);
+    }
+    if (existing?.consumer === 'llm_gateway' && explicitConsumer === undefined && explicitStrategy === undefined && value !== null) {
+      const redirected = await redirectProviderKey();
+      if (redirected) return redirected;
     }
     // Network-Enforced Secrets is an experimental feature (`secrets_egress`).
     // With the flag off a project cannot MOVE a secret into egress delivery — a
@@ -610,6 +657,11 @@ export function registerSecretsRoutes(): void {
         400,
       );
     }
+    // The named "Workspace key" accounts of this name go too: a write through
+    // this route made them (secrets/llm-credential-move.ts).
+    const removedProviderKeys = isValidSecretName(identifier.toUpperCase())
+      ? await deleteWorkspaceProviderKeys({ accountId: loaded.row.accountId, projectId, name: identifier })
+      : 0;
 
     const [existing] = await db
       .select({
@@ -632,7 +684,7 @@ export function registerSecretsRoutes(): void {
       // plain runtime secret. Otherwise an agent could delete a tightly-scoped
       // egress row and re-create it (defeated separately by the POST guard).
       if (isBorrowedSessionPrincipal(c) && existing.strategy && existing.strategy !== 'runtime') {
-        return c.json({ error: 'Agent sessions cannot change secret delivery policy' }, 403);
+        return c.json({ error: SECRET_DELIVERY_NEEDS_PERSON, code: 'secret_delivery_needs_person' }, 403);
       }
       const connectors = await connectorSecretBindings(projectId, identifier);
       if (connectors.length > 0) {
@@ -713,7 +765,7 @@ export function registerSecretsRoutes(): void {
     }
 
     void propagateProjectSecretsToActiveSandboxes(projectId, {
-      refreshModels: existing ? isGatewayManagedEnv(existing.name) : false,
+      refreshModels: removedProviderKeys > 0 || (existing ? isGatewayManagedEnv(existing.name) : false),
     });
 
     return c.json({ ok: true });

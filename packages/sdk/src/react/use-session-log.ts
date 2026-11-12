@@ -339,13 +339,47 @@ export function useSessionLogSync(
       return read;
     };
     // The box's page, when the box serves one: true when it went in the store.
-    const loadLive = async (): Promise<boolean> => {
+    // A box that cannot answer holds EVERY read for the proxy's full retry budget
+    // (50 s) and then answers 502, and the stream's 45 s liveness re-fires a
+    // reconnect roughly every minute — one wedged box held ~70 of those 502s per
+    // hour while its session tab stayed open. After SESSION_LOG_LIVE_FAILURES
+    // consecutive failures the box page is skipped for SESSION_LOG_LIVE_SKIP_MS:
+    // `reload` falls back to the API page (which still answers), and a success or
+    // a different box's loader (a failover) resets the skip at once.
+    let liveLoader: unknown = null;
+    let liveFailures = 0;
+    let liveSkipUntil = 0;
+    let liveRead: Promise<boolean> | null = null;
+    const readLive = async (): Promise<boolean> => {
       const live = livePageRef.current;
       if (!live) return false;
+      if (live !== liveLoader) {
+        liveLoader = live;
+        liveFailures = 0;
+        liveSkipUntil = 0;
+      }
+      if (Date.now() < liveSkipUntil) return false;
       const page = await live({ limit: SESSION_LOG_FIRST_PAGE_LIMIT }).catch(() => null);
-      if (stopped || !page) return false;
+      if (stopped || !page) {
+        liveFailures += 1;
+        if (liveFailures >= SESSION_LOG_LIVE_FAILURES) liveSkipUntil = Date.now() + SESSION_LOG_LIVE_SKIP_MS;
+        return false;
+      }
+      liveFailures = 0;
+      liveSkipUntil = 0;
       store().applySessionLogPage(sessionId, page);
       return true;
+    };
+    // One box read on the wire at a time: a reconnect, a resync, a tab-visible signal
+    // and a turn end can fire inside the same 50 s a wedged box holds the read for,
+    // and overlapping reads would stack the proxy's full retry budget per trigger.
+    const loadLive = (): Promise<boolean> => {
+      if (!liveRead) {
+        liveRead = readLive().finally(() => {
+          liveRead = null;
+        });
+      }
+      return liveRead;
     };
     // A re-read: the box's page while the box serves one, else the API's.
     const reload = async (): Promise<void> => {
@@ -482,6 +516,10 @@ const SESSION_LOG_MISSING_DELAYS_MS = [3_000, 5_000, 10_000, 15_000, 30_000];
 const SESSION_LOG_MID_TURN_READ_MS = 6_000;
 /** The longest wait a `Retry-After` can set. */
 const SESSION_LOG_RETRY_MAX_MS = 60_000;
+/** Consecutive failed box-page reads before the box page is skipped for a while (`loadLive`). */
+const SESSION_LOG_LIVE_FAILURES = 3;
+/** How long a box whose page failed three times in a row is not asked again; the API page is the fallback. */
+const SESSION_LOG_LIVE_SKIP_MS = 10 * 60_000;
 
 function scheduleRetry(run: () => void, ms: number): () => void {
   const timer = setTimeout(run, ms);

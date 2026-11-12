@@ -203,7 +203,10 @@ function fakeApi(start: FakeGoal): Fake {
         return Response.json({ goals: match ? [g] : [] });
       }
       if (url.pathname === '/v1/workspaces/p1/goals' && req.method === 'POST') {
-        return session ? err(403, 'goal_forbidden', 'A session cannot create a goal.') : Response.json({ goal: g }, { status: 201 });
+        // The real rule (apps/api/src/projects/goals/store.ts goalOfSession + service.ts createGoal): a
+        // chat session creates a goal for its person; a goal's own, former or verifier session may not.
+        const own = session !== null && (session === g.owner_session_id || session === g.verifier_session_id || g.sessions.some((s) => s.id === session));
+        return own ? err(403, 'goal_forbidden', 'A goal\'s own session cannot start another goal.') : Response.json({ goal: g }, { status: 201 });
       }
       const m = /^\/v1\/workspaces\/p1\/goals\/([^/]+)(?:\/([a-z-]+))?$/.exec(url.pathname);
       if (!m || m[1] !== g.goal_id) return err(404, 'goal_not_found', 'No such goal.');
@@ -475,9 +478,13 @@ test('handover sends the note; new in a session surfaces the API refusal with th
 
     const created = await cli(fake, root, 'owner', ['new', 'EU billing live']);
     expect(created.code).toBe(1);
-    expect(created.out).toContain('A session cannot create a goal.');
+    expect(created.out).toContain("A goal's own session cannot start another goal.");
     expect(created.out).toContain('from the Goals page');
     expect(fake.requests.at(-1)).toMatchObject({ method: 'POST', path: '/v1/workspaces/p1/goals', body: { brief: 'EU billing live' } });
+    // A chat session that never held a role on this goal creates a goal for its person (KRTX-4746).
+    const chat = await cli(fake, root, 'chat-1', ['new', 'Get her answer', '--criterion', 'She confirmed the amount']);
+    expect(chat.code).toBe(0);
+    expect(chat.out).toContain('Goal created: ');
   } finally {
     fake.stop();
     rmSync(root, { recursive: true, force: true });

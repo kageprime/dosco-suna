@@ -337,7 +337,7 @@ export function classifyTurnError(
       title: 'Agent unavailable',
       text:
         `:warning: *The agent configured for this channel isn't available* — it may have been deleted, renamed, or disabled.` +
-        ` Run \`/kortix agents\` to pick one of this Kortix workspace's current agents, then mention me again.`,
+        ` Run \`/kortix agents\` to pick one of this Dosco workspace's current agents, then mention me again.`,
       aborted: false,
     };
   }
@@ -374,8 +374,9 @@ export function classifyTurnError(
     return {
       title: 'Provider rejected the request',
       text:
-        `:warning: *${capitalize(who)} rejected this request* — its API key or model config in Dosco` +
-        ` may be invalid or expired. Ask a workspace admin to check the provider settings, then mention me again.`,
+        `:warning: *${capitalize(who)} rejected this request* — its API key in Dosco may be missing, invalid` +
+        ` or expired, or the provider account may be out of funds. Ask a workspace admin to check the provider` +
+        ` in Models, then mention me again.`,
       aborted: false,
     };
   }

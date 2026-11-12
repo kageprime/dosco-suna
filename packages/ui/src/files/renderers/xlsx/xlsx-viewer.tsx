@@ -27,6 +27,7 @@ import {
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 
+import { downloadBlob } from '../../../internal/lib/utils/download';
 import { Button } from '../../../primitives/button';
 import {
   DropdownMenu,
@@ -115,17 +116,21 @@ type XlsxBatchRow = {
   index?: unknown;
 };
 
-function formatWorkbookName(fileName: string | undefined, url: string) {
-  if (fileName?.trim()) return fileName;
-
-  const pathname = url.split('?')[0] ?? '';
-  const rawName = pathname.split('/').pop() ?? 'workbook.xlsx';
-
-  try {
-    return decodeURIComponent(rawName);
-  } catch {
-    return rawName;
+/** The workbook Blob's own identity: the same object keeps one id, a fresh
+ *  read (an edited file, a refetch) gets the next one, so per-workbook state
+ *  (search, sheet tabs, zoom) resets exactly when the bytes change — the same
+ *  remount-on-change the blob URL gave this identity before the workbook
+ *  arrived as a Blob instead of a URL. */
+const workbookIds = new WeakMap<Blob, number>();
+let nextWorkbookId = 1;
+function workbookIdentity(blob: Blob | null | undefined): string {
+  if (!blob) return 'empty';
+  let id = workbookIds.get(blob);
+  if (id === undefined) {
+    id = nextWorkbookId++;
+    workbookIds.set(blob, id);
   }
+  return `blob-${id}`;
 }
 
 function ensureWorkbookExtension(fileName: string) {
@@ -142,16 +147,7 @@ function downloadWorkbookBuffer(buffer: ArrayBuffer, fileName: string) {
       ? 'application/vnd.ms-excel'
       : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-
-  anchor.href = url;
-  anchor.download = resolvedFileName;
-  anchor.rel = 'noopener';
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  downloadBlob(blob, resolvedFileName);
 }
 
 function normalizeSearchText(value: unknown) {
@@ -1310,7 +1306,7 @@ export function XlsxViewerPreview({
   showDownload = true,
   showToolbar = true,
   showUpload = true,
-  src,
+  workbook,
   toolbarActions,
 }: {
   className?: string;
@@ -1320,7 +1316,9 @@ export function XlsxViewerPreview({
   showDownload?: boolean;
   showToolbar?: boolean;
   showUpload?: boolean;
-  src?: string;
+  /** The workbook bytes. The parent owns the read (useBinaryBlob); the viewer
+   *  only decodes them. */
+  workbook?: Blob | null;
   toolbarActions?: React.ReactNode;
 }) {
   return (
@@ -1334,7 +1332,7 @@ export function XlsxViewerPreview({
       showToolbar={showToolbar}
       showUpload={showUpload}
       toolbarActions={toolbarActions}
-      url={src}
+      workbook={workbook}
     />
   );
 }
@@ -1349,7 +1347,7 @@ function XlsxViewerContent({
   showToolbar = true,
   showUpload,
   toolbarActions,
-  url,
+  workbook,
 }: {
   className?: string;
   effectiveIsDark: boolean;
@@ -1360,22 +1358,22 @@ function XlsxViewerContent({
   showToolbar?: boolean;
   showUpload: boolean;
   toolbarActions?: React.ReactNode;
-  url?: string;
+  workbook?: Blob | null;
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [uploadedWorkbook, setUploadedWorkbook] = React.useState<UploadedWorkbook | null>(null);
   const sourceFileName = React.useMemo(
-    () => (url ? formatWorkbookName(fileName, url) : (fileName ?? 'workbook.xlsx')),
-    [fileName, url],
+    () => fileName?.trim() || 'workbook.xlsx',
+    [fileName],
   );
   const displayFileName = React.useMemo(
     () => uploadedWorkbook?.fileName ?? sourceFileName,
     [sourceFileName, uploadedWorkbook?.fileName],
   );
-  const workbookIdentity = React.useMemo(
-    () => uploadedWorkbook?.identity ?? `${url ?? 'empty'}::${displayFileName}`,
-    [displayFileName, uploadedWorkbook?.identity, url],
+  const identity = React.useMemo(
+    () => uploadedWorkbook?.identity ?? workbookIdentity(workbook),
+    [uploadedWorkbook?.identity, workbook],
   );
   const [workbookBuffer, setWorkbookBuffer] = React.useState<ArrayBuffer | null>(null);
   const [loadError, setLoadError] = React.useState<string>();
@@ -1386,12 +1384,12 @@ function XlsxViewerContent({
 
   React.useEffect(() => {
     let isCurrent = true;
-    if (url) {
+    if (workbook) {
       setUploadedWorkbook(null);
     }
 
     async function loadWorkbook(): Promise<void> {
-      if (!url) {
+      if (!workbook) {
         setWorkbookBuffer(null);
         setLoadError(undefined);
         return;
@@ -1401,12 +1399,7 @@ function XlsxViewerContent({
       setLoadError(undefined);
 
       try {
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch XLSX (${response.status})`);
-        }
-
-        const nextWorkbookBuffer = await response.arrayBuffer();
+        const nextWorkbookBuffer = await workbook.arrayBuffer();
         if (!isCurrent) return;
 
         setWorkbookBuffer(nextWorkbookBuffer);
@@ -1422,7 +1415,7 @@ function XlsxViewerContent({
     return () => {
       isCurrent = false;
     };
-  }, [url]);
+  }, [workbook]);
 
   async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -1441,9 +1434,9 @@ function XlsxViewerContent({
 
   const activeBuffer = uploadedWorkbook?.buffer ?? workbookBuffer;
   const activeFileName = uploadedWorkbook?.fileName ?? displayFileName;
-  const activeIdentity = workbookIdentity;
+  const activeIdentity = identity;
 
-  if (!url && !uploadedWorkbook) {
+  if (!workbook && !uploadedWorkbook) {
     return (
       <div
         className={cn('bg-background flex h-[640px] min-h-0 flex-col overflow-hidden', className)}

@@ -18,7 +18,7 @@ import {
   type AccountMembershipsCopy,
 } from './tabs/account-memberships';
 import type { RailGroup, RailItem } from '@kortix/ui/customize/settings/type';
-export function RailNav({
+function RailNav({
   groups,
   showGroupLabels,
   organizations,
@@ -57,7 +57,7 @@ export function RailNav({
                 value={item.tab}
                 size="md"
                 // Runs on every tap, so mobile opens the pane even for the row
-                // already selected (Radix fires no value change for it).
+                // already selected (`Tabs` fires no value change for it).
                 onClick={onPick}
                 className={cn(
                   // The project sidebar's nav-row type: medium label,

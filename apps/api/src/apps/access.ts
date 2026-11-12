@@ -9,7 +9,7 @@ import { actorForToken } from '../iam/actor';
 import { agentMayOpenApp } from '../iam/agent-scope';
 import { db } from '../shared/db';
 import { accountMembersAmong } from '../iam/membership-read';
-import { accountGroupsAmong } from '../iam/group-read';
+import { groupRows } from '../iam/group-read';
 
 export type AppAccessMode = 'private' | 'project' | 'restricted' | 'public' | 'password';
 export type AppAccessTokenKind = 'kortix' | 'password';
@@ -37,6 +37,10 @@ interface AppAccessTokenPayload {
   appId: string;
   kind: AppAccessTokenKind;
   userId?: string;
+  /** Set only when `access-session` was asked by a browser session that passed
+   *  the second factor. A viewer token minted from this cookie records it, and
+   *  the API honors it in the App's account only. Absent = no MFA level. */
+  aal?: 'aal2';
   revision: number;
   exp: number;
 }
@@ -57,6 +61,7 @@ export function createAppAccessToken(input: {
   appId: string;
   kind: AppAccessTokenKind;
   userId?: string;
+  aal?: 'aal2';
   revision?: number;
   expiresAt: Date;
 }, secret = appAccessSecret()): string {
@@ -65,6 +70,7 @@ export function createAppAccessToken(input: {
     appId: input.appId,
     kind: input.kind,
     ...(input.userId ? { userId: input.userId } : {}),
+    ...(input.aal === 'aal2' ? { aal: 'aal2' as const } : {}),
     revision: input.revision ?? 0,
     exp: Math.floor(input.expiresAt.getTime() / 1000),
   };
@@ -304,16 +310,16 @@ export async function validateAppAccessPrincipals(
 ): Promise<AppAccessPrincipalValidation> {
   const memberIds = [...new Set(input.memberIds)];
   const groupIds = [...new Set(input.groupIds)];
-  const [memberRows, groupRows] = await Promise.all([
+  const [memberRows, groupRowList] = await Promise.all([
     memberIds.length > 0 ? accountMembersAmong(accountId, memberIds) : [],
-    groupIds.length > 0 ? accountGroupsAmong(accountId, groupIds) : [],
+    groupIds.length > 0 ? groupRows({ accountId, groupIds }) : [],
   ]);
   const existingMemberIds = new Set(memberRows.map((row) => row.userId));
   const missingMemberId = memberIds.find((id) => !existingMemberIds.has(id));
   if (missingMemberId) {
     return { ok: false, principalType: 'member', principalId: missingMemberId };
   }
-  const existingGroupIds = new Set(groupRows.map((row) => row.groupId));
+  const existingGroupIds = new Set(groupRowList.map((row) => row.groupId));
   const missingGroupId = groupIds.find((id) => !existingGroupIds.has(id));
   if (missingGroupId) {
     return { ok: false, principalType: 'group', principalId: missingGroupId };
@@ -682,17 +688,23 @@ export async function appsOpenableByUser<T extends TeamScopedApp>(
   return openable;
 }
 
+/**
+ * The access link `access-session` hands out. `aal` is the caller's own
+ * second factor: set it only for a browser session at aal2, never for a token.
+ */
 export function appAccessSessionUrl(
   url: string,
   app: { appId: string; accessRevision: number },
   userId: string,
   now = new Date(),
+  aal?: 'aal2',
 ): { url: string; expiresAt: Date } {
   const expiresAt = new Date(now.getTime() + 5 * 60_000);
   const token = createAppAccessToken({
     appId: app.appId,
     kind: 'kortix',
     userId,
+    aal,
     revision: app.accessRevision,
     expiresAt,
   });

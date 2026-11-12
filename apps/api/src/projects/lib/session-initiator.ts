@@ -39,7 +39,7 @@ export function resolveRootSessionInitiator(input: {
   return { type: 'member', id: input.userId };
 }
 
-export type SessionStartedByFilter = 'me' | 'others' | 'automated';
+export type SessionStartedByFilter = 'me' | 'others' | 'automated' | 'humans';
 
 const CHANNEL_LABELS: Record<string, string> = {
   slack: 'Slack',

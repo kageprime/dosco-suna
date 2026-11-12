@@ -28,6 +28,7 @@ import { decryptAccountSecret } from '../../secrets/account-resource';
 import { recordAuditEvent } from '../../shared/audit';
 import { isPermanentRefreshRejection, refreshErrorCode } from './codex-core';
 import { writeRotatedAccountLogin } from './rotating-login-write';
+import { legacySecretNotMoved } from '../../secrets/llm-credential-ledger';
 
 const CONSOLE = 'https://opencode.ai/console';
 const CLIENT_ID = 'opencode-cli';
@@ -253,7 +254,12 @@ async function loadOpencodeLoginRow(input: { accountId: string; projectId: strin
   }
   const [secret] = await db.select({ valueEnc: projectSecrets.valueEnc })
     .from(projectSecrets)
-    .where(and(eq(projectSecrets.projectId, input.projectId), eq(projectSecrets.secretId, input.secretId))).limit(1);
+    // A legacy login that moved to the named store is refreshed only there:
+    // refreshing both copies would revoke one copy's rotated refresh token.
+    .where(and(
+      eq(projectSecrets.projectId, input.projectId), eq(projectSecrets.secretId, input.secretId),
+      eq(projectSecrets.consumer, 'llm_gateway'), legacySecretNotMoved(projectSecrets.secretId),
+    )).limit(1);
   if (!secret) return null;
   try {
     return { ...base, storage: 'project', value: decryptProjectSecret(input.projectId, secret.valueEnc) };

@@ -5,10 +5,11 @@ import Hint from '../../primitives/hint';
 import { Kbd } from '../../primitives/kbd';
 import Loading from '../../primitives/loading';
 import { cn } from '../../lib/utils';
-import { ArrowUpIcon as ArrowUp, SquareIcon } from '@phosphor-icons/react';
+import { ArrowUpIcon as ArrowUp, SquareIcon, WaveformIcon } from '@phosphor-icons/react';
 import { AnimatePresence, m } from 'motion/react';
 import { useTranslations } from '../../i18n';
 import { NO_MODEL_AVAILABLE_ACTION_MESSAGE } from '../models/model-availability';
+import type { ComposerCall } from '../voice/composer-call';
 import { NO_AGENT_ACCESS_MESSAGE } from './composer-agent-access';
 
 const ICON_BUTTON =
@@ -25,6 +26,23 @@ const ICON_SWAP = {
   exit: { scale: 0.25, opacity: 0, filter: 'blur(4px)' },
   transition: { type: 'spring', duration: 0.3, bounce: 0 },
 } as const;
+
+/**
+ * Does the Send slot offer the host's voice call? Only on an empty composer
+ * (no text, file, quote or paste) that could otherwise send: no question
+ * holds it, and nothing refuses a send (no agent, no model, a disabled or
+ * busy composer). Every other state keeps the control it had.
+ */
+export function offersComposerCall({
+  call,
+  canSubmit,
+  lockForQuestion,
+  disabled,
+  agentUnavailable,
+  modelUnavailable,
+}: Pick<SendStopControlProps, 'call' | 'canSubmit' | 'lockForQuestion' | 'disabled' | 'agentUnavailable' | 'modelUnavailable'>): boolean {
+  return !!call && !canSubmit && !lockForQuestion && !disabled && !agentUnavailable && !modelUnavailable;
+}
 
 export interface SendStopControlProps {
   isSending: boolean;
@@ -62,6 +80,12 @@ export interface SendStopControlProps {
   attachmentFailed?: boolean;
   /** Why the selected model cannot take the attachments. Send is refused while set. */
   attachmentUnsupported?: string | null;
+  /**
+   * The host's voice call (flag `voice_call`). With nothing to send, the Send
+   * button calls instead: same place, same shape, a waveform for the arrow
+   * (`offersComposerCall`). Absent: Send stays as it was.
+   */
+  call?: ComposerCall;
   onSubmit: () => void;
 }
 
@@ -84,10 +108,12 @@ export function SendStopControl({
   agentUnavailable = false,
   attachmentFailed = false,
   attachmentUnsupported = null,
+  call,
   onSubmit,
 }: SendStopControlProps) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const t = useTranslations('threads');
+  const tCall = useTranslations('voiceCall');
   const tDesktop = useTranslations('sessionDesktop');
   const tAttachments = useTranslations('hardcodedUi.composerAttachments');
   // One line, the same one the agent picker's tooltip carries — the two
@@ -100,8 +126,22 @@ export function SendStopControl({
         ? tAttachments('failedBlocksSend')
         : attachmentUnsupported;
 
+  // One button for both: typing turns the waveform into the arrow and
+  // clearing turns it back. That swap is keyboard-driven, so it is instant:
+  // both glyphs share the `send` key and only busy ⇄ send cross-fades
+  // (kortix-brand motion.md, "Never animate a keyboard-initiated action").
+  const callOffered = offersComposerCall({
+    call,
+    canSubmit,
+    lockForQuestion,
+    disabled,
+    agentUnavailable,
+    modelUnavailable,
+  });
+  const callLabel = call?.inCall ? tCall('inCall') : tCall('start');
+
   const sendButton = (
-    <Hint side="top" label={refusal ?? t('sendMessage')}>
+    <Hint side="top" label={callOffered ? callLabel : (refusal ?? t('sendMessage'))}>
       {/* The span, not the button, carries the tooltip trigger: a disabled
           button takes no pointer events, so the reason the send is off would
           never open — which is exactly the state where the reason matters
@@ -110,23 +150,28 @@ export function SendStopControl({
         <Button
           size="icon-base"
           disabled={
-            lockForQuestion
-              ? (!canSubmit && !questionCanAct) || disabled
-              : !canSubmit || submitDisabled
+            callOffered
+              ? !!call?.inCall
+              : lockForQuestion
+                ? (!canSubmit && !questionCanAct) || disabled
+                : !canSubmit || submitDisabled
           }
-          onClick={onSubmit}
-          // The control's NAME stays "Send message" in every state. The
+          onClick={callOffered ? () => call?.onCall() : onSubmit}
+          // The control's NAME stays "Send message" in every send state. The
           // refusal is a `aria-describedby`-style detail, not an identity —
           // swapping the name for it made a screen reader announce the button
           // as "No agent available", with nothing left saying what it does.
-          aria-label={t('sendMessage')}
-          title={refusal ?? undefined}
+          // Calling is another action, so it is another name.
+          aria-label={callOffered ? tCall('start') : t('sendMessage')}
+          title={callOffered ? undefined : (refusal ?? undefined)}
           className={ICON_BUTTON}
         >
           <AnimatePresence mode="popLayout" initial={false}>
             <m.span key={disabled ? 'busy' : 'send'} className="flex items-center" {...ICON_SWAP}>
               {disabled ? (
                 <Loading className="size-3.5 shrink-0" />
+              ) : callOffered ? (
+                <WaveformIcon weight="bold" className="size-4" />
               ) : (
                 <ArrowUp className="size-4" />
               )}

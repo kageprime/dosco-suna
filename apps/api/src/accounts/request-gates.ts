@@ -33,8 +33,8 @@ function pathAccount(c: Context<AppEnv>): string | undefined {
 
 const sessionPolicyGate: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (!pathAccount(c) && !c.get('accountId') && c.get('authType') === 'supabase') {
-    const userId = c.get('userId') as string | undefined;
-    const sessionId = c.get('sessionId') as string | undefined;
+    const userId = c.get('userId');
+    const sessionId = c.get('sessionId');
     if (userId && sessionId) {
       // A user with no workspace has no account policy to enforce: the gate
       // below stays a no-op for them, and the handler answers for itself

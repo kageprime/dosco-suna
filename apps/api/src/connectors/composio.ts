@@ -826,10 +826,24 @@ export async function executeComposio(
         // blocked the call. A Cloudflare WAF block page on Composio's edge
         // hit the linear calls for a week before anyone could name it (KRTX-4512).
         const page = htmlPageTitle(error);
+        // The edge's own 4xx refused the request as sent (a WAF block on the
+        // payload): the tool never ran, so the result keeps that status and
+        // `connectorErrorHttpStatus` maps it to a non-retryable 4xx for the
+        // caller. A blanket 502 mapped to 503, the SDK retried the identical
+        // body on sight, and one blocked call amplified into a per-minute
+        // retry loop and a warn-log spike (KRTX-4722).
+        const upstreamStatus = typeof limited?.status === 'number' ? limited.status : undefined;
+        const refused = upstreamStatus !== undefined && upstreamStatus >= 400 && upstreamStatus < 500;
+        // Every prod block observed (KRTX-4512, KRTX-4722) is a Cloudflare WAF
+        // 403 answered before the provider saw the call. A provider-side HTML
+        // 4xx reaches the origin, so only the 403 states where the call died.
+        const guidance = upstreamStatus === 403
+          ? ': the edge refused the call before it reached the provider, so the tool did not run — the same arguments will be refused again.'
+          : '';
         return {
           ok: false,
-          status: 502,
-          data: `composio_upstream_unavailable: Composio answered ${String(limited?.status ?? 502)} with an HTML error page${page ? ` (page: ${page})` : ''}`,
+          status: refused ? upstreamStatus : 502,
+          data: `composio_upstream_unavailable: Composio answered ${String(limited?.status ?? 502)} with an HTML error page${page ? ` (page: ${page})` : ''}${guidance}`,
         };
       }
       throw error;

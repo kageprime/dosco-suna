@@ -1,6 +1,6 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 // Session controls: the per-account max-lifetime + idle-timeout policy
 // (`SessionControlsCard`) and the live-session list with force-logout
 // (`AccountSessionsPanel`). PATs are not represented here — they have their
@@ -33,6 +33,8 @@ import { SignOutIcon as LogOut } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 
+import { useAccountMembers } from '@kortix/ui/internal/account-hub/use-account-members';
+import { relativeTime } from '@kortix/ui/internal/lib/relative-time';
 import { Button } from '@kortix/ui/button';
 import { ConfirmDialog } from '@kortix/ui/confirm-dialog';
 import Hint from '@kortix/ui/hint';
@@ -57,31 +59,9 @@ import {
   revokeAccountSession,
   updateSessionPolicy,
 } from '@/lib/iam-client';
-import { listAccountMembers } from '@kortix/sdk';
+import { parseOptionalIntField, toField } from './optional-int-field';
 
 const MAX_MINUTES = 10080; // 7 days, matches the server cap
-
-type MinutesField = { ok: true; value: number | null } | { ok: false; error: string };
-
-/** Blank means "no limit" — the field is optional, not invalid. Exported so
- *  the rules can be tested without a DOM (`bun test` has none). */
-export function parseMinutes(raw: string): MinutesField {
-  const trimmed = raw.trim();
-  if (trimmed === '') return { ok: true, value: null };
-  const parsed = Number(trimmed);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    return { ok: false, error: 'Use a whole number of minutes, or leave it empty.' };
-  }
-  if (parsed > MAX_MINUTES) {
-    return { ok: false, error: `${MAX_MINUTES} minutes (7 days) is the most Dosco allows.` };
-  }
-  return { ok: true, value: parsed };
-}
-
-/** The stored value as the input shows it — `null` is an empty field. */
-function toField(value: number | null | undefined): string {
-  return value?.toString() ?? '';
-}
 
 interface SessionControlsCardProps {
   accountId: string;
@@ -121,7 +101,8 @@ export function SessionControlsCard({ accountId, canManage }: SessionControlsCar
   // paints, so the fields never flash empty. `touched` guards them so a
   // background refetch cannot clobber an edit in progress. Same shape as
   // `profile-tab.tsx`'s Name row and `organization-tab.tsx`'s rename row.
-  const serverKey = policyQuery.data ? `${savedMax}\u0000${savedIdle}` : null;
+  // The `|` separator cannot appear inside a saved value: both are digits.
+  const serverKey = policyQuery.data ? `${savedMax}|${savedIdle}` : null;
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   if (serverKey !== null && !touched && serverKey !== loadedKey) {
     setLoadedKey(serverKey);
@@ -141,8 +122,15 @@ export function SessionControlsCard({ accountId, canManage }: SessionControlsCar
     onError: (err: Error) => errorToast(err.message || tI18nComplete.raw('text7ed6e98ab599')),
   });
 
-  const maxField = parseMinutes(maxLifetime);
-  const idleField = parseMinutes(idleTimeout);
+  // Both rows' failure sentences, localized once — the parser only decides
+  // which one to show.
+  const fieldMessages = {
+    notInteger: tI18nComplete.raw('text002a4fd5f747'),
+    overMax: tI18nComplete('text9b8d62603858', { value0: MAX_MINUTES }),
+  };
+
+  const maxField = parseOptionalIntField(maxLifetime, MAX_MINUTES, fieldMessages);
+  const idleField = parseOptionalIntField(idleTimeout, MAX_MINUTES, fieldMessages);
 
   const dirty = maxLifetime.trim() !== savedMax || idleTimeout.trim() !== savedIdle;
   const valid = maxField.ok && idleField.ok;
@@ -287,6 +275,7 @@ function MinutesInput({
  */
 export function AccountSessionsPanel({ accountId, canManage }: SessionControlsCardProps) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+  const locale = useLocale();
   const queryClient = useQueryClient();
   const [revokeTarget, setRevokeTarget] = useState<ActiveSession | null>(null);
 
@@ -296,19 +285,7 @@ export function AccountSessionsPanel({ accountId, canManage }: SessionControlsCa
     staleTime: 15_000,
   });
 
-  const membersQuery = useQuery({
-    queryKey: ['account-members', accountId],
-    queryFn: () => listAccountMembers(accountId),
-    staleTime: 60_000,
-  });
-
-  const emailByUserId = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const m of membersQuery.data ?? []) {
-      if (m.email) map.set(m.user_id, m.email);
-    }
-    return map;
-  }, [membersQuery.data]);
+  const { emailByUserId } = useAccountMembers(accountId);
 
   const revokeMutation = useMutation({
     mutationFn: (sessionId: string) => revokeAccountSession(accountId, sessionId),
@@ -361,7 +338,7 @@ export function AccountSessionsPanel({ accountId, canManage }: SessionControlsCa
                   )}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-xs tabular-nums">
-                  {formatRelative(s.last_seen_at)}
+                  {relativeTime(s.last_seen_at, locale)}
                 </TableCell>
                 <TableCell className="text-muted-foreground font-mono text-xs">
                   {s.ip ?? '—'}
@@ -409,20 +386,4 @@ export function AccountSessionsPanel({ accountId, canManage }: SessionControlsCa
       />
     </section>
   );
-}
-
-const fallbackDateFormat = new Intl.DateTimeFormat();
-
-function formatRelative(iso: string): string {
-  const date = new Date(iso);
-  const diffMs = Date.now() - date.getTime();
-  const sec = Math.floor(diffMs / 1000);
-  if (sec < 60) return `${sec}s ago`;
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 30) return `${day}d ago`;
-  return fallbackDateFormat.format(date);
 }

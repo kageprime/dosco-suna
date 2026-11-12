@@ -1,9 +1,10 @@
 import Link from '@/components/site-link';
+import { PillarsBand } from '@/features/marketing/component/pillars-band';
 import { MarketingButton } from '@/features/marketing/kit/marketing-button';
-import { Band, Heading } from '@/features/marketing/kit/page-frame';
+import { Band, Heading, PageFrame } from '@/features/marketing/kit/page-frame';
 import { Seal } from '@/features/marketing/kit/seal';
 import { FaqSection } from '@/features/marketing/landing-sections/faq-section';
-import { LayerTabs } from '@/features/marketing/security-page/layer-tabs';
+import { LayerTabs } from '@/features/marketing/security-page/layer-panels';
 import {
   enforcement as sourceenforcement,
   faqItems as sourcefaqItems,
@@ -16,17 +17,19 @@ import { useTranslations } from '@/i18n/use-translations';
 import { localizeUiCatalog } from '@kortix/ui/i18n';
 import {
   BuildingsIcon,
-  CheckIcon,
   CloudIcon,
   CodeIcon,
   CpuIcon,
   HardDrivesIcon,
-  IdentificationBadgeIcon,
-  KeyIcon,
-  ListChecksIcon,
   UsersThreeIcon,
 } from '@phosphor-icons/react/dist/ssr';
 import type { ComponentType, ReactNode } from 'react';
+
+import { marketingMetadataLayout } from '@/lib/seo/metadata';
+
+const { generateMetadata } = marketingMetadataLayout('/security');
+
+export { generateMetadata };
 
 /**
  * `/security`: the security model in the home page's rhythm. Hero with one
@@ -38,13 +41,6 @@ import type { ComponentType, ReactNode } from 'react';
  */
 
 type Glyph = ComponentType<{ className?: string }>;
-
-const PILLAR_ICONS: Record<string, Glyph> = {
-  computer: CpuIcon,
-  identity: IdentificationBadgeIcon,
-  credentials: KeyIcon,
-  record: ListChecksIcon,
-};
 
 const TRUST_ICONS: Glyph[] = [
   CloudIcon,
@@ -63,37 +59,7 @@ function Pillars() {
     MARKETING_RELEASE_TRANSLATION_KEYS,
   );
 
-  return (
-    <section id="pillars" className="scroll-mt-16 py-14 lg:py-20">
-      <Heading title={pillars.title} titleMuted={pillars.titleMuted} />
-      <Band className="mt-12">
-        <ul className="bg-border grid grid-cols-1 gap-px sm:grid-cols-2 xl:grid-cols-4">
-          {pillars.items.map(({ id, name, line, facts }) => {
-            const Icon = PILLAR_ICONS[id];
-            return (
-              <li key={id} className="bg-background flex flex-col gap-5 p-6 lg:p-10">
-                <Icon className="text-foreground size-6" aria-hidden />
-                <h3 className="text-foreground text-2xl font-medium tracking-tight text-balance">
-                  {name}
-                  <span className="text-muted-foreground mt-1 block text-lg leading-snug">
-                    {line}
-                  </span>
-                </h3>
-                <ul className="mt-auto flex flex-col gap-2 text-sm">
-                  {facts.map((fact) => (
-                    <li key={fact} className="text-foreground flex items-start gap-2">
-                      <CheckIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-                      {fact}
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            );
-          })}
-        </ul>
-      </Band>
-    </section>
-  );
+  return <PillarsBand pillars={pillars} />;
 }
 
 /** A rule with a permission name in it: the name in mono. */
@@ -194,7 +160,7 @@ function Trust() {
 
   return (
     <section id="trust" className="scroll-mt-16 py-14 lg:py-20">
-      <div className="kx-rail-fade border-y px-4 lg:px-17">
+      <Band>
         <div className="dark bg-muted text-foreground px-6 py-10 lg:px-11 lg:py-16">
           <h2 className="text-xl font-medium tracking-tight text-balance md:text-2xl lg:text-3xl">
             {trust.title}
@@ -231,7 +197,7 @@ function Trust() {
             </li>
           </ul>
         </div>
-      </div>
+      </Band>
     </section>
   );
 }
@@ -245,15 +211,7 @@ export default function SecurityPage(): ReactNode {
   );
 
   return (
-    <main className="bg-background relative mx-auto w-full max-w-[1440px]">
-      <div
-        aria-hidden
-        className="bg-border pointer-events-none absolute inset-y-0 left-4 z-10 w-px lg:left-17"
-      />
-      <div
-        aria-hidden
-        className="bg-border pointer-events-none absolute inset-y-0 right-4 z-10 w-px lg:right-17"
-      />
+    <PageFrame>
       <SecurityHero />
       <Pillars />
       <LayerTabs />
@@ -264,6 +222,6 @@ export default function SecurityPage(): ReactNode {
         titleMuted="Answered from the code."
         items={faqItems}
       />
-    </main>
+    </PageFrame>
   );
 }

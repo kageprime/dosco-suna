@@ -19,9 +19,12 @@ import {
   projectTriggerEventSubscriptions,
   projectTriggerRuntime,
   projects,
+  serviceAccounts,
 } from '@kortix/db';
 import { eq, sql } from 'drizzle-orm';
 import { insertIntoView } from '../../__tests__/helpers/compat-views';
+import { assignRole, SYSTEM_ACTOR } from '../../iam/assignments';
+import { clearAuthorizeCaches } from '../../iam/authorize';
 import { config } from '../../config';
 import { db } from '../../shared/db';
 import type { GitTriggerSpec } from '../trigger-types';
@@ -50,6 +53,7 @@ const PROJECT_ID = '00000000-0000-4000-a000-000000009922';
 const CONNECTOR_ID = '00000000-0000-4000-a000-000000009923';
 const CONNECTION_ID = '00000000-0000-4000-a000-000000009924';
 const OWNER_ID = '00000000-0000-4000-a000-000000009925';
+const AGENT_SERVICE_ACCOUNT_ID = '00000000-0000-4000-a000-000000009926';
 const FLAGS = { event_triggers: true };
 
 // The loopback MCP server: `list_items` answers `items`, newest first.
@@ -60,7 +64,11 @@ const mcp = Bun.serve({
   port: 0,
   hostname: '127.0.0.1',
   async fetch(req) {
-    const body = (await req.json()) as { id?: number; method: string; params?: { name: string; arguments: unknown } };
+    // Only the gateway's JSON-RPC POSTs are MCP. A port scanner on the machine
+    // sends body-less `HEAD /` and `GET /`: parsing them threw between tests.
+    if (req.method !== 'POST') return new Response(null, { status: 405, headers: { allow: 'POST' } });
+    const body = (await req.json().catch(() => null)) as { id?: number; method: string; params?: { name: string; arguments: unknown } } | null;
+    if (!body || typeof body.method !== 'string') return new Response('not a JSON-RPC request', { status: 400 });
     if (body.method !== 'tools/call') return Response.json({ jsonrpc: '2.0', id: body.id, result: {} });
     toolCalls.push(body.params!);
     if (answer === '401') return new Response('unauthorized', { status: 401 });
@@ -473,6 +481,62 @@ describe('mcp event source — real PostgreSQL, loopback MCP server', () => {
     expect(await stream()).toBeDefined();
     await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, []);
     expect(await stream()).toBeUndefined();
+  });
+
+  test('the fake MCP server answers a body-less probe without throwing', async () => {
+    const base = `http://127.0.0.1:${mcp.port}`;
+    expect((await fetch(`${base}/`, { method: 'HEAD' })).status).toBe(405);
+    expect((await fetch(`${base}/`)).status).toBe(405);
+    expect((await fetch(`${base}/mcp`, { method: 'POST' })).status).toBe(400);
+    expect(toolCalls).toEqual([]);
+  });
+
+  test("every trigger on a shared stream is checked as its own agent: an account narrowed to one agent keeps only that agent's trigger", async () => {
+    // The standing identity of agent `inbox-agent`, as ensureAgentServiceAccount writes it.
+    await db.insert(serviceAccounts).values({
+      serviceAccountId: AGENT_SERVICE_ACCOUNT_ID,
+      accountId: ACCOUNT_ID,
+      projectId: PROJECT_ID,
+      agentName: 'inbox-agent',
+      name: 'inbox-agent',
+      secretHash: `mcp-poll-agent-${AGENT_SERVICE_ACCOUNT_ID}`,
+      publicPrefix: 'kortix_sa_mcppoll',
+    });
+    const mine = { ...spec('mine'), agent: 'inbox-agent' };
+    const theirs = { ...spec('theirs'), agent: 'billing-agent' };
+    await reconcile([mine, theirs]);
+    expect((await row('mine'))?.externalId).toBe((await row('theirs'))?.externalId);
+    await checkNow();
+    expect(toolCalls).toHaveLength(1);
+
+    // The account is narrowed to `inbox-agent` alone.
+    await assignRole(SYSTEM_ACTOR, ACCOUNT_ID, {
+      principal: { type: 'service_account', id: AGENT_SERVICE_ACCOUNT_ID },
+      roleKey: 'agent-user',
+      scope: { type: 'project', id: PROJECT_ID },
+      object: { type: 'connection', id: CONNECTION_ID },
+    });
+    clearAuthorizeCaches();
+    toolCalls.length = 0;
+    items = [recent('narrowed-1', 0), ...items];
+    // The check sees that `theirs` no longer resolves: it calls nothing and hands the stream to the reconciler.
+    await checkNow();
+    expect(toolCalls).toEqual([]);
+    expect(await deliverJobs()).toEqual([]);
+    expect(await row('theirs')).toMatchObject({
+      status: 'error',
+      lastError: 'This Fake account is shared with specific people only. Share it with everyone in the workspace or with the agent "billing-agent" to activate this trigger.',
+    });
+    expect(await row('mine')).toMatchObject({ status: 'active', connectionId: CONNECTION_ID });
+
+    // The stream now feeds `mine` alone, checked as `inbox-agent`: the vendor is called and only `mine` fires.
+    items = [recent('narrowed-2', 0), ...items];
+    await checkNow();
+    expect(toolCalls).toHaveLength(1);
+    await runJobBatch();
+    expect(fires.map((f) => f.idempotencyKey)).toContain(`trigger:event:${PROJECT_ID}:mine:narrowed-2`);
+    expect(fires.filter((f) => String(f.idempotencyKey).includes(':theirs:'))).toEqual([]);
+    clearAuthorizeCaches();
   });
 
   test('event apps: a project MCP server is an event app with one event per list tool', async () => {

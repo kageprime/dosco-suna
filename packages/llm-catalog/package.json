@@ -15,7 +15,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./lite": "./src/lite.ts"
+    "./lite": "./src/lite.ts",
+    "./codex-seed": "./src/codex-seed.ts"
   },
   "publishConfig": {
     "access": "public",
@@ -30,6 +31,10 @@
       "./lite": {
         "types": "./dist/lite.d.ts",
         "import": "./dist/lite.js"
+      },
+      "./codex-seed": {
+        "types": "./dist/codex-seed.d.ts",
+        "import": "./dist/codex-seed.js"
       }
     },
     "files": ["dist", "README.md"]

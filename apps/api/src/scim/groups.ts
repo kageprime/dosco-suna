@@ -10,7 +10,7 @@ import { scimError } from '../middleware/scim-auth';
 import { auth, errors, json } from '../openapi';
 import { db } from '../shared/db';
 import { accountMemberRow, accountMembersAmong } from '../iam/membership-read';
-import { accountGroupFullRow, groupMemberUserIds, groupNameInAccountRow, scimGroupRow, scimGroupRowById, scimGroupRows } from '../iam/group-read';
+import { groupMemberUserIds, groupRow, groupRows } from '../iam/group-read';
 import { deleteGroup } from '../repositories/iam';
 import { directoryUserById, directoryGroupIds, saveDirectoryGroups } from './directory-users';
 import { groupChanges, memberValues, InvalidGroupMemberError, type GroupChange } from './group-patch';
@@ -267,7 +267,7 @@ async function applyGroupChanges(accountId: string, groupId: string, changes: Gr
 async function writeGroup(c: any) {
   const accountId = accountIdParam(c);
   const groupId = c.req.param('groupId');
-  const [group] = await accountGroupFullRow(accountId, groupId);
+  const [group] = await groupRow(accountId, groupId);
   if (!group) return scimError(c, 404, 'Group not found');
   let changes: GroupChange[];
   try { changes = groupChanges(await c.req.json(), c.req.method === 'PATCH'); }
@@ -319,7 +319,7 @@ export function registerScimGroupsRoutes(): void {
       }
       const filter = parseFilter(rawFilter);
 
-      const rows = await scimGroupRows(accountId);
+      const rows = await groupRows({ accountId });
 
       let filteredRows = rows;
       if (filter) {
@@ -355,7 +355,7 @@ export function registerScimGroupsRoutes(): void {
       const accountId = accountIdParam(c);
       const groupId = c.req.param('groupId');
 
-      const [row] = await scimGroupRow(accountId, groupId);
+      const [row] = await groupRow(accountId, groupId);
       if (!row) return scimError(c, 404, 'Group not found');
 
       return c.json(await buildGroup(accountId, row));
@@ -435,7 +435,7 @@ export function registerScimGroupsRoutes(): void {
         after: { name: displayName, external_id: externalId },
       });
 
-      const [row] = await scimGroupRowById(groupId);
+      const [row] = await groupRow(null, groupId);
 
       return c.json(await buildGroup(accountId, row!), 201);
     },
@@ -476,7 +476,7 @@ export function registerScimGroupsRoutes(): void {
       ).map((r) => r.userId);
 
       // Name first, for the audit event: the delete below takes the row with it.
-      const [existing] = await groupNameInAccountRow(accountId, groupId);
+      const [existing] = await groupRow(accountId, groupId);
       if (!existing) return c.body(null, 204);
       await unparkGroupFromInvites(accountId, groupId);
       // `deleteGroup`, not a bare delete: it also drops the group's assignments in

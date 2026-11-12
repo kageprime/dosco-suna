@@ -11,6 +11,7 @@ import { driveConflicts, drives, sessionSandboxes } from '@kortix/db';
 import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { db } from '../shared/db';
 import { conflictOriginal } from './access';
+import { createDriveBackoff } from './backoff';
 import { noteDriveIndexDue } from './search-index/due';
 import { DRIVE_MOUNTS_METADATA_KEY, type DriveRow, driveVolume, recordedDriveMounts, refreshDriveNotes } from './service';
 import { type DriveVolume, getDriveVolume, isMissingVolume, listVolumeFiles, readVolumeFile } from './volumes';
@@ -133,6 +134,10 @@ async function sessionsMounting(driveIds: string[]): Promise<string[]> {
 
 let scanning = false;
 
+/** A drive whose scan failed waits this long (doubling) before it is scanned again. */
+const SCAN_BACKOFF_MAX_MS = 30 * 60_000;
+const scanBackoff = createDriveBackoff(SCAN_BACKOFF_MAX_MS);
+
 /** One pass over the active drives; new conflicts update the notes file of every session that mounts the drive. */
 export async function runConflictScan(): Promise<void> {
   if (scanning) return;
@@ -140,7 +145,10 @@ export async function runConflictScan(): Promise<void> {
   try {
     const ids = await activeDriveIds();
     if (!ids.length) return;
-    const rows = await db.select().from(drives).where(inArray(drives.driveId, ids));
+    const waiting = scanBackoff.waiting();
+    const rows = (await db.select().from(drives).where(inArray(drives.driveId, ids))).filter(
+      (d) => !waiting.has(d.driveId),
+    );
     const changed: string[] = [];
     let i = 0;
     const worker = async () => {
@@ -148,12 +156,15 @@ export async function runConflictScan(): Promise<void> {
         const drive = rows[i++]!;
         try {
           const fresh = await scanDriveConflicts(drive);
+          scanBackoff.ok(drive.driveId);
           if (fresh.length) {
             changed.push(drive.driveId);
             logger.info(`[drives] ${fresh.length} new conflict copy(ies) on drive ${drive.driveId}`);
           }
         } catch (err) {
-          logger.warn(`[drives] conflict scan of ${drive.driveId} failed:`, { error: err instanceof Error ? err.message : String(err) });
+          const { firstFailure } = scanBackoff.fail(drive.driveId, err);
+          if (firstFailure)
+            logger.warn(`[drives] conflict scan of ${drive.driveId} failed:`, { error: err instanceof Error ? err.message : String(err) });
         }
       }
     };

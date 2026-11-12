@@ -40,6 +40,13 @@ beforeEach(() => {
 
 configureKortix({ backendUrl: 'http://test.local', getToken: async () => 'tok' });
 const last = () => calls[calls.length - 1]!;
+function respondAlways(status: number, body: unknown) {
+  respond(status, body);
+  globalThis.fetch = mock(async (input: unknown, init: RequestInit = {}) => {
+    calls.push({ url: String(input instanceof Request ? input.url : input), method: init.method ?? 'GET', headers: {}, body: init.body });
+    return new Response(next.body, { status: next.status, headers: { 'content-type': next.type } });
+  }) as unknown as typeof fetch;
+}
 const D = '11111111-2222-4333-8444-555555555555';
 
 test('file operations encode the path in the query', async () => {
@@ -242,6 +249,115 @@ test('an XHR upload the server refuses throws an ApiError with its status and me
   } finally {
     delete (globalThis as { XMLHttpRequest?: unknown }).XMLHttpRequest;
   }
+});
+
+// A drive write past the API's 25 s deadline answers 503, and a busy volume
+// 429: both are sent again. A file PUT overwrites, so a resend is safe.
+test('an XHR upload the server answers 503 is sent again; a refusal (409) is not', async () => {
+  // ponytail: real 0.5 s backoff; bun's fake timers also freeze the test's own timeout.
+  let n = 0;
+  const sent = installXhr((xhr) => {
+    xhr.status = n++ === 0 ? 503 : 200;
+    xhr.responseText = JSON.stringify(xhr.status === 200 ? { path: '/a/x', size: 1 } : { message: 'deadline' });
+    xhr.onload?.();
+  });
+  try {
+    const result = await uploadDriveFile(D, '/a/x', new Blob(['a']), { onProgress: () => undefined });
+    expect(result).toEqual({ path: '/a/x', size: 1 });
+    expect(sent).toHaveLength(2);
+  } finally {
+    delete (globalThis as { XMLHttpRequest?: unknown }).XMLHttpRequest;
+  }
+});
+
+test('an upload over fetch the server answers 429 is sent again', async () => {
+  let n = 0;
+  globalThis.fetch = mock(async (input: unknown, init: RequestInit = {}) => {
+    calls.push({ url: String(input instanceof Request ? input.url : input), method: init.method ?? 'GET', headers: {}, body: init.body });
+    return n++ === 0
+      ? new Response(JSON.stringify({ message: 'busy', code: 'transfer_limit_exceeded' }), { status: 429, headers: { 'content-type': 'application/json' } })
+      : new Response(JSON.stringify({ path: '/a/x', size: 1 }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as unknown as typeof fetch;
+  expect(await uploadDriveFile(D, '/a/x', new Blob(['a']))).toEqual({ path: '/a/x', size: 1 });
+  expect(calls.filter((c) => c.method === 'PUT')).toHaveLength(2);
+});
+
+// A save with If-Match that timed out may have landed: a resend would answer
+// 409 file_changed for the user's own write. Only a 429 (never ran) is resent.
+test('a conditional save (ifMatch) is not resent after a 503, only after a 429', async () => {
+  respondAlways(503, { message: 'deadline' });
+  const error = await uploadDriveFile(D, '/a/x', new Blob(['a']), { ifMatch: 'v1' }).catch((e: unknown) => e);
+  expect((error as ApiError).status).toBe(503);
+  expect(calls).toHaveLength(1);
+
+  calls = [];
+  let n = 0;
+  globalThis.fetch = mock(async (input: unknown, init: RequestInit = {}) => {
+    calls.push({ url: String(input), method: init.method ?? 'GET', headers: {}, body: init.body });
+    return n++ === 0
+      ? new Response(JSON.stringify({ message: 'busy' }), { status: 429, headers: { 'content-type': 'application/json' } })
+      : new Response(JSON.stringify({ path: '/a/x', size: 1 }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as unknown as typeof fetch;
+  expect(await uploadDriveFile(D, '/a/x', new Blob(['a']), { ifMatch: 'v1' })).toEqual({ path: '/a/x', size: 1 });
+  expect(calls).toHaveLength(2);
+});
+
+test('an abort during the wait before a resend stops at once', async () => {
+  const controller = new AbortController();
+  globalThis.fetch = mock(async (input: unknown, init: RequestInit = {}) => {
+    calls.push({ url: String(input), method: init.method ?? 'GET', headers: {}, body: init.body });
+    // Abort once the SDK is in its 500 ms wait before the resend.
+    setTimeout(() => controller.abort(), 0);
+    return new Response(JSON.stringify({ message: 'deadline' }), { status: 503, headers: { 'content-type': 'application/json' } });
+  }) as unknown as typeof fetch;
+  let settled: unknown;
+  const pending = uploadDriveFile(D, '/a/x', new Blob(['a']), { signal: controller.signal }).catch((e: unknown) => (settled = e));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  // Two event-loop turns, not the 500 ms wait: no wall clock, so load cannot flake it.
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+  expect((settled as ApiError | undefined)?.code).toBe('ABORTED');
+  expect(calls).toHaveLength(1);
+  await pending;
+});
+
+test('a resent upload reports only its final outcome to the app-wide error handler', async () => {
+  const reported: unknown[] = [];
+  configureKortix({ backendUrl: 'http://test.local', getToken: async () => 'tok', onError: (e) => void reported.push(e) });
+  try {
+    let n = 0;
+    globalThis.fetch = mock(async () =>
+      n++ === 0
+        ? new Response(JSON.stringify({ message: 'busy', code: 'transfer_limit_exceeded' }), { status: 429, headers: { 'content-type': 'application/json' } })
+        : new Response(JSON.stringify({ path: '/a/x', size: 1 }), { status: 200, headers: { 'content-type': 'application/json' } }),
+    ) as unknown as typeof fetch;
+    await uploadDriveFile(D, '/a/x', new Blob(['a']));
+    expect(reported).toEqual([]);
+
+    respondAlways(403, { message: 'You cannot write here' });
+    const error = await uploadDriveFile(D, '/a/x', new Blob(['a'])).catch((e: unknown) => e);
+    expect((error as ApiError).status).toBe(403);
+    expect(reported).toEqual([error]);
+  } finally {
+    configureKortix({ backendUrl: 'http://test.local', getToken: async () => 'tok', onError: undefined });
+  }
+});
+
+test('a folder the server answers 503 for is asked for again; one that exists (409) is not', async () => {
+  let n = 0;
+  globalThis.fetch = mock(async (input: unknown, init: RequestInit = {}) => {
+    calls.push({ url: String(input instanceof Request ? input.url : input), method: init.method ?? 'GET', headers: {}, body: init.body });
+    const status = n++ === 0 ? 503 : 200;
+    return new Response(JSON.stringify(status === 200 ? { path: '/a/b' } : { message: 'deadline' }), { status, headers: { 'content-type': 'application/json' } });
+  }) as unknown as typeof fetch;
+  expect(await makeDriveFolder(D, '/a/b')).toEqual({ path: '/a/b' });
+  expect(calls).toHaveLength(2);
+
+  calls = [];
+  respondAlways(409, { message: 'exists' });
+  const error = await makeDriveFolder(D, '/a/b').catch((e: unknown) => e);
+  expect((error as ApiError).status).toBe(409);
+  expect(calls).toHaveLength(1);
 });
 
 test('without XMLHttpRequest, onProgress falls back to fetch and reports completion', async () => {

@@ -31,7 +31,7 @@ export function registerTopUpRequestRoutes(): void {
     }),
     async (c) => {
       const accountId = accountIdParam(c);
-      const userId = c.get('userId') as string;
+      const userId = c.get('userId');
       if (!(await getMembership(userId, accountId))) return c.json({ error: 'Forbidden' }, 403);
       if ((await authorize(await actorOf(c, accountId), ACCOUNT_ACTIONS.BILLING_WRITE)).allowed) {
         return c.json({ error: 'You can add credits yourself.', code: 'can_manage_billing' }, 409);
@@ -39,7 +39,7 @@ export function registerTopUpRequestRoutes(): void {
       const result = await requestTopUp({
         accountId,
         requesterUserId: userId,
-        requesterEmail: (c.get('userEmail') as string | undefined) ?? null,
+        requesterEmail: c.get('userEmail'),
       });
       if (!result) {
         return c.json({ error: 'You already asked the owners in the last 24 hours.', code: 'already_requested' }, 429);

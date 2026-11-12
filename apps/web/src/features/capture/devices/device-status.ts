@@ -6,7 +6,7 @@
  */
 import type { CaptureDevice, CaptureHealthReason, CaptureLayer } from '@kortix/sdk';
 
-export type DeviceTone = 'green' | 'orange' | 'red' | 'none';
+type DeviceTone = 'green' | 'orange' | 'red' | 'none';
 export type DeviceStatusKey =
   | 'recording'
   | 'paused'
@@ -20,7 +20,7 @@ export type DeviceStatusKey =
 /** status.json `reason`s that stop recording without anyone pausing it (the engine's words). */
 const LOCKED = new Set(['locked']);
 const EXCLUDED = new Set(['excluded_app', 'excluded_domain', 'not_included', 'private_browsing', 'unknown_bundle']);
-export type DeviceLayer = CaptureLayer;
+type DeviceLayer = CaptureLayer;
 
 export interface DeviceStatusView {
   key: DeviceStatusKey;

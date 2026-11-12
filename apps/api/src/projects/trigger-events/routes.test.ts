@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import { type DeliveryTally } from './deliver';
 
-let tally: DeliveryTally = { fired: 0, skipped: 0, ignored: 0, failed: 0 };
+let tally: DeliveryTally = { fired: 0, skipped: 0, ignored: 0, failed: 0, refused: 0 };
 const seen: { deliveries: unknown[]; notices: unknown[] } = { deliveries: [], notices: [] };
 mock.module('./deliver', () => ({
   deliverEvents: async (_provider: string, deliveries: unknown[]) => {
@@ -44,7 +44,7 @@ describe('POST /v1/webhooks/events/:provider', () => {
   beforeEach(() => {
     ingressConfigured = true;
     receiveError = null;
-    tally = { fired: 0, skipped: 0, ignored: 0, failed: 0 };
+    tally = { fired: 0, skipped: 0, ignored: 0, failed: 0, refused: 0 };
     seen.deliveries = [];
     seen.notices = [];
     setEventSourceForTest('composio', fake);
@@ -69,7 +69,7 @@ describe('POST /v1/webhooks/events/:provider', () => {
   });
 
   test('200 with the tally; notices and deliveries reach the handlers', async () => {
-    tally = { fired: 1, skipped: 0, ignored: 1, failed: 0 };
+    tally = { fired: 1, skipped: 0, ignored: 1, failed: 0, refused: 0 };
     const res = await post('composio');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ accepted: 2, fired: 1, skipped: 0, ignored: 1 });
@@ -78,7 +78,22 @@ describe('POST /v1/webhooks/events/:provider', () => {
   });
 
   test('500 when any fire failed, so the provider retries', async () => {
-    tally = { fired: 1, skipped: 0, ignored: 0, failed: 1 };
+    tally = { fired: 1, skipped: 0, ignored: 0, failed: 1, refused: 0 };
+    expect((await post('composio')).status).toBe(500);
+  });
+
+  test('402 with the code when every failure is an account-state refusal the provider cannot fix (KRTX-4771)', async () => {
+    tally = { fired: 0, skipped: 1, ignored: 0, failed: 1, refused: 1, accountState: { error: 'No usable model for this account. Connect a provider key or upgrade the plan, then fire again.', code: 'no_usable_model' } };
+    const res = await post('composio');
+    expect(res.status).toBe(402);
+    expect(await res.json()).toEqual({
+      error: 'No usable model for this account. Connect a provider key or upgrade the plan, then fire again.',
+      code: 'no_usable_model',
+    });
+  });
+
+  test('500, not 402, when a transient failure hides beside a refusal: the retry may fix it (KRTX-4771)', async () => {
+    tally = { fired: 0, skipped: 0, ignored: 0, failed: 2, refused: 1, accountState: { error: 'No usable model for this account. Connect a provider key or upgrade the plan, then fire again.', code: 'no_usable_model' } };
     expect((await post('composio')).status).toBe(500);
   });
 

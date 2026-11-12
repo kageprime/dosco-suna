@@ -57,10 +57,20 @@ const IDENTITY_PROBE_PATHS = new Set(['/v1/accounts/me', '/v1/oauth/userinfo', '
 const DELEGATED_WRITE_DENIED: readonly RegExp[] = [
   /^\/v1\/auth(\/|$)/,
   /^\/v1\/accounts\/[^/]+\/iam\/pat-policy$/,
+  // The account's own sign-in rules: the MFA requirement, the session policy,
+  // single sign-on. An App viewer token can count as the second factor in its
+  // account; it must never be able to switch that factor off (Strix,
+  // 2026-11-11).
+  /^\/v1\/accounts\/[^/]+\/iam\/(mfa-required|session-policy)$/,
+  /^\/v1\/accounts\/[^/]+\/iam\/sso(\/|$)/,
   /^\/v1\/projects\/[^/]+\/apps\/[^/]+\/token$/,
   /^\/v1\/(billing\/)?account\/(request|cancel)-deletion$/,
   /^\/v1\/tunnel\/connections\/[^/]+\/rotate-token$/,
   /^\/v1\/platform\/github-app\/pat$/,
+  // Approving another OAuth grant: an App holding its viewer's token could
+  // register a client, approve it, and hold a 30-day refresh token that App
+  // deletion and access-policy changes never revoke (Strix, 2026-11-11).
+  /^\/v1\/oauth\/authorize\/consent(\/|$)/,
 ];
 
 export function oauthScopeAllowsPath(scopes: readonly string[], path: string, method = 'GET'): boolean {
@@ -82,6 +92,9 @@ export interface OAuthAccessTokenValidation {
   /** The workspace the consent bound the token to (the fence judges it like a
    *  workspace key). Null = unbound: it acts as the person everywhere. */
   boundWorkspaceId?: string | null;
+  /** The second factor the minting session passed ('aal2'), or null. Honored
+   *  in `accountId` only (`middleware/actor.ts`). */
+  mfaAal?: string | null;
   error?: string;
 }
 
@@ -115,6 +128,7 @@ export async function validateOAuthAccessToken(token: string): Promise<OAuthAcce
       expiresAt: oauthAccessTokens.expiresAt,
       clientActive: oauthClients.active,
       boundWorkspaceId: oauthAccessTokens.boundWorkspaceId,
+      mfaAal: oauthAccessTokens.mfaAal,
     })
     .from(oauthAccessTokens)
     .innerJoin(oauthClients, eq(oauthClients.clientId, oauthAccessTokens.clientId))
@@ -132,5 +146,6 @@ export async function validateOAuthAccessToken(token: string): Promise<OAuthAcce
     clientId: row.clientId,
     scopes: (row.scopes as string[] | null) ?? [],
     boundWorkspaceId: row.boundWorkspaceId ?? null,
+    mfaAal: row.mfaAal ?? null,
   };
 }

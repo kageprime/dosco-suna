@@ -9,7 +9,7 @@ import { EXTENSION_ORIGIN, isExtensionPanelFrame } from '@/lib/supabase/panel-co
 
 import { postPanelRoute } from './panel/panel-channel';
 
-export interface ExtensionIdentityMessage {
+interface ExtensionIdentityMessage {
   type: 'kortix.identity';
   userId: string;
   email: string;

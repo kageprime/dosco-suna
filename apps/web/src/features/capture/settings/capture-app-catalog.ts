@@ -146,7 +146,7 @@ const byId = new Map(
 /** The catalog app an id belongs to, if any. */
 export const catalogApp = (id: string): CatalogApp | undefined => byId.get(id.toLowerCase());
 
-export interface NamedRow {
+interface NamedRow {
   /** Every id this row stands for: a catalog app's ids that are in the list, else the one id. */
   ids: string[];
   name: string;

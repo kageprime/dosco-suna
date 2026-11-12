@@ -318,7 +318,7 @@ function SessionRowImpl({
   if (selectMode) {
     return (
       // A label, not a button: the row wraps a real Checkbox, and nesting a
-      // button (Radix renders one) inside a button is invalid.
+      // button (the Checkbox renders one) inside a button is invalid.
       <label
         className={cn(
           'hover:bg-muted/40 flex h-11 w-full cursor-pointer items-center gap-3 rounded-md px-3 text-left',

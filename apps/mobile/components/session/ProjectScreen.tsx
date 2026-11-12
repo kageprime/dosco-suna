@@ -29,7 +29,7 @@ import { useProjectSessionConnect } from '@/lib/session/project-connect';
 import { markComposerFocus } from '@/lib/onboarding/composer-handoff';
 import { useProjectHomeSend } from '@/components/session/use-project-home-send';
 import { useProjectStack } from '@/components/session/use-project-stack';
-import { View } from 'react-native';
+import { View, useWindowDimensions } from 'react-native';
 import { Stack, useIsFocused, useLocalSearchParams } from 'expo-router';
 
 import { useSandboxContext } from '@/contexts/SandboxContext';
@@ -42,6 +42,7 @@ import { useTabStore, PAGE_TABS } from '@/stores/tab-store';
 import { useLastProjectStore } from '@/stores/last-project-store';
 import {
   PROJECT_ACCOUNT_ROUTE,
+  PROJECT_ARTIFACTS_ROUTE,
   PROJECT_FILES_ROUTE,
   PROJECT_HOME_ROUTE,
   PROJECT_INBOX_ROUTE,
@@ -79,6 +80,7 @@ import {
   type SessionActionsSheetRef,
 } from '@/components/session/SessionActionsSheet';
 import { Drawer } from 'react-native-drawer-layout';
+import { DrawerPeekCard, useDrawerBackdropColor } from '@/components/session/DrawerPeekCard';
 import { haptics } from '@/lib/haptics';
 import {
   useProject,
@@ -86,14 +88,29 @@ import {
   useProjectSessions,
 } from '@/lib/projects/hooks';
 import { DRAWER_CLOSE, DRAWER_OPEN } from '@/lib/ui/drawer-springs';
+import type { LegacyPanGesture } from 'react-native-gesture-handler';
+import {
+  DRAWER_OPEN_ACTIVATION,
+  DRAWER_OPEN_FAIL_LEFT,
+  drawerSwipeEdgeWidth,
+  projectDrawerWidth,
+} from '@/lib/ui/drawer-layout';
 import { useReviewNeedsYou } from '@/lib/review/use-review';
 import { needsYouBySession } from '@/lib/session/needs-you';
 import { runtimeSessionsOf, sessionParentId } from '@kortix/sdk';
+import { ArtifactViewerSheet } from '@/components/artifacts/ArtifactViewerSheet';
 import { KortixProjectProvider, useNotificationInbox, useSessionsNeedingInput } from '@kortix/sdk/react';
 import { NOTIFICATION_INBOX_LIMIT } from '@/lib/notifications/inbox';
 import { carryOverLegacyKinds } from '@/lib/notifications/registration';
 import { useSavedCopy } from '@/hooks/useSavedCopy';
 import type { ProjectSession } from '@/lib/projects/projects-client';
+
+/**
+ * The drawer's pan gesture, as `configureGestureHandler` receives it. The
+ * library types it as gesture-handler 3's `PanGesture`, but it builds it with
+ * the builder API (`Gesture.Pan()`): at runtime it is a `LegacyPanGesture`.
+ */
+type DrawerPan = Parameters<NonNullable<React.ComponentProps<typeof Drawer>['configureGestureHandler']>>[0];
 
 // ── Tool pages (reused verbatim from the legacy page ternary) ──
 
@@ -347,6 +364,37 @@ export function ProjectScreen() {
   // Stable handlers, so a memoized SessionPage skips parent re-renders.
   const openDrawer = useCallback(() => setDrawerOpen(true), []);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+  // The peek-card drawer's geometry (lib/ui/drawer-layout): the sidebar width
+  // and the swipe area follow the window (rotation, iPad split view) and the
+  // route on top.
+  const { width: windowWidth } = useWindowDimensions();
+  const drawerWidth = projectDrawerWidth(windowWidth);
+  const drawerBackdrop = useDrawerBackdropColor();
+  const [topRouteName, setTopRouteName] = useState<string>(PROJECT_HOME_ROUTE);
+  const drawerStyle = useMemo(
+    () => ({
+      width: drawerWidth,
+      backgroundColor: 'transparent',
+      shadowColor: 'transparent',
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      shadowOffset: { width: 0, height: 0 },
+      elevation: 0,
+    }),
+    [drawerWidth]
+  );
+  // Closed, the pan starts only on a rightward move: a leftward swipe on the
+  // page (a code block scrolled forward, a row's swipe action) never opens
+  // the drawer. Open, the library's default (5pt either way) closes it.
+  const configureDrawerPan = useCallback(
+    (pan: DrawerPan) =>
+      drawerOpen
+        ? pan
+        : ((pan as unknown as LegacyPanGesture)
+            .activeOffsetX([-Number.MAX_SAFE_INTEGER, DRAWER_OPEN_ACTIVATION])
+            .failOffsetX(DRAWER_OPEN_FAIL_LEFT) as unknown as DrawerPan),
+    [drawerOpen]
+  );
 
   const { topRouteRef, topNavigationRef, edgeGesture, setEdgeGesture, replaceProject, returnHome, navigateProjectRoute, openSubPage } = useProjectStack(
     projectId, goHome, returnToThread, drawerOpen, setDrawerOpen,
@@ -844,24 +892,25 @@ export function ProjectScreen() {
         open={drawerOpen}
         onOpen={openDrawer}
         onClose={closeDrawer}
+        // The ChatGPT-style peek card (Jay, 2026-11-11): the sidebar, 82% of
+        // the window (max 360pt), on the chrome surface; the page slides
+        // right by that width and turns into a rounded card (DrawerPeekCard).
+        // The overlay is transparent: a tap on the peek strip closes.
         drawerType="slide"
-        drawerStyle={{
-          width: '100%',
-          backgroundColor: 'transparent',
-          shadowColor: 'transparent',
-          shadowOpacity: 0,
-          shadowRadius: 0,
-          shadowOffset: { width: 0, height: 0 },
-          elevation: 0,
-        }}
+        drawerStyle={drawerStyle}
+        style={{ backgroundColor: drawerBackdrop }}
         overlayStyle={{ backgroundColor: 'transparent' }}
-        // The left edge opens the drawer on every project route except a
-        // sub-page, where it is the iOS swipe-back: one edge gesture, one
-        // meaning per screen. Off while a root screen (Billing, a settings
-        // page) covers the project.
+        overlayAccessibilityLabel="Close menu"
+        // A rightward swipe opens the drawer on every project route except a
+        // sub-page, where the left edge is the iOS swipe-back: one edge
+        // gesture, one meaning per screen. Off while a root screen (Billing, a
+        // settings page) covers the project. It starts anywhere on the page,
+        // except on a thread (`view`): its left third only, so content that
+        // scrolls sideways keeps the rest (`drawerSwipeEdgeWidth`).
         swipeEnabled={isFocused && edgeGesture === 'drawer'}
-        swipeEdgeWidth={80}
+        swipeEdgeWidth={drawerSwipeEdgeWidth(topRouteName, windowWidth)}
         swipeMinDistance={30}
+        configureGestureHandler={configureDrawerPan}
         // A tap opens on the iOS sheet curve (420ms, 90% by ~154ms) and closes
         // on ease-out-quad (320ms, 80% by ~170ms); a swipe release keeps a
         // critically damped spring and its
@@ -873,6 +922,7 @@ export function ProjectScreen() {
         openSpringConfig={DRAWER_OPEN}
         closeSpringConfig={DRAWER_CLOSE}
         renderDrawerContent={renderDrawer}>
+        <DrawerPeekCard>
         {/* The SDK's project scope: its runtime hooks read this project from it. */}
         <KortixProjectProvider projectId={projectId}>
         <ProjectRouteProvider value={projectRoute}>
@@ -902,18 +952,24 @@ export function ProjectScreen() {
                 topRouteRef.current = route.name;
                 topNavigationRef.current = routeNavigation;
                 setEdgeGesture(projectEdgeGesture(route.name));
+                setTopRouteName(route.name);
               },
             })}>
             <Stack.Screen name={PROJECT_HOME_ROUTE} />
             <Stack.Screen name={PROJECT_VIEW_ROUTE} />
             <Stack.Screen name={PROJECT_SESSIONS_ROUTE} />
             <Stack.Screen name={PROJECT_FILES_ROUTE} />
+            <Stack.Screen name={PROJECT_ARTIFACTS_ROUTE} />
             <Stack.Screen name={PROJECT_ACCOUNT_ROUTE} />
             <Stack.Screen name={PROJECT_INBOX_ROUTE} />
             <Stack.Screen name={PROJECT_PAGE_ROUTE} options={{ gestureEnabled: true }} />
           </Stack>
         </ProjectRouteProvider>
+        {/* One artifact viewer for the project: the Artifacts page's rows and a
+            thread's artifact links open it over the screen they are on. */}
+        <ArtifactViewerSheet projectId={projectId} />
         </KortixProjectProvider>
+        </DrawerPeekCard>
       </Drawer>
 
       {/* One session actions sheet (COR-140 Task 5): the thread's "···", the

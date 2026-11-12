@@ -17,6 +17,7 @@ import {
   deleteRevokedPersonalAccountToken,
   listPersonalTokensOfUser,
   personalTokenAccountOfUser,
+  type CreateAccountTokenResult,
 } from '../../repositories/account-tokens';
 import { ACCOUNT_ACTIONS, assertAuthorized, authorize } from '../../iam';
 import { actorOf, type Actor } from '../../iam/actor';
@@ -45,6 +46,44 @@ import type { TokenBinding } from '../../iam/actor';
 /** The scope and expiry fields every key row carries on the wire. */
 export function keyWire(t: { scopes?: KeyScopes | null; expiryRenewDays?: number | null }) {
   return { ...keyScopeWire(t.scopes ?? null), expiry_renews: t.expiryRenewDays != null };
+}
+
+/**
+ * The AccountToken wire: the one renderer of a key's eleven wire fields. The
+ * three token routes render it directly. `project_id`/`workspace_id` follow the
+ * row's `projectId` (null for a personal key); `last_used_at`/`revoked_at` the
+ * row's dates; `secret_key` rides once, on the mint response.
+ */
+export function tokenWire(
+  t: {
+    tokenId: string;
+    name: string;
+    publicKey: string;
+    status: string;
+    expiresAt: Date | null;
+    createdAt: Date;
+    projectId?: string | null;
+    scopes?: KeyScopes | null;
+    expiryRenewDays?: number | null;
+    lastUsedAt?: Date | null;
+    revokedAt?: Date | null;
+  },
+  { secretKey }: { secretKey?: string } = {},
+) {
+  return {
+    token_id: t.tokenId,
+    name: t.name,
+    project_id: t.projectId ?? null,
+    workspace_id: t.projectId ?? null,
+    public_key: t.publicKey,
+    ...(secretKey !== undefined ? { secret_key: secretKey } : {}),
+    status: t.status,
+    expires_at: t.expiresAt?.toISOString() ?? null,
+    ...(t.lastUsedAt !== undefined ? { last_used_at: t.lastUsedAt?.toISOString() ?? null } : {}),
+    created_at: t.createdAt.toISOString(),
+    ...(t.revokedAt !== undefined ? { revoked_at: t.revokedAt?.toISOString() ?? null } : {}),
+    ...keyWire(t),
+  };
 }
 
 /** The scope of the key this request authenticated with (null = full, or no key). */
@@ -242,21 +281,7 @@ accountsRouter.openapi(
   async (c) => {
   if (!isPersonCaller(c)) return c.json({ error: 'Personal keys are managed by the person, from a browser session or a personal key', code: 'person_route' }, 403);
   const tokens = await listPersonalTokensOfUser(c.get('userId') as string);
-  return c.json(
-    tokens.map((t) => ({
-      token_id: t.tokenId,
-      name: t.name,
-      project_id: null,
-      workspace_id: null,
-      public_key: t.publicKey,
-      status: t.status,
-      expires_at: t.expiresAt?.toISOString() ?? null,
-      last_used_at: t.lastUsedAt?.toISOString() ?? null,
-      created_at: t.createdAt.toISOString(),
-      revoked_at: t.revokedAt?.toISOString() ?? null,
-      ...keyWire(t),
-    })),
-  );
+  return c.json(tokens.map((t) => tokenWire(t)));
   },
 );
 
@@ -383,21 +408,7 @@ accountsRouter.openapi(
   const tokens = isTruthyFlag(c.req.query('mine'))
     ? await listPersonalAccountTokens(accountId, userId)
     : await listAccountTokens(accountId, undefined, canSeeAll ? undefined : userId);
-  return c.json(
-    tokens.map((t) => ({
-      token_id: t.tokenId,
-      name: t.name,
-      project_id: t.projectId ?? null,
-      workspace_id: t.projectId ?? null,
-      public_key: t.publicKey,
-      status: t.status,
-      expires_at: t.expiresAt?.toISOString() ?? null,
-      last_used_at: t.lastUsedAt?.toISOString() ?? null,
-      created_at: t.createdAt.toISOString(),
-      revoked_at: t.revokedAt?.toISOString() ?? null,
-      ...keyWire(t),
-    })),
-  );
+  return c.json(tokens.map((t) => tokenWire(t)));
   },
 );
 }
@@ -532,22 +543,29 @@ accountsRouter.openapi(
 }
 
 /**
- * Mint a key that acts as the caller, from a parsed body: the handler of
- * `POST /v1/accounts/tokens` and `POST /v1/workspaces/:workspaceId/tokens`, and
- * the `acts_as: "me"` branch of `POST /v1/workspaces/:workspaceId/keys`.
+ * Mint a key that acts as the caller, from a parsed body: the created row, or
+ * the refusal (`{ status; body }`) to answer with. The `acts_as: "me"` branch
+ * of `POST /v1/workspaces/:workspaceId/keys` takes the row itself instead of
+ * round-tripping an HTTP body.
  */
-export async function mintTokenFromBody(c: Context, body: Record<string, unknown>): Promise<Response> {
+export async function mintAccountToken(
+  c: Context,
+  body: Record<string, unknown>,
+): Promise<
+  | { ok: true; token: CreateAccountTokenResult; expiryRenewDays: number | null }
+  | { ok: false; status: 400 | 403 | 409; body: { error: string; code?: string; permissions?: string[] } }
+> {
   const userId = c.get('userId') as string;
   // A connected app's revocable `kortix_oat_` token must not mint a durable one.
   if (c.get('authType') === 'oauth') {
-    return c.json({ error: 'Connected apps cannot mint personal access tokens.' }, 403);
+    return { ok: false, status: 403, body: { error: 'Connected apps cannot mint personal access tokens.' } };
   }
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   if (!name) {
-    return c.json({ error: 'name is required' }, 400);
+    return { ok: false, status: 400, body: { error: 'name is required' } };
   }
   if (name.length > 255) {
-    return c.json({ error: 'name too long (max 255 chars)' }, 400);
+    return { ok: false, status: 400, body: { error: 'name too long (max 255 chars)' } };
   }
   const accountOverride =
     pathAccountOf(c) ??
@@ -560,7 +578,7 @@ export async function mintTokenFromBody(c: Context, body: Record<string, unknown
     rethrowDatabaseError(err);
     // 409 `no_workspace`: a person with no account has nowhere to mint into.
     if (isNoWorkspaceError(err)) throw err;
-    return c.json({ error: (err as Error).message }, 403);
+    return { ok: false, status: 403, body: { error: (err as Error).message } };
   }
 
   // A PAT authenticates AS the person who minted it and is authorized against
@@ -578,7 +596,7 @@ export async function mintTokenFromBody(c: Context, body: Record<string, unknown
   // Default 90 days, at most the workspace maximum (365 days by default); no
   // expiry only when the key policy allows it (resolveMintExpiry).
   const expiry = await resolveMintExpiry(accountId, Object.hasOwn(body, 'expires_at') ? body.expires_at : undefined);
-  if (!expiry.ok) return c.json({ error: expiry.error, code: expiry.code }, expiry.status);
+  if (!expiry.ok) return { ok: false, status: expiry.status, body: { error: expiry.error, code: expiry.code } };
   const parentTokenId = c.get('tokenProjectId') ? (c.get('iamTokenId') as string | undefined) : undefined;
   const expiresAt = Object.hasOwn(body, 'expires_at')
     ? expiry.expiresAt
@@ -588,7 +606,7 @@ export async function mintTokenFromBody(c: Context, body: Record<string, unknown
     c.get('tokenProjectId') ? (c.get('iamTokenId') as string | undefined) : undefined,
   );
   if (expiryRefusal) {
-    return c.json({ error: expiryRefusal.error, code: expiryRefusal.code }, expiryRefusal.status);
+    return { ok: false, status: expiryRefusal.status, body: { error: expiryRefusal.error, code: expiryRefusal.code } };
   }
 
   // Optional project scope. A project-scoped key only ever works on that one
@@ -601,20 +619,21 @@ export async function mintTokenFromBody(c: Context, body: Record<string, unknown
   const binding = await pathTokenBinding(c);
   if (binding.kind === 'workspace') {
     if (projectId && projectId !== binding.projectId) {
-      return c.json({ error: 'project_id names another workspace than the one in the path' }, 400);
+      return { ok: false, status: 400, body: { error: 'project_id names another workspace than the one in the path' } };
     }
     projectId = binding.projectId;
   } else if (binding.kind === 'ambiguous' && !projectId) {
-    return c.json(
-      {
+    return {
+      ok: false,
+      status: 409,
+      body: {
         error: 'This account holds several workspaces. Name one: mint under /v1/workspaces/<workspace id>/tokens, or pass project_id.',
         // No id list: a member of a legacy account must not learn the ids of
         // workspaces they cannot read (finding 34). GET /v1/workspaces lists
         // the ones they can.
         code: WORKSPACE_AMBIGUOUS_CODE,
       },
-      409,
-    );
+    };
   }
 
   if (projectId) {
@@ -625,24 +644,25 @@ export async function mintTokenFromBody(c: Context, body: Record<string, unknown
     const fullIdentity = actsAsFullIdentity(c.get('authType') as string | undefined, actor);
     const loaded = await loadProjectForUser(c, projectId, fullIdentity ? 'read' : 'credentials');
     if (!loaded?.row || loaded.row.accountId !== accountId) {
-      return c.json({ error: 'Workspace not found' }, 403);
+      return { ok: false, status: 403, body: { error: 'Workspace not found' } };
     }
   }
 
   // The key's scope (design.md §3.2 C4a). Omitted: full, or the minting key's
   // own scope, so a scoped key never mints a wider one.
   const parsedScopes = parseKeyScopesInput(body.scopes);
-  if (!parsedScopes.ok) return c.json({ error: parsedScopes.error, code: parsedScopes.code }, 400);
+  if (!parsedScopes.ok) return { ok: false, status: 400, body: { error: parsedScopes.error, code: parsedScopes.code } };
   const parentScopes = callerKeyScopes(c);
   const scopes = parsedScopes.explicit ? parsedScopes.scopes : parentScopes;
   if (scopes && !projectId) {
-    return c.json(
-      { error: 'A scoped key is a workspace key: mint it under /v1/workspaces/<workspace id>/tokens.', code: 'invalid_scopes' },
-      400,
-    );
+    return {
+      ok: false,
+      status: 400,
+      body: { error: 'A scoped key is a workspace key: mint it under /v1/workspaces/<workspace id>/tokens.', code: 'invalid_scopes' },
+    };
   }
   if (!keyScopeWithin(scopes, parentScopes)) {
-    return c.json({ error: 'A scoped key can only mint keys inside its own scope.', code: 'key_scope_exceeds_parent' }, 403);
+    return { ok: false, status: 403, body: { error: 'A scoped key can only mint keys inside its own scope.', code: 'key_scope_exceeds_parent' } };
   }
   if (scopes && 'permissions' in scopes && projectId) {
     // Every listed permission must be one the creator holds NOW in this
@@ -653,14 +673,15 @@ export async function mintTokenFromBody(c: Context, body: Record<string, unknown
       if (!(await authorize(actor, permission, { type: 'workspace', id: projectId })).allowed) denied.push(permission);
     }
     if (denied.length > 0) {
-      return c.json(
-        {
+      return {
+        ok: false,
+        status: 403,
+        body: {
           error: `Your role in this workspace does not include ${denied.map((p) => `"${p}"`).join(', ')}. A key cannot hold a permission its creator lacks.`,
           code: 'key_scope_exceeds_role',
           permissions: denied,
         },
-        403,
-      );
+      };
     }
   }
 
@@ -669,28 +690,27 @@ export async function mintTokenFromBody(c: Context, body: Record<string, unknown
   const renews = body.renews === true && c.get('authType') === 'supabase' && !projectId && expiresAt !== undefined;
   const expiryRenewDays = renews ? Math.max(1, Math.round((expiresAt!.getTime() - Date.now()) / 86_400_000)) : null;
 
-  let created;
+  let created: CreateAccountTokenResult;
   try {
     created = await createAccountToken({ accountId, userId, name, expiresAt, projectId, scopes, expiryRenewDays });
   } catch (err) {
     if (err instanceof PatPolicyError) {
-      return c.json({ error: err.message, code: err.code }, 400);
+      return { ok: false, status: 400, body: { error: err.message, code: err.code } };
     }
     throw err;
   }
+  return { ok: true, token: created, expiryRenewDays };
+}
+
+/** The `POST …/tokens` handler: the mint core rendered through `tokenWire`. */
+async function mintTokenFromBody(c: Context, body: Record<string, unknown>): Promise<Response> {
+  const mint = await mintAccountToken(c, body);
+  if (!mint.ok) {
+    const { status, body: refusal } = mint;
+    return status === 400 ? c.json(refusal, 400) : status === 409 ? c.json(refusal, 409) : c.json(refusal, 403);
+  }
   return c.json(
-    {
-      token_id: created.tokenId,
-      name: created.name,
-      project_id: created.projectId ?? null,
-      workspace_id: created.projectId ?? null,
-      public_key: created.publicKey,
-      secret_key: created.secretKey,
-      status: created.status,
-      expires_at: created.expiresAt?.toISOString() ?? null,
-      created_at: created.createdAt.toISOString(),
-      ...keyWire({ scopes: created.scopes, expiryRenewDays }),
-    },
+    tokenWire({ ...mint.token, expiryRenewDays: mint.expiryRenewDays }, { secretKey: mint.token.secretKey }),
     201,
   );
 }

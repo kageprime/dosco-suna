@@ -15,7 +15,7 @@
  *
  * Reads the live catalog and the live planner (EXPLAIN with the app's
  * parameterized shape under `force_generic_plan`); never source text. Mirrors
- * `access-requests-unused-index-drop.integration.test.ts`.
+ * `access-requests-email-unique-constraint.integration.test.ts`.
  */
 import { describe, expect, test } from 'bun:test';
 import pg from 'pg';

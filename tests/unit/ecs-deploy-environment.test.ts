@@ -46,13 +46,10 @@ describe('ECS task environment overrides', () => {
     ]);
   });
 
-  it('keeps Composio in the prod secret map while retaining Pipedream for rollback', () => {
+  it('keeps Composio in the prod secret map', () => {
     const variables = readRepoFile('infra/terraform/environments/prod/variables.tf');
 
     expect(variables).toContain('COMPOSIO_API_KEY');
-    expect(variables).toContain('PIPEDREAM_CLIENT_ID');
-    expect(variables).toContain('PIPEDREAM_CLIENT_SECRET');
-    expect(variables).toContain('PIPEDREAM_PROJECT_ID');
 
     const module = readRepoFile('infra/terraform/modules/ecs-api/main.tf');
     expect(module).toContain('{ name = "KORTIX_ENV_JSON", valueFrom = var.secrets_blob_arn }');

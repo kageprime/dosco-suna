@@ -1,10 +1,8 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { inArray } from 'drizzle-orm';
 import type { Context } from 'hono';
 import { config } from '../../config';
 import { combinedAuth } from '../../middleware/auth';
 import { auth, errors, json, makeOpenApiApp } from '../../openapi';
-import { db } from '../../shared/db';
 import { listProjectsForWorkspace, loadTeamsAppIdForProject, loadTeamsInstall } from '../install-store';
 import { consumePendingTeamsAuthMessage, peekPendingTeamsAuthSenderName } from './auth-resume';
 import { chatUser, completeChatLogin } from '../core/identity';
@@ -14,7 +12,7 @@ import { verifyTeamsLoginState } from './login';
 import { createOrJoinTeamsConversationSession } from './session';
 import { confirmTeamsConnected } from './identity';
 import { readJsonObject } from '../../shared/http-body';
-import { projectsView } from '../../workspaces/rows';
+import { accountKeysOfWorkspaces } from '../../workspaces/rows';
 
 export const teamsIdentityApp = makeOpenApiApp();
 
@@ -149,11 +147,7 @@ teamsIdentityApp.openapi(
     if (projectIds.length === 0) {
       return c.json({ error: 'This Teams tenant is not connected to any Kortix workspace.' }, 403);
     }
-    const accountRows = await db
-      .select({ accountId: projectsView.accountId })
-      .from(projectsView)
-      .where(inArray(projectsView.projectId, projectIds));
-    const accountIds = Array.from(new Set(accountRows.map((r) => r.accountId)));
+    const accountIds = await accountKeysOfWorkspaces(projectIds);
 
     const outcome = await completeChatLogin({
       user: chatUser('teams', payload.tenantId, payload.teamsUserId),

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { existsSync } from 'node:fs';
 import {
   PROJECT_ACCOUNT_ROUTE,
+  PROJECT_ARTIFACTS_ROUTE,
   PROJECT_FILES_ROUTE,
   PROJECT_HOME_ROUTE,
   PROJECT_INBOX_ROUTE,
@@ -32,10 +33,17 @@ const COVERING = [
   PROJECT_VIEW_ROUTE,
   PROJECT_SESSIONS_ROUTE,
   PROJECT_FILES_ROUTE,
+  PROJECT_ARTIFACTS_ROUTE,
   PROJECT_ACCOUNT_ROUTE,
   PROJECT_INBOX_ROUTE,
 ] as const;
-const DRAWER_ROUTES = [PROJECT_SESSIONS_ROUTE, PROJECT_FILES_ROUTE, PROJECT_ACCOUNT_ROUTE, PROJECT_INBOX_ROUTE] as const;
+const DRAWER_ROUTES = [
+  PROJECT_SESSIONS_ROUTE,
+  PROJECT_FILES_ROUTE,
+  PROJECT_ARTIFACTS_ROUTE,
+  PROJECT_ACCOUNT_ROUTE,
+  PROJECT_INBOX_ROUTE,
+] as const;
 const HOME = PROJECT_HOME_ROUTE;
 const PAGE = PROJECT_PAGE_ROUTE;
 
@@ -46,10 +54,11 @@ describe('route names', () => {
       PROJECT_VIEW_ROUTE,
       PROJECT_SESSIONS_ROUTE,
       PROJECT_FILES_ROUTE,
+      PROJECT_ARTIFACTS_ROUTE,
       PROJECT_ACCOUNT_ROUTE,
       PROJECT_INBOX_ROUTE,
       PROJECT_PAGE_ROUTE,
-    ]).toEqual(['index', 'view', 'sessions', 'files', 'account', 'inbox', 'page']);
+    ]).toEqual(['index', 'view', 'sessions', 'files', 'artifacts', 'account', 'inbox', 'page']);
   });
 
   test('each has its screen file', () => {

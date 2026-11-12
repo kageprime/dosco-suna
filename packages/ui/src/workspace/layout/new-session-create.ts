@@ -1,10 +1,12 @@
 import type { ComposerOptions } from '../../session/composer/composer-chat-input';
-import type { SessionConnectorBindingsInput } from '@kortix/sdk';
+import { modelKeyToWire, type SessionConnectorBindingsInput } from '@kortix/sdk';
 import { isMyKortixAgentName, MY_KORTIX_SANDBOX_SLUG } from '@kortix/shared';
 
 export interface NewSessionCreateInput {
   sandbox_slug?: string;
   agent_name?: string;
+  /** The composer's launch model, gateway wire form — the create-time pin. */
+  model?: string;
   connector_bindings?: SessionConnectorBindingsInput;
   inherit_unbound?: boolean;
   provider_secret_pools?: Record<string, string[]>;
@@ -25,7 +27,7 @@ export interface NewSessionCreateInput {
  * no agent was picked), so callers can omit the create overrides entirely.
  */
 export function buildNewSessionCreateInput(
-  options: Pick<ComposerOptions, 'agent' | 'scope' | 'providerSecretPools'> & {
+  options: Pick<ComposerOptions, 'agent' | 'model' | 'scope' | 'providerSecretPools'> & {
     sandbox_slug?: string;
     } = {},
 ): NewSessionCreateInput | undefined {
@@ -36,6 +38,16 @@ export function buildNewSessionCreateInput(
     input.sandbox_slug = options.sandbox_slug;
   }
   if (options.agent) input.agent_name = options.agent;
+  // The launch model as the create-time pin. Only riding `pending_prompt.model`
+  // it never reaches the row: the server stamps the default chain, and the
+  // session's selector then shows the project default while the session starts
+  // even though the first turn runs on this pick. The same top-level `model`
+  // the CLI and mobile send — the API validates servability and pins
+  // `metadata.model` with `model_source: 'explicit'`, so the row carries the
+  // launch model from the first read, before the runtime is up.
+  if (options.model && options.model.modelID !== 'auto' && options.model.modelID !== 'kortix/auto') {
+    input.model = modelKeyToWire(options.model);
+  }
   if (options.providerSecretPools && Object.keys(options.providerSecretPools).length > 0) {
     input.provider_secret_pools = options.providerSecretPools;
   }

@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm';
 
 
 
-import { config } from '../../config';
+import { config, RELEASE_COMMIT, RELEASE_VERSION } from '../../config';
 
 
 
@@ -41,7 +41,7 @@ import { resolveSessionSecretGrant } from './secret-grant';
 import { AmbiguousSecretGrantError, intersectSecretGrants, listProjectSecretsSnapshotForUser } from '../secrets';
 import { SECRET_CAPABILITIES_ENV_NAME } from '../secret-capabilities';
 import { piPackageBundleForSession } from '../../pi-packages/bundle';
-import { manifestPiCodemode, manifestPiContext, manifestPiPackages, resolveCompiledAgentConfigForSession, resolveSelectedAgentConfigForSession } from './compile-agent-config';
+import { manifestPiCodemode, manifestPiContext, manifestPiPackages, resolveCompiledAgentConfigForSession, resolveSelectedAgentConfigForSession, manifestWorkspaceSetup, type SessionWorkspaceSetup } from './compile-agent-config';
 
 
 
@@ -66,6 +66,7 @@ import { buildFeatureFlagSandboxEnv } from './feature-flag-env';
 import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { buildSessionRuntimeEnv } from './session-runtime-env';
 import { buildMyKortixConfig } from './my-kortix-agent';
+import { myKortixSessionGrant } from './colleague-access';
 
 import { resolveSessionPersonalOwner } from './personal-resources';
 import { projectsView } from '../../workspaces/rows';
@@ -117,29 +118,8 @@ type SessionSandboxEnvInput = {
   baseRef: string;
   agentName: string;
   sessionModel?: string | null;
-  /** New session (brand-new branch == base, no remote commits). Lets the
-   *  daemon create the session branch LOCALLY instead of a redundant network
-   *  fetch of a branch that's identical to base — that fetch cost up to ~10s
-   *  through the dev tunnel (2026-06-13). Restart/resume omit it (their branch
-   *  may carry the agent's pushed commits → real fetch needed). */
-  freshSession?: boolean;
-  /** Replacement runtime must fetch the existing remote session branch once. */
-  restoreSessionBranch?: boolean;
   /** The project's base-branch tip SHA, resolved from the API's Git mirror. */
   baseSha?: string;
-  /** Bounded exact commit delta from the API mirror. The daemon imports it on
-   *  top of the baked scaffold and verifies `baseSha` before use. */
-  gitDeltaBundleBase64?: string;
-  /** Parent commit SHA required by the thin delta bundle. */
-  gitDeltaParentSha?: string;
-  /** Raw parent commit object used when the provider changed only commit metadata. */
-  gitDeltaParentCommitBase64?: string;
-  /** The delta exceeds the env cap; the daemon downloads it with one GET. */
-  gitDeltaBundleRemote?: boolean;
-  /** S3 config provider mode + prepared-archive pin — see session-runtime-env.ts. */
-  projectSnapshotMode?: 'git' | 'prefer-s3' | 'require-s3';
-  projectSnapshotPin?: string | null;
-  projectSnapshotDescriptor?: string | null;
   /** Project git context, so the running agent's `secrets` grant in `agents:`
    *  can be resolved and applied by IDENTIFIER — secrets the agent isn't
    *  granted are dropped from the injected env (a prompt-injected agent then
@@ -147,8 +127,11 @@ type SessionSandboxEnvInput = {
    *  grant defaults to 'all' (back-compat, no narrowing). */
   defaultBranch?: string;
   manifestPath?: string;
-  /** The reserved platform coordinator receives no project checkout or secrets. */
+  /** The reserved platform coordinator receives no project secrets. */
   platformMetaAgent?: boolean;
+  /** May this box receive repository bytes (`repository_access` on the session row, decided by
+   *  grants at create)? False: only the session's own agent is compiled, and no release archive
+   *  of the repository tree is signed for it. */
   repositoryAccess?: boolean;
 };
 
@@ -159,6 +142,7 @@ async function resolveSessionAgentConfig(input: SessionSandboxEnvInput): Promise
   manifestPackages: unknown[];
   manifestCodemode: 'off' | 'on' | 'only' | null;
   manifestContext: 'record' | 'summary' | null;
+  workspaceSetup: SessionWorkspaceSetup | null;
 }> {
   let agentGrantEnv: string[] | 'all' | undefined;
 
@@ -175,6 +159,7 @@ async function resolveSessionAgentConfig(input: SessionSandboxEnvInput): Promise
   let manifestPackages: unknown[] = [];
   let manifestCodemode: 'off' | 'on' | 'only' | null = null;
   let manifestContext: 'record' | 'summary' | null = null;
+  let workspaceSetup: SessionWorkspaceSetup | null = null;
   if (input.defaultBranch && !input.platformMetaAgent) {
     const gitProject = {
       projectId: input.projectId,
@@ -187,6 +172,7 @@ async function resolveSessionAgentConfig(input: SessionSandboxEnvInput): Promise
       manifestPackages = manifestPiPackages(raw, input.agentName);
       manifestCodemode = manifestPiCodemode(raw, input.agentName);
       manifestContext = manifestPiContext(raw, input.agentName);
+      workspaceSetup = manifestWorkspaceSetup(raw, input.agentName);
     };
     // `'tip-proof'`: the base ref was at the remote's tip within the refresh
     // interval, proven by this process or adopted from another
@@ -231,7 +217,7 @@ async function resolveSessionAgentConfig(input: SessionSandboxEnvInput): Promise
       }),
     ]);
   }
-  return { agentGrantEnv, compiledAgentConfig, manifestPackages, manifestCodemode, manifestContext };
+  return { agentGrantEnv, compiledAgentConfig, manifestPackages, manifestCodemode, manifestContext, workspaceSetup };
 }
 
 /** Read the session's runtime secrets and drop the ones the sandbox must never hold. */
@@ -407,10 +393,20 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
     }),
   );
   const secretsRead = started(
-    Promise.all([agentConfigRead, policyRead]).then(([{ agentGrantEnv }, { sessionPolicyRow, secretsPrincipalUserId }]) => {
-      const grantEnvForSession = input.platformMetaAgent
-        ? []
-        : intersectSecretGrants(agentGrantEnv, sessionPolicyRow?.secretsAllowlist ?? null);
+    Promise.all([agentConfigRead, policyRead]).then(async ([{ agentGrantEnv }, { sessionPolicyRow, secretsPrincipalUserId }]) => {
+      // My Kortix holds every secret its person can use (`myKortixAgentGrant`);
+      // the person's reach filters the values in `loadSessionRuntimeSecrets`.
+      const grantEnvForSession = intersectSecretGrants(
+        input.platformMetaAgent
+          ? (await myKortixSessionGrant(input.sessionId, {
+              projectId: input.projectId,
+              repoUrl: input.repoUrl,
+              defaultBranch: input.defaultBranch,
+              manifestPath: input.manifestPath,
+            })).env
+          : agentGrantEnv,
+        sessionPolicyRow?.secretsAllowlist ?? null,
+      );
       return tl.span('secrets', () =>
         loadSessionRuntimeSecrets(input, secretsPrincipalUserId, grantEnvForSession, agentGrantEnv),
       );
@@ -455,7 +451,7 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
     ),
   );
 
-  const { compiledAgentConfig, manifestPackages, manifestCodemode, manifestContext } = await agentConfigRead;
+  const { compiledAgentConfig, manifestPackages, manifestCodemode, manifestContext, workspaceSetup } = await agentConfigRead;
   const piPackagesBundle = await piPackagesRead;
   await policyRead;
   const sessionModel = await modelRead;
@@ -481,30 +477,16 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
     KORTIX_PROJECT_SECRET_NAMES: runtimeSecrets.names.join(','),
     KORTIX_PROJECT_SECRETS_REVISION: runtimeSecrets.revision,
     [SECRET_CAPABILITIES_ENV_NAME]: runtimeSecrets.capabilitiesJson,
-    // No partial-clone filter. Blobless (`blob:none`) defers file blobs to
-    // on-demand fetches, which stall through the Kortix git proxy when its
-    // partial-clone capability isn't advertised consistently — the clone then
-    // never finishes and the session never reaches runtimeReady. It is also
-    // simply slower: measured on kortix-ai/company, blobless 6161ms vs a full
-    // clone's 4288ms.
-    //
-    // Shallowness is the safe lever instead (KORTIX_CLONE_DEPTH=1, the daemon
-    // default): one pack, one commit, no on-demand fetches, with history
-    // restored in the background right after boot (scheduleHistoryBackfill).
-    // It is worth ~1.5x on the clone, no more — the dominant cost is the
-    // working tree plus the transatlantic git-proxy hop (sandbox US → API
-    // eu-west-2 → GitHub US).
-    KORTIX_CLONE_FILTER: '',
     ...buildSessionRuntimeEnv({
       projectId: input.projectId,
       sessionId: input.sessionId,
-      // Every sandbox clones through the Kortix Git proxy with KORTIX_TOKEN.
-      // Direct upstream origins are never delivered to the guest because they
-      // require exposing a provider credential to the sandbox.
+      // The Kortix Git proxy, authenticated with KORTIX_TOKEN. Direct upstream
+      // origins are never delivered to the guest: they need a provider credential.
       repoUrl: proxyGitUrl(input.projectId),
       baseRef: input.baseRef,
       agentName: input.agentName,
       apiUrl: deriveKortixApiBase(),
+      release: { version: RELEASE_VERSION, commit: RELEASE_COMMIT },
       frontendUrl: sandboxFrontendBaseUrl(),
       // Concrete session model after explicit → agent → project → account →
       // platform resolution — re-pointed above when the runtime lineup
@@ -515,25 +497,12 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
       piPackages: manifestPackages,
       piCodemode: manifestCodemode,
       piContext: manifestContext,
+      workspaceSetup,
+      repositoryAccess: input.repositoryAccess ?? true,
       piPackagesBundle,
-      repositoryAccess: input.repositoryAccess,
-      freshSession: input.freshSession,
-      restoreSessionBranch: input.restoreSessionBranch,
-      baseSha: input.baseSha,
-      gitDeltaBundleBase64: input.gitDeltaBundleBase64,
-      gitDeltaParentSha: input.gitDeltaParentSha,
-      gitDeltaParentCommitBase64: input.gitDeltaParentCommitBase64,
-      gitDeltaBundleRemote: input.gitDeltaBundleRemote,
-      projectSnapshotMode: input.projectSnapshotMode,
-      projectSnapshotPin: input.projectSnapshotPin,
-      projectSnapshotDescriptor: input.projectSnapshotDescriptor,
     }),
-    // The platform coordinator uses API-level delegation and never receives a
-    // project checkout. Keep this override after buildSessionRuntimeEnv so the
-    // agent workspace mode cannot re-enable the daemon's automatic clone.
-    ...(input.platformMetaAgent
-      ? { KORTIX_PROJECT_AUTO_CLONE: '0', KORTIX_META_AGENT: '1' }
-      : {}),
+    // The platform coordinator uses API-level delegation.
+    ...(input.platformMetaAgent ? { KORTIX_META_AGENT: '1' } : {}),
     // The restore graduated on 2026-11-05: a current daemon reconciles at every boot without this key.
     // A daemon older than that skips the reconcile unless it reads '1', so every box gets it. Delete
     // the key once the runtime floor (session-open/runtime-floor-policy.ts) excludes those daemons.

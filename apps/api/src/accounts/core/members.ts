@@ -131,8 +131,8 @@ export function registerMemberRoutes(): void {
         ...errors(401, 403),
       },
     }),
-    async (c: any) => {
-      const userId = c.get('userId') as string;
+    async (c) => {
+      const userId = c.get('userId');
       const accountId = accountIdParam(c);
 
       const membership = await getMembership(userId, accountId);
@@ -340,8 +340,8 @@ export function registerMemberRoutes(): void {
         ...errors(401, 403, 404, 409),
       },
     }),
-    async (c: any) => {
-      const callerUserId = c.get('userId') as string;
+    async (c) => {
+      const callerUserId = c.get('userId');
       const accountId = accountIdParam(c);
       const targetUserId = c.req.param('userId');
 
@@ -396,8 +396,8 @@ export function registerMemberRoutes(): void {
         ...errors(400, 401, 403, 404, 409),
       },
     }),
-    async (c: any) => {
-      const callerUserId = c.get('userId') as string;
+    async (c) => {
+      const callerUserId = c.get('userId');
       const accountId = accountIdParam(c);
       const targetUserId = c.req.param('userId');
 
@@ -517,8 +517,8 @@ export function registerMemberRoutes(): void {
         ...errors(401, 404, 409),
       },
     }),
-    async (c: any) => {
-      const userId = c.get('userId') as string;
+    async (c) => {
+      const userId = c.get('userId');
       const accountId = accountIdParam(c);
 
       const membership = await getMembership(userId, accountId);

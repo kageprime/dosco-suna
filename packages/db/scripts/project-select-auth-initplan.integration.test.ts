@@ -190,7 +190,8 @@ async function legacyFixture(): Promise<void> {
   await admin.query(LEGACY_POLICY_SQL);
   await admin.query(FIXTURE_PROJECTS_SQL);
   await admin.query(
-    `INSERT INTO basejump.account_user (user_id, account_id, account_role) VALUES ('${USER_A}', '${ACCOUNT_A}', 'owner'), ('${USER_B}', '${ACCOUNT_B}', 'owner')`,
+    // The basejump stub exists when the migrations run, so freeze_legacy_suna_tables freezes it.
+    `SET kortix.legacy_write = 'on'; INSERT INTO basejump.account_user (user_id, account_id, account_role) VALUES ('${USER_A}', '${ACCOUNT_A}', 'owner'), ('${USER_B}', '${ACCOUNT_B}', 'owner')`,
   );
   await admin.query(`INSERT INTO public.user_roles (user_id, role) VALUES ('${USER_A}', 'admin')`);
   // The migration must run as the role prod's runner runs as: the table owner.

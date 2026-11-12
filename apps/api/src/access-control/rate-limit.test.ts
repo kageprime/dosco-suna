@@ -4,7 +4,15 @@ const submissions: Array<Record<string, unknown>> = [];
 mock.module('../config', () => ({ config: {} }));
 mock.module('../shared/db', () => ({
   withDbTransaction: <T,>(action: () => Promise<T>): Promise<T> => action(),
-  db: { insert: () => ({ values: async (row: Record<string, unknown>) => { submissions.push(row); } }) },
+  db: {
+    insert: () => ({
+      values: (row: Record<string, unknown>) => ({
+        onConflictDoNothing: async () => {
+          submissions.push(row);
+        },
+      }),
+    }),
+  },
 }));
 mock.module('../shared/audit', () => ({ recordAuditEvent: async () => {} }));
 mock.module('../repositories/sso', () => ({ ssoEnforcedForEmail: async () => null }));

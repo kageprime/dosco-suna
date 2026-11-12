@@ -15,6 +15,7 @@ import type {
   PipedreamActionLike,
   Risk,
 } from './types';
+import { unannotatedActionRisk } from './action-risk';
 import { withKortixComposioTools } from './composio-youtube-upload';
 export { normalizePostmanCollection } from './postman-normalize';
 
@@ -380,15 +381,18 @@ export function normalizePipedream(actions: PipedreamActionLike[], app: string):
         properties[p.name] = { type: pdType(p.type), ...(p.description ? { description: p.description } : {}) };
         if (p.required) required.push(p.name);
       }
+      // tool path = action key minus the app prefix (e.g. gmail-send-email → send_email)
+      const path = seg(a.key.startsWith(`${app}-`) ? a.key.slice(app.length + 1) : a.key);
+      const description = String(a.description || a.name);
       return {
-        // tool path = action key minus the app prefix (e.g. gmail-send-email → send_email)
-        path: seg(a.key.startsWith(`${app}-`) ? a.key.slice(app.length + 1) : a.key),
+        path,
         name: a.name,
-        description: String(a.description || a.name),
+        description,
         inputSchema: Object.keys(properties).length ? { type: 'object', properties, ...(required.length ? { required } : {}) } : null,
         outputSchema: null,
-        // Pipedream actions mutate by default; treat as write (the policy layer can refine).
-        risk: 'write' as Risk,
+        // Pipedream sends no risk annotation: the reviewed classifier decides,
+        // and anything it cannot prove a read is write (action-risk.ts).
+        risk: unannotatedActionRisk('pipedream', { path, description, risk: 'write' }),
         binding: { kind: 'pipedream', app, actionKey: a.key } as ActionBinding,
       };
     });
@@ -452,15 +456,18 @@ export function normalizeComposio(tools: ComposioToolLike[], toolkit: string): N
     )
     .map((tool) => {
       const toolSlug = tool.function.name;
+      const path = seg(toolSlug.startsWith(prefix) ? toolSlug.slice(prefix.length) : toolSlug);
+      const description = String(tool.function.description || toolSlug);
       return {
-        path: seg(toolSlug.startsWith(prefix) ? toolSlug.slice(prefix.length) : toolSlug),
+        path,
         name: toolSlug,
-        description: String(tool.function.description || toolSlug),
+        description,
         inputSchema: normalizeJsonSchema(tool.function.parameters),
         outputSchema: null,
-        // The OpenAI wrapper does not retain Composio tool annotations. Default
-        // to write so policy evaluation fails closed for unknown mutations.
-        risk: 'write' as Risk,
+        // The OpenAI wrapper does not retain Composio tool annotations. The
+        // reviewed classifier decides; anything it cannot prove a read stays
+        // write, so policy evaluation fails closed (action-risk.ts).
+        risk: unannotatedActionRisk('composio', { path, description, risk: 'write' }),
         binding: { kind: 'composio', toolkit, toolSlug } as ActionBinding,
       };
     });

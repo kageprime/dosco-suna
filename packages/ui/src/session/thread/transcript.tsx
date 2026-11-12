@@ -97,6 +97,7 @@ import type {
 } from '../turn/user-message';
 import type { TurnServedModel } from '../turn/served-model';
 import { SessionBusyIndicator } from '../status/session-busy-indicator';
+import { useAnswerStreaming } from '../turn/answer-streaming';
 import { SessionTurnMeta } from './session-turn-meta';
 import { TurnShareButton } from './turn-share';
 import {
@@ -1596,15 +1597,21 @@ function TurnUserBlock(
     model: TurnModelState;
     queueTone: TurnQueueTone;
     userContent: TurnUserContentState;
+    /** True when the turn's notice row renders in the work fold instead (KRTX-4732). */
+    noticeInWork?: boolean;
   },
 ) {
-  const { userContent } = props;
+  const { userContent, noticeInWork } = props;
   const { sessionReport, noticeBatch, subagentNotice, peerMessage, parkedAnswer, systemMessages, hasVisibleUserContent } = userContent;
   // P5.6: the note a partial restore left for the agent is a notice, not a person's prompt.
   if (isSessionLogRestoreNote(props.turn.user)) return <RestoreNoteMarker />;
   return (
     <>
-      {noticeBatch ? (
+      {/* A notice turn's row folds into the work fold (`workNotice`), so the
+          parent's answer is the only top-level message (KRTX-4732). A parked
+          answer and a session report cannot coexist with a notice row, so the
+          fold never hides one of those. */}
+      {!noticeInWork && (noticeBatch ? (
         <NoticeBatchGroup items={noticeBatch} />
       ) : subagentNotice ? (
         <SubagentNoticeRow notice={subagentNotice} />
@@ -1614,7 +1621,7 @@ function TurnUserBlock(
         <ParkedAnswerRow answer={parkedAnswer} />
       ) : (
         sessionReport && <TurnSessionReport report={sessionReport} />
-      )}
+      ))}
       {/* ── System message indicator — shown for kortix_system-only messages ── */}
       {!hasVisibleUserContent && !sessionReport && !noticeBatch && !peerMessage && !parkedAnswer && systemMessages.length > 0 && (
         <SystemMessageIndicator messages={systemMessages} />
@@ -1715,11 +1722,14 @@ function TurnToolBlocks(
     /** False keeps today's flat render (inline text-and-questions mode). */
     fold: boolean;
     durationMs: number | null;
+    /** The turn's notice row (a sub-agent's report, a teammate's update) that
+     *  folds in here instead of the top level (KRTX-4732). */
+    workNotice?: ReactNode;
   },
 ) {
   const {
     turn, sessionId, permissions, onPermissionReply, disableToolNavigation,
-    model, segments, conversationDensity, fold, durationMs,
+    model, segments, conversationDensity, fold, durationMs, workNotice,
   } = props;
   const { working, hasSteps, hasReasoning } = model;
   // Every settled turn folds, live or reloaded (the T3 Code rule): one turn
@@ -1730,6 +1740,14 @@ function TurnToolBlocks(
     () => (fold && !working ? splitSessionLogTurnWork(segments.filter(segmentRendersSomething), { working }) : null),
     [fold, segments, working],
   );
+  // A settled turn whose prompt is another agent's notice folds the notice
+  // row into this work fold with the work it led to (KRTX-4732): the parent's
+  // answer below is the only top-level message, and the row stays reachable
+  // by opening the row. A turn with no work of its own still gets the fold,
+  // so the exchange never becomes unreachable. In the inline mode (text plus
+  // an answered question, no fold row) the row renders visible above the
+  // answer instead — the gate below keeps the block mounted for it.
+  const noticeFold = !!workNotice && fold && !working;
   const workSegments = useMemo(() => new Set<TurnSegments[number]>(split?.work ?? []), [split]);
   const touchedLive = useRef(false);
   const markTouched = useCallback(() => {
@@ -1816,7 +1834,7 @@ function TurnToolBlocks(
 			      questions are dropped entirely. Additionally, answered
 			      questions are dropped when rendering inline content (below),
 			      since that mode shows them already, in natural order. */}
-    {(working || hasSteps || hasReasoning) && turn.assistant.length > 0 && (
+    {(working || hasSteps || hasReasoning || noticeFold || !!workNotice) && (turn.assistant.length > 0 || !!workNotice) && (
       // Every tool row below — the bursts' rows and the standalone ones —
       // reads this to tell a call that has not spoken YET from one that never
       // will. Provided here rather than per-row because `working` is a fact
@@ -1838,7 +1856,7 @@ function TurnToolBlocks(
               "Worked for" row joins the list at the top and the work is
               hidden in place. The hoisted cards stay visible where they were
               called, so an opened row reads in call order. */}
-          {split && (
+          {(split || noticeFold) && (
             <TurnWorkAccordion
               key="turn-work"
               durationMs={durationMs}
@@ -1846,6 +1864,19 @@ function TurnToolBlocks(
               onToggle={toggleWork}
               contentId={workContentId}
             />
+          )}
+          {/* The notice row the turn's prompt carried: it reads first, before
+              the work it led to, in both states. Settled it is fold content —
+              hidden with the work until the reader opens the row (KRTX-4732). */}
+          {workNotice && (!noticeFold || workMounted) && (
+            <div
+              key="turn-notice"
+              id={workContentId}
+              hidden={!!(split || noticeFold) && !workOpen}
+              className="min-w-0"
+            >
+              <WorkFoldContext.Provider value={!working}>{workNotice}</WorkFoldContext.Provider>
+            </div>
           )}
           {segments.map((segment) => {
             const isWork = workSegments.has(segment);
@@ -1856,7 +1887,7 @@ function TurnToolBlocks(
             return (
               <div
                 key={node.key}
-                id={isWork && segment === split?.work[0] ? workContentId : undefined}
+                id={!workNotice && isWork && segment === split?.work[0] ? workContentId : undefined}
                 hidden={hidden}
                 className="min-w-0"
               >
@@ -2299,6 +2330,7 @@ function TurnFooter(
         turnError={turnError}
         tHardcodedUi={tHardcodedUi}
         hasText={model.response.trim() !== ''}
+        openText={model.openText?.block.text}
       />
     {/* ── Error (abort / failure banner) ──
         An automatic provider-error recovery chain (KRTX-2597) renders ONE
@@ -2439,6 +2471,8 @@ function TurnBusyRow(
     quietBusy?: boolean;
     /** The answer already streams text: the dots are gone (the words are the signal). */
     hasText?: boolean;
+    /** The open text block's text (`openTextBlock`): while it grows, the row hides. */
+    openText?: string;
   },
 ) {
   const { working, turnError, suppressBusyIndicator, awaitingUser, sessionId, retry, status, tHardcodedUi, quietBusy } = props;
@@ -2448,9 +2482,12 @@ function TurnBusyRow(
   const tTurn = useTranslations('sessionUi.turn');
   // The thread's computer is not up yet: the wait is a start, not work.
   const runtimeReady = useRuntimeReady();
+  // The words streaming in are the busy signal: no "Gathering thoughts..." row
+  // glued under them. It returns when the block closes or the text goes quiet.
+  const answerStreaming = useAnswerStreaming(props.openText);
   return (
     <>
-    {showTurnBusyIndicator({
+    {!(answerStreaming && !quietBusy && !retryInfo) && showTurnBusyIndicator({
       working: working && !suppressBusyIndicator,
       hasError: !!turnError,
       isRetrying: !!retryInfo,
@@ -2644,6 +2681,22 @@ function SessionTurnImpl(props: SessionTurnProps) {
   const errors = useTurnErrorState({ turn, turnOutcome });
   const answered = useAnsweredQuestionState({ turn, questions, sessionId, blocks: model.blocks, hasSteps: model.hasSteps });
   const userContent = useTurnUserContent({ turn, commandMessages, commands });
+  // A turn whose prompt is another agent's notice (a sub-agent's report, a
+  // teammate's update) folds that row into its work fold (KRTX-4732): the
+  // parent's answer is the only top-level message. A settled turn with no
+  // answer at all keeps the row at the top level, where it stays reachable;
+  // the main transcript only — space threads hide notices already.
+  const workNotice = rows
+    ? undefined
+    : isAgentNoticeTurn(turn) && (model.working || turn.assistant.length > 0)
+      ? userContent.noticeBatch
+        ? <NoticeBatchGroup items={userContent.noticeBatch} />
+        : userContent.subagentNotice
+          ? <SubagentNoticeRow notice={userContent.subagentNotice} />
+          : userContent.peerMessage
+            ? <PeerMessageRow info={userContent.peerMessage} />
+            : undefined
+      : undefined;
   const status = useTurnLiveStatus({ turn, blocks: model.blocks, agentWorking: model.agentWorking });
   const retry = useTurnRetryState({ sessionStatus, isWorkingTurn });
   const meta = useTurnSettledMeta({ working: model.working, turn });
@@ -2864,7 +2917,7 @@ function SessionTurnImpl(props: SessionTurnProps) {
   }
   return (
     <div className="group/turn text-factor-[2] space-y-2.5">
-      <TurnUserBlock {...props} model={model} queueTone={queueTone} userContent={userContent} />
+      <TurnUserBlock {...props} model={model} queueTone={queueTone} userContent={userContent} noticeInWork={!!workNotice} />
       {props.isFirstTurn ? afterFirstPrompt : null}
       {/* Model switches happened while the turn worked, so they sit above
           its work and its answer, not under the answer. */}
@@ -2877,6 +2930,7 @@ function SessionTurnImpl(props: SessionTurnProps) {
           conversationDensity={conversationDensity}
           fold={!answered.shouldUseInlineContent}
           durationMs={meta.turnDurationMs}
+          workNotice={workNotice}
         />
         <TurnAssistantBlock {...props} model={model} answered={answered} userContent={userContent} tHardcodedUi={tHardcodedUi} />
       </GenuiTelemetryContext.Provider>

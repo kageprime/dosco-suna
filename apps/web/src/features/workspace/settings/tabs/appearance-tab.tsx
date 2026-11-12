@@ -29,7 +29,7 @@ import {
   CheckIcon,
 } from '@phosphor-icons/react';
 import { useTheme } from 'next-themes';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   CommandEmpty,
@@ -68,21 +68,21 @@ import { cn } from '@kortix/ui';
 import { DEFAULT_WALLPAPER_ID, WALLPAPERS, type Wallpaper } from '@kortix/ui/theme';
 import { useUserPreferencesStore, type ConversationDensity } from '@kortix/ui/internal/stores/user-preferences-store';
 import { SettingsTabHeader } from '@kortix/ui/customize/settings/settings-tab-header';
+import { localizedCopy } from './localized-copy';
 
-const DENSITY_OPTIONS: { id: ConversationDensity; label: string; description: string }[] = [
-  {
-    id: 'normal',
-    label: 'Normal',
-    description: 'Steps and thinking stream live while Dosco works.',
-  },
-  {
-    id: 'minimal',
-    label: 'Minimal',
-    description: 'One status line until you expand it.',
-  },
-];
+/** The catalog keys a copy leaf reads when they differ from its own path:
+ *  the theme groups and the search field live under `themes.*`. */
+const COPY_KEY_ALIASES: Record<string, string> = {
+  'themeGroups.kortix': 'themes.kortix',
+  'themeGroups.lightThemes': 'themes.lightThemes',
+  'themeGroups.darkThemes': 'themes.darkThemes',
+  'themeSearch.placeholder': 'themes.search',
+  'themeSearch.empty': 'themes.noResults',
+};
 
-export interface AppearanceTabCopy {
+const DENSITY_IDS: ConversationDensity[] = ['normal', 'minimal'];
+
+interface AppearanceTabCopy {
   theme: string;
   themeDescription: string;
   conversationDensity: string;
@@ -97,7 +97,7 @@ export interface AppearanceTabCopy {
   themeGroups: { kortix: string; lightThemes: string; darkThemes: string };
   /** The theme picker's search field and its empty state. */
   themeSearch: { placeholder: string; empty: string };
-  densities: Record<ConversationDensity, { label: string; description: string }>;
+  densities: Record<ConversationDensity, string>;
   wallpapers: Record<Wallpaper['id'], string>;
 }
 
@@ -130,11 +130,8 @@ export const DEFAULT_APPEARANCE_TAB_COPY: AppearanceTabCopy = {
     empty: 'No themes found',
   },
   densities: {
-    normal: {
-      label: 'Normal',
-      description: 'Steps and thinking stream live while Dosco works.',
-    },
-    minimal: { label: 'Minimal', description: 'One status line until you expand it.' },
+    normal: 'Normal',
+    minimal: 'Minimal',
   },
   wallpapers: {
     dither: 'Dither',
@@ -153,7 +150,7 @@ export const DEFAULT_APPEARANCE_TAB_COPY: AppearanceTabCopy = {
  * explanation — 'normal' shows the summary line over an open chain (rows +
  * thinking paragraph), 'minimal' shows the one status line and the quiet that
  * is the point of the mode. Decorative only, so `aria-hidden`; the card's
- * label + description carry the accessible name.
+ * label carries the accessible name.
  */
 function DensityPreview({ density }: { density: ConversationDensity }) {
   if (density === 'minimal') {
@@ -196,7 +193,7 @@ function DensityCard({
   isActive,
   onSelect,
 }: {
-  option: (typeof DENSITY_OPTIONS)[number];
+  option: { id: ConversationDensity; label: string };
   isActive: boolean;
   onSelect: () => void;
 }) {
@@ -229,7 +226,7 @@ function DensityCard({
   );
 }
 
-export interface AppearanceTabViewProps {
+interface AppearanceTabViewProps {
   theme?: InterfaceThemeId;
   onThemeChange?: (value: InterfaceThemeId) => void;
   /** Palettes the System swatch previews — the themes System resolves to. */
@@ -412,12 +409,12 @@ export function AppearanceTabView({
           aria-label={copy.conversationDensity}
           className="grid w-full max-w-xs grid-cols-2 gap-2"
         >
-          {DENSITY_OPTIONS.map((option) => (
+          {DENSITY_IDS.map((id) => (
             <DensityCard
-              key={option.id}
-              option={{ id: option.id, ...copy.densities[option.id] }}
-              isActive={conversationDensity === option.id}
-              onSelect={() => onConversationDensityChange(option.id)}
+              key={id}
+              option={{ id, label: copy.densities[id] }}
+              isActive={conversationDensity === id}
+              onSelect={() => onConversationDensityChange(id)}
             />
           ))}
         </div>
@@ -488,54 +485,17 @@ export function AppearanceTab() {
     }
   }, [wallpaperId, setWallpaperId]);
 
+  const copy = useMemo(
+    () =>
+      localizedCopy(DEFAULT_APPEARANCE_TAB_COPY, (key, values) =>
+        COPY_KEY_ALIASES[key] ? t(COPY_KEY_ALIASES[key], values) : t(key, values),
+      ),
+    [t],
+  );
+
   return (
     <AppearanceTabView
-      copy={{
-        theme: t('theme'),
-        themeDescription: t('themeDescription'),
-        conversationDensity: t('conversationDensity'),
-        conversationDensityDescription: t('conversationDensityDescription'),
-        richAnswers: t('richAnswers'),
-        richAnswersDescription: t('richAnswersDescription'),
-        wallpaper: t('wallpaper'),
-        wallpaperDescription: t('wallpaperDescription'),
-        defaultWallpaper: t('defaultWallpaper'),
-        themes: {
-          system: t('themes.system'),
-          light: t('themes.light'),
-          pureLight: t('themes.pureLight'),
-          dark: t('themes.dark'),
-          pureDark: t('themes.pureDark'),
-        },
-        themeGroups: {
-          kortix: t('themes.kortix'),
-          lightThemes: t('themes.lightThemes'),
-          darkThemes: t('themes.darkThemes'),
-        },
-        themeSearch: {
-          placeholder: t('themes.search'),
-          empty: t('themes.noResults'),
-        },
-        densities: {
-          normal: {
-            label: t('densities.normal.label'),
-            description: t('densities.normal.description'),
-          },
-          minimal: {
-            label: t('densities.minimal.label'),
-            description: t('densities.minimal.description'),
-          },
-        },
-        wallpapers: {
-          dither: t('wallpapers.dither'),
-          brandmark: t('wallpapers.brandmark'),
-          nebula: t('wallpapers.nebula'),
-          silk: t('wallpapers.silk'),
-          grain: t('wallpapers.grain'),
-          neuro: t('wallpapers.neuro'),
-          blank: t('wallpapers.blank'),
-        },
-      }}
+      copy={copy}
       theme={selected}
       onThemeChange={select}
       themeChoice={choice}

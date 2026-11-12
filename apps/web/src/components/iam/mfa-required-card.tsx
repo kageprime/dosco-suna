@@ -46,7 +46,7 @@ import { SettingsRow } from '@kortix/ui/settings-row';
 import { Skeleton } from '@kortix/ui/skeleton';
 import { Switch } from '@kortix/ui/switch';
 import { getMfaRequired, previewMfaRequired, setMfaRequired } from '@/lib/iam-client';
-import { listAccountMembers } from '@kortix/sdk';
+import { useAccountMembers } from '@kortix/ui/internal/account-hub/use-account-members';
 
 interface MfaRequiredCardProps {
   accountId: string;
@@ -73,20 +73,11 @@ export function MfaRequiredCard({ accountId, canManage }: MfaRequiredCardProps) 
     staleTime: 0,
   });
 
-  const membersQuery = useQuery({
-    queryKey: ['account-members', accountId],
-    queryFn: () => listAccountMembers(accountId),
+  // The roster is only relevant on the enable path, where the preview lists
+  // the people who would be locked out.
+  const { emailByUserId } = useAccountMembers(accountId, {
     enabled: confirmOpen && statusQuery.data?.enabled === false,
-    staleTime: 30_000,
   });
-
-  const emailByUserId = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const m of membersQuery.data ?? []) {
-      if (m.email) map.set(m.user_id, m.email);
-    }
-    return map;
-  }, [membersQuery.data]);
 
   const flipMutation = useMutation({
     mutationFn: (enabled: boolean) => setMfaRequired(accountId, enabled),
@@ -191,9 +182,8 @@ export function MfaRequiredCard({ accountId, canManage }: MfaRequiredCardProps) 
             )}
 
             {partitionedLosers.lockouts.length > 0 && (
-              <BannerAlert variant="warning" ><BannerAlertMedia><AlertTriangle /></BannerAlertMedia><BannerAlertTitle>{tI18nComplete('text2be1f843485e', {
-                  value0: partitionedLosers.lockouts.length,
-                  value1: partitionedLosers.lockouts.length === 1 ? 'member' : 'members',
+              <BannerAlert variant="warning" ><BannerAlertMedia><AlertTriangle /></BannerAlertMedia><BannerAlertTitle>{tI18nComplete('textf1a1b16401b1', {
+                  count: partitionedLosers.lockouts.length,
                 })}</BannerAlertTitle><BannerAlertDescription>
                 <ul className="max-h-40 space-y-0.5 overflow-y-auto">
                   {partitionedLosers.lockouts.map((l) => (
@@ -214,9 +204,9 @@ export function MfaRequiredCard({ accountId, canManage }: MfaRequiredCardProps) 
                     <Badge variant="outline" size="xs">
                       {tI18nComplete.raw('text42d8a7ea9caf')}
                     </Badge>
-                    {partitionedLosers.exemptAdmins.length} {tI18nComplete.raw('text11c520bc9f1f')}
-                    {partitionedLosers.exemptAdmins.length === 1 ? '' : 's'}{' '}
-                    {tI18nComplete.raw('textdc78f4d17256')}
+                    {tI18nComplete('text18cde09c22d3', {
+                      count: partitionedLosers.exemptAdmins.length,
+                    })}
                   </span>}</BannerAlertTitle><BannerAlertDescription>
                 <ul className="max-h-32 space-y-0.5 overflow-y-auto">
                   {partitionedLosers.exemptAdmins.map((l) => (

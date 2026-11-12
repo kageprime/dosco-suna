@@ -22,7 +22,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { SheetScrollView } from '@/components/kortix/sheet-parts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/text';
 import { KortixBottomSheetModal, SheetTitleRow } from '@/components/kortix/sheet';
@@ -293,23 +294,23 @@ function ActivitySheetImpl({
         {selected ? (
           <Animated.View key={selected.key} entering={PUSH_IN} style={{ flex: 1 }}>
             <ActivitySheetHeader title={selected.title} onBack={back} onClose={close} />
-            <BottomSheetScrollView contentContainerStyle={contentStyle}>
+            <SheetScrollView contentContainerStyle={contentStyle}>
               <CodeBlockFullHeightContext.Provider value>
                 <EntryDetail entry={selected} context={context} />
               </CodeBlockFullHeightContext.Provider>
-            </BottomSheetScrollView>
+            </SheetScrollView>
           </Animated.View>
         ) : (
           <Animated.View key="list" entering={returning ? POP_IN : undefined} style={{ flex: 1 }}>
             <ActivitySheetHeader title="Activity" onClose={close} />
-            <BottomSheetScrollView contentContainerStyle={contentStyle}>
+            <SheetScrollView contentContainerStyle={contentStyle}>
               {entries.map((entry, index) => (
                 // Parallel calls run together: only the last running entry sweeps.
                 <LoopMotionContext.Provider key={entry.key} value={index === lastRunning}>
                   <TimelineEntry entry={entry} next={entries[index + 1]} onOpen={open} />
                 </LoopMotionContext.Provider>
               ))}
-            </BottomSheetScrollView>
+            </SheetScrollView>
           </Animated.View>
         )}
       </MarkdownActionsProvider>

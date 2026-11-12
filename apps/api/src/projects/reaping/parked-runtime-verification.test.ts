@@ -213,7 +213,12 @@ describe('decideRemovedParkedOutcome', () => {
     expect(outcome).toBe('recovery-in-flight');
   });
 
-  test('a provider throw is read as unavailable, not as a recovery', async () => {
+  // A THROWN probe is a failed round-trip, not a provider statement: the gate's
+  // own contract is that only an explicit `unavailable` answer authorizes the
+  // loss. Mapping the throw to `unavailable` turned one rate-limited or 5xx
+  // `/start` during a convergence pass into an irreversible "computer was
+  // lost" for a recoverable identity (2026-11-09, the governing error class).
+  test('a provider throw is not a verdict — the row waits for the next pass', async () => {
     const outcome = await decideRemovedParkedOutcome({
       externalId: 'sbx_test',
       recoverInPlace: async () => {
@@ -222,7 +227,7 @@ describe('decideRemovedParkedOutcome', () => {
       claim: async () => true,
       markRecovered: never,
     });
-    expect(outcome).toBe('preserve-lost');
+    expect(outcome).toBe('recovery-in-flight');
   });
 });
 

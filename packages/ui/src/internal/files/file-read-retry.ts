@@ -1,4 +1,4 @@
-import { isRuntimeStartingError } from '@kortix/sdk';
+import { ApiError, isRuntimeStartingError } from '@kortix/sdk';
 
 export const UPLOADED_FILE_READ_RETRY_DELAY_MS = 2_000;
 export const UPLOADED_FILE_READ_RETRY_WINDOW_MS = 60_000;
@@ -74,6 +74,72 @@ function isMissingFileReadFailure(error: unknown): boolean {
     msg.includes('does not exist') ||
     msg.includes('path not found')
   );
+}
+
+// ── Missing-file gate ─────────────────────────────────────────────────────────
+// A path a session page reads whose file is gone (404 forever) keeps failing,
+// and the SDK's event stream invalidates every open file query on each
+// `file.edited` and at turn end — so one dead preview card re-read the miss
+// for as long as its session ran. While a miss is younger than this window
+// the two React Query file hooks (`use-file-content`, `use-binary-blob`)
+// answer their invalidation refetches without touching the file system; a
+// read that finds the file clears the mark, and after the window a refetch
+// reads normally again.
+export const MISSING_FILE_SUPPRESS_MS = 5 * 60_000;
+
+let missingFileNow: () => number = () => Date.now();
+
+/** Set by tests so a check never waits on the real clock; production never calls it. */
+export function setMissingFileClockForTests(now: () => number): void {
+  missingFileNow = now;
+}
+
+// ponytail: a stale entry evicts lazily on its next read; no sweeper until a
+// memory profile of a long-lived tab asks for one.
+const missingFiles = new Map<string, number>();
+
+/** Clears the registry between tests; production never calls it. */
+export function clearMissingFileReadsForTests(): void {
+  missingFiles.clear();
+}
+
+const missingFileKey = (serverUrl: string | null | undefined, filePath: string) =>
+  `${serverUrl ?? ''}|${filePath}`;
+
+/** Remember the miss when the read failed as missing; other failures pass through. */
+export function noteMissingFileRead(
+  serverUrl: string | null | undefined,
+  filePath: string | null | undefined,
+  error: unknown,
+): void {
+  if (!filePath || !isMissingFileReadFailure(error)) return;
+  missingFiles.set(missingFileKey(serverUrl, filePath), missingFileNow());
+}
+
+/** Forget the mark after a read found the file. */
+export function clearMissingFileRead(serverUrl: string | null | undefined, filePath: string | null | undefined): void {
+  if (!filePath) return;
+  missingFiles.delete(missingFileKey(serverUrl, filePath));
+}
+
+/** True while the file's read miss is fresh enough that a refetch may not touch it. */
+export function missingFileSuppressed(
+  serverUrl: string | null | undefined,
+  filePath: string | null | undefined,
+): boolean {
+  if (!filePath) return false;
+  const at = missingFiles.get(missingFileKey(serverUrl, filePath));
+  if (at === undefined) return false;
+  if (missingFileNow() - at > MISSING_FILE_SUPPRESS_MS) {
+    missingFiles.delete(missingFileKey(serverUrl, filePath));
+    return false;
+  }
+  return true;
+}
+
+/** The fast-fail a suppressed refetch throws in the reader's place. */
+export function missingFileReadError(): Error {
+  return new ApiError('File or folder not found', { status: 404, code: 'not_found' });
 }
 
 // How often a file query re-polls while the sandbox reports a readiness 503

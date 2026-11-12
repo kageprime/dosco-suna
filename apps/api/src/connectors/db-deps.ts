@@ -25,7 +25,10 @@ import { db } from '../shared/db';
 import { completeConnection, connectConnection } from './connection-status';
 import { connectorAttachmentStore } from './attachments';
 import { notifyConnectorSession } from './notify-session';
+import { type AdminConnector, type Connection, emptyWorkspaceConnectionSlot } from '@kortix/sdk';
 import {
+  connectionIdsWithCredentials,
+  connectionSignedIn,
   defaultConnectionIdForConnector,
   deleteCredential,
   ensureDefaultConnection,
@@ -64,12 +67,12 @@ import {
   pipedreamConnectUrl,
   verifyWebhookSig,
 } from './pipedream';
-import type { ConnectorRouterDeps } from './router-contract';
+import type { ConnectorRouterDeps, SessionConnectRequestRow } from './router-contract';
 import {
   connectorCatalogDirectIds,
   connectorCatalogDirectMcpUrls,
 } from './connector-catalog';
-import { catalogDegraded, kortixMcpCatalog, mcpAppForUrl } from './mcp-apps';
+import { catalogDegraded, catalogPublishesMcpUrl, kortixMcpCatalog, mcpAppForUrl } from './mcp-apps';
 import { connectorIdentity } from './catalog-install';
 import { catalogTools } from './catalog-tools';
 import { oauth2ConnectionStatus, startConnectionSignIn } from './oauth2-store';
@@ -91,6 +94,7 @@ import {
   composioConnectionMetadata,
   composioStableUserId,
   connectLinkEligibility,
+  connectLinkNeedsManagedProvider,
   loadComposioAdapter,
   loadComposioConnector,
   loadMcpConnector,
@@ -108,8 +112,8 @@ import {
   resolveSecretBindingAdmin,
   resolveSecretReader,
 } from './db-deps-principal';
-import { connectorConnected } from './db-deps-rows';
-import { projectsView } from '../workspaces/rows';
+import { authOf, connectorConnected, type ConnectorRow } from './db-deps-rows';
+import { accountKeyOfWorkspace } from '../workspaces/rows';
 
 export {
   composioConnectionMetadata,
@@ -330,13 +334,17 @@ export const dbConnectorRouterDeps: ConnectorRouterDeps = {
     // Same rule as `/connect/toolkits`: no silent Pipedream fallback.
     return null;
   },
-  listSessionConnectRequests: async (projectId, sessionId) => {
+  listSessionConnectRequests: async (projectId, sessionId, userId) => {
     const rows = await db
       .select({
         connector: connectors,
         connectionId: connectorConnections.connectionId,
         isDefault: connectorConnections.isDefault,
         metadata: connectorConnections.metadata,
+        ownerType: connectorConnections.ownerType,
+        ownerId: connectorConnections.ownerId,
+        label: connectorConnections.label,
+        status: connectorConnections.status,
       })
       .from(connectorConnections)
       .innerJoin(connectors, eq(connectors.connectorId, connectorConnections.connectorId))
@@ -346,8 +354,13 @@ export const dbConnectorRouterDeps: ConnectorRouterDeps = {
           sql`${connectorConnections.metadata}->>'requesting_session_id' = ${sessionId}`,
         ),
       );
-    const out: Array<{ slug: string; app: string; provider: string; connected: boolean }> = [];
+    const out: SessionConnectRequestRow[] = [];
     for (const row of rows) {
+      // Another member's private account is theirs to sign in: it is not
+      // listed to anyone else watching the session. A shared account is.
+      if (row.ownerType === 'member' && row.ownerId !== userId) continue;
+      if (row.ownerType !== 'member' && row.ownerType !== 'project') continue;
+      if (row.status === 'revoked') continue;
       const metadata = (row.metadata ?? {}) as Record<string, unknown>;
       const connected = await connectorConnected(row.connector, null, {
         connectionId: row.connectionId,
@@ -356,6 +369,7 @@ export const dbConnectorRouterDeps: ConnectorRouterDeps = {
       });
       out.push({
         slug: row.connector.slug,
+        name: row.connector.name?.trim() || row.connector.slug,
         app:
           typeof metadata.toolkit === 'string'
             ? metadata.toolkit
@@ -363,6 +377,10 @@ export const dbConnectorRouterDeps: ConnectorRouterDeps = {
               row.connector.slug,
         provider: row.connector.providerType,
         connected,
+        connection_id: row.connectionId,
+        owner_type: row.ownerType,
+        label: row.label,
+        connected_as: connectedAsOf(metadata),
       });
     }
     return out;
@@ -375,29 +393,65 @@ export const dbConnectorRouterDeps: ConnectorRouterDeps = {
           .where(eq(projectSessions.sessionId, sessionId))
           .limit(1)
       : [];
-    const [project] = await db
-      .select({ accountId: projectsView.accountId })
-      .from(projectsView)
-      .where(eq(projectsView.projectId, projectId))
-      .limit(1);
-    if (!project) return [];
+    const projectAccountId = await accountKeyOfWorkspace(projectId);
+    if (!projectAccountId) return [];
     const entitled = await listEntitledConnectorConnections({
-      accountId: project.accountId,
+      accountId: projectAccountId,
       projectId,
       alias: canonicalConnectorAlias(slug),
       actingUserId: userId,
       // An agent-principal credential with no session is never `private`.
       visibility: session?.visibility ?? (agentPrincipal ? 'project' : 'private'),
       agentPrincipal: agentPrincipal ?? null,
+      includeNotConnected: true,
     });
-    return entitled.map((connection) => ({
-      connection_id: connection.connectionId,
-      label: connection.label,
-      owner_type: connection.ownerType,
-      is_default: connection.isDefault,
-      connected_as: connectedAsOf(connection.metadata),
-      credential_rejected_at: credentialRejectedAt(connection.metadata),
+    if (entitled.length === 0) return [];
+    // The listing rule is Settings → Connectors' (`listedConnectorAccounts` in
+    // @kortix/sdk): the server's empty shared slot is a placeholder, not an
+    // account, and an account whose sign-in did not finish is listed so the
+    // person finishes it instead of adding a second one.
+    const [connectorRow] = await db
+      .select({ providerType: connectors.providerType, config: connectors.config })
+      .from(connectors)
+      .where(eq(connectors.connectorId, entitled[0]!.connectorId))
+      .limit(1);
+    const credentialed = await connectionIdsWithCredentials(entitled.map((row) => row.connectionId));
+    const views = entitled.map((connection) => ({
+      connection,
+      view: {
+        connection_id: connection.connectionId,
+        connector_alias: connection.alias,
+        owner_type: connection.ownerType,
+        owner_id: null,
+        label: connection.label,
+        status: connection.status,
+        is_default: connection.isDefault,
+        metadata: connection.metadata,
+        authorized: connectionSignedIn(connection.metadata, credentialed.has(connection.connectionId)),
+      } satisfies Connection,
     }));
+    const slot = connectorRow
+      ? emptyWorkspaceConnectionSlot(
+          {
+            provider: connectorRow.providerType as AdminConnector['provider'],
+            requestAuthType: authOf(connectorRow as ConnectorRow).auth.type as AdminConnector['requestAuthType'],
+          },
+          views.map((item) => item.view),
+        )
+      : null;
+    return views
+      .filter((item) => item.view !== slot)
+      // A call runs as the first connected account: those lead, in resolution order.
+      .sort((a, b) => Number(b.connection.connected !== false) - Number(a.connection.connected !== false))
+      .map(({ connection }) => ({
+        connection_id: connection.connectionId,
+        label: connection.label,
+        owner_type: connection.ownerType,
+        is_default: connection.isDefault,
+        status: connection.connected === false ? ('sign_in_not_finished' as const) : ('connected' as const),
+        connected_as: connectedAsOf(connection.metadata),
+        credential_rejected_at: credentialRejectedAt(connection.metadata),
+      }));
   },
   mintConnectorConnectLink: async ({ projectId, slug, userId, sessionId }) => {
     const eligibility = await connectLinkEligibility(projectId, canonicalConnectorAlias(slug));
@@ -405,7 +459,15 @@ export const dbConnectorRouterDeps: ConnectorRouterDeps = {
     // means no link exists to hand over. The denial still names the connector.
     if (!eligibility.ok) return null;
     const composio = await loadComposioAdapter();
-    if (!(composio?.composioConfigured?.() ?? false) && !pipedreamConfigured()) return null;
+    // An `mcp` connector's hosted page is Kortix's own OAuth sign-in: it needs
+    // no managed provider, so a self-host with no Composio/Pipedream keys still
+    // mints its link (KRTX-4640; the /connect-requests route applies the same
+    // exception). Composio/Pipedream links stay gated on their provider.
+    if (
+      connectLinkNeedsManagedProvider(eligibility.providerType) &&
+      !(composio?.composioConfigured?.() ?? false) &&
+      !pipedreamConfigured()
+    ) return null;
     // The denial's remedy is always "authorize YOURSELF": the human reading it
     // is the one who can, and a shared account is a deliberate admin choice made
     // from settings. A link with no member behind it would resolve to nobody.
@@ -457,8 +519,8 @@ export const dbConnectorRouterDeps: ConnectorRouterDeps = {
         .where(eq(connectorConnections.connectionId, connectionId))
         .limit(1);
       const previous = (previousRow?.metadata ?? {}) as Record<string, unknown>;
-      // Starting an authorization is not a reconnect: an agent session reaches
-      // this with owner "me", and only a person leaves `revoked`
+      // Starting an authorization is not a reconnect: the `start` authority
+      // leaves a revoked account revoked until the sign-in completes
       // (connectors/connection-status.ts `ConnectAuthority`).
       // INVARIANT (2026-09-16, account_required rule): never set is_default
       // here — an auto-authorized account is not a deliberately pinned one.
@@ -473,19 +535,50 @@ export const dbConnectorRouterDeps: ConnectorRouterDeps = {
           ...rowMetadata(previous),
           provider: 'composio',
           toolkit: conn.app,
-          requesting_session_id: requestingSessionId ?? null,
+          requesting_session_id: requestingSessionId ?? readRequestingSessionId(previous),
         },
         updatedAt: sql`now()`,
       });
       const stableUserId = composioStableUserId(connectionId);
+      // An agent's raw link (`kortix connectors connect`) opens no Kortix
+      // page, so nothing finished the sign-in when the person came back
+      // (2026-11-11 audit: 33% of Composio connects completed). The person now
+      // returns to the setup-link page, which finalizes on load, and a
+      // bounded server poll finishes it even when they close the tab.
+      const agentStarted = Boolean(requestingSessionId) && Boolean(userId);
+      const returnRedirects =
+        agentStarted && !redirects?.success
+          ? {
+              ...redirects,
+              success: await agentConnectReturnUrl({
+                projectId,
+                slug: canonicalConnectorAlias(slug),
+                app: conn.app,
+                userId,
+                sessionId: requestingSessionId!,
+                owner: connectOwner,
+              }),
+            }
+          : redirects;
       const result = await composio.composioConnectUrl({
         projectId,
         slug,
         app: conn.app,
         connectionId,
         stableUserId,
-        redirects,
+        redirects: returnRedirects,
       });
+      if (agentStarted && result.connectUrl) {
+        const { watchConnectorCompletion } = await import('../setup-links/connector-completion-watch');
+        watchConnectorCompletion({
+          projectId,
+          slug,
+          app: conn.app,
+          sid: requestingSessionId ?? null,
+          uid: userId,
+          owner: connectOwner,
+        });
+      }
       await connectConnection(connectionId, {
         metadata: composioConnectionMetadata({
           toolkit: conn.app,
@@ -757,6 +850,7 @@ export const dbConnectorRouterDeps: ConnectorRouterDeps = {
   catalogDirectMcpUrls: () => connectorCatalogDirectMcpUrls(),
   listDiscoverSections: async (input) => ({ ...(await kortixMcpCatalog.sections(input)), degraded: catalogDegraded() }),
   isAgentCaller: (c) => isProjectSessionPrincipal(c),
+  catalogPublishesMcpUrl: (url) => catalogPublishesMcpUrl(url).catch(() => false),
   customConnectorSetupUrl: (projectId, draft) => {
     const query = new URLSearchParams({ tab: 'browse', custom: '1' });
     for (const key of ['provider', 'url', 'transport', 'endpoint', 'spec', 'baseUrl', 'name'] as const) {
@@ -780,3 +874,28 @@ export const dbConnectorRouterDeps: ConnectorRouterDeps = {
   setProjectPolicies: (projectId, accountId, policies, defaultMode) =>
     setProjectPoliciesInManifest(projectId, accountId, policies, defaultMode),
 };
+
+/**
+ * Where the provider sends the person after an agent-started sign-in: the
+ * setup-link page for the same connector and session, which finalizes on load
+ * (`?returned=1`) and says who the account is. 7-day token, as every link.
+ */
+async function agentConnectReturnUrl(input: {
+  projectId: string;
+  slug: string;
+  app: string;
+  userId: string;
+  sessionId: string;
+  owner: ConnectorConnectOwner;
+}): Promise<string> {
+  const { mintSetupLink } = await import('../setup-links/token');
+  const { token } = mintSetupLink(input.projectId, {
+    kind: 'connector',
+    slug: input.slug,
+    app: input.app,
+    uid: input.userId,
+    sid: input.sessionId,
+    owner: input.owner,
+  });
+  return `${(config.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '')}/connect/${token}?returned=1`;
+}

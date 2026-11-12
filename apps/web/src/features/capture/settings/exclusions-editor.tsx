@@ -1,34 +1,19 @@
 'use client';
 
-import {
-  CAPTURE_EXCLUSION_GROUPS,
-  normalizeCaptureAppId,
-  normalizeCaptureDomain,
-  type CaptureExclusionGroup,
-} from '@kortix/sdk';
+import { CAPTURE_EXCLUSION_GROUPS, type CaptureExclusionGroup } from '@kortix/sdk';
 import {
   AppWindowIcon,
   BankIcon,
   ChatCircleIcon,
   EyeSlashIcon,
-  GlobeIcon,
   KeyIcon,
   MagnifyingGlassIcon,
   PlusIcon,
   ShieldCheckIcon,
   type Icon,
 } from '@phosphor-icons/react';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 
-import { Button } from '@kortix/ui/button';
-import { Checkbox } from '@kortix/ui/checkbox';
-import {
-  InputGroupSearch,
-  InputGroupSearchIcon,
-  InputGroupSearchInput,
-} from '@kortix/ui/input-group';
-import { Label } from '@kortix/ui/label';
-import { Tabs, TabsList, TabsTrigger } from '@kortix/ui/tabs';
 import { useTranslations } from '@/i18n/use-translations';
 
 import {
@@ -37,10 +22,10 @@ import {
   namedAppRows,
   siteSuggestions,
 } from './capture-app-catalog';
+import { CaptureListEditor, ExclusionItem, RowSection, Tile } from './capture-list-editor';
 import {
   exclusionLists,
   type ExclusionChange,
-  type ExclusionRow,
   type ExclusionTab,
   type ExclusionsView,
   type IncludedView,
@@ -69,117 +54,71 @@ export function ExclusionsEditor({
 }) {
   const t = useTranslations('capture.settings.exclusions');
   const tGroup = useTranslations('capture.settings.exclusions.group');
-  const [tab, setTab] = useState<ExclusionTab>('apps');
-  const [query, setQuery] = useState('');
-  const lists = exclusionLists(view, tab, query);
-  const apps = tab === 'apps';
-  const kind = apps ? 'app' : 'domain';
-  const addable = apps ? normalizeCaptureAppId(query) : normalizeCaptureDomain(query);
-  const canAdd = addable && !(apps ? view.apps : view.domains).some((row) => row.id === addable);
-  const add = () => {
-    if (!canAdd) return;
-    onChange({ kind, id: addable, on: true });
-    setQuery('');
-  };
-  const known = (id: string): id is CaptureExclusionGroup =>
-    (CAPTURE_EXCLUSION_GROUPS as readonly string[]).includes(id);
-  const searchLabel = apps ? t('searchOrAddApp') : t('searchWebsites');
-
   return (
-    <div className="space-y-6">
-      <p className="text-muted-foreground text-xs text-pretty">{t('orgIntro', { org })}</p>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Tabs value={tab} onValueChange={(value) => setTab(value as ExclusionTab)}>
-          <TabsList aria-label={t('kindLabel')}>
-            <TabsTrigger value="apps">{t('apps')}</TabsTrigger>
-            <TabsTrigger value="websites">{t('websites')}</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <InputGroupSearch className="flex-1">
-          <InputGroupSearchIcon>
-            <MagnifyingGlassIcon />
-          </InputGroupSearchIcon>
-          <InputGroupSearchInput
-            size="sm"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter') return;
-              event.preventDefault();
-              add();
-            }}
-            placeholder={searchLabel}
-            aria-label={searchLabel}
-          />
-        </InputGroupSearch>
-      </div>
-
-      {canAdd ? (
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={add}>
-          <PlusIcon className="size-3.5 shrink-0" />
-          {apps ? t('addApp', { app: addable }) : t('addDomain', { domain: addable })}
-        </Button>
-      ) : null}
-
-      {lists.categories.length > 0 || (!apps && !query.trim()) ? (
-        <RowSection title={t('categories')}>
-          {lists.categories.map((group) => {
-            const count = apps ? group.apps : group.domains;
-            const summary =
-              count === null ? '' : apps ? t('appCount', { count }) : t('siteCount', { count });
-            return (
-              <CategoryItem
-                key={group.id}
-                icon={GROUP_ICONS[group.id] ?? ShieldCheckIcon}
-                title={known(group.id) ? tGroup(group.id) : group.name}
-                description={summary}
-                members={apps ? memberApps(group.members.apps) : group.members.domains}
-                showLabel={t('showList')}
-                hideLabel={t('hideList')}
-                checked={group.enabled}
-                onChange={(on) => onChange({ kind: 'group', id: group.id, on })}
+    <CaptureListEditor
+      onChange={onChange}
+      kind={(apps) => (apps ? 'app' : 'domain')}
+      view={view}
+      rows={(apps, query) => exclusionLists(view, apps ? 'apps' : 'websites', query).excluded}
+      suggestions={(apps, query) =>
+        apps
+          ? catalogSuggestions(
+              view.apps.map((r) => r.id),
+              query,
+            ).map((a) => ({ key: a.name, name: a.name, ids: a.ids }))
+          : siteSuggestions(
+              view.domains.map((r) => r.id),
+              query,
+            ).map((d) => ({ key: d, name: d, ids: [d] }))
+      }
+      labels={{
+        t,
+        search: (apps) => t(apps ? 'searchOrAddApp' : 'searchWebsites'),
+        listTitle: t('excluded'),
+        empty: (apps, query) =>
+          query.trim() ? t('noMatch') : t(apps ? 'noExcludedApps' : 'noExcludedSites'),
+      }}
+      searchIcon={MagnifyingGlassIcon}
+      className="space-y-6"
+      header={<p className="text-muted-foreground text-xs text-pretty">{t('orgIntro', { org })}</p>}
+    >
+      {(apps, query) => {
+        const known = (id: string): id is CaptureExclusionGroup =>
+          (CAPTURE_EXCLUSION_GROUPS as readonly string[]).includes(id);
+        const lists = exclusionLists(view, apps ? 'apps' : 'websites', query);
+        return lists.categories.length > 0 || (!apps && !query.trim()) ? (
+          <RowSection title={t('categories')}>
+            {lists.categories.map((group) => {
+              const count = apps ? group.apps : group.domains;
+              const summary =
+                count === null ? '' : apps ? t('appCount', { count }) : t('siteCount', { count });
+              return (
+                <CategoryItem
+                  key={group.id}
+                  icon={GROUP_ICONS[group.id] ?? ShieldCheckIcon}
+                  title={known(group.id) ? tGroup(group.id) : group.name}
+                  description={summary}
+                  members={apps ? memberApps(group.members.apps) : group.members.domains}
+                  showLabel={t('showList')}
+                  hideLabel={t('hideList')}
+                  checked={group.enabled}
+                  onChange={(on) => onChange({ kind: 'group', id: group.id, on })}
+                />
+              );
+            })}
+            {!apps && !query.trim() ? (
+              <ExclusionItem
+                leading={<Tile icon={EyeSlashIcon} />}
+                title={t('privateBrowsing')}
+                description={t('privateBrowsingDescription')}
+                checked={view.privateBrowsing.excluded}
+                onChange={(on) => onChange({ kind: 'private-browsing', on })}
               />
-            );
-          })}
-          {!apps && !query.trim() ? (
-            <ExclusionItem
-              leading={<Tile icon={EyeSlashIcon} />}
-              title={t('privateBrowsing')}
-              description={t('privateBrowsingDescription')}
-              checked={view.privateBrowsing.excluded}
-              onChange={(on) => onChange({ kind: 'private-browsing', on })}
-            />
-          ) : null}
-        </RowSection>
-      ) : null}
-
-      <QuickAdd
-        label={t(apps ? 'commonApps' : 'commonSites')}
-        items={
-          apps
-            ? catalogSuggestions(
-                view.apps.map((r) => r.id),
-                query,
-              ).map((a) => ({ key: a.name, name: a.name, ids: a.ids }))
-            : siteSuggestions(
-                view.domains.map((r) => r.id),
-                query,
-              ).map((d) => ({ key: d, name: d, ids: [d] }))
-        }
-        onAdd={(ids) => {
-          ids.forEach((id) => onChange({ kind, id, on: true }));
-          setQuery('');
-        }}
-      />
-
-      <ExclusionList
-        title={t('excluded')}
-        empty={query.trim() ? t('noMatch') : t(apps ? 'noExcludedApps' : 'noExcludedSites')}
-        rows={lists.excluded}
-        apps={apps}
-        onChange={(id, on) => onChange({ kind, id, on })}
-      />
-    </div>
+            ) : null}
+          </RowSection>
+        ) : null;
+      }}
+    </CaptureListEditor>
   );
 }
 
@@ -244,127 +183,6 @@ function CategoryItem({
   );
 }
 
-/** A titled section of flat rows. */
-function RowSection({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="space-y-1">
-      <div className="flex min-h-8 items-center">
-        <Label>{title}</Label>
-      </div>
-      <ul className="divide-border divide-y">{children}</ul>
-    </section>
-  );
-}
-
-/** A list: every row checked; unchecking one removes it. Apps show by name, one row per app. */
-function ExclusionList({
-  title,
-  empty,
-  rows,
-  apps,
-  onChange,
-}: {
-  title: string;
-  empty: string;
-  rows: ExclusionRow[];
-  apps: boolean;
-  onChange: (id: string, on: boolean) => void;
-}) {
-  const shown = apps
-    ? namedAppRows(rows)
-    : rows.map((row) => ({ ids: [row.id], name: row.name, detail: '' }));
-  return (
-    <RowSection title={title}>
-      {shown.length === 0 ? (
-        <li className="text-muted-foreground py-2.5 text-xs">{empty}</li>
-      ) : (
-        shown.map((row) => (
-          <ExclusionItem
-            key={row.ids.join(' ')}
-            leading={<Tile icon={apps ? AppWindowIcon : GlobeIcon} />}
-            title={row.name}
-            description={row.detail || undefined}
-            checked
-            onChange={(on) => row.ids.forEach((id) => onChange(id, on))}
-          />
-        ))
-      )}
-    </RowSection>
-  );
-}
-
-/** Common apps or websites not in the list yet, one click each. */
-function QuickAdd({
-  label,
-  items,
-  onAdd,
-}: {
-  label: string;
-  items: { key: string; name: string; ids: string[] }[];
-  onAdd: (ids: string[]) => void;
-}) {
-  if (items.length === 0) return null;
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      <div className="flex flex-wrap gap-1.5">
-        {items.slice(0, 12).map((item) => (
-          <Button
-            key={item.key}
-            variant="outline"
-            size="sm"
-            className="gap-1"
-            onClick={() => onAdd(item.ids)}
-          >
-            <PlusIcon className="size-3 shrink-0" />
-            {item.name}
-          </Button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/** One row: leading tile, title, one muted line, the checkbox. */
-function ExclusionItem({
-  leading,
-  title,
-  description,
-  checked,
-  onChange,
-}: {
-  leading: ReactNode;
-  title: string;
-  description?: ReactNode;
-  checked: boolean;
-  onChange: (on: boolean) => void;
-}) {
-  return (
-    <li className="flex items-center gap-3 py-2.5">
-      {leading}
-      <div className="min-w-0 flex-1 space-y-0.5">
-        <p className="truncate text-sm">{title}</p>
-        {description ? (
-          <p className="text-muted-foreground truncate text-xs">{description}</p>
-        ) : null}
-      </div>
-      <Checkbox
-        checked={checked}
-        onCheckedChange={(value) => onChange(value === true)}
-        aria-label={title}
-      />
-    </li>
-  );
-}
-
-function Tile({ icon: TileIcon }: { icon: Icon }) {
-  return (
-    <span className="bg-muted text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-sm">
-      <TileIcon className="size-4" />
-    </span>
-  );
-}
-
 /**
  * Record only included (account settings ▸ Dosco Capture): Apps | Websites the
  * organization includes. An included app is recorded in full; an included website
@@ -378,78 +196,31 @@ export function IncludedEditor({
   onChange: (change: ExclusionChange) => void;
 }) {
   const t = useTranslations('capture.settings.included');
-  const [tab, setTab] = useState<ExclusionTab>('apps');
-  const [query, setQuery] = useState('');
-  const apps = tab === 'apps';
-  const list = apps ? view.apps : view.domains;
-  const addable = apps ? normalizeCaptureAppId(query) : normalizeCaptureDomain(query);
-  const canAdd = addable && !list.some((row) => row.id === addable);
-  const add = () => {
-    if (!canAdd) return;
-    onChange({ kind: apps ? 'include-app' : 'include-domain', id: addable, on: true });
-    setQuery('');
-  };
-  const placeholder = apps ? t('addAppPlaceholder') : t('addSitePlaceholder');
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Tabs value={tab} onValueChange={(value) => setTab(value as ExclusionTab)}>
-          <TabsList aria-label={t('kindLabel')}>
-            <TabsTrigger value="apps">{t('apps')}</TabsTrigger>
-            <TabsTrigger value="websites">{t('websites')}</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <InputGroupSearch className="flex-1">
-          <InputGroupSearchIcon>
-            <PlusIcon />
-          </InputGroupSearchIcon>
-          <InputGroupSearchInput
-            size="sm"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter') return;
-              event.preventDefault();
-              add();
-            }}
-            placeholder={placeholder}
-            aria-label={placeholder}
-          />
-        </InputGroupSearch>
-      </div>
-      {canAdd ? (
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={add}>
-          <PlusIcon className="size-3.5 shrink-0" />
-          {apps ? t('addApp', { app: addable }) : t('addDomain', { domain: addable })}
-        </Button>
-      ) : null}
-      <QuickAdd
-        label={t(apps ? 'commonApps' : 'commonSites')}
-        items={
-          apps
-            ? catalogSuggestions(
-                view.apps.map((r) => r.id),
-                query,
-              ).map((a) => ({ key: a.name, name: a.name, ids: a.ids }))
-            : siteSuggestions(
-                view.domains.map((r) => r.id),
-                query,
-              ).map((d) => ({ key: d, name: d, ids: [d] }))
-        }
-        onAdd={(ids) => {
-          ids.forEach((id) =>
-            onChange({ kind: apps ? 'include-app' : 'include-domain', id, on: true }),
-          );
-          setQuery('');
-        }}
-      />
-      <ExclusionList
-        title={t('included')}
-        empty={t(apps ? 'noApps' : 'noSites')}
-        rows={list}
-        apps={apps}
-        onChange={(id, on) => onChange({ kind: apps ? 'include-app' : 'include-domain', id, on })}
-      />
-    </div>
+    <CaptureListEditor
+      onChange={onChange}
+      kind={(apps) => (apps ? 'include-app' : 'include-domain')}
+      view={view}
+      rows={(apps) => (apps ? view.apps : view.domains)}
+      suggestions={(apps, query) =>
+        apps
+          ? catalogSuggestions(
+              view.apps.map((r) => r.id),
+              query,
+            ).map((a) => ({ key: a.name, name: a.name, ids: a.ids }))
+          : siteSuggestions(
+              view.domains.map((r) => r.id),
+              query,
+            ).map((d) => ({ key: d, name: d, ids: [d] }))
+      }
+      labels={{
+        t,
+        search: (apps) => t(apps ? 'addAppPlaceholder' : 'addSitePlaceholder'),
+        listTitle: t('included'),
+        empty: (apps) => t(apps ? 'noApps' : 'noSites'),
+      }}
+      searchIcon={PlusIcon}
+      className="space-y-4"
+    />
   );
 }

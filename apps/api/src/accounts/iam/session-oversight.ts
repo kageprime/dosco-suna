@@ -45,8 +45,8 @@ export function registerIamSessionOversightRoutes(): void {
         ...errors(401, 403, 404),
       },
     }),
-    async (c: any) => {
-      const userId = c.get('userId') as string;
+    async (c) => {
+      const userId = c.get('userId');
       const accountId = accountIdParam(c);
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ACCOUNT_READ);
 
@@ -79,8 +79,8 @@ export function registerIamSessionOversightRoutes(): void {
         ...errors(400, 401, 403, 404),
       },
     }),
-    async (c: any) => {
-      const userId = c.get('userId') as string;
+    async (c) => {
+      const userId = c.get('userId');
       const accountId = accountIdParam(c);
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ACCOUNT_WRITE);
       if (!(await callerIsOwner(accountId, userId))) {

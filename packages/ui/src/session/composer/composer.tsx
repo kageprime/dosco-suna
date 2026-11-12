@@ -120,6 +120,7 @@ import { promptHistoryEntries, stepPromptHistory } from './prompt-history';
 import { QuoteList } from './quote-list';
 import { createSubmitLatch } from './submit-latch';
 import type { AttachedFile, TrackedMention } from './types';
+import type { ComposerCall } from '../voice/composer-call';
 
 /** A draft captured out of the editor at Enter time — see `createSubmitLatch`. */
 interface StashedDraft {
@@ -405,6 +406,14 @@ export interface SessionChatInputProps {
   slashMenuPlacement?: 'above' | 'below';
 
   cardClassName?: string;
+
+  /**
+   * A voice call, offered in the Send button's place while there is nothing to
+   * send (flag `voice_call`; `session/voice/composer-call.ts`). Hosts opt in:
+   * project home calls a new session, a session page calls its own session.
+   * Omitted, Send is the only action, as before.
+   */
+  call?: ComposerCall;
 
   /**
    * Reply quotes to add — transcript selections the user clicked "Reply" on,
@@ -1492,20 +1501,12 @@ function ComposerImpl(props: SessionChatInputProps) {
   }, [quoteRequests, appendQuoteTexts]);
 
   /**
-   * The model popover's open state, hoisted out of `ModelSelector` so the `/`
-   * palette can open it. `focusSection` is what separates the palette's two
-   * model-related rows: reasoning effort is a footer row INSIDE this popover
-   * rather than a control of its own (see `model-selector.tsx`), so both rows
-   * open the same element and only the landing point differs.
-   */
-  /**
-   * Open state for the two toolbar controls the `/` palette can reach.
-   * Hoisted out of the controls themselves so a palette row can open them;
-   * both stay uncontrolled for every other consumer.
+   * Open state for the pickers the `/` palette can reach, hoisted so a
+   * palette row can open them.
    *
-   * Two separate flags, not one with a "which section" discriminator: model
-   * and reasoning effort are now two distinct dropdowns, so a single flag
-   * would open both or neither.
+   * Two flags for model and reasoning effort: the toolbar opens its one
+   * merged model + effort popover for either, and the `chat_input` control
+   * uses them to pick which row opens highlighted (`initialRow`).
    */
   const [agentMenuOpen, setAgentMenuOpen] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);

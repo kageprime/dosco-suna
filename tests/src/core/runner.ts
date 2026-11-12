@@ -37,6 +37,7 @@ import {
 } from "./result";
 import type { FlowContext } from "./types";
 import { buildWorld, type World } from "../fixtures/world";
+import { postSessionWithRetry } from "./sandbox-prebuild";
 
 export interface RunOptions {
   profile?: "all" | "local";
@@ -315,9 +316,18 @@ export async function runSuite(opts: RunOptions): Promise<RunResult> {
         const fixtures = world.makeFixtures(stack);
         const project = await fixtures.sharedSeededProject();
         const client = new Client(env.apiUrl).as(world.principals.OWNER);
-        const created = await client.post('/v1/projects/:projectId/sessions', {},
-          { params: { projectId: project.id } });
-        created.status(201);
+        // The create honors the API's own typed PRE-COMMIT degradations as
+        // retryable — `git_mirror_unavailable` (cold-clone/fetch race) and
+        // `retry: true` (deploy in progress). .status() marks both, but this
+        // pre-build is NOT a flow, so it owns its own retry; only those
+        // proven-pre-commit responses are re-sent (ambiguous marked errors —
+        // a laundered synthetic 503 or a network failure that may have
+        // committed — are never replayed, the POST replay-safety contract).
+        // Without a retry here one transient mirror blip on a cold deploy
+        // red-gates the release (run 42666114535 attempt 3: 503
+        // GitOperationError at 17:54:38, thirty seconds after the provision
+        // returned 201).
+        const created = await postSessionWithRetry(client, project);
         const sessionId = created.json<{ session_id: string }>().session_id;
         if (!sessionId) throw new Error('sandbox setup returned no session_id');
         stack.push('session', sessionId, { projectId: project.id });

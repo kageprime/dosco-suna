@@ -32,7 +32,7 @@ import { PROJECT_ACTIONS } from '../../../internal/lib/project-actions';
 import { useProjectCan } from '../../../internal/lib/use-project-can';
 
 import type { McpServerApp } from '../install/mcp-first';
-import { addMcpServer, mcpAppIdentity, mcpServerIdentity } from './add-mcp-server';
+import { addMcpServer, mcpAppIdentity, mcpServerIdentity, type AddMcpStage } from './add-mcp-server';
 import { sdkAddMcpServerDeps } from './add-mcp-server-deps';
 
 type Audience = Pick<NewAccountDraft, 'audience' | 'picked'>;
@@ -89,6 +89,10 @@ export function AddMcpServerDialog({
 
   const [url, setUrl] = useState(app?.url ?? initial?.url ?? '');
   const [audience, setAudience] = useState<Audience>({ audience: 'private', picked: NO_PICKS });
+  // The phase running while Connect is pending: a slow server can stretch the
+  // serial phases to minutes, and the wait must say what it is waiting on
+  // (KRTX-4640).
+  const [stage, setStage] = useState<AddMcpStage | null>(null);
   // The catalogue app's own server, unchanged: named after the app, and its
   // sign-in is known to be one click (`mcpServerFor`).
   const appServer = app !== null && url.trim() === app.url;
@@ -115,7 +119,7 @@ export function AddMcpServerDialog({
           takenSlugs,
           returnUrl: (slug) => `${window.location.origin}${connectorHref(projectId, slug)}`,
         },
-        sdkAddMcpServerDeps(accountId),
+        { ...sdkAddMcpServerDeps(accountId), onStage: setStage },
       ),
     onSuccess: (result) => {
       onAdded();
@@ -164,6 +168,7 @@ export function AddMcpServerDialog({
       setUrl(app?.url ?? '');
       setNameEdit(null);
       setAudience({ audience: 'private', picked: NO_PICKS });
+      setStage(null);
     }
   };
 
@@ -235,6 +240,11 @@ export function AddMcpServerDialog({
               shareRequiresLabel={tSharing('shareRequiresManage')}
               disabled={add.isPending}
             />
+            {add.isPending && stage ? (
+              <FieldDescription role="status" aria-live="polite">
+                {t(stage === 'connector' ? 'addMcpStageConnector' : stage === 'account' ? 'addMcpStageAccount' : 'addMcpStageSignIn')}
+              </FieldDescription>
+            ) : null}
           </ModalBody>
           <ModalFooter className="sm:justify-between">
             {app && nameEdit === null ? (

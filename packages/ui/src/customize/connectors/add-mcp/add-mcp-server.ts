@@ -56,7 +56,15 @@ export function mcpAppIdentity(
 
 export type Grantee = { type: 'user' | 'group' | 'service_account'; id: string };
 
+/** What `addMcpServer` is doing while the Connect press runs. Each stage is a
+ *  serial network phase (create+sync, account, sign-in discovery) that a slow
+ *  server can stretch to minutes — the dialog shows it instead of a spinner
+ *  alone (KRTX-4640). */
+export type AddMcpStage = 'connector' | 'account' | 'sign-in';
+
 export interface AddMcpServerDeps {
+  /** Surfaces the current phase while the mutation is pending. */
+  onStage?: (stage: AddMcpStage) => void;
   /** Creates the connector and runs its first sync (`createConnectorWithOptionalOAuth2`). */
   createConnector: (
     projectId: string,
@@ -119,6 +127,7 @@ export async function addMcpServer(
     : mcpServerIdentity(input.url, input.takenSlugs);
   if (!identity) throw new Error('Enter the MCP server URL, starting with https://');
   const { slug, name } = identity;
+  deps.onStage?.('connector');
   const created = await deps.createConnector(projectId, {
     slug,
     name,
@@ -129,6 +138,7 @@ export async function addMcpServer(
     // A slug another connector already has answers 409; it never replaces that connector.
     create_only: true,
   });
+  deps.onStage?.('account');
   const account =
     input.audience === 'private'
       ? await deps.createMemberAccount(projectId, { connector_alias: slug, label: name })
@@ -147,6 +157,7 @@ export async function addMcpServer(
   // The connector and its account exist either way: a sign-in that cannot
   // start says why, and the connector page retries it.
   try {
+    deps.onStage?.('sign-in');
     const signInUrl = await deps.startSignIn(projectId, connectionId, input.returnUrl(slug));
     // No one-click sign-in: the 401 stays, and the connector page asks for a credential.
     const syncError = signInUrl ? null : created.syncError;

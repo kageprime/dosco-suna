@@ -11,7 +11,11 @@ const daemon = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 test('the image Bun installs the standalone daemon with its frozen lockfile', { timeout: 90_000 }, () => {
   const expected = JSON.parse(readFileSync(join(daemon, 'package.json'), 'utf8')).engines.bun;
   const bun = process.env.DAEMON_BUN ?? 'bun';
-  const args = process.env.DAEMON_BUN ? [] : ['x', `bun@${expected}`];
+  // The PATH Bun is used as is when it already is the image Bun (CI pins it).
+  // Only another version goes through `bun x bun@<pin>`, an npm download that
+  // exited 1 with no error on a CI runner (2026-11-09 nightly).
+  const pathBun = process.env.DAEMON_BUN ? null : spawnSync(bun, ['--version'], { encoding: 'utf8', timeout: 30_000 });
+  const args = process.env.DAEMON_BUN || pathBun?.stdout.trim() === expected ? [] : ['x', `bun@${expected}`];
   const version = spawnSync(bun, [...args, '--version'], { encoding: 'utf8', timeout: 30_000 });
   assert.equal(version.status, 0, version.stderr);
   assert.equal(version.stdout.trim(), expected, 'Run with the image Bun via DAEMON_BUN');

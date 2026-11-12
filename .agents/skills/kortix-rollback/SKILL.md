@@ -59,9 +59,11 @@ ECS Fargate.** `infra/scripts/ecs-deploy.sh` registers a new task-definition
 revision that points at the `:X.Y.Z` image and waits until the service is
 stable. The image is frozen, so the roll is exact.
 
-**The Vercel frontend is built by Vercel from the `prod` branch source.** There
-is no image tag. A Vercel rollback is a **promote** of the old production
-deployment. The branch still holds the newer frontend code.
+**The Vercel frontend is built on the `deploy-prod.yml` runner and uploaded
+prebuilt** (`infra/scripts/vercel-deploy-prebuilt.sh`). Vercel keeps every
+deployment's output, but there is no image tag. A Vercel rollback is a
+**promote** of the old production deployment. The branch still holds the newer
+frontend code.
 
 ## 3. What undoes a rollback
 
@@ -168,7 +170,7 @@ no `:vX.Y.Z` image** rather than wedging ECS on `ImagePullBackOff`.
 You do NOT manually undo a rollback. To resume, get the fix onto `staging` and
 **Promote to Production** (see kortix-release). Its merge into `prod` runs
 `deploy-prod.yml`, which rolls ECS to the new version, scales the worker back
-up, and Vercel builds the latest frontend.
+up, and builds and deploys the latest Vercel frontend.
 
 ## 7. Gotchas
 

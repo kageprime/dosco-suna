@@ -201,7 +201,7 @@ function isManifestCasConflict(err: unknown): boolean {
 }
 
 const ACCOUNT_FAMILY_PATH = new RegExp(
-  `^(/v1)?/workspaces/([^/?#]+)/(${WORKSPACE_ACCOUNT_FAMILIES.map((f) => f.replace(/[-]/g, '\\-')).join('|')})(?=[/?#]|$)`,
+  `^(/v1)?/workspaces/([^/?#]+)/(${WORKSPACE_ACCOUNT_FAMILIES.map((f) => f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})(?=[/?#]|$)`,
 );
 
 /**

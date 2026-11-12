@@ -131,6 +131,11 @@ let processKind: ProcessKind = 'api';
  * imports the app without starting it.
  */
 export async function prepareProcess(options: { entry: boolean }): Promise<void> {
+  // Bun does not reap orphans. As PID 1 it keeps every detached git process as
+  // a zombie, and aborts when no PID is left (prod worker, 2026-11-03..11).
+  if (options.entry && process.pid === 1) {
+    appLogger.warn('[startup] Running as PID 1 without an init: orphaned git processes are never reaped. Start the image with its ENTRYPOINT (tini), or set init: true.');
+  }
   // Pre-load the provider SDK error classes, so the synchronous classifiers
   // (`app.onError`, provider retries) have their strongest instanceof signal
   // from the first failure on. Fire-and-forget: each classifier's name /

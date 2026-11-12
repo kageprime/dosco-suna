@@ -33,6 +33,7 @@ import {
   createDatabaseProject,
   createDatabaseSession,
   deleteDatabaseProject,
+  fundDatabaseAccount,
   mergeDatabaseProjectMetadata,
 } from './database-project';
 import { mapWithConcurrency } from '../core/concurrency';
@@ -232,7 +233,31 @@ export async function buildWorld(env: Env, flows: RegisteredFlow[]): Promise<Wor
     const accountId = res.json<any>()?.account_id;
     if (!accountId) throw new Error(`workspace account create returned no id: ${res.text()}`);
     stack.push('account', accountId);
+    // The run's OWNER already has a first workspace, so this one starts on
+    // the free tier with 0 credits. Credits alone are not enough: on staging a
+    // free-tier account has no platform default model, so pi refuses to boot
+    // ("no KORTIX_MODEL and no live model catalog"; release suite 42678542534,
+    // after 42666114535 answered 402). Give it the OWNER's footing, a paid tier
+    // with credits, as the database-project fixture already does.
+    if (env.capabilities.database) await fundDatabaseAccount(env, accountId);
+    else await fundFixtureAccount(accountId, 'workspace');
     return accountId;
+  }
+
+  /**
+   * A person's free credits go to their first workspace only. Every fixture
+   * account is another workspace of the same OWNER, so it starts at 0 credits.
+   * Fund it with the Free plan's monthly amount, through the admin grant a real
+   * operator uses; no billing rule is relaxed. Without a platform admin in the
+   * run there is no grant, as before.
+   */
+  async function fundFixtureAccount(accountId: string, kind: 'team' | 'workspace'): Promise<void> {
+    if (!env.adminToken) return;
+    const funded = await adminClient
+      .withBearer(env.adminToken, ADMIN_TOKEN_LABEL)
+      .post('/v1/admin/api/accounts/:id/credits', { amount: TEAM_FIXTURE_CREDITS_USD, description: `ke2e ${kind} fixture credits` }, { params: { id: accountId } });
+    throwIfEdgeLaundered(funded, `${kind} account credit grant`);
+    if (funded.statusCode !== 200) throw new Error(`${kind} credit grant failed: ${funded.statusCode} ${funded.text()}`);
   }
 
   async function createProject(
@@ -322,13 +347,7 @@ export async function buildWorld(env: Env, flows: RegisteredFlow[]): Promise<Wor
       // starts at 0 credits and its first session answers 402. The fixture
       // funds it with the Free plan's monthly amount, through the admin grant
       // a real operator uses; no billing rule is relaxed.
-      if (env.adminToken && opts?.credits !== false) {
-        const funded = await adminClient
-          .withBearer(env.adminToken, ADMIN_TOKEN_LABEL)
-          .post('/v1/admin/api/accounts/:id/credits', { amount: TEAM_FIXTURE_CREDITS_USD, description: 'ke2e team fixture credits' }, { params: { id: accountId } });
-        throwIfEdgeLaundered(funded, 'team account credit grant');
-        if (funded.statusCode !== 200) throw new Error(`team credit grant failed: ${funded.statusCode} ${funded.text()}`);
-      }
+      if (opts?.credits !== false) await fundFixtureAccount(accountId, 'team');
       if (opts?.enterprise) {
         // Enterprise is a feature layer: the fixture account gets the
         // Enterprise demo (fixtures/enterprise-access.ts), switched on by the

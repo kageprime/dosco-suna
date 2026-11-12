@@ -1,25 +1,25 @@
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import { chatInstalls, chatThreads } from '@kortix/db';
+import { chatThreads } from '@kortix/db';
 import { db } from '../../shared/db';
 import { loadSlackTokenForProject } from '../install-store';
 import { publishHomeView } from '../slack-api';
 import { config } from '../../config';
 import { escapeMrkdwn, formatRelativeTime } from './util';
 import { isKortixHostedRepo, repoDisplayLabel, repoPreviewImages } from '../repo-preview';
+import { linkedSlackProject } from './link';
 import type { HomeProjectRow, HomeRecentRow } from './types';
 import { projectsView } from '../../workspaces/rows';
 
 export async function publishHomeForUser(teamId: string, userId: string): Promise<void> {
-  const installs = await db
-    .select({ projectId: chatInstalls.projectId })
-    .from(chatInstalls)
-    .where(and(eq(chatInstalls.platform, 'slack'), eq(chatInstalls.platformTeamId, teamId)));
-  if (installs.length === 0) return;
+  // Only the Kortix workspace this Slack workspace is linked to: a detached
+  // or archived one shows nothing here, and its token publishes nothing.
+  const linked = await linkedSlackProject(teamId);
+  if (!linked) return;
+  const projectIds = [linked];
 
-  const token = await loadSlackTokenForProject(installs[0].projectId);
+  const token = await loadSlackTokenForProject(linked);
   if (!token) return;
 
-  const projectIds = installs.map((i) => i.projectId);
   const projectRows = await db
     .select({ projectId: projectsView.projectId, name: projectsView.name, repoUrl: projectsView.repoUrl })
     .from(projectsView)
@@ -32,7 +32,7 @@ export async function publishHomeForUser(teamId: string, userId: string): Promis
       threadId: chatThreads.threadId,
     })
     .from(chatThreads)
-    .where(and(eq(chatThreads.platform, 'slack'), eq(chatThreads.platformTeamId, teamId)))
+    .where(and(eq(chatThreads.platform, 'slack'), eq(chatThreads.platformTeamId, teamId), eq(chatThreads.projectId, linked)))
     .orderBy(desc(chatThreads.lastMessageAt))
     .limit(5);
 

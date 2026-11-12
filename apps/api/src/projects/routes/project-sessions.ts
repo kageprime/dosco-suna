@@ -476,7 +476,7 @@ export function registerProjectSessionsRoutes(): void {
             // `root` = top-level sessions only (each row carries `child_count`);
             // a session id = that session's children. Absent = the flat list.
             parent: z.string().min(1).max(128).optional(),
-            started_by: z.enum(['me', 'others', 'automated']).optional(),
+            started_by: z.enum(['me', 'others', 'automated', 'humans']).optional(),
             // Server-side search over every session the viewer may see.
             q: z.string().trim().min(1).max(200).regex(/^[^\u0000]*$/, 'Search must not contain NUL characters').optional(),
             // Repeatable; a session must carry every given label. Exact match.

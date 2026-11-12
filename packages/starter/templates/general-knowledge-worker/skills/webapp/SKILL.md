@@ -166,6 +166,22 @@ If the subject gives no clear color signal and the user provided no direction af
     - The dynamic identifier can be any unique value (database ID, index, key) as long as it's unique within that group
   - Keep test IDs stable and descriptive of the element's purpose rather than its appearance or implementation details.
 
+## Components: shadcn/ui on Base UI
+
+The components in `client/src/components/ui/` are shadcn/ui on Base UI (`@base-ui/react`), not Radix. Their names, variants and look are shadcn's. Never install `@radix-ui/*`, `radix-ui`, `cmdk` or `vaul`. Do not run `npx shadcn add`: every component is already in the template, and the registry ships Tailwind v4 classes this v3 template cannot use. To add a component, write it on Base UI in the same style as the existing files.
+
+What differs from older shadcn examples:
+
+- **`render` replaces `asChild`.** Pass the element to render as `render`; its children stay where they are.
+  - `<DialogTrigger render={<Button variant="outline" />}>Edit</DialogTrigger>`
+  - `<SidebarMenuButton render={<Link href="/tasks" />}>Tasks</SidebarMenuButton>`
+  - `<Button render={<a href="/docs" />} nativeButton={false}>Docs</Button>`: a `Button` that renders a non-button element also needs `nativeButton={false}`.
+- **Menu items use `onClick`**, not `onSelect` (`DropdownMenuItem`, `ContextMenuItem`, `MenubarItem`). `CommandItem` keeps `onSelect`.
+- **`Accordion` and `ToggleGroup` take arrays.** `defaultValue={["item-1"]}`; add `multiple` to allow more than one open or pressed item.
+- **`Select`** shows the selected `SelectItem`'s text in `<SelectValue placeholder="…" />`. When the items are built outside the `<Select>` tree, pass `items={[{ value, label }]}` to `Select` as well.
+- **State styling uses Base UI attributes.** Write `data-[open]:`, `data-[checked]:`, `data-[active]:` (tabs), `data-[pressed]:` (toggles), `data-[highlighted]:` (menu rows), `data-[popup-open]:` (a trigger whose menu is open). There is no `data-[state=…]` on these components.
+- **Toasts:** `toast({ title, description, variant, action })` from `@/hooks/use-toast` works anywhere; `<Toaster />` in `App.tsx` renders them.
+
 ## Styling and Theming
 
 - Uses Tailwind CSS v3. Use `@tailwind base; @tailwind components; @tailwind utilities;` directives in CSS. Do NOT use `@import "tailwindcss"` or `@theme` syntax — those are v4 and will crash the dev server.

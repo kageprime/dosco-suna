@@ -8,8 +8,12 @@ import { readRuntimeFileWithRetry } from '../../../internal/files/runtime-file-r
 import { readFileAsBlob } from '../../../internal/files/runtime-files';
 import { keepBlobIfUnchanged } from './blob-identity';
 import {
+  clearMissingFileRead,
   imageWaitedOut,
   imageWakingRefetchInterval,
+  missingFileReadError,
+  missingFileSuppressed,
+  noteMissingFileRead,
   sandboxWakingRefetchInterval,
 } from '../../../internal/files/file-read-retry';
 import { useServerHealth } from './use-server-health';
@@ -80,6 +84,11 @@ export function useBinaryBlob(
         : binaryBlobKeys.file(serverUrl, filePath),
     queryFn: async ({ signal, queryKey }) => {
       if (stored) return fetchSessionAttachment(filePath!, signal);
+      // A path whose file is gone fails forever (404), and the event stream
+      // invalidates every open file query on each file write and turn end.
+      // A miss this fresh answers its refetches without a re-read; see the
+      // gate in internal/files/file-read-retry.
+      if (missingFileSuppressed(serverUrl, filePath)) throw missingFileReadError();
       const blob = await readRuntimeFileWithRetry(
         filePath!,
         async () => {
@@ -93,7 +102,11 @@ export function useBinaryBlob(
         },
         undefined,
         signal,
-      );
+      ).catch((error) => {
+        noteMissingFileRead(serverUrl, filePath!, error);
+        throw error;
+      });
+      clearMissingFileRead(serverUrl, filePath!);
       // The turn end refetches every open file; same bytes keep the same Blob,
       // so the viewer does not reload a file the agent never touched.
       return keepBlobIfUnchanged(queryClient.getQueryData<Blob>(queryKey), blob);

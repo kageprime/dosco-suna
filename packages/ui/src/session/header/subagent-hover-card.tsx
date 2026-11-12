@@ -2,8 +2,8 @@
 
 import type { ProjectRuntimeSession, ProjectSession } from '@kortix/sdk';
 import { formatDistanceToNowStrict } from 'date-fns';
-import { Slot } from 'radix-ui';
-import { useRef, useState, type ReactElement } from 'react';
+import { Slot } from '../../lib/base-ui-compat';
+import { useRef, useState, type KeyboardEvent, type ReactElement } from 'react';
 import { useTranslations } from '../../i18n';
 import { HoverPrefetchLink } from '../../internal/components/hover-prefetch-link';
 import { uiRoutes } from '../../lib/routes';
@@ -152,7 +152,7 @@ export function SubagentHoverCard({
       >
         <PopoverAnchor asChild>
           <HoverCardTrigger asChild>
-            <Slot.Root
+            <Slot
               ref={titleRef}
               aria-keyshortcuts="ArrowDown"
               onPointerEnter={() => {
@@ -161,7 +161,7 @@ export function SubagentHoverCard({
               onBlur={() => {
                 suppressFocusOpen.current = false;
               }}
-              onKeyDown={(event) => {
+              onKeyDown={(event: KeyboardEvent) => {
                 if (event.key === 'ArrowDown') {
                   event.preventDefault();
                   interactedOutside.current = false;
@@ -171,7 +171,7 @@ export function SubagentHoverCard({
               }}
             >
               {children}
-            </Slot.Root>
+            </Slot>
           </HoverCardTrigger>
         </PopoverAnchor>
         {keyboard ? (

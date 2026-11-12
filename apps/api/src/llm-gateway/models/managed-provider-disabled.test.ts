@@ -14,6 +14,14 @@ mock.module('../../repositories/project-model-access', () => ({
 
 let platinumKeyReads = 0;
 
+// No named key in this suite: the one key reader (credentials/gateway-keys.ts)
+// reads the named store first, whatever pooled_provider_secrets says.
+const realAccountResource = await import('../../secrets/account-resource');
+mock.module('../../secrets/account-resource', () => ({
+  ...realAccountResource,
+  resolveProjectSharedProviderSecrets: async () => ({ coolingDown: false, secrets: [], withheld: 0 }),
+  listGrantedGatewaySecretNames: async () => [],
+}));
 mock.module('../../config', () => ({
   SANDBOX_VERSION: 'test',
   config: new Proxy(

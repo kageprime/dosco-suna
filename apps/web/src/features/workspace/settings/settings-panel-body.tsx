@@ -246,7 +246,7 @@ export function SettingsPanelBody({ projectId }: { projectId?: string }) {
   );
 }
 
-export interface SettingsPanelViewProps {
+interface SettingsPanelViewProps {
   open: boolean;
   tab: SettingsTab;
   onTabChange: (tab: SettingsTab) => void;
@@ -376,7 +376,7 @@ export function SettingsPanelShell({
   );
 
   return (
-    /* `activationMode="manual"`: Radix defaults to "automatic", which SELECTS
+    /* `activationMode="manual"`: `Tabs` defaults to "automatic", which SELECTS
        each tab as arrow keys pass over it. Every pane here fetches on mount,
        so under the default, arrowing down the rail mounts each pane it passes
        and fires that pane's queries — a cost only keyboard users pay, and one
@@ -522,11 +522,8 @@ function SettingsTabPane({
     computer: () => (projectId ? <ComputerTab projectId={projectId} /> : null),
   };
   const pane = panes[item.tab];
-  if (
-    pane &&
-    (!['workspace', 'sandbox', 'feature-flags', 'computer'].includes(item.tab) ||
-      projectId)
-  )
+  // The rail's own gate — one rule for which tabs need a project.
+  if (pane && isSettingsTabAllowed(item.tab, { hasProject: !!projectId }))
     return pane();
 
   // Unreachable while every `SettingsTab` member has a branch above, and kept

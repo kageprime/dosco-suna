@@ -86,7 +86,6 @@ describe('agentConfigViewV3', () => {
       secrets: ['STRIPE_KEY'],
       kortix_permissions: ['project.session.start'],
       tools: 'all',
-      repository_access: false,
     });
   });
 
@@ -97,11 +96,6 @@ describe('agentConfigViewV3', () => {
     expect(view.governance.file).toBeUndefined();
   });
 
-  test('a workspace choice reads as repository_access', () => {
-    const view = agentConfigViewV3({ workspace: { project_repository: false } }, null);
-
-    expect(view.governance).toEqual({ repository_access: false });
-  });
 });
 
 describe('applyAgentConfigV3', () => {
@@ -127,8 +121,6 @@ describe('applyAgentConfigV3', () => {
       codemode: 'only',
       connectors: ['github'],
       secrets: ['STRIPE_KEY'],
-      // An omitted repository choice is pinned to the v3 default.
-      workspace: { project_repository: false },
     });
     expect(validateManifest(applied.raw).valid).toBe(true);
   });
@@ -177,7 +169,7 @@ describe('applyAgentConfigV3', () => {
     expect(applied.ok).toBe(true);
     if (!applied.ok) return;
     expect(applied.promptWrite).toBeNull();
-    expect(block(applied.raw, 'researcher')).toEqual({ mode: 'subagent', prompt: 'You research accounts and cite sources.', workspace: { project_repository: false } });
+    expect(block(applied.raw, 'researcher')).toEqual({ mode: 'subagent', prompt: 'You research accounts and cite sources.' });
   });
 
   test('a new agent with a prompt gets agents/<name>.md as its prompt file', () => {
@@ -189,7 +181,7 @@ describe('applyAgentConfigV3', () => {
     expect(applied.ok).toBe(true);
     if (!applied.ok) return;
     expect(applied.promptWrite).toEqual({ path: 'agents/writer.md', content: 'You write.\n' });
-    expect(block(applied.raw, 'writer')).toEqual({ mode: 'all', prompt_file: 'agents/writer.md', skills: ['triage'], workspace: { project_repository: false } });
+    expect(block(applied.raw, 'writer')).toEqual({ mode: 'all', prompt_file: 'agents/writer.md', skills: ['triage'] });
   });
 
   test('clearing an inline prompt removes the key', () => {
@@ -197,7 +189,7 @@ describe('applyAgentConfigV3', () => {
 
     expect(applied.ok).toBe(true);
     if (!applied.ok) return;
-    expect(block(applied.raw, 'researcher')).toEqual({ mode: 'subagent', workspace: { project_repository: false } });
+    expect(block(applied.raw, 'researcher')).toEqual({ mode: 'subagent' });
   });
 
   test('a v3 grant sent as none clears it', () => {
@@ -229,20 +221,14 @@ describe('applyAgentConfigV3', () => {
     expect(block(on.raw, 'support')).not.toHaveProperty('context');
   });
 
-  test('an omitted repository choice is written explicitly as the v3 default, false', () => {
-    const applied = applyAgentConfigV3(manifest(), 'researcher', { governance: { skills: 'all' } });
-
-    expect(applied.ok).toBe(true);
-    if (!applied.ok) return;
-    expect(block(applied.raw, 'researcher').workspace).toEqual({ project_repository: false });
-  });
-
-  test('repository_access is written as workspace.project_repository', () => {
-    const applied = applyAgentConfigV3(manifest(), 'researcher', { governance: { repository_access: false } });
-
-    expect(applied.ok).toBe(true);
-    if (!applied.ok) return;
-    expect(block(applied.raw, 'researcher').workspace).toEqual({ project_repository: false });
+  test('a governance write that still sends repository_access or workspace writes neither key', () => {
+    for (const governance of [{ repository_access: false }, { repository_access: true }, { workspace: { project_repository: true } }, { skills: 'all' }]) {
+      const applied = applyAgentConfigV3(manifest(), 'researcher', { governance } as never);
+      expect(applied.ok).toBe(true);
+      if (!applied.ok) return;
+      expect(block(applied.raw, 'researcher')).not.toHaveProperty('workspace');
+      expect(block(applied.raw, 'researcher')).not.toHaveProperty('repository_access');
+    }
   });
 
   test('refuses a different file than the current prompt_file', () => {
@@ -289,7 +275,7 @@ describe('the v2 writers accept a v3 manifest', () => {
 
     expect(granted).toMatchObject({ ok: true, alreadyGranted: false });
     if (!granted.ok) return;
-    expect(block(granted.raw, 'researcher')).toEqual({ mode: 'subagent', prompt: 'You research accounts.', tools: 'all', secrets: ['HELPDESK_TOKEN'], workspace: { project_repository: false } });
+    expect(block(granted.raw, 'researcher')).toEqual({ mode: 'subagent', prompt: 'You research accounts.', tools: 'all', secrets: ['HELPDESK_TOKEN'] });
   });
 });
 
@@ -306,7 +292,6 @@ describe('synthesizeBlankManifest', () => {
       connectors: '*',
       secrets: '*',
       kortix_permissions: '*',
-      workspace: { project_repository: true },
     });
     expect(serializeManifest(synthesized)).toContain('skills: "*"');
   });
@@ -331,5 +316,18 @@ describe('the shipped v3 starter compiles', () => {
     expect(compiled.extensions ?? {}).toEqual({});
     for (const builtin of ['build', 'plan', 'general', 'explore']) expect(compiled.agent[builtin]).toEqual({ disable: true });
     expect(Object.keys(compiled.skills ?? {})).toContain('pdf');
+  });
+});
+
+describe('the current workspace map survives the editor', () => {
+  test('a read serves it and a write keeps it; only the legacy shapes are dropped', () => {
+    const workspace = { repos: [{ path: '/workspace' }], setup: ['pnpm install'] };
+    const applied = applyAgentConfigV3(manifest(), 'researcher', { governance: { workspace, skills: 'all' } } as never);
+    expect(applied.ok).toBe(true);
+    if (!applied.ok) return;
+    expect(block(applied.raw, 'researcher').workspace).toEqual(workspace);
+    expect(agentConfigViewV3(block(applied.raw, 'researcher'), null).governance.workspace).toEqual(workspace);
+    const legacy = applyAgentConfigV3(manifest(), 'researcher', { governance: { workspace: { project_repository: true } } } as never);
+    expect(legacy.ok && block(legacy.raw, 'researcher')).not.toHaveProperty('workspace');
   });
 });

@@ -214,6 +214,13 @@ export interface ProjectTrigger {
   auto_paused_at?: string | null;
   /** Why it paused, e.g. `auto-paused: ran at max_runs_per_hour 60 for 2 hours in a row`. */
   auto_paused_reason?: string | null;
+  /**
+   * Set while the pause ends by itself, once the account can run the trigger
+   * again: `billing` (the wallet cannot pay for a run) or `no_usable_model`
+   * (no model an automation may use). Null for a pause only a resume ends.
+   * Absent on older servers.
+   */
+  auto_paused_code?: 'billing' | 'no_usable_model' | null;
   /** For session_mode === 'pinned' only: the session id looped. Null otherwise. */
   session_id: string | null;
   /**

@@ -17,7 +17,7 @@
  * `cliArgProblem` (CWE-88); flag values go as `--flag=value`, which the CLI
  * never reads as an option.
  */
-import type { KortixCardRow, KortixToolError } from '@kortix/api-contract/kortix-tool-card'
+import { KORTIX_INCOMPLETE_CALL_TITLE, type KortixCardRow, type KortixToolError } from '@kortix/api-contract/kortix-tool-card'
 import { adminHref, capRows, cliArgProblem, cliError, cliJson, cliRun, fail, ok, parseJson, runKortix, type PlatformToolContext } from './platform'
 
 const TOOL = 'kortix_schedules' as const
@@ -144,7 +144,7 @@ async function runJson<T>(args: string[], context: PlatformToolContext): Promise
     const off = run.stderr.split('\n').find((line) => /is not enabled for this (project|workspace)/.test(line))
     if (off) {
       const sentence = off.replace(/^\W+/, '').trim()
-      return { error: { kind: 'failed', message: `${sentence} Ask the person or a workspace admin to turn it on.` } }
+      return { error: { kind: 'failed', message: `${sentence} Ask the person or a workspace admin to turn it on.`, note: `${sentence} A workspace admin can turn it on.` } }
     }
     return { error: cliError(run) }
   }
@@ -423,12 +423,14 @@ async function list(context: PlatformToolContext) {
   ]
   const count = (n: number, one: string, many: string) => (n === 0 ? null : `${n} ${n === 1 ? one : many}`)
   const title = [count(followUps.length, 'follow-up', 'follow-ups'), count(wakeOns.length, 'wake-on', 'wake-ons'), count(schedules.length, 'schedule', 'schedules')].filter(Boolean).join(', ') || 'Nothing scheduled'
-  const missing = 'error' in loops ? `This session's follow-ups could not be read: ${loops.error.message}` : 'error' in triggers ? `The project schedules could not be read: ${triggers.error.message}` : null
+  // The card names what is missing; the reason is the model's (`data.errors`).
+  const errors = { ...('error' in loops ? { follow_ups: loops.error.message } : {}), ...('error' in triggers ? { schedules: triggers.error.message } : {}) }
+  const missing = 'error' in loops ? "This session's follow-ups could not be read." : 'error' in triggers ? 'The project schedules could not be read.' : null
   return ok(
     TOOL,
     'list',
     { title, ...(missing ? { subtitle: missing } : {}), rows: capRows(rows), links: [{ label: 'Triggers', href: adminHref(context.env, 'triggers') }] },
-    { follow_ups: followUps, wake_ons: wakeOns, schedules },
+    { follow_ups: followUps, wake_ons: wakeOns, schedules, ...(Object.keys(errors).length ? { errors } : {}) },
   )
 }
 
@@ -529,7 +531,8 @@ function count(args: Record<string, any>, field: string): number | null | { erro
  * so later events about it reach the same session; `max_runs_*` cap what it can start.
  */
 async function automate(args: Record<string, any>, context: PlatformToolContext) {
-  const invalid = (title: string, message: string) => fail(TOOL, 'automate', title, { kind: 'invalid', message }, context)
+  // Every check here is on the call's arguments: `_check` names it for this code, the person reads one incomplete-call title.
+  const invalid = (_check: string, message: string) => fail(TOOL, 'automate', KORTIX_INCOMPLETE_CALL_TITLE, { kind: 'invalid', message }, context)
   const name = typeof args.name === 'string' ? args.name.trim() : typeof args.id === 'string' ? args.id.trim() : ''
   if (!TRIGGER_SLUG.test(name)) return invalid('Name the automation', '`name` is a short id: lower-case letters, digits, "-" and "_", e.g. "issue-triage".')
   // A call without `on` names its source by the fields it gives (a model that forgets `on` still sets it up).
@@ -612,7 +615,10 @@ async function automate(args: Record<string, any>, context: PlatformToolContext)
       const link = 'text' in intake ? intake.text.match(/https?:\/\/\S+/)?.[0] : undefined
       if (link) {
         const message = `${made.error.message} Give the person this link to save ${secret} for webhooks (they paste the value there, never in chat), then call automate again: ${link}`
-        return { ...(await fail(TOOL, 'automate', `${secret} needs saving for webhooks`, { kind: 'invalid', message }, context)), data: { secret_intake_url: link } }
+        const note = 'Save the value on the linked page. It never passes through chat.'
+        const result = await fail(TOOL, 'automate', `${secret} needs saving for webhooks`, { kind: 'invalid', message, note }, context)
+        // The person saves it: the card carries the link (`card.links`), the model reads it in `data`.
+        return { ...result, card: { ...result.card, links: [{ label: 'Save secret', href: link }] }, data: { secret_intake_url: link } }
       }
     }
     return fail(TOOL, 'automate', 'Could not set up the automation', made.error, context)
@@ -647,7 +653,7 @@ async function testAutomation(args: Record<string, any>, context: PlatformToolCo
   const name = typeof args.name === 'string' ? args.name.trim() : typeof args.id === 'string' ? args.id.trim() : ''
   if (!TRIGGER_SLUG.test(name)) return fail(TOOL, 'test', 'Which automation?', { kind: 'invalid', message: '`name` is the automation\'s name, as list shows it.' }, context)
   if (args.payload !== undefined && (!args.payload || typeof args.payload !== 'object' || Array.isArray(args.payload))) {
-    return fail(TOOL, 'test', 'Check the sample', { kind: 'invalid', message: '`payload` is a JSON object merged over the sample event, e.g. { "body": { "action": "opened" } }.' }, context)
+    return fail(TOOL, 'test', KORTIX_INCOMPLETE_CALL_TITLE, { kind: 'invalid', message: '`payload` is a JSON object merged over the sample event, e.g. { "body": { "action": "opened" } }.' }, context)
   }
   const shown = await runJson<{ type?: string; app?: string | null; filter?: Record<string, unknown> | null }>(['triggers', 'show', name, '--json'], context)
   if ('error' in shown) return fail(TOOL, 'test', `Could not test ${name}`, shown.error, context)
@@ -697,7 +703,7 @@ async function testAppAutomation(name: string, app: string, filter: Record<strin
   // An App event name (the API's rule): letters, digits, . _ : / -, starting with a letter or digit, so it is
   // never read as a CLI flag (`--trigger=…` would pick another automation).
   if (!APP_EVENT_NAME.test(event)) {
-    return fail(TOOL, 'test', 'Check the event name', { kind: 'invalid', message: '`payload.event.name` is 1-128 letters, digits and . _ : / -, starting with a letter or digit, e.g. "status.changed".' }, context)
+    return fail(TOOL, 'test', KORTIX_INCOMPLETE_CALL_TITLE, { kind: 'invalid', message: '`payload.event.name` is 1-128 letters, digits and . _ : / -, starting with a letter or digit, e.g. "status.changed".' }, context)
   }
   const data = sample?.data && typeof sample.data === 'object' && !Array.isArray(sample.data) ? sample.data : null
   // The CLI exits 1 when nothing fired; its JSON still says why.
@@ -804,7 +810,7 @@ export default {
     'Actions: `follow_up` (text + ONE of in "3h", at ISO time, every "4h" (min 5m), cron "0 9 * * 1-5" + timezone; with several, the first of at, in, cron, every is used); ' +
     '`wake_on` (text + on); `events` (connector); `list` (this session\'s follow-ups and wake-ons, and the project schedules, with ids); ' +
     '`create` (prompt + agent + one schedule: each run starts a new session of that agent); `pause`, `resume`, `run_now`, `remove` (each needs `id` as list shows it; `delete` = remove). ' +
-    'AUTOMATIONS (work that starts by itself whenever something happens, with no one asking: each new email from a customer, each new issue, each form submission, each failed build, every weekday at 9): `automate` (name + on + agent + prompt; on=connector_event: connector + event (+ config), run `events` first; webhook: secret_env, give the outside system the returned URL; app_event: app (+ event); schedule: every or cron + timezone). ' +
+    'AUTOMATIONS (work that starts by itself whenever something happens, with no one asking: each new email from a customer, each new issue, each form submission, each failed build, every weekday at 9): `automate` (name + on + agent + prompt; on=connector_event: connector + event (+ config), run `events` first; an automation runs only on the shared sign-in of the workspace, so when the app still needs one, call kortix_connectors connect with for_trigger=true once (one card, never a private one first); webhook: secret_env, give the outside system the returned URL; app_event: app (+ event); schedule: every or cron + timezone). ' +
     'No event fits (none, or too coarse): have a colleague build a watcher App that posts App events, then `automate` its check (on=schedule + every + target_app + target_path "/tick": calls the App, no session, no model) and its work (on=app_event, with expect_event_within of a few check intervals). To tell the person in this chat instead, the work is `wake_on` on=app_event with expect_event_within. ' +
     'Do it well: 1) `filter` at the source so noise never starts a run (skip bots and Kortix itself, keep only the actions that matter: { "body.action": ["opened"], "body.sender.login": { "not": "kortix-bot" } }); ' +
     '2) `session_key` per thing ("{{ event.data.thread_id }}", "{{ body.issue.number }}", "{{ body.email }}") so a follow-up about the same thing lands in the same session; ' +

@@ -33,7 +33,7 @@ export function registerIamMfaRoutes(): void {
         ...errors(401, 403, 404),
       },
     }),
-    async (c: any) => {
+    async (c) => {
     const accountId = accountIdParam(c);
     await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.ACCOUNT_READ);
 
@@ -65,7 +65,7 @@ export function registerIamMfaRoutes(): void {
         ...errors(401, 403),
       },
     }),
-    async (c: any) => {
+    async (c) => {
     const accountId = accountIdParam(c);
     // The same leaf as the toggle it previews: the list names every member
     // without MFA, which a plain member may not see.
@@ -131,10 +131,10 @@ export function registerIamMfaRoutes(): void {
       request: { params: AccountIdParam, body: { content: { 'application/json': { schema: z.object({ enabled: z.boolean() }) } } } },
       responses: {
         200: json(z.object({ enabled: z.boolean(), unchanged: z.boolean().optional() }), 'Updated MFA-required status'),
-        ...errors(401, 403, 404, 409),
+        ...errors(400, 401, 403, 404, 409),
       },
     }),
-    async (c: any) => {
+    async (c) => {
     const accountId = accountIdParam(c);
     // Gate on account.write — same level as renaming the account or
     // flipping strict mode. Avoids inventing a new role action.
@@ -157,7 +157,7 @@ export function registerIamMfaRoutes(): void {
       .limit(1);
     if (!before) return c.json({ error: 'account not found' }, 404);
     if (before.mfaRequired === enabled) {
-      return c.json({ enabled, unchanged: true });
+      return c.json({ enabled, unchanged: true }, 200);
     }
 
     // Two-person rule: turning MFA OFF is dangerous (instantly relaxes
@@ -204,7 +204,7 @@ export function registerIamMfaRoutes(): void {
       after: { mfa_required: enabled },
     });
 
-    return c.json({ enabled });
+    return c.json({ enabled }, 200);
     },
   );
 }

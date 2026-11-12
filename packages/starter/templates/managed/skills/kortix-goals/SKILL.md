@@ -57,8 +57,9 @@ or raise its caps. A person does those from the Goals page.
 | `kortix goals check` | owner | prints what the goal needs from you |
 
 Add `--json` for machine-readable output and `--goal <goal_id>` when the CLI
-cannot tell which goal you mean. `kortix goals new` is for a person: in a
-session the API refuses it.
+cannot tell which goal you mean. `kortix goals new` works for a person and for
+a chat session creating the goal for the person it works for; a goal's own
+owner or verifier session cannot start another goal.
 </commands>
 
 <start>
@@ -74,9 +75,12 @@ The goal, its folder and its heartbeat exist; you are its owner and it is a
 4. `kortix goals transition active --reason "criteria written"`.
 5. Act on the first step in this turn. Append it to `log.md`.
 
-**A person asks for a goal in chat.** You cannot create it. Agree the outcome
-and the done criteria with them, then ask them to create it from the Goals
-page. The API starts an owner session for it.
+**A person asks for a goal in chat** (you are the chat session, not a goal's
+own session): create it for them. Settle the outcome and the done criteria,
+create it with `kortix goals new "<outcome>" --criterion "<check>"...`, and
+tell them it is tracked on the Goals page. Only a goal's own owner or
+verifier session cannot start another goal: note the follow-up in `log.md`
+instead. The API starts an owner session for it.
 </start>
 
 <wake>

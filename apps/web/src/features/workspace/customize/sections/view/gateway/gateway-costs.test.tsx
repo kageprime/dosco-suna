@@ -1,6 +1,4 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import type { GatewayModelStat, GatewaySeriesPoint } from '@kortix/sdk';
@@ -8,7 +6,6 @@ import type { GatewayModelStat, GatewaySeriesPoint } from '@kortix/sdk';
 import { CostSection, MetricTab, ShareBar, fmtCredits, fmtMs, weightedP50 } from '@kortix/ui/customize/sections/view/gateway/_metrics';
 import { MemberRow } from '@kortix/ui/customize/sections/view/gateway/gateway-budgets';
 import { mostSpend } from '@kortix/ui/customize/sections/view/gateway/gateway-overview';
-import { uiSourcePath } from '@/test-utils/read-source';
 
 function point(day: string, requests: number, p50: number): GatewaySeriesPoint {
   return {
@@ -170,22 +167,5 @@ describe('Costs — member caps', () => {
     );
     expect(out).not.toContain('Edit cap');
     expect(out).not.toContain('<button');
-  });
-});
-
-describe('Costs — segmented controls come from the design system', () => {
-  const budgets = readFileSync(uiSourcePath('customize/sections/view/gateway/gateway-budgets.tsx'), 'utf8');
-  const metrics = readFileSync(uiSourcePath('customize/sections/view/gateway/_metrics.tsx'), 'utf8');
-
-  test('the budget dialog’s Period and At limit use Tabs, named by their labels', () => {
-    expect(budgets).not.toContain('FilterBar');
-    expect(budgets).toContain('<TabsList className="w-full" aria-label={label}>');
-    expect(budgets).toContain("label={tI18nComplete.raw('text6e795d4d3cc2')}");
-    expect(budgets).toContain("label={tI18nComplete.raw('textcfac8a356cfe')}");
-  });
-
-  test('the 7d/30d/90d window uses Tabs too', () => {
-    expect(metrics).not.toContain('FilterBar');
-    expect(metrics).toContain('<TabsList size="xs">');
   });
 });

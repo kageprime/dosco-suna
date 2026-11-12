@@ -19,7 +19,7 @@
  * `@kortix/db` and `shared/db`), so `shared/` modules can read rows too.
  */
 import { accounts, projects, type Database } from '@kortix/db';
-import { sql, type ColumnsSelection, type SQL } from 'drizzle-orm';
+import { and, eq, inArray, sql, type ColumnsSelection, type SQL } from 'drizzle-orm';
 import type { PgUpdateSetSource, PgViewWithSelection } from 'drizzle-orm/pg-core';
 
 import { db } from '../shared/db';
@@ -62,6 +62,36 @@ type RowsWhere = SQL | undefined;
 function named(where: RowsWhere): SQL {
   if (!where) throw new Error('A project or account write must name its rows');
   return where;
+}
+
+// ─── the account of a workspace ─────────────────────────────────────────────
+
+/**
+ * The legacy account key of a workspace: its project row's `account_id`, or
+ * null for an unknown id. Any status unless `activeOnly`. Read fresh on every
+ * call: callers decide access with it, and a project that moved to another
+ * account must answer the new one at once (`shared/project-account-lookup.ts`
+ * caches it for audit attribution only). The one place Release 2 points at
+ * `kortix.workspaces` (design.md §4 step 8a).
+ */
+export async function accountKeyOfWorkspace(workspaceId: string, options: { activeOnly?: boolean } = {}): Promise<string | null> {
+  const byId = eq(projectsView.projectId, workspaceId);
+  const [row] = await db
+    .select({ accountId: projectsView.accountId })
+    .from(projectsView)
+    .where(options.activeOnly ? and(byId, eq(projectsView.status, 'active')) : byId)
+    .limit(1);
+  return row?.accountId ?? null;
+}
+
+/** The distinct legacy account keys of `workspaceIds` (any status; unknown ids drop out). */
+export async function accountKeysOfWorkspaces(workspaceIds: readonly string[]): Promise<string[]> {
+  if (workspaceIds.length === 0) return [];
+  const rows = await db
+    .select({ accountId: projectsView.accountId })
+    .from(projectsView)
+    .where(inArray(projectsView.projectId, [...workspaceIds]));
+  return [...new Set(rows.map((row) => row.accountId))];
 }
 
 // ─── projects ───────────────────────────────────────────────────────────────
@@ -190,6 +220,20 @@ export function metadataMerge(patch: Record<string, unknown> = {}, deleteKeys: s
  */
 export function metadataMergeSubtree(topKey: string, subPatch: Record<string, unknown>): SQL {
   return sql`${metadataBase()} || jsonb_build_object(${topKey}::text, coalesce(${projects.metadata} -> ${topKey}, '{}'::jsonb) || ${JSON.stringify(subPatch)}::jsonb)`;
+}
+
+/**
+ * The provision post-seed write in ONE statement: the verified seed state
+ * merges into the NESTED `git` object (in-SQL, so the siblings the insert
+ * wrote — `managed`, `url`, `auth` — survive), while `topLevel` patches
+ * disjoint top-level keys (`default_agent`). `topLevel` must never name `git`
+ * itself: the shallow `||` replaces the whole object and would wipe the
+ * siblings the subtree merge just preserved. `seedProvisionedRepo` writes
+ * through this helper so the shipped expression and its regression test
+ * (metadata-merge.integration.test.ts) cannot drift apart.
+ */
+export function metadataMergeGitSeed(seed: object, topLevel: Record<string, unknown> = {}): SQL {
+  return sql`${metadataMergeSubtree('git', { seed })} || ${JSON.stringify(topLevel)}::jsonb`;
 }
 
 /**

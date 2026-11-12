@@ -5,7 +5,7 @@ const updatedValues: unknown[] = [];
 
 function makeChain(result: unknown[] = []): any {
   const chain: any = {};
-  for (const method of ['where', 'returning', 'onConflictDoNothing']) {
+  for (const method of ['where', 'returning', 'onConflictDoNothing', 'onConflictDoUpdate']) {
     chain[method] = () => chain;
   }
   chain.values = (value: unknown) => {
@@ -63,10 +63,12 @@ describe('saveSlackInstall', () => {
       botUserId: 'B1',
     });
 
+    // The install path alone marks a workspace's own Slack app (slack/link.ts).
     expect(insertedValues[0]).toEqual({
       platform: 'slack',
       platformTeamId: 'T1',
       projectId: 'proj-1',
+      ownApp: true,
     });
     expect(insertedValues).toContainEqual(
       expect.objectContaining({

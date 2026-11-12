@@ -29,7 +29,8 @@ export function assert(a: Assertion): void {
   currentRecorder()?.pushAssertion(a);
   if (!a.pass) {
     throw new AssertionError(
-      `${a.description} — expected ${JSON.stringify(a.expected)}, got ${JSON.stringify(a.actual)}`,
+      `${a.description} — expected ${JSON.stringify(a.expected)}, got ${JSON.stringify(a.actual)}` +
+        (a.detail ? ` (${a.detail})` : ''),
       a,
     );
   }

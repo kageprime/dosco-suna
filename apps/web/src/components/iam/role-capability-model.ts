@@ -34,7 +34,7 @@ import type { Permission } from '@/lib/iam-client';
 export type CapabilityScope = 'project' | 'account';
 export type CellKind = 'view' | 'edit';
 
-export interface AreaDef {
+interface AreaDef {
   /** Stable id used by `applyCell`. */
   key: string;
   label: string;
@@ -149,7 +149,7 @@ export function buildAreaTable(
 /** leaf → leaves it requires, straight off the catalog's `implies`. The client
  *  used to invent this graph (`EXTRA_IMPLICATIONS`) and the engine did not
  *  enforce it; now the engine seeds it and the client renders it. */
-export function buildImplications(
+function buildImplications(
   permissions: readonly Permission[] | undefined,
 ): ReadonlyMap<string, readonly string[]> {
   const map = new Map<string, string[]>();
@@ -194,7 +194,7 @@ function closure(
 
 // ─── Pure fold / expand helpers ─────────────────────────────────────────────
 
-export type CellState = 'on' | 'off' | 'partial';
+type CellState = 'on' | 'off' | 'partial';
 
 export interface CellFold {
   kind: CellKind;
@@ -205,7 +205,7 @@ export interface CellFold {
   state: CellState;
 }
 
-export interface AreaFold {
+interface AreaFold {
   area: AreaDef;
   view: CellFold;
   edit: CellFold;
@@ -213,13 +213,13 @@ export interface AreaFold {
   partial: boolean;
 }
 
-export interface UnmappedLeaf {
+interface UnmappedLeaf {
   action: string;
   label: string;
   selected: boolean;
 }
 
-export interface CapabilityFold {
+interface CapabilityFold {
   areas: AreaFold[];
   /** Leaves no cell covers, in catalog order, plus any selected stragglers. */
   unmapped: UnmappedLeaf[];
@@ -469,7 +469,7 @@ export function applyBulk(
 
 // ─── Advanced grouping ──────────────────────────────────────────────────────
 
-export interface LeafGroup {
+interface LeafGroup {
   label: string;
   entries: { action: string; label: string }[];
 }

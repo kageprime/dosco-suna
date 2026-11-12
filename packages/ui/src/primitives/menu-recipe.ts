@@ -74,12 +74,7 @@ const MENU_ROW_BASE =
 
 /**
  * Keyboard focus and pointer hover resolve to the same treatment on purpose —
- * Radix marks the keyboard-focused row `data-highlighted`, and a row you
- * arrowed onto should look exactly like a row you hovered.
- */
-/**
- * Keyboard focus and pointer hover resolve to the same treatment on purpose —
- * Radix marks the keyboard-focused row `data-highlighted`, and a row you
+ * Base UI marks the keyboard-focused row `data-highlighted`, and a row you
  * arrowed onto should look exactly like a row you hovered.
  */
 const MENU_ROW_TONE: Record<MenuRowTone, string> = {
@@ -130,7 +125,7 @@ export function menuRow(size: MenuRowSize, tone: MenuRowTone, className?: string
  *   shared `overflow-hidden` would survive alongside a later `overflow-y-auto`
  *   and the winner would come down to Tailwind's generated property order.
  * - **Transform origin.** Anchored panels scale out of their trigger, and the
- *   Radix variable that carries it is named per primitive.
+ *   `--radix-*-transform-origin` variable that carries it is named per primitive.
  *
  * No `hover:text-foreground` here either — select had it. On the panel it
  * recoloured every row at once whenever the pointer entered, fighting the

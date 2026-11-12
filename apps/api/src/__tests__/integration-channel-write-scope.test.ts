@@ -1,11 +1,12 @@
 /**
- * Integration test (real local PostgreSQL): a Slack write from one project
- * stays out of another project's channels and threads, and a thread bind
- * lands only in a workspace the project's install proved. A Telegram write
- * from a session a chat started, or a chat is bound to, stays in that chat.
- * Real: chat_installs, chat_channel_bindings, chat_threads, project_sessions,
- * project_secrets rows and their SQL. Faked: Slack and Telegram (the gateway's
- * fetch).
+ * Integration test (real local PostgreSQL): one Slack workspace runs in one
+ * Kortix workspace. The Kortix workspace that installed last holds the link
+ * and writes anywhere its bot may; the one it moved from is detached and
+ * writes nothing. A thread bind lands only in a workspace the project's
+ * install proved. A Telegram write from a session a chat started, or a chat
+ * is bound to, stays in that chat. Real: chat_installs, chat_threads,
+ * project_sessions, project_secrets rows and their SQL. Faked: Slack and
+ * Telegram (the gateway's fetch).
  */
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { accountMembers, chatChannelBindings, chatInstalls, chatThreads, projectSecrets, projectSessions } from '@kortix/db';
@@ -14,7 +15,8 @@ import { CONVERSATION_NOT_IN_PROJECT } from '../connectors/channel-read-scope';
 import { gateChannelWrite, slackWriteRefusal } from '../connectors/channel-write-scope';
 import { type GatewayDeps, handleCall } from '../connectors/gateway';
 import { findChatThread } from '../channels/core/threads';
-import { SLACK_TEAM_ID, deleteSlackInstall, loadSlackTeamIdForProject, saveSlackInstall } from '../channels/install-store';
+import { SLACK_TEAM_ID, deleteSlackInstall, loadSlackTeamIdForProject, saveSlackOauthInstall } from '../channels/install-store';
+import { moveSlackLink } from '../channels/slack/link';
 import { bindSlackThreadToSession } from '../channels/slack/binding';
 import { encryptProjectSecret } from '../projects/secrets/envelope';
 import { db } from '../shared/db';
@@ -33,6 +35,21 @@ const C_OTHER = `C0OTHER${RUN}`;
 const C_NOBODY = `C0NOBODY${RUN}`;
 const D_OTHER = `D0OTHERDM${RUN}`;
 const T_OTHER = '1700000100.000100';
+// A private channel the bot is in and the session's person is not.
+const G_PRIVATE = `G0PRIVATE${RUN}`;
+
+// Slack's membership lists for the private-content check (users.conversations);
+// every other request goes out unchanged.
+const realFetch = globalThis.fetch;
+globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = String(input);
+  if (url.startsWith('https://slack.com/api/users.conversations')) {
+    const asksForPerson = new URLSearchParams(String(init?.body ?? '')).has('user');
+    return Response.json({ ok: true, channels: asksForPerson ? [] : [{ id: G_PRIVATE, is_private: true }] });
+  }
+  if (url.startsWith('https://slack.com/api/users.lookupByEmail')) return Response.json({ ok: false, error: 'users_not_found' });
+  return realFetch(input, init);
+}) as typeof fetch;
 const T_MINE = '1700000200.000200';
 
 let mine: SeededProject;
@@ -50,22 +67,21 @@ beforeAll(async () => {
   bare = await seedProject('channel-write-bare', { accountId: mine.account_id });
   mineSession = await seedSession(mine, crypto.randomUUID());
   const otherSession = await seedSession(other, crypto.randomUUID());
-  // Both installs through the install path, so the workspace is proven in
-  // chat_installs and SLACK_TEAM_ID is written as a connector secret.
-  for (const project of [mine, other]) {
-    await saveSlackInstall({
+  // Both through the shared app's install path, as the OAuth completion runs
+  // it: `other` installs first, then `mine` installs and the link moves to it.
+  for (const project of [other, mine]) {
+    await saveSlackOauthInstall({
       projectId: project.project_id,
-      teamId: WS,
+      workspaceId: WS,
       teamName: 'synthetic',
       botToken: 'xoxb-synthetic',
-      signingSecret: 'synthetic',
       botUserId: 'U0BOTUSER1',
     });
+    await moveSlackLink(WS, project.project_id);
   }
   await db.insert(chatChannelBindings).values([
     { platform: 'slack', platformTeamId: WS, channelId: C_MINE, projectId: mine.project_id },
-    { platform: 'slack', platformTeamId: WS, channelId: C_OTHER, projectId: other.project_id },
-    // A person's DM with the bot, bound to the other project.
+    // A person's DM with the bot, left by the Kortix workspace that moved away.
     { platform: 'slack', platformTeamId: WS, channelId: D_OTHER, projectId: other.project_id },
   ]);
   await db.insert(chatThreads).values([
@@ -92,6 +108,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  globalThis.fetch = realFetch;
   for (const tokenId of tokenIds) await db.execute(sql`delete from kortix.account_tokens where token_id = ${tokenId}`);
   await db.delete(chatThreads).where(inArray(chatThreads.platformTeamId, [WS, FOREIGN_WS]));
   await db.delete(chatChannelBindings).where(eq(chatChannelBindings.platformTeamId, WS));
@@ -104,32 +121,33 @@ afterAll(async () => {
 const kind = async (target: Parameters<typeof slackWriteRefusal>[1], projectId = mine.project_id) =>
   (await slackWriteRefusal(projectId, target))?.kind ?? null;
 
-describe('Slack writes against real ownership rows', () => {
-  test("another project's channel is refused; this project's, an unowned one and a DM are not", async () => {
-    expect(await kind({ channel: C_OTHER })).toBe('channel');
+describe('Slack writes follow the Slack workspace link, on real install rows', () => {
+  test('the Kortix workspace that installed last holds the link; the one it moved from is detached', async () => {
+    const installs = await db
+      .select({ projectId: chatInstalls.projectId })
+      .from(chatInstalls)
+      .where(and(eq(chatInstalls.platform, 'slack'), eq(chatInstalls.platformTeamId, WS)));
+    expect(installs.map((r) => r.projectId)).toEqual([mine.project_id]);
+    const otherSecrets = await db
+      .select({ name: projectSecrets.name })
+      .from(projectSecrets)
+      .where(and(eq(projectSecrets.projectId, other.project_id), eq(projectSecrets.name, 'SLACK_BOT_TOKEN')));
+    expect(otherSecrets).toEqual([]);
+  });
+
+  test('the linked workspace writes in any channel, DM and thread its bot may; the detached one and one with no install write nothing', async () => {
+    expect(await kind({ channel: C_OTHER })).toBeNull();
     expect(await kind({ channel: C_MINE })).toBeNull();
     expect(await kind({ channel: C_NOBODY })).toBeNull();
     expect(await kind({ channel: D_OTHER })).toBeNull();
     expect(await kind({ channel: 'U0SOMEONE1' })).toBeNull();
-    // The other project is bound by the same rule.
-    expect(await kind({ channel: C_MINE }, other.project_id)).toBe('channel');
-  });
-
-  test("a thread decides before its channel: another project's is refused anywhere, this project's is allowed anywhere", async () => {
-    expect(await kind({ channel: D_OTHER, ts: T_OTHER })).toBe('thread');
-    expect(await kind({ channel: C_MINE, ts: T_OTHER })).toBe('thread');
-    expect(await kind({ channel: C_OTHER, ts: T_MINE })).toBeNull();
-    // A message no session owns follows its conversation.
-    expect(await kind({ channel: C_OTHER, ts: '1700000300.000300' })).toBe('channel');
-    expect(await kind({ channel: D_OTHER, ts: '1700000300.000300' })).toBeNull();
-  });
-
-  test('a project with no install on record writes nothing', async () => {
+    expect(await kind({ channel: D_OTHER, ts: T_OTHER })).toBeNull();
+    expect(await kind({ channel: C_MINE }, other.project_id)).toBe('install');
     expect(await kind({ channel: C_NOBODY }, bare.project_id)).toBe('install');
   });
 
-  test('the connector refuses before Slack; an allowed post reaches Slack', async () => {
-    const run = async (args: Record<string, unknown>) => {
+  test('the connector refuses the detached workspace before Slack; the linked one reaches Slack', async () => {
+    const run = async (args: Record<string, unknown>, projectId = mine.project_id) => {
       const fetched: string[] = [];
       const deps: GatewayDeps = {
         loadConnectorBySlug: async () => ({
@@ -166,7 +184,7 @@ describe('Slack writes against real ownership rows', () => {
         },
       };
       const res = await handleCall(deps, {
-        projectId: mine.project_id,
+        projectId,
         accountId: mine.account_id,
         subject: { userId: crypto.randomUUID(), groupIds: [] },
         connectorSlug: 'kortix_slack',
@@ -175,12 +193,12 @@ describe('Slack writes against real ownership rows', () => {
       });
       return { res, fetched };
     };
-    const refused = await run({ channel: C_OTHER, text: 'hi' });
-    expect(refused.res).toMatchObject({ status: 'denied', reason: CONVERSATION_NOT_IN_PROJECT });
-    expect(refused.fetched).toEqual([]);
-    const allowed = await run({ channel: D_OTHER, text: 'build is green' });
+    const allowed = await run({ channel: C_OTHER, text: 'build is green' });
     expect(allowed.res.status).toBe('ok');
     expect(allowed.fetched).toEqual(['https://slack.com/api/chat.postMessage']);
+    const refused = await run({ channel: C_MINE, text: 'hi' }, other.project_id);
+    expect(refused.res).toMatchObject({ status: 'denied', reason: CONVERSATION_NOT_IN_PROJECT });
+    expect(refused.fetched).toEqual([]);
   });
 });
 
@@ -229,13 +247,7 @@ describe('the file upload and bind-thread routes', () => {
     });
   const file = { filename: 'report.txt', content_base64: Buffer.from('synthetic').toString('base64') };
 
-  test("a file into another project's channel or thread is refused before Slack; a malformed channel is a 400, no install a 404", async () => {
-    const intoChannel = await post('file/upload', { ...file, channel: C_OTHER });
-    expect(intoChannel.status).toBe(403);
-    expect(await intoChannel.json()).toMatchObject({ reason: CONVERSATION_NOT_IN_PROJECT });
-    const intoThread = await post('file/upload', { ...file, channel: D_OTHER, thread_ts: T_OTHER });
-    expect(intoThread.status).toBe(403);
-    expect(String((await intoThread.json()).error)).toContain(`Slack thread ${T_OTHER}`);
+  test('a file upload with a malformed channel is a 400; from a Kortix workspace with no Slack install a 404', async () => {
     expect((await post('file/upload', { ...file, channel: 'general' })).status).toBe(400);
     // No Slack install: the route's answer before this rule, not connected.
     const unconnected = await post('file/upload', { ...file, channel: C_NOBODY }, bare, bareToken);
@@ -243,7 +255,7 @@ describe('the file upload and bind-thread routes', () => {
     expect(String((await unconnected.json()).error)).toContain('no Slack install on record');
   });
 
-  test('bind-thread: a foreign workspace is a 400, a thread in another project\'s channel a 403', async () => {
+  test('bind-thread: a foreign workspace is a 400; a thread in any channel of the linked workspace binds', async () => {
     const foreign = await post('bind-thread', {
       session_id: mineSession,
       channel: D_OTHER,
@@ -253,13 +265,19 @@ describe('the file upload and bind-thread routes', () => {
     expect(foreign.status).toBe(400);
     expect(await foreign.json()).toMatchObject({ code: 'SLACK_WORKSPACE_NOT_CONNECTED' });
 
-    const inOtherChannel = await post('bind-thread', { session_id: mineSession, channel: C_OTHER, thread_ts: '1700000800.000800' });
-    expect(inOtherChannel.status).toBe(403);
-    expect(await inOtherChannel.json()).toMatchObject({ code: 'CONVERSATION_NOT_IN_PROJECT', reason: CONVERSATION_NOT_IN_PROJECT });
-    expect(await findChatThread({ platform: 'slack', workspaceId: WS, threadId: '1700000800.000800' })).toBeNull();
+    const anyChannel = await post('bind-thread', { session_id: mineSession, channel: C_OTHER, thread_ts: '1700000800.000800' });
+    expect(anyChannel.status).toBe(200);
+    expect(await anyChannel.json()).toMatchObject({ ok: true, bound: true, session_id: mineSession });
   });
 
-  test("bind-thread: another project's thread keeps its answer; a DM thread binds", async () => {
+  test('bind-thread: a private channel the session\'s person is not in is a 403, and no mapping is written', async () => {
+    const res = await post('bind-thread', { session_id: mineSession, channel: G_PRIVATE, thread_ts: '1700000850.000850' });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ code: 'SLACK_PRIVATE_CONVERSATION' });
+    expect(await findChatThread({ platform: 'slack', workspaceId: WS, threadId: '1700000850.000850' })).toBeNull();
+  });
+
+  test("bind-thread: another session's thread keeps its answer; a DM thread binds", async () => {
     const owned = await post('bind-thread', { session_id: mineSession, channel: C_MINE, thread_ts: T_OTHER });
     expect(owned.status).toBe(403);
     expect(await owned.json()).toMatchObject({ code: 'THREAD_OWNED_BY_ANOTHER_PROJECT' });

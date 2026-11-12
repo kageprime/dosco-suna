@@ -62,7 +62,7 @@ mock.module('../../../primitives/sheet', uiSheetMock);
 const uiHintMock = () => ({ default: Passthrough, Hint: Passthrough });
 mock.module('../../../primitives/hint', uiHintMock);
 mock.module('../../../primitives/hint', uiHintMock);
-// Radix Tabs schedules a requestAnimationFrame this DOM-less renderer lacks. The
+// `Tabs` needs a DOM this DOM-less renderer lacks. The
 // subject is the Settings tab, so only its content renders.
 const uiTabsMock = () => ({
   Tabs: Passthrough,
@@ -742,13 +742,31 @@ describe('an auto-paused trigger', () => {
 
   test('shows the reason, offers Resume instead of Pause, and Resume sends { enabled: true }', async () => {
     const sheet = mountSheet({ enabled: true, auto_paused_at: '2026-10-19T12:00:00.000Z', auto_paused_reason: reason });
-    expect(JSON.stringify(sheet.renderer.toJSON())).toContain(reason);
+    const text = JSON.stringify(sheet.renderer.toJSON());
+    // The reason reads as a sentence: no `auto-paused:` code prefix, no code font.
+    expect(text).toContain('Ran at max_runs_per_hour 60 for 2 hours in a row');
+    expect(text).not.toContain('auto-paused:');
+    expect(text).not.toContain('font-mono');
     expect(sheet.buttonsWithin('Pause')).toHaveLength(0);
     const resume = sheet.buttonsWithin('Resume');
     expect(resume).toHaveLength(1);
     await act(async () => call(at(resume, 0).props, 'onClick'));
     await sheet.flush();
     expectPatch({ enabled: true });
+  });
+
+  test('a pause the account state caused says what ends it, and that it resumes by itself', () => {
+    const billing = mountSheet({ enabled: true, auto_paused_at: '2026-10-19T12:00:00.000Z', auto_paused_code: 'billing', auto_paused_reason: 'auto-paused: billing: The wallet is empty.' });
+    const billingText = JSON.stringify(billing.renderer.toJSON());
+    expect(billingText).toContain('Paused: out of credits');
+    expect(billingText).toContain('resumes by itself');
+    // The readable sentence only: the raw reason no longer repeats under it.
+    expect(billingText).not.toContain('The wallet is empty.');
+    expect(billingText).not.toContain('font-mono');
+    const model = mountSheet({ enabled: true, auto_paused_at: '2026-10-19T12:00:00.000Z', auto_paused_code: 'no_usable_model', auto_paused_reason: 'auto-paused: no usable model: none' });
+    const modelText = JSON.stringify(model.renderer.toJSON());
+    expect(modelText).toContain('Paused: no model to run on');
+    expect(modelText).not.toContain('auto-paused: no usable model');
   });
 
   test('a trigger that is not auto-paused shows no such notice', () => {

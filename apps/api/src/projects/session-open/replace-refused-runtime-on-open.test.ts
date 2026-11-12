@@ -42,7 +42,7 @@ const VISIBLE = {
     metadata: null,
   },
 };
-const REASON = 'runtime_admission_refused:catalog_fingerprint';
+const REASON = 'runtime_admission_refused:config_release_capability';
 
 describe('replaceRefusedRuntimeOnOpen', () => {
   test('a refused RUNNING box is replaced, not parked: provisioning + retriable, never failed', async () => {

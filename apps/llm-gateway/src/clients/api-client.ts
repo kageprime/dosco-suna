@@ -80,6 +80,19 @@ const RETRY_SLOW = { retryOnTimeout: true } as const;
 /** How long an API that answered 404 for `/admit` is not asked again. */
 const ADMIT_MISSING_MS = 60_000;
 
+/** How long a model's typed resolution refusal is remembered. Re-asking per request re-ran the API's resolution for the
+ * same answer: a box's voice call resolves its TTS model once per spoken line, so one session against a deployment that
+ * cannot serve the model re-failed every line (KRTX-4665: 27 warns in 8 h, one per line, one session). A refusal
+ * without a retry hint is a persistent state (a lineup without the model, a plan gate, a disconnected provider, a
+ * usage-limit rest); one with a retryAfterSeconds is transient and never memoized. The TTL picks a changed state up
+ * without a gateway restart. */
+const REFUSAL_MEMO_MS = 5 * 60 * 1000;
+/** The refusal memo holds one entry per (account, project, caller, session, key, model id): bounded, oldest evicted. */
+const REFUSAL_MEMO_MAX = 1_000;
+/** A plausible model id: past this length the id is never remembered (the refusal message embeds it verbatim, so a memo
+ * entry must stay bytes-small) and the memo key is lossy — two longer ids share one key. */
+const MEMOIZABLE_MODEL_MAX = 200;
+
 /** How long a private URL that did not answer is skipped for the public one. */
 const INTERNAL_DOWN_MS = 60_000;
 
@@ -218,6 +231,11 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
   // ponytail: per-process memo; a mixed fleet mid-rollout can flip it once per minute.
   let admitMissingUntil = 0;
 
+  // ponytail: per-process memo, like admitMissingUntil; each gateway task learns a refusal on its own first failure
+  // (shared state only if that cost is measured). The key caps the model at the same 200 a model field is capped at
+  // elsewhere (/claude-credentials), so an absurd id cannot pin its bytes in the process.
+  const refusalMemo = new Map<string, { error: GatewayResolutionError; until: number }>();
+
   return {
     authenticate: async (token) => {
       const result = await post<{ principal: AuthedPrincipal | null }>(
@@ -279,6 +297,22 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
       return result.route ?? null;
     },
     resolveUpstream: async (principal, model) => {
+      // A remembered refusal answers the same typed error the API would, without the round trip — and without re-arming
+      // the API's per-replica warn gate for a deployment state that has not changed. A served answer is never remembered:
+      // candidates change with plan and billing state. The key carries the caller (Strix review of this PR): resolution
+      // is not project-grained alone — the personal connection (personalUserId: absent = the token user, null = none),
+      // the session's provider pool (sessionId) and a project gateway key (keyId) all change the answer, and a refusal
+      // can name the caller's own connection — one member's refusal never answers another member's request.
+      const caller = principal.personalUserId === undefined ? principal.userId : principal.personalUserId;
+      const key = `${principal.accountId}\u0000${principal.projectId ?? ''}\u0000${caller ?? ''}\u0000${principal.sessionId ?? ''}\u0000${principal.keyId ?? ''}\u0000${model.slice(0, MEMOIZABLE_MODEL_MAX)}`;
+      // An oversized id is never answered from the memo either: a longer id that 200-prefix-matches a remembered one
+      // shares its key, and the entry's message names the shorter id.
+      const memoizable = model.length <= MEMOIZABLE_MODEL_MAX;
+      const remembered = memoizable && refusalMemo.get(key);
+      if (remembered) {
+        if (Date.now() >= remembered.until) refusalMemo.delete(key);
+        else throw remembered.error;
+      }
       const result = await post<{
         candidates?: UpstreamDescriptor[];
         resolutionError?: ResolutionErrorBody;
@@ -291,7 +325,28 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
       // resolveCandidates) — a thrown GatewayResolutionError it can surface as
       // a clean 400 with the actionable suggestion, rather than a generic
       // ApiUnavailableError 5xx.
-      if (result.resolutionError) throw resolutionError(result.resolutionError);
+      if (result.resolutionError) {
+        const error = resolutionError(result.resolutionError);
+        // A refusal carrying retryAfterSeconds is TRANSIENT — a client-facing
+        // retry hint that states when the refusal clears (a provider-pool
+        // cooldown): never memoized, so the stated recovery is honored and no
+        // stale retry-after is served past it. restSeconds is NOT a hint (the
+        // client never receives it; a usage limit rests for days, outliving
+        // this TTL): a restSeconds-only refusal stays memoized, the 5-min
+        // re-ask being this fix's bound on per-line resolution. The memo keeps
+        // the persistent codes (a lineup without the model, a plan gate, a
+        // disconnected provider) the issue's signal needs.
+        const transient = error.retryAfterSeconds !== undefined;
+        if (!transient && memoizable) {
+          // Map iteration is insertion order: the first key is the oldest entry (route-memory's bound).
+          if (refusalMemo.size >= REFUSAL_MEMO_MAX) {
+            const oldest = refusalMemo.keys().next().value;
+            if (oldest !== undefined) refusalMemo.delete(oldest);
+          }
+          refusalMemo.set(key, { error, until: Date.now() + REFUSAL_MEMO_MS });
+        }
+        throw error;
+      }
       return result.candidates ?? [];
     },
     notePoolRateLimit: async (principal, secretId, seconds) => {

@@ -551,7 +551,9 @@ async function diff(args: Args): Promise<void> {
       return;
     }
     lines.push('| Method | Route | Context | Credential | Role | Base | Head | Why |', '|---|---|---|---|---|---|---|---|');
-    const cell = (v: string) => v.replace(/\|/g, '\\|');
+    // Markdown cell escaping must escape the backslash too, or a value holding one
+    // turns the approximate escape pipe into a literal backslash sequence.
+    const cell = (v: string) => v.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
     for (const r of list) {
       lines.push(
         `| ${r.method} | \`${cell(r.path)}\` | ${r.ctx} | ${r.kind} | ${r.role} | \`${cell(r.base)}\` | \`${cell(r.head)}\` | ${r.why ?? 'UNEXPECTED'} |`,
@@ -566,7 +568,7 @@ async function diff(args: Args): Promise<void> {
   for (const [route, list] of [...byRoute.entries()].sort()) {
     const [method, ...p] = route.split(' ');
     const roles = [...new Set(list.map((r) => r.role))].sort().join(', ');
-    const pairs = [...new Set(list.map((r) => `\`${r.base}\` → \`${r.head}\``))].join('; ').replace(/\|/g, '\\|');
+    const pairs = [...new Set(list.map((r) => `\`${r.base}\` → \`${r.head}\``))].join('; ').replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
     lines.push(`| ${method} | \`${p.join(' ')}\` | ${list.length} | ${roles} | ${pairs} |`);
   }
   lines.push('');

@@ -18,14 +18,15 @@ The `memory` tool that edited this folder is retired (2026-10-30): a
 workspace that ejected it into `tools/memory.ts` keeps its own copy.
 
 `MEMORY.md` is the **index**. Memory is **not** auto-injected into the
-prompt — the **memory protocol** is: at the start of a task, `read`
-`memory/MEMORY.md` to recover prior context, then read the sub-files
-(`overview.md`, `connections.md`, etc.) the index points at when
-they're relevant. Record anything durable as you go — your context
-window may reset at any time, so what isn't written to `memory/` is lost.
-Memory edits land only from an agent with
-`workspace: { project_repository: true }`: without it the session has no
-checkout to commit or push.
+prompt — the **memory protocol** is: at the start of a task, read
+`memory/MEMORY.md` (`kortix files cat memory/MEMORY.md`, no clone needed)
+to recover prior context, then read the sub-files (`overview.md`,
+`connections.md`, etc.) the index points at when they're relevant.
+Record anything durable as you go — your context window may reset at any
+time, so what isn't written to `memory/` is lost. `/workspace` starts
+empty: to edit memory, run `kortix workspaces clone` (it clones the
+repository onto your session branch), edit `memory/` in the clone, commit,
+push, and open a change request (`kortix cr open`).
 
 Memory is **continuously CRUD'd**:
 
@@ -132,12 +133,13 @@ there's enough depth to warrant a click.
 
 ### Editing memory
 
-Use the file tools on the repo-relative `memory/` folder (for example
-`memory/overview.md`). Writes go straight into the real `memory/`
-folder, so they show up in the working tree and land on `main` through
+Read memory without a clone: `kortix files cat memory/MEMORY.md` and
+`kortix files ls memory`. To change it, work in a clone of the repository
+(`kortix workspaces clone`, then `cd` into it; `/workspace` has none at boot)
+and use the file tools on its `memory/` folder. Edits land on `main` through
 the normal change-request flow (below).
 
-1. `read` `memory/MEMORY.md` (and `ls memory/`) to see what's there.
+1. Read `memory/MEMORY.md` (and list `memory/`) to see what's there.
 2. Identify the right file. Most additions fit `overview.md`,
    `connections.md`, `conventions.md`, or `decisions.md`. `write` a
    new file only when a topic deserves its own page.

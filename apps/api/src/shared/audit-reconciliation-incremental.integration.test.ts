@@ -10,6 +10,7 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { PgClient } from '../__tests__/helpers/pg-client';
+import { LATE_ROW_MAX_AGE_DAYS } from './audit-archive/format';
 import { reconcileAuditEvents } from './audit-reconciliation';
 import { runAuditReconciliationPage } from './audit-reconciliation-worker';
 
@@ -77,10 +78,10 @@ describe.skipIf(!databaseUrl)('audit reconciliation is incremental', () => {
   });
 
   test('first pass scans the hot window, records the mark, and a crash mid-run loses nothing', async () => {
-    // Older than the 80-day window: never reconstructed. Retention archives and drops what is
-    // older than 90 days, so a full rescan must not bring it back as a new audit row.
+    // Older than LATE_ROW_MAX_AGE_DAYS: never reconstructed. Retention archives and drops what is
+    // older than HOT_DAYS, so a full rescan must not bring it back as a new audit row.
     await providerEvent(ACCOUNT, 'ancient', 400);
-    await providerEvent(ACCOUNT, 'old', 30);
+    await providerEvent(ACCOUNT, 'old', LATE_ROW_MAX_AGE_DAYS - 2);
     await providerEvent(ACCOUNT, 'new');
 
     // A page smaller than the backlog is a "crash" point: it reports
@@ -103,7 +104,7 @@ describe.skipIf(!databaseUrl)('audit reconciliation is incremental', () => {
     await providerEvent(ACCOUNT, 'fresh');
     // A row outside the lookback with no audit event. A full scan would
     // insert it; an incremental pass must not even look at it.
-    await providerEvent(ACCOUNT, 'unreconciled-old', 60);
+    await providerEvent(ACCOUNT, 'unreconciled-old', LATE_ROW_MAX_AGE_DAYS - 3);
 
     const result = await reconcileAuditEvents(ACCOUNT, 10);
     expect(result).toEqual({ inserted: 1, complete: true, by_source: { provider_events: 1 } });

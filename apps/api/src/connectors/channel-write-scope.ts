@@ -1,7 +1,7 @@
 /**
  * Channel connector writes, kept in the conversations they belong to: Slack
- * writes out of other projects' conversations, Telegram writes of a chat's
- * session in that chat. Discord confines every call, reads too
+ * writes by the Kortix workspace that holds the Slack workspace, Telegram
+ * writes of a chat's session in that chat. Discord confines every call, reads too
  * (channel-discord-scope.ts).
  *
  * Every rule below reads the call's declared arguments. The gateway refuses a
@@ -9,36 +9,13 @@
  * `undeclaredChannelArg` in channels.ts): `body`, for one, would replace the
  * whole request that was checked.
  *
- * SLACK. Every project in a Slack workspace posts with the same bot token
- * (channel-read-scope.ts explains why). Reads are confined there. This module
- * confines the writes: posts, files, edits, deletes, reactions, joins, and
- * thread binds. Without it an agent in one project could post into another
- * project's channel and collect the replies, reply into its threads, or edit
- * and delete its bot's messages.
- *
- * THE RULE. A project's agent never acts inside another project's channel or
- * thread:
- *   1. A thread that belongs to another project (`chat_threads`) is refused:
- *      no reply, no file, no edit, delete or reaction on its root message, no
- *      bind.
- *   2. A channel or group DM bound to another project (`chat_channel_bindings`)
- *      is refused for every write, unless the target thread is this project's
- *      own (the thread's owner wins, as for reads).
- *   3. A direct message is addressed to one person. Its binding decides only
- *      where that person's new messages go, so it does not block a write; rule 1
- *      still applies. A new DM message starts this project's own thread.
- *   4. Everything else is allowed: this project's conversations and
- *      conversations no project owns.
- *
- * Rule 1 knows a thread by its root `ts`. The own `ts` of a reply inside
- * another project's thread is not recognized in a DM or an unowned channel;
- * reads are confined, so such a `ts` cannot come from the connector.
- *
- * chat.postMessage also accepts a public channel's NAME, and Slack does not
- * document how it matches one. So a post is checked twice: its `channel`
- * before the call, and where Slack says it landed after the call. A post that
- * landed anywhere but the checked conversation (or, for a user id, that
- * person's DM) is taken back and refused.
+ * SLACK. One Slack workspace runs in one Kortix workspace
+ * (channels/slack/link.ts): only the Kortix workspace holding the link writes
+ * with its bot token, so no other workspace's conversation is reachable. That
+ * workspace's agent posts, edits, reacts, joins and binds threads anywhere its
+ * bot may, under its own connector rules; Slack enforces the rest. The ids
+ * are checked for Slack's own shape before the call: a channel NAME is
+ * refused, since Slack does not document how chat.postMessage matches one.
  *
  * TEAMS. Teams writes do not go through the connector: every send resolves
  * through `resolveTeamsProjectConversation` (channels/teams/post.ts), which
@@ -75,13 +52,24 @@ import { discordCallRefusal } from './channel-discord-scope';
 import {
   CHANNEL_READ_SCOPES,
   CONVERSATION_NOT_IN_PROJECT,
-  type ChannelOwnership,
   type ChannelReadInput,
   type ChannelReadRefusal,
   SLACK_TS,
-  dbChannelOwnership,
   noInstall,
 } from './channel-read-scope';
+import { SLACK_NOT_LINKED, slackPrivateWrite, type SlackReadDeps } from './slack-visibility';
+import { dbSlackReadDeps } from './slack-visibility-db';
+
+/** Whether this project holds its Slack workspace's link (channels/slack/link.ts). */
+export type SlackLinkState = 'linked' | 'not_linked' | 'no_install';
+
+/** The project's link state, from the install rows. The channel modules load on first use. */
+export async function slackLinkState(projectId: string): Promise<SlackLinkState> {
+  const { slackProjectLink } = await import('../channels/slack/link');
+  if (await slackProjectLink(projectId)) return 'linked';
+  const { provenSlackWorkspaces } = await import('../channels/slack/inbound');
+  return (await provenSlackWorkspaces(projectId)).length > 0 ? 'not_linked' : 'no_install';
+}
 
 /**
  * Where each Slack write names its conversation and its message or thread.
@@ -104,18 +92,13 @@ export const SLACK_WRITE_TARGETS: Record<string, { channel: string; ts?: string;
  */
 const SLACK_WRITE_ID = /^[CDGUW][A-Z0-9]{1,20}$/;
 
-/** A DM channel (`D…`) or a user id (`U…`, `W…`), which chat.postMessage turns into the DM. */
-function isDirectMessage(id: string): boolean {
-  return id.startsWith('D') || id.startsWith('U') || id.startsWith('W');
-}
-
 /**
- * Why a write is refused: a malformed id, no install on record, another
- * project's thread, or another project's channel. Callers map the kind to
- * their own status; the connector refuses every kind alike.
+ * Why a write is refused: a malformed id, no Slack install on record, or a
+ * Kortix workspace that does not hold its Slack workspace's link. Callers map
+ * the kind to their own status; the connector refuses every kind alike.
  */
 export interface SlackWriteRefusal {
-  kind: 'invalid' | 'install' | 'thread' | 'channel';
+  kind: 'invalid' | 'install' | 'not_linked';
   message: string;
 }
 
@@ -123,11 +106,16 @@ export interface SlackWriteRefusal {
  * Why this project may not write to `channel` (and to the thread or message
  * `ts` in it), or null when it may. The one check behind the connector, the
  * file upload route, and the bind-thread route.
+ *
+ * One Slack workspace runs in one Kortix workspace (channels/slack/link.ts):
+ * the Kortix workspace holding the link writes anywhere its bot may, under
+ * the agent's own connector rules. Slack enforces the rest (the bot edits and
+ * deletes only its own messages, posts only where it may).
  */
 export async function slackWriteRefusal(
   projectId: string,
   target: { channel: unknown; ts?: unknown; tsArg?: string; tsRequired?: boolean },
-  ownership: ChannelOwnership = dbChannelOwnership,
+  linkState: (projectId: string) => Promise<SlackLinkState> = slackLinkState,
 ): Promise<SlackWriteRefusal | null> {
   const channel = typeof target.channel === 'string' && SLACK_WRITE_ID.test(target.channel) ? target.channel : null;
   if (!channel) {
@@ -140,31 +128,18 @@ export async function slackWriteRefusal(
   const tsArg = target.tsArg ?? 'ts';
   const given = target.ts !== undefined && target.ts !== null && target.ts !== '';
   if (!given && target.tsRequired) return { kind: 'invalid', message: `\`${tsArg}\` is required.` };
-  const ts = given ? (typeof target.ts === 'string' && SLACK_TS.test(target.ts) ? target.ts : null) : undefined;
-  if (ts === null) {
+  if (given && !(typeof target.ts === 'string' && SLACK_TS.test(target.ts))) {
     return { kind: 'invalid', message: `\`${tsArg}\` must be one Slack message timestamp, for example 1700000000.000100.` };
   }
-
-  const { workspaceIds } = await ownership.installs(projectId, 'slack');
-  if (workspaceIds.length === 0) return { kind: 'install', message: noInstall('slack') };
-
-  if (ts) {
-    const owner = (await ownership.threadOwners('slack', workspaceIds, [ts])).get(ts);
-    if (owner === projectId) return null;
-    if (owner) {
-      return {
-        kind: 'thread',
-        message: `Slack thread ${ts} in ${channel} belongs to another Kortix workspace. This workspace's agent does not post in, change, or react to another workspace's threads.`,
+  const state = await linkState(projectId);
+  if (state === 'linked') return null;
+  return state === 'no_install'
+    ? { kind: 'install', message: noInstall('slack') }
+    : {
+        kind: 'not_linked',
+        message:
+          'This Kortix workspace does not hold its Slack workspace: another Kortix workspace is connected to it. Connect Slack here (Customize → Connectors → Slack) to move it.',
       };
-    }
-  }
-  if (isDirectMessage(channel)) return null;
-  const owners = (await ownership.channelProjects('slack', workspaceIds, [channel])).get(channel);
-  if (!owners?.size || owners.has(projectId)) return null;
-  return {
-    kind: 'channel',
-    message: `Slack conversation ${channel} belongs to another Kortix workspace. This workspace's agent does not post in, change, or react to messages in another workspace's channels. Post in a channel of this workspace, in a channel no Kortix workspace is connected to, or in a direct message.`,
-  };
 }
 
 /** A write that ran but landed somewhere it was not checked: the refusal, and the call that takes it back. */
@@ -307,7 +282,8 @@ export function telegramReplyRefusal(reply: unknown, own: string[] | null): stri
 /** Reads are gated in channel-read-scope.ts; this gates the writes. */
 export async function gateChannelWrite(
   input: Omit<ChannelReadInput, 'risk'>,
-  ownership: ChannelOwnership = dbChannelOwnership,
+  linkState: (projectId: string) => Promise<SlackLinkState> = slackLinkState,
+  slackReads: SlackReadDeps = dbSlackReadDeps,
 ): Promise<ChannelWriteGate> {
   // Every Discord action, read or write: one bot token serves every project (channel-discord-scope.ts).
   if (input.platform === 'discord') {
@@ -335,9 +311,14 @@ export async function gateChannelWrite(
   const refusal = await slackWriteRefusal(
     input.projectId,
     { channel, ts: target.ts ? input.args[target.ts] : undefined, tsArg: target.ts, tsRequired: target.tsRequired },
-    ownership,
+    linkState,
   );
-  if (refusal) return refuse(refusal.message);
+  if (refusal) {
+    const reason = refusal.kind === 'not_linked' ? SLACK_NOT_LINKED : CONVERSATION_NOT_IN_PROJECT;
+    return { refusal: { reason, message: refusal.message }, misfire: () => null };
+  }
+  const privateRefusal = await slackPrivateWriteRefusal(input.projectId, input.userId ?? null, channel, slackReads);
+  if (privateRefusal) return { refusal: privateRefusal, misfire: () => null };
   // Slack documents names only for chat.postMessage; every other write takes an id.
   if (input.actionPath !== 'send_message') return PASS;
   return { refusal: null, misfire: (data) => postMisfire(channel as string, data) };
@@ -345,7 +326,8 @@ export async function gateChannelWrite(
 
 /**
  * Where chat.postMessage says it posted (`channel`, `ts` of the answer) must
- * be the conversation that was checked; for a user id, a DM.
+ * be the conversation that was checked; for a user id, a DM. An uppercase
+ * name passes the id shape, and Slack may resolve it to another conversation.
  */
 function postMisfire(checked: string, data: unknown): ChannelWriteMisfire | null {
   const answer = data != null && typeof data === 'object' ? (data as Record<string, unknown>) : {};
@@ -359,4 +341,19 @@ function postMisfire(checked: string, data: unknown): ChannelWriteMisfire | null
     },
     undo: landed && typeof answer.ts === 'string' ? { path: '/chat.delete', args: { channel: landed, ts: answer.ts } } : null,
   };
+}
+
+/**
+ * Private content follows the person for writes too: a post, a file, an
+ * edit, a reaction, a join or a thread bind in a private channel or group DM
+ * needs the person the call is for in it (slack-visibility.ts
+ * `slackPrivateWrite`). Null when the write may go ahead.
+ */
+export function slackPrivateWriteRefusal(
+  projectId: string,
+  userId: string | null,
+  channel: unknown,
+  slackReads: SlackReadDeps = dbSlackReadDeps,
+): Promise<ChannelReadRefusal | null> {
+  return slackPrivateWrite({ projectId, userId, channel }, slackReads);
 }

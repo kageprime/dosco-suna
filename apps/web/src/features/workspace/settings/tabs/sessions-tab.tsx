@@ -89,7 +89,7 @@ const DEFAULT_NOTIFICATION_PREFERENCES: WebNotificationPreferences = {
   playSound: false,
 };
 
-export interface SessionsTabViewProps {
+interface SessionsTabViewProps {
   // Sounds
   soundPack?: SoundPack;
   onSoundPackChange?: (pack: SoundPack) => void;

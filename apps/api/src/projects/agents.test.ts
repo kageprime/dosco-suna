@@ -36,7 +36,6 @@ const { loadProjectAgents } = await import('./agents');
 const {
   DEFAULT_AGENT_SENTINEL,
   resolveGovernedAgentGrant,
-  repositoryAccessFromLoadedAgents,
 } =
   await import('./agents');
 
@@ -63,10 +62,7 @@ describe('loadProjectAgents — blank managed project (no manifest committed yet
       connectors: 'all',
       permissions: 'all',
       env: 'all',
-      // KRTX-165: no human declared it, so it keeps the project checkout.
-      repositoryAccess: true,
     });
-    expect(repositoryAccessFromLoadedAgents('worker', loaded)).toBe(true);
   });
 
   // GAP 1 (dev-live repro): sessions.ts resolves the launching agent through
@@ -189,8 +185,8 @@ describe('connectors_required — an agent\'s required-connector declaration', (
   });
 });
 
-describe('workspace — an agent\'s workspace declaration', () => {
-  test('resolves the selected and default agent workspace modes', async () => {
+describe('workspace — obsolete on an agent', () => {
+  test('every legacy shape loads the agent; a typo in the current map turns that agent off', async () => {
     manifestFile = {
       path: 'kortix.yaml',
       content: [
@@ -199,75 +195,24 @@ describe('workspace — an agent\'s workspace declaration', () => {
         '  support:',
         '    workspace: runtime',
         '  engineer:',
-        '    workspace: branch',
-        '',
-      ].join('\n'),
-    };
-
-    const loaded = await loadProjectAgents(fakeProject());
-
-    expect(loaded.errors).toEqual([]);
-    expect(repositoryAccessFromLoadedAgents('support', loaded)).toBe(false);
-    expect(repositoryAccessFromLoadedAgents(DEFAULT_AGENT_SENTINEL, loaded)).toBe(false);
-    expect(repositoryAccessFromLoadedAgents('engineer', loaded)).toBe(true);
-    expect(repositoryAccessFromLoadedAgents('missing', loaded)).toBe(true);
-  });
-
-  test('reads workspace.project_repository; a typo withholds the repository', async () => {
-    manifestFile = {
-      path: 'kortix.yaml',
-      content: [
-        'agents:',
-        '  support:',
-        '    workspace: { project_repository: false }',
-        '  engineer:',
         '    workspace: { project_repository: true }',
         '  typo:',
         '    workspace: { project_repo: false }',
+        '  old:',
+        '    repository_access: false',
         '',
       ].join('\n'),
     };
 
     const loaded = await loadProjectAgents(fakeProject());
 
-    expect(loaded.errors.map((e) => e.name)).toEqual(['typo']);
-    expect(repositoryAccessFromLoadedAgents('support', loaded)).toBe(false);
-    expect(repositoryAccessFromLoadedAgents('engineer', loaded)).toBe(true);
-    expect(repositoryAccessFromLoadedAgents('typo', loaded)).toBe(false);
-  });
-
-  test('workspace.project_repository defaults to false', async () => {
-    manifestFile = {
-      path: 'kortix.yaml',
-      content: [
-        'default_agent: engineer',
-        'agents:',
-        '  engineer:',
-        '    workspace: { project_repository: true }',
-        '  plain: {}',
-        '  empty:',
-        '    workspace: {}',
-        '',
-      ].join('\n'),
-    };
-
-    const loaded = await loadProjectAgents(fakeProject());
-
-    expect(loaded.errors).toEqual([]);
-    expect(repositoryAccessFromLoadedAgents('engineer', loaded)).toBe(true);
-    expect(repositoryAccessFromLoadedAgents('plain', loaded)).toBe(false);
-    expect(repositoryAccessFromLoadedAgents('empty', loaded)).toBe(false);
-  });
-
-  test('an agent off because of a validation error gets no repository', async () => {
-    manifestFile = {
-      path: 'kortix.yaml',
-      content: ['agents:', '  engineer:', '    workspace: { project_repository: true }', '    temperature: hot', ''].join('\n'),
-    };
-
-    const loaded = await loadProjectAgents(fakeProject());
-
-    expect(loaded.specs.find((spec) => spec.name === 'engineer')?.enabled).toBe(false);
-    expect(repositoryAccessFromLoadedAgents('engineer', loaded)).toBe(false);
+    // The legacy shapes load; `workspace` is a live key again, so a typo in it is an
+    // error that turns that agent off, like a typo in any other key.
+    expect(loaded.specs.map((spec) => [spec.name, spec.enabled])).toEqual([
+      ['engineer', true],
+      ['old', true],
+      ['support', true],
+      ['typo', false],
+    ]);
   });
 });

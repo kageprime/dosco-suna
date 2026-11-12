@@ -1,27 +1,25 @@
 /**
  * Rule 4 — admission control, wired to a REAL running box.
  *
- * The one piece `admit-sandbox.ts` deliberately does not own: dialing the box
- * and resolving this project's desired release. Called from the ONE chokepoint
- * every session-open path shares — `runOpenSession` (routes/shared.ts) — right
- * before it would hand a confirmed-running box to the session as `stage:
- * 'ready'`. A pooled or resumed box is exactly the risk (spec §"Rule 4"): a
- * freshly created box boots the current image by construction, but a box that
- * already existed may predate every capability this deploy ships.
+ * The one piece `admit-sandbox.ts` deliberately does not own: dialing the box.
+ * Called from the ONE chokepoint every session-open path shares —
+ * `runOpenSession` (routes/shared.ts) — right before it would hand a
+ * confirmed-running box to the session as `stage: 'ready'`. A pooled or
+ * resumed box is exactly the risk (spec §"Rule 4"): a freshly created box
+ * boots the current image by construction, but a box that already existed may
+ * predate every capability this deploy ships.
  *
- * NEVER throws: a caller that cannot evaluate admission (a git-mirror hiccup,
- * a health fetch failure) gets `{ admitted: true }` rather than blocking every
- * session open on this gate's own availability — the same shape as every other
- * "must not throw" convergence lane in this codebase
- * (`convergeConfigIfBehind`, `convergeAssetsInBackground`). A box that FAILED
- * to answer at all is handled inside `evaluateAdmission` via
- * `parseActualRuntime`'s tolerant "reports nothing" default, which refuses —
- * this catch is for the admission PLUMBING breaking, not for the box.
+ * NEVER throws: a caller that cannot evaluate admission (a health fetch
+ * failure) gets `{ admitted: true }` rather than blocking every session open
+ * on this gate's own availability — the same shape as every other "must not
+ * throw" convergence lane in this codebase (`convergeConfigIfBehind`,
+ * `convergeAssetsInBackground`). A box that FAILED to answer at all is handled
+ * inside `evaluateAdmission` via `parseActualRuntime`'s tolerant "reports
+ * nothing" default, which refuses — this catch is for the admission PLUMBING
+ * breaking, not for the box.
  */
 
 import { logger } from '../lib/logger';
-import type { GitBackedProject } from '../projects/git/types';
-import { resolveDesiredRelease } from '../config-releases/desired';
 import { sandboxRuntimeEndpoint } from '../projects/runtime-session-mapping';
 import { sandboxRuntimeRequestHeaders } from '../projects/sandbox-fetch';
 import { admitSandboxForSession } from './admit-sandbox';
@@ -30,10 +28,6 @@ import { runtimeAdmissionEnforced, type RuntimeAdmissionVerdict } from './admiss
 export interface AdmitRunningSandboxInput {
   externalId: string;
   userId: string | undefined;
-  project: GitBackedProject;
-  baseRef: string;
-  sessionAgent: string | null;
-  repositoryAccess: boolean;
   /** Logged on refusal. A class-safe label, never a raw customer identifier. */
   sessionId: string;
 }
@@ -43,7 +37,6 @@ export interface AdmitRunningSandboxDeps {
     externalId: string,
     userId: string | undefined,
   ) => Promise<{ capabilities?: unknown; runtime_truth?: unknown } | null>;
-  resolveReleaseId: (input: AdmitRunningSandboxInput) => Promise<string | null>;
   /** Record the health read for the turn-start gates (`noteSandboxHealthBody` in production). */
   noteHealth?: (sessionId: string, health: unknown) => Promise<void>;
 }
@@ -74,23 +67,8 @@ async function defaultFetchHealth(
   }
 }
 
-async function defaultResolveReleaseId(input: AdmitRunningSandboxInput): Promise<string | null> {
-  try {
-    const desired = await resolveDesiredRelease({
-      project: input.project,
-      baseRef: input.baseRef,
-      sessionAgent: input.sessionAgent,
-      repositoryAccess: input.repositoryAccess,
-    });
-    return desired.descriptor.release_id;
-  } catch {
-    return null;
-  }
-}
-
 const defaultDeps: AdmitRunningSandboxDeps = {
   fetchHealth: defaultFetchHealth,
-  resolveReleaseId: defaultResolveReleaseId,
   noteHealth: defaultNoteHealth,
 };
 
@@ -109,7 +87,6 @@ export async function admitRunningSandbox(
     return await admitSandboxForSession(
       { health },
       {
-        releaseId: () => deps.resolveReleaseId(input),
         onRefused: (event) => {
           const enforced = runtimeAdmissionEnforced();
           logger[enforced ? 'error' : 'warn'](

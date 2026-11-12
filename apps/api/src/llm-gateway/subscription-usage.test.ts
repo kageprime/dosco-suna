@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { subscriptionUsageFromHeaders } from '@kortix/llm-gateway';
-import { claudeAccountFromProfile, claudeUsageFromBody, codexAccountFromLogin, codexUsageFromBody } from './subscription-usage';
+import { claudeAccountFromProfile, claudeUsageFromBody, codexAccountFromLogin, codexUsageFromBody, mergeSubscriptionUsage } from './subscription-usage';
 
 const NOW = Date.parse('2026-11-04T14:00:00Z');
 
@@ -141,5 +141,74 @@ describe('one shaping for both subscription-usage readers', () => {
     if (!fromHeaders || !fromEndpoint) throw new Error('a snapshot was expected from each reader');
     expect(fromEndpoint.limited).toBe(fromHeaders.limited);
     expect(fromEndpoint.windows).toEqual(fromHeaders.windows);
+  });
+});
+
+describe('every limit a login reports', () => {
+  test('ChatGPT: code review and per-model limits get their own ids and never mark the login limited', () => {
+    const usage = codexUsageFromBody({
+      rate_limit: { allowed: true, limit_reached: false,
+        primary_window: { used_percent: 10, limit_window_seconds: 18_000 },
+        secondary_window: { used_percent: 30, limit_window_seconds: 604_800 } },
+      code_review_rate_limit: { primary_window: { used_percent: 100, limit_window_seconds: 604_800 } },
+      additional_rate_limits: [{ limit_name: 'GPT-5.3 Codex Spark', rate_limit: { primary_window: { used_percent: 100, limit_window_seconds: 18_000 } } }],
+    }, NOW);
+    expect(usage?.windows.map(window => [window.id, window.used_percent])).toEqual([
+      ['five_hour', 10], ['weekly', 30], ['code_review_weekly', 100], ['model_gpt_5_3_codex_spark_five_hour', 100],
+    ]);
+    expect(usage?.limited).toBe(false);
+  });
+
+  test('ChatGPT: a body with only a code-review limit still reads', () => {
+    expect(codexUsageFromBody({ code_review_rate_limit: { primary_window: { used_percent: 4, limit_window_seconds: 604_800 } } }, NOW)?.windows.map(window => window.id))
+      .toEqual(['code_review_weekly']);
+  });
+
+  test('Claude: the apps weekly window and enabled extra usage appear; extra usage at 100% is no limit', () => {
+    const usage = claudeUsageFromBody({
+      five_hour: null,
+      seven_day: { utilization: 40, resets_at: null },
+      seven_day_oauth_apps: { utilization: 12, resets_at: null },
+      extra_usage: { is_enabled: true, monthly_limit: 5000, used_credits: 5000, utilization: 100 },
+    }, NOW);
+    expect(usage?.windows.map(window => window.id)).toEqual(['weekly', 'seven_day_oauth_apps', 'extra_usage']);
+    expect(usage?.limited).toBe(false);
+    expect(claudeUsageFromBody({ seven_day: { utilization: 40 }, extra_usage: { is_enabled: false, utilization: 0 } }, NOW)?.windows.map(window => window.id)).toEqual(['weekly']);
+  });
+
+  test('Claude: a full model window (Opus) alone is no limit; the login still serves other models', () => {
+    expect(claudeUsageFromBody({ five_hour: { utilization: 20 }, seven_day: { utilization: 30 }, seven_day_opus: { utilization: 100 } }, NOW)?.limited).toBe(false);
+  });
+
+  test('Claude: a full OAuth-apps window stays a limit until its allowance is known', () => {
+    expect(claudeUsageFromBody({ seven_day: { utilization: 30 }, seven_day_oauth_apps: { utilization: 100 } }, NOW)?.limited).toBe(true);
+  });
+
+  test('Claude: the plan weekly window at 100% marks the login limited', () => {
+    expect(claudeUsageFromBody({ seven_day: { utilization: 100, resets_at: null } }, NOW)?.limited).toBe(true);
+  });
+
+  test('a response snapshot keeps the endpoint-only windows it does not name until they reset', () => {
+    const stored = {
+      windows: [
+        { id: 'five_hour', window_minutes: 300, used_percent: 10, resets_at: null },
+        { id: 'seven_day_opus', window_minutes: null, used_percent: 50, resets_at: '2026-11-06T00:00:00.000Z' },
+        { id: 'code_review_weekly', window_minutes: 10080, used_percent: 5, resets_at: '2026-11-01T00:00:00.000Z' },
+        { id: 'extra_usage', window_minutes: null, used_percent: 20, resets_at: null },
+      ],
+      limited: false, observed_at: '2026-11-04T13:00:00.000Z', source: 'usage_endpoint' as const,
+    };
+    const next = {
+      windows: [
+        { id: 'five_hour', window_minutes: 300, used_percent: 15, resets_at: null },
+        { id: '7d_opus', window_minutes: null, used_percent: 55, resets_at: null },
+      ],
+      limited: false, observed_at: '2026-11-04T14:00:00.000Z', source: 'response' as const,
+    };
+    expect(mergeSubscriptionUsage(stored, next).windows.map(window => [window.id, window.used_percent])).toEqual([
+      ['five_hour', 15], ['7d_opus', 55], ['extra_usage', 20],
+    ]);
+    const endpoint = { ...next, source: 'usage_endpoint' as const };
+    expect(mergeSubscriptionUsage(stored, endpoint)).toBe(endpoint);
   });
 });

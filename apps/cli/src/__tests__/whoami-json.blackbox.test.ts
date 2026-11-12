@@ -24,6 +24,8 @@ interface MeShape {
   user_id: string;
   email: string;
   token_context: Record<string, unknown>;
+  /** Only when the accounts list is cut. */
+  accounts_total?: number;
   accounts: Array<{ account_id: string; slug: string; name: string; role: string }>;
 }
 
@@ -45,6 +47,22 @@ const ME: MeShape = {
   ],
 };
 
+// The MCP tool captures stdout at 45 000 bytes (`STDOUT_CAP`) and a cut capture
+// is not valid JSON at all, so `whoami --json` must stay whole inside it even
+// for a user with many memberships of worst-case names — 255-char UTF-8
+// multi-byte names, the widest value the server's varchar(255) accepts.
+const BIG_NAME = '\u{1F600}'.repeat(255);
+const MANY_ME: MeShape = {
+  ...ME,
+  accounts: Array.from({ length: 800 }, (_, i) => ({
+    account_id: `acct-${i}`,
+    slug: `s${i}`,
+    name: BIG_NAME,
+    role: 'member',
+  })),
+};
+const TOKEN_MANY = 'kortix_pat_many_accounts';
+
 interface CliResult {
   code: number;
   stdout: string;
@@ -58,11 +76,12 @@ function startApi(): void {
   server = Bun.serve({
     port: 0,
     async fetch(req) {
-      if (req.headers.get('authorization') !== `Bearer ${TOKEN}`) {
+      const bearer = req.headers.get('authorization');
+      if (![`Bearer ${TOKEN}`, `Bearer ${TOKEN_MANY}`].includes(bearer ?? '')) {
         return Response.json({ error: 'unauthenticated' }, { status: 401 });
       }
       if (new URL(req.url).pathname.endsWith('/me')) {
-        return Response.json(ME);
+        return Response.json(bearer === `Bearer ${TOKEN_MANY}` ? MANY_ME : ME);
       }
       return Response.json({ error: 'not found' }, { status: 404 });
     },
@@ -155,6 +174,7 @@ describe('machine-readable output (--json) is pure JSON on stdout, silent on std
       ['accounts ls --json', ['accounts', 'ls', '--json'], TOKEN],
       ['whoami (human)', ['whoami'], TOKEN],
       ['whoami --json (revoked token)', ['whoami', '--json'], REVOKED_TOKEN],
+      ['whoami --json (many accounts)', ['whoami', '--json'], TOKEN_MANY],
     ];
     await Promise.all(
       cases.map(async ([name, args, token]) => {
@@ -182,6 +202,17 @@ describe('machine-readable output (--json) is pure JSON on stdout, silent on std
     const parsed = JSON.parse(stdout) as Record<string, unknown>;
     expect(parsed.user_email).toBe(EMAIL);
     expect(Array.isArray(parsed.accounts)).toBe(true);
+  });
+
+  test('whoami --json: 800 memberships of 255-char Unicode names stay whole JSON inside the 45 000-byte stdout capture', () => {
+    const { code, stdout, stderr } = get('whoami --json (many accounts)');
+    expect(stderr).toBe('');
+    expect(code).toBe(0);
+    expect(Buffer.byteLength(stdout, 'utf8')).toBeLessThan(45_000);
+    const parsed = JSON.parse(stdout) as typeof ME;
+    expect(parsed.accounts_total).toBe(800);
+    expect(parsed.accounts.length).toBeLessThan(parsed.accounts_total ?? 0);
+    expect(parsed.accounts[0].name).toBe(BIG_NAME);
   });
 
   test('whoami --json: stderr is empty', () => {

@@ -68,7 +68,7 @@ const uiToastMock = () => ({
 });
 mock.module('@kortix/ui/toast', uiToastMock);
 
-// The real Modal and ConfirmDialog are Radix portals; the wiring under test is
+// The real Modal and ConfirmDialog render through portals; the wiring under test is
 // which action a row offers and what confirming calls. Keep both assertable.
 const uiModalMock = () => ({
   Modal: ({ open, children }: { open: boolean; children?: ReactNode }) =>

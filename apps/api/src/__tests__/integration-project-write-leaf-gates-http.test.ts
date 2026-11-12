@@ -290,17 +290,20 @@ const CASES: WCase[] = [
 ];
 
 describe('HTTP enforcement — project write/lifecycle leaf gates (every checkbox authoritative)', () => {
-  // The per-project sandbox-provider pin routes EVERY new session in the
-  // project, so a session principal may never flip it — whatever grant it
-  // holds (KRTX-1681: a security-audit agent pinned its whole project to
-  // daytona). Humans keep the settings.write leaf: a member PAT is denied by
-  // the leaf, a manager PAT routes the write.
-  describe('the provider pin is a person\'s action (sandbox-provider PATCH)', () => {
-    test('a session-bound agent token → refused outright (agent_session_forbidden), grant irrelevant', async () => {
+  // AGENT = HUMAN (2026-11-10): the provider pin is project.settings.write for
+  // a person and for an agent session alike. The grant decides for the agent,
+  // the role for the person; no session is refused for being one.
+  describe('the provider pin is project.settings.write (sandbox-provider PATCH)', () => {
+    test('a session-bound agent token holding settings.write passes the gate', async () => {
       const granted = await mint(MANAGER, [A.PROJECT_SETTINGS_WRITE]);
       const res = await req('PATCH', `/v1/projects/${PROJECT}/sandbox-provider`, granted, {});
-      expect(res.status).toBe(403);
-      expect(await res.json()).toMatchObject({ code: 'agent_session_forbidden' });
+      expect(await iamDenied(res)).toBe(false);
+    });
+
+    test('a session-bound agent token without settings.write is refused by its grant', async () => {
+      const narrow = await mint(MANAGER, [A.PROJECT_TRIGGER_FIRE]);
+      const res = await req('PATCH', `/v1/projects/${PROJECT}/sandbox-provider`, narrow, {});
+      expect(await iamDenied(res)).toBe(true);
     });
 
     test('plain MEMBER (lacks the manager-tier settings.write leaf) → denied', async () => {

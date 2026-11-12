@@ -4,7 +4,9 @@
 import { ModelSwitchHistory } from '../panel/model-switch-event';
 import { uiRoutes } from '../../lib/routes';
 import { isQuestionTool } from '@kortix/sdk';
+import { SessionAccessPrompt } from '../prompts/session-access-prompt';
 import { SessionApprovalPrompt } from '../prompts/session-approval-prompt';
+import { SessionConnectPrompt } from '../prompts/session-connect-prompt';
 import { childSessionHref } from '../tool/tools/session-spawn-urls';
 import { SessionPermissionPrompt } from '../prompts/session-permission-prompt';
 import { useSessionWallpaperLayer } from '../panel/session-wallpaper-layer';
@@ -114,6 +116,7 @@ import {
   Composer as SessionChatInput,
 } from '../composer/composer';
 import { ComposerDropZone } from '../composer/composer-drop-zone';
+import { useSessionComposerCall } from '../voice/composer-call';
 import { AgentsLine } from '../agents/agent-strip';
 import { HeldMessages } from '../agents/held-messages';
 import { SessionPromptContext } from '../agents/session-prompt';
@@ -980,6 +983,15 @@ export function SessionChat({
   });
   const composerAgentName = composerAgent.selected;
   const noAccessibleAgents = composerAgent.disabled;
+  // Nothing typed: the Send button calls this session instead (flag
+  // `voice_call`, `voice/composer-call.ts`). Its agent answers here, so the
+  // call's turns fill this chat. Not a sub-session: its box binds no relay.
+  const composerCall = useSessionComposerCall({
+    projectId,
+    sessionId: projectSessionId,
+    agent: projectSessionRow?.agent_name ?? composerAgentName,
+    topLevel: !!projectSessionRow && !projectSessionRow.parent_session_id,
+  });
   // The slash menu lists only the commands the composer's agent may run. The
   // transcript keeps the full list: a past turn may have run any of them.
   const { data: agentCommands } = useRuntimeCommands({ agent: composerAgentName ?? undefined });
@@ -1624,8 +1636,8 @@ export function SessionChat({
     [promptInbox.retry],
   );
 
-  // "Stop and send": the waiting row becomes Quick Queue. The running turn
-  // ends after its running tool, then this row runs.
+  // "Send now": the waiting row goes next, ahead of older waiting rows, and
+  // steers the running turn. The turn does not stop.
   const handleStopAndSendQueuedMessage = useCallback(
     (id: string) => {
       void promptInbox
@@ -1841,10 +1853,19 @@ export function SessionChat({
   const parkedAsks = useSessionNeedsYou(projectId ?? '', projectSessionId ?? '', {
     enabled: Boolean(projectId && projectSessionId),
   }).asks;
+  // Only questions and permission asks merge into the runtime's own cards.
+  // A connector approval docks as `SessionApprovalPrompt`, colleague access
+  // as `SessionAccessPrompt`; neither is answered by request id.
   const parkedAskIdByRequest = useMemo(
-    () => new Map(parkedAsks.filter((ask) => ask.kind !== 'approval').map((ask) => [ask.request_id, ask.id])),
+    () =>
+      new Map(
+        parkedAsks
+          .filter((ask) => ask.kind === 'question' || ask.kind === 'permission')
+          .map((ask) => [ask.request_id, ask.id]),
+      ),
     [parkedAsks],
   );
+  const accessAsks = useMemo(() => parkedAsks.filter((ask) => ask.kind === 'access'), [parkedAsks]);
   const pendingPermissions = useMemo(() => {
     const live = new Set(livePermissions.map((p) => p.id));
     const parked = parkedAsks
@@ -1922,6 +1943,10 @@ export function SessionChat({
   // A connector call waiting on a decision docks onto the composer the way a
   // question does (`SessionApprovalPrompt` reports it).
   const [approvalDocked, setApprovalDocked] = useState(false);
+  // My Kortix asking to give a colleague access docks the same way.
+  const [accessDocked, setAccessDocked] = useState(false);
+  // A connector sign-in the agent started docks the same way (`SessionConnectPrompt`).
+  const [connectDocked, setConnectDocked] = useState(false);
   const questionPromptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const nextQuestion = activePendingQuestion;
@@ -1967,7 +1992,7 @@ export function SessionChat({
       parkedAskIdByRequest.has(renderedQuestion.id)
     );
   }, [renderedQuestion, liveQuestions, parkedAskIdByRequest]);
-  // Quick Queue entries share the turn renderer. The inbox marks their IDs as
+  // Transcript-placed waiting entries share the turn renderer. The inbox marks their IDs as
   // pending until delivery; a client-minted wire ID does not place a message.
   // Each is the user message `sessionLogPromptMessage` mints for its prompt.
   const queuedSyntheticMessages = useMemo(() => {
@@ -2792,7 +2817,7 @@ export function SessionChat({
          * at once and never waits behind an earlier Send of this session.
          */
         commitsRewind?: boolean;
-        /** Quick Queue paints a transcript bubble; Queue List adds a row above the composer. */
+        /** `transcript` paints a bubble now; `composer` adds a waiting row above the composer. */
         placement?: 'transcript' | 'composer';
         /** How the prompt reaches a running turn (`composerSendDelivery`). */
         delivery?: SessionPromptDelivery;
@@ -2910,8 +2935,9 @@ export function SessionChat({
       }
       const placement = overrides?.placement ?? 'transcript';
       const delivery = overrides?.delivery;
-      // Placement decides WHERE the send waits: Quick Queue paints its bubble in
-      // the transcript now, Queue List draws a row above the composer. Busy
+      // Placement decides WHERE the send waits: an idle send paints its bubble
+      // in the transcript now, a send into a running turn draws a row above the
+      // composer until the turn reads it. Busy
       // state or earlier live rows decide only whether it waits at all.
       const willQueue =
         isBusyRef.current || promptInbox.prompts.some((prompt) => prompt.state !== 'failed');
@@ -3572,7 +3598,7 @@ export function SessionChat({
       const active = document.activeElement;
       const focusInOverlay =
         active?.closest(
-          '[role="dialog"],[role="alertdialog"],[role="menu"],[data-radix-popper-content-wrapper]',
+          '[role="dialog"],[role="alertdialog"],[role="menu"],[data-kortix-floating]',
         ) != null;
       const fromComposerEditor =
         e.target instanceof Element && e.target.closest(COMPOSER_EDITOR_SELECTOR) !== null;
@@ -4117,6 +4143,19 @@ export function SessionChat({
         {/* Connector actions a policy gated for approval — pauses the run
             until the human decides. Self-hides when nothing's pending. */}
         <SessionApprovalPrompt onDockedChange={setApprovalDocked} />
+        {/* My Kortix asks to start a colleague with extra connectors or
+            secrets. Self-hides when nothing's pending. */}
+        <SessionAccessPrompt projectId={projectId ?? ''} asks={accessAsks} onDockedChange={setAccessDocked} />
+        {/* A connector sign-in the agent started: a Connect button that
+            finishes it. Self-hides when nothing's pending. */}
+        {projectId && projectSessionId ? (
+          <SessionConnectPrompt
+            projectId={projectId}
+            sessionId={projectSessionId}
+            busy={effectiveBusy}
+            onDockedChange={setConnectDocked}
+          />
+        ) : null}
         {/* Runtime tool permissions (bash/edit/…) awaiting a decision —
             the turn is blocked inside the runtime and resumes the moment
             a reply lands. Self-hides when nothing's pending. */}
@@ -4148,6 +4187,10 @@ export function SessionChat({
       </>
     ),
     [
+      projectId,
+      accessAsks,
+      effectiveBusy,
+      projectSessionId,
       sessionId,
       sessionScopeAgentName,
       pendingPermissions,
@@ -4470,6 +4513,7 @@ export function SessionChat({
       <ComposerDropZone
         className={cn(
           'relative flex h-full flex-col',
+          'pb-[env(safe-area-inset-bottom)]', // audit:allow device safe-area inset, not a spacing step — the composer column lifts above the home indicator in the installed PWA; desktop reports a 0px inset
           // Transparent in the welcome state so the root-level full-bleed wallpaper
           // (portaled into SessionLayout) reads through; solid once real content
           // takes over. Same base color either way, so non-welcome is unchanged.
@@ -5141,7 +5185,7 @@ export function SessionChat({
                 autoFocus={deferComposerFocus || !composerAutoFocus ? false : undefined}
                 onSend={async (text, files, mentions, attachments, placement) => {
                   if (await queueEdit.save(text)) return;
-                  // Enter while a turn runs steers it (D9.1); Cmd/Ctrl+Enter is Queue List.
+                  // Enter or Cmd/Ctrl+Enter while a turn runs steers it (one delivery mode).
                   await handleSend(
                     text,
                     files,
@@ -5221,7 +5265,7 @@ export function SessionChat({
                 lockForApproval={runtimePermissionLocksComposer(livePermissions.length, isBusy)}
                 onCustomAnswer={handleCustomAnswer}
                 questionButtonLabel={renderedQuestion ? questionAction.label : null}
-                questionActive={!!renderedQuestion || approvalDocked}
+                questionActive={!!renderedQuestion || approvalDocked || accessDocked || connectDocked}
                 questionCanAct={questionAction.canAct}
                 onQuestionAction={handleQuestionAction}
                 aboveSlot={chatAboveSlot}
@@ -5241,6 +5285,7 @@ export function SessionChat({
                 // beside it sits `pb-4` off the window's bottom edge: the same
                 // margins, so the two boxes line up.
                 parentClassName={transcriptRows ? 'max-w-none px-5 pb-4' : undefined}
+                call={composerCall}
                 onNoticeRetry={
                   composerReadiness.notice && composerReadiness.retryable
                     ? requestRuntimeReconnect

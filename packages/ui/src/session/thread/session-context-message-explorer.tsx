@@ -134,7 +134,7 @@ export function CopyAllButton({
 // Raw message accordion item
 // ============================================================================
 
-/** Stringifies only while its accordion item is open — Radix unmounts closed content. */
+/** Stringifies only while its accordion item is open — the accordion unmounts closed content. */
 function RawMessageJson({ value }: { value: unknown }) {
   const json = useMemo(() => JSON.stringify(value, null, 2), [value]);
   return (

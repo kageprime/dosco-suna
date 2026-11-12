@@ -34,7 +34,7 @@ function slack(answer: (call: Call, index: number) => unknown): Call[] {
   return calls;
 }
 
-const persona = { username: 'research' };
+const persona = { username: 'Research', icon_url: 'https://api.example.com/v1/agent-marks/research.png?v=1' };
 
 describe('Slack agent persona', () => {
   test('the agent name is the author of a post, a block post and a stream', async () => {
@@ -42,10 +42,10 @@ describe('Slack agent persona', () => {
     await postMessage('xoxb-test', 'C1', 'hi', '1.0', persona);
     await postBlocks('xoxb-test', 'C1', 'hi', [], '1.0', persona);
     await startStream('xoxb-test', 'C1', '1.0', 'U1', 'T1', [], persona);
-    expect(calls.map((c) => [c.method, c.body.username])).toEqual([
-      ['chat.postMessage', 'research'],
-      ['chat.postMessage', 'research'],
-      ['chat.startStream', 'research'],
+    expect(calls.map((c) => [c.method, c.body.username, c.body.icon_url])).toEqual([
+      ['chat.postMessage', 'Research', persona.icon_url],
+      ['chat.postMessage', 'Research', persona.icon_url],
+      ['chat.startStream', 'Research', persona.icon_url],
     ]);
   });
 
@@ -53,8 +53,9 @@ describe('Slack agent persona', () => {
     const calls = slack((_call, i) => (i === 0 ? { ok: false, error: 'missing_scope' } : { ok: true, ts: '1.2' }));
     expect(await postMessage('xoxb-test', 'C1', 'hi', '1.0', persona)).toBe('1.2');
     expect(calls).toHaveLength(2);
-    expect(calls[0]?.body.username).toBe('research');
+    expect(calls[0]?.body.username).toBe('Research');
     expect(calls[1]?.body.username).toBeUndefined();
+    expect(calls[1]?.body.icon_url).toBeUndefined();
   });
 
   test('any other refusal is not retried', async () => {
@@ -69,8 +70,10 @@ describe('Slack agent persona', () => {
     expect(calls[0]?.body.username).toBeUndefined();
   });
 
-  test('a persona is the trimmed agent name, none for a blank one', () => {
-    expect(slackPersonaFor(' research ')).toEqual({ username: 'research' });
+  test('a persona is the agent display name, as the web app shows it; none for a blank one', () => {
+    expect(slackPersonaFor(' research ')?.username).toBe('Research');
+    expect(slackPersonaFor('mykortix')?.username).toBe('My Kortix');
+    expect(slackPersonaFor('session-reviewer')?.username).toBe('Session reviewer');
     expect(slackPersonaFor('')).toBeNull();
     expect(slackPersonaFor(null)).toBeNull();
     expect(slackPersonaFor('a'.repeat(100))?.username).toHaveLength(80);

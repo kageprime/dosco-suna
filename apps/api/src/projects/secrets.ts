@@ -25,6 +25,7 @@ import { decryptNamedProjectSecret, encryptProjectSecret } from './secrets/envel
 import { projectSecretsRevision, resolveGrantedSecretSelection } from './secrets/grant-policy';
 import { mintSessionSecretHandle } from './secrets/handles';
 import { projectsView } from '../workspaces/rows';
+import { projectSecretRowNotMoved } from '../secrets/llm-credential-ledger';
 
 /**
  * Upsert the SHARED (owner_user_id IS NULL) row for a project secret to a new
@@ -59,7 +60,10 @@ export async function writeSharedProjectSecret(input: {
       scope: serverSide ? 'connector' : 'runtime',
       strategy: serverSide ? 'broker' : 'runtime',
       consumer: serverSide ? 'connector' : 'sandbox',
-      strategyLocked: serverSide,
+      // Connector-only is where the value starts, not a lock: the person who
+      // typed it may move it to environment delivery later. Only a model
+      // subscription credential is locked (secretStrategyLockHolds).
+      strategyLocked: false,
       createdBy: input.createdBy ?? null,
       // A value a person just typed was never exposed: it is a fresh rotation.
       rotatedAt: now,
@@ -76,7 +80,6 @@ export async function writeSharedProjectSecret(input: {
               scope: 'connector' as const,
               strategy: 'broker' as const,
               consumer: 'connector' as const,
-              strategyLocked: true,
             }
           : {}),
         rotatedAt: now,
@@ -288,6 +291,10 @@ export async function listResolvedProjectSecrets(
         userId
           ? or(isNull(projectSecrets.ownerUserId), eq(projectSecrets.ownerUserId, userId))
           : isNull(projectSecrets.ownerUserId),
+        // A provider key that moved to the named store is never decrypted
+        // here again: the gateway strips it anyway, and an undecryptable
+        // moved row must not fail session start.
+        projectSecretRowNotMoved(),
       ),
     );
 

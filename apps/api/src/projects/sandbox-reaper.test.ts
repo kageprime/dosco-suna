@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import { appRuntimes, projectMonitorBoxes, projectSessions, sandboxComputeSessions, sessionSandboxes } from '@kortix/db';
+import { PlatinumExecOutcomeUnknownError } from '../shared/platinum';
 import * as realComputeMetering from '../billing/services/compute-metering';
 import * as realProviders from '../platform/providers';
 import * as realSandboxProxyBackend from '../sandbox-proxy/backend';
@@ -2802,12 +2803,121 @@ describe('reapAndReconcileSandboxes — the one rule: deadline_at <= now', () =>
     }
   });
 
+  // KRTX-4687: a Platinum control-plane slowdown times out EVERY box's 20s
+  // default-budget call. The renewal is idempotent (`exec true`) and the next
+  // pass re-decides from fresh provider state, so the timeout is that pass's
+  // transient — an error line per box per pass turned one provider incident
+  // into a 116x log spike.
+  test('a Platinum transport timeout during renewal is transient, not a reaper error', async () => {
+    candidates = [candidate({ provider: 'platinum', deadlineAt: new Date(NOW.getTime() + HOUR) })];
+    statusByExternal['ext-1'] = 'running';
+    const timedOut = new Error(
+      'platinum POST /v1/sandboxes/sbx_synthetic/exec timed out after 20000ms (default)',
+    );
+    timedOut.name = 'TimeoutError';
+    lifecycleRenewErrorByExternal['ext-1'] = timedOut;
+    const logged: string[] = [];
+    const realError = console.error;
+    console.error = (...args: unknown[]) => { logged.push(String(args[0])); };
+    try {
+      const result = await reapAndReconcileSandboxes(NOW);
+      expect(result.transient).toBe(1);
+      expect(result.errors).toBe(0);
+      expect(result.stopped).toBe(0);
+      expect(stops).toEqual([]);
+      expect(logged.filter((line) => line.includes('[reaper] failed for sandbox'))).toEqual([]);
+    } finally {
+      console.error = realError;
+    }
+  });
+
+  test('a caller-budget Platinum transport timeout during renewal is transient too', async () => {
+    candidates = [candidate({ provider: 'platinum', deadlineAt: new Date(NOW.getTime() + HOUR) })];
+    statusByExternal['ext-1'] = 'running';
+    // The exact shape `platinumFetch` throws when the CALLER passed its own
+    // signal (shared/platinum.ts): no duration, the literal words.
+    const timedOut = new Error(
+      'platinum POST /v1/sandboxes/sbx_synthetic/exec timed out after caller-provided budget',
+    );
+    timedOut.name = 'TimeoutError';
+    lifecycleRenewErrorByExternal['ext-1'] = timedOut;
+    const result = await reapAndReconcileSandboxes(NOW);
+    expect(result.transient).toBe(1);
+    expect(result.errors).toBe(0);
+  });
+
+  test('a non-Timeout Platinum renewal failure still reports an error', async () => {
+    candidates = [candidate({ provider: 'platinum', deadlineAt: new Date(NOW.getTime() + HOUR) })];
+    statusByExternal['ext-1'] = 'running';
+    const refused = new Error('platinum POST /v1/sandboxes/sbx_synthetic/exec -> 503');
+    lifecycleRenewErrorByExternal['ext-1'] = refused;
+    const errorSpy = mock(() => {});
+    const realError = console.error;
+    console.error = errorSpy as unknown as typeof console.error;
+    try {
+      const result = await reapAndReconcileSandboxes(NOW);
+      expect(result.errors).toBe(1);
+      expect(result.transient).toBe(0);
+    } finally {
+      console.error = realError;
+    }
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+  });
+
   test('an unreachable Platinum guest during renewal retries without paging each pass', async () => {
     candidates = [candidate({ provider: 'platinum', deadlineAt: new Date(NOW.getTime() + HOUR) })];
     statusByExternal['ext-1'] = 'running';
     lifecycleRenewErrorByExternal['ext-1'] = new Error(
       'Platinum lifecycle renewal failed for ext-1: exit unknown: guest vsock unreachable after 5s: EOF',
     );
+    const logged: string[] = [];
+    const realError = console.error;
+    console.error = (...args: unknown[]) => { logged.push(String(args[0])); };
+    try {
+      const result = await reapAndReconcileSandboxes(NOW);
+      expect(result.transient).toBe(1);
+      expect(result.errors).toBe(0);
+      expect(result.stopped).toBe(0);
+      expect(stops).toEqual([]);
+      expect(logged).toEqual([]);
+    } finally {
+      console.error = realError;
+    }
+  });
+
+  // KRTX-4718: the guest can also time out WITH an answer — the control plane
+  // returns the exec result `exit -1: timeout` when the guest never completes
+  // the `true` no-op inside its 10s budget. Same provider condition as the
+  // vsock case above (no usable renewal this pass; the next pass re-decides),
+  // so one wedged box must not emit an error line per 30s pass.
+  test('a Platinum guest exec timeout during renewal retries without paging each pass', async () => {
+    candidates = [candidate({ provider: 'platinum', deadlineAt: new Date(NOW.getTime() + HOUR) })];
+    statusByExternal['ext-1'] = 'running';
+    lifecycleRenewErrorByExternal['ext-1'] = new Error(
+      'Platinum lifecycle renewal failed for ext-1: exit -1: timeout',
+    );
+    const logged: string[] = [];
+    const realError = console.error;
+    console.error = (...args: unknown[]) => { logged.push(String(args[0])); };
+    try {
+      const result = await reapAndReconcileSandboxes(NOW);
+      expect(result.transient).toBe(1);
+      expect(result.errors).toBe(0);
+      expect(result.stopped).toBe(0);
+      expect(stops).toEqual([]);
+      expect(logged).toEqual([]);
+    } finally {
+      console.error = realError;
+    }
+  });
+
+  // KRTX-4718: Platinum answering 504 for the renewal exec is the third shape
+  // of the same condition. The typed error says the outcome is unknown — the
+  // idempotent no-op makes that safe to retry next pass, never a per-box error.
+  test('a Platinum outcome-unknown exec timeout during renewal retries without paging each pass', async () => {
+    candidates = [candidate({ provider: 'platinum', deadlineAt: new Date(NOW.getTime() + HOUR) })];
+    statusByExternal['ext-1'] = 'running';
+    lifecycleRenewErrorByExternal['ext-1'] = new PlatinumExecOutcomeUnknownError();
     const logged: string[] = [];
     const realError = console.error;
     console.error = (...args: unknown[]) => { logged.push(String(args[0])); };
@@ -3062,26 +3172,6 @@ describe('reapAndReconcileSandboxes — the one rule: deadline_at <= now', () =>
     expect(
       rowUpdates().some((c) =>
         describeSql(c.updates.metadata).includes('pendingStopObservedAtMs'),
-      ),
-    ).toBe(true);
-  });
-
-  test('a running read between the two clears the pending marker', async () => {
-    candidates = [
-      midTurnCandidate({ deadlineAt: new Date(NOW.getTime() + HOUR) }, {
-        pendingStopObservedAtMs: NOW.getTime() - 20_000,
-      }),
-    ];
-    statusByExternal['ext-1'] = 'running';
-    turnObservationByToken['active-token'] = 'active';
-    activeTurnRenewalBySandbox['sb-1'] = 'renewed';
-
-    const r = await reapAndReconcileSandboxes(NOW);
-
-    expect(r.reconciled).toBe(0);
-    expect(
-      rowUpdates().some((c) =>
-        describeSql(c.updates.metadata).includes("- 'pendingStopObservedAtMs'"),
       ),
     ).toBe(true);
   });

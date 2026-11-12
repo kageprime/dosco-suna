@@ -43,7 +43,7 @@ import {
 import { AGENT_MODE_HELP, AGENT_MODE_LABEL, AGENT_MODES } from './agent-editor-catalog';
 import { EditorSection, InlineAction, SettingBlock, SettingRow } from './agent-editor-primitives';
 
-/** Matches the access section's inherit sentinel — Radix forbids `""`. */
+/** Matches the access section's inherit sentinel — `Select` reads `""` as no value. */
 const INHERIT = '__inherit__';
 
 type SetKortix = <K extends keyof AgentConfigBlock>(key: K, value: AgentConfigBlock[K]) => void;

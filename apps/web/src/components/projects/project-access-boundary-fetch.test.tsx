@@ -150,6 +150,50 @@ test('a forbidden project offers access request without speculative reads', asyn
   expect(urls).toEqual(['http://api.test/v1/workspaces/private-project']);
 });
 
+test('a workspace in its restore window renders the restoring screen, not the project', async () => {
+  jest.useFakeTimers();
+  const urls: string[] = [];
+  configureKortix({
+    backendUrl: 'http://api.test/v1',
+    getToken: async () => 'synthetic-token',
+    fetch: async (url) => {
+      urls.push(String(url));
+      if (String(url).endsWith('/restoring-project')) {
+        // The record the API serves on GET /v1/workspaces/:id: the project row
+        // plus the served role, state and erase date (K2).
+        return Response.json({
+          project_id: 'restoring-project',
+          account_id: 'account-1',
+          name: 'Sunset Lab',
+          repo_url: '',
+          default_branch: 'main',
+          role: 'owner',
+          state: 'deleting',
+          deletion_scheduled_for: '2026-12-01T00:00:00.000Z',
+        });
+      }
+      return Response.json({ message: 'Not found' }, { status: 404 });
+    },
+  });
+  await act(async () => {
+    tree = create(
+      <QueryClientProvider client={client}>
+        <ProjectAccessBoundary projectId="restoring-project">
+          RESTORING PROJECT CONTENT
+        </ProjectAccessBoundary>
+      </QueryClientProvider>,
+    );
+  });
+  await act(async () => {
+    jest.advanceTimersByTime(100);
+  });
+  const json = JSON.stringify(tree?.toJSON());
+  expect(json).toContain('restore');
+  expect(json).not.toContain('RESTORING PROJECT CONTENT');
+  expect(json).not.toContain('projectAccessBoundary.');
+  expect(urls[0]).toBe('http://api.test/v1/workspaces/restoring-project');
+});
+
 test('a kept project renders at once while its access read is held, and shell reads start once it answers', async () => {
   client.setQueryData(qk.project.summary('kept-project'), { project_id: 'kept-project' }, { updatedAt: Date.now() });
   jest.useFakeTimers();

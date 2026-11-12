@@ -13,6 +13,7 @@ pub mod processor;
 pub mod recorders;
 pub mod recording_service;
 pub mod secret_store;
+pub mod self_usage;
 pub mod session;
 pub mod streaming_writer;
 pub mod utils;

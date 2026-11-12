@@ -56,6 +56,30 @@ describe('parseRegistryAddress', () => {
   test('local dir', () => {
     expect(parseRegistryAddress('./reg')).toEqual({ kind: 'local', path: './reg' });
   });
+  test('a github.com web URL is a github registry, not a url fetch (KRTX-4737)', () => {
+    // github.com's HTML host can never serve registry.json — the old url-kind
+    // parse made every pasted repo URL a guaranteed 404 on every catalog build.
+    expect(parseRegistryAddress('https://github.com/owner/repo')).toEqual({
+      kind: 'github', owner: 'owner', repo: 'repo', ref: undefined, subdir: undefined,
+    });
+    expect(parseRegistryAddress('https://www.github.com/owner/repo')).toMatchObject({ kind: 'github', owner: 'owner', repo: 'repo' });
+  });
+  test('a github.com /tree/<ref>/<subdir> URL carries ref + subdir', () => {
+    expect(parseRegistryAddress('https://github.com/owner/repo/tree/main/skills')).toEqual({
+      kind: 'github', owner: 'owner', repo: 'repo', ref: 'main', subdir: 'skills',
+    });
+    expect(parseRegistryAddress('https://github.com/owner/repo/tree/main')).toMatchObject({
+      kind: 'github', owner: 'owner', repo: 'repo', ref: 'main', subdir: undefined,
+    });
+  });
+  test('non-registry URL shapes stay url kind', () => {
+    // A blob path points at a file, not a registry; other hosts and http stay url kind.
+    expect(parseRegistryAddress('https://github.com/owner/repo/blob/main/registry.json')).toEqual({ kind: 'url', url: 'https://github.com/owner/repo/blob/main/registry.json' });
+    expect(parseRegistryAddress('https://github.com/owner')).toEqual({ kind: 'url', url: 'https://github.com/owner' });
+    expect(parseRegistryAddress('https://gitlab.com/owner/repo')).toEqual({ kind: 'url', url: 'https://gitlab.com/owner/repo' });
+    expect(parseRegistryAddress('http://github.com/owner/repo')).toEqual({ kind: 'url', url: 'http://github.com/owner/repo' });
+    expect(parseRegistryAddress('https://example.com/registry.json')).toEqual({ kind: 'url', url: 'https://example.com/registry.json' });
+  });
   test('rawGithubUrl', () => {
     expect(rawGithubUrl('o', 'r', 'main', 'a/b.json')).toBe('https://raw.githubusercontent.com/o/r/main/a/b.json');
   });

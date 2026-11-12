@@ -1,4 +1,4 @@
-import { Slot } from '@radix-ui/react-slot';
+import { Slot } from '@kortix/ui/slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import * as React from 'react';
 

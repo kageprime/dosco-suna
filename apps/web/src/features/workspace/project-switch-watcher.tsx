@@ -8,8 +8,8 @@ import { projectIdFromPathname, useProjectSwitchStore } from '@kortix/ui/interna
 /**
  * Ends a workspace switch. One instance, in the authenticated app shell.
  *
- * The workspace picker starts a switch and then closes — Radix unmounts the menu
- * on select — so the picker itself cannot be what ends one. That is exactly how
+ * The workspace picker starts a switch and then closes — the menu unmounts on
+ * select — so the picker itself cannot be what ends one. That is exactly how
  * the switch used to get stranded: nothing outside the menu owned the end of it,
  * so `targetProjectId` stayed set and every re-open of the picker painted a
  * field of spinners you could not switch out of. This watcher sits above every
@@ -26,7 +26,7 @@ import { projectIdFromPathname, useProjectSwitchStore } from '@kortix/ui/interna
  */
 const SWITCH_TIMEOUT_MS = 20_000;
 
-export type ProjectSwitchOutcome = 'idle' | 'pending' | 'arrived' | 'diverted';
+type ProjectSwitchOutcome = 'idle' | 'pending' | 'arrived' | 'diverted';
 
 export function resolveProjectSwitchOutcome(args: {
   targetProjectId: string | null;

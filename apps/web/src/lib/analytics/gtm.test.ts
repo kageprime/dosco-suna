@@ -1,12 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
-import {
-  isAnalyticsExcludedPath,
-  trackCtaSignup,
-  trackLogin,
-  trackRouteChange,
-  trackSignUp,
-} from './gtm';
+import { getPageContext, trackCtaSignup, trackLogin, trackRouteChange, trackSignUp } from './gtm';
+import { isAnalyticsExcludedPath } from './url-policy';
 
 // ─── Minimal browser stub ───────────────────────────────────────────────────
 // No DOM library in this package. `trackRouteChange` reads `window.location`,
@@ -107,6 +102,92 @@ describe('isAnalyticsExcludedPath', () => {
     for (const path of ['/', '/pricing', '/de/pricing', '/auth', '/checkout', '/workspacesx']) {
       expect(isAnalyticsExcludedPath(path), path).toBe(false);
     }
+  });
+});
+
+describe('getPageContext', () => {
+  // Every pathname class the context rules decide on, pinned so the rule
+  // table keeps yielding the same record the old if-chain returned.
+  test('every pathname class keeps its page context', () => {
+    const en = { language: 'en' };
+    expect(getPageContext('/')).toEqual({
+      master_group: 'General',
+      content_group: 'Other',
+      page_type: 'home',
+      ...en,
+    });
+    expect(getPageContext('')).toEqual({
+      master_group: 'General',
+      content_group: 'Other',
+      page_type: 'home',
+      ...en,
+    });
+    expect(getPageContext('/auth/sign-in')).toEqual({
+      master_group: 'General',
+      content_group: 'User',
+      page_type: 'auth',
+      ...en,
+    });
+    expect(getPageContext('/dashboard')).toEqual({
+      master_group: 'Platform',
+      content_group: 'Dashboard',
+      page_type: 'home',
+      ...en,
+    });
+    expect(getPageContext('/subscription')).toEqual({
+      master_group: 'Platform',
+      content_group: 'Dashboard',
+      page_type: 'plans',
+      ...en,
+    });
+    expect(getPageContext('/subscription/extra')).toEqual({
+      master_group: 'Platform',
+      content_group: 'Dashboard',
+      page_type: 'plans',
+      ...en,
+    });
+    expect(getPageContext('/checkout')).toEqual({
+      master_group: 'Platform',
+      content_group: 'Dashboard',
+      page_type: 'checkout',
+      ...en,
+    });
+    expect(getPageContext('/checkout/new')).toEqual({
+      master_group: 'Platform',
+      content_group: 'Dashboard',
+      page_type: 'checkout',
+      ...en,
+    });
+    expect(getPageContext('/workspaces/p1')).toEqual({
+      master_group: 'Platform',
+      content_group: 'Dashboard',
+      page_type: 'thread',
+      ...en,
+    });
+    expect(getPageContext('/workspace/p1')).toEqual({
+      master_group: 'Platform',
+      content_group: 'Dashboard',
+      page_type: 'thread',
+      ...en,
+    });
+    expect(getPageContext('/thread/t1')).toEqual({
+      master_group: 'Platform',
+      content_group: 'Dashboard',
+      page_type: 'thread',
+      ...en,
+    });
+    expect(getPageContext('/settings/billing')).toEqual({
+      master_group: 'Platform',
+      content_group: 'User',
+      page_type: 'settings',
+      ...en,
+    });
+    expect(getPageContext('/pricing')).toEqual({
+      master_group: 'General',
+      content_group: 'Other',
+      page_type: 'other',
+      ...en,
+    });
   });
 });
 

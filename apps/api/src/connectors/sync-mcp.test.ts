@@ -159,6 +159,32 @@ describe('MCP catalog materialization', () => {
     expect(JSON.stringify(result)).not.toContain('catalog-access-token');
   });
 
+  test('a 401 before anyone signed in is not an error: the connector stays active and awaits sign-in', async () => {
+    for (const status of [401, 403]) {
+      const result = await resolveCatalog(UNUSED_PROJECT, MCP_SPEC, {
+        credential: null,
+        mcpFetchImpl: async () => ({ status, ok: false, text: async () => 'sign in required' }),
+      });
+      expect(result).toEqual({ actions: [], server: 'https://mcp.example.com/mcp', awaitsSignIn: true });
+      // Active, no error: the listing derives needs_auth, whose action is Sign in.
+      expect(catalogPersistenceState(true, result)).toEqual({ status: 'active', lastError: null });
+    }
+  });
+
+  test('a 401 to a server that declares no auth, or any other failure, stays an error', async () => {
+    const noAuth = await resolveCatalog(UNUSED_PROJECT, { ...MCP_SPEC, auth: { ...MCP_SPEC.auth, type: 'none' } }, {
+      credential: null,
+      mcpFetchImpl: async () => ({ status: 401, ok: false, text: async () => '' }),
+    });
+    expect(noAuth.error).toBe('MCP tools/list failed: HTTP 401');
+    const down = await resolveCatalog(UNUSED_PROJECT, MCP_SPEC, {
+      credential: null,
+      mcpFetchImpl: async () => ({ status: 500, ok: false, text: async () => '' }),
+    });
+    expect(down.error).toBe('MCP tools/list failed: HTTP 500');
+    expect(catalogPersistenceState(true, down).status).toBe('error');
+  });
+
   test('retries an existing active MCP connector whose catalog has zero actions', () => {
     expect(
       shouldReuseConnectorCatalog({

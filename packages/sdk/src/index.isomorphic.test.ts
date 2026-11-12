@@ -364,7 +364,9 @@ test('core/ never touches a bare process/window/document/localStorage global', (
   for (const file of walkDir(coreDir)) {
     const lines = readFileSync(file, 'utf8').split('\n');
     lines.forEach((line, i) => {
-      if (line.trimStart().startsWith('*') || line.trimStart().startsWith('//')) return;
+      // A one-line block comment (`/** … */`) starts with `/*`, not `*`: skip it
+      // like every other comment line (a `window.` in prose is not a read).
+      if (line.trimStart().startsWith('/*') || line.trimStart().startsWith('*') || line.trimStart().startsWith('//')) return;
       const hit = line.match(BARE);
       if (!hit) return;
       // `hit` comes from a global-flag `.match()`, which returns only whole
@@ -379,6 +381,7 @@ test('core/ never touches a bare process/window/document/localStorage global', (
         .slice(Math.max(0, i - GUARD_WINDOW), i + 1)
         .some(
           (candidate) =>
+            !candidate.trimStart().startsWith('/*') &&
             !candidate.trimStart().startsWith('*') &&
             !candidate.trimStart().startsWith('//') &&
             guardRe.test(candidate),

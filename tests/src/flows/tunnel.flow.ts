@@ -72,8 +72,8 @@ flow(
       (await ctx.client.as(ctx.P.ANON).get("/v1/tunnel/connections")).status(401);
     });
 
-    await ctx.step("pairing is device auth only: POST /tunnel/connections → 404", async () => {
-      (await owner.post("/v1/tunnel/connections", { name: "hand-made", capabilities: [] })).status(404);
+    await ctx.step("pairing is device auth only: POST /tunnel/connections → 405 (KRTX-4704: a wrong method on a matched route)", async () => {
+      (await owner.post("/v1/tunnel/connections", { name: "hand-made", capabilities: [] })).status(405);
     });
 
     await ctx.step("OWNER reads, renames (empty name → 400), and rotates the setup token", async () => {

@@ -151,19 +151,25 @@ export function readSessionLogPage(input: PageInput): Promise<SessionLogPage | '
     // payload: 40 MB ran ~330 ms on loopback; prod `db;dur` was ~96 % of a 1–5 s read —
     // KRTX-4508). Probe the window's seq and sizes first (TOAST pointers, no payload), keep
     // the newest run under `SESSION_LOG_PAGE_MAX_BYTES`, then read only those records in full.
+    // A pointer read (`limit: 0` — the snapshot route's `?transcript=0`, documented "session,
+    // generation, threads, no messages") reads NO payload at all: it used to read the newest
+    // record whole and slice it away, which paid a heavy session's multi-MB detoast on every
+    // session open (KRTX-4733: prod slow rows 1.1–4.8 s, `db;dur` 90–98 % of wall).
     let budgetCut = false;
+    let windowRows: SizedWindowRow[] = [];
     const rows =
       threadId === null
         ? []
         : await (async () => {
             const scope = threadScope(input, threadId);
-            const window = await tx
+            windowRows = await tx
               .select({ seq: sessionLogMessages.seq, bytes: sql<number>`pg_column_size(${sessionLogMessages.record})::int` })
               .from(sessionLogMessages)
               .where(scope)
               .orderBy(desc(sessionLogMessages.seq))
               .limit(input.limit + 1);
-            const kept = keptUnderBudget(window, config.SESSION_LOG_PAGE_MAX_BYTES);
+            if (input.limit === 0) return [];
+            const kept = keptUnderBudget(windowRows, config.SESSION_LOG_PAGE_MAX_BYTES);
             budgetCut = kept.dropped;
             let payloadScope = scope;
             if (kept.dropped) {
@@ -185,7 +191,10 @@ export function readSessionLogPage(input: PageInput): Promise<SessionLogPage | '
         .slice(0, input.limit)
         .reverse()
         .map((r) => withKeptToolInputs(log.record as J, threadRecord, r.record as SessionLogMessage)),
-      has_more: budgetCut || rows.length > input.limit,
+      // The probe's row count is the truth for every limit: with `limit: 0` the page serves
+      // no messages, so "older messages exist" is just "the window holds a row" (the payload
+      // `rows` are empty and the budget never cut a one-row window).
+      has_more: budgetCut || windowRows.length > input.limit,
     };
   }, READ_ONLY);
 }

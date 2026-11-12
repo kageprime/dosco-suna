@@ -338,7 +338,44 @@ test('projects clone keeps a shipped link and README clean', async () => {
   }
 });
 
-test.each([false, true])('seeded managed ship recovery preserves history (fetch fails=%s)', async (failFetch) => {
+test('inside its session, workspaces clone checks out the session branch: the only branch the Git proxy lets it push', async () => {
+  useLocalRepo = true;
+  const git = (dir: string, ...args: string[]) => {
+    const result = Bun.spawnSync(['git', ...args], { cwd: dir, stdout: 'pipe', stderr: 'pipe' });
+    expect(result.exitCode).toBe(0);
+    return result.stdout.toString().trim();
+  };
+  writeFileSync(join(cwd, 'README.md'), 'Synthetic\n');
+  git(cwd, 'add', 'kortix.yaml', 'README.md');
+  git(cwd, '-c', 'user.name=Synthetic', '-c', 'user.email=synthetic@example.test', 'commit', '-m', 'fixture');
+  git(cwd, 'clone', '--bare', '.', bareRepo);
+  const session = { KORTIX_PROJECT_ID: 'workspace_project', KORTIX_BRANCH_NAME: 'ses-synthetic-1' };
+
+  const fresh = await cli(['workspaces', 'clone', 'workspace_project', 'fresh', '--host', 'workspace'], session);
+  expect(fresh.code).toBe(0);
+  expect(fresh.stdout).toContain('ses-synthetic-1');
+  expect(git(join(cwd, 'fresh'), 'branch', '--show-current')).toBe('ses-synthetic-1');
+  expect(git(join(cwd, 'fresh'), 'config', 'push.default')).toBe('current');
+
+  // A session branch that already holds pushed work is checked out as it is, never reset.
+  git(join(cwd, 'fresh'), '-c', 'user.name=Synthetic', '-c', 'user.email=synthetic@example.test', 'commit', '--allow-empty', '-m', 'session work');
+  const tip = git(join(cwd, 'fresh'), 'rev-parse', 'HEAD');
+  git(join(cwd, 'fresh'), 'push', '-q', 'origin', 'ses-synthetic-1');
+  const again = await cli(['workspaces', 'clone', 'workspace_project', 'again', '--host', 'workspace'], session);
+  expect(again.code).toBe(0);
+  expect(git(join(cwd, 'again'), 'rev-parse', 'HEAD')).toBe(tip);
+
+  // Another workspace's clone, or a clone outside a session, keeps its default branch.
+  const other = await cli(['workspaces', 'clone', 'workspace_project', 'outside', '--host', 'workspace'], { KORTIX_BRANCH_NAME: '' });
+  expect(other.code).toBe(0);
+  expect(git(join(cwd, 'outside'), 'branch', '--show-current')).not.toBe('ses-synthetic-1');
+});
+
+// A product-created workspace is seeded with scaffold commits before the first
+// `kortix ship`, while `kortix init` starts from its own unrelated commit. Ship
+// must reconcile that seeded remote instead of surfacing a non-fast-forward
+// rejection (or a manual recovery dance) as exit 1 on the customer's first ship.
+test('seeded managed ship merges the seeded history and ships', async () => {
   useLocalRepo = true;
   managedRepo = true;
   link();
@@ -362,18 +399,152 @@ test.each([false, true])('seeded managed ship recovery preserves history (fetch 
   git('add', '-A');
   git('commit', '-m', 'fixture files');
   const local = git('rev-parse', 'HEAD');
-  const extraEnv: Record<string, string> = {};
-  if (failFetch) {
-    const realGit = Bun.which('git');
-    if (!realGit) throw new Error('git required');
-    const bin = join(cwd, '.git', 'test-bin');
-    mkdirSync(bin);
-    writeFileSync(join(bin, 'git'), `#!/bin/sh
+
+  const result = await cli(['ship', '--host', 'workspace', '--no-verify', '--no-env', '--no-connect', '-y']);
+  expect(result.code).toBe(0);
+  // The pushed main carries both histories: the workspace seed and the folder.
+  const pushed = git('--git-dir', bareRepo, 'rev-parse', 'main');
+  expect(git('--git-dir', bareRepo, 'merge-base', '--is-ancestor', seed, pushed)).toBe('');
+  expect(git('--git-dir', bareRepo, 'merge-base', '--is-ancestor', local, pushed)).toBe('');
+  // The folder's files won the content conflicts: the workspace serves what the
+  // customer shipped, and the seed survives only as history.
+  expect(git('--git-dir', bareRepo, 'show', 'main:kortix.yaml')).toBe('name: local-work');
+  expect(git('rev-parse', 'HEAD')).toBe(pushed);
+  expect(git('show', 'HEAD:kortix.yaml')).toBe('name: local-work');
+  expect(hits.some((hit) => hit.path.includes('/git-token'))).toBe(true);
+  expect(hits.every((hit) => hit.auth === 'Bearer tok_workspace')).toBe(true);
+});
+
+test('seeded managed ship fast-forwards a folder the remote moved past', async () => {
+  useLocalRepo = true;
+  managedRepo = true;
+  link();
+  const git = (...args: string[]) => {
+    const result = Bun.spawnSync(['git', ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
+    expect(result.exitCode).toBe(0);
+    return result.stdout.toString().trim();
+  };
+  git('config', 'user.name', 'Synthetic');
+  git('config', 'user.email', 'synthetic@example.test');
+  writeFileSync(join(cwd, '.git/info/exclude'), '/remote.git/\n/.bun/\n');
+  git('add', '-A');
+  git('commit', '-m', 'base');
+  const base = git('rev-parse', 'HEAD');
+  git('clone', '--bare', '.', bareRepo);
+  // A session or teammate advanced the workspace while this folder stood still.
+  const mover = mkdtempSync(join(tmpdir(), 'kortix-ship-mover-'));
+  try {
+    expect(Bun.spawnSync(['git', 'clone', bareRepo, mover], { stdout: 'pipe' }).exitCode).toBe(0);
+    writeFileSync(join(mover, 'README.md'), 'Remote update\n');
+    const commit = (args: string[]) => {
+      const result = Bun.spawnSync(['git', ...args], { cwd: mover, stdout: 'pipe', stderr: 'pipe' });
+      expect(result.exitCode).toBe(0);
+    };
+    commit(['add', 'README.md']);
+    commit(['-c', 'user.name=Synthetic', '-c', 'user.email=synthetic@example.test', 'commit', '-m', 'remote update']);
+    commit(['push', 'origin', 'main']);
+    const remoteTip = git('--git-dir', bareRepo, 'rev-parse', 'main');
+
+    const result = await cli(['ship', '--host', 'workspace', '--no-verify', '--no-env', '--no-connect', '-y']);
+    expect(result.code).toBe(0);
+    // The folder caught up to the workspace without losing anything, and the
+    // push was a no-op rather than a non-fast-forward rejection.
+    expect(git('rev-parse', 'HEAD')).toBe(remoteTip);
+    expect(readFileSync(join(cwd, 'README.md'), 'utf8')).toBe('Remote update\n');
+    expect(git('--git-dir', bareRepo, 'rev-parse', 'main')).toBe(remoteTip);
+    expect(git('--git-dir', bareRepo, 'merge-base', '--is-ancestor', base, remoteTip)).toBe('');
+  } finally {
+    rmSync(mover, { recursive: true, force: true });
+  }
+});
+
+test('seeded managed ship refuses to overwrite a folder file the ignore rules keep out', async () => {
+  useLocalRepo = true;
+  managedRepo = true;
+  link();
+  const git = (...args: string[]) => {
+    const result = Bun.spawnSync(['git', ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
+    expect(result.exitCode).toBe(0);
+    return result.stdout.toString().trim();
+  };
+  git('config', 'user.name', 'Synthetic');
+  git('config', 'user.email', 'synthetic@example.test');
+  writeFileSync(join(cwd, '.git/info/exclude'), '/remote.git/\n/.bun/\n');
+  writeFileSync(join(cwd, '.gitignore'), '.env\n');
+  git('add', 'kortix.yaml', '.gitignore');
+  git('commit', '-m', 'seed');
+  git('clone', '--bare', '.', bareRepo);
+  git('checkout', '--orphan', 'local');
+  writeFileSync(join(cwd, 'kortix.yaml'), 'name: local-work\n');
+  writeFileSync(join(cwd, '.gitignore'), '.env\n');
+  writeFileSync(join(cwd, '.env'), 'LOCAL_SECRET=synthetic-local\n');
+  git('add', 'kortix.yaml', '.gitignore');
+  git('commit', '-m', 'local work');
+  git('branch', '-M', 'main');
+  git('add', '-A');
+  git('commit', '-m', 'fixture files');
+  // A tracked .env lands on the workspace remote (a teammate or an agent
+  // pushed it with add -f): the merge would silently overwrite the folder's
+  // ignored local file with it.
+  const mover = mkdtempSync(join(tmpdir(), 'kortix-ship-mover2-'));
+  try {
+    expect(Bun.spawnSync(['git', 'clone', bareRepo, mover], { stdout: 'pipe' }).exitCode).toBe(0);
+    writeFileSync(join(mover, '.env'), 'PLANTED=synthetic-remote\n');
+    const commit = (args: string[]) => {
+      const result = Bun.spawnSync(['git', ...args], { cwd: mover, stdout: 'pipe', stderr: 'pipe' });
+      expect(result.exitCode).toBe(0);
+    };
+    commit(['add', '-f', '.env']);
+    commit(['-c', 'user.name=Synthetic', '-c', 'user.email=synthetic@example.test', 'commit', '-m', 'plant .env']);
+    commit(['push', 'origin', 'main']);
+    const remoteTip = git('--git-dir', bareRepo, 'rev-parse', 'main');
+
+    const result = await cli(['ship', '--host', 'workspace', '--no-verify', '--no-env', '--no-connect', '-y']);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('keeps locally');
+    expect(result.stderr).toContain('.env');
+    // The local file survived untouched and nothing reached the workspace.
+    expect(readFileSync(join(cwd, '.env'), 'utf8')).toBe('LOCAL_SECRET=synthetic-local\n');
+    expect(git('--git-dir', bareRepo, 'rev-parse', 'main')).toBe(remoteTip);
+  } finally {
+    rmSync(mover, { recursive: true, force: true });
+  }
+});
+
+test('seeded managed ship keeps the recovery guidance when the remote cannot be fetched', async () => {
+  useLocalRepo = true;
+  managedRepo = true;
+  link();
+  const git = (...args: string[]) => {
+    const result = Bun.spawnSync(['git', ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
+    expect(result.exitCode).toBe(0);
+    return result.stdout.toString().trim();
+  };
+  git('config', 'user.name', 'Synthetic');
+  git('config', 'user.email', 'synthetic@example.test');
+  writeFileSync(join(cwd, '.git/info/exclude'), '/remote.git/\n');
+  git('add', 'kortix.yaml');
+  git('commit', '-m', 'seed');
+  git('clone', '--bare', '.', bareRepo);
+  const seed = git('--git-dir', bareRepo, 'rev-parse', 'main');
+  git('checkout', '--orphan', 'local');
+  writeFileSync(join(cwd, 'kortix.yaml'), 'name: local-work\n');
+  git('add', 'kortix.yaml');
+  git('commit', '-m', 'local work');
+  git('branch', '-M', 'main');
+  git('add', '-A');
+  git('commit', '-m', 'fixture files');
+  const local = git('rev-parse', 'HEAD');
+  const realGit = Bun.which('git');
+  if (!realGit) throw new Error('git required');
+  const bin = join(cwd, '.git', 'test-bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'git'), `#!/bin/sh
 if [ "$1" = fetch ]; then exit 128; fi
 exec ${JSON.stringify(realGit)} "$@"
 `, { mode: 0o755 });
-    extraEnv.PATH = `${bin}:${process.env.PATH}`;
-  }
+  const extraEnv: Record<string, string> = { PATH: `${bin}:${process.env.PATH}` };
+
   const result = await cli(['ship', '--host', 'workspace', '--no-verify', '--no-env', '--no-connect', '-y'], extraEnv);
   expect(result.code).toBe(1);
   expect(result.stderr).toContain('kortix workspaces clone workspace_project');

@@ -17,6 +17,7 @@
 // `mock.module` is process-global; the `--isolate` runner gives this file its
 // own module graph.
 import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { PlatinumSandboxNotRunningError } from '../../shared/platinum';
 import * as realRequestContext from '../../lib/request-context';
 import { WIRE_MESSAGE_ID, mintWireMessageId, wireIdTime } from '../../projects/wire-message-id';
 import * as realKortixUserContext from '../../shared/kortix-user-context';
@@ -108,6 +109,10 @@ mock.module('../../projects/session-open', () => ({
   stoppedSandboxWakePending: async () => false,
 }));
 const touchedSandboxIds: string[] = [];
+const erroredSandboxIds: string[] = [];
+// Set per-test: the error the ingress resolve throws (the typed Platinum
+// not-running error, KRTX-4751).
+let ingressError: Error | null = null;
 
 // Daytona ingress is a pass-through: the effective port is the addressed port.
 mock.module('../backend', () => ({
@@ -115,11 +120,14 @@ mock.module('../backend', () => ({
   routeSandboxIngress: (_record: unknown, request: { port: number }) => ({
     effectivePort: request.port,
   }),
-  resolveSandboxIngress: async () => ({ url: 'http://sandbox.local', headers: {} }),
+  resolveSandboxIngress: async () => {
+    if (ingressError) throw ingressError;
+    return { url: 'http://sandbox.local', headers: {} };
+  },
   buildSandboxUpstreamHeaders: async () => ({}),
   invalidatePreviewLink: () => {},
   markSandboxUsed: (sandboxId: string) => { touchedSandboxIds.push(sandboxId); },
-  markSandboxErrored: async () => {},
+  markSandboxErrored: async (sandboxId: string) => { erroredSandboxIds.push(sandboxId); },
   wakeSandbox: async () => {},
 }));
 
@@ -197,6 +205,8 @@ beforeEach(() => {
   begunTurns = [];
   boxKeepsMessageIds = false;
   keepsIdsAsks = [];
+  erroredSandboxIds.length = 0;
+  ingressError = null;
 });
 // Restore per TEST: a case that fails before installing its own fetch would
 // otherwise run against the previous case's exhausted queue.
@@ -429,6 +439,54 @@ describe('forwardToSandbox — a sandbox-down 400 on the LAST attempt releases t
     expect(fetchCalls).toBe(1);
     expect(retry.status).toBe(200);
     expect(await retry.json()).not.toEqual({ status: 'duplicate', deduplicated: true });
+  });
+});
+
+describe('forwardToSandbox — the provider-confirmed not-running error marks the sandbox errored (KRTX-4751)', () => {
+  // Platinum's CP answers the expose inside resolveIngress with
+  // `409 {"code":"sandbox_not_running"}` when the box is stopped. Every
+  // attempt throws the typed error; the give-up must flip the row to 'error'
+  // (the Daytona confirmed-dead lane) so the NEXT request fast-fails with a
+  // retryable `sandbox not ready` instead of burning the same 50 s retry
+  // budget against a box the provider has already confirmed dead.
+  test('a Platinum 409 sandbox_not_running from the ingress resolve errors the row at give-up', async () => {
+    ingressError = new PlatinumSandboxNotRunningError(
+      'platinum POST /v1/sandboxes/ext-1/expose -> 409 {"code":"sandbox_not_running"}',
+    );
+    const res = await forwardToSandbox(
+      'sb-1',
+      8000,
+      principal,
+      'GET',
+      '/kortix/runtime/workflows',
+      '',
+      new Headers(),
+      undefined,
+      'http://app.local',
+    );
+    // Every attempt threw; the give-up answers the honest 502...
+    expect(res.status).toBe(502);
+    // ...and marks the sandbox errored, so later requests fast-fail.
+    expect(erroredSandboxIds).toEqual(['ext-1']);
+  });
+
+  test('a generic ingress failure (no confirmed-dead signal) leaves the row alone', async () => {
+    ingressError = new Error('connect ETIMEDOUT');
+    const res = await forwardToSandbox(
+      'sb-1',
+      8000,
+      principal,
+      'GET',
+      '/kortix/runtime/workflows',
+      '',
+      new Headers(),
+      undefined,
+      'http://app.local',
+    );
+    expect(res.status).toBe(502);
+    // A transient unreachable / RX stall must NEVER error a row — the
+    // 2026-06-14 bug this flag's guard exists for.
+    expect(erroredSandboxIds).toEqual([]);
   });
 });
 

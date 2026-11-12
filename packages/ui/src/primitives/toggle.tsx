@@ -1,7 +1,8 @@
-import * as TogglePrimitive from '@radix-ui/react-toggle';
+import { Toggle as TogglePrimitive } from '@base-ui/react/toggle';
 import { cva, type VariantProps } from 'class-variance-authority';
 import * as React from 'react';
 
+import { asChildRender, composeRefs, stateRender, useNativeButton } from '../lib/base-ui-compat';
 import { cn } from '../lib/utils';
 
 const toggleVariants = cva(
@@ -27,17 +28,39 @@ const toggleVariants = cva(
   },
 );
 
-const Toggle = React.forwardRef<
-  React.ElementRef<typeof TogglePrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof TogglePrimitive.Root> & VariantProps<typeof toggleVariants>
->(({ className, variant, size, ...props }, ref) => (
-  <TogglePrimitive.Root
-    ref={ref}
-    className={cn(toggleVariants({ variant, size, className }))}
-    {...props}
-  />
-));
+type ToggleProps = Omit<React.ComponentPropsWithoutRef<'button'>, 'value'> &
+  VariantProps<typeof toggleVariants> & {
+    pressed?: boolean;
+    defaultPressed?: boolean;
+    onPressedChange?: (pressed: boolean) => void;
+    value?: string;
+    asChild?: boolean;
+  };
 
-Toggle.displayName = TogglePrimitive.Root.displayName;
+const Toggle = React.forwardRef<HTMLButtonElement, ToggleProps>(
+  ({ className, variant, size, asChild, children, onPressedChange, ...props }, ref) => {
+    const slot = asChildRender(asChild, children);
+    const native = useNativeButton(asChild, children);
+    return (
+      <TogglePrimitive
+        ref={composeRefs(ref, native.ref)}
+        className={cn(toggleVariants({ variant, size, className }))}
+        {...props}
+        onPressedChange={(pressed) => onPressedChange?.(pressed)}
+        nativeButton={native.nativeButton}
+        render={stateRender(
+          'button',
+          (s: { pressed: boolean }) => (s.pressed ? 'on' : 'off'),
+          slot.render,
+        )}
+      >
+        {slot.children}
+      </TogglePrimitive>
+    );
+  },
+);
+
+Toggle.displayName = 'Toggle';
 
 export { Toggle, toggleVariants };
+export type { ToggleProps };

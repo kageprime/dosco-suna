@@ -30,6 +30,8 @@ export interface LegacySubscriptionConnection {
   granted_user_ids: string[];
   can_use: boolean;
   status: 'ok' | 'undecryptable';
+  /** A login is never checked like a provider API key. */
+  verification: null;
   storage: LegacySubscriptionStorage;
 }
 type FetchImpl = (input: string, init: RequestInit) => Promise<Response>;
@@ -49,7 +51,7 @@ function metadata(input: Principal, storage: LegacySubscriptionStorage, secretId
     provider_id: 'codex', name: 'CODEX_AUTH_JSON',
     consumer: 'llm_gateway', strategy: 'broker', active: true, cooldown_until: null, needs_reauth_at: null,
     usage: null, provider_account: null, created_by: '', created_at: updatedAt.toISOString(), updated_at: updatedAt.toISOString(),
-    granted_user_ids: [], can_use: true, status, storage };
+    granted_user_ids: [], can_use: true, status, verification: null, storage };
 }
 
 export async function listLegacySubscriptionConnections(input: Principal): Promise<LegacySubscriptionConnection[]> {

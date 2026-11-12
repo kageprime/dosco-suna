@@ -51,10 +51,6 @@ import {
   type CellKind,
 } from './role-capability-model';
 
-// The model's public names stay importable from this renderer path — every
-// existing importer (tests, member panels) keeps working through the re-export.
-export * from './role-capability-model';
-
 // ─── Component ──────────────────────────────────────────────────────────────
 
 const MATRIX_NOTE =
@@ -265,7 +261,9 @@ export function RoleCapabilityMatrix({
           >
             <span className="text-sm font-medium">{tI18nComplete.raw('text9f088dbebd6c')}</span>
             <span className="text-muted-foreground text-xs">
-              {advancedOpen ? 'Hide' : tI18nComplete.raw('textee2682510c82')}
+              {advancedOpen
+                ? tI18nComplete.raw('textac20a57bfde0')
+                : tI18nComplete.raw('textee2682510c82')}
             </span>
           </Button>
         </DisclosureTrigger>
@@ -323,6 +321,7 @@ function MatrixCell({
   disabled: boolean;
   onToggle: (checked: boolean) => void;
 }) {
+  const t = useTranslations('hardcodedUi.i18nComplete');
   if (cell.leaves.length === 0) {
     return (
       <span
@@ -339,7 +338,7 @@ function MatrixCell({
         checked={cell.state === 'partial' ? 'indeterminate' : cell.state === 'on'}
         onCheckedChange={(c) => onToggle(c === true)}
         disabled={disabled}
-        aria-label={`${kind === 'view' ? 'View' : 'Edit'} ${areaLabel}`}
+        aria-label={`${kind === 'view' ? t.raw('textdcc839a4015c') : t.raw('text464c4ffd019e')} ${areaLabel}`}
       />
     </span>
   );

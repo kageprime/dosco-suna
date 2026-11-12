@@ -3,7 +3,7 @@
  * `/projects/[id]` (components/session/ProjectRoutes, ProjectScreen).
  *
  * The stack is `[index]`, `[index, X]`, or `[index, X, page, …]`: X is a
- * covering route (view, sessions, files, account, inbox), and `page` is a sub-page
+ * covering route (view, sessions, files, artifacts, account, inbox), and `page` is a sub-page
  * pushed from the page under it (Settings → project Settings → Schedules, or
  * the thread → Files from the session ··· sheet). A drawer destination
  * replaces a covering route instead of pushing over it, and drops any
@@ -25,6 +25,8 @@ export const PROJECT_FILES_ROUTE = 'files';
 export const PROJECT_ACCOUNT_ROUTE = 'account';
 /** The caller's notifications across every project, opened from the drawer (KRTX-1742). */
 export const PROJECT_INBOX_ROUTE = 'inbox';
+/** The project's artifacts: shared docs and pages, opened from the drawer. */
+export const PROJECT_ARTIFACTS_ROUTE = 'artifacts';
 /**
  * A sub-page, pushed over the page it was opened from. Its `pageId` param
  * picks the page and never changes, so the route under it keeps its content
@@ -55,6 +57,7 @@ export function isSubPageId(pageId: string | null | undefined): pageId is SubPag
 export type ProjectDrawerRoute =
   | typeof PROJECT_SESSIONS_ROUTE
   | typeof PROJECT_FILES_ROUTE
+  | typeof PROJECT_ARTIFACTS_ROUTE
   | typeof PROJECT_ACCOUNT_ROUTE
   | typeof PROJECT_INBOX_ROUTE;
 

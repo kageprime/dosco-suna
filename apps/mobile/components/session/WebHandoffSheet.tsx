@@ -19,12 +19,9 @@
  * GitHub import flow) reuses it with its own copy and `run`.
  */
 import * as React from 'react';
-import { View } from 'react-native';
 
 import { Sheet, SheetBody, type SheetRef } from '@/components/kortix/sheet';
-import { Button } from '@/components/ui/button';
-import { Text } from '@/components/ui/text';
-import { useHandoffDismiss } from './handoff-sheet';
+import { HandoffBody, useHandoffDismiss } from './handoff-sheet';
 
 interface WebHandoffSheetProps {
   title: string;
@@ -56,20 +53,14 @@ export const WebHandoffSheet = React.forwardRef<SheetRef, WebHandoffSheetProps>(
     return (
       <Sheet ref={sheetRef} enablePanDownToClose onDismiss={handleDismiss}>
         <SheetBody className="items-center pt-2">
-          <Text variant="large" className="text-center">
-            {title}
-          </Text>
-          <Text variant="muted" className="mt-2 text-center">
-            {line}
-          </Text>
-          <View className="mt-6 w-full" style={{ gap: 10 }}>
-            <Button size="lg" className="rounded-full" onPress={handleContinue}>
-              <Text>{continueLabel}</Text>
-            </Button>
-            <Button variant="secondary" size="lg" className="rounded-full" onPress={() => sheetRef.current?.close()}>
-              <Text>{notNowLabel}</Text>
-            </Button>
-          </View>
+          <HandoffBody
+            title={title}
+            line={line}
+            action={continueLabel}
+            notNowLabel={notNowLabel}
+            onContinue={handleContinue}
+            onClose={() => sheetRef.current?.close()}
+          />
         </SheetBody>
       </Sheet>
     );

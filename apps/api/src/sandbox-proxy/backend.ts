@@ -31,6 +31,7 @@ import {
   type SandboxIngressRoute,
 } from '../platform/providers';
 import { recoverTurnsAfterRuntimeRestart } from '../projects/session-lifecycle/runtime-restart-recovery';
+import { isPlatinumNotRunningVerdict } from '../shared/platinum-not-running';
 import { setBounded } from '../shared/bounded-cache';
 import { db } from '../shared/db';
 import { isUuid } from '../shared/validate';
@@ -368,7 +369,7 @@ export async function buildSandboxUpstreamHeaders(opts: {
 
 // ── Lifecycle side-effects ─────────────────────────────────────────────────
 
-export async function wakeSandbox(externalId: string): Promise<void> {
+export async function wakeSandbox(externalId: string, wakeReason?: unknown): Promise<void> {
   try {
     const record = await loadSandbox(externalId);
     if (!record) return;
@@ -396,9 +397,15 @@ export async function wakeSandbox(externalId: string): Promise<void> {
       typeof provider.getStatus === 'function'
         ? await provider.getStatus(externalId).catch(() => 'unknown' as const)
         : ('unknown' as const);
-    await provider.ensureRunning(externalId);
+    await provider.ensureRunning(externalId, wakeReason);
     console.log(`[PREVIEW] Wake-up triggered for sandbox ${externalId}`);
-    if (before === 'stopped') {
+    // The control plane can contradict its own GET: it answered `running` for
+    // a box whose expose/exec it refused with the not-running verdict (one
+    // prod box, over an hour). When the wake carries that verdict, the box
+    // WAS stopped no matter what `before` read — and ensureRunning just
+    // started it — so every turn open on it is over and recovery fires here
+    // exactly as it does for a GET that honestly said `stopped`.
+    if (before === 'stopped' || isPlatinumNotRunningVerdict(wakeReason)) {
       await recoverTurnsAfterRuntimeRestart({
         sandboxId: record.sandboxId,
         sessionId: record.sessionId,

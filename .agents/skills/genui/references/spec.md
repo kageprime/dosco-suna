@@ -170,7 +170,7 @@ General rules for every component:
 - The map has a fixed height (web 280px, mobile 220px), so it does not cause a layout jump.
 
 ### 6.3 Tabs and Accordion
-- **Web:** existing `packages/ui/src/primitives/tabs.tsx` and `packages/ui/src/primitives/accordion.tsx` (Radix, keyboard-accessible).
+- **Web:** existing `packages/ui/src/primitives/tabs.tsx` and `packages/ui/src/primitives/accordion.tsx` (Base UI, keyboard-accessible).
 - **Mobile:** existing `packages/ui/src/primitives/tabs.tsx`. Accordion is new, built with reanimated (4.3.1, installed) and following the **animations-dev** rules.
 - **Streaming:** while the block streams, the tab or item that is being written is the one shown, so the user sees progress. After the stream, the model's `default` / `open` value applies.
 - **Fallback:** every panel expanded. No content is hidden in markdown, copy, Slack, or export.

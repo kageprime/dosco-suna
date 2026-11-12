@@ -76,7 +76,7 @@ export interface PreferencesCopy {
 }
 
 /** The desktop app's Quick Entry shortcut: the same choices as File ▸ Quick Entry Shortcut. */
-export interface QuickEntryShortcutSetting {
+interface QuickEntryShortcutSetting {
   copy: { title: string; description: string; off: string; inUse: string };
   state: DesktopQuickEntryShortcut;
   onChange: (shortcut: string | null) => void;
@@ -120,7 +120,7 @@ function shortcutList(
   ];
 }
 
-export interface PreferencesTabViewProps {
+interface PreferencesTabViewProps {
   copy: PreferencesCopy;
   // Language
   locale?: Locale;

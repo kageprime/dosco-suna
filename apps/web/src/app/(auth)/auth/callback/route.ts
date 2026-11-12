@@ -87,8 +87,10 @@ export async function GET(request: NextRequest) {
   // Handle errors FIRST - before any Supabase operations that might affect session
   if (error) {
     // Query values are attacker-controlled: JSON.stringify escapes CR/LF so
-    // a crafted link cannot forge extra log lines.
-    console.error('Auth callback error:', JSON.stringify({ error, errorCode, errorDescription }));
+    // a crafted link cannot forge extra log lines. A warning, not an error:
+    // Supabase sends these for an expired or reused link or a cancelled
+    // sign-in, and every branch below recovers on /auth.
+    console.warn('Auth callback error:', JSON.stringify({ error, errorCode, errorDescription }));
 
     // Check if the error is due to expired/invalid link
     const isExpiredOrInvalid =
@@ -140,8 +142,6 @@ export async function GET(request: NextRequest) {
       const { data, error } = exchange;
 
       if (error) {
-        console.error('Error exchanging code for session:', error);
-
         // The PKCE verifier lives in a browser cookie that must survive the
         // mailbox detour and a redirect chain before this handler runs. When it
         // does not, auth-js throws pkce_code_verifier_not_found BEFORE any
@@ -152,6 +152,7 @@ export async function GET(request: NextRequest) {
         // (return-URL demotion, terms stamp, billing-aware landing). Every
         // other exchange failure keeps today's behavior below.
         if (!token && code && error.code === 'pkce_code_verifier_not_found') {
+          console.warn('Auth callback: no PKCE verifier, resuming the exchange in the browser that started it');
           const resumeUrl = new URL(`${baseUrl}/auth`);
           resumeUrl.searchParams.set('pkce_code', code);
           if (next) resumeUrl.searchParams.set('returnUrl', next);
@@ -168,7 +169,8 @@ export async function GET(request: NextRequest) {
           error.code === 'otp_expired';
 
         if (isExpired) {
-          // Redirect to auth page with expired state to show resend form
+          // An expired or already used link: the user gets the resend form.
+          console.warn('Auth callback: expired or invalid link:', error.code ?? error.message);
           const expiredUrl = new URL(`${baseUrl}/auth`);
           expiredUrl.searchParams.set('expired', 'true');
               if (next) expiredUrl.searchParams.set('returnUrl', next);
@@ -176,6 +178,7 @@ export async function GET(request: NextRequest) {
           return NextResponse.redirect(expiredUrl);
         }
 
+        console.error('Error exchanging code for session:', error);
         return NextResponse.redirect(`${baseUrl}/auth?error=${encodeURIComponent(error.message)}`);
       }
 

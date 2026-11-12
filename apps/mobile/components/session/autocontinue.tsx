@@ -4,7 +4,8 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { InfinityIcon, InfoIcon, CheckIcon } from '@/lib/icons';
 import Svg, { Line } from 'react-native-svg';
-import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { SheetScrollView } from '@/components/kortix/sheet-parts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { THEME, withAlpha } from '@/lib/utils/theme';
 import { SheetBackdrop, KortixBottomSheetModal, SheetTitleRow } from '@/components/kortix/sheet';
@@ -215,7 +216,7 @@ export const AutoContinueSheet = React.memo(function AutoContinueSheet({
     >
       {detailAlg ? (
         /* Detail view — algorithm deep-dive with its own scroller. */
-        <BottomSheetScrollView
+        <SheetScrollView
           contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
           showsVerticalScrollIndicator={false}
         >
@@ -293,11 +294,11 @@ export const AutoContinueSheet = React.memo(function AutoContinueSheet({
               {detailAlg.howItWorks}
             </Text>
           </View>
-        </BottomSheetScrollView>
+        </SheetScrollView>
       ) : (
         /* List view — Off / On toggle + algorithm list. Top-level scroller so
            scroll gestures actually work inside the sheet. */
-        <BottomSheetScrollView
+        <SheetScrollView
           contentContainerStyle={{ paddingBottom: insets.bottom + 12 }}
           showsVerticalScrollIndicator={false}
         >
@@ -420,7 +421,7 @@ export const AutoContinueSheet = React.memo(function AutoContinueSheet({
             );
           })}
         </View>
-        </BottomSheetScrollView>
+        </SheetScrollView>
       )}
     </KortixBottomSheetModal>
   );

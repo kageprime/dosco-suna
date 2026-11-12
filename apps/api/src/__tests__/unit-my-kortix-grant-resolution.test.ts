@@ -76,12 +76,14 @@ describe('grantFromLoadedAgents — the reserved meta coordinator', () => {
     expect(grantFromLoadedAgents('meta', { ...UNGOVERNED, builtinAgents: { my_kortix: false } })).toEqual(disabledMyKortixAgentGrant());
   });
 
-  test('carries no connectors and no secrets, on every manifest shape', () => {
-    for (const loaded of [UNGOVERNED, GOVERNED, UNREADABLE]) {
+  test('holds every connector and secret its person can use, on every manifest shape (AGENT = HUMAN)', () => {
+    for (const loaded of [UNGOVERNED, GOVERNED]) {
       const grant = grantFromLoadedAgents('meta', loaded);
-      expect(grant?.connectors).toEqual([]);
-      expect(grant?.env).toEqual([]);
+      expect(grant?.connectors).toBe('all');
+      expect(grant?.env).toBe('all');
     }
+    // An unreadable manifest does not turn My Kortix on: no connector, no secret.
+    expect(grantFromLoadedAgents('meta', UNREADABLE)).toEqual(disabledMyKortixAgentGrant());
   });
 
   test('the per-prompt re-mint is now a no-op for a meta session', () => {

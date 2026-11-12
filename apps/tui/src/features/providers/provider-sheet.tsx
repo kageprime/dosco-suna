@@ -188,8 +188,8 @@ export function ProviderSheet({
       push(sheet === 'pooled-claude' ? 'Claude accounts' : 'ChatGPT accounts');
       push(
         sheet === 'pooled-claude'
-          ? 'Use your Claude Pro or Max plan for Claude models in this workspace. New accounts are private to you until you share them.'
-          : 'Use your ChatGPT Plus or Pro plan in this workspace. New accounts are private to you until you share them.',
+          ? 'Use your Claude Pro or Max plan for Claude models in this workspace. New accounts are shared with every workspace member. You can make one private.'
+          : 'Use your ChatGPT Plus or Pro plan in this workspace. New accounts are shared with every workspace member. You can make one private.',
         theme.faint,
       );
     } else {
@@ -317,7 +317,8 @@ export function ProviderSheet({
               onSubmit={() => {
                 const label = flow.value.trim();
                 if (!label) return;
-                setFlowState({ kind: 'access', purpose: 'create', mode: flow.mode, label, choice: 'private' });
+                // Shared with everyone by default; "Only you" for a viewer the API refuses a shared one from.
+                setFlowState({ kind: 'access', purpose: 'create', mode: flow.mode, label, choice: canShare ? 'project' : 'private' });
               }}
             />
           </box>

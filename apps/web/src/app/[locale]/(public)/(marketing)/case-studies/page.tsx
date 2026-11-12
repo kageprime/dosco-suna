@@ -24,7 +24,7 @@ export default function CaseStudiesPage() {
       <PageHero
         title={caseStudies.title}
         titleMuted={caseStudies.titleMuted}
-        sub="Banking, telecom, asset management, retail, research and more, run on Dosco agents."
+        sub="Research, telecom, software, retail, asset management and more, run on Dosco agents."
       />
       {/* Room before the footer's dither band, like every other page's last section. */}
       <div className="pb-20 lg:pb-28">

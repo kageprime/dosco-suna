@@ -13,7 +13,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { View, Pressable, ScrollView } from 'react-native';
 import { KortixLoader } from '@/components/kortix/kortix-loader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { SheetScrollView, SheetRawTextInput } from '@/components/kortix/sheet-parts';
 import { GitBranchIcon as GitBranch, GitDiffIcon as GitCompare } from '@/lib/icons';
 import { Text } from '@/components/ui/text';
 import { SheetTitleRow } from '@/components/kortix/sheet';
@@ -124,7 +124,7 @@ export function OpenCRSheet({
     <View style={{ flex: 1 }}>
       <SheetTitleRow title="Open a change request" onClose={() => { haptics.tap(); onClose(); }} />
 
-      <BottomSheetScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <SheetScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {branchesQuery.isLoading ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}><KortixLoader size="small" /></View>
         ) : headOptions.length === 0 ? (
@@ -162,7 +162,7 @@ export function OpenCRSheet({
             )}
 
             <Text style={{ fontSize: 12, fontFamily: 'Roobert-Medium', color: muted, marginTop: 18, marginBottom: 6 }}>Title</Text>
-            <BottomSheetTextInput
+            <SheetRawTextInput
               value={title}
               onChangeText={setTitle}
               placeholder={headRef ? `Changes from ${shortRef(headRef)}` : 'What does this change?'}
@@ -171,7 +171,7 @@ export function OpenCRSheet({
             />
 
             <Text style={{ fontSize: 12, fontFamily: 'Roobert-Medium', color: muted, marginTop: 14, marginBottom: 6 }}>Description  ·  optional</Text>
-            <BottomSheetTextInput
+            <SheetRawTextInput
               value={description}
               onChangeText={setDescription}
               placeholder="Add context for reviewers…"
@@ -181,7 +181,7 @@ export function OpenCRSheet({
             />
           </>
         )}
-      </BottomSheetScrollView>
+      </SheetScrollView>
 
       <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: insets.bottom + 8, borderTopWidth: 1, borderTopColor: isDark ? withAlpha(THEME.dark.foreground, 0.08) : withAlpha(THEME.light.foreground, 0.08) }}>
         <Pressable

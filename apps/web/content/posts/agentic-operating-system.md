@@ -58,7 +58,6 @@ agents:
     file: agents/harness-reflector.md
     kortix_permissions: all
     skills: all
-    workspace: { project_repository: true }
 ```
 
 The first block exists so a new project runs. The second is what an unattended decision looks like in the same file.

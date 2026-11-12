@@ -66,7 +66,7 @@ import {
 } from '@kortix/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@kortix/ui/tabs';
 import { errorToast, successToast } from '@kortix/ui/toast';
-import { CreditTransactionsTable } from '@/features/billing/transactions-table';
+import { CreditActivityFeed } from '@/features/billing/credit-activity-feed';
 import { EmptyState } from '@kortix/ui/empty-state';
 import {
   useAdminAccount,
@@ -1642,6 +1642,12 @@ const OVERRIDE_ENTITLEMENT_ROWS: {
     description:
       'Files folders and session /workspace volumes, charged in credits per GiB-hour. On for every plan; Force off waives storage charges for this account.',
   },
+  {
+    key: 'canPurchaseCredits',
+    title: 'One-off top-ups',
+    description:
+      'Buy credits once and auto top-up. Off on Free and Credits (the monthly plan is the upgrade path), on for licensed Enterprise; Force on grants them to this account.',
+  },
 ];
 
 const OVERRIDE_TRI_STATE_OPTIONS: { value: OverrideTriState; label: string }[] = [
@@ -2064,12 +2070,12 @@ function LedgerTab({ ledgerQuery }: { ledgerQuery: ReturnType<typeof useAdminAcc
     );
   }
 
-  // The same table the customer sees under Billing → Credit ledger, fed from
+  // The same feed the customer sees under Usage → Credit ledger, fed from
   // the admin endpoint. One implementation, so an operator reading a support
   // ticket and the customer reading their own history see identical rows.
   return (
     <div className="max-h-[50vh] overflow-y-auto">
-      <CreditTransactionsTable rows={adminLedgerRows(entries)} />
+      <CreditActivityFeed rows={adminLedgerRows(entries)} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 # ── Audit-event archive ───────────────────────────────────────────────────────
 #
 # WORM store for kortix.audit_events. The API job exports each weekly partition
-# older than the 90-day hot window as gzip JSONL and writes it with Object Lock
+# older than the 14-day hot window (HOT_DAYS) as gzip JSONL and writes it with Object Lock
 # retention until occurred_at + 365 days. A lifecycle rule deletes current objects
 # at retention_days - archive_lag_days + 1 days after upload (about 365 days after the event); the privacy policy keeps application logs up to 365
 # days. The API task role may write and read, never delete (modules/ecs-api).

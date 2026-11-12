@@ -29,7 +29,7 @@ describe('pickerModelName', () => {
     );
   });
 
-  test('the managed twin is untouched — both read the same in their own group', () => {
+  test('the managed twin is untouched â€” both read the same in their own group', () => {
     expect(pickerModelName(model('gpt-6-astra', 'GPT-6 Astra', 'kortix'))).toBe('GPT-6 Astra');
   });
 
@@ -77,3 +77,18 @@ describe('modelSourceBadge', () => {
   });
 });
 
+
+describe('pickerModelName drops every plan suffix', () => {
+  test.each([
+    ['claude-agent/claude-opus-5-5', 'Claude Opus 5.5 (Claude subscription)', 'claude-agent', 'Claude Opus 5.5'],
+    ['claude-agent/claude-fable-5-1', 'Claude Fable 5.1 (Claude)', 'claude-agent', 'Claude Fable 5.1'],
+    ['anthropic/claude-opus-5-5', 'Claude Opus 5.5 (Anthropic subscription)', 'anthropic', 'Claude Opus 5.5'],
+    ['codex/gpt-6-luna', 'GPT-6 Luna (ChatGPT subscription)', 'codex', 'GPT-6 Luna'],
+  ])('%s', (id, name, provider, expected) => {
+    expect(pickerModelName(model(id, name, provider))).toBe(expected);
+  });
+
+  test('a parenthetical that is part of the model name stays', () => {
+    expect(pickerModelName(model('openai/gpt-oss', 'GPT OSS (120B)', 'openai'))).toBe('GPT OSS (120B)');
+  });
+});

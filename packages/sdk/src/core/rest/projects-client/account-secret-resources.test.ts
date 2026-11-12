@@ -2,13 +2,14 @@ import { beforeEach, expect, mock, test } from 'bun:test';
 import { configureKortix } from '../../http/config';
 import {
   createAccountSecretResource, deleteAccountSecretResource, grantAccountSecretResource,
-  listAccountSecretResources, refreshAccountSecretUsage, retryAccountSecretResource, revokeAccountSecretResourceGrant, rotateAccountSecretResource,
+  listAccountSecretResources, refreshAccountSecretUsage, retryAccountSecretResource, verifyAccountSecretResource, revokeAccountSecretResourceGrant, rotateAccountSecretResource,
   setAccountSecretResourceAccess,
   getSessionProviderSecretPool, setSessionProviderSecretPool,
   listSessionProviderSecretPools,
   listSubscriptionConnections, refreshSubscriptionConnectionUsage,
 } from './account-secret-resources';
 import type { SecretValueStatus } from './secrets';
+import type { AccountKeyVerification } from './account-secret-resources';
 
 const calls: Array<{ url: string; method: string; body: unknown }> = [];
 beforeEach(() => {
@@ -44,6 +45,22 @@ test('retry ends a cooldown with a body-less POST on the secret', async () => {
   expect(calls.map((call) => [call.method, call.url])).toEqual([
     ['POST', 'http://test.local/accounts/account/secret-resources/secret/retry'],
   ]);
+});
+
+test('verify checks one saved key with a body-less POST and returns its verification', async () => {
+  globalThis.fetch = mock(async (url: unknown, init: RequestInit = {}) => {
+    calls.push({ url: String(url), method: init.method ?? 'GET', body: init.body ? JSON.parse(String(init.body)) : null });
+    return new Response(JSON.stringify({
+      secret_id: 'secret',
+      verification: { status: 'invalid', message: 'Incorrect API key provided', checked_at: '2026-11-11T12:00:00.000Z' },
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as unknown as typeof fetch;
+  const saved = await verifyAccountSecretResource('account', 'secret');
+  expect(calls.map((call) => [call.method, call.url, call.body])).toEqual([
+    ['POST', 'http://test.local/accounts/account/secret-resources/secret/verify', null],
+  ]);
+  const verification: AccountKeyVerification | null | undefined = saved.verification;
+  expect(verification).toEqual({ status: 'invalid', message: 'Incorrect API key provided', checked_at: '2026-11-11T12:00:00.000Z' });
 });
 
 test('usage refresh carries the project that grants access to an existing account-wide subscription', async () => {

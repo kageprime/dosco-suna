@@ -10,7 +10,6 @@ import {
   isManifestSyntaxError,
   resolveGrantSet,
   SLUG_RE,
-  resolveProjectRepository,
   type GrantSetV2,
 } from '@kortix/manifest-schema';
 import { readAgentBlockV2 } from '../lib/agent-config-v2';
@@ -191,9 +190,10 @@ function parseAgentEntry(name: string, block: unknown, filename: string): ParseO
   // Only a literal `false` disables (the validator rejects any other value).
   const enabled = row.enabled !== false;
   const model = typeof row.model === 'string' ? row.model : null;
-  const sandbox = typeof row.sandbox === 'string' && row.sandbox.trim() ? row.sandbox.trim() : null;
-  const repository = resolveProjectRepository(row);
-  if (!repository.ok) return err(`agents.${name}.${repository.path} ${repository.message}`);
+  // `workspace.sandbox` is the same choice as `sandbox` (the validator refuses two different ones).
+  const workspaceSandbox = (row.workspace as { sandbox?: unknown } | undefined)?.sandbox;
+  const sandboxValue = typeof row.sandbox === 'string' && row.sandbox.trim() ? row.sandbox : workspaceSandbox;
+  const sandbox = typeof sandboxValue === 'string' && sandboxValue.trim() ? sandboxValue.trim() : null;
 
   const connectorsResolved = resolveGrantSet(row.connectors, 'none');
   const connectorsRequired = Array.isArray(row.connectors_required)
@@ -238,8 +238,6 @@ function parseAgentEntry(name: string, block: unknown, filename: string): ParseO
       apps: toGrantSet(resolveGrantSet(row.apps, 'none')),
       model,
       sandbox,
-      repositoryAccess: repository.value,
-      legacyReadWorkspace: repository.legacyRead,
     },
   };
 }

@@ -1,8 +1,7 @@
 name: Tests
 
-# The contract lanes: six lanes (core-flows, core-db,
-# packages-api|cli|kortixd|rest) on GitHub-hosted runners (free on this public
-# repo). Each lane is the unchanged root command `pnpm test -- <args>`. The two
+# The contract lanes: seven lanes (core-flows, core-db,
+# packages-api|cli|kortixd|publish|rest) on the `CI_RUNNER_L` runner pool. Each lane is the unchanged root command `pnpm test -- <args>`. The two
 # `core-*` lanes split the core run (`--core-group=flows|db`); the `packages-*`
 # lanes run package quality. No browser journey runs here: they run once, in
 # the release suite, against deployed staging (tests-release.yml).
@@ -73,11 +72,14 @@ jobs:
           - lane: core-db
             mode: core
             args: --core-group=db
-          # Package quality in four slices on four runners since 2026-10-16.
-          # In one 4 vCPU lane the API, CLI and kortixd suites plus three
-          # `tsc` shared the CPU: 18.5 min, the CLI suite 7.7 min of it
-          # against 1.4 min alone (run 38777589705). `rest` holds the
-          # repo-wide checks and every other package.
+          # Package quality in five slices on five runners. Four since
+          # 2026-10-16: in one 4 vCPU lane the API, CLI and kortixd suites plus
+          # three `tsc` shared the CPU: 18.5 min, the CLI suite 7.7 min of it
+          # against 1.4 min alone (run 38777589705). `publish` since
+          # 2026-11-03: the npm packages' typecheck, lint, build, pack and
+          # install smokes ran in `rest` before its tests, 9.4 of its 16.9 min,
+          # and `rest` was the slowest lane (run 41627896638). `rest` holds the
+          # repo-wide checks and the tests of every other package.
           - lane: packages-api
             mode: packages
             args: --packages-only --package-group=api
@@ -87,6 +89,9 @@ jobs:
           - lane: packages-kortixd
             mode: packages
             args: --packages-only --package-group=kortixd
+          - lane: packages-publish
+            mode: packages
+            args: --packages-only --package-group=publish
           - lane: packages-rest
             mode: packages
             args: --packages-only --package-group=rest
@@ -96,6 +101,13 @@ jobs:
       TEST_LANE: ${{ matrix.lane }}
       TEST_ARGS: ${{ matrix.args }}
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.cache/ms-playwright
+      # The supabase CLI pulls storage-api from public.ecr.aws by default, and
+      # ECR Public's data quota is shared per runner IP: the core lane died
+      # twice on release gates 42696873451 and 42716922285 ("error from
+      # registry: Data limit exceeded" → supabase_rest_kortix-local 503, no
+      # shard signal) while the same lane's ghcr.io pulls answered. GHCR hosts
+      # the same official mirrors; pin every supabase image pull to it.
+      SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -124,7 +136,8 @@ jobs:
         # project would test the fallback, not what prod runs. ubuntu-24.04
         # ships 2.43 (2026-11-03: 20 partial-store tests red in packages-api).
         run: |
-          if git --version | awk '{ split($3, v, "."); exit !(v[1] > 2 || (v[1] == 2 && v[2] >= 45)) }'; then
+          git_ok() { git --version | awk '{ split($3, v, "."); exit !(v[1] > 2 || (v[1] == 2 && v[2] >= 45)) }'; }
+          if git_ok; then
             git --version
             exit 0
           fi
@@ -132,10 +145,37 @@ jobs:
             sudo apt-get update -qq
             sudo apt-get install -y -qq --no-install-recommends software-properties-common
           fi
-          sudo add-apt-repository -y ppa:git-core/ppa
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends git
+          # Launchpad occasionally answers an add-apt-repository with its own
+          # HTTP 500 (OOPS ids) (release train 2026-11-09, run 42722612383), and
+          # its API can stop answering: on 2026-11-11 (release gate 43053256296)
+          # every lane timed out three times, ~2.5 min each, and ran on git 2.43.
+          # Each attempt gets 60 s; without the PPA, git is built from source.
+          for attempt in 1 2; do
+            if sudo timeout 60 add-apt-repository -y ppa:git-core/ppa; then
+              sudo apt-get update -qq
+              sudo apt-get install -y -qq --no-install-recommends git
+              break
+            fi
+            sleep 10
+          done
+          if ! git_ok; then
+            # The API image's git line, from GitHub's source archive (63 s in an ubuntu:24.04 container).
+            sudo rm -f /etc/apt/sources.list.d/git-core-ubuntu-ppa-*
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends build-essential ca-certificates curl libcurl4-openssl-dev libexpat1-dev libpcre2-dev libssl-dev zlib1g-dev
+            src="$(mktemp -d)"
+            curl -fsSL --retry 3 https://github.com/git/git/archive/refs/tags/v2.47.3.tar.gz | tar -xz -C "$src" --strip-components=1
+            # USE_LIBPCRE: tests run `git grep -P` (docker-rm-removes-volumes.test.ts).
+            opts=(prefix=/usr/local USE_LIBPCRE=YesPlease NO_TCLTK=1 NO_GETTEXT=1 NO_PERL=1 NO_PYTHON=1)
+            make -C "$src" -j"$(nproc)" "${opts[@]}" all >/dev/null
+            sudo make -C "$src" "${opts[@]}" install >/dev/null
+            # Later steps and every process they start find this git before /usr/bin/git.
+            echo /usr/local/bin >> "$GITHUB_PATH"
+            export PATH="/usr/local/bin:$PATH"
+            hash -r
+          fi
           git --version
+          git_ok || { echo "::error::$(git --version) is below 2.45 after the PPA and the source build"; exit 1; }
       - name: Install ripgrep
         # The sandbox agent's glob/grep tools (kortix-sandbox-agent-server)
         # shell out to rg. The sandbox image ships it; GitHub's runner image

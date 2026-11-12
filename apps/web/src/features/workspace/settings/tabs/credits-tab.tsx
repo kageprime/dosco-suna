@@ -78,7 +78,7 @@ import { SettingsTabHeader } from '@kortix/ui/customize/settings/settings-tab-he
 // the shapes worth reviewing (out of credits, negative balance, no grant) cannot be produced locally without provisioning accounts and
 // a Stripe subscription.
 
-export interface CreditBucket {
+interface CreditBucket {
   id: 'monthly' | 'extra';
   label: string;
   /** What happens to this bucket over time. One short clause, not a sentence. */
@@ -86,7 +86,7 @@ export interface CreditBucket {
   credits: number;
 }
 
-export interface CreditBucketCopy {
+interface CreditBucketCopy {
   monthly: Pick<CreditBucket, 'label' | 'hint'>;
   extra: Pick<CreditBucket, 'label' | 'hint'>;
 }
@@ -123,7 +123,7 @@ export function creditBuckets(
   ];
 }
 
-export interface GrantMeter {
+interface GrantMeter {
   usedCredits: number;
   grantedCredits: number;
   /** 0–100, clamped. Feeds `Progress`, which takes a percentage. */
@@ -325,47 +325,45 @@ export function CreditsView({
               restated a fraction the numbers already gave exactly; a single
               meter for the single number that has a ceiling is the case those
               bars were not. */}
-          {meter ? (
-            <div className="bg-popover rounded-md border px-4 py-4">
-              <div className="flex items-baseline justify-between gap-4">
-                <span className="text-foreground text-sm font-medium">{t('usedThisPeriod')}</span>
-                <span
-                  className={cn(
-                    'shrink-0 text-sm font-medium tabular-nums',
-                    meter.tone === 'spent'
-                      ? 'text-kortix-red'
-                      : meter.tone === 'low'
-                        ? 'text-kortix-orange'
-                        : 'text-muted-foreground',
-                  )}
-                >
-                  {formatCredits(meter.usedCredits, { locale })} /{' '}
-                  {formatCredits(meter.grantedCredits, { locale })}
-                </span>
-              </div>
-              <Progress
-                value={meter.percent}
-                className="mt-3 h-1.5"
-                indicatorClassName={cn(
+          <div className="bg-popover rounded-md border px-4 py-4">
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="text-foreground text-sm font-medium">{t('usedThisPeriod')}</span>
+              <span
+                className={cn(
+                  'shrink-0 text-sm font-medium tabular-nums',
                   meter.tone === 'spent'
-                    ? 'bg-kortix-red'
+                    ? 'text-kortix-red'
                     : meter.tone === 'low'
-                      ? 'bg-kortix-orange'
-                      : 'bg-primary',
+                      ? 'text-kortix-orange'
+                      : 'text-muted-foreground',
                 )}
-              />
-              <p className="text-muted-foreground mt-2 text-xs tabular-nums">
-                {meter.tone === 'spent'
-                  ? t('planCreditsSpent')
-                  : t('grantRemaining', {
-                      count: meter.grantedCredits - meter.usedCredits,
-                      formatted: formatCredits(meter.grantedCredits - meter.usedCredits, {
-                        locale,
-                      }),
-                    })}
-              </p>
+              >
+                {formatCredits(meter.usedCredits, { locale })} /{' '}
+                {formatCredits(meter.grantedCredits, { locale })}
+              </span>
             </div>
-          ) : null}
+            <Progress
+              value={meter.percent}
+              className="mt-3 h-1.5"
+              indicatorClassName={cn(
+                meter.tone === 'spent'
+                  ? 'bg-kortix-red'
+                  : meter.tone === 'low'
+                    ? 'bg-kortix-orange'
+                    : 'bg-primary',
+              )}
+            />
+            <p className="text-muted-foreground mt-2 text-xs tabular-nums">
+              {meter.tone === 'spent'
+                ? t('planCreditsSpent')
+                : t('grantRemaining', {
+                    count: meter.grantedCredits - meter.usedCredits,
+                    formatted: formatCredits(meter.grantedCredits - meter.usedCredits, {
+                      locale,
+                    }),
+                  })}
+            </p>
+          </div>
         </section>
       ) : null}
 

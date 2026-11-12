@@ -3,7 +3,6 @@ import { isReapableTemplatePredecessor } from './predecessor-reap-policy';
 
 describe('isReapableTemplatePredecessor', () => {
   test.each([
-    'kortix-default-runtime',
     'kortix-tpl-project',
     'kortix-wproj-project',
     'kortix-ppwarm-00ead866-f5c859f984f2',
@@ -18,6 +17,10 @@ describe('isReapableTemplatePredecessor', () => {
       ),
     ).toBe(false);
     expect(isReapableTemplatePredecessor('kpp2-malformed')).toBe(false);
+  });
+
+  test('never deletes a platform default: another deployment on the same provider org may still serve that name', () => {
+    expect(isReapableTemplatePredecessor('kortix-default-c9bd85a7e4c0')).toBe(false);
   });
 
   test('rejects provider and unrelated image namespaces', () => {

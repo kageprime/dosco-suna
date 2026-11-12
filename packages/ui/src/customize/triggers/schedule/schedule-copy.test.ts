@@ -110,6 +110,7 @@ describe('describeCadence — cron syntax never reaches the screen', () => {
   const cases: [string, string][] = [
     ['0 */5 * * * *', 'Every 5 minutes'],
     ['0 */1 * * * *', 'Every minute'],
+    ['0 * * * * *', 'Every minute'],
     ['0 30 */2 * * *', 'Every 2 hours at :30'],
     ['0 0 */1 * * *', 'Every hour at :00'],
     ['0 15 * * * *', 'Every hour at :15'],

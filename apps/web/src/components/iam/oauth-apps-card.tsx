@@ -622,7 +622,12 @@ function OAuthAppSheetForm({ accountId, scopesSupported, client }: OAuthAppSheet
     },
     onError: (err: Error) =>
       setFormError(
-        errorMessage(err, isEdit ? 'Could not update that app' : 'Could not register that app'),
+        errorMessage(
+          err,
+          isEdit
+            ? tI18nComplete.raw('text268733ac2f60')
+            : tI18nComplete.raw('text5d8926d4a4dd'),
+        ),
       ),
   });
 

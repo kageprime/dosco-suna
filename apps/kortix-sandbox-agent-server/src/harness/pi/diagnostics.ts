@@ -105,7 +105,6 @@ export function createPiDiagnosticsService(
           start_error: startError(),
         },
         boot: {
-          repo_materialization_error: bootState.repoMaterializationError,
           initial_session_error: bootState.initialRuntimeSessionError ?? null,
           timeline: bootState.timeline,
         },

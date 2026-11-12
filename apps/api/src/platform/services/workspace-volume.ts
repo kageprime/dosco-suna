@@ -3,10 +3,9 @@
  * storage half of stateless sandboxes.
  *
  * One volume per session, `kws-<session_id>`, mounted at /workspace when the box
- * is created, so the mount exists before kortixd starts. kortixd fills the empty
- * volume on the first boot with its usual Git or S3 transports and adopts the
- * checkout on every later boot (KORTIX_WORKSPACE_VOLUME=1,
- * services/workspace-provider). The box is disposable: one stopped for
+ * is created, so the mount exists before kortixd starts. kortixd never fills it
+ * from the repository: it holds what the agent writes, including a checkout the
+ * agent made with `kortix workspaces clone` (KORTIX_WORKSPACE_VOLUME=1). The box is disposable: one stopped for
  * KORTIX_SANDBOX_IDLE_DELETE_MINUTES is removed (reaping/idle-volume-retire.ts)
  * and the next open boots a fresh box on the same volume. The conversation
  * comes back from the session log (projects/lib/session-sandbox-env-build.ts).
@@ -31,7 +30,7 @@ import { projectSessions } from '@kortix/db';
 import { eq } from 'drizzle-orm';
 
 import { config } from '../../config';
-import { resolveFeatureFlag } from '../../feature-flags/registry';
+import { resolveFeatureFlag, workspaceVolumesSwitch } from '../../feature-flags/registry';
 import { logger } from '../../lib/logger';
 import { db } from '../../shared/db';
 import { platinumJson, platinumRateLimitWaitMs, platinumRegionControlPlane } from '../../shared/platinum';
@@ -56,11 +55,6 @@ const UNRECORDED_OPEN_TTL_MS = 120_000;
 
 export function workspaceVolumeName(sessionId: string): string {
   return `kws-${sessionId}`;
-}
-
-/** Operator switch: KORTIX_WORKSPACE_VOLUMES=off gives no new session a volume. */
-function workspaceVolumesKillSwitchOff(): boolean {
-  return /^(0|off|false|no)$/.test((config.KORTIX_WORKSPACE_VOLUMES ?? '').trim().toLowerCase());
 }
 
 /** The session's recorded volume, when the record names its own volume and a valid region. */
@@ -101,7 +95,7 @@ export function startWorkspaceVolume(input: {
   location: string | undefined;
 }): WorkspaceVolume | null {
   const { sessionId } = input;
-  if (!config.PLATINUM_API_KEY || workspaceVolumesKillSwitchOff() || !resolveFeatureFlag(input.projectMetadata, 'workspace_volume')) {
+  if (!config.PLATINUM_API_KEY || workspaceVolumesSwitch() === 'off' || !resolveFeatureFlag(input.projectMetadata, 'workspace_volume')) {
     return null;
   }
   const volume: WorkspaceVolume = { name: workspaceVolumeName(sessionId), location: input.location ?? null };

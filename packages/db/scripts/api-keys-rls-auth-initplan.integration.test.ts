@@ -155,6 +155,8 @@ describe('api_keys RLS auth_rls_initplan migration', () => {
       // fixture DDL runs as the superuser; the table then moves to the lane
       // role, which is the role prod's migration runner runs as.
       await withClient(superuserUrl, async (admin) => {
+        // The basejump stub exists when the migrations run, so freeze_legacy_suna_tables freezes it.
+        await admin.query(`SET kortix.legacy_write = 'on'`);
         await admin.query(
           `INSERT INTO basejump.account_user (user_id, account_id, account_role)
            VALUES ($1, $3, 'owner'), ($2, $4, 'owner')`,

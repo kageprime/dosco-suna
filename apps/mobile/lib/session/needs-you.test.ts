@@ -70,6 +70,19 @@ describe('needsYouBySession', () => {
     expect(result.get('session-a')?.reason).toBe('Approve: Good · 1 more');
   });
 
+  test('waitingOn: an approval or a question is an answer, and wins over a review', () => {
+    const result = needsYouBySession([
+      item({ sessionId: 'review-only', kind: 'change', title: 'Add pricing page' }),
+      item({ sessionId: 'review-only', kind: 'output', title: 'Launch post' }),
+      item({ sessionId: 'approval', kind: 'approval' }),
+      item({ sessionId: 'mixed', kind: 'output', createdAt: '2026-09-24T11:00:00.000Z' }),
+      item({ sessionId: 'mixed', kind: 'decision', createdAt: '2026-09-24T09:00:00.000Z' }),
+    ]);
+    expect(result.get('review-only')?.waitingOn).toBe('review');
+    expect(result.get('approval')?.waitingOn).toBe('answer');
+    expect(result.get('mixed')?.waitingOn).toBe('answer');
+  });
+
   test('no items → an empty map', () => {
     expect(needsYouBySession([]).size).toBe(0);
   });
@@ -80,7 +93,12 @@ describe('needsYouBySession', () => {
 describe('needsYouBySession with the needs-input summary', () => {
   test('a session only needs-input lists waits for an answer', () => {
     const result = needsYouBySession([], { total: 1, sessions: { 'session-q': 1 } });
-    expect(result.get('session-q')).toEqual({ count: 1, reason: 'Waiting for your answer', newestAt: 0 });
+    expect(result.get('session-q')).toEqual({
+      count: 1,
+      reason: 'Waiting for your answer',
+      newestAt: 0,
+      waitingOn: 'answer',
+    });
   });
 
   test('a session in both keeps its inbox reason and takes the larger count', () => {
@@ -90,6 +108,14 @@ describe('needsYouBySession with the needs-input summary', () => {
       sessions: { 'session-a': 2 },
     });
     expect(result.get('session-a')).toMatchObject({ count: 2, reason: 'Approve: (Gmail) Send Email · 1 more' });
+  });
+
+  test('a review session that needs-input also lists waits for an answer', () => {
+    const result = needsYouBySession([item({ kind: 'change', title: 'Add pricing page' })], {
+      total: 1,
+      sessions: { 'session-a': 1 },
+    });
+    expect(result.get('session-a')?.waitingOn).toBe('answer');
   });
 
   test('a smaller needs-input count never lowers the inbox count', () => {

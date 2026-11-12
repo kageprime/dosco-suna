@@ -1,8 +1,9 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, spyOn, test } from 'bun:test';
 
 // Keep the catalog hermetic — don't load the built-in default marketplaces
 // (which would hit the network) unless a test explicitly opts in.
 process.env.KORTIX_DEFAULT_MARKETPLACES = '';
+import { logger } from '../lib/logger';
 import {
   DEFAULT_MARKETPLACES,
   _resetExternalCache,
@@ -375,6 +376,59 @@ describe('marketplace external registries (skills.sh / GitHub path)', () => {
       expect(await getCatalogItemDetail('kortix-starter:pdf')).toBeTruthy();
       expect(all.find((i) => i.name === 'hello-ext')).toBeUndefined();
     } finally {
+      restoreFetch();
+      delete process.env.KORTIX_MARKETPLACE_REGISTRIES;
+      _resetExternalCache();
+    }
+  });
+
+  test.serial('a 404 external registry logs at info, not warn (KRTX-4737)', async () => {
+    // A source whose registry content 404s (a user-added repo with none) is an
+    // expected state that re-logs on every cold build — every container boot
+    // re-warned it and the warn pattern spiked. The skip line must not be warn.
+    stub({}); // every fetch 404s
+    const infoSpy = spyOn(logger, 'info').mockImplementation(() => undefined);
+    const warnSpy = spyOn(console, 'warn').mockImplementation(() => undefined);
+    process.env.KORTIX_MARKETPLACE_REGISTRIES = 'github:does-not/exist';
+    _resetExternalCache();
+    try {
+      await listCatalogItems();
+      const skipWarns = warnSpy.mock.calls.flat().filter((s) => String(s).includes('skipping external registry'));
+      const skipInfos = infoSpy.mock.calls.flat().filter((s) => String(s).includes('skipping external registry'));
+      expect(skipWarns).toEqual([]);
+      expect(skipInfos.length).toBe(1);
+      expect(String(skipInfos[0])).toContain('HTTP 404');
+    } finally {
+      infoSpy.mockRestore();
+      warnSpy.mockRestore();
+      restoreFetch();
+      delete process.env.KORTIX_MARKETPLACE_REGISTRIES;
+      _resetExternalCache();
+    }
+  });
+
+  test.serial('a non-404 external registry failure still warns (KRTX-4737)', async () => {
+    // A 403/5xx/network failure on a source is actionable (rate limit, token,
+    // egress) — it must stay at warn so it still pages.
+    const fetchStub = (async (url: unknown) => new Response('rate limited', {
+      status: 403,
+    })) as typeof fetch;
+    globalThis.fetch = fetchStub;
+    githubLoaderOptions.fetchImpl = fetchStub;
+    const infoSpy = spyOn(logger, 'info').mockImplementation(() => undefined);
+    const warnSpy = spyOn(console, 'warn').mockImplementation(() => undefined);
+    process.env.KORTIX_MARKETPLACE_REGISTRIES = 'github:does-not/exist';
+    _resetExternalCache();
+    try {
+      await listCatalogItems();
+      const skipWarns = warnSpy.mock.calls.flat().filter((s) => String(s).includes('skipping external registry'));
+      const skipInfos = infoSpy.mock.calls.filter(([msg]) => String(msg).includes('skipping external registry'));
+      expect(skipWarns.length).toBe(1);
+      expect(String(skipWarns[0])).toContain('HTTP 403');
+      expect(skipInfos).toEqual([]);
+    } finally {
+      infoSpy.mockRestore();
+      warnSpy.mockRestore();
       restoreFetch();
       delete process.env.KORTIX_MARKETPLACE_REGISTRIES;
       _resetExternalCache();

@@ -44,6 +44,16 @@ describe('denialReasonMessage', () => {
     );
   });
 
+  test('token_account_shared names the credential that works, never the workspace flag', () => {
+    const message = denialReasonMessage('member.read', 'token_account_shared');
+    expect(message).toContain('kortix login');
+    expect(message).toContain('personal key');
+    // The path already names the workspace: a "--workspace" or "name the
+    // workspace" hint cannot fix this refusal.
+    expect(message).not.toContain('--workspace');
+    expect(message).not.toContain('name the workspace');
+  });
+
   test('resource_scope_insufficient names the per-resource grant', () => {
     expect(denialReasonMessage('project.agent.read', 'resource_scope_insufficient')).toBe(
       'You are not granted access to this resource.',
@@ -76,6 +86,7 @@ describe('denialReasonMessage', () => {
       'agent_scope_insufficient',
       'service_account_scope_insufficient',
       'token_out_of_scope',
+      'token_account_shared',
       'resource_scope_insufficient',
       'account_mfa_required',
     ]) {

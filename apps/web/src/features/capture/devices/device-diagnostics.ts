@@ -8,7 +8,7 @@ import type { CaptureDevice, CaptureUpdateStatus } from '@kortix/sdk';
 
 export type VersionState = 'current' | 'behind' | 'failed' | 'updating' | 'disabled' | null;
 
-export interface VersionView {
+interface VersionView {
   /** The version the device runs; null before it reports one. */
   version: string | null;
   /** null: the device reports no update state (no machine service) and is not behind. */
@@ -54,6 +54,14 @@ export function formatBytes(bytes: number | null | undefined): string | null {
   return `${unit === 0 ? value : value.toFixed(1)} ${units[unit]}`;
 }
 
+/** `4.25` → `4.3`: one decimal, none for a whole number. */
+export function formatPercent(value: number): string {
+  return String(Math.round(value * 10) / 10);
+}
+
+/** The minutes a usage report covers: `600000` → `10`. */
+export const usageMinutes = (windowMs: number) => Math.max(1, Math.round(windowMs / 60000));
+
 const or = (value: string | number | null | undefined, fallback = 'none') =>
   value === null || value === undefined || value === '' ? fallback : String(value);
 
@@ -95,6 +103,21 @@ export function diagnosticsText(device: CaptureDevice, name: string): string {
     lines.push(['locale', or(m.locale, 'not reported')]);
   } else {
     lines.push(['machine', 'not reported (app version before the machine report)']);
+  }
+  const r = d?.resources;
+  if (r) {
+    lines.push([
+      'capture_usage',
+      `cpu ${formatPercent(r.cpu_percent_avg)}% avg, ${formatPercent(r.cpu_percent_peak)}% peak (of one core, last ${usageMinutes(r.window_ms)} min), memory ${or(formatBytes(r.memory_bytes))}${r.memory_bytes_peak !== null ? ` (peak ${or(formatBytes(r.memory_bytes_peak))})` : ''}, ${r.process_count} process(es)`,
+    ]);
+    lines.push([
+      'capture_processes',
+      r.processes.length
+        ? r.processes.map((p) => `${p.name} x${p.count} ${formatPercent(p.cpu_percent_avg)}% ${or(formatBytes(p.memory_bytes))}`).join('; ')
+        : 'none',
+    ]);
+  } else {
+    lines.push(['capture_usage', 'not reported (app version before the usage report, or the app started less than a minute ago)']);
   }
   const rec = d?.recording;
   lines.push(['recording', `${or(rec?.state ?? device.live.state, 'unknown')} (reason ${or(rec?.reason)})`]);

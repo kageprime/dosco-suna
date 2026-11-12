@@ -1,6 +1,8 @@
-// One auth email per address per minute (auth/email-cooldown.ts): check-email
-// reports the cooldown to the web form, and the headless signup, magic-link and
-// password-reset routes refuse with 429 before GoTrue mails the address again.
+// One auth email per address per minute (auth/email-cooldown.ts): the
+// headless signup, magic-link and password-reset routes refuse with 429 before
+// GoTrue mails the address again, and the web form answers "already sent" from
+// its own session cookie — nothing rides the anonymous check-email, which must
+// not become an account-existence oracle (KRTX-3504).
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import { PgDialect } from 'drizzle-orm/pg-core';
@@ -98,16 +100,26 @@ describe('authEmailState', () => {
   });
 });
 
+// KRTX-3504: the cooldown does not ride the anonymous check-email. Its only
+// honest source there is the auth DB, which has a row for accounts and nothing
+// for the rest, so a triggered send plus that answer would hand back the
+// account-existence oracle the issue closed. The window is enforced (and
+// answered 429) on the email-sending routes below.
 describe('POST /v1/access/check-email', () => {
-  test('an existing address mailed 20 s ago reports 40 s of cooldown', async () => {
+  test('an existing address answers the identical eligible body whether or not it is cooling down', async () => {
     users.set('pending@b.test', 20);
-    const res = await post('/v1/access/check-email', { email: 'Pending@B.test' });
-    expect(await res.json()).toEqual({ allowed: true, mode: 'signin', email_retry_after_seconds: 40 });
+    const cooling = await post('/v1/access/check-email', { email: 'Pending@B.test' });
+    expect(await cooling.json()).toEqual({ allowed: true });
+    users.set('pending@b.test', 900);
+    const idle = await post('/v1/access/check-email', { email: 'pending@b.test' });
+    expect(await idle.json()).toEqual({ allowed: true });
   });
-  test('an existing address with no recent email has no cooldown field', async () => {
-    users.set('known@b.test', 900);
-    const res = await post('/v1/access/check-email', { email: 'known@b.test' });
-    expect(await res.json()).toEqual({ allowed: true, mode: 'signin' });
+  test('an unknown address answers the same body an existing one does', async () => {
+    users.set('known@b.test', 5);
+    const existing = await (await post('/v1/access/check-email', { email: 'known@b.test' })).json();
+    const unknown = await (await post('/v1/access/check-email', { email: 'never@b.test' })).json();
+    expect(existing).toEqual(unknown);
+    expect(existing).toEqual({ allowed: true });
   });
 });
 

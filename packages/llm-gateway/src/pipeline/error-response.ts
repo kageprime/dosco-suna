@@ -46,14 +46,34 @@ import type { GatewayAttemptFailure } from '../domain';
  * regions" 400, dev 2026-09-29) was replayed five times. Below 500, 429 aside,
  * relay the provider's message in an envelope that agrees with the status.
  */
-export function providerClientErrorBody(status: number, raw: string, sentBytes = 0): string {
+export function providerClientErrorBody(status: number, raw: string, sentBytes = 0, provider?: string): string {
   if (status >= 500 || status === 429) return raw;
   const tooLarge = requestTooLarge(status, raw, sentBytes);
   if (tooLarge) return JSON.stringify({ error: { message: tooLarge.message, type: 'invalid_request_error', code: tooLarge.code } });
   const { message, code } = parseUpstreamErrorBody(raw);
+  // A key the provider refused, or a provider account out of funds: the
+  // client names the fix (Models → that provider) from `code` and `provider`.
+  const ownProviderCode = providerFailureCode(status);
   return JSON.stringify({
-    error: { message, type: 'invalid_request_error', ...(code === 'context_length_exceeded' ? { code } : {}) },
+    error: {
+      message,
+      type: 'invalid_request_error',
+      ...(code === 'context_length_exceeded' ? { code } : ownProviderCode ? { code: ownProviderCode } : {}),
+      ...(ownProviderCode && provider ? { provider } : {}),
+    },
   });
+}
+
+/**
+ * The code of a customer's own provider refusing a request for its account,
+ * not for the request: `provider_key_rejected` (HTTP 401/403) and
+ * `provider_payment_required` (HTTP 402, the provider account has no funds).
+ * Null for every other status.
+ */
+export function providerFailureCode(status: number): 'provider_key_rejected' | 'provider_payment_required' | null {
+  if (status === 401 || status === 403) return 'provider_key_rejected';
+  if (status === 402) return 'provider_payment_required';
+  return null;
 }
 
 /**

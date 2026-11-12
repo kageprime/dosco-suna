@@ -574,7 +574,8 @@ function savedPromptFile(resp: { block: AgentConfigBlock }, sent: AgentConfigBlo
 }
 
 /** The keys `PUT /projects/:id/agents/:name/config` accepts (AgentBlockSchema
- *  in apps/api/src/projects/routes/agent-config.ts, a strict schema). */
+ *  in apps/api/src/projects/routes/agent-config.ts, a strict schema).
+ *  `repository_access` and `workspace` are obsolete: the API accepts and drops them. */
 const AGENT_CONFIG_PUT_KEYS = new Set([
   'enabled', 'tools', 'sandbox', 'connectors', 'connectors_required', 'connectors_personal',
   'secrets', 'skills', 'apps', 'kortix_permissions', 'subagents', 'commands', 'extensions',

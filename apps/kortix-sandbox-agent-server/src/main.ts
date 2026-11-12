@@ -25,7 +25,6 @@ async function main() {
     servicePort: cfg.servicePort,
     ...selected.bootDetails(cfg),
     staticPort: cfg.staticPort,
-    autoClone: cfg.autoClone,
     pid: process.pid,
     bun: typeof Bun !== 'undefined' ? Bun.version : null,
     daemonLogFile: daemonLog.path,

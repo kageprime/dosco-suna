@@ -4,7 +4,9 @@
  * never holds it. Backs the in-sandbox `slack download` + `slack send --file`
  * once the token is pulled from the box (KORTIX-206 Phase C2).
  */
-import { dbChannelOwnership, gateChannelRead, type ChannelOwnership } from '../../connectors/channel-read-scope';
+import { gateChannelRead } from '../../connectors/channel-read-scope';
+import type { SlackReadDeps } from '../../connectors/slack-visibility';
+import { dbSlackReadDeps } from '../../connectors/slack-visibility-db';
 import { DOWNLOAD_TOO_LARGE, readCapped } from '../core/download';
 import { loadSlackTokenForProject } from '../install-store';
 import { getFileInfo } from '../slack-api';
@@ -85,14 +87,16 @@ async function fetchSlackFile(url: string, token: string): Promise<{ ok: true; r
 
 /**
  * Fetch a Slack-hosted file with the project's bot token. SSRF-guarded, and
- * confined like a `file_info` read: one workspace token serves every project
- * connected to that workspace, so the file must be shared in a conversation
- * this project may read (connectors/channel-read-scope.ts).
+ * confined like a `file_info` read (connectors/slack-visibility.ts): only the
+ * Kortix workspace holding the Slack workspace downloads, and a file shared
+ * only in private conversations needs the person in one of them.
  */
 export async function downloadSlackFile(
   projectId: string,
   url: string,
-  ownership: ChannelOwnership = dbChannelOwnership,
+  /** The Kortix user the download is for: a file shared only in private conversations needs them in one. */
+  userId: string | null = null,
+  slack: SlackReadDeps = dbSlackReadDeps,
 ): Promise<{ ok: true; body: Uint8Array; contentType: string } | FileProxyError> {
   let parsed: URL;
   try {
@@ -110,13 +114,17 @@ export async function downloadSlackFile(
   const token = await loadSlackTokenForProject(projectId);
   if (!token) return { ok: false, error: 'Slack not connected for this workspace', status: 404 };
 
+  // The link first: a Kortix workspace that does not hold the Slack workspace
+  // learns nothing from Slack, not even whether the file exists.
+  const gate = await gateChannelRead(
+    { projectId, userId, platform: 'slack', actionPath: 'file_info', args: { file: fileId }, risk: 'read' },
+    undefined,
+    slack,
+  );
+  if (gate.refusal) return { ok: false, error: gate.refusal.message, status: 403 };
   const info = await getFileInfo(token, fileId);
   if (!info.ok) return { ok: false, error: `Slack file ${fileId}: ${info.error ?? 'not found'}`, status: 404 };
-  const gate = await gateChannelRead(
-    { projectId, platform: 'slack', actionPath: 'file_info', args: { file: fileId }, risk: 'read' },
-    ownership,
-  );
-  const answer = gate.refusal ? { refusal: gate.refusal } : await gate.answer(info);
+  const answer = await gate.answer(info);
   if ('refusal' in answer) return { ok: false, error: answer.refusal.message, status: 403 };
 
   const dl = await fetchSlackFile(parsed.href, token);

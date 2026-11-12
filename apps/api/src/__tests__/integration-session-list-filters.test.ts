@@ -150,6 +150,16 @@ describe('session list filters', () => {
     expect(automated).not.toContain('my-chat');
   });
 
+  test('started_by=humans is every person-started chat: mine and others, never a machine run', async () => {
+    const page = await list({ parent: 'root', startedBy: 'humans' }, { limit: 200 });
+    const served = ids(page.items);
+    expect(served).toContain('my-chat');
+    expect(served).toContain('legacy-mine');
+    expect(served).toContain('teammate-chat');
+    expect(served).not.toContain('factory');
+    expect(served).not.toContain('cron-0');
+  });
+
   test('q finds a day-old chat below 120 newer automated runs', async () => {
     const unfiltered = await list({}, { limit: 50 });
     expect(ids(unfiltered.items)).not.toContain('my-chat');

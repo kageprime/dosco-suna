@@ -105,7 +105,7 @@ export interface GoalTemplate {
 }
 
 // prettier-ignore
-export const GOAL_TEMPLATES: readonly GoalTemplate[] = [
+const GOAL_TEMPLATES: readonly GoalTemplate[] = [
   { id: 'draftInvestorUpdate', role: 'founder', icon: PresentationChartIcon, accent: 'blue', steps: [ChartLineUpIcon, FileTextIcon] },
   { id: 'compareCompetitors', role: 'founder', icon: BinocularsIcon, accent: 'purple', steps: [GlobeIcon, TableIcon] },
   { id: 'summarizeCustomerFeedback', role: 'founder', icon: ChatsCircleIcon, accent: 'green', steps: [MagnifyingGlassIcon, ChartBarIcon] },

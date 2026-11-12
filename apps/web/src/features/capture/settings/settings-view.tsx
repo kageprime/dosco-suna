@@ -1,32 +1,14 @@
 'use client';
 
-import {
-  CAPTURE_FRAME_INTERVALS_MS,
-  CAPTURE_LAYERS,
-  CAPTURE_MAX_HEIGHTS,
-  CAPTURE_RETENTION_LIMITS,
-  type CaptureMaxHeight,
-  type CapturePolicy,
-  type CapturePolicyRecord,
-} from '@kortix/sdk';
+import type { CapturePolicy, CapturePolicyRecord } from '@kortix/sdk';
 import { useCapturePolicy, useSetCapturePolicy } from '@kortix/sdk/react';
-import { useId, useState, type ReactNode } from 'react';
+import { useState } from 'react';
 
 import { Button } from '@kortix/ui/button';
 import { Field, FieldDescription } from '@kortix/ui/field';
-import { Input } from '@kortix/ui/input';
 import { Label } from '@kortix/ui/label';
 import Loading from '@kortix/ui/loading';
-import { RadioGroup, RadioGroupItem } from '@kortix/ui/radio-group';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@kortix/ui/select';
 import { Skeleton } from '@kortix/ui/skeleton';
-import { Switch } from '@kortix/ui/switch';
 import { Textarea } from '@kortix/ui/textarea';
 import { errorToast, successToast } from '@kortix/ui/toast';
 import { ErrorState } from '@kortix/ui/error-state';
@@ -34,147 +16,14 @@ import { useLocale, useTranslations } from '@/i18n/use-translations';
 
 import { relativeTime } from '@kortix/ui/internal/lib/relative-time';
 import { useCaptureArea } from '@kortix/ui/internal/capture/use-capture-area';
-import { ExclusionsEditor, IncludedEditor } from './exclusions-editor';
-import { applyToPrivacy, fromPolicy, includedView } from './exclusions-model';
-
-function SwitchRow({
-  title,
-  description,
-  checked,
-  disabled,
-  onChange,
-}: {
-  title: string;
-  description: string;
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  const id = useId();
-  return (
-    <div className="flex items-center justify-between gap-4 px-4 py-3">
-      <div className="min-w-0">
-        <p id={id} className="text-foreground text-sm font-medium">
-          {title}
-        </p>
-        <p className="text-muted-foreground mt-0.5 text-xs text-pretty">{description}</p>
-      </div>
-      <Switch
-        aria-labelledby={id}
-        checked={checked}
-        disabled={disabled}
-        onCheckedChange={onChange}
-      />
-    </div>
-  );
-}
-
-function Group({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="space-y-3">
-      <div className="space-y-1">
-        <Label>{title}</Label>
-        {description ? <p className="text-muted-foreground text-xs">{description}</p> : null}
-      </div>
-      <div className="bg-popover divide-border divide-y rounded-md border">{children}</div>
-    </section>
-  );
-}
-
-/** A choice from a short list, or none (each computer decides), right-aligned like a switch. */
-function SelectRow<T extends number>({
-  title,
-  description,
-  value,
-  noneLabel,
-  options,
-  onChange,
-}: {
-  title: string;
-  description: string;
-  value: T | null;
-  noneLabel: string;
-  options: readonly { value: T; label: string }[];
-  onChange: (value: T | null) => void;
-}) {
-  const id = useId();
-  return (
-    <div className="flex items-center justify-between gap-4 px-4 py-3">
-      <div className="min-w-0">
-        <p id={id} className="text-foreground text-sm font-medium">
-          {title}
-        </p>
-        <p className="text-muted-foreground mt-0.5 text-xs text-pretty">{description}</p>
-      </div>
-      <Select
-        value={value === null ? 'none' : String(value)}
-        onValueChange={(next) => onChange(next === 'none' ? null : (Number(next) as T))}
-      >
-        <SelectTrigger size="sm" aria-labelledby={id} className="w-56 shrink-0">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="none">{noneLabel}</SelectItem>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={String(option.value)}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
-
-/** A whole number with its unit, right-aligned like a switch. */
-function NumberRow({
-  id,
-  title,
-  description,
-  unit,
-  value,
-  max,
-  onChange,
-}: {
-  id: string;
-  title: string;
-  description: string;
-  unit: string;
-  value: number;
-  max: number;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 px-4 py-3">
-      <div className="min-w-0">
-        <Label htmlFor={id} className="text-foreground text-sm font-medium">
-          {title}
-        </Label>
-        <p className="text-muted-foreground mt-0.5 text-xs text-pretty">{description}</p>
-      </div>
-      <span className="flex shrink-0 items-center gap-2">
-        <Input
-          id={id}
-          type="number"
-          min={0}
-          max={max}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="h-8 w-20 tabular-nums"
-        />
-        <span className="text-muted-foreground text-sm">{unit}</span>
-      </span>
-    </div>
-  );
-}
+import {
+  FramesSection,
+  Group,
+  IncludedSection,
+  LayersSection,
+  RetentionSection,
+  SwitchRow,
+} from './policy-sections';
 
 /**
  * Dosco Capture's organization settings, the `capture` section of the
@@ -227,18 +76,13 @@ function PolicyForm({
   record: CapturePolicyRecord;
 }) {
   const t = useTranslations('capture.settings');
-  const tGroup = useTranslations('capture.settings.exclusions.group');
   const locale = useLocale();
   const save = useSetCapturePolicy(accountId);
   const [draft, setDraft] = useState<CapturePolicy>(record.policy);
   const privacyControls = draft.experimental?.privacy_controls ?? false;
-  const recordOnly = draft.privacy.record_only_included ?? false;
   const dirty = JSON.stringify(draft) !== JSON.stringify(record.policy);
   const patch = <K extends keyof CapturePolicy>(key: K, value: Partial<CapturePolicy[K]>) =>
     setDraft((current) => ({ ...current, [key]: { ...(current[key] as object), ...value } }));
-  const whole = (value: string, max: number) =>
-    Math.min(max, Math.max(0, Math.round(Number(value) || 0)));
-  // Frame rate and size: null leaves each computer its own; a value applies to every computer.
   const submit = () =>
     save.mutate(draft, {
       onSuccess: () => successToast(t('saved')),
@@ -247,150 +91,13 @@ function PolicyForm({
 
   return (
     <div className="space-y-10">
-      <Group title={t('layersTitle')} description={t('layersHint', { org })}>
-        {CAPTURE_LAYERS.map((layer) => (
-          <SwitchRow
-            key={layer}
-            title={t(`layer.${layer}`)}
-            description={t(`layer.${layer}Hint`)}
-            checked={draft.layers[layer]}
-            onChange={(on) => patch('layers', { [layer]: on })}
-          />
-        ))}
-      </Group>
+      <LayersSection draft={draft} patch={patch} org={org} />
 
-      <section className="space-y-4">
-        <div className="space-y-1">
-          <Label>{t('included.title')}</Label>
-          <p className="text-muted-foreground text-xs">{t('included.hint', { org })}</p>
-        </div>
-        <RadioGroup
-          value={recordOnly ? 'include' : 'exclude'}
-          onValueChange={(mode) =>
-            setDraft((current) => ({
-              ...current,
-              privacy: applyToPrivacy(current.privacy, {
-                kind: 'record-only',
-                on: mode === 'include',
-              }),
-            }))
-          }
-          className="grid gap-2 sm:grid-cols-2"
-          aria-label={t('included.policyType')}
-        >
-          <RadioGroupItem
-            value="exclude"
-            label={t('included.exclusionPolicy')}
-            description={t('included.exclusionPolicyHint')}
-            size="lg"
-            variant="outline"
-          />
-          <RadioGroupItem
-            value="include"
-            label={t('included.inclusionPolicy')}
-            description={t('included.inclusionPolicyHint')}
-            size="lg"
-            variant="outline"
-          />
-        </RadioGroup>
-        {recordOnly ? (
-          <div className="space-y-1 pt-2">
-            <Label>{t('included.recordTitle')}</Label>
-            <IncludedEditor
-              view={includedView(draft.privacy)}
-              onChange={(change) =>
-                setDraft((current) => ({
-                  ...current,
-                  privacy: applyToPrivacy(current.privacy, change),
-                }))
-              }
-            />
-            <div className="bg-popover mt-3 rounded-md border">
-              <SwitchRow
-                title={t('included.memberInclusions')}
-                description={t('included.memberInclusionsHint')}
-                checked={draft.privacy.member_inclusions ?? true}
-                onChange={(on) =>
-                  setDraft((current) => ({
-                    ...current,
-                    privacy: applyToPrivacy(current.privacy, { kind: 'member-inclusions', on }),
-                  }))
-                }
-              />
-            </div>
-          </div>
-        ) : null}
-        <div className="space-y-1 pt-2">
-          <Label>{recordOnly ? t('included.exceptTitle') : t('exclusionsTitle')}</Label>
-          <ExclusionsEditor
-            org={org}
-            view={fromPolicy(draft.privacy, (id) => ({
-              name: tGroup(id),
-              description: tGroup(`${id}Hint`),
-            }))}
-            onChange={(change) =>
-              setDraft((current) => ({
-                ...current,
-                privacy: applyToPrivacy(current.privacy, change),
-              }))
-            }
-          />
-        </div>
-      </section>
+      <IncludedSection draft={draft} setDraft={setDraft} org={org} />
 
-      <Group title={t('framesTitle')} description={t('framesHint')}>
-        <SelectRow
-          title={t('interval')}
-          description={t('intervalHint')}
-          value={draft.recording.interval_ms ?? null}
-          noneLabel={t('computerDecides')}
-          options={CAPTURE_FRAME_INTERVALS_MS.map((ms) => ({
-            value: ms,
-            label: t('intervalOption', { seconds: ms / 1000 }),
-          }))}
-          onChange={(interval_ms) => patch('recording', { interval_ms })}
-        />
-        <SelectRow<CaptureMaxHeight>
-          title={t('resolution')}
-          description={t('resolutionHint')}
-          value={draft.recording.max_height ?? null}
-          noneLabel={t('computerDecides')}
-          options={CAPTURE_MAX_HEIGHTS.map((height) => ({
-            value: height,
-            label: height === 2160 ? '4K' : `${height}p`,
-          }))}
-          onChange={(max_height) => patch('recording', { max_height })}
-        />
-      </Group>
+      <FramesSection draft={draft} patch={patch} />
 
-      <Group title={t('retentionTitle')}>
-        <NumberRow
-          id="capture-local-hours"
-          title={t('localHours')}
-          description={t('localHoursHint')}
-          unit={t('hours')}
-          value={draft.retention.local_hours}
-          max={CAPTURE_RETENTION_LIMITS.localHours}
-          onChange={(value) =>
-            patch('retention', {
-              local_hours: whole(value, CAPTURE_RETENTION_LIMITS.localHours),
-            })
-          }
-        />
-        <NumberRow
-          id="capture-remote-days"
-          title={t('remoteDays')}
-          description={t('remoteDaysHint')}
-          unit={t('days')}
-          value={draft.retention.remote_days}
-          max={CAPTURE_RETENTION_LIMITS.remoteDays}
-          onChange={(value) =>
-            patch('retention', {
-              remote_days: whole(value, CAPTURE_RETENTION_LIMITS.remoteDays),
-            })
-          }
-        />
-      </Group>
+      <RetentionSection draft={draft} patch={patch} />
 
       <section className="space-y-3">
         <Label htmlFor="capture-notice">{t('noticeTitle')}</Label>

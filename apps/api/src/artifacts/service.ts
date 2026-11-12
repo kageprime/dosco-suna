@@ -51,6 +51,7 @@ import {
   writeVolumeFiles,
 } from '../drives/volumes';
 import { ARTIFACT_TYPE_KEYS, docTitle, htmlTitle, typeOfEntry, type ArtifactType } from './formats';
+import { entrySaves } from './versions';
 export const ARTIFACT_VISIBILITIES = ['private', 'project', 'public'] as const;
 export type ArtifactVisibility = (typeof ARTIFACT_VISIBILITIES)[number];
 export type ArtifactRow = typeof artifacts.$inferSelect;
@@ -428,7 +429,7 @@ export interface ArtifactVersion {
 
 /**
  * The artifact's history from the Files commit log, newest first: every commit
- * after which the entry file differs from before (each save). Reads the last
+ * that saved the entry file (see {@link entrySaves}). Reads the last
  * HISTORY_COMMITS commits of Files.
  * ponytail: one stat per commit (16 at a time); a per-path log from Platinum would make this one call.
  */
@@ -436,24 +437,18 @@ export async function listVersions(row: ArtifactRow): Promise<ArtifactVersion[]>
   const drive = await driveOf(row);
   return readDriveVolume(drive, async (volume) => {
     const commits = (await listVolumeCommits(volume, HISTORY_COMMITS)).filter((c) => c.kind !== 'init').reverse();
-    const versions: Array<string | null> = new Array(commits.length).fill(null);
+    const stats: Array<{ size: number; mtime: number } | null> = new Array(commits.length).fill(null);
     for (let i = 0; i < commits.length; i += 16) {
       await Promise.all(commits.slice(i, i + 16).map(async (c, j) => {
         try {
-          versions[i + j] = (await statVolumeFile(volume, entryPath(row), c.id)).version ?? `${c.id}`;
+          stats[i + j] = await statVolumeFile(volume, entryPath(row), c.id);
         } catch (err) {
           if (!(err instanceof DriveStorageError && err.status === 404)) throw err;
         }
       }));
     }
-    const changes: Array<(typeof commits)[number]> = [];
-    let previous: string | null = null;
-    commits.forEach((c, i) => {
-      const v = versions[i];
-      if (v && v !== previous) changes.push(c);
-      if (v) previous = v;
-    });
-    return changes.map((c, i) => ({ id: c.id, number: i + 1, created_at: c.created_at })).reverse();
+    const saves = entrySaves(commits.map((commit, i) => ({ commit, stat: stats[i] ?? null })));
+    return saves.map((c, i) => ({ id: c.id, number: i + 1, created_at: c.created_at })).reverse();
   }, () => []);
 }
 

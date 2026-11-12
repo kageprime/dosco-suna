@@ -98,14 +98,6 @@ const CONTROLS: { name: string; file: string; from: string; to: string }[] = [
     to: 'function ProjectStartError(',
   },
   {
-    name: "/workspaces/new's Log out",
-    file: 'features/workspace/new/new-workspace-page.tsx',
-    // The control moved into `AccountTopBar` (#8286); the page owns only the
-    // `onLogOut` handler it passes in, so the slice is that handler.
-    from: 'onLogOut={() => {',
-    to: 'back={{',
-  },
-  {
     name: "phone verification's Sign out",
     file: 'app/[locale]/(auth)/auth/phone-verification/page.tsx',
     from: 'const signOutMutation = useMutation(',
@@ -453,7 +445,7 @@ describe('the three bare logout controls now say something is happening', () => 
 
   for (const entry of PENDING.filter((candidate) => candidate.holdsDialog)) {
     test(`${entry.name} keeps its dialog up instead of closing onto nothing`, () => {
-      // Radix closes an `AlertDialogAction` on click. Without this the user sees
+      // The alert dialog closes on an `AlertDialogAction` click. Without this the user sees
       // the dialog vanish and the unchanged app sit there for the whole budget.
       const handler = slice(code(entry.file), entry.handler[0], entry.handler[1]);
       expect(handler).toContain('event.preventDefault();');

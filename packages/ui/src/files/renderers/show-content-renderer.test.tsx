@@ -200,11 +200,20 @@ describe('showBlobSource', () => {
   });
 
   test('text viewers keep their own reads', () => {
-    for (const effectiveType of ['markdown', 'code', 'text', 'csv', 'xlsx', 'mermaid']) {
+    for (const effectiveType of ['markdown', 'code', 'text', 'csv', 'mermaid']) {
       expect(
         showBlobSource({ effectiveType, attachment: STORED, sandboxPath: '/workspace/x' }),
       ).toBeNull();
     }
+  });
+
+  test('a workbook joins the blob reads — its viewer renders the bytes', () => {
+    expect(
+      showBlobSource({ effectiveType: 'xlsx', attachment: null, sandboxPath: '/workspace/x.xlsx' }),
+    ).toBe('/workspace/x.xlsx');
+    expect(
+      showBlobSource({ effectiveType: 'xlsx', attachment: STORED, sandboxPath: '/workspace/x.xlsx' }),
+    ).toBe(STORED);
   });
 
   test('something that is not a stored reference is ignored, never fetched', () => {

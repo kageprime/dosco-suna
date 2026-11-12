@@ -71,11 +71,13 @@ import {
   resolveUpdateStatus,
   snoozeUpdate,
 } from './update-check.ts';
+import { resolveCliVersion } from './cli-version.ts';
 
 // CI bakes the real version via --define process.env.KORTIX_CLI_VERSION (the
-// unified X.Y.Z on release, X.Y.Z-dev.<sha> on dev). This fallback only applies
-// to a bare `bun run src/index.ts` during local dev.
-const VERSION = process.env.KORTIX_CLI_VERSION ?? 'dev';
+// unified X.Y.Z on release, X.Y.Z-dev.<sha> on dev). The `dev` fallback only
+// applies to a bare `bun run src/index.ts` during local dev. In a session, the
+// release the API serves replaces a staging stamp of the same commit.
+const VERSION = resolveCliVersion(process.env.KORTIX_CLI_VERSION ?? 'dev', process.env);
 
 /** A faded, labeled divider that bands a tier above its (bold) section titles. */
 function tierBand(label: string): string {

@@ -46,6 +46,32 @@ describe('buildNewSessionCreateInput', () => {
     expect(buildNewSessionCreateInput()).toBeUndefined();
   });
 
+  it('pins the composer launch model as the create model pin (gateway models bare)', () => {
+    // The selector must show the launch model while the session starts. The
+    // pick that only rides `pending_prompt.model` never reaches the row: the
+    // server stamps the default chain, and the picker ranks the row's pin above
+    // every cross-session localStorage pick — so the composer's model lost to
+    // the project default. Mobile bakes the same pin in at create
+    // (`apps/mobile/lib/session/new-session-input.ts`).
+    expect(
+      buildNewSessionCreateInput({ model: { providerID: 'kortix', modelID: 'deepseek-v4.1-flash' } }),
+    ).toEqual({ model: 'deepseek-v4.1-flash' });
+  });
+
+  it('keeps provider-prefixed launch models (claude-agent, BYOK) on the wire', () => {
+    expect(buildNewSessionCreateInput({ model: { providerID: 'claude-agent', modelID: 'opus' } })).toEqual({
+      model: 'claude-agent/opus',
+    });
+    expect(buildNewSessionCreateInput({ model: { providerID: 'anthropic', modelID: 'claude-opus-4-8' } })).toEqual({
+      model: 'anthropic/claude-opus-4-8',
+    });
+  });
+
+  it('never pins the removed auto model (the server would refuse the create)', () => {
+    expect(buildNewSessionCreateInput({ model: { providerID: 'kortix', modelID: 'auto' } })).toBeUndefined();
+    expect(buildNewSessionCreateInput({ model: { providerID: 'opencode', modelID: 'auto' } })).toBeUndefined();
+  });
+
   it('ignores an empty-string agent (never binds agent_name="")', () => {
     // An empty agent must NOT become agent_name:"" — that would record a bogus
     // agent name and resolve the first turn's grant against nothing.

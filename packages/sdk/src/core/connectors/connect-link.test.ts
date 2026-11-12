@@ -6,6 +6,8 @@ import {
   CONNECT_LINK_POLL_INTERVAL_MS,
   CONNECT_LINK_TIMEOUT_MS,
   connectLinkUrl,
+  connectionSignInSteps,
+  type ConnectionSignInDeps,
   pollConnectLinkFinalize,
   workspaceConnectionConnectSteps,
 } from './connect-link';
@@ -249,5 +251,120 @@ describe('pollConnectLinkFinalize', () => {
     expect(connectLinkUrl({ connectUrl: 'https://a', redirectUrl: 'https://b' })).toBe('https://a');
     expect(connectLinkUrl({ redirectUrl: 'https://b' })).toBe('https://b');
     expect(connectLinkUrl({})).toBeNull();
+  });
+});
+
+describe('connectionSignInSteps — finish the sign-in of one existing account', () => {
+  function signInDeps(options: {
+    /** What the connection-scoped routes do: 409 for an effective default. */
+    connectionRoute: 'ok' | '409';
+    /** The account is already active at the provider before any click. */
+    alreadyActive: boolean;
+  }): { calls: string[]; deps: ConnectionSignInDeps } {
+    const calls: string[] = [];
+    let active = options.alreadyActive;
+    const conflict = () => {
+      throw sharedDefaultConflict();
+    };
+    return {
+      calls,
+      deps: {
+        connectConnection: async (projectId, id) => {
+          calls.push(`connect-connection:${projectId}:${id}`);
+          if (options.connectionRoute === '409') conflict();
+          return { connectUrl: 'https://connect.example/connection' };
+        },
+        finalizeConnection: async (projectId, id) => {
+          calls.push(`finalize-connection:${projectId}:${id}`);
+          if (options.connectionRoute === '409') conflict();
+          return { connected: active };
+        },
+        connectConnector: async (projectId, slug, input) => {
+          calls.push(`connect-connector:${projectId}:${slug}:${input.owner}`);
+          return { connectUrl: 'https://connect.example/connector', connectionId: 'conn-slot' };
+        },
+        finalizeConnector: async (projectId, slug, input) => {
+          calls.push(`finalize-connector:${projectId}:${slug}:${input.owner}:${input.connectionId}`);
+          return { connected: active };
+        },
+      },
+    };
+  }
+
+  test('a sign-in that already finished at the provider is recorded, and no window opens', async () => {
+    // The person finished on the provider page from a raw link. The first
+    // finalize asks the provider and records the account (PR #12484 server side).
+    const { calls, deps } = signInDeps({ connectionRoute: 'ok', alreadyActive: true });
+    const steps = connectionSignInSteps(
+      'project-1',
+      'gmail',
+      { connection_id: 'conn-1', owner_type: 'member' },
+      deps,
+    );
+
+    const started = await steps.start();
+
+    expect(started.connected).toBe(true);
+    expect(started.connectUrl).toBeUndefined();
+    expect(calls).toEqual(['finalize-connection:project-1:conn-1']);
+  });
+
+  test('an unfinished sign-in starts a new link on the same account, and finalize polls it', async () => {
+    const { calls, deps } = signInDeps({ connectionRoute: 'ok', alreadyActive: false });
+    const steps = connectionSignInSteps(
+      'project-1',
+      'gmail',
+      { connection_id: 'conn-1', owner_type: 'member' },
+      deps,
+    );
+
+    const started = await steps.start();
+    await steps.finalize();
+
+    expect(started.connectUrl).toBe('https://connect.example/connection');
+    expect(calls).toEqual([
+      'finalize-connection:project-1:conn-1',
+      'connect-connection:project-1:conn-1',
+      'finalize-connection:project-1:conn-1',
+    ]);
+  });
+
+  test('the shared default account uses the connector route with its owner and id', async () => {
+    // The connection routes answer 409 for the effective default. The connector
+    // route must then name owner `project`, or it polls the caller's own account.
+    const { calls, deps } = signInDeps({ connectionRoute: '409', alreadyActive: false });
+    const steps = connectionSignInSteps(
+      'project-1',
+      'gmail',
+      { connection_id: 'conn-slot', owner_type: 'project' },
+      deps,
+    );
+
+    const started = await steps.start();
+    await steps.finalize();
+
+    expect(started.connectUrl).toBe('https://connect.example/connector');
+    expect(calls).toEqual([
+      'finalize-connection:project-1:conn-slot',
+      'finalize-connector:project-1:gmail:project:conn-slot',
+      'connect-connector:project-1:gmail:project',
+      'finalize-connector:project-1:gmail:project:conn-slot',
+    ]);
+  });
+
+  test('a private default account uses the connector route as `me`', async () => {
+    const { calls, deps } = signInDeps({ connectionRoute: '409', alreadyActive: true });
+    const steps = connectionSignInSteps(
+      'project-1',
+      'gmail',
+      { connection_id: 'conn-mine', owner_type: 'member' },
+      deps,
+    );
+
+    expect((await steps.start()).connected).toBe(true);
+    expect(calls).toEqual([
+      'finalize-connection:project-1:conn-mine',
+      'finalize-connector:project-1:gmail:me:conn-mine',
+    ]);
   });
 });

@@ -10,7 +10,7 @@
  */
 import { createHash, randomUUID } from 'node:crypto';
 import { requestClientKey } from '../middleware/client-ip';
-import { connectorConnections, connectors, projectSecrets, projectSessions } from '@kortix/db';
+import { accountSecretResources, connectorConnections, connectors, projectSecrets, projectSessions } from '@kortix/db';
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { createRoute, z } from '@hono/zod-openapi';
 import { type Context, type Next } from 'hono';
@@ -27,6 +27,7 @@ import {
   type SessionWithheldSecrets,
 } from '../projects/lib/session-secret-reach';
 import { isValidSecretName, projectSecretsDeletedSince, writeSharedProjectSecret } from '../projects/secrets';
+import { writeWorkspaceProviderKey } from '../secrets/llm-credential-move';
 import { clearSecretAudience, setSecretAudience } from '../projects/lib/secret-audience';
 import { resolveUserIdentities } from '../projects/lib/user-identity';
 import { db, withDbTransaction } from '../shared/db';
@@ -41,7 +42,7 @@ import { composioConfigured, composioToolkitLogo } from '../connectors/composio'
 import { connectorConnectedPrompt, notifyConnectorSession } from '../connectors/notify-session';
 import { readJsonObject } from '../shared/http-body';
 import { rethrowDatabaseError } from '../shared/database-errors';
-import { projectsView } from '../workspaces/rows';
+import { projectsView, accountKeyOfWorkspace } from '../workspaces/rows';
 
 // The connector half of the notification moved to connectors/notify-session.ts so the
 // in-session Connect button's finalize can reuse it. Re-exported: this module is where
@@ -171,12 +172,7 @@ async function lookupLinkRequester(projectId: string, uid: string): Promise<{ id
 }
 
 async function projectAccount(projectId: string): Promise<string | null> {
-  const [row] = await db
-    .select({ accountId: projectsView.accountId })
-    .from(projectsView)
-    .where(eq(projectsView.projectId, projectId))
-    .limit(1);
-  return row?.accountId ?? null;
+  return accountKeyOfWorkspace(projectId);
 }
 
 async function projectName(projectId: string): Promise<string> {
@@ -321,6 +317,7 @@ setupLinksPublicApp.openapi(createRoute({
     const mintedAt = new Date(payload.iat ?? payload.exp - 7 * 24 * 60 * 60_000);
     let spent = 0;
     const saved: string[] = [];
+    const providerKeys: Array<{ name: string; value: string }> = [];
     for (const [rawName, rawValue] of Object.entries(values)) {
       const name = rawName.toUpperCase();
       // Value-only: silently ignore anything the token didn't ask for, and never
@@ -336,6 +333,29 @@ setupLinksPublicApp.openapi(createRoute({
           gt(projectSecrets.updatedAt, mintedAt),
         )).limit(1);
       if (written) { spent++; continue; }
+      // A value for an existing provider key goes to its named account
+      // (Models → Providers), after this transaction commits.
+      const [shared] = await db.select({ consumer: projectSecrets.consumer }).from(projectSecrets)
+        .where(and(
+          eq(projectSecrets.projectId, resolved.projectId),
+          eq(projectSecrets.identifier, name),
+          isNull(projectSecrets.ownerUserId),
+        )).limit(1);
+      if (shared?.consumer === 'llm_gateway' && payload.uid) {
+        // Single use, as for every key: a provider key is spent once its
+        // named account was written after the link was minted.
+        const [writtenNamed] = await db.select({ id: accountSecretResources.secretId }).from(accountSecretResources)
+          .where(and(
+            eq(accountSecretResources.projectId, resolved.projectId),
+            eq(accountSecretResources.consumer, 'llm_gateway'),
+            eq(accountSecretResources.name, name),
+            gt(accountSecretResources.updatedAt, mintedAt),
+          )).limit(1);
+        if (writtenNamed) { spent++; continue; }
+        providerKeys.push({ name, value });
+        saved.push(name);
+        continue;
+      }
       const audience =
         requester && accountId
           ? { accountId, projectId: resolved.projectId, principals: [{ principal_type: 'user' as const, principal_id: requester.id }], grantedBy: requester.id }
@@ -363,10 +383,20 @@ setupLinksPublicApp.openapi(createRoute({
       return c.json({ error: 'No values provided for the requested keys' }, 400);
     }
 
-    return saved;
+    return { saved, providerKeys };
   });
   if (result instanceof Response) return result as never;
-  const saved = result;
+  const { saved, providerKeys } = result;
+  if (providerKeys.length) {
+    const accountId = await projectAccount(resolved.projectId);
+    for (const key of providerKeys) {
+      const moved = accountId
+        ? await writeWorkspaceProviderKey({ accountId, projectId: resolved.projectId, userId: payload.uid!, ...key })
+        : null;
+      // A name no reader reads keeps the old write.
+      if (!moved) await writeSharedProjectSecret({ projectId: resolved.projectId, ...key, scope: payload.scope, createdBy: payload.uid });
+    }
+  }
 
   // Live-propagate so an active session sees the new value without a restart.
   void propagateProjectSecretsToActiveSandboxes(resolved.projectId);

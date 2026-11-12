@@ -22,7 +22,7 @@ const DEMO_ACCESS: ProjectAccessResponse = {
   members: [
     {
       user_id: 'u1',
-      email: 'marko@kortix.ai',
+      email: 'owner@example.test',
       account_role: 'owner',
       project_role: 'manager',
       effective_project_role: 'manager',
@@ -34,7 +34,7 @@ const DEMO_ACCESS: ProjectAccessResponse = {
     },
     {
       user_id: 'u2',
-      email: 'marko@softgen.ai',
+      email: 'manager@example.test',
       account_role: 'member',
       project_role: 'manager',
       effective_project_role: 'manager',
@@ -46,7 +46,7 @@ const DEMO_ACCESS: ProjectAccessResponse = {
     },
     {
       user_id: 'u3',
-      email: 'ana@kortix.ai',
+      email: 'member-1@example.test',
       account_role: 'member',
       project_role: 'member',
       effective_project_role: 'member',
@@ -58,7 +58,7 @@ const DEMO_ACCESS: ProjectAccessResponse = {
     },
     {
       user_id: 'u4',
-      email: 'ben.long.email@partner.example.com',
+      email: 'ben.long.email@partner.example.test',
       account_role: 'member',
       project_role: 'member',
       effective_project_role: 'member',
@@ -70,7 +70,7 @@ const DEMO_ACCESS: ProjectAccessResponse = {
     },
     {
       user_id: 'u5',
-      email: 'chen@kortix.ai',
+      email: 'member-2@example.test',
       account_role: 'member',
       project_role: 'member',
       effective_project_role: 'member',

@@ -8,6 +8,7 @@
  * receive, and Approve / Deny / Reply… buttons. Every decision goes through
  * `decideConnectorApproval` — the same implementation as the web cards.
  */
+import { holdsSlackWorkspace } from './link';
 import {
   type ApprovalDecision,
   approvalResumeText,
@@ -387,6 +388,11 @@ export async function handleApprovalCardAction(
     await respond('That approval is no longer available.');
     return;
   }
+  // A Kortix workspace that no longer holds this Slack workspace decides nothing here.
+  if (!(await holdsSlackWorkspace(thread.projectId, teamId))) {
+    await respond('That approval belongs to a Kortix workspace that is no longer connected to this Slack workspace.');
+    return;
+  }
 
   if (parsed.verb === 'reply') {
     // `trigger_id` expires in ~3 seconds, so open the modal before any lookup;
@@ -444,6 +450,11 @@ export async function handleApprovalReplySubmission(
   const thread = await findSlackThread(inbound, meta.teamId, meta.threadTs);
   if (!thread || thread.projectId !== meta.projectId) {
     await respond('That approval is no longer available.');
+    return;
+  }
+  // A modal opened before the Slack link moved decides nothing afterwards.
+  if (!(await holdsSlackWorkspace(thread.projectId, meta.teamId))) {
+    await respond('That approval belongs to a Kortix workspace that is no longer connected to this Slack workspace.');
     return;
   }
   const { decision, note } = readApprovalReply(payload.view ?? {});

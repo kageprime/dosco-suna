@@ -4,7 +4,6 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { Permission } from '@/lib/iam-client';
-import type { CapabilityScope } from './role-capability-matrix';
 import {
   applyBulk,
   applyCell,
@@ -15,7 +14,8 @@ import {
   foldSelection,
   permissionLabel,
   unmappedLeaves,
-} from './role-capability-matrix';
+  type CapabilityScope,
+} from './role-capability-model';
 
 /**
  * The matrix is a DISPLAY over the same leaf strings the IAM engine reads, so

@@ -174,14 +174,6 @@ export function createPiControlService(
           await rt.abort()
           return { outcome: 'aborted', body: { ok: true, runtime_session_id: rt.rootId } }
         },
-        // Quick Queue. The runtime holds the turn and tool state in-process, so
-        // there is nothing to poll: it aborts on its own `tool_execution_end`.
-        async armAbortAfterTool(input) {
-          runtime()?.armAbortAfterTool(input)
-        },
-        disarmAbortAfterTool(promptId) {
-          runtime()?.disarmAbortAfterTool(promptId)
-        },
       }
     },
   }
@@ -190,6 +182,9 @@ export function createPiControlService(
 /** `repo=0`: report the checkout as it is; nothing is fetched or pulled. */
 async function unchangedRepo(projectTarget: string) {
   const info = await readRepoInfo(projectTarget)
-  if (!info) throw new Error('project repo is not materialized')
+  // No checkout (a fresh session boots without one): nothing to report — a
+  // no-op, not a failure. The one API consumer reads `repo?.after?.commit`
+  // through optional chaining and treats null as "the box did not say".
+  if (!info) return { before: null, after: null }
   return { before: info, after: info }
 }

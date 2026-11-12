@@ -5,6 +5,7 @@ import { AccountHubRouter } from '@/features/accounts/hub/account-hub-router';
 import { BillingReturnWatcher } from '@/features/billing/billing-return';
 import { ExtensionPanelIdentity } from '@/features/chrome/extension-panel-identity';
 import { MfaGate } from '@/features/auth/mfa-step-up';
+import { NotificationHost } from '@/features/notifications/notification-host';
 import { ProjectSwitchWatcher } from '@/features/workspace/project-switch-watcher';
 
 /**
@@ -35,6 +36,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <BillingReturnWatcher />
       </Suspense>
       <ProjectSwitchWatcher />
+      {/* Web Push for this browser, new-notification toasts, and
+          `?notification=<id>` read marks. Signed-in only (KRTX-1742). Mounted
+          here, not in the root layout, so marketing and other public pages
+          never show an app notification toast. */}
+      <Suspense fallback={null}>
+        <NotificationHost />
+      </Suspense>
       <ExtensionPanelIdentity />
       {/* Desktop app only: starts a session from the Quick Entry bar the global
           shortcut opens over any app. */}

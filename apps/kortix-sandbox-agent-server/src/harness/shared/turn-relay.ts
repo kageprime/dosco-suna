@@ -240,6 +240,8 @@ export interface TurnEndFrame {
     /** Set by an adapter that knows better than `turnErrorCode` (pi's context overflow). */
     code?: TurnErrorCode
   }
+  /** The turn's last assistant text. apps/api posts it into a chat thread the agent did not answer. */
+  finalText?: string
 }
 
 /**
@@ -264,6 +266,9 @@ export function turnErrorCode(error: { name?: string; statusCode?: number }): Tu
   return 'unknown'
 }
 
+/** apps/api posts at most ~11k characters into a thread; the rest stays in the session. */
+const FINAL_TEXT_MAX = 16_000
+
 function turnEndBody(frame: TurnEndFrame): TurnStreamFrame {
   const { error } = frame
   return {
@@ -271,6 +276,7 @@ function turnEndBody(frame: TurnEndFrame): TurnStreamFrame {
     status: frame.status,
     runtime_session_id: frame.runtimeSessionId,
     turn_message_id: frame.messageId ?? undefined,
+    ...(frame.finalText ? { text: frame.finalText.slice(0, FINAL_TEXT_MAX) } : {}),
     ...(error
       ? {
           error_name: error.name,
@@ -460,11 +466,16 @@ export async function relayQuestion(
   const channel = sessionChannel()
   if (!channel) return relayed
   // Name the channel the agent is in: a Teams agent has no `slack send`.
+  // Slack: the thread's starter reaches the agent with a plain reply (apps/api
+  // `isStarterReplyInOwnThread`); Teams: only a mention does.
+  const reach =
+    channel === 'Slack'
+      ? 'In a channel, the person who started the thread reaches you with a plain reply and anyone else @mentions you'
+      : 'In a channel, the reply reaches you only when it @mentions you'
   const sentinel =
     `(Posted to the ${channel} conversation. In ${channel}, questions are async — the user ` +
-    'replies in the thread, which reaches you as a NEW turn with full context. In a channel, ' +
-    'the reply reaches you only when it @mentions you; a DM reply needs no mention. Do NOT ' +
-    'wait for an answer here; finish this turn now.)'
+    `replies in the thread, which reaches you as a NEW turn with full context. ${reach}; ` +
+    'a DM reply needs no mention. Do NOT wait for an answer here; finish this turn now.)'
   return { ...relayed, answers: request.questions.map(() => [sentinel]) }
 }
 

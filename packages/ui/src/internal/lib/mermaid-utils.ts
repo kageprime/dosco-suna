@@ -2,7 +2,7 @@
  * Utility functions for Mermaid diagram detection and processing
  */
 
-import { isMermaidCode } from '@kortix/shared/markdown-math';
+import { MERMAID_DIAGRAM_STARTERS, isMermaidCode } from '@kortix/shared/markdown-math';
 
 // Shared with apps/mobile, which routes the same fences to its diagram renderer.
 export { isMermaidCode };
@@ -28,30 +28,7 @@ export function validateMermaidSyntax(code: string): { valid: boolean; error?: s
 
     // Check for basic mermaid structure
     const firstLine = lines[0].toLowerCase();
-    const validStarters = [
-      'graph',
-      'flowchart',
-      'sequencediagram',
-      'classdiagram',
-      'statediagram',
-      'erdiagram',
-      'journey',
-      'gantt',
-      'pie',
-      'gitgraph',
-      'mindmap',
-      'timeline',
-      'sankey',
-      'block',
-      'quadrant',
-      'requirement',
-      'c4context',
-      'c4container',
-      'c4component',
-      'c4dynamic',
-    ];
-
-    const hasValidStarter = validStarters.some(
+    const hasValidStarter = MERMAID_DIAGRAM_STARTERS.some(
       (starter) => firstLine.startsWith(starter) || firstLine.includes(starter),
     );
 

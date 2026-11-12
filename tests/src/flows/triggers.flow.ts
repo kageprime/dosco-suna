@@ -68,6 +68,23 @@ async function settledManifestHistory(
   return commits;
 }
 
+
+/**
+ * The local profile serves no model, so a trigger saved on pauses with
+ * "auto-paused: no usable model: …" (TRG-42). A flow that tests another hold
+ * (a run cap, overlap, the account pause) lifts that one pause first, as a
+ * model key shared with the workspace would. Any other pause stays.
+ */
+async function liftModelPause(ctx: Parameters<typeof withDb>[0], projectId: string, slug: string): Promise<void> {
+  await withDb(ctx, (db) =>
+    db.query(
+      `UPDATE kortix.project_trigger_runtime SET auto_paused_at = NULL, auto_paused_reason = NULL
+        WHERE project_id = $1 AND slug = $2 AND auto_paused_reason LIKE 'auto-paused: no usable model: %'`,
+      [projectId, slug],
+    ),
+  );
+}
+
 flow(
   'TRG-1',
   { domain: 'triggers', routes: ['GET /v1/workspaces/:projectId/triggers'] },
@@ -1385,7 +1402,7 @@ flow(
         .json<{ triggers: Array<{ slug: string; next_fire_at?: string | null; last_status?: string | null; last_error?: string | null }> }>()
         .triggers.find((t) => t.slug === 'digest');
 
-    await ctx.step('a daily cron trigger lists its next run, within a day of now', async () => {
+    await ctx.step('a daily cron trigger is saved → 201; the local profile serves no model, so it lists model-paused with no next run (TRG-42)', async () => {
       (
         await owner.post(
           '/v1/workspaces/:projectId/triggers',
@@ -1393,11 +1410,10 @@ flow(
           { params },
         )
       ).status(201);
-      const next = Date.parse(String((await digest())?.next_fire_at ?? ''));
-      const now = Date.now();
-      if (!(next > now - 60_000 && next < now + 25 * 60 * 60 * 1000)) {
-        throw new Error(`next_fire_at is ${String((await digest())?.next_fire_at)}`);
-      }
+      // The slot itself (jitter included) is covered by trigger-schedule.test.ts;
+      // a deployed target with a default model lists it here.
+      const t = await digest();
+      if (t?.next_fire_at !== null) throw new Error(`next_fire_at is ${String(t?.next_fire_at)} on a model-paused trigger`);
     });
 
     await ctx.step('a manual fire that fails is recorded on the trigger: last_status failed, with the error', async () => {
@@ -2439,6 +2455,34 @@ flow(
       );
       (await replay(rejected!.run_id, { confirm_unverified: true })).status(422).body().has('$.code', 'payload_truncated');
     });
+
+    await ctx.step('three refused deliveries in one second (bad signature, no timestamp, a timestamp 1 h old) → 401 each, and each is a rejected run with its own reason', async () => {
+      (await owner.post('/v1/workspaces/:projectId/triggers', { name: 'hook2', slug: 'hook2', type: 'webhook', secret_env: 'HOOK_SECRET', prompt_template: 'x' }, { params })).status(201);
+      const now = Math.floor(Date.now() / 1000);
+      const sign = (ts: number) => `sha256=${createHmac('sha256', secret).update(`${ts}.${rawBody}`).digest('hex')}`;
+      const deliveries: Record<string, string>[] = [
+        { 'x-kortix-timestamp': String(now), 'x-kortix-signature': `sha256=${'0'.repeat(64)}` },
+        { 'x-kortix-signature': sign(now) },
+        { 'x-kortix-timestamp': String(now - 3600), 'x-kortix-signature': sign(now - 3600) },
+      ];
+      for (const headers of deliveries) {
+        (
+          await ctx.client.as(ctx.P.ANON).post('/v1/webhooks/projects/:projectId/:slug', rawBody, {
+            params: { ...params, slug: 'hook2' },
+            raw: true,
+            headers: { 'content-type': 'application/json', ...headers },
+          })
+        ).status(401);
+      }
+      const want = ['signature_mismatch', 'timestamp_missing', 'timestamp_expired'];
+      const listed = await waitFor(() => runs('hook2'), {
+        until: (r) => want.every((reason) => r.some((run) => run.status === 'rejected' && run.error === reason)),
+        timeoutMs: 10_000,
+        intervalMs: 250,
+        description: 'three rejected runs, one per reason',
+      });
+      if (listed.some((run) => run.status !== 'rejected')) throw new Error(`a refused delivery ran: ${JSON.stringify(listed)}`);
+    });
   },
 );
 
@@ -2686,7 +2730,7 @@ flow(
       const got = await limits(slug);
       if (JSON.stringify(got) !== JSON.stringify(expected)) throw new Error(`${slug} limits: ${JSON.stringify(got)}, expected ${JSON.stringify(expected)}`);
     };
-    const throttled = 'throttled: 1 runs in the last hour (max_runs_per_hour 1)';
+    const throttled = 'throttled: 1 run in the last hour (max_runs_per_hour 1)';
 
     await ctx.step('a run limit that is not a whole number of at least 1 → 400 naming the field', async () => {
       (await owner.post('/v1/workspaces/:projectId/triggers', { name: 'Bad', type: 'cron', cron: '0 0 9 * * *', timezone: 'UTC', prompt_template: 'x', max_runs_per_hour: 0 }, { params }))
@@ -2713,6 +2757,7 @@ flow(
     });
 
     await ctx.step('with one run started in the last hour, a signed delivery → 200 skipped "throttled: …", a skipped run, and no session', async () => {
+      await liftModelPause(ctx, p.id, 'capped');
       await withDb(ctx, (db) =>
         db.query(
           `INSERT INTO kortix.project_trigger_executions (project_id, slug, schedule_revision, scheduled_for, status, spec, payload, source, created_at)
@@ -2851,6 +2896,7 @@ flow(
     });
 
     await ctx.step('resumed: the switch reads running and a delivery reaches the fire path again (402, not skipped)', async () => {
+      await liftModelPause(ctx, p.id, 'hook');
       (await owner.patch('/v1/accounts/:accountId/automations', { paused: false }, { params: account })).status(200).body().has('$.paused', false).has('$.paused_by', null);
       if ((await listingPaused()) !== false) throw new Error('the trigger listing still says the account is paused');
       (await deliver()).status(402);
@@ -3038,9 +3084,10 @@ flow(
       });
     };
 
-    await ctx.step('a webhook trigger with max_runs_per_hour 1 → 201; it is not auto-paused', async () => {
+    await ctx.step('a webhook trigger with max_runs_per_hour 1 → 201; with its no-model pause lifted it is not auto-paused', async () => {
       (await owner.post('/v1/workspaces/:projectId/secrets', { name: 'HOOK_SECRET', value: secret, strategy: 'broker', consumer: 'connector' }, { params })).status(200);
       (await owner.post('/v1/workspaces/:projectId/triggers', { name: 'runaway', slug: 'runaway', type: 'webhook', secret_env: 'HOOK_SECRET', prompt_template: 'Run {{ body.action }}', max_runs_per_hour: 1 }, { params })).status(201);
+      await liftModelPause(ctx, p.id, 'runaway');
       const t = await listed();
       if (t.auto_paused_at !== null || t.auto_paused_reason !== null) throw new Error(`expected auto_paused_at: null and auto_paused_reason: null, got ${JSON.stringify({ auto_paused_at: t.auto_paused_at, auto_paused_reason: t.auto_paused_reason })}`);
     });
@@ -3082,11 +3129,15 @@ flow(
       }
     });
 
-    await ctx.step('PATCH { enabled: true } resumes it; for 2 hours a held delivery is a plain throttle, not a new pause', async () => {
+    await ctx.step('PATCH { enabled: true } ends the run-cap pause; for 2 hours a held delivery is a plain throttle, not a new pause', async () => {
       (await owner.patch('/v1/workspaces/:projectId/triggers/:slug', { enabled: true }, { params: slugParams })).status(200);
+      // The resume cleared the run-cap pause; the save's model check paused it again for no model (TRG-42).
       const resumed = await listed();
-      if (resumed.auto_paused_at !== null || resumed.auto_paused_reason !== null) throw new Error(`still auto-paused after resume: ${JSON.stringify(resumed)}`);
-      (await deliver()).status(200).body().has('$.status', 'skipped').has('$.reason', 'throttled: 1 runs in the last hour (max_runs_per_hour 1)');
+      if (resumed.auto_paused_reason === paused || !resumed.auto_paused_reason?.startsWith('auto-paused: no usable model: ')) {
+        throw new Error(`after resume: ${JSON.stringify(resumed)}`);
+      }
+      await liftModelPause(ctx, p.id, 'runaway');
+      (await deliver()).status(200).body().has('$.status', 'skipped').has('$.reason', 'throttled: 1 run in the last hour (max_runs_per_hour 1)');
       if ((await listed()).auto_paused_at !== null) throw new Error('a held delivery right after the resume paused it again');
     });
   },
@@ -3157,6 +3208,7 @@ flow(
     });
 
     await ctx.step('with a session of this trigger still being set up, a signed delivery → 200 skipped "overlap: …", a skipped run, no new session', async () => {
+      await liftModelPause(ctx, p.id, 'one-at-a-time');
       const sessionId = crypto.randomUUID();
       await withDb(ctx, (db) =>
         db.query(
@@ -3195,6 +3247,93 @@ flow(
         const bad = await sb.run(['triggers', 'set', 'one-at-a-time', '--overlap', 'queue', '--project', p.id]);
         if (bad.exitCode !== 2 || !bad.stderr.includes('--overlap must be skip or allow, or default to reset it (got "queue").')) {
           throw new Error(`set --overlap queue: exit ${bad.exitCode}: ${bad.all}`);
+        }
+      } finally {
+        sb.dispose();
+      }
+    });
+  },
+);
+
+/**
+ * TRG-42 — a trigger the account has no model for pauses when it is saved
+ * (projects/lib/trigger-setup-pause.ts). The local profile serves no model, so
+ * every trigger saved on is refused by the fire's model check: it pauses with
+ * the reason and `auto_paused_code: no_usable_model`, and the save stands. A
+ * trigger saved off is not checked. Enabling it runs the check. A manual fire
+ * is never held. Local only: a deployed target serves a default model.
+ */
+flow(
+  'TRG-42',
+  {
+    domain: 'triggers',
+    routes: [
+      'POST /v1/workspaces/:projectId/triggers',
+      'GET /v1/workspaces/:projectId/triggers',
+      'PATCH /v1/workspaces/:projectId/triggers/:slug',
+      'POST /v1/workspaces/:projectId/triggers/:slug/fire',
+    ],
+  },
+  async (ctx) => {
+    if (ctx.env.target !== 'local') return;
+    const p = await ctx.fixtures.project({ managedGit: true });
+    const owner = ctx.client.as(ctx.P.OWNER);
+    const params = { projectId: p.id };
+    type Listed = { slug: string; enabled: boolean; auto_paused_at?: string | null; auto_paused_reason?: string | null; auto_paused_code?: string | null; next_fire_at?: string | null; next_cron_at?: string | null };
+    const listed = async (slug: string) => {
+      const t = (await owner.get('/v1/workspaces/:projectId/triggers', { params })).status(200)
+        .json<{ triggers: Listed[] }>()
+        .triggers.find((row) => row.slug === slug);
+      if (!t) throw new Error(`${slug} is not listed`);
+      return t;
+    };
+    const modelPause = 'auto-paused: no usable model: ';
+
+    await ctx.step('a cron trigger saved on → 201; it lists paused with code no_usable_model and the refusal as the reason, enabled still true, and no next run (next_fire_at and next_cron_at null)', async () => {
+      (await owner.post('/v1/workspaces/:projectId/triggers', { name: 'Digest', slug: 'digest', type: 'cron', cron: '0 0 9 * * *', timezone: 'UTC', prompt_template: 'Summarize.' }, { params })).status(201);
+      const t = await listed('digest');
+      if (!t.auto_paused_at || t.auto_paused_code !== 'no_usable_model' || !t.auto_paused_reason?.startsWith(modelPause) || t.enabled !== true) {
+        throw new Error(`expected a model pause, got ${JSON.stringify(t)}`);
+      }
+      // The scheduler skips an auto-paused trigger's slot: the listing names no next run.
+      if (t.next_fire_at !== null || t.next_cron_at !== null) {
+        throw new Error(`expected next_fire_at and next_cron_at null while auto-paused, got ${JSON.stringify({ next_fire_at: t.next_fire_at, next_cron_at: t.next_cron_at })}`);
+      }
+    });
+
+    await ctx.step('a manual fire is not held by the pause: it reaches the fire path → 402 no_usable_model', async () => {
+      (await owner.post('/v1/workspaces/:projectId/triggers/:slug/fire', {}, { params: { ...params, slug: 'digest' } }))
+        .status(402).body().has('$.code', 'no_usable_model');
+    });
+
+    await ctx.step('a trigger saved off → 201 and is not checked: auto_paused_at and auto_paused_code are null', async () => {
+      (await owner.post('/v1/workspaces/:projectId/triggers', { name: 'Later', slug: 'later', type: 'cron', cron: '0 0 9 * * *', timezone: 'UTC', prompt_template: 'Later.', enabled: false }, { params })).status(201);
+      const t = await listed('later');
+      if (t.auto_paused_at !== null || (t.auto_paused_code ?? null) !== null || t.enabled !== false) throw new Error(`expected no pause, got ${JSON.stringify(t)}`);
+    });
+
+    await ctx.step('PATCH {enabled: true} → 200; the save stands and the trigger pauses with the same code', async () => {
+      (await owner.patch('/v1/workspaces/:projectId/triggers/:slug', { enabled: true }, { params: { ...params, slug: 'later' } })).status(200);
+      const t = await listed('later');
+      if (t.enabled !== true || t.auto_paused_code !== 'no_usable_model' || !t.auto_paused_reason?.startsWith(modelPause)) {
+        throw new Error(`expected enabled and paused, got ${JSON.stringify(t)}`);
+      }
+    });
+
+    await ctx.step('CLI: `kortix triggers enable later --apply` exits 0 and prints the pause and that it resumes by itself; `triggers info` names the cause', async () => {
+      const pat = await ctx.fixtures.pat({ name: ctx.fixtures.name('cli-trg42') });
+      const sb = new CliSandbox('trg42');
+      try {
+        const login = await sb.login(pat, { noProject: true, account: ctx.P.accountId });
+        if (login.exitCode !== 0) throw new Error(`login failed: ${login.all}`);
+        const enable = await sb.run(['triggers', 'enable', 'later', '--apply', '--project', p.id]);
+        throwIfCliInfraFailure(enable, 'triggers enable');
+        if (enable.exitCode !== 0 || !enable.stdout.includes(`paused: ${modelPause}`) || !enable.stdout.includes('resumes by itself')) {
+          throw new Error(`enable: exit ${enable.exitCode}: ${enable.all}`);
+        }
+        const info = await sb.run(['triggers', 'info', 'later', '--project', p.id]);
+        if (info.exitCode !== 0 || !info.stdout.includes(modelPause) || !info.stdout.includes('by itself, once the account can run it')) {
+          throw new Error(`info: exit ${info.exitCode}: ${info.all}`);
         }
       } finally {
         sb.dispose();

@@ -18,7 +18,7 @@ const SettingsPanelBody = dynamic(
 );
 
 /** Start loading the panel body; for triggers that can prefetch on intent. */
-export function preloadSettingsPanel(): void {
+function preloadSettingsPanel(): void {
   import('./settings-panel-body').catch(() => {
     /* A stale-deploy chunk fails here before the user asks for the panel;
        the recovery reload happens on open. */

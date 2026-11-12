@@ -3,7 +3,8 @@ import { connectorConnections, connectors } from '@kortix/db';
 import { and, eq, sql } from 'drizzle-orm';
 import { config } from '../config';
 import { db } from '../shared/db';
-import { rowMetadata, CONNECTED_AS_KEY } from './connection-identity';
+import { rowMetadata, CONNECTED_AS_KEY, relabelToIdentity, resolveConnectedAs } from './connection-identity';
+import { completeConnection } from './connection-status';
 import { mcpAppForUrl } from './mcp-apps';
 import { discoverProtectedResourceOAuth2, mcpSignInCheck } from './oauth2-resource-discovery';
 
@@ -31,7 +32,10 @@ export function composioConnectionMetadata(input: {
     auth_request_id: input.authRequestId ?? null,
     connected_account_id: input.connectedAccountId ?? null,
     is_no_auth: input.isNoAuth,
-    requesting_session_id: input.requestingSessionId ?? null,
+    // A start with no session behind it (a person clicking Connect on the
+    // session's card or in settings) keeps the session that asked, so its
+    // finalize still tells that session. Notification is idempotent per session.
+    requesting_session_id: input.requestingSessionId ?? readRequestingSessionId(input.previous),
     ...(input.connectedAs ? { [CONNECTED_AS_KEY]: input.connectedAs } : {}),
   };
 }
@@ -108,6 +112,18 @@ export async function loadMcpConnector(projectId: string, slug: string) {
   return { connectorId: row.connectorId, accountId: row.accountId, url, needsSignIn };
 }
 
+/**
+ * Whether a hosted connect link for this provider type needs a managed
+ * provider (Composio or Pipedream) configured on the deployment. An `mcp`
+ * connector's hosted page is Kortix's own OAuth sign-in (`startConnectionSignIn`):
+ * it needs neither (KRTX-4640). The `/connect-requests` route applies the same
+ * exception; the gateway's denial link must not refuse a custom MCP connector
+ * on a deployment with no managed provider.
+ */
+export function connectLinkNeedsManagedProvider(providerType: 'pipedream' | 'composio' | 'mcp'): boolean {
+  return providerType !== 'mcp';
+}
+
 /** Load a Composio connector's toolkit slug + id (verifies provider). */
 export async function loadComposioConnector(projectId: string, slug: string) {
   const [row] = await db
@@ -175,6 +191,81 @@ export async function loadComposioAdapter(): Promise<ComposioAdapter | null> {
 
 export function composioStableUserId(connectionId: string): string {
   return `kortix-connection:${connectionId}`;
+}
+
+/**
+ * Record a Composio sign-in that finished at Composio but that no finalize
+ * recorded. Returns the metadata now stored on the row, or null when the
+ * account is not usable yet.
+ *
+ * Every connect surface records the account through a finalize: the settings
+ * page and the setup-link page poll one, and the Composio
+ * `connected_account.activated` webhook runs one. A raw Composio link (the
+ * agent's `kortix connectors connect`) opens no Kortix page, so only the
+ * webhook is left. When the webhook does not arrive, the person sees
+ * "Successfully connected" at Composio and every call answers `needs_auth`
+ * (2026-11-11: the Composio webhook was delivered to another environment).
+ * The gateway calls this before it refuses a call, so the first call after
+ * the sign-in records the account itself.
+ *
+ * Only a row whose sign-in started (it holds a Composio `session_id`) is
+ * read. The account is the one Composio holds for this row's own stable user
+ * id, so no other account can be bound. Nothing is written until Composio
+ * reports the account active. A revoked row stays revoked.
+ */
+export async function recordFinishedComposioAuthorization(input: {
+  projectId: string;
+  slug: string;
+  connectionId: string;
+  metadata: Record<string, unknown>;
+  /** Injected in tests. Omitted: the deployment's adapter. */
+  composio?: ComposioAdapter | null;
+}): Promise<Record<string, unknown> | null> {
+  const { metadata } = input;
+  const sessionId = typeof metadata.session_id === 'string' ? metadata.session_id : '';
+  const app = typeof metadata.toolkit === 'string' ? metadata.toolkit : '';
+  if (!sessionId || !app || typeof metadata.connected_account_id === 'string') return null;
+  const composio = input.composio === undefined ? await loadComposioAdapter() : input.composio;
+  if (!composio?.composioConfigured()) return null;
+  const stableUserId = composioStableUserId(input.connectionId);
+  const authRequestId = typeof metadata.auth_request_id === 'string' ? metadata.auth_request_id : undefined;
+  const result = await composio.finalizeComposioConnection({
+    projectId: input.projectId,
+    slug: input.slug,
+    app,
+    connectionId: input.connectionId,
+    stableUserId,
+    sessionId,
+    authRequestId,
+  });
+  if (!result.connected) return null;
+  const connectedAs = await resolveConnectedAs({
+    previous: metadata,
+    connectedAccountId: result.connectedAccountId,
+    isNoAuth: result.isNoAuth,
+    probe: () =>
+      composio.probeComposioIdentity
+        ? composio.probeComposioIdentity({
+            app,
+            sessionId: result.sessionId,
+            connectedAccountId: result.connectedAccountId!,
+          })
+        : Promise.resolve(null),
+  });
+  const next = composioConnectionMetadata({
+    toolkit: app,
+    stableUserId,
+    sessionId: result.sessionId,
+    authRequestId: result.authRequestId ?? authRequestId,
+    connectedAccountId: result.connectedAccountId,
+    isNoAuth: result.isNoAuth,
+    requestingSessionId: readRequestingSessionId(metadata),
+    previous: metadata,
+    connectedAs,
+  });
+  if (!(await completeConnection(input.connectionId, null, { metadata: next }))) return null;
+  if (connectedAs) await relabelToIdentity({ connectionId: input.connectionId, identity: connectedAs });
+  return next;
 }
 
 export type ConnectLinkEligibility =

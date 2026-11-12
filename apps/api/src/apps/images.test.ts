@@ -418,6 +418,34 @@ describe('shared image reclaim pass', () => {
     expect(result).toMatchObject({ reclaimable: 2, released: 1, pending: 1, deferred: 0, errors: 0 });
   });
 
+  test('a provider whose listing failed is not asked to release its shared images that pass', async () => {
+    const asked: string[][] = [];
+    const released: string[] = [];
+    const io = fakeIo({
+      providers: [
+        { name: 'daytona', adapter: fakeProvider({ failList: true }) },
+        { name: 'platinum', adapter: fakeProvider() },
+      ],
+      sharedReleased: released,
+    });
+    const result = await reclaimAppDeploymentImages({}, {
+      ...io,
+      loadUnusedImages: async (limit, providers) => {
+        asked.push(providers);
+        return providers.includes('daytona')
+          ? [{ imageName: 'kortix-appimg-prod-aaaaaaaaaaaaaaaaaaaaaaaa', provider: 'daytona' }]
+          : [{ imageName: 'kortix-appimg-dev-bbbbbbbbbbbbbbbbbbbbbbbb', provider: 'platinum' }];
+      },
+      releaseImage: async (image) => {
+        released.push(image.imageName);
+        return image.imageName.includes('-prod-') ? 'pending' : 'released';
+      },
+    });
+    expect(asked).toEqual([['platinum']]);
+    expect(released).toEqual(['kortix-appimg-dev-bbbbbbbbbbbbbbbbbbbbbbbb']);
+    expect(result).toMatchObject({ errors: 1, released: 1, pending: 0 });
+  });
+
   test('the pass asks only for images on the providers configured here', async () => {
     const asked: string[][] = [];
     const io = fakeIo({ providers: [{ name: 'platinum', adapter: fakeProvider() }] });

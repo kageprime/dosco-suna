@@ -30,13 +30,14 @@ variable "retention_days" {
 
 variable "archive_lag_days" {
   description = <<-EOT
-    Age of an audit week, in days, when the API job uploads it (the 90-day hot window). The
-    lifecycle rule counts from the upload, the policy from the event, so current objects
-    expire at retention_days - archive_lag_days + 1 days after upload: about 365 days after
-    the event instead of about 455.
+    Age of an audit week, in days, when the API job uploads it: HOT_DAYS in
+    apps/api/src/shared/audit-archive/format.ts (14). The lifecycle rule counts from the
+    upload, the policy from the event, so current objects expire at
+    retention_days - archive_lag_days + 1 days after upload: about 365 days after the event.
+    It must not exceed HOT_DAYS: a larger value expires objects before 365 days.
   EOT
   type        = number
-  default     = 90
+  default     = 14
 
   validation {
     condition     = var.archive_lag_days >= 0 && var.archive_lag_days < var.retention_days

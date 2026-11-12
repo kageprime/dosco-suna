@@ -6,6 +6,12 @@ import { DevelopersLoop } from '@/features/marketing/developers/loop';
 import { DevelopersScale } from '@/features/marketing/developers/scale';
 import { DevelopersThesis } from '@/features/marketing/developers/thesis';
 
+import { marketingMetadataLayout } from '@/lib/seo/metadata';
+
+const { generateMetadata } = marketingMetadataLayout('/developers');
+
+export { generateMetadata };
+
 export default function DevelopersPage() {
   return (
     <div className="bg-background relative w-full overflow-x-clip">

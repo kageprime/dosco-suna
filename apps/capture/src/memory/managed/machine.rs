@@ -833,6 +833,10 @@ fn serve(wake: mpsc::Receiver<bool>) -> Result<()> {
         exe: std::env::current_exe()?,
         sessions: BTreeMap::new(),
         log: if folder_ok.is_ok() {
+            crate::os_proc::rotate_log(
+                &machine_dir().join("logs").join("machine.log"),
+                crate::os_proc::LOG_MAX_BYTES,
+            );
             std::fs::OpenOptions::new()
                 .create(true)
                 .append(true)

@@ -5,23 +5,26 @@ import { chatEventDedup, chatTurnStreams, projectSessions } from '@kortix/db';
 import { db } from '../../shared/db';
 import { registerSessionFailureNotifier } from '../../shared/session-failure-notifier';
 import { config } from '../../config';
-import { sessionWebUrl } from './util';
+import { sessionWebUrl, slackChannelIsDm } from './util';
 import { markdownToMrkdwn, mrkdwnToRichTextElements, slackMentionsAsText, unlabelledMentionIds } from './mrkdwn';
 import { slackUserNames } from './labels';
 import { loadSlackTokenForProject } from '../install-store';
+import type { SlackPersona } from '../slack-api';
 import {
   addReaction,
   joinChannel,
   postBlocks,
   postMessage,
   removeReaction,
+  setAssistantStatus,
   startStream,
   stopStream,
   updateBlocks,
   type StreamTaskChunk,
 } from '../slack-api';
 import { STREAM_TTL_MS, WORKING_EMOJI } from './app';
-import { SLACK_STOP_ACTION } from './stop-action';
+import { claimExpiringKey } from './dedup';
+import { SLACK_STOP_ACTION, SLACK_SWITCH_AGENT_ACTION } from './stop-action';
 import { classifyTurnError, type TurnErrorInfo } from './errors';
 import type { SlackEvent, LiveTurn } from './types';
 
@@ -239,6 +242,7 @@ export async function startTurn(
   // plan stream is opened lazily on the first `slack step`; the final answer is
   // posted by `slack send`.
   await addReaction(token, event.channel, event.ts, WORKING_EMOJI);
+  await showWorkingStatus(token, event, 'is working…');
 
   return {
     channel: event.channel,
@@ -253,6 +257,16 @@ export async function startTurn(
     ts: '',
     steps: [],
   };
+}
+
+/**
+ * The DM assistant pane's own status line ("Dot is working…"). Only a
+ * DM thread has one; a channel shows the ⏳ and the live plan instead.
+ */
+async function showWorkingStatus(token: string, event: SlackEvent, status: string): Promise<void> {
+  const threadTs = event.thread_ts ?? event.ts;
+  if (!event.channel || !threadTs || !slackChannelIsDm(event.channel)) return;
+  await setAssistantStatus(token, event.channel, threadTs, status);
 }
 
 // Create the plan-checklist message on the first `slack step`. We open a native
@@ -385,27 +399,23 @@ export async function finalizeTurn(
         handle.channel,
         handle.ts,
         planTitleFor(opts),
-        buildFinalPlanBlocks(handle, body, opts, truncated),
+        buildFinalPlanBlocks(handle, body, opts, truncated, persona),
       );
     } else if (hasContent) {
       // The agent posted no `slack step` (no plan message) but we have a reply or
       // an error to surface — post it fresh in-thread.
       if (opts.blocks && opts.blocks.length > 0) {
-        const ts = await postBlocks(handle.token, handle.channel, body, opts.blocks, threadRoot, persona);
+        const ts = await postBlocks(handle.token, handle.channel, body, [...opts.blocks, ...answerFooter(handle, persona)], threadRoot, persona);
         rendered = ts != null;
-      } else if (opts.error && handle.projectId && handle.sessionId) {
-        // An error with no plan stream: post the failure copy WITH an "Open
-        // session" footer so the thread always has a way to see what went wrong
-        // (the plan path already appends this footer; mirror it here).
-        const url = sessionWebUrl(config.FRONTEND_URL, handle.projectId, handle.sessionId);
+      } else if (handle.projectId && handle.sessionId) {
+        // An answer or an error with no plan stream: the body, then the same
+        // footer the plan path ends with (the agent, Switch agent, Open in
+        // Dosco), so every reply offers the way to the session.
         const ts = await postBlocks(
           handle.token,
           handle.channel,
           body,
-          [
-            ...toSectionBlocks(body, truncated),
-            { type: 'context', elements: [{ type: 'mrkdwn', text: `<${url}|Open session in Dosco ↗>` }] },
-          ],
+          [...toSectionBlocks(body, truncated), ...answerFooter(handle, persona)],
           threadRoot,
           persona,
         );
@@ -419,7 +429,7 @@ export async function finalizeTurn(
     }
     // chat.update rejected the blocks (e.g. invalid_blocks) — don't lose real
     // content; post it fresh as plain text so it still lands in the thread.
-    if (!rendered && hasContent && (handle.ts && handle.steps.length > 0 || opts.blocks && opts.blocks.length > 0 || opts.error && handle.projectId && handle.sessionId)) {
+    if (!rendered && hasContent && (handle.ts && handle.steps.length > 0 || opts.blocks && opts.blocks.length > 0 || handle.projectId && handle.sessionId)) {
       const ts = await postMessage(handle.token, handle.channel, plainFallback(handle, body), threadRoot, persona);
       rendered = ts != null;
     }
@@ -432,8 +442,10 @@ export async function finalizeTurn(
   } catch (err) {
     console.warn('[slack-webhook] finalize render failed (turn still closed)', { sessionId: handle.sessionId, err: (err as Error)?.message });
   }
-  // ALWAYS clear the ⏳ — even if the render above failed.
+  // ALWAYS clear the ⏳ — even if the render above failed — and the pane's
+  // status line, which a turn that posted nothing would otherwise keep.
   await removeReaction(handle.token, handle.channel, handle.triggerTs, WORKING_EMOJI).catch(() => {});
+  await showWorkingStatus(handle.token, ev, '');
 }
 
 // Slack Block Kit caps a section's text at 3000 chars and the outer message has
@@ -515,6 +527,7 @@ function buildFinalPlanBlocks(
   body: string,
   opts: { answer?: string; error?: string; blocks?: unknown[]; title?: string },
   truncated = false,
+  persona: SlackPersona | null = null,
 ): unknown[] {
   const blocks: Array<Record<string, unknown>> = [
     {
@@ -529,16 +542,39 @@ function buildFinalPlanBlocks(
     // Chunk into ≤3000-char sections so a long answer isn't rejected wholesale.
     for (const b of toSectionBlocks(body, truncated)) blocks.push(b);
   }
-  // Footer: a link to open this session on the web. Lets anyone in the thread
-  // jump straight to the full session (logs, files, diff) in Dosco.
-  if (handle.projectId && handle.sessionId) {
-    const url = sessionWebUrl(config.FRONTEND_URL, handle.projectId, handle.sessionId);
-    blocks.push({
-      type: 'context',
-      elements: [{ type: 'mrkdwn', text: `<${url}|Open session in Dosco ↗>` }],
+  blocks.push(...answerFooter(handle, persona));
+  return blocks;
+}
+
+/**
+ * What every agent answer ends with: Switch agent (the channel's agent picker,
+ * in a modal for the clicker) and Open in Dosco (the whole session: logs,
+ * files, diff). The agent is already named by the post's author and face. A
+ * button, not a slash command: it works in every app's command name and in
+ * the DM assistant pane, which runs no slash command.
+ */
+export function answerFooter(
+  handle: Pick<LiveTurn, 'channel' | 'projectId' | 'sessionId'>,
+  persona: SlackPersona | null,
+): Array<Record<string, unknown>> {
+  const controls: Array<Record<string, unknown>> = [];
+  if (persona) {
+    controls.push({
+      type: 'button',
+      action_id: SLACK_SWITCH_AGENT_ACTION,
+      text: { type: 'plain_text', text: 'Switch agent', emoji: true },
+      value: handle.channel,
     });
   }
-  return blocks;
+  if (handle.projectId && handle.sessionId) {
+    controls.push({
+      type: 'button',
+      action_id: 'session_open',
+      text: { type: 'plain_text', text: 'Open in Dosco ↗', emoji: true },
+      url: sessionWebUrl(config.FRONTEND_URL, handle.projectId, handle.sessionId),
+    });
+  }
+  return controls.length ? [{ type: 'actions', block_id: 'answer_controls', elements: controls }] : [];
 }
 
 // ── Turn-stream relays ──────────────────────────────────────────────────────
@@ -574,6 +610,11 @@ export type TurnRelayReason =
   | 'not_relayed';
 
 export type TurnRelayResult = { ok: true } | { ok: false; reason: TurnRelayReason };
+
+/** "Reading the logs" → "reading the logs", for "Dot is reading the logs". */
+function lowerFirst(text: string): string {
+  return /^[A-Z][a-z]/.test(text) ? text.charAt(0).toLowerCase() + text.slice(1) : text;
+}
 
 export async function relayTurnStepDetailed(
   sessionId: string,
@@ -615,10 +656,13 @@ export async function relayTurnStepDetailed(
     if (opts.detail) firstStep.details = asText(markdownToMrkdwn(opts.detail)).slice(0, 500);
     const opened = await openPlanMessage(handle, firstStep);
     if (!opened) return { ok: false, reason: 'stream_open_failed' };
+    await showWorkingStatus(handle.token, handle.originatingEvent, `is ${lowerFirst(firstStep.title)}`);
     handle.expiry = Date.now() + STREAM_TTL_MS;
     await saveTurn(handle);
     return { ok: true };
   }
+
+  await showWorkingStatus(handle.token, handle.originatingEvent, `is ${lowerFirst(asText(title))}`.slice(0, 120));
 
   // Subsequent step → mark the previous one complete (with its output/sources),
   // append the new one, and repaint the whole plan via chat.update.
@@ -695,24 +739,14 @@ const ANSWER_RESCUE_TTL_MS = STREAM_TTL_MS;
 // reaches the thread. It was one rescue per session per TTL, which silenced
 // every answer after the first within 15 minutes: the "No active Slack turn
 // to answer" an agent saw on its second turn (INC-2026-09-08-CONNECTOR-GATEWAY).
-async function claimAnswerRescue(sessionId: string, text: string): Promise<boolean> {
+export async function claimAnswerRescue(sessionId: string, text: string): Promise<boolean> {
   const digest = createHash('sha256').update(text).digest('hex').slice(0, 16);
-  try {
-    const inserted = await db
-      .insert(chatEventDedup)
-      .values({
-        eventId: `slack:answerrescue:${sessionId}:${digest}`,
-        expiresAt: new Date(Date.now() + ANSWER_RESCUE_TTL_MS),
-      })
-      .onConflictDoNothing({ target: chatEventDedup.eventId })
-      .returning({ eventId: chatEventDedup.eventId });
-    return inserted.length > 0;
-  } catch (err) {
-    // Fail CLOSED. The whole point is to not post twice into a thread someone is
-    // reading; a dropped rescue is still recoverable from the session link.
-    console.warn('[slack-webhook] answer-rescue claim failed (suppressing)', err);
-    return false;
-  }
+  // Fail CLOSED. The whole point is to not post twice into a thread someone is
+  // reading; a dropped rescue is still recoverable from the session link.
+  return claimExpiringKey(`slack:answerrescue:${sessionId}:${digest}`, ANSWER_RESCUE_TTL_MS, {
+    onDbError: false,
+    log: 'answer-rescue claim failed (suppressing)',
+  });
 }
 
 export async function postAnswerWithoutTurnDetailed(
@@ -738,17 +772,15 @@ export async function postAnswerWithoutTurnDetailed(
   const truncated = rendered.length > MAX_BODY;
   const body = rendered.slice(0, MAX_BODY);
   const url = sessionWebUrl(config.FRONTEND_URL, row.projectId, sessionId);
-  const footer = { type: 'context', elements: [{ type: 'mrkdwn', text: `<${url}|Open session in Dosco ↗>` }] };
-  const finalBlocks =
-    blocks && blocks.length > 0 ? [...blocks, footer] : [...toSectionBlocks(body, truncated), footer];
-
   const persona = await slackAgentPersona({ sessionId, projectId: row.projectId, token }).catch(() => null);
+  const footer = answerFooter({ channel, projectId: row.projectId, sessionId }, persona);
+  const finalBlocks =
+    blocks && blocks.length > 0 ? [...blocks, ...footer] : [...toSectionBlocks(body, truncated), ...footer];
+
   const ts = await postBlocks(token, channel, body, finalBlocks, threadTs, persona);
   if (ts) return { ok: true };
   // Block render rejected (a section caps at 3000 chars) — never lose the answer.
-
   const fallback = await postMessage(token, channel, `${body}\n\n<${url}|Open session in Dosco ↗>`, threadTs, persona);
-
   return fallback != null ? { ok: true } : { ok: false, reason: 'post_failed' };
 }
 
@@ -782,7 +814,7 @@ export async function relayTurnEnd(
   sessionId: string,
   status: 'idle' | 'error' = 'idle',
   errorInfo?: TurnErrorInfo,
-  opts: { deferred?: boolean } = {},
+  opts: { deferred?: boolean; finalText?: string } = {},
 ): Promise<boolean> {
   const handle = await loadTurn(sessionId);
   if (!handle) {
@@ -796,14 +828,17 @@ export async function relayTurnEnd(
   }
   if (handle.finalized) return false;
   const sinceActivity = Date.now() - turnLastActivityAt(handle);
-  if (status === 'idle' && sinceActivity < IDLE_END_GRACE_MS) {
+  // An end with the turn's answer is that turn's own end: the route already
+  // dropped a replay of another turn (`identity_mismatch`), and waiting would
+  // hold a fast reply back for the whole window.
+  if (status === 'idle' && !opts.finalText?.trim() && sinceActivity < IDLE_END_GRACE_MS) {
     console.info('[slack-webhook] turn-end deferred — turn is younger than the idle grace window', {
       sessionId,
       sinceActivityMs: sinceActivity,
       deferred: opts.deferred === true,
     });
     setTimeout(() => {
-      void relayTurnEnd(sessionId, status, errorInfo, { deferred: true }).catch((err) =>
+      void relayTurnEnd(sessionId, status, errorInfo, { deferred: true, finalText: opts.finalText }).catch((err) =>
         console.warn('[slack-webhook] deferred turn-end failed', { sessionId, err }),
       );
     }, IDLE_END_GRACE_MS - sinceActivity + 250).unref();
@@ -823,7 +858,11 @@ export async function relayTurnEnd(
         : { error: classified.text, title: classified.title },
     );
   } else {
-    await finalizeTurn(handle, {});
+    // The agent ended its turn without `slack send`. Its last message is
+    // still its answer: post it, so the thread never loses a reply the
+    // session page shows. No text (a turn that only acted): close quietly.
+    const answer = opts.finalText?.trim();
+    await finalizeTurn(handle, answer ? { answer: markdownToMrkdwn(answer) } : {});
   }
   await deleteTurn(sessionId);
   return true;

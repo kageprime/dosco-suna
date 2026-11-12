@@ -122,6 +122,19 @@
             null
           ],
           "description": "Frame height cap on every device (the width follows: 1280, 1920, 2560, 3840); null keeps the device's own setting."
+        },
+        "text_recognition": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "accurate",
+            "fast",
+            "off",
+            null
+          ],
+          "description": "Screen text recognition on every device: accurate, fast, or off (no screen text read; search finds apps, titles and URLs). Null keeps the device's own setting."
         }
       }
     },

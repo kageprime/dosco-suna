@@ -9,6 +9,14 @@
  */
 import type { ApiReply, ToolResult } from './index';
 
+/** What the agent does next when adding a connector hands a step to a person. */
+const CONNECTOR_HAND_OFF_NEXT = {
+  custom_connector_needs_human:
+    'Give the person setup_url: a one-time approval of this exact server by someone who manages connectors. Then list_connectors shows it. Do not retry.',
+  connector_needs_url:
+    'The catalogue lists this way without its server URL. If the person gave you the URL, call add_connector again with app, way and url; else give them setup_url (or docs) to add it.',
+} as const;
+
 export interface Host {
   call(
     method: string,
@@ -99,7 +107,7 @@ export const CONNECTOR_TOOLS = [
     name: 'call_connector',
     title: 'Call a connector action',
     description:
-      'Run one connector action as the signed-in user. Dosco adds the credential server-side, applies the project\'s policies and records an audit entry. `args` must match describe_connector_action. Results: (1) success: `{ok:true, account, risk, data}`, where `account` is the connected account that ran it (say which one you used); (2) `pending_approval`: a policy holds the call for a human. Give the human `approval_url` (and `approval_summary`), and stop. When `runs_on_approval` is true, Dosco runs the call once after approval: do not call again; `next` says where the outcome appears. Otherwise wait for them to approve, then call again with the SAME tool, args and account within 15 minutes: the approved call then runs once. (3) `denied`: `reason` says why (`policy_block` = the project blocks this action, do not retry; `connector_not_connected` = call connect_connector; `account_required` = several accounts and no default, retry with `account` set to one of `available_accounts`). ALWAYS pass `reason` for a write whose args are only ids (send_draft, delete, update by id): say what it does, e.g. who a draft goes to and what it says. The approver sees it, labelled as your description, next to the real args. Data over ~40 000 characters comes back cut, marked `data_truncated`, with a preview: narrow the args (fields, filters, page size) and call again. To attach a file, stage it with upload_connector_attachment and put the returned ref in `args`; never paste base64 into `args`.',
+      'Run one connector action as the signed-in user. Dosco adds the credential server-side, applies the project\'s policies and records an audit entry. `args` must match describe_connector_action. Results: (1) success: `{ok:true, account, risk, data}`, where `account` is the connected account that ran it (say which one you used); (2) `pending_approval`: a policy holds the call for a human. Give the human `approval_url` (and `approval_summary`), and stop. When `runs_on_approval` is true, Dosco runs the call once after approval: do not call again; `next` says where the outcome appears. Otherwise wait for them to approve, then call again with the SAME tool, args and account within 15 minutes: the approved call then runs once. (3) `denied`: `reason` says why (`policy_block` = the project blocks this action, do not retry; `connector_not_connected` = call connect_connector; `connector_not_shared` = an account exists but is not shared with you: give the human `hint`, do not connect another; `account_required` = several accounts and no default, retry with `account` set to one of `available_accounts`). ALWAYS pass `reason` for a write whose args are only ids (send_draft, delete, update by id): say what it does, e.g. who a draft goes to and what it says. The approver sees it, labelled as your description, next to the real args. Data over ~40 000 characters comes back cut, marked `data_truncated`, with a preview: narrow the args (fields, filters, page size) and call again. To attach a file, stage it with upload_connector_attachment and put the returned ref in `args`; never paste base64 into `args`.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -203,9 +211,7 @@ export const CONNECTOR_TOOLS = [
     name: 'add_connector',
     title: 'Add a connector',
     description:
-
-      'Add (or update) a connector on the project now: it is committed to kortix.yaml on main and synced, like the dashboard\'s "Add app". Idempotent for an app: a way the project already has answers that profile with `existing: true` (pass `as_new_profile` for a second one). For an app (Gmail, Slack, GitHub, …) pass `app` from search_connector_apps; Dosco adds the app\'s recommended way (a one-click MCP server, else Composio, else its API) unless you pass `way`. The connector is a profile in kortix.yaml: its accounts, who may use them and its tool rules live on it. `name` names it; the slug defaults from the name. For your own server pass `provider` and `slug` with `url` (mcp, plus `transport` http|sse), `endpoint` (graphql), `spec` (openapi, postman) or `base_url` (http): a server the project does not have yet needs a person, so the result is `custom_connector_needs_human` with a `setup_url` to give the human. The result says what is next: call connect_connector for an OAuth app; an API-key connector needs its credential set by the human in Dosco. To remove a connector call remove_connector. Needs the connector-write permission.',
-
+      'Add (or update) a connector on the project now: it is committed to kortix.yaml on main and synced, like the dashboard\'s "Add app". Idempotent for an app: a way the project already has answers that profile with `existing: true` (pass `as_new_profile` for a second one). For an app (Gmail, Slack, GitHub, …) pass `app` from search_connector_apps; Dosco adds the app\'s recommended way (a one-click MCP server, else Composio, else its API) unless you pass `way`. The connector is a profile in kortix.yaml: its accounts, who may use them and its tool rules live on it. `name` names it; the slug defaults from the name. A catalogue way listed without its server URL (`needs_url` in get_connector_app) installs with `app`, `way` and `url`. For your own server pass `provider` and `slug` with `url` (mcp, plus `transport` http|sse), `endpoint` (graphql), `spec` (openapi, postman) or `base_url` (http). The catalogue is an index, not a list of what may be connected: a server neither the catalogue publishes nor the project already has needs a one-time approval of that exact URL by a person who manages connectors, so the result is `custom_connector_needs_human` with a `setup_url` to give the human. The result says what is next: call connect_connector for an OAuth app; an API-key connector needs its credential set by the human in Dosco. To remove a connector call remove_connector. Needs the connector-write permission.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -216,7 +222,7 @@ export const CONNECTOR_TOOLS = [
         slug: { type: 'string', description: 'The connector\'s name in kortix.yaml (lowercase letters, digits, - and _). Defaults to `app`.' },
         provider: { type: 'string', enum: ['composio', 'mcp', 'openapi', 'postman', 'graphql', 'http'], description: 'Your own server\'s kind, with `slug`. Omit it when you pass `app`.' },
         name: { type: 'string', description: 'Display name.' },
-        url: { type: 'string', description: 'MCP server URL (provider mcp).' },
+        url: { type: 'string', description: 'MCP server URL: with provider mcp, or with `app` and `way` for a catalogue way listed without one.' },
         transport: { type: 'string', enum: ['http', 'sse'], description: 'MCP transport (provider mcp).' },
         endpoint: { type: 'string', description: 'GraphQL endpoint (provider graphql).' },
         spec: { type: 'string', description: 'OpenAPI or Postman spec URL (provider openapi, postman).' },
@@ -321,14 +327,18 @@ export function denialNext(reason: string, body: any): string | undefined {
       return body?.available_accounts?.length
         ? 'Retry with `account` set to one of available_accounts, or omit it for the default.'
         : 'Call connect_connector for this connector, give the human the url, then list_connectors to confirm.';
+    case 'connector_not_shared':
+      return 'An account exists but is not shared with this agent or session. Do not call connect_connector: it adds a duplicate account. Give the human the hint: the account owner shares it in Settings → Connectors.';
     case 'account_required':
       return 'Several accounts are connected and none is the default: retry with `account` set to one of available_accounts (or ask the human which).';
     case 'connector_not_assigned':
-      return 'The agent or token behind this call is not granted this connector.';
+      return 'The agent or token behind this call is not granted this connector. Do not start another agent for it: a spawned session inherits the spawning session\'s connectors, so every delegate is denied the same way. Fix the grant in kortix.yaml or tell the human.';
     case 'connector_not_found':
       return 'No such connector in this project: list_connectors shows the slugs, add_connector adds one.';
     case 'action_not_found':
-      return 'No such action: search_connector_actions finds the right `tool` id.';
+      return Array.isArray(body?.did_you_mean) && body.did_you_mean.length > 0
+        ? `No such action. Did you mean ${body.did_you_mean.join(', ')}? Call it with that \`tool\`, or search_connector_actions to find another.`
+        : 'No such action: search_connector_actions finds the right `tool` id.';
     default:
       return undefined;
   }
@@ -344,8 +354,6 @@ const parse = (body: string): any => {
 
 /** Standard base64 the API accepts; lenient decoders would write junk bytes. */
 const validBase64 = (s: string) => /^[A-Za-z0-9+/=\s]*$/.test(s) && s.replace(/[=\s]/g, '').length % 4 !== 1;
-
-
 
 // ─── The tools ──────────────────────────────────────────────────────────────
 
@@ -650,6 +658,8 @@ export async function runConnectorTool(name: string, input: Record<string, unkno
         one_click: v.oneClick === true,
         recommended: v.recommended === true,
         installable: Boolean(v.connector) || v.kind === 'composio',
+        // Listed without its server URL: add_connector with app, way and url installs it.
+        ...(v.kind === 'mcp' && !v.connector ? { needs_url: true, docs: v.docs ?? null } : {}),
         // The project's profiles that are this way already.
         ...(Array.isArray(v.installed) && v.installed.length ? { installed: v.installed } : {}),
         ...(v.kind === 'kortix' ? { setup: 'Built into Dosco: the human sets it up on its page (a channel: kortix channels connect; a computer: the desktop app or the pairing command); add_connector cannot install it.' } : {}),
@@ -685,7 +695,6 @@ export async function runConnectorTool(name: string, input: Record<string, unkno
     }
     case 'add_connector': {
       const app = h.optionalArg(input, 'app');
-
       // The catalogue installs the app's recommended way, or `way`.
       if (app && !h.optionalArg(input, 'provider')) {
         const id = /[:/]/.test(app) ? app : `kortix:${app}`;
@@ -695,10 +704,15 @@ export async function runConnectorTool(name: string, input: Record<string, unkno
             way: h.optionalArg(input, 'way'),
             name: h.optionalArg(input, 'name'),
             slug: h.optionalArg(input, 'slug'),
+            url: h.optionalArg(input, 'url'),
             as_new_profile: input.as_new_profile === true ? true : undefined,
           },
         });
         if (r.status === 404) throw h.input(`"${app}" is not in the app catalogue: search_connector_apps lists the apps`);
+        const handOff = r.status === 403 || r.status === 409 ? parse(r.body) : undefined;
+        if (handOff?.code === 'custom_connector_needs_human' || handOff?.code === 'connector_needs_url') {
+          return h.text(JSON.stringify({ ...handOff, next: CONNECTOR_HAND_OFF_NEXT[handOff.code as 'custom_connector_needs_human'] }, null, 2), true);
+        }
         if (r.status >= 400) return h.apiResult(r);
         const done = parse(r.body) ?? {};
         return h.text(
@@ -730,7 +744,6 @@ export async function runConnectorTool(name: string, input: Record<string, unkno
       const slug = h.optionalArg(input, 'slug');
       if (!provider || !slug) throw h.input('pass `app` (from search_connector_apps), or `provider` and `slug` for your own server');
       const draft: Record<string, unknown> = { slug, provider };
-
       for (const [from, to] of [['app', 'app'], ['name', 'name'], ['url', 'url'], ['transport', 'transport'], ['endpoint', 'endpoint'], ['spec', 'spec'], ['base_url', 'baseUrl']] as const) {
         const v = h.optionalArg(input, from);
         if (v) draft[to] = v;
@@ -738,10 +751,7 @@ export async function runConnectorTool(name: string, input: Record<string, unkno
       const r = await h.call('POST', `${base}/connectors`, { body: draft });
       const refused = r.status === 403 ? parse(r.body) : undefined;
       if (refused?.code === 'custom_connector_needs_human') {
-        return h.text(
-          JSON.stringify({ ...refused, next: 'Give the human setup_url: they review the server and add it. Then list_connectors shows it. Do not retry.' }, null, 2),
-          true,
-        );
+        return h.text(JSON.stringify({ ...refused, next: CONNECTOR_HAND_OFF_NEXT.custom_connector_needs_human }, null, 2), true);
       }
       if (r.status >= 400) return h.apiResult(r);
       const done = parse(r.body) ?? {};

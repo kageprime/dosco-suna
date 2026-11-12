@@ -162,11 +162,12 @@ export async function triggersAddLive(
   const created = resp.triggers?.find((t) => t.slug === slug);
   // An event trigger is only live once its subscription is; until then it is just added.
   const where =
-    created?.type === 'event' && created.event?.status !== 'active' ? 'added to' : 'live on';
+    (created?.type === 'event' && created.event?.status !== 'active') || created?.auto_paused_at ? 'added to' : 'live on';
   process.stdout.write(
     `${status.ok(`${C.bold}${slug}${C.reset} (${type}) ${where} the workspace`)} ${C.dim}(committed to kortix.yaml on main + reconciled)${C.reset}\n`,
   );
   reportWebhookUrl(resp, slug);
+  reportSetupPause(resp, slug);
   if (created?.type === 'event') {
     for (const line of eventNextStep(created, eventName).lines) {
       process.stdout.write(`  ${C.dim}${line}${C.reset}\n`);
@@ -375,7 +376,21 @@ export async function triggersToggleLive(
   process.stdout.write(
     `${status.ok(`${enabled ? 'Enabled' : 'Disabled'} ${C.bold}${slug}${C.reset}`)} ${C.dim}(kortix.yaml on main)${C.reset}\n`,
   );
+  if (enabled) reportSetupPause(resp, slug);
   return 0;
+}
+
+/**
+ * The save stood, but the account cannot run the trigger (no model it may
+ * use, no credits): the API paused it. Say why and that it resumes by itself.
+ */
+function reportSetupPause(resp: ProjectTriggersResponse, slug: string): void {
+  const t = resp.triggers?.find((row) => row.slug === slug);
+  if (!t?.auto_paused_at || !t.auto_paused_code) return;
+  process.stdout.write(`${status.warn(`paused: ${t.auto_paused_reason ?? t.auto_paused_code}`)}\n`);
+  process.stdout.write(
+    `  ${C.dim}${t.auto_paused_code === 'billing' ? 'It resumes by itself a few minutes after the wallet is topped up.' : 'It resumes by itself a few minutes after the workspace has a model an automation may use (a key or account shared with everyone).'}${C.reset}\n`,
+  );
 }
 
 /** A webhook trigger is useless until its caller has the URL — print it. */

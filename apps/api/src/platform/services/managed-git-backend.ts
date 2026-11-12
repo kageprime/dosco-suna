@@ -13,7 +13,7 @@
  * for `managed-kortix`, every repo create 403).
  */
 
-import { createCachedPlatformSetting } from './platform-setting-cache';
+import { createCachedPlatformSetting, settingFacade, str } from './platform-setting-cache';
 
 export const MANAGED_GIT_BACKEND_KEY = 'managed_git_backend';
 
@@ -44,10 +44,6 @@ export interface StoredGitBackend {
   ownerType?: 'User' | 'Organization';
   installationId?: string;
   token?: string;
-}
-
-function str(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 function ownerType(value: unknown): 'User' | 'Organization' | undefined {
@@ -167,23 +163,17 @@ export function gitBackendEnvOwners(): string[] {
   return Object.values(GIT_BACKEND_ENV_VARS).filter((name) => env(name) !== null);
 }
 
-export function refreshGitBackend(): Promise<void> {
-  return setting.refresh();
-}
-
-/** Overwrite the stored backend whole. */
-export async function writeGitBackend(backend: StoredGitBackend): Promise<void> {
-  await setting.write(backend);
-}
-
-export async function clearGitBackend(): Promise<void> {
-  await setting.clear();
-}
-
-/** Test-only: seed the cache without a database. */
-export function __setStoredGitBackendForTests(value: unknown): void {
-  setting.__setForTests(value);
-}
+/**
+ * The four one-line setting exports, from the shared facade. `writeGitBackend`
+ * overwrites the stored backend whole; `__setStoredGitBackendForTests` seeds
+ * the cache without a database (test-only).
+ */
+export const {
+  refresh: refreshGitBackend,
+  write: writeGitBackend,
+  clear: clearGitBackend,
+  setForTests: __setStoredGitBackendForTests,
+} = settingFacade(setting);
 
 /** Test-only: forget the last logged refusal. */
 export function __resetGitBackendRefusalLogForTests(): void {

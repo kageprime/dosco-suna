@@ -121,9 +121,24 @@ export function secretUsage(
  * would silently move the secret off the consumer its owning flow reads —
  * disconnecting a model provider, a connector, or a repository.
  */
-export function secretUsageIsAssigned(consumer?: SecretConsumer | null): boolean {
-  return consumer === 'llm_gateway' || consumer === 'connector' || consumer === 'git_proxy';
+export function secretUsageIsAssigned(
+  consumer?: SecretConsumer | null,
+  opts?: SecretUsageContext,
+): boolean {
+  // A connector-only row that no connector uses (a value typed into a
+  // connector-scoped setup link and never bound) has no owning flow to
+  // disconnect: its owner picks its delivery.
+  if (consumer === 'connector') return opts?.connectorBound ?? true;
+  return consumer === 'llm_gateway' || consumer === 'git_proxy';
 }
+
+/** What the row's surroundings say about its usage. */
+export type SecretUsageContext = {
+  /** A connector resolves this secret. Unknown (absent) reads as bound. */
+  connectorBound?: boolean;
+  /** The user picked an exposure in this edit. */
+  picked?: boolean;
+};
 
 /**
  * The `(strategy, consumer)` pair a save writes, given the picked exposure and
@@ -144,8 +159,14 @@ export function secretUsageIsAssigned(consumer?: SecretConsumer | null): boolean
 export function secretDeliveryTarget(
   exposure: SecretExposure,
   row?: { strategy: SecretDeliveryStrategy; consumer: SecretConsumer | null } | null,
+  opts?: SecretUsageContext,
 ): { strategy: SecretDeliveryStrategy; consumer: SecretConsumer | null } {
-  if (row && secretUsageIsAssigned(row.consumer)) {
+  if (row && secretUsageIsAssigned(row.consumer, opts)) {
+    return { strategy: row.strategy, consumer: row.consumer };
+  }
+  // An unbound connector row moves only when its owner picks an exposure: an
+  // unrelated save (a new value) keeps it where it is.
+  if (row?.consumer === 'connector' && !opts?.picked) {
     return { strategy: row.strategy, consumer: row.consumer };
   }
   if (exposure === 'enforced' && row?.strategy === 'broker' && row.consumer === 'http_broker') {

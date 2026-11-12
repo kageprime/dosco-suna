@@ -51,13 +51,13 @@ export function execGit(
  */
 export function runGit(
   args: string[],
-  opts: { cwd?: string; input?: string; timeoutMs?: number } = {},
+  opts: { cwd?: string; input?: string; env?: NodeJS.ProcessEnv; timeoutMs?: number } = {},
 ): Promise<ExecResult> {
   const timeoutMs = opts.timeoutMs ?? 10_000
   return new Promise((resolve, reject) => {
     const child = spawn('git', args, {
       cwd: opts.cwd,
-      env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+      env: { ...process.env, ...opts.env, GIT_TERMINAL_PROMPT: '0' },
       stdio: [opts.input !== undefined ? 'pipe' : 'ignore', 'pipe', 'pipe'],
     })
     let stdout = ''
@@ -432,6 +432,68 @@ type CommitPushResult = {
 }
 
 /**
+ * Materialize the repository INTO PLACE for the host-driven commit-push. Since
+ * #12136 a session boots with an empty /workspace, so the target can hold the
+ * agent's files with no `.git` at commit-push time. The boot path's own
+ * materialization lives in src/harness/shared/workspace-setup.ts (cloneRepo)
+ * and lib→harness is a banned import boundary (check-architecture.mjs); it
+ * also expects an EMPTY target, so this runs `git init` in place, points
+ * origin at the managed remote, fetches the base tip, and checks the session
+ * branch out from it — an ordinary checkout keeps untracked files, so nothing
+ * the session wrote is deleted. Private to this module: the boot path needs
+ * the full clone flow (retries, baked-checkout adoption), this needs only
+ * what a push requires.
+ */
+async function materializeRepoForCommitPush(cfg: Config, repoUrl: string, target: string): Promise<void> {
+  const base = cfg.defaultBranch
+  await mkdir(target, { recursive: true })
+  const init = await execGit(['-C', target, 'init'])
+  if (init.code !== 0) throw new Error(`git init failed: ${init.stderr || init.stdout}`)
+
+  // Idempotent across a half-finished earlier materialize: origin may exist.
+  const existingRemote = await execGit(['-C', target, 'remote', 'get-url', 'origin'])
+  const remote = existingRemote.code === 0
+    ? await execGit(['-C', target, 'remote', 'set-url', 'origin', repoUrl])
+    : await execGit(['-C', target, 'remote', 'add', 'origin', repoUrl])
+  if (remote.code !== 0) throw new Error(`git remote origin setup failed: ${remote.stderr || remote.stdout}`)
+
+  const credential = await resolveCloneCredential(cfg)
+  // Always fetch the base refspec: the workspace diff (vcsDiff) reads
+  // refs/remotes/origin/<base>, so a materialized repo must carry it. A
+  // resumed session may also have pushed the session branch already: fetch it
+  // too when it differs from the base, so the checkout starts at ITS tip (a
+  // checkout from the base tip would orphan those commits and the push would
+  // be rejected). A fresh session's branch has no remote ref — that is the
+  // ordinary state, so the miss falls through to the base tip (same tolerance
+  // as refreshRepo). Any other fetch failure is fatal.
+  const branch = cfg.branchName || base
+  const fetchArgs = (ref: string) => [
+    '-c', 'http.lowSpeedLimit=1000', '-c', 'http.lowSpeedTime=12',
+    '-C', target, 'fetch', '--depth', '1', '--no-tags', 'origin',
+    `+refs/heads/${ref}:refs/remotes/origin/${ref}`,
+  ]
+  const baseFetched = await gitWithAuth(credential, repoUrl, fetchArgs(base), { timeoutMs: 30_000 })
+  if (baseFetched.code !== 0) throw new Error(`git fetch failed: ${baseFetched.stderr || baseFetched.stdout}`)
+  let startPoint = `refs/remotes/origin/${base}`
+  if (branch !== base) {
+    const sessionFetched = await gitWithAuth(credential, repoUrl, fetchArgs(branch), { timeoutMs: 30_000 })
+    const missingSessionBranch =
+      sessionFetched.code !== 0 && /couldn't find remote ref|remote ref .* not found/i.test(sessionFetched.stderr)
+    if (sessionFetched.code !== 0 && !missingSessionBranch) {
+      throw new Error(`git fetch failed: ${sessionFetched.stderr || sessionFetched.stdout}`)
+    }
+    if (!missingSessionBranch) startPoint = `refs/remotes/origin/${branch}`
+  }
+  // Untracked files that collide with a checkout path fail the checkout and
+  // surface the git error — never overwritten, never forced.
+  const checkout = await execGit(['-C', target, 'checkout', '-B', branch, startPoint])
+  if (checkout.code !== 0) throw new Error(`git checkout failed: ${checkout.stderr || checkout.stdout}`)
+
+  await configureRepoGitIdentity(cfg, target)
+  logger.info('[git] materialized repo for commit-push', { target, base, branch, start: startPoint })
+}
+
+/**
  * Commit the workspace's pending changes and push the session branch to
  * origin — the host-driven equivalent of what an agent does before opening a
  * change request, so the dashboard could open one without routing through the
@@ -453,7 +515,18 @@ export async function commitAndPushWorkingTree(
   opts: { message?: string } = {},
 ): Promise<CommitPushResult> {
   const target = cfg.projectTarget
-  const before = await readRepoInfo(target)
+  let before = await readRepoInfo(target)
+  // A FAILED earlier materialize (a fetch failure, a checkout collision, a
+  // kill mid-run) leaves .git with an UNBORN head: readRepoInfo answers
+  // non-null with branch/commit null. Committing onto that would create a
+  // root commit holding only the agent files — a CR merged from it deletes
+  // every base file. Treat it as unmaterialized and re-materialize: every
+  // step of the fallback is idempotent. Without a configured remote there is
+  // nothing to materialize from, and the refusal below stands.
+  if (cfg.repoUrl && (!before || (!before.commit && !before.branch))) {
+    await materializeRepoForCommitPush(cfg, cfg.repoUrl, target)
+    before = await readRepoInfo(target)
+  }
   if (!before) throw new Error('project repo is not materialized')
 
   const branch = cfg.branchName || before.branch
@@ -505,12 +578,16 @@ export async function commitAndPushWorkingTree(
   }
 }
 
-export async function refreshRepo(cfg: Config): Promise<{ before: RepoInfo; after: RepoInfo }> {
+export async function refreshRepo(
+  cfg: Config,
+): Promise<{ before: RepoInfo | null; after: RepoInfo | null }> {
   const target = cfg.projectTarget
   const before = await readRepoInfo(target)
-  if (!before) {
-    throw new Error('project repo is not materialized')
-  }
+  // A fresh session boots with no checkout at all (/workspace is empty since
+  // #12136): there is nothing to fetch or pull, so the whole refresh is a
+  // no-op. Throwing here made `POST /kortix/refresh` answer 409 for exactly
+  // those sessions, and the Reload-config action silently did nothing.
+  if (!before) return { before: null, after: null }
 
   const cloneCredential = await resolveCloneCredential(cfg)
   if (cfg.repoUrl) {

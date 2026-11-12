@@ -14,17 +14,10 @@ Module entries and `@kortix/ui/theme` need 0.14.4+. Inside `kortix-ai/CompanyOS`
 
 ## 1. Set up once
 
-1. Styles. A Tailwind v4 host: `@import 'tailwindcss'; @import '@kortix/ui/tailwind.css';` in its main CSS,
-   plus the optional peers `tw-animate-css`, `tailwind-scrollbar`, `tailwind-scrollbar-hide`.
-   A host without Tailwind imports `@kortix/ui/styles.css` once: every class the package uses, none of yours.
+1. Styles. A Tailwind v4 host: `@import 'tailwindcss'; @import '@kortix/ui/tailwind.css';` in its main CSS, plus the optional peers `tw-animate-css`, `tailwind-scrollbar`, `tailwind-scrollbar-hide`. A host without Tailwind imports `@kortix/ui/styles.css` once: every class the package uses, none of yours.
 2. Fonts. `@kortix/ui/fonts.css` (Roobert) is for Kortix-owned surfaces only. A white-label host never imports it.
-3. Mount once at the root: `QueryClientProvider`, `UiProvider` (`link`, `navigation`: your router, `observesHistory: true` under Next.js; `components`:
-   host slots, a missing slot hides its control; `config`: `managedModelsEnabled`, `connectorsEnabled`, `terminalEnabled`, `cliConnectEnabled`, `publicSharesEnabled`, `commandPaletteShortcut`, `settingsShortcut`, `accountApiEnabled`; `resolvePreviewUrl`; `useBrand`: your
-   marks; `i18n`, `strings`, `image`, `useViewerId`: without it no sender name or "Stopped by" shows), `IconProvider` (`@kortix/ui/icon-provider`), one `<Toaster />`
-   (`@kortix/ui/toast`). `setUiTelemetry` (`@kortix/ui`) once at module load. Dark mode is `dark` on `<html>`. SDK `billingEnabled` stays off (Kortix's app only).
-4. Ids, never route params. `SessionThread`, `SessionWorkspace` and `ProjectHome` mount `SessionIdsProvider` and the
-   SDK workspace scope themselves. A block outside them: `KortixProjectProvider` (`@kortix/sdk/react`) and
-   `SessionIdsProvider` (`projectId`, `sessionId`) around it. Links follow `setUiRoutes` (`@kortix/ui`): map each page you do not serve to `null`.
+3. Mount once at the root: `QueryClientProvider`, `UiProvider` (`link`, `navigation`: your router, `observesHistory: true` under Next.js; `components`: host slots, a missing slot hides its control; `config`: `managedModelsEnabled`, `connectorsEnabled`, `terminalEnabled`, `cliConnectEnabled`, `publicSharesEnabled`, `commandPaletteShortcut`, `settingsShortcut`, `accountApiEnabled`; `resolvePreviewUrl`; `useBrand`: your marks; `i18n`, `strings`, `image`, `useViewerId`: without it no sender name or "Stopped by" shows), `IconProvider` (`@kortix/ui/icon-provider`), one `<Toaster />` (`@kortix/ui/toast`). `setUiTelemetry` (`@kortix/ui`) once at module load. Dark mode is `dark` on `<html>`. SDK `billingEnabled` stays off (Kortix's app only).
+4. Ids, never route params. `SessionThread`, `SessionWorkspace` and `ProjectHome` mount `SessionIdsProvider` and the SDK workspace scope themselves. A block outside them: `KortixProjectProvider` (`@kortix/sdk/react`) and `SessionIdsProvider` (`projectId`, `sessionId`) around it. Links follow `setUiRoutes` (`@kortix/ui`): map each page you do not serve to `null`.
 5. Import by subpath: `import { Modal } from '@kortix/ui/modal'`. The root `@kortix/ui` (section 7) needs no `@kortix/sdk`.
 
 ## 2. Compose before you create
@@ -58,12 +51,11 @@ A new primitive is the last step: tokens only, a small API, and a section on `/d
 | A hand-rolled chip `<span>` or a colored banner               | `Badge`, `Alert`                                                                                        |
 | `SectionCard`, `List` / `ListRow`                             | `Card`, `<ul className="space-y-2">` rows                                                               |
 | `lucide-react` or another icon set                            | `@phosphor-icons/react`, `*Icon` names, no `weight` prop (only `weight="fill"` for solid status glyphs) |
-| A fork or a restyled copy of a component                      | the component as it ships; theme with tokens (section 6)                                                |
+| A fork of a component, or `@base-ui/react`, `@radix-ui/*`, `cmdk`, `vaul` in a host | the component as it ships, themed with tokens (section 6); `asChild` on its parts, `Slot` from `@kortix/ui/slot` |
 
 ## 4. Tokens only
 
-- Colors are semantic utilities (`bg-background`, `bg-card`, `bg-muted`, `text-muted-foreground`, `border-border`,
-  `bg-primary`, `text-destructive`). Never a hex, `rgb()`, `oklch()` or a palette class (`text-emerald-600`).
+- Colors are semantic utilities (`bg-background`, `bg-card`, `bg-muted`, `text-muted-foreground`, `border-border`, `bg-primary`, `text-destructive`). Never a hex, `rgb()`, `oklch()` or a palette class (`text-emerald-600`).
 - `--spacing` is `0.23rem`, 8% tighter than stock Tailwind: a 16px mockup gap is `gap-4`, never `gap-[16px]`.
 - `rounded-md` for panels and fields; elevation only on overlays. Hover is `transition-colors duration-fast`; no motion over 300 ms.
 
@@ -74,16 +66,7 @@ One meaning per hue. `StatusTone` (`@kortix/ui/status`): `success`, `warning`, `
 `Alert` accepts only `default`, `success`, `warning`, and `destructive`. Map info and neutral notices to `variant="default"`. Tinted icon tile:
 `bg-kortix-green/15` (or `-orange`, `-blue`) with the icon in the full hue.
 
-```tsx
-import { Alert, AlertTitle, AlertDescription } from '@kortix/ui/alert';
-
-<Alert variant="default">
-  <AlertTitle>Connection pending</AlertTitle>
-  <AlertDescription>Finish authorization to connect this account.</AlertDescription>
-</Alert>
-```
-
-Do not pass `title` to `Alert`: that is a native tooltip attribute, not visible content.
+Example: `<Alert variant="default"><AlertTitle>…</AlertTitle><AlertDescription>…</AlertDescription></Alert>` from `@kortix/ui/alert`. Never pass `title` to `Alert`: it is a native tooltip attribute, not visible content.
 
 ## 6. White-label
 
@@ -132,7 +115,6 @@ One entry per module. Its curated names are the public API (semver). Every name,
 | `@kortix/ui/access`, `@kortix/ui/customize` | Sharing and roles; workspace configuration pages | `<ConnectorsPage projectId />` |
 | `@kortix/ui/theme`, `@kortix/ui/i18n`, `@kortix/ui/icons` | Theme; `useTranslations`, `useLocale` (next-intl signatures); glyphs | none |
 
-
 Deep paths (`@kortix/ui/internal/*`, `@kortix/ui/<module>/<path>`) have no semver: only Kortix's own apps import them (`scripts/deep-exports.json`).
 
 ## 9. Recipes
@@ -140,28 +122,19 @@ Deep paths (`@kortix/ui/internal/*`, `@kortix/ui/<module>/<path>`) have no semve
 ```tsx
 import { useSession } from "@kortix/sdk/react";
 import { SessionWorkspace } from "@kortix/ui/workspace";
-export function Session({
-  projectId,
-  sessionId,
-}: {
-  projectId: string;
-  sessionId: string;
-}) {
+export function Session({ projectId, sessionId }: { projectId: string; sessionId: string }) {
   return <SessionWorkspace session={useSession(projectId, sessionId)} />;
 }
 ```
 
-- The parent sets the height (also of `ProjectFilesView`). Install `@tanstack/react-query`, `@openuidev/lang-core@0.3.1` and `zod` with it.
-  `SessionThread` (`@kortix/ui/session`) is the thread alone; with no side panel, file and preview opens show in a dialog.
+- The parent sets the height (also of `ProjectFilesView`). Install `@tanstack/react-query`, `@openuidev/lang-core@0.3.1` and `zod` with it. `SessionThread` (`@kortix/ui/session`) is the thread alone; with no side panel, file and preview opens show in a dialog.
 - A custom tool row: `ToolRegistry.register('<tool name>', Row)`; `Row` gets `ToolProps`, draws `BasicTool`.
-- A whole dashboard or App (client, router adapters, sidebar, workspace home, session, files, theme, tool row, App
-  sign-in): `references/custom-dashboard.md`. Never a raw `fetch`: the SDK has the call, or gets it.
+- A whole dashboard or App (client, router adapters, sidebar, workspace home, session, files, theme, tool row, App sign-in): `references/custom-dashboard.md`. Never a raw `fetch`: the SDK has the call, or gets it.
 
 ## 10. Verify
 
 1. `tsc --noEmit` adds no error. Run the page in light and dark, at 720 × 480 and a phone width; click every control.
-2. Your diff has no hex, `rgb(`, `-[` spacing bracket, `lucide-react`, `toast(` or `animate-spin`. Kortix-internal:
-   `.agents/skills/kortix-brand/scripts/audit.sh <paths>` is clean. White-label: a new `--kortix-blue` reaches a checked `Switch`.
+2. Your diff has no hex, `rgb(`, `-[` spacing bracket, `lucide-react`, `toast(` or `animate-spin`. Kortix-internal: `.agents/skills/kortix-brand/scripts/audit.sh <paths>` is clean. White-label: a new `--kortix-blue` reaches a checked `Switch`.
 
 ## 11. Kortix-internal work
 

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
+import { testUiTranslator } from '@/i18n/test-translator';
 import {
   accessVia,
   agentsMetaPart,
@@ -80,10 +81,10 @@ describe('a mocked access response passes through the row derivations', () => {
   });
 
   test('the agents meta reads all/none/n-of-m from the granted count', () => {
-    expect(agentsMetaPart(0, undefined, true)).toBe('Agents: all');
-    expect(agentsMetaPart(0, undefined, false)).toBe('Agents: none');
-    expect(agentsMetaPart(3, undefined)).toBe('Agents: 3');
-    expect(agentsMetaPart(3, 5)).toBe('Agents: 3 of 5');
+    expect(agentsMetaPart(testUiTranslator, 0, undefined, true)).toBe('Agents: all');
+    expect(agentsMetaPart(testUiTranslator, 0, undefined, false)).toBe('Agents: none');
+    expect(agentsMetaPart(testUiTranslator, 3, undefined)).toBe('Agents: 3');
+    expect(agentsMetaPart(testUiTranslator, 3, 5)).toBe('Agents: 3 of 5');
   });
 
   test('a member row shows its DIRECT custom policy, never a group-inherited one', () => {

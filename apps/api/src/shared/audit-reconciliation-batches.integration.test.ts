@@ -9,6 +9,7 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { PgClient } from '../__tests__/helpers/pg-client';
+import { LATE_ROW_MAX_AGE_DAYS } from './audit-archive/format';
 import { reconcileAuditEvents } from './audit-reconciliation';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
@@ -91,13 +92,13 @@ describe.skipIf(!databaseUrl)('audit reconciliation is bounded by rows per pass'
   });
 
   test('a full scan with no mark completes over several bounded passes, each row audited once', async () => {
-    await usageEvent(100); // older than the 80-day hot window: never reconstructed
+    await usageEvent(LATE_ROW_MAX_AGE_DAYS + 30); // older than the late-row window: never reconstructed
     const missing = [];
-    for (const age of [70, 60, 50, 40, 30, 20]) missing.push(await usageEvent(age));
-    const alreadyAudited = await usageEvent(10, true);
+    for (const share of [0.9, 0.8, 0.7, 0.6, 0.5, 0.4]) missing.push(await usageEvent(share * LATE_ROW_MAX_AGE_DAYS));
+    const alreadyAudited = await usageEvent(0.2 * LATE_ROW_MAX_AGE_DAYS, true);
     missing.push(await usageEvent(0.01));
     // The bound counts every ledger together, not each one separately.
-    for (const age of [65, 45, 25]) await providerEvent(age);
+    for (const share of [0.85, 0.65, 0.45]) await providerEvent(share * LATE_ROW_MAX_AGE_DAYS);
 
     // First pass: 2 rows, then it stops and records the scan as in progress.
     const first = await reconcileAuditEvents(ACCOUNT, 1_000, 2);

@@ -16,7 +16,7 @@ globals.cancelAnimationFrame = (id: number) => clearTimeout(id);
 for (const key of Object.getOwnPropertyNames(win)) {
   if (/^[A-Z]/.test(key) && !(key in globals)) globals[key] = Reflect.get(win, key);
 }
-// Bun has its own event classes. Radix's focus and dismiss layers create
+// Bun has its own event classes. Base UI's focus and dismiss layers create
 // events by bare global name, and happy-dom dispatches only its own (the
 // change-request-detail-dialog-controls.test.tsx setup).
 for (const key of [

@@ -31,7 +31,7 @@ describe('SessionTurnMeta', () => {
       <SessionTurnMeta endedAt={Date.now()} durationMs={135_000} cost={COST} />,
     );
 
-    // The panel is portalled and rendered only once Radix opens it, so a
+    // The panel is portalled and rendered only once the popover opens it, so a
     // closed popover leaves no rows in the initial markup. Row *content* —
     // labels, ordering, formatting — is covered by session-turn-meta-rows.test.ts,
     // not faked here.

@@ -195,9 +195,9 @@ describe('stableStringify — the dirty check', () => {
     );
   });
 
-  test('disabled repository access remains distinct from an omitted or enabled policy', () => {
-    expect(stableStringify({ repository_access: false })).not.toBe(stableStringify({}));
-    expect(stableStringify({ repository_access: false })).not.toBe(stableStringify({ repository_access: true }));
+  test('an explicit false remains distinct from an omitted or true value', () => {
+    expect(stableStringify({ enabled: false })).not.toBe(stableStringify({}));
+    expect(stableStringify({ enabled: false })).not.toBe(stableStringify({ enabled: true }));
   });
 
   test('an undefined value reads the same as an absent key', () => {
@@ -233,12 +233,10 @@ describe('mode pickers use the shared component library', () => {
     expect(primitivesSource).not.toContain('FieldRow');
   });
 
-  test('Tabs stay scoped to grants; repository access uses a Switch and enums use Select', () => {
+  test('Tabs stay scoped to grants and enums use Select', () => {
     for (const source of sectionSources) {
       expect(source).not.toContain('@/components/ui/tabs');
-      expect(source).toContain(source === accessFieldsSource
-        ? "from '../../../primitives/switch'"
-        : "from '../../../primitives/select'");
+      if (source !== accessFieldsSource) expect(source).toContain("from '../../../primitives/select'");
     }
   });
 

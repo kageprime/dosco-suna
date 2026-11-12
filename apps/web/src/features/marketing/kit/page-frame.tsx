@@ -1,3 +1,4 @@
+import { cn } from '@kortix/ui';
 import type { ReactNode } from 'react';
 
 /*
@@ -13,6 +14,7 @@ import type { ReactNode } from 'react';
 export function PageFrame({ children }: { children: ReactNode }) {
   return (
     <main className="bg-background relative mx-auto w-full max-w-[1440px]">
+      {/* Rails: 62px in from each edge on the board. z-10 keeps them above the band fill. */}
       <div
         aria-hidden
         className="bg-border pointer-events-none absolute inset-y-0 left-4 z-10 w-px lg:left-17"
@@ -69,6 +71,38 @@ export function PageHero({
   );
 }
 
+/** The hero's rail band: the walkthrough (or stage) and its caption, on a
+ *  card between the rails. `className` extends the band's inner container:
+ *  /multiplayer centres tighter (`px-3`), the surface pages clip their stage
+ *  (`overflow-hidden`). */
+export function HeroBand({
+  caption,
+  captionMuted,
+  children,
+  className,
+}: {
+  caption: string;
+  captionMuted: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className="kx-rail-fade relative border-y px-4 lg:px-17">
+      <div
+        className={cn(
+          'bg-card flex flex-col items-center gap-7 px-4 py-8 lg:gap-10 lg:px-11 lg:pt-17 lg:pb-10',
+          className,
+        )}
+      >
+        {children}
+        <p className="text-foreground px-4 text-center text-base font-medium text-balance">
+          {caption} <span className="text-muted-foreground">{captionMuted}</span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /** A section's two-tone title and one line of description. A muted line with
  *  no translation yet may be absent; `actions` sits under the description. */
 export function Heading({
@@ -118,7 +152,7 @@ export function SpecGrid({
 
 /** A band whose hairlines cross the page, its content between the rails. */
 export function Band({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={`kx-rail-fade border-y px-4 lg:px-17 ${className ?? ''}`}>{children}</div>;
+  return <div className={cn('kx-rail-fade border-y px-4 lg:px-17', className)}>{children}</div>;
 }
 
 /** Cells split by hairlines: the band's grid over the border colour. */

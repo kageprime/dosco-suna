@@ -85,8 +85,8 @@ interface CallerInviteEmail {
  * account's IdP instead (`sso_provider_id` on the describe), or an admin
  * resends the invite.
  */
-async function callerInviteEmail(c: any, accountId?: string): Promise<CallerInviteEmail> {
-  const userId = c.get('userId') as string | undefined;
+async function callerInviteEmail(c: Context<AppEnv>, accountId?: string): Promise<CallerInviteEmail> {
+  const userId = c.get('userId');
   const email = await trustedEmailForUser(userId, { allowAutoconfirmed: true, accountId });
   const proven =
     !email || !config.ENABLE_EMAIL_AUTOCONFIRM || (await trustedEmailForUser(userId, { accountId })) === email;
@@ -113,7 +113,7 @@ function inviteRefusal(c: any, caller: CallerInviteEmail, invite: { email: strin
     };
   }
   // The token names the invite's email, but the SSO identity cannot prove it.
-  if (normalizeEmail(c.get('userEmail') as string | undefined) === address) {
+  if (normalizeEmail(c.get('userEmail')) === address) {
     return {
       code: 'sso_email_domain_unverified',
       error:
@@ -339,7 +339,7 @@ accountInvitesRouter.openapi(
       ...errors(401),
     },
   }),
-  async (c: any) => {
+  async (c) => {
     const caller = await callerInviteEmail(c);
     if (!caller.email) return c.json({ invites: [] });
 
@@ -397,7 +397,7 @@ accountInvitesRouter.openapi(
       ...errors(401, 404),
     },
   }),
-  async (c: any) => {
+  async (c) => {
   const inviteId = c.req.param('inviteId');
   // Not a uuid: no invite has it, and Postgres would reject the cast (500).
   if (!isUuid(inviteId)) return c.json({ error: 'Invite not found' }, 404);
@@ -484,8 +484,8 @@ accountInvitesRouter.openapi(
       ...errors(401, 404, 429),
     },
   }),
-  async (c: any) => {
-  const userId = c.get('userId') as string;
+  async (c) => {
+  const userId = c.get('userId');
   const inviteId = c.req.param('inviteId');
   // Not a uuid: no invite has it, and Postgres would reject the cast (500).
   if (!isUuid(inviteId)) return c.json({ error: 'Invite not found' }, 404);
@@ -527,7 +527,7 @@ accountInvitesRouter.openapi(
       account_role: invite.initialRole,
       already_accepted: true,
       bootstrap_grants_applied: [],
-    });
+    }, 200);
   }
 
   // One transaction: the stamp is a compare-and-set on `accepted_at IS NULL`
@@ -585,12 +585,15 @@ accountInvitesRouter.openapi(
     });
   }
 
-  return c.json({
-    account_id: invite.accountId,
-    account_role: invite.initialRole,
-    already_accepted: false,
-    bootstrap_grants_applied: appliedGrants,
-  });
+  return c.json(
+    {
+      account_id: invite.accountId,
+      account_role: invite.initialRole,
+      already_accepted: false,
+      bootstrap_grants_applied: appliedGrants,
+    },
+    200,
+  );
   },
 );
 
@@ -610,7 +613,7 @@ accountInvitesRouter.openapi(
       ...errors(401, 403, 404, 409),
     },
   }),
-  async (c: any) => {
+  async (c) => {
   const inviteId = c.req.param('inviteId');
   // Not a uuid: no invite has it, and Postgres would reject the cast (500).
   if (!isUuid(inviteId)) return c.json({ error: 'Invite not found' }, 404);
@@ -632,6 +635,6 @@ accountInvitesRouter.openapi(
 
   await db.delete(accountInvitations).where(eq(accountInvitations.inviteId, invite.inviteId));
 
-  return c.json({ ok: true });
+  return c.json({ ok: true }, 200);
   },
 );

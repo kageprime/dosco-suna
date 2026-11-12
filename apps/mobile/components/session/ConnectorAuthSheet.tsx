@@ -10,7 +10,7 @@
  * IS shared, and reused rather than duplicated: the visual shell
  * (`HandoffSheetBody`: Kortix · · · App, a title, one muted line, then
  * "Continue to {app}" ↗ over Not now) and the close-then-open dismiss dance
- * (`useHandoffDismiss`, `handoff-sheet.ts`).
+ * (`useHandoffDismiss`, `handoff-sheet.tsx`).
  *
  * Continue tries the project's own Pipedream connect flow first — the
  * `pipedreamConnect`/`pipedreamFinalize` round trip

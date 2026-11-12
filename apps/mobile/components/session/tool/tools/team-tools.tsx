@@ -80,7 +80,7 @@ export function isTeamTaskCall(call: ToolProps['call']): boolean {
   return looksLikeTeamTaskInput(partInput(call));
 }
 
-export function MultiAgentToolCard({ call, forceOpen }: ToolProps) {
+function MultiAgentToolCard({ call, forceOpen }: ToolProps) {
   const tool = multiAgentTool(call.name);
   const status = partStatus(call);
   const settled = status === 'completed' || status === 'error';
@@ -148,7 +148,7 @@ function AgentRow({ agent }: { agent: ReachableAgentRow }) {
   const { enabled, openSession } = useToolNavigation();
   const body = (
     <>
-      {agent.state ? <SessionStatusMark status={agentStateGlyph(agent.state)} /> : <View style={{ width: 16 }} />}
+      {agent.state ? <SessionStatusMark status={agentStateGlyph(agent.state)} waitingOn="answer" /> : <View style={{ width: 16 }} />}
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: webSpace(2) }}>
           <Text numberOfLines={1} style={[TURN_TYPE.sm, { flexShrink: 1, fontFamily: FONT_MEDIUM, color: palette.foreground }]}>

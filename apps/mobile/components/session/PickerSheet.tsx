@@ -18,7 +18,7 @@
  */
 import * as React from 'react';
 import { View, useWindowDimensions } from 'react-native';
-import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { SheetScrollView } from '@/components/kortix/sheet-parts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 
@@ -122,7 +122,7 @@ export const PickerSheet = React.forwardRef<SheetRef, PickerSheetProps>(
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore">
         <View style={tabs ? { flex: 1 } : undefined}>
-        <BottomSheetScrollView
+        <SheetScrollView
           style={tabs ? { flex: 1 } : undefined}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -184,7 +184,7 @@ export const PickerSheet = React.forwardRef<SheetRef, PickerSheetProps>(
               <Text variant="muted">{emptyLabel}</Text>
             </View>
           ) : null}
-        </BottomSheetScrollView>
+        </SheetScrollView>
         {tabs ? (
           <PinnedBar controlHeight={FLOATING_BAR_HEIGHT} background={sheetBackground} className="justify-center px-4">
             <FloatingTabCapsule

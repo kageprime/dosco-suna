@@ -7,9 +7,9 @@
  *   uses `gap-3`, `text-sm leading-[1.5]`, and a 1.75rem card indent; every
  *   other surface keeps `gap-1.5` and 1.375rem. One context carries the gap
  *   and the indent together so they cannot drift apart (web `--tool-indent`).
- * - `ToolCardFrame` — `border bg-popover rounded-md`, `mt-1.5`, indented to the
- *   row's text column, body capped at `max-h-96` and scrollable, an optional
- *   floating copy button with the `pr-11` reserve.
+ * - `useToolCardFrame` — `border bg-popover rounded-md border` spread into a
+ *   card's style; `ToolResultCard` and the per-tool payload cards draw the
+ *   `mt-1.5` seam, the row indent and the capped scrollable body around it.
  */
 
 import {
@@ -75,7 +75,7 @@ export function ToolScroll({
   );
 }
 
-export interface ToolRowVariant {
+interface ToolRowVariant {
   /** The row is a step in a chain of thought. */
   chain: boolean;
   /** A bare step hides the tool's leading icon (never the outcome mark). */
@@ -104,7 +104,7 @@ export function useToolIndent(): number {
   return chain ? TURN_SPACE.toolIndentChain : TURN_SPACE.toolIndent;
 }
 
-export interface ToolCardFrameStyle {
+interface ToolCardFrameStyle {
   borderWidth: number;
   borderColor: string;
   backgroundColor: string;
@@ -112,7 +112,7 @@ export interface ToolCardFrameStyle {
 }
 
 /** Web `useToolCardFrame`: `border-border bg-popover rounded-md border`. Spread the result into a style. */
-export function useToolCardFrame(): ToolCardFrameStyle | null {
+export function useToolCardFrame(): ToolCardFrameStyle {
   const palette = useTurnPalette();
   return {
     borderWidth: 1,
@@ -157,63 +157,6 @@ export function ToolCopyButton({ text }: { text: string }) {
         color={copied ? palette.success : palette.muted60}
       />
     </Button>
-  );
-}
-
-/**
- * The hairline card under an expanded tool row.
- *
- * `padded` applies web's `p-3` (+ `pr-11` when copyable). Mobile's per-tool
- * renderers (`tool/tools/*`) still bring their own insets, so they are hosted
- * with `padded={false}` until each is ported.
- */
-export function ToolCardFrame({
-  children,
-  copyText,
-  padded = true,
-  scroll = true,
-  tone = 'default',
-  framePad = 0,
-}: {
-  children: ReactNode;
-  copyText?: string;
-  padded?: boolean;
-  scroll?: boolean;
-  /** `destructive` is web `ToolResultCard tone="destructive"`: `border-destructive/40 bg-destructive/10`. */
-  tone?: 'default' | 'destructive';
-  /** `ToolResultCard` keeps a `p-1` gutter on the frame itself. */
-  framePad?: number;
-}) {
-  const palette = useTurnPalette();
-  const indent = useToolIndent();
-  const pad = padded ? TURN_SPACE.cardPad : 0;
-  const bodyStyle = {
-    padding: pad,
-    paddingRight: copyText ? TURN_SPACE.copyReserve : pad,
-  };
-
-  return (
-    <View
-      style={{
-        marginTop: TURN_SPACE.gap1_5,
-        marginLeft: indent,
-        padding: framePad,
-        borderWidth: 1,
-        borderRadius: TURN_SPACE.radiusMd,
-        borderColor: tone === 'destructive' ? palette.destructive40 : palette.border,
-        backgroundColor: tone === 'destructive' ? palette.destructive10 : palette.popover,
-        overflow: 'hidden',
-      }}
-    >
-      {scroll ? (
-        <ToolScroll maxHeight={TURN_SPACE.outputMaxHeight} contentContainerStyle={bodyStyle} showsVerticalScrollIndicator>
-          {children}
-        </ToolScroll>
-      ) : (
-        <View style={bodyStyle}>{children}</View>
-      )}
-      {copyText ? <ToolCopyButton text={copyText} /> : null}
-    </View>
   );
 }
 

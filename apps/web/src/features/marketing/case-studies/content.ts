@@ -114,24 +114,6 @@ export const caseStudies: { title: string; titleMuted: string; items: readonly C
       ],
     },
     {
-      id: 'asset-management',
-      logo: {
-        src: '/media/case-studies/asset-management.svg?v=54485925',
-        alt: 'An asset management symbol',
-        width: 100,
-        height: 100,
-      },
-      category: 'Asset management',
-      title: 'Every deal, evaluated by agents.',
-      body: 'Every deal that comes in gets a full analysis. Agents screen it against the mandate, read the filings and market data, stress-test the thesis and the downside, and write the investment memo. The investment committee decides.',
-      facts: [
-        'Every deal screened against the mandate',
-        'Filings and market data read',
-        'Thesis and downside stress-tested',
-        'An investment memo for every deal',
-      ],
-    },
-    {
       id: 'platinum',
       mark: 'platinum',
       category: 'Cloud infrastructure',
@@ -146,6 +128,7 @@ export const caseStudies: { title: string; titleMuted: string; items: readonly C
     },
     {
       id: 'banking',
+      hidden: true,
       logo: {
         src: '/media/case-studies/banking.svg?v=02ed3983',
         alt: 'A banking mark',
@@ -214,6 +197,24 @@ export const caseStudies: { title: string; titleMuted: string; items: readonly C
         'Discrepancies chased with suppliers',
         'Every match with its documents',
         'Approval above a set limit',
+      ],
+    },
+    {
+      id: 'asset-management',
+      logo: {
+        src: '/media/case-studies/asset-management.svg?v=54485925',
+        alt: 'An asset management symbol',
+        width: 100,
+        height: 100,
+      },
+      category: 'Asset management',
+      title: 'Autonomous deal analysis.',
+      body: 'Agents screen every deal against the mandate, stress-test the thesis and write the investment memo. The investment committee decides.',
+      facts: [
+        'Every deal screened against the mandate',
+        'Filings and market data read',
+        'Thesis and downside stress-tested',
+        'An investment memo for every deal',
       ],
     },
     {

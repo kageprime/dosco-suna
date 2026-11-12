@@ -53,8 +53,8 @@ import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from 'nativewind';
 import * as WebBrowser from 'expo-web-browser';
-import { BottomSheetView } from '@gorhom/bottom-sheet';
 import type { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { SheetView } from '@/components/kortix/sheet-parts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { PROJECT_ACTIONS } from '@kortix/sdk';
@@ -193,7 +193,7 @@ const EditFieldSheet = React.forwardRef<EditFieldSheetRef, unknown>(function Edi
 
   return (
     <KortixBottomSheetModal ref={modalRef} title={config?.title} keyboardBehavior="interactive" keyboardBlurBehavior="restore">
-      <BottomSheetView>
+      <SheetView>
         <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: Math.max(insets.bottom, 16) + 8, gap: 16 }}>
           <SheetTextInput
             value={draft}
@@ -213,7 +213,7 @@ const EditFieldSheet = React.forwardRef<EditFieldSheetRef, unknown>(function Edi
             <Text>{saving ? 'Saving…' : 'Save'}</Text>
           </Button>
         </View>
-      </BottomSheetView>
+      </SheetView>
     </KortixBottomSheetModal>
   );
 });
@@ -248,7 +248,7 @@ function AddCollaboratorSheet({ projectId, modalRef }: { projectId: string; moda
 
   return (
     <KortixBottomSheetModal ref={modalRef} title="Add collaborator" keyboardBehavior="interactive" keyboardBlurBehavior="restore">
-      <BottomSheetView>
+      <SheetView>
         <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: Math.max(insets.bottom, 16) + 8, gap: 16 }}>
           <Text variant="muted">
             Kortix owns this repo. Add a GitHub user as a collaborator so they can clone, browse, and work on it
@@ -293,7 +293,7 @@ function AddCollaboratorSheet({ projectId, modalRef }: { projectId: string; moda
             <Text>{invite.isPending ? 'Sending…' : 'Add'}</Text>
           </Button>
         </View>
-      </BottomSheetView>
+      </SheetView>
     </KortixBottomSheetModal>
   );
 }
@@ -321,7 +321,7 @@ function DeleteProjectSheet({
 
   return (
     <KortixBottomSheetModal ref={modalRef} title={t('workspace.delete', 'Delete workspace')} onDismiss={() => setTyped('')}>
-      <BottomSheetView>
+      <SheetView>
         <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: Math.max(insets.bottom, 16) + 8, gap: 16 }}>
           <Text variant="muted">
             {t('workspace.deleteBody', {
@@ -353,7 +353,7 @@ function DeleteProjectSheet({
             <Text>{t('common.continue', 'Continue')}</Text>
           </Button>
         </View>
-      </BottomSheetView>
+      </SheetView>
     </KortixBottomSheetModal>
   );
 }

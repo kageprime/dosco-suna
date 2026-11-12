@@ -40,8 +40,10 @@ export const PRICING_PLANS: PricingPlan[] = [
     features: [
       '500 credits / month on your first workspace',
       'No card needed',
-      'Bring your own API key for any premium model',
-      'Connect your ChatGPT subscription',
+      // KRTX-4494: kept in sync with apps/web/src/features/billing/pricing-plans.ts —
+      // the free family never gets managed models.
+      'Models run on your own API key or ChatGPT subscription',
+      'Managed models are on the Credits plan only',
     ],
   },
   {

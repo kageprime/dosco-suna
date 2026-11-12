@@ -27,7 +27,19 @@ export interface SessionNeedsYou {
   reason: string;
   /** Epoch ms of the newest item; orders the drawer's Needs you group. */
   newestAt: number;
+  /**
+   * What the wait blocks, for the status glyph (web's `waitingOn`):
+   * `answer` — an agent question or an approval holds the agent (a question
+   * mark); `review` — only output to review waits (a diff glyph). An answer
+   * blocks the agent, so it wins over a review in the same session.
+   */
+  waitingOn: NeedsYouWaitingOn;
 }
+
+export type NeedsYouWaitingOn = 'answer' | 'review';
+
+/** Inbox kinds that hold the agent until the user answers. */
+const ANSWER_KINDS: ReadonlySet<ReviewItem['kind']> = new Set(['approval', 'decision']);
 
 const REASON_PREFIX: Record<ReviewItem['kind'], string> = {
   approval: 'Approve',
@@ -71,34 +83,38 @@ export function needsYouBySession(
   items: readonly NeedsYouItem[],
   needsInput?: SessionsNeedingInputResponse,
 ): Map<string, SessionNeedsYou> {
-  const newest = new Map<string, { item: NeedsYouItem; at: number; count: number }>();
+  const newest = new Map<string, { item: NeedsYouItem; at: number; count: number; answer: boolean }>();
   for (const item of items) {
     if (item.status !== 'needs_you' || !item.sessionId) continue;
     const at = createdAtMs(item.createdAt);
     const entry = newest.get(item.sessionId);
     if (!entry) {
-      newest.set(item.sessionId, { item, at, count: 1 });
+      newest.set(item.sessionId, { item, at, count: 1, answer: ANSWER_KINDS.has(item.kind) });
       continue;
     }
     entry.count += 1;
+    if (ANSWER_KINDS.has(item.kind)) entry.answer = true;
     if (at > entry.at) {
       entry.item = item;
       entry.at = at;
     }
   }
   const result = new Map<string, SessionNeedsYou>();
-  for (const [sessionId, { item, at, count: itemCount }] of newest) {
-    const count = Math.max(itemCount, needsInput?.sessions[sessionId] ?? 0);
+  for (const [sessionId, { item, at, count: itemCount, answer }] of newest) {
+    const inputCount = needsInput?.sessions[sessionId] ?? 0;
+    const count = Math.max(itemCount, inputCount);
     const reason = needsYouReason(item);
     result.set(sessionId, {
       count,
       reason: count > 1 ? `${reason} · ${count - 1} more` : reason,
       newestAt: at,
+      // needs-input lists open questions and approvals: both hold the agent.
+      waitingOn: answer || inputCount > 0 ? 'answer' : 'review',
     });
   }
   for (const [sessionId, count] of Object.entries(needsInput?.sessions ?? {})) {
     if (count > 0 && !result.has(sessionId)) {
-      result.set(sessionId, { count, reason: REASON_WITHOUT_TITLE.decision, newestAt: 0 });
+      result.set(sessionId, { count, reason: REASON_WITHOUT_TITLE.decision, newestAt: 0, waitingOn: 'answer' });
     }
   }
   return result;

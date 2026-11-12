@@ -59,9 +59,11 @@ mock.module('@/lib/utils/theme', () => ({
 mock.module('@/lib/logger', () => ({ log: { error: none, warn: none, info: none } }));
 
 let SearchListHeader: typeof import('./search-list-header').SearchListHeader;
+let SearchPill: typeof import('./search-pill').SearchPill;
 beforeAll(async () => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   ({ SearchListHeader } = await import('./search-list-header'));
+  ({ SearchPill } = await import('./search-pill'));
 });
 
 let tree: ReactTestRenderer | undefined;
@@ -123,6 +125,30 @@ describe('SearchListHeader search pill', () => {
     expect(rowDefault.className).toContain('px-4');
     const rowPage = render({ value: '', onChangeText: none, gutter: 'page' })[0];
     expect(rowPage.className).toContain('px-5');
+  });
+});
+
+describe('SearchPill as another field (the Invite member email)', () => {
+  test('icon replaces the magnifier, clearLabel names the clear button, inputProps reach the input', () => {
+    const envelope = () => null;
+    act(() => {
+      tree = create(
+        React.createElement(SearchPill, {
+          value: 'a@b.co',
+          onChangeText: none,
+          placeholder: 'Email',
+          icon: envelope as never,
+          clearLabel: 'Clear email',
+          inputProps: { keyboardType: 'email-address', returnKeyType: 'send' },
+        }),
+      );
+    });
+    const glyphs = (tree!.root.findAllByType('icon' as never) as unknown as Array<{ props: Record<string, unknown> }>);
+    expect(glyphs).toHaveLength(2);
+    expect(tree!.root.findByType('pressable' as never).props.accessibilityLabel).toBe('Clear email');
+    expect(inputs[0].placeholder).toBe('Email');
+    expect(inputs[0].keyboardType).toBe('email-address');
+    expect(inputs[0].returnKeyType).toBe('send');
   });
 });
 

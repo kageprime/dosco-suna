@@ -81,7 +81,7 @@ mock.module('@kortix/ui/workspace/projects/modal/project-icon-field', () => ({
   ProjectIconField: Passthrough,
 }));
 
-// Radix Select requires a browser DOM; rename behavior does not depend on it.
+// `Select` requires a browser DOM; rename behavior does not depend on it.
 mock.module('@kortix/ui/select', () => ({
   Select: Passthrough,
   SelectContent: Passthrough,
@@ -90,7 +90,7 @@ mock.module('@kortix/ui/select', () => ({
   SelectValue: Passthrough,
 }));
 
-// Radix Tooltip (the workspace id row's copy hint) needs a browser DOM too.
+// `Tooltip` (the workspace id row's copy hint) needs a browser DOM too.
 mock.module('@kortix/ui/hint', () => ({ default: Passthrough, Hint: Passthrough }));
 
 const { GeneralTab } = await import('@kortix/ui/customize/settings/tabs/general-tab');

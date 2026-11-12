@@ -11,7 +11,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 import { configureKortix } from './config';
-import { handleErrorResponse } from './response-error';
+import { handleErrorResponse, isReportedWriteFailure } from './response-error';
 import { ApiError } from './api/errors';
 
 function response(status: number, body: unknown): Response {
@@ -85,5 +85,22 @@ describe('handleErrorResponse · approval expired 409', () => {
     expect(result.error).toBeInstanceOf(ApiError);
     expect((result.error as ApiError).status).toBe(409);
     expect((result.error as ApiError).code).toBe('APPROVAL_EXPIRED');
+  });
+});
+
+// A write the SDK sends again reports its final failure itself
+// (drives.ts uploadDriveFile): the same rule the request layer applies.
+describe('isReportedWriteFailure', () => {
+  test('an HTTP refusal and a dropped connection are reported', () => {
+    expect(isReportedWriteFailure(new ApiError('no', { status: 403, data: { message: 'no' } }))).toBe(true);
+    expect(isReportedWriteFailure(new ApiError('Failed to fetch', { name: 'TypeError' }))).toBe(true);
+  });
+
+  test('a timeout, a signed-out caller, an abort and an expected response are not', () => {
+    expect(isReportedWriteFailure(new ApiError('Request timed out after 30s', { code: 'TIMEOUT' }))).toBe(false);
+    expect(isReportedWriteFailure(new ApiError('Not authenticated', { code: 'NO_SESSION' }))).toBe(false);
+    expect(isReportedWriteFailure(new ApiError('Request aborted', { name: 'AbortError', code: 'ABORTED' }))).toBe(false);
+    const deadline = { message: 'Request exceeded the 25s server processing deadline' };
+    expect(isReportedWriteFailure(new ApiError(deadline.message, { status: 503, data: deadline }))).toBe(false);
   });
 });

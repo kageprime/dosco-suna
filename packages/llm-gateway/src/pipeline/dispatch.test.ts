@@ -4,6 +4,7 @@ import { UpstreamHttpError } from '../errors';
 import {
   type DispatchContext,
   type DispatchPlan,
+  BYOK_MAX_OUTPUT_TOKENS,
   UPSTREAM_HEADERS_TIMEOUT_MS,
   dispatch,
   upstreamHeadersTimeoutMs,
@@ -99,6 +100,21 @@ function harness(reply: (sent: Sent, index: number) => Response | Error, overrid
 }
 
 describe('dispatch: one attempt plan', () => {
+  // OpenRouter refuses a funded key a request whose max_tokens it cannot
+  // afford ("requires more credits, or fewer max_tokens"); pi asked for up to
+  // the whole context window.
+  test('an own provider key is asked for at most BYOK_MAX_OUTPUT_TOKENS; a Kortix-billed one is not capped', async () => {
+    const { run, sent } = harness(() => ok());
+    const own = upstream('openrouter', { billingMode: 'none', markup: 0 });
+    await run({ model: 'm', candidates: [own] }, { max_tokens: 262_144, messages: [] });
+    await run({ model: 'm', candidates: [own] }, { max_completion_tokens: 1_000_000, messages: [] });
+    await run({ model: 'm', candidates: [own] }, { max_tokens: 4_096, messages: [] });
+    await run({ model: 'm', candidates: [base] }, { max_tokens: 262_144, messages: [] });
+    expect(sent.map((s) => s.body.max_tokens ?? s.body.max_completion_tokens)).toEqual([
+      BYOK_MAX_OUTPUT_TOKENS, BYOK_MAX_OUTPUT_TOKENS, 4_096, 262_144,
+    ]);
+  });
+
   test('a pooled account reports the plan usage of every answer, refused or served', async () => {
     const usage: Array<[string, number | undefined]> = [];
     const key = (name: string) => upstream('openai-compat-pool', { apiKey: name, poolSecretId: name, billingMode: 'none', markup: 0 });

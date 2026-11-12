@@ -110,7 +110,7 @@ export function ProjectActions({
             className="px-5 pt-1"
             style={{ gap: 16, paddingBottom: Math.max(insets.bottom, 16) + 8 }}>
             <View className="flex-row items-center gap-3 px-1">
-              <Avatar chalk fallbackText={project.name} size={40} />
+              <Avatar chalk fallbackText={project.name} size={40} emoji={project.icon} glyph={project.icon_glyph} />
               <Text variant="large" className="flex-1" numberOfLines={1}>
                 {project.name}
               </Text>

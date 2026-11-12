@@ -22,8 +22,9 @@
  * under the `workspaces` tag.
  *
  * Canonical paths take the workspace id only (`middleware/workspace-account.ts`):
- * an account id, an unknown id or an unreadable workspace answers
- * `404 workspace_not_found` on every sub-path.
+ * an account id or an unknown id answers `404 workspace_not_found` on every
+ * sub-path; a live workspace the caller cannot read answers
+ * `403 workspace_access_denied`.
  */
 import type { OpenAPIHono } from '@hono/zod-openapi';
 import {
@@ -183,8 +184,8 @@ export const WORKSPACE_PROJECT_ROUTE_RENAMES: Readonly<Record<string, string>> =
  * `projectsApp` for `/v1/workspaces`: every route, in the same order, except
  * {@link WORKSPACE_PROJECT_ROUTES_NOT_ALIASED}, with
  * {@link WORKSPACE_PROJECT_ROUTE_RENAMES} applied. After auth, the canonical gate
- * answers 404 `workspace_not_found` for an id that is not a readable
- * workspace and 409 `workspace_setup_required` for a workspace with no
+ * answers 404 `workspace_not_found` for an id that is not a workspace, 403
+ * `workspace_access_denied` for one the caller cannot read, and 409 `workspace_setup_required` for a workspace with no
  * project yet.
  */
 export function workspaceProjectsApp(projectsApp: AnyApp): AnyApp {

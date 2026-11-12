@@ -37,7 +37,7 @@ describe('detailSelection — open follows intent, never the query', () => {
 
     expect(resolving.open).toBe(true);
     expect(resolved.open).toBe(true);
-    // `open` never flips, so Radix never replays the open animation and the
+    // `open` never flips, so the dialog never replays the open animation and the
     // focus trap is continuous across the load.
     expect(resolved.isResolving).toBe(false);
     expect(resolved.record).toBe(RECORD);

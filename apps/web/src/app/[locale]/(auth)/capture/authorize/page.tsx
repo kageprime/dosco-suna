@@ -4,23 +4,31 @@ import {
   useApproveCaptureDevice,
   useCaptureDeviceGrant,
   useDenyCaptureDevice,
+  useNow,
 } from '@kortix/sdk/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useState } from 'react';
 
 import Link from 'next/link';
 
 import { Button } from '@kortix/ui/button';
 import { EntityAvatar } from '@kortix/ui/entity-avatar';
 import { Input } from '@kortix/ui/input';
-import Loading from '@kortix/ui/loading';
 import { RadioGroup, RadioGroupItem } from '@kortix/ui/radio-group';
 import { AuthFrame } from '@kortix/ui/internal/auth/auth-card-shell';
 import { AuthPendingScreen, AuthStatusScreen } from '@kortix/ui/internal/auth/auth-consent';
-import { ErrorStrip, FieldLabel, Rise, StepHeader } from '@kortix/ui/internal/auth/auth-primitives';
+import {
+  ApproveDenyActions,
+  DeviceCodeHeader,
+  FieldLabel,
+  Rise,
+  StepHeader,
+} from '@kortix/ui/internal/auth/auth-primitives';
 import { deviceOs } from '@kortix/ui/internal/capture/use-capture-area';
 import { useWorkspaceDirectory } from '@kortix/ui/workspace/sidebar/use-workspace-directory';
 import { useAuth } from '@/features/providers/auth-provider';
+import { useSignedOutRedirect } from '@/lib/auth/use-signed-out-redirect';
+import { formatClock } from '@/lib/format-clock';
 import { useTranslations } from '@/i18n/use-translations';
 
 export default function CaptureAuthorizePage() {
@@ -48,12 +56,7 @@ function CaptureAuthorize() {
   const { user, isLoading: authLoading } = useAuth();
   const [typedCode, setTypedCode] = useState('');
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      const back = `/capture/authorize${userCode ? `?user_code=${encodeURIComponent(userCode)}` : ''}`;
-      router.replace(`/auth?returnUrl=${encodeURIComponent(back)}`);
-    }
-  }, [user, authLoading, router, userCode]);
+  useSignedOutRedirect();
 
   const grant = useCaptureDeviceGrant(user ? userCode : null);
   const approve = useApproveCaptureDevice();
@@ -74,11 +77,7 @@ function CaptureAuthorize() {
     ? { name: approvedWorkspace.project.name }
     : accounts.find((account) => account.account_id === approvedAccountId);
 
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const now = useNow();
 
   if (authLoading || !user) return <AuthPendingScreen />;
 
@@ -159,9 +158,6 @@ function CaptureAuthorize() {
     return <AuthStatusScreen title={t('deniedTitle')} description={t('deniedDescription')} />;
   }
 
-  const busy = approve.isPending || deny.isPending;
-  const minutes = Math.floor(remaining / 60);
-  const seconds = remaining % 60;
   const device = [info.device.name, deviceOs(info.device)].filter(Boolean).join(' · ');
 
   return (
@@ -172,14 +168,7 @@ function CaptureAuthorize() {
 
       <Rise delay={0.06}>
         <div className="space-y-5">
-          <div className="flex items-center justify-between gap-3 rounded-md border px-3.5 py-3">
-            <span className="text-foreground font-mono text-lg font-medium tracking-widest tabular-nums">
-              {info.user_code}
-            </span>
-            <span className="text-muted-foreground font-mono text-xs tabular-nums">
-              {minutes}:{seconds.toString().padStart(2, '0')}
-            </span>
-          </div>
+          <DeviceCodeHeader code={info.user_code} countdown={formatClock(remaining)} />
 
           <div className="space-y-1">
             {device ? <p className="text-foreground text-sm">{device}</p> : null}
@@ -221,34 +210,22 @@ function CaptureAuthorize() {
           <p className="text-muted-foreground text-xs text-pretty">{t('notice')}</p>
           <p className="text-foreground text-xs font-medium text-pretty">{t('ownCodeOnly')}</p>
 
-          <div className="space-y-3">
-            {approve.error ? <ErrorStrip message={approve.error.message} /> : null}
-            {deny.error ? <ErrorStrip message={deny.error.message} /> : null}
-            <Button
-              size="lg"
-              className="w-full"
-              onClick={() =>
-                accountId &&
-                void approve
-                  .mutateAsync({ userCode: info.user_code, accountId })
-                  .catch(() => undefined)
-              }
-              disabled={busy || !accountId}
-            >
-              {approve.isPending ? <Loading className="size-4 shrink-0" /> : null}
-              {t('approve')}
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="text-destructive border-destructive/30 hover:bg-destructive/5 hover:text-destructive focus-visible:ring-destructive/35 w-full"
-              onClick={() => void deny.mutateAsync(info.user_code).catch(() => undefined)}
-              disabled={busy}
-            >
-              {deny.isPending ? <Loading className="text-destructive! size-4 shrink-0" /> : null}
-              {t('deny')}
-            </Button>
-          </div>
+          <ApproveDenyActions
+            approveLabel={t('approve')}
+            denyLabel={t('deny')}
+            onApprove={() =>
+              accountId &&
+              void approve
+                .mutateAsync({ userCode: info.user_code, accountId })
+                .catch(() => undefined)
+            }
+            onDeny={() => void deny.mutateAsync(info.user_code).catch(() => undefined)}
+            approvePending={approve.isPending}
+            denyPending={deny.isPending}
+            approveError={approve.error?.message ?? null}
+            denyError={deny.error?.message ?? null}
+            approveDisabled={!accountId}
+          />
         </div>
       </Rise>
     </AuthFrame>

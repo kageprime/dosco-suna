@@ -58,7 +58,7 @@ describe('searchSettings', () => {
     const routing = searchSettings('routing', ALL).find((r) => r.entry?.id === 'models-routing');
     expect(routing && settingsSearchHref(routing)).toBe(`${base}/models?tab=routing`);
     const chatgpt = searchSettings('chatgpt', ALL).find((r) => r.entry?.id === 'models-chatgpt-usage');
-    expect(chatgpt && settingsSearchHref(chatgpt)).toBe(`${base}/models?tab=usage`);
+    expect(chatgpt && settingsSearchHref(chatgpt)).toBe(`${base}/models?tab=providers&provider=openai`);
   });
 
   test('every entry names a real section and has a unique id', () => {

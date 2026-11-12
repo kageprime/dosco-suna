@@ -170,14 +170,35 @@ describe('authorizeGitProxy — CLI PAT', () => {
       branchName: 'sandbox-1',
       sessionMetadata: { workspace_mode: 'branch' },
     };
+    authorizeAllowed = true;
 
     const res = await authorizeGitProxy('kortix_pat_x', PROJECT_ID, 'write');
 
     expect(res.ok).toBe(true);
+    // The session's actor (owner role ∩ agent grant) needs project.gitops.read.
+    expect(authorizeCalls).toEqual([{ userId: 'user-1', accountId: OWNER_ACCOUNT, action: 'project.gitops.read', actingTokenId: 'tok-1' }]);
     if (res.ok) {
       expect(res.agentGrant).toEqual({ agent: 'main', permissions: 'all', connectors: 'all' });
       expect(res.principal).toMatchObject({ kind: 'session', userId: 'user-1', tokenId: 'tok-1' });
     }
+  });
+
+  test('a session-scoped PAT whose agent lacks project.gitops.read is denied', async () => {
+    patResult = {
+      isValid: true,
+      accountId: OWNER_ACCOUNT,
+      userId: 'user-1',
+      tokenId: 'tok-1',
+      projectId: PROJECT_ID,
+      sessionId: 'sandbox-1',
+      agentGrant: { agent: 'tenant', permissions: 'none', connectors: 'none' },
+    };
+    sandboxRow = { sandboxId: 'sandbox-1', sessionId: 'sandbox-1', branchName: 'sandbox-1', sessionMetadata: {} };
+    authorizeAllowed = false;
+
+    const res = await authorizeGitProxy('kortix_pat_x', PROJECT_ID, 'read');
+
+    expect(res).toMatchObject({ ok: false, status: 403, message: 'session is not authorized for repository access' });
   });
 
   test('a PAT on another account passes when the user holds the git capability', async () => {
@@ -305,25 +326,35 @@ describe('authorizeGitProxy — sandbox token', () => {
     });
   });
 
-  test('branch sessions retain Git access', async () => {
+  test('a branch session whose actor holds project.gitops.read keeps Git access', async () => {
     sandboxRow = {
       sandboxId: 'sandbox-1',
       sessionId: 'sandbox-1',
       branchName: 'sandbox-1',
       sessionMetadata: { workspace_mode: 'branch' },
     };
+    grantRow = { userId: 'launcher-1', tokenId: 'session-token-1', agentGrant: null };
+    authorizeAllowed = true;
 
     const res = await authorizeGitProxy('kortix_abc', PROJECT_ID, 'write');
 
     expect(res.ok).toBe(true);
+    expect(authorizeCalls).toEqual([{ userId: 'launcher-1', accountId: OWNER_ACCOUNT, action: 'project.gitops.read', actingTokenId: 'session-token-1' }]);
   });
 
-  test('legacy sessions without a workspace mode retain Git access', async () => {
+  test('a session created after the clone removal (no workspace metadata) needs the same grant', async () => {
     sandboxRow = { sandboxId: 'sandbox-1', sessionId: 'sandbox-1', branchName: 'sandbox-1', sessionMetadata: {} };
+    grantRow = { userId: 'launcher-1', tokenId: 'session-token-1', agentGrant: null };
+    authorizeAllowed = true;
+    expect((await authorizeGitProxy('kortix_abc', PROJECT_ID, 'read')).ok).toBe(true);
 
-    const res = await authorizeGitProxy('kortix_abc', PROJECT_ID, 'read');
-
-    expect(res.ok).toBe(true);
+    __resetGitProxyAuthzMemoForTests();
+    authorizeAllowed = false;
+    expect(await authorizeGitProxy('kortix_abc', PROJECT_ID, 'read')).toMatchObject({
+      ok: false,
+      status: 403,
+      message: 'session is not authorized for repository access',
+    });
   });
 
   test('a branch session surfaces its agent grant so the ref gate can widen the lane', async () => {
@@ -334,6 +365,7 @@ describe('authorizeGitProxy — sandbox token', () => {
       sessionMetadata: { workspace_mode: 'branch' },
     };
     grantRow = { userId: 'launcher-1', tokenId: 'session-token-1', agentGrant: { agent: 'main', permissions: ['project.gitops.ref.any'], connectors: 'all' } };
+    authorizeAllowed = true;
 
     const res = await authorizeGitProxy('kortix_abc', PROJECT_ID, 'write');
 
@@ -344,19 +376,31 @@ describe('authorizeGitProxy — sandbox token', () => {
     }
   });
 
-  test('a session with no connector-token grant reads null, not widened', async () => {
+  test('a session token row with no agent grant reads null, not widened', async () => {
     sandboxRow = {
       sandboxId: 'sandbox-1',
       sessionId: 'sandbox-1',
       branchName: 'sandbox-1',
       sessionMetadata: { workspace_mode: 'branch' },
     };
-    grantRow = null;
+    grantRow = { userId: 'launcher-1', tokenId: 'session-token-1', agentGrant: null };
+    authorizeAllowed = true;
 
     const res = await authorizeGitProxy('kortix_abc', PROJECT_ID, 'write');
 
     expect(res.ok).toBe(true);
     if (res.ok) expect(res.agentGrant).toBeNull();
+  });
+
+  test('a session with no session token row has no actor and is denied', async () => {
+    sandboxRow = { sandboxId: 'sandbox-1', sessionId: 'sandbox-1', branchName: 'sandbox-1', sessionMetadata: {} };
+    grantRow = null;
+    authorizeAllowed = true;
+
+    const res = await authorizeGitProxy('kortix_abc', PROJECT_ID, 'read');
+
+    expect(res).toMatchObject({ ok: false, status: 403, message: 'session is not authorized for repository access' });
+    expect(authorizeCalls).toEqual([]);
   });
 
   test('a sandbox token without a live session stays denied', async () => {
@@ -392,6 +436,7 @@ describe('authorizeGitProxy — verdict memo', () => {
   test('an old session keeps Git access through the stable proxy after a repository switch', async () => {
     apiKeyResult = { isValid: true, accountId: OWNER_ACCOUNT, type: 'sandbox', sandboxId: 'sandbox-1' };
     sandboxRow = { sandboxId: 'sandbox-1', sessionId: 'sandbox-1', branchName: 'sandbox-1', sessionMetadata: { workspace_mode: 'branch' } };
+    grantRow = { userId: 'launcher-1', tokenId: 'session-token-1', agentGrant: null };
     expect((await authorizeGitProxy('kortix_session_switch', PROJECT_ID, 'write')).ok).toBe(true);
     projectRow = { ...projectRow, repoUrl: 'https://github.com/example-org/new.git', metadata: { repository_generation: 'new' } };
     const result = await authorizeGitProxy('kortix_session_switch', PROJECT_ID, 'write');

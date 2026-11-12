@@ -564,10 +564,10 @@ flow(
       });
       const spawn = (s: AgentSession, agent: string) =>
         s.client.post('/v1/workspaces/:projectId/sessions', { agent_name: agent }, { params: { projectId: project.id } });
-      /** Past the run gate: created (201/202), or the local profile's no-sandbox 503. */
+      /** Past the run gate: created (201/202), the local profile's no-sandbox 503, or its no-model 409 (SESS-64). */
       const passedGate = (r: { statusCode: number; json<T>(): T; text(): string }) => {
-        const code = r.statusCode === 503 ? r.json<any>().code : null;
-        if (!(r.statusCode === 201 || r.statusCode === 202 || code === 'KORTIX_URL_UNREACHABLE')) {
+        const code = r.statusCode === 503 || r.statusCode === 409 ? r.json<any>().code : null;
+        if (!(r.statusCode === 201 || r.statusCode === 202 || code === 'KORTIX_URL_UNREACHABLE' || code === 'no_model_available')) {
           throw new Error(`expected the run gate to pass, got ${r.statusCode} ${r.text().slice(0, 300)}`);
         }
       };

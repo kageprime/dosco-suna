@@ -1,9 +1,8 @@
 // Read model of account groups: `kortix.account_groups` and
 // `kortix.group_members`. Every group read outside iam/ goes through here.
 //
-// Each function returns the query its caller ran inline, unexecuted and
-// verbatim (see membership-read.ts): same statements, same order. Two
-// functions that differ only in predicate order stay two.
+// One reader per table and projection family (KRTX-4587): a caller that
+// needs one field reads it off the full row, it does not add a new export.
 import { accountGroupMembers, accountGroups, accountMembers } from '@kortix/db';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../shared/db';
@@ -133,49 +132,36 @@ export function accountGroupListRows(accountId: string) {
     .orderBy(asc(accountGroups.name));
 }
 
-/** The full group row, when the group is in the account. */
-export function accountGroupFullRow(accountId: string, groupId: string) {
+/** The full group row; `accountId` null reads by group id alone. */
+export function groupRow(accountId: string | null, groupId: string) {
   return db
     .select()
     .from(accountGroups)
-    .where(and(eq(accountGroups.accountId, accountId), eq(accountGroups.groupId, groupId)))
+    .where(
+      and(
+        ...(accountId === null ? [] : [eq(accountGroups.accountId, accountId)]),
+        eq(accountGroups.groupId, groupId),
+      ),
+    )
     .limit(1);
 }
 
-/** `{ groupId }` when the group is in the account (account predicate first). */
-export function accountGroupRow(accountId: string, groupId: string) {
+/**
+ * The full rows of `groupIds`, or of every group of the account, ordered by
+ * name. The callers keep their `length > 0` guard: an empty array still
+ * builds an `inArray`, it never means "no fence".
+ */
+export function groupRows(opts: { accountId?: string; groupIds?: string[] }) {
   return db
-    .select({ groupId: accountGroups.groupId })
+    .select()
     .from(accountGroups)
-    .where(and(eq(accountGroups.accountId, accountId), eq(accountGroups.groupId, groupId)))
-    .limit(1);
-}
-
-/** `{ groupId }` when the group is in the account (group predicate first). */
-export function groupInAccountRow(groupId: string, accountId: string) {
-  return db
-    .select({ groupId: accountGroups.groupId })
-    .from(accountGroups)
-    .where(and(eq(accountGroups.groupId, groupId), eq(accountGroups.accountId, accountId)))
-    .limit(1);
-}
-
-/** `{ groupId, name }` when the group is in the account. */
-export function accountGroupNameRow(accountId: string, groupId: string) {
-  return db
-    .select({ groupId: accountGroups.groupId, name: accountGroups.name })
-    .from(accountGroups)
-    .where(and(eq(accountGroups.accountId, accountId), eq(accountGroups.groupId, groupId)))
-    .limit(1);
-}
-
-/** `{ name }` of the group, when it is in the account. */
-export function groupNameInAccountRow(accountId: string, groupId: string) {
-  return db
-    .select({ name: accountGroups.name })
-    .from(accountGroups)
-    .where(and(eq(accountGroups.accountId, accountId), eq(accountGroups.groupId, groupId)))
-    .limit(1);
+    .where(
+      and(
+        ...(opts.accountId ? [eq(accountGroups.accountId, opts.accountId)] : []),
+        ...(opts.groupIds ? [inArray(accountGroups.groupId, opts.groupIds)] : []),
+      ),
+    )
+    .orderBy(asc(accountGroups.name));
 }
 
 /** The ids of every group of the account. */
@@ -184,38 +170,6 @@ export function accountGroupIds(accountId: string) {
     .select({ groupId: accountGroups.groupId })
     .from(accountGroups)
     .where(eq(accountGroups.accountId, accountId));
-}
-
-/** Id and name of every group of the account. */
-export function accountGroupNames(accountId: string) {
-  return db
-    .select({ groupId: accountGroups.groupId, name: accountGroups.name })
-    .from(accountGroups)
-    .where(eq(accountGroups.accountId, accountId));
-}
-
-/** The groups of `groupIds` that are in the account. */
-export function accountGroupsAmong(accountId: string, groupIds: string[]) {
-  return db
-    .select({ groupId: accountGroups.groupId })
-    .from(accountGroups)
-    .where(and(eq(accountGroups.accountId, accountId), inArray(accountGroups.groupId, groupIds)));
-}
-
-/** Id and name of the groups of `groupIds` that are in the account. */
-export function accountGroupNamesAmong(accountId: string, groupIds: string[]) {
-  return db
-    .select({ groupId: accountGroups.groupId, name: accountGroups.name })
-    .from(accountGroups)
-    .where(and(eq(accountGroups.accountId, accountId), inArray(accountGroups.groupId, groupIds)));
-}
-
-/** Id and name of the groups, in any account. */
-export function groupNamesByIds(groupIds: string[]) {
-  return db
-    .select({ groupId: accountGroups.groupId, name: accountGroups.name })
-    .from(accountGroups)
-    .where(inArray(accountGroups.groupId, groupIds));
 }
 
 /** The account's SSO-sourced group with this name. */
@@ -230,49 +184,5 @@ export function ssoGroupByNameRow(accountId: string, name: string) {
         eq(accountGroups.source, 'sso'),
       ),
     )
-    .limit(1);
-}
-
-/** The SCIM wire fields of every group of the account. */
-export function scimGroupRows(accountId: string) {
-  return db
-    .select({
-      groupId: accountGroups.groupId,
-      name: accountGroups.name,
-      externalId: accountGroups.externalId,
-      createdAt: accountGroups.createdAt,
-      updatedAt: accountGroups.updatedAt,
-    })
-    .from(accountGroups)
-    .where(eq(accountGroups.accountId, accountId));
-}
-
-/** The SCIM wire fields of one group of the account. */
-export function scimGroupRow(accountId: string, groupId: string) {
-  return db
-    .select({
-      groupId: accountGroups.groupId,
-      name: accountGroups.name,
-      externalId: accountGroups.externalId,
-      createdAt: accountGroups.createdAt,
-      updatedAt: accountGroups.updatedAt,
-    })
-    .from(accountGroups)
-    .where(and(eq(accountGroups.accountId, accountId), eq(accountGroups.groupId, groupId)))
-    .limit(1);
-}
-
-/** The SCIM wire fields of one group, by id alone. */
-export function scimGroupRowById(groupId: string) {
-  return db
-    .select({
-      groupId: accountGroups.groupId,
-      name: accountGroups.name,
-      externalId: accountGroups.externalId,
-      createdAt: accountGroups.createdAt,
-      updatedAt: accountGroups.updatedAt,
-    })
-    .from(accountGroups)
-    .where(eq(accountGroups.groupId, groupId))
     .limit(1);
 }

@@ -157,7 +157,7 @@ export interface Detail {
  * The prev/next row, shared by the desktop card and the mobile drawer so the
  * two never drift. Both pin it as a slim bar under the scrollable body —
  * `shrink-0` so it's always in view, never scrolled away with the content —
- * because horizontal swipe is out on mobile: vaul already owns the drawer's
+ * because horizontal swipe is out on mobile: the drawer already owns its
  * vertical gesture, and layering a horizontal recognizer inside it is a
  * conflict trap. The buttons carry mobile instead.
  */
@@ -211,7 +211,7 @@ const FOCUSABLE =
  * carries all three: a focused-element listener would miss most of the
  * detail's body, since that body can put focus anywhere — a code block, an
  * iframe's surrounding chrome, a button — same reasoning as the reference
- * browser chrome this pages next to. Desktop-only because mobile is a vaul
+ * browser chrome this pages next to. Desktop-only because mobile is a
  * drawer, which already owns Escape/swipe-down itself; a second listener
  * there would double-fire.
  */
@@ -416,7 +416,7 @@ export function DetailLayer({
   const wasOpenRef = useRef(false);
 
   // Desktop only — mobile has no keyboard to speak of, and the drawer's own
-  // buttons (plus vaul's own Escape/swipe handling) carry it instead (see
+  // buttons (plus the drawer's own Escape/swipe handling) carry it instead (see
   // `DetailNav`'s comment).
   useDetailKeyboard(detail, isMobile, onBack, detailRef);
 
@@ -478,7 +478,7 @@ export function DetailLayer({
             {/* The drawer itself never closes/reopens on paging — only its
                 content crossfades, same principle as the desktop card below.
                 `initial={false}` skips the fade on the drawer's own open
-                (vaul's slide-up already carries that arrival); `popLayout`
+                (the drawer's slide-up already carries that arrival); `popLayout`
                 lets the fresh content take over the flow immediately instead
                 of stacking under the outgoing one mid-fade. */}
             <AnimatePresence mode="popLayout" initial={false}>

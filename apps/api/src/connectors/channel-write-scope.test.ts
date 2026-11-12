@@ -1,63 +1,46 @@
 /**
- * The decisions of the Slack and Telegram write confinement, against a fake
- * ownership source. The SQL behind the real source is proven on PostgreSQL in
- * `__tests__/integration-channel-write-scope.test.ts`.
+ * The decisions of the Slack and Telegram write confinement. Slack: one Slack
+ * workspace runs in one Kortix workspace, so the link decides (a fake link
+ * state here; the rows behind the real one are proven on PostgreSQL in
+ * `__tests__/integration-channel-write-scope.test.ts`).
  */
 import { describe, expect, test } from 'bun:test';
-import { CHANNEL_READ_SCOPES, CONVERSATION_NOT_IN_PROJECT, type ChannelOwnership } from './channel-read-scope';
+import { CHANNEL_READ_SCOPES, CONVERSATION_NOT_IN_PROJECT } from './channel-read-scope';
 import {
   SLACK_WRITE_TARGETS,
+  type SlackLinkState,
   TELEGRAM_READS,
   gateChannelWrite,
   slackWriteRefusal,
   telegramReplyRefusal,
   telegramWriteRefusal,
 } from './channel-write-scope';
+import { SLACK_NOT_LINKED, SLACK_PRIVATE_CONVERSATION, type SlackReadDeps } from './slack-visibility';
 import { channelCatalog } from './channels';
 
 const MINE = 'project-mine';
-const OTHER = 'project-other';
 
-interface Rows {
-  workspaces?: string[];
-  /** Channel id → the project it is bound to. */
-  channels?: Record<string, string>;
-  /** Thread root ts → the project whose session owns it. */
-  threads?: Record<string, string>;
-}
-
-const ROWS: Rows = {
-  channels: { C0MINE0001: MINE, C0OTHER001: OTHER, D0OTHERDM1: OTHER },
-  threads: { '100.000100': OTHER, '200.000200': MINE },
-};
-
-function fake(rows: Rows = ROWS) {
-  const lookups: string[] = [];
-  const ownership: ChannelOwnership = {
-    async installs() {
-      lookups.push('installs');
-      return { workspaceIds: rows.workspaces ?? ['T0SHARED'], shared: true };
-    },
-    async channelProjects(_p, _w, ids) {
-      lookups.push(`channels:${ids.join(',')}`);
-      return new Map(ids.filter((id) => rows.channels?.[id]).map((id) => [id, new Set([rows.channels![id]!])]));
-    },
-    async threadOwners(_p, _w, ids) {
-      lookups.push(`threads:${ids.join(',')}`);
-      return new Map(ids.filter((id) => rows.threads?.[id]).map((id) => [id, rows.threads![id]!]));
+function linkOf(state: SlackLinkState) {
+  const asked: string[] = [];
+  return {
+    asked,
+    linkState: async (projectId: string) => {
+      asked.push(projectId);
+      return state;
     },
   };
-  return { ownership, lookups };
 }
 
-async function write(actionPath: string, args: Record<string, unknown>, rows?: Rows) {
-  return (await gateChannelWrite({ projectId: MINE, platform: 'slack', actionPath, args }, fake(rows).ownership)).refusal;
-}
+/** The linked Slack workspace: G0PRIVATE1 is private and the person is in it, G0EXEC private and they are not. */
+const READS: SlackReadDeps = {
+  link: async () => ({ teamId: 'T0SYNTH01' }),
+  view: async () => ({ privateIds: new Set(['G0PRIVATE1', 'G0EXEC', 'D0WITHSAM']), allowedIds: new Set(['G0PRIVATE1']), hasPerson: true }),
+};
 
-async function refused(actionPath: string, args: Record<string, unknown>, rows?: Rows): Promise<string> {
-  const refusal = await write(actionPath, args, rows);
-  expect(refusal?.reason).toBe(CONVERSATION_NOT_IN_PROJECT);
-  return refusal!.message;
+async function write(actionPath: string, args: Record<string, unknown>, state: SlackLinkState = 'linked') {
+  return (
+    await gateChannelWrite({ projectId: MINE, userId: 'user-1', platform: 'slack', actionPath, args }, linkOf(state).linkState, READS)
+  ).refusal;
 }
 
 describe('every Slack write is classified', () => {
@@ -75,121 +58,116 @@ describe('every Slack write is classified', () => {
     );
   });
 
-  test('reads, other platforms and email are left to their own gates', async () => {
-    expect(await write('get_history', { channel: 'C0OTHER001' })).toBeNull();
+  test('reads and other platforms are left to their own gates', async () => {
+    expect(await write('get_history', { channel: 'C0ANY00001' }, 'not_linked')).toBeNull();
     expect(
-      (await gateChannelWrite({ projectId: MINE, platform: 'email', actionPath: 'send_message', args: {} }, fake().ownership))
-        .refusal,
-    ).toBeNull();
-    expect(
-      (await gateChannelWrite({ projectId: MINE, platform: 'teams', actionPath: 'list_messages', args: {} }, fake().ownership))
+      (await gateChannelWrite({ projectId: MINE, platform: 'email', actionPath: 'send_message', args: {} }, linkOf('not_linked').linkState, READS))
         .refusal,
     ).toBeNull();
   });
 });
 
-describe('Slack posts', () => {
-  test("a new message: this project's channel and a channel no project owns are fine, another project's channel is refused", async () => {
-    expect(await write('send_message', { channel: 'C0MINE0001', text: 'hi' })).toBeNull();
-    expect(await write('send_message', { channel: 'C0NOBODY01', text: 'hi' })).toBeNull();
-    expect(await refused('send_message', { channel: 'C0OTHER001', text: 'hi' })).toBe(
-      "Slack conversation C0OTHER001 belongs to another Kortix workspace. This workspace's agent does not post in, change, or react to messages in another workspace's channels. Post in a channel of this workspace, in a channel no Kortix workspace is connected to, or in a direct message.",
-    );
+describe('Slack writes follow the link', () => {
+  test('the Kortix workspace holding the Slack workspace posts, replies, edits, reacts and joins anywhere its bot may', async () => {
+    expect(await write('send_message', { channel: 'C0ANY00001', text: 'hi' })).toBeNull();
+    expect(await write('send_message', { channel: 'U0PERSON01', text: 'hi' })).toBeNull();
+    expect(await write('send_message', { channel: 'G0PRIVATE1', thread_ts: '100.000100', text: 'hi' })).toBeNull();
+    expect(await write('update_message', { channel: 'C0ANY00001', ts: '100.000100', text: 'edit' })).toBeNull();
+    expect(await write('add_reaction', { channel: 'C0ANY00001', timestamp: '100.000100', name: 'eyes' })).toBeNull();
+    expect(await write('join_channel', { channel: 'C0ANY00001' })).toBeNull();
   });
 
-  test("a direct message reaches a person even when that person's DM is bound to another project", async () => {
-    expect(await write('send_message', { channel: 'D0OTHERDM1', text: 'build is green' })).toBeNull();
-    expect(await write('send_message', { channel: 'U0PERSON01', text: 'build is green' })).toBeNull();
-    expect(await write('send_message', { channel: 'W0PERSON01', text: 'build is green' })).toBeNull();
+  test('private content follows the person: no post, reaction or join in a private channel the person is not in; DMs stay open', async () => {
+    for (const [action, args] of [
+      ['send_message', { channel: 'G0EXEC', text: 'hi' }],
+      ['add_reaction', { channel: 'G0EXEC', timestamp: '100.000100', name: 'eyes' }],
+      ['join_channel', { channel: 'G0EXEC' }],
+    ] as const) {
+      expect((await write(action, args))?.reason).toBe(SLACK_PRIVATE_CONVERSATION);
+    }
+    expect(await write('send_message', { channel: 'G0PRIVATE1', text: 'hi' })).toBeNull();
+    // A DM is to one person: the agent asks a teammate there.
+    expect(await write('send_message', { channel: 'D0WITHSAM', text: 'can you approve?' })).toBeNull();
+    expect(await write('send_message', { channel: 'U0SOMEONE1', text: 'can you approve?' })).toBeNull();
   });
 
-  test("a reply into another project's thread is refused everywhere, even in a DM or this project's channel", async () => {
-    for (const channel of ['D0OTHERDM1', 'U0PERSON01', 'C0MINE0001', 'C0NOBODY01']) {
-      expect(await refused('send_message', { channel, thread_ts: '100.000100', text: 'hi' })).toBe(
-        `Slack thread 100.000100 in ${channel} belongs to another Kortix workspace. This workspace's agent does not post in, change, or react to another workspace's threads.`,
+  test('a session with no person posts only in public channels and DMs', async () => {
+    const noPerson: SlackReadDeps = { ...READS, view: async () => ({ privateIds: new Set(['G0PRIVATE1']), allowedIds: new Set(), hasPerson: false }) };
+    const gate = (channel: string) =>
+      gateChannelWrite({ projectId: MINE, userId: null, platform: 'slack', actionPath: 'send_message', args: { channel, text: 'hi' } }, linkOf('linked').linkState, noPerson);
+    expect((await gate('G0PRIVATE1')).refusal?.reason).toBe(SLACK_PRIVATE_CONVERSATION);
+    expect((await gate('C0PUBLIC01')).refusal).toBeNull();
+  });
+
+  test('when Slack does not answer what is private, a write is refused as a read is; with no Slack token nothing is reachable', async () => {
+    const gate = (reads: SlackReadDeps) =>
+      gateChannelWrite(
+        { projectId: MINE, userId: 'user-1', platform: 'slack', actionPath: 'send_message', args: { channel: 'C0ANY00001', text: 'hi' } },
+        linkOf('linked').linkState,
+        reads,
       );
+    expect((await gate({ ...READS, view: async () => null })).refusal?.reason).toBe(SLACK_PRIVATE_CONVERSATION);
+    expect((await gate({ ...READS, view: async () => 'no_slack' })).refusal).toBeNull();
+  });
+
+  test('a Kortix workspace that does not hold the Slack workspace writes nothing', async () => {
+    for (const [action, args] of [
+      ['send_message', { channel: 'C0ANY00001', text: 'hi' }],
+      ['join_channel', { channel: 'C0ANY00001' }],
+      ['delete_message', { channel: 'C0ANY00001', ts: '100.000100' }],
+    ] as const) {
+      const refusal = await write(action, args, 'not_linked');
+      expect(refusal?.reason).toBe(SLACK_NOT_LINKED);
+      expect(refusal?.message).toContain('another Kortix workspace is connected to it');
     }
   });
 
-  test("a reply into this project's own thread is fine, even inside another project's channel", async () => {
-    expect(await write('send_message', { channel: 'C0OTHER001', thread_ts: '200.000200', text: 'follow-up' })).toBeNull();
-  });
-
-  test("a reply into a thread no session owns follows the channel: adopting a thread in another project's channel is refused", async () => {
-    expect(await write('send_message', { channel: 'C0NOBODY01', thread_ts: '300.000300', text: 'hi' })).toBeNull();
-    expect(await refused('send_message', { channel: 'C0OTHER001', thread_ts: '300.000300', text: 'hi' })).toContain(
-      'Slack conversation C0OTHER001 belongs to another Kortix workspace',
-    );
-  });
-});
-
-describe('Slack edits, deletes, reactions and joins', () => {
-  test("they need the message ts, and another project's thread root is refused", async () => {
+  test('edits, deletes and reactions need the message ts', async () => {
     for (const [action, arg] of [
       ['update_message', 'ts'],
       ['delete_message', 'ts'],
       ['add_reaction', 'timestamp'],
       ['remove_reaction', 'timestamp'],
     ] as const) {
-      expect(await refused(action, { channel: 'D0OTHERDM1', name: 'eyes' })).toBe(`\`${arg}\` is required.`);
-      expect(await refused(action, { channel: 'D0OTHERDM1', [arg]: '100.000100', name: 'eyes' })).toContain(
-        'Slack thread 100.000100',
-      );
-      expect(await refused(action, { channel: 'C0OTHER001', [arg]: '999.000999', name: 'eyes' })).toContain(
-        'Slack conversation C0OTHER001',
-      );
-      expect(await write(action, { channel: 'C0OTHER001', [arg]: '200.000200', name: 'eyes' })).toBeNull();
-      expect(await write(action, { channel: 'D0OTHERDM1', [arg]: '999.000999', name: 'eyes' })).toBeNull();
+      const refusal = await write(action, { channel: 'C0ANY00001' });
+      expect(refusal?.reason).toBe(CONVERSATION_NOT_IN_PROJECT);
+      expect(refusal?.message).toBe(`\`${arg}\` is required.`);
     }
-  });
-
-  test("joining another project's channel is refused; any other channel is fine", async () => {
-    expect(await refused('join_channel', { channel: 'C0OTHER001' })).toContain('Slack conversation C0OTHER001');
-    expect(await write('join_channel', { channel: 'C0NOBODY01' })).toBeNull();
   });
 });
 
 describe('ids and installs', () => {
-  test('a channel name, a lowercase id or a padded id is refused without a lookup: Slack resolves names', async () => {
+  test('a channel name, a lowercase id or a padded id is refused before the link is read: Slack resolves names', async () => {
     for (const channel of ['general', '#general', 'c0other001', ' C0OTHER001', 'C0OTHER001\n', ['C0MINE0001'], 42, undefined]) {
-      const { ownership, lookups } = fake();
-      const refusal = await slackWriteRefusal(MINE, { channel }, ownership);
+      const { linkState, asked } = linkOf('linked');
+      const refusal = await slackWriteRefusal(MINE, { channel }, linkState);
       expect(refusal?.kind).toBe('invalid');
       expect(refusal?.message).toContain('`channel` must be one Slack conversation or user id');
-      expect(lookups).toEqual([]);
+      expect(asked).toEqual([]);
     }
   });
 
   test('a malformed thread_ts is refused; an empty one means no thread', async () => {
-    expect(await refused('send_message', { channel: 'C0MINE0001', thread_ts: 1700000000.0001 })).toBe(
+    expect((await write('send_message', { channel: 'C0MINE0001', thread_ts: 1700000000.0001 }))?.message).toBe(
       '`thread_ts` must be one Slack message timestamp, for example 1700000000.000100.',
     );
-    expect(await refused('send_message', { channel: 'C0MINE0001', thread_ts: 'latest' })).toContain('`thread_ts`');
+    expect((await write('send_message', { channel: 'C0MINE0001', thread_ts: 'latest' }))?.message).toContain('`thread_ts`');
     expect(await write('send_message', { channel: 'C0MINE0001', thread_ts: '', text: 'hi' })).toBeNull();
   });
 
-  test('without an install on record no write runs', async () => {
-    const { ownership } = fake({ ...ROWS, workspaces: [] });
-    expect(await slackWriteRefusal(MINE, { channel: 'C0NOBODY01' }, ownership)).toEqual({
-      kind: 'install',
-      message:
-        'This project has no Slack install on record, so the connector cannot tell which conversations are its own. Connect Slack again in Settings → Channels.',
-    });
-  });
-
   test('the refusal kinds the routes map to statuses', async () => {
-    const kinds = async (target: Parameters<typeof slackWriteRefusal>[1]) =>
-      (await slackWriteRefusal(MINE, target, fake().ownership))?.kind ?? null;
-    expect(await kinds({ channel: 'nope' })).toBe('invalid');
-    expect(await kinds({ channel: 'D0OTHERDM1', ts: '100.000100' })).toBe('thread');
-    expect(await kinds({ channel: 'C0OTHER001' })).toBe('channel');
-    expect(await kinds({ channel: 'C0MINE0001', ts: '200.000200' })).toBeNull();
+    const kind = async (state: SlackLinkState, channel = 'C0ANY00001') =>
+      (await slackWriteRefusal(MINE, { channel }, linkOf(state).linkState))?.kind ?? null;
+    expect(await kind('linked', 'nope')).toBe('invalid');
+    expect(await kind('no_install')).toBe('install');
+    expect(await kind('not_linked')).toBe('not_linked');
+    expect(await kind('linked')).toBeNull();
   });
 });
 
 describe('where a post landed', () => {
   const gate = (actionPath: string, args: Record<string, unknown>) =>
-    gateChannelWrite({ projectId: MINE, platform: 'slack', actionPath, args }, fake().ownership);
+    gateChannelWrite({ projectId: MINE, userId: 'user-1', platform: 'slack', actionPath, args }, linkOf('linked').linkState, READS);
 
   test('a post that landed in the checked conversation, or a DM for a user id, stands', async () => {
     expect((await gate('send_message', { channel: 'C0NOBODY01', text: 'hi' })).misfire({ ok: true, channel: 'C0NOBODY01', ts: '1.2' })).toBeNull();
@@ -216,10 +194,11 @@ describe('where a post landed', () => {
   });
 
   test('only a post is checked where it landed: every other write takes an id', async () => {
-    const reaction = await gate('add_reaction', { channel: 'C0MINE0001', timestamp: '1.2', name: 'eyes' });
+    const reaction = await gate('add_reaction', { channel: 'C0ANY00001', timestamp: '1.2', name: 'eyes' });
     expect(reaction.misfire({ ok: true, channel: 'C0ELSEWHERE' })).toBeNull();
   });
 });
+
 
 describe('Telegram writes', () => {
   const OTHER_CHAT = 'This session answers Telegram chat 111222333 only. It does not send to, edit or delete messages in other chats.';

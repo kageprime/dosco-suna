@@ -9,14 +9,23 @@ import { localizeUiCatalog } from '../../i18n/ui-catalog/localize-ui-catalog';
 import { REVIEW_META_TRANSLATION_KEYS } from '../../i18n/ui-catalog/review-meta-translation-keys.generated';
 import type { UiTranslator } from '../../i18n';
 import {
+  ArrowUUpLeftIcon as ArrowUUpLeft,
+  ChatCircleDotsIcon as ChatCircleDots,
   ChatsIcon as ChatMessages,
   CheckCircleIcon as CheckCircleSolid,
+  CircleHalfIcon as CircleHalf,
+  CircleIcon,
   CommandIcon as Command,
   CreditCardIcon as CreditCardSolid,
   DatabaseIcon as Database,
+  FileTextIcon as FileText,
+  GitMergeIcon as GitMerge,
   GitPullRequestIcon as GitPullRequest,
+  HourglassIcon as Hourglass,
+  ListChecksIcon as ListChecks,
+  ProhibitIcon as Prohibit,
+  XCircleIcon as XCircle,
   MonitorIcon as Monitor,
-  QuestionIcon as QuestionCircleSolid,
   PaperPlaneTiltIcon as Send,
   ShieldCheckIcon as ShieldCheckSolid,
   SparkleIcon as SparklesSolid,
@@ -42,46 +51,24 @@ function filled(IconComponent: IconCmp): IconCmp {
     return createElement(Fillable, { className, weight: 'fill' });
   };
 }
+
+/** Same as `filled`, at `bold`: an open ring that holds its weight at 16 px. */
+function bold(IconComponent: IconCmp): IconCmp {
+  const Weighted = IconComponent as ComponentType<{ className?: string; weight?: 'bold' }>;
+  return function BoldIcon({ className }: { className?: string }) {
+    return createElement(Weighted, { className, weight: 'bold' });
+  };
+}
 type BadgeVariant =
   'success' | 'warning' | 'destructive' | 'secondary' | 'muted' | 'kortix' | 'outline' | 'info';
 
-export const KIND_META: Record<
-  ReviewKind,
-  { label: string; icon: IconCmp; tile: string; iconColor: string }
-> = {
-  change: {
-    label: 'Change',
-    icon: GitPullRequest,
-    tile: 'bg-kortix-blue/15',
-    iconColor: 'text-kortix-blue',
-  },
-  approval: {
-    label: 'Approval',
-    icon: filled(ShieldCheckSolid),
-    tile: 'bg-kortix-orange/15',
-    iconColor: 'text-kortix-orange',
-  },
-  output: {
-    label: 'Output',
-    icon: filled(SparklesSolid),
-    tile: 'bg-kortix-purple/15',
-    iconColor: 'text-kortix-purple',
-  },
-  decision: {
-    label: 'Question',
-    icon: filled(QuestionCircleSolid),
-    tile: 'bg-kortix-yellow/15',
-    // kortix-yellow is the palette's lowest-contrast glyph on a light tint. The
-    // kind is always named in text beside the tile, so the glyph is redundant
-    // and the token stays pure (no raw palette, no `dark:`).
-    iconColor: 'text-kortix-yellow',
-  },
-  batch: {
-    label: 'Finished',
-    icon: filled(CheckCircleSolid),
-    tile: 'bg-kortix-green/15',
-    iconColor: 'text-kortix-green',
-  },
+/** Each kind's name. Its glyph and tint live in `ROW_TILE`. */
+export const KIND_META: Record<ReviewKind, { label: string }> = {
+  change: { label: 'Change' },
+  approval: { label: 'Approval' },
+  output: { label: 'Output' },
+  decision: { label: 'Question' },
+  batch: { label: 'Finished' },
 };
 
 // Every chip in the Review Center is the one `Badge` component — no second
@@ -119,6 +106,42 @@ export const APPROVAL_ACTION_ICON: Record<ApprovalActionIcon, IconCmp> = {
   data: Database,
   generic: Command,
 };
+
+/**
+ * The inbox row's leading tile: a filled glyph names the kind, the
+ * tint says it waits on you. A decided or waiting row goes neutral, so the
+ * colored tiles in the list are exactly the rows that need you. Purple stays
+ * reserved for the owner role (kortix-brand color law), so no kind uses it.
+ */
+export const ROW_TILE: Record<ReviewKind, { icon: IconCmp; tint: string }> = {
+  change: { icon: filled(GitPullRequest), tint: 'bg-kortix-blue/15 text-kortix-blue' },
+  approval: { icon: filled(ShieldCheckSolid), tint: 'bg-kortix-orange/15 text-kortix-orange' },
+  output: { icon: filled(FileText), tint: 'bg-kortix-blue/15 text-kortix-blue' },
+  decision: { icon: filled(ChatCircleDots), tint: 'bg-kortix-yellow/15 text-kortix-yellow' },
+  batch: { icon: filled(ListChecks), tint: 'bg-kortix-green/15 text-kortix-green' },
+};
+
+/** The neutral tile of a row that no longer needs you. */
+export const ROW_TILE_NEUTRAL = 'bg-muted text-muted-foreground';
+
+/**
+ * The status glyph in the row's right column:
+ * open ring = yours to do, half = the agent is on it, then where it landed.
+ * A person's "no" is orange, never red: red reports a failure.
+ */
+export const ROW_STATUS_GLYPH: Record<ReviewStatus, { icon: IconCmp; className: string }> = {
+  needs_you: { icon: bold(CircleIcon), className: 'text-kortix-blue' },
+  waiting: { icon: filled(CircleHalf), className: 'text-kortix-yellow' },
+  approved: { icon: filled(CheckCircleSolid), className: 'text-kortix-green' },
+  done: { icon: filled(CheckCircleSolid), className: 'text-kortix-green' },
+  changes_requested: { icon: ArrowUUpLeft, className: 'text-kortix-orange' },
+  rejected: { icon: Prohibit, className: 'text-kortix-orange' },
+  dismissed: { icon: filled(XCircle), className: 'text-muted-foreground' },
+  expired: { icon: Hourglass, className: 'text-muted-foreground' },
+};
+
+/** A merged change reads as a merge, not a generic check. */
+export const ROW_MERGED_GLYPH = { icon: GitMerge, className: 'text-kortix-green' } as const;
 
 export const SEGMENT_LABEL = {
   needs_you: 'Needs you',

@@ -39,54 +39,6 @@ afterEach(() => {
   if (root) rmSync(root, { recursive: true, force: true })
 })
 
-describe('reboot must not reset an existing session branch', () => {
-  beforeEach(() => setup({ shallow: false }))
-
-  test('the destructive primitive really does orphan commits (the bug)', () => {
-    // Establishes the danger the fix avoids, so a future reader can see why the
-    // extra rev-parse is not ceremony.
-    write(work, 'agent-work.txt', 'work\n')
-    git(work, 'add', '-A')
-    git(work, 'commit', '-qm', 'agent work')
-    const sessionTip = git(work, 'rev-parse', 'HEAD')
-    git(work, 'checkout', '-q', 'main')
-
-    git(work, 'checkout', '-B', 'ses-1111-2222')
-
-    expect(git(work, 'rev-parse', 'HEAD')).not.toBe(sessionTip)
-    expect(git(work, 'log', '--oneline', '-1')).not.toContain('agent work')
-  })
-
-  test('a plain checkout of an EXISTING branch preserves its commits', () => {
-    // What the fixed code does instead.
-    write(work, 'agent-work.txt', 'work\n')
-    git(work, 'add', '-A')
-    git(work, 'commit', '-qm', 'agent work')
-    const sessionTip = git(work, 'rev-parse', 'HEAD')
-    git(work, 'checkout', '-q', 'main')
-
-    git(work, 'checkout', 'ses-1111-2222')
-
-    expect(git(work, 'rev-parse', 'HEAD')).toBe(sessionTip)
-    expect(readFileSync(join(work, 'agent-work.txt'), 'utf8')).toBe('work\n')
-  })
-
-  test('the daemon probes for the ref and only creates when it is absent', () => {
-    const SRC = readFileSync(join(import.meta.dir, '..', 'services', 'workspace-provider', 'checkout.ts'), 'utf8')
-    const fn = SRC.split('async function checkoutLocalSessionBranch(')[1]?.split('\n}\n')[0]
-    expect(fn).toBeTruthy()
-    expect(fn).toContain("'rev-parse', '--verify', '--quiet'")
-    // The existing-ref path must be a plain checkout — `-B` there is the bug.
-    const existingPath = (fn as string).slice((fn as string).indexOf('exists.code === 0'));
-    expect(existingPath).toContain("'checkout', branch");
-    // `-B` may appear EXACTLY once: the create path, reached only when the ref
-    // does not exist. A second occurrence means either the existing-ref branch
-    // uses it, or a failed switch falls back to it — and that fallback is
-    // precisely the data loss.
-    expect((fn as string).match(/'-B'/g) ?? []).toHaveLength(1);
-  })
-})
-
 describe('on_boot=1 requires a DIRECT service call', () => {
   const TOKEN = 'service-key-under-test'
 

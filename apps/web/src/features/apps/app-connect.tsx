@@ -32,7 +32,7 @@ const LANGUAGE: Record<AppConnectSnippet['language'], string> = {
 };
 
 /** One fenced block. A fence longer than any backtick run in the code keeps it closed. */
-export function snippetFence(snippet: Pick<AppConnectSnippet, 'code' | 'language'>): string {
+function snippetFence(snippet: Pick<AppConnectSnippet, 'code' | 'language'>): string {
   const longest = Math.max(2, ...(snippet.code.match(/`+/g) ?? []).map((run) => run.length));
   const fence = '`'.repeat(longest + 1);
   return `${fence}${LANGUAGE[snippet.language]}\n${snippet.code}\n${fence}`;
@@ -43,7 +43,7 @@ export function snippetFence(snippet: Pick<AppConnectSnippet, 'code' | 'language
  * its code. Pasted into an agent, it carries the same instructions the dialog
  * shows a person.
  */
-export function connectPrompt(
+function connectPrompt(
   heading: string,
   intro: string,
   steps: { title: string; snippet: AppConnectSnippet }[],

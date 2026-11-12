@@ -95,7 +95,7 @@ describe('SettingsPanelShell — desktop rail', () => {
     expect((html.match(/role="tab"/g) ?? []).length).toBe(allItems.length);
   });
 
-  test('renders one TabsList per rail group — Radix cannot mix a group Label into one shared list', () => {
+  test('renders one TabsList per rail group — a tab list cannot mix a group Label into one shared list', () => {
     const html = render();
     // One list per group, and no pinned extra: the Upgrades footer went to
     // `/workspaces/[id]/admin/general` with the rest of project configuration.
@@ -267,12 +267,10 @@ test('mobile Settings headers sit in the native titlebar band on macOS', () => {
 });
 
 /**
- * Radix's `TabsContent` keeps a `<div role="tabpanel">` in the tree for
- * EVERY value, not just the active one — internally it always calls
- * `Presence` with a function-as-children (`{present} => ...`), and Presence
- * treats a function child as an automatic `forceMount`. Inactive panes are
- * marked `hidden` (and their own children are stripped, so they're empty),
- * active one is not. This is exactly what `@testing-library`'s
+ * `TabsContent` keeps a `<div role="tabpanel">` in the tree for EVERY value,
+ * not just the active one (`packages/ui/src/primitives/tabs.tsx`). Inactive
+ * panes are marked `hidden` (and their own children are stripped, so they're
+ * empty), the active one is not. This is exactly what `@testing-library`'s
  * `getAllByRole('tabpanel')` reports too — it excludes `hidden` elements by
  * default — so "one pane is mounted" means "one pane lacks `hidden`", not
  * "only one `role=tabpanel` div exists in the markup".
@@ -325,10 +323,9 @@ describe('SettingsPanelShell — pane wiring', () => {
  * throw, no matter how many query-backed views exist as its inactive siblings
  * in the very same rail.
  *
- * This does not depend on Radix's own `present && children` behaviour inside
- * `TabsContent` — `SettingsTabPane` in `settings-panel.tsx` gates
- * independently with its own `active` check, so the proof holds even if a
- * future Radix upgrade changes that internal.
+ * This does not depend on how `TabsContent` gates its children —
+ * `SettingsTabPane` in `settings-panel.tsx` gates independently with its own
+ * `active` check, so the proof holds even if that internal changes.
  *
  * The thirteen project-scoped cases that used to sit here moved with their
  * tabs to `/workspaces/[id]/admin/general`; the eight account-scoped ones moved to
@@ -451,7 +448,7 @@ describe('SettingsPanelShell — mobile', () => {
   test('opens on the section list: every row, no pane header', () => {
     const html = render({ isMobile: true });
     expect((html.match(/role="tab"/g) ?? []).length).toBe(allItems.length);
-    // Radix keeps a tabpanel for every value, so the pane's absence is its
+    // `Tabs` keeps a tabpanel for every value, so the pane's absence is its
     // back pill's absence.
     expect(html).not.toContain('rounded-full');
   });

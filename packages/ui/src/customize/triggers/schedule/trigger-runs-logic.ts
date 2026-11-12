@@ -78,9 +78,11 @@ export function bucketRuns(runs: readonly BucketRun[], count: number): RunBucket
   const timed = runs.filter((r) => Number.isFinite(at(r)));
   if (timed.length === 0 || count < 1) return [];
   const times = timed.map(at);
-  const min = Math.min(...times);
   const max = Math.max(...times);
-  const size = Math.max(1, max - min) / count;
+  // At least one minute per slice, ending at the newest run: runs inside one
+  // minute otherwise drew an axis that read "11:58 PM – 11:58 PM" on every tick.
+  const min = Math.min(Math.min(...times), max - count * 60_000);
+  const size = (max - min) / count;
   const groups: BucketRun[][] = Array.from({ length: count }, () => []);
   for (const run of timed)
     groups[Math.min(count - 1, Math.floor((at(run) - min) / size))]!.push(run);

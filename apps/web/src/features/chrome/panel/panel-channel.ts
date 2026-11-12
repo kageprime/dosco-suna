@@ -30,7 +30,7 @@ export interface PanelContext {
   quote?: string;
 }
 
-export type ExtensionMessage =
+type ExtensionMessage =
   | { type: 'kortix.panel.tab'; tab: PanelTab | null }
   | { type: 'kortix.panel.context'; tab: PanelTab | null; quote?: string }
   | { type: 'kortix.panel.tabs.result'; requestId: string; tabs: PanelTab[] }

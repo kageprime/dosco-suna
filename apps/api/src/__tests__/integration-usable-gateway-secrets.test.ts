@@ -295,8 +295,17 @@ describe('resolveProjectSharedProviderSecrets: the ChatGPT accounts an unconfigu
   });
 
   test('a principal that cannot read the project, or is not an account member, gets nothing', async () => {
+    // No `withheld` count either: only a member who reads the project learns it.
     expect(await shared(OUTSIDER, null)).toEqual({ coolingDown: false, secrets: [] });
     expect(await shared(STRANGER, null)).toEqual({ coolingDown: false, secrets: [] });
+  });
+
+  test('a member who reads the project but may use none of its accounts learns how many are withheld', async () => {
+    const restricted = await resolveProjectSharedProviderSecrets({
+      accountId, projectId, userId: READER, grantUserId: null, providerId: 'codex', name: CODEX,
+      ids: [codex['restricted-ungranted']!],
+    });
+    expect(restricted).toEqual({ coolingDown: false, secrets: [], withheld: 1 });
   });
 
   test('an account cooling down is skipped; when every usable account cools down, the earliest retry is reported', async () => {

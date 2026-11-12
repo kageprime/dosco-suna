@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   type AuditReconciliationFailureState,
+  activePageDelayMs,
   nextAuditReconciliationCursor,
   nextAuditReconciliationFailureDecision,
 } from './audit-reconciliation-worker';
@@ -111,5 +112,19 @@ describe('nextAuditReconciliationFailureDecision', () => {
       expect(decision.delayMs).toBe(5_000);
       state = decision.state;
     }
+  });
+});
+
+describe('activePageDelayMs', () => {
+  // Regression (KRTX-3175): the active scan re-fired a multi-second page 100 ms
+  // after it finished — a ~100% duty cycle whose continuous heavy reads starved
+  // unrelated routes on the same database. The next page now waits at least as
+  // long as the last one ran.
+  test('a page that cost the database N ms waits N ms before the next one', () => {
+    expect(activePageDelayMs(10_000, 100)).toBe(10_000);
+  });
+
+  test('a light page keeps the active floor', () => {
+    expect(activePageDelayMs(40, 100)).toBe(100);
   });
 });

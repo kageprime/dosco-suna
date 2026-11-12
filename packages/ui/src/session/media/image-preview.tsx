@@ -1,7 +1,7 @@
 'use client';
 
 import { Modal, ModalContent, ModalTitle } from '../../primitives/modal';
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+import { VisuallyHidden } from '../../lib/base-ui-compat';
 import { useState } from 'react';
 
 interface ImagePreviewProps {

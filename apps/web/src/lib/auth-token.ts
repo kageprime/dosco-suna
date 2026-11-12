@@ -3,11 +3,8 @@
  *
  * Provides Supabase JWT authentication for all requests.
  *
- * `getAuthToken()` is the unified getter: returns the Supabase JWT.
+ * `getSupabaseAccessToken()` is the unified getter: returns the Supabase JWT.
  * Use it anywhere you need to authenticate against the sandbox proxy.
- *
- * `getSupabaseAccessToken()` is kept for callers that specifically need the
- * Supabase JWT (e.g. platform API calls that go through Supabase auth).
  *
  * **Deduplication**: Multiple callers (SSE, health check, session fetch, etc.)
  * all call getSupabaseAccessToken() on page load simultaneously. Without
@@ -323,22 +320,4 @@ async function fetchToken(force = false): Promise<string | null> {
   }
 
   return null;
-}
-
-/**
- * Unified auth token getter.
- *
- * Returns the Supabase JWT. All requests go through kortix-api which
- * authenticates via Supabase JWT — no additional sandbox lock/key needed.
- */
-export async function getAuthToken(): Promise<string | null> {
-  return getSupabaseAccessToken();
-}
-
-export async function getAuthTokenWithRetry(options?: {
-  attempts?: number;
-  baseDelayMs?: number;
-  invalidateBetweenAttempts?: boolean;
-}): Promise<string | null> {
-  return getSupabaseAccessTokenWithRetry(options);
 }

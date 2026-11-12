@@ -34,7 +34,7 @@ import { EditorSection } from './agent-editor-primitives';
 
 type PermObject = Record<string, PermissionRule | PermissionAction | undefined>;
 
-/** Radix forbids `""` as an item value, so the inherit state carries a sentinel. */
+/** `Select` reads `""` as no value, so the inherit state carries a sentinel. */
 const INHERIT = '__inherit__';
 
 /**

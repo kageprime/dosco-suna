@@ -90,7 +90,6 @@ mock.module('../shared/result-card', () => ({ ToolResultCard: Passthrough }));
 mock.module('../tool-error', () => ({ ToolError: none }));
 mock.module('../shared/surface', () => ({
   TOOL_INDENT: 0,
-  ToolCardFrame: Passthrough,
   ToolCaret: none,
   ToolCopyButton: none,
   ToolDetailContext: React.createContext(null),
@@ -98,7 +97,7 @@ mock.module('../shared/surface', () => ({
   ToolRowVariantContext: React.createContext({ chain: false, hideIcon: false }),
   ToolScroll: Passthrough,
   ToolSurfaceContext: React.createContext('inline'),
-  useToolCardFrame: () => null,
+  useToolCardFrame: () => ({ borderWidth: 1, borderColor: 'bd', backgroundColor: 'bg', borderRadius: 8 }),
   useToolCardPad: () => 0,
   useToolIndent: () => 0,
   useToolRowVariant: () => ({ chain: false, hideIcon: false }),
