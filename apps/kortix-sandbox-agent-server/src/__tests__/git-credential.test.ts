@@ -29,15 +29,8 @@ function baseConfig(over: Partial<Config> = {}): Config {
     branchName: 'session-xyz',
     baseSha: undefined,
     sandboxToken: 'kortix_sb_secret',
-<<<<<<< HEAD
     gitUserName: 'Xera',
     gitUserEmail: 'xera@dosco.live',
-    cloneFilter: '',
-    cloneDepth: 1,
-=======
-    gitUserName: 'Kortix Agent',
-    gitUserEmail: 'agent@kortix.ai',
->>>>>>> upstream/dev
     ...over,
   }
 }
