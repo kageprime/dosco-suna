@@ -4,6 +4,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import type { LanguageModel } from 'ai';
 import type { UpstreamDescriptor } from '../../domain';
 import { isGenuineOpenAiUpstream } from '../route-kind';
+import { createCloudCodeModel } from './cloudcode';
 
 // Every AI SDK provider factory (createOpenAI/createAnthropic/
 // createAmazonBedrock) accepts an optional `fetch`
@@ -22,11 +23,14 @@ export type AiSdkFetch = (input: RequestInfo | URL, init?: RequestInit) => Promi
 // `npm` field (verbatim from the live catalog, #4893); fall back to the transport
 // `kind` so a descriptor that predates npm threading still resolves correctly.
 //
-// Only three transport kinds ever reach the AI SDK engine: `anthropic`,
-// `bedrock`, and `openai-responses` (http/call-upstream.ts sends every
-// `openai-compat`/`custom` request to the provider directly). So the openai
-// family here is always the Responses API.
-export type AiSdkFamily = 'openai' | 'anthropic' | 'bedrock';
+// `cloudcode` is the hand-built Antigravity model (transports/ai-sdk/
+// cloudcode.ts) — no provider package exists for the Cloud Code protocol.
+//
+// Only four transport kinds ever reach the AI SDK engine: `anthropic`,
+// `bedrock`, `openai-responses`, and `google-cloudcode` (http/call-upstream.ts
+// sends every `openai-compat`/`custom` request to the provider directly). So
+// the openai family here is always the Responses API.
+export type AiSdkFamily = 'openai' | 'anthropic' | 'bedrock' | 'cloudcode';
 
 const OPENAI_NPM = '@ai-sdk/openai';
 const ANTHROPIC_NPM = '@ai-sdk/anthropic';
@@ -42,6 +46,9 @@ export function isCodexDescriptor(descriptor: UpstreamDescriptor): boolean {
 }
 
 export function aiSdkFamilyFor(descriptor: UpstreamDescriptor): AiSdkFamily {
+  // The Antigravity Cloud Code model is hand-built; npm is always absent and
+  // no catalog entry can ever map it to a provider package.
+  if (descriptor.kind === 'google-cloudcode') return 'cloudcode';
   const npm = descriptor.npm;
   if (npm === OPENAI_NPM) return 'openai';
   if (npm === ANTHROPIC_NPM) return 'anthropic';
@@ -185,6 +192,9 @@ export function resolveAiModel(
         fetch,
       });
       return provider(modelId);
+    }
+    case 'cloudcode': {
+      return createCloudCodeModel(descriptor, { fetch: fetch as typeof globalThis.fetch | undefined });
     }
   }
 }

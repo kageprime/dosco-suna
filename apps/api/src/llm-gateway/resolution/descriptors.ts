@@ -1,4 +1,6 @@
 import type { UpstreamDescriptor } from '@kortix/llm-gateway';
+import { ANTIGRAVITY_HUB_USER_AGENT } from '@kortix/llm-gateway/transports/ai-sdk/cloudcode';
+import { antigravityWireModelId, ANTIGRAVITY_MODELS } from '@kortix/api-contract/antigravity';
 import { llmPriceMarkup } from '../../billing/services/tiers';
 import { config } from '../../config';
 import { getModelPricing } from '../../router/config/model-pricing';
@@ -252,27 +254,19 @@ export function codexDescriptor(credential: CodexCredential, model: string): Ups
 
 export function antigravityDescriptor(credential: AntigravityCredential, model: string): UpstreamDescriptor {
   const bareModel = model.replace(/^antigravity\//, '');
-  let resolvedModel = bareModel;
-  if (bareModel === 'gemini-4-argon') resolvedModel = 'gemini-2.5-pro';
-  else if (bareModel === 'gemini-3.8-flash') resolvedModel = 'gemini-2.5-flash';
-  else if (bareModel === 'gemini-4-carbon') resolvedModel = 'gemini-2.5-flash';
-  else if (bareModel === 'claude-opus-5.5') resolvedModel = 'claude-3-5-opus';
-  else if (bareModel === 'claude-sonnet-5.5') resolvedModel = 'claude-3-5-sonnet';
-  else if (bareModel === 'gpt-oss-120b') resolvedModel = 'gpt-4o';
-
-  const isApiKey = credential.access.startsWith('AIza');
+  const entry = ANTIGRAVITY_MODELS.find((m) => m.id === bareModel);
+  const resolvedModel = entry ? antigravityWireModelId(entry) : bareModel;
 
   return {
     provider: 'antigravity',
-    kind: 'openai-compat',
-    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    kind: 'google-cloudcode',
+    baseUrl: 'https://daily-cloudcode-pa.googleapis.com',
     apiKey: credential.access,
     billingMode: 'none',
     markup: 0,
     resolvedModel,
-    headers: {
-      Authorization: `Bearer ${credential.access}`,
-      ...(isApiKey ? { 'x-goog-api-key': credential.access } : {}),
-    },
+    project: credential.project,
+    refreshableCredential: !!credential.refresh,
+    headers: { 'User-Agent': ANTIGRAVITY_HUB_USER_AGENT },
   };
 }

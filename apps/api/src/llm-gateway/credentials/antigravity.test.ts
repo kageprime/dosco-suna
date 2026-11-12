@@ -107,12 +107,11 @@ describe('resolveAntigravityCredential', () => {
     expect(cred?.access).toBe('ya29.fallback-candidate-token');
   });
 
-  test('resolves credential from raw GEMINI_API_KEY project secret', async () => {
-    projectSecretName = 'GEMINI_API_KEY';
+  test('rejects a raw Gemini API key stored as ANTIGRAVITY_AUTH_JSON', async () => {
+    projectSecretName = 'ANTIGRAVITY_AUTH_JSON';
     projectSecretValue = 'AIzaSyTestApiKey123';
     const cred = await resolveAntigravityCredential(PROJECT_ID, USER_ID, ACCOUNT_ID);
-    expect(cred).not.toBeNull();
-    expect(cred?.access).toBe('AIzaSyTestApiKey123');
+    expect(cred).toBeNull();
   });
 
   test('falls back to account secret resource when project secret is missing', async () => {

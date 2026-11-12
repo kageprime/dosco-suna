@@ -3,6 +3,7 @@ import { parseSharingIntent } from '../../connectors/share';
 import { createHash, randomUUID } from 'node:crypto';
 import { PROJECT_ACTIONS } from '../../iam';
 import { auth, errors, json, lenientBody } from '../../openapi';
+import { config } from '../../config';
 import { recordAuditEvent, runAuditedTransaction } from '../../shared/audit';
 import { db } from '../../shared/db';
 import { accountMemberRow } from '../../iam/membership-read';
@@ -10,6 +11,10 @@ import { pollCodexDeviceAuth, startCodexDeviceAuth } from '../codex-device-auth'
 import {
   pollAntigravityDeviceAuth,
   startAntigravityDeviceAuth,
+  buildAntigravityAuthorizeUrl,
+  exchangeAntigravityCode,
+  antigravityAuthJsonFromTokens,
+  createPkcePair,
 } from '../antigravity-auth';
 import { parseAntigravityAuth } from '../../llm-gateway/credentials/antigravity';
 import {
@@ -221,8 +226,20 @@ export function registerProviderOauthRoutes(): void {
     // into the opaque `flow_id` (encrypted with the project key), so any replica
     // can serve any poll and there's nothing to leak or OOM.
     let challenge;
+    let redirectMode = false;
+    let redirectMeta: any = null;
     try {
-      challenge = await cfg.start();
+      if (provider === 'google') {
+        redirectMode = true;
+        const { codeVerifier, codeChallenge } = createPkcePair();
+        const state = randomUUID();
+        const redirectUri = config.GOOGLE_ANTIGRAVITY_REDIRECT_URI || 'http://localhost:51121/oauth-callback';
+        const authorizeUrl = buildAntigravityAuthorizeUrl({ state, codeChallenge, redirectUri });
+        redirectMeta = { codeVerifier, state, redirectUri, authorizeUrl };
+        challenge = { verificationUrl: authorizeUrl, userCode: '', handle: 'redirect', intervalMs: 1000 };
+      } else {
+        challenge = await cfg.start();
+      }
     } catch (err) {
       rethrowDatabaseError(err);
       return c.json({
@@ -241,18 +258,28 @@ export function registerProviderOauthRoutes(): void {
         uid: loaded.userId,
         ...(resourceLabel === null ? {} : { l: resourceLabel, rid: randomUUID() }),
         ...(resourceId === null ? {} : { rid: resourceId, rc: 1 }),
+        // A redirect flow has no device code to derive a stable resource id
+        // from, so seal one now: two members must not overwrite one secret.
+        ...(redirectMode ? { rid: resourceId ?? randomUUID() } : {}),
         e: expiresAt,
         i: Math.max(challenge.intervalMs, OAUTH_POLL_INTERVAL_MS),
+        ...(redirectMode && redirectMeta ? { m: 'r', st: redirectMeta.state, cv: redirectMeta.codeVerifier, ru: redirectMeta.redirectUri } : {}),
       }),
     );
 
-    return c.json({
+    const resp: any = {
       flow_id: flowId,
       verification_url: challenge.verificationUrl,
       user_code: challenge.userCode,
       expires_at: expiresAt,
       interval_ms: Math.max(challenge.intervalMs, OAUTH_POLL_INTERVAL_MS),
-    });
+    };
+    if (redirectMode && redirectMeta) {
+      resp.mode = 'redirect';
+      resp.authorize_url = redirectMeta.authorizeUrl;
+      resp.redirect_uri = redirectMeta.redirectUri;
+    }
+    return c.json(resp);
   },
   );
 
@@ -269,6 +296,7 @@ export function registerProviderOauthRoutes(): void {
           params: z.object({ workspaceId: z.string(), provider: z.string() }),
           body: { content: { 'application/json': { schema: lenientBody({
               flow_id: z.string().openapi({ description: 'Flow id returned by start.' }),
+              redirect_url: z.string().optional().openapi({ description: 'Redirect URL pasted from the OAuth callback page.' }),
             }) } } },
         },
       responses: {
@@ -290,7 +318,7 @@ export function registerProviderOauthRoutes(): void {
 
     // Decrypt the opaque flow handle. The key is project-scoped, so a handle from
     // another project — or a tampered one — simply won't decrypt → expired.
-    let state: { p?: string; d?: string; u?: string; s?: unknown; uid?: string; e?: number; i?: number; l?: string; rid?: string; rc?: number };
+    let state: { p?: string; d?: string; u?: string; s?: unknown; uid?: string; e?: number; i?: number; l?: string; rid?: string; rc?: number; m?: string; st?: string; cv?: string; ru?: string };
     try {
       state = JSON.parse(decryptProjectSecret(projectId, flowId));
     } catch {
@@ -299,8 +327,12 @@ export function registerProviderOauthRoutes(): void {
     // Only the member who started it may poll it, only for the provider it was
     // started for (handles sealed before `p` existed are ChatGPT), and only
     // before it expires.
+    const isRedirect = state.m === 'r' && provider === 'google';
+    const deviceHandle = state.d;
+    const deviceCode = state.u;
     if (
-      !state.d || !state.u || (state.p ?? 'openai') !== provider ||
+      (isRedirect ? deviceHandle !== 'redirect' : !deviceHandle || !deviceCode) ||
+      (state.p ?? 'openai') !== provider ||
       state.uid !== loaded.userId ||
       typeof state.e !== 'number' || Date.now() > state.e
     ) {
@@ -311,11 +343,40 @@ export function registerProviderOauthRoutes(): void {
       if (!member) return c.json({ status: 'failed', error: 'Account membership is required' });
     }
 
-    const result = await cfg.poll(state.d, state.u);
-    if (result.status === 'pending') {
-      // Never ask a client to poll faster than the provider's own interval: the
-      // CLI adopts next_poll_ms, and 3 s against OpenCode's 5 s broke dev sign-in.
-      return c.json({ status: 'pending', next_poll_ms: Math.max(state.i ?? 0, OAUTH_POLL_INTERVAL_MS) });
+    let result: { status: 'pending' } | { status: 'failed'; error: string } | { status: 'authorized'; authJson: string };
+    if (state.m === 'r' && provider === 'google') {
+      const redirectUrl = normalizeString((body as any).redirect_url);
+      if (!redirectUrl) {
+        return c.json({ status: 'pending', next_poll_ms: Math.max(state.i ?? 0, OAUTH_POLL_INTERVAL_MS) });
+      }
+      try {
+        const url = new URL(redirectUrl);
+        const error = url.searchParams.get('error');
+        if (error) {
+          return c.json({ status: 'failed', error: url.searchParams.get('error_description') || error });
+        }
+        const code = url.searchParams.get('code');
+        const returnedState = url.searchParams.get('state');
+        if (!code) {
+          return c.json({ status: 'failed', error: 'Missing authorization code in redirect URL' });
+        }
+        if (returnedState && state.st && returnedState !== state.st) {
+          return c.json({ status: 'failed', error: 'OAuth state mismatch' });
+        }
+        const tokens = await exchangeAntigravityCode({ code, codeVerifier: state.cv || '', redirectUri: state.ru });
+        const authJson = await antigravityAuthJsonFromTokens(tokens as any);
+        result = { status: 'authorized', authJson };
+      } catch (err) {
+        return c.json({ status: 'failed', error: err instanceof Error ? err.message : 'Failed to complete Google sign-in' });
+      }
+    } else {
+      if (!deviceHandle || !deviceCode) return c.json({ status: 'expired' });
+      result = await cfg.poll(deviceHandle, deviceCode);
+      if (result.status === 'pending') {
+        // Never ask a client to poll faster than the provider's own interval: the
+        // CLI adopts next_poll_ms, and 3 s against OpenCode's 5 s broke dev sign-in.
+        return c.json({ status: 'pending', next_poll_ms: Math.max(state.i ?? 0, OAUTH_POLL_INTERVAL_MS) });
+      }
     }
     if (result.status === 'failed') {
       return c.json({ status: 'failed', error: result.error });
@@ -363,8 +424,8 @@ export function registerProviderOauthRoutes(): void {
     // none or `project` is the whole workspace, `private` only the caller.
     const sharing = state.s ? (parseSharingIntent(state.s, loaded.userId) ?? undefined) : undefined;
     await writeProviderAccount({
-      // One id per device flow, so a repeated completion writes one row.
-      secretId: flowSecretId(state.d), accountId: loaded.row.accountId, userId: loaded.userId,
+      // One id per flow, so a repeated completion writes one row.
+      secretId: state.rid ?? (state.d ? flowSecretId(state.d) : randomUUID()), accountId: loaded.row.accountId, userId: loaded.userId,
       label: cfg.label, value: result.authJson, projectId, kind: accountKind(cfg), sharing,
     });
 

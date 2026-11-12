@@ -5,7 +5,8 @@ export type ProviderKind =
   | 'openai-responses'
   | 'anthropic'
   | 'bedrock'
-  | 'custom';
+  | 'custom'
+  | 'google-cloudcode';
 
 export interface UpstreamPricing {
   inputPerMillion: number;
@@ -84,4 +85,10 @@ export interface UpstreamDescriptor {
   // auth still comes from `apiKey`; region only selects the endpoint host).
   // Ignored by every other provider/engine.
   region?: string;
+  /**
+   * Google Cloud Code companion project the request bills through
+   * (`aicode-consumers` for Antigravity free/Pro tiers). Set only for
+   * `kind: 'google-cloudcode'`; every other kind ignores it.
+   */
+  project?: string;
 }
