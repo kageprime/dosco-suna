@@ -6382,7 +6382,7 @@ const catalog = {
     },
     "promptHistory": "History {index}/{total}",
     "colleagueAccess": {
-      "headline": "My Kortix asks to give a colleague access",
+      "headline": "Dot asks to give a colleague access",
       "task": "Task",
       "connector": "Connector",
       "secret": "Secret",
@@ -6390,9 +6390,9 @@ const catalog = {
       "deny": "Deny",
       "allow": "Allow",
       "allowed": "Access allowed",
-      "allowedDescription": "My Kortix starts the colleague.",
+      "allowedDescription": "Dot starts the colleague.",
       "denied": "Access denied",
-      "deniedDescription": "My Kortix gets your answer.",
+      "deniedDescription": "Dot gets your answer.",
       "failed": "Could not send your decision. Try again."
     },
     "reviewPane": {

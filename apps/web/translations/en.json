@@ -21591,7 +21591,7 @@
     },
     "promptHistory": "History {index}/{total}",
     "colleagueAccess": {
-      "headline": "My Kortix asks to give a colleague access",
+      "headline": "Dot asks to give a colleague access",
       "task": "Task",
       "connector": "Connector",
       "secret": "Secret",
@@ -21599,9 +21599,9 @@
       "deny": "Deny",
       "allow": "Allow",
       "allowed": "Access allowed",
-      "allowedDescription": "My Kortix starts the colleague.",
+      "allowedDescription": "Dot starts the colleague.",
       "denied": "Access denied",
-      "deniedDescription": "My Kortix gets your answer.",
+      "deniedDescription": "Dot gets your answer.",
       "failed": "Could not send your decision. Try again."
     },
     "autoComponentsPwaPwaClientJsxTextAddKortixToYourHomeScreen83b6a02f": "Add Kortix to your home screen for a full-screen, app-like experience.",
