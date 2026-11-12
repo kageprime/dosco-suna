@@ -109,7 +109,7 @@ describe('cancelSubscription', () => {
     };
 
     const result = await cancelSubscription('acc_test_123');
-    expect(result.success).toBe(true);
+    expect(result).toMatchObject({ success: true });
     expect(updateParams.cancel_at_period_end).toBe(true);
   });
 
@@ -150,7 +150,7 @@ describe('cancelSubscription', () => {
       createMockStripeSubscription({ cancel_at: Date.now() / 1000 + 86400 * 30 });
 
     const result = await cancelSubscription('acc_test_123');
-    expect(result.success).toBe(true);
+    expect(result).toMatchObject({ success: true });
   });
 });
 

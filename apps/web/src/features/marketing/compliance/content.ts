@@ -48,7 +48,7 @@ export type Step = { readonly id: StepId; readonly label: string; readonly line:
    approvals: guide.mdx "Connectors → Approving a held action" (project
      manager or session starter, one exact action, 24 h).
    audit: guide.mdx "Audit log"; accounts/audit.ts (export, webhooks);
-     shared/audit-webhooks.ts (X-Dosco-Signature, HMAC-SHA256). */
+     shared/audit-webhooks.ts (X-Kortix-Signature, HMAC-SHA256). */
 export const steps: readonly Step[] = [
   {
     id: 'sso',

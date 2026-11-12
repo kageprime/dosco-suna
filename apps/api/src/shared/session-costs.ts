@@ -25,7 +25,7 @@ import { db } from './db';
 import {
   kortixBilledSpendSql,
   providerBilledSpendSql,
-  rowDoscoBilledSpendSql,
+  rowKortixBilledSpendSql,
   totalSpendSql,
 } from './llm-spend';
 import { projectsView } from '../workspaces/rows';
@@ -88,7 +88,7 @@ interface LlmAggregateRow {
   // field there compiles fine with the projection missing and silently reports
   // $0.00 for the split, which is the exact class of bug this module exists to
   // fix. Required makes the compiler catch a forgotten projection.
-  llmDoscoCost: NumericValue;
+  llmKortixCost: NumericValue;
   llmProviderCost: NumericValue;
   requestCount: NumericValue;
   errorCount: NumericValue;
@@ -206,7 +206,7 @@ export function assembleSessionCostSummary(input: {
   llm?: LlmAggregateRow;
   compute?: ComputeAggregateRow;
 }): SessionCostSummary {
-  const llmCost = numberValue(input.llm?.llmDoscoCost);
+  const llmCost = numberValue(input.llm?.llmKortixCost);
   const computeCost = numberValue(input.compute?.computeCost);
   const ownerType = input.session.ownerId ? (input.owner?.type ?? 'unknown') : null;
 
@@ -223,7 +223,7 @@ export function assembleSessionCostSummary(input: {
     updated_at: requiredIsoValue(input.session.updatedAt),
     last_activity_at: latestIsoValue(input.llm?.lastAt, input.compute?.lastAt),
     llm_cost: llmCost,
-    llm_kortix_cost: numberValue(input.llm?.llmDoscoCost),
+    llm_kortix_cost: numberValue(input.llm?.llmKortixCost),
     llm_provider_cost: numberValue(input.llm?.llmProviderCost),
     compute_cost: computeCost,
     total_cost: sumCosts(llmCost, computeCost),
@@ -313,7 +313,7 @@ const llmUsageFields = {
 
 const llmAggregateFields = {
   llmCost: kortixBilledSpendSql,
-  llmDoscoCost: kortixBilledSpendSql,
+  llmKortixCost: kortixBilledSpendSql,
   llmProviderCost: providerBilledSpendSql,
   ...llmUsageFields,
   // Refusal rows written by the gateway trace (KRTX-1749: post-auth 4xx and
@@ -388,7 +388,7 @@ function llmAggregateSubquery(scope: CostScope, window: CostWindow) {
     .select({
       sessionId: gatewayRequestLogs.sessionId,
       llmCost: llmAggregateFields.llmCost.as('llm_cost'),
-      llmDoscoCost: llmAggregateFields.llmDoscoCost.as('llm_kortix_cost'),
+      llmKortixCost: llmAggregateFields.llmKortixCost.as('llm_kortix_cost'),
       llmProviderCost: llmAggregateFields.llmProviderCost.as('llm_provider_cost'),
       requestCount: llmAggregateFields.requestCount.as('request_count'),
       errorCount: llmAggregateFields.errorCount.as('error_count'),
@@ -454,7 +454,7 @@ async function loadSessionTotals(
     db
       .select({
         ...llmAggregateFields,
-        elsewhere: sql<number>`coalesce(sum(${rowDoscoBilledSpendSql}) filter (where ${gatewayRequestLogs.accountId} <> ${scope.accountId}::uuid), 0)::float8`,
+        elsewhere: sql<number>`coalesce(sum(${rowKortixBilledSpendSql}) filter (where ${gatewayRequestLogs.accountId} <> ${scope.accountId}::uuid), 0)::float8`,
       })
       .from(gatewayRequestLogs)
       .where(
@@ -656,7 +656,7 @@ export async function listSessionCosts(input: {
         createdAt: projectSessions.createdAt,
         updatedAt: projectSessions.updatedAt,
         llmCost: llm.llmCost,
-        llmDoscoCost: llm.llmDoscoCost,
+        llmKortixCost: llm.llmKortixCost,
         llmProviderCost: llm.llmProviderCost,
         requestCount: llm.requestCount,
         errorCount: llm.errorCount,
@@ -701,7 +701,7 @@ export async function listSessionCosts(input: {
       owner: row.ownerId ? ownerById.get(row.ownerId) : undefined,
       llm: {
         llmCost: row.llmCost,
-        llmDoscoCost: row.llmDoscoCost,
+        llmKortixCost: row.llmKortixCost,
         llmProviderCost: row.llmProviderCost,
         requestCount: row.requestCount,
         errorCount: row.errorCount,
@@ -770,7 +770,7 @@ async function loadLedgerEntries(
       .select({
         id: gatewayRequestLogs.logId,
         occurredAt: gatewayRequestLogs.createdAt,
-        cost: rowDoscoBilledSpendSql,
+        cost: rowKortixBilledSpendSql,
         provider: gatewayRequestLogs.provider,
         model: gatewayRequestLogs.resolvedModel,
         requestId: gatewayRequestLogs.requestId,

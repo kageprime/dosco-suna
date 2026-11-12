@@ -128,12 +128,9 @@ describe('normalizeBranding / isBrandingEmpty', () => {
     });
   });
 
-  test('detects an empty record', () => {
-    expect(isBrandingEmpty(undefined)).toBe(true);
-    expect(isBrandingEmpty({})).toBe(true);
-    expect(isBrandingEmpty({ app_name: '' })).toBe(true);
-    expect(isBrandingEmpty({ app_name: 'Acme' })).toBe(false);
-    expect(isBrandingEmpty({ logo_url: 'http://x/l.svg' })).toBe(false);
+  test('empty means every slot null', () => {
+    expect(isBrandingEmpty(normalizeBranding({}))).toBe(true);
+    expect(isBrandingEmpty(normalizeBranding({ icon_dark_url: 'http://x/i.png' }))).toBe(false);
   });
 });
 

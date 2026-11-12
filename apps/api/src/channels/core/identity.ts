@@ -172,7 +172,7 @@ export async function revokeChatIdentity(user: ChatUser): Promise<boolean> {
 }
 
 /** The chat user a Dosco user is linked as in a workspace (to DM them), or null. */
-export async function lookupChatUserForDoscoUser(
+export async function lookupChatUserForKortixUser(
   platform: ChatPlatform,
   workspaceId: string,
   userId: string,

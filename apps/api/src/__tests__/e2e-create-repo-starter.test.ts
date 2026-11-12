@@ -132,6 +132,7 @@ function resetState() {
     {
       installationRowId: '00000000-0000-4000-a000-000000000041',
       accountId: ACCOUNT_ID,
+      workspaceId: null,
       installationId: '42',
       ownerLogin: 'kortix-org',
       ownerType: 'Organization',
@@ -299,6 +300,7 @@ mock.module('../projects/github', () => ({
     state === 'valid-install-state'
       ? {
           accountId: ACCOUNT_ID,
+          workspaceId: null,
           nonce: 'valid-install-nonce',
           issuedAt: Math.floor(Date.now() / 1000),
         }
@@ -485,6 +487,7 @@ async function selectRowsForTable(table: unknown) {
       {
         projectId: PROJECT_ID,
         accountId: ACCOUNT_ID,
+        workspaceId: null,
         name: 'Company OS',
         repoUrl: 'https://github.com/kortix-org/company-os.git',
         defaultBranch: 'main',
@@ -508,6 +511,7 @@ function storedProject(values: any) {
   return {
     projectId: PROJECT_ID,
     accountId: values.accountId,
+    workspaceId: null,
     name: values.name,
     repoUrl: values.repoUrl,
     defaultBranch: values.defaultBranch,
@@ -567,6 +571,7 @@ const starterDbMock: any = {
                     ? installationRows[existingIndex]!.installationRowId
                     : '00000000-0000-4000-a000-000000000042',
                 accountId: values.accountId,
+                workspaceId: null,
                 installationId: values.installationId,
                 ownerLogin: values.ownerLogin,
                 ownerType: values.ownerType,
@@ -593,6 +598,7 @@ const starterDbMock: any = {
                     ? gitConnectionRows[existingIndex]!.connectionId
                     : '00000000-0000-4000-a000-000000000501',
                 accountId: values.accountId,
+                workspaceId: null,
                 projectId: values.projectId,
                 provider: values.provider,
                 repoUrl: values.repoUrl,
@@ -902,6 +908,7 @@ describe('create-repo starter scaffold contract', () => {
     installationRows.push({
       installationRowId: '00000000-0000-4000-a000-000000000084',
       accountId: ACCOUNT_ID,
+      workspaceId: null,
       installationId: '84',
       ownerLogin: 'acme',
       ownerType: 'Organization',
@@ -1205,6 +1212,7 @@ describe('create-repo starter scaffold contract', () => {
 
     expect(insertedProject).toMatchObject({
       accountId: ACCOUNT_ID,
+      workspaceId: null,
       name: 'Company OS',
       repoUrl: 'https://github.com/kortix-org/company-os.git',
       defaultBranch: 'main',
@@ -1243,6 +1251,7 @@ describe('create-repo starter scaffold contract', () => {
     );
     expect(grantedProjectRole).toMatchObject({
       accountId: ACCOUNT_ID,
+      workspaceId: null,
       projectId: PROJECT_ID,
       userId: USER_ID,
       projectRole: 'manager',

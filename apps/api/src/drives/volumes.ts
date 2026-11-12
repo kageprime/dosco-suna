@@ -378,13 +378,6 @@ export async function deleteDriveVolume(volume: DriveVolume): Promise<void> {
   await call(volume, `${v(volume)}?missing_ok=true`, { method: 'DELETE' });
 }
 
-export interface VolumeEntry {
-  path: string;
-  type: 'file' | 'dir' | 'symlink';
-  size: number;
-  mtime: number;
-}
-
 /**
  * The folder listing the web UI re-reads on a 10 s poll per open view (one
  * view every ~3.5 s in the KRTX-4671 window), where Platinum's files-list

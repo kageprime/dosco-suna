@@ -41,7 +41,7 @@ function b64url(s: string): string {
   return Buffer.from(s).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-/** Mint a valid X-Dosco-User-Context header signed with TEST_TOKEN. */
+/** Mint a valid X-Kortix-User-Context header signed with TEST_TOKEN. */
 function signContext(): string {
   const now = Math.floor(Date.now() / 1000)
   const payload = b64url(
