@@ -567,8 +567,27 @@ const bedrockAdapter: ProviderAdapter = {
       : { system, tools },
 };
 
+// The Antigravity Cloud Code adapter. Cloud Code carries the reasoning effort
+// in the MODEL ID (the `-low/-medium/-high` suffix), not in any body field —
+// so the only thing the request needs to smuggle through the family-agnostic
+// AiSdkCallArgs is the effort string itself, read back by the hand-built
+// model (transports/ai-sdk/cloudcode.ts) from
+// `providerOptions.antigravity.reasoningEffort` to pick the id variant.
+const cloudCodeAdapter: ProviderAdapter = {
+  optionsKey: 'antigravity',
+  buildProviderOptions(req) {
+    return { reasoningEffort: req.reasoningEffort };
+  },
+  // Antigravity models are not in the llm catalog (no models.dev row), so
+  // `req.model` is always undefined here and the Cloud Code backend manages
+  // its own output budget — same posture as the openai adapter.
+  defaultMaxTokens: () => undefined,
+  supportsResponseFormat: false,
+};
+
 export const ADAPTERS: Record<AiSdkFamily, ProviderAdapter> = {
   openai: openAiAdapter,
   anthropic: anthropicAdapter,
   bedrock: bedrockAdapter,
+  cloudcode: cloudCodeAdapter,
 };

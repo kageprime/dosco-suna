@@ -25,62 +25,72 @@ export interface StoredAntigravityAuth {
   expires?: number;
   email?: string;
   plan?: string;
+  /** Cloud Code companion project the subscription bills through (`loadCodeAssist`). */
+  project?: string;
 }
 
 /**
+ * Epoch ms an access-only (bearer) paste stays usable. Google OAuth access
+ * tokens live about an hour; a paste without a refresh token cannot be
+ * refreshed, so it must not pretend to be durable.
+ */
+const BEARER_ACCESS_TTL_MS = 50 * 60 * 1000;
+
+/**
  * Parses raw Antigravity auth input. Supports:
- * 1. Raw bearer token or API key (`ya29...`, `AIzaSy...`, `Bearer ...`)
- * 2. Google OAuth credentials JSON (`~/.gemini/oauth_creds.json`: `access_token`, `refresh_token`, `expiry_date`)
- * 3. Wrapped Antigravity JSON (`{ antigravity: { access, refresh, expires } }`)
+ * 1. Google OAuth credentials JSON (`~/.gemini/oauth_creds.json`: `access_token`, `refresh_token`, `expiry_date`)
+ * 2. Wrapped Antigravity JSON (`{ antigravity: { access, refresh, expires, project } }`)
+ * 3. A raw `ya29…` bearer access token (usable for ~1h, never refreshed)
+ *
+ * Anything else — API keys (`AIza…`), arbitrary garbage — is rejected with
+ * `null`: Antigravity models run on Cloud Code with the user's own Google
+ * sign-in, and neither kind of value can ever work there.
  */
 export function parseAntigravityAuth(value: string | null | undefined): StoredAntigravityAuth | null {
   if (!value || typeof value !== 'string') return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
 
-  // Handle raw token or key (non-JSON) directly
-  if (!trimmed.startsWith('{')) {
-    return {
-      type: 'bearer',
-      access: trimmed.replace(/^Bearer\s+/i, ''),
-      expires: Date.now() + 365 * 24 * 3600 * 1000,
-    };
-  }
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      const auth = parsed.antigravity ?? parsed.google ?? parsed;
+      if (auth && typeof auth === 'object') {
+        const access = (auth.access ?? auth.access_token)?.toString().trim();
+        const refresh = (auth.refresh ?? auth.refresh_token)?.toString().trim();
+        const expires =
+          typeof auth.expires === 'number'
+            ? auth.expires
+            : typeof auth.expiry_date === 'number'
+            ? auth.expiry_date
+            : undefined;
+        const email = auth.email ?? auth.id_token_email;
+        const plan = auth.plan;
+        const project = typeof auth.project === 'string' ? auth.project : undefined;
 
-  try {
-    const parsed = JSON.parse(trimmed);
-    const auth = parsed.antigravity ?? parsed.google ?? parsed;
-    if (auth && typeof auth === 'object') {
-      const access = (auth.access ?? auth.access_token)?.toString().trim();
-      const refresh = (auth.refresh ?? auth.refresh_token)?.toString().trim();
-      const expires =
-        typeof auth.expires === 'number'
-          ? auth.expires
-          : typeof auth.expiry_date === 'number'
-          ? auth.expiry_date
-          : undefined;
-      const email = auth.email ?? auth.id_token_email;
-      const plan = auth.plan;
-
-      if (access || refresh) {
-        return {
-          type: auth.type ?? 'oauth',
-          access,
-          refresh,
-          expires,
-          email,
-          plan,
-        };
+        if (access || refresh) {
+          return {
+            type: auth.type ?? 'oauth',
+            access,
+            refresh,
+            expires,
+            email,
+            plan,
+            project,
+          };
+        }
       }
+      return null;
+    } catch {
+      return null;
     }
-    return null;
-  } catch {
-    return {
-      type: 'bearer',
-      access: trimmed.replace(/^Bearer\s+/i, ''),
-      expires: Date.now() + 365 * 24 * 3600 * 1000,
-    };
   }
+
+  const raw = trimmed.replace(/^Bearer\s+/i, '').trim();
+  if (/^ya29[.\-_A-Za-z0-9]/.test(raw) && raw.length >= 25) {
+    return { type: 'bearer', access: raw, expires: Date.now() + BEARER_ACCESS_TTL_MS };
+  }
+  return null;
 }
 
 export interface AntigravityModel {
@@ -92,6 +102,14 @@ export interface AntigravityModel {
   readonly description: string;
   /** Default reasoning effort level for this model. */
   readonly defaultEffort?: AntigravityEffort;
+  /**
+   * Live Cloud Code effort variants this model serves (verified via
+   * `fetchAvailableModels` 2026-11-12: ids are `resolved-{low|medium|high}`).
+   * Absent → `resolved` is the exact wire id and no suffix is ever appended
+   * (bare ids like `gemini-2.5-flash`, or one-variant ids like
+   * `gpt-oss-120b-medium`).
+   */
+  readonly efforts?: readonly AntigravityEffort[];
   /** Display badge in model selector: 'new' | 'notice' | 'unavailable'. */
   readonly badge?: 'new' | 'notice' | 'unavailable';
   /** Whether the model is currently unavailable or in private preview. */
@@ -100,6 +118,18 @@ export interface AntigravityModel {
   readonly context: number;
   /** Maximum output tokens. */
   readonly output: number;
+}
+
+const EFFORT_SUFFIX_RE = /-(low|medium|high|tiered)$/;
+
+/**
+ * The exact Cloud Code model id to send for a catalog entry: `resolved`, plus
+ * the entry's default effort tier when the model serves effort variants and
+ * `resolved` does not already carry one.
+ */
+export function antigravityWireModelId(entry: AntigravityModel): string {
+  if (!entry.efforts?.length || EFFORT_SUFFIX_RE.test(entry.resolved)) return entry.resolved;
+  return `${entry.resolved}-${entry.defaultEffort ?? 'medium'}`;
 }
 
 /**
@@ -112,6 +142,7 @@ export const ANTIGRAVITY_MODELS: readonly AntigravityModel[] = [
     resolved: 'gemini-4-argon',
     description: 'Frontier multi-modal flagship with dynamic tool calling and deep reasoning',
     defaultEffort: 'medium',
+    efforts: ['low', 'medium', 'high'],
     badge: 'new',
     context: 1_000_000,
     output: 64_000,
@@ -122,6 +153,7 @@ export const ANTIGRAVITY_MODELS: readonly AntigravityModel[] = [
     resolved: 'gemini-3.8-flash',
     description: 'Ultra-fast low-latency thinking model with deep reasoning effort',
     defaultEffort: 'high',
+    efforts: ['low', 'medium', 'high'],
     context: 1_000_000,
     output: 64_000,
   },
@@ -131,6 +163,7 @@ export const ANTIGRAVITY_MODELS: readonly AntigravityModel[] = [
     resolved: 'claude-opus-5-5',
     description: 'Anthropic frontier partner reasoning model served via Antigravity',
     defaultEffort: 'medium',
+    efforts: ['low', 'medium', 'high'],
     badge: 'new',
     context: 1_000_000,
     output: 64_000,
@@ -141,6 +174,7 @@ export const ANTIGRAVITY_MODELS: readonly AntigravityModel[] = [
     resolved: 'claude-sonnet-5-5',
     description: 'High-throughput frontier coding partner model served via Antigravity',
     defaultEffort: 'medium',
+    efforts: ['low', 'medium', 'high'],
     badge: 'new',
     context: 1_000_000,
     output: 64_000,
@@ -154,6 +188,30 @@ export const ANTIGRAVITY_MODELS: readonly AntigravityModel[] = [
     badge: 'notice',
     context: 128_000,
     output: 16_000,
+  },
+  {
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash',
+    resolved: 'gemini-2.5-flash',
+    description: 'Fast, dependable everyday model with a large context window',
+    context: 1_000_000,
+    output: 64_000,
+  },
+  {
+    id: 'gemini-2.5-pro',
+    name: 'Gemini 2.5 Pro',
+    resolved: 'gemini-2.5-pro',
+    description: 'Deep-reasoning Gemini flagship; capacity-limited at peak times',
+    context: 1_000_000,
+    output: 64_000,
+  },
+  {
+    id: 'gemini-3-flash',
+    name: 'Gemini 3 Flash',
+    resolved: 'gemini-3-flash',
+    description: 'Fast Gemini 3 model with balanced reasoning and latency',
+    context: 1_000_000,
+    output: 64_000,
   },
   {
     id: 'gemini-4-carbon',

@@ -286,6 +286,9 @@ export interface ProviderOAuthStart {
   expires_at: number;
   /** Suggested poll cadence. */
   interval_ms: number;
+  mode?: 'device' | 'redirect';
+  authorize_url?: string;
+  redirect_uri?: string;
 }
 
 export interface ProviderOAuthCredential {
@@ -343,12 +346,23 @@ export async function pollWorkspaceProviderOAuth(
   projectId: string,
   provider: string,
   flowId: string,
+  redirectUrl?: string,
 ): Promise<ProviderOAuthPoll> {
   return unwrap(
     await backendApi.post<ProviderOAuthPoll>(`/workspaces/${projectId}/oauth/${provider}/poll`, {
       flow_id: flowId,
+      ...(redirectUrl ? { redirect_url: redirectUrl } : {}),
     }),
   );
+}
+
+export async function completeWorkspaceProviderOAuth(
+  projectId: string,
+  provider: string,
+  flowId: string,
+  redirectUrl: string,
+): Promise<ProviderOAuthPoll> {
+  return pollWorkspaceProviderOAuth(projectId, provider, flowId, redirectUrl);
 }
 
 /** @deprecated Use `pollWorkspaceProviderOAuth`. Kept permanently. */

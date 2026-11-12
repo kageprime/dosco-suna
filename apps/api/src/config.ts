@@ -584,6 +584,7 @@ export const envSchema = z.object({
   OPENROUTER_API_KEY: optStr,
   GOOGLE_ANTIGRAVITY_CLIENT_ID: optStr,
   GOOGLE_ANTIGRAVITY_CLIENT_SECRET: optStr,
+  GOOGLE_ANTIGRAVITY_REDIRECT_URI: optStr,
   KORTIX_MANAGED_FREE_TIER_ENABLED: optBoolTrue,
   // CLOUD-ONLY. Whether KORTIX's own managed model lineup exists on this
   // deployment. The lineup is served by Platinum inference on Dosco's key.
@@ -1734,10 +1735,12 @@ export const config = {
   E2B_DOMAIN: env.E2B_DOMAIN,
   E2B_TEMPLATE: env.E2B_TEMPLATE,
   E2B_WEBHOOK_SECRET: env.E2B_WEBHOOK_SECRET,
-  // Google Antigravity OAuth client override; empty = the built-in device
-  // client (the flows work without it, these only reroute to a custom client).
+  // Google Antigravity OAuth client override; empty = the built-in Antigravity
+  // public client. The redirect URI is the loopback callback the user pastes
+  // back (Google rejects web redirect URIs on this client).
   GOOGLE_ANTIGRAVITY_CLIENT_ID: env.GOOGLE_ANTIGRAVITY_CLIENT_ID,
   GOOGLE_ANTIGRAVITY_CLIENT_SECRET: env.GOOGLE_ANTIGRAVITY_CLIENT_SECRET,
+  GOOGLE_ANTIGRAVITY_REDIRECT_URI: env.GOOGLE_ANTIGRAVITY_REDIRECT_URI,
   // ─── Sandbox Provisioning (Platform) ──────────────────────────────────────
   KORTIX_URL: env.KORTIX_URL,
   ARTIFACT_CONTENT_URL: env.ARTIFACT_CONTENT_URL.replace(/\/+$/, ''),
