@@ -22,7 +22,7 @@ import {
 } from '@kortix/api-contract/antigravity';
 import { config } from '../../config';
 import { db } from '../../shared/db';
-import { resolveProjectSecretForConsumer, writeSharedProjectSecret } from '../../projects/surface';
+import { resolveProjectSecretForConsumer, writeSharedProjectSecret } from '../../projects/secrets';
 import { projectsView } from '../../workspaces/rows';
 import { writeRotatedAccountLogin } from './rotating-login-write';
 

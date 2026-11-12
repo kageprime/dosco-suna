@@ -270,7 +270,3 @@ export {
 // domain that counts or stops live sessions).
 export { settleLiveSessionsOfAccounts, transitionSandbox, transitionSession } from './session-lifecycle/status-transitions';
 export { ACTIVE_SESSION_STATUSES, PROVISIONING_SESSION_STATUSES } from './lib/session-status';
-
-// The project secret handles (consumed by the llm-gateway's Antigravity
-// credential store).
-export { resolveProjectSecretForConsumer, writeSharedProjectSecret } from './secrets';

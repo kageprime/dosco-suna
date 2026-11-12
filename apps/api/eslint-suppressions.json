@@ -1096,6 +1096,11 @@
       "count": 1
     }
   },
+  "src/llm-gateway/credentials/antigravity.ts": {
+    "kortix-api/projects-surface": {
+      "count": 1
+    }
+  },
   "src/llm-gateway/credentials/codex.ts": {
     "kortix-api/projects-surface": {
       "count": 1
