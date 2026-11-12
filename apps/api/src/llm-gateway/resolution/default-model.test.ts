@@ -4,6 +4,7 @@ import * as resolveCandidatesModule from './resolve-candidates';
 import * as modelPreferencesModule from '../../repositories/model-preferences';
 import * as secretsModule from '../../projects/secrets';
 import { runtimeModelCatalog } from '../models/runtime-catalog';
+import { platformDefaultFreeModelId } from '../models/free-models';
 import * as claudeAccountsModule from '../../claude-subscription/accounts';
 import * as projectModelAccessModule from '../../repositories/project-model-access';
 import * as accountResourceModule from '../../secrets/account-resource';
@@ -349,9 +350,12 @@ describe('an account without managed models defaults to its own Claude account l
     });
   });
 
-  test('without a usable Claude account it stays without a model', async () => {
+  test('without a usable Claude account it falls back to the platform free model', async () => {
     claudeUsable = false;
-    expect(await resolveEffectiveModel({ ...PRINCIPAL_BASE, freeModelsOnly: true })).toEqual({ model: null, source: 'platform' });
+    expect(await resolveEffectiveModel({ ...PRINCIPAL_BASE, freeModelsOnly: true })).toEqual({
+      model: platformDefaultFreeModelId(),
+      source: 'platform',
+    });
   });
 
   test('a connected BYOK key still comes first, and Claude is not asked', async () => {
@@ -363,7 +367,11 @@ describe('an account without managed models defaults to its own Claude account l
   });
 
   test('the gateway default never names a Claude subscription model', async () => {
-    expect(await resolveDefaultModelForPrincipal({ ...PRINCIPAL_BASE, freeModelsOnly: true })).toBeUndefined();
+    // A free account gets the platform free model, which is never a Claude
+    // subscription model.
+    expect(await resolveDefaultModelForPrincipal({ ...PRINCIPAL_BASE, freeModelsOnly: true })).toBe(
+      platformDefaultFreeModelId(),
+    );
     expect(claudeAsked).toBe(0);
   });
 });
@@ -605,10 +613,15 @@ describe('the default fallback skips a provider whose every key the provider ref
     resolveCandidatesImpl = async (model) => (model.startsWith('groq/') ? [{ provider: 'groq' }] : []);
   });
 
-  test('only a refused key: a free workspace gets no default model', async () => {
+  test('only a refused key: a free workspace falls back to the platform free model', async () => {
     keys = [{ name: 'GROQ_API_KEY', verifyStatus: 'invalid' }];
-    expect(await resolveEffectiveModel({ ...PRINCIPAL_BASE, freeModelsOnly: true })).toEqual({ model: null, source: 'platform' });
-    expect(await resolveDefaultModelForPrincipal({ ...PRINCIPAL_BASE, freeModelsOnly: true })).toBeUndefined();
+    expect(await resolveEffectiveModel({ ...PRINCIPAL_BASE, freeModelsOnly: true })).toEqual({
+      model: platformDefaultFreeModelId(),
+      source: 'platform',
+    });
+    expect(await resolveDefaultModelForPrincipal({ ...PRINCIPAL_BASE, freeModelsOnly: true })).toBe(
+      platformDefaultFreeModelId(),
+    );
   });
 
   test('a refused key does not catch an unservable configured default', async () => {
