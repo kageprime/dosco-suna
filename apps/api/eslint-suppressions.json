@@ -224,11 +224,6 @@
       "count": 2
     }
   },
-  "src/billing/routes/webhooks.ts": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "src/billing/services/account-deletion.ts": {
     "kortix-api/projects-surface": {
       "count": 2
@@ -2685,6 +2680,11 @@
       "count": 4
     },
     "no-console": {
+      "count": 1
+    }
+  },
+  "src/serve.ts": {
+    "kortix-api/layers": {
       "count": 1
     }
   },

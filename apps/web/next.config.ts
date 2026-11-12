@@ -178,19 +178,8 @@ function resolveTurbopackFileSystemCacheForDev(): boolean {
 }
 
 // --- Turbopack build filesystem cache -------------------------------------
-// In Next 16.3+, `experimental.turbopackFileSystemCacheForBuild` defaults to
-// true. However, on Vercel Hobby (8 GB container, 1.5 GB build cache cap),
-// the Turbopack build cache reaches 2.4 GB, which causes Vercel to discard
-// it on every build. Buffering and serializing this 2.4 GB cache during
-// `next build` balloons memory usage and causes container OOM kills (SIGKILL).
-// Disable it on Vercel/CI or when KORTIX_TURBOPACK_BUILD_CACHE=off.
-function resolveTurbopackFileSystemCacheForBuild(): boolean {
-  const raw = process.env.KORTIX_TURBOPACK_BUILD_CACHE;
-  if (raw === 'off' || raw === 'false') return false;
-  if (raw === 'on' || raw === 'true') return true;
-  if (process.env.VERCEL || process.env.CI) return false;
-  return true;
-}
+// The decision lives in `src/config/turbopack-build-cache.ts`: a small machine
+// cannot hold the persistent build cache, a 16 GB runner can.
 
 // Local `pnpm preview` (scripts/dev-local.sh --build) sets KORTIX_PREVIEW_BUILD=1
 // to trade prod-build fidelity for speed: skip the `standalone` file-tracing pass
@@ -441,7 +430,6 @@ const nextConfig = (): NextConfig => ({
     // memory and from that cache. It is a no-op when the FS cache is off, and
     // Turbopack skips it when turbopackMemoryEviction is false.
     turbopackGc: true,
-    turbopackFileSystemCacheForBuild: resolveTurbopackFileSystemCacheForBuild(),
     // The Vercel build machine is 8 GB (both plan defaults), and the default
     // `next build` fan-out killed it: build-utils SIGKILLed `next build` (OOM)
     // on 2026-10-20. The default spawns os.cpus()-1 prerender workers for this

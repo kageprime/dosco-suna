@@ -15,14 +15,15 @@
  */
 
 import { and, eq, sql } from 'drizzle-orm';
-import { accountSecretResources, projectSecrets, projects } from '@kortix/db';
+import { accountSecretResources, projectSecrets } from '@kortix/db';
 import {
   parseAntigravityAuth,
   type StoredAntigravityAuth,
 } from '@kortix/api-contract/antigravity';
 import { config } from '../../config';
 import { db } from '../../shared/db';
-import { resolveProjectSecretForConsumer, writeSharedProjectSecret } from '../../projects/secrets';
+import { resolveProjectSecretForConsumer, writeSharedProjectSecret } from '../../projects/surface';
+import { projectsView } from '../../workspaces/rows';
 import { writeRotatedAccountLogin } from './rotating-login-write';
 
 export { parseAntigravityAuth, type StoredAntigravityAuth };
@@ -104,9 +105,9 @@ export async function resolveAntigravityCredential(
   let resolvedAccountId = accountId;
   if (!resolvedAccountId) {
     const [proj] = await db
-      .select({ accountId: projects.accountId })
-      .from(projects)
-      .where(eq(projects.projectId, projectId))
+      .select({ accountId: projectsView.accountId })
+      .from(projectsView)
+      .where(eq(projectsView.projectId, projectId))
       .limit(1)
       .catch(() => []);
     if (proj?.accountId) resolvedAccountId = proj.accountId;

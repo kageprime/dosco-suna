@@ -127,6 +127,14 @@ const optFallbackPolicies = z
 export const envSchema = z.object({
   // ── Core (required) ──────────────────────────────────────────────────────
   PORT: optInt(8008),
+  // The environment the API process runs in ("development", "production",
+  // "test"). Read it through config, never through process.env.
+  NODE_ENV: optStr,
+  // Where the git-proxy keeps its compiled boot cache.
+  KORTIX_COMPILED_BOOT_CACHE_DIR: optStr,
+  // The largest compiled boot artifact the API writes, in bytes. 0 = the
+  // built-in default.
+  KORTIX_COMPILED_BOOT_MAX_ARTIFACT_BYTES: optInt(0),
 
   // ── Database (REQUIRED) ──────────────────────────────────────────────────
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required — cannot start without a database'),
@@ -1492,6 +1500,9 @@ const allowedProviders = parseAllowedProviders(env.ALLOWED_SANDBOX_PROVIDERS);
 
 export const config = {
   PORT: env.PORT,
+  NODE_ENV: env.NODE_ENV ?? 'development',
+  KORTIX_COMPILED_BOOT_CACHE_DIR: env.KORTIX_COMPILED_BOOT_CACHE_DIR,
+  KORTIX_COMPILED_BOOT_MAX_ARTIFACT_BYTES: env.KORTIX_COMPILED_BOOT_MAX_ARTIFACT_BYTES,
 
   // ─── Internal Deployment Controls ─────────────────────────────────────────
   INTERNAL_KORTIX_ENV: env.INTERNAL_KORTIX_ENV as InternalKortixEnv,

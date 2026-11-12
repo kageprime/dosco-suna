@@ -28,7 +28,6 @@ const modules = {
   multiplayer: await import('@/app/[locale]/(public)/(marketing)/multiplayer/page'),
   pricing: await import('@/app/[locale]/(public)/(marketing)/pricing/layout'),
   security: await import('@/app/[locale]/(public)/(marketing)/security/page'),
-  'self-hosted': await import('@/app/[locale]/(public)/(marketing)/self-hosted/page'),
   slack: await import('@/app/[locale]/(public)/(marketing)/slack/page'),
   sovereign: await import('@/app/[locale]/(public)/(marketing)/sovereign/page'),
   teams: await import('@/app/[locale]/(public)/(marketing)/teams/page'),

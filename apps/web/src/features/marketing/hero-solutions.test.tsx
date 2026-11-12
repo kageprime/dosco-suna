@@ -12,7 +12,6 @@ const { EnterpriseHero } = await import('./enterprise/enterprise-hero');
 const { FrameworkHero } = await import('./framework/framework-hero');
 const { MultiplayerHero } = await import('./multiplayer/multiplayer-hero');
 const { SecurityHero } = await import('./security-page/security-hero');
-const { SelfHostedHero } = await import('./self-hosted/self-hosted-hero');
 const { SovereignHero } = await import('./sovereign/sovereign-hero');
 
 // The prop type is the literal-narrowed shipped English content. These tests
@@ -65,7 +64,6 @@ describe('solution page hero characterization', () => {
     ['framework', FrameworkHero],
     ['multiplayer', MultiplayerHero],
     ['security', SecurityHero],
-    ['self-hosted', SelfHostedHero],
     ['sovereign', SovereignHero],
   ] as const;
 

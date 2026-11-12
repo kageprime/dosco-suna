@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 /**
  * Paystack billing service — the Nigerian-market counterpart of the Stripe
  * flow in `subscriptions.ts` / `webhooks.ts`.
@@ -212,7 +213,7 @@ async function tierKeyFromPaystackPlan(planCode: string): Promise<string | null>
     const tier = name.slice('dosco_'.length).replace(/_\d+seats$/, '');
     return tier || null;
   } catch (err) {
-    console.warn(`[Paystack] could not resolve plan ${planCode}:`, err);
+    logger.warn(`[Paystack] could not resolve plan ${planCode}:`, { error: err instanceof Error ? err.message : String(err) });
     return null;
   }
 }
@@ -394,7 +395,7 @@ async function handleChargeSuccess(data: Record<string, any>): Promise<void> {
   // charge — refuse rather than convert under a wrong assumption.
   const currency = String(data.currency ?? '').toUpperCase();
   if (currency !== paystack.PAYSTACK_CHARGE_CURRENCY) {
-    console.warn(
+    logger.warn(
       `[Paystack] charge.success ${reference}: unsupported currency ${currency || '(missing)'} — refusing to grant`,
     );
     return;
@@ -417,7 +418,7 @@ async function handleChargeSuccess(data: Record<string, any>): Promise<void> {
 
   if (purchaseRow) {
     if (purchaseRow.status === 'completed') {
-      console.log(`[Paystack] Duplicate charge.success for ${reference} — deduped`);
+      logger.info(`[Paystack] Duplicate charge.success for ${reference} — deduped`);
       return;
     }
     // Amount guard: the settled charge must match the pending purchase.
@@ -425,7 +426,7 @@ async function handleChargeSuccess(data: Record<string, any>): Promise<void> {
     // rounding drift means underpayment.
     const expected = Number(purchaseRow.amountDollars);
     if (amountUsd + 0.01 < expected) {
-      console.error(
+      logger.error(
         `[Paystack] charge.success ${reference}: amount mismatch (got $${amountUsd} / ₦${amountNgn} at ${rate}, expected $${expected}) — refusing to grant`,
       );
       return;
@@ -439,7 +440,7 @@ async function handleChargeSuccess(data: Record<string, any>): Promise<void> {
       key: { event: `paystack:${reference}` },
     });
     await updatePurchaseStatus(purchaseRow.id, 'completed', new Date().toISOString());
-    console.log(`[Paystack] Credit purchase: $${amountUsd} (₦${amountNgn}) for ${purchaseRow.accountId}`);
+    logger.info(`[Paystack] Credit purchase: $${amountUsd} (₦${amountNgn}) for ${purchaseRow.accountId}`);
     return;
   }
 
@@ -449,7 +450,7 @@ async function handleChargeSuccess(data: Record<string, any>): Promise<void> {
   const metadataMonthlyUsd = metadata.monthly_usd ? Number(metadata.monthly_usd) : undefined;
   if (type === 'subscription' && accountId) {
     await activatePaystackSubscription(accountId, tierKey ?? 'credits', reference, metadataMonthlyUsd);
-    console.log(`[Paystack] Subscription charge settled for ${accountId} ($${metadataMonthlyUsd ?? 'default'}/mo)`);
+    logger.info(`[Paystack] Subscription charge settled for ${accountId} ($${metadataMonthlyUsd ?? 'default'}/mo)`);
     return;
   }
 
@@ -470,19 +471,19 @@ async function handleChargeSuccess(data: Record<string, any>): Promise<void> {
         renewalUsd = parseMonthlyUsdFromPlanName(plan.name);
       }
     } catch (err) {
-      console.warn(`[Paystack] could not fetch plan ${planCode} for renewal:`, err);
+      logger.warn(`[Paystack] could not fetch plan ${planCode} for renewal:`, { error: err instanceof Error ? err.message : String(err) });
     }
     if (!renewalUsd && amountUsd > 0) {
       renewalUsd = Math.round(amountUsd);
     }
     if (renewalUsd && renewalUsd > 0) {
       await activatePaystackSubscription(renewalAccount, 'credits', reference, renewalUsd);
-      console.log(`[Paystack] Renewal settled for ${renewalAccount} ($${renewalUsd}/mo)`);
+      logger.info(`[Paystack] Renewal settled for ${renewalAccount} ($${renewalUsd}/mo)`);
       return;
     }
   }
 
-  console.warn(`[Paystack] charge.success ${reference}: no matching purchase or subscription`);
+  logger.warn(`[Paystack] charge.success ${reference}: no matching purchase or subscription`);
 }
 
 async function handleSubscriptionCreated(data: Record<string, any>): Promise<void> {
@@ -491,7 +492,7 @@ async function handleSubscriptionCreated(data: Record<string, any>): Promise<voi
   const customerCode: string | undefined = data?.customer?.customer_code;
   const accountId = customerCode ? await getAccountIdByPaystackCustomerCode(customerCode) : null;
   if (!accountId) {
-    console.warn(`[Paystack] subscription.create ${code}: unknown customer, cannot attach`);
+    logger.warn(`[Paystack] subscription.create ${code}: unknown customer, cannot attach`);
     return;
   }
   await updateCreditAccount(accountId, {
@@ -499,7 +500,7 @@ async function handleSubscriptionCreated(data: Record<string, any>): Promise<voi
     paystackEmailToken: data.email_token ?? null,
     provider: 'paystack',
   });
-  console.log(`[Paystack] subscription ${code} attached to ${accountId}`);
+  logger.info(`[Paystack] subscription ${code} attached to ${accountId}`);
 }
 
 async function handleSubscriptionDisabled(data: Record<string, any>): Promise<void> {
@@ -507,7 +508,7 @@ async function handleSubscriptionDisabled(data: Record<string, any>): Promise<vo
   if (!code) return;
   const accountId = await getAccountIdByPaystackSubscriptionCode(code);
   if (!accountId) {
-    console.warn(`[Paystack] subscription.disable ${code}: unknown subscription`);
+    logger.warn(`[Paystack] subscription.disable ${code}: unknown subscription`);
     return;
   }
   await applyStripeSync(
@@ -515,7 +516,7 @@ async function handleSubscriptionDisabled(data: Record<string, any>): Promise<vo
     { tier: 'free', provider: 'paystack', paymentStatus: 'active' },
     { reason: 'paystack:subscription.disable' },
   );
-  console.log(`[Paystack] subscription ${code} disabled — ${accountId} downgraded to free`);
+  logger.info(`[Paystack] subscription ${code} disabled — ${accountId} downgraded to free`);
 }
 
 export async function processPaystackWebhook(
@@ -545,7 +546,7 @@ export async function processPaystackWebhook(
       await handleSubscriptionDisabled(event.data ?? {});
       break;
     default:
-      console.log(`[Paystack] Unhandled webhook event: ${event.event}`);
+      logger.info(`[Paystack] Unhandled webhook event: ${event.event}`);
   }
 
   return { received: true, event: event.event };

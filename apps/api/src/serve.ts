@@ -1,3 +1,5 @@
+import { logger } from './lib/logger';
+import { config } from './config';
 // Container launcher entrypoint — the Docker CMD (`apps/api/start.sh`) runs
 // this file; `src/index.ts` stays the local/dev entry.
 //
@@ -30,7 +32,7 @@ function loadIndex(): Promise<IndexModule> {
         return mod;
       },
       (err) => {
-        console.error('[startup] app module failed to evaluate:', err);
+        logger.error('[startup] app module failed to evaluate:', err);
         throw err;
       },
     );
@@ -38,7 +40,7 @@ function loadIndex(): Promise<IndexModule> {
   return indexPromise;
 }
 
-const port = Number(process.env.PORT ?? 8008);
+const port = config.PORT;
 
 Bun.serve({
   port,
@@ -76,7 +78,7 @@ Bun.serve({
   },
 });
 
-console.log(`[startup] launcher bound port ${port}; loading app behind the listener...`);
+logger.info(`[startup] launcher bound port ${port}; loading app behind the listener...`);
 
 // Load now instead of on first request: boot (schema + workers) must not wait
 // for traffic. Errors are reported by loadIndex's rejection logger.

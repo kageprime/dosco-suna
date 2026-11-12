@@ -60,6 +60,7 @@ const KORTIX_APPD_HEALTH_WAIT =
   'http://127.0.0.1:7331/v1/health >/dev/null; then exit 0; fi; ' +
   'sleep 1; done; exit 1';
 import { sandboxOwnershipMarker } from '../sandbox-ownership';
+import { logger } from '../../lib/logger';
 
 const MANAGED_METADATA = 'kortix_managed';
 const ENV_METADATA = 'kortix_env';
@@ -162,13 +163,27 @@ function apiOpts() {
  * handle so normal proxy traffic avoids a control-plane round trip; reconnect
  * after API restarts recovers a fresh token and explicitly resumes a paused box.
  */
+// replica-local: the live E2B handle of a sandbox this replica serves. Each
+// replica owns the sessions it hosts, and the handle is re-fetched from the
+// provider when it is missing, so a second replica's copy would be stale.
 const connectedSandboxes = new Map<string, E2BSandbox>();
 export const E2B_INGRESS_HANDLE_TTL_MS = 5_000;
+// replica-local: the time this replica last fetched a handle. It only ages the
+// entry above; the provider is the source of truth for the handle itself.
 const connectedSandboxCachedAt = new Map<string, number>();
+// replica-local: the in-flight connect of a sandbox this replica owns. Two
+// replicas never connect the same sandbox, so a shared map would only leak
+// handles between processes.
 const connectOperations = new Map<string, { generation: object; promise: Promise<E2BSandbox> }>();
 export const E2B_RUNNING_STATUS_CACHE_TTL_MS = 3_000;
+// replica-local: a short-lived cache of the provider's running status. It is a
+// read-through cache of an external fact, so every replica may hold its own.
 const runningStatusCache = new Map<string, number>();
+// replica-local: the generation token that invalidates the status cache above
+// when a sandbox is stopped or resumed.
 const statusCacheGeneration = new Map<string, object>();
+// replica-local: the in-flight start of a sandbox this replica owns. The
+// provider rejects a second start, so the promise is kept per process.
 const startOperations = new Map<string, Promise<void>>();
 
 function currentStatusGeneration(externalId: string): object {
@@ -410,7 +425,7 @@ async function ensureKortixEntrypoint(
     // re-ask a question this probe just answered.
     if (reachable) return;
     if (!(await kortixEntrypointIsRunning(sandbox))) {
-      console.error(
+      logger.error(
         `[e2b] dead resume workaround: sandbox ${sandbox.sandboxId} came back from a ` +
           `filesystem-only pause with no kortix-entrypoint process and no health answer after ` +
           `${KORTIX_RESUME_HEALTH_PROBE_ATTEMPTS}s — clearing ${KORTIX_ENTRYPOINT_LOCK} and relaunching`,
@@ -674,7 +689,7 @@ export class E2BProvider implements SandboxProvider {
       const remainingS = Math.round((endAtMs - requestedAtMs) / 1000);
       const shortfallS = Math.round((requestedAtMs + E2B_RUNTIME_BACKSTOP_MS - endAtMs) / 1000);
       const backstopS = Math.round(E2B_RUNTIME_BACKSTOP_MS / 1000);
-      console.warn(
+      logger.warn(
         `[e2b] lifecycle renewal for ${externalId} clamped by the E2B plan's max_length_hours: ` +
           `provider deadline ${new Date(endAtMs).toISOString()} (${remainingS}s ahead, ` +
           `${shortfallS}s short of the ${backstopS}s backstop). The box runs to the deadline and ` +

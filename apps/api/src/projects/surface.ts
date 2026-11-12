@@ -197,7 +197,7 @@ export { LIVE as liveClosedAccountSql } from './session-log-purge';
 
 // Git reads (consumed by config-releases/publish.ts and config-releases/base-tip.ts).
 export { resolveCommitSha, resolveCommitShaAt } from './git/commits';
-export { publishTipProofsTo, refreshIntervalMs, refreshMirror, useSharedTipProof } from './git/mirror';
+export { publishTipProofsTo, refreshIntervalMs, refreshMirror, runGit, useSharedTipProof } from './git/mirror';
 export type { GitBackedProject } from './git/types';
 // Saved config summaries, rebuilt when a base ref moves (consumed by ../config-releases/publish).
 export { savedProjectConfig, scheduleConfigSummary } from './config-summary/service';
@@ -270,3 +270,7 @@ export {
 // domain that counts or stops live sessions).
 export { settleLiveSessionsOfAccounts, transitionSandbox, transitionSession } from './session-lifecycle/status-transitions';
 export { ACTIVE_SESSION_STATUSES, PROVISIONING_SESSION_STATUSES } from './lib/session-status';
+
+// The project secret handles (consumed by the llm-gateway's Antigravity
+// credential store).
+export { resolveProjectSecretForConsumer, writeSharedProjectSecret } from './secrets';

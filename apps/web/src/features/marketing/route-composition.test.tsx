@@ -40,9 +40,7 @@ import EnterprisePage from '@/app/[locale]/(public)/(marketing)/enterprise/page'
 import FrameworkPage from '@/app/[locale]/(public)/(marketing)/framework/page';
 import MultiplayerPage from '@/app/[locale]/(public)/(marketing)/multiplayer/page';
 import SecurityPage from '@/app/[locale]/(public)/(marketing)/security/page';
-import SelfHostedPage from '@/app/[locale]/(public)/(marketing)/self-hosted/page';
 import SovereignPage from '@/app/[locale]/(public)/(marketing)/sovereign/page';
-import { TOPIC_PANELS as SelfHostedPanels } from '@/features/marketing/self-hosted/topic-panels';
 import { TOPIC_PANELS as SovereignPanels } from '@/features/marketing/sovereign/topic-panels';
 
 describe('shipped marketing route composition', () => {
@@ -73,7 +71,6 @@ describe('shipped marketing route composition', () => {
     ['enterprise', EnterprisePage],
     ['compliance', CompliancePage],
     ['sovereign', SovereignPage],
-    ['self-hosted', SelfHostedPage],
     ['framework', FrameworkPage],
     ['multiplayer', MultiplayerPage],
     ['security', SecurityPage],
@@ -98,7 +95,6 @@ const SOLUTION_HERO_PAGES = [
   ['enterprise', EnterprisePage],
   ['framework', FrameworkPage],
   ['multiplayer', MultiplayerPage],
-  ['self-hosted', SelfHostedPage],
   ['sovereign', SovereignPage],
   ['desktop', DesktopPage],
 ] as const;
@@ -163,7 +159,6 @@ describe('shipped solution hero composition', () => {
 
   test('the topic-panel terminals keep their line rendering', () => {
     expect({
-      selfHosted: projectTerminals(renderToStaticMarkup(<SelfHostedPanels.updates />)),
       sovereign: projectTerminals(renderToStaticMarkup(<SovereignPanels.install />)),
     }).toMatchSnapshot();
   });

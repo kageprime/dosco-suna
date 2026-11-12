@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 /** E2B Cloud template implementation of the shared sandbox image contract. */
 
 import { rm } from 'node:fs/promises';
@@ -61,7 +62,7 @@ async function listTemplates(): Promise<E2BTemplateView[]> {
 
 const observeTemplates = shortLivedObservation(
   listTemplates,
-  process.env.NODE_ENV === 'test' ? 0 : 2_000,
+  config.NODE_ENV === 'test' ? 0 : 2_000,
 );
 
 function matchesTemplate(template: E2BTemplateView, name: string): boolean {
@@ -124,7 +125,7 @@ class E2BAdapter implements SandboxProviderAdapter {
           onBuildLogs: (entry) => {
             const line = entry.message.trim();
             if (!line) return;
-            console.info(`[snapshots] ${input.snapshotName} [e2b]: ${line}`);
+            logger.info(`[snapshots] ${input.snapshotName} [e2b]: ${line}`);
             tap?.onLine?.(line);
           },
         });
@@ -132,7 +133,7 @@ class E2BAdapter implements SandboxProviderAdapter {
         if (!isE2BConcurrentBuildConflict(error)) throw error;
         const line =
           'Another API replica triggered this E2B template build. Waiting for that build.';
-        console.warn(`[snapshots] ${input.snapshotName} [e2b]: ${line}`);
+        logger.warn(`[snapshots] ${input.snapshotName} [e2b]: ${line}`);
         tap?.onLine?.(line);
         await waitForConcurrentE2BBuild(() => this.getSnapshotState(input.snapshotName));
       }

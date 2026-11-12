@@ -25,14 +25,13 @@ let reducedMotion = false;
 const motion = await import('motion/react');
 mock.module('motion/react', () => ({ ...motion, useReducedMotion: () => reducedMotion }));
 
-const [compliance, enterprise, framework, multiplayer, security, selfHosted, sovereign] =
+const [compliance, enterprise, framework, multiplayer, security, sovereign] =
   await Promise.all([
     import('../compliance/compliance-hero'),
     import('../enterprise/enterprise-hero'),
     import('../framework/framework-hero'),
     import('../multiplayer/multiplayer-hero'),
     import('../security-page/security-hero'),
-    import('../self-hosted/self-hosted-hero'),
     import('../sovereign/sovereign-hero'),
   ]);
 
@@ -42,7 +41,6 @@ const HEROES: { Hero: ComponentType; idPrefix: string; stepMs: number }[] = [
   { Hero: framework.FrameworkHero, idPrefix: 'framework-walk', stepMs: 4500 },
   { Hero: multiplayer.MultiplayerHero, idPrefix: 'multiplayer-walk', stepMs: 4500 },
   { Hero: security.SecurityHero, idPrefix: 'security-walk', stepMs: 3500 },
-  { Hero: selfHosted.SelfHostedHero, idPrefix: 'selfhost-walk', stepMs: 4000 },
   { Hero: sovereign.SovereignHero, idPrefix: 'sovereign-walk', stepMs: 4000 },
 ];
 

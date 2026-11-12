@@ -38,6 +38,9 @@ interface PendingUpload {
   blocks: Map<string, Uint8Array<ArrayBuffer>>;
   createdAt: number;
 }
+// replica-local: the multipart upload this replica is assembling. The upload
+// id is handed back to the client, and the client finishes it against the
+// replica that started it, so the parts live with the process that owns them.
 const pendingUploads = new Map<string, PendingUpload>();
 
 export async function listSupabaseFiles(

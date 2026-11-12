@@ -34,7 +34,7 @@ webhooksRouter.openapi(
       ...errors(400, 500, 503),
     },
   }),
-  async (c: any) => {
+  async (c) => {
     const signature = c.req.header('stripe-signature');
     if (!signature) return c.json({ error: 'Missing stripe-signature header' }, 400);
     if (!config.STRIPE_WEBHOOK_SECRET) return c.json({ error: 'Webhook not configured' }, 500);
@@ -66,7 +66,7 @@ webhooksRouter.openapi(
       ...errors(401, 500),
     },
   }),
-  async (c: any) => {
+  async (c) => {
     if (!config.REVENUECAT_WEBHOOK_SECRET) {
       return c.json({ error: 'Webhook not configured' }, 500);
     }
@@ -94,7 +94,7 @@ webhooksRouter.openapi(
       ...errors(400, 500),
     },
   }),
-  async (c: any) => {
+  async (c) => {
     const signature = c.req.header('x-paystack-signature');
     if (!signature) return c.json({ error: 'Missing x-paystack-signature header' }, 400);
 

@@ -4,9 +4,10 @@ import { mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/p
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import * as tar from 'tar';
-import { validateRef, validateSha } from '../projects/git-ref';
-import { refreshMirror, runGit } from '../projects/git/mirror';
-import type { GitBackedProject } from '../projects/git/types';
+import { validateRef, validateSha } from '../shared/git-ref';
+import { refreshMirror, runGit } from '../projects/surface';
+import type { GitBackedProject } from '../projects/surface';
+import { config } from '../config';
 
 export const COMPILED_CHECKOUT_FORMAT = 'dosco.livepiled-checkout.v1';
 export const COMPILED_CHECKOUT_CONTENT_TYPE =
@@ -37,6 +38,9 @@ interface CachedArtifactMetadata {
   size: number;
 }
 
+// replica-local: the compiled artifact this replica is building for a
+// (project, ref, sha). The same key is built once per process; a second
+// replica builds its own copy from the same source.
 const builds = new Map<string, Promise<CompiledCheckoutArtifact>>();
 
 export class CompiledCheckoutSourceMovedError extends Error {
@@ -54,12 +58,12 @@ export class CompiledCheckoutTooLargeError extends Error {
 }
 
 function cacheRoot(): string {
-  return process.env.KORTIX_COMPILED_BOOT_CACHE_DIR || '/tmp/kortix/compiled-boot';
+  return config.KORTIX_COMPILED_BOOT_CACHE_DIR || '/tmp/kortix/compiled-boot';
 }
 
 function maxArtifactBytes(): number {
-  const configured = Number(process.env.KORTIX_COMPILED_BOOT_MAX_ARTIFACT_BYTES);
-  return Number.isFinite(configured) && configured > 0 ? configured : 512 * 1024 * 1024;
+  const configured = config.KORTIX_COMPILED_BOOT_MAX_ARTIFACT_BYTES;
+  return configured > 0 ? configured : 512 * 1024 * 1024;
 }
 
 function artifactKey(projectId: string, ref: string, sourceSha: string): string {
