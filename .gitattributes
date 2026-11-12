@@ -1,3 +1,11 @@
+# One line-ending rule for the repository: LF in every blob. A Windows checkout
+# that commits CRLF turns a one-word change into a whole-file merge conflict
+# against upstream (264 files did, 2026-11-12).
+* text=auto eol=lf
+# Windows-native scripts keep CRLF so cmd.exe and PowerShell read them normally.
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
 # The worktree CLI is dense with emoji/box-drawing chars, so git's heuristic
 # flags it as binary and hides line diffs. It's plain UTF-8 — treat it as text.
 scripts/worktree/*.ts text
