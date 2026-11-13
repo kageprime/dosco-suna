@@ -22,7 +22,6 @@ import {
   startClaudeSubscriptionLogin,
   startProjectProviderOAuth,
   upsertProjectSecret,
-  completeWorkspaceProviderOAuth,
 } from '@kortix/sdk';
 import { parseAntigravityAuth } from './antigravity-auth';
 import { contract, qk, refreshProjectProviderState } from '@kortix/sdk/react';
@@ -149,8 +148,6 @@ export function useSubscriptionSignIn({
   // One generation per sign-in run: Cancel then Connect must not revive the
   // old loop (see `createRunGeneration`).
   const [runs] = useState(createRunGeneration);
-  const [antigravityRedirect, setAntigravityRedirect] = useState<{ flowId: string; authorizeUrl: string } | null>(null);
-  const [antigravityRedirectUrl, setAntigravityRedirectUrl] = useState('');
 
   useEffect(() => {
     return () => runs.cancel();
@@ -163,8 +160,6 @@ export function useSubscriptionSignIn({
     setChecking(false);
     setError(null);
     setPhase('idle');
-    setAntigravityRedirect(null);
-    setAntigravityRedirectUrl('');
   }, [runs]);
 
   const claudeConnected = useCallback(async () => {
@@ -201,38 +196,6 @@ export function useSubscriptionSignIn({
       setError(err instanceof Error && err.message ? err.message : copy.failed);
     }
   }, [copy.failed, projectId, runs]);
-
-  const completeAntigravityRedirect = useCallback(async (redirectUrl: string) => {
-    if (!antigravityRedirect?.flowId || !redirectUrl.trim()) return;
-    const isCancelled = runs.begin();
-    setChecking(true);
-    setError(null);
-    try {
-      const res = await completeWorkspaceProviderOAuth(projectId, subscription.oauth, antigravityRedirect.flowId, redirectUrl.trim());
-      if (isCancelled()) return;
-      if ((res as any).status === 'success') {
-        setAntigravityRedirect(null);
-        setAntigravityRedirectUrl('');
-        setPhase('done');
-        successToast(copy.connectedToast);
-        void queryClient.invalidateQueries({ queryKey: qk.project.secrets(projectId) });
-        void queryClient.invalidateQueries({ queryKey: providerLoginsKey(projectId) });
-        void queryClient.invalidateQueries({ queryKey: ['account-secret-resources'] });
-        refreshProjectProviderState(queryClient, projectId, { expectProviderId: subscription.providerId });
-        onConnected(subscription.providerId);
-      } else if ((res as any).status === 'failed') {
-        setError((res as any).error || copy.failed);
-      } else if ((res as any).status === 'expired') {
-        setError(copy.failed);
-        setAntigravityRedirect(null);
-      }
-    } catch (err) {
-      if (isCancelled()) return;
-      setError(err instanceof Error && err.message ? err.message : copy.failed);
-    } finally {
-      setChecking(false);
-    }
-  }, [antigravityRedirect, copy.connectedToast, copy.failed, onConnected, projectId, queryClient, runs, subscription.oauth, subscription.providerId]);
 
   /** Claude: hand the code claude.com showed to the sign-in. A refused code ends it: the next try signs in again. */
   const submitCode = useCallback(async (code: string) => {
@@ -308,51 +271,13 @@ export function useSubscriptionSignIn({
   const handleConnect = useCallback(async () => {
     if (claude) return startClaude();
     if (antigravity) {
-      const isCancelled = runs.begin();
+      // Antigravity has no sign-in a web page can complete: Google's
+      // installed-app client redirects only to a loopback address the browser
+      // cannot hand back. Show the credential paste step directly.
+      runs.begin();
       setError(null);
       setChallenge(null);
       setPhase('waiting');
-      let start: Awaited<ReturnType<typeof startProjectProviderOAuth>>;
-      try {
-        start = await startProjectProviderOAuth(projectId, subscription.oauth, {});
-      } catch (err) {
-        if (isCancelled()) return;
-        // The device flow is unavailable (a server without it, or Google
-        // unreachable): keep the paste step on screen as the manual fallback.
-        setError(err instanceof Error && err.message ? err.message : copy.failed);
-        setPhase('waiting');
-        return;
-      }
-      if (isCancelled()) return;
-      const started = start;
-      if ((started as any).mode === 'redirect' && (started as any).authorize_url) {
-        try {
-          if (typeof window !== 'undefined') window.open((started as any).authorize_url, '_blank', 'noopener');
-        } catch {}
-        setAntigravityRedirect({ flowId: started.flow_id, authorizeUrl: (started as any).authorize_url });
-        setPhase('waiting');
-        return;
-      }
-      await runDeviceGrant({
-        startOAuth: () => Promise.resolve(started),
-        pollOAuth: (flowId) => pollProjectProviderOAuth(projectId, subscription.oauth, flowId),
-        sleep,
-        now: Date.now,
-        isCancelled,
-        setChallenge,
-        setPhase,
-        setError,
-        failedMessage: copy.failed,
-        onSuccess: () => {
-          setPhase('done');
-          successToast(copy.connectedToast);
-          void queryClient.invalidateQueries({ queryKey: qk.project.secrets(projectId) });
-          void queryClient.invalidateQueries({ queryKey: providerLoginsKey(projectId) });
-          void queryClient.invalidateQueries({ queryKey: ['account-secret-resources'] });
-          refreshProjectProviderState(queryClient, projectId, { expectProviderId: subscription.providerId });
-          onConnected(subscription.providerId);
-        },
-      });
       return;
     }
     const isCancelled = runs.begin();
@@ -487,10 +412,6 @@ export function useSubscriptionSignIn({
     submitAntigravityCredentials,
     isAntigravity: antigravity,
     checking,
-    antigravityRedirect,
-    antigravityRedirectUrl,
-    setAntigravityRedirectUrl,
-    completeAntigravityRedirect,
   };
 }
 
@@ -524,10 +445,6 @@ export function ChatGptSubscriptionConnect({
     submitAntigravityCredentials,
     isAntigravity,
     checking,
-    antigravityRedirect,
-    antigravityRedirectUrl,
-    setAntigravityRedirectUrl,
-    completeAntigravityRedirect,
   } = useSubscriptionSignIn({ projectId, onConnected, kind });
   const waiting = phase === 'waiting';
   const action = subscriptionPrimaryAction({ connected, failed: !!error });
@@ -548,42 +465,7 @@ export function ChatGptSubscriptionConnect({
         {accessSlot}
       </div>
 
-      {waiting && isAntigravity && antigravityRedirect && (
-        <div className="mt-3 space-y-2">
-          <div className="text-foreground text-xs font-medium">
-            Sign in in the opened browser window, then paste the redirect URL below.
-          </div>
-          <a
-            className="text-muted-foreground hover:text-foreground block text-xs underline underline-offset-2"
-            href={antigravityRedirect.authorizeUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Open Google sign-in
-          </a>
-          <input
-            type="text"
-            className="border-input bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-ring w-full rounded-md border px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-1"
-            value={antigravityRedirectUrl}
-            onChange={(e) => setAntigravityRedirectUrl(e.target.value)}
-            placeholder="http://localhost:51121/oauth-callback?code=...&state=..."
-          />
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="px-3"
-            disabled={checking || !antigravityRedirectUrl.trim()}
-            onClick={() => void completeAntigravityRedirect(antigravityRedirectUrl)}
-          >
-            {checking ? 'Completing…' : 'Complete sign-in'}
-          </Button>
-        </div>
-      )}
-
-      {waiting && isAntigravity && !challenge && !antigravityRedirect && error && (
-        // The device flow was refused before any code arrived: the paste step
-        // is the manual fallback, shown together with the reason below.
+      {waiting && isAntigravity && (
         <div className="mt-3">
           <AntigravityCredentialsStep
             saving={checking}
@@ -592,7 +474,7 @@ export function ChatGptSubscriptionConnect({
         </div>
       )}
 
-      {waiting && (!isAntigravity || challenge || !error) && !(isAntigravity && antigravityRedirect) && (
+      {waiting && !isAntigravity && (
         <div className="border-border bg-muted/30 mt-3 rounded-md border p-3">
           {challenge ? (
             <>

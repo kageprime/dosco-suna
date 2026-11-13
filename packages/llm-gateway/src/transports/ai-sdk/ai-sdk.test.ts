@@ -1507,6 +1507,38 @@ describe('Piece A — OpenAI Responses API absorbed into the ai-sdk engine', () 
       }
     });
 
+    // The live 2026-11-13 400 ("The request could not be built.") hid which
+    // precondition failed. An Antigravity descriptor without a Cloud Code
+    // project must name the missing project in the body, before any fetch.
+    it('a Cloud Code descriptor without a project fails as a 400 that names the cause', async () => {
+      let fetched = 0;
+      const failure = await callUpstreamViaAiSdk(
+        { stream: true, messages: [{ role: 'user', content: 'hi' }] },
+        {
+          provider: 'antigravity',
+          kind: 'google-cloudcode',
+          baseUrl: 'https://daily-cloudcode-pa.googleapis.com',
+          apiKey: 'ya29.test',
+          billingMode: 'none',
+          markup: 0,
+          resolvedModel: 'gemini-3.8-flash-high',
+        },
+        {
+          fetch: async () => {
+            fetched++;
+            return new Response('{}', { status: 200 });
+          },
+        },
+      ).then(
+        () => null,
+        (error: unknown) => error,
+      );
+      expect(failure).toBeInstanceOf(UpstreamHttpError);
+      expect(failure).toMatchObject({ status: 400 });
+      expect((failure as UpstreamHttpError).body).toContain('no Cloud Code project');
+      expect(fetched).toBe(0);
+    });
+
     // Strix on #11455: nesting hidden inside a tool-call `arguments` string passed
     // the wire-JSON depth bound, then overflowed in the SDK outside the build
     // step's catch, and a raw RangeError counted as a retryable network failure.

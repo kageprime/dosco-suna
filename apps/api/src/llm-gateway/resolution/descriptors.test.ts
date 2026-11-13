@@ -296,21 +296,25 @@ describe('bedrockByokBaseUrl', () => {
 });
 
 describe('antigravityDescriptor', () => {
-  test('maps bare and prefixed model names to Google OpenAI-compatible endpoint', () => {
-    const desc = antigravityDescriptor({ access: 'ya29.test' }, 'antigravity/gemini-3.8-flash');
+  test('maps an Antigravity ref to the Cloud Code descriptor', () => {
+    const desc = antigravityDescriptor(
+      { access: 'ya29.test', project: 'cloud-project-1' },
+      'antigravity/gemini-3.8-flash',
+    );
     expect(desc).toMatchObject({
       provider: 'antigravity',
-      kind: 'openai-compat',
-      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+      kind: 'google-cloudcode',
+      baseUrl: 'https://daily-cloudcode-pa.googleapis.com',
       apiKey: 'ya29.test',
-      resolvedModel: 'gemini-2.5-flash',
+      resolvedModel: 'gemini-3.8-flash-high',
+      project: 'cloud-project-1',
     });
-    expect(desc.headers?.Authorization).toBe('Bearer ya29.test');
+    expect(desc.headers?.['User-Agent']).toContain('antigravity/hub/');
   });
 
-  test('adds x-goog-api-key header when an AIza key is supplied', () => {
-    const desc = antigravityDescriptor({ access: 'AIzaSy12345' }, 'antigravity/gemini-4-carbon');
-    expect(desc.headers?.['x-goog-api-key']).toBe('AIzaSy12345');
-    expect(desc.resolvedModel).toBe('gemini-2.5-flash');
+  test('carries no project when the credential has none', () => {
+    const desc = antigravityDescriptor({ access: 'ya29.test' }, 'antigravity/gemini-2.5-pro');
+    expect(desc.project).toBeUndefined();
+    expect(desc.resolvedModel).toBe('gemini-2.5-pro');
   });
 });
