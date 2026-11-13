@@ -478,6 +478,18 @@ async function resolveAntigravityCandidates(context: Context): Promise<UpstreamD
     );
   }
 
+  // Cloud Code cannot build a request without the companion project. A sign-in
+  // that cannot produce one (an expired token with a foreign refresh token, or
+  // a failed discovery) is a credential the person must replace, never a
+  // generic "could not be built" 400 at the model.
+  if (!credential.project) {
+    throw new GatewayResolutionError(
+      'provider_reauth_required',
+      'Your Google Antigravity sign-in has no Cloud Code project.',
+      'Paste a fresh Google Antigravity OAuth JSON in project settings, then retry.',
+    );
+  }
+
   return [antigravityDescriptor(credential, effectiveModel)];
 }
 
