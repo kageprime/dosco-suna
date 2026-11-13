@@ -24,7 +24,7 @@ export function AntigravityCredentialsStep({
     const parsed = parseAntigravityAuth(value);
     if (!parsed || (!parsed.access && !parsed.refresh)) {
       errorToast('Invalid Antigravity credentials', {
-        description: 'Please paste a valid Google OAuth access token (ya29...), API key, or oauth_creds.json',
+        description: 'Paste a Google Antigravity OAuth JSON or a ya29. access token. A Gemini API key cannot be used here.',
       });
       return;
     }
@@ -34,7 +34,9 @@ export function AntigravityCredentialsStep({
   return (
     <div className="bg-muted/60 space-y-3 rounded-lg p-4" data-provider-antigravity="">
       <p className="text-muted-foreground text-xs text-pretty">
-        Paste your Google Antigravity OAuth access token (starts with <code className="text-foreground">ya29.</code>), Gemini API key, or the contents of <code className="text-foreground">~/.gemini/oauth_creds.json</code> from your Antigravity environment.
+        Paste a Google Antigravity OAuth credential: the OAuth JSON from a Google Antigravity sign-in, or a{' '}
+        <code className="text-foreground">ya29.</code> access token. A JSON with a refresh token stays connected; a raw
+        access token lasts about 50 minutes. A Gemini API key cannot be used here.
       </p>
       <form onSubmit={handleSubmit} className="space-y-3">
         <Textarea

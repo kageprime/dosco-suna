@@ -259,10 +259,19 @@ export async function callUpstreamViaAiSdk(
   // which never trips the breaker (KRTX-3421).
   let fetchStarted = false;
   const baseFetch = opts.fetch ?? upstreamFetch;
-  const unsent = (error: unknown): unknown =>
-    error instanceof NetworkError && !fetchStarted && !opts.signal?.aborted
-      ? new UpstreamHttpError(400, 'The request could not be built.', descriptor.provider)
-      : error;
+  const unsent = (error: unknown): unknown => {
+    if (!(error instanceof NetworkError) || fetchStarted || opts.signal?.aborted) return error;
+    // Carry the build failure's own message. The generic sentence alone left a
+    // live 400 ("The request could not be built.") with no way to tell a
+    // missing credential project from an ill-typed tool or schema.
+    const cause = error.cause instanceof Error ? error.cause.message : '';
+    const detail = cause.replace(/\s+/g, ' ').trim().slice(0, 300);
+    return new UpstreamHttpError(
+      400,
+      detail ? `The request could not be built: ${detail}` : 'The request could not be built.',
+      descriptor.provider,
+    );
+  };
   const model = resolveAiModel(descriptor, {
     fetch: (input, init) => {
       fetchStarted = true;
