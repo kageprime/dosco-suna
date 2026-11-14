@@ -20,74 +20,74 @@
       "Blue (--ring / kortix-base) is a signal: focus, links, selection. Never a fill."
     ],
     "semantic": {
-      "background": { "light": "oklch(1 0 0)", "dark": "oklch(15% 0 0)", "hex": ["#ffffff", "#0b0b0b"], "ramp": "canvas", "utility": "bg-background", "mobile": true, "use": "The page itself." },
-      "pane": { "light": "oklch(1 0 0)", "dark": "oklch(0.1543 0 0)", "hex": ["#ffffff", "#0c0c0c"], "ramp": "base", "utility": "bg-pane", "mobile": true, "use": "Content pane inside the app shell." },
+      "background": { "light": "oklch(0.968 0.009 88)", "dark": "oklch(0.172 0.018 158)", "hex": ["#f7f4ee", "#09120d"], "ramp": "canvas", "utility": "bg-background", "mobile": true, "use": "The page itself." },
+      "pane": { "light": "oklch(0.980 0.007 88)", "dark": "oklch(0.190 0.020 158)", "hex": ["#faf8f3", "#0c1710"], "ramp": "base", "utility": "bg-pane", "mobile": true, "use": "Content pane inside the app shell." },
       "surface": {
-        "light": "oklch(0.9911 0 0)",
-        "dark": "oklch(0.1913 0 0)",
-        "hex": ["#fcfcfc", "#141414"],
+        "light": "oklch(0.952 0.011 86)",
+        "dark": "oklch(0.220 0.022 158)",
+        "hex": ["#f2efe7", "#121e17"],
         "ramp": "surface",
         "utility": "bg-surface",
         "mobile": true,
         "use": "Full-bleed shell pane that stands in for the page (settings at side=fullscreen). Never a card, row or panel."
       },
-      "foreground": { "light": "oklch(0.2393 0 0)", "dark": "oklch(1 0 0)", "hex": ["#1f1f1f", "#ffffff"], "ramp": "ink", "utility": "text-foreground", "mobile": true, "use": "Primary text." },
+      "foreground": { "light": "oklch(0.242 0.025 156)", "dark": "oklch(0.952 0.009 88)", "hex": ["#16231b", "#f2efe8"], "ramp": "ink", "utility": "text-foreground", "mobile": true, "use": "Primary text." },
       "foreground-strong": { "ref": "foreground", "utility": "text-foreground-strong", "mobile": true, "use": "Alias for title-weight text." },
       "foreground-weak": { "ref": "muted-foreground", "utility": "text-foreground-weak", "mobile": true, "use": "Alias for description-weight text." },
-      "scene-foreground": { "light": "oklch(1 0 0)", "dark": "oklch(1 0 0)", "hex": ["#ffffff", "#ffffff"], "ramp": "ink", "utility": "text-scene-foreground", "mobile": false, "use": "Primary ink over the landing fold's Unicorn scene. The scene is dark in both themes, so this ink is light in both." },
-      "scene-foreground-muted": { "light": "oklch(0.683 0 0)", "dark": "oklch(0.683 0 0)", "hex": ["#999999", "#999999"], "ramp": "ink-muted", "utility": "text-scene-foreground-muted", "mobile": false, "use": "Muted ink over the landing fold's Unicorn scene. The scene is dark in both themes, so this ink is light in both." },
+      "scene-foreground": { "light": "oklch(0.962 0.010 88)", "dark": "oklch(0.962 0.010 88)", "hex": ["#f5f2eb", "#f5f2eb"], "ramp": "ink", "utility": "text-scene-foreground", "mobile": false, "use": "Primary ink over the landing fold's dark forest canopy. The scene is deep pine in both themes, so this ink stays warm stone in both." },
+      "scene-foreground-muted": { "light": "oklch(0.768 0.020 152)", "dark": "oklch(0.768 0.020 152)", "hex": ["#abb7ad", "#abb7ad"], "ramp": "ink-muted", "utility": "text-scene-foreground-muted", "mobile": false, "use": "Muted ink over the landing fold's dark forest canopy." },
       "card": {
-        "light": "oklch(0.9672 0 0)",
-        "dark": "oklch(0.1913 0 0)",
-        "hex": ["#f4f4f4", "#141414"],
+        "light": "oklch(0.928 0.014 84)",
+        "dark": "oklch(0.220 0.022 158)",
+        "hex": ["#ece7dd", "#121e17"],
         "ramp": "surface-1",
         "utility": "bg-card",
         "mobile": true,
         "use": "Washed lifted region. Not the panel default (that is popover)."
       },
-      "card-foreground": { "light": "oklch(0.2393 0 0)", "dark": "oklch(1 0 0)", "hex": ["#1f1f1f", "#ffffff"], "ramp": "ink", "utility": "text-card-foreground", "mobile": true },
+      "card-foreground": { "light": "oklch(0.242 0.025 156)", "dark": "oklch(0.952 0.009 88)", "hex": ["#16231b", "#f2efe8"], "ramp": "ink", "utility": "text-card-foreground", "mobile": true },
       "popover": {
-        "light": "oklch(1 0 0)",
-        "dark": "oklch(0.1913 0 0)",
-        "hex": ["#ffffff", "#141414"],
+        "light": "oklch(0.980 0.007 88)",
+        "dark": "oklch(0.236 0.023 158)",
+        "hex": ["#faf8f3", "#15221a"],
         "ramp": "canvas / surface-1",
         "utility": "bg-popover",
         "mobile": true,
         "use": "Panels, rows, overlays: the default panel fill. Floating use pairs with border + shadow."
       },
-      "popover-foreground": { "light": "oklch(0.2393 0 0)", "dark": "oklch(1 0 0)", "hex": ["#1f1f1f", "#ffffff"], "ramp": "ink", "utility": "text-popover-foreground", "mobile": true },
+      "popover-foreground": { "light": "oklch(0.242 0.025 156)", "dark": "oklch(0.952 0.009 88)", "hex": ["#16231b", "#f2efe8"], "ramp": "ink", "utility": "text-popover-foreground", "mobile": true },
       "primary": {
-        "light": "oklch(0.2393 0 0)",
-        "dark": "oklch(1 0 0)",
-        "hex": ["#1f1f1f", "#ffffff"],
+        "light": "oklch(0.352 0.068 160)",
+        "dark": "oklch(0.905 0.025 152)",
+        "hex": ["#12462e", "#d4e5d8"],
         "ramp": "ink",
         "utility": "bg-primary",
         "mobile": true,
-        "use": "Black (light) / white (dark) pill CTA."
+        "use": "Deep pine (light) / pale sage ink (dark) pill CTA."
       },
-      "primary-foreground": { "light": "oklch(1 0 0)", "dark": "oklch(0.1398 0 0)", "hex": ["#ffffff", "#090909"], "utility": "text-primary-foreground", "mobile": true },
-      "secondary": { "light": "oklch(0.9461 0 0)", "dark": "oklch(0.2264 0 0)", "hex": ["#ededed", "#1c1c1c"], "ramp": "surface-2", "utility": "bg-secondary", "mobile": true, "use": "Inset controls, chips." },
-      "secondary-foreground": { "light": "oklch(0.2393 0 0)", "dark": "oklch(1 0 0)", "hex": ["#1f1f1f", "#ffffff"], "ramp": "ink", "utility": "text-secondary-foreground", "mobile": true },
-      "muted": { "light": "oklch(0.9461 0 0)", "dark": "oklch(0.2264 0 0)", "hex": ["#ededed", "#1c1c1c"], "ramp": "surface-2", "utility": "bg-muted", "mobile": true },
+      "primary-foreground": { "light": "oklch(0.968 0.009 88)", "dark": "oklch(0.172 0.018 158)", "hex": ["#f7f4ee", "#09120d"], "utility": "text-primary-foreground", "mobile": true },
+      "secondary": { "light": "oklch(0.902 0.015 84)", "dark": "oklch(0.275 0.026 158)", "hex": ["#e3ded4", "#1d2c23"], "ramp": "surface-2", "utility": "bg-secondary", "mobile": true, "use": "Inset controls, chips." },
+      "secondary-foreground": { "light": "oklch(0.242 0.025 156)", "dark": "oklch(0.952 0.009 88)", "hex": ["#16231b", "#f2efe8"], "ramp": "ink", "utility": "text-secondary-foreground", "mobile": true },
+      "muted": { "light": "oklch(0.902 0.015 84)", "dark": "oklch(0.275 0.026 158)", "hex": ["#e3ded4", "#1d2c23"], "ramp": "surface-2", "utility": "bg-muted", "mobile": true },
       "muted-foreground": {
-        "light": "oklch(0.5103 0 0)",
-        "dark": "oklch(0.683 0 0)",
-        "hex": ["#666666", "#999999"],
+        "light": "oklch(0.478 0.022 154)",
+        "dark": "oklch(0.708 0.022 154)",
+        "hex": ["#546157", "#97a59b"],
         "ramp": "ink-muted",
         "utility": "text-muted-foreground",
         "mobile": true,
         "use": "Descriptions, meta, idle state. The only way to de-emphasize text."
       },
       "accent": {
-        "light": "oklch(0.9672 0 0)",
-        "dark": "oklch(0.1913 0 0)",
-        "hex": ["#f4f4f4", "#141414"],
+        "light": "oklch(0.912 0.014 84)",
+        "dark": "oklch(0.252 0.024 158)",
+        "hex": ["#e6e1d8", "#18261e"],
         "ramp": "surface-1",
         "utility": "bg-accent",
         "mobile": true,
         "use": "Solid hover surface. Not a hue: kortix-* are the hues."
       },
-      "accent-foreground": { "light": "oklch(0.2393 0 0)", "dark": "oklch(1 0 0)", "hex": ["#1f1f1f", "#ffffff"], "ramp": "ink", "utility": "text-accent-foreground", "mobile": true },
+      "accent-foreground": { "light": "oklch(0.242 0.025 156)", "dark": "oklch(0.952 0.009 88)", "hex": ["#16231b", "#f2efe8"], "ramp": "ink", "utility": "text-accent-foreground", "mobile": true },
       "destructive": {
         "light": "oklch(0.583 0.2387 28.4765)",
         "dark": "oklch(0.7022 0.1892 22.2279)",
@@ -98,70 +98,70 @@
       },
       "destructive-foreground": { "light": "oklch(0.9851 0 0)", "dark": "oklch(0.9851 0 0)", "hex": ["#fafafa", "#fafafa"], "utility": "text-destructive-foreground", "mobile": true },
       "border": {
-        "light": "oklch(0.9128 0 0)",
-        "dark": "oklch(0.2686 0 0)",
-        "hex": ["#e2e2e2", "#262626"],
+        "light": "oklch(0.858 0.016 84)",
+        "dark": "oklch(0.325 0.025 158)",
+        "hex": ["#d5d0c5", "#29382f"],
         "ramp": "hairline",
         "utility": "border-border",
         "mobile": true,
         "use": "Every border. There is one border color."
       },
-      "input": { "light": "oklch(0.9461 0 0)", "dark": "oklch(0.2264 0 0)", "hex": ["#ededed", "#1c1c1c"], "ramp": "surface-2", "utility": "bg-input", "mobile": true, "use": "Legacy. Add no new use: fields use bg-popover." },
+      "input": { "light": "oklch(0.902 0.015 84)", "dark": "oklch(0.275 0.026 158)", "hex": ["#e3ded4", "#1d2c23"], "ramp": "surface-2", "utility": "bg-input", "mobile": true, "use": "Legacy. Add no new use: fields use bg-popover." },
       "ring": {
-        "light": "oklch(0.669 0.1837 248.8066)",
-        "dark": "oklch(0.669 0.1837 248.8066)",
-        "hex": ["#0099ff", "#0099ff"],
-        "ramp": "accent-blue",
+        "light": "oklch(0.500 0.120 160)",
+        "dark": "oklch(0.720 0.120 158)",
+        "hex": ["#00774b", "#5abb88"],
+        "ramp": "accent-emerald",
         "utility": "ring-ring",
         "mobile": true,
-        "use": "Focus only (focus-visible)."
+        "use": "Focus and brand emerald accent."
       },
       "hover": { "light": "oklch(0 0 0 / 0.045)", "dark": "oklch(1 0 0 / 0.06)", "utility": "bg-hover", "mobile": true, "use": "Transient hover. Translucent ink, so it composes over any substrate." },
       "active": { "light": "oklch(0 0 0 / 0.075)", "dark": "oklch(1 0 0 / 0.1)", "utility": "bg-active", "mobile": true, "use": "Persistent selected fill." },
       "focus-ring": { "ref": "ring", "mobile": true, "utility": null, "use": "Alias read by components that style focus in CSS." },
       "sidebar": {
-        "light": "oklch(0.9672 0 0)",
-        "dark": "oklch(0.1913 0 0)",
-        "hex": ["#f4f4f4", "#141414"],
+        "light": "oklch(0.938 0.012 85)",
+        "dark": "oklch(0.198 0.020 158)",
+        "hex": ["#eeeae2", "#0e1812"],
         "ramp": "surface-1",
         "utility": "bg-sidebar",
         "mobile": true,
         "mobile_aliases": ["chrome-background"]
       },
-      "sidebar-foreground": { "light": "oklch(0.2393 0 0)", "dark": "oklch(1 0 0)", "hex": ["#1f1f1f", "#ffffff"], "ramp": "ink", "utility": "text-sidebar-foreground", "mobile": true },
+      "sidebar-foreground": { "light": "oklch(0.242 0.025 156)", "dark": "oklch(0.952 0.009 88)", "hex": ["#16231b", "#f2efe8"], "ramp": "ink", "utility": "text-sidebar-foreground", "mobile": true },
       "sidebar-primary": {
         "ref": "ring",
         "utility": "bg-sidebar-primary",
         "mobile": true,
         "use": "Selection in the sidebar. Follows --ring, so a white-label accent reaches the sidebar. 0 class uses in apps/web at audit time."
       },
-      "sidebar-primary-foreground": { "light": "oklch(1 0 0)", "dark": "oklch(1 0 0)", "hex": ["#ffffff", "#ffffff"], "utility": "text-sidebar-primary-foreground", "mobile": true },
-      "sidebar-accent": { "light": "oklch(0.9461 0 0)", "dark": "oklch(0.2264 0 0)", "hex": ["#ededed", "#1c1c1c"], "ramp": "surface-2", "utility": "bg-sidebar-accent", "mobile": true },
-      "sidebar-accent-foreground": { "light": "oklch(0.2393 0 0)", "dark": "oklch(1 0 0)", "hex": ["#1f1f1f", "#ffffff"], "ramp": "ink", "utility": "text-sidebar-accent-foreground", "mobile": true },
+      "sidebar-primary-foreground": { "light": "oklch(0.980 0.007 88)", "dark": "oklch(0.172 0.018 158)", "hex": ["#faf8f3", "#09120d"], "utility": "text-sidebar-primary-foreground", "mobile": true },
+      "sidebar-accent": { "light": "oklch(0.892 0.016 84)", "dark": "oklch(0.275 0.026 158)", "hex": ["#e0dbd0", "#1d2c23"], "ramp": "surface-2", "utility": "bg-sidebar-accent", "mobile": true },
+      "sidebar-accent-foreground": { "light": "oklch(0.242 0.025 156)", "dark": "oklch(0.952 0.009 88)", "hex": ["#16231b", "#f2efe8"], "ramp": "ink", "utility": "text-sidebar-accent-foreground", "mobile": true },
       "sidebar-row": {
         "light": { "ref": "card" },
         "dark": { "ref": "sidebar-accent" },
         "utility": "bg-sidebar-row",
         "mobile": false,
         "use": "Hovered or selected sidebar row as a SOLID fill (the row masks its own title, so it cannot be translucent).",
-        "why_dark_differs": "surface-1 on the #0b0b0b canvas is 1.07:1 and did not read as a fill; surface-2 is 1.15:1."
+        "why_dark_differs": "surface-1 on the dark pine canvas stays tight; surface-2 reads as a crisp raised pill."
       },
       "sidebar-row-control": {
         "light": { "ref": "sidebar-accent" },
-        "dark": "oklch(0.2686 0 0)",
-        "hex": [null, "#262626"],
+        "dark": "oklch(0.345 0.027 158)",
+        "hex": [null, "#2e3e34"],
         "utility": "bg-sidebar-row-control",
         "mobile": false,
         "use": "A control on a filled sidebar row: one step above sidebar-row."
       },
-      "sidebar-border": { "light": "oklch(0.9128 0 0)", "dark": "oklch(0.2178 0 0)", "hex": ["#e2e2e2", "#1a1a1a"], "ramp": "hairline / hairline-soft", "utility": "border-sidebar-border", "mobile": true },
+      "sidebar-border": { "light": "oklch(0.858 0.016 84)", "dark": "oklch(0.285 0.024 158)", "hex": ["#d5d0c5", "#202e26"], "ramp": "hairline / hairline-soft", "utility": "border-sidebar-border", "mobile": true },
       "sidebar-ring": { "ref": "ring", "utility": "ring-sidebar-ring", "mobile": true, "use": "Focus ring in the sidebar. Follows --ring, so a white-label focus color reaches the sidebar." }
     },
     "accents": {
-      "rule": "The only sources of hue in product UI. Theme-invariant today (same value in light and dark). Tinted fill = /15, glyph = solid. Two opacities, no others.",
+      "rule": "The only sources of hue in product UI. Tinted fill = /15, glyph = solid. Two opacities, no others.",
       "kortix-base": {
         "ref": "ring",
-        "hex": "#0099ff",
+        "hex": ["#00774b", "#5abb88"],
         "utility": "text-kortix-base",
         "mobile": true,
         "meaning": "brand, focus, links, selection",
@@ -249,16 +249,22 @@
   "typography": {
     "families": {
       "sans": {
-        "name": "Roobert",
-        "web_var": "--font-roobert",
-        "web_files": ["apps/web/public/fonts/roobert/RoobertUprightsVF.woff2", "apps/web/public/fonts/roobert/RoobertItalicsVF.woff2"],
+        "name": "Plus Jakarta Sans",
+        "web_var": "--font-dosco-sans",
+        "google_fonts_query": "Plus+Jakarta+Sans:ital,wght@0,400..800;1,400..800",
         "mobile_files": "apps/mobile/assets/font/Roobert/Roobert-{Light,Regular,Medium,SemiBold,Bold,Heavy}.ttf",
-        "use": "Everything."
+        "use": "Product UI, body, labels, controls."
+      },
+      "serif": {
+        "name": "Instrument Serif",
+        "web_var": "--font-dosco-serif",
+        "google_fonts_query": "Instrument+Serif:ital@0;1",
+        "use": "Marketing headlines and editorial display headings."
       },
       "mono": {
-        "name": "Roobert Mono",
-        "web_var": "--font-roobert-mono",
-        "web_files": ["apps/web/public/fonts/roobert/RoobertMonoUprightsVF.woff2", "apps/web/public/fonts/roobert/RoobertMonoItalicsVF.woff2"],
+        "name": "JetBrains Mono",
+        "web_var": "--font-dosco-mono",
+        "google_fonts_query": "JetBrains+Mono:ital,wght@0,400..700;1,400..700",
         "mobile_files": "apps/mobile/assets/font/Roobert/RoobertMono-Regular.ttf",
         "use": "Only code, commands, paths, IDs and keys. Never decorative."
       }
@@ -299,8 +305,9 @@
     "feature_settings_font_face": "'ss10' on, 'ss09' on, 'ss03' on, 'ss04' on, 'ss14' on",
     "feature_settings_note": "Web sets the six-value list (adds 'palt') on html and body. @font-face carries the five stylistic sets, as next/font does.",
     "stacks": {
-      "sans": "Roobert, ui-sans-serif, -apple-system, 'Segoe UI', 'Helvetica Neue', 'Noto Sans', sans-serif",
-      "mono": "'Roobert Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
+      "sans": "'Plus Jakarta Sans', ui-sans-serif, -apple-system, 'Segoe UI', 'Helvetica Neue', 'Noto Sans', sans-serif",
+      "serif": "'Instrument Serif', ui-serif, Georgia, Cambria, 'Times New Roman', serif",
+      "mono": "'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
     }
   },
   "spacing": {
@@ -311,21 +318,21 @@
     "named": { "sidebar": "1.5rem" }
   },
   "radius": {
-    "base": "0.625rem",
+    "base": "0.5rem",
     "web": {
-      "sm": { "value": "calc(var(--radius) - 4px)", "px": 6, "use": "Status icon tiles, small chips, the segmented chip, menu rows" },
-      "md": { "value": "calc(var(--radius) - 2px)", "px": 8, "use": "Panels, rows, tables, cards, buttons: the default" },
-      "lg": { "value": "var(--radius)", "px": 10, "use": "Floating panels: menu, popover, select content" },
-      "xl": { "value": "calc(var(--radius) + 4px)", "px": 14, "use": "Rare: large media containers" },
+      "sm": { "value": "calc(var(--radius) - 4px)", "px": 4, "use": "Status icon tiles, small chips, the segmented chip, menu rows" },
+      "md": { "value": "calc(var(--radius) - 2px)", "px": 6, "use": "Panels, rows, tables, cards, buttons: the default" },
+      "lg": { "value": "var(--radius)", "px": 8, "use": "Floating panels: menu, popover, select content" },
+      "xl": { "value": "calc(var(--radius) + 4px)", "px": 12, "use": "Rare: large media containers" },
       "2xl": { "value": "1rem", "px": 16, "use": "Marketing surfaces only" }
     },
     "mobile": {
-      "sm": 6,
-      "md": 8,
-      "lg": 10,
+      "sm": 4,
+      "md": 6,
+      "lg": 8,
       "xl": 12,
       "2xl": 16,
-      "note": "Mobile xl/2xl are Tailwind 3 defaults (0.75rem, 1rem), not derived from --radius. rounded-xl is 14px on web and 12px on mobile. Decision J-5."
+      "note": "Mobile xl/2xl are Tailwind 3 defaults (0.75rem, 1rem), not derived from --radius. rounded-xl is 12px on web and mobile."
     }
   },
   "elevation": {
@@ -393,7 +400,7 @@
     "card_radius": "md",
     "button_radius": "md",
     "button_padding": "12px 20px",
-    "logo_url": "https://kortix.com/brandkit/Logo/Brandmark/PNG/Brandmark%20Black.png",
+    "logo_url": "https://dosco.live/brand/dosco-icon-light.png",
     "logo_width_px": 20,
     "font_size_px": {
       "title": 24,

@@ -427,7 +427,7 @@ const ProjectSheelLayout = ({
           : undefined
       }
       className={cn(
-        'bg-background relative flex min-h-0 flex-1 flex-col overflow-hidden',
+        'bg-pane relative flex min-h-0 flex-1 flex-col overflow-hidden',
         isExpanded && 'border-border border-l',
       )}
       // The sidebar navigates and the toggle below owns the band's corner, so

@@ -135,7 +135,7 @@ function IconTile({ children, className }: { children: ReactNode; className?: st
   return <div className={cn(TILE, 'bg-card', className)}>{children}</div>;
 }
 
-const Dosco = () => <Avatar src="/usecases/logos/kortix.png" alt="Dosco" />;
+const Dosco = () => <Avatar src="/brand/dosco-icon-light.png" alt="Dosco" />;
 const Plain = () => <Avatar src="/usecases/logos/plain.png" alt="Plain" />;
 const Slack = () => <Mark src="/usecases/logos/slack.webp" alt="Slack" />;
 const GitHub = () => <Mark src="/usecases/logos/github.svg" alt="GitHub" />;
@@ -187,7 +187,7 @@ function HeroCover({ children }: { children: ReactNode }) {
           </div>
           <div className="border-border absolute -right-1.5 -bottom-1.5 overflow-hidden rounded-sm border bg-white">
             <img
-              src="/usecases/logos/kortix.png"
+              src="/brand/dosco-icon-light.png"
               alt={tI18nComplete.raw('textab54cf5e1d9d')}
               className="size-7 object-cover sm:size-8"
             />

@@ -41,7 +41,7 @@ export default function ProjectCustomizeSectionRedirect() {
   useEffect(() => {
     if (!projectId) return;
     if (fromSegment.pending || fromQuery.pending) return;
-    router.replace(fromSegment.href ?? fromQuery.href ?? `/workspaces/${projectId}/settings`);
+    router.replace(fromSegment.href ?? fromQuery.href ?? `/workspaces/${projectId}/admin`);
   }, [projectId, fromSegment.href, fromSegment.pending, fromQuery.href, fromQuery.pending, router]);
 
   return null;

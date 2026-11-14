@@ -148,10 +148,10 @@ export function UseCasesSection({ items, linkable }: { items: UseCaseItem[]; lin
       />
 
       <div className="flex flex-col items-center gap-5 px-8 pb-14 text-center">
-        <p className="bg-kortix-base/10 text-kortix-base w-fit rounded-sm px-2 py-1 font-mono text-xs font-medium uppercase">
+        <p className="bg-kortix-base/15 text-kortix-base w-fit rounded-sm px-2 py-1 font-mono text-xs font-medium uppercase">
           {copy.eyebrow}
         </p>
-        <h2 className="text-foreground text-xl font-medium tracking-tight text-balance md:text-2xl lg:text-3xl">
+        <h2 className="text-foreground font-serif text-2xl font-normal tracking-tight text-balance md:text-3xl lg:text-4xl">
           {copy.title}
           <span className="text-muted-foreground block">{copy.titleMuted}</span>
         </h2>

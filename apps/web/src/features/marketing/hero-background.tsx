@@ -1,43 +1,12 @@
 'use client';
 
-// The flowing backdrop behind the headline is the "Flow gradient" WebGL scene
-// from Unicorn Studio, vendored from onlook-dev/onlook (Apache-2.0):
-// apps/web/client/src/app/_components/hero/unicorn-background.tsx serves
-// apps/web/client/public/scenes/flow-background.json, and the same scene file
-// ships here at public/scenes/flow-background.json. Four deliberate diffs from
-// Onlook's wrapper:
-//   1. Their wheel-event forwarding is gone: the scene has `trackMouse: 0` —
-//      nothing in it follows the pointer — so the page's native scrolling and
-//      touch stay untouched here.
-//   2. The brandmark wallpaper is NOT an under-layer. The first live build
-//      (2026-10-20) crossfaded the scene over it, and the brandmark sat visible
-//      through the engine's whole load window — it read as a logo flash. Now
-//      `mode` starts `pending` (SSR renders nothing at all), and the wallpaper
-//      mounts only for the users who never get the scene: reduced-motion, no
-//      WebGL, or a scene error. Scene browsers get the bare page background
-//      for the load window and the canvas fading in over it.
-//   3. prefers-reduced-motion keeps the wallpaper permanently; Onlook animates
-//      regardless of the preference.
-//   4. Narrow viewports render at 30 fps — the flow is slow, so half the frame
-//      rate halves GPU and battery cost with no visible difference.
-
 import { WallpaperBackground } from '@/components/ui/wallpaper-background';
 import { cn } from '@kortix/ui/lib/utils';
-import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 
-const UnicornScene = dynamic(
-  () => import('unicornstudio-react/next').then((m) => m.default),
-  // The engine is ~heavy and only ever runs in a real browser; it must not sit
-  // in the server bundle or the first paint.
-  { ssr: false },
-);
-
-const HERO_SCENE_URL = '/scenes/flow-background.json';
-
-/** What owns the surface under the fold's type: `scene` is the Unicorn canvas
- *  (dark in both themes), `pending` (SSR) and `fallback` (brandmark wallpaper)
- *  sit on the page background. The fold's ink follows this, not the theme. */
+/** What owns the surface under the fold's type: `scene` is the Dosco Deep Forest
+ *  architectural canopy (dark pine in both themes), while `pending` (SSR) and
+ *  `fallback` (brandmark wallpaper) sit on the theme's canvas background. */
 export type HeroMediaMode = 'pending' | 'fallback' | 'scene';
 
 export function HeroBackground({
@@ -48,8 +17,7 @@ export function HeroBackground({
   onMediaChange?: (mode: HeroMediaMode) => void;
 }) {
   const [mode, setMode] = useState<HeroMediaMode>('pending');
-  const [loaded, setLoaded] = useState(false);
-  const [narrow, setNarrow] = useState(false);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') {
@@ -57,24 +25,16 @@ export function HeroBackground({
       return;
     }
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      // Reduced motion never gets the engine; the brandmark stays.
       setMode('fallback');
       return;
     }
-    // A browser without WebGL keeps the fallback too: headless shells and
-    // driverless machines get the static brandmark, not a blank canvas.
-    const probe = document.createElement('canvas');
-    if (!(probe.getContext('webgl2') ?? probe.getContext('webgl'))) {
-      setMode('fallback');
-      return;
-    }
-    setNarrow(window.matchMedia('(max-width: 767px)').matches);
     setMode('scene');
+    const raf = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   /* The parent swaps the fold's ink pair for the scene-foreground pair on
-     `scene` (globals.css); on `pending` and `fallback` it keeps the theme ink.
-     A scene error (onError below) flips back and the ink follows. */
+     `scene` (globals.css); on `pending` and `fallback` it keeps the theme ink. */
   useEffect(() => {
     onMediaChange?.(mode);
   }, [mode, onMediaChange]);
@@ -85,32 +45,55 @@ export function HeroBackground({
       aria-hidden
       data-a11y-decorative
     >
-      {/* The wallpaper is the fallback surface only (`mode === 'fallback'`):
-          reduced-motion and no-WebGL users get it, and a scene error flips back
-          to it. Scene browsers see nothing before the canvas — the brandmark
-          must not flash in the load window. SSR renders the `pending` state, so
-          hydration is a no-op. */}
       {mode === 'fallback' && <WallpaperBackground wallpaperId="brandmark" />}
       {mode === 'scene' && (
         <div
           className={cn(
-            'absolute inset-0 transition-opacity duration-500',
-            loaded ? 'opacity-100' : 'opacity-0',
+            'dark bg-background absolute inset-0 transition-opacity duration-500 ease-out',
+            visible ? 'opacity-100' : 'opacity-0',
           )}
         >
-          <UnicornScene
-            jsonFilePath={HERO_SCENE_URL}
-            width="100%"
-            height="100%"
-            scale={1}
-            dpi={1}
-            fps={narrow ? 30 : 60}
-            altText=""
-            ariaLabel=""
-            production={true}
-            lazyLoad={false}
-            onLoad={() => setLoaded(true)}
-            onError={() => setMode('fallback')}
+          {/* Major architectural rule lines */}
+          <div
+            className="absolute inset-0 opacity-60"
+            style={{
+              backgroundImage:
+                'linear-gradient(to right, oklch(from var(--foreground) l c h / 0.05) 1px, transparent 1px), linear-gradient(to bottom, oklch(from var(--foreground) l c h / 0.05) 1px, transparent 1px)',
+              backgroundSize: '144px 144px',
+            }}
+          />
+          {/* Fine 36px blueprint subdivision */}
+          <div
+            className="absolute inset-0 opacity-50"
+            style={{
+              backgroundImage:
+                'linear-gradient(to right, oklch(from var(--foreground) l c h / 0.025) 1px, transparent 1px), linear-gradient(to bottom, oklch(from var(--foreground) l c h / 0.025) 1px, transparent 1px)',
+              backgroundSize: '36px 36px',
+            }}
+          />
+          {/* Volumetric forest canopy illumination */}
+          <div
+            className="absolute -top-1/4 left-1/2 h-[78vh] w-[115vw] -translate-x-1/2 rounded-full blur-3xl"
+            style={{
+              background:
+                'radial-gradient(ellipse at 50% 42%, oklch(from var(--kortix-base) l c h / 0.42) 0%, oklch(from var(--kortix-base) calc(l * 0.65) c h / 0.24) 44%, transparent 76%)',
+            }}
+          />
+          {/* Lower emerald horizon mist */}
+          <div
+            className="absolute -bottom-32 left-1/4 h-[42vh] w-[55vw] rounded-full blur-3xl"
+            style={{
+              background:
+                'radial-gradient(circle, oklch(from var(--kortix-base) l c h / 0.16) 0%, oklch(from var(--kortix-base) l c h / 0.06) 50%, transparent 75%)',
+            }}
+          />
+          {/* Subtle top & bottom framing vignette */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(to bottom, oklch(from var(--background) l c h / 0.6), transparent, oklch(from var(--background) l c h / 0.75))',
+            }}
           />
         </div>
       )}

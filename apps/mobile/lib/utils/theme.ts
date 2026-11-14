@@ -78,84 +78,84 @@ export function toHexColor(hslColor: string, alpha?: number): string {
  */
 export const THEME = {
   light: {
-    background: 'hsl(0 0% 100%)', // --background
-    foreground: 'hsl(0 0% 12.2%)', // --foreground
-    card: 'hsl(0 0% 95.7%)', // --card
-    cardForeground: 'hsl(0 0% 12.2%)', // --card-foreground
-    popover: 'hsl(0 0% 100%)', // --popover
-    popoverForeground: 'hsl(0 0% 12.2%)', // --popover-foreground
-    primary: 'hsl(0 0% 12.2%)', // --primary
-    primaryForeground: 'hsl(0 0% 100%)', // --primary-foreground
-    secondary: 'hsl(0 0% 92.9%)', // --secondary
-    secondaryForeground: 'hsl(0 0% 12.2%)', // --secondary-foreground
-    muted: 'hsl(0 0% 92.9%)', // --muted
-    mutedForeground: 'hsl(0 0% 40%)', // --muted-foreground
-    accent: 'hsl(0 0% 95.7%)', // --accent
-    accentForeground: 'hsl(0 0% 12.2%)', // --accent-foreground
+    background: 'hsl(42.4 35.9% 95%)', // --background
+    foreground: 'hsl(141.7 23.6% 11.2%)', // --foreground
+    card: 'hsl(39.6 27.4% 89.5%)', // --card
+    cardForeground: 'hsl(141.7 23.6% 11.2%)', // --card-foreground
+    popover: 'hsl(42.4 43.1% 96.8%)', // --popover
+    popoverForeground: 'hsl(141.7 23.6% 11.2%)', // --popover-foreground
+    primary: 'hsl(153 58.9% 17.2%)', // --primary
+    primaryForeground: 'hsl(42.4 35.9% 95%)', // --primary-foreground
+    secondary: 'hsl(39.6 21.9% 86.1%)', // --secondary
+    secondaryForeground: 'hsl(141.7 23.6% 11.2%)', // --secondary-foreground
+    muted: 'hsl(39.6 21.9% 86.1%)', // --muted
+    mutedForeground: 'hsl(136.5 7.2% 35.4%)', // --muted-foreground
+    accent: 'hsl(39.6 22.8% 87.5%)', // --accent
+    accentForeground: 'hsl(141.7 23.6% 11.2%)', // --accent-foreground
     destructive: 'hsl(357.2 100% 45.3%)', // --destructive
-    destructiveForeground: 'hsl(60 0% 98%)', // --destructive-foreground
-    border: 'hsl(0 0% 88.6%)', // --border
-    input: 'hsl(0 0% 92.9%)', // --input
-    ring: 'hsl(204 100% 50%)', // --ring
-    pane: 'hsl(0 0% 100%)', // --pane
-    surface: 'hsl(0 0% 98.8%)', // --surface
+    destructiveForeground: 'hsl(0 0% 98%)', // --destructive-foreground
+    border: 'hsl(39.6 16.4% 80.4%)', // --border
+    input: 'hsl(39.6 21.9% 86.1%)', // --input
+    ring: 'hsl(157.6 100% 23.4%)', // --ring
+    pane: 'hsl(42.4 43.1% 96.8%)', // --pane
+    surface: 'hsl(41 30.9% 92.8%)', // --surface
     hover: 'hsla(0, 0%, 0%, 0.045)', // --hover
     active: 'hsla(0, 0%, 0%, 0.075)', // --active
-    focusRing: 'hsl(204 100% 50%)', // --focus-ring (= var(--ring))
-    chromeBackground: 'hsl(0 0% 95.7%)', // --chrome-background (= var(--sidebar))
-    foregroundStrong: 'hsl(0 0% 12.2%)', // --foreground-strong (= var(--foreground))
-    foregroundWeak: 'hsl(0 0% 40%)', // --foreground-weak (= var(--muted-foreground))
-    sidebar: 'hsl(0 0% 95.7%)', // --sidebar
-    sidebarForeground: 'hsl(0 0% 12.2%)', // --sidebar-foreground
-    sidebarPrimary: 'hsl(204 100% 50%)', // --sidebar-primary
-    sidebarPrimaryForeground: 'hsl(0 0% 100%)', // --sidebar-primary-foreground
-    sidebarAccent: 'hsl(0 0% 92.9%)', // --sidebar-accent
-    sidebarAccentForeground: 'hsl(0 0% 12.2%)', // --sidebar-accent-foreground
-    sidebarBorder: 'hsl(0 0% 88.6%)', // --sidebar-border
-    sidebarRing: 'hsl(204 100% 50%)', // --sidebar-ring
+    focusRing: 'hsl(157.6 100% 23.4%)', // --focus-ring (= var(--ring))
+    chromeBackground: 'hsl(40.3 26.9% 90.9%)', // --chrome-background (= var(--sidebar))
+    foregroundStrong: 'hsl(141.7 23.6% 11.2%)', // --foreground-strong (= var(--foreground))
+    foregroundWeak: 'hsl(136.5 7.2% 35.4%)', // --foreground-weak (= var(--muted-foreground))
+    sidebar: 'hsl(40.3 26.9% 90.9%)', // --sidebar
+    sidebarForeground: 'hsl(141.7 23.6% 11.2%)', // --sidebar-foreground
+    sidebarPrimary: 'hsl(157.6 100% 23.4%)', // --sidebar-primary
+    sidebarPrimaryForeground: 'hsl(42.4 43.1% 96.8%)', // --sidebar-primary-foreground
+    sidebarAccent: 'hsl(39.6 21.3% 84.7%)', // --sidebar-accent
+    sidebarAccentForeground: 'hsl(141.7 23.6% 11.2%)', // --sidebar-accent-foreground
+    sidebarBorder: 'hsl(39.6 16.4% 80.4%)', // --sidebar-border
+    sidebarRing: 'hsl(157.6 100% 23.4%)', // --sidebar-ring
     success: 'hsl(135 70.5% 33.8%)', // --success
     warning: 'hsl(37.1 78.7% 45.9%)', // --warning
-    radius: '0.625rem', // --radius
+    radius: '0.5rem', // --radius
   },
   dark: {
-    background: 'hsl(0 0% 4.3%)', // --background
-    foreground: 'hsl(0 0% 100%)', // --foreground
-    card: 'hsl(0 0% 7.8%)', // --card
-    cardForeground: 'hsl(0 0% 100%)', // --card-foreground
-    popover: 'hsl(0 0% 7.8%)', // --popover
-    popoverForeground: 'hsl(0 0% 100%)', // --popover-foreground
-    primary: 'hsl(0 0% 100%)', // --primary
-    primaryForeground: 'hsl(0 0% 3.5%)', // --primary-foreground
-    secondary: 'hsl(0 0% 11%)', // --secondary
-    secondaryForeground: 'hsl(0 0% 100%)', // --secondary-foreground
-    muted: 'hsl(0 0% 11%)', // --muted
-    mutedForeground: 'hsl(0 0% 60%)', // --muted-foreground
-    accent: 'hsl(0 0% 7.8%)', // --accent
-    accentForeground: 'hsl(0 0% 100%)', // --accent-foreground
+    background: 'hsl(144.6 33.8% 5.4%)', // --background
+    foreground: 'hsl(42.4 25.2% 92.9%)', // --foreground
+    card: 'hsl(144.5 25.2% 9.3%)', // --card
+    cardForeground: 'hsl(42.4 25.2% 92.9%)', // --card-foreground
+    popover: 'hsl(144.4 23.3% 10.7%)', // --popover
+    popoverForeground: 'hsl(42.4 25.2% 92.9%)', // --popover-foreground
+    primary: 'hsl(132.7 24% 86.4%)', // --primary
+    primaryForeground: 'hsl(144.6 33.8% 5.4%)', // --primary-foreground
+    secondary: 'hsl(144.2 20.6% 14.2%)', // --secondary
+    secondaryForeground: 'hsl(42.4 25.2% 92.9%)', // --secondary-foreground
+    muted: 'hsl(144.2 20.6% 14.2%)', // --muted
+    mutedForeground: 'hsl(136.1 7.4% 62%)', // --muted-foreground
+    accent: 'hsl(144.3 21.7% 12.1%)', // --accent
+    accentForeground: 'hsl(42.4 25.2% 92.9%)', // --accent-foreground
     destructive: 'hsl(358.8 100% 69.6%)', // --destructive
-    destructiveForeground: 'hsl(60 0% 98%)', // --destructive-foreground
-    border: 'hsl(0 0% 14.9%)', // --border
-    input: 'hsl(0 0% 11%)', // --input
-    ring: 'hsl(204 100% 50%)', // --ring
-    pane: 'hsl(0 0% 4.7%)', // --pane
-    surface: 'hsl(0 0% 7.8%)', // --surface
+    destructiveForeground: 'hsl(0 0% 98%)', // --destructive-foreground
+    border: 'hsl(143.5 15% 19.1%)', // --border
+    input: 'hsl(144.2 20.6% 14.2%)', // --input
+    ring: 'hsl(148 41.7% 54.4%)', // --ring
+    pane: 'hsl(144.7 30.6% 6.8%)', // --pane
+    surface: 'hsl(144.5 25.2% 9.3%)', // --surface
     hover: 'hsla(0, 0%, 100%, 0.06)', // --hover
     active: 'hsla(0, 0%, 100%, 0.1)', // --active
-    focusRing: 'hsl(204 100% 50%)', // --focus-ring (= var(--ring))
-    chromeBackground: 'hsl(0 0% 7.8%)', // --chrome-background (= var(--sidebar))
-    foregroundStrong: 'hsl(0 0% 100%)', // --foreground-strong (= var(--foreground))
-    foregroundWeak: 'hsl(0 0% 60%)', // --foreground-weak (= var(--muted-foreground))
-    sidebar: 'hsl(0 0% 7.8%)', // --sidebar
-    sidebarForeground: 'hsl(0 0% 100%)', // --sidebar-foreground
-    sidebarPrimary: 'hsl(204 100% 50%)', // --sidebar-primary
-    sidebarPrimaryForeground: 'hsl(0 0% 100%)', // --sidebar-primary-foreground
-    sidebarAccent: 'hsl(0 0% 11%)', // --sidebar-accent
-    sidebarAccentForeground: 'hsl(0 0% 100%)', // --sidebar-accent-foreground
-    sidebarBorder: 'hsl(0 0% 10.2%)', // --sidebar-border
-    sidebarRing: 'hsl(204 100% 50%)', // --sidebar-ring
+    focusRing: 'hsl(148 41.7% 54.4%)', // --focus-ring (= var(--ring))
+    chromeBackground: 'hsl(144.5 27.8% 7.5%)', // --chrome-background (= var(--sidebar))
+    foregroundStrong: 'hsl(42.4 25.2% 92.9%)', // --foreground-strong (= var(--foreground))
+    foregroundWeak: 'hsl(136.1 7.4% 62%)', // --foreground-weak (= var(--muted-foreground))
+    sidebar: 'hsl(144.5 27.8% 7.5%)', // --sidebar
+    sidebarForeground: 'hsl(42.4 25.2% 92.9%)', // --sidebar-foreground
+    sidebarPrimary: 'hsl(148 41.7% 54.4%)', // --sidebar-primary
+    sidebarPrimaryForeground: 'hsl(144.6 33.8% 5.4%)', // --sidebar-primary-foreground
+    sidebarAccent: 'hsl(144.2 20.6% 14.2%)', // --sidebar-accent
+    sidebarAccentForeground: 'hsl(42.4 25.2% 92.9%)', // --sidebar-accent-foreground
+    sidebarBorder: 'hsl(143.8 17.6% 15.3%)', // --sidebar-border
+    sidebarRing: 'hsl(148 41.7% 54.4%)', // --sidebar-ring
     success: 'hsl(135 70.5% 33.8%)', // --success
     warning: 'hsl(37.1 78.7% 45.9%)', // --warning
-    radius: '0.625rem', // --radius
+    radius: '0.5rem', // --radius
   },
   /**
    * Brand accents. These do NOT invert — global.css declares each one

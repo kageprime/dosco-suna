@@ -46,7 +46,7 @@ export function PageHero({
   const copy = (
     <div className="flex min-w-0 flex-col gap-7.5">
       <div className="flex flex-col gap-4 lg:gap-5">
-        <h1 className="max-w-261 text-3xl font-medium tracking-tight text-balance sm:text-4xl lg:text-[44px] lg:leading-13">
+        <h1 className="font-serif max-w-261 text-4xl font-normal tracking-tight text-balance sm:text-5xl lg:text-[54px] lg:leading-tight">
           <span className="text-foreground block">{title}</span>
           {titleMuted ? <span className="text-muted-foreground block">{titleMuted}</span> : null}
         </h1>
@@ -118,7 +118,7 @@ export function Heading({
 }) {
   return (
     <div className="px-8 lg:px-28">
-      <h2 className="text-foreground text-xl font-medium tracking-tight text-balance md:text-2xl lg:text-3xl">
+      <h2 className="text-foreground font-serif text-2xl font-normal tracking-tight text-balance md:text-3xl lg:text-4xl">
         {title}
         {titleMuted ? <span className="text-muted-foreground block"> {titleMuted}</span> : null}
       </h2>

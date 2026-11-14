@@ -212,16 +212,16 @@ test('a tap on the row of the page already committed closes the drawer at once',
   expect(win.document.body.style.overflow).toBe('');
 });
 
-test('an off-site drawer row closes the drawer at once', async () => {
+test('an in-page anchor drawer row closes the drawer at once, with no off-site kortix link', async () => {
   await openDrawer();
-  const row = container!.querySelector<HTMLAnchorElement>(
-    '.bg-background.fixed.inset-0 a[href="https://x.com/kortix"]',
-  );
+  const drawer = container!.querySelector('.bg-background.fixed.inset-0')!;
+  expect(drawer.querySelector('a[href="https://x.com/kortix"]')).toBeNull();
+  const row = drawer.querySelector<HTMLAnchorElement>('a[href="/#use-cases"]');
   expect(row).not.toBeNull();
   await act(async () => {
     lib.click(row!);
   });
-  // The row opens a new tab; this page never commits, so the drawer closes.
+  // Same-page anchors scroll in place without a route commit, so the drawer closes at once.
   expect(container!.querySelector('.bg-background.fixed.inset-0')).toBeNull();
   expect(win.document.body.style.overflow).toBe('');
 });

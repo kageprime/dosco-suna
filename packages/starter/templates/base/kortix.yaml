@@ -1,21 +1,20 @@
 # yaml-language-server: $schema=https://kortix.com/schema/kortix.schema.json
 #
-# {{projectName}}: the Kortix workspace manifest. Agents, what each may use,
+# {{projectName}}: the Dosco workspace manifest. Agents, what each may use,
 # triggers and sandboxes live here, committed beside your files.
-# Reference: https://kortix.com/docs/developers#kortixyaml-reference
 
 project:
   name: "{{projectName}}"
-  description: A Kortix workspace.
+  description: A Dosco workspace.
 
-# Built-in agents. My Kortix, the agent you talk to, routes each task to the
+# Built-in agents. Xera, the coordinator you talk to, routes each task to the
 # right agent below. Delete this key or set it to false to leave it out.
 builtin_agents:
   my_kortix: true
 
-# The agent a session or trigger runs when it names none. My Kortix hands
+# The agent a session or trigger runs when it names none. Xera hands
 # work to `worker` by name; a helper it starts without naming an agent works
-# with My Kortix's own access.
+# with Xera's own access.
 default_agent: mykortix
 
 # Workspace skills: folders under skills/, registered by name. Each agent then

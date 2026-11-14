@@ -37,7 +37,7 @@ export function FaqSection({
     <section id="faq" className="scroll-mt-16 px-8 py-14 lg:px-28 lg:py-20">
       <div className="grid grid-cols-1 gap-y-12 lg:grid-cols-3">
         <div className="lg:pr-8">
-          <h2 className="text-foreground text-xl font-medium tracking-tight text-balance md:text-2xl lg:text-3xl">
+          <h2 className="text-foreground font-serif text-2xl font-normal tracking-tight text-balance md:text-3xl lg:text-4xl">
             {title}
             <span className="text-muted-foreground block">{titleMuted}</span>
           </h2>

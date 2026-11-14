@@ -484,7 +484,7 @@ describe('house dialect', () => {
     expect(componentSource).toContain("from '@kortix/ui/internal/auth/auth-consent'");
     expect(componentSource).toContain("from '@kortix/ui/internal/auth/auth-primitives'");
     for (const primitive of [
-      '<AuthFrame>',
+      '<AuthFrame',
       '<StepHeader',
       '<DetailPanel>',
       '<ErrorStrip ',

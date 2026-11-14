@@ -1,25 +1,25 @@
-/** Dot (slug `dot`, internal compatibility slug `mykortix`), the platform's
+/** Xera (internal compatibility slug `mykortix`), the platform's
  *  centralized agent: session rows, token grants, sandbox slug, image names
  *  and config-release variant key on it. */
 export const DOT_AGENT_NAME = 'dot';
 export const MY_KORTIX_AGENT_NAME = 'mykortix';
-/** The slug My Kortix had until 2026-10-30. Sessions, tokens and boxes made
+/** The slug Xera had until 2026-10-30. Sessions, tokens and boxes made
  *  before the rename still carry it, so every read accepts it
  *  ({@link isMyKortixAgentName}); nothing new writes it. Drop it when no
  *  session or box from before the rename is live. */
 export const LEGACY_MY_KORTIX_AGENT_NAME = 'meta';
 export const MY_KORTIX_SANDBOX_SLUG = 'mykortix';
-/** Dot — the centralized agent's DISPLAY name, the name every UI renders. */
-export const MY_KORTIX_DISPLAY_NAME = 'Dot';
+/** Xera — the centralized coordinator agent's DISPLAY name rendered in the UI. */
+export const MY_KORTIX_DISPLAY_NAME = 'Xera';
 
-/** True for Dot under its canonical slug, the internal `mykortix` slug, or the legacy `meta` slug. */
+/** True for Xera under its canonical slug `mykortix`, `xera`, `dot`, `kortix`, or legacy `meta`. */
 /**
- * How a person reads a session's message handle: Dot's own session has
- * the generated handle `dot-<short id>` or `mykortix-<short id>` (or legacy `meta-…`),
- * shown as "Dot"; a named agent shows as `@name`.
+ * How a person reads a session's message handle: Xera's own session has
+ * the generated handle `xera-<short id>`, `dot-<short id>`, `mykortix-<short id>`, or legacy `meta-…`,
+ * shown as "Xera"; a named agent shows as `@name`.
  */
 export function peerHandleLabel(handle: string): string {
-  return /^(dot|mykortix|meta)-[0-9a-f]{8}$/.test(handle) ? MY_KORTIX_DISPLAY_NAME : `@${handle}`;
+  return /^(dot|xera|mykortix|meta)-[0-9a-f]{8}$/.test(handle) ? MY_KORTIX_DISPLAY_NAME : `@${handle}`;
 }
 
 export function isMyKortixAgentName(name: string | null | undefined): boolean {
@@ -63,10 +63,10 @@ export function builtinAgentKeyOf(agentName: string | null | undefined): Builtin
 }
 
 /**
- * An agent's name as a person reads it: My Kortix for the built-in agent,
+ * An agent's name as a person reads it: Xera for the built-in coordinator,
  * otherwise the manifest key in sentence case with its separators as spaces
- * (`session-reviewer` → "Session reviewer"). One helper, so the web app, the
- * sidebar and channel posts (Slack) name an agent the same way.
+ * (`worker` → "Worker", `session-reviewer` → "Session reviewer"). One helper,
+ * so the web app, the sidebar and channel posts (Slack) name an agent the same way.
  */
 export function agentDisplayName(slug: string): string {
   if (isMyKortixAgentName(slug)) return MY_KORTIX_DISPLAY_NAME;
@@ -75,8 +75,7 @@ export function agentDisplayName(slug: string): string {
   // form instead of crashing the render tree (KRTX-4511: `e.replace is not a
   // function` took down the session page).
   if (typeof slug !== 'string') return String(slug);
-  // The legacy worker slug is the same built-in agent; it shows as "Dot".
-  if (slug === 'worker') return MY_KORTIX_DISPLAY_NAME;
+  if (slug === 'worker') return 'Worker';
   const words = slug.replace(/[-_]+/g, ' ').trim();
   return words.charAt(0).toUpperCase() + words.slice(1);
 }

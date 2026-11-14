@@ -41,17 +41,15 @@ import { connection } from 'next/server';
 import { Toaster } from 'sonner';
 
 import { TurnAttentionBadge } from '@/components/turn-attention-badge';
-import { onlookMono, onlookSans } from '../(system)/fonts/onlook';
-import { roobert } from '../(system)/fonts/roobert';
-import { roobertMono } from '../(system)/fonts/roobert-mono';
+import { doscoMono, doscoSans, doscoSerif } from '../(system)/fonts/dosco';
 import '../globals.css';
 import { ReactQueryProvider } from '../react-query-provider';
 import { GoogleTagManager } from '@/components/analytics/google-tag-manager';
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: 'white' },
-    { media: '(prefers-color-scheme: dark)', color: 'black' },
+    { media: '(prefers-color-scheme: light)', color: '#f7f4ee' }, // audit:allow Next viewport themeColor requires literal hex
+    { media: '(prefers-color-scheme: dark)', color: '#09120d' }, // audit:allow Next viewport themeColor requires literal hex
   ],
   width: 'device-width',
   initialScale: 1,
@@ -184,8 +182,8 @@ const SITE_JSON_LD = {
     {
       '@type': 'SoftwareApplication',
       '@id': `${siteMetadata.url}/#software`,
-      name: 'CompanyOS',
-      alternateName: ['Dosco'],
+      name: 'Dosco',
+      alternateName: ['Dosco Tek'],
       url: siteMetadata.url,
       applicationCategory: 'BusinessApplication',
       applicationSubCategory: 'Agentic Operating System',
@@ -250,7 +248,7 @@ export default async function RootLayout({
       translate="no"
       data-scroll-behavior="smooth"
       suppressHydrationWarning
-      className={cn('notranslate', roobert.variable, roobertMono.variable, onlookSans.variable, onlookMono.variable)}
+      className={cn('notranslate', doscoSans.variable, doscoSerif.variable, doscoMono.variable)}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: CHUNK_BOOT_RECOVERY_SCRIPT }} />

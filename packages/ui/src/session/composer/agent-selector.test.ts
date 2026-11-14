@@ -3,32 +3,32 @@ import { agentDisplayLabel } from './agent-selector';
 import type { Agent } from '@kortix/sdk/react';
 
 describe('agentDisplayLabel', () => {
-  test('maps legacy agent name kortix to Dot', () => {
+  test('maps legacy agent name kortix to Xera', () => {
     const agents = [{ name: 'kortix' }] as Agent[];
-    expect(agentDisplayLabel(agents, 'kortix')).toBe('Dot');
-    expect(agentDisplayLabel(agents, null)).toBe('Dot');
+    expect(agentDisplayLabel(agents, 'kortix')).toBe('Xera');
+    expect(agentDisplayLabel(agents, null)).toBe('Xera');
   });
 
-  test('maps worker to Dot', () => {
+  test('maps worker to Worker', () => {
     const agents = [{ name: 'worker' }] as Agent[];
-    expect(agentDisplayLabel(agents, 'worker')).toBe('Dot');
-    expect(agentDisplayLabel(agents, null)).toBe('Dot');
+    expect(agentDisplayLabel(agents, 'worker')).toBe('Worker');
+    expect(agentDisplayLabel(agents, null)).toBe('Worker');
   });
 
-  test('maps xera to Dot', () => {
+  test('maps xera to Xera', () => {
     const agents = [{ name: 'xera' }] as Agent[];
-    expect(agentDisplayLabel(agents, 'xera')).toBe('Dot');
-    expect(agentDisplayLabel(agents, null)).toBe('Dot');
+    expect(agentDisplayLabel(agents, 'xera')).toBe('Xera');
+    expect(agentDisplayLabel(agents, null)).toBe('Xera');
   });
 
-  test('maps mykortix to Dot', () => {
+  test('maps mykortix to Xera', () => {
     const agents = [{ name: 'mykortix' }] as Agent[];
-    expect(agentDisplayLabel(agents, 'mykortix')).toBe('Dot');
+    expect(agentDisplayLabel(agents, 'mykortix')).toBe('Xera');
   });
 
-  test('maps dot to Dot', () => {
+  test('maps dot to Xera', () => {
     const agents = [{ name: 'dot' }] as Agent[];
-    expect(agentDisplayLabel(agents, 'dot')).toBe('Dot');
+    expect(agentDisplayLabel(agents, 'dot')).toBe('Xera');
   });
 
   test('capitalizes custom agent names', () => {

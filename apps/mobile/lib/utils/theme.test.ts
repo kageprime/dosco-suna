@@ -185,17 +185,17 @@ describe('extractBlock parses distinct light/dark blocks', () => {
 
   it('light block does not include .dark:root declarations', () => {
     const lightBlock = extractBlock(':root');
-    // --sidebar-border differs between light (0 0% 88.6%) and dark
-    // (0 0% 10.2%); if the parser bled into the dark block the light
+    // --sidebar-border differs between light (39.6 16.4% 80.4%) and dark
+    // (143.8 17.6% 15.3%); if the parser bled into the dark block the light
     // block would contain the dark value instead of its own.
-    expect(lightBlock).toContain('--sidebar-border: 0 0% 88.6%');
-    expect(lightBlock).not.toContain('--sidebar-border: 0 0% 10.2%');
+    expect(lightBlock).toContain('--sidebar-border: 39.6 16.4% 80.4%');
+    expect(lightBlock).not.toContain('--sidebar-border: 143.8 17.6% 15.3%');
   });
 
   it('dark block does not include :root (light) declarations', () => {
     const darkBlock = extractBlock('.dark:root');
-    expect(darkBlock).toContain('--sidebar-border: 0 0% 10.2%');
-    expect(darkBlock).not.toContain('--sidebar-border: 0 0% 88.6%');
+    expect(darkBlock).toContain('--sidebar-border: 143.8 17.6% 15.3%');
+    expect(darkBlock).not.toContain('--sidebar-border: 39.6 16.4% 80.4%');
   });
 });
 
@@ -799,8 +799,8 @@ describe('color conversion helpers are correct', () => {
   });
 
   it('web declares --sidebar as the oklch surface-1 value', () => {
-    expect(webRoot.get('sidebar')).toBe('oklch(0.9672 0 0)');
-    expect(webDark.get('sidebar-border')).toBe('oklch(0.2178 0 0)');
+    expect(webRoot.get('sidebar')).toBe('oklch(0.938 0.012 85)');
+    expect(webDark.get('sidebar-border')).toBe('oklch(0.285 0.024 158)');
   });
 
   it('resolves web --kortix-base through the @theme alias to --ring', () => {

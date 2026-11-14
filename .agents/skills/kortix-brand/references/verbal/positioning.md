@@ -22,7 +22,7 @@ Rule format: **Rule.** — *Why:* — *Where:* — *When silent:*.
 
 **Rule.** Dosco is a proprietary managed platform. Never describe Dosco as open source or free to self-host. Do not link public open-source repos as the platform codebase. — *Why:* Dosco is a managed commercial product. — *Where:* every surface.
 
-**Rule.** Built-in system agent is Orchestrator (nickname: "The Orc", internal slug `mykortix`). Default workspace agent is Xera (`xera`, `@xera`, `xera@dosco.live`). Never write "kortix" or "My Kortix" as customer-facing agent names. — *Why:* Canonical agent identity. — *Where:* every surface.
+**Rule.** Built-in coordinator agent is Xera (slug `mykortix`, `@xera`, `xera@dosco.live`). Starter primary workspace agent is Worker (`worker`). Never write "kortix", "My Kortix", "Dot", or "The Orc" as customer-facing agent names. — *Why:* Canonical agent identity. — *Where:* every surface.
 
 **Rule.** Position for a dual audience:
 1. **Technical Teams (Engineering & DevOps)**: Cloud sandboxes with root/bash access, automated bug triage, error log sweeps, headless browser testing, and git change requests.

@@ -2,12 +2,12 @@
 // Light-theme hex for transactional email. Email clients cannot read CSS variables.
 
 export const EMAIL_COLORS = {
-  canvas: '#ffffff', // --background
-  surface1: '#f4f4f4', // --card
-  ink: '#1f1f1f', // --foreground
-  inkMuted: '#666666', // --muted-foreground
-  hairline: '#e2e2e2', // --border
-  kortixBase: '#0099ff', // --kortix-base
+  canvas: '#f7f4ee', // --background
+  surface1: '#ece7dd', // --card
+  ink: '#16231b', // --foreground
+  inkMuted: '#546157', // --muted-foreground
+  hairline: '#d5d0c5', // --border
+  kortixBase: '#00774b', // --kortix-base
   success: '#199338', // --kortix-green
   error: '#f14b4c', // --kortix-red
   warning: '#d18b19', // --kortix-orange
@@ -26,10 +26,10 @@ export const EMAIL_LAYOUT = {
   "cardPadding": "40px",
   "mobileFramePadding": "16px 8px",
   "mobileCardPadding": "32px 24px",
-  "cardRadius": 8,
-  "buttonRadius": 8,
+  "cardRadius": 6,
+  "buttonRadius": 6,
   "buttonPadding": "12px 20px",
-  "logoUrl": "https://dosco.live/brandkit/Logo/Brandmark/PNG/Brandmark%20Black.png",
+  "logoUrl": "https://dosco.live/brand/dosco-icon-light.png",
   "logoWidth": 20,
   "fontSize": {
     "title": 24,

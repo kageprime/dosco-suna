@@ -74,13 +74,7 @@ const Hero = () => {
       data-hero-band
       className="relative flex min-h-svh flex-col justify-center overflow-hidden pt-32 pb-12 sm:pt-36 sm:pb-16 lg:pt-32 lg:pb-14"
     >
-      {/* The flowing gradient behind the fold, full-bleed edge to edge. It was
-          the brandmark veil behind a `mask-t-from-70%` top fade; the fade
-          exposed the page background above the canvas — a white band over the
-          colourful scene in light mode (reported 2026-10-20). The navbar is
-          solid `bg-background`, so the scene needs no fade under it. The Unicorn
-          scene (hero-background.tsx) renders on every viewport and holds the
-          brandmark itself as the reduced-motion and WebGL fallback. */}
+      {/* Dosco Forest & Sand architectural hero backdrop. */}
       <div
         className="kx-hero-veil inset-0 z-0 absolute"
         aria-hidden
@@ -89,22 +83,9 @@ const Hero = () => {
         <HeroBackground onMediaChange={setMedia} />
       </div>
 
-      {/* The fold is type only. Families are scoped through the Inter /
-          JetBrains Mono variables mounted in fonts/onlook.ts; the site-wide
-          Roobert stack is untouched. Class values are Onlook's live h1
-          treatment (light 300, -0.04em, 1.04 leading, text-balance,
-          min(2.25rem, 9vw) on phones up to text-6xl). */}
-      {/* Four bands enter in reading order — eyebrow → headline → sub → trust —
-          each with its own delay and its own distance. Delays are Tailwind
-          arbitrary properties, not inline styles. Both the keyframes and the
-          reduced-motion fallback live in globals.css, and an inline
-          `animation-delay` would outrank the stylesheet and keep the staged
-          reveal alive after prefers-reduced-motion removed the travel. Setting
-          only `--kx-enter` leaves the stylesheet free to zero it. */}
-      {/* The fold's ink follows the media (color.md, scene-foreground tokens):
-          `kx-hero-fold` + `data-hero-media` let globals.css swap the theme ink
-          pair for the scene pair once the scene owns the surface; SSR and the
-          fallback wallpaper keep the theme ink. */}
+      {/* The fold is type over the architectural canopy. Instrument Serif displays the
+          headline (`font-serif`), Plus Jakarta Sans carries the subtitle (`font-sans`),
+          and JetBrains Mono anchors the trust row (`font-mono`). */}
       <div className="kx-hero-fold relative z-20" data-hero-media={media}>
         <div className="mx-auto w-full max-w-7xl px-6">
           <RivalEyebrow content={heroEyebrow} />
@@ -112,21 +93,19 @@ const Hero = () => {
           {/* `mx-auto` on the measure is what actually centres the block: without
               it `max-w-3xl` stays flush left inside max-w-7xl and only the glyphs
               inside it centre, which leaves the headline off-axis on desktop. */}
-          <h1 className="kx-hero-text text-[color:var(--hero-ink)] mx-auto mt-5 max-w-3xl text-center font-[family-name:var(--font-onlook-sans)] text-[min(2.25rem,9vw)] leading-[1.04] font-light tracking-[-0.04em] text-balance [--kx-enter:70ms] sm:text-6xl">
+          <h1 className="kx-hero-text text-[color:var(--hero-ink)] mx-auto mt-6 max-w-4xl text-center font-serif text-[min(2.75rem,11vw)] leading-none font-normal tracking-tight text-balance [--kx-enter:70ms] sm:text-7xl">
             {hero.title}
           </h1>
 
-          {/* One centred line under the headline. It held the sub/actions row
-              and then the deliverable cards; the fold is type only now, so the
-              wrapper is just the single line. */}
+          {/* One centred line under the headline. */}
           <div className="mt-6 flex flex-col items-center">
-            <p className="kx-hero-text text-[color:var(--hero-ink-muted)] mx-auto max-w-xl text-center font-[family-name:var(--font-onlook-sans)] text-base leading-relaxed text-balance [--kx-enter:150ms] sm:text-lg">
+            <p className="kx-hero-text text-[color:var(--hero-ink-muted)] mx-auto max-w-xl text-center font-sans text-base leading-relaxed text-balance [--kx-enter:150ms] sm:text-lg">
               {hero.sub}
             </p>
           </div>
         </div>
 
-        <p className="kx-hero-text text-[color:var(--hero-ink-muted)] mx-auto mt-10 max-w-7xl px-6 text-center font-[family-name:var(--font-onlook-mono)] text-[11px] tracking-wide [--kx-enter:490ms]">
+        <p className="kx-hero-text text-[color:var(--hero-ink-muted)] mx-auto mt-10 max-w-7xl px-6 text-center font-mono text-xs tracking-wide [--kx-enter:490ms]">
           {hero.trust}
         </p>
       </div>

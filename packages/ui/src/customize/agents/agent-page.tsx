@@ -1,6 +1,6 @@
 'use client';
 
-import { MY_KORTIX_AGENT_NAME } from '@kortix/shared';
+import { isMyKortixAgentName, MY_KORTIX_AGENT_NAME, MY_KORTIX_DISPLAY_NAME } from '@kortix/shared';
 import { adminPath } from '../../lib/routes';
 
 /**
@@ -174,7 +174,10 @@ export function AgentPage({
     ...contract('config'),
   });
   const config = detailQuery.data?.config ?? null;
-  // A platform agent (My Kortix) has nothing to edit here: not found.
+  const matchedPlatform =
+    toArray(config?.agents).find(
+      (a) => a.platform && (a.name === agentName || (isMyKortixAgentName(agentName) && isMyKortixAgentName(a.name))),
+    ) ?? null;
   const agent = toArray(config?.agents).find((a) => a.name === agentName && !a.platform) ?? null;
 
   // Every read starts on the first render, in parallel: the skeleton lasts as
@@ -207,6 +210,18 @@ export function AgentPage({
           action={retry}
         />
       </AgentStatePage>
+    );
+  }
+
+  if (!agent && (matchedPlatform || isMyKortixAgentName(agentName))) {
+    return (
+      <PlatformAgentPage
+        projectId={projectId}
+        agent={matchedPlatform}
+        requestedName={agentName}
+        config={config}
+        onBack={onBack}
+      />
     );
   }
 
@@ -292,6 +307,95 @@ export function AgentPage({
       canWrite={canWrite}
       onBack={onBack}
     />
+  );
+}
+
+function PlatformAgentPage({
+  projectId,
+  agent,
+  requestedName,
+  config,
+  onBack,
+}: {
+  projectId: string;
+  agent: Agent | null;
+  requestedName: string;
+  config: ProjectConfigSummary;
+  onBack?: () => void;
+}) {
+  const t = useI18nTranslations('agentEditor.tabs');
+  const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
+  const startSession = useNewProjectSession(projectId);
+  const slug = agent?.name ?? MY_KORTIX_AGENT_NAME;
+  const enabled = agent !== null && agent.enabled !== false;
+  const isDefault =
+    config.default_agent === slug || (isMyKortixAgentName(config.default_agent) && isMyKortixAgentName(requestedName));
+
+  return (
+    <div className="relative flex h-full min-h-0 flex-1 flex-col">
+      <AgentBreadcrumbHeader
+        listHref={capabilityTabHref(projectId, 'agent')}
+        slug={slug}
+        title={agentDisplayName(slug)}
+        badges={
+          <>
+            <Badge variant="muted" size="xs">
+              Built-in coordinator
+            </Badge>
+            {isDefault ? (
+              <Badge variant="secondary" size="xs">
+                {tI18nComplete.raw('texte8cb80e5c5cb') || 'Default'}
+              </Badge>
+            ) : null}
+          </>
+        }
+        onBack={onBack}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link href={capabilityTabHref(projectId, 'agent')}>{t('allAgents')}</Link>
+            </Button>
+            {enabled ? (
+              <Button size="sm" onClick={() => startSession({ create: { agent_name: slug } })}>
+                <PlayIcon weight="fill" className="size-3.5 shrink-0" />
+                {tI18nComplete.raw('textb1c52ee3677d')}
+              </Button>
+            ) : null}
+          </div>
+        }
+      />
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-8 md:px-8">
+        <div className="mx-auto w-full max-w-3xl space-y-6">
+          <BannerAlert variant="default">
+            <BannerAlertMedia>
+              <LockSimpleIcon />
+            </BannerAlertMedia>
+            <BannerAlertTitle>Platform-managed coordinator</BannerAlertTitle>
+            <BannerAlertDescription>
+              {MY_KORTIX_DISPLAY_NAME} is Dosco&apos;s built-in coordinator agent (slug{' '}
+              <span className="font-mono">{MY_KORTIX_AGENT_NAME}</span>). Its system prompt and built-in tools are
+              maintained by the platform. Toggle <span className="font-mono">builtin_agents.my_kortix</span> in{' '}
+              <span className="font-mono">kortix.yaml</span> to enable or disable it for this workspace.
+            </BannerAlertDescription>
+          </BannerAlert>
+          <div className="bg-card border-border space-y-3 rounded-lg border p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-foreground text-sm font-medium">{MY_KORTIX_DISPLAY_NAME}</h2>
+                <p className="text-muted-foreground font-mono text-xs">@{slug}</p>
+              </div>
+              <Badge variant={enabled ? 'secondary' : 'muted'} size="xs">
+                {enabled ? 'Enabled in workspace' : 'Disabled in kortix.yaml'}
+              </Badge>
+            </div>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              {agent?.description ??
+                `${MY_KORTIX_DISPLAY_NAME} coordinates workspace configuration, agent handoffs, triggers, and platform capabilities across Dosco.`}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

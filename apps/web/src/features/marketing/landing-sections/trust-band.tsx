@@ -42,7 +42,7 @@ const CELLS = [
   {
     icon: PlugsIcon,
     k: 'No lock-in',
-    v: 'Any model with your own keys, on Dosco Cloud, your VPC or on-prem.',
+    v: 'Any model with your own keys, on Cloud, dedicated VPC or on-prem.',
   },
 ];
 
@@ -59,7 +59,7 @@ export function TrustBand() {
     <section id="trust" className="scroll-mt-16 py-14 lg:py-20">
       <div className="kx-rail-fade border-y px-4 lg:px-17">
         <div className="dark bg-muted text-foreground px-6 py-10 lg:px-11 lg:py-16">
-          <h2 className="text-xl font-medium tracking-tight text-balance md:text-2xl lg:text-3xl">
+          <h2 className="font-serif text-2xl font-normal tracking-tight text-balance md:text-3xl lg:text-4xl">
             Everything IT needs to say yes.
             <span className="text-muted-foreground block">
               Agents for the whole team, without giving up control.
@@ -86,7 +86,7 @@ export function TrustBand() {
                 <div>
                   <p className="text-base font-medium">SOC 2 Type I verified</p>
                   <p className="text-muted-foreground mt-1 text-sm">
-                    GDPR operated. Open source, so your team can read every line.
+                    GDPR operated. Versioned workspaces, isolated compute, and full audit trail.
                   </p>
                 </div>
               </div>

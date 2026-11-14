@@ -69,11 +69,11 @@ export function AuthFrame({
   footerVariant = 'default',
   backHref,
   showShowcase,
-  art = false,
+  art,
 }: {
   children: React.ReactNode;
   /**
-   * The dither pane beside the form on wide screens. Auth and consent screens
+   * The showcase pane beside the form on wide screens. Auth and consent screens
    * keep it; an in-app gate that only borrows this frame (a checkout, a
    * deleted-project notice, an approval card) passes `false`.
    */
@@ -90,113 +90,140 @@ export function AuthFrame({
    */
   backHref?: string;
   /**
-   * Whether to render the inspirational sovereign showcase split-panel on desktop.
-   * Defaults to true whenever footerVariant !== 'none'.
+   * Whether to render the Dosco Deep Forest architectural split-panel on desktop.
+   * Defaults to true when art !== false and footerVariant !== 'none'.
    */
   showShowcase?: boolean;
 }) {
   useDesktopBackTarget(backHref);
-  const enableShowcase = showShowcase ?? (footerVariant !== 'none');
+  const enableShowcase = showShowcase ?? (art !== false && footerVariant !== 'none');
 
   if (enableShowcase) {
     return (
       <div className="bg-background relative flex min-h-svh w-full flex-col overflow-hidden lg:grid lg:grid-cols-12">
-        {/* Ambient atmospheric backdrop for mobile & left column */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(0,0,0,0.03)_1px,transparent_1px)] dark:bg-[radial-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:24px_24px] lg:col-span-5" />
-        <div className="pointer-events-none absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] h-[380px] rounded-full bg-gradient-to-b from-red-500/10 via-orange-500/5 to-transparent blur-3xl lg:hidden" />
+        {/* Ambient architectural hairline grid for left paper portal */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 lg:col-span-5"
+          style={{
+            backgroundImage:
+              'linear-gradient(to right, oklch(from var(--border) l c h / 0.5) 1px, transparent 1px), linear-gradient(to bottom, oklch(from var(--border) l c h / 0.5) 1px, transparent 1px)',
+            backgroundSize: '48px 48px',
+          }}
+        />
+        <div
+          aria-hidden
+          className="bg-kortix-base/15 pointer-events-none absolute -top-24 left-1/2 h-[340px] w-[420px] -translate-x-1/2 rounded-full blur-3xl lg:hidden"
+        />
 
-        {/* Left Column: Focused Elevated Authentication Portal */}
-        <div className="relative z-10 flex min-h-svh flex-1 flex-col justify-between px-6 py-12 sm:px-10 lg:col-span-5 xl:col-span-5 lg:px-12">
+        {/* Left Column: Warm Sand Authentication Portal */}
+        <div className="relative z-10 flex min-h-svh flex-1 flex-col justify-between px-6 py-10 sm:px-10 lg:col-span-5 xl:col-span-5 lg:px-12">
           <AuthMobileLogo />
-          <main className="flex flex-1 flex-col items-center justify-center my-auto py-8 w-full">
-            <div className="w-full max-w-[420px] rounded-2xl border border-border/80 bg-card/75 dark:bg-card/45 backdrop-blur-xl p-8 sm:p-10 shadow-[0_12px_40px_rgba(0,0,0,0.05)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] transition-all">
+          <main className="my-auto flex w-full flex-1 flex-col items-center justify-center py-8">
+            <div className="bg-pane border-border w-full max-w-[420px] rounded-xl border p-8 shadow-sm sm:p-10">
               {children}
             </div>
           </main>
-          {footerVariant === 'none' ? null : <AuthLegalFooter variant={footerVariant} />}
+          {footerVariant === 'none' ? null : <AuthLegalFooter />}
         </div>
 
-        {/* Right Column: Sovereign Architectural Showcase */}
-        <aside className="relative hidden lg:col-span-7 xl:col-span-7 lg:flex flex-col justify-between overflow-hidden border-l border-white/[0.08] bg-[#080808] p-12 xl:p-16 text-white selection:bg-red-500/30 selection:text-white">
-          {/* Background dot lattice & atmospheric ambient fire blooms */}
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] [background-size:24px_24px]" />
-          <div className="pointer-events-none absolute -top-32 -right-32 h-[420px] w-[420px] rounded-full bg-gradient-to-br from-red-600/20 via-orange-500/10 to-transparent blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-20 left-10 h-80 w-80 rounded-full bg-gradient-to-tr from-red-500/15 via-orange-600/5 to-transparent blur-3xl" />
+        {/* Right Column: Dosco Deep Forest Architectural Showcase (scoped dark tokens) */}
+        <aside className="dark border-border bg-background text-foreground selection:bg-kortix-base/15 relative hidden flex-col justify-between overflow-hidden border-l p-12 lg:col-span-7 lg:flex xl:col-span-7 xl:p-16">
+          {/* Architectural grid + forest canopy illumination */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              backgroundImage:
+                'linear-gradient(to right, oklch(from var(--border) l c h / 0.55) 1px, transparent 1px), linear-gradient(to bottom, oklch(from var(--border) l c h / 0.55) 1px, transparent 1px)',
+              backgroundSize: '48px 48px',
+            }}
+          />
+          <div
+            aria-hidden
+            className="bg-kortix-base/15 pointer-events-none absolute -top-36 -right-28 h-[460px] w-[460px] rounded-full blur-3xl"
+          />
+          <div
+            aria-hidden
+            className="bg-kortix-base/15 pointer-events-none absolute -bottom-24 left-8 h-80 w-80 rounded-full blur-3xl"
+          />
 
           {/* Top Status Header */}
           <div className="relative z-10 flex items-center justify-between">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-xs font-mono tracking-wider text-neutral-300 backdrop-blur-md">
+            <div className="border-border bg-card text-foreground inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 font-mono text-xs tracking-wide backdrop-blur-md">
               <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="bg-kortix-base absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
+                <span className="bg-kortix-base relative inline-flex h-2 w-2 rounded-full" />
               </span>
-              SOVEREIGN AGENT HARNESS
+              Agent workspace harness
             </div>
-            <span className="font-mono text-xs tracking-wider text-neutral-300">
-              DOSCO TEK · COMPANYOS
+            <span className="text-muted-foreground font-mono text-xs tracking-wide">
+              Dosco Tek · Platform
             </span>
           </div>
 
-          {/* Center Manifesto & Live Telemetry Card */}
+          {/* Center Editorial Manifesto & Runtime Topology */}
           <div className="relative z-10 my-auto max-w-xl py-10">
-            <h2 className="text-3xl font-semibold tracking-tight text-white xl:text-4xl leading-tight">
+            <h2 className="text-foreground font-serif text-2xl leading-tight font-normal tracking-tight">
               The harness that powers companies that run agents.
             </h2>
-            <p className="mt-4 text-base leading-relaxed text-neutral-400 xl:text-lg">
-              Sovereign cloud execution, persistent workspace drives, and zero-leak orchestration.
-              Built for high-agency teams who demand total ownership.
+            <p className="text-muted-foreground mt-4 max-w-lg text-base leading-relaxed">
+              Isolated cloud sandboxes, persistent workspace drives, and structured orchestration.
+              Built for teams who ship autonomous work end to end.
             </p>
 
-            {/* Live Agent Telemetry Card */}
-            <div className="mt-8 rounded-xl border border-white/10 bg-black/70 p-5 font-mono text-xs text-neutral-300 shadow-2xl backdrop-blur-md">
-              <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-3 text-neutral-300">
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1.5">
-                    <div className="size-2.5 rounded-full bg-red-500/80" />
-                    <div className="size-2.5 rounded-full bg-amber-500/80" />
-                    <div className="size-2.5 rounded-full bg-emerald-500/80" />
-                  </div>
-                  <span className="ml-2 font-mono text-neutral-200">dosco-runtime · v2.4</span>
+            {/* Runtime Topology Readout */}
+            <div className="border-border bg-card text-foreground mt-9 rounded-xl border p-5 font-mono text-xs shadow-xl backdrop-blur-md">
+              <div className="border-border mb-3.5 flex items-center justify-between border-b pb-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="bg-kortix-base size-2 rounded-full" aria-hidden />
+                  <span className="text-foreground font-mono">dosco-runtime · session-topology</span>
                 </div>
-                <span className="font-semibold tracking-wider text-[10px] text-emerald-400">
-                  HEROKU · E2B DYNOS
+                <span className="text-kortix-base font-mono text-xs font-semibold tracking-wider">
+                  E2B · SUPABASE · OPENROUTER
                 </span>
               </div>
-              <div className="space-y-2 text-[11px] leading-relaxed">
-                <div className="flex items-center gap-2 text-neutral-300">
-                  <span className="text-red-400 font-bold">❯</span>
-                  <span>Primary agent:</span>
-                  <span className="font-medium text-white">Dot (@dot)</span>
-                  <span className="text-neutral-300">dot@dosco.live</span>
-                  <span className="text-emerald-400">[ONLINE]</span>
+              <div className="space-y-2.5 text-xs leading-relaxed">
+                <div className="text-muted-foreground flex flex-wrap items-center gap-2">
+                  <span className="text-kortix-base font-semibold">›</span>
+                  <span>Coordinator:</span>
+                  <span className="text-foreground font-medium">Xera (@xera)</span>
+                  <span className="text-muted-foreground">xera@dosco.live</span>
+                  <span className="text-kortix-base">[ONLINE]</span>
                 </div>
-                <div className="flex items-center gap-2 text-neutral-300">
-                  <span className="text-red-400 font-bold">❯</span>
-                  <span>Sandbox execution:</span>
-                  <span className="text-neutral-200">E2B cloud microVM isolation</span>
+                <div className="text-muted-foreground flex items-center gap-2">
+                  <span className="text-kortix-base font-semibold">›</span>
+                  <span>Sandbox compute:</span>
+                  <span className="text-foreground">Isolated E2B cloud microVMs</span>
                 </div>
-                <div className="flex items-center gap-2 text-neutral-300">
-                  <span className="text-red-400 font-bold">❯</span>
-                  <span>Storage provider:</span>
-                  <span className="text-neutral-200">Supabase sovereign drive volumes</span>
+                <div className="text-muted-foreground flex items-center gap-2">
+                  <span className="text-kortix-base font-semibold">›</span>
+                  <span>Drive storage:</span>
+                  <span className="text-foreground">Persistent Supabase Storage volumes</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Bottom Architectural Pillars */}
-          <div className="relative z-10 grid grid-cols-3 gap-6 border-t border-white/10 pt-6 font-mono text-xs text-neutral-400">
+          <div className="border-border relative z-10 grid grid-cols-3 gap-6 border-t pt-6">
             <div>
-              <div className="text-sm font-medium text-white">Sovereign Cloud</div>
-              <div className="mt-1 text-[11px] text-neutral-300">Zero vendor lock-in</div>
+              <div className="text-foreground text-sm font-medium">Isolated Compute</div>
+              <div className="text-muted-foreground mt-1 font-mono text-xs">
+                Per-task E2B sandboxes
+              </div>
             </div>
             <div>
-              <div className="text-sm font-medium text-white">Persistent Drives</div>
-              <div className="mt-1 text-[11px] text-neutral-300">Decoupled volumes</div>
+              <div className="text-foreground text-sm font-medium">Persistent Drives</div>
+              <div className="text-muted-foreground mt-1 font-mono text-xs">
+                Decoupled object volumes
+              </div>
             </div>
             <div>
-              <div className="text-sm font-medium text-white">Full Ownership</div>
-              <div className="mt-1 text-[11px] text-neutral-300">End-to-end agency</div>
+              <div className="text-foreground text-sm font-medium">Model Routing</div>
+              <div className="text-muted-foreground mt-1 font-mono text-xs">
+                OpenRouter &amp; BYOK keys
+              </div>
             </div>
           </div>
         </aside>

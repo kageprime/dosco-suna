@@ -47,7 +47,7 @@ export function declaredBuiltinAgents(
 }
 
 /**
- * Which built-in agents this project runs. Per key: in Dosco, Dot (`my_kortix`)
+ * Which built-in agents this project runs. Per key: in Dosco, Xera (`my_kortix`)
  * is on by default unless explicitly disabled (`declared.my_kortix === false`).
  */
 export function resolveBuiltinAgents(
@@ -99,7 +99,7 @@ export function builtinAgentConfigView(key: BuiltinAgentKey, defaultAgent: strin
 /** The refusal for a write that targets a built-in agent's configuration. */
 export function builtinAgentWriteRefusal(key: BuiltinAgentKey) {
   return {
-    error: `${BUILTIN_AGENTS[key].displayName} is built in: Kortix maintains its prompt, tools and model. To remove it from this workspace, delete \`builtin_agents.${key}\` from kortix.yaml or set it to false.`,
+    error: `${BUILTIN_AGENTS[key].displayName} is built in: Dosco maintains its prompt, tools and model. To remove it from this workspace, delete \`builtin_agents.${key}\` from kortix.yaml or set it to false.`,
     code: 'builtin_agent_managed' as const,
   };
 }

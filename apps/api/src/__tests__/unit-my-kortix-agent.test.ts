@@ -168,7 +168,7 @@ describe('My Kortix agent', () => {
     });
   });
 
-  test('builtin_agents: in Dosco, Dot is on by default unless explicitly set to false', () => {
+  test('builtin_agents: in Dosco, Xera is on by default unless explicitly set to false', () => {
     expect(declaredBuiltinAgents({})).toEqual({});
     expect(declaredBuiltinAgents({ builtin_agents: { my_kortix: false } })).toEqual({ my_kortix: false });
     expect(declaredBuiltinAgents({ builtin_agents: { my_kortix: 'no' } })).toEqual({});

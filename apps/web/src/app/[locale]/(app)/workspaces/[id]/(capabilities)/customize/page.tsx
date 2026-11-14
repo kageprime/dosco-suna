@@ -46,7 +46,7 @@ export default function ProjectCustomizePage() {
   useEffect(() => {
     if (!projectId || !rawSection) return;
     if (legacy.pending) return;
-    router.replace(legacy.href ?? `/workspaces/${projectId}/settings`);
+    router.replace(legacy.href ?? `/workspaces/${projectId}/admin`);
   }, [projectId, rawSection, legacy.href, legacy.pending, router]);
 
   // Same batch and same preference order as the sidebar row, so the two can

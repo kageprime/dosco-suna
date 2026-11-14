@@ -147,6 +147,8 @@ export function AgentsPage({ projectId, onSelectAgent }: AgentsPageProps) {
   const agents = useMemo(() => toArray(config?.agents), [config]);
   const filtered = useMemo(() => filterAgents(agents, { mode: null, query }), [agents, query]);
   const defaultAgent = config?.default_agent ?? null;
+  // Built-in coordinator (e.g. Xera): rendered in its own section when present.
+  const platformAgents = useMemo(() => filtered.filter((agent) => agent.platform), [filtered]);
   // The agents a person starts first (the default leading), subagents after.
   const work = useMemo(
     () =>
@@ -243,6 +245,23 @@ export function AgentsPage({ projectId, onSelectAgent }: AgentsPageProps) {
                 <div className={GRID_CLASSNAME}>{subagents.map((agent) => card(agent))}</div>
               </section>
             ) : null}
+          </section>
+        ) : null}
+        {platformAgents.length > 0 ? (
+          <section aria-labelledby="platform-agents-heading" className="space-y-2 pt-2">
+            <div>
+              <h2 id="platform-agents-heading" className="text-foreground text-sm font-medium">
+                Built-in coordinator{' '}
+                <span className="text-muted-foreground font-normal tabular-nums">{platformAgents.length}</span>
+              </h2>
+              <p className="text-muted-foreground mt-1 text-xs">
+                Managed by Dosco and controlled via <span className="font-mono">builtin_agents.my_kortix</span> in{' '}
+                <span className="font-mono">kortix.yaml</span>.
+              </p>
+            </div>
+            <div className={GRID_CLASSNAME}>
+              {platformAgents.map((agent) => card(agent, agent.name === defaultAgent ? tPage('default') : 'Built-in'))}
+            </div>
           </section>
         ) : null}
       </div>

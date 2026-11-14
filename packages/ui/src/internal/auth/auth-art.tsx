@@ -63,7 +63,7 @@ export function AuthArt({ className }: { className?: string }) {
     const layer = rings.current;
     if (!layer || layer.childElementCount >= RING_CAP) return;
     const node = document.createElement('span');
-    node.className = 'border-kortix-blue absolute top-0 left-0 rounded-full border-2';
+    node.className = 'border-kortix-base absolute top-0 left-0 rounded-full border-2';
     node.style.width = node.style.height = `${RING_SIZE}px`;
     layer.appendChild(node);
     const at = `translate(${x - RING_SIZE / 2}px, ${y - RING_SIZE / 2}px)`;

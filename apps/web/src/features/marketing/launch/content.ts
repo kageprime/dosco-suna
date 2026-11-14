@@ -78,8 +78,8 @@ export const kit = {
     { token: 'bg-kortix-green', label: 'Merged — the one accent' },
   ],
   type: [
-    { sample: 'The open-source CompanyOS', spec: 'Roobert Medium · tight tracking · headlines' },
-    { sample: 'kortix ship', spec: 'Roobert Mono · commands, paths, branches only', mono: true },
+    { sample: 'Dosco Tek', spec: 'Instrument Serif · editorial tracking · headlines' },
+    { sample: 'dosco ship', spec: 'JetBrains Mono · commands, paths, branches only', mono: true },
   ],
   motion: [
     'Opacity on a short ease-out; transform on a curve three times longer.',

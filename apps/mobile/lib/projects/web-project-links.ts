@@ -6,9 +6,9 @@
  * in-app browser (`expo-web-browser`).
  */
 
-/** `${frontendUrl}/workspaces/<projectId>/customize`, id encoded. */
+/** `${frontendUrl}/workspaces/<projectId>/admin/agents`, id encoded. */
 export function projectCustomizeWebUrl(frontendUrl: string, projectId: string): string {
-  return `${frontendUrl.replace(/\/$/, '')}/workspaces/${encodeURIComponent(projectId)}/customize`;
+  return `${frontendUrl.replace(/\/$/, '')}/workspaces/${encodeURIComponent(projectId)}/admin/agents`;
 }
 
 /**

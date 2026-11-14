@@ -12,7 +12,7 @@ const buttonVariants = cva(
       variant: {
         default: 'bg-action text-action-foreground hover:bg-action/90',
         brand:
-          'bg-kortix-blue/90 dark:bg-kortix-blue/60 text-background dark:text-foreground shadow-xs hover:bg-kortix-blue/85 dark:hover:bg-kortix-blue/50 transition-colors duration-moderate ease-out',
+          'bg-kortix-base text-primary-foreground shadow-xs hover:opacity-90 transition-[background-color,opacity] duration-moderate ease-out',
         blue: 'bg-kortix-blue text-background dark:text-foreground shadow-xs hover:bg-kortix-blue/90',
         'blue-ghost': 'hover:bg-sidebar-accent/40 text-kortix-blue',
         'blue-secondary': 'bg-kortix-blue/10 text-kortix-blue hover:bg-kortix-blue/20',

@@ -52,7 +52,7 @@ export function FeatureSplit({
   return (
     <section id={id} className="scroll-mt-16 py-20 lg:py-28">
       <div className="grid grid-cols-1 gap-8 px-8 lg:grid-cols-2 lg:gap-16 lg:px-28">
-        <h2 className="text-foreground text-xl font-medium tracking-tight text-balance md:text-2xl lg:text-3xl">
+        <h2 className="text-foreground font-serif text-2xl font-normal tracking-tight text-balance md:text-3xl lg:text-4xl">
           {title}
           <span className="text-muted-foreground block">{titleMuted}</span>
         </h2>

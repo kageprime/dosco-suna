@@ -15,10 +15,12 @@ const target = join(PKG_DIR, 'dist', 'styles.css');
 const check = process.argv.includes('--check');
 const tmp = check ? mkdtempSync(join(tmpdir(), 'kortix-ui-styles-')) : null;
 const out = check ? join(tmp, 'styles.css') : target;
+const win32 = process.platform === 'win32';
+const bin = join(PKG_DIR, 'node_modules', '.bin', win32 ? 'tailwindcss.CMD' : 'tailwindcss');
 const run = spawnSync(
-  join(PKG_DIR, 'node_modules', '.bin', 'tailwindcss'),
+  bin,
   ['-i', join(PKG_DIR, 'scripts', 'styles-entry.css'), '-o', out, '--minify'],
-  { cwd: PKG_DIR, stdio: check ? 'pipe' : 'inherit' },
+  { cwd: PKG_DIR, shell: win32, stdio: check ? 'pipe' : 'inherit' },
 );
 if (run.status !== 0) {
   if (check) process.stderr.write(run.stderr ?? '');

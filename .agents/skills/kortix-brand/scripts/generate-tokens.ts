@@ -264,6 +264,7 @@ function webTheme(): string {
 function uiTokens(): string {
   const extra: string[] = [
     `  --font-sans-system: ${systemStack(vs.typography.stacks.sans)};`,
+    ...(vs.typography.stacks.serif ? [`  --font-serif-system: ${systemStack(vs.typography.stacks.serif)};`] : []),
     `  --font-mono-system: ${systemStack(vs.typography.stacks.mono)};`,
   ];
   const lines = webRootAndDark().split('\n');
@@ -301,12 +302,12 @@ function mobileBlock(theme: Theme): string {
 }
 
 // ───────────────────────── kit outputs ─────────────────────────
-/** A font stack without its Roobert entries (D8a: Roobert loads only on Kortix-owned surfaces). */
+/** A font stack without Google/display family entries (used for system fallbacks in email/portable surfaces). */
 function systemStack(stack: string): string {
   return stack
     .split(',')
     .map((x) => x.trim())
-    .filter((x) => !/^'?Roobert/.test(x))
+    .filter((x) => !/^'?(?:Plus Jakarta Sans|Instrument Serif|JetBrains Mono|Roobert)/.test(x))
     .join(', ');
 }
 
@@ -351,9 +352,11 @@ function kitTokens(): string {
   };
   const shared: string[] = [];
   shared.push(`  --font-sans: ${vs.typography.stacks.sans};`);
+  if (vs.typography.stacks.serif) shared.push(`  --font-serif: ${vs.typography.stacks.serif};`);
   shared.push(`  --font-mono: ${vs.typography.stacks.mono};`);
-  // The stack without Roobert: for email, OG cards and any host where D8a keeps Roobert out.
+  // System stacks: for email, OG cards and any host keeping external web fonts out.
   shared.push(`  --font-sans-system: ${systemStack(vs.typography.stacks.sans)};`);
+  if (vs.typography.stacks.serif) shared.push(`  --font-serif-system: ${systemStack(vs.typography.stacks.serif)};`);
   shared.push(`  --font-mono-system: ${systemStack(vs.typography.stacks.mono)};`);
   const pt = vs.typography.portable_text;
   shared.push(`  --tracking-tight: ${pt.tracking_tight};`);
@@ -409,44 +412,27 @@ function kitFonts(): string {
   const L: string[] = [];
   L.push(
     '/* GENERATED from visual-system.json by .agents/skills/kortix-brand/scripts/generate-tokens.ts. Do not edit.',
-    '   Roobert and Roobert Mono as variable fonts, served by the Kortix site.',
-    '   OPEN (decisions.md, D8): the license for public redistribution of Roobert is not confirmed.',
-    '   Use these URLs for Kortix-owned surfaces only until the license is confirmed. */',
+    '   Plus Jakarta Sans, Instrument Serif, and JetBrains Mono for Dosco surfaces. */',
     ''
   );
-  for (const fam of Object.values<any>(vs.typography.families)) {
-    for (const path of fam.web_files as string[]) {
-      const file = basename(path);
-      if (!existsSync(join(ROOT, path))) throw new Error(`generate-tokens: font file missing: ${path}`);
-      const italic = /Italics/.test(file);
-      L.push(
-        '@font-face {',
-        `  font-family: '${fam.name}';`,
-        `  src: url('https://kortix.com/fonts/roobert/${file}') format('woff2');`,
-        `  font-style: ${italic ? 'italic' : 'normal'};`,
-        '  font-weight: 100 900;',
-        '  font-display: swap;',
-        `  font-feature-settings: ${vs.typography.feature_settings_font_face};`,
-        '}',
-        ''
-      );
-    }
+  const queries = Object.values<any>(vs.typography.families)
+    .map((fam) => fam.google_fonts_query as string | undefined)
+    .filter((q): q is string => Boolean(q));
+  if (queries.length) {
+    L.push(`@import url('https://fonts.googleapis.com/css2?${queries.map((q) => `family=${q}`).join('&')}&display=swap');`, '');
   }
   return L.join('\n');
 }
 
-/** @kortix/ui fonts.css: the kit @font-face rules plus the two variables that
- *  theme.css reads (--font-roobert, --font-roobert-mono). Opt-in, Kortix-owned
- *  surfaces only (D8a); a white-label host never imports it. */
+/** @kortix/ui fonts.css: web font import plus the variables that theme.css
+ *  reads (--font-dosco-sans, --font-dosco-serif, --font-dosco-mono). */
 function uiFonts(): string {
   return [
-    kitFonts().replace(
-      '   Use these URLs',
-      '   @kortix/ui/fonts.css: import it after theme.css on Kortix-owned surfaces only (D8a).\n   Use these URLs'
-    ),
+    kitFonts(),
     ':root {',
-    `  --font-roobert: '${vs.typography.families.sans.name}';`,
-    `  --font-roobert-mono: '${vs.typography.families.mono.name}';`,
+    `  --font-dosco-sans: '${vs.typography.families.sans.name}';`,
+    ...(vs.typography.families.serif ? [`  --font-dosco-serif: '${vs.typography.families.serif.name}';`] : []),
+    `  --font-dosco-mono: '${vs.typography.families.mono.name}';`,
     '}',
     '',
   ].join('\n');

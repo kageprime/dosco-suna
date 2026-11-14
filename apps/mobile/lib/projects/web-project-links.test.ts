@@ -11,21 +11,21 @@ import {
 import { isBrowserReturnPath } from '@/lib/session/connect-model';
 
 describe('projectCustomizeWebUrl', () => {
-  test('builds the customize url', () => {
+  test('builds the workspace settings agents url', () => {
     expect(projectCustomizeWebUrl('https://kortix.com', 'proj-1')).toBe(
-      'https://kortix.com/workspaces/proj-1/customize'
+      'https://kortix.com/workspaces/proj-1/admin/agents'
     );
   });
 
   test('strips a trailing slash from the frontend url', () => {
     expect(projectCustomizeWebUrl('https://kortix.com/', 'proj-1')).toBe(
-      'https://kortix.com/workspaces/proj-1/customize'
+      'https://kortix.com/workspaces/proj-1/admin/agents'
     );
   });
 
   test('encodes the project id', () => {
     expect(projectCustomizeWebUrl('https://kortix.com', 'proj 1/2')).toBe(
-      'https://kortix.com/workspaces/proj%201%2F2/customize'
+      'https://kortix.com/workspaces/proj%201%2F2/admin/agents'
     );
   });
 });
@@ -45,7 +45,7 @@ describe('projectConnectorsWebUrl', () => {
 
   test('adds return_to, encoded, when given', () => {
     expect(projectConnectorsWebUrl('https://kortix.com', 'proj-1', CONNECTORS_DONE_URI)).toBe(
-      'https://kortix.com/workspaces/proj-1/admin/connectors?return_to=kortix%3A%2F%2Fconnectors%2Fdone'
+      'https://kortix.com/workspaces/proj-1/admin/connectors?return_to=dosco%3A%2F%2Fconnectors%2Fdone'
     );
   });
 });

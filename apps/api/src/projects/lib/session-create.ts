@@ -619,7 +619,7 @@ async function resolveSessionAgent(params: {
       error: {
         status: 409,
         body: {
-          error: `kortix.yaml is not valid YAML (${loadedAgents.manifestSyntaxError}). Only My Kortix runs until it is fixed.`,
+          error: `kortix.yaml is not valid YAML (${loadedAgents.manifestSyntaxError}). Only Xera runs until it is fixed.`,
           code: 'manifest_invalid',
         },
       },
@@ -631,7 +631,7 @@ async function resolveSessionAgent(params: {
         status: 409,
         body: {
           error:
-            'Dot is off in this project. Pick a project agent, or enable Dot in kortix.yaml.',
+            'Xera is off in this workspace. Pick a workspace agent, or enable Xera in kortix.yaml.',
           code: 'builtin_agent_disabled',
         },
       },

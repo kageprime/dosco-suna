@@ -7725,7 +7725,7 @@
               "type": "cron",
               "agent": "social-scheduler",
               "cron": "{{cadence}}",
-              "prompt": "Load the `social-post-drafting` skill and run one complete draft pass. This is a fresh session each run, so recompute from the current state of {{calendar_source}} \u2014 rely on each entry's `Kortix Drafted` marker in Notion, not local memory, to skip what's already handled. Read {{calendar_source}} for content, launches, and announcements landing within {{lookahead_days}} days, draft a platform-appropriate post for each entry for every platform in {{platforms}}, and post the full batch to {{approval_channel}} with each draft labeled by its scheduled date. Mark `Kortix Drafted` on every entry you draft for. Never schedule, queue, or post anything to any social account yourself \u2014 draft only; a human approves and publishes."
+              "prompt": "Load the `social-post-drafting` skill and run one complete draft pass. This is a fresh session each run, so recompute from the current state of {{calendar_source}} \u2014 rely on each entry's `Dosco Drafted` marker in Notion, not local memory, to skip what's already handled. Read {{calendar_source}} for content, launches, and announcements landing within {{lookahead_days}} days, draft a platform-appropriate post for each entry for every platform in {{platforms}}, and post the full batch to {{approval_channel}} with each draft labeled by its scheduled date. Mark `Dosco Drafted` on every entry you draft for. Never schedule, queue, or post anything to any social account yourself \u2014 draft only; a human approves and publishes."
             }
           ]
         }

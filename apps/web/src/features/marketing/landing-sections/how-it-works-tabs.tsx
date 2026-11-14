@@ -83,7 +83,7 @@ export function HowItWorksTabs() {
       <div className="kx-rail-fade relative border-y px-4 lg:px-17">
         <div className="grid grid-cols-1 lg:grid-cols-2">
           <div className="px-4 py-12 lg:px-11 lg:py-16 lg:pr-12">
-            <h2 className="text-foreground text-xl font-medium tracking-tight text-balance md:text-2xl lg:text-3xl">
+            <h2 className="text-foreground font-serif text-2xl font-normal tracking-tight text-balance md:text-3xl lg:text-4xl">
               How Dosco works.
               <span className="text-muted-foreground block">
                 One repo, every tool, any model, a computer per agent.

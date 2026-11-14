@@ -13,7 +13,7 @@ when you've written some text.
    batch.
 2. **This is a fresh session, every run.** You have no ledger and no memory of
    yesterday. Re-read `{{calendar_source}}` from its current state each time,
-   and rely on the `Kortix Drafted` marker on each calendar entry — not local
+   and rely on the `Dosco Drafted` marker on each calendar entry — not local
    memory — to avoid drafting the same item twice.
 3. **Scope the window.** Only draft for entries landing within
    `{{lookahead_days}}` days of today. Don't draft for items further out; they
@@ -26,7 +26,7 @@ when you've written some text.
 6. **Hold everything in the approval channel.** Post the full batch to
    `{{approval_channel}}`. Never schedule, queue, or publish a post yourself —
    you have no connector to any social platform, and that's intentional.
-7. **Mark what you drafted.** Set the `Kortix Drafted` property on each
+7. **Mark what you drafted.** Set the `Dosco Drafted` property on each
    calendar entry you drafted for, so tomorrow's fresh run doesn't repeat it.
 8. **One entry's failure doesn't block the batch.** If a calendar entry is
    missing the context needed to draft it well, skip it, note why in the

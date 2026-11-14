@@ -1,6 +1,6 @@
 'use client';
 
-import { customizePath, uiRoutes } from '../../lib/routes';
+import { adminPath, customizePath, uiRoutes } from '../../lib/routes';
 import { ProjectNavRow } from './project-nav-row';
 
 import { CustomizeGlyph } from '../icons/customize';
@@ -343,30 +343,27 @@ export function ProjectCustomizeNavItem({ projectId }: { projectId: string }) {
   // this row: the same `needs_you` count the session row dots read.
   const needsYou = useReviewSessionSummary(projectId ?? '', { enabled: !!projectId }).totalNeedsYou;
   const reviewCount = access.tabs.includes('review') ? needsYou : 0;
-  // Active on the legacy index (`/customize`, for the instant before it
-  // redirects) AND on any capability tab — the row stays lit while browsing
-  // Connectors or one agent's page, not just on the landing tab.
+  const targetHref = adminPath(projectId, 'agents');
   const isActive =
     !!pathname &&
     (pathname === customizePath(projectId) ||
       activeCapabilityTab(pathname) !== null ||
-      pathname.startsWith(`/projects/${projectId}/settings`));
+      pathname.startsWith(adminPath(projectId)));
 
   if (!tab) return null;
-  // No project id means no valid href, so there is nothing to render.
   if (!projectId) return null;
 
   return (
     <ProjectNavRow
       active={isActive}
-      label="Settings & Customization"
-      href={`/projects/${projectId}/settings`}
+      label={t('customize')}
+      href={targetHref}
       prefetch
     >
       <span className="shrink-0">
         <CustomizeGlyph />
       </span>
-      <span className="truncate group-data-[collapsible=icon]:hidden">Settings & Customization</span>
+      <span className="truncate group-data-[collapsible=icon]:hidden">{t('customize')}</span>
       {reviewCount > 0 ? (
         <span className="ml-auto flex shrink-0 items-center gap-1 group-data-[collapsible=icon]:hidden">
           <CountBadge count={reviewCount} tone="waiting" />

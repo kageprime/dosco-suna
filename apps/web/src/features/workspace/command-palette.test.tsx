@@ -338,17 +338,9 @@ describe('the registry no longer carries palette settings destinations', () => {
     expect(resolved.map((entry) => entry.id).sort()).toEqual([]);
   });
 
-  test('proj-customize points at the Customize index, and no row survives /config', () => {
-    // A bare `/workspaces/{id}/settings` resolved to `{ tab: undefined }`, and
-    // `openSettings(undefined)` keeps whatever was last open — so one entry
-    // landed somewhere different on every click. It named `/settings/general`
-    // after that, then `/config` once General became a config section.
-    //
-    // `proj-customize` keeps the WORD customize and takes the index page it
-    // names — the card grid over every capability tab, each of which has its
-    // own row.
+  test('proj-customize points at Workspace settings Agents, and no row survives /config', () => {
     const customize = paletteItems.find((item) => item.id === 'proj-customize');
-    expect(customize?.href).toBe('/workspaces/{projectId}/customize');
+    expect(customize?.href).toBe('/workspaces/{projectId}/admin/agents');
     expect(customize?.kind).toBe('navigate');
     expect(customize?.requiresProject).toBe(true);
 

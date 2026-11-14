@@ -12,7 +12,7 @@ export { CapabilityPageShell } from './shared/capability-page-shell';
 export { CustomizeSidebar } from './shared/customize-sidebar';
 export { SkillsPage, ToolsPage, ExtensionsPage } from './skills/skills-page';
 export { AgentDrivesSection } from './agents/agent-drives-section';
-export { ReviewPage } from './sections/view/review-view';
+export { ReviewView } from './sections/view/review-view';
 export { TriggersPage } from './triggers/triggers-page';
 export { UnifiedSettingsPage } from './unified-settings/unified-settings-page';
 export { LlmSections, ProjectDefaultPicker, LLM_TABS } from './sections/gateway-view';

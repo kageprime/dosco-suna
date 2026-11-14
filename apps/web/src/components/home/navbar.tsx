@@ -492,8 +492,8 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
                 <ContextMenuItem
                   onClick={() => {
                     const a = document.createElement('a');
-                    a.href = '/brandkit/kortix-brand-assets.zip';
-                    a.download = 'kortix-brand-assets.zip';
+                    a.href = '/brandkit/dosco-brand-assets.zip';
+                    a.download = 'dosco-brand-assets.zip';
                     a.click();
                   }}
                   className="gap-2 text-sm"

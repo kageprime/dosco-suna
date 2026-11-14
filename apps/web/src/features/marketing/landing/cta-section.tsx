@@ -57,7 +57,7 @@ export function CtaSection() {
 
       {override ? (
         <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-col items-center px-6 text-center">
-          <h2 className="text-foreground text-2xl font-medium tracking-tight text-balance md:text-3xl lg:text-4xl">
+          <h2 className="text-foreground font-serif text-3xl font-normal tracking-tight text-balance md:text-4xl lg:text-5xl">
             {override.title}
             <span className="text-muted-foreground block">{override.subtitle}</span>
           </h2>
@@ -93,7 +93,7 @@ export function CtaSection() {
         </div>
       ) : (
         <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-col items-center px-6 text-center">
-          <h2 className="text-foreground text-2xl font-medium tracking-tight text-balance md:text-3xl lg:text-4xl">
+          <h2 className="text-foreground font-serif text-3xl font-normal tracking-tight text-balance md:text-4xl lg:text-5xl">
             {cta.title}
             <span className="text-muted-foreground block">{cta.subtitle}</span>
           </h2>

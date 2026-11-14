@@ -192,7 +192,7 @@ export function ProjectHomeWelcomeBody({
             </div>
           ) : null}
           <h1
-            className="text-muted-foreground w-full px-4 text-2xl tracking-tight text-balance"
+            className="text-muted-foreground font-serif w-full px-4 text-2xl font-normal tracking-tight text-balance"
             hidden={!!sentTurn}
           >
             {greeting.before}{' '}

@@ -170,14 +170,22 @@
   --color-foreground: var(--foreground);
   --color-foreground-strong: var(--foreground-strong);
   --color-foreground-weak: var(--foreground-weak);
-  /* --font-family-sans / --font-family-mono are the host's font override
-     (themeToCss sets them). Unset, the chain is Roobert on Kortix surfaces,
-     then the system stack. */
+  /* --font-family-sans / --font-family-serif / --font-family-mono are host font
+     overrides (themeToCss sets them). Unset, the chain uses Dosco's Google/display
+     variables (--font-dosco-sans, --font-dosco-serif, --font-dosco-mono) then
+     the system stack. */
   --font-sans: var(
     --font-family-sans,
-    var(--font-roobert, var(--font-sans-system, ui-sans-serif, system-ui, sans-serif))
+    var(--font-dosco-sans, var(--font-sans-system, ui-sans-serif, system-ui, sans-serif))
   );
-  --font-mono: var(--font-family-mono, var(--font-roobert-mono, var(--font-mono-system, ui-monospace, monospace)));
+  --font-serif: var(
+    --font-family-serif,
+    var(--font-dosco-serif, var(--font-serif-system, ui-serif, Georgia, Cambria, 'Times New Roman', serif))
+  );
+  --font-mono: var(
+    --font-family-mono,
+    var(--font-dosco-mono, var(--font-mono-system, ui-monospace, monospace))
+  );
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

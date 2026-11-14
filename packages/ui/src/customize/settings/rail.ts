@@ -89,12 +89,12 @@ const STATIC_GROUPS: readonly RailGroupDefinition[] = [
         // Preferences now (Marko, 2026-09-03), and a tab named after its own
         // dialog says nothing.
         label: 'Language & shortcuts',
-        description: 'Language and keyboard shortcuts.',
+        description: 'Language, motion and keyboard shortcuts.',
         icon: SlidersHorizontal,
       },
       {
         tab: 'chrome',
-        label: 'Kortix in Chrome',
+        label: 'Dosco in Chrome',
         description: 'Your sessions use Chrome with your logins. You see every step.',
         docsHref: '/docs/connect/chrome',
         // Monochrome like its neighbours; `ChromeRailIcon` takes only `className`.
@@ -133,7 +133,7 @@ const STATIC_GROUPS: readonly RailGroupDefinition[] = [
         // stated in `translations/en.json` under `settings.rail.items.` — the
         // palette serves the catalog, these tests search the literal, and the
         // two copies must move together.
-        description: 'Let agents work with the files, terminal, and applications on your computer.',
+        description: 'Let Dosco agents work with the files, terminal, and applications on your computer.',
         icon: Laptop,
       },
     ],
@@ -168,7 +168,7 @@ export const RETIRED_RAIL_ITEMS: readonly RailItem[] = [
     // template's recipe and the record of each time Kortix built a
     // machine from it.
     description:
-      'The recipe for the machine a session runs on, and the record of every time Kortix prepared one.',
+      'The recipe for the machine a session runs on, and the record of every time Dosco prepared one.',
     docsHref: '/docs/developers#sandbox-templates',
     icon: Container,
   },

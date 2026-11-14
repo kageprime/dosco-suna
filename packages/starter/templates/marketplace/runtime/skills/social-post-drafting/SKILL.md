@@ -32,11 +32,11 @@ Query `{{calendar_source}}` for entries whose scheduled date falls within
   update, announcement, event).
 - Scheduled date and any linked asset (the published post, a landing page, a
   changelog entry).
-- The `Kortix Drafted` property.
+- The `Dosco Drafted` property.
 
 ## Step 2 — Skip what's already drafted
 
-Filter out any entry where `Kortix Drafted` is already checked. This is the
+Filter out any entry where `Dosco Drafted` is already checked. This is the
 dedup mechanism for a fresh session with no local memory — the calendar
 itself is the source of truth for what's been handled.
 
@@ -73,7 +73,7 @@ prior run to update or merge with.
 ## Step 6 — Mark each drafted entry in Notion
 
 For every calendar entry you drafted for (not the skipped ones), set
-`Kortix Drafted` to true on that entry so tomorrow's fresh run doesn't
+`Dosco Drafted` to true on that entry so tomorrow's fresh run doesn't
 draft it again.
 
 </workflow>
@@ -86,9 +86,9 @@ draft it again.
   only thing that leaves the sandbox. No post is scheduled, queued, or sent
   anywhere else.
 - **Read-mostly on Notion.** The only write back to Notion is the
-  `Kortix Drafted` checkbox used for dedup — never edit the calendar entry's
+  `Dosco Drafted` checkbox used for dedup — never edit the calendar entry's
   content, date, or any other field.
-- **No memory between runs.** Each run is a fresh session; the `Kortix
+- **No memory between runs.** Each run is a fresh session; the `Dosco
   Drafted` property on the calendar entry (not local memory) is what prevents
   duplicate drafts.
 - **Ground drafts in real content.** Never fabricate details, numbers, or
