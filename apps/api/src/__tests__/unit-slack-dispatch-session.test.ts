@@ -326,6 +326,8 @@ describe('Slack authorization matrix — project access and session visibility',
     expect(createSessionCalls).toBe(1);
     expect(createSessionInputs[0]?.visibility).toBe('project');
     expect(createSessionInputs[0]?.metadata?.slack?.conversation_policy).toBe('project_open');
+    // A mention creates inline: only trigger fires queue on backpressure.
+    expect(createSessionInputs[0]).not.toHaveProperty('queuePolicy');
     // The title comes from the person's words as Slack shows them, not the
     // rendered envelope that carries workspace and channel ids into the prompt,
     // and not the `<@B1>` markup: a free-tier title is this text, verbatim.
@@ -613,12 +615,17 @@ describe('createOrJoinThreadSession — atomic claim arbitrates a brand-new thre
     expect(finalizeCalls[0]?.error).toContain('access');
   });
 
-  test('queued launch reports the queue without creating another session', async () => {
-    startResult = { status: 'queued', reason: 'concurrent_limit' };
+  // `queued` reaches Slack only from an earlier delivery of this same message,
+  // whose create still waits for a retry under the same idempotency key.
+  // 2026-11-11: the old reply claimed the task was queued behind other
+  // sessions, while nothing held it back.
+  test('a create still in flight for this message says so, never that the task is queued', async () => {
+    startResult = { status: 'queued' };
     dbResults = [[project], [], [project], [{ eventId: 'claim' }], [], []];
     await spawnAgentTurn('proj-1', envelope, event);
     expect(createSessionCalls).toBe(1);
-    expect(finalizeCalls[0]?.answer).toContain('queued');
+    expect(finalizeCalls[0]?.answer).toContain('still starting a session for this message');
+    expect(finalizeCalls[0]?.answer).not.toContain('queued');
   });
 
   test('failed launch surfaces the lifecycle error without retrying', async () => {

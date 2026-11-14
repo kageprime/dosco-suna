@@ -134,3 +134,82 @@ test('two failing call paths log the identical message; the path rides in connec
   expect(warnContexts[0]).toEqual({ connector_action: 'linear.run_query_or_mutation' });
   expect(warnContexts[1]).toEqual({ connector_action: 'linear.get_linear_issue' });
 });
+
+/**
+ * KRTX-4722 follow-up: a Composio-edge WAF block (403 with the edge's HTML page)
+ * is deterministic. The same arguments are refused again, and the caller that
+ * keeps sending the blocked payload (about 3 an hour in prod after the
+ * 403 stopped the SDK retry) re-fired the 60 s warn each time against a
+ * baseline of 1.71 an hour. The block warns once per hour per call path.
+ */
+const EDGE_BLOCK =
+  'composio_upstream_unavailable: Composio answered 403 with an HTML error page (page: Attention Required! | Cloudflare): the edge refused the call before it reached the provider, so the tool did not run — the same arguments will be refused again.';
+
+function composioDeps(actionPath: string, status: number, data: string): GatewayDeps {
+  const base = deps(actionPath);
+  return {
+    ...base,
+    loadConnectorBySlug: async () => ({
+      connectorId: 'conn-linear',
+      slug: 'linear',
+      provider: 'composio',
+      baseUrl: null,
+      auth: { type: 'none', in: 'header', name: null, prefix: null },
+      hasAuth: false,
+      credentialMode: 'shared',
+      enabled: true,
+      connectionId: 'connection-fake',
+    }),
+    loadAction: async () => ({
+      path: `linear.${actionPath}`,
+      relPath: actionPath,
+      inputSchema: { type: 'object', properties: {} },
+      risk: 'read',
+      binding: { kind: 'composio', toolkit: 'linear', toolSlug: 'LINEAR_RUN_QUERY_OR_MUTATION' },
+    }),
+    executeComposio: async () => ({ ok: false, status, data }),
+  };
+}
+
+const callComposio = (actionPath: string, status: number, data: string) =>
+  handleCall(composioDeps(actionPath, status, data), {
+    projectId: 'project-fake',
+    accountId: 'account-fake',
+    subject: { userId: 'user-fake', groupIds: [] },
+    connectorSlug: 'linear',
+    actionPath,
+    args: {},
+  });
+
+test('an edge-refused 403 warns once per hour per call path; a 502 outage on the same path still warns per minute', async () => {
+  clock += 300_000;
+  restore = useFakeClock();
+  expect(await callComposio('run_query_or_mutation', 403, EDGE_BLOCK)).toMatchObject({ status: 'error' });
+  expect(warns).toHaveLength(1);
+
+  // The caller repeats the blocked payload past the 60 s interval, inside the hour.
+  clock += 61_000;
+  await callComposio('run_query_or_mutation', 403, EDGE_BLOCK);
+  clock += 1_800_000;
+  await callComposio('run_query_or_mutation', 403, EDGE_BLOCK);
+  expect(warns).toHaveLength(1);
+
+  // A real outage on the same path is a different failure class and keeps the
+  // 60 s window: it must not be hidden behind the block's hour.
+  await callComposio('run_query_or_mutation', 502, 'composio_upstream_unavailable: Composio answered 502');
+  expect(warns).toHaveLength(2);
+
+  // Past the hour the block warns again.
+  clock += 3_600_000;
+  await callComposio('run_query_or_mutation', 403, EDGE_BLOCK);
+  expect(warns).toHaveLength(3);
+});
+
+test('a 403 that is not the edge block keeps the 60 s window', async () => {
+  clock += 300_000;
+  restore = useFakeClock();
+  await callComposio('run_query_or_mutation', 403, 'upstream_403: forbidden');
+  clock += 61_000;
+  await callComposio('run_query_or_mutation', 403, 'upstream_403: forbidden');
+  expect(warns).toHaveLength(2);
+});

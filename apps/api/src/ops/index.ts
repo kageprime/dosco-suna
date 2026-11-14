@@ -81,7 +81,10 @@ async function safeQuery<T>(operation: () => Promise<T>, diagnostic: string, fal
   try {
     return await operation();
   } catch (err) {
-    console.error(diagnostic, err);
+    // drizzle wraps the driver error in a "Failed query" message; the real
+    // Postgres error (code, message) is only on `cause`.
+    const cause = err instanceof Error ? err.cause : undefined;
+    console.error(diagnostic, err, ...(cause ? [{ cause }] : []));
     return fallback;
   }
 }
@@ -132,7 +135,7 @@ async function recentAuditEvents(): Promise<RecentAuditEvent[]> {
   }));
 }
 
-async function usageLast24h(): Promise<UsageRow[]> {
+export async function usageLast24h(): Promise<UsageRow[]> {
   const rows = resultRows<{
     provider: string;
     calls: number | string;
@@ -143,10 +146,10 @@ async function usageLast24h(): Promise<UsageRow[]> {
   }>(await db.execute(sql`
     SELECT
       provider,
-      count(*)::int AS calls,
-      COALESCE(sum(input_tokens), 0)::int AS input_tokens,
-      COALESCE(sum(output_tokens), 0)::int AS output_tokens,
-      COALESCE(sum(cached_tokens), 0)::int AS cached_tokens,
+      count(*)::bigint AS calls,
+      COALESCE(sum(input_tokens), 0)::bigint AS input_tokens,
+      COALESCE(sum(output_tokens), 0)::bigint AS output_tokens,
+      COALESCE(sum(cached_tokens), 0)::bigint AS cached_tokens,
       COALESCE(sum(cost_usd), 0)::text AS cost_usd
     FROM kortix.usage_events
     WHERE created_at >= now() - interval '24 hours'

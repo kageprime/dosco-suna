@@ -62,4 +62,19 @@ describe('useConnectorGateStore', () => {
     expect(state.connectorConnections).toEqual([]);
     expect(state.retry).toBeNull();
   });
+  test('cancel settles a pending submission once; retry keeps it pending', () => {
+    let cancelled = 0;
+    const open = () => useConnectorGateStore.getState().openConnectorGate({
+      projectId: 'project-1', connectorConnections, retry: () => undefined,
+      onCancel: () => { cancelled += 1; },
+    });
+    open();
+    useConnectorGateStore.getState().closeConnectorGate(true);
+    expect(cancelled).toBe(0);
+    open();
+    useConnectorGateStore.getState().closeConnectorGate();
+    useConnectorGateStore.getState().closeConnectorGate();
+    expect(cancelled).toBe(1);
+  });
+
 });

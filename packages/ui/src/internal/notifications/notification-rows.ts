@@ -146,7 +146,7 @@ export function sessionUnreadRowId(
   return rows?.find((row) => !row.read && row.session_id === sessionId)?.id ?? null;
 }
 
-/** The Inbox page's tabs. `needs` holds the kinds that wait on the person: an answer, an approval, a failure to look at. */
+/** The Inbox page's tabs. `needs` holds the kinds that wait on the person: an answer, an approval, a failure to look at, a mention. */
 export type NotificationTab = 'all' | 'needs' | 'done';
 
 const NEEDS_YOU_KINDS: ReadonlySet<InboxNotification['kind']> = new Set([
@@ -155,6 +155,8 @@ const NEEDS_YOU_KINDS: ReadonlySet<InboxNotification['kind']> = new Set([
   'turn_error',
   'automation_failed',
   'capture_device_down',
+  // Someone asked you for something on the calendar, or gave you an item.
+  'mention',
 ]);
 
 /**

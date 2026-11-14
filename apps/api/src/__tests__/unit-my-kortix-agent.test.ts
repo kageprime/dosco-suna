@@ -88,6 +88,13 @@ describe('My Kortix agent', () => {
     );
   });
 
+  // A closing offer to check later is how My Kortix used to drop a wait: the voice rule must not ask for it.
+  test('the prompt owns the outcome and never ends with an offer to check later', () => {
+    expect(MY_KORTIX_PROMPT.indexOf('## You own the outcome')).toBeLessThan(MY_KORTIX_PROMPT.indexOf('## Your voice'));
+    expect(MY_KORTIX_PROMPT).toContain('End with what happens next, never with a question about it.');
+    expect(MY_KORTIX_PROMPT).not.toContain('phrased as an offer');
+  });
+
   // The follow-through rule names the kortixd `kortix_schedules` actions: a renamed action
   // there leaves My Kortix calling one that does not exist.
   test('the prompt sets a check-in after every wait, with the kortix_schedules actions', () => {
@@ -122,11 +129,12 @@ describe('My Kortix agent', () => {
     expect(section).toContain('say when the answer will arrive');
     // A missing trigger is said once and noted, never a fallback question.
     expect(section).toContain('never fall back to asking');
-    // A plainly stated outcome ("get her answer") is a Goal with criteria the agent creates itself.
-    expect(MY_KORTIX_PROMPT).toContain('A plainly stated goal is a Goal');
+    // A plainly stated outcome ("get her answer") is a goal this chat owns (goal mode), created unasked.
+    expect(MY_KORTIX_PROMPT).toContain('A clear outcome that outlives this turn is a goal');
+    expect(MY_KORTIX_PROMPT).toContain('--here');
     expect(MY_KORTIX_PROMPT).toContain('Never ask permission to track what they just asked for');
-    // The voice rule cannot reintroduce the check-back offer through its ending-offer rule.
-    expect(MY_KORTIX_PROMPT).toContain('never whether to follow up on work you already own');
+    // The voice rule cannot reintroduce the check-back offer through its ending rule.
+    expect(MY_KORTIX_PROMPT).toContain('Never end with "Want me to check later?"');
   });
 
   // The section names the kortixd `agent` inline spec, the workflow `agent()` options and the

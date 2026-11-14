@@ -5,6 +5,7 @@ import { useNotificationPreferences } from '@kortix/sdk/react';
 import {
   ArrowCounterClockwiseIcon,
   BellIcon,
+  CalendarIcon,
   ChatCircleIcon,
   CheckCircleIcon,
   QuestionIcon,
@@ -40,6 +41,7 @@ const KIND_ICON: Record<InboxNotificationKind, AppIcon> = {
   automation_recovered: ArrowCounterClockwiseIcon,
   capture_device_down: XCircleIcon,
   capture_device_recovered: ArrowCounterClockwiseIcon,
+  mention: CalendarIcon,
   // Retired with Rooms (2026-11); the SDK type still carries the kind.
   message: ChatCircleIcon,
 };

@@ -105,6 +105,8 @@ const DialogOverlay = React.forwardRef<HTMLDivElement, React.ComponentPropsWitho
     return (
       <DialogPrimitive.Backdrop
         ref={ref}
+        // Base UI skips a nested backdrop by default; Radix dimmed the parent dialog.
+        forceRender
         className={cn(
           'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-moderate fixed inset-0 bg-black/65 backdrop-blur-xs',
           className,

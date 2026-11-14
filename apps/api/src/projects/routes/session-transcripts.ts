@@ -56,7 +56,7 @@ const SessionUsageTreeSchema = z
   .openapi('SessionUsageTree');
 
 /** `GET …/transcript` is deprecated since 2026-11-11 00:00 UTC: an RFC 9745 `Deprecation` date (`@` unix seconds). */
-export const TRANSCRIPT_DEPRECATED_AT = '@1794355200';
+const TRANSCRIPT_DEPRECATED_AT = '@1794355200';
 
 export function registerSessionTranscriptsRoutes(): void {
   // GET /v1/projects/:projectId/sessions/:sessionId/transcript

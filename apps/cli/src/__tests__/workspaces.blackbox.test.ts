@@ -8,7 +8,7 @@
  *   KORTIX_PROJECT_ID, and a directory link wins over both.
  */
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -19,6 +19,7 @@ const NO_WORKSPACE =
 let tmp: string;
 let server: ReturnType<typeof Bun.serve> | null = null;
 let paths: string[] = [];
+let listed: unknown[] = [];
 let accounts: Array<{ account_id: string; workspace_id?: string | null; slug: string; name: string; role: string }> = [];
 
 function project(id: string) {
@@ -45,7 +46,7 @@ function startServer(): string {
       if (url.pathname === '/v1/me') {
         return Response.json({ user_id: 'user_1', email: 'user@example.test', accounts });
       }
-      if (url.pathname === '/v1/workspaces') return Response.json([]);
+      if (url.pathname === '/v1/workspaces') return Response.json(listed);
       const match = url.pathname.match(/^\/v1\/workspaces\/([^/]+)$/);
       if (match && req.method === 'DELETE') {
         // K2: a delete closes the workspace; owners can restore it for 14 days.
@@ -90,6 +91,7 @@ beforeEach(() => {
   tmp = mkdtempSync(join(tmpdir(), 'kortix-workspaces-'));
   paths = [];
   accounts = [];
+  listed = [];
 });
 
 afterEach(() => {
@@ -169,6 +171,68 @@ describe('workspaces rm', () => {
     expect(r.stdout).toContain('Deleted');
     expect(r.stdout).toContain('an owner can restore it until 2026-11-20T08:00:00.000Z (POST /v1/workspaces/ws_close/restore)');
     expect(r.stdout).not.toContain('no managed repo to delete');
+  });
+
+  // KRTX-4924: a deleted default kept every later command on its 409.
+  const withDefault = (config: string, projectId: string) => {
+    const c = JSON.parse(readFileSync(config, 'utf8'));
+    c.hosts.test.default_project = { project_id: projectId, account_id: 'account_1', name: 'Default' };
+    writeFileSync(config, JSON.stringify(c));
+    return config;
+  };
+  const defaultOf = (config: string) => JSON.parse(readFileSync(config, 'utf8')).hosts.test.default_project;
+
+  test('removing the default workspace binds the one workspace left, and its account', async () => {
+    accounts = [{ account_id: 'account_2', slug: 'left', name: 'Left', role: 'owner' }];
+    listed = [{ ...project('ws_left'), account_id: 'account_2' }];
+    const config = withDefault(writeConfig(startServer(), 'account_1'), 'ws_default');
+
+    const r = await runCli(['workspaces', 'rm', 'ws_default', '--yes'], config);
+    expect(`exit=${r.code} ${r.stderr}`).toBe(`exit=0 ${r.stderr}`);
+    expect(r.stdout).toContain('Cleared the default workspace.');
+    expect(r.stderr).toContain('Default workspace: Workspace ws_left');
+    expect(defaultOf(config)).toEqual({ project_id: 'ws_left', account_id: 'account_2', name: 'Workspace ws_left' });
+    expect(JSON.parse(readFileSync(config, 'utf8')).hosts.test.account_id).toBe('account_2');
+  });
+
+  test('removing the default workspace with none left clears it and names how to start one', async () => {
+    const config = withDefault(writeConfig(startServer(), 'account_1'), 'ws_default');
+
+    const r = await runCli(['workspaces', 'rm', 'ws_default', '--yes'], config);
+    expect(`exit=${r.code} ${r.stderr}`).toBe(`exit=0 ${r.stderr}`);
+    expect(r.stdout).toContain('Cleared the default workspace.');
+    expect(r.stderr).toContain(NO_WORKSPACE);
+    expect(defaultOf(config)).toBeUndefined();
+  });
+
+  test('removing another workspace keeps the default', async () => {
+    const config = withDefault(writeConfig(startServer(), 'account_1'), 'ws_keep');
+
+    const r = await runCli(['workspaces', 'rm', 'ws_other', '--yes'], config);
+    expect(`exit=${r.code} ${r.stderr}`).toBe(`exit=0 ${r.stderr}`);
+    expect(defaultOf(config).project_id).toBe('ws_keep');
+    expect(r.stdout).not.toContain('Cleared the default workspace');
+  });
+
+  test('a command on a workspace being deleted names how to switch the default', async () => {
+    server = Bun.serve({
+      port: 0,
+      fetch() {
+        return Response.json(
+          { error: 'This workspace is being deleted. Restore it first.', code: 'workspace_deleting' },
+          { status: 409 },
+        );
+      },
+    });
+    const config = writeConfig(`http://127.0.0.1:${server.port}/v1`, 'account_1');
+    // The shared formatter (keys) and the workspaces command's own one (use).
+    for (const args of [['keys', 'ls', '--workspace', 'ws_gone'], ['workspaces', 'use', 'ws_gone']]) {
+      const r = await runCli(args, config);
+      expect(r.code).toBe(1);
+      expect(r.stderr).toContain('This workspace is being deleted. Restore it first.');
+      expect(r.stderr).toContain('kortix workspaces use <id>');
+      expect(r.stderr).not.toContain('HTTP 409');
+    }
   });
 });
 

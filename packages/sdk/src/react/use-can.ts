@@ -23,11 +23,11 @@
  * path that changes an assignment, it calls that function. No exceptions.
  */
 
-import { useQuery, type QueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
   getProject,
   probeEffectivePermission,
-  probeEffectivePermissions,
+  type PermissionProbeResult,
   validateToken,
   type PermissionProbeInput,
   type ResourceType,
@@ -103,6 +103,37 @@ export const permissionProbeBatchKey = (
     userId,
     probes.map((p) => `${p.action}|${p.resourceType ?? ''}|${p.resourceId ?? ''}`).join(','),
   ] as const;
+
+/**
+ * Answer a list of probes, in order, one probe at a time through its
+ * single-probe cache entry (`permissionProbeKey`). An answer already cached and
+ * fresh is reused; a probe already in flight is shared; every other probe goes
+ * through the coalescer (`probeEffectivePermission`), so gates that mount
+ * together send ONE `effective:batch`. A workspace home sent 6 to 12 batches
+ * on its first load before this. `invalidatePermissionProbes` marks the
+ * entries stale, so a permission change still reaches the next read.
+ */
+function probeThroughCache(
+  queryClient: QueryClient,
+  accountId: string,
+  userId: string,
+  probes: readonly PermissionProbeInput[],
+): Promise<PermissionProbeResult[]> {
+  return Promise.all(
+    probes.map((probe) =>
+      queryClient.fetchQuery({
+        queryKey: permissionProbeKey(
+          accountId,
+          userId,
+          probe.action,
+          probe.resourceType ? { resourceType: probe.resourceType, resourceId: probe.resourceId } : undefined,
+        ),
+        queryFn: () => probeEffectivePermission(accountId, userId, probe),
+        staleTime: PROBE_STALE_MS,
+      }),
+    ),
+  );
+}
 
 /** Identity of the calling principal, for hosts that do not inject one. */
 const identityKey = ['iam-identity', 'me'] as const;
@@ -202,11 +233,15 @@ export function useCans(
   );
   const enabled = resolved && !!userId && probes.length > 0;
 
+  const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: permissionProbeBatchKey(accountId, userId, probes),
-    queryFn: () => probeEffectivePermissions(accountId as string, userId as string, probes),
+    queryFn: () => probeThroughCache(queryClient, accountId as string, userId as string, probes),
     enabled,
-    staleTime: PROBE_STALE_MS,
+    // The single-probe entries own freshness: a batch rereads them on every
+    // mount, so it never keeps a verdict past their window, and a fresh one
+    // costs no request.
+    staleTime: 0,
   });
 
   const map: Record<string, CanResult> = {};
@@ -240,12 +275,15 @@ export function usePermissionsFor(
   probes: PermissionProbeInput[],
 ): CanResult[] {
   const enabled = !!accountId && !!memberUserId && probes.length > 0;
+  const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: permissionProbeBatchKey(accountId, memberUserId, probes),
-    queryFn: () =>
-      probeEffectivePermissions(accountId as string, memberUserId as string, probes),
+    queryFn: () => probeThroughCache(queryClient, accountId as string, memberUserId as string, probes),
     enabled,
-    staleTime: PROBE_STALE_MS,
+    // The single-probe entries own freshness: a batch rereads them on every
+    // mount, so it never keeps a verdict past their window, and a fresh one
+    // costs no request.
+    staleTime: 0,
   });
 
   return probes.map((_, i) => {

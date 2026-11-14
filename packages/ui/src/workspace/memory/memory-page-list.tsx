@@ -3,7 +3,7 @@
 import type { ProjectMemoryPageSummary, ProjectMemoryPageType } from '@kortix/sdk';
 import { useProjectMemoryPages, useProjectMemorySearch } from '@kortix/sdk/react';
 import { CaretRightIcon, MagnifyingGlassIcon } from '@phosphor-icons/react';
-import { useReducedMotion } from 'motion/react';
+import { useReducedMotion } from '../../internal/hooks/use-reduced-motion';
 import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from 'react';
 
 import { useTranslations } from '../../i18n';

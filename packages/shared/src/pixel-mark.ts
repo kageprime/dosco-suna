@@ -37,7 +37,7 @@ export const PIXEL_KORTIX_ROWS = [
  * golden test in `pixel-mark.test.ts` exists to make that a deliberate act.
  */
 
-export const PIXEL_MARK_SIZE = 7;
+const PIXEL_MARK_SIZE = 7;
 const HALF = 4;
 const MAX_ATTEMPTS = 256;
 
@@ -64,7 +64,7 @@ const RESERVED_ROWS: Record<string, readonly string[]> = {
 
 type Grid = boolean[][];
 
-export function fnv1a(input: string): number {
+function fnv1a(input: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < input.length; i++) {
     h ^= input.charCodeAt(i);

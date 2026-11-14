@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { findSessionAttachments, type Kortix, type SessionAttachmentReference } from '@kortix/sdk';
 
+import { splitHelp } from '../command-argv.ts';
 import type { Auth } from '../api/auth.ts';
 import { kortixFromAuth, withKortixScope } from '../api/sdk.ts';
 import {
@@ -126,7 +127,7 @@ function parseAttachmentsArgs(rest: string[]) {
   }
   const positional = rest.filter((a) => !a.startsWith('-'));
   if (positional.length !== 1) {
-    process.stderr.write(`${status.err('Pass exactly one session id.')}\n\n${ATTACHMENTS_HELP}\n`);
+    process.stderr.write(`${status.err('Pass exactly one session id.')}\n\n${ATTACHMENTS_HELP}`);
     return 2;
   }
   if (downloadId && all) return fail('Pass --download <id> or --all, not both.');
@@ -179,11 +180,9 @@ function printAttachments(
  * point — a stopped session's files used to be reachable only by waking it.
  */
 export async function runSessionsAttachments(argv: string[]): Promise<number> {
+  const helped = splitHelp(argv, ATTACHMENTS_HELP);
+  if (helped !== null) return helped;
   const rest = [...argv];
-  if (rest.includes('-h') || rest.includes('--help')) {
-    process.stdout.write(`${ATTACHMENTS_HELP}\n`);
-    return 0;
-  }
 
   const args = parseAttachmentsArgs(rest);
   if (typeof args === 'number') return args;

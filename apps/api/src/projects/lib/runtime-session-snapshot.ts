@@ -25,7 +25,8 @@ type RuntimeSessionLike = {
   archivedAt?: number | null;
 };
 
-function stringOrNull(value: unknown): string | null {
+/** A string value, trimmed; null for a blank or a non-string. */
+export function stringOrNull(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 

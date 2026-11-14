@@ -638,6 +638,14 @@
     color: var(--foreground);
   }
 
+  /* The one accent action of a page, in the brand blue, in both themes. */
+  .kx-button[data-variant='accent'],
+  .dark .kx-button[data-variant='accent'] {
+    --kx-btn-deep: color-mix(in oklch, var(--kortix-base) 84%, var(--kx-btn-shade));
+    --kx-btn-light: var(--kortix-base);
+    color: oklch(1 0 0);
+  }
+
   .dark .kx-button {
     --kx-btn-hi: color-mix(in oklch, var(--foreground) 10%, transparent);
     --kx-btn-ring: color-mix(in oklch, var(--background) 8%, transparent);
@@ -1463,6 +1471,42 @@ html[data-desktop-platform='macos'] .kx-titlebar-row [role='tab'] {
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
+/* ─── The desktop tab strip (features/desktop-tabs) ──────────────────────
+   On the desktop shell the project shell draws a browser-style tab strip as
+   its first row. The strip wears `.kx-titlebar-row` and takes the band; every
+   project view renders BELOW it. A view's own band row therefore no longer
+   touches the traffic lights or the caption buttons, so inside the tabbed
+   shell it drops the band geometry and keeps its web layout: the indent, the
+   band height and the drag region all revert to the layered utilities.
+   `revert-layer` in this unlayered sheet rolls back to the Tailwind layer. */
+html[data-desktop='true']
+  [data-kx-desktop-tabs-on]
+  :is(.kx-titlebar-row, .kx-titlebar-tabs):not(.kx-desktop-tabstrip) {
+  padding-left: revert-layer;
+  padding-right: revert-layer;
+  -webkit-app-region: initial;
+  app-region: initial;
+}
+html[data-desktop='true']
+  [data-kx-desktop-tabs-on]
+  :is(.kx-titlebar-band-height, .kx-titlebar-tabs):not(.kx-desktop-tabstrip) {
+  height: revert-layer !important;
+  min-height: revert-layer;
+}
+/* A project view sized to the window (`h-svh`, `h-dvh`, `h-screen`) sits
+   below the strip, so it is the window minus the strip. Without this the view
+   overflows by the strip's height and the whole window scrolls, strip and
+   all. The strip writes its measured height (it differs per platform and in
+   fullscreen) to `--kx-desktop-tabstrip-height` on <html>. */
+html[data-desktop='true'] [data-kx-desktop-tabs-on] :is(.h-svh, .h-dvh, .h-screen) {
+  height: calc(100svh - var(--kx-desktop-tabstrip-height, 0px));
+}
+/* The tabbed shell is never taller than the window, so a view that sizes
+   itself with `flex-1 min-h-0` (Drive) scrolls inside, below the strip. */
+html[data-desktop='true'] [data-kx-desktop-tabs-on] {
+  max-height: 100svh;
+}
+
 /* Overlay sidebars share the native-light row instead of adding a blank strip.
    Keep their controls out of AppKit's hit area at every renderer zoom. */
 html[data-desktop-titlebar='overlay'] .kx-overlay-sidebar-titlebar,

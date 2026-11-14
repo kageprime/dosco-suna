@@ -1,3 +1,4 @@
+import { STALE_RUNTIME_DELIVERY_ERROR } from '@kortix/shared';
 import type { Actor } from '../../iam/actor';
 import type { ProjectRow, ProjectSessionRow, RequestAuditContext } from '../lib/serializers';
 import type { PromptOverridesWire, PromptPartWire } from './prompt-payload';
@@ -40,8 +41,13 @@ export type SessionInvocationSource =
   | 'system:space-watcher'
   /** The goal engine (`projects/goals/`, flag `goals`): owner and verifier sessions and their prompts. */
   | 'system:goal'
+  /** The eval runner (`projects/evals/`, flag `evals`): one session per trial. */
+  | 'system:eval'
+  /** A person's reply on a calendar item an agent session created (`projects/calendar/`, flag `calendar`). */
+  | 'system:calendar'
   | 'admin';
 
+/** `on_backpressure` is for trigger fires only; see `backpressure.ts`. */
 export type QueuePolicy = 'never' | 'on_backpressure' | 'always';
 
 export type SessionLifecyclePostCreateAction =
@@ -233,6 +239,8 @@ export interface StartSessionCommand {
  *                      `MAX_RUNTIME_UNREACHABLE_RETRIES`).
  *  - `no-session`    — the session does not exist, or the user deleted it.
  *                      Terminal: there is nothing to deliver to, ever.
+ *  - `stale-runtime` — the web session exists, but its computer calls an obsolete
+ *                      local API tunnel. Keep the failed prompt; start a new session.
  *  - `failed`        — a genuine delivery refusal that re-trying cannot fix.
  *                      Terminal.
  *
@@ -260,6 +268,7 @@ export const DELIVERY_FAILURE_COPY: Record<
   unreachable: "the session's machine could not be reached",
   'not-landed': 'the session accepted it but never recorded it',
   'no-session': 'that session no longer exists',
+  'stale-runtime': STALE_RUNTIME_DELIVERY_ERROR,
   failed: 'the session refused it',
 };
 
@@ -268,6 +277,7 @@ export type SessionDeliveryOutcome =
   | 'pending'
   | 'unreachable'
   | 'no-session'
+  | 'stale-runtime'
   | 'failed'
   /** The runtime ACCEPTED the prompt and then never wrote the message. Not a
    *  retry under the same key: the proxy's dedupe claim would answer that

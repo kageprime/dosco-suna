@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from 'bun:test';
+import { afterEach, describe, expect, mock, test } from 'bun:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
@@ -104,7 +104,7 @@ describe('BillingTab — plan pane without a paid subscription', () => {
     memberCount = 3;
   });
 
-  test('shows the Free plan with its monthly credits and the tier select on the $200 tier', () => {
+  test('shows the Free plan with its monthly credits and the tier select on the $50 entry tier', () => {
     billingEnabled = true;
     accountStateData = freeState();
     const html = renderPlan();
@@ -112,8 +112,8 @@ describe('BillingTab — plan pane without a paid subscription', () => {
     expect(html).toContain('>Free</p>');
     expect(html).toContain('500 credits / month');
     expect(html).toContain('Monthly credits');
-    expect(html).toContain('Subscribe for $200 / month');
-    expect(html).toContain('20,000 credits / month');
+    expect(html).toContain('Subscribe for $50 / month');
+    expect(html).toContain('5,000 credits / month');
     expect(html).not.toContain('Available balance');
   });
 
@@ -121,7 +121,7 @@ describe('BillingTab — plan pane without a paid subscription', () => {
     accountStateData = freeState();
     const html = renderPlan();
     expect(html).not.toContain('Most popular');
-    expect(html).toContain('≈ 1,830 agent-computer hours a month.'); // agentHoursForCredits(20_000)
+    expect(html).toContain('≈ 460 agent-computer hours a month.'); // agentHoursForCredits(5_000)
     expect(html).not.toContain('Starter');
   });
 
@@ -181,7 +181,7 @@ describe('BillingTab — plan pane without a paid subscription', () => {
     expect(html).not.toContain('Available balance');
     expect(html).toContain('Current plan');
     expect(html).toContain('>Free</p>');
-    expect(html).toContain('Subscribe for $200 / month');
+    expect(html).toContain('Subscribe for $50 / month');
   });
 
   test('the hub wallet-first view on a plan that can purchase credits keeps the balance and top-up', () => {
@@ -296,5 +296,104 @@ describe('BillingTab — cancel control on a subscribed account', () => {
     expect(html).toContain('Cancel subscription');
     expect(html).toContain('Your commitment runs through Oct 3, 2027');
     expect(html).toMatch(/<button[^>]*disabled[^>]*>[^<]*Cancel subscription/);
+  });
+});
+
+/**
+ * A canceled subscription (Stripe `canceled`) keeps its `subscription_id` and
+ * the credits the account bought. The settings audit (2026-11-14) found the
+ * Plan pane printing "Canceled" beside a live "Cancel subscription" button,
+ * and the wallet-first hub view hiding the remaining balance because the plan
+ * can no longer purchase credits. The server's `has_active_subscription`
+ * already answers "is there a subscription to cancel"; the pane reads it.
+ */
+describe('BillingTab — a canceled subscription with credits left', () => {
+  afterEach(() => {
+    total = 2;
+    accountStateData = null;
+  });
+
+  function canceledState(
+    overrides: Record<string, unknown> = {},
+    { credits = 22.28, hasActive = false as boolean | 'absent' } = {},
+  ) {
+    return {
+      credits: { total: credits, monthly: 0, extra: credits },
+      can_manage_billing: true,
+      ...(hasActive === 'absent' ? {} : { has_active_subscription: hasActive }),
+      plan: { key: 'credits', family: 'credits', label: 'Credits', sublabel: null, monthly_usd: null },
+      subscription: {
+        status: 'canceled',
+        is_cancelled: true,
+        subscription_id: 'sub_synthetic_canceled',
+        cancel_at_period_end: false,
+        can_purchase_credits: false,
+        ...overrides,
+      },
+    };
+  }
+
+  function render(showWallet: boolean) {
+    return renderToStaticMarkup(
+      createElement(BillingTab, { returnUrl: '/settings/plan', isActive: true, showWallet }),
+    );
+  }
+
+  test('offers a new plan, not Cancel or Reactivate', () => {
+    total = 22.28;
+    accountStateData = canceledState();
+    const html = render(false);
+    expect(html).not.toContain('Cancel subscription');
+    expect(html).not.toContain('Reactivate subscription');
+    expect(html).toContain('Subscribe for $50 / month');
+    expect(html).toContain('Manage billing');
+  });
+
+  test('an older API without has_active_subscription still reads canceled as not live', () => {
+    total = 22.28;
+    accountStateData = canceledState({}, { hasActive: 'absent' });
+    expect(accountStateData).not.toHaveProperty('has_active_subscription');
+    const html = render(false);
+    expect(html).not.toContain('Cancel subscription');
+  });
+
+  test('a canceled subscription that still carries cancel_at_period_end offers no Reactivate', () => {
+    total = 22.28;
+    accountStateData = canceledState({ cancel_at_period_end: true });
+    const html = render(false);
+    expect(html).not.toContain('Reactivate subscription');
+    expect(html).not.toContain('Cancel subscription');
+  });
+
+  test('the hub wallet-first view shows the remaining balance, without top-up controls', () => {
+    total = 22.28;
+    accountStateData = canceledState();
+    const html = render(true);
+    expect(html).toContain('Available balance');
+    expect(html).not.toContain('Add credits');
+    expect(html).not.toContain('Cancel subscription');
+  });
+
+  test('a canceled subscription with no credits left keeps the plan-card view', () => {
+    total = 0;
+    accountStateData = canceledState({}, { credits: 0 });
+    const html = render(true);
+    expect(html).not.toContain('Available balance');
+    expect(html).toContain('Current plan');
+  });
+
+  // The live Credits plan sends can_purchase_credits: false (plan-catalog.ts).
+  // The leftover-credits exception is for an ENDED subscription only, so a
+  // paying Credits account keeps the plan card it had before.
+  test('a live Credits subscription that cannot purchase keeps the plan card and its Cancel', () => {
+    total = 100;
+    accountStateData = canceledState(
+      { status: 'active', is_cancelled: false, subscription_id: 'sub_synthetic_live' },
+      { credits: 100, hasActive: true },
+    );
+    const html = render(true);
+    expect(html).toContain('Current plan');
+    expect(html).not.toContain('Available balance');
+    expect(html).toContain('Cancel subscription');
   });
 });

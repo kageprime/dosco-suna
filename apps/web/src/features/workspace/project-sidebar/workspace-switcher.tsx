@@ -80,8 +80,10 @@ import { cn } from '@kortix/ui';
 import { useSettingsPanelStore } from '@kortix/ui/internal/stores/settings-panel-store';
 import { useAppsModalStore } from '@kortix/ui/internal/stores/apps-modal-store';
 import { getProject } from '@kortix/sdk';
-import { contract, qk } from '@kortix/sdk/react';
-import { useInboxSummary } from '@kortix/ui/internal/notifications/use-inbox-summary';
+import { contract, qk, useNotificationInbox } from '@kortix/sdk/react';
+import { tabUnreadCount } from '@kortix/ui/internal/notifications/notification-rows';
+import { ACCOUNT_INBOX_HREF } from '@/features/notifications/inbox-button';
+import { useAuth } from '@/features/providers/auth-provider';
 import {
   ArrowsLeftRightIcon,
   BellIcon,
@@ -111,7 +113,15 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
   const inviteCount = useMyInvites().data?.length ?? 0;
   const directory = useWorkspaceDirectory();
   const tNotifications = useI18nTranslations('notifications');
-  const inbox = useInboxSummary(projectId);
+  // The menu's Inbox row opens the person's notifications home (`/inbox`,
+  // KRTX-4799): notifications span every workspace, so the row is not
+  // workspace-scoped. The count is the server's unread number; "needs you"
+  // is an unread question, permission request or failure. The workspace's
+  // Review queue keeps its own sidebar row and badge (`project-spaces-nav`).
+  const { user } = useAuth();
+  const inbox = useNotificationInbox({ userId: user?.id });
+  const inboxCount = inbox.unreadCount;
+  const inboxNeedsYou = tabUnreadCount(inbox.data?.notifications ?? [], 'needs') > 0;
   const sidebar = React.useContext(SidebarContext);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -183,7 +193,6 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
     canInvite,
     canOpenSettings,
     canLeave: leave.canLeave,
-    hasInbox: inbox.href !== null,
   });
   const renderRow = (row: WorkspaceMenuRow): React.ReactNode => {
     switch (row) {
@@ -241,25 +250,26 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
           </DropdownMenuSub>
         );
       case 'inbox':
-        // The person's notifications from every workspace (KRTX-1742). An
-        // anchor, like the other navigating rows. It left the sidebar's nav
-        // rows: a page you visit when something calls you needs no permanent row.
-        return inbox.href ? (
+        // The person's notifications home, every workspace (KRTX-1742,
+        // KRTX-4799). An anchor, like the other navigating rows. It left the
+        // sidebar's nav rows: a page you visit when something calls you needs
+        // no permanent row.
+        return (
           <DropdownMenuItem asChild onSelect={() => setMenuOpen(false)} size="sm">
-            <Link href={inbox.href} prefetch>
+            <Link href={ACCOUNT_INBOX_HREF} prefetch>
               <BellIcon />
               {tNotifications('inbox.title')}
-              {inbox.count > 0 ? (
+              {inboxCount > 0 ? (
                 <CountBadge
                   className="ml-auto"
-                  count={inbox.count}
-                  tone={inbox.needsYou ? 'waiting' : 'neutral'}
-                  aria-label={tNotifications('inbox.unreadCount', { count: inbox.count })}
+                  count={inboxCount}
+                  tone={inboxNeedsYou ? 'waiting' : 'neutral'}
+                  aria-label={tNotifications('inbox.unreadCount', { count: inboxCount })}
                 />
               ) : null}
             </Link>
           </DropdownMenuItem>
-        ) : null;
+        );
       case 'preferences':
         // The person's own settings (Slack's Preferences). The keycap sits on
         // this row because this row is what the keystroke does:
@@ -313,8 +323,8 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 aria-label={
-                  inbox.count > 0
-                    ? `${tWorkspaces('switch')}. ${tNotifications('inbox.unreadLabel', { count: inbox.count })}`
+                  inboxCount > 0
+                    ? `${tWorkspaces('switch')}. ${tNotifications('inbox.unreadLabel', { count: inboxCount })}`
                     : tWorkspaces('switch')
                 }
                 className={cn(
@@ -349,7 +359,7 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
                         emoji={project.icon}
                         size="sm"
                       />
-                      {inbox.needsYou ? (
+                      {inboxNeedsYou ? (
                         <span
                           data-testid="workspace-inbox-dot"
                           aria-hidden

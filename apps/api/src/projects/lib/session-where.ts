@@ -29,7 +29,7 @@ export interface SessionWhereRow {
   parent_title: string | null;
 }
 
-function oneLine(text: string, max: number): string {
+export function oneLine(text: string, max: number): string {
   const flat = text.replace(/\s+/g, ' ').trim();
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
 }

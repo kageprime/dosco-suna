@@ -367,6 +367,8 @@ export function serializeProject(
     // released TUI, mobile and CLI builds show Channels only while they read true.
     // `notification_center` graduated on 2026-11-06 and stays `true`: older web, SDK
     // and mobile builds show the bell, Web Push and session follow only while they read true.
+    // `pooled_provider_secrets` graduated on 2026-11-12 and stays `true`: older web, SDK,
+    // CLI and terminal UI builds show named keys and session key selection only while they read true.
     experimental: {
       ...resolveFeatureFlags(row.metadata),
       apps: true,
@@ -379,6 +381,7 @@ export function serializeProject(
       connectors_api_discover: true,
       meta_agent: true,
       notification_center: true,
+      pooled_provider_secrets: true,
       warm_sessions: false,
       volumes: driveStorageAvailable(),
       drives: driveStorageAvailable(),

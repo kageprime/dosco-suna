@@ -6,6 +6,7 @@ import {
   composerFileSearchKey,
   isMenuOpenTransition,
   menuRevalidationKeys,
+  mergeFileResults,
 } from './use-file-search';
 
 /**
@@ -27,6 +28,7 @@ describe('composerFileSearchKey', () => {
       'file-search',
       'https://a',
       'auth',
+      null,
     ]);
   });
 
@@ -216,5 +218,39 @@ describe('menuRevalidationKeys', () => {
 
   test('an empty-string projectId is treated as "no project", same as undefined', () => {
     expect(menuRevalidationKeys('')).toHaveLength(2);
+  });
+});
+
+describe('mergeFileResults', () => {
+  test('no computer files: the repo files are the rows', () => {
+    expect(mergeFileResults([], ['README.md'])).toEqual(['README.md']);
+  });
+
+  test('computer files come first, then repo files, each path once', () => {
+    expect(mergeFileResults(['a.ts', 'README.md'], ['README.md', 'kortix.yaml'])).toEqual([
+      'a.ts',
+      'README.md',
+      'kortix.yaml',
+    ]);
+  });
+
+  test('a /workspace path and its repo-relative twin are one row', () => {
+    expect(mergeFileResults(['/workspace/README.md'], ['README.md'])).toEqual(['/workspace/README.md']);
+  });
+
+  test('the repo key keeps workspaces apart', () => {
+    expect(composerFileSearchKey('unbound', 'rea', 'ws-1')).not.toEqual([
+      ...composerFileSearchKey('unbound', 'rea', 'ws-2'),
+    ]);
+  });
+});
+
+describe('canKeepPlaceholderFiles workspace scope', () => {
+  test('the same server in another workspace drops the old rows', () => {
+    expect(canKeepPlaceholderFiles('unbound', composerFileSearchKey('unbound', 'rea', 'ws-1'), 'ws-2')).toBe(false);
+  });
+
+  test('the same server and workspace keeps them', () => {
+    expect(canKeepPlaceholderFiles('unbound', composerFileSearchKey('unbound', 're', 'ws-1'), 'ws-1')).toBe(true);
   });
 });

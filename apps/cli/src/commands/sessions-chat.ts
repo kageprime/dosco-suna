@@ -18,6 +18,7 @@ import {
 import { genuiToMarkdown } from '@kortix/sdk/genui';
 import { formatRelative } from '@kortix/shared';
 
+import { splitHelp } from '../command-argv.ts';
 import type { Auth } from '../api/auth.ts';
 import { kortixFromAuth, withKortixScope } from '../api/sdk.ts';
 import type { ProjectSession } from '../api/types.ts';
@@ -250,11 +251,11 @@ In the REPL: type a message + Enter to send. Ctrl-D or \`exit\` quits.`;
  * print replies. One-shot with --prompt; interactive REPL otherwise.
  */
 export async function runSessionsChat(argv: string[]): Promise<number> {
+  // A bare `sessions chat` does the command's real work (resolve or pick a
+  // session); only a help FLAG shows help.
+  const helped = argv.length > 0 ? splitHelp(argv, CHAT_HELP) : null;
+  if (helped !== null) return helped;
   const rest = [...argv];
-  if (rest.includes('-h') || rest.includes('--help')) {
-    process.stdout.write(`${CHAT_HELP}\n`);
-    return 0;
-  }
 
   let projectArg: string | undefined;
   let hostArg: string | undefined;
@@ -630,11 +631,11 @@ them is currently doing. Aliases: \`messages\`, \`history\`.`;
  * runs; stopped, it has nothing to print.
  */
 export async function runSessionsLog(argv: string[]): Promise<number> {
+  // A bare `sessions log` reads the most recent running session; only a help
+  // FLAG shows help.
+  const helped = argv.length > 0 ? splitHelp(argv, LOG_HELP) : null;
+  if (helped !== null) return helped;
   const rest = [...argv];
-  if (rest.includes('-h') || rest.includes('--help')) {
-    process.stdout.write(`${LOG_HELP}\n`);
-    return 0;
-  }
 
   let projectArg: string | undefined;
   let hostArg: string | undefined;
@@ -1042,11 +1043,11 @@ interface SessionActivity {
  * so it scales to a wall of parallel sessions without a thundering herd.
  */
 export async function runSessionsStatus(argv: string[]): Promise<number> {
+  // A bare `sessions status` prints the workspace overview; only a help FLAG
+  // shows help.
+  const helped = argv.length > 0 ? splitHelp(argv, STATUS_HELP) : null;
+  if (helped !== null) return helped;
   const rest = [...argv];
-  if (rest.includes('-h') || rest.includes('--help')) {
-    process.stdout.write(`${STATUS_HELP}\n`);
-    return 0;
-  }
 
   let projectArg: string | undefined;
   let hostArg: string | undefined;
@@ -1062,7 +1063,7 @@ export async function runSessionsStatus(argv: string[]): Promise<number> {
     return 2;
   }
   if (rest.length > 0) {
-    process.stderr.write(`${status.err(`Unexpected argument: ${rest[0]}`)}\n${STATUS_HELP}\n`);
+    process.stderr.write(`${status.err(`Unexpected argument: ${rest[0]}`)}\n${STATUS_HELP}`);
     return 2;
   }
   const opts: CtxOpts = { projectArg, hostArg };

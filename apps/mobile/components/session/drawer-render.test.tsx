@@ -129,7 +129,8 @@ const page = (sessions: any[]) => ({
   isError: false,
   hasNextPage: false,
   isFetchingNextPage: false,
-  fetchNextPage: async () => {},
+  // react-query's answer: the query after the read (here, no more pages).
+  fetchNextPage: async () => ({ data: { pages: [] }, hasNextPage: false, isError: false }),
   refetch: async () => {},
 });
 const at = new Date().toISOString();
@@ -156,17 +157,29 @@ afterEach(async () => {
   tree = undefined;
 });
 
+// Every call the drawer makes, in order: `close`, then the navigation.
+const calls: string[] = [];
 const navigated: unknown[][] = [];
 const handlers = {
-  onNewSession() {},
-  onOpenProjectSession() {},
+  onNewSession() {
+    calls.push('new-session');
+  },
+  onOpenProjectSession(session: { session_id: string }) {
+    calls.push(`session:${session.session_id}`);
+  },
   onOpenSubsession() {},
   onNavigateRoute(...args: unknown[]) {
     navigated.push(args);
+    calls.push(`route:${String(args[0])}`);
+  },
+  onOpenPage(pageId: string) {
+    calls.push(`page:${pageId}`);
   },
   onSessionActions() {},
   onOpenSwitcher() {},
-  onClose() {},
+  onClose() {
+    calls.push('close');
+  },
 };
 
 describe('ProjectLeftDrawer renders', () => {
@@ -284,6 +297,88 @@ describe('ProjectLeftDrawer renders', () => {
 
 });
 
+// The drawer library starts its close in a layout effect of the commit that
+// sets `open` to false. A navigation in the same tick put the new page's mount
+// into that commit, and the drawer stayed open until the page had rendered.
+// The navigation now waits one frame: the close commits alone first.
+describe('ProjectLeftDrawer closes before it navigates', () => {
+  let frames: Array<() => void> = [];
+  let realRaf: typeof requestAnimationFrame;
+  beforeEach(() => {
+    calls.length = 0;
+    navigated.length = 0;
+    frames = [];
+    realRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = ((callback: () => void) => {
+      frames.push(callback);
+      return frames.length;
+    }) as typeof requestAnimationFrame;
+  });
+  afterEach(() => {
+    globalThis.requestAnimationFrame = realRaf;
+  });
+  const flushFrame = () => {
+    const pending = frames;
+    frames = [];
+    for (const callback of pending) callback();
+  };
+  const press = async (label: string) => {
+    const pill = navPills.filter((props) => props.label === label).at(-1);
+    if (!pill) throw new Error(`no ${label} pill`);
+    await act(async () => pill.onPress());
+  };
+  const mount = async () => {
+    artifactsAvailable = true;
+    await act(async () => {
+      tree = create(React.createElement(Drawer.ProjectLeftDrawer, { projectId: 'proj', ...handlers, open: true }));
+    });
+  };
+
+  test.each([
+    ['Files', 'route:files'],
+    ['artifacts.title', 'route:artifacts'],
+    ['Search', 'route:sessions'],
+    ['Review', 'page:page:review'],
+    ['Apps', 'page:page:apps'],
+  ])('%s: the close lands in a frame of its own, the navigation in the next', async (label, move) => {
+    await mount();
+    await press(label);
+    expect(calls).toEqual(['close']);
+    flushFrame();
+    expect(calls).toEqual(['close', move]);
+  });
+
+  test('a second tap before the drawer has closed navigates once', async () => {
+    await mount();
+    await press('Files');
+    await press('Review');
+    flushFrame();
+    expect(calls).toEqual(['close', 'route:files']);
+  });
+
+  const sessionRow = (id: string) =>
+    tree.root.find(
+      (node: any) => node.type === 'Pressable' && String(node.props.accessibilityLabel).startsWith(`${id}, `)
+    );
+
+  test('a session row closes first and opens on the next frame', async () => {
+    await mount();
+    await act(async () => sessionRow('s-1').props.onPress());
+    expect(calls).toEqual(['close']);
+    flushFrame();
+    expect(calls).toEqual(['close', 'session:s-1']);
+  });
+
+  test('mixed taps before the drawer has closed open only the first: a row, a pill, another row', async () => {
+    await mount();
+    await act(async () => sessionRow('s-1').props.onPress());
+    await press('Files');
+    await act(async () => sessionRow('s-2').props.onPress());
+    flushFrame();
+    expect(calls).toEqual(['close', 'session:s-1']);
+  });
+});
+
 // KRTX-1727: the server drops rows the viewer may not see after a bounded
 // scan, so a page can come back empty with a cursor. That is not an empty list.
 describe('ProjectLeftDrawer past page one', () => {
@@ -300,10 +395,50 @@ describe('ProjectLeftDrawer past page one', () => {
     });
   };
 
-  test('Shared stays while it has a next page, even with no row yet', async () => {
+  test('Shared with no row has no header, also with a next page', async () => {
     paged.others = { ...page([]), hasNextPage: true };
     await mount();
-    expect(header('Shared')).toHaveLength(1);
+    expect(header('Shared')).toHaveLength(0);
+    expect(buttons('Show more')).toHaveLength(0);
+  });
+
+  test('Automated shows its header only while it has a row', async () => {
+    paged.automated = { ...page([]), hasNextPage: true };
+    await mount();
+    expect(header('Automated')).toHaveLength(0);
+    await act(async () => tree.unmount());
+    paged.automated = page([row('a-1', { initiator: { type: 'trigger', id: 't', label: 'nightly' } })]);
+    await mount();
+    expect(header('Automated')).toHaveLength(1);
+  });
+
+  // The reported bug: Pinned showed its header and a Show more over no row,
+  // and the press loaded pages whose rows the section drops.
+  test('Pinned with no shown row has no header and no Show more, also with a next page', async () => {
+    paged.pinned = { ...page([row('x-1')]), hasNextPage: true };
+    await mount();
+    expect(tree.root.findAll((node: any) => node.type === 'Pressable' && String(node.props.accessibilityLabel).startsWith('sessions.pinnedSection'))).toHaveLength(0);
+    expect(buttons('Show more')).toHaveLength(0);
+  });
+
+  test('a Pinned Show more reads past pages it does not show until a pinned row arrives', async () => {
+    const answers = [
+      { rows: [row('x-2')], next: true },
+      { rows: [row('pin-2', { pinned_at: at, archived_at: null })], next: true },
+      { rows: [row('pin-3', { pinned_at: at, archived_at: null })], next: false },
+    ];
+    let reads = 0;
+    const pages: any[] = [{ items: [row('pin-1', { pinned_at: at, archived_at: null })], next_cursor: 'c' }];
+    const fetchNextPage = async () => {
+      const answer = answers[reads++]!;
+      pages.push({ items: answer.rows, next_cursor: answer.next ? 'c' : null });
+      return { data: { pages: [...pages] }, hasNextPage: answer.next, isError: false };
+    };
+    paged.pinned = { ...page([row('pin-1', { pinned_at: at, archived_at: null })]), hasNextPage: true, fetchNextPage };
+    await mount();
+    expect(buttons('Show more')).toHaveLength(1);
+    await act(async () => buttons('Show more')[0].props.onPress());
+    expect(reads).toBe(2);
   });
 
   test('Shared with no row and no next page has no header', async () => {
@@ -339,10 +474,96 @@ describe('ProjectLeftDrawer past page one', () => {
     expect(tree.root.findAll((node: any) => node.type === 'Loader').length).toBeGreaterThan(0);
   });
 
-  test('Shared between two scan pages: its row reads Loading…, not Show more', async () => {
+  test('a Shared Show more reads past a page of rows an earlier section already shows', async () => {
+    const answers = [
+      { rows: [row('s-1')], next: true },
+      { rows: [row('o-2')], next: true },
+      { rows: [row('o-3')], next: false },
+    ];
+    let reads = 0;
+    const pages: any[] = [{ items: [row('o-1')], next_cursor: 'c' }];
+    const fetchNextPage = async () => {
+      const answer = answers[reads++]!;
+      pages.push({ items: answer.rows, next_cursor: answer.next ? 'c' : null });
+      return { data: { pages: [...pages] }, hasNextPage: answer.next, isError: false };
+    };
     const { useSessionTreeStore, sectionKey } = await import('@/stores/session-tree-store');
     useSessionTreeStore.getState().setChoice(sectionKey('proj', 'shared'), true);
-    paged.others = { ...page([]), hasNextPage: true, isScanning: true, isFetchingNextPage: false };
+    paged.others = { ...page([row('o-1')]), hasNextPage: true, fetchNextPage };
+    await mount();
+    await act(async () => buttons('Show more')[0].props.onPress());
+    expect(reads).toBe(2);
+  });
+
+  test('Shared whose loaded rows all show earlier reads its next page on its own', async () => {
+    let reads = 0;
+    const fetchNextPage = async () => {
+      reads++;
+      return { data: { pages: [{ items: [row('s-1')], next_cursor: 'c' }, { items: [row('o-9')], next_cursor: null }] }, hasNextPage: false, isError: false };
+    };
+    paged.others = { ...page([row('s-1')]), hasNextPage: true, fetchNextPage };
+    await mount();
+    expect(reads).toBe(1);
+  });
+
+  test('no own row: the flower waits while Shared reads past empty pages', async () => {
+    paged = { me: page([]), others: { ...page([]), hasNextPage: true, isScanning: true }, automated: page([]), pinned: page([]) };
+    await mount();
+    expect(emptyFlower()).toHaveLength(0);
+    // The scan ends with no row: the flower shows.
+    await act(async () => tree.unmount());
+    paged.others = page([]);
+    await mount();
+    expect(emptyFlower()).toHaveLength(1);
+    // A scan paused offline does not hold it.
+    await act(async () => tree.unmount());
+    paged.others = { ...page([]), hasNextPage: true, isScanning: true, fetchStatus: 'paused' };
+    await mount();
+    expect(emptyFlower()).toHaveLength(1);
+  });
+
+  test('no own row: an Automated first read paused offline does not hold the flower', async () => {
+    paged = { me: page([]), others: page([]), automated: { ...page([]), isPending: true, fetchStatus: 'paused' }, pinned: page([]) };
+    await mount();
+    expect(emptyFlower()).toHaveLength(1);
+  });
+
+  test('no own row: the flower waits for Automated to answer, then gives way to its header', async () => {
+    paged = { me: page([]), others: page([]), automated: { ...page([]), isPending: true }, pinned: page([]) };
+    await mount();
+    expect(emptyFlower()).toHaveLength(0);
+    await act(async () => tree.unmount());
+    paged.automated = page([row('a-1')]);
+    await mount();
+    expect(emptyFlower()).toHaveLength(0);
+    expect(header('Automated')).toHaveLength(1);
+  });
+
+  test('a second Show more press while a read runs starts no second read', async () => {
+    let reads = 0;
+    let release: () => void = () => {};
+    const fetchNextPage = () => {
+      reads++;
+      return new Promise<any>((resolve) => {
+        release = () => resolve({ data: { pages: [{ items: [row('o-1'), row('o-2')], next_cursor: null }] }, hasNextPage: false, isError: false });
+      });
+    };
+    const { useSessionTreeStore, sectionKey } = await import('@/stores/session-tree-store');
+    useSessionTreeStore.getState().setChoice(sectionKey('proj', 'shared'), true);
+    paged.others = { ...page([row('o-1')]), hasNextPage: true, fetchNextPage };
+    await mount();
+    const press = buttons('Show more')[0].props.onPress;
+    await act(async () => press());
+    expect(buttons('Loading…')).toHaveLength(1);
+    await act(async () => press());
+    expect(reads).toBe(1);
+    await act(async () => release());
+  });
+
+  test('Shared while its next page loads: its row reads Loading…, not Show more', async () => {
+    const { useSessionTreeStore, sectionKey } = await import('@/stores/session-tree-store');
+    useSessionTreeStore.getState().setChoice(sectionKey('proj', 'shared'), true);
+    paged.others = { ...page([row('o-1')]), hasNextPage: true, isFetchingNextPage: true };
     await mount();
     expect(buttons('Show more')).toHaveLength(0);
     expect(buttons('Loading…')).toHaveLength(1);
@@ -364,15 +585,15 @@ describe('ProjectLeftDrawer past page one', () => {
     expect(emptyFlower()).toHaveLength(0);
   });
 
-  test('no own row and no own next page, but Shared has one: no empty flower, no error', async () => {
+  test('no row anywhere, and only Shared has a next page: the empty flower, no Shared header, no error', async () => {
     paged = {
       me: page([]),
       others: { ...page([]), hasNextPage: true },
       automated: page([]),
     };
     await mount();
-    expect(emptyFlower()).toHaveLength(0);
-    expect(header('Shared')).toHaveLength(1);
+    expect(emptyFlower()).toHaveLength(1);
+    expect(header('Shared')).toHaveLength(0);
     expect(buttons('Try again')).toHaveLength(0);
   });
 

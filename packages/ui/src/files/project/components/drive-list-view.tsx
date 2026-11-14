@@ -3,6 +3,7 @@
 import { Badge } from '../../../primitives/badge';
 import { Button } from '../../../primitives/button';
 import type { DroppedEntry } from '../drop-tree';
+import { type DriveListingProps, listingWriteHandlers } from './explorer-listing';
 import { useItemSelection } from './drive-selection';
 import { SelectionCheck, SelectMenuItem } from './drive-selection-ui';
 import {
@@ -333,32 +334,7 @@ function ElevatedDirRow({ node, onNavigate }: { node: FileNode; onNavigate: () =
   );
 }
 
-interface DriveListViewProps {
-  elevatedDirs: FileNode[];
-  dirs: FileNode[];
-  files: FileNode[];
-  onNavigateToDir: (node: FileNode) => void;
-  onOpenFile: (node: FileNode) => void;
-  onPreviewFile: (node: FileNode) => void;
-  onDownload: (node: FileNode) => void;
-  onDownloadDir: (node: FileNode) => void;
-  onRename: (node: FileNode, newName: string) => void;
-  onDelete: (node: FileNode) => void;
-  onHistory: (node: FileNode) => void;
-  onCopy: (node: FileNode) => void;
-  onCut: (node: FileNode) => void;
-  onDropMove: (sourcePath: string, targetDirPath: string) => void;
-  /** External files dropped onto a folder row upload into THAT folder. */
-  onDropUpload?: (files: File[], targetDirPath: string, entries?: DroppedEntry[]) => void;
-  gitStatusMap: Map<string, GitStatusType>;
-  clipboardPath?: string;
-  clipboardOperation?: string;
-  isDirDownloading: (path: string) => boolean;
-  readOnly?: boolean;
-  /** Folders that cannot be renamed, cut or deleted (see `ExplorerCapabilities.fixedAt`). */
-  isFixed?: (path: string) => boolean;
-  /** Paths still uploading. */
-  uploadingPaths?: ReadonlySet<string>;
+interface DriveListViewProps extends DriveListingProps {
   /**
    * The rows keep the server's name order (a partly loaded folder): the
    * column headers do not sort and show no arrow.
@@ -366,39 +342,27 @@ interface DriveListViewProps {
   sortDisabled?: boolean;
 }
 
-export function DriveListView({
-  elevatedDirs,
-  dirs,
-  files,
-  onNavigateToDir,
-  onOpenFile,
-  onPreviewFile,
-  onDownload,
-  onDownloadDir,
-  onRename: rawOnRename,
-  onDelete: rawOnDelete,
-  onHistory: rawOnHistory,
-  onCopy: rawOnCopy,
-  onCut: rawOnCut,
-  onDropMove: rawOnDropMove,
-  onDropUpload: rawOnDropUpload,
-  gitStatusMap,
-  clipboardPath,
-  clipboardOperation,
-  isDirDownloading,
-  readOnly = false,
-  isFixed,
-  uploadingPaths,
-  sortDisabled = false,
-}: DriveListViewProps) {
+export function DriveListView(props: DriveListViewProps) {
+  const {
+    elevatedDirs,
+    dirs,
+    files,
+    onNavigateToDir,
+    onOpenFile,
+    onPreviewFile,
+    onDownload,
+    onDownloadDir,
+    onHistory,
+    gitStatusMap,
+    clipboardPath,
+    clipboardOperation,
+    isDirDownloading,
+    isFixed,
+    uploadingPaths,
+    sortDisabled = false,
+  } = props;
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
-  const onRename = readOnly ? undefined : rawOnRename;
-  const onDelete = readOnly ? undefined : rawOnDelete;
-  const onHistory = rawOnHistory;
-  const onCopy = readOnly ? undefined : rawOnCopy;
-  const onCut = readOnly ? undefined : rawOnCut;
-  const onDropMove = readOnly ? undefined : rawOnDropMove;
-  const onDropUpload = readOnly ? undefined : rawOnDropUpload;
+  const { onRename, onDelete, onCopy, onCut, onDropMove, onDropUpload } = listingWriteHandlers(props);
   const sortBy = useFilesStore((s) => s.sortBy);
   const sortOrder = useFilesStore((s) => s.sortOrder);
   const setSortBy = useFilesStore((s) => s.setSortBy);

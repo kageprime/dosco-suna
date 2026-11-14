@@ -18,7 +18,7 @@ import {
   renderColleagueAccessDecision,
 } from './colleague-access';
 
-export type ColleagueAccessAnswer = { status: 200 | 403 | 409; body: Record<string, unknown> };
+type ColleagueAccessAnswer = { status: 200 | 403 | 409; body: Record<string, unknown> };
 
 export async function answerColleagueAccessAsk(input: {
   ask: ColleagueAccessAsk;

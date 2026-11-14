@@ -299,6 +299,27 @@ agents:
   });
 });
 
+describe('a program agent (`run`)', () => {
+  test('compiles its command, trimmed, and no prompt; the default model stays a model agent\'s', () => {
+    const manifest = parseYaml(`default_agent: janitor\nagents:\n  janitor:\n    run: "  pnpm tsx agents/janitor.ts  "\n    workspace:\n      setup: [pnpm install]\n  writer:\n    model: test/model\n    prompt: Be brief.\n`);
+    const compiled = compileAgentConfig(manifest, {});
+    expect(compiled.agent.janitor?.run).toBe('pnpm tsx agents/janitor.ts');
+    // A daemon older than program agents runs a model instead: it gets no tool and one line to say.
+    expect(compiled.agent.janitor?.tools).toEqual({ '*': false });
+    expect(compiled.agent.janitor?.prompt).toContain('cannot run program agents yet');
+    expect(compiled.agent.janitor?.disable).toBeUndefined();
+    expect(compiled.agent.writer?.run).toBeUndefined();
+    expect(compiled.model).toBeUndefined();
+  });
+
+  test('timeout compiles to seconds; omitted, it is the 30 min default', () => {
+    const manifest = parseYaml(`agents:\n  slow:\n    run: node s.js\n    timeout: 2h\n  quick:\n    run: node q.js\n`);
+    const compiled = compileAgentConfig(manifest, {});
+    expect(compiled.agent.slow?.timeout).toBe(7200);
+    expect(compiled.agent.quick?.timeout).toBe(1800);
+  });
+});
+
 // Prod 2026-10-14: a project whose declared agents held ~270 KB of prompts never
 // booted (one env string over 128 KiB). A project declares them in kortix.yaml.
 describe('a compiled config over 128 KiB', () => {

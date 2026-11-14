@@ -21,6 +21,10 @@ interface UpgradeDialogState {
    *  its view and its copy from, so the gate that opened it and the modal can
    *  never say opposite things about the same account. */
   billingState?: BillingState;
+  /** The Credits tier the person last picked in the dialog. Reopening the
+   *  dialog keeps it, so it opens on the entry tier only until they pick. */
+  pickedMonthlyUsd?: number;
+  setPickedMonthlyUsd: (monthlyUsd: number) => void;
   openUpgradeDialog: (opts: {
     reason?: UpgradeReason;
     message?: string;
@@ -38,6 +42,8 @@ export const useUpgradeDialogStore = create<UpgradeDialogState>((set) => ({
   accountId: undefined,
   hasSubscription: undefined,
   billingState: undefined,
+  pickedMonthlyUsd: undefined,
+  setPickedMonthlyUsd: (monthlyUsd) => set({ pickedMonthlyUsd: monthlyUsd }),
   openUpgradeDialog: (opts) =>
     set({
       isOpen: true,

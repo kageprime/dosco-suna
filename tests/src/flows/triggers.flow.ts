@@ -2,7 +2,6 @@
  * Project triggers — manage-gated CRUD. Maps to spec §17 (TRG-1..5).
  * Trigger create commits the project manifest (a real git commit).
  */
-import { createHmac } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -13,7 +12,7 @@ import { waitFor } from '../core/poll';
 import { CliSandbox, throwIfCliInfraFailure } from '../fixtures/cli';
 import { createDatabaseSession } from '../fixtures/database-project';
 import { enableEnterpriseDemo } from '../fixtures/enterprise-access';
-import { withDb } from '../fixtures/chat';
+import { signedWebhookHeaders, webhookSignature, withDb } from '../fixtures/chat';
 
 type TriggerRow = { slug: string; model: string | null };
 
@@ -1530,12 +1529,7 @@ flow(
             ctx.client.as(ctx.P.ANON).post('/v1/webhooks/projects/:projectId/:slug', rawBody, {
               params: { projectId: p.id, slug: 'bp-hook' },
               raw: true,
-              headers: {
-                'content-type': 'application/json',
-                'x-kortix-timestamp': String(ts),
-                'x-kortix-signature': `sha256=${createHmac('sha256', secret).update(`${ts}.${rawBody}`).digest('hex')}`,
-                'x-kortix-delivery-id': deliveryId,
-              },
+              headers: { ...signedWebhookHeaders(secret, rawBody, ts), 'x-kortix-delivery-id': deliveryId },
             });
           const first = await deliver();
           first.status(202).body().has('$.status', 'queued').has('$.reason', 'project provisioning backpressure').has('$.deduped', false);
@@ -1671,11 +1665,10 @@ flow(
     const params = { projectId: p.id };
     const secret = `ke2e-hook-${crypto.randomUUID()}`;
     const rawBody = JSON.stringify({ action: 'opened' });
-    const sign = (payload: string, key = secret) => `sha256=${createHmac('sha256', key).update(payload).digest('hex')}`;
     // KRTX-4098: signature auth requires X-Kortix-Timestamp and signs `<ts>.<body>`.
     const signed = (ts = Math.floor(Date.now() / 1000)) => ({
       'x-kortix-timestamp': String(ts),
-      'x-kortix-signature': sign(`${ts}.${rawBody}`),
+      'x-kortix-signature': webhookSignature(secret, `${ts}.${rawBody}`),
     });
     // The URL Kortix shows names the workspace; the project path answers the same, permanently.
     const deliverAt = (route: '/v1/webhooks/workspaces/:projectId/:slug' | '/v1/webhooks/projects/:projectId/:slug') =>
@@ -1742,13 +1735,13 @@ flow(
       await rejected({});
       await rejected(signed(), 'no-such-hook');
       const ts = String(Math.floor(Date.now() / 1000));
-      await rejected({ 'x-kortix-timestamp': ts, 'x-kortix-signature': sign(`${ts}.${rawBody}`, 'wrong-secret') });
+      await rejected({ 'x-kortix-timestamp': ts, 'x-kortix-signature': webhookSignature('wrong-secret', `${ts}.${rawBody}`) });
     });
 
     await ctx.step('a valid X-Kortix-Signature or X-Hub-Signature-256 with its timestamp authenticates → 200 skipped (paused)', async () => {
       const ts = Math.floor(Date.now() / 1000);
       await accepted(signed(ts));
-      await accepted({ 'x-kortix-timestamp': String(ts), 'x-hub-signature-256': sign(`${ts}.${rawBody}`) });
+      await accepted({ 'x-kortix-timestamp': String(ts), 'x-hub-signature-256': webhookSignature(secret, `${ts}.${rawBody}`) });
     });
 
     await ctx.step('the older /v1/webhooks/projects path: a valid signature → the same 200 skipped, a wrong one → the same 401', async () => {
@@ -1758,20 +1751,35 @@ flow(
 
     await ctx.step('X-Kortix-Timestamp signs <timestamp>.<body>: 1 h stale or 1 h ahead → 401, current → 200', async () => {
       const now = Math.floor(Date.now() / 1000);
-      const stamped = (ts: number) => ({ 'x-kortix-timestamp': String(ts), 'x-kortix-signature': sign(`${ts}.${rawBody}`) });
-      await rejected(stamped(now - 3600));
-      await rejected(stamped(now + 3600));
-      await accepted(stamped(now));
+      await rejected(signed(now - 3600));
+      await rejected(signed(now + 3600));
+      await accepted(signed(now));
     });
 
     await ctx.step('KRTX-4098: a captured signed delivery cannot replay — no timestamp → 401, and the old body-only signature → 401', async () => {
       // Without a timestamp the sender's old body-only HMAC is refused outright,
       // so a captured delivery must be re-stamped inside the window to run again.
-      await rejected({ 'x-kortix-signature': sign(rawBody) });
-      await rejected({ 'x-kortix-signature': sign(rawBody, 'wrong-secret') });
+      await rejected({ 'x-kortix-signature': webhookSignature(secret, rawBody) });
+      await rejected({ 'x-kortix-signature': webhookSignature('wrong-secret', rawBody) });
       const ts = Math.floor(Date.now() / 1000);
-      await rejected({ 'x-kortix-timestamp': String(ts), 'x-kortix-signature': sign(rawBody) });
+      await rejected({ 'x-kortix-timestamp': String(ts), 'x-kortix-signature': webhookSignature(secret, rawBody) });
       await accepted(signed(ts));
+    });
+
+    await ctx.step('a GitHub repository webhook (body-signed X-Hub-Signature-256, X-GitHub-Event, X-GitHub-Delivery, no timestamp) → 200; a wrong secret or no X-GitHub-Event → 401', async () => {
+      // GitHub signs the raw body alone: `sha256=<hex HMAC of the body>`.
+      const sign = (body: string, key = secret) => webhookSignature(key, body);
+      const github = (signature: string, extra: Record<string, string> = {}) => ({
+        'x-github-event': 'issues',
+        'x-github-delivery': crypto.randomUUID(),
+        'x-hub-signature-256': signature,
+        ...extra,
+      });
+      await accepted(github(sign(rawBody)));
+      await rejected(github(sign(rawBody, 'wrong-secret')));
+      await rejected({ 'x-github-delivery': crypto.randomUUID(), 'x-hub-signature-256': sign(rawBody) });
+      // A Kortix signing header turns the GitHub scheme off: the timestamp rule applies again.
+      await rejected(github(sign(rawBody), { 'x-kortix-signature': sign(rawBody) }));
     });
 
     await ctx.step('static token: a wrong X-Kortix-Token → 401; the secret as X-Kortix-Token or Bearer → 200', async () => {
@@ -2358,7 +2366,7 @@ flow(
     const secret = `ke2e-hook-${crypto.randomUUID()}`;
     const rawBody = JSON.stringify({ action: 'opened', api_key: 'synthetic-not-a-key' });
     const timestamp = String(Math.floor(Date.now() / 1000));
-    const signature = `sha256=${createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex')}`;
+    const signature = webhookSignature(secret, `${timestamp}.${rawBody}`);
     const addSecret = async () =>
       (await owner.post('/v1/workspaces/:projectId/secrets', { name: 'HOOK_SECRET', value: secret, strategy: 'broker', consumer: 'connector' }, { params })).status(200);
     const runs = async (slug = 'hook') =>
@@ -2459,7 +2467,7 @@ flow(
     await ctx.step('three refused deliveries in one second (bad signature, no timestamp, a timestamp 1 h old) → 401 each, and each is a rejected run with its own reason', async () => {
       (await owner.post('/v1/workspaces/:projectId/triggers', { name: 'hook2', slug: 'hook2', type: 'webhook', secret_env: 'HOOK_SECRET', prompt_template: 'x' }, { params })).status(201);
       const now = Math.floor(Date.now() / 1000);
-      const sign = (ts: number) => `sha256=${createHmac('sha256', secret).update(`${ts}.${rawBody}`).digest('hex')}`;
+      const sign = (ts: number) => webhookSignature(secret, `${ts}.${rawBody}`);
       const deliveries: Record<string, string>[] = [
         { 'x-kortix-timestamp': String(now), 'x-kortix-signature': `sha256=${'0'.repeat(64)}` },
         { 'x-kortix-signature': sign(now) },
@@ -2766,16 +2774,10 @@ flow(
         ),
       );
       const rawBody = JSON.stringify({ action: 'opened' });
-      const ts = Math.floor(Date.now() / 1000);
       const r = await ctx.client.as(ctx.P.ANON).post('/v1/webhooks/projects/:projectId/:slug', rawBody, {
         params: { ...params, slug: 'capped' },
         raw: true,
-        headers: {
-          'content-type': 'application/json',
-          'x-kortix-timestamp': String(ts),
-          'x-kortix-signature': `sha256=${createHmac('sha256', secret).update(`${ts}.${rawBody}`).digest('hex')}`,
-          'x-kortix-delivery-id': crypto.randomUUID(),
-        },
+        headers: signedWebhookHeaders(secret, rawBody),
       });
       r.status(200).body().has('$.status', 'skipped').has('$.reason', throttled);
       const runs = (await owner.get('/v1/workspaces/:projectId/triggers/:slug/runs', { params: { ...params, slug: 'capped' } })).status(200).json<RunList>().runs;
@@ -2857,16 +2859,10 @@ flow(
     type Status = { paused: boolean; paused_at: string | null; paused_by: string | null; can_change: boolean };
     const deliver = async () => {
       const rawBody = JSON.stringify({ action: 'opened' });
-      const ts = Math.floor(Date.now() / 1000);
       return ctx.client.as(ctx.P.ANON).post('/v1/webhooks/projects/:projectId/:slug', rawBody, {
         params: { ...params, slug: 'hook' },
         raw: true,
-        headers: {
-          'content-type': 'application/json',
-          'x-kortix-timestamp': String(ts),
-          'x-kortix-signature': `sha256=${createHmac('sha256', secret).update(`${ts}.${rawBody}`).digest('hex')}`,
-          'x-kortix-delivery-id': crypto.randomUUID(),
-        },
+        headers: signedWebhookHeaders(secret, rawBody),
       });
     };
     const listingPaused = async () =>
@@ -2956,16 +2952,10 @@ flow(
     };
     const deliver = async (body: Record<string, unknown>) => {
       const rawBody = JSON.stringify(body);
-      const ts = Math.floor(Date.now() / 1000);
       return ctx.client.as(ctx.P.ANON).post('/v1/webhooks/projects/:projectId/:slug', rawBody, {
         params: slugParams,
         raw: true,
-        headers: {
-          'content-type': 'application/json',
-          'x-kortix-timestamp': String(ts),
-          'x-kortix-signature': `sha256=${createHmac('sha256', secret).update(`${ts}.${rawBody}`).digest('hex')}`,
-          'x-kortix-delivery-id': crypto.randomUUID(),
-        },
+        headers: signedWebhookHeaders(secret, rawBody),
       });
     };
     const push = (ref: string, login: string) => ({ ref, sender: { login } });
@@ -3071,16 +3061,10 @@ flow(
     };
     const deliver = async () => {
       const rawBody = JSON.stringify({ action: 'opened' });
-      const ts = Math.floor(Date.now() / 1000);
       return ctx.client.as(ctx.P.ANON).post('/v1/webhooks/projects/:projectId/:slug', rawBody, {
         params: slugParams,
         raw: true,
-        headers: {
-          'content-type': 'application/json',
-          'x-kortix-timestamp': String(ts),
-          'x-kortix-signature': `sha256=${createHmac('sha256', secret).update(`${ts}.${rawBody}`).digest('hex')}`,
-          'x-kortix-delivery-id': crypto.randomUUID(),
-        },
+        headers: signedWebhookHeaders(secret, rawBody),
       });
     };
 
@@ -3178,16 +3162,10 @@ flow(
     };
     const deliver = async () => {
       const rawBody = JSON.stringify({ action: 'opened' });
-      const ts = Math.floor(Date.now() / 1000);
       return ctx.client.as(ctx.P.ANON).post('/v1/webhooks/projects/:projectId/:slug', rawBody, {
         params: slugParams,
         raw: true,
-        headers: {
-          'content-type': 'application/json',
-          'x-kortix-timestamp': String(ts),
-          'x-kortix-signature': `sha256=${createHmac('sha256', secret).update(`${ts}.${rawBody}`).digest('hex')}`,
-          'x-kortix-delivery-id': crypto.randomUUID(),
-        },
+        headers: signedWebhookHeaders(secret, rawBody),
       });
     };
 
@@ -3339,5 +3317,114 @@ flow(
         sb.dispose();
       }
     });
+  },
+);
+
+// ── TRG-43: a plain `git push` through the proxy applies kortix.yaml at once ──
+// Before 2026-11-12 only the periodic sweep (100 projects every 120 s) read a
+// pushed kortix.yaml into the trigger runtime and the project policies, so a
+// trigger turned off by a push kept firing for up to ~3 h. Each wait below is
+// 20 s: the push applies it, not the sweep.
+flow(
+  'TRG-43',
+  {
+    domain: 'triggers',
+    requires: ['database'],
+    timeoutMs: 300_000,
+    routes: [
+      'POST /v1/accounts/tokens',
+      'GET /v1/git/:project/info/refs',
+      'POST /v1/git/:project/git-upload-pack',
+      'POST /v1/git/:project/git-receive-pack',
+    ],
+  },
+  async (ctx) => {
+    if (ctx.env.target !== 'local') return; // serves the fixture repository over local HTTP, as AUD-7
+    const { serveFixtureRepoLocally } = await import('../fixtures/local-git');
+    const p = await ctx.fixtures.project({ managedGit: true });
+    const created = await ctx.client.as(ctx.P.OWNER).post('/v1/accounts/tokens', {
+      name: ctx.fixtures.name('trg43'),
+      account_id: ctx.P.accountId,
+    });
+    created.status(201);
+    const token = created.json<{ token_id: string; secret_key: string }>();
+    const work = mkdtempSync(join(tmpdir(), 'ke2e-trg43-'));
+    const remote = `${ctx.env.apiUrl.replace(/\/v1$/, '')}/v1/git/${p.id}`;
+    const gitEnv = {
+      ...process.env,
+      GIT_TERMINAL_PROMPT: '0',
+      GIT_CONFIG_COUNT: '1',
+      GIT_CONFIG_KEY_0: 'http.extraHeader',
+      GIT_CONFIG_VALUE_0: `Authorization: Bearer ${token.secret_key}`,
+    };
+    // Async: the fixture's git HTTP server runs in this process, so a blocking
+    // exec would leave it unable to answer the proxy.
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const exec = promisify(execFile);
+    const git = (args: string[]) => exec('git', args, { cwd: work, env: gitEnv, timeout: 60_000 });
+    const push = async (manifest: string, message: string) => {
+      writeFileSync(join(work, 'kortix.yaml'), manifest);
+      await git(['add', 'kortix.yaml']);
+      await git(['-c', 'user.name=KE2E', '-c', 'user.email=ke2e@kortix.invalid', 'commit', '-qm', message]);
+      await git(['push', '-q', 'origin', 'HEAD:refs/heads/main']);
+    };
+    const manifest = (enabled: boolean, policy: string) =>
+      'project:\n  name: trg43\ndefault_agent: kortix\nagents:\n  kortix: {}\n' +
+      `triggers:\n  - slug: pushed\n    name: Pushed\n    type: cron\n    enabled: ${enabled}\n    cron: "0 0 3 * * *"\n    timezone: UTC\n    prompt: run\n` +
+      policy;
+    const runtime = () =>
+      withDb(ctx, async (db) =>
+        (await db.query(
+          "SELECT enabled FROM kortix.project_trigger_runtime WHERE project_id = $1 AND slug = 'pushed'",
+          [p.id],
+        )).rows as Array<{ enabled: boolean | null }>,
+      );
+    const policies = () =>
+      withDb(ctx, async (db) =>
+        (await db.query(
+          'SELECT match, action FROM kortix.connector_project_policies WHERE project_id = $1 ORDER BY position',
+          [p.id],
+        )).rows as Array<{ match: string; action: string }>,
+      );
+    let server: import('node:http').Server | null = null;
+    try {
+      server = await withDb(ctx, (db) => serveFixtureRepoLocally(ctx, db, p.id, 'TRG-43'));
+      await git(['clone', '-q', '--branch', 'main', remote, '.']);
+
+      await ctx.step('push kortix.yaml with an enabled cron trigger through the proxy → its runtime row is on within 20 s', async () => {
+        await push(manifest(true, ''), 'ke2e: add pushed trigger');
+        await waitFor(runtime, {
+          until: (rows) => rows[0]?.enabled === true,
+          timeoutMs: 20_000,
+          intervalMs: 500,
+          description: 'the pushed trigger reaches the runtime',
+        });
+      });
+
+      await ctx.step('push `enabled: false` → the runtime row is off within 20 s', async () => {
+        await push(manifest(false, ''), 'ke2e: disable pushed trigger');
+        await waitFor(runtime, {
+          until: (rows) => rows[0]?.enabled === false,
+          timeoutMs: 20_000,
+          intervalMs: 500,
+          description: 'the disabled trigger reaches the runtime',
+        });
+      });
+
+      await ctx.step('push a `block` policy → the project policy row exists within 20 s', async () => {
+        await push(manifest(false, 'policies:\n  - match: "gmail.send_email"\n    action: block\n'), 'ke2e: block sends');
+        await waitFor(policies, {
+          until: (rows) => rows.some((r) => r.match === 'gmail.send_email' && r.action === 'block'),
+          timeoutMs: 20_000,
+          intervalMs: 500,
+          description: 'the pushed block policy reaches the gateway table',
+        });
+      });
+    } finally {
+      server?.close();
+      rmSync(work, { recursive: true, force: true });
+      await withDb(ctx, (db) => db.query('DELETE FROM kortix.account_tokens WHERE token_id = $1', [token.token_id]));
+    }
   },
 );

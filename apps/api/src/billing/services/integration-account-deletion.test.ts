@@ -390,64 +390,24 @@ describe('sweep guard', () => {
   });
 });
 
-describe('legacy basejump references to the auth user', () => {
-  // Prod and dev still carry the legacy `basejump` schema and public tables
-  // whose NO ACTION foreign keys block GoTrue's delete of auth.users. The
-  // migrated test database has none of them, so this block builds the same FK
-  // shape (verified against dev's catalog) and drives the real routine.
+describe('foreign keys into the auth user', () => {
+  // No environment has a NO ACTION foreign key into auth.users since
+  // drop_legacy_suna_schemas, so this block builds two: a nullable reference and a
+  // NOT NULL one (an audit actor), and drives the real deletion routine.
   beforeAll(async () => {
     await superuser.query(`
-      create schema if not exists basejump;
-      create table if not exists basejump.accounts (
-        id uuid primary key default gen_random_uuid(),
-        primary_owner_user_id uuid not null references auth.users(id),
-        personal_account boolean not null default false,
-        created_by uuid references auth.users(id),
-        updated_by uuid references auth.users(id));
-      create table if not exists basejump.invitations (
-        id uuid primary key default gen_random_uuid(),
-        invited_by_user_id uuid not null references auth.users(id));
-      create table if not exists public.agent_versions (
-        id uuid primary key default gen_random_uuid(),
-        created_by uuid references basejump.accounts(id));
-      create table if not exists public.agents (
-        id uuid primary key default gen_random_uuid(),
-        account_id uuid not null references basejump.accounts(id) on delete cascade,
-        current_version_id uuid references public.agent_versions(id));
-      create table if not exists public.threads (
-        thread_id uuid primary key default gen_random_uuid(),
-        account_id uuid not null references basejump.accounts(id) on delete cascade);
-      create table if not exists public.agent_runs (
-        id uuid primary key default gen_random_uuid(),
-        thread_id uuid not null references public.threads(thread_id));
-      grant all on public.threads, public.agent_runs to postgres;
-      create table if not exists public.legacy_audit (
-        id uuid primary key default gen_random_uuid(),
-        account_id uuid not null references basejump.accounts(id));
-      grant all on public.agents, public.legacy_audit to postgres;
-      create table if not exists public.google_oauth_tokens (
+      create schema if not exists fk_fixture;
+      create table if not exists fk_fixture.nullable_ref (
         id uuid primary key default gen_random_uuid(),
         user_id uuid references auth.users(id));
-      create table if not exists public.user_roles (
+      create table if not exists fk_fixture.required_ref (
         id uuid primary key default gen_random_uuid(),
-        granted_by uuid references auth.users(id));
-      create table if not exists public.admin_actions_log (
-        id uuid primary key default gen_random_uuid(),
-        admin_user_id uuid not null references auth.users(id));
-      create table if not exists public.legacy_presence (
-        id uuid primary key default gen_random_uuid(),
-        user_id uuid references auth.users(id) on delete set null);
-      grant all on schema basejump to postgres;
-      grant all on all tables in schema basejump to postgres;
-      grant all on public.agent_versions, public.google_oauth_tokens, public.user_roles, public.admin_actions_log, public.legacy_presence to postgres;`);
-    // Prod's legacy tables refuse INSERT and UPDATE (migration freeze_legacy_suna_tables). These
-    // were built after the migrations ran, so freeze them the same way. The fixtures below write
-    // them on this connection only; the deletion routine runs on the app pool without the opt-in.
-    await superuser.query(`select kortix.freeze_legacy_tables()`);
-    await superuser.query(`set kortix.legacy_write = 'on'`);
+        actor_user_id uuid not null references auth.users(id));
+      grant usage on schema fk_fixture to postgres;
+      grant all on all tables in schema fk_fixture to postgres;`);
   });
   afterAll(async () => {
-    await superuser.query(`reset kortix.legacy_write`);
+    await superuser.query(`drop schema if exists fk_fixture cascade`);
   });
 
   /** GoTrue's delete: a real DELETE on auth.users that FK violations can refuse. */
@@ -463,169 +423,33 @@ describe('legacy basejump references to the auth user', () => {
   }
   const authUserCount = async (id: string) =>
     Number((await superuser.query(`select count(*)::int n from auth.users where id = $1`, [id])).rows[0].n);
+  const authUser = (id: string) => superuser.query(`insert into auth.users (id, email) values ($1, $2)`, [id, `${id}@example.test`]);
 
-  async function seedLegacy(userId: string, opts: { teamOwned?: boolean } = {}) {
-    const other = crypto.randomUUID();
-    await superuser.query(`insert into auth.users (id, email) values ($1, $2), ($3, $4)`, [
-      userId, `${userId}@example.test`, other, `${other}@example.test`,
-    ]);
-    const personal = (await superuser.query(
-      `insert into basejump.accounts (primary_owner_user_id, personal_account) values ($1, true) returning id`, [userId],
-    )).rows[0].id as string;
-    if (opts.teamOwned) {
-      await superuser.query(`insert into basejump.accounts (primary_owner_user_id, personal_account) values ($1, false)`, [userId]);
-    }
-    await superuser.query(`insert into public.agent_versions (created_by) values ($1)`, [personal]);
-    await superuser.query(`insert into basejump.invitations (invited_by_user_id) values ($1)`, [userId]);
-    await superuser.query(`insert into public.google_oauth_tokens (user_id) values ($1)`, [userId]);
-    // Someone else's rows that point at this user: kept, reference cleared.
-    await superuser.query(`insert into public.user_roles (granted_by) values ($1)`, [userId]);
-    await superuser.query(`insert into basejump.accounts (primary_owner_user_id, personal_account, created_by) values ($1, true, $2)`, [other, userId]);
-    return { personal, other };
-  }
-
-  test('a frozen legacy table refuses INSERT and UPDATE with a clear error, and allows DELETE and FK actions', async () => {
-    await superuser.query(`reset kortix.legacy_write`);
-    try {
-      await frozenTableContract();
-    } finally {
-      await superuser.query(`set kortix.legacy_write = 'on'`);
-    }
-  });
-
-  async function frozenTableContract() {
-    await expect(superuser.query(`insert into public.user_roles (granted_by) values (null)`)).rejects.toThrow(
-      /public\.user_roles is a frozen Suna-era table: INSERT refused/,
-    );
-    const userId = crypto.randomUUID();
-    await superuser.query(`insert into auth.users (id, email) values ($1, $2)`, [userId, `${userId}@example.test`]);
-    await superuser.query(`set kortix.legacy_write = 'on'`);
-    const role = (await superuser.query(`insert into public.user_roles (granted_by) values (null) returning id`)).rows[0].id;
-    const presence = (await superuser.query(`insert into public.legacy_presence (user_id) values ($1) returning id`, [userId])).rows[0].id;
-    await superuser.query(`reset kortix.legacy_write`);
-    await expect(superuser.query(`update public.user_roles set granted_by = null where id = $1`, [role])).rejects.toThrow(
-      /UPDATE refused/,
-    );
-    // ON DELETE SET NULL from auth.users is an UPDATE that a foreign-key action runs: it passes.
-    await superuser.query(`delete from auth.users where id = $1`, [userId]);
-    const nulled = await superuser.query(`select user_id from public.legacy_presence where id = $1`, [presence]);
-    expect(nulled.rows[0].user_id).toBeNull();
-    await superuser.query(`delete from public.user_roles where id = $1`, [role]);
-    expect((await superuser.query(`select count(*)::int n from public.user_roles where id = $1`, [role])).rows[0].n).toBe(0);
-  }
-
-  test('removes the personal basejump account and clears every NO ACTION reference, so the auth delete succeeds', async () => {
+  test('clears a nullable reference to the user and keeps the row, so the auth delete succeeds', async () => {
     realAuthDelete();
-    const { accountId, userId, requestId } = await seed({ subscription: false });
-    const { personal, other } = await seedLegacy(userId);
+    const { userId, requestId } = await seed({ subscription: false });
+    await authUser(userId);
+    const row = (await superuser.query(`insert into fk_fixture.nullable_ref (user_id) values ($1) returning id`, [userId])).rows[0].id;
 
     const result = await processScheduledDeletions();
 
     expect(result.errors).toEqual([]);
     expect(await authUserCount(userId)).toBe(0);
     expect(await requestStatus(requestId)).toBe('completed');
-    expect(await accountExists(accountId)).toBe(false);
-    const count = async (sqlText: string, args: unknown[]) =>
-      Number((await superuser.query(sqlText, args)).rows[0].n);
-    expect(await count(`select count(*)::int n from basejump.accounts where id = $1`, [personal])).toBe(0);
-    expect(await count(`select count(*)::int n from public.agent_versions where created_by = $1`, [personal])).toBe(0);
-    expect(await count(`select count(*)::int n from basejump.invitations where invited_by_user_id = $1`, [userId])).toBe(0);
-    expect(await count(`select count(*)::int n from public.google_oauth_tokens where user_id = $1`, [userId])).toBe(0);
-    // Another user's rows survive with the reference nulled.
-    expect(await count(`select count(*)::int n from basejump.accounts where primary_owner_user_id = $1 and created_by is null`, [other])).toBe(1);
-    expect(await count(`select count(*)::int n from public.user_roles where granted_by is null`, [])).toBeGreaterThanOrEqual(1);
+    expect((await superuser.query(`select user_id from fk_fixture.nullable_ref where id = $1`, [row])).rows).toEqual([{ user_id: null }]);
   });
 
-  test('preserves another account’s current agent version while clearing creator attribution', async () => {
+  test('refuses while a NOT NULL row names the user as its actor', async () => {
     realAuthDelete();
     const { userId, requestId } = await seed({ subscription: false });
-    const { personal, other } = await seedLegacy(userId);
-    const agentId = crypto.randomUUID();
-    await superuser.query(`
-      insert into public.agents (id, account_id, current_version_id)
-      select $1, a.id, v.id from basejump.accounts a, public.agent_versions v
-      where a.primary_owner_user_id = $2 and v.created_by = $3`, [agentId, other, personal]);
+    await authUser(userId);
+    await superuser.query(`insert into fk_fixture.required_ref (actor_user_id) values ($1)`, [userId]);
 
     const result = await processScheduledDeletions();
 
-    expect(result.errors).toEqual([]);
-    expect(await requestStatus(requestId)).toBe('completed');
-    expect(await authUserCount(userId)).toBe(0);
-    const retained = await superuser.query(`
-      select v.created_by from public.agents a
-      join public.agent_versions v on v.id = a.current_version_id where a.id = $1`, [agentId]);
-    expect(retained.rows).toEqual([{ created_by: null }]);
-    await deleteAccountImmediately(userId, userId);
-    expect((await superuser.query(`select id from public.agents where id = $1`, [agentId])).rows).toHaveLength(1);
-  });
-
-  test('deletes runs belonging to personal legacy threads and preserves another account’s runs on retry', async () => {
-    realAuthDelete();
-    const { userId, requestId } = await seed({ subscription: false });
-    const { personal, other } = await seedLegacy(userId);
-    const threads = await superuser.query(`
-      insert into public.threads (account_id)
-      select id from basejump.accounts where id = $1 or primary_owner_user_id = $2
-      returning thread_id, account_id`, [personal, other]);
-    for (const thread of threads.rows) {
-      await superuser.query(`insert into public.agent_runs (thread_id) values ($1)`, [thread.thread_id]);
-    }
-    const owned = threads.rows.find(thread => thread.account_id === personal);
-    const retained = threads.rows.find(thread => thread.account_id !== personal);
-    expect(owned).toBeDefined();
-    expect(retained).toBeDefined();
-
-    await deleteAccountImmediately(userId, userId);
-
-    expect(await authUserCount(userId)).toBe(0);
-    expect(await requestStatus(requestId)).toBe('completed');
-    expect((await superuser.query(`select thread_id from public.threads where thread_id = $1`, [owned?.thread_id])).rows).toHaveLength(0);
-    expect((await superuser.query(`select thread_id from public.agent_runs where thread_id = $1`, [owned?.thread_id])).rows).toHaveLength(0);
-    await deleteAccountImmediately(userId, userId);
-    expect((await superuser.query(`select thread_id from public.threads where thread_id = $1`, [retained?.thread_id])).rows).toHaveLength(1);
-    expect((await superuser.query(`select thread_id from public.agent_runs where thread_id = $1`, [retained?.thread_id])).rows).toHaveLength(1);
-  });
-
-  test('refuses unknown non-null account references instead of deleting their rows', async () => {
-    realAuthDelete();
-    const { userId, requestId } = await seed({ subscription: false });
-    const { personal } = await seedLegacy(userId);
-    await superuser.query(`insert into public.legacy_audit (account_id) values ($1)`, [personal]);
-
-    const result = await processScheduledDeletions();
-
-    expect(result.errors.some((e) => e.includes('legacy_audit') && e.includes('NOT NULL'))).toBe(true);
-    expect(await requestStatus(requestId)).toBe('pending');
-    expect(await authUserCount(userId)).toBe(1);
-    expect((await superuser.query(`select account_id from public.legacy_audit where account_id = $1`, [personal])).rows).toHaveLength(1);
-  });
-
-  test('refuses to delete the login while the user owns a non-personal basejump account', async () => {
-    realAuthDelete();
-    const { userId, requestId } = await seed({ subscription: false });
-    await seedLegacy(userId, { teamOwned: true });
-
-    const result = await processScheduledDeletions();
-
-    // Earlier refusals stay pending and retry too: assert this user's error.
-    expect(result.errors.some((e) => e.includes(userId) && e.includes('basejump'))).toBe(true);
+    expect(result.errors.some((e) => e.includes(userId) && e.includes('required_ref'))).toBe(true);
     expect(await authUserCount(userId)).toBe(1);
     expect(await requestStatus(requestId)).toBe('pending');
-    expect(
-      Number((await superuser.query(`select count(*)::int n from basejump.accounts where primary_owner_user_id = $1 and not personal_account`, [userId])).rows[0].n),
-    ).toBe(1);
-  });
-
-  test('refuses while the user is the actor of an admin audit row', async () => {
-    realAuthDelete();
-    const { userId, requestId } = await seed({ subscription: false });
-    await seedLegacy(userId);
-    await superuser.query(`insert into public.admin_actions_log (admin_user_id) values ($1)`, [userId]);
-
-    const result = await processScheduledDeletions();
-
-    expect(result.errors.some((e) => e.includes(userId) && e.includes('admin_actions_log'))).toBe(true);
-    expect(await authUserCount(userId)).toBe(1);
-    expect(await requestStatus(requestId)).toBe('pending');
+    await superuser.query(`delete from fk_fixture.required_ref where actor_user_id = $1`, [userId]);
   });
 });

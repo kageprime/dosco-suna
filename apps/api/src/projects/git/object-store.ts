@@ -84,6 +84,28 @@ export function isObjectFetchTooLargeError(err: unknown): err is ObjectFetchTooL
   return err instanceof ObjectFetchTooLargeError;
 }
 
+/**
+ * The remote refused to serve a wanted object: `upload-pack: not our ref <id>`.
+ * The object is no longer reachable from any ref the remote advertises (a
+ * force-push or a deleted branch left the store pointing at it), or the remote
+ * has not replicated it yet. An expected state, never a defect of this code.
+ */
+export class ObjectNotOnRemoteError extends Error {
+  constructor(
+    readonly objectCount: number,
+    readonly stderr: string,
+  ) {
+    super(`git fetch of ${objectCount} objects failed (exit 128): ${stderr}`);
+    this.name = 'ObjectNotOnRemoteError';
+  }
+}
+
+export function isObjectNotOnRemoteError(err: unknown): err is ObjectNotOnRemoteError {
+  return err instanceof ObjectNotOnRemoteError;
+}
+
+const NOT_OUR_REF = /upload-pack: not our ref [0-9a-f]{40}/;
+
 const OID = /^[0-9a-f]{40}$/;
 
 /** The ids among `oids` the store does not hold. Never fetches. */
@@ -223,7 +245,9 @@ async function fetchMissing(
   }
   if (code !== 0) {
     await removeNewPacks(packDir, before, /^tmp_/);
-    throw new Error(`git fetch of ${oids.length} objects failed (exit ${code}): ${stderr.trim().slice(0, 500)}`);
+    const detail = stderr.trim().slice(0, 500);
+    if (NOT_OUR_REF.test(stderr)) throw new ObjectNotOnRemoteError(oids.length, detail);
+    throw new Error(`git fetch of ${oids.length} objects failed (exit ${code}): ${detail}`);
   }
   return { receivedBytes: received };
 }

@@ -67,14 +67,14 @@ node-pg-migrate records the migration *name*, not a content checksum — so it w
 The baseline assumes these already exist (they do on every Supabase env):
 
 - Supabase Auth: `auth.users`, `auth.uid()`, `auth.role()`
-- A minimal `basejump.account_user` STUB (+ `basejump.account_role` enum) —
-  retired legacy: the baseline still creates RLS policies that reference it
-  (rewritten by `20260706120000000_retire_basejump` right after). No data, no
-  triggers. `20261110135954872_freeze_legacy_suna_tables` freezes every
-  `public` and `basejump` table against INSERT and UPDATE (a fixture opts in
-  with `SET kortix.legacy_write = 'on'`); the parked
-  `migrations-pending/drop_legacy_suna_schemas.sql.pending` drops them after
-  the backup.
+- A minimal `basejump.account_user` STUB (+ `basejump.account_role` enum) on a
+  fresh database: the baseline still creates RLS policies that reference it
+  (rewritten by `20260706120000000_retire_basejump` right after). The self-host
+  bootstrap (`0000_bootstrap.sql`) installs it. `20261112124223964_drop_legacy_suna_schemas`
+  drops every Suna-era object in `public` and the `basejump`, `kortix_yolo` and
+  `drizzle` schemas at the end of the chain. The prod copy is in
+  `s3://kortix-prod-legacy-suna-backup/20261110/`
+  (`packages/db/scripts/backup-legacy-schemas.sh` documents the restore).
 - Roles: `anon`, `authenticated`, `service_role`
 
 On a truly bare Postgres run `scripts/test-prereqs.sql` first (the self-host
@@ -651,7 +651,7 @@ it previously silently produced nothing.
 ## Known gaps / cleanup backlog
 
 - **`kortix.ts` adoption:** the objects `kortix.ts` does not declare are listed, with a reason, in `scripts/schema-contract-sql-only.ts` (1 legacy table, 3 compatibility views, 21 legacy columns, 62 non-unique indexes). The schema contract keeps the list from growing.
-- **Wallet functions:** the credit arithmetic lives in the private schema `kortix_wallet` (`grant_credits`, `debit_credits`, `reset_expiring_credits`; `20260925013304428_wallet_private_schema.sql`). `public.atomic_add_credits` / `atomic_use_credits` / `atomic_settle_credits` / `atomic_reset_expiring_credits` remain one release as wrappers for pre-rollout API images. Their drop is parked in `migrations-pending/drop_public_wallet_wrappers.sql.pending` with its preconditions.
+- **Wallet functions:** the credit arithmetic lives in the private schema `kortix_wallet` (`grant_credits`, `debit_credits`, `reset_expiring_credits`; `20260925013304428_wallet_private_schema.sql`). The `public.atomic_*` wrappers that served pre-rollout API images are gone with the rest of `public` (`20261112124223964_drop_legacy_suna_schemas`).
 - ~~**Duplicate function overloads:** `public.atomic_use_credits` and `atomic_grant_renewal_credits` each have a stale extra overload~~ — DONE in `20260730012238065_credit_use_credits_single_overload.sql`. `atomic_use_credits` is now a single 4-parameter function with defaults on `p_description`/`p_ledger_type`, so arities 2–4 all resolve to it; the dead 7-argument `atomic_grant_renewal_credits` overload is gone. `tests/migration/credit-rpc-overloads.test.ts` fails if any `public.atomic_*` or `kortix_wallet` function ever regains two overloads with overlapping callable arity. It spins up its own Postgres (Docker) and runs in the `db-suites` lane of `pnpm test` (the `core` CI lane on a push to `main` and on a pull request into `staging`); run it alone with `pnpm test -- --db-only credit-rpc-overloads` when touching a wallet function. **Note `packages/db/drizzle/0000_bootstrap.sql` still defines only the OLD 5-argument `atomic_use_credits`** — that is fine (bootstrap runs before the baseline and this migration corrects it), but do not treat the bootstrap file as the current shape.
 - **Legacy trackers:** `supabase_migrations.schema_migrations`, `drizzle.__drizzle_migrations`, `kortix.api_schema_migrations` are dead. Drop after prod is also cut over.
 - **No repo-wide git pre-push hook** wires `pnpm --filter @kortix/db lint` automatically yet — it's a documented, not enforced, local step (CI is the real gate).

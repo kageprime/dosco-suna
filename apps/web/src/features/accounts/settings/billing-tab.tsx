@@ -24,6 +24,7 @@ import {
 import { useLocale, useTranslations } from '@/i18n/use-translations';
 import { isBillingEnabled } from '@/lib/config';
 import { useBillingAccountId } from '@kortix/ui/internal/stores/billing-account-context';
+import { accountHasLiveSubscription } from '@kortix/ui/internal/lib/billing/billing-gate-state';
 import { useUserSettingsModalStore } from '@/stores/user-settings-modal-store';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
@@ -48,7 +49,10 @@ import { useEffect, useRef, useState } from 'react';
  * top-up control in the product lives behind the subscribe dialog — so the
  * pane falls to the `PlanCard` (the same shape the `false` view draws),
  * whose card carries the monthly grant; the balance and top-up return the
- * moment the plan allows purchases.
+ * moment the plan allows purchases. One exception: a subscription that ended
+ * (`has_active_subscription` false, `subscription_id` still set) leads with
+ * the wallet while credits remain, because those credits are still
+ * spendable. Top-up stays gated on the plan's own answer.
  *
  * What does NOT vary: buying credits, auto top-up, and the Stripe portal stay
  * on both purchasable views. They are the actions this pane exists to offer,
@@ -131,9 +135,24 @@ export function BillingTab({
   // the dead-end wallet of the dogfood finding (KRTX-2376) — so the caller's
   // `showWallet` and the plan's own answer must both hold for the wallet to
   // lead this pane. See the docblock above.
-  const walletVisible = showWallet && canPurchaseCredits;
-  const hasActiveSubscription = Boolean(subscription?.subscription_id);
-  const subscriptionCancelling = subscription?.cancel_at_period_end === true;
+  //
+  // One exception: a subscription that ended (Stripe `canceled`) keeps the
+  // credits it bought. Those are spendable, so the wallet-first view still
+  // shows the balance while it is above zero. `TopupControls` stays gated on
+  // the plan's own answer, so no purchase control returns with it. A Free
+  // account never had a subscription and keeps the plan card.
+  //
+  // "Is there a subscription to cancel or reactivate" is the server's
+  // `has_active_subscription` (dead statuses — canceled, unpaid,
+  // incomplete_expired — are not live). A canceled subscription keeps its
+  // `subscription_id`, so the id alone offered Cancel on a plan that had
+  // already ended (settings audit, 2026-11-14).
+  const hasActiveSubscription = accountHasLiveSubscription(accountState);
+  const hasLeftoverCredits =
+    Boolean(subscription?.subscription_id) && !hasActiveSubscription && totalCredits > 0;
+  const walletVisible = showWallet && (canPurchaseCredits || hasLeftoverCredits);
+  const subscriptionCancelling =
+    hasActiveSubscription && subscription?.cancel_at_period_end === true;
   // The cancel control lives on the pane a paying customer manages their
   // subscription from. A pending cancellation renders Reactivate instead of a
   // second Cancel; an active commitment disables Cancel with the date it

@@ -294,6 +294,7 @@ describe('one delivery mode: every row steers a live turn', () => {
           fallbacks.push(reason);
         },
         turnIdentity: async () => (over.turnIdentity === undefined ? ACTOR : over.turnIdentity),
+        stopRequested: async () => false,
       },
     };
     return { deps, fallbacks };

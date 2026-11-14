@@ -70,10 +70,21 @@ export function HeldMessageCard({ message, pending, onApprove, onDeny }: HeldMes
   );
 }
 
-/** The session's held messages, one card each, oldest first. */
-export function HeldMessages({ projectId, sessionId }: { projectId: string | null | undefined; sessionId: string | null | undefined }) {
+/**
+ * The session's held messages, one card each, oldest first. They poll every
+ * 5 s while the session works (`live`), every 30 s while it is idle.
+ */
+export function HeldMessages({
+  projectId,
+  sessionId,
+  live = false,
+}: {
+  projectId: string | null | undefined;
+  sessionId: string | null | undefined;
+  live?: boolean;
+}) {
   const toast = useToast();
-  const { data, approve, deny } = usePeerMessages(projectId, sessionId, 'in');
+  const { data, approve, deny } = usePeerMessages(projectId, sessionId, 'in', { live });
   const held = heldMessages(data);
   if (held.length === 0) return null;
   const pendingFor = (id: string): 'approve' | 'deny' | null =>

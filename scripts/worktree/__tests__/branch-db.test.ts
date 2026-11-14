@@ -5,7 +5,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { randomUUID } from 'node:crypto';
 import { sh } from '../lib/exec';
-import { branchDbName, dropBranchDb, primaryDb, syncBranchUsers, withDatabase } from '../lib/branch-db';
+import { branchDbExists, branchDbName, dropBranchDb, primaryDb, syncBranchUsers, withDatabase } from '../lib/branch-db';
 import { SHARED_SUPABASE_PORTS, slotDbUrl } from '../lib/supabase';
 
 const ADMIN = slotDbUrl(SHARED_SUPABASE_PORTS);
@@ -91,5 +91,12 @@ describe.skipIf(!container)('--db branch mirror of auth.users + auth.sessions', 
     q(branchUrl, `insert into auth.sessions (id, user_id) values ('${stale}', '${user}')`);
     expect(syncBranchUsers(p, NAME)).toBeNull();
     expect(sessionIn(branchUrl, stale)).toBe('0');
+  });
+});
+
+describe('branchDbExists', () => {
+  test('a failing query raises instead of reading as "no such database"', () => {
+    const unreachable = { url: 'postgresql://postgres:synthetic@127.0.0.1:1/postgres', container: '' };
+    expect(() => branchDbExists(unreachable, NAME)).toThrow(/Connection refused/);
   });
 });

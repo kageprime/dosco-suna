@@ -1145,6 +1145,10 @@ export const envSchema = z.object({
   BETTERSTACK_API_LOG_TOKEN: optStr, // Logtail source token for structured logs
   BETTERSTACK_API_LOG_HOST: optStr, // Logtail ingesting host (e.g. s1234.us-east-9.betterstackdata.com)
   BETTERSTACK_API_SENTRY_DSN: optStr, // Sentry DSN for error tracking (Better Stack compatible)
+  // Better Stack heartbeat behind the "Kortix Cloud Worker" row on
+  // status.kortix.com. The lease holder pings it once a minute while no job is
+  // stale (worker/runtime/heartbeat.ts). Prod only: unset sends nothing.
+  BETTERSTACK_WORKER_HEARTBEAT_URL: optStr,
 
   // ── Stray env vars used directly in other files (centralized here) ───────
   CORS_ALLOWED_ORIGINS: optStr,
@@ -1918,6 +1922,9 @@ export const config = {
   SIGNUP_WEBHOOK_SECRET: env.SIGNUP_WEBHOOK_SECRET,
   POSTHOG_PROJECT_KEY: env.POSTHOG_PROJECT_KEY,
   POSTHOG_HOST: env.POSTHOG_HOST,
+
+  // ─── Status page (Better Stack heartbeat) ──────────────────────────────────
+  BETTERSTACK_WORKER_HEARTBEAT_URL: env.BETTERSTACK_WORKER_HEARTBEAT_URL,
 
   // ─── Stray env vars (centralized from other files) ────────────────────────
   CORS_ALLOWED_ORIGINS: env.CORS_ALLOWED_ORIGINS,

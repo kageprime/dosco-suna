@@ -13,7 +13,7 @@ import type { ToolProps } from '../shared/types';
 import { useTranslations } from '../../../i18n';
 import { cn } from '../../../lib/utils';
 import { getChildSessionId, getToolInfo } from '../../../internal/session-types';
-import { capitalizeWords } from '@kortix/shared';
+import { agentDisplayName } from '@kortix/shared';
 import { CpuIcon as Cpu, ArrowSquareOutIcon as ExternalLink } from '@phosphor-icons/react';
 import { useSessionIds } from '../../../providers/session-ids';
 import { useUiLink } from '../../../providers/ui-provider';
@@ -30,8 +30,8 @@ export function SessionSpawnTool({ call, forceOpen }: ToolProps) {
 
   // Tool input is the model's JSON (`unknown` at runtime): read each field by
   // type, so a non-string takes the absent-field fallback instead of throwing
-  // in `capitalizeWords` or `split` (KRTX-4511).
-  const agentName = capitalizeWords((typeof input.agent === 'string' && input.agent) || 'kortix');
+  // in `agentDisplayName` or `split` (KRTX-4511).
+  const agentName = agentDisplayName((typeof input.agent === 'string' && input.agent) || 'kortix');
   const description = typeof input.description === 'string' ? input.description : '';
   const projectName = typeof input.project === 'string' ? input.project : '';
   const fullPrompt = typeof input.prompt === 'string' ? input.prompt : '';

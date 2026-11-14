@@ -6,14 +6,24 @@ let billing: Record<string, unknown> = { ok: true };
 let inserted: Record<string, unknown> | undefined;
 /** The billing entitlement under test. False = free tier (KRTX-1067). */
 let mayUseManagedModels = true;
+/** The agent's `project.gitops.read` grant and the launcher's `project.file.read`: the two halves of `repository_access`. */
+let agentAllowsRepository = false;
+let launcherMayRead = false;
+let launcherAsked: unknown[] | undefined;
 
 mock.module('../../billing/services/billing-gate', () => ({ checkBillingAdmission: async () => billing }));
 mock.module('../../billing/services/entitlements', () => ({ accountMayUseManagedModels: async () => mayUseManagedModels }));
 mock.module('../../shared/audit', () => ({ recordAuditEvent: async () => {} }));
 mock.module('../agents', () => ({
-  loadProjectAgents: async () => ({ defaultAgent: 'default', builtinAgents: { my_kortix: false } }),
-  agentGrantAllowsRepository: () => false,
+  loadProjectAgents: async () => ({ specs: [], errors: [], defaultAgent: 'default', builtinAgents: { my_kortix: false } }),
+  agentGrantAllowsRepository: () => agentAllowsRepository,
   sandboxFromLoadedAgents: () => null,
+}));
+mock.module('./launcher-repository-access', () => ({
+  launcherMayReadRepository: async (...args: unknown[]) => {
+    launcherAsked = args;
+    return launcherMayRead;
+  },
 }));
 mock.module('./session-connector-bindings', () => ({
   parseSessionConnectorBindings: () => ({ ok: true, bindings: undefined }),
@@ -74,6 +84,9 @@ beforeEach(() => {
   billing = { ok: true };
   inserted = undefined;
   mayUseManagedModels = true;
+  agentAllowsRepository = false;
+  launcherMayRead = false;
+  launcherAsked = undefined;
   servable = () => true;
   config.KORTIX_URL = 'https://api.example.test';
   // A non-default operator config, so the free-tier test can tell the RESOLVED
@@ -110,6 +123,21 @@ test('insert stores the exact create-time metadata fields and override order', a
       initiator_actor_type: null, initiator_actor_id: null, delegation_depth: 0,
     },
   });
+});
+
+// A launcher who may read the repository gets it only through
+// `launcherMayReadRepository`, the role check that ignores the account-MFA
+// gate (prod 2026-11-12: an MFA account's admins got repository_access false).
+test('repository_access follows the agent grant AND launcherMayReadRepository', async () => {
+  agentAllowsRepository = true;
+  launcherMayRead = true;
+  await createProjectSession({ project, userId: 'synthetic-user', requestingPrincipalType: 'human', body: {} });
+  expect(launcherAsked).toEqual(['synthetic-user', 'synthetic-account', 'synthetic-project']);
+  expect(inserted?.metadata).toMatchObject({ repository_access: true, workspace_mode: 'branch' });
+
+  launcherMayRead = false;
+  await createProjectSession({ project, userId: 'synthetic-user', requestingPrincipalType: 'human', body: {} });
+  expect(inserted?.metadata).toMatchObject({ repository_access: false, workspace_mode: 'runtime' });
 });
 
 // KRTX-1547: the CLI spawn prompt is the caller's words, verbatim; the worker

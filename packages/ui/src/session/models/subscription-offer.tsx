@@ -1,7 +1,7 @@
 'use client';
 
 import { useWorkspaceModels } from '@kortix/sdk/react';
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 
 import { useTranslations } from '../../i18n';
 import { Close } from '../../icons/close';
@@ -10,6 +10,7 @@ import { ClaudeCode } from '../../internal/icons/claude-code';
 import { ProviderLogo } from '../../internal/lib/provider-branding';
 import { cn } from '../../internal/lib/utils';
 import { hasRunnableSubscriptionModel, isRunnableModel } from './model-availability';
+import { ModelConnectionLayoutContext } from './model-connection-layout';
 import { useModelConnectionGate } from './use-model-connection-gate';
 
 const PLANS = [
@@ -52,6 +53,10 @@ function writeDismissed(projectId: string, ids: PlanId[]) {
  * arrow under its send button (`pr-3.5`), so the host must place the rows at
  * the composer card's width.
  *
+ * Above the composer (`ModelConnectionLayoutContext`, first-chat home only)
+ * the two plans render as side-by-side bordered tiles, the plan on a second
+ * line, so they read as the first step rather than as suggestions.
+ *
  * `dismissible`: hovering a row swaps its arrow for a ✕ in the same slot. The ✕
  * hides that row for this project in this browser (`localStorage`). Only the
  * optional offer is dismissible; with no model at all there is nothing else to
@@ -68,6 +73,7 @@ export function ConnectPlanRows({
   dismissible: boolean;
   className?: string;
 }) {
+  const above = useContext(ModelConnectionLayoutContext) === 'above';
   const t = useTranslations('sessionUi.modelGate');
   const { canConnectProvider, openConnectProvider, modal } = useModelConnectionGate(
     undefined,
@@ -88,13 +94,21 @@ export function ConnectPlanRows({
     <>
       {modal}
       {canConnectProvider && plans.length > 0 ? (
-        <div role="group" aria-label={t('offerTitle')} className={cn('flex flex-col', className)}>
+        <div
+          role="group"
+          aria-label={t('offerTitle')}
+          className={cn(above ? 'grid grid-cols-1 gap-2 sm:grid-cols-2' : 'flex flex-col', className)}
+        >
           {plans.map((plan) => (
             <div key={plan.providerId} className="group relative">
               <button
                 type="button"
                 onClick={() => openConnectProvider('providers', plan.providerId)}
-                className="hover:bg-muted/60 focus-visible:ring-kortix-base flex w-full min-w-0 items-center gap-3 rounded-lg py-2 pr-3.5 pl-2.5 text-left transition-colors outline-none focus-visible:ring-[0.6px]"
+                className={cn(
+                  'hover:bg-muted/60 focus-visible:ring-kortix-base flex w-full min-w-0 items-center gap-3 rounded-lg pr-3.5 text-left transition-colors outline-none focus-visible:ring-[0.6px]',
+                  // Above the composer: a bordered tile, the plan on a second line.
+                  above ? 'border-border bg-popover border py-2.5 pl-3' : 'py-2 pl-2.5',
+                )}
               >
                 {plan.providerId === 'anthropic' ? (
                   // Claude plans run through Claude Code, so the row shows its mark.
@@ -102,8 +116,17 @@ export function ConnectPlanRows({
                 ) : (
                   <ProviderLogo providerID={plan.providerId} size="xs" className="size-5 [&_img]:size-5" />
                 )}
-                <span className="text-foreground shrink-0 text-sm">{t(plan.labelKey)}</span>
-                <span className="text-muted-foreground truncate text-sm">{t(plan.planKey)}</span>
+                {above ? (
+                  <span className="flex min-w-0 flex-col">
+                    <span className="text-foreground truncate text-sm leading-5">{t(plan.labelKey)}</span>
+                    <span className="text-muted-foreground truncate text-xs leading-4">{t(plan.planKey)}</span>
+                  </span>
+                ) : (
+                  <>
+                    <span className="text-foreground shrink-0 text-sm">{t(plan.labelKey)}</span>
+                    <span className="text-muted-foreground truncate text-sm">{t(plan.planKey)}</span>
+                  </>
+                )}
                 <SolidRightArrow
                   className={cn(
                     'text-muted-foreground ml-auto size-4 shrink-0 transition-opacity',

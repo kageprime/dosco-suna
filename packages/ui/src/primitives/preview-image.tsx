@@ -45,6 +45,7 @@ const PreviewImageOverlay = React.forwardRef<HTMLDivElement, React.ComponentProp
   ({ className, ...props }, ref) => (
     <DialogPrimitive.Backdrop
       ref={ref}
+      forceRender
       className={cn('fixed inset-0 z-50 bg-black/40', className)}
       {...props}
     />

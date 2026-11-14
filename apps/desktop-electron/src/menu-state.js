@@ -16,7 +16,29 @@ function copyableUrl(url) {
   }
 }
 
-function menuContextForUrl(url) {
+/**
+ * The menu items of the web app's desktop tab strip
+ * (apps/web/src/features/desktop-tabs). Off until the page reports the strip
+ * mounted (`kortix:tabs-active`, behind the project's `desktop_tabs` flag):
+ * without tabs, Mod+T, Mod+1…9 and Ctrl+Tab stay the page's own keys.
+ */
+const TAB_MENU_IDS = [
+  'kx-file-new-tab',
+  'kx-file-reopen-tab',
+  'kx-go-next-tab',
+  'kx-go-prev-tab',
+  ...Array.from({ length: 9 }, (_, index) => `kx-go-tab-${index + 1}`),
+];
+
+/** Hidden even while enabled: nine rows would crowd the menu. */
+const HIDDEN_TAB_MENU_IDS = new Set(TAB_MENU_IDS.filter((id) => id.startsWith('kx-go-tab-')));
+
+/**
+ * `tabsActive`: the page's tab strip is mounted. Then every project page is a
+ * tab and Close Tab works on all of them; else only a session or Customize,
+ * the web's own session tabs.
+ */
+function menuContextForUrl(url, tabsActive = false) {
   let pathname = '';
   try {
     pathname = new URL(url).pathname;
@@ -25,8 +47,11 @@ function menuContextForUrl(url) {
   }
   const projectId = /^\/(?:workspaces|projects)\/([^/]+)(?:\/|$)/.exec(pathname)?.[1];
   const inProject = Boolean(projectId && projectId !== 'start' && projectId !== 'new');
-  const hasActiveTab = inProject && /^\/(?:workspaces|projects)\/[^/]+\/(?:sessions\/[^/]+|customize)(?:\/|$)/.test(pathname);
+  const hasActiveTab =
+    inProject &&
+    (tabsActive ||
+      /^\/(?:workspaces|projects)\/[^/]+\/(?:sessions\/[^/]+|customize)(?:\/|$)/.test(pathname));
   return { inProject, hasActiveTab };
 }
 
-module.exports = { menuContextForUrl, copyableUrl };
+module.exports = { menuContextForUrl, copyableUrl, TAB_MENU_IDS, HIDDEN_TAB_MENU_IDS };

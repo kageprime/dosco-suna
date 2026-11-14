@@ -148,14 +148,11 @@ flow(
       result.status(201);
       ids.push(result.json<any>().secret_id);
     }
-    await ctx.step('flag off → session pool routes deny access', async () => {
+    await ctx.step('the retired pooled_provider_secrets flag cannot be set, and the pool routes answer without it', async () => {
       (await owner.patch('/v1/projects/:projectId/features', { feature: 'pooled_provider_secrets', enabled: false },
-        { params: { projectId: project.id } })).status(200);
-      (await owner.get(poolPath, { params: poolParams })).status(403);
-      (await owner.get(poolsPath, { params: poolParams })).status(403);
-      (await owner.post('/v1/projects/:projectId/sessions', {
-        provider_secret_pools: { anthropic: ids },
-      }, { params: { projectId: project.id } })).status(403);
+        { params: { projectId: project.id } })).status(400);
+      (await owner.get(poolPath, { params: poolParams })).status(200).body().has('$.configured', false);
+      (await owner.get(poolsPath, { params: poolParams })).status(200).body().has('$.pools', []);
     });
     await ctx.step('member sees only granted resources', async () => {
       const memberPath = `${resourcePath}/:secretId/grants/:userId`;
@@ -182,9 +179,7 @@ flow(
       if (!managed || managed.can_use !== false) throw new Error('owner could not see ungranted resource metadata');
       (await owner.del(`${resourcePath}/:secretId`, { params: { ...resourceParams, secretId: id } })).status(200);
     });
-    await ctx.step('enable the pool flag; select two keys', async () => {
-      (await owner.patch('/v1/projects/:projectId/features', { feature: 'pooled_provider_secrets', enabled: true },
-        { params: { projectId: project.id } })).status(200);
+    await ctx.step('select two keys', async () => {
       const selected = await owner.put(poolPath, { secret_ids: ids }, { params: poolParams });
       if (selected.statusCode !== 200) throw new Error(`pool selection returned ${selected.statusCode}: ${selected.text()}`);
       selected.body().has('$.configured', true).has('$.secret_ids', ids);
@@ -406,7 +401,6 @@ flow(
 flow('SEC-POOL-4', {
   domain: 'secrets',
   routes: [
-    'PATCH /v1/projects/:projectId/features',
     'PUT /v1/projects/:projectId/agents/:agentName/config',
     'PUT /v1/projects/:projectId/access/:userId',
     'POST /v1/accounts/:accountId/secret-resources',
@@ -438,16 +432,6 @@ flow('SEC-POOL-4', {
   const listPath = `${path}?project_id=${project.id}`;
   const input = { project_id: project.id, label: 'Project key', provider_id: 'anthropic',
     name: 'ANTHROPIC_API_KEY', value: 'project-key-test-value', consumer: 'llm_gateway', strategy: 'broker' };
-  await ctx.step('flag off still saves a project-scoped key: named accounts are the one store of provider keys', async () => {
-    // The flag is on by default since 2026-10-31 (#11335): turn it off first.
-    (await owner.patch('/v1/projects/:projectId/features', { feature: 'pooled_provider_secrets', enabled: false },
-      { params: { projectId: project.id } })).status(200);
-    const saved = await owner.post(path, { ...input, label: 'Saved with the flag off' }, { params });
-    saved.status(201);
-    (await owner.del(`${path}/:secretId`, { params: { ...params, secretId: saved.json<{ secret_id: string }>().secret_id } })).status(200);
-  });
-  (await owner.patch('/v1/projects/:projectId/features', { feature: 'pooled_provider_secrets', enabled: true },
-    { params: { projectId: project.id } })).status(200);
   let secretId = '';
   await ctx.step('new key defaults to everyone in the project', async () => {
     const created = await owner.post(path, input, { params });
@@ -460,8 +444,6 @@ flow('SEC-POOL-4', {
     const other = await owner.get(`${path}?project_id=${otherProject.id}`, { params });
     other.status(200);
     if ((other.json<any>().secrets as any[]).some((secret) => secret.secret_id === secretId)) throw new Error('key leaked into another project');
-    (await owner.patch('/v1/projects/:projectId/features', { feature: 'pooled_provider_secrets', enabled: true },
-      { params: { projectId: otherProject.id } })).status(200);
     (await owner.post('/v1/projects/:projectId/sessions', {
       agent_name: 'worker', provider_secret_pools: { anthropic: [secretId] },
     }, { params: { projectId: otherProject.id } })).status(403)
@@ -512,7 +494,6 @@ flow('SEC-POOL-4', {
 flow('SEC-POOL-5', {
   domain: 'secrets', requires: ['database'],
   routes: [
-    'PATCH /v1/projects/:projectId/features',
     'POST /v1/projects/:projectId/oauth/:provider/start',
     'GET /v1/accounts/:accountId/secret-resources',
     'DELETE /v1/accounts/:accountId/secret-resources/:secretId',
@@ -532,15 +513,6 @@ flow('SEC-POOL-5', {
   const resourcePath = '/v1/accounts/:accountId/secret-resources';
   const listPath = `${resourcePath}?project_id=${project.id}`;
   const params = { accountId: team.id };
-
-  await ctx.step('with the flag off, a named ChatGPT account is refused', async () => {
-    // The flag is on by default since 2026-10-31 (#11335): turn it off first.
-    (await owner.patch('/v1/projects/:projectId/features', { feature: 'pooled_provider_secrets', enabled: false },
-      { params: { projectId: project.id } })).status(200);
-    (await asMember.post(startPath, { resource_label: 'ChatGPT · Member', sharing: { mode: 'private', ownerId: member.userId } },
-      { params: startParams })).status(403);
-  });
-  (await owner.patch('/v1/projects/:projectId/features', { feature: 'pooled_provider_secrets', enabled: true }, { params: { projectId: project.id } })).status(200);
 
   await ctx.step('a member cannot share a ChatGPT account with the project or another member', async () => {
     (await asMember.post(startPath, { resource_label: 'Team ChatGPT', sharing: { mode: 'project' } }, { params: startParams }))
@@ -618,7 +590,6 @@ flow('SEC-POOL-5', {
 flow('SEC-POOL-6', {
   domain: 'secrets', requires: ['database'],
   routes: [
-    'PATCH /v1/projects/:projectId/features',
     'GET /v1/projects/:projectId/model-picker',
     'POST /v1/accounts/tokens',
     'GET /v1/accounts/:accountId/secret-resources',
@@ -636,7 +607,6 @@ flow('SEC-POOL-6', {
   await team.grantProjectRole(project.id, member.userId!, 'user');
   const owner = ctx.client.as(ctx.P.OWNER);
   const asMember = ctx.client.as(member);
-  (await owner.patch('/v1/projects/:projectId/features', { feature: 'pooled_provider_secrets', enabled: true }, { params: { projectId: project.id } })).status(200);
   const sessionId = await createDatabaseSession(ctx.env, { projectId: project.id, accountId: team.id, userId: member.userId! });
   const minted = await asMember.post('/v1/accounts/tokens', { name: 'ChatGPT reconnection', account_id: team.id });
   minted.status(201);
@@ -751,7 +721,6 @@ flow('SEC-POOL-3', {
   const owner = ctx.client.as(ctx.P.OWNER);
   const first = await createDatabaseSession(ctx.env, { projectId: project.id, accountId: team.id, userId: ctx.P.OWNER.userId! });
   const sibling = await createDatabaseSession(ctx.env, { projectId: project.id, accountId: team.id, userId: ctx.P.OWNER.userId! });
-  (await owner.patch('/v1/projects/:projectId/features', { feature: 'pooled_provider_secrets', enabled: true }, { params: { projectId: project.id } })).status(200);
   const minted = await owner.post('/v1/accounts/tokens', { name: 'Pool session isolation', account_id: team.id });
   minted.status(201);
   const credential = minted.json<{ token_id: string; secret_key: string }>();
@@ -819,7 +788,6 @@ flow('SEC-POOL-7', {
   const resourceParams = { accountId: team.id };
   const model = 'anthropic/claude-sonnet-4.6';
   const chat = { model, max_tokens: 8, messages: [{ role: 'user', content: 'Reply with: pong' }] };
-  (await owner.patch('/v1/projects/:projectId/features', { feature: 'pooled_provider_secrets', enabled: true }, { params })).status(200);
   // The Models panel's "Add key", shared with everyone in the workspace. The
   // value is not a real key: Anthropic refuses it, which proves a key was sent.
   const created = await owner.post('/v1/accounts/:accountId/secret-resources', {
@@ -889,7 +857,6 @@ flow('SEC-POOL-7', {
 flow('SEC-POOL-8', {
   domain: 'secrets', requires: ['database'],
   routes: [
-    'PATCH /v1/projects/:projectId/features',
     'POST /v1/projects/:projectId/secrets',
     'GET /v1/projects/:projectId/secrets',
     'DELETE /v1/projects/:projectId/secrets/:name',
@@ -938,10 +905,6 @@ flow('SEC-POOL-8', {
       const keys = await workspaceKeys();
       if (keys.length !== 1) throw new Error(`expected one workspace key, got ${keys.length}`);
     });
-    await ctx.step('the gateway sends that key with pooled_provider_secrets off too', async () => {
-      (await owner.patch('/v1/projects/:projectId/features', { feature: 'pooled_provider_secrets', enabled: false }, { params })).status(200);
-      reachedProvider(await viaGatewayKey.post('/v1/llm/chat/completions', chat), 'gateway API key, flag off');
-    });
     await ctx.step('moving another secret into the gateway delivery is refused with where to add the key', async () => {
       (await owner.post('/v1/projects/:projectId/secrets', { name: 'SOME_TOKEN', value: 'plain', strategy: 'runtime' }, { params })).status(200);
       const refused = await owner.put('/v1/projects/:projectId/secrets/:identifier/strategy', { strategy: 'broker', consumer: 'llm_gateway' }, {
@@ -977,7 +940,6 @@ flow('SEC-POOL-9', {
   const owner = ctx.client.as(ctx.P.OWNER);
   const params = { projectId: project.id };
   const resourceParams = { accountId: team.id };
-  (await owner.patch('/v1/projects/:projectId/features', { feature: 'pooled_provider_secrets', enabled: true }, { params })).status(200);
   type Verification = { status: 'verified' | 'invalid' | 'unknown'; message: string; checked_at: string } | null;
   // Not a real key: Anthropic refuses it. Without a network the check has no
   // answer (`unknown`); it is never `verified`, and the save never fails.

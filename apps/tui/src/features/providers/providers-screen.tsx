@@ -163,13 +163,7 @@ function ProvidersScreenBody({
           onSearch={setSearch}
           onFilterDone={() => setFiltering(false)}
           active={pane === 'list'}
-          note={
-            data.pooled
-              ? 'New API keys, ChatGPT and Claude accounts are shared with every workspace member. You can make one private.'
-              : data.canWrite
-                ? null
-                : 'Ask an owner of this workspace to add a key.'
-          }
+          note="New API keys, ChatGPT and Claude accounts are shared with every workspace member. You can make one private."
           width={listWidth}
           height={height}
         />

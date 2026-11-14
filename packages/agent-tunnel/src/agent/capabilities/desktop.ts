@@ -15,7 +15,7 @@ function assertRemotelyCallableTool(tool: unknown): asserts tool is string {
 }
 
 /** An RPC error with a binding code (the API maps it to a refusal kind). */
-export class DesktopPermissionMissingError extends Error {
+class DesktopPermissionMissingError extends Error {
   readonly code = TunnelErrorCode.DESKTOP_PERMISSION_MISSING;
 }
 

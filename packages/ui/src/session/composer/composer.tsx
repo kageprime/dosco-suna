@@ -16,7 +16,7 @@ import { useProjectConfig, usePromptAttachments, useRuntimeSessions } from '@kor
 import { useActiveSpace } from '../../internal/stores/active-space-store';
 import { MoonIcon, WarningIcon } from '@phosphor-icons/react';
 import { SESSION_NOTICE, type SessionLogMessage } from '@kortix/sdk';
-import { newPastedContentId, type PastedContent, splitPastedContent, trimPastedText } from '@kortix/shared';
+import { agentDisplayName, newPastedContentId, type PastedContent, splitPastedContent, trimPastedText } from '@kortix/shared';
 import type { JSONContent } from '@tiptap/core';
 import type { RefObject } from 'react';
 import {
@@ -96,6 +96,7 @@ import {
   planDraftSubmission,
   planFailedSendRecovery,
   planPrefillMerge,
+  appendTextToDocument,
   planQuoteRequests,
   type QuoteRequest,
   removeComposerQuote,
@@ -272,6 +273,7 @@ export interface SessionChatInputProps {
    * marketing-demo composers rely on.
    */
   draftScope?: DraftScope | null;
+  draftHandoffScope?: RefObject<DraftScope | null>;
   draftActive?: boolean;
   disabled?: boolean;
   /**
@@ -317,6 +319,13 @@ export interface SessionChatInputProps {
     id: number;
     files?: AttachedFile[];
     mode?: 'replace' | 'merge';
+    /**
+     * Restore the saved draft first, then merge this text after it. Only the
+     * home typing buffer sets it (`use-home-typing-buffer.ts`): keys typed
+     * while the page loaded continue the draft. Any other prefill still wins
+     * over the draft.
+     */
+    restoreDraft?: boolean;
     /**
      * Submit the prefill once it has landed, exactly as if the person pressed
      * Enter. For one-click starters (the first chat's "Update memory"): the
@@ -530,13 +539,9 @@ function setDocumentWithoutStealingFocus(
   doc: JSONContent,
 ): void {
   if (!handle) return;
-  const el = handle.getElement();
-  const wasFocused = !!el && (document.activeElement === el || el.contains(document.activeElement));
-  const previouslyFocused = wasFocused ? null : (document.activeElement as HTMLElement | null);
-  handle.setDocument(doc);
-  if (!wasFocused) {
-    previouslyFocused?.focus?.();
-  }
+  // A focus command schedules a later animation frame. Restoring DOM focus
+  // immediately after it cannot cancel that scheduled focus.
+  handle.setDocument(doc, false);
 }
 
 function ComposerImpl(props: SessionChatInputProps) {
@@ -571,6 +576,7 @@ function ComposerImpl(props: SessionChatInputProps) {
   sessionId,
   projectId,
   draftScope = null,
+  draftHandoffScope,
   draftActive = true,
   disabled = false,
   notice = null,
@@ -718,7 +724,8 @@ function ComposerImpl(props: SessionChatInputProps) {
   useMenuRevalidation(menuOpen, projectId);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { takeFiles, modelPickerEnabled, contextMeterEnabled, runtimeSlashEnabled, useSlashActions } = useUiHostConfig();
+  const { takeFiles, modelPickerEnabled, contextMeterEnabled, runtimeSlashEnabled, useSlashActions, agentLabels } =
+    useUiHostConfig();
   // The host's own `/` rows. The config is fixed for the app's life, so the hook is the same one every render.
   const hostSlashRows = (useSlashActions ?? useNoSlashActions)();
   // A host that hides the harness lists none of its commands, and a typed "/init" stays text.
@@ -835,13 +842,14 @@ function ComposerImpl(props: SessionChatInputProps) {
   const { handleDocChange, clearSavedDraft } = useComposerDraft({
     active: draftActive,
     scope: draftScope,
+    handoffScope: draftHandoffScope,
     editorRef,
     editorReady: editorElement != null,
     attachedFiles,
     quotes: quoteTexts,
     pastes,
     uploads: draftUploads,
-    hasPrefill: !!prefill,
+    hasPrefill: !!prefill && !prefill.restoreDraft,
     onRestore: handleDraftRestore,
   });
 
@@ -1338,11 +1346,14 @@ function ComposerImpl(props: SessionChatInputProps) {
   const prefillText = prefill?.text ?? '';
   const prefillFiles = prefill?.files;
   const prefillMode = prefill?.mode;
+  const prefillRestoreDraft = prefill?.restoreDraft === true;
   const prefillSubmit = prefill?.submit === true;
   // `handleSubmit` is declared further down; the prefill effect reaches it
   // through this ref, bound in an effect right after that declaration.
   const handleSubmitRef = useRef<() => void>(() => undefined);
   const submittedPrefillIdRef = useRef<number | null>(null);
+  // An append is not idempotent: each `restoreDraft` prefill lands once.
+  const appendedPrefillIdRef = useRef<number | null>(null);
   // The prefill id that landed in the editor: `'when-ready'` submits only after it.
   const [landedPrefillId, setLandedPrefillId] = useState<number | null>(null);
   const onPrefillAppliedRef = useRef(onPrefillApplied);
@@ -1371,7 +1382,18 @@ function ComposerImpl(props: SessionChatInputProps) {
     const quoted = extractReplyQuotes(prefillText);
     const pasted = splitPastedContent(quoted.text);
     const incoming = { quotes: quoted.quotes, text: pasted.text };
-    if (prefillMode === 'merge') {
+    if (prefillRestoreDraft) {
+      // Keys typed while the page loaded continue the restored draft, at its
+      // end, where the caret lands (`setDocument` focuses the end). The draft
+      // is already in the editor: `useComposerDraft`'s restore effect is
+      // declared above this one, so it runs first in the same commit.
+      if (incoming.text && appendedPrefillIdRef.current !== prefillId) {
+        appendedPrefillIdRef.current = prefillId as number;
+        editorRef.current?.setDocument(
+          appendTextToDocument(editorRef.current?.getDocument() ?? EMPTY_DOCUMENT, incoming.text),
+        );
+      }
+    } else if (prefillMode === 'merge') {
       const merged = planPrefillMerge({
         prefillDoc: textToDocument(incoming.text),
         prefillIsEmpty: incoming.text.length === 0,
@@ -1459,6 +1481,7 @@ function ComposerImpl(props: SessionChatInputProps) {
     prefillText,
     prefillFiles,
     prefillMode,
+    prefillRestoreDraft,
     prefillSubmit,
     editorElement,
     addPromptAttachments,
@@ -1578,7 +1601,8 @@ function ComposerImpl(props: SessionChatInputProps) {
     });
     return available.map((action) => {
       if (action.id === 'switch-agent' && selectedAgent) {
-        return { ...action, value: selectedAgent };
+        // The name the agent chip shows, not the slug.
+        return { ...action, value: agentLabels?.[selectedAgent] ?? agentDisplayName(selectedAgent) };
       }
       // The ring icon (via `context`) plus the reading as the row's
       // "current setting" text — same grammar as the agent row's value.
@@ -1588,7 +1612,7 @@ function ComposerImpl(props: SessionChatInputProps) {
       return action;
     }).concat(hostSlashActions(hostSlashRows));
   }, [
-    selectedAgent, canSwitchAgent, onCompactClick, onContextClick, contextUsage, tI18nComplete,
+    selectedAgent, agentLabels, canSwitchAgent, onCompactClick, onContextClick, contextUsage, tI18nComplete,
     modelPickerEnabled, contextMeterEnabled, runtimeSlashEnabled, hostSlashRows,
   ]);
 

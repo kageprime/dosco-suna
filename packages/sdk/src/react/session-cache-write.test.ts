@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { QueryClient } from '@tanstack/react-query';
 import {
   applyToCachedSessionShape,
+  readCachedWorkspaceSessions,
   removeCachedWorkspaceSession,
   updateCachedWorkspaceSessions,
   upsertCachedWorkspaceSession,
@@ -226,6 +227,33 @@ describe('an update that changes nothing keeps the cache by reference', () => {
   });
 });
 
+// F-025: the session stream re-sends its verdicts every 20 s. A write that
+// changed nothing must not touch the entry: `setQueryData` stamps
+// `dataUpdatedAt`, which keeps a list from ever going stale and restarts its
+// `refetchInterval`, so the sidebar's 60 s poll never fired.
+describe('an update writes only the entries it changed', () => {
+  test('an entry the updater leaves alone keeps its freshness and its invalidation', () => {
+    const client = new QueryClient();
+    const untouched = qk.project.sessionsPaged('p', 'visible', { view: 'archived' });
+    const touched = qk.project.sessions('p');
+    client.setQueryData(untouched, { pages: [{ items: [row('b')], next_cursor: null }], pageParams: [null] });
+    client.setQueryData(touched, [row('a')]);
+    void client.invalidateQueries({ queryKey: untouched, refetchType: 'none' });
+    const before = client.getQueryState(untouched);
+
+    // Like every real caller: the same array when no row matches.
+    updateCachedWorkspaceSessions(client, 'p', (rows) =>
+      rows.some((s) => s.session_id === 'a') ? rename('a', 'Renamed')(rows) : rows,
+    );
+
+    expect(client.getQueryData<ProjectSession[]>(touched)?.[0]?.custom_name).toBe('Renamed');
+    const after = client.getQueryState(untouched);
+    expect(after?.dataUpdatedAt).toBe(before?.dataUpdatedAt);
+    expect(after?.dataUpdateCount).toBe(before?.dataUpdateCount);
+    expect(after?.isInvalidated).toBe(true);
+  });
+});
+
 describe('filtered list caches (KRTX-639)', () => {
   const withInitiator = (
     id: string,
@@ -420,5 +448,44 @@ describe('filtered list caches (KRTX-639)', () => {
     qc.setQueryData(legacy, pagedOf([]));
     upsertCachedWorkspaceSession(qc, 'P1', withInitiator('NEW', { parent_session_id: 'S0' }));
     expect(ids(qc, legacy)).toEqual(['NEW']);
+  });
+});
+
+describe('readCachedWorkspaceSessions', () => {
+  const P = 'P1';
+  const at = (id: string, name: string) =>
+    ({ session_id: id, custom_name: name }) as unknown as ProjectSession;
+
+  test('reads the asked rows from every session cache shape', () => {
+    const qc = new QueryClient();
+    qc.setQueryData(qk.project.sessionsPaged(P, 'visible'), {
+      pages: [{ items: [at('S1', 'paged')], next_cursor: null }],
+      pageParams: [null],
+    });
+    qc.setQueryData(qk.project.sessions(P, 'project'), [at('S2', 'flat')]);
+    qc.setQueryData(qk.project.session(P, 'S3'), at('S3', 'single'));
+    const rows = readCachedWorkspaceSessions(qc, P, ['S1', 'S2', 'S3', 'S4']);
+    expect([...rows.keys()].sort()).toEqual(['S1', 'S2', 'S3']);
+    expect(rows.get('S3')?.custom_name).toBe('single');
+  });
+
+  test('the most recently updated cache wins when two hold the same session', () => {
+    const qc = new QueryClient();
+    qc.setQueryData(qk.project.sessions(P, 'visible'), [at('S1', 'Old title')], {
+      updatedAt: 1_000,
+    });
+    qc.setQueryData(qk.project.sessions(P, 'project'), [at('S1', 'Polled title')], {
+      updatedAt: 2_000,
+    });
+    expect(readCachedWorkspaceSessions(qc, P, ['S1']).get('S1')?.custom_name).toBe('Polled title');
+  });
+
+  test('ignores non-session caches under the sessions prefix', () => {
+    // The prompt inbox is an array under the same prefix (prod, 2026-09-22).
+    const qc = new QueryClient();
+    qc.setQueryData([...qk.project.session(P, 'S1'), 'prompts'], [
+      { session_id: 'S1', custom_name: 'not a session' },
+    ]);
+    expect(readCachedWorkspaceSessions(qc, P, ['S1']).size).toBe(0);
   });
 });

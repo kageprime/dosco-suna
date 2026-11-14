@@ -1,17 +1,6 @@
 'use client';
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../../primitives/alert-dialog';
 import { Button } from '../../../primitives/button';
-import { Skeleton } from '../../../primitives/skeleton';
 import { errorToast, successToast } from '../../../primitives/toast';
 import { useFilesStore } from '../../../internal/stores/files-store';
 import type { FileNode } from '../../../internal/files/types';
@@ -27,12 +16,6 @@ import { useFileExplorerSource } from '../explorer-source';
 import { buildGitStatusMap, useFileEventInvalidation, useFileList, useGitStatus } from '../hooks';
 import { useOpenChangeRequestList } from '../hooks/use-change-requests';
 import { useDirectoryDownload } from '../hooks/use-directory-download';
-import {
-  useFileCopy,
-  useFileDelete,
-  useFileMkdir,
-  useFileRename,
-} from '../hooks/use-file-mutations';
 import { ChangeRequestDetailDialog } from './change-request-detail-dialog';
 import { ChangeRequestsPanel } from './change-requests-panel';
 import { CheckpointsPanel } from './checkpoints-panel';
@@ -43,9 +26,8 @@ import { FileHistoryPopoverContent } from './file-history-popover';
 import { ExplorerFilePreview } from './file-preview-modal';
 import { FileSearch } from './file-search';
 import { isPartialListing, LoadMoreRow } from './load-more-row';
+import { ListingSkeleton, useSortedListing } from './explorer-listing';
 import { type FilesRightPanel, requestedFilesRightPanel } from './file-route-state';
-
-const ELEVATED_DIRS = new Set(['.kortix']);
 
 /**
  * The project-level file explorer. It has no session context — sharing is
@@ -60,14 +42,8 @@ export function FileExplorerPage({ embedded = false }: { embedded?: boolean } = 
   const currentPath = useFilesStore((s) => s.currentPath);
   const navigateToPath = useFilesStore((s) => s.navigateToPath);
   const viewMode = useFilesStore((s) => s.viewMode);
-  const sortBy = useFilesStore((s) => s.sortBy);
-  const sortOrder = useFilesStore((s) => s.sortOrder);
   const openFileWithList = useFilesStore((s) => s.openFileWithList);
 
-  const clipboard = useFilesStore((s) => s.clipboard);
-  const copyToClipboard = useFilesStore((s) => s.copyToClipboard);
-  const cutToClipboard = useFilesStore((s) => s.cutToClipboard);
-  const clearClipboard = useFilesStore((s) => s.clearClipboard);
   // Filename search over the whole repository (KRTX-1723): ⌘P or the `⋯` menu.
   const searchEnabled = useFileExplorerSource().capabilities.search;
   const isSearchOpen = useFilesStore((s) => s.isSearchOpen);
@@ -85,15 +61,6 @@ export function FileExplorerPage({ embedded = false }: { embedded?: boolean } = 
 
   const { data: gitStatuses } = useGitStatus();
   const gitStatusMap = useMemo(() => buildGitStatusMap(gitStatuses), [gitStatuses]);
-
-  const deleteMutation = useFileDelete();
-  const mkdirMutation = useFileMkdir();
-  const renameMutation = useFileRename();
-  const copyMutation = useFileCopy();
-
-  const deleteButtonRef = useRef<HTMLButtonElement>(null);
-
-  const [deleteTarget, setDeleteTarget] = useState<FileNode | null>(null);
 
   const { downloadDir, isDownloading: isDirDownloading } = useDirectoryDownload();
 
@@ -119,48 +86,8 @@ export function FileExplorerPage({ embedded = false }: { embedded?: boolean } = 
   }, [isLoading]);
 
   const isRootPath = currentPath === '/' || currentPath === '.' || currentPath === '';
-  const normalizedCurrentPath = isRootPath ? '' : currentPath.replace(/\/$/, '');
 
-  const { elevatedDirs, dirs, fileItems } = useMemo(() => {
-    if (!files)
-      return {
-        elevatedDirs: [] as FileNode[],
-        dirs: [] as FileNode[],
-        fileItems: [] as FileNode[],
-      };
-
-    const sortFn = (a: FileNode, b: FileNode) => {
-      let cmp = 0;
-      switch (sortBy) {
-        case 'name':
-          cmp = a.name.localeCompare(b.name);
-          break;
-        case 'type': {
-          const extA = a.name.includes('.') ? a.name.split('.').pop() || '' : '';
-          const extB = b.name.includes('.') ? b.name.split('.').pop() || '' : '';
-          cmp = extA.localeCompare(extB);
-          if (cmp === 0) cmp = a.name.localeCompare(b.name);
-          break;
-        }
-        case 'modified':
-        case 'size':
-          cmp = a.name.localeCompare(b.name);
-          break;
-      }
-      return sortOrder === 'desc' ? -cmp : cmp;
-    };
-
-    // A partial folder keeps the server's name order: a sorted subset would
-    // put a later page's rows above the ones shown (KRTX-1723).
-    const sorted = (nodes: FileNode[]) => (partial ? nodes : nodes.sort(sortFn));
-    const allDirs = files.filter((f) => f.type === 'directory');
-    const elevatedDirs = allDirs
-      .filter((f) => ELEVATED_DIRS.has(f.name))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    const dirs = sorted(allDirs.filter((f) => !ELEVATED_DIRS.has(f.name)));
-    const fileItems = sorted(files.filter((f) => f.type === 'file'));
-    return { elevatedDirs, dirs, fileItems };
-  }, [files, sortBy, sortOrder, partial]);
+  const { elevatedDirs, dirs, fileItems } = useSortedListing(files, partial);
 
   const handleNavigateToDir = useCallback(
     (node: FileNode) => {
@@ -178,14 +105,7 @@ export function FileExplorerPage({ embedded = false }: { embedded?: boolean } = 
     [fileItems, openFileWithList],
   );
 
-  const handlePreviewFile = useCallback(
-    (node: FileNode) => {
-      const allFiles = fileItems.map((f) => f.path);
-      const index = allFiles.indexOf(node.path);
-      openFileWithList(node.path, allFiles, Math.max(0, index));
-    },
-    [fileItems, openFileWithList],
-  );
+  const handlePreviewFile = handleOpenFile;
 
   const handleDownload = useCallback(
     async (node: FileNode) => {
@@ -207,165 +127,15 @@ export function FileExplorerPage({ embedded = false }: { embedded?: boolean } = 
     [downloadDir],
   );
 
-  const handleRename = useCallback(
-    async (node: FileNode, newName: string) => {
-      if (!newName || newName === node.name) return;
-      const parentPath = node.path.substring(0, node.path.lastIndexOf('/'));
-      const newPath = parentPath ? `${parentPath}/${newName}` : newName;
-      try {
-        await renameMutation.mutateAsync({ from: node.path, to: newPath });
-        successToast(tHardcodedUi('i18nComplete.text3c6bd1e4217c', { value0: newName }));
-      } catch (err) {
-        errorToast(
-          tHardcodedUi('i18nComplete.textd6f8c9c8e719', {
-            value0:
-              err instanceof Error
-                ? err.message
-                : tHardcodedUi.raw('i18nComplete.textada37a724fca'),
-          }),
-        );
-      }
-    },
-    [renameMutation, tHardcodedUi],
-  );
-
-  const handleDelete = useCallback((node: FileNode) => {
-    setDeleteTarget(node);
-  }, []);
-
-  const confirmDelete = useCallback(async () => {
-    if (!deleteTarget) return;
-    try {
-      await deleteMutation.mutateAsync({ filePath: deleteTarget.path });
-      successToast(tHardcodedUi('i18nComplete.text37bad7de9098', { value0: deleteTarget.name }));
-    } catch (err) {
-      errorToast(
-        tHardcodedUi('i18nComplete.text5d4ff119f3d4', {
-          value0:
-            err instanceof Error ? err.message : tHardcodedUi.raw('i18nComplete.textada37a724fca'),
-        }),
-      );
-    } finally {
-      setDeleteTarget(null);
-    }
-  }, [deleteTarget, deleteMutation, tHardcodedUi]);
-
   const handleHistory = useCallback((node: FileNode) => {
     setHistoryPopoverPath(node.path);
   }, []);
-
-  const handleCopy = useCallback(
-    (node: FileNode) => {
-      copyToClipboard(node.path, node.name, node.type);
-      successToast(tHardcodedUi('i18nComplete.textd46dc6f5e3e3', { value0: node.name }));
-    },
-    [copyToClipboard, tHardcodedUi],
-  );
-
-  const handleCut = useCallback(
-    (node: FileNode) => {
-      cutToClipboard(node.path, node.name, node.type);
-      successToast(tHardcodedUi('i18nComplete.text80565873fe1e', { value0: node.name }));
-    },
-    [cutToClipboard, tHardcodedUi],
-  );
-
-  const handleDropMove = useCallback(
-    async (sourcePath: string, targetDirPath: string) => {
-      const sourceName = sourcePath.split('/').pop() || '';
-      const destPath = targetDirPath ? `${targetDirPath}/${sourceName}` : sourceName;
-      if (sourcePath === destPath) return;
-      try {
-        await renameMutation.mutateAsync({ from: sourcePath, to: destPath });
-        successToast(tHardcodedUi('i18nComplete.text854362dd1a76', { value0: sourceName }));
-      } catch (err) {
-        errorToast(
-          tHardcodedUi('i18nComplete.text66d6798adfa9', {
-            value0:
-              err instanceof Error
-                ? err.message
-                : tHardcodedUi.raw('i18nComplete.text27c2ccd962c2'),
-          }),
-        );
-      }
-    },
-    [renameMutation, tHardcodedUi],
-  );
-
-  const handlePaste = useCallback(async () => {
-    if (!clipboard) return;
-    const destDir = normalizedCurrentPath;
-    let destName = clipboard.name;
-
-    if (files) {
-      const existingNames = new Set(files.map((f) => f.name.toLowerCase()));
-      if (existingNames.has(destName.toLowerCase())) {
-        if (clipboard.operation === 'copy') {
-          const ext = destName.includes('.') ? destName.substring(destName.lastIndexOf('.')) : '';
-          const baseName = ext ? destName.substring(0, destName.lastIndexOf('.')) : destName;
-          let counter = 0;
-          let candidate = `${baseName} (copy)${ext}`;
-          while (existingNames.has(candidate.toLowerCase())) {
-            counter++;
-            candidate = `${baseName} (copy ${counter + 1})${ext}`;
-          }
-          destName = candidate;
-        } else {
-          const sourceDir = clipboard.path.substring(0, clipboard.path.lastIndexOf('/')) || '.';
-          const normalizedSourceDir = sourceDir === '' ? '.' : sourceDir;
-          const normalizedDestDir = destDir === '' ? '.' : destDir;
-          if (normalizedSourceDir === normalizedDestDir) {
-            errorToast(tHardcodedUi.raw('i18nComplete.text7a1bdceb4943'));
-            return;
-          }
-        }
-      }
-    }
-
-    const destPath = destDir ? `${destDir}/${destName}` : destName;
-
-    try {
-      if (clipboard.operation === 'copy') {
-        if (clipboard.type === 'file') {
-          await copyMutation.mutateAsync({ sourcePath: clipboard.path, destPath });
-          successToast(tHardcodedUi('i18nComplete.textbb45167cfb4d', { value0: clipboard.name }));
-        } else {
-          await mkdirMutation.mutateAsync({ dirPath: destPath });
-          successToast(tHardcodedUi('i18nComplete.textd6318e7ae71a', { value0: clipboard.name }));
-        }
-      } else {
-        await renameMutation.mutateAsync({ from: clipboard.path, to: destPath });
-        successToast(tHardcodedUi('i18nComplete.text59004552be50', { value0: clipboard.name }));
-        clearClipboard();
-      }
-    } catch (err) {
-      errorToast(
-        tHardcodedUi('i18nComplete.texta619e901f9c0', {
-          value0:
-            err instanceof Error ? err.message : tHardcodedUi.raw('i18nComplete.text27c2ccd962c2'),
-        }),
-      );
-    }
-  }, [
-    clipboard,
-    normalizedCurrentPath,
-    files,
-    copyMutation,
-    renameMutation,
-    mkdirMutation,
-    clearClipboard,
-    tHardcodedUi,
-  ]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
         return;
-      if ((e.metaKey || e.ctrlKey) && e.key === 'v' && clipboard) {
-        e.preventDefault();
-        handlePaste();
-      }
       if ((e.metaKey || e.ctrlKey) && e.key === 'p' && searchEnabled) {
         e.preventDefault();
         toggleSearch();
@@ -373,7 +143,7 @@ export function FileExplorerPage({ embedded = false }: { embedded?: boolean } = 
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [clipboard, handlePaste, searchEnabled, toggleSearch]);
+  }, [searchEnabled, toggleSearch]);
 
   const [historyPopoverPath, setHistoryPopoverPath] = useState<string | null>(null);
 
@@ -444,46 +214,7 @@ export function FileExplorerPage({ embedded = false }: { embedded?: boolean } = 
 
       <div className="relative min-h-0 flex-1">
         <div className="absolute inset-0 overflow-y-auto">
-          {isLoading && showSkeleton && (
-            <div className="animate-in fade-in-0 p-4 duration-200">
-              {viewMode === 'grid' ? (
-                <div className="space-y-6">
-                  <div>
-                    <Skeleton className="mb-3 h-4 w-16" />
-                    <div
-                      className="grid gap-2"
-                      style={{
-                        gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-                      }}
-                    >
-                      {Array.from({ length: 6 }).map((_, i) => (
-                        <Skeleton key={`f${i}`} className="h-10 rounded-lg" />
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <Skeleton className="mb-3 h-4 w-12" />
-                    <div
-                      className="grid gap-2.5"
-                      style={{
-                        gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-                      }}
-                    >
-                      {Array.from({ length: 8 }).map((_, i) => (
-                        <Skeleton key={`fi${i}`} className="h-[138px] rounded-lg" />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {Array.from({ length: 10 }).map((_, i) => (
-                    <Skeleton key={i} className="h-10 w-full rounded" />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          {isLoading && showSkeleton && <ListingSkeleton viewMode={viewMode} />}
 
           {!!error && !isLoading && (
             <ErrorState
@@ -527,17 +258,9 @@ export function FileExplorerPage({ embedded = false }: { embedded?: boolean } = 
                   onPreviewFile={handlePreviewFile}
                   onDownload={handleDownload}
                   onDownloadDir={handleDownloadDir}
-                  onRename={handleRename}
-                  onDelete={handleDelete}
                   onHistory={handleHistory}
-                  onCopy={handleCopy}
-                  onCut={handleCut}
-                  onDropMove={handleDropMove}
                   gitStatusMap={gitStatusMap}
-                  clipboardPath={clipboard?.path}
-                  clipboardOperation={clipboard?.operation}
                   isDirDownloading={isDirDownloading}
-                  readOnly
                 />
               ) : (
                 <DriveListView
@@ -550,17 +273,9 @@ export function FileExplorerPage({ embedded = false }: { embedded?: boolean } = 
                   onPreviewFile={handlePreviewFile}
                   onDownload={handleDownload}
                   onDownloadDir={handleDownloadDir}
-                  onRename={handleRename}
-                  onDelete={handleDelete}
                   onHistory={handleHistory}
-                  onCopy={handleCopy}
-                  onCut={handleCut}
-                  onDropMove={handleDropMove}
                   gitStatusMap={gitStatusMap}
-                  clipboardPath={clipboard?.path}
-                  clipboardOperation={clipboard?.operation}
                   isDirDownloading={isDirDownloading}
-                  readOnly
                 />
               )}
               <LoadMoreRow listing={listing} />
@@ -593,56 +308,6 @@ export function FileExplorerPage({ embedded = false }: { embedded?: boolean } = 
           />
         </div>
       )}
-
-      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
-        <AlertDialogContent
-          className="sm:max-w-md"
-          onOpenAutoFocus={(e) => {
-            e.preventDefault();
-            deleteButtonRef.current?.focus();
-          }}
-        >
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {tHardcodedUi.raw('i18nComplete.texte2d0a54968ea')}{' '}
-              {deleteTarget?.type === 'directory' ? 'folder' : 'file'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {tHardcodedUi.raw(
-                'featuresProjectFilesComponentsFileExplorerPage.line806JsxTextAreYouSureYouWantToDelete',
-              )}{' '}
-              <span className="text-foreground font-semibold">
-                {tHardcodedUi.raw(
-                  'featuresProjectFilesComponentsFileExplorerPage.line807JsxTextQuot',
-                )}
-                {deleteTarget?.name}
-                {tHardcodedUi.raw(
-                  'featuresProjectFilesComponentsFileExplorerPage.line807JsxTextQuot32c14d98',
-                )}
-              </span>
-              {tHardcodedUi.raw(
-                'featuresProjectFilesComponentsFileExplorerPage.line807JsxTextThisActionCannotBeUndone',
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>
-              {tHardcodedUi.raw('i18nComplete.text19766ed6ccb2')}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              ref={deleteButtonRef}
-              onClick={(e) => {
-                e.preventDefault();
-                confirmDelete();
-              }}
-              disabled={deleteMutation.isPending}
-              className="bg-destructive hover:bg-destructive/90 text-white"
-            >
-              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

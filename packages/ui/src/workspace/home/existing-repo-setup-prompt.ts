@@ -1,15 +1,12 @@
+import { setupPrompt, setupTarget } from '@kortix/shared/setup-guide';
+
 /**
  * The prompt a person copies into their own coding agent (Claude Code, Codex,
  * Cursor) to set up a repository they linked to Kortix that has no agents.
  *
- * Kortix never writes to a linked repository. The person's agent writes
- * `kortix.yaml` in their clone, validates it and pushes it; the project then
- * reads it from the branch. The prompt names the repository and the branch so
- * the push lands where the project reads.
- *
- * English on purpose: an agent reads it, not the person. The same steps are
- * in the docs (`developers.mdx`, "Set up an existing repository"); keep them in
- * step.
+ * Kortix never writes to a linked repository. The person's agent follows the
+ * served setup guide (`@kortix/shared/setup-guide`, https://kortix.com/setup.md)
+ * and pushes `kortix.yaml` to the branch the workspace reads.
  */
 
 export const EXISTING_REPO_DOCS_URL = 'https://kortix.com/docs/developers#set-up-an-existing-repository';
@@ -19,41 +16,20 @@ export function existingRepoSetupPrompt(input: {
   repository: string | null | undefined;
   /** The branch the project reads `kortix.yaml` from. */
   branch: string | null | undefined;
+  /** The project's page in the web app (`dashboard_url`): its origin serves the guide this prompt names. */
+  dashboardUrl?: string | null;
 }): string {
-  const repository = input.repository?.trim() || 'this repository';
-  const branch = input.branch?.trim() || 'the default branch';
-  return `Set up ${repository} for Kortix. Kortix reads \`kortix.yaml\` from the \`${branch}\` branch. The reference is ${EXISTING_REPO_DOCS_URL}.
+  return setupPrompt({ repository: input.repository, branch: input.branch }, setupTarget(webOrigin(input.dashboardUrl)));
+}
 
-1. If the \`kortix\` command is missing, install it: \`curl -fsSL https://kortix.com/install | bash\`.
-2. Create \`kortix.yaml\` at the repository root with this content:
-
-\`\`\`yaml
-# yaml-language-server: $schema=https://kortix.com/schema/kortix.schema.json
-project:
-  name: "<the repository name>"
-builtin_agents:
-  my_kortix: true
-default_agent: mykortix
-skills: {}
-agents:
-  worker:
-    description: "General-purpose worker: coding, research, writing, ops and data work."
-    mode: primary
-    permission: allow
-    prompt: "Your session starts with an empty /workspace. Run \`kortix workspaces clone\` to get this repository, then read AGENTS.md or CLAUDE.md when it exists."
-    tools: "*"
-    skills: "*"
-    connectors: "*"
-    secrets: "*"
-    kortix_permissions: "*"
-\`\`\`
-
-3. Keep the agent setup this repository already has. Do not move, copy or edit those files.
-   - For each \`.claude/agents/<name>.md\`, add an agent \`<name>\` with \`prompt_file: .claude/agents/<name>.md\`, the \`description\` from its frontmatter, \`mode: primary\`, \`tools: "*"\` and \`kortix_permissions: [workspace.gitops.read]\`, so it can clone the repository.
-   - For each folder that holds a \`SKILL.md\` (\`.agents/skills/<name>\`, \`.claude/skills/<name>\`, \`skills/<name>\`), add \`<name>: <folder>\` under \`skills:\`. Skip a name that starts with \`kortix-\`.
-4. Run \`kortix validate\`. Fix every error it prints and run it again until it exits 0.
-5. Commit only \`kortix.yaml\` with the message "chore: add kortix.yaml" and push it to \`${branch}\`.
-6. Reply with the agents and skills you declared.`;
+/** The origin of a web-app URL; undefined when absent or not a URL (the prompt then names production). */
+function webOrigin(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    return new URL(url).origin;
+  } catch {
+    return undefined;
+  }
 }
 
 /** `owner/name` from a GitHub clone URL, else the URL without `.git`. */

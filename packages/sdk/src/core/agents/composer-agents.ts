@@ -31,6 +31,8 @@ function projectConfigAgentToRuntimeAgent(agent: ProjectConfigSummary['agents'][
     mode: agent.mode ?? undefined,
     source: agent.source,
     hidden: agent.hidden === true || agent.enabled === false,
+    // A program agent runs its command, not a model: pickers read provider `program` and offer no model.
+    ...(agent.run ? { model: { providerID: 'program', modelID: agent.name } } : {}),
   } as unknown as Agent;
 }
 

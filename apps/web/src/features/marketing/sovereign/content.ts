@@ -98,9 +98,9 @@ export const modelSources = [
   },
 ] as const;
 
-/** `kortix projects clone`, then the starter's top level. */
+/** `kortix workspaces clone`, then the starter's top level. */
 export const cloneLines = [
-  '$ kortix projects clone <project_id> arcadia',
+  '$ kortix workspaces clone <workspace_id> arcadia',
   '$ ls arcadia',
   'kortix.yaml  agents/  skills/  memory/  README.md',
 ] as const;
@@ -272,10 +272,10 @@ export const modelOrder = [
 
 export const filesLines = [
   '# with the kortix CLI',
-  '$ kortix projects clone <project_id> arcadia',
+  '$ kortix workspaces clone <workspace_id> arcadia',
   '',
   '# with any git client',
-  '$ git clone https://api.kortix.com/v1/git/<project_id>.git',
+  '$ git clone https://api.kortix.com/v1/git/<workspace_id>.git',
   '',
   '# as a zip',
   '$ kortix files download -o arcadia.zip',

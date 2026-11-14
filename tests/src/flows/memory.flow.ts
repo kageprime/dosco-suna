@@ -43,6 +43,7 @@ import type { Client, Res } from '../core/client';
 import { fail, type BodyAssert } from '../core/expect';
 import type { FlowContext } from '../core/types';
 import { AgentPrincipalsWorld, driveOf, hasStorage, openWorld } from '../fixtures/agent-principals';
+import type { Space } from '../fixtures/space';
 import { lockProjectFirst } from '../fixtures/token-binding-lock';
 
 const R = {
@@ -91,8 +92,6 @@ const REMOVED = [
 
 /** A credential shape the secret check refuses, built at run time so no scanner reads a key here. Synthetic: it opens nothing. */
 const FAKE_KEY = ['sk', 'proj', 'a1B2c3D4e5F6g7H8i9J0k1L2'].join('-');
-
-type Space = { space_id: string; slug: string | null };
 
 async function channel(world: AgentPrincipalsWorld, name: string): Promise<Space> {
   return (await world.owner.post(SPACES, { name }, { params: { projectId: world.projectId } })).status(201).json<Space>();

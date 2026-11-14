@@ -116,6 +116,15 @@ export const SESSION_LIST_BUST_CHANNEL = 'kortix_session_list_bust';
  */
 export const CHROME_COMMAND_CHANNEL = 'kortix_chrome_cmd';
 
+/**
+ * An eleventh channel: "drop this account's cached billing". Payload: one
+ * account id. `invalidateAccountBilling` (`billing/services/billing-cache.ts`)
+ * sends it after every plan write, so a model list read right after a checkout
+ * gets the new plan on every replica, not the Free plan for up to the 30 s TTL
+ * (audit finding F-004).
+ */
+export const BILLING_BUST_CHANNEL = 'kortix_billing_bust';
+
 let listener: postgres.Sql | null = null;
 // `bun --hot` re-evaluates this module but keeps globalThis. The last evaluation's
 // stop lives there, so a re-evaluated start ends that LISTEN client first instead
@@ -261,6 +270,8 @@ const CHANNELS = {
   // The payload is a project id and nothing else.
   spaceAccessBust: { channel: SPACE_ACCESS_BUST_CHANNEL, parse: parseUuid, ...slot<string>() },
   sessionListBust: { channel: SESSION_LIST_BUST_CHANNEL, parse: parseUuid, ...slot<string>() },
+  // The payload is an account id and nothing else.
+  billingBust: { channel: BILLING_BUST_CHANNEL, parse: parseUuid, ...slot<string>() },
 };
 
 /** The drain worker registers on start. Kept across stop/start of the LISTEN. */
@@ -346,6 +357,16 @@ export function publishSessionListBust(projectId: string): void {
   notify(SESSION_LIST_BUST_CHANNEL, projectId);
 }
 
+/** `billing/services/billing-cache.ts` registers once, at import. Kept across stop/start. */
+export function onBillingBustNotify(handler: ((accountId: string) => void) | null): void {
+  CHANNELS.billingBust.set(handler);
+}
+
+/** Tell every replica (this one included) to drop an account's billing cache. Without the LISTEN it is a no-op: the 30 s TTL is the backstop. */
+export function publishBillingBust(accountId: string): void {
+  if (isUuid(accountId)) notify(BILLING_BUST_CHANNEL, accountId);
+}
+
 /** The forwarder registers once, at import. Kept across stop/start. */
 export function onTunnelForwardNotify(handler: (payload: string) => void): void {
   CHANNELS.tunnelForward.set(handler);
@@ -409,9 +430,10 @@ export async function startConfigBaseMoveBroadcast(): Promise<boolean> {
     await sql.listen(CHANNELS.chromeCommand.channel, wired(CHANNELS.chromeCommand));
     await sql.listen(CHANNELS.spaceAccessBust.channel, wired(CHANNELS.spaceAccessBust));
     await sql.listen(CHANNELS.sessionListBust.channel, wired(CHANNELS.sessionListBust));
+    await sql.listen(CHANNELS.billingBust.channel, wired(CHANNELS.billingBust));
     listener = sql;
     console.log(
-      `[config-releases] base-move broadcast listening on ${BASE_MOVE_CHANNEL}, ${TUNNEL_FORWARD_CHANNEL}, ${LIFECYCLE_COMMAND_SETTLED_CHANNEL}, ${LIFECYCLE_COMMAND_DUE_CHANNEL}, ${SESSION_PROMPTS_CHANGED_CHANNEL}, ${SESSION_CHANGED_CHANNEL}, ${IAM_CACHE_BUST_CHANNEL}, ${SPACE_ACCESS_BUST_CHANNEL}, ${SESSION_LIST_BUST_CHANNEL}, ${CHROME_COMMAND_CHANNEL}`,
+      `[config-releases] base-move broadcast listening on ${BASE_MOVE_CHANNEL}, ${TUNNEL_FORWARD_CHANNEL}, ${LIFECYCLE_COMMAND_SETTLED_CHANNEL}, ${LIFECYCLE_COMMAND_DUE_CHANNEL}, ${SESSION_PROMPTS_CHANGED_CHANNEL}, ${SESSION_CHANGED_CHANNEL}, ${IAM_CACHE_BUST_CHANNEL}, ${SPACE_ACCESS_BUST_CHANNEL}, ${SESSION_LIST_BUST_CHANNEL}, ${CHROME_COMMAND_CHANNEL}, ${BILLING_BUST_CHANNEL}`,
     );
     return true;
   } catch (error) {

@@ -182,6 +182,17 @@ describe('session runtime reads: the box log (runtime.log.v1)', () => {
     expect(tip?.map((m) => m.id)).toEqual(['msg_a', 'msg_b', 'msg_c']);
   });
 
+  test('a full read the page cap cut short is unknown (null), not a partial transcript', async () => {
+    logBox();
+    for (let i = 0; i < 50; i++) {
+      const seq = 1000 - i;
+      pages[i === 0 ? '/kortix/runtime/log?limit=200' : `/kortix/runtime/log?limit=200&before_seq=${seq + 1}`] = {
+        thread_id: 'ses_1', messages: [record(`msg_${seq}`, seq)], has_more: true,
+      };
+    }
+    expect(await readSessionMessageTip(session)).toBeNull();
+  });
+
   test('an auto compaction reads as one, as the v1 compaction part did', async () => {
     logBox();
     pages['/kortix/runtime/log?limit=8'] = {

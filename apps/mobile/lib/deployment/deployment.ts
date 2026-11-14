@@ -178,6 +178,20 @@ async function fetchWithTimeout(fetchImpl: FetchLike, url: string, init: Request
   }
 }
 
+type RuntimeScript = { status: number; script: string };
+
+/**
+ * An origin's web runtime script (`GET /api/runtime-config`): its HTTP status
+ * and body text ('' when the origin does not serve one). Network and body-read
+ * errors throw; each caller maps them to its own error copy.
+ */
+async function readRuntimeScript(origin: string, fetchImpl: FetchLike): Promise<RuntimeScript> {
+  const page = await fetchWithTimeout(fetchImpl, `${origin}/api/runtime-config`, {
+    headers: { accept: 'application/javascript' },
+  });
+  return { status: page.status, script: page.ok ? await page.text() : '' };
+}
+
 type CheckResult = { ok: true; deployment: Deployment } | { ok: false; error: string };
 
 function listOrNull(value: unknown): string | null {
@@ -212,12 +226,9 @@ async function readApiConfig(origin: string, webStatus: number, fetchImpl: Fetch
   if (!anonKey) {
     const noConfig = `${host} has no sign-in configuration`;
     if (!web) return { ok: false, error: `${noConfig}.` };
-    const page = await fetchWithTimeout(fetchImpl, `${web}/api/runtime-config`, {
-      headers: { accept: 'application/javascript' },
-    }).catch(() => null);
-    const script = page?.ok ? await page.text().catch(() => '') : '';
-    if (!RUNTIME_CONFIG.test(script)) return { ok: false, error: `${noConfig}, and ${hostOf(web)} did not provide one.` };
-    const parsed = parseRuntimeConfig(script, web);
+    const page = await readRuntimeScript(web, fetchImpl).catch(() => ({ status: 0, script: '' }));
+    if (!RUNTIME_CONFIG.test(page.script)) return { ok: false, error: `${noConfig}, and ${hostOf(web)} did not provide one.` };
+    const parsed = parseRuntimeConfig(page.script, web);
     return parsed.ok ? { ok: true, deployment: { ...parsed.deployment, origin } } : parsed;
   }
 
@@ -248,21 +259,17 @@ export async function checkDeployment(raw: unknown, fetchImpl: FetchLike): Promi
   const { origin } = normalized;
   const host = hostOf(origin);
 
-  let res: Response;
-  let script: string;
+  let page: RuntimeScript;
   try {
-    res = await fetchWithTimeout(fetchImpl, `${origin}/api/runtime-config`, {
-      headers: { accept: 'application/javascript' },
-    });
-    script = res.ok ? await res.text() : '';
+    page = await readRuntimeScript(origin, fetchImpl);
   } catch (error) {
     const message = (error as Error)?.message ?? '';
     return { ok: false, error: message.includes('did not respond') ? message : `${host} could not be reached.` };
   }
 
-  const parsed = RUNTIME_CONFIG.test(script)
-    ? parseRuntimeConfig(script, origin)
-    : await readApiConfig(origin, res.status, fetchImpl);
+  const parsed = RUNTIME_CONFIG.test(page.script)
+    ? parseRuntimeConfig(page.script, origin)
+    : await readApiConfig(origin, page.status, fetchImpl);
   if (!parsed.ok) return parsed;
 
   try {

@@ -2,7 +2,8 @@
 
 import { useTranslations } from '../../../i18n';
 import { SmileyIcon } from '@phosphor-icons/react';
-import { AnimatePresence, m, useReducedMotion } from 'motion/react';
+import { AnimatePresence, m } from 'motion/react';
+import { useReducedMotion } from '../../../internal/hooks/use-reduced-motion';
 import { useState } from 'react';
 
 import { Button } from '../../../primitives/button';

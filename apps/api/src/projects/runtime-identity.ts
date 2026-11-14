@@ -86,6 +86,26 @@ const RECOVERY_LEASE_KEYS = [
   'runtimeRecoveryLeaseExpiresAtMs',
 ] as const;
 
+/**
+ * Accepted in-place recoveries of this identity that never reached `running`.
+ *
+ * A provider can accept a recovery and fail it every time. Platinum's
+ * `recoverInPlace` answers `recovering` for a `failed-start` box that booted
+ * before and calls `/start`; when that box can never boot, the next pass sees
+ * `removed` again and starts it again. 2026-11-08..11: four boxes did this
+ * about 20 times an hour for 3 days, each row stayed `provisioning`, and the
+ * failed boots kept tripping the host's boot-health cordon. A `running` answer
+ * clears the count; `MAX_IN_PLACE_RECOVERY_ATTEMPTS` accepted attempts with no
+ * boot end in a preserved loss (`recoverRemovedParkedRuntime`).
+ */
+export const RUNTIME_RECOVERY_ATTEMPTS_KEY = 'runtimeRecoveryAttempts';
+export const MAX_IN_PLACE_RECOVERY_ATTEMPTS = 3;
+
+export function inPlaceRecoveryAttempts(metadata: unknown): number {
+  const value = (metadata as Record<string, unknown> | null)?.[RUNTIME_RECOVERY_ATTEMPTS_KEY];
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+}
+
 export type RuntimeRecoveryClaim = {
   row: RecoverableRuntimeIdentityRow & { externalId: string };
   leaseId: string;
@@ -145,12 +165,17 @@ export async function markInPlaceRuntimeRecoveryAccepted(
       strip: [
         'runtimeUnavailableReason',
         'runtimeUnavailableAt',
-        ...(running ? RECOVERY_LEASE_KEYS : []),
+        ...(running ? [...RECOVERY_LEASE_KEYS, RUNTIME_RECOVERY_ATTEMPTS_KEY] : []),
       ],
       merge: {
         runtimeIdentityState: running ? 'recovered' : 'recovering',
         runtimeRecoveryStartedAt: now.toISOString(),
         preservedExternalId: claim.row.externalId,
+        // The lease guard below makes this request the only writer, so the
+        // count read from the claimed row cannot be lost to a race.
+        ...(running
+          ? {}
+          : { [RUNTIME_RECOVERY_ATTEMPTS_KEY]: inPlaceRecoveryAttempts(claim.row.metadata) + 1 }),
       },
     },
     guard: and(
@@ -227,7 +252,8 @@ export async function preserveEstablishedRuntime(
     at: now,
     error: RUNTIME_IDENTITY_ERROR,
     metadata: {
-      strip: ['needsReprovision', ...RECOVERY_LEASE_KEYS],
+      // A later heal starts from a fresh attempt count.
+      strip: ['needsReprovision', ...RECOVERY_LEASE_KEYS, RUNTIME_RECOVERY_ATTEMPTS_KEY],
       merge: {
         runtimeIdentityState: 'unavailable',
         runtimeUnavailableReason: reason,

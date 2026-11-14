@@ -17,6 +17,7 @@ import {
 import { C, help, pad, status, trim } from '../style.ts';
 import { runSandboxBuildLocal } from './sandboxes-local.ts';
 import { sandboxProvider } from './sandboxes-pin.ts';
+import { currentBuildIds, reconcileTemplates, waitForTemplate } from './sandboxes-build.ts';
 
 type Client = NonNullable<Awaited<ReturnType<typeof resolveProjectContext>>>['client'];
 
@@ -70,7 +71,12 @@ Subcommands:
                                     Create a custom template (kicks a build).
   update <slug> [--name ...] [--image ...] [--dockerfile ...] [--cpu n] [--memory n] [--disk n]
                                     Update a UI-created template.
-  build <slug>                      Trigger a rebuild for a template.
+  build <slug> [--wait] [--timeout <sec>]
+                                    Start the cloud build of a template. With
+                                    --wait, follow it: exit 0 when the template
+                                    is ready, 1 when the build fails or the
+                                    timeout passes (default 1200s). A build
+                                    already running is joined, not restarted.
   build --local [slug]              Build the image HERE, on your Docker, before
                                     you push. See "Local build" below.
   rebuild <slug>                    Force-rebuild (delete existing snapshot first).
@@ -110,6 +116,8 @@ Options:
   --cpu <n>            vCPUs.   --memory <n>  GiB RAM.   --disk <n>  GiB disk.
   --clear              provider: remove the pin instead of setting one.
   --timeout <sec>      provider: how long to follow a preparation (default 600).
+                       build --wait: how long to wait for the build (default 1200).
+  --wait               build: wait until the template is ready or the build fails.
   --workspace <id>     Operate on this workspace id (default: linked).
   --host <name>        Operate against a non-default Kortix host.
   -h, --help           Show this help.
@@ -134,6 +142,7 @@ interface Flags {
   json: boolean;
   local: boolean;
   clear: boolean;
+  wait: boolean;
 }
 
 export async function runSandboxes(argv: string[]): Promise<number> {
@@ -154,6 +163,7 @@ export async function runSandboxes(argv: string[]): Promise<number> {
       json: takeFlagBool(rest, ['--json']),
       local: takeFlagBool(rest, ['--local']),
       clear: takeFlagBool(rest, ['--clear', '--unpin']),
+      wait: takeFlagBool(rest, ['--wait']),
       timeout: takeFlagValue(rest, ['--timeout']),
       project: takeFlagValue(rest, ['--project', '--workspace']),
       host: takeFlagValue(rest, ['--host']),
@@ -188,6 +198,7 @@ export async function runSandboxes(argv: string[]): Promise<number> {
   // rebuild --local` silently rebuilding a live snapshot is not a mistake
   // anyone should be able to make by typo.
   if (f.local) return fail(`--local only applies to \`sandboxes build\`, not "${sub}".`);
+  if (f.wait && sub !== 'build') return fail(`--wait only applies to \`sandboxes build\`, not "${sub}".`);
 
   const ctx = await resolveProjectContext({ projectArg: f.project, hostArg: f.host });
   if (!ctx) return 1;
@@ -204,7 +215,11 @@ export async function runSandboxes(argv: string[]): Promise<number> {
       case 'health':
         return await sandboxesHealth(ctx.client, base, f.json);
       case 'build':
-        return sandboxesBuild(ctx.client, base, positional[0]);
+        return await sandboxesBuild(ctx.client, base, positional[0], {
+          wait: f.wait,
+          json: f.json,
+          timeoutSec: f.timeout ? Number(f.timeout) : 1200,
+        });
       case 'rebuild':
         return sandboxesRebuild(ctx.client, base, positional[0]);
       case 'provider':
@@ -337,20 +352,32 @@ async function sandboxesBuild(
   client: Client,
   base: string,
   slug: string | undefined,
+  opts: { wait: boolean; json: boolean; timeoutSec: number },
 ): Promise<number> {
   if (!slug) return missing('a template slug');
+  if (!Number.isFinite(opts.timeoutSec) || opts.timeoutSec < 0) return fail('--timeout must be a number of seconds.');
   // Resolve a slug to a project-scoped template_id (needed for PATCH/DELETE/build).
-  const id =
-    (await client.get<{ items: SandboxTemplate[] }>(`${base}/sandbox-templates`)).items.find(
-      (t) => t.slug === slug,
-    )?.template_id ?? null;
+  const findId = async () =>
+    (await client.get<{ items: SandboxTemplate[] }>(`${base}/sandbox-templates`)).items.find((t) => t.slug === slug)
+      ?.template_id ?? null;
+  let id = await findId();
+  if (!id) {
+    // A template just pushed: the list serves a warm mirror. The reconcile
+    // fetches the tip and registers what kortix.yaml declares there.
+    if ((await reconcileTemplates(client, base)) !== null) id = await findId();
+  }
   if (!id) {
     process.stderr.write(`${status.err(`No workspace-scoped template "${slug}" to build.`)}\n`);
     return 1;
   }
+  const known = opts.wait ? await currentBuildIds(client, base) : new Set<string>();
   await client.post(`${base}/sandbox-templates/${id}/build`);
-  process.stdout.write(`${status.ok(`Build started for ${C.bold}${slug}${C.reset}`)}\n`);
-  return 0;
+  if (!opts.wait) {
+    process.stdout.write(`${status.ok(`Build started for ${C.bold}${slug}${C.reset}`)}\n`);
+    return 0;
+  }
+  if (!opts.json) process.stdout.write(`${status.ok(`Build started for ${C.bold}${slug}${C.reset}; waiting up to ${opts.timeoutSec}s`)}\n`);
+  return waitForTemplate(client, base, slug, { knownBuildIds: known, timeoutSec: opts.timeoutSec, json: opts.json });
 }
 
 async function sandboxesRebuild(

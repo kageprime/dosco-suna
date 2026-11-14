@@ -65,6 +65,9 @@ export interface ComposioRuntime {
   /** Read one connected account. Only the non-secret `displayName` is used. */
   connectedAccounts?: {
     get(id: string): Promise<{ state?: { val?: Record<string, unknown> } | null } | null | undefined>;
+    /** Turn the account's access off or back on at Composio; the grant stays. */
+    disable?(id: string): Promise<unknown>;
+    enable?(id: string): Promise<unknown>;
   };
   /** App-event trigger instances and their catalog (`@composio/core` `Triggers`). */
   triggers?: {
@@ -172,6 +175,35 @@ export function getComposioRuntime(): ComposioRuntime {
     }) as unknown as ComposioRuntime;
   }
   return runtime;
+}
+
+/**
+ * Turn a connected account off (a Kortix revoke) or back on (activate) at
+ * Composio. Before this, a revoked account stayed ACTIVE at Composio: Kortix
+ * stopped using it, but the grant still worked for anyone holding its id.
+ * Best effort: a revoke in Kortix never waits on Composio, an account Composio
+ * no longer has is already off, and a failure is logged for a retry by hand.
+ */
+export async function setComposioConnectedAccountEnabled(
+  connectedAccountId: string,
+  enabled: boolean,
+  runtimeOverride?: ComposioRuntime,
+): Promise<'done' | 'gone' | 'failed' | 'skipped'> {
+  if (!runtimeOverride && !composioConfigured()) return 'skipped';
+  const accounts = (runtimeOverride ?? getComposioRuntime()).connectedAccounts;
+  const call = enabled ? accounts?.enable : accounts?.disable;
+  if (!call) return 'skipped';
+  try {
+    await call.call(accounts, connectedAccountId);
+    return 'done';
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/not found|ResourceNotFound|\b404\b/i.test(message)) return 'gone';
+    logger.warn(`[composio] could not ${enabled ? 'enable' : 'disable'} connected account ${connectedAccountId}`, {
+      error: message,
+    });
+    return 'failed';
+  }
 }
 
 export function setComposioRuntimeForTest(next: ComposioRuntime | null): void {
@@ -765,6 +797,9 @@ export async function composioSessionTools(input: {
   return session.tools();
 }
 
+/** Reason prefix of a call the Composio edge refused or could not serve (an HTML error page). */
+export const COMPOSIO_UPSTREAM_UNAVAILABLE = 'composio_upstream_unavailable';
+
 export async function executeComposio(
   input: ComposioExecuteInput & { runtime?: ComposioRuntime; catalogClient?: ComposioCatalogClient },
 ): Promise<ExecResult> {
@@ -843,7 +878,7 @@ export async function executeComposio(
         return {
           ok: false,
           status: refused ? upstreamStatus : 502,
-          data: `composio_upstream_unavailable: Composio answered ${String(limited?.status ?? 502)} with an HTML error page${page ? ` (page: ${page})` : ''}${guidance}`,
+          data: `${COMPOSIO_UPSTREAM_UNAVAILABLE}: Composio answered ${String(limited?.status ?? 502)} with an HTML error page${page ? ` (page: ${page})` : ''}${guidance}`,
         };
       }
       throw error;

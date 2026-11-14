@@ -42,7 +42,9 @@ import { type SandboxProviderName, config } from '../../config';
 import { type InPlaceRecoveryStatus, getProvider } from '../../platform/providers';
 import { db } from '../../shared/db';
 import {
+  MAX_IN_PLACE_RECOVERY_ATTEMPTS,
   claimInPlaceRuntimeRecovery,
+  inPlaceRecoveryAttempts,
   isKortixInitiatedRemoval,
   markInPlaceRuntimeRecoveryAccepted,
   preserveEstablishedRuntime,
@@ -130,16 +132,31 @@ export type ParkedRemovalOutcome = 'recovered' | 'preserve-lost' | 'recovery-in-
  * provider statement — Platinum's `/start` can refuse for a passing reason
  * (the org write rate limit, a 5xx, network) that has nothing to do with
  * whether the data exists — so it leaves the row for the next pass instead.
+ *
+ * The other loss authority is `priorAttempts`: the provider accepted
+ * `MAX_IN_PLACE_RECOVERY_ATTEMPTS` recoveries of this identity and the box
+ * never booted (`RUNTIME_RECOVERY_ATTEMPTS_KEY`). The claim comes first, so a
+ * recovery another caller still runs is never condemned under it.
  */
 export async function decideRemovedParkedOutcome(input: {
   externalId: string;
   recoverInPlace?: (externalId: string) => Promise<InPlaceRecoveryStatus>;
   claim: () => Promise<boolean>;
   markRecovered: (recovery: 'running' | 'recovering') => Promise<boolean>;
+  priorAttempts?: number;
 }): Promise<ParkedRemovalOutcome> {
   if (!input.recoverInPlace) return 'preserve-lost';
   const claimed = await input.claim();
   if (!claimed) return 'recovery-in-flight';
+  const priorAttempts = input.priorAttempts ?? 0;
+  if (priorAttempts >= MAX_IN_PLACE_RECOVERY_ATTEMPTS) {
+    logger.warn('[recovery-gate] in-place recovery attempts exhausted; preserving the identity as lost', {
+      event: 'runtime.recovery_exhausted',
+      externalId: input.externalId,
+      attempts: priorAttempts,
+    });
+    return 'preserve-lost';
+  }
   // A throw says "this probe could not run", never "the box is gone": the
   // gate's explicit `unavailable` is the only loss authority (doc above).
   // The warn keeps the round-trip failure diagnosable in prod — the same
@@ -206,6 +223,7 @@ export async function recoverRemovedParkedRuntime(
   let recovery: 'running' | 'recovering' | undefined;
   const outcome = await decideRemovedParkedOutcome({
     externalId,
+    priorAttempts: inPlaceRecoveryAttempts(metadata),
     recoverInPlace: provider.recoverInPlace?.bind(provider),
     claim: async () => {
       claim = await claimInPlaceRuntimeRecovery(row, now);

@@ -8,7 +8,8 @@
  */
 
 import { CaretDownIcon, CheckIcon, PlusIcon, XIcon } from '@phosphor-icons/react';
-import { m, useReducedMotion } from 'motion/react';
+import { m } from 'motion/react';
+import { useReducedMotion } from '../../../../internal/hooks/use-reduced-motion';
 import {
   type ComponentProps,
   type ReactNode,

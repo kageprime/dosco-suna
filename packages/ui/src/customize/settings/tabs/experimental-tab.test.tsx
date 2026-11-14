@@ -188,6 +188,47 @@ describe('ExperimentalTabView', () => {
     ).toContain('Default on');
   });
 
+  test('an overridden row names the platform default and offers a reset; an inherited row does not', () => {
+    // Switching a default-on flag off and on again leaves it overridden. The
+    // row must still say what the default is and give a way back to it.
+    const overridden = renderToStaticMarkup(
+      <ExperimentalTabView features={[{ ...betaFeature, default_enabled: true }]} canManage />,
+    );
+    expect(overridden).toContain('Overridden for this workspace');
+    expect(overridden).toContain('Default on');
+    expect(overridden).toMatch(/<button[^>]*>Reset to default<\/button>/);
+    expect(overridden).not.toMatch(/<button[^>]* disabled=""[^>]*>Reset to default/);
+
+    expect(
+      renderToStaticMarkup(
+        <ExperimentalTabView features={[{ ...betaFeature, enabled: true, default_enabled: false }]} />,
+      ),
+    ).toContain('Default off');
+
+    const inherited = renderToStaticMarkup(
+      <ExperimentalTabView features={[{ ...experimentalFeature, default_enabled: false }]} canManage />,
+    );
+    expect(inherited).not.toContain('Reset to default');
+  });
+
+  test('the reset control follows the switch: disabled without the permission or while pending', () => {
+    const feature = { ...betaFeature, default_enabled: true };
+    for (const out of [
+      renderToStaticMarkup(<ExperimentalTabView features={[feature]} canManage={false} />),
+      renderToStaticMarkup(
+        <ExperimentalTabView features={[feature]} pendingKeys={['agent_teams']} canManage />,
+      ),
+    ]) {
+      expect(out).toMatch(/<button[^>]* disabled=""[^>]*>Reset to default<\/button>/);
+    }
+    // An operator_only flag reads "Managed by Kortix" and offers no reset to a
+    // manager who cannot write it.
+    const managed = renderToStaticMarkup(
+      <ExperimentalTabView features={[{ ...feature, operator_only: true }]} canManage />,
+    );
+    expect(managed).not.toContain('Reset to default');
+  });
+
   test('the settings-permission notice renders only when the probe has resolved to a denial', () => {
     // Ported from `main`'s `feature-flags-view.tsx`. While the IAM probe is in
     // flight the switches are already disabled (fail-closed) but the reason is

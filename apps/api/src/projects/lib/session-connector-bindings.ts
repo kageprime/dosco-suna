@@ -38,6 +38,7 @@ import {
   connectionRowIsReachable,
 } from './connection-access';
 import { audiencePersonId, loadConnectionAudience } from './connection-audience';
+import { connectorJoin } from './connection-mutation';
 import { sessionAgentId } from './secret-audience';
 import { projectSecretIsConfiguredForConsumer } from '../secrets';
 import { invalidateRequestMemo, requestMemo } from '../../lib/request-context';
@@ -376,14 +377,7 @@ export async function validateSessionConnectorBindings(input: {
         connectorConfig: connectors.config,
       })
       .from(connectorConnections)
-      .innerJoin(
-        connectors,
-        and(
-          eq(connectors.connectorId, connectorConnections.connectorId),
-          eq(connectors.accountId, connectorConnections.accountId),
-          eq(connectors.projectId, connectorConnections.projectId),
-        ),
-      )
+      .innerJoin(connectors, connectorJoin())
       .where(
         and(
           eq(connectorConnections.connectionId, binding.connection_id),
@@ -532,7 +526,7 @@ export async function sessionHasPersonalConnectorBinding(input: {
 }
 
 const liveConnectionGrant = sql`
-  ra.scope_type = 'project'
+  ra.scope_type in ('project', 'workspace')
   and ra.scope_id = ${connectorConnections.projectId}
   and ra.object_type = 'connection'
   and ra.object_id = ${connectorConnections.connectionId}::text

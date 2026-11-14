@@ -149,8 +149,8 @@ export function accessLine(summary: ConnectionAccessSummary, ownerEmail?: string
 
 /**
  * Which body a provider's sheet shows: the web's `ProviderSheet` branch order.
- * `pooled-*` lists named accounts with sharing (flag `pooled_provider_secrets`,
- * on by default); the others are the project-wide credential flows.
+ * `pooled-*` lists named accounts with sharing once the account is known; the
+ * others are the project-wide credential flows.
  */
 export type ProviderSheetKind =
   | 'included'
@@ -163,6 +163,7 @@ export type ProviderSheetKind =
 
 export function providerSheetKind(
   entry: Pick<LlmProviderEntry, 'id' | 'envVars' | 'apiHost' | 'managed'>,
+  /** The workspace's account is known, so named accounts can be listed. */
   pooled: boolean,
 ): ProviderSheetKind {
   if (providerConnectMethod(entry) === 'included') return 'included';

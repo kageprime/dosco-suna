@@ -216,7 +216,7 @@ export function ConnectorConnectionGateDialog() {
     if (!isOpen || connectorConnections.length === 0) return;
     if (!connectorConnections.every((connection) => connectedIds.has(connection.id))) return;
     const run = retry;
-    closeConnectorGate();
+    closeConnectorGate(true);
     run?.();
   }, [closeConnectorGate, connectedIds, connectorConnections, isOpen, retry]);
 
@@ -242,7 +242,7 @@ export function ConnectorConnectionGateDialog() {
               />
             ) : null
           }
-          onCancel={closeConnectorGate}
+          onCancel={() => closeConnectorGate()}
         />
       </ModalContent>
     </Modal>

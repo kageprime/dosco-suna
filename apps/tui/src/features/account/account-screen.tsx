@@ -18,6 +18,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { hostOrigin } from '../../auth/hosts.ts';
 import { hostInfo, kortix } from '../../kortix.ts';
 import { theme } from '../../theme.ts';
+import type { ScreenProps } from '../../screens.tsx';
+import { useScreenAction } from '../../ui/index.ts';
 import { NO_WORKSPACE_TEXT } from '../../lib/workspaces.ts';
 import {
   type AccountTab,
@@ -29,15 +31,10 @@ import {
   type RoleInput,
 } from './account-view.tsx';
 
-export interface AccountScreenProps {
-  accountId: string | null;
-  /** Only a focused screen answers keys. */
-  focused: boolean;
-  width: number;
-  height: number;
-  onBack(): void;
-  onToast?(message: string, kind?: 'info' | 'error'): void;
-}
+export type AccountScreenProps = Pick<
+  ScreenProps,
+  'accountId' | 'focused' | 'width' | 'height' | 'onBack' | 'onToast'
+>;
 
 /** Ages tick in minutes; recomputing faster only spends renders. */
 const CLOCK_TICK_MS = 30_000;
@@ -78,8 +75,9 @@ function AccountScreenBody({
   onToast,
 }: AccountScreenProps & { accountId: string }) {
   const [tab, setTab] = useState<AccountTab>('members');
-  const [busy, setBusy] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+
+  const { busy, run } = useScreenAction(onToast);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), CLOCK_TICK_MS);
@@ -132,43 +130,39 @@ function AccountScreenBody({
           : billingQuery;
 
   const invite = useCallback(
-    async (input: { email: string; role: InviteRole }) => {
-      setBusy('inviting…');
-      try {
-        const result = await kortix().accounts.invite(accountId, {
-          email: input.email,
-          role: input.role,
-        });
-        await invitesQuery.refetch();
-        await membersQuery.refetch();
-        onToast?.(
-          result.status === 'added'
+    (input: { email: string; role: InviteRole }) => {
+      run('inviting…', async () => {
+        try {
+          const result = await kortix().accounts.invite(accountId, {
+            email: input.email,
+            role: input.role,
+          });
+          await invitesQuery.refetch();
+          await membersQuery.refetch();
+          return result.status === 'added'
             ? `${input.email} was already a user — added as ${result.account_role}.`
-            : `Invited ${input.email} as ${input.role}.`,
-        );
-      } catch (error) {
-        onToast?.(`Invite failed: ${errorText(error)}`, 'error');
-      } finally {
-        setBusy(null);
-      }
+            : `Invited ${input.email} as ${input.role}.`;
+        } catch (error) {
+          throw new Error(`Invite failed: ${errorText(error)}`);
+        }
+      });
     },
-    [accountId, invitesQuery.refetch, membersQuery.refetch, onToast],
+    [accountId, invitesQuery.refetch, membersQuery.refetch, run],
   );
 
   const cancelInvite = useCallback(
-    async (inviteId: string) => {
-      setBusy('cancelling…');
-      try {
-        await kortix().accounts.cancelInvite(accountId, inviteId);
-        await invitesQuery.refetch();
-        onToast?.('Invite cancelled.');
-      } catch (error) {
-        onToast?.(`Cancel failed: ${errorText(error)}`, 'error');
-      } finally {
-        setBusy(null);
-      }
+    (inviteId: string) => {
+      run('cancelling…', async () => {
+        try {
+          await kortix().accounts.cancelInvite(accountId, inviteId);
+          await invitesQuery.refetch();
+          return 'Invite cancelled.';
+        } catch (error) {
+          throw new Error(`Cancel failed: ${errorText(error)}`);
+        }
+      });
     },
-    [accountId, invitesQuery.refetch, onToast],
+    [accountId, invitesQuery.refetch, run],
   );
 
   const refresh = useCallback(() => {

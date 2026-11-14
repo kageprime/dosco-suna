@@ -61,7 +61,7 @@ import { cn } from '../../internal/lib/utils';
 import { hasOpenFloatingLayer } from '../../lib/z-stack';
 import { SelectionBar, type SelectionBarAction } from '../../internal/selection/selection-bar';
 import { selectRange, toggleId } from '../../internal/selection/selection';
-import type { ReviewVerdict } from '@kortix/sdk';
+import type { SessionAsk, ReviewVerdict } from '@kortix/sdk';
 import {
   ArrowLeftIcon as ArrowLeft,
   ChatsIcon as Chats,
@@ -665,6 +665,9 @@ export function ReviewCenter({
   sessionLabels,
   verdictAllowed = EVERY_VERDICT,
   needsYouDeck,
+  sessionAsks = [],
+  onSelectAsk,
+  selectedAskId,
 }: {
   /**
    * The asks deck (questions and approvals agents wait on): in the empty
@@ -673,6 +676,10 @@ export function ReviewCenter({
    * the deck's keys answer nothing out of sight.
    */
   needsYouDeck?: (opts: { paused: boolean }) => ReactNode;
+  /** Open session asks appear beside review items in the Needs you list. */
+  sessionAsks?: readonly SessionAsk[];
+  onSelectAsk?: (id: string) => void;
+  selectedAskId?: string | null;
   /** When provided, the inbox renders real data instead of the mock fixtures. */
   initialItems?: ReviewItem[];
   /** Connected mode: the segment is the server's filter, so the parent owns it. */
@@ -832,16 +839,27 @@ export function ReviewCenter({
         segmentForStatus(i.status) === segment &&
         (sessionFilter === 'all' || (i.sessionId ?? '') === sessionFilter),
     );
-    const c: Partial<Record<ReviewKind | 'all', number>> = { all: seg.length };
+    const askCount = segment === 'needs_you'
+      ? sessionAsks.filter((ask) => sessionFilter === 'all' || ask.surface_session_id === sessionFilter).length
+      : 0;
+    const c: Partial<Record<ReviewKind | 'all', number>> = { all: seg.length + askCount };
     for (const i of seg) c[i.kind] = (c[i.kind] ?? 0) + 1;
     return c;
-  }, [items, segment, sessionFilter]);
+  }, [items, segment, sessionFilter, sessionAsks]);
   // Sessions available to filter by = those present in the CURRENT segment (so
   // the dropdown only offers sessions you can actually see here).
   const sessionOpts = useMemo(() => {
     const seg = items.filter((i) => segmentForStatus(i.status) === segment);
-    return sessionOptions(seg, labelFor);
-  }, [items, segment, labelFor]);
+    const options = sessionOptions(seg, labelFor);
+    if (segment === 'needs_you') {
+      for (const ask of sessionAsks) {
+        if (!options.some((option) => option.sessionId === ask.surface_session_id)) {
+          options.push({ sessionId: ask.surface_session_id, label: ask.session_title ?? labelFor(ask.surface_session_id) ?? `Session ${ask.surface_session_id.slice(0, 8)}` });
+        }
+      }
+    }
+    return options;
+  }, [items, segment, labelFor, sessionAsks]);
   // The grouped view: buckets of the currently-visible items, keyed by session.
   const groups = useMemo(() => groupBySession(visible, labelFor), [visible, labelFor]);
   // Keyboard nav + focus highlight stay keyed to the flat `visible` order even in
@@ -1490,6 +1508,14 @@ export function ReviewCenter({
   };
   const back = () => setSelectedId(null);
 
+  const matchingAsksFor = (session: string) => segment === 'needs_you' && kindFilter === 'all'
+    ? sessionAsks.filter((ask) =>
+        (session === 'all' || ask.surface_session_id === session) &&
+        `${ask.title} ${ask.session_title ?? ''}`.toLowerCase().includes(query.toLowerCase()),
+      )
+    : [];
+  const visibleAsks = matchingAsksFor(sessionFilter);
+
   const listBody =
     isError && items.length === 0 ? (
       <ErrorState
@@ -1509,7 +1535,8 @@ export function ReviewCenter({
       // Nothing on the pages read so far matches, and more pages exist:
       // offer them, never the empty state (KRTX-1727).
       <div className="pt-6">{loadMoreButton}</div>
-    ) : visible.length === 0 && segment === 'needs_you' && needsYouDeck && !query && !wide ? (
+    ) : visible.length === 0 && wide && visibleAsks.length > 0 ? null
+    : visible.length === 0 && segment === 'needs_you' && needsYouDeck && !query && !wide ? (
       // Narrow inbox: the deck above owns the Needs you empty state; an empty
       // list under open asks must not say "all caught up". Once the deck
       // draws nothing (`peer-empty`), it does.
@@ -1763,7 +1790,7 @@ export function ReviewCenter({
                         <DropdownMenuRadioItem value="all" side="left">
                           {tI18nComplete.raw('text78648d4d6649')}
                           <CountBadge
-                            count={filterItems(items, segment, kindFilter, query, 'all').length}
+                            count={filterItems(items, segment, kindFilter, query, 'all').length + matchingAsksFor('all').length}
                             className="ml-auto"
                           />
                         </DropdownMenuRadioItem>
@@ -1771,7 +1798,7 @@ export function ReviewCenter({
                           <DropdownMenuRadioItem key={s.sessionId} value={s.sessionId} side="left">
                             <span className="truncate">{s.label}</span>
                             <CountBadge
-                              count={filterItems(items, segment, kindFilter, query, s.sessionId).length}
+                              count={filterItems(items, segment, kindFilter, query, s.sessionId).length + matchingAsksFor(s.sessionId).length}
                               className="ml-auto"
                             />
                           </DropdownMenuRadioItem>
@@ -1867,6 +1894,30 @@ export function ReviewCenter({
               {needsYouDeck({ paused: !!selected })}
             </div>
           ) : null}
+          {wide ? visibleAsks.map((ask) => (
+            <Button
+              key={ask.id}
+              data-testid="review-ask-row"
+              variant="ghost"
+              aria-pressed={!selected && selectedAskId === ask.id}
+              className={cn(
+                'h-auto w-full justify-start gap-2 px-2.5 py-3 text-left whitespace-normal',
+                !selected && selectedAskId === ask.id && 'bg-active',
+              )}
+              onClick={() => {
+                setSelectedId(null);
+                onSelectAsk?.(ask.id);
+              }}
+            >
+              <span className="flex size-8 shrink-0 items-center justify-center">
+                <Chats className="text-muted-foreground size-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="line-clamp-2 text-sm font-medium">{ask.title}</span>
+                {ask.session_title ? <span className="text-muted-foreground block truncate text-xs">{ask.session_title}</span> : null}
+              </span>
+            </Button>
+          )) : null}
           {listBody}
           {visible.length > 0 && loadMore ? <div className="pt-2">{loadMoreButton}</div> : null}
         </div>

@@ -34,6 +34,15 @@ const kortix = createKortix({
 await kortix.workspaces.list();
 ```
 
+Inside a Kortix sandbox (a session, or a program agent's turn), call
+`createKortix()` with no options. It reads the sandbox's own `KORTIX_API_URL`
+and `KORTIX_TOKEN`, so every call acts as the session's agent:
+
+```ts
+const kortix = createKortix();
+await kortix.project(process.env.KORTIX_PROJECT_ID!).sessions.list();
+```
+
 ### Call external systems through Connectors
 
 Use one data plane for every Connector provider. A user token binds
@@ -717,6 +726,8 @@ exhaustive — see `API-MAP.md` for the full per-domain surface:
 | `kortix.project(id)` | id-bound handle: `.apps` (stable App URLs, access, artifacts, deployments, logs, rollback, start/stop, machines (`machines.list/start/stop/restart/destroy`, `scale`, `exec`), volumes (`volumes.list/create/update/destroy/snapshots/snapshot/restore/fork`), and `token`) · `.secrets` · `.access` · `.connectors` (data plane + configuration + Connections) · `.policies` · `.triggers` (cron / webhook / app; `.fire(slug, { payload, dryRun })`; run history `.runs(slug)` / `.projectRuns({ status })`; `.replay(slug, runId)`) · `.files` · `.git` · `.changeRequests` (incl. `requestChanges`) · `.sessions` · `.tokens` (project-scoped CLI PATs — the `KORTIX_TOKEN` shape) · `.setupLinks.{requestSecret,requestConnector}` (agent-minted secret-entry / connector links) · `.validateManifest` · `.gitToken` · `.setDefaultAgent(name)` · `.session(sid)` (+ more namespaces: `.skills`, `.review`, `.approvals`, `.gateway` (incl. `.routing` and `.playground`), `.channels`, `.modelDefaults`, `.sandbox`) |
 | `kortix.session(pid, sid)` | id-bound handle: lifecycle (`get`/`update`/`delete`/`restore`/`start`/`restart`/`stop`/`reloadConfig`/`reloadConfigStream`/`setSharing`/`participants`/`setPinned`/`setArchived`/`presence`/`previews`/`commit`/`publicShares`/`ensureReady`) · finalized `cost()` · `send`/`abort`/`rewind`/`restoreRewind` (needs `session.rewind`)/`setModel`/`setAgent` · `transcript()` · `.files` · runtime URL helpers (`health`/`previewUrl`/`proxyUrl`) · the session verbs (`messages`/`pending`/`answerPermission`/`answerQuestion`/`compact`) · `stream()` · the deprecated `.runtime` |
 | `kortix.runtime()` | the runtime REST compatibility client of the process-wide active sandbox. It throws on a scoped client. Use the session verbs on `kortix.session(pid, sid)` instead |
+
+Artifact metadata reads accept `getArtifact(projectId, artifactId, { showErrors: false })` to suppress host error notifications. The promise still rejects on access or network errors.
 
 Runnable, self-contained scripts for the highest-value flows live in
 [`examples/`](./examples): list projects with a PAT, send + stream, the

@@ -59,6 +59,8 @@ import { creditAccounts, creditLedger } from '@kortix/db';
 import { eq, sql } from 'drizzle-orm';
 import { InsufficientCreditsError, WalletUnavailableError } from '../../errors';
 import { db } from '../../shared/db';
+import { isTransientDatabaseError } from '../../shared/database-errors';
+import { errorSqlstate } from '../../shared/error-cause';
 import { isDuplicateCreditGrantError } from './duplicate-error';
 import { assertRpcDebitLedgerType } from '../ledger-type-honesty';
 
@@ -156,6 +158,16 @@ function requestId(key: WalletKey | null): string | null {
   return key && 'request' in key ? key.request : null;
 }
 
+/**
+ * The write lost to another writer or the database went away: a statement
+ * timeout (57014) or lock wait (55P03) behind a hot account's row, or a
+ * transient fault. The statement rolled back whole, so the caller may retry.
+ */
+function isWalletContention(error: unknown): boolean {
+  const sqlstate = errorSqlstate(error);
+  return sqlstate === '57014' || sqlstate === '55P03' || isTransientDatabaseError(error);
+}
+
 async function grant(input: GrantInput): Promise<GrantResult> {
   const event = eventId(input.key);
   const request = requestId(input.key);
@@ -179,6 +191,9 @@ async function grant(input: GrantInput): Promise<GrantResult> {
     // Two concurrent grants under one key: the loser's insert hits a UNIQUE
     // constraint. The grant landed once, which is the contract.
     if (isDuplicateCreditGrantError(error)) return { replayed: true, ledgerId: null };
+    // Contention is not a defect: answer a retryable 503 instead of a paging 500
+    // (KRTX-4818, `/internal/gateway/usage` refund under a 57014).
+    if (isWalletContention(error)) throw new WalletUnavailableError(undefined, { cause: error });
     throw error;
   }
 }

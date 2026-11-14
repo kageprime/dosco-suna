@@ -4,7 +4,7 @@ import { HTTPException } from 'hono/http-exception';
 import { accountMembers, accountSecretResources } from '@kortix/db';
 import * as realAccess from '../projects/lib/access';
 
-// Bring your own ChatGPT subscription (pooled provider secrets): a project
+// Bring your own ChatGPT subscription: a project
 // member without project.secret.write connects and reconnects their OWN
 // ChatGPT account. Sharing with anyone else stays a project secret write.
 
@@ -29,7 +29,6 @@ const capabilityChecks: Array<{ userId: string; action: string }> = [];
 const auditEvents: Array<Record<string, unknown>> = [];
 const updates: Array<{ table: unknown; values: Record<string, unknown> }> = [];
 let deviceStarts = 0;
-let pooledEnabled = true;
 let resourceRows: Array<Record<string, unknown>> = [];
 let updatedRows: Array<Record<string, unknown>> = [];
 
@@ -80,7 +79,7 @@ mock.module('../projects/lib/access', () => ({
 }));
 
 mock.module('../feature-flags/registry', () => ({
-  resolveFeatureFlag: (_metadata: unknown, key: string) => key === 'pooled_provider_secrets' ? pooledEnabled : false,
+  resolveFeatureFlag: () => false,
 }));
 
 mock.module('../projects/codex-device-auth', () => ({
@@ -156,7 +155,6 @@ beforeEach(() => {
   auditEvents.length = 0;
   updates.length = 0;
   deviceStarts = 0;
-  pooledEnabled = true;
   resourceRows = [];
   updatedRows = [];
 });
@@ -234,15 +232,6 @@ describe('POST /oauth/openai/start — reconnect an existing ChatGPT account in 
   test('a malformed resource id is rejected', async () => {
     const result = await start(MEMBER_ID, { resource_id: 'not-a-uuid' });
     expect(result.status).toBe(400);
-  });
-
-  test('reconnect requires pooled provider secrets', async () => {
-    pooledEnabled = false;
-    resourceRows = [codexResource()];
-    const result = await start(MEMBER_ID, { resource_id: RESOURCE_ID });
-    expect(result.status).toBe(403);
-    expect(result.body.error).toBe('Pooled OAuth connections require pooled provider secrets');
-    expect(deviceStarts).toBe(0);
   });
 });
 

@@ -4,7 +4,6 @@ import {
   CSP_REPORT_PATH,
   embedContentSecurityPolicy,
   enforcedContentSecurityPolicy,
-  reportOnlyContentSecurityPolicy,
 } from './content-security-policy';
 
 function directives(policy: string): Map<string, string[]> {
@@ -28,11 +27,6 @@ describe('content security policy', () => {
     ]);
     expect(policy.get('object-src')).toEqual(["'none'"]);
     expect(policy.get('base-uri')).toEqual(["'self'"]);
-    // script-src is enforced (it was report-only for one release cycle), and it
-    // is the same allowlist the report-only header carries.
-    expect(policy.get('script-src')).toEqual(
-      directives(reportOnlyContentSecurityPolicy()).get('script-src'),
-    );
   });
 
   test('the embed policy opens framing for host pages and keeps the other enforced directives', () => {
@@ -41,12 +35,11 @@ describe('content security policy', () => {
     expect(policy.get('frame-ancestors')).toEqual(["'self'", 'https://kortix.com', 'https://*.kortix.com']);
     expect(policy.get('object-src')).toEqual(["'none'"]);
     expect(policy.get('base-uri')).toEqual(["'self'"]);
-    // The embed carries the same report-only script policy as every page.
     expect(policy.has('script-src')).toBe(false);
   });
 
-  test('the report-only policy allowlists script hosts and reports to the collector', () => {
-    const policy = directives(reportOnlyContentSecurityPolicy());
+  test('the enforced policy allowlists script hosts and reports to the collector', () => {
+    const policy = directives(enforcedContentSecurityPolicy());
     const scriptSrc = policy.get('script-src')!;
 
     expect(scriptSrc).toContain("'self'");
@@ -73,7 +66,6 @@ describe('content security policy in next dev', () => {
     setNodeEnv('development');
 
     expect(scriptSrc(enforcedContentSecurityPolicy)).toContain("'unsafe-eval'");
-    expect(scriptSrc(reportOnlyContentSecurityPolicy)).toContain("'unsafe-eval'");
   });
 
   test('a production build and tests do not allow eval', () => {
@@ -81,7 +73,6 @@ describe('content security policy in next dev', () => {
       setNodeEnv(value);
 
       expect(scriptSrc(enforcedContentSecurityPolicy)).not.toContain("'unsafe-eval'");
-      expect(scriptSrc(reportOnlyContentSecurityPolicy)).not.toContain("'unsafe-eval'");
       // WebAssembly compilation stays allowed everywhere.
       expect(scriptSrc(enforcedContentSecurityPolicy)).toContain("'wasm-unsafe-eval'");
     }

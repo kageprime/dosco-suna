@@ -15,6 +15,11 @@ import {
 import { projectsApp } from '../lib/app';
 import { gatewaySeriesRows } from '../lib/gateway-series';
 import { projectReadView } from '../lib/project-read-view';
+import {
+  InvalidGatewayUsageQueryError,
+  parseGatewayUsageQuery,
+} from '../../shared/gateway-usage-query';
+import { runGatewayUsageQuery } from '../../shared/gateway-usage-run';
 import { listProjectGatewaySessionSpend, listProjectGatewaySourceSpend } from '../../shared/session-costs';
 import { projectSpendByModel } from '../lib/session-model-usage';
 import {
@@ -257,6 +262,79 @@ export function registerGatewaySpendRoutes(): void {
 
       const days = Math.min(Math.max(Number(c.req.query('days')) || 30, 1), 365);
       return c.json({ window_days: days, models: await projectSpendByModel(projectId, days) });
+    },
+  );
+
+  projectsApp.openapi(
+    createRoute({
+      method: 'get',
+      path: '/{workspaceId}/gateway/usage',
+      tags: ['gateway'],
+      summary: 'Cross-session gateway spend + token usage, grouped and paginated',
+      description:
+        'Aggregates EVERY matching gateway ledger row (no row ceiling) over an ' +
+        'absolute (since/until) or rolling (days) window, grouped by any subset ' +
+        'of model/agent/source/session/day. Paid wallet spend, BYOK provider ' +
+        'spend, total, tokens and the list-price usage ESTIMATE are separate ' +
+        'fields. The returned GROUPS are keyset-paginated via next_cursor.',
+      ...auth,
+      request: {
+        params: z.object({ workspaceId: z.string() }),
+        query: z.object({
+          since: z.string().optional(),
+          until: z.string().optional(),
+          days: z.string().optional(),
+          group_by: z.string().optional(),
+          limit: z.string().optional(),
+          cursor: z.string().optional(),
+        }),
+      },
+      responses: {
+        200: json(z.any(), 'Grouped gateway usage page'),
+        400: json(z.object({ error: z.string() }), 'Invalid query'),
+        ...errors(404),
+      },
+    }),
+    async (c) => {
+      const projectId = workspaceIdParam(c);
+      const loaded = await loadProjectForUser(c, projectId, 'read');
+      if (!loaded) return c.json({ error: 'Not found' }, 404);
+      await assertProjectCapability(
+        c,
+        loaded.userId,
+        loaded.row.accountId,
+        projectId,
+        PROJECT_ACTIONS.PROJECT_GATEWAY_SPEND_READ,
+      );
+
+      let query;
+      try {
+        query = parseGatewayUsageQuery({
+          since: c.req.query('since'),
+          until: c.req.query('until'),
+          days: c.req.query('days'),
+          group_by: c.req.query('group_by'),
+          limit: c.req.query('limit'),
+          cursor: c.req.query('cursor'),
+        });
+      } catch (err) {
+        if (err instanceof InvalidGatewayUsageQueryError) {
+          return c.json({ error: err.message }, 400);
+        }
+        throw err;
+      }
+
+      // A session id leaves the aggregate only for sessions this caller may
+      // read (the per-session route's rule); model/agent/source/day stay
+      // project-wide like overview/breakdown/sources.
+      const view = await projectReadView(c, loaded);
+      const result = await runGatewayUsageQuery({
+        accountId: loaded.row.accountId,
+        projectId,
+        query,
+        visibility: { sessionFilter: view.where(gatewayRequestLogs.sessionId) },
+      });
+      return c.json(result, 200);
     },
   );
 

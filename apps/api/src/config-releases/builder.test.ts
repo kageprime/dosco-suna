@@ -547,6 +547,83 @@ describe('buildConfigRelease', () => {
     expect(still.release_id).toBe(moved.release_id);
   });
 
+  // 2026-11-10: a Software Factory agent (no repository access, `skills: "*"`)
+  // listed only the managed kortix-* skills. Its release was governance only:
+  // the registered skill folders never reached the box.
+  test('the agent variant ships the folders of the project skills its agent is granted, and no other skill', async () => {
+    const sha = commit(
+      {
+        'kortix.yaml': [
+          'project:',
+          '  name: builder-test',
+          'default_agent: kortix',
+          'skills:',
+          '  dev-environment: .kortix/skills/dev-environment',
+          '  release-notes: .kortix/skills/release-notes',
+          'agents:',
+          '  kortix:',
+          '    prompt: You are the main agent.',
+          '  builder:',
+          '    description: builds',
+          '    prompt: Build.',
+          '    skills: "*"',
+          '  writer:',
+          '    description: writes',
+          '    prompt: Write.',
+          '    skills: [release-notes]',
+          '  locked:',
+          '    description: no skills',
+          '    prompt: Nothing.',
+          '',
+        ].join('\n'),
+        '.kortix/skills/dev-environment/SKILL.md': '---\nname: dev-environment\ndescription: Start the app.\n---\nRun npm start.\n',
+        '.kortix/skills/dev-environment/references/ports.md': 'Port 3000.\n',
+        '.kortix/skills/release-notes/SKILL.md': '---\nname: release-notes\ndescription: Notes.\n---\nWrite notes.\n',
+        '.kortix/skills-old/SKILL.md': '---\nname: old\n---\nNot registered.\n',
+        'src/app.ts': 'console.log(1)\n',
+      },
+      'skills',
+    );
+    const builder = await buildConfigRelease(project, sha, 'agent:builder', { store });
+    expect(builder.reason).toBeNull();
+    expect(builder.tools_only).toBe(true);
+    expect(builder.files?.map(([path]) => path)).toEqual([
+      '.kortix/skills/dev-environment/SKILL.md',
+      '.kortix/skills/dev-environment/references/ports.md',
+      '.kortix/skills/release-notes/SKILL.md',
+    ]);
+    const archive = store.objects.get(configArchiveKey(project.projectId, builder.config_tree_id!));
+    const dir = extract(archive!);
+    expect(run('find', ['.', '-type', 'f'], dir).split('\n').map((path) => path.slice(2)).sort()).toEqual(builder.files!.map(([path]) => path));
+    for (const [path, , blob] of builder.files!) expect(blobOf(join(dir, path))).toBe(blob);
+    // The box resolves `compiled.skills` against the release root.
+    expect(JSON.parse(builder.compiled_governance!).skills).toEqual({
+      'dev-environment': '.kortix/skills/dev-environment',
+      'release-notes': '.kortix/skills/release-notes',
+    });
+    const descriptor = toDescriptor(builder, { repositoryAccess: false });
+    expect(descriptor.files).toEqual(builder.files);
+    expect(descriptor.reason).toBeNull();
+
+    const writer = await buildConfigRelease(project, sha, 'agent:writer', { store });
+    expect(writer.files?.map(([path]) => path)).toEqual(['.kortix/skills/release-notes/SKILL.md']);
+
+    const locked = await buildConfigRelease(project, sha, 'agent:locked', { store });
+    expect(locked.files).toBeNull();
+    expect(locked.release_id).toBe(configReleaseId(null, locked.compiled_governance_etag));
+
+    // A change inside a granted skill folder moves the release; any other file does not.
+    const moved = await buildConfigRelease(
+      project,
+      commit({ '.kortix/skills/dev-environment/SKILL.md': '---\nname: dev-environment\ndescription: Start the app.\n---\nRun npm run dev.\n' }, 'skill'),
+      'agent:builder',
+      { store },
+    );
+    expect(moved.release_id).not.toBe(builder.release_id);
+    const still = await buildConfigRelease(project, commit({ 'src/app.ts': 'console.log(2)\n' }, 'app'), 'agent:builder', { store });
+    expect(still.release_id).toBe(moved.release_id);
+  });
+
   test('an unknown selected agent produces no release and names the reason', async () => {
     const sha = seed();
     const release = await buildConfigRelease(project, sha, 'agent:ghost', { store });

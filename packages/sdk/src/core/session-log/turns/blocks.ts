@@ -62,7 +62,7 @@ const v1Segment = (s: SessionLogSegment): ShowGroupedSegment =>
   s.kind === 'burst' || s.kind === 'show-group' ? ({ kind: s.kind, parts: partsOf(s.blocks) } as ShowGroupedSegment) : ({ kind: s.kind, part: partOf(s.block) } as ShowGroupedSegment);
 
 /** The settled-turn fold of `segments`: `null` while the turn works, or when it has no work to fold. */
-export function splitSessionLogTurnWork(segments: ReadonlyArray<SessionLogSegment>, options: { working: boolean }): SessionLogTurnWorkSplit | null {
+export function splitSessionLogTurnWork(segments: ReadonlyArray<SessionLogSegment>, options: { working: boolean; foldStartedWork?: boolean }): SessionLogTurnWorkSplit | null {
   const by = new Map(segments.map((s) => [v1Segment(s), s] as const));
   const split = splitTurnWork([...by.keys()], options);
   if (!split) return null;

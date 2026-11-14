@@ -22,7 +22,7 @@ import { useTranslations } from '../../i18n';
 import { Close } from '../../icons/close';
 import { AgentMark } from '../../internal/components/agent-mark';
 import { cn } from '../../lib/utils';
-import { uiRoutes } from '../../lib/routes';
+import { triggerHref } from '../../internal/lib/capability-tab-routes';
 import { Button } from '../../primitives/button';
 import {
   DropdownMenu,
@@ -431,7 +431,7 @@ function RoutinesSection({ projectId, space }: { projectId: string; space: Proje
           avatar={<LightningIcon className="text-muted-foreground size-4" />}
           name={triggerName(trigger)}
           tag={describeWhen(trigger)}
-          href={uiRoutes().customize(projectId, `triggers?id=${encodeURIComponent(trigger.slug)}`)}
+          href={triggerHref(projectId, trigger.slug)}
         />
       ))}
       {privateChannel && routines.length === 0 ? (

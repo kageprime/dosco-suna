@@ -10,8 +10,8 @@ name: Mobile OTA
 #                             dev-backend builds; `production` ships the `prod`
 #                             branch, never unreleased dev code
 #
-# No push trigger: since 2026-10-03 a push to dev starts only cheap guards and
-# path-gated infra (tests/unit/sandbox-workflow.test.ts, Actions minutes).
+# No push trigger here. The separate mobile-testflight.yml builds mobile dev
+# changes for TestFlight with the production API; it publishes no OTA.
 #
 # Rollback and the full runbook: apps/mobile/BUILD_GUIDE.md.
 

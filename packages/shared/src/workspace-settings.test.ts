@@ -22,6 +22,7 @@ describe('workspace settings registry', () => {
   });
 
   test('parse resolves current ids, old ids and nothing else', () => {
+    expect(parseWorkspaceSettingsSection('audit-log')).toBe('audit');
     expect(parseWorkspaceSettingsSection('members')).toBe('members');
     expect(parseWorkspaceSettingsSection(' Access ')).toBe('members');
     expect(parseWorkspaceSettingsSection('tokens')).toBe('api-keys');

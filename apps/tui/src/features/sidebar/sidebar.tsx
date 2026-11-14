@@ -7,14 +7,16 @@
  * keys and knows nothing about the SDK.
  */
 
-import { useChangeRequests, useProjectSessions } from '@kortix/sdk/react';
+import { useChangeRequests } from '@kortix/sdk/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { ResolvedHost } from '../../auth/hosts.ts';
 import { kortix } from '../../kortix.ts';
-import { filterSessionsByTitle, groupSessionsByDay } from '../../lib/session-groups.ts';
+import { filterSessionsByTitle, groupSessionsBySection } from '../../lib/session-groups.ts';
 import { NO_WORKSPACE_TEXT, useWorkspaces } from '../../lib/workspaces.ts';
 import { ColumnPicker } from './column-picker.tsx';
+import { useSidebarSessions } from './use-sidebar-sessions.ts';
+import { useScreenAction } from '../../ui/index.ts';
 import { type SidebarNavItem, type SidebarScreen, SidebarView } from './sidebar-view.tsx';
 
 export interface SidebarProps {
@@ -52,9 +54,6 @@ export interface SidebarProps {
   onToast?(message: string, kind?: 'info' | 'error'): void;
 }
 
-/** Statuses that mean the row is still moving, so the list is worth polling. */
-const LIVE_STATUSES = new Set(['queued', 'branching', 'provisioning', 'running']);
-const LIVE_POLL_MS = 5000;
 /** How often the age column is recomputed. A minute is the smallest unit it
  *  prints, so anything faster only spends renders. */
 const CLOCK_TICK_MS = 30_000;
@@ -84,8 +83,8 @@ export function Sidebar({
 }: SidebarProps) {
   const [picker, setPicker] = useState(false);
   const [filter, setFilter] = useState('');
-  const [busy, setBusy] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const { busy, run } = useScreenAction(onToast);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), CLOCK_TICK_MS);
@@ -94,13 +93,8 @@ export function Sidebar({
 
   const effectiveAccountId = accountId ?? (host.accountId || null);
 
-  const sessionsQuery = useProjectSessions(projectId ?? '', {
-    enabled: Boolean(projectId),
-    // Poll only while a row is still provisioning — the same bound `apps/web`
-    // uses. A settled project costs one request per mount.
-    refetchInterval: (sessions) =>
-      sessions.some((session) => LIVE_STATUSES.has(session.status)) ? LIVE_POLL_MS : false,
-  });
+  const { mine: sessionsQuery, shared: sharedQuery, automated: automatedQuery, refresh: refetchSessions } =
+    useSidebarSessions(projectId);
 
   // The SDK owns the lists (`useWorkspaces` reads `useAccounts` and the
   // per-account project lists through `projectsQueryOptions`), so the sidebar, the
@@ -142,67 +136,73 @@ export function Sidebar({
             : 'Pick a workspace');
 
   const groups = useMemo(
-    () => groupSessionsByDay(filterSessionsByTitle(sessionsQuery.sessions, filter), { now }),
-    [sessionsQuery.sessions, filter, now],
+    () =>
+      groupSessionsBySection(
+        {
+          mine: filterSessionsByTitle(sessionsQuery.sessions, filter),
+          shared: filterSessionsByTitle(sharedQuery.sessions, filter),
+          automated: filterSessionsByTitle(automatedQuery.sessions, filter),
+        },
+        { now },
+      ),
+    [sessionsQuery.sessions, sharedQuery.sessions, automatedQuery.sessions, filter, now],
   );
 
+  // The end of the list reads the next page of the first section that has one,
+  // in the order they render: every session stays reachable.
   const reachEnd = useCallback(() => {
-    if (sessionsQuery.hasNextPage && !sessionsQuery.isFetchingNextPage) {
-      void sessionsQuery.fetchNextPage();
-    }
-  }, [sessionsQuery.hasNextPage, sessionsQuery.isFetchingNextPage, sessionsQuery.fetchNextPage]);
+    const next = [sessionsQuery, sharedQuery, automatedQuery].find((query) => query.hasNextPage);
+    if (next && !next.isFetchingNextPage) void next.fetchNextPage();
+  }, [sessionsQuery, sharedQuery, automatedQuery]);
 
   const createSession = useCallback(async () => {
     if (!projectId) {
       onToast?.(noWorkspace ? NO_WORKSPACE_TEXT : 'No workspace open. Pick one first.', 'error');
       return;
     }
-    setBusy('creating session…');
-    try {
-      // No title: session titles are server-owned (memory
-      // `session-titles-kortix-owned`), so the create body stays empty.
-      const session = await kortix().projects.createSession(projectId);
-      await sessionsQuery.refetch();
-      onNewSession(session.session_id);
-    } catch (error) {
-      onToast?.(`Create failed: ${errorText(error)}`, 'error');
-    } finally {
-      setBusy(null);
-    }
-  }, [projectId, noWorkspace, onNewSession, onToast, sessionsQuery.refetch]);
+    run('creating session…', async () => {
+      try {
+        // No title: session titles are server-owned (memory
+        // `session-titles-kortix-owned`), so the create body stays empty.
+        const session = await kortix().projects.createSession(projectId);
+        await refetchSessions();
+        onNewSession(session.session_id);
+      } catch (error) {
+        throw new Error(`Create failed: ${errorText(error)}`);
+      }
+    });
+  }, [projectId, noWorkspace, onNewSession, run, refetchSessions]);
 
   const renameSession = useCallback(
-    async (sessionId: string, name: string) => {
+    (sessionId: string, name: string) => {
       if (!projectId) return;
-      setBusy('renaming…');
-      try {
-        await kortix().session(projectId, sessionId).update({ name });
-        await sessionsQuery.refetch();
-        onToast?.(`Renamed to ${name}`);
-      } catch (error) {
-        onToast?.(`Rename failed: ${errorText(error)}`, 'error');
-      } finally {
-        setBusy(null);
-      }
+      run('renaming…', async () => {
+        try {
+          await kortix().session(projectId, sessionId).update({ name });
+          await refetchSessions();
+          return `Renamed to ${name}`;
+        } catch (error) {
+          throw new Error(`Rename failed: ${errorText(error)}`);
+        }
+      });
     },
-    [projectId, onToast, sessionsQuery.refetch],
+    [projectId, run, refetchSessions],
   );
 
   const deleteSession = useCallback(
-    async (sessionId: string) => {
+    (sessionId: string) => {
       if (!projectId) return;
-      setBusy('deleting…');
-      try {
-        await kortix().session(projectId, sessionId).delete();
-        await sessionsQuery.refetch();
-        onToast?.('Session deleted.');
-      } catch (error) {
-        onToast?.(`Delete failed: ${errorText(error)}`, 'error');
-      } finally {
-        setBusy(null);
-      }
+      run('deleting…', async () => {
+        try {
+          await kortix().session(projectId, sessionId).delete();
+          await refetchSessions();
+          return 'Session deleted.';
+        } catch (error) {
+          throw new Error(`Delete failed: ${errorText(error)}`);
+        }
+      });
     },
-    [projectId, onToast, sessionsQuery.refetch],
+    [projectId, run, refetchSessions],
   );
 
   const pickerItems = useMemo(
@@ -215,8 +215,12 @@ export function Sidebar({
     [workspaces.rows, projectId],
   );
 
-  const listError = sessionsQuery.isError ? errorText(sessionsQuery.error) : authError;
-  const busyMessage = busy ?? (sessionsQuery.isFetchingNextPage ? 'loading more…' : null);
+  const failedQuery = [sessionsQuery, sharedQuery, automatedQuery].find((query) => query.isError);
+  const listError = failedQuery ? errorText(failedQuery.error) : authError;
+  const loadingMore = [sessionsQuery, sharedQuery, automatedQuery].some(
+    (query) => query.isFetchingNextPage,
+  );
+  const busyMessage = busy ?? (loadingMore ? 'loading more…' : null);
 
   if (picker) {
     return (

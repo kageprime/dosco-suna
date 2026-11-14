@@ -1,10 +1,19 @@
 import { readFileSync } from 'node:fs';
 
-export function loadFileSet(path: string): Set<string> {
+/**
+ * The `files` array of one JSON list file; empty when the file is missing,
+ * unreadable, or holds no array. The one parser behind every `{files:[...]}`
+ * list in packages/db.
+ */
+export function loadFileList<T>(path: string): T[] {
   try {
-    const data = JSON.parse(readFileSync(path, 'utf8')) as { files: string[] };
-    return new Set(data.files);
+    const data = JSON.parse(readFileSync(path, 'utf8')) as { files?: T[] };
+    return Array.isArray(data.files) ? data.files : [];
   } catch {
-    return new Set();
+    return [];
   }
+}
+
+export function loadFileSet(path: string): Set<string> {
+  return new Set(loadFileList<string>(path));
 }

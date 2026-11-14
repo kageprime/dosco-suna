@@ -324,6 +324,19 @@ async function forwardAuthorized(
           }
         })();
 
+        // A push that moved the default branch applies its kortix.yaml now
+        // (triggers, connector policies, connectors) instead of at the
+        // periodic sweep, like a UI edit or a change-request merge does.
+        if (movesDefaultBranch(pushedRefs, gitProject.defaultBranch)) {
+          void Promise.all([import('../connectors/push-sync'), import('../connectors/sync')]).then(
+            ([{ syncConfigAfterPush }, { syncProjectConnectors }]) =>
+              syncConfigAfterPush(projectId, {
+                refresh: () => refreshMirror(gitProject),
+                sync: () => syncProjectConnectors(projectId, auth.project.accountId),
+              }),
+          );
+        }
+
         // Queue the project snapshot archive for the new default-branch tip so
         // the next fresh session boots from S3 instead of a clone. Idempotent
         // per (project, sha); the mirror refresh is shared with the hint above.
@@ -372,6 +385,11 @@ export async function warnMissingManifestAfterPush(
       `${defaultBranch} has no kortix.yaml. This project runs ` +
       `its built-in agents only.`,
   );
+}
+
+/** The push created or moved `refs/heads/<defaultBranch>` (a deletion does not count). */
+export function movesDefaultBranch(updates: readonly RefUpdate[], defaultBranch: string): boolean {
+  return updates.some((u) => u.ref === `refs/heads/${defaultBranch}` && !/^0+$/.test(u.newSha));
 }
 
 /**

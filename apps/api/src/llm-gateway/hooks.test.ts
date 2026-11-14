@@ -164,13 +164,12 @@ describe('authorizeRequest — billing 402 carries the real reason, not a hardco
     if (!result.ok) expect(result.errorCode).toBe(reason);
   });
 
-  test('a non-BillingGateError billing failure falls back to subscription_required (unknown reason, not a crash)', async () => {
+  // prod 2026-11-12: a stalled control plane answered funded accounts "subscription_required".
+  test('a non-BillingGateError billing failure is no verdict: it propagates (route 5xx, gateway 503), never a 402', async () => {
     billingThrow = () => {
       throw new Error('some other billing failure');
     };
-    const result = await authorizeRequest('good');
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.errorCode).toBe('subscription_required');
+    await expect(authorizeRequest('good')).rejects.toThrow('some other billing failure');
   });
 
   // `none` and `free` are the plans without managed models.

@@ -143,6 +143,7 @@ describe('Settings → Notifications', () => {
       'Recovery alert',
       'Capture computer stopped',
       'Capture computer recording again',
+      'Mentions',
       'Device settings',
     ]);
     expect(row('Turn failed').right.props.checked).toBe(false);

@@ -75,7 +75,6 @@ type Context = {
   principal: AuthedPrincipal;
   effectiveModel: string;
   personalUserId: string | null;
-  pooledEnabled: boolean;
   options?: ResolutionOptions;
 };
 
@@ -83,8 +82,7 @@ async function selectedPool(context: Context, providerId: string, name: string) 
   const { principal, options, personalUserId } = context;
   if (!principal.projectId) return null;
   const prospectiveIds = options?.providerSecretPools?.[providerId];
-  if ((prospectiveIds === undefined && !principal.sessionId) || !principal.userId ||
-    !context.pooledEnabled) return null;
+  if ((prospectiveIds === undefined && !principal.sessionId) || !principal.userId) return null;
   return resolveSessionProviderSecrets({
     accountId: principal.accountId, projectId: principal.projectId,
     ...(prospectiveIds !== undefined ? { secretIds: prospectiveIds } : { sessionId: principal.sessionId! }),
@@ -237,8 +235,8 @@ async function resolveCodexCandidates(context: Context): Promise<UpstreamDescrip
     throw new GatewayResolutionError('provider_reauth_required', accountsNeedReconnection(failed, 'selected'),
       `Reconnect ${failed.length === 1 ? 'it' : 'them'} in your ChatGPT accounts, or select another granted connection in session settings.`);
   }
-  // Named ChatGPT accounts serve whatever `pooled_provider_secrets` says: every
-  // sign-in writes them, and the backfill moved the legacy logins there.
+  // Named ChatGPT accounts: every sign-in writes them, and the backfill moved
+  // the legacy logins there.
   if (personalUserId && !principal.keyId) {
     const personal = await resolveDefaultCodexAccountSecret(principal.accountId, principal.projectId, personalUserId);
     if (personal) {
@@ -562,7 +560,6 @@ export async function resolveCandidates(
   // Avoid a second projects-row query on every resolution (KRTX-586).
   const resolution = principal.projectId ? await getProjectGatewayResolution(principal.projectId) : null;
   const access = resolution?.access ?? { disabledProviders: [], disabledModels: [] };
-  const pooledEnabled = resolution?.pooledEnabled ?? false;
   if (!modelAccessAllows(access, effectiveModel)) {
     const providerDisabled = access.disabledProviders.includes(modelAccessProvider(effectiveModel));
     throw new GatewayResolutionError(
@@ -572,7 +569,7 @@ export async function resolveCandidates(
     );
   }
   const provider = effectiveModel.includes('/') ? effectiveModel.split('/')[0] : '';
-  const context = { principal, effectiveModel, personalUserId, pooledEnabled, options };
+  const context = { principal, effectiveModel, personalUserId, options };
   if (provider === 'codex') {
     if (isRefusedCodexModelId(effectiveModel.slice('codex/'.length))) {
       throw new GatewayResolutionError(

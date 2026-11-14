@@ -269,11 +269,13 @@ COPY --from=deps /app/packages/db/scripts/ledger-repair.ts ./packages/db/scripts
 COPY --from=deps /app/packages/db/scripts/local-invalid-index-repair.ts ./packages/db/scripts/local-invalid-index-repair.ts
 COPY --from=deps /app/packages/db/scripts/migration-target.ts ./packages/db/scripts/migration-target.ts
 COPY --from=deps /app/packages/db/scripts/migration-files.ts ./packages/db/scripts/migration-files.ts
+COPY --from=deps /app/packages/db/scripts/migration-ledger.ts ./packages/db/scripts/migration-ledger.ts
 COPY --from=deps /app/packages/db/scripts/migration-ledger-repair.ts ./packages/db/scripts/migration-ledger-repair.ts
 COPY --from=deps /app/packages/db/scripts/migration-retry.ts ./packages/db/scripts/migration-retry.ts
 COPY --from=deps /app/packages/db/scripts/migration-runtime-overrides.ts ./packages/db/scripts/migration-runtime-overrides.ts
 COPY --from=deps /app/packages/db/scripts/migration-status.ts ./packages/db/scripts/migration-status.ts
 COPY --from=deps /app/packages/db/scripts/catalog.ts ./packages/db/scripts/catalog.ts
+COPY --from=deps /app/packages/db/scripts/sha256.ts ./packages/db/scripts/sha256.ts
 # Non-kortix bootstrap (basejump + credit RPCs + signup triggers) for FRESH
 # self-host databases. `migrate.ts bootstrap` applies this before `up` when
 # basejump is absent (no-op on provisioned cloud/dev DBs).

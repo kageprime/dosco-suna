@@ -31,6 +31,7 @@ import type { MouseEvent } from '@opentui/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ditherBand, toBraille } from '../lib/dither.ts';
+import { clip } from '../lib/text.ts';
 import {
   type LifeGrid,
   type LifeSnapshot,
@@ -204,10 +205,6 @@ function layoutFor(
     total: Math.max(height, 1),
     indent,
   };
-}
-
-function clip(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
 interface LifeRun {

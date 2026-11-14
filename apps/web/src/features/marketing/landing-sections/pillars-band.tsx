@@ -85,7 +85,7 @@ export function PillarsBand() {
               id={id}
               className="bg-background flex scroll-mt-16 flex-col gap-5 p-6 lg:p-11"
             >
-              <Icon className="text-foreground size-6" aria-hidden />
+              <Icon className="text-kortix-base size-6" aria-hidden />
               <h3 className="text-foreground text-2xl font-medium tracking-tight text-balance">
                 {name}
                 <span className="text-muted-foreground block text-lg">{line}</span>
@@ -94,7 +94,7 @@ export function PillarsBand() {
               <ul className="mt-auto flex flex-col gap-2 text-sm">
                 {facts.map((fact) => (
                   <li key={fact} className="text-foreground flex items-start gap-2">
-                    <CheckIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+                    <CheckIcon className="text-kortix-base mt-0.5 size-4 shrink-0" aria-hidden />
                     {fact}
                   </li>
                 ))}

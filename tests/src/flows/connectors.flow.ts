@@ -2351,11 +2351,13 @@ flow(
       },
     );
 
-    await ctx.step('reject an invalid public callback state', async () => {
+    await ctx.step('send an invalid public callback state to the web return page with the reason', async () => {
       const callback = await ctx.client
         .as(ctx.P.ANON)
         .get('/v1/connectors/oauth2/callback?state=invalid&code=invalid');
-      callback.status(400);
+      callback
+        .status(302)
+        .headerEquals('location', /\/connect\/done\?oauth2=error&oauth2_error=invalid_state$/);
     });
   },
 );
@@ -6669,5 +6671,69 @@ flow(
       await db.query('DELETE FROM kortix.connectors WHERE project_id = $1 AND slug = $2', [p.id, slug]).catch(() => {});
       await db.end().catch(() => {});
     }
+  },
+);
+
+// ── CONN-43 — A Composio app has no empty shared account ────────────────────
+// Composio holds the sign-in, so sync seeds no "Everyone in workspace" row:
+// the only account is the one a person signs in. Before, every Composio
+// connector got an empty shared row that showed "Sign-in not finished" beside
+// the member's own account a chat Connect card made.
+flow(
+  'CONN-43',
+  {
+    domain: 'connectors',
+    routes: [
+      'POST /v1/connectors/projects/:projectId/connectors',
+      'POST /v1/projects/:projectId/connections/me',
+      'GET /v1/projects/:projectId/connections',
+      'PUT /v1/projects/:projectId/connections/:connectionId/revoke',
+    ],
+  },
+  async (ctx) => {
+    const team = await ctx.fixtures.team();
+    const project = await team.project({ managedGit: true });
+    const owner = ctx.client.as(ctx.P.OWNER);
+    const params = { projectId: project.id };
+    const slug = `ke2e-mail-${Date.now().toString(36)}`;
+    const rows = async () => {
+      const r = await owner.get('/v1/projects/:projectId/connections', { params });
+      r.status(200);
+      return (r.json<{ connections: Array<{ connection_id: string; connector_alias: string; owner_type: string; status: string }> }>().connections).filter(
+        (row) => row.connector_alias === slug,
+      );
+    };
+
+    await ctx.step('the owner adds a Composio Gmail connector → 200', async () => {
+      (await owner.post('/v1/connectors/projects/:projectId/connectors', { slug, name: 'Mail', provider: 'composio', app: 'gmail' }, { params, timeoutMs: 60_000 }))
+        .status(200)
+        .body()
+        .has('$.ok', true);
+    });
+
+    await ctx.step('the connector lists no account: no empty shared row was seeded', async () => {
+      const listed = await rows();
+      if (listed.length !== 0) throw new Error(`expected no account, got ${JSON.stringify(listed)}`);
+    });
+
+    let connectionId = '';
+    await ctx.step('the owner starts their own account → exactly one row, owned by them', async () => {
+      const mine = await owner.post('/v1/projects/:projectId/connections/me', { connector_alias: slug, label: 'Mine' }, { params });
+      mine.status([200, 201]);
+      connectionId = mine.json<{ connection_id: string }>().connection_id;
+      const listed = await rows();
+      if (listed.length !== 1 || listed[0]!.connection_id !== connectionId || listed[0]!.owner_type !== 'member') {
+        throw new Error(`expected one member account, got ${JSON.stringify(listed)}`);
+      }
+    });
+
+    await ctx.step('revoking it → 200 and the row reads revoked; no shared row appears', async () => {
+      (await owner.put('/v1/projects/:projectId/connections/:connectionId/revoke', {}, { params: { ...params, connectionId } })).status(200);
+      const listed = await rows();
+      if (listed.some((row) => row.owner_type === 'project')) throw new Error(`a shared row appeared: ${JSON.stringify(listed)}`);
+      if (listed.find((row) => row.connection_id === connectionId)?.status !== 'revoked') {
+        throw new Error(`the account is not revoked: ${JSON.stringify(listed)}`);
+      }
+    });
   },
 );

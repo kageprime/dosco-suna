@@ -10,7 +10,7 @@
 // null (reading 'getItem')`. This module runs on every route (the root-layout
 // RouteChangeTracker), so an unguarded access would crash analytics on the
 // marketing site for those browsers.
-import { useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   safeSessionGetItem,
   safeSessionSetItem,
@@ -38,21 +38,11 @@ declare const window: GTMWindow;
  * is readable from script. The decision is made once per document: a script
  * cannot be unloaded, so a visitor who opens a marketing page and then
  * navigates into the app in the same tab keeps the container that page loaded.
- *
- * `extra` is the caller's own guard, evaluated once on mount with
- * `window.location`. `useEffectEvent` keeps the caller's callback out of the
- * effect's dependencies, so the decision is structurally once per document,
- * however the caller builds its callback.
  */
-export function useAnalyticsPageEnabled(extra?: (location: Location) => boolean): boolean {
+export function useAnalyticsPageEnabled(): boolean {
   const [enabled, setEnabled] = useState(false);
-  const onGate = useEffectEvent((location: Location) => extra?.(location) ?? true);
   useEffect(() => {
-    setEnabled(
-      !isDesktop() &&
-        !isAnalyticsExcludedPath(window.location.pathname) &&
-        onGate(window.location),
-    );
+    setEnabled(!isDesktop() && !isAnalyticsExcludedPath(window.location.pathname));
   }, []);
   return enabled;
 }

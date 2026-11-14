@@ -12,6 +12,8 @@ import {
 import { useId, type ReactNode } from 'react';
 
 import { useUiViewer } from '../../providers/ui-provider';
+import { ModelConnectionLayoutContext } from '../../session/models/model-connection-layout';
+import { SubscriptionOffer } from '../../session/models/subscription-offer';
 import { SESSION_TRANSCRIPT_CLASS } from '../../session/thread/session-transcript-class';
 import { useTranslations } from '../../i18n';
 import { cn } from '../../internal/lib/utils';
@@ -47,10 +49,15 @@ const CAPABILITIES: ReadonlyArray<{ key: string; icon: Icon }> = [
  * (`project-home.tsx`); the agent's guided setup does the connecting and
  * inviting the items describe.
  *
+ * The "Connect ChatGPT" and "Connect Claude" tiles sit directly above the
+ * composer (`ModelConnectionLayoutContext`): with no model they are the
+ * composer's own `ModelConnectionBar`, with a model they are the dismissible
+ * `SubscriptionOffer`. Every other composer keeps them below.
+ *
  * The welcome fades in once, over 300ms. It is opacity only, so reduced motion
  * needs no other variant.
  */
-export function FirstChat({ composer }: { composer: ReactNode }) {
+export function FirstChat({ projectId, composer }: { projectId: string; composer: ReactNode }) {
   const t = useTranslations('firstChat');
   const user = useUiViewer();
   const name = firstNameOf(user?.metadata);
@@ -58,60 +65,65 @@ export function FirstChat({ composer }: { composer: ReactNode }) {
   const canId = useId();
 
   return (
-    <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <section
-          aria-labelledby={headingId}
-          className={cn(
-            SESSION_TRANSCRIPT_CLASS,
-            // Below the floating sidebar toggle, and a little lower on wide
-            // screens where the column has room to breathe.
-            'flex flex-col gap-10 pt-16 pb-8 lg:pt-24',
-            'transition-opacity duration-(--duration-slow) ease-out starting:opacity-0',
-          )}
-        >
-          <div className="flex flex-col gap-3">
-            <h1
-              id={headingId}
-              className="text-foreground text-2xl font-medium tracking-tight text-balance"
-            >
-              {name ? t('greeting', { name }) : t('greetingNoName')}
-            </h1>
-            <p className="text-muted-foreground max-w-prose text-base leading-7 text-pretty">
-              {t('intro')}
-            </p>
-          </div>
+    <ModelConnectionLayoutContext.Provider value="above">
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <section
+            aria-labelledby={headingId}
+            className={cn(
+              SESSION_TRANSCRIPT_CLASS,
+              // Below the floating sidebar toggle, and a little lower on wide
+              // screens where the column has room to breathe.
+              'flex flex-col gap-10 pt-16 pb-8 lg:pt-24',
+              'transition-opacity duration-(--duration-slow) ease-out starting:opacity-0',
+            )}
+          >
+            <div className="flex flex-col gap-3">
+              <h1
+                id={headingId}
+                className="text-foreground text-2xl font-medium tracking-tight text-balance"
+              >
+                {name ? t('greeting', { name }) : t('greetingNoName')}
+              </h1>
+              <p className="text-muted-foreground max-w-prose text-base leading-7 text-pretty">
+                {t('intro')}
+              </p>
+            </div>
 
-          <div className="flex flex-col gap-4">
-            <h2 id={canId} className="text-foreground text-base font-medium">
-              {t('canTitle')}
-            </h2>
-            <ul aria-labelledby={canId} className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {CAPABILITIES.map(({ key, icon: Glyph }) => (
-                <li
-                  key={key}
-                  className="border-border bg-popover flex flex-col gap-3 rounded-md border p-4"
-                >
-                  <span className="bg-muted text-foreground flex size-8 items-center justify-center rounded-sm">
-                    <Glyph className="size-4" aria-hidden />
-                  </span>
-                  <span className="flex flex-col gap-1">
-                    <span className="text-foreground text-sm leading-5 font-medium">
-                      {t(`can.${key}.title`)}
+            <div className="flex flex-col gap-4">
+              <h2 id={canId} className="text-foreground text-base font-medium">
+                {t('canTitle')}
+              </h2>
+              <ul aria-labelledby={canId} className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {CAPABILITIES.map(({ key, icon: Glyph }) => (
+                  <li
+                    key={key}
+                    className="border-border bg-popover flex flex-col gap-3 rounded-md border p-4"
+                  >
+                    <span className="bg-muted text-foreground flex size-8 items-center justify-center rounded-sm">
+                      <Glyph className="size-4" aria-hidden />
                     </span>
-                    <span className="text-muted-foreground text-sm leading-5 text-pretty">
-                      {t(`can.${key}.body`)}
+                    <span className="flex flex-col gap-1">
+                      <span className="text-foreground text-sm leading-5 font-medium">
+                        {t(`can.${key}.title`)}
+                      </span>
+                      <span className="text-muted-foreground text-sm leading-5 text-pretty">
+                        {t(`can.${key}.body`)}
+                      </span>
                     </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="text-muted-foreground text-sm leading-5 text-pretty">{t('startHint')}</p>
-          </div>
-        </section>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-muted-foreground text-sm leading-5 text-pretty">{t('startHint')}</p>
+            </div>
+          </section>
+        </div>
+
+        <div className="relative z-10 mx-auto w-full max-w-210 shrink-0 pb-2 empty:hidden">
+          <SubscriptionOffer projectId={projectId} />
+        </div>
+        {composer}
       </div>
-
-      {composer}
-    </div>
+    </ModelConnectionLayoutContext.Provider>
   );
 }

@@ -1121,8 +1121,14 @@ async function upsertConnector(
  * account, because it is not empty: a channel connector (the install token is
  * the project's own identity) and a server with no auth (a public MCP server
  * such as DeepWiki: the account is the whole connection).
+ *
+ * A Composio or Pipedream connector always parses with `auth.type: 'none'`
+ * (its connected account is the auth), so the no-auth rule must not reach it:
+ * it seeded a shared account that no sign-in ever finished, beside the
+ * member's own account a chat Connect card created.
  */
 export function skipsEmptyProjectAccount(spec: ConnectorSpec): boolean {
+  if (spec.provider === 'composio' || spec.provider === 'pipedream') return true;
   return !(spec.provider === 'channel' || spec.auth?.type === 'none');
 }
 

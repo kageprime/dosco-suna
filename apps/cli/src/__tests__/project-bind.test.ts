@@ -230,6 +230,30 @@ describe('ensureDefaultProjectBinding', () => {
     expect(stderrChunks.join('')).toContain('kortix workspaces use');
   });
 
+  it('binds from the LEGACY fallback: identity read fails, rows carry no state', async () => {
+    // Characterization (KRTX-4813): on a server older than the identity read,
+    // `/me` fails and the account-scoped `/workspaces` read answers rows with
+    // no `state`. The fallback builds each row's account from the project alone
+    // — a stand-in with an empty slug/name/role — so the active account is
+    // never switched (the stand-in has no name to pin on it).
+    globalThis.fetch = (async (url: string | URL | Request) => {
+      const u = String(url instanceof Request ? url.url : url);
+      if (u.includes('/me')) return Response.json({ error: 'gone' }, { status: 500 });
+      if (u.includes('/workspaces')) return Response.json([project('proj_legacy', 'Legacy')]);
+      return Response.json({ error: 'unexpected route' }, { status: 404 });
+    }) as typeof fetch;
+
+    const outcome = await ensureDefaultProjectBinding(AUTH);
+
+    expect(outcome.bound).toBe(true);
+    expect(outcome.project?.project_id).toBe('proj_legacy');
+    expect(storedDefaultProject()?.project_id).toBe('proj_legacy');
+    // The stand-in membership row has no name, so the active account stays as-is.
+    const cfg = JSON.parse(readFileSync(configFile, 'utf8'));
+    expect(cfg.hosts.test.account_id).toBe('account_1');
+    expect(stderrChunks.join('')).toContain('Default workspace: Legacy');
+  });
+
   it('degrades to unbound with the reason on stderr when listing projects fails', async () => {
     mockProjects({ status: 500 });
 

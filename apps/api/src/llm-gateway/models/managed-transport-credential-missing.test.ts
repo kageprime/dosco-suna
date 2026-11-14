@@ -3,7 +3,7 @@ import { describe, expect, mock, test } from 'bun:test';
 // Existing fixtures have no project inference restrictions.
 mock.module('../../repositories/project-model-access', () => ({
   getProjectModelAccess: async () => ({ disabledProviders: [], disabledModels: [] }),
-  getProjectGatewayResolution: async () => ({ access: { disabledProviders: [], disabledModels: [] }, pooledEnabled: false }),
+  getProjectGatewayResolution: async () => ({ access: { disabledProviders: [], disabledModels: [] } }),
 }));
 
 mock.module('../../config', () => ({

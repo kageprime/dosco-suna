@@ -22,7 +22,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { relativeAge } from '../../lib/relative-time.ts';
 import { glyph as GLYPH, theme } from '../../theme.ts';
-import { List, type ListItem, Spinner } from '../../ui/index.ts';
+import { List, type ListItem, Spinner, useScreenAction } from '../../ui/index.ts';
 import type { CustomizeTabProps } from './customize-screen.tsx';
 import { DetailPane, Field, Paragraph } from './fields.tsx';
 import { matchesCustomizeBinding } from './keys.ts';
@@ -226,19 +226,18 @@ export function TriggersTab({
   onInputActive,
 }: CustomizeTabProps) {
   const query = useProjectTriggers(projectId);
-  const [busy, setBusy] = useState<string | null>(null);
+  const { busy, run } = useScreenAction(onToast);
   const rows = useMemo(() => (query.data ? triggerRows(query.data.triggers) : []), [query.data]);
 
   const toggle = useCallback(
     (slug: string, enabled: boolean) => {
-      setBusy(enabled ? 'resuming…' : 'pausing…');
-      void query.update
-        .mutateAsync({ slug, input: { enabled } })
-        .then(() => onToast?.(`${slug} ${enabled ? 'resumed' : 'paused'}.`))
-        .catch((error: unknown) => onToast?.(errorText(error), 'error'))
-        .finally(() => setBusy(null));
+      run(
+        enabled ? 'resuming…' : 'pausing…',
+        () => query.update.mutateAsync({ slug, input: { enabled } }),
+        `${slug} ${enabled ? 'resumed' : 'paused'}.`,
+      );
     },
-    [query.update, onToast],
+    [run, query.update],
   );
 
   return (

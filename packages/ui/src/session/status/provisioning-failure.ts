@@ -1,6 +1,8 @@
 import type { UiTranslator } from '../../i18n';
-import type { PendingSessionPrompt } from '@kortix/sdk';
-import { readStartStash } from '@kortix/sdk/react';
+import type { PendingSessionPrompt, SessionPrompt } from '@kortix/sdk';
+import { isOptimisticSessionPrompt, readStartStash } from '@kortix/sdk/react';
+
+import { isFirstPromptRow } from '../composer/queue-projection';
 
 interface ProvisioningFailurePresentation {
   title: string;
@@ -103,6 +105,41 @@ export function pendingSessionPromptFromMetadata(
  */
 export interface RecoveryPrompt extends PendingSessionPrompt {
   redeliveredOnRestart: boolean;
+  /** Set when the prompt is a durable inbox row. The server owns its
+   *  delivery: a queued row runs once the box is up, and a `failed` row
+   *  (dead-lettered after the box stayed unreachable) waits for a retry of
+   *  THAT row. Retry never POSTs it again. */
+  inboxPrompt?: { promptId: string; failed: boolean };
+}
+
+/**
+ * The session's own prompt in its server inbox, oldest first.
+ *
+ * The create stores the first prompt as a `session_lifecycle_commands` row and
+ * strips its text from `metadata.pending_prompt` (`pending-prompt.ts`). When
+ * the box never boots, that row is the ONLY copy of the prompt: it stays
+ * `queued`, then goes `dead_lettered` (listed as `failed`) once its delivery
+ * attempts are spent. The first-prompt row wins; any other person-written row
+ * is next. Optimistic rows have no server id to retry, so they never count.
+ */
+function inboxPromptForRecovery(prompts: readonly SessionPrompt[]): RecoveryPrompt | null {
+  const candidates = prompts.filter(
+    (prompt) => !isOptimisticSessionPrompt(prompt) && !prompt.synthetic && !!prompt.prompt_id,
+  );
+  const row = candidates.find(isFirstPromptRow) ?? candidates[0];
+  if (!row) return null;
+  const text = row.full_text || row.text || '';
+  const attachmentNames = (row.attachments ?? []).map((file) => file.filename);
+  if (text.trim().length === 0 && attachmentNames.length === 0) return null;
+  return {
+    text,
+    agent: null,
+    model: null,
+    variant: null,
+    attachment_names: attachmentNames,
+    redeliveredOnRestart: true,
+    inboxPrompt: { promptId: row.prompt_id, failed: row.state === 'failed' },
+  };
 }
 
 /**
@@ -118,14 +155,22 @@ export interface RecoveryPrompt extends PendingSessionPrompt {
  * created has neither: its first prompt is `metadata.initial_prompt`. That
  * prompt is shown only while `runtimeSessionId` is empty, which is the same
  * condition under which the restart re-delivers it.
+ *
+ * `inboxPrompts` is `GET .../prompts`. A session the current API created keeps
+ * its first prompt ONLY there, so it answers before the start stash: the stash
+ * is a client-delivered copy, and posting it beside the server's own row sent
+ * the prompt twice.
  */
 export function pendingSessionPromptForRecovery(
   sessionId: string,
   metadata: Record<string, unknown> | null | undefined,
   runtimeSessionId?: string | null,
+  inboxPrompts: readonly SessionPrompt[] = [],
 ): RecoveryPrompt | null {
   const fromMetadata = pendingSessionPromptFromMetadata(metadata);
   if (fromMetadata) return { ...fromMetadata, redeliveredOnRestart: false };
+  const fromInbox = inboxPromptForRecovery(inboxPrompts);
+  if (fromInbox) return fromInbox;
   const stash = readStartStash(sessionId);
   if (stash && stash.prompt.trim().length > 0) {
     return {
@@ -159,6 +204,22 @@ export function recoveryPromptToSendOnRetry(
   prompt: RecoveryPrompt | null,
 ): PendingSessionPrompt | null {
   if (!prompt || prompt.redeliveredOnRestart) return null;
-  const { redeliveredOnRestart: _redeliveredOnRestart, ...toSend } = prompt;
+  const { redeliveredOnRestart: _redeliveredOnRestart, inboxPrompt: _inboxPrompt, ...toSend } =
+    prompt;
   return toSend;
+}
+
+/**
+ * The inbox row Retry must re-queue, or null, read when the restarted box is
+ * ready. Retry remembers the row id; its state is checked then, not at the
+ * click, because a row still queued at the click can dead-letter while the box
+ * restarts. A `failed` row is never claimed again on its own. A queued row is
+ * delivered by the drain, so re-queueing it would only reorder it.
+ */
+export function inboxPromptToRequeue(
+  promptId: string | null,
+  prompts: readonly Pick<SessionPrompt, 'prompt_id' | 'state'>[],
+): string | null {
+  if (!promptId) return null;
+  return prompts.some((row) => row.prompt_id === promptId && row.state === 'failed') ? promptId : null;
 }

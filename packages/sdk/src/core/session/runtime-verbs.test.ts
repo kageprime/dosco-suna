@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { ApiError } from '../http/api/errors';
+import { withSizelessURLSearchParams } from '../test-fixtures';
 import { createRuntimeVerbs } from './runtime-verbs';
 
 
@@ -228,4 +229,18 @@ describe('liveLog()', () => {
   });
 
 
+});
+
+test('messages() and liveLog() keep their query under the mobile URLSearchParams polyfill (KRTX-4898)', async () => {
+  const { fetch, requests } = fakeRuntime({
+    'GET /kortix/runtime/messages/ses_root?limit=2': { body: { messages: [], has_more: false } },
+    'GET /kortix/runtime/log?thread=ses_child&limit=5': { body: { generation: 1, thread_id: 'ses_child', messages: [], has_more: false } },
+  });
+  const verbs = createRuntimeVerbs({ runtimeUrl: RUNTIME, rootId: 'ses_root', fetch });
+  await withSizelessURLSearchParams(() => verbs.messages({ limit: 2 }));
+  await withSizelessURLSearchParams(() => verbs.liveLog({ thread: 'ses_child', limit: 5 }));
+  expect(requests.map((r) => r.path)).toEqual([
+    '/kortix/runtime/messages/ses_root?limit=2',
+    '/kortix/runtime/log?thread=ses_child&limit=5',
+  ]);
 });

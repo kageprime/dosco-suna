@@ -3,7 +3,7 @@
 // via principal_type='token' with principal_id = service_account_id so
 // the existing IAM engine token-path handles authorisation unchanged.
 
-import { and, asc, eq, gt, inArray, isNull, isNotNull, or } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNull, isNotNull, or, type SQL } from 'drizzle-orm';
 import { serviceAccounts, roleAssignments } from '@kortix/db';
 import { notAnAudienceGrant } from '../iam/audience-grants';
 import { db } from '../shared/db';
@@ -201,6 +201,27 @@ export async function listAgentServiceAccounts(
     .orderBy(asc(serviceAccounts.name));
 }
 
+function agentIdentityWhere(
+  args: { accountId: string; projectId: string; agentName: string },
+  opts?: { activeOnly?: true },
+): SQL | undefined {
+  return and(
+    eq(serviceAccounts.accountId, args.accountId),
+    eq(serviceAccounts.projectId, args.projectId),
+    eq(serviceAccounts.agentName, args.agentName),
+    opts?.activeOnly ? eq(serviceAccounts.status, 'active') : undefined,
+  );
+}
+
+async function serviceAccountIdOf(where: SQL | undefined): Promise<string | null> {
+  const [row] = await db
+    .select({ id: serviceAccounts.serviceAccountId })
+    .from(serviceAccounts)
+    .where(where)
+    .limit(1);
+  return row?.id ?? null;
+}
+
 /**
  * Get-or-create the auto-provisioned STANDING IDENTITY for a kortix.yaml
  * `agents:` agent. Idempotent per (account, project, agent) via the partial
@@ -217,17 +238,9 @@ export async function ensureAgentServiceAccount(args: {
   agentName: string;
   displayName?: string;
 }): Promise<string> {
-  const match = and(
-    eq(serviceAccounts.accountId, args.accountId),
-    eq(serviceAccounts.projectId, args.projectId),
-    eq(serviceAccounts.agentName, args.agentName),
-  );
-  const existing = await db
-    .select({ id: serviceAccounts.serviceAccountId })
-    .from(serviceAccounts)
-    .where(match)
-    .limit(1);
-  if (existing[0]) return existing[0].id;
+  const match = agentIdentityWhere(args);
+  const existing = await serviceAccountIdOf(match);
+  if (existing) return existing;
 
   const { secretHash, publicPrefix } = mintServiceAccountSecret(); // plaintext `secret` intentionally discarded — identity-only
   const name = (args.displayName ?? args.agentName).slice(0, 128);
@@ -250,13 +263,9 @@ export async function ensureAgentServiceAccount(args: {
     // drizzle wraps the PostgresError, so read the SQLSTATE through the cause.
     if (errorSqlstate(err) !== '23505') throw err;
   }
-  const [winner] = await db
-    .select({ id: serviceAccounts.serviceAccountId })
-    .from(serviceAccounts)
-    .where(match)
-    .limit(1);
+  const winner = await serviceAccountIdOf(match);
   if (!winner) throw new Error('failed to ensure agent service account');
-  return winner.id;
+  return winner;
 }
 
 /**
@@ -268,19 +277,7 @@ export async function activeAgentServiceAccountId(args: {
   projectId: string;
   agentName: string;
 }): Promise<string | null> {
-  const [row] = await db
-    .select({ id: serviceAccounts.serviceAccountId })
-    .from(serviceAccounts)
-    .where(
-      and(
-        eq(serviceAccounts.accountId, args.accountId),
-        eq(serviceAccounts.projectId, args.projectId),
-        eq(serviceAccounts.agentName, args.agentName),
-        eq(serviceAccounts.status, 'active'),
-      ),
-    )
-    .limit(1);
-  return row?.id ?? null;
+  return serviceAccountIdOf(agentIdentityWhere(args, { activeOnly: true }));
 }
 
 export async function disableServiceAccount(args: {
@@ -340,7 +337,7 @@ export async function deleteServiceAccount(
   });
 }
 
-export interface ServiceAccountValidation {
+interface ServiceAccountValidation {
   isValid: boolean;
   serviceAccountId?: string;
   accountId?: string;

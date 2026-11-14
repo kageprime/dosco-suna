@@ -5,7 +5,7 @@ let customProviders: unknown[] = [];
 mock.module('../repositories/project-model-access', () => ({
   getProjectModelAccess: async () => ({ disabledProviders: [], disabledModels: [] }),
   getProjectGatewayResolution: async () => ({
-    access: { disabledProviders: [], disabledModels: [] }, pooledEnabled: false, customProviders,
+    access: { disabledProviders: [], disabledModels: [] }, customProviders,
   }),
 }));
 let keys: Array<{ identifier: string; secretId?: string; value: string }> = [];
@@ -15,7 +15,7 @@ mock.module('../projects/secrets', () => ({ ...realSecrets, resolveProjectSecret
 let modelsResponse: () => Response = () => Response.json({ data: [] });
 const safeEgressFetch = mock(async (_url: string, _init?: { headers?: Record<string, string> }) => modelsResponse());
 // No named key in this suite: the one key reader (credentials/gateway-keys.ts)
-// reads the named store first, whatever pooled_provider_secrets says.
+// reads the named store first.
 const realAccountResource = await import('../secrets/account-resource');
 mock.module('../secrets/account-resource', () => ({
   ...realAccountResource,

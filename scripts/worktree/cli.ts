@@ -39,7 +39,7 @@ import {
   autocleanConfig, parsePorcelain, meaningfulChanges, isNoise, lastActivity, decideAutoclean,
   diskLevel, diskThresholds, parseDfFreeBytes, cronLine, hasCronLine, withCronLine, withoutCronLine,
   autocleanPass, decideCap, capOwnerDir, fmtKb, cacheTrims, installRunning, RECENT_WRITE_MIN,
-  parseWorktreePorcelain, isClaudeWorktree, lockState, procStatStart, mergedPrIndex, prCovering, decideBranch,
+  parseWorktreePorcelain, isRegisteredWorktree, isClaudeWorktree, lockState, procStatStart, mergedPrIndex, prCovering, decideBranch,
   BUNDLE_NAME, scheduledCommand, currentCronLine, generationOf, loopScript, isLoopFor, pickScheduler,
   bundleRebuildReason, parseStamp,
   type AutocleanCandidate, type AutocleanVerdict, type AutocleanConfig, type AutocleanPass, type CapDir, type CapVerdict,
@@ -526,7 +526,7 @@ async function cmdCreate(a: Args) {
 
   step(`Git worktree ${pc.dim('→')} ${wtPath}`);
   const existing = sh(['git', '-C', root, 'worktree', 'list', '--porcelain']).stdout;
-  if (existing.includes(`worktree ${wtPath}`)) {
+  if (isRegisteredWorktree(existing, wtPath)) {
     sub('already exists — reusing');
   } else {
     const { args, mode } = worktreeAddArgs(root, wtPath, branch, from);
@@ -1756,7 +1756,7 @@ async function cmdDoctor(a: Args) {
   for (const [n, e] of Object.entries(reg.slots)) {
     const issues: string[] = [];
     if (!existsSync(e.path)) issues.push('worktree dir missing');
-    else if (!wts.includes(`worktree ${e.path}`)) issues.push('not a registered git worktree');
+    else if (!isRegisteredWorktree(wts, e.path)) issues.push('not a registered git worktree');
     const dbMode = dbModeOf(e);
     const orphan = dbMode === 'isolated'
       ? sh(['bash', '-lc', `docker ps -aq --filter "name=_${e.projectId}$" | head -1`]).stdout.trim()

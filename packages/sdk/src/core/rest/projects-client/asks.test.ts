@@ -1,5 +1,6 @@
 import { beforeEach, expect, mock, test } from 'bun:test';
 import { configureKortix } from '../../http/config';
+import { withSizelessURLSearchParams } from '../../test-fixtures';
 import { answerSessionAsk, listSessionAsks } from './asks';
 
 let calls: { url: string; method: string; body: unknown }[] = [];
@@ -72,4 +73,10 @@ test('a colleague access ask lists with its connectors and secrets, and is decid
   expect(last().body).toEqual({ decision: 'allow' });
   await answerSessionAsk('P1', 'access:c1', { decision: 'deny' });
   expect(last().body).toEqual({ decision: 'deny' });
+});
+
+test('listSessionAsks keeps its query under the mobile URLSearchParams polyfill (KRTX-4898)', async () => {
+  nextResponse = { status: 200, body: { asks: [], total: 0 } };
+  await withSizelessURLSearchParams(() => listSessionAsks('P1', { surfaceSessionId: 's1', limit: 5 }));
+  expect(last().url).toBe('http://test.local/workspaces/P1/asks?surface_session_id=s1&limit=5');
 });

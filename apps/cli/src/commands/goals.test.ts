@@ -267,6 +267,12 @@ function fakeApi(start: FakeGoal): Fake {
           verifier_session_id: null,
         });
       }
+      if (action === 'stop') {
+        // The real rule (service.ts requireStopper): the chat that owns a goal-mode goal, with its person's words.
+        if (!isOwner) return forbidden();
+        if (!String(body.reason ?? '').trim()) return err(422, 'goal_invalid', 'Pass the reason.');
+        return ok({ state: 'stopped' });
+      }
       if (action === 'handover') {
         if (!isOwner) return forbidden();
         const id = `owner-${++n}`;
@@ -413,8 +419,32 @@ test('wait sends the question and chase_at; stopped is refused without any reque
     const before = fake.requests.length;
     const stop = await cli(fake, root, 'owner', ['transition', 'stopped', '--reason', 'the user said stop']);
     expect(stop.code).toBe(1);
-    expect(stop.out).toContain('Only a person stops a goal, from the Goals page');
+    expect(stop.out).toContain('kortix goals stop --reason');
     expect(fake.requests.length).toBe(before);
+  } finally {
+    fake.stop();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('stop, in the chat that owns the goal: sends the person\'s words; no reason is refused without any request', async () => {
+  const { root, boxFolder } = box();
+  const fake = fakeApi(goalRecord(boxFolder, { state: 'active', revision: 3, criteria: [crit('c1')] }));
+  try {
+    const bare = await cli(fake, root, 'owner', ['stop']);
+    expect(bare.code).toBe(1);
+    expect(bare.out).toContain('--reason');
+    expect(fake.writes()).toEqual([]);
+
+    const stopped = await cli(fake, root, 'owner', ['stop', '--reason', 'The person said: drop it, the vendor cancelled']);
+    expect(stopped.code).toBe(0);
+    expect(stopped.out).toContain('active → stopped');
+    expect(fake.writes().at(-1)).toMatchObject({ path: `/v1/workspaces/p1/goals/${GOAL_ID}/stop`, actor: 'session:owner', body: { revision: 3, reason: 'The person said: drop it, the vendor cancelled' } });
+
+    // Outside a session there is no chat to own a goal.
+    const person = await cli(fake, root, null, ['stop', '--reason', 'x']);
+    expect(person.code).toBe(2);
+    expect(person.out).toContain('KORTIX_SESSION_ID');
   } finally {
     fake.stop();
     rmSync(root, { recursive: true, force: true });

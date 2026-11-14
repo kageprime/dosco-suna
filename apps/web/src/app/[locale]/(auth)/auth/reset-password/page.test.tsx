@@ -41,7 +41,7 @@ for (const succeeds of [true, false]) {
       expect(replacements).toHaveLength(succeeds ? 1 : 0);
       expect(url.searchParams.get('next')).toBe('home');
       expect(url.hash).toBe('#done');
-      expect(JSON.stringify(root.toJSON())).toContain(succeeds ? 'Your password has been changed' : 'Synthetic failure');
+      expect(JSON.stringify(root.toJSON())).toContain(succeeds ? 'Password updated' : 'Synthetic failure');
       expect(JSON.stringify(root.toJSON())).not.toContain('Link expired');
     } finally { await act(async () => root.unmount()); }
   });

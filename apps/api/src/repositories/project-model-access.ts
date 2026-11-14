@@ -2,7 +2,6 @@ import { memoInRequest } from '../shared/request-memo';
 import { accountSecretResources, projectLlmRoutingPolicies, projectSecrets } from '@kortix/db';
 import { legacySecretNotMoved } from '../secrets/llm-credential-ledger';
 import { and, eq, isNull, like, sql } from 'drizzle-orm';
-import { resolveFeatureFlag } from '../feature-flags/registry';
 import { db } from '../shared/db';
 import { modelAccessAllows, readModelAccess, updateModelAccess, type ModelAccessChange } from '../llm-gateway/model-access';
 import {
@@ -37,7 +36,7 @@ export async function getProjectModelAccess(projectId: string) {
   return readModelAccess(await readProjectMetadata(projectId));
 }
 
-/** Read model access, the pooled flag and custom providers from one projects row (KRTX-586). */
+/** Read model access and custom providers from one projects row (KRTX-586). */
 export function getProjectGatewayResolution(projectId: string) {
   // Shared within one request: gateway admission prefetches it.
   return memoInRequest(`gateway-resolution:${projectId}`, () => readProjectGatewayResolution(projectId));
@@ -47,7 +46,6 @@ async function readProjectGatewayResolution(projectId: string) {
   const metadata = await readProjectMetadata(projectId);
   return {
     access: readModelAccess(metadata),
-    pooledEnabled: resolveFeatureFlag(metadata, 'pooled_provider_secrets'),
     customProviders: readCustomProviders(metadata),
   };
 }

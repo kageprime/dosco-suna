@@ -61,7 +61,7 @@ export function ShareUnavailable({
   cta: ReactNode;
 }) {
   return (
-    <AuthFrame footerVariant="none">
+    <AuthFrame footerVariant="none" art={false}>
       <Rise>
         <StepHeader
           title={<OutcomeTitle tone="muted">{title}</OutcomeTitle>}

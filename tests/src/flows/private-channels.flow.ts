@@ -19,6 +19,7 @@ import { flow, flowMeta } from '../core/flow';
 import type { Client } from '../core/client';
 import type { FlowContext, Principal } from '../core/types';
 import { type AgentPrincipalsWorld, hasStorage, openWorld } from '../fixtures/agent-principals';
+import type { Space } from '../fixtures/space';
 
 const R = {
   list: 'GET /v1/projects/:projectId/spaces',
@@ -62,7 +63,6 @@ const DRIVES = '/v1/drives';
 const FILES = '/v1/drives/:driveId/files';
 const TRIGGERS = '/v1/workspaces/:projectId/triggers';
 
-type Space = { space_id: string; slug: string | null; is_default: boolean; visibility?: 'public' | 'private'; is_member?: boolean };
 type MemberList = { members: { user_id: string }[]; can_add: boolean };
 
 /**

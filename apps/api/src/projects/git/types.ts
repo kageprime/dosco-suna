@@ -49,6 +49,8 @@ export interface ProjectConfigSummary {
     /** The agent's `model:` frontmatter (`provider/model`), null when it
      *  follows the project default. */
     model?: string | null;
+    /** A program agent's command (`agents.<name>.run`); null for a model agent. */
+    run?: string | null;
     source: 'kortix.yaml';
     /** True for a platform-owned agent the API injects (My Kortix), not one
      *  declared in `kortix.yaml`. Hosts render it read-only. Its `path` is

@@ -18,10 +18,13 @@ import { CaretDownIcon, CaretRightIcon } from '@/lib/icons';
 import { TURN_SPACE, TURN_TYPE, useTurnPalette } from '@/components/session/tool/shared/styles';
 
 export function WorkRow({
+  label,
   durationMs,
   open,
   onToggle,
 }: {
+  /** The row's words in place of "Worked for …": an agent run's (`sessionLogAgentRunLabel`, KRTX-4732). */
+  label?: string;
   /** `turnDurationMs(turn)`; `null` reads "Worked". */
   durationMs: number | null;
   open: boolean;
@@ -48,7 +51,7 @@ export function WorkRow({
       }}
     >
       <Text variant="muted" numberOfLines={1} style={[TURN_TYPE.sm, TABULAR, { flexShrink: 1, color: palette.muted70 }]}>
-        {workedForLabel(durationMs)}
+        {label ?? workedForLabel(durationMs)}
       </Text>
       <Caret size={TURN_SPACE.caret} color={palette.muted40} />
     </Pressable>

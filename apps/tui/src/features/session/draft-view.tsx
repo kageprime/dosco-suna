@@ -83,7 +83,7 @@ export function DraftView({
     [context.hasProject, onStart, onToast],
   );
 
-  const run = useCallback(
+  const runEntry = useCallback(
     (entry: MenuEntry, args: string) => {
       // No session: the only runtime commands a project has run inside one.
       if (entry.source === 'runtime') return;
@@ -196,7 +196,7 @@ export function DraftView({
           context={context}
           busy={false}
           onSubmit={start}
-          onCommand={run}
+          onCommand={runEntry}
           onToast={onToast}
           onMetrics={reportMetrics}
           seed={seed}

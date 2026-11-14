@@ -17,7 +17,7 @@ import {
 import type { ConnectorAttachmentStore } from './attachments';
 import type { ChannelReadGate, ChannelReadInput } from './channel-read-scope';
 import type { ChannelWriteGate } from './channel-write-scope';
-import { executeComposio } from './composio';
+import { COMPOSIO_UPSTREAM_UNAVAILABLE, executeComposio } from './composio';
 import { createdDraftId, toResendEmailArgs } from './email-resend-args';
 import {
   EMAIL_CHANNEL_CONNECTOR_SLUG,
@@ -587,17 +587,28 @@ export const UPSTREAM_TIMEOUT = 'upstream_timeout';
  * still returns its `reason` and writes its own audit row.
  */
 const UPSTREAM_WARN_INTERVAL_MS = 60_000;
+/**
+ * A Composio-edge 403 block is deterministic: the same arguments are refused
+ * again and the SDK no longer retries it, so only a caller that keeps sending
+ * the blocked payload repeats it (about 3 an hour in prod after KRTX-4722's
+ * first fix, against a 1.71 an hour baseline). One warn an hour per call path
+ * names the block; the audit row of every refusal stays. The call is NOT
+ * refused locally: the WAF matches the payload, so a per-path circuit breaker
+ * would also refuse the same path's calls the edge lets through.
+ */
+const EDGE_REFUSED_WARN_INTERVAL_MS = 3_600_000;
 const UPSTREAM_WARN_MAX_PATHS = 128;
 // replica-local: per-process warn throttle. A throttle shared across replicas would
 // either need a database round-trip per failure or leave one window open, and
 // a per-replica window can only over-report by one line per replica per interval.
-const lastUpstreamWarnAt = new Map<string, number>();
+const lastUpstreamWarnAt = new Map<string, number>(); // key -> suppressed until (ms epoch)
 
-function shouldLogUpstreamWarn(path: string): boolean {
+/** `key` is the call path, suffixed per failure class; the map holds when each key may warn next. */
+function shouldLogUpstreamWarn(key: string, intervalMs: number): boolean {
   const now = Date.now();
-  if (lastUpstreamWarnAt.size >= UPSTREAM_WARN_MAX_PATHS && !lastUpstreamWarnAt.has(path)) {
-    for (const [key, at] of lastUpstreamWarnAt) {
-      if (now - at >= UPSTREAM_WARN_INTERVAL_MS) lastUpstreamWarnAt.delete(key);
+  if (lastUpstreamWarnAt.size >= UPSTREAM_WARN_MAX_PATHS && !lastUpstreamWarnAt.has(key)) {
+    for (const [k, until] of lastUpstreamWarnAt) {
+      if (until <= now) lastUpstreamWarnAt.delete(k);
       if (lastUpstreamWarnAt.size < UPSTREAM_WARN_MAX_PATHS) break;
     }
     if (lastUpstreamWarnAt.size >= UPSTREAM_WARN_MAX_PATHS) {
@@ -608,9 +619,9 @@ function shouldLogUpstreamWarn(path: string): boolean {
       if (oldest !== undefined) lastUpstreamWarnAt.delete(oldest);
     }
   }
-  const last = lastUpstreamWarnAt.get(path);
-  if (last !== undefined && now - last < UPSTREAM_WARN_INTERVAL_MS) return false;
-  lastUpstreamWarnAt.set(path, now);
+  const until = lastUpstreamWarnAt.get(key);
+  if (until !== undefined && now < until) return false;
+  lastUpstreamWarnAt.set(key, now + intervalMs);
   return true;
 }
 
@@ -1731,8 +1742,17 @@ async function runConnectorAction(
     // in Better Stack (`JSONExtractString(raw,'connector_action')`).
     const message = `[connector] call failed (upstream ${result.status}): ${reason.slice(0, 500)}`;
     const logContext = { connector_action: fullPath };
+    const edgeRefused =
+      connector.provider === 'composio' &&
+      result.status === 403 &&
+      typeof result.data === 'string' &&
+      result.data.startsWith(COMPOSIO_UPSTREAM_UNAVAILABLE);
     if (connector.provider === 'composio' && result.status === 400) logger.debug(message, logContext);
-    else if (shouldLogUpstreamWarn(fullPath)) logger.warn(message, logContext);
+    else if (
+      edgeRefused
+        ? shouldLogUpstreamWarn(`${fullPath}#edge-refused`, EDGE_REFUSED_WARN_INTERVAL_MS)
+        : shouldLogUpstreamWarn(fullPath, UPSTREAM_WARN_INTERVAL_MS)
+    ) logger.warn(message, logContext);
     // A suppressed repeat still lands at debug: prod (LOG_LEVEL=info) never
     // ships it, a developer debugging the retry path still sees every failure.
     else logger.debug(message, logContext);

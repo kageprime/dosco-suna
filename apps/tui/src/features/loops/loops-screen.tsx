@@ -16,25 +16,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { kortix } from '../../kortix.ts';
 import { theme } from '../../theme.ts';
-import { Spinner } from '../../ui/index.ts';
+import type { ScreenProps } from '../../screens.tsx';
+import { Spinner, useScreenAction } from '../../ui/index.ts';
 import { type LoopRow, LoopsView } from './loops-view.tsx';
 import { parseSchedule } from './schedule.ts';
 
-export interface LoopsScreenProps {
-  projectId: string | null;
-  accountId: string | null;
-  sessionId: string | null;
-  focused: boolean;
-  /** Inner columns. */
-  width: number;
-  /** Inner rows. */
-  height: number;
-  /** Kortix web origin. Carried for the caller; Loops has no browser action. */
-  webBaseUrl: string;
-  onBack(): void;
-  onOpenSession(sessionId: string): void;
-  onToast(message: string, kind?: 'info' | 'error'): void;
-}
+export type LoopsScreenProps = Pick<
+  ScreenProps,
+  'projectId' | 'sessionId' | 'focused' | 'width' | 'height' | 'onBack' | 'onToast'
+>;
 
 /** How often the next-run column is recomputed. */
 const CLOCK_TICK_MS = 30_000;
@@ -82,17 +72,13 @@ export function toRow(reminder: SessionReminder): LoopRow {
 
 export function LoopsScreen({
   projectId,
-  accountId: _accountId,
   sessionId,
   focused,
   width,
   height,
-  webBaseUrl: _webBaseUrl,
   onBack,
-  onOpenSession: _onOpenSession,
   onToast,
 }: LoopsScreenProps) {
-  const [busy, setBusy] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), CLOCK_TICK_MS);
@@ -103,28 +89,23 @@ export function LoopsScreen({
   const loops = useSessionReminders(flag.enabled ? projectId : null, sessionId);
   const rows = useMemo(() => (loops.data?.reminders ?? []).map(toRow), [loops.data]);
 
-  const run = useCallback(
-    (label: string, done: string, work: () => Promise<unknown>) => {
-      setBusy(label);
-      void work()
-        .then(() => onToast(done))
-        .catch((error: unknown) => onToast(errorText(error), 'error'))
-        .finally(() => setBusy(null));
-    },
-    [onToast],
-  );
+  const { busy, run, refresh } = useScreenAction(onToast);
 
   const create = useCallback(
     (input: { prompt: string; schedule: string }) => {
       if (!projectId || !sessionId) return;
       const parsed = parseSchedule(input.schedule);
       if (!parsed.ok) return onToast(parsed.reason, 'error');
-      run('creating…', 'Loop created.', async () => {
-        await kortix()
-          .session(projectId, sessionId)
-          .reminders.create({ prompt: input.prompt, ...parsed.schedule });
-        await loops.refetch();
-      });
+      run(
+        'creating…',
+        async () => {
+          await kortix()
+            .session(projectId, sessionId)
+            .reminders.create({ prompt: input.prompt, ...parsed.schedule });
+          await loops.refetch();
+        },
+        'Loop created.',
+      );
     },
     [projectId, sessionId, run, loops.refetch, onToast],
   );
@@ -133,8 +114,10 @@ export function LoopsScreen({
     (row: LoopRow) => {
       const enable = row.state !== 'active';
       if (row.state === 'done') return onToast('This loop already ran. Create a new one.', 'error');
-      run(enable ? 'resuming…' : 'pausing…', enable ? 'Loop resumed.' : 'Loop paused.', () =>
-        loops.update.mutateAsync({ reminderId: row.id, enabled: enable }),
+      run(
+        enable ? 'resuming…' : 'pausing…',
+        () => loops.update.mutateAsync({ reminderId: row.id, enabled: enable }),
+        enable ? 'Loop resumed.' : 'Loop paused.',
       );
     },
     [loops.update, run, onToast],
@@ -142,22 +125,18 @@ export function LoopsScreen({
 
   const runNow = useCallback(
     (row: LoopRow) =>
-      run('running…', 'Loop sent to the session.', () => loops.run.mutateAsync(row.id)),
+      run('running…', () => loops.run.mutateAsync(row.id), 'Loop sent to the session.'),
     [loops.run, run],
   );
 
   const remove = useCallback(
-    (row: LoopRow) => run('deleting…', 'Loop deleted.', () => loops.remove.mutateAsync(row.id)),
+    (row: LoopRow) => run('deleting…', () => loops.remove.mutateAsync(row.id), 'Loop deleted.'),
     [loops.remove, run],
   );
 
-  const refresh = useCallback(() => {
-    setBusy('refreshing…');
-    void loops
-      .refetch()
-      .catch((error: unknown) => onToast(errorText(error), 'error'))
-      .finally(() => setBusy(null));
-  }, [loops.refetch, onToast]);
+  const onRefresh = useCallback(() => {
+    refresh('refreshing…', () => loops.refetch());
+  }, [refresh, loops.refetch]);
 
   if (!projectId) return <text fg={theme.faint}>No workspace open. Type /workspaces to pick one.</text>;
   if (!sessionId) return <text fg={theme.faint}>Open a session first.</text>;
@@ -182,7 +161,7 @@ export function LoopsScreen({
       onToggle={toggle}
       onRun={runNow}
       onDelete={remove}
-      onRefresh={refresh}
+      onRefresh={onRefresh}
       onBack={onBack}
     />
   );

@@ -10,13 +10,12 @@
  */
 
 import { describe, expect, test } from 'bun:test';
+import { isCopyableHttp, renderHttp } from '@kortix/white-label-shared/call-snippets';
 import {
   AUTHORIZATION_HEADER,
   CALL_SNIPPET_IDS,
   type SnippetContext,
   callSnippet,
-  isCopyableHttp,
-  renderHttp,
 } from '../../src/lib/call-snippets';
 import { NO_OVERRIDES } from '../../src/lib/session-overrides';
 import { type SnippetLanguage, type TokenKind, highlight } from '@kortix/white-label-shared/syntax-highlight';
@@ -63,7 +62,7 @@ function everyBlock(): Array<{ code: string; language: SnippetLanguage }> {
     for (const id of CALL_SNIPPET_IDS) {
       const snippet = callSnippet(id, context);
       blocks.push({ code: snippet.sdk, language: 'ts' });
-      blocks.push({ code: renderHttp(snippet.http), language: 'http' });
+      blocks.push({ code: renderHttp(snippet.http, AUTHORIZATION_HEADER), language: 'http' });
       if (snippet.http.kind === 'rest' && snippet.http.body !== undefined) {
         blocks.push({
           code: JSON.stringify(snippet.http.body, null, 2),
@@ -107,7 +106,9 @@ describe('highlighting cannot alter the text', () => {
     for (const id of CALL_SNIPPET_IDS) {
       const snippet = callSnippet(id, { projectId: 'p1' });
       if (!isCopyableHttp(snippet.http)) continue;
-      expect(joined(renderHttp(snippet.http), 'http')).toContain(AUTHORIZATION_HEADER);
+      expect(joined(renderHttp(snippet.http, AUTHORIZATION_HEADER), 'http')).toContain(
+        AUTHORIZATION_HEADER,
+      );
     }
   });
 
@@ -119,7 +120,7 @@ describe('highlighting cannot alter the text', () => {
         bindings: { slack: 'auth_9' },
       },
     });
-    expect(joined(renderHttp(snippet.http), 'http')).toContain('"connection_id": "auth_9"');
+    expect(joined(renderHttp(snippet.http, AUTHORIZATION_HEADER), 'http')).toContain('"connection_id": "auth_9"');
   });
 
   test('no token is empty and every kind is one the panel can colour', () => {
@@ -135,7 +136,7 @@ describe('highlighting cannot alter the text', () => {
 describe('the three languages are told apart', () => {
   test('the wire form colours the method, the path and the header names', () => {
     const snippet = callSnippet('session.create', { projectId: 'p1' });
-    const tokens = highlight(renderHttp(snippet.http), 'http');
+    const tokens = highlight(renderHttp(snippet.http, AUTHORIZATION_HEADER), 'http');
     expect(tokens[0]).toEqual({ text: 'POST', kind: 'method' });
     expect(tokens.find((token) => token.kind === 'path')?.text).toBe('/v1/projects/p1/sessions');
     expect(
@@ -146,7 +147,7 @@ describe('the three languages are told apart', () => {
   });
 
   test('a GET with no body is all head', () => {
-    const tokens = highlight(renderHttp(callSnippet('session.costs').http), 'http');
+    const tokens = highlight(renderHttp(callSnippet('session.costs').http, AUTHORIZATION_HEADER), 'http');
     expect(tokens[0]).toEqual({ text: 'GET', kind: 'method' });
     expect(tokens.find((token) => token.kind === 'path')?.text).toBe(
       '/v1/usage/session-costs?project_id=%7BprojectId%7D',

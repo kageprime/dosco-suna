@@ -49,7 +49,7 @@ export interface LegacyBootstrapRow {
 }
 
 /** Kill switch + scope, read per call so a `kubectl set env` takes effect without a rebuild. */
-export function legacyRuntimeBootstrapEnabled(): boolean {
+function legacyRuntimeBootstrapEnabled(): boolean {
   const raw = (process.env.LEGACY_RUNTIME_BOOTSTRAP ?? 'on').trim().toLowerCase();
   return !['0', 'false', 'off', 'no'].includes(raw);
 }
@@ -463,9 +463,9 @@ export async function repairDeadDaemonOnEdgeRefusal(
   return true;
 }
 
-export type OpenRuntimeGuaranteeAction = 'proceed' | 'defer_turn_running' | 'repairing' | 'exhausted' | 'blocked';
+type OpenRuntimeGuaranteeAction = 'proceed' | 'defer_turn_running' | 'repairing' | 'exhausted' | 'blocked';
 
-export interface OpenRuntimeGuaranteeOutcome {
+interface OpenRuntimeGuaranteeOutcome {
   action: OpenRuntimeGuaranteeAction;
   /** Null only when the guarantee is disabled or the health probe itself failed (fail-open — see `guaranteeCurrentRuntimeOnOpen`). */
   classification: RuntimeClassification | null;

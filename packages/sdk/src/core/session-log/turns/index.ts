@@ -21,6 +21,8 @@
  * - `sessionLogPromptMessage`: the host's synthetic row for a queued inbox prompt.
  * - `sessionLogRetrying`: `hasRetryingAssistantTurn` over a thread (the busy state's input).
  * - `subAgentCalls`: `getChildSessionToolParts` (a sub-agent row's calls, from its thread).
+ * - `sessionLogAgentRuns`, `sessionLogAgentRunLabel`, `isSessionLogAgentNotice` (`./agent-runs.ts`): the reports a
+ *   person's agents send back, folded into one row over the answer (KRTX-4732), new.
  * - `sessionLogThreadMetrics`: a thread's cost, message counts and token totals (the context modal).
  * - `isSessionLogRestoreNote`, `sessionLogHarnessSwitches`, `sessionLogRestoreNotice`,
  *   `sessionLogReferencedTexts`, `sessionLogWithFullTexts`, `sessionLogFullTextAction`, `sessionLogFullTextPlan` (P5.6, `./history.ts`): a session's
@@ -45,6 +47,13 @@ export {
   type SessionLogSegment,
   type SessionLogTurnWorkSplit,
 } from './blocks';
+export {
+  isSessionLogAgentNotice,
+  sessionLogAgentRunLabel,
+  sessionLogAgentRuns,
+  type SessionLogAgentRun,
+  type SessionLogAgentRuns,
+} from './agent-runs';
 export {
   sessionLogTurns,
   sessionLogCallStatus,

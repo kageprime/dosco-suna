@@ -56,6 +56,7 @@ import {
 import { registerPrincipalScopedMemo, registerProjectScopedMemo } from './cache-invalidation';
 import { clearWorkspaceFacts, tokenWorkspaceSharesAccount, workspaceFactsOf } from './workspace-facts';
 import { buildDenialError } from './denial-message';
+import { grantScopeOf, objectGrantScoped, storedAction } from './workspace-scope';
 import type { WorkspaceRole } from './roles';
 import {
   actingPrincipal,
@@ -851,6 +852,7 @@ async function resolvePrincipalUncached(
         .select({
           scopeType: roleAssignments.scopeType,
           scopeId: roleAssignments.scopeId,
+          roleScopeType: iamRoles.scopeType,
           action: iamRoleActions.action,
         })
         .from(roleAssignments)
@@ -879,7 +881,9 @@ async function resolvePrincipalUncached(
     // nothing on its own — it must never be read as a project role, or a member
     // handed one agent would silently acquire the tier the role implies.
     if (row.objectType !== null) continue;
-    if (row.roleScopeType === 'account' && row.scopeType === 'account') {
+    // The workspace form (R2b) reads as its role's scope (`workspace-scope.ts`).
+    const scope = grantScopeOf(row);
+    if (row.roleScopeType === 'account' && scope === 'account') {
       const role = systemRoles.byId.get(row.roleId);
       if (role && accountRoleRank(role.key) > accountRoleRank(accountRoleKey)) {
         accountRoleKey = role.key;
@@ -887,7 +891,7 @@ async function resolvePrincipalUncached(
       }
       continue;
     }
-    if (row.roleScopeType === 'project' && row.scopeType === 'project' && row.scopeId) {
+    if (row.roleScopeType === 'project' && scope === 'project' && row.scopeId) {
       if (row.roleKey === 'agent-user') continue;
       const list = projectSystemRoleIds.get(row.scopeId);
       if (list) list.push(row.roleId);
@@ -895,11 +899,16 @@ async function resolvePrincipalUncached(
     }
   }
 
-  const customActions: CustomAction[] = customRows.map((r) => ({
-    scopeType: r.scopeType,
-    scopeId: r.scopeId,
-    action: r.action,
-  }));
+  // Normalized to the legacy scope and action name, so a workspace-form row
+  // (R2b) compares like the legacy row it replaces.
+  const customActions: CustomAction[] = customRows.map((r) => {
+    const scopeType = grantScopeOf({ scopeType: r.scopeType, roleScopeType: r.roleScopeType }) ?? r.scopeType;
+    return {
+      scopeType,
+      scopeId: scopeType === 'account' ? null : r.scopeId,
+      action: storedAction(r.action),
+    };
+  });
 
   if (accountRoleKey !== null) {
     return {
@@ -1106,7 +1115,7 @@ const loadObjectGrants = ttlMemo({
       .from(roleAssignments)
       .where(
         and(
-          eq(roleAssignments.scopeType, 'project'),
+          objectGrantScoped(),
           eq(roleAssignments.scopeId, projectId),
           // Only rows written in the project's own account count.
           projectAccountMatches(projectId),

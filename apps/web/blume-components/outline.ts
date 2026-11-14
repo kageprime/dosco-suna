@@ -64,7 +64,7 @@ export const OUTLINE = [
       { label: 'SDK', href: '/developers/#sdk' },
       { label: 'Authentication', href: '/developers/#sdk-authentication' },
       { label: 'Sessions from code', href: '/developers/#sessions-from-code' },
-      { label: 'Projects from code', href: '/developers/#projects-from-code' },
+      { label: 'Workspaces from code', href: '/developers/#workspaces-from-code' },
       { label: 'React', href: '/developers/#react' },
       { label: 'Generative UI', href: '/developers/#generative-ui' },
       { label: 'Kortix UI', href: '/developers/#kortix-ui' },

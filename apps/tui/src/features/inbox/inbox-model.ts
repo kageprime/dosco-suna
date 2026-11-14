@@ -30,6 +30,7 @@ export const KIND_LABEL: Record<InboxNotificationKind, string> = {
   automation_recovered: 'Recovery alert',
   capture_device_down: 'Capture computer stopped',
   capture_device_recovered: 'Capture computer recording again',
+  mention: 'Mentions',
   message: 'Message',
 };
 
@@ -40,6 +41,7 @@ const NEEDS_YOU: ReadonlySet<InboxNotificationKind> = new Set([
   'turn_error',
   'automation_failed',
   'capture_device_down',
+  'mention',
 ]);
 
 /** One-column glyph by kind. Color is for the glyph only; the shape names the kind. */
@@ -53,6 +55,7 @@ const KIND_MARK: Record<InboxNotificationKind, { glyph: string; tone: InboxTone 
   automation_recovered: { glyph: '✓', tone: 'ok' },
   capture_device_down: { glyph: '!', tone: 'bad' },
   capture_device_recovered: { glyph: '✓', tone: 'ok' },
+  mention: { glyph: '@', tone: 'busy' },
   message: { glyph: '"', tone: 'idle' },
 };
 

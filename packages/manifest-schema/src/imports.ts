@@ -173,9 +173,6 @@ const ALL_IMPORTABLE_KEYS: readonly ImportableKey[] = [
   ...IMPORTABLE_MAP_KEYS,
 ];
 
-/** v2 imports merge only the collections v2 had: skills, commands and
- *  extensions are v3 keys, and a v2 root's own value for them stays as written. */
-
 /**
  * Resolve `imports:` for a parsed root manifest. A root without `imports`
  * returns immediately and never calls the reader, so projects that do not use

@@ -36,7 +36,7 @@ export type ProviderActions = ReturnType<typeof useProviderActions>;
 
 /** What this provider has connected, and what the viewer may do with it. */
 export function useProviderConnection(projectId: string, entry: LlmProviderEntry, data: ProvidersData, cursor: number) {
-  const sheet = providerSheetKind(entry, data.pooled && Boolean(data.accountId));
+  const sheet = providerSheetKind(entry, Boolean(data.accountId));
   const subscription = PROVIDER_SUBSCRIPTIONS[entry.id];
 
   const accountProviderId =

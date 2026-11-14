@@ -35,6 +35,13 @@ interface ComposerPrefill {
   files?: AttachedFile[];
   /** The agent, model and effort to select before it lands (desktop Quick Entry). */
   options?: SessionPromptOverrides;
+  /**
+   * Restore the saved draft first, then append this text to its end. Only
+   * keys typed before the home composer existed are stored this way
+   * (`apps/web/src/components/projects/use-home-typing-buffer.ts`). See
+   * `Composer` `prefill.restoreDraft`.
+   */
+  restoreDraft?: boolean;
 }
 
 type PrefillExtras = Omit<ComposerPrefill, 'text'>;
@@ -61,6 +68,7 @@ export const useComposerPrefillStore = create<ComposerPrefillState>((set, get) =
           ...(extras?.submit ? { submit: extras.submit } : {}),
           ...(extras?.files?.length ? { files: extras.files } : {}),
           ...(extras?.options ? { options: extras.options } : {}),
+          ...(extras?.restoreDraft ? { restoreDraft: true } : {}),
         },
       },
     })),

@@ -24,7 +24,7 @@ import {
   readDriveFile,
   uploadDriveFile,
 } from '@kortix/sdk';
-import { qk } from '@kortix/sdk/react';
+import { driveFolderQueryOptions, qk } from '@kortix/sdk/react';
 import { useTranslations } from '@/i18n/use-translations';
 import { ScopedCache } from '@kortix/ui/internal/lib/storage/managed-storage';
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -98,10 +98,7 @@ function useDriveFileList(dirPath: string): ExplorerQueryResult<FileNode[]> {
   const path = toDrivePath(dirPath);
   const scope = userId ? `${userId}:${driveId}:${path}` : null;
   const query = useQuery({
-    queryKey: qk.drives.files(driveId, path),
-    queryFn: () => listDriveFolder(driveId, path),
-    refetchInterval: (q) => (q.state.status === 'error' ? false : 10_000),
-    staleTime: 2_000,
+    ...driveFolderQueryOptions(driveId, path),
     // The saved listing paints first; updatedAt 0 marks it stale, so the
     // request still runs on mount.
     initialData: () => (scope ? folderCache.get(scope) : undefined),

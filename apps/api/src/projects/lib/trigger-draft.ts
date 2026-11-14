@@ -6,6 +6,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { config } from '../../config';
 import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { db } from '../../shared/db';
+import { isPlainObject } from '../../shared/json';
 import * as store from '../trigger-events/store';
 import { EVENT_TRIGGERS_OFF_MESSAGE, eventTriggersOffForProject } from '../trigger-events/flag';
 import { connectionIdentity } from '../trigger-events/subscriptions';
@@ -329,6 +330,8 @@ export interface TriggerDraft {
   sessionKey: string | null;
   /** Payload paths that must match for a delivery to fire. Null when unfiltered. */
   filter: TriggerFilter | null;
+  /** An agent run's static input (`run.payload`), merged under each fire's payload. */
+  runPayload?: Record<string, unknown>;
 }
 
 export function parseTriggerDraft(
@@ -369,9 +372,15 @@ export function parseTriggerDraft(
 
   const parsedTarget = parseTargetField(body, type);
   if ('error' in parsedTarget) return parsedTarget;
-  // An App target receives the payload, not a prompt.
-  const promptTemplate = normalizeString(body.prompt_template ?? body.promptTemplate) ?? (parsedTarget.target ? '' : null);
-  if (promptTemplate === null) return { error: 'prompt_template is required' };
+  // An App target receives the payload, not a prompt; so does a program agent. The route
+  // refuses an empty prompt for any other agent once the trigger is in the manifest.
+  const promptTemplate = normalizeString(body.prompt_template ?? body.promptTemplate) ?? '';
+
+  let runPayload: Record<string, unknown> | undefined;
+  if (body.payload !== undefined && body.payload !== null && !parsedTarget.target) {
+    if (!isPlainObject(body.payload) || JSON.stringify(body.payload).length > 64 * 1024) return { error: 'payload must be an object of at most 64 KiB' };
+    runPayload = body.payload as Record<string, unknown>;
+  }
 
   const agent = normalizeString(body.agent ?? body.agent_name) ?? 'default';
   // null/empty model = "Default" — leave it to the resolution chain at fire time.
@@ -386,7 +395,7 @@ export function parseTriggerDraft(
   if ('error' in parsedFilter) return parsedFilter;
   const { filter } = parsedFilter;
 
-  const common = { slug, name, agent, model, enabled, promptTemplate, sessionMode, pinnedSessionId, sessionKey, filter };
+  const common = { slug, name, agent, model, enabled, promptTemplate, sessionMode, pinnedSessionId, sessionKey, filter, ...(runPayload ? { runPayload } : {}) };
   const lateness = parseMaxLateness(body, type);
   if ('error' in lateness) return lateness;
   const silence = parseExpectEventWithin(body, type);
@@ -448,7 +457,7 @@ function parseDraftSession(body: Record<string, unknown>, type: GitTriggerType):
   return { sessionMode, pinnedSessionId, sessionKey };
 }
 
-type DraftCommon = Pick<TriggerDraft, 'slug' | 'name' | 'agent' | 'model' | 'enabled' | 'promptTemplate' | 'sessionMode' | 'pinnedSessionId' | 'sessionKey' | 'filter'>;
+type DraftCommon = Pick<TriggerDraft, 'slug' | 'name' | 'agent' | 'model' | 'enabled' | 'promptTemplate' | 'sessionMode' | 'pinnedSessionId' | 'sessionKey' | 'filter' | 'runPayload'>;
 
 function parseEventDraft(body: Record<string, unknown>, common: DraftCommon): TriggerDraft | { error: string } {
   const event = parseEventFields(body, 'event_config');
@@ -568,6 +577,8 @@ export function specToBody(spec: GitTriggerSpec): Record<string, unknown> {
     // Kept on PATCH, like max_lateness: an edit of any other field keeps the caps.
     max_runs_per_hour: spec.maxRunsPerHour ?? null,
     max_runs_per_day: spec.maxRunsPerDay ?? null,
+    // An agent run's static input (`run.payload`); kept on PATCH.
+    payload: spec.runPayload ?? null,
     overlap: spec.overlap ?? null,
     session_mode: spec.sessionMode,
     session_id: spec.pinnedSessionId,
@@ -608,6 +619,7 @@ export function draftToSpec(
     model: draft.model,
     enabled: draft.enabled,
     promptTemplate: draft.promptTemplate,
+    ...(draft.runPayload ? { runPayload: draft.runPayload } : {}),
     cron: draft.cron,
     runAt: draft.runAt,
     timezone: draft.timezone,

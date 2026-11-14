@@ -75,6 +75,24 @@ export async function mergeRequestingSession(
     .where(eq(connectorConnections.connectionId, connectionId));
 }
 
+/**
+ * Clear the session waiting on this connection and return it, in one
+ * statement: only the caller that clears it notifies, so the finalize poll,
+ * the completion watch and the OAuth callback tell the agent once between them.
+ */
+export async function takeRequestingSession(connectionId: string): Promise<string | null> {
+  const rows = (await db.execute(sql`
+    update kortix.connector_connections c
+       set metadata = c.metadata - 'requesting_session_id'
+      from (select connection_id, metadata->>'requesting_session_id' as waiting
+              from kortix.connector_connections
+             where connection_id = ${connectionId}
+               for update) old
+     where c.connection_id = old.connection_id and old.waiting is not null
+    returning old.waiting as waiting`)) as unknown as Array<{ waiting: string }>;
+  return rows[0]?.waiting ?? null;
+}
+
 /** Load a pipedream connector's app slug + id (verifies provider). */
 export async function loadPipedreamConnector(projectId: string, slug: string) {
   const [row] = await db

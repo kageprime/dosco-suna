@@ -21,11 +21,10 @@ describe('emailed link confirmation', () => {
         onPassword={() => {}}
       />,
     );
-    expect(markup).toContain('We sent a link to');
-    expect(markup).toContain('Open it to continue');
+    expect(markup).toContain('Enter the code sent to');
     expect(markup).toContain('Resend');
     expect(markup).toContain('Use a different email');
-    expect(markup).toContain('Use a password instead');
+    expect(markup).toContain('Use a password');
     expect(markup).not.toContain('autocomplete="one-time-code"');
     expect(markup).not.toContain('inputMode="numeric"');
     expect(markup).not.toContain('six-digit');
@@ -50,6 +49,26 @@ test('a failed resend remains visible beside the retry action', () => {
   expect(markup).toContain('role="alert"');
   expect(markup).toContain('Email rate limit exceeded. Try again later.');
   expect(markup).toContain('Resend');
+});
+
+test('the resend countdown is plain text after "Use a password", then a button', () => {
+  const props = {
+    sentEmail: 'synthetic@example.test',
+    errorMessage: null,
+    info: null,
+    pending: false,
+    pendingAction: null,
+    passwordEnabled: true,
+    onResend: () => {},
+    onChangeEmail: () => {},
+    onPassword: () => {},
+  } as const;
+  const counting = renderToStaticMarkup(<EmailLinkStep {...props} resendIn={53} />);
+  expect(counting).not.toContain('Didn&#x27;t get the email?');
+  expect(counting.indexOf('Resend in 53s')).toBeGreaterThan(counting.indexOf('Use a password'));
+  expect(counting).not.toMatch(/<button[^>]*>Resend in 53s/);
+  const ready = renderToStaticMarkup(<EmailLinkStep {...props} resendIn={0} />);
+  expect(ready).toMatch(/<button[^>]*>Resend code<\/button>/);
 });
 
 const SIGN_IN_WORDING: Record<string, RegExp> = {
@@ -114,11 +133,9 @@ test('mode=signup: the copy names the confirmation email the mailbox actually re
       onPassword={() => {}}
     />,
   );
-  expect(markup).toContain('We sent a confirmation email to');
-  expect(markup).toContain('Confirm your email to continue');
-  expect(markup).toContain('Didn&#x27;t receive the confirmation email?');
-  expect(markup).not.toContain('We sent a link');
-  expect(markup).not.toContain('Didn&#x27;t receive the link?');
+  expect(markup).toContain('Confirm the email we sent to');
+  expect(markup).toContain('Resend code');
+  expect(markup).not.toContain('Enter the code sent');
 });
 
 test('modes without their own send knowledge keep the generic link copy (fail-open, KRTX-2516)', () => {
@@ -138,9 +155,9 @@ test('modes without their own send knowledge keep the generic link copy (fail-op
         onPassword={() => {}}
       />,
     );
-    expect(markup).toContain('We sent a link to');
-    expect(markup).toContain('Didn&#x27;t receive the link?');
-    expect(markup).not.toContain('confirmation email');
+    expect(markup).toContain('Enter the code sent to');
+    expect(markup).toContain('Resend code');
+    expect(markup).not.toContain('Confirm the email');
   }
 });
 
@@ -160,11 +177,9 @@ test('mode=unknown: the copy names both emails the mailbox may receive (KRTX-350
       onPassword={() => {}}
     />,
   );
-  expect(markup).toContain('We emailed');
-  expect(markup).toContain('a sign-in link, or a confirmation link for a new account');
-  // The old generic copy promised one specific email — under the new contract
-  // the page cannot know which kind GoTrue minted.
-  expect(markup).not.toContain('We sent a link to');
+  // Names no email kind: GoTrue may mint a sign-in or a confirmation email.
+  expect(markup).toContain('Enter the code sent to');
+  expect(markup).not.toMatch(/sign-in|confirmation/i);
 });
 
 test('mode=closed: the copy claims a sign-in link only when the account exists (KRTX-3504)', () => {
@@ -184,12 +199,11 @@ test('mode=closed: the copy claims a sign-in link only when the account exists (
     />,
   );
   expect(markup).toContain('If');
-  expect(markup).toContain('has an account, its sign-in link is on its way');
+  expect(markup).toContain('has an account, a code is on its way');
   // Neither the delivery promise (an unknown address gets no mail) nor the
   // confirmation copy may render for a closed send.
-  expect(markup).not.toContain('We emailed');
-  expect(markup).not.toContain('We sent a link to');
-  expect(markup).not.toContain('confirmation link');
+  expect(markup).not.toContain('Enter the code sent to');
+  expect(markup).not.toContain('Confirm the email');
 });
 
 test('every locale carries the confirmation copy with the address placeholder', () => {
@@ -202,7 +216,6 @@ test('every locale carries the confirmation copy with the address placeholder', 
     );
     const link = catalog.auth.unified.link;
     expect(link.confirmDescription.trim().length, locale).toBeGreaterThan(0);
-    expect(link.confirmNotReceived.trim().length, locale).toBeGreaterThan(0);
     expect(link.confirmDescription, locale).toContain('<address>{email}</address>');
     expect(link.confirmDescription, locale).not.toMatch(/\b(link|lien|enlace|リンク|链接|линк)/i);
     // The KRTX-3504 copies must render the address the mail names, in every
@@ -219,10 +232,10 @@ test('every locale carries the confirmation copy with the address placeholder', 
 });
 
 for (const [mode, expected] of [
-  ['signup', 'Confirm your email to continue'],
-  ['unknown', 'a sign-in link, or a confirmation link for a new account'],
-  ['closed', 'has an account, its sign-in link is on its way'],
-  ['signin', 'Open it to continue'],
+  ['signup', 'Confirm the email we sent to'],
+  ['unknown', 'Enter the code sent to'],
+  ['closed', 'has an account, a code is on its way'],
+  ['signin', 'Enter the code sent to'],
 ] as const) {
   test(`${mode}: the code input shows at once, beside the link`, () => {
     const markup = renderToStaticMarkup(
@@ -250,3 +263,25 @@ for (const [mode, expected] of [
     expect(markup).toContain(expected);
   });
 }
+
+test('a verifying code says so: a status line replaces the removed Continue button', () => {
+  const props = {
+    sentEmail: 'synthetic@example.test',
+    errorMessage: null,
+    info: null,
+    resendIn: 0,
+    pending: true,
+    passwordEnabled: false,
+    onResend: () => {},
+    onChangeEmail: () => {},
+    onPassword: () => {},
+    code: '123456',
+    onCodeChange: () => {},
+    onVerify: () => {},
+  };
+  const verifying = renderToStaticMarkup(<EmailLinkStep {...props} pendingAction="continue" />);
+  expect(verifying).toContain('role="status"');
+  expect(verifying).toContain('One moment');
+  const idle = renderToStaticMarkup(<EmailLinkStep {...props} pending={false} pendingAction={null} />);
+  expect(idle).not.toContain('One moment');
+});

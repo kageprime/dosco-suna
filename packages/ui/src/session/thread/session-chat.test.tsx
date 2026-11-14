@@ -5,13 +5,25 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { SidebarProvider } from '../../primitives/sidebar';
-import type { ChangeRequest, SessionPrompt, SessionTurnOutcome } from '@kortix/sdk';
+import type { ChangeRequest, CreateSessionPromptInput, SessionPrompt, SessionSentPrompt, SessionTurnOutcome } from '@kortix/sdk';
 import { defaultUiMessages as enMessages } from '../../i18n';
 import { TestUiHost } from '../../test-utils/ui-host';
 import { sessionAuditKey } from '../panel/session-audit-shared';
 
 const ROUTE = { id: 'project-fixture', sessionId: 'project-session-fixture' };
 import { TurnErrorDisplay } from '../status/session-error-banner';
+import type { SessionChatInputProps } from '../composer/composer';
+
+const realAutoScroll = await import('../../internal/hooks/use-auto-scroll');
+const useRealAutoScroll = realAutoScroll.useAutoScroll;
+let scrollRoom: boolean | undefined;
+mock.module('../../internal/hooks/use-auto-scroll', () => ({
+  ...realAutoScroll,
+  useAutoScroll: (options: Parameters<typeof realAutoScroll.useAutoScroll>[0]) => {
+    scrollRoom = options?.room;
+    return useRealAutoScroll(options);
+  },
+}));
 
 const realSdk = await import('@kortix/sdk/react');
 const baseFixtureMessages = [
@@ -36,6 +48,13 @@ const userFixture = (id: string, text: string) => ({
   parts: [{ id: `${id}-text`, type: 'text', text }],
 });
 let inboxPrompts: SessionPrompt[] = [];
+let enqueuePrompt = async (_input: CreateSessionPromptInput): Promise<unknown> => undefined;
+let readInboxPrompts = async (): Promise<{ prompts: SessionPrompt[]; sent?: SessionSentPrompt[] }> => ({ prompts: [] });
+const rootSdk = await import('@kortix/sdk');
+mock.module('@kortix/sdk', () => ({
+  ...rootSdk,
+  listSessionPrompts: () => readInboxPrompts(),
+}));
 let busy = false;
 let persistedOutcome: SessionTurnOutcome = {};
 let auditPending = false;
@@ -46,7 +65,7 @@ let agentCommandsData: { name: string }[] | undefined = [];
 /** The options the last render passed to `useRuntimeAgents`. */
 let runtimeAgentsArgs: { directory?: string; projectId?: string | null } | undefined;
 /** The props the last render handed the composer — the host-wire observables. */
-let composerProps: { commandsResolved?: boolean } | undefined;
+let composerProps: { commandsResolved?: boolean; onSend?: SessionChatInputProps['onSend'] } | undefined;
 mock.module('@kortix/sdk/react', () => ({
   ...realSdk,
   useSessionTurnOutcome: () => persistedOutcome,
@@ -72,7 +91,7 @@ mock.module('@kortix/sdk/react', () => ({
   useRuntimeSessions: () => ({ data: [] }),
   useRuntimeConfig: () => ({ data: {} }),
   useProjectConfig: () => ({}),
-  useSessionPrompts: () => ({ prompts: inboxPrompts }),
+  useSessionPrompts: () => ({ prompts: inboxPrompts, enqueue: (input: CreateSessionPromptInput) => enqueuePrompt(input) }),
   useSessionMessageAuthors: () => ({ data: undefined }),
   useFeatureFlag: () => ({ enabled: true, isLoading: false }),
   useSessionWorking: () => ({
@@ -99,6 +118,7 @@ mock.module('../composer/composer', () => ({
     inputSlot?: React.ReactNode;
     lockForApproval?: boolean;
     commandsResolved?: boolean;
+    onSend?: SessionChatInputProps['onSend'];
   }) => {
     composerProps = props;
     return (
@@ -320,6 +340,77 @@ describe('SessionChat transcript rows', () => {
     }
   });
 
+  test('only an active turn reserves room to pin the newest prompt at the top', () => {
+    try {
+      busy = false;
+      renderChat();
+      expect(scrollRoom).toBe(false);
+      busy = true;
+      renderChat();
+      expect(scrollRoom).toBe(true);
+      busy = false;
+      renderChat();
+      expect(scrollRoom).toBe(false);
+    } finally {
+      busy = false;
+    }
+  });
+
+  test.each(['queued', 'failed', 'missing', 'delivered'] as const)('a lost queue ACK waits for the inbox verdict: %s', async (state) => {
+    const { runComposerSend, captureAttachmentSubmission } = await import('../composer/attachment-submission');
+    let releaseLookup!: (result: { prompts: SessionPrompt[]; sent?: SessionSentPrompt[] }) => void;
+    let lookupStarted!: () => void;
+    const started = new Promise<void>((resolve) => { lookupStarted = resolve; });
+    const verdict = new Promise<{ prompts: SessionPrompt[]; sent?: SessionSentPrompt[] }>((resolve) => { releaseLookup = resolve; });
+    let queuedInput!: CreateSessionPromptInput;
+    enqueuePrompt = async (input) => {
+      queuedInput = input;
+      throw new Error('synthetic lost ACK');
+    };
+    readInboxPrompts = () => { lookupStarted(); return verdict; };
+    const controller = {
+      attachments: [],
+      reclaim: () => {},
+      submit: () => {},
+      retry: () => {},
+      forget: () => {},
+      whenReady: async () => [],
+    };
+    const submission = captureAttachmentSubmission([], controller)!;
+    const states: string[] = [];
+    try {
+      renderChat();
+      const sent = runComposerSend({
+        submission,
+        controller,
+        active: new Set(),
+        send: () => composerProps!.onSend!('synthetic queued prompt'),
+        onSent: () => states.push('accepted'),
+        onFailed: () => states.push('restored'),
+      });
+      await started;
+      // Give the old synchronous failure path time to restore the draft.
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(states).toEqual([]);
+      // `delivered`: the agent took the prompt before the lookup ran, so it
+      // left `prompts` and is listed in `sent` under this send's wire id.
+      releaseLookup(state === 'delivered'
+        ? { prompts: [], sent: [{ message_id: queuedInput.messageId, prompt_id: 'synthetic-prompt' } as SessionSentPrompt] }
+        : { prompts: state === 'missing' ? [] : [{
+          prompt_id: 'synthetic-prompt',
+          client_message_id: queuedInput.clientMessageId,
+          state,
+        } as SessionPrompt] });
+      await sent;
+      expect(states).toEqual([state === 'queued' || state === 'delivered' ? 'accepted' : 'restored']);
+    } finally {
+      releaseLookup?.({ prompts: [] });
+      enqueuePrompt = async () => undefined;
+      readInboxPrompts = async () => ({ prompts: [] });
+    }
+  });
+
   test('a mounted session shows the user and assistant text without a busy row when idle', () => {
     busy = false;
     const markup = renderChat();
@@ -328,13 +419,34 @@ describe('SessionChat transcript rows', () => {
     expect(markup).not.toContain('data-testid="session-busy-indicator"');
   });
 
-  test('a working session renders the busy row', () => {
+  test('a working session whose answer has no words yet renders the busy row', () => {
+    // The words arriving are the busy signal (no busy row under them,
+    // #12547); a working turn with no open text block still shows it.
     busy = true;
-    const markup = renderChat();
-    expect(markup).toContain('data-testid="session-busy-indicator"');
-    expect(markup).toContain('Thinking');
-    busy = false;
+    fixtureMessages = [
+      baseFixtureMessages[0],
+      {
+        info: {
+          id: 'assistant-fixture',
+          role: 'assistant',
+          parentID: 'user-fixture',
+          agent: 'build',
+          time: { created: 2 },
+        },
+        // No text part: the reply has not started; nothing streams.
+        parts: [],
+      },
+    ];
+    try {
+      const markup = renderChat();
+      expect(markup).toContain('data-testid="session-busy-indicator"');
+      expect(markup).toContain('Thinking');
+    } finally {
+      busy = false;
+      fixtureMessages = baseFixtureMessages;
+    }
   });
+
 
   test('a no_reply prompt shows its bubble with no Queued, Sending or Thinking', () => {
     const ask = 'Which region?';

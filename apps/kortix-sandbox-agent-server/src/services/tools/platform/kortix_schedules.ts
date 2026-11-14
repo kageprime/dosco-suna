@@ -799,7 +799,7 @@ async function change(action: string, verb: keyof typeof VERB, id: string, conte
 export default {
   description:
     'Follow-through and work that starts by itself. ' +
-    'FOLLOW-THROUGH RULE: after any action whose result arrives later (an email or message sent and a reply expected, an order or form submitted, a change request opened, a deploy started, a question asked of a person, a page or vendor to watch), set your own wake-up BEFORE you end the turn, without being asked. ' +
+    'FOLLOW-THROUGH RULE: after any action whose result arrives later (an email or message sent and a reply expected, an order or form submitted, a change request opened, a deploy started, a question asked of a person, a page or vendor to watch), set your own wake-up BEFORE you end the turn, without being asked. Never ask the person whether to check later: set it, then say so. ' +
     '1) Prefer an event: `wake_on` with on=cr_merged (cr), connector_event (connector + event; run `events` first to pick a real event type), webhook (secret_env; give the outside system the returned URL) or app_event (app, + expect_event_within such as "1h": the person hears when the App goes quiet). ' +
     '2) Add a fallback `follow_up` when the event might never come: replies first in 2-4h during the recipient\'s working hours, then 2-4 times a day; deploys/CI every 10-30m; slow vendors daily. ' +
     '3) Write `text` for the woken turn: what was sent, to whom, what to check, what to do on each outcome, and when to stop, with an end date (default 14 days). ' +

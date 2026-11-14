@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  parseWorktreePorcelain, isClaudeWorktree, parseClaudeLock, lockState, procStatStart,
+  parseWorktreePorcelain, isRegisteredWorktree, isClaudeWorktree, parseClaudeLock, lockState, procStatStart,
   mergedPrIndex, prCovering, decideBranch, AGENT_BRANCH,
 } from '../lib';
 
@@ -20,6 +20,13 @@ describe('git worktree list --porcelain', () => {
       { path: '/w/suna/.claude/worktrees/agent-a97', head: 'ccc', branch: 'worktree-agent-a97', locked: 'claude agent agent-a97 (pid 1835031 start 8273696)' },
       { path: '/tmp/scratch/probe', head: 'ddd', locked: '', prunable: true },
     ]);
+  });
+  test('a worktree is registered only on an exact path match, never by prefix', () => {
+    expect(isRegisteredWorktree(PORCELAIN, '/w/suna-feat')).toBe(true);
+    expect(isRegisteredWorktree(PORCELAIN, '/w/suna')).toBe(true);
+    // `/w/suna-fe` is a prefix of the registered `/w/suna-feat`: a new worktree there is not "already existing".
+    expect(isRegisteredWorktree(PORCELAIN, '/w/suna-fe')).toBe(false);
+    expect(isRegisteredWorktree(PORCELAIN, '/w/sun')).toBe(false);
   });
   test('only direct children of <primary>/.claude/worktrees are Claude isolation worktrees', () => {
     expect(isClaudeWorktree('/w/suna/.claude/worktrees/agent-a97', '/w/suna')).toBe(true);

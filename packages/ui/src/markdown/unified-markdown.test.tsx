@@ -8,6 +8,7 @@ import { UiProvider } from '../providers/ui-provider';
 
 import { MarkdownImage, UnifiedMarkdown } from './unified-markdown';
 import { prepareMarkdownSource } from './unified-markdown-utils';
+import { splitSoftBreaks } from './soft-breaks';
 
 const HOST_COMPONENTS = { ConnectorConnectModal: () => null };
 
@@ -865,5 +866,53 @@ describe('MarkdownImage — a remote image in untrusted content', () => {
     expect(button).toMatch(/title="[^"]+"/);
     expect(html).not.toContain('class="truncate"');
     expect(html).not.toContain('<img');
+  });
+});
+
+describe('UnifiedMarkdown line breaks', () => {
+  const render = (content: string, variant?: 'message' | 'document') =>
+    renderToStaticMarkup(
+      withIntl(<UnifiedMarkdown trust="agent" content={content} variant={variant} lineBreaks="chat" />),
+    );
+
+  test('a message without lineBreaks="chat" (file preview, scraped page) keeps CommonMark soft breaks', () => {
+    expect(renderToStaticMarkup(withIntl(<UnifiedMarkdown trust="agent" content={'a\nb'} />))).not.toMatch(/<br\s*\/?>/);
+  });
+
+  test('chat text keeps one line per newline', () => {
+    const html = render('1 one\n2 two\n3 three');
+    expect(html.match(/<br\s*\/?>/g)?.length).toBe(2);
+    expect(html).toContain('1 one');
+    expect(html).toContain('3 three');
+  });
+
+  test('a document keeps CommonMark soft breaks even with lineBreaks="chat"', () => {
+    expect(render('a\nb', 'document')).not.toMatch(/<br\s*\/?>/);
+  });
+
+  test('fenced code keeps its newlines and gets no <br>', () => {
+    const html = render('```\nline one\nline two\n```');
+    expect(html).not.toMatch(/<br\s*\/?>/);
+  });
+
+  test('inline code with a newline is not split', () => {
+    expect(render('see `a b` here')).not.toMatch(/<br\s*\/?>/);
+  });
+
+  test('splitSoftBreaks turns text newlines into break nodes', () => {
+    type Node = { type: string; value?: string; children?: Node[] };
+    const tree: Node = {
+      type: 'root',
+      children: [
+        { type: 'paragraph', children: [{ type: 'text', value: 'a\nb' }, { type: 'inlineCode', value: 'x\ny' }] },
+      ],
+    };
+    splitSoftBreaks(tree);
+    expect(tree.children?.[0]?.children).toEqual([
+      { type: 'text', value: 'a' },
+      { type: 'break' },
+      { type: 'text', value: 'b' },
+      { type: 'inlineCode', value: 'x\ny' },
+    ]);
   });
 });

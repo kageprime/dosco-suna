@@ -96,6 +96,7 @@ export const INBOX_NOTIFICATION_KINDS = [
   'automation_recovered',
   'capture_device_down',
   'capture_device_recovered',
+  'mention',
 ] as const;
 
 /** The kinds the API sends today: every entry of {@link INBOX_NOTIFICATION_KINDS}. */
@@ -105,7 +106,8 @@ type LiveInboxNotificationKind = (typeof INBOX_NOTIFICATION_KINDS)[number];
  * What a notification is about: a turn ended (`turn_done`, `turn_error`), the
  * agent asks (`question`, `permission`), a session was shared with you
  * (`shared`), an automation fails or works again, or a Capture computer stops
- * recording or records again (`capture_device_down`, `capture_device_recovered`).
+ * recording or records again (`capture_device_down`, `capture_device_recovered`),
+ * or someone else @mentioned you or assigned you a calendar item (`mention`, flag `calendar`).
  * `message` is deprecated: a room message. Rooms were removed (2026-11); the API no longer serves these routes. Removed in the next major.
  */
 export type InboxNotificationKind = LiveInboxNotificationKind | 'message';
@@ -124,6 +126,8 @@ export interface InboxNotification {
   session_id: string | null;
   /** The automation, for the two automation kinds. */
   trigger_slug: string | null;
+  /** The calendar item of a `mention` row (flag `calendar`). */
+  calendar_item_id?: string | null;
   /** @deprecated The room of a `message` row. Rooms were removed (2026-11); the API no longer serves these routes. Removed in the next major. */
   room_id?: string | null;
   /** Who caused it: the person who shared or prompted. */
@@ -211,6 +215,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences['kinds'] 
   automation_recovered: { push: true, email: false },
   capture_device_down: { push: true, email: true },
   capture_device_recovered: { push: true, email: false },
+  mention: { push: true, email: true },
 };
 
 /** The caller's effective preferences (the defaults with their saved choices applied). */

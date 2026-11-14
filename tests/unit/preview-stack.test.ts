@@ -4,6 +4,7 @@ import {
   applyPreviewEnvironment,
   buildPreviewCaddyfile,
   buildPreviewComposeOverlay,
+  previewWorkerEnvironment,
   readPreviewRuntimeSecrets,
   validatePreviewRuntimeSecrets,
 } from '../src/core/preview-stack';
@@ -335,5 +336,27 @@ describe('ephemeral self-host preview stack', () => {
     expect(caddy).toContain('X-Forwarded-Proto https');
     const frontendBlock = caddy.slice(caddy.indexOf('reverse_proxy frontend:3000'));
     expect(frontendBlock).toContain('X-Forwarded-Host');
+  });
+
+  it('accepts only a credential-free HTTPS origin and a strict instance id', () => {
+    const stack = { sha: SHA, apiImage: 'api', gatewayImage: 'gateway', frontendImage: 'frontend' };
+    const apply = (origin: string, instanceId?: string) =>
+      applyPreviewEnvironment('', { ...stack, origin, instanceId }, {});
+    for (const origin of [
+      'https://user:pass@preview.example.test/',
+      'https://user@preview.example.test/',
+      'http://preview.example.test/',
+      'https://preview.example.test/path',
+      'https://preview.example.test/?q=1',
+      'https://preview.example.test/#h',
+    ]) {
+      expect(() => apply(origin), origin).toThrow('preview origin must be');
+    }
+    // A valid origin passes the origin check and fails on the next one.
+    expect(() => apply('https://preview.example.test')).toThrow('generated preview credentials');
+    for (const instanceId of ['kortix-preview-pr-0', 'kortix-env-', 'kortix-']) {
+      expect(() => previewWorkerEnvironment(instanceId), instanceId).toThrow('invalid preview instance id');
+    }
+    expect(previewWorkerEnvironment('kortix-preview-pr-7').KORTIX_INSTANCE_ID).toBe('kortix-preview-pr-7');
   });
 });

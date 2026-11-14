@@ -429,12 +429,13 @@ describe('trigger composer: event descriptions read as one line', () => {
 });
 
 describe('trigger composer: the summary names the agent as the picker does', () => {
-  test('both use agentDisplayLabel: a picked name is capitalised, nothing picked is the first agent', async () => {
+  test('both use agentDisplayLabel: a picked name reads as the display name, nothing picked is the first agent', async () => {
     const { agentDisplayLabel } = await import('../../../session/composer/agent-selector');
     const agents = [{ name: 'researcher' }, { name: 'writer' }] as Parameters<
       typeof agentDisplayLabel
     >[0];
     expect(agentDisplayLabel(agents, 'writer')).toBe('Writer');
+    expect(agentDisplayLabel([{ name: 'memory-reflector' } as never], 'memory-reflector')).toBe('Memory reflector');
     expect(agentDisplayLabel(agents, null)).toBe('Researcher');
     expect(agentDisplayLabel([], null)).toBe('Agent');
     expect(read('trigger-composer.tsx')).toContain('agentDisplayLabel(agents, draft.agent)');

@@ -1,5 +1,6 @@
 'use client';
 
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Kbd } from '../../../primitives/kbd';
 import { getFileIcon } from '../../../files/project/components/file-icon';
 import { cn } from '../../../lib/utils';
@@ -96,6 +97,51 @@ function SlashRowIcon({
   return <TerminalWindowIcon className={className} />;
 }
 
+/** Space kept between the menu's bottom edge and the viewport's bottom edge. */
+const VIEWPORT_GAP_PX = 8;
+/** The menu never shrinks below this: a few rows stay usable on a short window. */
+const MIN_FIT_PX = 120;
+
+/**
+ * The height left between the card's top edge and the viewport bottom, so a
+ * menu docked BELOW the composer (workspace home) never runs past the window.
+ * At 1440×900 the home menu ended at y 906. A menu docked above the composer
+ * always has the composer below it, so the cap never bites there.
+ */
+export function fitHeightBelow(top: number, viewportHeight: number): number {
+  return Math.max(MIN_FIT_PX, Math.floor(viewportHeight - top - VIEWPORT_GAP_PX));
+}
+
+function useViewportFitHeight(mounted: boolean) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [maxHeight, setMaxHeight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = cardRef.current;
+      if (!el || !el.isConnected) return;
+      const next = fitHeightBelow(el.getBoundingClientRect().top, window.innerHeight);
+      setMaxHeight((prev) => (prev === next ? prev : next));
+    };
+    measure();
+    // The suggestion plugin renders this card BEFORE it appends it to the dock
+    // (`mountDockedMenu`), so the first measure sees a detached node at top 0.
+    // The observer fires once the card has layout in the dock; the frame is
+    // the fallback where ResizeObserver does not exist.
+    const frame = window.requestAnimationFrame(measure);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    if (cardRef.current) observer?.observe(cardRef.current);
+    window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, { capture: true, passive: true });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure, { capture: true });
+    };
+  }, [mounted]);
+  return { cardRef, maxHeight };
+}
+
 /**
  * The `/` palette.
  *
@@ -145,6 +191,8 @@ export function SlashMenu({
   onHover?: (row: SlashRow) => void;
 }) {
   const t = useTranslations('sessionUi.composerMenus');
+  // The list card mounts only when a section exists: measure again when it does.
+  const { cardRef, maxHeight } = useViewportFitHeight(sections.length > 0);
   // A query that matches nothing keeps the card, with one dead row saying so.
   // Returning `null` made the palette DISAPPEAR mid-word — the user could not
   // tell "no match" from "the menu closed", and one backspace brought it back
@@ -175,7 +223,11 @@ export function SlashMenu({
       : undefined;
 
   return (
-    <MenuCard className={cn('mb-2.5 flex max-h-96 w-full overflow-hidden rounded-lg shadow-xs')}>
+    <MenuCard
+      cardRef={cardRef}
+      style={maxHeight === null ? undefined : { maxHeight: `min(calc(var(--spacing) * 96), ${maxHeight}px)` }}
+      className={cn('mb-2.5 flex max-h-96 w-full overflow-hidden rounded-lg shadow-xs')}
+    >
       <div
         role="listbox"
         aria-label={t('commandsAndActions')}

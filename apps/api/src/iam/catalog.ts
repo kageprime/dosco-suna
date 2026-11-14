@@ -18,6 +18,7 @@ import { iamRoleActions, iamRoles, objectPolicies, permissions } from '@kortix/d
 import { db } from '../shared/db';
 import { ttlMemo } from '../shared/ttl-memo';
 import { VALID_ACTIONS } from './actions';
+import { storedAction } from './workspace-scope';
 
 /** How long a catalog/system-role read is reused. Structural data, not grants. */
 const CATALOG_TTL_MS = (() => {
@@ -74,16 +75,21 @@ const loadCatalogMemo = ttlMemo({
     // A catalog row the code no longer knows is a retired action: it is never
     // offered or reported again. A contract migration then deletes the row
     // (20261017134834494_retire_customize_permissions for `project.customize.*`).
-    const all = rows.filter((r) => VALID_ACTIONS.has(r.action)).map((r) => ({
-      action: r.action,
-      scopeType: r.scopeType as ScopeType,
-      resourceType: r.resourceType,
-      delegable: r.delegable,
-      description: r.description,
-      area: r.area,
-      level: r.level,
-      implies: (r.implies ?? []) as string[],
-    }));
+    // A stored name is read as the legacy name (`storedAction`): Release 2b
+    // renames the catalog rows to their `workspace.*` names (design.md §4).
+    const all = rows
+      .map((r) => ({ ...r, action: storedAction(r.action) }))
+      .filter((r) => VALID_ACTIONS.has(r.action))
+      .map((r) => ({
+        action: r.action,
+        scopeType: r.scopeType as ScopeType,
+        resourceType: r.resourceType,
+        delegable: r.delegable,
+        description: r.description,
+        area: r.area,
+        level: r.level,
+        implies: ((r.implies ?? []) as string[]).map(storedAction),
+      }));
     return { byAction: new Map(all.map((p) => [p.action, p])), all };
   },
   // An empty catalog means the seed migration has not run. Never remember that:
@@ -159,9 +165,10 @@ const loadSystemRolesMemo = ttlMemo({
     ]);
     const actionsByRole = new Map<string, Set<string>>();
     for (const r of actionRows) {
+      const action = storedAction(r.action);
       const set = actionsByRole.get(r.roleId);
-      if (set) set.add(r.action);
-      else actionsByRole.set(r.roleId, new Set([r.action]));
+      if (set) set.add(action);
+      else actionsByRole.set(r.roleId, new Set([action]));
     }
     const byKey = new Map<string, SystemRole>();
     const byId = new Map<string, SystemRole>();

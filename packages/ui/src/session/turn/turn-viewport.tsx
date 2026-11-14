@@ -1,10 +1,10 @@
 'use client';
 
 import { cn } from '../../lib/utils';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 /**
- * Containment for a turn wrapper — and the two rules that make it safe.
+ * Containment for a turn wrapper — and the four rules that make it safe.
  *
  * `content-visibility: auto` lets the browser skip layout and paint for a turn
  * that is off screen. That is a real saving here: the transcript grows by a
@@ -26,9 +26,6 @@ import { useEffect, useRef, useState } from 'react';
  * while I scroll back"). So the stand-in is the turn's own measured height,
  * written per turn, and no turn is contained before it has one.
  *
- * RULE 3 — no containment below `TURN_MIN_CONTAIN_PX`. See its own comment:
- * a turn skipped at a near-zero stand-in can never come back.
- *
  * RULE 2 — no containment for an EMPTY turn, ever. A zero-height element can
  * never intersect the viewport, so `content-visibility: auto` classifies it as
  * "not relevant" and SKIPS it — permanently — and a skipped element stands in
@@ -42,6 +39,42 @@ import { useEffect, useRef, useState } from 'react';
  * because ANY empty turn reproduces it.) An empty turn also drops the spacing
  * its caller gave it, so a run of invisible turns contributes 0px, not a
  * stack of 48px margins.
+ *
+ * RULE 3 — no containment below `TURN_MIN_CONTAIN_PX`. See its own comment:
+ * a turn skipped at a near-zero stand-in can never come back.
+ *
+ * RULE 4 — containment is only ever ADDED while the turn is off screen.
+ * Chrome resolves `content-visibility: auto` relevance after the frame that
+ * adds the property, so a turn contained while the reader looks at it is
+ * skipped for that frame: its bubble and avatar report a `previousRect` of
+ * 0x0 and the turn box a stale one, and the frame is scored as a layout shift.
+ * Measured on a plain send (F-022, 2026-11-13): 0.026-0.046 per new turn,
+ * 900ms after it mounted (`TURN_SETTLE_MS` plus the measure frames), with an
+ * rAF probe that saw the turn's box never move. Forcing `content-visibility:
+ * visible` on the same build removed every turn shift. The queued turns of a
+ * burst each paid it in turn, which is where the audit's 0.107-0.141 shifts
+ * came from. Containment only saves work on a turn that is off screen, so
+ * holding it until the turn is out of view costs nothing: the turn is
+ * contained out of sight, where no shift is scored and none is seen. "Was off
+ * screen once" is not enough: a queued turn mounts below the fold, the
+ * auto-scroll brings it up, and its height settles 500ms later in full view
+ * (measured: 0.072 for one queued turn). So the decision is taken while the
+ * turn is out of view, and then held: once contained, `content-visibility:
+ * auto` tracks relevance by itself. Losing its stand-in (RULE 2/3) drops the
+ * hold, so containment comes back only out of view again.
+ *
+ * And it is granted only at the height the turn has AT THAT MOMENT. A turn
+ * contained for the first time out of view has no last-remembered size, so it
+ * stands in at the published height, and a turn that just grew has not
+ * published its new one yet (`TURN_SETTLE_MS`). Measured: a queued turn whose
+ * answer took it from 130px to 206px was scrolled off and contained at 130px
+ * in the same second, pulling everything under it up 76px (0.097). A height
+ * still settling waits for its publish, and the grant is checked again then.
+ *
+ * "Out of view" is read from layout at the moment of the grant, never from the
+ * observer's last report: that report is a frame late, and an auto-scroll can
+ * bring the turn on screen inside that frame. The observer only says WHEN to
+ * look again.
  */
 export type TurnMeasureState = 'unmeasured' | 'empty' | 'measured';
 
@@ -76,10 +109,57 @@ export const TURN_MIN_CONTAIN_PX = 48;
 export function turnIntrinsicSize(
   state: TurnMeasureState,
   measuredHeight: number,
+  containedOffscreen: boolean,
 ): string | undefined {
   if (state !== 'measured') return undefined;
+  if (!containedOffscreen) return undefined; // RULE 4
   if (!(measuredHeight >= TURN_MIN_CONTAIN_PX)) return undefined;
   return `auto ${measuredHeight}px`;
+}
+
+/**
+ * RULE 4's hold, as one pure step. Dropped the moment the turn has no stand-in
+ * (RULE 2/3); kept once granted; granted only while the turn is out of view AND
+ * its current layout height is the published one.
+ */
+export function nextContainHold(input: {
+  held: boolean;
+  hasStandIn: boolean;
+  outOfView: boolean;
+  heightSettled: boolean;
+}): boolean {
+  if (!input.hasStandIn) return false;
+  if (input.held) return true;
+  return input.outOfView && input.heightSettled;
+}
+
+/** RULE 4's geometry: no pixel of the turn is inside the visible band. */
+export function turnOutOfView(
+  turn: { top: number; bottom: number },
+  visible: { top: number; bottom: number },
+): boolean {
+  return turn.bottom <= visible.top || turn.top >= visible.bottom;
+}
+
+/**
+ * The band a turn can be seen in: its nearest clipping ancestor's box, clipped
+ * to the window. A clip wrapper inside the scroller only narrows the band, so
+ * the error is always "in view" (left uncontained), never a visible turn
+ * contained.
+ */
+function visibleBand(el: HTMLElement): { top: number; bottom: number } {
+  let top = 0;
+  let bottom = window.innerHeight;
+  for (let a = el.parentElement; a; a = a.parentElement) {
+    const overflowY = getComputedStyle(a).overflowY;
+    if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'hidden') {
+      const r = a.getBoundingClientRect();
+      top = Math.max(top, r.top);
+      bottom = Math.min(bottom, r.bottom);
+      break;
+    }
+  }
+  return { top, bottom };
 }
 
 /**
@@ -90,18 +170,21 @@ export function turnIntrinsicSize(
  * - `empty`      → no containment (RULE 2), and `mt-0` AFTER the caller's
  *                  classes so tailwind-merge drops the caller's `mt-*`.
  * - `measured`   → containment, but ONLY when it has a stand-in to be skipped
- *                  at (RULE 3). The size itself is an inline style, so the
- *                  class is driven by `turnIntrinsicSize` rather than by the
- *                  state: that is what makes "contained" and "has a stand-in"
- *                  the same fact instead of two that can disagree.
+ *                  at (RULE 3) and the hold was granted out of view, at
+ *                  its current height (RULE 4). The size itself is an
+ *                  inline style, so the class is driven by
+ *                  `turnIntrinsicSize` rather than by the state: that is
+ *                  what makes "contained" and "has a stand-in" the same fact
+ *                  instead of two that can disagree.
  */
 export function turnViewportClassName(
   state: TurnMeasureState,
   className?: string,
   measuredHeight = 0,
+  containedOffscreen = false,
 ): string {
   return cn(
-    turnIntrinsicSize(state, measuredHeight) !== undefined && '[content-visibility:auto]',
+    turnIntrinsicSize(state, measuredHeight, containedOffscreen) !== undefined && '[content-visibility:auto]',
     className,
     state === 'empty' && 'mt-0',
   );
@@ -162,7 +245,26 @@ export function turnLayoutHeight(el: HTMLElement): number {
 export function useTurnMeasure(ref: React.RefObject<HTMLDivElement | null>): {
   state: TurnMeasureState;
   height: number;
+  /** RULE 4: containment was granted while the turn was out of view. */
+  containedOffscreen: boolean;
 } {
+  // RULE 4. Whether the turn is in view right now. The scroll container clips
+  // the turn, so a root-less observer sees it leave. Starts as "in view": a
+  // turn is never contained before the observer has reported once.
+  const [inView, setInView] = useState(true);
+  const [containedOffscreen, setContainedOffscreen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    // Held: `content-visibility: auto` tracks relevance now; stop observing.
+    if (!el || containedOffscreen || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver((entries) => {
+      const entry = entries[entries.length - 1];
+      if (entry) setInView(entry.isIntersecting);
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [ref, containedOffscreen]);
+
   const [measure, setMeasure] = useState<{ state: TurnMeasureState; height: number }>({
     state: 'unmeasured',
     height: 0,
@@ -212,7 +314,27 @@ export function useTurnMeasure(ref: React.RefObject<HTMLDivElement | null>): {
     };
   }, [ref]);
 
-  return measure;
+  // The hold (`nextContainHold`). Dropping it needs no layout read: a guarded
+  // render-phase update, so the class goes in the commit that loses the
+  // stand-in. Granting reads layout, so it is a layout effect: the geometry
+  // check and the class land in the same frame.
+  const hasStandIn = turnIntrinsicSize(measure.state, measure.height, true) !== undefined;
+  if (!hasStandIn && containedOffscreen) setContainedOffscreen(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || containedOffscreen || !hasStandIn || inView) return;
+    const box = el.getBoundingClientRect();
+    const grant = nextContainHold({
+      held: false,
+      hasStandIn,
+      outOfView: turnOutOfView(box, visibleBand(el)),
+      // Still settling: the publish re-runs this with the height it settles at.
+      heightSettled: box.height === measure.height,
+    });
+    if (grant) setContainedOffscreen(true);
+  }, [ref, measure.height, hasStandIn, inView, containedOffscreen]);
+
+  return { ...measure, containedOffscreen };
 }
 
 /**
@@ -232,15 +354,15 @@ export function TurnViewport({
   children?: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const { state, height } = useTurnMeasure(ref);
-  const containIntrinsicSize = turnIntrinsicSize(state, height);
+  const { state, height, containedOffscreen } = useTurnMeasure(ref);
+  const containIntrinsicSize = turnIntrinsicSize(state, height, containedOffscreen);
 
   return (
     <div
       ref={ref}
       data-turn-id={turnId}
       data-turn-continues={continues || undefined}
-      className={turnViewportClassName(state, className, height)}
+      className={turnViewportClassName(state, className, height, containedOffscreen)}
       style={containIntrinsicSize ? { containIntrinsicSize } : undefined}
     >
       {children}

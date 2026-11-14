@@ -177,7 +177,7 @@ async function readStdinText(): Promise<string> {
 // ── sessions message ─────────────────────────────────────────────────────
 
 export async function runSessionsMessage(argv: string[]): Promise<number> {
-  const helped = argv.some((a) => a === '-h' || a === '--help') ? splitHelp(argv, MESSAGE_HELP) : null;
+  const helped = splitHelp(argv, MESSAGE_HELP);
   if (helped !== null) return helped;
   const rest = [...argv];
   let common: Common;
@@ -269,10 +269,10 @@ function ambiguous(err: ApiError, to: string, json: boolean): number {
 // ── sessions reachable ───────────────────────────────────────────────────
 
 export async function runSessionsReachable(argv: string[]): Promise<number> {
-  if (argv.some((a) => a === '-h' || a === '--help')) {
-    process.stdout.write(REACHABLE_HELP);
-    return 0;
-  }
+  // A bare `sessions reachable` lists the caller's agents; only a help FLAG
+  // shows help.
+  const helped = argv.length > 0 ? splitHelp(argv, REACHABLE_HELP) : null;
+  if (helped !== null) return helped;
   const rest = [...argv];
   let common: Common;
   let from: string | undefined;
@@ -321,10 +321,8 @@ export async function runSessionsReachable(argv: string[]): Promise<number> {
 // ── sessions inbound ─────────────────────────────────────────────────────
 
 export async function runSessionsInbound(argv: string[]): Promise<number> {
-  if (argv.length === 0 || argv.some((a) => a === '-h' || a === '--help')) {
-    process.stdout.write(INBOUND_HELP);
-    return argv.length === 0 ? 2 : 0;
-  }
+  const helped = splitHelp(argv, INBOUND_HELP);
+  if (helped !== null) return helped;
   const rest = [...argv];
   let common: Common;
   try {

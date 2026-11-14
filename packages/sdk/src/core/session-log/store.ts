@@ -84,6 +84,16 @@ function without(state: SessionLogState, id: string): Record<string, SessionLogM
   return { ...state.messages, [thread]: state.messages[thread]!.filter((m) => m.message_id !== id) };
 }
 
+/** The store holds `message`'s id as a streaming record (a live put the final put has not replaced yet). */
+function heldStreaming(state: SessionLogState, message: SessionLogMessage): boolean {
+  return state.messages[message.thread_id]?.some((m) => m.message_id === message.message_id && m.status === 'streaming') ?? false;
+}
+
+/** The store holds `message`'s id as a finished record (any status but `streaming`). */
+function heldFinished(state: SessionLogState, message: SessionLogMessage): boolean {
+  return state.messages[message.thread_id]?.some((m) => m.message_id === message.message_id && m.status !== 'streaming') ?? false;
+}
+
 /**
  * `message` in its thread, by `seq`, replacing any copy of the same id. Every message enters
  * here, from a page or a frame: a shell command that exited non-zero is stored as one
@@ -104,6 +114,9 @@ function applyMessage(state: SessionLogState, p: unknown): SessionLogState {
     if (!isSessionLogMessage(p.message)) return state;
     const id = p.message.message_id;
     if ((state.revs[id] ?? -1) >= p.rev) return state;
+    // pi streams a message once, before its final record: a streaming put that reaches a finished
+    // record is a late frame, not news (F-012: a page settled it after the final put was lost).
+    if (p.message.status === 'streaming' && heldFinished(state, p.message)) return state;
     return { ...state, messages: put(without(state, id), p.message), revs: { ...state.revs, [id]: p.rev } };
   }
   if (typeof p.message_id !== 'string' || (state.revs[p.message_id] ?? -1) >= p.rev) return state;
@@ -119,6 +132,10 @@ function applyDelta(state: SessionLogState, p: unknown): SessionLogState {
   const index = message.blocks.findIndex((b) => b.id === p.block_id);
   const block = message.blocks[index];
   if (!block || (block.type !== 'text' && block.type !== 'reasoning')) return state;
+  // Deltas extend a streaming record only (kortixd puts one before the first delta). A finished
+  // record (its final put, or a page) already holds its whole text: a delta sent before its end and
+  // applied after it (runtime frames are coalesced, control frames are not) would add it twice (F-012).
+  if (message.status !== 'streaming') return state;
   const blocks = message.blocks.slice();
   blocks[index] = { ...block, text: block.text + p.delta };
   const next = list.slice();
@@ -171,7 +188,12 @@ export function applySessionLogPage(state: SessionLogState, page: SessionLogPage
     if (settled.length !== held.length) messages = { ...messages, [thread]: settled };
   }
   for (const message of page.messages) {
-    if (!isSessionLogMessage(message) || state.revs[message.message_id] !== undefined) continue;
+    if (!isSessionLogMessage(message)) continue;
+    // A finished record replaces a held streaming one even though the stream put it (F-012): the
+    // final record follows every streaming put of its message, and a stream that lost that final
+    // put held the reply's partial text forever. Its rev stays, so a late streaming put cannot win.
+    const finishesStreaming = message.status !== 'streaming' && heldStreaming(state, message);
+    if (state.revs[message.message_id] !== undefined && !finishesStreaming) continue;
     messages = put(messages, message);
   }
   const threads = { ...state.threads };

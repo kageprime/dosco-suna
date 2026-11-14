@@ -236,8 +236,8 @@ describe('planPickerView', () => {
   const freePlan = { key: 'free', family: 'free', label: 'Free', sublabel: null, status: 'current', shape: 'none', rank: 1, monthly_usd: null } as AccountState['plan'];
   const creditsPlan = { key: 'credits', family: 'credits', label: 'Credits', sublabel: null, status: 'current', shape: 'credits', rank: 2, monthly_usd: 500 } as AccountState['plan'];
 
-  test('a Free account opens on the default tier', () => {
-    expect(view({ plan: freePlan })).toEqual({ currentUsd: null, initialUsd: 200 });
+  test('a Free account opens on the $50 entry tier', () => {
+    expect(view({ plan: freePlan })).toEqual({ currentUsd: null, initialUsd: 50 });
   });
 
   test('a paying account opens on the amount it pays', () => {
@@ -257,7 +257,7 @@ describe('planPickerView', () => {
   test('Enterprise demo or license still gets the picker: Enterprise never replaces the plan', () => {
     const demo = view({ plan: freePlan, enterprise: { state: 'demo' } });
     const licensed = view({ plan: creditsPlan, enterprise: { state: 'licensed' } }, { monthly_usd: 500, subscription_id: 'sub_1', status: 'active' });
-    expect(demo).toEqual({ currentUsd: null, initialUsd: 200 });
+    expect(demo).toEqual({ currentUsd: null, initialUsd: 50 });
     expect(licensed).toEqual({ currentUsd: 500, initialUsd: 500 });
   });
 
@@ -284,8 +284,8 @@ describe('recommendedPlanUsd', () => {
       },
     } as Partial<AccountState>);
 
-  test('no subscription: the most common tier', () => {
-    expect(recommendedPlanUsd(stateWith({ has_active_subscription: false } as Partial<AccountState>))).toBe(200);
+  test('no subscription: the $50 entry tier', () => {
+    expect(recommendedPlanUsd(stateWith({ has_active_subscription: false } as Partial<AccountState>))).toBe(50);
   });
 
   test('a subscriber: the smallest higher tier that covers usage with 20% to spare', () => {

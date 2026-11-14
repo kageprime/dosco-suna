@@ -189,6 +189,13 @@ describe("toast factories — duration", () => {
     }
   });
 
+  test("loadingToast with success: false closes with no success toast", async () => {
+    reset();
+    await loadingToast("Starting", Promise.resolve("ok"), { success: false });
+    expect(customCalls.length).toBe(1);
+    expect(dismissed.length).toBe(1);
+  });
+
   test("loadingToast renders for Infinity regardless of an explicit duration", () => {
     reset();
     void loadingToast("Saved", Promise.resolve("ok"), { duration: 500 });

@@ -345,10 +345,12 @@ function segmentRendersSomething(segment: TurnSegment): boolean {
 export function turnWorkSplit(
   segments: ReadonlyArray<TurnSegment>,
   working: boolean,
+  /** Every agent the turn started has reported (`sessionLogAgentRuns` → `settledLaunches`): its agent rows fold too. */
+  foldStartedWork = false,
 ): { [K in keyof SessionLogTurnWorkSplit]: TurnSegment[] } | null {
   if (working) return null;
   // The split hands back the segments it was given: no show group goes in, none comes out.
-  return splitSessionLogTurnWork(segments.filter(segmentRendersSomething), { working }) as {
+  return splitSessionLogTurnWork(segments.filter(segmentRendersSomething), { working, foldStartedWork }) as {
     [K in keyof SessionLogTurnWorkSplit]: TurnSegment[];
   } | null;
 }
@@ -598,4 +600,29 @@ export function toDisplayPath(absPath: string, roots: readonly string[] = WORKSP
     if (absPath.startsWith(prefix)) return absPath.slice(prefix.length);
   }
   return absPath;
+}
+
+/** A `send_message` call: the agent relaying between colleagues. Inside an agent run it is noise (web `isRelayCall`). */
+function isRelayCall(block: SessionLogBlock): boolean {
+  return block.type === 'tool_call' && block.name.toLowerCase().replace(/[^a-z]/g, '') === 'sendmessage';
+}
+
+/** The segments without the relay calls; the same array when there is none (web `withoutRelayCalls`, KRTX-4732). */
+export function withoutRelayCalls(segments: TurnSegment[]): TurnSegment[] {
+  let changed = false;
+  const kept = segments.flatMap((segment): TurnSegment[] => {
+    if (segment.kind === 'standalone' && isRelayCall(segment.block)) {
+      changed = true;
+      return [];
+    }
+    if (segment.kind === 'burst') {
+      const blocks = segment.blocks.filter((block) => !isRelayCall(block));
+      if (blocks.length !== segment.blocks.length) {
+        changed = true;
+        return blocks.length ? [{ ...segment, blocks }] : [];
+      }
+    }
+    return [segment];
+  });
+  return changed ? kept : segments;
 }

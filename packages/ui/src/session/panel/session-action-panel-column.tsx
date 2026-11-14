@@ -57,7 +57,8 @@ import {
 } from '../../internal/stores/kortix-computer-store';
 import { useTabStore } from '../../internal/stores/tab-store';
 import { CaretDoubleLeftIcon, CaretDoubleRightIcon } from '@phosphor-icons/react';
-import { m, useReducedMotion } from 'motion/react';
+import { m } from 'motion/react';
+import { useReducedMotion } from '../../internal/hooks/use-reduced-motion';
 import { useEffect } from 'react';
 
 /** The panel's open width. The inner content is pinned to it so the cards keep

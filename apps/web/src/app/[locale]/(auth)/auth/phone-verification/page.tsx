@@ -207,56 +207,58 @@ export default function PhoneVerificationPage() {
   }, [error]);
 
   return (
-    <div className="bg-background relative flex min-h-svh flex-col">
-      <AuthMobileLogo />
-      <div className="kx-below-titlebar absolute top-6 right-6 z-10">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleSignOut}
-          disabled={signOutMutation.isPending}
-          className="text-muted-foreground hover:text-foreground gap-2"
-        >
-          {signOutMutation.isPending ? (
-            <Loading className="text-foreground! size-4 shrink-0" />
-          ) : (
-            <LogOut className="size-4" />
-          )}
-          <span className="hidden sm:inline">
-            {signOutMutation.isPending ? t('signingOut') : t('signOut')}
-          </span>
-        </Button>
-      </div>
-
-      <main className="flex flex-1 flex-col items-center justify-center px-6 pb-24">
-        <div className="w-full max-w-[380px]">
-          <Rise>
-            <StepHeader
-              title={step === 'phone' ? t('title') : t('titleOtp')}
-              description={step === 'phone' ? t('description') : t('descriptionOtp')}
-            />
-          </Rise>
-
-          <Rise delay={0.06}>
-            {success && <SuccessStrip message={success} />}
-
-            {step === 'phone' ? (
-              <PhoneInput onSubmit={handlePhoneSubmit} isLoading={isLoading} error={error} />
+    <div className="bg-background flex min-h-svh">
+      <div className="relative flex min-h-svh flex-1 flex-col">
+        <AuthMobileLogo />
+        <div className="kx-below-titlebar absolute top-6 right-6 z-10">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSignOut}
+            disabled={signOutMutation.isPending}
+            className="text-muted-foreground hover:text-foreground gap-2"
+          >
+            {signOutMutation.isPending ? (
+              <Loading className="text-foreground! size-4 shrink-0" />
             ) : (
-              <OtpVerification
-                phoneNumber={phoneNumber}
-                onVerify={handleOtpVerify}
-                onResend={handleResendCode}
-                onSendCode={handleCreateChallengeForExistingFactor}
-                onRemovePhone={handleUnenrollFactor}
-                isLoading={isLoading}
-                error={error}
-                challengeId={challengeId}
-              />
+              <LogOut className="size-4" />
             )}
-          </Rise>
+            <span className="hidden sm:inline">
+              {signOutMutation.isPending ? t('signingOut') : t('signOut')}
+            </span>
+          </Button>
         </div>
-      </main>
+
+        <main className="flex flex-1 flex-col items-center justify-center px-6 pb-24">
+          <div className="w-full max-w-[380px]">
+            <Rise>
+              <StepHeader
+                title={step === 'phone' ? t('title') : t('titleOtp')}
+                description={step === 'phone' ? t('description') : t('descriptionOtp')}
+              />
+            </Rise>
+
+            <Rise delay={0.06}>
+              {success && <SuccessStrip message={success} />}
+
+              {step === 'phone' ? (
+                <PhoneInput onSubmit={handlePhoneSubmit} isLoading={isLoading} error={error} />
+              ) : (
+                <OtpVerification
+                  phoneNumber={phoneNumber}
+                  onVerify={handleOtpVerify}
+                  onResend={handleResendCode}
+                  onSendCode={handleCreateChallengeForExistingFactor}
+                  onRemovePhone={handleUnenrollFactor}
+                  isLoading={isLoading}
+                  error={error}
+                  challengeId={challengeId}
+                />
+              )}
+            </Rise>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

@@ -82,6 +82,25 @@ describe('wallet failure branches', () => {
     ).toEqual({ replayed: true, ledgerId: null });
   });
 
+  test('a grant that hits a statement timeout is a retryable 503 that keeps the driver error (KRTX-4818)', async () => {
+    executeError = queryError({ code: '57014', message: 'canceling statement due to statement timeout' });
+    const error = await wallet
+      .grant({ accountId: 'acct', amount: 1, kind: 'llm_reservation_refund', description: 'x', expiring: false, key: null })
+      .catch((err) => err);
+    expect(error).toBeInstanceOf(WalletUnavailableError);
+    expect(error.cause).toBe(executeError);
+  });
+
+  test('a grant that loses a deadlock or lock wait is a retryable 503 (KRTX-4818)', async () => {
+    for (const code of ['40P01', '55P03']) {
+      executeError = queryError({ code, message: 'contention' });
+      const error = await wallet
+        .grant({ accountId: 'acct', amount: 1, kind: 'purchase', description: 'x', expiring: false, key: { event: 'pi_1' } })
+        .catch((err) => err);
+      expect(error).toBeInstanceOf(WalletUnavailableError);
+    }
+  });
+
   test('any other grant failure propagates', async () => {
     executeError = lostConnection;
     await expect(

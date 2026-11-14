@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import Ajv2020 from 'ajv/dist/2020';
 import { parse as parseYaml } from 'yaml';
-import { validateManifest } from '../index';
+import { validateManifest, type ManifestIssue } from '../index';
 import { KORTIX_JSON_SCHEMA } from '../json-schema';
+import { validatePolicyRuleList } from '../policy-sets';
 
 const ajv = new Ajv2020({ strict: false, allErrors: true });
 const schema = ajv.compile(KORTIX_JSON_SCHEMA as Record<string, unknown>);
@@ -51,6 +52,18 @@ describe('policy sets in the manifest', () => {
     const text = manifest('    policy_sets:\n      gmail: read_only');
     expect(issuesAt(text).errors).toEqual([]);
     expect(schema(parseYaml(text))).toBe(true);
+  });
+
+  test('a set rule with an unknown action names the known actions', () => {
+    const issues: ManifestIssue[] = [];
+    validatePolicyRuleList([{ match: '*', action: 'ALLOW' }, { match: '*', action: ' Block ' }], 'p', issues);
+    expect(issues).toEqual([
+      {
+        path: 'p[0].action',
+        message: 'action must be one of: always_run, require_approval, block (got "allow").',
+        severity: 'error',
+      },
+    ]);
   });
 
   test('an unknown set name is an error naming the entry', () => {

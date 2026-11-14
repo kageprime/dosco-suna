@@ -37,10 +37,13 @@ export function NoAgentHome({
   reason,
   repoUrl,
   branch,
+  dashboardUrl,
 }: {
   reason: NoAgentReason;
   repoUrl: string | null | undefined;
   branch: string | null | undefined;
+  /** The project's web page (`dashboard_url`): the copied prompt names this deployment's guide. */
+  dashboardUrl?: string | null;
 }) {
   const t = useTranslations('noAgentHome');
   const [copied, setCopied] = useState(false);
@@ -51,7 +54,7 @@ export function NoAgentHome({
   }, [copied]);
 
   const copyPrompt = async () => {
-    const prompt = existingRepoSetupPrompt({ repository: repositoryLabel(repoUrl), branch });
+    const prompt = existingRepoSetupPrompt({ repository: repositoryLabel(repoUrl), branch, dashboardUrl });
     if (await copyToClipboard(prompt)) setCopied(true);
     else errorToast(t('copyFailed'));
   };

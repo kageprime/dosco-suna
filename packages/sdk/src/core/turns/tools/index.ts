@@ -4,9 +4,10 @@
  * humanizing, patch verbs, success/partial/failed outcomes, and parsers for
  * web search, scrape, skill, memory, read, question, presentation and worker
  * output, the `image_gen` card's state, the platform tools' `KortixToolResult`
- * card, and the `workflow` run document. Pure data → data, no framework.
+ * card, the `workflow` run document, and the connector sign-ins a call started. Pure data → data, no framework.
  */
 export * from './agent-helpers';
+export * from './connector-sign-in';
 export * from './file-verb';
 export * from './image-gen-view';
 export * from './kortix-tool-card';

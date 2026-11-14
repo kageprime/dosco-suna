@@ -63,7 +63,7 @@ export type PreviewState =
   | 'not-listening'
   | 'unreachable';
 
-export interface PreviewStateCopy {
+interface PreviewStateCopy {
   title: string;
   body: string;
   /** Offer the Kortix sign-in hand-off. */
@@ -72,7 +72,7 @@ export interface PreviewStateCopy {
   autoRetry: boolean;
 }
 
-export function previewStateCopy(state: PreviewState, port?: number): PreviewStateCopy {
+function previewStateCopy(state: PreviewState, port?: number): PreviewStateCopy {
   switch (state) {
     case 'signed-out':
       return {

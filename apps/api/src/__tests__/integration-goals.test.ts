@@ -26,7 +26,7 @@ const { runGoalReconcilerTick } = await import('../projects/goals/reconcile');
 const { wakeGoalForMergedChangeRequest } = await import('../projects/lib/goal-wake');
 const { fireGitTrigger } = await import('../projects/lib/trigger-fire');
 const { GoalError, getGoal } = await import('../projects/goals/store');
-const { nextUtcMidnight } = await import('../projects/goals/rules');
+const { goalWakePrompt, nextUtcMidnight } = await import('../projects/goals/rules');
 type GoalActor = import('../projects/goals/rules').GoalActor;
 type ProjectRow = import('../projects/lib/serializers').ProjectRow;
 
@@ -35,6 +35,8 @@ const PROJECT = crypto.randomUUID();
 const ANA = crypto.randomUUID();
 const BO = crypto.randomUUID();
 const volume = new FakeVolume();
+/** A prompt a person typed into the session. */
+const PERSON = { source: 'ui', text: 'How is it going?' };
 
 const prompts: Array<{ sessionId: string; key: string; text: string; userId: string | null }> = [];
 /** Prompt keys whose next queue attempt fails once (a lifecycle queue outage). */
@@ -175,6 +177,204 @@ describe('create', () => {
     expect(made.ownerSessionId).not.toBe(chat);
     const [created] = await db.select().from(projectGoalEvents).where(and(eq(projectGoalEvents.goalId, made.goalId), eq(projectGoalEvents.kind, 'created')));
     expect(created!.actorKind).toBe('session');
+  });
+});
+
+// Goal mode: a chat binds its goal to itself (`here`) and keeps working it; no owner session, no first prompt, no flag.
+describe('goal mode: a goal bound to its chat', () => {
+  async function chat(): Promise<string> {
+    const sessionId = crypto.randomUUID();
+    await db.insert(projectSessions).values({ sessionId, accountId: ACCOUNT, projectId: PROJECT, branchName: sessionId, createdBy: ANA, agentName: 'mykortix', visibility: 'private', metadata: {} });
+    return sessionId;
+  }
+  const boundInput = () => ({ goal_id: crypto.randomUUID(), brief: `Synthetic invoice paid ${crypto.randomUUID().slice(0, 6)}`, criteria: ['The transfer shows as sent'], agent: 'kortix', here: true });
+
+  test('the chat owns it: active at once, heartbeat on, no new session, no first prompt', async () => {
+    const sessionId = await chat();
+    const goal = await goals.createGoal(ctx(asSession(sessionId)), boundInput());
+    expect(goal).toMatchObject({ state: 'active', ownerSessionId: sessionId, blockedReason: null });
+    expect(goal.setup).toMatchObject({ bound: true });
+    expect(goal.sessions).toEqual([expect.objectContaining({ id: sessionId, role: 'owner' })]);
+    expect((await heartbeat(goal.goalId))?.enabled).toBe(true);
+    expect(prompts).toEqual([]);
+    const sessionsOfProject = await db.select({ id: projectSessions.sessionId }).from(projectSessions).where(eq(projectSessions.projectId, PROJECT));
+    expect(sessionsOfProject.filter((row) => row.id === goal.goalId)).toEqual([]);
+  });
+
+  test('a Drive outage at create does not hold a bound goal: active, heartbeat on, no GOAL.md', async () => {
+    const sessionId = await chat();
+    const failing = Object.create(volume, { write: { value: async () => { throw new Error('Drive storage is unavailable, try again shortly'); } } });
+    setVolumeOpsForTests(failing);
+    try {
+      const goal = await goals.createGoal(ctx(asSession(sessionId)), boundInput());
+      expect(goal).toMatchObject({ state: 'active', blockedReason: null });
+      expect((await heartbeat(goal.goalId))?.enabled).toBe(true);
+    } finally {
+      setVolumeOpsForTests(volume);
+    }
+  });
+
+  test('one open goal per chat; a person or a goal without criteria is refused; a done goal leaves room for the next', async () => {
+    const sessionId = await chat();
+    const goal = await goals.createGoal(ctx(asSession(sessionId)), boundInput());
+    expect(await refusal(goals.createGoal(ctx(asSession(sessionId)), boundInput()))).toMatchObject({ status: 403 });
+    expect(await refusal(goals.createGoal(ctx(ana), boundInput()))).toMatchObject({ status: 403 });
+    expect(await refusal(goals.createGoal(ctx(asSession(await chat())), { ...boundInput(), criteria: [] }))).toMatchObject({ status: 422 });
+    await db.update(projectGoals).set({ state: 'done' }).where(eq(projectGoals.goalId, goal.goalId));
+    expect((await goals.createGoal(ctx(asSession(sessionId)), boundInput())).ownerSessionId).toBe(sessionId);
+  });
+
+  test('the chat keeps running: no handover, its prompts are never refused, its heartbeat needs no goals flag', async () => {
+    const sessionId = await chat();
+    const goal = await goals.createGoal(ctx(asSession(sessionId)), boundInput());
+    expect(await refusal(goals.handoverGoal(ctx(asSession(sessionId)), goal.goalId, { revision: goal.revision, note: 'moving on' }))).toMatchObject({ status: 409 });
+    const flagOff = { ...project, metadata: { experimental: { goals: false, reminders: true } } } as ProjectRow;
+    expect(await admitGoalWake({ project: flagOff, goal, idempotencyKey: `bound-${goal.goalId}`, source: 'reminder' })).toMatchObject({ admitted: true });
+    await db.update(projectGoals).set({ state: 'stopped' }).where(eq(projectGoals.goalId, goal.goalId));
+    expect(await goalPromptRefusal(sessionId, PERSON)).toBeNull();
+  });
+
+  test("after a pause or a stop the goal's own queued prompts do not run; the person's messages and the chat's other loops do", async () => {
+    const sessionId = await chat();
+    const goal = await goals.createGoal(ctx(asSession(sessionId)), boundInput());
+    const wake = goalWakePrompt(goal.boxFolder, goal.goalId);
+    const heartbeatFire = { source: 'trigger:reminder', text: `[REMINDER reminder.0123456789ab — recurring]\n${wake}` };
+    const enginePrompt = { source: 'system:goal', text: `${wake} A person resumed the goal.` };
+    const otherLoop = { source: 'trigger:reminder', text: '[REMINDER reminder.ba9876543210 — recurring]\nCheck the synthetic mailbox.' };
+    // Active: everything runs, with the project's `goals` flag off too.
+    await db.update(projects).set({ metadata: { experimental: { goals: false, reminders: true } } }).where(eq(projects.projectId, PROJECT));
+    try {
+      for (const prompt of [PERSON, heartbeatFire, enginePrompt, otherLoop]) expect(await goalPromptRefusal(sessionId, prompt)).toBeNull();
+    } finally {
+      await db.update(projects).set({ metadata: { experimental: { goals: true, reminders: true } } }).where(eq(projects.projectId, PROJECT));
+    }
+    await db.update(projectGoals).set({ pausedAt: new Date() }).where(eq(projectGoals.goalId, goal.goalId));
+    expect(await goalPromptRefusal(sessionId, heartbeatFire)).toContain('paused');
+    expect(await goalPromptRefusal(sessionId, enginePrompt)).toContain('paused');
+    expect(await goalPromptRefusal(sessionId, PERSON)).toBeNull();
+    expect(await goalPromptRefusal(sessionId, otherLoop)).toBeNull();
+    const verifierId = await chat();
+    await db.update(projectGoals).set({ pausedAt: null, state: 'stopped', verifierSessionId: verifierId }).where(eq(projectGoals.goalId, goal.goalId));
+    expect(await goalPromptRefusal(sessionId, heartbeatFire)).toContain('stopped');
+    expect(await goalPromptRefusal(sessionId, PERSON)).toBeNull();
+    // The verifier session is not the chat: nothing runs in it once the goal is stopped.
+    expect(await goalPromptRefusal(verifierId, enginePrompt)).toContain('stopped');
+  });
+
+  test('the chat stops its own goal when its person says so: heartbeat gone, its own turn not aborted, room for the next goal', async () => {
+    const sessionId = await chat();
+    const goal = await goals.createGoal(ctx(asSession(sessionId)), boundInput());
+    expect(await refusal(goals.stopGoal(ctx(asSession(sessionId)), goal.goalId, { revision: goal.revision }))).toMatchObject({ status: 422 });
+    expect(await refusal(goals.stopGoal(ctx(asSession(await chat())), goal.goalId, { revision: goal.revision, reason: 'Ana said: drop it' }))).toMatchObject({ status: 403 });
+    const stopped = await goals.stopGoal(ctx(asSession(sessionId)), goal.goalId, { revision: goal.revision, reason: 'Ana said: drop it' });
+    expect(stopped).toMatchObject({ state: 'stopped', stoppedByUserId: ANA, heartbeatReminderId: null });
+    expect(aborted).not.toContain(sessionId);
+    const [event] = (await eventsOf(goal.goalId)).filter((row) => row.kind === 'stopped');
+    expect(event).toMatchObject({ actorKind: 'session', actorId: sessionId, message: 'Ana said: drop it' });
+    expect((await goals.createGoal(ctx(asSession(sessionId)), boundInput())).state).toBe('active');
+  });
+
+  test("a chat's next goal does not let the stopped goal's queued prompts through", async () => {
+    const sessionId = await chat();
+    const first = await goals.createGoal(ctx(asSession(sessionId)), boundInput());
+    const fireOf = (goal: { boxFolder: string; goalId: string }) => ({ source: 'trigger:reminder', text: `[REMINDER reminder.0123456789ab — recurring]\n${goalWakePrompt(goal.boxFolder, goal.goalId)}` });
+    await goals.stopGoal(ctx(asSession(sessionId)), first.goalId, { revision: first.revision, reason: 'Ana said: drop it' });
+    const second = await goals.createGoal(ctx(asSession(sessionId)), boundInput());
+    expect(await goalPromptRefusal(sessionId, fireOf(first))).toContain('stopped');
+    expect(await goalPromptRefusal(sessionId, { source: 'system:goal', text: `${goalWakePrompt(first.boxFolder, first.goalId)} A person resumed the goal.` })).toContain('stopped');
+    expect(await goalPromptRefusal(sessionId, fireOf(second))).toBeNull();
+    expect(await goalPromptRefusal(sessionId, PERSON)).toBeNull();
+  });
+
+  test('a retried create of the same bound goal answers that goal, not "this chat already works a goal"', async () => {
+    const sessionId = await chat();
+    const input = boundInput();
+    const goal = await goals.createGoal(ctx(asSession(sessionId)), input);
+    const again = await goals.createGoal(ctx(asSession(sessionId)), input);
+    expect(again).toMatchObject({ goalId: goal.goalId, state: 'active', ownerSessionId: sessionId });
+    expect((await db.select().from(projectGoals).where(eq(projectGoals.ownerSessionId, sessionId))).length).toBe(1);
+  });
+
+  test("a create that names another chat's goal, or a page goal, is refused: 409, nothing returned", async () => {
+    const owner = await chat();
+    const bound = await goals.createGoal(ctx(asSession(owner)), boundInput());
+    const page = await activeGoal();
+    for (const goalId of [bound.goalId, page.goalId]) {
+      expect(await refusal(goals.createGoal(ctx(asSession(await chat())), { ...boundInput(), goal_id: goalId }))).toMatchObject({ status: 409, code: 'goal_conflict' });
+    }
+  });
+
+  test('two creates from one chat at the same moment leave one open goal', async () => {
+    const sessionId = await chat();
+    const made = await Promise.allSettled([goals.createGoal(ctx(asSession(sessionId)), boundInput()), goals.createGoal(ctx(asSession(sessionId)), boundInput())]);
+    expect(made.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const open = (await db.select().from(projectGoals).where(eq(projectGoals.ownerSessionId, sessionId))).filter((row) => row.state === 'active');
+    expect(open).toHaveLength(1);
+  });
+
+  test("the chat's box failed: no successor session takes the goal; it blocks as owner_lost and stays the chat's", async () => {
+    const sessionId = await chat();
+    const goal = await goals.createGoal(ctx(asSession(sessionId)), boundInput());
+    const verdict = await goalSuccessorAllowed(PROJECT, goal.heartbeatReminderId!);
+    expect(verdict.allowed).toBe(false);
+    expect((await getGoal(PROJECT, goal.goalId))!).toMatchObject({ ownerSessionId: sessionId, blockedReason: 'owner_lost' });
+    // The chat still stops it for its person.
+    const now = (await getGoal(PROJECT, goal.goalId))!;
+    expect((await goals.stopGoal(ctx(asSession(sessionId)), goal.goalId, { revision: now.revision, reason: 'Ana said: drop it' })).state).toBe('stopped');
+  });
+
+  test('the chat works again after its box failed: the reconciler unblocks its goal and turns the heartbeat back on', async () => {
+    const sessionId = await chat();
+    const goal = await goals.createGoal(ctx(asSession(sessionId)), boundInput());
+    await db.update(projectSessions).set({ status: 'failed' }).where(eq(projectSessions.sessionId, sessionId));
+    await goalSuccessorAllowed(PROJECT, goal.heartbeatReminderId!);
+    // What the fire does after the refusal: the heartbeat goes off.
+    await db.update(projectTriggerRuntime).set({ enabled: false, nextFireAt: null }).where(and(eq(projectTriggerRuntime.projectId, PROJECT), eq(projectTriggerRuntime.slug, goal.heartbeatReminderId!)));
+    const sweep = async () => {
+      let cursor: string | null = null;
+      do {
+        cursor = (await runGoalReconcilerTick(cursor)).cursor;
+      } while (cursor);
+    };
+    // Still failed: it stays blocked, heartbeat off.
+    await sweep();
+    expect((await getGoal(PROJECT, goal.goalId))!.blockedReason).toBe('owner_lost');
+    expect((await heartbeat(goal.goalId))?.enabled).toBe(false);
+    // The person restarted the chat.
+    await db.update(projectSessions).set({ status: 'running' }).where(eq(projectSessions.sessionId, sessionId));
+    await sweep();
+    expect((await getGoal(PROJECT, goal.goalId))!).toMatchObject({ blockedReason: null, ownerSessionId: sessionId, state: 'active' });
+    expect((await heartbeat(goal.goalId))?.enabled).toBe(true);
+  });
+
+  test('a restart never takes a bound goal from its chat: refused while the chat is down, or while the chat works another goal', async () => {
+    const sessionId = await chat();
+    const first = await goals.createGoal(ctx(asSession(sessionId)), boundInput());
+    const stopped = await goals.stopGoal(ctx(asSession(sessionId)), first.goalId, { revision: first.revision, reason: 'Ana said: drop it' });
+    // The chat is down: no new owner session is made for the goal.
+    await db.update(projectSessions).set({ status: 'failed' }).where(eq(projectSessions.sessionId, sessionId));
+    expect(await refusal(goals.restartGoal(ctx(ana), first.goalId, { revision: stopped.revision }))).toMatchObject({ status: 409, code: 'goal_conflict' });
+    expect((await getGoal(PROJECT, first.goalId))!).toMatchObject({ state: 'stopped', ownerSessionId: sessionId });
+    await db.update(projectSessions).set({ status: 'running' }).where(eq(projectSessions.sessionId, sessionId));
+    // The chat works another goal: one open goal per chat.
+    const second = await goals.createGoal(ctx(asSession(sessionId)), boundInput());
+    expect(await refusal(goals.restartGoal(ctx(ana), first.goalId, { revision: stopped.revision }))).toMatchObject({ status: 409, code: 'goal_conflict' });
+    // With the chat free again the restart keeps the goal in its chat.
+    await goals.stopGoal(ctx(asSession(sessionId)), second.goalId, { revision: second.revision, reason: 'Ana said: the first one again' });
+    expect(await goals.restartGoal(ctx(ana), first.goalId, { revision: stopped.revision })).toMatchObject({ state: 'active', ownerSessionId: sessionId });
+  });
+
+  test("a page goal's verifier session cannot bind a goal to itself: no goal session starts a goal", async () => {
+    const page = await activeGoal();
+    const verifierId = await chat();
+    await db.update(projectGoals).set({ state: 'verifying', verifierSessionId: verifierId, sessions: [...page.sessions, { id: verifierId, role: 'verifier', since: new Date().toISOString() }] }).where(eq(projectGoals.goalId, page.goalId));
+    expect(await refusal(goals.createGoal(ctx(asSession(verifierId)), boundInput()))).toMatchObject({ status: 403, code: 'goal_forbidden' });
+    await db.update(projectGoals).set({ state: 'stopped', verifierSessionId: null }).where(eq(projectGoals.goalId, page.goalId));
+  });
+
+  test("a page goal's owner session still cannot stop it", async () => {
+    const goal = await activeGoal();
+    expect(await refusal(goals.stopGoal(ctx(asSession(goal.ownerSessionId!)), goal.goalId, { revision: goal.revision, reason: 'giving up' }))).toMatchObject({ status: 403 });
   });
 });
 
@@ -492,13 +692,13 @@ describe('the heartbeat belongs to the API', () => {
 describe('council round 1 fixes', () => {
   test('a goal prompt queued before a pause or stop is refused at delivery; after resume it runs', async () => {
     const goal = await activeGoal();
-    expect(await goalPromptRefusal(goal.ownerSessionId!)).toBeNull();
+    expect(await goalPromptRefusal(goal.ownerSessionId!, PERSON)).toBeNull();
     const paused = await goals.pauseGoal(ctx(ana), goal.goalId, { revision: goal.revision });
-    expect(await goalPromptRefusal(goal.ownerSessionId!)).toContain('paused');
+    expect(await goalPromptRefusal(goal.ownerSessionId!, PERSON)).toContain('paused');
     const resumed = await goals.resumeGoal(ctx(ana), goal.goalId, { revision: paused.revision });
-    expect(await goalPromptRefusal(goal.ownerSessionId!)).toBeNull();
+    expect(await goalPromptRefusal(goal.ownerSessionId!, PERSON)).toBeNull();
     await goals.stopGoal(ctx(ana), goal.goalId, { revision: resumed.revision });
-    expect(await goalPromptRefusal(goal.ownerSessionId!)).toContain('stopped');
+    expect(await goalPromptRefusal(goal.ownerSessionId!, PERSON)).toContain('stopped');
   });
 
   test('an answer whose prompt did not queue is kept and delivered once by the reconciler; a retry does not duplicate it', async () => {
@@ -553,10 +753,10 @@ describe('council round 1 fixes', () => {
 
   test('a queued goal prompt is refused while the project goals flag is off', async () => {
     const goal = await activeGoal();
-    expect(await goalPromptRefusal(goal.ownerSessionId!)).toBeNull();
+    expect(await goalPromptRefusal(goal.ownerSessionId!, PERSON)).toBeNull();
     await db.update(projects).set({ metadata: { experimental: { goals: false, reminders: true } } }).where(eq(projects.projectId, PROJECT));
     try {
-      expect(await goalPromptRefusal(goal.ownerSessionId!)).toContain('turned off');
+      expect(await goalPromptRefusal(goal.ownerSessionId!, PERSON)).toContain('turned off');
     } finally {
       await db.update(projects).set({ metadata: { experimental: { goals: true, reminders: true } } }).where(eq(projects.projectId, PROJECT));
     }
@@ -570,9 +770,9 @@ describe('council round 1 fixes', () => {
     const reported = await goals.reportProgress(ctx(owner), goal.goalId, { revision: goal.revision, criteria: [{ id: 'c1', reported_met: true, evidence: 'evidence/a.md' }, { id: 'c2', reported_met: true, evidence: 'evidence/b.md' }] });
     const verifying = await goals.requestVerification(ctx(owner), goal.goalId, { revision: reported.revision });
     const verifierId = verifying.verifierSessionId!;
-    expect(await goalPromptRefusal(verifierId)).toBeNull();
+    expect(await goalPromptRefusal(verifierId, PERSON)).toBeNull();
     await goals.stopGoal(ctx(ana), goal.goalId, { revision: verifying.revision });
-    expect(await goalPromptRefusal(verifierId)).toContain('stopped');
+    expect(await goalPromptRefusal(verifierId, PERSON)).toContain('stopped');
   });
 
   test('resuming a paused draft wakes its owner (a draft has no heartbeat)', async () => {

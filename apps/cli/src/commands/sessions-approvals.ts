@@ -1,4 +1,5 @@
 import { getSessionAudit, resolveApproval, type RuntimePendingRecord, type SessionAuditAction } from '@kortix/sdk';
+import { splitHelp } from '../command-argv.ts';
 import { withCliErrors } from '../api/client.ts';
 import { withKortixScope } from '../api/sdk.ts';
 import {
@@ -143,10 +144,8 @@ function pickSinglePending(
 }
 
 export async function runSessionsPending(argv: string[]): Promise<number> {
-  if (argv.includes('-h') || argv.includes('--help')) {
-    process.stdout.write(PENDING_HELP);
-    return 0;
-  }
+  const helped = splitHelp(argv, PENDING_HELP);
+  if (helped !== null) return helped;
   const rest = [...argv];
   const json = takeFlagBool(rest, ['--json']);
   const target = parseTarget(rest, PENDING_HELP);
@@ -199,10 +198,8 @@ export async function runSessionsPending(argv: string[]): Promise<number> {
 }
 
 export async function runSessionsApprove(argv: string[]): Promise<number> {
-  if (argv.includes('-h') || argv.includes('--help')) {
-    process.stdout.write(APPROVE_HELP);
-    return 0;
-  }
+  const helped = splitHelp(argv, APPROVE_HELP);
+  if (helped !== null) return helped;
   const rest = [...argv];
   const always = takeFlagBool(rest, ['--always']);
   const reject = takeFlagBool(rest, ['--reject']);
@@ -243,10 +240,8 @@ export async function runSessionsApprove(argv: string[]): Promise<number> {
 }
 
 export async function runSessionsAnswer(argv: string[]): Promise<number> {
-  if (argv.includes('-h') || argv.includes('--help')) {
-    process.stdout.write(ANSWER_HELP);
-    return 0;
-  }
+  const helped = splitHelp(argv, ANSWER_HELP);
+  if (helped !== null) return helped;
   const rest = [...argv];
   const reject = takeFlagBool(rest, ['--reject']);
   const options: string[] = [];
@@ -431,11 +426,9 @@ async function decideConnectorApproval(
 }
 
 export async function runSessionsConnectorApprovals(argv: string[]): Promise<number> {
+  const helped = splitHelp(argv, APPROVALS_HELP);
+  if (helped !== null) return helped;
   const rest = [...argv];
-  if (rest.includes('-h') || rest.includes('--help')) {
-    process.stdout.write(APPROVALS_HELP);
-    return 0;
-  }
 
   let opts: CtxOpts;
   let json = false;

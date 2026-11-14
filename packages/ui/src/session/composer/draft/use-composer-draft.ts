@@ -1,5 +1,7 @@
 'use client';
 
+import { completeHomeComposerFocus, registerHomeComposerEditor } from './home-composer-focus-handoff';
+
 import type { PastedContent } from '@kortix/shared';
 import type { JSONContent } from '@tiptap/core';
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
@@ -32,6 +34,8 @@ const NO_UPLOADS: readonly StoredUpload[] = [];
 
 export interface UseComposerDraftInput {
   active?: boolean;
+  /** Move the remaining home draft into the created session on unmount. */
+  handoffScope?: RefObject<DraftScope | null>;
   /** Omitted or null → the composer persists nothing (marketing demo, tests). */
   scope: DraftScope | null | undefined;
   editorRef: RefObject<ComposerEditorHandle | null>;
@@ -76,6 +80,7 @@ export interface UseComposerDraftResult {
  */
 export function useComposerDraft({
   active = true,
+  handoffScope,
   scope,
   editorRef,
   editorReady,
@@ -86,6 +91,11 @@ export function useComposerDraft({
   hasPrefill,
   onRestore,
 }: UseComposerDraftInput): UseComposerDraftResult {
+  useLayoutEffect(() => {
+    if (scope?.kind !== 'project' || !editorReady) return;
+    registerHomeComposerEditor(editorRef.current);
+    return () => registerHomeComposerEditor(null);
+  }, [scope, editorReady, editorRef]);
   const viewerId = useUiViewerId();
   const userId = viewerId ?? '';
   const enabled = !!scope && !!userId;
@@ -142,11 +152,19 @@ export function useComposerDraft({
     // Flush before the replacement composer's passive restore effect runs.
     activeRef.current = active;
     if (!active) flush();
+    const source = scopeRef.current;
+    const ownerId = userIdRef.current;
     return () => {
       flush();
+      const target = handoffScope?.current;
+      if (target && source && ownerId) {
+        const draft = readDraft(source, ownerId);
+        if (draft) writeDraft(target, draft);
+        clearDraft(source);
+      }
       activeRef.current = false;
     };
-  }, [active, flush]);
+  }, [active, flush, handoffScope, scopeRef, userIdRef]);
 
   const handleDocChange = useCallback(
     (doc: JSONContent, isEmpty: boolean) => {
@@ -229,11 +247,13 @@ export function useComposerDraft({
         alreadyRestored: restoredKeyRef.current === key,
       })
     ) {
+      if (active && editorReady && editorRef.current) completeHomeComposerFocus(scope, editorRef.current);
       return;
     }
     restoredKeyRef.current = key;
     const stored = readDraft(scope, userId);
     if (stored) onRestore(stored);
+    if (editorRef.current) completeHomeComposerFocus(scope, editorRef.current);
   }, [active, scope, userId, editorReady, hasPrefill, editorRef, onRestore]);
 
   return { handleDocChange, clearSavedDraft };

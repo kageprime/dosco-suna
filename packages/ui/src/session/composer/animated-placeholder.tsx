@@ -1,7 +1,8 @@
 'use client';
 
 import { cn } from '../../lib/utils';
-import { AnimatePresence, m, useReducedMotion } from 'motion/react';
+import { AnimatePresence, m } from 'motion/react';
+import { useReducedMotion } from '../../internal/hooks/use-reduced-motion';
 import { useTranslations } from '../../i18n';
 import { useUiHostConfig } from '../../providers/ui-provider';
 import { useEffect, useMemo, useState } from 'react';

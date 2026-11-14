@@ -304,6 +304,24 @@ export function planPrefillMerge(input: {
   return merged === input.currentDoc ? null : merged;
 }
 
+/**
+ * `doc` with `text` added to the end of its last paragraph (or in a new
+ * paragraph when the last block is not one). Keys typed before the editor
+ * existed continue the restored draft this way (`prefill.restoreDraft`).
+ * `text` must be non-empty: ProseMirror text nodes cannot be empty.
+ */
+export function appendTextToDocument(doc: JSONContent, text: string): JSONContent {
+  const content = [...(doc.content ?? [])];
+  const last = content[content.length - 1];
+  const node: JSONContent = { type: 'text', text };
+  if (last?.type === 'paragraph') {
+    content[content.length - 1] = { ...last, content: [...(last.content ?? []), node] };
+  } else {
+    content.push({ type: 'paragraph', content: [node] });
+  }
+  return { ...doc, type: 'doc', content };
+}
+
 export interface ShouldApplyPrefillInput {
   /** `prefill?.id` — `undefined` means "no prefill at all". */
   prefillId: number | undefined;

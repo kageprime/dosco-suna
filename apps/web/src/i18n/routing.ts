@@ -52,6 +52,7 @@ const NON_PAGE_PREFIXES = [
   '/markdown-negotiation',
   '/install',
   '/download/',
+  '/loops/',
   '/auth/callback',
   '/auth/mobile/callback',
 ];

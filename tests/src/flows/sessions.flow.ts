@@ -1450,7 +1450,8 @@ flow(
 /**
  * SESS-54 — a person pins a session to the top of their list or archives it
  * out of the list (KRTX-2418). Per person: a pin or an archive changes only the
- * caller's own list, and neither moves the session's `updated_at`. Local
+ * caller's own list, and neither moves the session's `updated_at`. The pinned
+ * view lists in pin order, so opening a session does not reorder it. Local
  * profile: database sessions.
  */
 flow(
@@ -1580,6 +1581,21 @@ flow(
       (await archive(s4, false)).status(200);
       (await archive(s3, false)).status(200);
       expectIds((await list()).rows, [s4, s3, s2, s1], 'the restored list');
+    });
+
+    await ctx.step('pinned=only lists in pin order, newest pin first; a write to an older pin (an open bumps updated_at) does not reorder it; the cursor pages the same order', async () => {
+      (await pin(s1, true)).status(200);
+      (await pin(s3, true)).status(200);
+      expectIds((await list({ pinned: 'only' })).rows, [s3, s1], 'pinned=only');
+      // The rename bumps s1's updated_at past s3's, as opening it does.
+      (await owner.patch('/v1/workspaces/:projectId/sessions/:sessionId', { name: 'Opened again' }, { params: params(s1) })).status(200);
+      expectIds((await list({ pinned: 'only' })).rows, [s3, s1], 'pinned=only after s1 was written');
+      const first = await list({ pinned: 'only', limit: '1' });
+      expectIds(first.rows, [s3], 'pinned=only page 1');
+      if (!first.cursor) throw new Error('pinned=only page 1 has no cursor');
+      expectIds((await list({ pinned: 'only', limit: '1', cursor: first.cursor })).rows, [s1], 'pinned=only page 2');
+      (await pin(s3, false)).status(200);
+      (await pin(s1, false)).status(200);
     });
 
     await ctx.step('pinned=only with archived=only → 400; a body without the flag → 400', async () => {
@@ -3513,8 +3529,7 @@ flow(
         const without = (await owner.put(shareRoute, { include_prompt: false }, { params: turn })).status(200);
         const b = without.json<{ share: { token: string; include_prompt: boolean } }>().share;
         if (b.token !== token || b.include_prompt !== false) throw new Error(`bad share ${JSON.stringify(b)}`);
-        const res = (await anon.get(publicRoute, { params: { token } })).status(200).body().has('$.response.prompt', null);
-        void res;
+        (await anon.get(publicRoute, { params: { token } })).status(200).body().has('$.response.prompt', null);
       });
 
       await ctx.step('the response token opens no sandbox proxy and is not in the preview/file share list', async () => {

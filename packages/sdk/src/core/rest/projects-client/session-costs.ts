@@ -1,6 +1,7 @@
 import { backendApi } from '../../http/api-client';
 import { sendChecked } from '../../http/transport';
 import { platformConfig } from '../../http/config';
+import { querySuffix } from '../../http/url';
 import type { ProjectSessionStatus } from './sessions';
 import { unwrap } from './shared';
 
@@ -181,12 +182,6 @@ function appendWindow(query: URLSearchParams, options: CostWindowOptions): void 
   if (options.to) query.set('to', options.to);
 }
 
-/** `?<query>` when non-empty, else `''` — shared by every list/get below so
- *  the empty-query case (no trailing `?`) is expressed exactly once. */
-function suffix(query: URLSearchParams): string {
-  return query.size > 0 ? `?${query}` : '';
-}
-
 export async function listSessionCosts(
   options: ListSessionCostsOptions = {},
 ): Promise<SessionCostsPage> {
@@ -197,7 +192,7 @@ export async function listSessionCosts(
   if (options.sort) query.set('sort', options.sort);
   if (options.limit != null) query.set('limit', String(options.limit));
   if (options.offset != null) query.set('offset', String(options.offset));
-  return unwrap(await backendApi.get<SessionCostsPage>(`/usage/session-costs${suffix(query)}`));
+  return unwrap(await backendApi.get<SessionCostsPage>(`/usage/session-costs${querySuffix(query)}`));
 }
 
 export async function getSessionCostRecord(
@@ -208,7 +203,7 @@ export async function getSessionCostRecord(
   appendScopeOptions(query, options);
   return unwrap(
     await backendApi.get<SessionCostDetail>(
-      `/usage/session-costs/${encodeURIComponent(sessionId)}${suffix(query)}`,
+      `/usage/session-costs/${encodeURIComponent(sessionId)}${querySuffix(query)}`,
     ),
   );
 }
@@ -287,7 +282,7 @@ export async function listCostByWorkspace(
   if (options.sort) query.set('sort', options.sort);
   if (options.limit != null) query.set('limit', String(options.limit));
   if (options.offset != null) query.set('offset', String(options.offset));
-  return unwrap(await backendApi.get<ProjectCostPage>(`/usage/cost-by-project${suffix(query)}`));
+  return unwrap(await backendApi.get<ProjectCostPage>(`/usage/cost-by-project${querySuffix(query)}`));
 }
 
 /** @deprecated Use `listCostByWorkspace`. Kept permanently. */
@@ -361,7 +356,7 @@ export async function getCostSummary(
   appendScopeOptions(query, options);
   if (options.sessionId) query.set('session_id', options.sessionId);
   appendWindow(query, options);
-  return unwrap(await backendApi.get<CostSummary>(`/usage/cost-summary${suffix(query)}`));
+  return unwrap(await backendApi.get<CostSummary>(`/usage/cost-summary${querySuffix(query)}`));
 }
 
 // ── CSV export ────────────────────────────────────────────────────────────

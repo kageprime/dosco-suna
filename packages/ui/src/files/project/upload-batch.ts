@@ -169,3 +169,25 @@ export function rowDragIntent(
   if (types.includes('Files')) return options.canUpload ? 'upload' : null;
   return null;
 }
+
+/**
+ * Paths of listing rows the server does not have yet: uploads queued or
+ * running, and files still being created (a pending row the server has not
+ * confirmed, i.e. without `seen`). The grid shows a spinner on these and
+ * defers their live preview: a preview read before the write lands is a 404,
+ * and that 404 is what kept a new file on "File not found" (D-08).
+ */
+export function inFlightPaths(
+  uploads: readonly { status: string; targetPath?: string; file: { name: string } }[],
+  pending: readonly { node: { path: string; type: 'file' | 'directory' }; seen?: unknown }[],
+): Set<string> {
+  const paths = new Set<string>();
+  for (const u of uploads) {
+    if (u.status !== 'queued' && u.status !== 'uploading') continue;
+    paths.add(u.targetPath ? `${u.targetPath.replace(/\/+$/, '')}/${u.file.name}` : u.file.name);
+  }
+  for (const p of pending) {
+    if (p.node.type === 'file' && !('seen' in p)) paths.add(p.node.path);
+  }
+  return paths;
+}

@@ -4,7 +4,7 @@ import { Button } from '@kortix/ui/button';
 import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertActions as BannerAlertActions, AlertMedia as BannerAlertMedia } from '@kortix/ui/alert';
 import { ErrorState } from '@kortix/ui/error-state';
 import { Hint } from '@kortix/ui/hint';
-import { UnifiedMarkdown } from '@kortix/ui/markdown';
+import { InlineCodeText, UnifiedMarkdown } from '@kortix/ui/markdown';
 import { uiRoutes } from '@kortix/ui';
 import {
   goalCriteriaStatus,
@@ -234,7 +234,9 @@ function CriteriaList({ projectId, goal }: { projectId: string; goal: ProjectGoa
               <CircleIcon className="text-muted-foreground mt-0.5 size-4 shrink-0" aria-label={t('notMet')} />
             )}
             <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-foreground">{c.text}</span>
+              <span className="text-foreground [overflow-wrap:anywhere]">
+                <InlineCodeText text={c.text} />
+              </span>
               {state === 'reported' ? <span className="text-muted-foreground text-xs">{t('reportedMet')}</span> : null}
               {result && result.result !== 'pass' && text(result.note) ? (
                 <span className="text-muted-foreground text-xs text-pretty">{t('checkFailed', { note: result.note })}</span>

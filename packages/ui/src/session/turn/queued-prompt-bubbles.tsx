@@ -1,6 +1,9 @@
 'use client';
 
+import { newSessionHref } from '../../lib/routes';
+import { UiLink } from '../../providers/ui-provider';
 import { Button } from '../../primitives/button';
+import { ButtonGroup } from '../../primitives/button-group';
 import { InlineMeta } from '../../primitives/inline-meta';
 import { useTranslations } from '../../i18n';
 
@@ -71,5 +74,29 @@ export function QueuedPromptFailure({
         )}
       </span>
     </InlineMeta>
+  );
+}
+
+/** A failed callback path requires a new computer, not a retry on the old one. */
+export function QueuedPromptRecovery({ projectId, onRemove }: {
+  projectId?: string;
+  onRemove?: () => void;
+}) {
+  const sidebar = useTranslations('sidebar');
+  const turn = useTranslations('sessionUi.turn');
+  const common = useTranslations('common');
+  const newSession = projectId ? (
+    <Button variant="ghost" size="xs" asChild>
+      <UiLink href={newSessionHref(projectId)}>{sidebar('newSession')}</UiLink>
+    </Button>
+  ) : null;
+  const remove = onRemove ? (
+    <Button type="button" variant="ghost" size="xs" onClick={onRemove}>{common('remove')}</Button>
+  ) : null;
+  return (
+    <div data-queued-status="failed" className="flex flex-col items-end gap-1">
+      <span role="status" className="text-kortix-red text-xs">{turn('computerDisconnected')}</span>
+      {newSession && remove ? <ButtonGroup>{newSession}{remove}</ButtonGroup> : newSession ?? remove}
+    </div>
   );
 }

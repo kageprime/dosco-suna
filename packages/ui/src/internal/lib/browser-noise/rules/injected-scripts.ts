@@ -340,8 +340,8 @@ function isRedeclaredInjectedIdentifierNoise(input: {
 
 // Third-party tracking-pixel `Response.json()` noise. A marketing pixel
 // (observed: Vector, `https://cdn.vector.co/pixel.js`, loaded on the marketing
-// site by the visitor-identification vendor chain,
-// `apps/web/src/components/analytics/visitor-pixel.tsx`) fetches its own API
+// site by a visitor-identification vendor chain; apps/web removed that vendor
+// on 2026-11-12, but a host page can still load the same pixel) fetches its own API
 // (`https://api.vector.co/pixel/ip-info`) and calls `response.json()` without
 // checking `response.ok`. When the site's bot protection 403s the request with
 // an empty body, `Response.json()` rejects with the canonical DOM

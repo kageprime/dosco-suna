@@ -10,22 +10,19 @@ import { accountMembers, auditEvents, creditAccounts } from '@kortix/db';
 import type { Subprocessor } from '@kortix/shared/subprocessors';
 import { and, eq, sql } from 'drizzle-orm';
 import { setOwnerAlertSenderForTest } from '../billing/services/owner-alerts';
-import { openSubprocessorNotices, runSubprocessorNoticeSweep } from '../billing/services/subprocessor-notices';
+import { openSubprocessorNotices, runSubprocessorNoticeSweep, workspaceScope } from '../billing/services/subprocessor-notices';
 import { config } from '../config';
 import type { EmailMessage } from '../lib/email/types';
 import { db } from '../shared/db';
-import { insertIntoView } from './helpers/compat-views';
+import { deleteFromView, insertIntoView } from './helpers/compat-views';
 import { removeSeeded, seedProject, type SeededProject } from './helpers/integration-fixtures';
 
 const OWNER = crypto.randomUUID();
 const ADMIN = crypto.randomUUID();
 const MEMBER = crypto.randomUUID();
 const FREE_OWNER = crypto.randomUUID();
-// A Suna-era account still billed: no Dosco account row, its owner only in basejump.account_user.
-const LEGACY_ACCOUNT = crypto.randomUUID();
-const LEGACY_OWNER = crypto.randomUUID();
-// A paid account nobody can be emailed for yet.
-const UNREACHABLE_ACCOUNT = crypto.randomUUID();
+// A second paid account, with only an owner.
+const SECOND_OWNER = crypto.randomUUID();
 const email = (id: string, role: string) => `subproc-${role}-${id.slice(0, 8)}@example.test`;
 
 const ROWS: Subprocessor[] = [
@@ -35,23 +32,20 @@ const ROWS: Subprocessor[] = [
 
 let paid: SeededProject;
 let free: SeededProject;
+let second: SeededProject;
+// A paid account nobody can be emailed for yet.
+let unreachable: SeededProject;
 let sent: EmailMessage[] = [];
 const customerEmails = () => sent.filter((m) => !m.subject.startsWith('[Dosco compliance]'));
 const privacyReports = () => sent.filter((m) => m.subject.startsWith('[Dosco compliance]'));
 const savedEnv = config.INTERNAL_KORTIX_ENV;
 
-
-/** A Suna-era owner row. basejump is frozen (freeze_legacy_suna_tables): the write opts in. */
-async function legacyOwner(userId: string, accountId: string): Promise<void> {
-  await db.transaction(async (tx) => {
-    await tx.execute(sql`SELECT set_config('kortix.legacy_write', 'on', true)`);
-    await tx.execute(sql`insert into basejump.account_user (user_id, account_id, account_role) values (${userId}::uuid, ${accountId}::uuid, 'owner')`);
-  });
-}
 beforeAll(async () => {
   paid = await seedProject('subproc-paid');
   free = await seedProject('subproc-free');
-  for (const [id, role] of [[OWNER, 'owner'], [ADMIN, 'admin'], [MEMBER, 'member'], [FREE_OWNER, 'free-owner'], [LEGACY_OWNER, 'legacy-owner']] as const) {
+  second = await seedProject('subproc-second');
+  unreachable = await seedProject('subproc-unreachable');
+  for (const [id, role] of [[OWNER, 'owner'], [ADMIN, 'admin'], [MEMBER, 'member'], [FREE_OWNER, 'free-owner'], [SECOND_OWNER, 'second-owner']] as const) {
     await db.execute(sql`
       insert into auth.users (id, email, instance_id, aud, role)
       values (${id}::uuid, ${email(id, role)}, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated')`);
@@ -60,13 +54,13 @@ beforeAll(async () => {
   await insertIntoView(db, accountMembers, { userId: ADMIN, accountId: paid.account_id, accountRole: 'admin' });
   await insertIntoView(db, accountMembers, { userId: MEMBER, accountId: paid.account_id, accountRole: 'member' });
   await insertIntoView(db, accountMembers, { userId: FREE_OWNER, accountId: free.account_id, accountRole: 'owner' });
+  await insertIntoView(db, accountMembers, { userId: SECOND_OWNER, accountId: second.account_id, accountRole: 'owner' });
   await db.insert(creditAccounts).values([
     { accountId: paid.account_id, tier: 'credits' },
     { accountId: free.account_id, tier: 'free' },
-    { accountId: LEGACY_ACCOUNT, tier: 'tier_2_20' },
-    { accountId: UNREACHABLE_ACCOUNT, tier: 'credits' },
+    { accountId: second.account_id, tier: 'tier_2_20' },
+    { accountId: unreachable.account_id, tier: 'credits' },
   ]);
-  await legacyOwner(LEGACY_OWNER, LEGACY_ACCOUNT);
   setOwnerAlertSenderForTest(async (message) => {
     sent.push(message);
     return { ok: true, provider: 'mailpit', status: 200 };
@@ -82,13 +76,12 @@ afterAll(async () => {
   setOwnerAlertSenderForTest(null);
   config.INTERNAL_KORTIX_ENV = savedEnv;
   if (!paid) return;
-  for (const accountId of [paid.account_id, free.account_id, LEGACY_ACCOUNT, UNREACHABLE_ACCOUNT]) {
-    await db.delete(creditAccounts).where(eq(creditAccounts.accountId, accountId));
+  for (const { account_id } of [paid, free, second, unreachable]) {
+    await db.delete(creditAccounts).where(eq(creditAccounts.accountId, account_id));
   }
-  await db.execute(sql`delete from basejump.account_user where account_id = ${LEGACY_ACCOUNT}::uuid`);
   await db.execute(sql`delete from kortix.chat_event_dedup where event_id like 'legal:subprocessor-notice:%'`);
-  await removeSeeded([paid, free]);
-  await db.execute(sql`delete from auth.users where id in (${OWNER}::uuid, ${ADMIN}::uuid, ${MEMBER}::uuid, ${FREE_OWNER}::uuid, ${LEGACY_OWNER}::uuid)`);
+  await removeSeeded([paid, free, second, unreachable]);
+  await db.execute(sql`delete from auth.users where id in (${OWNER}::uuid, ${ADMIN}::uuid, ${MEMBER}::uuid, ${FREE_OWNER}::uuid, ${SECOND_OWNER}::uuid)`);
 });
 
 describe('open subprocessor notices', () => {
@@ -101,17 +94,25 @@ describe('open subprocessor notices', () => {
   });
 });
 
+describe('the workspace scope of a recipient', () => {
+  test('one workspace keeps the old copy, several are listed, and every paid account reads all workspaces', () => {
+    expect(workspaceScope(['subproc-paid-account'], 4)).toBe('subproc-paid-account');
+    expect(workspaceScope(['a-account', 'b-account', 'c-account'], 7)).toBe('a-account, b-account, and c-account');
+    expect(workspaceScope(['a-account', 'b-account'], 2)).toBe('all workspaces');
+    // Two memberships in workspaces that share a name list once.
+    expect(workspaceScope(['a-account', 'a-account'], 3)).toBe('a-account');
+  });
+});
+
 describe('the subprocessor notice sweep', () => {
   test('emails the owner and the admin of a paid account (not the member, not a free account), once, with evidence', async () => {
     const now = new Date('2026-10-20T09:00:00Z');
     expect(await runSubprocessorNoticeSweep(now, ROWS)).toEqual({ accountsNotified: 2 });
 
     const to = customerEmails().flatMap((message) => message.to).sort();
-
-    expect(to).toEqual([email(ADMIN, 'admin'), email(OWNER, 'owner'), email(LEGACY_OWNER, 'legacy-owner')].sort());
-    const [message] = customerEmails().filter((m) => m.to[0] !== email(LEGACY_OWNER, 'legacy-owner'));
+    expect(to).toEqual([email(ADMIN, 'admin'), email(OWNER, 'owner'), email(SECOND_OWNER, 'second-owner')].sort());
+    const [message] = customerEmails().filter((m) => m.to[0] !== email(SECOND_OWNER, 'second-owner'));
     expect(message!.subject).toBe('Dosco subprocessor update, effective November 24, 2026');
-
     expect(message!.category).toBe('legal-subprocessor-notice');
     expect(message!.replyTo).toBe('privacy@dosco.live');
     expect(message!.text).toContain('Example Inference, Inc.: Inference for Dosco-managed AI models (United States)');
@@ -147,12 +148,56 @@ describe('the subprocessor notice sweep', () => {
     await db.execute(sql`
       insert into auth.users (id, email, instance_id, aud, role)
       values (${owner}::uuid, ${email(owner, 'late-owner')}, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated')`);
-    await legacyOwner(owner, UNREACHABLE_ACCOUNT);
+    await insertIntoView(db, accountMembers, { userId: owner, accountId: unreachable.account_id, accountRole: 'owner' });
     try {
       expect(await runSubprocessorNoticeSweep(new Date('2026-10-20T11:00:00Z'), ROWS)).toEqual({ accountsNotified: 1 });
       expect(customerEmails().flatMap((message) => message.to)).toEqual([email(owner, 'late-owner')]);
     } finally {
-      await db.execute(sql`delete from basejump.account_user where account_id = ${UNREACHABLE_ACCOUNT}::uuid`);
+      await deleteFromView(db, accountMembers, eq(accountMembers.userId, owner));
+      await db.execute(sql`delete from auth.users where id = ${owner}::uuid`);
+    }
+  });
+
+  test('a person who manages several paid accounts gets one email listing them, not one per project', async () => {
+    const owner = crypto.randomUUID();
+    await db.execute(sql`
+      insert into auth.users (id, email, instance_id, aud, role)
+      values (${owner}::uuid, ${email(owner, 'batch-owner')}, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated')`);
+    const batchA = await seedProject('subproc-batch-a');
+    const batchB = await seedProject('subproc-batch-b');
+    await insertIntoView(db, accountMembers, { userId: owner, accountId: batchA.account_id, accountRole: 'owner' });
+    await insertIntoView(db, accountMembers, { userId: owner, accountId: batchB.account_id, accountRole: 'admin' });
+    await db.insert(creditAccounts).values([
+      { accountId: batchA.account_id, tier: 'credits' },
+      { accountId: batchB.account_id, tier: 'tier_2_20' },
+    ]);
+    try {
+      expect(await runSubprocessorNoticeSweep(new Date('2026-10-20T12:00:00Z'), ROWS)).toEqual({ accountsNotified: 2 });
+
+      const mine = customerEmails().filter((m) => m.to[0] === email(owner, 'batch-owner'));
+      expect(mine).toHaveLength(1);
+      expect(mine[0]!.text).toContain('subproc-batch-a-account and subproc-batch-b-account');
+      expect(mine[0]!.subject).toBe('Dosco subprocessor update, effective November 24, 2026');
+
+      for (const batched of [batchA, batchB]) {
+        const [audit] = await db
+          .select({ outputSummary: auditEvents.outputSummary })
+          .from(auditEvents)
+          .where(and(eq(auditEvents.accountId, batched.account_id), eq(auditEvents.action, 'legal.subprocessor_notice.sent')));
+        expect(audit!.outputSummary).toMatchObject({ recipients: 1, effective_date: '2026-11-24', subprocessors: ['Example Inference, Inc.'] });
+      }
+
+      // A retry of the same send does not duplicate it.
+      sent = [];
+      expect(await runSubprocessorNoticeSweep(new Date('2026-10-20T13:00:00Z'), ROWS)).toEqual({ accountsNotified: 0 });
+      expect(customerEmails()).toEqual([]);
+    } finally {
+      await deleteFromView(db, accountMembers, eq(accountMembers.userId, owner));
+      for (const accountId of [batchA.account_id, batchB.account_id]) {
+        await db.delete(creditAccounts).where(eq(creditAccounts.accountId, accountId));
+      }
+      await db.execute(sql`delete from kortix.chat_event_dedup where event_id like ${`%${batchA.account_id}%`} or event_id like ${`%${batchB.account_id}%`}`);
+      await removeSeeded([batchA, batchB]);
       await db.execute(sql`delete from auth.users where id = ${owner}::uuid`);
     }
   });

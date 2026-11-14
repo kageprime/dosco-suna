@@ -92,7 +92,7 @@ const SOURCE_LABEL_KEY = {
   manual: 'textb0b9fe24ffa9',
   monitor: 'text4c2e1df4570b',
   reminder: 'text31757bbfa17e',
-  event: 'text5441e7146193',
+  event: 'textca395c4d19b2',
   app: 'text0d04bfeb7d64',
   change_request: 'text5ffd973e20ed',
 } as const satisfies Record<ProjectTriggerRunSource, string>;

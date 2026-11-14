@@ -8,7 +8,7 @@
 
 import { useMutation, useQuery, useQueryClient, type UseMutationOptions, type UseQueryOptions } from '@tanstack/react-query';
 import * as FileSystem from 'expo-file-system/legacy';
-import { deleteFile, fileDownloadRequest, listFiles, readBlob, readFile, renameFile, uploadNativeFile } from '@kortix/sdk';
+import { deleteFile, fileDownloadRequest, listFiles, readBlob, readFile, renameFile, uploadNativeFile, type UploadResult } from '@kortix/sdk';
 import type { SandboxFile } from '@/api/types';
 import { normalizeFilenameToNFC } from './utils';
 
@@ -121,7 +121,7 @@ export async function downloadSandboxFileToCache(
  */
 export function useUploadSandboxFile(
   options?: UseMutationOptions<
-    any,
+    UploadResult[],
     Error,
     { sandboxUrl: string; file: { uri: string; name: string; type: string }; targetPath: string }
   >

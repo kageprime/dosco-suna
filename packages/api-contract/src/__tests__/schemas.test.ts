@@ -143,7 +143,7 @@ function projectFixture(overrides: Record<string, unknown> = {}) {
       reminders: false,
       warm_sessions: false,
       secrets_egress: false,
-      pooled_provider_secrets: false,
+      pooled_provider_secrets: true,
       us_region: false,
       event_triggers: false,
       notification_center: true,
@@ -164,6 +164,10 @@ function projectFixture(overrides: Record<string, unknown> = {}) {
       chat_input: false,
       chat_front: false,
       spaces_proactive: false,
+      program_agents: false,
+      evals: false,
+      desktop_tabs: false,
+      calendar: false,
     },
     experimental_features: [],
     default_sandbox_provider: null,
@@ -883,7 +887,6 @@ describe('envelopes', () => {
       'marketplace',
       'reminders',
       'secrets_egress',
-      'pooled_provider_secrets',
       'us_region',
       'event_triggers',
       'chat',
@@ -898,6 +901,10 @@ describe('envelopes', () => {
       'chat_input',
       'chat_front',
       'spaces_proactive',
+      'program_agents',
+      'evals',
+      'desktop_tabs',
+      'calendar',
     ]);
   });
 

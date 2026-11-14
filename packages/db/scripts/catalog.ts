@@ -1,5 +1,5 @@
 import pg from 'pg';
-import { ledgerExists } from '../src/ledger-exists';
+import { ledgerExists, ledgerNames } from './migration-ledger';
 
 /**
  * The one reader of the `kortix` schema catalog and the migration ledger.
@@ -14,8 +14,6 @@ import { ledgerExists } from '../src/ledger-exists';
  * `BEGIN READ ONLY`. The transaction also pins one server connection, so a
  * transaction-mode pooler cannot move a read to a session without the setting.
  */
-
-const LEDGER_TABLE = 'kortix_migrations.pgmigrations';
 
 type RelationKind = 'table' | 'view';
 
@@ -194,14 +192,12 @@ async function readCatalog(client: pg.Client, schema: string): Promise<Catalog> 
 }
 
 /**
- * Applied migration names in ledger run order (`ORDER BY run_on, id`: the
- * order node-pg-migrate `up --check-order` compares). An absent ledger table
- * reads as empty. A ledger the role cannot read throws.
+ * Applied migration names in ledger run order. An absent ledger table reads
+ * as empty. A ledger the role cannot read throws.
  */
 async function readLedger(client: pg.Client): Promise<string[]> {
   if (!(await ledgerExists(client))) return [];
-  const ledger = await client.query<{ name: string }>(`SELECT name FROM ${LEDGER_TABLE} ORDER BY run_on, id`);
-  return ledger.rows.map((row) => row.name);
+  return ledgerNames(client);
 }
 
 export interface Database {

@@ -9,6 +9,8 @@ import { withTimeBudget } from '@kortix/ui/internal/lib/utils/time-budget';
 // The internal subpath is its canonical address. See CANONICAL_SDK_ENTRIES in
 // scripts/sdk-boundary.mjs.
 import { useCurrentAccountStore } from '@kortix/ui/internal/stores/current-account-store';
+import { useSessionComposerPrefillStore } from '@kortix/ui/composer';
+import { useComposerPrefillStore } from '@kortix/ui/internal/stores/composer-prefill-store';
 import { resetAllRegisteredPersistedStores } from '@kortix/ui/internal/stores/persisted-store-registry';
 import { clearImpersonationSession } from '@kortix/sdk';
 import { resetIdentityState } from '@kortix/sdk/react';
@@ -92,6 +94,22 @@ export async function resetClientState({
     useCurrentAccountStore.getState().clear();
   } catch (error) {
     console.error('Failed to clear current-account store:', error);
+  }
+
+  // Prompts handed to a composer that has not mounted yet: keys typed while a
+  // workspace home loaded, and Quick Entry or Chrome panel prompts (some of
+  // which send themselves on arrival). They belong to the outgoing user.
+  try {
+    useComposerPrefillStore.setState({ prefillByProject: {} });
+  } catch (error) {
+    console.error('Failed to clear composer prefills:', error);
+  }
+
+  // Session prompts and attachment requests also belong to the outgoing user.
+  try {
+    useSessionComposerPrefillStore.setState({ prefillBySession: {}, attachRequestBySession: {} });
+  } catch (error) {
+    console.error('Failed to clear session composer prefills:', error);
   }
 
   // Does NOT statically import the stores it resets. Each persisted store

@@ -217,3 +217,28 @@ describe('SandboxAddressBar — the shared toolbar', () => {
   });
 });
 
+
+describe('SandboxAddressBar — Back/Forward follow the history', () => {
+  const button = (html: string, label: string) =>
+    html.match(new RegExp(`<button[^>]*aria-label="${label}"[^>]*>`))?.[0] ?? '';
+  // The `disabled` ATTRIBUTE, not the `disabled:` Tailwind variants in `class`.
+  const isDisabled = (tag: string) => / disabled=""/.test(tag);
+
+  test('Back and Forward carry accessible names', () => {
+    const html = render(bar({ canGoBack: true, canGoForward: true }));
+    expect(button(html, 'Back')).not.toBe('');
+    expect(button(html, 'Forward')).not.toBe('');
+  });
+
+  test('the start page (no preview) can still go Forward to the page it left', () => {
+    const html = render(bar({ hasPreview: false, displayValue: '', canGoForward: true }));
+    expect(isDisabled(button(html, 'Forward'))).toBe(false);
+    expect(isDisabled(button(html, 'Back'))).toBe(true);
+  });
+
+  test('a booting computer disables both', () => {
+    const html = render(bar({ hasPreview: false, disabled: true, canGoBack: true, canGoForward: true }));
+    expect(isDisabled(button(html, 'Back'))).toBe(true);
+    expect(isDisabled(button(html, 'Forward'))).toBe(true);
+  });
+});

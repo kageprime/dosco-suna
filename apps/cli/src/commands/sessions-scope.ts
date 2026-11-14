@@ -9,6 +9,7 @@ import {
   takeFlagValues,
   fail,
 } from "../command-helpers.ts";
+import { splitHelp } from "../command-argv.ts";
 import { kortixFromAuth } from "../api/sdk.ts";
 import { C, help, status } from "../style.ts";
 
@@ -61,9 +62,8 @@ function parseBindings(
   return bindings;
 }
 
-function parseScopeCommand(argv: string[]): ScopeCommand | "help" {
+function parseScopeCommand(argv: string[]): ScopeCommand {
   const rest = [...argv];
-  if (takeFlagBool(rest, ["-h", "--help"])) return "help";
 
   const project = takeFlagValue(rest, ['--project', '--workspace']);
   const host = takeFlagValue(rest, ["--host"]);
@@ -164,15 +164,13 @@ function printScope(
 }
 
 export async function runSessionsScope(argv: string[]): Promise<number> {
-  let command: ScopeCommand | "help";
+  const helped = splitHelp(argv, HELP);
+  if (helped !== null) return helped;
+  let command: ScopeCommand;
   try {
     command = parseScopeCommand(argv);
   } catch (error) {
     return fail((error as Error).message);
-  }
-  if (command === "help") {
-    process.stdout.write(HELP);
-    return 0;
   }
 
   const located = await locateSessionAnywhere(

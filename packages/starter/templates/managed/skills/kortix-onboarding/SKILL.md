@@ -146,9 +146,12 @@ root = Table(["File in Drive → My files", "What it holds"], [["Company/README.
 `href` the link, `subtitle` what it is ("Invite link", "Setup link"), body the
 one thing it unlocks for them.
 
-**Question headers** name the stage and nothing else: "You", "Company",
-"Team", "Software", "First result". The app already numbers the questions
-inside one call, and the roadmap shows the stages.
+**Question headers** name what each question asks, in 1–2 words: "Name",
+"Company", "Role", "Hand-off", "Team size". Never put the stage name ("You",
+"Company") on every question of a call: the app labels each answer on the
+Confirm step with its header, so a shared header labels every answer the same.
+The app already numbers the questions inside one call, and the roadmap shows
+the stages.
 
 **The close** (stage 7): the numbers, then what is true by part of the OS,
 then the next steps as a numbered list of at most 3 sentences (never a
@@ -209,7 +212,7 @@ One reply:
    increasingly runs itself."
 2. **The opening** blocks (**The look**): the four parts as cards, then the
    roadmap. The fourth card carries the control line.
-3. One `question` call (header "You"):
+3. One `question` call (headers "Name" and "Company"):
    - **Name**: their full name (`custom`; offer the name from their account as
      the first option when you have one).
    - **Company**: the company they work for, with its website if they have one

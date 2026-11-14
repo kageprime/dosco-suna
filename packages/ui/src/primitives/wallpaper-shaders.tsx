@@ -1,6 +1,6 @@
 'use client';
 
-import { useReducedMotion } from 'motion/react';
+import { useReducedMotion } from '../internal/hooks/use-reduced-motion';
 import { useIsDark } from '../hooks/use-is-dark';
 import { lazyClient } from '../lib/lazy-client';
 import { memo, type ReactNode } from 'react';

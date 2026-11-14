@@ -33,10 +33,12 @@ import {
   DEAD_CREDENTIAL_BURST_SUPPRESSED,
   deadCredentialLogKey,
   isAccountMfaDenial,
+  isAgentAccessDenial,
   isAgentGrantDenial,
   isCredentialFenceDenial,
   isDeadCredential,
   isInvalidExpiredTokenRefusal,
+  isPersonRoleDenial,
   isPreviewSandboxDenied,
 } from './shared/dead-credential-log';
 import { inspectDatabaseError } from './shared/database-errors';
@@ -396,11 +398,25 @@ function handleHttpException(
   // person route — POST /v1/mcp with an OAuth workspace token — put 31 warn
   // lines in one hour, 0 in the 24 h before. Same line, same grouping; only
   // the rate and the severity band change.
+  // The person role/membership denial joins the same treatment (KRTX-4801):
+  // the typed body already names the permission and who grants it, and a
+  // host polling a connector route for sessions it renders — a caller whose
+  // role can never act on the permission — put 22 warn lines in one prod hour
+  // on GET /v1/connectors/…/connect-requests, 0 in the 24 h before, the
+  // first pattern of the #12240 assert-form gates.
+  // The agent-access denial joins the same treatment (KRTX-4800): the gate's
+  // typed body already names the remedy (ask a manager to grant you one) and
+  // the agents the caller could run, and two people of one workspace kept
+  // retrying the start of a session whose agent was never granted to them —
+  // 29 warn lines in one prod hour on POST …/sessions/<session_id>/start,
+  // 0 in the 24 h before.
   if (
     isDeadCredential(err)
     || isAgentGrantDenial(err)
+    || isAgentAccessDenial(err)
     || isAccountMfaDenial(err)
     || isCredentialFenceDenial(err)
+    || isPersonRoleDenial(err)
     || isInvalidExpiredTokenRefusal(err.status, reason)
     // The preview sandbox denial joins the same treatment (KRTX-4768): the
     // web client polls the runtime surface of the session it has open every
@@ -517,7 +533,7 @@ function handleDatabaseOrUnknownError(
     if (
       databaseError.pgCode === '57014'
       && method === 'GET'
-      && /^\/v1\/projects\/[^/]+\/gateway\/(overview|series|breakdown|sessions)\/?$/.test(asLegacyWorkspaceRoute(path))
+      && /^\/v1\/projects\/[^/]+\/gateway\/(overview|series|breakdown|sessions|usage)\/?$/.test(asLegacyWorkspaceRoute(path))
     ) {
       appLogger.warn(`${method} ${path} -> 503 [gateway-analytics-timeout]`, {
         method, path, pgCode: databaseError.pgCode,
@@ -773,7 +789,10 @@ function handleUnhandledError(err: Error, c: Context): Response {
   const undecryptable = handleSecretUndecryptable(err, c, method, path);
   if (undecryptable) return undecryptable;
   if (err instanceof BillingError) {
-    appLogger.error(`${method} ${path} -> ${err.statusCode} [BillingError]`, {
+    // A 4xx refusal (tier cannot buy, invalid amount, insufficient credits) is the
+    // caller's to fix, not a server fault: warn. Only a 5xx stays an error.
+    const log = err.statusCode >= 500 ? appLogger.error : appLogger.warn;
+    log(`${method} ${path} -> ${err.statusCode} [BillingError]`, {
       statusCode: err.statusCode,
       message: err.message,
       path,

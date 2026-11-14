@@ -165,6 +165,13 @@ test('human output is unchanged (no id key injected into the table)', async () =
   expect(stdout.trim().startsWith('{')).toBe(false);
 });
 
+test('workspaces info labels the id workspace, the name the command uses', async () => {
+  const { code, stdout } = await runCli(['workspaces', 'info', PROJECT_ID]);
+  expect(code).toBe(0);
+  expect(stdout).toMatch(new RegExp(`^\\s*workspace\\s+${PROJECT_ID}$`, 'm'));
+  expect(stdout).not.toContain('project_id');
+});
+
 for (const linkHost of [undefined, 'ambient', HOST_NAME]) {
   test(`explicit host info ignores ambient identity with link host ${linkHost}`, async () => {
     if (linkHost) {

@@ -165,7 +165,8 @@ export async function deliverQueuedContinue(row: SessionLifecycleCommandRow, pay
         // Nothing runs in a session that works a goal while a person has paused or closed
         // that goal, or the project's goals flag is off, whoever queued the prompt (the
         // engine, a heartbeat, or the session itself). A non-goal session is unaffected.
-        const refusal = await goalPromptRefusal(row.sessionId!);
+        // In a chat that owns its goal only the goal's own prompts are refused.
+        const refusal = await goalPromptRefusal(row.sessionId!, { source: row.source, text });
         if (refusal) throw new PromptDeliveryRefused(409, 'goal_not_running', refusal);
         if (payload.clientMessageId) await assertInboxDeliveryActive(row);
       });

@@ -13,7 +13,7 @@ export default function SecretIntakePage() {
   const token = Array.isArray(params.token) ? params.token[0] : (params.token as string);
 
   return (
-    <AuthFrame footerVariant="none">
+    <AuthFrame footerVariant="none" art={false}>
       <Rise>
         <StepHeader
           title={tI18nHardcoded.raw('autoAppPublicSecretIntakeTokenPageJsxTextAddA71a8394a')}

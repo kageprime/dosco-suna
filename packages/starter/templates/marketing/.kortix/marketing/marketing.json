@@ -1,0 +1,99 @@
+{
+  "$comment": "The Marketing Loop configuration. The marketing agent reads this file at the start of every run. The setup agent writes it with you (onboarding). Change it with a commit; the next run reads the new values. A trigger's enabled switch in marketing.yaml and channels.<name>.enabled here must agree.",
+  "version": 1,
+  "repository": {
+    "full_name": "{{repoFullName}}",
+    "trunk": "{{defaultBranch}}",
+    "branch_prefix": "kortix/marketing-"
+  },
+  "site": {
+    "url": null,
+    "root": null,
+    "framework": null,
+    "blog_path": null,
+    "changelog_path": null,
+    "media_path": null,
+    "llms_txt_path": null,
+    "analytics": null
+  },
+  "brand": {
+    "skill": ".kortix/marketing/skills/brand",
+    "voice": ".kortix/marketing/skills/brand/references/voice.md",
+    "visual": ".kortix/marketing/skills/brand/references/visual.md",
+    "claims": ".kortix/marketing/skills/brand/references/claims.md",
+    "logos": [],
+    "fonts": []
+  },
+  "channels": {
+    "changelog": {
+      "enabled": true
+    },
+    "blog": {
+      "enabled": true
+    },
+    "social": {
+      "enabled": true,
+      "platforms": [
+        "x",
+        "linkedin"
+      ],
+      "drafts_path": "marketing/social"
+    },
+    "video": {
+      "enabled": false,
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "max_seconds": 60
+    },
+    "aeo-audit": {
+      "enabled": true,
+      "queries": ".kortix/marketing/queries.md"
+    },
+    "aeo-answer": {
+      "enabled": false
+    },
+    "seo-fix": {
+      "enabled": true,
+      "max_pages": 200
+    },
+    "competitor-intel": {
+      "enabled": false,
+      "competitors": [],
+      "deliver": "issue"
+    }
+  },
+  "approval": {
+    "policy": "drafts",
+    "merge": "person",
+    "publish": "person"
+  },
+  "caps": {
+    "open_pull_requests": 5,
+    "blog_posts_per_week": 1,
+    "social_drafts_per_day": 2,
+    "videos_per_week": 1,
+    "images_per_run": 4,
+    "aeo_pages_per_week": 3,
+    "seo_pull_requests_open": 1
+  },
+  "labels": {
+    "all": "marketing",
+    "kind_prefix": "marketing:"
+  },
+  "performance": {
+    "channels": [],
+    "conversions": {
+      "source": null,
+      "events": []
+    },
+    "trust_platform_attribution": false,
+    "alerts": {
+      "spend_up_pct": 50,
+      "cpa_up_pct": 30,
+      "roas_down_pct": 30,
+      "zero_conversion_days": 3
+    },
+    "creative_path": "marketing/ads"
+  }
+}

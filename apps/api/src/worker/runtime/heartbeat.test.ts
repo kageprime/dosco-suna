@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, mock, test } from 'bun:test';
 
 mock.module('../../config', () => ({ config: { INTERNAL_KORTIX_ENV: 'prod' } }));
-mock.module('../../lib/logger', () => ({ logger: { warn() {}, info() {}, error() {} } }));
+mock.module('../../lib/logger', () => ({ logger: { warn() {}, info() {}, error() {}, localWarn() {} } }));
 const { observeWorkerTicks, runWorkerTick } = await import('../../shared/audit-scope');
 const { staleTicks, startJobHeartbeat } = await import('./heartbeat');
 
@@ -76,5 +76,34 @@ describe('startJobHeartbeat', () => {
     heartbeat.stop();
     await runWorkerTick('job-a', async () => undefined);
     expect(heartbeat.report()).toEqual(['job-a']);
+  });
+
+  test('the status-page heartbeat gets a ping only from a report with no stale job', async () => {
+    let now = 0;
+    const pings: string[] = [];
+    const heartbeat = startJobHeartbeat([{ ticks: { 'job-a': 10 * MIN }, start() {}, stop() {} }], {
+      now: () => now,
+      write: () => {},
+      intervalMs: 3_600_000,
+      heartbeatUrl: 'https://uptime.example.test/api/v1/heartbeat/abc',
+      ping: (url) => pings.push(url),
+    });
+    await runWorkerTick('job-a', async () => undefined);
+    now = MIN;
+    expect(heartbeat.report()).toEqual([]);
+    expect(pings).toEqual(['https://uptime.example.test/api/v1/heartbeat/abc']);
+
+    now = 11 * MIN + 1;
+    expect(heartbeat.report()).toEqual(['job-a']);
+    expect(pings).toHaveLength(1);
+    heartbeat.stop();
+  });
+
+  test('no heartbeat URL (dev, staging, self-host) sends no ping', () => {
+    const pings: string[] = [];
+    const heartbeat = startJobHeartbeat([], { write: () => {}, intervalMs: 3_600_000, ping: (url) => pings.push(url) });
+    expect(heartbeat.report()).toEqual([]);
+    heartbeat.stop();
+    expect(pings).toEqual([]);
   });
 });

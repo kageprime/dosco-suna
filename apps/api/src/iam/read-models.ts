@@ -33,6 +33,7 @@ import { iamRoles, roleAssignments } from '@kortix/db';
 import { db } from '../shared/db';
 import { qualifiedColumn } from '../shared/sql-qualified-column';
 import type { ScopeType } from './catalog';
+import { accountScoped, grantScopeIdOf, grantScopeOf, objectGrantScoped, projectScoped } from './workspace-scope';
 
 // ─── Vocabulary ─────────────────────────────────────────────────────────────
 
@@ -128,7 +129,7 @@ export async function accountRoleMap(accountId: string): Promise<Map<string, Acc
   const rows = await baseQuery(
     and(
       eq(roleAssignments.accountId, accountId),
-      eq(roleAssignments.scopeType, 'account'),
+      accountScoped(),
       eq(roleAssignments.principalType, 'user'),
       isNull(iamRoles.accountId),
       isNull(roleAssignments.objectType),
@@ -155,7 +156,7 @@ export async function accountRoleMap(accountId: string): Promise<Map<string, Acc
 export async function accountRolesForUser(userId: string): Promise<Map<string, AccountRoleKey>> {
   const rows = await baseQuery(
     and(
-      eq(roleAssignments.scopeType, 'account'),
+      accountScoped(),
       eq(roleAssignments.principalType, 'user'),
       eq(roleAssignments.principalId, userId),
       isNull(iamRoles.accountId),
@@ -177,7 +178,7 @@ export async function accountRoleFor(accountId: string, userId: string): Promise
   const rows = await baseQuery(
     and(
       eq(roleAssignments.accountId, accountId),
-      eq(roleAssignments.scopeType, 'account'),
+      accountScoped(),
       eq(roleAssignments.principalType, 'user'),
       eq(roleAssignments.principalId, userId),
       isNull(iamRoles.accountId),
@@ -203,7 +204,7 @@ export async function countAccountOwners(accountId: string): Promise<number> {
     .where(
       and(
         eq(roleAssignments.accountId, accountId),
-        eq(roleAssignments.scopeType, 'account'),
+        accountScoped(),
         eq(roleAssignments.principalType, 'user'),
         isNull(iamRoles.accountId),
         eq(iamRoles.key, 'owner'),
@@ -240,7 +241,7 @@ export async function projectRoleGrants(filter: {
 }): Promise<ProjectRoleGrant[]> {
   const clauses = [
     eq(roleAssignments.accountId, filter.accountId),
-    eq(roleAssignments.scopeType, 'project'),
+    projectScoped(),
     eq(roleAssignments.principalType, 'user'),
     isNull(roleAssignments.objectType),
     isNull(iamRoles.accountId),
@@ -277,7 +278,7 @@ export async function projectRoleForUser(
 ): Promise<ProjectRoleKey | null> {
   const rows = await baseQuery(
     and(
-      eq(roleAssignments.scopeType, 'project'),
+      projectScoped(),
       eq(roleAssignments.scopeId, projectId),
       sql`${qualifiedColumn(roleAssignments.accountId)} = (select p.account_id from kortix.projects p where p.project_id = ${projectId}::uuid)`,
       eq(roleAssignments.principalType, 'user'),
@@ -319,7 +320,7 @@ export async function groupProjectGrants(filter: {
   if (filter.groupIds && filter.groupIds.length === 0) return [];
   const clauses = [
     eq(roleAssignments.accountId, filter.accountId),
-    eq(roleAssignments.scopeType, 'project'),
+    projectScoped(),
     eq(roleAssignments.principalType, 'group'),
     isNull(roleAssignments.objectType),
     isNull(iamRoles.accountId),
@@ -439,15 +440,19 @@ export async function customRoleBindings(filter: {
     if (ors.length === 0) return [];
     clauses.push(or(...ors)!);
   }
-  if (filter.scopeType) clauses.push(eq(roleAssignments.scopeType, filter.scopeType));
-  if (filter.scopeId === null) clauses.push(isNull(roleAssignments.scopeId));
-  else if (typeof filter.scopeId === 'string') clauses.push(eq(roleAssignments.scopeId, filter.scopeId));
+  // Scope filters read the workspace form too (`workspace-scope.ts`): an
+  // account binding is `scopeId: null` in both forms.
+  if (filter.scopeType) clauses.push(filter.scopeType === 'account' ? accountScoped() : projectScoped());
+  if (filter.scopeId === null) clauses.push(accountScoped());
+  else if (typeof filter.scopeId === 'string') {
+    clauses.push(projectScoped(), eq(roleAssignments.scopeId, filter.scopeId));
+  }
   if (filter.roleId) clauses.push(eq(roleAssignments.roleId, filter.roleId));
   if (filter.reachingProjectId) {
     clauses.push(
       or(
-        and(eq(roleAssignments.scopeType, 'project'), eq(roleAssignments.scopeId, filter.reachingProjectId)),
-        eq(roleAssignments.scopeType, 'account'),
+        and(projectScoped(), eq(roleAssignments.scopeId, filter.reachingProjectId)),
+        accountScoped(),
       )!,
     );
   }
@@ -467,8 +472,8 @@ export async function customRoleBindings(filter: {
       roleId: r.roleId,
       roleKey: r.roleKey,
       roleName: r.roleName,
-      scopeType: r.scopeType as ScopeType,
-      scopeId: r.scopeId,
+      scopeType: (grantScopeOf(r) ?? r.scopeType) as ScopeType,
+      scopeId: grantScopeIdOf(r),
       expiresAt: r.expiresAt,
       grantedBy: r.grantedBy,
       createdAt: r.createdAt,
@@ -523,7 +528,7 @@ export async function objectGrantRows(filter: {
   includeServiceAccounts?: boolean;
 }): Promise<ObjectGrantRow[]> {
   if (filter.projectIds && filter.projectIds.length === 0) return [];
-  const clauses = [eq(roleAssignments.scopeType, 'project'), isNotNull(roleAssignments.objectType)];
+  const clauses = [objectGrantScoped(), isNotNull(roleAssignments.objectType)];
   if (filter.accountId) clauses.push(eq(roleAssignments.accountId, filter.accountId));
   if (filter.projectId) clauses.push(eq(roleAssignments.scopeId, filter.projectId));
   if (filter.projectIds) clauses.push(inArray(roleAssignments.scopeId, filter.projectIds));

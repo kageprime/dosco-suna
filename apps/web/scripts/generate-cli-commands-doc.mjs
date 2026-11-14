@@ -38,6 +38,9 @@ const COMMANDS = {
   tokens: ['Older key commands: personal keys, service accounts and connected apps.', '[Security](/docs/guide#security)'],
   billing: ['The plan, credits, transactions, and costs per project and per session.', '[Billing](/docs/guide#billing)'],
   init: ['Create a project directory from the starter, with its `kortix.yaml`.', '[The everyday loop](#the-everyday-loop)'],
+  plan: ['Read this repository without changing it: stack, `.env` key names and classes, integrations, Kortix state.', '[Set up an existing repository](/docs/developers#plan-one-go-onboard)'],
+  onboard: ['Make `kortix.yaml` real in one go: validate, ship, secrets, webhooks, Slack, connectors, images, then the doctor.', '[Set up an existing repository](/docs/developers#plan-one-go-onboard)'],
+  templates: ['List, show and add a hand-approved set of agents and triggers to this repository.', '[Templates](/docs/developers#templates)'],
   workspaces: [
     'Create, list, switch, link, open, rename, configure and delete workspaces. Also feature flags (`features`) and workspace CLI tokens (`cli-tokens`). `kortix projects` is the older name.',
     '[Which workspace a command uses](#which-workspace-a-command-uses)',

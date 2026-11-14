@@ -7,7 +7,7 @@ import type {
   GatewayTrace,
 } from '../domain';
 import { type GatewayErrorContext, gatewayErrorBody, gatewayErrorResponse } from './error-response';
-import { authorize, identity, refundHold, type HandlerRuntime } from './simple-handler';
+import { authorize, billingRefusal, identity, refundHold, type HandlerRuntime } from './simple-handler';
 import type { TraceEmitter, TraceFields } from './trace';
 
 /**
@@ -234,12 +234,7 @@ export async function ensureBillingHold(
     if (billing?.holdUsd) run.principal = { ...run.principal, billingHold: { amountUsd: billing.holdUsd } };
     return null;
   } catch (error) {
-    const reason = (error as { reason?: unknown })?.reason;
-    return {
-      status: 402,
-      code: typeof reason === 'string' ? reason : 'subscription_required',
-      message: error instanceof Error ? error.message : 'Billing inactive',
-      suggestion: 'Check your subscription or add credits, then retry.',
-    };
+    // A check that got no answer is a retryable 503, not a billing refusal (`billingRefusal`).
+    return billingRefusal(error);
   }
 }

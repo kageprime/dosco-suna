@@ -6,9 +6,9 @@
  *     count; Create workspace sits at the bottom of that list) · Workspace
  *     settings · Invite people · Leave (only for a person who cannot open
  *     Workspace settings);
- *  2. the person: Inbox (notifications from every workspace, KRTX-1742) ·
- *     Preferences (Mod+,) · Apps and extensions (Chrome, the desktop app,
- *     your computer, MCP);
+ *  2. the person: Inbox (the person's notifications home, every workspace —
+ *     KRTX-1742, KRTX-4799) · Preferences (Mod+,) · Apps and extensions
+ *     (Chrome, the desktop app, your computer, MCP);
  *  3. Help (docs, support, legal) · Log out.
  *
  * Flat: one hover deep at most (Switch workspace, Help), never two. No
@@ -39,8 +39,6 @@ export interface WorkspaceMenuGates {
   canOpenSettings: boolean;
   /** Not the last owner (`useLeaveWorkspace`). */
   canLeave: boolean;
-  /** The host serves an Inbox page (`useInboxSummary(...).href` is set). */
-  hasInbox: boolean;
 }
 
 /** The menu's groups, top to bottom; a separator sits between two groups. */
@@ -52,7 +50,7 @@ export function workspaceMenuGroups(gates: WorkspaceMenuGates): WorkspaceMenuRow
       ...(gates.canInvite ? (['invite'] as const) : []),
       ...(gates.canLeave && !gates.canOpenSettings ? (['leave'] as const) : []),
     ],
-    [...(gates.hasInbox ? (['inbox'] as const) : []), 'preferences', 'apps'],
+    ['inbox', 'preferences', 'apps'],
     ['help', 'logout'],
   ];
 }

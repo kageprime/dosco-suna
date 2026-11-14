@@ -165,7 +165,9 @@ describe('waiting on the user is not the agent working', () => {
 
   test('the turn card gets the same fact, and its indicator reads it', () => {
     expect(chat).toContain('awaitingUser={awaitingUserInput}');
-    const indicator = between(turn, '{showTurnBusyIndicator({', '}) && (');
+    // #12547 gates the indicator behind the streaming-answer check; the call
+    // itself keeps the awaitingUser fact.
+    const indicator = between(turn, 'showTurnBusyIndicator({', '})');
     expect(indicator).toContain('awaitingUser,');
   });
 

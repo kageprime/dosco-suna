@@ -101,6 +101,7 @@ import {
   loadPipedreamConnector,
   mergeRequestingSession,
   readRequestingSessionId,
+  takeRequestingSession,
 } from './db-deps-connect';
 import { makeDbGatewayDeps } from './db-deps-gateway';
 import {
@@ -798,16 +799,7 @@ export const dbConnectorRouterDeps: ConnectorRouterDeps = {
       const connected = (await oauth2ConnectionStatus(connection.connectionId)).status === 'active';
       if (connected) {
         // Told once: only the call that clears the waiting session notifies it.
-        const rows = (await db.execute(sql`
-          update kortix.connector_connections c
-             set metadata = c.metadata - 'requesting_session_id'
-            from (select connection_id, metadata->>'requesting_session_id' as waiting
-                    from kortix.connector_connections
-                   where connection_id = ${connection.connectionId}
-                     for update) old
-           where c.connection_id = old.connection_id and old.waiting is not null
-          returning old.waiting as waiting`)) as unknown as Array<{ waiting: string }>;
-        const waiting = rows[0]?.waiting;
+        const waiting = await takeRequestingSession(connection.connectionId);
         if (waiting) void notifyConnectorSession(waiting, projectId, _userId ?? null, slug, mcpAppForUrl(mcp.url)?.slug ?? slug);
       }
       return { provider: 'mcp', connected, connectionId: connection.connectionId };

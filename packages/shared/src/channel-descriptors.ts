@@ -11,7 +11,7 @@
 export const CHANNEL_PLATFORM_IDS = ['slack', 'teams', 'email', 'telegram', 'discord'] as const;
 export type ChannelPlatformId = (typeof CHANNEL_PLATFORM_IDS)[number];
 
-export interface ChannelDescriptor {
+interface ChannelDescriptor {
   /** The display name. */
   label: string;
   /** The platform word of a prompt header, `[<envelope> · …]`. Transcripts store it: never rename one. */

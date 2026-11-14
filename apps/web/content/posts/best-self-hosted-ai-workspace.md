@@ -23,11 +23,11 @@ A demo is judged on the first conversation. A team needs three properties that o
 
 A Kortix workspace is backed by a git repository your company controls. Agents, skills, the memory they read and the rules for each connector are files in that repository, so any change to them arrives as a diff with an author and a date. Memory is plain files today, which means you can read it, grep it, and restore last week's copy with git.
 
-The same git loop is the review path, and the [git docs](https://kortix.com/docs/git) show the whole of it. The clone lands in a directory named after the project id, not the project name, so that is the path the second line uses:
+The same git loop is the review path, and the [git docs](https://kortix.com/docs/git) show the whole of it. The clone lands in a directory named after the workspace id, not the workspace name, so that is the path the second line uses:
 
 ```
-kortix projects clone <project_id>
-cd <project_id>
+kortix workspaces clone <workspace_id>
+cd <workspace_id>
 git checkout -b tighten-triage
 git commit -am "Tighten the triage prompt"
 git push origin tighten-triage

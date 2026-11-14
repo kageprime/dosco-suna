@@ -1,4 +1,5 @@
 export { Sidebar, type SidebarProps } from './sidebar.tsx';
+export { useRefreshSessions } from './use-sidebar-sessions.ts';
 export {
   DEFAULT_NAV,
   type SidebarNavItem,

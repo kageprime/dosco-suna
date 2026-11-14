@@ -1,0 +1,62 @@
+{
+  "$comment": "The Recruiting Factory configuration. The recruiting agent reads this file at the start of every run. The setup agent writes it with you (skills/recruiting-loop/references/analysis.md). Change it with a commit; the next run reads the new values.",
+  "version": 1,
+  "company": {
+    "name": null,
+    "careers_url": null,
+    "sender": { "name": null, "title": null },
+    "scheduling_link": null
+  },
+  "record": {
+    "kind": "json-file",
+    "target": null,
+    "fields": {}
+  },
+  "roles": [
+    {
+      "id": "example-role",
+      "title": "Example: Backend Engineer",
+      "ats_job_id": null,
+      "open": false,
+      "hiring_manager": null,
+      "location": null,
+      "must_have": [
+        { "id": "server-experience", "text": "Has built and run a server-side service in production" }
+      ],
+      "signals": [
+        { "id": "ownership", "text": "Owned a system end to end: design, launch, operation", "weight": 3 },
+        { "id": "communication", "text": "Writes clearly about technical tradeoffs", "weight": 2 },
+        { "id": "domain", "text": "Worked on a product in the same domain", "weight": 1 }
+      ],
+      "knockout_questions": [
+        { "id": "work-authorization", "text": "Are you authorized to work in the role's location, or do you need sponsorship?", "rule": "info-only" }
+      ],
+      "interview_plan": [
+        { "stage": "screen", "minutes": 30, "focus": ["server-experience", "communication"] },
+        { "stage": "technical", "minutes": 60, "focus": ["ownership", "domain"] }
+      ],
+      "sourcing": { "enabled": false, "queries": [] }
+    }
+  ],
+  "thresholds": { "strong": 75, "possible": 50 },
+  "sources": {
+    "application": { "enabled": true },
+    "referral": { "enabled": true },
+    "inbox": { "enabled": false, "connector": "gmail", "mailbox": null },
+    "ats-poll": { "enabled": false }
+  },
+  "approval": {
+    "messages": "draft",
+    "draft_in": "review",
+    "record_writes": "notes"
+  },
+  "caps": {
+    "screens_per_day": 60,
+    "drafts_per_day": 30,
+    "sourced_per_role_per_week": 15,
+    "stuck_days": 7,
+    "no_update_days": 10
+  },
+  "retention_days": 180,
+  "notify": { "strong_candidates": null, "digest": null }
+}

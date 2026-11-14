@@ -9,6 +9,7 @@ import {
 import { DetailPageShell, DETAIL_PAGE_COLUMN as PAGE_COLUMN } from './detail-page-shell';
 
 import {
+  connectorAccountNeedsSignIn,
   connectorAccountSignInStarted,
   getProjectDetail,
   listConnectors,
@@ -502,8 +503,14 @@ export function ConnectorDetailView({
       : [{ key: 'runs', label: t('infoRunsOver'), value: connectorRunsOver(connector.provider) }]),
   ];
   // The Accounts tab's own query; a channel has none, and the cell waits for it.
+  // It counts accounts an agent can use: a row whose sign-in never finished is
+  // listed in the tab, not counted here.
   if (!isChannel && connectionsQuery.isSuccess)
-    stripCells.push({ key: 'accounts', label: t('stripAccounts'), value: String(accounts.length) });
+    stripCells.push({
+      key: 'accounts',
+      label: t('stripAccounts'),
+      value: String(accounts.filter((account) => !connectorAccountNeedsSignIn(account, connector)).length),
+    });
   stripCells.push({
     key: 'tools',
     label: t('stripTools'),

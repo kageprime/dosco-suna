@@ -65,6 +65,8 @@ import {
   ShieldCheckIcon as ShieldCheck,
   SlidersHorizontalIcon as SlidersHorizontal,
   TargetIcon as Target,
+  ChartBarIcon as ChartBar,
+  CalendarBlankIcon as CalendarBlank,
   TerminalIcon as Terminal,
   TextAlignLeftIcon as TextAlignLeft,
   TrayIcon as Tray,
@@ -768,6 +770,33 @@ export const menuRegistry: MenuItemDef[] = [
     keywords: 'goals goal objectives outcomes',
   },
   {
+    // The workspace calendar (flag `calendar`): the sidebar Calendar row
+    // (`project-calendar-nav.tsx`), same icon, same route, same gate.
+    id: 'proj-calendar',
+    label: 'Calendar',
+    icon: CalendarBlank,
+    group: 'navigation',
+    showIn: ['commandPalette'],
+    kind: 'navigate',
+    href: '/workspaces/{projectId}/calendar',
+    requiresProject: true,
+    requiresFlag: 'calendar',
+    keywords: 'calendar schedule agenda week month due deadline items triggers',
+  },
+  {
+    // The project's evals (flag `evals`): Customize → Evals.
+    id: 'proj-evals',
+    label: 'Evals',
+    icon: ChartBar,
+    group: 'navigation',
+    showIn: ['commandPalette'],
+    kind: 'navigate',
+    href: '/workspaces/{projectId}/admin/evals',
+    requiresProject: true,
+    requiresFlag: 'evals',
+    keywords: 'evals eval benchmark score harbor terminal-bench tasks leaderboard',
+  },
+  {
     // The repo browser under Customize → Repo, where it moved with Drive
     // (#10258). `command-palette.tsx` gates the row on
     // the tab's own verdict, so it shows exactly when the tab does.
@@ -828,8 +857,8 @@ export const menuRegistry: MenuItemDef[] = [
     group: 'navigation',
     showIn: ['commandPalette'],
     kind: 'navigate',
-    // The Inbox's Review tab (`reviewHref`) since 2026-11-08.
-    href: '/workspaces/{projectId}/inbox?view=review',
+    // The workspace Review page (`reviewHref`).
+    href: '/workspaces/{projectId}/review',
     requiresProject: true,
     keywords: 'review center inbox approvals awaiting waiting needs you outputs queue',
   },

@@ -566,12 +566,9 @@ export async function reconcileStoredSessionAgentGrant(input: {
   // an identity to keep serving. Fall back to the session's own agent below.
   // Only a READ manifest can prove non-declaration; an unreadable one goes to
   // the keep-stored path below untouched.
+  let undeclaredStoredAgent = '';
   if (runningAgent && loaded && !isLaunchableAgentName(runningAgent, loaded)) {
-    console.error('[session-token-grant] stored session grant names an undeclared agent; healing to the session agent', {
-      sessionId: input.sessionId,
-      projectId: input.projectId,
-      storedAgent: runningAgent,
-    });
+    undeclaredStoredAgent = runningAgent;
     runningAgent = '';
   }
   if (!runningAgent && !rowError) {
@@ -590,6 +587,16 @@ export async function reconcileStoredSessionAgentGrant(input: {
     } catch (err) {
       throw new SessionGrantRemintError(input.sessionId, err);
     }
+  }
+  // Heal only when it changes the agent. A session CREATED with an agent the
+  // manifest no longer declares stores that same agent on every call: nothing
+  // is healed, and an error line per connector call is noise, not a signal.
+  if (undeclaredStoredAgent && runningAgent !== undeclaredStoredAgent) {
+    console.error('[session-token-grant] stored session grant names an undeclared agent; healing to the session agent', {
+      sessionId: input.sessionId,
+      projectId: input.projectId,
+      storedAgent: undeclaredStoredAgent,
+    });
   }
 
   // This path refreshes connector and CLI authorization only. Secret delivery

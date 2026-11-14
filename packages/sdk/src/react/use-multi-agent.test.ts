@@ -74,24 +74,36 @@ describe('multi-agent hooks', () => {
     expect((useTeammates('p1', 's1', { enabled: false }) as any).enabled).toBe(false);
   });
 
-  test('every read polls at most every 5 s while the page is visible', () => {
+  test('every read polls every 5 s while the session works or when the caller says nothing, every 30 s while idle', () => {
+    for (const options of [{ live: true }, {}]) {
+      for (const hook of [
+        useReachableAgents('p1', 's1', 'mine', options),
+        usePeerMessages('p1', 's1', 'in', options),
+        useTeamTasks('p1', 's1', options),
+        useSessionWorkflows('p1', 's1', options),
+        useTeammates('p1', 's1', options),
+      ] as any[]) {
+        expect(interval(hook)).toBe(5_000);
+        expect(hook.refetchIntervalInBackground).toBe(false);
+      }
+    }
+    const idle = { live: false };
     for (const hook of [
-      useReachableAgents('p1', 's1'),
-      usePeerMessages('p1', 's1', 'in'),
-      useTeamTasks('p1', 's1'),
-      useSessionWorkflows('p1', 's1'),
-      useTeammates('p1', 's1'),
+      useReachableAgents('p1', 's1', 'mine', idle),
+      usePeerMessages('p1', 's1', 'in', idle),
+      useTeamTasks('p1', 's1', idle),
+      useSessionWorkflows('p1', 's1', idle),
+      useTeammates('p1', 's1', idle),
     ] as any[]) {
-      expect(interval(hook)).toBeLessThanOrEqual(5_000);
-      expect(interval(hook)).toBeGreaterThan(0);
+      expect(interval(hook)).toBe(30_000);
       expect(hook.refetchIntervalInBackground).toBe(false);
     }
   });
 
-  test('workflow runs poll faster while one runs', () => {
-    const hook = useSessionWorkflows('p1', 's1') as any;
-    expect(interval(hook, [{ status: 'running' }])).toBe(2_000);
-    expect(interval(hook, [{ status: 'done' }])).toBe(5_000);
+  test('workflow runs poll every 2 s while one runs, even in an idle session', () => {
+    expect(interval(useSessionWorkflows('p1', 's1', { live: false }) as any, [{ status: 'running' }])).toBe(2_000);
+    expect(interval(useSessionWorkflows('p1', 's1', { live: false }) as any, [{ status: 'done' }])).toBe(30_000);
+    expect(interval(useSessionWorkflows('p1', 's1') as any, [{ status: 'done' }])).toBe(5_000);
   });
 
   test('approve and deny refresh the session agents reads', () => {

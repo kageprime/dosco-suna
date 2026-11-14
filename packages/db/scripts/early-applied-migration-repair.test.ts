@@ -4,9 +4,9 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   EARLY_APPLIED_MIGRATIONS,
-  migrationNamesInDirectory,
   planEarlyAppliedMigrationRepair,
 } from './early-applied-migration-repair';
+import { migrationNamesInDirectory } from './migration-files';
 
 const KEYSET = '20260916150159063_session_list_keyset_index.concurrent';
 const MIGRATIONS_DIR = join(import.meta.dir, '..', 'migrations');

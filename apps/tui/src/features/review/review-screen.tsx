@@ -31,7 +31,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { kortix } from '../../kortix.ts';
 import { theme } from '../../theme.ts';
-import { layoutRow } from '../../ui/index.ts';
+import type { ScreenProps } from '../../screens.tsx';
+import { layoutRow, useScreenAction } from '../../ui/index.ts';
 import { ChangeList, type ChangeRow, toChangeRow } from './change-list.tsx';
 import { type DiffState, DiffView, type DiffViewMode, splitUnifiedPatch } from './diff-view.tsx';
 import { matchesReviewBinding } from './keys.ts';
@@ -58,16 +59,10 @@ export interface ReviewActions {
   refresh(): void;
 }
 
-export interface ReviewScreenProps {
-  projectId: string | null;
-  focused: boolean;
-  width: number;
-  height: number;
-  onBack(): void;
-  /** `o` on a change request that came from a session. */
-  onOpenSession?(sessionId: string): void;
-  onToast?(message: string, kind?: 'info' | 'error'): void;
-}
+export type ReviewScreenProps = Pick<
+  ScreenProps,
+  'projectId' | 'focused' | 'width' | 'height' | 'onBack' | 'onOpenSession' | 'onToast'
+>;
 
 function errorText(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
@@ -177,9 +172,9 @@ export function ReviewView({
   const [fileIndex, setFileIndex] = useState(0);
   const [offset, setOffset] = useState(0);
   const [confirm, setConfirm] = useState<'merge' | 'close' | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
   const [tickedNow, setNow] = useState(() => Date.now());
   const now = fixedNow ?? tickedNow;
+  const { busy, run } = useScreenAction(onToast);
 
   useEffect(() => {
     if (fixedNow != null) return;
@@ -239,22 +234,23 @@ export function ReviewView({
   const runAction = useCallback(
     async (action: 'merge' | 'close') => {
       if (!current) return;
-      setBusy(`${action === 'merge' ? 'merging' : 'closing'} #${current.number}…`);
-      try {
-        if (action === 'merge') {
-          const sha = await actions.merge(current.crId);
-          onToast?.(`Merged #${current.number} as ${sha.slice(0, 7)}`);
-        } else {
-          await actions.close(current.crId);
-          onToast?.(`Closed #${current.number}`);
-        }
-      } catch (error) {
-        onToast?.(`${action === 'merge' ? 'Merge' : 'Close'} failed: ${errorText(error)}`, 'error');
-      } finally {
-        setBusy(null);
-      }
+      run(
+        `${action === 'merge' ? 'merging' : 'closing'} #${current.number}…`,
+        async () => {
+          try {
+            if (action === 'merge') {
+              const sha = await actions.merge(current.crId);
+              return `Merged #${current.number} as ${sha.slice(0, 7)}`;
+            }
+            await actions.close(current.crId);
+            return `Closed #${current.number}`;
+          } catch (error) {
+            throw new Error(`${action === 'merge' ? 'Merge' : 'Close'} failed: ${errorText(error)}`);
+          }
+        },
+      );
     },
-    [current, actions, onToast],
+    [current, actions, run],
   );
 
   const diffRows = Math.max(height - 4, 1);

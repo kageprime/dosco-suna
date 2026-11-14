@@ -4,8 +4,7 @@
  *
  * The body follows `providerSheetKind`:
  * - `included`  Kortix's models: nothing to connect.
- * - `pooled-*`  named accounts and keys (flag `pooled_provider_secrets`, on by
- *   default): add one with a label and "Who can use this connection?", then
+ * - `pooled-*`  named accounts and keys: add one with a label and "Who can use this connection?", then
  *   reconnect, change access, rotate or delete it.
  * - `subscription` / `key` / `no-key`  the project-wide credential flows.
  *

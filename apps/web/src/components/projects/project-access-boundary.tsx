@@ -26,6 +26,7 @@ import { formatWorkspaceDate } from '@kortix/ui/workspace/project-selector/proje
 import { prefetchSessionOpen, qk, useAdminImpersonate } from '@kortix/sdk/react';
 import { prefetchSessionRouteReads } from '@kortix/ui/session/status/session-route-prefetch';
 import { prefetchProjectShellReads } from '@/components/projects/project-shell-prefetch';
+import { useHomeTypingBuffer } from '@/components/projects/use-home-typing-buffer';
 
 /** How often the waiting screen re-checks whether a manager approved the request. */
 const APPROVAL_POLL_MS = 15_000;
@@ -237,6 +238,9 @@ interface ProjectAccessBoundaryProps {
 export function ProjectAccessBoundary(props: ProjectAccessBoundaryProps) {
   const { user } = useAuth();
   useSignedOutRedirect();
+  // Above the keyed child, so the buffer survives the remount when the user
+  // id resolves: keys typed before the home composer exists land in it.
+  useHomeTypingBuffer(user?.id ?? null);
   return <ProjectAccessForUser key={`${props.projectId}:${user?.id ?? "pending"}`} {...props} />;
 }
 
@@ -406,7 +410,7 @@ function DeletingWorkspaceScreen({
   });
   const date = formatWorkspaceDate(deletionScheduledFor, locale);
   return (
-    <AuthFrame>
+    <AuthFrame art={false}>
       <Rise key="h-deleting">
         <StepHeader title={t('title', { name })} description={t('body', { date })} />
       </Rise>
@@ -529,7 +533,7 @@ function AccessGateScreen({
   const showAdminBypass = forbidden && !!adminRole?.isAdmin;
 
   return (
-    <AuthFrame>
+    <AuthFrame art={false}>
       {/*
         Keyed on `state` so a step change replays the same two-part rise the
         auth flow uses everywhere else: header first, body 60ms behind.

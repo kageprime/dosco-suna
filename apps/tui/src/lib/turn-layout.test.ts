@@ -13,7 +13,6 @@ import {
   collapseToolRuns,
   findToolCall,
   formatArguments,
-  formatRelativeTime,
   headLines,
   isRenderablePart,
   orderedMessages,
@@ -166,15 +165,6 @@ describe('text rules', () => {
     expect(clip('abcdefghij', 5)).toBe('abcd…');
     expect(clip('abc', 5)).toBe('abc');
     expect(clip('abc', 0)).toBe('');
-  });
-
-  test('formatRelativeTime', () => {
-    const now = 1_000_000_000_000;
-    expect(formatRelativeTime(now - 1_000, now)).toBe('now');
-    expect(formatRelativeTime(now - 42_000, now)).toBe('42s');
-    expect(formatRelativeTime(now - 4 * 60_000, now)).toBe('4m');
-    expect(formatRelativeTime(now - 3 * 3_600_000, now)).toBe('3h');
-    expect(formatRelativeTime(now - 50 * 3_600_000, now)).toBe('2d');
   });
 });
 

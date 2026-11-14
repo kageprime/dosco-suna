@@ -64,6 +64,10 @@ function readRawEnv(): Partial<RuntimeEnv> {
       (process.env.KORTIX_PUBLIC_SERVICES_PAGES_ENABLED ||
         process.env.NEXT_PUBLIC_SERVICES_PAGES_ENABLED) === 'true' ||
       process.env.NODE_ENV === 'development',
+    LOOPMAXXING_ENABLED:
+      (process.env.KORTIX_PUBLIC_LOOPMAXXING_ENABLED ||
+        process.env.NEXT_PUBLIC_LOOPMAXXING_ENABLED) === 'true' ||
+      process.env.NODE_ENV === 'development',
     RESTRICT_ACCOUNT_CREATION:
       (process.env.KORTIX_PUBLIC_RESTRICT_ACCOUNT_CREATION ||
         process.env.NEXT_PUBLIC_RESTRICT_ACCOUNT_CREATION) === 'true',

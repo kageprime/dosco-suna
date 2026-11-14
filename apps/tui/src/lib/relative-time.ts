@@ -1,9 +1,11 @@
 /**
- * The sidebar's right-hand age column.
+ * The TUI's relative-time ladders: the sidebar's right-hand age column
+ * (`relativeAge`), the turn header's short age (`relativeShort`) and the
+ * countdown to a future instant (`relativeUntil`).
  *
- * Fixed-width by construction (at most 4 columns: `now`, `59m`, `23h`, `29d`,
- * `11mo`, `9y`) so a row never reflows when a session's age ticks over. The
- * unit ladder mirrors `shortRelative` in
+ * The age ladder is fixed-width by construction (at most 4 columns: `now`,
+ * `59m`, `23h`, `29d`, `11mo`, `9y`) so a row never reflows when a session's
+ * age ticks over. It mirrors `shortRelative` in
  * `packages/ui/src/session/actions/project-session-list-helpers.ts`
  * so a session reads the same in both clients.
  *
@@ -34,4 +36,32 @@ export function relativeAge(fromMs: number, nowMs: number): string {
   if (delta < MONTH_MS) return `${Math.floor(delta / DAY_MS)}d`;
   if (delta < YEAR_MS) return `${Math.floor(delta / MONTH_MS)}mo`;
   return `${Math.floor(delta / YEAR_MS)}y`;
+}
+
+/**
+ * `now`, `12s`, `4m`, `3h`, `2d` — the age a turn header prints. Seconds
+ * granularity under a minute (`relativeAge` collapses it to `now`) and days
+ * past 24 hours; there is no month step.
+ */
+export function relativeShort(elapsedMs: number): string {
+  const seconds = Math.max(Math.floor(elapsedMs / 1000), 0);
+  if (seconds < 5) return 'now';
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
+/** `in 5m` for a future instant, `due` for a past one, `—` for none. */
+export function relativeUntil(targetMs: number, nowMs: number): string {
+  if (!Number.isFinite(targetMs) || !Number.isFinite(nowMs)) return '—';
+  const delta = targetMs - nowMs;
+  if (delta <= 0) return 'due';
+  const minutes = Math.ceil(delta / 60_000);
+  if (minutes < 60) return `in ${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `in ${hours}h`;
+  return `in ${Math.floor(hours / 24)}d`;
 }

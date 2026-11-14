@@ -481,10 +481,12 @@ export interface SecretDeliveryInput {
 
 /** Grant/allowlist membership. Case-insensitive, matching `agentMayUseEnv` and
  *  `intersectSecretGrants` — a hand-written `secrets:` list in kortix.yaml may
- *  use any case. */
-function listAdmits(list: string[], identifier: string): boolean {
+ *  use any case. `grantAdmits` (../projects/lib/serializers.ts) still mirrors
+ *  it: the answers must agree or the UI and the delivery gate disagree about
+ *  whether a secret is granted. A non-string entry admits nothing. */
+export function listAdmits(list: readonly unknown[], identifier: string): boolean {
   const target = identifier.toUpperCase();
-  return list.some((entry) => entry.toUpperCase() === target);
+  return list.some((entry) => typeof entry === 'string' && entry.toUpperCase() === target);
 }
 
 /**

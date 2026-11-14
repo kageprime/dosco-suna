@@ -30,25 +30,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { openUrl } from '../../lib/open-url.ts';
 import { theme } from '../../theme.ts';
 import { Spinner } from '../../ui/index.ts';
+import type { ScreenProps } from '../../screens.tsx';
 import { MIN_QUERY, type MemoryPageDetail, type MemoryRow, MemoryView } from './memory-view.tsx';
-
-export interface MemoryScreenProps {
-  projectId: string | null;
-  accountId: string | null;
-  sessionId: string | null;
-  focused: boolean;
-  /** Inner columns. */
-  width: number;
-  /** Inner rows. */
-  height: number;
-  /** Kortix web origin, for "open in browser". */
-  webBaseUrl: string;
-  onBack(): void;
-  onOpenSession(sessionId: string): void;
-  onToast(message: string, kind?: 'info' | 'error'): void;
-  /** Test seam for `o`. Defaults to `lib/open-url.ts`. */
-  openUrlImpl?: (url: string) => Promise<unknown>;
-}
 
 /** The layer this screen lists. Channel and DM layers stay in their Spaces. */
 export const COMPANY_LAYER = 'company';
@@ -132,16 +115,21 @@ export function memoryWebUrl(webBaseUrl: string, projectId: string): string {
   return `${webBaseUrl.replace(/\/+$/, '')}/workspaces/${projectId}/memory`;
 }
 
+export type MemoryScreenProps = Pick<
+  ScreenProps,
+  'projectId' | 'focused' | 'width' | 'height' | 'webBaseUrl' | 'onBack' | 'onToast'
+> & {
+  /** Test seam for `o`. Defaults to `lib/open-url.ts`. */
+  openUrlImpl?: (url: string) => Promise<unknown>;
+};
+
 export function MemoryScreen({
   projectId,
-  accountId: _accountId,
-  sessionId: _sessionId,
   focused,
   width,
   height,
   webBaseUrl,
   onBack,
-  onOpenSession: _onOpenSession,
   onToast,
   openUrlImpl = openUrl,
 }: MemoryScreenProps) {

@@ -1,3 +1,5 @@
+// First: zod must be jitless before any import below parses a schema.
+import '@/lib/zod-jitless';
 import './sentry.client.config';
 import * as Sentry from '@sentry/nextjs';
 import { installNavigationSessionGate } from '@/lib/auth/navigation-session-gate';

@@ -479,7 +479,7 @@ export async function identitiesMergeableIntoSso(
         WHERE assignment.account_id=${accountId}::uuid
           AND assignment.principal_type='user'
           AND assignment.principal_id=candidate.user_id
-          AND assignment.scope_type='account'
+          AND (assignment.scope_type='account' OR (assignment.scope_type='workspace' AND assignment.object_type IS NULL))
           AND role_row.account_id IS NULL
           AND role_row.key='owner'
       )

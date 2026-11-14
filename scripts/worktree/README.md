@@ -85,7 +85,7 @@ worktrees share (allocators before 2026-10-15 could hand one out twice).
   worktree's **tracked `supabase/config.toml` stays pristine** (migrations are
   symlinked back, so they're shared + branch-correct).
 - **Branch database (`--db`)** — `create` copies the primary's `auth`,
-  `basejump`, `kortix*` and `public` schemas into `kortix_wt_<name>` in the
+  `kortix*` and `public` schemas into `kortix_wt_<name>` in the
   primary Postgres (`pg_dump`/`pg_restore` inside the container, ~5 s; audit-event
   rows are skipped), then applies the branch's migrations. `start` re-applies
   pending migrations. GoTrue, Kong, Storage and Studio stay shared. GoTrue writes

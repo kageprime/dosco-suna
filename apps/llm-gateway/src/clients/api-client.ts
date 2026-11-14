@@ -1,4 +1,5 @@
 import { TimeoutError, withRetry } from '@kortix/llm-gateway';
+import type { ReplayedResponse } from '../idempotency';
 import {
   GatewayResolutionError,
   type AdmitResult,
@@ -69,6 +70,9 @@ export interface ApiClient {
   assertBillingActive: (accountId: string) => Promise<{ holdUsd?: number } | void>;
   assertBudget: (principal: AuthedPrincipal) => Promise<void>;
   recordUsage: (event: UsageEvent) => Promise<void>;
+  /** The Idempotency-Key replay shared by every gateway replica (KRTX-4612). */
+  getReplay: (key: string) => Promise<ReplayedResponse | null>;
+  putReplay: (key: string, answer: ReplayedResponse) => Promise<void>;
   recordTrace: (trace: GatewayTrace) => Promise<void>;
   listModels: (principal: AuthedPrincipal, opts?: ListModelsOptions) => Promise<ModelCatalog>;
   ping: () => Promise<ApiPingResult>;
@@ -394,6 +398,13 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
 
     recordUsage: async (event) => {
       await post<{ ok: boolean }>('/internal/gateway/usage', { event });
+    },
+    getReplay: async (key) => {
+      const result = await post<{ answer: ReplayedResponse | null }>('/internal/gateway/idempotency/get', { key }, { once: true });
+      return result.answer;
+    },
+    putReplay: async (key, answer) => {
+      await post<{ ok: boolean }>('/internal/gateway/idempotency/put', { key, answer }, { once: true });
     },
     recordTrace: async (trace) => {
       await post<{ ok: boolean }>('/internal/gateway/trace', { trace });

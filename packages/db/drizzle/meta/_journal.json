@@ -1730,6 +1730,48 @@
       "when": 1794452225350,
       "tag": "20261112025705_chat_installs_own_app",
       "breakpoints": true
+    },
+    {
+      "idx": 245,
+      "version": "7",
+      "when": 1794487696871,
+      "tag": "20261112124816_audit_archive_resume",
+      "breakpoints": true
+    },
+    {
+      "idx": 246,
+      "version": "7",
+      "when": 1794549626713,
+      "tag": "20261113060026_gateway_idempotency_replays",
+      "breakpoints": true
+    },
+    {
+      "idx": 247,
+      "version": "7",
+      "when": 1794578897104,
+      "tag": "20261113140817_usage_events_created_at_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 248,
+      "version": "7",
+      "when": 1794603533497,
+      "tag": "20261113205853_eval_jobs_and_trials",
+      "breakpoints": true
+    },
+    {
+      "idx": 249,
+      "version": "7",
+      "when": 1794613660204,
+      "tag": "20261113234740_eval_jobs_started_by_idempotency",
+      "breakpoints": true
+    },
+    {
+      "idx": 250,
+      "version": "7",
+      "when": 1794662454104,
+      "tag": "20261114132054_calendar_items_and_mentions",
+      "breakpoints": true
     }
   ]
 }

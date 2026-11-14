@@ -1031,7 +1031,6 @@ test('FEATURE_FLAG_KEYS lists every flag key exactly once', () => {
     'marketplace',
     'reminders',
     'secrets_egress',
-    'pooled_provider_secrets',
     'us_region',
     'event_triggers',
     'workspace_volume',
@@ -1046,6 +1045,10 @@ test('FEATURE_FLAG_KEYS lists every flag key exactly once', () => {
     'chat_input',
     'chat_front',
     'spaces_proactive',
+    'program_agents',
+    'evals',
+    'desktop_tabs',
+    'calendar',
   ];
   expect([...FEATURE_FLAG_KEYS].sort()).toEqual(expected.sort());
   expect(new Set(FEATURE_FLAG_KEYS).size).toBe(FEATURE_FLAG_KEYS.length);
@@ -1067,6 +1070,17 @@ test('a graduated flag key still typechecks but is no longer a served flag', () 
   // actually serves, so it drops the key.
   const graduated: FeatureFlagKey = 'review_center';
   expect(FEATURE_FLAG_KEYS).not.toContain(graduated);
+});
+
+test('pooled_provider_secrets graduated: provider keys need no flag, the key still typechecks', () => {
+  // Named provider keys, sharing and session key selection are on for every
+  // project since 2026-11-12. The API sends `experimental.pooled_provider_secrets:
+  // true` for older clients, but it no longer lists, resolves, or accepts the key.
+  const graduated: FeatureFlagKey = 'pooled_provider_secrets';
+  expect(FEATURE_FLAG_KEYS).not.toContain(graduated);
+  const project = { experimental: {} } as Pick<KortixProject, 'experimental'>;
+  const sent: boolean | undefined = project.experimental?.pooled_provider_secrets;
+  expect(sent).toBeUndefined();
 });
 
 test('notification_center graduated: notifications need no flag, the key still typechecks', () => {

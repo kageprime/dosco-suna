@@ -18,6 +18,15 @@
  * WAL storm), so it is exported week by week and dropped whole, once every row is older than
  * HOT_DAYS (`retireLegacy`).
  *
+ * A week outlives a worker. On prod one legacy week is ~50M rows: ~2 h 50 min to tally and as long
+ * to export at the rate cap, and the worker restarts every few hours (deploys, kills). So the export
+ * records its progress: the legacy tally once read (`audit_archive_chunks.legacy_tally`) and every
+ * object once uploaded and verified (`audit_archive_parts`). A restarted export skips the accounts
+ * it finished and continues an unfinished one after its last recorded part; parts keep the same
+ * boundaries and bytes, so a re-upload meets an equal object. Totals and the manifest come from the
+ * recorded parts. A pass stops between pages at its deadline (`pending`) and the job runs the next
+ * pass a minute later.
+ *
  * Bounded IO (prod: 125 MiB/s of disk throughput for everything). Every read that touches table
  * rows is capped at `rowsPerSecond`:
  *   - export pages are keyset batches of `batchRows` (5,000), each branch ordered and limited on
@@ -36,8 +45,8 @@ import type { ObjectLockMode } from '../../object-store/s3';
 import {
   ARCHIVE_PART_ROWS,
   HOT_DAYS,
+  RowEncoder,
   archiveObjectKey,
-  encodeRows,
   isExpired,
   isReadyToArchive,
   manifestKey,
@@ -61,6 +70,13 @@ export interface ArchiveDeps {
   now?: () => Date;
   sleep?: (ms: number) => Promise<void>;
   log?: (message: string, detail?: Record<string, unknown>) => void;
+  /**
+   * Rows per object, ARCHIVE_PART_ROWS unless a test sets it. Never change it for a week that is
+   * partly in S3: the new boundaries would not match the write-once objects already there.
+   */
+  partRows?: number;
+  /** The time the deadline is checked against (ms); Date.now unless a test sets it. */
+  clock?: () => number;
 }
 
 const DAY_MS = 86_400_000;
@@ -218,9 +234,88 @@ async function legacyTally(deps: ArchiveDeps, week: string, pace: (rows: number)
 /** Ascending account ids, NULL last (the order `ORDER BY account_id::text` gives). */
 const accountOrder = (a: string | null, b: string | null) => (a === b ? 0 : a === null ? 1 : b === null ? -1 : a < b ? -1 : 1);
 
-export async function exportWeek(deps: ArchiveDeps, week: string): Promise<WeekExport> {
+interface SavedTally {
+  rows: string;
+  sum: string;
+  accounts: Array<string | null>;
+}
+
+/** The week's legacy tally: the one an earlier run saved, or read now and saved. */
+async function weekTally(deps: ArchiveDeps, week: string, pace: (rows: number) => Promise<void>): Promise<Tally & { saved: boolean }> {
+  const [row] = rows<{ tally: SavedTally | string | null }>(
+    await deps.db.execute(sql`SELECT legacy_tally AS tally FROM kortix.audit_archive_chunks WHERE week_start = ${week}::date`),
+  );
+  const saved = typeof row?.tally === 'string' ? (JSON.parse(row.tally) as SavedTally) : row?.tally;
+  if (saved) return { rows: BigInt(saved.rows), sum: BigInt(saved.sum), accounts: new Set(saved.accounts), saved: true };
+  const tally = await legacyTally(deps, week, pace);
+  const record: SavedTally = { rows: tally.rows.toString(), sum: tally.sum.toString(), accounts: [...tally.accounts].sort(accountOrder) };
+  await deps.db.execute(sql`
+    UPDATE kortix.audit_archive_chunks SET legacy_tally = ${JSON.stringify(record)}::jsonb, updated_at = now()
+     WHERE week_start = ${week}::date`);
+  return { ...tally, saved: false };
+}
+
+/** One uploaded and verified object of a week that is still exporting (`kortix.audit_archive_parts`). */
+interface RecordedPart {
+  key: string;
+  account_id: string | null;
+  part: number;
+  rows: number;
+  bytes: string;
+  sha256: string;
+  chk: string;
+  first: string;
+  last: string;
+  last_id: string;
+  done: boolean;
+}
+
+async function recordedParts(db: Db, week: string): Promise<RecordedPart[]> {
+  return rows<RecordedPart>(
+    await db.execute(sql`
+      SELECT object_key AS key, account_id::text AS account_id, part, row_count AS rows, byte_count::text AS bytes, sha256,
+             checksum_sum::text AS chk, first_occurred_at AS first, last_occurred_at AS last, last_event_id::text AS last_id,
+             account_done AS done
+        FROM kortix.audit_archive_parts WHERE week_start = ${week}::date`),
+  );
+}
+
+/** Per account: whether it is finished, and its last recorded part (where a restart continues). */
+function progressByAccount(parts: RecordedPart[]): Map<string | null, { done: boolean; last: RecordedPart }> {
+  const progress = new Map<string | null, { done: boolean; last: RecordedPart }>();
+  for (const part of parts) {
+    const seen = progress.get(part.account_id);
+    progress.set(part.account_id, {
+      done: Boolean(seen?.done) || part.done,
+      last: seen && seen.last.part > part.part ? seen.last : part,
+    });
+  }
+  return progress;
+}
+
+/** A part being written: rows stream into its encoder, so a part never sits in memory as text. */
+interface OpenPart {
+  account: string | null;
+  part: number;
+  encoder: RowEncoder;
+  first: string;
+  last: string;
+  lastId: string;
+  chk: bigint;
+}
+
+/**
+ * Export `week` to S3, verify it, and mark it archived. Continues from the progress an earlier,
+ * interrupted run recorded. Returns null when `deadline` (deps.clock) passes first: the run stops
+ * between pages, the unfinished part is dropped, and everything recorded stays for the next run.
+ */
+export async function exportWeek(deps: ArchiveDeps, week: string): Promise<WeekExport>;
+export async function exportWeek(deps: ArchiveDeps, week: string, deadline: number): Promise<WeekExport | null>;
+export async function exportWeek(deps: ArchiveDeps, week: string, deadline = Number.POSITIVE_INFINITY): Promise<WeekExport | null> {
   const { db, store, mode } = deps;
   const batch = deps.batchRows ?? 5_000;
+  const partRows = deps.partRows ?? ARCHIVE_PART_ROWS;
+  const clock = deps.clock ?? Date.now;
   const keepUntil = retainUntil(week);
   const partition = await partitionAttached(db, week);
   const legacy = await legacyExists(db);
@@ -230,49 +325,9 @@ export async function exportWeek(deps: ArchiveDeps, week: string): Promise<WeekE
     VALUES (${week}::date, 'exporting', ${keepUntil.toISOString()}::timestamptz)
     ON CONFLICT (week_start) DO UPDATE SET status = 'exporting', retain_until = EXCLUDED.retain_until, updated_at = now()`);
 
-  const startedAt = Date.now();
-  const pace = rateCap(deps, startedAt);
-  const legacyShare = legacy ? await legacyTally(deps, week, pace) : { rows: 0n, sum: 0n, accounts: new Set<string | null>() };
+  const pace = rateCap(deps, Date.now());
+  const legacyShare = legacy ? await weekTally(deps, week, pace) : { rows: 0n, sum: 0n, accounts: new Set<string | null>(), saved: false };
   const withLegacy = legacyShare.rows > 0n;
-
-  const objects: ManifestObject[] = [];
-  let totalRows = 0;
-  let totalBytes = 0;
-  let checksumSum = 0n;
-  let current: { account: string | null; part: number; lines: string[]; first: string; last: string } | null = null;
-
-  const flush = async () => {
-    if (!current || current.lines.length === 0) return;
-    const encoded = encodeRows(current.lines);
-    const key = archiveObjectKey(current.account, week, current.part);
-    await store.putLocked({ key, body: encoded.bytes, contentType: 'application/gzip', retainUntil: keepUntil, mode });
-    // Whether created now or by an earlier attempt, S3 must hold exactly these bytes.
-    if ((await store.checksum(key)) !== base64(encoded.sha256)) {
-      throw new Error(`archive object ${key} does not match the exported rows (S3 checksum differs)`);
-    }
-    objects.push({
-      key, account_id: current.account, part: current.part, rows: encoded.rows,
-      bytes: encoded.bytes.length, sha256: encoded.sha256, first_occurred_at: current.first, last_occurred_at: current.last,
-    });
-    totalBytes += encoded.bytes.length;
-    current = { ...current, part: current.part + 1, lines: [], first: '', last: '' };
-  };
-
-  const take = async (page: ExportRow[]) => {
-    for (const row of page) {
-      if (current && (current.account !== row.account_id || current.lines.length >= ARCHIVE_PART_ROWS)) {
-        const sameAccount = current.account === row.account_id;
-        await flush();
-        if (!sameAccount) current = null;
-      }
-      current ??= { account: row.account_id, part: 0, lines: [], first: '', last: '' };
-      if (current.lines.length === 0) current.first = row.at;
-      current.lines.push(row.line);
-      current.last = row.at;
-      totalRows += 1;
-      checksumSum += BigInt(row.chk);
-    }
-  };
 
   // One account at a time: its rows are one index range, already in (occurred_at, event_id) order.
   // The partition's accounts come from an index-only scan of (account_id, occurred_at).
@@ -284,10 +339,42 @@ export async function exportWeek(deps: ArchiveDeps, week: string): Promise<WeekE
     for (const r of listed) accountSet.add(r.account_id);
   }
   const accounts = [...accountSet].sort(accountOrder);
+  const progress = progressByAccount(await recordedParts(db, week));
+  const finished = [...progress.values()].filter((p) => p.done).length;
+  deps.log?.(progress.size ? 'archive: resuming week' : 'archive: exporting week', {
+    week, accounts: accounts.length, accountsDone: finished, tally: legacy ? (legacyShare.saved ? 'saved' : 'read') : 'none',
+  });
+
+  const flush = async (open: OpenPart, done: boolean) => {
+    const encoded = await open.encoder.finish();
+    const key = archiveObjectKey(open.account, week, open.part);
+    await store.putLocked({ key, body: encoded.bytes, contentType: 'application/gzip', retainUntil: keepUntil, mode });
+    // Whether created now or by an earlier attempt, S3 must hold exactly these bytes.
+    if ((await store.checksum(key)) !== base64(encoded.sha256)) {
+      throw new Error(`archive object ${key} does not match the exported rows (S3 checksum differs)`);
+    }
+    await db.execute(sql`
+      INSERT INTO kortix.audit_archive_parts
+        (object_key, week_start, account_id, part, row_count, byte_count, sha256, checksum_sum,
+         first_occurred_at, last_occurred_at, last_event_id, account_done)
+      VALUES (${key}, ${week}::date, ${open.account}::uuid, ${open.part}, ${encoded.rows}, ${encoded.bytes.length}, ${encoded.sha256},
+              ${open.chk.toString()}::numeric, ${open.first}, ${open.last}, ${open.lastId}::uuid, ${done})
+      ON CONFLICT (object_key) DO UPDATE SET account_done = kortix.audit_archive_parts.account_done OR EXCLUDED.account_done`);
+  };
+
   for (const account of accounts) {
+    const resume = progress.get(account);
+    if (resume?.done) continue;
     const accountWhere = account === null ? sql`account_id IS NULL` : sql`account_id = ${account}::uuid`;
-    let cursor = null as { at: string; id: string } | null;
+    let cursor = resume ? { at: resume.last.last, id: resume.last.last_id } : null;
+    let nextPart = resume ? resume.last.part + 1 : 0;
+    let open: OpenPart | null = null;
     for (;;) {
+      if (clock() > deadline) {
+        open?.encoder.discard();
+        deps.log?.('archive: pass budget spent; the week continues on the next pass', { week });
+        return null;
+      }
       const where = cursor
         ? sql`${accountWhere} AND (occurred_at, event_id) > (${cursor.at}::timestamptz, ${cursor.id}::uuid)`
         : accountWhere;
@@ -307,15 +394,36 @@ export async function exportWeek(deps: ArchiveDeps, week: string): Promise<WeekE
            LIMIT ${batch}`),
       );
       if (page.length === 0) break;
-      await take(page);
+      for (const row of page) {
+        // A full part closes when the account's next row arrives, so an account's last part is never empty.
+        if (open && open.encoder.rows >= partRows) {
+          await flush(open, false);
+          nextPart = open.part + 1;
+          open = null;
+        }
+        open ??= { account, part: nextPart, encoder: new RowEncoder(), first: row.at, last: row.at, lastId: row.id, chk: 0n };
+        await open.encoder.push(row.line);
+        open.last = row.at;
+        open.lastId = row.id;
+        open.chk += BigInt(row.chk);
+      }
       const last: ExportRow = page[page.length - 1]!;
       cursor = { at: last.at, id: last.id };
       // Rate cap: rows read so far may not outrun rowsPerSecond. Sleep off what is owed, in lumps.
       await pace(page.length);
       if (page.length < batch) break;
     }
+    if (open) await flush(open, true);
+    else if (resume) {
+      // The run before stopped right after this account's last full part: nothing is left of it.
+      await db.execute(sql`UPDATE kortix.audit_archive_parts SET account_done = true WHERE object_key = ${resume.last.key}`);
+    }
   }
-  await flush();
+
+  const parts = await recordedParts(db, week);
+  const totalRows = parts.reduce((n, p) => n + p.rows, 0);
+  const totalBytes = parts.reduce((n, p) => n + Number(p.bytes), 0);
+  const checksumSum = parts.reduce((n, p) => n + BigInt(p.chk), 0n);
 
   // The partition takes late writes, so its half of the check reads it again after the export
   // (an index-only scan of its primary key).
@@ -333,6 +441,10 @@ export async function exportWeek(deps: ArchiveDeps, week: string): Promise<WeekE
   }
   const legacyCount = Number(legacyShare.rows);
 
+  const objects: ManifestObject[] = parts.map((p) => ({
+    key: p.key, account_id: p.account_id, part: p.part, rows: p.rows,
+    bytes: Number(p.bytes), sha256: p.sha256, first_occurred_at: p.first, last_occurred_at: p.last,
+  }));
   const manifest = JSON.stringify({
     version: 1, week_start: week, week_end: weekEnd(week).toISOString(), rows: totalRows,
     legacy_rows: legacyCount, event_id_checksum: checksumSum.toString(),
@@ -344,12 +456,16 @@ export async function exportWeek(deps: ArchiveDeps, week: string): Promise<WeekE
   await store.putLocked({ key: mKey, body: encodedManifest, contentType: 'application/json', retainUntil: keepUntil, mode });
   if ((await store.checksum(mKey)) !== base64(manifestHash)) throw new Error(`manifest ${mKey} does not match`);
 
-  await db.execute(sql`
-    UPDATE kortix.audit_archive_chunks
-       SET status = 'archived', row_count = ${totalRows}, legacy_row_count = ${legacyCount},
-           object_count = ${objects.length}, byte_count = ${totalBytes}, manifest_key = ${mKey},
-           manifest_sha256 = ${manifestHash}, archived_at = now(), updated_at = now()
-     WHERE week_start = ${week}::date`);
+  // The manifest now lists every object: the progress rows and the tally have served their purpose.
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`
+      UPDATE kortix.audit_archive_chunks
+         SET status = 'archived', row_count = ${totalRows}, legacy_row_count = ${legacyCount},
+             object_count = ${objects.length}, byte_count = ${totalBytes}, manifest_key = ${mKey},
+             manifest_sha256 = ${manifestHash}, legacy_tally = NULL, archived_at = now(), updated_at = now()
+       WHERE week_start = ${week}::date`);
+    await tx.execute(sql`DELETE FROM kortix.audit_archive_parts WHERE week_start = ${week}::date`);
+  });
   return { week, rows: totalRows, legacyRows: legacyCount, objects: objects.length, bytes: totalBytes, manifestKey: mKey, manifestSha256: manifestHash };
 }
 
@@ -428,6 +544,8 @@ export interface TickResult {
   removed: string[];
   expired: string[];
   legacyRetired: boolean;
+  /** The pass stopped at its deadline with work left; the job runs the next pass soon, not in 24 h. */
+  pending: boolean;
 }
 
 /** Name the legacy table takes in the retirement transaction; dropped right after it commits. */
@@ -440,7 +558,8 @@ const RETIRED_LEGACY = 'audit_events_legacy_retired';
  */
 export async function runArchivePass(deps: ArchiveDeps, deadline: number): Promise<TickResult> {
   const now = deps.now ?? (() => new Date());
-  const result: TickResult = { archived: [], removed: [], expired: [], legacyRetired: false };
+  const clock = deps.clock ?? Date.now;
+  const result: TickResult = { archived: [], removed: [], expired: [], legacyRetired: false, pending: false };
   // A retirement that committed but did not get to drop the renamed table (see retireLegacy).
   await deps.db.execute(sql.raw(`DROP TABLE IF EXISTS kortix.${RETIRED_LEGACY}`));
   const legacy = await legacyExists(deps.db);
@@ -449,7 +568,7 @@ export async function runArchivePass(deps: ArchiveDeps, deadline: number): Promi
   const rolledThrough = await rollupMark(deps.db);
   let waitingForRollup = false;
   for (const week of [...weeks].sort()) {
-    if (Date.now() > deadline) return result;
+    if (clock() > deadline) return { ...result, pending: true };
     if (!isReadyToArchive(week, now())) continue;
     const chunk = await chunkStatus(deps.db, week);
     if (isExpired(week, now()) && chunk?.status !== 'archived' && chunk?.status !== 'removed') {
@@ -470,7 +589,7 @@ export async function runArchivePass(deps: ArchiveDeps, deadline: number): Promi
         waitingForRollup = true;
         continue;
       }
-      await exportWeek(deps, week);
+      if (!(await exportWeek(deps, week, deadline))) return { ...result, pending: true };
       result.archived.push(week);
     }
   }
@@ -481,7 +600,7 @@ export async function runArchivePass(deps: ArchiveDeps, deadline: number): Promi
     result.legacyRetired = await retireLegacy(deps, now());
   }
   for (const week of await attachedWeeks(deps.db)) {
-    if (Date.now() > deadline) break;
+    if (clock() > deadline) return { ...result, pending: true };
     const chunk = await chunkStatus(deps.db, week);
     if (chunk?.status === 'archived' && !(await legacyExists(deps.db))) {
       await removePartition(deps, week, chunk.rowCount - chunk.legacyRowCount);

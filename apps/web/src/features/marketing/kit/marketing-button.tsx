@@ -10,8 +10,11 @@ const SIZES = {
 } as const;
 
 export type MarketingButtonProps = ComponentProps<'button'> & {
-  /** `primary` is the lit grey button, `secondary` the dark one with a hairline edge. */
-  variant?: 'primary' | 'secondary';
+  /**
+   * `primary` is the lit grey button, `secondary` the dark one with a hairline
+   * edge, `accent` the brand-blue one: the single main action of a page.
+   */
+  variant?: 'primary' | 'secondary' | 'accent';
   size?: keyof typeof SIZES;
   /** Render the child (a `Link`, an `a`) with the button's look. */
   asChild?: boolean;

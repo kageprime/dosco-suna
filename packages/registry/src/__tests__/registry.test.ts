@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { assertFetchableUrl, parseItemAddress, parseRegistryAddress, rawGithubUrl } from '../address';
-import { validateRegistry } from '../validate';
+import { formatIssues, validateRegistry } from '../validate';
 import { buildRegistry, type BuildSource } from '../build';
+import { ALL_ITEM_TYPES } from '../schema';
 import { loadItem, loadRegistry } from '../fetch';
 
 // --- address parsing -------------------------------------------------------
@@ -121,6 +122,53 @@ describe('validateRegistry', () => {
     });
     expect(res.valid).toBe(false);
   });
+
+  test('warns on a non-slug item name and accepts a slug with a digit segment', () => {
+    const files = [{ path: 'a', type: 'registry:file', target: '~/a' }];
+    const res = validateRegistry({
+      name: 'acme',
+      items: [
+        { name: 'a--b', type: 'registry:skill', files },
+        { name: 'pdf-2', type: 'registry:skill', files },
+      ],
+    });
+    expect(res).toEqual({
+      valid: true,
+      issues: [
+        {
+          severity: 'warning',
+          path: 'items[0].name',
+          message: `"a--b" isn't a spec slug (lowercase a-z, 0-9, single hyphens)`,
+        },
+      ],
+    });
+  });
+
+  test('reports every issue in order, rendered the way the CLI prints it', () => {
+    const res = validateRegistry({
+      name: 'a',
+      include: 'skills',
+      items: [
+        null,
+        { name: 'x', type: 'nope', files: [{}, { path: 'p', type: 'nope', target: '../up' }], dependencies: 'y' },
+        { name: 'x', type: 'registry:file' },
+      ],
+    });
+    expect(res.valid).toBe(false);
+    expect(formatIssues(res.issues)).toBe(
+      [
+        '  ✗ include: include must be an array of paths',
+        '  ✗ items[0]: item must be an object',
+        `  ✗ items[1].type: type must be one of: ${ALL_ITEM_TYPES.join(', ')}`,
+        '  ✗ items[1].files[0].path: file needs a path or inline content',
+        '  ✗ items[1].files[1].type: file.type is not a valid registry type',
+        '  ✗ items[1].files[1].target: target may not contain ".." segments',
+        '  ✗ items[1].dependencies: dependencies must be an array',
+        '  ! items[2]: item declares no files and no registryDependencies',
+        '  ✗ items[2].name: duplicate item name "x"',
+      ].join('\n'),
+    );
+  });
 });
 
 // --- build -----------------------------------------------------------------
@@ -198,6 +246,28 @@ describe('buildRegistry', () => {
     });
     const docs = registry.items!.find((i) => i.name === 'docs')!;
     expect(docs.files!.map((f) => f.target).sort()).toEqual(['~/docs/a.md', '~/docs/sub/b.md']);
+  });
+
+  test('expands a folder path and target written with trailing slashes', () => {
+    const { registry } = buildRegistry({
+      name: 'test',
+      source: memSource({
+        'kortix.registry.json': JSON.stringify({
+          items: [
+            { name: 'kb', type: 'registry:file', files: [{ path: 'docs//', target: '~/kb//' }] },
+            { name: 'raw', type: 'registry:file', files: [{ path: 'docs/' }] },
+          ],
+        }),
+        'docs/a.md': 'a',
+        'docs/sub/b.md': 'b',
+      }),
+    });
+    const files = (name: string) => registry.items?.find((i) => i.name === name)?.files;
+    expect(files('kb')).toEqual([
+      { path: 'docs/a.md', type: 'registry:file', target: '~/kb/a.md' },
+      { path: 'docs/sub/b.md', type: 'registry:file', target: '~/kb/sub/b.md' },
+    ]);
+    expect(files('raw')?.map((f) => f.target)).toEqual(['~/docs/a.md', '~/docs/sub/b.md']);
   });
 });
 

@@ -24,6 +24,7 @@ import { useKeyboard } from '@opentui/react';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
 
 import { theme } from '../../theme.ts';
+import type { ScreenProps } from '../../screens.tsx';
 import { layoutRow } from '../../ui/index.ts';
 import { AgentsTab } from './agents-tab.tsx';
 import { ConnectorsTab } from './connectors-tab.tsx';
@@ -125,31 +126,19 @@ export function CustomizeShell({
   );
 }
 
-export interface CustomizeScreenProps {
-  projectId: string | null;
-  /** The account the project belongs to. Carried for the caller's header. */
-  accountId: string | null;
-  focused: boolean;
-  width: number;
-  height: number;
+export type CustomizeScreenProps = Pick<
+  ScreenProps,
+  'projectId' | 'focused' | 'width' | 'height' | 'webBaseUrl' | 'onBack' | 'onToast'
+> & {
   /** Open this tab first. Defaults to Agents. */
   initialTab?: CustomizeTabId;
-  /**
-   * The Kortix web origin, for the Connectors tab's connect hint. The TUI
-   * runs no OAuth flow; it prints the page the user must open. Without it the
-   * hint is the path alone.
-   */
-  webBaseUrl?: string;
-  onBack(): void;
-  onToast?(message: string, kind?: 'info' | 'error'): void;
-}
+};
 
 /** How often ages are recomputed. A minute is the smallest unit printed. */
 const CLOCK_TICK_MS = 30_000;
 
 export function CustomizeScreen({
   projectId,
-  accountId: _accountId,
   focused,
   width,
   height,

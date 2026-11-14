@@ -19,7 +19,10 @@ import { CheckCircleIcon, MinusCircleIcon, XCircleIcon } from '@phosphor-icons/r
 /** Session checks and initial fetches — the frame with a quiet spinner. */
 export function AuthPendingScreen({
   footer = true,
+  art = true,
 }: {
+  /** `false` on an in-app gate whose resolved screen has no art pane. */
+  art?: boolean;
   /**
    * Pass `false` when the screen this resolves into carries no legal line, so
    * the footer does not flash for the length of one fetch and then disappear.
@@ -28,7 +31,7 @@ export function AuthPendingScreen({
   footer?: boolean;
 }) {
   return (
-    <AuthFrame footerVariant={footer ? 'default' : 'none'}>
+    <AuthFrame footerVariant={footer ? 'default' : 'none'} art={art}>
       <div className="flex justify-center">
         <Loading className="text-muted-foreground size-5" />
       </div>

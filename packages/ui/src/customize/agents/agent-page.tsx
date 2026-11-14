@@ -490,12 +490,17 @@ function useRailGroups(
   views: readonly AgentConfigSectionKey[],
   counts: { triggerCount?: number },
   onPeople?: () => void,
+  /** A program agent (`run`): its Model row is its Program. */
+  program = false,
 ): AgentRailGroup[] {
   const t = useI18nTranslations('agentEditor.tabs');
+  const tModel = useI18nTranslations('agentEditor.modelView');
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const catalog = useLocalizedAgentConfigCatalog();
   const labelOf = (key: AgentConfigSectionKey) =>
-    key === 'subagents'
+    key === 'model' && program
+      ? tModel('programTitle')
+      : key === 'subagents'
       ? tI18nComplete.raw('agentsListSubagentsTitle')
       : (catalog.sections.find((s) => s.key === key)?.label ?? key);
   const viewRows = (keys: readonly AgentConfigSectionKey[]): AgentRailItem[] =>
@@ -757,6 +762,7 @@ function EditableAgentPage({
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const pathname = useUiPathname();
   const drivesOn = useFeatureFlag(projectId, 'drives').enabled;
+  const programAgentsOn = useFeatureFlag(projectId, 'program_agents').enabled;
   const views = useMemo<AgentConfigSectionKey[]>(
     () => AGENT_CONFIG_SECTIONS.map((s) => s.key).filter((k) => drivesOn || k !== 'drives'),
     [drivesOn],
@@ -815,7 +821,13 @@ function EditableAgentPage({
   useSaveShortcut(editor.isDirty, saveNow);
 
   const canManageMembers = useCanManageMembers(projectId);
-  const railGroups = useRailGroups(pathname, views, facts, canManageMembers ? () => share.setOpen(true) : undefined);
+  const railGroups = useRailGroups(
+    pathname,
+    views,
+    facts,
+    canManageMembers ? () => share.setOpen(true) : undefined,
+    programAgentsOn && typeof editor.draft.run === 'string',
+  );
   const railItems = railGroups.flatMap((group) => group.items);
   const dirtyItems = useMemo(() => changedItems(editor.draft, editor.baseline), [editor.draft, editor.baseline]);
   const changed = new Intl.ListFormat(locale, { type: 'conjunction' }).format(
@@ -945,7 +957,21 @@ function EditableAgentPage({
         if (view === 'model')
           return (
             <AgentTabBody>
-              <AgentModelView oc={editor.oc} setOc={editor.setOc} footer={<ProjectModelsLink projectId={projectId} />} />
+              <AgentModelView
+                oc={editor.oc}
+                setOc={editor.setOc}
+                footer={<ProjectModelsLink projectId={projectId} />}
+                program={
+                  programAgentsOn && typeof editor.draft.run === 'string'
+                    ? {
+                        command: editor.draft.run,
+                        onChange: (next) => editor.set('run', next),
+                        timeout: editor.draft.timeout,
+                        onTimeoutChange: (next) => editor.set('timeout', next),
+                      }
+                    : undefined
+                }
+              />
             </AgentTabBody>
           );
         return (

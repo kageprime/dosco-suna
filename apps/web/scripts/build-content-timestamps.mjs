@@ -43,7 +43,8 @@ const MANIFEST_PATH = join(APPS_WEB, 'src', 'lib', 'seo', 'content-timestamps.js
 // MARKETING_RECORDS mapping in src/lib/seo/public-content.ts; both lists must
 // stay in sync. A slug without a backing page.tsx (none today) is skipped.
 const MARKETING_SOURCES = {
-  index: 'apps/web/src/app/[locale]/(public)/(marketing)/(home)/page.tsx',
+  index: 'apps/web/src/features/marketing/one-prompt/factory-home.tsx',
+  companyos: 'apps/web/src/app/[locale]/(public)/(marketing)/companyos/page.tsx',
   about: 'apps/web/src/app/[locale]/(public)/(seo)/about/page.tsx',
   contact: 'apps/web/src/app/[locale]/(public)/(marketing)/contact/page.tsx',
   developers: 'apps/web/src/app/[locale]/(public)/(marketing)/developers/page.tsx',

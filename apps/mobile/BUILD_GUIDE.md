@@ -39,6 +39,7 @@ the build number (EAS keeps it remotely).
 | Profile | Backend (from EAS environment) | EAS environment | Update channel | Artifact |
 |---|---|---|---|---|
 | `prod-store` | `https://dosco-05dd0b153705.herokuapp.com/v1` | `production` | `production` | App Store / Play (AAB) |
+| `prod-testflight` | `https://dosco-05dd0b153705.herokuapp.com/v1` | `production` | `testflight-production` | iOS TestFlight only |
 | `prod-apk` | `https://dosco-05dd0b153705.herokuapp.com/v1` | `production` | `production` | installable APK |
 | `dev-store` | no staging deployment yet — unset | `preview` | `dev` | TestFlight / Play internal (AAB) |
 | `dev-apk` | no staging deployment yet — unset | `preview` | `dev` | installable APK |
@@ -65,16 +66,40 @@ through `GET /v1/auth/client-config`.
 
 ## Release a store version
 
-The version changes once per store release. The build number changes on every
-build. `runtimeVersion` equals the version, so an OTA update only reaches
-binaries built from the same release.
+Agents bump the version once per mobile task, including code, assets,
+dependencies, and native configuration. Documentation-only work needs no bump.
+The build number changes on every build. `runtimeVersion` equals the version,
+so an OTA update only reaches binaries built from the same release.
 
-To release a store version, bump it on `dev` and let the release carry it:
+In the task's worktree, run this from the repo root and commit every changed
+version file. Let the normal release carry the version:
 
 ```bash
-cd apps/mobile
-node scripts/set-version.mjs 1.5.6          # writes all 6 copies (app.json, ios/, android/)
+node apps/mobile/scripts/set-version.mjs --next
 ```
+
+The command keeps major and minor unchanged. A single-digit patch starts a
+two-digit sequence. Examples: `1.6.2` → `1.6.21`, `1.5.6` → `1.5.61`, or
+`1.0.0` → `1.0.10`. Later calls increment the patch numerically:
+`1.5.61` → `1.5.62` → `1.5.63`, `1.6.29` → `1.6.30`.
+Run once per task, not once per edit. Before the final push, fetch `origin/dev`.
+If its version differs from the task's base version, sync first. Resolve the
+version conflicts to `origin/dev`'s version while keeping other native changes.
+If needed, synchronize the six fields with the explicit version command below,
+then run `--next` once. Compare version components as integers, never as text.
+
+```sh
+node apps/mobile/scripts/set-version.mjs <version>
+```
+
+Use the explicit argument only for that synchronization or a release version
+the user requests.
+
+Every bump also changes the runtime and requires a new binary. The bumped
+bundle cannot reach an older runtime through OTA. Once the bump reaches `prod`,
+the existing `mobile-store.yml` builds on EAS, submits Android to Play production,
+and submits iOS for App Review. JS-only changes also wait for that new binary.
+A mobile task does not authorize a production promotion or a manual submission.
 
 `scripts/set-version.test.ts` fails when the copies disagree. A native change
 (new native module, permission, Expo SDK, anything under `ios/` or `android/`)

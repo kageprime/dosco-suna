@@ -41,6 +41,7 @@ reviewable and self-hostable.
 | Triggers | Schedules, webhooks, connector and App events and merged change requests start agent work, or call an App (`SKILL.md` → `<scheduling>`). |
 | Channels | Slack and Teams start sessions where the team already works (the `kortix-slack` and `kortix-teams` skills). |
 | Subagents | Splits a large job across agents that run in parallel and report back. |
+| Evals | Scores agents on lists of tasks (the Harbor format, Terminal-Bench and built-in datasets), shows a leaderboard, and compares two jobs task by task: the proof that a change to an agent or a model made it better (flag `evals`, the `kortix-evals` skill). |
 | Models | Kortix-managed models (Platinum Inference) or the workspace's own provider keys, all through the Kortix LLM gateway (`kortix models ls`). |
 | Other AI tools | Claude, ChatGPT, Cursor and other MCP clients reach Kortix through its hosted MCP server. |
 

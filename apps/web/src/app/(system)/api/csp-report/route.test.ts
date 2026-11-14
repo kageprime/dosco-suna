@@ -36,6 +36,72 @@ describe('POST /api/csp-report', () => {
     expect(JSON.stringify(warn.mock.calls)).not.toContain('person');
   });
 
+  test('names a chunk of this app by path, line and column, and a third-party script by origin', async () => {
+    await POST(
+      report({
+        'csp-report': {
+          'document-uri': 'https://app.example.com/workspaces/ws_1?token=t',
+          'effective-directive': 'script-src',
+          'blocked-uri': 'eval',
+          'source-file': 'https://app.example.com/_next/static/chunks/abc123.js',
+          'line-number': 1,
+          'column-number': 17234,
+        },
+      }),
+    );
+    await POST(
+      report({
+        'csp-report': {
+          'document-uri': 'https://app.example.com/workspaces/ws_1',
+          'effective-directive': 'script-src',
+          'blocked-uri': 'eval',
+          'source-file': 'https://widget.example.net/v2/loader.js?key=secret',
+        },
+      }),
+    );
+
+    expect(warn.mock.calls).toEqual([
+      [
+        '[csp-report]',
+        {
+          directive: 'script-src',
+          blocked: 'eval',
+          page: '/workspaces',
+          source: '/_next/static/chunks/abc123.js:1:17234',
+        },
+      ],
+      [
+        '[csp-report]',
+        { directive: 'script-src', blocked: 'eval', page: '/workspaces', source: 'https://widget.example.net' },
+      ],
+    ]);
+  });
+
+  test('logs nothing for a violation a browser extension caused', async () => {
+    const response = await POST(
+      report({
+        'csp-report': {
+          'document-uri': 'https://app.example.com/workspaces',
+          'effective-directive': 'script-src',
+          'blocked-uri': 'eval',
+          'source-file': 'chrome-extension://abcdefghijklmnop/content.js',
+        },
+      }),
+    );
+    await POST(
+      report({
+        'csp-report': {
+          'document-uri': 'https://app.example.com/',
+          'effective-directive': 'script-src-elem',
+          'blocked-uri': 'moz-extension://1234/inject.js',
+        },
+      }),
+    );
+
+    expect(response.status).toBe(204);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   test('ignores bodies that are not CSP reports', async () => {
     const response = await POST(report({ hello: 'world' }));
 

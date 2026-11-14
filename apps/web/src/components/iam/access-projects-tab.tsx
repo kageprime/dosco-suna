@@ -575,13 +575,13 @@ function ProjectListRow({ project, onSelect }: { project: KortixProject; onSelec
     queryKey: qk.project.access(project.project_id),
     queryFn: () => listProjectAccess(project.project_id),
     staleTime: 30_000,
-    retry: false,
+    // The app's retry policy: a 403 is final, a 429 waits out the rate limit
+    // and tries again, so a burst does not leave the count blank.
   });
   const requestsQuery = useQuery({
     queryKey: qk.project.accessRequests(project.project_id),
     queryFn: () => listProjectAccessRequests(project.project_id),
     staleTime: 30_000,
-    retry: false,
     enabled: canSeePendingRequests,
   });
 

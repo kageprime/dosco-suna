@@ -204,22 +204,37 @@ export function turnEndAfterBegin(waitMs = 5_000) {
 
 /**
  * The running turn read a steered message at a step boundary (`steer_read`).
- * apps/api closes that message's inbox row as delivered. 3 attempts; a
- * non-ok answer other than 5xx is definitive. Skipped while the session
- * credential is presumed dead (KRTX-446).
+ * apps/api closes that message's inbox row as delivered.
  */
-export async function relaySteerRead(runtimeSessionId: string, messageId: string): Promise<void> {
+export function relaySteerRead(runtimeSessionId: string, messageId: string): Promise<void> {
+  return relaySteer('steer_read', runtimeSessionId, messageId)
+}
+
+/**
+ * A stopped turn dropped a steered message it never read (`steer_dropped`).
+ * apps/api puts that message's inbox row back on the queue for the next turn.
+ */
+export function relaySteerDropped(runtimeSessionId: string, messageId: string): Promise<void> {
+  return relaySteer('steer_dropped', runtimeSessionId, messageId)
+}
+
+/**
+ * 3 attempts; a non-ok answer other than 5xx is definitive (a 503 on
+ * `steer_dropped` is a row whose delivery has not come back yet). Skipped
+ * while the session credential is presumed dead (KRTX-446).
+ */
+async function relaySteer(kind: 'steer_read' | 'steer_dropped', runtimeSessionId: string, messageId: string): Promise<void> {
   if (!sandboxRelayContext() || sessionTokenPresumedDead()) return
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const response = await postTurnStream({ kind: 'steer_read', runtime_session_id: runtimeSessionId, turn_message_id: messageId })
+      const response = await postTurnStream({ kind, runtime_session_id: runtimeSessionId, turn_message_id: messageId })
       if (!response || response.ok) return
       const text = await response.text().catch(() => '')
       noteControlPlaneResponse(response.status, text)
-      logger.warn('[turn-relay] steer-read relay non-ok', { status: response.status, attempt, body: text.slice(0, 200) })
+      logger.warn('[turn-relay] steer relay non-ok', { kind, status: response.status, attempt, body: text.slice(0, 200) })
       if (response.status < 500) return
     } catch (err) {
-      logger.warn('[turn-relay] steer-read relay fetch failed', { err: (err as Error).message, attempt })
+      logger.warn('[turn-relay] steer relay fetch failed', { kind, err: (err as Error).message, attempt })
     }
     if (attempt < 3) await Bun.sleep(1_000 * attempt)
   }

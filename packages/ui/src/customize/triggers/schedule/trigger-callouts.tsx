@@ -58,7 +58,7 @@ export function TriggerCallouts({
       {event && status && trigger.enabled && !eventsEnabled && event.status === 'error' ? (
         // A designed refusal, not a failure: a person can turn the feature on.
         <Alert variant="warning">
-          <AlertTitle>{t.raw('text52f2077702ec')}</AlertTitle>
+          <AlertTitle>{t.raw('text27ca9df9dbaa')}</AlertTitle>
           <AlertDescription>{status.detail}</AlertDescription>
           <AlertActions>
             <Button asChild size="sm" variant="outline">

@@ -1,5 +1,6 @@
 import type { ModelRouteInput } from '@kortix/llm-gateway';
 import { GatewayResolutionError } from '@kortix/llm-gateway';
+import { BillingGateError } from '../billing/services/billing-gate';
 import { logger } from '../lib/logger';
 import { assertLlmBillingActive, authorizeRequest } from './hooks';
 import { resolveCandidates } from './resolution/resolve-candidates';
@@ -17,19 +18,20 @@ export function resolutionErrorBody(err: GatewayResolutionError) {
  * resolved (`simple-handler.ts` gates admitCharge on billingMode), so the
  * wallet floor applies to every account here. An active verdict DEBITS the
  * admission hold; the caller must return `holdUsd` to the gateway.
+ *
+ * Only a `BillingGateError` is a refusal. Any other error (a wallet fault, a
+ * timeout) is thrown: `/billing` answers 5xx and `/admit` leaves billing to the
+ * gateway, which answers a retryable 503. It used to become
+ * `subscription_required`, and funded accounts read "Out of credits" (prod
+ * 2026-11-12).
  */
 export async function billingVerdict(accountId: string) {
   try {
     const result = await assertLlmBillingActive(accountId, { creditsRequest: true });
     return { active: true as const, holdUsd: result?.holdUsd };
   } catch (err) {
-    return {
-      active: false as const,
-      reason: typeof (err as { reason?: unknown })?.reason === 'string'
-        ? (err as { reason: string }).reason
-        : 'subscription_required',
-      message: err instanceof Error ? err.message : 'subscription required',
-    };
+    if (!(err instanceof BillingGateError)) throw err;
+    return { active: false as const, reason: err.reason, message: err.message };
   }
 }
 
@@ -102,7 +104,7 @@ async function admit(token: unknown, input: unknown) {
     if (err instanceof GatewayResolutionError) {
       return done({ admission, route, candidates: [], resolutionError: resolutionErrorBody(err) });
     }
-    logger.warn('[gateway-internal] admit: resolution left to the gateway', { error: err instanceof Error ? err.message : String(err) });
+    logger.warn('[gateway-internal] admit: resolution and billing left to the gateway', { error: err instanceof Error ? err.message : String(err) });
     return done({ admission, route });
   }
 }

@@ -17,10 +17,16 @@ import { Hono } from 'hono';
 type ResultOrThrow = { rows: unknown[] } | { __throw: Error };
 
 let executeResults: ResultOrThrow[] = [];
+let executedSql: string[] = [];
 
 mock.module('../shared/db', () => ({
   db: {
-    execute: async () => {
+    execute: async (query?: { queryChunks?: unknown[] }) => {
+      executedSql.push(
+        (query?.queryChunks ?? [])
+          .map((chunk) => (chunk as { value?: string[] }).value?.join('') ?? '')
+          .join(''),
+      );
       const next = executeResults.shift();
       if (next && '__throw' in next) throw next.__throw;
       return next ?? { rows: [] };
@@ -103,6 +109,7 @@ describe('ops overview degrades one failed query instead of failing the dashboar
     process.env.BETTERSTACK_API_SENTRY_DSN = 'https://example@sentry.test/1';
     process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = 'https://otel.example.test/v1/traces';
     executeResults = happyPathResults();
+    executedSql = [];
   });
 
   test('string counts and null group keys keep their normalized shape', async () => {
@@ -162,6 +169,46 @@ describe('ops overview degrades one failed query instead of failing the dashboar
     expect(body.audit.recent[0]).toMatchObject({ action: 'POST /v1/projects' });
     expect(body.usage).toMatchObject({ calls_24h: 7, cost_usd_24h: 0.123456 });
     expect(body.migrations.by_status).toMatchObject({ applied: 1 });
+  });
+
+  test('usage 24h sums are not narrowed to int4 (24h token totals exceed 2^31)', async () => {
+    executeResults[8] = {
+      rows: [
+        {
+          provider: 'openrouter',
+          calls: '3000000000',
+          input_tokens: '3000000000',
+          output_tokens: '2500000000',
+          cached_tokens: '2200000000',
+          cost_usd: '1.5',
+        },
+      ],
+    };
+    const res = await app().request('/v1/ops/overview');
+    expect(res.status).toBe(200);
+    const usageSql = executedSql.find((q) => q.includes('kortix.usage_events'));
+    // integer columns sum to bigint; `::int` makes Postgres throw
+    // "integer out of range" once the 24h total passes 2147483647.
+    expect(usageSql).toBeDefined();
+    expect(usageSql).not.toMatch(/::int\b/);
+    expect((await res.json()).usage.calls_24h).toBe(3000000000);
+  });
+
+  test('a failing query logs the underlying driver error from err.cause', async () => {
+    const cause = Object.assign(new Error('integer out of range'), { code: '22003' });
+    const error = new Error('Failed query: select ...', { cause });
+    executeResults[8] = { __throw: error };
+    const logged = spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      expect((await app().request('/v1/ops/overview')).status).toBe(200);
+      expect(logged).toHaveBeenCalledWith(
+        '[ops/overview] usage 24h query failed — degrading to null:',
+        error,
+        { cause },
+      );
+    } finally {
+      logged.mockRestore();
+    }
   });
 
   test('degrades usage aggregation to null when the usage 24h query fails', async () => {

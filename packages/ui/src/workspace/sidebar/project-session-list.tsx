@@ -1194,7 +1194,7 @@ function ChildRunsToggle({
     >
       {/* The count alone is the toggle: it says how many and, darker while
           open, that the tree below the row is its own. No caret. */}
-      <CountBadge count={count} className={cn(open && 'bg-foreground/12')} />
+      <CountBadge aria-hidden count={count} className={cn(open && 'bg-foreground/12')} />
     </span>
   );
 }
@@ -1503,6 +1503,10 @@ function ProjectSessionRow({
       {...openIntent}
       aria-busy={isSwitching || undefined}
       aria-current={isActive ? 'page' : undefined}
+      // The name is the title alone. From content it also took the child
+      // count's digits, glued to the title: "…17 Times 231" for a title ending
+      // in 23 with 1 spawned session. The count toggle names itself.
+      aria-label={displayTitle}
       aria-describedby={descriptionId}
       className="focus-visible:ring-kortix-base flex min-w-0 flex-1 items-center gap-2 self-stretch rounded-md py-1 focus-visible:ring-[0.6px] focus-visible:outline-none"
     >

@@ -6,8 +6,9 @@
  * the same transaction bumps `revision` (and `generation` when asked) and
  * appends one `project_goal_events` row. A refusal writes nothing.
  */
+import { GOAL_OPEN_STATES } from '@kortix/api-contract';
 import { projectGoalEvents, projectGoals } from '@kortix/db';
-import { and, desc, eq, inArray, lt, or, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, lt, ne, or, sql, type SQL } from 'drizzle-orm';
 import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { db } from '../../shared/db';
 import { projectsView } from '../../workspaces/rows';
@@ -91,8 +92,29 @@ export async function goalFlagOn(projectId: string): Promise<boolean> {
   return row ? resolveFeatureFlag(row.metadata, 'goals') : false;
 }
 
-export async function insertGoal(values: typeof projectGoals.$inferInsert, event: GoalEventInput): Promise<GoalRow | null> {
+/** The open goal a chat owns (goal mode: one at a time), other than `exceptGoalId`. */
+export async function openGoalOwnedBy(sessionId: string, exceptGoalId: string, q: Pick<typeof db, 'select'> = db): Promise<GoalRow | null> {
+  const [row] = await q
+    .select()
+    .from(projectGoals)
+    .where(and(eq(projectGoals.ownerSessionId, sessionId), inArray(projectGoals.state, [...GOAL_OPEN_STATES]), ne(projectGoals.goalId, exceptGoalId)))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Insert the goal and its `created` event. Null when the goal id exists.
+ * `oneOpenFor` (goal mode) is the chat that must own no other open goal: the
+ * check and the insert run under one lock per chat, so two creates at the
+ * same moment cannot both pass. It throws `goal_forbidden` when one exists.
+ */
+export async function insertGoal(values: typeof projectGoals.$inferInsert, event: GoalEventInput, oneOpenFor?: string): Promise<GoalRow | null> {
   return db.transaction(async (tx) => {
+    if (oneOpenFor) {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`goal-chat:${oneOpenFor}`}, 0))`);
+      const open = await openGoalOwnedBy(oneOpenFor, values.goalId!, tx);
+      if (open) throw new GoalError(403, 'goal_forbidden', `This chat already works goal "${open.title}". It ends when the verifier passes it or a person stops it.`);
+    }
     const [row] = await tx.insert(projectGoals).values(values).onConflictDoNothing().returning();
     if (!row) return null;
     await insertEvent(tx, row, event, null, row.state);

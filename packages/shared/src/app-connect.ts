@@ -34,7 +34,7 @@ export interface AppConnectSnippet {
 }
 
 /** The fields of an App the snippets need (a subset of the API's App object). */
-export interface AppConnectTarget {
+interface AppConnectTarget {
   app_id: string;
   project_id: string;
   slug: string;

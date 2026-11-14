@@ -9,24 +9,11 @@
  * to read anything else. Read-only, no fixtures, no sandboxes.
  */
 import { flow } from '../core/flow';
-import type { FlowContext } from '../core/types';
+import { createProjectPat } from '../fixtures/database-project';
 
 // The one skill guaranteed to exist on every deploy — it is the entry pointer
 // every other Kortix skill and the seeded project scaffold reference by name.
 const KNOWN_SKILL = 'kortix-system';
-
-async function createProjectPat(ctx: FlowContext, label: string) {
-  const project = await ctx.fixtures.project();
-  const response = await ctx.client.as(ctx.P.OWNER).post(
-    '/v1/workspaces/:projectId/cli-token',
-    { name: ctx.fixtures.name(label) },
-    { params: { projectId: project.id } },
-  );
-  response.status(201).body().exists('$.secret_key').exists('$.token_id');
-  const body = response.json<{ secret_key: string; token_id: string }>();
-  ctx.track('token', body.token_id);
-  return ctx.client.withBearer(body.secret_key, 'PAT_PROJ');
-}
 
 flow('SKILL-1', {
   domain: 'skills',

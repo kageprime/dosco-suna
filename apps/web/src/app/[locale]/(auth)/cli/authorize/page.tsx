@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@kortix/ui/button';
+import { Checkbox } from '@kortix/ui/checkbox';
 import { EntityAvatar } from '@kortix/ui/entity-avatar';
 import { Input } from '@kortix/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@kortix/ui/select';
@@ -69,13 +70,24 @@ function CliAuthorizeInner() {
 
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [typedCode, setTypedCode] = useState('');
+  // The link's `user_code` is the code the CLI printed: start the field from
+  // it (still editable). The prefill is convenience, not consent: a phished
+  // link carries a code too, so approval also needs `matchConfirmed`, which
+  // no URL can set.
+  const [typedCode, setTypedCode] = useState(() => userCode ?? '');
+  const [matchConfirmed, setMatchConfirmed] = useState(false);
   const [noWorkspace, setNoWorkspace] = useState(false);
   const tCli = useTranslations('workspaces.cli');
+  const tCommon = useTranslations('common');
   // A CLI login acts in a workspace: with none, the API answers 409
   // `no_workspace`. Say so up front instead of after a failed approve.
   const directory = useWorkspaceDirectory();
-  const withoutWorkspace = noWorkspace || (!directory.loading && directory.openable.length === 0);
+  // A failed list is UNKNOWN, not empty: offering workspace creation to a
+  // person whose workspaces merely failed to load is a dead end (KRTX-4788).
+  // The 409 `no_workspace` stays authoritative — it does not read the list.
+  const listFailed = directory.failedAccountIds.length > 0;
+  const withoutWorkspace =
+    noWorkspace || (!directory.loading && !listFailed && directory.openable.length === 0);
   // A CLI key acts in ONE workspace. With 2+ the person picks which; the
   // most recently opened one is preselected. The key is account-scoped, so
   // the choice is sent as the workspace's `account_id`.
@@ -125,6 +137,22 @@ function CliAuthorizeInner() {
     return <AuthPendingScreen />;
   }
 
+  if (listFailed && !withoutWorkspace && (userCode || (callback && state && validation.ok))) {
+    // The one way forward is a retry: approving needs a workspace, and the
+    // person may have one that this page just could not see.
+    return (
+      <AuthStatusScreen
+        title={tCli('loadFailedTitle')}
+        description={tCli('loadFailedBody')}
+        action={
+          <Button size="lg" className="w-full" onClick={directory.retryFailed}>
+            {tCommon('retry')}
+          </Button>
+        }
+      />
+    );
+  }
+
   if (withoutWorkspace && (userCode || (callback && state && validation.ok))) {
     // `/workspaces/new` comes back here once the workspace exists (`returnUrl`), and
     // the person approves the sign-in with a workspace to act in.
@@ -146,9 +174,11 @@ function CliAuthorizeInner() {
   }
 
   if (userCode) {
-    // The URL carries the code, so a link from someone else could too. The
-    // person types the code their own terminal shows; only a match approves.
-    const confirmed = typedCode.trim().length > 0 && normalizeCliCode(typedCode) === normalizeCliCode(userCode);
+    // The URL carries the code, so a link from someone else could too
+    // (RFC 8628 §5.4). Approval needs the field to match the link's code AND
+    // the person's confirmation that it matches their own terminal.
+    const confirmed =
+      matchConfirmed && typedCode.trim().length > 0 && normalizeCliCode(typedCode) === normalizeCliCode(userCode);
     if (phase === 'success') {
       return (
         <AuthStatusScreen
@@ -196,6 +226,11 @@ function CliAuthorizeInner() {
               className="font-mono tracking-widest uppercase"
               value={typedCode}
               onChange={(event) => setTypedCode(event.target.value)}
+            />
+            <Checkbox
+              checked={matchConfirmed}
+              onCheckedChange={setMatchConfirmed}
+              label={tI18nComplete.raw('cliDeviceConfirm')}
             />
             <Button type="submit" size="lg" className="w-full" disabled={!confirmed || approving}>
               {approving ? <Loading className="size-4 shrink-0" /> : null}
@@ -344,20 +379,15 @@ function CliAuthorizeInner() {
           {tI18nComplete.raw('textb6741b4ccf6d')}
         </Button>
 
-        <div className="text-muted-foreground mt-8 space-y-2 text-sm">
-          <p>
-            {tI18nComplete.raw('text702391f5d071')}{' '}
-            <span className="text-foreground">{tI18nComplete.raw('text7955091baf3b')}</span>.
-          </p>
-          <p>
-            <Link
-              href="/"
-              className="hover:text-foreground -my-2 inline-block py-2 transition-colors"
-            >
-              {tI18nComplete.raw('text19766ed6ccb2')}
-            </Link>
-          </p>
-        </div>
+        <p className="text-muted-foreground mt-5 text-sm">
+          {tI18nComplete.raw('text702391f5d071')}{' '}
+          <span className="text-foreground">{tI18nComplete.raw('text7955091baf3b')}</span>.
+        </p>
+        <p className="text-muted-foreground mt-2 text-sm">
+          <Link href="/" className="hover:text-foreground -my-2 inline-block py-2 transition-colors">
+            {tI18nComplete.raw('text19766ed6ccb2')}
+          </Link>
+        </p>
       </Rise>
     </AuthFrame>
   );

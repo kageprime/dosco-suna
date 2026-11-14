@@ -1,15 +1,13 @@
 import { HTTPException } from 'hono/http-exception';
-import { wallet } from '../../../billing/wallet';
 import { config, getToolCost } from '../../../config';
 import { getTraceHeaders } from '../../../lib/request-context';
 import { validateAccountToken } from '../../../repositories/account-tokens';
 import { keyScopeAllows } from '../../../iam/key-scope';
 import { validateSecretKey } from '../../../repositories/api-keys';
-import type { ActorContext } from '../../../shared/actor-context';
 import { isAccountToken, isKortixToken } from '../../../shared/crypto';
 import { type ProxyServiceConfig, matchAllowedRoute } from '../../config/proxy-services';
 import { deductToolCredits } from '../../services/billing';
-import { refundReservation, reserveActorCost } from '../../services/reservation';
+import { refundReservation } from '../../services/reservation';
 import type { AuthResult, ToolCreditReservation } from './app';
 import { bearerToken } from '../../../shared/bearer-token';
 
@@ -148,7 +146,6 @@ export async function getRequestBody(
 export async function reserveToolProxyCredits(
   accountId: string,
   billingToolName: string,
-  actor: ActorContext | null,
   description: string,
 ): Promise<ToolCreditReservation | null> {
   const expectedCost = getToolCost(billingToolName, 0);
@@ -175,27 +172,10 @@ export async function reserveToolProxyCredits(
     });
   }
 
-  const actorReservedCents = await reserveActorCost(
-    actor,
-    creditReservation.cost,
-    () =>
-      wallet.grant({
-        accountId,
-        amount: creditReservation.cost,
-        kind: 'tool_reservation_refund',
-        description: `Tool reservation refund after member cap: ${billingToolName}`,
-        expiring: false,
-        key: null,
-      }),
-    'PROXY',
-  );
-
   return {
     accountId,
     billingToolName,
     cost: creditReservation.cost,
-    actor,
-    actorReservedCents,
   };
 }
 

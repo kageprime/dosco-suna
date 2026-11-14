@@ -2,7 +2,8 @@
 
 import type { ProjectAccessRequest } from '@kortix/sdk';
 import { UserPlusIcon } from '@phosphor-icons/react';
-import { AnimatePresence, m, useReducedMotion } from 'motion/react';
+import { AnimatePresence, m } from 'motion/react';
+import { useReducedMotion } from '../../internal/hooks/use-reduced-motion';
 import { useState } from 'react';
 
 import { BellMark } from '../../internal/notifications/notification-bell';

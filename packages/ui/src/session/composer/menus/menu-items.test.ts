@@ -107,3 +107,27 @@ describe('buildMentionSections', () => {
     expect(sections).toEqual([]);
   });
 });
+
+describe('buildMentionSections agent names', () => {
+  test('an agent row shows the display name and keeps the slug as its value', () => {
+    const [section] = buildMentionSections({
+      agents: [{ name: 'memory-reflector' } as never],
+      sessions: [],
+      files: [],
+      query: '',
+      currentSessionId: undefined,
+    });
+    expect(section?.items[0]).toMatchObject({ kind: 'agent', label: 'Memory reflector', value: 'memory-reflector' });
+  });
+
+  test('the display name matches the query too', () => {
+    const sections = buildMentionSections({
+      agents: [{ name: 'memory-reflector' } as never],
+      sessions: [],
+      files: [],
+      query: 'memory ref',
+      currentSessionId: undefined,
+    });
+    expect(sections[0]?.items[0]?.value).toBe('memory-reflector');
+  });
+});

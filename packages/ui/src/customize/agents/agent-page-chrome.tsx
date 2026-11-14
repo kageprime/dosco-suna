@@ -47,7 +47,8 @@ import { useOptionalSidebar } from '../../primitives/sidebar';
 import { Skeleton } from '../../primitives/skeleton';
 import { StatusDot, type StatusTone } from '../../primitives/status';
 import { UiLink as Link, useUiShallowNavigate } from '../../providers/ui-provider';
-import { m, useReducedMotion } from 'motion/react';
+import { m } from 'motion/react';
+import { useReducedMotion } from '../../internal/hooks/use-reduced-motion';
 
 import { FadedScrollArea } from '../../primitives/faded-scroll-area';
 

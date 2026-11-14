@@ -153,6 +153,12 @@ Options:
   --workspace <id>    Operate on this workspace id (default: linked).
   --host <name>       Operate against a non-default Kortix host.
   --token-stdin       (claude) Read a token made with \`claude setup-token\` from stdin.
+  --share <who>       (claude) private (default) or workspace: every session of
+                      the workspace uses the plan, triggered ones included.
+  --start             (claude) Print the sign-in link and exit. For a shell with
+                      no terminal, such as a coding agent's. --json.
+  --flow <id> --code <code>
+                      (claude) Finish the sign-in --start began.
   --private           (claude) Only you can use the new Claude account.
   -h, --help          Show this help without starting OAuth.
 
@@ -213,12 +219,10 @@ type CtxOpts = { projectArg?: string; hostArg?: string };
 type ProjectCtx = { client: ApiClient; projectId: string };
 
 // ── provider keys (named accounts) ────────────────────────────────────────
-// With the workspace flag `pooled_provider_secrets` on (the default since
-// 2026-10-31), the web Models panel (Models → Providers) lists only named
-// provider accounts, `kortix.account_secret_resources`. `set` and `rm` use
-// them then, as the web and the TUI do; with the flag off they keep the
-// legacy workspace secrets (`/workspaces/:id/secrets`). `ls` lists both,
-// always: the web dialog adds a named account whatever the flag says.
+// The web Models panel (Models → Providers) lists named provider accounts,
+// `kortix.account_secret_resources`. `set`, `rm` and `ls` use them, as the web
+// and the TUI do. `ls` and `rm` also read the legacy workspace secrets
+// (`/workspaces/:id/secrets`) a server older than the one store may hold.
 
 /** The server's limit on a provider key's label (`secret-resources.ts` Create). */
 const LABEL_MAX = 100;
@@ -235,22 +239,7 @@ interface NamedAccounts {
   viewerId: string;
 }
 
-/**
- * The workspace's provider keys and the caller, or null while the flag is off.
- * Fail-closed like the SDK's `resolveFeatureFlag`: only `true` turns it on, so
- * a server that predates the flag keeps the legacy secrets.
- */
-async function namedAccounts(ctx: ProjectCtx): Promise<NamedAccounts | null> {
-  const project = await ctx.client.get<{ experimental?: Record<string, unknown> }>(`/workspaces/${ctx.projectId}`);
-  if (project.experimental?.pooled_provider_secrets !== true) return null;
-  return listNamedAccounts(ctx);
-}
-
-/**
- * Every provider key and login the web Models panel lists, whatever the flag
- * says: a key added in the web dialog is always a named account, so `ls`
- * reads them with no flag check.
- */
+/** Every provider key and login the web Models panel lists, and the caller. */
 async function listNamedAccounts(ctx: ProjectCtx): Promise<NamedAccounts> {
   const [me, list] = await Promise.all([
     ctx.client.get<{ user_id: string }>('/me'),
@@ -293,6 +282,7 @@ export async function runProviders(argv: string[]): Promise<number> {
   let search: string | undefined;
   let custom: CustomFlags = { models: [], keyStdin: false };
   let tokenStdin = false;
+  let claude: ClaudeFlags = { start: false, private: false };
   let label: string | undefined;
   let privateKey = false;
   const removes = sub === 'rm' || sub === 'remove' || sub === 'unset';
@@ -305,6 +295,15 @@ export async function runProviders(argv: string[]): Promise<number> {
     if (sub === 'login' || sub === 'oauth') tokenStdin = takeFlagBool(rest, ['--token-stdin']);
     if (sub === 'set' || removes) label = takeFlagValue(rest, ['--label']);
     if (sub === 'set' || sub === 'login' || sub === 'oauth') privateKey = takeFlagBool(rest, ['--private']);
+    if (sub === 'login' || sub === 'oauth') {
+      claude = {
+        start: takeFlagBool(rest, ['--start']),
+        flow: takeFlagValue(rest, ['--flow']),
+        code: takeFlagValue(rest, ['--code']),
+        share: takeFlagValue(rest, ['--share']),
+        private: privateKey,
+      };
+    }
     if (sub === 'ls' || sub === 'list') {
       catalog = takeFlagBool(rest, ['--catalog']);
       search = takeFlagValue(rest, ['--search']);
@@ -344,8 +343,10 @@ export async function runProviders(argv: string[]): Promise<number> {
       return catalog ? providersCatalog(search, json) : providersLs(ctxOpts, json);
     case 'login':
     case 'oauth':
-      if (rest[0] === CLAUDE_CLI_PROVIDER) return claudeLogin(ctxOpts, tokenStdin, privateKey);
-      if (tokenStdin) return fail('--token-stdin works with `kortix providers login claude` only');
+      if (rest[0] === CLAUDE_CLI_PROVIDER) return claudeLogin(ctxOpts, tokenStdin, claude, json);
+      if (tokenStdin || claude.start || claude.flow || claude.code || claude.share) {
+        return fail('--token-stdin, --start, --flow, --code and --share work with `kortix providers login claude` only');
+      }
       if (privateKey) return fail('--private works with `kortix providers login claude` only');
       return providersLogin(rest[0], ctxOpts);
     case 'set':
@@ -652,14 +653,33 @@ const emptyOnEnd = (read: Promise<string>): Promise<string> =>
 const claudeSharingText = (sharing: ClaudeSharing) =>
   sharing.mode === 'project' ? 'shared with everyone in this workspace' : 'only you can use it';
 
-async function claudeLogin(opts: CtxOpts, tokenStdin: boolean, forcePrivate: boolean): Promise<number> {
+/**
+ * Agent-friendly steps for a shell with no terminal: `--start` prints the
+ * sign-in link and exits, `--flow <id> --code <code>` finishes. `--share
+ * workspace` lets every session of the workspace use the plan, triggered
+ * ones included; the default stays private to you.
+ */
+interface ClaudeFlags { start: boolean; flow?: string; code?: string; share?: string; private: boolean }
+
+async function claudeLogin(opts: CtxOpts, tokenStdin: boolean, flags: ClaudeFlags, json: boolean): Promise<number> {
+  if (flags.share !== undefined && flags.share !== 'private' && flags.share !== 'workspace') {
+    return fail('--share is private or workspace');
+  }
+  if (Boolean(flags.flow) !== Boolean(flags.code)) return fail('--flow and --code go together');
+  if (flags.start && (flags.flow || tokenStdin)) return fail('--start begins a sign-in: run --flow <id> --code <code> after it');
   const ctx = await resolveProjectContext(opts);
   if (!ctx) return 1;
-  const sharing: ClaudeSharing = forcePrivate ? { mode: 'private' } : await claudeSharing(ctx);
+  // --private or --share private keeps it to the caller; --share workspace asks for everyone; else the caller's permission decides.
+  const sharing: ClaudeSharing =
+    flags.private || flags.share === 'private' ? { mode: 'private' } : flags.share === 'workspace' ? { mode: 'project' } : await claudeSharing(ctx);
   const done = (result: ClaudeConnectedResponse) => {
     if (!result.connected || !result.secret_id) {
       process.stderr.write(`${status.err('Kortix did not store the Claude login. Run the command again.')}\n`);
       return 1;
+    }
+    if (json) {
+      process.stdout.write(`${JSON.stringify({ connected: true, sharing: sharing.mode === 'project' ? 'workspace' : 'private' })}\n`);
+      return 0;
     }
     process.stdout.write(
       `\n${status.ok('Connected your Claude subscription')}\n` +
@@ -678,11 +698,23 @@ async function claudeLogin(opts: CtxOpts, tokenStdin: boolean, forcePrivate: boo
       return surfaceApiError(err);
     }
   }
+  if (flags.flow && flags.code) {
+    try {
+      return done(await ctx.client.post<ClaudeConnectedResponse>(`/workspaces/${ctx.projectId}/claude-subscription/login/complete`, { flow_id: flags.flow, code: flags.code.trim() }));
+    } catch (err) {
+      return surfaceApiError(err);
+    }
+  }
   let flow: ClaudeLoginStartResponse;
   try {
     flow = await ctx.client.post<ClaudeLoginStartResponse>(`/workspaces/${ctx.projectId}/claude-subscription/login/start`, { sharing });
   } catch (err) {
     return surfaceApiError(err);
+  }
+  if (flags.start) {
+    if (json) process.stdout.write(`${JSON.stringify(flow)}\n`);
+    else process.stdout.write(`${flow.authorize_url}\n\nThen: kortix providers login claude --flow ${flow.flow_id} --code <code from claude.com>\n`);
+    return 0;
   }
   process.stdout.write(
     `\n  ${C.bold}Connect your Claude subscription${C.reset}\n` +
@@ -859,24 +891,14 @@ async function providersSet(
   if (!ctx) return 1;
 
   if (single) {
-    let named: NamedAccounts | null;
+    let named: NamedAccounts;
     try {
-      named = await namedAccounts(ctx);
+      named = await listNamedAccounts(ctx);
     } catch (err) {
       return surfaceApiError(err);
     }
-    if (named) {
-      const [envVar, value] = Object.entries(values)[0]!;
-      return saveProviderKey(ctx, named, { provider, envVar, value, label: flags.label, private: flags.private });
-    }
-    // The flag is off: a legacy secret is shared with the whole workspace, so
-    // saving one would quietly widen what the caller asked for.
-    if (flags.private || flags.label !== undefined) {
-      return fail(
-        'Provider keys (pooled_provider_secrets) are off for this workspace, so --private and --label do not apply. ' +
-          'Without them the key is saved as a workspace secret, shared with everyone in this workspace.',
-      );
-    }
+    const [envVar, value] = Object.entries(values)[0]!;
+    return saveProviderKey(ctx, named, { provider, envVar, value, label: flags.label, private: flags.private });
   }
 
   try {
@@ -1009,16 +1031,15 @@ async function providersRm(provider: string | undefined, label: string | undefin
     return 0;
   }
 
-  let named: NamedAccounts | null;
+  let named: NamedAccounts;
   try {
-    named = await namedAccounts(ctx);
+    named = await listNamedAccounts(ctx);
   } catch (err) {
     return surfaceApiError(err);
   }
   const providerId = PROVIDER_CATALOG_ID[provider];
-  const keys = named && providerId ? named.accounts.filter((a) => a.provider_id === providerId) : [];
+  const keys = providerId ? named.accounts.filter((a) => a.provider_id === providerId) : [];
   if (label !== undefined) {
-    if (!named) return fail('Provider keys (pooled_provider_secrets) are off for this workspace, so --label does not apply.');
     const matches = keys.filter((a) => a.label === label);
     if (!matches.length) {
       process.stderr.write(
@@ -1033,7 +1054,7 @@ async function providersRm(provider: string | undefined, label: string | undefin
     return 0;
   }
   // Without --label: the caller's own keys. A key someone else added stays theirs to remove.
-  const mine = named ? keys.filter((a) => a.created_by === named.viewerId) : [];
+  const mine = keys.filter((a) => a.created_by === named.viewerId);
   const othersKeys = keys.filter((a) => !mine.includes(a));
 
   let removedOauth = false;
@@ -1051,17 +1072,15 @@ async function providersRm(provider: string | undefined, label: string | undefin
   }
 
   let envVars = PROVIDER_ENV_VARS[provider] ?? [];
-  if (named) {
-    // Only the legacy secrets that exist. Deleting one needs project.secret.write
-    // even when it is missing, and a member who added only a private provider
-    // key may lack it; that 403 would stop the removal of their own key.
-    try {
-      const { items } = await ctx.client.get<{ items: ProjectSecret[] }>(`/workspaces/${ctx.projectId}/secrets`);
-      const stored = new Set(items.map((s) => s.name));
-      envVars = envVars.filter((envVar) => stored.has(envVar));
-    } catch (err) {
-      return surfaceApiError(err);
-    }
+  // Only the legacy secrets that exist. Deleting one needs project.secret.write
+  // even when it is missing, and a member who added only a private provider
+  // key may lack it; that 403 would stop the removal of their own key.
+  try {
+    const { items } = await ctx.client.get<{ items: ProjectSecret[] }>(`/workspaces/${ctx.projectId}/secrets`);
+    const stored = new Set(items.map((s) => s.name));
+    envVars = envVars.filter((envVar) => stored.has(envVar));
+  } catch (err) {
+    return surfaceApiError(err);
   }
   for (const envVar of envVars) {
     try {

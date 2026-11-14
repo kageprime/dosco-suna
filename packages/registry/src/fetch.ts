@@ -19,7 +19,7 @@ import {
   type UrlRegistryRef,
 } from './address';
 import { parseFrontmatter } from './manifest';
-import { trimTrailingSlashes } from './paths';
+import { posixDirname, posixJoin, trimTrailingSlashes } from './paths';
 import { groupSkillFiles } from './skills';
 import type { RegistryItem, RegistryJson } from './schema';
 
@@ -52,19 +52,6 @@ export interface ResolvedItem {
   item: RegistryItem;
   /** Read one of the item's files (honors inline `content`). */
   readFile: (filePath: string) => Promise<string>;
-}
-
-function posixJoin(...parts: string[]): string {
-  return parts
-    .filter((p) => p && p !== '.')
-    .join('/')
-    .replace(/\/{2,}/g, '/')
-    .replace(/^\.\//, '');
-}
-
-function posixDirname(p: string): string {
-  const i = p.lastIndexOf('/');
-  return i === -1 ? '' : p.slice(0, i);
 }
 
 async function fetchText(url: string, fetchImpl: typeof fetch): Promise<string> {

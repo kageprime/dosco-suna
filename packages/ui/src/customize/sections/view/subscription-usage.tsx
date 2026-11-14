@@ -13,13 +13,15 @@ import {
   isBlockingWindow,
   loginLimit,
   modelName,
+  USAGE_TONE_BAR,
   usageTone,
   weeklyModel,
   windowLabel,
   type UsageTone,
 } from '../../../session/models/subscription-windows';
+import { SubscriptionRowMeter } from '../../../session/models/subscription-switcher';
 
-export { accountLine, isBlockingWindow, loginLimit, modelName, usageTone, weeklyModel, windowLabel, type UsageTone };
+export { accountLine, isBlockingWindow, loginLimit, modelName, SubscriptionRowMeter, usageTone, weeklyModel, windowLabel, type UsageTone };
 
 /** Providers whose stored value is a subscription login with plan windows. */
 const SUBSCRIPTION_PROVIDERS = new Set(['codex', 'claude-agent', 'antigravity']);
@@ -29,8 +31,6 @@ export const SUBSCRIPTION_ROW: Readonly<Record<string, string>> = { codex: 'open
 
 /** A snapshot older than this says when it was observed. */
 const STALE_MS = 10 * 60 * 1000;
-
-const TONE_BAR: Record<UsageTone, string> = { ok: 'bg-primary', near: 'bg-kortix-orange', critical: 'bg-kortix-red', limited: 'bg-kortix-red' };
 
 /**
  * A reset time a person reads at a glance: the clock time today, the weekday
@@ -149,18 +149,6 @@ export function useSubscriptionRowSummary() {
   }, [t, locale]);
 }
 
-/** The provider list's mini meter beside its summary line. */
-export function SubscriptionRowMeter({ text, percent, tone }: { text: string; percent: number; tone: UsageTone }) {
-  return (
-    <span className="text-muted-foreground flex shrink-0 items-center gap-2 text-xs tabular-nums" data-subscription-usage-row="">
-      <span className="bg-muted block h-1 w-10 overflow-hidden rounded-full" aria-hidden>
-        <span className={cn('block h-full', TONE_BAR[tone])} style={{ width: `${Math.min(100, percent)}%` }} />
-      </span>
-      <span className="max-w-72 truncate">{text}</span>
-    </span>
-  );
-}
-
 function UsageWindowMeter({ window, limited, now, modelWeekly }: { window: SubscriptionUsageWindow; limited: boolean; now: number; modelWeekly: boolean }) {
   const t = useTranslations('subscriptionUsage');
   const locale = useLocale();
@@ -185,7 +173,7 @@ function UsageWindowMeter({ window, limited, now, modelWeekly }: { window: Subsc
         value={passed ? 0 : percent}
         aria-label={t('meterLabel', { label, percent })}
         className="bg-muted h-1"
-        indicatorClassName={passed ? 'bg-muted-foreground' : TONE_BAR[tone]}
+        indicatorClassName={passed ? 'bg-muted-foreground' : USAGE_TONE_BAR[tone]}
       />
     </div>
   );

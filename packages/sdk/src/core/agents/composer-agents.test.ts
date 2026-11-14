@@ -23,7 +23,7 @@ function agent(name: string, extra: Partial<Agent> = {}): Agent {
 function config(input: {
   default_agent?: string | null;
   open_code_default_agent?: string | null;
-  agents: Array<{ name: string; enabled?: boolean; mode?: string }>;
+  agents: Array<{ name: string; enabled?: boolean; mode?: string; run?: string | null }>;
 }): ProjectConfigSummary {
   return {
     open_code_default_agent: input.open_code_default_agent ?? null,
@@ -38,6 +38,13 @@ function config(input: {
 }
 
 describe('projectConfigAgentsToRuntimeAgents', () => {
+  test('a program agent (`run`) names provider `program`: it has no model to pick', () => {
+    const [janitor, writer] = projectConfigAgentsToRuntimeAgents(config({ agents: [{ name: 'janitor', run: 'node janitor.js' }, { name: 'writer' }] }));
+    expect(janitor!.model).toEqual({ providerID: 'program', modelID: 'janitor' });
+    expect(writer!.model).toBeUndefined();
+  });
+
+
   test('default_agent sorts first and wins over the deprecated open_code_default_agent', () => {
     const agents = projectConfigAgentsToRuntimeAgents(
       config({

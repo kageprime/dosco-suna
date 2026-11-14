@@ -6,6 +6,7 @@ import {
   deleteSandboxImage,
   kickRoutedPreBuild,
   listSandboxTemplates,
+  reconcileProjectTemplates,
   templateBuildProviders,
 } from '../../snapshots/builder';
 import { sessionDefaultSlug } from '../../snapshots/sandbox-status';
@@ -17,10 +18,11 @@ import {
 } from '../../snapshots/templates';
 import { parseResidentialProxy, type SandboxResidentialProxy } from '@kortix/shared/sandbox';
 import { createRoute, z } from '@hono/zod-openapi';
+import type { Context } from 'hono';
 import { loadProjectForUser, assertProjectCapability } from '../lib/access';
 import { SandboxTemplateSchema, projectsApp } from '../lib/app';
 import { loadGitProject } from '../lib/git';
-import { allowStaleMirrorReads } from '../git/mirror';
+import { allowStaleMirrorReads, refreshMirror } from '../git/mirror';
 import { serializeTemplate } from '../lib/serializers';
 import { templateProviderObservation } from '../lib/template-provider-observation';
 import { readJsonObject } from '../../shared/http-body';
@@ -327,6 +329,50 @@ export function registerSandboxTemplatesRoutes(): void {
       return c.json({ error: message }, 400);
     }
   },
+  );
+
+  // POST /v1/projects/:projectId/sandbox-templates/reconcile — read kortix.yaml
+  // at the base branch's CURRENT tip and start a build of every project
+  // template whose image is missing or failed. `kortix ship` calls it after
+  // its push: a push straight to a linked GitHub repository reaches no other
+  // build trigger (project create read the tip before the push; only a
+  // change-request merge reconciles afterwards).
+
+  projectsApp.openapi(
+    createRoute({
+      method: 'post',
+      path: '/{workspaceId}/sandbox-templates/reconcile',
+      tags: ['sandboxes'],
+      summary: 'Build every project sandbox template whose image is missing',
+      ...auth,
+      request: {
+        params: z.object({ workspaceId: z.string() }),
+      },
+      responses: {
+        200: json(z.any(), 'Each project template and what each provider holds'),
+        ...errors(403, 404, 502, 503),
+      },
+    }),
+    async (c: Context) => {
+      const projectId = workspaceIdParam(c);
+      const loaded = await loadProjectForUser(c, projectId, 'read');
+      if (!loaded) return c.json({ error: 'Not found' }, 404);
+      await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_SANDBOX_WRITE);
+      if (templateBuildProviders().length === 0) {
+        return c.json({ error: 'No sandbox template provider is enabled' }, 503);
+      }
+      const project = await loadGitProject(loaded);
+      try {
+        // The push this follows went to the upstream, not through Kortix: fetch it.
+        await refreshMirror(project, true);
+      } catch (err) {
+        rethrowDatabaseError(err);
+        const message = err instanceof Error ? err.message : String(err);
+        return c.json({ error: `Could not read the repository: ${message}` }, 502);
+      }
+      const result = await reconcileProjectTemplates(project, { accountId: loaded.row.accountId, source: 'manual' });
+      return c.json({ templates: result.templates, started: result.rebuilt }, 200);
+    },
   );
 
   // POST /v1/projects/:projectId/sandbox-templates/:templateId/build — trigger

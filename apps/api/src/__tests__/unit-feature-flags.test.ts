@@ -138,6 +138,16 @@ describe('resolveFeatureFlag — explicit override wins', () => {
     expect(buildFeatureFlagCatalog(metadata).map((flag) => flag.key)).not.toContain('llm_gateway');
   });
 
+  test('pooled_provider_secrets graduated: provider keys need no flag and a stored override is inert', () => {
+    // 2026-11-12: named provider keys, sharing, per-session key selection and
+    // named ChatGPT/Claude sign-ins are on for every project. A stored `false`
+    // must not resurface as a key, a catalog row, or a gate.
+    expect(isFeatureFlagKey('pooled_provider_secrets')).toBe(false);
+    const metadata = { experimental: { pooled_provider_secrets: false } };
+    expect(Object.keys(resolveFeatureFlags(metadata))).not.toContain('pooled_provider_secrets');
+    expect(buildFeatureFlagCatalog(metadata).map((flag) => flag.key)).not.toContain('pooled_provider_secrets');
+  });
+
   test('notification_center graduated: notifications are on for every project and a stored override is inert', () => {
     // 2026-11-06: inbox rows, Web Push, mobile push, follows and alerts run for
     // every project; email is opt-in per kind. A project that stored
@@ -301,6 +311,22 @@ describe('buildFeatureFlagCatalog', () => {
     expect(reminders.enabled).toBe(false);
     expect(reminders.overridden).toBe(true);
     expect(typeof reminders.available).toBe('boolean');
+  });
+
+  test('an override keeps reporting the platform default it replaced', () => {
+    // Loops (`reminders`) is available everywhere and on by default. A project
+    // that switched it off and on again is overridden either way, and the
+    // catalog still says what a reset would return it to.
+    for (const choice of [false, true]) {
+      const reminders = buildFeatureFlagCatalog({ experimental: { reminders: choice } }).find(
+        (f) => f.key === 'reminders',
+      );
+      expect(reminders?.overridden).toBe(true);
+      expect(reminders?.enabled).toBe(choice);
+      expect(reminders?.default_enabled).toBe(true);
+    }
+    // Without an override the default is the effective state.
+    for (const f of buildFeatureFlagCatalog({})) expect(f.default_enabled).toBe(f.enabled);
   });
 
   test('an unavailable flag is never enabled', () => {

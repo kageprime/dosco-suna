@@ -10,7 +10,7 @@
 // is all any reader used, so the result is the same.
 const LEGACY_HEADER = /^\[(\w+)\s*·([^·]+)·\s*message from(\s[^\]]+)\]\s*/;
 
-export interface LegacyChannelHeader {
+interface LegacyChannelHeader {
   /** The platform word as written, such as `Slack`. */
   platform: string;
   /** The channel or chat, trimmed. */

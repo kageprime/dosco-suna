@@ -57,13 +57,40 @@ export function mergeTriggerPayload(
   return out;
 }
 
+/**
+ * Fill `{{ root.path }}` tokens from the delivery payload. `{{ payload }}` is the whole payload
+ * as JSON (a program agent reads it from stdin), unless the payload has its own `payload` key.
+ */
 export function renderPromptTemplate(template: string, payload: Record<string, unknown>) {
   return template.replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (_match, token: string) => {
     const [root, ...path] = token.split('.');
     if (!root) return '';
+    if (token === 'payload' && !Object.hasOwn(payload, 'payload')) return JSON.stringify(payload);
     const value = path.length === 0 ? payload[root] : valueAtPath(payload[root], path);
     return templateValue(value);
   });
+}
+
+/**
+ * The text a fire sends its agent: the prompt template over the fire payload,
+ * with the trigger's static `run.payload` merged under it (the fire's own keys
+ * win). An empty template is a program agent's trigger that omits `prompt`:
+ * the input is then the merged payload itself, as JSON.
+ */
+export function renderTriggerInput(
+  spec: { promptTemplate: string; runPayload?: Record<string, unknown> },
+  payload: Record<string, unknown>,
+): string {
+  const merged = spec.runPayload ? mergeTriggerPayload(spec.runPayload, payload) : payload;
+  return spec.promptTemplate.trim() ? renderPromptTemplate(spec.promptTemplate, merged) : JSON.stringify(merged);
+}
+
+/**
+ * The line a model reads before third-party content. A payload input (no
+ * prompt: a program agent parses it as JSON) gets none.
+ */
+export function triggerInputPreamble(spec: { promptTemplate: string }, preamble: string): string {
+  return spec.promptTemplate.trim() ? preamble : '';
 }
 
 /**

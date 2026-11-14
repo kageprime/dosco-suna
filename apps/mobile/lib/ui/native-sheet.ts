@@ -87,6 +87,21 @@ export function nativeSheetHiddenBottom(input: {
   return Math.round((1 - fraction) * Math.max(0, boxHeight - bottomInset));
 }
 
+/**
+ * How many points of the content box lie below the screen, from the box's
+ * frame in window coordinates (`measureInWindow` once the sheet rests). This
+ * is the measured answer; `nativeSheetHiddenBottom` is the estimate used until
+ * it arrives. TestFlight 1.6.2 (171): the estimate left the picker's
+ * Agent · Model tabs below the screen at the 85% detent, so the box is not
+ * sized the way the estimate assumes.
+ */
+export function nativeSheetBoxBelowScreen(input: { y: number; height: number; windowHeight: number }): number {
+  const { y, height, windowHeight } = input;
+  if (!Number.isFinite(y) || !(height > 0) || !(windowHeight > 0)) return 0;
+  // Never hide the whole box: a sheet still off screen measures nothing useful.
+  return Math.round(Math.min(Math.max(0, y + height - windowHeight), height / 2));
+}
+
 /** gorhom's `snapPoints`: `'50%'`, a number in points, or a Reanimated shared value. */
 export type GorhomDetents = ReadonlyArray<string | number> | { value: unknown } | undefined;
 
@@ -113,13 +128,18 @@ export function detentFraction(point: string | number, maxHeight: number): numbe
  * the detent it opens at.
  *
  * - A content-sized sheet (gorhom's dynamic sizing, the default, with no
- *   `snapPoints` or only `'100%'`) is `'fitToContents'`: the sheet is as tall
- *   as its content, up to the maximum height. It has no separate full detent
- *   (see the module comment); its content is already fully visible, and a
- *   taller body scrolls inside the maximum height.
+ *   `snapPoints` or only `'100%'`) is marked `'fitToContents'`: the sheet is
+ *   as tall as its content, up to the maximum height, and has no separate
+ *   full detent. The marker never reaches the native side: `NativeSheet`
+ *   measures the body and passes one custom detent (`contentDetent`).
  * - Every other sheet lists its `snapPoints` as fractions, plus `1` (full
  *   screen) at the end, the native form of `withFullDetent`. The call site's
  *   `index` keeps pointing at the detent it named.
+ * - `fullDetent: false` drops the full detent, the added `1` and a listed
+ *   `'100%'`: the sheet stops at its highest partial snap point. UIKit sizes a sheet's view to its largest detent, so at a
+ *   partial detent the bottom of a full-height view lies below the screen. A
+ *   sheet with a bar pinned to its bottom (the model sheet's Agent · Model
+ *   tabs) lists only its own detent and its view ends at the visible edge.
  * - A shared value cannot be read on the JS thread: one full detent.
  */
 export function resolveNativeDetents(input: {
@@ -127,16 +147,52 @@ export function resolveNativeDetents(input: {
   dynamicSizing: boolean;
   index?: number;
   maxHeight: number;
+  /** `false`: no full detent after the snap points. Default `true`. */
+  fullDetent?: boolean;
 }): { detents: NativeDetents; initialIndex: number } {
-  const { snapPoints, dynamicSizing, maxHeight } = input;
+  const { snapPoints, dynamicSizing, maxHeight, fullDetent = true } = input;
   if (snapPoints !== undefined && !Array.isArray(snapPoints)) return { detents: [1], initialIndex: 0 };
   const points = (snapPoints ?? []) as ReadonlyArray<string | number>;
   const fractions = points.map((point) => detentFraction(point, maxHeight));
   const partial = fractions.some((fraction) => fraction !== null && fraction < 1);
   if (dynamicSizing && !partial) return { detents: 'fitToContents', initialIndex: 0 };
 
-  const sorted = [...new Set([...fractions.filter((f): f is number => f !== null), 1])].sort((a, b) => a - b);
+  const listed = fractions.filter((f): f is number => f !== null);
+  const partials = listed.filter((f) => f < 1);
+  const kept = fullDetent || partials.length === 0 ? [...listed, 1] : partials;
+  const sorted = [...new Set(kept)].sort((a, b) => a - b);
   const requested = fractions[input.index ?? 0] ?? null;
   const initialIndex = requested === null ? 0 : Math.max(0, sorted.indexOf(requested));
   return { detents: sorted, initialIndex };
+}
+
+/**
+ * The detent of a content-sized sheet: its measured content as a fraction of
+ * the maximum detent, rounded up so the last row is never cut. Content as tall
+ * as the maximum, or taller, is the full detent (the body scrolls there).
+ *
+ * `NativeSheet` presents a content-sized sheet at this custom detent instead
+ * of react-native-screens' `fitToContents`. `fitToContents` reads the content
+ * height from a wrapper view that reports it only after it is mounted, and
+ * the sheet mounts presented: UIKit resolved the detent at height 0, which
+ * falls back to the maximum. Every content-sized sheet then stood at full
+ * height, opaque and edge to edge on iOS 26 instead of the floating glass.
+ */
+export function contentDetent(contentHeight: number, maxHeight: number): number {
+  if (!(contentHeight > 0) || !(maxHeight > 0)) return 1;
+  const fraction = Math.ceil((contentHeight / maxHeight) * 1000) / 1000;
+  return fraction >= 0.995 ? 1 : fraction;
+}
+
+/** How far the iOS 26 glass sheet floats in from each window edge below its full detent. */
+export const FLOATING_SHEET_INSET = 8;
+
+/**
+ * The width a content-sized sheet's body is measured at before the sheet is
+ * presented (the native host has no size yet): the window less the glass
+ * sheet's side insets on iOS 26, the window before it. The body lays out at
+ * the sheet's real width once it is presented.
+ */
+export function nativeSheetContentWidth(windowWidth: number, glass: boolean): number {
+  return Math.max(0, windowWidth - (glass ? FLOATING_SHEET_INSET * 2 : 0));
 }

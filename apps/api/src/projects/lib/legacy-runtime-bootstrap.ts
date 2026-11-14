@@ -129,16 +129,16 @@ export function legacyBootstrapCooldownMs(attempts: number): number {
 /** A `running` stamp older than this is a crashed attempt, not a live one. */
 export const LEGACY_BOOTSTRAP_STALE_RUNNING_MS = 20 * 60 * 1000;
 /** Budget for the in-box script (downloads ~100 MB + relaunch + health wait). */
-export const LEGACY_BOOTSTRAP_EXEC_TIMEOUT_MS = 5 * 60 * 1000;
+const LEGACY_BOOTSTRAP_EXEC_TIMEOUT_MS = 5 * 60 * 1000;
 /** After the relaunch, how long the new daemon may take to report a converged, serving runtime. */
 export const LEGACY_BOOTSTRAP_CONVERGE_BUDGET_MS = 8 * 60 * 1000;
-export const LEGACY_BOOTSTRAP_POLL_MS = 5_000;
+const LEGACY_BOOTSTRAP_POLL_MS = 5_000;
 
 /**
  * OpenCode home on the box: 'auto' = detect from the running OpenCode / on-disk data (image generations differ).
  * @deprecated OpenCode only. OpenCode is sunset: no new code. See apps/kortix-sandbox-agent-server/src/harness/README.md "OpenCode is deleted".
  */
-export const LEGACY_OPENCODE_HOME = 'auto';
+const LEGACY_OPENCODE_HOME = 'auto';
 
 /**
  * STALE / BLOCKED — a daemon that reports a `runtime` block (so it is not
@@ -191,7 +191,7 @@ export type StaleReason =
  */
 export const REQUIRED_RUNTIME_CAPABILITIES: readonly string[] = [CONFIG_RELEASE_CAPABILITY];
 
-export type RuntimeClass = 'legacy' | 'current' | 'stale' | 'blocked' | 'not-ok' | 'unreachable';
+type RuntimeClass = 'legacy' | 'current' | 'stale' | 'blocked' | 'not-ok' | 'unreachable';
 
 /** The three assets `runtime.running` reports that this module can compare sha-to-sha. Pass the desired values from the API's own manifest — never read off the box. */
 export interface ExpectedRunningAssets {

@@ -86,7 +86,8 @@ export type WebNotificationType =
   | 'automation_failed'
   | 'automation_recovered'
   | 'capture_device_down'
-  | 'capture_device_recovered';
+  | 'capture_device_recovered'
+  | 'mention';
 
 export interface WebNotificationPayload {
   /** Which category this notification belongs to */
@@ -145,6 +146,7 @@ const TYPE_TO_KIND: Record<WebNotificationType, InboxNotificationKind> = {
   automation_recovered: 'automation_recovered',
   capture_device_down: 'capture_device_down',
   capture_device_recovered: 'capture_device_recovered',
+  mention: 'mention',
 };
 
 /**
@@ -176,6 +178,7 @@ const TYPE_TO_SOUND: Record<WebNotificationType, SoundEvent> = {
   automation_recovered: 'completion',
   capture_device_down: 'error',
   capture_device_recovered: 'completion',
+  mention: 'notification',
 };
 
 // ============================================================================
@@ -578,6 +581,7 @@ const NOTIFICATION_TOAST_VARIANT: Record<WebNotificationType, 'success' | 'error
   automation_recovered: 'success',
   capture_device_down: 'error',
   capture_device_recovered: 'success',
+  mention: 'info',
 };
 
 /** Open what the notification is about: its session, or its `href`. */

@@ -8,7 +8,7 @@
  * VM API, the Storage bucket (listing one level, as Supabase Storage does),
  * the git host, Stripe and the auth admin API.
  */
-import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterAll, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test';
 import { eq, sql } from 'drizzle-orm';
 import { accounts, creditAccounts, sessionSandboxes } from '@kortix/db';
 
@@ -19,6 +19,8 @@ const intentAtRemove = new Map<string, boolean>();
 const cancelledSubscriptions: string[] = [];
 const deletedRepos: string[] = [];
 let failBoxRemove = false;
+/** What the provider throws when `failBoxRemove` is set. */
+let boxRemoveError: Error = new Error('provider unavailable');
 let failRepoDelete = false;
 
 const realSupabase = await import('../../shared/supabase');
@@ -64,7 +66,7 @@ mock.module('../../platform/providers', () => ({
   tryGetProvider: () => ({
     stop: async () => undefined,
     remove: async (externalId: string) => {
-      if (failBoxRemove) throw new Error('provider unavailable');
+      if (failBoxRemove) throw boxRemoveError;
       // KRTX-2671: the provider's `removed` webhook reads the row as the box
       // goes. Recorded at remove time — the rows are gone after the flow.
       const [row] = await db
@@ -102,6 +104,9 @@ mock.module('../../projects/git-backends', () => ({
   }),
 }));
 
+const sentry = await import('../../lib/sentry');
+const { __resetProviderAuthOutageForTest } = await import('../../shared/provider-auth');
+const { BillingError } = await import('../../errors');
 const { db } = await import('../../shared/db');
 const { deleteAccountImmediately } = await import('./account-deletion');
 const { deleteAccountExternalStores } = await import('./account-erasure-stores');
@@ -149,7 +154,9 @@ beforeEach(() => {
   deletedRepos.length = 0;
   deletedVolumes.length = 0;
   failBoxRemove = false;
+  boxRemoveError = new Error('provider unavailable');
   failRepoDelete = false;
+  __resetProviderAuthOutageForTest();
 });
 
 afterAll(async () => {
@@ -210,6 +217,53 @@ describe('account erasure empties the stores outside the database', () => {
     expect(bucket.size).toBe(0);
     expect(deletedRepos).toEqual([`repo-${managed}`]);
     expect(cancelledSubscriptions).toEqual([`sub_${accountId}`]);
+  });
+
+  // KRTX-4883: the Daytona credential was dead (HTTP 401 "Invalid credentials"),
+  // so every parked box failed and the request answered a bare 500 whose error
+  // group named the account, not the outage.
+  test('a dead provider credential answers a retryable 503 and pages the outage once, not the account', async () => {
+    const { accountId } = await seed();
+    failBoxRemove = true;
+    boxRemoveError = Object.assign(new Error('Invalid credentials'), { statusCode: 401 });
+    const captured = spyOn(sentry, 'captureException').mockImplementation(() => undefined);
+
+    try {
+      const err = await deleteAccountImmediately(accountId, accountId).then(
+        () => null,
+        (e: unknown) => e,
+      );
+
+      expect(err).toBeInstanceOf(BillingError);
+      expect((err as InstanceType<typeof BillingError>).statusCode).toBe(503);
+      expect((err as Error).message).not.toContain(accountId);
+      // Two parked boxes failed, one page: the provider outage, with its remediation.
+      expect(captured).toHaveBeenCalledTimes(1);
+      expect(String(captured.mock.calls[0]?.[0])).toContain('API rejects every call');
+      // Still retryable: nothing was erased.
+      expect(await accountExists(accountId)).toBe(true);
+      expect(cancelledSubscriptions).toEqual([]);
+    } finally {
+      captured.mockRestore();
+    }
+
+    failBoxRemove = false;
+    await deleteAccountImmediately(accountId, accountId);
+    expect(await accountExists(accountId)).toBe(false);
+  });
+
+  test('a failure that is not an auth outage still throws the plain error', async () => {
+    const { accountId } = await seed();
+    failBoxRemove = true;
+    boxRemoveError = Object.assign(new Error('boom'), { statusCode: 500 });
+
+    const err = await deleteAccountImmediately(accountId, accountId).then(
+      () => null,
+      (e: unknown) => e,
+    );
+
+    expect(err).not.toBeInstanceOf(BillingError);
+    expect((err as Error).message).toContain('could not be removed');
   });
 
   test('a repo the git host will not delete keeps the account; the retry finishes', async () => {

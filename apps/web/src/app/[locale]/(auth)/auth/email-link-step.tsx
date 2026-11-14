@@ -2,13 +2,14 @@
 
 import { useTranslations } from '@/i18n/use-translations';
 import type { EmailFlowMode } from '@/lib/auth/unified-auth-flow';
-import { Button } from '@kortix/ui/button';
 import {
   CodeInput,
   FieldError,
   InfoStrip,
+  QuietLinks,
   StepHeader,
 } from '@kortix/ui/internal/auth/auth-primitives';
+import Loading from '@kortix/ui/loading';
 import { m, useReducedMotion } from 'motion/react';
 
 const EASE = [0.23, 1, 0.32, 1] as const;
@@ -48,7 +49,8 @@ export function EmailLinkStep({
   onPassword: () => void;
   code?: string;
   onCodeChange?: (value: string) => void;
-  onVerify?: () => void;
+  /** Verifies the typed code; the six-box input passes the code it just completed. */
+  onVerify?: (value?: string) => void;
 }) {
   const t = useTranslations('auth.unified');
   // The copy must name the email the mailbox receives (KRTX-2195): a signup
@@ -90,76 +92,59 @@ export function EmailLinkStep({
 
         {onCodeChange && onVerify && (
           <form
-            className="space-y-5"
             onSubmit={(event) => {
               event.preventDefault();
               onVerify();
             }}
           >
-            <CodeInput
-              value={code ?? ''}
-              onChange={onCodeChange}
-              disabled={pending}
-              invalid={!!errorMessage}
-            />
-            {errorMessage && <FieldError id="code-error" message={errorMessage} />}
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full"
-              disabled={pending || !/^\d{6}$/.test(code ?? '')}
-            >
-              {pendingAction === 'continue' ? t('oneMoment') : t('continue')}
-            </Button>
+            {/* No submit button: the code verifies itself on the sixth digit. */}
+            <div className="space-y-3">
+              <CodeInput
+                value={code ?? ''}
+                onChange={onCodeChange}
+                onComplete={(value) => onVerify(value)}
+                disabled={pending}
+                invalid={!!errorMessage}
+              />
+              {errorMessage && <FieldError id="code-error" message={errorMessage} />}
+              {/* Always mounted: a live region that arrives with its text is
+                  not announced by every screen reader. */}
+              <p role="status" className="text-muted-foreground flex items-center gap-2 text-xs empty:hidden">
+                {pendingAction === 'continue' ? (
+                  <>
+                    <Loading className="text-muted-foreground size-3.5 shrink-0" />
+                    {t('oneMoment')}
+                  </>
+                ) : null}
+              </p>
+            </div>
           </form>
         )}
         {errorMessage && !(onCodeChange && onVerify) && (
           <FieldError id="code-error" message={errorMessage} />
         )}
 
-        <div className="text-muted-foreground mt-6 space-y-2 text-sm">
-          <p>
-            {confirmed ? t('link.confirmNotReceived') : t('link.notReceived')}{' '}
-            {resendIn > 0 ? (
-              <span className="tabular-nums">{t('link.resendIn', { seconds: resendIn })}</span>
-            ) : (
-              <button
-                type="button"
-                onClick={onResend}
-                disabled={pending}
-                className="text-foreground disabled:opacity-50"
-              >
-                {pendingAction === 'resend' ? t('sending') : t('link.resend')}
-              </button>
-            )}
-          </p>
-          <p>{t('link.checkSpam')}</p>
-          <p className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onChangeEmail}
-              disabled={pending}
-              className="hover:text-foreground -my-2 py-2 transition-colors"
-            >
-              {t('useDifferentEmail')}
-            </button>
-            {passwordEnabled && (
-              <>
-                <span aria-hidden className="text-muted-foreground select-none">
-                  ·
-                </span>
-                <button
-                  type="button"
-                  onClick={onPassword}
-                  disabled={pending}
-                  className="hover:text-foreground -my-2 py-2 transition-colors disabled:opacity-50"
-                >
-                  {pendingAction === 'password' ? t('oneMoment') : t('usePasswordInstead')}
-                </button>
-              </>
-            )}
-          </p>
-        </div>
+        <QuietLinks
+          disabled={pending}
+          links={[
+            { key: 'email', label: t('useDifferentEmail'), onClick: onChangeEmail },
+            passwordEnabled
+              ? {
+                  key: 'password',
+                  label: pendingAction === 'password' ? t('oneMoment') : t('usePasswordInstead'),
+                  onClick: onPassword,
+                }
+              : null,
+            // Plain text while the countdown runs, then the resend action.
+            resendIn > 0
+              ? { key: 'resend', label: t('link.resendIn', { seconds: resendIn }) }
+              : {
+                  key: 'resend',
+                  label: pendingAction === 'resend' ? t('sending') : t('link.resend'),
+                  onClick: onResend,
+                },
+          ]}
+        />
       </m.div>
     </>
   );

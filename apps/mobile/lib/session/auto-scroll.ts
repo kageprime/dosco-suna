@@ -66,6 +66,17 @@ export function scrollEnd(contentHeight: number, viewportHeight: number): number
   return Math.max(0, contentHeight - viewportHeight);
 }
 
+/**
+ * iOS (KRTX-4899): how far the native scroll extent (`nativeEvent.contentSize`)
+ * ends above the laid-out content (`onContentSizeChange`). The list pads its
+ * native `contentInset.bottom` by it, so the reader can reach the laid-out end.
+ * A gap within AT_END_PX is rounding.
+ */
+export function extentShortfall(input: { laidOutHeight: number; nativeHeight: number }): number {
+  const gap = input.laidOutHeight - input.nativeHeight;
+  return gap > AT_END_PX ? Math.ceil(gap) : 0;
+}
+
 /** Negative distances (iOS rubber-band past the end) count as at the end. */
 export function isAtEnd(distance: number): boolean {
   return distance <= AT_END_PX;

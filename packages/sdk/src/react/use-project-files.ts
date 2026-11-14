@@ -66,7 +66,8 @@ export function driveFolderQueryOptions(driveId: string | null, path: string) {
     queryKey: qk.drives.files(driveId ?? '', path),
     queryFn: (): Promise<{ entries: DriveEntry[]; access: FolderAccess }> => listDriveFolder(driveId!, path),
     enabled: !!driveId,
-    refetchInterval: pollUnlessFailing(LIVE_POLL_MS),
+    // A failed refresh must not freeze a folder until the page reloads.
+    refetchInterval: LIVE_POLL_MS,
     staleTime: 2_000,
   };
 }

@@ -14,6 +14,8 @@
  *     columns, relative time.
  *
  * `formatElapsed` is NOT redeclared here — `lib/transcript-view.ts` owns it.
+ * `clip` lives in `lib/text.ts` and is re-exported here for the transcript
+ * cards; the relative-time ladders live in `lib/relative-time.ts`.
  */
 
 import {
@@ -194,24 +196,9 @@ export function headLines(text: string, max: number): { lines: string[]; hidden:
   return { lines: all.slice(0, max), hidden: all.length - max };
 }
 
-/** Clip one line to `width` columns, with an ellipsis when it was clipped. */
-export function clip(text: string, width: number): string {
-  if (width <= 0) return '';
-  if (text.length <= width) return text;
-  return `${text.slice(0, Math.max(width - 1, 0))}…`;
-}
-
-/** `now`, `12s`, `4m`, `3h`, `2d` — the age a turn header prints. */
-export function formatRelativeTime(then: number, now: number = Date.now()): string {
-  const seconds = Math.max(Math.floor((now - then) / 1000), 0);
-  if (seconds < 5) return 'now';
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  return `${Math.floor(hours / 24)}d`;
-}
+// `clip` moved verbatim to `lib/text.ts`, the relative-time ladders to
+// `lib/relative-time.ts`; the transcript cards keep importing `clip` from here.
+export { clip } from './text.ts';
 
 // ============================================================================
 // Unified diff

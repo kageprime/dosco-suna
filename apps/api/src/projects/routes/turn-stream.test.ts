@@ -66,6 +66,8 @@ const confirmed: string[] = [];
 const steerLookups: string[] = [];
 let steerTargets: Record<string, string> = {};
 let confirmOutcome: 'confirmed' | 'pending_delivery' | 'no_prompt' = 'confirmed';
+const dropped: string[] = [];
+let dropOutcome: 'requeued' | 'pending_delivery' | 'no_prompt' | 'already_settled' | 'exhausted' = 'requeued';
 let failDaemonBootWrite = false;
 
 /** True when a drizzle `SQL` fragment's literal text names `key`. */
@@ -174,6 +176,15 @@ mock.module('../session-lifecycle/consumption', () => ({
   },
 }));
 
+const realRedelivery = await import('../session-lifecycle/redelivery');
+mock.module('../session-lifecycle/redelivery', () => ({
+  ...realRedelivery,
+  requeueDroppedSteer: async (_sessionId: string, messageId: string) => {
+    dropped.push(messageId);
+    return dropOutcome;
+  },
+}));
+
 mock.module('../session-turn-ledger', () => ({
   ...realTurnLedger,
   recordUnidentifiedTurnCause: async () => causeResult,
@@ -183,7 +194,11 @@ mock.module('../session-turn-ledger', () => ({
     result.outcome === 'no_active_turn',
 }));
 
+// The real index, so every name another module imports from it resolves; the
+// calls these routes must not make throw.
+const realLifecycle = await import('../session-lifecycle');
 mock.module('../session-lifecycle', () => ({
+  ...realLifecycle,
   continueSession: async () => { throw new Error('continueSession: not used by the turn-stream routes'); },
   startSession: async () => { throw new Error('startSession: not used by the turn-stream routes'); },
   buildContinueSessionCommandValues: async () => { throw new Error('buildContinueSessionCommandValues: not used by the turn-stream routes'); },
@@ -358,6 +373,8 @@ beforeEach(() => {
   triggerRunEnds.length = 0;
   completionQueue = [];
   completedMessageIds.length = 0;
+  dropped.length = 0;
+  dropOutcome = 'requeued';
   confirmed.length = 0;
   steerLookups.length = 0;
   steerTargets = {};
@@ -1027,6 +1044,26 @@ describe('POST /v1/projects/:projectId/turn-stream — steering (R10)', () => {
     expect(await response.json()).toEqual({ ok: true, outcome: 'confirmed' });
     expect(confirmed).toEqual(['msg_s']);
     expect(capabilityCalls).toEqual([]);
+  });
+
+  test('steer_dropped requires a sandbox token and a message id', async () => {
+    const denied = await post({ session_id: SESSION_ID, kind: 'steer_dropped', turn_message_id: 'msg_s' });
+    expect(denied.status).toBe(403);
+    expect(await denied.json()).toEqual({ error: 'steer_dropped requires a sandbox token' });
+    const missing = await post({ session_id: SESSION_ID, kind: 'steer_dropped' }, sandboxCtx);
+    expect(missing.status).toBe(400);
+    expect(dropped).toEqual([]);
+  });
+
+  test('steer_dropped puts the steered row back on the queue; a row still mid-delivery answers 503', async () => {
+    const response = await post({ session_id: SESSION_ID, kind: 'steer_dropped', turn_message_id: 'msg_s' }, sandboxCtx);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, outcome: 'requeued' });
+    expect(capabilityCalls).toEqual([]);
+    dropOutcome = 'pending_delivery';
+    const pending = await post({ session_id: SESSION_ID, kind: 'steer_dropped', turn_message_id: 'msg_s' }, sandboxCtx);
+    expect(pending.status).toBe(503);
+    expect(dropped).toEqual(['msg_s', 'msg_s']);
   });
 
   test('an end that names a steered message closes the turn the steer went into', async () => {

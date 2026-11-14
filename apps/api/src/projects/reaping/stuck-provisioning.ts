@@ -25,7 +25,11 @@ import { and, eq, isNotNull, lte, sql } from 'drizzle-orm';
 import { type SandboxProviderName, config } from '../../config';
 import { getProvider } from '../../platform/providers';
 import { db } from '../../shared/db';
-import { finalizeRecoveredRuntimeIfRunning, preserveEstablishedRuntime } from '../runtime-identity';
+import {
+  RUNTIME_RECOVERY_ATTEMPTS_KEY,
+  finalizeRecoveredRuntimeIfRunning,
+  preserveEstablishedRuntime,
+} from '../runtime-identity';
 import { runtimeWakeInProgress } from '../session-lifecycle/runtime-wake-fence';
 
 import {
@@ -199,7 +203,8 @@ export async function convergeStuckProvisioningRuntimes(now = new Date()): Promi
         }
         const activated = await transitionSandbox('activateProvisioning', row.sandboxId, {
           at: now,
-          metadata: { strip: LEASE_KEYS, merge: patch },
+          // The box runs: a failed-recovery count no longer applies.
+          metadata: { strip: [...LEASE_KEYS, RUNTIME_RECOVERY_ATTEMPTS_KEY], merge: patch },
           guard: sameLease(metadata),
         });
         if (!activated) continue;

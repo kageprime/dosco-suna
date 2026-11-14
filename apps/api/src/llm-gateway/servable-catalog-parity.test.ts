@@ -4,8 +4,8 @@
  * — directly (`resolveCandidates` on an unconfigured session, the ChatGPT
  * shared-account fallback) or through the session's key selection
  * (`usableProviderKeys`, which session create / model change / sharing change
- * store). Enforcement for the 2026-09-26 incident (KRTX-431): with
- * `pooled_provider_secrets` ON, a ChatGPT account shared with the whole
+ * store). Enforcement for the 2026-09-26 incident (KRTX-431): a ChatGPT
+ * account shared with the whole
  * project was listed by the picker while unconfigured sessions — Slack runs,
  * cron triggers, agent-started workers, a member who did not create the
  * account — failed their first turn with `provider_not_connected`, which read
@@ -65,7 +65,7 @@ const memberGate = (userId: string) => members.includes(userId);
 
 mock.module('../repositories/project-model-access', () => ({
   getProjectModelAccess: async () => ({ disabledProviders: [], disabledModels: [] }),
-  getProjectGatewayResolution: async () => ({ access: { disabledProviders: [], disabledModels: [] }, pooledEnabled: true }),
+  getProjectGatewayResolution: async () => ({ access: { disabledProviders: [], disabledModels: [] } }),
 }));
 
 mock.module('../billing/services/entitlements', () => ({
@@ -428,7 +428,7 @@ function seedProject() {
   ];
 }
 
-describe('servableProjectCatalog ↔ resolveCandidates parity (pooled provider secrets ON)', () => {
+describe('servableProjectCatalog ↔ resolveCandidates parity (pooled provider keys)', () => {
   test('a private session of the member who connected the accounts runs every listed model', async () => {
     seedProject();
     await everyListedModelRuns('u-creator', 'u-creator');

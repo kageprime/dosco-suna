@@ -48,6 +48,7 @@ const MARKETING_ROUTES = [
   '/contact',
   '/design-system',
   '/developers',
+  '/loopmaxxing',
   '/download',
   '/enterprise',
   '/legal',
@@ -94,6 +95,7 @@ const SELF_HOST_MARKETING_ONLY = [
   '/careers',
   '/contact',
   '/developers',
+  '/loopmaxxing',
   '/enterprise',
   '/pricing',
   '/services',
@@ -192,6 +194,7 @@ const PUBLIC_ROUTES = [
   '/rauch', // Rauch-style particle rendering of the Dosco symbol — public, unauthenticated
   '/contact', // Request-a-demo / contact page should be public
   '/developers', // Developer walkthrough landing page should be public
+  '/loopmaxxing', // The developer landing loopmaxxing.sh serves at its root
   '/countryerror', // Country restriction error page should be public
   '/enterprise', // Enterprise page should be public
   '/services', // Services (AI Transformation) sales page should be public
@@ -293,6 +296,23 @@ export async function middleware(request: NextRequest) {
   if (httpsRedirect) return NextResponse.redirect(httpsRedirect, 308);
 
   let { pathname } = request.nextUrl;
+  // loopmaxxing.sh is the developer landing. Its root shows /loopmaxxing; the
+  // setup guide, the installer and the loop guides are served under its own
+  // name, because the copied prompt names them there; every other path is
+  // kortix.com's.
+  if (LOOPMAXXING_HOSTS.has(visitorHostname(request))) {
+    // Before the launch the host shows nothing of its own.
+    if (!loopmaxxingEnabled()) return NextResponse.redirect('https://kortix.com/', 307);
+    if (pathname === '/') {
+      const landing = request.nextUrl.clone();
+      landing.pathname = `/${defaultLocale}/loopmaxxing`;
+      return NextResponse.rewrite(landing);
+    }
+    if (pathname === '/loopmaxxing') return NextResponse.redirect(`https://${visitorHostname(request)}/`, 308);
+    if (!LOOPMAXXING_SERVED.test(pathname)) {
+      return NextResponse.redirect(`https://kortix.com${pathname}${request.nextUrl.search}`, 307);
+    }
+  }
   // These are probes for server files, not product routes. A plain response also
   // avoids rendering the translated application shell for sensitive-file probes.
   if (/^\/(?:\.env(?:[./]|$)|\.git(?:\/|$)|package\.json$|etc\/passwd$)/i.test(pathname)) {
@@ -959,6 +979,24 @@ export async function middleware(request: NextRequest) {
  * source between DESKTOP_ALLOWED_ROUTES and the middleware export for
  * route literals, and this helper's health path is not a desktop route.
  */
+/** The hosts of the developer landing. */
+const LOOPMAXXING_HOSTS = new Set(['loopmaxxing.sh', 'www.loopmaxxing.sh']);
+/** What those hosts serve themselves, beside the landing at their root. */
+const LOOPMAXXING_SERVED = /^\/(?:setup\.md|factory\.md|install(?:\.sh)?|loops\/[^/]+)$/;
+
+/** Read at request time (dynamic key), so one image serves dev with it and prod without. */
+function loopmaxxingEnabled(): boolean {
+  const flag =
+    (Reflect.get(process.env, 'KORTIX_PUBLIC_LOOPMAXXING_ENABLED') as string | undefined) ||
+    (Reflect.get(process.env, 'NEXT_PUBLIC_LOOPMAXXING_ENABLED') as string | undefined);
+  return flag === 'true' || process.env.NODE_ENV === 'development';
+}
+
+/** The host the visitor typed: the forwarded one behind a proxy, else the request's. */
+function visitorHostname(request: NextRequest): string {
+  return hostnameOf(request.headers.get('x-forwarded-host')?.split(',')[0].trim() || request.headers.get('host') || request.nextUrl.host);
+}
+
 const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0']);
 
 function httpsRedirectTarget(request: NextRequest): URL | null {

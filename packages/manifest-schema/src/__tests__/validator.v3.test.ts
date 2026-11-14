@@ -461,3 +461,61 @@ describe('"*" is the canonical "every" value; `all` stays its alias', () => {
     expect(validateManifest('agents:\n  a:\n    tools:\n      - *\n').issues[0]!.message).toContain('Quote it: `- "*"`');
   });
 });
+
+describe('agents.<name>.run: a program agent', () => {
+  const yaml = (block: string) => `agents:\n  janitor:\n${block}`;
+
+  test('is valid with run alone, and with run beside workspace and grants', () => {
+    expect(check(yaml('    run: pnpm tsx agents/janitor.ts\n')).errors).toEqual([]);
+    expect(check(yaml('    run: node janitor.js\n    secrets: [GITHUB_TOKEN]\n    workspace:\n      setup: [pnpm install]\n')).errors).toEqual([]);
+    expect((validateManifest(yaml('    run: "  node janitor.js "\n')).parsed?.agents as any).janitor.run).toBe('  node janitor.js ');
+  });
+
+  test('must be a non-empty command', () => {
+    expect(errorPaths(yaml('    run: ""\n'))).toEqual(['agents.janitor.run']);
+    expect(errorPaths(yaml('    run: [node, x.js]\n'))).toEqual(['agents.janitor.run']);
+    expect(errorPaths(yaml(`    run: ${'x'.repeat(4097)}\n`))).toEqual(['agents.janitor.run']);
+  });
+
+  test('refuses a model, a prompt and a prompt file: a program agent has no model', () => {
+    expect(errorPaths(yaml('    run: node x.js\n    model: kortix/kimi\n'))).toEqual(['agents.janitor.model']);
+    expect(errorPaths(yaml('    run: node x.js\n    prompt: be nice\n'))).toEqual(['agents.janitor.prompt']);
+    expect(errorPaths(yaml('    run: node x.js\n    prompt_file: agents/x.md\n'))).toEqual(['agents.janitor.prompt_file']);
+  });
+
+  test('warns on a model-only key: it has no effect', () => {
+    const { errors, warnings } = check(yaml('    run: node x.js\n    codemode: off\n    variant: high\n'));
+    expect(errors).toEqual([]);
+    const ignored = warnings.filter((issue) => issue.message.includes('program agent'));
+    expect(ignored.map((issue) => issue.path).sort()).toEqual(['agents.janitor.codemode', 'agents.janitor.variant']);
+  });
+});
+
+describe('program agents: timeout and trigger input', () => {
+  const base = (agentExtra: string, triggers: string) =>
+    `agents:\n  janitor:\n    run: node j.js\n${agentExtra}  writer:\n    prompt: Write.\n    tools: "*"\ntriggers:\n${triggers}`;
+
+  test('timeout is a duration from 1s to 6h, only on a program agent', () => {
+    expect(check(base('    timeout: 45m\n', '')).errors).toEqual([]);
+    expect(errorPaths(base('    timeout: 7h\n', ''))).toEqual(['agents.janitor.timeout']);
+    expect(errorPaths(base('    timeout: soon\n', ''))).toEqual(['agents.janitor.timeout']);
+    expect(errorPaths(`agents:\n  writer:\n    prompt: Write.\n    tools: "*"\n    timeout: 5m\n`)).toEqual(['agents.writer.timeout']);
+  });
+
+  test('a trigger of a program agent may omit prompt; a model agent still needs one', () => {
+    const hourly = (agent: string) => `  - slug: hourly\n    on: { every: 1h }\n    run: { agent: ${agent} }\n`;
+    expect(check(base('', hourly('janitor'))).errors).toEqual([]);
+    expect(errorPaths(base('', hourly('writer')))).toEqual(['triggers[0].prompt']);
+  });
+
+  test('default_agent decides when the trigger names no agent', () => {
+    const yaml = `default_agent: janitor\n${base('', '  - slug: hourly\n    on: { every: 1h }\n    run: {}\n')}`;
+    expect(check(yaml).errors).toEqual([]);
+  });
+
+  test('run.payload on an agent run is a table of static input', () => {
+    const t = (payload: string) => `  - slug: nightly\n    on: { cron: "0 3 * * *" }\n    run: { agent: janitor, payload: ${payload} }\n`;
+    expect(check(base('', t('{ days: 30, mode: full }'))).errors).toEqual([]);
+    expect(errorPaths(base('', t('[1, 2]')))).toEqual(['triggers[0].payload']);
+  });
+});

@@ -16,6 +16,7 @@
  * are off (the beta flag `event_triggers`, Project admin › Feature flags).
  */
 
+import { resolveProgramAgent } from '../../../session/composer/agent-selector';
 import { Button } from '../../../primitives/button';
 import { Alert as BannerAlert, AlertDescription as BannerAlertDescription, AlertActions as BannerAlertActions} from '../../../primitives/alert';
 import { Input } from '../../../primitives/input';
@@ -76,6 +77,7 @@ import {
   spaceTriggerAccess,
   summarize,
   triggerConnection,
+  targetInput,
   triggerFilter,
   triggerName,
   validate,
@@ -234,7 +236,7 @@ function ComposerForm({
   );
   const name = triggerName(draft, tI18nComplete);
 
-  const problems = validate(draft, { name, configFields, app }, tI18nComplete);
+  const problems = validate(draft, { name, configFields, app, programAgent: resolveProgramAgent(agents, draft.agent) }, tI18nComplete);
   const shown = showProblems ? problems : [];
   const blockError = (block: ComposerBlock) =>
     shown.find((p) => p.block === block && !p.field)?.message;
@@ -311,7 +313,8 @@ function ComposerForm({
             name: trimmedName,
             slug,
             type: draft.kind,
-            prompt_template: draft.instruction.trim(),
+            prompt_template: draft.thenKind === 'app' ? '' : draft.instruction.trim(),
+            ...(draft.thenKind === 'app' && targetInput(draft) ? { target: targetInput(draft)! } : {}),
             enabled: draft.startActive,
             ...(draft.agent ? { agent: draft.agent } : {}),
             ...(draft.model ? { model: modelKeyToWire(draft.model) } : {}),
@@ -327,7 +330,9 @@ function ComposerForm({
             ...(draft.mode === 'keyed' ? { session_key: draft.sessionKey.trim() } : {}),
             ...(!isCron && filter ? { filter } : {}),
             ...(isCron
-              ? draft.runAt
+              ? draft.every !== null
+                ? { every: draft.every.trim() }
+                : draft.runAt
                 ? { run_at: draft.runAt, timezone: draft.timezone.trim() || 'UTC' }
                 : { cron: draft.cron.trim(), timezone: draft.timezone.trim() || 'UTC' }
               : isEvent
@@ -358,7 +363,9 @@ function ComposerForm({
         : undefined;
       const isChangeRequest = draft.kind === 'change_request';
       successToast(
-        isEvent || isApp
+        isEvent
+          ? tI18nComplete.raw('textd6fa1626e3af')
+          : isApp
           ? tI18nComplete.raw('text840993da3129')
           : isCron
             ? tI18nComplete.raw('text84e98b45ad8b')

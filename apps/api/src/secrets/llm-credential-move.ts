@@ -45,6 +45,7 @@ import { readCustomProviders, customProviderSecretName } from '../llm-gateway/cu
 import { resolveCatalogUpstream } from '../llm-gateway/models/provider-registry';
 import { runtimeModelCatalog } from '../llm-gateway/models/runtime-catalog';
 import { decryptAccountSecret, encryptAccountSecret } from './account-resource';
+import { objectGrantScoped } from '../iam/workspace-scope';
 
 export { LLM_CREDENTIAL_MOVED_OUTCOMES } from './llm-credential-ledger';
 import { LLM_CREDENTIAL_MOVED_OUTCOMES } from './llm-credential-ledger';
@@ -135,7 +136,8 @@ async function isMember(tx: Tx | typeof db, accountId: string, userId: string): 
 async function audienceOf(tx: Tx | typeof db, projectId: string, secretId: string): Promise<'open' | { users: string[] } | 'unmappable'> {
   const grants = await tx.select({ principalType: roleAssignments.principalType, principalId: roleAssignments.principalId })
     .from(roleAssignments).where(and(
-      eq(roleAssignments.scopeType, 'project'), eq(roleAssignments.scopeId, projectId),
+      // An object grant reads as a project grant in either form (`iam/workspace-scope.ts`).
+      objectGrantScoped(), eq(roleAssignments.scopeId, projectId),
       eq(roleAssignments.objectType, 'secret'), eq(roleAssignments.objectId, secretId),
       or(isNull(roleAssignments.expiresAt), gt(roleAssignments.expiresAt, sql`now()`)),
     ));

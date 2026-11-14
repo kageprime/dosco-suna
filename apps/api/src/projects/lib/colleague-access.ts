@@ -42,11 +42,11 @@ import { listResolvedProjectSecrets, secretKeyCollisionInAllowlist } from '../se
 import { myKortixAgentGrant } from './my-kortix-agent';
 
 /** The create body key. */
-export const COLLEAGUE_ACCESS_BODY_KEY = 'colleague_access';
+const COLLEAGUE_ACCESS_BODY_KEY = 'colleague_access';
 /** Items per list. A colleague that needs more is a project agent. */
 export const COLLEAGUE_ACCESS_MAX_ITEMS = 20;
 /** An open ask, and an allow nobody used, close after this. */
-export const COLLEAGUE_ACCESS_TTL_MS = 24 * 60 * 60 * 1000;
+const COLLEAGUE_ACCESS_TTL_MS = 24 * 60 * 60 * 1000;
 /** The 409 a start answers while its list waits for a person. */
 export const COLLEAGUE_ACCESS_APPROVAL_REQUIRED = 'COLLEAGUE_ACCESS_APPROVAL_REQUIRED';
 
@@ -60,7 +60,7 @@ export interface ColleagueAccess {
 
 export type ColleagueAccessDecision = 'allow' | 'deny';
 
-export type ColleagueAccessParse = { ok: true; value: ColleagueAccess | null } | { ok: false; error: string };
+type ColleagueAccessParse = { ok: true; value: ColleagueAccess | null } | { ok: false; error: string };
 
 function parseList(raw: unknown, field: string, canonical: (value: string) => string): string[] | string {
   if (raw === undefined || raw === null) return [];
@@ -134,7 +134,7 @@ export function itemsNoAgentHolds(loaded: LoadedAgents, access: ColleagueAccess)
   ];
 }
 
-export type ColleagueAccessItemsCheck =
+type ColleagueAccessItemsCheck =
   | { ok: true; access: ColleagueAccess }
   | { ok: false; status: 404 | 409; body: Record<string, unknown> };
 
@@ -353,7 +353,7 @@ export async function myKortixSessionGrant(
 }
 
 /** The git context a My Kortix grant needs to consult the manifest. */
-export type MyKortixProjectGitContext = {
+type MyKortixProjectGitContext = {
   projectId: string;
   repoUrl: string;
   /** Absent/empty: no manifest can be read, so nothing can be in repair mode. */

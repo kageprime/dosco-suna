@@ -77,6 +77,12 @@ const SHIMMER_STYLE = `
     -webkit-text-fill-color: var(--base-color) !important;
   }
 }
+:root[data-reduce-motion] [data-kx-text-shimmer] {
+  animation: none !important;
+  background-image: none !important;
+  color: var(--base-color) !important;
+  -webkit-text-fill-color: var(--base-color) !important;
+}
 `;
 
 function TextShimmerComponent({

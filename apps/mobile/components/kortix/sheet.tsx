@@ -377,6 +377,12 @@ interface KortixBottomSheetModalProps extends BottomSheetModalProps {
   titleTrailingGlass?: boolean;
   /** Replaces the centred title text with a control (a tab list). Needs `title` (used as the accessible name). */
   titleCenter?: React.ReactNode;
+  /**
+   * iOS native sheet only. `false`: no full detent after `snapPoints`, so the
+   * sheet's view ends at the visible edge and a bar pinned to its bottom shows
+   * (the model sheet's Agent · Model tabs). gorhom ignores it.
+   */
+  nativeFullDetent?: boolean;
 }
 
 /**
@@ -442,7 +448,7 @@ const GorhomSheetModal = React.forwardRef<
   BottomSheetModal,
   KortixBottomSheetModalProps
 >(({ title, hideClose = false, backgroundStyle, handleComponent, snapPoints, topInset, children, ...rest }, ref) => {
-  const { titleLeading, titleTrailing, titleTrailingGlass = true, titleCenter, onChange, onDismiss, ...props } = rest;
+  const { titleLeading, titleTrailing, titleTrailingGlass = true, titleCenter, nativeFullDetent: _native, onChange, onDismiss, ...props } = rest;
   // gorhom sizes the content box to the HIGHEST detent, which is now always
   // 100%. A fixed-detent sheet shown at 92% would lay its content out
   // full-screen tall and push a bottom Save row off-screen, so its body is

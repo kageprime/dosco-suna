@@ -6,6 +6,7 @@ import {
   sessionListState,
   sessionsNextCursor,
   shouldLoadMoreSessions,
+  fetchUntilShownRowsGrow,
 } from './session-pages';
 
 const row = (session_id: string) => ({ session_id });
@@ -130,3 +131,70 @@ describe('a list that has not loaded is never empty', () => {
   });
 });
 
+
+describe('fetchUntilShownRowsGrow (a Show more press always shows something new)', () => {
+  type Row = { session_id: string; shown: boolean };
+  // Each call answers the next page; `pages` is what the query holds after it.
+  const reader = (answers: Array<{ items: Row[]; next: boolean; isError?: boolean }>) => {
+    const pages: Array<{ items: Row[]; next_cursor: string | null }> = [];
+    let calls = 0;
+    const fetchNext = async () => {
+      const answer = answers[calls++]!;
+      if (!answer.isError) pages.push({ items: answer.items, next_cursor: answer.next ? 'c' : null });
+      return { data: { pages: [...pages] }, hasNextPage: answer.next, isError: answer.isError };
+    };
+    return { fetchNext, calls: () => calls };
+  };
+  const shownCount = (rows: Row[]) => rows.filter((row) => row.shown).length;
+  const hiddenRow = (id: string) => ({ session_id: id, shown: false });
+  const shownRow = (id: string) => ({ session_id: id, shown: true });
+
+  test('reads past pages whose rows the section does not show, and stops on the first shown row', async () => {
+    const r = reader([
+      { items: [hiddenRow('a')], next: true },
+      { items: [hiddenRow('b')], next: true },
+      { items: [shownRow('c')], next: true },
+      { items: [shownRow('d')], next: true },
+    ]);
+    await fetchUntilShownRowsGrow({ fetchNext: r.fetchNext, shownCount, before: 0 });
+    expect(r.calls()).toBe(3);
+  });
+
+  test('stops on the last page', async () => {
+    const r = reader([{ items: [hiddenRow('a')], next: false }]);
+    await fetchUntilShownRowsGrow({ fetchNext: r.fetchNext, shownCount, before: 0 });
+    expect(r.calls()).toBe(1);
+  });
+
+  test('stops on a failure: the button is the retry', async () => {
+    const r = reader([{ items: [], next: true, isError: true }]);
+    await fetchUntilShownRowsGrow({ fetchNext: r.fetchNext, shownCount, before: 0 });
+    expect(r.calls()).toBe(1);
+  });
+
+  test('counts growth from the rows already shown', async () => {
+    const r = reader([
+      { items: [hiddenRow('b')], next: true },
+      { items: [shownRow('c')], next: true },
+    ]);
+    const fetchNext = async () => {
+      const result = await r.fetchNext();
+      return { ...result, data: { pages: [{ items: [shownRow('a')], next_cursor: 'c' }, ...result.data.pages] } };
+    };
+    await fetchUntilShownRowsGrow({ fetchNext, shownCount, before: 1 });
+    expect(r.calls()).toBe(2);
+  });
+
+  test('a read that answers the same pages (a cancelled fetch) uses up the budget, never loops', async () => {
+    let calls = 0;
+    const same = { data: { pages: [{ items: [hiddenRow('a')], next_cursor: 'c' }] }, hasNextPage: true, isError: false };
+    await fetchUntilShownRowsGrow({ fetchNext: async () => (calls++, same), shownCount, before: 0 });
+    expect(calls).toBe(5);
+  });
+
+  test('reads at most the budget', async () => {
+    const r = reader(Array.from({ length: 9 }, (_, i) => ({ items: [hiddenRow(`h${i}`)], next: true })));
+    await fetchUntilShownRowsGrow({ fetchNext: r.fetchNext, shownCount, before: 0, budget: 3 });
+    expect(r.calls()).toBe(3);
+  });
+});

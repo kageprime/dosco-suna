@@ -80,7 +80,7 @@ export function buildSessionRef(s: SessionRefLike): string {
 export function buildFileRefsBlock(files: ReadonlyArray<FileRefLike>): string {
   if (!files.length) return '';
   const refs = files.map(buildFileRef).join('\n');
-  return `Referenced files (the user has explicitly @-mentioned these — read them if relevant):\n${refs}`;
+  return `Referenced files (the user has explicitly @-mentioned these — read them if relevant; a path that is not on this computer is a workspace repo file: read it with \`kortix files cat <path>\`):\n${refs}`;
 }
 
 export function buildAgentRefsBlock(agents: ReadonlyArray<AgentRefLike>): string {

@@ -31,7 +31,7 @@ describe('audit archive worker gating', () => {
       configured: true,
       requireCompliance: true,
       lockMode: async () => 'COMPLIANCE',
-      run: async () => ({ archived: [], removed: [], expired: [], legacyRetired: false }),
+      run: async () => ({ archived: [], removed: [], expired: [], legacyRetired: false, pending: false }),
     });
     expect(result).toMatchObject({ ran: true });
   });
@@ -44,7 +44,7 @@ describe('audit archive worker gating', () => {
       lockMode: async () => 'GOVERNANCE',
       run: async (mode, budgetMs) => {
         seen.push({ mode, budgetMs });
-        return { archived: ['2026-07-06'], removed: [], expired: [], legacyRetired: false };
+        return { archived: ['2026-07-06'], removed: [], expired: [], legacyRetired: false, pending: false };
       },
     });
     expect(seen).toEqual([{ mode: 'GOVERNANCE', budgetMs: 3 * 3_600_000 }]);

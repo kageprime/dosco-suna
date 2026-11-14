@@ -42,6 +42,15 @@ export function mayMutateConnection(
   );
 }
 
+/** A connection row's connector: same connector id, account and project. */
+export function connectorJoin() {
+  return and(
+    eq(connectors.connectorId, connectorConnections.connectorId),
+    eq(connectors.accountId, connectorConnections.accountId),
+    eq(connectors.projectId, connectorConnections.projectId),
+  );
+}
+
 /** The connection row (with its connector's type, config and alias) in this project and account, or null. */
 export async function loadConnectionForMutation(projectId: string, connectionId: string, accountId: string) {
   const [connection] = await db
@@ -61,14 +70,7 @@ export async function loadConnectionForMutation(projectId: string, connectionId:
       connectorAlias: connectors.slug,
     })
     .from(connectorConnections)
-    .innerJoin(
-      connectors,
-      and(
-        eq(connectors.connectorId, connectorConnections.connectorId),
-        eq(connectors.accountId, connectorConnections.accountId),
-        eq(connectors.projectId, connectorConnections.projectId),
-      ),
-    )
+    .innerJoin(connectors, connectorJoin())
     .where(
       and(
         eq(connectorConnections.connectionId, connectionId),

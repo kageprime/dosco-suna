@@ -8,6 +8,7 @@ import { decodeRows, retainUntil, weekEnd, weekStartOf } from './format';
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const A1 = 'b9200000-0000-4000-a000-000000000001';
 const A2 = 'b9200000-0000-4000-a000-000000000002';
+const A3 = 'b9200000-0000-4000-a000-000000000003';
 const DAY = 86_400_000;
 const daysAgo = (n: number) => new Date(Date.now() - n * DAY).toISOString();
 
@@ -71,7 +72,7 @@ describe.skipIf(!databaseUrl)('audit archive — export, verify, remove (real Po
   afterAll(async () => {
     if (!client) return;
     await q(`SET kortix.audit_maintenance = 'on'`);
-    await q(`DELETE FROM kortix.audit_events WHERE account_id = ANY($1::uuid[])`, [[A1, A2]]);
+    await q(`DELETE FROM kortix.audit_events WHERE account_id = ANY($1::uuid[])`, [[A1, A2, A3]]);
     await q(`DELETE FROM kortix.audit_archive_chunks`);
     await client.end();
   });
@@ -146,6 +147,86 @@ describe.skipIf(!databaseUrl)('audit archive — export, verify, remove (real Po
     await q(`DELETE FROM kortix.audit_archive_chunks WHERE week_start = $1`, [w1]);
   });
 
+  test('an export stopped mid-week resumes after its last recorded part: the tally is read once, no finished part is read or uploaded again, and the manifest equals an uninterrupted export', async () => {
+    // A legacy-only week: A1 5 rows, A3 3 rows, no account 1 row. With 2 rows per part:
+    // A1 .000 .001 .002, A3 .000 .001, _none .000 (accounts ascending, NULL last).
+    const w5 = weekStartOf(new Date(Date.now() - 160 * DAY));
+    const at = new Date(new Date(`${w5}T00:00:00Z`).getTime() + 2 * DAY).toISOString();
+    await q(`INSERT INTO kortix.audit_events_legacy(account_id, action, resource_type, authoritative_source, occurred_at)
+             SELECT a, 'legacy.w5', 'test', 'system', $1::timestamptz + g * interval '1 minute'
+               FROM (VALUES ($2::uuid, 5), ($3::uuid, 3), (NULL::uuid, 1)) v(a, n), generate_series(1, v.n) g`, [at, A1, A3]);
+    const objects = new Map<string, Stored>();
+    const puts: string[][] = [];
+    /** A store over the shared bucket whose put number `crashAt` of this run stores the object, then throws (the process dies before it records the part). */
+    const run = (crashAt: number | null) => {
+      const store = fakeStore();
+      for (const [k, v] of objects) store.objects.set(k, v);
+      const seen: string[] = [];
+      puts.push(seen);
+      const original = store.putLocked.bind(store);
+      store.putLocked = async (input) => {
+        const outcome = await original(input);
+        objects.set(input.key, store.objects.get(input.key)!);
+        seen.push(input.key);
+        if (seen.length === crashAt) throw new Error('worker killed');
+        return outcome;
+      };
+      return store;
+    };
+    const sleeps: number[] = [];
+    const resumeDeps = (store: ArchiveStore) => deps(store, { partRows: 2, rowsPerSecond: 1, sleep: async (ms: number) => void sleeps.push(ms) });
+    const key = (account: string | null, part: number) => `audit/${account ?? '_none'}/${w5.slice(0, 4)}/${w5}.00${part}.jsonl.gz`;
+
+    // Run 1 dies in the middle of A1: only A1 .000 is recorded.
+    await expect(exportWeek(resumeDeps(run(2)), w5)).rejects.toThrow('worker killed');
+    const tally = (await q(`SELECT legacy_tally FROM kortix.audit_archive_chunks WHERE week_start = $1`, [w5])).rows[0].legacy_tally;
+    expect(tally).toMatchObject({ rows: '9', accounts: [A1, A3, null] });
+    const recorded = async () =>
+      (await q(`SELECT object_key, account_done FROM kortix.audit_archive_parts WHERE week_start = $1 ORDER BY object_key`, [w5])).rows
+        .map((r) => `${r.object_key}${r.account_done ? ' done' : ''}`);
+    expect(await recorded()).toEqual([key(A1, 0)]);
+
+    // Run 2 continues A1 at its second part and dies after A3 .000 is uploaded but before it is recorded.
+    await expect(exportWeek(resumeDeps(run(4)), w5)).rejects.toThrow('worker killed');
+    expect(puts[1]).toEqual([key(A1, 1), key(A1, 2), key(A3, 0), key(A3, 1)]);
+    expect(await recorded()).toEqual([key(A1, 0), key(A1, 1), `${key(A1, 2)} done`, key(A3, 0)]);
+
+    // Run 3 skips A1, continues A3 after .000, and reads only the 2 rows left: A3's third and _none's.
+    sleeps.length = 0;
+    const resumed = await exportWeek(resumeDeps(run(null)), w5);
+    expect(resumed).toMatchObject({ rows: 9, legacyRows: 9, objects: 6 });
+    expect(puts[2]).toEqual([key(A3, 1), key(null, 0), `audit/_manifest/${w5}.json`]);
+    // Rate cap at 1 row/s: this run read 2 rows (owes at most 2 s). Reading the tally again would add
+    // 9 s, and reading A1 or A3's first part again 5 s or 2 s.
+    expect(Math.max(...sleeps)).toBeLessThanOrEqual(2_000);
+    expect(await recorded()).toEqual([]); // progress rows go once the week is archived
+    expect((await q(`SELECT status, legacy_tally FROM kortix.audit_archive_chunks WHERE week_start = $1`, [w5])).rows[0]).toEqual({ status: 'archived', legacy_tally: null });
+
+    // An uninterrupted export of the same week writes the same objects and the same manifest.
+    await q(`UPDATE kortix.audit_archive_chunks SET status = 'exporting' WHERE week_start = $1`, [w5]);
+    const clean = fakeStore();
+    const whole = await exportWeek(deps(clean, { partRows: 2 }), w5);
+    expect(whole.manifestSha256).toBe(resumed.manifestSha256);
+    expect([...clean.objects.keys()].sort()).toEqual([...objects.keys()].filter((k) => k.includes(`/${w5}.`)).sort());
+    for (const [k, object] of clean.objects) expect(Buffer.compare(object.body, objects.get(k)!.body)).toBe(0);
+  });
+
+  test('an export that reaches its deadline stops between pages with its progress saved, and the next run finishes the week', async () => {
+    const w6 = weekStartOf(new Date(Date.now() - 140 * DAY));
+    await seed(A3, 'partition.w6', new Date(new Date(`${w6}T00:00:00Z`).getTime() + DAY).toISOString(), 7);
+    const store = fakeStore();
+    let checks = 0;
+    // The clock passes the deadline at the third check: two pages of 3 rows are read (one part of 4 is recorded).
+    const clock = () => (++checks >= 3 ? 2 : 0);
+    const paused = await exportWeek(deps(store, { partRows: 4, clock }), w6, 1);
+    expect(paused).toBeNull();
+    const parts = await q(`SELECT object_key, row_count FROM kortix.audit_archive_parts WHERE week_start = $1`, [w6]);
+    expect(parts.rows).toEqual([{ object_key: `audit/${A3}/${w6.slice(0, 4)}/${w6}.000.jsonl.gz`, row_count: 4 }]);
+    expect((await q(`SELECT status FROM kortix.audit_archive_chunks WHERE week_start = $1`, [w6])).rows[0].status).toBe('exporting');
+    const done = await exportWeek(deps(store, { partRows: 4 }), w6);
+    expect(done).toMatchObject({ rows: 7, objects: 2 });
+  });
+
   test('a pass waits for the activity rollup: a week it has not counted stays in PostgreSQL', async () => {
     const before = (await q(`SELECT rolled_through FROM kortix.audit_activity_rollup WHERE id = 1`)).rows[0]?.rolled_through ?? null;
     await q(
@@ -196,7 +277,7 @@ describe.skipIf(!databaseUrl)('audit archive — export, verify, remove (real Po
 
     // The week the partition path removes (w3) and a rerun do nothing more.
     const again = await runArchivePass(deps(store), Date.now() + 120_000);
-    expect(again).toEqual({ archived: [], removed: [], expired: [], legacyRetired: false });
+    expect(again).toEqual({ archived: [], removed: [], expired: [], legacyRetired: false, pending: false });
   });
 
   test('after the legacy table is gone, a pass archives a partition week and then drops it (detach, recount, drop)', async () => {
@@ -224,5 +305,25 @@ describe.skipIf(!databaseUrl)('audit archive — export, verify, remove (real Po
     expect(result.expired).toContain(old);
     expect([...store.objects.keys()].some((k) => k.includes(old))).toBe(false);
     expect(weekEnd(old).getTime()).toBeLessThan(Date.now() - 365 * DAY + DAY * 7);
+  });
+  test('a pass that runs out of budget mid-week reports pending, and the next pass finishes and removes the week', async () => {
+    const w7 = weekStartOf(new Date(Date.now() - 110 * DAY));
+    // An earlier pass archived and dropped this week while it was empty; bring it back with 5 rows.
+    await q(`DELETE FROM kortix.audit_archive_chunks WHERE week_start = $1`, [w7]);
+    await q(`SELECT kortix.audit_events_ensure_partitions('kortix.audit_events', current_date - 115, 0)`);
+    await seed(A3, 'partition.w7', new Date(new Date(`${w7}T00:00:00Z`).getTime() + DAY).toISOString(), 5);
+    const store = fakeStore();
+    // The budget runs out once w7's first part is in the bucket.
+    const clock = () => ([...store.objects.keys()].some((k) => k.includes(`/${w7}.`)) ? 1 : 0);
+    const paused = await runArchivePass(deps(store, { partRows: 2, clock }), 0.5);
+    expect(paused.pending).toBe(true);
+    expect(paused.archived).not.toContain(w7);
+    expect((await q(`SELECT count(*)::int AS n FROM kortix.audit_archive_parts WHERE week_start = $1`, [w7])).rows[0].n).toBe(1);
+    const next = await runArchivePass(deps(store, { partRows: 2 }), Date.now() + 120_000);
+    expect(next).toMatchObject({ pending: false });
+    expect(next.archived).toContain(w7);
+    expect(next.removed).toContain(w7);
+    const archived = [...store.objects].filter(([k]) => k.includes(`/${w7}.0`)).flatMap(([, o]) => decodeRows(o.body));
+    expect(archived).toHaveLength(5);
   });
 });

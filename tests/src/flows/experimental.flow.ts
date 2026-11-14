@@ -15,6 +15,16 @@
  */
 import { flow } from '../core/flow';
 
+interface CatalogRow {
+  key: string;
+  enabled: boolean;
+  overridden: boolean;
+  default_enabled?: boolean;
+}
+
+const marketplaceRow = (body: { experimental_features: CatalogRow[] }) =>
+  body.experimental_features.find((f) => f.key === 'marketplace');
+
 flow(
   'EXP-1',
   {
@@ -37,6 +47,11 @@ flow(
           { params: { projectId: p.id } },
         );
       r.status(200).body().exists('$.experimental_features').exists('$.experimental');
+      // An override still names the platform default a reset returns to.
+      const row = marketplaceRow(r.json());
+      if (!row?.overridden || row.enabled !== false || row.default_enabled !== true) {
+        throw new Error(`override row: ${JSON.stringify(row)}`);
+      }
     });
 
     await ctx.step('the deprecated /experimental alias writes the same state → 200', async () => {
@@ -59,6 +74,10 @@ flow(
           { params: { projectId: p.id } },
         );
       r.status(200);
+      const row = marketplaceRow(r.json());
+      if (row?.overridden !== false || row.enabled !== true || row.default_enabled !== true) {
+        throw new Error(`reset row: ${JSON.stringify(row)}`);
+      }
     });
 
     await ctx.step('connectors_v2 and connectors_api_discover graduated (one catalog for every project) → 400 unknown feature', async () => {

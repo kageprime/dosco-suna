@@ -30,6 +30,7 @@ import { CR_ID_PREFIX } from '../review/review-actions';
 import { SessionLabelBadges } from '../sessions/session-label-badges';
 import { SOURCE_ICONS } from './session-source-icons';
 import { isReviewOverdue, SessionStatusMark } from '../../session/list/session-status-mark';
+import { prefersReducedMotion } from '../../internal/hooks/use-reduced-motion';
 
 const DATE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   year: 'numeric',
@@ -77,6 +78,12 @@ interface SessionBrief {
   /** What this session started: its sub-agents and the sessions it spawned. */
   subagentCount?: number;
   spawnedCount?: number;
+  /**
+   * The session that spawned this one, as a link. The sidebar draws a spawned
+   * session under its parent and leaves this out; a host that shows the
+   * session alone (the desktop tab strip) passes it.
+   */
+  parent?: { title: string; href: string };
 }
 
 interface SessionBriefInteractionProps {
@@ -165,7 +172,7 @@ function ChangeRequestRow({
  * `px-2.5`, so 3.5 spacing steps is exactly where the row labels start. The
  * title and the change titles share one left edge.
  */
-function SessionBriefContent({
+export function SessionBriefContent({
   sessionId,
   title,
   status,
@@ -177,6 +184,7 @@ function SessionBriefContent({
   spawned = false,
   subagentCount = 0,
   spawnedCount = 0,
+  parent,
   projectId,
   onDismiss,
 }: SessionBrief & SessionBriefInteractionProps & { onDismiss: () => void }) {
@@ -224,12 +232,19 @@ function SessionBriefContent({
             <div className={goalClassName}>{goalContent}</div>
           ))}
 
-        {spawned && (
+        {parent ? (
+          <HoverPrefetchLink href={parent.href} onClick={onDismiss} className={goalClassName}>
+            <ArrowsSplitIcon aria-hidden className="size-4 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">
+              {t('spawnedBy', { title: parent.title })}
+            </span>
+          </HoverPrefetchLink>
+        ) : spawned ? (
           <div className="text-muted-foreground flex items-center gap-2 text-xs">
             <ArrowsSplitIcon aria-hidden className="size-4 shrink-0" />
             <span>{t('spawned')}</span>
           </div>
-        )}
+        ) : null}
 
         {subagentCount > 0 && (
           <div className="text-muted-foreground flex items-center gap-2 text-xs">
@@ -326,7 +341,7 @@ export function SessionBriefCardHost() {
         CARD_EDGE_PX,
         Math.min(rect.top, window.innerHeight - CARD_EDGE_PX - el.offsetHeight),
       );
-      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const reduce = prefersReducedMotion();
       // A move between rows glides; the first open fades in, as the reminders card does.
       el.style.transition =
         shown.current && via === 'pointer' && !reduce

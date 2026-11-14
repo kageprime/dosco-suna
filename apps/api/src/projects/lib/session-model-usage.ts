@@ -10,6 +10,7 @@ import { gatewayRequestLogs, sessionTurns } from '@kortix/db';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '../../shared/db';
 import { kortixBilledSpendSql, providerBilledSpendSql, totalSpendSql } from '../../shared/llm-spend';
+import { servedModelSql } from '../../shared/served-model';
 
 export interface ServedModel {
   /** Route id recorded for the request — the model that answered it, or on an
@@ -45,20 +46,8 @@ export interface SessionModelUsage {
 
 const logs = gatewayRequestLogs;
 
-// A trace records both ids since the gateway started writing them. An older
-// row is read from its own columns: `resolved_model` is a route id only on a
-// Dosco-served row (on an own key or ChatGPT plan it is the upstream's id),
-// and a fallback always left a failed attempt behind.
-// KRTX-4023: the served model is now a real column (`served_model`, written
-// from the metadata key by the gateway writer and the backfill) so the
-// breakdown's group key scans the covering index index-only — a jsonb
-// expression can never join an INCLUDE list. A NULL column (a row written
-// before the promotion) falls back to the same provider-based read the
-// metadata-absent path used before traces carried the key.
-const servedModelSql = sql<string>`coalesce(
-  ${logs.servedModel},
-  case when ${logs.provider} = 'kortix' then ${logs.resolvedModel} else ${logs.requestedModel} end
-)`;
+// The served model ("which model answered") is shared/served-model.ts — one
+// definition, used here and by the cross-session usage query.
 const fallbackFromSql = sql<string | null>`case
   when ${logs.metadata} ? 'servedModel' then ${logs.metadata}->>'fallbackFrom'
   when ${logs.provider} = 'kortix'

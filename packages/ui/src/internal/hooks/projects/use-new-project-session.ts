@@ -91,6 +91,8 @@ export type NewProjectSessionOpts = {
    */
   onCreating?: (sessionId: string) => void;
   onError?: () => void;
+  /** Keep the submission pending while the connector gate owns its retry. */
+  deferConnectorRecovery?: boolean;
   scope?: SessionScopeCommit;
   create?: {
     sandbox_slug?: string;
@@ -244,19 +246,14 @@ export function useNewProjectSession(projectId: string | undefined) {
 
       // A space thread shows up in the timeline at once, so it gets no toast.
       const inSpace = Boolean(opts.create?.space_id);
-      // `threads.*`, not `hardcodedUi.i18nComplete.*`. The two
-      // i18nComplete slots these used to read hold the literal strings
-      // "startingSession" and "sessionStarted" in en, fr, de, pt, sr and
-      // zh — the key id was written into the value slot — so the toast
-      // rendered its own key name. `threads.startingSession` /
-      // `threads.sessionStarted` are the canonical entries and are
-      // correctly translated in all nine catalogs.
+      // `threads.startingSession`, not `hardcodedUi.i18nComplete.*`: those
+      // slots held the key id as their value in six catalogs.
       const createSession = () =>
         inSpace
           ? createSessionRow()
-          : loadingToast(t('startingSession'), createSessionRow(), {
-              success: t('sessionStarted'),
-            });
+          : // No success toast: the session page opens next, and a toast for
+            // the session on screen covered its composer's Send/Stop button.
+            loadingToast(t('startingSession'), createSessionRow(), { success: false });
 
       createScopedSession({
         create: createSession,
@@ -298,6 +295,7 @@ export function useNewProjectSession(projectId: string | undefined) {
               projectId,
               connectorConnections,
               retry: () => startRef.current(opts),
+              onCancel: opts.deferConnectorRecovery ? opts.onError : undefined,
             });
           } else {
             errorToast(err instanceof Error ? err.message : failed);
@@ -308,7 +306,9 @@ export function useNewProjectSession(projectId: string | undefined) {
         // No navigation happened, so release the claim now — the user stays
         // where they are and must be able to try again immediately.
         release();
-        opts?.onError?.();
+        if (!(action === 'connect' && getRequiredConnectorConnections(err) && opts.deferConnectorRecovery)) {
+          opts?.onError?.();
+        }
       });
     },
     [

@@ -579,6 +579,15 @@ describe('kortix billing', () => {
     ).toBeTruthy();
   });
 
+  test('costs --by workspace --json gives each workspace its credits, as the summary does', async () => {
+    const config = writeConfig(startServer());
+    const r = await runCli(['billing', 'costs', '--by', 'workspace', '--project', 'proj_1', '--json'], config);
+    expect(r.code).toBe(0);
+    const page = JSON.parse(r.stdout);
+    expect(page.projects[0].total_cost).toBe(5);
+    expect(page.projects[0].credits).toEqual({ total: '500', llm: '350', compute: '150' });
+  });
+
   test('costs --by session rolls up per session and forwards owner/project scope', async () => {
     const config = writeConfig(startServer());
     const r = await runCli(

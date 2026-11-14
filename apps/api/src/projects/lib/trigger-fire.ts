@@ -623,8 +623,8 @@ async function fireReminderSuccessor(
     await disableSessionReminder(project.projectId, spec.slug, new Date());
     return {
       status: 'failed',
-      error: "The goal's owner session failed and the goal has used all its sessions, so its heartbeat is paused",
-      errorCode: 'goal_session_cap',
+      error: "The goal's owner session failed and no successor session may start, so its heartbeat is paused",
+      errorCode: goal.goal?.blockedReason === 'owner_lost' ? 'goal_owner_lost' : 'goal_session_cap',
       retryable: false,
     };
   }

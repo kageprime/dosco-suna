@@ -97,6 +97,14 @@ for (const state of ['denied', 'loading', 'internal']) {
     expect(update).not.toHaveBeenCalled();
   });
 }
+test('a viewer without settings-write permission sees no feature controls', async () => {
+  allowed = false;
+  const host = await render();
+  expect(host.querySelector('a') === null).toBe(true);
+  expect(host.querySelector('button') === null).toBe(true);
+  expect(host.textContent).toContain('Reminders');
+});
+
 test('a failed enable stays retryable and reports the failure', async () => {
   failed = true;
   const host = await render();

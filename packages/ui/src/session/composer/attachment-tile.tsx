@@ -19,13 +19,14 @@
  * system's `Badge` at `size="xs"`, uppercase — the note at the badge says why.
  */
 
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 
 import { Badge } from '../../primitives/badge';
 import { Close } from '../../icons/close';
 import { cn } from '../../lib/utils';
 import {
   attachmentExtension,
+  filenameBreakSegments,
   isPreviewableImage,
   splitFilenameForTile,
 } from '@kortix/shared/session/attachment-tile';
@@ -47,6 +48,7 @@ export {
   LONG_NAME_THRESHOLD,
   NAME_TAIL_CHARS,
   attachmentExtension,
+  filenameBreakSegments,
   isPreviewableImage,
   splitFilenameForTile,
 } from '@kortix/shared/session/attachment-tile';
@@ -174,8 +176,15 @@ export function AttachmentTile({
             <span className="block truncate">{split.tail}</span>
           </span>
         ) : (
-          <span className="text-foreground line-clamp-2 min-w-0 text-xs leading-tight font-medium break-all">
-            {filename}
+          // Breaks only at `-`, `_`, a space or before the extension (`<wbr>`);
+          // `break-words` splits a piece only when it alone is wider than the tile.
+          <span className="text-foreground line-clamp-2 min-w-0 text-xs leading-tight font-medium break-words">
+            {filenameBreakSegments(filename).map((segment, index) => (
+              <Fragment key={index}>
+                {index > 0 && <wbr />}
+                {segment}
+              </Fragment>
+            ))}
           </span>
         )}
         <span className="flex items-end justify-between gap-1">

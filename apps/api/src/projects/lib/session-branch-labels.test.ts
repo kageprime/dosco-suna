@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { GitBranchInfo } from '../git/types';
+import { serializeSession, type ProjectSessionRow } from './serializers';
 import { labelSessionBranches, sessionBranchTitle, type SessionBranchRow } from './session-branch-labels';
 
 const SESSION_A = '3f6c2a1e-8b4d-4c7a-9e2f-1a2b3c4d5e6f';
@@ -91,5 +92,63 @@ describe('labelSessionBranches', () => {
     });
     expect(labelled).toEqual(branches);
     for (const b of labelled) expect('session' in b).toBe(false);
+  });
+});
+
+describe('the branch label and the session read resolve the same name', () => {
+  const sessionRow = (metadata: Record<string, unknown>, runtimeSessionId: string | null): ProjectSessionRow => ({
+    sessionId: SESSION_A,
+    accountId: '11111111-1111-4111-8111-111111111111',
+    projectId: '22222222-2222-4222-8222-222222222222',
+    branchName: `session/${SESSION_A}`,
+    baseRef: 'main',
+    sandboxProvider: 'platinum',
+    sandboxId: null,
+    sandboxUrl: null,
+    runtimeSessionId,
+    agentName: 'store-builder',
+    status: 'stopped',
+    error: null,
+    labels: [],
+    createdBy: null,
+    visibility: 'private',
+    origin: 'user',
+    originRef: null,
+    parentSessionId: null,
+    initiatorType: null,
+    initiatorId: null,
+    spaceId: null,
+    groupId: null,
+    secretsAllowlist: null,
+    requiredConnectors: null,
+    connectorBindingsConfigured: false,
+    connectorBindingsInheritUnbound: false,
+    metadata,
+    createdAt: new Date('2026-10-22T08:00:00.000Z'),
+    updatedAt: new Date('2026-10-22T08:00:00.000Z'),
+  });
+  const both = (metadata: Record<string, unknown>, runtimeSessionId: string | null = null) => [
+    serializeSession(sessionRow(metadata, runtimeSessionId)).name,
+    sessionBranchTitle(row(SESSION_A, {
+      runtimeSessionId,
+      customName: metadata.custom_name,
+      name: metadata.name,
+      snapshot: metadata.runtime_sessions,
+    })),
+  ];
+  const runtimeSessions = [{ id: 'root', parent_id: null, title: 'Runtime title' }];
+
+  test('a renamed session', () => {
+    expect(both({ custom_name: 'Store page v2', name: 'Generated title', runtime_sessions: runtimeSessions }, 'root'))
+      .toEqual(['Store page v2', 'Store page v2']);
+  });
+
+  test('a runtime-titled session', () => {
+    expect(both({ name: 'Generated title', runtime_sessions: runtimeSessions }, 'root'))
+      .toEqual(['Runtime title', 'Runtime title']);
+  });
+
+  test('a placeholder-titled session has no name in either read', () => {
+    expect(both({ name: 'New session - 2026-10-21T14:08:26.067Z' })).toEqual([null, null]);
   });
 });

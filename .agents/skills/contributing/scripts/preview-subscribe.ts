@@ -84,8 +84,9 @@ async function main(): Promise<void> {
     process.exit(2);
   }
 
-  await subscribe(env, client, target, tierKey);
-  console.log(`subscribed ${target} to ${tierKey} on ${origin} — managed models are live`);
+  // The credits plan is priced by month, not by tier key: `subscribe` takes `monthly_usd` (default 50).
+  await subscribe(env, client, target);
+  console.log(`subscribed ${target} to the credits plan on ${origin} (tier argument ${tierKey} is ignored) — managed models are live`);
 }
 
 main().catch((err) => {

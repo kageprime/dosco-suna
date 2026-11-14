@@ -51,7 +51,7 @@ describe('menu registry feature-flag gating', () => {
     const reviewRow = menuRegistry.find((item) => item.id === 'proj-review-inbox');
     expect(reviewRow).toBeDefined();
     expect(reviewRow?.requiresFlag).toBeUndefined();
-    expect(reviewRow?.href).toBe('/workspaces/{projectId}/inbox?view=review');
+    expect(reviewRow?.href).toBe('/workspaces/{projectId}/review');
 
     // None of them is a settings tab any more, so the derived palette list
     // must not offer one — that would open the overlay on nothing.
@@ -65,8 +65,8 @@ describe('menu registry feature-flag gating', () => {
 
   test('the palette honours requiresFlag for the entries that still declare one', () => {
     // `proj-artifacts` (`artifacts`, #10842: Artifacts availability since it
-    // graduated on 2026-11-06) and `proj-goals` (`goals`, KRTX-4222) are the
-    // flagged palette entries (Apps and Drive graduated off the flag system in
+    // graduated on 2026-11-06), `proj-goals` (`goals`, KRTX-4222), `proj-calendar`
+    // (`calendar`) and `proj-evals` (`evals`) are the flagged palette entries (Apps and Drive graduated off the flag system in
     // 2026-10 and 2026-11). The filter
     // line is the whole gate, so it is pinned literally — a rename or a fail-OPEN
     // rewrite of it would otherwise pass every other test here.
@@ -76,6 +76,8 @@ describe('menu registry feature-flag gating', () => {
     expect(flagged.map((item) => [item.id, item.requiresFlag])).toEqual([
       ['proj-artifacts', 'artifacts'],
       ['proj-goals', 'goals'],
+      ['proj-calendar', 'calendar'],
+      ['proj-evals', 'evals'],
     ]);
     expect(paletteSource).toContain(
       'if (item.requiresFlag && !projectFlags[item.requiresFlag]) continue;',

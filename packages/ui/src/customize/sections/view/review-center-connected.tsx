@@ -52,7 +52,7 @@ import {
   isApprovalExpiredError,
   itemDeepLink,
 } from '../../../workspace/review/review-actions';
-import { AskDeck, DECK_KINDS } from '../../../session/prompts/ask-deck';
+import { AskDeck, DECK_KINDS, deckOrder } from '../../../session/prompts/ask-deck';
 import { ReviewCenter } from '../../../workspace/review/review-center';
 import { REVIEW_VERDICT_ANNOUNCED } from '../../../workspace/review/review-reducer';
 
@@ -82,6 +82,10 @@ export function ReviewCenterConnected({ projectName }: { projectName: string }) 
   // sit beside rows that do wait, so the pane shows "Select an item" instead.
   // Same query as the deck's own: a cache hit, not a second request.
   const asks = useSessionAsks(projectId, { enabled: Boolean(projectId) });
+  const [selectedAskId, setSelectedAskId] = useState<string | null>(null);
+  const [currentAskId, setCurrentAskId] = useState<string | null>(null);
+  const [hiddenAskIds, setHiddenAskIds] = useState<ReadonlySet<string>>(() => new Set());
+  const deckAsks = deckOrder((asks.data?.asks ?? []).filter((ask) => DECK_KINDS.has(ask.kind)), [], hiddenAskIds);
   const deckShows =
     asks.isLoading || asks.isError || (asks.data?.asks ?? []).some((ask) => DECK_KINDS.has(ask.kind));
   const qc = useQueryClient();
@@ -351,13 +355,25 @@ export function ReviewCenterConnected({ projectName }: { projectName: string }) 
 
   return (
     <ReviewCenter
+      sessionAsks={deckAsks}
+      selectedAskId={currentAskId}
+      onSelectAsk={setSelectedAskId}
       needsYouDeck={
         projectId && deckShows
           ? ({ paused }) => (
               // `empty={null}`: in the 5 s Undo window after the last card,
               // the deck draws nothing (the inbox shows its own empty state)
               // rather than "Nothing waits on you" beside rows that do.
-              <AskDeck projectId={projectId} onOpenSession={openSession} empty={null} paused={paused} />
+              <AskDeck
+                projectId={projectId}
+                onOpenSession={openSession}
+                empty={null}
+                paused={paused}
+                onCurrentAskChange={setCurrentAskId}
+                onHiddenAskIdsChange={setHiddenAskIds}
+                selectedAskId={selectedAskId}
+                onClearSelection={() => setSelectedAskId(null)}
+              />
             )
           : undefined
       }

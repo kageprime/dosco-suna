@@ -35,12 +35,13 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { renderHttp } from '@kortix/white-label-shared/call-snippets';
 import {
+  AUTHORIZATION_HEADER,
   CALL_SNIPPET_IDS,
   type CallSnippetId,
   callSnippet,
   callSnippets,
-  renderHttp,
 } from '../../src/lib/call-snippets';
 import { APP_ROOT } from './harness';
 
@@ -357,7 +358,7 @@ describe('every snippet builds', () => {
         const snippet = callSnippet(id, ctx);
         expect(snippet.id).toBe(id);
         expect(snippet.sdk.trim().length).toBeGreaterThan(0);
-        expect(renderHttp(snippet.http).trim().length).toBeGreaterThan(0);
+        expect(renderHttp(snippet.http, AUTHORIZATION_HEADER).trim().length).toBeGreaterThan(0);
         expect(snippet.notes.length).toBeGreaterThan(0);
       }
     }
@@ -413,14 +414,17 @@ describe('the new coverage does not weaken the two rules', () => {
       projectId: 'p1',
       secret: { identifier: 'STRIPE_KEY', name: 'STRIPE_SECRET_KEY' },
     })
-      .map((s) => `${s.sdk}\n${renderHttp(s.http)}\n${s.notes.join('\n')}`)
+      .map((s) => `${s.sdk}\n${renderHttp(s.http, AUTHORIZATION_HEADER)}\n${s.notes.join('\n')}`)
       .join('\n');
     expect(text.match(/Bearer (?!\$KORTIX_API_KEY)\S+/)).toBeNull();
   });
 
   test('no snippet renders upstream customer attribution fields', () => {
     const text = callSnippets({ projectId: 'p1' })
-      .map((snippet) => `${snippet.sdk}\n${renderHttp(snippet.http)}\n${snippet.notes.join('\n')}`)
+      .map(
+        (snippet) =>
+          `${snippet.sdk}\n${renderHttp(snippet.http, AUTHORIZATION_HEADER)}\n${snippet.notes.join('\n')}`,
+      )
       .join('\n');
     expect(text).not.toMatch(REMOVED_ATTRIBUTION_PATTERN);
   });

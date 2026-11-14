@@ -22,6 +22,7 @@ import { MapControls, Map as MapLibreMap, MapMarker, MapRoute, MarkerContent, Ma
 import { useTranslations } from '../../../i18n';
 
 import { directionsLink, mapBounds, pinValue, telLink, type MapPlace } from './map-geo';
+import { prefersReducedMotion } from '../../../internal/hooks/use-reduced-motion';
 
 /** Gesture and UI-string options for the chat map. `t` reads the `genui` namespace. */
 export function canvasOptions(t: (key: 'map' | 'mapTwoFingers') => string) {
@@ -90,7 +91,7 @@ function MapPin({ place }: { place: MapPlace }) {
   const raise = () => {
     if (!map) return;
     const offset: [number, number] = [0, map.getContainer().clientHeight / 2 - 56];
-    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const still = prefersReducedMotion();
     map.easeTo({ center: [place.lng, place.lat], offset, duration: still ? 0 : 250 });
   };
   return (

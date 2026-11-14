@@ -320,6 +320,18 @@ describe('a codemode script\'s nested call on v2 (a pi `nested_part` block)', ()
     expect(splitSessionLogTurnWork(segments, { working: false })!.hoisted.map((s) => (s as { block: ToolCallBlock }).block.name)).toEqual(['image_gen']);
   });
 
+  test('a nested platform call draws only in its script row, at rest as live (KRTX-4877)', () => {
+    const usage = nested(2, 'kortix_usage', { action: 'summary', days: 30 }, '{"ok":true,"tool":"kortix_usage","action":"summary","card":{"title":"1 credits"}}');
+    const turn = turnOf([call('code', 'codemode', { code: 'x' }), image, usage, { type: 'text', id: 't1', text: 'Done.' }]);
+    expect(shape(sessionLogTurnSegments(turn.blocks))).toEqual([['burst', ['code']], ['standalone', ['n1']], ['text', ['t1']]]);
+  });
+
+  test('a nested connector sign-in keeps its own row, where its Connect card draws (KRTX-4877)', () => {
+    const connect = nested(3, 'kortix_connectors', { action: 'connect', slug: 'linear' }, '{"ok":true,"tool":"kortix_connectors","action":"connect","card":{"title":"Connect Linear"}}');
+    const turn = turnOf([call('code', 'codemode', { code: 'x' }), connect, { type: 'text', id: 't1', text: 'Click Connect.' }]);
+    expect(shape(sessionLogTurnSegments(turn.blocks))).toEqual([['burst', ['code']], ['standalone', ['n3']], ['text', ['t1']]]);
+  });
+
   test('a nested_part still running stays an open call while its message streams', () => {
     const turn = turnOf([call('code', 'codemode', { code: 'x' }, { status: 'running', result: undefined }), nested(1, 'image_gen', { prompts: ['cube'] }, '', 'running')], { status: 'streaming' });
     const block = (sessionLogTurnSegments(turn.blocks).find((s) => s.kind === 'standalone') as { block: ToolCallBlock }).block;

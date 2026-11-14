@@ -39,6 +39,7 @@ export function pushBodyFor(kind: NotificationKindName, detail: string): string 
   if (kind === 'automation_failed') return detail ? `Failing: ${detail}` : 'This trigger is failing.';
   if (kind === 'automation_recovered') return 'This trigger works again.';
   if (kind === 'capture_device_down' || kind === 'capture_device_recovered') return detail || 'Open Dosco Capture to see it.';
+  if (kind === 'mention') return detail || 'Open the calendar to see it.';
   return detail || 'Open Dosco to see it.';
 }
 
@@ -57,6 +58,8 @@ export function notificationUrl(input: {
   triggerSlug: string | null;
   kind?: string;
   accountId?: string;
+  /** A `mention` row's calendar item (flag `calendar`). */
+  calendarItemId?: string | null;
 }): string {
   // Still `/projects/…`, not the web's `/workspaces/…` (2026-11-06): mobile
   // builds before then open an artifact push only for a `/projects/` path
@@ -68,6 +71,10 @@ export function notificationUrl(input: {
   // A Capture fleet-health alert opens the account's Devices page.
   if (input.kind?.startsWith('capture_device_') && input.accountId) {
     return `/capture/${encodeURIComponent(input.accountId)}/devices${query}`;
+  }
+  // A calendar mention opens the item in the workspace calendar.
+  if (input.kind === 'mention' && input.projectId && input.calendarItemId) {
+    return `/projects/${encodeURIComponent(input.projectId)}/calendar?item=${encodeURIComponent(input.calendarItemId)}&notification=${encodeURIComponent(input.notificationId)}`;
   }
   if (input.projectId && input.sessionId) {
     return `/projects/${encodeURIComponent(input.projectId)}/sessions/${encodeURIComponent(input.sessionId)}${query}`;
@@ -89,6 +96,7 @@ export function buildPushContent(input: {
   sessionId: string | null;
   triggerSlug: string | null;
   accountId?: string;
+  calendarItemId?: string | null;
 }): NotificationPushContent {
   return {
     title: input.title.trim() || DEFAULT_PUSH_TITLE,
@@ -116,6 +124,7 @@ const SOUNDS: Record<NotificationKindName, { sound: string; channelId: string }>
   automation_failed: { sound: 'kortix_error.wav', channelId: 'session-error' },
   capture_device_down: { sound: 'kortix_error.wav', channelId: 'session-error' },
   capture_device_recovered: { sound: 'kortix_complete.wav', channelId: 'session-complete' },
+  mention: { sound: 'kortix_attention.wav', channelId: 'session-attention' },
 };
 const SILENT_CHANNEL_ID = 'session-silent';
 

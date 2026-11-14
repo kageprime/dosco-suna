@@ -18,7 +18,8 @@ import { Disclosure, DisclosureContent, DisclosureTrigger } from '../../../primi
 import { Empty, EmptyContent, EmptyDescription, EmptyMedia } from '../../../primitives/empty';
 import { cn } from '../../../lib/utils';
 import { CaretRightIcon as ChevronRight } from '@phosphor-icons/react';
-import { m, useReducedMotion } from 'motion/react';
+import { m } from 'motion/react';
+import { useReducedMotion } from '../../../internal/hooks/use-reduced-motion';
 import { type ReactNode, useState } from 'react';
 
 export interface PanelCardProps {

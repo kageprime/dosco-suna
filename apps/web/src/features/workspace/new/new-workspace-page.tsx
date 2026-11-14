@@ -5,7 +5,8 @@ import { readCloneParam } from '@kortix/ui/workspace/new/clone-param';
 import { readSourceParam } from '@kortix/ui/workspace/new/source-param';
 import { useTranslations } from '@/i18n/use-translations';
 import { useSignedOutRedirect } from '@/lib/auth/use-signed-out-redirect';
-import { AnimatePresence, m, useReducedMotion } from 'motion/react';
+import { AnimatePresence, m } from 'motion/react';
+import { useReducedMotion } from '@kortix/ui/internal/hooks/use-reduced-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -25,6 +26,7 @@ import {
 import { useCreateWorkspace } from '@kortix/ui/workspace/new/use-create-workspace';
 import { WorkspaceHandoff } from '@kortix/ui/workspace/new/workspace-handoff';
 import {
+  readNameParam,
   suggestWorkspaceName,
   validateWorkspaceName,
   workspaceNameMessage,
@@ -130,8 +132,14 @@ export function NewWorkspacePage() {
   // below (`effectiveAccountId`).
   const returnedAccountId = readAccountParam(new URLSearchParams(searchParams?.toString() ?? ''));
 
+  // `?name=` is the name the chooser's inline form showed when the user
+  // clicked "More options" (`withNameParam`). The URL is the same on the
+  // server and the client, so it is safe in the initializer.
+  const handedName = readNameParam(new URLSearchParams(searchParams?.toString() ?? ''));
+
   const [state, setState] = useState<NewWorkspaceFormState>(() => ({
     ...INITIAL_FORM_STATE,
+    ...(handedName ? { name: handedName } : {}),
     templateId: cloneItemId,
     ...(initialSource ? { source: initialSource } : {}),
   }));
@@ -416,6 +424,7 @@ export function NewWorkspacePage() {
                   connectComputer={connectComputer}
                   state={state}
                   accountId={effectiveAccountId}
+                  noGitHubSourceAccount={!directory.loading && !directory.githubSourceAccount}
                   onChange={setState}
                 />
               </div>

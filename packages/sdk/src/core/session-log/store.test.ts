@@ -194,7 +194,14 @@ describe('applySessionLogEvent', () => {
   });
 
   test('log.block.delta appends to a text or reasoning block by block id, nothing else', () => {
-    const state = loaded();
+    // kortixd puts a streaming record before the first delta of a message: the text and reasoning
+    // targets stream. A finished record takes no delta (F-012).
+    const streamed = rootMessages();
+    for (const kind of ['text', 'reasoning'] as const) {
+      const m = streamed.find((x) => x.blocks.some((b) => b.type === kind));
+      if (m) m.status = 'streaming';
+    }
+    const state = applySessionLogPage(EMPTY_SESSION_LOG_STATE, page(streamed));
     const messages = state.messages[ROOT]!;
     const target = messages.find((m) => m.blocks.some((b) => b.type === 'text'))!;
     const block = target.blocks.find((b) => b.type === 'text') as TextBlock;
@@ -237,6 +244,44 @@ describe('applySessionLogEvent', () => {
     expect(state.messages[ROOT]!.find((m) => m.message_id === reply!.message_id)).toEqual(reply!);
     // A late delta for a block the final record no longer has changes nothing.
     expect(applySessionLogEvent(state, ev('log.block.delta', { thread_id: ROOT, message_id: reply!.message_id, block_id: 'b_gone', delta: 'x' }))).toBe(state);
+  });
+
+  test('F-012: a streaming record whose final put was lost yields to the finished record of a page read at the turn end', () => {
+    const [user, reply] = rootMessages();
+    const streaming: SessionLogMessage = {
+      ...reply!, status: 'streaming', completed_at: null, finish: null,
+      blocks: [{ type: 'text', id: 'b0', text: 'partial' } as TextBlock],
+    };
+    let state = applySessionLogEvent(EMPTY_SESSION_LOG_STATE, ev('log.message', { rev: 1, message: user }));
+    state = applySessionLogEvent(state, ev('log.message', { rev: 2, message: streaming }));
+    // A page read mid-turn that still holds the streaming record changes nothing the stream holds.
+    state = applySessionLogPage(state, page([user!, { ...streaming, blocks: [{ type: 'text', id: 'b0', text: 'part' } as TextBlock] }]));
+    expect((state.messages[ROOT]!.find((m) => m.message_id === reply!.message_id)!.blocks[0] as TextBlock).text).toBe('partial');
+    // The final put never arrives; the page read at the turn end holds the finished reply.
+    state = applySessionLogPage(state, page([user!, reply!]));
+    expect(state.messages[ROOT]!.find((m) => m.message_id === reply!.message_id)).toEqual(reply!);
+    // Its rev stays: an older streaming put that arrives late cannot revive the partial text.
+    expect(applySessionLogEvent(state, ev('log.message', { rev: 2, message: streaming }))).toBe(state);
+    // A finished message never streams again (pi streams a message once): a delayed streaming put,
+    // even at a higher rev, changes nothing.
+    expect(applySessionLogEvent(state, ev('log.message', { rev: 3, message: streaming }))).toBe(state);
+    // A delta sent before the turn end can land after the page (runtime frames are coalesced,
+    // control frames are not): the finished record already holds its text.
+    expect(applySessionLogEvent(state, ev('log.block.delta', { thread_id: ROOT, message_id: reply!.message_id, block_id: (reply!.blocks[0] as TextBlock).id, delta: 'e' }))).toBe(state);
+    // A finished correction and a tombstone still apply.
+    const corrected = { ...reply!, blocks: [{ type: 'text', id: 'b1', text: 'corrected' } as TextBlock] };
+    const after = applySessionLogEvent(state, ev('log.message', { rev: 4, message: corrected }));
+    expect((after.messages[ROOT]!.find((m) => m.message_id === reply!.message_id)!.blocks[0] as TextBlock).text).toBe('corrected');
+    expect(ids(applySessionLogEvent(after, ev('log.message', { message_id: reply!.message_id, rev: 5 })))).not.toContain(reply!.message_id);
+  });
+
+  test('F-012: the streaming put was missed too: the finished page record takes no late delta', () => {
+    const [user, reply] = rootMessages();
+    const block = reply!.blocks.find((b) => b.type === 'text') as TextBlock;
+    // Every frame of the reply was missed, then the turn-end page holds it finished, with no rev.
+    const state = applySessionLogPage(EMPTY_SESSION_LOG_STATE, page([user!, reply!]));
+    // A delta queued before the turn end and applied after the page changes nothing.
+    expect(applySessionLogEvent(state, ev('log.block.delta', { thread_id: ROOT, message_id: reply!.message_id, block_id: block.id, delta: 'e' }))).toBe(state);
   });
 
   test('a delta for a message the store does not hold builds no placeholder', () => {

@@ -22,17 +22,25 @@ interface ConnectorGateState {
     projectId: string;
     connectorConnections: ConnectorGateConnection[];
     retry: () => void;
+    onCancel?: () => void;
   }) => void;
-  closeConnectorGate: () => void;
+  closeConnectorGate: (retrying?: boolean) => void;
+  onCancel?: () => void;
 }
 
-export const useConnectorGateStore = create<ConnectorGateState>((set) => ({
+export const useConnectorGateStore = create<ConnectorGateState>((set, get) => ({
   isOpen: false,
   projectId: null,
   connectorConnections: [],
   retry: null,
-  openConnectorGate: ({ projectId, connectorConnections, retry }) =>
-    set({ isOpen: true, projectId, connectorConnections, retry }),
-  closeConnectorGate: () =>
-    set({ isOpen: false, projectId: null, connectorConnections: [], retry: null }),
+  openConnectorGate: ({ projectId, connectorConnections, retry, onCancel }) => {
+    const previousCancel = get().onCancel;
+    set({ isOpen: true, projectId, connectorConnections, retry, onCancel });
+    if (previousCancel !== onCancel) previousCancel?.();
+  },
+  closeConnectorGate: (retrying = false) => {
+    const cancel = get().onCancel;
+    set({ isOpen: false, projectId: null, connectorConnections: [], retry: null, onCancel: undefined });
+    if (!retrying) cancel?.();
+  },
 }));

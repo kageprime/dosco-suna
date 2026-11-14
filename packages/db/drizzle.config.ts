@@ -8,9 +8,8 @@ export default defineConfig({
     url: process.env.DATABASE_URL!,
   },
   schemaFilter: ['kortix'],
-  // Only manage these specific tables. basejump.* and api_keys are managed
-  // externally (the 0000_bootstrap baseline) and excluded from drizzle.
-  // Credit/billing tables are now under kortix.* schema.
+  // Only the kortix schema is modeled. The non-kortix prerequisites of a fresh
+  // self-host database come from the 0000_bootstrap baseline.
   tablesFilter: [
     'kortix.*',
   ],

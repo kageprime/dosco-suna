@@ -22,6 +22,8 @@ import { SESSION_PROMPT_REASONS } from './wire-values';
 
 export * from './memory';
 export * from './goals';
+export * from './evals';
+export * from './calendar';
 export * from './wire-values';
 export * from './claude-agent';
 export * from './antigravity';
@@ -61,7 +63,6 @@ export const FeatureFlagMapSchema = z.object({
   marketplace: z.boolean(),
   reminders: z.boolean(),
   secrets_egress: z.boolean(),
-  pooled_provider_secrets: z.boolean(),
   us_region: z.boolean(),
   event_triggers: z.boolean(),
   chat: z.boolean(),
@@ -76,6 +77,10 @@ export const FeatureFlagMapSchema = z.object({
   chat_input: z.boolean(),
   chat_front: z.boolean(),
   spaces_proactive: z.boolean(),
+  program_agents: z.boolean(),
+  evals: z.boolean(),
+  desktop_tabs: z.boolean(),
+  calendar: z.boolean(),
 });
 export type FeatureFlagMap = z.infer<typeof FeatureFlagMapSchema>;
 
@@ -97,6 +102,8 @@ export const FeatureFlagViewSchema = z.object({
   available: z.boolean(),
   enabled: z.boolean(),
   overridden: z.boolean(),
+  /** What the flag resolves to without the project's choice: the state a reset returns it to. Absent on servers older than this field. */
+  default_enabled: z.boolean().optional(),
   /** Internal-only flag, listed only while on. Only a platform operator can change it. */
   operator_only: z.boolean().optional(),
   /** Work in progress: not recommended yet. Absent on servers older than this field. */
@@ -213,6 +220,8 @@ export const ProjectSchema = z.object({
     meta_agent: z.literal(true).optional(),
     /** Not a flag since 2026-11-06 (notifications are on for every project; email is opt-in per kind); always `true` for older SDK, web, CLI and mobile clients. */
     notification_center: z.literal(true).optional(),
+    /** Not a flag since 2026-11-12 (named provider keys, sharing and session key selection are on for every project); always `true` for older SDK, web, CLI and terminal UI clients. */
+    pooled_provider_secrets: z.literal(true).optional(),
     /** Not a flag since 2026-11-03 (warm sessions were removed); always `false` for older SDK, web and mobile clients, which pre-create a session only while it is true. */
     warm_sessions: z.literal(false).optional(),
     /** Not a flag since 2026-11-02 (every project has a Drive); `true` wherever the platform stores a Drive (Platinum), for older SDK, CLI and hosts. */

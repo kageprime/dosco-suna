@@ -14,7 +14,7 @@ import { cn } from '../../lib/utils';
 import { AgentStateMark } from './agent-state-mark';
 import { SubagentDialog } from './subagent-view';
 import { ArrowUpRightIcon, CaretUpIcon, SquareIcon } from '@phosphor-icons/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { stopProjectSession, type SessionTask, type WorkflowRunMetadata } from '@kortix/sdk';
 import {
@@ -61,8 +61,10 @@ import {
  * sessions, and the person keeps talking to this one.
  */
 
-/** How often the child list polls while the line is mounted. */
+/** How often the child list polls while the session works. */
 const CHILDREN_POLL_MS = 5_000;
+/** An idle session starts no agent: its children poll every 30 s. */
+const IDLE_CHILDREN_POLL_MS = 30_000;
 /** A finished workflow run stays listed this long after it ended. */
 const RECENT_RUN_MS = 60 * 60_000;
 /** The popover lists at most this many runs. */
@@ -533,23 +535,49 @@ function WorkflowLineRow({
 }
 
 /**
- * The agents of one session, read live: its children (polled every 5 s), its
- * teammates and team tasks (flag `agent_teams`) and its workflow runs; and the
- * stop of one agent.
+ * The agents of one session, read live: its children, its teammates and team
+ * tasks (flag `agent_teams`) and its workflow runs; and the stop of one agent.
+ * The lists poll every 5 s while the session works (`live`) and every 30 s
+ * while it is idle.
  */
-export function useAgentsLine(projectId: string | undefined, sessionId: string | undefined) {
+export function useAgentsLine(
+  projectId: string | undefined,
+  sessionId: string | undefined,
+  { live = false }: { live?: boolean } = {},
+) {
   const t = useTranslations('multiAgent.strip');
   const pid = projectId ?? '';
   const sid = sessionId ?? '';
   const ready = !!projectId && !!sessionId;
   const teams = useFeatureFlag(projectId, 'agent_teams').enabled;
-  const childList = useSessionChildren(pid, sid, { enabled: ready, refetchInterval: CHILDREN_POLL_MS, limit: 50 });
+  // A child or teammate can keep working after the lead's turn ends: the lists
+  // stay at 5 s while any of them works.
+  const [agentsActive, setAgentsActive] = useState(false);
+  const fast = live || agentsActive;
+  const childList = useSessionChildren(pid, sid, {
+    enabled: ready,
+    refetchInterval: fast ? CHILDREN_POLL_MS : IDLE_CHILDREN_POLL_MS,
+    limit: 50,
+  });
   const children = childList.sessions;
-  const { data: teammates, dataUpdatedAt: teammatesAt } = useTeammates(projectId, sessionId, { enabled: ready && teams });
-  const { data: tasks } = useTeamTasks(projectId, sessionId, { enabled: ready && teams });
-  const { data: runData, dataUpdatedAt: runsAt } = useSessionWorkflows(projectId, sessionId, { enabled: ready });
+  const { data: teammates, dataUpdatedAt: teammatesAt } = useTeammates(projectId, sessionId, {
+    enabled: ready && teams,
+    live: fast,
+  });
+  const { data: tasks } = useTeamTasks(projectId, sessionId, { enabled: ready && teams, live: fast });
+  const { data: runData, dataUpdatedAt: runsAt } = useSessionWorkflows(projectId, sessionId, { enabled: ready, live: fast });
   const [stopping, setStopping] = useState<ReadonlySet<string>>(() => new Set());
   const queryClient = useQueryClient();
+  // A turn that ends may have started an agent or a run in its last seconds:
+  // read the lists once now instead of waiting for the next idle poll.
+  const wasLive = useRef(live);
+  useEffect(() => {
+    if (wasLive.current && !live && ready) {
+      void queryClient.invalidateQueries({ queryKey: qk.project.sessionChildren(pid, sid) });
+      void queryClient.invalidateQueries({ queryKey: qk.project.sessionAgents(pid, sid) });
+    }
+    wasLive.current = live;
+  }, [live, ready, pid, sid, queryClient]);
   const stopMutation = useMutation({
     mutationFn: (row: AgentRow) => stopProjectSession(pid, row.sessionId),
     onSettled: (_data, _error, row) => {
@@ -578,6 +606,9 @@ export function useAgentsLine(projectId: string | undefined, sessionId: string |
       }),
     [sid, children, teammates, runs, now],
   );
+  const anyActive = [...groups.agents, ...groups.team].some((row) => row.state === 'working');
+  // Adjusted during render (React's derived-state pattern): the lists read it next render.
+  if (anyActive !== agentsActive) setAgentsActive(anyActive);
   const leadsTeam = teams && ((teammates?.length ?? 0) > 0 || (tasks?.length ?? 0) > 0);
   return {
     ready,
@@ -602,12 +633,15 @@ export function AgentsLine({
   projectId,
   sessionId,
   compact = false,
+  live = false,
 }: {
   projectId: string | undefined;
   sessionId: string | undefined;
   compact?: boolean;
+  /** The session works now: its agent lists poll every 5 s instead of every 30 s. */
+  live?: boolean;
 }) {
-  const line = useAgentsLine(projectId, sessionId);
+  const line = useAgentsLine(projectId, sessionId, { live });
   const [open, setOpen] = useState<OpenTarget | null>(null);
   if (!line.ready) return null;
   return (

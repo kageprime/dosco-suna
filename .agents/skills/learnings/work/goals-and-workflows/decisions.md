@@ -5,6 +5,34 @@ each section. Decision owner: Marko until 2026-11-05, Jay from 2026-11-06.
 
 ## Decided
 
+- 2026-11-13 · **The chat stops its own goal when its person says so.** Goal
+  mode has no Goals page and a person's Goals API answers `403` while `goals`
+  is off, so the chat is the person's only control. `POST …/stop` accepts the
+  owning chat of a bound goal with a `reason` (what the person said);
+  `kortix goals stop --reason "…"`. Any other session, and every page goal,
+  stays person-only. kortixd `goal-mode.ts` blocks the command in a turn the
+  person did not start (a wake, a loop fire, a peer message), so the chat
+  cannot drop its goal unattended. Stop only: no pause or resume from the
+  chat in v1 (a stopped goal leaves room for the next `--here` goal). The
+  delivery gate (`goalPromptRefusal`) now refuses the goal's own queued
+  prompts (heartbeat fire, `system:goal`, the verifier session) after a stop
+  or pause, and still lets the person's messages and the chat's other loops
+  run. (Jay, as Goals owner, reviewing Marko's branch.)
+- 2026-11-11 · **Goal mode: a goal bound to its chat, on everywhere, no UI.**
+  A chat that hears a clear outcome creates the goal on itself
+  (`kortix goals new … --here`, `setup.bound`): no owner session, no first
+  prompt, active at once with the heartbeat on, no handover, one open goal
+  per chat. It needs no `goals` flag (box token `goal_mode` wherever a Drive
+  exists); the flag still gates the Goals page and page goals. kortixd
+  `extensions/goal-mode.ts` keeps the chat on it: the goal leads the system
+  prompt each turn, and a run on an active goal that recorded nothing
+  (`progress`, `verify`, `transition`) goes back to the model, at most 3
+  times. The engine is unchanged: API state, independent verifier session,
+  heartbeat, admission caps. Prior art: Claude Code `/goal` (Stop hook +
+  evaluator), Codex goal mode (thread-goal row, continue-if-idle, 3 empty
+  turns block). Branch `my-kortix-follow-through`. (Marko: "take the one we
+  have rn, just have no UI & bind it to session & ensure that it will keep it
+  alive"; Jay to review.)
 - 2026-11-06 · **Goal state lives in a server goal record** (`project_goals`
   and companions). The API owns lifecycle, pause/stop, verifier, caps and
   owner generation; `GOAL.md` stays the human-readable brief, `log.md` and

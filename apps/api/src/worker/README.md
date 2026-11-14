@@ -67,6 +67,25 @@ Alarms (`infra/terraform/modules/ecs-api`): the worker service runs no task for
 the jobs back on the web servers: `infra/scripts/ecs-deploy.sh <env> <image>
 --service api --process-role all`.
 
+## Status page
+
+status.kortix.com shows the worker as "Kortix Cloud Worker". The worker has no
+public URL, so the row is a Better Stack heartbeat, not an HTTP check:
+
+- Each minute's report (`worker/runtime/heartbeat.ts`) sends one GET to
+  `BETTERSTACK_WORKER_HEARTBEAT_URL` when no job is stale. Only the lease
+  holder reports, so a process that holds no lease, hangs, or has a stale job
+  sends nothing.
+- Better Stack opens an incident when no ping arrives for 6 minutes (period
+  60 s, grace 300 s). The incident pages like the API monitor and marks the
+  row down. A worker restart pauses the reports for 2 to 5 minutes (prod,
+  2026-11-01 to 11-12), so it stays green.
+- The URL is set only in the prod secret `kortix-prod-env`. Dev, staging and
+  self-host leave it unset and send nothing: only prod pages a human.
+- The heartbeat and the status-page row live in Better Stack, not in
+  Terraform. Change them in the Better Stack UI or its API
+  (`BETTERSTACK_API_TOKEN` in `apps/api/.env.prod`).
+
 ## Run it locally
 
 ```bash

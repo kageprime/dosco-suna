@@ -238,6 +238,17 @@ describe('useFeatureFlag', () => {
     expect(useFeatureFlag('p', 'agentmail_email').enabled).toBe(true);
   });
 
+  test('pooled_provider_secrets graduated: provider keys and key selection are on for every project', () => {
+    // 2026-11-12. A stored `pooled_provider_secrets: false` from the flag era is inert.
+    withDetail({ pooled_provider_secrets: false });
+    expect(useFeatureFlag('p', 'pooled_provider_secrets').enabled).toBe(true);
+
+    withDetail(undefined);
+    expect(useFeatureFlag('p', 'pooled_provider_secrets').enabled).toBe(true);
+
+    expect(useFeatureFlag(null, 'pooled_provider_secrets').enabled).toBe(true);
+  });
+
   test('notification_center graduated: notifications are on for every project', () => {
     // 2026-11-06. A stored `notification_center: false` from the flag era is inert.
     withDetail({ notification_center: false });
@@ -295,7 +306,6 @@ describe('useFeatureFlags', () => {
     'marketplace',
     'reminders',
     'secrets_egress',
-    'pooled_provider_secrets',
     'us_region',
     'event_triggers',
     'chat',
@@ -310,6 +320,10 @@ describe('useFeatureFlags', () => {
     'chat_input',
     'chat_front',
     'spaces_proactive',
+    'program_agents',
+    'evals',
+    'desktop_tabs',
+    'calendar',
     'volumes',
     'drives',
     'artifacts',

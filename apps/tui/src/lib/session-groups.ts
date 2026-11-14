@@ -233,3 +233,24 @@ export function groupSessionsByDay<T extends SessionLike>(
   }
   return groups;
 }
+
+/**
+ * The sidebar's sections, split as `apps/web`'s sidebar splits them
+ * (KRTX-4898): the viewer's own sessions by day, then `Shared` (other
+ * members) and `Automated` (triggers, channels, API keys). Each list is the
+ * server's bucket (`started_by=me|others|automated`); an empty one is left out.
+ */
+export function groupSessionsBySection<T extends SessionLike>(
+  lists: { mine: readonly T[]; shared: readonly T[]; automated: readonly T[] },
+  options: { now: number },
+): SessionDayGroup<T>[] {
+  const section = (label: string, sessions: readonly T[]): SessionDayGroup<T>[] => {
+    const rows = groupSessionsByDay(sessions, options).flatMap((group) => group.rows);
+    return rows.length > 0 ? [{ label, rows }] : [];
+  };
+  return [
+    ...groupSessionsByDay(lists.mine, options),
+    ...section('Shared', lists.shared),
+    ...section('Automated', lists.automated),
+  ];
+}

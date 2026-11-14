@@ -17,6 +17,7 @@ import { flow, flowMeta } from '../core/flow';
 import { waitFor } from '../core/poll';
 import type { FlowContext, FlowMeta } from '../core/types';
 import { type AgentPrincipalsWorld, insertSession, openWorld } from '../fixtures/agent-principals';
+import type { Space } from '../fixtures/space';
 
 const ROUTES = {
   list: 'GET /v1/projects/:projectId/spaces',
@@ -44,7 +45,6 @@ const SPACES = '/v1/workspaces/:projectId/spaces';
 const SPACE = '/v1/workspaces/:projectId/spaces/:spaceId';
 const DM = '/v1/workspaces/:projectId/spaces/dm';
 
-type Space = { space_id: string; kind: string; slug: string | null; name: string; is_default: boolean; archived_at: string | null; can_edit: boolean };
 type Session = {
   session_id: string;
   space_id: string | null;

@@ -431,4 +431,21 @@ export const WEBVIEW_RULES: readonly NoiseRule[] = [
     match: isAndroidWebViewNativeBridgePostEventNoise,
   },
   { id: 'ios-webview-webkit-bridge', appliesTo: 'both', match: isIOSWebViewWebKitBridgeNoise },
+  {
+    // KRTX-4913: an XBrowser-family Android browser (`; WV` WebView UA) runs
+    // its own scripts in the page through `evaluateJavascript`
+    // (`needInjectCss`, `execute_auto_fill`), which call the app's bridge
+    // global; when the bridge is missing they throw `xbrowser is not defined`
+    // / `swbrowser is not defined`. Injected code is `<anonymous>`; Sentry's
+    // timer/listener wrapper can add one bundle frame OUTSIDE it, so the
+    // innermost frame is the throw site. Kortix never names these globals.
+    // A bundle frame at the throw site, a de-minified first-party frame
+    // anywhere, or no stack keeps reporting.
+    id: 'android-webview-host-browser-bridge',
+    appliesTo: 'sentry',
+    match: ({ message, frames }) =>
+      /^(?:sw|x)browser is not defined$/.test(stripErrorWrappers(normalizeString(message))) &&
+      normalizeString(frames.at(-1)?.filename) === '<anonymous>' &&
+      !frames.some((frame) => isFirstPartyResolvedSource(frame.filename)),
+  },
 ];

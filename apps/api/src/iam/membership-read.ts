@@ -9,6 +9,7 @@ import { type SQL, and, asc, count, eq, gt, inArray, isNull, or, sql } from 'dri
 import { db } from '../shared/db';
 import { isUuid } from '../shared/validate';
 import { accountsView } from '../workspaces/rows';
+import { accountScopedNoJoin } from './workspace-scope';
 
 /** The accounts a user belongs to, with the fields the account switcher shows. */
 export function userAccountRows(userId: string) {
@@ -224,7 +225,7 @@ export function accountOwnersByJoinDate(accountIds: string[]) {
         eq(roleAssignments.accountId, accountMembers.accountId),
         eq(roleAssignments.principalType, 'user'),
         eq(roleAssignments.principalId, accountMembers.userId),
-        eq(roleAssignments.scopeType, 'account'),
+        accountScopedNoJoin(),
       ),
     )
     .innerJoin(

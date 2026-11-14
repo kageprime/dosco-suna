@@ -295,7 +295,7 @@ function OAuthConsent() {
           ) : null}
           {scopes.length > 0 ? (
             <div className="space-y-3">
-              <p className="text-muted-foreground text-sm font-medium">
+              <p className="text-foreground text-sm font-medium">
                 {tI18nComplete.raw('text5b8d75f66840')}
               </p>
               <ul className="border-border divide-border/60 divide-y rounded-md border">

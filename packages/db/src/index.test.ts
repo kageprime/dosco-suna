@@ -38,16 +38,8 @@ describe('package index re-exports', () => {
     }
   });
 
-  test('re-exports the public tables', () => {
-    expect(db.apiKeys).toBeDefined();
-  });
-
   test('namespaced schema and named table refer to the same object', () => {
     expect(db.accounts).toBe(db.schema.accounts);
-  });
-
-  test('does not collide the public apiKeys with the kortix kortixApiKeys', () => {
-    expect(db.apiKeys).not.toBe(db.kortixApiKeys);
   });
 
   test('does not export the retired hosted-deployment schema surface', () => {

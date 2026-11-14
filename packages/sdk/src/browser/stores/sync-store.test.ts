@@ -2792,9 +2792,11 @@ describe("useSyncStore — buildSessionMessages (the one shared join)", () => {
 		const ref = new WeakRef(capture(sessionID).rows);
 		drop();
 		// A WeakRef target stays alive until the current job ends, and JSC scans
-		// the stack conservatively: a stale slot can pin the rows through one
-		// collection. Give them a few full collections, each on a fresh job.
-		for (let round = 0; round < 5 && ref.deref() !== undefined; round++) {
+		// the stack conservatively: a stale slot can pin the rows through several
+		// collections (five were not enough on a loaded CI runner, run
+		// 43543224012). Give them up to twenty, each on a fresh job; a real leak
+		// keeps the rows through all of them.
+		for (let round = 0; round < 20 && ref.deref() !== undefined; round++) {
 			await new Promise((resolve) => setTimeout(resolve, 0));
 			Bun.gc(true);
 		}

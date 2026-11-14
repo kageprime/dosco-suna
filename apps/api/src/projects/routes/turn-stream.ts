@@ -20,6 +20,7 @@ import {
   claimInitialTurn,
   pinRuntimeSession,
   readSteer,
+  dropSteer,
   relayContent,
   settleTurnEnd,
 } from './turn-stream-handlers';
@@ -217,6 +218,8 @@ export function registerTurnStreamRoutes(): void {
           return beginTurn(c, body, authenticatedSandboxId);
         case 'steer_read':
           return readSteer(c, body, sessionId, authenticatedSandboxId);
+        case 'steer_dropped':
+          return dropSteer(c, body, sessionId, authenticatedSandboxId);
         case 'end':
         case 'turn_end': {
           // Every daemon-reported kind walls on the session-bound credential (KRTX-1607 did

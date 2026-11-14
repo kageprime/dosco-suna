@@ -194,6 +194,11 @@ export const CreateGoalRequestSchema = z.object({
   criteria: z.array(z.string().min(1).max(GOAL_LIMITS.criterion_chars)).max(GOAL_LIMITS.criteria_max).optional(),
   agent: z.string().optional(),
   assigned_user_id: z.string().optional(),
+  /**
+   * Goal mode: the calling chat session owns the goal itself, needs no `goals`
+   * flag, and starts `active` with its heartbeat on. Needs 1 to 8 criteria.
+   */
+  here: z.boolean().optional(),
 });
 export type CreateGoalRequest = z.infer<typeof CreateGoalRequestSchema>;
 

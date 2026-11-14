@@ -74,7 +74,7 @@ export function describeEventTitle(
   names?: ReadonlyMap<string, string>,
   appName?: string,
 ): string {
-  if (!event) return 'App event';
+  if (!event) return 'Connector event';
   const known = names?.get(event.type);
   if (known) return known;
   const prefix = `${(event.app ?? '').toLowerCase()}_`;

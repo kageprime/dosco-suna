@@ -6,7 +6,7 @@ import { CLIPBOARD_IFRAME_ALLOW } from '@kortix/ui/internal/lib/security/iframe-
 import { framePolicy } from '@kortix/ui/file-viewer';
 import type { App } from '@kortix/sdk';
 import { useAppAccess, useProjectApps } from '@kortix/sdk/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 
 import { ARTIFACT_FRAME_PREFIX } from '@kortix/ui/artifacts';
 
@@ -43,6 +43,23 @@ export function preloadApps(apps: App[], canAdmin: boolean): App[] {
 }
 
 /**
+ * Drops every pooled frame when the open project changes, artifact frames
+ * (`ArtifactFramePreloader`) included. Mounted by the
+ * project shell on every route, so a move from one project's Apps page to
+ * another project's settings page (where no loader runs) still drops them.
+ * Only another project drops them: the shell can remount while it settles,
+ * and that must not throw away a loaded App.
+ */
+export function usePreviewPoolProject(projectId: string) {
+  // A layout effect: it runs before the loaders' own (passive) effects, so a
+  // prune never deletes frames the new project's loaders just created.
+  useLayoutEffect(() => {
+    if (poolProject !== null && poolProject !== projectId) pruneFrames(new Set());
+    poolProject = projectId;
+  }, [projectId]);
+}
+
+/**
  * Loads the project's App previews in the background once the page is idle,
  * so the Apps page and the big view show them already loaded. Mounted in the
  * project shell: the frames survive every page switch inside the project.
@@ -66,13 +83,6 @@ export function AppPreviewPoolLoader({ projectId }: { projectId: string }) {
   useEffect(() => {
     if (apps.data) pruneFrames(new Set(apps.data.map(frameKey)), (key) => !key.startsWith(ARTIFACT_FRAME_PREFIX));
   }, [apps.data]);
-  // Only another project drops them all: the shell can remount this loader
-  // while it settles, and that must not throw away a loaded App.
-  useEffect(() => {
-    if (poolProject !== null && poolProject !== projectId) pruneFrames(new Set());
-    poolProject = projectId;
-  }, [projectId]);
-
   if (!idle || !apps.data) return null;
   return (
     <>

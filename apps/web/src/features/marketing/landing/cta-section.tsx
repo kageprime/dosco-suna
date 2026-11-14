@@ -52,7 +52,7 @@ export function CtaSection() {
         className="pointer-events-none absolute inset-x-0 top-0 h-81.5 [mask-image:linear-gradient(to_bottom,#000,transparent_150px),radial-gradient(50%_300px_at_50%_0,#000,transparent)]"
         aria-hidden
       >
-        <DitherField />
+        <DitherField className="text-kortix-base" />
       </div>
 
       {override ? (
@@ -66,6 +66,7 @@ export function CtaSection() {
           ) : null}
           <div className="mt-8 flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center sm:justify-center">
             <MarketingButton
+              variant="accent"
               size="md"
               className="hit-area-y-1 w-full sm:w-auto sm:min-w-36"
               asChild
@@ -98,6 +99,7 @@ export function CtaSection() {
           </h2>
           <div className="mt-8 flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center sm:justify-center">
             <MarketingButton
+              variant="accent"
               size="md"
               className="hit-area-y-1 w-full sm:w-auto sm:min-w-36"
               asChild

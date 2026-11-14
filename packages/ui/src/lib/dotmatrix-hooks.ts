@@ -3,26 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { DotMatrixPhase } from './dotmatrix-core';
+import { useReducedMotion } from '../internal/hooks/use-reduced-motion';
 
+/** The OS setting or the "Reduce motion" switch (`use-reduced-motion.ts`). */
 export function usePrefersReducedMotion(): boolean {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  useEffect(() => {
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-
-    const update = () => {
-      setPrefersReducedMotion(query.matches);
-    };
-
-    update();
-    query.addEventListener('change', update);
-
-    return () => {
-      query.removeEventListener('change', update);
-    };
-  }, []);
-
-  return prefersReducedMotion;
+  return useReducedMotion();
 }
 
 interface UseCyclePhaseOptions {

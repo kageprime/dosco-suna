@@ -27,10 +27,16 @@ import { createHash } from 'node:crypto';
  * re-checked on a hit: the cached answer was already settled, and the
  * credential + budget gates cover the revocation cases that matter here.
  *
- * ponytail: replica-local replay, same ceiling as route-memory — a retry that
- * lands on another gateway replica re-executes and re-meters (today's
- * behavior). Move the key to a shared store if cross-replica double-metering
- * is ever measured.
+ * The gateway runs several replicas behind a load balancer, so a retry usually
+ * lands on a replica that never saw the first attempt (KRTX-4612 reoccurred on
+ * prod for exactly that reason). With a `shared` store the first 2xx answer is
+ * also written to the control plane for the TTL and every replica consults it
+ * on a local miss. Entries there are keyed by the same credential-scoped hash,
+ * so only the holder of the credential can read one back.
+ *
+ * ponytail: two same-key requests that are in flight at the SAME instant on
+ * two replicas both execute (the shared store holds finished answers only, no
+ * claim). A retry after the first answer or failure is the case that matters.
  */
 
 /** A replayable answer: everything needed to rebuild the Response per caller. */
@@ -39,6 +45,8 @@ export interface ReplayedResponse {
   statusText: string;
   headers: [string, string][];
   body: string;
+  /** Set by the shared store: the answer's original absolute expiry (epoch ms). A shared hit never outlives it. */
+  expiresAt?: number;
 }
 
 /** The fields of an inference request the replay reads; the edge passes its full request. */
@@ -59,6 +67,17 @@ export interface ReplayOptions {
    * admission fails the same way).
    */
   reauthorize?: (request: ReplayRequest) => Promise<boolean>;
+  /** Answers finished on any replica. A store failure never fails the request. */
+  shared?: SharedReplayStore;
+}
+
+/** Larger answers (an image) stay replica-local: they would bloat the shared row. */
+export const MAX_SHARED_BYTES = 1024 * 1024;
+
+/** The control plane's copy of finished answers, shared by every gateway replica. */
+export interface SharedReplayStore {
+  get: (key: string) => Promise<ReplayedResponse | null>;
+  put: (key: string, answer: ReplayedResponse) => Promise<void>;
 }
 
 /** Longer than any realistic client retry window (OpenAI holds keys for 24 h). */
@@ -130,11 +149,13 @@ export function createIdempotencyReplay(now: () => number = Date.now, options: R
       .update(`${protocol}\u0000${request.authorization ?? ''}\u0000${idempotencyKey}\u0000`)
       .update(request.rawBody)
       .digest('hex');
+    // A replay is still a request: a revoked credential, a suspension or an
+    // exhausted budget must not be served from any cache.
+    const admitted = async (): Promise<boolean | 'undecided'> =>
+      options.reauthorize ? options.reauthorize(request).catch(() => 'undecided' as const) : true;
     const hit = entries.get(key);
     if (hit && hit.expiresAt > now()) {
-      const verdict = options.reauthorize
-        ? await options.reauthorize(request).catch(() => 'undecided' as const)
-        : true;
+      const verdict = await admitted();
       if (verdict === true) return replayedResponse(await hit.result);
       if (verdict === 'undecided') {
         // The control plane could not answer the check: run the pipeline for
@@ -147,19 +168,29 @@ export function createIdempotencyReplay(now: () => number = Date.now, options: R
     forget(key);
 
     const result = (async (): Promise<ReplayedResponse> => {
+      // Another replica may have answered this key already. Looked up inside
+      // the entry's own execution, so concurrent callers still share one.
+      const shared = options.shared ? await options.shared.get(key).catch(() => null) : null;
+      if (shared && (await admitted()) === true) return shared;
       const res = await call(request);
-      return {
+      const answer = {
         status: res.status,
         statusText: res.statusText,
         headers: [...res.headers],
         body: await res.text(),
       };
+      // Written before the client sees the answer: its retry may reach another replica at once.
+      if (options.shared && answer.status >= 200 && answer.status < 300 && Buffer.byteLength(answer.body) <= MAX_SHARED_BYTES) {
+        await options.shared.put(key, answer).catch(() => {});
+      }
+      return answer;
     })();
     const entry: ReplayEntry = { expiresAt: now() + TTL_MS, bytes: 0, result };
     entries.set(key, entry);
     result.then(
       (answer) => {
         if (entries.get(key) !== entry) return;
+        if (answer.expiresAt !== undefined) entry.expiresAt = Math.min(entry.expiresAt, answer.expiresAt);
         const isOk = answer.status >= 200 && answer.status < 300;
         if (!isOk) {
           forget(key, entry); // an error stays retryable

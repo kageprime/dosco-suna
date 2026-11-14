@@ -19,6 +19,12 @@
  *   (`/lsp/diagnostics`, `/permission`, `/question`, `/vcs/diff`, …). A 502,
  *   an unattributed passthrough, or a mutation stays logged.
  *
+ * - KRTX-4905: a HEAD is a read exactly like a GET (`shouldAutoResumeStoppedSandbox`
+ *   never wakes a box on either), so the same designed answers on a proxied
+ *   HEAD (the preview's `HEAD .../file/raw` existence probe) are suppressed too.
+ *   Prod, 2026-11-14: a 6-request HEAD burst, 6-14 ms each, all control-plane
+ *   503s against a parked box, paged as a 100 % route 5xx rise.
+ *
  * - KRTX-2277: the same designed boot-phase 503 on the session-abort verb
  *   (`POST /v1/p/:id/:id/session/:id/abort`) — a Stop the client re-presses
  *   until it lands — paged as a route 5xx rise because only GETs were
@@ -100,6 +106,23 @@ describe('shouldSuppressRequestLog', () => {
     expect(
       shouldSuppressRequestLog({ ...parkedRead, proxyHop: 'upstream_port', upstreamStatus: 503 }),
     ).toBe(false);
+  });
+
+  test('the designed not-ready 503s on a proxied HEAD are suppressed (KRTX-4905)', () => {
+    const head = { ...parkedRead, method: 'HEAD', path: '/v1/p/<sandbox>/8000/file/raw' };
+    expect(shouldSuppressRequestLog(head)).toBe(true);
+    expect(shouldSuppressRequestLog({ ...head, proxyHop: 'daemon', upstreamStatus: 503 })).toBe(
+      true,
+    );
+    // A dialled-port failure, an unattributed 503 and the give-up 502 stay logged.
+    expect(
+      shouldSuppressRequestLog({ ...head, proxyHop: 'upstream_port', upstreamStatus: 503 }),
+    ).toBe(false);
+    expect(shouldSuppressRequestLog({ ...head, proxyHop: null })).toBe(false);
+    expect(shouldSuppressRequestLog({ ...head, status: 502, upstreamStatus: 502 })).toBe(false);
+    expect(shouldSuppressRequestLog({ ...head, proxyHop: 'daemon', upstreamStatus: null })).toBe(
+      false,
+    );
   });
 
   test('the daemon boot-phase not-ready 503 on the session-abort verb is suppressed (KRTX-2277)', () => {

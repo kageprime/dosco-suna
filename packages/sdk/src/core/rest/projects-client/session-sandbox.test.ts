@@ -3,6 +3,7 @@ import { configureKortix } from "../../http/config";
 import { clearSessionFresh, markSessionFresh } from "../../http/fresh-sessions";
 import { clearSessionRuntime, getSessionRuntime,
 } from "../../session/session-runtime-registry";
+import { withSizelessURLSearchParams } from "../../test-fixtures";
 import { isSessionStartError,
   projectSessionStartSeed,
   sessionStartKey, startWorkspaceSession, startWorkspaceSessionOrThrow,
@@ -393,4 +394,13 @@ test("startProjectSessionOrThrow keeps the billing detail of a 402 for the upgra
   expect(error.status).toBe(402);
   expect(error.detail?.code).toBe("insufficient_credits");
   expect(error.detail?.account_id).toBe("acct-1");
+});
+
+test("startProjectSession keeps wait_ms under the mobile URLSearchParams polyfill (KRTX-4898)", async () => {
+  nextResponse = {
+    status: 200,
+    body: { stage: "provisioning", agent_name: "default", retriable: true, sandbox: null, runtime_session_id: null },
+  };
+  await withSizelessURLSearchParams(() => startWorkspaceSession(PROJECT, SESSION, 5_500));
+  expect(last().url).toContain("/start?wait_ms=5500");
 });

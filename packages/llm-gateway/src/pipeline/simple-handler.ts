@@ -165,6 +165,34 @@ function hasImage(body: Record<string, unknown>): boolean {
 // one means "we could not find out".
 const ADMISSION_UNAVAILABLE = 'admission_unavailable';
 
+/**
+ * The answer to a wallet admission that failed (`assertBillingActive` or the
+ * batched `admit` billing). A refusal carries its 402 code as `reason`. An
+ * error without one is no verdict: the check timed out or the control plane
+ * was unreachable. That is a retryable 503, never "no subscription" (prod
+ * 2026-11-12: a 25 s control-plane stall answered funded accounts
+ * `402 subscription_required "attempt 3 exceeded 5000ms"`, and their agents
+ * reported "Out of credits").
+ */
+export function billingRefusal(error: unknown): { status: 402 | 503; code: string; message: string; suggestion: string; retryAfter?: number } {
+  const reason = (error as { reason?: unknown })?.reason;
+  if (typeof reason === 'string') {
+    return {
+      status: 402,
+      code: reason,
+      message: error instanceof Error ? error.message : 'Billing inactive',
+      suggestion: 'Check your subscription or add credits, then retry.',
+    };
+  }
+  return {
+    status: 503,
+    code: ADMISSION_UNAVAILABLE,
+    message: 'Gateway admission control is unavailable',
+    suggestion: 'Retry the request.',
+    retryAfter: 5,
+  };
+}
+
 export async function authorize(hooks: GatewayHooks, token: string): Promise<AuthorizeResult> {
   if (hooks.authorize) return hooks.authorize(token);
   const principal = await hooks.authenticate(token);
@@ -632,25 +660,28 @@ export async function handleChatCompletions(
     const admitted = await admitCharge();
     if (!admitted.ok) {
       const { error } = admitted;
-      const reason = (error as { reason?: unknown })?.reason;
+      const refusal = billingRefusal(error);
+      const detail = error instanceof Error ? error.message : String(error);
+      if (refusal.status === 503) logger.error(`[gateway] ${id}: billing check unavailable — ${detail}`);
       emit({
         ...identity(principal),
         requestedModel,
         resolvedModel: shownModel(descriptor, routedModel),
         provider: shownProvider(descriptor),
-        status: 402,
+        status: refusal.status,
         ok: false,
-        errorCode: typeof reason === 'string' ? reason : 'subscription_required',
-        errorMessage: error instanceof Error ? error.message : 'Billing inactive',
+        errorCode: refusal.code,
+        errorMessage: error instanceof Error ? error.message : refusal.message,
       });
-      return gatewayErrorResponse(402, {
-        message: error instanceof Error ? error.message : 'Billing inactive',
-        code: typeof reason === 'string' ? reason : 'subscription_required',
+      return gatewayErrorResponse(refusal.status, {
+        message: refusal.message,
+        code: refusal.code,
         provider: shownProvider(descriptor),
         requestedModel,
         resolvedModel: shownModel(descriptor, routedModel),
         requestId: id,
-        suggestion: 'Check your subscription or add credits, then retry.',
+        suggestion: refusal.suggestion,
+        ...(refusal.retryAfter !== undefined ? { retryAfterSeconds: refusal.retryAfter } : {}),
       });
     }
     emit.mark('billed');

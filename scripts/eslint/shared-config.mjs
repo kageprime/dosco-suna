@@ -1,6 +1,34 @@
 import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 import nextTypescript from 'eslint-config-next/typescript';
 import navContract from './no-router-push-for-static-href.mjs';
+
+const QUERY_KEY_MESSAGE =
+  'Query keys come from `qk` in @kortix/sdk/react. Never hand-type an entity key.';
+
+// One query-key rule family as its two `no-restricted-syntax` entries: the key
+// array as written, and the same array through a trailing `as const`. `slot` is
+// `:first-child` for a key passed as a call's positional first argument.
+function queryKeySelectors(head, valuePattern, slot = '') {
+  return [
+    `${head} > ArrayExpression${slot} > Literal:first-child[value=${valuePattern}]`,
+    // Same as the rule above, but through a trailing `as const` —
+    // THIS REPO'S OWN IDIOM (every `qk` member ends `as const`;
+    // apps/web has 223 `] as const` sites). `as const` wraps the array
+    // in a TSAsExpression, so `Property > ArrayExpression` never
+    // matches: the array's immediate parent becomes the TSAsExpression,
+    // not the Property. Probed directly against this rule set:
+    // `queryKey: ['project-detail', id] as const` passed clean before
+    // this selector existed. Same fix as the sibling `as const`
+    // selectors below.
+    // The positional-call rule's own `as const` blind spot
+    // (`setQueryData(['project-detail', id] as const, v)`) — same
+    // TSAsExpression indirection, this time between the CallExpression
+    // and its first-argument ArrayExpression instead of between a
+    // Property and its value.
+    `${head} > TSAsExpression${slot} > ArrayExpression > Literal:first-child[value=${valuePattern}]`,
+  ].map((selector) => ({ selector, message: QUERY_KEY_MESSAGE }));
+}
+
 export const sharedConfig = [
   ...nextCoreWebVitals,
   ...nextTypescript,
@@ -141,108 +169,58 @@ export const sdkBoundaryConfig = {
       ],
       'no-restricted-syntax': [
         'error',
-        {
-          // 176 hand-typed literals across 30 `project*` families produced
-          // duplicate cache entries for one dataset (`['project-sessions',
-          // id]` and `['project-session-inventory', id]` held the same
-          // server response), silent write/read key mismatches, and
-          // per-observer `staleTime` drift, because nothing forced two call
-          // sites naming the same entity to agree on a key. This rule is
-          // what makes the migration to `qk` permanent: a reintroduced
-          // literal is a build failure, not something a reviewer has to
-          // spot in a 100-file diff.
-          //
-          // The pattern matches the whole family rather than an allowlist,
-          // so a NEW literal (`['project-widgets', id]`) is caught too.
-          //
-          // `accounts` joined the family for a DIFFERENT reason from the
-          // project literals, and a stronger one. `['accounts']` carried no
-          // signed-in user, so one document that saw two users held ONE cache
-          // entry for both — and `/new` resolves its create target out of
-          // that list, so a leftover single-account list belonging to the
-          // previous user made `POST /projects/provision` go out with a
-          // foreign `account_id` under the new user's JWT (403). The list
-          // CONTENTS cannot tell that apart from a legitimate invited admin;
-          // only `qk.accounts.list(userId)` can. This rule is what keeps that
-          // fix from being undone by the next person who types the obvious
-          // four-line `useQuery`.
-          //
-          // Singular `account` is deliberately NOT matched: `['account', id]`
-          // is a different, still-live family already scoped by account id.
-          selector:
-            "Property[key.name='queryKey'] > ArrayExpression > " +
-            "Literal:first-child[value=/^(projects?|accounts)(-[a-z-]+)?$/]",
-          message:
-            'Query keys come from `qk` in @kortix/sdk/react. Never hand-type an entity key.',
-        },
-        {
-          // Same as the rule above, but through a trailing `as const` —
-          // THIS REPO'S OWN IDIOM (every `qk` member ends `as const`;
-          // apps/web has 223 `] as const` sites). `as const` wraps the array
-          // in a TSAsExpression, so `Property > ArrayExpression` never
-          // matches: the array's immediate parent becomes the TSAsExpression,
-          // not the Property. Probed directly against this rule set:
-          // `queryKey: ['project-detail', id] as const` passed clean before
-          // this selector existed. Same fix as the sibling `as const`
-          // selectors below.
-          selector:
-            "Property[key.name='queryKey'] > TSAsExpression > ArrayExpression > " +
-            "Literal:first-child[value=/^(projects?|accounts)(-[a-z-]+)?$/]",
-          message:
-            'Query keys come from `qk` in @kortix/sdk/react. Never hand-type an entity key.',
-        },
-        {
-          // The migrated root itself is exactly as easy to hand-roll as the
-          // literals above, and the rule above is blind to it: `'kx'` does
-          // not match /^projects?(-[a-z-]+)?$/. qk.projects.scope() is
-          // ['kx', 'projects'] and qk.project.scope(id) is ['kx', 'project',
-          // id] (see packages/sdk/src/react/query-keys.ts) — three call
-          // sites hand-typed ['kx', 'projects'] instead of calling the
-          // factory, which is exactly the hole this closes.
-          selector:
-            "Property[key.name='queryKey'] > ArrayExpression > Literal:first-child[value='kx']",
-          message:
-            'Query keys come from `qk` in @kortix/sdk/react. Never hand-type an entity key.',
-        },
-        {
-          // The `'kx'`-root rule's own `as const` blind spot — see the
-          // family rule's `as const` sibling above for why the selector has
-          // to change shape (TSAsExpression sits between the Property and
-          // the ArrayExpression) rather than just widening a value pattern.
-          selector:
-            "Property[key.name='queryKey'] > TSAsExpression > ArrayExpression > " +
-            "Literal:first-child[value='kx']",
-          message:
-            'Query keys come from `qk` in @kortix/sdk/react. Never hand-type an entity key.',
-        },
-        {
-          // The four rules above only see a key written as the `queryKey:`
-          // PROPERTY of an options object (`useQuery({ queryKey: [...] })`).
-          // TanStack's direct cache API instead takes the key as a
-          // positional first argument (`setQueryData(['project-detail',
-          // id], data)`), which is structurally invisible to a
-          // `Property[key.name='queryKey']` selector. That gap matters more
-          // than the read side: a write parked on a key nobody reads is the
-          // exact silent-failure class this migration exists to remove — a
-          // stale `useQuery` observer never learns the write happened.
-          // Covers every TanStack QueryClient method whose first positional
-          // argument is (or can be) a query key.
-          selector:
-            "CallExpression[callee.property.name=/^(set|get)Quer(y|ies)Data$|^(remove|cancel|refetch|invalidate)Queries$/] > ArrayExpression:first-child > Literal:first-child[value=/^(projects?|accounts)(-[a-z-]+)?$|^kx$/]",
-          message:
-            'Query keys come from `qk` in @kortix/sdk/react. Never hand-type an entity key.',
-        },
-        {
-          // The positional-call rule's own `as const` blind spot
-          // (`setQueryData(['project-detail', id] as const, v)`) — same
-          // TSAsExpression indirection, this time between the CallExpression
-          // and its first-argument ArrayExpression instead of between a
-          // Property and its value.
-          selector:
-            "CallExpression[callee.property.name=/^(set|get)Quer(y|ies)Data$|^(remove|cancel|refetch|invalidate)Queries$/] > TSAsExpression:first-child > ArrayExpression > Literal:first-child[value=/^(projects?|accounts)(-[a-z-]+)?$|^kx$/]",
-          message:
-            'Query keys come from `qk` in @kortix/sdk/react. Never hand-type an entity key.',
-        },
+        // 176 hand-typed literals across 30 `project*` families produced
+        // duplicate cache entries for one dataset (`['project-sessions',
+        // id]` and `['project-session-inventory', id]` held the same
+        // server response), silent write/read key mismatches, and
+        // per-observer `staleTime` drift, because nothing forced two call
+        // sites naming the same entity to agree on a key. This rule is
+        // what makes the migration to `qk` permanent: a reintroduced
+        // literal is a build failure, not something a reviewer has to
+        // spot in a 100-file diff.
+        //
+        // The pattern matches the whole family rather than an allowlist,
+        // so a NEW literal (`['project-widgets', id]`) is caught too.
+        //
+        // `accounts` joined the family for a DIFFERENT reason from the
+        // project literals, and a stronger one. `['accounts']` carried no
+        // signed-in user, so one document that saw two users held ONE cache
+        // entry for both — and `/new` resolves its create target out of
+        // that list, so a leftover single-account list belonging to the
+        // previous user made `POST /projects/provision` go out with a
+        // foreign `account_id` under the new user's JWT (403). The list
+        // CONTENTS cannot tell that apart from a legitimate invited admin;
+        // only `qk.accounts.list(userId)` can. This rule is what keeps that
+        // fix from being undone by the next person who types the obvious
+        // four-line `useQuery`.
+        //
+        // Singular `account` is deliberately NOT matched: `['account', id]`
+        // is a different, still-live family already scoped by account id.
+        ...queryKeySelectors("Property[key.name='queryKey']", '/^(projects?|accounts)(-[a-z-]+)?$/'),
+        // The migrated root itself is exactly as easy to hand-roll as the
+        // literals above, and the rule above is blind to it: `'kx'` does
+        // not match /^projects?(-[a-z-]+)?$/. qk.projects.scope() is
+        // ['kx', 'projects'] and qk.project.scope(id) is ['kx', 'project',
+        // id] (see packages/sdk/src/react/query-keys.ts) — three call
+        // sites hand-typed ['kx', 'projects'] instead of calling the
+        // factory, which is exactly the hole this closes.
+        ...queryKeySelectors("Property[key.name='queryKey']", "'kx'"),
+        // The four rules above only see a key written as the `queryKey:`
+        // PROPERTY of an options object (`useQuery({ queryKey: [...] })`).
+        // TanStack's direct cache API instead takes the key as a
+        // positional first argument (`setQueryData(['project-detail',
+        // id], data)`), which is structurally invisible to a
+        // `Property[key.name='queryKey']` selector. That gap matters more
+        // than the read side: a write parked on a key nobody reads is the
+        // exact silent-failure class this migration exists to remove — a
+        // stale `useQuery` observer never learns the write happened.
+        // Covers every TanStack QueryClient method whose first positional
+        // argument is (or can be) a query key.
+        ...queryKeySelectors(
+          'CallExpression[callee.property.name=/^(set|get)Quer(y|ies)Data$|^(remove|cancel|refetch|invalidate)Queries$/]',
+          '/^(projects?|accounts)(-[a-z-]+)?$|^kx$/',
+          ':first-child',
+        ),
       ],
     },
   };

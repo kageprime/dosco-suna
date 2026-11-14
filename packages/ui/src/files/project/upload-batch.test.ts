@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   forEachLimit,
+  inFlightPaths,
   uploadedFraction,
   MAX_UPLOAD_BYTES,
   partitionUploadBatch,
@@ -186,5 +187,36 @@ describe('tray order', () => {
       row('g', 'queued'),
     ]);
     expect(ordered.map((u) => u.id)).toEqual(['c', 'f', 'd', 'b', 'g', 'a', 'e']);
+  });
+});
+
+/**
+ * D-08: a row the server does not have yet must not mount its live preview.
+ * The New file row's card read the path before the create chain ran, got a
+ * 404, and kept "File not found". The set below is what the grid treats as
+ * "on its way up": spinner on, preview deferred.
+ */
+describe('inFlightPaths', () => {
+  const upload = (name: string, status: string, targetPath?: string) => ({ status, targetPath, file: { name } });
+  const pending = (path: string, type: 'file' | 'directory', seen?: unknown) => ({
+    node: { path, type },
+    ...(seen === undefined ? {} : { seen }),
+  });
+
+  test('queued and running uploads are in flight; finished ones are not', () => {
+    const paths = inFlightPaths(
+      [upload('a.png', 'queued', 'docs/'), upload('b.png', 'uploading'), upload('c.png', 'done', 'docs'), upload('d.png', 'error')],
+      [],
+    );
+    expect([...paths].sort()).toEqual(['b.png', 'docs/a.png']);
+  });
+
+  test('a file row still being created is in flight until the server confirms it', () => {
+    const paths = inFlightPaths([], [pending('notes/new.md', 'file'), pending('notes/done.md', 'file', [])]);
+    expect([...paths]).toEqual(['notes/new.md']);
+  });
+
+  test('a pending folder is not a file preview, so it is not listed', () => {
+    expect(inFlightPaths([], [pending('notes/dir', 'directory')]).size).toBe(0);
   });
 });

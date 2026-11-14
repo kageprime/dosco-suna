@@ -13,24 +13,17 @@ import { kortix } from '../../kortix.ts';
 import { copyToClipboard } from '../../lib/clipboard.ts';
 import { openUrl } from '../../lib/open-url.ts';
 import { theme } from '../../theme.ts';
+import type { ScreenProps } from '../../screens.tsx';
 import { entryToNode, repoPath, repoWebUrl, toBranchRow, toCommitRow } from './repo-model.ts';
 import { type RepoLoaders, RepoView } from './repo-view.tsx';
 
 /** Commits per history load. The web's panel loads the same order of size. */
 const HISTORY_LIMIT = 100;
 
-export interface RepoScreenProps {
-  projectId: string | null;
-  accountId: string | null;
-  sessionId: string | null;
-  focused: boolean;
-  width: number;
-  height: number;
-  webBaseUrl: string;
-  onBack(): void;
-  onOpenSession(sessionId: string): void;
-  onToast(message: string, kind?: 'info' | 'error'): void;
-}
+export type RepoScreenProps = Pick<
+  ScreenProps,
+  'projectId' | 'focused' | 'width' | 'height' | 'webBaseUrl' | 'onBack' | 'onToast'
+>;
 
 function errorText(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
@@ -39,14 +32,11 @@ function errorText(error: unknown): string {
 
 export function RepoScreen({
   projectId,
-  accountId: _accountId,
-  sessionId: _sessionId,
   focused,
   width,
   height,
   webBaseUrl,
   onBack,
-  onOpenSession: _onOpenSession,
   onToast,
 }: RepoScreenProps) {
   const loaders = useMemo<RepoLoaders | null>(() => {

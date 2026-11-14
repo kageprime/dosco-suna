@@ -116,6 +116,16 @@ export function manifestProjectName(): string | undefined {
   }
 }
 
+/** Whether two URLs name the same GitHub repository (https, ssh or scp form, `.git` or not). */
+export function sameGitHubRepository(a: string | null | undefined, b: string | null | undefined): boolean {
+  const name = (url: string | null | undefined) => {
+    const match = url?.trim().match(/github\.com[/:]([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i);
+    return match ? `${match[1]}/${match[2]}`.toLowerCase() : null;
+  };
+  const left = name(a);
+  return left !== null && left === name(b);
+}
+
 export function detectOrigin(): string | null {
   const r = run(['remote', 'get-url', 'origin']);
   const url = r.stdout.trim();

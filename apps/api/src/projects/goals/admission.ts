@@ -15,8 +15,8 @@ import { logger } from '../../lib/logger';
 import type { ProjectRow } from '../lib/serializers';
 import { rescheduleHeartbeat, setHeartbeatEnabled } from './effects';
 import { notifyGoal } from './notify';
-import { decideWake, nextUtcMidnight, type WakeDecision } from './rules';
-import { GoalError, goalByHeartbeat, goalFlagOn, goalOfSession, setGoalRuntimeFields, writeGoal, type GoalRow } from './store';
+import { decideWake, goalEnginePrompt, isBoundGoal, nextUtcMidnight, type WakeDecision } from './rules';
+import { GoalError, getGoal, goalByHeartbeat, goalFlagOn, goalOfSession, setGoalRuntimeFields, writeGoal, type GoalRow } from './store';
 
 export type GoalWakeVerdict =
   | { goal: null }
@@ -38,7 +38,8 @@ export async function admitGoalWake(input: {
   now?: Date;
 }): Promise<Exclude<GoalWakeVerdict, { goal: null }>> {
   const { project, goal } = input;
-  const flagOn = resolveFeatureFlag(project.metadata, 'goals');
+  // A goal its chat owns (goal mode) needs no flag; every other goal follows the project's `goals` flag.
+  const flagOn = isBoundGoal(goal) || resolveFeatureFlag(project.metadata, 'goals');
   let decision: WakeDecision | null = null;
   let billingRefusal: string | null = null;
   if (flagOn) {
@@ -134,6 +135,16 @@ export async function admitReminderFire(input: { project: ProjectRow; reminderId
 export async function goalSuccessorAllowed(projectId: string, reminderId: string): Promise<{ goal: GoalRow | null; allowed: boolean }> {
   const goal = await goalByHeartbeat(projectId, reminderId);
   if (!goal) return { goal: null, allowed: true };
+  // Goal mode: the goal belongs to its chat. A successor would take it away from the person, who
+  // could then neither see nor stop it. It blocks as owner_lost and stays the chat's.
+  if (isBoundGoal(goal)) {
+    const lost = await writeGoal(projectId, goal.goalId, (row) =>
+      row.blockedReason === 'owner_lost'
+        ? { unchanged: true }
+        : { patch: { blockedReason: 'owner_lost' }, keepRevision: true, event: { ...PLATFORM, kind: 'blocked', message: 'The chat that owns this goal failed. A goal in a chat has no successor session.', data: { reason: 'owner_lost' } } },
+    );
+    return { goal: lost.row, allowed: false };
+  }
   if (goal.sessions.length < goal.maxSessions) return { goal, allowed: true };
   const blocked = await writeGoal(projectId, goal.goalId, (row) =>
     row.blockedReason === 'session_cap'
@@ -191,15 +202,27 @@ export async function goalHeartbeatEditRefusal(projectId: string, reminderId: st
 }
 
 /**
- * Why a goal prompt queued into `sessionId` must not run now, or null. A prompt
+ * Why the prompt queued into `sessionId` must not run now, or null. A prompt
  * the engine queued before a person paused or stopped the goal waits in the
  * session inbox; it is refused at delivery, so no turn starts after the control.
+ *
+ * A chat that owns its goal (goal mode) stays a chat: a prompt the engine did
+ * not queue (its person's message, another loop of the chat) always runs. The
+ * goal's own prompts (its heartbeat fire, a `system:goal` prompt) are refused
+ * like any goal's, and so is every prompt into its verifier session.
  */
-export async function goalPromptRefusal(sessionId: string): Promise<string | null> {
-  const goal = await goalOfSession(sessionId);
-  if (!goal) return null;
+export async function goalPromptRefusal(sessionId: string, prompt: { source: string; text: string }): Promise<string | null> {
+  const latest = await goalOfSession(sessionId);
+  if (!latest) return null;
+  const engine = goalEnginePrompt(prompt);
+  // A chat owns one goal after another: an engine prompt is judged by the goal it names, not by the newest one.
+  const named = engine?.goalId && engine.goalId !== latest.goalId ? await getGoal(latest.projectId, engine.goalId) : null;
+  const goal = named?.sessions.some((s) => s.id === sessionId) ? named : latest;
+  const bound = isBoundGoal(goal);
+  if (bound && goal.ownerSessionId === sessionId && !engine) return null;
   if (goal.state === 'done' || goal.state === 'stopped') return `The goal is ${goal.state}: its queued prompt does not run.`;
   if (goal.pausedAt) return 'A person paused the goal: its queued prompt does not run.';
-  if (!(await goalFlagOn(goal.projectId))) return 'Goals is turned off for this project: its queued prompt does not run.';
+  // Goal mode needs no flag.
+  if (!bound && !(await goalFlagOn(goal.projectId))) return 'Goals is turned off for this project: its queued prompt does not run.';
   return null;
 }

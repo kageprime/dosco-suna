@@ -12,7 +12,7 @@ import { TriggerComposer } from '../../customize/triggers/schedule/trigger-compo
 import { lastRunLabel } from '../../internal/lib/trigger-clock';
 import { TriggerTile } from '../../customize/triggers/schedule/trigger-tile';
 import { useLocale, useTranslations } from '../../i18n';
-import { uiRoutes } from '../../lib/routes';
+import { triggerHref } from '../../internal/lib/capability-tab-routes';
 import { Button } from '../../primitives/button';
 import { EmptyArt } from '../../primitives/empty-art';
 import { EmptyState } from '../../primitives/empty-state';
@@ -133,7 +133,7 @@ function TriggerRow({
   const subtitle = triggerSubtitle(name, describeWhen(trigger), trigger.prompt_template);
   // An auto-paused trigger is off until resumed: turning it on sends `enabled: true`, which resumes it.
   const active = trigger.enabled && !trigger.auto_paused_at;
-  const href = uiRoutes().customize(projectId, `triggers?id=${encodeURIComponent(trigger.slug)}`);
+  const href = triggerHref(projectId, trigger.slug);
 
   const toggle = (enabled: boolean) => {
     setPending(true);

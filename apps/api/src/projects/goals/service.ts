@@ -56,6 +56,7 @@ import {
   goalWakePrompt,
   heartbeatSeconds,
   isGoalManager,
+  isBoundGoal,
   isOpenState,
   sessionRoles,
   splitBrief,
@@ -68,6 +69,7 @@ import {
   getGoal,
   goalFolderTaken,
   goalOfSession,
+  openGoalOwnedBy,
   installGoalHeartbeat,
   rememberGoalPrompt,
   setGoalSetupKey,
@@ -118,6 +120,17 @@ function checkRevision(goal: GoalRow, revision: number): void {
 function requireManager(goal: GoalRow, actor: GoalActor): void {
   if (actor.kind === 'session') forbidden('A session cannot do this; a person decides it.');
   if (!isGoalManager(goal, actor)) forbidden("Only the goal's creator, its assigned person or a project admin can do this.");
+}
+
+/**
+ * Who stops a goal: a person who manages it, or the chat that owns it (goal
+ * mode has no Goals page, so the chat is the person's only control). The chat
+ * passes what its person said as the reason. Any other session is refused.
+ */
+function requireStopper(goal: GoalRow, actor: GoalActor, reason: string | undefined): void {
+  if (actor.kind !== 'session' || !isBoundGoal(goal)) return requireManager(goal, actor);
+  if (goal.ownerSessionId !== actor.sessionId) forbidden('Only the chat that owns this goal stops it.');
+  if (!reason?.trim()) invalid('Pass the reason: what the person said when they told you to stop.');
 }
 
 /** The caller is the goal's CURRENT owner session, and the goal is not paused or closed (the generation fence). */
@@ -200,12 +213,26 @@ export async function createGoal(
   // A chat session may turn its conversation into a goal for the person it works for ("Make this a goal").
   // A goal's own owner or verifier may not start another goal: no goal spawns goals.
   if (actor.kind === 'platform') forbidden('A person creates a goal.');
-  if (actor.kind === 'session' && (await goalOfSession(actor.sessionId))) forbidden("A goal's own session cannot start another goal.");
-  const existing = await getGoal(project.projectId, input.goal_id);
-  if (existing) {
-    if (existing.createdByUserId !== actor.userId) throw new GoalError(409, 'goal_conflict', 'This goal id is taken.');
+  const here = input.here === true;
+  if (here) {
+    // Goal mode: the chat owns its goal. One open goal per chat; a done or stopped one leaves room for the next.
+    if (actor.kind !== 'session') forbidden('Only a chat session binds a goal to itself (`here`).');
+    // No goal session starts a goal: the owner or verifier of another open goal (a page goal's) is refused as before.
+    const worked = await goalOfSession(actor.sessionId);
+    if (worked && isOpenState(worked.state) && !(isBoundGoal(worked) && worked.ownerSessionId === actor.sessionId)) forbidden("A goal's own session cannot start another goal.");
+    // The same goal_id again is a retry of this create: `sameGoal` answers it. The insert repeats this check under a lock.
+    const current = await openGoalOwnedBy(actor.sessionId, input.goal_id);
+    if (current) forbidden(`This chat already works goal "${current.title}". It ends when the verifier passes it or a person stops it.`);
+    if (!input.criteria?.length) invalid('A goal in a chat needs 1 to 8 done criteria.');
+  } else if (actor.kind === 'session' && (await goalOfSession(actor.sessionId))) forbidden("A goal's own session cannot start another goal.");
+  /** The goal id exists: a retry of this create returns it; anyone else's id, or another chat's goal, is taken. */
+  const sameGoal = (existing: GoalRow): Promise<GoalRow> => {
+    const own = here && actor.kind === 'session' ? isBoundGoal(existing) && existing.ownerSessionId === actor.sessionId : !isBoundGoal(existing);
+    if (existing.createdByUserId !== actor.userId || !own) throw new GoalError(409, 'goal_conflict', 'This goal id is taken.');
     return finishGoalSetup(project, existing);
-  }
+  };
+  const existing = await getGoal(project.projectId, input.goal_id);
+  if (existing) return sameGoal(existing);
   if (input.criteria?.length) {
     const err = criteriaTextsValid(input.criteria);
     if (err) invalid(err);
@@ -218,7 +245,8 @@ export async function createGoal(
   const personal = await ensurePersonalFolder(drive, actor.userId);
   const { title, context } = splitBrief(input.brief);
   // Session ids nobody can predict: a derived id would let another session create it first and be adopted.
-  const ownerId = randomUUID();
+  // In goal mode the owner is the calling chat: its session exists and its person is talking to it.
+  const ownerId = here && actor.kind === 'session' ? actor.sessionId : randomUUID();
   const now = ctx.now ?? new Date();
   for (let attempt = 0; attempt < 3; attempt++) {
     const { slug, folder } = await pickFolder(drive, personal, title, (f) => goalFolderTaken(project.projectId, drive.driveId, f));
@@ -230,7 +258,7 @@ export async function createGoal(
         accountId: project.accountId,
         title,
         brief: context.slice(0, GOAL_LIMITS.brief_chars),
-        state: 'draft',
+        state: here ? 'active' : 'draft',
         blockedReason: 'setup',
         assignedUserId: input.assigned_user_id ?? null,
         createdByUserId: actor.userId,
@@ -243,13 +271,15 @@ export async function createGoal(
         sessions: [{ id: ownerId, role: 'owner', since: now.toISOString() }],
         criteriaRevision: criteria.length ? 1 : 0,
         criteria,
-        setup: {},
+        // A bound goal skips the owner session and the first prompt: the chat is both.
+        setup: here ? { bound: true, session: true, prompt: true } : {},
       },
-      ev(actor, 'created', `Goal created: ${title}`),
+      ev(actor, 'created', here ? `Goal created in its chat: ${title}` : `Goal created: ${title}`),
+      here ? ownerId : undefined,
     );
     if (row) return finishGoalSetup(project, row);
     const raced = await getGoal(project.projectId, input.goal_id);
-    if (raced) return finishGoalSetup(project, raced);
+    if (raced) return sameGoal(raced);
     // Another goal took the folder between the pick and the insert: pick again.
   }
   return invalid('Could not reserve a folder for the goal. Try again.');
@@ -307,14 +337,21 @@ export async function finishGoalSetup(project: ProjectRow, goal: GoalRow): Promi
     }
     if (!setup.files) {
       const ops = volumeOps();
-      if (ops.available()) {
-        const drive = await driveOf(goal);
-        await ops.write(drive, `${goal.folder}/GOAL.md`, goalFileText(goal), { overwrite: true });
-        if (!(await ops.stat(drive, `${goal.folder}/log.md`).catch(() => null))) {
-          await ops.write(drive, `${goal.folder}/log.md`, `# Log\n\n- ${goal.createdAt.toISOString()} Goal created: ${goal.title}\n`, { overwrite: true });
+      try {
+        if (ops.available()) {
+          const drive = await driveOf(goal);
+          await ops.write(drive, `${goal.folder}/GOAL.md`, goalFileText(goal), { overwrite: true });
+          if (!(await ops.stat(drive, `${goal.folder}/log.md`).catch(() => null))) {
+            await ops.write(drive, `${goal.folder}/log.md`, `# Log\n\n- ${goal.createdAt.toISOString()} Goal created: ${goal.title}\n`, { overwrite: true });
+          }
         }
+        await mark('files');
+      } catch (error) {
+        // A chat-bound goal keeps its brief in the chat (goal mode puts it in every turn): a Drive
+        // outage must not hold its heartbeat. Evidence still needs Drive, and `verify` says so.
+        if (!isBoundGoal(goal)) throw error;
+        logger.warn('[goals] brief not written; the chat works its goal without GOAL.md', { goal_id: goal.goalId, error: error instanceof Error ? error.message : String(error) });
       }
-      await mark('files');
     }
     if (!setup.prompt) {
       const queued = await goalEffects().queuePrompt({
@@ -336,6 +373,8 @@ export async function finishGoalSetup(project: ProjectRow, goal: GoalRow): Promi
       ? { patch: { blockedReason: null }, event: ev({ kind: 'platform' }, 'setup_finished', 'The owner session, files and heartbeat are ready.') }
       : { unchanged: true },
   );
+  // A bound goal starts active: its heartbeat goes on as soon as setup ends.
+  if (isBoundGoal(done.row)) await applyHeartbeat(done.row);
   return done.row;
 }
 
@@ -654,6 +693,7 @@ export async function handoverGoal(ctx: GoalContext, goalId: string, req: z.infe
   if (!goal) throw new GoalError(404, 'goal_not_found', 'Goal not found.');
   requireOwner(goal, ctx.actor);
   checkRevision(goal, req.revision);
+  if (isBoundGoal(goal)) conflict(goal, 'This goal belongs to its chat: it has no handover. Keep working it here.');
   if (goal.sessions.length >= goal.maxSessions) await blockSessionCap(goal, ctx);
   const newOwner = randomUUID();
   await ensureOwnerSession(ctx.project, goal, newOwner, ctx.actor.kind === 'session' ? ctx.actor.sessionId : null);
@@ -770,14 +810,16 @@ export async function resumeGoal(ctx: GoalContext, goalId: string, req: GoalCont
 
 /** `POST /stop`. On a goal already stopped it only finishes the cleanup, and answers 200: a retry completes a stop. */
 export async function stopGoal(ctx: GoalContext, goalId: string, req: GoalControlRequest): Promise<GoalRow> {
+  const actor = ctx.actor;
   const result = await writeGoal(ctx.project.projectId, goalId, (goal, now) => {
-    requireManager(goal, ctx.actor);
+    requireStopper(goal, ctx.actor, req.reason);
     if (goal.state === 'stopped') return { unchanged: true };
     checkRevision(goal, req.revision);
     if (!isOpenState(goal.state)) conflict(goal, 'A done goal cannot be stopped.');
     return {
       // Prompts that never queued are moot once a person stops the goal; a restart starts fresh.
-      patch: { state: 'stopped', stoppedAt: now, stoppedByUserId: actorIdOf(ctx.actor), verifierSessionId: null, setup: { ...goal.setup, pending_prompts: [] } },
+      // A chat stops its goal for the person it works for: that person is who stopped it.
+      patch: { state: 'stopped', stoppedAt: now, stoppedByUserId: actor.kind === 'session' ? actor.userId : actorIdOf(actor), verifierSessionId: null, setup: { ...goal.setup, pending_prompts: [] } },
       bumpGeneration: true,
       event: ev(ctx.actor, 'stopped', req.reason ?? 'Stopped by a person.'),
     };
@@ -786,7 +828,9 @@ export async function stopGoal(ctx: GoalContext, goalId: string, req: GoalContro
   await dropHeartbeat(goal);
   if (result.changed) {
     const by = actorIdOf(ctx.actor);
-    if (goal.ownerSessionId) await goalEffects().abortTurn(goal.ownerSessionId, by);
+    // The chat that stops its own goal is mid-turn, telling its person so: that turn runs on.
+    const ownTurn = actor.kind === 'session' && actor.sessionId === goal.ownerSessionId;
+    if (goal.ownerSessionId && !ownTurn) await goalEffects().abortTurn(goal.ownerSessionId, by);
     if (result.before.verifierSessionId) await goalEffects().abortTurn(result.before.verifierSessionId, by);
   }
   return reread(goal);
@@ -800,6 +844,11 @@ export async function restartGoal(ctx: GoalContext, goalId: string, req: GoalCon
   // A stopped goal, or an open goal whose owner session is lost (owner_lost): a new owner continues where it was.
   const lost = current.blockedReason === 'owner_lost' && isOpenState(current.state);
   if (current.state !== 'stopped' && !lost) conflict(current, 'Only a stopped goal, or one whose owner session is lost, restarts.');
+  // Goal mode: the goal belongs to its chat. A restart gives it no new owner session, and its chat no second open goal.
+  if (isBoundGoal(current)) {
+    if ((await sessionHealth(current.ownerSessionId!)) !== 'ok') conflict(current, 'This goal belongs to its chat, and that chat is not working. Restart the chat: the goal picks up again.');
+    if (await openGoalOwnedBy(current.ownerSessionId!, goalId)) conflict(current, 'Its chat already works another goal. Stop that one first.');
+  }
   let owner = current.ownerSessionId;
   if (!owner || (await sessionHealth(owner)) !== 'ok') {
     if (current.sessions.length >= current.maxSessions) await blockSessionCap(current, ctx);

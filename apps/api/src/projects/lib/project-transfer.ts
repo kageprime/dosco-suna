@@ -25,7 +25,7 @@
  */
 import { and, eq, getTableName, inArray, sql } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
-import { artifacts, projectGoals, sessionSandboxIdentities, projectSessionGroups, projectSpaces, rooms, sessionIdleWatches, accountModelPreferences, accountSecretResources, accountSecretGrants, accountTokens, appArtifacts, apps, changeRequests, connectorAttachments, connectorCalls, connectorHeldCalls, connectorConnections, connectionOAuthApplications, connectionOAuthSessions, connectors, drives, gatewayApiKeys, projectAccessRequests, projectGitConnections, projectGitCredentials, projectMonitorBoxes, projectSessionConnectorBindings, projectSessionPublicShares, projectSessions, projectSnapshotBuilds, projectTriggerEventSubscriptions, projectTriggerEventPolls, iamRoles, promptAttachments, providerTransitions, reviewItems, roleAssignments, sandboxTemplates, serviceAccounts, sessionColleagueAccess, sessionContentPurges, sessionLifecycleCommands, sessionLogs, sessionPendingPermissions, sessionPendingQuestions, sessionRuntimeProjections, sessionSandboxes, sessionTurns } from '@kortix/db';
+import { artifacts, evalJobs, projectGoals, sessionSandboxIdentities, projectSessionGroups, projectSpaces, rooms, sessionIdleWatches, accountModelPreferences, accountSecretResources, accountSecretGrants, accountTokens, appArtifacts, apps, changeRequests, connectorAttachments, connectorCalls, connectorHeldCalls, connectorConnections, connectionOAuthApplications, connectionOAuthSessions, connectors, drives, gatewayApiKeys, projectAccessRequests, projectGitConnections, projectGitCredentials, projectMonitorBoxes, projectSessionConnectorBindings, projectSessionPublicShares, projectSessions, projectSnapshotBuilds, projectTriggerEventSubscriptions, projectTriggerEventPolls, iamRoles, promptAttachments, providerTransitions, reviewItems, roleAssignments, sandboxTemplates, serviceAccounts, sessionColleagueAccess, sessionContentPurges, sessionLifecycleCommands, sessionLogs, sessionPendingPermissions, sessionPendingQuestions, sessionRuntimeProjections, sessionSandboxes, sessionTurns } from '@kortix/db';
 import { db } from '../../shared/db';
 import { logger } from '../../lib/logger';
 import { decryptAccountSecret, encryptAccountSecret } from '../../secrets/account-resource';
@@ -98,6 +98,8 @@ export const PROJECT_TRANSFER_TABLES: readonly PgTable[] = [
   // A goal belongs to the project (its folder is in the project drive). Its
   // event log carries project_id only and needs no move.
   projectGoals,
+  // An eval job and its scores belong to the project; its results live in the project's Files.
+  evalJobs,
 ];
 
 /**

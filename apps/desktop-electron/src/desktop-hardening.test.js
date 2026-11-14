@@ -152,12 +152,30 @@ describe('desktop lifecycle decisions', () => {
 });
 
 describe('native menu state', () => {
-  it('enables project actions only on a project and Close Tab only on a tab route', () => {
+  it('with desktop tabs on, enables Close Tab on every project page', () => {
+    for (const path of ['', '/admin/models', '/goals']) {
+      expect(
+        menuState.menuContextForUrl?.(`https://kortix.com/workspaces/project-1${path}`, true),
+      ).toEqual({ inProject: true, hasActiveTab: true });
+    }
+    expect(menuState.menuContextForUrl?.('https://kortix.com/new', true)).toEqual({
+      inProject: false,
+      hasActiveTab: false,
+    });
+  });
+
+  it('with desktop tabs off, enables Close Tab only on a session or Customize, as before tabs', () => {
     expect(
       menuState.menuContextForUrl?.('https://kortix.com/workspaces/project-1'),
     ).toEqual({
       inProject: true,
       hasActiveTab: false,
+    });
+    expect(
+      menuState.menuContextForUrl?.('https://kortix.com/workspaces/project-1/customize/agents'),
+    ).toEqual({
+      inProject: true,
+      hasActiveTab: true,
     });
     expect(
       menuState.menuContextForUrl?.(

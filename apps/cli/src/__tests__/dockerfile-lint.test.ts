@@ -107,6 +107,33 @@ describe('lintDockerfile — non-Debian base', () => {
   });
 });
 
+describe('lintDockerfile — all three checks at once', () => {
+  // Characterization (KRTX-4813): pins the exact issue lines and their order
+  // for a Dockerfile that trips every check — the sort by line is the
+  // contract `kortix validate` prints.
+  test('one Dockerfile tripping all three checks reports them in line order', () => {
+    const issues = lint(
+      [
+        'FROM alpine:3', // 1 — non-Debian base → warning
+        'COPY requirements.txt /opt/', // 2 — reads the build context → error
+        "RUN python3 <<'PY'", // 3 — buildah-portability → error
+        'import importlib', // heredoc body: never an issue
+        'PY',
+        'CMD ["python3", "-V"]',
+        '',
+      ].join('\n'),
+    );
+    expect(issues.map((i) => [i.line, i.severity])).toEqual([
+      [1, 'warning'],
+      [2, 'error'],
+      [3, 'error'],
+    ]);
+    expect(issues[0]!.message).toContain('apt-get');
+    expect(issues[1]!.message).toContain('requirements.txt');
+    expect(issues[2]!.message).toContain('heredoc');
+  });
+});
+
 describe('lintDockerfile — the platform default text', () => {
   test('the Dockerfile Kortix itself ships is clean', () => {
     // If our own default tripped these checks, the checks would be wrong.

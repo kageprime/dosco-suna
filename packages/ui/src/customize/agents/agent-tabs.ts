@@ -140,6 +140,8 @@ export const YAML_KEY_ROW = {
   top_p: 'model',
   steps: 'model',
   options: 'model',
+  run: 'model',
+  timeout: 'model',
   tools: 'tools',
   codemode: 'tools',
   context: 'tools',

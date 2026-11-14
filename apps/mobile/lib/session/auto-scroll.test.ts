@@ -11,6 +11,7 @@ import {
   anchorSpan,
   chevronVisible,
   distanceFromEnd,
+  extentShortfall,
   isAtEnd,
   momentumFollows,
   nextFollow,
@@ -54,6 +55,39 @@ describe('distanceFromEnd / scrollEnd / isAtEnd', () => {
 
   test('an iOS overscroll past the end (negative distance) is at the end', () => {
     expect(isAtEnd(-30)).toBe(true);
+  });
+});
+
+describe('extentShortfall — the native scroll extent behind the laid-out content (KRTX-4899)', () => {
+  test('a native extent 450pt short of the layout: the inset makes the laid-out end reachable', () => {
+    const viewportHeight = 852;
+    const laidOutHeight = 4200;
+    const nativeHeight = 3750;
+    const inset = extentShortfall({ laidOutHeight, nativeHeight });
+    expect(inset).toBe(450);
+    // UIKit's largest offset is contentSize + contentInset.bottom − bounds.
+    expect(scrollEnd(nativeHeight + inset, viewportHeight)).toBe(scrollEnd(laidOutHeight, viewportHeight));
+  });
+
+  test('a native extent that matches the layout needs no inset', () => {
+    expect(extentShortfall({ laidOutHeight: 4200, nativeHeight: 4200 })).toBe(0);
+  });
+
+  test('a native extent taller than the layout (content shrank) needs no inset', () => {
+    expect(extentShortfall({ laidOutHeight: 3000, nativeHeight: 4200 })).toBe(0);
+  });
+
+  test('a gap within AT_END_PX is rounding, not a short extent', () => {
+    expect(extentShortfall({ laidOutHeight: 4200 + AT_END_PX, nativeHeight: 4200 })).toBe(0);
+    expect(extentShortfall({ laidOutHeight: 4200 + AT_END_PX + 1, nativeHeight: 4200 })).toBe(AT_END_PX + 1);
+  });
+
+  test('a fractional gap rounds up, so the last line is never cut by a fraction', () => {
+    expect(extentShortfall({ laidOutHeight: 4210.4, nativeHeight: 4200 })).toBe(11);
+  });
+
+  test('no layout yet (0) needs no inset', () => {
+    expect(extentShortfall({ laidOutHeight: 0, nativeHeight: 4200 })).toBe(0);
   });
 });
 

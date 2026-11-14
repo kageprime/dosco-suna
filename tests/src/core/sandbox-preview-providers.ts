@@ -29,7 +29,7 @@ import {
   previewSandboxIdentity,
   previewSandboxName,
 } from './sandbox-preview';
-import type { PreviewRuntimeSecrets } from './preview-stack';
+import { type PreviewRuntimeSecrets, previewOrigin } from './preview-stack';
 import {
   type ListedPlatinumSandbox,
   allPlatinumPreviewSandboxes,
@@ -103,14 +103,8 @@ function encodedFileCommand(path: string, content: string, mode = '0600'): strin
 
 function validatedPreviewUrl(value: string | undefined): string {
   if (!value) throw new Error('sandbox provider did not return a preview URL');
-  const url = new URL(value);
-  if (url.protocol !== 'https:' || url.username || url.password) {
-    throw new Error(`sandbox preview URL must use credential-free HTTPS: ${url.origin}`);
-  }
-  url.pathname = '/';
-  url.search = '';
-  url.hash = '';
-  return url.origin;
+  // Drop the path, query and hash a provider URL may carry; keep its credentials for the check.
+  return previewOrigin(new URL('/', value).href);
 }
 
 async function writeDeploymentResult(

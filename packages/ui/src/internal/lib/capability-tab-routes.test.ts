@@ -7,7 +7,9 @@ import {
   capabilityTabHref,
   channelsHref,
   reviewHref,
+  triggerHref,
 } from './capability-tab-routes';
+import { adminResourceRowOpen } from '../layout/project-settings-nav';
 
 describe('CAPABILITY_TABS', () => {
   test('lists agent, skills, connectors, triggers, models, secrets, files, review, config in that order', () => {
@@ -86,10 +88,29 @@ describe('capabilityTabHref', () => {
 describe('reviewHref', () => {
   test('Review is a tab of the Inbox', () => {
     // Since 2026-11-04 Review is a top-level page; `/customize/review` redirects to it.
-    expect(reviewHref('p1')).toBe('/workspaces/p1/inbox?view=review');
-    expect(capabilityTabHref('p1', 'review')).toBe('/workspaces/p1/inbox?view=review');
+    expect(reviewHref('p1')).toBe('/workspaces/p1/review');
+    expect(capabilityTabHref('p1', 'review')).toBe('/workspaces/p1/review');
     // The page draws no Customize bar, so it lights no Customize tab.
-    expect(activeCapabilityTab('/workspaces/p1/inbox?view=review')).toBeNull();
+    expect(activeCapabilityTab('/workspaces/p1/review')).toBeNull();
+  });
+});
+
+describe('triggerHref', () => {
+  test('opens one trigger on the Triggers section, never through the /customize redirect that drops ?id', () => {
+    expect(triggerHref('p1', 'nightly')).toBe('/workspaces/p1/admin/triggers?id=nightly');
+    expect(triggerHref('p1', 'reminder.0123456789ab')).toBe('/workspaces/p1/admin/triggers?id=reminder.0123456789ab');
+  });
+});
+
+describe('adminResourceRowOpen: the rule the settings page and its links share', () => {
+  const triggers = { capability: 'triggers' as const };
+  test('Triggers needs Settings access and the Triggers capability', () => {
+    expect(adminResourceRowOpen(triggers, true, new Set(['triggers']))).toBe(true);
+    expect(adminResourceRowOpen(triggers, false, new Set(['triggers']))).toBe(false);
+    expect(adminResourceRowOpen(triggers, true, new Set())).toBe(false);
+  });
+  test('a member-open row needs only its capability', () => {
+    expect(adminResourceRowOpen({ capability: 'agent', memberOpen: true }, false, new Set(['agent']))).toBe(true);
   });
 });
 

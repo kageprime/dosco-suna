@@ -83,6 +83,7 @@ describe('Workspace settings rail — the shared registry', () => {
     expect(WORKSPACE_SETTINGS_GROUPS.map((group) => [group.id, [...group.sections]])).toEqual([
       ['workspace', ['general', 'security', 'branding', 'api-keys', 'capture']],
       ['library', ['agents', 'models', 'connectors', 'secrets', 'skills', 'drives', 'apps', 'triggers', 'sandbox', 'git', 'repo']],
+      ['evals', ['evals', 'eval-datasets', 'eval-tasks', 'eval-jobs']],
       ['people', ['members', 'groups', 'roles', 'identity', 'audit']],
       ['billing', ['plan', 'usage']],
       ['advanced', ['feature-flags']],

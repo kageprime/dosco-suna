@@ -94,7 +94,6 @@ mock.module('../lib/access', () => ({
     };
   },
 }));
-mock.module('../../feature-flags/gate', () => ({ requireFeatureFlag: () => null }));
 const realRegistry = await import('../../feature-flags/registry');
 mock.module('../../feature-flags/registry', () => ({ ...realRegistry, resolveFeatureFlag: () => true }));
 const realEntitlements = await import('../../billing/services/entitlements');
@@ -450,8 +449,7 @@ test('a caller that holds project.secret.read selects and is handed the key ids'
   expect(capabilityChecks).toEqual(['project.session.stop', 'project.secret.read']);
 });
 
-// pooled_provider_secrets lets a member choose their own ChatGPT or Claude
-// account for their session. The session's own person skips the leaf (each id
+// A member chooses their own ChatGPT or Claude account for their session. The session's own person skips the leaf (each id
 // is still checked as theirs to use); the list answers can_edit for them too.
 test("the session's own person without project.secret.read selects, and the list says can_edit", async () => {
   callerId = ownerId;

@@ -64,8 +64,11 @@ export async function enabledFeatureFlags(
 
 /** True for an unflagged item, or a flag in `flags`. */
 export function featureShown(flag: string | null | undefined, flags: Set<string> | null): boolean {
-  return !flag || flags?.has(flag) === true;
+  return !flag || flags?.has(flag) === true || (flags !== null && (ALSO_SHOWN_BY[flag] ?? []).some((other) => flags.has(other)));
 }
+
+/** A box token that shows a flagged item too: `goal_mode` (a chat binds its own goal) needs `kortix goals` without the `goals` flag. */
+const ALSO_SHOWN_BY: Record<string, string[]> = { goals: ['goal_mode'] };
 
 /** The one line a hidden item prints instead of itself. */
 export function featureOffMessage(what: string, flag: string, flags: Set<string> | null): string {

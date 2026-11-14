@@ -47,3 +47,19 @@ export function splitFilenameForTile(name: string): { head: string; tail: string
   if (name.length <= LONG_NAME_THRESHOLD) return null;
   return { head: name.slice(0, -NAME_TAIL_CHARS), tail: name.slice(-NAME_TAIL_CHARS) };
 }
+
+/**
+ * A short name cut into the pieces a line may break between: after `-`, `_`
+ * or a space, and before the extension's dot. The tile puts a `<wbr>` between
+ * pieces and lets the browser break nowhere else unless one piece alone is
+ * wider than the tile, so `dsa-c-attach.txt` wraps as `dsa-c-attach` /
+ * `.txt`, never `dsa-c-attach.t` / `xt` (dev audit, 2026-11-14).
+ */
+export function filenameBreakSegments(name: string): string[] {
+  const dot = name.lastIndexOf('.');
+  const hasExtension = dot > 0 && dot < name.length - 1;
+  const stem = hasExtension ? name.slice(0, dot) : name;
+  const segments = stem.split(/(?<=[-_ ])/).filter(Boolean);
+  if (hasExtension) segments.push(name.slice(dot));
+  return segments.length ? segments : [name];
+}

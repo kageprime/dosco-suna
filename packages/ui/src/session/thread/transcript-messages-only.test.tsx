@@ -286,3 +286,18 @@ describe('messages only: a blank text segment', () => {
     }
   });
 });
+
+describe('messages only: a connector sign-in', () => {
+  // The Connect card draws under the call that started the sign-in. A space
+  // thread with `chat` on hides the work, never the card the person must click.
+  test('the call that started it stays, working or settled; a failed one does not', () => {
+    const connect = call('c1', 'bash', { command: 'kortix connectors connect gmail' }, 'Open the sign-in link.');
+    const failed = { ...call('c2', 'bash', { command: 'kortix connectors connect notion' }, 'Connector not found'), result: { content: [], is_error: false, exit_code: 1 } };
+    const standalone = (block: unknown) => ({ kind: 'standalone' as const, block }) as never;
+    const text = { kind: 'text' as const, block: { type: 'text', id: 't1', text: 'Click Connect on the card.' } } as never;
+    for (const working of [false, true]) {
+      const kept = messageOnlySegments([standalone(connect), standalone(failed), text], { working, permissions: [] });
+      expect(kept.map((segment) => (segment as { block: { id: string } }).block.id)).toEqual(['c1', 't1']);
+    }
+  });
+});

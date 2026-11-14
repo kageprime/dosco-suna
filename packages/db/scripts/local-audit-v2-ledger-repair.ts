@@ -1,5 +1,6 @@
 import type pg from 'pg';
-import { verifyMigrationChecksum, withLedgerLock } from './ledger-repair';
+import { hasMigration, insertMigration, withLedgerLock } from './migration-ledger';
+import { verifyMigrationChecksum } from './ledger-repair';
 
 const MIGRATION_NAME = '20260807221200000_centralized_audit_v2';
 const MIGRATION_FILE = `${MIGRATION_NAME}.sql`;
@@ -101,8 +102,24 @@ export function planLocalAuditV2LedgerRepair(
   return true;
 }
 
-async function readSignature(client: pg.Client): Promise<AuditV2Signature> {
-  const tables = await client.query<{ name: string }>(`
+/**
+ * The one catalog signature read: each section is a data row (its query and
+ * its expected name list) run through the same query-then-`name`-map.
+ *
+ * `params` is the bind-value array pg receives: each row wraps its name list
+ * as ONE text[] parameter, because the SQL takes a single `$1::text[]`. A
+ * flat list throws `08P01 bind message supplies N parameters, but prepared
+ * statement "" requires 1` (the base call sites wrapped each list the same
+ * way). `local-audit-v2-ledger-repair.test.ts` pins the wrapped shape.
+ */
+const SIGNATURE_QUERIES: Array<{
+  section: keyof AuditV2Signature;
+  sql: string;
+  params: string[][];
+}> = [
+  {
+    section: 'tables',
+    sql: `
       select relname as name
         from pg_class c
         join pg_namespace n on n.oid = c.relnamespace
@@ -110,54 +127,91 @@ async function readSignature(client: pg.Client): Promise<AuditV2Signature> {
          and c.relkind = 'r'
          and relname = any($1::text[])
        order by relname
-    `, [['audit_session_sequences', 'audit_webhook_deliveries']]);
-  const auditColumns = await client.query<{ name: string }>(`
+    `,
+    params: [['audit_session_sequences', 'audit_webhook_deliveries']],
+  },
+  {
+    section: 'auditColumns',
+    sql: `
       select column_name as name
         from information_schema.columns
        where table_schema = 'kortix'
          and table_name = 'audit_events'
          and column_name = any($1::text[])
        order by column_name
-    `, [AUDIT_EVENT_COLUMNS]);
-  const tunnelColumns = await client.query<{ name: string }>(`
+    `,
+    params: [AUDIT_EVENT_COLUMNS],
+  },
+  {
+    section: 'tunnelColumns',
+    sql: `
       select column_name as name
         from information_schema.columns
        where table_schema = 'kortix'
          and table_name = 'tunnel_audit_logs'
          and column_name = any($1::text[])
        order by column_name
-    `, [TUNNEL_COLUMNS]);
-  const functions = await client.query<{ name: string }>(`
+    `,
+    params: [TUNNEL_COLUMNS],
+  },
+  {
+    section: 'functions',
+    sql: `
       select proname as name
         from pg_proc p
         join pg_namespace n on n.oid = p.pronamespace
        where n.nspname = 'kortix'
          and proname = any($1::text[])
        order by proname
-    `, [FUNCTIONS]);
-  const triggers = await client.query<{ name: string }>(`
+    `,
+    params: [FUNCTIONS],
+  },
+  {
+    section: 'triggers',
+    sql: `
       select tgname as name
         from pg_trigger
        where not tgisinternal
          and tgname = any($1::text[])
        order by tgname
-    `, [TRIGGERS]);
-  const indexes = await client.query<{ name: string }>(`
+    `,
+    params: [TRIGGERS],
+  },
+  {
+    section: 'indexes',
+    sql: `
       select indexname as name
         from pg_indexes
        where schemaname = 'kortix'
          and indexname = any($1::text[])
        order by indexname
-    `, [INDEXES]);
-  const names = (result: pg.QueryResult<{ name: string }>) => result.rows.map((row) => row.name);
-  return {
-    tables: names(tables),
-    auditColumns: names(auditColumns),
-    tunnelColumns: names(tunnelColumns),
-    functions: names(functions),
-    triggers: names(triggers),
-    indexes: names(indexes),
+    `,
+    params: [INDEXES],
+  },
+];
+
+/** One query-then-map: the `name` column of every row, in query order. */
+async function namesOf(client: pg.Client, sql: string, params: string[][]): Promise<string[]> {
+  const result = await client.query<{ name: string }>(sql, params);
+  return result.rows.map((row) => row.name);
+}
+
+export async function readSignature(client: pg.Client): Promise<AuditV2Signature> {
+  // One read at a time, in SIGNATURE_QUERIES order: the client is a single
+  // pg connection, and Promise.all over it is pg's "client is already
+  // executing a query" deprecation (removed in pg@9).
+  const signature: AuditV2Signature = {
+    tables: [],
+    auditColumns: [],
+    tunnelColumns: [],
+    functions: [],
+    triggers: [],
+    indexes: [],
   };
+  for (const { section, sql, params } of SIGNATURE_QUERIES) {
+    signature[section] = await namesOf(client, sql, params);
+  }
+  return signature;
 }
 
 export async function repairLocalAuditV2Ledger(
@@ -167,23 +221,12 @@ export async function repairLocalAuditV2Ledger(
   verifyMigrationChecksum(migrationsDir, { filename: MIGRATION_FILE, sha256: MIGRATION_SHA256 });
 
   return withLedgerLock(databaseUrl, false, async (client) => {
-    const applied = await client.query(
-      'select 1 from kortix_migrations.pgmigrations where name = $1 limit 1',
-      [MIGRATION_NAME],
-    );
-    const repair = planLocalAuditV2LedgerRepair(applied.rowCount === 1, await readSignature(client));
+    const applied = await hasMigration(client, MIGRATION_NAME);
+    const repair = planLocalAuditV2LedgerRepair(applied, await readSignature(client));
     if (!repair) {
       return false;
     }
-    const inserted = await client.query(
-      `insert into kortix_migrations.pgmigrations (name, run_on)
-       select $1::varchar, clock_timestamp()
-        where not exists (
-          select 1 from kortix_migrations.pgmigrations where name = $1::varchar
-        )`,
-      [MIGRATION_NAME],
-    );
-    if (inserted.rowCount !== 1) {
+    if ((await insertMigration(client, MIGRATION_NAME)) !== 1) {
       throw new Error(`Could not record ${MIGRATION_NAME} in the local migration ledger.`);
     }
     return true;

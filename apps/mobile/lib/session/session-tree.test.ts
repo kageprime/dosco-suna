@@ -47,6 +47,10 @@ describe('normalizeSessionListFilter / searchQueryParam', () => {
     });
     expect(searchQueryParam('a'.repeat(300))).toHaveLength(200);
     expect(searchQueryParam('  ')).toBeUndefined();
+    // A native input's clear can hand null/undefined through the debounced
+    // query: the server contract ("send neither for empty") reads it as empty.
+    expect(searchQueryParam(null)).toBeUndefined();
+    expect(searchQueryParam(undefined)).toBeUndefined();
   });
 });
 
@@ -103,7 +107,7 @@ describe('buildDrawerItems', () => {
   const parent = make({ session_id: 'p', child_count: 3 });
   const leaf = make({ session_id: 'l' });
   const orphan = make({ session_id: 'o', parent_session_id: 'p' });
-  const base = { open: true, hidden: false, hasMore: false };
+  const base = { open: true, hasMore: false };
 
   test('a collapsed parent has no children block; an expanded one gets it right after', () => {
     const sections = [{ id: 'sessions' as const, title: 'Sessions', rows: [parent, leaf], ...base }];
@@ -114,15 +118,27 @@ describe('buildDrawerItems', () => {
     const items = buildDrawerItems([{ id: 'sessions', title: 'Sessions', rows: [leaf, orphan], ...base }], () => true);
     expect(items.map((i) => i.kind)).toEqual(['header', 'root']);
   });
-  test('a collapsed section keeps only its header; a hidden one has none', () => {
+  test('a collapsed section keeps only its header', () => {
+    const items = buildDrawerItems([{ id: 'automated', title: 'Automated', rows: [leaf], ...base, open: false }], () => false);
+    expect(items).toEqual([{ kind: 'header', section: 'automated', title: 'Automated', open: false }]);
+  });
+  test('a section with no row has no header and no Show more, also with a next page', () => {
+    const items = buildDrawerItems(
+      (['pinned', 'sessions', 'shared', 'automated'] as const).map((id) => ({ id, title: id, rows: [], ...base, hasMore: true })),
+      () => false,
+    );
+    expect(items).toEqual([]);
+  });
+  test('a section whose every row an earlier section shows has no header', () => {
     const items = buildDrawerItems(
       [
-        { id: 'shared', title: 'Shared', rows: [leaf], ...base, hidden: true },
-        { id: 'automated', title: 'Automated', rows: [leaf], ...base, open: false },
+        { id: 'sessions', title: 'Sessions', rows: [leaf], ...base },
+        { id: 'shared', title: 'Shared', rows: [leaf], ...base, hasMore: true },
       ],
       () => false,
     );
-    expect(items).toEqual([{ kind: 'header', section: 'automated', title: 'Automated', open: false }]);
+    expect(items.filter((i) => i.kind === 'header').map((i) => i.section)).toEqual(['sessions']);
+    expect(items.some((i) => i.kind === 'more')).toBe(false);
   });
   test('"Show more" ends a paged section except Sessions (which scrolls)', () => {
     const shared = buildDrawerItems([{ id: 'shared', title: 'Shared', rows: [leaf], ...base, hasMore: true }], () => false);
@@ -192,7 +208,7 @@ describe('pinned and archived views', () => {
     ]);
   });
 
-  const base = { open: true, hidden: false, hasMore: false };
+  const base = { open: true, hasMore: false };
   const roots = (items: ReturnType<typeof buildDrawerItems>) =>
     items.filter((i) => i.kind === 'root').map((i) => `${i.section}:${i.session.session_id}`);
 

@@ -5,8 +5,8 @@ import { formatUsdAsCredits } from '@kortix/shared';
 export class BillingError extends Error {
   public readonly statusCode: number;
 
-  constructor(message: string, statusCode = 400) {
-    super(message);
+  constructor(message: string, statusCode = 400, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'BillingError';
     this.statusCode = statusCode;
   }
@@ -34,8 +34,8 @@ export class InsufficientCreditsError extends BillingError {
  * lost connection. NOT a refusal. The account may have funds. Retryable.
  */
 export class WalletUnavailableError extends BillingError {
-  constructor(message = 'Billing is temporarily unavailable. Retry shortly.') {
-    super(message, 503);
+  constructor(message = 'Billing is temporarily unavailable. Retry shortly.', options?: ErrorOptions) {
+    super(message, 503, options);
     this.name = 'WalletUnavailableError';
   }
 }

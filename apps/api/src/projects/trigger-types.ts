@@ -45,8 +45,17 @@ export interface GitTriggerSpec {
   model: string | null;
   /** When false, the scheduler / webhook receiver skip this entry. */
   enabled: boolean;
-  /** Mustache-style prompt template — the body sent to the agent on each fire. */
+  /**
+   * Mustache-style prompt template — the body sent to the agent on each fire.
+   * Empty for a program agent's trigger that omits `prompt`: the input is then
+   * the payload itself, as JSON (lib/trigger-payload.ts `renderTriggerInput`).
+   */
   promptTemplate: string;
+  /**
+   * An agent run's static `run.payload`: merged under each fire's payload, so
+   * the prompt template and a program agent's stdin carry it. Omitted when unset.
+   */
+  runPayload?: Record<string, unknown>;
   /** For type=cron only. 6-field croner expression. Null for one-off (`runAt`) schedules. */
   cron: string | null;
   /**

@@ -78,6 +78,11 @@ const RuntimeEnvSchema = z.object({
    *  KORTIX_PUBLIC_SERVICES_PAGES_ENABLED / NEXT_PUBLIC_SERVICES_PAGES_ENABLED
    *  is "true" (dev sets it) or the app runs under `next dev`. */
   SERVICES_PAGES_ENABLED: z.boolean().default(false),
+  /** Loopmaxxing, the developer landing: the /loopmaxxing page, the
+   *  loopmaxxing.sh host and the announcement bar on the marketing site. Off
+   *  unless KORTIX_PUBLIC_LOOPMAXXING_ENABLED / NEXT_PUBLIC_LOOPMAXXING_ENABLED
+   *  is "true" (dev sets it) or the app runs under `next dev`. */
+  LOOPMAXXING_ENABLED: z.boolean().default(false),
   /** Self-host account-creation restriction: hides "New account" affordances
    *  (accounts page header button + empty-state CTA, account-switcher
    *  dropdown item) for non-platform-admins. Mirrors the backend's

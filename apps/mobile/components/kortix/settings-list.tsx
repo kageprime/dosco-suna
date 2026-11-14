@@ -41,7 +41,7 @@ import { MenuButton } from '@/components/kortix/menu-button';
 import { BackButton } from '@/components/kortix/back-button';
 import { haptics } from '@/lib/haptics';
 import { cn } from '@/lib/utils/index';
-import { SHEET_ROW_SURFACE, SurfaceContext } from '@/components/kortix/surface-context';
+import { SHEET_ROW_SURFACE, SurfaceContext, rowSurface } from '@/components/kortix/surface-context';
 import { useThemeStore, type ThemePreference } from '@/stores/theme-store';
 
 /**
@@ -166,7 +166,7 @@ export function SettingsGroup({
   title?: string;
   /**
    * Row surface override. Rarely needed: inside `KortixBottomSheetModal` the
-   * rows take `SHEET_ROW_SURFACE` on their own, elsewhere `bg-card`.
+   * rows take `SHEET_ROW_SURFACE` on their own (`GLASS_ROW_SURFACE` on the iOS 26 glass sheet), elsewhere `bg-card`.
    */
   className?: string;
   children: React.ReactNode;
@@ -191,7 +191,7 @@ export function SettingsGroup({
             key={row.key ?? i}
             className={cn(
               'overflow-hidden rounded-sm',
-              surface === 'sheet' ? SHEET_ROW_SURFACE : 'bg-card',
+              rowSurface(surface),
               // i === 0 && 'rounded-t-2xl',
               // i === rows.length - 1 && 'rounded-b-2xl',
               className
@@ -230,7 +230,7 @@ export function SettingsGroupItem({
       style={index > 0 ? { marginTop: ROW_GAP } : undefined}
       className={cn(
         'overflow-hidden rounded-sm',
-        surface === 'sheet' ? SHEET_ROW_SURFACE : 'bg-card',
+        rowSurface(surface),
         index === 0 && 'rounded-t-2xl',
         index === count - 1 && 'rounded-b-2xl',
         className

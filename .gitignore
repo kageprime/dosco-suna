@@ -114,6 +114,8 @@ test/
 # any local per-clone leftovers out. Other vendored .kortix dirs stay ignored
 # further down.
 .kortix/
+# Templates ship a .kortix/<id>/ folder that a repository imports: track it.
+!packages/starter/templates/*/.kortix/
 apps/api/.kortix-data/
 apps/api/.sandbox-auth-token.json
 **/.buildx-cache/

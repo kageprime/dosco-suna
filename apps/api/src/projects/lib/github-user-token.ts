@@ -41,14 +41,14 @@ export function githubUserTokenIsUsable(token: StoredGitHubUserToken, nowMs: num
   return token.expiresAt - EXPIRY_SKEW_MS > nowMs;
 }
 
-export interface ResolveGitHubUserTokenInput {
+interface ResolveGitHubUserTokenInput {
   accountId: string;
   userId: string;
   /** The GitHub owner the repository would be created under. */
   ownerLogin: string;
 }
 
-export interface ResolveGitHubUserTokenDeps {
+interface ResolveGitHubUserTokenDeps {
   load: (accountId: string, userId: string) => Promise<StoredGitHubUserToken | null>;
   now: () => number;
 }
@@ -77,7 +77,7 @@ export async function resolveGitHubUserToken(
 }
 
 /** Read and decrypt one row. Throws if the envelope cannot be opened. */
-export async function loadGitHubUserToken(
+async function loadGitHubUserToken(
   accountId: string,
   userId: string,
 ): Promise<StoredGitHubUserToken | null> {
@@ -99,7 +99,7 @@ export async function loadGitHubUserToken(
   };
 }
 
-export interface SaveGitHubUserTokenInput {
+interface SaveGitHubUserTokenInput {
   accountId: string;
   userId: string;
   githubLogin: string;

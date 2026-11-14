@@ -74,6 +74,17 @@ export function sessionUserStateSql(view: SessionListView | null, personId: stri
   return view ? exists : sql`not ${exists}`;
 }
 
+/**
+ * The person's pin time of the listed row: the pinned view's sort key. A
+ * pinned list in pin order does not move when a session is opened, which
+ * bumps `updated_at` (dev audit, 2026-11-14).
+ */
+export function pinnedAtSql(personId: string): SQL<Date> {
+  return sql<Date>`(select state.pinned_at from ${projectSessionUserStates} as state
+     where state.session_id = ${qualifiedColumn(projectSessions.sessionId)}
+       and state.user_id = ${personId}::uuid)`;
+}
+
 /** Account erasure: the person's pins and archive, in every account. */
 export async function deleteUserSessionStates(userId: string): Promise<void> {
   await db.delete(projectSessionUserStates).where(eq(projectSessionUserStates.userId, userId));

@@ -23,9 +23,8 @@
  *      any other shape) is left untouched — the guard never rewrites an
  *      access rule the advisor did not describe.
  *
- * The fixture table is the legacy table in prod's exact column shape (the
- * same fixture `tests/migration/legacy-credit-ledger-created-by-index.test.ts`
- * seeds, minus the FKs, which an RLS policy does not read). The two policies
+ * The fixture table is the legacy table in prod's exact column shape, minus
+ * the FKs, which an RLS policy does not read. The two policies
  * mirror prod as it stands since KRTX-1162 scoped their roles
  * (`20261003145424808_legacy_credit_ledger_policy_roles.sql`): the service
  * policy to `service_role`, the users policy to `authenticated`. Fixture DDL

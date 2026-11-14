@@ -1,6 +1,6 @@
 'use client';
 
-import { useReducedMotion } from 'motion/react';
+import { useReducedMotion } from '@kortix/ui/internal/hooks/use-reduced-motion';
 import { useTheme } from 'next-themes';
 import dynamic from 'next/dynamic';
 import { memo } from 'react';

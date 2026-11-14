@@ -109,7 +109,7 @@ export default function GitHubConnectPopup() {
     <main className="bg-background flex min-h-svh flex-col items-center justify-center px-6">
       <div className="w-full max-w-[320px]">
         <KortixLogo variant="icon" size={22} className="text-foreground" />
-        <h1 className="text-foreground mt-6 text-2xl font-medium tracking-tight">
+        <h1 className="text-foreground mt-6 text-2xl font-semibold tracking-tight text-balance">
           {tHardcodedUi.raw('appAuthGithubConnectPage.line116JsxTextConnectGithub')}
         </h1>
 

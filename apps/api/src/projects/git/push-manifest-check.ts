@@ -25,7 +25,7 @@ const CHECK_TIMEOUT_MS = 15_000;
 /** Rounds of fetching the bases a thin pack needs. */
 const MAX_BASE_FETCH_ROUNDS = 3;
 
-export interface PushedManifestError {
+interface PushedManifestError {
   path: string;
   message: string;
   line?: number;

@@ -13,7 +13,6 @@ import { validateRef } from '../shared/git-ref';
 import { PROJECT_SNAPSHOT_FORMAT, type ProjectSnapshotRepository } from './project-snapshot-store';
 
 export const PROJECT_SNAPSHOT_MODES = ['git', 'prefer-s3', 'require-s3'] as const;
-export type ProjectSnapshotMode = (typeof PROJECT_SNAPSHOT_MODES)[number];
 
 /** `refs/heads/main` and `main` are one identity. */
 export function normalizeSnapshotRef(ref: string): string {

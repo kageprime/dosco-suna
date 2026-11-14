@@ -1,6 +1,45 @@
 
 # Kortix Mobile — UI conventions (READ FIRST, ENFORCE ALWAYS)
 
+## Required version bump for agents
+
+Every task that changes mobile app code, assets, dependencies, or native
+configuration must include a mobile version bump before handoff or push:
+
+```sh
+node apps/mobile/scripts/set-version.mjs --next
+```
+
+Run it once per task, from the repo root, after syncing with `origin/dev`.
+Do not bump again for each edit, test run, or review fix in the same task.
+Documentation-only changes need no bump. Keep major and minor unchanged.
+The first bump moves a single-digit patch into two digits. Examples: `1.6.2` →
+`1.6.21`, `1.5.6` → `1.5.61` (`1.0.0` → `1.0.10`). Subsequent bumps
+increment the patch numerically: `1.5.61` → `1.5.62` → `1.5.63`;
+`1.6.29` → `1.6.30`. Use `--next` instead of choosing a patch, minor,
+or major release. A new release line needs the user's instruction.
+
+Commit all files printed by the command. It synchronizes Expo, iOS, Android,
+and `runtimeVersion`. EAS continues to increment native build numbers.
+Do not change the root `VERSION` or an SDK package version for mobile work.
+Before the final push, fetch `origin/dev`. If its version differs from the
+task's base version, sync first. Resolve version conflicts to `origin/dev`'s
+version while preserving the task's other native changes. Use the explicit
+version argument to synchronize all six fields if needed, then run `--next`
+once. Compare version components as integers, never as text.
+
+Each bumped runtime needs a new binary. OTA updates cannot reach binaries
+with the previous runtime. Once the bump reaches `prod`, the existing
+`mobile-store.yml` workflow builds on EAS, submits Android to Play production,
+and submits iOS for App Review. JS-only changes also wait for that new binary.
+This task does not authorize a production promotion or a manual submission.
+See `BUILD_GUIDE.md` for the existing release workflow.
+
+Mobile changes merged into `dev` also trigger `Mobile TestFlight`: an iOS-only
+build using the production API and the isolated `testflight-production` update
+channel. This path uploads to TestFlight without App Review or public release.
+Use `scripts/testflight-publish.mjs --dry-run` for its read-only preflight.
+
 > **Also read `design.md` in this folder before building or restyling a
 > screen.** This file says which primitive to use; `design.md` says how a
 > screen looks — the settings-screen layout (`SettingsPage` / `SettingsGroup`
@@ -223,12 +262,27 @@ a binary built without it: that binary keeps gorhom. Android keeps gorhom.
   `onDismiss` run when the native close ends (`onDismiss` / `onNativeDismiss`).
   `useCloseThen` and `useSheetOpenMove` work unchanged.
 - **Detents** (`resolveNativeDetents`): a content-sized sheet (dynamic sizing,
-  no `snapPoints` or only `'100%'`) is `fitToContents`, capped at the maximum
-  height (`maxDynamicContentSize` lowers the cap; a longer body scrolls).
-  The native side rejects `fitToContents` next to another detent, so a
-  content-sized sheet has no separate full detent: its content is already all
-  on screen. Every other sheet is its `snapPoints` as fractions plus `1`
-  (full screen); `index` keeps its meaning.
+  no `snapPoints` or only `'100%'`) is as tall as its content, capped at the
+  maximum height (`maxDynamicContentSize` lowers the cap; a longer body
+  scrolls). It mounts closed, its box lays out at the sheet's width
+  (`nativeSheetContentWidth`), and it presents at that height as one custom
+  detent (`contentDetent`); once it rests, a new content height moves the
+  detent. Never react-native-screens' `fitToContents`: its wrapper reports the
+  height only after it is mounted, so a sheet mounted open resolved height 0
+  and stood at full height, opaque and edge to edge on iOS 26 (Jay,
+  2026-11-12). A body that never lays out presents at full height after
+  400 ms. Every other sheet is its `snapPoints` as fractions plus `1` (full
+  screen); `index` keeps its meaning.
+- **Glass only below the full detent.** iOS 26 draws a sheet at its full
+  detent opaque and edge to edge; below it, the floating Liquid Glass sheet.
+  A list or a menu is content-sized (or a partial detent), never `'100%'`:
+  Recent files, the session actions, the Add sheet. A form or a document
+  viewer may stand at full height.
+- **Fills on glass.** In the iOS 26 sheet `SurfaceContext` is `'glass'`: a
+  `SettingsGroup` row takes `GLASS_ROW_SURFACE` (translucent ink, the same
+  contrast over any glass tone) and a tile or track takes `useControlFill()`.
+  Never a solid `bg-secondary` on the glass: it matched the glass in one place
+  and not the next (the model rows and the Thinking track).
 - **No native detent selection while open.** `expand()` /
   `snapToPosition('100%')` hold the sheet at full height (a content-sized sheet
   gets the maximum height as its minimum; a fixed one lists only the full
@@ -245,7 +299,12 @@ a binary built without it: that binary keeps gorhom. Android keeps gorhom.
   `prefersScrollingExpandsWhenScrolledToEdge`.
 - **Layout.** At a partial detent the sheet's view can keep the full
   detent's height with its bottom below the screen. `NativeSheet`'s box ends
-  the content that far up (`nativeSheetHiddenBottom`, `lib/ui/native-sheet.ts`),
+  the content that far up: once the sheet rests it measures its frame in the
+  window (`measureInWindow`, polled until it holds still) and trims the part
+  below the screen (`nativeSheetBoxBelowScreen`); until then, and right after
+  a detent change, it uses an estimate (`nativeSheetHiddenBottom`; both in
+  `lib/ui/native-sheet.ts`; the estimate alone left the tabs off screen in
+  TestFlight 1.6.2 (171)),
   so `flex: 1`, a `PinnedBar` (the model sheet's Agent · Model tabs) and a
   list's last row end at the visible edge once the sheet rests (the end eases
   there in 200 ms after a drag to a new detent; during the drag it stays where
@@ -338,6 +397,11 @@ snap up, the keyboard lift), on settle, and during a drag only while the
 visible sheet is taller than it. A `PinnedBar` inside follows the visible edge
 by `translateY` (`sheetFillShift` through `PinnedBarShiftContext`), so the bar
 does not lag the drag.
+One exception on the iOS native sheet: `nativeFullDetent={false}` lists no
+full detent, so the sheet stops at its highest partial snap point. UIKit sizes
+a sheet's view to its largest detent; with `'100%'` listed, the model sheet's
+Agent · Model tab bar sat below the screen at 85% (2026-11-13). `PickerSheet`
+passes it while it shows `tabs`. Android (gorhom) ignores the prop.
 
 `title="…"` adds the title row in the handle area, above any content: a close
 button at the far left, the title centred (`Text variant="large"`), a spacer

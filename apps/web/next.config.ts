@@ -10,7 +10,6 @@ import { SHIPPED_ICON_WEIGHTS } from '@kortix/ui/lib/icon-config';
 import {
   embedContentSecurityPolicy,
   enforcedContentSecurityPolicy,
-  reportOnlyContentSecurityPolicy,
 } from './src/lib/security/content-security-policy';
 import { copyEmojibaseData, getEmojibaseDataOutputPaths } from './scripts/emojibase-data.mjs';
 import { copyViewerWasm, getViewerWasmOutputPaths } from './scripts/viewer-wasm.mjs';
@@ -1140,16 +1139,11 @@ const nextConfig = (): NextConfig => ({
       {
         source: '/:path*',
         headers: [
-          // Enforced: framing, plugins and <base>. The script allowlist is
-          // report-only until its reports are clean; see
-          // src/lib/security/content-security-policy.ts.
+          // Enforced: framing, plugins, <base> and the script allowlist, with
+          // a report-uri; see src/lib/security/content-security-policy.ts.
           {
             key: 'Content-Security-Policy',
             value: enforcedContentSecurityPolicy(),
-          },
-          {
-            key: 'Content-Security-Policy-Report-Only',
-            value: reportOnlyContentSecurityPolicy(),
           },
           // No X-Frame-Options: it cannot allowlist the Kortix extension's side panel.
           // CSP frame-ancestors above is the framing gate.

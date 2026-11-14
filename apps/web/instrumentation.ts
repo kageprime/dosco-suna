@@ -13,6 +13,10 @@ import * as Sentry from '@sentry/nextjs';
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
+    // Before Next.js wraps fetch: one retry for an idempotent request whose
+    // pooled socket died while the Fluid instance slept.
+    const { installServerFetchRetry } = await import('./src/lib/server-fetch-retry');
+    installServerFetchRetry();
     // Server-side Sentry init
     await import('./sentry.server.config');
   }

@@ -33,12 +33,20 @@ const LEGACY_IMAGE_FLAGS = ['genui'];
  */
 const DRIVE_FLAGS = ['artifacts', 'drives', 'volumes'];
 
+/**
+ * Goal mode: a chat binds a goal to itself (`kortix goals new --here`) with no
+ * `goals` flag. Not a registry flag: the box token that shows `kortix goals`
+ * and loads kortixd's goal extension, wherever a Drive can hold a goal. The
+ * `goals` flag still gates the Goals page, page goals and the on-idle check.
+ */
+export const GOAL_MODE_BOX_FLAG = 'goal_mode';
+
 /** The enabled flags, sorted. */
 export function featureFlagsEnvValue(metadata: unknown): string {
   const flags = Object.entries(resolveFeatureFlags(metadata))
     .filter(([, on]) => on)
     .map(([key]) => key);
-  return [...flags, ...LEGACY_IMAGE_FLAGS, ...(isPlatinumConfigured() ? DRIVE_FLAGS : [])].sort().join(',');
+  return [...flags, ...LEGACY_IMAGE_FLAGS, ...(isPlatinumConfigured() ? [...DRIVE_FLAGS, GOAL_MODE_BOX_FLAG] : [])].sort().join(',');
 }
 
 export async function buildFeatureFlagSandboxEnv(projectId: string): Promise<Record<string, string>> {

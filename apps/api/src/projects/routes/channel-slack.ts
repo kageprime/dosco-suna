@@ -11,6 +11,7 @@ import { INSTALL_STATE_INVALID, InstallCompletionBody } from '../../channels/cor
 import { buildSlackInstallUrl, completeSlackOauthInstall } from '../../channels/slack-oauth';
 import { slackOauthMode } from '../../channels/slack-oauth-mode';
 import { bindSlackThreadToSession } from '../../channels/slack/binding';
+import { joinSlackChannels } from '../../channels/slack/join';
 import { downloadSlackFile, uploadSlackFile } from '../../channels/slack/file-proxy';
 import { provenSlackWorkspaces } from '../../channels/slack/inbound';
 import { SLACK_NOT_LINKED } from '../../connectors/slack-visibility';
@@ -96,6 +97,63 @@ export function registerChannelSlackRoutes(): void {
       } catch {
         return c.json({ oauth_available: false, install_url: null });
       }
+    },
+  );
+
+  // POST /v1/workspaces/:workspaceId/channels/slack/join
+  // The bot joins public channels itself (conversations.join). A private
+  // channel answers needs_invite: a person runs /invite there.
+
+  projectsApp.openapi(
+    createRoute({
+      method: 'post',
+      path: '/{workspaceId}/channels/slack/join',
+      tags: ['channels'],
+      summary: 'Join the Slack bot to channels',
+      description:
+        'Joins the workspace Slack bot to each named channel (`#name`, `name` or a channel id). Public channels are joined at once; a private channel answers `needs_invite`. `connected: false` when the workspace has no Slack connection.',
+      ...auth,
+      request: {
+        params: z.object({ workspaceId: z.string() }),
+        body: {
+          content: {
+            'application/json': { schema: z.object({ channels: z.array(z.string().min(1).max(100)).min(1).max(50) }) },
+          },
+        },
+      },
+      responses: {
+        200: json(
+          z.object({
+            connected: z.boolean(),
+            team: z.string().nullable(),
+            bot_user_id: z.string().nullable(),
+            results: z.array(
+              z.object({
+                channel: z.string(),
+                id: z.string().nullable(),
+                status: z.enum(['joined', 'already_member', 'needs_invite', 'not_found', 'error']),
+                error: z.string().optional(),
+              }),
+            ),
+          }),
+          'One result per channel',
+        ),
+        ...errors(400, 403, 404),
+      },
+    }),
+    async (c) => {
+      const projectId = workspaceIdParam(c);
+      const loaded = await loadProjectForUser(c, projectId, 'read');
+      if (!loaded) return c.json({ error: 'Not found' }, 404);
+      await assertProjectCapability(
+        c,
+        loaded.userId,
+        loaded.row.accountId,
+        projectId,
+        PROJECT_ACTIONS.PROJECT_CONNECTOR_WRITE,
+      );
+      const { channels } = c.req.valid('json');
+      return c.json(await joinSlackChannels(projectId, channels), 200);
     },
   );
 

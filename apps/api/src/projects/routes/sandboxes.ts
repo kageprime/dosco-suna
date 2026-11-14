@@ -385,6 +385,10 @@ export function registerSandboxesRoutes(): void {
     const loaded = await loadProjectForUser(c, projectId, 'read');
     if (!loaded) return c.json({ error: 'Not found' }, 404);
 
+    // A poll, never a write path: serve the warm git mirror and refresh it
+    // behind the response. Without this the template listing's manifest sync
+    // blocked on a `git fetch` whenever the memo was cold (KRTX-4867).
+    allowStaleMirrorReads();
     let payload: SandboxHealthPayload = SANDBOX_HEALTH_DEGRADED;
     try {
       payload = await withTimeout(

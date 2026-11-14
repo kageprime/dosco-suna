@@ -6,11 +6,6 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 // selection: a model reached through a shared key or a ChatGPT subscription
 // was missing from /models and rejected by /model.
 
-let pooledFlag = true;
-mock.module('../feature-flags/for-project', () => ({
-  projectFeatureFlagEnabled: async () => pooledFlag,
-}));
-
 const catalogCalls: Array<Record<string, unknown>> = [];
 let catalogModels: Record<string, Record<string, unknown>> = {};
 mock.module('../llm-gateway/models/servable-catalog', () => ({
@@ -117,11 +112,10 @@ const access = await import('../channels/model-access');
 
 const scope = (over: Partial<ReturnType<typeof access.channelModelScope>> = {}) => ({
   projectId: 'proj', accountId: 'acct', memberUserId: 'ivan', linkedUserId: 'ivan', personalUserId: 'ivan',
-  freeManagedOnly: false, pooledEnabled: true, ...over,
+  freeManagedOnly: false, ...over,
 });
 
 beforeEach(() => {
-  pooledFlag = true;
   catalogCalls.length = 0;
   probes.length = 0;
   defaultCalls.length = 0;
@@ -140,7 +134,7 @@ beforeEach(() => {
 });
 
 describe('channelModelScope — whose resources a conversation may use', () => {
-  const base = { projectId: 'p', accountId: 'a', ownerUserId: 'owner', freeManagedOnly: false, pooledEnabled: true };
+  const base = { projectId: 'p', accountId: 'a', ownerUserId: 'owner', freeManagedOnly: false };
 
   test('a one-to-one chat with a linked person: their own keys and ChatGPT count', () => {
     expect(access.channelModelScope({ ...base, linkedUserId: 'ivan', oneToOne: true })).toMatchObject({
@@ -213,11 +207,8 @@ describe('channelKeySelection — every usable key, so they rotate', () => {
     expect(keyQueries[0]).toMatchObject({ userId: 'ivan', grantUserId: null });
   });
 
-
-  test('nothing to select: flag off, a Dosco model, or no pooled key', async () => {
-
+  test('nothing to select: a Dosco model, or no pooled key', async () => {
     usableKeys = [{ secretId: 'k1', providerId: 'codex', name: 'CODEX_AUTH_JSON', label: 'x', accessMode: 'project' }];
-    expect(await access.channelKeySelection(scope({ pooledEnabled: false }), 'codex/gpt-6-astra')).toBeNull();
     expect(await access.channelKeySelection(scope(), 'glm-5.3-flash')).toBeNull();
     usableKeys = [];
     expect(await access.channelKeySelection(scope(), 'codex/gpt-6-astra')).toBeNull();
@@ -291,20 +282,11 @@ describe('describeKeys', () => {
 });
 
 describe('projectChannelModelScope', () => {
-  test('reads the pooled-keys flag off the project row it is given', async () => {
-    const on = await access.projectChannelModelScope(
-      { projectId: 'p', accountId: 'a', metadata: { experimental: { pooled_provider_secrets: true } } },
-      { linkedUserId: 'ivan', oneToOne: true },
-    );
-    expect(on).toMatchObject({ projectId: 'p', memberUserId: 'ivan', personalUserId: 'ivan', pooledEnabled: true });
-    const off = await access.projectChannelModelScope(
-      { projectId: 'p', accountId: 'a', metadata: { experimental: { pooled_provider_secrets: false } } },
-      { linkedUserId: null, oneToOne: true },
-    );
-    expect(off).toMatchObject({ memberUserId: 'owner', personalUserId: null, pooledEnabled: false });
-    // On by default: a project that never set the flag has pooled keys.
-    const unset = await access.projectChannelModelScope({ projectId: 'p', accountId: 'a', metadata: {} }, { linkedUserId: null, oneToOne: true });
-    expect(unset).toMatchObject({ pooledEnabled: true });
+  test('a linked person in a one-to-one chat is the member and the personal scope; an unlinked one is neither', async () => {
+    const linked = await access.projectChannelModelScope({ projectId: 'p', accountId: 'a', metadata: {} }, { linkedUserId: 'ivan', oneToOne: true });
+    expect(linked).toMatchObject({ projectId: 'p', memberUserId: 'ivan', personalUserId: 'ivan' });
+    const unlinked = await access.projectChannelModelScope({ projectId: 'p', accountId: 'a', metadata: {} }, { linkedUserId: null, oneToOne: true });
+    expect(unlinked).toMatchObject({ memberUserId: 'owner', personalUserId: null });
   });
 });
 

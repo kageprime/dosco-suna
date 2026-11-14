@@ -414,6 +414,50 @@ describe('deriveContext', () => {
     expect(web[0].label).toBe('Acme Corp Pricing');
   });
 
+  // scrape_webpage takes `urls`, a comma-separated string — the shape the
+  // runtime log recorded for a real call ({"urls":"https://example.com"}).
+  it('lists the page a scrape_webpage call read from its `urls` input', () => {
+    const { web } = deriveContext([
+      part(
+        'scrape_webpage',
+        { urls: 'https://example.com' },
+        { output: JSON.stringify({ url: 'https://example.com', success: true, title: 'Example Domain' }) },
+      ),
+    ]);
+    expect(web).toHaveLength(1);
+    expect(web[0].url).toBe('https://example.com');
+    expect(web[0].label).toBe('Example Domain');
+  });
+
+  it('adds one web source per URL of a multi-URL scrape_webpage call', () => {
+    const { web } = deriveContext([
+      part(
+        'scrape_webpage',
+        { urls: 'https://acme.example.com/a, https://globex.example.com/b' },
+        {
+          output: JSON.stringify({
+            total: 2,
+            successful: 2,
+            failed: 0,
+            results: [
+              { url: 'https://acme.example.com/a', success: true, title: 'Acme A' },
+              { url: 'https://globex.example.com/b', success: true, title: '' },
+            ],
+          }),
+        },
+      ),
+    ]);
+    expect(web.map((w) => [w.url, w.label])).toEqual([
+      ['https://acme.example.com/a', 'Acme A'],
+      ['https://globex.example.com/b', 'globex.example.com'],
+    ]);
+  });
+
+  it('accepts `urls` as an array (an ejected tool copy may change the schema)', () => {
+    const { web } = deriveContext([part('scrape_webpage', { urls: ['https://a.example.com', 'https://b.example.com'] })]);
+    expect(web.map((w) => w.label)).toEqual(['a.example.com', 'b.example.com']);
+  });
+
   it('dedups two fetches of the same URL that only differ by protocol/www/trailing-slash', () => {
     const { web } = deriveContext([
       part('web_fetch', { url: 'http://example.com/docs/' }),

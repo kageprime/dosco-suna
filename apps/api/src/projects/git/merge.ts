@@ -20,6 +20,7 @@ import {
   parseRawDiff,
   type RawChange,
   resolveBranchTip,
+  resolveCommitShaAt,
 } from './commits';
 import type {
   BranchDiffSummary,
@@ -44,7 +45,10 @@ export async function getMergeBase(
 ): Promise<string | null> {
   validateRef(baseRef);
   validateRef(headRef);
-  const repoPath = await refreshMirror(project);
+  return mergeBaseAt(await refreshMirror(project), baseRef, headRef);
+}
+
+async function mergeBaseAt(repoPath: string, baseRef: string, headRef: string): Promise<string | null> {
   try {
     const result = await runGit(
       ['merge-base', `refs/heads/${baseRef}`, `refs/heads/${headRef}`],
@@ -357,12 +361,16 @@ export async function previewMerge(
 ): Promise<MergePreview> {
   validateRef(baseRef);
   validateRef(headRef);
-  const repoPath = await refreshMirror(project, true);
+  // A burst of previews (one per open request) must not each fetch the whole
+  // mirror: the head is fetched alone, the base is read inside its tip proof
+  // (every base move Kortix makes drops it). Merging still forces a full fetch.
+  const repoPath = await refreshMirror(project, true, { freshRef: headRef });
+  await refreshMirror(project, 'tip-proof', { freshRef: baseRef });
 
   const [baseSha, headSha, mergeBase] = await Promise.all([
-    resolveBranchTip(project, baseRef),
-    resolveBranchTip(project, headRef),
-    getMergeBase(project, baseRef, headRef),
+    resolveCommitShaAt(repoPath, `refs/heads/${baseRef}`),
+    resolveCommitShaAt(repoPath, `refs/heads/${headRef}`),
+    mergeBaseAt(repoPath, baseRef, headRef),
   ]);
 
   const isUpToDate = baseSha === headSha;

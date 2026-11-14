@@ -141,6 +141,7 @@ export function resolveConfigAgents(
           mode: native?.mode ?? null,
           ...(native?.hidden === true ? { hidden: true } : {}),
           model: native?.model ?? null,
+          ...(native?.run ? { run: native.run } : {}),
           space: native?.space ?? null,
           source: 'kortix.yaml' as const,
           enabled: spec.enabled,
@@ -443,6 +444,7 @@ export async function loadRepoConfigSummary(
       mode: text(block.mode),
       ...(block.hidden === true ? { hidden: true } : {}),
       model: text(block.model),
+      run: text(block.run),
       space: text(block.space),
     };
   });

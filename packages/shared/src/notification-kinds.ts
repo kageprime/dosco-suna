@@ -16,6 +16,7 @@ export const NOTIFICATION_KINDS = [
   'automation_recovered',
   'capture_device_down',
   'capture_device_recovered',
+  'mention',
 ] as const;
 
 export type NotificationKindName = (typeof NOTIFICATION_KINDS)[number];
@@ -49,6 +50,10 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationKindPreferences = {
   automation_recovered: { push: true, email: false },
   capture_device_down: { push: true, email: true },
   capture_device_recovered: { push: true, email: false },
+  // Someone else @mentioned you or assigned you a calendar item (flag `calendar`).
+  // One named person, never a broadcast: the email goes in the digest, only
+  // while the row is still unread 15 minutes later.
+  mention: { push: true, email: true },
 };
 
 /** Kinds emailed as soon as they happen. Every other kind with email on joins the digest. */
@@ -77,7 +82,7 @@ export function pushTypeOf(kind: NotificationKindName): string {
  * browser registers, so any other host is refused (no SSRF through push).
  * A host matches when it equals a suffix or ends with `.<suffix>`.
  */
-export const WEB_PUSH_HOST_SUFFIXES = [
+const WEB_PUSH_HOST_SUFFIXES = [
   'fcm.googleapis.com',
   'android.googleapis.com',
   'push.services.mozilla.com',

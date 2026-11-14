@@ -385,6 +385,23 @@ export function useSessionLogSync(
     const reload = async (): Promise<void> => {
       if (!(await loadLive())) await load();
     };
+    // The re-read a turn end asks for. A box read already on the wire started before the turn
+    // ended and answers a snapshot without the finished reply: read again once it settles.
+    const reloadAfterTurnEnd = () => {
+      const stale = liveRead;
+      // A box read that failed reads the API's page: a wedged box must not cost two proxy budgets.
+      void (stale ? stale.then(async (ok) => void (ok ? await reload() : await load())) : reload());
+    };
+    // A `kortix.control.turn` frame that reports a turn end this effect has not seen. The first
+    // frame of a connection names the last end at join, which is not news.
+    const endedTurn = (frame: { type: string; payload?: unknown }): boolean => {
+      if (frame.type !== 'kortix.control.turn') return false;
+      const payload = frame.payload as { last_ended?: { turn_token?: string } | null } | null;
+      const ended = payload?.last_ended?.turn_token ?? null;
+      const seen = lastEnded;
+      lastEnded = ended;
+      return seen !== undefined && ended !== seen;
+    };
     // Re-read after a reconnect (`up` after a drop); the first report is the connection already up.
     const onReconnect = (run: () => void) => {
       let connected = true;
@@ -403,7 +420,22 @@ export function useSessionLogSync(
       // `kortix.resync` and replays nothing, so the page is read again then, as after a reconnect.
       // `runtime: true`: the `log.*` frames ride the runtime channel. A full session already has a
       // runtime subscriber; a view (`useSessionView`) has none, and its thread froze at the first page.
-      join({ schema: 'v2', runtime: true, onConnectionChange: onReconnect(() => void reload()), onRuntimeResync: () => void reload() });
+      join({
+        schema: 'v2',
+        runtime: true,
+        // The join snapshot can precede the full runtime consumer after reload.
+        // The log owns these frames from its first subscription. Store puts and
+        // wire deltas are idempotent when another runtime consumer also sees them.
+        onRuntimeEvent: (event) => {
+          if (event.type.startsWith('log.')) store().applySessionLogEvent(sessionId, event);
+        },
+        // A missed final record converges through the page at turn end (F-012).
+        onControl: (frame) => {
+          if (endedTurn(frame)) reloadAfterTurnEnd();
+        },
+        onConnectionChange: onReconnect(() => void reload()),
+        onRuntimeResync: () => void reload(),
+      });
     };
     // A box loader that arrived after the first read: its page, and v2 if the API had none.
     readLiveRef.current = () => {
@@ -420,11 +452,22 @@ export function useSessionLogSync(
       cancelRetry = null;
       busy = true;
       const { answer, retryAfterMs } = await load();
+      const page = answer === 'missing' ? null : answer;
+      if (stopped) return;
+      if (page) {
+        // The API page already establishes v2. Start receiving the join snapshot
+        // now; the extra box-page request must not delay a streaming answer.
+        onV2 = true;
+        onRead.current?.('page');
+        goV2();
+        await loadLive();
+        busy = false;
+        return;
+      }
       const live = await loadLive();
       busy = false;
       if (stopped) return;
-      const page = answer === 'missing' ? null : answer;
-      onV2 = !!page || live;
+      onV2 = live;
       // The box's page is a page too: a new session the API holds no log for reads as one.
       onRead.current?.(onV2 ? 'page' : answer === 'missing' ? 'missing' : 'failed');
       if (onV2) {
@@ -453,11 +496,8 @@ export function useSessionLogSync(
       join({
         onControl: (frame) => {
           if (frame.type !== 'kortix.control.turn') return;
-          const payload = frame.payload as { turns?: { turn_token?: string }[]; last_ended?: { turn_token?: string } | null } | null;
-          const ended = payload?.last_ended?.turn_token ?? null;
-          const seen = lastEnded;
-          lastEnded = ended;
-          if (seen !== undefined && ended !== seen) return void attempt();
+          if (endedTurn(frame)) return void attempt();
+          const payload = frame.payload as { turns?: { turn_token?: string }[] } | null;
           // A running turn (also one the state at join holds): its user message frame may have
           // passed before this tab's runtime connection, which is live-only. pi journals while a
           // turn runs, so the page holds that message after the next mid-turn post.

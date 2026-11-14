@@ -122,7 +122,10 @@ export function KortixLoader({
             ? 'border-[rgba(0,0,0,0.1)] border-t-[#000000] dark:border-[rgba(255,255,255,0.15)] dark:border-t-[#ffffff]'
             : undefined
         }
+        // A looping spinner keeps turning under "Reduce motion" (theme.css).
+        data-kx-spinner={autoPlay && loop ? '' : undefined}
         style={{
+          ['--kx-spin-duration' as string]: `${animationDuration}s`,
           width: loaderSize,
           height: loaderSize,
           borderStyle: 'solid',

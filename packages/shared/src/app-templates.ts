@@ -7,7 +7,7 @@
  * Every image is pinned by digest: a template never changes under an App.
  */
 
-export interface AppTemplate {
+interface AppTemplate {
   name: string;
   /** One line for `kortix apps launch --help`. */
   summary: string;
@@ -33,7 +33,7 @@ export interface AppTemplateSecret {
 }
 
 /** `crm-data` → `CRM_DATA`: a slug as an env name. */
-export function slugEnvName(slug: string): string {
+function slugEnvName(slug: string): string {
   return slug.toUpperCase().replace(/-/g, '_');
 }
 
@@ -42,7 +42,7 @@ const CONVEX_BACKEND = 'ghcr.io/convex/convex-backend@sha256:d715e9ec088784407ca
 /** Convex's dashboard image, the same release line. */
 const CONVEX_DASHBOARD = 'ghcr.io/convex/convex-dashboard@sha256:f85cf0d0448b9c835ae3df5c7c1c6f0145dd4c8f0f92eb0245daf304efdd9f1a';
 /** The `convex` npm CLI that matches CONVEX_BACKEND. Bump both together. */
-export const CONVEX_CLI_VERSION = '1.46.0';
+const CONVEX_CLI_VERSION = '1.46.0';
 
 /**
  * `apps/<name>/dashboard/start.js`: runs Convex's dashboard and signs it in.
@@ -117,7 +117,7 @@ const WATCHER_NODE = 'node:22.23.4-alpine3.24@sha256:fe4f6d74e20370acb04ad889077
  * schedule; the runner asks `check()` (watch.js) what is true now and posts it
  * as App events. String.raw keeps it verbatim: no backticks, no `${`.
  */
-export const WATCHER_RUNNER = String.raw`// Kortix watcher runner: edit watch.js, not this file.
+const WATCHER_RUNNER = String.raw`// Kortix watcher runner: edit watch.js, not this file.
 //
 // Kortix calls POST /tick on a schedule (an "every" trigger that targets this
 // App). Each tick runs check() from watch.js. check() returns what is true NOW
@@ -198,7 +198,7 @@ http.createServer(async function (request, response) {
 `;
 
 /** `apps/<name>/watch.js`: the one function an agent edits. A working example. */
-export const WATCHER_CHECK = String.raw`// What this watcher checks. Edit check(): return what is true NOW, as App
+const WATCHER_CHECK = String.raw`// What this watcher checks. Edit check(): return what is true NOW, as App
 // events { name, data }. Kortix builds each id from the name and data and
 // fires an id once (30 days): an unchanged state starts nothing, a change
 // starts the trigger that listens for the name.

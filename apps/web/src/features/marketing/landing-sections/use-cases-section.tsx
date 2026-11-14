@@ -148,7 +148,7 @@ export function UseCasesSection({ items, linkable }: { items: UseCaseItem[]; lin
       />
 
       <div className="flex flex-col items-center gap-5 px-8 pb-14 text-center">
-        <p className="bg-foreground/8 text-foreground w-fit rounded-sm px-2 py-1 font-mono text-xs font-medium uppercase">
+        <p className="bg-kortix-base/10 text-kortix-base w-fit rounded-sm px-2 py-1 font-mono text-xs font-medium uppercase">
           {copy.eyebrow}
         </p>
         <h2 className="text-foreground text-xl font-medium tracking-tight text-balance md:text-2xl lg:text-3xl">
@@ -273,9 +273,9 @@ export function UseCasesSection({ items, linkable }: { items: UseCaseItem[]; lin
         <div className="border-border bg-card relative flex h-96 items-center justify-center overflow-hidden border p-6 sm:p-10 lg:h-full">
           <div
             aria-hidden
-            className="text-foreground pointer-events-none absolute inset-0 opacity-40"
+            className="pointer-events-none absolute inset-0 opacity-40"
           >
-            <DitherField />
+            <DitherField className="text-kortix-base" />
           </div>
           {/* Static on purpose: switching team swaps the text in place, with
               no enter or exit motion. */}

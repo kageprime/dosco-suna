@@ -48,11 +48,16 @@ test('the reviewed WS-AUTH-10 minter label is suppressed by the pinned scanner',
   // CI checks out depth 1, so the flagged commit sits back in history: fetch
   // exactly it (full SHA; the fingerprint is bound to it). --depth=2 keeps the
   // parent, without which `git -p` on that one commit cannot render the diff.
+  // --filter=blob:none: the commit is the 2,463-file workspaces rename, and its
+  // two full trees took the test past 30 s on a release runner (run
+  // 43352316184); the scan then fetches only the one blob it reads.
   const haveCommit = spawnSync('git', ['cat-file', '-e', `${commit}^{commit}`], { cwd: ROOT });
   if (haveCommit.status !== 0) {
-    execFileSync('git', ['fetch', '--quiet', '--no-tags', '--depth', '2', 'origin', commit], {
-      cwd: ROOT,
-    });
+    execFileSync(
+      'git',
+      ['fetch', '--quiet', '--no-tags', '--depth', '2', '--filter=blob:none', 'origin', commit],
+      { cwd: ROOT },
+    );
   }
   const gitleaks = pinnedGitleaks();
   const dir = mkdtempSync(join(tmpdir(), 'gitleaks-ignore-'));

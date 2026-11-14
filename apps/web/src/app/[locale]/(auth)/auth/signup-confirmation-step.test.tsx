@@ -74,16 +74,15 @@ async function submitPasswordSignup() {
   return tree;
 }
 
-test('a sign-up that needs confirmation shows the inbox step with the countdown and the spam hint', async () => {
+test('a sign-up that needs confirmation shows the inbox step with the countdown', async () => {
   jest.useFakeTimers();
   outcomes = [{ success: true, email: 'synthetic@example.test', requiresEmailConfirmation: true, retryAfterSeconds: 60 }];
   const root = await submitPasswordSignup();
   try {
     const text = JSON.stringify(root.toJSON());
     expect(submits).toEqual(['/api/auth/password?intent=signup']);
-    expect(text).toContain('We sent a confirmation email to');
+    expect(text).toContain('Confirm the email we sent to');
     expect(text).toContain('Resend in 60');
-    expect(text).toContain(messages.auth.unified.link.checkSpam);
     expect(text).not.toContain(ALREADY_SENT);
     // The password form is gone: there is no submit left that mails the address.
     expect(root.root.findAllByProps({ name: 'password' })).toHaveLength(0);

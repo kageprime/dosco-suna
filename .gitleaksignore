@@ -161,3 +161,7 @@ c16b74338b9c53744201aac00694984253a52f0e:apps/api/src/connectors/one-click-mcp.j
 # are the commits where it was one literal (#12154 on dev, its staging cherry-pick).
 a707e3ec4aaae045708f2d04f70ac907e39be46e:tests/unit/client-resilience.test.ts:generic-api-key:343
 b214b7afb277b75ee9726ab828002b90e49245db:tests/unit/client-resilience.test.ts:generic-api-key:343
+# Synthetic live-mode-shaped key (`sk_live_synthetic_…`) the `kortix plan`
+# black-box test classifies as `prod`. Not a credential. The test now assembles
+# it at runtime; this is the commit where it was one literal (#12644).
+d61aa124384b7232c32c08d17d566e797f142133:apps/cli/src/__tests__/plan.blackbox.test.ts:generic-api-key:15

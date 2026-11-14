@@ -101,6 +101,10 @@ export interface AgentConfigBlock {
   tools?: AgentCapabilityGrant;
   /** v3: pi's codemode tool. Omitted: `on`. */
   codemode?: 'on' | 'only' | 'off';
+  /** v3: a program agent. The shell command each turn runs in place of a model (flag `program_agents`). */
+  run?: string;
+  /** v3: a program agent's run limit, a duration such as `30m` (default) up to `6h`. */
+  timeout?: string;
   /** v3: what a full context does. `record` (omitted): the agent continues in a fresh context and
    *  searches the session's full record. `summary`: pi's own compaction writes a summary. */
   context?: 'record' | 'summary';

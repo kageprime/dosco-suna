@@ -99,14 +99,13 @@ export async function stopPreviewSessionsOf(
   return stopped;
 }
 
+// Zero reads as unset: a zero idle limit would stop every box, a zero pool would refuse every deploy.
 function maxIdleMs(): number {
-  const hours = Number(process.env.PREVIEW_SESSION_MAX_IDLE_HOURS);
-  return Number.isFinite(hours) && hours > 0 ? hours * 3_600_000 : PREVIEW_SESSION_MAX_IDLE_MS;
+  return envNumber('PREVIEW_SESSION_MAX_IDLE_HOURS', 0) * 3_600_000 || PREVIEW_SESSION_MAX_IDLE_MS;
 }
 
 function poolMb(): number {
-  const value = Number(process.env.PREVIEW_PLATINUM_POOL_MB);
-  return Number.isFinite(value) && value > 0 ? value : PLATINUM_POOL_MB_DEFAULT;
+  return envNumber('PREVIEW_PLATINUM_POOL_MB', 0) || PLATINUM_POOL_MB_DEFAULT;
 }
 
 /**

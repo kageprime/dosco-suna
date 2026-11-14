@@ -6,7 +6,7 @@ import { ArrowRightIcon, MagnifyingGlassIcon, PlusIcon } from '@phosphor-icons/r
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { useEffect, useMemo, useState, useTransition, type MouseEvent } from 'react';
 
 import { Button } from '@kortix/ui/button';
 import { EntityAvatar } from '@kortix/ui/entity-avatar';
@@ -44,6 +44,7 @@ import { WorkspaceHandoff } from '@kortix/ui/workspace/new/workspace-handoff';
 import {
   suggestWorkspaceName,
   validateWorkspaceName,
+  withNameParam,
   workspaceNameMessage,
 } from '@kortix/ui/workspace/new/workspace-name';
 import { useWorkspaceStateActions } from '@kortix/ui/workspace/sidebar/use-workspace-list';
@@ -111,6 +112,12 @@ export interface InlineCreateProps {
   onNameBlur: () => void;
   onSubmit: () => void;
   onRetry: () => void;
+  /** "More options" is navigating to `/workspaces/new`: the link shows a spinner. */
+  openingMore: boolean;
+  /** Open `href` (`/workspaces/new`) carrying the name on screen. */
+  onOpenMore: (href: string) => void;
+  /** Prefetch the URL `onOpenMore` will push (pointer enter, focus). */
+  onWarmMore: (href: string) => void;
 }
 
 export function ProjectSelectorView(props: ProjectSelectorViewProps) {
@@ -294,6 +301,9 @@ function InlineCreateForm({ createHref, form }: { createHref: string; form: Inli
           autoCapitalize="none"
           autoCorrect="off"
           value={form.name}
+          // Read-only while "More options" opens: the push already carries
+          // this name, so a later edit would be lost.
+          readOnly={form.openingMore}
           onChange={(event) => form.onNameChange(event.target.value)}
           onBlur={form.onNameBlur}
           placeholder={tNew('name.placeholder')}
@@ -311,7 +321,12 @@ function InlineCreateForm({ createHref, form }: { createHref: string; form: Inli
           {tWorkspaces('freeCreditsRule')}
         </p>
       ) : null}
-      <Button type="submit" disabled={!form.canSubmit} className="w-full" data-testid="selector-create">
+      <Button
+        type="submit"
+        disabled={!form.canSubmit || form.openingMore}
+        className="w-full"
+        data-testid="selector-create"
+      >
         {t('createAction')}
       </Button>
       {form.error ? (
@@ -331,7 +346,22 @@ function InlineCreateForm({ createHref, form }: { createHref: string; form: Inli
         </div>
       ) : null}
       <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground self-center">
-        <Link href={createHref} prefetch data-testid="selector-create-more">
+        <Link
+          href={createHref}
+          prefetch
+          data-testid="selector-create-more"
+          aria-busy={form.openingMore || undefined}
+          aria-disabled={form.openingMore || undefined}
+          onPointerEnter={() => form.onWarmMore(createHref)}
+          onFocus={() => form.onWarmMore(createHref)}
+          onClick={(event) => {
+            // A modified click opens a new tab on the static href.
+            if (isModifiedClick(event)) return;
+            event.preventDefault();
+            form.onOpenMore(createHref);
+          }}
+        >
+          {form.openingMore ? <Loading className="size-3.5 shrink-0" /> : null}
           {t('moreOptions')}
         </Link>
       </Button>
@@ -585,6 +615,12 @@ function useInlineCreate(allowed: boolean): InlineCreateProps {
     setName((current) => current || suggestWorkspaceName());
   }, []);
   const { create, status, error, retry, canRetry, phase } = useCreateWorkspace();
+  // "More options" navigates to `/workspaces/new`, which can take seconds on a
+  // cold route. The push runs in a transition so the link shows a spinner
+  // from the click until the page commits, and it carries the name on screen
+  // (`?name=`) so the next page does not suggest a different one.
+  const router = useRouter();
+  const [openingMore, startOpeningMore] = useTransition();
   // The managed source: the server makes the account (`new_workspace: true`).
   const state = { ...INITIAL_FORM_STATE, name };
   const submitting = status === 'creating';
@@ -609,5 +645,11 @@ function useInlineCreate(allowed: boolean): InlineCreateProps {
       if (canSubmit) void create(state);
     },
     onRetry: retry,
+    openingMore,
+    onOpenMore: (href) => {
+      if (openingMore) return;
+      startOpeningMore(() => router.push(withNameParam(href, name)));
+    },
+    onWarmMore: (href) => router.prefetch(withNameParam(href, name)),
   };
 }

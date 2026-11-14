@@ -1,4 +1,4 @@
-import { describe, expect, jest, mock, test } from 'bun:test';
+import { afterEach, describe, expect, jest, mock, test } from 'bun:test';
 import { createElement, type ReactNode } from 'react';
 import type { ReactTestInstance } from 'react-test-renderer';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -79,6 +79,13 @@ const uiModalMock = () => ({
   ModalTitle: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 });
 mock.module('@kortix/ui/modal', uiModalMock);
+/** The account list, mutable per test: no answer by default; the
+ *  no-workspace test answers an empty list (Workspaces D3: nothing is created
+ *  at sign-up). */
+let accountsListAnswer: { isSuccess: boolean; data?: Array<{ account_id: string }> } = { isSuccess: false };
+mock.module('@kortix/ui/internal/hooks/account/use-accounts-list', () => ({
+  useAccountsList: () => accountsListAnswer,
+}));
 const uiRadioGroupMock = () => ({
   RadioGroup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   RadioGroupItem: () => <div />,
@@ -343,4 +350,75 @@ test('avatar upload requires revalidation so deletion cannot leave an hour-long 
     URL.createObjectURL = originalCreate;
     URL.revokeObjectURL = originalRevoke;
   }
+});
+
+/**
+ * KRTX-4849: one Delete-account dialog whatever the account state. A person
+ * with no workspace got a second variant ("Delete my login", "Delete your
+ * login?", no timing choice). Both states now open the same dialog: the same
+ * trigger, title and confirm label, and the same two timing options. Without
+ * a workspace the grace period cannot apply (`POST /v1/account/request-deletion`
+ * answers 409 `no_workspace`), so that option is disabled with the reason in
+ * plain words, and "Delete immediately" is selected.
+ */
+describe('ProfileTab — one delete dialog whatever the account state', () => {
+  let mounted: Awaited<ReturnType<typeof mountTab>> | undefined;
+  afterEach(async () => {
+    if (mounted) await act(async () => mounted?.renderer.unmount());
+    mounted?.client.clear();
+    mounted = undefined;
+    accountsListAnswer = { isSuccess: false };
+  });
+
+  const openDialog = async (accounts: Array<{ account_id: string }>) => {
+    accountsListAnswer = { isSuccess: true, data: accounts };
+    mounted = await mountTab();
+    const root = mounted.renderer.root;
+    const trigger = root.findAll(
+      (n) =>
+        n.props.className?.includes?.('text-destructive') &&
+        n.children.length === 1 &&
+        typeof n.children[0] === 'string',
+    )[0];
+    await act(async () => trigger.props.onClick());
+    const item = (value: string) =>
+      root.findAll((n) => n.props.value === value && n.props.id !== undefined)[0]?.props;
+    return {
+      trigger: trigger.children[0],
+      title: root.findAll((n) => n.props.children === 'deleteDialogTitle'),
+      confirm: root.findAll((n) => n.props.variant === 'destructive' && n.props.onClick)[0].props.children,
+      selected: root.findAll((n) => n.props.onValueChange !== undefined)[0]?.props.value,
+      grace: item('grace-period'),
+      immediate: item('immediate'),
+    };
+  };
+
+  for (const [state, accounts] of [
+    ['with a workspace', [{ account_id: 'synthetic-workspace' }]],
+    ['with no workspace', []],
+  ] as const) {
+    test(`${state}: the Delete account dialog with both timing options`, async () => {
+      const dialog = await openDialog([...accounts]);
+      expect(dialog.trigger).toBe('deleteAccount');
+      expect(dialog.title.length).toBeGreaterThan(0);
+      expect(dialog.confirm).toBe('deleteAccount');
+      expect(dialog.grace).toBeDefined();
+      expect(dialog.immediate).toBeDefined();
+    });
+  }
+
+  test('with no workspace: the grace period is disabled with the reason, Delete immediately is selected', async () => {
+    const dialog = await openDialog([]);
+    expect(dialog.selected).toBe('immediate');
+    expect(dialog.grace?.disabled).toBe(true);
+    expect(dialog.grace?.description).toBe('noWorkspaceImmediateOnly');
+    expect(dialog.immediate?.disabled).toBeFalsy();
+  });
+
+  test('with a workspace: the grace period stays the selected, enabled default', async () => {
+    const dialog = await openDialog([{ account_id: 'synthetic-workspace' }]);
+    expect(dialog.selected).toBe('grace-period');
+    expect(dialog.grace?.disabled).toBeFalsy();
+    expect(dialog.grace?.description).toBe('gracePeriodDescription');
+  });
 });

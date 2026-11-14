@@ -43,13 +43,13 @@ function RedeemContent() {
 
   useSignedOutRedirect();
 
-  if (authLoading || !user) return <AuthPendingScreen footer={false} />;
+  if (authLoading || !user) return <AuthPendingScreen footer={false} art={false} />;
 
   if (result) {
     const credits = formatCredits(dollarsToCredits(result.amount_usd), { locale });
     const balance = formatCredits(dollarsToCredits(result.balance), { locale });
     return (
-      <AuthFrame footerVariant="none">
+      <AuthFrame footerVariant="none" art={false}>
         <Rise>
           <StepHeader
             title={<OutcomeTitle tone="success">{t('successTitle', { credits })}</OutcomeTitle>}
@@ -68,7 +68,7 @@ function RedeemContent() {
   }
 
   return (
-    <AuthFrame footerVariant="none">
+    <AuthFrame footerVariant="none" art={false}>
       <Rise>
         <StepHeader title={t('pageTitle')} description={t('pageDescription')} />
       </Rise>
@@ -87,7 +87,7 @@ function RedeemContent() {
 export default function RedeemPage() {
   // `useSearchParams` needs a Suspense boundary, or Next refuses to prerender.
   return (
-    <Suspense fallback={<AuthPendingScreen footer={false} />}>
+    <Suspense fallback={<AuthPendingScreen footer={false} art={false} />}>
       <RedeemContent />
     </Suspense>
   );

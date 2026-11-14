@@ -26,7 +26,7 @@ async function animateConnectingBar(): Promise<void> {
   await sleep(120);
 }
 
-export interface BannerDetails {
+interface BannerDetails {
   tunnelId: string;
   apiUrl: string;
   capabilities: string[];

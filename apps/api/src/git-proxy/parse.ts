@@ -2,7 +2,7 @@
  * Pure parsing/auth helpers for the git proxy — no DB/network imports so they
  * stay trivially unit-testable.
  */
-import type { GitScope } from '../projects/git-backends';
+import { decodeBasic, type GitScope } from '../projects/git-backends/types';
 import { isUuid } from '../shared/validate';
 
 /** Strip an optional trailing `.git` from the project path segment. */
@@ -23,17 +23,10 @@ export function extractToken(header: string | undefined): string | null {
   const lower = scheme.toLowerCase();
   if (lower === 'bearer') return value.trim() || null;
   if (lower === 'basic') {
-    let decoded: string;
-    try {
-      decoded = Buffer.from(value, 'base64').toString('utf8');
-    } catch {
-      return null;
-    }
     // git basic auth is `<username>:<password>`; the token sits in the password
-    // slot (username is the conventional but ignored `x-access-token`).
-    const idx = decoded.indexOf(':');
-    const password = idx >= 0 ? decoded.slice(idx + 1) : decoded;
-    return password.trim() || null;
+    // slot (username is the conventional but ignored `x-access-token`). A
+    // header with no colon is the token itself.
+    return decodeBasic(value)?.password.trim() || null;
   }
   return null;
 }

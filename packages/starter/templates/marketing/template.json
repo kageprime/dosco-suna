@@ -1,0 +1,38 @@
+{
+  "id": "marketing",
+  "name": "Marketing Factory",
+  "summary": "One marketing agent with a skill library runs content (changelog, posts, videos, images), AEO, SEO and GEO, and performance marketing. Drafts and proposals only; a person publishes.",
+  "secrets": [
+    {
+      "name": "GH_TOKEN",
+      "required": true,
+      "delivery": "sandbox",
+      "why": "Clone the repository, push kortix/marketing- branches, open pull requests and issues with gh. The Software Factory's GH_TOKEN serves both templates."
+    },
+    {
+      "name": "MARKETING_GITHUB_WEBHOOK_SECRET",
+      "required": true,
+      "delivery": "connector",
+      "why": "Signs the GitHub webhooks for merged pull requests and for reviews on marketing pull requests.",
+      "generate": true
+    }
+  ],
+  "github_webhooks": [
+    {
+      "trigger": "marketing-changelog-github",
+      "events": [
+        "pull_request"
+      ]
+    },
+    {
+      "trigger": "marketing-feedback-github",
+      "events": [
+        "pull_request_review",
+        "pull_request_review_comment",
+        "issue_comment"
+      ]
+    }
+  ],
+  "label": "marketing",
+  "needs_dev_sandbox": true
+}

@@ -184,3 +184,26 @@ export async function seedTurnSession(
     cleanup,
   };
 }
+
+/**
+ * A seeded turn session for the length of `run`: opens the connection, seeds,
+ * and on the way out deletes the session's rows and closes the connection,
+ * whether the seed, `run` or the cleanup threw.
+ */
+export async function withTurnSession<T>(
+  ctx: FlowContext,
+  input: Parameters<typeof seedTurnSession>[2],
+  run: (turn: TurnSession, db: PgClient) => Promise<T>,
+): Promise<T> {
+  const db = await openFlowDb(ctx.env);
+  try {
+    const turn = await seedTurnSession(ctx, db, input);
+    try {
+      return await run(turn, db);
+    } finally {
+      await turn.cleanup();
+    }
+  } finally {
+    await db.end();
+  }
+}

@@ -194,7 +194,7 @@ function DeviceAuthorize() {
           </div>
 
           <div className="space-y-3">
-            <p className="text-muted-foreground text-sm font-medium">{t('whoCanUse')}</p>
+            <p className="text-foreground text-sm font-medium">{t('whoCanUse')}</p>
             <RadioGroup value={effectiveShare} onValueChange={(value) => setShare(value as Share)}>
               <RadioGroupItem
                 value="me"
@@ -216,7 +216,7 @@ function DeviceAuthorize() {
 
           <div className="space-y-3">
             <div className="space-y-1">
-              <p className="text-muted-foreground text-sm font-medium">
+              <p className="text-foreground text-sm font-medium">
                 {tI18nComplete.raw('text5db4167d9f88')}
               </p>
               <p className="text-muted-foreground text-xs text-pretty">

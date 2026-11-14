@@ -20,8 +20,11 @@
  * that never groups show calls uses the same rule.
  */
 import { formatDuration } from '../state';
+import { textRendersCard } from './card-text';
 import { isNoGroupActivityTool, normalizeActivityToolName } from './session-activity-groups';
 import type { ShowGroupedSegment } from './show-group';
+import { partStartsConnectorSignIn } from './sign-in-call';
+import { STARTED_WORK_TOOLS } from './started-work';
 
 export interface TurnWorkSplit<S extends ShowGroupedSegment = ShowGroupedSegment> {
   /** Folded behind the "Worked for" row. Never empty. */
@@ -38,34 +41,20 @@ export interface TurnWorkSplit<S extends ShowGroupedSegment = ShowGroupedSegment
  * Folded behind "Worked for", the turn would say "I asked a researcher" with
  * no researcher in sight. Reading the roster (`list_agents`) stays work.
  */
-const STARTED_WORK_TOOLS: ReadonlySet<string> = new Set(['agent', 'task', 'agent_spawn', 'workflow']);
 
-function isDeliverableSegment(segment: ShowGroupedSegment): boolean {
+function isDeliverableSegment(segment: ShowGroupedSegment, foldStartedWork = false): boolean {
   if (segment.kind === 'show-group') return true;
   if (segment.kind !== 'standalone') return false;
-  return isNoGroupActivityTool(segment.part.tool) || STARTED_WORK_TOOLS.has(normalizeActivityToolName(segment.part.tool));
+  return (
+    isNoGroupActivityTool(segment.part.tool) ||
+    partStartsConnectorSignIn(segment.part) ||
+    (!foldStartedWork && STARTED_WORK_TOOLS.has(normalizeActivityToolName(segment.part.tool)))
+  );
 }
-
-/**
- * A fence line that opens a generative-UI block (```openui, ~~~openui-v2, …) at
- * any container depth: top level, in a blockquote, or in a list item. The
- * renderer opens a block at all three (`genui/fence.ts`, `FENCE_START` and
- * `LIST_FENCE`).
- */
-const GENUI_FENCE = /^[ \t>]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?(?:`{3,}|~{3,})[ \t]*openui/im;
-/**
- * A setup route the renderer turns into a card: as a link target, inline code,
- * or a bare URL (an autolink). A relative path is always ours. An absolute URL
- * counts only with the `ksl_` token prefix, the rule the web renderer applies
- * to a cross-origin link (`parseSetupLinkHref`).
- */
-const SETUP_LINK =
-  /(?:^|[\s(<`])(?:\/(?:secret-intake|connect)\/[^\s)>`]|https?:\/\/[^\s)>`/]+\/(?:secret-intake|connect)\/ksl_)/i;
 
 function isCardText(segment: ShowGroupedSegment): boolean {
   if (segment.kind !== 'text') return false;
-  const body = segment.part.text ?? '';
-  return GENUI_FENCE.test(body) || SETUP_LINK.test(body);
+  return textRendersCard(segment.part.text ?? '');
 }
 
 function isBlankText(segment: ShowGroupedSegment): boolean {
@@ -75,14 +64,22 @@ function isBlankText(segment: ShowGroupedSegment): boolean {
 /** `null` = render the turn as today: it is still working, or it has no work to fold. */
 export function splitTurnWork<S extends ShowGroupedSegment = ShowGroupedSegment>(
   segments: ReadonlyArray<S>,
-  opts: { working: boolean },
+  opts: {
+    working: boolean;
+    /**
+     * Fold the calls that started an agent or a workflow too: every agent the turn started has
+     * reported (`sessionLogAgentRuns` → `settledLaunches`), so nothing is left to track.
+     */
+    foldStartedWork?: boolean;
+  },
 ): TurnWorkSplit<S> | null {
   if (opts.working) return null;
+  const deliverable = (segment: S) => isDeliverableSegment(segment, opts.foldStartedWork);
 
   let finalIndex = -1;
   for (let i = segments.length - 1; i >= 0; i--) {
     const segment = segments[i];
-    if (isDeliverableSegment(segment) || isBlankText(segment)) continue;
+    if (deliverable(segment) || isBlankText(segment)) continue;
     if (segment.kind === 'text') finalIndex = i;
     break;
   }
@@ -90,7 +87,7 @@ export function splitTurnWork<S extends ShowGroupedSegment = ShowGroupedSegment>
   const split: TurnWorkSplit<S> = { work: [], hoisted: [], final: [] };
   segments.forEach((segment, i) => {
     if (i === finalIndex) split.final.push(segment);
-    else if (isDeliverableSegment(segment) || isCardText(segment)) split.hoisted.push(segment);
+    else if (deliverable(segment) || isCardText(segment)) split.hoisted.push(segment);
     else split.work.push(segment);
   });
   return split.work.length > 0 ? split : null;

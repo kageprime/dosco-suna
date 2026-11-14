@@ -14,7 +14,7 @@ export default function ConnectIntakePage() {
   const returned = useSearchParams().get('returned') === '1';
 
   return (
-    <AuthFrame footerVariant="none">
+    <AuthFrame footerVariant="none" art={false}>
       <Rise>
         <ConnectorIntake token={token} returned={returned} />
       </Rise>

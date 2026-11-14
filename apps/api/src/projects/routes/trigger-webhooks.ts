@@ -19,7 +19,7 @@ import { ACCOUNT_STATE_FIRE_CODES, markGitTriggerAttemptFailed } from '../lib/tr
 import { takeThrottledRunSlot } from '../lib/trigger-run-caps';
 import { raiseTriggerAlert } from '../lib/trigger-alerts';
 import { recordTriggerRun, triggerRunFromFire } from '../trigger-execution-store';
-import { extractWebhookToken, fireGitTrigger, markGitTriggerFired, renderPromptTemplate, triggerFilterMatches, verifyWebhookSignature, verifyWebhookToken, webhookPayload, webhookTimestampProblem } from '../lib/triggers';
+import { extractWebhookToken, fireGitTrigger, githubNativeDelivery, markGitTriggerFired, renderTriggerInput, triggerFilterMatches, verifyGithubWebhookSignature, verifyWebhookSignature, verifyWebhookToken, webhookPayload, webhookTimestampProblem } from '../lib/triggers';
 import { PROJECT_TRIGGERS_PAUSED_REASON, automaticFirePauseReason } from '../lib/trigger-scheduler-state';
 import {
   validateWebhookSecretConfiguration,
@@ -73,7 +73,7 @@ export function registerTriggerWebhooksRoutes(): void {
     tags: ['triggers'],
     summary: 'Fire a webhook trigger',
     description:
-      'Authenticated by the trigger secret, not a bearer token: send `X-Kortix-Signature` / `X-Hub-Signature-256` (HMAC-SHA256 of `<X-Kortix-Timestamp>.<raw body>`) with `X-Kortix-Timestamp` (epoch seconds, within 5 minutes) — a missing or stale timestamp is refused, so a captured signature cannot replay — or the secret as `X-Kortix-Token` or `Authorization: Bearer`. Every pre-authentication miss answers 401. The JSON body is the payload the prompt template renders.',
+      'Authenticated by the trigger secret, not a bearer token: send `X-Kortix-Signature` / `X-Hub-Signature-256` (HMAC-SHA256 of `<X-Kortix-Timestamp>.<raw body>`) with `X-Kortix-Timestamp` (epoch seconds, within 5 minutes) — a missing or stale timestamp is refused, so a captured signature cannot replay — or the secret as `X-Kortix-Token` or `Authorization: Bearer`. A GitHub repository webhook (`X-Hub-Signature-256` over the raw body with `X-GitHub-Event` and `X-GitHub-Delivery`, no Kortix timestamp) verifies on the body; its signature keys the delivery permanently, so it runs once. Every pre-authentication miss answers 401. The JSON body is the payload the prompt template renders.',
     // No body schema: the handler HMACs the raw bytes, so nothing may parse them first.
     request: { params: z.object({ workspaceId: z.string(), slug: z.string() }) },
     responses: {
@@ -186,12 +186,17 @@ export function registerTriggerWebhooksRoutes(): void {
     const signatureHeader =
       c.req.header('x-kortix-signature') || c.req.header('x-hub-signature-256') || null;
     const timestampHeader = c.req.header('x-kortix-timestamp') ?? null;
-    if (signatureHeader) {
+    // A GitHub repository webhook signs the body alone; its key is the
+    // signature and never frees (lib/webhook-delivery.ts), so it cannot replay.
+    const githubNative = githubNativeDelivery((name) => c.req.header(name));
+    if (signatureHeader && !githubNative) {
       // 401 like every other miss before authentication, so no existence oracle.
       const timestampProblem = webhookTimestampProblem(timestampHeader);
       if (timestampProblem) return rejectRun(`timestamp_${timestampProblem}`);
     }
-    const authed = signatureHeader
+    const authed = githubNative
+      ? verifyGithubWebhookSignature(rawBody, secret, signatureHeader)
+      : signatureHeader
       ? verifyWebhookSignature(rawBody, timestampHeader, secret, signatureHeader)
       : verifyWebhookToken(
           extractWebhookToken(c.req.header('x-kortix-token'), c.req.header('authorization')),
@@ -212,7 +217,7 @@ export function registerTriggerWebhooksRoutes(): void {
     const firedAt = new Date();
     const recordRun = (run: Omit<Parameters<typeof recordTriggerRun>[0], 'projectId' | 'slug' | 'source' | 'spec' | 'payload' | 'now'>) =>
       recordTriggerRun({ projectId, slug, source: 'webhook', spec, payload, ...run, now: firedAt });
-    const renderedPrompt = renderPromptTemplate(spec.promptTemplate, payload);
+    const renderedPrompt = renderTriggerInput(spec, payload);
     // One delivery runs once: keyed on the event when the sender names one,
     // else on the body inside a replay window (projects/lib/webhook-delivery.ts).
     const delivery = webhookDeliveryKey({
@@ -222,6 +227,7 @@ export function registerTriggerWebhooksRoutes(): void {
       rawBody,
       signatureHeader,
       staticAuthFingerprint: c.req.header('x-kortix-token') ?? c.req.header('authorization') ?? '',
+      githubNative,
     });
     const idempotencyKey = delivery.key;
 
@@ -249,7 +255,7 @@ export function registerTriggerWebhooksRoutes(): void {
     // A key whose earlier run dead-lettered, lost its session, or (body-hash
     // keys) aged out of the replay window answers for nothing: free it so
     // this delivery runs instead of replaying that outcome.
-    await releaseWebhookDeliveryKey(idempotencyKey, { byEvent: delivery.byEvent });
+    if (!delivery.permanent) await releaseWebhookDeliveryKey(idempotencyKey, { byEvent: delivery.byEvent });
     const result = await fireGitTrigger({
       spec,
       project,

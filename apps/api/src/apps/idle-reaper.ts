@@ -5,6 +5,7 @@ import { type SandboxProviderName } from '../config';
 import { logger } from '../lib/logger';
 import { clearAppCrashAlerts, raiseAppCrashAlerts } from '../projects/surface';
 import { db } from '../shared/db';
+import { escalateProviderAuthOutage } from '../shared/provider-auth';
 import { mapWithConcurrency } from '../shared/map-with-concurrency';
 import { type AppdStatus, AppHostingProvider } from './hosting';
 import { groupAlwaysOn, groupMinRunning, releaseConfigOf } from './release-config';
@@ -313,8 +314,10 @@ async function keepAlwaysOnAppsRunning(hosting: AppHostingProvider, now: Date) {
         // Platinum runs an always-on App as a persistent VM. Daytona keeps
         // its idle backstop; renewing it here keeps the VM up.
         if (provider !== 'platinum') {
-          await hosting.renewLifecycle(provider, runtime.externalId).catch((error) =>
-            logger.warn('[apps] always-on lifecycle renewal failed', { appId: app.appId, error: String(error) }));
+          await hosting.renewLifecycle(provider, runtime.externalId).catch((error) => {
+            escalateProviderAuthOutage(provider, 'always-on lifecycle renewal', error);
+            logger.warn('[apps] always-on lifecycle renewal failed', { appId: app.appId, error: String(error) });
+          });
         }
         confirmed += 1;
         // The VM runs; does its App? A crash-looping App ends its supervisor.

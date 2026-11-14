@@ -1,7 +1,7 @@
-import { ledgerExists } from '../src/ledger-exists';
 import type pg from 'pg';
+import { LEDGER_TABLE, ledgerExists, renameMigration, reorderMigration, withLedgerLock } from './migration-ledger';
 import { withClient } from '../src/with-client';
-import { verifyMigrationChecksum, withLedgerLock } from './ledger-repair';
+import { verifyMigrationChecksum } from './ledger-repair';
 
 const CONNECTOR_POLICY_MIGRATION = {
   // Historical migration identity. The cutover migration runs later and must
@@ -114,7 +114,7 @@ async function readRepairRows(client: pg.Client): Promise<MigrationLedgerRow[]> 
 
   const result = await client.query<{ name: string; run_on: Date }>(
     `select name, run_on
-       from kortix_migrations.pgmigrations
+       from ${LEDGER_TABLE}
       where name = any($1::text[])
       order by run_on, id`,
     [REPAIR_NAMES],
@@ -139,30 +139,15 @@ async function reconcileRepairPlan(databaseUrl: string): Promise<boolean> {
     }
 
     for (const { legacyName, currentName } of plan.renames) {
-      const result = await client.query(
-        `update kortix_migrations.pgmigrations
-            set name = $2
-          where name = $1
-            and not exists (
-              select 1
-                from kortix_migrations.pgmigrations
-               where name = $2
-            )`,
-        [legacyName, currentName],
-      );
-      if (result.rowCount !== 1) {
+      if ((await renameMigration(client, legacyName, currentName)) !== 1) {
         throw new Error(`Migration ledger repair could not rename ${legacyName}.`);
       }
     }
 
     if (plan.legacyRunOn) {
-      const orderResult = await client.query(
-        `update kortix_migrations.pgmigrations
-            set run_on = $2::timestamptz - interval '1 millisecond'
-          where name = $1`,
-        [CONNECTOR_POLICY_MIGRATION.name, plan.legacyRunOn.toISOString()],
-      );
-      if (orderResult.rowCount !== 1) {
+      if (
+        (await reorderMigration(client, CONNECTOR_POLICY_MIGRATION.name, plan.legacyRunOn.toISOString())) !== 1
+      ) {
         throw new Error(
           `Migration ledger repair could not reorder ${CONNECTOR_POLICY_MIGRATION.name}.`,
         );

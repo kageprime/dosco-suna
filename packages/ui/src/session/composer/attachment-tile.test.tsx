@@ -5,6 +5,7 @@ import {
   AttachmentTile,
   TILE_SURFACE,
   attachmentExtension,
+  filenameBreakSegments,
   isPreviewableImage,
   splitFilenameForTile,
 } from './attachment-tile';
@@ -138,7 +139,7 @@ describe('AttachmentTile', () => {
   test('a short name wraps naturally instead', () => {
     const html = render(<AttachmentTile filename="doc.pdf" />);
     expect(html).toContain('line-clamp-2');
-    expect(html).toContain('>doc.pdf<');
+    expect(html).toContain('>doc<wbr/>.pdf<');
   });
 
   test('splitFilenameForTile keeps exactly the last ten characters', () => {
@@ -191,5 +192,25 @@ describe('AttachmentTile preview (a pasted-text tile)', () => {
     expect(live).not.toContain('hover:bg-accent');
     // No press scale on a paste tile.
     expect(live).not.toContain('active:scale-[0.96]');
+  });
+});
+
+describe('filenameBreakSegments', () => {
+  test('breaks before the extension and after separators', () => {
+    expect(filenameBreakSegments('dsa-c-attach.txt')).toEqual(['dsa-', 'c-', 'attach', '.txt']);
+    expect(filenameBreakSegments('my_notes v2.md')).toEqual(['my_', 'notes ', 'v2', '.md']);
+  });
+
+  test('a name with no extension or separator is one piece', () => {
+    expect(filenameBreakSegments('README')).toEqual(['README']);
+    expect(filenameBreakSegments('.env')).toEqual(['.env']);
+  });
+});
+
+describe('AttachmentTile short name', () => {
+  test('the extension is one text run and no break-all is set', () => {
+    const html = render(<AttachmentTile filename="dsa-c-attach.txt" mime="text/plain" />);
+    expect(html).toContain('attach<wbr/>.txt');
+    expect(html).not.toContain('break-all');
   });
 });

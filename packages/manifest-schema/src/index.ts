@@ -33,6 +33,7 @@ import { appDisplayIssues, appReleaseConfigIssues, resolveAppReleaseConfig } fro
 import { appReleaseInputFromBlock } from './app-config';
 import { parseChangeRequestFilter, parseTriggerFilter } from './trigger-filter';
 import { validateManifestBody } from './index.v3';
+export { normalizeEvalConfig, readEvalSuites, validateEvals, type EvalConfigIssue, type EvalSuiteDeclaration } from './evals';
 import { validateAgentPolicySetRefs, validateConnectorPolicySets } from './policy-sets';
 import {
   CHANNEL_PLATFORMS,
@@ -283,6 +284,8 @@ export {
 
 export {
   AGENT_BLOCK_KEYS_V3,
+  AGENT_RUN_TIMEOUT_DEFAULT_SECONDS,
+  AGENT_RUN_TIMEOUT_MAX_SECONDS,
   type AgentBlockV3,
   type AgentToolsV3,
   type CodemodeV3,
@@ -1389,7 +1392,18 @@ function validateOnRunShape(entry: Record<string, unknown>, where: string, issue
   if (entry.type !== undefined) push('type', 'is implied by `on`; remove it.');
 }
 
-export function validateTriggers(rawNode: unknown, path: string, issues: ManifestIssue[]): void {
+/** What the trigger checks need from the agents: who runs code instead of a model. */
+export interface TriggerAgentContext {
+  /** Agents with `run`: their trigger needs no prompt. */
+  programAgents: ReadonlySet<string>;
+  /** `default_agent`: the agent of a trigger that names none. */
+  defaultAgent?: string;
+}
+
+/** The longest static `run.payload` of an agent run, as JSON. Same cap as an App target's payload. */
+const TRIGGER_RUN_PAYLOAD_MAX_BYTES = 64 * 1024;
+
+export function validateTriggers(rawNode: unknown, path: string, issues: ManifestIssue[], agents?: TriggerAgentContext): void {
   if (rawNode == null) return;
   if (Array.isArray(rawNode)) rawNode.forEach((entry, i) => { if (isTable(entry)) validateOnRunShape(entry, `${path}[${i}]`, issues); });
   // One set of rules for both shapes: an `on:` / `run:` entry is checked as the flat fields it means.
@@ -1448,8 +1462,17 @@ export function validateTriggers(rawNode: unknown, path: string, issues: Manifes
         : typeof entry.prompt_template === 'string'
           ? entry.prompt_template
           : '';
-    // An App target receives the payload, not a prompt.
-    if (!promptRaw.trim() && entry.target === undefined) {
+    // An App target receives the payload, not a prompt; so does a program agent (its stdin is the payload).
+    const agentName = typeof entry.agent === 'string' && entry.agent.trim() ? entry.agent.trim() : agents?.defaultAgent;
+    const programTarget = !!agentName && !!agents?.programAgents.has(agentName);
+    if (entry.payload !== undefined && entry.target === undefined) {
+      if (!isTable(entry.payload)) {
+        issues.push({ path: `${where}.payload`, message: 'must be a table: static input merged under each fire\'s payload.', severity: 'error' });
+      } else if (JSON.stringify(entry.payload).length > TRIGGER_RUN_PAYLOAD_MAX_BYTES) {
+        issues.push({ path: `${where}.payload`, message: 'must be at most 64 KiB as JSON.', severity: 'error' });
+      }
+    }
+    if (!promptRaw.trim() && entry.target === undefined && !programTarget) {
       issues.push({
         path: `${where}.prompt`,
         message: 'prompt is required and may not be empty.',

@@ -16,7 +16,7 @@ import { c, blankLine, field, glyph } from './terminal';
  * needs the credential must therefore take it from the background service
  * first, and hand it back if it did not end up using it.
  */
-export interface TunnelLease {
+interface TunnelLease {
   /** True when this lease actually stopped a running service. */
   readonly serviceWasActive: boolean;
   /** Restarts the service if this lease stopped it. Safe to call more than once. */

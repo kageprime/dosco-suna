@@ -261,14 +261,11 @@ export function SessionOverridesToolbar({
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const tPooled = useTranslations('pooledSecrets');
   const tScope = useTranslations('sessionScope');
-  const pooledSecretsEnabled = useFeatureFlag(projectId, 'pooled_provider_secrets').enabled;
   const drivesEnabled = useFeatureFlag(projectId, 'drives').enabled;
   const tDrives = useTranslations('drives');
   // Drives mount when the sandbox is created: an unsent session has none.
   const sessionDrives = useSessionDrives(projectId, drivesEnabled ? sessionId : undefined);
-  const providerPools = useSessionProviderSecretPools(
-    pooledSecretsEnabled ? projectId : null, sessionId,
-  );
+  const providerPools = useSessionProviderSecretPools(projectId, sessionId);
   // `project.secret.read` is a manager-tier leaf. Without it the catalog reads
   // `unavailable`, and the row only ever said "Secret access is unavailable" —
   // an axis the viewer can neither see nor change. Drop it on a SETTLED denial;
@@ -430,7 +427,7 @@ export function SessionOverridesToolbar({
     // card it showed. Credentials are not a session-minting decision: the agent
     // may use every account it is entitled to and names one at call time
     // (`kortix connectors call --account`, `accounts` to see them).
-    if (pooledSecretsEnabled && managesSession && (!secretsDenied || (!!sessionId && providerPools.data?.can_edit === true))) list.push(providerKeysRow(projectId, sessionId,
+    if (managesSession && (!secretsDenied || (!!sessionId && providerPools.data?.can_edit === true))) list.push(providerKeysRow(projectId, sessionId,
       providerPoolDraft, providerDrafts, providerPools.isError, providerPools.isLoading,
       saving, onProviderDraftChange, onProviderSecretPoolsChange, tPooled));
     list.push(sandboxRow(sandboxSlot, sandbox, tI18nComplete));
@@ -454,7 +451,6 @@ export function SessionOverridesToolbar({
     controlsDisabled,
     draft,
     onChange,
-    pooledSecretsEnabled,
     managesSession,
     providerPoolDraft,
     providerDrafts,

@@ -230,7 +230,10 @@ triggers:
 - `kortix triggers pause` stops every trigger of the workspace; `resume`
   starts them again. `enabled: false` stops one.
 
-Prompt variables, `{{ dotted.path }}` (a missing value renders empty):
+Prompt variables, `{{ dotted.path }}` (a missing value renders empty; an object
+or list renders as JSON; `{{ payload }}` is the whole payload). `run.payload`
+adds fixed values under the fire's own keys; `kortix triggers fire <slug>
+--dry-run --payload '<json>'` prints the rendered prompt and starts nothing:
 
 | Fire | Variables |
 | --- | --- |
@@ -239,6 +242,7 @@ Prompt variables, `{{ dotted.path }}` (a missing value renders empty):
 | Webhook | `fired_at`, `body.*`, `headers.content_type`, `headers.user_agent`, `headers.forwarded_for` |
 | App event | `event.name`, `event.data.*`, `event.id`, `event.emitted_at`, `app.slug` |
 | Change request merged | `fired_at`, `change_request.cr_id`, `.number`, `.title`, `.base_ref`, `.head_ref`, `.merge_commit_sha` |
+| Manual fire (`kortix triggers fire`) | `source`, `actor`, `message`; `--payload` deep-merges over them |
 
 ## Problems
 

@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import type { SessionAsk, SessionAskAnswer } from '@kortix/sdk';
 import { afterEach, describe, expect, mock, test } from 'bun:test';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -15,6 +16,7 @@ globals.navigator = win.navigator;
 /** Every answer the deck sends, after its Undo window or on leaving the page. */
 const sent: { askId: string; answer: SessionAskAnswer }[] = [];
 const undoMessages: string[] = [];
+const undoAction: { current?: () => void } = {};
 let asks: SessionAsk[] = [];
 
 const realSdk = await import('@kortix/sdk/react');
@@ -31,7 +33,10 @@ mock.module('@kortix/sdk/react', () => ({
 const realToast = await import('../../primitives/toast');
 mock.module('../../primitives/toast', () => ({
   ...realToast,
-  undoToast: (message: string) => undoMessages.push(message),
+  undoToast: (message: string, options: { onUndo: () => void }) => {
+    undoMessages.push(message);
+    undoAction.current = options.onUndo;
+  },
 }));
 
 const { AskDeck } = await import('./ask-deck');
@@ -52,12 +57,12 @@ function text(node: ReactTestInstance | string): string {
   return typeof node === 'string' ? node : node.children.map(text).join('');
 }
 
-async function mountDeck(): Promise<ReactTestRenderer> {
+async function mountDeck(props: Omit<ComponentProps<typeof AskDeck>, 'projectId'> = {}): Promise<ReactTestRenderer> {
   let renderer!: ReactTestRenderer;
   await act(async () => {
     renderer = create(
       <QueryClientProvider client={new QueryClient()}>
-        <AskDeck projectId="project-1" />
+        <AskDeck projectId="project-1" {...props} />
       </QueryClientProvider>,
     );
   });
@@ -67,6 +72,7 @@ async function mountDeck(): Promise<ReactTestRenderer> {
 afterEach(() => {
   sent.length = 0;
   undoMessages.length = 0;
+  undoAction.current = undefined;
   asks = [];
 });
 
@@ -101,4 +107,58 @@ describe('AskDeck access asks', () => {
     expect(text(renderer.root)).toContain('Nothing waits on you');
     await act(async () => renderer.unmount());
   });
+});
+
+test('selecting an inbox ask opens its card instead of the oldest card', async () => {
+  asks = [accessAsk, {
+    ...accessAsk,
+    id: 'access:a2',
+    asked_at: '2026-11-09T11:00:00.000Z',
+    access: { colleague: 'Report check', connectors: [], secrets: [] },
+  }];
+  const renderer = await mountDeck({ selectedAskId: 'access:a2' });
+  try {
+    expect(text(renderer.root)).toContain('Report check');
+    expect(text(renderer.root)).not.toContain('Invoice check');
+  } finally {
+    await act(async () => renderer.unmount());
+  }
+});
+
+test('a staged answer hides its inbox row until Undo restores it', async () => {
+  asks = [accessAsk];
+  let hidden: ReadonlySet<string> = new Set();
+  const renderer = await mountDeck({ onHiddenAskIdsChange: (ids) => { hidden = ids; } });
+  try {
+    const allow = renderer.root.findAllByType('button').find((node) => text(node) === 'Allow');
+    if (!allow) throw new Error('Missing Allow');
+    await act(async () => allow.props.onClick());
+    expect(hidden.has(accessAsk.id)).toBe(true);
+    expect(text(renderer.root)).not.toContain('Invoice check');
+    await act(async () => undoAction.current?.());
+    expect(hidden.has(accessAsk.id)).toBe(false);
+    expect(text(renderer.root)).toContain('Invoice check');
+    expect(sent).toEqual([]);
+  } finally {
+    await act(async () => renderer.unmount());
+  }
+});
+
+test('the inbox highlight follows the default card and Skip', async () => {
+  asks = [accessAsk, {
+    ...accessAsk, id: 'access:a2', asked_at: '2026-11-09T11:00:00.000Z',
+    access: { colleague: 'Report check', connectors: [], secrets: [] },
+  }];
+  const current: { id?: string | null } = {};
+  const renderer = await mountDeck({ onCurrentAskChange: (id) => { current.id = id; } });
+  try {
+    expect(current.id).toBe(accessAsk.id);
+    const skip = renderer.root.findAllByType('button').find((node) => text(node).startsWith('Skip'));
+    if (!skip) throw new Error('Missing Skip');
+    await act(async () => skip.props.onClick());
+    expect(current.id).toBe('access:a2');
+    expect(text(renderer.root)).toContain('Report check');
+  } finally {
+    await act(async () => renderer.unmount());
+  }
 });

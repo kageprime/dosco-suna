@@ -5,6 +5,14 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Changed (provider keys need no flag)
+- The `pooled_provider_secrets` project flag graduated (2026-11-12): every project has named
+  provider keys with sharing, per-session key selection and named ChatGPT/Claude sign-ins.
+  `FeatureFlagKey` keeps `pooled_provider_secrets`, marked `@deprecated`; `FEATURE_FLAG_KEYS`
+  no longer lists it, and `useFeatureFlag(projectId, 'pooled_provider_secrets')` reports
+  `enabled: true`. `KortixProject.experimental.pooled_provider_secrets` is optional now.
+  Removed in the next major.
+
 ### Added: the Workspace surface (additive; nothing removed)
 A workspace is one account and its one project, like a Slack workspace. `workspace_id` is the
 project id. New names:

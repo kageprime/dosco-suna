@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import {
   cpSync,
   existsSync,
@@ -9,6 +8,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { sha256Hex } from './sha256';
 
 const AUDIT_V2_MIGRATION = '20260807221200000_centralized_audit_v2.sql';
 const AUDIT_V2_SHA256 = '769b863ef0b62c4693e232cf102757ce3c3ee904f0f44c9aea450901a56e07f9';
@@ -106,10 +106,6 @@ interface MigrationRuntimeDirectory {
   cleanup: () => void;
 }
 
-function sha256(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
-}
-
 /**
  * Materialize the immutable migration set used by node-pg-migrate.
  *
@@ -131,7 +127,7 @@ export function materializeMigrationRuntimeDirectory(
     if (!existsSync(path)) return [];
     const source = readFileSync(path, 'utf8');
     const expectedSha256 = options.supersededIndexExpectedSha256?.[migration.file] ?? migration.sha256;
-    const actualSha256 = sha256(source);
+    const actualSha256 = sha256Hex(source);
     if (actualSha256 !== expectedSha256) {
       throw new Error(`${migration.file} checksum mismatch: expected ${expectedSha256}, received ${actualSha256}`);
     }
@@ -157,7 +153,7 @@ export function materializeMigrationRuntimeDirectory(
     : null;
   if (auditSource) {
     const expectedSha256 = options.expectedSha256 ?? AUDIT_V2_SHA256;
-    const actualSha256 = sha256(auditSource);
+    const actualSha256 = sha256Hex(auditSource);
     if (actualSha256 !== expectedSha256) {
       throw new Error(
         `${AUDIT_V2_MIGRATION} checksum mismatch: expected ${expectedSha256}, received ${actualSha256}`,
@@ -172,7 +168,7 @@ export function materializeMigrationRuntimeDirectory(
   }
   if (removeLocalDockerSource) {
     const expectedSha256 = options.removeLocalDockerExpectedSha256 ?? REMOVE_LOCAL_DOCKER_SHA256;
-    const actualSha256 = sha256(removeLocalDockerSource);
+    const actualSha256 = sha256Hex(removeLocalDockerSource);
     if (actualSha256 !== expectedSha256) {
       throw new Error(
         `${REMOVE_LOCAL_DOCKER_MIGRATION} checksum mismatch: expected ${expectedSha256}, received ${actualSha256}`,
@@ -188,7 +184,7 @@ export function materializeMigrationRuntimeDirectory(
 
   if (rbacCutoverViewsSource) {
     const expectedSha256 = options.rbacCutoverViewsExpectedSha256 ?? RBAC_CUTOVER_VIEWS_SHA256;
-    const actualSha256 = sha256(rbacCutoverViewsSource);
+    const actualSha256 = sha256Hex(rbacCutoverViewsSource);
     if (actualSha256 !== expectedSha256) {
       throw new Error(
         `${RBAC_CUTOVER_VIEWS_MIGRATION} checksum mismatch: expected ${expectedSha256}, received ${actualSha256}`,

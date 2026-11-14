@@ -67,7 +67,7 @@ type BoardRow = Pick<ProjectSessionRow, 'sessionId' | 'status' | 'metadata'>;
 
 type LastEnded = { endReason: string | null; errorName: string | null; endedAt: Date | null };
 
-function metaString(metadata: unknown, key: string): string | null {
+export function metaString(metadata: unknown, key: string): string | null {
   const value = ((metadata ?? {}) as Record<string, unknown>)[key];
   return typeof value === 'string' && value.trim() ? value : null;
 }
@@ -124,6 +124,21 @@ export function deriveSessionBoard(input: {
   };
 }
 
+/** The open, unexpired asks of an ask table on these sessions, as the asker or the surface. */
+function openAskRows(
+  table: typeof sessionPendingQuestions | typeof sessionPendingPermissions | typeof sessionColleagueAccess,
+  decided: typeof sessionPendingQuestions.answeredAt | typeof sessionPendingPermissions.decidedAt | typeof sessionColleagueAccess.decidedAt,
+  sessionIds: string[],
+) {
+  return db.select({ sessionId: table.sessionId, surfaceSessionId: table.surfaceSessionId })
+    .from(table)
+    .where(and(
+      or(inArray(table.sessionId, sessionIds), inArray(table.surfaceSessionId, sessionIds)),
+      isNull(decided),
+      pendingAskNotExpired(table.expiresAt),
+    ));
+}
+
 /**
  * What each session waits for from its person: an open question first, else a
  * pending approval (a connector call, or a tool call the permission policy
@@ -134,20 +149,8 @@ async function readAttention(sessionIds: string[]): Promise<Map<string, SessionA
   const out = new Map<string, SessionAttention>();
   const uuids = sessionIds.filter(isUuid);
   const [questions, permissions, approvals, colleagueAccess] = await Promise.all([
-    db.select({ sessionId: sessionPendingQuestions.sessionId, surfaceSessionId: sessionPendingQuestions.surfaceSessionId })
-      .from(sessionPendingQuestions)
-      .where(and(
-        or(inArray(sessionPendingQuestions.sessionId, sessionIds), inArray(sessionPendingQuestions.surfaceSessionId, sessionIds)),
-        isNull(sessionPendingQuestions.answeredAt),
-        pendingAskNotExpired(sessionPendingQuestions.expiresAt),
-      )),
-    db.select({ sessionId: sessionPendingPermissions.sessionId, surfaceSessionId: sessionPendingPermissions.surfaceSessionId })
-      .from(sessionPendingPermissions)
-      .where(and(
-        or(inArray(sessionPendingPermissions.sessionId, sessionIds), inArray(sessionPendingPermissions.surfaceSessionId, sessionIds)),
-        isNull(sessionPendingPermissions.decidedAt),
-        pendingAskNotExpired(sessionPendingPermissions.expiresAt),
-      )),
+    openAskRows(sessionPendingQuestions, sessionPendingQuestions.answeredAt, sessionIds),
+    openAskRows(sessionPendingPermissions, sessionPendingPermissions.decidedAt, sessionIds),
     uuids.length === 0
       ? Promise.resolve([] as { sessionId: string | null }[])
       : db.selectDistinct({ sessionId: connectorCalls.sessionId })
@@ -159,13 +162,7 @@ async function readAttention(sessionIds: string[]): Promise<Map<string, SessionA
           isNull(connectorCalls.resolvedAt),
           approvalNotExpired,
         )),
-    db.select({ sessionId: sessionColleagueAccess.sessionId, surfaceSessionId: sessionColleagueAccess.surfaceSessionId })
-      .from(sessionColleagueAccess)
-      .where(and(
-        or(inArray(sessionColleagueAccess.sessionId, sessionIds), inArray(sessionColleagueAccess.surfaceSessionId, sessionIds)),
-        isNull(sessionColleagueAccess.decidedAt),
-        pendingAskNotExpired(sessionColleagueAccess.expiresAt),
-      )),
+    openAskRows(sessionColleagueAccess, sessionColleagueAccess.decidedAt, sessionIds),
   ]);
   const mark = (ids: Array<string | null>, kind: SessionAttention) => {
     for (const id of ids) if (id && (kind === 'question' || !out.has(id))) out.set(id, kind);

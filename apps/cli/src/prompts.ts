@@ -46,20 +46,26 @@ function askOnce(rl: readline.Interface, label: string, afterPrompt?: () => void
 /**
  * Plain-text prompt with optional default. Returns whatever the user
  * typed (trimmed), or `defaultValue` when they hit enter.
+ *
+ * On end of input (EOF) with a default, returns `defaultValue`; without one,
+ * throws {@link EndOfInputError} — the same "nobody answered" convention as
+ * {@link confirm}, so the promise never stays pending on a closed stdin.
  */
 export async function prompt(label: string, defaultValue?: string): Promise<string> {
   ensureTTY();
+  const suffix = defaultValue !== undefined ? ` (${defaultValue})` : '';
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  let raw: string;
   try {
-    const suffix = defaultValue !== undefined ? ` (${defaultValue})` : '';
-    const raw = await new Promise<string>((resolve) =>
-      rl.question(`${label}${suffix}: `, (answer) => resolve(answer)),
-    );
-    const trimmed = raw.trim();
-    return trimmed !== '' ? trimmed : defaultValue ?? '';
-  } finally {
-    rl.close();
+    raw = await askOnce(rl, `${label}${suffix}: `);
+  } catch (error) {
+    if (defaultValue === undefined) throw error;
+    // stdin ended before an answer: the default is the answer, as-is —
+    // the same untrimmed default a blank Enter already returns.
+    return defaultValue;
   }
+  const trimmed = raw.trim();
+  return trimmed !== '' ? trimmed : defaultValue ?? '';
 }
 
 /**
@@ -173,6 +179,10 @@ export async function confirm(
  * either the option's number or its literal name, so scripted input
  * (tests, `--yes` non-interactive paths) that already types the option
  * name keeps working unchanged.
+ *
+ * On end of input (EOF), returns `defaultValue` — the same "nobody
+ * answered" convention as {@link confirm}, whose `ended` race this loop
+ * reuses, because `rl.question`'s callback never fires on a closed stdin.
  */
 export async function selectFrom<T extends string>(
   label: string,
@@ -181,6 +191,9 @@ export async function selectFrom<T extends string>(
 ): Promise<T> {
   ensureTTY();
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  // One listener for the whole loop — re-registering per question would pile
+  // up handlers on every unknown answer, the pile-up `confirm()` avoids.
+  const ended = new Promise<null>((resolve) => rl.once('close', () => resolve(null)));
   try {
     process.stdout.write(`  ${label}\n`);
     options.forEach((option, i) => {
@@ -188,9 +201,14 @@ export async function selectFrom<T extends string>(
       process.stdout.write(`    ${i + 1}) ${option}${marker}\n`);
     });
     while (true) {
-      const raw = await new Promise<string>((resolve) =>
+      const answered = new Promise<string>((resolve) =>
         rl.question(`  Enter a number or name [${defaultValue}]: `, (answer) => resolve(answer)),
       );
+      const raw = await Promise.race([answered, ended]);
+      if (raw === null) {
+        process.stdout.write('\n'); // the prompt left the cursor mid-line
+        return defaultValue;
+      }
       const norm = raw.trim().toLowerCase();
       if (norm === '') return defaultValue;
       if ((options as readonly string[]).includes(norm)) return norm as T;

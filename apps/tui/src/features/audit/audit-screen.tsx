@@ -19,24 +19,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { kortix } from '../../kortix.ts';
 import { theme } from '../../theme.ts';
+import type { ScreenProps } from '../../screens.tsx';
+import { useScreenAction } from '../../ui/index.ts';
 import { AuditView } from './audit-view.tsx';
 import { buildRows, isPendingAction, type AuditRow } from './rows.ts';
 
-export interface AuditScreenProps {
-  projectId: string | null;
-  accountId: string | null;
-  sessionId: string | null;
-  focused: boolean;
-  /** Inner columns. */
-  width: number;
-  /** Inner rows. */
-  height: number;
-  /** Kortix web origin. Carried for the caller; Audit has no browser action. */
-  webBaseUrl: string;
-  onBack(): void;
-  onOpenSession(sessionId: string): void;
-  onToast(message: string, kind?: 'info' | 'error'): void;
-}
+export type AuditScreenProps = Pick<
+  ScreenProps,
+  'projectId' | 'sessionId' | 'focused' | 'width' | 'height' | 'onBack' | 'onToast'
+>;
 
 /** Poll period for the approvals read while an action waits for a decision. */
 export const PENDING_POLL_MS = 5_000;
@@ -62,17 +53,14 @@ function errorText(error: unknown): string {
 
 export function AuditScreen({
   projectId,
-  accountId: _accountId,
   sessionId,
   focused,
   width,
   height,
-  webBaseUrl: _webBaseUrl,
   onBack,
-  onOpenSession: _onOpenSession,
   onToast,
 }: AuditScreenProps) {
-  const [busy, setBusy] = useState<string | null>(null);
+  const { busy, run, refresh } = useScreenAction(onToast);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), CLOCK_TICK_MS);
@@ -119,27 +107,25 @@ export function AuditScreen({
 
   const decide = useCallback(
     (row: AuditRow, decision: 'approve' | 'deny') => {
-      if (!projectId || !row.pending) return;
-      setBusy(decision === 'approve' ? 'approving…' : 'denying…');
-      void kortix()
-        .project(projectId)
-        .approvals.resolve(row.pending.executionId, decision)
-        .then(async () => {
+      const pending = row.pending;
+      if (!projectId || !pending) return;
+      run(
+        decision === 'approve' ? 'approving…' : 'denying…',
+        async () => {
+          await kortix().project(projectId).approvals.resolve(pending.executionId, decision);
           onToast(decision === 'approve' ? 'Action approved.' : 'Action denied.');
           await Promise.all([approvals.refetch(), timeline.refetch()]);
-        })
-        .catch((error: unknown) => onToast(errorText(error), 'error'))
-        .finally(() => setBusy(null));
+        },
+      );
     },
-    [projectId, approvals.refetch, timeline.refetch, onToast],
+    [projectId, run, onToast, approvals.refetch, timeline.refetch],
   );
 
-  const refresh = useCallback(() => {
-    setBusy('refreshing…');
-    void Promise.all([approvals.refetch(), entitled ? timeline.refetch() : null])
-      .catch((error: unknown) => onToast(errorText(error), 'error'))
-      .finally(() => setBusy(null));
-  }, [approvals.refetch, timeline.refetch, entitled, onToast]);
+  const onRefresh = useCallback(() => {
+    refresh('refreshing…', () =>
+      Promise.all([approvals.refetch(), entitled ? timeline.refetch() : null]),
+    );
+  }, [refresh, approvals.refetch, timeline.refetch, entitled]);
 
   const loadMore = useCallback(() => {
     if (timeline.isFetchingNextPage) return;
@@ -164,7 +150,7 @@ export function AuditScreen({
       hasMore={timeline.hasNextPage}
       onDecide={decide}
       onLoadMore={loadMore}
-      onRefresh={refresh}
+      onRefresh={onRefresh}
       onBack={onBack}
     />
   );

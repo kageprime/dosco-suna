@@ -40,6 +40,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { kortix } from '../../kortix.ts';
 import { copyToClipboard } from '../../lib/clipboard.ts';
 import { openUrl } from '../../lib/open-url.ts';
+import type { ScreenProps } from '../../screens.tsx';
+import { useScreenAction } from '../../ui/index.ts';
 import { type ViewerState, blobToReadResult, formatBytes, toViewerState } from '../files/index.ts';
 import {
   type DriveRow,
@@ -63,26 +65,14 @@ import {
 } from './drive-model.ts';
 import { type DriveList, type DriveNotice, DriveView } from './drive-view.tsx';
 
-export interface DriveScreenProps {
-  projectId: string | null;
-  /** The account the project belongs to. Carried for the caller's header. */
-  accountId: string | null;
-  /** The open session: its Drive mounts list under "This session". */
-  sessionId: string | null;
-  focused: boolean;
-  /** Inner columns. */
-  width: number;
-  /** Inner rows. */
-  height: number;
-  /** Kortix web origin, for `o`. */
-  webBaseUrl: string;
-  onBack(): void;
-  /** Reserved for a Drive row that names a session. No Drive read names one yet. */
-  onOpenSession(sessionId: string): void;
-  onToast(message: string, kind?: 'info' | 'error'): void;
+/** The open session: its Drive mounts list under "This session". */
+export type DriveScreenProps = Pick<
+  ScreenProps,
+  'projectId' | 'sessionId' | 'focused' | 'width' | 'height' | 'webBaseUrl' | 'onBack' | 'onToast'
+> & {
   /** Test seam for `o`. Defaults to `lib/open-url.ts`. */
   openUrlImpl?: (url: string) => Promise<unknown>;
-}
+};
 
 /** `uploadDriveFile` takes at most 64 MiB in one request. */
 const MAX_UPLOAD_BYTES = 64 * 1024 * 1024;
@@ -112,14 +102,12 @@ export function expandLocalPath(input: string, home = homedir(), cwd = process.c
 
 export function DriveScreen({
   projectId,
-  accountId: _accountId,
   sessionId,
   focused,
   width,
   height,
   webBaseUrl,
   onBack,
-  onOpenSession: _onOpenSession,
   onToast,
   openUrlImpl = openUrl,
 }: DriveScreenProps) {
@@ -146,8 +134,8 @@ export function DriveScreen({
   const [showConflicts, setShowConflicts] = useState(false);
   const [cursorHint, setCursorHint] = useState<string | null>(null);
   const [viewer, setViewer] = useState<ViewerState>({ kind: 'empty' });
-  const [busy, setBusy] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const { busy, run, refresh } = useScreenAction(onToast);
   /** The path the preview waits on. A slower earlier read must not win. */
   const pendingRead = useRef<string | null>(null);
 
@@ -274,25 +262,6 @@ export function DriveScreen({
     goTo(parentDrivePath(path), path);
   }, [path, place, goTo, closeViewer]);
 
-  /** One write: busy line, the call, a refresh of every Drive query, a toast. */
-  const run = useCallback(
-    (label: string, work: () => Promise<string>) => {
-      setBusy(label);
-      void (async () => {
-        try {
-          const done = await work();
-          await invalidate();
-          onToast(done);
-        } catch (error) {
-          onToast(errorText(error), 'error');
-        } finally {
-          setBusy(null);
-        }
-      })();
-    },
-    [invalidate, onToast],
-  );
-
   const onMakeFolder = useCallback(
     (input: string) => {
       const name = validName(input);
@@ -301,6 +270,7 @@ export function DriveScreen({
       setCursorHint(target);
       run('making folder…', async () => {
         await makeDriveFolder(driveId, target);
+        await invalidate();
         return `Made folder ${name}.`;
       });
     },
@@ -315,6 +285,7 @@ export function DriveScreen({
       if (viewer.kind !== 'empty' && 'path' in viewer && viewer.path === row.path) closeViewer();
       run('moving…', async () => {
         await moveDriveFile(driveId, row.path, to);
+        await invalidate();
         return `Moved ${row.name} to ${to}.`;
       });
     },
@@ -328,6 +299,7 @@ export function DriveScreen({
         closeViewer();
       run('deleting…', async () => {
         await deleteDriveFile(driveId, row.path, { recursive: row.kind === 'dir' });
+        await invalidate();
         return `Deleted ${row.name}.`;
       });
     },
@@ -351,6 +323,7 @@ export function DriveScreen({
         setCursorHint(target);
         // `Bun.file` is a `Blob`; `uploadDriveFile` sends it as the request body.
         await uploadDriveFile(driveId, target, Bun.file(local));
+        await invalidate();
         return `Uploaded ${name} (${formatBytes(info.size)}).`;
       });
     },
@@ -431,11 +404,10 @@ export function DriveScreen({
   );
 
   const onRefresh = useCallback(() => {
-    setBusy('reloading…');
-    void Promise.all([invalidate(), identity.isError ? identity.refetch() : null])
-      .catch((error: unknown) => onToast(errorText(error), 'error'))
-      .finally(() => setBusy(null));
-  }, [invalidate, identity, onToast]);
+    refresh('reloading…', () =>
+      Promise.all([invalidate(), identity.isError ? identity.refetch() : null]),
+    );
+  }, [refresh, invalidate, identity]);
 
   const onDismissConflict = useCallback(
     (row: DriveRow) => {

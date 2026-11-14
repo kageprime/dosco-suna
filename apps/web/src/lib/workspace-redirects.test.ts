@@ -71,9 +71,9 @@ describe('the /projects → /workspaces redirects', () => {
     expect(redirectOf('/projects/p1/agent/kortix')).toEqual({ location: '/workspaces/p1/admin/agents/kortix', status: 307 });
     expect(redirectOf('/workspaces/p1/customize/agents/kortix?tab=access')).toEqual({ location: '/workspaces/p1/admin/agents/kortix?tab=access', status: 307 });
     expect(redirectOf('/workspaces/p1/customize/agents')).toEqual({ location: '/workspaces/p1/admin/agents', status: 307 });
-    expect(redirectOf('/workspaces/p1/review?id=cr%3A7')).toEqual({ location: '/workspaces/p1/inbox?view=review&id=cr%3A7', status: 307 });
-    expect(redirectOf('/workspaces/p1/customize/review')).toEqual({ location: '/workspaces/p1/inbox?view=review', status: 307 });
-    expect(redirectOf('/projects/p1/review')).toEqual({ location: '/workspaces/p1/inbox?view=review', status: 307 });
+    expect(redirectOf('/workspaces/p1/review?id=cr%3A7')).toBeNull();
+    expect(redirectOf('/workspaces/p1/customize/review')).toEqual({ location: '/workspaces/p1/review', status: 307 });
+    expect(redirectOf('/projects/p1/review')).toEqual({ location: '/workspaces/p1/review', status: 308 });
     expect(redirectOf('/projects/p1/backends/app1')).toEqual({ location: '/workspaces/p1/apps?app=app1', status: 307 });
     expect(redirectOf('/projects/p1/customize/settings?section=models')).toEqual({
       location: '/workspaces/p1/admin/models?section=models',

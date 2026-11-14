@@ -20,6 +20,7 @@ import {
   takeFlagBool,
   takeFlagValue,
 } from '../command-helpers.ts';
+import { splitHelp } from '../command-argv.ts';
 import { withKortixScope } from '../api/sdk.ts';
 import {
   type SessionStartPayload,
@@ -158,16 +159,14 @@ Options:
   -h, --help        Show this help.
 `;
 
-function parseCommon(argv: string[], helpText: string): {
+export function parseCommon(argv: string[], helpText: string): {
   rest: string[];
   opts: CtxOpts;
   json: boolean;
 } | number {
+  const helped = splitHelp(argv, helpText);
+  if (helped !== null) return helped;
   const rest = [...argv];
-  if (rest.includes('-h') || rest.includes('--help')) {
-    process.stdout.write(helpText);
-    return 0;
-  }
   try {
     const projectArg = takeFlagValue(rest, ['--project', '--workspace']);
     const hostArg = takeFlagValue(rest, ['--host']);
@@ -282,11 +281,9 @@ export async function runSessionsRecover(argv: string[]): Promise<number> {
 }
 
 export async function runSessionsStart(argv: string[]): Promise<number> {
+  const helped = splitHelp(argv, START_HELP);
+  if (helped !== null) return helped;
   const rest = [...argv];
-  if (rest.includes('-h') || rest.includes('--help')) {
-    process.stdout.write(START_HELP);
-    return 0;
-  }
   let opts: CtxOpts;
   let json = false;
   let wait = false;

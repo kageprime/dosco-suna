@@ -1,0 +1,52 @@
+{
+  "$comment": "The Support Factory configuration. The support agent reads this file at the start of every run. The setup agent writes it with you (skills/support-loop/references/analysis.md). Change it with a commit; the next run reads the new values.",
+  "version": 1,
+  "company": {
+    "name": null,
+    "product_one_line": null,
+    "signature": null
+  },
+  "desk": {
+    "kind": "json-file",
+    "target": null,
+    "mailbox": null,
+    "admin_id": null,
+    "api_version": null
+  },
+  "knowledge": {
+    "docs": [],
+    "help_center_repo": null,
+    "help_center_path": null,
+    "code_repo": "{{repoFullName}}"
+  },
+  "sources": {
+    "feedback": { "enabled": true },
+    "queue": { "enabled": false },
+    "inbox": { "enabled": false, "connector": "gmail", "mailbox": null },
+    "slack": { "enabled": false, "channels": [] }
+  },
+  "approval": {
+    "categories": {
+      "how-to": "draft",
+      "bug": "draft",
+      "feature-request": "draft",
+      "billing": "draft",
+      "account": "draft",
+      "security": "draft",
+      "other": "draft"
+    },
+    "auto_reply_min_confidence": 0.9,
+    "never_auto_reply": ["billing", "account", "security", "refund", "legal"]
+  },
+  "handoff": {
+    "factory_config": ".kortix/software-factory/factory.json",
+    "github_label": "support-bug"
+  },
+  "caps": {
+    "conversations_per_run": 15,
+    "drafts_per_day": 100,
+    "bug_tickets_per_day": 5,
+    "docs_prs_per_week": 1
+  },
+  "notify": { "escalations": null, "digest": null }
+}

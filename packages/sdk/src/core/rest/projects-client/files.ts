@@ -115,11 +115,13 @@ export interface ProjectFileSearchResponse {
 export type WorkspaceFileSearchResponse = ProjectFileSearchResponse;
 
 /** Search the project's git repo — filenames by default, contents when
- *  `content` is true (server-side `git grep`). */
+ *  `content` is true (server-side `git grep`). `showErrors: false` keeps a
+ *  failure (a 403 for a member without file read) out of the global error
+ *  sink, for a background lookup such as the composer's `@` menu. */
 export async function searchWorkspaceFiles(
   projectId: string,
   query: string,
-  options?: { content?: boolean; ref?: string; limit?: number },
+  options?: { content?: boolean; ref?: string; limit?: number; showErrors?: boolean },
 ) {
   const params = new URLSearchParams({ q: query });
   if (options?.content) params.set('content', '1');
@@ -128,6 +130,7 @@ export async function searchWorkspaceFiles(
   return unwrap(
     await backendApi.get<ProjectFileSearchResponse>(
       `/workspaces/${projectId}/files/search?${params.toString()}`,
+      options?.showErrors === false ? { showErrors: false } : undefined,
     ),
   );
 }

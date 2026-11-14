@@ -4,6 +4,8 @@ import {
   MISSING_FILE_SUPPRESS_MS,
   clearMissingFileRead,
   clearMissingFileReadsForTests,
+  clearMissingFileReadsUnder,
+  missingFileReadEpoch,
   missingFileSuppressed,
   noteMissingFileRead,
   setMissingFileClockForTests,
@@ -64,6 +66,46 @@ describe('missing-file gate registry', () => {
     expect(missingFileSuppressed(null, '/dead.png')).toBe(false);
     // Evicted, not just expired: the mark is gone, not refreshed.
     expect(missingFileSuppressed(null, '/dead.png')).toBe(false);
+  });
+
+  // D-08: a write (New file, upload, copy, rename, mkdir) brings a path into
+  // existence. A miss noted before the write must not keep the new file's
+  // card and viewer on "File not found" for the whole window.
+  test('a write clears the mark of its own path and of every path under it', () => {
+    noteMissingFileRead('https://srv-1', 'notes/new.md', { status: 404 });
+    noteMissingFileRead('https://srv-1', 'notes/deep/a.md', { status: 404 });
+    noteMissingFileRead('https://srv-1', 'notes-other.md', { status: 404 });
+    noteMissingFileRead('https://srv-2', 'notes/new.md', { status: 404 });
+    clearMissingFileReadsUnder('https://srv-1', 'notes');
+    expect(missingFileSuppressed('https://srv-1', 'notes/new.md')).toBe(false);
+    expect(missingFileSuppressed('https://srv-1', 'notes/deep/a.md')).toBe(false);
+    // A sibling that only shares the prefix keeps its mark, as does another server.
+    expect(missingFileSuppressed('https://srv-1', 'notes-other.md')).toBe(true);
+    expect(missingFileSuppressed('https://srv-2', 'notes/new.md')).toBe(true);
+  });
+
+  test('the mark is keyed by the daemon path: relative, /workspace and leading-slash spellings match', () => {
+    noteMissingFileRead(null, 'src/new.md', { status: 404 });
+    expect(missingFileSuppressed(null, '/workspace/src/new.md')).toBe(true);
+    clearMissingFileReadsUnder(null, '/workspace/src/new.md');
+    expect(missingFileSuppressed(null, 'src/new.md')).toBe(false);
+
+    noteMissingFileRead(null, '/workspace/x.md', { status: 404 });
+    clearMissingFileRead(null, 'x.md');
+    expect(missingFileSuppressed(null, '/workspace/x.md')).toBe(false);
+  });
+
+  // Council C1: a read that started before a write and answers 404 after it
+  // raced the create; its miss is stale and must not re-mark the new file.
+  test('a 404 from a read that began before a write is not remembered', () => {
+    const before = missingFileReadEpoch();
+    clearMissingFileReadsUnder('https://srv-1', 'notes/new.md');
+    noteMissingFileRead('https://srv-1', 'notes/new.md', { status: 404 }, before);
+    expect(missingFileSuppressed('https://srv-1', 'notes/new.md')).toBe(false);
+
+    const after = missingFileReadEpoch();
+    noteMissingFileRead('https://srv-1', 'notes/new.md', { status: 404 }, after);
+    expect(missingFileSuppressed('https://srv-1', 'notes/new.md')).toBe(true);
   });
 
   afterEach(clearMissingFileReadsForTests);

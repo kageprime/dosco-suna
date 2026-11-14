@@ -238,23 +238,12 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'is already egress keeps serving and stays editable, so turning the flag ' +
       'off never strands an existing enforced secret.',
   },
-  {
-    key: 'pooled_provider_secrets',
-    name: 'Pooled Provider Secrets',
-    description: 'Members connect their own ChatGPT and Claude subscriptions and provider keys, share them when needed, and choose which ones each session uses.',
-    stability: 'experimental',
-    available: () => true,
-    // On by default since 2026-10-31: every project gets named provider
-    // accounts, shared with the workspace by default for a person who may
-    // share (2026-11-11). A project that turned it off keeps it off.
-    // Since the one-store change (llm-credential-move.ts) named accounts are
-    // where every provider key lives: the flag no longer decides where a key
-    // is saved or whether the gateway reads it. It gates per-session key
-    // selection and the named ChatGPT/Claude sign-in only.
-    platformDefault: () => true,
-    enforcement: 'behavioral',
-    enforcementNote: 'Session key selection and named ChatGPT/Claude sign-ins are refused while disabled. Provider keys are saved and read as named accounts either way.',
-  },
+  // `pooled_provider_secrets` graduated (2026-11-12, Marko: "remove this as a
+  // feature flag … 1 common across the board default"): every project has
+  // named provider accounts with sharing, per-session key selection and named
+  // ChatGPT/Claude sign-ins. A stored `experimental.pooled_provider_secrets`
+  // override is inert. The project detail still sends the key as `true` for
+  // older SDKs, hosts, CLIs and the terminal UI.
   // `pi_harness` graduated (2026-10-23): every new session runs pi; OpenCode is
   // sunset (kortixd has no OpenCode harness since 2026-10-30). No flag, no
   // operator lever, no manifest `runtime:` choice. A stored
@@ -580,6 +569,67 @@ const FLAGS: readonly FeatureFlagDef[] = [
       '(harness/pi/watcher.ts); its answer is one JSON decision that the API carries out at turn end through the space post ' +
       'path, in that space only, with the owner\'s rights. WEB: the Proactive and Daily brief rows in Space details.',
   },
+  {
+    key: 'program_agents',
+    name: 'Program agents',
+    description:
+      'An agent that runs your code instead of a model. Give an agent `run: <command>` in kortix.yaml: each turn runs that command in the session\'s sandbox, with the agent\'s workspace, secrets and access. The message or trigger payload is the input, and what the command prints is the reply. Triggers, chat and Spaces start it like any other agent.',
+    stability: 'experimental',
+    available: () => true,
+    platformDefault: () => false,
+    enforcement: 'behavioral',
+    enforcementNote:
+      'Off ⇒ a turn of an agent with `run` fails with "Program agents are off for this workspace" and runs nothing: no model call, no command. ' +
+      'BOX: the API lists the flag in KORTIX_FEATURE_FLAGS (projects/lib/feature-flag-env.ts); pi reads the compiled agent `run` and, only with the flag, ' +
+      'runs it per turn in place of the model step (harness/pi/program.ts). WEB: the agent page shows the command in place of the model.',
+  },
+  {
+    key: 'evals',
+    name: 'Evals',
+    description:
+      'Run your agents on a list of tasks and score the results. A task is an instruction, a sandbox and a test script that writes a score (the Harbor task format). Declare a set of tasks under `evals:` in kortix.yaml, run it against any agent and model, and compare runs to see whether a change made the agent better or worse.',
+    stability: 'experimental',
+    // A job keeps its results in Files, and every drive is a Platinum volume.
+    available: () => Boolean(config.PLATINUM_API_KEY),
+    platformDefault: () => false,
+    enforcement: 'routes',
+    enforcementNote:
+      'ROUTES: every /v1/workspaces/:id/evals* route answers 403 `feature_disabled` when off (projects/routes/evals.ts). ' +
+      'The `eval-runner` worker job (worker/jobs/eval-runner.ts) starts no trial of a project whose flag is off: its queued trials ' +
+      'wait, and its running trials finish. BOX: off, a session box has no kortix-evals skill and its CLI hides `kortix evals` ' +
+      '(KORTIX_FEATURE_FLAGS → kortixd). The `evals:` section of kortix.yaml stays valid either way. The eval_jobs and eval_trials ' +
+      'rows and the Evals folder in Files stay.',
+  },
+  {
+    key: 'desktop_tabs',
+    name: 'Desktop tabs',
+    description:
+      'The desktop app shows browser-style tabs in the title bar: each session, artifact and page opens in its own tab, and ⌘T, ⌘W and ⌘1–9 work like a browser. The web app is unchanged.',
+    stability: 'beta',
+    available: () => true,
+    platformDefault: () => false,
+    enforcement: 'ui-only',
+    enforcementNote:
+      'UI-ONLY: tabs are window chrome in the desktop app (apps/web/src/features/desktop-tabs). They own no data and no route, so the server has nothing to refuse. ' +
+      'Off, the desktop title bar is the one it was before, and the tabs saved in the window\'s local storage stay until the flag is on again.',
+  },
+  {
+    key: 'calendar',
+    name: 'Calendar',
+    description:
+      'A shared calendar for people and agents: items with a date, an owner and comments, beside the scheduled triggers and Loops. Mention someone with @ to notify them. Agents use `kortix calendar`.',
+    stability: 'experimental',
+    available: () => true,
+    platformDefault: () => false,
+    enforcement: 'routes',
+    enforcementNote:
+      'ROUTES: every /v1/workspaces/:id/calendar* route answers 403 `feature_disabled` when off (projects/routes/calendar.ts). ' +
+      'Nothing runs while it is off: no worker job, no hook on another write; the scheduled triggers on the page are computed in the browser ' +
+      'from GET /triggers/all. NOTIFICATIONS: only a calendar write sends the `mention` kind. Its settings row shows for everyone: ' +
+      'hiding it would cost a query on every preferences read (the web reads them on every page load), and the kind is generic. BOX: off, a session box has no kortix-calendar skill and its CLI hides `kortix calendar` ' +
+      '(KORTIX_FEATURE_FLAGS → kortixd). WEB: no Calendar row and no palette entry; /workspaces/:id/calendar renders FeatureGateScreen. ' +
+      'The calendar_items and calendar_comments rows stay.',
+  },
 ];
 
 const FLAG_BY_KEY: Record<FeatureFlagKey, FeatureFlagDef> = Object.fromEntries(
@@ -657,6 +707,8 @@ export interface FeatureFlagView {
   enabled: boolean;
   /** True when this project set an explicit choice (vs inheriting the default). */
   overridden: boolean;
+  /** What the flag resolves to without this project's choice: the state a reset returns it to. */
+  default_enabled: boolean;
   /** A `catalogHidden` flag: listed only while on, writable only by a platform operator. */
   operator_only: boolean;
   /** Work in progress: not recommended yet. */
@@ -685,6 +737,7 @@ export function buildFeatureFlagCatalog(metadata: unknown): FeatureFlagView[] {
       available: f.available(),
       enabled,
       overridden: explicitOverride(metadata, f.key) !== undefined,
+      default_enabled: resolveFeatureFlag(null, f.key),
       operator_only: isOperatorOnlyFeatureFlag(f.key),
       wip: f.wip === true,
       scope: 'project' as const,

@@ -184,9 +184,12 @@ export async function createOrJoinThreadSession(input: {
     return;
   }
 
+  // The create runs inline, so it ends `created` or `failed`. `queued` and
+  // `pending` come only from an earlier delivery of this same message, whose
+  // create still runs or waits for a retry under the same idempotency key.
   if (result.status === 'queued' || result.status === 'pending') {
     if (handle) {
-      await finalizeTurn(handle, { answer: queuedMessage() });
+      await finalizeTurn(handle, { answer: CREATE_IN_FLIGHT_MESSAGE });
     }
     return;
   }
@@ -259,7 +262,6 @@ async function launchSlackSession(
       // Slack markup with them: `<@U0…>` reads `@Sam`, as Slack shows it.
       title_source: event.text ? slackPlainText(labels.text) : null,
     },
-    queuePolicy: 'on_backpressure',
     // Per-message key allows retry after a failed first start; claim serializes races.
     idempotencyKey: teamId && threadId && event.ts ? `slack:create:${teamId}:${threadId}:${event.ts}` : claimKey,
     postCreate: teamId && threadId
@@ -379,9 +381,8 @@ async function joinExistingThread(
   return claimKey;
 }
 
-function queuedMessage(): string {
-  return "I've queued your task behind the sessions already starting up in this Kortix workspace, and I'll reply right here the moment it begins.";
-}
+const CREATE_IN_FLIGHT_MESSAGE =
+  'Kortix is still starting a session for this message. The agent replies here when it is ready.';
 
 // Fail open on DB errors rather than dropping a message.
 export async function claimThreadCreate(key: string): Promise<boolean> {

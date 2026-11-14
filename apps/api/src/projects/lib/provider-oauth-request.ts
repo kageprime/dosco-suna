@@ -3,7 +3,6 @@ import type { Context } from 'hono';
 import { z } from '@hono/zod-openapi';
 import { accountSecretResources } from '@kortix/db';
 import { parseSharingIntent } from '../../connectors/share';
-import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { accountMemberRow } from '../../iam/membership-read';
 import { memberMayReadProject } from '../../secrets/account-resource';
 import { db } from '../../shared/db';
@@ -18,8 +17,8 @@ export interface OAuthStartRequest {
 
 /**
  * Validates the `/oauth/:provider/start` body for a loaded project: the named
- * resource label, the reconnect `resource_id`, the pooled flag, member
- * ownership and the sharing intent. Returns the parsed request, or the 400/403/404
+ * resource label, the reconnect `resource_id`, member ownership and the
+ * sharing intent. Returns the parsed request, or the 400/403/404
  * response to send.
  */
 export async function parseOAuthStartRequest(
@@ -45,9 +44,6 @@ export async function parseOAuthStartRequest(
     return { response: c.json({ error: 'Reconnecting keeps the account label and access; send only resource_id' }, 400) };
   }
   const named = resourceLabel !== null || resourceId !== null;
-  if (named && !resolveFeatureFlag(loaded.row.metadata, 'pooled_provider_secrets')) {
-    return { response: c.json({ error: 'Pooled OAuth connections require pooled provider secrets' }, 403) };
-  }
   if (named) {
     const [member] = await accountMemberRow(loaded.row.accountId, loaded.userId);
     if (!member) return { response: c.json({ error: `An account member must own a ${cfg.label} connection` }, 403) };

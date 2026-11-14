@@ -27,6 +27,12 @@ import {
   shownProjectSessionId,
   pageBackMove,
   returnThreadForPage,
+  DRAWER_SWAP_PARAMS,
+  drawerPageViewKey,
+  drawerSessionViewKey,
+  drawerRowSwapKey,
+  drawerSwapApplies,
+  projectRouteAnimation,
 } from './project-stack';
 
 const COVERING = [
@@ -419,5 +425,50 @@ describe('threadOpenTarget', () => {
 
   test('a pending focus for another session is ignored: the root', () => {
     expect(threadOpenTarget({ sessionId: 'ps-2', runtimeId: 'oc-other' }, 'ps-1', 'oc-root')).toBe('oc-root');
+  });
+});
+
+describe('projectRouteAnimation', () => {
+  test('a route the drawer opened swaps in with no push slide', () => {
+    expect(projectRouteAnimation(DRAWER_SWAP_PARAMS)).toBe('none');
+    expect(projectRouteAnimation({ id: 'p-1', autoFocusSearch: '1', ...DRAWER_SWAP_PARAMS })).toBe('none');
+  });
+
+  test('any other push keeps the platform slide', () => {
+    expect(projectRouteAnimation(undefined)).toBe('default');
+    expect(projectRouteAnimation({ id: 'p-1' })).toBe('default');
+    expect(projectRouteAnimation({ swap: '0' })).toBe('default');
+  });
+});
+
+describe('drawerSwapApplies', () => {
+  const view = (input: Partial<Parameters<typeof projectViewKey>[0]>) =>
+    projectViewKey({ isHome: false, activePageId: null, activeSessionId: null, connectingSessionId: null, ...input });
+
+  test('the view a drawer tap recorded swaps in: Review, Apps, a session row', () => {
+    expect(drawerSwapApplies(drawerPageViewKey('page:review'), view({ activePageId: 'page:review' }))).toBe(true);
+    expect(drawerSwapApplies(drawerPageViewKey('page:apps'), view({ activePageId: 'page:apps' }))).toBe(true);
+    expect(drawerSwapApplies(drawerSessionViewKey('s-1'), view({ connectingSessionId: 's-1' }))).toBe(true);
+  });
+
+  test('any other view slides: nothing recorded, or a different target', () => {
+    expect(drawerSwapApplies(null, view({ activePageId: 'page:review' }))).toBe(false);
+    expect(drawerSwapApplies(drawerPageViewKey('page:review'), view({ activePageId: 'page:apps' }))).toBe(false);
+    expect(drawerSwapApplies(drawerSessionViewKey('s-1'), view({ connectingSessionId: 's-2' }))).toBe(false);
+    expect(drawerSwapApplies(drawerSessionViewKey('s-1'), null)).toBe(false);
+  });
+});
+
+describe('drawerRowSwapKey', () => {
+  test('a row that opens a session records that session', () => {
+    expect(drawerRowSwapKey('open', 's-1')).toBe(drawerSessionViewKey('s-1'));
+  });
+
+  test('the row of the session on screen records nothing: a later open of it slides', () => {
+    for (const move of ['focus', 'queue', 'close'] as const) {
+      const recorded = drawerRowSwapKey(move, 's-1');
+      expect(recorded).toBeNull();
+      expect(drawerSwapApplies(recorded, drawerSessionViewKey('s-1'))).toBe(false);
+    }
   });
 });

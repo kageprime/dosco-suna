@@ -13,7 +13,7 @@
 import type { UnifiedTrigger } from '@kortix/sdk';
 import { useUnifiedTriggers } from '@kortix/sdk/react';
 import { PlayIcon, TrashIcon } from '@phosphor-icons/react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useLocale, useTranslations } from '../../i18n';
 import { relativeTime } from '../../internal/lib/relative-time';
@@ -26,6 +26,9 @@ import { Label } from '../../primitives/label';
 import Loading from '../../primitives/loading';
 import { Switch } from '../../primitives/switch';
 import { errorToast } from '../../primitives/toast';
+import { cn } from '../../internal/lib/utils';
+import { useUiSearchParams } from '../../providers/ui-provider';
+import { readTriggerSheet } from './schedule/trigger-filter';
 
 /** Source labels: the strings the trigger kinds already show, plus the merge. */
 const SOURCE_KEY: Record<UnifiedTrigger['source']['type'], string> = {
@@ -54,6 +57,13 @@ export function RuntimeTriggers({ projectId, agentName = null }: { projectId: st
   const triggers = useUnifiedTriggers(projectId);
   const [deleteTarget, setDeleteTarget] = useState<UnifiedTrigger | null>(null);
   const rows = runtimeRowsFor(triggers.data?.triggers ?? [], agentName);
+  // `?id=<runtime id>` names one row (a loop's Manage link): mark it and bring it into view once.
+  const openId = readTriggerSheet(useUiSearchParams()).slug;
+  const openRow = rows.some((a) => a.id === openId) ? openId : null;
+  const openRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (openRow) openRef.current?.scrollIntoView({ block: 'center' });
+  }, [openRow]);
   if (rows.length === 0) return null;
 
   const onError = (error: unknown) => errorToast((error as Error)?.message ?? String(error));
@@ -76,7 +86,16 @@ export function RuntimeTriggers({ projectId, agentName = null }: { projectId: st
             (triggers.update.isPending && triggers.update.variables?.triggerId === a.id) ||
             (triggers.run.isPending && triggers.run.variables?.triggerId === a.id);
           return (
-            <li key={a.id} className="bg-popover flex items-center gap-3 rounded-md border px-4 py-2">
+            <li
+              key={a.id}
+              ref={a.id === openRow ? openRef : undefined}
+              data-trigger-id={a.id}
+              aria-current={a.id === openRow ? 'true' : undefined}
+              className={cn(
+                'flex items-center gap-3 rounded-md border px-4 py-2',
+                a.id === openRow ? 'bg-hover' : 'bg-popover',
+              )}
+            >
               <div className="min-w-0 flex-1 space-y-0.5">
                 <p className="text-foreground truncate text-sm font-medium">{a.name ?? a.prompt}</p>
                 <InlineMeta>

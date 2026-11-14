@@ -21,12 +21,18 @@ import { useEffect, useRef } from 'react';
 export function MenuCard({
   className,
   children,
+  cardRef,
+  style,
 }: {
   className?: string;
   children: React.ReactNode;
+  cardRef?: React.Ref<HTMLDivElement>;
+  style?: React.CSSProperties;
 }) {
   return (
     <div
+      ref={cardRef}
+      style={style}
       className={cn(
         'bg-popover text-popover-foreground overflow-hidden rounded-md border shadow-md',
         className,

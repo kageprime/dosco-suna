@@ -16,6 +16,7 @@
  * as one read-only list.
  */
 
+import { resolveProgramAgent } from '../../../session/composer/agent-selector';
 import { Alert, AlertDescription, AlertTitle } from '../../../primitives/alert';
 import { Button } from '../../../primitives/button';
 import { ButtonGroup } from '../../../primitives/button-group';
@@ -410,11 +411,12 @@ function SheetPanel({
                     {controls.canDelete ? (
                       <DropdownMenuItem variant="destructive" onClick={onDelete}>
                         <TrashIcon />
+                        {/* Named by type: a schedule, a webhook, any other kind a trigger. */}
                         {trigger.type === 'cron'
                           ? t.raw('textd8d0bd5c5106')
-                          : event
-                            ? t.raw('textf2f698118cc1')
-                            : t.raw('text60f85e57e4a7')}
+                          : trigger.type === 'webhook'
+                            ? t.raw('text60f85e57e4a7')
+                            : t.raw('text8043e69a8dd6')}
                       </DropdownMenuItem>
                     ) : null}
                   </DropdownMenuContent>
@@ -612,7 +614,7 @@ function SheetForm({
   }, [serverKey, server, dirty]);
 
   const name = draft.nameOverride ?? '';
-  const problems = validate(draft, { name, configFields, app, edit: true }, t);
+  const problems = validate(draft, { name, configFields, app, edit: true, programAgent: resolveProgramAgent(agents, draft.agent) }, t);
   const shown = showProblems ? problems : [];
   const blockError = (block: ComposerBlock) =>
     shown.find((p) => p.block === block && !p.field)?.message;

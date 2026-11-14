@@ -106,3 +106,10 @@ describe('takeFlags', () => {
     expect(argv).toEqual(['--host', 'synthetic']);
   });
 });
+
+test('takeFlagValue: a lone `-` is a value (stdin), any other dash-word is a missing value', () => {
+  const argv = ['--github-token', '-', '-y'];
+  expect(takeFlagValue(argv, ['--github-token'])).toBe('-');
+  expect(argv).toEqual(['-y']);
+  expect(() => takeFlagValue(['--github-token', '-y'], ['--github-token'])).toThrow('--github-token requires a value');
+});

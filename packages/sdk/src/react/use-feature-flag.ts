@@ -24,6 +24,7 @@ const GRADUATED_FEATURE_FLAG_KEYS: ReadonlySet<FeatureFlagKey> = new Set([
   'connectors_v2',
   'connectors_api_discover',
   'notification_center',
+  'pooled_provider_secrets',
 ]);
 
 /** What {@link useFeatureFlag} tells a caller about one flag. */
@@ -103,7 +104,7 @@ export function useFeatureFlags(projectId: string | null | undefined): {
  * The one exception is a graduated key (`review_center`, `agent_tunnel`,
  * `session_transcript_history`, `teams`, `config_releases`, `apps`,
  * `llm_gateway`, `pi_harness`, `genui`, `agentmail_email`, `connectors_v2`, `connectors_api_discover`,
- * `notification_center`): it reports `enabled: true` for every project, because the
+ * `notification_center`, `pooled_provider_secrets`): it reports `enabled: true` for every project, because the
  * feature no longer has an off state.
  */
 export function useFeatureFlag(

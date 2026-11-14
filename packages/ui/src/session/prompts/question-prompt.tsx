@@ -18,6 +18,7 @@ import React, { useCallback, useEffect, useImperativeHandle, useState } from 're
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Close } from '../../icons/close';
+import { confirmRowLabels, questionPlainLine } from './question-labels';
 
 // ---------------------------------------------------------------------------
 // Lightweight markdown renderer for question text (no Shiki/KaTeX/Mermaid)
@@ -280,10 +281,8 @@ export const QuestionPrompt = React.forwardRef<QuestionPromptHandle, QuestionPro
       : currentQuestion?.header?.trim() || '';
     const collapsedLabel = isConfirm
       ? stepLabel
-      : (currentQuestion?.question ?? '')
-          .replace(/[*_`#>]/g, '')
-          .split('\n')[0]
-          .trim() || stepLabel;
+      : questionPlainLine(currentQuestion?.question ?? '') || stepLabel;
+    const confirmRows = isConfirm ? confirmRowLabels(questions) : null;
 
     return (
       <div className="relative isolate z-10 w-full">
@@ -370,20 +369,30 @@ export const QuestionPrompt = React.forwardRef<QuestionPromptHandle, QuestionPro
               collapsed ? 'pb-0 opacity-0' : 'max-h-[420px] pb-1.5',
             )}
           >
-            {isConfirm ? (
+            {confirmRows ? (
               <div className="flex flex-col">
-                {questions.map((q, i) => {
+                {questions.map((_, i) => {
                   const ans = answers[i] ?? [];
                   const done = ans.length > 0;
+                  const label = confirmRows.labels[i];
                   return (
                     <button
                       key={i}
                       type="button"
                       onClick={() => setTab(i)}
-                      className="hover:bg-muted/60 flex w-full cursor-pointer items-baseline gap-4 rounded-lg px-3 py-2 text-left transition-colors"
+                      className={cn(
+                        'hover:bg-muted/60 flex w-full cursor-pointer rounded-lg px-3 py-2 text-left transition-colors',
+                        confirmRows.stacked ? 'flex-col gap-0.5' : 'items-baseline gap-4',
+                      )}
                     >
-                      <span className="text-muted-foreground w-28 shrink-0 truncate text-xs">
-                        {q.header || q.question}
+                      <span
+                        title={label}
+                        className={cn(
+                          'text-muted-foreground truncate text-xs',
+                          confirmRows.stacked ? 'w-full' : 'w-28 shrink-0',
+                        )}
+                      >
+                        {label}
                       </span>
                       <span
                         className={cn(

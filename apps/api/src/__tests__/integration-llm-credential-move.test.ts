@@ -212,6 +212,19 @@ describe('each legacy shape', () => {
     expect(grants.map((g) => g.userId).sort()).toEqual([OWNER, TEAMMATE].sort());
   });
 
+  test('a value narrowed to people in the workspace form (Release 2b) keeps its audience', async () => {
+    const id = await legacy('CEREBRAS_API_KEY', 'cerebras-synthetic');
+    await setSecretAudience({ accountId, projectId, secretId: id, principals: [{ principal_type: 'user', principal_id: TEAMMATE }], grantedBy: OWNER });
+    // Release 2b step 11 rewrites the grant to scope_type 'workspace' with the same scope_id.
+    await db.update(roleAssignments).set({ scopeType: 'workspace' })
+      .where(and(eq(roleAssignments.objectType, 'secret'), eq(roleAssignments.objectId, id)));
+    const moved = await moveLegacyLlmCredential(id, { apply: true });
+    expect(moved?.outcome).toBe('copied');
+    expect((await named(moved!.accountSecretId!))?.accessMode).toBe('members');
+    const grants = await db.select({ userId: accountSecretGrants.userId }).from(accountSecretGrants).where(eq(accountSecretGrants.secretId, moved!.accountSecretId!));
+    expect(grants.map((g) => g.userId).sort()).toEqual([OWNER, TEAMMATE].sort());
+  });
+
   test('a value narrowed to an agent stays legacy and readable', async () => {
     const id = await legacy('MISTRAL_API_KEY', 'mistral-synthetic');
     await setSecretAudience({ accountId, projectId, secretId: id, principals: [{ principal_type: 'user', principal_id: OWNER }], grantedBy: OWNER });

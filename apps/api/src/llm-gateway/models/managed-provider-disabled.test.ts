@@ -3,7 +3,7 @@ import { describe, expect, mock, test } from 'bun:test';
 // Existing fixtures have no project inference restrictions.
 mock.module('../../repositories/project-model-access', () => ({
   getProjectModelAccess: async () => ({ disabledProviders: [], disabledModels: [] }),
-  getProjectGatewayResolution: async () => ({ access: { disabledProviders: [], disabledModels: [] }, pooledEnabled: false }),
+  getProjectGatewayResolution: async () => ({ access: { disabledProviders: [], disabledModels: [] } }),
 }));
 
 // Self-host default: KORTIX_MANAGED_PROVIDER_ENABLED is OFF. This file boots
@@ -15,7 +15,7 @@ mock.module('../../repositories/project-model-access', () => ({
 let platinumKeyReads = 0;
 
 // No named key in this suite: the one key reader (credentials/gateway-keys.ts)
-// reads the named store first, whatever pooled_provider_secrets says.
+// reads the named store first.
 const realAccountResource = await import('../../secrets/account-resource');
 mock.module('../../secrets/account-resource', () => ({
   ...realAccountResource,

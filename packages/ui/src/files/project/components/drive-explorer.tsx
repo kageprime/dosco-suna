@@ -20,7 +20,6 @@ import {
   ContextMenuTrigger,
 } from '../../../primitives/context-menu';
 import Loading from '../../../primitives/loading';
-import { Skeleton } from '../../../primitives/skeleton';
 import { errorToast, successToast } from '../../../primitives/toast';
 import { DRAG_MIME } from '../../tree/components/file-tree-item';
 import { useFilesStore, useFilesStoreApi } from '../../../internal/stores/files-store';
@@ -58,6 +57,7 @@ import { useFileExplorerSource } from '../explorer-source';
 import { buildGitStatusMap } from '../hooks';
 import {
   forEachLimit,
+  inFlightPaths,
   MAX_UPLOAD_BYTES,
   partitionUploadBatch,
   resolveUploadTarget,
@@ -100,9 +100,7 @@ import { FileHistoryPopoverContent } from './file-history-popover';
 import { ExplorerFilePreview } from './file-preview-modal';
 import { FileSearch } from './file-search';
 import { isPartialListing, LoadMoreRow } from './load-more-row';
-
-/** System directories always pinned at the top of the listing. */
-const ELEVATED_DIRS = new Set(['.kortix']);
+import { ListingSkeleton, useSortedListing } from './explorer-listing';
 
 /**
  * Google Drive-style file explorer — the ONE explorer implementation, shared
@@ -218,8 +216,6 @@ export function DriveExplorer({
   const currentPath = useFilesStore((s) => s.currentPath);
   const navigateToPath = useFilesStore((s) => s.navigateToPath);
   const viewMode = useFilesStore((s) => s.viewMode);
-  const sortBy = useFilesStore((s) => s.sortBy);
-  const sortOrder = useFilesStore((s) => s.sortOrder);
   const isSearchOpen = useFilesStore((s) => s.isSearchOpen);
   const toggleSearch = useFilesStore((s) => s.toggleSearch);
   const closeSearch = useFilesStore((s) => s.closeSearch);
@@ -296,16 +292,9 @@ export function DriveExplorer({
   // Project-wide, so a batch keeps going (and its tray keeps reporting) after
   // this folder view unmounts. The tray itself is in the project shell.
   const uploads = useDriveUploads((s) => s.uploads);
-  // Cards and rows still on their way up show a spinner until the server has them.
-  const uploadingPaths = useMemo(
-    () =>
-      new Set(
-        uploads
-          .filter((u) => u.status === 'queued' || u.status === 'uploading')
-          .map((u) => (u.targetPath ? `${u.targetPath.replace(/\/+$/, '')}/${u.file.name}` : u.file.name)),
-      ),
-    [uploads],
-  );
+  // Cards and rows still on their way up (an upload, or a New file not yet
+  // created) show a spinner and defer their preview until the server has them.
+  const uploadingPaths = useMemo(() => inFlightPaths(uploads, pending), [uploads, pending]);
   const dragPageCounter = useRef(0);
 
   const [createKind, setCreateKind] = useState<DriveCreateKind | null>(null);
@@ -366,47 +355,7 @@ export function DriveExplorer({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [searchEnabled, toggleSearch, closeSearch, isSearchOpen]);
 
-  // Sort and separate dirs and files
-  const { elevatedDirs, dirs, fileItems } = useMemo(() => {
-    if (!files)
-      return {
-        elevatedDirs: [] as FileNode[],
-        dirs: [] as FileNode[],
-        fileItems: [] as FileNode[],
-      };
-
-    const sortFn = (a: FileNode, b: FileNode) => {
-      let cmp = 0;
-      switch (sortBy) {
-        case 'name':
-          cmp = a.name.localeCompare(b.name);
-          break;
-        case 'type': {
-          const extA = a.name.includes('.') ? a.name.split('.').pop() || '' : '';
-          const extB = b.name.includes('.') ? b.name.split('.').pop() || '' : '';
-          cmp = extA.localeCompare(extB);
-          if (cmp === 0) cmp = a.name.localeCompare(b.name);
-          break;
-        }
-        case 'modified':
-        case 'size':
-          cmp = a.name.localeCompare(b.name);
-          break;
-      }
-      return sortOrder === 'desc' ? -cmp : cmp;
-    };
-
-    // A partial folder keeps the server's name order: a sorted subset would
-    // put a later page's rows above the ones shown (KRTX-1723).
-    const sorted = (nodes: FileNode[]) => (partial ? nodes : nodes.sort(sortFn));
-    const allDirs = files.filter((f) => f.type === 'directory');
-    const elevatedDirs = allDirs
-      .filter((f) => ELEVATED_DIRS.has(f.name))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    const dirs = sorted(allDirs.filter((f) => !ELEVATED_DIRS.has(f.name)));
-    const fileItems = sorted(files.filter((f) => f.type === 'file'));
-    return { elevatedDirs, dirs, fileItems };
-  }, [files, sortBy, sortOrder, partial]);
+  const { elevatedDirs, dirs, fileItems } = useSortedListing(files, partial);
 
   // ── Handlers ──────────────────────────────────────────────────
 
@@ -1444,46 +1393,7 @@ export function DriveExplorer({
                 aria-hidden
                 className="border-kortix-base bg-kortix-base/15 pointer-events-none absolute top-0 left-0 z-20 hidden rounded-sm border"
               />
-              {isLoading && showSkeleton && (
-                <div className="animate-in fade-in-0 p-4 duration-(--duration-moderate) motion-reduce:animate-none">
-                  {viewMode === 'grid' ? (
-                    <div className="space-y-6">
-                      <div>
-                        <Skeleton className="mb-3 h-4 w-16" />
-                        <div
-                          className="grid gap-2"
-                          style={{
-                            gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-                          }}
-                        >
-                          {Array.from({ length: 6 }).map((_, i) => (
-                            <Skeleton key={`f${i}`} className="h-10 rounded-lg" />
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <Skeleton className="mb-3 h-4 w-12" />
-                        <div
-                          className="grid gap-2.5"
-                          style={{
-                            gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-                          }}
-                        >
-                          {Array.from({ length: 8 }).map((_, i) => (
-                            <Skeleton key={`fi${i}`} className="h-[138px] rounded-lg" />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {Array.from({ length: 10 }).map((_, i) => (
-                        <Skeleton key={i} className="h-10 w-full rounded-sm" />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              {isLoading && showSkeleton && <ListingSkeleton viewMode={viewMode} />}
 
               {!!error &&
                 !isLoading &&

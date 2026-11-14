@@ -38,6 +38,8 @@
  *   - home route: the store leaves the home state → push `view`
  *   - covering route (sessions, files, artifacts, account, inbox): the store leaves the home
  *     state → replace this route with `view`
+ *   - a move the drawer started (its routes, Review, Apps, a session row)
+ *     swaps the screen in place: no push slide (`DRAWER_SWAP_PARAM`)
  *   - view route: the store returns to the home state (deleted session, New
  *     session) → pop to home
  *   - view route removed (pop, replace, leaving the project) → reset the
@@ -61,6 +63,7 @@ import type { NativeStackNavigationProp } from 'expo-router/native-stack';
 import { useLocalSearchParams } from 'expo-router';
 import type { ProjectSession } from '@/lib/projects/projects-client';
 import {
+  DRAWER_SWAP_PARAMS,
   PROJECT_HOME_ROUTE,
   PROJECT_VIEW_ROUTE,
   homeAndRoute,
@@ -123,6 +126,14 @@ export interface ProjectRouteValue {
   /** The project drawer is open: pages pause their loaders behind it. */
   isDrawerOpen: boolean;
   /**
+   * True once when the store change being rendered came from a drawer row
+   * (Review, Apps, a session): the view then swaps in with no push slide
+   * (`DRAWER_SWAP_PARAM`). Reading it clears it; ProjectScreen also clears
+   * it after every commit, so a store change that moved no route never
+   * leaves it set for a later push. Stable.
+   */
+  takeDrawerSwap: () => boolean;
+  /**
    * Open the session actions sheet (`SessionActionsSheet`, COR-140 Task 5) for
    * one session: Rename, Share, Restart sandbox, Stop, Delete. Stable. The
    * thread's `···`, the Sessions page's long press, and the drawer's session
@@ -157,7 +168,7 @@ type ProjectStackNavigation = NativeStackNavigationProp<ParamListBase>;
 
 /** `/projects/[id]` — project home. */
 export function ProjectHomeRoute() {
-  const { home, isHome, homeKey } = useProjectRoute();
+  const { home, isHome, homeKey, takeDrawerSwap } = useProjectRoute();
   const navigation = useNavigation<ProjectStackNavigation>();
   const isFocused = useIsFocused();
 
@@ -166,8 +177,8 @@ export function ProjectHomeRoute() {
     // covering route, or a root screen such as Billing), nothing moves here.
     if (isHome || !isFocused) return;
     if (navigation.getState().routes.some((route) => route.name === PROJECT_VIEW_ROUTE)) return;
-    navigation.dispatch(StackActions.push(PROJECT_VIEW_ROUTE));
-  }, [isHome, isFocused, navigation]);
+    navigation.dispatch(StackActions.push(PROJECT_VIEW_ROUTE, takeDrawerSwap() ? DRAWER_SWAP_PARAMS : undefined));
+  }, [isHome, isFocused, navigation, takeDrawerSwap]);
 
   return <React.Fragment key={homeKey}>{home}</React.Fragment>;
 }
@@ -250,7 +261,7 @@ export function ProjectViewRoute() {
  * it after step 1.
  */
 export function useCoveringRoute(): (session: ProjectSession, focusRuntimeId?: string) => void {
-  const { openProjectSession, isHome } = useProjectRoute();
+  const { openProjectSession, isHome, takeDrawerSwap } = useProjectRoute();
   const navigation = useNavigation<ProjectStackNavigation>();
   const isFocused = useIsFocused();
   // Set once this route starts to leave for the view, so it never dispatches twice.
@@ -259,8 +270,8 @@ export function useCoveringRoute(): (session: ProjectSession, focusRuntimeId?: s
   const replaceWithView = React.useCallback(() => {
     if (leavingRef.current) return;
     leavingRef.current = true;
-    navigation.dispatch(StackActions.replace(PROJECT_VIEW_ROUTE));
-  }, [navigation]);
+    navigation.dispatch(StackActions.replace(PROJECT_VIEW_ROUTE, takeDrawerSwap() ? DRAWER_SWAP_PARAMS : undefined));
+  }, [navigation, takeDrawerSwap]);
 
   React.useEffect(() => {
     if (isHome || !isFocused) return;

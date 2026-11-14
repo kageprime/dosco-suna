@@ -7,6 +7,7 @@ import {
   DEFAULT_COMPUTE_CREDITS_PER_HOUR,
   DEFAULT_COMPUTE_HOURLY_PRICE_USD,
   DEFAULT_TIER_USD,
+  ENTRY_TIER_USD,
   isValidMonthlyUsd,
   monthlyCreditsForUsd,
   agentHoursForCredits,
@@ -25,9 +26,14 @@ describe('credit tier ladder', () => {
     for (const amount of amounts) expect(isValidMonthlyUsd(amount)).toBe(true);
   });
 
-  test('exactly one tier is most popular, and the pages open on it: $200', () => {
+  test('exactly one tier is most popular, and /pricing opens on it: $200', () => {
     expect(CREDIT_TIERS.filter((tier) => tier.popular).map((tier) => tier.monthlyUsd)).toEqual([200]);
     expect(DEFAULT_TIER_USD).toBe(200);
+  });
+
+  test('an in-app upgrade opens on the entry tier, the "From $50" price', () => {
+    expect(ENTRY_TIER_USD).toBe(50);
+    expect(ENTRY_TIER_USD).toBe(CREDITS_PLAN_MIN_USD);
   });
 
   test('every group has tiers, in ladder order', () => {

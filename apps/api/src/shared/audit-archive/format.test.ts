@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   HOT_DAYS,
+  RowEncoder,
   LATE_ROW_MAX_AGE_DAYS,
   archiveObjectKey,
   decodeRows,
@@ -61,5 +62,30 @@ describe('audit archive format', () => {
     expect(first.sha256).toHaveLength(64);
     expect(first.bytes.equals(again.bytes)).toBe(true);
     expect(decodeRows(first.bytes)).toEqual(rows);
+  });
+
+  test('the streaming encoder writes the same bytes as encodeRows, so a resumed export matches objects already in S3', async () => {
+    // Objects are write-once (Object Lock): a part re-exported after a restart must equal the stored
+    // bytes exactly, whichever encoder wrote them. Inputs: ASCII, multi-byte UTF-8, empty lines,
+    // and a part far larger than one write batch.
+    let seed = 42;
+    const rnd = () => (seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648) / 2_147_483_648;
+    const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789 {}":,ü✓é\\';
+    const line = (len: number) => Array.from({ length: len }, () => alphabet[Math.floor(rnd() * alphabet.length)]).join('');
+    const inputs = [
+      ['{"a":1}'],
+      ['', 'x', ''],
+      Array.from({ length: 2_000 }, () => line(Math.floor(rnd() * 900))),
+      Array.from({ length: 300 }, () => line(9_000)),
+    ];
+    for (const lines of inputs) {
+      const encoder = new RowEncoder();
+      for (const l of lines) await encoder.push(l);
+      const streamed = await encoder.finish();
+      const whole = encodeRows(lines);
+      expect(streamed.rows).toBe(lines.length);
+      expect(streamed.sha256).toBe(whole.sha256);
+      expect(Buffer.compare(streamed.bytes, whole.bytes)).toBe(0);
+    }
   });
 });

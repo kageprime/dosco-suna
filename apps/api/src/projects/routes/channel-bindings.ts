@@ -29,7 +29,6 @@ import { withTimeout } from "../../shared/with-timeout";
 import {
   isModelServableForAccount,
 } from "../../llm-gateway/resolution/default-model";
-import { resolveFeatureFlag } from "../../feature-flags/registry";
 import { usableProviderKeys } from "../../secrets/provider-key-selection";
 import {
   type ModelSource,
@@ -62,8 +61,6 @@ interface ModelResolutionCtx {
   projectId: string;
   modelDefaults: AccountModelDefaults;
   freeModelsOnly: boolean;
-  /** The project's `pooled_provider_secrets` flag. */
-  pooledEnabled: boolean;
 }
 
 /**
@@ -80,7 +77,6 @@ async function conversationCanRunUncached(input: {
   accountId: string;
   projectId: string;
   freeModelsOnly: boolean;
-  pooledEnabled: boolean;
   model: string;
 }): Promise<boolean> {
   const base = {
@@ -92,7 +88,6 @@ async function conversationCanRunUncached(input: {
     personalUserId: null,
   };
   if (await isModelServableForAccount(base)) return true;
-  if (!input.pooledEnabled) return false;
   const keys = await usableProviderKeys({
     accountId: input.accountId,
     projectId: input.projectId,
@@ -120,10 +115,9 @@ async function conversationCanRun(input: {
   accountId: string;
   projectId: string;
   freeModelsOnly: boolean;
-  pooledEnabled: boolean;
   model: string;
 }): Promise<boolean> {
-  const key = `channel-bindings:conversationCanRun:${input.accountId}:${input.projectId}:${input.userId}:${input.freeModelsOnly}:${input.pooledEnabled}:${input.model}`;
+  const key = `channel-bindings:conversationCanRun:${input.accountId}:${input.projectId}:${input.userId}:${input.freeModelsOnly}:${input.model}`;
   return requestMemo(key, () => conversationCanRunUncached(input));
 }
 
@@ -145,7 +139,6 @@ async function resolveBindingEffectiveModel(
       accountId: ctx.accountId,
       projectId: ctx.projectId,
       freeModelsOnly: ctx.freeModelsOnly,
-      pooledEnabled: ctx.pooledEnabled,
       model: explicitModel,
     });
     if (servable) return { model: toWireModel(explicitModel), source: "explicit" };
@@ -314,7 +307,6 @@ export function registerChannelBindingsRoutes(): void {
         projectId,
         modelDefaults,
         freeModelsOnly: !mayUseManagedModels,
-        pooledEnabled: resolveFeatureFlag(loaded.row.metadata, "pooled_provider_secrets"),
       };
       return c.json({
         projectDefaultAgent,
@@ -443,7 +435,6 @@ export function registerChannelBindingsRoutes(): void {
             accountId: loaded.row.accountId as string,
             projectId,
             freeModelsOnly,
-            pooledEnabled: resolveFeatureFlag(loaded.row.metadata, "pooled_provider_secrets"),
             model: trimmed,
           });
           if (!servable) {
@@ -475,7 +466,6 @@ export function registerChannelBindingsRoutes(): void {
         projectId,
         modelDefaults: await getAccountModelDefaults(accountId, projectId),
         freeModelsOnly: !(await accountMayUseManagedModels(accountId)),
-        pooledEnabled: resolveFeatureFlag(loaded.row.metadata, "pooled_provider_secrets"),
       };
       return c.json(await serializeBinding(updated, projectDefaultAgentOf(loaded.row.metadata), modelCtx));
     },

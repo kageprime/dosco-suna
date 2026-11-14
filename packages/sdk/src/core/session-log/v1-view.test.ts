@@ -126,11 +126,14 @@ describe('sessionLogRowsFor: merged with the v1 store rows', () => {
   });
 
   test('rows keep their identity while their message is unchanged', () => {
-    const state = stateOf(v1Golden);
+    // The delta's target streams (kortixd puts a streaming record before the first delta).
+    const streamed = structuredClone(v1Golden);
+    streamed.threads[0]!.messages.find((m) => m.blocks.some((b) => b.type === 'text'))!.status = 'streaming';
+    const state = stateOf(streamed);
     const v1Rows: V1MessageRow[] = [];
     const first = sessionLogRowsFor({ kses_1: state }, ROOT, v1Rows);
     expect(sessionLogRowsFor({ kses_1: state }, ROOT, v1Rows)).toBe(first);
-    const target = v1Golden.threads[0]!.messages.find((m) => m.blocks.some((b) => b.type === 'text'))!;
+    const target = streamed.threads[0]!.messages.find((m) => m.blocks.some((b) => b.type === 'text'))!;
     const block = target.blocks.find((b) => b.type === 'text')!;
     const next = applySessionLogEvent(state, ev('log.block.delta', { thread_id: ROOT, message_id: target.message_id, block_id: block.id, delta: '…' }));
     const second = sessionLogRowsFor({ kses_1: next }, ROOT, v1Rows);

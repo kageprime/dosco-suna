@@ -20,6 +20,7 @@ import {
   ObjectFetchTooLargeError,
   fetchObjects,
   isObjectFetchTooLargeError,
+  isObjectNotOnRemoteError,
   missingObjectIdsFromGitError,
   missingObjects,
   partialStoresEnabled,
@@ -476,12 +477,17 @@ export function isGitOperationError(err: unknown): err is GitOperationError {
  * day succeeded. The message was a transient credential/visibility blip, not a
  * missing repository.
  *
+ * `fatal: remote error: upload-pack: not our ref <id>` (KRTX-4890) is the
+ * remote refusing an object the store still points at: a force-push or a
+ * deleted branch made it unreachable, or the remote has not replicated it. The
+ * next refresh drops the stale ref, so a retry is the right answer, not a 500.
+ *
  * PERMANENT failures stay loud — a bad ref (`couldn't find remote ref`), a real
  * auth denial (`Authentication failed`, `Permission denied`), and a corrupt
  * local repo (`not a git repository`) do NOT match.
  */
 const TRANSIENT_MIRROR_ERROR_PATTERN =
-  /repository '[^']*' not found|could not resolve host|temporary failure in name resolution|network is unreachable|couldn't connect to server|connection (?:reset|refused|timed out|closed)|remote end hung up unexpectedly|early eof|rpc failed|the requested url returned error: 5\d\d|operation timed out|timed out|ssl_error|gnutls_handshake|tls handshake|cannot fork\(\) for|resource temporarily unavailable|spawn(?: \S+)? EAGAIN|\bEMFILE\b|\bENFILE\b|too many open files/i;
+  /repository '[^']*' not found|could not resolve host|temporary failure in name resolution|network is unreachable|couldn't connect to server|connection (?:reset|refused|timed out|closed)|remote end hung up unexpectedly|early eof|rpc failed|the requested url returned error: 5\d\d|operation timed out|timed out|ssl_error|gnutls_handshake|tls handshake|cannot fork\(\) for|resource temporarily unavailable|spawn(?: \S+)? EAGAIN|upload-pack: not our ref|\bEMFILE\b|\bENFILE\b|too many open files/i;
 
 /** "could not resolve host" for a .test, .invalid, .example or .localhost name. */
 const RESERVED_NAME_UNRESOLVED_PATTERN = /could not resolve host: [^\s'"]*\.(?:test|invalid|example|localhost)\b/i;
@@ -819,14 +825,28 @@ export async function ensureStoreObjects(
   const missing = await missingObjects(repoPath, oids);
   if (missing.length === 0) return 0;
   const access = await ensureMirrorAccess(project);
-  const { receivedBytes } = await timeStage('git', () =>
-    fetchObjects(repoPath, missing, {
-      env: gitAuthEnv(access.token, hostFromRepoUrl(access.repoUrl), access.headers),
-      maxBytes: options.maxBytes ?? DEFAULT_OBJECT_FETCH_MAX_BYTES,
-      timeoutMs: options.timeoutMs,
-    }),
-  );
-  return receivedBytes;
+  try {
+    const { receivedBytes } = await timeStage('git', () =>
+      fetchObjects(repoPath, missing, {
+        env: gitAuthEnv(access.token, hostFromRepoUrl(access.repoUrl), access.headers),
+        maxBytes: options.maxBytes ?? DEFAULT_OBJECT_FETCH_MAX_BYTES,
+        timeoutMs: options.timeoutMs,
+      }),
+    );
+    return receivedBytes;
+  } catch (error) {
+    // The remote no longer serves an object the store still points at. Typed as
+    // a git failure so the retryable-503 classification applies, not a 500 that pages.
+    if (!isObjectNotOnRemoteError(error)) throw error;
+    throw new GitOperationError({
+      kind: 'failed',
+      message: error.message,
+      gitArgs: ['fetch'],
+      exitCode: 128,
+      stderr: error.stderr,
+      cause: error,
+    });
+  }
 }
 
 /**

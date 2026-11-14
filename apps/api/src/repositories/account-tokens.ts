@@ -74,7 +74,7 @@ export interface AccountTokenValidationResult {
   };
 }
 
-export interface CreateAccountTokenParams {
+interface CreateAccountTokenParams {
   accountId: string;
   userId: string;
   name: string;
@@ -117,7 +117,7 @@ export interface CreateAccountTokenResult {
   scopes: KeyScopes | null;
 }
 
-export interface AccountTokenListEntry {
+interface AccountTokenListEntry {
   tokenId: string;
   publicKey: string;
   name: string;
@@ -327,7 +327,7 @@ export const KEY_DEFAULT_LIFETIME_DAYS = 90;
 export const KEY_MAX_LIFETIME_DAYS = 365;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export type MintExpiry =
+type MintExpiry =
   | { ok: true; expiresAt: Date | undefined }
   | { ok: false; status: 400; code: 'expiry_required' | 'expiry_too_far' | 'invalid_expiry'; error: string };
 

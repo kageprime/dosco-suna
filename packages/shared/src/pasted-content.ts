@@ -1,9 +1,9 @@
 import { removeSpans, tagBlocks } from './tag-blocks';
 
 /** Chat pastes at or above this length become a "Pasted text" tile. */
-export const PASTE_TILE_MIN_CHARS = 1000;
+const PASTE_TILE_MIN_CHARS = 1000;
 /** Chat pastes with more lines than this become a tile. */
-export const PASTE_TILE_MIN_LINES = 10;
+const PASTE_TILE_MIN_LINES = 10;
 /** Inline tiles may add at most this many UTF-8 bytes to a prompt; larger pastes go out as a file. */
 export const PASTED_INLINE_MAX_BYTES = 100_000;
 

@@ -2,7 +2,6 @@
 
 import { useTranslations } from '@/i18n/use-translations';
 
-import { CheckCircleIcon as CheckCircle2 } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useState } from 'react';
@@ -10,7 +9,7 @@ import { FormEvent, Suspense, useState } from 'react';
 import { ConnectingScreen } from '@/components/dashboard/connecting-screen';
 import { Button } from '@kortix/ui/button';
 import { Input } from '@kortix/ui/input';
-import { FieldError } from '@kortix/ui/internal/auth/auth-primitives';
+import { FieldError, FieldLabel } from '@kortix/ui/internal/auth/auth-primitives';
 import { AuthCardShell, BackToSignIn } from '@kortix/ui/internal/auth/auth-card-shell';
 import { resetPassword } from '../actions';
 
@@ -70,10 +69,6 @@ function ResetPasswordContent() {
         description={t('success.description')}
         footer={<BackToSignIn />}
       >
-        <div className="border-border bg-muted/60 text-muted-foreground mb-4 flex items-center gap-2 rounded-md border px-3 py-2.5">
-          <CheckCircle2 className="text-kortix-green size-4 shrink-0" />
-          <span className="text-sm">{t('success.changed')}</span>
-        </div>
         <Button asChild size="lg" className="w-full">
           <Link href="/auth">{t('success.signIn')}</Link>
         </Button>
@@ -89,9 +84,7 @@ function ResetPasswordContent() {
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-3">
-          <label htmlFor="password" className="text-muted-foreground text-sm font-medium">
-            {t('form.newPassword')}
-          </label>
+          <FieldLabel htmlFor="password">{t('form.newPassword')}</FieldLabel>
           <Input
             id="password"
             aria-invalid={!!errorMessage || undefined}
@@ -105,9 +98,7 @@ function ResetPasswordContent() {
           />
         </div>
         <div className="space-y-3">
-          <label htmlFor="confirmPassword" className="text-muted-foreground text-sm font-medium">
-            {t('form.confirmPassword')}
-          </label>
+          <FieldLabel htmlFor="confirmPassword">{t('form.confirmPassword')}</FieldLabel>
           <Input
             id="confirmPassword"
             aria-invalid={!!errorMessage || undefined}

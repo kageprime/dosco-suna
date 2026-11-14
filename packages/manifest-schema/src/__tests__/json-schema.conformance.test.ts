@@ -416,11 +416,6 @@ const FIXTURES: Fixture[] = [
     input: 'triggers:\n  - slug: t\n    type: cron\n    on: { every: 5m }\n    run: { prompt: go }\n',
   },
   {
-    name: 'on/run: run needs a prompt or an app',
-    valid: false,
-    input: 'triggers:\n  - slug: t\n    on: { every: 5m }\n    run: { agent: default }\n',
-  },
-  {
     name: 'on/run: a webhook needs its secret',
     valid: false,
     input: 'triggers:\n  - slug: t\n    on: { webhook: {} }\n    run: { prompt: go }\n',
@@ -1288,6 +1283,16 @@ describe('Known divergence: cross-field rules only the imperative validator enfo
     const yaml = 'default_agent: ghost\nagents:\n  w: {}\n';
     expect(validateManifest(yaml).valid).toBe(false);
     expect(validateCombined(parseYaml(yaml))).toBe(true);
+  });
+
+  // `prompt` may be omitted when the trigger's agent is a program agent (`run`): which agents have `run` is another section.
+  test('a run with no prompt and no app: imperative rejects for a model agent, accepts for a program agent; schema accepts both', () => {
+    const model = 'triggers:\n  - slug: t\n    on: { every: 5m }\n    run: { agent: default }\n';
+    const program = 'agents:\n  j:\n    run: node j.js\ntriggers:\n  - slug: t\n    on: { every: 5m }\n    run: { agent: j }\n';
+    expect(validateManifest(model).valid).toBe(false);
+    expect(validateCombined(parseYaml(model))).toBe(true);
+    expect(validateManifest(program).valid).toBe(true);
+    expect(validateCombined(parseYaml(program))).toBe(true);
   });
 
   test("a trigger's agent naming an undeclared agent: imperative rejects, schema accepts", () => {

@@ -38,7 +38,8 @@ import {
   retryInboxPrompt,
 } from '../projects/session-lifecycle/inbox-rows';
 import { remintForRepair } from '../projects/session-lifecycle/inbox-placement';
-import { requeueAbandonedPrompt } from '../projects/session-lifecycle/redelivery';
+import { requeueAbandonedPrompt, requeueDroppedSteer } from '../projects/session-lifecycle/redelivery';
+import { markTurnStopRequested } from '../projects/session-turn-ledger';
 import { findInboxRowIdByMessageId } from '../projects/session-lifecycle/cancel-forwarded';
 import { settleInboxHoldAfterStop } from '../projects/session-lifecycle/inbox-hold-settle';
 import { acceptSandboxTurn, completeSandboxTurn } from '../projects/sandbox-turn-lifecycle';
@@ -2327,6 +2328,68 @@ describe('steering (R10)', () => {
     });
     expect(await confirmInboxPromptConsumed(SESSION_ID, STEER_ID)).toBe('confirmed');
     expect((await readRow(steer.commandId)).result).toMatchObject({ status: 'delivered', steered_into_message_id: TURN_ID });
+  });
+
+  /** The running turn's ledger record, open, as `beginSandboxTurn` writes it. */
+  async function openLedgerTurn() {
+    await db.execute(sql`
+      INSERT INTO kortix.session_turns
+        (turn_token, session_id, sandbox_id, project_id, account_id, message_id, state, started_at, created_at, updated_at)
+      VALUES ('turn-s', ${SESSION_ID}, ${SANDBOX_ID}::uuid, ${PROJECT_ID}::uuid, ${ACCOUNT_ID}::uuid,
+              ${TURN_ID}, 'active', now(), now(), now())
+      ON CONFLICT (turn_token) DO UPDATE SET state = 'active', end_error = NULL`);
+  }
+
+  test('a row is never steered into a turn a person stopped: it waits for the end and starts the next turn', async () => {
+    // Stop stamps the open turn, then the hold settle releases what waited. The
+    // abort can land after that release: pi drops a steer it accepted into a
+    // stopped turn, so the row must not go in.
+    await runningTurn();
+    await openLedgerTurn();
+    try {
+      const steer = await claimedSteer('s_stopped', PROMPTER);
+      expect(await admit(steer)).toEqual({ admit: true, steerInto: TURN_ID });
+      await markTurnStopRequested(SESSION_ID, 'UserStop', { messageId: TURN_ID }, PROMPTER);
+      expect(await admit(steer)).toMatchObject({ admit: false, reason: 'turn_active' });
+      await setBox('active', {});
+      expect(await admit(steer)).toEqual({ admit: true });
+    } finally {
+      await db.execute(sql`DELETE FROM kortix.session_turns WHERE turn_token = 'turn-s'`);
+    }
+  });
+
+  test('steer_dropped puts a steer the stopped turn never read back on the queue, for the next turn', async () => {
+    await runningTurn();
+    const steer = await claimedSteer('s_dropped', PROMPTER);
+    // Still claimed: the POST has not come back yet, so the daemon is asked to retry.
+    expect(await requeueDroppedSteer(SESSION_ID, STEER_ID)).toBe('pending_delivery');
+    await markCommandForwarded(steer, SESSION_ID, STEER_ID, { steeredIntoMessageId: TURN_ID });
+    expect(await requeueDroppedSteer(SESSION_ID, STEER_ID)).toBe('requeued');
+    const row = await readRow(steer.commandId);
+    expect(row.status).toBe('queued');
+    expect(row.result).toEqual({ redelivered_from: 'steer_dropped' });
+    expect(row.payload).toMatchObject({ steerRefusedTurn: TURN_ID, redeliveries: 1, deliveryAttempt: 1 });
+    // Not into the turn that dropped it: the row waits for that turn's end.
+    const [queued] = await storedRow(steer.commandId);
+    expect(await admit({ ...queued, status: 'running' })).toMatchObject({ admit: false, reason: 'turn_active' });
+    await setBox('active', {});
+    expect(await admit({ ...queued, status: 'running' })).toEqual({ admit: true });
+    // A repeated relay finds nothing on the wire.
+    expect(await requeueDroppedSteer(SESSION_ID, STEER_ID)).toBe('already_settled');
+  });
+
+  test('steer_dropped leaves a steer a Stop paused to the hold settle, and an unknown id alone', async () => {
+    await runningTurn();
+    const steer = await claimedSteer('s_dropped_paused', PROMPTER);
+    await markCommandForwarded(steer, SESSION_ID, STEER_ID, { steeredIntoMessageId: TURN_ID });
+    await holdInboxPrompts(SESSION_ID, true);
+    try {
+      expect(await requeueDroppedSteer(SESSION_ID, STEER_ID)).toBe('already_settled');
+      expect((await readRow(steer.commandId)).status).toBe('succeeded');
+      expect(await requeueDroppedSteer(SESSION_ID, 'msg_000000000007NoSuchSteerAaa')).toBe('no_prompt');
+    } finally {
+      await holdInboxPrompts(SESSION_ID, false);
+    }
   });
 
   test('a turn end that names the steered message closes the turn the steer went into', async () => {

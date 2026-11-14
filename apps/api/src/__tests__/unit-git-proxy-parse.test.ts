@@ -48,6 +48,11 @@ describe('extractToken', () => {
     expect(extractToken(header)).toBe('kortix_only');
   });
 
+  test('Basic — empty username and trimmed password; empty password is null', () => {
+    expect(extractToken(`Basic ${Buffer.from(':tok ').toString('base64')}`)).toBe('tok');
+    expect(extractToken(`Basic ${Buffer.from('user:').toString('base64')}`)).toBeNull();
+  });
+
   test('missing / malformed', () => {
     expect(extractToken(undefined)).toBeNull();
     expect(extractToken('')).toBeNull();

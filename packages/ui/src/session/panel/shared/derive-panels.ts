@@ -481,7 +481,8 @@ function titleFromFetchOutput(call: ToolCallBlock): string | undefined {
  * The real-world pages a `web`-family call is "about" — the identities
  * `deriveContext` dedups on and the truthful labels it shows.
  *
- * - `web_fetch`/`scrape_webpage`-style calls target one URL (`input.url`).
+ * - `web_fetch` targets one URL (`input.url`); `scrape_webpage` targets one or
+ *   more (`input.urls`, comma-separated). Each URL is one page.
  * - `web_search`-style calls have no URL of their own; their OUTPUT is the
  *   search-results payload, and EVERY parsed result is a page the search
  *   surfaced — returning only the first is how "searched 10 sources" used to
@@ -512,9 +513,61 @@ function webSourcesOf(call: ToolCallBlock): Array<{ url: string; label: string }
   // web_fetch / webfetch / scrape_webpage / scrapewebpage — identified by
   // the page it targeted. The label is the real page title when the fetch's
   // own output is parseable HTML; otherwise the domain — never the raw URL.
-  const url = typeof input.url === 'string' ? input.url : '';
-  if (!url) return [];
-  return [{ url, label: titleFromFetchOutput(call) || wsDomain(url) }];
+  const urls = fetchUrlsOf(input);
+  if (urls.length === 0) return [];
+  if (urls.length === 1) {
+    const url = urls[0]!;
+    return [{ url, label: titleFromFetchOutput(call) || scrapeTitlesOf(call).get(url) || wsDomain(url) }];
+  }
+  const titles = scrapeTitlesOf(call);
+  return urls.map((url) => ({ url, label: titles.get(url) || wsDomain(url) }));
+}
+
+/**
+ * The pages a fetch-style call targeted. `web_fetch` takes one `url`;
+ * `scrape_webpage` takes `urls`, a comma-separated string
+ * (`apps/kortix-sandbox-agent-server/src/services/tools/kortix/scrape_webpage.ts`).
+ * An array is accepted too: an ejected copy of the tool may change the schema.
+ */
+function fetchUrlsOf(input: Record<string, unknown>): string[] {
+  const raw: unknown[] = [];
+  if (typeof input.url === 'string') raw.push(input.url);
+  if (typeof input.urls === 'string') raw.push(...input.urls.split(','));
+  else if (Array.isArray(input.urls)) raw.push(...input.urls);
+  const out: string[] = [];
+  for (const value of raw) {
+    if (typeof value !== 'string') continue;
+    const url = value.trim();
+    if (url && !out.includes(url)) out.push(url);
+  }
+  return out;
+}
+
+/**
+ * Page titles from `scrape_webpage` JSON output: one result object, or
+ * `{ results: [...] }` for several URLs. Keyed by the URL the tool echoes.
+ */
+function scrapeTitlesOf(call: ToolCallBlock): Map<string, string> {
+  const titles = new Map<string, string>();
+  const output = rawOutputOf(call);
+  if (!output || !output.trimStart().startsWith('{')) return titles;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(output);
+  } catch {
+    return titles;
+  }
+  if (!parsed || typeof parsed !== 'object') return titles;
+  const record = parsed as Record<string, unknown>;
+  const results = Array.isArray(record.results) ? record.results : [record];
+  for (const result of results) {
+    if (!result || typeof result !== 'object') continue;
+    const { url, title } = result as Record<string, unknown>;
+    if (typeof url === 'string' && typeof title === 'string' && title.trim()) {
+      titles.set(url.trim(), title.trim());
+    }
+  }
+  return titles;
 }
 
 export function deriveContext(calls: ToolCallBlock[]): {

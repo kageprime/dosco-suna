@@ -21,7 +21,12 @@ const html = () => renderToStaticMarkup(<PreferencesTabView copy={englishCopy} /
  * its own file. Language leads here (Jay: "in the preferences we need to show
  * the language selection for the whole app").
  */
-const EXPECTED_HEADINGS = ['h2:Language &amp; shortcuts', 'h3:Language', 'h3:Keyboard shortcuts'];
+const EXPECTED_HEADINGS = [
+  'h2:Language &amp; shortcuts',
+  'h3:Language',
+  'h3:Reduce motion',
+  'h3:Keyboard shortcuts',
+];
 
 describe('PreferencesTabView', () => {
   test('language leads — it is the first section heading, right after the pane heading', () => {
@@ -31,7 +36,7 @@ describe('PreferencesTabView', () => {
   test('the pane title outranks its sections — one h2, the rest h3', () => {
     const found = headings(html());
     expect(found.filter((h) => h.startsWith('h2:'))).toEqual(['h2:Language &amp; shortcuts']);
-    expect(found.filter((h) => h.startsWith('h3:'))).toHaveLength(2);
+    expect(found.filter((h) => h.startsWith('h3:'))).toHaveLength(3);
   });
 
   test('the language control names itself and shows the current language', () => {
@@ -47,8 +52,17 @@ describe('PreferencesTabView', () => {
     }
   });
 
-  test('a separator sits between the two sections', () => {
-    expect([...html().matchAll(/data-slot="separator"/g)]).toHaveLength(1);
+  test('a separator sits between each pair of sections', () => {
+    expect([...html().matchAll(/data-slot="separator"/g)]).toHaveLength(2);
+  });
+
+  test('the reduce-motion switch names itself and shows its state', () => {
+    const off = renderToStaticMarkup(<PreferencesTabView copy={englishCopy} />);
+    const on = renderToStaticMarkup(<PreferencesTabView copy={englishCopy} reduceMotion />);
+    const switchTag = (out: string) => out.match(/<button[^>]*id="preferences-reduce-motion"[^>]*>/)?.[0] ?? '';
+    expect(switchTag(off)).toContain('aria-label="Reduce motion"');
+    expect(switchTag(off)).toContain('aria-checked="false"');
+    expect(switchTag(on)).toContain('aria-checked="true"');
   });
 
   test('offers both modifier keys and every shortcut', () => {
@@ -116,6 +130,8 @@ describe('PreferencesTabView', () => {
           description: 'Језик и пречице на тастатури.',
           languageTitle: 'Језик',
           languageDescription: 'Језик који Кортикс приказује у целој апликацији.',
+          motionTitle: 'Смањи покрете',
+          motionDescription: 'Зауставља светлуцање, пулсирање и прелазе у целој апликацији.',
           keyboardTitle: 'Пречице на тастатури',
           keyboardDescription: 'Тастер за измену картица и све пречице у апликацији.',
           modifierKey: 'Тастер модификатора',
@@ -141,7 +157,12 @@ describe('PreferencesTabView', () => {
       />,
     );
 
-    expect(headings(out)).toEqual(['h2:Језик и пречице', 'h3:Језик', 'h3:Пречице на тастатури']);
+    expect(headings(out)).toEqual([
+      'h2:Језик и пречице',
+      'h3:Језик',
+      'h3:Смањи покрете',
+      'h3:Пречице на тастатури',
+    ]);
     expect(out).toContain('Тастер модификатора');
     expect(out).toContain('Нова картица');
     expect(out).not.toContain('>Keyboard shortcuts<');

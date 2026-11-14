@@ -16,7 +16,7 @@ import { and, count, eq, gt } from 'drizzle-orm';
 import { db } from '../../shared/db';
 import { sessionIsWorkflowRunner } from './workflow-runner';
 
-export const CHILD_SESSION_WINDOW_MS = 10 * 60_000;
+const CHILD_SESSION_WINDOW_MS = 10 * 60_000;
 export const CHILD_SESSION_LIMIT = 40;
 
 /** Child sessions `parentSessionId` started in this project in the last `windowMs`. */

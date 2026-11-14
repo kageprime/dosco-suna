@@ -2,6 +2,7 @@ import { connectorCalls, projectSecrets, projectSessions, sessionSandboxes } fro
 import { and, count, eq, isNull, max } from 'drizzle-orm';
 import { approvalNotExpired } from '../../connectors/approval-expiry';
 import { db } from '../../shared/db';
+import { stringOrNull } from './runtime-session-snapshot';
 import { runtimeWakeInProgress } from '../session-lifecycle/runtime-wake-fence';
 import { wakeLadderBudgetOf } from '../session-lifecycle/attended-wake-ladder';
 
@@ -74,10 +75,6 @@ export async function readRuntimeControlState(sessionId: string): Promise<Runtim
       return { retried: budget.retried, restarts: budget.restarts, last_action_ms: budget.lastActionMs };
     })(),
   };
-}
-
-function stringOrNull(value: unknown): string | null {
-  return typeof value === 'string' && value ? value : null;
 }
 
 export interface AuditWatermark {

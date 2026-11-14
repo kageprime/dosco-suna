@@ -137,7 +137,7 @@ suite('usage breakdown reads metadata->>ledger_type (throwaway Postgres)', () =>
     expect(breakdown.compute_usd).toBe(0);
   });
 
-  test('atomic_use_credits output is classified without any test-side shaping', async () => {
+  test('debit_credits output is classified without any test-side shaping', async () => {
     const account = newAccount();
     psql(
       `update kortix.credit_accounts
@@ -145,12 +145,12 @@ suite('usage breakdown reads metadata->>ledger_type (throwaway Postgres)', () =>
        where account_id = '${account}'`,
     );
     psql(
-      `select public.atomic_use_credits(p_account_id => '${account}'::uuid, p_amount => 3.5,
-              p_description => 'Sandbox compute', p_ledger_type => 'compute_debit')`,
+      `select kortix_wallet.debit_credits(p_account_id => '${account}'::uuid, p_amount => 3.5, p_enforce_floor => true,
+              p_description => 'Sandbox compute', p_ledger_type => 'compute_debit', p_idempotency_key => null)`,
     );
     psql(
-      `select public.atomic_use_credits(p_account_id => '${account}'::uuid, p_amount => 1.5,
-              p_description => 'LLM', p_ledger_type => 'llm_debit')`,
+      `select kortix_wallet.debit_credits(p_account_id => '${account}'::uuid, p_amount => 1.5, p_enforce_floor => true,
+              p_description => 'LLM', p_ledger_type => 'llm_debit', p_idempotency_key => null)`,
     );
 
     const breakdown = await getUsageBreakdownThisPeriod(account, null);

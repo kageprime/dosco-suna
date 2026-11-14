@@ -12,24 +12,16 @@ import {
 } from '../command-helpers.ts';
 import { iamBase } from '../iam.ts';
 import { confirm } from '../prompts.ts';
-import { C, help, pad, status, visibleWidth } from '../style.ts';
+import { C, help, pad, scopeLabel, status } from '../style.ts';
 
-// `kortix tokens` — the two kinds of non-interactive credential an account
-// issues, in one place:
-//
-//   personal API keys  (`/accounts/tokens`)          — act as YOU. Revoked
-//                                                      automatically when you
-//                                                      leave the account.
-//   service accounts   (`/accounts/:id/iam/…`)       — act as THEMSELVES. The
-//                                                      engine evaluates a
-//                                                      service-account request
-//                                                      purely against the SA's
-//                                                      own role assignments, so
-//                                                      it never inherits the
-//                                                      minter's access.
-//
-// A service account starts with NO permissions. Give it one with
-// `kortix access grant --service-account <id> --role <key>`.
+import { connectedApps } from './tokens-apps.ts';
+import { serviceAccounts } from './tokens-service-accounts.ts';
+// `kortix tokens` — the account's non-interactive credentials. This module
+// holds the personal API keys (`/accounts/tokens`) — they act as YOU and are
+// revoked automatically when you leave the account — and routes the account's
+// other two credentials to their own modules: `tokens-service-accounts.ts`
+// (service accounts, act as THEMSELVES) and `tokens-apps.ts` (connected
+// OAuth apps).
 //
 // Note `kortix token` (singular) is a different, unrelated command: it prints
 // the ACTIVE token's context (`whoami --token-only`).
@@ -75,39 +67,10 @@ export function parseScopeFlag(input: string): 'full' | 'read' | string[] | null
   return list.length > 0 ? list : null;
 }
 
-/** The SCOPE column of a key row. */
-function scopeLabel(t: AccountToken): string {
-  if (t.scope === 'custom') return `custom (${t.workspace_permissions?.length ?? 0})`;
-  return t.scope ?? 'full';
-}
-
 /** The EXPIRES column of a key row. */
 function expiryLabel(t: AccountToken): string {
   if (!t.expires_at) return 'never';
   return t.expiry_renews ? `${t.expires_at.slice(0, 10)} (renews on use)` : t.expires_at.slice(0, 10);
-}
-
-interface ServiceAccount {
-  service_account_id: string;
-  name: string;
-  description: string | null;
-  public_prefix: string;
-  status?: string;
-  secret?: string;
-  last_used_at?: string | null;
-  expires_at?: string | null;
-  created_at: string;
-  disabled_at?: string | null;
-}
-
-/** One row of `GET /oauth/grants`. */
-interface ConnectedApp {
-  client_id: string;
-  name: string;
-  self_registered: boolean;
-  redirect_hosts: string[];
-  granted_at: string | null;
-  last_active_at: string | null;
 }
 
 const HELP = help`Usage: kortix tokens <subcommand> [options]
@@ -413,177 +376,4 @@ async function revokeToken(
   }
   process.stdout.write(`${status.ok(`${deleted ? 'Deleted' : 'Revoked'} ${C.bold}${tokenId}${C.reset}`)}\n`);
   return 0;
-}
-
-/** `kortix tokens apps` — OAuth grants you approved ("Sign in with Kortix"). */
-async function connectedApps(
-  client: NonNullable<ReturnType<typeof resolveAccountContext>>['client'],
-  positional: string[],
-  opts: { json: boolean; yes: boolean },
-): Promise<number> {
-  const action = positional[0] ?? 'ls';
-  if (action === 'ls' || action === 'list') {
-    const { grants } = await client.get<{ grants: ConnectedApp[] }>('/oauth/grants');
-    if (opts.json) {
-      emitJson(grants);
-      return 0;
-    }
-    if (grants.length === 0) {
-      process.stdout.write(`\n  ${C.dim}No connected apps.${C.reset}\n\n`);
-      return 0;
-    }
-    const label = (g: ConnectedApp) =>
-      g.self_registered ? `${g.name} ${C.yellow}(unverified)${C.reset}` : g.name;
-    const nameW = Math.max(...grants.map((g) => visibleWidth(label(g))), 4);
-    process.stdout.write('\n');
-    process.stdout.write(
-      `  ${C.dim}${pad('NAME', nameW)}   ${pad('SIGNS IN AT', 22)}   ${pad('LAST ACTIVE', 11)}   CLIENT ID${C.reset}\n`,
-    );
-    for (const g of grants) {
-      process.stdout.write(
-        `  ${pad(label(g), nameW)}   ${pad(g.redirect_hosts.join(', ') || '-', 22)}   ` +
-          `${pad((g.last_active_at ?? g.granted_at ?? '-').slice(0, 10), 11)}   ${C.faded}${g.client_id}${C.reset}\n`,
-      );
-    }
-    process.stdout.write(
-      `\n  ${C.dim}${grants.length} app${grants.length === 1 ? '' : 's'}${C.reset}\n\n`,
-    );
-    return 0;
-  }
-  if (action === 'rm' || action === 'revoke') {
-    const clientId = positional[1];
-    if (!clientId) return missing('a client id (see `kortix tokens apps ls`)');
-    if (!opts.yes) {
-      const ok = await confirm(
-        `Revoke ${C.bold}${clientId}${C.reset}? It loses access to your account at once.`,
-        false,
-        { onEndOfInput: false },
-      );
-      if (!ok) {
-        process.stdout.write(`${C.dim}Cancelled.${C.reset}\n`);
-        return 0;
-      }
-    }
-    const r = await client.delete<{ revoked_tokens: number }>(
-      `/oauth/grants/${encodeURIComponent(clientId)}`,
-    );
-    if (opts.json) {
-      emitJson(r);
-      return 0;
-    }
-    process.stdout.write(
-      `${status.ok(`Revoked ${C.bold}${clientId}${C.reset} (${r.revoked_tokens} live token${r.revoked_tokens === 1 ? '' : 's'})`)}\n`,
-    );
-    return 0;
-  }
-  return fail(`Unknown \`tokens apps\` action "${action}". Use ls or rm.`);
-}
-
-async function serviceAccounts(
-  client: NonNullable<ReturnType<typeof resolveAccountContext>>['client'],
-  base: string,
-  positional: string[],
-  opts: { json: boolean; yes: boolean; expiresAt?: string; description?: string },
-): Promise<number> {
-  const verb = positional[0];
-  const id = positional[1];
-  switch (verb) {
-    case undefined:
-    case 'ls':
-    case 'list': {
-      const { service_accounts: rows } = await client.get<{ service_accounts: ServiceAccount[] }>(
-        base,
-      );
-      if (opts.json) {
-        // The same shared `id` as `tokens ls --json`; `service_account_id` stays.
-        emitJson(rows.map((r) => ({ id: r.service_account_id, ...r })));
-        return 0;
-      }
-      if (rows.length === 0) {
-        process.stdout.write(
-          `\n  ${C.dim}No service accounts. Create one with ` +
-            `${C.reset}${C.cyan}kortix tokens service-accounts new <name>${C.reset}\n\n`,
-        );
-        return 0;
-      }
-      const nameW = Math.max(...rows.map((r) => r.name.length), 4);
-      const prefixW = Math.max(...rows.map((r) => r.public_prefix.length), 6);
-      process.stdout.write('\n');
-      process.stdout.write(
-        `  ${C.dim}${pad('NAME', nameW)}   ${pad('PREFIX', prefixW)}   ${pad('STATUS', 8)}   ${pad('EXPIRES', 10)}   SERVICE ACCOUNT ID${C.reset}\n`,
-      );
-      for (const r of rows) {
-        const state =
-          r.status === 'active' ? (r.status ?? '—') : `${C.yellow}${r.status ?? '—'}${C.reset}`;
-        process.stdout.write(
-          `  ${pad(r.name, nameW)}   ${pad(r.public_prefix, prefixW)}   ${pad(state, 8)}   ` +
-            `${pad(r.expires_at ? r.expires_at.slice(0, 10) : 'never', 10)}   ${C.faded}${r.service_account_id}${C.reset}\n`,
-        );
-      }
-      process.stdout.write(
-        `\n  ${C.dim}${rows.length} service account${rows.length === 1 ? '' : 's'}${C.reset}\n\n`,
-      );
-      return 0;
-    }
-
-    case 'new':
-    case 'create': {
-      const name = positional[1];
-      if (!name) return missing('a service account name');
-      const created = await client.post<ServiceAccount>(base, {
-        name,
-        ...(opts.description !== undefined ? { description: opts.description } : {}),
-        ...(opts.expiresAt ? { expires_at: opts.expiresAt } : {}),
-      });
-      if (opts.json) {
-        emitJson(created);
-        return 0;
-      }
-      process.stdout.write(
-        `${status.ok(`Created service account ${C.bold}${created.name}${C.reset}`)}\n\n`,
-      );
-      process.stdout.write(`  ${created.secret ?? '(no secret returned)'}\n\n`);
-      process.stdout.write(
-        `${status.warn('This is the only time the bearer is shown. Store it now.')}\n`,
-      );
-      process.stdout.write(`  ${C.dim}id      ${C.reset}${created.service_account_id}\n`);
-      process.stdout.write(
-        `  ${C.dim}expires ${C.reset}${created.expires_at ? created.expires_at.slice(0, 10) : 'never'}\n\n`,
-      );
-      process.stdout.write(
-        `  ${C.dim}It holds no permissions yet. Grant one with${C.reset}\n` +
-          `  ${C.cyan}kortix access grant --service-account ${created.service_account_id} --role <key>${C.reset}\n`,
-      );
-      return 0;
-    }
-
-    case 'disable': {
-      if (!id) return missing('a service account id');
-      await client.post(`${base}/${encodeURIComponent(id)}/disable`, {});
-      process.stdout.write(`${status.ok(`Disabled ${C.bold}${id}${C.reset}`)}\n`);
-      return 0;
-    }
-
-    case 'rm':
-    case 'delete': {
-      if (!id) return missing('a service account id');
-      if (!opts.yes) {
-        const ok = await confirm(
-          `Delete service account ${C.bold}${id}${C.reset}? Its bearer stops working immediately.`,
-          false,
-          { onEndOfInput: false },
-        );
-        if (!ok) {
-          process.stdout.write(`${C.dim}Cancelled.${C.reset}\n`);
-          return 0;
-        }
-      }
-      await client.delete(`${base}/${encodeURIComponent(id)}`);
-      process.stdout.write(`${status.ok(`Deleted ${C.bold}${id}${C.reset}`)}\n`);
-      return 0;
-    }
-
-    default:
-      return fail(`unknown service-accounts verb "${verb}" — use ls|new|disable|rm`);
-  }
 }

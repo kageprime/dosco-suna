@@ -5,21 +5,15 @@ import type { AttachedFile } from './session-chat-input';
  *
  *  - `true` — every in-thread composer. It stays mounted, so it resets in
  *    place and revokes the local object URLs nobody references any more.
- *  - `'text-only'` — project home. It clears like any other composer, so the
- *    message visibly LEAVES the box, but it revokes nothing: the same local
- *    URLs are what the instant shell draws its attachment previews from a
- *    moment later, on the other side of the navigation.
+ *  - `'text-only'` — a space composer (`space-view.tsx`). It clears like any
+ *    other composer, so the message visibly LEAVES the box, but it revokes
+ *    nothing: the same local URLs are what the new thread draws its
+ *    attachment previews from a moment later.
  *  - `false` — a composer that must keep the submitted draft on screen
- *    untouched. Nothing clears and nothing is revoked.
- *
- * `'text-only'` exists because the two halves of `false` turned out to be
- * separate decisions. Project home held BOTH — text on screen and URLs alive —
- * for one reason (the URLs), and the text half was the visible cost: Enter left
- * the sentence sitting in a locked box under a spinner for the whole create
- * round trip (measured 1165ms end to end on localhost, `POST .../sessions`
- * alone 908ms; longer over a real network), which reads as a send that did not
- * happen. Splitting them lets the box empty at the keypress, like everywhere
- * else in the app, with the previews still intact when the shell takes over.
+ *    untouched. Nothing clears and nothing is revoked. Project home is one:
+ *    the sent message stays in the locked box under the spinner until the
+ *    session page opens, so the user sees what is being sent and a refused
+ *    send leaves the text in place.
  */
 export type ComposerSendReset = boolean | 'text-only';
 

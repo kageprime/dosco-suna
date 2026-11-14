@@ -485,8 +485,8 @@ Next.js ── forwardKortixRequest(firm secret) ──▶ Kortix API / session 
    Kortix names each session's branch after its session id, so a branch list
    would hand a lawyer the session ids of matters they cannot open. The proxy refuses a path segment that decodes to
    `/`, `\`, `.`, `..`, `?`, `#`, `%` or a control character
-   (`src/server/upstream-path.ts`), so the path the policy checks is the path
-   Kortix receives.
+   (`buildUpstreamPath`, `packages/white-label-shared/src/upstream-path.ts`), so
+   the path the policy checks is the path Kortix receives.
 6. Some reads the session UI makes are answered by Lumen itself
    (`localAnswer`): `GET accounts/me` returns the Lumen user id with no email
    and no accounts, the permission probes (`…/iam/members/…/effective`

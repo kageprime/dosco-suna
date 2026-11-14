@@ -14,7 +14,7 @@ export type AppDeployStrategy = 'rolling' | 'immediate' | 'bluegreen' | 'canary'
 export type AppAutoStop = 'off' | 'stop' | 'suspend';
 /** `public`: no gate. `app`: the App's access policy and Kortix sign-in. `admins`: project admins only. */
 export type AppServiceAccess = 'public' | 'app' | 'admins';
-export type AppServiceProtocol = 'http' | 'tcp';
+type AppServiceProtocol = 'http' | 'tcp';
 
 export interface AppCheck {
   type: 'http' | 'tcp';
@@ -27,7 +27,7 @@ export interface AppCheck {
   grace_period_s: number;
 }
 
-export interface AppService {
+interface AppService {
   /** `http` is the primary service: it answers on the App's own host. */
   name: string;
   internal_port: number;
@@ -50,7 +50,7 @@ export interface AppMount {
   processes: string[];
 }
 
-export interface AppVmSize {
+interface AppVmSize {
   cpu: number;
   memory_gb: number;
   /** Root disk; the data belongs on a mount. */
@@ -59,7 +59,7 @@ export interface AppVmSize {
   processes: string[];
 }
 
-export interface AppDeployConfig {
+interface AppDeployConfig {
   strategy: AppDeployStrategy;
   /** Runs once per release in a temporary machine (new image, secrets, no mounts) before machines update. */
   release_command: string | null;
@@ -95,14 +95,14 @@ export interface AppConfigIssue {
   message: string;
 }
 
-export const DEFAULT_PROCESS_GROUP = 'app';
-export const PRIMARY_SERVICE = 'http';
+const DEFAULT_PROCESS_GROUP = 'app';
+const PRIMARY_SERVICE = 'http';
 /** Ports the App supervisor owns inside every machine. */
-export const RESERVED_APP_PORTS = [7331, 8080] as const;
-export const APP_VM_LIMITS = { cpu: { min: 1, max: 32 }, memory_gb: { min: 1, max: 128 }, disk_gb: { min: 1, max: 500 } } as const;
-export const DEFAULT_APP_VM = { cpu: 1, memory_gb: 2, disk_gb: 10 } as const;
-export const DEFAULT_SNAPSHOT_RETENTION_DAYS = 5;
-export const MAX_SNAPSHOT_RETENTION_DAYS = 60;
+const RESERVED_APP_PORTS = [7331, 8080] as const;
+const APP_VM_LIMITS = { cpu: { min: 1, max: 32 }, memory_gb: { min: 1, max: 128 }, disk_gb: { min: 1, max: 500 } } as const;
+const DEFAULT_APP_VM = { cpu: 1, memory_gb: 2, disk_gb: 10 } as const;
+const DEFAULT_SNAPSHOT_RETENTION_DAYS = 5;
+const MAX_SNAPSHOT_RETENTION_DAYS = 60;
 /** Platinum caps a volume at 100 GiB (its largest size class). */
 export const MAX_VOLUME_GB = 100;
 
@@ -139,34 +139,31 @@ export function resolveAppReleaseConfig(input: AppReleaseConfigInput = {}): AppR
   const alwaysOn = input.always_on ?? true;
   const http = input.http_service;
   const primaryPort = http?.internal_port ?? input.port;
+  const resolveService = (
+    partial: Partial<Omit<AppService, 'checks'>> & { checks?: Array<Partial<AppCheck>> } | undefined,
+    { name, port, minMachines, fallbackChecks }: { name: string; port: number; minMachines: number; fallbackChecks: AppCheck[] },
+  ): AppService => ({
+    name,
+    internal_port: port,
+    protocol: partial?.protocol ?? 'http',
+    access: partial?.access ?? 'app',
+    auto_stop_machines: partial?.auto_stop_machines ?? (alwaysOn ? 'off' : 'stop'),
+    auto_start_machines: partial?.auto_start_machines ?? true,
+    min_machines_running: partial?.min_machines_running ?? minMachines,
+    processes: partial?.processes?.length ? [...partial.processes] : [allGroups[0]!],
+    checks: partial?.checks?.length ? partial.checks.map((entry) => check(entry)) : fallbackChecks,
+  });
   const services: AppService[] = [];
   if (primaryPort !== undefined) {
-    services.push({
+    services.push(resolveService(http, {
       name: PRIMARY_SERVICE,
-      internal_port: primaryPort,
-      protocol: http?.protocol ?? 'http',
-      access: http?.access ?? 'app',
-      auto_stop_machines: http?.auto_stop_machines ?? (alwaysOn ? 'off' : 'stop'),
-      auto_start_machines: http?.auto_start_machines ?? true,
-      min_machines_running: http?.min_machines_running ?? (alwaysOn ? 1 : 0),
-      processes: http?.processes?.length ? [...http.processes] : [allGroups[0]!],
-      checks: http?.checks?.length
-        ? http.checks.map((entry) => check(entry))
-        : input.readiness_path ? [check(undefined, input.readiness_path)] : [],
-    });
+      port: primaryPort,
+      minMachines: alwaysOn ? 1 : 0,
+      fallbackChecks: input.readiness_path ? [check(undefined, input.readiness_path)] : [],
+    }));
   }
   for (const service of input.services ?? []) {
-    services.push({
-      name: service.name ?? '',
-      internal_port: service.internal_port ?? 0,
-      protocol: service.protocol ?? 'http',
-      access: service.access ?? 'app',
-      auto_stop_machines: service.auto_stop_machines ?? (alwaysOn ? 'off' : 'stop'),
-      auto_start_machines: service.auto_start_machines ?? true,
-      min_machines_running: service.min_machines_running ?? 0,
-      processes: service.processes?.length ? [...service.processes] : [allGroups[0]!],
-      checks: (service.checks ?? []).map((entry) => check(entry)),
-    });
+    services.push(resolveService(service, { name: service.name ?? '', port: service.internal_port ?? 0, minMachines: 0, fallbackChecks: [] }));
   }
   const mounts: AppMount[] = (input.mounts ?? []).map((mount) => ({
     source: mount.source ?? '',
@@ -176,19 +173,13 @@ export function resolveAppReleaseConfig(input: AppReleaseConfigInput = {}): AppR
     processes: mount.processes?.length ? [...mount.processes] : [...allGroups],
   }));
   const vmInputs = Array.isArray(input.vm) ? input.vm : input.vm ? [input.vm] : [];
-  const vm: AppVmSize[] = vmInputs.length > 0
-    ? vmInputs.map((size) => ({
-        cpu: size.cpu ?? input.resources?.cpu ?? DEFAULT_APP_VM.cpu,
-        memory_gb: size.memory_gb ?? input.resources?.memory_gb ?? DEFAULT_APP_VM.memory_gb,
-        disk_gb: size.disk_gb ?? input.resources?.disk_gb ?? DEFAULT_APP_VM.disk_gb,
-        processes: size.processes ? [...size.processes] : [],
-      }))
-    : [{
-        cpu: input.resources?.cpu ?? DEFAULT_APP_VM.cpu,
-        memory_gb: input.resources?.memory_gb ?? DEFAULT_APP_VM.memory_gb,
-        disk_gb: input.resources?.disk_gb ?? DEFAULT_APP_VM.disk_gb,
-        processes: [],
-      }];
+  const resolveVm = (size: Partial<AppVmSize> = {}): AppVmSize => ({
+    cpu: size.cpu ?? input.resources?.cpu ?? DEFAULT_APP_VM.cpu,
+    memory_gb: size.memory_gb ?? input.resources?.memory_gb ?? DEFAULT_APP_VM.memory_gb,
+    disk_gb: size.disk_gb ?? input.resources?.disk_gb ?? DEFAULT_APP_VM.disk_gb,
+    processes: size.processes ? [...size.processes] : [],
+  });
+  const vm: AppVmSize[] = vmInputs.length > 0 ? vmInputs.map(resolveVm) : [resolveVm()];
   return {
     processes,
     services,
@@ -325,7 +316,7 @@ export interface AppDisplay {
 }
 
 /** What the Apps grid reads of an App: the web's `App` and the API's App JSON both fit. */
-export interface GridApp {
+interface GridApp {
   slug: string;
   display?: AppDisplay | null;
   services?: ReadonlyArray<{ name: string; access?: string | null }> | null;

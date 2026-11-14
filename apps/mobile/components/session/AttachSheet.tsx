@@ -16,6 +16,7 @@ import Reanimated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Sheet, useCloseThen, type SheetRef } from '@/components/kortix/sheet';
+import { useControlFill } from '@/components/kortix/surface-context';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -27,6 +28,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
+import { cn } from '@/lib/utils/utils';
 import { Text } from '@/components/ui/text';
 import { haptics } from '@/lib/haptics';
 import { CameraIcon, FilesIcon, ImageIcon, type AppIcon } from '@/lib/icons';
@@ -137,9 +139,10 @@ export const AttachSheet = React.memo(React.forwardRef<AttachSheetRef, AttachShe
 ));
 AttachSheet.displayName = 'AttachSheet';
 
-/** One source: 24pt icon over its label on a `bg-secondary` tile, a third of the row. */
+/** One source: 24pt icon over its label on a `bg-secondary` tile (the glass fill on the iOS 26 sheet), a third of the row. */
 function SourceTile({ source, onPress }: { source: AttachSource; onPress: () => void }) {
   const { onPressIn, onPressOut, animatedStyle } = usePressScale(0.96);
+  const fill = useControlFill();
 
   return (
     <Reanimated.View className="flex-1" style={animatedStyle}>
@@ -153,7 +156,7 @@ function SourceTile({ source, onPress }: { source: AttachSource; onPress: () => 
         accessibilityRole="button"
         accessibilityLabel={source.label}
         accessibilityHint={source.hint}
-        className="min-h-24 items-center justify-center gap-2 rounded-2xl bg-secondary px-2 py-4">
+        className={cn('min-h-24 items-center justify-center gap-2 rounded-2xl px-2 py-4', fill)}>
         <Icon as={SOURCE_ICONS[source.id]} size={24} className="text-foreground" />
         <Text variant="small" className="leading-5" numberOfLines={1}>
           {source.label}

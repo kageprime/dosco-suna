@@ -31,7 +31,7 @@ import { useKeyboard } from '@opentui/react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { printable } from '../../lib/printable.ts';
-import { relativeAge } from '../../lib/relative-time.ts';
+import { relativeAge, relativeShort } from '../../lib/relative-time.ts';
 import { theme } from '../../theme.ts';
 import { layoutRow, windowStart } from '../../ui/index.ts';
 import { type PeekTarget, useAgentNav } from './agent-nav.tsx';
@@ -70,14 +70,6 @@ export interface AgentsPanelViewProps {
   onClose(): void;
 }
 
-/** `12s`, `4m`, `2h`. */
-export function shortElapsed(ms: number): string {
-  const seconds = Math.max(0, Math.floor(ms / 1000));
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h`;
-}
-
 const AGENT_GLYPH: Record<SessionBoardState, { glyph: string; color: string }> = {
   needs_input: { glyph: '?', color: theme.accent },
   working: { glyph: '●', color: theme.busy },
@@ -105,7 +97,7 @@ function agentState(row: AgentRow, now: number): string {
           : 'Needs you';
     case 'working':
       return row.workingSinceMs !== null
-        ? `working · ${shortElapsed(now - row.workingSinceMs)}`
+        ? `working · ${relativeShort(now - row.workingSinceMs)}`
         : 'working';
     case 'failed':
       return "Didn't finish";
@@ -127,7 +119,7 @@ function runState(run: RunRow): string {
 function runAgentState(agent: WorkflowRunAgent, now: number): string {
   switch (agent.status) {
     case 'running':
-      return agent.startedAt ? `running · ${shortElapsed(now - agent.startedAt)}` : 'running';
+      return agent.startedAt ? `running · ${relativeShort(now - agent.startedAt)}` : 'running';
     case 'starting':
       return 'Starting';
     case 'done':

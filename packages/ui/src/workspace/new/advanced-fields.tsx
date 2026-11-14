@@ -90,6 +90,7 @@ const ADD_ACCOUNT_VALUE = '__add_github_account__';
 export function AdvancedFields({
   state,
   accountId,
+  noGitHubSourceAccount = false,
   onChange,
   connectComputer,
 }: {
@@ -100,6 +101,9 @@ export function AdvancedFields({
    *  account-scoped, so they cannot run on `state.accountId` alone: that is
    *  legitimately null for a single-account user. */
   accountId: string | null;
+  /** The caller owns or administers no account yet (a first workspace), so
+   *  there is no GitHub connection to add here: say where GitHub connects. */
+  noGitHubSourceAccount?: boolean;
   onChange: (next: NewWorkspaceFormState) => void;
 }) {
   const t = useTranslations('newWorkspace');
@@ -274,6 +278,10 @@ export function AdvancedFields({
             {selected?.kind === 'managed' ? (
               <p className="text-muted-foreground text-xs">
                 {t('repository.sources.managed.description')}
+                {/* GitHub installations are account-scoped: with no account
+                    to connect one to, say where GitHub connects instead of
+                    leaving a one-option list unexplained. */}
+                {noGitHubSourceAccount ? <> {t('repository.githubAfterCreate')}</> : null}
               </p>
             ) : null}
             {installationsQuery.isError ? (

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Env } from "../core/env";
-import type { CreatedProject } from "../core/types";
+import type { CreatedProject, FlowContext } from "../core/types";
 import { lockProjectFirst } from './token-binding-lock';
 
 interface ProjectDb {
@@ -590,4 +590,18 @@ export async function deleteDatabaseProject(
       );
   
   });
+}
+
+/** A project-scoped PAT for a fresh project, as a client: mints through the owner and tracks the token. */
+export async function createProjectPat(ctx: FlowContext, label: string) {
+  const project = await ctx.fixtures.project();
+  const response = await ctx.client.as(ctx.P.OWNER).post(
+    '/v1/workspaces/:projectId/cli-token',
+    { name: ctx.fixtures.name(label) },
+    { params: { projectId: project.id } },
+  );
+  response.status(201).body().exists('$.secret_key').exists('$.token_id');
+  const body = response.json<{ secret_key: string; token_id: string }>();
+  ctx.track('token', body.token_id);
+  return ctx.client.withBearer(body.secret_key, 'PAT_PROJ');
 }

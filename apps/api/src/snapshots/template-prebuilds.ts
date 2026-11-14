@@ -4,7 +4,9 @@ import { config, type SandboxProviderName } from '../config';
 import { computeTemplateIdentity, listTemplatesForProject, resolveTemplateForBuildSlug, refreshTemplateState, type ResolvedTemplate } from './templates';
 import { enabledTemplateBuildProviders, observeTemplateProviderCoverage, resolveRoutedTemplateState, type SandboxTemplateProvider, type SandboxTemplateProviderCoverage } from './provider-coverage';
 import { ensureSandboxImage, type SnapshotBuildSource } from './builder';
+import { logger } from '../lib/logger';
 import { shouldReconcileProviderState } from './builder-log';
+import type { ProviderState } from './providers';
 
 /**
  * Fire-and-forget pre-build. Used at project-create and CR-merge time so the
@@ -50,48 +52,95 @@ export function kickRoutedPreBuild(
 }
 // ─── Custom (toml / UI) templates — explicit rebuilds ────────────────────────
 
+/** One provider's answer for one template in {@link reconcileProjectTemplates}. */
+export interface TemplateReconcileProvider {
+  provider: SandboxTemplateProvider;
+  /** The provider's image state before this reconcile. */
+  state: ProviderState;
+  /** True when this reconcile started a build on the provider. */
+  started: boolean;
+}
+
+/** One project template after {@link reconcileProjectTemplates}. */
+export interface TemplateReconcileResult {
+  slug: string;
+  snapshot_name: string | null;
+  /** `ready`: built on every provider that answered. `building`: a build runs or was started. `error`: see `error`. */
+  state: 'ready' | 'building' | 'error';
+  error: string | null;
+  providers: TemplateReconcileProvider[];
+}
+
 /**
  * Reconcile a project's OWN templates (never the shared default): for each
  * custom template whose built image is stale or missing relative to its
- * currently-computed identity, kick a pre-build. Driven by project-create and
- * CR-merge so a Dockerfile or spec change lands a fresh image proactively
- * instead of stalling the next session that boots the slug. Forces a TOML sync
- * so a `[[sandbox.templates]]` edit in the just-merged commit is picked up.
+ * currently-computed identity, kick a pre-build. Driven by project-create,
+ * CR-merge and `kortix ship` (`POST .../sandbox-templates/reconcile`) so a
+ * Dockerfile or spec change lands a fresh image proactively instead of
+ * stalling the next session that boots the slug. Forces a manifest sync so a
+ * `sandbox.templates` edit in the just-pushed commit is picked up. The builds
+ * run in the background; the result names what each provider holds.
  */
-async function reconcileProjectTemplates(
+export async function reconcileProjectTemplates(
   project: GitBackedProject,
   opts: { accountId: string; source: SnapshotBuildSource },
-): Promise<{ checked: number; rebuilt: number }> {
+): Promise<{ checked: number; rebuilt: number; templates: TemplateReconcileResult[] }> {
   const templates = await listTemplatesForProject(project, { forceTomlSync: true });
   const providers = templateBuildProviders();
   let rebuilt = 0;
+  const results: TemplateReconcileResult[] = [];
   for (const t of templates) {
     if (t.isShared) continue; // the platform default is built globally
     let identity: Awaited<ReturnType<typeof computeTemplateIdentity>>;
     try {
       identity = await computeTemplateIdentity(project, t);
     } catch (err) {
-      console.warn(
-        `[snapshots] reconcile: cannot compute identity for ${project.projectId}/${t.slug}:`,
-        err instanceof Error ? err.message : err,
-      );
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`[snapshots] reconcile: cannot compute identity for ${project.projectId}/${t.slug}:`, message);
+      results.push({ slug: t.slug, snapshot_name: null, state: 'error', error: message, providers: [] });
       continue;
     }
+    const answers: TemplateReconcileProvider[] = [];
     for (const providerId of providers) {
       const provider = getSandboxProvider(providerId);
-      const state = await provider.getSnapshotState(identity.snapshotName);
-      if (state === 'active') continue;
-      if (!shouldReconcileProviderState(state)) continue;
-      kickPreBuild(project, {
-        slug: t.slug,
-        accountId: opts.accountId,
-        source: opts.source,
-        provider: providerId,
-      });
-      rebuilt += 1;
+      // A provider that cannot answer (bad credentials, an outage) is reported
+      // as `unknown` and gets no build: it must not fail the reconcile of the
+      // providers that work.
+      let state: ProviderState;
+      try {
+        state = await provider.getSnapshotState(identity.snapshotName);
+      } catch (err) {
+        logger.warn('[snapshots] reconcile: a provider cannot report a template image', {
+          provider: providerId,
+          projectId: project.projectId,
+          slug: t.slug,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        answers.push({ provider: providerId, state: 'unknown', started: false });
+        continue;
+      }
+      const started = state !== 'active' && shouldReconcileProviderState(state);
+      if (started) {
+        kickPreBuild(project, {
+          slug: t.slug,
+          accountId: opts.accountId,
+          source: opts.source,
+          provider: providerId,
+        });
+        rebuilt += 1;
+      }
+      answers.push({ provider: providerId, state, started });
     }
+    const reachable = answers.filter((a) => a.state !== 'unknown');
+    results.push({
+      slug: t.slug,
+      snapshot_name: identity.snapshotName,
+      state: reachable.length > 0 && reachable.every((a) => a.state === 'active') ? 'ready' : 'building',
+      error: null,
+      providers: answers,
+    });
   }
-  return { checked: templates.length, rebuilt };
+  return { checked: templates.length, rebuilt, templates: results };
 }
 
 /** Fire-and-forget wrapper around {@link reconcileProjectTemplates}. */

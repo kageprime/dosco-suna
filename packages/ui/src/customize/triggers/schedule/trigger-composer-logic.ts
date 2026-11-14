@@ -21,10 +21,12 @@ import {
   defaultEventPrompt,
   selectedAccountLabel,
 } from './event-trigger-copy';
+import { parseDurationSeconds } from '@kortix/manifest-schema';
 import {
   type SessionMode,
   type TriggerKind,
   describeCadence,
+  describeEvery,
   describeOneOff,
 } from './schedule-copy';
 import { type ConditionRow, conditionNeedsValue, rowsToConditions } from './schedule-fields';
@@ -37,6 +39,11 @@ export interface ComposerDraft {
   // When: schedule
   cron: string;
   runAt: string | null;
+  /**
+   * A fixed period (`every: 1h` in kortix.yaml) as typed, e.g. `15m`, `1h`,
+   * `1d`. Null = a calendar schedule (`cron`) or a one-off (`runAt`).
+   */
+  every: string | null;
   timezone: string;
   // When: webhook
   signingKey: string;
@@ -63,6 +70,15 @@ export interface ComposerDraft {
   /** The branch a merge must land on (kortix.yaml `filter.base`). Empty = any branch. */
   crBase: string;
   // Then
+  /** `agent` runs an agent with the instruction. `app` calls one of the project's Apps (`run: { app, path }`). */
+  thenKind: 'agent' | 'app';
+  /** The App a fire calls. Null until one is picked. */
+  targetApp: string | null;
+  /** The HTTP path on that App, starting with `/`. */
+  targetPath: string;
+  targetMethod: 'POST' | 'GET';
+  /** A fixed JSON body saved on the trigger. The form does not edit it; Save keeps it. */
+  targetPayload: Record<string, unknown> | null;
   instruction: string;
   agent: string | null;
   model: ModelKey | null;
@@ -135,6 +151,7 @@ export function initialDraft(init: {
     kind: init.kind ?? 'cron',
     cron: '0 0 9 * * *',
     runAt: null,
+    every: null,
     timezone: 'UTC',
     signingKey: '',
     appSlug: init.appSlug ?? null,
@@ -146,6 +163,11 @@ export function initialDraft(init: {
     kortixApp: null,
     appEvent: '',
     crBase: '',
+    thenKind: 'agent',
+    targetApp: null,
+    targetPath: '/',
+    targetMethod: 'POST',
+    targetPayload: null,
     instruction: '',
     agent: init.agent ?? null,
     model: null,
@@ -223,7 +245,37 @@ export function autoName(draft: ComposerDraft, tI18nComplete: UiTranslator): str
     const event = appEventName(draft);
     return event ? `${draft.kortixApp}: ${event}` : tI18nComplete('texte9b6dc29c812', { app: draft.kortixApp });
   }
-  return draft.runAt ? describeOneOff(draft.runAt) : describeCadence(draft.cron);
+  return describeDraftSchedule(draft);
+}
+
+/** The schedule as words: a one-off, a fixed period, or the cron's cadence. */
+function describeDraftSchedule(draft: Pick<ComposerDraft, 'runAt' | 'every' | 'cron'>): string {
+  if (draft.runAt) return describeOneOff(draft.runAt);
+  const every = everySeconds(draft.every);
+  if (every !== null) return describeEvery(every);
+  return describeCadence(draft.cron);
+}
+
+/** The smallest `every` period the API accepts: one minute, the cron floor. */
+export const MIN_EVERY_SECONDS = 60;
+
+/** `15m` → 900. Null when the text is not a period such as `5m`, `1h` or `1d`. */
+export function everySeconds(raw: string | null): number | null {
+  const value = raw?.trim();
+  return value ? parseDurationSeconds(value) : null;
+}
+
+/** What Create and Save send as `target`: the App, its path and method, and the saved fixed body. */
+export function targetInput(
+  draft: Pick<ComposerDraft, 'targetApp' | 'targetPath' | 'targetMethod' | 'targetPayload'>,
+): { app: string; path: string; method: 'POST' | 'GET'; payload?: Record<string, unknown> } | null {
+  if (!draft.targetApp) return null;
+  return {
+    app: draft.targetApp,
+    path: draft.targetPath.trim() || '/',
+    method: draft.targetMethod,
+    ...(draft.targetPayload ? { payload: draft.targetPayload } : {}),
+  };
 }
 
 export function triggerName(draft: ComposerDraft, tI18nComplete: UiTranslator): string {
@@ -281,9 +333,10 @@ export function summarize(
       agent,
     });
   }
-  const when = draft.runAt
-    ? describeOneOff(draft.runAt)
-    : `${describeCadence(draft.cron)} (${draft.timezone})`;
+  const when =
+    draft.runAt || draft.every !== null
+      ? describeDraftSchedule(draft)
+      : `${describeCadence(draft.cron)} (${draft.timezone})`;
   return tI18nComplete('text922ecdf9cffc', { when, agent });
 }
 
@@ -306,6 +359,8 @@ export function validate(
     now?: number;
     /** Editing a saved trigger: its app may be missing from the catalog, and a webhook keeps its signing key. */
     edit?: boolean;
+    /** The agent runs a program (`run`): an empty instruction sends the payload as JSON. */
+    programAgent?: boolean;
   },
   tI18nComplete: UiTranslator,
 ): ComposerProblem[] {
@@ -330,12 +385,19 @@ export function validate(
       if (Number.isNaN(Date.parse(draft.runAt))) add('when', tI18nComplete.raw('text653989c59b4b'));
       else if (Date.parse(draft.runAt) <= (ctx.now ?? Date.now()))
         add('when', tI18nComplete.raw('textebfef07e2d2b'));
+    } else if (draft.every !== null) {
+      const seconds = everySeconds(draft.every);
+      if (seconds === null || seconds < MIN_EVERY_SECONDS) add('when', tI18nComplete.raw('text30b9ce09f406'));
     } else if (!draft.cron.trim()) add('when', tI18nComplete.raw('texta1b7270dbe34'));
   } else if (draft.kind === 'webhook' && !ctx.edit && !draft.signingKey.trim()) {
     add('when', tI18nComplete.raw('textc10cd37e5462'));
   }
 
-  if (!draft.instruction.trim()) add('then', tI18nComplete.raw('texte7cd9e292007'));
+  // An App target receives the payload, not a prompt: it needs the App and a path instead.
+  if (draft.thenKind === 'app') {
+    if (!draft.targetApp) add('then', tI18nComplete.raw('text28d33d2ad989'));
+    else if (!draft.targetPath.trim().startsWith('/')) add('then', tI18nComplete.raw('textd777d7805cfa'));
+  } else if (!draft.instruction.trim() && !ctx.programAgent) add('then', tI18nComplete.raw('texte7cd9e292007'));
   if (!ctx.name.trim()) add('name', tI18nComplete.raw('textb67ba8d96c42'));
 
   if (draft.mode === 'pinned' && !draft.pinnedSessionId)

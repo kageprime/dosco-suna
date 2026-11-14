@@ -8,6 +8,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useState } from 'react';
 
+import { queryRetryDelay, shouldRetryQuery } from '@/lib/query-retry';
+
 import { isRuntimeNotReadyResponse } from '@kortix/sdk';
 import { isBillingError } from '@kortix/sdk/react';
 import { useTranslations } from '@/i18n/use-translations';
@@ -38,11 +40,10 @@ export function ReactQueryProvider({ children }: { children: React.ReactNode }) 
           // Enable request deduplication - React Query will batch simultaneous requests
           structuralSharing: true,
           // Deduplicate requests within 1000ms window (default)
-          retry: (failureCount, error: any) => {
-            if (error?.status >= 400 && error?.status < 500) return false;
-            if (error?.status === 404) return false;
-            return failureCount < 3;
-          },
+          // A 4xx is final, except a 429: it waits out the rate limit and
+          // tries again (`lib/query-retry.ts`).
+          retry: shouldRetryQuery,
+          retryDelay: queryRetryDelay,
           // `invalidateQueries` defaults to `refetchType: 'active'`: it marks
           // an entry invalidated WITHOUT refetching it when nothing currently
           // observes it — the exact shape of a route the user just navigated

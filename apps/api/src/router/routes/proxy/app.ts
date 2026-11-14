@@ -1,6 +1,5 @@
 import { makeOpenApiApp } from '../../../openapi';
 import { getProxyServices } from '../../config/proxy-services';
-import { type ActorContext } from '../../../shared/actor-context';
 
 // Catch-all billed proxy. Every route here is a Hono `.all()` (concrete method
 // unknown at definition time → cannot use createRoute), so these intentionally do
@@ -14,8 +13,6 @@ interface ToolCreditReservation {
   accountId: string;
   billingToolName: string;
   cost: number;
-  actor?: ActorContext | null;
-  actorReservedCents?: number;
 }
 
 interface AuthResult {

@@ -15,6 +15,7 @@ import { useKeyboard } from '@opentui/react';
 import { useState } from 'react';
 
 import { matchesBinding } from '../keymap.ts';
+import { clip } from '../lib/text.ts';
 import { glyph, theme } from '../theme.ts';
 import {
   MODULES,
@@ -138,9 +139,4 @@ export function UiPanel({ ui, width, welcome = false, onChange, onClose }: UiPan
       })}
     </box>
   );
-}
-
-function clip(text: string, max: number): string {
-  if (max <= 1) return '';
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }

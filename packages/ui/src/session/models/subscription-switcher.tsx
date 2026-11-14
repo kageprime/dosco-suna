@@ -31,12 +31,15 @@ import { SolidCheckIcon } from '../../internal/icons/solid-check-icon';
 import { cn } from '../../lib/utils';
 import { useSessionIds } from '../../providers/session-ids';
 import { isClaudeSubscriptionModel, isSubscriptionModel } from './model-tags';
+import Loading from '../../primitives/loading';
 import {
   accountLine,
   isBlockingWindow,
   loginLimit,
+  USAGE_TONE_BAR,
   usageTone,
   windowLabel,
+  type UsageTone,
 } from './subscription-windows';
 import { useProviderKeyChoices } from '../overrides/provider-secret-pool-editor';
 
@@ -92,6 +95,8 @@ export function SubscriptionSwitcher({ providerId }: { providerId: 'codex' | 'cl
   const pick = (secretId: string | null) => {
     void pools.setPool.mutateAsync({ providerId, secretIds: secretId ? [secretId] : null });
   };
+  // The row a save is applying: it shows the pending glyph in its check slot.
+  const pendingId = pending ? (pools.setPool.variables?.secretIds?.[0] ?? null) : undefined;
 
   const rows: Array<{ secretId: string | null; label: string; line: string | null; window: SubscriptionUsageWindow | null; limited: boolean; broken: boolean }> = [
     { secretId: null, label: t('projectDefaultShort'), line: t('subscriptionSwitcherDefault'), window: null, limited: false, broken: false },
@@ -115,23 +120,48 @@ export function SubscriptionSwitcher({ providerId }: { providerId: 'codex' | 'cl
     if (event.key === 'Escape' || event.key === 'Tab') return;
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     event.stopPropagation();
-    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-    event.preventDefault();
     const radios = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]'));
     const index = radios.indexOf(document.activeElement as HTMLButtonElement);
-    const step = event.key === 'ArrowDown' ? 1 : -1;
-    radios[(index + step + radios.length) % radios.length]?.focus();
+    const next = event.key === 'ArrowDown' ? (index + 1) % radios.length
+      : event.key === 'ArrowUp' ? (index - 1 + radios.length) % radios.length
+        : event.key === 'Home' ? 0
+          : event.key === 'End' ? radios.length - 1
+            : null;
+    if (next === null) return;
+    event.preventDefault();
+    radios[next]?.focus();
   };
 
   return (
-    <div>
+    // `border-t`: the pane spans the picker's full width under the rail, the
+    // list and the effort pane, so one rule closes all three above it.
+    <div className="border-t">
       <div className="text-muted-foreground flex h-9 shrink-0 items-center border-b px-3 text-sm">
         {t('subscriptionSwitcher')}
       </div>
       <div role="radiogroup" aria-label={t('subscriptionSwitcher')} onKeyDown={onKeyDown} className="flex flex-col gap-px p-1.5">
         {rows.map((row) => {
           const checked = row.secretId === pinnedId || (row.secretId === null && pinnedId === null);
-          const tone = row.window ? usageTone(row.window, row.limited) : 'ok';
+          // A limit outranks the window: a provider can refuse a login while
+          // no window it reports is still in force.
+          const meter: { percent: number; tone: UsageTone; text: string } | null = row.limited
+            ? { percent: 100, tone: 'limited', text: tUsage('limitReached') }
+            : row.window
+              ? {
+                  percent: Math.round(row.window.used_percent),
+                  tone: usageTone(row.window, false),
+                  text: `${windowLabel(row.window.id, tUsage)} · ${tUsage('percent', { percent: Math.round(row.window.used_percent) })}`,
+                }
+              : null;
+          // One status per row, in one right-hand slot: a broken login cannot
+          // run a turn, so that outranks its last usage.
+          const status = row.broken ? (
+            <span className="text-muted-foreground shrink-0 text-xs">{t('needsReconnection')}</span>
+          ) : meter ? (
+            <SubscriptionRowMeter {...meter} />
+          ) : row.secretId ? (
+            <span className="text-muted-foreground shrink-0 text-xs">{tUsage('notReported')}</span>
+          ) : null;
           return (
             <button
               key={row.secretId ?? 'default'}
@@ -139,41 +169,57 @@ export function SubscriptionSwitcher({ providerId }: { providerId: 'codex' | 'cl
               role="radio"
               aria-checked={checked}
               aria-label={row.secretId ? t('subscriptionSwitcherUse', { label: row.label }) : undefined}
+              aria-busy={pendingId === row.secretId || undefined}
               tabIndex={checked ? 0 : -1}
-              disabled={!canEdit || pending}
-              onClick={() => pick(row.secretId)}
+              // A save in flight blocks a second pick with `aria-disabled`, not
+              // `disabled`: a disabled button drops the keyboard focus it holds.
+              disabled={!canEdit}
+              aria-disabled={pending || undefined}
+              onClick={() => {
+                if (!pending) pick(row.secretId);
+              }}
               className={cn(
-                'flex cursor-pointer flex-col gap-0.5 rounded-md px-2 py-1 text-left text-sm outline-none',
-                'hover:bg-hover focus-visible:bg-hover focus-visible:ring-kortix-base focus-visible:ring-2',
-                'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-60',
+                // One line per row, the model rows' shape: the name in ink, its
+                // account line muted after it, the status and the check in
+                // fixed slots so every meter lines up. `h-12` (44px) is the touch row.
+                'flex h-12 cursor-pointer items-center gap-3 rounded-md px-2 text-left text-sm outline-none sm:h-9',
+                'hover:bg-hover focus-visible:bg-hover focus-visible:ring-kortix-base transition-colors duration-fast focus-visible:ring-2',
+                // Read-only rows dim; a save in flight keeps full ink, and
+                // the spinner says which row it applies.
+                'disabled:pointer-events-none disabled:opacity-50',
                 checked && 'bg-active hover:bg-active',
               )}
             >
-              <span className="flex min-w-0 items-center gap-2">
-                <span className="text-foreground min-w-0 flex-1 truncate font-medium">{row.label}</span>
-                {row.limited ? (
-                  <span className="text-foreground shrink-0 text-xs">{tUsage('limitReached')}</span>
-                ) : row.window ? (
-                  <span
-                    className={cn('shrink-0 text-xs tabular-nums', tone === 'ok' ? 'text-muted-foreground' : 'text-foreground')}
-                  >
-                    {windowLabel(row.window.id, tUsage)} · {tUsage('percent', { percent: Math.round(row.window.used_percent) })}
-                  </span>
-                ) : null}
-                {checked ? <SolidCheckIcon className="text-ring size-4 shrink-0" /> : null}
+              <span className="min-w-0 flex-1 truncate" title={row.line ?? undefined}>
+                <span className="text-foreground font-medium">{row.label}</span>
+                {row.line ? <span className="text-muted-foreground"> {row.line}</span> : null}
               </span>
-              <span className="text-muted-foreground flex min-w-0 items-center gap-2 text-xs">
-                {row.line ? <span className="min-w-0 truncate">{row.line}</span> : null}
-                {row.broken ? <span className={row.line ? 'shrink-0' : 'min-w-0 truncate'}>{t('needsReconnection')}</span> : null}
-                {!row.line && !row.broken && row.secretId && !row.window ? (
-                  <span className="min-w-0 truncate">{tUsage('noUsageYet')}</span>
+              {status}
+              <span className="flex size-4 shrink-0 items-center justify-center">
+                {pendingId === row.secretId ? (
+                  // `!`: Loading paints itself `text-background` inside a button (a filled one); this row is transparent.
+                  <Loading className="text-muted-foreground! size-3.5" />
+                ) : checked ? (
+                  <SolidCheckIcon className="text-ring size-4" />
                 ) : null}
               </span>
             </button>
           );
         })}
       </div>
-      {canEdit ? null : <p className="text-muted-foreground px-3 pb-1.5 text-xs">{t('readOnlyPool')}</p>}
+      {canEdit ? null : <p className="text-muted-foreground px-3 pb-2 text-xs">{t('readOnlyPool')}</p>}
     </div>
+  );
+}
+
+/** A login's usage at a glance: a short bar in the tone's hue, then its label. */
+export function SubscriptionRowMeter({ text, percent, tone }: { text: string; percent: number; tone: UsageTone }) {
+  return (
+    <span className="text-muted-foreground flex shrink-0 items-center gap-2 text-xs tabular-nums" data-subscription-usage-row="">
+      <span className="bg-muted block h-1 w-10 overflow-hidden rounded-full" aria-hidden>
+        <span className={cn('block h-full', USAGE_TONE_BAR[tone])} style={{ width: `${Math.min(100, percent)}%` }} />
+      </span>
+      <span className="max-w-72 truncate">{text}</span>
+    </span>
   );
 }

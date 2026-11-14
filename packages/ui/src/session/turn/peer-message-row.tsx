@@ -62,7 +62,7 @@ export function PeerMessageRow({ info, actions }: { info: PeerMessagePromptInfo;
           {body ? (
             <AgentRowBody>
               <div data-slot="peer-message-body" className="min-w-0">
-                <UnifiedMarkdown content={body} trust="agent" isStreaming={false} />
+                <UnifiedMarkdown content={body} trust="agent" isStreaming={false} lineBreaks="chat" />
               </div>
             </AgentRowBody>
           ) : undefined}

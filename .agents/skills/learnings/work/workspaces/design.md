@@ -983,7 +983,20 @@ the gate at runtime: one that skips itself is recorded as applied and never runs
 | R2a-0 | The reconcile keeps rows in place (`20261111135934314_workspaces_reconcile_in_place.sql`). The R1 body deleted and re-inserted a row on every change (a rename, an open, a settings write, an archive) and deleted a moved project's row when the source was reconciled first; with step 4's foreign keys that cascades into, or is refused by, every referencing row. Proof: `reconcile-in-place.integration.test.ts` (a canary table references each row `ON DELETE CASCADE`). | any time |
 | R2a-1 | 8a: the account-of-project lookups through one store function | any time |
 | R2a-2 | 7: the engine reads `scope_type = 'workspace'` and the `workspace.*` names | any time |
-| R2a-3 | 1 (unique index), 2–3 (the store writes `workspaces` first, the mirror trigger), 4–5 (twin foreign keys, validate), 6 (fill), 8 (flip) | on branch `workspaces-r2a`; merged into `dev` once prod has 0 `split_pending` rows (step 1 fails to build before) |
+| R2a-3a | 4, project side: the 78 twins into `workspaces(workspace_id)` (`NOT VALID`, `NO ACTION`, deferred), and the reconcile of an account with no row (`20261114163000000`, `20261114171401000` for an account whose id is the first uuid, `20261114163001000`–`…163024000`; re-dated after dev's newest on 2026-11-14, when dev had added 3 more keys into `projects`). Proof: `workspaces-twin-foreign-keys.integration.test.ts` | any time: no file references `workspaces(legacy_account_id)` |
+| R2a-3b | 1 (unique index), 4 account side (the 52 twins into `workspaces(legacy_account_id)`), the fixture rewrite (below), 2–3 (the store writes `workspaces` first, the mirror trigger), 6 (fill), 8 (flip) | on branch `workspaces-r2a`; merged into `dev` once dev, staging and prod have 0 `split_pending` rows (step 1 refuses to build before, on purpose) |
+
+**Step 1 retires multi-project accounts in the database (found 2026-11-11).** With a full unique
+index on `legacy_account_id`, the R1 reconcile cannot write a second live row for one account, so
+an INSERT of a second active project fails. That is the intent, and it has three costs that land
+with R2a-3b: (a) the test fixtures that put several projects in one account through
+`split_pending` move to one account per project: `seedProject` in
+`apps/api/src/__tests__/helpers/integration-fixtures.ts` (123 importing files), the ke2e
+`tests/src/fixtures/database-project.ts` (the run's owner account holds every fixture project),
+and about 48 test files that seed `split_pending` themselves; (b) the split suites and the
+`split_pending` branches of the engine become dead code: R2a-3b deletes the suites that need a
+two-project account, R2b deletes the code; (c) `workspace-split.ts reverse` cannot run after
+step 1 (it puts two projects back into one account).
 
 Step 9 (the Drizzle property codemod) leaves R2a: §5 "API-internal names follow the column"
 (decided 2026-11-06) renames the internal names in the R3 image, with the columns.
@@ -1005,10 +1018,22 @@ Step 9 (the Drizzle property codemod) leaves R2a: §5 "API-internal names follow
 4. Twin foreign keys, `NOT VALID`: each FK into `projects(project_id)` (72 tables in
    `kortix.ts`) gets a twin into `workspaces(workspace_id)`; each FK into
    `accounts(account_id)` (50 tables) gets a twin into `workspaces(legacy_account_id)`.
-   Same `ON DELETE` action. Tombstones cascade through
-   `former_account_id → workspaces(legacy_account_id) ON DELETE CASCADE`.
-5. `VALIDATE CONSTRAINT` for each twin, one migration per large table (SHARE UPDATE
-   EXCLUSIVE, does not block writes; partitions one by one).
+   **Amended 2026-11-11: every twin is `NO ACTION DEFERRABLE INITIALLY DEFERRED` in R2a; the old
+   key keeps the `ON DELETE` action.** While the R1 reconcile derives the table, a row that holds
+   an account's `legacy_account_id` is deleted or cleared inside a normal write: the project-less
+   row the first project replaces (reconcile step 1b), and the source row a transfer tombstones
+   (step 1a, `legacy_account_id := NULL` until the dormant row is upserted). A `CASCADE` twin into
+   `legacy_account_id` would delete every account-keyed row of the workspace there; a non-deferred
+   one would refuse the transfer. A deferred `NO ACTION` twin checks at commit, when the
+   replacement row exists. The tombstone key (`former_account_id → workspaces(legacy_account_id)`)
+   moves to R2b step 10b for the same reason. 74 keys into `projects` (78 on 2026-11-14), 52 into `accounts` once
+   `projects.account_id` (the old store's own key) is left out (catalog, 2026-11-11).
+5. **Moved to R2b step 10b (2026-11-11).** A `VALIDATE` in R2a is wasted: R2b re-creates every
+   twin with its final action (an FK's action cannot be altered in place) and validates it then.
+   Prod read-only 2026-11-11: 0 project rows without their workspaces row, so the project-side
+   twins validate as they are; the account side needs the one missing row (R2a-3a repairs it).
+   `gateway_request_logs` (55 GB) and `session_lifecycle_commands` (26 GB) each get their own
+   `VALIDATE` file, last in the deploy.
 6. Fill the account-wide NULL `project_id` rows of the workspace-owned tables classified
    `workspace_owned_nullable` in `workspace-key-classes.ts` (for example
    `account_secret_resources` with `project_id IS NULL`, `account_model_preferences`
@@ -1048,6 +1073,10 @@ Step 9 (the Drizzle property codemod) leaves R2a: §5 "API-internal names follow
 
 **R2b (deploy 2, after the last R2a task is up and no R1 task runs; migrations run first):**
 
+10b. Re-create each twin with the old key's `ON DELETE` action (`ADD … NOT VALID`, then
+     `VALIDATE` per large table) and add the tombstone key `former_account_id →
+     workspaces(legacy_account_id) ON DELETE CASCADE`: the store no longer deletes a live row
+     inside a write. Drop the R2a twins in the same file as their replacement.
 10. Drop the R1 reconcile triggers on `projects`, `accounts`, `account_deletion_requests`
     and the R1 dual-write `BEFORE` triggers' account→workspace direction: the expand
     tables' trigger becomes `NEW.account_id := (SELECT legacy_account_id FROM workspaces
@@ -1056,6 +1085,11 @@ Step 9 (the Drizzle property codemod) leaves R2a: §5 "API-internal names follow
 11. Rewrite `role_assignments` to `scope_type = 'workspace'`, `scope_id = workspace_id`, and
     `permissions`/`role_permissions` strings to the `workspace.*` names (small tables,
     batched `.concurrent.ts`). R2a pods read both.
+    **Amended 2026-11-11:** the rewrite needs the checks R2a-2 widens
+    (`role_assignments_scope_type_check`, `…_scope_shape_check`) and must first drop
+    `role_assignments_scope_id_projects_project_id_fk`: an account role on a project-less
+    workspace gets `scope_id = workspace_id = account_id`, which is no project id. The twin
+    `role_assignments_scope_id_workspaces_fk` holds the reference.
 11a. Drop `kortix.workspaces_expected`, `kortix.workspaces_reconcile_account` and
      the M5 trigger functions with their triggers (step 10 removes the callers);
      `kortix.workspace_id_of_account` stays as the lookup the expand tables'

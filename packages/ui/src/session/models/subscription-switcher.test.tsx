@@ -60,6 +60,8 @@ function harness(options: {
   pools?: SessionProviderSecretPool[];
   canEdit?: boolean;
   sessionId?: string | null;
+  /** Holds every PUT until this settles: a save in flight. */
+  holdPut?: Promise<unknown>;
 } = {}): Harness {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   const calls: Harness['calls'] = [];
@@ -78,6 +80,7 @@ function harness(options: {
     const method = init.method ?? 'GET';
     calls.push({ method, path, body: typeof init.body === 'string' ? JSON.parse(init.body) : null });
     if (method === 'PUT') {
+      await options.holdPut;
       const saved = (init.body ? JSON.parse(String(init.body)).secret_ids : []) as string[];
       state.pools = [{ provider_id: 'claude-agent', configured: true, secret_ids: saved }];
       return Response.json(state.pools[0]);
@@ -162,6 +165,15 @@ describe('SubscriptionSwitcher', () => {
     expect(html).not.toContain('Weekly · 96%');
   });
 
+  test('REGRESSION: a login the provider refused with no window in force still reads as a limit', () => {
+    const { client } = harness({
+      logins: [login('login-a', { usage: { windows: [], limited: true, observed_at: '2026-11-11T00:00:00Z', source: 'usage_endpoint' } })],
+    });
+    const html = mountStatic(client, 's');
+    expect(html).toContain('Limit reached');
+    expect(html).not.toContain('Not reported');
+  });
+
   test('the pool pin names the checked login', () => {
     const { client } = harness({
       logins: [withWeekly('login-a', 42), withWeekly('login-b', 4)],
@@ -205,6 +217,47 @@ describe('SubscriptionSwitcher', () => {
     const put = calls.find((call) => call.method === 'PUT');
     expect(put?.path).toBe('/workspaces/p/sessions/s/provider-secret-pools/claude-agent');
     expect(put?.body).toEqual({ secret_ids: null });
+    renderer.unmount();
+    client.clear();
+  });
+
+  test('a login that needs reconnection says so instead of its last usage; a silent login reads Not reported', () => {
+    const { client } = harness({
+      logins: [
+        { ...withWeekly('login-a', 42), needs_reauth_at: '2026-11-11T00:00:00Z' },
+        login('login-b'),
+      ],
+    });
+    const html = mountStatic(client, 's');
+    expect(html).toContain('Needs reconnection');
+    expect(html).not.toContain('Weekly · 42%');
+    expect(html).toContain('Not reported');
+    // The default row carries no status: only the two logins do.
+    expect(html.match(/Not reported|Needs reconnection/g)).toHaveLength(2);
+  });
+
+  test('a save in flight marks the row it applies, and only that row', async () => {
+    const put = Promise.withResolvers<void>();
+    const { client, calls } = harness({ logins: [withWeekly('login-a', 42), withWeekly('login-b', 4)], holdPut: put.promise });
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(tree(client, 's', <SubscriptionSwitcher providerId="claude-agent" />));
+    });
+    await act(async () => {
+      radios(renderer)[2]?.props.onClick();
+      // react-query batches its observer notices on a macrotask.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(radios(renderer).map((row) => row.props['aria-busy'] === true)).toEqual([false, false, true]);
+    // The default row stays the checked one until the server answers.
+    expect(radios(renderer)[0]?.props['aria-checked']).toBe(true);
+    // A second pick waits; the rows stay focusable (aria-disabled, not disabled).
+    expect(radios(renderer).every((row) => row.props['aria-disabled'] === true && !row.props.disabled)).toBe(true);
+    await act(async () => { radios(renderer)[1]?.props.onClick(); });
+    expect(calls.filter((call) => call.method === 'PUT')).toHaveLength(1);
+    await act(async () => {
+      put.resolve();
+    });
     renderer.unmount();
     client.clear();
   });

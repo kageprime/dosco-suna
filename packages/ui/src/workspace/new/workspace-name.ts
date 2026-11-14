@@ -101,3 +101,24 @@ export function suggestWorkspaceName(random: () => number = Math.random): string
   const pick = <T>(list: readonly T[]): T => list[Math.floor(random() * list.length)]!;
   return `${pick(NAME_ADJECTIVES)} ${pick(NAME_NOUNS)}`;
 }
+
+/**
+ * `/workspaces/new?name=` — the name the chooser's inline form already shows.
+ * "More options" carries it so the page opens on the SAME name instead of a
+ * second random suggestion. An invalid or absent value resolves to `null`,
+ * and the page keeps its own suggestion.
+ */
+export function readNameParam(params: URLSearchParams): string | null {
+  const result = validateWorkspaceName(params.get('name') ?? '');
+  return result.ok ? result.name : null;
+}
+
+/** `href` with `?name=` set to `name` (trimmed), keeping any other params. */
+export function withNameParam(href: string, name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return href;
+  const [path, query = ''] = href.split('?');
+  const params = new URLSearchParams(query);
+  params.set('name', trimmed);
+  return `${path}?${params.toString()}`;
+}

@@ -89,13 +89,15 @@ import { SettingsTabHeader } from '../settings-tab-header';
 
 /**
  * The origin line under a flag: inherited platform default, or this project's
- * own choice. Ported from `main`'s `feature-flags-view.tsx`. `FeatureFlagView`
- * reports WHETHER the project overrode the flag, not what the default was — so
- * an overridden flag says only that, rather than guessing a default it cannot
- * see.
+ * own choice. Ported from `main`'s `feature-flags-view.tsx`. An overridden flag
+ * also names the default it replaced (`default_enabled`), so the row says what
+ * Reset to default returns it to; a server older than that field sends none,
+ * and the row says only that it is overridden rather than guess.
  */
 export interface ExperimentalCopy {
   overridden: string;
+  /** The control that removes this workspace's choice. */
+  reset: string;
   /** Origin line of an `operator_only` flag: only Kortix changes it. */
   managedByKortix: string;
   defaultOn: string;
@@ -114,6 +116,7 @@ export interface ExperimentalCopy {
 
 export const DEFAULT_EXPERIMENTAL_COPY: ExperimentalCopy = {
   overridden: 'Overridden for this workspace',
+  reset: 'Reset to default',
   managedByKortix: 'Managed by Kortix',
   defaultOn: 'Default on',
   defaultOff: 'Default off',
@@ -132,8 +135,9 @@ function originLabel(feature: FeatureFlagView, copy: ExperimentalCopy): string {
   // An internal-only flag (`apps`) is listed only while on, and
   // `PATCH /features` refuses it to anyone but a Kortix operator.
   if (feature.operator_only) return copy.managedByKortix;
-  if (feature.overridden) return copy.overridden;
-  return feature.enabled ? copy.defaultOn : copy.defaultOff;
+  if (!feature.overridden) return feature.enabled ? copy.defaultOn : copy.defaultOff;
+  if (feature.default_enabled === undefined) return copy.overridden;
+  return `${copy.overridden} · ${feature.default_enabled ? copy.defaultOn : copy.defaultOff}`;
 }
 
 /** The translator surface {@link localizeFeatureFlag} reads. */
@@ -204,7 +208,7 @@ function ExperimentalFeatureRow({
   pending: boolean;
   /** Already resolved for this row (an `operator_only` row needs a platform operator). */
   canManage: boolean;
-  onToggle: (key: string, next: boolean) => void;
+  onToggle: (key: string, next: boolean | null) => void;
   copy: ExperimentalCopy;
 }) {
   // The switch's accessible name, pointed at the row's VISIBLE name rather
@@ -240,6 +244,16 @@ function ExperimentalFeatureRow({
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {pending ? <Loading className="text-muted-foreground size-3.5" /> : null}
+        {feature.overridden && !feature.operator_only ? (
+          <Button
+            variant="ghost"
+            size="xs"
+            disabled={!canManage || pending}
+            onClick={() => onToggle(feature.key, null)}
+          >
+            {copy.reset}
+          </Button>
+        ) : null}
         <Switch
           aria-labelledby={nameId}
           checked={feature.enabled}
@@ -267,7 +281,9 @@ export interface ExperimentalTabViewProps {
   /** The reader is a platform operator: may change an `operator_only` flag
    *  (the route's own rule, project-settings.ts patchFeatureFlagHandler). */
   canManageOperatorOnly?: boolean;
-  onToggle?: (key: string, next: boolean) => void;
+  /** `next: null` removes the workspace's choice: the flag follows the
+   *  platform default again (Reset to default, `kortix workspaces features reset`). */
+  onToggle?: (key: string, next: boolean | null) => void;
   /**
    * Search text, CONTROLLED — the container owns it and hands down an already
    * filtered `features`.
@@ -448,7 +464,7 @@ export function ExperimentalTab({ projectId }: { projectId: string }) {
     // `updateExperimentalFeature` still exists as a deprecated alias on the
     // legacy `/experimental` path — same handler server-side, but new UI must
     // not call it (`main`, #6279).
-    mutationFn: ({ key, next }: { key: FeatureFlagKey; next: boolean }) =>
+    mutationFn: ({ key, next }: { key: FeatureFlagKey; next: boolean | null }) =>
       updateFeatureFlag(projectId, key, next),
     onSettled: (_data, _error, variables) => {
       setPendingValues((prev) => {
@@ -491,14 +507,23 @@ export function ExperimentalTab({ projectId }: { projectId: string }) {
   const visible = canEdit ? withPending : withPending.filter((f) => f.key !== 'chat');
   const features = filterFeatures(visible, query);
 
-  const apply = (key: string, next: boolean) => {
-    setPendingValues((prev) => ({ ...prev, [key]: next }));
+  // The position a change lands on: a reset (`next: null`) lands on the
+  // platform default, or stays put when an older server sends none.
+  const landsOn = (key: string, next: boolean | null) => {
+    const feature = rawFeatures.find((f) => f.key === key);
+    return next ?? feature?.default_enabled ?? feature?.enabled ?? false;
+  };
+  const apply = (key: string, next: boolean | null) => {
+    setPendingValues((prev) => ({ ...prev, [key]: landsOn(key, next) }));
     toggleMutation.mutate({ key: key as FeatureFlagKey, next });
   };
-  // Channels asks first: the dialog says what changes for everyone.
-  const [channelsTarget, setChannelsTarget] = useState<boolean | null>(null);
-  const handleToggle = (key: string, next: boolean) => {
-    if (key === 'chat') setChannelsTarget(next);
+  // Channels asks first: the dialog says what changes for everyone. A reset
+  // that leaves Channels where it is changes nothing anyone sees, so it does
+  // not ask.
+  const [channelsTarget, setChannelsTarget] = useState<{ next: boolean | null } | null>(null);
+  const handleToggle = (key: string, next: boolean | null) => {
+    const enabled = rawFeatures.find((f) => f.key === key)?.enabled;
+    if (key === 'chat' && landsOn(key, next) !== enabled) setChannelsTarget({ next });
     else apply(key, next);
   };
 
@@ -507,12 +532,11 @@ export function ExperimentalTab({ projectId }: { projectId: string }) {
       <ChannelsSwitchDialog
         open={channelsTarget !== null}
         onOpenChange={(open) => !open && setChannelsTarget(null)}
-        turningOn={channelsTarget === true}
+        turningOn={channelsTarget !== null && landsOn('chat', channelsTarget.next)}
         projectName={project?.name ?? ''}
         onConfirm={() => {
-          const target = channelsTarget === true;
+          if (channelsTarget) apply('chat', channelsTarget.next);
           setChannelsTarget(null);
-          apply('chat', target);
         }}
       />
       <ExperimentalTabView
@@ -530,6 +554,7 @@ export function ExperimentalTab({ projectId }: { projectId: string }) {
         onQueryChange={setQuery}
         copy={{
           overridden: t('origin.overridden'),
+          reset: t('reset'),
           managedByKortix: tI18nComplete.raw('texte9ec6c0ad396'),
           defaultOn: t('origin.defaultOn'),
           defaultOff: t('origin.defaultOff'),

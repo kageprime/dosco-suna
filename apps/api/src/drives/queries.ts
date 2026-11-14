@@ -7,6 +7,7 @@ import { and, eq, inArray, isNotNull, like, or, sql } from 'drizzle-orm';
 import { db } from '../shared/db';
 import type { DriveRow } from './service';
 import { projectsView } from '../workspaces/rows';
+import { objectGrantScoped } from '../iam/workspace-scope';
 
 /** Grants on `from` or below it follow a moved folder. True when one moved. */
 export async function moveFolderGrants(drive: DriveRow, from: string, to: string): Promise<boolean> {
@@ -18,7 +19,7 @@ export async function moveFolderGrants(drive: DriveRow, from: string, to: string
     })
     .where(
       and(
-        eq(roleAssignments.scopeType, 'project'),
+        objectGrantScoped(),
         eq(roleAssignments.scopeId, drive.projectId!),
         eq(roleAssignments.objectType, 'folder'),
         or(eq(roleAssignments.objectId, from), like(roleAssignments.objectId, `${from.replace(/[\\%_]/g, '\\$&')}/%`)),

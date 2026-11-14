@@ -90,17 +90,32 @@ export function packHeatmap(
   return out;
 }
 
-/** RGBA -> one gray image of three planes side by side: R | G | B. Alpha is dropped. */
-export function splitPlanes(rgba: Uint8ClampedArray, width: number, height: number): Uint8ClampedArray {
-  const out = new Uint8ClampedArray(width * 3 * height);
+/** Two gray images of the same size -> one gray image with them side by side. */
+export function packPlanes(
+  planes: ReadonlyArray<Uint8ClampedArray | Uint8Array>,
+  width: number,
+  height: number,
+): Uint8ClampedArray {
+  const out = new Uint8ClampedArray(width * planes.length * height);
   for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const src = (y * width + x) * 4;
-      const row = y * width * 3;
-      out[row + x] = rgba[src] ?? 0;
-      out[row + width + x] = rgba[src + 1] ?? 0;
-      out[row + 2 * width + x] = rgba[src + 2] ?? 0;
+    for (let p = 0; p < planes.length; p++) {
+      const plane = planes[p]!;
+      const row = y * width * planes.length + p * width;
+      for (let x = 0; x < width; x++) out[row + x] = plane[y * width + x] ?? 0;
     }
   }
   return out;
+}
+
+/** RGBA -> one gray image of three planes side by side: R | G | B. Alpha is dropped. */
+export function splitPlanes(rgba: Uint8ClampedArray, width: number, height: number): Uint8ClampedArray {
+  const r = new Uint8ClampedArray(width * height);
+  const g = new Uint8ClampedArray(width * height);
+  const b = new Uint8ClampedArray(width * height);
+  for (let i = 0; i < width * height; i++) {
+    r[i] = rgba[i * 4] ?? 0;
+    g[i] = rgba[i * 4 + 1] ?? 0;
+    b[i] = rgba[i * 4 + 2] ?? 0;
+  }
+  return packPlanes([r, g, b], width, height);
 }

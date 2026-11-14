@@ -141,6 +141,12 @@ test('X: start, callback, stored credential and refresh with Kortix’s X client
   expect(authorize.searchParams.get('scope')).toBe('tweet.read tweet.write users.read offline.access');
   const state = authorize.searchParams.get('state');
   if (!state) throw new Error('no state');
+  // An agent asked for this sign-in: the callback is what tells it, once.
+  const waitingSession = crypto.randomUUID();
+  await db
+    .update(connectorConnections)
+    .set({ metadata: { requesting_session_id: waitingSession } })
+    .where(eq(connectorConnections.connectionId, x.connectionId));
 
   // X's token endpoint: the first call redeems the code, the second refreshes.
   // safeEgressFetch pins the resolved address, so match on the Host header.
@@ -170,6 +176,8 @@ test('X: start, callback, stored credential and refresh with Kortix’s X client
       issuer: 'https://api.x.com',
     });
     expect(done.ok).toBe(true);
+    // The return page names the connector.
+    expect(done.connector?.name).toBe('x');
     expect(grants[0]?.get('grant_type')).toBe('authorization_code');
     expect(grants[0]?.get('code')).toBe('x-code');
     expect(grants[0]?.get('code_verifier')).toBeTruthy();
@@ -190,4 +198,9 @@ test('X: start, callback, stored credential and refresh with Kortix’s X client
     .from(connectionCredentials)
     .where(eq(connectionCredentials.connectionId, x.connectionId));
   expect(row?.kind).toBe('oauth2_delegated');
+  const [waiting] = await db
+    .select({ metadata: connectorConnections.metadata })
+    .from(connectorConnections)
+    .where(eq(connectorConnections.connectionId, x.connectionId));
+  expect((waiting?.metadata as Record<string, unknown>).requesting_session_id).toBeUndefined();
 });

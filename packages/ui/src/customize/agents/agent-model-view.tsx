@@ -31,6 +31,8 @@ type SetRuntime = <K extends keyof RuntimeAgentConfig>(key: K, value: RuntimeAge
 
 /** The select's value for "no variant": the model decides. */
 const AUTO = '__auto__';
+/** Duration syntax the program timeout field parses (`parseDurationSeconds`), not copy. */
+const TIMEOUT_EXAMPLE = '30m';
 
 /** A slider that can be unset: `—` and no Reset while it follows the default. */
 function SliderField({
@@ -128,7 +130,64 @@ function ProviderOptions({
   );
 }
 
-export function AgentModelView({ oc, setOc, footer }: { oc: RuntimeAgentConfig; setOc: SetRuntime; footer?: ReactNode }) {
+/** A program agent's command (`run`): what each turn runs in place of a model. */
+export interface AgentProgram {
+  command: string;
+  onChange: (command: string) => void;
+  /** `timeout`, a duration (`30m`); undefined follows the default. */
+  timeout: string | undefined;
+  onTimeoutChange: (timeout: string | undefined) => void;
+}
+
+function ProgramView({ program, footer }: { program: AgentProgram; footer?: ReactNode }) {
+  const t = useI18nTranslations('agentEditor.modelView');
+  return (
+    <EditorSectionStyleProvider value="panel">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+        <EditorSection title={t('programTitle')} lead>
+          <SettingBlock label={t('programCommand')} help={t('programHelp')}>
+            <Input
+              aria-label={t('programCommand')}
+              value={program.command}
+              spellCheck={false}
+              className="h-8 font-mono text-xs"
+              onChange={(e) => program.onChange(e.target.value)}
+            />
+          </SettingBlock>
+          <SettingRow label={t('programTimeout')} help={t('programTimeoutHelp')}>
+            <Input
+              aria-label={t('programTimeout')}
+              value={program.timeout ?? ''}
+              placeholder={TIMEOUT_EXAMPLE}
+              spellCheck={false}
+              className="h-8 font-mono text-xs"
+              onChange={(e) => program.onTimeoutChange(e.target.value.trim() || undefined)}
+            />
+          </SettingRow>
+        </EditorSection>
+        {footer}
+      </div>
+    </EditorSectionStyleProvider>
+  );
+}
+
+export function AgentModelView({
+  oc,
+  setOc,
+  footer,
+  program,
+}: {
+  oc: RuntimeAgentConfig;
+  setOc: SetRuntime;
+  footer?: ReactNode;
+  /** Set for a program agent: the view shows its command instead of the model. */
+  program?: AgentProgram;
+}) {
+  if (program) return <ProgramView program={program} />;
+  return <ModelView oc={oc} setOc={setOc} footer={footer} />;
+}
+
+function ModelView({ oc, setOc, footer }: { oc: RuntimeAgentConfig; setOc: SetRuntime; footer?: ReactNode }) {
   const t = useI18nTranslations('agentEditor.modelView');
   const tTabs = useI18nTranslations('agentEditor.tabs');
   const { data: providers } = useRuntimeProviders();

@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 const MAX_REPORT_BYTES = 16 * 1024;
 
 /**
- * Receives `Content-Security-Policy-Report-Only` violation reports (see
+ * Receives `Content-Security-Policy` violation reports (see
  * lib/security/content-security-policy.ts) and logs one line per report:
  * the directive, the blocked origin and the page's first path segment. Never
  * the full page URL, which can carry an email or a capability token.

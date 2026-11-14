@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      /* Brand values from brand/references/visual.md. Copy the brand font file into fonts/. */
+      @font-face { font-family: "Brand"; src: url("fonts/brand.ttf") format("truetype"); }
+      :root {
+        --ground: #0b0b0c;
+        --ink: #ffffff;
+        --muted: rgba(255, 255, 255, 0.7);
+        --font-display: "Brand", sans-serif;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--ground); }
+      #root { position: relative; width: 100%; height: 100%; font-family: var(--font-display); color: var(--ink); }
+      .title { position: absolute; left: 0; right: 0; top: 440px; text-align: center; font-size: 88px; font-weight: 600; letter-spacing: -0.03em; }
+      .subtitle { position: absolute; left: 0; right: 0; top: 570px; text-align: center; font-size: 40px; color: var(--muted); }
+      #logo { position: absolute; left: 50%; top: 300px; height: 96px; transform: translateX(-50%); }
+      #demo { position: absolute; left: 200px; top: 48px; width: 1520px; height: 855px; border-radius: 16px; object-fit: cover; }
+      .caption { position: absolute; left: 0; right: 0; top: 940px; text-align: center; font-size: 48px; font-weight: 500; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="10" data-width="1920" data-height="1080">
+      <h1 id="intro-title" class="title clip" data-start="0" data-duration="2" data-track-index="0">Example feature</h1>
+      <p id="intro-sub" class="subtitle clip" data-start="0" data-duration="2" data-track-index="1">Shipped this week</p>
+      <video id="demo" class="clip" src="media/clip.webm" muted data-start="2" data-duration="5" data-media-start="0" data-track-index="2"></video>
+      <p id="cap-1" class="caption clip" data-start="2.2" data-duration="2.3" data-track-index="3">Open the page</p>
+      <p id="cap-2" class="caption clip" data-start="4.6" data-duration="2.3" data-track-index="3">Follow the link</p>
+      <img id="logo" class="clip" src="media/logo.svg" data-start="7" data-duration="3" data-track-index="4" />
+      <h1 id="outro-title" class="title clip" data-start="7" data-duration="3" data-track-index="0">example.com</h1>
+      <p id="outro-sub" class="subtitle clip" data-start="7" data-duration="3" data-track-index="1">Try it today</p>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo("#intro-title", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, 0.1);
+      tl.fromTo("#cap-1", { opacity: 0 }, { opacity: 1, duration: 0.2 }, 2.2);
+      tl.fromTo("#cap-2", { opacity: 0 }, { opacity: 1, duration: 0.2 }, 4.6);
+      tl.fromTo("#outro-title", { scale: 0.96, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "power2.out" }, 7.1);
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

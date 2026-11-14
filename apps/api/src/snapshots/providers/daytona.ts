@@ -11,6 +11,7 @@
 import { rm } from 'node:fs/promises';
 import { Image } from '@daytonaio/sdk';
 import { getDaytona, isDaytonaConfigured, listDaytonaSnapshots } from '../../shared/daytona';
+import { isProviderAuthFailure } from '../../shared/provider-auth';
 import { isDaytonaRateLimitError } from '../../shared/daytona-rate-limit';
 import { withTimeout } from '../../shared/with-timeout';
 import {
@@ -81,6 +82,11 @@ function observeSnapshotState(snapshotName: string): InvalidatableObservation<Pr
           : 'missing';
       } catch (err) {
         if (isDaytonaSnapshotNotFoundError(err)) return 'missing';
+        // A dead/revoked DAYTONA_API_KEY must propagate, mirroring the Platinum
+        // adapter (isPlatinumAuthFailure): an auth failure is permanent, and
+        // degrading it to 'unknown' retries futilely behind the opaque
+        // "provider state is unknown" SnapshotBuildError that hides the 401.
+        if (isProviderAuthFailure(err)) throw err;
         return 'unknown';
       }
     },
@@ -303,6 +309,12 @@ class DaytonaAdapter implements SandboxProviderAdapter {
     return 'unknown';
   }
 }
+
+// The classifier lives in shared/provider-auth.ts (own module: shared/daytona
+// is wholesale-mocked in several suites; it classifies either provider's
+// status-shaped 401/403 — KRTX-4792). Daytona-named alias keeps the KRTX-4791
+// import surface of this adapter unchanged.
+export { isProviderAuthFailure as isDaytonaAuthFailure };
 
 export function isDaytonaSnapshotNotFoundError(err: unknown): boolean {
   const value = err as

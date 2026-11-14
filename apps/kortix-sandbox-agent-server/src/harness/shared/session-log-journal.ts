@@ -75,6 +75,10 @@
  * a higher rev and ends its live puts, unless it is a mid-turn streaming record (below). A live message the harness removes
  * before the collection (`message.removed`) gets the journal-form tombstone
  * if a put of it went out; a removed part (`message.part.removed`) a fresh put.
+ * A subscriber that joins the v2 stream while a message streams (a tab that came back to the
+ * session, a reconnect the ring could not replay) gets that message's put first, at a fresh rev,
+ * built from the same row (`liveSnapshot`, written by the events route after the replay): no page
+ * holds a reply pi has not finished, and the client drops a delta for a message it lacks (F-011).
  *
  * Mid-turn (pi only: `midTurnMs`, `JOURNAL_MID_TURN_MS` = 5 s). A `message.*` frame on the v1 bus
  * schedules one collection and send at most `midTurnMs` later, so a box that dies mid-turn loses at
@@ -137,7 +141,7 @@ import type { KortixMessageInfo, KortixPart } from '@kortix/api-contract/transcr
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { logger } from '@/lib/log/logger'
-import { kortixEventBus, sessionLogEventBus } from '@/services/event-bus/kortix-event-bus'
+import { kortixEventBus, provideSessionLogJoinSnapshot, sessionLogEventBus } from '@/services/event-bus/kortix-event-bus'
 import { sandboxRelayContext } from '@/lib/kortix-api/relay-context'
 import { noteControlPlaneResponse, sessionTokenPresumedDead } from '@/lib/kortix-api/session-token-health'
 import type { ExportedMessage, SessionLogChanges, SessionLogPort } from '../contract/session-log'
@@ -430,22 +434,46 @@ export class SessionLogJournal {
         row.due = false
         continue
       }
-      const thread = row.info.sessionID
-      try {
-        const known = this.port.live(thread, id)
-        if (!known) continue
-        row.due = false
-        const harness = this.port.capabilities.harness as FromV1Options['harness']
-        const { queued, ...at } = known
-        const live = liveMessageFromV1({ info: row.info, parts: [...row.parts.values()] }, at, harness)
-        // A queued seq is above every real one already: never shifted (it would pass MAX_SAFE_INTEGER).
-        const message = queued ? live : this.shifted(live)
-        row.sent = true
-        sessionLogEventBus().publish('log.message', { rev: nextRev(), message } satisfies SessionLogMessageEvent, thread)
-      } catch (err) {
-        logger.warn('[session-log] live put failed', { message_id: id, err: String(err) })
-      }
+      const message = this.liveRecord(id, row)
+      if (!message) continue
+      row.due = false
+      row.sent = true
+      sessionLogEventBus().publish('log.message', { rev: nextRev(), message } satisfies SessionLogMessageEvent, message.thread_id)
     }
+  }
+
+  /** The live record of `row` as its put carries it now (the deltas so far), or null while its seq is unknown. */
+  private liveRecord(id: string, row: LiveRow): SessionLogMessage | null {
+    if (!row.info) return null
+    try {
+      const known = this.port.live(row.info.sessionID, id)
+      if (!known) return null
+      const harness = this.port.capabilities.harness as FromV1Options['harness']
+      const { queued, ...at } = known
+      const live = liveMessageFromV1({ info: row.info, parts: [...row.parts.values()] }, at, harness)
+      // A queued seq is above every real one already: never shifted (it would pass MAX_SAFE_INTEGER).
+      return queued ? live : this.shifted(live)
+    } catch (err) {
+      logger.warn('[session-log] live put failed', { message_id: id, err: String(err) })
+      return null
+    }
+  }
+
+  /**
+   * A put of every message streaming now that already had one, at a fresh rev: what a subscriber
+   * that joins the v2 stream mid-message missed (F-011). pi stores a reply only at its
+   * `message_end`, so no page holds it, and the store drops a delta for a message it lacks.
+   * Built from the same rows the live puts are, so its text is exactly the deltas published so far.
+   */
+  liveSnapshot(): Array<{ rev: number; message: SessionLogMessage }> {
+    if (this.off || this.stopped) return []
+    const puts: Array<{ rev: number; message: SessionLogMessage }> = []
+    for (const [id, row] of this.live) {
+      if (!row.sent || !row.info || isCompactionSummary(row.info) || this.collected(id)) continue
+      const message = this.liveRecord(id, row)
+      if (message) puts.push({ rev: nextRev(), message })
+    }
+    return puts
   }
 
   private async collectOnce(): Promise<void> {
@@ -940,6 +968,9 @@ let active: SessionLogJournal | null = null
 export function sessionLogView(): SessionLogView {
   return active?.view() ?? UNJOURNALED
 }
+
+// The v2 events route asks the bus, never this module (routes depend on contracts only).
+provideSessionLogJoinSnapshot(() => active?.liveSnapshot() ?? [])
 
 /** Start this boot's journal. An adapter calls it once its native store is ready (after a restore, with its cursors). */
 export function startSessionLogJournal(port: SessionLogPort, options: SessionLogJournalOptions): SessionLogJournal | null {

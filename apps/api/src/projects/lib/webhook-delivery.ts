@@ -32,18 +32,27 @@ export function webhookDeliveryKey(input: {
   rawBody: string;
   signatureHeader: string | null;
   staticAuthFingerprint: string;
-}): { key: string; byEvent: boolean } {
+  /** A GitHub-signed delivery (`githubNativeDelivery`): its signature has no timestamp. */
+  githubNative?: boolean;
+}): { key: string; byEvent: boolean; permanent: boolean } {
   const prefix = `trigger:webhook:${input.projectId}:${input.slug}:`;
+  // GitHub signs the body alone, and X-GitHub-Delivery is not signed: a replay
+  // could name a new id. The signature is the key, and it is never freed, so a
+  // captured delivery runs once, ever. GitHub's own redelivery is the same event.
+  if (input.githubNative) {
+    const hash = createHash('sha256').update(input.signatureHeader ?? '').digest('hex');
+    return { key: `${prefix}github-sig:${hash}`, byEvent: true, permanent: true };
+  }
   for (const name of WEBHOOK_DELIVERY_ID_HEADERS) {
     const id = input.header(name)?.trim();
-    if (id) return { key: prefix + id, byEvent: true };
+    if (id) return { key: prefix + id, byEvent: true, permanent: false };
   }
   const hash = createHash('sha256')
     .update(input.rawBody)
     .update(input.signatureHeader ?? '')
     .update(input.staticAuthFingerprint)
     .digest('hex');
-  return { key: prefix + hash, byEvent: false };
+  return { key: prefix + hash, byEvent: false, permanent: false };
 }
 
 /**

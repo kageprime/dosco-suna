@@ -24,7 +24,6 @@ import { accountMayUseManagedModels } from '../../billing/services/entitlements'
 import { canChangeSessionModel, mayChangeSessionModel, modelChangeResult, validateModelChangeShape } from '../lib/session-model-change';
 import { pushSessionModelToSandbox, pushSessionScopeToSandbox } from '../lib/sandbox-env-sync';
 import { toSessionModelRef } from '../../llm-gateway/resolution/effective';
-import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { admitSessionModelChange } from '../lib/session-model-keys';
 import { validateProviderSecretPool } from './provider-secret-pools';
 import {
@@ -427,10 +426,7 @@ export function registerSessionScopeRoutes(): void {
         caller: loaded.userId,
         freeModelsOnly,
         model: trimmed,
-        mayPool:
-          resolveFeatureFlag(loaded.row.metadata, 'pooled_provider_secrets') &&
-          !visible.ownerIsMachine &&
-          Boolean(visible.row.createdBy),
+        mayPool: !visible.ownerIsMachine && Boolean(visible.row.createdBy),
         callerMaySelect: async (providerId, secretIds) =>
           !(await validateProviderSecretPool({
             accountId: loaded.row.accountId,

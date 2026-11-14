@@ -17,7 +17,8 @@ import { useUiHostConfig } from '../../providers/ui-provider';
 import { cn } from '../../lib/utils';
 import { TRIGGER_CARET_CLASS, triggerVariants } from '../../primitives/trigger-variants';
 import type { Agent } from '@kortix/sdk/react';
-import { capitalizeWords, isMyKortixAgentName, MY_KORTIX_DISPLAY_NAME } from '@kortix/shared';
+import { agentDisplayName, isMyKortixAgentName } from '@kortix/shared';
+import { InlineCodeText } from '../../markdown/inline-code-text';
 import { CaretDownIcon, CheckIcon } from '@phosphor-icons/react';
 import { AgentMark } from '../../internal/components/agent-mark';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
@@ -54,14 +55,17 @@ export function resolveDisplayedAgentName(primaryAgents: Agent[], selectedAgent:
   return current?.name ?? selectedAgent ?? primaryAgents[0]?.name;
 }
 
+/** Is the displayed agent a program agent (`run`)? Its runtime listing names provider `program`: it has no model to pick. */
+export function resolveProgramAgent(primaryAgents: Agent[], selectedAgent: string | null): boolean {
+  const name = resolveDisplayedAgentName(primaryAgents, selectedAgent);
+  return primaryAgents.find((a) => a.name === name)?.model?.providerID === 'program';
+}
+
 /** The label `AgentSelector` shows for a selection (null = nothing picked). Other surfaces that name the agent reuse it. */
 export function agentDisplayLabel(agents: Agent[], selectedAgent: string | null): string {
   const name = resolveDisplayedAgentName(composerSelectableAgents(agents), selectedAgent);
   if (!name) return 'Agent';
-  if (name === 'worker' || name === 'kortix' || name === 'xera' || name === 'dot' || isMyKortixAgentName(name)) {
-    return 'Dot';
-  }
-  return capitalizeWords(name);
+  return agentDisplayName(name);
 }
 
 /**
@@ -82,10 +86,7 @@ export function useComposerAgentChoices(agents: Agent[]) {
   const primaryAgents = useMemo(() => composerSelectableAgents(offered), [offered]);
   const label = useCallback(
     (name: string) =>
-      agentLabels?.[name] ??
-      (name === 'worker' || name === 'kortix' || name === 'xera' || name === 'dot' || isMyKortixAgentName(name)
-        ? 'Dot'
-        : capitalizeWords(name)),
+      agentLabels?.[name] ?? agentDisplayName(name),
     [agentLabels],
   );
   return { offered, primaryAgents, label, agentLabels };
@@ -252,7 +253,9 @@ export function AgentSelector({
           {meta ? (
             <p className="text-muted-foreground text-xs">{t('myKortixRoutes')}</p>
           ) : agent.description ? (
-            <p className="text-muted-foreground line-clamp-2 text-xs text-pretty">{agent.description}</p>
+            <p className="text-muted-foreground line-clamp-2 text-xs text-pretty">
+              <InlineCodeText text={agent.description} />
+            </p>
           ) : null}
         </div>
         {isSelected && (

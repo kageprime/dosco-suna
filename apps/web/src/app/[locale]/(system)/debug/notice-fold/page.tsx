@@ -14,7 +14,7 @@
  * renders it through the real `SessionTurn`, exactly as a live session
  * would. No network, no runtime.
  *
- * Open a turn's "Worked for" row to see that child's report and the work it
+ * Open the run's row to read each child's report and the work it led to.
  * led to. Synthetic values only.
  */
 
@@ -23,10 +23,10 @@ import '@kortix/ui/session/tool/tools/register';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
-import { SessionTurn, TurnViewport } from '@kortix/ui/session';
+import { SessionTurn, TurnViewport, useAgentRunLayout } from '@kortix/ui/session';
 import { SESSION_TRANSCRIPT_CLASS } from '@kortix/ui/session/thread/session-body';
 import { peerMessagePromptText } from '@kortix/shared';
-import { sessionLogOfV1Rows, sessionLogTurns, type SessionLogTurn } from '@kortix/sdk';
+import { isSessionLogAgentNotice, sessionLogOfV1Rows, sessionLogTurns, type SessionLogTurn } from '@kortix/sdk';
 import { useSessionStateStore } from '@kortix/sdk/react';
 
 const SESSION_ID = 'ses_krtx4732_parent';
@@ -60,7 +60,7 @@ const assistantInfo = (id: string, parentID: string, created: number, completed:
   time: { created, completed },
 });
 
-const toolPart = (mid: string, n: number, tool: string, title: string, input: Record<string, unknown>, output: string) => ({
+const toolPart = (mid: string, n: number, tool: string, title: string, input: Record<string, unknown>, output: string, metadata: Record<string, unknown> = {}) => ({
   id: `${mid}-tool-${n}`,
   sessionID: SESSION_ID,
   messageID: mid,
@@ -72,7 +72,7 @@ const toolPart = (mid: string, n: number, tool: string, title: string, input: Re
     input,
     output,
     title,
-    metadata: {},
+    metadata,
     time: { start: T0 + 1_000, end: T0 + 4_000 },
   },
 });
@@ -113,9 +113,9 @@ const ROWS: V1Row[] = [
     info: assistantInfo('msg_reply_prompt', 'msg_prompt', T0 + 1_000, T0 + 6_400),
     parts: [
       { id: 'msg_reply_prompt-reasoning', sessionID: SESSION_ID, messageID: 'msg_reply_prompt', type: 'reasoning' as const, text: 'Three independent pieces: the draft, the numbers, the review. One colleague each, all in the background; I report back once they have all reported.', time: { start: T0 + 1_000, end: T0 + 3_200 } },
-      toolPart('msg_reply_prompt', 1, 'agent', 'Draft the launch post', { subagent_type: 'draft-writer', description: 'Draft the launch post', prompt: 'Draft the launch post. TASK_MARKER_1.' }, 'task_id: ses_krtx4732_draft_writer (for resuming to continue this task if needed)\n\n<task_result>\nStarted.\n</task_result>'),
-      toolPart('msg_reply_prompt', 2, 'agent', 'Verify the numbers', { subagent_type: 'metrics-checker', description: 'Verify the numbers', prompt: 'Verify the numbers against the Q3 report. TASK_MARKER_2.' }, 'task_id: ses_krtx4732_metrics_checker (for resuming to continue this task if needed)\n\n<task_result>\nStarted.\n</task_result>'),
-      toolPart('msg_reply_prompt', 3, 'agent', 'Review the post', { subagent_type: 'post-reviewer', description: 'Review the post', prompt: 'Review the post against the style guide. TASK_MARKER_3.' }, 'task_id: ses_krtx4732_post_reviewer (for resuming to continue this task if needed)\n\n<task_result>\nStarted.\n</task_result>'),
+      toolPart('msg_reply_prompt', 1, 'agent', 'Draft the launch post', { subagent_type: 'draft-writer', description: 'Draft the launch post', prompt: 'Draft the launch post. TASK_MARKER_1.' }, 'task_id: ses_krtx4732_draft_writer (for resuming to continue this task if needed)\n\n<task_result>\nStarted.\n</task_result>', { sessionId: 'ses_krtx4732_draft_writer' }),
+      toolPart('msg_reply_prompt', 2, 'agent', 'Verify the numbers', { subagent_type: 'metrics-checker', description: 'Verify the numbers', prompt: 'Verify the numbers against the Q3 report. TASK_MARKER_2.' }, 'task_id: ses_krtx4732_metrics_checker (for resuming to continue this task if needed)\n\n<task_result>\nStarted.\n</task_result>', { sessionId: 'ses_krtx4732_metrics_checker' }),
+      toolPart('msg_reply_prompt', 3, 'agent', 'Review the post', { subagent_type: 'post-reviewer', description: 'Review the post', prompt: 'Review the post against the style guide. TASK_MARKER_3.' }, 'task_id: ses_krtx4732_post_reviewer (for resuming to continue this task if needed)\n\n<task_result>\nStarted.\n</task_result>', { sessionId: 'ses_krtx4732_post_reviewer' }),
       textPart('msg_reply_prompt', "⏳ Three colleagues are on it — draft, numbers, review. I'll report back when they're done."),
     ],
   },
@@ -127,6 +127,8 @@ const ROWS: V1Row[] = [
     T0 + 92_000,
     [
       toolPart('msg_report_draft-reply', 1, 'send_message', 'Message the reviewer', { to: 'post-reviewer', summary: 'Draft v1 is up — review against it', message: 'Draft v1 is in the review doc. Review it against the style guide; the plan line and pricing anchor are still open.' }, '{"status":"delivered","note":"Delivered between its steps."}'),
+      // An interim line: the run's answer supersedes it, so it folds with the report.
+      { ...textPart('msg_report_draft-reply', 'The draft is in. Waiting on the numbers and the review.'), id: 'msg_report_draft-reply-interim' },
     ],
   ),
   ...report(
@@ -162,6 +164,9 @@ const ROWS: V1Row[] = [
   ),
 ];
 
+/** The same run while it is still going: two of the three colleagues have reported. */
+const LIVE_ROWS: V1Row[] = ROWS.slice(0, ROWS.findIndex((row) => row.info.id === 'msg_report_anchor'));
+
 /** Minimal child transcripts, so an opened dispatch row shows its session as a live one would. */
 const CHILD_ROWS: Record<string, V1Row[]> = Object.fromEntries(
   AGENTS.map((agent, n) => [
@@ -195,57 +200,70 @@ function seed() {
 const NOOP = () => {};
 const noopAsync = async () => {};
 
+/** One transcript, laid out as the session view lays it out: a run's other turns draw nothing. */
+function Transcript({ title, turns }: { title: string; turns: SessionLogTurn[] }) {
+  const runs = useAgentRunLayout(turns, false);
+  return (
+    <section data-testid={`harness-${title.split(' ')[0]!.toLowerCase()}`} className="mx-auto w-full max-w-3xl px-4 py-6">
+      <p className="text-muted-foreground mb-6 text-xs">{title}</p>
+      <div role="log" className={SESSION_TRANSCRIPT_CLASS}>
+        <div className="flex min-w-0 flex-col">
+          {turns.map((turn, turnIndex) => (
+            <TurnViewport
+              key={turn.id}
+              turnId={turn.id}
+              className={turnIndex === 0 ? '' : isSessionLogAgentNotice(turn.user) ? 'mt-6' : 'mt-12'}
+              continues={turn.compaction !== null || turn.continues !== null}
+            >
+              {runs.absorbed.has(turn.id) ? null : (
+                <SessionTurn
+                  turn={turn}
+                  turnOutcome={{}}
+                  isLast={turnIndex === turns.length - 1}
+                  sessionId={SESSION_ID}
+                  sessionStatus={undefined}
+                  sessionWorking={false}
+                  isWorkingTurn={false}
+                  suppressBusyIndicator={false}
+                  awaitingUser={false}
+                  pending={false}
+                  isFirstTurn={turnIndex === 0}
+                  ownsPlan={false}
+                  permissions={[]}
+                  questions={[]}
+                  onPermissionReply={noopAsync}
+                  onRewind={NOOP}
+                  rewindDisabled
+                  {...runs.propsOf(turn.id)}
+                />
+              )}
+            </TurnViewport>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function NoticeFoldPage() {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { enabled: false, retry: false } } }));
   useEffect(() => seed(), []);
   const turns = useMemo(() => sessionLogTurns(sessionLogOfV1Rows(SESSION_ID, SESSION_ID, ROWS).threads[0]!), []);
+  const liveTurns = useMemo(() => sessionLogTurns(sessionLogOfV1Rows(SESSION_ID, SESSION_ID, LIVE_ROWS).threads[0]!), []);
 
   return (
     <QueryClientProvider client={queryClient}>
       <div className="bg-background min-h-dvh">
         <header className="border-border border-b px-4 py-3">
-          <p className="text-sm font-medium">Notice fold — KRTX-4732</p>
+          <p className="text-sm font-medium">Agent run fold — KRTX-4732</p>
           <p className="text-muted-foreground text-xs">
-            One run of three colleagues: every report folds into its turn&apos;s
-            &quot;Worked for&quot; row; the consolidated answer is the only top-level message.
-            The one report that needed a decision answers inline, and its row
-            stays visible above the answer. Seeded in-store; no runtime attached.
+            One run of three colleagues. The reports fold into one row over the answer; open the
+            row to read them. The report that needed a decision stays in view. Seeded in-store; no
+            runtime attached.
           </p>
         </header>
-        <div className="mx-auto w-full max-w-3xl px-4 py-6">
-          <div role="log" className={SESSION_TRANSCRIPT_CLASS}>
-            <div className="flex min-w-0 flex-col">
-              {turns.map((turn: SessionLogTurn, turnIndex: number) => (
-                <TurnViewport
-                  key={turn.id}
-                  turnId={turn.id}
-                  className={turnIndex === 0 ? '' : 'mt-12'}
-                  continues={turn.compaction !== null || turn.continues !== null}
-                >
-                  <SessionTurn
-                    turn={turn}
-                    turnOutcome={{}}
-                    isLast={turnIndex === turns.length - 1}
-                    sessionId={SESSION_ID}
-                    sessionStatus={undefined}
-                    sessionWorking={false}
-                    isWorkingTurn={false}
-                    suppressBusyIndicator={false}
-                    awaitingUser={false}
-                    pending={false}
-                    isFirstTurn={turnIndex === 0}
-                    ownsPlan={false}
-                    permissions={[]}
-                    questions={[]}
-                    onPermissionReply={noopAsync}
-                    onRewind={NOOP}
-                    rewindDisabled
-                  />
-                </TurnViewport>
-              ))}
-            </div>
-          </div>
-        </div>
+        <Transcript title="Settled" turns={turns} />
+        <Transcript title="Live · two of three reported" turns={liveTurns} />
       </div>
     </QueryClientProvider>
   );

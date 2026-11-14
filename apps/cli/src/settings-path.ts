@@ -9,6 +9,7 @@ import {
   type WorkspaceSettingsSection,
   workspaceSettingsPath,
 } from '@kortix/shared/workspace-settings';
+import { stripTrailingSlash } from './web-url.ts';
 
 /** The Settings panel's name in the workspace menu. */
 export const SETTINGS_PANEL = 'Workspace settings';
@@ -20,5 +21,5 @@ export function settingsWhere(section: WorkspaceSettingsSection): string {
 
 /** The absolute app link of one section: `<web origin>/workspaces/<id>/admin/<section>`. */
 export function settingsUrl(webOrigin: string, workspaceId: string, section: WorkspaceSettingsSection): string {
-  return `${webOrigin.replace(/\/+$/, '')}${workspaceSettingsPath(workspaceId, section)}`;
+  return `${stripTrailingSlash(webOrigin)}${workspaceSettingsPath(workspaceId, section)}`;
 }

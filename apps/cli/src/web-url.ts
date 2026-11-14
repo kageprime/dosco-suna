@@ -32,7 +32,8 @@
 import { sdkBackendUrl } from '@kortix/shared/host-config';
 import { sandboxEnvValue } from './api/sandbox-env.ts';
 
-function stripTrailingSlash(s: string): string {
+/** The one trailing-slash strip for a dashboard origin (`https://x/` → `https://x`). */
+export function stripTrailingSlash(s: string): string {
   return s.replace(/\/+$/, '');
 }
 

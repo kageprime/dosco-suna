@@ -60,24 +60,32 @@ afterAll(() => {
 // The workflow reads go through `useSessionWorkflows`: the runs per session id, and the controls it sends.
 let runsBySession: Record<string, unknown[]> = {};
 let controls: unknown[] = [];
+let workflowLive: Array<boolean | undefined> = [];
 const real = await import('@kortix/sdk/react');
 mock.module('@kortix/sdk/react', () => ({
   ...real,
-  useSessionWorkflows: (_projectId: string | undefined, sessionId: string | undefined) => ({
-    data: sessionId ? runsBySession[sessionId] : undefined,
-    control: {
-      mutate: (variables: unknown) => controls.push(variables),
-      isPending: false,
-      variables: undefined,
-    },
-  }),
+  useSessionWorkflows: (
+    _projectId: string | undefined,
+    sessionId: string | undefined,
+    options: { live?: boolean } = {},
+  ) => {
+    workflowLive.push(options.live);
+    return {
+      data: sessionId ? runsBySession[sessionId] : undefined,
+      control: {
+        mutate: (variables: unknown) => controls.push(variables),
+        isPending: false,
+        variables: undefined,
+      },
+    };
+  },
 }));
 
 // Imported after the globals above: Base UI picks its layout effect when its module loads,
 // and a module loaded before `document` exists never mounts a portal.
 const { TooltipProvider } = await import('../../primitives/tooltip');
 const { resolveEffectiveBusy } = await import('../status/session-chat-busy');
-const { AgentsLineView, AgentsPanel, stripRuns, runSessionIds } = await import('./agent-strip');
+const { AgentsLine, AgentsLineView, AgentsPanel, stripRuns, runSessionIds } = await import('./agent-strip');
 const { agentRowOf } = await import('./agent-model');
 const { TasksPanel, groupTasks } = await import('./tasks-panel');
 const { HeldMessageList } = await import('./held-messages');
@@ -90,6 +98,7 @@ const roots: Root[] = [];
 beforeEach(() => {
   runsBySession = {};
   controls = [];
+  workflowLive = [];
 });
 afterEach(async () => {
   if (renderer) await act(async () => renderer?.unmount());
@@ -112,6 +121,16 @@ async function mountDom(node: ReactNode) {
     rows: () => [...body.querySelectorAll('[data-testid="agents-line-row"]')] as unknown as HTMLElement[],
     byLabel: (label: string) => body.querySelector(`[aria-label="${label}"]`) as unknown as HTMLButtonElement | null,
   };
+}
+
+/** Yield macrotasks until `done()` holds or 200 hops pass; returns whether it held. */
+async function until(done: () => boolean): Promise<boolean> {
+  for (let hop = 0; hop < 200 && !done(); hop++) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+  return done();
 }
 
 function wrap(node: ReactNode) {
@@ -263,7 +282,7 @@ describe('AgentsLineView — the line', () => {
     await act(async () => {
       focused.dispatchEvent(new windowObject.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     });
-    expect(dom.popover()).toBeNull();
+    expect(await until(() => dom.popover() === null)).toBe(true);
     expect(line.getAttribute('aria-expanded')).toBe('false');
   });
 
@@ -291,7 +310,8 @@ describe('AgentsLineView — the line', () => {
     );
     await act(async () => dom.byLabel('Open namer')!.click());
     expect(opened).toEqual(['namer']);
-    expect(dom.popover()).toBeNull();
+    // The popover closes on a later task; a loaded machine reaches it later.
+    expect(await until(() => dom.popover() === null)).toBe(true);
   });
 });
 
@@ -541,5 +561,37 @@ describe('the agents line never holds the composer', () => {
     );
     expect(runs.map((r) => r.runId)).toEqual(['run-1', 'recent']);
     expect([...runSessionIds(runs)].sort()).toEqual(['ses_a1', 'ses_a2', 'ses_a3', 'ses_a4', 'ses_runner']);
+  });
+});
+
+describe('the agents line polls fast while the session or one of its agents works', () => {
+  test('an idle lead with a working child keeps its lists at the live cadence', async () => {
+    const { configureKortix } = await import('@kortix/sdk');
+    configureKortix({ backendUrl: 'http://test.local', getToken: async () => 'tok' });
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (url: unknown) => {
+      const target = String(url);
+      if (target.includes('parent=ses_lead')) {
+        return Response.json([
+          {
+            session_id: 'ses_child',
+            agent_handle: 'researcher',
+            agent_name: 'researcher',
+            status: 'running',
+            board_state: 'working',
+            created_at: '2026-10-30T11:00:00.000Z',
+            updated_at: new Date().toISOString(),
+          },
+        ]);
+      }
+      return Response.json([]);
+    }) as unknown as typeof fetch;
+    try {
+      await mountDom(<AgentsLine projectId="proj_1" sessionId="ses_lead" live={false} />);
+      expect(workflowLive[0]).toBe(false);
+      expect(await until(() => workflowLive.at(-1) === true)).toBe(true);
+    } finally {
+      globalThis.fetch = original;
+    }
   });
 });

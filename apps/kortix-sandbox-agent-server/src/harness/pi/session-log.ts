@@ -106,6 +106,7 @@ import type { SessionLogChanges, SessionLogPort, SessionLogRestoreResult } from 
 import { logChanges } from '../shared/session-log-journal'
 import { isRestoreNote } from '../shared/session-log-boot'
 import type { BytesReader } from '../shared/session-log-restore'
+import { isHiddenNote } from './extensions/follow-through'
 import { restorePiSessionLog, type PiRestoreTarget } from './session-log-restore'
 import { assistantMessageError } from './turn-events'
 import { PI_HARNESS_VERSION } from './version'
@@ -316,7 +317,7 @@ function deriveThread(input: {
     const own = edits.get(e.id) ?? []
     const latest = own.at(-1)
     const replacement = own.findLast((x) => x.replacement !== null)?.replacement
-    const msg: J | undefined = e.type === 'message' ? e.message : e.type === 'custom_message' ? { role: 'custom', ...e } : undefined
+    const msg: J | undefined = e.type === 'message' ? e.message : e.type === 'custom_message' && !isHiddenNote(e) ? { role: 'custom', ...e } : undefined
 
     if (e.type === 'compaction') {
       const id = idOf(e)
@@ -477,7 +478,7 @@ function firstKept(entries: J[], c: J, idOf: (e: J) => string): string | null {
   const end = entries.indexOf(c)
   if (start < 0 || start >= end) return null
   for (const e of entries.slice(start, end)) {
-    if ((e.type === 'message' && e.message?.role !== 'toolResult') || e.type === 'custom_message' || e.type === 'compaction') return idOf(e)
+    if ((e.type === 'message' && e.message?.role !== 'toolResult') || (e.type === 'custom_message' && !isHiddenNote(e)) || e.type === 'compaction') return idOf(e)
   }
   return null
 }

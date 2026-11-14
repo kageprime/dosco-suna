@@ -6,6 +6,7 @@ import {
   surfaceApiError,
   takeFlagBool,
   takeFlagValue,
+  takeFlagValues,
   fail,
   missing,
 } from '../command-helpers.ts';
@@ -24,6 +25,14 @@ Subcommands:
                                    fill in locally.
   push --from <path>               Upload every NAME=VALUE in the file
                                    as a workspace secret.
+    --names                        Print the names in the file, never a
+                                   value, and upload nothing. --json. A
+                                   name whose value is a URL on another
+                                   host is marked "remote".
+    --only <A,B>                   Upload only these names.
+    --exclude <A,B>                Upload every name but these.
+                                   A dotenvx "encrypted:" value is never
+                                   uploaded: decrypt it first.
 
 Global options:
   --workspace <id>   Operate on this workspace id (default: linked).
@@ -48,12 +57,20 @@ export async function runEnv(argv: string[]): Promise<number> {
   let outFlag: string | undefined;
   let fromFlag: string | undefined;
   let force = false;
+  let names = false;
+  let json = false;
+  let only: string[] = [];
+  let exclude: string[] = [];
   try {
     projectFlag = takeFlagValue(rest, ['--project', '--workspace']);
     hostFlag = takeFlagValue(rest, ['--host']);
     outFlag = takeFlagValue(rest, ['--out', '-o']);
     fromFlag = takeFlagValue(rest, ['--from', '-f']);
     force = takeFlagBool(rest, ['--force']);
+    names = takeFlagBool(rest, ['--names']);
+    json = takeFlagBool(rest, ['--json']);
+    only = nameList(takeFlagValues(rest, ['--only']));
+    exclude = nameList(takeFlagValues(rest, ['--exclude']));
   } catch (err) {
     return fail((err as Error).message);
   }
@@ -63,7 +80,7 @@ export async function runEnv(argv: string[]): Promise<number> {
     case 'pull':
       return envPull(outFlag, force, ctxOpts);
     case 'push':
-      return envPush(fromFlag, ctxOpts);
+      return envPush(fromFlag, ctxOpts, { names, json, only, exclude });
     default:
       process.stderr.write(`${status.err(`unknown subcommand "${sub}"`)}\n\n${HELP}`);
       return 2;
@@ -131,11 +148,27 @@ async function envPull(outArg: string | undefined, force: boolean, opts: CtxOpts
   return 0;
 }
 
-async function envPush(fromArg: string | undefined, opts: CtxOpts): Promise<number> {
-  if (!fromArg) return missing('--from <dotenv-path>');
-  const ctx = await resolveProjectContext(opts);
-  if (!ctx) return 1;
+/**
+ * Whether a value points at a shared remote: a URL or connection string whose
+ * host is not this machine. Uploading one would point the agents' dev
+ * environment at a real backend (a staging database, a hosted API).
+ */
+export function pointsAtRemote(value: string): boolean {
+  const match = value.trim().match(/^[a-z][a-z0-9+.-]*:\/\/(?:[^@/\s]*@)?([^:/?#\s]+)/i);
+  if (!match) return false;
+  const host = match[1]!.toLowerCase();
+  return !['localhost', '127.0.0.1', '0.0.0.0', '::1', 'host.docker.internal'].includes(host) && !host.endsWith('.localhost');
+}
 
+/** `--only A,B --only C` → [A, B, C]. */
+function nameList(values: string[]): string[] {
+  return values.flatMap((value) => value.split(',')).map((name) => name.trim()).filter(Boolean);
+}
+
+type PushOpts = { names: boolean; json: boolean; only: string[]; exclude: string[] };
+
+async function envPush(fromArg: string | undefined, opts: CtxOpts, push: PushOpts): Promise<number> {
+  if (!fromArg) return missing('--from <dotenv-path>');
   const srcPath = resolve(process.cwd(), fromArg);
   let raw: string;
   try {
@@ -145,11 +178,46 @@ async function envPush(fromArg: string | undefined, opts: CtxOpts): Promise<numb
     return 1;
   }
 
-  const pairs = parseDotenv(raw);
-  if (pairs.length === 0) {
+  // --names lists a template file (.env.example) too: its names have no values.
+  const parsed = parseDotenv(raw, push.names);
+  if (parsed.length === 0) {
     process.stderr.write(`${status.err(`No NAME=VALUE pairs found in ${srcPath}.`)}\n`);
     return 1;
   }
+  // dotenvx ciphertext is not the value: uploading it would store garbage.
+  const encrypted = parsed.filter((p) => p.value.startsWith('encrypted:')).map((p) => p.name);
+
+  if (push.names) {
+    const listed = parsed.map((p) => ({ name: p.name, empty: p.value === '', encrypted: encrypted.includes(p.name), remote: pointsAtRemote(p.value) }));
+    if (push.json) process.stdout.write(`${JSON.stringify({ file: srcPath, names: listed }, null, 2)}\n`);
+    else {
+      for (const entry of listed) {
+        const tags = [entry.empty && 'empty', entry.encrypted && 'encrypted', entry.remote && 'points at a remote host'].filter(Boolean).join(', ');
+        process.stdout.write(`${entry.name}${tags ? `  ${C.dim}(${tags})${C.reset}` : ''}\n`);
+      }
+    }
+    return 0;
+  }
+
+  const known = new Set(parsed.map((p) => p.name));
+  const unknown = [...push.only, ...push.exclude].filter((name) => !known.has(name));
+  if (unknown.length > 0) {
+    process.stderr.write(`${status.err(`Not in ${srcPath}: ${unknown.join(', ')}`)}\n`);
+    return 1;
+  }
+  if (encrypted.length > 0) {
+    process.stderr.write(`${status.warn(`Skipped, dotenvx-encrypted: ${encrypted.join(', ')}. Push a decrypted copy: dotenvx decrypt --stdout -f ${fromArg} > <file>.`)}\n`);
+  }
+  const pairs = parsed.filter(
+    (p) => !encrypted.includes(p.name) && (push.only.length === 0 || push.only.includes(p.name)) && !push.exclude.includes(p.name),
+  );
+  if (pairs.length === 0) {
+    process.stderr.write(`${status.err('No name left to upload.')}\n`);
+    return 1;
+  }
+
+  const ctx = await resolveProjectContext(opts);
+  if (!ctx) return 1;
 
   let okCount = 0;
   for (const p of pairs) {
@@ -172,7 +240,7 @@ async function envPush(fromArg: string | undefined, opts: CtxOpts): Promise<numb
 /** Minimal dotenv parser. Supports `NAME=VALUE` and `export NAME=VALUE`,
  *  optional matching single/double quotes around the value, `#` line
  *  comments, blank lines. Skips entries with empty values. */
-function parseDotenv(text: string): { name: string; value: string }[] {
+export function parseDotenv(text: string, keepEmpty = false): { name: string; value: string }[] {
   const out: { name: string; value: string }[] = [];
   for (const lineRaw of text.split(/\r?\n/)) {
     const line = lineRaw.trim();
@@ -182,7 +250,7 @@ function parseDotenv(text: string): { name: string; value: string }[] {
     if (eq <= 0) continue;
     const name = stripped.slice(0, eq).trim();
     let value = stripped.slice(eq + 1).trim();
-    if (!value) continue;
+    if (!value && !keepEmpty) continue;
     if (
       (value.startsWith('"') && value.endsWith('"')) ||
       (value.startsWith("'") && value.endsWith("'"))

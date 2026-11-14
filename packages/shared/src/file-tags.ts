@@ -19,7 +19,7 @@ import { tagBlocks } from './tag-blocks';
  * non-overlapping, in order. `attrs` is the attribute text without its leading
  * whitespace, as the regex's first group was.
  */
-export interface FileTagBlock {
+interface FileTagBlock {
   /** Index of `<file`. */
   index: number;
   /** Index just past `</file>`. */

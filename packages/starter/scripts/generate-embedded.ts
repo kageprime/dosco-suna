@@ -19,6 +19,7 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
+import { TEMPLATE_IDS } from '../src/template-ids';
 
 // Computed independently of src/index.ts so this script never imports the
 // module that (in turn) imports the file we are about to generate.
@@ -86,6 +87,9 @@ export function buildEmbeddedSnapshot(): Record<string, { files: RawFile[] }> {
   const out: Record<string, { files: RawFile[] }> = {};
   for (const [name, dir] of Object.entries(TEMPLATE_ROOTS)) {
     out[name] = { files: rawFiles(dir) };
+  }
+  for (const id of TEMPLATE_IDS) {
+    out[`template:${id}`] = { files: rawFiles(join(STARTER_ROOT, 'templates', id)) };
   }
   return out;
 }

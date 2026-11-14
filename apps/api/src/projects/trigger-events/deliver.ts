@@ -6,7 +6,8 @@ import {
   fireGitTrigger,
   markGitTriggerAttemptFailed,
   markGitTriggerFired,
-  renderPromptTemplate,
+  renderTriggerInput,
+  triggerInputPreamble,
   triggerFilterMatches,
   automaticFirePauseReason,
 } from '../lib/triggers';
@@ -185,7 +186,7 @@ async function deliverToRow(
       spec,
       project,
       payload,
-      renderedPrompt: `${eventPromptPreamble(spec, provider)}${renderPromptTemplate(spec.promptTemplate, payload)}`,
+      renderedPrompt: `${triggerInputPreamble(spec, eventPromptPreamble(spec, provider))}${renderTriggerInput(spec, payload)}`,
       source: 'event',
       idempotencyKey,
     });

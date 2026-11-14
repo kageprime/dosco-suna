@@ -132,7 +132,10 @@ export function TeamsByoWizard({
   const [error, setError] = useState<string | null>(null);
 
   const connect = useConnectTeams();
-  const manifest = useTeamsManifest(projectId);
+  // The wizard stays mounted while closed. Fetch the manifest only on step 3:
+  // before connect stores the app id the route answers 409, and an eager
+  // fetch put that 409 (plus its retries) on every channels page load.
+  const manifest = useTeamsManifest(open && step === 3 ? projectId : null);
   const endpoint = byoMessagingEndpoint(mode?.messagingEndpoint, projectId);
 
   const steps = [

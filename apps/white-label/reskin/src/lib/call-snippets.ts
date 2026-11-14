@@ -24,25 +24,18 @@
  * claims it sends can be asserted without rendering anything.
  */
 
+import {
+  type CallSnippet,
+  PLACEHOLDER,
+  SECRET_VALUE_PLACEHOLDER,
+  approvalResolve,
+  json,
+  sessionDelete,
+} from '@kortix/white-label-shared/call-snippets';
 import { NO_OVERRIDES, type SessionOverrides, buildSessionCreateInput } from './session-overrides';
-
-/** Rendered wherever a real secret value would otherwise go. */
-export const SECRET_VALUE_PLACEHOLDER = '$SECRET_VALUE';
 
 /** The wrapper's bearer, as a placeholder — never the real key. */
 export const AUTHORIZATION_HEADER = 'Authorization: Bearer $KORTIX_API_KEY';
-
-/** Stand-ins for ids a screen may not have yet (the create dialog runs before
- *  any session exists). */
-const PLACEHOLDER = {
-  projectId: '{projectId}',
-  sessionId: '{sessionId}',
-  executionId: '{executionId}',
-  identifier: '{identifier}',
-  envKey: '{ENV_KEY}',
-  model: 'anthropic/claude-sonnet-4-5',
-  projectName: 'Acme workspace',
-} as const;
 
 /**
  * Every KaaB action this app performs, in the order a wrapper author meets
@@ -86,63 +79,6 @@ export interface SnippetContext {
    * type is the boundary that keeps secret material out of every snippet.
    */
   secret?: { identifier?: string; name?: string };
-}
-
-/**
- * The HTTP form. `runtime` is not a REST call at all — a prompt goes to the
- * session's own runtime through the authenticated session proxy, whose URL the
- * SDK owns and client code is forbidden to build (`scripts/sdk-boundary.mjs`).
- * Printing a path there would teach hand-rolling the one thing the SDK exists
- * to hold.
- */
-type HttpForm =
-  | {
-      kind: 'rest';
-      method: string;
-      path: string;
-      /** Request headers beyond authorization. */
-      headers?: string[];
-      body?: unknown;
-    }
-  | { kind: 'runtime'; summary: string };
-
-export interface CallSnippet {
-  id: CallSnippetId;
-  /** Names the action as the UI names it, not as the route names it. */
-  title: string;
-  /** One line: what this call is for. */
-  summary: string;
-  /** The `@kortix/sdk` call this app makes. */
-  sdk: string;
-  http: HttpForm;
-  /** Fields or headers the application server adds. */
-  serverInjected: string[];
-  /** The things the two forms above would otherwise imply wrongly. */
-  notes: string[];
-}
-
-function json(value: unknown): string {
-  return JSON.stringify(value, null, 2);
-}
-
-/**
- * One copy-pasteable request block.
- *
- * The authorization line is part of the block on purpose: the single most
- * common wrapper mistake is forwarding the end user's own token upstream, and
- * seeing `$KORTIX_API_KEY` on every call is the correction.
- */
-export function renderHttp(form: HttpForm): string {
-  if (form.kind === 'runtime') return form.summary;
-  const lines = [`${form.method} ${form.path}`, AUTHORIZATION_HEADER, ...(form.headers ?? [])];
-  if (form.body === undefined) return lines.join('\n');
-  lines.push('Content-Type: application/json', '', json(form.body));
-  return lines.join('\n');
-}
-
-/** True when the HTTP form is a request someone can copy and run. */
-export function isCopyableHttp(form: HttpForm): boolean {
-  return form.kind === 'rest';
 }
 
 // ── The calls ────────────────────────────────────────────────────────────────
@@ -354,35 +290,6 @@ function sessionsList(ctx: SnippetContext): CallSnippet {
   };
 }
 
-function sessionDelete(ctx: SnippetContext): CallSnippet {
-  const projectId = ctx.projectId ?? PLACEHOLDER.projectId;
-  const sessionId = ctx.sessionId ?? PLACEHOLDER.sessionId;
-
-  return {
-    id: 'session.delete',
-    title: 'Restart or delete a session',
-    summary: 'The two ways a session ends — one keeps the sandbox, one destroys it.',
-    sdk: [
-      '// Reboots the runtime, keeps the session and its sandbox identity.',
-      'await kortix.session(projectId, sessionId).restart();',
-      '',
-      '// Destroys the session and the sandbox behind it. Not recoverable.',
-      'await kortix.session(projectId, sessionId).delete();',
-    ].join('\n'),
-    http: {
-      kind: 'rest',
-      method: 'DELETE',
-      path: `/v1/projects/${projectId}/sessions/${sessionId}`,
-    },
-    serverInjected: [],
-    notes: [
-      `Restart is a separate call — \`POST /v1/projects/${projectId}/sessions/${sessionId}/restart\`. It keeps the sandbox, so a session that came up wrong recovers without losing its transcript, but it still ends whatever turn was in flight.`,
-      "Both calls clear the SDK's cached runtime for these ids first (`forgetReady()`), so no later handle can resolve a sandbox that has been replaced or destroyed.",
-      "Ownership is the only thing standing between one end user and another's session here: the upstream key could delete any session in the account, and the proxy is what checks this caller provisioned this project (`src/server/policy.ts`).",
-      'Deleting is not a refund. The session cost record remains available after the runtime is destroyed.',
-    ],
-  };
-}
 function sessionCosts(ctx: SnippetContext): CallSnippet {
   return {
     id: 'session.costs',
@@ -401,29 +308,6 @@ function sessionCosts(ctx: SnippetContext): CallSnippet {
       'This runs server-side in `/api/session-costs`. The route selects project IDs from the wrapper’s local ownership store before each SDK call.',
       'The response groups finalized LLM and compute cost by session. It contains no wrapper customer identity field.',
       'The app multiplies each session total by `COST_MARKUP` before it reaches the browser.',
-    ],
-  };
-}
-
-function approvalResolve(ctx: SnippetContext): CallSnippet {
-  const projectId = ctx.projectId ?? PLACEHOLDER.projectId;
-  const executionId = ctx.executionId ?? PLACEHOLDER.executionId;
-  return {
-    id: 'approval.resolve',
-    title: 'Resolve an approval',
-    summary: 'A `require_approval` gate ends the agent’s turn until a person decides.',
-    sdk: `await kortix.project(projectId).approvals.resolve('${executionId}', 'approve');`,
-    http: {
-      kind: 'rest',
-      method: 'POST',
-      path: `/v1/projects/${projectId}/approvals/${executionId}`,
-      body: { decision: 'approve' },
-    },
-    serverInjected: [],
-    notes: [
-      'A decision covers exactly the call that asked for it. The `session` / `session_all` scopes were removed: a grant keyed on (session, connector, action) ignores the ARGUMENTS, so approving a send to one recipient silently pre-authorised a send to any other. To run a tool unattended, author an `always_run` policy rule instead.',
-      'The pending set is read from the per-SESSION audit, not the project-wide approval inbox: in wrapper mode one operator credential makes every call, so the inbox would hand this browser other end-users’ execution ids — and an execution id is all this route needs.',
-      'Some refusals cannot be retried with the same credential at all; they need a decision from a signed-in person. A wrapper has no personal upstream identity, which is also why a connector call denied `connector_not_connected` for a member-owned account can never be resolved by this credential — only a teammate connecting their own account, or the project sharing one, fixes it.',
     ],
   };
 }
@@ -495,9 +379,17 @@ const BUILDERS: Record<CallSnippetId, (ctx: SnippetContext) => CallSnippet> = {
   'session.model': sessionModel,
   'session.rescope': sessionRescope,
   'sessions.list': sessionsList,
-  'session.delete': sessionDelete,
+  'session.delete': (ctx) =>
+    sessionDelete(
+      ctx,
+      "Ownership is the only thing standing between one end user and another's session here: the upstream key could delete any session in the account, and the proxy is what checks this caller provisioned this project (`src/server/policy.ts`).",
+    ),
   'session.costs': sessionCosts,
-  'approval.resolve': approvalResolve,
+  'approval.resolve': (ctx) =>
+    approvalResolve(
+      ctx,
+      'The pending set is read from the per-SESSION audit, not the project-wide approval inbox: in wrapper mode one operator credential makes every call, so the inbox would hand this browser other end-users’ execution ids — and an execution id is all this route needs.',
+    ),
   'secret.upsert': secretUpsert,
   'secret.delete': secretDelete,
 };

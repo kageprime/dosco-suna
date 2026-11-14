@@ -28,12 +28,8 @@ import { useMemo } from 'react';
 import { useAgentNav } from '../../agents/agent-nav.tsx';
 
 import { printable } from '../../../lib/printable.ts';
-import {
-  type TurnRow,
-  clip,
-  collapseToolRuns,
-  formatRelativeTime,
-} from '../../../lib/turn-layout.ts';
+import { relativeShort } from '../../../lib/relative-time.ts';
+import { type TurnRow, clip, collapseToolRuns } from '../../../lib/turn-layout.ts';
 import { theme } from '../../../theme.ts';
 import { ErrorBanner, describeTurnError } from './error-banner.tsx';
 import {
@@ -139,7 +135,7 @@ function Header({
       : delivery === 'delivering'
         ? 'sending'
         : Number.isFinite(created)
-          ? formatRelativeTime(created, now)
+          ? relativeShort(now - created)
           : '';
   return (
     <text fg={theme.dim} width={Math.max(width, 4)}>
@@ -251,7 +247,7 @@ function PeerMessageRow({
   createdAt,
 }: { peer: PeerMessagePromptInfo; width: number; now: number; createdAt: string }) {
   const created = Date.parse(createdAt);
-  const age = Number.isFinite(created) ? formatRelativeTime(created, now) : '';
+  const age = Number.isFinite(created) ? relativeShort(now - created) : '';
   const kind = peer.kind === 'message' ? '' : ` · ${peer.kind.replace(/_/g, ' ')}`;
   const lines = peer.text.split('\n').filter((line) => line.trim().length > 0);
   const shown = lines.slice(0, PEER_BODY_LINES);

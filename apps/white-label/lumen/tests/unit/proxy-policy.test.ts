@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { buildUpstreamPath } from '@kortix/white-label-shared/upstream-path';
 import {
   SESSION_CREATE,
   SESSION_ONE,
@@ -716,5 +717,24 @@ describe('proxy response headers: the browser never sees the platform', () => {
       etag: 'W/"7"',
       'x-next-cursor': 'c2',
     });
+  });
+});
+
+describe('proxy policy: a canonical route is judged exactly like its legacy name', () => {
+  // The proxy judges and forwards `buildUpstreamPath(segments).path`, so the
+  // legacy map decides what a canonical name may reach (KRTX-4847).
+  const ID = '0b8c9d3e-1111-4222-8333-944455556666';
+  test.each([
+    [['workspaces', ID, 'sessions'], `projects/${ID}/sessions`],
+    [['workspaces', ID, 'members'], `accounts/${ID}/members`],
+    [['workspaces', ID, 'audit', 'events'], `projects/${ID}/audit`],
+    [['workspaces', ID, 'keys'], `accounts/${ID}/keys`],
+    [['webhooks', 'workspaces', ID, 'w1'], `webhooks/projects/${ID}/w1`],
+  ])('%j is judged as %s', (segments, legacy) => {
+    const built = buildUpstreamPath(segments);
+    if (!built.ok) throw new Error(built.reason);
+    for (const method of ['GET', 'POST']) {
+      expect(blockedReason(method, built.path)).toBe(blockedReason(method, legacy));
+    }
   });
 });

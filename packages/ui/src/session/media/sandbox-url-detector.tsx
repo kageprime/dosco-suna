@@ -392,5 +392,5 @@ export const SandboxUrlDetector: React.FC<SandboxUrlDetectorProps> = ({
   const rawContent = typeof content === 'string' ? content : content ? String(content) : '';
   const safeContent = stripKortixSystemTags(rawContent);
 
-  return <UnifiedMarkdown content={safeContent} trust="agent" isStreaming={isStreaming} genui={genui} />;
+  return <UnifiedMarkdown content={safeContent} trust="agent" isStreaming={isStreaming} genui={genui} lineBreaks="chat" />;
 };

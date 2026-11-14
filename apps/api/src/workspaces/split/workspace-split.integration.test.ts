@@ -52,6 +52,7 @@ import {
   processWorkspaceSplits,
   reopenWorkspaceSplitRun,
   repairWorkspaceSplitRun,
+  fillWorkspaceIds,
   resetWorkspaceSplitPlanClock,
   reverseWorkspaceSplitRun,
   workspaceSplitReport,
@@ -857,6 +858,71 @@ withDb('workspace split', () => {
     // Repaired once: the CLI's second repair changes nothing.
     expect(await repairWorkspaceSplitRun(run.runId)).toEqual({ rows: {}, i2Violations: 0 });
     expect(tick.nextDelayMs).toBeGreaterThan(0);
+  });
+
+  test('the fill runs under its own statement budget, not the pool default (the 2026-11-12 tick-failure loop)', async () => {
+    // A 1:1 account: exactly one non-split-pending workspace row, so the fill's
+    // workspace_id_of_account resolves to that row's id (a split_pending
+    // account resolves to NULL by design and stamps nothing).
+    const FILL = '00000000-0000-4000-a000-0000000e0106';
+    const FILL_PROJECT = '00000000-0000-4000-a000-0000000e0107';
+    await db.insert(accounts).values({ accountId: FILL, name: 'Synthetic fill' });
+    await db.insert(projects).values({ projectId: FILL_PROJECT, accountId: FILL, name: 'Fill', repoUrl: 'https://example.invalid/fill.git' });
+    const [live] = await db.execute<{ id: string }>(
+      sql`SELECT workspace_id::text AS id FROM kortix.workspaces WHERE legacy_account_id = ${FILL} AND lifecycle <> 'tombstone'`,
+    );
+    expect(live?.id).toBeTruthy();
+    // An expand row the fill must re-stamp, its row lock held by another
+    // transaction: the fill's UPDATE queues on the lock, and a
+    // statement_timeout fires while queued (the audit-pool 57014 shape). On
+    // prod the pool's 25 s default canceled the fill on every tick; its own
+    // transaction-local budget must be the one in force.
+    const [purchase] = await db.insert(creditPurchases)
+      .values({ accountId: FILL, amountDollars: '3.00', status: 'completed' })
+      .returning({ id: creditPurchases.id });
+    if (!purchase) throw new Error('the purchase row did not return');
+    // The stamp trigger pinned it to the live id on INSERT; park the id so the
+    // fill matches the row again (the trigger fires on INSERT or UPDATE OF
+    // account_id only, so this UPDATE keeps the parked id).
+    await db.execute(sql`UPDATE kortix.credit_purchases SET workspace_id = gen_random_uuid() WHERE id = ${purchase.id}`);
+    const gate = Promise.withResolvers<void>();
+    const lockReady = Promise.withResolvers<void>();
+    const lock = db
+      .transaction(async (tx) => {
+        await tx.execute(sql`SELECT id FROM kortix.credit_purchases WHERE id = ${purchase.id} FOR UPDATE`);
+        lockReady.resolve(); // the row lock is held
+        await gate.promise;
+      })
+      .catch(() => lockReady.resolve()); // a lock that never held resolves the handshake; the assertions see the unblocked fill
+    await lockReady.promise; // the fill must queue on a held row lock, never race one
+    let sqlstate = '';
+    try {
+      const outcome = await Promise.race([
+        fillWorkspaceIds([FILL], { statementTimeout: '1s' }).then(
+          () => 'completed' as const,
+          (error) => {
+            sqlstate = String((error as { cause?: { code?: string } }).cause?.code ?? (error as { code?: string }).code ?? '');
+            return 'failed' as const;
+          },
+        ),
+        Bun.sleep(5_000).then(() => 'stuck' as const),
+      ]);
+      // 'stuck' means the fill ran at the pool's 25 s default: no budget in force.
+      expect(outcome).toBe('failed');
+      expect(sqlstate).toBe('57014');
+    } finally {
+      gate.resolve();
+      await lock;
+    }
+    // The fill still completes and stamps the row with the live workspace id.
+    await fillWorkspaceIds([FILL]);
+    const [stamped] = await db.execute<{ workspace_id: string | null }>(
+      sql`SELECT workspace_id::text AS workspace_id FROM kortix.credit_purchases WHERE id = ${purchase.id}`,
+    );
+    expect(stamped?.workspace_id).toBe(live?.id);
+    await db.delete(creditPurchases).where(eq(creditPurchases.accountId, FILL));
+    await db.delete(projects).where(eq(projects.projectId, FILL_PROJECT));
+    await db.delete(accounts).where(eq(accounts.accountId, FILL));
   });
 
   test('apply sends no email and queues none: an account\'s last move records account_finished_at instead (D13)', async () => {

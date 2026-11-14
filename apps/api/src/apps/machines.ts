@@ -451,13 +451,32 @@ export async function abandonRelease(appId: string, deploymentId: string, hostin
   await teardownAppRuntimes(await releaseInstances(deploymentId));
   const [app] = await db.select({ active: apps.activeDeploymentId }).from(apps).where(eq(apps.appId, appId)).limit(1);
   if (app?.active !== deploymentId) {
-    if (app?.active) await reconcileAppMachines(appId, { hosting, exceptDeploymentId: deploymentId });
+    if (app?.active) await restoreReleaseMachines(appId, deploymentId, hosting);
     return;
   }
   const previousId = await previousReleaseId(appId, deploymentId);
   await pointTraffic(appId, previousId, deploymentId);
   await event(deploymentId, 'traffic_reverted', 'Traffic returned to the previous release', { previousDeploymentId: previousId }, undefined, 'warn');
-  if (previousId) await reconcileAppMachines(appId, { hosting, exceptDeploymentId: deploymentId });
+  if (previousId) await restoreReleaseMachines(appId, deploymentId, hosting);
+}
+
+/**
+ * Give the active release back the machine the failed release took. The
+ * abandon's essential work (teardown, traffic) is already done, so a restore
+ * failure must not fail the cleanup step — but the App runs under-scaled until
+ * the next deploy or scale re-runs the reconcile, so it stays visible.
+ * ponytail: no restore retry here; the next deploy or scale re-runs the reconcile.
+ */
+async function restoreReleaseMachines(appId: string, deploymentId: string, hosting: AppHostingProvider): Promise<void> {
+  try {
+    await reconcileAppMachines(appId, { hosting, exceptDeploymentId: deploymentId });
+  } catch (error) {
+    logger.error('[apps] failed-deploy machine restore failed', {
+      appId,
+      deploymentId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 /** Machine ids of a group's volumes whose machine has no live instance: a new machine takes these first. */

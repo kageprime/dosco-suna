@@ -1,5 +1,6 @@
-import { describe, expect, test } from 'bun:test';
-import { planLocalAuditV2LedgerRepair } from './local-audit-v2-ledger-repair';
+import { describe, expect, spyOn, test } from 'bun:test';
+import pg from 'pg';
+import { planLocalAuditV2LedgerRepair, readSignature } from './local-audit-v2-ledger-repair';
 
 const complete = {
   tables: ['audit_session_sequences', 'audit_webhook_deliveries'],
@@ -47,5 +48,52 @@ describe('local audit-v2 ledger repair plan', () => {
     expect(() =>
       planLocalAuditV2LedgerRepair(false, { ...complete, triggers: complete.triggers.slice(1) }),
     ).toThrow('partial local schema');
+  });
+});
+
+describe('readSignature', () => {
+  /** Maps a recorded query back to its signature section by its catalog source. */
+  function sectionOf(sql: string): keyof typeof complete {
+    if (sql.includes("join pg_namespace n on n.oid = c.relnamespace")) return 'tables';
+    if (sql.includes("table_name = 'audit_events'")) return 'auditColumns';
+    if (sql.includes("table_name = 'tunnel_audit_logs'")) return 'tunnelColumns';
+    if (sql.includes('from pg_proc')) return 'functions';
+    if (sql.includes('from pg_trigger')) return 'triggers';
+    if (sql.includes('from pg_indexes')) return 'indexes';
+    throw new Error(`unrecognized signature query: ${sql}`);
+  }
+
+  test('binds every section name list as ONE text[] parameter, in section order', async () => {
+    const client = new pg.Client();
+    const calls: Array<{ sql: string; params: unknown[] | undefined }> = [];
+    spyOn(client, 'query').mockImplementation(async (sql: string, params?: unknown[]) => {
+      const index = calls.length;
+      calls.push({ sql: String(sql), params });
+      return { rows: [{ name: `v${index}` }], rowCount: 1 } as unknown as pg.QueryResult<{
+        name: string;
+      }>;
+    });
+
+    const signature = await readSignature(client);
+
+    expect(signature).toEqual({
+      tables: ['v0'],
+      auditColumns: ['v1'],
+      tunnelColumns: ['v2'],
+      functions: ['v3'],
+      triggers: ['v4'],
+      indexes: ['v5'],
+    });
+    expect(calls).toHaveLength(6);
+    for (const call of calls) {
+      // One placeholder: the catalog SQL takes a single text[] parameter.
+      expect(call.sql).toContain('any($1::text[])');
+      expect(call.sql.match(/\$\d/g)).toEqual(['$1']);
+      // The wrapped shape pg receives: ONE bind value, the section's name
+      // list. A flat list throws `08P01 bind message supplies 2 parameters,
+      // but prepared statement "" requires 1` on a real server.
+      expect(call.params).toHaveLength(1);
+      expect(call.params?.[0]).toEqual(complete[sectionOf(call.sql)]);
+    }
   });
 });

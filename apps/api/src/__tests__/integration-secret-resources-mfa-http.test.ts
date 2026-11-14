@@ -37,7 +37,7 @@ app.use('*', async (c, next) => {
 app.route('/v1/accounts', accountsRouter);
 
 beforeAll(async () => {
-  project = await seedProject('secret-resources-mfa', { metadata: { experimental: { pooled_provider_secrets: true } } });
+  project = await seedProject('secret-resources-mfa');
   // Required before anything authorizes in this account, so no cached actor misses it.
   await db.update(accounts).set({ mfaRequired: true }).where(eq(accounts.accountId, project.account_id));
   await insertIntoView(db, accountMembers, [

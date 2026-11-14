@@ -12,11 +12,15 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 let row: Record<string, unknown> | null = { tier: 'free' };
 let reads = 0;
+/** When set, the next read answers only once it resolves. */
+let gate: Promise<void> | null = null;
 
 mock.module('../repositories/credit-accounts', () => ({
   getCreditAccount: async () => {
     reads += 1;
-    return row;
+    const answer = row;
+    if (gate) await gate;
+    return answer;
   },
 }));
 
@@ -29,6 +33,25 @@ describe('resolveAccountBilling — the one billing cache', () => {
     invalidateAccountBilling();
     row = { tier: 'free' };
     reads = 0;
+    gate = null;
+  });
+
+  test('a read that started before an invalidation does not cache its old answer', async () => {
+    // F-004: the model list read raced the checkout's plan write and cached
+    // Free for the whole TTL.
+    let release = () => {};
+    gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    const inFlight = resolveAccountBilling('acct-1');
+    row = { tier: 'credits' };
+    invalidateAccountBilling('acct-1');
+    release();
+    expect((await inFlight).plan.key).toBe('free');
+
+    gate = null;
+    expect((await resolveAccountBilling('acct-1')).plan.key).toBe('credits');
+    expect(reads).toBe(2);
   });
 
   test('a plan change mid-window is invisible until the entry expires', async () => {

@@ -73,12 +73,10 @@ describe('transactional Sales outbox on PostgreSQL', () => {
 
   test('anonymous and authenticated database writers cannot write a lead at all; the API writer enqueues one event', async () => {
     for (const role of ['anon', 'authenticated']) {
-      for (const table of ['public.contact_forms', 'kortix.contact_forms']) {
-        await expect(db.transaction(async (tx) => {
-          await tx.execute(sql.raw(`SET LOCAL ROLE ${role}`));
-          await tx.execute(sql.raw(`INSERT INTO ${table}(data) VALUES ('{"email":"agent@kortix.ai","form":"demo"}')`));
-        })).rejects.toThrow();
-      }
+      await expect(db.transaction(async (tx) => {
+        await tx.execute(sql.raw(`SET LOCAL ROLE ${role}`));
+        await tx.execute(sql.raw(`INSERT INTO kortix.contact_forms(data) VALUES ('{"email":"agent@kortix.ai","form":"demo"}')`));
+      })).rejects.toThrow();
     }
     expect(await db.execute(sql`SELECT 1 FROM kortix.sales_event_outbox`)).toHaveLength(0);
     await db.execute(sql`INSERT INTO kortix.contact_forms(data) VALUES ('{"email":"agent@kortix.ai","form":"demo"}')`);
@@ -92,13 +90,6 @@ describe('transactional Sales outbox on PostgreSQL', () => {
       await tx.execute(sql`INSERT INTO kortix.contact_forms(data) VALUES ('{"email":"agent@kortix.ai","form":"demo"}')`);
       throw new Error('simulated crash before commit');
     })).rejects.toThrow('simulated crash');
-    expect(await db.execute(sql`SELECT 1 FROM kortix.sales_event_outbox`)).toHaveLength(1);
-  });
-
-  test('a lead an old web build writes to public.contact_forms is mirrored to kortix.contact_forms with one Sales event', async () => {
-    const [row] = (await db.execute(sql`INSERT INTO public.contact_forms(data) VALUES ('{"email":"agent@kortix.ai","form":"demo"}') RETURNING id::text AS id`)) as unknown as Array<{ id: string }>;
-    expect(await db.execute(sql`SELECT 1 FROM kortix.contact_forms WHERE id = ${row!.id}::uuid AND data->>'form' = 'demo'`)).toHaveLength(1);
-    expect(await db.execute(sql`SELECT 1 FROM kortix.sales_event_outbox WHERE event_id = ${`demo.requested:${row!.id}`}`)).toHaveLength(1);
     expect(await db.execute(sql`SELECT 1 FROM kortix.sales_event_outbox`)).toHaveLength(1);
   });
 });

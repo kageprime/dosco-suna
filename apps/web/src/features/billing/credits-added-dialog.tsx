@@ -20,7 +20,8 @@ import { Button } from '@kortix/ui/button';
 import { Modal, ModalContent, ModalDescription, ModalTitle } from '@kortix/ui/modal';
 import { Skeleton } from '@kortix/ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
-import { m, useReducedMotion } from 'motion/react';
+import { m } from 'motion/react';
+import { useReducedMotion } from '@kortix/ui/internal/hooks/use-reduced-motion';
 import { create } from 'zustand';
 
 import { useLocale, useTranslations } from '@/i18n/use-translations';

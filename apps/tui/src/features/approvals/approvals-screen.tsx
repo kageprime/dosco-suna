@@ -25,6 +25,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { kortix } from '../../kortix.ts';
 import { openUrl } from '../../lib/open-url.ts';
 import { theme } from '../../theme.ts';
+import type { ScreenProps } from '../../screens.tsx';
+import { useScreenAction } from '../../ui/index.ts';
 import {
   VERB_LABEL,
   type Verb,
@@ -34,18 +36,10 @@ import {
 } from './approvals-model.ts';
 import { type ApprovalDetail, ApprovalsView } from './approvals-view.tsx';
 
-export interface ApprovalsScreenProps {
-  projectId: string | null;
-  accountId: string | null;
-  sessionId: string | null;
-  focused: boolean;
-  width: number;
-  height: number;
-  webBaseUrl: string;
-  onBack(): void;
-  onOpenSession(sessionId: string): void;
-  onToast(message: string, kind?: 'info' | 'error'): void;
-}
+export type ApprovalsScreenProps = Pick<
+  ScreenProps,
+  'projectId' | 'focused' | 'width' | 'height' | 'webBaseUrl' | 'onBack' | 'onOpenSession' | 'onToast'
+>;
 
 /** The web polls the open list every 8 s. */
 const LIST_POLL_MS = 8_000;
@@ -78,8 +72,6 @@ export function doneText(verb: Verb, id: string): string {
 
 export function ApprovalsScreen({
   projectId,
-  accountId: _accountId,
-  sessionId: _sessionId,
   focused,
   width,
   height,
@@ -91,8 +83,8 @@ export function ApprovalsScreen({
   const client = useQueryClient();
   const [segment, setSegment] = useState<ReviewSegment>('needs_you');
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const { busy, run, refresh } = useScreenAction(onToast);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), CLOCK_TICK_MS);
@@ -150,37 +142,35 @@ export function ApprovalsScreen({
       const project = kortix().project(projectId);
       const target = reviewItemTarget(id);
       const note = text.trim();
-      setBusy(`${VERB_LABEL[verb].toLowerCase()}…`);
-      void (async () => {
-        if (target.type === 'connector_call') {
-          await project.approvals.resolve(
-            target.executionId,
-            verb === 'approve' ? 'approve' : 'deny',
-            note ? { note } : {},
-          );
-        } else if (target.type === 'change_request') {
-          if (verb === 'approve') await project.changeRequests.merge(target.changeRequestId);
-          else if (verb === 'reject') await project.changeRequests.close(target.changeRequestId);
-          else await project.changeRequests.requestChanges(target.changeRequestId, note);
-        } else {
-          await project.review.act(id, { verdict: verb, ...(note ? { feedback: note } : {}) });
-        }
-        await refreshInbox();
-        onToast(doneText(verb, id));
-      })()
-        .catch((error: unknown) => {
+      run(`${VERB_LABEL[verb].toLowerCase()}…`, async () => {
+        try {
+          if (target.type === 'connector_call') {
+            await project.approvals.resolve(
+              target.executionId,
+              verb === 'approve' ? 'approve' : 'deny',
+              note ? { note } : {},
+            );
+          } else if (target.type === 'change_request') {
+            if (verb === 'approve') await project.changeRequests.merge(target.changeRequestId);
+            else if (verb === 'reject') await project.changeRequests.close(target.changeRequestId);
+            else await project.changeRequests.requestChanges(target.changeRequestId, note);
+          } else {
+            await project.review.act(id, { verdict: verb, ...(note ? { feedback: note } : {}) });
+          }
+          await refreshInbox();
+          return doneText(verb, id);
+        } catch (error) {
+          void refreshInbox();
           const code = (error as { code?: string }).code;
-          onToast(
+          throw new Error(
             code === 'MERGE_CONFLICT'
               ? 'Merge conflict. Resolve it in Review or the web app.'
               : errorText(error),
-            'error',
           );
-          void refreshInbox();
-        })
-        .finally(() => setBusy(null));
+        }
+      });
     },
-    [projectId, refreshInbox, onToast],
+    [projectId, refreshInbox, run],
   );
 
   const openWeb = useCallback(
@@ -193,12 +183,9 @@ export function ApprovalsScreen({
     [projectId, webBaseUrl, onToast],
   );
 
-  const refresh = useCallback(() => {
-    setBusy('refreshing…');
-    void Promise.all([pages.refetch(), summary.refetch()])
-      .catch((error: unknown) => onToast(errorText(error), 'error'))
-      .finally(() => setBusy(null));
-  }, [pages.refetch, summary.refetch, onToast]);
+  const refreshList = useCallback(() => {
+    refresh('refreshing…', () => Promise.all([pages.refetch(), summary.refetch()]));
+  }, [refresh, pages.refetch, summary.refetch]);
 
   const loadMore = useCallback(() => {
     if (pages.hasNextPage && !pages.isFetchingNextPage) void pages.fetchNextPage();
@@ -232,7 +219,7 @@ export function ApprovalsScreen({
       onOpenSession={onOpenSession}
       onOpenWeb={openWeb}
       onLoadMore={loadMore}
-      onRefresh={refresh}
+      onRefresh={refreshList}
       onBack={onBack}
     />
   );

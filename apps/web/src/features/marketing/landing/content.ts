@@ -105,7 +105,7 @@ export const trust = {
       title: 'Yours, end to end',
       // ACCURACY: the managed cloud is the shipped deployment. Do not turn
       // this card into a VPC, on-prem or air-gapped marketing claim.
-      body: 'Dosco Cloud runs on infrastructure we operate. Your workspace, models, keys and data stay under your control.',
+      body: 'Cloud runs on infrastructure we operate. Your workspace, models, keys and data stay under your control.',
     },
   ],
 } as const;

@@ -53,6 +53,7 @@ describe('pg-broadcast subscriber isolation', () => {
       broadcast.CHROME_COMMAND_CHANNEL,
       broadcast.SPACE_ACCESS_BUST_CHANNEL,
       broadcast.SESSION_LIST_BUST_CHANNEL,
+      broadcast.BILLING_BUST_CHANNEL,
     ]);
   });
 
@@ -132,6 +133,7 @@ describe('pg-broadcast subscriber isolation', () => {
     ['session prompts changed', 'kortix_session_prompts_changed', (h) => broadcast.onSessionPromptsChanged(h)],
     ['space access bust', 'kortix_space_access_bust', (h) => broadcast.onSpaceAccessBustNotify(h)],
     ['session list bust', 'kortix_session_list_bust', (h) => broadcast.onSessionListBustNotify(h)],
+    ['billing bust', 'kortix_billing_bust', (h) => broadcast.onBillingBustNotify(h)],
   ];
   for (const [name, channel, register] of uuidChannels) {
     test(`${name}: non-uuid dropped, throw swallowed, null handler no-op`, () => {

@@ -247,6 +247,30 @@ describe('INTERFACE_THEME_INIT_SCRIPT', () => {
     }
   });
 
+  test('the "Reduce motion" switch marks <html> on workspace routes, before first paint', () => {
+    const stored = blob({ reduceMotion: true });
+    for (const path of ['/workspaces/p1/sessions/s1', '/projects/p1', '/new', '/settings/preferences']) {
+      expect(runInitScript(stored, false, path)).toEqual({
+        'data-light-theme': 'pure-light',
+        'data-dark-theme': 'pure-dark',
+        'data-reduce-motion': '',
+      });
+    }
+  });
+
+  test('marketing, auth and other public pages keep their motion with the switch on', () => {
+    const stored = blob({ reduceMotion: true });
+    for (const path of ['/', '/pricing', '/auth', '/developers', '/invites/x']) {
+      expect(runInitScript(stored, false, path)).toEqual({});
+    }
+  });
+
+  test('the switch off, a legacy blob or a non-boolean leaves motion on', () => {
+    for (const stored of [blob({ reduceMotion: false }), blob({}), blob({ reduceMotion: 'true' }), null]) {
+      expect(runInitScript(stored, false, '/workspaces')).not.toHaveProperty('data-reduce-motion');
+    }
+  });
+
   test('blocked storage or bad JSON never throws', () => {
     expect(() => runInitScript(null, true)).not.toThrow();
     expect(() => runInitScript('{not json')).not.toThrow();

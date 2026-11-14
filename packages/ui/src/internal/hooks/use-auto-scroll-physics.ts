@@ -216,13 +216,5 @@ export function settleMotion(input: {
   return 'instant';
 }
 
-let reducedMotionQuery: MediaQueryList | null | undefined;
-export function prefersReducedMotion(): boolean {
-  if (reducedMotionQuery === undefined) {
-    reducedMotionQuery =
-      typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-        ? window.matchMedia('(prefers-reduced-motion: reduce)')
-        : null;
-  }
-  return reducedMotionQuery?.matches ?? false;
-}
+// The OS setting or the "Reduce motion" switch (`use-reduced-motion.ts`).
+export { prefersReducedMotion } from './use-reduced-motion';

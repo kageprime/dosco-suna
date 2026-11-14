@@ -477,4 +477,39 @@ describe('provider-neutral preview lifecycle', () => {
     const active = new Map([[10, 'a']]);
     expect(selectStalePreviewSandboxIds(sandboxes, active)).toEqual(['stale', 'closed']);
   });
+
+  it('guards both remote preview scripts on the same input rules, in order', () => {
+    const base = {
+      repository: input.repository,
+      ref: 'refs/pull/6337/head',
+      sha: input.sha,
+      prNumber: input.prNumber,
+      origin: 'https://preview.example.com',
+    };
+    const statusPath = '/workspace/kortix-preview/run-1-1-suite.exit';
+    const bootstrap = (patch: Partial<typeof base> & { hostName?: string }) =>
+      () => buildPreviewBootstrapScript({ ...base, ...patch });
+    const suite = (patch: { sha?: string; prNumber?: number }) =>
+      () => buildPreviewSuiteScript({ prNumber: base.prNumber, sha: base.sha, statusPath, ...patch });
+
+    expect(bootstrap({ repository: 'no-slash', sha: 'nope' })).toThrow('invalid GitHub repository: no-slash');
+    expect(bootstrap({ ref: 'refs/$(id)', sha: 'nope' })).toThrow('invalid Git ref: refs/$(id)');
+    expect(bootstrap({ sha: 'nope', prNumber: 0 })).toThrow('invalid Git SHA: nope');
+    expect(bootstrap({ prNumber: 0, origin: 'http://x' })).toThrow('invalid preview PR number: 0');
+    expect(suite({ sha: 'nope', prNumber: 0 })).toThrow('invalid Git SHA: nope');
+    expect(suite({ prNumber: 0 })).toThrow('invalid preview PR number: 0');
+    expect(suite({})).not.toThrow();
+
+    for (const origin of [
+      'https://user:pass@preview.example.com/',
+      'http://preview.example.com/',
+      'https://preview.example.com/path',
+    ]) {
+      expect(bootstrap({ origin }), origin).toThrow('preview origin must be');
+    }
+    for (const hostName of ['kortix-preview-pr-0', 'kortix-env-', 'kortix-']) {
+      expect(bootstrap({ hostName }), hostName).toThrow(`invalid preview host name: ${hostName}`);
+    }
+    expect(bootstrap({ hostName: 'kortix-preview-pr-6337' })).not.toThrow();
+  });
 });

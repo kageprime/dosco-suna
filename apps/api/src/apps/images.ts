@@ -59,6 +59,7 @@ import { config, type SandboxProviderName } from '../config';
 import { logger } from '../lib/logger';
 import { getProvider, type SandboxProvider } from '../platform/providers';
 import { db } from '../shared/db';
+import { escalateProviderAuthOutage } from '../shared/provider-auth';
 import { mapWithConcurrency } from '../shared/map-with-concurrency';
 import { getSandboxProvider } from '../snapshots/providers';
 import { releaseVolumesOf } from './volumes';
@@ -300,6 +301,10 @@ export async function releaseAppImage(
   const name = image.imageName;
   const fail = (error: unknown): 'pending' => {
     if (!(error instanceof SnapshotInUseError)) {
+      // The same invisible-outage family as every other `[apps] … maintenance
+      // retries it` warn: a dead provider key answers every release with a 401
+      // and this line paged nobody. The provider is the failing call's target.
+      escalateProviderAuthOutage(image.provider, 'app image release', error);
       logger.warn('[apps] shared image release failed; maintenance retries it', {
         imageName: name,
         provider: image.provider,
@@ -444,6 +449,7 @@ export async function releaseDeploymentImage(
     return 'released';
   } catch (error) {
     if (!(error instanceof SnapshotInUseError)) {
+      escalateProviderAuthOutage(deployment.hostingProvider, 'app image release', error);
       logger.warn('[apps] image release failed; maintenance retries it', {
         deploymentId: deployment.deploymentId,
         provider: deployment.hostingProvider,
@@ -510,6 +516,7 @@ export async function removeAppRuntime(
   } catch (error) {
     const status = await provider.getStatus(runtime.externalId).catch(() => 'unknown' as const);
     if (status === 'removed') return true;
+    escalateProviderAuthOutage(runtime.provider, 'app runtime removal', error);
     logger.warn('[apps] runtime removal failed; maintenance retries it', {
       runtimeId: runtime.runtimeId,
       provider: runtime.provider,

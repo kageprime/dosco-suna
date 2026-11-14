@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { GatewayHooks, GatewayTrace, UpstreamDescriptor, UsageEvent } from '../domain';
-import { GatewayResolutionError, UpstreamHttpError } from '../errors';
+import { GatewayResolutionError, TimeoutError, UpstreamHttpError } from '../errors';
 import { rawProviderError } from './dispatch';
 import { createRouteMemory, routeMemoryKey } from './route-memory';
 import { handleChatCompletions } from './simple-handler';
@@ -1849,7 +1849,7 @@ describe('refused requests are traced', () => {
         hooks: {
           ...hooks(usage, traces),
           assertBillingActive: async () => {
-            throw new Error('Billing inactive');
+            throw Object.assign(new Error('Billing inactive'), { reason: 'subscription_required' });
           },
         },
         logger,
@@ -1867,6 +1867,35 @@ describe('refused requests are traced', () => {
     expect(trace?.errorCode).toBe('subscription_required');
     expect(trace?.errorMessage).toBe('Billing inactive');
     // A refusal settles nothing: no usage row, no cost.
+    expect(usage).toHaveLength(0);
+  });
+
+  // prod 2026-11-12: the control plane stalled for 25 s and funded accounts got
+  // `402 subscription_required "attempt 3 exceeded 5000ms"`; their agents reported "Out of credits".
+  test('a billing check that got no answer is a retryable 503 with one failed trace, not a 402', async () => {
+    const usage: UsageEvent[] = [];
+    const traces: GatewayTrace[] = [];
+    const response = await handleChatCompletions(
+      {
+        hooks: {
+          ...hooks(usage, traces),
+          assertBillingActive: async () => {
+            throw new TimeoutError('attempt 3 exceeded 5000ms');
+          },
+        },
+        logger,
+      },
+      { authorization: 'Bearer token', rawBody: JSON.stringify({ model: 'requested-model', messages: [{ role: 'user', content: 'hi' }] }) },
+    );
+    expect(response.status).toBe(503);
+    expect(response.headers.get('retry-after')).toBe('5');
+    const body = (await response.json()) as { code?: string };
+    expect(body.code).toBe('admission_unavailable');
+    const trace = await firstTrace(traces);
+    expect(traces).toHaveLength(1);
+    expect(trace?.status).toBe(503);
+    expect(trace?.errorCode).toBe('admission_unavailable');
+    expect(trace?.errorMessage).toBe('attempt 3 exceeded 5000ms');
     expect(usage).toHaveLength(0);
   });
 

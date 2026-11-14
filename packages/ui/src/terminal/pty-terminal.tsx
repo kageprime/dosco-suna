@@ -231,10 +231,13 @@ export const PtyTerminal = forwardRef<PtyTerminalHandle, PtyTerminalProps>(funct
         className,
       )}
     >
-      <div
-        ref={terminalRef}
-        className={cn('h-full w-full px-3 py-2', !hasConnected && 'opacity-0')}
-      />
+      {/* The inset lives on this wrapper, never on the element xterm opens
+          into: FitAddon sizes rows/cols from its parent's computed
+          height/width, which under border-box includes that parent's own
+          padding, so a padded parent fits one row too many and clips it. */}
+      <div className={cn('h-full w-full px-3 py-2', !hasConnected && 'opacity-0')}>
+        <div ref={terminalRef} className="h-full w-full overflow-hidden" />
+      </div>
       {phase && !hidden ? (
         <PtyAttachStatus
           phase={phase}

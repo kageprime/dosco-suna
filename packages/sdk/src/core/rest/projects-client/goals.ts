@@ -830,7 +830,8 @@ export interface CreatedProjectGoal {
 /** The workspace name of {@link CreatedProjectGoal}: the same type. */
 export type CreatedWorkspaceGoal = CreatedProjectGoal;
 
-type GoalCreateBody = { goal_id: string; brief: string; criteria?: string[]; agent?: string; assigned_user_id?: string };
+/** `here`: goal mode, the calling chat session owns the goal (a session token only). */
+type GoalCreateBody = { goal_id: string; brief: string; criteria?: string[]; agent?: string; assigned_user_id?: string; here?: boolean };
 
 /** The create (`POST /workspaces/:projectId/goals`) sent as given, no trim or limit check: `createWorkspaceGoal` is the person flow on top. `goal_id` is the idempotency key. */
 export async function createWorkspaceGoalRecord(projectId: string, body: GoalCreateBody): Promise<ProjectGoalRecord> {

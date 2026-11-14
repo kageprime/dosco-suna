@@ -152,6 +152,7 @@ function ProjectHomeView({
     submit?: boolean | 'when-ready';
     files?: AttachedFile[];
     options?: SessionPromptOverrides;
+    restoreDraft?: boolean;
   } | null>(null);
 
   // The sandbox TEMPLATE catalog, not live sandbox health (that is
@@ -368,13 +369,18 @@ function ProjectHomeView({
 
   useEffect(() => {
     if (!pendingPrefill) return;
-    consumePrefill(projectId);
+    // Apply what `consume` returns, never the render-time snapshot: the
+    // typing buffer may have dropped the entry since this render (another
+    // account signed in on the tab), and a dropped entry must not land.
+    const taken = consumePrefill(projectId);
+    if (!taken) return;
     setPrefill({
-      text: pendingPrefill.text,
+      text: taken.text,
       id: Date.now(),
-      submit: pendingPrefill.submit,
-      files: pendingPrefill.files,
-      options: pendingPrefill.options,
+      submit: taken.submit,
+      files: taken.files,
+      options: taken.options,
+      restoreDraft: taken.restoreDraft,
     });
   }, [pendingPrefill, projectId, consumePrefill]);
 
@@ -422,15 +428,12 @@ function ProjectHomeView({
       onCommand={handleCommand}
       projectId={projectId}
       draftScope={draftScope}
-      // `busy` here means "create in flight" — spinner in the send slot,
-      // input locked. NOT isBusy (that renders agent-running stop-button
-      // semantics, which leave the composer with no button at all here).
+      draftHandoffScope={onSend ? undefined : defaultSend.draftHandoffScope}
+      // While the create runs, the sent message stays in the composer, locked,
+      // with the spinner in the send slot. The session page then draws it as
+      // the first turn. A refused send unlocks the same text for a retry.
       isSending={creating}
       disabled={creating}
-      // The home composer navigates to the new session on send — don't
-      // clear it first (that would drop the text on a gated send). The
-      // message rides across via `create.pending_prompt` and reappears
-      // as the instant shell's optimistic turn.
       clearOnSend={false}
       autoFocus
       // Desktop: a hero composer floating mid-page has no column for a second
@@ -495,9 +498,10 @@ function ProjectHomeView({
           reason={noAgentReason}
           repoUrl={projectRowQuery.data?.repo_url}
           branch={projectRowQuery.data?.default_branch}
+          dashboardUrl={projectRowQuery.data?.dashboard_url}
         />
       ) : firstChat ? (
-        <FirstChat composer={composer} />
+        <FirstChat projectId={projectId} composer={composer} />
       ) : (
         <ProjectHomeWelcomeBody
           projectId={projectId}

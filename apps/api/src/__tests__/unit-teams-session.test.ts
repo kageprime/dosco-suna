@@ -824,6 +824,8 @@ describe('models and keys — a chat runs what its /model picked, on the keys it
   test('a personal chat starts a session private to the linked person, so their own keys count', async () => {
     await createOrJoinTeamsConversationSession({ projectId: PROJECT_ID, tenantId: TENANT_ID, conversationId: CONVERSATION_ID, activity: inChat('personal') });
     expect(created[0].visibility).toBe('private');
+    // A message creates inline: only trigger fires queue on backpressure.
+    expect(created[0]).not.toHaveProperty('queuePolicy');
     expect(startPlans[0].scope).toMatchObject({ linkedUserId: 'user-1', oneToOne: true, personalUserId: 'user-1' });
   });
 

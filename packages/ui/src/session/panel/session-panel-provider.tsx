@@ -58,6 +58,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -71,6 +72,7 @@ import {
   quickBrowserOutput,
 } from './easy/easy-panel-logic';
 import { FilePreview, reportsIntrinsicSize } from './easy/file-preview';
+import { forgetFrameHistory, noteBrowserApps, resumableFrameHistory } from './easy/frame-history';
 import { type deriveContext, type OutputItem } from './shared/derive-panels';
 import { usePanelDerivations } from './shared/use-panel-derivations';
 import { usePanelHandoffs } from './shared/use-panel-handoffs';
@@ -278,6 +280,10 @@ export function SessionPanelProvider({
     setDetail((current) => (current ? null : current));
     setTerminalOpen((open) => (open ? false : open));
   }, [activeSessionId]);
+  // The Browser's page and Back/Forward end with the detail (frame-history.ts).
+  useEffect(() => {
+    forgetFrameHistory(sessionId);
+  }, [activeSessionId, sessionId]);
 
   // Forget the session when its provider goes away: an unmounted provider has
   // dropped its detail state, so a `true` left behind would promise ⌘I content
@@ -285,7 +291,10 @@ export function SessionPanelProvider({
   // so the teardown cannot capture a stale action, and so it runs on unmount
   // ONLY, never on a content change.
   useEffect(
-    () => () => useKortixComputerStore.getState().setDetailContent(sessionId, null),
+    () => () => {
+      useKortixComputerStore.getState().setDetailContent(sessionId, null);
+      forgetFrameHistory(sessionId);
+    },
     [sessionId],
   );
 
@@ -406,11 +415,19 @@ export function SessionPanelProvider({
    *
    * `source` is telemetry-only (W5) — see `OpenSource`.
    */
+  // The latest app list for `handleOpenOutput`, without making it a dependency.
+  const appsRef = useRef(apps);
+  useLayoutEffect(() => {
+    appsRef.current = apps;
+  }, [apps]);
+
   const handleOpenOutput = useCallback(
     (output: OutputItem, siblings?: OutputItem[], source: OpenSource = 'row') => {
       // The human title, when the output carries one (W3) — never the raw
       // filename in a spot the user reads as the thing's name.
       const displayName = output.title ?? output.name;
+      // Any Browser open records the app list it saw (`resumableFrameHistory`).
+      if (output.kind === 'app') noteBrowserApps(sessionId, appsRef.current.map((app) => app.url ?? ''));
 
       // Wide split (Marko's feedback): a presentation deliverable grows the
       // panel to its widest split with the glide — see `isWideDeliverable`.
@@ -471,6 +488,7 @@ export function SessionPanelProvider({
               <AppPreview
                 url={output.url ?? ''}
                 name={displayName}
+                historyKey={sessionId}
                 projectId={projectId}
                 shareContext={
                   projectId && projectSessionId
@@ -536,6 +554,7 @@ export function SessionPanelProvider({
       projectId,
       projectSessionId,
       sendAppToAgent,
+      sessionId,
     ],
   );
 
@@ -637,9 +656,23 @@ export function SessionPanelProvider({
       // A targeted request (a `show` preview button, a localhost link in chat)
       // names the exact page it wants. Without honoring it the browser would
       // open on the first running app instead — right surface, wrong page.
-      handleOpenOutput(quickBrowserOutput(apps, target), undefined, 'quick');
+      const output = quickBrowserOutput(apps, target);
+      // An untargeted open (the header's Browser, the palette) returns to the
+      // page this session's Browser was last on, with its Back/Forward — the
+      // same way the Terminal keeps its shell across a switch (D-06).
+      const resumed = target?.url
+        ? undefined
+        : resumableFrameHistory(
+            sessionId,
+            apps.map((app) => app.url ?? ''),
+          );
+      handleOpenOutput(
+        resumed && output.kind === 'app' ? { ...output, url: resumed.entries[resumed.index] ?? '' } : output,
+        undefined,
+        'quick',
+      );
     },
-    [apps, handleOpenOutput],
+    [apps, handleOpenOutput, sessionId],
   );
 
   const { outputsDefaultOpen, pendingQuickView } = usePanelHandoffs({

@@ -14,6 +14,8 @@ agreement, and keep the us-east-2 alert topic subscribed.
 import pathlib
 import unittest
 
+from _hcl import block
+
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 MONITORING = (ROOT / "terraform/compliance-monitoring/monitoring.tf").read_text()
@@ -34,13 +36,6 @@ REGION_FAMILIES = (
     ("euw2", MONITORING, "local.euw2_albs", "data.aws_sns_topic.euw2_alerts.arn"),
     ("use2", USE2, "local.use2_albs", "aws_sns_topic.use2_alerts.arn"),
 )
-
-
-def block(config, header):
-    """Return the text of the block starting at `header` up to its closing brace."""
-    start = config.index(header)
-    end = config.index("\n}", start)
-    return config[start : end + 2]
 
 
 class AlbTargetResponseTimeAlarmTests(unittest.TestCase):

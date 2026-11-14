@@ -21,7 +21,7 @@ const DEVICE_CODE_PATTERN = /^[A-Z]{4}-[0-9]{4}$/;
 const DEVICE_SECRET_PATTERN = /^[A-Za-z0-9]{32}$/;
 const MAX_CHALLENGE_LIFETIME_MS = 10 * 60_000;
 
-export interface DeviceAuthChallenge {
+interface DeviceAuthChallenge {
   deviceCode: string;
   deviceSecret: string;
   verificationUrl: string;
@@ -29,7 +29,7 @@ export interface DeviceAuthChallenge {
   pollIntervalMs: number;
 }
 
-export type DeviceAuthOutcome =
+type DeviceAuthOutcome =
   | { status: 'approved'; tunnelId: string; token: string; capabilities: TunnelCapability[] }
   | { status: 'denied' }
   | { status: 'expired' }

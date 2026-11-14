@@ -128,10 +128,24 @@ export function ProjectArtifactsNavItem({ projectId }: { projectId: string }) {
 }
 
 /** One artifact: its type glyph and its title. */
+/** The desktop tab strip is mounted (apps/web/src/features/desktop-tabs/desktop-tabs-gate.tsx). */
+function desktopTabsMounted(): boolean {
+  return typeof document !== 'undefined' && document.documentElement.hasAttribute('data-kx-desktop-tabs-mounted');
+}
+
 function ArtifactRow({ artifact, href, onOpen }: { artifact: Artifact; href: string; onOpen: () => void }) {
   const Glyph = TYPE_ICON[artifact.type];
   return (
-    <HoverPrefetchLink href={href} onClick={onOpen} className={menuRow('sm', 'default', 'cursor-pointer')}>
+    <HoverPrefetchLink
+      href={href}
+      onClick={onOpen}
+      // Desktop with tabs: this list goes TO the artifact, in its own tab.
+      // Without the mark, a click while a session is open opened it in that
+      // session's side panel (localhost-link-interceptor), and the session tab
+      // turned into an artifact viewer. The strip marks <html> while mounted.
+      data-no-panel={desktopTabsMounted() ? '' : undefined}
+      className={menuRow('sm', 'default', 'cursor-pointer')}
+    >
       <Glyph aria-hidden className="text-muted-foreground size-4 shrink-0" />
       <span className="min-w-0 flex-1 truncate">{artifact.title}</span>
     </HoverPrefetchLink>

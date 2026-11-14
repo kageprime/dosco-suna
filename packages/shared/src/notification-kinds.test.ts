@@ -20,9 +20,10 @@ describe('notification kinds', () => {
     expect(pushTypeOf('shared')).toBe('shared');
   });
 
-  test('isNotificationKind accepts only the 7 kinds', () => {
+  test('isNotificationKind accepts only the known kinds', () => {
     expect(isNotificationKind('shared')).toBe(true);
-    expect(isNotificationKind('mention')).toBe(false);
+    expect(isNotificationKind('mention')).toBe(true);
+    expect(isNotificationKind('artifact_comment')).toBe(false);
     expect(isNotificationKind(1)).toBe(false);
   });
 });
@@ -50,6 +51,8 @@ describe('effectiveNotificationPreferences', () => {
     for (const kind of ['automation_failed', 'capture_device_down'] as const) {
       expect(DEFAULT_NOTIFICATION_PREFERENCES[kind]).toEqual({ push: true, email: true });
     }
+    // A mention names one person: mailed in the digest when still unread.
+    expect(DEFAULT_NOTIFICATION_PREFERENCES.mention).toEqual({ push: true, email: true });
   });
 
   test('a delivery may set the email default of its kind; a saved choice still wins', () => {

@@ -433,7 +433,7 @@ export function humanizeCategory(raw: string): string {
  * pinning `slack` under both communication and productivity is not a conflict;
  * whichever section Slack actually lands in is the one where its pin applies.
  */
-export const CATEGORY_PICKS: Record<string, readonly string[]> = {
+const CATEGORY_PICKS: Record<string, readonly string[]> = {
   productivity: [
     'notion',
     'googledrive',

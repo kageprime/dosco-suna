@@ -7,6 +7,7 @@
 import { projectSessions, sessionLifecycleCommands, sessionTurns } from '@kortix/db';
 import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { db } from '../../shared/db';
+import { DEFAULT_AGENT_SENTINEL } from '../agents';
 import { sessionTitleFromMetadata } from './session-title-placeholder';
 import { resolveUserIdentities } from './user-identity';
 
@@ -28,7 +29,7 @@ export interface SessionMessageAuthors {
 
 /** The agent a session runs, unless it is the column's `'default'` placeholder. */
 function namedAgent(agentName: string | null | undefined): agentName is string {
-  return !!agentName && agentName !== 'default';
+  return !!agentName && agentName !== DEFAULT_AGENT_SENTINEL;
 }
 
 export async function sessionMessageAuthors(session: {

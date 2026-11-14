@@ -19,7 +19,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { relativeAge } from '../../lib/relative-time.ts';
 import { theme } from '../../theme.ts';
-import { List, type ListItem, Spinner, layoutRow } from '../../ui/index.ts';
+import { List, type ListItem, Spinner, layoutRow, useScreenAction } from '../../ui/index.ts';
 import type { CustomizeTabProps } from './customize-screen.tsx';
 import { matchesCustomizeBinding } from './keys.ts';
 import { errorText } from './use-project-detail.ts';
@@ -280,31 +280,21 @@ export function SecretsTab({
   onInputActive,
 }: CustomizeTabProps) {
   const query = useProjectSecrets(projectId);
-  const [busy, setBusy] = useState<string | null>(null);
+  const { busy, run } = useScreenAction(onToast);
   const rows = useMemo(() => (query.data ? secretRows(query.data) : []), [query.data]);
 
   const create = useCallback(
     (input: { name: string; value: string }) => {
-      setBusy('saving…');
-      void query.upsert
-        .mutateAsync(input)
-        .then(() => onToast?.(`${input.name} saved.`))
-        .catch((error: unknown) => onToast?.(errorText(error), 'error'))
-        .finally(() => setBusy(null));
+      run('saving…', () => query.upsert.mutateAsync(input), `${input.name} saved.`);
     },
-    [query.upsert, onToast],
+    [run, query.upsert],
   );
 
   const remove = useCallback(
     (identifier: string) => {
-      setBusy('deleting…');
-      void query.remove
-        .mutateAsync(identifier)
-        .then(() => onToast?.(`${identifier} deleted.`))
-        .catch((error: unknown) => onToast?.(errorText(error), 'error'))
-        .finally(() => setBusy(null));
+      run('deleting…', () => query.remove.mutateAsync(identifier), `${identifier} deleted.`);
     },
-    [query.remove, onToast],
+    [run, query.remove],
   );
 
   return (

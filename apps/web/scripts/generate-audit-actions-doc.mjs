@@ -55,7 +55,6 @@ function isOperatorRoute(route) {
 const FLAGGED_ACTION_PREFIXES = {
   email_channel: ['channel.email.', 'webhook.email.'],
   event_triggers: ['trigger.event_apps.', 'trigger.event_types.', 'webhook.event.'],
-  pooled_provider_secrets: ['secret.account_resource.', 'session.provider_secret_pool.'],
   chat: ['project.space.', 'space.'],
   session_groups: ['project.session_group.', 'session.group.'],
 };

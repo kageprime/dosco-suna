@@ -19,7 +19,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { type HostEntry, type ResolvedHost, hostToResolved } from '../../auth/hosts.ts';
 import { glyph as GLYPH, theme } from '../../theme.ts';
-import { Spinner, layoutRow, windowStart } from '../../ui/index.ts';
+import { Spinner, layoutRow, useScreenAction, windowStart } from '../../ui/index.ts';
 import { HostForm, type HostFormValues } from './host-form.tsx';
 import { type LoginFlowDeps, loginToHost, removeLoginHost } from './login-flow.ts';
 import { matchesLoginBinding } from './match.ts';
@@ -78,7 +78,11 @@ export function LoginScreen({
     () => hosts.find((entry) => entry.active)?.name ?? hosts[0]?.name ?? '',
   );
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  // The submit's busy line, with the form's inline error as the error sink:
+  // a failed login draws its message above the form, it does not toast.
+  // `loginToHost` never rejects; the hook's catch is the guard that keeps a
+  // bug there from taking the renderer down with an unhandled rejection.
+  const { busy, run } = useScreenAction(setError);
 
   const index = useMemo(() => {
     const found = hosts.findIndex((entry) => entry.name === cursorName);
@@ -112,35 +116,27 @@ export function LoginScreen({
 
   const submitForm = useCallback(
     (values: HostFormValues) => {
-      setBusy(true);
       setError(null);
-      void loginToHost(
-        {
-          name: mode === 'edit-token' ? (current?.name ?? values.name) : values.name,
-          url: mode === 'edit-token' ? (current?.backendUrl ?? values.url) : values.url,
-          token: values.token,
-        },
-        deps ?? {},
-      )
-        .then((result) => {
-          setBusy(false);
-          if (!result.ok) {
-            setError(result.error.message);
-            return;
-          }
-          onHostsChanged?.();
-          onToast?.(`Logged in to ${result.resolved.name}.`);
-          setMode('list');
-          onLoggedIn(result.resolved);
-        })
-        .catch((thrown: unknown) => {
-          // `loginToHost` never rejects; this is the guard that keeps a bug
-          // there from taking the renderer down with an unhandled rejection.
-          setBusy(false);
-          setError(thrown instanceof Error ? thrown.message : String(thrown));
-        });
+      run('checking the token…', async () => {
+        const result = await loginToHost(
+          {
+            name: mode === 'edit-token' ? (current?.name ?? values.name) : values.name,
+            url: mode === 'edit-token' ? (current?.backendUrl ?? values.url) : values.url,
+            token: values.token,
+          },
+          deps ?? {},
+        );
+        if (!result.ok) {
+          setError(result.error.message);
+          return;
+        }
+        onHostsChanged?.();
+        onToast?.(`Logged in to ${result.resolved.name}.`);
+        setMode('list');
+        onLoggedIn(result.resolved);
+      });
     },
-    [mode, current, deps, onHostsChanged, onLoggedIn, onToast],
+    [mode, current, deps, onHostsChanged, onLoggedIn, onToast, run],
   );
 
   const removeCurrent = useCallback(() => {
@@ -199,7 +195,7 @@ export function LoginScreen({
           // edit-token flow pre-fills, and it pre-fills the host's OWN url.
           initialUrl={mode === 'edit-token' ? current?.backendUrl.replace(/\/v1$/, '') : undefined}
           width={bodyWidth}
-          busy={busy}
+          busy={busy !== null}
           error={error}
           onSubmit={submitForm}
           onCancel={() => {

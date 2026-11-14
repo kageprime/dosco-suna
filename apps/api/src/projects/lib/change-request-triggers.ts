@@ -15,7 +15,7 @@ import { type MergedChangeRequest, changeRequestMatches } from './runtime-trigge
 import type { ProjectRow } from './serializers';
 import { raiseTriggerAlert } from './trigger-alerts';
 import { fireGitTrigger, markGitTriggerAttemptFailed, markGitTriggerFired } from './trigger-fire';
-import { renderPromptTemplate } from './trigger-payload';
+import { renderTriggerInput } from './trigger-payload';
 import { automaticFirePauseReason } from './trigger-scheduler-state';
 import { errorMessage } from '../../shared/error-message';
 
@@ -75,7 +75,7 @@ async function fireOne(project: ProjectRow, spec: GitTriggerSpec, cr: MergedChan
     spec,
     project,
     payload,
-    renderedPrompt: renderPromptTemplate(spec.promptTemplate, payload),
+    renderedPrompt: renderTriggerInput(spec, payload),
     source: 'change_request',
     // One merge fires one trigger once, however often the hook is retried.
     idempotencyKey: `trigger:change_request:${project.projectId}:${spec.slug}:${cr.cr_id}`,

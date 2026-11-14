@@ -7,7 +7,8 @@ process.env.KORTIX_API_URL = process.env.KORTIX_API_URL ?? 'https://api.test.inv
 process.env.GATEWAY_INTERNAL_TOKEN = process.env.GATEWAY_INTERNAL_TOKEN ?? 'test-internal-token';
 
 const { buildServer } = await import('./server');
-const { createIdempotencyReplay } = await import('./idempotency');
+const { createIdempotencyReplay, MAX_SHARED_BYTES } = await import('./idempotency');
+const { createApiClient } = await import('./clients/api-client');
 
 const CHAT_BODY = JSON.stringify({
   model: 'test-model',
@@ -366,5 +367,131 @@ describe('idempotency replay cache', () => {
     clock += 60 * 60 * 1000 + 1; // past the TTL
     await replay('chat', 'key-1', request, call);
     expect(calls).toBe(2);
+  });
+});
+
+// KRTX-4612 (reoccurred on prod): the gateway runs several replicas behind a
+// load balancer, so a retry usually lands on a replica that never saw the first
+// attempt. Each `createIdempotencyReplay()` below is one replica; the Map is the
+// control plane's shared copy.
+describe('idempotency replay across replicas', () => {
+  const request = { authorization: 'Bearer token' as string | undefined, rawBody: '{"n":1}' };
+  const sharedStore = (rows = new Map<string, import('./idempotency').ReplayedResponse>()) => ({
+    rows,
+    store: {
+      get: async (key: string) => rows.get(key) ?? null,
+      put: async (key: string, answer: import('./idempotency').ReplayedResponse) => {
+        if (!rows.has(key)) rows.set(key, answer);
+      },
+    },
+  });
+  const provider = () => {
+    const state = { calls: 0 };
+    return {
+      state,
+      call: async () => {
+        state.calls += 1;
+        return new Response(JSON.stringify({ id: `cmpl-${state.calls}` }), { status: 200 });
+      },
+    };
+  };
+
+  test('a same-key retry on another replica is served the first answer with no second execution', async () => {
+    const { store } = sharedStore();
+    const { state, call } = provider();
+    const replicaA = createIdempotencyReplay(undefined, { shared: store });
+    const replicaB = createIdempotencyReplay(undefined, { shared: store });
+    const first = await replicaA('chat', 'key-1', request, call);
+    const retry = await replicaB('chat', 'key-1', request, call);
+    expect(await first.json()).toEqual({ id: 'cmpl-1' });
+    expect(await retry.json()).toEqual({ id: 'cmpl-1' });
+    expect(state.calls).toBe(1);
+  });
+
+  test('without a shared store a retry on another replica executes again (the bug)', async () => {
+    const { state, call } = provider();
+    await createIdempotencyReplay()('chat', 'key-1', request, call);
+    await createIdempotencyReplay()('chat', 'key-1', request, call);
+    expect(state.calls).toBe(2);
+  });
+
+  test('another credential, another operation or another body never reads the entry', async () => {
+    const { store } = sharedStore();
+    const { state, call } = provider();
+    const replicaA = createIdempotencyReplay(undefined, { shared: store });
+    const replicaB = createIdempotencyReplay(undefined, { shared: store });
+    await replicaA('chat', 'key-1', request, call);
+    await replicaB('chat', 'key-1', { ...request, authorization: 'Bearer other' }, call);
+    await replicaB('messages', 'key-1', request, call);
+    await replicaB('chat', 'key-1', { ...request, rawBody: '{"n":2}' }, call);
+    expect(state.calls).toBe(4);
+  });
+
+  test('a credential that no longer passes admission is not served the shared answer', async () => {
+    const { store } = sharedStore();
+    const { state, call } = provider();
+    await createIdempotencyReplay(undefined, { shared: store })('chat', 'key-1', request, call);
+    const revoked = createIdempotencyReplay(undefined, { shared: store, reauthorize: async () => false });
+    const res = await revoked('chat', 'key-1', request, call);
+    expect(await res.json()).toEqual({ id: 'cmpl-2' }); // the pipeline ran (and would have answered 401)
+    expect(state.calls).toBe(2);
+  });
+
+  test('a store that throws never fails the request', async () => {
+    const broken = {
+      get: async () => { throw new Error('control plane down'); },
+      put: async () => { throw new Error('control plane down'); },
+    };
+    const { state, call } = provider();
+    const res = await createIdempotencyReplay(undefined, { shared: broken })('chat', 'key-1', request, call);
+    expect(res.status).toBe(200);
+    expect(state.calls).toBe(1);
+  });
+
+  test('a shared hit keeps the original expiry: the local copy never outlives it', async () => {
+    let clock = 1_000_000;
+    const hour = 60 * 60 * 1000;
+    const rows = new Map<string, import('./idempotency').ReplayedResponse>();
+    const store = {
+      get: async (key: string) => rows.get(key) ?? null,
+      put: async (key: string, answer: import('./idempotency').ReplayedResponse) => {
+        if (!rows.has(key)) rows.set(key, { ...answer, expiresAt: clock + hour });
+      },
+    };
+    const { state, call } = provider();
+    await createIdempotencyReplay(() => clock, { shared: store })('chat', 'key-1', request, call);
+    clock += 50 * 60 * 1000; // a retry on another replica, 50 min in
+    const replicaB = createIdempotencyReplay(() => clock, { shared: store });
+    expect(await (await replicaB('chat', 'key-1', request, call)).json()).toEqual({ id: 'cmpl-1' });
+    clock += 11 * 60 * 1000; // 61 min after the original answer
+    rows.clear(); // the control plane expired it
+    await replicaB('chat', 'key-1', request, call);
+    expect(state.calls).toBe(2);
+  });
+
+  test('an error answer and an oversized answer are not shared', async () => {
+    const { store, rows } = sharedStore();
+    const replica = createIdempotencyReplay(undefined, { shared: store });
+    await replica('chat', 'key-err', request, async () => new Response('{}', { status: 500 }));
+    await replica('chat', 'key-big', request, async () => new Response('x'.repeat(MAX_SHARED_BYTES + 1), { status: 200 }));
+    expect(rows.size).toBe(0);
+  });
+
+  test('the api client reads and writes the shared copy through the internal endpoints', async () => {
+    const seen: { path: string; body: unknown }[] = [];
+    const answer = { status: 200, statusText: 'OK', headers: [['content-type', 'application/json']] as [string, string][], body: '{}' };
+    const api = createApiClient({
+      baseUrl: 'https://api.test.invalid',
+      token: 't',
+      fetchImpl: async (url, init) => {
+        const path = new URL(url).pathname;
+        seen.push({ path, body: JSON.parse(String(init.body)) });
+        return Response.json(path.endsWith('/get') ? { answer } : { ok: true });
+      },
+    });
+    const key = 'a'.repeat(64);
+    await api.putReplay(key, answer);
+    expect(await api.getReplay(key)).toEqual(answer);
+    expect(seen.map((call) => call.path)).toEqual(['/internal/gateway/idempotency/put', '/internal/gateway/idempotency/get']);
   });
 });

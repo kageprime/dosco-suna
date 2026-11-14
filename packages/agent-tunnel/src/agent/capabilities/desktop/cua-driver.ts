@@ -215,7 +215,7 @@ function sanitizeArgs(args: Record<string, unknown>): Record<string, unknown> {
   return sanitized;
 }
 
-export interface CuaDriverOptions {
+interface CuaDriverOptions {
   /** A resolved driver binary. Default: the bundled one, else an installed one. */
   binary?: string;
   /** Run the driver inside this app's macOS permissions. Default: the bundled driver. */

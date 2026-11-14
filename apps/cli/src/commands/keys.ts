@@ -9,7 +9,7 @@ import {
   takeFlagValue,
 } from '../command-helpers.ts';
 import { confirm } from '../prompts.ts';
-import { C, help, pad, status } from '../style.ts';
+import { C, help, pad, scopeLabel, status } from '../style.ts';
 import { parseScopeFlag, resolveExpiry } from './tokens.ts';
 
 // `kortix keys` — Workspace settings › API keys from the terminal. One list of
@@ -67,10 +67,6 @@ interface KeyList {
   can_manage_principals: boolean;
   agents: Array<{ name: string }>;
   bots: Array<{ bot_id: string; name: string; has_role: boolean }>;
-}
-
-function scopeLabel(k: WorkspaceKey): string {
-  return k.scope === 'custom' ? `custom (${k.workspace_permissions?.length ?? 0})` : k.scope;
 }
 
 function stateOf(k: WorkspaceKey, now = Date.now()): string {

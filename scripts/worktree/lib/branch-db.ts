@@ -3,7 +3,7 @@
  * Supabase (`kortix-local`), instead of a second Supabase stack per worktree.
  *
  * A full stack costs ~0.6–0.9 GB of RAM and 8 containers. A branch database is
- * a copy of the primary's `auth`, `basejump`, `kortix*` and `public` schemas
+ * a copy of the primary's `auth`, `kortix*` and `public` schemas
  * (~200 MB, ~3 s), migrated to the worktree branch. GoTrue, Kong, Storage and
  * Studio stay shared.
  *
@@ -30,7 +30,7 @@ export function withDatabase(url: string, database: string): string {
 }
 
 /** Schemas a branch copies. Supabase's own (storage, realtime, cron, vault, …) stay in the primary. */
-const BRANCH_SCHEMAS = ['auth', 'basejump', 'kortix', 'kortix_wallet', 'kortix_migrations', 'public'];
+const BRANCH_SCHEMAS = ['auth', 'kortix', 'kortix_wallet', 'kortix_migrations', 'public'];
 /** Audit rows are ~1.5 GB on a long-lived primary and nothing in a branch reads history. */
 const SKIP_DATA = ['kortix.audit_events*', 'auth.audit_log_entries'];
 
@@ -121,14 +121,21 @@ function conninfo(p: PrimaryDb, database: string): string {
   return `host=${p.container} port=5432 dbname=${database} user=${decodeURIComponent(u.username)} password=${decodeURIComponent(u.password)}`;
 }
 
-function psql(url: string, sql: string): ShResult {
-  return sh(['psql', url, '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-c', sql]);
+function psql(url: string, sql: string, flags: string[] = []): ShResult {
+  return sh(['psql', url, '-X', '-q', '-v', 'ON_ERROR_STOP=1', ...flags, '-c', sql]);
+}
+
+/** The query's unaligned, tuples-only output, trimmed. Throws when psql fails. */
+function psqlValue(url: string, sql: string): string {
+  const r = psql(url, sql, ['-A', '-t']);
+  if (!r.ok) throw new Error(r.stderr.trim() || `psql exited ${r.code}`);
+  return r.stdout.trim();
 }
 
 function lit(s: string): string { return `'${s.replace(/'/g, "''")}'`; }
 
 export function branchDbExists(p: PrimaryDb, name: string): boolean {
-  return sh(['psql', p.url, '-XAtc', `select 1 from pg_database where datname = ${lit(branchDbName(name))}`]).stdout.trim() === '1';
+  return psqlValue(p.url, `select 1 from pg_database where datname = ${lit(branchDbName(name))}`) === '1';
 }
 
 /**
@@ -183,7 +190,7 @@ export function syncBranchUsers(p: PrimaryDb, name: string): string | null {
   if (!r.ok) return `register branch: ${r.stderr.trim()}`;
   // Every registered branch, not only this one: the primary trigger now calls
   // apply_rows, which a branch created by an older checkout does not have yet.
-  const branches = sh(['psql', p.url, '-XAtc', 'select br.datname from kortix_wt.branches br join pg_database d using (datname)']).stdout
+  const branches = psqlValue(p.url, 'select br.datname from kortix_wt.branches br join pg_database d using (datname)')
     .split('\n').map((n) => n.trim()).filter(Boolean);
   for (const other of branches) {
     r = psql(withDatabase(p.url, other), BRANCH_SQL);

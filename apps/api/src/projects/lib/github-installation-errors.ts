@@ -9,7 +9,7 @@
  * Found`, which tells a user nothing they can act on.
  */
 
-export const GITHUB_INSTALLATION_UNREACHABLE = 'github_installation_unreachable';
+const GITHUB_INSTALLATION_UNREACHABLE = 'github_installation_unreachable';
 
 /**
  * Deliberately STRUCTURAL, not `instanceof GitHubApiError`.
@@ -34,7 +34,7 @@ export function isGitHubInstallationUnreachable(error: unknown): boolean {
   );
 }
 
-export interface GitHubInstallationUnreachableBody {
+interface GitHubInstallationUnreachableBody {
   error: typeof GITHUB_INSTALLATION_UNREACHABLE;
   message: string;
   installation_id: string;

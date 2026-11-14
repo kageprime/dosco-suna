@@ -528,6 +528,7 @@ const SESSION_TABLES: Record<string, 'purged' | 'scrubbed' | `kept: ${string}`> 
   'account_tokens.session_id': 'kept: token metadata, no content',
   'connection_oauth_sessions.session_id': 'kept: an OAuth flow, no content',
   'app_deployments.source_session_id': 'kept: the App outlives the session',
+  'eval_trials.session_id': 'kept: an eval score and the session id, no content (the reply is a file in the job folder)',
   'change_requests.origin_session_id': 'kept: the change request outlives the session',
   'review_items.origin_session_id': 'kept: the review outlives the session',
   'project_trigger_executions.session_id': 'kept: the trigger outlives the session',

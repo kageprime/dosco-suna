@@ -30,6 +30,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { openUrl } from '../../lib/open-url.ts';
 import { theme } from '../../theme.ts';
+import type { ScreenProps } from '../../screens.tsx';
+import { useScreenAction } from '../../ui/index.ts';
 import {
   type GoalDetail,
   goalId,
@@ -40,18 +42,10 @@ import {
 } from './goals-model.ts';
 import { GoalsView, type GoalsViewProps } from './goals-view.tsx';
 
-export interface GoalsScreenProps {
-  projectId: string | null;
-  accountId: string | null;
-  sessionId: string | null;
-  focused: boolean;
-  width: number;
-  height: number;
-  webBaseUrl: string;
-  onBack(): void;
-  onOpenSession(sessionId: string): void;
-  onToast(message: string, kind?: 'info' | 'error'): void;
-}
+export type GoalsScreenProps = Pick<
+  ScreenProps,
+  'projectId' | 'focused' | 'width' | 'height' | 'webBaseUrl' | 'onBack' | 'onOpenSession' | 'onToast'
+>;
 
 /** Recorded in the goal's events when `s` carries no reason. */
 export const DEFAULT_STOP_REASON = 'Stopped from the terminal.';
@@ -72,8 +66,6 @@ function errorText(error: unknown): string {
 
 export function GoalsScreen({
   projectId,
-  accountId: _accountId,
-  sessionId: _sessionId,
   focused,
   width,
   height,
@@ -83,7 +75,6 @@ export function GoalsScreen({
   onToast,
 }: GoalsScreenProps) {
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -95,6 +86,8 @@ export function GoalsScreen({
   const control = useProjectGoalControl(projectId ?? '');
   // One goal id per outcome being created: a retry of the same text reuses it.
   const pendingCreate = useRef<{ outcome: string; goalId: string } | null>(null);
+
+  const { busy, run, refresh } = useScreenAction(onToast);
 
   const flag = useFeatureFlag(projectId, 'goals');
   const goalsQuery = useProjectGoals(flag.enabled ? projectId : null);
@@ -117,19 +110,6 @@ export function GoalsScreen({
           })
         : null,
     [detailGoal, filesQuery.data, filesQuery.isLoading],
-  );
-
-  const run = useCallback(
-    (label: string, work: () => Promise<unknown>) => {
-      setBusy(label);
-      void work()
-        .then((message) => {
-          if (typeof message === 'string' && message) onToast(message);
-        })
-        .catch((error: unknown) => onToast(errorText(error), 'error'))
-        .finally(() => setBusy(null));
-    },
-    [onToast],
   );
 
   const onCreate = useCallback<GoalsViewProps['onCreate']>(
@@ -208,12 +188,8 @@ export function GoalsScreen({
   );
 
   const onRefresh = useCallback(() => {
-    setBusy('refreshing…');
-    void goalsQuery
-      .refetch()
-      .catch((error: unknown) => onToast(errorText(error), 'error'))
-      .finally(() => setBusy(null));
-  }, [goalsQuery.refetch, onToast]);
+    refresh('refreshing…', () => goalsQuery.refetch());
+  }, [refresh, goalsQuery.refetch]);
 
   if (!projectId) {
     return (

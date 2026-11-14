@@ -259,3 +259,37 @@ test('a token already carrying an undeclared agent heals to the session agent on
   expect(grant?.agent).toBe('galileo');
   expect(writtenGrant).toEqual(derivedRunning('galileo', loadedAgents));
 });
+
+test('a session created with an agent the manifest no longer declares does not log a heal that changes nothing', async () => {
+  sessionAgentRow = 'hack-dispatch';
+  storedGrant = { agent: 'hack-dispatch', connectors: [], permissions: [], env: [] };
+  loadedAgents = loadedOfSpecs([
+    { name: 'galileo', enabled: true, connectors: ['slack'], permissions: 'all', env: 'all' },
+  ]);
+  const logged: unknown[][] = [];
+  const realError = console.error;
+  console.error = (...args: unknown[]) => void logged.push(args);
+  try {
+    await reconcileStoredSessionAgentGrant({ projectId: 'project-1', sessionId: 'session-1' });
+  } finally {
+    console.error = realError;
+  }
+  expect(logged.filter(([m]) => String(m).includes('names an undeclared agent'))).toEqual([]);
+});
+
+test('a heal that does change the agent still logs once', async () => {
+  sessionAgentRow = 'galileo';
+  storedGrant = { agent: 'chief-of-staff', connectors: [], permissions: [], env: [] };
+  loadedAgents = loadedOfSpecs([
+    { name: 'galileo', enabled: true, connectors: ['slack'], permissions: 'all', env: 'all' },
+  ]);
+  const logged: unknown[][] = [];
+  const realError = console.error;
+  console.error = (...args: unknown[]) => void logged.push(args);
+  try {
+    await reconcileStoredSessionAgentGrant({ projectId: 'project-1', sessionId: 'session-1' });
+  } finally {
+    console.error = realError;
+  }
+  expect(logged.filter(([m]) => String(m).includes('names an undeclared agent')).length).toBe(1);
+});

@@ -326,7 +326,7 @@ export async function resolveGitHubRepoAuth(accountId: string, installationId?: 
 }
 
 
-export interface ProjectGitRemote {
+interface ProjectGitRemote {
   /** github | gitlab | bitbucket | generic */
   provider: string;
   /** managed | github_app | pat | project_credential | none */
@@ -446,7 +446,7 @@ export async function upsertProjectGitConnection(input: {
 }
 
 
-export async function getProjectGitCredential(
+async function getProjectGitCredential(
   projectId: string,
   provider: string,
 ): Promise<ProjectGitCredentialRow | null> {
@@ -491,7 +491,7 @@ export async function upsertProjectGitCredential(input: {
 }
 
 
-export function emptyGitRemote(): ProjectGitRemote {
+function emptyGitRemote(): ProjectGitRemote {
   return {
     provider: 'generic',
     authMethod: 'none',
@@ -604,7 +604,7 @@ export function getProjectGitRemote(project: ProjectRow, connection?: ProjectGit
  * pre-refactor project, where repoUrl IS the real URL.
  */
 
-export function resolveUpstreamUrl(project: ProjectRow, remote: ProjectGitRemote): string {
+function resolveUpstreamUrl(project: ProjectRow, remote: ProjectGitRemote): string {
   if (remote.upstreamUrl) return remote.upstreamUrl;
   if (remote.provider === 'github' && remote.repoOwner && remote.repoName) {
     return `https://github.com/${remote.repoOwner}/${remote.repoName}.git`;
@@ -738,7 +738,7 @@ export async function expireAccountGitHealth(accountId: string): Promise<void> {
     .where(and(eq(projectGitConnections.accountId, accountId), eq(projectGitConnections.status, 'error')));
 }
 
-export type ProjectGitAuth = {
+type ProjectGitAuth = {
   auth?: GitHubAuthContext;
   authSource: 'app_installation' | 'pat' | 'managed' | 'project_credential' | 'none';
   reason?: GitAuthUnavailableReason;

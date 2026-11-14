@@ -40,6 +40,12 @@ export function appendQuery(entries: Record<string, string | number | null | und
   for (const [key, value] of Object.entries(entries)) {
     if (value) params.set(key, String(value));
   }
+  return querySuffix(params);
+}
+
+/** `?<params>`, or `''` when empty. Never reads `params.size`: React Native's
+ *  `react-native-url-polyfill` has none, and that dropped every query. */
+export function querySuffix(params: URLSearchParams): string {
   const qs = params.toString();
   return qs ? `?${qs}` : '';
 }

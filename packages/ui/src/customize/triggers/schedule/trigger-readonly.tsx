@@ -41,7 +41,7 @@ export function TriggerReadOnly({
           ...(trigger.event
             ? [
                 {
-                  label: t.raw('text5441e7146193'),
+                  label: t.raw('textca395c4d19b2'),
                   value: describeEventSource(trigger.event, t, apps),
                 },
               ]

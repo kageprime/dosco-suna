@@ -6,7 +6,7 @@ import type { SessionLogPage } from '../../core/session-log/source';
 import type { SessionLog, TextBlock } from '../../core/session-log/types';
 import { selectSessionLog, selectSessionLogThread } from '../../core/session-log/store';
 import { toV1 } from '../../core/session-log/v1';
-import { sessionLogRowsFor } from '../../core/session-log/v1-view';
+import { sessionLogRowsFor, sessionLogThreadWithV1Rows } from '../../core/session-log/v1-view';
 import { selectSessionRows } from '../../react/session-transcript-subscription';
 import { useSyncStore } from './sync-store';
 
@@ -14,6 +14,9 @@ const log: SessionLog = JSON.parse(readFileSync(join(import.meta.dir, '../../../
 const ROOT = log.threads[0]!.thread_id;
 // As `fromV1` marks a converted thread; the v1 hooks read only such a thread through `toV1`.
 for (const t of log.threads) t.ext = { opencode: { version: 'kortix.transcript.v1', native_id: t.thread_id } };
+// The deltas below stream into the first text message: kortixd puts a streaming record before the
+// first delta of a message, and a finished record takes no delta (F-012).
+log.threads[0]!.messages.find((x) => x.blocks.some((b) => b.type === 'text'))!.status = 'streaming';
 const SESSION = 'kses_log_1';
 
 function page(): SessionLogPage {
@@ -197,5 +200,81 @@ describe('session log: per-delta work (KRTX-2880)', () => {
       }
       previous = rows;
     }
+  });
+});
+
+// F-011: Back then Forward while an answer streams showed only its tail. The remounted session
+// joins the stream without `schema=v2` until its pages load, so kortixd sends v1 transcript frames
+// for that window. The v1 store never held the streaming reply on v2, so a `message.part.delta`
+// for it creates an empty stub part and appends only what streams after the remount. The v2
+// thread merges the v1 rows the log lacks, and drew that fragment as the whole answer.
+describe('session log: a v1 fragment never stands in for a reply the log lacks (F-011)', () => {
+  const USER = 'msg_f011_user';
+  const REPLY = 'msg_f011_reply';
+  const PART = 'prt_f011_text';
+  const prompt = { id: USER, sessionID: ROOT, role: 'user', time: { created: 9_000_000_000_000 }, agent: 'build', model: { providerID: 'p', modelID: 'm' } } as Message;
+  const v1Delta = (delta: string, id: string) =>
+    ev('message.part.delta', { sessionID: ROOT, messageID: REPLY, partID: PART, field: 'text', delta }, id);
+  const nativePage = () => {
+    const p = page();
+    for (const t of p.threads) delete t.ext;
+    return p;
+  };
+  const replyText = (rows: { info: { id: string }; parts: Part[] }[]) =>
+    rows
+      .find((r) => r.info.id === REPLY)
+      ?.parts.map((p) => (p as { text?: string }).text ?? '')
+      .join('');
+
+  test('on v2, the reply built from deltas that began mid-answer is not drawn', () => {
+    store().applySessionLogPage(SESSION, nativePage());
+    store().hydrate(ROOT, [{ info: prompt, parts: [] }]);
+    // The answer started before this mount: the first delta this tab sees is mid-sentence.
+    store().applyEvent(v1Delta('in that batch. 42. What the file did not say', 'evt_f011_1'));
+    store().applyEvent(v1Delta(' — the Board had office record.', 'evt_f011_2'));
+    const rows = selectSessionRows(store(), ROOT);
+    expect(rows.some((r) => r.info.id === USER)).toBe(true);
+    expect(replyText(rows)).toBeUndefined();
+    const thread = sessionLogThreadWithV1Rows(store().sessionLogs[SESSION]!, selectSessionLogThread(store().sessionLogs[SESSION]!, ROOT)!, rows);
+    expect(thread.messages.some((m) => m.message_id === REPLY)).toBe(false);
+  });
+
+  test('on v2, a reply the store built from an orphan delta stays out whole, tool parts included', () => {
+    store().applySessionLogPage(SESSION, nativePage());
+    store().hydrate(ROOT, [{ info: prompt, parts: [] }]);
+    store().applyEvent(v1Delta('in that batch.', 'evt_f011_5'));
+    // A tool part of the same reply arrives whole in the window: it is not a fragment, but the
+    // reply's earlier text and tools are still missing from this row.
+    store().applyEvent(
+      ev('message.part.updated', { part: { id: 'prt_f011_tool', sessionID: ROOT, messageID: REPLY, type: 'tool', callID: 'c1', tool: 'bash', state: { status: 'running', input: { command: 'ls' }, time: { start: 1 } } } }),
+    );
+    expect(selectSessionRows(store(), ROOT).some((r) => r.info.id === REPLY)).toBe(false);
+  });
+
+  test('on v2, the stream put of the reply then its deltas draw the whole answer', () => {
+    store().applySessionLogPage(SESSION, nativePage());
+    const head = log.threads[0]!.messages[log.threads[0]!.messages.length - 1]!;
+    const put = { ...structuredClone(head), message_id: REPLY, seq: head.seq + 1, role: 'assistant' as const, status: 'streaming', blocks: [{ type: 'text' as const, id: PART, text: 'Section 1. The head.' }] };
+    // The join snapshot reuses the head seq: the store keys a put by its rev, never by seq.
+    store().applySessionLogEvent(SESSION, ev('log.message', { rev: 10, message: put }, 'ep:5') as never);
+    store().applySessionLogEvent(SESSION, ev('log.block.delta', { thread_id: ROOT, message_id: REPLY, block_id: PART, delta: ' Then the tail.' }, 'ep:6') as never);
+    expect(textOf(REPLY, PART)).toBe('Section 1. The head. Then the tail.');
+  });
+
+  test('on v2, a part whose first snapshot follows its first delta is drawn once the snapshot lands', () => {
+    store().applySessionLogPage(SESSION, nativePage());
+    store().hydrate(ROOT, [{ info: prompt, parts: [] }]);
+    store().applyEvent(ev('message.updated', { info: { id: REPLY, sessionID: ROOT, role: 'assistant', parentID: USER, time: { created: 9_000_000_000_001 } } }));
+    store().applyEvent(v1Delta('Hello', 'evt_f011_3'));
+    store().applyEvent(
+      ev('message.part.updated', { part: { id: PART, sessionID: ROOT, messageID: REPLY, type: 'text', text: 'Hello' } }),
+    );
+    expect(replyText(selectSessionRows(store(), ROOT))).toBe('Hello');
+  });
+
+  test('without a session log (v1), the delta-built reply still streams', () => {
+    store().hydrate(ROOT, [{ info: prompt, parts: [] }]);
+    store().applyEvent(v1Delta('in that batch.', 'evt_f011_4'));
+    expect(replyText(selectSessionRows(store(), ROOT))).toBe('in that batch.');
   });
 });

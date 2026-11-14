@@ -25,6 +25,7 @@ import { inArray } from 'drizzle-orm';
 import { appRuntimes, projectMonitorBoxes, sessionSandboxes } from '@kortix/db';
 import { config } from '../../config';
 import { db } from '../../shared/db';
+import { escalateProviderAuthOutage } from '../../shared/provider-auth';
 import { getProvider, type ProviderName } from '../../platform/providers';
 import { REAP_CONCURRENCY } from '../reaper-constants';
 import { recordOrphanBoxCost } from '../../billing/services/orphan-box-costs';
@@ -69,6 +70,9 @@ export async function reapOrphanProviderBoxes(now = new Date()): Promise<OrphanR
       const listed = await provider.listManagedRunningSandboxes();
       boxes.push(...listed.map((box) => ({ provider: providerName, ...box })));
     } catch (err) {
+      // A dead/revoked provider key pages through the escalation; the sweep
+      // itself must still run for the other configured providers.
+      escalateProviderAuthOutage(providerName, 'orphan-box reaper list', err);
       // One provider control-plane outage must not suppress orphan cleanup on
       // the other configured providers.
       console.warn(

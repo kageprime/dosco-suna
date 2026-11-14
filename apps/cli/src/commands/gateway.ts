@@ -1,6 +1,6 @@
 import type { Auth } from '../api/auth.ts';
 import { sdkBackendUrl } from '../api/sdk.ts';
-import { splitHelp, fromWorkspaceAlias } from '../command-argv.ts';
+import { fromWorkspaceAlias, splitHelp } from '../command-argv.ts';
 import {
   emitJson,
   fail,
@@ -10,6 +10,7 @@ import {
   takeFlagValue,
 } from '../command-helpers.ts';
 import { C, creditAmount, credits, help, money, pad, status } from '../style.ts';
+import { gatewayUsageQuery } from './gateway-usage.ts';
 
 // The LLM-gateway control-plane for the linked project: how it ROUTES
 // (default model / fallback / vision), METERS (spend budgets), EXPOSES itself
@@ -60,6 +61,14 @@ Access:
 
 Observability:
   usage [--days N]                  Request/error/cost totals + by-model. --json.
+  usage --group-by <dims> [flags]   Cross-session spend/tokens over ALL matching
+                                    ledger rows, no cap. dims: a comma list of
+                                    model,agent,source,session,day (combinable).
+      --since <ts> --until <ts>       Absolute window (ISO 8601); else --days N.
+      --limit <N>  --cursor <c>       Page the GROUPS (default 500, max 1000).
+      --all                           Drain every page of the fixed window.
+                                    Paid wallet spend, BYOK provider spend,
+                                    total and tokens are separate fields. --json.
   sources [--hours N]               Spend by source: trigger, member, channel, API (default 24h). --json.
   logs [--limit N] [--failed]       Recent gateway requests, N from 1 to 100 (default 50). --json.
   logs <logId|requestId>            One request's full detail (JSON).
@@ -432,6 +441,29 @@ async function gatewayKeys(rest: string[], opts: CtxOpts, json: boolean): Promis
 // ── Usage / analytics ───────────────────────────────────────────────────────
 
 async function gatewayUsage(rest: string[], opts: CtxOpts, json: boolean): Promise<number> {
+  // The new cross-session query layer is engaged only when a new flag is
+  // present; a bare `usage` / `usage --days N` keeps the legacy overview output
+  // byte-for-byte.
+  if (
+    rest.some(
+      (a) =>
+        a === '--group-by' ||
+        a.startsWith('--group-by=') ||
+        a === '--group' ||
+        a.startsWith('--group=') ||
+        a === '--since' ||
+        a.startsWith('--since=') ||
+        a === '--until' ||
+        a.startsWith('--until=') ||
+        a === '--all' ||
+        a === '--cursor' ||
+        a.startsWith('--cursor=') ||
+        a === '--limit' ||
+        a.startsWith('--limit='),
+    )
+  ) {
+    return gatewayUsageQuery(rest, opts, json);
+  }
   const ctx = await resolveProjectContext(opts);
   if (!ctx) return 1;
   let days: string | undefined;

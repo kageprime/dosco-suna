@@ -104,9 +104,8 @@ import {
 
 import { buildSessionSandboxEnvVars } from './session-sandbox-env-build';
 import { sandboxCallbackUnreachableReason, sandboxCallbackDeadTunnelReason } from './session-callback-probe';
-import { actorForUser, type Actor } from '../../iam/actor';
-import { PROJECT_ACTIONS } from '../../iam/actions';
-import { authorize } from '../../iam/authorize';
+import type { Actor } from '../../iam/actor';
+import { launcherMayReadRepository } from './launcher-repository-access';
 import { loadVisibleSession, sessionIsTombstoned } from './session-visibility';
 import { HUMAN_SESSION_SURFACES } from './session-surface';
 import { isWorkflowRunnerContext, sessionIsWorkflowRunner } from './workflow-runner';
@@ -715,10 +714,7 @@ async function resolveSessionAgent(params: {
   const repositoryAccess =
     agentGrantAllowsRepository(agentName, loadedAgents) &&
     (input.requestingPrincipalType === 'service_account' ||
-      (await authorize(actorForUser(input.userId, project.accountId), PROJECT_ACTIONS.PROJECT_FILE_READ, {
-        type: 'project',
-        id: projectId,
-      })).allowed);
+      (await launcherMayReadRepository(input.userId, project.accountId, projectId)));
 
   return { loadedAgents, projectDefaultAgent, agentName, platformMetaAgent, repositoryAccess, myKortixColleague };
 }
@@ -879,10 +875,6 @@ async function resolveSessionModel(params: {
   const { input, accountId, projectId, agentName, loadedAgents, visibility, origin } = params;
   const { project, userId, body } = input;
   const freeModelsOnly = !(await accountMayUseManagedModels(accountId));
-  const pooledProviderSecrets = resolveFeatureFlag(project.metadata, 'pooled_provider_secrets');
-  if (body.provider_secret_pools !== undefined && !pooledProviderSecrets) {
-    return { error: { status: 403, body: { error: 'Provider secret pools are unavailable' } } };
-  }
   // The key selection this session starts with: the caller's, else none, and
   // the gateway uses every key the session may use when it runs.
   const providerSecretPools = body.provider_secret_pools as Record<string, string[]> | undefined;

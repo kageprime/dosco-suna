@@ -141,7 +141,7 @@ function buttonByLabel(
 
 // The password form is one explicit hop from the link step.
 async function goToPasswordForm(root: NonNullable<ReturnType<typeof create>>) {
-  const passwordButton = buttonByLabel(root, 'Use a password instead');
+  const passwordButton = buttonByLabel(root, 'Use a password');
   if (!passwordButton) throw new Error('Use-a-password button did not render');
   await act(async () => passwordButton.props.onClick());
 }
@@ -185,8 +185,7 @@ test('every resolution hands off to the link action — the server gates closed 
       // The send result carries no mode, so the step renders the eligible
       // send's copy (KRTX-3504): the mail is a sign-in link or a confirmation
       // link, and only the mailbox knows which.
-      expect(JSON.stringify(root.toJSON())).toContain('We emailed');
-      expect(JSON.stringify(root.toJSON())).toContain('a sign-in link, or a confirmation link');
+      expect(JSON.stringify(root.toJSON())).toContain('Enter the code sent to');
     } finally {
       await act(async () => root.unmount());
     }
@@ -205,7 +204,7 @@ test('a closed-signup send renders the conditional copy, never a delivery promis
     expect(emailCodeSends).toBe(1);
     const json = JSON.stringify(root.toJSON());
     expect(json).toContain('If');
-    expect(json).toContain('has an account, its sign-in link is on its way');
+    expect(json).toContain('has an account, a code is on its way');
     // The unconditional delivery promise would claim a mail an unknown
     // address never receives.
     expect(json).not.toContain('We emailed');
@@ -225,9 +224,9 @@ test('a new address is told a confirmation email is on its way, not a link', asy
   const root = await continueWithEmail('new-account@example.test');
   try {
     expect(emailCodeSends).toBe(1);
-    expect(JSON.stringify(root.toJSON())).toContain('We sent a confirmation email to');
-    expect(JSON.stringify(root.toJSON())).toContain('Confirm your email to continue');
-    expect(JSON.stringify(root.toJSON())).not.toContain('We sent a link');
+    expect(JSON.stringify(root.toJSON())).toContain('Confirm the email we sent to');
+    expect(JSON.stringify(root.toJSON())).toContain('to continue.');
+    expect(JSON.stringify(root.toJSON())).not.toContain('Enter the code sent');
   } finally {
     emailCodeMode = null;
     await act(async () => root.unmount());
@@ -240,8 +239,8 @@ test('a returning account keeps the sign-in link copy the mailbox matches', asyn
   emailCodeSends = 0;
   const root = await continueWithEmail('returning@example.test');
   try {
-    expect(JSON.stringify(root.toJSON())).toContain('We sent a link to');
-    expect(JSON.stringify(root.toJSON())).not.toContain('confirmation email');
+    expect(JSON.stringify(root.toJSON())).toContain('Enter the code sent to');
+    expect(JSON.stringify(root.toJSON())).not.toContain('Confirm the email');
   } finally {
     emailCodeMode = null;
     await act(async () => root.unmount());
@@ -258,13 +257,13 @@ test('the password form still offers the email link as an explicit choice', asyn
     // The entry send armed the per-address cooldown that the password form's
     // link button now honors; let it lapse before the explicit choice.
     await cooldownElapsed(root, 60);
-    const linkButton = buttonByLabel(root, 'Email me a link instead');
+    const linkButton = buttonByLabel(root, 'Email me a code');
     expect(linkButton).toBeDefined();
     if (!linkButton) throw new Error('Email-link button did not render');
     expect(linkButton.props.disabled).toBe(false);
     await act(async () => linkButton.props.onClick());
     expect(emailCodeSends).toBe(2);
-    expect(JSON.stringify(root.toJSON())).toContain('a sign-in link, or a confirmation link');
+    expect(JSON.stringify(root.toJSON())).toContain('Enter the code sent to');
   } finally {
     jest.useRealTimers();
     await act(async () => root.unmount());
@@ -277,7 +276,7 @@ test('a non-rate-limit send failure stays visible and the retry stays available'
   emailCodeSends = 0;
   const root = await continueWithEmail('returning@example.test');
   const linkButton = () => {
-    const button = buttonByLabel(root, 'Email me a link instead');
+    const button = buttonByLabel(root, 'Email me a code');
     if (!button) throw new Error('Email-link button did not render');
     return button;
   };
@@ -299,7 +298,7 @@ test('a non-rate-limit send failure stays visible and the retry stays available'
     emailFailure = null;
     await act(async () => linkButton().props.onClick());
     expect(root.root.findAllByProps({ role: 'alert' })).toHaveLength(0);
-    expect(JSON.stringify(root.toJSON())).toContain('a sign-in link, or a confirmation link');
+    expect(JSON.stringify(root.toJSON())).toContain('Enter the code sent to');
   } finally {
     emailFailure = null;
     emailFailureStatus = null;
@@ -318,7 +317,7 @@ test('a rate-limited send cools the password form link button down', async () =>
   emailCodeSends = 0;
   const root = await continueWithEmail('returning@example.test');
   const linkButton = () => {
-    const button = buttonByLabel(root, 'Email me a link instead');
+    const button = buttonByLabel(root, 'Email me a code');
     if (!button) throw new Error('Email-link button did not render');
     return button;
   };
@@ -353,7 +352,7 @@ test('a rate-limited send cools the password form link button down', async () =>
     emailFailureStatus = null;
     await act(async () => linkButton().props.onClick());
     expect(emailCodeSends).toBe(3);
-    expect(JSON.stringify(root.toJSON())).toContain('a sign-in link, or a confirmation link');
+    expect(JSON.stringify(root.toJSON())).toContain('Enter the code sent to');
   } finally {
     emailFailure = null;
     emailFailureStatus = null;
@@ -435,7 +434,7 @@ test('an explicit password choice survives remount without another auth email', 
   try {
     expect(emailCodeSends).toBe(1);
     expect(returning.root.findByProps({ autoComplete: 'current-password' })).toBeDefined();
-    const link = buttonByLabel(returning, 'Email me a link instead');
+    const link = buttonByLabel(returning, 'Email me a code');
     if (!link) throw new Error('Email-link button did not render');
     await act(async () => link.props.onClick());
     expect(emailCodeSends).toBe(2);

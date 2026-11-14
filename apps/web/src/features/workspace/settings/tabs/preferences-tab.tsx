@@ -13,6 +13,9 @@
  * selection for the whole app"), and the one a new person is most likely to
  * open Preferences for.
  *
+ * Reduce motion (2026-11-14) sits between them: it also changes the app
+ * everywhere, and it is a per-device setting like the keyboard modifier.
+ *
  * `PreferencesTabView` is the pure, props-only half. Its localized copy is a
  * required prop, so the view cannot render user-facing fallback text from the
  * source file. It renders under `renderToStaticMarkup` with no Zustand store
@@ -32,6 +35,7 @@ import {
   SelectValue,
 } from '@kortix/ui/select';
 import { Separator } from '@kortix/ui/separator';
+import { Switch } from '@kortix/ui/switch';
 import { SettingsSectionHeader } from '@kortix/ui/settings-section-header';
 import { SettingsSubsectionHeader } from '@kortix/ui/settings-subsection-header';
 import { useLanguage } from '@/hooks/use-language';
@@ -44,6 +48,7 @@ import {
 } from '@kortix/ui/internal/lib/desktop';
 import { useEffect, useState } from 'react';
 import { useUserPreferencesStore, type TabSwitchModifier } from '@kortix/ui/internal/stores/user-preferences-store';
+import { useReduceMotionSetting } from '@kortix/ui/internal/hooks/use-reduced-motion';
 import { useTranslations } from '@/i18n/use-translations';
 import { SETTINGS_SHORTCUT_KEY } from '../settings-shortcut';
 
@@ -52,6 +57,8 @@ export interface PreferencesCopy {
   description: string;
   languageTitle: string;
   languageDescription: string;
+  motionTitle: string;
+  motionDescription: string;
   keyboardTitle: string;
   keyboardDescription: string;
   modifierKey: string;
@@ -127,6 +134,10 @@ interface PreferencesTabViewProps {
   availableLocales?: readonly Locale[];
   onLocaleChange?: (locale: Locale) => void;
 
+  // Motion
+  reduceMotion?: boolean;
+  onReduceMotionChange?: (reduce: boolean) => void;
+
   // Keyboard shortcuts
   keyboardModifier?: TabSwitchModifier;
   onKeyboardModifierChange?: (value: TabSwitchModifier) => void;
@@ -141,6 +152,8 @@ export function PreferencesTabView({
   locale = 'en',
   availableLocales = locales,
   onLocaleChange = () => {},
+  reduceMotion = false,
+  onReduceMotionChange = () => {},
   keyboardModifier = 'ctrl',
   onKeyboardModifierChange = () => {},
   modifierLabel = 'Ctrl',
@@ -170,6 +183,20 @@ export function PreferencesTabView({
             ))}
           </SelectContent>
         </Select>
+      </section>
+
+      <Separator />
+
+      {/* Reduce motion — a switch stays beside its label at every width, so
+          this row does not stack on mobile like the language picker above. */}
+      <section className="flex items-start justify-between gap-4 md:gap-10">
+        <SettingsSubsectionHeader title={copy.motionTitle} description={copy.motionDescription} />
+        <Switch
+          id="preferences-reduce-motion"
+          checked={reduceMotion}
+          onCheckedChange={onReduceMotionChange}
+          aria-label={copy.motionTitle}
+        />
       </section>
 
       <Separator />
@@ -258,6 +285,8 @@ export function PreferencesTab() {
   const keyboardModifier = useUserPreferencesStore((s) => s.preferences.keyboard.tabSwitchModifier);
   const setKeyboardPreferences = useUserPreferencesStore((s) => s.setKeyboardPreferences);
   const modifierLabel = useUserPreferencesStore((s) => s.getModifierLabel());
+  const reduceMotion = useReduceMotionSetting();
+  const setReduceMotion = useUserPreferencesStore((s) => s.setReduceMotion);
 
   // `useLanguage` reads the signed-in user (via `useAuth`) for its persisted
   // locale, so this container only ever runs this read while mounted, i.e.
@@ -283,6 +312,8 @@ export function PreferencesTab() {
     description: t('description'),
     languageTitle: t('languageTitle'),
     languageDescription: t('languageDescription'),
+    motionTitle: t('motionTitle'),
+    motionDescription: t('motionDescription'),
     keyboardTitle: t('keyboardTitle'),
     keyboardDescription: t('keyboardDescription'),
     modifierKey: t('modifierKey'),
@@ -312,6 +343,8 @@ export function PreferencesTab() {
       locale={locale}
       availableLocales={availableLanguages}
       onLocaleChange={(next) => void setLanguage(next)}
+      reduceMotion={reduceMotion}
+      onReduceMotionChange={setReduceMotion}
       keyboardModifier={keyboardModifier}
       onKeyboardModifierChange={(modifier) =>
         setKeyboardPreferences({ tabSwitchModifier: modifier, closeTabModifier: modifier })

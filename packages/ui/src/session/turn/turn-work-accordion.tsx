@@ -32,11 +32,14 @@ export const WorkFoldContext = createContext(false);
 export const WorkTouchContext = createContext<(() => void) | null>(null);
 
 export function TurnWorkAccordion({
+  label,
   durationMs,
   open,
   onToggle,
   contentId,
 }: {
+  /** The row's words in place of "Worked for …": an agent run's (`sessionLogAgentRunLabel`). */
+  label?: string;
   /** `sessionTurnDurationMs(turn)`; `null` reads "Worked". */
   durationMs: number | null;
   open: boolean;
@@ -56,7 +59,7 @@ export function TurnWorkAccordion({
           'focus-visible:ring-ring/50 rounded-sm text-left text-sm transition-colors select-none focus-visible:ring-2 focus-visible:outline-none',
         )}
       >
-        <span className="min-w-0 truncate tabular-nums">{workedForLabel(durationMs)}</span>
+        <span className="min-w-0 truncate tabular-nums">{label ?? workedForLabel(durationMs)}</span>
         <CaretRightIcon
           aria-hidden
           className={cn(

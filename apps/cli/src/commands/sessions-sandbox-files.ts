@@ -15,6 +15,7 @@ import { toSandboxAbsolutePath } from '@kortix/sdk';
 
 import { kortixFromAuth, withKortixScope } from '../api/sdk.ts';
 import type { Auth } from '../api/auth.ts';
+import { splitHelp } from '../command-argv.ts';
 import { emitJson, surfaceApiError, takeFlagBool, takeFlagValue, fail } from '../command-helpers.ts';
 import { confirm } from '../prompts.ts';
 import { C, help, pad, status } from '../style.ts';
@@ -71,11 +72,9 @@ async function readStdin(): Promise<Blob> {
 }
 
 export async function runSessionsFiles(argv: string[]): Promise<number> {
+  const helped = splitHelp(argv, FILES_HELP);
+  if (helped !== null) return helped;
   const rest = [...argv];
-  if (rest.includes('-h') || rest.includes('--help')) {
-    process.stdout.write(FILES_HELP);
-    return 0;
-  }
 
   let projectArg: string | undefined;
   let hostArg: string | undefined;

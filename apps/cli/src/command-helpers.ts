@@ -1,4 +1,4 @@
-import { FEATURE_DISABLED_CODE } from '@kortix/sdk';
+import { FEATURE_DISABLED_CODE, WORKSPACE_DELETING_CODE } from '@kortix/sdk';
 
 import { loadAuth, loadAuthForHost, loadEnvAuth, type Auth } from './api/auth.ts';
 import {
@@ -774,6 +774,14 @@ function repositoryDisconnectedCode(err: unknown): boolean {
 
 export { NO_WORKSPACE_LINE };
 
+/** How to point the default at a live workspace once it named a deleted one (KRTX-4924). */
+export const PICK_DEFAULT_LINE = 'Pick another: kortix workspaces use <id> (kortix workspaces ls lists them).';
+
+/** True for the API's 409 `workspace_deleting`: the workspace is closed, inside its restore window. */
+export function isWorkspaceDeletingError(err: unknown): boolean {
+  return hasApiErrorCode(err, WORKSPACE_DELETING_CODE);
+}
+
 /** True for the API's 409 `no_workspace`. */
 export function isNoWorkspaceError(err: unknown): boolean {
   return hasApiErrorCode(err, NO_WORKSPACE_CODE);
@@ -827,6 +835,10 @@ export function surfaceApiError(err: unknown): number {
       );
     } else if (err.status === 404) {
       process.stderr.write(`${status.err(err.message || 'Not found.')}\n`);
+    } else if (isWorkspaceDeletingError(err)) {
+      // The workspace is closed and inside its restore window: a default or
+      // link that still names it fails every command until it points elsewhere.
+      process.stderr.write(`${status.err(err.message)}\n  ${PICK_DEFAULT_LINE}\n`);
     } else {
       process.stderr.write(`${status.err(`HTTP ${err.status}: ${err.message}`)}\n`);
       // A remediation-bearing body (the webhook-secret 409s, e.g.) names the
@@ -917,7 +929,8 @@ export function takeFlagValue(argv: string[], requested: string[]): string | und
     for (const n of names) {
       if (a === n) {
         const v = argv[i + 1];
-        if (!v || v.startsWith('-')) throw new Error(`${n} requires a value`);
+        // A lone `-` is a value: stdin, by Unix convention (`--github-token -`).
+        if (!v || (v.startsWith('-') && v !== '-')) throw new Error(`${n} requires a value`);
         argv.splice(i, 2);
         return v;
       }

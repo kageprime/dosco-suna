@@ -21,7 +21,7 @@ import { closeSync, constants, existsSync, fstatSync, ftruncateSync, mkdirSync, 
 import { randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { createWorkspaceGoalRecord, getWorkspaceGoal, listWorkspaceGoalRecords, MAX_GOAL_CRITERIA, parseGoalFile, postWorkspaceGoalAction, setWorkspaceGoalBinding, setWorkspaceGoalCriteria, WorkspaceGoalConflictError } from '@kortix/sdk';
+import { createWorkspaceGoalRecord, getWorkspaceGoal, listWorkspaceGoalRecords, MAX_GOAL_CRITERIA, parseGoalFile, postWorkspaceGoalAction, setWorkspaceGoalBinding, setWorkspaceGoalCriteria, stopWorkspaceGoal, WorkspaceGoalConflictError } from '@kortix/sdk';
 import type { WorkspaceGoalCriterionStatus, WorkspaceGoalRecord, WorkspaceGoalRecordState, WorkspaceGoalVerification } from '@kortix/sdk';
 import type { Auth } from '../api/auth.ts';
 import { ApiError, type ApiClient, withCliErrors } from '../api/client.ts';
@@ -42,7 +42,8 @@ GOAL.md change nothing. The kortix-goals skill describes the whole loop.
 
 Lifecycle: draft → active ⇄ waiting_on_user; active → verifying →
 done (every criterion passed) or active (any failed). A person pauses, resumes,
-stops and restarts a goal from the Goals page; a session cannot.
+stops and restarts a goal from the Goals page; a session cannot. One exception:
+the chat that owns a goal (goal mode) stops it when its person says so.
 
 Owner session:
   transition active --reason "<why>"
@@ -60,6 +61,10 @@ Owner session:
                       criterion is verified only by the verifier.
   verify              Every criterion reported met with an evidence file under
                       evidence/: the API starts a verifier session.
+  stop --reason "<what the person said>"
+                      Goal mode only: the person told this chat to stop or
+                      drop its goal. The goal ends as stopped and its
+                      heartbeat is removed. Never to get out of the work.
   handover --note "<state of play>"
                       Context nearly full: the API starts a fresh owner session
                       with the note.
@@ -83,14 +88,18 @@ Anyone:
                       One goal: state, criteria (reported and verified), what
                       it waits on, owner, verifier, next wake, caps.
   new "<goal>" [--criterion "<text>"]... [--user <user_id>] [--agent <name>]
-                      Create a goal. A person, or a chat session for the person
-                      it works for. A goal's own owner or verifier session may
-                      not start another goal.
+                      Create a goal with its own owner session. A person, or a
+                      chat session for the person it works for. A goal's own
+                      owner or verifier session may not start another goal.
+  new "<goal>" --criterion "<text>"... --here
+                      Goal mode, in a chat: this chat owns the goal and works it
+                      until the verifier passes it. Starts active, heartbeat on.
+                      1 to 8 criteria. One open goal per chat; no flag needed.
   bind [<slug|goal_id>] --space <slug> | --agent <name> | --clear
                       Group the goal under a space or an agent. A person only.
 
-Not here: stop, pause, resume, restart, raising caps. A person does those
-from the Goals page.
+Not here: pause, resume, restart, raising caps, and stopping a goal that has
+its own owner session. A person does those from the Goals page.
 
 Options:
   --goal <goal_id>    The goal (default: this session's goal_id, else the goal
@@ -241,6 +250,7 @@ interface Flags {
   space?: string;
   turn?: string;
   clear: boolean;
+  here: boolean;
   enforce: boolean;
   quiet: boolean;
   json: boolean;
@@ -269,11 +279,12 @@ function parseFlags(rest: string[]): Flags {
     clear: takeFlagBool(rest, ['--clear']),
     enforce: takeFlagBool(rest, ['--enforce']),
     quiet: takeFlagBool(rest, ['--quiet']),
+    here: takeFlagBool(rest, ['--here']),
     json: takeFlagBool(rest, ['--json']),
   };
 }
 
-const SUBCOMMANDS = ['new', 'transition', 'progress', 'verify', 'verdict', 'handover', 'check', 'bind', 'ls', 'list', 'status'];
+const SUBCOMMANDS = ['new', 'transition', 'progress', 'verify', 'verdict', 'handover', 'stop', 'check', 'bind', 'ls', 'list', 'status'];
 
 interface Ctx {
   client: ApiClient;
@@ -305,7 +316,7 @@ export async function runGoals(argv: string[]): Promise<number> {
     projectId: resolved.projectId,
     sessionId: process.env.KORTIX_SESSION_ID || null,
   };
-  const inSession = ['transition', 'progress', 'verify', 'verdict', 'handover', 'check'];
+  const inSession = ['transition', 'progress', 'verify', 'verdict', 'handover', 'stop', 'check'];
   if (inSession.includes(sub) && !ctx.sessionId) return fail(`No $KORTIX_SESSION_ID: kortix goals ${sub} runs inside the goal's session.`);
   try {
     switch (sub) {
@@ -321,6 +332,8 @@ export async function runGoals(argv: string[]): Promise<number> {
         return await verdictGoal(ctx, rest[0], flags);
       case 'handover':
         return await handoverGoal(ctx, flags);
+      case 'stop':
+        return await stopOwnGoal(ctx, flags);
       case 'check':
         return await checkGoals(ctx, flags);
       case 'bind':
@@ -423,7 +436,10 @@ function done(json: boolean, from: string, g: Goal, extra: Record<string, unknow
 async function transitionGoal(ctx: Ctx, to: string, flags: Flags): Promise<number> {
   if (!to) return missing('the target state: kortix goals transition active|waiting_on_user --reason "…"');
   if (to === 'stopped') {
-    return refuse(flags.json, '', 'stopped', ['Only a person stops a goal, from the Goals page. If the person asked you to stop, tell them to press Stop there.']);
+    return refuse(flags.json, '', 'stopped', [
+      'The person told this chat to stop the goal it owns (goal mode): kortix goals stop --reason "<what they said>".',
+      'A goal with its own owner session: only a person stops it, from the Goals page.',
+    ]);
   }
   if (to === 'verifying') return refuse(flags.json, '', to, ['Run kortix goals verify: the API checks the evidence and starts the verifier.']);
   if (to === 'done') return refuse(flags.json, '', to, ['Only the verifier ends a goal: kortix goals verdict, run in the verifier session.']);
@@ -431,6 +447,18 @@ async function transitionGoal(ctx: Ctx, to: string, flags: Flags): Promise<numbe
   if (!flags.reason.trim()) return refuse(flags.json, '', to, [to === 'waiting_on_user' ? 'Pass --reason "<the question for the assigned user>".' : 'Pass --reason "<why>": every move is logged.']);
   const g = await resolveGoal(ctx, 'owner', flags.goal);
   return to === 'active' ? activate(ctx, g, flags) : wait(ctx, g, flags);
+}
+
+/** Goal mode: the chat stops the goal it owns, with what its person said. The API refuses any other session. */
+async function stopOwnGoal(ctx: Ctx, flags: Flags): Promise<number> {
+  if (!flags.reason.trim()) return refuse(flags.json, '', 'stopped', ['Pass --reason "<what the person said>": a goal stops only because its person said so, and the stop is logged with it.']);
+  const g = await resolveGoal(ctx, 'owner', flags.goal);
+  const next = await commit(ctx, g, {
+    to: 'stopped',
+    valid: (x) => inState(x, ['draft', 'active', 'waiting_on_user', 'verifying'], 'stop'),
+    send: async (x) => (await stopWorkspaceGoal(ctx.projectId, { goalId: x.goal_id, revision: x.revision }, flags.reason)).projectGoal.record,
+  });
+  return done(flags.json, g.state, next);
 }
 
 async function activate(ctx: Ctx, start: Goal, flags: Flags): Promise<number> {
@@ -731,6 +759,8 @@ async function checkGoals(ctx: Ctx, flags: Flags): Promise<number> {
 
 async function newGoal(ctx: Ctx, brief: string, flags: Flags): Promise<number> {
   if (!brief) return missing('the goal, e.g. kortix goals new "EU billing live: invoices in EUR with VAT"');
+  if (flags.here && !ctx.sessionId) return missing('a chat: --here binds the goal to the session it runs in');
+  if (flags.here && !flags.criterion.length) return missing('the done criteria: --criterion "<what someone else can check>" (1 to 8)');
   try {
     const goal = await api(ctx, () => createWorkspaceGoalRecord(ctx.projectId, {
       goal_id: randomUUID(),
@@ -738,6 +768,7 @@ async function newGoal(ctx: Ctx, brief: string, flags: Flags): Promise<number> {
       ...(flags.criterion.length ? { criteria: flags.criterion } : {}),
       ...(flags.agent ? { agent: flags.agent } : {}),
       ...(flags.user ? { assigned_user_id: flags.user } : {}),
+      ...(flags.here ? { here: true } : {}),
     }));
     if (flags.json) emitJson({ ok: true, goal });
     else {

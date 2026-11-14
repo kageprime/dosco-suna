@@ -76,6 +76,8 @@ type Step =
   | { cutMidLine: string }
   | { status: number; message?: string }
   | { stall: true }
+  /** Streams `hold` as text, then holds the reply open until the request aborts: a turn caught mid-answer. */
+  | { hold: string }
 
 /**
  * An OpenAI-compatible `/chat/completions` that answers each request with the
@@ -122,6 +124,19 @@ function startFakeGateway() {
         req.signal.addEventListener('abort', () => resolve(new Response('aborted', { status: 499 })), { once: true })
       })
       let body = chunk({ role: 'assistant', content: '' })
+      if ('hold' in step) {
+        const encoder = new TextEncoder()
+        const head = body + chunk({ content: step.hold })
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(encoder.encode(head))
+              req.signal.addEventListener('abort', () => controller.close(), { once: true })
+            },
+          }),
+          { headers: { 'content-type': 'text/event-stream' } },
+        )
+      }
       if ('cut' in step) {
         if (step.cut) body += chunk({ content: step.cut })
         return new Response(body, { headers: { 'content-type': 'text/event-stream' } })
@@ -277,7 +292,7 @@ async function boot(input: {
 }
 
 /** The root agent's tools, as the model is offered them. */
-const rootTools = (r: Rig) => (r.service.runtime() as unknown as { agent: { state: { tools: Array<{ name: string; description: string }> } } }).agent.state.tools
+const rootTools = (r: Rig) => (r.service.runtime() as unknown as { agent: { state: { tools: Array<{ name: string; description: string; parameters?: unknown }> } } }).agent.state.tools
 const toolIds = (r: Rig) => rootTools(r).map((tool) => tool.name)
 const taskTool = (r: Rig) => rootTools(r).find((tool) => tool.name === 'task')!
 const skillList = (r: Rig) => r.service.runtime()!.skillList()
@@ -1865,6 +1880,105 @@ export default function (pi) {
     const conversation = gateway.sent.at(-1)!.filter((m) => m.role !== 'system' && m.role !== 'developer')
     expect(conversation).toHaveLength(1)
     expect(JSON.stringify(conversation[0]!.content)).toContain('two')
+  })
+
+  // extensions/follow-through.ts in the real runtime: an offer to check later sends the run back to the model once.
+  test('follow-through: a reply that offers a later check goes back to the model once, with the hidden note', async () => {
+    const reads: string[] = []
+    const server = Bun.serve({
+      port: 0,
+      fetch: (req) => {
+        const path = new URL(req.url).pathname
+        reads.push(path)
+        return path === '/v1/workspaces/proj-pi-test/sessions/sess-pi-test/reminders' ? Response.json({ reminders: [] }) : new Response('not found', { status: 404 })
+      },
+    })
+    try {
+      const offer = 'Sent. Want me to check the thread for her answer in a couple of hours?'
+      const run = async (flags: string) => {
+        const r = await boot({
+          script: [{ text: offer }, { text: "⏳ I'll check the thread at 15:00." }],
+          env: { KORTIX_API_URL: `http://127.0.0.1:${server.port}/v1`, KORTIX_FEATURE_FLAGS: flags },
+        })
+        const before = gateway.sent.length
+        await promptAndSettle(r, 'pay this and confirm via email')
+        return gateway.sent.slice(before)
+      }
+      const nudged = await run('reminders')
+      expect(nudged).toHaveLength(2)
+      expect(JSON.stringify(nudged[1])).toContain('[follow-through] Your reply offers a later check instead of setting it')
+      // The person's transcript has their prompt and both replies, never the note.
+      const { log } = piSessionLog(rigs.at(-1)!.service.runtime()!.sessionLogSnapshot()!)
+      expect(() => upcastSessionLog(log)).not.toThrow()
+      const wire = JSON.stringify(log.threads[0]!.messages.filter((m) => m.kind !== 'context'))
+      expect(wire).toContain('pay this and confirm via email')
+      expect(wire).toContain("I'll check the thread at 15:00.")
+      expect(wire).not.toContain('[follow-through]')
+      // Loops off: kortix_schedules cannot set a wake-up, so the guard is not loaded.
+      expect(await run('')).toHaveLength(1)
+    } finally {
+      server.stop(true)
+    }
+  })
+
+  // extensions/goal-mode.ts in the real runtime: a chat that owns an active goal does not settle until it records where the goal stands.
+  test('goal mode: the goal leads the system prompt; a run that recorded nothing goes back to the model until it records', async () => {
+    const goal = { goal_id: 'g1', title: 'Synthetic invoice paid', state: 'active', slug: 'invoice', folder: '/Users/u1/Goals/invoice', owner_session_id: 'sess-pi-test', paused_at: null, waiting_on: null, next_wake_at: null, criteria: [{ id: 'c1', text: 'The transfer shows as sent' }] }
+    let goals: unknown[] = [goal]
+    const server = Bun.serve({
+      port: 0,
+      fetch: (req) => (new URL(req.url).pathname === '/v1/workspaces/proj-pi-test/goals' ? Response.json({ goals }) : new Response('not found', { status: 404 })),
+    })
+    try {
+      const run = async () => {
+        const r = await boot({
+          script: [{ text: 'I emailed the vendor.' }, { tool: 'bash', args: { command: 'echo kortix goals progress --summary emailed' } }, { text: '⏳ Recorded.' }],
+          env: { KORTIX_API_URL: `http://127.0.0.1:${server.port}/v1`, KORTIX_FEATURE_FLAGS: 'goal_mode' },
+        })
+        const before = gateway.sent.length
+        await promptAndSettle(r, 'pay this invoice')
+        return gateway.sent.slice(before)
+      }
+      const worked = await run()
+      expect(worked).toHaveLength(3)
+      expect(JSON.stringify(worked[0])).toContain('## Goal mode')
+      expect(JSON.stringify(worked[1])).toContain('[goal] Goal \\"Synthetic invoice paid\\" is active and this turn recorded nothing on it.')
+      const { log } = piSessionLog(rigs.at(-1)!.service.runtime()!.sessionLogSnapshot()!)
+      expect(JSON.stringify(log.threads[0]!.messages)).not.toContain('[goal]')
+      // No goal: one request, no section.
+      goals = []
+      const plain = await run()
+      expect(plain).toHaveLength(1)
+      expect(JSON.stringify(plain[0])).not.toContain('## Goal mode')
+    } finally {
+      server.stop(true)
+    }
+  })
+
+  // extensions/goal-mode.ts in the real runtime: only a turn the person started stops the chat's goal.
+  test("goal mode: a wake turn cannot stop the goal; the person's own turn can", async () => {
+    const goal = { goal_id: 'g1', title: 'Synthetic invoice paid', state: 'waiting_on_user', slug: 'invoice', folder: '/Users/u1/Goals/invoice', owner_session_id: 'sess-pi-test', paused_at: null, waiting_on: null, next_wake_at: null, criteria: [{ id: 'c1', text: 'The transfer shows as sent' }] }
+    const server = Bun.serve({
+      port: 0,
+      fetch: (req) => (new URL(req.url).pathname === '/v1/workspaces/proj-pi-test/goals' ? Response.json({ goals: [goal] }) : new Response('not found', { status: 404 })),
+    })
+    try {
+      const run = async (prompt: string) => {
+        const r = await boot({
+          script: [{ tool: 'bash', args: { command: 'echo kortix goals stop --reason gave-up' } }, { text: 'Done.' }],
+          env: { KORTIX_API_URL: `http://127.0.0.1:${server.port}/v1`, KORTIX_FEATURE_FLAGS: 'goal_mode' },
+        })
+        const before = gateway.sent.length
+        await promptAndSettle(r, prompt)
+        return JSON.stringify(gateway.sent.slice(before).at(-1))
+      }
+      const wake = await run('[REMINDER reminder.0123456789ab — recurring]\nGoal wake: /drives/me/Goals/invoice. Load the kortix-goals skill and run one wake (goal g1).')
+      expect(wake).toContain('Only the person stops this goal')
+      const person = await run('drop the invoice goal, the vendor cancelled')
+      expect(person).not.toContain('Only the person stops this goal')
+    } finally {
+      server.stop(true)
+    }
   })
 
   test('the provider hooks route through the current runner, and pass through without one', async () => {
@@ -4063,11 +4177,12 @@ describe('pi steering', () => {
   const sentText = (index: number) => JSON.stringify(gateway.sent[index])
   /** Hooks that record the turn and steer relays the boot would send. */
   const relays = () => {
-    const seen = { begins: [] as string[], ends: [] as string[], reads: [] as string[] }
+    const seen = { begins: [] as string[], ends: [] as string[], reads: [] as string[], drops: [] as string[] }
     const hooks: PiRuntimeHooks = {
       onTurnBegin: ({ messageId }) => void seen.begins.push(messageId),
       onTurnEnd: ({ messageId }) => void seen.ends.push(messageId),
       onSteerRead: ({ messageId }) => void seen.reads.push(messageId),
+      onSteerDropped: ({ messageId }) => void seen.drops.push(messageId),
     }
     return { seen, hooks }
   }
@@ -4190,6 +4305,8 @@ describe('pi steering', () => {
     expect(seen.begins).toEqual([TURN, late])
     expect(seen.ends).toEqual([TURN, late])
     expect(seen.reads).toEqual([late])
+    // A turn that ends on its own drops nothing: the steer starts the next turn.
+    expect(seen.drops).toEqual([])
     expect(gateway.sent.length - before).toBe(2)
     expect(sentText(before + 1)).toContain('STEER-LATE')
     const messages = (await page(r)).messages
@@ -4202,7 +4319,7 @@ describe('pi steering', () => {
     expect(messages[2]!.info.id).toBe(late)
   })
 
-  test('a stopped turn drops its unread steered messages and starts nothing', async () => {
+  test('a stopped turn drops its unread steered messages, reports each one before its end, and starts nothing', async () => {
     const { seen, hooks } = relays()
     const r = await boot({ script: [{ tool: 'bash', args: { command: 'sleep 20' } }, { text: 'unreachable' }, { text: 'next turn' }], hooks })
     const root = r.service.runtime()!.rootId
@@ -4212,9 +4329,12 @@ describe('pi steering', () => {
     expect((await steer(r, dropped, 'STEER-DROPPED')).status).toBe(202)
     expect((await post(r, `/kortix/runtime/sessions/${root}/abort`, {})).status).toBe(200)
     await waitFor(() => seen.ends.length === 1)
+    // Reported by the time the end is: apps/api puts its prompt back on the queue for the next turn.
+    expect(seen.drops).toEqual([dropped])
     await Bun.sleep(150)
     expect(seen.begins).toEqual([TURN])
     expect(seen.reads).toEqual([])
+    expect(seen.drops).toEqual([dropped])
     expect((await page(r)).messages.some((m) => m.info.id === dropped)).toBe(false)
     // Nothing is left in pi's queue: the next turn's model does not get it.
     const before = gateway.sent.length
@@ -4259,6 +4379,116 @@ describe('pi steering', () => {
     // The refused id stored nothing, so it may now be sent as a prompt.
     expect((await post(r, `/kortix/runtime/sessions/${root}/prompt`, { message_id: idle, parts: [{ type: 'text', text: 'now a prompt' }] })).status).toBe(202)
     await waitFor(() => seen.ends.length === 2)
+  })
+})
+
+describe('pi runs an extension starts', () => {
+  const post = (r: Rig, path: string, body: unknown) =>
+    r.user(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  const service = (r: Rig, path: string, body: unknown) =>
+    r.bearer(path, { method: 'POST', headers: { 'content-type': 'application/json', 'X-Kortix-Service-Call': '1' }, body: JSON.stringify(body) })
+  const page = async (r: Rig) =>
+    (await r.bearer(`/kortix/runtime/messages/${r.service.runtime()!.rootId}`).then((res) => res.json())) as WirePage
+  /** An id the client mints at send time: above every id it has seen, as the SDK does. */
+  const sendTimeId = async (r: Rig) => {
+    const clock = new MessageIdClock()
+    for (const message of (await page(r)).messages) clock.observe(String(message.info.id))
+    return clock.mint(Date.now())
+  }
+  // prod 2026-11-14: a project extension checked its status after `agent_settled` and then posted a
+  // heartbeat, without returning that work to the handler. pi was idle by then, so the heartbeat
+  // started a run kortixd never admitted, and the next prompt (a 5-minute cron tick) failed "Agent is
+  // already processing" in 299 of ~1,200 runs. A send inside the handler is deferred into the
+  // settling run by pi itself; the gap after the handler returns is what this extension models.
+  const HEARTBEAT = `export default function (pi) {
+  let sent = false
+  pi.on('agent_settled', () => {
+    if (sent) return
+    sent = true
+    void (async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      await pi.sendUserMessage('HEARTBEAT-TICK')
+    })()
+  })
+}
+`
+
+  test('a prompt that arrives while an extension run is going waits for it, then runs as its own turn', async () => {
+    const ends: Array<{ messageId: string; status: string; error?: { message?: string } }> = []
+    const begins: string[] = []
+    const r = await boot({
+      script: [
+        { text: 'first reply' },
+        { tool: 'bash', args: { command: 'sleep 0.8; echo heartbeat-done' } },
+        { text: 'heartbeat reply' },
+        { text: 'second reply' },
+      ],
+      hooks: {
+        onTurnBegin: ({ messageId }) => void begins.push(messageId),
+        onTurnEnd: ({ messageId, status, error }) => void ends.push({ messageId, status, ...(error ? { error } : {}) }),
+      },
+      env: repoPackages('heartbeat'),
+      prepare: (workspace) => void repoExtension(workspace, 'heartbeat', HEARTBEAT),
+    })
+    const rt = r.service.runtime()!
+    const before = gateway.sent.length
+    const first = await sendTimeId(r)
+    expect((await post(r, `/kortix/runtime/sessions/${rt.rootId}/prompt`, { message_id: first, parts: [{ type: 'text', text: 'FIRST-GO' }] })).status).toBe(202)
+    await waitFor(() => ends.length === 1)
+    // The extension's run started as the first turn ended: its bash step runs now.
+    await waitFor(() => JSON.stringify(gateway.sent.slice(before)).includes('HEARTBEAT-TICK'))
+
+    const second = await sendTimeId(r)
+    expect((await post(r, `/kortix/runtime/sessions/${rt.rootId}/prompt`, { message_id: second, parts: [{ type: 'text', text: 'SECOND-GO' }] })).status).toBe(202)
+    await Bun.sleep(100)
+    // Still queued behind the extension's run: in flight for the reaper, and not a turn a steer joins
+    // (apps/api then queues the steer as a prompt instead of handing it to the extension's run).
+    expect(rt.turnProbe(second)).toEqual({ inFlight: true, end: null, orphanedPrompt: false })
+    expect(begins).toEqual([first])
+    const steer = await service(r, `/kortix/runtime/sessions/${rt.rootId}/steer`, { message_id: await sendTimeId(r), parts: [{ type: 'text', text: 'late' }] })
+    expect(steer.status).toBe(409)
+
+    await waitFor(() => ends.length === 2, 8_000)
+    expect(ends).toEqual([
+      { messageId: first, status: 'idle' },
+      { messageId: second, status: 'idle' },
+    ])
+    expect(begins).toEqual([first, second])
+    // The second prompt reached the model after the extension's run ended, in a model call of its own.
+    const sent = gateway.sent.slice(before).map((messages) => JSON.stringify(messages.at(-1)))
+    expect(sent.findIndex((last) => last.includes('SECOND-GO'))).toBe(3)
+    expect(rt.turnProbe(second)).toEqual({ inFlight: false, end: 'completed', orphanedPrompt: false })
+  })
+
+  test('a run an extension starts inside the prompt gap makes the turn wait and send again, not fail', async () => {
+    const ends: Array<{ messageId: string; status: string; error?: { message?: string } }> = []
+    // Starts its own run while pi handles the turn's prompt, after the turn's idle wait: pi then
+    // refuses that prompt as busy.
+    const GAP = `export default function (pi) {
+  let sent = false
+  pi.on('input', async (event) => {
+    if (sent || !String(event.text).includes('GO-NOW')) return
+    sent = true
+    void pi.sendUserMessage('GAP-RUN')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  })
+}
+`
+    const r = await boot({
+      script: [{ tool: 'bash', args: { command: 'sleep 0.5; echo gap-done' } }, { text: 'gap reply' }, { text: 'turn reply' }],
+      hooks: { onTurnEnd: ({ messageId, status, error }) => void ends.push({ messageId, status, ...(error ? { error } : {}) }) },
+      env: repoPackages('gap'),
+      prepare: (workspace) => void repoExtension(workspace, 'gap', GAP),
+    })
+    const rt = r.service.runtime()!
+    const before = gateway.sent.length
+    const turn = await sendTimeId(r)
+    expect((await post(r, `/kortix/runtime/sessions/${rt.rootId}/prompt`, { message_id: turn, parts: [{ type: 'text', text: 'GO-NOW' }] })).status).toBe(202)
+    await waitFor(() => ends.length === 1, 8_000)
+    expect(ends).toEqual([{ messageId: turn, status: 'idle' }])
+    const sent = gateway.sent.slice(before).map((messages) => JSON.stringify(messages.at(-1)))
+    expect(sent[0]).toContain('GAP-RUN')
+    expect(sent.findIndex((last) => last.includes('GO-NOW'))).toBe(2)
   })
 })
 
@@ -4920,6 +5150,32 @@ describe('pi session log on the v2 stream (P4.3)', () => {
     const batches = readdirSync(dump).map((f) => JSON.parse(readFileSync(join(dump, f), 'utf8')) as { puts: Array<{ rev: number; message: SessionLogMessage }> })
     const onStream = new Map(frames.filter((x) => x.type === 'log.message').map((f) => [`${f.payload.message.message_id}@${f.payload.rev}`, f.payload.message]))
     for (const p of batches.flatMap((b) => b.puts)) expect(onStream.get(`${p.message.message_id}@${p.rev}`)).toEqual(p.message)
+  })
+
+  // F-011: a tab that left a session mid-answer and came back joins the v2 stream live-only.
+  // pi stores the reply only at its message_end, so no page holds it, and the deltas name a
+  // message the tab's log lacks. The stream must open with the answer so far.
+  test('a v2 subscriber that joins mid-answer first gets the streaming reply so far as a log.message put', async () => {
+    const r = await boot({ script: [{ hold: 'Section 1. The head of the answer.' }], env: { KORTIX_PI_NO_PROGRESS_MS: '5000' } })
+    const rt = r.service.runtime()!
+    const root = rt.rootId
+    expect(startSessionLogJournal(createPiSessionLogPort(() => r.service.runtime()?.sessionLogSnapshot() ?? null), { generation: 0 })).not.toBeNull()
+    const first = await r.bearer('/kortix/runtime/events?schema=v2&since=0')
+    expect((await prompt(r, root, { parts: [{ type: 'text', text: 'write sections' }] })).status).toBe(204)
+    await readSse(first, (t) => t.includes('The head of the answer.'))
+    // A fresh subscriber: no cursor, so the box replays nothing.
+    const late = await r.bearer('/kortix/runtime/events?schema=v2')
+    const raw = await readSse(late, (t) => t.includes('The head of the answer.'), 1_500)
+    const puts = raw
+      .split('\n\n')
+      .filter((f) => f.startsWith('event: log.message'))
+      .map((f) => JSON.parse(f.slice(f.indexOf('data: ') + 6)) as { seq: number; payload: { rev: number; message: SessionLogMessage } })
+    const reply = puts.find((f) => f.payload.message.role === 'assistant')
+    expect(reply).toBeDefined()
+    expect(typeof reply!.seq).toBe('number')
+    expect(SESSION_LOG_EVENTS['log.message'].safeParse(reply!.payload).success).toBe(true)
+    expect(reply!.payload.message).toMatchObject({ thread_id: root, status: 'streaming' })
+    expect(reply!.payload.message.blocks).toContainEqual(expect.objectContaining({ type: 'text', text: 'Section 1. The head of the answer.' }))
   })
 
   test('a prompt queued behind a running turn is on the stream at its queued seq from admission, then at its real seq; GET /log shows the seqs the API stores', async () => {
@@ -5946,6 +6202,41 @@ describe('kortix.yaml on pi', () => {
     await promptAndSettle(r, 'delegate')
     const page = (await r.bearer(`/kortix/runtime/messages/${r.service.runtime()!.rootId}`).then((res) => res.json())) as WirePage
     expect(toolParts(page, 'task')[0]!.state.error).toBe('Unknown subagent_type "general". Available: reviewer.')
+  })
+
+  test('a kortix.yaml set with only primary agents runs an untyped call inline, never an absent general', async () => {
+    const set = v3({ agent: { kortix: { mode: 'primary', permission: 'allow' }, 'memory-reflector': { mode: 'primary', permission: 'allow' } } })
+    const untyped = { tool: 'task', args: { description: 'Delegate', prompt: 'do it' } }
+    const r = await boot({ script: [untyped, { text: 'child done' }, TASK('general'), { text: 'done' }], env: { KORTIX_COMPILED_AGENT_CONFIG: set } })
+    const tool = taskTool(r)
+    expect(tool.description).not.toContain('omitted: general')
+    expect(tool.description).not.toContain('Available agent types:')
+    expect(tool.description).toContain('can start no named subagent type')
+    expect(tool.description).toContain('Define an inline ephemeral agent in the call.')
+    expect(tool.description).not.toContain('Pick a named agent type below')
+    expect(JSON.stringify(tool.parameters)).not.toContain('Omitted: the general-purpose agent')
+
+    await promptAndSettle(r, 'delegate')
+    const page = (await r.bearer(`/kortix/runtime/messages/${r.service.runtime()!.rootId}`).then((res) => res.json())) as WirePage
+    const [first, general] = toolParts(page, 'task')
+    // The first call names nothing and still works: one hand-off, no failed row.
+    expect(first!.state.status).toBe('completed')
+    expect(JSON.stringify(first!.state)).toContain('child done')
+    expect((await children(r)).length).toBe(1)
+    // A name that does not exist is still refused, with the way out instead of an empty roster.
+    expect(general!.state.status).toBe('error')
+    expect(String(general!.state.error)).toContain('Omit subagent_type')
+    expect(String(general!.state.error)).not.toContain('Available: .')
+  })
+
+  test('an untyped call stays refused when the permission rules deny task', async () => {
+    const set = v3({ agent: { kortix: { mode: 'primary', permission: { '*': 'allow', task: 'deny' } } } })
+    const untyped = { tool: 'task', args: { description: 'Delegate', prompt: 'do it' } }
+    const r = await boot({ script: [untyped, { text: 'done' }], env: { KORTIX_COMPILED_AGENT_CONFIG: set } })
+    await promptAndSettle(r, 'delegate')
+    const page = (await r.bearer(`/kortix/runtime/messages/${r.service.runtime()!.rootId}`).then((res) => res.json())) as WirePage
+    expect(toolParts(page, 'task')[0]!.state.status).toBe('error')
+    expect((await children(r)).length).toBe(0)
   })
 
   test('a set without schema: 3 keeps the built-in general and explore subagents', async () => {

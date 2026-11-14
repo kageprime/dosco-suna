@@ -15,6 +15,7 @@
  */
 import { beforeEach, expect, mock, test } from 'bun:test';
 import { configureKortix } from '../../http/config';
+import { withSizelessURLSearchParams } from '../../test-fixtures';
 import {
   approveCliDevice,
   createAccountToken,
@@ -188,4 +189,11 @@ test('createAccountToken({ renews: true }) asks for a renewing expiry (the CLI b
   const minted = await createAccountToken({ name: 'CLI · laptop', renews: true });
   expect(minted.expiry_renews).toBe(true);
   expect(calls[0]?.body).toBe(JSON.stringify({ name: 'CLI · laptop', renews: true }));
+});
+
+test('listAccountTokens and revokeAccountToken keep their query under the mobile URLSearchParams polyfill (KRTX-4898)', async () => {
+  await withSizelessURLSearchParams(() => listAccountTokens('acc-1', { mine: true }));
+  expect(last().url).toBe('http://test.local/accounts/tokens?account_id=acc-1&mine=true');
+  await withSizelessURLSearchParams(() => revokeAccountToken('tok-1', 'acc-1', { deleteRevoked: true }));
+  expect(last().url).toBe('http://test.local/accounts/tokens/tok-1?account_id=acc-1&delete_revoked=true');
 });

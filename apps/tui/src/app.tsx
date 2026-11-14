@@ -66,7 +66,7 @@ import { type LinkRow, LinksOverlay } from './features/links/index.ts';
 import { PortsOverlay, type UsePortsResult } from './features/ports/index.ts';
 import { type ComposerMetrics, DraftView, SessionView } from './features/session/index.ts';
 import { focusHints } from './features/session/session-view.tsx';
-import { Sidebar, type SidebarNavItem } from './features/sidebar/index.ts';
+import { Sidebar, type SidebarNavItem, useRefreshSessions } from './features/sidebar/index.ts';
 import { kortix } from './kortix.ts';
 import { copyToClipboard } from './lib/clipboard.ts';
 import { useCopyOnSelect } from './lib/copy-on-select.ts';
@@ -327,9 +327,11 @@ export function App({
 
   // ── what is open: names for the splash, the tray and the header ─────────
 
-  // These lists are already in the query cache for the sidebar and the
-  // `/sessions` panel; reading them here costs no extra request.
+  // The `/sessions` panel reads this same list (every starter), and the
+  // sidebar these projects: one request each for all of them.
   const sessions = useProjectSessions(projectId ?? '', { enabled: Boolean(projectId) });
+  // A session action changes the sidebar's lists too: refresh every list.
+  const refreshSessions = useRefreshSessions(projectId);
   const projects = useProjects(accountId ?? undefined);
   const sessionRow = useMemo(
     () => sessions.sessions.find((entry) => entry.session_id === sessionId) ?? null,
@@ -515,12 +517,12 @@ export function App({
         const message = await run();
         pushToast(message);
         after?.();
-        void sessions.refetch();
+        void refreshSessions();
       } catch (error) {
         pushToast(`${label} failed: ${errorText(error)}`, 'error');
       }
     },
-    [pushToast, sessions.refetch],
+    [pushToast, refreshSessions],
   );
 
   /** `/new <prompt>`, the draft's first prompt, `/fork`. Throws so the draft can restore. */
@@ -534,7 +536,7 @@ export function App({
         const id = forkFrom
           ? await forkSession(kortix(), projectId, forkFrom, prompt)
           : await startSession(kortix(), projectId, prompt);
-        void sessions.refetch();
+        void refreshSessions();
         openSession(id);
         if (forkFrom) pushToast('Forked into a new session.');
       } catch (error) {
@@ -542,7 +544,7 @@ export function App({
         throw error;
       }
     },
-    [projectId, sessions.refetch, openSession, pushToast],
+    [projectId, refreshSessions, openSession, pushToast],
   );
 
   const confirm = useCallback(

@@ -194,6 +194,18 @@ export function isAllowedPreviewOrigin(origin: string): boolean {
   }
 }
 
+/** The web-app origins that may frame a preview and hear its location
+ *  (preview-bridge.ts): the same set `isAllowedPreviewOrigin` accepts. */
+export function previewParentOrigins(): string[] {
+  const frontend = (config.FRONTEND_URL || '').trim();
+  if (!frontend) return [];
+  try {
+    return [...new Set([new URL(frontend).origin, ...aliasFrontendOrigins()])];
+  } catch {
+    return [];
+  }
+}
+
 export function previewCorsHeaders(origin: string): Record<string, string> {
   if (!origin || !isAllowedPreviewOrigin(origin)) return {};
   return {

@@ -13,6 +13,8 @@ copyable fact; these tests keep them in agreement.
 import pathlib
 import unittest
 
+from _hcl import block
+
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 USE2 = (ROOT / "terraform/compliance-monitoring/use2-security.tf").read_text()
@@ -26,13 +28,6 @@ QUEUES = (
     ("kortix-dev-use2-capture-store-manifests", "manifests"),
     ("kortix-dev-use2-capture-store-manifests-dlq", "manifests-dlq"),
 )
-
-
-def block(config, header):
-    """Return the text of the block starting at `header` up to its closing brace."""
-    start = config.index(header)
-    end = config.index("\n}", start)
-    return config[start : end + 2]
 
 
 class SqsMessageAgeAlarmTests(unittest.TestCase):

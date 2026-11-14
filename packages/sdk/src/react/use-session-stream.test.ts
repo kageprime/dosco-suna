@@ -27,6 +27,45 @@ describe('applySessionControlFrame', () => {
     expect(client.getQueryData<unknown>(qk.project.sessionTurn(P, S))).toEqual({ turns: [], working, atMs: 42 });
   });
 
+  // F-025: the sidebar row reads `session.working` from the list caches, which
+  // refresh on a 60 s poll. The turn frame is the server's verdict for that same
+  // field, so it lands on the session's cached rows the moment it arrives.
+  test('a turn frame puts the server verdict on this session\'s cached list and detail rows', () => {
+    const client = new QueryClient();
+    const busy = { state: 'working', since: '2026-11-12T13:25:00.000Z', turn_token: 't1', pending_delivery: false };
+    const idle = { state: 'idle', since: null, turn_token: null, pending_delivery: false };
+    const other = { session_id: 's2', status: 'running', working: busy };
+    const pagedKey = qk.project.sessionsPaged(P, 'visible', { parent: 'root', startedBy: 'me' });
+    client.setQueryData(pagedKey, {
+      pages: [{ items: [{ session_id: S, status: 'running', working: busy }, other], next_cursor: null }],
+      pageParams: [null],
+    });
+    client.setQueryData(qk.project.sessions(P), [{ session_id: S, status: 'running', working: busy }]);
+    client.setQueryData(qk.project.session(P, S), { session_id: S, status: 'running', working: busy });
+
+    applySessionControlFrame(client, P, S, frame('kortix.control.turn', { known: true, turns: [], working: idle }), {}, 5);
+
+    const paged = client.getQueryData<{ pages: Array<{ items: Array<{ session_id: string; working: unknown }> }> }>(pagedKey);
+    expect(paged?.pages[0]?.items[0]?.working).toEqual(idle);
+    expect(paged?.pages[0]?.items[1]).toBe(other);
+    expect(client.getQueryData<Array<{ working: unknown }>>(qk.project.sessions(P))?.[0]?.working).toEqual(idle);
+    expect(client.getQueryData<{ working: unknown }>(qk.project.session(P, S))?.working).toEqual(idle);
+
+    // An unchanged verdict (the server re-sends every 20 s) keeps the cache identity.
+    const before = client.getQueryData<unknown>(pagedKey);
+    applySessionControlFrame(client, P, S, frame('kortix.control.turn', { known: true, turns: [], working: { ...idle } }, 2), {}, 6);
+    expect(client.getQueryData<unknown>(pagedKey)).toBe(before);
+  });
+
+  test('a turn frame without a verdict leaves the cached rows alone', () => {
+    const client = new QueryClient();
+    const busy = { state: 'working', since: null, turn_token: 't1', pending_delivery: false };
+    const row = { session_id: S, status: 'running', working: busy };
+    client.setQueryData(qk.project.session(P, S), row);
+    applySessionControlFrame(client, P, S, frame('kortix.control.turn', { known: true, turns: [] }), {}, 5);
+    expect(client.getQueryData<unknown>(qk.project.session(P, S))).toBe(row);
+  });
+
   test('a turn frame writes the caller\'s can_stop when the server sends one', () => {
     const client = new QueryClient();
     const turns = [{ turn_token: 't1', state: 'active', message_id: 'm1' }];

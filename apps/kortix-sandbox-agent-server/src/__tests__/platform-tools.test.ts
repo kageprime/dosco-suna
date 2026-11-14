@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test'
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -660,15 +660,32 @@ console.log(JSON.stringify({ change_requests: rowsOut, next_cursor: rest.length 
 })
 
 describe('kortix_usage', () => {
-  test('summary reads this project\'s usage, speaks in credits and never converts a price itself', async () => {
-    fakeKortix(`'billing costs --project proj_1 --since '*' --json') echo '{"totals":{"total_cost":12.5},"credits":{"total":"1,250","previous":"900","llm":"1,000","compute":"250"}}' ;;`)
+  // The per-workspace roll-up, once per window: the account summary's daily series and
+  // model breakdown ran past the API's 25 s deadline on a busy workspace (KRTX-4877).
+  beforeEach(() => setSystemTime(new Date('2026-11-13T12:00:00.000Z')))
+  afterEach(() => setSystemTime())
+
+  test('summary reads this workspace\'s credits for the window and the one before, never the account summary, and never converts a price itself', async () => {
+    fakeKortix(`'billing costs --by workspace --project proj_1 --since 2026-11-06T12:00:00.000Z --until 2026-11-13T12:00:00.000Z --json') echo '{"projects":[{"total_cost":12.5,"credits":{"total":"1,250","llm":"1,000","compute":"250"}}]}' ;;
+  'billing costs --by workspace --project proj_1 --since 2026-10-30T12:00:00.000Z --until 2026-11-06T12:00:00.000Z --json') echo '{"projects":[{"total_cost":9,"credits":{"total":"900","llm":"700","compute":"200"}}]}' ;;`)
     const result = await run('kortix_usage', { action: 'summary', days: 7 })
     expect(result.card.title).toBe('1,250 credits in the last 7 days')
+    expect(result.card.subtitle).toBe('900 credits in the 7 days before.')
     expect(result.card.rows).toEqual([
       { title: 'AI models', detail: '1,000 credits' },
       { title: 'Computers', detail: '250 credits' },
     ])
     expect(JSON.stringify(result.card)).not.toContain('$')
+    expect(argvs()).toHaveLength(2)
+  })
+
+  test('summary of a workspace with no spend says 0, not an error', async () => {
+    fakeKortix(`'billing costs --by workspace --project proj_1 --since '*' --json') echo '{"projects":[]}' ;;`)
+    const result = await run('kortix_usage', { action: 'summary' })
+    expect(result.ok).toBe(true)
+    expect(result.card.title).toBe('0 credits in the last 30 days')
+    expect(result.card.subtitle).toBe('0 credits in the 30 days before.')
+    expect(result.card.rows).toEqual([])
   })
 })
 

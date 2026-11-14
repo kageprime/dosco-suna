@@ -1,17 +1,19 @@
 import { describe, expect, mock, test } from 'bun:test';
 import { GatewayResolutionError } from '@kortix/llm-gateway';
+import { WalletUnavailableError } from '../errors';
 
 // The internal routes the standalone gateway pod calls, through the real Hono
 // app and the real model catalog. Mocked: resolveCandidates, the servable
 // project catalog (it reads the database), and the hooks' persistence.
 const loggerWarn = mock((..._line: unknown[]) => {});
+const loggerInfo = mock((..._line: unknown[]) => {});
 // Swapped per-test so a test can hold the trace write open and prove the route
 // does not wait for it.
 const persistGatewayTraceMock = mock<(trace: unknown) => Promise<void>>(async () => {});
 mock.module('../lib/logger', () => ({
   logger: {
     warn: loggerWarn,
-    info: mock(() => {}),
+    info: loggerInfo,
     error: mock(() => {}),
     debug: mock(() => {}),
   },
@@ -96,6 +98,17 @@ mock.module('../secrets/account-resource', () => ({
   ...realAccountResource,
   coolDownAccountSecret: async (secretId: string, accountId: string, seconds: number) => {
     cooledDown.push([secretId, accountId, seconds]);
+  },
+}));
+
+// The shared Idempotency-Key replay (KRTX-4612): the database behind it is faked.
+const storedReplays = new Map<string, unknown>();
+const actualReplays = await import('./idempotency-replays');
+mock.module('./idempotency-replays', () => ({
+  ...actualReplays,
+  getReplay: async (key: string) => storedReplays.get(key) ?? null,
+  putReplay: async (key: string, answer: unknown) => {
+    if (!storedReplays.has(key)) storedReplays.set(key, answer);
   },
 }));
 
@@ -550,9 +563,39 @@ describe('POST /admit — authorize, route, resolve and billing in one call', ()
     authorizeAnswer = { ok: true };
     billingAnswer = async () => undefined;
   });
+
+  // prod 2026-11-12: a stalled control plane answered funded accounts "subscription_required".
+  test('a wallet check with no answer is no verdict: /admit leaves billing to the gateway, /billing fails', async () => {
+    const billing = (accountId: string) => app().request(new Request('http://test/billing', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${TOKEN}` },
+      body: JSON.stringify({ accountId }),
+    }));
+    authorizeAnswer = { ok: true, principal };
+    try {
+      billingAnswer = async () => { throw new WalletUnavailableError(); };
+      resolveCandidatesMock.mockResolvedValueOnce([{ provider: 'kortix', billingMode: 'credits' }]);
+      const res = await admit({ token: 't', input });
+      expect(res.status).toBe(200);
+      const json = await res.json() as Record<string, unknown>;
+      expect(json.admission).toEqual({ ok: true, principal });
+      expect('billing' in json).toBe(false);
+      const unanswered = await billing('a');
+      expect(unanswered.status).toBeGreaterThanOrEqual(500);
+
+      // A refusal is still the verdict body the gateway turns into its 402.
+      billingAnswer = async () => { throw new actualBillingGate.BillingGateError('insufficient_credits', 0, 'Out of credits.', 'a'); };
+      const refused = await billing('a');
+      expect(refused.status).toBe(200);
+      expect(await refused.json()).toEqual({ active: false, reason: 'insufficient_credits', message: 'Out of credits.' });
+    } finally {
+      authorizeAnswer = { ok: true };
+      billingAnswer = async () => undefined;
+    }
+  });
 });
 
-describe('POST /internal/gateway/resolve-upstream — the failure warn is logged once per model and code', () => {
+describe('POST /internal/gateway/resolve-upstream — the refusal is logged once per model and code, at info', () => {
   // KRTX-4665: a box's voice pipeline resolves its TTS model through this route
   // on every spoken line. When the deployment cannot serve the model (the
   // managed lineup lists no audio models), the per-occurrence warn logged
@@ -564,7 +607,7 @@ describe('POST /internal/gateway/resolve-upstream — the failure warn is logged
     resolveCandidatesMock.mockRejectedValue(
       new GatewayResolutionError('model_not_found', '"inworld-tts-2" is not a recognized model.', 'Check the model id, or choose a different model.'),
     );
-    loggerWarn.mockClear();
+    loggerInfo.mockClear();
     try {
       const a = app();
       for (let i = 0; i < 5; i++) {
@@ -574,7 +617,28 @@ describe('POST /internal/gateway/resolve-upstream — the failure warn is logged
         expect(json.candidates).toEqual([]);
         expect(json.resolutionError.code).toBe('model_not_found');
       }
-      expect(loggerWarn).toHaveBeenCalledTimes(1);
+      expect(loggerInfo).toHaveBeenCalledTimes(1);
+    } finally {
+      resolveCandidatesMock.mockReset();
+    }
+  });
+
+  // KRTX-4665 (third cycle): the per-replica first-occurrence floor still
+  // breached the 0.13/h warn baseline after every deploy. A typed refusal is
+  // an expected outcome the gateway answers cleanly, not a warning: it is
+  // logged at info and never at warn.
+  test('a typed refusal is never logged at warn level', async () => {
+    resolveCandidatesMock.mockReset();
+    resolveCandidatesMock.mockRejectedValue(
+      new GatewayResolutionError('plan_upgrade_required', '"inworld-tts-2" requires a paid plan.', 'Upgrade your plan.'),
+    );
+    loggerWarn.mockClear();
+    loggerInfo.mockClear();
+    try {
+      const res = await app().request(authedRequest({ principal: { userId: 'u' }, model: 'inworld-tts-2' }));
+      expect(res.status).toBe(200);
+      expect(loggerWarn).not.toHaveBeenCalled();
+      expect(loggerInfo).toHaveBeenCalledTimes(1);
     } finally {
       resolveCandidatesMock.mockReset();
     }
@@ -585,12 +649,12 @@ describe('POST /internal/gateway/resolve-upstream — the failure warn is logged
     resolveCandidatesMock.mockRejectedValue(
       new GatewayResolutionError('model_not_found', '"other-model" is not a recognized model.', 'Check the model id.'),
     );
-    loggerWarn.mockClear();
+    loggerInfo.mockClear();
     try {
       const a = app();
       await a.request(authedRequest({ principal: { userId: 'u' }, model: 'other-model' }));
       await a.request(authedRequest({ principal: { userId: 'u' }, model: 'inworld-tts-2' }));
-      expect(loggerWarn).toHaveBeenCalledTimes(2);
+      expect(loggerInfo).toHaveBeenCalledTimes(2);
     } finally {
       resolveCandidatesMock.mockReset();
     }
@@ -598,7 +662,7 @@ describe('POST /internal/gateway/resolve-upstream — the failure warn is logged
 
   test('the same model failing with two different codes logs twice (the code pins the key)', async () => {
     resolveCandidatesMock.mockReset();
-    loggerWarn.mockClear();
+    loggerInfo.mockClear();
     try {
       const a = app();
       resolveCandidatesMock.mockRejectedValueOnce(
@@ -611,7 +675,7 @@ describe('POST /internal/gateway/resolve-upstream — the failure warn is logged
       );
       const second = await a.request(authedRequest({ principal: { userId: 'u' }, model: 'inworld-tts-2' }));
       expect(second.status).toBe(200);
-      expect(loggerWarn).toHaveBeenCalledTimes(2);
+      expect(loggerInfo).toHaveBeenCalledTimes(2);
     } finally {
       resolveCandidatesMock.mockReset();
     }
@@ -626,12 +690,12 @@ describe('POST /internal/gateway/resolve-upstream — the failure warn is logged
     resolveCandidatesMock.mockRejectedValue(
       new GatewayResolutionError('model_not_found', '"bad\nmodel" is not a recognized model.', 'Check the model id.'),
     );
-    loggerWarn.mockClear();
+    loggerInfo.mockClear();
     try {
       const res = await app().request(authedRequest({ principal: { userId: 'u' }, model: 'bad\nmodel' }));
       expect(res.status).toBe(200);
-      expect(loggerWarn).toHaveBeenCalledTimes(1);
-      const line = String(loggerWarn.mock.calls[0][0]);
+      expect(loggerInfo).toHaveBeenCalledTimes(1);
+      const line = String(loggerInfo.mock.calls[0][0]);
       expect(line.startsWith('[gateway-internal] resolution failed for "bad\\nmodel":')).toBe(true);
       expect(line).not.toContain('"bad\nmodel" is not');
     } finally {
@@ -648,14 +712,14 @@ describe('POST /internal/gateway/resolve-upstream — the failure warn is logged
     resolveCandidatesMock.mockRejectedValue(
       new GatewayResolutionError('model_not_found', '"" is not a recognized model.', 'Check the model id, or choose a different model.'),
     );
-    loggerWarn.mockClear();
+    loggerInfo.mockClear();
     try {
       const res = await app().request(authedRequest({ principal: { userId: 'u' }, model: null }));
       expect(res.status).toBe(200);
       const json = (await res.json()) as { candidates: unknown[]; resolutionError: { code: string } };
       expect(json.candidates).toEqual([]);
       expect(json.resolutionError.code).toBe('model_not_found');
-      expect(loggerWarn).toHaveBeenCalledTimes(1);
+      expect(loggerInfo).toHaveBeenCalledTimes(1);
     } finally {
       resolveCandidatesMock.mockReset();
     }
@@ -681,4 +745,37 @@ test('paid full discovery marks managed access available without claiming extern
   expect(res.status).toBe(200);
   expect(models['glm-5.3-flash']).toMatchObject({ availability: 'available' });
   expect(models['anthropic/claude-opus-4-8']).toMatchObject({ availability: 'provider' });
+});
+
+describe('POST /internal/gateway/idempotency/{get,put} — the replay shared by gateway replicas', () => {
+  const key = 'ab'.repeat(32);
+  const answer = { status: 200, statusText: 'OK', headers: [['content-type', 'application/json']], body: '{"id":"cmpl-1"}' };
+  const call = (path: string, body: unknown, authorization = `Bearer ${TOKEN}`) =>
+    app().request(new Request(`http://test/idempotency/${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization },
+      body: JSON.stringify(body),
+    }));
+
+  test('a stored answer is read back by key, and a missing key answers null', async () => {
+    storedReplays.clear();
+    expect(await (await call('get', { key })).json()).toEqual({ answer: null });
+    expect((await call('put', { key, answer })).status).toBe(200);
+    expect(await (await call('get', { key })).json()).toEqual({ answer });
+  });
+
+  test('the first writer wins', async () => {
+    storedReplays.clear();
+    await call('put', { key, answer });
+    await call('put', { key, answer: { ...answer, body: '{"id":"cmpl-2"}' } });
+    expect(await (await call('get', { key })).json()).toEqual({ answer });
+  });
+
+  test('rejects a malformed key, a non-2xx answer and a missing internal token', async () => {
+    storedReplays.clear();
+    expect((await call('get', { key: 'not-a-hash' })).status).toBe(400);
+    expect((await call('put', { key, answer: { ...answer, status: 500 } })).status).toBe(400);
+    expect((await call('put', { key, answer }, 'Bearer wrong')).status).toBe(401);
+    expect(storedReplays.size).toBe(0);
+  });
 });

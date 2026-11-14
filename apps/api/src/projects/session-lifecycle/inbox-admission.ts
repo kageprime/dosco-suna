@@ -1,9 +1,9 @@
-import { accountTokens, sessionLifecycleCommands, sessionSandboxes } from '@kortix/db';
+import { accountTokens, sessionLifecycleCommands, sessionSandboxes, sessionTurns } from '@kortix/db';
 import { RUNTIME_STABLE_MESSAGE_ID_CAPABILITY, type RuntimeCapability } from '@kortix/api-contract/runtime-relay';
 import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { db } from '../../shared/db';
 import { sandboxRuntimeEndpoint } from '../runtime-session-mapping';
-import { RUNNING_SANDBOX_STATUSES, storedSandboxTurns, type StoredSandboxTurn } from '../session-turn-ledger';
+import { RUNNING_SANDBOX_STATUSES, isRequestedStopName, storedSandboxTurns, type StoredSandboxTurn } from '../session-turn-ledger';
 import { inboxFollowsRow, inboxPrecedesRow } from './inbox-order';
 import { reconcileInboxTurn } from './inbox-turn-recovery';
 import { runtimeCapabilities } from './runtime-fetch';
@@ -40,6 +40,11 @@ import { wireMessageIdMatches } from './wire-id-match';
  * secrets (CWE-863).
  * - "Quick Queue" ended the turn after its running tool. Steer reaches the
  *   same step boundary without ending the turn.
+ *
+ * A turn a person stopped takes no steer (`stopRequested`). Stop stamps the
+ * turn before its hold releases what waited, and the abort can land after that
+ * release. pi drops a steer it accepted into a stopped turn, so the row waits
+ * for the turn's end and starts the next turn instead.
  *
  * Rows still go out one at a time, in send order (`inbox-order.ts`), and a row
  * waits while an older one is in flight. A steer the runtime refuses because
@@ -200,6 +205,8 @@ export interface SteerAdmissionDeps {
   capabilities: (externalId: string | null | undefined, actorUserId: string | null) => Promise<string[] | null>;
   /** The user the session's active token acts as: the identity the running turn holds. Null: none. */
   turnIdentity: (sessionId: string) => Promise<string | null>;
+  /** A person asked this turn to stop (`markTurnStopRequested`), and it has not ended yet. */
+  stopRequested: (sessionId: string, turnMessageId: string) => Promise<boolean>;
   recordFallback: (row: SessionLifecycleCommandRow, reason: 'unsupported') => Promise<void>;
 }
 
@@ -221,15 +228,24 @@ export async function sandboxKeepsMessageIds(externalId: string | null | undefin
   return (await readRuntimeCapabilities(externalId, actorUserId))?.includes(RUNTIME_STABLE_MESSAGE_ID_CAPABILITY) ?? false;
 }
 
-/** `sandboxKeepsMessageIds` for the session's box. False when the box cannot be read. */
-export async function sessionKeepsMessageIds(sessionId: string | null | undefined, actorUserId: string | null): Promise<boolean> {
-  if (!sessionId) return false;
+/**
+ * `sandboxKeepsMessageIds` for the session's box: true/false when the box
+ * answered, null when it could not be read (no sandbox, read failure).
+ */
+export async function sessionMessageIdCapability(sessionId: string | null | undefined, actorUserId: string | null): Promise<boolean | null> {
+  if (!sessionId) return null;
   try {
     const box = await liveInboxAdmissionDeps.readSandbox(sessionId);
-    return await sandboxKeepsMessageIds(box?.externalId, actorUserId);
+    const capabilities = await readRuntimeCapabilities(box?.externalId, actorUserId);
+    return capabilities ? capabilities.includes(RUNTIME_STABLE_MESSAGE_ID_CAPABILITY) : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** `sessionMessageIdCapability` where an unreadable box counts as "no": the caller re-mints. */
+export async function sessionKeepsMessageIds(sessionId: string | null | undefined, actorUserId: string | null): Promise<boolean> {
+  return (await sessionMessageIdCapability(sessionId, actorUserId)) ?? false;
 }
 
 /**
@@ -328,6 +344,22 @@ export const liveInboxAdmissionDeps: InboxAdmissionDeps = {
         .limit(1);
       return token?.userId ?? null;
     },
+    async stopRequested(sessionId, turnMessageId) {
+      // Served by session_turns_session_idx. A turn has one open record; a
+      // duplicate record only adds a row to read.
+      const turns = await db
+        .select({ stop: sql<string | null>`${sessionTurns.endError}->>'name'` })
+        .from(sessionTurns)
+        .where(
+          and(
+            eq(sessionTurns.sessionId, sessionId),
+            eq(sessionTurns.messageId, turnMessageId),
+            ne(sessionTurns.state, 'ended'),
+          ),
+        )
+        .limit(4);
+      return turns.some((turn) => isRequestedStopName(turn.stop));
+    },
     recordFallback: (row, reason) => recordSteerFallback(row, reason),
   },
 };
@@ -340,9 +372,11 @@ export const liveInboxAdmissionDeps: InboxAdmissionDeps = {
  *
  * - A runtime without `session.steer` records `unsupported` once and returns
  *   `fallback`: the caller holds the row for the turn's end.
- * - A steer the runtime refused into THIS turn (`steerRefusedTurn`, written by
- *   `deliverSteer` on 409 `no_active_turn`) returns `fallback` too, so the row
- *   is not re-posted into a turn that is ending. A newer turn steers again.
+ * - A steer the runtime refused or dropped in THIS turn (`steerRefusedTurn`,
+ *   written by `deliverSteer` on 409 `no_active_turn` and by
+ *   `requeueDroppedSteer`) returns `fallback` too, so the row is not re-posted
+ *   into a turn that is ending. A newer turn steers again.
+ * - A turn a person stopped returns `fallback`: the row starts the next turn.
  * - A turn still being delivered (no message id yet) or an unreadable
  *   capability list: the row waits on the short clock and steers next time.
  */
@@ -358,12 +392,15 @@ async function admitSteer(
   }
   const refusedTurn = (row.payload as { steerRefusedTurn?: unknown } | null)?.steerRefusedTurn;
   if (refusedTurn === active.messageId) return 'fallback';
-  const [capabilities, identity] = await Promise.all([
+  const [capabilities, identity, stopped] = await Promise.all([
     steer.capabilities(sandbox?.externalId, row.actorUserId),
     steer.turnIdentity(row.sessionId!),
+    steer.stopRequested(row.sessionId!, active.messageId),
   ]);
   // Another identity's words never run inside this turn: the row starts the next one.
   if (!identity || identity !== row.actorUserId) return 'fallback';
+  // The turn is ending on a Stop: it would drop the steer unread.
+  if (stopped) return 'fallback';
   if (capabilities === null) return { admit: false, reason: 'turn_active', retryAfterMs };
   if (!capabilities.includes(STEER_CAPABILITY)) {
     await steer.recordFallback(row, 'unsupported');

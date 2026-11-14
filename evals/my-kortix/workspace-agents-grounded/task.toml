@@ -1,0 +1,17 @@
+schema_version = "1.4"
+
+[metadata]
+category = "product"
+difficulty = "easy"
+tags = ["product", "grounding", "honesty"]
+
+[agent]
+timeout_sec = 300.0
+
+[verifier]
+timeout_sec = 300.0
+environment_mode = "shared"
+
+[verifier.env]
+# One judge model for every run: scores from two judges do not compare.
+KORTIX_EVAL_JUDGE_MODEL = "deepseek-v4.1-flash"

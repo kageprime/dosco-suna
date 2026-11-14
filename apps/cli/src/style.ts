@@ -43,6 +43,15 @@ export function trim(s: string, max: number): string {
   return s.length <= max ? s : `${s.slice(0, max - 1)}…`;
 }
 
+/** The SCOPE column of a key row. */
+export function scopeLabel(row: {
+  scope?: string;
+  workspace_permissions?: string[] | null;
+}): string {
+  if (row.scope === 'custom') return `custom (${row.workspace_permissions?.length ?? 0})`;
+  return row.scope ?? 'full';
+}
+
 /** An ISO instant as `YYYY-MM-DD HH:MM UTC`; a missing one renders as an em dash. */
 export const formatUtcInstant = (iso: string | null) => (iso ? `${iso.slice(0, 16).replace('T', ' ')} UTC` : '—');
 

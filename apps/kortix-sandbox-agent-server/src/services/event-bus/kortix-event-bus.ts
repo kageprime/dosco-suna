@@ -18,7 +18,12 @@ export const DEFAULT_RING_MAX_BYTES = 32 * 1024 * 1024
 
 /** One envelope on the wire. */
 export interface KortixEvent {
-  /** Dense, monotonic, box-global, valid only within `epoch`. */
+  /**
+   * Dense, monotonic, box-global, valid only within `epoch`. One exception: the v2 events
+   * route opens a stream with the join snapshot (`sessionLogJoinSnapshot`), `log.message` puts
+   * stamped with the head seq so the client's cursor stays put. They are never in the ring, and
+   * a consumer must not dedupe or gap-check a `log.message` by seq; the client keys it by `rev`.
+   */
   seq: number
   /** The harness's event type verbatim, or `kortix.*` for daemon-origin events. */
   type: string
@@ -255,6 +260,21 @@ export function kortixEventBus(): KortixEventBus {
 export function sessionLogEventBus(): KortixEventBus {
   if (!logBus) logBus = new KortixEventBus()
   return logBus
+}
+
+/**
+ * The `log.message` puts a v2 subscriber that joins now has not seen: the messages streaming at
+ * this moment (F-011). The session log journal provides them; without one there are none.
+ * The events route writes them right after a subscription's replay, so every later frame follows.
+ */
+let joinSnapshot: (() => Array<{ rev: number; message: { thread_id: string } }>) | null = null
+
+export function provideSessionLogJoinSnapshot(provider: typeof joinSnapshot): void {
+  joinSnapshot = provider
+}
+
+export function sessionLogJoinSnapshot(): Array<{ rev: number; message: { thread_id: string } }> {
+  return joinSnapshot?.() ?? []
 }
 
 export function resetKortixEventBusForTests(): void {

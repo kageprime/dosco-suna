@@ -16,6 +16,7 @@ import {
   takeFlagBool,
   takeFlagValue,
 } from '../command-helpers.ts';
+import { splitHelp } from '../command-argv.ts';
 import { mintWireMessageId } from '@kortix/sdk';
 import type { ApiClient } from '../api/client.ts';
 import type { ProjectSession } from '../api/types.ts';
@@ -134,11 +135,9 @@ export async function queueSessionPrompt(
 }
 
 export async function runSessionsQueue(argv: string[]): Promise<number> {
+  const helped = splitHelp(argv, QUEUE_HELP);
+  if (helped !== null) return helped;
   const rest = [...argv];
-  if (rest.includes('-h') || rest.includes('--help')) {
-    process.stdout.write(QUEUE_HELP);
-    return 0;
-  }
 
   let projectArg: string | undefined;
   let hostArg: string | undefined;

@@ -422,3 +422,21 @@ export function setYamlMapEntry(
   writeManifest(file, `${text}${separator}${map}:\n  ${line}\n`);
   return 'created';
 }
+
+/**
+ * Add `path` to the root manifest's `imports:` list, comments kept. Returns
+ * `present` when the list already names it.
+ */
+export function addManifestImport(file: string, path: string): 'added' | 'present' {
+  const doc = parseDocument(readFileSync(file, 'utf8'));
+  const current = doc.get('imports');
+  const listed = current && typeof current === 'object' && 'items' in current
+    ? (current as { items: Array<{ value?: unknown } | unknown> }).items.map((item) =>
+        item && typeof item === 'object' && 'value' in item ? String((item as { value: unknown }).value) : String(item))
+    : [];
+  if (listed.some((entry) => entry.replace(/\/$/, '') === path.replace(/\/$/, ''))) return 'present';
+  if (listed.length > 0) doc.addIn(['imports'], path);
+  else doc.set('imports', [path]);
+  writeManifest(file, doc.toString());
+  return 'added';
+}

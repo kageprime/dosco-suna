@@ -23,27 +23,46 @@ import { controlSessionWorkflowRun, readSessionWorkflowRuns } from '../core/sess
 import { contract } from './query-contracts';
 import { qk } from './query-keys';
 
-/** How often the multi-agent reads poll while the page is visible. */
+/** How often the multi-agent reads poll while the session works (`live`). */
 const POLL_MS = 5_000;
+/**
+ * How often they poll while the session is idle. An idle session starts no
+ * agent and no run, so a 5 s poll there only costs requests: one idle tab sent
+ * ~12 reads a minute per list.
+ */
+const IDLE_POLL_MS = 30_000;
 /** A running workflow run polls faster: its agents start and finish every few seconds. */
 const LIVE_RUN_POLL_MS = 2_000;
 /** The most teammates a lead's list reads. */
 const TEAMMATES_LIMIT = 50;
 
-const poll = { refetchInterval: POLL_MS, refetchIntervalInBackground: false } as const;
+/** Options of the polled multi-agent reads. */
+interface MultiAgentPollOptions {
+  enabled?: boolean;
+  /**
+   * Whether the session works now. `false` (idle) polls every 30 s; `true`
+   * polls every 5 s. Left out, the read keeps the 5 s poll it always had.
+   */
+  live?: boolean;
+}
+
+const pollMs = (live: boolean | undefined) => (live === false ? IDLE_POLL_MS : POLL_MS);
+const poll = (live: boolean | undefined) =>
+  ({ refetchInterval: pollMs(live), refetchIntervalInBackground: false }) as const;
 
 /** The agents a session can message (`list_agents`): `mine` (default) or every live session of the project. */
 export function useReachableAgents(
   projectId: string | null | undefined,
   sessionId: string | null | undefined,
   scope: ReachableScope = 'mine',
+  options: Pick<MultiAgentPollOptions, 'live'> = {},
 ) {
   return useQuery({
     queryKey: qk.project.sessionReachable(projectId ?? '', sessionId ?? '', scope),
     queryFn: () => getSessionReachableAgents(projectId as string, sessionId as string, { scope }),
     enabled: !!projectId && !!sessionId,
     ...contract('inventory'),
-    ...poll,
+    ...poll(options.live),
   });
 }
 
@@ -55,6 +74,7 @@ export function usePeerMessages(
   projectId: string | null | undefined,
   sessionId: string | null | undefined,
   direction?: 'in' | 'out',
+  options: Pick<MultiAgentPollOptions, 'live'> = {},
 ) {
   const queryClient = useQueryClient();
   const refresh = () => queryClient.invalidateQueries({ queryKey: qk.project.sessionAgents(projectId ?? '', sessionId ?? '') });
@@ -63,7 +83,7 @@ export function usePeerMessages(
     queryFn: async () => (await listPeerMessages(projectId as string, sessionId as string, { direction })).messages,
     enabled: !!projectId && !!sessionId,
     ...contract('inventory'),
-    ...poll,
+    ...poll(options.live),
   });
   const approve = useMutation({
     mutationFn: (messageId: string) => approvePeerMessage(projectId as string, sessionId as string, messageId),
@@ -80,7 +100,7 @@ export function usePeerMessages(
 export function useTeamTasks(
   projectId: string | null | undefined,
   leadSessionId: string | null | undefined,
-  options: { enabled?: boolean } = {},
+  options: MultiAgentPollOptions = {},
 ) {
   const queryClient = useQueryClient();
   const key = qk.project.teamTasks(projectId ?? '', leadSessionId ?? '');
@@ -90,7 +110,7 @@ export function useTeamTasks(
     queryFn: async () => (await listSessionTasks(projectId as string, leadSessionId as string)).tasks,
     enabled: !!projectId && !!leadSessionId && (options.enabled ?? true),
     ...contract('inventory'),
-    ...poll,
+    ...poll(options.live),
   });
   const create = useMutation({
     mutationFn: (body: SessionTaskCreateBody) => createSessionTask(projectId as string, leadSessionId as string, body),
@@ -112,7 +132,7 @@ export function useTeamTasks(
 export function useTeammates(
   projectId: string | null | undefined,
   leadSessionId: string | null | undefined,
-  options: { enabled?: boolean } = {},
+  options: MultiAgentPollOptions = {},
 ) {
   return useQuery({
     queryKey: qk.project.teammates(projectId ?? '', leadSessionId ?? ''),
@@ -121,7 +141,7 @@ export function useTeammates(
         .items,
     enabled: !!projectId && !!leadSessionId && (options.enabled ?? true),
     ...contract('inventory'),
-    ...poll,
+    ...poll(options.live),
   });
 }
 
@@ -133,7 +153,7 @@ export function useTeammates(
 export function useSessionWorkflows(
   projectId: string | null | undefined,
   sessionId: string | null | undefined,
-  options: { enabled?: boolean } = {},
+  options: MultiAgentPollOptions = {},
 ) {
   const queryClient = useQueryClient();
   const key = qk.project.sessionWorkflows(projectId ?? '', sessionId ?? '');
@@ -144,7 +164,7 @@ export function useSessionWorkflows(
     enabled: !!projectId && !!sessionId && (options.enabled ?? true),
     ...contract('inventory'),
     refetchInterval: (state: { state: { data?: WorkflowRunMetadata[] } }) =>
-      state.state.data?.some((run) => run.status === 'running') ? LIVE_RUN_POLL_MS : POLL_MS,
+      state.state.data?.some((run) => run.status === 'running') ? LIVE_RUN_POLL_MS : pollMs(options.live),
     refetchIntervalInBackground: false,
   });
   const control = useMutation({

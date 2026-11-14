@@ -3,7 +3,7 @@
  * connection for seeding what the local profile cannot reach (Slack's
  * auth.test, Microsoft's token endpoint), and Slack's request signature.
  */
-import { createHmac } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { Client as PgClient } from "pg";
 import type { FlowContext } from "../core/types";
 
@@ -26,5 +26,20 @@ export function slackSigned(secret: string, body: string, contentType: string) {
   return {
     raw: true as const,
     headers: { "content-type": contentType, "x-slack-request-timestamp": timestamp, "x-slack-signature": signature },
+  };
+}
+
+/** A Kortix webhook's signature (KRTX-4098): HMAC-SHA256 over the payload, `sha256=<hex>`. */
+export function webhookSignature(secret: string, payload: string): string {
+  return `sha256=${createHmac("sha256", secret).update(payload).digest("hex")}`;
+}
+
+/** The headers of a signed Kortix webhook delivery; the signature covers `<timestamp>.<body>`. */
+export function signedWebhookHeaders(secret: string, body: string, ts = Math.floor(Date.now() / 1000)) {
+  return {
+    "content-type": "application/json",
+    "x-kortix-timestamp": String(ts),
+    "x-kortix-signature": webhookSignature(secret, `${ts}.${body}`),
+    "x-kortix-delivery-id": randomUUID(),
   };
 }

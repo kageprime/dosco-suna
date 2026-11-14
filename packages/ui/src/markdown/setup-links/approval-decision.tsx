@@ -188,9 +188,9 @@ export function ApprovalDecisionView({
     // The shape of the screen that is coming, so the panel and the two
     // decisions do not jump in under a spinner.
     return (
-      <AuthFrame footerVariant="none">
+      <AuthFrame footerVariant="none" art={false}>
         <div role="status" aria-label={tI18nComplete.raw('textdc380888c4e2')}>
-          <div className="mb-10">
+          <div className="mb-8">
             <Skeleton className="hidden h-10 w-28 py-0 md:block" />
             <Skeleton className="h-8 w-3/4 py-0 md:mt-6" />
             <Skeleton className="mt-3 h-4 w-full py-0" />
@@ -210,7 +210,7 @@ export function ApprovalDecisionView({
 
   if (!details) {
     return (
-      <AuthFrame footerVariant="none">
+      <AuthFrame footerVariant="none" art={false}>
         <Rise>
           <StepHeader
             title={
@@ -230,7 +230,7 @@ export function ApprovalDecisionView({
   }
 
   return (
-    <AuthFrame footerVariant="none">
+    <AuthFrame footerVariant="none" art={false}>
       <div className="border-border overflow-hidden rounded-xl border">
         <ApprovalDecisionPanel
           details={details}

@@ -35,6 +35,7 @@ import { startGatewaySpendBackfillWorker, stopGatewaySpendBackfillWorker } from 
 import { startGrantExpirySweeper, stopGrantExpirySweeper } from './grant-expiry';
 import { startNotificationWorker, stopNotificationWorker } from './notification';
 import { startOAuthSweeper, stopOAuthSweeper } from './oauth-sweep';
+import { startReplaySweeper, stopReplaySweeper } from './replay-sweep';
 import { startProjectMaintenance, stopProjectMaintenance } from './project-maintenance';
 import { startProjectSnapshotWorker, stopProjectSnapshotWorker } from './project-snapshot';
 import { startProviderTransitionWorker, stopProviderTransitionWorker } from './provider-transition';
@@ -45,6 +46,7 @@ import { startStorageBillingWorker, stopStorageBillingWorker } from './storage-b
 import { startSessionModelFallbackWorker, stopSessionModelFallbackWorker } from './session-model-fallback';
 import { startSpaceWatcher, stopSpaceWatcher } from './space-watcher';
 import { startGoalReconciler, stopGoalReconciler } from './goal-reconciler';
+import { startEvalRunner, stopEvalRunner } from './eval-runner';
 import { startSlackTurnGc, stopSlackTurnGc } from './slack-turn-gc';
 import { startTeamsTurnGc, stopTeamsTurnGc } from './teams-turn-gc';
 import { startProjectTriggerScheduler, stopProjectTriggerScheduler, triggerSweepStalled } from './trigger-scheduler';
@@ -104,6 +106,8 @@ export const JOBS: readonly Job[] = [
   // Connector approvals past expires_at. Never resumes a session.
   { ticks: { 'approval-expiry': 10 * MIN }, start: startApprovalExpirySweeper, stop: stopApprovalExpirySweeper },
   { ticks: { 'oauth-sweep': 3 * HOUR }, start: startOAuthSweeper, stop: stopOAuthSweeper },
+  // Expired shared Idempotency-Key model answers (KRTX-4612) leave the table.
+  { ticks: { 'gateway-replay-sweep': 30 * MIN }, start: startReplaySweeper, stop: stopReplaySweeper },
   {
     ticks: { 'drive-conflict-scan': 10 * MIN, 'volume-deletions': 3 * HOUR, 'drive-mount-revocations': 10 * MIN, 'drive-index': 20 * MIN },
     start: startDriveWorkers,
@@ -132,6 +136,7 @@ export const JOBS: readonly Job[] = [
   { ticks: { 'space-watcher': 10 * MIN }, start: startSpaceWatcher, stop: stopSpaceWatcher },
   // Goals (flag `goals`): finishes partial creates, repairs heartbeats, flags lost owners and stalled verifications.
   { ticks: { 'goal-reconciler': 10 * MIN }, start: startGoalReconciler, stop: stopGoalReconciler },
+  { ticks: { 'eval-runner': 10 * MIN }, start: startEvalRunner, stop: stopEvalRunner },
   // Idle sessions off a fallback model once their own model serves again.
   { ticks: { 'session-model-fallback': 10 * MIN }, start: startSessionModelFallbackWorker, stop: stopSessionModelFallbackWorker },
   // Closed pending days of the gateway spend running total.

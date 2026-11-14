@@ -91,7 +91,6 @@ function providersData(over: Partial<ProvidersData> = {}): ProvidersData {
     managed: null,
     byId: new Map(CATALOGUE.map((item) => [item.id, item])),
     connectedIds: new Set(),
-    pooled: false,
     accountId: 'acc-1',
     accounts: [],
     accountsReadAt: 0,
@@ -294,7 +293,7 @@ describe('<ProviderSheet/> project key (`key` sheet)', () => {
 
 describe('<ProviderSheet/> pooled key accounts (`pooled-key` sheet)', () => {
   test('label → access → members → key → save creates a key shared with the picked members', async () => {
-    const view = await mount('acme', 'none', { pooled: true });
+    const view = await mount('acme', 'none');
     expect(view.captureCharFrame()).toContain('Acme API keys');
     expect(view.captureCharFrame()).toContain('No keys yet.');
 
@@ -361,7 +360,7 @@ describe('<ProviderSheet/> pooled key accounts (`pooled-key` sheet)', () => {
   });
 
   test('a viewer who may share gets "Everyone in this workspace" by default and saves a project-wide key', async () => {
-    const view = await mount('acme', 'none', { pooled: true });
+    const view = await mount('acme', 'none');
     await key(view, 'a');
     await type(view, 'Team');
     await key(view, 'return');
@@ -380,7 +379,7 @@ describe('<ProviderSheet/> pooled key accounts (`pooled-key` sheet)', () => {
   });
 
   test('a viewer who may not share gets "Only you" by default and saves a key only they can use', async () => {
-    const view = await mount('acme', 'none', { pooled: true, canWrite: false });
+    const view = await mount('acme', 'none', { canWrite: false });
     await key(view, 'a');
     await type(view, 'Mine');
     await key(view, 'return');
@@ -403,7 +402,7 @@ describe('<ProviderSheet/> pooled key accounts (`pooled-key` sheet)', () => {
   });
 
   test('Esc from any step of the add flow returns to the list without a write', async () => {
-    const view = await mount('acme', 'none', { pooled: true });
+    const view = await mount('acme', 'none');
     await key(view, 'a');
     await type(view, 'Work');
     await key(view, 'return');

@@ -47,7 +47,7 @@ import type * as TS from 'typescript';
 
 const REPO = resolve(import.meta.dir, '../..');
 const ts: typeof TS = createRequire(join(REPO, 'apps/api/package.json'))('typescript');
-const SCHEMA_FILES = ['packages/db/src/schema/kortix.ts', 'packages/db/src/schema/public.ts'].map((p) => join(REPO, p));
+const SCHEMA_FILES = ['packages/db/src/schema/kortix.ts'].map((p) => join(REPO, p));
 const ROOT_DIRS = ['apps/api/src', 'apps/api/scripts', 'packages/db/src', 'packages/db/scripts'].map((p) => join(REPO, p));
 const CHAT_TABLES = new Set([
   'chatInstalls',

@@ -16,6 +16,7 @@ import { posix } from 'node:path';
 import { sessionModelPin, toSandboxAbsolutePath } from '@kortix/sdk';
 
 import { kortixFromAuth } from '../api/sdk.ts';
+import { splitHelp } from '../command-argv.ts';
 import { emitJson, surfaceApiError, takeFlagBool, takeFlagValue } from '../command-helpers.ts';
 import { C, help, status } from '../style.ts';
 import { loadSessionForChat } from './sessions-chat.ts';
@@ -285,11 +286,9 @@ function label(endpoint: Endpoint, path: string): string {
 }
 
 export async function runSessionsCp(argv: string[]): Promise<number> {
+  const helped = splitHelp(argv, HELP);
+  if (helped !== null) return helped;
   const rest = [...argv];
-  if (rest.includes('-h') || rest.includes('--help')) {
-    process.stdout.write(HELP);
-    return 0;
-  }
   let projectArg: string | undefined;
   let hostArg: string | undefined;
   let recursive = false;

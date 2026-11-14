@@ -258,6 +258,54 @@ On the agent's **People** page, choose who may run it.
 
 A change to an agent takes effect when it lands in the workspace. New sessions start with it, and running sessions pick it up.
 
+### Agents that run your code
+
+A **program agent** runs a command of yours instead of a model. Use one for a job with fixed steps: a nightly sync, a report, a cleanup, a webhook handler. It is an agent like any other: triggers, chat, Spaces and other agents start it, and it has its own access, secrets and computer.
+
+<Callout type="info">
+Program agents are experimental. Turn on **Program agents** under **Workspace settings** → **Feature flags**.
+</Callout>
+
+Give the agent `run` instead of a model and instructions:
+
+```yaml
+agents:
+  janitor:
+    description: Closes stale pull requests.
+    run: pnpm tsx agents/janitor.ts
+    timeout: 10m
+    secrets: [GITHUB_TOKEN]
+    kortix_permissions: [workspace.gitops.read]
+    workspace:
+      repos: [{ path: /workspace }]
+      setup: [pnpm install --frozen-lockfile]
+
+triggers:
+  - slug: janitor-nightly
+    on: { cron: "0 3 * * *" }
+    run: { agent: janitor, session: reuse, payload: { days: 30 } }
+  - slug: janitor-hook
+    on: { webhook: { secret: JANITOR_HOOK } }
+    run: { agent: janitor }
+```
+
+Each turn runs the command once, in the session's computer:
+
+| | |
+| --- | --- |
+| **Input** | The message, on standard input and as JSON in the file named by `$KORTIX_EVENT_PATH` (`prompt`, `agent`, `session_id`). A trigger with no `prompt` sends its whole payload as JSON: the webhook body, the event, or the schedule details, plus the trigger's `payload`. |
+| **Parameters** | Fixed for the agent: arguments in `run`. Per trigger: `run.payload`, merged into the input (the fire's own keys win). Credentials: `secrets`, as environment variables. |
+| **Reply** | What the command prints. It renders as Markdown, like a model's reply. |
+| **Failure** | A non-zero exit fails the turn and shows the end of the error output. Kortix does not run a failed command again. |
+| **Time limit** | `timeout`, from `1s` to `6h`. Default `30m`. A run that takes longer is stopped and the turn fails. |
+| **Stop** | **Stop** ends the command and everything it started. |
+| **Folder** | The agent's first `workspace.repos` path, else `/workspace`. The command waits until `workspace.setup` is done. |
+| **Kortix access** | The computer holds the agent's own token: `createKortix({ backendUrl: process.env.KORTIX_API_URL, getToken: async () => process.env.KORTIX_TOKEN })` from `@kortix/sdk` acts as the agent. |
+
+Each fire with the default `session: fresh` starts a new computer and runs `workspace.setup` again. For a frequent trigger, `session: reuse` keeps one session: its computer resumes with the dependencies already installed.
+
+A program agent has no model, so it cannot take `model`, `prompt` or `prompt_file`. Its agent page shows the command and the time limit under **Program**. For a job that must run all the time, use an [App](#apps) that sends App events, and let a trigger start the program agent for each event.
+
 ### What an agent can access
 
 | Access | What it allows |
@@ -653,6 +701,8 @@ triggers:
     agent: worker
     prompt: "Change request #{{ change_request.number }} merged into {{ change_request.base_ref }}. Verify prod."
 ```
+
+The prompt is a template over what fired the trigger. `{{ body.order.id }}` inserts one value of a webhook's JSON body, `{{ event.data.title }}` one value of an event, and `{{ payload }}` the whole payload as JSON. Every fire also has `{{ trigger.slug }}` and `{{ fired_at }}`. Test a template without starting anything: `kortix triggers fire <slug> --dry-run --payload '{"body":{"order":{"id":7}}}'`.
 
 To create a trigger at runtime, use the CLI: `kortix triggers add "<prompt>"` with a source flag (`--runtime --every 1h`, `--on webhook --secret-env NAME`, `--on cr-merged --cr <id>`) and a target (`--session <id>`, the default inside a session, or `--agent <name>`). `kortix triggers ls` lists both kinds. `pause`, `resume`, `run` and `rm` take a runtime ID (`trigger.<hex>`) or a `kortix.yaml` slug.
 

@@ -464,10 +464,15 @@ export async function repairWorkspaceSplitRun(runId: string): Promise<{ rows: Re
     logger.warn('[workspace-split] repair moved rows written during the move', { runId, rows: repaired.rows });
   }
   const i2 = await checkSplitRunsMoved([runId]);
+  // An errored check (a statement timeout on a prod-sized table) lands in the
+  // ledger too: the tick survives, and the operator's invariant sweep
+  // re-checks I2 over every done run.
+  const i2Patch: Record<string, unknown> = { repair_i2_violations: i2.violations };
+  if (i2.error) i2Patch.repair_i2_error = i2.error;
   await db.execute(sql`UPDATE kortix.workspace_split_runs
-    SET plan = plan || jsonb_build_object('repair_i2_violations', ${i2.violations}::int), updated_at = now()
+    SET plan = plan || ${JSON.stringify(i2Patch)}::jsonb, updated_at = now()
     WHERE run_id = ${runId}`);
-  if (!i2.ok) logger.warn('[workspace-split] I2 after the repair pass', { runId, sample: i2.sample });
+  if (!i2.ok) logger.warn('[workspace-split] I2 after the repair pass', { runId, sample: i2.sample, error: i2.error });
   return { rows: repaired.rows, i2Violations: i2.violations };
 }
 
@@ -530,10 +535,25 @@ export async function reverseWorkspaceSplitRun(runId: string): Promise<void> {
   await fillWorkspaceIds([reversed.fromAccountId, reversed.toAccountId]);
 }
 
+/** The fill's own statement budget. `workspace_fill_account` is ONE statement
+ * that UPDATEs up to 44 expand tables, and a keeper account can hold millions
+ * of rows (design.md M8): on prod the pool's 25 s default canceled it on every
+ * tick and the 60 s error retry repeated the batch forever (the 2026-11-12
+ * `[leader-timer] tick failed` loop). The documented escape hatch
+ * (packages/db/src/client.ts) is a transaction-local timeout, like
+ * audit-archive's longRead. `statementTimeout` is a test seam. */
+const FILL_STATEMENT_TIMEOUT = '10min';
+
 /** kortix.workspace_fill_account for each account (C1): its expand rows carry its live workspace id. */
-async function fillWorkspaceIds(accountIds: string[]): Promise<void> {
+export async function fillWorkspaceIds(
+  accountIds: string[],
+  options: { statementTimeout?: string } = {},
+): Promise<void> {
   for (const accountId of new Set(accountIds)) {
-    await db.execute(sql`SELECT kortix.workspace_fill_account(${accountId}::uuid)`);
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT set_config('statement_timeout', ${options.statementTimeout ?? FILL_STATEMENT_TIMEOUT}, true)`);
+      await tx.execute(sql`SELECT kortix.workspace_fill_account(${accountId}::uuid)`);
+    });
   }
 }
 

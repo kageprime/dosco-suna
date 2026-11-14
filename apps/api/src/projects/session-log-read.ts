@@ -42,7 +42,7 @@ import {
 } from '@kortix/api-contract/session-log';
 import { KORTIX_TRANSCRIPT_SCHEMA } from '@kortix/api-contract/transcript';
 import { projectSessions, sessionLogMessages, sessionLogs, sessionLogThreads } from '@kortix/db';
-import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, max, sql, type SQL } from 'drizzle-orm';
 import { config } from '../config';
 import { db } from '../shared/db';
 import { qualifiedColumn } from '../shared/sql-qualified-column';
@@ -313,7 +313,9 @@ export async function readStoredTranscriptWindow(input: WindowInput): Promise<Mi
         total: sql<number>`(count(*) + count(*) FILTER (WHERE CASE WHEN ${sessionLogMessages.kind} = 'compaction'
           THEN coalesce(jsonb_typeof(jsonb_path_query_first(${sessionLogMessages.record}, '$.blocks[*] ? (@.type == "compaction")') -> 'summary') <> 'null', false)
           ELSE false END))::int`,
-        writtenMs: sql<number | null>`(extract(epoch from max(${sessionLogMessages.updatedAt})) * 1000)::float8`,
+        // The column's own mapping (a Date, cut to the ms like `log.updatedAt`): an epoch float8
+        // needs 16 digits and came back rounded up to the next ms.
+        writtenAt: max(sessionLogMessages.updatedAt),
       })
       .from(sessionLogMessages)
       .where(scope);
@@ -350,7 +352,7 @@ export async function readStoredTranscriptWindow(input: WindowInput): Promise<Mi
   return {
     runtime_session_id: target,
     root_runtime_session_id: rootId,
-    captured_at: new Date(Math.max(new Date(log.updatedAt).getTime(), Math.floor(totals.writtenMs ?? 0))).toISOString(),
+    captured_at: new Date(Math.max(new Date(log.updatedAt).getTime(), totals.writtenAt?.getTime() ?? 0)).toISOString(),
     total: totals.total,
     head_complete: true,
     next_cursor: rows.length > input.limit ? idOf(kept.at(-1)!) : null,

@@ -335,11 +335,14 @@ export async function authorizeRequest(
       const billing = await assertLlmBillingActive(principal.accountId);
       if (billing?.holdUsd) principal = { ...principal, billingHold: { amountUsd: billing.holdUsd } };
     } catch (err) {
+      // Only a refusal is a 402. A wallet fault or a timeout is thrown: the
+      // route answers 5xx and the gateway a retryable 503 (prod 2026-11-12).
+      if (!(err instanceof BillingGateError)) throw err;
       return {
         ok: false,
         status: 402,
-        errorCode: err instanceof BillingGateError ? err.reason : 'subscription_required',
-        message: err instanceof Error ? err.message : 'Billing inactive',
+        errorCode: err.reason,
+        message: err.message,
         principal,
       };
     }

@@ -17,7 +17,7 @@ import { and, asc, eq, lt, sql } from 'drizzle-orm';
 import { db } from '../../shared/db';
 import type { GitTriggerSpec } from '../triggers';
 import { appEventPromptPreamble, buildAppEventPayload } from './monitor-events';
-import { renderPromptTemplate, triggerFilterMatches } from './trigger-payload';
+import { renderTriggerInput, triggerFilterMatches, triggerInputPreamble } from './trigger-payload';
 import { fireGitTrigger, markGitTriggerAttemptFailed, markGitTriggerFired } from './trigger-fire';
 import { takeThrottledRunSlot } from './trigger-run-caps';
 import { raiseTriggerAlert } from './trigger-alerts';
@@ -158,7 +158,7 @@ export async function processMonitorEvent(
     await touchMonitorLastEvent(row, now);
     return 'skipped';
   }
-  const renderedPrompt = `${appEventPromptPreamble(row.line)}${renderPromptTemplate(spec.promptTemplate, payload)}`;
+  const renderedPrompt = `${triggerInputPreamble(spec, appEventPromptPreamble(row.line))}${renderTriggerInput(spec, payload)}`;
 
   // Per (project, slug, epoch, seq) — the same key the log dedups on, so a
   // re-claimed event can never mint a second session.

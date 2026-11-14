@@ -1,5 +1,9 @@
 import {
   AppWindowIcon,
+  ChartBarIcon,
+  DatabaseIcon,
+  ListChecksIcon,
+  PlayCircleIcon,
   BookOpenTextIcon,
   CpuIcon,
   FoldersIcon,
@@ -35,6 +39,7 @@ import { type ProjectSettingsSectionKey } from './project-settings-sections';
  *     Security (MFA, session policy, key policy, oversight), Branding, Git,
  *     Sandbox, Feature flags, API keys, Capture (while Capture is on).
  *  2. **Library** — the global variant of each library page.
+ *     **Evals** (flag `evals`) — Overview, Datasets, Tasks, Jobs.
  *  3. **People** — Members (one roster, one role per person), Groups, Roles,
  *     Identity, Audit log.
  *  4. **Billing** — Plan, Usage.
@@ -47,7 +52,15 @@ export type ProjectAdminSectionKey = WorkspaceSettingsSection;
 
 export type ProjectAdminResourceKey = Extract<
   WorkspaceSettingsSection,
-  'agents' | 'connectors' | 'skills' | 'triggers' | 'models' | 'secrets' | 'apps' | 'drives' | 'repo'
+  | 'agents'
+  | 'connectors'
+  | 'skills'
+  | 'triggers'
+  | 'evals'
+  | 'eval-datasets'
+  | 'eval-tasks'
+  | 'eval-jobs'
+  | 'models' | 'secrets' | 'apps' | 'drives' | 'repo'
 >;
 
 /**
@@ -153,7 +166,7 @@ export interface ProjectAdminResource {
    * The flag the row needs. Repo is a library only with `drives` on; with it
    * off, the sidebar's Files row is the repo browser (`projectNavRows`).
    */
-  flag?: 'drives';
+  flag?: 'drives' | 'evals';
   /**
    * The row opens on its capability alone, without Settings access. Agents:
    * a member who may read the agents browsed them under Customize before
@@ -173,6 +186,11 @@ export const PROJECT_ADMIN_RESOURCES: readonly ProjectAdminResource[] = [
   // Triggers: kortix.yaml triggers and runtime triggers (loops) on one page.
   // The key stays `triggers`: it is the URL segment, and live links name it.
   { key: 'triggers', icon: TimerIcon, capability: 'triggers', host: false },
+  // Evals (flag `evals`): every member reads scores; starting a job needs project.session.start (the API's rule).
+  { key: 'evals', icon: ChartBarIcon, capability: null, host: false, flag: 'evals', memberOpen: true },
+  { key: 'eval-datasets', icon: DatabaseIcon, capability: null, host: false, flag: 'evals', memberOpen: true },
+  { key: 'eval-tasks', icon: ListChecksIcon, capability: null, host: false, flag: 'evals', memberOpen: true },
+  { key: 'eval-jobs', icon: PlayCircleIcon, capability: null, host: false, flag: 'evals', memberOpen: true },
   { key: 'models', icon: CpuIcon, capability: 'models', host: false },
   { key: 'repo', icon: FoldersIcon, capability: 'files', host: false, flag: 'drives' },
 ];

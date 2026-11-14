@@ -356,6 +356,43 @@ export async function joinChannel(token: string, channel: string): Promise<boole
   }
 }
 
+/** A channel the bot can see: every public one, and each private one it is in. */
+export interface SlackChannelRow {
+  id: string;
+  name: string;
+  is_private: boolean;
+  is_member: boolean;
+}
+
+/** conversations.list over every page (at most `maxPages` × 1000 channels). */
+export async function listBotChannels(token: string, maxPages = 10): Promise<SlackChannelRow[] | { error: string }> {
+  const out: SlackChannelRow[] = [];
+  let cursor = '';
+  for (let page = 0; page < maxPages; page++) {
+    const r = await slackApiCall(token, 'conversations.list', {
+      types: 'public_channel,private_channel',
+      exclude_archived: 'true',
+      limit: '1000',
+      ...(cursor ? { cursor } : {}),
+    });
+    if (!r.ok) return { error: r.error ?? 'unknown' };
+    for (const row of (r.channels as Array<Record<string, unknown>> | undefined) ?? []) {
+      if (typeof row.id !== 'string' || typeof row.name !== 'string') continue;
+      out.push({ id: row.id, name: row.name, is_private: row.is_private === true, is_member: row.is_member === true });
+    }
+    cursor = ((r.response_metadata as { next_cursor?: string } | undefined)?.next_cursor ?? '').trim();
+    if (!cursor) break;
+  }
+  return out;
+}
+
+/** conversations.join with Slack's own answer; `already_in_channel` counts as joined. */
+export async function joinPublicChannel(token: string, channel: string): Promise<{ ok: boolean; error?: string }> {
+  const r = await slackApiCall(token, 'conversations.join', { channel });
+  if (r.ok || r.error === 'already_in_channel') return { ok: true };
+  return { ok: false, error: r.error ?? 'unknown' };
+}
+
 export async function addReaction(
   token: string,
   channel: string,

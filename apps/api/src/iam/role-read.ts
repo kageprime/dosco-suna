@@ -6,6 +6,7 @@
 import { iamRoleActions, iamRoles } from '@kortix/db';
 import { and, eq, isNull, or } from 'drizzle-orm';
 import { db } from '../shared/db';
+import { storedAction } from './workspace-scope';
 
 /** `{ roleAccountId }` of a role the account may bind: a system role or its own. */
 export function bindableRoleRow(roleId: string, accountId: string) {
@@ -45,7 +46,8 @@ export function systemRoleDescriptionRows() {
     .where(isNull(iamRoles.accountId));
 }
 
-/** The actions a role grants. */
-export function roleActionRows(roleId: string) {
-  return db.select({ action: iamRoleActions.action }).from(iamRoleActions).where(eq(iamRoleActions.roleId, roleId));
+/** The actions a role grants, by their legacy names (a renamed `workspace.*` row reads as its legacy name). */
+export async function roleActionRows(roleId: string): Promise<Array<{ action: string }>> {
+  const rows = await db.select({ action: iamRoleActions.action }).from(iamRoleActions).where(eq(iamRoleActions.roleId, roleId));
+  return rows.map((r) => ({ action: storedAction(r.action) }));
 }

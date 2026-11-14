@@ -108,19 +108,30 @@ export function basicAuthHeader(token: string): Record<string, string> {
   return { Authorization: `Basic ${encoded}` };
 }
 
+/**
+ * Decode the base64 payload of an HTTP Basic credential at its first `:`.
+ * `username` is null when the payload has no colon; `password` is then the
+ * whole decoded string. Null when the payload cannot be decoded.
+ */
+export function decodeBasic(value: string): { username: string | null; password: string } | null {
+  try {
+    const decoded = Buffer.from(value, 'base64').toString('utf8');
+    const separator = decoded.indexOf(':');
+    return separator >= 0
+      ? { username: decoded.slice(0, separator), password: decoded.slice(separator + 1) }
+      : { username: null, password: decoded };
+  } catch {
+    return null;
+  }
+}
+
 /** Decode a backend-produced HTTP Basic header without assuming a provider username. */
 export function parseBasicAuthHeader(value?: string | null): BasicGitCredential | null {
   if (!value) return null;
   const match = value.match(/^Basic\s+(.+)$/i);
   if (!match) return null;
-  try {
-    const decoded = Buffer.from(match[1]!, 'base64').toString('utf8');
-    const separator = decoded.indexOf(':');
-    if (separator <= 0) return null;
-    const username = decoded.slice(0, separator);
-    const token = decoded.slice(separator + 1);
-    return username && token ? { username, token } : null;
-  } catch {
-    return null;
-  }
+  const credential = decodeBasic(match[1]!);
+  if (!credential) return null;
+  const { username, password: token } = credential;
+  return username && token ? { username, token } : null;
 }

@@ -3,6 +3,7 @@
 import { useEffect, type RefObject } from 'react';
 
 import { useWorkspaceSettingsRailStore } from '../../internal/stores/workspace-settings-rail-store';
+import { prefersReducedMotion } from '../../internal/hooks/use-reduced-motion';
 
 /** How long the page may take to render the card before the landing gives up. */
 const FIND_TIMEOUT_MS = 4000;
@@ -36,7 +37,7 @@ export function useSettingsSearchLanding(
       const target = findText(root, text);
       if (!target) return false;
       const row = rowOf(target, root);
-      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const reduce = prefersReducedMotion();
       // Instant: a long smooth scroll is motion the person did not ask for.
       row.scrollIntoView({ block: 'center', behavior: 'instant' });
       mark(row, reduce);

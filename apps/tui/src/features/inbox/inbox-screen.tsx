@@ -14,22 +14,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { openUrl } from '../../lib/open-url.ts';
 import { theme } from '../../theme.ts';
+import type { ScreenProps } from '../../screens.tsx';
+import { useScreenAction } from '../../ui/index.ts';
 import { type InboxRow, targetOf, toInboxRow, webUrlOf } from './inbox-model.ts';
 import { InboxView } from './inbox-view.tsx';
 import { useInbox } from './use-inbox.ts';
 
-export interface InboxScreenProps {
-  projectId: string | null;
-  accountId: string | null;
-  sessionId: string | null;
-  focused: boolean;
-  width: number;
-  height: number;
-  webBaseUrl: string;
-  onBack(): void;
-  onOpenSession(sessionId: string): void;
-  onToast(message: string, kind?: 'info' | 'error'): void;
-}
+export type InboxScreenProps = Pick<
+  ScreenProps,
+  'projectId' | 'focused' | 'width' | 'height' | 'webBaseUrl' | 'onBack' | 'onOpenSession' | 'onToast'
+>;
 
 /** How often the age column is recomputed. */
 const CLOCK_TICK_MS = 30_000;
@@ -42,8 +36,6 @@ function errorText(error: unknown): string {
 
 export function InboxScreen({
   projectId,
-  accountId: _accountId,
-  sessionId: _sessionId,
   focused,
   width,
   height,
@@ -52,7 +44,6 @@ export function InboxScreen({
   onOpenSession,
   onToast,
 }: InboxScreenProps) {
-  const [busy, setBusy] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -62,6 +53,8 @@ export function InboxScreen({
 
   const inbox = useInbox(projectId);
   const rows = useMemo(() => (inbox.data?.notifications ?? []).map(toInboxRow), [inbox.data]);
+
+  const { busy, run } = useScreenAction(onToast);
 
   const markRead = useCallback(
     (row: InboxRow) => {
@@ -92,20 +85,12 @@ export function InboxScreen({
   );
 
   const markAllRead = useCallback(() => {
-    setBusy('marking read…');
-    inbox
-      .markAllRead()
-      .catch((error: unknown) => onToast(errorText(error), 'error'))
-      .finally(() => setBusy(null));
-  }, [inbox.markAllRead, onToast]);
+    run('marking read…', () => inbox.markAllRead());
+  }, [run, inbox.markAllRead]);
 
-  const refresh = useCallback(() => {
-    setBusy('refreshing…');
-    void inbox
-      .refetch()
-      .catch((error: unknown) => onToast(errorText(error), 'error'))
-      .finally(() => setBusy(null));
-  }, [inbox.refetch, onToast]);
+  const onRefresh = useCallback(() => {
+    run('refreshing…', () => inbox.refetch());
+  }, [run, inbox.refetch]);
 
   if (!projectId) {
     return (
@@ -130,7 +115,7 @@ export function InboxScreen({
       onMarkRead={markRead}
       onMarkAllRead={markAllRead}
       onOpenWeb={openWeb}
-      onRefresh={refresh}
+      onRefresh={onRefresh}
       onBack={onBack}
     />
   );

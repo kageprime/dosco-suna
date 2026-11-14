@@ -48,6 +48,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -74,6 +75,19 @@ import {
   shouldKeepProbingPort,
 } from './easy-panel-logic';
 import { PanelWidthButton, type ShareContext, ViewerActions } from '../../../files/viewer/viewer-actions';
+import {
+  currentEntry,
+  type FrameHistory,
+  frameReportOf,
+  type FrameTracker,
+  initialFrameHistory,
+  NEW_FRAME_TRACKER,
+  pushEntry,
+  reduceFrameReport,
+  rememberFrameHistory,
+  reportedFrameUrl,
+  retargetPreviewUrl,
+} from './frame-history';
 
 // zustand v5's own hook feeds React's `useSyncExternalStore` a
 // `getServerSnapshot` pinned to `getInitialState()` — correct for real SSR
@@ -99,9 +113,13 @@ export function AppPreview({
   shareContext,
   onClose,
   onSendToAgent,
+  historyKey,
 }: {
   /** The internal sandbox URL the agent handed over, e.g. http://localhost:3000. */
   url: string;
+  /** Keeps the page and its Back/Forward across remounts (a switch to
+   *  Terminal and back), per session. See `frame-history.ts`. */
+  historyKey?: string;
   name: string;
   /** Lists the project's Apps on the no-app landing. */
   projectId?: string;
@@ -122,13 +140,30 @@ export function AppPreview({
   // reach. The proxy is what makes it openable at all.
   const { proxyUrl } = useSandboxProxy();
 
-  // History of internal (localhost) URLs. Back/forward are real, not decorative.
-  const [history, setHistory] = useState<string[]>([url]);
-  const [index, setIndex] = useState(0);
-  const current = history[index] ?? url;
+  // History of internal (localhost) URLs. Back/forward are real, not decorative:
+  // the frame's own navigations land here through the preview bridge (D-05).
+  const [frameHistory, setFrameHistory] = useState<FrameHistory>(() =>
+    initialFrameHistory(historyKey, url),
+  );
+  const current = currentEntry(frameHistory);
+  // The address the frame was LOADED with. It differs from `current` after a
+  // navigation inside the frame: the frame got there itself, so its `src`
+  // must not change, or the panel would reload the page it is already on.
+  const [frameUrl, setFrameUrl] = useState(current);
+  // True until the frame reports the address of the page the panel loaded.
+  const settlingRef = useRef(true);
+  // What `reduceFrameReport` remembers between this frame's reports, and the
+  // history it last produced (reports can outrun a render).
+  const trackerRef = useRef<FrameTracker>(NEW_FRAME_TRACKER);
+  const historyRef = useRef(frameHistory);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   // The quick-view "Open Browser" with no running app hands over url: '' —
   // no port to load, nothing to spin on. Land on the address bar instead.
-  const noApp = !current;
+  const noApp = !frameUrl;
+
+  useEffect(() => {
+    if (historyKey) rememberFrameHistory(historyKey, frameHistory);
+  }, [historyKey, frameHistory]);
 
   // The landing's "Recents" — the shared history BrowserPanel also shows,
   // filtered to sandbox ports (the only URLs this address bar will open).
@@ -136,10 +171,10 @@ export function AppPreview({
   const localhostRecents = useMemo(() => sandboxRecents(recents), [recents]);
   const port = useMemo(() => parseLocalhostUrl(current)?.port ?? 0, [current]);
 
-  const proxied = useMemo(() => proxyUrl(current) ?? current, [proxyUrl, current]);
+  const proxied = useMemo(() => proxyUrl(frameUrl) ?? frameUrl, [proxyUrl, frameUrl]);
   // Null while the token or the host's URL (`UiProvider resolvePreviewUrl`) resolves.
   const hostPreview = usePreviewFrameUrl(
-    current,
+    frameUrl,
     proxied,
     shareContext ?? (projectId ? { projectId } : undefined),
   );
@@ -286,43 +321,93 @@ export function AppPreview({
     if (noApp) focusWithoutScroll(addressRef.current);
   }, [noApp]);
 
-  const reload = useCallback(() => {
+  // Every load the panel starts goes through here. The frame is keyed on its
+  // resolved `src` (below), so a new address mounts a fresh frame once its
+  // authenticated URL resolves. Only the SAME address needs `refreshKey`.
+  // Bumping it for a new address remounted the OLD `src` while the new one
+  // resolved: two requests for one Refresh or Back. A fresh frame, never a
+  // `src` change, also keeps the tab's own history free of frame entries.
+  const frameUrlRef = useRef(frameUrl);
+  // Mirror the latest state for the callbacks above, after each commit.
+  useLayoutEffect(() => {
+    historyRef.current = frameHistory;
+    frameUrlRef.current = frameUrl;
+  }, [frameHistory, frameUrl]);
+  const load = useCallback((next: string) => {
+    settlingRef.current = true;
     setIsLoading(true);
     setHasError(false);
-    setRefreshKey((k) => k + 1);
+    if (next === frameUrlRef.current) setRefreshKey((k) => k + 1);
+    else setFrameUrl(next);
   }, []);
+
+  // Reload the page on screen, which can be one the frame navigated to.
+  const reload = useCallback(() => load(current), [load, current]);
+
+  // The bridge in the framed page reports each address it reaches
+  // (`apps/api/src/sandbox-proxy/preview-bridge.ts`). Only the frame this
+  // panel mounted is heard. A page without the bridge (a strict CSP, a Kortix
+  // App on its own origin) reports nothing, and the address stays on what the
+  // panel loaded.
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      const frame = iframeRef.current?.contentWindow;
+      if (!frame || event.source !== frame) return;
+      const reported = reportedFrameUrl(event.data, frameUrl);
+      if (!reported) return;
+      const result = reduceFrameReport(
+        historyRef.current,
+        trackerRef.current,
+        frameReportOf(event.data, reported, settlingRef.current),
+      );
+      settlingRef.current = false;
+      trackerRef.current = result.tracker;
+      historyRef.current = result.history;
+      setFrameHistory(result.history);
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [frameUrl]);
 
   const navigateTo = useCallback(
     (next: string) => {
       // Feed the shared recents (the same list BrowserPanel's landing shows)
       // so the port map builds up from either surface.
       useBrowserRecentsStore.getState().addRecent(next);
-      setHistory((prev) => [...prev.slice(0, index + 1), next]);
-      setIndex((i) => i + 1);
-      reload();
+      setFrameHistory((history) => pushEntry(history, next));
+      load(next);
     },
-    [index, reload],
+    [load],
   );
 
-  const canGoBack = index > 0;
-  const canGoForward = index < history.length - 1;
+  const canGoBack = frameHistory.index > 0;
+  const canGoForward = frameHistory.index < frameHistory.entries.length - 1;
+
+  // Back/Forward reload the frame at the remembered address. A cross-origin
+  // frame's own `history` is not reachable from here.
+  const goTo = useCallback(
+    (index: number) => {
+      const target = frameHistory.entries[index];
+      if (target === undefined) return;
+      setFrameHistory((history) => ({ ...history, index }));
+      load(target);
+    },
+    [frameHistory.entries, load],
+  );
 
   const goBack = useCallback(() => {
-    if (!canGoBack) return;
-    setIndex((i) => i - 1);
-    reload();
-  }, [canGoBack, reload]);
+    if (canGoBack) goTo(frameHistory.index - 1);
+  }, [canGoBack, goTo, frameHistory.index]);
 
   const goForward = useCallback(() => {
-    if (!canGoForward) return;
-    setIndex((i) => i + 1);
-    reload();
-  }, [canGoForward, reload]);
+    if (canGoForward) goTo(frameHistory.index + 1);
+  }, [canGoForward, goTo, frameHistory.index]);
 
   return (
     <div className="bg-background flex h-full min-h-0 min-w-0 flex-col">
       <AppPreviewToolbar
         previewUrl={previewUrl}
+        openUrl={previewUrl ? retargetPreviewUrl(previewUrl, frameUrl, current) : previewUrl}
         onClose={onClose}
         displayValue={current}
         isLoading={isLoading}
@@ -401,7 +486,8 @@ export function AppPreview({
           </div>
         ) : hasPreview ? (
           <iframe
-            key={refreshKey}
+            key={`${refreshKey}:${previewUrl}`}
+            ref={iframeRef}
             src={previewUrl}
             title={title}
             className="h-full w-full border-0"
@@ -442,10 +528,13 @@ export function AppPreview({
  */
 function AppPreviewToolbar({
   previewUrl,
+  openUrl,
   onClose,
   ...address
 }: Omit<ComponentProps<typeof SandboxAddressBar>, 'hasPreview' | 'placeholder'> & {
   previewUrl?: string | null;
+  /** The page on screen, which an in-frame navigation can move off `previewUrl`. */
+  openUrl?: string | null;
   onClose: () => void;
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
@@ -472,7 +561,7 @@ function AppPreviewToolbar({
             onClick={() => {
               if (!previewUrl) return;
               track('app_opened_new_tab');
-              window.open(previewUrl, '_blank', 'noopener,noreferrer');
+              window.open(openUrl || previewUrl, '_blank', 'noopener,noreferrer');
             }}
             className="size-7 shrink-0 active:scale-[0.96]"
           >

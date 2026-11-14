@@ -53,8 +53,10 @@ import {
   isParkedRuntimeDownReason,
   type SessionControlFrameType,
 } from '../core/wire-values';
+import type { ProjectSession } from '../core/rest/projects-client/sessions';
 import { invalidateWorkspaceProviderQueries } from './provider-refresh';
 import { qk } from './query-keys';
+import { updateCachedWorkspaceSessions } from './session-cache-write';
 import type { SessionTurnObservation } from './use-session-working';
 
 /** `sessionStreamConnected` as a hook. Re-renders when that answer moves. */
@@ -117,6 +119,11 @@ const CONTROL_FRAME_APPLIERS: Record<SessionControlFrameType, ControlFrameApplie
       atMs: frame.receivedAtMs ?? nowMs,
     };
     queryClient.setQueryData(key, observation);
+    // The same verdict is `ProjectSession.working`, which the session list
+    // reads for its status (`sessionListStatus`). Those caches refresh on a
+    // 60 s poll, so without this the row said "Working" well after the turn
+    // ended (F-025).
+    if (payload.working) patchCachedSessionWorking(queryClient, projectId, sessionId, payload.working);
   },
   'kortix.control.session': (queryClient, projectId, sessionId, frame, memory) => {
     const payload = frame.payload as SessionPayload;
@@ -215,6 +222,34 @@ export function applySessionControlFrame(
   // An unknown type comes from a newer API: ignored, as before.
   if (!isKnownControlFrameType(frame.type)) return;
   CONTROL_FRAME_APPLIERS[frame.type](queryClient, projectId, sessionId, frame, memory, nowMs);
+}
+
+function sameWorking(a: ProjectSession['working'], b: SessionWorkingVerdict): boolean {
+  return (
+    !!a &&
+    a.state === b.state &&
+    a.since === b.since &&
+    a.turn_token === b.turn_token &&
+    a.pending_delivery === b.pending_delivery
+  );
+}
+
+/** Put the server's working verdict on every cached row of this session. No request. */
+function patchCachedSessionWorking(
+  queryClient: QueryClient,
+  projectId: string,
+  sessionId: string,
+  working: SessionWorkingVerdict,
+): void {
+  updateCachedWorkspaceSessions(queryClient, projectId, (rows) => {
+    let changed = false;
+    const next = rows.map((row) => {
+      if (row.session_id !== sessionId || sameWorking(row.working, working)) return row;
+      changed = true;
+      return { ...row, working: { ...working } };
+    });
+    return changed ? next : rows;
+  });
 }
 
 function readTitle(row: Record<string, unknown>): string | null {

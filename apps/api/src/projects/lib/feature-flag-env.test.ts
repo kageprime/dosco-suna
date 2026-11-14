@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
+import { config } from '../../config';
 import {
   FEATURE_FLAGS_ENV_NAME,
   featureFlagsEnvValue,
@@ -22,6 +23,20 @@ describe('featureFlagsEnvValue', () => {
     const value = featureFlagsEnvValue({ experimental: { artifacts: false, artifact_comments: true } }).split(',');
     expect(value.includes('artifacts')).toBe(value.includes('drives'));
     expect(value).not.toContain('artifact_comments');
+  });
+  test('goal_mode is listed wherever a Drive can hold a goal, with the goals flag off: a chat binds its own goal', () => {
+    const settings = config as { PLATINUM_API_KEY?: string };
+    const before = settings.PLATINUM_API_KEY;
+    try {
+      settings.PLATINUM_API_KEY = '';
+      expect(featureFlagsEnvValue({ experimental: { goals: false } }).split(',')).not.toContain('goal_mode');
+      settings.PLATINUM_API_KEY = 'test-key';
+      const value = featureFlagsEnvValue({ experimental: { goals: false } }).split(',');
+      expect(value).toContain('goal_mode');
+      expect(value).not.toContain('goals');
+    } finally {
+      settings.PLATINUM_API_KEY = before;
+    }
   });
   test('env name is the one kortixd and the CLI read', () => {
     expect(FEATURE_FLAGS_ENV_NAME).toBe('KORTIX_FEATURE_FLAGS');

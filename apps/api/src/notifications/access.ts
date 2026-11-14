@@ -187,6 +187,19 @@ export async function mayReadProjectTriggers(
   return out;
 }
 
+/** The projects among `projectIds` that `userId` may open now (`project.read`): a calendar row's gate. */
+export async function mayReadProjects(
+  userId: string,
+  accountId: string,
+  projectIds: readonly string[],
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  if (!userId || projectIds.length === 0) return out;
+  const accessible = await projectAccess(userId, accountId, PROJECT_ACTIONS.PROJECT_READ);
+  for (const projectId of projectIds) if (allows(accessible, projectId)) out.add(projectId);
+  return out;
+}
+
 /** The people among `userIds` who hold `action` (default `project.read`) on one project now. */
 export async function filterProjectRecipients(
   accountId: string,

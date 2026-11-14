@@ -1,10 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { reconcilePlatinumPreviews, teardownPlatinumPreview } from '../src/core/preview-reaper-io';
 import {
+  reconcilePlatinumPreviews,
+  reportPoolUsage,
+  teardownPlatinumPreview,
+} from '../src/core/preview-reaper-io';
+import { PlatinumApi } from '../src/core/platinum-ci';
+import { PLATINUM_POOL_MB_DEFAULT } from '../src/core/preview-session-reaper';
+import {
+  deployPlatinumPreview,
   managedReposCreatedLastHour,
   runPlatinumPreviewSuite,
 } from '../src/core/sandbox-preview-providers';
-import { PREVIEW_SUITE_SUPERSEDED } from '../src/core/sandbox-preview';
+import { PREVIEW_SUITE_SUPERSEDED, PreviewInfrastructureError } from '../src/core/sandbox-preview';
 
 // A fake Platinum control plane: one listing page, and a record of every
 // mutating call. Synthetic ids only.
@@ -63,6 +70,7 @@ function stubPlatinum(rows: unknown[] = listing, reread: Record<string, unknown>
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe('preview teardown and sweep against the provider API', () => {
@@ -173,5 +181,110 @@ describe('preview teardown and sweep against the provider API', () => {
     expect(await managedReposCreatedLastHour('org', 't', NOW)).toBe(3);
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 403 })));
     expect(await managedReposCreatedLastHour('org', 't', NOW)).toBeNull();
+  });
+
+  it('reads the idle limit and the pool size from the environment, else the defaults', async () => {
+    const boxes = [session('idle-5h', null, 'preview', 5), session('idle-7h', null, 'preview', 7)];
+    const sweep = async (hours: string, poolMb: string) => {
+      stubPlatinum(boxes);
+      vi.stubEnv('PREVIEW_SESSION_MAX_IDLE_HOURS', hours);
+      vi.stubEnv('PREVIEW_PLATINUM_POOL_MB', poolMb);
+      const usage = await reportPoolUsage(new PlatinumApi('https://platinum.example.test', 'k'), boxes);
+      return { stopped: calls, poolMb: usage.poolMb };
+    };
+    // Unset, blank, non-numeric, zero, negative or infinite: 6 h and the default pool.
+    for (const value of ['', ' ', 'abc', '0', '-1', 'Infinity']) {
+      expect(await sweep(value, value), value).toEqual({
+        stopped: ['POST /v1/sandboxes/idle-7h/stop'],
+        poolMb: PLATINUM_POOL_MB_DEFAULT,
+      });
+    }
+    expect(await sweep('4', '1024')).toEqual({
+      stopped: ['POST /v1/sandboxes/idle-5h/stop', 'POST /v1/sandboxes/idle-7h/stop'],
+      poolMb: 1024,
+    });
+  });
+});
+
+// A running branch environment on a fake control plane. The deploy reaches the
+// worker launch, which fails, so the test sees the origin the bootstrap got.
+async function deployBranchEnvWith(publicOrigin: string) {
+  const written: string[] = [];
+  // The Platinum helpers poll with Bun.sleep; the unit runner is Node.
+  vi.stubGlobal('Bun', { sleep: () => Promise.resolve() });
+  const host = {
+    id: 'host-env',
+    name: 'kortix-env-feature-x',
+    state: 'running',
+    ramMb: 16_384,
+    metadata: { owner: 'kortix-branch-env', pr_number: '9' },
+    exposed: [{ port: 8080, url: 'https://host-env.example.test/' }],
+  };
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string | URL, init?: RequestInit) => {
+      const parsed = new URL(String(url));
+      const method = String(init?.method ?? 'GET').toUpperCase();
+      if (parsed.pathname === '/v1/sandboxes' && method === 'GET') {
+        return new Response(JSON.stringify({ rows: [host], has_more: false, total: 1 }));
+      }
+      if (parsed.pathname === '/v1/templates') {
+        const name = parsed.searchParams.get('name');
+        return new Response(JSON.stringify([{ id: `tpl-${name}`, name, state: 'ready' }]));
+      }
+      if (parsed.pathname.startsWith('/v1/templates/')) {
+        return new Response(JSON.stringify({ id: 'tpl', state: 'ready' }));
+      }
+      if (parsed.pathname.endsWith('/files/stat')) return new Response('{}', { status: 404 });
+      if (parsed.pathname.endsWith('/files') && method === 'PUT') {
+        written.push(String(init?.body));
+        return new Response('');
+      }
+      if (parsed.pathname.endsWith('/exec')) {
+        const launch = String(init?.body).includes('setsid');
+        return new Response(JSON.stringify({ result: { exit_code: launch ? 1 : 0 } }));
+      }
+      return new Response('{}');
+    }),
+  );
+  const error = await deployPlatinumPreview({
+    repository: 'kortix-ai/CompanyOS',
+    ref: 'refs/heads/feature-x',
+    sha: 'a'.repeat(40),
+    prNumber: 9,
+    runId: '1',
+    runAttempt: '1',
+    root: '/tmp',
+    lockfileHash: 'b'.repeat(64),
+    secrets: {},
+    platinum: { apiUrl: 'https://platinum.example.test', apiKey: 'synthetic' },
+    branchEnv: 'feature-x',
+    publicOrigin,
+  }).catch((reason: unknown) => reason);
+  if (!(error instanceof PreviewInfrastructureError)) {
+    throw new Error(`expected a PreviewInfrastructureError, got ${String(error)}`);
+  }
+  return { cause: String(error.cause), written };
+}
+
+describe('the public origin of a branch environment deploy', () => {
+  it.each([
+    'https://user:pass@env.example.test',
+    'https://user@env.example.test/',
+    'http://env.example.test',
+  ])('rejects %s before anything is written to the host', async (publicOrigin) => {
+    const { cause, written } = await deployBranchEnvWith(publicOrigin);
+    expect(cause).toMatch(/credential-free HTTPS/);
+    expect(written).toEqual([]);
+  });
+
+  it('strips a path, query and hash and configures the stack with the bare origin', async () => {
+    const { cause, written } = await deployBranchEnvWith(
+      'https://env.example.test/login?next=1#top',
+    );
+    expect(cause).toContain('Platinum preview launch failed');
+    const bootstrap = written.find((body) => body.includes('PREVIEW_INSTANCE_ID'));
+    expect(bootstrap).toContain("'https://env.example.test'");
+    expect(bootstrap).not.toContain('/login');
   });
 });

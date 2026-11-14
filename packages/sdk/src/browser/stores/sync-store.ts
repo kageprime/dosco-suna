@@ -535,6 +535,11 @@ interface SyncState {
 	 */
 	wasTranscriptEvicted: (sessionID: string) => boolean;
 	/**
+	 * Was this part or message created by a `message.part.delta` that found no
+	 * part (a part not replaced by a snapshot since)? It may lack its head (F-011).
+	 */
+	isFragment: (sessionID: string, id: string) => boolean;
+	/**
 	 * Join this session's messages with their parts, memoized on the identity of
 	 * the arrays it read.
 	 *
@@ -658,6 +663,13 @@ interface SessionScratch {
 	// delta-accumulated text. Keying by session and releasing only the ending
 	// session's bucket fixes it.
 	deltaActiveParts: Set<string>;
+	// The parts and messages this store created from a `message.part.delta` it
+	// had no part for. A part's text starts at whatever delta this tab saw
+	// first, and such a message lacks every part that came before: a tab that
+	// joins the stream mid-answer (a remount, a reconnect that could not replay)
+	// holds only the tail. A snapshot that replaces a part releases its id. On a
+	// session log (v2) the merge of v1 rows leaves these out (`isFragment`).
+	fragments: Set<string>;
 	// ---------------------------------------------------------------------------
 	// Part-delta idempotency (T14).
 	//
@@ -743,6 +755,7 @@ function scratchOf(sessionID: string): SessionScratch {
 			cacheSourcedIds: new Set(),
 			bridgedPartIds: new Set(),
 			deltaActiveParts: new Set(),
+			fragments: new Set(),
 			deltaEventTails: new Map(),
 			deltaOffsets: new Map(),
 			stubAssistantIds: new Map(),
@@ -1365,6 +1378,8 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 
 	upsertMessage: (sessionID, message) =>
 		set((s) => {
+			// The runtime's own record of the message (a stub has no `time`): no longer a fragment.
+			if (message.time) sessionScratch.get(sessionID)?.fragments.delete(message.id);
 			const list = s.messages[sessionID] ?? [];
 			const index = indexOfId(list, message.id, (m) => m.id);
 			if (index !== -1) {
@@ -1484,6 +1499,8 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 			const next = [...list];
 			if (result.found) {
 				next[result.index] = part;
+				// A snapshot of the part: it now holds the whole text.
+				if (partSessionID) sessionScratch.get(partSessionID)?.fragments.delete(part.id);
 				followStream();
 			} else {
 				// For NEW text/reasoning parts: if deltas have already been
@@ -1920,6 +1937,8 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 	},
 
 	wasTranscriptEvicted: (sessionID) => evictedSessions.has(sessionID),
+
+	isFragment: (sessionID, id) => sessionScratch.get(sessionID)?.fragments.has(id) ?? false,
 
 	buildSessionMessages: (sessionID, msgs, parts) => {
 		if (!msgs || msgs.length === 0) return EMPTY_MESSAGE_ROWS;
@@ -2744,6 +2763,7 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 							(m) => m.id === props.messageID,
 						);
 						if (!msgExists && hasUserMsg) {
+							scratchOf(props.sessionID).fragments.add(props.messageID);
 							store.upsertMessage(props.sessionID, {
 								id: props.messageID,
 								sessionID: props.sessionID,
@@ -2751,6 +2771,8 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 							} as Message);
 						}
 					}
+					// Before the part exists, so no reader sees it unmarked.
+					if (props.sessionID) scratchOf(props.sessionID).fragments.add(props.partID);
 					store.upsertPart(props.messageID, {
 						id: props.partID,
 						sessionID: props.sessionID,

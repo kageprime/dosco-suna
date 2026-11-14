@@ -3,7 +3,7 @@ import { constants, createReadStream } from 'node:fs';
 import { type FileHandle, lstat, open, readdir, readlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
-export interface RuntimeArtifact {
+interface RuntimeArtifact {
   label: string;
   path: string;
   /**
@@ -13,7 +13,7 @@ export interface RuntimeArtifact {
   excludeNames?: readonly string[];
 }
 
-export interface RuntimeArtifactFingerprintInput {
+interface RuntimeArtifactFingerprintInput {
   sandboxVersion: string;
   artifacts: RuntimeArtifact[];
 }
@@ -138,7 +138,7 @@ export async function buildFileSha256(path: string): Promise<string> {
 /**
  * Deterministic content digest for a labeled artifact set.
  */
-export async function buildArtifactContentDigest(artifacts: RuntimeArtifact[]): Promise<string> {
+async function buildArtifactContentDigest(artifacts: RuntimeArtifact[]): Promise<string> {
   const hash = createHash('sha256');
   await hashArtifacts(hash, artifacts);
   return hash.digest('hex');

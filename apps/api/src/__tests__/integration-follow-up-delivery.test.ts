@@ -160,6 +160,17 @@ describe('a box an earlier dev stack created under another quick tunnel', () => 
     });
   });
 
+  test('a web send preserves the failed prompt and names its stale runtime', async () => {
+    await withBox(OLD_TUNNEL, 'https://new-tunnel-it.trycloudflare.com', async () => {
+      expect(await deliverThroughQueue({ ...reply('stale-ui'), source: 'ui' })).toBe('failed');
+      const [row] = await commands();
+      expect(row.last_error).toBe("this session's computer cannot reach the API. Start a new session");
+      expect(row.status).toBe('dead_lettered');
+      expect(row.payload.text).toBe('also check the logs');
+      expect(await sessionStatus()).toBe('stopped');
+    });
+  });
+
   test('a box of this tunnel takes the follow-up as before', async () => {
     await withBox('https://same-tunnel-it.trycloudflare.com', 'https://same-tunnel-it.trycloudflare.com/', async () => {
       expect(await deliverThroughQueue(reply('slack:T1:C1:1700000000.000901'))).toBe('queued');

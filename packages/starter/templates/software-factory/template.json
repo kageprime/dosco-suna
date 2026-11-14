@@ -1,0 +1,28 @@
+{
+  "id": "software-factory",
+  "name": "Software Factory",
+  "summary": "One agent with its own GitHub identity turns issues, failing tests, errors, logs, database anomalies, Slack and customer feedback into tickets, then into reviewed pull requests.",
+  "secrets": [
+    { "name": "FACTORY_GITHUB_TOKEN", "required": true, "delivery": "sandbox", "why": "The factory's own GitHub identity (a machine user's token): clone, read and write issues, push kortix/ branches, open pull requests, author every commit." },
+    { "name": "FACTORY_GITHUB_WEBHOOK_SECRET", "required": true, "delivery": "connector", "why": "Signs the GitHub webhooks for labeled issues and pull request reviews.", "generate": true },
+    { "name": "FACTORY_ERRORS_WEBHOOK_SECRET", "required": false, "delivery": "connector", "why": "source-errors: your error tracker's webhook (Authorization: Bearer).", "generate": true },
+    { "name": "FACTORY_FEEDBACK_WEBHOOK_SECRET", "required": false, "delivery": "connector", "why": "source-customer-feedback-webhook: your feedback form's webhook (Authorization: Bearer).", "generate": true },
+    { "name": "LINEAR_API_KEY", "required": false, "delivery": "sandbox", "why": "Ticket store Linear, when the workspace has no Linear connector." },
+    { "name": "JIRA_API_TOKEN", "required": false, "delivery": "sandbox", "why": "Ticket store Jira, with JIRA_BASE_URL and JIRA_EMAIL, when the workspace has no Jira connector." },
+    { "name": "ASANA_ACCESS_TOKEN", "required": false, "delivery": "sandbox", "why": "Ticket store Asana, when the workspace has no Asana connector." },
+    { "name": "SENTRY_AUTH_TOKEN", "required": false, "delivery": "sandbox", "why": "source-errors with Sentry: read issues and events (with SENTRY_ORG). Scopes event:read, project:read." },
+    { "name": "BETTERSTACK_API_TOKEN", "required": false, "delivery": "sandbox", "why": "source-errors with Better Stack: read error patterns, monitors and incidents. Read-only." },
+    { "name": "FACTORY_DB_READONLY_URL", "required": false, "delivery": "sandbox", "why": "source-db-observer: a Postgres role with pg_monitor and default_transaction_read_only. Never a write role." },
+    { "name": "SUPABASE_ACCESS_TOKEN", "required": false, "delivery": "sandbox", "why": "source-db-observer on Supabase (with SUPABASE_PROJECT_REF): advisors, read-only queries, Postgres logs." },
+    { "name": "CLICKHOUSE_URL", "required": false, "delivery": "sandbox", "why": "source-logs-anomaly: a read-only ClickHouse or Better Stack Telemetry endpoint for application logs." },
+    { "name": "PLAIN_API_KEY", "required": false, "delivery": "sandbox", "why": "source-customer-feedback with Plain: read threads. A read-only API key." },
+    { "name": "INTERCOM_ACCESS_TOKEN", "required": false, "delivery": "sandbox", "why": "source-customer-feedback with Intercom: read conversations." },
+    { "name": "ZENDESK_API_TOKEN", "required": false, "delivery": "sandbox", "why": "source-customer-feedback with Zendesk (with ZENDESK_SUBDOMAIN and ZENDESK_EMAIL): read tickets." }
+  ],
+  "github_webhooks": [
+    { "trigger": "source-github-issues", "events": ["issues"] },
+    { "trigger": "factory-feedback-github", "events": ["pull_request_review", "pull_request_review_comment", "issue_comment"] }
+  ],
+  "label": "kortix",
+  "needs_dev_sandbox": true
+}

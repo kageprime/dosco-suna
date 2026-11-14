@@ -19,7 +19,7 @@
  * the change once, in terms of sessions, and never names a cache shape.
  */
 
-import type { Query, QueryClient } from '@tanstack/react-query';
+import { notifyManager, type Query, type QueryClient } from '@tanstack/react-query';
 import { sessionParentId, type ProjectSession } from '../core/rest/projects-client/sessions';
 import { qk } from './query-keys';
 
@@ -184,13 +184,21 @@ export function updateCachedWorkspaceSessions(
   projectId: string,
   update: ProjectSessionsUpdater,
 ): void {
-  queryClient.setQueriesData(
-    {
-      queryKey: qk.project.sessionsScope(projectId),
-      predicate: (query) => isSessionCacheKey(projectId, query),
-    },
-    (cached: unknown) => applyToCachedSessionShape(cached, update),
-  );
+  const entries = queryClient.getQueriesData({
+    queryKey: qk.project.sessionsScope(projectId),
+    predicate: (query) => isSessionCacheKey(projectId, query),
+  });
+  // One notification for every entry written, as `setQueriesData` gave.
+  notifyManager.batch(() => {
+    for (const [key, cached] of entries) {
+      // Only an entry the update changed is written. `setQueryData` stamps
+      // `dataUpdatedAt` even for the same object, which keeps a list from going
+      // stale and restarts its `refetchInterval` — a verdict re-sent every 20 s
+      // held off the sidebar's 60 s poll for good (F-025).
+      const next = applyToCachedSessionShape(cached, update);
+      if (next !== cached) queryClient.setQueryData(key, next);
+    }
+  });
 }
 
 /** @deprecated Use `updateCachedWorkspaceSessions`. Kept permanently. */
@@ -352,3 +360,44 @@ export function upsertCachedWorkspaceSession(
 
 /** @deprecated Use `upsertCachedWorkspaceSession`. Kept permanently. */
 export const upsertCachedProjectSession = upsertCachedWorkspaceSession;
+
+/** The session rows a cache entry holds, in any of the three session shapes. */
+function sessionsInShape(data: unknown): ProjectSession[] {
+  if (!data || typeof data !== 'object') return [];
+  if (Array.isArray(data)) return data as ProjectSession[];
+  const paged = data as { pages?: { items?: ProjectSession[] }[] };
+  if (Array.isArray(paged.pages)) return paged.pages.flatMap((page) => page.items ?? []);
+  const single = data as ProjectSession;
+  return typeof single.session_id === 'string' ? [single] : [];
+}
+
+/**
+ * The cached rows of `sessionIds`, read from every SESSION cache of the
+ * project (lists, paged lists, children lists, single rows) and never from the
+ * prompt, message or turn caches that share the prefix. When two caches hold
+ * the same session, the most recently updated one wins, so a stale filtered
+ * list cannot mask the row the sidebar just polled. Sessions in no cache are
+ * absent from the map. Reads only; nothing is fetched.
+ */
+export function readCachedWorkspaceSessions(
+  queryClient: QueryClient,
+  projectId: string,
+  sessionIds: readonly string[],
+): Map<string, ProjectSession> {
+  const wanted = new Set(sessionIds);
+  const best = new Map<string, { row: ProjectSession; at: number }>();
+  if (wanted.size === 0) return new Map();
+  const queries = queryClient
+    .getQueryCache()
+    .findAll({ queryKey: qk.project.sessionsScope(projectId) })
+    .filter((query) => isSessionCacheKey(projectId, query));
+  for (const query of queries) {
+    const at = query.state.dataUpdatedAt;
+    for (const row of sessionsInShape(query.state.data)) {
+      if (!wanted.has(row.session_id)) continue;
+      const held = best.get(row.session_id);
+      if (!held || at > held.at) best.set(row.session_id, { row, at });
+    }
+  }
+  return new Map([...best].map(([id, { row }]) => [id, row]));
+}

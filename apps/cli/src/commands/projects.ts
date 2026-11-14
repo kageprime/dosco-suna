@@ -9,6 +9,7 @@ import {
   clearDefaultProject,
   defaultProject,
   getHost,
+  listHosts,
   setActiveAccount,
   setDefaultProject,
 } from '../api/config.ts';
@@ -16,8 +17,10 @@ import type { AccountMembership, MeResponse, ProjectSummary } from '../api/types
 import { openInBrowser } from '../browser.ts';
 import {
   NO_WORKSPACE_LINE,
+  PICK_DEFAULT_LINE,
   emitJson,
   isNoWorkspaceError,
+  isWorkspaceDeletingError,
   locateProjectAnywhere,
   noWorkspace,
   resolveProjectContext,
@@ -37,7 +40,7 @@ import {
   resolveProjectId,
   saveLink,
 } from '../project-link.ts';
-import { listWorkspaceRowsReport, listableWorkspace, type WorkspaceListFailure, type WorkspaceRow } from '../project-bind.ts';
+import { ensureDefaultProjectBinding, listWorkspaceRowsReport, listableWorkspace, type WorkspaceListFailure, type WorkspaceRow } from '../project-bind.ts';
 import { confirm } from '../prompts.ts';
 import { C, help, pad, status } from '../style.ts';
 import { selectFromList } from '../tui-select.ts';
@@ -100,8 +103,9 @@ first, then — unless you pass --host — scans every other logged-in host for
 it. A directory link (.kortix/link.json) always wins over the default; the
 default is what commands use anywhere else on your machine.
 
-The workspace id is the project_id field of --json output. kortix projects
-is the older name of this command and still works. So do --project <id> and
+The workspace id is the workspace_id field of --json output (project_id, the
+older name of the same field, stays). kortix projects is the older name of
+this command and still works. So do --project <id> and
 KORTIX_PROJECT_ID (KORTIX_WORKSPACE_ID wins when both are set).
 
 Examples:
@@ -110,7 +114,7 @@ Examples:
   kortix workspaces use 3f2a9c1e-…
 `;
 
-export interface RunProjectsOptions {
+interface RunProjectsOptions {
   /** Invoked as `kortix projects` / `project`, the older name. `ls` then
    *  prints exactly what it printed before Workspaces: the active account's
    *  projects. Scripts parse that output. */
@@ -190,7 +194,7 @@ export async function runProjects(argv: string[], options: RunProjectsOptions = 
         process.stderr.write(`${status.err((err as Error).message)}\n`);
         return 2;
       }
-      return projectsInfo(idFlag ?? restCopy[0], json, hostArg);
+      return projectsInfo(idFlag ?? restCopy[0], json, hostArg, options.olderName);
     }
     case 'use':
     case 'default': {
@@ -1009,7 +1013,8 @@ async function projectsCreate(argv: string[]): Promise<number> {
     );
     if (!isDefaultProjectResponse(project)) return invalidDefaultProjectResponse(project);
     // Provisioning also returns a one-time push credential. Never print it.
-    if (json) emitJson({ project_id: project.project_id, name: project.name, account_id: project.account_id });
+    // `workspace_id` equals `project_id`; `project_id` stays for older scripts.
+    if (json) emitJson({ workspace_id: project.project_id, project_id: project.project_id, name: project.name, account_id: project.account_id });
     else process.stdout.write(`${project.project_id}\n`);
     return 0;
   } catch (err) {
@@ -1317,7 +1322,7 @@ export function gitConnectionLines(git: GitConnectionState): string {
   return out;
 }
 
-async function projectsInfo(arg?: string, json = false, hostArg?: string): Promise<number> {
+async function projectsInfo(arg?: string, json = false, hostArg?: string, olderName = false): Promise<number> {
   const id = resolveProjectId(arg, { hostScoped: !hostArg, hostArg });
   if (!id) {
     process.stderr.write(
@@ -1344,7 +1349,8 @@ async function projectsInfo(arg?: string, json = false, hostArg?: string): Promi
   }
   process.stdout.write('\n');
   process.stdout.write(`  ${C.bold}${p.name}${C.reset}\n`);
-  process.stdout.write(`  ${C.dim}project_id ${C.reset}${p.project_id}\n`);
+  // `kortix projects info` prints what it printed before Workspaces: scripts parse it.
+  process.stdout.write(`  ${C.dim}${olderName ? 'project_id' : 'workspace '} ${C.reset}${p.project_id}\n`);
   process.stdout.write(`  ${C.dim}account_id ${C.reset}${p.account_id}\n`);
   process.stdout.write(`  ${C.dim}repo       ${C.reset}${p.repo_url}\n`);
   process.stdout.write(`  ${C.dim}branch     ${C.reset}${p.default_branch}\n`);
@@ -1675,8 +1681,12 @@ async function projectsRm(args: string[]): Promise<number> {
     return surface(err);
   }
 
-  // Drop the local binding if we just removed the linked workspace.
+  // Drop the local binding if we just removed the linked workspace, and the
+  // default on every host that pointed at it: a deleted workspace answers
+  // every later command with 409 `workspace_deleting`.
   if (loadLink()?.project_id === id) clearLink();
+  const wasDefault = listHosts().filter((h) => h.host.default_project?.project_id === id);
+  for (const h of wasDefault) clearDefaultProject(h.name);
 
   process.stdout.write(
     `${status.ok(`Deleted ${C.bold}${project.name}${C.reset}`)}\n` +
@@ -1686,6 +1696,12 @@ async function projectsRm(args: string[]): Promise<number> {
           ? `  ${C.dim}managed git repo deleted${C.reset}\n`
           : `  ${C.dim}no managed repo to delete (bring-your-own repos are left untouched)${C.reset}\n`),
   );
+  if (wasDefault.length === 0) return 0;
+  // The active host rebinds the way login does: the one workspace left binds
+  // (its account becomes active), several offer the picker or the hint.
+  const activeAuth = wasDefault.some((h) => h.name === activeHostName()) ? loadAuth() : null;
+  process.stdout.write(`  Cleared the default workspace.${activeAuth ? '' : ` ${PICK_DEFAULT_LINE}`}\n`);
+  if (activeAuth) await ensureDefaultProjectBinding(activeAuth);
   return 0;
 }
 
@@ -1693,9 +1709,9 @@ async function projectsRm(args: string[]): Promise<number> {
 
 function surface(err: unknown): number {
   if (isNoWorkspaceError(err)) return noWorkspace();
-  // A denial goes through the shared formatter so the CLI's tail names the
-  // refused identity and the right remedy.
-  if (err instanceof ApiError && err.status === 403) return surfaceApiError(err);
+  // A denial, or a workspace being deleted, goes through the shared formatter:
+  // the tail names the refused identity, or how to switch the default.
+  if (err instanceof ApiError && (err.status === 403 || isWorkspaceDeletingError(err))) return surfaceApiError(err);
   if (err instanceof ApiError) {
     if (err.status === 401) {
       process.stderr.write(`${status.err(tokenRejectedLine(err.message))}\n`);

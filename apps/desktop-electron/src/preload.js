@@ -72,6 +72,9 @@ const desktopBridge = {
   // web app's Back uses this: a renderer history.back() into such an entry is
   // cancelled by the gate (will-navigate does fire for it) and nothing happens.
   navigate: (direction) => ipcRenderer.invoke('kortix:navigate', direction),
+  // The tab strip (behind the project's `desktop_tabs` flag) mounted or
+  // unmounted: the shell shows its tab menu items only while it is mounted.
+  setTabsActive: (active) => ipcRenderer.send('kortix:tabs-active', active === true),
 };
 
 contextBridge.exposeInMainWorld('doscoDesktop', desktopBridge);

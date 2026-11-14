@@ -251,6 +251,34 @@ withDb('machines and volumes — real PostgreSQL', () => {
     expect(after!.attachedRuntimeId).toBe(restored!.runtimeId);
   });
 
+  test('a failed-deploy cleanup still lands when the restore machine never gets healthy: the abandon resolves, the failed release still goes', async () => {
+    await seedApp();
+    const v1 = await deploy(stateful, 1);
+    // v2's machine AND the cleanup's restore machine both never answer ready.
+    // Prod 2026-11-12 (KRTX-4811): a readiness failure on either machine made
+    // the failed deploy's cleanup step log '[apps] failed-deploy cleanup step
+    // failed' even though its essential work had landed.
+    failReadyFor = new Set(['box-2', 'box-3']);
+
+    const app = await appRow();
+    const v2 = await release(2, stateful);
+    await expect(machines.rollOutRelease({
+      hosting: new AppHostingProvider(), app, deployment: v2, config: stateful,
+      env: await machines.releaseEnvironment(app, v2), activate: async () => {},
+    })).rejects.toThrow('kortix-appd failed');
+    await db.update(appDeployments).set({ status: 'failed' }).where(eq(appDeployments.deploymentId, v2.deploymentId));
+    calls.length = 0;
+
+    // The essential cleanup (the failed release's machine is gone, traffic stays
+    // on v1) must land; the restore's readiness failure must not fail the step.
+    await machines.abandonRelease(APP_ID, v2.deploymentId, new AppHostingProvider());
+
+    expect(await liveInstances(v2.deploymentId)).toEqual([]);
+    expect((await appRow()).activeDeploymentId).toBe(v1.deploymentId);
+    expect(calls).toContain('remove box-2');
+    expect(calls.some((call) => call.startsWith('ready? box-3'))).toBe(true);
+  });
+
   test('a failed runtime insert surfaces as itself and removes the box it just created', async () => {
     await seedApp();
     const v1 = await deploy(stateless, 1);

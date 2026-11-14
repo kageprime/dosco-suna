@@ -18,6 +18,9 @@ export const WORKSPACE_SETTINGS_GROUPS = [
   // configures the repository connection; Repository browses its files
   // (with Drive on).
   { id: 'library', sections: ['agents', 'models', 'connectors', 'secrets', 'skills', 'drives', 'apps', 'triggers', 'sandbox', 'git', 'repo'] },
+  // Evals (flag `evals`): its own group since 2026-11-13, the Harbor Hub's
+  // shape: datasets hold tasks, a job runs an agent on a dataset's tasks.
+  { id: 'evals', sections: ['evals', 'eval-datasets', 'eval-tasks', 'eval-jobs'] },
   { id: 'people', sections: ['members', 'groups', 'roles', 'identity', 'audit'] },
   { id: 'billing', sections: ['plan', 'usage'] },
   { id: 'advanced', sections: ['feature-flags'] },
@@ -39,6 +42,7 @@ export const WORKSPACE_SETTINGS_DEFAULT_SECTION: WorkspaceSettingsSection = 'gen
 
 /** Old ids and old account-hub tabs → the section that owns them now. */
 export const WORKSPACE_SETTINGS_SECTION_ALIASES: Readonly<Record<string, WorkspaceSettingsSection>> = {
+  'audit-log': 'audit',
   access: 'members',
   'access-projects': 'members',
   settings: 'security',
@@ -74,6 +78,10 @@ export const WORKSPACE_SETTINGS_LABELS: Readonly<Record<WorkspaceSettingsSection
   drives: 'Drives',
   apps: 'Apps',
   triggers: 'Triggers',
+  evals: 'Overview',
+  'eval-datasets': 'Datasets',
+  'eval-tasks': 'Tasks',
+  'eval-jobs': 'Jobs',
   models: 'Models',
   repo: 'Repository',
   members: 'Members',
@@ -90,6 +98,7 @@ export const WORKSPACE_SETTINGS_LABELS: Readonly<Record<WorkspaceSettingsSection
 export const WORKSPACE_SETTINGS_GROUP_LABELS: Readonly<Record<WorkspaceSettingsGroup, string>> = {
   workspace: 'Workspace',
   library: 'Library',
+  evals: 'Evals',
   people: 'People',
   billing: 'Billing',
   advanced: 'Advanced',

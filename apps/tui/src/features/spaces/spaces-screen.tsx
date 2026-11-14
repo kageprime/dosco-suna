@@ -18,26 +18,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { kortix } from '../../kortix.ts';
 import { openUrl } from '../../lib/open-url.ts';
 import { theme } from '../../theme.ts';
-import { Spinner } from '../../ui/index.ts';
+import { Spinner, useScreenAction } from '../../ui/index.ts';
+import type { ScreenProps } from '../../screens.tsx';
 import { type SpaceRow, SpacesView, type ThreadRow } from './spaces-view.tsx';
 
-export interface SpacesScreenProps {
-  projectId: string | null;
-  accountId: string | null;
-  sessionId: string | null;
-  focused: boolean;
-  /** Inner columns. */
-  width: number;
-  /** Inner rows. */
-  height: number;
-  /** Kortix web origin, for "open in browser". */
-  webBaseUrl: string;
-  onBack(): void;
-  onOpenSession(sessionId: string): void;
-  onToast(message: string, kind?: 'info' | 'error'): void;
-  /** Test seam for `o`. Defaults to `lib/open-url.ts`. */
+export type SpacesScreenProps = Pick<
+  ScreenProps,
+  'projectId' | 'focused' | 'width' | 'height' | 'webBaseUrl' | 'onBack' | 'onOpenSession' | 'onToast'
+> & {
+  /** Test seam for opening a space's web page. Defaults to `lib/open-url.ts`. */
   openUrlImpl?: (url: string) => Promise<unknown>;
-}
+};
 
 const CLOCK_TICK_MS = 30_000;
 
@@ -101,8 +92,6 @@ export function spaceWebUrl(
 
 export function SpacesScreen({
   projectId,
-  accountId: _accountId,
-  sessionId: _sessionId,
   focused,
   width,
   height,
@@ -113,8 +102,8 @@ export function SpacesScreen({
   openUrlImpl = openUrl,
 }: SpacesScreenProps) {
   const [openSpaceId, setOpenSpaceId] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const { busy, run, refresh } = useScreenAction(onToast);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), CLOCK_TICK_MS);
     return () => clearInterval(timer);
@@ -154,27 +143,24 @@ export function SpacesScreen({
     (row: SpaceRow) => {
       const space = raw.get(row.id);
       if (!projectId || !space) return;
-      setBusy('starting a thread…');
-      void kortix()
-        .projects.createSession(projectId, {
+      run('starting a thread…', async () => {
+        const created = await kortix().projects.createSession(projectId, {
           space_id: space.space_id,
           ...(space.kind === 'dm' && space.dm_agent_name
             ? { agent_name: space.dm_agent_name }
             : {}),
-        })
-        .then((created) => onOpenSession(created.session_id))
-        .catch((error: unknown) => onToast(errorText(error), 'error'))
-        .finally(() => setBusy(null));
+        });
+        onOpenSession(created.session_id);
+      });
     },
-    [raw, projectId, onOpenSession, onToast],
+    [raw, projectId, run, onOpenSession],
   );
 
-  const refresh = useCallback(() => {
-    setBusy('refreshing…');
-    void Promise.all([spacesQuery.refetch(), openSpaceId ? threadsQuery.refetch() : null])
-      .catch((error: unknown) => onToast(errorText(error), 'error'))
-      .finally(() => setBusy(null));
-  }, [spacesQuery.refetch, threadsQuery.refetch, openSpaceId, onToast]);
+  const onRefresh = useCallback(() => {
+    refresh('refreshing…', () =>
+      Promise.all([spacesQuery.refetch(), openSpaceId ? threadsQuery.refetch() : null]),
+    );
+  }, [refresh, spacesQuery.refetch, threadsQuery.refetch, openSpaceId]);
 
   if (!projectId) return <text fg={theme.faint}>No workspace open. Type /workspaces to pick one.</text>;
   if (flag.isLoading) return <Spinner label="checking Spaces" />;
@@ -203,7 +189,7 @@ export function SpacesScreen({
       onOpenThread={onOpenSession}
       onNewThread={newThread}
       onOpenBrowser={openBrowser}
-      onRefresh={refresh}
+      onRefresh={onRefresh}
       onBack={onBack}
     />
   );

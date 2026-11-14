@@ -29,8 +29,18 @@ describe('trigger split characterization', () => {
     });
     expect(await response.json()).toEqual({
       body: { event: 'synthetic' },
-      headers: { content_type: 'application/json', user_agent: 'synthetic-agent', forwarded_for: null },
+      headers: { content_type: 'application/json', user_agent: 'synthetic-agent', forwarded_for: null, github_event: null },
     });
+  });
+
+  test('webhook payload names the GitHub event from its header (#12644)', async () => {
+    const app = new Hono();
+    app.post('/', (c) => c.json(webhookPayload((name) => c.req.header(name), '{"action":"opened"}')));
+    const response = await app.request('/', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-github-event': 'issues' },
+    });
+    expect((await response.json()).headers.github_event).toBe('issues');
   });
 
   const valid = {
@@ -50,11 +60,19 @@ describe('trigger split characterization', () => {
     expect(draftToSpec(draft, 'kortix.yaml').path).toBe('kortix.yaml#triggers.synthetic-webhook');
   });
 
+  // An empty prompt is a program agent's payload input; the route refuses it for a model agent
+  // once the trigger is in the manifest (extractTriggers knows the agents).
+  test('an empty prompt drafts as the payload input, and a static payload rides along', () => {
+    const draft = parseTriggerDraft({ ...valid, prompt_template: '', payload: { days: 30 } }, { existingSlug: null });
+    if ('error' in draft) throw new Error(draft.error);
+    expect(draft.promptTemplate).toBe('');
+    expect(draftToSpec(draft, 'kortix.yaml').runPayload).toEqual({ days: 30 });
+  });
+
   test.each([
     [{ name: '' }, 'name is required'],
     [{ slug: 'Invalid slug' }, 'Invalid slug'],
     [{ type: 'other' }, 'type must be'],
-    [{ prompt_template: '' }, 'prompt_template is required'],
     [{ session_mode: 'unknown' }, 'session_mode must be one of'],
     [{ session_mode: 'pinned' }, 'requires a session_id'],
     [{ session_mode: 'keyed' }, 'requires a session_key'],
@@ -63,6 +81,7 @@ describe('trigger split characterization', () => {
     [{ filter: { event: null } }, 'filter.event must be'],
     [{ secret_env: '' }, 'must declare `secret_env`'],
     [{ secret_env: 'lowercase' }, 'secret_env must look like'],
+    [{ payload: [1] }, 'payload must be an object'],
   ] as const)('rejects invalid draft field %j', (override, message) => {
     expect(parseTriggerDraft({ ...valid, ...override }, { existingSlug: null })).toMatchObject({
       error: expect.stringContaining(message),

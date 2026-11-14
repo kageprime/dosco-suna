@@ -94,6 +94,14 @@ describe('basicAuthHeader', () => {
       token: 'code-storage-jwt',
     });
   });
+
+  test('rejects a basic header with no colon, an empty username or an empty token', () => {
+    for (const raw of ['no-colon', ':token-only', 'user:']) {
+      expect(parseBasicAuthHeader(`Basic ${Buffer.from(raw).toString('base64')}`)).toBeNull();
+    }
+    expect(parseBasicAuthHeader('Bearer abc')).toBeNull();
+    expect(parseBasicAuthHeader(null)).toBeNull();
+  });
 });
 
 describe('buildUpstream', () => {

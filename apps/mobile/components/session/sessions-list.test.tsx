@@ -86,6 +86,7 @@ let needsInputOptions: unknown;
 const real = new Set([
   'react',
   '@kortix/sdk',
+  '@/lib/ui/use-debounced-value',
   '@/lib/session/session-list',
   '@/lib/session/session-tree',
   '@/lib/session/session-pages',

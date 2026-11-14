@@ -4,8 +4,7 @@
  *
  * The web picker lists every model the signed-in person can reach: Dosco
  * models, providers connected with an API key, and ChatGPT subscriptions —
- * including keys another member shared and keys that rotate
- * (`pooled_provider_secrets`). The channels listed only Dosco models and one
+ * including keys another member shared and keys that rotate. The channels listed only Dosco models and one
  * model per legacy project key, checked every choice as the ACCOUNT OWNER, and
  * never sent a key selection, so a model reached through a shared key or a
  * ChatGPT connection was missing from `/models` and rejected by `/model`.
@@ -24,7 +23,6 @@
 import { eq } from 'drizzle-orm';
 import { sessionProviderSecretPools } from '@kortix/db';
 import { db } from '../shared/db';
-import { resolveFeatureFlag } from '../feature-flags/registry';
 import { servableProjectCatalog } from '../llm-gateway/models/servable-catalog';
 import { platformDefaultModelId } from '../llm-gateway/models/served-managed-models';
 import { platformDefaultFreeModelId } from '../llm-gateway/models/free-models';
@@ -47,7 +45,6 @@ export interface ChannelModelScope {
   /** Whose personal keys and ChatGPT connection count; null in a shared conversation. */
   personalUserId: string | null;
   freeManagedOnly: boolean;
-  pooledEnabled: boolean;
 }
 
 /** Who a conversation's model decisions are made for. Pure. */
@@ -56,7 +53,6 @@ export function channelModelScope(input: {
   accountId: string;
   ownerUserId: string;
   freeManagedOnly: boolean;
-  pooledEnabled: boolean;
   /** The linked Dosco user of the person typing, or null when unlinked. */
   linkedUserId: string | null;
   /** A Teams personal chat or a Slack DM: the conversation's sessions are private to that person. */
@@ -71,7 +67,6 @@ export function channelModelScope(input: {
     // owner's must never stand in for them.
     personalUserId: input.linkedUserId && input.oneToOne ? input.linkedUserId : null,
     freeManagedOnly: input.freeManagedOnly,
-    pooledEnabled: input.pooledEnabled,
   };
 }
 
@@ -81,7 +76,7 @@ export async function projectChannelModelScope(
   person: { linkedUserId: string | null; oneToOne: boolean },
 ): Promise<ChannelModelScope> {
   const gate = await projectModelContext(project);
-  return channelModelScope({ ...gate, pooledEnabled: resolveFeatureFlag(project.metadata, 'pooled_provider_secrets'), ...person });
+  return channelModelScope({ ...gate, ...person });
 }
 
 /** How a model is reached, for the picker's grouping. */
@@ -158,13 +153,10 @@ export type ChannelKeySelection = ProviderKeySelection;
 
 /**
  * Every key this conversation may use for the model's provider, so all of
-
- * them rotate. Null when there is nothing to select: the flag is off, the model is a Dosco model, or no pooled key exists — the legacy
-
+ * them rotate. Null when there is nothing to select: the model is a Dosco model, or no pooled key exists — the legacy
  * project key path then applies, as it does in the web.
  */
 export async function channelKeySelection(scope: ChannelModelScope, model: string): Promise<ChannelKeySelection | null> {
-  if (!scope.pooledEnabled) return null;
   return usableProviderKeys({
     accountId: scope.accountId,
     projectId: scope.projectId,

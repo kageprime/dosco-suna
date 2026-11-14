@@ -27,6 +27,7 @@
 import { CLAUDE_AGENT_PROVIDER_ID } from '@kortix/api-contract/claude-agent'
 import type { AgentMessage } from '@earendil-works/pi-agent-core'
 import { type AssistantMessage, isContextOverflow, isRetryableAssistantError } from '@earendil-works/pi-ai'
+import { PROGRAM_PROVIDER_ID } from './program'
 
 /** In-turn retries: base * 2^(n-1), capped at 15 * base (2, 4, 8, 16, 30 s). */
 export const TURN_RETRY_ATTEMPTS = 5
@@ -56,6 +57,8 @@ export function isTransientModelError(message: AssistantMessage): boolean {
   if (message.stopReason !== 'error') return false
   // Claude Code retries its own model calls; its error is final (a plan limit shows once).
   if (message.provider === CLAUDE_AGENT_PROVIDER_ID) return false
+  // A program agent's run is final: a retry would run the command again (program.ts).
+  if (message.provider === PROGRAM_PROVIDER_ID) return false
   const text = message.errorMessage ?? ''
   if (PERMANENT.test(text)) return false
   return isRetryableAssistantError(message) || TRANSIENT_EXTRA.test(text)

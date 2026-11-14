@@ -40,6 +40,7 @@ import {
   readComposedRelease,
   readFileTree,
   resolveReleaseTreeSource,
+  skillFolderFiles,
   toolModuleFiles,
 } from './release-tree';
 
@@ -396,9 +397,36 @@ async function build(
 /**
  * The release of a session without repository access (`agent:<name>`, `none`):
  * the modules of the project tools its agent may call and the files they
- * import by a relative path, nothing else. A session whose agent calls no
- * project tool gets governance only.
+ * import by a relative path, and every file of the registered skill folders
+ * an agent of the compiled set is granted (`permission.skill`). Nothing else.
+ * A session whose agents call no project tool and hold no project skill gets
+ * governance only.
  */
+/**
+ * May an agent with this compiled `permission` see the skill `name`? The
+ * compiler writes `permission.skill` as `allow`, `deny`, or a map of `*` and
+ * exact names (`skillsRule`); only a `deny` hides a skill, as on the box.
+ */
+export function compiledSkillGranted(permission: unknown, name: string): boolean {
+  if (typeof permission === 'string') return permission !== 'deny';
+  if (!permission || typeof permission !== 'object') return true;
+  const rule = (permission as Record<string, unknown>).skill;
+  if (rule === undefined) return true;
+  if (typeof rule === 'string') return rule !== 'deny';
+  if (!rule || typeof rule !== 'object') return true;
+  const map = rule as Record<string, unknown>;
+  const action = Object.hasOwn(map, name) ? map[name] : map['*'];
+  return action !== 'deny';
+}
+
+/** The folders of the registered skills that any enabled agent of the compiled set is granted. */
+function grantedSkillFolders(compiled: Partial<CompiledAgentSet>): string[] {
+  const agents = Object.values(compiled.agent ?? {}).filter((agent) => agent && !agent.disable);
+  return Object.entries(compiled.skills ?? {})
+    .filter(([name]) => agents.some((agent) => compiledSkillGranted(agent.permission, name)))
+    .map(([, folder]) => folder);
+}
+
 async function toolsRelease(
   project: GitBackedProject,
   mirror: string,
@@ -414,11 +442,17 @@ async function toolsRelease(
   const modules = agent
     ? Object.entries(compiled.project_tools ?? {}).filter(([name]) => toolAllowed(agent.tools, name)).map(([, path]) => path)
     : [];
-  const rootTree = modules.length > 0 ? await commitRootTree(mirror, commit) : null;
-  const tooLarge = { ...withGovernance, reason: `the project tool modules exceed the ${archiveLimit ?? MAX_CONFIG_ARCHIVE_BYTES}-byte config archive limit` };
+  const skillFolders = grantedSkillFolders(compiled);
+  const rootTree = modules.length > 0 || skillFolders.length > 0 ? await commitRootTree(mirror, commit) : null;
+  const tooLarge = { ...withGovernance, reason: `the project tool modules and skills exceed the ${archiveLimit ?? MAX_CONFIG_ARCHIVE_BYTES}-byte config archive limit` };
   let files: ConfigReleaseFile[] = [];
   try {
-    files = rootTree ? await toolModuleFiles(mirror, rootTree, modules) : [];
+    if (rootTree) {
+      const byPath = new Map<string, ConfigReleaseFile>();
+      for (const file of await toolModuleFiles(mirror, rootTree, modules)) byPath.set(file[0], file);
+      for (const file of await skillFolderFiles(mirror, rootTree, skillFolders)) byPath.set(file[0], file);
+      files = [...byPath.values()].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+    }
   } catch (error) {
     // The modules it parses did not fit the default download bound.
     if (isObjectFetchTooLarge(error)) return tooLarge;

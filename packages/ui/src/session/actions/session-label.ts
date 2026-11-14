@@ -90,7 +90,7 @@ export function sessionSource(session: ProjectSession, tI18nComplete: UiTranslat
     const type = typeof meta.trigger_type === 'string' ? meta.trigger_type : meta.trigger_source;
     if (type === 'cron')
       return { kind: 'schedule', label: tI18nComplete.raw('text4724f344c1c0'), triggerSlug };
-    if (type === 'event') return { kind: 'event', label: tI18nComplete.raw('text5441e7146193'), triggerSlug };
+    if (type === 'event') return { kind: 'event', label: tI18nComplete.raw('textca395c4d19b2'), triggerSlug };
     return { kind: 'webhook', label: tI18nComplete.raw('text4814f62c108d'), triggerSlug };
   }
   return { kind: 'chat', label: tI18nComplete.raw('text460b3a7da007'), triggerSlug: null };
@@ -205,7 +205,7 @@ export const SESSION_SOURCE_FILTERS: Array<{ value: SessionSourceFilter; label: 
   { value: 'email', label: 'Email' },
   { value: 'schedule', label: 'Scheduled' },
   { value: 'webhook', label: 'Webhook' },
-  { value: 'event', label: 'App event' },
+  { value: 'event', label: 'Connector event' },
   { value: 'manual', label: 'Manual' },
 ];
 

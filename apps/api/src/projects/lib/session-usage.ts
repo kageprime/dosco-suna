@@ -11,6 +11,7 @@
 import { gatewayRequestLogs, projectSessions } from '@kortix/db';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../../shared/db';
+import { DEFAULT_AGENT_SENTINEL } from '../agents';
 import { sessionTitleFromMetadata } from './session-title-placeholder';
 import { kortixBilledSpendSql, providerBilledSpendSql, totalSpendSql } from '../../shared/llm-spend';
 
@@ -200,7 +201,7 @@ export async function sessionUsageTree(
     parent_session_id: depth === 0 ? null : row.parentSessionId,
     depth,
     title: sessionTitleFromMetadata(row.metadata),
-    agent_name: row.agentName && row.agentName !== 'default' ? row.agentName : null,
+    agent_name: row.agentName && row.agentName !== DEFAULT_AGENT_SENTINEL ? row.agentName : null,
     status: row.status,
     created_at: row.createdAt.toISOString(),
     ...(totals.get(row.sessionId) ?? ZERO),

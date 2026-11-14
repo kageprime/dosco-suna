@@ -14,7 +14,11 @@
  * TypeError to Sentry (Better Stack pattern 235fd74b…) even though the client
  * already had the designed, retryable 503.
  *
- * These tests reproduce that exact sequence against the real pieces (hono's
+ * Hono 4.13.16 stopped recreating a consumed response, so the `c.header`
+ * trigger above is gone; any later failure of the orphan still reaches onError
+ * a second time, and the tests pin that.
+ *
+ * These tests reproduce that sequence against the real pieces (hono's
  * `timeout` race, the real onError, a real served-and-consumed response) and
  * pin the fix: the deadline marks the context when it fires, and
  * handleUnhandledError classifies any later error from that context as a
@@ -76,8 +80,9 @@ describe('deadline orphan classification (KRTX-2583)', () => {
     captured.length = 0;
     const { server, requestContext } = appWith(async (c) => {
       await new Promise((resolve) => setTimeout(resolve, 60));
-      c.header('Cache-Control', 'no-cache');
-      return c.json({ ok: true });
+      // Hono 4.13.16+ no longer throws on `c.header` over a consumed body, so
+      // the orphan fails the way a real one does: its awaited work rejects.
+      throw new Error('db pool closed');
     });
 
     const res = await server.request('/v1/runtime-assets/manifest');
@@ -98,8 +103,8 @@ describe('deadline orphan classification (KRTX-2583)', () => {
     // what production does when it sends the 503.
     await servedResponse.text();
 
-    // The orphan resumes, touches `c.header` on the served context, and its
-    // error must be classified (503, no capture) — not a captured 500.
+    // The orphan resumes and fails; its error must be classified
+    // (503, no capture) — not a captured 500.
     await waitFor(() => ctx.res !== servedResponse);
     expect(await ctx.res.json()).toEqual({
       error: true,

@@ -65,6 +65,11 @@ export function SidebarDrill({
   // path changes; a click that opens a new tab (modifier keys, middle
   // button) is not a drill.
   const [intent, setIntent] = useState<{ at: string; drilled: boolean } | null>(null);
+  // The path changed: the click is answered, so drop it. A kept intent matched
+  // again when the window came back to the page it was made on without a click
+  // in this sidebar (a desktop tab switch, a closed tab, browser Back), and
+  // the settings nav stayed over a page outside settings.
+  if (intent && intent.at !== pathname) setIntent(null);
   const drilled = intent && intent.at === pathname ? intent.drilled : isProjectAdminPath(pathname);
   const drillOnClick = (to: boolean) => (event: MouseEvent<HTMLDivElement>) => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;

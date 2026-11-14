@@ -21,6 +21,22 @@ for (const owner of ['apps/web', 'packages/ui']) {
       expect(await diagnostics("import { cache } from '@kortix/sdk/idb-sync-cache';")).toContainEqual({ ruleId: 'no-restricted-imports', severity: 2 });
     });
 
+    test('every query-key rule family rejects both the plain and the `as const` literal', async () => {
+      const rejected = { ruleId: 'no-restricted-syntax', severity: 2, message: 'Query keys come from `qk` in @kortix/sdk/react. Never hand-type an entity key.' };
+      for (const key of [
+        "export const options = { queryKey: ['project-detail', id] };",
+        "export const options = { queryKey: ['project-detail', id] as const };",
+        "export const options = { queryKey: ['kx', 'projects'] };",
+        "export const options = { queryKey: ['kx', 'projects'] as const };",
+        "client.setQueryData(['accounts'], data);",
+        "client.invalidateQueries(['kx', 'project', id] as const);",
+      ]) {
+        const [result] = await eslint.lintText(key, { filePath: 'src/policy-probe.tsx' });
+        expect(result.messages.map(({ ruleId, severity, message }) => ({ ruleId, severity, message }))).toContainEqual(rejected);
+      }
+      expect(await diagnostics("export const options = { queryKey: ['account', id] as const };")).toEqual([]);
+    });
+
     test('icon restrictions retain their current scope and precedence', async () => {
       expect(await diagnostics("import { Icon } from 'lucide-react';", 'policy-probe.tsx')).toContainEqual({ ruleId: 'no-restricted-imports', severity: 2 });
       // The SDK restriction replaces no-restricted-imports inside src, rather than merging patterns.

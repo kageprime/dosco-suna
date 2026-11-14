@@ -199,7 +199,7 @@ describe('resolveEffectiveModel — the /model-defaults GET + picker resolution 
       return [{ provider: 'x' }];
     };
     spyOn(projectModelAccessModule, 'getProjectGatewayResolution').mockImplementation(
-      async () => ({ access: { disabledProviders: [], disabledModels: [] }, pooledEnabled: true, customProviders: [] }) as never,
+      async () => ({ access: { disabledProviders: [], disabledModels: [] }, customProviders: [] }) as never,
     );
     const granted = spyOn(accountResourceModule, 'listUsableGatewaySecrets').mockImplementation(async () => [
       { secretId: 's1', providerId: 'openai', name: 'OPENAI_API_KEY', label: 'OpenAI', accessMode: 'project', verifyStatus: null },
@@ -210,25 +210,6 @@ describe('resolveEffectiveModel — the /model-defaults GET + picker resolution 
     expect(result.source).toBe('platform');
     // A shared session counts no member grant.
     expect(granted).toHaveBeenCalledWith({ accountId: 'a1', projectId: 'p1', userId: 'u1', grantUserId: null });
-  });
-
-  // One store (2026-11-11): every writer writes named keys, so the flag no longer hides them.
-  test('with the flag off, a Models-panel key is still a connected provider', async () => {
-    accountDefaults = { account: null, agents: {}, projects: { p1: 'openrouter/some-model' } };
-    resolveCandidatesImpl = async (model) => {
-      if (model === 'openrouter/some-model') throw new GatewayResolutionError('provider_not_connected', 'nope', 'connect it');
-      return [{ provider: 'x' }];
-    };
-    spyOn(projectModelAccessModule, 'getProjectGatewayResolution').mockImplementation(
-      async () => ({ access: { disabledProviders: [], disabledModels: [] }, pooledEnabled: false, customProviders: [] }) as never,
-    );
-    const granted = spyOn(accountResourceModule, 'listUsableGatewaySecrets').mockImplementation(async () => [
-      { secretId: 's1', providerId: 'openai', name: 'OPENAI_API_KEY', label: 'OpenAI', accessMode: 'project', verifyStatus: null },
-    ]);
-
-    const result = await resolveEffectiveModel({ ...PRINCIPAL_BASE, freeModelsOnly: false });
-    expect(result.model?.startsWith('openai/')).toBe(true);
-    expect(granted).toHaveBeenCalled();
   });
 
   test('stale configured default AND nothing connected → degrades to plain platform default (unchanged pre-existing behavior), still no throw', async () => {

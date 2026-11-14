@@ -1,7 +1,8 @@
 'use client';
 
 import { EnvelopeIcon, PhoneIcon, XIcon } from '@phosphor-icons/react';
-import { m, useReducedMotion } from 'motion/react';
+import { m } from 'motion/react';
+import { useReducedMotion } from '@kortix/ui/internal/hooks/use-reduced-motion';
 import { useTranslations } from '@/i18n/use-translations';
 import Image from 'next/image';
 import Link from 'next/link';

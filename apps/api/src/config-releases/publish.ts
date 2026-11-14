@@ -29,7 +29,7 @@ import type { GitBackedProject } from '../projects/surface';
 import { db } from '../shared/db';
 import { bumpBounded } from '../shared/ttl-memo';
 import { loadAgentRosterAtCommit } from './agent-roster';
-import { buildConfigRelease, CONFIG_RELEASE_FORMAT_V3, toDescriptor, type ConfigRelease } from './builder';
+import { buildConfigRelease, CONFIG_RELEASE_FORMAT_V3, configReleaseId, toDescriptor, type ConfigRelease } from './builder';
 import { dbConfigReleaseLedger, PROJECT_QUARANTINE_SESSIONS, type ConfigReleaseLedger } from './quarantine';
 import { publicDownloadTarget } from './serve-archive';
 import { resolveSessionReleaseAgent, type DeclaredAgentRoster } from './session-agent';
@@ -59,8 +59,8 @@ export interface PublishDeps {
   store: () => ConfigArchiveStore;
   ledger: Pick<ConfigReleaseLedger, 'recordAssigned' | 'quarantined'>;
   now: () => Date;
-  /** Start a background publish (`schedulePublish`). */
-  schedule: (projectId: string, ref: string, commit: string | null) => void;
+  /** Start a background publish (`schedulePublish`). `staleReleaseId`: the head release a session refused. */
+  schedule: (projectId: string, ref: string, commit: string | null, staleReleaseId?: string) => void;
 }
 
 const defaultDeps: PublishDeps = {
@@ -72,7 +72,7 @@ const defaultDeps: PublishDeps = {
   store: getConfigArchiveStore,
   ledger: dbConfigReleaseLedger,
   now: () => new Date(),
-  schedule: (projectId, ref, commit) => schedulePublish(projectId, ref, commit),
+  schedule: (projectId, ref, commit, staleReleaseId) => schedulePublish(projectId, ref, commit, staleReleaseId),
 };
 
 export async function readReleaseHead(projectId: string, ref: string): Promise<HeadRow | null> {
@@ -97,11 +97,16 @@ export async function publishConfigRelease(
   ref: string,
   commit: string | null,
   deps: PublishDeps = defaultDeps,
+  opts: {
+    /** The head release a session refused as not this API's compile: rebuild even at the same tip. */
+    staleReleaseId?: string;
+  } = {},
 ): Promise<'published' | 'current' | 'unpublishable'> {
   const resolvedAt = deps.now();
   const tip = commit ?? (await deps.resolveTip(project, ref));
   const head = await readReleaseHead(project.projectId, ref);
-  if (head && head.sourceCommit === tip && fresh(head, resolvedAt)) return 'current';
+  const refused = !!opts.staleReleaseId && head?.releaseId === opts.staleReleaseId;
+  if (head && head.sourceCommit === tip && fresh(head, resolvedAt) && !refused) return 'current';
 
   // `toDescriptor` with repository access, exactly as the route answers a box.
   const descriptor = toDescriptor(await deps.build(project, tip), { repositoryAccess: true, format: CONFIG_RELEASE_FORMAT_V3 });
@@ -151,13 +156,13 @@ export async function publishConfigRelease(
 }
 
 // replica-local: one publish per (project, ref) at a time in this process; a trigger during it runs one more.
-const running = new Map<string, { again: string | null | undefined }>();
+const running = new Map<string, { again: string | null | undefined; stale?: string }>();
 
 /**
  * Publish in the background. Never throws, never waits. A trigger that arrives
  * while a publish of the same ref runs makes it run once more afterwards.
  */
-export function schedulePublish(projectId: string, ref: string, commit: string | null = null): void {
+export function schedulePublish(projectId: string, ref: string, commit: string | null = null, staleReleaseId?: string): void {
   // Every trigger of a release moves the saved config summary too (/detail
   // reads it). Imported lazily: this module loads without the projects surface.
   void import('../projects/surface')
@@ -167,17 +172,20 @@ export function schedulePublish(projectId: string, ref: string, commit: string |
   const busy = running.get(key);
   if (busy) {
     busy.again = commit;
+    if (staleReleaseId) busy.stale = staleReleaseId;
     return;
   }
-  const state: { again: string | null | undefined } = { again: undefined };
+  const state: { again: string | null | undefined; stale?: string } = { again: undefined, stale: staleReleaseId };
   running.set(key, state);
   void (async () => {
     let next: string | null | undefined = commit;
     while (next !== undefined) {
       state.again = undefined;
+      const stale = state.stale;
+      state.stale = undefined;
       try {
         const project = await loadPublishProject(projectId);
-        if (project) await publishConfigRelease(project, ref, next);
+        if (project) await publishConfigRelease(project, ref, next, defaultDeps, stale ? { staleReleaseId: stale } : {});
       } catch (error) {
         // Drizzle wraps the driver error: its `cause` holds what Postgres said.
         const cause = (error as { cause?: Error }).cause?.message;
@@ -242,7 +250,18 @@ export interface PublishedReleaseEnv {
  * still serves, and a publish of the tip starts.
  */
 export async function configReleaseEnvForSession(
-  input: { projectId: string; ref: string; agentName: string | null; tip: string | null },
+  input: {
+    projectId: string;
+    ref: string;
+    agentName: string | null;
+    tip: string | null;
+    /**
+     * The etag of the agent config this API compiled for the session (`agentConfigEtag`).
+     * A head whose release this compile would not produce is refused: another API
+     * version built it (a compile change since), or it is another commit.
+     */
+    expectedGovernanceEtag?: Promise<string | null>;
+  },
   deps: Pick<PublishDeps, 'store' | 'ledger' | 'now' | 'schedule'> = defaultDeps,
 ): Promise<string | null> {
   const head = await readReleaseHead(input.projectId, input.ref);
@@ -258,6 +277,19 @@ export async function configReleaseEnvForSession(
   if (resolveSessionReleaseAgent(input.agentName, head.roster).kind !== 'declared') return null;
   const quarantined = await deps.ledger.quarantined(input.projectId, [head.releaseId], PROJECT_QUARANTINE_SESSIONS);
   if (quarantined.size > 0) return null;
+  // The box would run the head's compiled config, not the one this API just
+  // compiled into its env. They differ after a deploy that changed the compile
+  // (the head was built by the old API) or when the tip moved: republish, and
+  // let the box run the provisioned config.
+  const expectedEtag = input.expectedGovernanceEtag ? await input.expectedGovernanceEtag.catch(() => null) : null;
+  if (expectedEtag && configReleaseId(head.configTreeId, expectedEtag) !== head.releaseId) {
+    deps.schedule(input.projectId, input.ref, tip, head.releaseId);
+    logger.info('[config-releases] the published release differs from this compile; the box runs the provisioned config', {
+      projectId: input.projectId,
+      releaseId: head.releaseId,
+    });
+    return null;
+  }
 
   const store = deps.store();
   const [descriptorSigned, archiveSigned] = await Promise.all([

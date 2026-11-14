@@ -10,7 +10,7 @@
  * cleaned here. See `.agents/skills/testing/SKILL.md` "DB suites".
  */
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { accountDeletionRequests, accountMemberships, accounts, projects } from '@kortix/db';
+import { accountDeletionRequests, accountMemberships, accounts, creditLedger, projects } from '@kortix/db';
 import { eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '../shared/db';
@@ -57,6 +57,7 @@ function projectValues(projectId: string, accountId: string, name: string, extra
 async function cleanup(): Promise<void> {
   await db.delete(accountDeletionRequests).where(inArray(accountDeletionRequests.accountId, ACCOUNTS));
   await db.delete(accountMemberships).where(inArray(accountMemberships.accountId, ACCOUNTS));
+  await db.delete(creditLedger).where(inArray(creditLedger.accountId, ACCOUNTS));
   await db.delete(accounts).where(inArray(accounts.accountId, ACCOUNTS));
 }
 
@@ -362,5 +363,49 @@ withDb('workspaces identity', () => {
     expect(report.I9).toMatchObject({ ok: true });
     expect(report.I10).toMatchObject({ ok: true });
     expect(report.I12).toMatchObject({ ok: true });
+  });
+
+  // I10's accountIds filter compares uuid to uuid so the per-account indexes
+  // (credit_ledger alone is ~8.6M rows on prod) stay usable; this proves the
+  // filter still counts violations through real PostgreSQL.
+  test('I10 counts a credit_ledger row whose workspace_id lost its account', async () => {
+    // The stamp trigger fills workspace_id on INSERT (and UPDATE OF account_id);
+    // a plain UPDATE leaves it stale — exactly the drift I10 exists to catch.
+    const [row] = await db
+      .insert(creditLedger)
+      .values({ accountId: ONE_ACCOUNT, type: 'synthetic_stale_workspace' })
+      .returning({ id: creditLedger.id });
+    await db.execute(sql`UPDATE kortix.credit_ledger SET workspace_id = gen_random_uuid() WHERE id = ${row.id}`);
+
+    const report = await checkWorkspaceInvariants({ accountIds: ACCOUNTS });
+    expect(report.I10.ok).toBe(false);
+    expect(report.I10.violations).toBe(1);
+    expect(report.I10.sample).toEqual(['credit_ledger:1']);
+
+    await db.delete(creditLedger).where(eq(creditLedger.id, row.id));
+    expect((await checkWorkspaceInvariants({ accountIds: ACCOUNTS })).I10).toMatchObject({ ok: true });
+  });
+
+  test('I10: a deleted account keeps the workspace_id its rows were stamped with, and that is no violation', async () => {
+    // audit_reconciliation_state has no foreign key into accounts: its row
+    // outlives the account (prod 2026-11-11: 57 such rows in 5 expand tables).
+    await db.execute(sql`INSERT INTO kortix.audit_reconciliation_state (account_id, checked_at, full_scan_at)
+                         VALUES (${EMPTY_ACCOUNT}::uuid, now(), now())`);
+    const [stamped] = await db.execute<{ workspace_id: string | null }>(
+      sql`SELECT workspace_id::text FROM kortix.audit_reconciliation_state WHERE account_id = ${EMPTY_ACCOUNT}::uuid`,
+    );
+    expect(stamped?.workspace_id).toBe(EMPTY_ACCOUNT);
+    try {
+      await db.delete(accounts).where(eq(accounts.accountId, EMPTY_ACCOUNT));
+      const report = await checkWorkspaceInvariants({ accountIds: ACCOUNTS });
+      expect(report.I10).toMatchObject({ ok: true, violations: 0 });
+      // A live account's row with a wrong id is still a violation.
+      await db.execute(sql`INSERT INTO kortix.audit_reconciliation_state (account_id, checked_at, full_scan_at)
+                           VALUES (${ONE_ACCOUNT}::uuid, now(), now())`);
+      await db.execute(sql`UPDATE kortix.audit_reconciliation_state SET workspace_id = ${LEGACY_P1}::uuid WHERE account_id = ${ONE_ACCOUNT}::uuid`);
+      expect((await checkWorkspaceInvariants({ accountIds: ACCOUNTS })).I10.sample).toContain('audit_reconciliation_state:1');
+    } finally {
+      await db.execute(sql`DELETE FROM kortix.audit_reconciliation_state WHERE account_id IN (${EMPTY_ACCOUNT}::uuid, ${ONE_ACCOUNT}::uuid)`);
+    }
   });
 });

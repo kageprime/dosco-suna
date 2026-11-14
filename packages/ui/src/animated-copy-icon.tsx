@@ -1,6 +1,7 @@
 "use client";
 
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
+import { useReducedMotion } from "./internal/hooks/use-reduced-motion";
 import type { ReactNode } from "react";
 
 export function AnimatedCopyIcon({

@@ -6,6 +6,7 @@ import {
   dayLabel,
   filterSessionsByTitle,
   groupSessionsByDay,
+  groupSessionsBySection,
   parentSessionId,
   sessionActivityMs,
   sessionTitle,
@@ -232,5 +233,43 @@ describe('filterSessionsByTitle', () => {
   });
   test('no match returns nothing', () => {
     expect(filterSessionsByTitle(rows, 'zzz')).toEqual([]);
+  });
+});
+
+describe('groupSessionsBySection', () => {
+  test("the viewer's own sessions by day, then Shared and Automated, as web splits them (KRTX-4898)", () => {
+    const run = session('nightly-run', 60_000);
+    const worker = session('worker', 30_000, {
+      metadata: {
+        last_activity_at: new Date(NOW - 30_000).toISOString(),
+        spawned_by_session: 'nightly-run',
+      },
+    });
+    const groups = groupSessionsBySection(
+      {
+        mine: [session('mine-old', DAY_MS), session('mine-new', 120_000)],
+        shared: [session('teammate', 2 * DAY_MS)],
+        automated: [worker, run],
+      },
+      { now: NOW },
+    );
+    expect(groups.map((group) => group.label)).toEqual([
+      'Today',
+      'Yesterday',
+      'Shared',
+      'Automated',
+    ]);
+    expect(groups[3]?.rows).toEqual([
+      { session: run, depth: 0 },
+      { session: worker, depth: 1 },
+    ]);
+  });
+
+  test('a section with no session is left out', () => {
+    const groups = groupSessionsBySection(
+      { mine: [], shared: [], automated: [session('nightly-run', 60_000)] },
+      { now: NOW },
+    );
+    expect(groups.map((group) => group.label)).toEqual(['Automated']);
   });
 });

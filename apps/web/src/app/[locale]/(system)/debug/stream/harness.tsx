@@ -114,6 +114,20 @@ const SCENARIOS: Scenario[] = [
         '- [Another site](https://example.com/drives/me/avatar.jpg) stays a web link',
       ].join('\n'),
   },
+  {
+    // An agent writes full URLs to this app. A click navigates in place, with
+    // no page load; a Cmd/Ctrl click still opens a new tab.
+    id: 'app-links',
+    label: 'App links',
+    text: (origin) =>
+      [
+        'Open these in place:',
+        '',
+        `- [Review](${origin}/debug/stream?scenario=app-links&at=end&working=0&from=absolute)`,
+        `- [Settings](${origin}/settings)`,
+        '- [Another site](https://example.com/settings) opens a new tab',
+      ].join('\n'),
+  },
 ];
 
 /** ~100 characters a second, about what a model streams. */

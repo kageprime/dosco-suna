@@ -21,11 +21,12 @@ test.each([false, true])('workspaces create (json=%s) creates a whole workspace 
     });
     const [code, stdout, stderr] = await Promise.all([proc.exited, new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
     expect({ code, stderr }).toEqual({ code: 0, stderr: expect.any(String) });
-    if (json) expect(JSON.parse(stdout)).toEqual({ project_id: 'synthetic-project', name: 'Synthetic', account_id: 'synthetic-account' });
+    // `workspace_id` is the name; `project_id` stays for scripts that read it.
+    if (json) expect(JSON.parse(stdout)).toEqual({ workspace_id: 'synthetic-project', project_id: 'synthetic-project', name: 'Synthetic', account_id: 'synthetic-account' });
     else expect(stdout).toBe('synthetic-project\n');
     expect(stderr).not.toContain('must-not-print');
     expect(stdout).not.toContain('must-not-print');
-    const select = Bun.spawn([process.execPath, resolve(import.meta.dir, '../index.ts'), 'projects', 'use', json ? JSON.parse(stdout).project_id : stdout.trim(), '--host', 'local'], { cwd, env: { ...process.env, KORTIX_CONFIG_FILE: config, KORTIX_DISABLE_SANDBOX_ENV_FILE: '1', KORTIX_NO_UPDATE_CHECK: '1' }, stdout: 'pipe', stderr: 'pipe' });
+    const select = Bun.spawn([process.execPath, resolve(import.meta.dir, '../index.ts'), 'projects', 'use', json ? JSON.parse(stdout).workspace_id : stdout.trim(), '--host', 'local'], { cwd, env: { ...process.env, KORTIX_CONFIG_FILE: config, KORTIX_DISABLE_SANDBOX_ENV_FILE: '1', KORTIX_NO_UPDATE_CHECK: '1' }, stdout: 'pipe', stderr: 'pipe' });
     expect(await select.exited).toBe(0);
     expect(JSON.parse(readFileSync(config, 'utf8')).hosts.local.default_project.project_id).toBe('synthetic-project');
     // No account: the API reuses the caller's empty account or creates one.

@@ -73,6 +73,7 @@ import {
 import { isDriveSyncBox } from './sync';
 import { moveFolderGrants } from './queries';
 import { projectsView } from '../workspaces/rows';
+import { objectGrantScoped } from '../iam/workspace-scope';
 
 export type DriveRow = typeof drives.$inferSelect;
 
@@ -312,7 +313,7 @@ export async function listFolderGrants(drive: DriveRow): Promise<FolderGrant[]> 
     .where(
       and(
         eq(roleAssignments.accountId, drive.accountId),
-        eq(roleAssignments.scopeType, 'project'),
+        objectGrantScoped(),
         eq(roleAssignments.scopeId, drive.projectId),
         eq(roleAssignments.objectType, 'folder'),
         isNull(iamRoles.accountId),
@@ -366,7 +367,7 @@ export async function setFolderGrant(input: {
     .where(
       and(
         eq(roleAssignments.accountId, drive.accountId),
-        eq(roleAssignments.scopeType, 'project'),
+        objectGrantScoped(),
         eq(roleAssignments.scopeId, drive.projectId),
         eq(roleAssignments.objectType, 'folder'),
         eq(roleAssignments.objectId, input.path),

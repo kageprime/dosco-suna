@@ -13,6 +13,8 @@ for (const [method, path, code, expected] of [
   ['GET', '/v1/projects/synthetic/gateway/series', '57014', 503],
   ['GET', '/v1/projects/synthetic/gateway/breakdown', '57014', 503],
   ['GET', '/v1/projects/synthetic/gateway/sessions', '57014', 503],
+  ['GET', '/v1/projects/synthetic/gateway/usage', '57014', 503],
+  ['GET', '/v1/workspaces/synthetic/gateway/usage', '57014', 503],
   ['GET', '/v1/projects/synthetic/gateway/overview', '42703', 500],
   ['POST', '/v1/projects/synthetic/gateway/overview', '57014', 500],
   ['GET', '/v1/projects/synthetic/sessions', '57014', 500],

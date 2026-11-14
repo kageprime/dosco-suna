@@ -17,7 +17,6 @@ import {
   refreshProjectProviderState,
   useAccountSecretResources,
   useCan,
-  useFeatureFlag,
   useModelAccess,
   useProjectModelPickerCatalog,
   useProjectSecrets,
@@ -42,7 +41,6 @@ export interface ProvidersData {
   byId: Map<string, LlmProviderEntry>;
   /** `providerIdsWithCredentials` of the project's secret names. Empty when the caller cannot read secrets. */
   connectedIds: Set<string>;
-  pooled: boolean;
   accountId: string | null;
   accounts: AccountSecretResource[];
   /** When the account list was read, for cooldown deadlines. */
@@ -94,7 +92,6 @@ export function useProviders(projectId: string, accountIdHint: string | null): P
     [pickerCatalog],
   );
 
-  const pooledFlag = useFeatureFlag(projectId, 'pooled_provider_secrets');
   const membership = useQuery({
     queryKey: ['tui', 'project-access', projectId],
     queryFn: () => kortix().project(projectId).access.list(),
@@ -106,7 +103,7 @@ export function useProviders(projectId: string, accountIdHint: string | null): P
     staleTime: Number.POSITIVE_INFINITY,
   });
   const accountId = membership.data?.account_id ?? accountIdHint;
-  const accountsQuery = useAccountSecretResources(pooledFlag.enabled ? accountId : null, projectId);
+  const accountsQuery = useAccountSecretResources(accountId, projectId);
   const accounts = accountsQuery.data?.secrets ?? [];
   const pooledIds = useMemo(
     () => new Set(accounts.filter((secret) => secret.can_use && secret.active).flatMap((secret) => (secret.provider_id ? [secret.provider_id] : []))),
@@ -137,10 +134,10 @@ export function useProviders(projectId: string, accountIdHint: string | null): P
   );
 
   const loading =
-    catalogueQuery.isLoading || pooledFlag.isLoading || (pooledFlag.enabled && Boolean(accountId) && accountsQuery.isLoading);
+    catalogueQuery.isLoading || (Boolean(accountId) && accountsQuery.isLoading);
   const error = catalogueQuery.isError
     ? errorMessage(catalogueQuery.error)
-    : pooledFlag.enabled && accountsQuery.isError
+    : accountsQuery.isError
       ? 'Provider secrets could not be loaded.'
       : null;
 
@@ -155,7 +152,6 @@ export function useProviders(projectId: string, accountIdHint: string | null): P
       return map;
     }, [catalogue, managed]),
     connectedIds,
-    pooled: pooledFlag.enabled,
     accountId,
     accounts,
     accountsReadAt: accountsQuery.dataUpdatedAt,

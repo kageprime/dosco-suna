@@ -9,6 +9,7 @@ import { latestProjectPath } from '@kortix/ui/internal/lib/onboarding/last-proje
 import { accountPanelUrl, hubTarget } from '@kortix/ui/internal/stores/account-panel-store';
 import { useBillingAccountId } from '@kortix/ui/internal/stores/billing-account-context';
 import { syncSubscription } from '@kortix/sdk';
+import { invalidateWorkspaceProviderQueries, qk } from '@kortix/sdk/react';
 import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef } from 'react';
@@ -106,6 +107,48 @@ export function useBillingReturnUrl(): (param: BillingReturnParam) => string {
   );
 }
 
+/**
+ * Re-read every model list the plan decides.
+ *
+ * `/model-picker` and `/model-defaults` are filtered by plan on the server: a
+ * Free account sees no Kortix model. The page that Stripe returns to fetches
+ * them on load, before `syncSubscription` moves the plan. Their 60 s cache then
+ * kept "No model" and a disabled Send on screen after the success toast (audit
+ * finding F-004). The plan covers every project of the account, so every cached
+ * project list goes, not one project's.
+ */
+export async function refreshModelAvailability(queryClient: QueryClient): Promise<void> {
+  const projectIds = new Set<string>();
+  for (const query of queryClient.getQueryCache().getAll()) {
+    const id = query.queryKey[2];
+    if (
+      typeof id === 'string' &&
+      JSON.stringify(query.queryKey) === JSON.stringify(qk.project.modelPicker(id))
+    ) {
+      projectIds.add(id);
+    }
+  }
+  // A read still in flight started before the plan moved. Invalidation would
+  // reuse it and keep its Free answer: drop it, so the read below is new.
+  await Promise.all([
+    ...[...projectIds].map((id) => queryClient.cancelQueries({ queryKey: qk.project.modelPicker(id) })),
+    queryClient.cancelQueries({ queryKey: ['model-defaults'] }),
+  ]);
+  // The list, its gateway-provider projection and the runtime provider list.
+  for (const id of projectIds) invalidateWorkspaceProviderQueries(queryClient, id);
+  await queryClient.invalidateQueries({ queryKey: ['model-defaults'], refetchType: 'all' });
+}
+
+/**
+ * The API caches each account's plan per process for `BILLING_CACHE_TTL_MS`
+ * (30 s, `apps/api/src/billing/services/billing-cache.ts`). A plan write
+ * clears it on every replica over LISTEN/NOTIFY (`kortix_billing_bust`). When
+ * that channel is down, a replica can serve the Free plan until its entry
+ * expires: one more pass after the TTL ends that case too. Keep this above
+ * `BILLING_CACHE_TTL_MS`.
+ */
+const API_BILLING_CACHE_TTL_MS = 31_000;
+
 function stripParam(param: string) {
   const url = new URL(window.location.href);
   url.searchParams.delete(param);
@@ -157,6 +200,8 @@ export function useBillingReturn(): void {
       } catch {
         invalidateAccountState(queryClient, true, true, accountId);
       } finally {
+        void refreshModelAvailability(queryClient);
+        setTimeout(() => void refreshModelAvailability(queryClient), API_BILLING_CACHE_TTL_MS);
         stripParam(match.param);
       }
     })();

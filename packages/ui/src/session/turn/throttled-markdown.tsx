@@ -132,7 +132,7 @@ function ThrottledMarkdownImpl({
   // Nothing revealed yet: render nothing rather than the empty-content notice.
   if (streaming && !displayContent) return null;
   // Session transcript assistant text: the one renderer (with SandboxUrlDetector) that opts in to generative UI.
-  return <UnifiedMarkdown content={displayContent} trust="agent" isStreaming={streaming} genui />;
+  return <UnifiedMarkdown content={displayContent} trust="agent" isStreaming={streaming} genui lineBreaks="chat" />;
 }
 
 /**

@@ -35,7 +35,8 @@ import {
   mergeTriggerPayload,
   parseTriggerDraft,
   removeTriggerFromManifest,
-  renderPromptTemplate,
+  renderTriggerInput,
+  triggerInputPreamble,
   renderSessionKey,
   specToBody,
   triggerFilterMatches,
@@ -486,6 +487,9 @@ export function registerTriggersRoutes(): void {
             };
           }
           const next = upsertTriggerInManifest(manifest, draftToSpec(draft, manifest.path));
+          // An empty prompt is a program agent's payload input; any other agent needs one (extractTriggers knows the agents).
+          const refused = extractTriggers({ ...manifest, raw: next.raw }).errors.find((e) => e.slug === draft.slug);
+          if (refused) return { ok: false, error: refused.error, status: 400 };
           manifest.raw = next.raw;
           committedManifest = manifest;
           return { ok: true, commitMessage: `chore: add trigger ${draft.slug}` };
@@ -723,6 +727,9 @@ export function registerTriggersRoutes(): void {
           }
 
           const next = upsertTriggerInManifest(manifest, draftToSpec(draft, manifest.path));
+          // An empty prompt is a program agent's payload input; any other agent needs one (extractTriggers knows the agents).
+          const refused = extractTriggers({ ...manifest, raw: next.raw }).errors.find((e) => e.slug === draft.slug);
+          if (refused) return { ok: false, error: refused.error, status: 400 };
           manifest.raw = next.raw;
           committedManifest = manifest;
           return { ok: true, commitMessage: `chore: update trigger ${slug}` };
@@ -880,7 +887,7 @@ export function registerTriggersRoutes(): void {
       const payload = override
         ? { ...mergeTriggerPayload(base, override as Record<string, unknown>), source: base.source, actor: base.actor }
         : base;
-      const renderedPrompt = renderPromptTemplate(target.spec.promptTemplate, payload);
+      const renderedPrompt = renderTriggerInput(target.spec, payload);
       if (body.dry_run === true) {
         // The request's audit row keeps `trigger.fire`; this marks it as nothing fired.
         annotateAuditEvent({ metadata: { dry_run: true } });
@@ -990,10 +997,10 @@ export function registerTriggersRoutes(): void {
         return c.json({ error: 'This payload\'s webhook signature never verified. Send confirm_unverified: true to replay it', code: 'payload_unverified' }, 409);
       }
       const source = run.source as TriggerFireSource;
-      const template = renderPromptTemplate(target.spec.promptTemplate, run.payload);
+      const template = renderTriggerInput(target.spec, run.payload);
       const renderedPrompt =
-        source === 'event' ? `${eventPromptPreamble(target.spec, ((run.payload as { event?: { provider?: string } } | null)?.event?.provider) ?? null)}${template}`
-          : source === 'app' ? `${appEventPromptPreamble((run.payload as { event?: unknown } | null)?.event)}${template}`
+        source === 'event' ? `${triggerInputPreamble(target.spec, eventPromptPreamble(target.spec, ((run.payload as { event?: { provider?: string } } | null)?.event?.provider) ?? null))}${template}`
+          : source === 'app' ? `${triggerInputPreamble(target.spec, appEventPromptPreamble((run.payload as { event?: unknown } | null)?.event))}${template}`
             : template;
       return fireAndAnswer(c, target, {
         payload: run.payload,

@@ -195,8 +195,9 @@ export async function getLinkPreview(projectId: string, url: string) {
   return unwrap(await backendApi.get<LinkPreview>(`/workspaces/${projectId}/link-preview?url=${encodeURIComponent(url)}`));
 }
 
-export async function getArtifact(projectId: string, artifactId: string, options: { version?: string } = {}) {
-  return unwrap(await backendApi.get<ArtifactDetail>(`${base(projectId)}/${artifactId}${appendQuery(options)}`));
+export async function getArtifact(projectId: string, artifactId: string, options: { version?: string; showErrors?: boolean } = {}) {
+  const { showErrors, ...query } = options;
+  return unwrap(await backendApi.get<ArtifactDetail>(`${base(projectId)}/${artifactId}${appendQuery(query)}`, { showErrors }));
 }
 
 export async function createArtifact(projectId: string, input: PublishArtifactInput) {

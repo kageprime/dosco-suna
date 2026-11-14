@@ -15,9 +15,8 @@
  * Every reader of provider key names or values goes through this module:
  * the gateway (`resolve-candidates.ts`), the picker (`servable-catalog.ts`),
  * routing (`routing/index.ts`), default models (`default-model.ts`, through
- * `defaultableGatewayKeyNames`) and the custom providers route. It reads the named store whatever the
- * `pooled_provider_secrets` flag says: every writer writes there now, so a
- * reader that skipped it would lose keys.
+ * `defaultableGatewayKeyNames`) and the custom providers route. It always reads the named store: every
+ * writer writes there now, so a reader that skipped it would lose keys.
  */
 import {
   listGrantedGatewaySecretNames,

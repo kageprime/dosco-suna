@@ -20,6 +20,7 @@ import {
   type DarkThemeId,
   type LightThemeId,
 } from '@kortix/ui/internal/lib/interface-theme-defaults';
+import type { REDUCE_MOTION_ATTRIBUTE as ReduceMotionAttribute } from '@kortix/ui/internal/hooks/use-reduced-motion';
 import terminalThemes from './kortix-themes.generated.json';
 
 export { DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, type DarkThemeId, type LightThemeId };
@@ -187,12 +188,21 @@ const scriptLiteral = (value: unknown): string =>
 /**
  * Inlined in the root layout's `<head>` so a themed route's first paint —
  * including the auth gate's loading mark — already shows the stored palette.
- * Does nothing off the themed routes. Reads the zustand-persisted preferences
- * blob directly; any failure (no storage, bad JSON, unknown id) leaves the
- * defaults. Keep it dependency-free: it is inlined as a string.
+ * Reads the zustand-persisted preferences blob directly; any failure (no
+ * storage, bad JSON, unknown id) leaves the defaults. Keep it
+ * dependency-free: it is inlined as a string.
+ *
+ * On the same themed routes it also puts `data-reduce-motion` on `<html>`
+ * when the person's "Reduce motion" switch is on, so the first paint already
+ * skips the enter animations and shimmer (`ReduceMotionSync` keeps it current
+ * after). Marketing, auth and other public pages keep their motion.
  */
-export const INTERFACE_THEME_INIT_SCRIPT = `(function(){try{var d=document.documentElement;if(!new RegExp(${scriptLiteral(
+// A literal, not an import: `use-reduced-motion.ts` is a client module, and this
+// file feeds the server-rendered root layout. The type pins the two copies.
+const REDUCE_MOTION_ATTRIBUTE = 'data-reduce-motion' satisfies typeof ReduceMotionAttribute;
+
+export const INTERFACE_THEME_INIT_SCRIPT = `(function(){try{var d=document.documentElement,s={};try{var r=localStorage.getItem('${USER_PREFERENCES_STORAGE_KEY}'),p=r?JSON.parse(r):null;s=(p&&p.state&&p.state.preferences)||{};}catch(e){}if(!new RegExp(${scriptLiteral(
   THEMED_ROUTE_SOURCE,
-)}).test(location.pathname))return;var L=${scriptLiteral(LIGHT_THEME_IDS)},D=${scriptLiteral(
+)}).test(location.pathname))return;if(s.reduceMotion===true)d.setAttribute('${REDUCE_MOTION_ATTRIBUTE}','');var L=${scriptLiteral(LIGHT_THEME_IDS)},D=${scriptLiteral(
   DARK_THEME_IDS,
-)},s={};try{var r=localStorage.getItem('${USER_PREFERENCES_STORAGE_KEY}'),p=r?JSON.parse(r):null;s=(p&&p.state&&p.state.preferences)||{};}catch(e){}d.setAttribute('data-light-theme',L.indexOf(s.lightTheme)>=0?s.lightTheme:'${DEFAULT_LIGHT_THEME}');d.setAttribute('data-dark-theme',D.indexOf(s.darkTheme)>=0?s.darkTheme:'${DEFAULT_DARK_THEME}');}catch(e){}})();`;
+)};d.setAttribute('data-light-theme',L.indexOf(s.lightTheme)>=0?s.lightTheme:'${DEFAULT_LIGHT_THEME}');d.setAttribute('data-dark-theme',D.indexOf(s.darkTheme)>=0?s.darkTheme:'${DEFAULT_DARK_THEME}');}catch(e){}})();`;

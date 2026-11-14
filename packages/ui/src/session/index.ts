@@ -80,6 +80,7 @@ export { SessionConnectingBanner } from './status/session-starting-loader';
 export { ChatMinimap } from './thread/chat-minimap';
 export { SessionChat } from './thread/session-chat';
 export { SessionTurn, TranscriptTurnRow, TurnAssistantBlock } from './thread/transcript';
+export { useAgentRunLayout, type AgentRunLayout, type AgentRunRowProps } from './thread/agent-run-props';
 export { ToolSurfaceContext, partOutcome } from './tool/shared/infrastructure';
 export { ToolOutcomeContext } from './tool/shared/infrastructure-contexts';
 export { ToolOutputFallback } from './tool/shared/infrastructure-output';

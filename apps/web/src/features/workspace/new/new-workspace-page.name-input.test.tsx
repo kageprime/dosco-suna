@@ -15,10 +15,11 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', { value: true, con
  */
 
 let creates = 0;
+let searchParams = new URLSearchParams();
 
 mock.module('next/navigation', () => ({
   useRouter: () => ({ push: () => {}, replace: () => {}, back: () => {}, prefetch: () => {} }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => searchParams,
   useParams: () => ({}),
   usePathname: () => '/workspaces/new',
 }));
@@ -289,4 +290,21 @@ test('motion mock preserves MotionConfig for sibling components', async () => {
       </MotionConfig>,
     ),
   ).toBe('<span>Sibling content</span>');
+});
+
+test('?name= from the chooser seeds the field and the random suggestion leaves it alone', async () => {
+  searchParams = new URLSearchParams('name=Calm River');
+  try {
+    const renderer = await renderPage();
+    expect(findInput(renderer).props.value).toBe('Calm River');
+    await unmount(renderer);
+  } finally {
+    searchParams = new URLSearchParams();
+  }
+});
+
+test('with no ?name= the page still suggests a name', async () => {
+  const renderer = await renderPage();
+  expect(String(findInput(renderer).props.value)).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+$/);
+  await unmount(renderer);
 });

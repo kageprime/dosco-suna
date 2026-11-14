@@ -9,7 +9,6 @@ export {
   LoopsView,
   type LoopsViewProps,
   loopRowText,
-  untilText,
 } from './loops-view.tsx';
 export {
   LOOPS_KEYS,

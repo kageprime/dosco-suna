@@ -2,6 +2,7 @@ import type { JSONContent } from '@tiptap/core';
 import { describe, expect, test } from 'bun:test';
 
 import {
+  appendTextToDocument,
   acknowledgeQuoteRequests,
   appendComposerQuote,
   classifyPaste,
@@ -520,7 +521,7 @@ describe('planDraftSubmission', () => {
     expect(plan.args).toBe(
       [
         'compare @src/app.ts with @reviewer notes',
-        'Referenced files (the user has explicitly @-mentioned these — read them if relevant):\n<file_ref path="src/app.ts" name="src/app.ts" />',
+        'Referenced files (the user has explicitly @-mentioned these — read them if relevant; a path that is not on this computer is a workspace repo file: read it with `kortix files cat <path>`):\n<file_ref path="src/app.ts" name="src/app.ts" />',
         'Referenced agents (the user has @-mentioned these agents — delegate or hand off as appropriate):\n<agent_ref name="reviewer" />',
       ].join('\n\n'),
     );
@@ -1028,5 +1029,22 @@ describe('tile paste undo', () => {
     expect(popPasteUndo(stack, pastes)).toBe('a'); // `b` was removed with its X
     expect(popPasteUndo(stack, pastes)).toBeUndefined();
     expect(stack).toEqual([]);
+  });
+});
+
+describe('appendTextToDocument (keys typed while the home loaded)', () => {
+  test('continues the last paragraph of a restored draft', () => {
+    const draft: JSONContent = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'saved draft' }] }] };
+    expect(appendTextToDocument(draft, ' more')).toEqual({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'saved draft' }, { type: 'text', text: ' more' }] }],
+    });
+  });
+
+  test('fills an empty editor document', () => {
+    expect(appendTextToDocument({ type: 'doc', content: [{ type: 'paragraph' }] }, 'hi')).toEqual({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'hi' }] }],
+    });
   });
 });

@@ -8,6 +8,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { buildUpstreamPath } from '@kortix/white-label-shared/upstream-path';
 import { evaluatePolicy } from '../../src/server/policy';
 import {
   APP_SETUP_TIMEOUT_MS,
@@ -194,5 +195,31 @@ describe('wrapper-mode policy matrix', () => {
 
     const store = JSON.parse(readFileSync(join(TEST_DATA_DIR, 'users.json'), 'utf8'));
     expect(store[email]).toContain(project.project_id);
+  });
+});
+
+describe('a canonical route is judged exactly like its legacy name', () => {
+  // The proxy judges and forwards `buildUpstreamPath(segments).path`, so the
+  // legacy map decides what a canonical name may reach (KRTX-4847).
+  const OWN = 'own-project';
+  const isOwner = (projectId: string) => projectId === OWN;
+  const ownsNothing = () => false;
+  test.each([
+    [['workspaces', OWN, 'sessions'], `projects/${OWN}/sessions`],
+    [['workspaces', OWN, 'members'], `accounts/${OWN}/members`],
+    [['me'], 'accounts/me'],
+    [['workspaces', OWN, 'audit', 'events'], `projects/${OWN}/audit`],
+    [['workspaces', OWN, 'keys'], `accounts/${OWN}/keys`],
+    [['webhooks', 'workspaces', OWN, 'w1'], `webhooks/projects/${OWN}/w1`],
+  ])('%j is judged as %s', (segments, legacy) => {
+    const built = buildUpstreamPath(segments);
+    if (!built.ok) throw new Error(built.reason);
+    for (const owns of [isOwner, ownsNothing]) {
+      const verdict = (path: string) => {
+        const { allow, status } = evaluatePolicy('GET', path, owns);
+        return { allow, status };
+      };
+      expect(verdict(built.path)).toEqual(verdict(legacy));
+    }
   });
 });

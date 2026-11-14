@@ -23,7 +23,12 @@ import { config } from '../config';
 import { logger } from '../lib/logger';
 import { ConnectionRevokedError, connectionIsEffectiveProjectDefault, upsertConnectionCredential } from './credentials';
 import { failConnection, revokeConnections } from './connection-status';
-import { nativeOAuth2CallbackResponse, nativeOAuth2CallbackUrl } from './oauth2-callback-url';
+import {
+  nativeOAuth2CallbackResponse,
+  nativeOAuth2CallbackUrl,
+  type SignInConnector,
+} from './oauth2-callback-url';
+import { takeRequestingSession } from './db-deps-connect';
 import {
   createStoredDelegatedCredential,
   parseDelegatedCredential,
@@ -39,7 +44,7 @@ import {
 } from './oauth2-lifecycle';
 import { validateAuthorizationIssuer } from './oauth2-issuer';
 import { oauthCompletionRematerializeInput } from './oauth2-rematerialize';
-import { kortixClientApplication } from './mcp-apps';
+import { kortixClientApplication, mcpAppForUrl } from './mcp-apps';
 import { registerOAuth2Client } from './oauth2-registration';
 import {
   type ProtectedResourceProvider,
@@ -483,6 +488,62 @@ export async function createAuthorizationCodeSession(input: {
   return request;
 }
 
+/**
+ * The connector a sign-in was for, as the return page names it: the display
+ * name, and the catalogue icon slug when Kortix ships one. Null when the row
+ * is gone.
+ */
+async function signInConnector(connectionId: string): Promise<
+  (SignInConnector & { projectId: string; slug: string; app: string }) | null
+> {
+  const [row] = await db
+    .select({
+      projectId: connectorConnections.projectId,
+      slug: connectors.slug,
+      name: connectors.name,
+      providerType: connectors.providerType,
+      config: connectors.config,
+    })
+    .from(connectorConnections)
+    .innerJoin(connectors, eq(connectors.connectorId, connectorConnections.connectorId))
+    .where(eq(connectorConnections.connectionId, connectionId))
+    .limit(1);
+  if (!row) return null;
+  const cfg = (row.config ?? {}) as { url?: unknown; app?: unknown };
+  const catalogApp = typeof cfg.url === 'string' ? mcpAppForUrl(cfg.url) : null;
+  return {
+    projectId: row.projectId,
+    slug: row.slug,
+    // The same app name the finalize poll tells the agent, so its prompt reads alike.
+    app: catalogApp?.slug ?? (typeof cfg.app === 'string' && cfg.app ? cfg.app : row.slug),
+    name: row.name || catalogApp?.name || row.slug,
+    iconSlug: catalogApp?.icon ? catalogApp.slug : null,
+  };
+}
+
+/**
+ * Tell the agent that asked for this sign-in that it landed. The callback is
+ * the only step an MCP sign-in is sure to reach: a raw link the agent handed
+ * out opens no Kortix page, so no finalize poll ever runs for it.
+ */
+async function notifyWaitingSession(
+  connector: { projectId: string; slug: string; app: string },
+  connectionId: string,
+  initiatedBy: string,
+): Promise<void> {
+  try {
+    const waiting = await takeRequestingSession(connectionId);
+    if (!waiting) return;
+    const { notifyConnectorSession } = await import('./notify-session');
+    await notifyConnectorSession(waiting, connector.projectId, initiatedBy, connector.slug, connector.app);
+  } catch (error) {
+    logger.warn('[connector] OAuth sign-in could not notify the waiting session', {
+      connectionId,
+      err: (error as Error).message,
+    });
+  }
+}
+
 export async function completeAuthorizationCodeSession(input: {
   stateHash: string;
   code?: string;
@@ -490,7 +551,12 @@ export async function completeAuthorizationCodeSession(input: {
   callbackUrl: string;
   /** RFC 9207 `iss` from the authorization response, when the server sent one. */
   issuer?: string;
-}): Promise<{ redirectUri: string | null; ok: boolean; errorCode?: string }> {
+}): Promise<{
+  redirectUri: string | null;
+  ok: boolean;
+  errorCode?: string;
+  connector?: SignInConnector | null;
+}> {
   const claimed = await db.transaction(async (tx) => {
     const [row] = await tx
       .select()
@@ -514,8 +580,11 @@ export async function completeAuthorizationCodeSession(input: {
     return row;
   });
   if (!claimed) return { redirectUri: null, ok: false, errorCode: 'invalid_state' };
+  const connector = await signInConnector(claimed.connectionId);
+  const shown = connector ? { name: connector.name, iconSlug: connector.iconSlug } : null;
   if (!(await authorizationCanCompleteOAuth(claimed.connectionId, claimed.initiatedBy))) {
     return {
+      connector: shown,
       redirectUri: claimed.errorRedirectUri,
       ok: false,
       // Kept verbatim: the public callback contract has carried this code since
@@ -531,7 +600,7 @@ export async function completeAuthorizationCodeSession(input: {
         ? input.providerError
         : 'authorization_failed';
     await failConnection(claimed.connectionId);
-    return { redirectUri: claimed.errorRedirectUri, ok: false, errorCode };
+    return { connector: shown, redirectUri: claimed.errorRedirectUri, ok: false, errorCode };
   }
   try {
     const loaded = await loadOAuth2Application(claimed.connectionId);
@@ -546,6 +615,7 @@ export async function completeAuthorizationCodeSession(input: {
     if (!issuerVerdict.ok) {
       await failConnection(claimed.connectionId);
       return {
+        connector: shown,
         redirectUri: claimed.errorRedirectUri,
         ok: false,
         errorCode: issuerVerdict.errorCode,
@@ -572,7 +642,8 @@ export async function completeAuthorizationCodeSession(input: {
     // The catalog was last fetched WITHOUT this credential, so the connector is
     // very likely sitting on a 401. Refetch before the user sees the result.
     await rematerializeAfterOAuthCompletion(loaded.connectionId);
-    return { redirectUri: claimed.successRedirectUri, ok: true };
+    if (connector) await notifyWaitingSession(connector, loaded.connectionId, claimed.initiatedBy);
+    return { connector: shown, redirectUri: claimed.successRedirectUri, ok: true };
   } catch (error) {
     // The redirect only carries `token_exchange_failed`; the cause lives here.
     logger.warn('[connector] OAuth code exchange failed', {
@@ -580,10 +651,11 @@ export async function completeAuthorizationCodeSession(input: {
       err: (error as Error).message,
     });
     if (error instanceof ConnectionRevokedError) {
-      return { redirectUri: claimed.errorRedirectUri, ok: false, errorCode: 'connection_revoked' };
+      return { connector: shown, redirectUri: claimed.errorRedirectUri, ok: false, errorCode: 'connection_revoked' };
     }
     await failConnection(claimed.connectionId);
     return {
+      connector: shown,
       redirectUri: claimed.errorRedirectUri,
       ok: false,
       errorCode: 'token_exchange_failed',
@@ -803,7 +875,10 @@ export async function handleNativeOAuth2Callback(requestUrl: string) {
   const url = new URL(requestUrl);
   const state = url.searchParams.get('state');
   if (!state || state.length > 1024) {
-    return { status: 400 as const, body: 'Invalid OAuth2 state' };
+    return nativeOAuth2CallbackResponse(
+      { ok: false, redirectUri: null, errorCode: 'invalid_state' },
+      config.FRONTEND_URL,
+    );
   }
   const callback = nativeOAuth2CallbackUrl(requestUrl, config.KORTIX_URL);
   const result = await completeAuthorizationCodeSession({
@@ -813,5 +888,5 @@ export async function handleNativeOAuth2Callback(requestUrl: string) {
     callbackUrl: callback,
     issuer: url.searchParams.get('iss') ?? undefined,
   });
-  return nativeOAuth2CallbackResponse(result);
+  return nativeOAuth2CallbackResponse(result, config.FRONTEND_URL);
 }

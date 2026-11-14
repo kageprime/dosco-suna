@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import type { ProjectTrigger, ProjectTriggerEventType } from '@kortix/sdk';
 
+import { testUiTranslator as t } from '../../../test-utils/intl';
+import { autoName, validate } from './trigger-composer-logic';
 import { draftFromTrigger, triggerPatch } from './trigger-edit-logic';
 
 function trigger(overrides: Partial<ProjectTrigger> = {}): ProjectTrigger {
@@ -275,5 +277,97 @@ describe('an App event trigger', () => {
   test('another App sends its slug', () => {
     const base = saved(appTrigger());
     expect(triggerPatch(base, { ...base, kortixApp: 'billing' })).toEqual({ app: 'billing' });
+  });
+});
+
+describe('every: a fixed period round-trips unchanged', () => {
+  const hourly = () => trigger({ cron: null, every_seconds: 3600 });
+
+  test('reads back as the period, not the daily-at-09:00 default', () => {
+    const draft = saved(hourly());
+    expect(draft.every).toBe('1h');
+    expect(autoName(draft, t)).toBe('Every hour');
+  });
+
+  test('an untouched period trigger patches nothing', () => {
+    const base = saved(hourly());
+    expect(triggerPatch(base, { ...base })).toEqual({});
+  });
+
+  test('a new period sends only every, clearing cron and run_at', () => {
+    const base = saved(hourly());
+    expect(triggerPatch(base, { ...base, every: '30m' })).toEqual({ every: '30m', cron: null, run_at: null });
+  });
+
+  test('switching to a calendar schedule clears every', () => {
+    const base = saved(hourly());
+    expect(triggerPatch(base, { ...base, every: null })).toEqual({
+      cron: '0 0 9 * * *',
+      run_at: null,
+      timezone: 'UTC',
+      every: null,
+    });
+  });
+
+  test('a cron trigger never sends every', () => {
+    const base = saved(trigger());
+    expect(base.every).toBeNull();
+    expect(triggerPatch(base, { ...base, cron: '0 0 10 * * *' })).toEqual({
+      cron: '0 0 10 * * *',
+      run_at: null,
+      timezone: 'UTC',
+    });
+  });
+
+  test('a period under one minute or not a period blocks Save', () => {
+    const base = saved(hourly());
+    const ctx = { name: 'n', configFields: [], app: null, edit: true };
+    expect(validate({ ...base, every: '30s' }, ctx, t).map((p) => p.block)).toEqual(['when']);
+    expect(validate({ ...base, every: 'hourly' }, ctx, t).map((p) => p.block)).toEqual(['when']);
+    expect(validate(base, ctx, t)).toEqual([]);
+  });
+});
+
+describe('App target: a trigger that calls an App edits without a prompt', () => {
+  const appTarget = () =>
+    trigger({
+      prompt_template: '',
+      target: { app: 'poller', path: '/tick', method: 'POST', payload: { source: 'cron' } },
+    });
+  const ctx = { name: 'n', configFields: [], app: null, edit: true };
+
+  test('reads back as an App call with its path, method and fixed body', () => {
+    const draft = saved(appTarget());
+    expect(draft.thenKind).toBe('app');
+    expect(draft).toMatchObject({ targetApp: 'poller', targetPath: '/tick', targetMethod: 'POST' });
+    expect(validate(draft, ctx, t)).toEqual([]);
+  });
+
+  test('a rename saves without inventing a prompt or touching the target', () => {
+    const base = saved(appTarget());
+    expect(triggerPatch(base, { ...base, nameOverride: 'Poll' })).toEqual({ name: 'Poll' });
+  });
+
+  test('a new path sends the whole target and keeps the fixed body', () => {
+    const base = saved(appTarget());
+    expect(triggerPatch(base, { ...base, targetPath: '/poll', targetMethod: 'GET' })).toEqual({
+      target: { app: 'poller', path: '/poll', method: 'GET', payload: { source: 'cron' } },
+    });
+  });
+
+  test('back to an agent run clears the target and needs an instruction', () => {
+    const base = saved(appTarget());
+    const agent = { ...base, thenKind: 'agent' as const };
+    expect(validate(agent, ctx, t).map((p) => p.block)).toEqual(['then']);
+    expect(triggerPatch(base, { ...agent, instruction: 'Do it' })).toEqual({
+      prompt_template: 'Do it',
+      target: null,
+    });
+  });
+
+  test('an App call with no App or a bad path blocks Save', () => {
+    const base = saved(appTarget());
+    expect(validate({ ...base, targetApp: null }, ctx, t).map((p) => p.block)).toEqual(['then']);
+    expect(validate({ ...base, targetPath: 'tick' }, ctx, t).map((p) => p.block)).toEqual(['then']);
   });
 });

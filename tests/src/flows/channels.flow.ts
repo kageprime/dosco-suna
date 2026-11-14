@@ -304,6 +304,50 @@ flow(
   },
 );
 
+// CHN-36 — the Slack bot joins channels: connector-write ACL, body validation,
+// and the "not connected" answer the CLI turns into `kortix channels connect`.
+flow(
+  "CHN-36",
+  {
+    domain: "channels",
+    routes: ["GET /v1/me", "POST /v1/workspaces/:projectId/channels/slack/join"],
+  },
+  async (ctx) => {
+    const p = await ctx.fixtures.sharedProject();
+    const join = (body: unknown, as = ctx.P.OWNER) =>
+      ctx.client.as(as).post("/v1/workspaces/:projectId/channels/slack/join", body, { params: { projectId: p.id } });
+    await ctx.step("OWNER joins on a workspace with no Slack → 200 connected:false, no results", async () => {
+      const r = await join({ channels: ["eng"] });
+      r.status(200).body().has("$.connected", false);
+      r.body().has("$.results", []);
+    });
+    await ctx.step("an empty channel list → 400", async () => {
+      (await join({ channels: [] })).status(400);
+    });
+    await ctx.step("NONMEMBER → 403/404", async () => {
+      (await join({ channels: ["eng"] }, ctx.P.NONMEMBER)).status([403, 404]);
+    });
+    const pat = await ctx.fixtures.pat({ name: ctx.fixtures.name("cli-channels-join") });
+    const sandbox = new CliSandbox("channels-join");
+    try {
+      const login = await sandbox.login(pat, { noProject: true });
+      if (login.exitCode !== 0) throw new Error(`CLI login failed: ${login.all}`);
+      await ctx.step("kortix channels join on a workspace with no Slack exits 1 and names channels connect", async () => {
+        const result = await sandbox.run(["channels", "join", "eng", "--project", p.id]);
+        if (result.exitCode !== 1) throw new Error(`expected exit 1, got ${result.exitCode}: ${result.all}`);
+        if (!/kortix channels connect/.test(result.stderr)) throw new Error(`no connect pointer: ${result.stderr}`);
+      });
+      await ctx.step("kortix channels join --json prints the API answer", async () => {
+        const result = await sandbox.run(["channels", "join", "eng", "--project", p.id, "--json"]);
+        const output = JSON.parse(result.stdout) as { connected: boolean; results: unknown[] };
+        if (output.connected !== false || output.results.length !== 0) throw new Error(`unexpected: ${result.stdout}`);
+      });
+    } finally {
+      sandbox.dispose();
+    }
+  },
+);
+
 // CHN-1 — Slack BYO connect (manage ACL); validates xoxb- via Slack auth.test.
 flow(
   "CHN-1",

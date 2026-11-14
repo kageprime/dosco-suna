@@ -14,7 +14,7 @@ export const SESSION_SECTIONS = {
   email: { key: 'section.email', label: 'Email' },
   schedule: { key: 'section.scheduled', label: 'Scheduled' },
   webhook: { key: 'section.webhook', label: 'Webhook' },
-  event: { key: 'section.event', label: 'App event' },
+  event: { key: 'section.event', label: 'Connector event' },
   manual: { key: 'section.manual', label: 'Manual' },
   all: { key: 'section.all', label: 'All' },
 } as const;

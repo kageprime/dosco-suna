@@ -72,13 +72,12 @@ function Harness() {
       <Panel title="Customize" focused width={WIDTH + 2} height={HEIGHT + 2}>
         <CustomizeScreen
           projectId={projectId as string}
-          accountId={accountId}
           focused
           width={WIDTH}
           height={HEIGHT}
-          webBaseUrl={process.env.KORTIX_WEB_URL?.trim() || undefined}
+          webBaseUrl={process.env.KORTIX_WEB_URL?.trim() || ''}
           onBack={() => console.log('[onBack]')}
-          onToast={(message, kind) => {
+          onToast={(message: string, kind?: 'info' | 'error') => {
             toasts.push(`${kind ?? 'info'}: ${message}`);
             console.log(`[toast/${kind ?? 'info'}] ${message}`);
           }}

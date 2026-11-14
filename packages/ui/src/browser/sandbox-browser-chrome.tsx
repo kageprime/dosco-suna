@@ -144,7 +144,8 @@ export function SandboxAddressBar({
    *  `AppPreview` puts `Copy link` here. */
   trailing?: ReactNode;
   /** The address takes no input (the session's computer is booting). Pair it
-   *  with `hasPreview={false}`, which disables the buttons. */
+   *  with `hasPreview={false}`, which disables the page buttons. Back/Forward
+   *  follow the history alone, so a landing page can still go Forward. */
   disabled?: boolean;
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
@@ -197,7 +198,8 @@ export function SandboxAddressBar({
             variant="secondary"
             size="icon"
             onClick={onBack}
-            disabled={!hasPreview || !canGoBack}
+            disabled={disabled || !canGoBack}
+            aria-label={tI18nComplete.raw('text76900f1bfd16')}
           >
             <ArrowLeft className="size-4" />
           </Button>
@@ -208,7 +210,8 @@ export function SandboxAddressBar({
             variant="secondary"
             size="icon"
             onClick={onForward}
-            disabled={!hasPreview || !canGoForward}
+            disabled={disabled || !canGoForward}
+            aria-label={tI18nComplete.raw('textf1c65e14817e')}
           >
             <ArrowRight className="size-4" />
           </Button>

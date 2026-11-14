@@ -47,11 +47,12 @@ import {
   redactsIdentity,
   runtimeSandbox,
 } from '@/server/proxy-policy';
-import { buildUpstreamPath, upstreamBase } from '@/server/upstream-path';
+import { upstreamBase } from '@/server/upstream-path';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { tagSessionCreate, tagSessionPatch } from '@convex/tags';
 import { forwardKortixRequest } from '@kortix/sdk/server';
+import { buildUpstreamPath } from '@kortix/white-label-shared/upstream-path';
 import type { NextRequest } from 'next/server';
 
 export const runtime = 'nodejs';

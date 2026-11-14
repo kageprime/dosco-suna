@@ -17,19 +17,7 @@ import { isKe2eRetryableError } from '../core/client';
 import { waitFor } from '../core/poll';
 import { markSessionReadinessTimeoutRetryable } from '../core/session-runtime-retry';
 import type { CreatedProject, FlowContext } from '../core/types';
-
-async function createProjectPat(ctx: FlowContext, label: string) {
-  const project = await ctx.fixtures.project();
-  const response = await ctx.client.as(ctx.P.OWNER).post(
-    '/v1/workspaces/:projectId/cli-token',
-    { name: ctx.fixtures.name(label) },
-    { params: { projectId: project.id } },
-  );
-  response.status(201).body().exists('$.secret_key').exists('$.token_id');
-  const body = response.json<{ secret_key: string; token_id: string }>();
-  ctx.track('token', body.token_id);
-  return ctx.client.withBearer(body.secret_key, 'PAT_PROJ');
-}
+import { createProjectPat } from '../fixtures/database-project';
 
 const SHA256 = /^[0-9a-f]{64}$/;
 

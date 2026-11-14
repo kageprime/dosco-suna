@@ -1,7 +1,19 @@
 import { describe, expect, mock, test } from 'bun:test';
+import { DrizzleQueryError } from 'drizzle-orm/errors';
 
 let leader = true;
 mock.module('./leader-election', () => ({ isLeader: () => leader }));
+const errorLogs: Array<{ message: string; context?: Record<string, unknown> }> = [];
+mock.module('../lib/logger', () => ({
+  logger: {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: (message: string, context?: Record<string, unknown>) => {
+      errorLogs.push({ message, context });
+    },
+  },
+}));
 const { leaderTimer } = await import('./leader-timer');
 
 describe('leaderTimer', () => {
@@ -214,5 +226,54 @@ describe('leaderTimer', () => {
     await Bun.sleep(60);
     await timer.stop();
     expect([runs, maxActive]).toEqual([2, 1]);
+  });
+
+  test('a failed tick names the timer and the database cause in the message', async () => {
+    leader = true;
+    errorLogs.length = 0;
+    // The shape drizzle wraps a statement timeout in: the wrapper's message is
+    // only "Failed query: <statement>"; the SQLSTATE hangs off cause.
+    const cause = Object.assign(new Error('canceling statement due to statement timeout'), {
+      name: 'PostgresError',
+      code: '57014',
+      severity: 'ERROR',
+    });
+    const failure = new DrizzleQueryError('SELECT 1', [], cause);
+    const timer = leaderTimer(
+      async () => {
+        throw failure;
+      },
+      { name: 'workspace-split' },
+    );
+    timer.start();
+    await Bun.sleep(20);
+    timer.stop();
+    const entry = errorLogs.find((e) => e.message.includes('tick failed'));
+    if (!entry) throw new Error('no tick-failed log line was written');
+    // The reason is IN the message (learnings 2026-09-10): Better Stack groups
+    // on the message, so the sqlstate and the driver text must be in it.
+    expect(entry.message).toContain('workspace-split');
+    expect(entry.message).toContain('SQLSTATE 57014');
+    expect(entry.message).toContain('canceling statement due to statement timeout');
+    // The wrapper's statement stays in the structured context.
+    expect(entry.context?.error).toBe('Failed query: SELECT 1\nparams: ');
+  });
+
+  test('a non-database failure still names its timer', async () => {
+    leader = true;
+    errorLogs.length = 0;
+    const timer = leaderTimer(
+      async () => {
+        throw new Error('boom');
+      },
+      { name: 'workspace-split' },
+    );
+    timer.start();
+    await Bun.sleep(20);
+    timer.stop();
+    const entry = errorLogs.find((e) => e.message.includes('tick failed'));
+    if (!entry) throw new Error('no tick-failed log line was written');
+    expect(entry.message).toContain('workspace-split');
+    expect(entry.message).not.toContain('SQLSTATE');
   });
 });

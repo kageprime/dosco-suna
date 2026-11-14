@@ -72,6 +72,12 @@ export interface UserPreferences {
    * Legacy persisted preferences predate this key: read sites use `?? true`.
    */
   genuiEnabled?: boolean;
+  /**
+   * Reduce motion across the app (shimmer, pulses, transitions) on top of the
+   * OS setting. Legacy persisted preferences predate this key: read sites use
+   * `=== true`. See `internal/hooks/use-reduced-motion.ts`.
+   */
+  reduceMotion?: boolean;
 }
 
 // ============================================================================
@@ -116,6 +122,9 @@ interface UserPreferencesState {
   /** Render generative UI blocks as UI (true) or as markdown (false) */
   setGenuiEnabled: (enabled: boolean) => void;
 
+  /** Turn the app-wide "Reduce motion" switch on or off */
+  setReduceMotion: (reduce: boolean) => void;
+
   /** Get the label for the current tab switch modifier (e.g. "Cmd" or "Ctrl") */
   getModifierLabel: () => string;
 }
@@ -128,6 +137,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   panelMode: 'easy',
   conversationDensity: 'normal',
   genuiEnabled: true,
+  reduceMotion: false,
 };
 
 export const useUserPreferencesStore = create<UserPreferencesState>()(
@@ -160,6 +170,8 @@ export const useUserPreferencesStore = create<UserPreferencesState>()(
       setConversationDensity: (density) => get().patchPreferences({ conversationDensity: density }),
 
       setGenuiEnabled: (enabled) => get().patchPreferences({ genuiEnabled: enabled }),
+
+      setReduceMotion: (reduce) => get().patchPreferences({ reduceMotion: reduce }),
 
       getModifierLabel: () => {
         const mod = get().preferences.keyboard.tabSwitchModifier;

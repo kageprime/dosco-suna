@@ -1,0 +1,15 @@
+{
+  "id": "sales",
+  "name": "Sales Factory",
+  "summary": "One agent that researches every signup and inbound lead, scores it against your ICP, drafts outreach and meeting briefs, and keeps your CRM clean. A person sends every message.",
+  "secrets": [
+    { "name": "SALES_WEBHOOK_SECRET", "required": true, "delivery": "connector", "why": "Signs the webhook your product and your forms call for a new signup or an inbound lead (Authorization: Bearer).", "generate": true },
+    { "name": "ATTIO_API_KEY", "required": false, "delivery": "sandbox", "why": "System of record Attio, when the workspace has no Attio connector." },
+    { "name": "HUBSPOT_ACCESS_TOKEN", "required": false, "delivery": "sandbox", "why": "System of record HubSpot (a private app token), when the workspace has no HubSpot connector." },
+    { "name": "SALESFORCE_ACCESS_TOKEN", "required": false, "delivery": "sandbox", "why": "System of record Salesforce, with SALESFORCE_INSTANCE_URL, when the workspace has no Salesforce connector." },
+    { "name": "SALESFORCE_INSTANCE_URL", "required": false, "delivery": "sandbox", "why": "System of record Salesforce: your instance URL, for example https://example.my.salesforce.com. Not a secret." },
+    { "name": "PIPEDRIVE_API_TOKEN", "required": false, "delivery": "sandbox", "why": "System of record Pipedrive, when the workspace has no Pipedrive connector." },
+    { "name": "GH_TOKEN", "required": false, "delivery": "sandbox", "why": "System of record json-file only: read and write the ledger branch of a private repository with gh." }
+  ],
+  "needs_dev_sandbox": false
+}

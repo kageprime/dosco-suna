@@ -110,6 +110,7 @@ function DrawerClose({ asChild, children, ...props }: ButtonLikeProps) {
 function DrawerOverlay({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <DrawerPrimitive.Backdrop
+      forceRender
       data-slot="drawer-overlay"
       className={cn(
         'duration-moderate fixed inset-0 z-50 bg-black/50 opacity-[calc(1-var(--drawer-swipe-progress,0))] transition-opacity ease-out data-ending-style:opacity-0 data-starting-style:opacity-0 data-swiping:duration-0',

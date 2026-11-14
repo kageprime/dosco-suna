@@ -171,7 +171,7 @@ function CheckoutContent() {
       />
 
       {error ? (
-        <AuthFrame footerVariant="none">
+        <AuthFrame footerVariant="none" art={false}>
           <Rise>
             <StepHeader
               title={
@@ -205,7 +205,7 @@ function CheckoutContent() {
 /** The quiet auth frame with the app's one spinner, while Stripe.js mounts. */
 function CheckoutPending({ label }: { label?: string }) {
   return (
-    <AuthFrame footerVariant="none">
+    <AuthFrame footerVariant="none" art={false}>
       <div
         role="status"
         className="text-muted-foreground flex items-center justify-center gap-2 text-sm"

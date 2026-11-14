@@ -1,0 +1,15 @@
+{
+  "id": "support",
+  "name": "Support Factory",
+  "summary": "One agent that triages support conversations, drafts answers from your docs and code, hands bugs to engineering, clusters feedback and proposes help-center fixes. Replies stay drafts until you allow sending.",
+  "secrets": [
+    { "name": "SUPPORT_WEBHOOK_SECRET", "required": true, "delivery": "connector", "why": "Signs the webhook your product calls for in-app feedback (Authorization: Bearer).", "generate": true },
+    { "name": "PLAIN_API_KEY", "required": false, "delivery": "sandbox", "why": "Desk Plain, when the workspace has no Plain connector." },
+    { "name": "INTERCOM_ACCESS_TOKEN", "required": false, "delivery": "sandbox", "why": "Desk Intercom, when the workspace has no Intercom connector." },
+    { "name": "ZENDESK_API_TOKEN", "required": false, "delivery": "sandbox", "why": "Desk Zendesk, with ZENDESK_SUBDOMAIN and ZENDESK_EMAIL, when the workspace has no Zendesk connector." },
+    { "name": "ZENDESK_SUBDOMAIN", "required": false, "delivery": "sandbox", "why": "Desk Zendesk: the <subdomain> of https://<subdomain>.zendesk.com. Not a secret." },
+    { "name": "ZENDESK_EMAIL", "required": false, "delivery": "sandbox", "why": "Desk Zendesk: the email of the dedicated agent seat the API token belongs to." },
+    { "name": "GH_TOKEN", "required": false, "delivery": "sandbox", "why": "File bug tickets as GitHub issues, open help-center pull requests, and read or write a json-file desk in a private repository." }
+  ],
+  "needs_dev_sandbox": false
+}

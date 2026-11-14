@@ -42,6 +42,9 @@ import { configFilePath } from './config.ts';
 export interface AccountsMeBody {
   user_id: string;
   email?: string;
+  /** The caller's memberships; each names its workspace, so a bound
+   *  credential's workspace id resolves to a NAME (`identityFromMe`). */
+  accounts?: Array<{ workspace_id?: string | null; name?: string }>;
   token_context?: {
     auth_type?: string | null;
     project_id?: string | null;
@@ -66,6 +69,12 @@ export interface TokenIdentity {
   permissions: string[] | 'all' | null;
   userId: string;
   userEmail: string;
+  /** The NAME of the workspace a project-bound credential is bound to
+   *  (`token_context.project_id` resolved in `accounts`), so a fence refusal
+   *  can name the workspace instead of "one workspace". Null when the
+   *  credential names no workspace or the response's account list does not
+   *  cover it. */
+  workspaceName: string | null;
 }
 
 interface CacheEntry {
@@ -166,6 +175,8 @@ export function identityFromMe(me: AccountsMeBody): TokenIdentity {
     permissions: ctx?.kortix_permissions ?? ctx?.kortix_cli ?? null,
     userId: me.user_id,
     userEmail: me.email ?? '',
+    workspaceName:
+      me.accounts?.find((a) => a.workspace_id && a.workspace_id === ctx?.project_id)?.name ?? null,
   };
 }
 

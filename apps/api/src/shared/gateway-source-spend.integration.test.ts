@@ -4,6 +4,7 @@
 // no session is `unattributed`. Rows outside the window or project are ignored.
 import { afterAll, describe, expect, test } from 'bun:test';
 import { gatewayRequestLogs, projectSessions } from '@kortix/db';
+import { sql } from 'drizzle-orm';
 
 const confirmed = Boolean(
   process.env.TEST_DATABASE_URL &&
@@ -14,7 +15,7 @@ const withDb = confirmed ? describe : describe.skip;
 
 const { db } = await import('./db');
 const { seedProject, removeSeeded } = await import('../__tests__/helpers/integration-fixtures');
-const { listProjectGatewaySourceSpend } = await import('./session-costs');
+const { listProjectGatewaySourceSpend, gatewaySourceSpendQuery } = await import('./session-costs');
 
 const MEMBER = '00000000-0000-4000-a000-00000000c0de';
 
@@ -103,17 +104,58 @@ withDb('listProjectGatewaySourceSpend', () => {
       'member',
       'unattributed',
     ]);
-    const intakeRow = out.sources[0]!;
+    const intakeRow = out.sources[0];
+    if (!intakeRow) throw new Error('missing intake source');
     expect(intakeRow.sessions).toBe(2);
     expect(intakeRow.requests).toBe(2);
     expect(intakeRow.errors).toBe(1);
     expect(intakeRow.cost).toBeCloseTo(5, 6);
     expect(intakeRow.input_tokens).toBe(4000);
     expect(intakeRow.avg_input_tokens).toBe(2000);
-    expect(out.sources[1]!.cost).toBeCloseTo(2, 6);
-    expect(out.sources[3]!.sessions).toBe(0);
+    expect(out.sources[1]?.cost).toBeCloseTo(2, 6);
+    expect(out.sources[3]?.sessions).toBe(0);
     expect(out.total.cost).toBeCloseTo(7.75, 6);
     expect(out.total.requests).toBe(5);
+  });
+
+  test('counts one session once however many requests it made, and keeps a session with no row as unknown', async () => {
+    const project = await seedProject('source-spend-per-session');
+    seeded.push(project);
+
+    const busy = await session(project, { type: 'member', id: MEMBER });
+    for (let i = 0; i < 3; i++) await request(project, busy, 1, 100 * (i + 1), 1, i !== 2);
+    const quiet = await session(project, { type: 'member', id: MEMBER });
+    await request(project, quiet, 2, 50);
+    // A session id with no project_sessions row: not attributable.
+    await request(project, `ghost-${crypto.randomUUID()}`, 0.5, 10);
+
+    const out = await listProjectGatewaySourceSpend({
+      accountId: project.account_id,
+      projectId: project.project_id,
+      hours: 2,
+    });
+
+    const member = out.sources.find((s) => s.source === 'member');
+    if (!member) throw new Error('missing member source');
+    expect(member.sessions).toBe(2);
+    expect(member.requests).toBe(4);
+    expect(member.errors).toBe(1);
+    expect(member.cost).toBeCloseTo(5, 6);
+    expect(member.input_tokens).toBe(100 + 200 + 300 + 50);
+    const unknown = out.sources.find((s) => s.source === 'unknown');
+    if (!unknown) throw new Error('missing unknown source');
+    expect(unknown.sessions).toBe(1);
+    expect(unknown.requests).toBe(1);
+    expect(out.total.sessions).toBe(3);
+    expect(out.total.requests).toBe(5);
+  });
+
+  test('aggregates the window per session before it joins project_sessions (KRTX-4869)', async () => {
+    const { sql: text } = gatewaySourceSpendQuery({ accountId: crypto.randomUUID(), projectId: crypto.randomUUID() }, 2).toSQL();
+    const plan = await db.execute(sql.raw(`EXPLAIN (GENERIC_PLAN, FORMAT TEXT) ${text}`));
+    const lines = plan.map((row) => String(Object.values(row)[0]));
+    // Without it the joins run once per request row, over every session the project ever had.
+    expect(lines.some((line) => line.includes('Group Key: gateway_request_logs.session_id'))).toBe(true);
   });
 
   test('clamps the window to 1..720 hours', async () => {

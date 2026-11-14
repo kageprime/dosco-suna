@@ -100,19 +100,30 @@ export type TriggerSheetTab = 'settings' | 'runs';
  * it "ID"). Runs is the default tab, so only Settings is written. `?t=<slug>`
  * is the older connector-page link, still read for links already shared.
  */
-export function readTriggerSheet(params: Pick<URLSearchParams, 'get'> | null | undefined): {
+export function readTriggerSheet(
+  params: Pick<URLSearchParams, 'get'> | null | undefined,
+  tabParam: TriggerSheetTabParam = 'tab',
+): {
   slug: string | null;
   tab: TriggerSheetTab;
 } {
   return {
     slug: params?.get('id') || params?.get('t') || null,
-    tab: params?.get('tab') === 'settings' ? 'settings' : 'runs',
+    tab: params?.get(tabParam) === 'settings' ? 'settings' : 'runs',
   };
 }
 
 /**
+ * The param that holds the sheet's tab. `tab` on the Triggers page. On an
+ * agent's page `tab` is the agent's own tab (`?tab=triggers`), so the sheet
+ * writes `sheet` there and never touches `tab`.
+ */
+export type TriggerSheetTabParam = 'tab' | 'sheet';
+
+/**
  * The URL for opening a trigger (or changing its tab), or for closing
- * (`slug: null`). Every other param (the `?type` filter) is kept.
+ * (`slug: null`). Every other param (the `?type` filter, an agent page's
+ * `?tab=triggers`) is kept.
  *
  * `wasOpen` is whether a trigger is open on screen now: the caller knows it,
  * the URL does not (an unknown `?id` opens nothing). Opening from closed and
@@ -124,14 +135,15 @@ export function triggerSheetHref(
   current: string,
   next: { slug: string; tab?: TriggerSheetTab } | { slug: null },
   wasOpen: boolean,
+  tabParam: TriggerSheetTabParam = 'tab',
 ): { href: string; mode: 'push' | 'replace' } {
   const params = new URLSearchParams(current);
   params.delete('t');
-  params.delete('tab');
+  params.delete(tabParam);
   if (next.slug === null) params.delete('id');
   else {
     params.set('id', next.slug);
-    if (next.tab === 'settings') params.set('tab', 'settings');
+    if (next.tab === 'settings') params.set(tabParam, 'settings');
   }
   const qs = params.toString();
   return {

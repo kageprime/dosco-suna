@@ -41,7 +41,7 @@ export interface PreviewStackInput {
   instanceId?: string;
 }
 
-const PREVIEW_INSTANCE_ID = /^kortix-(preview-pr-[1-9][0-9]*|env-[a-z0-9][a-z0-9-]*)$/;
+export const PREVIEW_INSTANCE_ID = /^kortix-(preview-pr-[1-9][0-9]*|env-[a-z0-9][a-z0-9-]*)$/;
 
 /**
  * Background workers for a preview API.
@@ -82,10 +82,11 @@ export function previewWorkerEnvironment(instanceId: string | undefined): Record
   };
 }
 
-function validatedOrigin(value: string): string {
+/** A preview origin is a credential-free HTTPS origin with no path. */
+export function previewOrigin(value: string): string {
   const url = new URL(value);
-  if (url.protocol !== 'https:' || url.pathname !== '/' || url.search || url.hash) {
-    throw new Error('preview origin must be an HTTPS origin without a path');
+  if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('preview origin must be a credential-free HTTPS origin without a path');
   }
   return url.origin;
 }
@@ -473,7 +474,7 @@ export function applyPreviewEnvironment(
   validatePreviewRuntimeSecrets(rawSecrets);
   if (!/^[0-9a-f]{40}$/.test(input.sha))
     throw new Error('preview SHA must contain 40 hex characters');
-  const origin = validatedOrigin(input.origin);
+  const origin = previewOrigin(input.origin);
   const runtime = parseEnvironment(baseEnvironmentText);
   const postgresPassword = runtime.POSTGRES_PASSWORD;
   const anonKey = runtime.SUPABASE_ANON_KEY;

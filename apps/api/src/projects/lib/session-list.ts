@@ -63,6 +63,7 @@ import {
 } from './session-inventory';
 import {
   loadSessionUserStates,
+  pinnedAtSql,
   sessionUserStateSql,
   type SessionListView,
   type SessionUserState,
@@ -595,10 +596,19 @@ export async function loadProjectSessionInventory(input: {
   // A cursor is sealed to (project, viewer): it carries the scan position, which
   // can name a row this viewer may not see. See `encodeSessionCursor`.
   const cursorScope = sessionCursorScope(input, filter);
-  const sortAt = input.orderByActivity
-    ? sql<Date>`date_trunc('milliseconds', coalesce((${projectSessions.metadata}->>'last_activity_at')::timestamptz, ${projectSessions.updatedAt}))`
-    : sql<Date>`${projectSessions.updatedAt}`;
+  // The pinned view lists in pin order, newest pin first. Opening a session
+  // writes `updated_at`, so an `updated_at` order moved pins on every open.
+  const pinOrderPerson = filter.view === 'pinned' && !filter.deleted ? (filter.personId ?? null) : null;
+  const sortAt = pinOrderPerson
+    ? pinnedAtSql(pinOrderPerson)
+    : input.orderByActivity
+      ? sql<Date>`date_trunc('milliseconds', coalesce((${projectSessions.metadata}->>'last_activity_at')::timestamptz, ${projectSessions.updatedAt}))`
+      : sql<Date>`${projectSessions.updatedAt}`;
   const rowSortAt = (row: ProjectSessionRow): Date => {
+    if (pinOrderPerson) {
+      const iso = (row as { sortAtIso?: string }).sortAtIso;
+      return iso ? new Date(iso) : row.updatedAt;
+    }
     if (!input.orderByActivity) return row.updatedAt;
     const raw = row.metadata?.last_activity_at;
     if (typeof raw !== 'string') return row.updatedAt;
@@ -608,9 +618,10 @@ export async function loadProjectSessionInventory(input: {
 
   // `updated_at` at microsecond precision for the cursor of the default order. The
   // activity order already sorts on a millisecond-truncated key.
-  const SORT_AT_ISO = sql<string>`to_char(${projectSessions.updatedAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+  // The pinned view's cursor carries `pinned_at` the same way.
+  const SORT_AT_ISO = sql<string>`to_char(${pinOrderPerson ? sortAt : projectSessions.updatedAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
   const rowSortIso = (row: ProjectSessionRow): string | undefined =>
-    input.orderByActivity ? undefined : (row as { sortAtIso?: string }).sortAtIso;
+    input.orderByActivity && !pinOrderPerson ? undefined : (row as { sortAtIso?: string }).sortAtIso;
 
   const limit = Math.min(
     Math.max(Math.trunc(input.limit ?? SESSION_PAGE_DEFAULT_LIMIT), 1),

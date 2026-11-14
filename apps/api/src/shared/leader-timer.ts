@@ -28,7 +28,9 @@
  * finishing run's armed delay. The waiter re-arms when its run ends.
  */
 import { logger } from '../lib/logger';
+import { errorMessage } from './error-message';
 import { isLeader } from './leader-election';
+import { databaseErrorSummary } from './database-errors';
 
 const SLOW_WAIT_MS = 10_000;
 
@@ -61,7 +63,16 @@ export function leaderTimer(
       inFlight = running.catch(() => undefined);
       next = await running;
     } catch (error) {
-      logger.error('[leader-timer] tick failed', { error: error instanceof Error ? error.message : String(error) });
+      // Better Stack groups on the message, and drizzle's wrapper message is
+      // only "Failed query: <statement>" — the SQLSTATE hangs off cause
+      // (learnings 2026-09-10, 2026-11-07). The name separates the timers
+      // that share this line; a database failure also names its sqlstate in
+      // the message. The full statement stays in the structured `error`.
+      const db = databaseErrorSummary(error);
+      logger.error(
+        `[leader-timer] tick failed${options.name ? ` · ${options.name}` : ''}${db ? ` · ${db}` : ''}`,
+        { name: options.name ?? null, error: errorMessage(error) },
+      );
       next = 60_000;
     }
     // A waiting wake tick owns the next re-arm (its run may return 0 for a

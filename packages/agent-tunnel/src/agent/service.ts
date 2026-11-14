@@ -224,7 +224,7 @@ export function uninstallService(): ServiceStatus {
   );
 }
 
-export function startService(): ServiceStatus {
+function startService(): ServiceStatus {
   return withDriver(
     (driver, paths, installed) => driver.start(paths, installed),
     { installed: false, active: null },

@@ -37,6 +37,8 @@ export interface DeliverInput {
   projectId?: string | null;
   sessionId?: string | null;
   triggerSlug?: string | null;
+  /** A `mention` row's calendar item (flag `calendar`): the row links to it. */
+  calendarItemId?: string | null;
   /** Subject: the session title or the trigger name. */
   title: string;
   /** Detail: question text, error, share line. May be empty. */
@@ -121,6 +123,7 @@ export async function deliver(input: DeliverInput, deps: NotifierDeps = liveNoti
         projectId: input.projectId ?? null,
         sessionId: input.sessionId ?? null,
         triggerSlug: input.triggerSlug ?? null,
+        calendarItemId: input.calendarItemId ?? null,
         kind: input.kind,
         title: input.title,
         body: input.body ?? '',
@@ -148,6 +151,7 @@ export async function deliver(input: DeliverInput, deps: NotifierDeps = liveNoti
         sessionId: input.sessionId ?? null,
         triggerSlug: input.triggerSlug ?? null,
         accountId: input.accountId,
+        calendarItemId: input.calendarItemId ?? null,
       });
 
       // The kill switch stops pushes only; email has its own availability check.

@@ -1,9 +1,10 @@
 'use client';
 
 /**
- * The Inbox (KRTX-1742): the person's notifications from every project, as a
- * page. The project sidebar's Inbox row opens it inside the project shell
- * (`uiRoutes().inbox`); `AccountTopBar` opens it on the account-level pages.
+ * The Inbox (KRTX-1742): the person's notifications from every workspace, as
+ * a page. Notifications span every workspace, so the page is person-level:
+ * the workspace menu's Inbox row and `AccountTopBar` open it (KRTX-4799
+ * moved it out of the workspace Inbox page, which holds only Review).
  *
  * A row opens its subject (its session, its Artifact, or the Loops or
  * Triggers page for an alert) and marks itself read. The tabs split what
@@ -37,6 +38,7 @@ import { useWebNotificationStore } from '../stores/web-notification-store';
 import type { InboxNotification, InboxNotificationKind } from '@kortix/sdk';
 import { useNotificationInbox } from '@kortix/sdk/react';
 import {
+  AtIcon,
   BellIcon,
   ChecksIcon,
   GearSixIcon,
@@ -74,6 +76,7 @@ const KIND_MARK: Record<LiveKind, { icon: KindIcon; className: string }> = {
   automation_recovered: { icon: SolidCheckIcon, className: 'text-kortix-green' },
   capture_device_down: { icon: solid(WarningIcon), className: 'text-kortix-red' },
   capture_device_recovered: { icon: SolidCheckIcon, className: 'text-kortix-green' },
+  mention: { icon: solid(AtIcon), className: 'text-muted-foreground' },
 };
 
 /** Where "Notification settings" goes: a page (outside a project) or the Settings overlay (inside one). */
@@ -87,15 +90,10 @@ export interface NotificationInboxViewProps {
   prompt: string | null;
   settings: InboxSettingsTarget;
   /**
-   * The row above the page outside a project (the account pages' top bar).
-   * Then the title is the column's heading. Absent: the project page header.
+   * The row above the page (the account pages' top bar). Then the title is
+   * the column's heading. Absent: the project page header.
    */
   header?: ReactNode;
-  /**
-   * Only the scrolling list, without the page frame and title: the workspace
-   * Inbox draws its own header and the Review | Notifications tabs above it.
-   */
-  bare?: boolean;
   onOpenRow: (row: InboxNotification) => void;
   onMarkAllRead: () => void;
   onRetry: () => void;
@@ -116,7 +114,6 @@ export function NotificationInboxView({
   prompt,
   settings,
   header,
-  bare = false,
   onOpenRow,
   onMarkAllRead,
   onRetry,
@@ -138,9 +135,7 @@ export function NotificationInboxView({
 
   const list = (
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {/* Bare (the workspace Inbox's Notifications tab): the Review tab's
-            gutter, so switching tabs does not move the column. */}
-        <div className={cn('mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-6 pb-20', !bare && 'md:px-8')}>
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-6 pb-20 md:px-8">
           <div className="flex flex-col gap-1.5">
             {header ? <h1 className="text-foreground text-xl font-medium text-balance">{t('inbox.title')}</h1> : null}
             <p className="text-muted-foreground text-sm text-pretty">{t('inbox.description')}</p>
@@ -231,8 +226,6 @@ export function NotificationInboxView({
         </div>
       </div>
   );
-  if (bare) return list;
-
   return (
     // `h-svh`: nothing above this box has a definite height (as the Review page).
     <div className="flex h-svh min-h-0 flex-col overflow-hidden">
@@ -301,11 +294,9 @@ function InboxRow({ row, onOpen }: { row: InboxNotification; onOpen: () => void 
 export function NotificationInbox({
   settingsHref,
   header,
-  bare,
 }: {
   settingsHref?: string;
   header?: ReactNode;
-  bare?: boolean;
 }) {
   const t = useTranslations('notifications');
   const viewerId = useUiViewerId();
@@ -337,7 +328,6 @@ export function NotificationInbox({
           : { onOpen: () => useSettingsPanelStore.getState().openSettings('sessions') }
       }
       header={header}
-      bare={bare}
       onOpenRow={(row) => {
         if (!row.read) inbox.markRead([row.id]).catch(() => {});
       }}

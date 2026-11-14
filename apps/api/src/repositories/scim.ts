@@ -48,7 +48,7 @@ interface CreateScimTokenInput {
   expiresAt?: Date;
 }
 
-export interface CreateScimTokenResult {
+interface CreateScimTokenResult {
   tokenId: string;
   name: string;
   /** Plaintext — returned only at creation. Show once, never store. */
@@ -86,7 +86,7 @@ export async function createScimToken(
   };
 }
 
-export interface ScimTokenSummary {
+interface ScimTokenSummary {
   tokenId: string;
   name: string;
   publicPrefix: string;
@@ -142,7 +142,7 @@ export async function revokeScimToken(
   return rows.length > 0;
 }
 
-export interface ValidateScimResult {
+interface ValidateScimResult {
   ok: boolean;
   accountId?: string;
   tokenId?: string;

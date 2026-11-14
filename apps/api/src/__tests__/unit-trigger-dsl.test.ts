@@ -4,6 +4,7 @@ import {
   parseManifestString,
   serializeManifest,
   triggerSpecToFlatEntry,
+  triggerSpecToOnRunEntry,
 } from '../projects/triggers';
 
 const MIN_PROJECT = `
@@ -902,5 +903,44 @@ describe("triggers — spec/error `path` derives from the manifest's own filenam
       parseManifestString(manifestWith('triggers:\n  - slug: nightly\n    type: cron\n    cron: "0 9 * * *"\n    prompt: go')),
     );
     expect(specs[0]?.path).toBe('kortix.yaml#triggers.nightly');
+  });
+});
+
+describe('triggers — a program agent (`agents.<name>.run`)', () => {
+  const programManifest = (trigger: string, extra = '') =>
+    `${MIN_PROJECT}${extra}agents:\n  janitor:\n    run: node j.js\n  writer:\n    prompt: Write.\ntriggers:\n${trigger}`;
+
+  test('a trigger of a program agent may omit prompt: its input is the payload', () => {
+    const { specs, errors } = extractTriggers(parseManifestString(programManifest('  - slug: hourly\n    on: { every: 1h }\n    run: { agent: janitor }\n')));
+    expect(errors).toEqual([]);
+    expect(specs[0]!.promptTemplate).toBe('');
+  });
+
+  test('default_agent counts: a trigger naming no agent runs it', () => {
+    const { errors } = extractTriggers(parseManifestString(programManifest('  - slug: hourly\n    on: { every: 1h }\n    run: {}\n', 'default_agent: janitor\n')));
+    expect(errors).toEqual([]);
+  });
+
+  test('a model agent still needs a prompt', () => {
+    const { errors } = extractTriggers(parseManifestString(programManifest('  - slug: hourly\n    on: { every: 1h }\n    run: { agent: writer }\n')));
+    expect(errors[0]!.error).toMatch(/prompt is required/);
+  });
+
+  test('run.payload on an agent run is static input; it round-trips, and an omitted prompt stays omitted', () => {
+    const { specs, errors } = extractTriggers(
+      parseManifestString(programManifest('  - slug: nightly\n    on: { cron: "0 3 * * *" }\n    run: { agent: janitor, payload: { days: 30 } }\n')),
+    );
+    expect(errors).toEqual([]);
+    expect(specs[0]!.runPayload).toEqual({ days: 30 });
+    const onRun = triggerSpecToOnRunEntry(specs[0]!);
+    expect(onRun.run).toEqual({ agent: 'janitor', payload: { days: 30 } });
+    const flat = triggerSpecToFlatEntry(specs[0]!);
+    expect(flat.payload).toEqual({ days: 30 });
+    expect('prompt' in flat).toBe(false);
+  });
+
+  test('run.payload must be an object', () => {
+    const { errors } = extractTriggers(parseManifestString(programManifest('  - slug: nightly\n    on: { cron: "0 3 * * *" }\n    run: { agent: janitor, payload: [1] }\n')));
+    expect(errors[0]!.error).toMatch(/payload must be an object/);
   });
 });

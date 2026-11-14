@@ -24,7 +24,7 @@ const { showMessage } = require('./message-box');
 const basicAuth = require('./basic-auth');
 const { needsMainWindow, revealMainWindow, shouldAllowPreventedUnload } = require('./lifecycle-rules');
 const { createDeepLinkInbox } = require('./deep-link-inbox');
-const { menuContextForUrl, copyableUrl } = require('./menu-state');
+const { menuContextForUrl, copyableUrl, TAB_MENU_IDS, HIDDEN_TAB_MENU_IDS } = require('./menu-state');
 const { PANEL_TOGGLE_COMMAND, forwardsPanelToggle } = require('./panel-shortcut');
 const { decidePopup, isAllowedPopupNavigation } = require('./popup-rules');
 const { backgroundForTheme, normalizeChoice, normalizeTheme } = require('./theme-state');
@@ -517,7 +517,10 @@ function createMainWindow() {
 
   // Go menu state follows every committed navigation, including the App
   // Router's same-document ones.
-  mainWindow.webContents.on('did-navigate', refreshNavigationMenu);
+  mainWindow.webContents.on('did-navigate', () => {
+    desktopTabsActive = false;
+    refreshNavigationMenu();
+  });
   // A new document starts with nothing unseen; its page re-sends the count.
   mainWindow.webContents.on('did-navigate', clearAttentionBadge);
   mainWindow.webContents.on('did-navigate-in-page', (_event, _url, isMainFrame) => {
@@ -659,6 +662,13 @@ function navigateWindow(direction) {
   return true;
 }
 
+/**
+ * The page's tab strip is mounted (preload `setTabsActive`, sent by
+ * apps/web/src/features/desktop-tabs). A full page load resets it: the new
+ * page reports again once its strip mounts.
+ */
+let desktopTabsActive = false;
+
 /** Forward needs a history target; Back falls home when there is none. */
 function refreshNavigationMenu() {
   const menu = Menu.getApplicationMenu();
@@ -666,7 +676,13 @@ function refreshNavigationMenu() {
   const url = mainWindow?.webContents.getURL() || '';
   const forward = menu.getMenuItemById('kx-go-forward');
   if (forward) forward.enabled = mainHistoryTarget('forward') >= 0;
-  const context = menuContextForUrl(url);
+  const context = menuContextForUrl(url, desktopTabsActive);
+  for (const id of TAB_MENU_IDS) {
+    const item = menu.getMenuItemById(id);
+    if (!item) continue;
+    item.enabled = desktopTabsActive;
+    item.visible = desktopTabsActive && !HIDDEN_TAB_MENU_IDS.has(id);
+  }
   const newSession = menu.getMenuItemById('kx-file-new-session');
   const closeTab = menu.getMenuItemById('kx-file-close-tab');
   const copyUrl = menu.getMenuItemById('kx-go-copy-url');
@@ -1201,6 +1217,16 @@ function registerIpc() {
     if (!mainWindow || event.sender !== mainWindow.webContents) return false;
     if (direction !== 'back' && direction !== 'forward') return false;
     return navigateWindow(direction);
+  });
+
+  // The web app's tab strip mounted or unmounted. Only the main window's page:
+  // it decides which tab menu items the window shows.
+  ipcMain.on('kortix:tabs-active', (event, active) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents) return;
+    const next = active === true;
+    if (next === desktopTabsActive) return;
+    desktopTabsActive = next;
+    refreshNavigationMenu();
   });
 
   // Window controls (Tauri `getCurrentWindow().*`).

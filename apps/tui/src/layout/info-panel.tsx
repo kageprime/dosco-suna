@@ -27,6 +27,7 @@ import { useMemo } from 'react';
 
 import { contextReading } from '../lib/context-usage.ts';
 import { relativeAge } from '../lib/relative-time.ts';
+import { clip } from '../lib/text.ts';
 import { glyph, theme } from '../theme.ts';
 
 /** Columns the panel takes, its left or right rule included. */
@@ -58,10 +59,6 @@ function Section({ label, lines }: { label: string; lines: readonly string[] }) 
       ))}
     </box>
   );
-}
-
-function clip(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
 export function InfoPanel({

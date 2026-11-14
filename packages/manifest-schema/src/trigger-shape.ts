@@ -4,7 +4,7 @@
  *
  *   on:  { cron, timezone } | { every } | { at } | { webhook: { secret } }
  *        | { event, connector, account?, source?, config? } | { event, app }
- *   run: { agent?, prompt, session?, session_key?, session_id?, model? }
+ *   run: { agent?, prompt, session?, session_key?, session_id?, model?, payload? }
  *        | { app, path?, method?, payload? }
  *
  * `normalizeTriggerEntry` rewrites it into the flat fields (`type: cron`,
@@ -53,7 +53,10 @@ function normalizeRun(run: Row): Row {
     ...(session !== undefined ? { session_mode: session } : {}),
     ...(app !== undefined
       ? { target: { app, ...(path !== undefined ? { path } : {}), ...(method !== undefined ? { method } : {}), ...(payload !== undefined ? { payload } : {}) } }
-      : {}),
+      : // An agent run's `payload` is static input, merged under each fire's payload.
+        payload !== undefined
+        ? { payload }
+        : {}),
   };
 }
 

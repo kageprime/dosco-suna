@@ -43,3 +43,10 @@ describe('project Files queries', () => {
     expect(sessionDrivesQueryOptions('p1', undefined, true).enabled).toBe(false);
   });
 });
+
+// A transient storage failure must not freeze an open folder until reload.
+test('folder listings continue polling after a failed refresh', () => {
+  const options = driveFolderQueryOptions(D, '/Company');
+  const interval = options.refetchInterval as number | ((query: { state: { status: string } }) => number | false);
+  expect(typeof interval === 'function' ? interval({ state: { status: 'error' } }) : interval).toBe(10_000);
+});

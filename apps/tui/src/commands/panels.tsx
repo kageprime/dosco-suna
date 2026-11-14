@@ -5,7 +5,7 @@
  *
  * They are in-flow `InlinePicker`s, like the model picker, so they sit right
  * where the user is typing and never cover the transcript. Each one reads the
- * SAME SDK reads the sidebar and the switcher read (`useProjectSessions`,
+ * SAME SDK reads the root app and the switcher read (`useProjectSessions`,
  * `useWorkspaces`), so opening one costs no request on a warm cache.
  */
 

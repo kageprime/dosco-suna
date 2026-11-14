@@ -1,3 +1,4 @@
+const menuState = require('./menu-state');
 const { describe, expect, mock, test } = require('bun:test');
 
 const { buildAppMenuTemplate } = require('./app-menu');
@@ -81,6 +82,8 @@ describe('application menu: macOS', () => {
       '  quit',
       'File',
       '  New Session',
+      '  New Tab',
+      '  Reopen Closed Tab',
       '  Open Quick Entry',
       '  Quick Entry Shortcut',
       '    Ctrl+Shift+Space',
@@ -106,7 +109,63 @@ describe('application menu: macOS', () => {
       '  Home',
       '  -',
       '  Copy Current URL',
+      '  -',
+      '  Show Next Tab',
+      '  Show Previous Tab',
+      '  Show Tab 1',
+      '  Show Tab 2',
+      '  Show Tab 3',
+      '  Show Tab 4',
+      '  Show Tab 5',
+      '  Show Tab 6',
+      '  Show Tab 7',
+      '  Show Tab 8',
+      '  Show Last Tab',
       'windowMenu',
+    ]);
+  });
+
+  test('every menu item carries a label, role or type, as Electron requires', () => {
+    const missing = [];
+    const walk = (items) => {
+      for (const item of items) {
+        if (!item.label && !item.role && !item.type) missing.push(item.id ?? '?');
+        if (Array.isArray(item.submenu)) walk(item.submenu);
+      }
+    };
+    walk(template('darwin').menu);
+    walk(template('win32').menu);
+    expect(missing).toEqual([]);
+  });
+
+  test('the tab items are native accelerators that hand a command to the page', () => {
+    // An artifact or App frame holds focus, and a keystroke there never
+    // reaches the page; a menu accelerator does.
+    const { menu, on } = template('darwin');
+    const byId = (id) => find(menu, (i) => i.id === id);
+    expect(byId('kx-file-new-tab').accelerator).toBe('CommandOrControl+T');
+    expect(byId('kx-file-reopen-tab').accelerator).toBe('CommandOrControl+Shift+T');
+    expect(byId('kx-go-next-tab').accelerator).toBe('Control+Tab');
+    expect(byId('kx-go-prev-tab').accelerator).toBe('Control+Shift+Tab');
+    expect(byId('kx-go-tab-9')).toMatchObject({
+      accelerator: 'CommandOrControl+9',
+      visible: false,
+      acceleratorWorksWhenHidden: true,
+    });
+    // Off until the page reports its tab strip (the `desktop_tabs` flag):
+    // without tabs, Mod+1…9 and Ctrl+Tab stay the page's own keys.
+    for (const id of menuState.TAB_MENU_IDS) {
+      expect(byId(id)).toMatchObject({ enabled: false, visible: false });
+    }
+    for (const id of ['kx-file-new-tab', 'kx-file-reopen-tab', 'kx-go-next-tab', 'kx-go-prev-tab', 'kx-go-tab-3']) {
+      byId(id).click();
+    }
+    expect(on.command.mock.calls.map((call) => call[0])).toEqual([
+      'new-tab',
+      'reopen-tab',
+      'next-tab',
+      'prev-tab',
+      'select-tab-3',
     ]);
   });
 });

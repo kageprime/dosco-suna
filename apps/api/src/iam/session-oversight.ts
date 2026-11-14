@@ -19,6 +19,7 @@ import { db } from '../shared/db';
 import { isImpersonatingAccount } from '../shared/impersonation';
 import { ttlMemo } from '../shared/ttl-memo';
 import { accountsView } from '../workspaces/rows';
+import { accountScoped } from './workspace-scope';
 
 /** The account roles oversight reaches. Same set as `isImplicitManager`. */
 export const OVERSIGHT_ACCOUNT_ROLES = ['owner', 'admin'] as const;
@@ -58,7 +59,7 @@ async function callerIsAccountAdmin(userId: string, accountId: string): Promise<
     .where(
       and(
         eq(roleAssignments.accountId, accountId),
-        eq(roleAssignments.scopeType, 'account'),
+        accountScoped(),
         isNull(roleAssignments.objectType),
         isNull(iamRoles.accountId),
         inArray(iamRoles.key, [...OVERSIGHT_ACCOUNT_ROLES]),

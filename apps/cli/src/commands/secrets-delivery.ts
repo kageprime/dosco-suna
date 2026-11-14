@@ -114,6 +114,41 @@ function hasHttpPolicyOptions(flags: DeliveryFlags): boolean {
   );
 }
 
+/** The usage error `--template` earns without `--inject-header` (it templates
+ *  the header value): both builders refuse that pair. */
+function templateGuard(flags: DeliveryFlags): string | undefined {
+  return flags.template !== undefined && flags.injectHeader === undefined
+    ? '--template requires --inject-header.'
+    : undefined;
+}
+
+/** The header injection slot both builders write: `--inject-header`, with its
+ *  optional `--template`. Undefined without a (non-empty) `--inject-header` —
+ *  the builders test truthiness, so an `--inject-header=` with no value is no
+ *  slot, exactly as they behaved before the helpers existed. */
+function headerSlot(flags: DeliveryFlags): SecretInjectionSlot | undefined {
+  if (!flags.injectHeader) return undefined;
+  return {
+    kind: 'header',
+    name: flags.injectHeader,
+    ...(flags.template ? { template: flags.template } : {}),
+  };
+}
+
+/** The policy both builders end in: host rules, an optional injection slot,
+ *  deny-when-no-rule-matches, TLS terminated at the relay. */
+function commonBase(
+  rules: SecretEgressPolicy['rules'],
+  inject?: SecretInjectionSlot,
+): Omit<SecretEgressPolicy, 'backend'> {
+  return {
+    rules,
+    ...(inject ? { inject } : {}),
+    on_no_match: 'deny',
+    tls: 'terminate',
+  };
+}
+
 /**
  * Build the legacy http-broker row's policy, validation included: exact host
  * list, exactly one injection slot, valid methods. Returns the policy, or the
@@ -129,31 +164,26 @@ function buildBrokerPolicy(flags: DeliveryFlags): SecretEgressPolicy | string {
   if (injectionValues.length !== 1) {
     return 'A legacy http-broker row requires exactly one injection flag.';
   }
-  if (flags.template !== undefined && flags.injectHeader === undefined) {
-    return '--template requires --inject-header.';
-  }
+  const templateError = templateGuard(flags);
+  if (templateError) return templateError;
   if (flags.allowedMethods.some((method) => !BROKER_METHODS.includes(method as BrokerMethod))) {
     return 'Invalid --allow-method value.';
   }
-  const inject: SecretInjectionSlot = flags.injectHeader
-    ? {
-        kind: 'header',
-        name: flags.injectHeader,
-        ...(flags.template ? { template: flags.template } : {}),
-      }
-    : flags.injectQuery
+  const inject: SecretInjectionSlot =
+    headerSlot(flags) ??
+    (flags.injectQuery
       ? { kind: 'query', name: flags.injectQuery }
-      : { kind: 'json_body_field', path: flags.injectJson! };
+      : { kind: 'json_body_field', path: flags.injectJson! });
   return {
     backend: 'kortix_fetch',
-    rules: flags.allowedHosts.map((host) => ({
-      host,
-      ...(flags.allowedMethods.length > 0 ? { methods: flags.allowedMethods } : {}),
-      ...(flags.allowedPath ? { path: flags.allowedPath } : {}),
-    })),
-    inject,
-    on_no_match: 'deny',
-    tls: 'terminate',
+    ...commonBase(
+      flags.allowedHosts.map((host) => ({
+        host,
+        ...(flags.allowedMethods.length > 0 ? { methods: flags.allowedMethods } : {}),
+        ...(flags.allowedPath ? { path: flags.allowedPath } : {}),
+      })),
+      inject,
+    ),
   };
 }
 
@@ -184,29 +214,18 @@ function buildEgressPolicy(flags: DeliveryFlags): SecretEgressPolicy | string {
   if (normalizedHosts.some((host) => !exactHost.test(host))) {
     return 'Enforced exposure requires exact hosts — no wildcards, no paths, no scheme.';
   }
-  if (flags.template !== undefined && flags.injectHeader === undefined) {
-    return '--template requires --inject-header.';
-  }
+  const templateError = templateGuard(flags);
+  if (templateError) return templateError;
   if (flags.template !== undefined && !flags.template.includes('{{secret}}')) {
     return '--template must contain {{secret}}.';
   }
-  return {
-    rules: [...new Set(normalizedHosts)].map((host) => ({ host })),
+  return commonBase(
+    [...new Set(normalizedHosts)].map((host) => ({ host })),
     // Absent by default: a substitution row. `--inject-header` is kept, and
     // kept working, because scripts and stored rows use it — it writes the
     // legacy injection row the server still serves unchanged.
-    ...(flags.injectHeader
-      ? {
-          inject: {
-            kind: 'header' as const,
-            name: flags.injectHeader,
-            ...(flags.template ? { template: flags.template } : {}),
-          },
-        }
-      : {}),
-    on_no_match: 'deny',
-    tls: 'terminate',
-  };
+    headerSlot(flags),
+  );
 }
 
 export async function secretsDelivery(

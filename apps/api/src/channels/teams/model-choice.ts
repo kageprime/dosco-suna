@@ -23,7 +23,6 @@ import {
 } from '../model-access';
 import { channelModelContext } from '../slack/model-gate';
 import { currentChannelSelection, setChannelModel } from '../slack/selection';
-import { projectFeatureFlagEnabled } from '../../feature-flags/for-project';
 import { conversationSession, teamsChannelCtx } from './binding';
 import { buildModelPickerCard, buildNoticeCard } from './cards';
 import { normalizeConversationPolicy } from './participants';
@@ -52,10 +51,8 @@ export async function teamsModelScope(activity: TeamsActivity, tenantId: string,
   if (!gate) return null;
   const sender = config.TEAMS_REQUIRE_USER_IDENTITY ? teamsUserId(activity) : null;
   const actor = sender ? await resolveChatActor(chatUser('teams', tenantId, sender), gate).catch(() => null) : null;
-  const pooledEnabled = await projectFeatureFlagEnabled(gate.projectId, 'pooled_provider_secrets').catch(() => false);
   return channelModelScope({
     ...gate,
-    pooledEnabled,
     linkedUserId: actor && 'userId' in actor ? actor.userId : null,
     oneToOne: isPersonalChat(activity),
   });

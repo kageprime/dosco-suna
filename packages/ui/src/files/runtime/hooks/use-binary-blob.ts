@@ -13,6 +13,7 @@ import {
   imageWakingRefetchInterval,
   missingFileReadError,
   missingFileSuppressed,
+  missingFileReadEpoch,
   noteMissingFileRead,
   sandboxWakingRefetchInterval,
 } from '../../../internal/files/file-read-retry';
@@ -89,6 +90,7 @@ export function useBinaryBlob(
       // A miss this fresh answers its refetches without a re-read; see the
       // gate in internal/files/file-read-retry.
       if (missingFileSuppressed(serverUrl, filePath)) throw missingFileReadError();
+      const startedAt = missingFileReadEpoch();
       const blob = await readRuntimeFileWithRetry(
         filePath!,
         async () => {
@@ -103,7 +105,7 @@ export function useBinaryBlob(
         undefined,
         signal,
       ).catch((error) => {
-        noteMissingFileRead(serverUrl, filePath!, error);
+        noteMissingFileRead(serverUrl, filePath!, error, startedAt);
         throw error;
       });
       clearMissingFileRead(serverUrl, filePath!);

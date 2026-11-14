@@ -1,5 +1,6 @@
 import { HTTPException } from 'hono/http-exception';
 import { config } from '../../config';
+import { InsufficientCreditsError } from '../../errors';
 import { getCreditAccount } from '../repositories/credit-accounts';
 import {
   type BillingSnapshot,
@@ -176,7 +177,12 @@ export async function checkBillingActive(
       key: null,
     });
     return { ok: true, holdUsd: MINIMUM_CREDIT_FOR_RUN };
-  } catch {
+  } catch (error) {
+    // Only the wallet saying no is a refusal. A SQL or transport fault
+    // (`WalletUnavailableError`, a retryable 503) says nothing about the
+    // balance: telling a funded account it has no credit made its agents report
+    // "Out of credits" (prod 2026-11-12).
+    if (!(error instanceof InsufficientCreditsError)) throw error;
     // The hold lost the race (or the wallet moved under us). Re-resolve against
     // an empty wallet so the blocked result carries the same discrimination the
     // pre-check would have produced.

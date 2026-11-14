@@ -123,6 +123,23 @@ export function isLinkSafeHref(href: string | undefined): boolean {
   return true;
 }
 
+/**
+ * The app path of an absolute URL on this page's own origin
+ * (`https://kortix.com/workspaces/…` on kortix.com → `/workspaces/…`), or
+ * `null` for any other href. Agents write full URLs; a click on one is an
+ * in-app navigation, not a page load.
+ */
+export function sameOriginAppPath(href: string | undefined): string | null {
+  if (!href || typeof window === 'undefined' || !/^https?:\/\//i.test(href)) return null;
+  try {
+    const url = new URL(href);
+    if (url.origin !== window.location.origin) return null;
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return null;
+  }
+}
+
 /** Route only trusted app paths through Next.js Link and its prefetcher. */
 export function shouldUseNextLink(href: string | undefined): boolean {
   return isInternalUrl(href) && isLinkSafeHref(href);

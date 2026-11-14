@@ -44,6 +44,7 @@ import {
   useReminderControls,
   useReminderView,
 } from './reminder-parts';
+import { prefersReducedMotion } from '../../internal/hooks/use-reduced-motion';
 
 /** More live reminders than this open in the side panel, not the popover. */
 export const REMINDERS_POPOVER_MAX = 30;
@@ -142,7 +143,7 @@ function useGlidingCard() {
     if (!panel) return;
     clearTimers();
     const panelRect = panel.getBoundingClientRect();
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduce = prefersReducedMotion();
     const place = (glide: boolean) =>
       setActive({
         id,

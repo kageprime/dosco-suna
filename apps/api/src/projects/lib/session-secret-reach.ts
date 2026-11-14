@@ -19,6 +19,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '../../shared/db';
 import { loadGitProjectRow } from './project-git-row';
 import { DEFAULT_AGENT_SENTINEL } from '../agents';
+import { listAdmits } from '../../secrets/strategy';
 import { resolveSessionSecretGrant } from './secret-grant';
 
 export type SecretWithheldReason = 'agent_grant' | 'session_allowlist';
@@ -35,11 +36,6 @@ export interface SessionSecretReach {
   allowlist: string[] | null;
 }
 
-function admits(list: string[], name: string): boolean {
-  const target = name.toUpperCase();
-  return list.some((entry) => entry.toUpperCase() === target);
-}
-
 /**
  * The names in `names` that a session with this grant and allowlist never
  * receives. The agent grant is reported first: it is the durable setting a
@@ -53,9 +49,9 @@ export function withheldSecrets(
 ): WithheldSecret[] {
   const withheld: WithheldSecret[] = [];
   for (const name of names) {
-    if (grantEnv !== undefined && grantEnv !== 'all' && !admits(grantEnv, name)) {
+    if (grantEnv !== undefined && grantEnv !== 'all' && !listAdmits(grantEnv, name)) {
       withheld.push({ name, reason: 'agent_grant' });
-    } else if (allowlist != null && !admits(allowlist, name)) {
+    } else if (allowlist != null && !listAdmits(allowlist, name)) {
       withheld.push({ name, reason: 'session_allowlist' });
     }
   }

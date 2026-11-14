@@ -30,7 +30,8 @@ import {
   FloppyDiskIcon as Save,
 } from '@phosphor-icons/react';
 import React, { lazy, Suspense, useCallback, useMemo, useState } from 'react';
-import { useReducedMotion, type Variant } from 'motion/react';
+import { type Variant } from 'motion/react';
+import { useReducedMotion } from '../../internal/hooks/use-reduced-motion';
 import { Disclosure, DisclosureContent } from '../../primitives/disclosure';
 // Direct module import, not the feature barrel: the barrel re-exports THIS file.
 import { HtmlPreview } from './html-preview';

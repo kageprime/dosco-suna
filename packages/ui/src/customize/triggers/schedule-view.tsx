@@ -118,6 +118,7 @@ import {
   parseTriggerFilter,
   readTriggerSheet,
   triggerSheetHref,
+  type TriggerSheetTabParam,
   triggersForAgent,
 } from './schedule/trigger-filter';
 import { TriggerList } from './schedule/trigger-list';
@@ -387,7 +388,9 @@ export function ScheduleView({
   const configure = useConfigureThread(projectId);
   const searchParams = useUiSearchParams();
   // `?id=<trigger id>[&tab=runs]` is the open trigger: a link, Back and Forward all open it.
-  const sheet = readTriggerSheet(searchParams);
+  // On an agent's page `?tab=` is the agent's tab: the sheet keeps its own tab in `?sheet=`.
+  const sheetTabParam: TriggerSheetTabParam = agentName ? 'sheet' : 'tab';
+  const sheet = readTriggerSheet(searchParams, sheetTabParam);
   // App events are a beta feature behind the project flag `event_triggers`. Fail
   // closed: until the flag resolves on, nothing that lists, browses or requests events renders.
   const featureFlags = useFeatureFlags(projectId);
@@ -417,6 +420,7 @@ export function ScheduleView({
       searchParams?.toString() ?? '',
       next,
       selected !== null,
+      sheetTabParam,
     );
     if (mode === 'push') router.push(href, { scroll: false });
     else router.replace(href, { scroll: false });

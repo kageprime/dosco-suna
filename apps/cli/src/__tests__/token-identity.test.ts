@@ -36,6 +36,35 @@ const ENV_KEYS = [
 let saved: Record<string, string | undefined>;
 let dir: string;
 
+/** An `/accounts/me` body for a person's workspace-bound PAT (no agent, no
+ *  session): the shape the API returns for a key minted in the web at
+ *  /settings/tokens. The account row names the workspace the key is bound to
+ *  (`workspace_id` = `token_context.project_id`). */
+function personMe(): MeResponse {
+  return {
+    user_id: 'user_123',
+    email: 'person@example.com',
+    token_context: {
+      auth_type: 'pat',
+      project_id: '5a1e0c0a-0000-4000-8000-00000000000a',
+      session_id: null,
+      agent: null,
+      connectors: null,
+      kortix_permissions: null,
+      kortix_cli: null,
+    },
+    accounts: [
+      {
+        account_id: 'acc_123',
+        workspace_id: '5a1e0c0a-0000-4000-8000-00000000000a',
+        slug: 'acc123',
+        name: 'Setup Workspace',
+        role: 'owner',
+      },
+    ],
+  };
+}
+
 /** An `/accounts/me` body for a minted agent session token — the exact shape
  *  the API returns for the SampleCo `osp-vision-route-agent` case. */
 function agentMe(): MeResponse {
@@ -162,6 +191,18 @@ describe('token identity cache', () => {
     expect(cachedTokenIdentity('kortix_pat_session')).toBeNull();
   });
 
+  test('a workspace-bound PAT carries the name of its binding workspace', () => {
+    const identity = identityFromMe(personMe());
+    expect(identity.projectId).toBe('5a1e0c0a-0000-4000-8000-00000000000a');
+    expect(identity.workspaceName).toBe('Setup Workspace');
+  });
+
+  test('an identity whose account list names no workspace has no workspace name', () => {
+    const me = personMe();
+    me.accounts = [];
+    expect(identityFromMe(me).workspaceName).toBeNull();
+  });
+
   test('labels a token by what it is', () => {
     expect(tokenKindLabel(identityFromMe(agentMe()))).toBe(
       'session token · agent osp-vision-route-agent',
@@ -175,6 +216,7 @@ describe('token identity cache', () => {
         permissions: null,
         userId: 'u',
         userEmail: 'a@b.c',
+        workspaceName: null,
       }),
     ).toBe('supabase');
     expect(formatGrantList('all')).toBe('all');
@@ -282,6 +324,77 @@ describe('permission-denial identity footer', () => {
 
   test('credential_fence_refused names the credential, never kortix_permissions', async () => {
     const out = await footerFor({ code: 'credential_fence_refused' });
+    expect(out).toContain('bound to one workspace');
+    expect(out).not.toContain('kortix_permissions');
+  });
+
+  test('a workspace-bound PAT fence refusal names the binding workspace and the working path', async () => {
+    rememberTokenIdentity('kortix_pat_workspace', personMe());
+    recordPermissionDenial(403, { code: 'credential_fence_refused' }, {
+      host: 'http://127.0.0.1:9',
+      token: 'kortix_pat_workspace',
+    });
+    const cap = captureStderr();
+    try {
+      await printPermissionDenialIdentity();
+    } finally {
+      cap.restore();
+    }
+    const out = cap.output();
+    // The workspace's NAME, not just "one workspace": the customer can go
+    // straight to the minting surface and pick the account-wide scope.
+    expect(out).toContain('Setup Workspace');
+    expect(out).toMatch(/personal key/i);
+    expect(out).not.toContain('kortix_permissions');
+  });
+
+  test('a workspace name carrying escape sequences or control characters prints scrubbed', async () => {
+    const hostile = personMe();
+    hostile.accounts = [
+      {
+        account_id: 'acc_123',
+        workspace_id: '5a1e0c0a-0000-4000-8000-00000000000a',
+        slug: 'acc123',
+        // Tenant-settable via a rename: an escape sequence that recolors or
+        // moves the cursor, a cursor-report CSI, and a raw control byte.
+        name: 'Evil\u001b[31mWorkspace\u001b[6n\u0007',
+        role: 'owner',
+      },
+    ];
+    rememberTokenIdentity('kortix_pat_hostile', hostile);
+    recordPermissionDenial(403, { code: 'credential_fence_refused' }, {
+      host: 'http://127.0.0.1:9',
+      token: 'kortix_pat_hostile',
+    });
+    const cap = captureStderr();
+    try {
+      await printPermissionDenialIdentity();
+    } finally {
+      cap.restore();
+    }
+    const out = cap.output();
+    // The name still reads as text; nothing in it may act on the terminal:
+    // the escape sequences are gone and the control byte is replaced.
+    expect(out).toContain('EvilWorkspace?');
+    expect(out).not.toContain('\u001b');
+    expect(out).not.toContain('\u0007');
+  });
+
+  test('a fence refusal without a workspace name keeps the generic remedy', async () => {
+    const stale = personMe();
+    stale.accounts = [];
+    rememberTokenIdentity('kortix_pat_workspace', stale);
+    recordPermissionDenial(403, { code: 'credential_fence_refused' }, {
+      host: 'http://127.0.0.1:9',
+      token: 'kortix_pat_workspace',
+    });
+    const cap = captureStderr();
+    try {
+      await printPermissionDenialIdentity();
+    } finally {
+      cap.restore();
+    }
+    const out = cap.output();
     expect(out).toContain('bound to one workspace');
     expect(out).not.toContain('kortix_permissions');
   });

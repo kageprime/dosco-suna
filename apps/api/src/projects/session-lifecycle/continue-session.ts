@@ -102,7 +102,9 @@ export async function continueSession(
   const stale = await staleDevTunnelBox(sessionId);
   if (stale) {
     logger.warn('[session-lifecycle] refusing delivery to a box of an earlier dev tunnel', { sessionId, reason: stale });
-    return 'no-session';
+    // A web send still belongs to this session. Name its failed callback path;
+    // channels use no-session to start a fresh conversation on a reachable box.
+    return command.source === 'ui' ? 'stale-runtime' : 'no-session';
   }
   const userId = command.userId ?? (await resolveProjectAutomationActor(session.accountId));
   if (!userId) {

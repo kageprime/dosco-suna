@@ -8,9 +8,9 @@ import { buildTunnelWsUrl, trustedCredential, type TunnelConfig } from './config
  * - `unreachable` no verdict was reached. The credential is NOT proven bad, so
  *                 callers must keep it.
  */
-export type CredentialProbeResult = 'valid' | 'rejected' | 'unreachable';
+type CredentialProbeResult = 'valid' | 'rejected' | 'unreachable';
 
-export interface ProbeCredentialsOptions {
+interface ProbeCredentialsOptions {
   /** Capabilities advertised in the handshake. Must match what the agent sends. */
   capabilities?: string[];
   timeoutMs?: number;

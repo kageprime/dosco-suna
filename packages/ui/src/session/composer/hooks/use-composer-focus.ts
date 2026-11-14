@@ -106,14 +106,16 @@ export function useComposerFocus({
     if (!shouldAutoFocus) return;
     const el = ref.current;
     if (!el) return;
+    const canTakeFocus = () => !hasOpenFocusOverlay() &&
+      (document.activeElement === el || !isEditableField(document.activeElement));
     if (isVisible(el)) {
-      if (!hasOpenFocusOverlay()) el.focus();
+      if (canTakeFocus()) el.focus();
       return;
     }
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
-          if (!hasOpenFocusOverlay()) ref.current?.focus();
+          if (canTakeFocus()) ref.current?.focus();
           observer.disconnect();
         }
       },

@@ -32,6 +32,74 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Reduce motion (Settings ▸ Preferences). The person's switch puts
+   `data-reduce-motion` on <html>; it counts the same as the OS
+   `prefers-reduced-motion: reduce`. Both Tailwind motion variants follow it, so
+   every `motion-reduce:` / `motion-safe:` class in the app obeys the switch
+   without a second class. See `internal/hooks/use-reduced-motion.ts`. */
+@custom-variant motion-reduce {
+  @media (prefers-reduced-motion: reduce) {
+    @slot;
+  }
+  &:where([data-reduce-motion] *) {
+    @slot;
+  }
+}
+@custom-variant motion-safe {
+  @media (prefers-reduced-motion: no-preference) {
+    &:where(:root:not([data-reduce-motion]) *) {
+      @slot;
+    }
+  }
+}
+
+/* The switch stops every CSS animation and transition: shimmer sweeps, pulses,
+   skeletons, enter/exit fades, hover fades, smooth scroll. Durations collapse to
+   0.01ms instead of `none`, so each animation still lands on its end state and
+   still fires `animationend` / `transitionend` — Radix presence and exit
+   handlers wait for those events. Infinite loops play once and stop.
+   Background-position sweeps (the shimmer) repaint every frame and never reach
+   the compositor; this rule is where the switch saves the most work. */
+:root[data-reduce-motion] *,
+:root[data-reduce-motion] *::before,
+:root[data-reduce-motion] *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+:root[data-reduce-motion] {
+  scroll-behavior: auto !important;
+}
+
+/* A loader still has to say "working". The spinners keep the calm,
+   constant-speed spin the OS reduced-motion rule below gives them — one
+   compositor-only rotation, no repaint. */
+:root[data-reduce-motion] .animate-spinner-orbit,
+:root[data-reduce-motion] .animate-spinner-spin {
+  animation: spinner-orbit 1.4s linear infinite !important;
+}
+:root[data-reduce-motion] .animate-spinner-dash {
+  animation: none !important;
+  stroke-dashoffset: 34;
+  transform: none;
+}
+:root[data-reduce-motion] .animate-spinner-spokes {
+  animation: spinner-spokes 1.4s linear infinite !important;
+}
+:root[data-reduce-motion] .animate-spin {
+  animation-duration: 1s !important;
+  animation-iteration-count: infinite !important;
+}
+/* `KortixLoader` spins through an inline `animation`; its duration rides in
+   `--kx-spin-duration` so this rule can give it back. */
+:root[data-reduce-motion] [data-kx-spinner] {
+  animation-duration: var(--kx-spin-duration, 1s) !important;
+  animation-iteration-count: infinite !important;
+}
+
 /* Host-neutral base rules. Every host gets them, so the page itself follows the
    tokens: the body paints --background and --foreground (a white-label
    override of either reaches the page), borders and outlines default to

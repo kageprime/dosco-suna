@@ -8,6 +8,7 @@ import {
   type SecretWithheldReason,
   type SecretEgressPolicy,
   findHandleCandidates,
+  listAdmits,
   matchRule,
   maxStrategy,
   mintHandle,
@@ -425,6 +426,23 @@ describe('resolveSecretDelivery — sessionId is required to mint a handle', () 
     for (const strategy of ['egress', 'broker', 'denied'] as const) {
       expect(resolve({ strategy, sessionId: null }).emit).not.toBe('plaintext');
     }
+  });
+});
+
+describe('listAdmits — grant membership', () => {
+  test('matches an identifier in any case', () => {
+    expect(listAdmits(['Alpha_Key'], 'ALPHA_KEY')).toBe(true);
+    expect(listAdmits(['ALPHA_KEY'], 'alpha_key')).toBe(true);
+    expect(listAdmits(['BETA_KEY'], 'ALPHA_KEY')).toBe(false);
+  });
+
+  test('an empty list admits nothing', () => {
+    expect(listAdmits([], 'ALPHA_KEY')).toBe(false);
+  });
+
+  test('a non-string entry admits nothing and does not stop the scan', () => {
+    expect(listAdmits([1, null, { name: 'ALPHA_KEY' }], 'ALPHA_KEY')).toBe(false);
+    expect(listAdmits([1, null, 'alpha_key'], 'ALPHA_KEY')).toBe(true);
   });
 });
 

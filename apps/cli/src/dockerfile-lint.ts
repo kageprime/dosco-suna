@@ -69,12 +69,11 @@ interface Instruction {
  * in lock-step: this is the authoring-time copy of a check that otherwise only
  * fires server-side, mid-build.
  */
-const HEREDOC_RE = /<<-?['"]?[A-Za-z_]\w*['"]?\s*\\?\s*$/;
+const HEREDOC_RE = /<<-?['"]?([A-Za-z_]\w*)['"]?\s*\\?\s*$/;
 
 /** Extract a heredoc's delimiter so its BODY can be skipped by the parser. */
 function heredocDelimiter(line: string): string | null {
-  const m = line.match(/<<-?['"]?([A-Za-z_]\w*)['"]?\s*\\?\s*$/);
-  return m ? m[1]! : null;
+  return line.match(HEREDOC_RE)?.[1] ?? null;
 }
 
 /**
@@ -148,16 +147,6 @@ function fromBase(args: string): { base: string; stage?: string } | null {
   return { base, stage };
 }
 
-/**
- * Lint a sandbox Dockerfile for the constraints the Kortix cloud builder
- * enforces. Returns `ManifestIssue`s in source order; an empty array means the
- * text passes every static check (it says NOTHING about whether the image
- * actually builds — see `kortix sandboxes build --local` for that).
- */
-export function lintDockerfile(text: string, opts: LintDockerfileOpts): ManifestIssue[] {
-  const issues: ManifestIssue[] = [];
-  const instructions = parseInstructions(text);
-
   // ── 1. COPY/ADD from the build context ───────────────────────────────────
   // `stageBuildContext` (apps/api/src/snapshots/build-context.ts) stages ONLY
   // Kortix's own artifacts — the context is a CLOSED set and none of it is
@@ -169,6 +158,8 @@ export function lintDockerfile(text: string, opts: LintDockerfileOpts): Manifest
   // is decidable and exact: the only legal reads are `--from=<stage>` (a
   // multi-stage copy, which reads from an image, not the context) and a remote
   // `ADD <url>` (which Docker fetches over the network).
+function checkContextCopies(instructions: Instruction[], opts: LintDockerfileOpts): ManifestIssue[] {
+  const issues: ManifestIssue[] = [];
   for (const ins of instructions) {
     if (ins.keyword !== 'COPY' && ins.keyword !== 'ADD') continue;
     const tokens = tokenizeArgs(ins.args);
@@ -192,6 +183,8 @@ export function lintDockerfile(text: string, opts: LintDockerfileOpts): Manifest
       });
     }
   }
+  return issues;
+}
 
   // ── 2. RUN heredocs ──────────────────────────────────────────────────────
   // Rationale ported verbatim from the buildah-portability guard in
@@ -209,6 +202,8 @@ export function lintDockerfile(text: string, opts: LintDockerfileOpts): Manifest
   // That guard throws SERVER-side, mid-build, and only for Platinum — so on a
   // Daytona-backed project a heredoc ships green and breaks later. Deciding it
   // here, from the text, is the same check moved to where it costs nothing.
+function checkRunHeredocs(instructions: Instruction[], opts: LintDockerfileOpts): ManifestIssue[] {
+  const issues: ManifestIssue[] = [];
   for (const ins of instructions) {
     if (/^\s*#/.test(ins.firstLine) || !HEREDOC_RE.test(ins.firstLine)) continue;
     issues.push({
@@ -223,6 +218,8 @@ export function lintDockerfile(text: string, opts: LintDockerfileOpts): Manifest
         `BuildKit-only \`# syntax\` directives break every Platinum build.`,
     });
   }
+  return issues;
+}
 
   // ── 3. Non-Debian base ───────────────────────────────────────────────────
   // The Kortix layer's floor opens with `apt-get update && apt-get install`, so
@@ -232,6 +229,8 @@ export function lintDockerfile(text: string, opts: LintDockerfileOpts): Manifest
   // the tag alone can't prove the absence of apt (a Debian derivative can be
   // named anything, and `FROM myorg/alpine-migrated-to-debian` is a real
   // shape), so we flag the smell and let the author overrule it.
+function checkNonDebianBase(instructions: Instruction[], opts: LintDockerfileOpts): ManifestIssue[] {
+  const issues: ManifestIssue[] = [];
   const stages = new Map<string, string>(); // stage name (lower) -> base
   let finalBase: { base: string; line: number } | null = null;
   for (const ins of instructions) {
@@ -276,6 +275,20 @@ export function lintDockerfile(text: string, opts: LintDockerfileOpts): Manifest
       }
     }
   }
+  return issues;
+}
 
-  return issues.sort((a, b) => (a.line ?? 0) - (b.line ?? 0));
+/**
+ * Lint a sandbox Dockerfile for the constraints the Kortix cloud builder
+ * enforces. Returns `ManifestIssue`s in source order; an empty array means the
+ * text passes every static check (it says NOTHING about whether the image
+ * actually builds — see `kortix sandboxes build --local` for that).
+ */
+export function lintDockerfile(text: string, opts: LintDockerfileOpts): ManifestIssue[] {
+  const instructions = parseInstructions(text);
+  return [
+    ...checkContextCopies(instructions, opts),
+    ...checkRunHeredocs(instructions, opts),
+    ...checkNonDebianBase(instructions, opts),
+  ].sort((a, b) => (a.line ?? 0) - (b.line ?? 0));
 }

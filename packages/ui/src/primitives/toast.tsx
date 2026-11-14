@@ -42,7 +42,9 @@ type ToastOptions = {
 };
 
 type LoadingToastOptions<T = unknown> = ToastOptions & {
-  success?: string | ((data: T) => string);
+  /** `false`: the loading toast closes with no success toast after it, for
+   *  work whose result is already on screen (a new session opens itself). */
+  success?: string | ((data: T) => string) | false;
   error?: string | ((error: unknown) => string);
   showErrorToast?: boolean;
 };
@@ -483,6 +485,7 @@ export const loadingToast = <T,>(
   return promise.then(
     (data) => {
       toast.dismiss(toastId);
+      if (options?.success === false) return data;
       const successMessage =
         typeof options?.success === "function"
           ? options.success(data)

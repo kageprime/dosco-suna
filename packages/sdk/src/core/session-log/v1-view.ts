@@ -208,11 +208,36 @@ function heldByLog(row: V1MessageRow, held: ReadonlySet<string>, revs: SessionLo
   return echo !== undefined && (held.has(echo) || revs[echo] !== undefined);
 }
 
+/** A v1 message or part id the store built from deltas alone, so it may lack its head (`SyncState.isFragment`). */
+export type V1Fragment = (id: string) => boolean;
+
+const withoutFragmentsOf = new WeakMap<V1MessageRow, V1MessageRow | null>();
+
+/**
+ * `row` without its fragment parts; null when the message itself is a fragment or nothing else
+ * is left. The log stands for the
+ * reply: a tab that joined the stream mid-answer holds only the tail of it in the v1 store, and
+ * that tail must not render as the whole answer (F-011). Kept per row object: a part becomes or
+ * stops being a fragment only when the store writes a new part, and so a new row.
+ */
+function withoutFragments<R extends V1MessageRow>(row: R, fragment: V1Fragment): R | null {
+  if (withoutFragmentsOf.has(row)) return withoutFragmentsOf.get(row) as R | null;
+  if (fragment(row.info.id)) {
+    withoutFragmentsOf.set(row, null);
+    return null;
+  }
+  const parts = row.parts.filter((p) => !(isObj(p) && typeof p.id === 'string' && fragment(p.id)));
+  const kept = parts.length === row.parts.length ? row : parts.length === 0 ? null : ({ ...row, parts } as R);
+  withoutFragmentsOf.set(row, kept);
+  return kept;
+}
+
 export function sessionLogRowsFor<R extends V1MessageRow>(
   logs: Record<string, SessionLogState>,
   runtimeSessionId: string,
   v1Rows: R[],
   echoOf?: OptimisticEchoOf,
+  isFragment?: V1Fragment,
 ): R[] {
   const found = findThread(logs, runtimeSessionId);
   if (!found) return v1Rows;
@@ -221,7 +246,12 @@ export function sessionLogRowsFor<R extends V1MessageRow>(
   const native = nativeOf(head);
   const own = cached && cached.v1Rows === v1Rows && cached.native === native && cached.revs === state.revs ? cached.own : ownRowsOf(head, list, native);
   const shown = new Set(own.map((r) => r.info.id));
-  const extra = v1Rows.filter((row) => !heldByLog(row, shown, state.revs, echoOf));
+  const extra: R[] = [];
+  for (const row of v1Rows) {
+    if (heldByLog(row, shown, state.revs, echoOf)) continue;
+    const kept = isFragment ? withoutFragments(row, isFragment) : row;
+    if (kept) extra.push(kept);
+  }
   if (cached && cached.own === own && cached.extra.length === extra.length && cached.extra.every((r, i) => r === extra[i])) return cached.result as R[];
   const result = [...own];
   for (const row of extra) result.splice(insertAt(result, row), 0, row);

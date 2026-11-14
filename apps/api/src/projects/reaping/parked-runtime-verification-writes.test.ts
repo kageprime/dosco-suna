@@ -82,6 +82,8 @@ mock.module('../../billing/services/compute-metering', () => ({
   },
 }));
 mock.module('../runtime-identity', () => ({
+  MAX_IN_PLACE_RECOVERY_ATTEMPTS: 3,
+  inPlaceRecoveryAttempts: () => 0,
   claimInPlaceRuntimeRecovery: async () => null,
   isKortixInitiatedRemoval: () => false,
   markInPlaceRuntimeRecoveryAccepted: async () => null,

@@ -4,10 +4,11 @@
  * `@kortix/shared/subprocessors`: a row with `addedOn` is announced from the
  * first sweep that sees it on prod until it takes effect.
  *
- * Each open notice goes to the billing managers (owners and admins) of every
- * paid account, once: a claim row in `chat_event_dedup` makes it once-only
- * across replicas and sweeps. Prod only, so a dev or staging deploy of the list
- * emails nobody.
+ * Each open notice goes once to every person who is a billing manager (owner
+ * or admin) of a paid account, listing the paid workspaces they manage (or
+ * "all workspaces" when that is every paid account): a claim row per account
+ * in `chat_event_dedup` makes the notice once-only across replicas and
+ * sweeps. Prod only, so a dev or staging deploy of the list emails nobody.
  *
  * Evidence: each notified account gets a `legal.subprocessor_notice.sent`
  * audit event (it shows in that account's audit log), and privacy@dosco.live
@@ -31,7 +32,7 @@ import { db } from '../../shared/db';
 import { recordAuditEvent } from '../../shared/audit';
 import { escapeHtml } from '../../shared/html';
 import { claimOnce } from './access-notices';
-import { emailBillingManagers, sendAlertEmail } from './owner-alerts';
+import { billingManagers, sendAlertEmail } from './owner-alerts';
 
 const PRIVACY_EMAIL = 'privacy@dosco.live';
 
@@ -50,11 +51,18 @@ export function openSubprocessorNotices(rows: readonly Subprocessor[], today: st
   return [...byDate.values()];
 }
 
-function compose(notice: SubprocessorNotice, accountName: string) {
+/** The "owner or admin of ___" phrase: the workspace names, or "all workspaces" when the person manages every paid account. */
+export function workspaceScope(names: string[], paidTotal: number): string {
+  const unique = [...new Set(names)];
+  if (unique.length > 1 && unique.length === paidTotal) return 'all workspaces';
+  return new Intl.ListFormat('en', { type: 'conjunction' }).format(unique);
+}
+
+function compose(notice: SubprocessorNotice, scope: string) {
   const url = `${(config.FRONTEND_URL || 'https://dosco.live').replace(/\/+$/, '')}/legal/subprocessors`;
   const effective = formatSubprocessorDate(notice.effectiveDate);
   const title = 'New Dosco subprocessors';
-  const intro = `Dosco will add the subprocessors below on ${effective}. Until then they process no customer personal data. You receive this notice as an owner or admin of ${accountName}, as our Data Processing Addendum (section 7.3) requires.`;
+  const intro = `Dosco will add the subprocessors below on ${effective}. Until then they process no customer personal data. You receive this notice as an owner or admin of ${scope}, as our Data Processing Addendum (section 7.3) requires.`;
   const outro = `To object, reply to this email or write to ${PRIVACY_EMAIL} before ${effective}.`;
   const items = notice.rows.map((row) => `${row.name}: ${row.purpose} (${row.location})`);
   return {
@@ -69,7 +77,7 @@ function compose(notice: SubprocessorNotice, accountName: string) {
   };
 }
 
-/** The hourly sweep: email each open notice to every paid account that has not had it. */
+/** The hourly sweep: email each open notice once per person, listing the paid workspaces it covers. */
 export async function runSubprocessorNoticeSweep(
   now: Date = new Date(),
   rows: readonly Subprocessor[] = [...SUBPROCESSORS_CORE, ...SUBPROCESSORS_OPTIONAL],
@@ -84,18 +92,47 @@ export async function runSubprocessorNoticeSweep(
     .where(and(isNotNull(creditAccounts.tier), notInArray(creditAccounts.tier, ['free', 'none'])));
   let accountsNotified = 0;
   for (const notice of notices) {
-    let sentThisSweep = 0;
+    // Claim per account first (the idempotency key of the notice), then group
+    // the claimed workspaces by recipient inbox: one email per person, not one
+    // per project (KRTX-4819).
+    const claimed: { accountId: string; accountName: string; emails: string[] }[] = [];
     for (const { accountId } of paid) {
       const claim = `legal:subprocessor-notice:${notice.addedOn}:${accountId}`;
       if (!(await claimOnce(claim))) continue;
       try {
-        const recipients = await emailBillingManagers(accountId, (accountName) => compose(notice, accountName));
+        const { emails, accountName } = await billingManagers(accountId);
         // Nobody to email yet: release the claim so a later sweep retries the account.
-        if (recipients === 0) {
+        if (emails.length === 0) {
           await db.delete(chatEventDedup).where(eq(chatEventDedup.eventId, claim));
           continue;
         }
-        sentThisSweep++;
+        claimed.push({ accountId, accountName, emails });
+      } catch (err) {
+        logger.warn('[subprocessor-notices] notice failed', { accountId, error: (err as Error).message });
+      }
+    }
+    const inboxes = new Map<string, string[]>();
+    for (const { accountName, emails } of claimed) {
+      for (const to of emails) inboxes.set(to, [...(inboxes.get(to) ?? []), accountName]);
+    }
+    const sent = new Set<string>();
+    for (const [to, workspaces] of inboxes) {
+      try {
+        await sendAlertEmail({ ...compose(notice, workspaceScope(workspaces, paid.length)), to: [to] });
+        sent.add(to);
+      } catch (err) {
+        logger.warn('[subprocessor-notices] notice failed', { to, error: (err as Error).message });
+      }
+    }
+    // Evidence: one audit event per notified account, once per notice. The
+    // count follows the sends (what the privacy report describes), not the
+    // audit writes.
+    let sentThisSweep = 0;
+    for (const { accountId, emails } of claimed) {
+      const recipients = emails.filter((to) => sent.has(to)).length;
+      if (recipients === 0) continue;
+      sentThisSweep++;
+      try {
         await recordAuditEvent({
           accountId,
           actorType: 'system',
@@ -109,10 +146,10 @@ export async function runSubprocessorNoticeSweep(
           },
         });
       } catch (err) {
-        logger.warn('[subprocessor-notices] notice failed', { accountId, error: (err as Error).message });
+        logger.warn('[subprocessor-notices] audit failed', { accountId, error: (err as Error).message });
       }
     }
-    if (sentThisSweep > 0) await reportToPrivacy(notice, sentThisSweep, now);
+    if (sent.size > 0) await reportToPrivacy(notice, sentThisSweep, now);
     accountsNotified += sentThisSweep;
   }
   return { accountsNotified };

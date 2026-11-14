@@ -230,6 +230,23 @@ function parseMonitorDuration(
  * entry. Never throws — bad entries land in `errors` with a slug + reason
  * so the UI can render them alongside the good ones.
  */
+/** Who runs code instead of a model (`agents.<name>.run`), and the agent of a trigger that names none. */
+interface ProgramAgents {
+  names: ReadonlySet<string>;
+  defaultAgent: string | null;
+}
+
+function programAgentsOf(manifest: ParsedManifest): ProgramAgents {
+  const agents = isPlainObject(manifest.raw.agents) ? (manifest.raw.agents as Record<string, unknown>) : {};
+  const names = new Set(
+    Object.entries(agents).flatMap(([name, block]) =>
+      isPlainObject(block) && typeof (block as { run?: unknown }).run === 'string' && ((block as { run: string }).run).trim() ? [name] : [],
+    ),
+  );
+  const raw = manifest.raw.default_agent;
+  return { names, defaultAgent: typeof raw === 'string' && raw.trim() ? raw.trim() : null };
+}
+
 export function extractTriggers(manifest: ParsedManifest): LoadedTriggers {
   const filename = manifest.path || MANIFEST_FILENAME;
   // `on:` / `run:` entries read as the flat fields they mean (@kortix/manifest-schema).
@@ -260,7 +277,7 @@ export function extractTriggers(manifest: ParsedManifest): LoadedTriggers {
     const slug = (entry as { slug?: unknown } | null)?.slug;
     const declaredIn =
       (typeof slug === 'string' ? manifest.imports?.origins.triggers[slug] : undefined) ?? filename;
-    const result = parseTriggerEntry(entry, index, declaredIn);
+    const result = parseTriggerEntry(entry, index, declaredIn, programAgentsOf(manifest));
     if (!result.ok) {
       errors.push(result.error);
       return;
@@ -414,6 +431,7 @@ export function triggerSpecToFlatEntry(spec: GitTriggerSpec): Record<string, unk
   if (spec.expectEventWithinSeconds) entry.expect_event_within = formatDurationSeconds(spec.expectEventWithinSeconds);
   if (spec.target) entry.target = spec.target;
   if (spec.promptTemplate) entry.prompt = spec.promptTemplate;
+  if (spec.runPayload) entry.payload = spec.runPayload;
   return entry;
 }
 
@@ -453,7 +471,9 @@ export function triggerSpecToOnRunEntry(spec: GitTriggerSpec): Record<string, un
       }
     : {
         ...(spec.agent !== 'default' ? { agent: spec.agent } : {}),
-        prompt: spec.promptTemplate,
+        // An omitted prompt (a program agent's payload input) stays omitted.
+        ...(spec.promptTemplate ? { prompt: spec.promptTemplate } : {}),
+        ...(spec.runPayload ? { payload: spec.runPayload } : {}),
         ...(spec.sessionMode !== 'fresh' && !keyedByKey ? { session: spec.sessionMode } : {}),
         ...(spec.sessionMode === 'pinned' && spec.pinnedSessionId ? { session_id: spec.pinnedSessionId } : {}),
         ...(keyedByKey ? { session_key: spec.sessionKey } : {}),
@@ -487,6 +507,7 @@ function parseTriggerEntry(
   entry: unknown,
   index: number,
   filename: string = MANIFEST_FILENAME,
+  programAgents: ProgramAgents = { names: new Set(), defaultAgent: null },
 ): ParseOk | ParseErr {
   const err = (slug: string, message: string): ParseErr =>
     makeTriggerError(slug, message, filename);
@@ -547,8 +568,18 @@ function parseTriggerEntry(
         : '';
   const parsedTarget = parseTargetField(row, type);
   if ('error' in parsedTarget) return err(slug, parsedTarget.error);
-  // An App target receives the payload, not a prompt.
-  if (!prompt.trim() && !parsedTarget.target) {
+  // An agent run's `payload`: static input merged under each fire's payload.
+  let runPayload: Record<string, unknown> | undefined;
+  if (row.payload !== undefined && row.payload !== null && !parsedTarget.target) {
+    if (!isPlainObject(row.payload) || JSON.stringify(row.payload).length > 64 * 1024) {
+      return err(slug, 'payload must be an object of at most 64 KiB');
+    }
+    runPayload = row.payload as Record<string, unknown>;
+  }
+  // An App target receives the payload, not a prompt; so does a program agent (its input is the payload).
+  const namedAgent = typeof row.agent === 'string' && row.agent.trim() ? row.agent.trim() : typeof row.agent_name === 'string' && row.agent_name.trim() ? row.agent_name.trim() : 'default';
+  const runsProgram = programAgents.names.has(namedAgent === 'default' ? (programAgents.defaultAgent ?? '') : namedAgent);
+  if (!prompt.trim() && !parsedTarget.target && !runsProgram) {
     return err(slug, 'prompt is required and may not be empty');
   }
 
@@ -637,6 +668,7 @@ function parseTriggerEntry(
     model,
     enabled,
     promptTemplate: prompt,
+    ...(runPayload ? { runPayload } : {}),
     ...parsedTarget,
     sessionMode,
     pinnedSessionId,

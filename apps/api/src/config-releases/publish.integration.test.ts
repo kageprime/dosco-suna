@@ -10,7 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { accounts, configReleaseHeads, projects } from '@kortix/db';
 import { eq } from 'drizzle-orm';
 import { db } from '../shared/db';
-import type { ConfigRelease } from './builder';
+import { configReleaseId, type ConfigRelease } from './builder';
 import { configReleaseEnvForSession, publishConfigRelease, readReleaseHead, REPUBLISH_AFTER_MS, type PublishDeps } from './publish';
 import type { DeclaredAgentRoster } from './session-agent';
 import { MemoryConfigArchiveStore, MemoryConfigReleaseLedger } from './__tests__/fakes';
@@ -24,8 +24,9 @@ let projectId: string;
 let store: MemoryConfigArchiveStore;
 let ledger: MemoryConfigReleaseLedger;
 let builds: string[];
-let scheduled: Array<[string, string, string | null]>;
-const schedule = (projectId: string, ref: string, commit: string | null) => void scheduled.push([projectId, ref, commit]);
+let scheduled: Array<[string, string, string | null] | [string, string, string | null, string]>;
+const schedule = (projectId: string, ref: string, commit: string | null, staleReleaseId?: string) =>
+  void scheduled.push(staleReleaseId ? [projectId, ref, commit, staleReleaseId] : [projectId, ref, commit]);
 
 const release = (commit: string, overrides: Partial<ConfigRelease> = {}): ConfigRelease => ({
   release_id: `${commit.slice(0, 8)}${'0'.repeat(56)}`,
@@ -151,6 +152,30 @@ describe('configReleaseEnvForSession', () => {
     const releaseId = (await readReleaseHead(projectId, 'main'))!.releaseId;
     for (const sessionId of ['s1', 's2']) await ledger.recordFailure({ projectId, releaseId, sessionId, reason: 'boom' });
     expect(await env('build')).toBeNull();
+  });
+
+  test('a release this API would not compile (built before a deploy, or another commit) gives no env and starts a republish', async () => {
+    const now = new Date();
+    const etag = 'e'.repeat(16);
+    await publishConfigRelease(project(), 'main', TIP_A, deps(now, { release_id: configReleaseId(TREE, etag) }));
+    const env = (expected: string) =>
+      configReleaseEnvForSession(
+        { projectId, ref: 'main', agentName: 'build', tip: TIP_A, expectedGovernanceEtag: Promise.resolve(expected) },
+        { store: () => store, ledger, now: () => now, schedule },
+      );
+    expect(await env(etag)).not.toBeNull();
+    expect(scheduled).toEqual([]);
+    expect(await env('f'.repeat(16))).toBeNull();
+    expect(scheduled).toEqual([[projectId, 'main', TIP_A, configReleaseId(TREE, etag)!]]);
+  });
+
+  test('a publish told the head release is stale replaces it, even at the same tip and fresh', async () => {
+    const now = new Date();
+    await publishConfigRelease(project(), 'main', TIP_A, deps(now, { release_id: 'a'.repeat(64) }));
+    expect(await publishConfigRelease(project(), 'main', TIP_A, deps(new Date(now.getTime() + 1000), { release_id: 'b'.repeat(64) }))).toBe('current');
+    const later = new Date(now.getTime() + 2000);
+    expect(await publishConfigRelease(project(), 'main', TIP_A, deps(later, { release_id: 'b'.repeat(64) }), { staleReleaseId: 'a'.repeat(64) })).toBe('published');
+    expect((await readReleaseHead(projectId, 'main'))!.releaseId).toBe('b'.repeat(64));
   });
 
   test('a row near the store lifecycle gives no env and starts a republish', async () => {

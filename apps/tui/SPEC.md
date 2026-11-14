@@ -233,9 +233,12 @@ columns the terminal panel is a full-screen toggle instead of a split. Below
 - The screen rows come from the command table (every `screen` command that
   can run here), with a count beside Review (open change requests) and
   Inbox (unread). A screen whose flag is off is not listed.
-- Session list: `useProjectSessions(projectId)`, grouped by day, sub-sessions
-  indented. Keyboard: `j/k`, `Enter` open, `d` delete, `r` rename, `/`
-  filter, `g/G`.
+- Session list: web's split (KRTX-4898). `useSidebarSessions(projectId)`
+  reads the server's three buckets: the viewer's own sessions grouped by day,
+  then `Shared` and `Automated`; sub-sessions indented. Each bucket polls while
+  a row is live; a session action anywhere refreshes every session list
+  (`useRefreshSessions`).
+  Keyboard: `j/k`, `Enter` open, `d` delete, `r` rename, `/` filter, `g/G`.
 
 ### 5.3 Session view (`features/session`)
 

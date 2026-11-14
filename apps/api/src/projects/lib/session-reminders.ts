@@ -349,13 +349,19 @@ export async function insertSessionReminderWithinCaps(
   });
 }
 
-export async function insertSessionReminder(input: {
+export async function insertSessionReminder(input: Parameters<typeof insertRuntimeTriggerRow>[0], q: Db = db): Promise<RuntimeRow> {
+  return insertRuntimeTriggerRow({ ...input, sessionId: input.spec.pinnedSessionId }, q);
+}
+
+/** The one writer of a `project_trigger_runtime` row. `sessionId` is set for a session reminder only. */
+export async function insertRuntimeTriggerRow(input: {
   projectId: string;
   spec: GitTriggerSpec;
   createdBy: string;
   /** Null for a source that is not a schedule: nothing to claim. */
   firstFireAt: Date | null;
   now: Date;
+  sessionId?: string | null;
 }, q: Db = db): Promise<RuntimeRow> {
   const { spec } = input;
   const [row] = await q
@@ -363,7 +369,7 @@ export async function insertSessionReminder(input: {
     .values({
       projectId: input.projectId,
       slug: spec.slug,
-      sessionId: spec.pinnedSessionId,
+      sessionId: input.sessionId,
       ownerUserId: input.createdBy,
       // A loop is `cron`; a session-target trigger keeps its own source type.
       triggerType: spec.type,

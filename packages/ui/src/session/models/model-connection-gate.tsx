@@ -1,11 +1,13 @@
 'use client';
 
 import { CreditCardIcon, ImageBrokenIcon, KeyIcon } from '@phosphor-icons/react';
-import { AnimatePresence, m, useReducedMotion } from 'motion/react';
-import { useState, type ReactNode } from 'react';
+import { AnimatePresence, m } from 'motion/react';
+import { useReducedMotion } from '../../internal/hooks/use-reduced-motion';
+import { useContext, useState, type ReactNode } from 'react';
 import { useTranslations } from '../../i18n';
 
 import { Button } from '../../primitives/button';
+import { ModelConnectionLayoutContext } from './model-connection-layout';
 import { ConnectPlanRows } from './subscription-offer';
 import { useModelConnectionGate } from './use-model-connection-gate';
 
@@ -19,7 +21,8 @@ const BAR_EXIT = { type: 'spring', duration: 0.35, bounce: 0 } as const;
 /**
  * No model can run: the composer shows the same "Connect ChatGPT" and "Connect
  * Claude" rows the project home offers (`ConnectPlanRows`), a gap below the
- * composer, not dismissible. Sending is already disabled by `modelUnavailable`.
+ * composer by default, and above it on first-chat home. The rows are not
+ * dismissible. Sending is already disabled by `modelUnavailable`.
  *
  * It used to be a heading ("Connect a model to start"), two bordered tiles,
  * "Use an API key" and "Upgrade". On the project home it stacked on top of the
@@ -29,8 +32,9 @@ const BAR_EXIT = { type: 'spring', duration: 0.35, bounce: 0 } as const;
  * `show` must only flip on settled data (see `entitlementsPending`).
  */
 export function ModelConnectionBar({ show }: { show: boolean }) {
+  const above = useContext(ModelConnectionLayoutContext) === 'above';
   return show ? (
-    <div className="mt-4 flex flex-col gap-1">
+    <div className={above ? 'mb-4 flex flex-col gap-2' : 'mt-4 flex flex-col gap-1'}>
       <NoModelReason />
       <ConnectPlanRows dismissible={false} />
     </div>

@@ -22,6 +22,7 @@
  * leave it unset.
  */
 
+import { onBillingBustNotify, publishBillingBust } from '../../shared/pg-broadcast';
 import { getCreditAccount } from '../repositories/credit-accounts';
 import { type BillingRow, type ResolvedBilling, resolveBillingFromRow } from './resolve-billing';
 
@@ -67,10 +68,37 @@ export async function resolveAccountBilling(
     if (cached && cached.expiresAt > now) return cached.resolved;
   }
 
+  const generation = generationOf(accountId);
   const row = rowGiven ? (options.row as BillingRow | null) : await getCreditAccount(accountId);
   const resolved = resolveBillingFromRow(row, now);
-  cache.set(accountId, { resolved, expiresAt: now + BILLING_CACHE_TTL_MS });
+  // An invalidation landed while the row was read: the row may predate the
+  // write. Answer with it, but do not keep it for the TTL.
+  if (generationOf(accountId) === generation) {
+    cache.set(accountId, { resolved, expiresAt: now + BILLING_CACHE_TTL_MS });
+  }
   return resolved;
+}
+
+// replica-local: invalidation counters for this process's cache; the bust reaches every replica.
+const generations = new Map<string, number>();
+let globalGeneration = 0;
+
+function generationOf(accountId: string): string {
+  return `${globalGeneration}:${generations.get(accountId) ?? 0}`;
+}
+
+/** Past this many counters, start over: a reset only stops in-flight reads from caching. */
+const MAX_GENERATIONS = 10_000;
+
+/** Drop one account's entry and void any read of it still in flight. */
+function dropAccount(accountId: string): void {
+  cache.delete(accountId);
+  if (generations.size >= MAX_GENERATIONS && !generations.has(accountId)) {
+    generations.clear();
+    globalGeneration += 1;
+    return;
+  }
+  generations.set(accountId, (generations.get(accountId) ?? 0) + 1);
 }
 
 /**
@@ -80,6 +108,18 @@ export async function resolveAccountBilling(
  * this and the next read is live, instead of waiting out the TTL.
  */
 export function invalidateAccountBilling(accountId?: string): void {
-  if (accountId) cache.delete(accountId);
-  else cache.clear();
+  if (accountId) {
+    dropAccount(accountId);
+    // Every other replica too: a read right after a plan change may reach one
+    // of them (dev runs two behind round robin), and its entry would answer
+    // with the old plan for up to the TTL.
+    publishBillingBust(accountId);
+  } else {
+    cache.clear();
+    generations.clear();
+    globalGeneration += 1;
+  }
 }
+
+// A bust announced by another replica (or echoed from this one; dropping is idempotent).
+onBillingBustNotify(dropAccount);

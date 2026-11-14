@@ -46,7 +46,7 @@ export function openRelaySocket(url: string): WebSocket {
  * Relay close codes that mean the credential itself is bad. They are terminal:
  * reconnecting with the same token can never succeed.
  */
-export const AUTH_REJECTED_CLOSE_CODES: readonly number[] = [4001, 4003];
+const AUTH_REJECTED_CLOSE_CODES: readonly number[] = [4001, 4003];
 
 /**
  * Relays before 0.1.3 also closed with 4001 when THEY failed (auth timeout,
@@ -99,7 +99,7 @@ function log(icon: string, msg: string) {
  */
 export type TunnelAgentStatus = 'connecting' | 'online' | 'offline' | 'rejected' | 'standby';
 
-export interface TunnelAgentOptions {
+interface TunnelAgentOptions {
   /** Service mode (R2): never stop on a refused credential or on being replaced. */
   persistent?: boolean;
   /** Re-read the credential before a retry, so a re-pair heals a `rejected` agent. */
@@ -163,7 +163,7 @@ const ACCESS_ERRORS = {
   },
 } as const;
 
-export interface TunnelAgentHooks {
+interface TunnelAgentHooks {
   /** Fires on every change of connection status, with the credential in use now. */
   onStatus?: (status: TunnelAgentStatus, config: TunnelConfig) => void;
   /**
@@ -173,7 +173,7 @@ export interface TunnelAgentHooks {
   onTerminalClose?: (info: { code: number; reason: TerminalCloseReason }) => void;
 }
 
-export type TerminalCloseReason = 'credential-rejected' | 'replaced';
+type TerminalCloseReason = 'credential-rejected' | 'replaced';
 
 export class TunnelAgent {
   private hooks: TunnelAgentHooks;

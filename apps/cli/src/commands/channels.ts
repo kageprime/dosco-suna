@@ -12,6 +12,7 @@ import {
 } from '../command-helpers.ts';
 import { C, help, status } from '../style.ts';
 import { bindingsLs, bindingsPatch } from './channels-bindings.ts';
+import { channelsJoin } from './channels-join.ts';
 import type { EmailInstallation, EmailMode } from './channels-email.ts';
 import type { TeamsInstallation } from './channels-teams.ts';
 import { emailCommand } from './channels-email.ts';
@@ -34,6 +35,11 @@ Subcommands:
                           Teams: prints the Microsoft admin-consent URL (open
                           it, grant tenant-wide consent, the app is published
                           to your Teams catalog automatically).
+  join <channel...>       Slack: the bot joins these public channels (names
+                          with or without #; quote a leading #, or use
+                          commas: join general,eng). A private channel needs
+                          /invite @Kortix there: join names it and exits 4.
+                          --json.
   disconnect              Drop the workspace's connection (Slack, or Teams with
                           --platform teams).
   manifest                Print the app manifest JSON — MANUAL/self-host
@@ -243,6 +249,8 @@ export async function runChannels(argv: string[]): Promise<number> {
       return platform === 'teams' ? teamsDisconnect(ctxOpts) : channelsDisconnect(ctxOpts);
     case 'manifest':
       return platform === 'teams' ? teamsManifest(ctxOpts) : channelsManifest(ctxOpts);
+    case 'join':
+      return channelsJoin(ctxOpts, rest, json);
     case 'email':
       return emailCommand(ctxOpts, rest, extra, json);
     case 'bindings':

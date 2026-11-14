@@ -76,6 +76,18 @@ gh run list --repo kortix-ai/CompanyOS --workflow tests.yml --branch dev --event
 A red night means fix `dev` first. Then cost every new migration (Step 5)
 before you dispatch: Promote applies it to the staging database within minutes.
 
+Then run the release suite's fast tripwires on the `dev` SHA you promote:
+
+```bash
+git fetch origin dev && git switch --detach origin/dev   # in your own worktree
+pnpm install --frozen-lockfile && bash scripts/pre-promote-tripwires.sh
+```
+
+It takes about 2.5 min. It names each red check, and you fix each one on
+`dev` before the dispatch. v0.15.11 needed 3 release-suite runs (about 1 h
+each) for failures this script finds in minutes (the learnings ledger,
+2026-11-14).
+
 ### Step 3 — one dispatch: Promote to Production
 
 Write the title and notes (Step 7 shows how), then:
@@ -173,11 +185,16 @@ Promote waits for the proof itself; to check by hand:
 
 ```bash
 curl -fsS https://staging-api.kortix.com/v1/health | jq '{environment,version,commit}'
-curl -fsS https://gateway-staging.kortix.com/health | jq '{version,commit}'
-curl -fsS https://staging.kortix.com/api/health | jq '{version,commit}'
+curl -fsS https://gateway-staging.kortix.com/health/live | jq '{version,commit}'
 ```
 
-All three must report the exact SHA you promoted. A staging runtime check that
+The gateway's `/health` answers only `{status}` to an anonymous caller
+(`apps/llm-gateway/src/health.test.ts`); `/health/live` carries the version.
+The staging web sits behind Vercel Authentication: an anonymous read of
+`staging.kortix.com/api/health` gets `302`. Promote reads it with the Vercel
+bypass from AWS Secrets Manager. All three must report the exact SHA you
+promoted. Deploy Staging runs list the `dev` SHA as their head: match the
+deployed SHA by `/health`, not by the run's `headSha`. A staging runtime check that
 points at `dev.kortix.com` / `dev-api.kortix.com` is a broken staging setup, not
 a passing gate.
 
@@ -260,13 +277,16 @@ every surface on the new version:
 
 ```bash
 curl -fsS https://api.kortix.com/v1/health | jq '{environment,version,commit}'
-curl -fsS https://gateway.kortix.com/health | jq '{version,commit}'
+curl -fsS https://gateway.kortix.com/health/live | jq '{version,commit}'
 curl -fsS https://kortix.com/api/health | jq '{version,commit}'
 npm view @kortix/sdk version
 npm view @kortix/agent-tunnel version
 npm view @kortix/llm-catalog version
 gh release view "vX.Y.Z" --repo kortix-ai/CompanyOS --json name,body,assets --jq '{name,assetCount:(.assets|length)}'   # 24 assets
 ```
+
+The API and the gateway report the promoted staging SHA: deploy-prod retags
+the staging images. The web reports the prod merge SHA. Both are correct.
 
 Then check Better Stack for an API error, 5xx, or frontend-exception spike in
 the minutes after the rollout.
@@ -361,6 +381,7 @@ no `vX.Y.Z` Release.
 ## Checklist
 
 1. Last nightly `Tests` run on `dev` checked; red lanes fixed on `dev` first.
+   `bash scripts/pre-promote-tripwires.sh` green on the `dev` SHA you promote.
 2. Every new migration in the diff costed read-only against prod before the dispatch.
 3. `git log $PREV..origin/dev` read in full; title + notes written in
    kortix-voice, accurate to that log.

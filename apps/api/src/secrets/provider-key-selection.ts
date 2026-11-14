@@ -2,8 +2,7 @@
  * The pooled provider keys a session runs a model on.
  *
  * A session with no selection for a provider runs on every pooled key it may
- * use (`pooled_provider_secrets`: keys shared with the project, keys granted to
- * the session's person), resolved by the gateway at each call
+ * use (keys shared with the project, keys granted to the session's person), resolved by the gateway at each call
  * (`resolve-candidates.ts`). A selection narrows that: the web lets a person
  * pick keys, a chat channel stores its conversation's keys, and a share
  * replaces keys the shared session could no longer use.

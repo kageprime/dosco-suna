@@ -47,4 +47,10 @@ describe('pi transient retry', () => {
     expect(isTransientModelError(ok)).toBe(false)
     expect(isTransientModelError(aborted)).toBe(false)
   })
+
+  test('a program agent run is never retried, whatever its stderr says: a retry runs the command again', () => {
+    const program = { ...failed('`node sync.js` exited with code 1.\n\nrequest timed out'), provider: 'program' } as unknown as AssistantMessage
+    expect(isTransientModelError(failed('request timed out'))).toBe(true)
+    expect(isTransientModelError(program)).toBe(false)
+  })
 })

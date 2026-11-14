@@ -29,6 +29,7 @@ import {
   listDaytonaSnapshots,
 } from '../shared/daytona';
 import { db } from '../shared/db';
+import { escalateProviderAuthOutage } from '../shared/provider-auth';
 import {
   appDeploymentSnapshotName,
   DAYTONA_ORG_SNAPSHOT_LIMIT,
@@ -148,6 +149,12 @@ export async function reconcileSnapshotQuota(
   try {
     all = await io.listSnapshots();
   } catch (err) {
+    // The listing failure (the org's Daytona IO — every call 401s when the
+    // org credential is dead) never reaches the maintenance sweep's `.catch`:
+    // this pass RESOLVES with the failed status. Escalate here, or a dead
+    // key pages nobody from the GC (the G9 probe on PR #12557:
+    // `org_list_failed, captured: 0`).
+    escalateProviderAuthOutage('daytona', 'snapshot quota GC', err);
     console.warn(
       '[snapshot-gc] org listing failed — pass skipped:',
       err instanceof Error ? err.message : err,

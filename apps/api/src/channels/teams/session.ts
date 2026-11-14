@@ -654,7 +654,6 @@ export async function createOrJoinTeamsConversationSession(input: {
       // markup Teams wraps around the bot's name in channels.
       title_source: activity.text ? stripTeamsMentions(activity.text) || null : null,
     },
-    queuePolicy: 'on_backpressure',
     // One key per inbound message, never per conversation. The lifecycle
     // keeps a key forever (a unique index, no retention) and a chat is one
     // conversation for life, so under the conversation's key its FIRST
@@ -735,8 +734,11 @@ export async function createOrJoinTeamsConversationSession(input: {
     return;
   }
 
+  // The create runs inline, so it ends `created` or `failed`. `queued` and
+  // `pending` come only from an earlier delivery of this same message, whose
+  // create still runs or waits for a retry under the same idempotency key.
   if (result.status === 'queued' || result.status === 'pending') {
-    if (handle) await finalizeTurn(handle, { answer: queuedMessage() });
+    if (handle) await finalizeTurn(handle, { answer: CREATE_IN_FLIGHT_MESSAGE });
     return;
   }
 
@@ -763,9 +765,8 @@ function startError(status: number | undefined, body: unknown): string {
   return startErrorMessage(status, body, TEAMS_START_ERROR_COMMANDS);
 }
 
-function queuedMessage(): string {
-  return "I've queued your task behind the sessions already starting in this Kortix workspace, and I'll reply right here the moment it begins.";
-}
+const CREATE_IN_FLIGHT_MESSAGE =
+  'Kortix is still starting a session for this message. The agent replies here when it is ready.';
 
 async function claimThreadCreate(key: string): Promise<boolean> {
   try {

@@ -43,7 +43,8 @@ import {
 } from '@phosphor-icons/react';
 import { useContext, useMemo } from 'react';
 import { MULTI_AGENT_ICON, multiAgentBody, PeerSendRow, runningKey } from './multi-agent-tool-bodies';
-import { parsePeerSend } from '@kortix/sdk';
+import { parsePeerSend, toolCallConnectorSignIns } from '@kortix/sdk';
+import { useSessionConnectRequests } from '../../prompts/session-connect-card';
 import {
   KORTIX_PLATFORM_TOOLS,
   isReadAction,
@@ -328,6 +329,11 @@ export function KortixActionTool(props: ToolProps) {
   const settled = status === 'completed' || status === 'error';
   const raw = status === 'error' ? (partError(call) ?? '') : partRawOutput(call);
   const result = useMemo(() => (settled ? parseKortixToolResult(raw, call.name) : null), [settled, raw, call.name]);
+  // A `connect` in a session that finishes sign-ins: the Connect card under this
+  // row (`SessionConnectCard`) is the way in, so the raw provider link is not
+  // a second one.
+  const connectCardShown =
+    useSessionConnectRequests() !== null && toolCallConnectorSignIns(call).length > 0;
 
   if (!tool || (settled && !result)) {
     return <GenericTool call={call} defaultOpen={defaultOpen} forceOpen={forceOpen} locked={locked} />;
@@ -351,7 +357,10 @@ export function KortixActionTool(props: ToolProps) {
     );
   }
 
-  const { card, error } = result;
+  const { error } = result;
+  const card = connectCardShown
+    ? { ...result.card, links: result.card.links.filter((link) => !link.external) }
+    : result.card;
   // A message to another agent is one plain row with the receiver's face, sent or not.
   if (multi === 'send_message') {
     const send = parsePeerSend(result.data);

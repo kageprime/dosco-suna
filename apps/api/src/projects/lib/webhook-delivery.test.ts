@@ -10,6 +10,7 @@ describe('webhookDeliveryKey', () => {
       expect(webhookDeliveryKey({ ...base, header: headers({ [name]: 'evt-1' }) })).toEqual({
         key: 'trigger:webhook:p1:deploy:evt-1',
         byEvent: true,
+        permanent: false,
       });
     }
   });

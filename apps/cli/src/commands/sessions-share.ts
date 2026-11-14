@@ -20,7 +20,7 @@ import {
 import type { ApiClient } from '../api/client.ts';
 import type { ProjectSession } from '../api/types.ts';
 import { C, help, pad, status } from '../style.ts';
-import { fromWorkspaceAlias, toWorkspaceAlias } from '../command-argv.ts';
+import { fromWorkspaceAlias, splitHelp, toWorkspaceAlias } from '../command-argv.ts';
 
 type CtxOpts = { projectArg?: string; hostArg?: string };
 
@@ -179,11 +179,9 @@ export function describeSharing(sharing: SessionSharing | null | undefined): str
 }
 
 export async function runSessionsShare(argv: string[]): Promise<number> {
+  const helped = splitHelp(argv, SHARE_HELP);
+  if (helped !== null) return helped;
   const rest = [...argv];
-  if (rest.includes('-h') || rest.includes('--help')) {
-    process.stdout.write(SHARE_HELP);
-    return 0;
-  }
 
   let projectArg: string | undefined;
   let hostArg: string | undefined;
@@ -287,11 +285,9 @@ export async function runSessionsShare(argv: string[]): Promise<number> {
 }
 
 export async function runSessionsLinks(argv: string[]): Promise<number> {
+  const helped = splitHelp(argv, LINKS_HELP);
+  if (helped !== null) return helped;
   const rest = [...argv];
-  if (rest.includes('-h') || rest.includes('--help')) {
-    process.stdout.write(LINKS_HELP);
-    return 0;
-  }
 
   let projectArg: string | undefined;
   let hostArg: string | undefined;

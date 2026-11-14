@@ -11,7 +11,6 @@
  * starts every NEW thread, and a thread keeps the model it started with.
  */
 import { config } from '../../config';
-import { projectFeatureFlagEnabled } from '../../feature-flags/for-project';
 import { labelForModelRef } from '../../llm-gateway/models/picker';
 import { toWireModel } from '../../llm-gateway/resolution/effective';
 import {
@@ -69,10 +68,8 @@ export async function slackModelScope(ctx: SlackModelCtx): Promise<ChannelModelS
   const actor = sender
     ? await resolveSlackActor(chatUser('slack', ctx.teamId, sender), gate).catch(() => null)
     : null;
-  const pooledEnabled = await projectFeatureFlagEnabled(gate.projectId, 'pooled_provider_secrets').catch(() => false);
   return channelModelScope({
     ...gate,
-    pooledEnabled,
     linkedUserId: actor && 'userId' in actor ? actor.userId : null,
     oneToOne: slackChannelIsDm(ctx.channelId),
   });

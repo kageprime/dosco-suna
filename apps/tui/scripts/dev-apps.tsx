@@ -79,7 +79,6 @@ function Harness() {
       <Panel title="Apps" focused width={WIDTH + 2} height={HEIGHT + 2}>
         <AppsScreen
           projectId={projectId as string}
-          accountId={accountId}
           focused
           width={WIDTH}
           height={HEIGHT}

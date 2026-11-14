@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
-import { loadFileSet } from './load-file-set';
+import { loadFileList, loadFileSet } from './load-file-set';
+import { sha256Hex } from './sha256';
 /**
  * Run squawk (https://squawkhq.com) — a deterministic Postgres migration
  * linter — against every migration file that is NOT in
@@ -77,7 +78,8 @@ async function ensureSquawkBinary(): Promise<string> {
   const cacheDir = join(homedir(), '.cache', 'kortix-db');
   const cachedPath = join(cacheDir, `squawk-${SQUAWK_VERSION}-${key}`);
   // A cache hit is trusted only when its bytes still match the pinned checksum.
-  if (sha256Hex(readIfPresent(cachedPath)) === entry.sha256) return cachedPath;
+  const cached = readIfPresent(cachedPath);
+  if (cached && sha256Hex(cached) === entry.sha256) return cachedPath;
 
   mkdirSync(cacheDir, { recursive: true });
   const url = `https://github.com/sbdchd/squawk/releases/download/v${SQUAWK_VERSION}/${entry.asset}`;
@@ -109,14 +111,6 @@ function readIfPresent(path: string): Uint8Array | null {
   }
 }
 
-function sha256Hex(buf: Uint8Array | null): string | null {
-  if (!buf) return null;
-  const hasher = new Bun.CryptoHasher('sha256');
-  hasher.update(buf);
-  return hasher.digest('hex');
-}
-
-
 interface SquawkWaiver {
   file: string;
   reason: string;
@@ -133,12 +127,7 @@ interface SquawkWaiver {
  * distinction between "predates the policy" and "violated the policy".
  */
 export function loadWaivers(): SquawkWaiver[] {
-  try {
-    const data = JSON.parse(readFileSync(WAIVER_FILE, 'utf8')) as { files: SquawkWaiver[] };
-    return Array.isArray(data.files) ? data.files : [];
-  } catch {
-    return [];
-  }
+  return loadFileList<SquawkWaiver>(WAIVER_FILE);
 }
 
 async function main(): Promise<void> {

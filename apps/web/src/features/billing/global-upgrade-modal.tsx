@@ -24,7 +24,7 @@ import Hint from '@kortix/ui/hint';
 import { Copy } from '@kortix/ui/icons';
 import { useAccountMembers } from '@kortix/ui/internal/account-hub/use-account-members';
 import {
-  DEFAULT_TIER_USD,
+  ENTRY_TIER_USD,
   formatWholeUsd,
   tierForMonthlyUsd,
 } from '@kortix/ui/internal/billing/compute-pricing';
@@ -244,7 +244,11 @@ function UpgradePlanCard({
   const tCard = useTranslations('billing.credits.planCard');
   const tPlan = useTranslations('billing.plan');
   const locale = useLocale();
-  const [monthlyUsd, setMonthlyUsd] = useState<number>(DEFAULT_TIER_USD);
+  // The entry tier (the "From $50" the card names) until the person picks
+  // another; their pick survives closing and reopening the dialog.
+  const pickedMonthlyUsd = useUpgradeDialogStore((s) => s.pickedMonthlyUsd);
+  const setPickedMonthlyUsd = useUpgradeDialogStore((s) => s.setPickedMonthlyUsd);
+  const monthlyUsd = pickedMonthlyUsd ?? ENTRY_TIER_USD;
   const { change, isPending } = useChangeCreditPlan();
 
   if (plan.id !== 'credits') {
@@ -275,17 +279,17 @@ function UpgradePlanCard({
         <div className="space-y-3">
           <CreditLadder
             value={monthlyUsd}
-            onChange={setMonthlyUsd}
+            onChange={setPickedMonthlyUsd}
             disabled={isPending}
             stackBelowXl={false}
           />
-            <p className="text-muted-foreground text-xs text-balance">{tCard('rate')}</p>
-            {accountState?.billing_fx?.usd_ngn_rate ? (
-              <p className="text-muted-foreground text-xs tabular-nums">
-                ≈ {formatNgn(Math.round(monthlyUsd * accountState.billing_fx.usd_ngn_rate))} / mo charged via Paystack
-              </p>
-            ) : null}
-          </div>
+          <p className="text-muted-foreground text-xs text-balance">{tCard('rate')}</p>
+          {accountState?.billing_fx?.usd_ngn_rate ? (
+            <p className="text-muted-foreground text-xs tabular-nums">
+              ≈ {formatNgn(Math.round(monthlyUsd * accountState.billing_fx.usd_ngn_rate))} / mo charged via Paystack
+            </p>
+          ) : null}
+        </div>
       }
       action={
         ownerRequired ? (

@@ -1,5 +1,6 @@
 import { beforeEach, expect, mock, test } from 'bun:test';
 import { configureKortix } from '../../http/config';
+import { withSizelessURLSearchParams } from '../../test-fixtures';
 import {
   costExportUrl,
   fetchCostExportCsv,
@@ -464,4 +465,10 @@ test('cost shapes mark rows billed to another workspace and moved projects', () 
   const detail: Pick<SessionCostDetail, 'billed_elsewhere_cost'> = { billed_elsewhere_cost: 1.25 };
   const row: Pick<ProjectCostRow, 'moved'> = { moved: true };
   expect([entry.billed_elsewhere, compute.billed_elsewhere, detail.billed_elsewhere_cost, row.moved]).toEqual([true, true, 1.25, true]);
+});
+
+test('listSessionCosts keeps its query under the mobile URLSearchParams polyfill (KRTX-4898)', async () => {
+  nextResponse = { ...page, sessions: [] };
+  await withSizelessURLSearchParams(() => listSessionCosts({ projectId: 'project-1', limit: 25 }));
+  expect(last().url).toBe('http://test.local/usage/session-costs?project_id=project-1&limit=25');
 });

@@ -23,6 +23,7 @@ import {
   type ManifestIssue,
 } from '@kortix/manifest-schema';
 import { addedManifestErrors, type ParsedManifest } from '../triggers';
+import { listAdmits } from '../../secrets/strategy';
 
 /** One raw `agents.<name>` block, as kortix.yaml holds it. */
 export type AgentBlock = Record<string, unknown>;
@@ -403,16 +404,6 @@ export function dropEmptyPolicySets(block: Record<string, unknown>): void {
   if (Object.keys(map).length === 0) delete block.policy_sets;
 }
 
-/** Grant membership. Case-insensitive, mirroring `listAdmits`
- *  (../../secrets/strategy.ts) and `grantAdmits` (./serializers.ts) — a
- *  hand-written `secrets:` list in kortix.yaml may use any case, and all three
- *  answers must agree or the UI and the delivery gate disagree about whether a
- *  secret is granted. */
-function listAdmits(list: readonly string[], identifier: string): boolean {
-  const target = identifier.toUpperCase();
-  return list.some((entry) => entry.toUpperCase() === target);
-}
-
 type GrantSecretToAgentResult =
   | {
       ok: true;
@@ -471,9 +462,8 @@ export function grantSecretToAgentV2(
 
   const current = merged.secrets;
   if (Array.isArray(current)) {
-    const declared = current.filter((entry): entry is string => typeof entry === 'string');
     // No commit, so nothing is adopted either.
-    if (listAdmits(declared, identifier)) {
+    if (listAdmits(current, identifier)) {
       return { ok: true, raw: manifest.raw, alreadyGranted: true, adoptedGovernance: false };
     }
     // Append to the author's entries verbatim. A non-string entry is left in

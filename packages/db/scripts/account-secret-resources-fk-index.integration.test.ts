@@ -7,8 +7,7 @@
  * `ON DELETE cascade` — and every RI check on `project_id` — scans the whole
  * table. Both foreign keys come from the committed migrations on every
  * environment, fresh or deployed. Reads the live catalog
- * (`pg_constraint` / `pg_index`), never source text; mirrors
- * `basejump-account-user-fk-index.integration.test.ts`.
+ * (`pg_constraint` / `pg_index`), never source text.
  */
 import { describe, expect, test } from 'bun:test';
 import pg from 'pg';

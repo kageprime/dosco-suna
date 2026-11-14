@@ -4,28 +4,10 @@
 from pathlib import Path
 import re
 
+from _hcl import resource_body
+
 
 MODULE = Path(__file__).parents[1] / "modules" / "ecs-api" / "main.tf"
-
-
-def resource_body(source: str, resource_type: str, name: str) -> str:
-    match = re.search(
-        rf'resource\s+"{re.escape(resource_type)}"\s+"{re.escape(name)}"\s*{{',
-        source,
-    )
-    assert match, f"missing {resource_type}.{name}"
-
-    depth = 1
-    cursor = match.end()
-    while cursor < len(source) and depth:
-        if source[cursor] == "{":
-            depth += 1
-        elif source[cursor] == "}":
-            depth -= 1
-        cursor += 1
-
-    assert depth == 0, f"unterminated {resource_type}.{name}"
-    return source[match.end() : cursor - 1]
 
 
 def assert_alb_logs_versioning_enabled(source: str) -> None:

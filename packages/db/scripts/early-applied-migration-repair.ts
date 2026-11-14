@@ -1,7 +1,6 @@
-import { verifyMigrationChecksum, withLedgerLock } from './ledger-repair';
+import { verifyMigrationChecksum } from './ledger-repair';
+import { deleteMigration, ledgerNames, withLedgerLock } from './migration-ledger';
 import { migrationNamesInDirectory } from './migration-files';
-
-export { migrationNamesInDirectory };
 
 /**
  * Idempotent CONCURRENTLY migrations that a targeted release applied before
@@ -40,17 +39,11 @@ export async function repairEarlyAppliedMigrations(
 ): Promise<string[]> {
   const fileNames = migrationNamesInDirectory(migrationsDir);
   return withLedgerLock(databaseUrl, [], async (client) => {
-    const ledger = await client.query<{ name: string }>(
-      'select name from kortix_migrations.pgmigrations',
-    );
-    const release = planEarlyAppliedMigrationRepair(
-      ledger.rows.map((row) => row.name),
-      fileNames,
-    );
+    const release = planEarlyAppliedMigrationRepair(await ledgerNames(client), fileNames);
     for (const name of release) {
       const migration = EARLY_APPLIED_MIGRATIONS.find((entry) => entry.name === name);
       if (migration) verifyMigrationChecksum(migrationsDir, migration);
-      await client.query('delete from kortix_migrations.pgmigrations where name = $1', [name]);
+      await deleteMigration(client, name);
     }
     return release;
   });

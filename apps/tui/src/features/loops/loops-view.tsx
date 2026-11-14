@@ -12,7 +12,7 @@
 import { useKeyboard } from '@opentui/react';
 import { useCallback, useMemo, useState } from 'react';
 
-import { relativeAge } from '../../lib/relative-time.ts';
+import { relativeAge, relativeUntil } from '../../lib/relative-time.ts';
 import { glyph as GLYPH, theme } from '../../theme.ts';
 import { Spinner, layoutRow, windowStart } from '../../ui/index.ts';
 import { editText, matchesLoopsBinding } from './keys.ts';
@@ -57,18 +57,6 @@ export interface LoopsViewProps {
 
 const LABEL_WIDTH = 12;
 
-/** `in 5m` for a future instant, `due` for a past one, `—` for none. */
-export function untilText(targetMs: number, nowMs: number): string {
-  if (!Number.isFinite(targetMs)) return '—';
-  const delta = targetMs - nowMs;
-  if (delta <= 0) return 'due';
-  const minutes = Math.ceil(delta / 60_000);
-  if (minutes < 60) return `in ${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 48) return `in ${hours}h`;
-  return `in ${Math.floor(hours / 24)}d`;
-}
-
 function stateOf(row: LoopRow): { glyph: string; color: string } {
   if (row.lastError) return { glyph: GLYPH.failed, color: theme.danger };
   if (row.state === 'active') return { glyph: GLYPH.running, color: theme.ok };
@@ -80,7 +68,7 @@ function stateOf(row: LoopRow): { glyph: string; color: string } {
  * `<glyph> <title>  <schedule>   <next run | state>`.
  */
 export function loopRowText(row: LoopRow, now: number, width: number): string {
-  const right = row.state === 'active' ? `next ${untilText(row.nextMs, now)}` : row.state;
+  const right = row.state === 'active' ? `next ${relativeUntil(row.nextMs, now)}` : row.state;
   const scheduleRoom = Math.min(row.schedule.length, 22);
   const titleRoom = Math.max(width - 1 - 2 - scheduleRoom - 2 - right.length - 1, 8);
   const title = row.title.length > titleRoom ? `${row.title.slice(0, titleRoom - 1)}…` : row.title;
@@ -246,7 +234,7 @@ export function LoopsView({
         <text fg={theme.fg}>{layoutRow(current.title, current.state, bodyWidth)}</text>
         <text fg={theme.border}>{'─'.repeat(bodyWidth)}</text>
         <Field label="Schedule" value={`${current.schedule} (${current.timezone})`} />
-        <Field label="Next run" value={untilText(current.nextMs, now)} />
+        <Field label="Next run" value={relativeUntil(current.nextMs, now)} />
         <Field
           label="Last run"
           value={

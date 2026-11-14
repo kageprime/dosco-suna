@@ -4,13 +4,7 @@ import { act } from 'react';
 import { testRender } from '@opentui/react/test-utils';
 
 import { scheduleText, toRow } from './loops-screen.tsx';
-import {
-  type LoopRow,
-  LoopsView,
-  type LoopsViewProps,
-  loopRowText,
-  untilText,
-} from './loops-view.tsx';
+import { type LoopRow, LoopsView, type LoopsViewProps, loopRowText } from './loops-view.tsx';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -72,16 +66,6 @@ async function type(mockInput: { pressKey: (k: string) => void }, text: string) 
 }
 
 describe('helpers', () => {
-  test('untilText counts up to the next run', () => {
-    expect([
-      untilText(NOW + 20 * MINUTE, NOW),
-      untilText(NOW + 3 * HOUR, NOW),
-      untilText(NOW + 72 * HOUR, NOW),
-      untilText(NOW - 1, NOW),
-      untilText(Number.NaN, NOW),
-    ]).toEqual(['in 20m', 'in 3h', 'in 3d', 'due', '—']);
-  });
-
   test('scheduleText and toRow read the reminder fields', () => {
     const base = {
       id: 'reminder.x',

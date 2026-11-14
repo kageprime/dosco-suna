@@ -10,7 +10,7 @@ import { agentTunnelVersion } from './version';
  * `<home>/state.json`: the running agent's connection status, for local
  * observers such as the desktop tray. It holds no credential.
  */
-export interface AgentStateFile {
+interface AgentStateFile {
   tunnelId: string;
   apiUrl: string;
   status: TunnelAgentStatus;

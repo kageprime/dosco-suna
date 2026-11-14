@@ -10,6 +10,7 @@ import {
   clearMissingFileRead,
   missingFileReadError,
   missingFileSuppressed,
+  missingFileReadEpoch,
   noteMissingFileRead,
   sandboxWakingRefetchInterval,
 } from '../../../internal/files/file-read-retry';
@@ -42,13 +43,14 @@ export function useFileContent(
     // in internal/files/file-read-retry.
     queryFn: ({ signal }) => {
       if (missingFileSuppressed(serverUrl, filePath)) throw missingFileReadError();
+      const startedAt = missingFileReadEpoch();
       return readRuntimeFileWithRetry(filePath!, () => readFile(filePath!), undefined, signal)
         .then((content) => {
           clearMissingFileRead(serverUrl, filePath!);
           return content;
         })
         .catch((error: unknown) => {
-          noteMissingFileRead(serverUrl, filePath!, error);
+          noteMissingFileRead(serverUrl, filePath!, error, startedAt);
           throw error;
         });
     },

@@ -21,11 +21,12 @@ export function turnStreamKindField(kind: unknown): string {
 // `runtime_session` only persists the root-session pin. Everything NOT in this set reaches the
 // content-bearing send path in turn-stream (relayTurnStep/relayTurnAnswer, which
 // post to the project's Slack/Teams), including any unknown kind.
-export const TURN_STREAM_LIFECYCLE_KINDS: ReadonlySet<string> = new Set([
+const TURN_STREAM_LIFECYCLE_KINDS: ReadonlySet<string> = new Set([
   'end',
   'turn_end',
   'turn_begin',
   'steer_read',
+  'steer_dropped',
   'turn_accepted',
   'turn_abandoned',
   'initial_turn_claim',

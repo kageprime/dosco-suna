@@ -15,7 +15,7 @@ import type { Config } from '@/lib/config/config'
 import { logger } from '@/lib/log/logger'
 import { startSampling, loopLagMs } from '@/lib/loop-lag'
 import { KORTIX_SERVICE_CALL_HEADER, KORTIX_USER_CONTEXT_HEADER, verifyKortixUserContext } from '@/lib/kortix-api/kortix-user-context'
-import { sessionLogEventBus, type KortixEvent } from '@/services/event-bus/kortix-event-bus'
+import { sessionLogEventBus, sessionLogJoinSnapshot, type KortixEvent } from '@/services/event-bus/kortix-event-bus'
 import { etagMatches, notModified, timedJson } from './kortix-http'
 import type { HarnessQueryService } from '@/harness/contract/queries'
 import type { HarnessReadiness } from '@/harness/contract/proxy'
@@ -526,6 +526,16 @@ export function createRuntimeRouter(
         replaying = false
         for (const event of pending) send(event)
         pending.length = 0
+        // F-011: the messages streaming now, as puts, before any later delta. A subscriber that
+        // joined live-only (or after a resync) has no other source for them: pi stores a reply
+        // only at its message_end. Stamped with the head seq, the cursor this stream now holds;
+        // the client keys these puts by `rev`, never by seq.
+        if (schema === 'v2') {
+          for (const put of sessionLogJoinSnapshot()) {
+            const frame = { seq: bus.headSeq, type: 'log.message', at: now(), payload: put, session: put.message.thread_id }
+            write(`event: log.message\nid: ${frame.seq}\ndata: ${JSON.stringify(frame)}\n\n`)
+          }
+        }
 
         // A TYPED heartbeat, not a `:` comment. SSE parsers swallow comments
         // without yielding anything, so a comment keeps TCP warm while leaving

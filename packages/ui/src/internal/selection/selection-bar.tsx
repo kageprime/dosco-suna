@@ -14,7 +14,8 @@
  */
 
 import { XIcon } from '@phosphor-icons/react';
-import { m, useReducedMotion } from 'motion/react';
+import { m } from 'motion/react';
+import { useReducedMotion } from '../hooks/use-reduced-motion';
 
 import { useTranslations } from '../../i18n';
 import { cn } from '../lib/utils';

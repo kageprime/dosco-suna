@@ -17,6 +17,7 @@
 import { useRef, useState, type ReactNode } from 'react';
 
 import {
+  createAccountToken,
   createWorkspaceKey,
   getPatPolicy,
   listPermissions,
@@ -67,6 +68,12 @@ const STATUS_BADGE = { active: 'success', expired: 'update', revoked: 'muted' } 
 const ACTS_AS_ICON: Record<WorkspaceKeyPrincipal, typeof KeyIcon> = { me: UserIcon, agent: RobotIcon, bot: TerminalWindowIcon };
 
 type KeyAccess = 'full' | 'read' | 'custom';
+
+/** Where a key minted as "You" works: every workspace of the person (a
+ *  personal key, `project_id IS NULL` — the credential `kortix login` mints)
+ *  or only the workspace this pane is open on. Agent and bot keys are always
+ *  workspace-bound: they act as principals OF this workspace. */
+type KeyReach = 'all' | 'workspace';
 
 function isMfaRequired(error: unknown): boolean {
   return (error as { code?: string } | null)?.code === 'account_mfa_required';
@@ -293,10 +300,11 @@ function CreateWorkspaceKeyDialog({
   const actsAsLabel = useActsAsLabel();
   const [name, setName] = useState('');
   const [draft, setDraft] = useState<ActsAsDraft>({ actsAs: 'me', agent: '', bot: '', newBotName: '' });
+  const [worksIn, setWorksIn] = useState<KeyReach>('all');
   const [access, setAccess] = useState<KeyAccess>('full');
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
   const [expiry, setExpiry] = useState('');
-  const [created, setCreated] = useState<CreatedWorkspaceKey | null>(null);
+  const [created, setCreated] = useState<{ name: string; secret: string; personal: boolean; actsAsLabel: string } | null>(null);
   const submitInFlight = useRef(false);
 
   const options = actsAsOptions(list);
@@ -329,17 +337,45 @@ function CreateWorkspaceKeyDialog({
   const selectedExpiry = expiryChoices.some((o) => o.value === expiry) ? expiry : defaultKeyExpiryOption(policy, tI18nComplete);
 
   const principal = actsAsInput(draft);
-  const ready = !!name.trim() && !!principal && !(access === 'custom' && picked.size === 0);
+  // "All my workspaces" with "You" mints a personal key: the Access select is
+  // hidden there and its state is dead, so a leftover Custom (zero picks) must
+  // not hold the gate. Only the workspace path reads access/picked.
+  const personal = draft.actsAs === 'me' && worksIn === 'all';
+  const ready = !!name.trim() && !!principal && !(!personal && access === 'custom' && picked.size === 0);
   const pickedBot = draft.actsAs === 'bot' && draft.bot && draft.bot !== NEW_BOT ? list?.bots.find((b) => b.bot_id === draft.bot) : undefined;
 
   const mutation = useMutation({
-    mutationFn: () =>
-      createWorkspaceKey(workspaceId, {
+    mutationFn: async () => {
+      // "All my workspaces" mints a PERSONAL key (`project_id IS NULL`): it
+      // acts as the person in every workspace of theirs, exactly what a CLI
+      // login pastes into `kortix login --token`. The API refuses scopes on a
+      // personal key (a scope is a workspace concept), so it always carries
+      // the person's full role — the Access select below is the workspace
+      // path's alone. A personal key lists under Preferences → Personal keys,
+      // not in this workspace's list.
+      if (personal) {
+        const token = await createAccountToken({
+          name: name.trim(),
+          accountId,
+          expiresAt: keyExpiresAt(selectedExpiry),
+        });
+        return { name: token.name, secret: token.secret_key, personal: true, actsAsLabel: actsAsLabel({ type: 'me', name: null, service_account_id: null }) };
+      }
+      const key = await createWorkspaceKey(workspaceId, {
         name: name.trim(),
         actsAs: principal!,
         scopes: access === 'custom' ? [...picked] : access,
         expiresAt: keyExpiresAt(selectedExpiry),
-      }),
+      });
+      // The server's row resolves the principal's name; the draft resolves it here.
+      const actsAsLabelOf =
+        draft.actsAs === 'me'
+          ? actsAsLabel({ type: 'me', name: null, service_account_id: null })
+          : draft.actsAs === 'agent'
+            ? actsAsLabel({ type: 'agent', name: draft.agent, service_account_id: null })
+            : actsAsLabel({ type: 'bot', name: pickedBot?.name ?? draft.newBotName, service_account_id: null });
+      return { name: key.name, secret: key.secret_key, personal: false, actsAsLabel: actsAsLabelOf };
+    },
     onSuccess: (key) => {
       onCreated();
       setCreated(key);
@@ -355,6 +391,7 @@ function CreateWorkspaceKeyDialog({
     setTimeout(() => {
       setName('');
       setDraft({ actsAs: 'me', agent: '', bot: '', newBotName: '' });
+      setWorksIn('all');
       setAccess('full');
       setPicked(new Set());
       setExpiry('');
@@ -379,10 +416,14 @@ function CreateWorkspaceKeyDialog({
           <>
             <ModalHeader>
               <ModalTitle>{tTokens('copyNow')}</ModalTitle>
-              <ModalDescription>{t('createdDescription', { name: created.name, actsAs: actsAsLabel(created.acts_as) })}</ModalDescription>
+              <ModalDescription>
+                {created.personal
+                  ? t('createdPersonalDescription', { name: created.name })
+                  : t('createdDescription', { name: created.name, actsAs: created.actsAsLabel })}
+              </ModalDescription>
             </ModalHeader>
             <ModalBody>
-              <CopyRow value={created.secret_key} successMessage={tTokens('keyCopied')} />
+              <CopyRow value={created.secret} successMessage={tTokens('keyCopied')} />
             </ModalBody>
             <ModalFooter>
               <Button type="button" size="sm" onClick={close}>
@@ -499,6 +540,39 @@ function CreateWorkspaceKeyDialog({
                   </div>
                 ) : null}
 
+                {draft.actsAs === 'me' ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="workspace-key-works-in">{t('worksIn')}</Label>
+                    <Select
+                      value={worksIn}
+                      onValueChange={(value) => {
+                        const next = value as KeyReach;
+                        setWorksIn(next);
+                        // The Access narrowing is the workspace path's alone;
+                        // moving to the personal path must not strand a hidden
+                        // "custom (0 picked)" behind a disabled Create.
+                        if (next === 'all') {
+                          setAccess('full');
+                          setPicked(new Set());
+                        }
+                      }}
+                      disabled={mutation.isPending}
+                    >
+                      <SelectTrigger id="workspace-key-works-in" size="md" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t('worksInAll')}</SelectItem>
+                        <SelectItem value="workspace">{t('worksInWorkspace')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {personal ? (
+                      <p className="text-muted-foreground text-xs">{t('worksInAllHint')}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {personal ? null : (
                 <div className="space-y-1.5">
                   <Label htmlFor="workspace-key-access">{tWorkspaces('keyAccess')}</Label>
                   <Select value={access} onValueChange={(value) => setAccess(value as KeyAccess)} disabled={mutation.isPending}>
@@ -530,6 +604,7 @@ function CreateWorkspaceKeyDialog({
                     />
                   ) : null}
                 </div>
+                )}
 
                 <div className="space-y-1.5">
                   <Label htmlFor="workspace-key-expiry">{tTokens('expires')}</Label>

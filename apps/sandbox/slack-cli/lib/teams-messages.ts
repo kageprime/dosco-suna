@@ -10,7 +10,7 @@
  * Pure: no network, no env — the CLI supplies both.
  */
 
-export interface ChannelThreadIds {
+interface ChannelThreadIds {
   channelId: string;
   /** The thread's root message id, when the conversation is one thread. */
   messageId?: string;
@@ -31,7 +31,7 @@ export function parseChannelConversation(conversationId: string): ChannelThreadI
   return m ? { channelId, messageId: m[1] } : { channelId };
 }
 
-export interface SimpleMessage {
+interface SimpleMessage {
   id: string;
   at: string;
   from: string;

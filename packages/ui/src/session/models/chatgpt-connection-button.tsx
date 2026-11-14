@@ -6,7 +6,6 @@ import { cn } from '../../lib/utils';
 import { useSessionIds } from '../../providers/session-ids';
 import { useUiComponents, useUiViewerId } from '../../providers/ui-provider';
 import {
-  useFeatureFlag,
   useModelAccess,
   useProjectSession,
   useSessionProviderSecretPools,
@@ -36,8 +35,7 @@ export function ChatGptConnectionSlot({
 }
 
 /**
- * Opens the ChatGPT accounts dialog, which exists only with pooled provider
- * secrets and the LLM gateway on. Shown only where connecting or
+ * Opens the ChatGPT accounts dialog. Shown only where connecting or
  * reconnecting an account can fix this session (`chatGptActionApplies`).
  */
 function ChatGptConnectionButton({
@@ -53,17 +51,14 @@ function ChatGptConnectionButton({
 }) {
   const t = useTranslations('pooledSecrets');
   const viewerId = useUiViewerId();
-  const pooled = useFeatureFlag(projectId, 'pooled_provider_secrets');
-  const enabled = pooled.enabled;
-  const access = useModelAccess(enabled ? projectId : null);
-  const session = useProjectSession(projectId, sessionId, { enabled });
-  const pools = useSessionProviderSecretPools(enabled ? projectId : null, sessionId);
+  const access = useModelAccess(projectId);
+  const session = useProjectSession(projectId, sessionId);
+  const pools = useSessionProviderSecretPools(projectId, sessionId);
   const [open, setOpen] = useState(false);
   const { ProviderAccountsModal } = useUiComponents();
 
   const applies =
     !!ProviderAccountsModal &&
-    enabled &&
     !(access.data?.disabledProviders ?? []).includes('codex') &&
     chatGptActionApplies({
       action,

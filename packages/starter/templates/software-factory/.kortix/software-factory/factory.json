@@ -1,0 +1,67 @@
+{
+  "$comment": "The Software Factory configuration. The factory agent reads this file at the start of every run. The setup agent writes it with you (references/analysis.md). Change it with a commit; the next run reads the new values.",
+  "version": 1,
+  "repository": {
+    "full_name": "{{repoFullName}}",
+    "trunk": "{{defaultBranch}}",
+    "branch_prefix": "kortix/"
+  },
+  "identity": {
+    "kind": "machine-user",
+    "github_login": null,
+    "name": null,
+    "email": null,
+    "co_author_requester": true
+  },
+  "store": {
+    "kind": "github-issues",
+    "target": "{{repoFullName}}",
+    "agent_identity": null,
+    "states": {}
+  },
+  "labels": {
+    "factory": "factory",
+    "accept": "kortix",
+    "source_prefix": "source:",
+    "kind_prefix": "kind:",
+    "state_prefix": "factory:"
+  },
+  "sources": {
+    "github-issues": { "enabled": true, "accept": "label" },
+    "tests": { "enabled": true, "command": null, "flaky_reruns": 1 },
+    "slack": { "enabled": false, "channels": [], "accept_words": ["build it"] },
+    "errors": { "enabled": false, "tracker": null, "delivery": "poll", "projects": [] },
+    "logs-anomaly": { "enabled": false, "backends": [], "baseline_days": 7 },
+    "db-observer": { "enabled": false, "backend": null, "baseline_days": 7 },
+    "customer-feedback": { "enabled": false, "channels": [] },
+    "codebase-analysis": { "enabled": false, "units": [] },
+    "dependencies": { "enabled": false },
+    "security": { "enabled": false, "targets": ["localhost"] }
+  },
+  "caps": {
+    "workers": 3,
+    "attempts_per_cycle": 3,
+    "rework_cycles_before_human": 5,
+    "new_tickets_per_source_per_day": 5,
+    "reviewers": 2
+  },
+  "merge": {
+    "policy": "hold",
+    "method": "squash",
+    "hold_paths": [],
+    "big_visual": { "files": 3, "lines": 80 }
+  },
+  "models": {
+    "loops": null,
+    "worker": null,
+    "worker_hard": null,
+    "reviewer": null
+  },
+  "verify": {
+    "skill": "dev-environment",
+    "demo_video": "visible-changes"
+  },
+  "notify": {
+    "held_prs": null
+  }
+}

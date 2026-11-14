@@ -426,6 +426,21 @@ export async function toolModuleFiles(mirror: string, rootTree: string, modules:
 }
 
 /**
+ * Every file under the skill folders `folders` (repo-relative, as
+ * `compiled.skills` names them) in the root tree `rootTree`. A folder that is
+ * not in the tree adds nothing; the box then lists no such skill. A path that
+ * leaves the repository is ignored.
+ */
+export async function skillFolderFiles(mirror: string, rootTree: string, folders: readonly string[]): Promise<ConfigReleaseFile[]> {
+  const prefixes = folders.flatMap((folder) => {
+    const clean = posix.normalize(folder.trim()).replace(/^(\.\/)+/, '').replace(/\/+$/, '');
+    return !clean || clean === '.' || clean.startsWith('../') || clean === '..' || clean.startsWith('/') ? [] : [`${clean}/`];
+  });
+  if (prefixes.length === 0) return [];
+  return (await listConfigFiles(mirror, rootTree)).filter(([path]) => prefixes.some((prefix) => path.startsWith(prefix)));
+}
+
+/**
  * The release tree source of `commit`. Shared by the builder and the archive
  * route, which rebuilds a composed tree from the commit in its path.
  */

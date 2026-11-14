@@ -68,9 +68,19 @@
       "android": {
         "buildType": "apk"
       }
+    },
+    "prod-testflight": {
+      "extends": "prod-store",
+      "channel": "testflight-production"
     }
   },
   "submit": {
+    "prod-testflight": {
+      "ios": {
+        "appleTeamId": "T8G9J33433",
+        "ascAppId": "6754448524"
+      }
+    },
     "dev-store": {
       "ios": {
         "appleTeamId": "T8G9J33433",

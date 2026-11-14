@@ -122,6 +122,8 @@ interface SessionSiteHeaderProps {
   leadingAction?: React.ReactNode;
   /** A subsession's parent: rendered as a "Home" breadcrumb before the name. */
   parent?: { onOpen: () => void };
+  /** The session works now: its child list polls every 5 s instead of every 30 s. */
+  live?: boolean;
 }
 
 export function SessionSiteHeader({
@@ -130,6 +132,7 @@ export function SessionSiteHeader({
   isMobileView,
   leadingAction,
   parent,
+  live = false,
 }: SessionSiteHeaderProps) {
   const tI18nHardcoded = useTranslations('hardcodedUi');
   const tHardcodedUi = useTranslations('hardcodedUi');
@@ -277,7 +280,8 @@ export function SessionSiteHeader({
   const subsessions = projectSession && !parent ? directSubsessions(projectSession) : [];
   const childSessions = useSessionChildren(projectId ?? '', projectSessionId ?? '', {
     enabled: isProjectSession && !parent,
-    refetchInterval: 5_000,
+    // An idle session starts no child: poll every 30 s, every 5 s while it works.
+    refetchInterval: live ? 5_000 : 30_000,
   });
   const startRename = () => {
     if (canRename) setIsRenaming(true);

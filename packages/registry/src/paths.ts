@@ -9,6 +9,19 @@ export function trimTrailingSlashes(value: string): string {
   return value.slice(0, end);
 }
 
+export function posixJoin(...parts: string[]): string {
+  return parts
+    .filter((p) => p && p !== '.')
+    .join('/')
+    .replace(/\/{2,}/g, '/')
+    .replace(/^\.\//, '');
+}
+
+export function posixDirname(p: string): string {
+  const i = p.lastIndexOf('/');
+  return i === -1 ? '' : p.slice(0, i);
+}
+
 // --- target builders (used by `kortix registry build`) ---------------------
 
 export const buildTarget = {

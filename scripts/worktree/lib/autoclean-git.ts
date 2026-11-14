@@ -33,6 +33,14 @@ export function parseWorktreePorcelain(stdout: string): GitWorktree[] {
   return out;
 }
 
+/**
+ * Whether `path` is a registered worktree in `git worktree list --porcelain` output.
+ * An exact path match: `/w/suna-ws` is not registered because `/w/suna-ws-engine` is.
+ */
+export function isRegisteredWorktree(stdout: string, path: string): boolean {
+  return parseWorktreePorcelain(stdout).some((w) => w.path === path);
+}
+
 /** Claude Code creates its isolation worktrees under `<primary>/.claude/worktrees/<id>`. */
 export function isClaudeWorktree(path: string, primary: string): boolean {
   const base = `${primary.replace(/\/+$/, '')}/.claude/worktrees/`;

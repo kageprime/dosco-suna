@@ -208,7 +208,7 @@ describe('legacySectionRedirect', () => {
         opensOverlay: false,
       });
     }
-    expect(legacySectionRedirect('p1', 'review')).toBe('/workspaces/p1/inbox?view=review');
+    expect(legacySectionRedirect('p1', 'review')).toBe('/workspaces/p1/review');
     expect(resolveSettingsOverlayHref('/workspaces/p1/review')).toEqual({ opensOverlay: false });
   });
 

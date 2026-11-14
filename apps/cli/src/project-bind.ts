@@ -53,6 +53,18 @@ export function boundWorkspaceId(me: MeResponse): string | null {
   return me.token_context?.workspace_id || me.token_context?.project_id || null;
 }
 
+/** The membership row a server implies when it reports none: only the account
+ *  id is known — the slug is its first 8 characters, no name or role. */
+function standInMembership(accountId: string): AccountMembership {
+  return { account_id: accountId, slug: accountId.slice(0, 8), name: '', role: '' };
+}
+
+/** One workspace row: the project plus its account, the project's
+ *  workspace-scoped role overriding the account-wide one. */
+function rowFromAccountProject(account: AccountMembership, project: ProjectSummary): WorkspaceRow {
+  return { project, account: project.role ? { ...account, role: project.role } : account };
+}
+
 /** The membership row that owns one workspace, or a stand-in for a server
  *  that does not report `workspace_id` on its memberships. */
 function membershipOf(me: MeResponse, project: ProjectSummary): AccountMembership {
@@ -60,13 +72,7 @@ function membershipOf(me: MeResponse, project: ProjectSummary): AccountMembershi
   const owner =
     accounts.find((a) => a.workspace_id && a.workspace_id === project.project_id) ??
     accounts.find((a) => a.account_id === project.account_id);
-  const base = owner ?? {
-    account_id: project.account_id,
-    slug: (project.account_id ?? '').slice(0, 8),
-    name: '',
-    role: '',
-  };
-  return project.role ? { ...base, role: project.role } : base;
+  return rowFromAccountProject(owner ?? standInMembership(project.account_id), project).account;
 }
 
 /**
@@ -104,12 +110,7 @@ export async function listWorkspaceRowsReport(
       );
       return { rows: [{ project, account: membershipOf(me, project) }], failed: [] };
     } catch (error) {
-      const account = memberships.find((a) => a.workspace_id === bound) ?? {
-        account_id: bound,
-        slug: bound.slice(0, 8),
-        name: '',
-        role: '',
-      };
+      const account = memberships.find((a) => a.workspace_id === bound) ?? standInMembership(bound);
       return { rows: [], failed: [{ account, error }] };
     }
   }
@@ -135,7 +136,7 @@ export async function listWorkspaceRowsReport(
     ? memberships.filter((a) => a.account_id === accountId)
     : memberships;
   if (accountId && accounts.length === 0) {
-    accounts.push({ account_id: accountId, slug: accountId.slice(0, 8), name: '', role: '' });
+    accounts.push(standInMembership(accountId));
   }
   const failed: WorkspaceListFailure[] = [];
   const lists = await Promise.all(
@@ -161,7 +162,7 @@ export async function listWorkspaceRowsReport(
       if (!listableWorkspace(project)) continue;
       if (seen.has(project.project_id)) continue;
       seen.add(project.project_id);
-      rows.push({ project, account: project.role ? { ...account, role: project.role } : account });
+      rows.push(rowFromAccountProject(account, project));
     }
   }
   return { rows, failed };
@@ -207,7 +208,7 @@ async function bindableWorkspaces(auth: Auth, accountId?: string): Promise<Works
     >('/workspaces');
     return projects.filter(listableWorkspace).map((project) => ({
       project,
-      account: { account_id: project.account_id, slug: project.account_id.slice(0, 8), name: '', role: '' },
+      account: standInMembership(project.account_id),
     }));
   }
 }

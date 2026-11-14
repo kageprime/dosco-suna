@@ -73,7 +73,7 @@ export function ConnectorTriggers({
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <Label>{tI18nComplete.raw('textea56119b98e2')}</Label>
+        <Label>{tI18nComplete.raw('text458ceb31019b')}</Label>
         {controls.canCreate ? (
           <Button
             size="sm"
@@ -82,7 +82,7 @@ export function ConnectorTriggers({
             onClick={() => setCreating(true)}
           >
             <PlusIcon className="size-4 shrink-0" />
-            {tI18nComplete.raw('text1ee2cf623464')}
+            {tI18nComplete.raw('text85a6c98e5584')}
           </Button>
         ) : null}
       </div>

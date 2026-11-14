@@ -18,7 +18,7 @@ import { Button } from '@kortix/ui/button';
 import Loading from '@kortix/ui/loading';
 import {
   CREDIT_TIERS,
-  DEFAULT_TIER_USD,
+  ENTRY_TIER_USD,
   FREE_MONTHLY_CREDITS,
   formatWholeUsd,
   isValidMonthlyUsd,
@@ -156,26 +156,26 @@ export interface PlanPickerView {
 }
 
 /**
- * What the plan picker opens on: the amount the account pays, or the default
+ * What the plan picker opens on: the amount the account pays, or the entry
  * tier. Enterprise never changes the billing plan, so every account gets the
  * picker. A live subscription on an amount the API does not report (an
  * off-ladder legacy price) opens on the select's "choose a tier" state.
  */
 export function planPickerView(state: AccountState): PlanPickerView {
   const currentUsd = resolvedPlan(state).monthlyUsd ?? state.subscription?.monthly_usd ?? null;
-  const initialUsd = currentUsd ?? (accountHasLiveSubscription(state) ? null : DEFAULT_TIER_USD);
+  const initialUsd = currentUsd ?? (accountHasLiveSubscription(state) ? null : ENTRY_TIER_USD);
   return { currentUsd, initialUsd };
 }
 
 /**
- * The tier the out-of-credits modal opens on. No subscription: the default
+ * The tier the out-of-credits modal opens on. No subscription: the entry
  * tier. A subscriber: the smallest tier above the current one that covers this
  * period's usage with 20% to spare, so the suggestion is the account's own
  * number, not a pitch. The top tier when nothing larger fits.
  */
 export function recommendedPlanUsd(state: AccountState): number {
   const { currentUsd } = planPickerView(state);
-  if (!accountHasLiveSubscription(state) || currentUsd === null) return DEFAULT_TIER_USD;
+  if (!accountHasLiveSubscription(state) || currentUsd === null) return ENTRY_TIER_USD;
   const target = (state.usage_this_period?.total_usd ?? 0) * 1.2;
   const next = CREDIT_TIERS.find((tier) => tier.monthlyUsd > currentUsd && tier.monthlyUsd >= target);
   return next?.monthlyUsd ?? CREDIT_TIERS[CREDIT_TIERS.length - 1].monthlyUsd;
@@ -277,7 +277,7 @@ export function PlanChanger({
     return (
       <section className={cn('space-y-6', className)} data-testid="plan-ladder">
         <CreditLadder
-          value={monthlyUsd ?? DEFAULT_TIER_USD}
+          value={monthlyUsd ?? ENTRY_TIER_USD}
           onChange={setMonthlyUsd}
           disabled={isPending}
           stackBelowXl={false}

@@ -178,6 +178,11 @@ describe('the v1 reads answer from the log', () => {
     expect(body.available).toBe(true);
     expect(body.captured_at).toBe(new Date(log!.updatedAt).toISOString());
     expect(body.runtime_session_id).toBe(ROOT);
+    // A write 0.999 ms into its millisecond: captured_at keeps that millisecond, never the next.
+    await db.execute(sql`update kortix.session_log_messages set updated_at = '2026-11-14T02:16:04.405999Z' where session_id = ${nativeSession}`);
+    await db.update(sessionLogs).set({ updatedAt: new Date('2026-11-14T02:16:04.100Z') }).where(eq(sessionLogs.sessionId, nativeSession));
+    const pinned = (await (await get(`${base(nativeSession)}/transcript?shape=sync`)).json()) as Window;
+    expect(pinned.captured_at).toBe('2026-11-14T02:16:04.405Z');
     // The rows the SDK renders for the native root thread: `toV1` of its stored records.
     const page = (await (await get(`${base(nativeSession)}/log?limit=500`)).json()) as { session: object; threads: Array<{ thread_id: string }>; messages: unknown[] };
     const thread = page.threads.find((t) => t.thread_id === ROOT)!;

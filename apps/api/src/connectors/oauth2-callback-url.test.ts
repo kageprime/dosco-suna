@@ -36,38 +36,59 @@ describe('nativeOAuth2CallbackUrl', () => {
 });
 
 describe('nativeOAuth2CallbackResponse', () => {
-  test('a sign-in started without a return page (the CLI) says it connected', () => {
-    expect(nativeOAuth2CallbackResponse({ ok: true, redirectUri: null })).toEqual({
-      status: 200,
-      body: 'Connected. You can close this tab and return to Dosco.',
+  const WEB = 'https://dosco.live';
+
+  test('a sign-in with no return page lands on the web return page, named', () => {
+    expect(
+      nativeOAuth2CallbackResponse(
+        { ok: true, redirectUri: null, connector: { name: 'Cloudflare', iconSlug: 'cloudflare' } },
+        WEB,
+      ),
+    ).toEqual({
+      status: 302,
+      location: 'https://dosco.live/connect/done?oauth2=connected&app=Cloudflare&icon=cloudflare',
     });
   });
 
-  test('a failure without a return page names the reason', () => {
+  test('a failure with no return page lands there with the reason', () => {
     expect(
-      nativeOAuth2CallbackResponse({ ok: false, redirectUri: null, errorCode: 'invalid_state' }),
+      nativeOAuth2CallbackResponse({ ok: false, redirectUri: null, errorCode: 'invalid_state' }, `${WEB}/`),
+    ).toEqual({
+      status: 302,
+      location: 'https://dosco.live/connect/done?oauth2=error&oauth2_error=invalid_state',
+    });
+  });
+
+  test('plain text only when the deployment has no web app URL', () => {
+    expect(nativeOAuth2CallbackResponse({ ok: true, redirectUri: null }, undefined)).toEqual({
+      status: 200,
+      body: 'Connected. You can close this tab and return to Dosco.',
+    });
+    expect(
+      nativeOAuth2CallbackResponse({ ok: false, redirectUri: null, errorCode: 'invalid_state' }, 'not a url'),
     ).toEqual({
       status: 400,
       body: 'OAuth2 authorization failed (invalid_state): this sign-in link was already used or has expired. Start the sign-in again.',
     });
-    expect(
-      nativeOAuth2CallbackResponse({ ok: false, redirectUri: null, errorCode: 'token_exchange_failed' }),
-    ).toEqual({ status: 400, body: 'OAuth2 authorization failed (token_exchange_failed).' });
   });
 
   test('with a return page it redirects there with the result', () => {
     expect(
-      nativeOAuth2CallbackResponse({
-        ok: false,
-        redirectUri: 'https://app.example.test/c?x=1',
-        errorCode: 'access_denied',
-      }),
+      nativeOAuth2CallbackResponse(
+        {
+          ok: false,
+          redirectUri: 'https://app.example.test/c?x=1',
+          errorCode: 'access_denied',
+          connector: { name: 'Linear', iconSlug: 'linear' },
+        },
+        WEB,
+      ),
     ).toEqual({
       status: 302,
       location: 'https://app.example.test/c?x=1&oauth2=error&oauth2_error=access_denied',
     });
     expect(
-      nativeOAuth2CallbackResponse({ ok: true, redirectUri: 'https://app.example.test/c' }),
+      nativeOAuth2CallbackResponse({ ok: true, redirectUri: 'https://app.example.test/c' }, WEB),
     ).toEqual({ status: 302, location: 'https://app.example.test/c?oauth2=connected' });
   });
 });

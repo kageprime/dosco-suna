@@ -3,6 +3,7 @@
 import { type ApiClientOptions, ApiError, backendApi } from '../../http/api-client';
 import { retiredEndpointError } from '../../http/api/errors';
 import { markSessionFresh } from '../../http/fresh-sessions';
+import { querySuffix } from '../../http/url';
 import { currentSavedCopyStore } from '../../session-sync/saved-copy-store';
 import { noteSessionDeleted, noteSessionStopped } from '../../http/session-stopped';
 import { isSessionLogPage } from '../../session-log/guard';
@@ -527,7 +528,7 @@ function projectSessionListQuery(options?: ListProjectSessionsOptions): string {
   if (options?.agent) params.set('agent', options.agent);
   if (options?.updatedAfter) params.set('updated_after', options.updatedAfter);
   if (options?.teamLead) params.set('team_lead', options.teamLead);
-  return params.size > 0 ? `?${params}` : '';
+  return querySuffix(params);
 }
 
 /**

@@ -21,7 +21,7 @@ export type PromptOrigin = 'human' | 'peer' | 'trigger'
 /** The head `reminderPromptText` writes (`@kortix/shared/reminder-prompt`). */
 const REMINDER_HEAD = /^\[REMINDER (?:reminder|trigger|automation)\.[0-9a-f]{12} — /
 /** The tag a trigger-started session's prompt carries (`@kortix/shared/trigger-event`). */
-const TRIGGER_EVENT_TAG = '<trigger_event>'
+export const TRIGGER_EVENT_TAG = '<trigger_event>'
 
 export function promptOrigin(text: string | null | undefined): PromptOrigin {
   const value = text ?? ''

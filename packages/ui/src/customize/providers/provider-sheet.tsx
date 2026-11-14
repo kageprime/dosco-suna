@@ -14,7 +14,7 @@
  *  - **OpenAI and OpenCode Go** — two ways in. With nothing connected the sheet
  *    asks which: a subscription sign-in (device code) or an API key. With
  *    either connected it lists the connections and offers the other.
- *  - **Pooled keys** (`pooled_provider_secrets`) — the account-level key
+ *  - **Pooled keys** — the account-level key
  *    manager, as before.
  *
  * Saving is a button, not a blur. The old list saved a field when focus left
@@ -962,7 +962,7 @@ export function ProviderSheet({
         {models}
       </SplitSheetBody>
     );
-  } else if (pooled.pooledSecretsEnabled && pooled.accountId && entry.id === 'openai') {
+  } else if (pooled.accountId && entry.id === 'openai') {
     content = (
       <SplitSheetBody className="space-y-7">
         <SubscriptionUsageSection accountId={pooled.accountId} projectId={projectId} providerId="codex" />
@@ -997,7 +997,7 @@ export function ProviderSheet({
         {models}
       </SplitSheetBody>
     );
-  } else if (pooled.pooledSecretsEnabled && pooled.accountId && entry.id === 'anthropic') {
+  } else if (pooled.accountId && entry.id === 'anthropic') {
     // Claude accounts, exactly as OpenAI lists ChatGPT accounts; Anthropic API keys below them.
     content = (
       <SplitSheetBody className="space-y-7">
@@ -1031,7 +1031,7 @@ export function ProviderSheet({
         {models}
       </SplitSheetBody>
     );
-  } else if (pooled.pooledSecretsEnabled && pooled.accountId && entry.id === 'google') {
+  } else if (pooled.accountId && entry.id === 'google') {
     // Google Antigravity accounts, exactly as Claude accounts; Google Gemini API keys below them.
     content = (
       <SplitSheetBody className="space-y-7">
@@ -1062,7 +1062,7 @@ export function ProviderSheet({
         {models}
       </SplitSheetBody>
     );
-  } else if (pooled.pooledSecretsEnabled && pooled.accountId && supportsPooledProviderKey(entry)) {
+  } else if (pooled.accountId && supportsPooledProviderKey(entry)) {
     content = (
       <SplitSheetBody className="space-y-7">
         <AccountSecretResourcesPanel

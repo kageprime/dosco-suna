@@ -100,6 +100,8 @@ export interface ComposerToolbarProps {
   leading?: React.ReactNode;
   /** The `chat_input` control holds model and effort: this toolbar draws neither. */
   pickersInChatInput?: boolean;
+  /** The agent runs a program (`run`), not a model: this toolbar draws neither model nor effort. */
+  noModel?: boolean;
 
   isSending: boolean;
   isBusy: boolean;
@@ -149,6 +151,7 @@ export function ComposerToolbar({
   rewind,
   leading,
   pickersInChatInput = false,
+  noModel = false,
   isSending,
   isBusy,
   onStop,
@@ -173,7 +176,7 @@ export function ComposerToolbar({
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const { modelPickerEnabled } = useUiHostConfig();
   const showModel =
-    !pickersInChatInput && modelPickerEnabled && (models.length > 0 || modelRequired) && !!onModelChange;
+    !noModel && !pickersInChatInput && modelPickerEnabled && (models.length > 0 || modelRequired) && !!onModelChange;
   // Either `/` palette row opens the one merged popover.
   const pickerOpen =
     modelMenuOpen === undefined && reasoningMenuOpen === undefined
@@ -206,7 +209,7 @@ export function ComposerToolbar({
           />
         )}
 
-        {!showModel && modelPickerEnabled && !pickersInChatInput && <ReasoningEffortSelector
+        {!showModel && !noModel && modelPickerEnabled && !pickersInChatInput && <ReasoningEffortSelector
           variants={variants}
           selectedVariant={selectedVariant}
           onVariantChange={onVariantChange}

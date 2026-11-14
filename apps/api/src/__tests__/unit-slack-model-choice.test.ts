@@ -62,7 +62,6 @@ mock.module('../channels/model-access', () => ({
     linkedUserId: string | null;
     oneToOne: boolean;
     freeManagedOnly: boolean;
-    pooledEnabled: boolean;
   }) => ({
     projectId: input.projectId,
     accountId: input.accountId,
@@ -70,7 +69,6 @@ mock.module('../channels/model-access', () => ({
     linkedUserId: input.linkedUserId,
     personalUserId: input.linkedUserId && input.oneToOne ? input.linkedUserId : null,
     freeManagedOnly: input.freeManagedOnly,
-    pooledEnabled: input.pooledEnabled,
   }),
   checkChannelModel: async (scope: Scope, model: string) => {
     checks.push({ scope, model });

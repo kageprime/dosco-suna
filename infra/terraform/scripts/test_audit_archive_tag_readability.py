@@ -15,6 +15,8 @@ from pathlib import Path
 import re
 import sys
 
+from _hcl import resource_body
+
 
 MODULES = [
     (
@@ -35,26 +37,6 @@ MODULES = [
     ),
 ]
 OPAQUE_TAGS = re.compile(r"tags\s*=\s*(merge\(|var\.tags\b)")
-
-
-def resource_body(source: str, resource_type: str, name: str) -> str:
-    match = re.search(
-        rf'resource\s+"{re.escape(resource_type)}"\s+"{re.escape(name)}"\s*{{',
-        source,
-    )
-    assert match, f"missing {resource_type}.{name}"
-
-    depth = 1
-    cursor = match.end()
-    while cursor < len(source) and depth:
-        if source[cursor] == "{":
-            depth += 1
-        elif source[cursor] == "}":
-            depth -= 1
-        cursor += 1
-
-    assert depth == 0, f"unterminated {resource_type}.{name}"
-    return source[match.end() : cursor - 1]
 
 
 def assert_tags_are_drata_readable(source: str, scanned_resources) -> None:

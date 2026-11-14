@@ -151,7 +151,7 @@ mock.module('../lib/session-runtime-projection', () => ({
   readRuntimeLeg: async () => ({ known: false, reason: 'no_projection' }),
 }));
 
-const { runtimeStreamTimings } = await import('./session-stream');
+const { runtimeStreamTimings } = await import('../lib/session-event-stream');
 const controlEvents = await import('../lib/session-control-events');
 const { publishControlEvent, CONTROL_EPOCH, __resetControlEventsForTests } = controlEvents;
 
@@ -786,6 +786,19 @@ describe('R5.1: a production-grade stream', () => {
     } finally {
       await reader.cancel().catch(() => {});
     }
+  });
+});
+
+describe('a client that never reads is cut, not buffered forever', () => {
+  test('past the max backlog the stream errors with slow consumer', async () => {
+    const filler = 'x'.repeat(1_000_000);
+    reconcilerSnapshot = Array.from({ length: 10 }, (_, i) =>
+      publishControlEvent(SESSION_ID, 'kortix.control.queue', { prompts: [], filler, i }),
+    );
+    const response = await openStream('?channels=control');
+    const reader = response.body!.getReader();
+    await Bun.sleep(100);
+    await expect(reader.read()).rejects.toThrow('slow consumer');
   });
 });
 

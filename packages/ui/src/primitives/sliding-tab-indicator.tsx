@@ -1,7 +1,8 @@
 'use client';
 
 import { cn } from '../lib/utils';
-import { m, useReducedMotion, type Transition } from 'motion/react';
+import { m, type Transition } from 'motion/react';
+import { useReducedMotion } from '../internal/hooks/use-reduced-motion';
 import {
   useCallback,
   useLayoutEffect,

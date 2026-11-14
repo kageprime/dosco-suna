@@ -340,7 +340,6 @@ export async function routeChannelMessage(
       metadata: { source: target.platform, ...plan.metadata },
       ...(plan.extraEnvVars ? { extraEnvVars: plan.extraEnvVars } : {}),
       ...(plan.mayManageSystemConnections ? { mayManageSystemConnections: true } : {}),
-      queuePolicy: 'on_backpressure',
       idempotencyKey: keys.create,
       postCreate: [
         {

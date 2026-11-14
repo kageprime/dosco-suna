@@ -1,4 +1,4 @@
-import { ApiError, isRuntimeStartingError } from '@kortix/sdk';
+import { ApiError, isRuntimeStartingError, toDaemonPath } from '@kortix/sdk';
 
 export const UPLOADED_FILE_READ_RETRY_DELAY_MS = 2_000;
 export const UPLOADED_FILE_READ_RETRY_WINDOW_MS = 60_000;
@@ -103,16 +103,35 @@ export function clearMissingFileReadsForTests(): void {
   missingFiles.clear();
 }
 
+// Keyed by the daemon path, so `notes/a.md`, `/workspace/notes/a.md` and
+// `/notes/a.md` share one mark: a viewer, a card and a write name one file
+// with different spellings.
 const missingFileKey = (serverUrl: string | null | undefined, filePath: string) =>
-  `${serverUrl ?? ''}|${filePath}`;
+  `${serverUrl ?? ''}|${toDaemonPath(filePath)}`;
 
-/** Remember the miss when the read failed as missing; other failures pass through. */
+// Bumped by every write (`clearMissingFileReadsUnder`). A read captures it when
+// it starts: a 404 from a read that began BEFORE a write is stale and must not
+// re-mark the path the write just created (the read raced the create).
+let writeEpoch = 0;
+
+/** The write epoch a reader captures before it reads. */
+export function missingFileReadEpoch(): number {
+  return writeEpoch;
+}
+
+/**
+ * Remember the miss when the read failed as missing; other failures pass
+ * through. `startedAt` is `missingFileReadEpoch()` from before the read: a
+ * write since then makes the miss stale, so it is not remembered.
+ */
 export function noteMissingFileRead(
   serverUrl: string | null | undefined,
   filePath: string | null | undefined,
   error: unknown,
+  startedAt?: number,
 ): void {
   if (!filePath || !isMissingFileReadFailure(error)) return;
+  if (startedAt !== undefined && startedAt !== writeEpoch) return;
   missingFiles.set(missingFileKey(serverUrl, filePath), missingFileNow());
 }
 
@@ -120,6 +139,29 @@ export function noteMissingFileRead(
 export function clearMissingFileRead(serverUrl: string | null | undefined, filePath: string | null | undefined): void {
   if (!filePath) return;
   missingFiles.delete(missingFileKey(serverUrl, filePath));
+}
+
+/**
+ * Forget every mark at `path` and under it, on one server.
+ *
+ * A write brings paths into existence: New file, an upload, a copy, the
+ * target of a rename or move, a new folder. A miss noted before the write is
+ * stale, and keeping it made the gate answer the write's own invalidation
+ * with "File not found" for the whole window (D-08). The user's Refresh calls
+ * this for its one file, so Refresh always reads (P-F08).
+ */
+export function clearMissingFileReadsUnder(
+  serverUrl: string | null | undefined,
+  path: string | null | undefined,
+): void {
+  if (path == null) return;
+  writeEpoch += 1;
+  const exact = missingFileKey(serverUrl, path);
+  // The workspace root ("" as a daemon path) holds every workspace file.
+  const prefix = exact.endsWith('|') ? exact : `${exact}/`;
+  for (const key of missingFiles.keys()) {
+    if (key === exact || key.startsWith(prefix)) missingFiles.delete(key);
+  }
 }
 
 /** True while the file's read miss is fresh enough that a refetch may not touch it. */

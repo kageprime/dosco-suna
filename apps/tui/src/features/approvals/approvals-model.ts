@@ -12,7 +12,8 @@
 
 import { type ReviewItem, type ReviewSegment, reviewItemTarget } from '@kortix/sdk';
 
-import { relativeAge } from '../../lib/relative-time.ts';
+import { relativeAge, relativeUntil } from '../../lib/relative-time.ts';
+import { clip } from '../../lib/text.ts';
 import { glyph as GLYPH } from '../../theme.ts';
 
 export type Verb = 'approve' | 'reject' | 'changes' | 'dismiss' | 'answer';
@@ -204,15 +205,11 @@ export function wrap(text: string, width: number): string[] {
   return out.length > 0 ? out : [''];
 }
 
-function clip(text: string, width: number): string {
-  return text.length > width ? `${text.slice(0, Math.max(width - 1, 0))}…` : text;
-}
-
 function inText(iso: string, now: number): string {
   const at = Date.parse(iso);
   if (Number.isNaN(at)) return iso;
   if (at <= now) return 'expired';
-  return `in ${relativeAge(now - (at - now), now)}`;
+  return relativeUntil(at, now);
 }
 
 /** The decision's options, in the order the digit keys number them (recommended first, as the web sorts). */

@@ -97,6 +97,26 @@ function buildAppMenuTemplate({ platform, appName, shortcuts, frontendMenu, quic
           click: () => on.command('new-session'),
         },
         {
+          // Tab items are native accelerators: an artifact or App frame holds
+          // focus, and a keystroke there never reaches the page's handlers.
+          id: 'kx-file-new-tab',
+          // Off until the page reports its tab strip (menu-state.js TAB_MENU_IDS).
+          enabled: false,
+          visible: false,
+          label: 'New Tab',
+          accelerator: 'CommandOrControl+T',
+          click: () => on.command('new-tab'),
+        },
+        {
+          id: 'kx-file-reopen-tab',
+          // Off until the page reports its tab strip (menu-state.js TAB_MENU_IDS).
+          enabled: false,
+          visible: false,
+          label: 'Reopen Closed Tab',
+          accelerator: 'CommandOrControl+Shift+T',
+          click: () => on.command('reopen-tab'),
+        },
+        {
           // The accelerator is the global shortcut; the menu only displays it.
           id: 'kx-file-quick-entry',
           label: 'Open Quick Entry',
@@ -194,6 +214,37 @@ function buildAppMenuTemplate({ platform, appName, shortcuts, frontendMenu, quic
           enabled: false,
           click: () => on.copyUrl(),
         },
+        { type: 'separator' },
+        {
+          id: 'kx-go-next-tab',
+          // Off until the page reports its tab strip (menu-state.js TAB_MENU_IDS).
+          enabled: false,
+          visible: false,
+          label: 'Show Next Tab',
+          accelerator: 'Control+Tab',
+          click: () => on.command('next-tab'),
+        },
+        {
+          id: 'kx-go-prev-tab',
+          // Off until the page reports its tab strip (menu-state.js TAB_MENU_IDS).
+          enabled: false,
+          visible: false,
+          label: 'Show Previous Tab',
+          accelerator: 'Control+Shift+Tab',
+          click: () => on.command('prev-tab'),
+        },
+        // Mod+1…9 picks a tab (9 = the last), as in a browser. Hidden: nine
+        // rows would crowd the menu, and the keys are the convention.
+        ...Array.from({ length: 9 }, (_, index) => ({
+          id: `kx-go-tab-${index + 1}`,
+          // Electron rejects an item with no label, role or type (hidden or not).
+          label: index === 8 ? 'Show Last Tab' : `Show Tab ${index + 1}`,
+          accelerator: `CommandOrControl+${index + 1}`,
+          enabled: false,
+          visible: false,
+          acceleratorWorksWhenHidden: true,
+          click: () => on.command(`select-tab-${index + 1}`),
+        })),
       ],
     },
     { role: 'windowMenu' },

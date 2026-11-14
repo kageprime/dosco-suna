@@ -3,7 +3,7 @@ import type { KortixArtifactLayerOpts } from './defaults';
 import { PLATFORM_DEFAULT_USER_DOCKERFILE, buildLayeredDockerfile } from './dockerfile-layer';
 
 /** My Kortix's image takes the same staged artifacts as every Kortix image. */
-export type MyKortixSandboxDockerfileOptions = KortixArtifactLayerOpts;
+type MyKortixSandboxDockerfileOptions = KortixArtifactLayerOpts;
 
 /**
  * Render the image of My Kortix, the built-in agent (slug `mykortix`).

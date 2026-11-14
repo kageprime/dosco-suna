@@ -514,7 +514,7 @@ describe('native test-lane workflow', () => {
     expect(hook).not.toContain('verify-attestation');
   });
 
-  test('a push to dev triggers only the cheap guards and path-gated infra applies', () => {
+  test('a push to dev triggers guards, path-gated infra, and the requested TestFlight build', () => {
     // 2026-10-03 (Actions minutes). Dev deploy, CI, CodeQL, Drata and the
     // desktop build are dispatch, schedule, or release-branch only. Tests runs
     // nightly and on the staging pull request (testing reset, 2026-10-16).
@@ -539,6 +539,7 @@ describe('native test-lane workflow', () => {
       'db-migrations.yml', // path-gated: packages/db/**
       'deploy-api-router-dev.yml', // path-gated: the router worker
       'i18n-catalogs.yml', // path-gated: translations
+      'mobile-testflight.yml', // requested: mobile inputs, TestFlight only
       'secret-scan.yml', // ~15 s
       'secrets-guard.yml', // ~15 s
       'terraform-apply-global.yml', // path-gated: infra/terraform roots

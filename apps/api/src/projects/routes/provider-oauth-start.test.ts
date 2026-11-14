@@ -168,14 +168,6 @@ describe('POST /:projectId/oauth/:provider/start — refusals', () => {
     });
   });
 
-  test('a named connection while pooled provider secrets are off is 403', async () => {
-    projectMetadata = { experimental: { pooled_provider_secrets: false } };
-    expect(await refusal({ resource_label: 'Work' })).toEqual({
-      status: 403,
-      body: { error: 'Pooled OAuth connections require pooled provider secrets' },
-    });
-  });
-
   test('a named connection by a non-member is 403', async () => {
     memberFound = false;
     expect(await refusal({ resource_label: 'Work' })).toEqual({

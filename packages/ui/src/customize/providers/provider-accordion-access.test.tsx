@@ -19,6 +19,11 @@ let showUpgradeOption = true;
 mock.module('../../session/models/use-model-connection-gate', () => ({
   useModelConnectionGate: () => ({ openUpgrade: () => {}, showUpgradeOption }),
 }));
+const panel = await import('../sections/view/account-secret-resources-panel');
+mock.module('../sections/view/account-secret-resources-panel', () => ({
+  ...panel,
+  PooledProvidersNote: () => null,
+}));
 const connect = await import('./provider-connect');
 mock.module('./provider-connect', () => ({
   ...connect,

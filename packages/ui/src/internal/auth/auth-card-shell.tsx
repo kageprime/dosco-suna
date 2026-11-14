@@ -11,21 +11,18 @@ import { useTranslations } from '../../i18n';
  */
 
 import { CaretLeftIcon as ChevronLeft } from '@phosphor-icons/react';
-import { m, useReducedMotion } from 'motion/react';
 import { UiLink as Link } from '../../providers/ui-provider';
 
 import { useDesktopBackTarget } from '../desktop/desktop-back-button';
-import { KortixLogo } from '../../primitives/kortix-logo';
-import { AuthMobileLogo } from './auth-primitives';
+import { AuthArt } from './auth-art';
+import { AuthMobileLogo, Rise, StepHeader } from './auth-primitives';
 import { openExternalRoute } from '../lib/desktop';
 
-const EASE = [0.23, 1, 0.32, 1] as const;
+// The phone-verification page builds its own frame around a sign-out control.
+export { AuthArt };
 
-/** Which sentence the legal line uses. */
-export type AuthLegalFooterVariant = 'default' | 'signup' | 'continue';
-
-/** Tiny legal line pinned to the bottom of every auth surface. */
-export function AuthLegalFooter({ variant = 'default' }: { variant?: AuthLegalFooterVariant }) {
+/** Tiny legal line pinned to the bottom of every auth surface: one sentence on every page. */
+export function AuthLegalFooter() {
   const t = useTranslations('auth');
   const onLegalClick = (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     if (openExternalRoute(href)) event.preventDefault();
@@ -34,7 +31,7 @@ export function AuthLegalFooter({ variant = 'default' }: { variant?: AuthLegalFo
     <Link
       href="/legal/terms"
       onClick={(event) => onLegalClick(event, '/legal/terms')}
-      className="hover:text-foreground transition-colors"
+      className="hover:text-foreground decoration-border whitespace-nowrap underline underline-offset-2 transition-colors"
     >
       {t('termsOfService')}
     </Link>
@@ -43,28 +40,20 @@ export function AuthLegalFooter({ variant = 'default' }: { variant?: AuthLegalFo
     <Link
       href="/legal?tab=privacy"
       onClick={(event) => onLegalClick(event, '/legal?tab=privacy')}
-      className="hover:text-foreground transition-colors"
+      className="hover:text-foreground decoration-border whitespace-nowrap underline underline-offset-2 transition-colors"
     >
       {t('privacyPolicy')}
     </Link>
   );
 
   return (
-    <footer className="text-muted-foreground mx-auto max-w-[380px] px-6 pb-10 text-center text-sm text-balance">
-      {variant === 'continue'
-        ? t.rich('byContinuingYouAgree', {
-            termsOfService: () => terms,
-            privacyPolicy: () => privacy,
-          })
-        : variant === 'signup'
-          ? t.rich('unified.legal.signup', {
-              termsOfService: () => terms,
-              privacyPolicy: () => privacy,
-            })
-          : t.rich('unified.legal.default', {
-              termsOfService: () => terms,
-              privacyPolicy: () => privacy,
-            })}
+    // The same 380px column as the form, so the legal line shares its left
+    // edge. A link never breaks inside its name.
+    <footer className="text-muted-foreground mx-auto w-full max-w-[380px] pb-8 text-xs text-balance">
+      {t.rich('byContinuingYouAgree', {
+        termsOfService: () => terms,
+        privacyPolicy: () => privacy,
+      })}
     </footer>
   );
 }
@@ -80,14 +69,21 @@ export function AuthFrame({
   footerVariant = 'default',
   backHref,
   showShowcase,
+  art = false,
 }: {
   children: React.ReactNode;
+  /**
+   * The dither pane beside the form on wide screens. Auth and consent screens
+   * keep it; an in-app gate that only borrows this frame (a checkout, a
+   * deleted-project notice, an approval card) passes `false`.
+   */
+  art?: boolean;
   /**
    * `none` drops the legal line. Reserve it for frames whose resolved screen is
    * not an auth surface — on a real auth flow the footer stays pinned so the
    * page does not jump when the column above it swaps.
    */
-  footerVariant?: AuthLegalFooterVariant | 'none';
+  footerVariant?: 'default' | 'none';
   /**
    * Where Back goes, when the page knows where its flow started. Without it,
    * Back returns to the previous in-app page, else the app home.
@@ -209,15 +205,15 @@ export function AuthFrame({
   }
 
   return (
-    <div className="bg-background relative flex min-h-svh flex-col overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(0,0,0,0.03)_1px,transparent_1px)] dark:bg-[radial-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:24px_24px]" />
-      <AuthMobileLogo />
-      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 py-24">
-        <div className="w-full max-w-[420px] rounded-2xl border border-border/80 bg-card/75 dark:bg-card/45 backdrop-blur-xl p-8 sm:p-10 shadow-[0_12px_40px_rgba(0,0,0,0.05)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)]">
-          {children}
-        </div>
-      </main>
-      {footerVariant === 'none' ? null : <AuthLegalFooter variant={footerVariant} />}
+    <div className="bg-background relative flex min-h-svh overflow-hidden">
+      <div className="relative flex min-h-svh flex-1 flex-col px-6">
+        <AuthMobileLogo />
+        <main className="flex flex-1 flex-col items-center justify-center py-24">
+          <div className="w-full max-w-[380px]">{children}</div>
+        </main>
+        {footerVariant === 'none' ? null : <AuthLegalFooter />}
+      </div>
+      {art ? <AuthArt className="sticky top-0 hidden h-svh w-1/2 shrink-0 lg:block" /> : null}
     </div>
   );
 }
@@ -229,36 +225,20 @@ export function AuthCardShell({
   footer,
 }: {
   title: string;
-  description: string;
-  children: React.ReactNode;
+  description: React.ReactNode;
+  children?: React.ReactNode;
   /** Optional footer below the content (e.g. a "Back to sign in" link). */
   footer?: React.ReactNode;
 }) {
-  const prefersReducedMotion = useReducedMotion();
-  const rise = (delay = 0) => ({
-    initial: { opacity: 0, y: prefersReducedMotion ? 0 : 8 },
-    animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.3, delay, ease: EASE },
-  });
-
   return (
     <AuthFrame>
-      <m.div {...rise(0)}>
-        <div className="mb-8">
-          <div className="hidden md:block">
-            <KortixLogo variant="icon" size={24} className="text-foreground" />
-          </div>
-          <h1 className="text-foreground text-2xl font-semibold tracking-tight text-balance md:mt-6">
-            {title}
-          </h1>
-          <p className="text-muted-foreground mt-2 text-sm text-pretty">{description}</p>
-        </div>
-      </m.div>
-
-      <m.div {...rise(0.06)}>
+      <Rise>
+        <StepHeader title={title} description={description} />
+      </Rise>
+      <Rise delay={0.06}>
         {children}
-        {footer ? <div className="mt-8">{footer}</div> : null}
-      </m.div>
+        {footer ? <div className="mt-6">{footer}</div> : null}
+      </Rise>
     </AuthFrame>
   );
 }

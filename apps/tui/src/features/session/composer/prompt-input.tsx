@@ -225,7 +225,7 @@ export function PromptInput({
     onMetrics?.({ rows, aboveRows, menuOpen });
   }, [rows, aboveRows, menuOpen, onMetrics]);
 
-  const run = useCallback(
+  const runEntry = useCallback(
     (entry: MenuEntry, args: string) => {
       if (entry.unavailable) {
         onToast?.(`/${entry.name}: ${entry.unavailable}.`, 'error');
@@ -254,15 +254,15 @@ export function PromptInput({
       const row = exact
         ? rows.find((entry) => entry.source === 'builtin' && entry.name === exact.name)
         : (rows.find((entry) => entry.name === typed) ?? rows[text === draft ? selected : 0]);
-      if (row) return run(row, '');
+      if (row) return runEntry(row, '');
     }
     const decision = decideSubmit(text, context, runtimeCommands);
     if (decision.kind === 'empty') return;
     if (decision.kind === 'refuse') return void onToast?.(decision.message, 'error');
-    if (decision.kind === 'command') return run(decision.entry, decision.args);
+    if (decision.kind === 'command') return runEntry(decision.entry, decision.args);
     setText('');
     onSubmit(decision.text);
-  }, [draft, entries, selected, context, runtimeCommands, run, onToast, onSubmit, setText]);
+  }, [draft, entries, selected, context, runtimeCommands, runEntry, onToast, onSubmit, setText]);
 
   const onKeyDown = useCallback(
     (key: KeyEvent) => {

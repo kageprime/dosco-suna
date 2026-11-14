@@ -10,6 +10,7 @@ import type {
   UpdateProjectTriggerInput,
 } from '@kortix/sdk';
 import { type ModelKey, modelKeyToWire } from '@kortix/sdk/react';
+import { formatDurationSeconds } from '@kortix/manifest-schema';
 
 import {
   configToDraft,
@@ -19,7 +20,13 @@ import {
 } from './event-trigger-copy';
 import { conditionsToRows, sameConditions } from './schedule-fields';
 import type { ComposerDraft } from './trigger-composer-logic';
-import { APP_EVENT_NAME_PATH, initialDraft, runCapFromInput, triggerFilter } from './trigger-composer-logic';
+import {
+  APP_EVENT_NAME_PATH,
+  initialDraft,
+  runCapFromInput,
+  targetInput,
+  triggerFilter,
+} from './trigger-composer-logic';
 
 /** The event type the catalog has no entry for: enough to name it and keep its saved config. */
 function stubEventType(event: NonNullable<ProjectTrigger['event']>): ProjectTriggerEventType {
@@ -50,6 +57,8 @@ export function draftFromTrigger(
     ...initialDraft({ kind: trigger.type as ComposerDraft['kind'], agent: trigger.agent }),
     cron: trigger.cron ?? '0 0 9 * * *',
     runAt: trigger.run_at,
+    // `every: 1h` reads back as `every_seconds`: show the period, never the cron default.
+    every: trigger.every_seconds ? formatDurationSeconds(trigger.every_seconds) : null,
     timezone: trigger.timezone,
     appSlug: event?.app ?? null,
     appSource: event?.source ?? event?.provider ?? null,
@@ -62,6 +71,11 @@ export function draftFromTrigger(
     kortixApp: trigger.type === 'app' ? (trigger.app ?? null) : null,
     appEvent: named ? (appEvent as string) : '',
     crBase: branch ?? '',
+    thenKind: trigger.target?.app ? 'app' : 'agent',
+    targetApp: trigger.target?.app ?? null,
+    targetPath: trigger.target?.path ?? '/',
+    targetMethod: trigger.target?.method ?? 'POST',
+    targetPayload: trigger.target?.payload ?? null,
     instruction: trigger.prompt_template,
     model: saved.model,
     nameOverride: trigger.name,
@@ -117,22 +131,34 @@ export function triggerPatch(
   if (!same(draft.model, saved.model)) out.model = draft.model ? modelKeyToWire(draft.model) : null;
 
   if (draft.kind === 'cron') {
+    const every = draft.every?.trim() ?? null;
+    const savedEvery = saved.every?.trim() ?? null;
     if (
       draft.cron !== saved.cron ||
       draft.runAt !== saved.runAt ||
+      every !== savedEvery ||
       draft.timezone !== saved.timezone
     ) {
-      // `run_at` and `cron` are mutually exclusive, so switching between them clears the other.
+      // `cron`, `run_at` and `every` are mutually exclusive, so each one clears the others.
+      // `every: null` goes only to a trigger that had a period: an older API knows no `every`.
+      const clearEvery = savedEvery ? { every: null } : {};
       Object.assign(
         out,
-        draft.runAt
-          ? { run_at: draft.runAt, cron: null, timezone: draft.timezone }
-          : { cron: draft.cron.trim(), run_at: null, timezone: draft.timezone },
+        every !== null
+          ? { every, cron: null, run_at: null }
+          : draft.runAt
+            ? { run_at: draft.runAt, cron: null, timezone: draft.timezone, ...clearEvery }
+            : { cron: draft.cron.trim(), run_at: null, timezone: draft.timezone, ...clearEvery },
       );
     }
   } else if (!sameConditions(triggerFilter(draft), triggerFilter(saved))) {
     out.filter = triggerFilter(draft);
   }
+
+  // The App a fire calls: set, changed, or cleared back to an agent run.
+  const target = draft.thenKind === 'app' ? targetInput(draft) : null;
+  const savedTarget = saved.thenKind === 'app' ? targetInput(saved) : null;
+  if (!same(target, savedTarget)) out.target = target;
 
   if (draft.kind === 'app' && draft.kortixApp && draft.kortixApp !== saved.kortixApp) {
     out.app = draft.kortixApp;

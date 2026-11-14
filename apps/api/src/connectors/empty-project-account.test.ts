@@ -12,6 +12,8 @@ const spec = (provider: ConnectorSpec['provider'], auth?: ConnectorSpec['auth'])
 test('only an ordinary connector skips the empty project account', () => {
   expect(skipsEmptyProjectAccount(spec('mcp'))).toBe(true);
   expect(skipsEmptyProjectAccount(spec('mcp', { type: 'none' } as ConnectorSpec['auth']))).toBe(false);
-  expect(skipsEmptyProjectAccount(spec('composio'))).toBe(true);
+  // Composio and Pipedream parse with auth none: the connected account is the auth.
+  expect(skipsEmptyProjectAccount(spec('composio', { type: 'none' } as ConnectorSpec['auth']))).toBe(true);
+  expect(skipsEmptyProjectAccount(spec('pipedream', { type: 'none' } as ConnectorSpec['auth']))).toBe(true);
   expect(skipsEmptyProjectAccount(spec('channel'))).toBe(false);
 });

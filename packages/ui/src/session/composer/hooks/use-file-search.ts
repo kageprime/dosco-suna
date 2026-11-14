@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { searchWorkspaceFiles } from '../../../files/runtime';
-import { qk, runtimeKeys, useActiveSandboxProxyContext } from '@kortix/sdk/react';
+import { searchWorkspaceFiles as searchWorkspaceRepoFiles } from '@kortix/sdk';
+import { qk, runtimeKeys, useActiveSandboxProxyContext, useKortixRouteWorkspaceId } from '@kortix/sdk/react';
 import type { QueryKey } from '@tanstack/react-query';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -30,13 +31,60 @@ const UNBOUND_SERVER = 'unbound';
  * across a session switch must stop reusing its pre-switch entry the moment
  * the active sandbox changes — `server` is what makes both true.
  */
-export const composerFileSearchKey = (server: string, query: string) =>
-  ['web', 'composer', 'file-search', server, query] as const;
+export const composerFileSearchKey = (server: string, query: string, workspaceId: string | null = null) =>
+  ['web', 'composer', 'file-search', server, query, workspaceId] as const;
+
+/** The `server` slot of the repo query's key: the repo is not on a computer. */
+const REPO_SOURCE = 'workspace-repo';
+
+/** Repo rows the `@` menu asks for. The menu shows 20 file rows at most. */
+const REPO_SEARCH_LIMIT = 20;
+
+/**
+ * The `@` menu's file rows: the session computer's files first, then the
+ * workspace repo's files that the computer does not hold, each path once.
+ *
+ * The computer's `/workspace` holds no repo unless an agent declares
+ * `workspace.repos`, and workspace home has no computer at all. Without the
+ * repo rows the menu offered no file there although the placeholder says
+ * "Type @ to mention files and agents".
+ */
+export function mergeFileResults(runtime: readonly string[], repo: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  for (const path of [...runtime, ...repo]) {
+    const key = path.replace(/^\/workspace\//, '').replace(/^\.\//, '');
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(path);
+  }
+  return merged;
+}
+
+// replica-local: workspaces whose repo search answered 403 in this tab. A
+// member without file read stops asking on every keystroke.
+const repoSearchDenied = new Set<string>();
+
+async function searchRepoFiles(workspaceId: string | null, query: string): Promise<string[]> {
+  const q = query.trim();
+  if (!workspaceId || !q || repoSearchDenied.has(workspaceId)) return [];
+  // Silent: a member without file read gets a 403 here, and the runtime rows still list.
+  try {
+    const { results } = await searchWorkspaceRepoFiles(workspaceId, q, { limit: REPO_SEARCH_LIMIT, showErrors: false });
+    return results.map((match) => match.path);
+  } catch (error) {
+    if ((error as { status?: number } | null)?.status === 403) repoSearchDenied.add(workspaceId);
+    throw error;
+  }
+}
+
 
 /** Index of `server` inside `composerFileSearchKey`'s tuple. Named rather than
  *  inlined so the coupling between the key shape and the placeholder guard
  *  below is a single, testable fact instead of a magic `3`. */
 const SERVER_KEY_INDEX = 3;
+/** Index of the workspace id inside `composerFileSearchKey`'s tuple. */
+const WORKSPACE_KEY_INDEX = 5;
 
 /**
  * Whether a previous query's results may still be shown as placeholder data.
@@ -55,8 +103,11 @@ const SERVER_KEY_INDEX = 3;
 export function canKeepPlaceholderFiles(
   server: string,
   previousQueryKey: readonly unknown[] | undefined,
+  workspaceId: string | null = null,
 ): boolean {
-  return previousQueryKey?.[SERVER_KEY_INDEX] === server;
+  // The repo rows belong to one workspace: a switch to another workspace on
+  // the same server (or on no server, `unbound`) drops them too.
+  return previousQueryKey?.[SERVER_KEY_INDEX] === server && (previousQueryKey?.[WORKSPACE_KEY_INDEX] ?? null) === workspaceId;
 }
 
 /**
@@ -85,8 +136,12 @@ export function useFileSearch(query: string, enabled: boolean) {
   // actually calls never drift apart.
   const { serverUrl } = useActiveSandboxProxyContext();
   const server = serverUrl || UNBOUND_SERVER;
+  // The workspace on screen: its repo is the second source of file rows.
+  const workspaceId = useKortixRouteWorkspaceId();
 
-  const { data, isFetching } = useQuery({
+  // Two queries, merged at render: the computer's rows show as soon as they
+  // arrive and never wait on the git-backed repo search.
+  const runtime = useQuery({
     queryKey: composerFileSearchKey(server, debounced),
     queryFn: () => searchWorkspaceFiles(debounced),
     enabled,
@@ -107,8 +162,21 @@ export function useFileSearch(query: string, enabled: boolean) {
       canKeepPlaceholderFiles(server, previousQuery?.queryKey) ? previous : undefined,
     retry: false,
   });
+  const repo = useQuery({
+    queryKey: composerFileSearchKey(REPO_SOURCE, debounced, workspaceId),
+    queryFn: () => searchRepoFiles(workspaceId, debounced),
+    enabled: enabled && Boolean(workspaceId) && debounced.trim().length > 0,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    // The same guard, scoped to the workspace: its repo rows never outlive a switch.
+    placeholderData: (previous: string[] | undefined, previousQuery) =>
+      canKeepPlaceholderFiles(REPO_SOURCE, previousQuery?.queryKey, workspaceId) ? previous : undefined,
+    retry: false,
+  });
 
-  return { files: data ?? [], isLoading: isFetching && !data };
+  const files = useMemo(() => mergeFileResults(runtime.data ?? [], repo.data ?? []), [runtime.data, repo.data]);
+  const isLoading = (runtime.isFetching && !runtime.data) || (repo.isFetching && !repo.data);
+  return { files, isLoading };
 }
 
 /**

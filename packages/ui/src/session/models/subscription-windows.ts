@@ -9,6 +9,9 @@ import type { useTranslations } from '../../i18n';
 
 export type UsageTone = 'ok' | 'near' | 'critical' | 'limited';
 
+/** The bar fill of each tone: the provider sheet's meters and the picker's subscription rows. */
+export const USAGE_TONE_BAR: Record<UsageTone, string> = { ok: 'bg-primary', near: 'bg-kortix-orange', critical: 'bg-kortix-red', limited: 'bg-kortix-red' };
+
 /** Warn at 80%, turn red at 95%, and distinguish a provider-enforced limit. */
 export function usageTone(window: SubscriptionUsageWindow, limited: boolean): UsageTone {
   if (window.used_percent >= 100 || (limited && window.used_percent >= 90)) return 'limited';

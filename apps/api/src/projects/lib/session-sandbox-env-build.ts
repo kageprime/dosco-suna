@@ -41,7 +41,7 @@ import { resolveSessionSecretGrant } from './secret-grant';
 import { AmbiguousSecretGrantError, intersectSecretGrants, listProjectSecretsSnapshotForUser } from '../secrets';
 import { SECRET_CAPABILITIES_ENV_NAME } from '../secret-capabilities';
 import { piPackageBundleForSession } from '../../pi-packages/bundle';
-import { manifestPiCodemode, manifestPiContext, manifestPiPackages, resolveCompiledAgentConfigForSession, resolveSelectedAgentConfigForSession, manifestWorkspaceSetup, type SessionWorkspaceSetup } from './compile-agent-config';
+import { agentConfigEtag, manifestPiCodemode, manifestPiContext, manifestPiPackages, resolveCompiledAgentConfigForSession, resolveSelectedAgentConfigForSession, manifestWorkspaceSetup, type SessionWorkspaceSetup } from './compile-agent-config';
 
 
 
@@ -423,6 +423,7 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
             ref: input.baseRef,
             agentName: input.agentName,
             tip: input.baseSha ?? null,
+            expectedGovernanceEtag: started(agentConfigRead.then(({ compiledAgentConfig }) => agentConfigEtag(compiledAgentConfig))),
           }).catch((error: Error) => {
             logger.warn('[config-releases] published release lookup failed; the box asks the route', {
               projectId: input.projectId,

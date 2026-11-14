@@ -32,8 +32,6 @@
  * `KortixDither` the vector symbol through an 8 x 8 Bayer dither. The web
  * registry draws them with its own components.
  */
-export const KORTIX_GLYPH_NAMES = ['KortixMark', 'KortixPixel', 'KortixDither'] as const;
-
 export const PROJECT_GLYPH_GROUPS = [
   {
     label: 'Kortix',

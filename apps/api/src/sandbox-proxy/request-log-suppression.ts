@@ -14,14 +14,14 @@ import { classifyRuntimeRequest } from './runtime-request';
  * 5xx of the route on the line, so a designed 5xx-shaped answer pages as a
  * route 5xx rise with nothing to fix. The designed shapes:
  *
- *   - `control_plane` 503 on a GET — the proxy answered `sandbox_not_ready`
+ *   - `control_plane` 503 on a GET or HEAD — the proxy answered `sandbox_not_ready`
  *     from the session-sandbox row without dialling the box (parked, stopped,
  *     or still provisioning), and a GET never wakes a box on purpose. The web
  *     app reads the response's `hop`/`code`, not this log line; the row itself
  *     carries the state. Prod, 24 h to 2026-09-29: ~40 such 503s a day on the
  *     data-path GET routes alone, each one the client's reconnect hydrate
  *     racing a park (KRTX-397).
- *   - `daemon` 503 on a GET where the daemon itself answered 503 — the box's
+ *   - `daemon` 503 on a GET or HEAD where the daemon itself answered 503 — the box's
  *     own daemon answered `runtime_not_ready` while its runtime
  *     restarts behind a live box, and the proxy passed it through on purpose
  *     (no retry; the client re-polls, the box recovers within seconds). The
@@ -58,7 +58,10 @@ export function shouldSuppressRequestLog(input: {
   upstreamStatus: number | null;
 }): boolean {
   const { method, path, status, durationMs, proxyHop, upstreamStatus } = input;
-  if (method !== 'GET') {
+  // A HEAD is a read like a GET: the proxy never wakes a box on either
+  // (`shouldAutoResumeStoppedSandbox`), so a parked box answers both the same
+  // designed way (KRTX-4905: a HEAD `.../file/raw` probe burst against a parked box).
+  if (method !== 'GET' && method !== 'HEAD') {
     // The session-abort verb is the one mutation whose daemon boot-phase 503 is
     // the designed answer, not a failed user action (KRTX-2277): a Stop is
     // idempotent, carries no data, and the client re-presses it until the

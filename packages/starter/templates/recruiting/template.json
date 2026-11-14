@@ -1,0 +1,16 @@
+{
+  "id": "recruiting",
+  "name": "Recruiting Factory",
+  "summary": "One agent that screens every applicant and referral against a structured role rubric, drafts interview kits and candidate updates, and keeps your ATS pipeline clean. A person decides every step.",
+  "secrets": [
+    { "name": "RECRUITING_WEBHOOK_SECRET", "required": true, "delivery": "connector", "why": "Signs the webhook your careers form, your referral form or an ATS relay calls for a new application or referral (Authorization: Bearer).", "generate": true },
+    { "name": "ASHBY_API_KEY", "required": false, "delivery": "sandbox", "why": "System of record Ashby, when the workspace has no Ashby connector. Read candidates and applications, write notes." },
+    { "name": "GREENHOUSE_API_KEY", "required": false, "delivery": "sandbox", "why": "System of record Greenhouse (Harvest API), with GREENHOUSE_USER_ID, when the workspace has no Greenhouse connector. Read candidates and applications, write private notes." },
+    { "name": "GREENHOUSE_USER_ID", "required": false, "delivery": "sandbox", "why": "System of record Greenhouse: the id of the Greenhouse user every note is written on behalf of (On-Behalf-Of). Not a secret." },
+    { "name": "LEVER_API_KEY", "required": false, "delivery": "sandbox", "why": "System of record Lever, when the workspace has no Lever connector. Read opportunities, write notes." },
+    { "name": "WORKABLE_API_TOKEN", "required": false, "delivery": "sandbox", "why": "System of record Workable, with WORKABLE_SUBDOMAIN, when the workspace has no Workable connector. Read candidates and jobs, write comments." },
+    { "name": "WORKABLE_SUBDOMAIN", "required": false, "delivery": "sandbox", "why": "System of record Workable: your account subdomain, for example example in example.workable.com. Not a secret." },
+    { "name": "GH_TOKEN", "required": false, "delivery": "sandbox", "why": "System of record json-file only: read and write the ledger branch of a private repository with gh." }
+  ],
+  "needs_dev_sandbox": false
+}

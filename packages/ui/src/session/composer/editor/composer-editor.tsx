@@ -1,4 +1,5 @@
 'use client';
+import type { EditorState } from '@tiptap/pm/state';
 
 import { useTranslations } from '../../../i18n';
 import { cn } from '../../../lib/utils';
@@ -71,6 +72,7 @@ export interface ComposerEditorHandle {
    * blocks (built from the STRUCTURED `mentions` array, not the text) would
    * then be missing entirely.
    */
+  getEditingState(): EditorState | null;
   getDocument(): JSONContent;
   /**
    * Always replaces the whole document, same as `setContent`. A `mode`
@@ -82,7 +84,7 @@ export interface ComposerEditorHandle {
    * merge, unlike `setContent`'s `textToParagraphs`, which only ever knows
    * how to build plain text) and written back through this method.
    */
-  setDocument(doc: JSONContent): void;
+  setDocument(doc: JSONContent, focus?: boolean): void;
   /**
    * Insert literal text at the CURRENT cursor/selection — Task 13. The old
    * plain `<textarea>` gave this for free via `setRangeText`; nothing here
@@ -350,14 +352,15 @@ export function getEditorDocument(editor: Editor | null): JSONContent {
   return editor ? (editor.getJSON() as JSONContent) : EMPTY_DOC;
 }
 
-export function setEditorDocument(editor: Editor | null, doc: JSONContent): void {
+export function setEditorDocument(editor: Editor | null, doc: JSONContent, focus = true): void {
   if (!editor) return;
   const content = doc.content ?? [];
   editor.commands.setContent({ type: 'doc', content });
   // `scrollIntoView: false` — see the note on the `setContent` handle below.
   // This is the same programmatic whole-document replace, so it wants the same
   // treatment: put the caret at the end, move nothing.
-  editor.commands.focus('end', { scrollIntoView: false });
+  if (focus) editor.commands.focus('end', { scrollIntoView: false });
+  else editor.commands.setTextSelection(editor.state.doc.content.size);
 }
 
 /**
@@ -615,6 +618,9 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
           role: 'textbox',
           'aria-multiline': 'true',
           'aria-label': t('messageInput'),
+          // A locale-free hook for code outside the composer that must know
+          // the editor exists (`use-home-typing-buffer.ts` in apps/web).
+          'data-composer-editor': '',
           /**
            * `min-h-[3.5em]` — taller than one line by design. History: was
            * `1.5em` (exactly one line) on the reasoning that a taller floor
@@ -662,10 +668,9 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
        * dev.kortix.com: clear at T, phantom write at T+406ms, and the next
        * visit to project home restored "Hi" into the composer.
        *
-       * That composer clears now (`clearOnSend="text-only"`), so its phantom
-       * write would carry an empty document. The guard stays: it is about
-       * `setEditable`, and every composer that flips `disabled` mid-send is one
-       * debounce away from the same bug.
+       * Project home keeps the sent text in the locked box again, so this
+       * guard is what keeps the message out of the saved draft. Every composer
+       * that flips `disabled` mid-send is one debounce away from the same bug.
        *
        * The view still refreshes — `setOptions` calls `view.updateState`
        * whether or not the event is emitted.
@@ -715,7 +720,8 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
           editor.commands.focus(caret, { scrollIntoView: false });
         },
         getDocument: () => getEditorDocument(editor),
-        setDocument: (doc) => setEditorDocument(editor, doc),
+        getEditingState: () => editor?.state ?? null,
+        setDocument: (doc, focus) => setEditorDocument(editor, doc, focus),
         insertAtCursor: (text) => insertTextAtCursor(editor, text),
         clear: () => editor?.commands.setContent(EMPTY_DOC),
         focus: () => editor?.commands.focus('end'),

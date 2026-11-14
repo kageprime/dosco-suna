@@ -141,19 +141,5 @@ export function workingSize(width: number, height: number): { width: number; hei
   return { width: Math.round(width * scale), height: Math.round(height * scale) };
 }
 
-/** Two gray images of the same size -> one gray image with them side by side. */
-export function packPlanes(
-  planes: ReadonlyArray<Uint8ClampedArray | Uint8Array>,
-  width: number,
-  height: number,
-): Uint8ClampedArray {
-  const out = new Uint8ClampedArray(width * planes.length * height);
-  for (let y = 0; y < height; y++) {
-    for (let p = 0; p < planes.length; p++) {
-      const plane = planes[p]!;
-      const row = y * width * planes.length + p * width;
-      for (let x = 0; x < width; x++) out[row + x] = plane[y * width + x] ?? 0;
-    }
-  }
-  return out;
-}
+/** The one plane packer, beside the other pixel-buffer helpers in `heatmap-bake.ts`. */
+export { packPlanes } from './heatmap-bake';

@@ -41,7 +41,7 @@ export interface AccessChange {
  * answer, or (`change`) a wider access asked for through Kortix, which only
  * the owner on this machine may confirm.
  */
-export interface AccessRequest {
+interface AccessRequest {
   id: string;
   requestedAt: string;
   capability: string;
@@ -58,11 +58,11 @@ export interface AccessView extends AccessState {
 /** How long a call waits for the owner to answer the prompt. */
 export const ACCESS_HOLD_MS = 20_000;
 /** The desktop app touches desktop-app.json this often; older means it is gone (pid reuse). */
-export const DESKTOP_APP_HEARTBEAT_MS = 30_000;
+const DESKTOP_APP_HEARTBEAT_MS = 30_000;
 /** A grant never lasts longer than this, whatever the file says. */
-export const MAX_GRANT_MS = 24 * 3_600_000;
+const MAX_GRANT_MS = 24 * 3_600_000;
 /** "Deny" refuses calls for this long. */
-export const DENY_MS = 10 * 60_000;
+const DENY_MS = 10 * 60_000;
 /**
  * A request is shown to the owner this long. Longer than the hold: a late
  * answer still applies to the agent's next try.
@@ -214,7 +214,7 @@ export function accessWidens(current: AccessState, next: AccessState, now = Date
 }
 
 /** The pending request, while the owner can still usefully answer it. */
-export function pendingAccessRequest(home = agentTunnelHome(), now = Date.now()): AccessRequest | null {
+function pendingAccessRequest(home = agentTunnelHome(), now = Date.now()): AccessRequest | null {
   const request = readAccessRequest(home);
   return request && now - Date.parse(request.requestedAt) < REQUEST_FRESH_MS ? request : null;
 }

@@ -87,9 +87,19 @@ function serve(release: Release): string {
 
 function run(script: string, releaseDir: string): { status: number | null; out: string } {
   const cwd = mkdtempSync(join(tmpdir(), 'gitleaks-run-'));
+  // An install into /usr/local/bin lands here instead: on a developer machine the
+  // fixture must never replace the real gitleaks (or fail on someone else's).
+  const bin = join(cwd, 'bin');
+  mkdirSync(bin);
   const result = spawnSync('bash', ['-c', script], {
     cwd,
-    env: { ...process.env, GITLEAKS_VERSION: VERSION, GITLEAKS_BASE: `file://${releaseDir}` },
+    env: {
+      ...process.env,
+      PATH: `${bin}:${process.env.PATH ?? ''}`,
+      GITLEAKS_BIN: bin,
+      GITLEAKS_VERSION: VERSION,
+      GITLEAKS_BASE: `file://${releaseDir}`,
+    },
     encoding: 'utf8',
   });
   return { status: result.status, out: `${result.stdout}${result.stderr}` };
@@ -109,7 +119,9 @@ for (const { file, step } of workflows) {
   // run unchanged. An unverified install reads neither `base` nor
   // GITLEAKS_VERSION, so it fails here before it can download anything.
   expectReleaseBase(source, step);
-  const script = runBlock(source, step).replace(BASE_ASSIGNMENT, 'base="$GITLEAKS_BASE"');
+  const script = runBlock(source, step)
+    .replace(BASE_ASSIGNMENT, 'base="$GITLEAKS_BASE"')
+    .replaceAll(' -C /usr/local/bin ', ' -C "$GITLEAKS_BIN" ');
 
   describe(`${file} installs a verified gitleaks`, () => {
     test('downloads, verifies and runs the genuine release', () => {

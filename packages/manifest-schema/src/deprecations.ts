@@ -20,7 +20,6 @@
  * named (`RETIRED_*_KEYS` in `./index.v3.ts`).
  */
 
-import { isDeepStrictEqual } from 'node:util';
 import { type Document, isMap, isScalar, isSeq, type Node, type Pair, parseDocument, Scalar, type YAMLMap } from 'yaml';
 import { DEPRECATED_KORTIX_PERMISSION_ALIASES, EVERY_GRANT, EVERY_GRANT_KEYS, isEveryGrant, LEGACY_SANDBOX_KEYS, RETIRED_KORTIX_TOOLS } from './constants';
 
@@ -141,7 +140,8 @@ export const DEPRECATIONS: readonly Deprecation[] = [
     summary: 'an agent without `tools` gets every tool. Write `tools: "*"` (same meaning), or list the tools it needs.',
     apply: (doc) =>
       agentBlocks(doc).flatMap(([name, block]) => {
-        if (block.has('tools')) return [];
+        // A program agent (`run`) calls no tools: `tools` means nothing to it.
+        if (block.has('tools') || block.has('run')) return [];
         block.set('tools', everyScalar());
         return [`agents.${name}.tools`];
       }),
@@ -397,12 +397,29 @@ export function rewriteManifestText(source: string, desired: Record<string, unkn
   syncNode(doc, doc.contents, desired);
   const text = keepUnchangedLines(healed, doc.toString({ lineWidth: 0, flowCollectionPadding: false }));
   const read = parseDocument(text);
-  if (read.errors.length > 0 || !isDeepStrictEqual(read.toJS(), desired)) return null;
+  if (read.errors.length > 0 || !sameData(read.toJS(), desired)) return null;
   return text;
 }
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value);
+
+/**
+ * Structural equality for YAML data (plain objects, arrays and scalars), as
+ * `util.isDeepStrictEqual` decides it for such data. Not `node:util`: the web
+ * app bundles this package, a browser gets Next.js's `util` polyfill, which has
+ * no `isDeepStrictEqual`, and loading that polyfill runs `Function(...)`, which
+ * the web CSP blocks and reports as `eval` on every workspace page.
+ */
+function sameData(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((item, index) => sameData(item, b[index]));
+  }
+  if (!isPlainObject(a) || !isPlainObject(b)) return false;
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((key) => Object.hasOwn(b, key) && sameData(a[key], b[key]));
+}
 
 /** Make `node` hold `value`: a map or a list of the same length is synced entry by entry, anything else replaced. */
 function syncNode(doc: Document, node: unknown, value: unknown): unknown {
@@ -431,7 +448,7 @@ function syncNode(doc: Document, node: unknown, value: unknown): unknown {
     return node;
   }
   const current = node && typeof node === 'object' && 'toJSON' in node ? (node as { toJSON: () => unknown }).toJSON() : node;
-  if (isDeepStrictEqual(current, value)) return node;
+  if (sameData(current, value)) return node;
   return doc.createNode(value);
 }
 

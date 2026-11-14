@@ -17,10 +17,10 @@ import { useAppHome } from '@kortix/ui/internal/lib/onboarding/use-app-home';
  * authorizes the app. The connection is already finalized server-side — this
  * page just confirms it so the tab isn't a dead end.
  *
- * Self-host without Pipedream configured never initiates this OAuth flow, so
- * this route should never legitimately be hit there — but guard it anyway
- * (a stale bookmark/link) by bouncing to /workspaces instead of confirming a
- * "connection" for a feature that isn't enabled.
+ * Only `?connected=true` renders success and only `?error=true` renders the
+ * failure. Any other visit (a bookmark, a typed URL, a self-host without
+ * Pipedream) carries no OAuth result, so it goes to the app home instead of
+ * confirming a connection that never happened.
  */
 export default function ConnectionsPage() {
   return (
@@ -37,18 +37,18 @@ function ConnectionResult() {
   const params = useSearchParams();
   const connectorsEnabled = isConnectorsEnabled();
 
-  useEffect(() => {
-    if (!connectorsEnabled) router.replace(appHome);
-  }, [appHome, connectorsEnabled, router]);
-
-  const ok = params.get('connected') === 'true';
   const failed = params.get('error') === 'true';
-  const connected = !(failed && !ok);
+  const connected = !failed && params.get('connected') === 'true';
+  const hasResult = connected || failed;
 
-  if (!connectorsEnabled) return null;
+  useEffect(() => {
+    if (!connectorsEnabled || !hasResult) router.replace(appHome);
+  }, [appHome, connectorsEnabled, hasResult, router]);
+
+  if (!connectorsEnabled || !hasResult) return null;
 
   return (
-    <AuthFrame footerVariant="none">
+    <AuthFrame footerVariant="none" art={false}>
       <Rise>
         <StepHeader
           title={

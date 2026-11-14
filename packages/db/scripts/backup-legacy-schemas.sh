@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Back up the Suna-era schemas (`public` and `basejump`) to a private S3 bucket before
-# packages/db/migrations-pending/drop_legacy_suna_schemas.sql.pending drops them.
+# packages/db/migrations/20261112124223964_drop_legacy_suna_schemas.sql drops them.
 #
 #   backup-legacy-schemas.sh bucket <bucket> <region> <expire_days|never>
 #       Create the bucket: private (Block Public Access), versioned, SSE-KMS with a bucket

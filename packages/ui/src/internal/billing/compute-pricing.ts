@@ -76,8 +76,15 @@ export const CREDIT_TIERS: readonly CreditTier[] = [
 
 export const CREDIT_TIER_GROUPS: readonly CreditTierGroup[] = ['small', 'growing', 'scale', 'large'];
 
-/** The tier a page opens on: the most popular one. */
+/** The tier the marketing /pricing page opens on: the most popular one. */
 export const DEFAULT_TIER_USD = CREDIT_TIERS.find((tier) => tier.popular)!.monthlyUsd;
+
+/**
+ * The tier an in-app upgrade opens on for an account with no plan: the
+ * smallest one, the "From $50" price the Credits card names. Opening on a
+ * larger tier quotes a price the copy never mentioned.
+ */
+export const ENTRY_TIER_USD = CREDIT_TIERS[0].monthlyUsd;
 
 /** The ladder tier for an amount, or `undefined` for an amount off the ladder (a legacy plan). */
 export function tierForMonthlyUsd(monthlyUsd: number | null | undefined): CreditTier | undefined {

@@ -17,8 +17,11 @@ type ReactTestRenderer = {
 };
 const { act, create } = require('react-test-renderer') as {
   act: (fn: () => void) => void;
-  create: (element: React.ReactElement) => ReactTestRenderer;
+  create: (element: React.ReactElement, options?: { createNodeMock?: (element: { type: unknown }) => unknown }) => ReactTestRenderer;
 };
+
+/** The host view the native sheet measures (`measureInWindow`); set per test. */
+let viewNode: unknown = null;
 
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -106,7 +109,8 @@ function mount(props: Record<string, unknown> = {}, children: React.ReactNode = 
           ...props,
         },
         children ?? React.createElement(SettledProbe)
-      )
+      ),
+      { createNodeMock: (element) => (element.type === 'view' ? viewNode : null) }
     );
   });
 }
@@ -116,8 +120,11 @@ const box = () => sheet().findAll((node) => node.type === 'view')[0];
 const fire = (event: string, nativeEvent: Record<string, unknown> = {}) =>
   act(() => sheet().props[event]({ nativeEvent }));
 const call = (fn: (r: Ref) => void) => act(() => fn(ref.current!));
+/** The content box reports its laid-out height (a content-sized sheet). */
+const layout = (height: number) => act(() => box().props.onLayout({ nativeEvent: { layout: { height } } }));
 
 beforeEach(() => {
+  viewNode = null;
   changes = [];
   dismisses = 0;
   keyboardDismisses = 0;
@@ -189,6 +196,7 @@ describe('NativeSheet', () => {
   test('present() during the close keeps the body; the close still reaches the call site', () => {
     mount();
     call((r) => r.present());
+    layout(280);
     fire('onWillAppear');
     call((r) => r.dismiss());
     call((r) => r.present());
@@ -204,12 +212,90 @@ describe('NativeSheet', () => {
     expect(sheet().props.preventNativeDismiss).toBe(true);
   });
 
-  test('a content-sized sheet fits its content, capped at the maximum detent', () => {
-    // 800 window − 50 top − 34 bottom − 16 gap.
+  test('a content-sized sheet measures its content before it presents, then opens at that height', () => {
+    // 800 window − 50 top − 34 bottom − 16 gap = 700 maximum detent.
     mount();
     call((r) => r.present());
-    expect(sheet().props.detents).toBe('fitToContents');
+    // Mounted closed: UIKit resolves the detent when it presents, so the
+    // height must be known first (presented with it unknown, the sheet stood
+    // at full height, opaque on iOS 26).
+    expect(sheet().props.isOpen).toBe(false);
+    // Laid out at the glass sheet's width (400 − 2 × 8) while it measures.
+    expect(box().props.style).toEqual({ maxHeight: 700, minHeight: undefined, width: 384 });
+    layout(280);
+    expect(sheet().props.isOpen).toBe(true);
+    expect(sheet().props.detents).toEqual([0.4]);
+    expect(sheet().props.initialDetentIndex).toBe(0);
+    // Presented: the box takes the sheet's own width.
     expect(box().props.style).toEqual({ maxHeight: 700, minHeight: undefined });
+  });
+
+  test('a content-sized sheet follows its content once it rests, not during the present', () => {
+    mount();
+    call((r) => r.present());
+    layout(280);
+    // A layout while UIKit still sizes the sheet (the box not yet at the sheet's width) is ignored.
+    layout(690);
+    expect(sheet().props.detents).toEqual([0.4]);
+    fire('onWillAppear');
+    fire('onDidAppear');
+    layout(350.4);
+    expect(sheet().props.detents).toEqual([0.502]);
+    // Taller than the maximum detent: full height, the body scrolls.
+    layout(700);
+    expect(sheet().props.detents).toEqual([1]);
+  });
+
+  test('a height laid out while the sheet presents applies once it rests', () => {
+    mount();
+    call((r) => r.present());
+    layout(280);
+    fire('onWillAppear');
+    // The list loads more rows during the present.
+    layout(420);
+    expect(sheet().props.detents).toEqual([0.4]);
+    fire('onDidAppear');
+    expect(sheet().props.detents).toEqual([0.6]);
+  });
+
+  test('a body that never lays out still opens, at the full detent, after 400 ms', () => {
+    // A captured timer, not the real clock.
+    const timers: { fn: () => void; ms: number }[] = [];
+    const realSetTimeout = globalThis.setTimeout;
+    const realClearTimeout = globalThis.clearTimeout;
+    globalThis.setTimeout = ((fn: () => void, ms: number) => {
+      timers.push({ fn, ms });
+      return Symbol('timer') as never;
+    }) as unknown as typeof setTimeout;
+    globalThis.clearTimeout = (() => {}) as typeof clearTimeout;
+    try {
+      mount();
+      call((r) => r.present());
+      expect(sheet().props.isOpen).toBe(false);
+      const fallback = timers.find((timer) => timer.ms === 400);
+      expect(fallback).toBeDefined();
+      act(() => fallback!.fn());
+      expect(sheet().props.isOpen).toBe(true);
+      expect(sheet().props.detents).toEqual([1]);
+    } finally {
+      act(() => tree.unmount());
+      globalThis.setTimeout = realSetTimeout;
+      globalThis.clearTimeout = realClearTimeout;
+    }
+  });
+
+  test('a content-sized sheet measures again on every present', () => {
+    mount();
+    call((r) => r.present());
+    layout(280);
+    fire('onWillAppear');
+    fire('onDidAppear');
+    call((r) => r.dismiss());
+    fire('onDismiss');
+    call((r) => r.present());
+    expect(sheet().props.isOpen).toBe(false);
+    layout(140);
+    expect(sheet().props.detents).toEqual([0.2]);
   });
 
   test('maxDynamicContentSize lowers the cap', () => {
@@ -305,6 +391,12 @@ describe('keyboard', () => {
 
   test('a fixed-detent sheet below its full detent leaves the keyboard to UIKit', () => {
     mount({ snapPoints: ['50%'], enableDynamicSizing: false });
+    call((r) => r.present());
+    expect(avoider().props.enabled).toBe(false);
+  });
+
+  test('nativeFullDetent false: the one partial detent leaves the keyboard to UIKit', () => {
+    mount({ snapPoints: ['85%', '100%'], enableDynamicSizing: false, nativeFullDetent: false });
     call((r) => r.present());
     expect(avoider().props.enabled).toBe(false);
   });
@@ -406,6 +498,98 @@ describe('the content ends at the visible edge', () => {
     } finally {
       motion.reduced = false;
     }
+  });
+});
+
+describe('the measured box replaces the estimate once the sheet rests', () => {
+  // Window 800. The box reports its window frame through `measureInWindow`.
+  const avoider = () => tree.root.findAll((node) => node.type === 'keyboard-avoiding')[0];
+  const content = () => avoider().findAll((node) => node.type === 'view')[0];
+  const margin = () => (Array.isArray(content().props.style) ? Object.assign({}, ...content().props.style) : content().props.style).marginBottom;
+  const frame = { y: 0, height: 0 };
+  let measures = 0;
+  const node = { measureInWindow: (cb: (x: number, y: number, w: number, h: number) => void) => (measures++, cb(0, frame.y, 400, frame.height)) };
+  const frames: Array<() => void> = [];
+  const flush = () => act(() => { for (let i = 0; i < 100 && frames.length; i++) frames.shift()!(); });
+  const layout = (height: number) => act(() => avoider().props.onLayout({ nativeEvent: { layout: { height } } }));
+
+  beforeEach(() => {
+    viewNode = node;
+    measures = 0;
+    frames.length = 0;
+    (globalThis as Record<string, unknown>).requestAnimationFrame = (cb: () => void) => frames.push(cb);
+    (globalThis as Record<string, unknown>).cancelAnimationFrame = () => {};
+  });
+
+  test('a screen-tall box at 85% ends its content at the screen edge (TestFlight 171: tabs below the screen)', () => {
+    mount({ snapPoints: ['85%'], enableDynamicSizing: false });
+    call((r) => r.present());
+    // The sheet's top is 200pt down; its box is as tall as the window.
+    frame.y = 200;
+    frame.height = 800;
+    layout(800);
+    expect(measures).toBe(0); // not before the sheet rests
+    fire('onDidAppear');
+    flush();
+    expect(margin()).toBe(200);
+  });
+
+  test('a box sized to the visible sheet hides nothing', () => {
+    mount({ snapPoints: ['85%'], enableDynamicSizing: false });
+    call((r) => r.present());
+    frame.y = 200;
+    frame.height = 592; // ends 8pt above the screen edge: the iOS 26 floating sheet
+    layout(592);
+    fire('onDidAppear');
+    flush();
+    expect(margin()).toBe(0);
+  });
+
+  test('it waits for the frame to hold still before it measures', () => {
+    mount({ snapPoints: ['85%'], enableDynamicSizing: false });
+    call((r) => r.present());
+    frame.y = 400;
+    frame.height = 800;
+    layout(800);
+    fire('onDidAppear');
+    // Still moving: one frame later the sheet is higher.
+    act(() => frames.shift()!());
+    frame.y = 200;
+    flush();
+    expect(margin()).toBe(200);
+  });
+
+  test('a detent change drops the measurement and measures again at the new detent', () => {
+    mount({ snapPoints: ['85%'], enableDynamicSizing: false });
+    call((r) => r.present());
+    frame.y = 200;
+    frame.height = 800;
+    layout(800);
+    fire('onDidAppear');
+    flush();
+    expect(margin()).toBe(200);
+    frame.y = 60;
+    fire('onDetentChanged', { index: 1 });
+    flush();
+    expect(margin()).toBe(60);
+  });
+
+  test('a content-sized sheet never measures', () => {
+    mount();
+    call((r) => r.present());
+    fire('onDidAppear');
+    flush();
+    expect(measures).toBe(0);
+  });
+});
+
+describe('nativeSheetBoxBelowScreen', () => {
+  const { nativeSheetBoxBelowScreen } = require('@/lib/ui/native-sheet') as typeof import('@/lib/ui/native-sheet');
+  test('the part of the box past the window bottom, never more than half the box', () => {
+    expect(nativeSheetBoxBelowScreen({ y: 200, height: 874, windowHeight: 874 })).toBe(200);
+    expect(nativeSheetBoxBelowScreen({ y: 200, height: 600, windowHeight: 874 })).toBe(0);
+    expect(nativeSheetBoxBelowScreen({ y: 870, height: 800, windowHeight: 874 })).toBe(400);
+    expect(nativeSheetBoxBelowScreen({ y: Number.NaN, height: 800, windowHeight: 874 })).toBe(0);
   });
 });
 

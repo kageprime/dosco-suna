@@ -23,11 +23,10 @@ import type { TriggerList } from '@kortix/api-contract';
 import { formatDurationSeconds } from '@kortix/manifest-schema';
 import { and, asc, eq, like, or, sql } from 'drizzle-orm';
 import { db } from '../../shared/db';
-import { triggerScheduleRevision } from '../trigger-schedule';
 import type { GitTriggerSpec, GitTriggerType } from '../triggers';
 import { buildPublicWebhookUrl, draftToSpec, parseTriggerDraft } from './trigger-draft';
 import { normalizeString } from './serializers';
-import { type ReminderDraft, parseReminderDraft, reminderSpec, serializeSessionReminder } from './session-reminders';
+import { type ReminderDraft, insertRuntimeTriggerRow, parseReminderDraft, reminderSpec, serializeSessionReminder } from './session-reminders';
 
 export const RUNTIME_TRIGGER_ID_PREFIX = 'trigger.';
 /** The prefix `POST /automations` used before the rename. Still read, never written. */
@@ -313,25 +312,7 @@ export async function insertRuntimeAgentTrigger(input: {
   firstFireAt: Date | null;
   now: Date;
 }): Promise<RuntimeRow> {
-  const { spec } = input;
-  const [row] = await db
-    .insert(projectTriggerRuntime)
-    .values({
-      projectId: input.projectId,
-      slug: spec.slug,
-      ownerUserId: input.createdBy,
-      triggerType: spec.type,
-      enabled: true,
-      scheduleCron: spec.cron,
-      scheduleRunAt: spec.runAt ? new Date(spec.runAt) : null,
-      scheduleTimezone: spec.timezone,
-      scheduleRevision: triggerScheduleRevision(spec),
-      scheduleSpec: spec as unknown as Record<string, unknown>,
-      nextFireAt: input.firstFireAt,
-      updatedAt: input.now,
-    })
-    .returning();
-  return row!;
+  return insertRuntimeTriggerRow(input);
 }
 
 export async function deleteRuntimeTrigger(projectId: string, slug: string): Promise<void> {

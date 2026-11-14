@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
+import { withSizelessURLSearchParams } from '../test-fixtures';
 import { readRuntimeLogPage } from './runtime-actions';
 
 const RUNTIME = 'http://api.test/v1/p/sbx_1/8000';
@@ -37,4 +38,10 @@ describe('readRuntimeLogPage: the box page of a box that serves runtime.log.v1',
     const failing = (async () => { throw new Error('network'); }) as unknown as typeof globalThis.fetch;
     expect(await readRuntimeLogPage(RUNTIME, failing, { limit: 40 })).toBeNull();
   });
+});
+
+test('readRuntimeLogPage keeps its query under the mobile URLSearchParams polyfill (KRTX-4898)', async () => {
+  const { urls, fetch } = box({ body: {} });
+  await withSizelessURLSearchParams(() => readRuntimeLogPage(RUNTIME, fetch, { thread: 'ses_root', limit: 40 }));
+  expect(urls).toEqual([`${RUNTIME}/kortix/runtime/log?thread=ses_root&limit=40`]);
 });

@@ -20,6 +20,7 @@ import {
   relayQuestion,
   relayRuntimeSession,
   relaySteerRead,
+  relaySteerDropped,
   relayTurnAccepted,
   relayTurnBegin,
   relayTurnEnd,
@@ -157,6 +158,9 @@ export async function runPi(context: HarnessBootContext & { cfg: PiConfig; bootS
     },
     onSteerRead: ({ rootId, messageId }) => {
       void relaySteerRead(rootId, messageId)
+    },
+    onSteerDropped: ({ rootId, messageId }) => {
+      void relaySteerDropped(rootId, messageId)
     },
     // apps/api stores each ask and says how long it waits live before it parks (interactions.ts).
     onQuestionAsked: (request, ask) => relayQuestion(request, ask),

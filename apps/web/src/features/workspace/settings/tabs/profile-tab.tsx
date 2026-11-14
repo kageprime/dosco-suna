@@ -145,6 +145,7 @@ interface ProfileTabCopy {
   gracePeriodDescription: string;
   immediateLabel: string;
   immediateDescription: string;
+  noWorkspaceImmediateOnly: string;
   typeDeleteToConfirm: string;
   keepAccount: string;
   processing: string;
@@ -171,7 +172,7 @@ export const DEFAULT_PROFILE_TAB_COPY: ProfileTabCopy = {
     blockersTitle: 'Hand these over first',
     blockers: 'You are their only owner, and others work in them. Transfer ownership or delete the workspace.',
     members: (count) => `${count} members`,
-    nothing: 'You belong to no workspace. Only your login is deleted.',
+    nothing: 'No workspace is deleted or left with your account.',
   },
   deletionUnavailable:
     "Account deletion isn't available on this deployment. Contact support to close your account.",
@@ -203,6 +204,8 @@ export const DEFAULT_PROFILE_TAB_COPY: ProfileTabCopy = {
   gracePeriodDescription: 'Deletion happens on the scheduled date. Cancel any time before then.',
   immediateLabel: 'Delete immediately',
   immediateDescription: 'Your account and its data are deleted right away. This cannot be undone.',
+  noWorkspaceImmediateOnly:
+    'You belong to no workspace, so there is no grace period: your account is deleted right away.',
   typeDeleteToConfirm: 'Type "delete" to confirm',
   keepAccount: 'Keep account',
   processing: 'Processing…',
@@ -235,16 +238,17 @@ interface ProfileTabViewProps {
 
   // Delete account
   /**
-   * The person belongs to no workspace (Workspaces, PR 1): the row deletes
-   * only their login, immediately (`DELETE /v1/account/delete-immediately`,
-   * flow DEL-6). No grace period and no list of workspace data to lose.
+   * The person belongs to no workspace (Workspaces D3). The dialog stays the
+   * same Delete-account dialog (KRTX-4849); only the grace period is disabled
+   * with its reason, because `POST /v1/account/request-deletion` answers 409
+   * `no_workspace` for them.
    */
-  loginOnly?: { label: string; description: string; title: string; warning: string } | null;
+  noWorkspace?: boolean;
   /**
    * What deleting the person does (`GET /v1/account/deletion-plan`): the
    * workspaces deleted with them (sole owner, only member), the ones they
    * leave, and the shared ones they must hand over first. `undefined` while
-   * it loads or for a login with no workspace.
+   * it loads.
    */
   deletionPlan?: ProfileDeletionPlan;
   accountDeletionSupported?: boolean;
@@ -351,7 +355,7 @@ export function ProfileTabView({
   isSavingName = false,
   onSaveName = () => {},
   userEmail = '',
-  loginOnly = null,
+  noWorkspace = false,
   deletionPlan,
   accountDeletionSupported = true,
   hasPendingDeletion = false,
@@ -392,8 +396,8 @@ export function ProfileTabView({
   // failed fetch cannot know. It states the check failed and offers Retry.
   // The check comes first so no later branch can render a destructive
   // control off an unknown answer.
-  const deleteAccountDescription = loginOnly
-    ? loginOnly.description
+  const deleteAccountDescription = noWorkspace
+    ? copy.noWorkspaceImmediateOnly
     : isDeletionStatusError
     ? copy.deletionStatusCheckFailed
     : !accountDeletionSupported
@@ -500,7 +504,7 @@ export function ProfileTabView({
       <section className="space-y-3">
         <SettingsSubsectionHeader title={copy.dangerZone} />
         <SettingsRowGroup>
-          <SettingsRow label={loginOnly?.label ?? copy.deleteAccount} description={deleteAccountDescription}>
+          <SettingsRow label={copy.deleteAccount} description={deleteAccountDescription}>
             {isDeletionStatusError ? (
               <Button variant="outline" size="sm" onClick={onRetryDeletionStatus}>
                 {copy.retry}
@@ -527,7 +531,7 @@ export function ProfileTabView({
                 className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                 onClick={onOpenDeleteDialog}
               >
-                {loginOnly?.label ?? copy.deleteAccount}
+                {copy.deleteAccount}
               </Button>
             )}
           </SettingsRow>
@@ -538,13 +542,11 @@ export function ProfileTabView({
             <Modal open={showDeleteDialog} onOpenChange={(open) => !open && onCloseDeleteDialog()}>
               <ModalContent className="lg:max-w-md" variant="base">
                 <ModalHeader>
-                  <ModalTitle>{loginOnly?.title ?? copy.deleteDialogTitle}</ModalTitle>
+                  <ModalTitle>{copy.deleteDialogTitle}</ModalTitle>
                 </ModalHeader>
                 <ModalBody className="space-y-4">
                   <BannerAlert variant="warning" ><BannerAlertDescription>
-                    {loginOnly ? (
-                      loginOnly.warning
-                    ) : deletionType === 'immediate' ? (
+                    {deletionType === 'immediate' ? (
                       copy.immediateWarning
                     ) : (
                       <>
@@ -553,8 +555,6 @@ export function ProfileTabView({
                       </>
                     )}
                   </BannerAlertDescription></BannerAlert>
-                  {loginOnly ? null : (
-                  <>
                   {deletionPlan ? (
                     <DeletionPlanSummary plan={deletionPlan} copy={copy.plan} />
                   ) : (
@@ -579,7 +579,8 @@ export function ProfileTabView({
                         value="grace-period"
                         id="profile-grace-period"
                         label={copy.gracePeriodLabel}
-                        description={copy.gracePeriodDescription}
+                        description={noWorkspace ? copy.noWorkspaceImmediateOnly : copy.gracePeriodDescription}
+                        disabled={noWorkspace}
                         size="lg"
                         variant="outline"
                       />
@@ -593,8 +594,6 @@ export function ProfileTabView({
                       />
                     </RadioGroup>
                   </div>
-                  </>
-                  )}
                   <div className="space-y-2">
                     <Label htmlFor="profile-delete-confirm" className="text-sm">
                       {copy.typeDeleteToConfirm}
@@ -634,7 +633,7 @@ export function ProfileTabView({
                     }
                     className="w-full sm:w-auto"
                   >
-                    {isDeletingAccount ? copy.processing : (loginOnly?.label ?? copy.deleteAccount)}
+                    {isDeletingAccount ? copy.processing : copy.deleteAccount}
                   </Button>
                 </ModalFooter>
               </ModalContent>
@@ -806,19 +805,10 @@ export function ProfileTab() {
   // Same account-list entry `WorkspaceSwitcher` already primed on mount, so
   // this costs no extra request inside a project shell.
   // No account at all (Workspaces D3: nothing is created at sign-up). The
-  // deletion routes then answer 409 `no_workspace` for status and the grace
-  // period, and `delete-immediately` deletes only the login (flow DEL-6).
+  // grace period then answers 409 `no_workspace`, and `delete-immediately`
+  // deletes the person at once (flow DEL-6).
   const accountList = useAccountsList();
-  const tWorkspaces = useTranslations('workspaces.profile');
-  const loginOnly =
-    accountList.isSuccess && (accountList.data ?? []).length === 0
-      ? {
-          label: tWorkspaces('deleteLogin'),
-          description: tWorkspaces('deleteLoginDescription'),
-          title: tWorkspaces('deleteLoginTitle'),
-          warning: tWorkspaces('deleteLoginWarning'),
-        }
-      : null;
+  const noWorkspace = accountList.isSuccess && (accountList.data ?? []).length === 0;
 
   // --- Delete account ---------------------------------------------------
   // The plan names every workspace the delete touches, read when the dialog
@@ -827,7 +817,7 @@ export function ProfileTab() {
   const planQuery = useQuery({
     queryKey: ['person-deletion-plan'],
     queryFn: getPersonDeletionPlan,
-    enabled: planWanted && !loginOnly,
+    enabled: planWanted,
     staleTime: 0,
   });
   const directory = useWorkspaceDirectory();
@@ -864,7 +854,7 @@ export function ProfileTab() {
   // the row already renders the unavailable shape while the check runs, and a
   // definitive `supported: false` answer renders the same shape, so neither
   // branch changes.
-  const accountDeletionSupported = !!loginOnly || deletionStatus?.supported === true;
+  const accountDeletionSupported = noWorkspace || deletionStatus?.supported === true;
   // "The freshest known outcome is a failure." A bare `isError` is not enough:
   // the moment a retry starts, query-core clears the error of a data-less query
   // (fetchState sets `status: 'pending'`), and the row would flash the
@@ -876,7 +866,7 @@ export function ProfileTab() {
   // query-core keeps the previous answer, and a user with a scheduled
   // deletion must keep that row (schedule + cancel) over a network blip.
   const isDeletionStatusFailed =
-    !loginOnly &&
+    !noWorkspace &&
     !deletionStatus &&
     (isDeletionStatusError ||
       (deletionStatusFetchStatus !== 'idle' && deletionStatusFailedAt > deletionStatusAnsweredAt));
@@ -896,7 +886,7 @@ export function ProfileTab() {
     // Match the API's fourteen-day elapsed-time grace period.
     setDeletionPreviewDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString());
     setDeleteConfirmText('');
-    setDeletionType(loginOnly ? 'immediate' : 'grace-period');
+    setDeletionType(noWorkspace ? 'immediate' : 'grace-period');
     setPlanWanted(true);
     void planQuery.refetch();
     setShowDeleteDialog(true);
@@ -955,10 +945,10 @@ export function ProfileTab() {
       isSavingName={saveNameMutation.isPending}
       onSaveName={() => saveNameMutation.mutate(nameDraft)}
       userEmail={profileQuery.data?.email ?? ''}
-      loginOnly={loginOnly}
+      noWorkspace={noWorkspace}
       deletionPlan={deletionPlan}
       accountDeletionSupported={accountDeletionSupported}
-      hasPendingDeletion={!loginOnly && (deletionStatus?.has_pending_deletion ?? false)}
+      hasPendingDeletion={!noWorkspace && (deletionStatus?.has_pending_deletion ?? false)}
       deletionScheduledForLabel={formatDate(deletionStatus?.deletion_scheduled_for)}
       deletionPreviewDateLabel={formatDate(deletionPreviewDate)}
       isDeletionStatusError={isDeletionStatusFailed}

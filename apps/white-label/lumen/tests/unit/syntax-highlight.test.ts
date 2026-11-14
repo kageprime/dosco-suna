@@ -10,13 +10,12 @@
  */
 
 import { describe, expect, test } from 'bun:test';
+import { isCopyableHttp, renderHttp } from '@kortix/white-label-shared/call-snippets';
 import {
   AUTHORIZATION_HEADER,
   CALL_SNIPPET_IDS,
   type SnippetContext,
   callSnippet,
-  isCopyableHttp,
-  renderHttp,
 } from '../../src/lib/call-snippets';
 import { type SnippetLanguage, type TokenKind, highlight } from '@kortix/white-label-shared/syntax-highlight';
 
@@ -55,7 +54,7 @@ function everyBlock(): Array<{ code: string; language: SnippetLanguage }> {
     for (const id of CALL_SNIPPET_IDS) {
       const snippet = callSnippet(id, context);
       blocks.push({ code: snippet.sdk, language: 'ts' });
-      blocks.push({ code: renderHttp(snippet.http), language: 'http' });
+      blocks.push({ code: renderHttp(snippet.http, AUTHORIZATION_HEADER), language: 'http' });
       if (snippet.http.kind === 'rest' && snippet.http.body !== undefined) {
         blocks.push({
           code: JSON.stringify(snippet.http.body, null, 2),
@@ -99,7 +98,9 @@ describe('highlighting cannot alter the text', () => {
     for (const id of CALL_SNIPPET_IDS) {
       const snippet = callSnippet(id, { projectId: 'p1' });
       if (!isCopyableHttp(snippet.http)) continue;
-      expect(joined(renderHttp(snippet.http), 'http')).toContain(AUTHORIZATION_HEADER);
+      expect(joined(renderHttp(snippet.http, AUTHORIZATION_HEADER), 'http')).toContain(
+        AUTHORIZATION_HEADER,
+      );
     }
   });
 
@@ -116,7 +117,7 @@ describe('highlighting cannot alter the text', () => {
 describe('the three languages are told apart', () => {
   test('the wire form colours the method, the path and the header names', () => {
     const snippet = callSnippet('approval.resolve', { projectId: 'p1', executionId: 'exec_1' });
-    const tokens = highlight(renderHttp(snippet.http), 'http');
+    const tokens = highlight(renderHttp(snippet.http, AUTHORIZATION_HEADER), 'http');
     expect(tokens[0]).toEqual({ text: 'POST', kind: 'method' });
     expect(tokens.find((token) => token.kind === 'path')?.text).toBe('/v1/projects/p1/approvals/exec_1');
     expect(
@@ -129,7 +130,7 @@ describe('the three languages are told apart', () => {
   });
 
   test('a request with no body is all head', () => {
-    const tokens = highlight(renderHttp(callSnippet('session.delete').http), 'http');
+    const tokens = highlight(renderHttp(callSnippet('session.delete').http, AUTHORIZATION_HEADER), 'http');
     expect(tokens[0]).toEqual({ text: 'DELETE', kind: 'method' });
     expect(tokens.find((token) => token.kind === 'path')?.text).toBe(
       '/v1/projects/{projectId}/sessions/{sessionId}',

@@ -3,6 +3,8 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   WORKSPACE_NAME_MAX_LENGTH,
+  readNameParam,
+  withNameParam,
   suggestWorkspaceName,
   validateWorkspaceName,
   workspaceNameMessage,
@@ -92,5 +94,29 @@ describe('suggestWorkspaceName', () => {
   test('is two capitalised words', () => {
     expect(suggestWorkspaceName(() => 0)).toBe('Amber Atlas');
     expect(suggestWorkspaceName(() => 0.999)).toBe('Vivid Willow');
+  });
+});
+
+describe('the More options name handoff', () => {
+  test('carries the shown name and reads the same name back', () => {
+    const href = withNameParam('/workspaces/new', '  Bright Comet ');
+    expect(href).toBe('/workspaces/new?name=Bright+Comet');
+    expect(readNameParam(new URL(href, 'http://x').searchParams)).toBe('Bright Comet');
+  });
+
+  test('keeps the params already on the href', () => {
+    expect(withNameParam('/workspaces/new?connect=computer', 'Acme')).toBe(
+      '/workspaces/new?connect=computer&name=Acme',
+    );
+  });
+
+  test('an empty name leaves the href alone', () => {
+    expect(withNameParam('/workspaces/new', '   ')).toBe('/workspaces/new');
+  });
+
+  test('an absent or invalid name reads as null, so the page suggests its own', () => {
+    expect(readNameParam(new URLSearchParams(''))).toBeNull();
+    expect(readNameParam(new URLSearchParams('name=%3Cscript%3E'))).toBeNull();
+    expect(readNameParam(new URLSearchParams(`name=${'a'.repeat(WORKSPACE_NAME_MAX_LENGTH + 1)}`))).toBeNull();
   });
 });

@@ -112,6 +112,10 @@ export const PickerSheet = React.forwardRef<SheetRef, PickerSheetProps>(
         titleTrailing={titleTrailing}
         snapPoints={searchable || tabs ? SEARCH_SNAP_POINTS : FULL_SCREEN_SNAP}
         enableDynamicSizing={!searchable && !tabs}
+        // iOS: UIKit sizes the sheet's view to its largest detent. With the
+        // full detent listed, the tab bar pinned to the bottom sat below the
+        // screen at 85%. Without it the view ends at the visible edge.
+        nativeFullDetent={!tabs}
         maxDynamicContentSize={Math.floor(height * 0.7)}
         topInset={insets.top}
         enablePanDownToClose

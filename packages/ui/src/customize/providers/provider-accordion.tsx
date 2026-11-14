@@ -658,7 +658,7 @@ function ExpandedBody({
     content = (
       <AccordionSubRow>{entry.hint}</AccordionSubRow>
     );
-  } else if (pooled.pooledSecretsEnabled && pooled.accountId && entry.id === 'openai') {
+  } else if (pooled.accountId && entry.id === 'openai') {
     content = (
       <div className="border-border space-y-3 border-t py-3">
         <SubscriptionUsageSection accountId={pooled.accountId} projectId={projectId} providerId="codex" compact />
@@ -685,7 +685,7 @@ function ExpandedBody({
         />
       </div>
     );
-  } else if (pooled.pooledSecretsEnabled && pooled.accountId && entry.id === 'anthropic') {
+  } else if (pooled.accountId && entry.id === 'anthropic') {
     // Claude accounts, exactly as OpenAI lists ChatGPT accounts; Anthropic API keys below them.
     content = (
       <>
@@ -714,7 +714,7 @@ function ExpandedBody({
         </div>
       </>
     );
-  } else if (pooled.pooledSecretsEnabled && pooled.accountId && supportsPooledProviderKey(entry)) {
+  } else if (pooled.accountId && supportsPooledProviderKey(entry)) {
     content = (
       <>
       {SUBSCRIPTION_BY_PROVIDER[entry.id] ? <SignInSubRows projectId={projectId} entry={entry} canWrite={canWrite} /> : null}
@@ -895,7 +895,7 @@ export function ProviderAccordion({
     const singleKey =
       entry.envVars.length === 1 &&
       !SUBSCRIPTION_BY_PROVIDER[entry.id] &&
-      !(pooled.pooledSecretsEnabled && supportsPooledProviderKey(entry));
+      !supportsPooledProviderKey(entry);
     // A key saved through the form lands in the named store ("Workspace key").
     const keyConnected = connectedIds.has(entry.id) || pooled.pooledProviderIds.has(entry.id);
 
@@ -1008,13 +1008,7 @@ export function ProviderAccordion({
         </div>
       ) : null}
 
-      {pooled.pooledSecretsEnabled || !canWrite ? (
-        pooled.pooledSecretsEnabled ? (
-          <PooledProvidersNote projectId={projectId} className="text-muted-foreground px-1 pb-2 text-xs text-pretty" />
-        ) : (
-          <p className="text-muted-foreground px-1 pb-2 text-xs text-pretty">{t('readOnly')}</p>
-        )
-      ) : null}
+      <PooledProvidersNote projectId={projectId} className="text-muted-foreground px-1 pb-2 text-xs text-pretty" />
 
       {empty ? (
         <EmptyState size="sm" title={t('noMatch', { query: search.trim() })} />

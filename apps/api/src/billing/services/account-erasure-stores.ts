@@ -5,6 +5,7 @@
  */
 import { projectSessions, sessionSandboxes } from '@kortix/db';
 import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { BillingError } from '../../errors';
 import { logger } from '../../lib/logger';
 import { tryGetProvider } from '../../platform/providers';
 import { deleteSessionWorkspaceVolume, WORKSPACE_VOLUME_SESSION_KEY } from '../../platform/services/workspace-volume';
@@ -15,6 +16,7 @@ import {
 } from '../../projects/surface';
 import { markKortixRemovalIntent } from '../../projects/surface';
 import { db } from '../../shared/db';
+import { escalateProviderAuthOutage, isProviderAuthFailure } from '../../shared/provider-auth';
 import { projectsView } from '../../workspaces/rows';
 
 /** Provider calls in flight at once, the same bound as the sandbox reclaim. */
@@ -69,6 +71,7 @@ async function removeParkedBoxes(accountId: string, alreadyRemoved: ReadonlySet<
   // can fail on the provider's own transition.
   const targets = parked.filter((row) => !alreadyRemoved.has(row.externalId as string));
   let failed = 0;
+  let authOutages = 0;
   await mapInBatches(targets, REMOVE_CONCURRENCY, async (row) => {
     const provider = tryGetProvider(row.provider as string);
     if (!provider) {
@@ -99,11 +102,23 @@ async function removeParkedBoxes(accountId: string, alreadyRemoved: ReadonlySet<
     } catch (err) {
       if (isAlreadyNotRunning(err)) return;
       failed++;
+      // A dead provider credential fails every call to that provider. It is an
+      // outage to fix at the provider, not a fault of this account: page it
+      // once per window with its remediation (KRTX-4792).
+      if (isProviderAuthFailure(err)) {
+        authOutages++;
+        escalateProviderAuthOutage(row.provider as string, 'account erasure: parked sandbox removal', err);
+      }
       logger.error(`[AccountDeletion] Failed to remove parked sandbox ${row.sandboxId}:`, {
         error: err instanceof Error ? err.message : err,
       });
     }
   });
+  // Only provider auth outages: the deletion stays retryable and the caller
+  // gets a controlled 503, not a 500 that pages as an error of this account.
+  if (failed > 0 && authOutages === failed) {
+    throw new BillingError('Account deletion is waiting on our sandbox provider. Nothing was lost; try again shortly.', 503);
+  }
   if (failed > 0) throw new Error(`${failed} parked sandbox(es) of account ${accountId} could not be removed`);
 }
 

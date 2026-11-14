@@ -227,7 +227,7 @@ export function buildServer(
     } catch {
       return false;
     }
-  });
+  }, { get: api.getReplay, put: api.putReplay });
   // Register fallbacks after the handlers so supported methods keep their behavior.
   const methodsByPath = new Map<string, Set<string>>();
   for (const { path, method } of app.routes) {

@@ -148,6 +148,7 @@ import {
   anchorSpan,
   chevronVisible,
   distanceFromEnd,
+  extentShortfall,
   isAtEnd,
   momentumFollows,
   nextFollow,
@@ -202,6 +203,7 @@ import { useLiveUpdates } from '@/hooks/useLiveUpdates';
 import { OLDER_HOLD_POSITION_MS, olderHistoryControl } from '@/lib/session/older-history';
 import { useRouter } from 'expo-router';
 import { SessionTurn } from './SessionTurn';
+import { useAgentRunLayout } from '@/lib/session/agent-runs';
 import { SessionBusyIndicator } from './session-busy-indicator';
 import { CompactionMarker } from './turn/compaction-divider';
 import { QuestionPrompt } from './QuestionPrompt';
@@ -1114,6 +1116,8 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
     () => reuseStableTurns(prevTurnsRef.current, thread ? sessionLogTurns(thread, { busy: isBusy }) : EMPTY_TURNS),
     [thread, isBusy],
   );
+  // A person's agents report back as one unit: the turns of a run fold into the turn that answers it.
+  const agentRunLayout = useAgentRunLayout(turns);
   useEffect(() => {
     prevTurnsRef.current = turns;
   }, [turns]);
@@ -1154,6 +1158,8 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
     () => sessionChanges.find((item) => item.id === selectedChangeId) ?? null,
     [sessionChanges, selectedChangeId],
   );
+  // A run's anchor draws its members' change requests too (KRTX-4732).
+  const changeRequestsOf = useCallback((turnId: string) => changesByTurn.get(turnId), [changesByTurn]);
   const openChangeRequest = useCallback((id: string) => {
     setSelectedChangeId(id);
     changeSheetRef.current?.open();
@@ -1318,6 +1324,14 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
   const [room, setRoom] = useState(0);
   const roomRef = useRef(0);
   const renderedRoomRef = useRef(0);
+  // iOS (KRTX-4899): the native scroll extent (scroll events' `contentSize`)
+  // can end short of the laid-out content (`onContentSizeChange`). The list
+  // then rests with the newest answer's tail under the composer, and a swipe
+  // to it springs back. The gap pads the list's native bottom inset until the
+  // native extent catches up.
+  const [extentInset, setExtentInset] = useState(0);
+  const extentInsetRef = useRef(0);
+  const extentContentInset = useMemo(() => ({ bottom: extentInset }), [extentInset]);
   // The last room handed to `setRoom`. While the keyboard moves, the list's
   // height changes every frame (the page's `keyboardInset` padding), and a
   // room per frame is a page render per frame. A room that shrinks is blank
@@ -1504,6 +1518,26 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
       settleRef.current();
     });
   }, []);
+
+  /** Compare the native extent of a scroll event with the layout (iOS). */
+  const checkExtent = useCallback((nativeHeight: number) => {
+    if (Platform.OS !== 'ios') return;
+    const next = extentShortfall({ laidOutHeight: contentHeightRef.current, nativeHeight });
+    if (next === extentInsetRef.current) return;
+    extentInsetRef.current = next;
+    setExtentInset(next);
+    if (next > 0) {
+      log.error('[SessionPage] native scroll extent short of layout', {
+        laidOutHeight: contentHeightRef.current,
+        nativeHeight,
+        shortfall: next,
+      });
+    }
+  }, []);
+  // Once the inset is on screen, a following list moves to the laid-out end.
+  useEffect(() => {
+    if (extentInset > 0) scheduleSettle();
+  }, [extentInset, scheduleSettle]);
 
   // A taller or shorter composer moves the end padding: settle once, like any layout change.
   const handleComposerAreaLayout = useCallback(
@@ -1753,9 +1787,10 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
       const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
       const offset = Math.max(0, contentOffset.y || 0);
       currentOffsetRef.current = offset;
+      checkExtent(contentSize.height);
       const distance = distanceFromEnd({
         offset,
-        contentHeight: contentSize.height,
+        contentHeight: contentSize.height + extentInsetRef.current,
         viewportHeight: layoutMeasurement.height,
       });
       if (!isOwnScroll()) settledAtEndRef.current = isAtEnd(distance);
@@ -1764,7 +1799,7 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
       updateScrollButton(distance);
       persistScrollOffset(sessionId, offset);
     },
-    [sessionId, persistScrollOffset, isOwnScroll, setFollow, updateScrollButton],
+    [sessionId, persistScrollOffset, isOwnScroll, setFollow, updateScrollButton, checkExtent],
   );
 
   const handleScrollEndDrag = useCallback(
@@ -1828,11 +1863,16 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
       const geometryChanged =
         contentSize.height !== last.contentHeight || layoutMeasurement.height !== last.viewportHeight;
       scrollGeometryRef.current = { contentHeight: contentSize.height, viewportHeight: layoutMeasurement.height };
-      const distance = distanceFromEnd({
+      // At the native end with no finger down: is that the laid-out end too?
+      const nativeDistance = distanceFromEnd({
         offset,
         contentHeight: contentSize.height,
         viewportHeight: layoutMeasurement.height,
       });
+      if (!draggingRef.current && (extentInsetRef.current > 0 || isAtEnd(nativeDistance))) {
+        checkExtent(contentSize.height);
+      }
+      const distance = nativeDistance + extentInsetRef.current;
 
       const wasFollowing = followRef.current;
       const next = nextFollow(wasFollowing, {
@@ -1863,7 +1903,7 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
         }
       }
     },
-    [isOwnScroll, setFollow, updateScrollButton, endGlide],
+    [isOwnScroll, setFollow, updateScrollButton, endGlide, checkExtent],
   );
 
   const handleContentSizeChange = useCallback(
@@ -2023,14 +2063,17 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
         });
       // The turn list is read through the ref: depending on `turns` would
       // re-render every row on each stream delta.
-      const gap = suppressed ? 0 : turnGapAt(layoutInputsRef.current.turns, index);
+      // An agent run's other turns draw nothing: the run's anchor folds them (KRTX-4732).
+      const absorbed = agentRunLayout.absorbed.has(id);
+      const gap = suppressed || absorbed ? 0 : turnGapAt(layoutInputsRef.current.turns, index);
       return (
         <View
           style={gap > 0 ? { marginTop: gap } : undefined}
           onLayout={(e) => handleTurnLayout(id, e.nativeEvent.layout.height)}>
-          {suppressed ? null : (
+          {suppressed || absorbed ? null : (
           <SessionTurn
             turn={item}
+            {...agentRunLayout.propsOf(id)}
             sessionStatus={isWorkingTurn ? sessionStatus : undefined}
             suppressBusyIndicator={isWorkingTurn && suppressWorkingBusy}
             sessionId={sessionId}
@@ -2054,13 +2097,14 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
             stoppedBy={stoppedByOf(id)}
             onScreen={isWorkingTurn ? workingTurnOnScreen : true}
             changeRequests={changesByTurn.get(id)}
+            changeRequestsOf={agentRunLayout.propsOf(id).runTurns ? changeRequestsOf : undefined}
             onOpenChangeRequest={openChangeRequest}
           />
           )}
         </View>
       );
     },
-    [lastCompactionTurnIndex, suppressWorkingBusy, turnGapAt, handleTurnLayout, sessionStatus, sessionId, pendingPermissions, pendingQuestions, handlePermissionReply, agentNames, handleFileMention, handleSessionMention, commands, rewindTarget, editPending, handleEditStart, handleEditCancel, handleEditSend, rewindDisabled, interruptedIds, failedSends, handleRetrySend, senderOf, workingTurnOnScreen, changesByTurn, openChangeRequest, sessionAuthorOf, stoppedByOf],
+    [agentRunLayout, lastCompactionTurnIndex, suppressWorkingBusy, turnGapAt, handleTurnLayout, sessionStatus, sessionId, pendingPermissions, pendingQuestions, handlePermissionReply, agentNames, handleFileMention, handleSessionMention, commands, rewindTarget, editPending, handleEditStart, handleEditCancel, handleEditSend, rewindDisabled, interruptedIds, failedSends, handleRetrySend, senderOf, workingTurnOnScreen, changesByTurn, changeRequestsOf, openChangeRequest, sessionAuthorOf, stoppedByOf],
   );
 
   const keyExtractor = useCallback((item: SessionLogTurn) => item.id, []);
@@ -2263,6 +2307,7 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
         <FlatList
           ref={flatListRef}
           style={LIST_DRAWS_UNDER_KEYBOARD}
+          contentInset={extentContentInset}
           data={turns}
           renderItem={renderTurn}
           keyExtractor={keyExtractor}
@@ -2317,7 +2362,7 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
                   />
                 ) : null}
                 {/* Web `HeldMessageList` above the composer: messages another agent sent that wait on the person. */}
-                {projectId && projectSessionId ? <HeldMessages projectId={projectId} sessionId={projectSessionId} /> : null}
+                {projectId && projectSessionId ? <HeldMessages projectId={projectId} sessionId={projectSessionId} live={isBusy} /> : null}
               </View>
               {/* The room (FACT 1): lets the newest turn pin near the top. */}
               <View onLayout={handleSpacerLayout} style={{ height: room }} />

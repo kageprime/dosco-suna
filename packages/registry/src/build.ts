@@ -22,7 +22,7 @@ import {
 } from './schema';
 import { parseFrontmatter, projectNameFromManifest } from './manifest';
 import { AGENTS_DIR, SKILLS_DIR } from '@kortix/manifest-schema/layout';
-import { buildTarget } from './paths';
+import { buildTarget, trimTrailingSlashes } from './paths';
 import { groupSkillFiles } from './skills';
 
 export interface BuildSource {
@@ -202,13 +202,14 @@ function expandExtraItem(item: RegistryItem, source: BuildSource, files: string[
     }
     if (source.isDirectory(f.path)) {
       const baseTarget = f.target ?? `~/${f.path}`;
-      const children = files.filter((c) => c.startsWith(`${f.path.replace(/\/+$/, '')}/`)).sort();
+      const dir = trimTrailingSlashes(f.path);
+      const children = files.filter((c) => c.startsWith(`${dir}/`)).sort();
       for (const child of children) {
-        const rel = child.slice(f.path.replace(/\/+$/, '').length + 1);
+        const rel = child.slice(dir.length + 1);
         expanded.push({
           path: child,
           type: f.type ?? 'registry:file',
-          target: `${baseTarget.replace(/\/+$/, '')}/${rel}`,
+          target: `${trimTrailingSlashes(baseTarget)}/${rel}`,
         });
       }
     } else {

@@ -36,13 +36,8 @@ import {
   CaretRightIcon as ChevronRight,
   XIcon as X,
 } from '@phosphor-icons/react';
-import {
-  AnimatePresence,
-  m,
-  type TargetAndTransition,
-  type Transition,
-  useReducedMotion,
-} from 'motion/react';
+import { AnimatePresence, m, type TargetAndTransition, type Transition } from 'motion/react';
+import { useReducedMotion } from '../../../internal/hooks/use-reduced-motion';
 import {
   type ReactNode,
   type RefObject,
@@ -269,6 +264,13 @@ function useDetailKeyboard(
         // (`session-chat.tsx`) skips a `defaultPrevented` Escape. Without it,
         // closing three full-screen images in a row stopped a running turn.
         event.preventDefault();
+        // Full screen is one level above the docked detail: the first Escape
+        // leaves it and keeps the same view docked; the next one closes (D-07).
+        const store = useKortixComputerStore.getState();
+        if (store.isExpanded) {
+          store.toggleExpanded();
+          return;
+        }
         onBack();
         return;
       }

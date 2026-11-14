@@ -79,6 +79,22 @@ test('email code verifies the sent address, establishes returned tokens, and nav
   } finally { await act(async () => tree.unmount()); }
 });
 
+test('the sixth digit verifies the code without a submit', async () => {
+  calls = []; destination = ''; failure = false; query = '';
+  const tree = await renderPage();
+  try {
+    await act(async () => tree.root.findByProps({ autoComplete: 'email' }).props.onChange({ target: { value: 'synthetic@example.test' } }));
+    await act(async () => tree.root.findByType('form').props.onSubmit({ preventDefault() {} }));
+    const digits = () => tree.root.findAllByType('input').filter(n => n.props.inputMode === 'numeric');
+    await act(async () => digits()[0].props.onChange({ target: { value: '12345' } }));
+    expect(calls).toHaveLength(0);
+    await act(async () => digits()[5].props.onChange({ target: { value: '6' } }));
+    expect(calls[0]).toEqual({ email: 'synthetic@example.test', token: '123456', type: 'email' });
+    expect(calls.filter((c) => (c as { token?: string }).token)).toHaveLength(1);
+    expect(destination).toBe('/workspaces/start');
+  } finally { await act(async () => tree.unmount()); }
+});
+
 for (const mode of ['invalid', 'missing', 'network'] as const) {
 test(`${mode} code failure stays on the form with safe copy and permits retry`, async () => {
   calls = []; destination = ''; failure = mode; query = '';
@@ -94,6 +110,8 @@ test(`${mode} code failure stays on the form with safe copy and permits retry`, 
     expect(JSON.stringify(tree.toJSON())).not.toContain('private upstream detail');
     expect(destination).toBe('');
     expect(tree.root.findAllByType('input').filter(n => n.props.inputMode === 'numeric').every(n => !n.props.disabled)).toBe(true);
+    // A rejected code is cleared, so the retry is a fresh six digits.
+    expect(tree.root.findAllByType('input').filter(n => n.props.inputMode === 'numeric').every(n => n.props.value === '')).toBe(true);
   } finally { failure = false; await act(async () => tree.unmount()); }
 });
 

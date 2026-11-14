@@ -305,10 +305,17 @@ class PreviewRuntimeIsolation(unittest.TestCase):
         # per-sandbox provider URL, and both the URL and the compose overlay are
         # validated. The blast radius is bounded by the data-plane isolation
         # asserted below, not by a shared password.
-        self.assertIn("sandbox preview URL must use credential-free HTTPS", PREVIEW_PROVIDERS)
-        self.assertIn("if (url.protocol !== 'https:' || url.username || url.password)", PREVIEW_PROVIDERS)
-        self.assertIn("preview origin must be an HTTPS origin", PREVIEW_CORE)
-        self.assertIn("preview origin must be an HTTPS origin without a path", PREVIEW_STACK)
+        # One rule (previewOrigin) validates every origin: the provider URL, the
+        # bootstrap script input and the stack environment.
+        self.assertIn(
+            "if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {",
+            PREVIEW_STACK,
+        )
+        message = "preview origin must be a credential-free HTTPS origin without a path"
+        self.assertEqual(sum(source.count(message) for source in PREVIEW_SOURCES.values()), 1)
+        self.assertIn("return previewOrigin(new URL('/', value).href);", PREVIEW_PROVIDERS)
+        self.assertIn("const origin = previewOrigin(input.origin);", PREVIEW_CORE)
+        self.assertIn("const origin = previewOrigin(input.origin);", PREVIEW_STACK)
         for path, source in PREVIEW_SOURCES.items():
             self.assertNotIn("kortix.com", source, f"{path} must not pin a Kortix hostname")
         # An operator MAY front an environment with a stable name, but it arrives

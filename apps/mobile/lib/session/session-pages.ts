@@ -50,6 +50,30 @@ export function flattenSessionPages<T extends { session_id: string }>(
   return flat;
 }
 
+/** Pages one "Show more" press may read before it gives up. */
+export const SHOW_MORE_PAGE_BUDGET = 5;
+
+/**
+ * A drawer section's "Show more": read next pages until one adds a row the
+ * section shows. A page can hold only rows the section leaves out (a row in
+ * Needs you, a row an earlier section shows, a row the viewer may not see),
+ * and a single fetch then changes nothing on screen: the press looked dead.
+ * Stops on a new row, on the last page, on a failure, or after `budget` pages.
+ */
+export async function fetchUntilShownRowsGrow<T extends { session_id: string }>(input: {
+  fetchNext: () => Promise<{ data?: { pages: SessionPage<T>[] }; hasNextPage?: boolean; isError?: boolean }>;
+  shownCount: (rows: T[]) => number;
+  before: number;
+  budget?: number;
+}): Promise<void> {
+  const budget = input.budget ?? SHOW_MORE_PAGE_BUDGET;
+  for (let read = 0; read < budget; read += 1) {
+    const result = await input.fetchNext();
+    if (result.isError || !result.hasNextPage) return;
+    if (input.shownCount(flattenSessionPages(result.data)) > input.before) return;
+  }
+}
+
 /** `onEndReached` fires repeatedly near the end of a list: fetch one page at a time. */
 export function shouldLoadMoreSessions(state: {
   hasNextPage: boolean;

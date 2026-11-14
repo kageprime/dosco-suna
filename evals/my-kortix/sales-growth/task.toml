@@ -1,0 +1,13 @@
+schema_version = "1.4"
+
+[metadata]
+category = "analysis"
+tags = ["data", "files", "json"]
+difficulty = "easy"
+
+[agent]
+timeout_sec = 600.0
+
+[verifier]
+timeout_sec = 60.0
+environment_mode = "shared"

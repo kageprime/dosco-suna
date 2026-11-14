@@ -202,6 +202,18 @@ export function remindersHref(projectId: string): string | null {
 }
 
 /**
+ * One trigger on the Triggers page: `?id=<id>` opens it. The id is a
+ * kortix.yaml slug, or a runtime trigger's id (`reminder.<hex>`), whose row the
+ * page marks. Null when the host serves no Triggers page. A
+ * `/customize/triggers?id=` link went through the legacy redirect, which drops
+ * the query, so the trigger never opened.
+ */
+export function triggerHref(projectId: string, triggerId: string): string | null {
+  const page = capabilityLinkHref(projectId, 'triggers');
+  return page ? `${page}?id=${encodeURIComponent(triggerId)}` : null;
+}
+
+/**
  * One agent's page — the configuration of a single `agents.<name>` block,
  * routed rather than modal so it has a URL a person can be sent to. The name
  * is the manifest key, which may carry characters a path segment cannot, so

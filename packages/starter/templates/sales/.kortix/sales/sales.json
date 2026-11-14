@@ -1,0 +1,44 @@
+{
+  "$comment": "The Sales Factory configuration. The sales agent reads this file at the start of every run. The setup agent writes it with you (skills/sales-loop/references/analysis.md). Change it with a commit; the next run reads the new values.",
+  "version": 1,
+  "company": {
+    "name": null,
+    "website": null,
+    "product_one_line": null,
+    "sender": { "name": null, "title": null }
+  },
+  "record": {
+    "kind": "json-file",
+    "target": null,
+    "objects": { "person": "people", "company": "companies", "deal": "deals" },
+    "fields": {}
+  },
+  "icp": {
+    "summary": null,
+    "segments": [],
+    "must_have": [],
+    "nice_to_have": [],
+    "disqualifiers": ["a personal email domain and no company", "a student or a job seeker", "a competitor"],
+    "thresholds": { "hot": 75, "warm": 50 }
+  },
+  "sources": {
+    "signup": { "enabled": true, "skip_personal_domains": true },
+    "inbound": { "enabled": true },
+    "inbound-email": { "enabled": false, "connector": "gmail", "mailbox": null },
+    "crm-changes": { "enabled": false }
+  },
+  "approval": {
+    "outreach": "draft",
+    "draft_in": "review",
+    "record_writes": "notes"
+  },
+  "caps": {
+    "leads_researched_per_day": 50,
+    "drafts_per_day": 20,
+    "follow_ups_per_lead": 2,
+    "stale_deal_days": 14
+  },
+  "meeting_prep": { "calendar_connector": null, "internal_domains": [] },
+  "offers": { "template": null, "currency": null, "packages": [] },
+  "notify": { "hot_leads": null, "digest": null }
+}

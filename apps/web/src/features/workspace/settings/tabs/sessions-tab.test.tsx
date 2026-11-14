@@ -50,6 +50,7 @@ const SERBIAN_COPY: NonNullable<ComponentProps<typeof SessionsTabView>['copy']> 
     automation_recovered: { label: 'Обавештење о опоравку', description: 'Окидач ради.' },
     capture_device_down: { label: 'Рачунар је стао', description: 'Рачунар не снима.' },
     capture_device_recovered: { label: 'Рачунар поново снима', description: 'Рачунар снима.' },
+    mention: { label: 'Помињања', description: 'Неко вас помиње или вам додељује ставку.' },
     // The retired `message` kind (Rooms) is still a key of the SDK type; no row renders it.
     message: { label: 'Порука', description: 'Неко вам пише у разговору.' },
   },
@@ -145,8 +146,8 @@ describe('SessionsTabView', () => {
     for (const retired of ['Task completions', 'Errors', 'Questions', 'Permission requests']) {
       expect(out).not.toContain(`>${retired}<`);
     }
-    // Enable, the two behaviour switches, and the record's 9 Push and 8 Email switches.
-    expect(switchCount(out)).toBe(1 + 2 + 9 + 8);
+    // Enable, the two behaviour switches, and the record's 10 Push and 9 Email switches.
+    expect(switchCount(out)).toBe(1 + 2 + 10 + 9);
   });
 
   test('an unsupported browser says so instead of rendering dead toggles', () => {
@@ -180,7 +181,7 @@ describe('SessionsTabView', () => {
 
   test('notification types: one Push switch per kind, and Email for every kind but permission', () => {
     const out = html();
-    expect(switchCount(out)).toBe(1 + 9 + 8);
+    expect(switchCount(out)).toBe(1 + 10 + 9);
     expect(out).toContain('>Push<');
     expect(out).toContain('>Email<');
     expect(switchState(out, 'Turn finished: Push')).toBe('true');
@@ -206,7 +207,7 @@ describe('SessionsTabView', () => {
     const out = html({ emailAvailable: false });
     expect(out).not.toContain('>Email<');
     expect(out).not.toContain(': Email"');
-    expect(switchCount(out)).toBe(1 + 9);
+    expect(switchCount(out)).toBe(1 + 10);
   });
 
   test('while the record loads the rows show, without switches', () => {

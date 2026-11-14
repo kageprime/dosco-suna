@@ -54,12 +54,19 @@ import {
 } from '@/components/session/ProjectRoutes';
 import { FloatingMenuButton } from '@/components/session/FloatingMenuButton';
 import {
+  DRAWER_SWAP_PARAMS,
+  drawerPageViewKey,
+  drawerRowSwapKey,
+  drawerSwapApplies,
   pageBackMove,
+  projectRouteAnimation,
   drawerSessionRowMove,
   drawerThreadMove,
   shownProjectSessionId,
   projectEdgeGesture,
   projectViewKey,
+  type DrawerPageId,
+  type ProjectDrawerRoute,
   type SubPageId,
 } from '@/lib/session/project-stack';
 import { ProjectSwitcherSheet } from '@/components/projects/ProjectSwitcherSheet';
@@ -103,6 +110,7 @@ import { KortixProjectProvider, useNotificationInbox, useSessionsNeedingInput } 
 import { NOTIFICATION_INBOX_LIMIT } from '@/lib/notifications/inbox';
 import { carryOverLegacyKinds } from '@/lib/notifications/registration';
 import { useSavedCopy } from '@/hooks/useSavedCopy';
+import { preloadWhenIdle } from '@/lib/ui/idle-preload';
 import type { ProjectSession } from '@/lib/projects/projects-client';
 
 /**
@@ -148,10 +156,34 @@ const Pages = {
   },
 };
 
+/**
+ * The drawer's pages, most used first. Each is required on its first render,
+ * and Metro has no inline requires, so a cold page evaluated its whole module
+ * graph inside the drawer tap. ProjectScreen evaluates them in idle time
+ * once the project has settled (`preloadWhenIdle`); the tap then only
+ * renders. Static `require` strings: Metro resolves them at build time.
+ */
+const DRAWER_PAGE_MODULES: ReadonlyArray<() => unknown> = [
+  () => require('@/components/session/ProjectSessionsPage'),
+  () => require('@/components/pages/FilesNavPage'),
+  () => require('@/components/pages/ReviewPage'),
+  () => require('@/components/artifacts/ArtifactsPage'),
+  () => require('@/components/pages/AppsPage'),
+  () => require('@/components/notifications/InboxPage'),
+  () => require('@/components/settings/AccountPage'),
+];
+/** Wait this long after the project mounts: its own first render and reads come first. */
+const DRAWER_PAGE_PRELOAD_DELAY_MS = 1_500;
+
 // ─── Module-local helpers (copied verbatim from ProjectScreenLegacy) ─────────
 
 
 // ─── Main screen ────────────────────────────────────────────────────────────
+
+/** A covering route's options: a drawer swap shows it with no push slide. */
+const coveringRouteOptions = ({ route }: { route: { params?: object } }) => ({
+  animation: projectRouteAnimation(route.params),
+});
 
 /** Shared empty list: a fresh `[]` per render would re-render the thread. */
 const EMPTY_SUB_AGENTS: ProjectSession[] = [];
@@ -208,6 +240,9 @@ export function ProjectScreen() {
   const openSwitcher = useCallback(() => setSwitcherOpen(true), []);
   const closeSwitcher = useCallback(() => setSwitcherOpen(false), []);
   const { data: project } = useProject(projectId);
+
+  // The drawer's pages load in idle time, not inside the first tap on each.
+  useEffect(() => preloadWhenIdle(DRAWER_PAGE_MODULES, DRAWER_PAGE_PRELOAD_DELAY_MS), []);
 
   // This phone's opt-outs reach the user's record once (KRTX-1742). A no-op
   // after the first success (`legacyKindsMigrated`).
@@ -362,7 +397,14 @@ export function ProjectScreen() {
   // Left drawer open state (ProjectLeftDrawer).
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Stable handlers, so a memoized SessionPage skips parent re-renders.
-  const openDrawer = useCallback(() => setDrawerOpen(true), []);
+  // The drawer swap a tap recorded (below) and the view the store shows.
+  const drawerSwapRef = useRef<string | null>(null);
+  const viewKeyRef = useRef<string | null>(null);
+  // A drawer swap recorded by an earlier tap never outlives the next open.
+  const openDrawer = useCallback(() => {
+    drawerSwapRef.current = null;
+    setDrawerOpen(true);
+  }, []);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   // The peek-card drawer's geometry (lib/ui/drawer-layout): the sidebar width
   // and the swipe area follow the window (rotation, iPad split view) and the
@@ -399,6 +441,29 @@ export function ProjectScreen() {
   const { topRouteRef, topNavigationRef, edgeGesture, setEdgeGesture, replaceProject, returnHome, navigateProjectRoute, openSubPage } = useProjectStack(
     projectId, goHome, returnToThread, drawerOpen, setDrawerOpen,
   );
+  // A drawer move swaps its screen in place: no push slide under the closing
+  // drawer (`DRAWER_SWAP_PARAM`). A drawer route carries the param itself. A
+  // store change (Review, Apps, a session row) records the view it opens
+  // (`projectViewKey`) right before it; the home or covering route that then
+  // pushes the view swaps only when the store shows exactly that view
+  // (`takeDrawerSwap`, `drawerSwapApplies`). Read once, and dropped when the
+  // drawer opens again: a store change that moved no route (a thread already
+  // open swaps its content) never reaches a later composer or Sessions push.
+  const takeDrawerSwap = useCallback(() => {
+    const swap = drawerSwapApplies(drawerSwapRef.current, viewKeyRef.current);
+    drawerSwapRef.current = null;
+    return swap;
+  }, []);
+  const navigateDrawerRoute = useCallback(
+    (route: ProjectDrawerRoute, routeParams?: Record<string, string>) =>
+      navigateProjectRoute(route, { ...routeParams, ...DRAWER_SWAP_PARAMS }),
+    [navigateProjectRoute]
+  );
+  const openDrawerPage = useCallback((pageId: DrawerPageId) => {
+    drawerSwapRef.current = drawerPageViewKey(pageId);
+    useTabStore.getState().navigateToPage(pageId);
+  }, []);
+
   // The switcher's "Workspace settings": the settings page, pushed as a
   // sub-page (back returns to where the user was).
   const openWorkspaceSettings = useCallback(() => openSubPage('page:settings'), [openSubPage]);
@@ -488,6 +553,9 @@ export function ProjectScreen() {
         shownSessionId: shownSessionIdRef.current,
         activeRuntimeId: shownRuntimeIdRef.current,
       });
+      // Only an open moves a route: a focus, queue or close swaps nothing, so
+      // it records no drawer swap for a later, non-drawer push to match.
+      drawerSwapRef.current = drawerRowSwapKey(move, ps.session_id);
       if (move === 'open') {
         // A sub-session row: open its parent, then show the sub-session.
         const rootId = ps.runtime_session_id;
@@ -505,11 +573,15 @@ export function ProjectScreen() {
     [handleOpenProjectSession, navigateToSession]
   );
   const openSessionFromDrawer = useCallback(
-    (ps: ProjectSession) => openThreadFromDrawer(ps, ps.runtime_session_id ?? null),
+    (ps: ProjectSession) => {
+      openThreadFromDrawer(ps, ps.runtime_session_id ?? null);
+    },
     [openThreadFromDrawer]
   );
   const openSubsessionFromDrawer = useCallback(
-    (ps: ProjectSession, childId: string) => openThreadFromDrawer(ps, childId),
+    (ps: ProjectSession, childId: string) => {
+      openThreadFromDrawer(ps, childId);
+    },
     [openThreadFromDrawer]
   );
 
@@ -536,7 +608,8 @@ export function ProjectScreen() {
         onNewSession={startNewSession}
         onOpenProjectSession={openSessionFromDrawer}
         onOpenSubsession={openSubsessionFromDrawer}
-        onNavigateRoute={navigateProjectRoute}
+        onNavigateRoute={navigateDrawerRoute}
+        onOpenPage={openDrawerPage}
         onSessionActions={openSessionActions}
         onOpenSwitcher={openSwitcher}
         onClose={closeDrawer}
@@ -554,7 +627,8 @@ export function ProjectScreen() {
       startNewSession,
       openSessionFromDrawer,
       openSubsessionFromDrawer,
-      navigateProjectRoute,
+      navigateDrawerRoute,
+      openDrawerPage,
       openSessionActions,
       openSwitcher,
       closeDrawer,
@@ -573,6 +647,7 @@ export function ProjectScreen() {
     activeSessionId,
     connectingSessionId: connectingProjectSessionId,
   });
+  viewKeyRef.current = viewKey;
 
   // The thread renders only once the context holds its sandbox. Until then it
   // shows the connecting view, so SessionPage never starts its sync and
@@ -860,6 +935,7 @@ export function ProjectScreen() {
       openProjectSession: handleOpenProjectSession,
       openDrawer,
       isDrawerOpen: drawerOpen,
+      takeDrawerSwap,
       openSessionActions,
       openSubPage,
       renderSubPage,
@@ -877,6 +953,7 @@ export function ProjectScreen() {
       handleOpenProjectSession,
       openDrawer,
       drawerOpen,
+      takeDrawerSwap,
       openSessionActions,
       openSubPage,
       renderSubPage,
@@ -956,12 +1033,14 @@ export function ProjectScreen() {
               },
             })}>
             <Stack.Screen name={PROJECT_HOME_ROUTE} />
-            <Stack.Screen name={PROJECT_VIEW_ROUTE} />
-            <Stack.Screen name={PROJECT_SESSIONS_ROUTE} />
-            <Stack.Screen name={PROJECT_FILES_ROUTE} />
-            <Stack.Screen name={PROJECT_ARTIFACTS_ROUTE} />
-            <Stack.Screen name={PROJECT_ACCOUNT_ROUTE} />
-            <Stack.Screen name={PROJECT_INBOX_ROUTE} />
+            {/* A route the drawer opened swaps in with no push slide, and
+                leaves the same way (`projectRouteAnimation`). */}
+            <Stack.Screen name={PROJECT_VIEW_ROUTE} options={coveringRouteOptions} />
+            <Stack.Screen name={PROJECT_SESSIONS_ROUTE} options={coveringRouteOptions} />
+            <Stack.Screen name={PROJECT_FILES_ROUTE} options={coveringRouteOptions} />
+            <Stack.Screen name={PROJECT_ARTIFACTS_ROUTE} options={coveringRouteOptions} />
+            <Stack.Screen name={PROJECT_ACCOUNT_ROUTE} options={coveringRouteOptions} />
+            <Stack.Screen name={PROJECT_INBOX_ROUTE} options={coveringRouteOptions} />
             <Stack.Screen name={PROJECT_PAGE_ROUTE} options={{ gestureEnabled: true }} />
           </Stack>
         </ProjectRouteProvider>

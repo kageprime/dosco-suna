@@ -374,3 +374,37 @@ flow(
     });
   },
 );
+
+// ─── SBX-7: reconcile the manifest's templates (kortix ship) ──────────────
+// `kortix ship` calls it after its push. A local profile has no template
+// provider (503); a provider-backed target reads kortix.yaml at the fetched
+// tip and names each project template (200). Never waits on a build.
+flow(
+  "SBX-7",
+  {
+    domain: "sandboxes",
+    routes: ["POST /v1/workspaces/:projectId/sandbox-templates/reconcile"],
+  },
+  async (ctx) => {
+    const p = await ctx.fixtures.project();
+    await ctx.step("OWNER reconciles → 200 with a templates list, or 503 with no provider", async () => {
+      const r = await ctx.client
+        .as(ctx.P.OWNER)
+        .post("/v1/workspaces/:projectId/sandbox-templates/reconcile", {}, { params: { projectId: p.id } });
+      r.status([200, 503]);
+      if (r.statusCode === 200) r.body().exists("$.templates").exists("$.started");
+    });
+    await ctx.step("NONMEMBER → 403/404", async () => {
+      const r = await ctx.client
+        .as(ctx.P.NONMEMBER)
+        .post("/v1/workspaces/:projectId/sandbox-templates/reconcile", {}, { params: { projectId: p.id } });
+      r.status([403, 404]);
+    });
+    await ctx.step("ANON → 401", async () => {
+      const r = await ctx.client
+        .as(ctx.P.ANON)
+        .post("/v1/workspaces/:projectId/sandbox-templates/reconcile", {}, { params: { projectId: p.id } });
+      r.status(401);
+    });
+  },
+);

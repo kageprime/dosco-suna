@@ -46,7 +46,6 @@ import { createSession, deleteSession, restoreSession } from '../session-lifecyc
 import { sessionRestoreUntil } from '../session-log-purge';
 import { readSessionConversationModels } from '../session-log-read';
 import { validateProviderSecretPool } from './provider-secret-pools';
-import { requireFeatureFlag } from '../../feature-flags/gate';
 import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { spaceAccessFor } from '../../shared/space-access';
 import { findForkSourceSpace, findSessionSpace } from '../lib/project-spaces';
@@ -335,8 +334,6 @@ export function registerProjectSessionsRoutes(): void {
       body.agent_name = agentAccess.agentName;
     }
     if (body.provider_secret_pools !== undefined) {
-      const gate = requireFeatureFlag(c, loaded.row.metadata, 'pooled_provider_secrets');
-      if (gate) return gate;
       for (const [providerId, ids] of Object.entries(body.provider_secret_pools as Record<string, string[]>)) {
         const invalid = await validateProviderSecretPool({
           accountId: loaded.row.accountId, projectId, repoUrl: loaded.row.repoUrl,
@@ -838,10 +835,7 @@ export function registerProjectSessionsRoutes(): void {
         freeModelsOnly: !(await accountMayUseManagedModels(loaded.row.accountId)),
         model: typeof metadata.model === 'string' ? metadata.model : null,
         visibility: next.visibility,
-        mayPool:
-          resolveFeatureFlag(loaded.row.metadata, 'pooled_provider_secrets') &&
-          !visible.ownerIsMachine &&
-          Boolean(visible.row.createdBy),
+        mayPool: !visible.ownerIsMachine && Boolean(visible.row.createdBy),
         callerMaySelect: async (providerId, secretIds) =>
           !(await validateProviderSecretPool({
             accountId: loaded.row.accountId,

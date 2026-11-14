@@ -243,3 +243,26 @@ test("an ancestor dialog does not block the detail from handling its own Escape"
   await escape();
   expect(onBack).toHaveBeenCalledTimes(1);
 });
+
+/**
+ * D-07: Escape in full screen left two levels at once — it exited full screen
+ * AND closed the detail. The first press must only leave full screen and keep
+ * the same view docked; the second press closes it.
+ */
+test("Escape in full screen exits full screen first, then closes the detail", async () => {
+  const { useKortixComputerStore } = await import(
+    "../../../internal/stores/kortix-computer-store"
+  );
+  useKortixComputerStore.getState().setIsExpanded(true);
+  cleanups.push(() => useKortixComputerStore.getState().setIsExpanded(false));
+  const { onBack } = mountDetail();
+
+  const first = await escape();
+  expect(useKortixComputerStore.getState().isExpanded).toBe(false);
+  expect(onBack).not.toHaveBeenCalled();
+  expect(first.defaultPrevented).toBe(true);
+
+  const second = await escape();
+  expect(onBack).toHaveBeenCalledTimes(1);
+  expect(second.defaultPrevented).toBe(true);
+});

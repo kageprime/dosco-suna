@@ -29,7 +29,7 @@
     "@earendil-works/pi-tui": "1.4.0",
     "@modelcontextprotocol/sdk": "1.32.0",
     "@silvia-odwyer/photon-node": "0.3.4",
-    "hono": "^4.13.11",
+    "hono": "^4.13.18",
     "node-forge": "^1.4.3",
     "quickjs-wasi": "3.6.2",
     "tar": "^7.5.22",
@@ -48,6 +48,7 @@
   },
   "overrides": {
     "undici": "8.12.2",
+    "@hono/node-server": "2.1.6",
     "eslint>minimatch": "11.0.1",
     "@eslint/config-array>minimatch": "11.0.1",
     "@eslint/eslintrc>minimatch": "11.0.1",

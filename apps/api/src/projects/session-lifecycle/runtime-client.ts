@@ -145,6 +145,7 @@ async function readRuntimeLogMessages(
 ): Promise<SessionLogMessage[] | null> {
   const pages: SessionLogMessage[][] = [];
   let beforeSeq: number | null = null;
+  let more = false;
   for (let page = 0; page < KORTIX_FULL_READ_MAX_PAGES; page++) {
     const limit = Math.min(opts.limit ?? KORTIX_MESSAGE_PAGE_MAX, KORTIX_MESSAGE_PAGE_MAX);
     const res = await sessionRuntimeFetch(session.endpoint, 'GET', runtimeVerbPaths.log({ limit, beforeSeq }), {}, opts.timeoutMs);
@@ -154,9 +155,12 @@ async function readRuntimeLogMessages(
     const messages = body.messages as SessionLogMessage[];
     pages.unshift(messages);
     const first = messages[0]?.seq;
-    if (opts.limit !== undefined || body.has_more !== true || typeof first !== 'number') break;
+    more = opts.limit === undefined && body.has_more === true && typeof first === 'number';
+    if (!more) break;
     beforeSeq = first;
   }
+  // A full read the page cap cut short is not the whole transcript: absence in it proves nothing.
+  if (more) return null;
   return pages.flat();
 }
 

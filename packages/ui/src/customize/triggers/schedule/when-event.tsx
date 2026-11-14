@@ -161,8 +161,8 @@ function AppBrowser({
   }
   if (list.length === 0) {
     return (
-      <BannerAlert variant="warning" className="text-xs"><BannerAlertTitle>{tI18nComplete.raw('text2c4ef9cc0c30')}</BannerAlertTitle><BannerAlertDescription>
-        {tI18nComplete.raw('texte558709e2278')}
+      <BannerAlert variant="warning" className="text-xs"><BannerAlertTitle>{tI18nComplete.raw('textccf59f978ef6')}</BannerAlertTitle><BannerAlertDescription>
+        {tI18nComplete.raw('text82cbc4a4def0')}
       </BannerAlertDescription></BannerAlert>
     );
   }

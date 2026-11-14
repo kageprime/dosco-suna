@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { AdmitResult, GatewayHooks, GatewayTrace, UpstreamDescriptor, UsageEvent } from '../domain';
-import { GatewayResolutionError } from '../errors';
+import { GatewayResolutionError, TimeoutError } from '../errors';
 import type { FetchImpl } from '../http';
 import { type AudioRequest, handleAudioRequest, handleVoicesRequest } from './audio';
 
@@ -341,6 +341,17 @@ describe('admission', () => {
     const response = await speech({ model: 'tts-fast', input: 'Hi.', voice: 'Ashley' });
     expect(response.status).toBe(402);
     expect(((await response.json()) as ErrorBody).code).toBe('insufficient_credits');
+    expect(calls).toHaveLength(0);
+  });
+
+  test('a wallet check that got no answer is a retryable 503, not a billing refusal', async () => {
+    const { calls, speech } = setup({
+      assertBillingActive: async () => { throw new TimeoutError('attempt 3 exceeded 5000ms'); },
+    });
+    const response = await speech({ model: 'tts-fast', input: 'Hi.', voice: 'Ashley' });
+    expect(response.status).toBe(503);
+    expect(response.headers.get('retry-after')).toBe('5');
+    expect(((await response.json()) as ErrorBody).code).toBe('admission_unavailable');
     expect(calls).toHaveLength(0);
   });
 

@@ -42,14 +42,19 @@ mock.module('../repositories/credit-accounts', () => ({
 
 // The admission hold is a real row-locked DB write in production; here it is
 // emulated against the fixture balance — it succeeds when the wallet can cover
-// the floor and throws when it cannot, exactly like `atomic_use_credits`.
+// the floor and throws `InsufficientCreditsError` when it cannot, as `wallet.debit`
+// does. `debitFault` makes the next holds throw that error instead (a lost race, a
+// SQL or transport fault).
 const holdCalls: number[] = [];
+let debitFault: Error | null = null;
+const { InsufficientCreditsError, WalletUnavailableError } = await import('../../errors');
 
 mock.module('../wallet', () => ({
   wallet: {
     debit: async (input: { amount: number }) => {
       holdCalls.push(input.amount);
-      if (Number(account?.balance ?? 0) < input.amount) throw new Error('insufficient credits');
+      if (debitFault) throw debitFault;
+      if (Number(account?.balance ?? 0) < input.amount) throw new InsufficientCreditsError(Number(account?.balance ?? 0), input.amount);
       return { amount: input.amount, balance: 0, transactionId: 'tx', replayed: false };
     },
   },
@@ -306,4 +311,34 @@ describe('the wallet floor applies to every subscription that is not paying', ()
     }
   });
 
+});
+
+describe('the admission hold: only the wallet saying no blocks the account', () => {
+  test('a hold that lost the race to an empty wallet blocks with insufficient_credits', async () => {
+    billingEnabled = true;
+    account = creditAccount({ balance: '25' });
+    debitFault = new InsufficientCreditsError(0, 0.01);
+    try {
+      const result = await checkBillingActive('acct-1');
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('insufficient_credits');
+    } finally {
+      debitFault = null;
+    }
+  });
+
+  // prod 2026-11-12: a stalled control plane told funded accounts they had no credit.
+  test('a wallet fault is thrown as the retryable 503, never a billing refusal', async () => {
+    billingEnabled = true;
+    account = creditAccount({ balance: '25' });
+    debitFault = new WalletUnavailableError();
+    try {
+      const error = await assertBillingActive('acct-1').then(() => null, (err: unknown) => err);
+      expect(error).toBeInstanceOf(WalletUnavailableError);
+      expect(error).not.toBeInstanceOf(BillingGateError);
+      expect((error as { statusCode?: number }).statusCode).toBe(503);
+    } finally {
+      debitFault = null;
+    }
+  });
 });

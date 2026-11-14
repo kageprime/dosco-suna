@@ -229,7 +229,18 @@ async function costsByProject(
     })}`,
   );
   if (o.json) {
-    emitJson(page);
+    // `credits`: the same amounts in the unit people see, as the summary's, so a script never converts.
+    emitJson({
+      ...page,
+      projects: page.projects.map((p) => ({
+        ...p,
+        credits: {
+          total: creditAmount(p.total_cost),
+          llm: creditAmount(p.llm_cost),
+          compute: creditAmount(p.compute_cost),
+        },
+      })),
+    });
     return 0;
   }
   if (page.projects.length === 0) {

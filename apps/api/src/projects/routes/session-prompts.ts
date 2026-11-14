@@ -789,7 +789,9 @@ export function registerSessionPromptsRoutes(): void {
     // without it the admission gate steers them into that turn, one scheduler
     // tick before the abort lands. Once the settle has retracted what the
     // stopped turn never read, the hold is released and those prompts go out
-    // together as the next turn (2026-11-04).
+    // together as the next turn (2026-11-04). The release can still come before
+    // the client's abort lands: admission does not steer into a turn this
+    // stamp marks (`inbox-admission.ts`), so they wait for the turn's end.
     async (c) => {
       const projectId = workspaceIdParam(c);
       const sessionId = c.req.param('sessionId');

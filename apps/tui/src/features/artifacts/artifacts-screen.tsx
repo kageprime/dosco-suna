@@ -19,6 +19,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { copyToClipboard } from '../../lib/clipboard.ts';
 import { openUrl } from '../../lib/open-url.ts';
+import type { ScreenProps } from '../../screens.tsx';
+import { useScreenAction } from '../../ui/index.ts';
 import {
   type ArtifactRow,
   orderRows,
@@ -30,20 +32,10 @@ import { type ArtifactDetailData, ArtifactsView } from './artifacts-view.tsx';
 /** How often the age column is recomputed. A minute is its smallest unit. */
 const CLOCK_TICK_MS = 30_000;
 
-export interface ArtifactsScreenProps {
-  projectId: string | null;
-  accountId: string | null;
-  sessionId: string | null;
-  focused: boolean;
-  width: number;
-  height: number;
-  webBaseUrl: string;
-  /** An artifact id: the screen opens on its details. */
-  target?: string | null;
-  onBack(): void;
-  onOpenSession(sessionId: string): void;
-  onToast(message: string, kind?: 'info' | 'error'): void;
-}
+export type ArtifactsScreenProps = Pick<
+  ScreenProps,
+  'projectId' | 'focused' | 'width' | 'height' | 'webBaseUrl' | 'target' | 'onBack' | 'onOpenSession' | 'onToast'
+>;
 
 function errorText(error: unknown): string {
   if (error instanceof Error && error.message) {
@@ -55,8 +47,6 @@ function errorText(error: unknown): string {
 
 export function ArtifactsScreen({
   projectId,
-  accountId: _accountId,
-  sessionId: _sessionId,
   focused,
   width,
   height,
@@ -67,7 +57,6 @@ export function ArtifactsScreen({
   onToast,
 }: ArtifactsScreenProps) {
   const [detailId, setDetailId] = useState<string | null>(target);
-  const [busy, setBusy] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -111,24 +100,11 @@ export function ArtifactsScreen({
     };
   }, [detailId, detailQuery, detailArtifact, textQuery]);
 
-  const run = useCallback(
-    (label: string, work: Promise<unknown>, done: string) => {
-      setBusy(label);
-      void work
-        .then(() => onToast(done))
-        .catch((error: unknown) => onToast(errorText(error), 'error'))
-        .finally(() => setBusy(null));
-    },
-    [onToast],
-  );
+  const { busy, run, refresh } = useScreenAction(onToast);
 
-  const refresh = useCallback(() => {
-    setBusy('refreshing…');
-    void listQuery
-      .refetch()
-      .catch((error: unknown) => onToast(errorText(error), 'error'))
-      .finally(() => setBusy(null));
-  }, [listQuery.refetch, onToast]);
+  const onRefresh = useCallback(() => {
+    refresh('refreshing…', () => listQuery.refetch());
+  }, [refresh, listQuery.refetch]);
 
   return (
     <ArtifactsView
@@ -155,25 +131,25 @@ export function ArtifactsScreen({
           else onToast(`Copy failed: ${result.error ?? 'no clipboard tool'}`, 'error');
         });
       }}
-      onRefresh={refresh}
+      onRefresh={onRefresh}
       onRename={(row, title) =>
         run(
           'renaming…',
-          mutations.update.mutateAsync({ artifactId: row.id, title }),
+          () => mutations.update.mutateAsync({ artifactId: row.id, title }),
           `Renamed to ${title}.`,
         )
       }
       onPin={(row) =>
         run(
           row.pinned ? 'unpinning…' : 'pinning…',
-          mutations.pin.mutateAsync({ artifactId: row.id, pinned: !row.pinned }),
+          () => mutations.pin.mutateAsync({ artifactId: row.id, pinned: !row.pinned }),
           row.pinned ? 'Unpinned.' : 'Pinned.',
         )
       }
       onDelete={(row) =>
         run(
           'removing…',
-          mutations.remove.mutateAsync(row.id),
+          () => mutations.remove.mutateAsync(row.id),
           `Stopped sharing ${row.title}. Its files stay in Files.`,
         )
       }

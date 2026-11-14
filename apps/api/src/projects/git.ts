@@ -42,6 +42,7 @@ export {
 } from './git/mirror';
 
 export {
+  listRepoDirectory,
   listRepoFiles,
   searchRepoFileNames,
   grepRepoFiles,
