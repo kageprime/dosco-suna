@@ -115,6 +115,8 @@ interface DrivePathBarProps {
    * above it, so `Users/<name>` never shows.
    */
   base?: { path: string; label: string; icon?: ReactNode };
+  /** Optional display label formatter for breadcrumb segments. */
+  formatSegment?: (segment: string, pathToHere: string) => string;
   className?: string;
 }
 
@@ -129,6 +131,7 @@ export function DrivePathBar({
   rootIcon: hostRootIcon,
   as = 'inline',
   base,
+  formatSegment,
   className,
 }: DrivePathBarProps) {
   const tHardcodedUi = useTranslations('hardcodedUi');
@@ -277,6 +280,9 @@ export function DrivePathBar({
               const isLast = index === segments.length - 1;
               // First crumb of an outside-home path anchors the absolute chain
               const isAbsoluteAnchor = outsideHome && index === 0;
+              const absoluteIndex = rootPath ? index + rootSegments.length : index;
+              const pathToHere = '/' + allSegments.slice(0, absoluteIndex + 1).join('/');
+              const segmentLabel = formatSegment ? formatSegment(segment, pathToHere) : segment;
               const pathKey = segments.slice(0, index + 1).join('/');
 
               return (
@@ -298,7 +304,7 @@ export function DrivePathBar({
                       isAbsoluteAnchor && 'font-mono',
                     )}
                   >
-                    {isAbsoluteAnchor ? `/${segment}` : segment}
+                    {isAbsoluteAnchor ? `/${segmentLabel}` : segmentLabel}
                   </Button>
                 </div>
               );

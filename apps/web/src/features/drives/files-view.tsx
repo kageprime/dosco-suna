@@ -35,6 +35,7 @@ import Hint from '@kortix/ui/hint';
 import { useAuth } from '@/features/providers/auth-provider';
 import { useTranslations } from '@/i18n/use-translations';
 import { type Drive, getProjectDetail } from '@kortix/sdk';
+import { driveEntryDisplayName, driveRelativeDisplayCrumbs } from '@kortix/shared';
 import { contract, qk } from '@kortix/sdk/react';
 import {
   FolderSimpleIcon,
@@ -223,13 +224,7 @@ function FilesExplorer({ drive, projectId, projectName }: { drive: Drive; projec
   const base = here.base ? { path: here.base, label: here.label, icon: <HereGlyph /> } : undefined;
   const location = {
     icon: <HereGlyph />,
-    crumbs: [
-      here.label,
-      ...path
-        .split('/')
-        .filter(Boolean)
-        .slice(here.base ? here.base.split('/').filter(Boolean).length : 0),
-    ],
+    crumbs: driveRelativeDisplayCrumbs(here.label, path, here.base),
   };
 
   // The action row's start names the place: Drive at the top, else the
@@ -283,6 +278,7 @@ function FilesExplorer({ drive, projectId, projectName }: { drive: Drive; projec
           rootIcon={<HardDriveIcon className="text-muted-foreground" />}
           location={location}
           pathBase={base}
+          formatSegment={(segment, pathToHere) => driveEntryDisplayName(pathToHere, segment)}
           onTeamFolderCreated={
             drive.sharedDrives
               ? (p, audience) => {
@@ -347,14 +343,14 @@ function locateInDrive(
   const nameOf = (folder: string) => personNames.get(folder) ?? folder.split('/').pop() ?? folder;
   if (person && person === personal) return { icon: Home, label: t('myDrive'), base: person };
   const shared = (drive.sharedWithMe ?? []).find((f) => isUnder(path, f.path));
-  if (shared) return { icon: HardDriveIcon, label: shared.path.split('/').filter(Boolean).pop() ?? shared.path, base: shared.path };
+  if (shared) return { icon: HardDriveIcon, label: driveEntryDisplayName(shared.path), base: shared.path };
   if (person) return { icon: UserIcon, label: nameOf(person), base: person };
   return { icon: HardDriveIcon, label: projectName };
 }
 
 function nameOfPath(path: string, here: { label: string; base?: string }): string {
   if (here.base === path) return here.label;
-  return path.split('/').filter(Boolean).pop() ?? path;
+  return driveEntryDisplayName(path);
 }
 
 /**
@@ -393,7 +389,7 @@ function DriveJump({ drive, projectName, onOpen }: { drive: Drive; projectName: 
               {shared.map((f) => (
                 <DropdownMenuItem key={f.path} onSelect={() => onOpen(f.path)}>
                   <HardDriveIcon className="size-4 shrink-0" />
-                  <span className="truncate">{f.path.split('/').filter(Boolean).pop() ?? f.path}</span>
+                  <span className="truncate">{driveEntryDisplayName(f.path)}</span>
                 </DropdownMenuItem>
               ))}
             </>

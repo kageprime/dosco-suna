@@ -24,6 +24,7 @@ import {
   readDriveFile,
   uploadDriveFile,
 } from '@kortix/sdk';
+import { driveEntryDisplayName } from '@kortix/shared';
 import { driveFolderQueryOptions, qk } from '@kortix/sdk/react';
 import { useTranslations } from '@/i18n/use-translations';
 import { ScopedCache } from '@kortix/ui/internal/lib/storage/managed-storage';
@@ -113,7 +114,12 @@ function useDriveFileList(dirPath: string): ExplorerQueryResult<FileNode[]> {
       query.data?.entries
         .filter((e) => e.type !== 'symlink')
         .map((e) => ({
-          name: e.path === personalFolder ? t('treeYou', { name: e.name }) : e.name,
+          name:
+            e.path === personalFolder
+              ? t('treeYou', { name: e.name })
+              : e.type === 'dir'
+                ? driveEntryDisplayName(e.path, e.name)
+                : e.name,
           path: fromDrivePath(e.path),
           absolute: e.path,
           type: e.type === 'dir' ? 'directory' : 'file',

@@ -18,6 +18,21 @@ describe('pathCrumbs — the folders the address pill shows', () => {
     expect(pathCrumbs('/workspaces/a/b.txt')).toEqual(['workspaces', 'a']);
   });
 
+  test('renders mykortix agent and memory folders as Xera', () => {
+    expect(pathCrumbs('Users/Jesse Nathaniel/Memory/mykortix/fact.md')).toEqual([
+      'Users',
+      'Jesse Nathaniel',
+      'Memory',
+      'Xera',
+    ]);
+    expect(pathCrumbs('/Users/ana/Agents/mykortix/brief.txt')).toEqual([
+      'Users',
+      'ana',
+      'Agents',
+      'Xera',
+    ]);
+  });
+
   test('no path, no folders', () => {
     expect(pathCrumbs(undefined)).toEqual([]);
     expect(pathCrumbs('')).toEqual([]);

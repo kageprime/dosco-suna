@@ -1,7 +1,7 @@
 'use client';
 
 import { type Drive, makeDriveFolder } from '@kortix/sdk';
-import { spaceDriveFolders } from '@kortix/shared';
+import { driveEntryDisplayName, driveRelativeDisplayCrumbs, spaceDriveFolders } from '@kortix/shared';
 import { Button } from '@kortix/ui/button';
 import { EmptyArt } from '@kortix/ui/empty-art';
 import { EmptyState } from '@kortix/ui/empty-state';
@@ -73,7 +73,7 @@ export function SpaceFolderView({
         projectId={projectId}
         drive={drive.data}
         path={path}
-        label={path.split('/').filter(Boolean).at(-1) ?? path}
+        label={driveEntryDisplayName(path)}
         tab="files"
         place={place}
         note={null}
@@ -239,7 +239,7 @@ function SpaceExplorer({
   // Where a new file or folder lands: the tab's folder, then the folders below it.
   const location = {
     icon,
-    crumbs: [label, ...currentPath.slice(path.length).split('/').filter(Boolean)],
+    crumbs: driveRelativeDisplayCrumbs(label, currentPath, path),
   };
   return (
     <FileExplorerSourceProvider value={source}>
@@ -255,6 +255,7 @@ function SpaceExplorer({
         rootIcon={icon}
         location={location}
         pathBase={{ path, label, icon }}
+        formatSegment={(segment, pathToHere) => driveEntryDisplayName(pathToHere, segment)}
         onOpenFolder={(p) =>
           router.push(
             driveUrlWithPath(

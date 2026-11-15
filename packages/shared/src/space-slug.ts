@@ -1,3 +1,5 @@
+import { isMyKortixAgentName, MY_KORTIX_DISPLAY_NAME } from './my-kortix-agent';
+
 /** The longest channel slug the API stores. */
 const SPACE_SLUG_MAX = 40;
 
@@ -67,4 +69,38 @@ export function spaceDriveFolders(
   }
   if (!personalFolder) return null;
   return { files: `${personalFolder}/Agents/${name}`, memory: `${personalFolder}/Memory/${name}` };
+}
+
+/**
+ * Display label for a Drive folder or path leaf: the built-in coordinator's
+ * storage folders (`<personal>/Agents/mykortix`, `<personal>/Memory/mykortix`,
+ * and legacy aliases) keep `mykortix` on disk so existing Drive volumes and
+ * agent mounts stay compatible, and read as `Xera` in Files views and crumbs.
+ */
+export function driveEntryDisplayName(drivePath: string, fallbackName?: string): string {
+  const parts = drivePath.split('/').filter(Boolean);
+  if (
+    parts.length === 4 &&
+    parts[0] === 'Users' &&
+    (parts[2] === 'Agents' || parts[2] === 'Memory') &&
+    isMyKortixAgentName(parts[3])
+  ) {
+    return MY_KORTIX_DISPLAY_NAME;
+  }
+  return fallbackName ?? parts.at(-1) ?? drivePath;
+}
+
+/**
+ * Breadcrumb labels from `basePath` (labeled `rootLabel`) down to `path`,
+ * formatting each segment with {@link driveEntryDisplayName}.
+ */
+export function driveRelativeDisplayCrumbs(rootLabel: string, path: string, basePath?: string | null): string[] {
+  const baseParts = basePath ? basePath.split('/').filter(Boolean) : [];
+  const parts = path.split('/').filter(Boolean);
+  return [
+    rootLabel,
+    ...parts
+      .slice(baseParts.length)
+      .map((segment, index) => driveEntryDisplayName(`/${parts.slice(0, baseParts.length + index + 1).join('/')}`, segment)),
+  ];
 }

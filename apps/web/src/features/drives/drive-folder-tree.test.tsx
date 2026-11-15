@@ -9,6 +9,7 @@ Object.defineProperty(globalThis, 'window', { value: win, configurable: true });
 Object.defineProperty(globalThis, 'document', { value: win.document, configurable: true });
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', { value: true, configurable: true });
 let entries: DriveEntry[] = [];
+let entriesByParent: Record<string, DriveEntry[]> | null = null;
 let status = { isLoading: false, isError: false, isSuccess: true, isFetching: false };
 const { getFileIcon } =
   await import('../../../../../packages/ui/src/files/project/components/file-icon');
@@ -20,7 +21,11 @@ const files = await import('@kortix/ui/files');
 mock.module('@kortix/ui/files', () => ({
   ...files,
   getFileIcon,
-  useDriveFolder: () => ({ data: { entries }, ...status, refetch: () => {} }),
+  useDriveFolder: (_driveId: string, parent = '/') => ({
+    data: { entries: entriesByParent ? (entriesByParent[parent] ?? []) : entries },
+    ...status,
+    refetch: () => {},
+  }),
 }));
 const store = createFilesStore();
 const { createRoot } = await import('react-dom/client');
@@ -45,6 +50,7 @@ let root: ReturnType<typeof createRoot> | undefined;
 afterEach(async () => {
   await act(async () => root?.unmount());
   document.body.innerHTML = '';
+  entriesByParent = null;
   status = { isLoading: false, isError: false, isSuccess: true, isFetching: false };
   store.getState().goBackToBrowser();
 });
@@ -115,3 +121,38 @@ for (const state of [
     expect(document.querySelector('[role="treeitem"] > div > button[aria-label]')).not.toBeNull();
   });
 }
+
+test('displays mykortix agent and memory folders as Xera while preserving storage paths', async () => {
+  const opened: string[] = [];
+  entriesByParent = {
+    '/': [
+      { name: 'mykortix', path: '/Users/ana/Agents/mykortix', type: 'dir', size: 0, mtime: 0, access: 'manage' },
+      { name: 'mykortix', path: '/Users/ana/Memory/mykortix', type: 'dir', size: 0, mtime: 0, access: 'manage' },
+      { name: 'worker', path: '/Users/ana/Agents/worker', type: 'dir', size: 0, mtime: 0, access: 'manage' },
+    ],
+  };
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  root = createRoot(host);
+  await act(async () =>
+    root?.render(
+      <FilesStoreProvider store={store}>
+        <DriveFolderTree
+          drive={{ ...drive, sharedWithMe: [{ path: '/Users/ana/Memory/mykortix', access: 'manage' }] }}
+          rootLabel="Test drive"
+          path="/"
+          onOpen={(p) => opened.push(p)}
+        />
+      </FilesStoreProvider>,
+    ),
+  );
+  const treeNames = Array.from(
+    document.querySelectorAll('[role="tree"] > li > ul > li button[title]'),
+    (button) => button.getAttribute('title'),
+  );
+  expect(treeNames).toEqual(['worker', 'Xera', 'Xera']);
+  const sharedButtons = Array.from(document.querySelectorAll('section button'), (b) => b.textContent);
+  expect(sharedButtons).toContain('Xera');
+  await act(async () => document.querySelector<HTMLButtonElement>('button[title="Xera"]')?.click());
+  expect(opened).toEqual(['/Users/ana/Agents/mykortix']);
+});

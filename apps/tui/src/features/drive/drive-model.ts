@@ -15,6 +15,7 @@
  */
 
 import type { Drive, DriveConflict, DriveEntry, FolderAccess, SessionDrive } from '@kortix/sdk';
+import { driveEntryDisplayName, driveRelativeDisplayCrumbs } from '@kortix/shared';
 
 import { relativeAge } from '../../lib/relative-time.ts';
 import { formatBytes } from '../files/index.ts';
@@ -122,7 +123,7 @@ export function buildPlaces({
     places.push({
       id: `shared:${root}`,
       kind: 'shared',
-      label: baseName(root),
+      label: driveEntryDisplayName(root, baseName(root)),
       root,
       meta: accessWord(shared.access),
     });
@@ -171,11 +172,7 @@ export function locatePlace(path: string, places: readonly DrivePlace[]): DriveP
 /** `My files / Memory / 2026`. The place label stands for its root. */
 export function crumbText(place: DrivePlace | null, path: string): string {
   if (!place) return 'Places';
-  const below = normalizeDrivePath(path)
-    .slice(place.root === '/' ? 0 : place.root.length)
-    .split('/')
-    .filter(Boolean);
-  return [place.label, ...below].join(' / ');
+  return driveRelativeDisplayCrumbs(place.label, normalizeDrivePath(path), place.root === '/' ? null : place.root).join(' / ');
 }
 
 /** What one list row is. `heading` and `note` rows take no cursor. */
@@ -266,7 +263,7 @@ export function entryRows(entries: readonly DriveEntry[], now: number): DriveRow
       return {
         id: path,
         kind: entry.type === 'dir' ? 'dir' : 'file',
-        name: entry.name || baseName(path),
+        name: entry.type === 'dir' ? driveEntryDisplayName(path, entry.name || baseName(path)) : entry.name || baseName(path),
         path,
         meta: parts.filter(Boolean).join(' · '),
         readOnly,

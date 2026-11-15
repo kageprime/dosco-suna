@@ -1,5 +1,6 @@
 'use client';
 
+import { driveEntryDisplayName } from '@kortix/shared';
 import { useTranslations } from '../../i18n';
 /**
  * Toolbar controls shared by the detail layer's three viewers — `FileViewer`
@@ -105,7 +106,9 @@ export function pathCrumbs(path: string | undefined): string[] {
     .replace(/^\/workspace(?=\/|$)/, '')
     .split('/')
     .filter(Boolean);
-  return parts.slice(0, -1);
+  return parts
+    .slice(0, -1)
+    .map((segment, index) => driveEntryDisplayName(`/${parts.slice(0, index + 1).join('/')}`, segment));
 }
 
 /**

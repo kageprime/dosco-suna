@@ -134,6 +134,7 @@ export function DriveExplorer({
   rootIcon,
   location,
   pathBase,
+  formatSegment,
   onOpenFolder,
   onTeamFolderCreated,
   listingAs,
@@ -164,6 +165,8 @@ export function DriveExplorer({
   location?: DriveLocation;
   /** A folder whose crumb stands in for the chain above it (see `DrivePathBar`). */
   pathBase?: { path: string; label: string; icon?: ReactNode };
+  /** Optional display label formatter for breadcrumb segments. */
+  formatSegment?: (segment: string, pathToHere: string) => string;
   /**
    * Open a folder from outside this view (the upload toast's "Open folder",
    * once the user has left). Absent: the button only works while mounted.
@@ -1347,7 +1350,7 @@ export function DriveExplorer({
         })()}
       />
 
-      <DrivePathBar as="row" rootLabel={rootLabel} rootIcon={rootIcon} base={pathBase} />
+      <DrivePathBar as="row" rootLabel={rootLabel} rootIcon={rootIcon} base={pathBase} formatSegment={formatSegment} />
 
       {/* Search overlay */}
       {capabilities.search && isSearchOpen && <FileSearch />}

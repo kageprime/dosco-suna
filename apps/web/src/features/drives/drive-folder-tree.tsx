@@ -1,6 +1,7 @@
 'use client';
 
 import type { Drive } from '@kortix/sdk';
+import { driveEntryDisplayName } from '@kortix/shared';
 import { getFileIcon, useDriveFolder } from '@kortix/ui/files';
 import { useFilesStore } from '@kortix/ui/internal/stores/files-store';
 import { ErrorState } from '@kortix/ui/error-state';
@@ -18,7 +19,7 @@ const USERS = '/Users';
 type Glyph = ComponentType<{ className?: string }>;
 
 const within = (path: string, folder: string) => path === folder || path.startsWith(`${folder}/`);
-const nameOf = (path: string) => path.split('/').filter(Boolean).pop() ?? path;
+const nameOf = (path: string) => driveEntryDisplayName(path);
 
 /** `/a/b/c` → `['/a', '/a/b', '/a/b/c']`. */
 function ancestors(path: string): string[] {
@@ -150,11 +151,18 @@ function TreeChildren({ parent, ...tree }: TreeProps & { parent: string }) {
   const list = useDriveFolder(drive.driveId, parent);
   const openFileWithList = useFilesStore((s) => s.openFileWithList);
   const selectedFilePath = useFilesStore((s) => s.selectedFilePath);
+  const labelOf = (entry: NonNullable<typeof list.data>['entries'][number]) => {
+    if (entry.type !== 'dir') return entry.name;
+    if (entry.path === drive.personalFolder) return t('treeYou', { name: entry.name });
+    if (entry.name.startsWith('#')) return entry.name.slice(1);
+    return driveEntryDisplayName(entry.path, entry.name);
+  };
   const entries = (list.data?.entries ?? [])
     .filter((e) => !e.name.startsWith('.'))
-    .sort((a, b) => Number(b.type === 'dir') - Number(a.type === 'dir') || a.name.localeCompare(b.name));
+    .map((entry) => ({ entry, label: labelOf(entry) }))
+    .sort((a, b) => Number(b.entry.type === 'dir') - Number(a.entry.type === 'dir') || a.label.localeCompare(b.label));
   const loaded = list.isSuccess && !list.isFetching;
-  const files = entries.filter((e) => e.type !== 'dir').map((e) => e.path);
+  const files = entries.filter(({ entry }) => entry.type !== 'dir').map(({ entry }) => entry.path);
   // Loading and failed refreshes never turn an unknown folder into a leaf.
   useEffect(() => {
     onLeaf(parent, loaded && entries.length === 0);
@@ -175,18 +183,18 @@ function TreeChildren({ parent, ...tree }: TreeProps & { parent: string }) {
   }
   return (
     <>
-      {entries.map((e) => {
+      {entries.map(({ entry: e, label }) => {
         if (e.type !== 'dir') {
           return (
             <li key={e.path} role="treeitem" aria-selected={selectedFilePath === e.path}>
               <button
                 type="button"
-                title={e.name}
+                title={label}
                 onClick={() => openFileWithList(e.path, files, files.indexOf(e.path))}
                 className="text-foreground hover:bg-accent/60 flex h-7 w-full min-w-0 items-center gap-1.5 rounded-md pr-2 pl-6 text-left text-sm"
               >
                 {getFileIcon(e.name, { className: 'text-muted-foreground size-4 shrink-0' })}
-                <span className="truncate">{e.name}</span>
+                <span className="truncate">{label}</span>
               </button>
             </li>
           );
@@ -195,7 +203,7 @@ function TreeChildren({ parent, ...tree }: TreeProps & { parent: string }) {
         const channel = e.name.startsWith('#');
         const icon: Glyph = mine ? Home : e.path === USERS ? UsersIcon : channel ? HashIcon : FolderSimpleIcon;
         return (
-          <TreeRow key={e.path} {...tree} path={e.path} name={mine ? t('treeYou', { name: e.name }) : channel ? e.name.slice(1) : e.name} icon={icon}>
+          <TreeRow key={e.path} {...tree} path={e.path} name={label} icon={icon}>
             <TreeChildren {...tree} parent={e.path} />
           </TreeRow>
         );
