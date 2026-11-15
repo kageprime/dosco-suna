@@ -1111,6 +1111,7 @@ export const AUDIT_ROUTE_LABELS: Readonly<Record<string, AuditRouteLabel | strin
   'POST /v1/webhooks/email/resend': { action: 'webhook.email.message.receive', title: 'Received inbound email' },
   'POST /v1/webhooks/projects/:workspaceId/:slug': { action: 'webhook.trigger.receive', title: 'Received trigger webhook' },
   'POST /v1/webhooks/sandbox/daytona': { action: 'webhook.daytona.sandbox_lifecycle.receive', title: 'Received Daytona sandbox lifecycle event' },
+  'POST /v1/webhooks/sandbox/e2b': { action: 'webhook.e2b.sandbox_lifecycle.receive', title: 'Received E2B sandbox lifecycle event' },
   'POST /v1/webhooks/sandbox/platinum': { action: 'webhook.platinum.sandbox_lifecycle.receive', title: 'Received Platinum sandbox lifecycle event' },
   'POST /v1/webhooks/slack': { action: 'webhook.slack.event.receive', title: 'Received Slack event' },
   'POST /v1/webhooks/slack/:workspaceId': { action: 'webhook.slack.custom_app.event.receive', title: 'Received custom Slack app event' },

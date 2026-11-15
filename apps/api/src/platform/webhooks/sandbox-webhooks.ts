@@ -41,9 +41,9 @@ export type SandboxLifecycleOutcome = 'stopped' | 'removed' | 'noop';
 export function classifyLifecycle(state: string | undefined | null, eventType: string): SandboxLifecycleOutcome {
   const s = (state ?? '').toLowerCase();
   const e = (eventType ?? '').toLowerCase();
-  if (e.includes('delet') || e.includes('destroy')) return 'removed';
-  if (['destroyed', 'deleted', 'removed', 'lost', 'failed-start'].includes(s)) return 'removed';
-  if (['stopped', 'stopping', 'archived', 'archiving'].includes(s)) return 'stopped';
+  if (e.includes('delet') || e.includes('destroy') || e.includes('kill')) return 'removed';
+  if (['destroyed', 'deleted', 'removed', 'lost', 'failed-start', 'killed'].includes(s)) return 'removed';
+  if (['stopped', 'stopping', 'archived', 'archiving', 'paused', 'pausing'].includes(s) || e.includes('pause')) return 'stopped';
   return 'noop';
 }
 
@@ -68,6 +68,30 @@ export function verifyHmacSha256(rawBody: string, secret: string, headerValue: s
     .map((p) => p.replace(/^(sha256=|v1=)/i, '').trim())
     .filter(Boolean);
   return candidates.some((c) => safeEqual(c.toLowerCase(), expected.toLowerCase()));
+}
+
+/**
+ * HMAC-SHA-256 for E2B sandbox lifecycle webhooks.
+ * E2B sends an `e2b-signature` header containing a base64-encoded HMAC-SHA256
+ * digest with padding stripped. Also accepts standard hex or prefixed format.
+ */
+export function verifyE2bSignature(rawBody: string, secret: string, headerValue: string | undefined): boolean {
+  if (!headerValue) return false;
+  const cleaned = headerValue.trim().replace(/^v\d+=/i, '').replace(/=+$/, '');
+
+  // 1. Standard E2B format: Base64 without trailing '='
+  const expectedBase64 = createHmac('sha256', secret).update(rawBody, 'utf8').digest('base64').replace(/=+$/, '');
+  if (safeEqual(cleaned, expectedBase64)) return true;
+
+  // 2. Base64 with padding
+  const expectedBase64Padded = createHmac('sha256', secret).update(rawBody, 'utf8').digest('base64');
+  if (safeEqual(cleaned, expectedBase64Padded)) return true;
+
+  // 3. Hex format fallback
+  const expectedHex = createHmac('sha256', secret).update(rawBody, 'utf8').digest('hex');
+  if (safeEqual(cleaned.toLowerCase(), expectedHex.toLowerCase())) return true;
+
+  return false;
 }
 
 /** Apply the terminal outcome to billing + DB (idempotent, shared with the reaper). */
@@ -222,9 +246,40 @@ async function handleSandboxWebhook(
   return { status: 200, body: { ok: true, externalId: fields.externalId, ...res } };
 }
 
+const E2B_WEBHOOK: SandboxWebhookProvider = {
+  name: 'e2b',
+  secret: () => config.E2B_WEBHOOK_SECRET,
+  verify: (rawBody, secret, getHeader) => {
+    const sig =
+      getHeader('e2b-signature') ??
+      getHeader('x-e2b-signature') ??
+      getHeader('webhook-signature');
+    return verifyE2bSignature(rawBody, secret, sig);
+  },
+  readFields: (event) => ({
+    externalId:
+      event?.sandbox_id ??
+      event?.sandboxId ??
+      event?.data?.sandbox_id ??
+      event?.data?.sandboxId ??
+      event?.id,
+    eventType: event?.type ?? event?.event ?? '',
+    newState: event?.event_label ?? event?.state ?? event?.data?.state,
+  }),
+  dedupId: ({ fields, event, getHeader, rawBody }) => {
+    const deliveryId = getHeader('e2b-delivery-id') ?? event?.id;
+    if (deliveryId) return `e2b:${deliveryId}`;
+    return `e2b:${createHash('sha256').update(rawBody, 'utf8').digest('hex')}`;
+  },
+};
+
 /** Daytona webhook handler. `headers` is a case-insensitive getter. */
 export const handleDaytonaWebhook = (rawBody: string, getHeader: GetHeader): Promise<WebhookResult> =>
   handleSandboxWebhook(DAYTONA_WEBHOOK, rawBody, getHeader);
+
+/** E2B webhook handler. */
+export const handleE2bWebhook = (rawBody: string, getHeader: GetHeader): Promise<WebhookResult> =>
+  handleSandboxWebhook(E2B_WEBHOOK, rawBody, getHeader);
 
 /** Platinum webhook handler. */
 export const handlePlatinumWebhook = (rawBody: string, getHeader: GetHeader): Promise<WebhookResult> =>

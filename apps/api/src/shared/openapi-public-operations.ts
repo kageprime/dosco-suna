@@ -69,6 +69,7 @@ export const PUBLIC_OPERATIONS: ReadonlySet<string> = new Set([
   'post /v1/webhooks/email/resend',
   'post /v1/webhooks/auth/send-email',
   'post /v1/webhooks/sandbox/daytona',
+  'post /v1/webhooks/sandbox/e2b',
   'get /v1/access/signup-status',
   'get /v1/access/branding',
   'post /v1/access/check-email',
