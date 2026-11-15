@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import type { UpstreamDescriptor } from '../../domain';
 import { UpstreamHttpError } from '../../errors';
-import { callUpstreamViaAiSdk, openStream } from './index';
+import { STREAM_COMMIT_MS, callUpstreamViaAiSdk, openStream } from './index';
+import { openAiSseFromFullStream } from './sse';
 
 type Part = { type: string; [k: string]: unknown };
 
@@ -72,6 +73,17 @@ describe('openStream: the pre-output signal of an AI SDK stream', () => {
     expect(Date.now() - started).toBeLessThan(1_000);
     expect(await collect(opened, 1)).toEqual(['start']);
   });
+
+  it('commits well below Heroku 30 s H12 first-byte limit and flushes keep-alive even before start', async () => {
+    expect(STREAM_COMMIT_MS).toBeLessThanOrEqual(10_000);
+    const opened = await openStream(source([], true), 'google-cloudcode', 20);
+    const sse = openAiSseFromFullStream(opened, { model: 'google-cloudcode/gemini-3-flash', provider: 'google-cloudcode' });
+    const reader = sse.getReader();
+    const first = await reader.read();
+    expect(first.done).toBe(false);
+    expect(new TextDecoder().decode(first.value)).toBe(': keep-alive\n\n');
+    await reader.cancel();
+  });
 });
 
 describe('callUpstreamViaAiSdk streaming', () => {
@@ -87,7 +99,7 @@ describe('callUpstreamViaAiSdk streaming', () => {
   };
   const body = { model: 'anthropic/claude-probe', stream: true, messages: [{ role: 'user', content: 'hi' }] };
 
-  it('answers with synthetic headers when the provider holds its headers past the commit window', async () => {
+  it('answers with synthetic headers and immediate keep-alive bytes when the provider holds headers past the commit window', async () => {
     const provider = new AbortController();
     const response = await callUpstreamViaAiSdk(body, anthropic, {
       commitAfterMs: 20,
@@ -99,7 +111,11 @@ describe('callUpstreamViaAiSdk streaming', () => {
     });
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('text/event-stream');
+    const reader = response.body!.getReader();
+    const first = await reader.read();
+    expect(first.done).toBe(false);
+    expect(new TextDecoder().decode(first.value)).toBe(': keep-alive\n\n');
     provider.abort();
-    await response.body?.cancel();
+    await reader.cancel();
   });
 });

@@ -102,6 +102,13 @@ function sse(obj: unknown): Uint8Array {
 // apart.
 const STREAM_OPEN_FRAME = enc.encode(': keep-alive\n\n');
 
+/**
+ * Marked on an `openStream` iterable when `commitAfterMs` expired before any
+ * liveness or output part arrived, so `openAiSseFromFullStream` flushes a
+ * keep-alive byte immediately instead of waiting on stalled upstream headers.
+ */
+export const STREAM_COMMITTED_ON_TIMEOUT = Symbol.for('kortix.llmGateway.streamCommittedOnTimeout');
+
 interface StreamCtx {
   model: string;
   provider: string;
@@ -183,6 +190,9 @@ export function openAiSseFromFullStream(
     // estimate only when no usage frame arrived.
     let ending: 'finished' | 'failed' = 'finished';
     try {
+      if ((fullStream as { [STREAM_COMMITTED_ON_TIMEOUT]?: boolean })[STREAM_COMMITTED_ON_TIMEOUT]) {
+        emit(STREAM_OPEN_FRAME);
+      }
       for (;;) {
         await awaitDemand();
         if (cancelled) break;

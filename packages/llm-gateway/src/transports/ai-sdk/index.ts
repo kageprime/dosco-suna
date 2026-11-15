@@ -11,7 +11,7 @@ import {
   resolveAiModel,
 } from './model';
 import { buildAiSdkArgs } from './request';
-import { openAiJsonFromResult, openAiSseFromFullStream } from './sse';
+import { STREAM_COMMITTED_ON_TIMEOUT, openAiJsonFromResult, openAiSseFromFullStream } from './sse';
 
 export type { AiSdkFetch } from './model';
 export {
@@ -159,11 +159,11 @@ const LIVENESS_PARTS = new Set(['start', 'start-step']);
 /**
  * How long a stream may stay without output before the transport answers the
  * client anyway. Provider errors (429, 400, auth, overload) arrive in well
- * under a second; a large prefill can hold Bedrock's response headers for
- * minutes, and the synthetic headers must reach the client before
- * Cloudflare's 100 s response deadline.
+ * under a second; a large prefill can hold upstream headers or first tokens
+ * longer than Heroku's 30 s H12 first-byte deadline (and Cloudflare's 100 s
+ * response deadline), so commit at 10 s (matching `DIRECT_STREAM_COMMIT_MS`).
  */
-export const STREAM_COMMIT_MS = Number(process.env.GATEWAY_STREAM_COMMIT_MS) || 30_000;
+export const STREAM_COMMIT_MS = Number(process.env.GATEWAY_STREAM_COMMIT_MS) || 10_000;
 
 /**
  * Reads `fullStream` until the first output part, an error, or `commitAfterMs`.
@@ -181,6 +181,7 @@ export async function openStream(
   const iterator = fullStream[Symbol.asyncIterator]();
   const read: StreamPart[] = [];
   let inFlight: Promise<IteratorResult<StreamPart>> | null = null;
+  let committedOnTimeout = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const commit = new Promise<'commit'>((resolve) => {
     timer = setTimeout(() => resolve('commit'), commitAfterMs);
@@ -190,6 +191,7 @@ export async function openStream(
       inFlight = iterator.next();
       const next = await Promise.race([inFlight, commit]);
       if (next === 'commit') {
+        committedOnTimeout = true;
         // The replay hands this read to the SSE bridge, which handles its result.
         inFlight.catch(() => {});
         break;
@@ -206,7 +208,7 @@ export async function openStream(
   } finally {
     clearTimeout(timer);
   }
-  return {
+  const stream: AsyncIterable<StreamPart> & { [STREAM_COMMITTED_ON_TIMEOUT]?: boolean } = {
     [Symbol.asyncIterator]: () => ({
       next: () => {
         const buffered = read.shift();
@@ -218,6 +220,10 @@ export async function openStream(
       return: async (value?: unknown) => (await iterator.return?.(value)) ?? { done: true, value: undefined },
     }),
   };
+  if (committedOnTimeout && !read.some((part) => LIVENESS_PARTS.has(part.type))) {
+    stream[STREAM_COMMITTED_ON_TIMEOUT] = true;
+  }
+  return stream;
 }
 
 // Both `generateText`'s and `streamText`'s settled results expose tool calls
