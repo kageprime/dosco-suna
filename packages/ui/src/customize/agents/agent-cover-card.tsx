@@ -74,7 +74,6 @@ export function AgentCoverCard({
             <AgentMarkGlyph slug={slug} size={42} />
           </span>
           <span className="flex items-center gap-1.5">
-<<<<<<< HEAD
             {coverLabel ? (
               <span className="bg-background/20 rounded-sm px-2 py-0.5 text-xs font-medium text-(--mark-ink) backdrop-blur-sm">
                 {coverLabel}
