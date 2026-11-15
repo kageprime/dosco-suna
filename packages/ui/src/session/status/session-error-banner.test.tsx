@@ -166,6 +166,12 @@ describe('TurnErrorDisplay checkpoint row', () => {
     expect(html).not.toContain('chat.completion.chunk');
   });
 
+  test('the sentence renders below the Stopped heading, not beside it', () => {
+    const html = renderToStaticMarkup(<TurnErrorDisplay errorText={sentence} errorRaw={raw} />);
+    const headingRowEnd = html.indexOf('</div>', html.indexOf('>Stopped<'));
+    expect(html.indexOf(sentence)).toBeGreaterThan(headingRowEnd);
+  });
+
   test('open: the raw text renders inside the disclosure', () => {
     const html = renderToStaticMarkup(
       <TurnErrorDisplay errorText={sentence} errorRaw={raw} defaultDetailsOpen />,

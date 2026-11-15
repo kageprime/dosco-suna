@@ -450,27 +450,29 @@ function TurnErrorCheckpoint({
   const canOpen = describeTurnErrorRow({ text, gateway, raw }).expandable;
 
   const row = (
-    <div className="flex w-full items-center gap-3 text-left text-sm">
-      <WarningCircleIcon className="text-kortix-red size-4 flex-none" />
-      <span className="text-foreground flex-none font-medium">
-        {tI18nComplete.raw('text1a4f630ac1b6')}
-      </span>
-      <span
+    <div className="w-full text-left text-sm">
+      <div className="flex items-center gap-3">
+        <WarningCircleIcon className="text-kortix-red size-4 flex-none" />
+        <span className="text-foreground flex-none font-medium">
+          {tI18nComplete.raw('text1a4f630ac1b6')}
+        </span>
+        {canOpen ? (
+          <CaretRightIcon
+            className={cn(
+              'text-muted-foreground size-3.5 flex-none',
+              'transition-transform group-data-[state=open]/step:rotate-90',
+            )}
+          />
+        ) : null}
+      </div>
+      <p
         className={cn(
-          'text-muted-foreground min-w-0 wrap-anywhere',
+          'text-muted-foreground mt-1 pl-7 wrap-anywhere',
           canOpen && 'group-hover/trigger:text-foreground duration-fast transition-colors',
         )}
       >
         {text}
-      </span>
-      {canOpen ? (
-        <CaretRightIcon
-          className={cn(
-            'text-muted-foreground size-3.5 flex-none',
-            'transition-transform group-data-[state=open]/step:rotate-90',
-          )}
-        />
-      ) : null}
+      </p>
     </div>
   );
 
