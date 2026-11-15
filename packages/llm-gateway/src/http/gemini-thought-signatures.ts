@@ -50,6 +50,11 @@ function isGeminiSignatureDetail(detail: unknown): detail is Json & { id: string
     typeof detail.id === 'string' && typeof detail.data === 'string';
 }
 
+export function geminiThoughtSignatureMap(reasoningDetails: unknown): Map<string, string> {
+  if (!Array.isArray(reasoningDetails)) return new Map();
+  return new Map(reasoningDetails.filter(isGeminiSignatureDetail).map((detail) => [detail.id, detail.data]));
+}
+
 /** The request body to send Google: replayed signatures restored onto their tool calls. */
 export function restoreGeminiThoughtSignatures(body: Json, model: string | undefined): Json {
   const messages = body.messages;
@@ -59,7 +64,7 @@ export function restoreGeminiThoughtSignatures(body: Json, model: string | undef
   const next = messages.map((message) => {
     if (!isObject(message) || message.role !== 'assistant') return message;
     const details = Array.isArray(message.reasoning_details) ? message.reasoning_details : [];
-    const signatures = new Map(details.filter(isGeminiSignatureDetail).map((detail) => [detail.id, detail.data]));
+    const signatures = geminiThoughtSignatureMap(details);
     const toolCalls = Array.isArray(message.tool_calls) ? message.tool_calls : null;
     if (!signatures.size && !(needsPlaceholder && toolCalls?.length)) return message;
     const out: Json = { ...message };

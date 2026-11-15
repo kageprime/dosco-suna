@@ -104,6 +104,43 @@ export function buildAntigravityAuthorizeUrl(input: {
   return url.toString();
 }
 
+/**
+ * Parses what the user pastes back from the Google sign-in tab:
+ * - full `http://localhost:51121/oauth-callback?state=...&code=...` URL
+ * - scheme-less `localhost:51121/oauth-callback?state=...&code=...`
+ * - query fragment `?code=...&state=...` or `code=...`
+ * - bare authorization code (`4/0A...`)
+ */
+export function parseAntigravityRedirectInput(input: string): {
+  code?: string;
+  state?: string;
+  error?: string;
+  errorDescription?: string;
+} {
+  const trimmed = input.trim();
+  if (!trimmed) return {};
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('localhost') || trimmed.includes('/oauth-callback')) {
+    const normalized = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed.replace(/^\/+/, '')}`;
+    const url = new URL(normalized);
+    return {
+      code: url.searchParams.get('code') ?? undefined,
+      state: url.searchParams.get('state') ?? undefined,
+      error: url.searchParams.get('error') ?? undefined,
+      errorDescription: url.searchParams.get('error_description') ?? undefined,
+    };
+  }
+  if (trimmed.startsWith('?') || /(?:^|&)code=|(?:^|&)error=/.test(trimmed)) {
+    const params = new URLSearchParams(trimmed.startsWith('?') ? trimmed.slice(1) : trimmed);
+    return {
+      code: params.get('code') ?? undefined,
+      state: params.get('state') ?? undefined,
+      error: params.get('error') ?? undefined,
+      errorDescription: params.get('error_description') ?? undefined,
+    };
+  }
+  return /\s/.test(trimmed) ? {} : { code: trimmed };
+}
+
 export async function exchangeAntigravityCode(input: {
   code: string;
   codeVerifier: string;
@@ -153,7 +190,7 @@ export async function antigravityAuthJsonFromTokens(tokens: {
   const authData: Record<string, unknown> = {
     type: 'oauth',
     access: tokens.access_token,
-    refresh: tokens.refresh_token || '',
+    ...(tokens.refresh_token ? { refresh: tokens.refresh_token } : {}),
     expires: Date.now() + (tokens.expires_in ?? 3600) * 1000,
     email: email || undefined,
     plan: 'pro',

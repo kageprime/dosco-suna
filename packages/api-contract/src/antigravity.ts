@@ -27,6 +27,9 @@ export interface StoredAntigravityAuth {
   plan?: string;
   /** Cloud Code companion project the subscription bills through (`loadCodeAssist`). */
   project?: string;
+  /** Optional OAuth client credentials carried in imported `~/.gemini/oauth_creds.json`. */
+  client_id?: string;
+  client_secret?: string;
 }
 
 /**
@@ -67,16 +70,20 @@ export function parseAntigravityAuth(value: string | null | undefined): StoredAn
         const email = auth.email ?? auth.id_token_email;
         const plan = auth.plan;
         const project = typeof auth.project === 'string' ? auth.project : undefined;
+        const clientId = (auth.client_id ?? auth.clientId)?.toString().trim() || undefined;
+        const clientSecret = (auth.client_secret ?? auth.clientSecret)?.toString().trim() || undefined;
 
         if (access || refresh) {
           return {
             type: auth.type ?? 'oauth',
-            access,
-            refresh,
-            expires,
-            email,
-            plan,
-            project,
+            ...(access ? { access } : {}),
+            ...(refresh ? { refresh } : {}),
+            ...(expires !== undefined ? { expires } : {}),
+            ...(email !== undefined ? { email } : {}),
+            ...(plan !== undefined ? { plan } : {}),
+            ...(project !== undefined ? { project } : {}),
+            ...(clientId ? { client_id: clientId } : {}),
+            ...(clientSecret ? { client_secret: clientSecret } : {}),
           };
         }
       }

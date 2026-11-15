@@ -106,7 +106,7 @@ export default function AccountDetailScreen() {
             <SettingsRow label={t('workspace.billing', 'Billing')} value={billingSummary} onPress={openBilling} />
           </SettingsGroup>
 
-          <SettingsGroup title={t('workspace.onWeb', 'On kortix.com')}>
+          <SettingsGroup title={t('workspace.onWeb', 'On dosco.live')}>
             <SettingsRow icon={Users} label={t('workspace.members', 'Members')} external onPress={() => openWebTab('members')} />
             {can['account.write'] && (
               <SettingsRow icon={GitBranch} label={t('workspace.git', 'Git')} external onPress={() => openWebTab('git')} />

@@ -150,12 +150,20 @@ export function ProviderLogoStatus({
 /** The subscription plan a two-way provider signs in with. */
 export const SUBSCRIPTION_PLANS: Readonly<Record<string, string>> = {
   openai: 'ChatGPT Plus or Pro',
+  anthropic: 'Claude Pro or Max',
   'opencode-go': 'OpenCode Go',
+  google: 'Google AI Pro or Ultra',
 };
 
-/** How a connected two-way provider is connected. Undefined: not connected, or unknown. */
+/** How a two-way provider is connected (OpenAI, Anthropic, Google). Other providers: undefined. */
 export type ConnectedVia = ProviderConnectedVia;
 export const connectedVia = providerConnectedVia;
+
+/** True if either the provider key or its subscription model provider is connected. */
+export function isProviderConnected(providerId: string, connectedIds: ReadonlySet<string>): boolean {
+  const subId = PROVIDER_SUBSCRIPTIONS[providerId]?.modelProviderId;
+  return connectedIds.has(providerId) || (subId !== undefined && connectedIds.has(subId));
+}
 
 /**
  * "API key · 14 models" — the same line under the row and the sheet title.
@@ -403,7 +411,8 @@ export function usePooledProviderIds(projectId: string, enabled: boolean) {
       new Set(
         (pooledResources.data?.secrets ?? [])
           .filter((secret) => secret.can_use && secret.active)
-          .map((secret) => secret.provider_id),
+          .map((secret) => secret.provider_id)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0),
       ),
     [pooledResources.data],
   );
@@ -473,6 +482,11 @@ export function ProviderConnect({
     [connectedProviders],
   );
 
+  const allConnectedIds = useMemo(
+    () => new Set([...connectedIds, ...pooled.pooledProviderIds]),
+    [connectedIds, pooled.pooledProviderIds],
+  );
+
   // The revision subscription above re-renders this component after the live
   // catalogue replaces the module binding.
   const searchable = useMemo(() => [
@@ -486,7 +500,7 @@ export function ProviderConnect({
     const ordered = orderProviderRows({
       providers: searchable,
       firstClassIds: ['kortix', ...FIRST_CLASS_PROVIDER_IDS],
-      connectedIds,
+      connectedIds: allConnectedIds,
       search,
     });
     const disabledProviders = new Set(
@@ -503,13 +517,10 @@ export function ProviderConnect({
         status:
           method === 'included'
             ? entry.models.length > 0 ? 'included' : 'none'
-            : connectedIds.has(entry.id) ||
-                pooled.pooledProviderIds.has(entry.id) ||
-                // A ChatGPT sign-in connects OpenAI as provider `codex`.
-                (entry.id === 'openai' && connectedIds.has('codex'))
+            : isProviderConnected(entry.id, allConnectedIds)
               ? 'connected'
               : 'none',
-        via: connectedVia(entry.id, connectedIds),
+        via: connectedVia(entry.id, allConnectedIds),
         disabled: disabledProviders.has(entry.id),
         usage: usageByRow.get(entry.id) ?? null,
       };
@@ -518,7 +529,7 @@ export function ProviderConnect({
       inUse: rows.filter((row) => row.status !== 'none'),
       available: rows.filter((row) => row.status === 'none'),
     };
-  }, [searchable, connectedIds, pooled.pooledProviderIds, search, access.data, usageByRow]);
+  }, [searchable, allConnectedIds, search, access.data, usageByRow]);
 
   const searching = search.trim().length > 0;
   const limit = searching ? available.length : visibleCount;

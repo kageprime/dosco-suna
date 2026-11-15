@@ -31,8 +31,8 @@ export function unavailableModelConnection(
   return model.availability === 'login' && options.chatGptAvailable ? 'chatgpt' : 'provider';
 }
 
-/** Providers that run on a member's own ChatGPT or Claude plan. */
-const SUBSCRIPTION_PROVIDER_IDS = new Set(['codex', 'claude-agent']);
+/** Providers that run on a member's own ChatGPT, Claude, or Google Antigravity plan. */
+const SUBSCRIPTION_PROVIDER_IDS = new Set(['codex', 'claude-agent', 'antigravity']);
 
 /**
  * True when a ChatGPT or Claude plan already serves a runnable model. The

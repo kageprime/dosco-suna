@@ -67,7 +67,7 @@ describe('ProviderConnectView — two groups, rows open the sheet', () => {
 
   test('the meta line names the method and the model count', () => {
     const out = render();
-    expect(out).toContain('Paid from credits · Platinum Inference · 42 models');
+    expect(out).toContain('Paid from credits · OpenRouter Managed Models · 42 models');
     expect(out).toContain('API key · 14 models');
   });
 
@@ -86,11 +86,14 @@ describe('ProviderConnectView — two groups, rows open the sheet', () => {
     expect(render({ inUse: [], available: [{ ...openai, status: 'none' }] })).toContain('Sign in or API key');
   });
 
-  test('connectedVia tells the ChatGPT sign-in (codex) from the OpenAI key', () => {
+  test('connectedVia tells the ChatGPT/Antigravity sign-ins from the API keys', () => {
     expect(connectedVia('openai', new Set(['codex']))).toBe('signIn');
     expect(connectedVia('openai', new Set(['openai']))).toBe('key');
     expect(connectedVia('openai', new Set(['openai', 'codex']))).toBe('both');
     expect(connectedVia('openai', new Set())).toBeUndefined();
+    expect(connectedVia('google', new Set(['antigravity']))).toBe('signIn');
+    expect(connectedVia('google', new Set(['google']))).toBe('key');
+    expect(connectedVia('google', new Set(['google', 'antigravity']))).toBe('both');
     expect(connectedVia('groq', new Set(['groq']))).toBeUndefined();
   });
 

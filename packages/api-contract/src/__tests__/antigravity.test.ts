@@ -18,7 +18,7 @@ describe('Google Antigravity api-contract', () => {
   });
 
   test('models catalog contains verified models and properties', () => {
-    expect(ANTIGRAVITY_MODELS.length).toBe(6);
+    expect(ANTIGRAVITY_MODELS.length).toBe(9);
 
     const argon = ANTIGRAVITY_MODELS.find((m) => m.id === 'gemini-4-argon');
     expect(argon).toBeDefined();
@@ -65,15 +65,14 @@ describe('Google Antigravity api-contract', () => {
     const { parseAntigravityAuth } = await import('../antigravity');
 
     // 1. Raw bearer token
-    const raw = parseAntigravityAuth('ya29.a0AfH6SMB...test');
+    const raw = parseAntigravityAuth('ya29.a0AfH6SMB_synthetic_test_token');
     expect(raw).not.toBeNull();
     expect(raw?.type).toBe('bearer');
-    expect(raw?.access).toBe('ya29.a0AfH6SMB...test');
+    expect(raw?.access).toBe('ya29.a0AfH6SMB_synthetic_test_token');
 
-    // 2. Gemini API key
-    const apiKey = parseAntigravityAuth('AIzaSyD-xyz123');
-    expect(apiKey).not.toBeNull();
-    expect(apiKey?.access).toBe('AIzaSyD-xyz123');
+    // 2. Short tokens and Gemini API keys are rejected
+    expect(parseAntigravityAuth('ya29.short')).toBeNull();
+    expect(parseAntigravityAuth('AIzaSyD-xyz123')).toBeNull();
 
     // 3. Local Google oauth_creds.json format
     const googleCreds = JSON.stringify({
@@ -102,5 +101,18 @@ describe('Google Antigravity api-contract', () => {
     expect(parsedWrapped).not.toBeNull();
     expect(parsedWrapped?.access).toBe('ya29.wrapped-token');
     expect(parsedWrapped?.email).toBe('user@example.com');
+
+    // 5. Refresh-only JSON with optional client credentials
+    const refreshOnly = JSON.stringify({
+      refresh_token: '1//only-refresh',
+      client_id: 'custom-client.apps.googleusercontent.com',
+      client_secret: 'custom-secret',
+    });
+    const parsedRefresh = parseAntigravityAuth(refreshOnly);
+    expect(parsedRefresh).not.toBeNull();
+    expect(parsedRefresh?.access).toBeUndefined();
+    expect(parsedRefresh?.refresh).toBe('1//only-refresh');
+    expect(parsedRefresh?.client_id).toBe('custom-client.apps.googleusercontent.com');
+    expect(parsedRefresh?.client_secret).toBe('custom-secret');
   });
 });

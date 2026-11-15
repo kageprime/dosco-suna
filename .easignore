@@ -79,6 +79,8 @@ docs/
 scripts/
 tests/
 .github/
+apps/desktop-electron/dist
+apps/desktop-electron/vendor
 apps/web
 packages/db
 packages/api-contract

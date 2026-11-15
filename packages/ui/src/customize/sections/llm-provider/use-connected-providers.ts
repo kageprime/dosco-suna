@@ -12,6 +12,7 @@ import { useTranslations } from '../../../i18n';
 import { PROJECT_ACTIONS } from '../../../internal/lib/project-actions';
 import { useProjectCan } from '../../../internal/lib/use-project-can';
 import {
+  ANTIGRAVITY_AUTH_JSON_SECRET_NAME,
   CODEX_AUTH_JSON_SECRET_NAME,
   LEGACY_RUNTIME_AUTH_JSON_SECRET_NAME,
 } from './constants';
@@ -72,13 +73,27 @@ export function useConnectedProviders(projectId: string, enabled: boolean) {
     const hasCodexSubscription =
       secretNames.has(CODEX_AUTH_JSON_SECRET_NAME) ||
       secretNames.has(LEGACY_RUNTIME_AUTH_JSON_SECRET_NAME);
+    const hasAntigravitySubscription =
+      secretNames.has(ANTIGRAVITY_AUTH_JSON_SECRET_NAME) ||
+      secretNames.has('GOOGLE_ANTIGRAVITY_AUTH_JSON');
     const byo = LLM_PROVIDERS.filter(
       (p) =>
         p.id !== 'kortix' && isProviderAuthSatisfied(p.authRequirement, (v) => secretNames.has(v)),
     );
-    const subscription = hasCodexSubscription
-      ? [buildCodexProvider(ocProviders, tI18nComplete)]
-      : [];
+    const subscription = [
+      ...(hasCodexSubscription ? [buildCodexProvider(ocProviders, tI18nComplete)] : []),
+      ...(hasAntigravitySubscription
+        ? [{
+            id: 'antigravity',
+            label: 'Google Antigravity',
+            envVars: [ANTIGRAVITY_AUTH_JSON_SECRET_NAME],
+            authRequirement: { methods: [{ envVars: [ANTIGRAVITY_AUTH_JSON_SECRET_NAME] }] },
+            helpUrl: null,
+            apiHost: null,
+            models: [],
+          }]
+        : []),
+    ];
     return kortixProvider ? [kortixProvider, ...subscription, ...byo] : [...subscription, ...byo];
     // eslint-disable-next-line react-hooks/exhaustive-deps -- catalogRevision drives a re-read of the module-level LLM_PROVIDERS binding, not a value used directly here
   }, [secretNames, kortixProvider, ocProviders, catalogRevision]);

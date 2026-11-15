@@ -126,7 +126,7 @@ Maintain both light and dark modes. Ensure WCAG AA contrast (4.5:1 body text, 3:
 This palette is ONLY for sites that are explicitly Dosco-branded. For everything else, run the palette generator.
 
 ```css
-/* KORTIX DESIGN SYSTEM — warm beige surfaces, teal primary accent */
+/* DOSCO DESIGN SYSTEM — warm beige surfaces, teal primary accent */
 
 :root, [data-theme="light"] {
   /* Surfaces (Warm Stone) */

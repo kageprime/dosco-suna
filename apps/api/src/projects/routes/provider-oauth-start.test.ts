@@ -78,10 +78,10 @@ mock.module('../codex-device-auth', () => ({
 const realAntigravity = await import('../antigravity-auth');
 mock.module('../antigravity-auth', () => ({
   ...realAntigravity,
-  startAntigravityDeviceAuth: async () => {
+  buildAntigravityAuthorizeUrl: (args: { state: string; codeChallenge: string; redirectUri: string }) => {
     startCalls += 1;
     if (startError) throw startError;
-    return { verificationUrl: 'https://www.google.com/device', userCode: 'GVCD-1234', deviceAuthId: 'gdev-1', intervalMs: 5000 };
+    return `https://accounts.google.com/o/oauth2/v2/auth?redirect_uri=${encodeURIComponent(args.redirectUri)}&state=${encodeURIComponent(args.state)}`;
   },
 }));
 
@@ -268,14 +268,18 @@ describe('POST /:projectId/oauth/:provider/start — accepted requests', () => {
     expect(typeof body.flow_id).toBe('string');
   });
 
-  test('Google Antigravity starts through the same route and response shape', async () => {
+  test('Google Antigravity starts through the same route with a PKCE redirect challenge', async () => {
     const response = await start({}, 'google');
     expect(response.status).toBe(200);
     expect(startCalls).toBe(1);
     const body = (await response.json()) as Record<string, unknown>;
-    expect(body.user_code).toBe('GVCD-1234');
-    expect(body.verification_url).toBe('https://www.google.com/device');
-    expect(body.interval_ms).toBe(5000);
+    expect(body.mode).toBe('redirect');
+    expect(body.user_code).toBe('');
+    expect(typeof body.authorize_url).toBe('string');
+    expect(String(body.authorize_url)).toContain('https://accounts.google.com/o/oauth2/v2/auth');
+    expect(body.verification_url).toBe(body.authorize_url);
+    expect(body.redirect_uri).toBe('http://localhost:51121/oauth-callback');
+    expect(body.interval_ms).toBe(3000);
     expect(typeof body.flow_id).toBe('string');
   });
 

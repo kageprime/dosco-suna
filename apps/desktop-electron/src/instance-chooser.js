@@ -64,7 +64,7 @@ function openInstanceChooser({ mode, error = null, parent, store }) {
       minimizable: !parent,
       maximizable: false,
       fullscreenable: false,
-      title: 'Kortix CompanyOS',
+      title: 'Dosco',
       backgroundColor: '#141414',
       webPreferences: {
         preload: path.join(__dirname, 'instance-chooser-preload.js'),
@@ -105,7 +105,7 @@ function openInstanceChooser({ mode, error = null, parent, store }) {
       // Closed during the reachability check: save nothing.
       if (settled || !checked.ok) return checked;
       const saveError = store.save(checked.choice);
-      if (saveError) return { ok: false, error: `Kortix could not save the URL: ${saveError}` };
+      if (saveError) return { ok: false, error: `Dosco could not save the URL: ${saveError}` };
       finish(true);
       return { ok: true };
     });

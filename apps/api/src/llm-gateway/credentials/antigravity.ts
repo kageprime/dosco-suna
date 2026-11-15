@@ -55,9 +55,10 @@ export function isTokenExpired(auth: StoredAntigravityAuth): boolean {
  */
 export async function refreshAntigravityToken(
   refreshToken: string,
+  opts?: { clientId?: string; clientSecret?: string },
 ): Promise<{ access_token: string; expires_in: number; id_token?: string }> {
-  const clientId = config.GOOGLE_ANTIGRAVITY_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID;
-  const clientSecret = config.GOOGLE_ANTIGRAVITY_CLIENT_SECRET;
+  const clientId = opts?.clientId || config.GOOGLE_ANTIGRAVITY_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID;
+  const clientSecret = opts?.clientSecret || config.GOOGLE_ANTIGRAVITY_CLIENT_SECRET;
   if (!clientSecret) {
     throw new Error(
       'Google Antigravity is not configured: GOOGLE_ANTIGRAVITY_CLIENT_SECRET is missing',
@@ -200,33 +201,41 @@ export async function resolveAntigravityCredential(
   if (!rawSecret) return null;
 
   const auth = parseAntigravityAuth(rawSecret);
-  if (!auth || !auth.access) return null;
+  if (!auth || (!auth.access && !auth.refresh)) return null;
 
-  if (isTokenExpired(auth) && auth.refresh) {
+  const persistAuth = async (updatedAuth: StoredAntigravityAuth, usedRefresh?: string): Promise<void> => {
+    const updatedJson = JSON.stringify({ antigravity: updatedAuth }, null, 2);
+    if (sourceIsAccountResource && sourceSecretId) {
+      if (!usedRefresh) return;
+      await writeRotatedAccountLogin({
+        secretId: sourceSecretId,
+        usedRefresh,
+        refreshOf: (plaintext) => parseAntigravityAuth(plaintext)?.refresh,
+        value: updatedJson,
+      }).catch(() => {});
+    } else {
+      await writeSharedProjectSecret({
+        projectId,
+        name: 'ANTIGRAVITY_AUTH_JSON',
+        value: updatedJson,
+        createdBy: userId,
+      }).catch(() => {});
+    }
+  };
+
+  if ((!auth.access || isTokenExpired(auth)) && auth.refresh) {
     try {
-      const refreshed = await refreshAntigravityToken(auth.refresh);
+      const refreshed = await refreshAntigravityToken(auth.refresh, {
+        clientId: auth.client_id,
+        clientSecret: auth.client_secret,
+      });
       const updatedAuth: StoredAntigravityAuth = {
         ...auth,
         access: refreshed.access_token,
         expires: Date.now() + refreshed.expires_in * 1000,
       };
 
-      const updatedJson = JSON.stringify({ antigravity: updatedAuth }, null, 2);
-      if (sourceIsAccountResource && sourceSecretId) {
-        await writeRotatedAccountLogin({
-          secretId: sourceSecretId,
-          usedRefresh: auth.refresh,
-          refreshOf: (plaintext) => parseAntigravityAuth(plaintext)?.refresh,
-          value: updatedJson,
-        }).catch(() => {});
-      } else {
-        await writeSharedProjectSecret({
-          projectId,
-          name: 'ANTIGRAVITY_AUTH_JSON',
-          value: updatedJson,
-          createdBy: userId,
-        }).catch(() => {});
-      }
+      await persistAuth(updatedAuth, auth.refresh);
 
       let project = updatedAuth.project;
       if (!project && updatedAuth.access) {
@@ -234,22 +243,7 @@ export async function resolveAntigravityCredential(
         project = (await discoverAntigravityProject(access).catch(() => null)) ?? undefined;
         if (project) {
           updatedAuth.project = project;
-          const updatedJson2 = JSON.stringify({ antigravity: updatedAuth }, null, 2);
-          if (sourceIsAccountResource && sourceSecretId) {
-            await writeRotatedAccountLogin({
-              secretId: sourceSecretId,
-              usedRefresh: auth.refresh,
-              refreshOf: (plaintext) => parseAntigravityAuth(plaintext)?.refresh,
-              value: updatedJson2,
-            }).catch(() => {});
-          } else {
-            await writeSharedProjectSecret({
-              projectId,
-              name: 'ANTIGRAVITY_AUTH_JSON',
-              value: updatedJson2,
-              createdBy: userId,
-            }).catch(() => {});
-          }
+          await persistAuth(updatedAuth, auth.refresh);
         }
       }
 
@@ -261,10 +255,17 @@ export async function resolveAntigravityCredential(
         refresh: updatedAuth.refresh,
       };
     } catch {
-      // If refresh fails temporarily, try using the existing access token
+      // Only fall back to the existing access token when it exists and is still
+      // genuinely unexpired (e.g. preemptive refresh hit a transient network hiccup).
+      if (!auth.access || !auth.expires || Date.now() >= auth.expires) {
+        return null;
+      }
       let project = auth.project;
       if (!project && auth.access) {
-        project = await discoverAntigravityProject(auth.access).catch(() => null) ?? undefined;
+        project = (await discoverAntigravityProject(auth.access).catch(() => null)) ?? undefined;
+        if (project) {
+          await persistAuth({ ...auth, project }, auth.refresh);
+        }
       }
       return {
         access: auth.access,
@@ -278,11 +279,14 @@ export async function resolveAntigravityCredential(
 
   // An expired credential with no refresh token is a dead paste (a raw `ya29…`
   // bearer): report it as unavailable instead of sending Google a rejected call.
-  if (isTokenExpired(auth)) return null;
+  if (!auth.access || isTokenExpired(auth)) return null;
 
   let project = auth.project;
   if (!project && auth.access) {
     project = (await discoverAntigravityProject(auth.access).catch(() => null)) ?? undefined;
+    if (project) {
+      await persistAuth({ ...auth, project }, auth.refresh);
+    }
   }
 
   return {

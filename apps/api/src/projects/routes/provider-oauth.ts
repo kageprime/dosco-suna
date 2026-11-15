@@ -15,6 +15,7 @@ import {
   exchangeAntigravityCode,
   antigravityAuthJsonFromTokens,
   createPkcePair,
+  parseAntigravityRedirectInput,
 } from '../antigravity-auth';
 import { parseAntigravityAuth } from '../../llm-gateway/credentials/antigravity';
 import {
@@ -349,20 +350,17 @@ export function registerProviderOauthRoutes(): void {
         return c.json({ status: 'pending', next_poll_ms: Math.max(state.i ?? 0, OAUTH_POLL_INTERVAL_MS) });
       }
       try {
-        const url = new URL(redirectUrl);
-        const error = url.searchParams.get('error');
-        if (error) {
-          return c.json({ status: 'failed', error: url.searchParams.get('error_description') || error });
+        const parsed = parseAntigravityRedirectInput(redirectUrl);
+        if (parsed.error) {
+          return c.json({ status: 'failed', error: parsed.errorDescription || parsed.error });
         }
-        const code = url.searchParams.get('code');
-        const returnedState = url.searchParams.get('state');
-        if (!code) {
+        if (!parsed.code) {
           return c.json({ status: 'failed', error: 'Missing authorization code in redirect URL' });
         }
-        if (returnedState && state.st && returnedState !== state.st) {
+        if (parsed.state && state.st && parsed.state !== state.st) {
           return c.json({ status: 'failed', error: 'OAuth state mismatch' });
         }
-        const tokens = await exchangeAntigravityCode({ code, codeVerifier: state.cv || '', redirectUri: state.ru });
+        const tokens = await exchangeAntigravityCode({ code: parsed.code, codeVerifier: state.cv || '', redirectUri: state.ru });
         const authJson = await antigravityAuthJsonFromTokens(tokens as any);
         result = { status: 'authorized', authJson };
       } catch (err) {

@@ -53,9 +53,9 @@ import { Copy } from '../../icons/copy';
 import { InputGroup, InputGroupInput } from '../../primitives/input-group';
 import Loading from '../../primitives/loading';
 import { ClaudeCodeStep } from '../sections/llm-provider/claude-code-step';
-import { AntigravityCredentialsStep } from '../sections/llm-provider/antigravity-credentials-step';
+import { AntigravityCredentialsStep, AntigravitySignInStep } from '../sections/llm-provider/antigravity-credentials-step';
 
-export { ClaudeCodeStep, AntigravityCredentialsStep };
+export { ClaudeCodeStep, AntigravityCredentialsStep, AntigravitySignInStep };
 import {
   SplitSheetBody,
   SplitSheetDescription,
@@ -67,6 +67,7 @@ import { errorToast, successToast } from '../../primitives/toast';
 import {
   ProviderLogoStatus,
   connectedVia,
+  isProviderConnected,
   providerMethod,
   type ProviderStatus,
   supportsPooledProviderKey,
@@ -734,9 +735,11 @@ function SubscriptionBody({ projectId, entry, connected: keyConnected, canWrite,
     body = anyConnected ? null : <p className="text-muted-foreground text-sm">{t('readOnly')}</p>;
   } else if (waiting) {
     body = sign.isAntigravity ? (
-      <AntigravityCredentialsStep
-        saving={sign.checking}
-        onSubmit={(raw) => void sign.submitAntigravityCredentials(raw)}
+      <AntigravitySignInStep
+        url={sign.challenge?.url ?? null}
+        checking={sign.checking}
+        onSubmitCode={(code) => void sign.submitCode(code)}
+        onSubmitCredentials={(raw) => void sign.submitAntigravityCredentials(raw)}
       />
     ) : sign.pastesCode ? (
       <ClaudeCodeStep url={sign.challenge?.url ?? null} checking={sign.checking} onSubmit={(code) => void sign.submitCode(code)} />
@@ -913,15 +916,15 @@ export function ProviderSheet({
   if (!entry) return null;
 
   const method = providerMethod(entry);
-  const connectedIdSet = new Set(connectedProviders.map((provider) => provider.id));
-  const keyConnected = connectedProviders.some((provider) => provider.id === entry.id);
-  const subscriptionConnected = connectedProviders.some(
-    (provider) => provider.id === (entry.id === 'openai' ? 'codex' : entry.id === 'google' ? 'antigravity' : entry.id === 'anthropic' ? 'claude-agent' : entry.id),
-  );
+  const connectedIdSet = new Set([
+    ...connectedProviders.map((provider) => provider.id),
+    ...pooled.pooledProviderIds,
+  ]);
+  const keyConnected = connectedIdSet.has(entry.id);
   const status: ProviderStatus =
     method === 'included'
       ? 'included'
-      : keyConnected || subscriptionConnected || pooled.pooledProviderIds.has(entry.id)
+      : isProviderConnected(entry.id, connectedIdSet)
         ? 'connected'
         : 'none';
 
@@ -1036,8 +1039,10 @@ export function ProviderSheet({
     content = (
       <SplitSheetBody className="space-y-7">
         <div className="space-y-3">
-          <p className="text-foreground text-sm font-medium">Google Antigravity accounts</p>
-          <p className="text-muted-foreground text-xs text-pretty">Connect your Google Antigravity account or paste credentials to use Gemini models on your own subscription.</p>
+          <p className="text-foreground text-sm font-medium">{tPooled('antigravityAccounts')}</p>
+          <p className="text-muted-foreground text-xs text-pretty">
+            {tPooled(canShare ? 'antigravityOauthPrivateDescription' : 'antigravityOauthOnlyYouDescription')}
+          </p>
           <AccountSecretResourcesPanel
             accountId={pooled.accountId}
             projectId={projectId}
@@ -1045,8 +1050,9 @@ export function ProviderSheet({
             providerName="Google Antigravity"
             envVar="ANTIGRAVITY_AUTH_JSON"
             canWrite
+            oauth={{ projectId, onConnected: () => undefined, kind: 'antigravity' }}
           />
-          <ChatGptSubscriptionConnect projectId={projectId} onConnected={() => undefined} kind="antigravity" />
+          <ChatGptSubscriptionConnect projectId={projectId} onConnected={() => undefined} kind="antigravity" legacyOnly />
         </div>
         <div className="space-y-3">
           <p className="text-foreground text-sm font-medium">{tPooled('providerKeysFor', { provider: entry.label })}</p>

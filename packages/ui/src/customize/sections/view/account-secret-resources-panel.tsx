@@ -11,6 +11,8 @@ import {
 } from '@kortix/sdk';
 import { refreshProjectProviderState, useAccountSecretResources } from '@kortix/sdk/react';
 import { ChatGptDeviceChallenge } from '../llm-provider/chatgpt-device-challenge';
+import { AntigravitySignInStep } from '../llm-provider/antigravity-credentials-step';
+import { parseAntigravityAuth } from '../llm-provider/antigravity-auth';
 import { ClaudeCodeStep } from '../llm-provider/claude-code-step';
 import { Button } from '../../../primitives/button';
 import { ConfirmDialog } from '../../../primitives/confirm-dialog';
@@ -113,14 +115,15 @@ function useChatGptAuthorization(projectId: string | undefined) {
 }
 
 /**
- * One Claude sign-in at a time, with the same contract as
- * `useChatGptAuthorization`: `authorize` resolves once the account is stored,
- * or with null. Between those, the server runs `claude setup-token`, claude.com
- * opens in a tab, and the member pastes the code it shows (`submitCode`). The
- * tab opens inside the click, so a popup blocker lets it through. A refused
- * code ends the sign-in: the next try signs in again.
+ * One redirect/copy-code sign-in at a time (`claude` or `antigravity`), with the
+ * same contract as `useChatGptAuthorization`: `authorize` opens the provider in
+ * a new tab inside the click (bypassing popup blockers) and resolves once the
+ * account is stored after the member pastes back the code or redirect URL.
  */
-function useClaudeAuthorization(projectId: string | undefined) {
+function useRedirectCodeAuthorization(
+  projectId: string | undefined,
+  kind: 'claude' | 'antigravity',
+) {
   const generation = useRef(0);
   useEffect(() => () => { generation.current++; }, []);
   const [challenge, setChallenge] = useState<{ url: string; code: string | null } | null>(null);
@@ -128,7 +131,13 @@ function useClaudeAuthorization(projectId: string | undefined) {
   const [finishing, setFinishing] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const pending = useRef<{ flowId: string; generation: number; failed: string; resolve: (value: string | null) => void } | null>(null);
+  const pending = useRef<{
+    flowId: string;
+    generation: number;
+    expired: string;
+    failed: string;
+    resolve: (value: string | null) => void;
+  } | null>(null);
   const settle = (value: string | null) => {
     pending.current?.resolve(value);
     pending.current = null;
@@ -145,12 +154,22 @@ function useClaudeAuthorization(projectId: string | undefined) {
     setWaiting(true); setFinishing(false); setChallenge(null); setError(null);
     const popup = typeof window === 'undefined' ? null : window.open('about:blank', '_blank');
     try {
-      const started = await startClaudeSubscriptionLogin(projectId, input);
+      let flowId: string;
+      let authorizeUrl: string;
+      if (kind === 'claude') {
+        const started = await startClaudeSubscriptionLogin(projectId, input);
+        flowId = started.flow_id;
+        authorizeUrl = started.authorize_url;
+      } else {
+        const started = await startProjectProviderOAuth(projectId, 'google', input);
+        flowId = started.flow_id;
+        authorizeUrl = started.authorize_url ?? started.verification_url;
+      }
       if (current !== generation.current) { popup?.close(); return null; }
-      setChallenge({ url: started.authorize_url, code: null });
-      if (popup && !popup.closed) popup.location.href = started.authorize_url;
+      setChallenge({ url: authorizeUrl, code: null });
+      if (popup && !popup.closed) popup.location.href = authorizeUrl;
       return await new Promise<string | null>((resolve) => {
-        pending.current = { flowId: started.flow_id, generation: current, failed: messages.failed, resolve };
+        pending.current = { flowId, generation: current, expired: messages.expired, failed: messages.failed, resolve };
       });
     } catch (err) {
       popup?.close();
@@ -160,16 +179,27 @@ function useClaudeAuthorization(projectId: string | undefined) {
       }
       return null;
     }
-  }, [projectId]);
+  }, [projectId, kind]);
   const submitCode = useCallback(async (code: string) => {
     const flow = pending.current;
     if (!projectId || !flow || !code.trim()) return;
     setChecking(true); setError(null);
     try {
-      const connected = await completeClaudeSubscriptionLogin(projectId, { flowId: flow.flowId, code: code.trim() });
+      let secretId: string;
+      if (kind === 'claude') {
+        const connected = await completeClaudeSubscriptionLogin(projectId, { flowId: flow.flowId, code: code.trim() });
+        secretId = connected.secret_id;
+      } else {
+        const res = await pollProjectProviderOAuth(projectId, 'google', flow.flowId, code.trim());
+        if (res.status !== 'success') {
+          const reason = res.status === 'failed' ? res.error : res.status === 'expired' ? flow.expired : flow.failed;
+          throw new Error(reason);
+        }
+        secretId = res.credential.secret_id ?? 'antigravity';
+      }
       if (flow.generation !== generation.current) return;
       setChallenge(null); setFinishing(true);
-      settle(connected.secret_id);
+      settle(secretId);
     } catch (err) {
       if (flow.generation !== generation.current) return;
       setError(err instanceof Error && err.message ? err.message : flow.failed);
@@ -178,7 +208,7 @@ function useClaudeAuthorization(projectId: string | undefined) {
     } finally {
       setChecking(false);
     }
-  }, [projectId]);
+  }, [projectId, kind]);
   return { challenge, waiting, finishing, checking, error, authorize, cancel, reset, submitCode };
 }
 
@@ -215,8 +245,8 @@ export function AccountSecretResourcesPanel({ accountId, projectId, providerId, 
   providerName: string;
   envVar: string;
   canWrite: boolean;
-  /** A sign-in account list: ChatGPT (device code, the default) or Claude (`kind: 'claude'`, a pasted code). */
-  oauth?: { projectId: string; onConnected: (providerId: string) => void; kind?: 'chatgpt' | 'claude' };
+  /** A sign-in account list: ChatGPT (device code, the default), Claude (`kind: 'claude'`), or Google Antigravity (`kind: 'antigravity'`). */
+  oauth?: { projectId: string; onConnected: (providerId: string) => void; kind?: 'chatgpt' | 'claude' | 'antigravity' };
 }) {
   const t = useTranslations('pooledSecrets');
   const tUndecryptable = useTranslations('secrets.undecryptable');
@@ -244,27 +274,37 @@ export function AccountSecretResourcesPanel({ accountId, projectId, providerId, 
   const [sharingMode, setSharingMode] = useState<'project' | 'members'>('project');
   const [selectedMembers, setSelectedMembers] = useState<PrincipalSelection>(NO_MEMBERS);
   const [deleting, setDeleting] = useState<AccountSecretResource | null>(null);
+  const [manualSaving, setManualSaving] = useState(false);
+  const [manualError, setManualError] = useState<string | null>(null);
   const claude = oauth?.kind === 'claude';
-  const chatGptAuthorization = useChatGptAuthorization(claude ? undefined : oauth?.projectId);
-  const claudeAuthorization = useClaudeAuthorization(claude ? oauth?.projectId : undefined);
-  const authorization = claude ? claudeAuthorization : chatGptAuthorization;
-  /** The ChatGPT string, or its Claude twin. */
-  const tAccount = (chatGptKey: string, claudeKey: string, values?: Record<string, string | number>) => t(claude ? claudeKey : chatGptKey, values);
-  const signInStep = (challenge: { url: string; code: string | null } | null) => claude
-    ? <ClaudeCodeStep url={challenge?.url ?? null} checking={claudeAuthorization.checking} onSubmit={(code) => void claudeAuthorization.submitCode(code)} />
-    : challenge && <ChatGptDeviceChallenge url={challenge.url} code={challenge.code} />;
+  const antigravity = oauth?.kind === 'antigravity';
+  const usesRedirectCode = claude || antigravity;
+  const chatGptAuthorization = useChatGptAuthorization(usesRedirectCode ? undefined : oauth?.projectId);
+  const redirectAuthorization = useRedirectCodeAuthorization(
+    usesRedirectCode ? oauth?.projectId : undefined,
+    claude ? 'claude' : 'antigravity',
+  );
+  const authorization = usesRedirectCode ? redirectAuthorization : chatGptAuthorization;
+  /** The ChatGPT string, or its Claude / Google Antigravity twin. */
+  const tAccount = (
+    chatGptKey: string,
+    claudeKey: string,
+    antigravityKey: string,
+    values?: Record<string, string | number>,
+  ) => t(claude ? claudeKey : antigravity ? antigravityKey : chatGptKey, values);
   const members = useQuery({ queryKey: ['account-members', accountId], queryFn: () => listAccountMembers(accountId) });
   const actorRole = members.data?.find((member) => member.user_id === user?.id)?.account_role;
   const keys = (resources.data?.secrets ?? []).filter((secret) => secret.provider_id === providerId);
   const manageable = (secret: AccountSecretResource) =>
     secret.created_by === user?.id || actorRole === 'owner' || actorRole === 'admin';
-  const authMessages = { expired: t('oauthExpired'), failed: tAccount('connectFailed', 'claudeConnectFailed') };
+  const authMessages = { expired: t('oauthExpired'), failed: tAccount('connectFailed', 'claudeConnectFailed', 'antigravityConnectFailed') };
   const defaultLabel = () => {
     const name = labelOwnerName(user && { email: user.email, user_metadata: user.metadata });
-    return oauth && name ? tAccount('defaultAccountLabel', 'claudeDefaultAccountLabel', { name }) : '';
+    return oauth && name ? tAccount('defaultAccountLabel', 'claudeDefaultAccountLabel', 'antigravityDefaultAccountLabel', { name }) : '';
   };
   const closeCreate = () => {
     authorization.cancel();
+    setManualError(null);
     setCreating(false); setRotating(null); setValue('');
   };
   const refresh = async () => {
@@ -280,11 +320,65 @@ export function AccountSecretResourcesPanel({ accountId, projectId, providerId, 
       refreshProjectProviderState(queryClient, projectId);
       void queryClient.invalidateQueries({ queryKey: ['session-provider-secret-pools'] });
       if (claude) void queryClient.invalidateQueries({ queryKey: ['claude-subscription', projectId] });
-      oauth?.onConnected(claude ? 'claude-agent' : 'codex');
+      oauth?.onConnected(claude ? 'claude-agent' : antigravity ? 'antigravity' : 'codex');
     }
   };
+  const submitManualAntigravity = async (raw: string) => {
+    if (!reconnecting && !label.trim()) return;
+    const parsed = parseAntigravityAuth(raw);
+    if (!parsed || (!parsed.access && !parsed.refresh)) {
+      setManualError('Invalid Antigravity credentials or token format');
+      return;
+    }
+    const authJson = JSON.stringify({ antigravity: parsed }, null, 2);
+    setManualSaving(true); setManualError(null);
+    try {
+      if (reconnecting) {
+        await rotateAccountSecretResource(accountId, reconnecting.secret_id, authJson);
+      } else {
+        await createAccountSecretResource(accountId, {
+          project_id: projectId, ...keyAccessFields(createMode, selectedMembers.memberIds),
+          provider_id: 'antigravity', name: 'ANTIGRAVITY_AUTH_JSON', label: label.trim(),
+          value: authJson, consumer: 'llm_gateway', strategy: 'broker',
+        });
+      }
+      redirectAuthorization.reset();
+      await finishConnection().catch(() => {});
+      if (reconnecting) {
+        setReconnecting(null);
+        successToast(tAccount('accountReconnected', 'claudeAccountReconnected', 'antigravityAccountReconnected'));
+      } else {
+        setCreating(false);
+        successToast(tAccount('accountConnected', 'claudeAccountConnected', 'antigravityAccountConnected'));
+      }
+    } catch (err) {
+      setManualError(err instanceof Error && err.message ? err.message : authMessages.failed);
+    } finally {
+      setManualSaving(false);
+    }
+  };
+  const signInStep = (challenge: { url: string; code: string | null } | null) => (
+    claude ? (
+      <ClaudeCodeStep
+        url={challenge?.url ?? null}
+        checking={redirectAuthorization.checking}
+        onSubmit={(code) => void redirectAuthorization.submitCode(code)}
+      />
+    ) : antigravity ? (
+      <AntigravitySignInStep
+        url={challenge?.url ?? null}
+        checking={redirectAuthorization.checking}
+        savingManual={manualSaving}
+        onSubmitCode={(code) => void redirectAuthorization.submitCode(code)}
+        onSubmitCredentials={(raw) => void submitManualAntigravity(raw)}
+      />
+    ) : challenge ? (
+      <ChatGptDeviceChallenge url={challenge.url} code={challenge.code} />
+    ) : null
+  );
   const connectOAuth = async () => {
     if (!oauth || !label.trim()) return;
+    setManualError(null);
     const credential = await authorization.authorize({
       resourceLabel: label.trim(),
       sharing: chatGptSharing(createMode, selectedMembers.memberIds, user?.id),
@@ -292,23 +386,26 @@ export function AccountSecretResourcesPanel({ accountId, projectId, providerId, 
     if (!credential) return;
     await finishConnection().catch(() => {});
     setCreating(false);
-    successToast(tAccount('accountConnected', 'claudeAccountConnected'));
+    successToast(tAccount('accountConnected', 'claudeAccountConnected', 'antigravityAccountConnected'));
   };
   const reconnectOAuth = async (secret: AccountSecretResource) => {
+    setManualError(null);
     const credential = await authorization.authorize({ resourceId: secret.secret_id }, authMessages);
     if (!credential) return;
     await finishConnection().catch(() => {});
     setReconnecting(null);
-    successToast(tAccount('accountReconnected', 'claudeAccountReconnected'));
+    successToast(tAccount('accountReconnected', 'claudeAccountReconnected', 'antigravityAccountReconnected'));
   };
   const openReconnect = (secret: AccountSecretResource) => {
     authorization.reset();
+    setManualError(null);
     setReconnecting(secret);
     // Reconnect has nothing to fill in: go straight to the device code.
     void reconnectOAuth(secret);
   };
   const closeReconnect = () => {
     authorization.cancel();
+    setManualError(null);
     setReconnecting(null);
   };
   const save = useMutation({
@@ -367,6 +464,7 @@ export function AccountSecretResourcesPanel({ accountId, projectId, providerId, 
     setLabel(defaultLabel());
     save.reset();
     authorization.reset();
+    setManualError(null);
     setCreating(true);
   };
   const accessLine = (secret: AccountSecretResource) => {
@@ -379,19 +477,19 @@ export function AccountSecretResourcesPanel({ accountId, projectId, providerId, 
     }
     return t('selectedMembersCount', { count: summary.count });
   };
-  const busy = save.isPending || authorization.waiting;
+  const busy = save.isPending || authorization.waiting || manualSaving;
   // Only a successful read can say "no accounts"; loading and errors say so themselves.
   const empty = Boolean(oauth) && resources.isSuccess && keys.length === 0;
 
   return (
-    <section className="min-w-0 space-y-2" aria-label={oauth ? tAccount('chatGptAccounts', 'claudeAccounts') : t('providerKeysFor', { provider: providerName })}>
+    <section className="min-w-0 space-y-2" aria-label={oauth ? tAccount('chatGptAccounts', 'claudeAccounts', 'antigravityAccounts') : t('providerKeysFor', { provider: providerName })}>
       <div className="flex items-center justify-between gap-3">
         <p className="text-muted-foreground text-xs">
-          {!resources.isSuccess ? null : empty ? tAccount('noChatGptAccounts', 'noClaudeAccounts')
+          {!resources.isSuccess ? null : empty ? tAccount('noChatGptAccounts', 'noClaudeAccounts', 'noAntigravityAccounts')
             : oauth ? t('accountCount', { count: keys.length }) : t('keyCount', { count: keys.length })}
         </p>
         {canWrite && <Button size="sm" variant={empty ? 'default' : 'secondary'} onClick={openCreate}>
-          {empty ? tAccount('connectChatGpt', 'connectClaude') : oauth ? t('addAccount') : t('addKey')}
+          {empty ? tAccount('connectChatGpt', 'connectClaude', 'connectAntigravity') : oauth ? t('addAccount') : t('addKey')}
         </Button>}
       </div>
       {resources.isLoading ? <div role="status" aria-label={t('loadingKeys')}><Loading /></div> : resources.isError ? (
@@ -449,20 +547,20 @@ export function AccountSecretResourcesPanel({ accountId, projectId, providerId, 
         })}</ul>
       ) : null}
 
-      <Modal open={creating || rotating !== null} onOpenChange={(open) => { if (!open && !save.isPending && !authorization.finishing) closeCreate(); }}>
+      <Modal open={creating || rotating !== null} onOpenChange={(open) => { if (!open && !save.isPending && !manualSaving && !authorization.finishing) closeCreate(); }}>
         <ModalContent className="lg:max-w-md">
           <ModalHeader><ModalTitle>{rotating ? t('rotateLabel', { label: rotating.label }) : `${oauth ? t('addAccount') : t('addKey')} · ${providerName}`}</ModalTitle>
-            <ModalDescription>{rotating ? t('valueNeverShown') : oauth ? tAccount('oauthCreationDescription', 'claudeOauthCreationDescription') : t('creationDescription')}</ModalDescription></ModalHeader>
+            <ModalDescription>{rotating ? t('valueNeverShown') : oauth ? tAccount('oauthCreationDescription', 'claudeOauthCreationDescription', 'antigravityOauthCreationDescription') : t('creationDescription')}</ModalDescription></ModalHeader>
           <ModalBody className="max-h-[60vh] space-y-3 overflow-y-auto">
             {save.isError && <p role="alert" className="text-destructive text-sm">{save.error instanceof Error ? save.error.message : t('saveError')}</p>}
-            {oauth && authorization.error && <p role="alert" className="text-destructive text-sm">{authorization.error}</p>}
+            {oauth && (manualError || authorization.error) && <p role="alert" className="text-destructive text-sm">{manualError ?? authorization.error}</p>}
             {!rotating && <>
-              <Field><FieldLabel htmlFor={`provider-key-label-${providerId}`}>{t('label')}</FieldLabel><Input id={`provider-key-label-${providerId}`} value={label} disabled={busy} onChange={(event) => setLabel(event.target.value)} placeholder={oauth ? tAccount('accountLabelPlaceholder', 'claudeAccountLabelPlaceholder') : t('primaryKey')} maxLength={100} /></Field>
+              <Field><FieldLabel htmlFor={`provider-key-label-${providerId}`}>{t('label')}</FieldLabel><Input id={`provider-key-label-${providerId}`} value={label} disabled={busy} onChange={(event) => setLabel(event.target.value)} placeholder={oauth ? tAccount('accountLabelPlaceholder', 'claudeAccountLabelPlaceholder', 'antigravityAccountLabelPlaceholder') : t('primaryKey')} maxLength={100} /></Field>
             </>}
             {oauth ? authorization.finishing ? <ChatGptSignInFinishing label={t('oauthFinishing')} />
-              : (authorization.challenge || (claude && authorization.waiting)) && signInStep(authorization.challenge) :
+              : (authorization.challenge || (usesRedirectCode && authorization.waiting)) && signInStep(authorization.challenge) :
               <Field><FieldLabel htmlFor={`provider-key-value-${providerId}`}>{t('apiKey')}</FieldLabel><Input id={`provider-key-value-${providerId}`} type="password" value={value} disabled={save.isPending} onChange={(event) => setValue(event.target.value)} autoComplete="off" /></Field>}
-            {!rotating && !authorization.challenge && !authorization.finishing && !(claude && authorization.waiting) && <div className="space-y-2">
+            {!rotating && !authorization.challenge && !authorization.finishing && !(usesRedirectCode && authorization.waiting) && <div className="space-y-2">
               <FieldLabel>{t('whoCanUse')}</FieldLabel>
               <RadioGroup value={createMode} onValueChange={(next) => setCreateMode(next as ConnectionAccessChoice)} className="space-y-2">
                 <RadioGroupItem value="private" id={`create-${providerId}-private`} label={t('onlyYou')} description={t('onlyYouDescription')} size="lg" variant="outline" disabled={busy} />
@@ -474,28 +572,28 @@ export function AccountSecretResourcesPanel({ accountId, projectId, providerId, 
                 value={selectedMembers} onChange={setSelectedMembers} disabled={busy} autoFocus={false} />}
             </div>}
           </ModalBody>
-          <ModalFooter><Button variant="secondary" disabled={save.isPending || authorization.finishing} onClick={closeCreate}>{t('cancel')}</Button>
-            <Button disabled={oauth ? authorization.waiting || !label.trim() : save.isPending || !value.trim() || (!rotating && !label.trim())}
+          <ModalFooter><Button variant="secondary" disabled={save.isPending || manualSaving || authorization.finishing} onClick={closeCreate}>{t('cancel')}</Button>
+            <Button disabled={oauth ? authorization.waiting || manualSaving || !label.trim() : save.isPending || !value.trim() || (!rotating && !label.trim())}
               onClick={() => oauth ? void connectOAuth() : save.mutate()}>
               {oauth ? authorization.finishing ? t('saving') : authorization.waiting ? t('oauthWaiting') : authorization.error ? common('retry') : t('connectAccount') : save.isPending ? t('saving') : t('saveKey')}
             </Button></ModalFooter>
         </ModalContent>
       </Modal>
 
-      {oauth && <Modal open={reconnecting !== null} onOpenChange={(open) => { if (!open && !authorization.finishing) closeReconnect(); }}>
+      {oauth && <Modal open={reconnecting !== null} onOpenChange={(open) => { if (!open && !manualSaving && !authorization.finishing) closeReconnect(); }}>
         <ModalContent className="lg:max-w-md">
           <ModalHeader><ModalTitle>{t('reconnectTitle', { label: reconnectLabel })}</ModalTitle>
-            <ModalDescription>{tAccount('reconnectDescription', 'claudeReconnectDescription')}</ModalDescription></ModalHeader>
+            <ModalDescription>{tAccount('reconnectDescription', 'claudeReconnectDescription', 'antigravityReconnectDescription')}</ModalDescription></ModalHeader>
           <ModalBody className="space-y-3">
-            {authorization.error && <p role="alert" className="text-destructive text-sm">{authorization.error}</p>}
+            {(manualError || authorization.error) && <p role="alert" className="text-destructive text-sm">{manualError ?? authorization.error}</p>}
             {authorization.finishing
               ? <ChatGptSignInFinishing label={t('oauthFinishing')} />
-              : authorization.challenge || (claude && authorization.waiting)
+              : authorization.challenge || (usesRedirectCode && authorization.waiting)
                 ? signInStep(authorization.challenge)
                 : authorization.waiting && <div role="status" aria-label={t('oauthWaiting')}><Loading /></div>}
           </ModalBody>
-          <ModalFooter><Button variant="secondary" disabled={authorization.finishing} onClick={closeReconnect}>{t('cancel')}</Button>
-            <Button disabled={authorization.waiting || !reconnecting} onClick={() => { if (reconnecting) void reconnectOAuth(reconnecting); }}>
+          <ModalFooter><Button variant="secondary" disabled={manualSaving || authorization.finishing} onClick={closeReconnect}>{t('cancel')}</Button>
+            <Button disabled={authorization.waiting || manualSaving || !reconnecting} onClick={() => { if (reconnecting) void reconnectOAuth(reconnecting); }}>
               {authorization.finishing ? t('saving') : authorization.waiting ? t('oauthWaiting') : authorization.error ? common('retry') : t('reconnectAccount')}
             </Button></ModalFooter>
         </ModalContent>
@@ -520,7 +618,7 @@ export function AccountSecretResourcesPanel({ accountId, projectId, providerId, 
         </ModalContent>
       </Modal>
       <ConfirmDialog open={deleting !== null} onOpenChange={(open) => { if (!open) setDeleting(null); }}
-        title={oauth ? tAccount('deleteAccountConfirmTitle', 'claudeDeleteAccountConfirmTitle') : t('deleteConfirmTitle')}
+        title={oauth ? tAccount('deleteAccountConfirmTitle', 'claudeDeleteAccountConfirmTitle', 'antigravityDeleteAccountConfirmTitle') : t('deleteConfirmTitle')}
         description={deleting ? t(oauth ? 'deleteAccountConfirmDescription' : 'deleteConfirmDescription', { label: deleting.label }) : ''}
         confirmLabel={oauth ? t('deleteAccount') : t('deleteKey')} confirmVariant="destructive" isPending={remove.isPending}
         onConfirm={() => { if (deleting) remove.mutate(deleting.secret_id); }} />

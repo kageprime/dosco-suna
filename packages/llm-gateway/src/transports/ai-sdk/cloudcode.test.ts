@@ -11,6 +11,9 @@ import {
   mapUsage,
   stripEffortSuffix,
 } from './cloudcode';
+import { toModelMessages } from './messages';
+import { openAiJsonFromResult, openAiSseFromFullStream } from './sse';
+import { GEMINI_PLACEHOLDER_SIGNATURE, GEMINI_SIGNATURE_FORMAT } from '../../http/gemini-thought-signatures';
 
 function descriptor(overrides: Record<string, unknown> = {}): UpstreamDescriptor {
   return {
@@ -331,5 +334,104 @@ describe('cloudcode model via streamText', () => {
     expect(toolCalls[0].toolName).toBe('get_weather');
     expect(toolCalls[0].input).toEqual({ city: 'Paris' });
     expect(await result.finishReason).toBe('tool-calls');
+  });
+
+  test('round-trips Cloud Code thoughtSignature through SSE/JSON and falls back to placeholder when omitted', async () => {
+    const TOOL_SSE = [
+      'data: {"response":{"candidates":[{"content":{"role":"model","parts":[{"functionCall":{"name":"get_weather","args":{"city":"Tokyo"}},"thoughtSignature":"sig-real-123"}]}}]}}',
+      '',
+      'data: {"response":{"candidates":[{"content":{"role":"model","parts":[]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":3}}}',
+      '',
+    ].join('\n');
+    const { fetch: streamFetch } = fakeFetch(
+      () => new Response(TOOL_SSE, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+    );
+    const model = createCloudCodeModel(descriptor({ resolvedModel: 'gemini-4-argon' }), { fetch: streamFetch });
+    const streamed = streamText({ model, prompt: 'weather?' });
+    const sseResp = openAiSseFromFullStream(streamed.fullStream, { model: 'gemini-4-argon', provider: 'antigravity' });
+    const sseText = await new Response(sseResp).text();
+    expect(sseText).toContain(`"format":"${GEMINI_SIGNATURE_FORMAT}"`);
+    expect(sseText).toContain('"data":"sig-real-123"');
+
+    // Non-streaming JSON response preserves thoughtSignature too
+    const { fetch: jsonFetch } = fakeFetch(
+      () =>
+        new Response(
+          JSON.stringify({
+            response: {
+              candidates: [
+                {
+                  content: {
+                    role: 'model',
+                    parts: [{ functionCall: { name: 'get_weather', args: { city: 'Tokyo' } }, thoughtSignature: 'sig-json-456' }],
+                  },
+                  finishReason: 'STOP',
+                },
+              ],
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+    );
+    const generated = await generateText({
+      model: createCloudCodeModel(descriptor({ resolvedModel: 'gemini-4-argon' }), { fetch: jsonFetch }),
+      prompt: 'weather?',
+    });
+    const jsonPayload = openAiJsonFromResult(
+      {
+        text: generated.text,
+        reasoningText: generated.reasoningText,
+        toolCalls: generated.toolCalls,
+        finishReason: generated.finishReason,
+        usage: generated.usage,
+      },
+      { model: 'gemini-4-argon', provider: 'antigravity' },
+    );
+    expect((jsonPayload.choices as any)[0].message.reasoning_details).toEqual([
+      { type: 'reasoning.encrypted', id: expect.any(String), data: 'sig-json-456', format: GEMINI_SIGNATURE_FORMAT, index: 0 },
+    ]);
+
+    // Replay turn with reasoning_details restores thoughtSignature; turn without gets placeholder
+    const { messages } = toModelMessages([
+      { role: 'user', content: 'weather?' },
+      {
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          { id: 'c_signed', type: 'function', function: { name: 'get_weather', arguments: '{"city":"Tokyo"}' } },
+          { id: 'c_plain', type: 'function', function: { name: 'get_weather', arguments: '{"city":"Osaka"}' } },
+        ],
+        reasoning_details: [{ type: 'reasoning.encrypted', id: 'c_signed', data: 'sig-replayed-789', format: GEMINI_SIGNATURE_FORMAT }],
+      },
+      { role: 'tool', tool_call_id: 'c_signed', name: 'get_weather', content: 'rain' },
+      { role: 'tool', tool_call_id: 'c_plain', name: 'get_weather', content: 'sun' },
+    ]);
+    const promptMessages = messages.map((m) =>
+      m.role === 'assistant'
+        ? { role: 'assistant' as const, content: Array.isArray(m.content) ? (m.content as any[]) : [] }
+        : { role: m.role as 'user' | 'tool', content: Array.isArray(m.content) ? (m.content as any[]) : [{ type: 'text', text: String(m.content) }] },
+    );
+    const { contents } = cloudCodeRequestFromPrompt(promptMessages, undefined, 'gemini-4-argon');
+    expect((contents[1] as any).parts).toEqual([
+      { functionCall: { name: 'get_weather', args: { city: 'Tokyo' } }, thoughtSignature: 'sig-replayed-789' },
+      { functionCall: { name: 'get_weather', args: { city: 'Osaka' } }, thoughtSignature: GEMINI_PLACEHOLDER_SIGNATURE },
+    ]);
+
+    // End-to-end through real `ai` generateText with `toModelMessages` output:
+    const { requests, fetch: roundTripFetch } = fakeFetch(
+      () =>
+        new Response(
+          JSON.stringify({ response: { candidates: [{ content: { parts: [{ text: 'done' }] }, finishReason: 'STOP' }] } }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+    );
+    await generateText({
+      model: createCloudCodeModel(descriptor({ resolvedModel: 'gemini-4-argon' }), { fetch: roundTripFetch }),
+      messages,
+    });
+    expect((requests[0].body.request as any).contents[1].parts).toEqual([
+      { functionCall: { name: 'get_weather', args: { city: 'Tokyo' } }, thoughtSignature: 'sig-replayed-789' },
+      { functionCall: { name: 'get_weather', args: { city: 'Osaka' } }, thoughtSignature: GEMINI_PLACEHOLDER_SIGNATURE },
+    ]);
   });
 });

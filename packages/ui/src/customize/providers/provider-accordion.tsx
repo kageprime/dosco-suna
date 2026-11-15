@@ -65,6 +65,7 @@ import {
   type ProviderListRow,
   type ProviderStatus,
   connectedVia,
+  isProviderConnected,
   providerMethod,
   supportsPooledProviderKey,
   useManagedProvider,
@@ -72,7 +73,7 @@ import {
   useProviderMeta,
 } from './provider-connect';
 import {
-  AntigravityCredentialsStep,
+  AntigravitySignInStep,
   ClaudeCodeStep,
   DeviceCode,
   ProviderKeyForm,
@@ -555,9 +556,11 @@ function SignInSubRows({
       </AccordionSubRow>
       {waiting && sign.isAntigravity ? (
         <div className="border-border border-t py-3">
-          <AntigravityCredentialsStep
-            saving={sign.checking}
-            onSubmit={(raw) => void sign.submitAntigravityCredentials(raw)}
+          <AntigravitySignInStep
+            url={sign.challenge?.url ?? null}
+            checking={sign.checking}
+            onSubmitCode={(code) => void sign.submitCode(code)}
+            onSubmitCredentials={(raw) => void sign.submitAntigravityCredentials(raw)}
           />
         </div>
       ) : waiting && sign.pastesCode ? (
@@ -714,6 +717,35 @@ function ExpandedBody({
         </div>
       </>
     );
+  } else if (pooled.accountId && entry.id === 'google') {
+    // Google Antigravity accounts, as Anthropic lists Claude accounts; Google Gemini API keys below them.
+    content = (
+      <>
+        <div className="border-border space-y-3 border-t py-3">
+          <p className="text-foreground text-xs font-medium">{tPooled('antigravityAccounts')}</p>
+          <AccountSecretResourcesPanel
+            accountId={pooled.accountId}
+            projectId={projectId}
+            providerId="antigravity"
+            providerName="Google Antigravity"
+            envVar="ANTIGRAVITY_AUTH_JSON"
+            canWrite
+            oauth={{ projectId, onConnected: () => undefined, kind: 'antigravity' }}
+          />
+          <ChatGptSubscriptionConnect projectId={projectId} onConnected={() => undefined} kind="antigravity" legacyOnly />
+        </div>
+        <div className="border-border border-t py-3">
+          <AccountSecretResourcesPanel
+            accountId={pooled.accountId}
+            projectId={projectId}
+            providerId={entry.id}
+            providerName={entry.label}
+            envVar={entry.envVars[0]!}
+            canWrite
+          />
+        </div>
+      </>
+    );
   } else if (pooled.accountId && supportsPooledProviderKey(entry)) {
     content = (
       <>
@@ -809,6 +841,10 @@ export function ProviderAccordion({
     () => new Set(connectedProviders.map((provider) => provider.id)),
     [connectedProviders],
   );
+  const allConnectedIds = useMemo(
+    () => new Set([...connectedIds, ...pooled.pooledProviderIds]),
+    [connectedIds, pooled.pooledProviderIds],
+  );
 
   const searchable = useMemo(() => [
     ...(access.data?.enforced ? [managedProvider] : []),
@@ -826,7 +862,7 @@ export function ProviderAccordion({
     const ordered = orderProviderRows({
       providers: searchable,
       firstClassIds: ['kortix', ...FIRST_CLASS_PROVIDER_IDS],
-      connectedIds,
+      connectedIds: allConnectedIds,
       search,
     });
     const disabledProviders = new Set(
@@ -843,12 +879,10 @@ export function ProviderAccordion({
         status:
           method === 'included'
             ? entry.models.length > 0 ? 'included' : 'none'
-            : connectedIds.has(entry.id) ||
-                pooled.pooledProviderIds.has(entry.id) ||
-                (entry.id === 'openai' && connectedIds.has('codex'))
+            : isProviderConnected(entry.id, allConnectedIds)
               ? 'connected'
               : 'none',
-        via: connectedVia(entry.id, connectedIds),
+        via: connectedVia(entry.id, allConnectedIds),
         disabled: disabledProviders.has(entry.id),
       };
     });
@@ -856,7 +890,7 @@ export function ProviderAccordion({
       inUse: rows.filter((row) => row.status !== 'none'),
       available: rows.filter((row) => row.status === 'none'),
     };
-  }, [searchable, connectedIds, pooled.pooledProviderIds, search, access.data]);
+  }, [searchable, allConnectedIds, search, access.data]);
 
   const searching = search.trim().length > 0;
   const visibleAvailable = available.slice(0, searching ? available.length : visibleCount);

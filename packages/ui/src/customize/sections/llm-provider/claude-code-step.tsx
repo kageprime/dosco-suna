@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowSquareOutIcon } from '@phosphor-icons/react';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useTranslations } from '../../../i18n';
 import { Button } from '../../../primitives/button';
 import { InputGroup, InputGroupInput } from '../../../primitives/input-group';
@@ -16,25 +16,31 @@ function hostOf(url: string): string {
 }
 
 /**
- * Claude's step where ChatGPT shows a device code: Kortix ran the unmodified
- * `claude setup-token`, claude.com is open in a new tab, and the member pastes
- * the code it shows after the approval.
+ * Shared step for redirect/copy-code OAuth providers (Claude setup-token,
+ * Google Antigravity loopback PKCE): opens the authorize URL in a new tab and
+ * lets the user paste back the shown code or localhost callback URL.
  */
-export function ClaudeCodeStep({
+export function RedirectCodeStep({
+  namespace,
   url,
   checking,
   onSubmit,
+  dataAttribute,
+  footer,
 }: {
+  namespace: 'claudeSubscription' | 'antigravitySubscription';
   url: string | null;
   checking: boolean;
   onSubmit: (code: string) => void;
+  dataAttribute?: Record<string, string>;
+  footer?: ReactNode;
 }) {
-  const t = useTranslations('claudeSubscription');
+  const t = useTranslations(namespace);
   const tSheet = useTranslations('providerSheet');
   const [code, setCode] = useState('');
   const canSubmit = !!url && code.trim().length > 0 && !checking;
   return (
-    <div className="bg-muted/60 space-y-3 rounded-lg p-4" data-provider-claude-code="">
+    <div className="bg-muted/60 space-y-3 rounded-lg p-4" {...dataAttribute}>
       <p className="text-muted-foreground text-xs text-pretty">{t('approveDescription')}</p>
       <form
         className="flex items-center gap-2"
@@ -76,6 +82,32 @@ export function ClaudeCodeStep({
           {t('starting')}
         </p>
       )}
+      {footer}
     </div>
+  );
+}
+
+/**
+ * Claude's step where ChatGPT shows a device code: Dosco ran the unmodified
+ * `claude setup-token`, claude.com is open in a new tab, and the member pastes
+ * the code it shows after the approval.
+ */
+export function ClaudeCodeStep({
+  url,
+  checking,
+  onSubmit,
+}: {
+  url: string | null;
+  checking: boolean;
+  onSubmit: (code: string) => void;
+}) {
+  return (
+    <RedirectCodeStep
+      namespace="claudeSubscription"
+      url={url}
+      checking={checking}
+      onSubmit={onSubmit}
+      dataAttribute={{ 'data-provider-claude-code': '' }}
+    />
   );
 }

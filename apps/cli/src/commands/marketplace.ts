@@ -53,7 +53,7 @@ interface MarketplaceFlags {
 
 const HELP = help`Usage: kortix marketplace <subcommand> [options]
 
-Browse the Kortix marketplace; remove installed workspace skills by folder.
+Browse the Dosco marketplace; remove installed workspace skills by folder.
 
 Subcommands:
   search [query]       Search marketplace items.
@@ -66,7 +66,7 @@ Options:
   --query <text>       Search text (same as search [query]).
   --type <type>        Filter by item type, e.g. skill.
   --source <source>    Filter by marketplace/source, e.g. kortix.
-  --host <name>        Use a configured Kortix host.
+  --host <name>        Use a configured Dosco host.
   --workspace <id>     Use this workspace id (default: linked).
   --timeout <seconds>  Install deadline (default: 300).
   --yes                Confirm deletion of the selected whole skill folder, including edits.
@@ -286,7 +286,7 @@ function printItems(items: CatalogItem[], flags: MarketplaceFlags): void {
   );
   for (const item of items.slice(0, 40)) {
     const kind = item.type.replace('registry:', '');
-    const managed = item.managedBy === 'kortix' ? ` ${C.faded}[Kortix-managed]${C.reset}` : '';
+    const managed = item.managedBy === 'kortix' ? ` ${C.faded}[Dosco-managed]${C.reset}` : '';
     process.stdout.write(
       `  ${C.cyan}${item.name}${C.reset} ${C.faded}${kind}${C.reset}${managed}\n`,
     );
@@ -392,7 +392,7 @@ async function marketplaceShow(argv: string[], flags: MarketplaceFlags): Promise
   if (connectors.length > 0)
     process.stdout.write(`  ${C.dim}Needs connectors:${C.reset} ${connectors.join(', ')}\n`);
   if (item.managedBy === 'kortix')
-    process.stdout.write(`  ${C.dim}Managed by:${C.reset} Kortix (${item.updatePolicy})\n`);
+    process.stdout.write(`  ${C.dim}Managed by:${C.reset} Dosco (${item.updatePolicy})\n`);
   process.stdout.write(
     `\n  ${C.dim}Add to a workspace:${C.reset} ${C.dim}start a session and ask the agent to import "${item.name}"${C.reset}\n`,
   );

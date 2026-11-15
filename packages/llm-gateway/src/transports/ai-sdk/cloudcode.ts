@@ -33,6 +33,7 @@
 
 import type { LanguageModel } from 'ai';
 import type { UpstreamDescriptor } from '../../domain';
+import { GEMINI_PLACEHOLDER_SIGNATURE } from '../../http/gemini-thought-signatures';
 
 /** The Antigravity Hub client user agent (the only fingerprint content calls may carry). */
 export const ANTIGRAVITY_HUB_USER_AGENT =
@@ -154,6 +155,7 @@ function sanitizeToolSchema(value: unknown): unknown {
 }
 
 function parseToolArgs(input: unknown): Json {
+  if (input && typeof input === 'object' && !Array.isArray(input)) return input as Json;
   if (typeof input !== 'string' || !input.trim()) return {};
   try {
     const parsed = JSON.parse(input) as unknown;
@@ -211,9 +213,20 @@ function filePartToGemini(part: JsonPart): Json | null {
   return null;
 }
 
+function thoughtSignatureOf(part: any): string | undefined {
+  const sig = part?.providerOptions?.google?.thoughtSignature ?? part?.providerMetadata?.google?.thoughtSignature;
+  return typeof sig === 'string' && sig ? sig : undefined;
+}
+
+function thoughtProviderMetadata(part: Json): Record<string, Record<string, string>> | undefined {
+  const sig = part.thoughtSignature;
+  return typeof sig === 'string' && sig ? { google: { thoughtSignature: sig } } : undefined;
+}
+
 export function cloudCodeRequestFromPrompt(
   prompt: CloudCodePromptMessage[],
   tools: Array<JsonPart> | undefined,
+  modelId?: string,
 ): { contents: Json[]; systemInstruction: Json | undefined; tools: Json[] | undefined } {
   const systemTexts: string[] = [];
   const contents: Json[] = [];
@@ -275,15 +288,18 @@ export function cloudCodeRequestFromPrompt(
           if (text) parts.push({ text });
         } else if (p.type === 'reasoning') {
           const text = textPartValue(p);
+          const sig = thoughtSignatureOf(p);
           // Replay thought history with Gemini's `thought` marker so the
           // model's own prior reasoning stays attributable on multi-turn calls.
-          if (text) parts.push({ text, thought: true });
+          if (text) parts.push({ text, thought: true, ...(sig ? { thoughtSignature: sig } : {}) });
         } else if (p.type === 'tool-call') {
+          const sig = thoughtSignatureOf(p) ?? (modelId && !/claude/i.test(modelId) ? GEMINI_PLACEHOLDER_SIGNATURE : undefined);
           parts.push({
             functionCall: {
               name: typeof p.toolName === 'string' ? p.toolName : 'unknown_tool',
               args: parseToolArgs(p.input),
             },
+            ...(sig ? { thoughtSignature: sig } : {}),
           });
         }
       }
@@ -415,17 +431,20 @@ export function cloudCodeContentFromParts(parts: CloudCodePart[]): JsonPart[] {
     }
     if (typeof part.text === 'string' && part.thought === true) {
       flushText();
-      content.push({ type: 'reasoning', text: part.text });
+      const providerMetadata = thoughtProviderMetadata(part);
+      content.push({ type: 'reasoning', text: part.text, ...(providerMetadata ? { providerMetadata } : {}) });
       continue;
     }
     const fn = part.functionCall as Json | undefined;
     if (fn && typeof fn === 'object') {
       flushText();
+      const providerMetadata = thoughtProviderMetadata(part);
       content.push({
         type: 'tool-call',
         toolCallId: toolCallId(toolIndex++),
         toolName: typeof fn.name === 'string' ? fn.name : 'unknown_tool',
         input: JSON.stringify(fn.args ?? {}),
+        ...(providerMetadata ? { providerMetadata } : {}),
       });
     }
   }
@@ -466,7 +485,7 @@ function buildRequestBody(
   options: CloudCodeCallOptions,
 ): Json {
   const project = assertProject(descriptor);
-  const { contents, systemInstruction, tools } = cloudCodeRequestFromPrompt(options.prompt, options.tools);
+  const { contents, systemInstruction, tools } = cloudCodeRequestFromPrompt(options.prompt, options.tools, modelId);
 
   const generationConfig: Json = {};
   if (options.maxOutputTokens !== undefined) generationConfig.maxOutputTokens = options.maxOutputTokens;
@@ -594,6 +613,7 @@ export function createCloudCodeModel(descriptor: UpstreamDescriptor, opts: Cloud
         let finishReason: CloudCodeGenerateResult['finishReason'] | undefined;
         let textOpened = false;
         let reasoningOpened = false;
+        let lastReasoningSig: string | undefined;
         let toolIndex = 0;
         const closeText = () => {
           if (textOpened) {
@@ -603,8 +623,13 @@ export function createCloudCodeModel(descriptor: UpstreamDescriptor, opts: Cloud
         };
         const closeReasoning = () => {
           if (reasoningOpened) {
-            controller.enqueue({ type: 'reasoning-end', id: 'rsn' });
+            controller.enqueue({
+              type: 'reasoning-end',
+              id: 'rsn',
+              ...(lastReasoningSig ? { providerMetadata: { google: { thoughtSignature: lastReasoningSig } } } : {}),
+            });
             reasoningOpened = false;
+            lastReasoningSig = undefined;
           }
         };
 
@@ -619,6 +644,9 @@ export function createCloudCodeModel(descriptor: UpstreamDescriptor, opts: Cloud
             if (fn && typeof fn === 'object') sawToolCall = true;
             if (typeof p.text === 'string' && p.thought === true) {
               closeText();
+              if (typeof p.thoughtSignature === 'string' && p.thoughtSignature) {
+                lastReasoningSig = p.thoughtSignature;
+              }
               if (!reasoningOpened) {
                 controller.enqueue({ type: 'reasoning-start', id: 'rsn' });
                 reasoningOpened = true;
@@ -638,11 +666,13 @@ export function createCloudCodeModel(descriptor: UpstreamDescriptor, opts: Cloud
             if (fn && typeof fn === 'object') {
               closeReasoning();
               closeText();
+              const providerMetadata = thoughtProviderMetadata(p);
               controller.enqueue({
                 type: 'tool-call',
                 toolCallId: toolCallId(toolIndex++),
                 toolName: typeof fn.name === 'string' ? fn.name : 'unknown_tool',
                 input: JSON.stringify(fn.args ?? {}),
+                ...(providerMetadata ? { providerMetadata } : {}),
               });
             }
           }

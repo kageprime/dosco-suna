@@ -1,4 +1,5 @@
 import { type ModelMessage, type ToolChoice, type ToolSet, jsonSchema, tool } from 'ai';
+import { geminiThoughtSignatureMap } from '../../http/gemini-thought-signatures';
 
 function safeParseJson(value: unknown): unknown {
   if (typeof value !== 'string') return value ?? {};
@@ -111,6 +112,7 @@ function translateUserContent(content: unknown): string | UserContentPart[] {
 interface OpenAiToolCall {
   id?: string;
   function?: { name?: string; arguments?: string };
+  extra_content?: { google?: { thought_signature?: string } };
 }
 
 // Bedrock's Converse API and the Anthropic Messages API reject a tool_use block
@@ -196,6 +198,7 @@ export function toModelMessages(rawMessages: unknown): {
       role?: string;
       content?: unknown;
       tool_calls?: OpenAiToolCall[];
+      reasoning_details?: unknown;
       tool_call_id?: string;
       name?: string;
     };
@@ -225,16 +228,27 @@ export function toModelMessages(rawMessages: unknown): {
     if (m.role === 'assistant') {
       const parts: Array<
         | { type: 'text'; text: string }
-        | { type: 'tool-call'; toolCallId: string; toolName: string; input: unknown }
+        | {
+            type: 'tool-call';
+            toolCallId: string;
+            toolName: string;
+            input: unknown;
+            providerOptions?: { google: { thoughtSignature: string } };
+          }
       > = [];
       const text = textOf(m.content);
       if (text) parts.push({ type: 'text', text });
+      const signatures = geminiThoughtSignatureMap(m.reasoning_details);
       for (const tc of m.tool_calls ?? []) {
+        const directSig = tc?.extra_content?.google?.thought_signature;
+        const thoughtSignature =
+          (typeof directSig === 'string' && directSig) || (tc.id ? signatures.get(tc.id) : undefined);
         parts.push({
           type: 'tool-call',
           toolCallId: tc.id ?? '',
           toolName: tc.function?.name ?? '',
           input: safeParseJson(tc.function?.arguments),
+          ...(thoughtSignature ? { providerOptions: { google: { thoughtSignature } } } : {}),
         });
       }
       out.push({

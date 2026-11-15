@@ -229,7 +229,7 @@ let marketplaceLabelsCache: Map<string, string> | null = null;
 function marketplaceLabels(): Map<string, string> {
   if (marketplaceLabelsCache) return marketplaceLabelsCache;
   const labels = new Map<string, string>([
-    ["kortix", "Kortix"],
+    ["kortix", "Dosco"],
     ["anthropics/skills", "Anthropic Skills"],
     ["anthropics/knowledge-work-plugins", "Anthropic Knowledge Work"],
   ]);
@@ -238,10 +238,10 @@ function marketplaceLabels(): Map<string, string> {
   return labels;
 }
 
-/** Display label for a registry/marketplace (base → "Kortix", external → curated name). */
+/** Display label for a registry/marketplace (base → "Dosco", external → curated name). */
 export function marketplaceLabelOf(registry: string): string {
   const id = marketplaceIdOf(registry);
-  return marketplaceLabels().get(id) ?? (id === "kortix" ? "Kortix" : id);
+  return marketplaceLabels().get(id) ?? (id === "kortix" ? "Dosco" : id);
 }
 
 /** GitHub owner from a marketplace id, when it looks like `owner/repo` (for avatars). */
@@ -336,7 +336,7 @@ function buildStarterRegistry(): RegistryJson {
   const starterFloorFiles = [
     ...getManagedSkillFiles(),
     ...getStarterFiles({
-      projectName: "Kortix Starter",
+      projectName: "Dosco Starter",
       template: "general-knowledge-worker",
     }),
   ];
@@ -367,11 +367,11 @@ function buildStarterRegistry(): RegistryJson {
       starterFloorPaths.has(primaryPath)
     ) {
       // A starter-floor skill: it stands on its own in the catalog AND ships
-      // inside the Kortix Starter project, so tag it so the UI can badge it
-      // "Part of Kortix Starter" and link back to the whole project.
+      // inside the Dosco Starter project, so tag it so the UI can badge it
+      // "Part of Dosco Starter" and link back to the whole project.
       item.meta = {
         ...(item.meta ?? {}),
-        partOfProject: { id: STARTER_KIT_ITEM_ID, title: "Kortix Starter" },
+        partOfProject: { id: STARTER_KIT_ITEM_ID, title: "Dosco Starter" },
       };
     } else if (
       item.type === "registry:skill" &&
@@ -459,7 +459,7 @@ function buildProjectTemplateRegistry(): RegistryItem[] {
   return items;
 }
 
-// The marketplace hero: one synthetic "Kortix Starter" project. Its contents
+// The marketplace hero: one synthetic "Dosco Starter" project. Its contents
 // (`what's inside`) are every browseable starter skill — resolved typed from the
 // catalog by name — and its files are the whole starter kit (file browser +
 // clone). This is the single project we lead the marketplace with; individual
@@ -470,19 +470,19 @@ export const STARTER_KIT_ITEM_ID = `kortix-projects:${STARTER_KIT_ITEM_NAME}`;
 // The second synthetic project: the Use-case pack. One browse tile that groups
 // every use-case runbook skill + persona agent from the marketplace template
 // layer (`packages/starter/templates/marketplace/runtime/**`) — visible and
-// clonable in the marketplace, but never advertised as Kortix Starter content.
+// clonable in the marketplace, but never advertised as Dosco Starter content.
 export const USE_CASE_PACK_ITEM_NAME = "use-case-pack";
 export const USE_CASE_PACK_ITEM_ID = `kortix-projects:${USE_CASE_PACK_ITEM_NAME}`;
 export const USE_CASE_PACK_TITLE = "Use-case pack";
 
-const STARTER_KIT_README = `# Kortix Starter
+const STARTER_KIT_README = `# Dosco Starter
 
-The default Kortix workspace — a general knowledge worker that's ready to do real
+The default workspace — a general knowledge worker that's ready to do real
 work from the very first message.
 
-It comes preloaded with the core Kortix skill floor: documents (PDF, DOCX,
+It comes preloaded with the core skill floor: documents (PDF, DOCX,
 XLSX) and slides, web apps and websites, browser automation, publishing and
-deployments, and design foundations. The managed Kortix platform skills
+deployments, and design foundations. The managed platform skills
 (sessions, memory, the CLI) are injected into every session automatically.
 More skills — research, outreach, and per-role runbooks — are one install away
 in the marketplace.
@@ -530,9 +530,9 @@ function buildStarterKitProjectItem(): RegistryItem {
   return {
     name: STARTER_KIT_ITEM_NAME,
     type: "registry:project",
-    title: "Kortix Starter",
+    title: "Dosco Starter",
     description:
-      "The default Kortix workspace — a general knowledge worker preloaded with the core skill floor (documents, slides, spreadsheets, web apps, browser automation, and more), ready to work from the first session.",
+      "The default workspace — a general knowledge worker preloaded with the core skill floor (documents, slides, spreadsheets, web apps, browser automation, and more), ready to work from the first session.",
     categories: ["project", "starter"],
     registryDependencies: skillNames,
     files,
@@ -542,14 +542,14 @@ function buildStarterKitProjectItem(): RegistryItem {
 
 const USE_CASE_PACK_README = `# Use-case pack
 
-Every Kortix use-case runbook in one place: the day-to-day operations playbooks
+Every Dosco use-case runbook in one place: the day-to-day operations playbooks
 (sales, finance, support, recruiting, engineering, and more) plus the persona
 agents that run them.
 
 ## How to use it
 
 - **Guided (recommended):** each use case installs individually through the
-  [use-case pages](https://kortix.com/use-cases) — the wizard wires the agent,
+  [use-case pages](https://dosco.live/use-cases) — the wizard wires the agent,
   its skill, grants, and any scheduled trigger into your project.
 - **Bulk clone:** clone this pack as a project to get every runbook skill under
   \`skills/\` and every persona agent file under \`agents/\`. Agent files ship
@@ -597,7 +597,7 @@ function buildUseCasePackProjectItem(): RegistryItem {
     type: "registry:project",
     title: USE_CASE_PACK_TITLE,
     description:
-      "Every Kortix use-case runbook and persona agent in one pack — sales, finance, support, recruiting, engineering ops, and more. Install use cases one at a time from the use-case pages, or clone the whole pack.",
+      "Every Dosco use-case runbook and persona agent in one pack — sales, finance, support, recruiting, engineering ops, and more. Install use cases one at a time from the use-case pages, or clone the whole pack.",
     categories: ["project", "use-case"],
     registryDependencies: skillNames,
     files,
@@ -607,7 +607,7 @@ function buildUseCasePackProjectItem(): RegistryItem {
 
 let BASE: Catalog | null = null;
 
-const KORTIX_REPO = "https://github.com/kortix-ai/CompanyOS";
+const KORTIX_REPO = "https://github.com/kageprime/dosco-suna";
 
 /** Source-of-truth GitHub path for a bundled `kortix-projects` item — these
  *  are real files in this repo, not a synthetic/external registry, so "View

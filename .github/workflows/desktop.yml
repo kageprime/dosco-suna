@@ -8,7 +8,7 @@ name: Desktop
 # It builds only when manually dispatched (since 2026-10-03: a push to dev
 # touching apps/desktop-electron/** no longer builds; macOS bills at 10x and
 # Windows at 2x GitHub-hosted minutes). Signed installers are published to the mutable `desktop-<channel>-latest`
-# prerelease: `dev` opens dev.kortix.com, `staging` opens staging.kortix.com.
+# prerelease: `dev` opens dev.dosco.live, `staging` opens staging.dosco.live.
 # Each deployment's /download serves its own channel
 # (apps/web/src/features/marketing/download/releases.ts).
 #
@@ -26,7 +26,7 @@ on:
 
 env:
   CHANNEL: ${{ inputs.channel || 'dev' }}
-  PRODUCT_NAME: ${{ inputs.channel == 'staging' && 'Kortix Staging' || 'Kortix Dev' }}
+  PRODUCT_NAME: ${{ inputs.channel == 'staging' && 'Dosco Staging' || 'Dosco Dev' }}
 
 concurrency:
   group: desktop-${{ inputs.channel || 'dev' }}
@@ -41,9 +41,9 @@ jobs:
       id-token: write # OIDC -> AWS Secrets Manager (.github/actions/aws-env)
     env:
       # Baked into the app so the shell points at its deployment by default.
-      DESKTOP_URL: https://${{ inputs.channel || 'dev' }}.kortix.com/workspaces
+      DESKTOP_URL: https://${{ inputs.channel || 'dev' }}.dosco.live/workspaces
       # Distinct bundle id so dev, staging and prod installs sit side by side.
-      DESKTOP_APP_ID: com.kortix.desktop.${{ inputs.channel || 'dev' }}
+      DESKTOP_APP_ID: live.dosco.desktop.${{ inputs.channel || 'dev' }}
     strategy:
       fail-fast: false
       matrix:
@@ -343,6 +343,6 @@ jobs:
           generate_release_notes: false
           body: |
             Mutable ${{ env.CHANNEL }} desktop build for `${{ github.sha }}`.
-            Defaults to `https://${{ env.CHANNEL }}.kortix.com/workspaces`.
+            Defaults to `https://${{ env.CHANNEL }}.dosco.live/workspaces`.
           files: |
             release/*

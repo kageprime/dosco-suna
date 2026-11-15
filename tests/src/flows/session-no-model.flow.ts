@@ -86,7 +86,7 @@ flow(
           .body()
           .has('$.code', 'no_model_available')
           .has('$.plan_upgrade', false)
-          .has('$.error', 'No model: add a provider key or turn on Kortix Managed Models in Models.');
+          .has('$.error', 'No model: add a provider key or turn on Dosco Managed Models in Models.');
         return;
       }
       created.status(201);

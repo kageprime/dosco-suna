@@ -631,8 +631,8 @@ export async function resolveCandidates(
       throw new GatewayResolutionError(
         'model_retired',
         named
-          ? `The "${effectiveModel}" model was retired from Kortix's managed lineup. Use "${named}" instead.`
-          : `The "${effectiveModel}" model was retired from Kortix's managed lineup.`,
+          ? `The "${effectiveModel}" model was retired from Dosco's managed lineup. Use "${named}" instead.`
+          : `The "${effectiveModel}" model was retired from Dosco's managed lineup.`,
         named
           ? `Switch to "${named}", or choose another model from the current lineup.`
           : 'Choose another model from the current managed lineup.',

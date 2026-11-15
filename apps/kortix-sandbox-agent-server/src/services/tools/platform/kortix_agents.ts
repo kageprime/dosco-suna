@@ -85,10 +85,24 @@ interface PickerModel {
   availability?: 'login' | 'provider'
 }
 
+interface SubscriptionPickerGroup {
+  connected?: boolean
+  models?: Array<{
+    id: string
+    name?: string
+    description?: string
+    limit?: { context?: number }
+    efforts?: string[]
+    connected?: boolean
+    unavailable?: boolean
+  }>
+}
+
 interface ModelPicker {
   models?: Record<string, PickerModel>
   defaultModel?: string
-  claudeSubscription?: { connected?: boolean; models?: Array<{ id: string; name?: string; description?: string; limit?: { context?: number }; efforts?: string[]; connected?: boolean }> }
+  claudeSubscription?: SubscriptionPickerGroup
+  antigravitySubscription?: SubscriptionPickerGroup
 }
 
 /** A model a spawn may name, as the model reads it. */
@@ -112,7 +126,7 @@ const FAST_NAME = /\b(flash|mini|nano|lite|haiku|fast|turbo|small|air)\b/i
 function defaultRefOf(picker: ModelPicker): string | null {
   const wire = picker.defaultModel
   if (!wire) return null
-  if (wire.startsWith('claude-agent/')) return wire
+  if (wire.startsWith('claude-agent/') || wire.startsWith('antigravity/')) return wire
   return `${KORTIX_REF}${wire.replace(/^kortix\//, '')}`
 }
 
@@ -146,20 +160,27 @@ function usableModels(picker: ModelPicker): UsableModel[] {
         ...(model.description ? { description: model.description } : {}),
       }
     })
-  const claude = picker.claudeSubscription?.connected
-    ? (picker.claudeSubscription.models ?? [])
-        .filter((model) => model.connected !== false)
-        .map((model): UsableModel => ({
-          id: model.id,
-          name: model.name || model.id,
-          provider: 'Claude subscription',
-          good_for: strengths(model.id, { name: model.name, reasoning: (model.efforts?.length ?? 0) > 0 }),
-          ...(model.limit?.context ? { context: model.limit.context } : {}),
-          default: model.id === fallback,
-          ...(model.description ? { description: model.description } : {}),
-        }))
-    : []
-  return [...gateway, ...claude].sort((a, b) => Number(b.default) - Number(a.default) || a.name.localeCompare(b.name))
+  const subscriptionModels = (
+    group: SubscriptionPickerGroup | undefined,
+    providerLabel: string,
+  ): UsableModel[] =>
+    group?.connected
+      ? (group.models ?? [])
+          .filter((model) => model.connected !== false && model.unavailable !== true)
+          .map((model): UsableModel => ({
+            id: model.id,
+            name: model.name || model.id,
+            provider: providerLabel,
+            good_for: strengths(model.id, { name: model.name, reasoning: (model.efforts?.length ?? 0) > 0 }),
+            ...(model.limit?.context ? { context: model.limit.context } : {}),
+            default: model.id === fallback,
+            ...(model.description ? { description: model.description } : {}),
+          }))
+      : []
+
+  const claude = subscriptionModels(picker.claudeSubscription, 'Claude subscription')
+  const antigravity = subscriptionModels(picker.antigravitySubscription, 'Google Antigravity subscription')
+  return [...gateway, ...claude, ...antigravity].sort((a, b) => Number(b.default) - Number(a.default) || a.name.localeCompare(b.name))
 }
 
 /** The most offered-but-not-runnable models `models` names; the rest are counted. */

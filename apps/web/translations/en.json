@@ -188,7 +188,22 @@
     "claudeDeleteAccountConfirmTitle": "Delete this Claude account for everyone?",
     "sharedOnlyYouDescription": "Add API keys, ChatGPT accounts and Claude accounts. Only you can use the ones you add. A workspace manager can share one. Choose which ones each session uses.",
     "oauthOnlyYouDescription": "Use your ChatGPT Plus or Pro plan in this workspace. Only you can use the accounts you add.",
-    "claudeOauthOnlyYouDescription": "Use your Claude Pro or Max plan for Claude models in this workspace. Only you can use the accounts you add."
+    "claudeOauthOnlyYouDescription": "Use your Claude Pro or Max plan for Claude models in this workspace. Only you can use the accounts you add.",
+    "antigravityAccounts": "Google Antigravity accounts",
+    "noAntigravityAccounts": "No Google Antigravity accounts yet",
+    "connectAntigravity": "Sign in with Google",
+    "antigravityOauthPrivateDescription": "Use your Google AI Pro or Ultra plan for Gemini and frontier partner models in this workspace. New accounts are shared with every workspace member. You can make one private.",
+    "antigravityOauthOnlyYouDescription": "Use your Google AI Pro or Ultra plan for Gemini and frontier partner models in this workspace. Only you can use the accounts you add.",
+    "antigravityOauthCreationDescription": "Sign in with the Google account that has your Google AI Pro or Ultra plan. Dosco stores the login encrypted and never shows it.",
+    "antigravityDefaultAccountLabel": "Google Antigravity · {name}",
+    "antigravityAccountConnected": "Google Antigravity account connected",
+    "antigravityAccountReconnected": "Google Antigravity account reconnected",
+    "antigravityConnectFailed": "The Google Antigravity sign-in did not finish. Try again.",
+    "antigravityReconnectDescription": "Sign in with Google again. The account keeps its name, access, and session selections.",
+    "antigravityAccountLabelPlaceholder": "e.g. My Google Antigravity account",
+    "antigravityDeleteAccountConfirmTitle": "Delete this Google Antigravity account for everyone?",
+    "legacyAntigravityLogin": "Workspace Google Antigravity login",
+    "legacyAntigravityDescription": "Connected before individual Google Antigravity accounts were supported. Still works for every session in the workspace."
   },
   "secrets": {
     "undecryptable": {
@@ -26614,9 +26629,9 @@
   "antigravitySubscription": {
     "title": "Use your Google Antigravity subscription",
     "description": "Run Gemini and frontier partner models on your Google AI Pro or Ultra subscription. Only your sessions use your plan.",
-    "starting": "Starting Google sign-in…",
-    "approveDescription": "Sign in with the Google account that has your Antigravity subscription and approve the request on google.com/device.",
-    "deviceDescription": "Follow the instructions on google.com/device to connect your Antigravity subscription.",
+    "starting": "Opening Google sign-in…",
+    "approveDescription": "Sign in with the Google account that has your plan and approve access. Google redirects to a local address that will not load — copy the full URL from your browser address bar and paste it below.",
+    "deviceDescription": "Sign in with Google and paste the redirect URL from your browser address bar to connect your Antigravity subscription.",
     "connect": "Connect Google Antigravity",
     "connecting": "Connecting…",
     "connectedTitle": "Your Google Antigravity subscription is connected",
@@ -26625,7 +26640,10 @@
     "disconnected": "Google Antigravity subscription disconnected",
     "startError": "Could not start the Google Antigravity sign-in. Try again.",
     "connectAntigravity": "Sign in with Google Antigravity",
-    "reconnectAntigravity": "Reconnect Google Antigravity"
+    "reconnectAntigravity": "Reconnect Google Antigravity",
+    "codeLabel": "Redirect URL or code from Google",
+    "codeError": "Could not connect Google Antigravity with that redirect URL or code. Sign in again and paste the new redirect URL.",
+    "manualToggle": "Or paste OAuth JSON / ya29. token manually"
   },
   "contextReset": {
     "pill": "Fresh context · full history kept",

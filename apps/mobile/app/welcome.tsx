@@ -91,7 +91,7 @@ export default function WelcomeScreen() {
       await openExternalUrl(getWebBillingUrl());
       router.replace('/new');
     } catch {
-      toast.error(t('billing.openWebFailed', 'Could not open kortix.com. Try again.'));
+      toast.error(t('billing.openWebFailed', 'Could not open dosco.live. Try again.'));
     } finally {
       setOpening(false);
     }

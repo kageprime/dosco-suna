@@ -832,7 +832,7 @@ export function noModelAvailableBody(freeModelsOnly: boolean): { error: string; 
   return {
     error: freeModelsOnly
       ? 'No model: upgrade to the Credits plan or add your own provider key.'
-      : 'No model: add a provider key or turn on Kortix Managed Models in Models.',
+      : 'No model: add a provider key or turn on Dosco Managed Models in Models.',
     code: 'no_model_available',
     // The Free plan has no managed models; upgrading is one of the two fixes.
     plan_upgrade: freeModelsOnly,

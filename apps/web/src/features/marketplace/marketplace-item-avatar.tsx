@@ -60,7 +60,7 @@ const APP_LOGOS: Record<string, string> = {
 };
 
 // Same box as the EntityAvatar size it stands in for; a white tile with no
-// border in both themes, like the Kortix source tile.
+// border in both themes, like the Dosco source tile.
 const LOGO_TILE_COLORS = 'bg-white';
 const LOGO_TILE: Record<'sm' | 'md' | 'lg', { box: string; logo: string }> = {
   sm: { box: 'size-8 rounded-md', logo: 'size-6' },

@@ -258,7 +258,7 @@ export function ProviderSheet({
     else if (data.canWrite) push(`API key  ${entry.envVars.join(' · ')}`, theme.faint);
     else push('Ask an owner of this workspace to add a key.', theme.faint);
     if (entry.helpUrl) push(`Get a key from ${entry.label}: ${entry.helpUrl}`, theme.faint);
-    push('Stored encrypted. Kortix never shows it again.', theme.faint);
+    push('Stored encrypted. Dosco never shows it again.', theme.faint);
     hint = data.canWrite ? (keyConnected ? 'K replace · d remove key · Esc back' : 'K add key · Esc back') : 'Esc back';
   }
 
@@ -266,7 +266,7 @@ export function ProviderSheet({
     push('');
     push(
       layoutRow(
-        `Enable ${entry.id === 'kortix' ? 'Kortix Managed Models' : entry.label}`,
+        `Enable ${entry.id === 'kortix' ? 'Dosco Managed Models' : entry.label}`,
         data.accessUpdating ? '…' : enabled ? 'on' : 'off',
         inner,
       ),

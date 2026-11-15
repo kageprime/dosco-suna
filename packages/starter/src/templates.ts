@@ -13,10 +13,10 @@ export { TEMPLATE_IDS, type TemplateId };
 export interface TemplateSecret {
   name: string;
   required: boolean;
-  /** `sandbox`: the agents' environment. `connector`: only Kortix reads it (webhook secrets). */
+  /** `sandbox`: the agents' environment. `connector`: only Dosco reads it (webhook secrets). */
   delivery: 'sandbox' | 'connector';
   why: string;
-  /** Kortix may generate a random value: nobody has to bring one. */
+  /** Dosco may generate a random value: nobody has to bring one. */
   generate?: boolean;
 }
 

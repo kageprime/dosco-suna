@@ -386,7 +386,7 @@ export async function assertLlmBillingActive(
     // account without the entitlement is refused here even if resolution let
     // it through.
     if (opts?.creditsRequest) {
-      throw new BillingGateError('plan_upgrade_required', 0, 'Kortix-managed models require a paid plan.', accountId);
+      throw new BillingGateError('plan_upgrade_required', 0, 'Dosco-managed models require a paid plan.', accountId);
     }
     return;
   }

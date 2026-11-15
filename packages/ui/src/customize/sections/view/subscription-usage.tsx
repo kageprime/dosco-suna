@@ -27,7 +27,11 @@ export { accountLine, isBlockingWindow, loginLimit, modelName, SubscriptionRowMe
 const SUBSCRIPTION_PROVIDERS = new Set(['codex', 'claude-agent', 'antigravity']);
 
 /** The provider-list row that carries each subscription login's usage. */
-export const SUBSCRIPTION_ROW: Readonly<Record<string, string>> = { codex: 'openai', 'claude-agent': 'anthropic' };
+export const SUBSCRIPTION_ROW: Readonly<Record<string, string>> = {
+  codex: 'openai',
+  'claude-agent': 'anthropic',
+  antigravity: 'google',
+};
 
 /** A snapshot older than this says when it was observed. */
 const STALE_MS = 10 * 60 * 1000;

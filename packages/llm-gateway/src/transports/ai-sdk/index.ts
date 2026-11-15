@@ -228,12 +228,15 @@ export async function openStream(
 // callUpstreamViaAiSdk's Codex/non-streaming branch runs, against a real
 // `streamText()` result from a mock model, without needing network access.
 export function mapToolCalls(
-  toolCalls: ReadonlyArray<{ toolCallId: string; toolName: string; input?: unknown }> | undefined,
-): Array<{ toolCallId: string; toolName: string; input: unknown }> | undefined {
+  toolCalls:
+    | ReadonlyArray<{ toolCallId: string; toolName: string; input?: unknown; providerMetadata?: Record<string, unknown> }>
+    | undefined,
+): Array<{ toolCallId: string; toolName: string; input: unknown; providerMetadata?: Record<string, unknown> }> | undefined {
   return toolCalls?.map((tc) => ({
     toolCallId: tc.toolCallId,
     toolName: tc.toolName,
     input: tc.input,
+    ...(tc.providerMetadata ? { providerMetadata: tc.providerMetadata } : {}),
   }));
 }
 

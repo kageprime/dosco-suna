@@ -1,7 +1,7 @@
 'use client';
 
 import { ChatGptDeviceChallenge } from './chatgpt-device-challenge';
-import { AntigravityCredentialsStep } from './antigravity-credentials-step';
+import { AntigravitySignInStep } from './antigravity-credentials-step';
 import { Button } from '../../../primitives/button';
 import { Alert as BannerAlert, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '../../../primitives/alert';
 import Loading from '../../../primitives/loading';
@@ -112,7 +112,7 @@ export function useSubscriptionSignIn({
     reconnect: tAntigravity('reconnectAntigravity') || 'Reconnect Google Antigravity',
     disconnect: tAntigravity('disconnect') || 'Disconnect',
     connecting: tAntigravity('starting') || 'Starting sign-in...',
-    deviceDescription: tAntigravity('deviceDescription') || 'Follow instructions on google.com/device to connect your Antigravity subscription.',
+    deviceDescription: tAntigravity('deviceDescription') || 'Sign in with Google and paste the redirect URL from your browser address bar.',
     failed: tAntigravity('startError') || 'Failed to connect Google Antigravity',
   } : chatgpt ? {
     title: tHardcodedUi.raw('autoComponentsProjectsProjectProviderModalJsxTextChatGPTPlusPro0deb5530'),
@@ -142,8 +142,8 @@ export function useSubscriptionSignIn({
   const [phase, setPhase] = useState<ChatGptPhase>('idle');
   const [error, setError] = useState<string | null>(null);
   const [challenge, setChallenge] = useState<ChatGptChallenge | null>(null);
-  /** Claude: the sign-in the pasted code completes, and whether it is being checked. */
-  const [claudeFlow, setClaudeFlow] = useState<string | null>(null);
+  /** Redirect/code OAuth flow id (Claude setup-token or Google Antigravity PKCE). */
+  const [redirectFlow, setRedirectFlow] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   // One generation per sign-in run: Cancel then Connect must not revive the
   // old loop (see `createRunGeneration`).
@@ -156,66 +156,93 @@ export function useSubscriptionSignIn({
   const reset = useCallback(() => {
     runs.cancel();
     setChallenge(null);
-    setClaudeFlow(null);
+    setRedirectFlow(null);
     setChecking(false);
     setError(null);
     setPhase('idle');
   }, [runs]);
 
-  const claudeConnected = useCallback(async () => {
+  const redirectFlowConnected = useCallback(async () => {
     setPhase('done');
     setChallenge(null);
-    setClaudeFlow(null);
+    setRedirectFlow(null);
     successToast(copy.connectedToast);
-    await queryClient.invalidateQueries({ queryKey: claudeSubscriptionKey(projectId) });
+    if (claude) {
+      await queryClient.invalidateQueries({ queryKey: claudeSubscriptionKey(projectId) });
+    } else {
+      await queryClient.invalidateQueries({ queryKey: qk.project.secrets(projectId) });
+      await queryClient.invalidateQueries({ queryKey: providerLoginsKey(projectId) });
+    }
     void queryClient.invalidateQueries({ queryKey: ['account-secret-resources'] });
-    refreshProjectProviderState(queryClient, projectId);
+    refreshProjectProviderState(queryClient, projectId, antigravity ? { expectProviderId: subscription.providerId } : undefined);
     onConnected(subscription.providerId);
-  }, [copy.connectedToast, onConnected, projectId, queryClient, subscription.providerId]);
+  }, [antigravity, claude, copy.connectedToast, onConnected, projectId, queryClient, subscription.providerId]);
 
-  /** Claude: start `claude setup-token` and open claude.com. The tab opens inside the click, so a popup blocker lets it through. */
-  const startClaude = useCallback(async () => {
+  /** Claude / Antigravity: start redirect OAuth and open the authorize tab inside the click. */
+  const startRedirectAuth = useCallback(async () => {
     const isCancelled = runs.begin();
     setError(null);
     setChallenge(null);
     setPhase('waiting');
     const popup = typeof window === 'undefined' ? null : window.open('about:blank', '_blank');
     try {
-      const started = await startClaudeSubscriptionLogin(projectId);
+      let flowId: string;
+      let authorizeUrl: string;
+      if (claude) {
+        const started = await startClaudeSubscriptionLogin(projectId);
+        flowId = started.flow_id;
+        authorizeUrl = started.authorize_url;
+      } else {
+        const started = await startProjectProviderOAuth(projectId, 'google', {});
+        flowId = started.flow_id;
+        authorizeUrl = started.authorize_url ?? started.verification_url;
+      }
       if (isCancelled()) {
         popup?.close();
         return;
       }
-      setClaudeFlow(started.flow_id);
-      setChallenge({ url: started.authorize_url, code: null });
-      if (popup && !popup.closed) popup.location.href = started.authorize_url;
+      setRedirectFlow(flowId);
+      setChallenge({ url: authorizeUrl, code: null });
+      if (popup && !popup.closed) popup.location.href = authorizeUrl;
     } catch (err) {
       popup?.close();
       if (isCancelled()) return;
       setPhase('idle');
       setError(err instanceof Error && err.message ? err.message : copy.failed);
     }
-  }, [copy.failed, projectId, runs]);
+  }, [claude, copy.failed, projectId, runs]);
 
-  /** Claude: hand the code claude.com showed to the sign-in. A refused code ends it: the next try signs in again. */
+  /** Claude / Antigravity: complete redirect OAuth with the pasted code or callback URL. */
   const submitCode = useCallback(async (code: string) => {
-    if (!claudeFlow || !code.trim()) return;
+    if (!redirectFlow || !code.trim()) return;
     const isCancelled = runs.current();
     setChecking(true);
     setError(null);
     try {
-      await completeClaudeSubscriptionLogin(projectId, { flowId: claudeFlow, code: code.trim() });
-      if (!isCancelled()) await claudeConnected();
+      if (claude) {
+        await completeClaudeSubscriptionLogin(projectId, { flowId: redirectFlow, code: code.trim() });
+      } else {
+        const res = await pollProjectProviderOAuth(projectId, 'google', redirectFlow, code.trim());
+        if (res.status !== 'success') {
+          if (res.status === 'pending') {
+            setError(tAntigravity('codeError'));
+            return;
+          }
+          throw new Error(res.status === 'failed' ? res.error : copy.failed);
+        }
+      }
+      if (!isCancelled()) await redirectFlowConnected();
     } catch (err) {
       if (isCancelled()) return;
       setPhase('idle');
       setChallenge(null);
-      setClaudeFlow(null);
-      setError(err instanceof Error && err.message ? err.message : tClaude('codeError'));
+      setRedirectFlow(null);
+      const fallback = claude ? tClaude('codeError') : tAntigravity('codeError');
+      setError(err instanceof Error && err.message ? err.message : fallback);
     } finally {
       setChecking(false);
     }
-  }, [claudeConnected, claudeFlow, projectId, tClaude, runs]);
+  }, [claude, copy.failed, projectId, redirectFlow, redirectFlowConnected, runs, tAntigravity, tClaude]);
 
   const submitAntigravityCredentials = useCallback(async (raw: string) => {
     const isCancelled = runs.begin();
@@ -269,17 +296,7 @@ export function useSubscriptionSignIn({
   }, [projectId, queryClient, onConnected, subscription.providerId, copy.connectedToast, copy.failed, runs]);
 
   const handleConnect = useCallback(async () => {
-    if (claude) return startClaude();
-    if (antigravity) {
-      // Antigravity has no sign-in a web page can complete: Google's
-      // installed-app client redirects only to a loopback address the browser
-      // cannot hand back. Show the credential paste step directly.
-      runs.begin();
-      setError(null);
-      setChallenge(null);
-      setPhase('waiting');
-      return;
-    }
+    if (claude || antigravity) return startRedirectAuth();
     const isCancelled = runs.begin();
     setError(null);
     setChallenge(null);
@@ -303,7 +320,7 @@ export function useSubscriptionSignIn({
           onConnected(subscription.providerId);
       },
     });
-  }, [claude, antigravity, startClaude, projectId, queryClient, onConnected, subscription, copy.connectedToast, copy.failed, runs]);
+  }, [claude, antigravity, startRedirectAuth, projectId, queryClient, onConnected, subscription, copy.connectedToast, copy.failed, runs]);
 
   // What the PROJECT holds, not what this component remembers doing. A
   // credential connected in another tab, another surface, or before this page
@@ -406,8 +423,8 @@ export function useSubscriptionSignIn({
     start: handleConnect,
     cancel: reset,
     disconnect,
-    /** Claude only: the member pastes the code claude.com shows (`submitCode`) instead of typing one into the provider. */
-    pastesCode: claude,
+    /** Claude & Antigravity: the member pastes a code or callback URL instead of polling a device grant. */
+    pastesCode: claude || antigravity,
     submitCode,
     submitAntigravityCredentials,
     isAntigravity: antigravity,
@@ -445,6 +462,7 @@ export function ChatGptSubscriptionConnect({
     start: handleConnect,
     cancel: reset,
     disconnect,
+    submitCode,
     submitAntigravityCredentials,
     isAntigravity,
     checking,
@@ -459,10 +477,10 @@ export function ChatGptSubscriptionConnect({
         <ProviderLogo providerID={subscription.logo} name={subscription.logoName} size="default" />
         <div className="min-w-0 flex-1">
           <div className="text-foreground text-sm font-medium">
-            {legacyOnly ? tPooled('legacyChatGptLogin') : copy.title}
+            {legacyOnly ? tPooled(isAntigravity ? 'legacyAntigravityLogin' : 'legacyChatGptLogin') : copy.title}
           </div>
           <p className="text-muted-foreground mt-0.5 text-xs leading-5">
-            {legacyOnly ? tPooled('legacyChatGptDescription') : copy.description}
+            {legacyOnly ? tPooled(isAntigravity ? 'legacyAntigravityDescription' : 'legacyChatGptDescription') : copy.description}
           </p>
         </div>
         {accessSlot}
@@ -471,9 +489,11 @@ export function ChatGptSubscriptionConnect({
 
       {waiting && isAntigravity && (
         <div className="mt-3">
-          <AntigravityCredentialsStep
-            saving={checking}
-            onSubmit={(raw) => void submitAntigravityCredentials(raw)}
+          <AntigravitySignInStep
+            url={challenge?.url ?? null}
+            checking={checking}
+            onSubmitCode={(code) => void submitCode(code)}
+            onSubmitCredentials={(raw) => void submitAntigravityCredentials(raw)}
           />
         </div>
       )}

@@ -21,10 +21,24 @@ describe('parseAntigravityAuth', () => {
     expect(parseAntigravityAuth('hello world')).toBeNull();
   });
 
-  test('a wrapped JSON keeps its Cloud Code project', () => {
+  test('a wrapped JSON keeps its Cloud Code project and custom OAuth client credentials', () => {
     const parsed = parseAntigravityAuth(
-      JSON.stringify({ antigravity: { access: 'ya29.x', refresh: '1//r', project: 'proj-1' } }),
+      JSON.stringify({
+        antigravity: {
+          access: 'ya29.x',
+          refresh: '1//r',
+          project: 'proj-1',
+          client_id: 'cid-123',
+          client_secret: 'csec-456',
+        },
+      }),
     );
-    expect(parsed).toMatchObject({ access: 'ya29.x', refresh: '1//r', project: 'proj-1' });
+    expect(parsed).toMatchObject({
+      access: 'ya29.x',
+      refresh: '1//r',
+      project: 'proj-1',
+      client_id: 'cid-123',
+      client_secret: 'csec-456',
+    });
   });
 });

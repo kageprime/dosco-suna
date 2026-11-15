@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 const PROJECT_ID = '11111111-1111-4111-8111-111111111111';
 const ACCOUNT_ID = '22222222-2222-4222-8222-222222222222';
@@ -70,6 +70,16 @@ mock.module('../../secrets/account-resource', () => ({
 const { resolveAntigravityCredential } = await import('./antigravity');
 
 describe('resolveAntigravityCredential', () => {
+  const realFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    globalThis.fetch = (async () => new Response('{}', { status: 404 })) as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
   test('returns null when no secret exists', async () => {
     projectSecretValue = null;
     projectSecretName = null;
@@ -125,5 +135,48 @@ describe('resolveAntigravityCredential', () => {
     const cred = await resolveAntigravityCredential(PROJECT_ID, USER_ID, ACCOUNT_ID);
     expect(cred).not.toBeNull();
     expect(cred?.access).toBe('ya29.account-resource-token');
+  });
+
+  test('refreshes refresh-only secret using embedded client credentials and refuses expired token if refresh fails', async () => {
+    const realFetch = globalThis.fetch;
+    try {
+      projectSecretName = 'ANTIGRAVITY_AUTH_JSON';
+      projectSecretValue = JSON.stringify({
+        refresh_token: '1//refresh-only',
+        client_id: 'imported-client-id',
+        client_secret: 'imported-client-secret',
+      });
+
+      let refreshBody = '';
+      globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url === 'https://oauth2.googleapis.com/token') {
+          refreshBody = String(init?.body ?? '');
+          return new Response(JSON.stringify({ access_token: 'ya29.refreshed', expires_in: 3600 }), { status: 200 });
+        }
+        if (url.includes(':loadCodeAssist')) {
+          return new Response(JSON.stringify({ cloudaicompanionProject: 'proj-from-cloudcode' }), { status: 200 });
+        }
+        return new Response('{}', { status: 404 });
+      }) as unknown as typeof fetch;
+
+      const cred = await resolveAntigravityCredential(PROJECT_ID, USER_ID, ACCOUNT_ID);
+      expect(cred?.access).toBe('ya29.refreshed');
+      expect(cred?.project).toBe('proj-from-cloudcode');
+      expect(refreshBody).toContain('client_id=imported-client-id');
+      expect(refreshBody).toContain('client_secret=imported-client-secret');
+
+      // Expired access token must return null if refresh fails
+      projectSecretValue = JSON.stringify({
+        access: 'ya29.expired',
+        refresh: '1//revoked',
+        expires: Date.now() - 60_000,
+      });
+      globalThis.fetch = (async () => new Response('invalid_grant', { status: 400 })) as unknown as typeof fetch;
+      const dead = await resolveAntigravityCredential(PROJECT_ID, USER_ID, ACCOUNT_ID);
+      expect(dead).toBeNull();
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   });
 });

@@ -84,7 +84,7 @@ describe('the starter manifest is the one kortix.yaml format', () => {
     }
   });
 
-  test('it turns My Kortix on and makes it the default agent', () => {
+  test('it turns Xera on and makes it the default agent', () => {
     const manifest = parseManifestText(manifestFor()) as { builtin_agents?: unknown; default_agent?: unknown };
     expect(manifest.builtin_agents).toEqual({ my_kortix: true });
     expect(manifest.default_agent).toBe('mykortix');
@@ -132,7 +132,7 @@ describe('the starter manifest is the one kortix.yaml format', () => {
     expect(paths).toContain('agents/worker.md');
   });
 
-  test('ships no maintenance agents: one worker agent, My Kortix runs it', () => {
+  test('ships no maintenance agents: one worker agent, Xera runs it', () => {
     const paths = filesFor().map((file) => file.path);
     expect(paths.filter((path) => path.startsWith('agents/'))).toEqual(['agents/worker.md']);
     const manifest = manifestFor();

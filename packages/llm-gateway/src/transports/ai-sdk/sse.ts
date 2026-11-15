@@ -1,10 +1,25 @@
 import type { FinishReason, LanguageModelUsage } from 'ai';
 import { looksLikeTerminalAuthFailure } from '../../errors';
+import { GEMINI_SIGNATURE_FORMAT } from '../../http/gemini-thought-signatures';
 import {
   extractUpstreamErrorDetail,
   isGenericStatusText,
   parseUpstreamErrorBody,
 } from '../../http/parse-upstream-error';
+
+function geminiThoughtSignatureOf(part: unknown): string | undefined {
+  if (!part || typeof part !== 'object') return undefined;
+  const meta = (part as { providerMetadata?: unknown }).providerMetadata;
+  if (!meta || typeof meta !== 'object') return undefined;
+  const google = (meta as { google?: unknown }).google;
+  if (!google || typeof google !== 'object') return undefined;
+  const sig = (google as { thoughtSignature?: unknown }).thoughtSignature;
+  return typeof sig === 'string' && sig ? sig : undefined;
+}
+
+function geminiReasoningDetail(id: string, data: string, index: number) {
+  return { type: 'reasoning.encrypted', id, data, format: GEMINI_SIGNATURE_FORMAT, index };
+}
 
 // Adapts the AI SDK's provider-neutral stream/result back into the OpenAI
 // chat.completions SSE + JSON shapes the gateway pipeline (probe, relay, usage
@@ -237,7 +252,14 @@ export function openAiSseFromFullStream(
           }
           case 'tool-call': {
             const tid = part.toolCallId as string;
-            if (streamedArgs.has(tid)) break; // already streamed via input-delta or an earlier tool-call
+            const sig = geminiThoughtSignatureOf(part);
+            if (streamedArgs.has(tid)) {
+              const opened = toolIndex.get(tid);
+              if (opened !== undefined && sig) {
+                emit(delta({ reasoning_details: [geminiReasoningDetail(tid, sig, opened)] }));
+              }
+              break; // already streamed via input-delta or an earlier tool-call
+            }
             streamedArgs.add(tid);
             const opened = toolIndex.get(tid);
             if (opened !== undefined) {
@@ -246,6 +268,7 @@ export function openAiSseFromFullStream(
               emit(
                 delta({
                   tool_calls: [{ index: opened, function: { arguments: JSON.stringify(part.input ?? {}) } }],
+                  ...(sig ? { reasoning_details: [geminiReasoningDetail(tid, sig, opened)] } : {}),
                 }),
               );
               break;
@@ -268,6 +291,7 @@ export function openAiSseFromFullStream(
                     },
                   },
                 ],
+                ...(sig ? { reasoning_details: [geminiReasoningDetail(tid, sig, index)] } : {}),
               }),
             );
             break;
@@ -465,7 +489,7 @@ export function openAiJsonFromResult(
   result: {
     text: string;
     reasoningText?: string;
-    toolCalls?: Array<{ toolCallId: string; toolName: string; input: unknown }>;
+    toolCalls?: Array<{ toolCallId: string; toolName: string; input: unknown; providerMetadata?: Record<string, unknown> }>;
     finishReason: FinishReason;
     usage: LanguageModelUsage;
   },
@@ -479,6 +503,11 @@ export function openAiJsonFromResult(
       type: 'function',
       function: { name: tc.toolName, arguments: JSON.stringify(tc.input ?? {}) },
     }));
+    const reasoningDetails = result.toolCalls.flatMap((tc, index) => {
+      const sig = geminiThoughtSignatureOf(tc);
+      return sig ? [geminiReasoningDetail(tc.toolCallId, sig, index)] : [];
+    });
+    if (reasoningDetails.length > 0) message.reasoning_details = reasoningDetails;
     message.content = result.text || null;
   }
   return {

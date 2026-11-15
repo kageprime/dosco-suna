@@ -31,6 +31,7 @@ import { runtimeModelCatalog } from './models/runtime-catalog';
 import { fetchPlatinumModels, PlatinumModelsError } from './models/managed-models';
 import { resolveCatalogUpstream } from './models/provider-registry';
 import { assertGatewayBudget, GatewayBudgetExceededError } from './hooks';
+import { ANTIGRAVITY_MODELS } from '@kortix/api-contract';
 import { recordAccountKeyVerification } from '../secrets/account-resource';
 
 export type ProviderVerifyStatus = 'verified' | 'invalid' | 'unknown' | 'not_connected';
@@ -56,6 +57,13 @@ export interface ProviderVerifyDeps {
 const CHEAP_MODEL_HINTS = ['nano', 'mini', 'flash', 'haiku', 'lite', 'small'];
 
 function defaultPickVerificationModel(providerId: string): string | null {
+  if (providerId === 'antigravity') {
+    const cheap = ANTIGRAVITY_MODELS.find((m) =>
+      CHEAP_MODEL_HINTS.some((hint) => m.id.toLowerCase().includes(hint)),
+    );
+    const chosen = cheap ?? ANTIGRAVITY_MODELS[0];
+    return chosen ? `antigravity/${chosen.id}` : null;
+  }
   const provider = runtimeModelCatalog.snapshot().providers.find((p) => p.id === providerId);
   const models = provider?.models ?? [];
   if (models.length === 0) return null;
