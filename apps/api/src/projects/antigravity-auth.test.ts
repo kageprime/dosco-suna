@@ -21,7 +21,11 @@ const {
   startAntigravityDeviceAuth,
 } = await import('./antigravity-auth');
 const { parseAntigravityAuth } = await import('../llm-gateway/credentials/antigravity');
-const { discoverAntigravityProject } = await import('../llm-gateway/credentials/antigravity-cloudcode');
+const {
+  discoverAntigravityProject,
+  fetchAvailableAntigravityModels,
+  __clearAntigravityModelsCacheForTest,
+} = await import('../llm-gateway/credentials/antigravity-cloudcode');
 
 describe('startAntigravityDeviceAuth', () => {
   test('maps the device-code response to the challenge the OAuth route seals', async () => {
@@ -133,5 +137,71 @@ describe('discoverAntigravityProject', () => {
     expect(project).toBe('onboarded-proj-123');
     expect(calls.some((u) => u.endsWith(':onboardUser'))).toBe(true);
     expect(calls.some((u) => u.endsWith('/v1internal/operations/onboard-1'))).toBe(true);
+  });
+});
+
+describe('fetchAvailableAntigravityModels', () => {
+  test('normalizes live Cloud Code fetchAvailableModels with variants, orchestrator, and quota availability', async () => {
+    __clearAntigravityModelsCacheForTest();
+    globalThis.fetch = (async () =>
+      fetchJson(200, {
+        defaultAgentModelId: 'gemini-4-hydrogen-extra',
+        agentModelSorts: [
+          {
+            displayName: 'Default',
+            groups: [
+              {
+                modelIds: [
+                  'gemini-4-argon-low',
+                  'gemini-4-argon-medium',
+                  'gemini-4-argon-high',
+                  'gemini-4-hydrogen-medium',
+                  'gemini-4-hydrogen-extra',
+                  'orchestrator-argon-live',
+                  'gpt-oss-120b-medium',
+                  'gemini-4-carbon-medium',
+                ],
+              },
+            ],
+          },
+        ],
+        models: {
+          'gemini-4-argon-low': { displayName: 'Gemini 4 Argon (Low)', tagTitle: 'New', maxTokens: 1000000, maxOutputTokens: 64000 },
+          'gemini-4-argon-medium': { displayName: 'Gemini 4 Argon (Medium)', recommended: true, tagTitle: 'New', maxTokens: 1000000, maxOutputTokens: 64000 },
+          'gemini-4-argon-high': { displayName: 'Gemini 4 Argon (High)', tagTitle: 'New', maxTokens: 1000000, maxOutputTokens: 64000 },
+          'gemini-4-hydrogen-medium': { displayName: 'Gemini 4 Hydrogen (Medium)', tagTitle: 'New' },
+          'gemini-4-hydrogen-extra': { displayName: 'Gemini 4 Hydrogen (Extra)', tagTitle: 'New' },
+          'orchestrator-argon-live': { displayName: 'Orchestrator (Argon)', tagTitle: 'New' },
+          'gpt-oss-120b-medium': { displayName: 'GPT-OSS 120B (Medium)', tagTitle: 'Notice' },
+          'gemini-4-carbon-medium': { displayName: 'Gemini 4 Carbon', disabled: true, tagTitle: 'Unavailable' },
+          'internal-shadow-model': { displayName: 'Internal Shadow', isInternal: true },
+        },
+      })) as unknown as typeof fetch;
+
+    const live = await fetchAvailableAntigravityModels('ya29.fresh', 'proj-1');
+    expect(live).not.toBeNull();
+    expect(live!.map((m) => m.name)).toEqual([
+      'Gemini 4 Argon',
+      'Gemini 4 Hydrogen',
+      'Orchestrator (Argon)',
+      'GPT-OSS 120B (Medium)',
+      'Gemini 4 Carbon',
+    ]);
+    const hydrogen = live!.find((m) => m.id === 'gemini-4-hydrogen');
+    expect(hydrogen?.defaultEffort).toBe('extra');
+    expect(hydrogen?.efforts).toEqual(['medium', 'extra']);
+
+    const orchestrator = live!.find((m) => m.resolved === 'orchestrator-argon-live');
+    expect(orchestrator?.efforts).toBeUndefined();
+    expect(orchestrator?.badge).toBe('new');
+
+    const gptOss = live!.find((m) => m.id === 'gpt-oss-120b');
+    expect(gptOss?.efforts).toBeUndefined();
+    expect(gptOss?.defaultEffort).toBeUndefined();
+    expect(gptOss?.badge).toBe('notice');
+
+    const carbon = live!.find((m) => m.id === 'gemini-4-carbon');
+    expect(carbon?.unavailable).toBe(true);
+    expect(carbon?.badge).toBe('unavailable');
   });
 });

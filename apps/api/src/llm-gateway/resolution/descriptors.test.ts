@@ -218,7 +218,7 @@ describe('managed models: one Platinum inference candidate', () => {
     } finally { config.KORTIX_MANAGED_PROVIDER_ENABLED = true; }
   });
 
-  test('resolves to OpenRouter when OPENROUTER_API_KEY is set and PLATINUM is unset', () => {
+  test('resolves paid managed models to OpenRouter with credits billing when OPENROUTER_API_KEY is set and PLATINUM is unset', () => {
     config.PLATINUM_INFERENCE_API_KEY = undefined;
     config.OPENROUTER_API_KEY = 'sk-or-test-managed';
     try {
@@ -227,8 +227,8 @@ describe('managed models: one Platinum inference candidate', () => {
         kind: 'openai-compat',
         baseUrl: 'https://openrouter.ai/api/v1',
         apiKey: 'sk-or-test-managed',
-        billingMode: 'none',
-        markup: 0,
+        billingMode: 'credits',
+        markup: 2,
         resolvedModel: 'deepseek-v4.1-flash',
         pricing: deepseek!.pricing,
         publicProvider: 'kortix',
@@ -270,6 +270,50 @@ describe('managed models: one Platinum inference candidate', () => {
       config.OPENROUTER_API_KEY = undefined;
     }
   });
+  test('resolves dynamic OpenRouter :free model with billingMode none and upstream :free id', async () => {
+    const {
+      __resetFreeManagedModelsForTest,
+      getFreeManagedModel,
+      setFreeManagedModelsFromOpenRouterBody,
+    } = await import('../models/free-models');
+    setFreeManagedModelsFromOpenRouterBody({
+      data: [
+        {
+          id: 'google/gemma-4-31b-it:free',
+          name: 'Google: Gemma 4 31B (free)',
+          context_length: 262144,
+          pricing: { prompt: '0', completion: '0' },
+          supported_parameters: ['tools'],
+        },
+      ],
+    });
+    const gemmaFree = getFreeManagedModel('gemma-4-31b-it-free');
+    expect(gemmaFree).toBeDefined();
+
+    config.PLATINUM_INFERENCE_API_KEY = undefined;
+    config.OPENROUTER_API_KEY = 'sk-or-test-free';
+    try {
+      expect(managedCandidates(gemmaFree!)).toEqual([{
+        provider: 'openrouter',
+        kind: 'openai-compat',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        apiKey: 'sk-or-test-free',
+        billingMode: 'none',
+        markup: 0,
+        resolvedModel: 'google/gemma-4-31b-it:free',
+        pricing: { inputPerMillion: 0, outputPerMillion: 0 },
+        publicProvider: 'kortix',
+        headers: {
+          'HTTP-Referer': 'https://dosco.live',
+          'X-Title': 'Dosco AI',
+        },
+      }]);
+    } finally {
+      __resetFreeManagedModelsForTest();
+      config.PLATINUM_INFERENCE_API_KEY = 'pt_live_test';
+      config.OPENROUTER_API_KEY = undefined;
+    }
+  });
 });
 
 describe('bedrockByokBaseUrl', () => {
@@ -296,7 +340,7 @@ describe('bedrockByokBaseUrl', () => {
 });
 
 describe('antigravityDescriptor', () => {
-  test('maps an Antigravity ref to the Cloud Code descriptor', () => {
+  test('maps an Antigravity ref to the Cloud Code descriptor using default effort', () => {
     const desc = antigravityDescriptor(
       { access: 'ya29.test', project: 'cloud-project-1' },
       'antigravity/gemini-3.8-flash',
@@ -306,10 +350,19 @@ describe('antigravityDescriptor', () => {
       kind: 'google-cloudcode',
       baseUrl: 'https://daily-cloudcode-pa.googleapis.com',
       apiKey: 'ya29.test',
-      resolvedModel: 'gemini-3.8-flash-high',
+      resolvedModel: 'gemini-3.8-flash-medium',
       project: 'cloud-project-1',
     });
     expect(desc.headers?.['User-Agent']).toContain('antigravity/hub/');
+  });
+
+  test('maps no-effort Antigravity models cleanly (orchestrator-argon, gpt-oss-120b)', () => {
+    expect(
+      antigravityDescriptor({ access: 'ya29.test', project: 'p1' }, 'antigravity/orchestrator-argon').resolvedModel,
+    ).toBe('orchestrator-argon');
+    expect(
+      antigravityDescriptor({ access: 'ya29.test', project: 'p1' }, 'antigravity/gpt-oss-120b').resolvedModel,
+    ).toBe('gpt-oss-120b-medium');
   });
 
   test('carries no project when the credential has none', () => {

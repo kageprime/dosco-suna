@@ -1,3 +1,8 @@
+import {
+  ANTIGRAVITY_MODELS,
+  type AntigravityEffort,
+  type AntigravityModel,
+} from '@kortix/api-contract/antigravity';
 import { ANTIGRAVITY_HUB_USER_AGENT } from '@kortix/llm-gateway/transports/ai-sdk/cloudcode';
 
 export { ANTIGRAVITY_HUB_USER_AGENT };
@@ -8,6 +13,269 @@ const CLOUDCODE_METADATA = {
   platform: 'PLATFORM_UNSPECIFIED',
   pluginType: 'GEMINI',
 } as const;
+
+const EFFORT_SUFFIX_RE = /-(low|medium|high|extra|max|tiered)$/;
+const EFFORT_DISPLAY_RE = /\s*\((?:Low|Medium|High|Extra|Max)\)\s*$/i;
+const EFFORT_ORDER: readonly AntigravityEffort[] = ['low', 'medium', 'high', 'extra', 'max'];
+const MODEL_CACHE_TTL_MS = 5 * 60 * 1000;
+
+interface CloudCodeModelDetails {
+  displayName?: unknown;
+  recommended?: unknown;
+  maxTokens?: unknown;
+  maxOutputTokens?: unknown;
+  quotaInfo?: { remainingFraction?: unknown; resetTime?: unknown };
+  disabled?: unknown;
+  description?: unknown;
+  isInternal?: unknown;
+  tagTitle?: unknown;
+}
+
+interface CloudCodeFetchAvailableModelsResponse {
+  models?: Record<string, CloudCodeModelDetails>;
+  defaultAgentModelId?: unknown;
+  agentModelSorts?: Array<{
+    displayName?: unknown;
+    groups?: Array<{ displayName?: unknown; modelIds?: unknown }>;
+  }>;
+}
+
+const modelListCache = new Map<string, { models: AntigravityModel[]; fetchedAt: number }>();
+const dynamicModelsByKey = new Map<string, AntigravityModel>();
+
+function staticModelFor(key: string): AntigravityModel | undefined {
+  return ANTIGRAVITY_MODELS.find((m) => m.id === key || m.resolved === key);
+}
+
+function mapCloudCodeBadge(
+  tagTitle: unknown,
+  unavailable: boolean,
+  fallback?: AntigravityModel['badge'],
+): AntigravityModel['badge'] {
+  if (unavailable) return 'unavailable';
+  const norm = typeof tagTitle === 'string' ? tagTitle.trim().toLowerCase() : '';
+  if (norm === 'new') return 'new';
+  if (norm === 'notice') return 'notice';
+  if (norm === 'unavailable') return 'unavailable';
+  return fallback;
+}
+
+function isCloudCodeUnavailable(details: CloudCodeModelDetails): boolean {
+  if (details.disabled === true) return true;
+  const tag = typeof details.tagTitle === 'string' ? details.tagTitle.trim().toLowerCase() : '';
+  if (tag === 'unavailable') return true;
+  if (typeof details.quotaInfo?.remainingFraction === 'number' && details.quotaInfo.remainingFraction <= 0) {
+    return true;
+  }
+  return false;
+}
+
+function orderedCloudCodeModelIds(data: CloudCodeFetchAvailableModelsResponse): string[] {
+  const models = data.models && typeof data.models === 'object' ? data.models : {};
+  const ordered: string[] = [];
+  const seen = new Set<string>();
+
+  for (const sort of Array.isArray(data.agentModelSorts) ? data.agentModelSorts : []) {
+    for (const group of Array.isArray(sort?.groups) ? sort.groups : []) {
+      for (const id of Array.isArray(group?.modelIds) ? group.modelIds : []) {
+        if (typeof id !== 'string' || seen.has(id) || !(id in models)) continue;
+        if (models[id]?.isInternal === true) continue;
+        seen.add(id);
+        ordered.push(id);
+      }
+    }
+  }
+
+  for (const [id, details] of Object.entries(models)) {
+    if (seen.has(id) || details?.isInternal === true) continue;
+    seen.add(id);
+    ordered.push(id);
+  }
+
+  return ordered;
+}
+
+/**
+ * Normalizes a Cloud Code `/v1internal:fetchAvailableModels` response into Dosco
+ * picker `AntigravityModel` entries, collapsing multi-effort variants into a
+ * single selectable model with `efforts` while preserving standalone fixed
+ * models (`GPT-OSS 120B (Medium)`, `Orchestrator (Argon)`).
+ */
+export function normalizeCloudCodeAvailableModels(raw: unknown): AntigravityModel[] {
+  const data = (raw && typeof raw === 'object' ? raw : {}) as CloudCodeFetchAvailableModelsResponse;
+  const models = data.models && typeof data.models === 'object' ? data.models : {};
+  const orderedIds = orderedCloudCodeModelIds(data);
+  if (orderedIds.length === 0) return [];
+
+  // Count how many concrete variants exist per stripped base stem so standalone
+  // fixed models like `gpt-oss-120b-medium` are not turned into an effort menu.
+  const variantsByStem = new Map<string, string[]>();
+  for (const rawId of orderedIds) {
+    const stem = rawId.replace(EFFORT_SUFFIX_RE, '');
+    const list = variantsByStem.get(stem) ?? [];
+    list.push(rawId);
+    variantsByStem.set(stem, list);
+  }
+
+  const normalized: AntigravityModel[] = [];
+  const emittedStems = new Set<string>();
+  const defaultAgentId = typeof data.defaultAgentModelId === 'string' ? data.defaultAgentModelId : '';
+
+  for (const rawId of orderedIds) {
+    const details = models[rawId];
+    if (!details || typeof details !== 'object') continue;
+    const match = rawId.match(EFFORT_SUFFIX_RE);
+    const stem = rawId.replace(EFFORT_SUFFIX_RE, '');
+    const groupIds = variantsByStem.get(stem) ?? [rawId];
+    const isMultiVariant = !!match && groupIds.length > 1;
+
+    if (isMultiVariant) {
+      if (emittedStems.has(stem)) continue;
+      emittedStems.add(stem);
+
+      const fallback = staticModelFor(stem);
+      const effortSet = new Set<AntigravityEffort>();
+      let recommendedEffort: AntigravityEffort | undefined;
+      let anyAvailable = false;
+      let primaryDetails: CloudCodeModelDetails = details;
+
+      for (const variantId of groupIds) {
+        const variantDetails = models[variantId] ?? {};
+        const suffix = variantId.match(EFFORT_SUFFIX_RE)?.[1];
+        if (suffix && (EFFORT_ORDER as readonly string[]).includes(suffix)) {
+          const effort = suffix as AntigravityEffort;
+          effortSet.add(effort);
+          if (variantId === defaultAgentId || variantDetails.recommended === true) {
+            recommendedEffort = effort;
+            primaryDetails = variantDetails;
+          }
+        }
+        if (!isCloudCodeUnavailable(variantDetails)) anyAvailable = true;
+      }
+
+      const efforts = EFFORT_ORDER.filter((e) => effortSet.has(e));
+      const unavailable = !anyAvailable;
+      const defaultEffort = recommendedEffort
+        ?? (fallback?.defaultEffort && effortSet.has(fallback.defaultEffort) ? fallback.defaultEffort : undefined)
+        ?? (effortSet.has('medium') ? 'medium' : efforts[0]);
+      const displayName = typeof primaryDetails.displayName === 'string' && primaryDetails.displayName.trim()
+        ? primaryDetails.displayName.replace(EFFORT_DISPLAY_RE, '').trim()
+        : fallback?.name ?? stem;
+
+      normalized.push({
+        id: fallback?.id ?? stem,
+        name: displayName,
+        resolved: stem,
+        description:
+          (typeof primaryDetails.description === 'string' && primaryDetails.description.trim())
+          || fallback?.description
+          || `${displayName} served via Google Antigravity`,
+        ...(defaultEffort ? { defaultEffort } : {}),
+        ...(efforts.length ? { efforts } : {}),
+        badge: mapCloudCodeBadge(primaryDetails.tagTitle, unavailable, fallback?.badge),
+        ...(unavailable ? { unavailable: true } : {}),
+        context:
+          typeof primaryDetails.maxTokens === 'number' && primaryDetails.maxTokens > 0
+            ? primaryDetails.maxTokens
+            : (fallback?.context ?? 1_000_000),
+        output:
+          typeof primaryDetails.maxOutputTokens === 'number' && primaryDetails.maxOutputTokens > 0
+            ? primaryDetails.maxOutputTokens
+            : (fallback?.output ?? 64_000),
+      });
+      continue;
+    }
+
+    const fallback = staticModelFor(rawId) ?? staticModelFor(stem);
+    const unavailable = isCloudCodeUnavailable(details);
+    const displayName = typeof details.displayName === 'string' && details.displayName.trim()
+      ? details.displayName.trim()
+      : fallback?.name ?? rawId;
+    const suffix = match?.[1];
+    const singleEffort = suffix && suffix !== 'tiered' ? (suffix as AntigravityEffort) : undefined;
+    // Keep standalone fixed-effort models (`GPT-OSS 120B (Medium)`) without redundant inline effort text.
+    const includeDefaultEffort =
+      fallback && !fallback.efforts
+        ? fallback.defaultEffort
+        : EFFORT_DISPLAY_RE.test(displayName)
+          ? undefined
+          : singleEffort ?? fallback?.defaultEffort;
+
+    normalized.push({
+      id: fallback?.id ?? rawId,
+      name: displayName,
+      resolved: rawId,
+      description:
+        (typeof details.description === 'string' && details.description.trim())
+        || fallback?.description
+        || `${displayName} served via Google Antigravity`,
+      ...(includeDefaultEffort ? { defaultEffort: includeDefaultEffort } : {}),
+      badge: mapCloudCodeBadge(details.tagTitle, unavailable, fallback?.badge),
+      ...(unavailable ? { unavailable: true } : {}),
+      context:
+        typeof details.maxTokens === 'number' && details.maxTokens > 0
+          ? details.maxTokens
+          : (fallback?.context ?? 1_000_000),
+      output:
+        typeof details.maxOutputTokens === 'number' && details.maxOutputTokens > 0
+          ? details.maxOutputTokens
+          : (fallback?.output ?? 64_000),
+    });
+  }
+
+  return normalized;
+}
+
+/** Look up the most recently fetched live Cloud Code model definition by UI id or wire stem. */
+export function lookupAntigravityDynamicModel(idOrResolved: string): AntigravityModel | undefined {
+  return dynamicModelsByKey.get(idOrResolved);
+}
+
+export function __clearAntigravityModelsCacheForTest(): void {
+  modelListCache.clear();
+  dynamicModelsByKey.clear();
+}
+
+/**
+ * Fetches live Antigravity models for a connected Google Cloud Code user via
+ * `/v1internal:fetchAvailableModels`, caching per companion project for 5 min.
+ */
+export async function fetchAvailableAntigravityModels(
+  accessToken: string,
+  project?: string,
+): Promise<AntigravityModel[] | null> {
+  const cacheKey = project || '__default__';
+  const cached = modelListCache.get(cacheKey);
+  if (cached && Date.now() - cached.fetchedAt < MODEL_CACHE_TTL_MS) {
+    return cached.models;
+  }
+
+  try {
+    const res = await fetch(`${CLOUDCODE_DAILY}/v1internal:fetchAvailableModels`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        'content-type': 'application/json',
+        'user-agent': ANTIGRAVITY_HUB_USER_AGENT,
+      },
+      body: JSON.stringify(project ? { project } : {}),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json().catch(() => null);
+    const models = normalizeCloudCodeAvailableModels(json);
+    if (!models.length) return null;
+
+    modelListCache.set(cacheKey, { models, fetchedAt: Date.now() });
+    for (const entry of models) {
+      dynamicModelsByKey.set(entry.id, entry);
+      dynamicModelsByKey.set(entry.resolved, entry);
+    }
+    return models;
+  } catch {
+    return null;
+  }
+}
 
 function extractCompanionProject(data: any): string | null {
   const p = data?.cloudaicompanionProject;

@@ -1,4 +1,5 @@
 import { isClaudeAgentModelRef } from './claude-agent';
+import { ANTIGRAVITY_LEGACY_ALIASES, ANTIGRAVITY_MODELS } from '@kortix/api-contract/antigravity';
 import { resolveClaudeCredentials } from '../../claude-subscription/accounts';
 import { getProjectGatewayResolution, type getProjectModelAccess } from '../../repositories/project-model-access';
 import {
@@ -543,6 +544,23 @@ async function resolveAntigravityCandidates(context: Context): Promise<UpstreamD
       'Your Google Antigravity sign-in has no Cloud Code project.',
       'Paste a fresh Google Antigravity OAuth JSON in project settings, then retry.',
     );
+  }
+
+  const bareModel = effectiveModel.replace(/^antigravity\//, '');
+  const bareStem = bareModel.replace(/-(low|medium|high|extra|max|tiered)$/, '');
+  const knownStatic =
+    ANTIGRAVITY_MODELS.some(
+      (m) => m.id === bareModel || m.resolved === bareModel || m.id === bareStem || m.resolved === bareStem,
+    )
+    || bareModel in ANTIGRAVITY_LEGACY_ALIASES
+    || bareStem in ANTIGRAVITY_LEGACY_ALIASES;
+  if (!knownStatic) {
+    const { fetchAvailableAntigravityModels, lookupAntigravityDynamicModel } = await import(
+      '../credentials/antigravity-cloudcode'
+    );
+    if (!lookupAntigravityDynamicModel(bareModel) && !lookupAntigravityDynamicModel(bareStem)) {
+      await fetchAvailableAntigravityModels(credential.access, credential.project);
+    }
   }
 
   return [antigravityDescriptor(credential, effectiveModel)];

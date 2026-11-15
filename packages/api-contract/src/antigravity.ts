@@ -15,7 +15,7 @@ export const ANTIGRAVITY_PROVIDER_ID = 'antigravity' as const;
 export const ANTIGRAVITY_PROVIDER_NAME = 'Google Antigravity';
 
 /** Google Antigravity's supported reasoning effort levels. */
-export const ANTIGRAVITY_EFFORTS = ['low', 'medium', 'high'] as const;
+export const ANTIGRAVITY_EFFORTS = ['low', 'medium', 'high', 'extra', 'max'] as const;
 export type AntigravityEffort = (typeof ANTIGRAVITY_EFFORTS)[number];
 
 export interface StoredAntigravityAuth {
@@ -127,7 +127,14 @@ export interface AntigravityModel {
   readonly output: number;
 }
 
-const EFFORT_SUFFIX_RE = /-(low|medium|high|tiered)$/;
+const EFFORT_SUFFIX_RE = /-(low|medium|high|extra|max|tiered)$/;
+
+/** Legacy model ids retained so older sessions continue to resolve without cluttering the picker. */
+export const ANTIGRAVITY_LEGACY_ALIASES: Record<string, string> = {
+  'gemini-2.5-flash': 'gemini-2.5-flash',
+  'gemini-2.5-pro': 'gemini-2.5-pro',
+  'gemini-3-flash': 'gemini-3-flash',
+};
 
 /**
  * The exact Cloud Code model id to send for a catalog entry: `resolved`, plus
@@ -140,7 +147,8 @@ export function antigravityWireModelId(entry: AntigravityModel): string {
 }
 
 /**
- * Verified Antigravity model catalog matching the user's active Antigravity environment.
+ * Curated Antigravity model catalog matching the live Cloud Code environment.
+ * Connected accounts refresh dynamically from `/v1internal:fetchAvailableModels`.
  */
 export const ANTIGRAVITY_MODELS: readonly AntigravityModel[] = [
   {
@@ -155,11 +163,31 @@ export const ANTIGRAVITY_MODELS: readonly AntigravityModel[] = [
     output: 64_000,
   },
   {
+    id: 'gemini-4-hydrogen',
+    name: 'Gemini 4 Hydrogen',
+    resolved: 'gemini-4-hydrogen',
+    description: 'High-capacity deep-reasoning flagship with extra thinking budget',
+    defaultEffort: 'extra',
+    efforts: ['low', 'medium', 'high', 'extra'],
+    badge: 'new',
+    context: 1_000_000,
+    output: 64_000,
+  },
+  {
+    id: 'orchestrator-argon',
+    name: 'Orchestrator (Argon)',
+    resolved: 'orchestrator-argon',
+    description: 'Dedicated multi-step agent orchestrator powered by Gemini 4 Argon',
+    badge: 'new',
+    context: 1_000_000,
+    output: 64_000,
+  },
+  {
     id: 'gemini-3.8-flash',
     name: 'Gemini 3.8 Flash',
     resolved: 'gemini-3.8-flash',
-    description: 'Ultra-fast low-latency thinking model with deep reasoning effort',
-    defaultEffort: 'high',
+    description: 'Fast low-latency thinking model with selectable reasoning effort',
+    defaultEffort: 'medium',
     efforts: ['low', 'medium', 'high'],
     context: 1_000_000,
     output: 64_000,
@@ -170,7 +198,7 @@ export const ANTIGRAVITY_MODELS: readonly AntigravityModel[] = [
     resolved: 'claude-opus-5-5',
     description: 'Anthropic frontier partner reasoning model served via Antigravity',
     defaultEffort: 'medium',
-    efforts: ['low', 'medium', 'high'],
+    efforts: ['low', 'medium', 'high', 'max'],
     badge: 'new',
     context: 1_000_000,
     output: 64_000,
@@ -181,7 +209,7 @@ export const ANTIGRAVITY_MODELS: readonly AntigravityModel[] = [
     resolved: 'claude-sonnet-5-5',
     description: 'High-throughput frontier coding partner model served via Antigravity',
     defaultEffort: 'medium',
-    efforts: ['low', 'medium', 'high'],
+    efforts: ['low', 'medium', 'high', 'max'],
     badge: 'new',
     context: 1_000_000,
     output: 64_000,
@@ -191,40 +219,15 @@ export const ANTIGRAVITY_MODELS: readonly AntigravityModel[] = [
     name: 'GPT-OSS 120B (Medium)',
     resolved: 'gpt-oss-120b-medium',
     description: 'High-parameter open-weights reasoning model hosted on Antigravity',
-    defaultEffort: 'medium',
     badge: 'notice',
     context: 128_000,
     output: 16_000,
   },
   {
-    id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash',
-    resolved: 'gemini-2.5-flash',
-    description: 'Fast, dependable everyday model with a large context window',
-    context: 1_000_000,
-    output: 64_000,
-  },
-  {
-    id: 'gemini-2.5-pro',
-    name: 'Gemini 2.5 Pro',
-    resolved: 'gemini-2.5-pro',
-    description: 'Deep-reasoning Gemini flagship; capacity-limited at peak times',
-    context: 1_000_000,
-    output: 64_000,
-  },
-  {
-    id: 'gemini-3-flash',
-    name: 'Gemini 3 Flash',
-    resolved: 'gemini-3-flash',
-    description: 'Fast Gemini 3 model with balanced reasoning and latency',
-    context: 1_000_000,
-    output: 64_000,
-  },
-  {
     id: 'gemini-4-carbon',
     name: 'Gemini 4 Carbon',
     resolved: 'gemini-4-carbon',
-    description: 'Next-generation ultra-scale architecture (preview / gated)',
+    description: 'Next-generation ultra-scale architecture (unavailable)',
     unavailable: true,
     badge: 'unavailable',
     context: 2_000_000,

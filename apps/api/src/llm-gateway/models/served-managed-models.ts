@@ -1,7 +1,7 @@
 import { config } from '../../config';
 import { managedTransportAvailable } from '../resolution/descriptors';
 import {
-  FREE_MANAGED_MODELS,
+  freeManagedModels,
   platformDefaultFreeModelId,
 } from './free-models';
 import {
@@ -25,18 +25,18 @@ function deduplicateModels(models: readonly ManagedModel[]): readonly ManagedMod
 }
 
 /**
- * The managed lineup this deployment can serve now: Platinum's list, plus
- * Dosco's free managed models when free tier is enabled and their transports are available.
+ * The managed lineup this deployment can serve now: Platinum/OpenRouter paid list,
+ * plus Dosco's free managed models when free tier is enabled and their transports are available.
  */
 export function servedManagedModels(): readonly ManagedModel[] {
-  const freeModels = config.KORTIX_MANAGED_FREE_TIER_ENABLED ? FREE_MANAGED_MODELS : [];
+  const freeModels = config.KORTIX_MANAGED_FREE_TIER_ENABLED ? freeManagedModels() : [];
   return deduplicateModels([...managedLineup(), ...freeModels].filter(managedTransportAvailable));
 }
 
 /** The designated free models served on this deployment. */
 export function servedFreeManagedModels(): readonly ManagedModel[] {
   if (!config.KORTIX_MANAGED_FREE_TIER_ENABLED) return [];
-  return deduplicateModels(FREE_MANAGED_MODELS.filter(managedTransportAvailable));
+  return deduplicateModels(freeManagedModels().filter(managedTransportAvailable));
 }
 
 /**

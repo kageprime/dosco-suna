@@ -14,32 +14,46 @@ describe('Google Antigravity api-contract', () => {
     expect(ANTIGRAVITY_PROVIDER_ID).toBe('antigravity');
     expect(ANTIGRAVITY_PROVIDER_NAME).toBe('Google Antigravity');
     expect(ANTIGRAVITY_DEFAULT_MODEL).toBe('gemini-3.8-flash');
-    expect(ANTIGRAVITY_EFFORTS).toEqual(['low', 'medium', 'high']);
+    expect(ANTIGRAVITY_EFFORTS).toEqual(['low', 'medium', 'high', 'extra', 'max']);
   });
 
   test('models catalog contains verified models and properties', () => {
-    expect(ANTIGRAVITY_MODELS.length).toBe(9);
+    expect(ANTIGRAVITY_MODELS.length).toBe(8);
 
     const argon = ANTIGRAVITY_MODELS.find((m) => m.id === 'gemini-4-argon');
     expect(argon).toBeDefined();
     expect(argon?.badge).toBe('new');
     expect(argon?.defaultEffort).toBe('medium');
 
+    const hydrogen = ANTIGRAVITY_MODELS.find((m) => m.id === 'gemini-4-hydrogen');
+    expect(hydrogen).toBeDefined();
+    expect(hydrogen?.badge).toBe('new');
+    expect(hydrogen?.defaultEffort).toBe('extra');
+    expect(hydrogen?.efforts).toContain('extra');
+
+    const orchestrator = ANTIGRAVITY_MODELS.find((m) => m.id === 'orchestrator-argon');
+    expect(orchestrator).toBeDefined();
+    expect(orchestrator?.badge).toBe('new');
+    expect(orchestrator?.efforts).toBeUndefined();
+
     const flash = ANTIGRAVITY_MODELS.find((m) => m.id === 'gemini-3.8-flash');
     expect(flash).toBeDefined();
-    expect(flash?.defaultEffort).toBe('high');
+    expect(flash?.defaultEffort).toBe('medium');
 
     const opus = ANTIGRAVITY_MODELS.find((m) => m.id === 'claude-opus-5.5');
     expect(opus).toBeDefined();
     expect(opus?.badge).toBe('new');
+    expect(opus?.efforts).toContain('max');
 
     const sonnet = ANTIGRAVITY_MODELS.find((m) => m.id === 'claude-sonnet-5.5');
     expect(sonnet).toBeDefined();
     expect(sonnet?.badge).toBe('new');
+    expect(sonnet?.efforts).toContain('max');
 
     const gptOss = ANTIGRAVITY_MODELS.find((m) => m.id === 'gpt-oss-120b');
     expect(gptOss).toBeDefined();
     expect(gptOss?.badge).toBe('notice');
+    expect(gptOss?.efforts).toBeUndefined();
 
     const carbon = ANTIGRAVITY_MODELS.find((m) => m.id === 'gemini-4-carbon');
     expect(carbon).toBeDefined();

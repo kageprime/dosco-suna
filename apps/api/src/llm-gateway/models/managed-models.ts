@@ -1,7 +1,13 @@
 import type { CatalogReasoningOption } from '@kortix/llm-catalog';
 import { config } from '../../config';
 import { logger } from '../../lib/logger';
-import { getFreeManagedModel, isFreeManagedModel } from './free-models';
+import {
+  canonicalFreeManagedModelId,
+  freeLineupRevision,
+  getFreeManagedModel,
+  isFreeManagedModel,
+  setFreeManagedModelsFromOpenRouterBody,
+} from './free-models';
 
 /**
  * A Dosco managed model: one model Platinum Inference or OpenRouter offers, paid from
@@ -111,9 +117,9 @@ export function managedLineup(): readonly ManagedModel[] {
   return lineup;
 }
 
-/** Bumps on every lineup change, so derived caches know to rebuild. */
+/** Bumps on every paid or free lineup change, so derived caches know to rebuild. */
 export function managedLineupRevision(): number {
-  return revision;
+  return revision + freeLineupRevision();
 }
 
 /** Any managed chat model served on this deployment, private and free models included. */
@@ -203,35 +209,74 @@ export const DEFAULT_OPENROUTER_MANAGED_MODELS: readonly ManagedModel[] = [
     vision: true,
     limit: { context: 1048576, output: 16384 },
   },
-  {
-    id: 'openrouter-free',
-    name: 'OpenRouter Free (Auto-Failover)',
-    upstreamModelId: 'openrouter/free',
-    pricing: { inputPerMillion: 0, outputPerMillion: 0 },
-    vision: false,
-    limit: { context: 200000, output: 8192 },
-  },
-  {
-    id: 'north-mini-code',
-    name: 'Cohere North Mini Code (Free)',
-    upstreamModelId: 'cohere/north-mini-code:free',
-    pricing: { inputPerMillion: 0, outputPerMillion: 0 },
-    vision: false,
-    limit: { context: 256000, output: 8192 },
-  },
-  {
-    id: 'nemotron-super-vl',
-    name: 'Nemotron 3.5 Super VL (Free Vision)',
-    upstreamModelId: 'nvidia/nemotron-3.5-super-vl:free',
-    pricing: { inputPerMillion: 0, outputPerMillion: 0 },
-    vision: true,
-    limit: { context: 1000000, output: 8192 },
-  },
 ];
 
+interface OpenRouterPaidModelEntry {
+  id?: unknown;
+  pricing?: { prompt?: unknown; completion?: unknown; input_cache_read?: unknown };
+  context_length?: unknown;
+  architecture?: { input_modalities?: unknown };
+  top_provider?: { max_completion_tokens?: unknown };
+}
+
+function perTokenToPerMillion(raw: unknown): number | undefined {
+  const n = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() ? Number(raw) : Number.NaN;
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return Math.round(n * 1_000_000 * 1e6) / 1e6;
+}
+
+function paidOpenRouterModelsWithLivePrices(body: unknown): ManagedModel[] {
+  const data = (body as { data?: unknown })?.data;
+  if (!Array.isArray(data)) return [...DEFAULT_OPENROUTER_MANAGED_MODELS];
+  const byUpstream = new Map<string, OpenRouterPaidModelEntry>();
+  for (const item of data as OpenRouterPaidModelEntry[]) {
+    if (typeof item?.id === 'string') byUpstream.set(item.id, item);
+  }
+  return DEFAULT_OPENROUTER_MANAGED_MODELS.map((model) => {
+    const live = model.upstreamModelId ? byUpstream.get(model.upstreamModelId) : undefined;
+    if (!live) return model;
+    const input = perTokenToPerMillion(live.pricing?.prompt);
+    const output = perTokenToPerMillion(live.pricing?.completion);
+    const cached = perTokenToPerMillion(live.pricing?.input_cache_read);
+    const context =
+      typeof live.context_length === 'number' && live.context_length > 0
+        ? live.context_length
+        : model.limit.context;
+    const rawOut = live.top_provider?.max_completion_tokens;
+    const maxOutput =
+      typeof rawOut === 'number' && rawOut > 0 ? Math.min(rawOut, context) : model.limit.output;
+    const inputModalities = Array.isArray(live.architecture?.input_modalities)
+      ? live.architecture.input_modalities
+      : null;
+    return {
+      ...model,
+      pricing: {
+        inputPerMillion: input ?? model.pricing.inputPerMillion,
+        outputPerMillion: output ?? model.pricing.outputPerMillion,
+        ...(cached !== undefined
+          ? { cachedInputPerMillion: cached }
+          : model.pricing.cachedInputPerMillion !== undefined
+            ? { cachedInputPerMillion: model.pricing.cachedInputPerMillion }
+            : {}),
+      },
+      vision: inputModalities ? inputModalities.includes('image') : model.vision,
+      limit: { context, output: maxOutput },
+    };
+  });
+}
+
+async function readOpenRouterModels(baseUrl: string, apiKey: string, fetchImpl: FetchLike): Promise<unknown> {
+  const res = await fetchImpl(`${baseUrl.replace(/\/+$/, '')}/models`, {
+    headers: { authorization: `Bearer ${apiKey}` },
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
 /**
- * Reads Platinum's `/models` into the lineup, or falls back to OpenRouter managed models
- * when Platinum is not configured.
+ * Reads Platinum's `/models` into the lineup, or loads OpenRouter paid + `:free`
+ * models when Platinum is not configured (syncing live prices and `:free` additions).
  */
 export async function loadManagedLineup(fetchImpl: FetchLike = fetch): Promise<boolean> {
   if (!config.KORTIX_MANAGED_PROVIDER_ENABLED || (!config.PLATINUM_INFERENCE_API_KEY && !config.OPENROUTER_API_KEY)) {
@@ -239,10 +284,31 @@ export async function loadManagedLineup(fetchImpl: FetchLike = fetch): Promise<b
     return true;
   }
   if (config.OPENROUTER_API_KEY && !config.PLATINUM_INFERENCE_API_KEY) {
-    setLineup(DEFAULT_OPENROUTER_MANAGED_MODELS);
-    logger.info('[managed-lineup] loaded OpenRouter managed models', {
-      models: DEFAULT_OPENROUTER_MANAGED_MODELS.map((m) => m.id),
-    });
+    let paidModels: ManagedModel[] = [...DEFAULT_OPENROUTER_MANAGED_MODELS];
+    const shouldFetchLive = fetchImpl !== fetch || !config.OPENROUTER_API_KEY.startsWith('sk-or-test');
+    if (shouldFetchLive) {
+      try {
+        const body = await readOpenRouterModels(
+          config.OPENROUTER_URL ?? 'https://openrouter.ai/api/v1',
+          config.OPENROUTER_API_KEY,
+          fetchImpl,
+        );
+        paidModels = paidOpenRouterModelsWithLivePrices(body);
+        if (config.KORTIX_MANAGED_FREE_TIER_ENABLED) {
+          setFreeManagedModelsFromOpenRouterBody(body);
+        }
+      } catch (err) {
+        logger.warn('[managed-lineup] OpenRouter /models sync failed; keeping fallback lineup', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    if (JSON.stringify({ models: paidModels, audio: [] }) !== JSON.stringify(loaded)) {
+      setLineup(paidModels);
+      logger.info('[managed-lineup] loaded OpenRouter managed models', {
+        models: paidModels.map((m) => m.id),
+      });
+    }
     return true;
   }
   try {
@@ -277,9 +343,6 @@ const OPENROUTER_ALIASES: Record<string, string> = {
   'qwen/qwen3-coder-30b-a3b-instruct': 'qwen3-coder',
   'qwen/qwen3.7-flash': 'qwen3.7-flash',
   'google/gemini-2.5-flash-lite': 'gemini-2.5-flash-lite',
-  'openrouter/free': 'openrouter-free',
-  'cohere/north-mini-code:free': 'north-mini-code',
-  'nvidia/nemotron-3.5-super-vl:free': 'nemotron-super-vl',
 };
 
 /**
@@ -287,6 +350,8 @@ const OPENROUTER_ALIASES: Record<string, string> = {
  * canonical model id.
  */
 export function canonicalManagedModelId(id: string): string {
+  const freeAlias = canonicalFreeManagedModelId(id);
+  if (freeAlias) return freeAlias;
   const alias = OPENROUTER_ALIASES[id];
   if (alias) return alias;
   return RETIRED_MANAGED_MODEL_IDS.has(id) ? (lineup[0]?.id ?? id) : id;

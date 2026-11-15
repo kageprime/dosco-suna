@@ -286,7 +286,9 @@ export function projectLlmCatalogToProviderList(
                     reasoning: true,
                     attachment: true,
                     tool_call: true,
-                    variants: Object.fromEntries(model.efforts.map((effort) => [effort, {}])),
+                    ...(model.efforts.length
+                      ? { variants: Object.fromEntries(model.efforts.map((effort) => [effort, {}])) }
+                      : {}),
                     available: model.connected,
                     availability: 'login',
                     // The project's on/off switch (Models tab). An older API sends none: on.
@@ -316,7 +318,9 @@ export function projectLlmCatalogToProviderList(
                     reasoning: true,
                     attachment: true,
                     tool_call: true,
-                    variants: Object.fromEntries(model.efforts.map((effort) => [effort, {}])),
+                    ...(model.efforts.length
+                      ? { variants: Object.fromEntries(model.efforts.map((effort) => [effort, {}])) }
+                      : {}),
                     available: model.connected,
                     availability: 'login',
                     enabled: model.enabled !== false,

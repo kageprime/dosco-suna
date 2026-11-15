@@ -1,6 +1,11 @@
 import type { UpstreamDescriptor } from '@kortix/llm-gateway';
 import { ANTIGRAVITY_HUB_USER_AGENT } from '@kortix/llm-gateway/transports/ai-sdk/cloudcode';
-import { antigravityWireModelId, ANTIGRAVITY_MODELS } from '@kortix/api-contract/antigravity';
+import {
+  ANTIGRAVITY_LEGACY_ALIASES,
+  ANTIGRAVITY_MODELS,
+  antigravityWireModelId,
+} from '@kortix/api-contract/antigravity';
+import { lookupAntigravityDynamicModel } from '../credentials/antigravity-cloudcode';
 import { llmPriceMarkup } from '../../billing/services/tiers';
 import { config } from '../../config';
 import { getModelPricing } from '../../router/config/model-pricing';
@@ -194,8 +199,8 @@ export function managedCandidates(managed: Pick<ManagedModel, 'id'> & Partial<Pi
       kind: 'openai-compat',
       baseUrl: config.OPENROUTER_URL ?? 'https://openrouter.ai/api/v1',
       apiKey: config.OPENROUTER_API_KEY,
-      billingMode: 'none',
-      markup: 0,
+      billingMode: 'credits',
+      markup: llmPriceMarkup(),
       resolvedModel: fullModel?.upstreamModelId ?? managed.id,
       pricing: managed.pricing,
       publicProvider: 'kortix',
@@ -254,8 +259,12 @@ export function codexDescriptor(credential: CodexCredential, model: string): Ups
 
 export function antigravityDescriptor(credential: AntigravityCredential, model: string): UpstreamDescriptor {
   const bareModel = model.replace(/^antigravity\//, '');
-  const entry = ANTIGRAVITY_MODELS.find((m) => m.id === bareModel);
-  const resolvedModel = entry ? antigravityWireModelId(entry) : bareModel;
+  const entry =
+    lookupAntigravityDynamicModel(bareModel)
+    ?? ANTIGRAVITY_MODELS.find((m) => m.id === bareModel || m.resolved === bareModel);
+  const resolvedModel = entry
+    ? antigravityWireModelId(entry)
+    : (ANTIGRAVITY_LEGACY_ALIASES[bareModel] ?? bareModel);
 
   return {
     provider: 'antigravity',

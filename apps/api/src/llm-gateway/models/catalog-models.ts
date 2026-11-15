@@ -201,6 +201,7 @@ export function platinumGatewayModel(m: ManagedModel, provider: string, provider
     provider,
     ...(providerName ? { provider_name: providerName } : {}),
     limit: m.limit,
+    ...(isFreeManagedModel(m.id) ? { free: true } : {}),
     cost: {
       input: m.pricing.inputPerMillion,
       output: m.pricing.outputPerMillion,

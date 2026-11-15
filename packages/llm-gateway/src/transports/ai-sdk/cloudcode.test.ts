@@ -67,12 +67,17 @@ describe('applyEffortToModelId', () => {
     expect(applyEffortToModelId('claude-sonnet-5-5-low', 'medium')).toBe('claude-sonnet-5-5-medium');
   });
 
-  test('leaves the id alone without a valid effort', () => {
+  test('applies extra and max efforts and leaves fixed-variant models alone', () => {
+    expect(applyEffortToModelId('gemini-4-hydrogen', 'extra')).toBe('gemini-4-hydrogen-extra');
+    expect(applyEffortToModelId('claude-opus-5-5', 'max')).toBe('claude-opus-5-5-max');
+    expect(applyEffortToModelId('gpt-oss-120b-medium', 'high')).toBe('gpt-oss-120b-medium');
     expect(applyEffortToModelId('gpt-oss-120b-medium', undefined)).toBe('gpt-oss-120b-medium');
     expect(applyEffortToModelId('gemini-2.5-flash', 'xhigh')).toBe('gemini-2.5-flash');
   });
 
-  test('stripEffortSuffix also strips -tiered', () => {
+  test('stripEffortSuffix strips standard, extra, max, and tiered suffixes', () => {
+    expect(stripEffortSuffix('gemini-4-hydrogen-extra')).toBe('gemini-4-hydrogen');
+    expect(stripEffortSuffix('claude-opus-5-5-max')).toBe('claude-opus-5-5');
     expect(stripEffortSuffix('gemini-3.8-flash-tiered')).toBe('gemini-3.8-flash');
     expect(stripEffortSuffix('gemini-2.5-flash')).toBe('gemini-2.5-flash');
   });
@@ -148,6 +153,87 @@ describe('cloudCodeRequestFromPrompt', () => {
             name: 'get_weather',
             description: 'Weather lookup',
             parameters: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] },
+          },
+        ],
+      },
+    ]);
+  });
+
+  test('collapses TypeBox literal unions (const), nullable unions, $ref, and keeps properties named const', () => {
+    const { tools } = cloudCodeRequestFromPrompt([], [
+      {
+        type: 'function',
+        name: 'send_message',
+        description: 'Send a message',
+        inputSchema: {
+          $schema: 'http://json-schema.org/draft-07/schema#',
+          $defs: { ScopeRef: { anyOf: [{ type: 'string', const: 'mine' }, { type: 'string', const: 'project' }] } },
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            kind: {
+              description: 'Message kind',
+              anyOf: [
+                { type: 'string', const: 'message' },
+                { type: 'string', const: 'shutdown_request' },
+                { type: 'string', const: 'shutdown_response' },
+              ],
+            },
+            mode: {
+              oneOf: [
+                { const: 'separate' },
+                { const: 'same' },
+              ],
+            },
+            assignee: {
+              anyOf: [{ type: 'string' }, { type: 'null' }],
+            },
+            scope: { $ref: '#/$defs/ScopeRef' },
+            tools: {
+              anyOf: [{ type: 'array', items: { type: 'string' } }, { type: 'string' }],
+            },
+            const: { type: 'string', default: 'kept' },
+            payload: {},
+          },
+          required: ['kind', 'mode'],
+        },
+      },
+    ]);
+
+    expect(tools).toEqual([
+      {
+        functionDeclarations: [
+          {
+            name: 'send_message',
+            description: 'Send a message',
+            parameters: {
+              type: 'object',
+              properties: {
+                kind: {
+                  type: 'string',
+                  enum: ['message', 'shutdown_request', 'shutdown_response'],
+                  description: 'Message kind',
+                },
+                mode: {
+                  type: 'string',
+                  enum: ['separate', 'same'],
+                },
+                assignee: {
+                  type: 'string',
+                  nullable: true,
+                },
+                scope: {
+                  type: 'string',
+                  enum: ['mine', 'project'],
+                },
+                tools: {
+                  anyOf: [{ type: 'array', items: { type: 'string' } }, { type: 'string' }],
+                },
+                const: { type: 'string' },
+                payload: {},
+              },
+              required: ['kind', 'mode'],
+            },
           },
         ],
       },

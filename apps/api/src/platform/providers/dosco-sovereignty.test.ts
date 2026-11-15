@@ -89,8 +89,9 @@ describe('Dosco sovereignty invariants', () => {
   });
 
   describe('LLM Gateway & OpenRouter sovereignty', () => {
-    test('loadManagedLineup serves DEFAULT_OPENROUTER_MANAGED_MODELS when OpenRouter is configured without Platinum', async () => {
+    test('loadManagedLineup serves paid OpenRouter models in managedLineup and OpenRouter free models in servedFreeManagedModels', async () => {
       const { loadManagedLineup, managedLineup, getRuntimeManagedModel } = await import('../../llm-gateway/models/managed-models');
+      const { servedFreeManagedModels, servedManagedModels } = await import('../../llm-gateway/models/served-managed-models');
       const origPlatinum = config.PLATINUM_INFERENCE_API_KEY;
       const origOpenRouter = config.OPENROUTER_API_KEY;
       const origManaged = config.KORTIX_MANAGED_PROVIDER_ENABLED;
@@ -101,10 +102,12 @@ describe('Dosco sovereignty invariants', () => {
 
       try {
         expect(await loadManagedLineup()).toBe(true);
-        const ids = managedLineup().map((m) => m.id);
-        expect(ids).toContain('openrouter-free');
-        expect(ids).toContain('deepseek-v4.1-flash');
-        expect(getRuntimeManagedModel('openrouter-free')).toBeDefined();
+        const paidIds = managedLineup().map((m) => m.id);
+        expect(paidIds).toContain('deepseek-v4.1-flash');
+        expect(paidIds).not.toContain('openrouter-free');
+        expect(servedFreeManagedModels().map((m) => m.id)).toContain('openrouter-free');
+        expect(servedManagedModels().map((m) => m.id)).toContain('openrouter-free');
+        expect(getRuntimeManagedModel('openrouter-free')?.upstreamModelId).toBe('openrouter/free');
       } finally {
         config.PLATINUM_INFERENCE_API_KEY = origPlatinum;
         config.OPENROUTER_API_KEY = origOpenRouter;
@@ -112,20 +115,15 @@ describe('Dosco sovereignty invariants', () => {
       }
     });
 
-    test('accountMayUseManagedModels allows free-tier accounts when OPENROUTER_API_KEY or KORTIX_MANAGED_FREE_TIER_ENABLED is set', async () => {
-      const { accountMayUseManagedModels } = await import('../../billing/services/entitlements');
-      const origOpenRouter = config.OPENROUTER_API_KEY;
-      const origFreeTier = config.KORTIX_MANAGED_FREE_TIER_ENABLED;
+    test('free-tier accounts remain restricted to OpenRouter :free models even when OPENROUTER_API_KEY is configured', async () => {
+      const { isFreeManagedModel } = await import('../../llm-gateway/models/free-models');
+      const entitlementsSource = readFileSync(join(SRC_ROOT, 'billing', 'services', 'entitlements.ts'), 'utf8');
 
-      config.OPENROUTER_API_KEY = 'sk-or-test-sovereign';
-      config.KORTIX_MANAGED_FREE_TIER_ENABLED = true;
-
-      try {
-        expect(await accountMayUseManagedModels('any-account-id')).toBe(true);
-      } finally {
-        config.OPENROUTER_API_KEY = origOpenRouter;
-        config.KORTIX_MANAGED_FREE_TIER_ENABLED = origFreeTier;
-      }
+      expect(entitlementsSource).not.toContain('if (config.KORTIX_MANAGED_FREE_TIER_ENABLED || config.OPENROUTER_API_KEY) return true;');
+      expect(entitlementsSource).toContain('entitlements.managedModels');
+      expect(isFreeManagedModel('openrouter-free')).toBe(true);
+      expect(isFreeManagedModel('openrouter/free')).toBe(true);
+      expect(isFreeManagedModel('deepseek-v4.1-flash')).toBe(false);
     });
   });
 

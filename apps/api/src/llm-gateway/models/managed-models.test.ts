@@ -18,6 +18,7 @@ import {
   resolvePlatformDefaultModelId,
   __setManagedLineupForTest,
 } from './managed-models';
+import { __resetFreeManagedModelsForTest, isFreeManagedModel } from './free-models';
 import { servedManagedModels, servedFreeManagedModels } from './served-managed-models';
 
 const answer = (body: unknown, status = 200) => async () => new Response(JSON.stringify(body), { status });
@@ -187,7 +188,7 @@ describe('a retired id follows the live lineup — no successor is hardcoded', (
 });
 
 describe('the managed lineup with OpenRouter as provider', () => {
-  test('loads DEFAULT_OPENROUTER_MANAGED_MODELS when OPENROUTER_API_KEY is set and PLATINUM is unset', async () => {
+  test('loads DEFAULT_OPENROUTER_MANAGED_MODELS (paid) separately from OpenRouter :free lineup when PLATINUM is unset', async () => {
     const origPlatinum = config.PLATINUM_INFERENCE_API_KEY;
     const origOpenRouter = config.OPENROUTER_API_KEY;
     config.PLATINUM_INFERENCE_API_KEY = '';
@@ -197,7 +198,7 @@ describe('the managed lineup with OpenRouter as provider', () => {
       const ids = managedLineup().map((m) => m.id);
       expect(ids).toContain('deepseek-v4.1-flash');
       expect(ids).toContain('qwen3-coder');
-      expect(ids).toContain('openrouter-free');
+      expect(ids).not.toContain('openrouter-free');
       expect(isKnownManagedModelId('deepseek/deepseek-v4.1-flash')).toBe(true);
       expect(canonicalManagedModelId('deepseek/deepseek-v4.1-flash')).toBe('deepseek-v4.1-flash');
       expect(canonicalManagedModelId('openrouter/free')).toBe('openrouter-free');
@@ -207,7 +208,75 @@ describe('the managed lineup with OpenRouter as provider', () => {
       expect(new Set(servedIds).size).toBe(servedIds.length);
       expect(servedIds).toContain('deepseek-v4.1-flash');
       expect(servedIds).toContain('openrouter-free');
+
+      const freeIds = servedFreeManagedModels().map((m) => m.id);
+      expect(freeIds).toContain('openrouter-free');
+      expect(freeIds).not.toContain('deepseek-v4.1-flash');
+      expect(getRuntimeManagedModel('openrouter-free')?.upstreamModelId).toBe('openrouter/free');
     } finally {
+      config.PLATINUM_INFERENCE_API_KEY = origPlatinum;
+      config.OPENROUTER_API_KEY = origOpenRouter;
+    }
+  });
+
+  test('syncs OpenRouter paid rates and tool-capable :free models from /models response', async () => {
+    const origPlatinum = config.PLATINUM_INFERENCE_API_KEY;
+    const origOpenRouter = config.OPENROUTER_API_KEY;
+    config.PLATINUM_INFERENCE_API_KEY = '';
+    config.OPENROUTER_API_KEY = 'sk-or-live-sync';
+    try {
+      const ok = await loadManagedLineup(answer({
+        data: [
+          {
+            id: 'deepseek/deepseek-v4.1-flash',
+            name: 'DeepSeek V4.1 Flash',
+            context_length: 131072,
+            pricing: { prompt: '0.0000002', completion: '0.0000008' },
+            top_provider: { max_completion_tokens: 16384 },
+            architecture: { input_modalities: ['text'], output_modalities: ['text'] },
+            supported_parameters: ['tools'],
+          },
+          {
+            id: 'openrouter/free',
+            name: 'Free Models Router',
+            context_length: 200000,
+            pricing: { prompt: '0', completion: '0' },
+            architecture: { input_modalities: ['text'], output_modalities: ['text'] },
+            supported_parameters: ['tools'],
+          },
+          {
+            id: 'google/gemma-4-31b-it:free',
+            name: 'Google: Gemma 4 31B (free)',
+            context_length: 262144,
+            pricing: { prompt: '0', completion: '0' },
+            top_provider: { max_completion_tokens: 8192 },
+            architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] },
+            supported_parameters: ['tools', 'reasoning'],
+          },
+          {
+            id: 'google/lyria-3-clip-preview:free',
+            name: 'Google: Lyria 3 (free)',
+            context_length: 4096,
+            pricing: { prompt: '0', completion: '0' },
+            architecture: { input_modalities: ['text'], output_modalities: ['audio'] },
+            supported_parameters: [],
+          },
+        ],
+      }));
+      expect(ok).toBe(true);
+      expect(getRuntimeManagedModel('deepseek-v4.1-flash')?.pricing).toEqual({
+        inputPerMillion: 0.2,
+        outputPerMillion: 0.8,
+      });
+
+      const freeIds = servedFreeManagedModels().map((m) => m.id);
+      expect(freeIds).toContain('openrouter-free');
+      expect(freeIds).toContain('gemma-4-31b-it-free');
+      expect(freeIds).not.toContain('lyria-3-clip-preview-free');
+      expect(canonicalManagedModelId('google/gemma-4-31b-it:free')).toBe('gemma-4-31b-it-free');
+      expect(isFreeManagedModel('gemma-4-31b-it-free')).toBe(true);
+    } finally {
+      __resetFreeManagedModelsForTest();
       config.PLATINUM_INFERENCE_API_KEY = origPlatinum;
       config.OPENROUTER_API_KEY = origOpenRouter;
     }

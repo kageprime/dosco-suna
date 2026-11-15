@@ -232,7 +232,7 @@ function ModelRow({
         className="size-4 rounded-none bg-transparent"
       />
 
-      <span className={cn('min-w-0 flex-1 truncate leading-tight flex items-center gap-1.5', unavailable && 'opacity-60')}>
+      <span className={cn('min-w-0 flex-1 truncate leading-tight flex items-center gap-1.5', (unavailable || model.unavailable) && 'opacity-60')}>
         <span className="text-foreground font-medium">{lead}</span>
         {trail ? <span className="text-muted-foreground font-normal"> {trail}</span> : null}
         {isAntigravity && effort ? (
@@ -723,6 +723,7 @@ export function ModelSelector({
 
   const handleSelect = useCallback(
     (model: FlatModel) => {
+      if (model.unavailable) return;
       // An unavailable model is never chosen: the turn would fail after Send.
       const connect = unavailableModelConnection(model, { chatGptAvailable });
       if (connect === 'chatgpt') return handleOpenChatGpt();

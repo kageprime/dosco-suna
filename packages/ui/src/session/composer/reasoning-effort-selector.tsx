@@ -104,6 +104,7 @@ export function EffortIcon({ value, className }: { value: string | null; classNa
     case 'high':
       return <CellSignalHighIcon className={className} weight="fill" />;
     case 'xhigh':
+    case 'extra':
     case 'max':
     case 'full':
       return <CellSignalFullIcon className={className} weight="fill" />;

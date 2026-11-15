@@ -110,8 +110,11 @@ interface CloudCodeGenerateResult {
 
 // ── Model id / effort mapping ───────────────────────────────────────────────
 
-const EFFORT_SUFFIX_RE = /-(low|medium|high|tiered)$/;
-const REQUESTED_EFFORTS = new Set(['low', 'medium', 'high']);
+const EFFORT_SUFFIX_RE = /-(low|medium|high|extra|max|tiered)$/;
+const REQUESTED_EFFORTS = new Set(['low', 'medium', 'high', 'extra', 'max']);
+// Fixed-variant Cloud Code models whose suffix is part of the bare upstream id
+// and does not accept other effort variants.
+const FIXED_EFFORT_MODEL_IDS = new Set(['gpt-oss-120b-medium', 'orchestrator-argon']);
 
 /** `gemini-3.8-flash-medium` → `gemini-3.8-flash` (also strips `-tiered`). */
 export function stripEffortSuffix(modelId: string): string {
@@ -122,13 +125,12 @@ export function stripEffortSuffix(modelId: string): string {
  * Applies the request's reasoning effort as the model-id effort variant. The
  * Cloud Code protocol carries reasoning effort in the MODEL ID, so
  * `gemini-3.8-flash` + effort `low` → `gemini-3.8-flash-low`; an id that
- * already carries a variant gets it replaced. Ids without effort variants
- * (`gemini-2.5-flash`, `gpt-oss-120b-medium`) are only touched when the
- * client actually sent an effort — which the catalog's own effort gating
- * means happens exclusively for models that serve variants.
+ * already carries a variant gets it replaced. Fixed-variant ids such as
+ * `gpt-oss-120b-medium` are returned untouched.
  */
 export function applyEffortToModelId(resolvedModel: string, effort: unknown): string {
   if (typeof effort !== 'string' || !REQUESTED_EFFORTS.has(effort)) return resolvedModel;
+  if (FIXED_EFFORT_MODEL_IDS.has(resolvedModel)) return resolvedModel;
   return `${stripEffortSuffix(resolvedModel)}-${effort}`;
 }
 
@@ -140,18 +142,253 @@ function reasoningEffortFrom(options: CloudCodeCallOptions): string | undefined 
 
 // ── Prompt translation: AI SDK v4 prompt → Cloud Code `request` ────────────
 
-/** JSON-Schema keys Gemini rejects; stripped recursively from tool parameters. */
-const UNSUPPORTED_SCHEMA_KEYS = new Set(['$schema', '$id', 'additionalProperties']);
+/**
+ * Fields accepted by Cloud Code's OpenAPI 3.03 `Schema` protobuf on
+ * `functionDeclarations[].parameters` and `generationConfig.responseSchema`.
+ * Standard JSON Schema keywords outside this set (e.g. `$schema`, `$id`,
+ * `$defs`, `additionalProperties`, `const`, `oneOf`, `default`) are rejected
+ * with 400 Invalid JSON payload (`Cannot find field`).
+ */
+const ALLOWED_SCHEMA_KEYS = new Set([
+  'type',
+  'format',
+  'description',
+  'nullable',
+  'enum',
+  'items',
+  'properties',
+  'required',
+  'anyOf',
+  'minimum',
+  'maximum',
+  'minItems',
+  'maxItems',
+  'minLength',
+  'maxLength',
+  'pattern',
+]);
 
-function sanitizeToolSchema(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sanitizeToolSchema);
-  if (!value || typeof value !== 'object') return value;
-  const out: Json = {};
-  for (const [key, item] of Object.entries(value as Json)) {
-    if (UNSUPPORTED_SCHEMA_KEYS.has(key)) continue;
-    out[key] = sanitizeToolSchema(item);
+function isPlainObject(value: unknown): value is Json {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function inferSchemaType(value: unknown): string | undefined {
+  if (typeof value === 'string') return 'string';
+  if (typeof value === 'number') return Number.isInteger(value) ? 'integer' : 'number';
+  if (typeof value === 'boolean') return 'boolean';
+  if (Array.isArray(value)) return 'array';
+  if (value && typeof value === 'object') return 'object';
+  return undefined;
+}
+
+function lookupLocalRef(ref: string, defs: Record<string, Json>): Json | undefined {
+  for (const prefix of ['#/$defs/', '#/definitions/']) {
+    if (!ref.startsWith(prefix)) continue;
+    const key = ref.slice(prefix.length);
+    const target = defs[key];
+    if (isPlainObject(target)) return target;
   }
+  return undefined;
+}
+
+function resolveShallowRef(node: Json, defs: Record<string, Json>, seen: Set<string>): Json {
+  if (typeof node.$ref !== 'string' || seen.has(node.$ref)) return node;
+  const target = lookupLocalRef(node.$ref, defs);
+  if (!target) return node;
+  const { $ref: _drop, ...siblings } = node;
+  return { ...target, ...siblings };
+}
+
+function isNullOnlySchema(node: unknown, defs: Record<string, Json>): boolean {
+  if (!isPlainObject(node)) return false;
+  const resolved = typeof node.$ref === 'string' ? lookupLocalRef(node.$ref, defs) ?? node : node;
+  if (resolved.type === 'null') return true;
+  if ('const' in resolved && resolved.const === null) return true;
+  if (Array.isArray(resolved.enum) && resolved.enum.length === 1 && resolved.enum[0] === null) return true;
+  return false;
+}
+
+function isPureStringEnumSchema(node: Json): node is Json & { type: 'string'; enum: string[] } {
+  if (node.type !== 'string' || !Array.isArray(node.enum) || node.enum.length === 0) return false;
+  if (!node.enum.every((item) => typeof item === 'string')) return false;
+  return Object.keys(node).every((k) => k === 'type' || k === 'enum' || k === 'description');
+}
+
+function sanitizeSchemaNode(value: unknown, defs: Record<string, Json>, seen: Set<string>): unknown {
+  if (Array.isArray(value)) return value.map((item) => sanitizeSchemaNode(item, defs, seen));
+  if (!isPlainObject(value)) return value;
+
+  if (typeof value.$ref === 'string') {
+    if (seen.has(value.$ref)) {
+      const cycleFallback: Json = { type: 'object' };
+      if (typeof value.description === 'string' && value.description) {
+        cycleFallback.description = value.description;
+      }
+      return cycleFallback;
+    }
+    const resolved = resolveShallowRef(value, defs, seen);
+    if (resolved !== value) {
+      const nextSeen = new Set(seen);
+      nextSeen.add(value.$ref);
+      return sanitizeSchemaNode(resolved, defs, nextSeen);
+    }
+  }
+
+  const node: Json = { ...value };
+
+  // Expand `const` before union inspection or key filtering.
+  if ('const' in node) {
+    const constVal = node.const;
+    delete node.const;
+    if (constVal === null) {
+      node.nullable = true;
+      if (node.type === undefined) node.type = 'string';
+    } else {
+      if (node.type === undefined) {
+        const inferred = inferSchemaType(constVal);
+        if (inferred) node.type = inferred;
+      }
+      if (typeof constVal === 'string' && !Array.isArray(node.enum)) {
+        node.enum = [constVal];
+      }
+    }
+  }
+
+  // Collapse TypeBox / JSON-Schema unions (`anyOf` / `oneOf`) into OpenAPI 3.03 shapes.
+  const unionBranches = Array.isArray(node.anyOf)
+    ? node.anyOf
+    : Array.isArray(node.oneOf)
+      ? node.oneOf
+      : null;
+  if (unionBranches) {
+    delete node.anyOf;
+    delete node.oneOf;
+    let hasNull = node.nullable === true;
+    const cleanBranches: Json[] = [];
+    for (const rawBranch of unionBranches) {
+      if (isNullOnlySchema(rawBranch, defs)) {
+        hasNull = true;
+        continue;
+      }
+      const cleaned = sanitizeSchemaNode(rawBranch, defs, seen);
+      if (isPlainObject(cleaned)) cleanBranches.push(cleaned);
+    }
+
+    if (cleanBranches.length > 0 && cleanBranches.every(isPureStringEnumSchema)) {
+      const mergedValues = Array.from(new Set(cleanBranches.flatMap((b) => b.enum)));
+      const collapsed: Json = { type: 'string', enum: mergedValues };
+      if (typeof node.description === 'string' && node.description) collapsed.description = node.description;
+      if (hasNull) collapsed.nullable = true;
+      return collapsed;
+    }
+
+    if (cleanBranches.length === 1) {
+      const merged: Json = { ...cleanBranches[0] };
+      if (typeof node.description === 'string' && node.description) merged.description = node.description;
+      if (hasNull) merged.nullable = true;
+      return merged;
+    }
+
+    if (cleanBranches.length === 0) {
+      const emptyNull: Json = { type: 'string', nullable: true };
+      if (typeof node.description === 'string' && node.description) emptyNull.description = node.description;
+      return emptyNull;
+    }
+
+    delete node.type;
+    node.anyOf = cleanBranches;
+    if (hasNull) node.nullable = true;
+  }
+
+  // Normalize JSON Schema `type: 'null'` or `type: ['string', 'null']`.
+  if (Array.isArray(node.type)) {
+    const types = node.type.filter((t): t is string => typeof t === 'string');
+    const nonNull = types.filter((t) => t !== 'null');
+    const hasNull = types.includes('null') || node.nullable === true;
+    delete node.type;
+    if (nonNull.length === 0) {
+      node.type = 'string';
+      node.nullable = true;
+    } else if (nonNull.length === 1) {
+      node.type = nonNull[0];
+      if (hasNull) node.nullable = true;
+    } else {
+      node.anyOf = nonNull.map((t) => ({ type: t }));
+      if (hasNull) node.nullable = true;
+    }
+  } else if (node.type === 'null') {
+    node.type = 'string';
+    node.nullable = true;
+  }
+
+  const out: Json = {};
+  let sanitizedProps: Record<string, unknown> | undefined;
+
+  if (isPlainObject(node.properties)) {
+    // Sanitize each property schema individually so a tool arg literally named
+    // `const`, `default`, or `title` is never stripped as a JSON Schema keyword.
+    sanitizedProps = {};
+    for (const [propName, propSchema] of Object.entries(node.properties)) {
+      sanitizedProps[propName] = sanitizeSchemaNode(propSchema, defs, seen);
+    }
+  }
+
+  for (const [key, item] of Object.entries(node)) {
+    if (!ALLOWED_SCHEMA_KEYS.has(key)) continue;
+    if (key === 'properties') {
+      if (sanitizedProps) out.properties = sanitizedProps;
+      continue;
+    }
+    if (key === 'required') {
+      if (!Array.isArray(item)) continue;
+      const req = item.filter((r): r is string => typeof r === 'string' && (!sanitizedProps || r in sanitizedProps));
+      if (req.length > 0) out.required = req;
+      continue;
+    }
+    if (key === 'enum') {
+      // Cloud Code `Schema.enum` protobuf is `repeated string`.
+      if (!Array.isArray(item)) continue;
+      const stringEnums = item.filter((v): v is string => typeof v === 'string');
+      if (stringEnums.length === item.length && stringEnums.length > 0) {
+        out.enum = stringEnums;
+      }
+      continue;
+    }
+    if (key === 'items') {
+      if (Array.isArray(item)) {
+        out.items = item.length > 0 ? sanitizeSchemaNode(item[0], defs, seen) : { type: 'string' };
+      } else if (isPlainObject(item)) {
+        out.items = sanitizeSchemaNode(item, defs, seen);
+      }
+      continue;
+    }
+    if (key === 'anyOf') {
+      if (Array.isArray(item) && item.length > 0) out.anyOf = item;
+      continue;
+    }
+    out[key] = item;
+  }
+
+  if (out.properties && !out.type && !out.anyOf) out.type = 'object';
+  if (out.type === 'array' && !out.items) out.items = { type: 'string' };
+
   return out;
+}
+
+export function sanitizeToolSchema(value: unknown): unknown {
+  if (!isPlainObject(value)) {
+    return Array.isArray(value) ? value.map((item) => sanitizeToolSchema(item)) : value;
+  }
+  const defs: Record<string, Json> = {};
+  for (const dictKey of ['$defs', 'definitions']) {
+    const dict = value[dictKey];
+    if (isPlainObject(dict)) {
+      for (const [k, v] of Object.entries(dict)) {
+        if (isPlainObject(v)) defs[k] = v;
+      }
+    }
+  }
+  return sanitizeSchemaNode(value, defs, new Set());
 }
 
 function parseToolArgs(input: unknown): Json {

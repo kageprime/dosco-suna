@@ -131,6 +131,15 @@ const mockManagedCandidates = (managed: { id: string }) => [
 ];
 
 mock.module('../llm-gateway/resolution/descriptors', () => ({
+  antigravityDescriptor: (_credential: unknown, model: string) => ({
+    provider: 'antigravity',
+    kind: 'google-cloudcode',
+    baseUrl: 'https://daily-cloudcode-pa.googleapis.com',
+    apiKey: 'ya29.test',
+    billingMode: 'none',
+    markup: 0,
+    resolvedModel: model.replace(/^antigravity\//, ''),
+  }),
   codexDescriptor: (_credential: unknown, model: string) => ({
     provider: 'openai-codex',
     kind: 'openai-responses',

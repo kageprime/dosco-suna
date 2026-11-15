@@ -111,6 +111,12 @@ export interface FlatModel {
   available?: boolean;
   /** What `available: false` needs: a ChatGPT login or the provider's key. */
   availability?: 'login' | 'provider';
+  /** Display badge published for subscription models ('new' | 'notice' | 'unavailable'). */
+  badge?: 'new' | 'notice' | 'unavailable';
+  /** Default reasoning effort label advertised alongside the model name. */
+  defaultEffort?: string;
+  /** True when the model is gated or quota-unavailable for this account. */
+  unavailable?: boolean;
 }
 
 /**
@@ -153,6 +159,9 @@ type WithGatewayFields = {
   available?: boolean;
   availability?: 'login' | 'provider';
   attachment?: boolean;
+  badge?: 'new' | 'notice' | 'unavailable';
+  defaultEffort?: string;
+  unavailable?: boolean;
 };
 
 export function flattenModels(
@@ -232,6 +241,9 @@ export function flattenModels(
         free: (model as WithGatewayFields).free === true,
         available: (model as WithGatewayFields).available,
         availability: (model as WithGatewayFields).availability,
+        ...((model as WithGatewayFields).badge !== undefined ? { badge: (model as WithGatewayFields).badge } : {}),
+        ...((model as WithGatewayFields).defaultEffort !== undefined ? { defaultEffort: (model as WithGatewayFields).defaultEffort } : {}),
+        ...((model as WithGatewayFields).unavailable !== undefined ? { unavailable: (model as WithGatewayFields).unavailable } : {}),
       });
     }
   }
