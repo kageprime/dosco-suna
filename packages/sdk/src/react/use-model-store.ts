@@ -53,6 +53,11 @@ interface ModelStore {
    * instead of resetting to the first agent in the list on every reload.
    */
   lastAgentName?: string;
+  /**
+   * The agent last picked in a new composer, keyed by workspace id. The next
+   * new session in that workspace starts on it (`resolveCurrentAgentName`).
+   */
+  projectAgentName?: Record<string, string | undefined>;
   /** Per-session model selection — keyed by sessionId so each session remembers its own model across reloads */
   sessionModel?: Record<string, ModelKey | undefined>;
   /** The server's `atMs` of the fallback switch each `sessionModel` pick was made over. A newer switch outranks the pick. */
@@ -111,6 +116,7 @@ export function sanitizeModelStore(raw: unknown): ModelStore {
   if (isObj(raw.selectedModel)) out.selectedModel = raw.selectedModel as ModelStore['selectedModel'];
   if (isObj(raw.sessionAgentName)) out.sessionAgentName = raw.sessionAgentName as ModelStore['sessionAgentName'];
   if (typeof raw.lastAgentName === 'string') out.lastAgentName = raw.lastAgentName;
+  if (isObj(raw.projectAgentName)) out.projectAgentName = raw.projectAgentName as ModelStore['projectAgentName'];
   if (isObj(raw.sessionModel)) out.sessionModel = raw.sessionModel as ModelStore['sessionModel'];
   if (isObj(raw.sessionModelFallbackAt)) out.sessionModelFallbackAt = raw.sessionModelFallbackAt as ModelStore['sessionModelFallbackAt'];
   if (isObj(raw.globalDefault)) out.globalDefault = raw.globalDefault as ModelStore['globalDefault'];
@@ -150,6 +156,7 @@ function setStore(next: ModelStore) {
     sessionModel: capSessionMap(next.sessionModel),
     sessionModelFallbackAt: capSessionMap(next.sessionModelFallbackAt),
     sessionAgentName: capSessionMap(next.sessionAgentName),
+    projectAgentName: capSessionMap(next.projectAgentName),
   };
   _store = capped;
   // Shared never-throw write — degrades gracefully and reclaims quota from
@@ -404,6 +411,18 @@ export function useModelStore(
     setStore({ ...s, lastAgentName: name });
   }, []);
 
+  // The agent last picked in a new composer of a workspace: seeds the next one.
+  const getProjectAgentName = useCallback(
+    (projectId: string): string | undefined => store.projectAgentName?.[projectId],
+    [store.projectAgentName],
+  );
+
+  const setProjectAgentName = useCallback((projectId: string, name: string | undefined) => {
+    const s = getStore();
+    if (s.projectAgentName?.[projectId] === name) return;
+    setStore({ ...s, projectAgentName: mapEntry(s.projectAgentName, projectId, name ? name : undefined) });
+  }, []);
+
   // Per-session model selection (survives reload — user's explicit choice for this session)
   const getSessionModel = useCallback(
     (sessionId: string): ModelKey | undefined => store.sessionModel?.[sessionId],
@@ -446,6 +465,8 @@ export function useModelStore(
     setSessionAgentName,
     lastAgentName,
     setLastAgentName,
+    getProjectAgentName,
+    setProjectAgentName,
     getSessionModel,
     getSessionModelFallbackAt,
     setSessionModel,

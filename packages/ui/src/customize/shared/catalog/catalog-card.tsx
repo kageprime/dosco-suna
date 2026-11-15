@@ -1,9 +1,10 @@
 'use client';
 
-import type { CSSProperties, ReactNode } from 'react';
+import { useId, type CSSProperties, type ReactNode } from 'react';
 
 import { HoverPrefetchLink } from '../../../internal/components/hover-prefetch-link';
 
+import { plainTextFromMarkdown, shortSummary } from '../../../markdown/inline-code-text';
 import { Checkbox } from '../../../primitives/checkbox';
 import { cn } from '../../../internal/lib/utils';
 
@@ -88,19 +89,34 @@ export function CatalogCard({
   // toggle), so in select mode it is a SIBLING of the body button, never a
   // child — a <button> inside a <button> is invalid HTML and a hydration error.
   const trailingSlot = trailing ? <span className="shrink-0">{trailing}</span> : null;
+  // The control's name is the title alone; the summary is its description.
+  // Without these, the name is every word inside the card (a whole SKILL.md
+  // summary on each Tab stop).
+  const id = useId();
+  const titleId = `${id}-title`;
+  const descriptionId = `${id}-description`;
+  const summary = description ? plainTextFromMarkdown(description) : '';
+  const a11y = { 'aria-labelledby': titleId, 'aria-describedby': summary ? descriptionId : undefined };
   const content = (
     <>
       {leading ? <span className="shrink-0">{leading}</span> : null}
       <span className={cn('min-w-0 flex-1', variant === 'plain' ? 'space-y-0' : 'space-y-1')}>
         <span className="flex items-center gap-1.5">
-          <span className="text-foreground truncate text-sm font-medium">{title}</span>
+          <span id={titleId} className="text-foreground truncate text-sm font-medium">
+            {title}
+          </span>
           {badges}
         </span>
         {subtitle ? <span className="flex flex-wrap items-center gap-1.5">{subtitle}</span> : null}
-        {description ? (
-          <span className="text-muted-foreground line-clamp-2 text-xs text-pretty">
-            {description}
-          </span>
+        {summary ? (
+          <>
+            <span className="text-muted-foreground line-clamp-2 text-xs text-pretty">{summary}</span>
+            {/* The description a Tab stop reads: one sentence, not the whole text the clamp hides.
+               Hidden from browse mode, which already reads the visible summary. */}
+            <span id={descriptionId} className="sr-only" aria-hidden>
+              {shortSummary(description ?? '')}
+            </span>
+          </>
         ) : null}
         {meta ? (
           <span className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-0.5 pt-1 text-xs">
@@ -135,6 +151,7 @@ export function CatalogCard({
           type="button"
           onClick={onClick}
           disabled={disabled}
+          {...a11y}
           className="flex min-w-0 flex-1 items-start gap-3 text-left focus-visible:outline-none"
         >
           {content}
@@ -162,6 +179,7 @@ export function CatalogCard({
           aria-disabled={disabled || undefined}
           onPointerEnter={onIntent}
           onFocus={onIntent}
+          {...a11y}
           className="flex min-w-0 flex-1 items-start gap-3 text-left after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
         >
           {content}
@@ -178,6 +196,7 @@ export function CatalogCard({
         aria-disabled={disabled || undefined}
         onPointerEnter={onIntent}
         onFocus={onIntent}
+        {...a11y}
         style={style}
         className={classes}
       >
@@ -186,7 +205,14 @@ export function CatalogCard({
     );
   }
   return (
-    <button type="button" onClick={onClick} disabled={disabled} style={style} className={classes}>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      {...a11y}
+      style={style}
+      className={classes}
+    >
       {body}
     </button>
   );

@@ -2128,7 +2128,7 @@ export class PiRuntime {
 
   /** Where the running turn's prompt came from; a steered message never changes it. */
   private turnOrigin(): PromptOrigin {
-    return this.active ? promptOrigin(this.active.input.text) : 'human'
+    return this.active ? promptOrigin(this.active.input.text, { synthetic: this.active.input.synthetic }) : 'human'
   }
 
   /** The running turn's prompt is the session's first user message (`KortixHost.turnIsFirstPrompt`). */

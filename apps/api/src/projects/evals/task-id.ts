@@ -11,6 +11,7 @@
  */
 import { createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
 import { config } from '../../config';
+import { checkedTaskVersion } from './hub';
 import type { EvalTaskRef } from './task-source';
 
 // replica-local: the derived key per secret value, computed once.
@@ -33,11 +34,16 @@ const mac = (key: Buffer, projectId: string, body: string): Buffer => createHmac
 const SHA = /^[0-9a-f]{40}$/i;
 const safePath = (path: unknown): path is string => typeof path === 'string' && !path.startsWith('/') && !path.split('/').includes('..');
 
-/** The id of a task at `commit` (the project commit for a repository task; a git task carries its own). */
+/** The id of a task at `commit` (the project commit for a repository task; a git task carries its own, a Hub task its content hash). */
 export function encodeTaskId(projectId: string, ref: EvalTaskRef, projectCommit: string): string {
   const key = signingKey();
   if (!key) throw new Error('API_KEY_SECRET must be configured to mint eval task ids');
-  const fields = ref.kind === 'repo' ? { k: 'repo', p: ref.path, c: projectCommit } : { k: 'git', p: ref.path, c: ref.commit, u: ref.git_url };
+  const fields =
+    ref.kind === 'repo'
+      ? { k: 'repo', p: ref.path, c: projectCommit }
+      : ref.kind === 'package'
+        ? { k: 'pkg', o: ref.org, n: ref.name, h: ref.content_hash, a: ref.archive_path }
+        : { k: 'git', p: ref.path, c: ref.commit, u: ref.git_url };
   const body = Buffer.from(JSON.stringify(fields)).toString('base64url');
   return `${body}${SEPARATOR}${mac(key, projectId, body).toString('base64url')}`;
 }
@@ -51,7 +57,13 @@ export function decodeTaskId(projectId: string, taskId: string): { ref: EvalTask
   const expected = mac(key, projectId, body);
   if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
   try {
-    const fields = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as { k?: unknown; p?: unknown; c?: unknown; u?: unknown };
+    const fields = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as { k?: unknown; p?: unknown; c?: unknown; u?: unknown; o?: unknown; n?: unknown; h?: unknown; a?: unknown };
+    if (fields.k === 'pkg') {
+      if (typeof fields.o !== 'string' || typeof fields.n !== 'string' || typeof fields.h !== 'string' || typeof fields.a !== 'string') return null;
+      // A signed id still names only a well-formed archive of its own package.
+      const task = checkedTaskVersion({ org: fields.o, name: fields.n, content_hash: fields.h, archive_path: fields.a });
+      return { ref: { kind: 'package', org: task.org, name: task.name, content_hash: task.content_hash, archive_path: task.archive_path, path: '' }, commit: task.content_hash };
+    }
     if (!safePath(fields.p) || typeof fields.c !== 'string' || !SHA.test(fields.c)) return null;
     if (fields.k === 'repo') return { ref: { kind: 'repo', path: fields.p }, commit: fields.c };
     if (fields.k === 'git' && typeof fields.u === 'string') return { ref: { kind: 'git', git_url: fields.u, commit: fields.c, path: fields.p }, commit: fields.c };

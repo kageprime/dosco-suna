@@ -62,10 +62,9 @@ export function WorkspaceAccessSection({
         canManageRoles={canManageRoles}
         heading={
           <>
-            <h1 className="text-foreground text-2xl font-medium tracking-tight text-balance">
-              {t('accessTitle')}
-            </h1>
-            <p className="text-muted-foreground text-sm text-pretty">{t('accessDescription')}</p>
+            {/* A section of Members, under the page's own h1. */}
+            <h2 className="text-foreground text-sm font-medium">{t('accessTitle')}</h2>
+            <p className="text-muted-foreground text-xs text-pretty">{t('accessDescription')}</p>
           </>
         }
       />

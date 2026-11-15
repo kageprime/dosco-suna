@@ -137,9 +137,19 @@ export interface WorkflowRunAgent {
   structured?: true;
   /** 1 for the first attempt; a stalled agent restarts with the same prompt (Claude: `(retry n)`). */
   attempt?: number;
-  /** Epoch ms. */
+  /** Epoch ms: when the current attempt started (a restart starts a new clock). */
   startedAt?: number;
   endedAt?: number;
+  /** `stopped` by a person (its row's Stop, or the run's Stop): not a failure, and not to run again unless they ask. */
+  stoppedBy?: 'person';
+  /**
+   * While it runs: when its session log last changed (epoch ms), read at most
+   * once a minute. A tool call that runs without writing is quiet; the card
+   * says "Quiet for N min" once that is long.
+   */
+  quietSince?: number;
+  /** The sessions of its earlier attempts (a restart or a stall retry), oldest first: their spend is the run's too. */
+  earlierSessionIds?: string[];
 }
 
 export interface WorkflowRunMetadata {
@@ -172,4 +182,13 @@ export interface WorkflowRunMetadata {
    * `pause`): no new agent starts until `resume`; running agents finish.
    */
   paused?: boolean;
+  /** The approval question is open: no run exists yet, so nothing can be paused or stopped. */
+  awaitingApproval?: true;
+  /**
+   * The person said no at the approval, so no agent started (`status: 'stopped'`):
+   * `cancel` (Cancel) or `chat` (Answer in chat instead).
+   */
+  declined?: 'cancel' | 'chat';
+  /** How long the approval question waited for the person (ms): waiting time, which a turn's "Worked for" leaves out. */
+  approvalWaitMs?: number;
 }

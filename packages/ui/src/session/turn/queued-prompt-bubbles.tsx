@@ -15,7 +15,8 @@ export const QUEUED_BUBBLE_OPACITY_CLASS =
  *  before a step opened under it — it runs with the next send. */
 export type QueuedPromptState = 'queued' | 'interrupted';
 
-export type QueuedPromptStatusState = QueuedPromptState | 'failed' | 'sending' | 'held';
+/** `unsent`: sent while offline; the POST waits for the network (finding 07). */
+export type QueuedPromptStatusState = QueuedPromptState | 'failed' | 'sending' | 'held' | 'unsent';
 
 /** Ring tone for a queued bubble. `pending` covers waiting and sending, so a
  *  delivery retry that flips a row between them never changes the ring. */
@@ -30,12 +31,12 @@ export function queuedBubbleTone(
 }
 
 /** Show delivery progress on the message itself, not only on the send button. */
-export function QueuedPromptProgress({ state }: { state: 'queued' | 'sending' | 'interrupted' }) {
+export function QueuedPromptProgress({ state }: { state: 'queued' | 'sending' | 'interrupted' | 'unsent' }) {
   const t = useTranslations('threads');
   return (
     <InlineMeta>
       <span role="status" data-queued-status={state} className="text-muted-foreground text-xs">
-        {state === 'sending' ? t('sending') : t('queued')}
+        {state === 'unsent' ? t('notSentYet') : state === 'sending' ? t('sending') : t('queued')}
       </span>
     </InlineMeta>
   );

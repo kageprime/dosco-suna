@@ -181,7 +181,7 @@ describe('harbor task', () => {
     expect(() => parseHarborTask({ ...base, taskToml: null })).toThrow('no task.toml');
   });
   test('what Kortix cannot run is named', () => {
-    expect(parseHarborTask({ ...base, taskToml: '[verifier]\nenvironment_mode = "separate"\n' }).unsupported).toContain('separate verifier');
+    expect(parseHarborTask({ ...base, taskToml: '[verifier]\nenvironment_mode = "shared"\n[verifier.environment]\ndocker_image = "x"\n' }).unsupported).toContain('cannot be combined');
     expect(parseHarborTask({ ...base, taskToml: '[environment]\nos = "windows"\n' }).unsupported).toContain('Windows');
     expect(parseHarborTask({ ...base, taskToml: '', paths: [...base.paths, 'environment/docker-compose.yaml'] }).unsupported).toContain('Multi-container');
   });

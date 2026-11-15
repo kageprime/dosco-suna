@@ -10,6 +10,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:tes
 import { accountMembers, accounts, notifications, projectMembers, projectSessions, projects } from '@kortix/db';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { setSessionSharing } from '../connectors/share';
+import { decidePendingPermission, recordPendingPermission } from '../projects/lib/pending-permissions';
+import { recordPendingQuestion, resolvePendingQuestion } from '../projects/lib/pending-questions';
 import { clearAuthorizeCaches } from '../iam/authorize';
 import { db } from '../shared/db';
 import { deleteFromView, insertIntoView } from '../__tests__/helpers/compat-views';
@@ -412,5 +414,62 @@ withDb('notification inbox read', () => {
     expect(await readAtOf(elsewhere)).toBeNull();
     expect(await readAtOf(theirs)).toBeNull();
     expect(await markSessionNotificationsRead(MEMBER, opened)).toBe(0);
+  });
+
+  test('an answered question and a decided permission list as resolved; open asks and other kinds do not', async () => {
+    const sessionId = await projectSession(CREATOR);
+    const ask = (requestId: string) => ({
+      accountId: project.account_id,
+      projectId: project.project_id,
+      sessionId,
+      requestId,
+    });
+    await recordPendingQuestion({ ...ask('q-answered'), questions: [{ question: 'Run the workflow?', options: [] }] as never });
+    await recordPendingQuestion({ ...ask('q-open'), questions: [{ question: 'Run the other one?', options: [] }] as never });
+    const decided = await recordPendingPermission({
+      ...ask('p-decided'),
+      surfaceSessionId: sessionId,
+      runtimeSessionId: null,
+      tool: 'bash',
+      permission: 'bash',
+      patterns: ['ls'],
+      args: null,
+      argsHash: 'hash-decided',
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    });
+    const answeredRow = await seedRow(MEMBER, { sessionId, kind: 'question', dedupeKey: `question:${sessionId}:q-answered` });
+    const openRow = await seedRow(MEMBER, { sessionId, kind: 'question', dedupeKey: `question:${sessionId}:q-open` });
+    const decidedRow = await seedRow(MEMBER, { sessionId, kind: 'permission', dedupeKey: `permission:${sessionId}:p-decided` });
+    const errorRow = await seedRow(MEMBER, { sessionId, kind: 'turn_error', dedupeKey: `turn:${sessionId}:m1` });
+
+    const resolvedOf = async () =>
+      Object.fromEntries((await listInbox(MEMBER, { limit: 20 })).notifications.map((n) => [n.id, n.resolved]));
+    expect(await resolvedOf()).toEqual({ [answeredRow]: false, [openRow]: false, [decidedRow]: false, [errorRow]: false });
+
+    expect(await resolvePendingQuestion({ sessionId, requestId: 'q-answered', answers: [['Run it']] })).toBe(true);
+    expect(await decidePendingPermission({ id: decided!.id, decision: 'once', decidedBy: OWNER })).toBe(true);
+
+    expect(await resolvedOf()).toEqual({ [answeredRow]: true, [openRow]: false, [decidedRow]: true, [errorRow]: false });
+    // Resolving reads nothing as read: the unread count is unchanged.
+    expect((await listInbox(MEMBER, { limit: 20 })).unread_count).toBe(4);
+  });
+
+  test('an expired question lists as resolved, like the session asks list that drops it', async () => {
+    const sessionId = await projectSession(CREATOR);
+    await recordPendingQuestion({
+      accountId: project.account_id,
+      projectId: project.project_id,
+      sessionId,
+      requestId: 'q-expired',
+      questions: [{ question: 'Run the workflow?', options: [] }] as never,
+      expiresAt: new Date(Date.now() - 60_000).toISOString(),
+    });
+    const keyed = await seedRow(MEMBER, { sessionId, kind: 'question', dedupeKey: `question:${sessionId}:q-expired` });
+    const unkeyed = await seedRow(MEMBER, { sessionId, kind: 'question', dedupeKey: null });
+
+    const page = await listInbox(MEMBER, { limit: 20 });
+    const resolved = Object.fromEntries(page.notifications.map((n) => [n.id, n.resolved]));
+    expect(resolved[keyed]).toBe(true);
+    expect(resolved[unkeyed]).toBe(true);
   });
 });

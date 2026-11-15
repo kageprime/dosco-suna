@@ -109,6 +109,7 @@ export {
   evalJobs,
   evalTrials,
   calendarItems,
+  calendarItemPeople,
   calendarComments,
   projectGoalEvents,
   projectSpaceKindEnum,

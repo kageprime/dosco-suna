@@ -26,7 +26,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDownIcon,
   ArrowUpIcon,
-  CaretRightIcon,
   DotsThreeIcon,
   FolderIcon,
   FolderOpenIcon,
@@ -66,6 +65,7 @@ import {
   SIDEBAR_PAGE_SIZE,
   ShowMoreButton,
 } from '../../session/list/session-list-chrome';
+import { CaretRightSolidIcon } from '../../icons/caret-right-solid';
 
 /** A dragged session row carries its id under this type. */
 const SESSION_DRAG_TYPE = 'application/x-kortix-session';
@@ -389,9 +389,9 @@ function SessionGroupSection({
               <FolderIcon aria-hidden className="size-4 shrink-0" />
             )}
             <span className="min-w-0 truncate">{group.name}</span>
-            <CaretRightIcon
+            <CaretRightSolidIcon
               aria-hidden
-              className="duration-normal size-3 shrink-0 opacity-0 transition-transform ease-out group-hover/section-header:opacity-100 group-data-[state=open]/section:rotate-90"
+              className="duration-normal size-4 shrink-0 opacity-0 transition-transform ease-out group-hover/section-header:opacity-100 group-data-[state=open]/section:rotate-90"
             />
             <SessionGroupMenu
               group={group}

@@ -214,9 +214,21 @@ export interface SpawnSessionInput {
   /**
    * A separate session whose transcript shows no progress for this long is
    * stopped, and the result is an error with `stalled: true`. A tool call the
-   * child is still running counts as progress.
+   * child is still running counts as progress, unless `toolTimeoutMs` is set.
    */
   stallMs?: number
+  /**
+   * With `stallMs`: one tool call that has run longer than this is a stall
+   * (a hung command), not progress. Absent: a running tool call is progress
+   * however long it runs (a long build stays alive).
+   */
+  toolTimeoutMs?: number
+  /**
+   * With `stallMs`: called at each stall check with the time the child's
+   * session log last changed (epoch ms), so a caller can show how long it has
+   * been quiet. A running tool call that writes nothing is quiet.
+   */
+  onQuiet?: (since: number) => void
   /** The most this call waits for a separate child's turn; 30 min when absent. */
   waitMs?: number
   signal?: AbortSignal
@@ -242,6 +254,12 @@ export interface SpawnSessionResult {
   notice?: string
   /** The child made no progress for `SpawnSessionInput.stallMs` and was stopped. */
   stalled?: true
+  /**
+   * `aborted` from outside this call: the API's turn ledger says a person's
+   * Stop ended the child's turn (`UserStop`). Absent when the call itself
+   * aborted, or when the ledger does not say.
+   */
+  stoppedBy?: 'person'
   /** `awaiting_approval`: the ask the person decides (`access:<id>`). */
   askId?: string
 }

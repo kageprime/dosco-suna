@@ -8,7 +8,7 @@ import type { UiTranslator } from '../../i18n';
 
 import type { TurnCostInfo } from '../../internal/session-types';
 import { formatDuration, formatTokens } from '../../internal/session-types';
-import type { SessionLogMessage, SessionLogTurn } from '@kortix/sdk';
+import { isQuestionTool, isWorkflowTool, parseWorkflowRun, toolCallMetadata, type SessionLogMessage, type SessionLogTurn } from '@kortix/sdk';
 import { formatUsdAsCredits } from '@kortix/shared';
 import { formatDistanceStrict } from 'date-fns';
 
@@ -41,14 +41,39 @@ export function sessionTurnEndedAt(turn: Pick<SessionLogTurn, 'user' | 'assistan
   return sessionTurnSpan(turn).endedAt;
 }
 
-/** How long the turn took. `null` whenever that isn't knowable, INCLUDING
- *  `endedAt === startedAt`: one timestamp says WHEN a turn ended and says
- *  nothing about how long it took to get there, so a same-instant span is
- *  treated the same as no span at all rather than rendered as "0s". */
+/**
+ * How long the turn waited for the person: each answered question's
+ * open→answered interval (a `question` call's `started_at` → `ended_at`), and
+ * each workflow approval (the run document's `approvalWaitMs`). Waiting is
+ * not work, so "Worked for" leaves it out. 0 for a turn that asked nothing.
+ */
+export function sessionTurnWaitMs(turn: Pick<SessionLogTurn, 'assistant'>): number {
+  let wait = 0;
+  for (const message of turn.assistant) {
+    for (const block of message.blocks ?? []) {
+      if (block.type !== 'tool_call') continue;
+      if (isQuestionTool(block.name)) {
+        const start = msOf(block.started_at);
+        const end = msOf(block.ended_at);
+        if (start != null && end != null && end > start) wait += end - start;
+      } else if (isWorkflowTool(block.name)) {
+        wait += parseWorkflowRun(toolCallMetadata(block))?.approvalWaitMs ?? 0;
+      }
+    }
+  }
+  return wait;
+}
+
+/** How long the turn took, its waits for the person left out (`sessionTurnWaitMs`).
+ *  `null` whenever that isn't knowable, INCLUDING `endedAt === startedAt`: one
+ *  timestamp says WHEN a turn ended and says nothing about how long it took to
+ *  get there, so a same-instant span is treated the same as no span at all
+ *  rather than rendered as "0s". */
 export function sessionTurnDurationMs(turn: Pick<SessionLogTurn, 'user' | 'assistant'>): number | null {
   const { startedAt, endedAt } = sessionTurnSpan(turn);
   if (startedAt == null || endedAt == null || endedAt <= startedAt) return null;
-  return endedAt - startedAt;
+  const worked = endedAt - startedAt - sessionTurnWaitMs(turn);
+  return worked > 0 ? worked : null;
 }
 
 export interface SessionTurnMetaRow {

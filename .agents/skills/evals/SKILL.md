@@ -14,10 +14,11 @@ file is how the system works and how to verify a change to it.
 
 | Harbor | Kortix |
 | --- | --- |
-| task folder (`instruction.md`, `task.toml`, `environment/`, `tests/test.sh`, `solution/solve.sh`) | read as is from the project repo, a public git repo (`git_url`), or the Harbor registry (`name`, `version`) — `projects/evals/task-source.ts`, `harbor-task.ts` |
+| task folder (`instruction.md`, `task.toml`, `environment/`, `tests/test.sh`, `solution/solve.sh`) | read as is from the project repo, a public git repo (`git_url`), the Harbor Hub (`org/name@ref`, a package archive) or the legacy Harbor registry (`name`, `version`) — `projects/evals/task-source.ts`, `hub.ts`, `harbor-task.ts` |
 | job config (`n_attempts`, `agents`, `datasets`, …) | a suite under `evals:` or a `config:` file — `packages/manifest-schema/src/evals.ts` → `projects/evals/config.ts` |
 | trial | one session (`source: system:eval`) and its sandbox — `projects/evals/runner.ts` |
-| environment `docker_image` / repo Dockerfile | a project sandbox template `eval-<hash>` made on first use, reused after |
+| environment `docker_image` / Dockerfile | a project sandbox template `eval-<hash>` made on first use, reused after. A repo Dockerfile builds from its path; a Hub or git task's Dockerfile from its text (`sandbox_templates.dockerfile_inline`). No build context either way: `COPY`/`ADD` of a local file is refused (`contextFreeDockerfile`) |
+| `harbor serve` controls (pause, resume, soft cancel, retry; global rollout list with filters) | `POST …/pause`, `/resume`, `/cancel {force}` on a job and a trial; `GET /evals/trials` and `/trials/filters`, `/jobs/filters` |
 | reward file, error policy, mean / pass@k | `projects/evals/scoring.ts` (Harbor's `error_policy.py` groups) |
 | `jobs/<job>/<trial>/result.json` | Files `/Evals/<job>/<trial>/…`, written once by the API (`storage.ts`) |
 
@@ -56,6 +57,18 @@ in Files is the content.
 - **Compare** (`GET /evals/compare?jobs=a,b[,…]&by=`) uses the last run of
   each attempt; `change` is the last job against the first. The CLI
   `compare` prints it.
+- **Pause, resume, soft cancel** follow `harbor serve`: a pause moves queued
+  trials to `paused` (only a queued trial pauses; running ones go on) and a
+  run queued in a paused job starts paused. `cancel {"force": false}` cancels
+  queued and paused trials, lets running ones finish with no retry, and the
+  runner ends the job `cancelled` (`cancel_mode: soft` meanwhile; with nothing
+  running it ends at once). A trial's soft cancel sets `run_state.no_retry`,
+  which `updateTrial` keeps through the runner's own run-state writes.
+- **Trials across jobs** (`GET /evals/trials`): repeated or comma-separated
+  filters (`job_ids`, `status`, `task`, `agent`, `model`, `exception_type`),
+  `q`, `sort`, `page_size` ≤ 100, an opaque `page_token`. `/trials/filters`
+  and `/jobs/filters` count each value of one field in the scope of the other
+  filters, its own filter left out. Customize → Evals → Trials uses both.
 
 ## Trial lifecycle (runner.ts, one leader tick every 3 s busy / 15 s idle)
 
@@ -168,7 +181,14 @@ CLI has it.
 
 ## Not supported yet
 
-Multi-step tasks, docker-compose environments, a separate verifier
-environment, Windows, GPUs, `metric.py`, Harbor's Python agents
-(`import_path`). Each is refused with a reason (`TaskUnsupportedError`, a
-validation issue), never run wrong.
+Multi-step tasks, docker-compose environments, a restricted network
+(`no-network`/`allowlist`, `allow_internet = false`: Kortix cannot enforce it),
+`mcp_servers`, a Dockerfile that copies local files, Windows, GPUs,
+`metric.py`, Harbor's Python agents (`import_path`), `harbor serve`'s SQL
+`/query` and Hub upload. Each is refused with a reason
+(`TaskUnsupportedError`, a validation issue), never run wrong.
+
+Supported since 2026-11-14 (Harbor v0.26.0): the Hub registry, a separate
+verifier (`artifact-transfer.ts`), `[environment.healthcheck]`, `artifacts`
+(`artifacts.ts`), `.harborignore`, pause/resume/soft cancel and the trial
+list across jobs.

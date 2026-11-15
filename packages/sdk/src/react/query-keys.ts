@@ -438,6 +438,12 @@ export const qk = {
     },
 
     /**
+     * The workspace's sessions at work now (`working=only`), for a Running
+     * view. Two segments past `sessionsScope`, so it is never one session's key.
+     */
+    runningSessions: (id: string) => [...qk.project.sessionsScope(id), 'list-running', 'visible'] as const,
+
+    /**
      * One session's children (`parent=<sessionId>`), infinite. Its own slot
      * beside `sessionsPaged`; nests under `sessionsScope` for invalidation.
      */

@@ -206,7 +206,8 @@
     },
     "agentAccess": "Agents : {agents}",
     "allAgents": "Tous les agents",
-    "noAgents": "Aucun agent"
+    "noAgents": "Aucun agent",
+    "deliveredOnceSet": "Transmis dès qu’une valeur est définie"
   },
   "useCases": {
     "headline": "Les boucles qui font fonctionner une entreprise",
@@ -933,6 +934,7 @@
       "secretsCommand": "Commande des secrets",
       "ownClientTitle": "Utiliser votre propre client Git",
       "ownClientDescription": "Clonez avec <code>git</code> directement plutôt qu'avec la ligne de commande Kortix.",
+      "ownClientHelp": "Clonez à partir de cette adresse avec n’importe quel client Git. Lorsque git le demande, saisissez n’importe quel nom d’utilisateur et une clé API Kortix comme mot de passe : la ligne de commande Kortix le fait pour vous via son assistant d’identification, <code>git</code> seul ne le fait pas.",
       "cloneAddressDescription": "Clonez cette adresse avec n'importe quel client Git. Kortix signe la requête, donc aucun jeton d'accès n'est à créer ou conserver.",
       "cloneAddress": "Adresse de clonage",
       "peopleTitle": "Personnes ayant accès",
@@ -1147,15 +1149,16 @@
         "startup": "Démarrage"
       },
       "statuses": {
-        "ready": "prêt",
-        "building": "création",
-        "failed": "échec"
+        "ready": "Prêt",
+        "building": "Création",
+        "failed": "Échec"
       },
       "stale": {
         "superseded": "Non terminé, et une configuration plus récente l’a remplacé",
         "recovered": "Non terminé, mais l’environnement est maintenant prêt",
         "retrying": "Non terminé — une nouvelle tentative est en cours"
       },
+      "supersededGroup": "{count, plural, one {# ancienne création remplacée} other {# anciennes créations remplacées}}",
       "outcomes": {
         "ready": "Prêt pour de nouvelles sessions",
         "building": "Préparation en cours",
@@ -1346,7 +1349,7 @@
         },
         "calendar": {
           "name": "Calendrier",
-          "description": "Un calendrier partagé pour les personnes et les agents : des éléments avec une date, un responsable et des commentaires, à côté des déclencheurs et Loops planifiés. Mentionnez quelqu’un avec @ pour le notifier. Les agents utilisent `kortix calendar`."
+          "description": "Un calendrier partagé pour les personnes et les agents : des éléments avec une date, des participants et des commentaires, à côté des déclencheurs et Loops planifiés. Mentionnez quelqu’un avec @ pour le notifier. Les agents utilisent `kortix calendar`."
         }
       },
       "channelsSwitch": {
@@ -1678,8 +1681,8 @@
         "needsInput": "Réponse requise",
         "starting": "Réveil",
         "running": "En cours",
-        "done": "Prête",
-        "stopped": "En veille",
+        "done": "Terminée",
+        "stopped": "Arrêtée",
         "failed": "Échouée",
         "legacy": "Ancienne"
       }
@@ -1708,6 +1711,9 @@
       "title": "{file} contient {errors, plural, one {# erreur} other {# erreurs}} et {warnings, plural, one {# avertissement} other {# avertissements}}",
       "titleErrors": "{file} contient {errors, plural, one {# erreur} other {# erreurs}}",
       "titleWarnings": "{file} contient {warnings, plural, one {# avertissement} other {# avertissements}}",
+      "count": "{errors, plural, one {# erreur} other {# erreurs}} et {warnings, plural, one {# avertissement} other {# avertissements}}",
+      "countErrors": "{errors, plural, one {# erreur} other {# erreurs}}",
+      "countWarnings": "{warnings, plural, one {# avertissement} other {# avertissements}}",
       "errorsOff": "Les agents et triggers en erreur restent désactivés jusqu’à sa correction.",
       "warningsOnly": "Tout continue de fonctionner.",
       "error": "Erreur",
@@ -1888,7 +1894,15 @@
       "noMessages": "Aucun message pour l’instant",
       "more": "Plus"
     },
-    "calendar": "Calendrier"
+    "calendar": "Calendrier",
+    "running": "En cours",
+    "runningCount": "{count, plural, one {# session en cours} other {# sessions en cours}}",
+    "runningTitle": "En cours",
+    "runningEmpty": "Rien n’est en cours.",
+    "runningFailed": "Impossible de lire ce qui est en cours.",
+    "runningRetry": "Réessayer",
+    "runningIn": "dans {title}",
+    "runningFirst": "Les {count} premières sont affichées."
   },
   "dashboard": {
     "title": "Tableau de bord",
@@ -2357,6 +2371,8 @@
     "chatInputMachine": "Machine",
     "chatInputMachineDescription": "Le modèle de machine sur lequel cette session démarre.",
     "sending": "Envoi en cours",
+    "notSentYet": "Pas encore envoyé · sera envoyé dès que vous serez de nouveau en ligne",
+    "offlineReconnecting": "Hors ligne — reconnexion…",
     "stop": "Arrêter",
     "startingSession": "Démarrage de la session…",
     "sessionStarted": "Session démarrée",
@@ -2896,7 +2912,7 @@
       "featuresGrace": "SSO et SCIM restent actifs jusqu'au {date}. Contactez les ventes pour conserver Enterprise.",
       "featuresOn": "Activé",
       "featuresOff": "Désactivé",
-      "featuresOffDescription": "SSO, SCIM, rôles avancés, journaux d'audit et image de marque.",
+      "featuresOffDescription": "SSO, SCIM, rôles avancés et journaux d'audit.",
       "featuresDemo": "Activé en démo. Contactez les ventes pour une licence.",
       "featuresLicensed": "Sous licence",
       "featuresLicensedRenews": "Sous licence · renouvellement le {date}",
@@ -2921,7 +2937,11 @@
       "action": "Ajoutez des crédits ou choisissez un forfait pour lancer des sessions ici."
     },
     "costs": {
-      "billedElsewhere": "{amount} crédits de ce coût ont été facturés à l’espace de travail d’où il a été déplacé."
+      "billedElsewhere": "{amount} crédits de ce coût ont été facturés à l’espace de travail d’où il a été déplacé.",
+      "allWorkspaces": "Tous les workspaces",
+      "usageDescriptionWorkspace": "Frais Kortix de ce workspace. Les crédits forment un seul solde pour tous les workspaces.",
+      "usageDescriptionAll": "Frais Kortix et registre des crédits de tous les workspaces.",
+      "planDescriptionAll": "Forfait, crédits et dépenses de tous les workspaces."
     }
   },
   "ssoRequired": {
@@ -3340,7 +3360,17 @@
       "jsonKeys": "{count, plural, one {JSON · # clé} other {JSON · # clés}}",
       "jsonItems": "{count, plural, one {JSON · # élément} other {JSON · # éléments}}",
       "failedSentence": "Le workflow s’est arrêté avant d’avoir fini.",
-      "runningCount": "{count} en cours"
+      "runningCount": "{count} en cours",
+      "spent": "{credits} crédits dépensés",
+      "spentHint": "Ce que Kortix a facturé jusqu’ici pour cette exécution : appels au modèle et temps de calcul de l’exécution et de ses agents.",
+      "waitingForYou": "En attente de vous · pas démarré",
+      "cancelled": "Annulé — rien n’a tourné",
+      "answeredInChat": "Répondu dans le chat — rien n’a tourné",
+      "stoppedByYou": "Arrêté par vous",
+      "attempt": "essai {count}",
+      "quietFor": "Silencieux depuis {minutes} min",
+      "quietCount": "{count} silencieux",
+      "holdingWorking": "En attente · {count} travaillent encore"
     },
     "agent": {
       "backgroundWorking": "Travaille en arrière-plan",
@@ -3438,7 +3468,7 @@
       "automation_recovered": "Un déclencheur ou une boucle en échec fonctionne de nouveau.",
       "capture_device_down": "Un ordinateur Kortix Capture n’enregistre pas. Envoyé aux personnes qui gèrent Capture.",
       "capture_device_recovered": "Un ordinateur Kortix Capture arrêté enregistre à nouveau.",
-      "mention": "Quelqu’un d’autre vous mentionne ou vous assigne un élément du calendrier."
+      "mention": "Quelqu’un d’autre vous mentionne ou vous ajoute à un élément du calendrier."
     },
     "inbox": {
       "title": "Boîte de réception",
@@ -10423,6 +10453,7 @@
       "text38e64d6a8162": "Committe un SKILL.md sur la branche par défaut de l’espace de travail. Ni modèle ni chat requis.",
       "text39cfc32bd12c": "Texte collé",
       "text23d0bb29fca0": "{count, plural, one {# mot} other {# mots}}",
+      "text3e310b75051c": "Relancer",
       "text426699d5a8c0": "{count, plural, one {# caractère} other {# caractères}}",
       "text40078a553439": "Bloc de la pièce jointe téléversé",
       "text4c7f8000aabd": "Téléversement de la pièce jointe terminé",
@@ -10786,6 +10817,10 @@
       "text0b2e0f1bf47e": "Chaque appel effectué, et la personne qui l’a autorisé",
       "text0b2ecc210632": "Le seul canal en direct. Posez la question dans le fil où elle est apparue ; la réponse, le graphique et la requête reviennent dans ce même fil.",
       "text0b348466332c": "Aucune modification pour le moment",
+      "textf83916135509": "utilisé",
+      "texta251c18205f1": "En cache",
+      "text64cd989efc14": "Espace libre",
+      "textcc6d004b577f": "Ce fichier n’a aucune modification par rapport à la base.",
       "text0b38e3daeb93": "Tous les secrets",
       "text0b3dbab0c668": "- Déployer le correctif, rédiger le post-mortem",
       "text0b495c90447a": "Le calendrier, la boîte de réception, le système de candidatures.",
@@ -11655,6 +11690,7 @@
       "text2522f9d16f3b": "Le CompanyOS",
       "text25330787f710": "+3",
       "text2534086de9fe": "Afficher le panneau",
+      "text40cd6293d193": "Masquer le panneau",
       "text2534e74d5120": "Que doit modifier l’agent ?",
       "text253923d0f0c5": "Connexions → Applications → +",
       "text253b18a02165": "Démarrage",
@@ -11990,7 +12026,6 @@
       "text2f6a48c637a9": "Webhook supprimé",
       "text2f6c00ce1d58": "Les groupes envoyés depuis les règles OneLogin sont créés dans Kortix sous leurs noms OneLogin.",
       "text2f6e9daec8e9": "États",
-      "text2f72fafe0ce1": "au lieu de la ligne de commande Kortix.",
       "text2f77668a9dfb": "Message",
       "text2f77dafd3fcc": "connecter un fournisseur",
       "text2f80158a9d89": "research/",
@@ -14472,7 +14507,6 @@
       "text7743ce348d92": "brouillon",
       "text775ddc2119ab": "Copiez ci-dessous « Identifier (Entity ID) » et « Reply URL (Assertion Consumer Service URL) », puis collez-les dans le panneau « Basic SAML Configuration » — définissez l’Identifier comme valeur par défaut et configurez « Sign on URL » avec votre page de connexion Kortix. Laissez Relay State et Logout URL vides. Cliquez sur « Save », puis fermez le panneau d’édition.",
       "text775f96fcc9db": "Jeton révoqué",
-      "text7760401b25c7": "Cloner avec de la plaine",
       "text7761b572aba8": "Notifications du navigateur",
       "text77793c7508f1": "sera réinitialisée.",
       "text7779bc2ac4be": "skills/claims/SKILL.md",
@@ -16695,7 +16729,6 @@
       "textb7297226fd1f": "Enregistrer le nom",
       "textb7396994492d": "Ajouter une application SAML personnalisée → Mapping des attributs",
       "textb73ce9104ddb": "Échec de la copie — sélectionnez-le et copiez-le manuellement",
-      "textb74106e21108": "ce n'est pas le cas.",
       "textb7416a669c6b": "Rappelé",
       "textb74399647bf0": "Nommez-le selon sa fonction, afin qu’une ligne d’audit se lise comme elle-même.",
       "textb743a712efa8": "Un fil est une session. Une seule, et pas davantage.",
@@ -18272,7 +18305,6 @@
       "texte3190ee3d8a8": "Impossible d’afficher le classeur",
       "texte31ab643c44f": "membre",
       "texte31c7af1f424": "Chacun connecte son propre compte.",
-      "texte327e6c1348b": "Clonez à partir de cette adresse avec n’importe quel client Git. Lorsque git vous le demande, entrez n'importe quel nom d'utilisateur et une clé API Kortix comme mot de passe - la ligne de commande Kortix le fait pour vous via son assistant d'identification, en clair",
       "texte3311b311078": "Souhaite du CSV en plus du xlsx",
       "texte335ed040bfe": "Un brouillon sur une branche, relu comme un diff.",
       "texte339fc8e7d89": "Une réponse de chat ne peut être ni vérifiée ni répétée. La session valide donc son travail : la requête, le script, le graphique et une note sur ce qui a été vérifié.",
@@ -21387,7 +21419,11 @@
       "texta268bab502cf": "Élément du calendrier consulté",
       "text16d71c4d10a2": "Élément du calendrier modifié",
       "text14580c9900ac": "Élément du calendrier supprimé",
-      "text96386c724e21": "A commenté un élément du calendrier"
+      "text96386c724e21": "A commenté un élément du calendrier",
+      "textf543a9f99ce7": "Barre d’actions",
+      "textca4067071fcf": "Sélection",
+      "text4cea356a17a1": "Modifications non enregistrées",
+      "text2358f7b37c07": "La barre flottante d’un mode temporaire : une sélection, des modifications non enregistrées, un collage en attente. Un titre, une description atténuée, des actions avec raccourcis clavier et un bouton de fermeture."
     },
     "publicShareConfirm": {
       "title": "Créer un lien public ?",
@@ -21804,11 +21840,14 @@
     "noCapUnlimited": "Aucun plafond · dépenses illimitées",
     "tokensSub": "{in} entrée · {out} sortie",
     "unknownValue": "Inconnu",
-    "estimateCoverageUnavailable": "Couverture de l'estimation indisponible.",
     "estimatesSeparate": "Les dépenses réelles ci-dessus sont distinctes. Les estimations ne sont jamais ajoutées aux frais.",
     "estimatedUsageValueLabel": "Valeur d'usage LLM estimée (pas une facture) :",
-    "pricedRequests": "{count} requêtes tarifées",
-    "unpricedRequests": "{count} requêtes non tarifées",
+    "pricedRequests": "{count, number} requêtes tarifées",
+    "unpricedRequests": "{count, number} requêtes non tarifées",
+    "failedRequests": "{count, number} requêtes échouées",
+    "estimateInfoLabel": "À propos de cette estimation",
+    "estimateDetail": "Appels de modèle réussis valorisés aux tarifs publics. Les requêtes échouées et les modèles sans tarif connu ne sont pas tarifés.",
+    "estimateRateVersion": "Grille tarifaire : {version}",
     "llmEstimateLabel": "Estimation LLM :"
   },
   "triggerComposer": {
@@ -22381,7 +22420,9 @@
     "areaDescription": "Connectez apps et canaux à vos agents et décidez de ce qu’ils peuvent faire.",
     "wayMoreNamed": "Plus pour {name}",
     "otherWaysLead": "Autres moyens :",
-    "typeFilterKortix": "Kortix"
+    "typeFilterKortix": "Kortix",
+    "scopeAll": "Tous",
+    "scopeAdded": "Ajoutés"
   },
   "connectMcp": {
     "title": "Connecter Kortix via MCP",
@@ -24697,7 +24738,7 @@
   },
   "calendar": {
     "title": "Calendrier",
-    "gateDescription": "Un calendrier partagé pour les personnes et les agents : des éléments avec une date, un responsable et des commentaires, à côté de vos déclencheurs et Loops planifiés.",
+    "gateDescription": "Un calendrier partagé pour les personnes et les agents : des éléments avec une date, des participants et des commentaires, à côté de vos déclencheurs et Loops planifiés.",
     "newItem": "Nouvel élément",
     "today": "Aujourd’hui",
     "previousWeek": "Semaine précédente",
@@ -24714,12 +24755,14 @@
     },
     "people": "Personnes",
     "agents": "Agents",
+    "searchPeople": "Rechercher des personnes et des agents",
     "noDate": "Sans date",
     "noDateHint": "Les éléments sans date attendent ici.",
     "allDay": "Toute la journée",
+    "startTime": "Heure de début",
+    "endTime": "Heure de fin",
     "overdue": "En retard",
     "status": {
-      "open": "Ouvert",
       "done": "Terminé"
     },
     "comments": "{count, plural, one {# commentaire} other {# commentaires}}",
@@ -24732,9 +24775,7 @@
     "dayEntries": "{day}, {count, plural, one {# entrée} other {# entrées}}",
     "showWeekOf": "Afficher la semaine du {day}",
     "more": "{count} de plus",
-    "nobody": "Personne",
     "when": "Quand",
-    "owner": "Responsable",
     "created": "Créé",
     "clearDate": "Retirer la date",
     "saveFailed": "La modification n’a pas été enregistrée.",
@@ -24932,7 +24973,7 @@
       "newAgent": "New agent",
       "newAgentHelp": "My Kortix écrit l’agent dans kortix.yaml et ouvre une demande de modification.",
       "name": "Name",
-      "namePlaceholder": "market-scan",
+      "namePlaceholder": "Veille marché",
       "nameHelp": "Lowercase letters, digits and dashes. Saved as <slug></slug>.",
       "nameTaken": "Un agent porte déjà ce nom.",
       "howToStart": "How to start",
@@ -26531,7 +26572,11 @@
         "resume": "Impossible de reprendre l’exécution",
         "stop": "Impossible d’arrêter l’exécution",
         "restart": "Impossible de redémarrer {label}"
-      }
+      },
+      "hold": "Retenir les nouveaux agents",
+      "holdShort": "Retenir les nouveaux agents",
+      "holdHint": "Retenir les nouveaux agents : aucun ne démarre avant la reprise ; ceux qui travaillent continuent (p)",
+      "holding": "Nouveaux agents retenus"
     },
     "board": {
       "layoutLabel": "Affichage",
@@ -26806,7 +26851,8 @@
         "dangerZone": "Zone de danger",
         "evalDatasets": "Jeux de données",
         "evalTasks": "Tâches",
-        "evalJobs": "Jobs"
+        "evalJobs": "Jobs",
+        "evalTrials": "Essais"
       },
       "accessTitle": "Accès",
       "accessDescription": "Qui peut ouvrir cet espace de travail, et avec quel rôle.",
@@ -26834,6 +26880,9 @@
       "personalKeysEmpty": "Aucune clé personnelle. kortix login en crée une ; les clés pour un script se créent dans Paramètres › Clés API d'un espace de travail.",
       "securityDescription": "Règles de connexion, qui peut ouvrir quelles sessions et les règles de chaque clé API.",
       "rolesDescription": "Rôles intégrés et personnalisés. Attribuez-les depuis Membres.",
+      "builtInRoles": "Rôles intégrés",
+      "memberGroupsEnterprise": "Les groupes font partie d’Enterprise.",
+      "openGroups": "Ouvrir Groupes",
       "workspaceId": "ID de l'espace de travail",
       "workspaceIdDescription": "Pour la CLI, l'API et le support.",
       "leaveWorkspace": "Quitter l'espace de travail",
@@ -26847,7 +26896,7 @@
       "apiKeysDescription": "Des clés pour les scripts, la CI et les intégrations. Une clé agit en votre nom, au nom d'un agent ou d'un bot. Les règles de chaque clé sont dans Sécurité.",
       "keys": {
         "title": "Clés d'API",
-        "description": "Clés pour scripts, CI et intégrations. Une clé agit comme vous, un agent ou un bot ; « S'applique à » définit les espaces de travail qu'elle atteint.",
+        "description": "Clés pour les scripts, la CI et les intégrations. Une clé agit en ton nom, au nom d'un agent ou d'un bot. Elle fonctionne dans ce workspace, sauf si tu choisis tous tes workspaces.",
         "newKey": "Nouvelle clé",
         "count": "{count, plural, one {# clé} other {# clés}}",
         "emptyTitle": "Aucune clé d'API",
@@ -27057,7 +27106,9 @@
       "queued": "En file d’attente",
       "running": "En cours",
       "completed": "Terminé",
-      "cancelled": "Annulé"
+      "cancelled": "Annulé",
+      "paused": "En pause",
+      "cancelling": "Annulation en cours"
     },
     "trialStatus": {
       "queued": "En file d’attente",
@@ -27066,7 +27117,8 @@
       "verifying": "Vérification",
       "completed": "Terminé",
       "errored": "En erreur",
-      "cancelled": "Annulé"
+      "cancelled": "Annulé",
+      "paused": "En pause"
     },
     "rerunFailed": "Relancer les échecs",
     "rerunAll": "Tout relancer",
@@ -27123,7 +27175,8 @@
       "error": "Erreur",
       "running": "En cours",
       "queued": "En attente",
-      "cancelled": "Annulée"
+      "cancelled": "Annulée",
+      "paused": "En pause"
     },
     "colMeanScore": "Score moyen",
     "metricsHint": "Le score d’un essai est la moyenne de ses récompenses ; voici leur moyenne. Métriques Harbor par clé : {metrics}",
@@ -27227,7 +27280,7 @@
     "progressLabel": "Progression",
     "ranFor": "A duré {time}",
     "recentJobs": "Jobs récents",
-    "registryGroup": "Registre Harbor",
+    "registryGroup": "Harbor",
     "registryTasksHint": "Les jeux de données du registre Harbor listent leurs tâches sur leur propre page",
     "registryUnavailable": "Impossible de lire le registre Harbor ({reason}). Vos suites et les jeux de données intégrés sont listés.",
     "retryN": "nouvel essai {n}",
@@ -27301,7 +27354,7 @@
       "all": "Tous",
       "suite": "Les vôtres",
       "builtin": "Intégrés",
-      "registry": "Registre Harbor"
+      "registry": "Harbor"
     },
     "taskTab": {
       "instruction": "Instruction",
@@ -27309,7 +27362,49 @@
       "files": "Fichiers",
       "results": "Résultats"
     },
-    "colTaskCount": "Tâches"
+    "colTaskCount": "Tâches",
+    "pause": "Mettre en pause",
+    "resume": "Reprendre",
+    "paused": "Job en pause",
+    "resumed": "Job repris",
+    "cancelNow": "Arrêter maintenant",
+    "cancelNowHint": "Les essais en cours s’arrêtent et le job se termine.",
+    "cancelDrain": "Laisser finir les essais en cours",
+    "cancelDrainHint": "Rien de nouveau ne démarre ni n’est relancé. Le job se termine après ses essais en cours.",
+    "cancelDrainStarted": "Le job se termine après ses essais en cours",
+    "trialsTitle": "Essais",
+    "trialsDescription": "Chaque essai de chaque job, filtré sur le serveur.",
+    "trialsInfo": "Chaque filtre liste ses valeurs avec le nombre d’essais qui les ont, comptés parmi ceux que gardent les autres filtres. Une ligne ouvre l’essai à côté de son job.",
+    "searchTrials": "Rechercher des essais",
+    "sortLabel": "Trier",
+    "trialSort": {
+      "desc_created_at": "Plus récents",
+      "created_at": "Plus anciens",
+      "desc_finished_at": "Terminés en dernier",
+      "desc_reward": "Récompense la plus haute",
+      "reward": "Récompense la plus basse",
+      "task": "Tâche A–Z"
+    },
+    "trialFacet": {
+      "status": "Statut",
+      "job": "Job",
+      "task": "Tâche",
+      "agent": "Agent",
+      "model": "Modèle",
+      "exception_type": "Erreur"
+    },
+    "trialFacetAny": {
+      "status": "Tout statut",
+      "job": "Tous les jobs",
+      "task": "Toutes les tâches",
+      "agent": "Tout agent",
+      "model": "Tout modèle",
+      "exception_type": "Toute erreur"
+    },
+    "noTrialsYet": "Aucun essai pour l’instant",
+    "displayingRange": "{from}–{to} sur {total} essais",
+    "previousPage": "Page précédente",
+    "nextPage": "Page suivante"
   },
   "desktopTabs": {
     "tabs": "Onglets ouverts",
@@ -27334,6 +27429,7 @@
     "settings": "Paramètres",
     "pages": {
       "apps": "Apps",
+      "calendar": "Calendrier",
       "chat": "Chat",
       "drive": "Drive",
       "files": "Fichiers",

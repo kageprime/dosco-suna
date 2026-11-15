@@ -45,6 +45,8 @@ import { ArrowsInSimpleIcon, ArrowsOutSimpleIcon, FileDashedIcon } from '@phosph
 import { useMemo, useState } from 'react';
 
 interface SessionDiffViewerProps {
+  /** A Changes-section row opens one exact file; other mounts keep the full comparison. */
+  filePath?: string;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
   /**
@@ -56,6 +58,7 @@ interface SessionDiffViewerProps {
 }
 
 export function SessionDiffViewer({
+  filePath,
   isFullscreen,
   onToggleFullscreen,
   reserveCloseGutter,
@@ -66,7 +69,10 @@ export function SessionDiffViewer({
   const { files, isPending, error, refetch } = useSessionChanges();
   const [layout, setLayout] = useState<DiffLayout>('unified');
 
-  const entries = useMemo<ChangeEntry[]>(() => files.map(entryFromVcsFile), [files]);
+  const entries = useMemo<ChangeEntry[]>(
+    () => files.filter((file) => !filePath || file.file === filePath).map(entryFromVcsFile),
+    [files, filePath],
+  );
   const { expanded, setRow, allExpanded, toggleAll } = useChangeExpansion(entries);
 
   // A DISABLED query is not an empty result. While the sandbox boots, nothing
@@ -108,7 +114,9 @@ export function SessionDiffViewer({
         size="sm"
         className="h-full"
         title={tI18nComplete.raw('text0b348466332c')}
-        description={tI18nComplete.raw('textc88aaafcef61')}
+        // One file opened from the Changes section: say it is THIS file that
+        // has nothing left, not that the session changed nothing.
+        description={tI18nComplete.raw(filePath ? 'textcc6d004b577f' : 'textc88aaafcef61')}
       />
     );
   }
@@ -120,7 +128,8 @@ export function SessionDiffViewer({
       <div className="space-y-2 p-2">
         <div className={cn('flex items-center gap-1.5', reserveCloseGutter && 'pr-11')}>
           <ChangeSummary entries={entries} className="min-w-0 flex-1" />
-          <ExpandAllButton allExpanded={allExpanded} onToggle={toggleAll} />
+          {/* One file (a Changes-section row): nothing to expand or collapse. */}
+          {!filePath && <ExpandAllButton allExpanded={allExpanded} onToggle={toggleAll} />}
           <DiffLayoutToggle layout={layout} onChange={setLayout} />
           {onToggleFullscreen && (
             <Hint label={fullscreenLabel} side="bottom">

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 
-import { errorToast } from '../../primitives/toast';
+import { onlineManager } from '@tanstack/react-query';
+import { errorToast, infoToast } from '../../primitives/toast';
 import type { ComposerOptions } from './composer-chat-input';
 import type { AttachedFile } from './session-chat-input';
 import { isFirstPromptRow } from './queue-projection';
@@ -544,6 +545,7 @@ export function useInstantSessionSend(
   const { projectId, sessionId, hydrated, onSubmit, promptInbox } = props;
   const tI18nHardcoded = useTranslations('hardcodedUi');
   const tComposerAttachments = useTranslations('hardcodedUi.composerAttachments');
+  const tThreads = useTranslations('threads');
   const { submission, setSubmission, extraSends, setExtraSends, firstSendInFlight, mountedRef } =
     useSendMemory();
   const { submitted, effectiveSubmission } = useFirstPromptSources({
@@ -581,6 +583,8 @@ export function useInstantSessionSend(
         firstSendInFlight,
         mountedRef,
       };
+      // A new session's first prompt has no row on screen to say it waits: say it once.
+      if (send.first && !onlineManager.isOnline()) infoToast(tThreads('notSentYet'));
       paintSend(send, env);
       const post = buildPost(send, env);
       const { detached } = send;
@@ -600,6 +604,7 @@ export function useInstantSessionSend(
       projectId,
       tI18nHardcoded,
       tComposerAttachments,
+      tThreads,
       onSubmit,
       promptInbox.enqueue,
       setSubmission,

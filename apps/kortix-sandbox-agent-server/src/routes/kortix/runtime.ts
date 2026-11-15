@@ -127,6 +127,24 @@ function intParam(value: string | undefined, fallback: number, max: number): num
   return Math.min(Math.floor(n), max)
 }
 
+/** `?include=context` (a comma list): the reader asks for the system prompt messages too. */
+function includesContext(value: string | undefined): boolean {
+  return !!value && value.split(',').some((part) => part.trim() === 'context')
+}
+
+/**
+ * A `log.message` put of a system prompt message (`kind: 'context'`) with its
+ * blocks left out: the frame keeps its seq (the stream's seqs stay dense) and
+ * names the message, but a viewer does not download the agent's instructions.
+ * Any other event as it is.
+ */
+function withoutContextText(event: KortixEvent): KortixEvent {
+  if (event.type !== 'log.message') return event
+  const payload = event.payload as { message?: { kind?: unknown; blocks?: unknown } } | null | undefined
+  if (payload?.message?.kind !== 'context') return event
+  return { ...event, payload: { ...payload, message: { ...payload.message, blocks: [] } } }
+}
+
 export function createRuntimeRouter(
   cfg: Config,
   queries: HarnessQueryService,
@@ -322,6 +340,7 @@ export function createRuntimeRouter(
           afterSeq: seqParam(c.req.query('after_seq')),
           beforeSeq: seqParam(c.req.query('before_seq')),
           limit: intParam(c.req.query('limit'), DEFAULT_MESSAGE_PAGE, MAX_MESSAGE_PAGE),
+          includeContext: includesContext(c.req.query('include')),
         }),
       )
     })
@@ -450,6 +469,8 @@ export function createRuntimeRouter(
     const sinceRaw = c.req.query('since')
     const since = sinceRaw !== undefined && /^\d+$/.test(sinceRaw) ? Number(sinceRaw) : null
     const epoch = c.req.query('epoch')?.trim() || null
+    // A v2 viewer gets the system prompt's `log.message` (`kind: 'context'`) without its text unless it asks.
+    const withContext = includesContext(c.req.query('include'))
 
     const encoder = new TextEncoder()
     let heartbeat: ReturnType<typeof setInterval> | null = null
@@ -492,7 +513,8 @@ export function createRuntimeRouter(
         const send = (event: KortixEvent) => {
           if (event.seq <= lastSent) return
           lastSent = event.seq
-          write(`event: ${event.type}\nid: ${event.seq}\ndata: ${JSON.stringify(event)}\n\n`)
+          const shown = withContext ? event : withoutContextText(event)
+          write(`event: ${shown.type}\nid: ${shown.seq}\ndata: ${JSON.stringify(shown)}\n\n`)
         }
 
         const subscription = bus.subscribe(
@@ -532,6 +554,7 @@ export function createRuntimeRouter(
         // the client keys these puts by `rev`, never by seq.
         if (schema === 'v2') {
           for (const put of sessionLogJoinSnapshot()) {
+            if (!withContext && (put.message as { kind?: unknown }).kind === 'context') continue
             const frame = { seq: bus.headSeq, type: 'log.message', at: now(), payload: put, session: put.message.thread_id }
             write(`event: log.message\nid: ${frame.seq}\ndata: ${JSON.stringify(frame)}\n\n`)
           }

@@ -139,9 +139,9 @@ export function PlanPanelCard({ sessionId }: { sessionId: string }) {
           </span>
         ) : undefined
       }
-      // `px-3.5` matches the header's own inset, so a step's glyph sits on the
+      // `px-4` matches the header's own inset, so a step's glyph sits on the
       // same left edge as the title above it.
-      contentClassName="border-border border-t px-3.5 py-3"
+      contentClassName="px-4 pb-3"
       defaultExpanded={true}
     >
       <PlanSteps rows={rows} />

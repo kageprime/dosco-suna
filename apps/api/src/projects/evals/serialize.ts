@@ -42,6 +42,7 @@ export function serializeJob(row: EvalJobRow): EvalJob {
     suite: row.suite,
     job_name: row.jobName,
     status: row.status,
+    cancel_mode: row.cancelMode ?? null,
     commit: row.commitSha,
     ref: row.ref,
     config: redactedConfig(jobConfig(row)),

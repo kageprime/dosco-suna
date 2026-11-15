@@ -47,8 +47,10 @@ interface ChildBehavior {
   stall?: boolean
   /** The answer of this turn. Default: `answer: <first prompt>`. */
   answer?: string
-  /** How the API's turn ledger says its last turn ended (`GET …/turn` `last_ended`); absent = no row. */
-  lastEnd?: { reason: string; error?: string }
+  /** How the API's turn ledger says its last turn ended (`GET …/turn` `last_ended`); absent = no row. `name`: its error's name. */
+  lastEnd?: { reason: string; error?: string; name?: string }
+  /** Its last turn was stopped: the answer ends `aborted` ("The operation was aborted."), the row goes idle. */
+  aborted?: boolean
 }
 
 interface FakeChild {
@@ -108,7 +110,7 @@ function startFakeApi(parent = PARENT_SESSION) {
       const now = behavior(child)
       if (path.endsWith('/turn')) {
         const end = now.lastEnd
-        return Response.json({ turns: [], ...(end ? { last_ended: { turn_token: 't1', end_reason: end.reason, ended_at: null, ...(end.error ? { error: { name: 'WorkflowError', message: end.error } } : {}) } } : {}) })
+        return Response.json({ turns: [], ...(end ? { last_ended: { turn_token: 't1', end_reason: end.reason, ended_at: null, ...(end.error || end.name ? { error: { name: end.name ?? 'WorkflowError', message: end.error ?? null } } : {}) } } : {}) })
       }
       if (req.method === 'GET' && path === `${base}/${id}/log`) {
         // The session-log page: the latest prompt, then the answer. Each saved call is a pi tool_call block of
@@ -121,11 +123,13 @@ function startFakeApi(parent = PARENT_SESSION) {
             result: { content: [{ type: 'text', text: (failed ? state.error : state.output) ?? '' }], is_error: failed, ...(state.metadata ? { details: state.metadata } : {}) },
           }
         })
+        const stopped = now.aborted === true
         const message = (seq: number, role: 'user' | 'assistant', blocks: unknown[]) => ({
-          message_id: `msg-${seq}`, thread_id: id, seq, role, kind: 'turn', status: 'complete', in_context: true, model: null, usage: null,
-          finish: role === 'assistant' ? 'stop' : null, error: null, created_at: since(seq), completed_at: since(seq), producer: { harness: 'pi', version: '1.4.0' }, blocks,
+          message_id: `msg-${seq}`, thread_id: id, seq, role, kind: 'turn', status: role === 'assistant' && stopped ? 'aborted' : 'complete', in_context: true, model: null, usage: null,
+          finish: role === 'assistant' ? (stopped ? 'aborted' : 'stop') : null, error: role === 'assistant' && stopped ? { code: 'aborted', message: 'The operation was aborted.' } : null,
+          created_at: since(seq), completed_at: since(seq), producer: { harness: 'pi', version: '1.4.0' }, blocks,
         })
-        const answer = now.stall ? [] : [{ id: 'blk_answer', type: 'text', text: now.answer ?? `answer: ${child.prompts[0]}` }]
+        const answer = now.stall ? [] : stopped ? [{ id: 'blk_answer', type: 'text', text: 'half an answer' }] : [{ id: 'blk_answer', type: 'text', text: now.answer ?? `answer: ${child.prompts[0]}` }]
         const messages = [message(1, 'user', [{ id: 'blk_prompt', type: 'text', text: child.prompts.at(-1) ?? '' }])]
         if (tools.length + answer.length > 0) messages.push(message(2, 'assistant', [...tools, ...answer]))
         return Response.json({ session: { title: null, created_at: since(0) }, generation: 1, threads: [{ thread_id: id, parent_thread_id: null }], thread_id: id, messages, has_more: false })
@@ -290,9 +294,9 @@ async function approvedTurn(rt: PiRuntime, text = 'run it', approvals = 1): Prom
 }
 
 describe('pi workflow tool', () => {
-  test('approval at depth 0: the card lists the plan and says the run goes to the background', async () => {
+  test('approval at depth 0: the card lists the plan, one line per planned agent, and says the run goes to the background', async () => {
     const script = [
-      "export const meta = { name: 'two-topics', description: 'Research two topics', phases: [{ title: 'Research' }, { title: 'Summarize', detail: 'never reached' }] }",
+      "export const meta = { name: 'two-topics', description: 'Research two topics', phases: [{ title: 'Research' }, { title: 'Summarize', detail: 'never reached' }], agents: ['Research topic A', { label: 'Research topic B' }, 7] }",
       "phase('Research')",
       "return parallel([() => agent('Research topic A'), () => agent('Research topic B')])",
     ].join('\n')
@@ -307,18 +311,26 @@ describe('pi workflow tool', () => {
           'Run the workflow "Research two topics"?',
           'Phases: 1. Research, 2. Summarize.',
           'Agents: up to 2. Each agent is its own session with its own computer.',
+          '1. Research topic A',
+          '2. Research topic B',
+          '',
           'It runs in the background: this chat stays free, and the result arrives here when the run ends.',
         ].join('\n'),
         options: [
           { label: 'Run it', description: 'Start this run now.' },
           { label: "Run it, and don't ask again in this session", description: 'Start it, and start later workflows in this session without asking.' },
+          { label: 'Answer in chat instead', description: 'Start no agent: the agent does the work itself in this chat.' },
           { label: 'Cancel', description: 'Start no agent.' },
         ],
       },
     ])
     expect(request.tool?.callID).toBeTruthy()
-    expect(workflowDocs(frames)[0]!.doc).toMatchObject({ title: 'Research two topics', name: 'two-topics', status: 'running', maxAgents: 2, agents: [], phases: [{ title: 'Research', status: 'pending' }, { title: 'Summarize', status: 'pending' }] })
+    // While the question is open the run does not exist: the document says so, and the card offers no Pause or Stop.
+    expect(workflowDocs(frames)[0]!.doc).toMatchObject({ title: 'Research two topics', name: 'two-topics', status: 'running', maxAgents: 2, agents: [], awaitingApproval: true, phases: [{ title: 'Research', status: 'pending' }, { title: 'Summarize', status: 'pending' }] })
     expect(await turn.done).toBe('completed')
+    expect(workflowDocs(frames).at(-1)!.doc).not.toHaveProperty('awaitingApproval')
+    // The person's time on the question is kept apart from the run's: the turn's "Worked for" leaves it out.
+    expect(workflowDocs(frames).at(-1)!.doc.approvalWaitMs).toBeGreaterThanOrEqual(0)
     // ONE session: the runner. The agents are its children, never this session's.
     expect(api.creates).toHaveLength(1)
     expect(api.creates[0]).toMatchObject({ metadata: { notify_parent: true }, name: 'Research two topics (workflow)' })
@@ -398,7 +410,7 @@ describe('pi workflow tool', () => {
     const cancelled = lastWorkflowPart(frames)
     expect(cancelled.status).toBe('completed')
     expect(cancelled.output).toStartWith('<workflow_cancelled>\nThe person cancelled this workflow. No agent started.')
-    expect(cancelled.metadata).toMatchObject({ status: 'stopped', error: 'The person cancelled the run before it started.', agents: [] })
+    expect(cancelled.metadata).toMatchObject({ status: 'stopped', declined: 'cancel', error: 'The person cancelled the run before it started.', agents: [] })
 
     const second = rt.admit({ text: 'run it twice', files: [] })
     await answer(rt, "Run it, and don't ask again in this session")
@@ -409,6 +421,20 @@ describe('pi workflow tool', () => {
     const outputs = frames.filter((f) => f.tool === 'workflow' && f.state.status === 'completed').map((f) => f.state.output!)
     expect(outputs.slice(1).every((output) => output.startsWith('<workflow_started>'))).toBe(true)
     expect(rt.questions.list()).toHaveLength(0)
+  })
+
+  test('approval: "Answer in chat instead" starts no session and tells the model to do the work itself in this turn', async () => {
+    const { rt, frames } = await boot([runWorkflow("export const meta = { agents: ['Capital of Japan', '12 x 12', 'A synonym for happy'] }\nreturn parallel([() => agent('a'), () => agent('b'), () => agent('c')])", undefined, { max_agents: 3 }), { text: 'Tokyo, 144, joyful.' }])
+    const turn = rt.admit({ text: 'use a workflow: capital of Japan, 12*12, a synonym for happy', files: [] })
+    const request = await answer(rt, 'Answer in chat instead')
+    expect(request.questions[0]!.question).toContain('Agents: up to 3. Each agent is its own session with its own computer.\n1. Capital of Japan\n2. 12 x 12\n3. A synonym for happy\n\n')
+    expect(await turn.done).toBe('completed')
+    expect(api.creates).toHaveLength(0)
+    const part = lastWorkflowPart(frames)
+    expect(part.status).toBe('completed')
+    expect(part.output).toStartWith('<workflow_declined>\nThe person chose "Answer in chat instead": no workflow runs and no agent started. Do the work yourself now, in this chat, in this turn')
+    expect(part.metadata).toMatchObject({ status: 'stopped', declined: 'chat', agents: [] })
+    expect(part.metadata).not.toHaveProperty('awaitingApproval')
   })
 
   test('the approved max_agents is a hard cap: the next agent() is refused in the script; a large plan is flagged', async () => {
@@ -472,6 +498,27 @@ describe('pi workflow tool', () => {
     ])
     expect(part.output).toStartWith('<workflow_error>\nchild session failed\n</workflow_error>\nagents: 4 (2 failed, 1 done, 1 stopped)')
     expect(part.output).toContain('To retry, launch the workflow again (an edited script or script ""): it resumes this run by itself')
+  })
+
+  test('a person\'s Stop of one agent is `stopped` by the person, not a failure: agent() resolves null, the run goes on and ends done, and its output says not to rerun it', async () => {
+    // The child's last turn ended aborted ("The operation was aborted."), and the API's ledger names a person's Stop.
+    api.behave((prompt) => (prompt === 'stopped by you' ? { aborted: true, lastEnd: { reason: 'completed', name: 'UserStop' } } : prompt === 'stopped by someone' ? { aborted: true } : {}))
+    const script = "return parallel([() => agent('stopped by you', { label: 'agent-2' }), () => agent('fine', { label: 'agent-1' }), () => agent('stopped by someone', { label: 'agent-3' })])"
+    const { rt, frames } = await boot([runWorkflow(script), { text: 'parent done' }], INLINE)
+    expect(await inlineTurn(rt)).toBe('completed')
+    const part = lastWorkflowPart(frames)
+    const doc = part.metadata as unknown as WorkflowRunMetadata
+    expect(doc.status).toBe('done')
+    expect(doc.logs ?? []).toEqual([])
+    expect(doc.agents.map((a) => [a.label, a.status, a.stoppedBy])).toEqual([
+      ['agent-2', 'stopped', 'person'],
+      ['agent-1', 'done', undefined],
+      ['agent-3', 'stopped', undefined],
+    ])
+    expect(part.output).toContain(JSON.stringify([null, 'answer: fine', null], null, 2))
+    expect(part.output).toContain('agents: 3 (2 stopped, 1 done)')
+    expect(part.output).toContain('- a1 "agent-2" stopped by the person — do not rerun unless asked (session child-1)')
+    expect(part.output).toContain('- a3 "agent-3" stopped (session child-3)')
   })
 
   test('structured output: JSON in a fence parses, a corrective follow-up fixes a bad answer, 5 bad answers return { schema_error, text } and the run goes on, strict: true throws, a contradictory schema starts no agent', async () => {
@@ -1194,6 +1241,45 @@ describe('pi workflow tool, always in the background from a top-level session', 
     expect(runs.filter((run) => run.status === 'running')).toHaveLength(1)
   })
 
+  test('a pause before the approval rides into the hand-off: the runner starts held, and the parent\'s copy keeps no stale pause', async () => {
+    api.childrenWork()
+    const parent = await boot([{ tool: 'workflow', args: { description: 'Held run', script: "export const meta = { phases: [{ title: 'Work' }] }\nphase('Work')\nreturn agent('the task')", max_agents: 1 } }, { text: 'started' }])
+    const http = routes(parent.service)
+    const turn = parent.rt.admit({ text: 'run it', files: [] })
+    await waitFor(() => parent.rt.questions.list().length === 1)
+    const runId = parent.rt.workflowList()[0]!.runId
+    expect(parent.rt.workflowList()[0]).toMatchObject({ awaitingApproval: true, agents: [] })
+    expect(await http.control(runId, { action: 'pause' })).toEqual({ status: 200, body: { ok: true, paused: true } })
+    await answer(parent.rt, 'Run it')
+    expect(await turn.done).toBe('completed')
+    const runner = api.creates[0]!
+    expect(JSON.parse(handoffJson(runner.initial_prompt))).toMatchObject({ run_id: runId, paused: true })
+    // The parent's copy names the runner and says nothing of a pause it no longer holds.
+    const handed = lastWorkflowPart(parent.frames).metadata as unknown as WorkflowRunMetadata
+    expect(handed.background).toEqual({ sessionId: 'child-1' })
+    expect(handed).not.toHaveProperty('paused')
+    expect((await http.list()).runs[0]).not.toHaveProperty('paused')
+
+    // The runner starts held: no agent until the person resumes it on the runner's box.
+    const runnerSide = runnerApi()
+    const box = await bootRunner(runner, [RUNNER_CALL, { text: 'runner done' }], runnerSide)
+    const ran = box.rt.admit({ text: runner.initial_prompt, files: [] })
+    await waitFor(() => box.rt.workflowList()[0]?.paused === true)
+    await Bun.sleep(300)
+    expect(runnerSide.creates).toHaveLength(0)
+    expect(await routes(box.service).control(runId, { action: 'resume' })).toEqual({ status: 200, body: { ok: true, paused: false } })
+    expect(await ran.done).toBe('completed')
+    expect(runnerSide.creates.map((c) => c.initial_prompt)).toEqual(['the task'])
+
+    // The runner's turn ended done: the parent's copy heals to done, with no phase left pending and no pause.
+    api.behave(() => ({ lastEnd: { reason: 'completed' } }))
+    api.childrenSettle()
+    setSystemTime(new Date(Date.now() + 10_000))
+    const [healed] = (await http.list()).runs
+    expect(healed).toMatchObject({ runId, status: 'done', phases: [{ title: 'Work', status: 'done' }] })
+    expect(healed).not.toHaveProperty('paused')
+  })
+
   test('the parent lists a handed-off run with its runner session and refers controls there', async () => {
     api.childrenWork()
     const { rt, frames, service } = await boot([{ tool: 'workflow', args: { script: "return agent('x')", max_agents: 1 } }, { text: 'started' }])
@@ -1332,6 +1418,29 @@ describe('pi workflow tool, run controls', () => {
     expect(done).not.toHaveProperty('paused')
   })
 
+  test('a hold also holds an agent that was waiting for a slot: it starts only after resume', async () => {
+    api.childrenWork()
+    const PAIR = "return parallel([() => agent('first task', { label: 'First' }), () => agent('second task', { label: 'Second' })])"
+    const { rt, service } = await boot([runWorkflow(PAIR), { text: 'parent done' }], { ...INLINE, KORTIX_WORKFLOW_MAX_CONCURRENT: '1' })
+    const http = routes(service)
+    const turn = inlineTurn(rt)
+    await waitFor(() => rt.workflowList()[0]?.agents.some((a) => a.sessionId === 'child-1' && a.status === 'running') === true)
+    const [live] = (await http.list()).runs
+    // The second call is registered, but waits for the one slot.
+    expect(live!.agents.map((a) => a.status)).toEqual(['running', 'starting'])
+    expect(await http.control(live!.runId, { action: 'pause' })).toEqual({ status: 200, body: { ok: true, paused: true } })
+
+    api.childrenSettle()
+    await waitFor(() => rt.workflowList()[0]!.agents[0]!.status === 'done', 15_000)
+    await Bun.sleep(300)
+    // The slot came free while held: the waiting agent did not start.
+    expect(api.creates).toHaveLength(1)
+
+    expect(await http.control(live!.runId, { action: 'resume' })).toEqual({ status: 200, body: { ok: true, paused: false } })
+    expect(await turn).toBe('completed')
+    expect(api.creates.map((c) => c.initial_prompt)).toEqual(['first task', 'second task'])
+  })
+
   test('restart_agent stops that child and starts it again with the same prompt; the run goes on', async () => {
     api.childrenWork()
     const { rt, frames, service } = await boot([runWorkflow("return agent('slow task', { label: 'Slow' })"), { text: 'parent done' }], INLINE)
@@ -1340,6 +1449,8 @@ describe('pi workflow tool, run controls', () => {
     // The run records the child's session a moment after the create call returns.
     await waitFor(() => rt.workflowList()[0]?.agents.some((a) => a.sessionId === 'child-1' && a.status === 'running') === true)
     const runId = rt.workflowList()[0]!.runId
+    const firstStart = rt.workflowList()[0]!.agents[0]!.startedAt!
+    await Bun.sleep(5)
     expect(await http.control(runId, { action: 'restart_agent', session_id: 'child-404' })).toEqual({ status: 409, body: { error: 'no agent of this run is running in that session', code: 'agent_not_running' } })
     expect((await http.control(runId, { action: 'restart_agent' })).status).toBe(400)
     expect(await http.control(runId, { action: 'restart_agent', session_id: 'child-1' })).toEqual({ status: 200, body: { ok: true, paused: false } })
@@ -1352,8 +1463,34 @@ describe('pi workflow tool, run controls', () => {
     api.childrenSettle()
     expect(await turn).toBe('completed')
     const doc = lastWorkflowPart(frames).metadata as unknown as WorkflowRunMetadata
-    expect(doc).toMatchObject({ status: 'done', agents: [{ status: 'done', attempt: 2, sessionId: 'child-2' }] })
+    expect(doc).toMatchObject({ status: 'done', agents: [{ status: 'done', attempt: 2, sessionId: 'child-2', earlierSessionIds: ['child-1'] }] })
+    // The row's clock is the attempt's: a restart starts it again.
+    expect(doc.agents[0]!.startedAt!).toBeGreaterThan(firstStart)
     expect(doc.logs).toContain('Slow: restarted by the person; attempt 2 of 6 starts.')
+  })
+
+  test('stop_agent stops that child for good as the person\'s stop: no retry, agent() is null, the run goes on', async () => {
+    api.childrenWork()
+    const script = "const [a, b] = await parallel([() => agent('slow one', { label: 'One' }), () => agent('slow two', { label: 'Two' })])\nreturn [a, b]"
+    const { rt, frames, service } = await boot([runWorkflow(script), { text: 'parent done' }], INLINE)
+    const http = routes(service)
+    const turn = inlineTurn(rt)
+    await waitFor(() => rt.workflowList()[0]?.agents.filter((a) => a.status === 'running' && a.sessionId).length === 2)
+    const runId = rt.workflowList()[0]!.runId
+    const one = rt.workflowList()[0]!.agents.find((a) => a.label === 'One')!.sessionId!
+    expect((await http.control(runId, { action: 'stop_agent' })).status).toBe(400)
+    expect(await http.control(runId, { action: 'stop_agent', session_id: 'child-404' })).toMatchObject({ status: 409, body: { code: 'agent_not_running' } })
+    expect(await http.control(runId, { action: 'stop_agent', session_id: one })).toEqual({ status: 200, body: { ok: true, paused: false } })
+    await waitFor(() => api.stops.includes(one))
+    api.childrenSettle()
+    expect(await turn).toBe('completed')
+    const doc = lastWorkflowPart(frames).metadata as unknown as WorkflowRunMetadata
+    // No retry session: two creates in all, and the stopped agent is the person's stop, not a failure.
+    expect(api.creates).toHaveLength(2)
+    expect(doc.status).toBe('done')
+    expect(doc.agents.find((a) => a.label === 'One')).toMatchObject({ status: 'stopped', stoppedBy: 'person' })
+    expect(doc.agents.find((a) => a.label === 'Two')).toMatchObject({ status: 'done' })
+    expect(lastWorkflowPart(frames).output).toContain('stopped by the person')
   })
 
   test('stop ends the run stopped and stops its children; an unknown run is 404; an ended run is 409', async () => {
@@ -1390,6 +1527,17 @@ describe('pi workflow tool, origin, size and ultracode', () => {
     ])
     // The ultracode line only joins a person's own prompt.
     expect(JSON.stringify(model.bodies)).not.toContain('The person wrote \\"ultracode\\"')
+  })
+
+  test('a turn started by a platform notice (a run\'s report) neither starts nor resumes a workflow', async () => {
+    const notice = 'A background subagent you started has finished. This message is from the platform, not from the user.\ntask_id: child-7\nstatus: completed\n\n<task_result>\nagent-2 stopped by the person — do not rerun unless asked\n</task_result>'
+    const { rt, frames } = await boot([runWorkflow("return agent('x')"), runWorkflow('', undefined, { resume_run_id: 'run-earlier-000001' }), { text: 'agent-1 returned 1; you stopped agent-2.' }])
+    expect(await rt.admit({ text: notice, files: [] }).done).toBe('completed')
+    expect(api.creates).toHaveLength(0)
+    expect(rt.questions.list()).toHaveLength(0)
+    const errors = frames.filter((f) => f.tool === 'workflow' && f.state.status === 'error').map((f) => f.state.error)
+    expect(errors).toHaveLength(2)
+    for (const error of errors) expect(error).toStartWith("A workflow starts or resumes only from a person's own message, and this turn came from a platform notice")
   })
 
   test('"ultracode" in the person\'s own message adds the workflow line to that turn only', async () => {

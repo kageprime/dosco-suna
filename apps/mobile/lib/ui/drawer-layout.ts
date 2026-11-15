@@ -3,10 +3,13 @@
  * the sidebar is, how the page on top of it turns into a peek card, and where
  * a swipe may open it.
  *
- * The model is the ChatGPT iOS sidebar (Jay, 2026-11-11): the sidebar sits on
- * the plain chrome surface at the left; the page slides right as a card with
+ * The model is the Claude and ChatGPT iOS sidebar (Jay, 2026-11-11, and
+ * 2026-11-15: "the kortix sidebar is flat"): the sidebar lies still, BEHIND
+ * the page (`drawerType="back"`); the page slides over it as a card with
  * rounded corners and a soft shadow, and a strip of it stays visible at the
- * right edge. A tap or a swipe on that strip closes the drawer.
+ * right edge. A tap or a swipe on that strip closes the drawer. While the card
+ * covers the sidebar, the sidebar darkens (`sidebarDim`): two layers, not one
+ * sheet moving sideways.
  *
  * Pure data: unit-tested under `bun test` (`drawer-layout.test.ts`).
  */
@@ -50,6 +53,9 @@ export const PEEK_CARD_RADIUS = { ios: 44, android: 28 } as const;
  */
 export const PEEK_CARD_VEIL = 0.5;
 
+/** The radius is full at progress 1/RAMP: 8 → 12.5% open. */
+export const PEEK_CARD_RADIUS_RAMP = 8;
+
 export interface PeekCardFrame {
   borderRadius: number;
   /** Alpha of the page-colour veil over the card's content. */
@@ -57,17 +63,44 @@ export interface PeekCardFrame {
 }
 
 /**
- * The card's frame at drawer `progress` (0 closed, 1 open). Linear in
- * progress, so it tracks the finger during a swipe and the timed curve during
- * a tap. Under Reduce Motion the card does not round in motion: it takes its
- * open radius as soon as it moves; only the library's translate moves it.
+ * The card's frame at drawer `progress` (0 closed, 1 open). The card reaches
+ * its full radius within the first eighth of the travel (`PEEK_CARD_RADIUS_RAMP`),
+ * as the Claude iOS card does (Jay, 2026-11-15): a radius that grew over the
+ * whole travel left the card square-cornered while it covered the sidebar, so
+ * it read as a flat page, not a card. A ramp, not a step: a display whose
+ * corners are under 44pt (iPhone SE, iPad, many Android phones) would show a
+ * 0 → 44 step. The ramp runs in the first ~50ms of an opening tap and the
+ * last ~110ms of a closing one, so Reduce Motion needs no other path. The veil is linear in progress, so it tracks the
+ * finger during a swipe and the timed curve during a tap.
  *
  * A worklet: `DrawerPeekCard` calls it on the UI thread every frame.
  */
-export function peekCardFrame(progress: number, radius: number, reducedMotion: boolean): PeekCardFrame {
+export function peekCardFrame(progress: number, radius: number): PeekCardFrame {
   'worklet';
   const p = Math.min(1, Math.max(0, progress));
-  return { borderRadius: reducedMotion ? (p > 0 ? radius : 0) : p * radius, veil: p * PEEK_CARD_VEIL };
+  return { borderRadius: Math.min(1, p * PEEK_CARD_RADIUS_RAMP) * radius, veil: p * PEEK_CARD_VEIL };
+}
+
+/**
+ * The sidebar's dim under the card: black at this alpha when the card fully
+ * covers it, none when the drawer is open. Light 0.45 is the value measured
+ * frame by frame from the Claude iOS app (sidebar #f0f0ee → #8c8c8a at drawer
+ * progress ≈ 0.06, the card almost closed). Dark gets more: black over a
+ * near-black surface shows less.
+ */
+export const SIDEBAR_DIM = { light: 0.45, dark: 0.6 } as const;
+
+/**
+ * The sidebar dim's alpha at drawer `progress` (0 closed, 1 open): linear,
+ * so it tracks the finger during a swipe and the timed curve during a tap.
+ * It is a fade, not motion, so Reduce Motion keeps it.
+ *
+ * A worklet: `DrawerSidebarDim` calls it on the UI thread every frame.
+ */
+export function sidebarDim(progress: number, max: number): number {
+  'worklet';
+  const p = Math.min(1, Math.max(0, progress));
+  return (1 - p) * max;
 }
 
 /**

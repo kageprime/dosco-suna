@@ -60,6 +60,13 @@ export interface UiRoutes {
    * the host serves Review only inside its `customize` route.
    */
   review?: (projectId: string) => string | null;
+  /**
+   * The person's notification Inbox (`/inbox` on apps/web). It spans every
+   * workspace, so it takes no project. The workspace sidebar links it. A host
+   * that maps any route with `setUiRoutes` links it only when it maps `inbox`
+   * too, so it never links a page it does not serve.
+   */
+  inbox?: () => string | null;
 }
 
 const DEFAULT_ROUTES = {
@@ -82,6 +89,7 @@ const DEFAULT_ROUTES = {
   memory: (p: string) => `/workspaces/${p}/memory`,
   // The workspace Review queue has its own page.
   review: (p: string) => `/workspaces/${p}/review`,
+  inbox: () => '/inbox',
 };
 
 export const defaultUiRoutes: UiRoutes = DEFAULT_ROUTES;
@@ -98,7 +106,9 @@ export function setUiRoutes(overrides: Partial<UiRoutes>): void {
   const admin = overrides.admin ?? overrides.customize;
   // A host that routes its own customize pages serves Review there unless it also routes `review`.
   const review = overrides.review ?? (overrides.customize ? undefined : DEFAULT_ROUTES.review);
-  routes = { ...DEFAULT_ROUTES, ...overrides, ...(admin ? { admin } : {}), review };
+  // Inbox is apps/web's page: a host that maps any route links it only when it maps `inbox`.
+  const inbox = overrides.inbox ?? (Object.keys(overrides).length === 0 ? DEFAULT_ROUTES.inbox : undefined);
+  routes = { ...DEFAULT_ROUTES, ...overrides, ...(admin ? { admin } : {}), review, inbox };
 }
 
 export function uiRoutes(): UiRoutes {

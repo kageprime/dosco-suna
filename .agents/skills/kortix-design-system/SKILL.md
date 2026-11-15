@@ -180,7 +180,8 @@ Paths are written in full. The values and the copy are in `kortix-brand` (`layou
 | People and agents with a role                                     | `AccessRow` (`packages/ui/src/access/access/access-row.tsx`), grouped "People" then "Agents" under a `Label`                                                                                                                                                                         | A hand-built `li`, a kind badge, a `[&>div]:` selector                                                  |
 | Any form field, in a panel or in a `Modal`                        | `Field`, `FieldLabel`, `FieldGroup` (`packages/ui/src/primitives/field.tsx`)                                                                                                                                                                                                         | A raw `<label>` beside an `Input`                                                                       |
 | A mutation finished                                               | `successToast` or `errorToast` from `packages/ui/src/primitives/toast.tsx`                                                                                                                                                                                                           | An inline "Saved" line                                                                                  |
-| Rows are selected for a bulk action                               | `SelectionBar` (`packages/ui/src/internal/selection/selection-bar.tsx`), pinned to the bottom of the list's column. See "Bulk selection" below                                                                                                                                       | Bulk buttons in a toolbar, a section heading or a table header                                          |
+| Rows are selected for a bulk action                               | `SelectionBar` (`packages/ui/src/internal/selection/selection-bar.tsx`), an `ActionBar` with the count and Select all, in an `ActionBarDock`. See "Floating action bar" below | Bulk buttons in a toolbar, a section heading or a table header |
+| A page has unsaved edits, or a pending paste or move              | `ActionBar` (`@kortix/ui/action-bar`) in an `ActionBarDock`: title, muted description, Discard + Save `kbd: '⌘S'`. See "Floating action bar" below | A hand-built `bg-popover … shadow-md` bar, a sticky footer, a Save button in the header |
 | A new capability page                                             | `CapabilityPageShell`                                                                                                                                                                                                                                                                | `CustomizeSectionWrapper` (legacy, `packages/ui/src/customize/sections/view/` only)                     |
 
 ## Reference implementations — customize section views
@@ -406,34 +407,55 @@ Neutral bordered row — no red panel fill:
 
 `destructive` on the button is OK inside `ConfirmDialog` flow; panel itself stays neutral.
 
-## Bulk selection — always the sticky bottom bar
+## Floating action bar — `ActionBar`
 
-**Every multi-select list puts its bulk actions in one floating bar, pinned to
-the bottom of the list's column.** Never in the toolbar, the section heading or
-the table header. A bulk action in the header moves the controls away from the
-rows and shifts the layout when the selection starts.
+**A temporary mode puts its actions in one floating bar at the bottom centre of
+the page column.** The modes: a multi-selection ("3 selected"), unsaved edits
+("Unsaved changes."), a pending clipboard ("Moving 2 items"). Never in the
+toolbar, the section heading or the table header: that moves the controls away
+from the rows and shifts the layout when the mode starts.
 
-- **Component:** `SelectionBar` (`packages/ui/src/internal/selection/selection-bar.tsx`).
-  It draws the "N selected" count, one `secondary` `ButtonGroup` (Select all,
-  then the actions) and the exit `X`. It enters with a short rise; it leaves at once.
-- **Action tone:** `tone: 'destructive'` for a removing verb (Delete, Decline),
-  `tone: 'success'` for an approving verb (Approve). Labels are words, no glyphs.
-- **Placement:** pinned to the bottom edge of the column, centred, `max-w-xl`,
-  `bottom-4`. Not plain `sticky` inside a scroller: `sticky` stops under a short list.
-  - In the account hub: `AccountHubSelectionBar` (`packages/ui/src/internal/account-hub/hub-sheet.tsx`)
-    renders the bar into a slot over the page column.
-  - In a capability page: an `absolute inset-x-0 bottom-4` wrapper in the
-    non-scrolling column (`customize/triggers/schedule-view.tsx`).
+```
+[leading] Title  muted description        [ Action | Save ⌘S | Delete ]  [×]
+```
+
+- **Component:** `ActionBar` and `ActionBarDock` (`packages/ui/src/primitives/action-bar.tsx`,
+  import `@kortix/ui/action-bar`; live demo `/design-system#comp-action-bar`).
+  Never hand-build a `bg-popover rounded-lg border shadow-md` bar. If a mode
+  needs something the bar lacks, add a prop to `ActionBar`.
+- **Props:** `title` (the mode in a few words, announced with `aria-live`),
+  `description` (one muted fact), `leading` (a glyph, such as the clipboard),
+  `actions`, `close` (`{ label, onSelect }`: the trailing × that leaves the
+  mode), `busy` (the dot matrix leads, every control disables), `animateIn`.
+- **Each action:** `label` (a word, no glyph), `tone: 'destructive'` for a
+  removing verb, `tone: 'success'` for an approving verb, `emphasis: 'primary'`
+  for at most one commit verb, `kbd` for its key hint (`'⌘S'`), `loading`,
+  `disabled`. `kbd` only draws the key and sets `aria-keyshortcuts`: the page
+  binds the key (`agent-page.tsx`, `routing-parts.tsx` bind ⌘S).
+- **Placement:** wrap it in `ActionBarDock` inside the non-scrolling, positioned
+  column (`absolute inset-x-0 bottom-4`, centred, `max-w-xl`). Not plain `sticky`
+  inside a scroller: `sticky` stops under a short list. When the page scrolls
+  the window, use a `fixed` frame over the column (`RoutingSaveBar`).
+  In the account hub: `AccountHubSelectionBar` (`packages/ui/src/internal/account-hub/hub-sheet.tsx`).
+- **Narrow:** under 32rem of its own width the actions drop to a full-width
+  second row. Do not hide labels behind icons.
+
+### Bulk selection
+
+- **Component:** `SelectionBar` (`packages/ui/src/internal/selection/selection-bar.tsx`),
+  the `ActionBar` for select mode: the "N selected" title, Select all first,
+  then the caller's actions, then the exit ×.
 - **Selection:** a checkbox gutter on each row and a select-all checkbox in the
   table head (`MemberTableHead` / `MemberTableRow`). The bar renders only while
-  something is selected, and the exit `X` clears the selection.
+  select mode is on, and the exit × clears the selection.
 - **Running:** pass `progress` for a long batch, or disable the actions. Run the
   calls with `Promise.allSettled`, refresh the list once, and show one toast for
   the batch.
 
 References: `schedule/trigger-selection-bar.tsx` (Triggers), `drive-selection-bar.tsx`
-(Files), `sessions-selection-bar.tsx` (Sessions), `access-projects-tab.tsx`
-(join requests).
+and the clipboard bar in `drive-explorer.tsx` (Files), `RoutingSaveBar` in
+`gateway/routing-parts.tsx` (Models routing), `SaveBar` in
+`agents/agent-page-chrome.tsx` (Agents), `access-projects-tab.tsx` (join requests).
 
 ## Button conventions
 

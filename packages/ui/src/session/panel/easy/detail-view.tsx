@@ -48,26 +48,17 @@ import {
 } from 'react';
 import { ToolPartRenderer, ToolSurfaceContext } from '../../tool/tool-renderers';
 import { PanelWidthButton } from '../../../files/viewer/viewer-actions';
+import { DOCKED_LAYER_CLASS, SESSION_BAR_CLASS } from '../panel-chrome';
 
 import { CloseButton, DetailSidebarToggle } from '../../../files/viewer/viewer-chrome';
 
 export { CloseButton, DetailSidebarToggle };
 
-/**
- * The card frame both layers wear — the detail card and the persistent layer.
- * ONE constant, because they are two states of one shell: inset from the top,
- * left and bottom so the card reads as sitting IN the panel rather than nailed
- * over it, flush to the right edge so an arrival slides in from off-panel.
- *
- * This used to be copy-pasted into `easy-panel.tsx`'s standalone terminal
- * `m.div`, which is exactly how the terminal drifted into looking like its
- * own sidebar instead of a view inside this shell. Shared, the two cannot drift.
- */
-const CARD_FRAME =
-  'bg-popover border-border absolute inset-y-3 right-3 left-3 flex min-w-0 flex-col overflow-hidden rounded-md border shadow-md';
+/** The layer's header bar — the same bar as the chat's session header. */
+const LAYER_BAR_CLASS = cn(SESSION_BAR_CLASS, 'justify-between gap-2 px-3');
 
 /**
- * A layer that lives inside the detail card frame but must NEVER unmount.
+ * A layer that lives inside the docked detail frame but must NEVER unmount.
  *
  * The terminal is the only one: `SessionTerminalPanel` owns a long-lived PTY
  * WebSocket, and the keyed `AnimatePresence` below tears a `Detail`'s body down
@@ -581,15 +572,17 @@ export function DetailLayer({
             initial="hidden"
             animate="visible"
             exit="hidden"
-            // `CARD_FRAME` is shared with the persistent layer below, so the
+            // `DOCKED_LAYER_CLASS` is shared with the persistent layer below
+            // (`panel-chrome.ts`): docked edge to edge, and an arrival still
+            // slides in from the right edge, which the panel clips. Shared, so the
             // two states of this shell can never drift apart visually.
             // `outline-none`: this container is programmatically focused on
             // open (the a11y focus management above). A keyboard-initiated
             // open — the ⌘K "Open Browser"/"Open Terminal" commands — makes
             // that focus :focus-visible, which drew a focus ring around the
             // whole card. The container is a focus TARGET (tabIndex -1), not
-            // a control; its frame is the border, never an outline.
-            className={cn(CARD_FRAME, 'outline-none')}
+            // a control; the panel's `border-l` frames it, never an outline.
+            className={cn(DOCKED_LAYER_CLASS, 'outline-none')}
           >
             {/* The content layer: keyed on `detail.key`, so paging to a
                 sibling swaps THIS, not the card above. `popLayout` pulls the
@@ -609,11 +602,11 @@ export function DetailLayer({
                 className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
               >
                 {!detail.hideHeader && (
-                  // No rule under the header: the card's own border already
-                  // separates this from the panel, and a second line inside it just
-                  // boxes the title in. Close sits far right, where a close always
-                  // is — a back chevron implies a stack the user isn't in.
-                  <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2.5">
+                  // The rule under the header lines up with the chat header's
+                  // rule (`SESSION_BAR_CLASS`). Close sits far right, where a
+                  // close always is — a back chevron implies a stack the user
+                  // isn't in.
+                  <div className={LAYER_BAR_CLASS}>
                     <span className="flex min-w-0 items-center gap-2">
                       <DetailSidebarToggle className="size-7" />
                       {detail.icon}
@@ -632,7 +625,6 @@ export function DetailLayer({
                   className={cn(
                     'min-h-0 min-w-0 flex-1 overflow-auto',
                     detail.padded !== false && 'p-4',
-                    !detail.hideHeader && detail.padded !== false && 'pt-0',
                   )}
                 >
                   {detail.body}
@@ -660,9 +652,9 @@ export function DetailLayer({
           transition={persistentMotion.transition}
           aria-hidden={!persistentOpen}
           inert={!persistentOpen || undefined}
-          className={cn(CARD_FRAME, !persistentOpen && 'pointer-events-none')}
+          className={cn(DOCKED_LAYER_CLASS, !persistentOpen && 'pointer-events-none')}
         >
-          <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2.5">
+          <div className={LAYER_BAR_CLASS}>
             <span className="flex min-w-0 items-center gap-2">
               <DetailSidebarToggle className="size-7" />
               {persistentLayer.icon}

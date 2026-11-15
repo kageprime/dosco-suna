@@ -97,7 +97,7 @@ function SpaceIntro({ projectId, space }: { projectId: string; space: ManifestSp
   const t = useTranslations('spaces');
   const locale = useLocale();
   const agents = agentsInSpace(space.name, useProjectConfig(projectId)?.agents ?? []);
-  const names = new Intl.ListFormat(locale, { type: 'conjunction' }).format(agents.map(agentDisplayName));
+  const names = new Intl.ListFormat(locale, { type: 'conjunction' }).format(agents.map((slug) => agentDisplayName(slug)));
   return (
     <div className="flex max-w-2xl flex-col gap-3 px-5 py-5">
       {agents.length ? (

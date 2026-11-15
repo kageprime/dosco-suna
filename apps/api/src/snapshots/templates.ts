@@ -57,6 +57,8 @@ export interface ResolvedTemplate {
   provider: string;
   image: string | null;
   dockerfilePath: string | null;
+  /** A Dockerfile's text (an eval task's image from outside the repository). Absent: none. */
+  dockerfileInline?: string | null;
   entrypoint: string | null;
   cpu: number;
   memoryGb: number;
@@ -262,6 +264,8 @@ export interface CreateTemplateInput {
   name?: string;
   image?: string;
   dockerfilePath?: string;
+  /** A Dockerfile's text, built without a build context. Only the eval runner sets it. */
+  dockerfile?: string;
   entrypoint?: string;
   cpu?: number;
   memoryGb?: number;
@@ -285,6 +289,7 @@ export async function createTemplate(input: CreateTemplateInput): Promise<DbSand
       provider: config.getDefaultProvider(),
       image: input.image ?? null,
       dockerfilePath: input.dockerfilePath ?? null,
+      dockerfileInline: input.dockerfile ?? null,
       entrypoint: input.entrypoint ?? null,
       cpu: clamp(input.cpu, SANDBOX_SPEC_LIMITS.cpu),
       memoryGb: clamp(input.memoryGb, SANDBOX_SPEC_LIMITS.memory),
@@ -522,6 +527,9 @@ export async function resolveUserDockerfile(
     }
     return { dockerfile: normalized, commit: commitSha };
   }
+  if (template.dockerfileInline?.trim()) {
+    return { dockerfile: normalizeUserDockerfileForSnapshot(template.dockerfileInline), commit: null };
+  }
   if (template.image) {
     return { dockerfile: `FROM ${template.image}\n`, commit: null };
   }
@@ -724,6 +732,7 @@ function synthesizedDefault(): ResolvedTemplate {
     provider: config.getDefaultProvider(),
     image: null,
     dockerfilePath: null,
+    dockerfileInline: null,
     entrypoint: null,
     cpu: DEFAULT_CPU,
     memoryGb: DEFAULT_MEMORY_GB,
@@ -750,6 +759,7 @@ function rowToResolved(row: DbSandboxTemplate): ResolvedTemplate {
     provider: row.provider ?? 'daytona',
     image: row.image,
     dockerfilePath: row.dockerfilePath,
+    dockerfileInline: row.dockerfileInline ?? null,
     entrypoint: row.entrypoint,
     cpu: row.cpu ?? DEFAULT_CPU,
     memoryGb: row.memoryGb ?? DEFAULT_MEMORY_GB,
@@ -863,13 +873,9 @@ function clamp(
   return n;
 }
 
-function validateTemplateMutation(args: { image?: unknown; dockerfilePath?: unknown }): void {
-  const image = typeof args.image === 'string' && args.image.trim() ? args.image.trim() : null;
-  const dockerfilePath =
-    typeof args.dockerfilePath === 'string' && args.dockerfilePath.trim()
-      ? args.dockerfilePath.trim()
-      : null;
-  if (image && dockerfilePath) {
+function validateTemplateMutation(args: { image?: unknown; dockerfilePath?: unknown; dockerfile?: unknown }): void {
+  const set = (value: unknown) => typeof value === 'string' && value.trim() !== '';
+  if ([args.image, args.dockerfilePath, args.dockerfile].filter(set).length > 1) {
     throw new Error('Set exactly one of `image` or `dockerfile_path` (not both).');
   }
 }

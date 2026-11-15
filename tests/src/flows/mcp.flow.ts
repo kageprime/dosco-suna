@@ -161,6 +161,7 @@ flow(
       "GET /v1/accounts/:accountId/audit",
       "GET /v1/skills",
       "GET /v1/skills/:name",
+      "PATCH /v1/workspaces/:workspaceId/features",
       "GET /v1/workspaces/:projectId/files",
       "GET /v1/workspaces/:projectId/files/content",
       "GET /v1/workspaces/:projectId/sessions",
@@ -349,6 +350,30 @@ flow(
       if (!list.includes("kortix-system — ")) throw new Error(`skills: ${list.slice(0, 300)}`);
       const guide = await toolText(12, "read_skill", { name: "kortix-system" });
       if (!guide.includes("kortix.yaml") || guide.startsWith("{")) throw new Error(`guide: ${guide.slice(0, 300)}`);
+    });
+    await ctx.step("read_skill withholds a flagged guide (kortix-calendar, flag `calendar`): not listed and not readable without a project or with the flag off; listed and readable with it on", async () => {
+      const listed = (list: string) => list.split("\n").some((line) => line.startsWith("kortix-calendar — "));
+      if (listed(await toolText(70, "read_skill", {}))) throw new Error("kortix-calendar listed without a project");
+      if (listed(await toolText(71, "read_skill", { project_id: p.id }))) throw new Error("kortix-calendar listed with the flag off");
+      const refused = async (id: number, args: Record<string, unknown>) => {
+        const result = (await mcp(rpc(id, "tools/call", { name: "read_skill", arguments: args }))).status(200).json<any>().result;
+        if (!result.isError || !String(result.content[0].text).includes("behind the `calendar` feature flag")) throw new Error(`read_skill ${JSON.stringify(args)}: ${JSON.stringify(result).slice(0, 300)}`);
+      };
+      await refused(72, { name: "kortix-calendar" });
+      await refused(73, { name: "kortix-calendar", project_id: p.id });
+      // A managed guide the project detail lists has no file in the repository: with project_id it reads as the guide.
+      const system = await toolText(76, "read_skill", { name: "kortix-system", project_id: p.id });
+      if (!system.includes("kortix.yaml")) throw new Error(`kortix-system with project_id: ${system.slice(0, 300)}`);
+      const features = (enabled: boolean | null) =>
+        ctx.client.as(ctx.P.OWNER).patch("/v1/workspaces/:workspaceId/features", { feature: "calendar", enabled }, { params: { workspaceId: p.id } });
+      (await features(true)).status(200);
+      try {
+        if (!listed(await toolText(74, "read_skill", { project_id: p.id }))) throw new Error("kortix-calendar not listed with the flag on");
+        const body = await toolText(75, "read_skill", { name: "kortix-calendar", project_id: p.id });
+        if (!body.includes("kortix calendar show")) throw new Error(`kortix-calendar: ${body.slice(0, 300)}`);
+      } finally {
+        (await features(null)).status(200);
+      }
     });
     // Files the seeded repository lacks: a binary and a unicode name. The local
     // profile's repository is a bare directory, so a clone + push adds them.

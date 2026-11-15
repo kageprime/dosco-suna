@@ -137,6 +137,7 @@ export function resolveConfigAgents(
         return {
           name: spec.name,
           path: file ?? native?.path ?? spec.path,
+          title: native?.title ?? null,
           description: native?.description ?? null,
           mode: native?.mode ?? null,
           ...(native?.hidden === true ? { hidden: true } : {}),
@@ -440,6 +441,7 @@ export async function loadRepoConfigSummary(
     return {
       name: spec.name,
       path: text(block.prompt_file) ?? spec.path,
+      title: text(block.title)?.trim() ?? null,
       description: text(block.description),
       mode: text(block.mode),
       ...(block.hidden === true ? { hidden: true } : {}),

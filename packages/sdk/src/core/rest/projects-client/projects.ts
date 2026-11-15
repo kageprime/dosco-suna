@@ -142,7 +142,7 @@ export type FeatureFlagKey =
   | 'evals'
   /** Desktop tabs: the desktop app shows browser-style tabs in the title bar for this project's pages. Client-only, off by default. */
   | 'desktop_tabs'
-  /** Calendar: a shared calendar of dated items with an owner and comments, plus the project's scheduled triggers (`kortix calendar`). Experimental, off by default. */
+  /** Calendar: a shared calendar of dated items with the people on them and comments, plus the project's scheduled triggers (`kortix calendar`). Experimental, off by default. */
   | 'calendar'
   /** @deprecated Withdrawn — agents messaging people left the product. The API no longer lists, resolves, or accepts it. Removed in the next major. */
   | 'human_messaging';
@@ -360,6 +360,10 @@ export interface ProjectConfigSummary {
   agents: Array<{
     name: string;
     path: string;
+    /** `kortix.yaml` `agents.<name>.title`: the agent's name as people read it
+     *  ("GitHub PR reviewer"). `name` stays its id. Absent from an older API;
+     *  null when the manifest sets none. Pass it to `agentDisplayName`. */
+    title?: string | null;
     description: string | null;
     mode: string | null;
     /** Internal automation remains registered but is not offered by agent pickers. */

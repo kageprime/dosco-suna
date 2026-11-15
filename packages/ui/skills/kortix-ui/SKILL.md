@@ -34,6 +34,7 @@ Module entries and `@kortix/ui/theme` need 0.14.4+. Inside `kortix-ai/CompanyOS`
 | Expand and collapse               | `Disclosure`, `DisclosureTrigger`, `DisclosureContent`                                                         | `disclosure`                          |
 | Form field; search field          | `Field`, `FieldLabel`, `FieldGroup`, `FieldDescription` with `Input`, `Textarea`, `Select`; `InputGroupSearch` | `field`, `input-group`                |
 | Panel; buttons side by side       | `Card` and its slots, or `bg-popover rounded-md border px-4 py-5`; `ButtonGroup`                               | `card`, `button-group`                |
+| A selection, unsaved edits or a pending paste needs actions | `ActionBar` in an `ActionBarDock` at the bottom of the column; actions take `kbd`, `tone`, `emphasis` | `action-bar` |
 | Tabs and filters                  | `Tabs`, `TabsList size="xs"`, `TabsTrigger`                                                                          | `tabs`                                |
 | Menu, picker, palette             | `DropdownMenu`, `Popover`, `Command`                                                                           | `dropdown-menu`, `popover`, `command` |
 | Table and empty list              | `Table`; `Empty` with one muted line                                                                           | `table`, `empty`                      |

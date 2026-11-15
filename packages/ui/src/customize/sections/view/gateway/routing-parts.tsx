@@ -8,8 +8,6 @@
  */
 
 import { CaretDownIcon, CheckIcon, PlusIcon, XIcon } from '@phosphor-icons/react';
-import { m } from 'motion/react';
-import { useReducedMotion } from '../../../../internal/hooks/use-reduced-motion';
 import {
   type ComponentProps,
   type ReactNode,
@@ -20,8 +18,9 @@ import {
 } from 'react';
 
 import { useTranslations } from '../../../../i18n';
+import { ActionBar } from '../../../../primitives/action-bar';
+import { useSaveShortcut } from '../../../../internal/hooks/use-save-shortcut';
 import { Button } from '../../../../primitives/button';
-import { ButtonGroup } from '../../../../primitives/button-group';
 import {
   Command,
   CommandEmpty,
@@ -31,7 +30,6 @@ import {
 } from '../../../../primitives/command';
 import { CountBadge } from '../../../../primitives/count-badge';
 import Hint from '../../../../primitives/hint';
-import Loading from '../../../../primitives/loading';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../../primitives/popover';
 import {
   Select,
@@ -359,7 +357,6 @@ export function ConditionSelect({
   );
 }
 
-const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 
 /**
  * The left edge and width of the nearest scrolling ancestor, kept current on
@@ -390,6 +387,12 @@ function useScrollColumnFrame(anchor: RefObject<HTMLElement | null>) {
   return frame;
 }
 
+/**
+ * The Routing page's unsaved-edits bar: an `ActionBar` with Discard and
+ * Save ⌘S. It sits `fixed` over the scroll column (`useScrollColumnFrame`),
+ * because the page scrolls the window, not a positioned list column. Mod+S
+ * saves while a valid edit is pending (`useSaveShortcut`).
+ */
 export function RoutingSaveBar({
   message,
   saving,
@@ -404,9 +407,10 @@ export function RoutingSaveBar({
   onSave: () => void;
 }) {
   const t = useTranslations('gatewayRouting');
-  const reduceMotion = useReducedMotion();
+  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const anchorRef = useRef<HTMLSpanElement>(null);
   const frame = useScrollColumnFrame(anchorRef);
+  useSaveShortcut(canSave && !saving, onSave);
   return (
     <>
       <span ref={anchorRef} aria-hidden className="hidden" />
@@ -414,44 +418,23 @@ export function RoutingSaveBar({
         style={frame ? { left: frame.left, width: frame.width } : { visibility: 'hidden' }}
         className="pointer-events-none fixed bottom-4 z-30 flex justify-center px-4"
       >
-        <m.div
-          initial={{
-            opacity: 0,
-            transform: reduceMotion ? 'translateY(0px)' : 'translateY(8px)',
-          }}
-          animate={{
-            opacity: 1,
-            transform: 'translateY(0px)',
-            transition: { duration: 0.18, ease: EASE_OUT },
-          }}
-          className="bg-popover text-popover-foreground border-border pointer-events-auto flex w-full max-w-xl items-center gap-3 rounded-lg border p-2 pl-3.5 shadow-md"
-        >
-          <span className="min-w-0 flex-1 truncate text-sm font-medium" aria-live="polite">
-            {message}
-          </span>
-          <ButtonGroup className="shrink-0">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="h-8"
-              disabled={saving}
-              onClick={onDiscard}
-            >
-              {t('discard')}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="h-8"
-              disabled={!canSave || saving}
-              onClick={onSave}
-            >
-              {saving ? <Loading className="size-4 shrink-0" /> : null}
-              {t('save')}
-            </Button>
-          </ButtonGroup>
-        </m.div>
+        <div className="pointer-events-auto w-full max-w-xl">
+          <ActionBar
+            title={message}
+            busy={saving}
+            actions={[
+              { id: 'discard', label: t('discard'), onSelect: onDiscard },
+              {
+                id: 'save',
+                label: t('save'),
+                kbd: ['mod', 'S'],
+                emphasis: 'primary',
+                disabled: !canSave,
+                onSelect: onSave,
+              },
+            ]}
+          />
+        </div>
       </div>
     </>
   );

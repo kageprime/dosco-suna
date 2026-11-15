@@ -47,6 +47,7 @@ import {
   BookOpenTextIcon,
   BrainIcon,
   BrowserIcon,
+  CalendarBlankIcon,
   CardsThreeIcon,
   ChartBarIcon,
   ChatsCircleIcon,
@@ -1268,6 +1269,7 @@ const ADMIN_ICONS: Record<string, Icon> = {
   'eval-jobs': ChartBarIcon,
   'eval-tasks': ChartBarIcon,
   'eval-datasets': ChartBarIcon,
+  'eval-trials': ChartBarIcon,
   settings: GearSixIcon,
 };
 
@@ -1327,6 +1329,7 @@ function staticLabel(
     case 'page': {
       const icons: Record<typeof route.page, Icon> = {
         apps: AppWindowIcon,
+        calendar: CalendarBlankIcon,
         chat: ChatsCircleIcon,
         drive: HardDrivesIcon,
         files: FoldersIcon,

@@ -2899,7 +2899,7 @@
                         },
                         "name": {
                           "type": "string",
-                          "description": "A dataset of the Harbor registry, such as `terminal-bench`."
+                          "description": "A Harbor Hub package `org/name` (under `tasks` a task, under `datasets` a dataset), optionally `@ref`; or a dataset of the legacy Harbor registry, such as `terminal-bench`."
                         },
                         "git_url": {
                           "type": "string",
@@ -2914,7 +2914,11 @@
                             "string",
                             "number"
                           ],
-                          "description": "The dataset version, such as `2.0`."
+                          "description": "The legacy registry dataset version, such as `2.0`, or a Harbor Hub ref."
+                        },
+                        "ref": {
+                          "type": "string",
+                          "description": "A Harbor Hub ref: a tag (`latest`), a revision (`3`) or `sha256:<digest>`. Default: `latest`."
                         },
                         "task_names": {
                           "type": "array",
@@ -2943,7 +2947,7 @@
             ]
           },
           "datasets": {
-            "description": "Folders of tasks, or datasets of the Harbor registry (`{ name: terminal-bench, version: \"2.0\" }`).",
+            "description": "Folders of tasks, Harbor Hub datasets (`{ name: terminal-bench/terminal-bench-2-1 }`), or datasets of the legacy Harbor registry (`{ name: terminal-bench, version: \"2.0\" }`).",
             "anyOf": [
               {
                 "type": "string"
@@ -2964,7 +2968,7 @@
                         },
                         "name": {
                           "type": "string",
-                          "description": "A dataset of the Harbor registry, such as `terminal-bench`."
+                          "description": "A Harbor Hub package `org/name` (under `tasks` a task, under `datasets` a dataset), optionally `@ref`; or a dataset of the legacy Harbor registry, such as `terminal-bench`."
                         },
                         "git_url": {
                           "type": "string",
@@ -2979,7 +2983,11 @@
                             "string",
                             "number"
                           ],
-                          "description": "The dataset version, such as `2.0`."
+                          "description": "The legacy registry dataset version, such as `2.0`, or a Harbor Hub ref."
+                        },
+                        "ref": {
+                          "type": "string",
+                          "description": "A Harbor Hub ref: a tag (`latest`), a revision (`3`) or `sha256:<digest>`. Default: `latest`."
                         },
                         "task_names": {
                           "type": "array",
@@ -3396,6 +3404,12 @@
       "additionalProperties": {
         "type": "object",
         "properties": {
+          "title": {
+            "type": "string",
+            "pattern": "\\S",
+            "maxLength": 80,
+            "description": "The agent's name as people read it, e.g. \"GitHub PR reviewer\". The key under `agents` stays its id: sessions, triggers and @-mentions use the key. Default: the key in sentence case."
+          },
           "description": {
             "type": "string",
             "description": "What the agent does. An agent that may start it as a subagent reads it to choose."

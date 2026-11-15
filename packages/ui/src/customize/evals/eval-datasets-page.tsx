@@ -68,8 +68,8 @@ export function jobsByDataset(jobs: WorkspaceEvalJob[]) {
 
 /**
  * Customize → Evals → Datasets: every dataset a job can run, in one table —
- * the suites of kortix.yaml, Kortix's built-in datasets and the Harbor
- * registry — with its task count and its latest score here. A row opens the
+ * the suites of kortix.yaml, Kortix's built-in datasets and Harbor's (Harbor
+ * Hub packages and the legacy registry) — with its task count and its latest score here. A row opens the
  * dataset (README, tasks, leaderboard, jobs).
  */
 export function EvalDatasetsPage({ projectId }: { projectId: string }) {
@@ -95,7 +95,8 @@ export function EvalDatasetsPage({ projectId }: { projectId: string }) {
       })),
       ...(datasets.data?.datasets ?? []).map((dataset) => ({
         ref: { kind: 'dataset' as const, name: dataset.name, version: dataset.version },
-        origin: dataset.kind,
+        // Harbor Hub and Harbor's legacy registry are one source to a reader: Harbor.
+        origin: dataset.kind === 'builtin' ? ('builtin' as const) : ('registry' as const),
         description: dataset.description,
         nTasks: dataset.n_tasks,
         error: null,

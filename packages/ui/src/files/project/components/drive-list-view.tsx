@@ -32,6 +32,7 @@ import type { GitStatusType } from '../../tree/components/file-tree-item';
 import { useFilesStore, type SortField } from '../../../internal/stores/files-store';
 import type { FileNode } from '../../../internal/files/types';
 import { cn } from '../../../lib/utils';
+import { ManifestIssueMark } from './manifest-issue-mark';
 import Loading from '../../../primitives/loading';
 import { chalkColors } from '@kortix/shared';
 import {
@@ -235,6 +236,7 @@ function ListRow({
                   {node.name}
                 </span>
               )}
+              {!isDir && !isRenaming ? <ManifestIssueMark path={node.path} name={node.name} /> : null}
               {uploading ? (
                 <span role="status" aria-label={tDrives('uploadingFile', { name: node.name })} className="shrink-0">
                   <Loading variant="spokes" className="size-3.5" />

@@ -69,6 +69,13 @@ describe('filterAgents', () => {
     ]);
   });
 
+  test('query matches the title a user typed, not only the slug', () => {
+    const titled = { ...agent('github-pr-reviewer', 'subagent'), title: 'GitHub PR Reviewer' };
+    expect(filterAgents([titled], { mode: null, query: 'GitHub PR' }).map((a) => a.name)).toEqual([
+      'github-pr-reviewer',
+    ]);
+  });
+
   test('a null description never throws on search', () => {
     expect(filterAgents([agent('reviewer', 'subagent')], { mode: null, query: 'x' })).toEqual([]);
   });

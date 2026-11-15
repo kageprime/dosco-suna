@@ -6,12 +6,12 @@
 // card; a scheduled trigger or Loop is an outlined card. Items drag onto
 // another day (or onto "No date"); scheduled entries do not move here.
 import type { CalendarItem } from '@kortix/sdk';
-import { ArrowsClockwiseIcon, ChatCircleIcon, LightningIcon, PlusIcon } from '@phosphor-icons/react';
+import { ArrowsClockwiseIcon, ChatCircleIcon, CheckIcon, LightningIcon, PlusIcon } from '@phosphor-icons/react';
 import { useState, type DragEvent } from 'react';
 import { useLocale, useTranslations } from '../../i18n';
 import { cn } from '../../lib/utils';
 import { dayKey, isOverdue, itemDayKey, monthWeeks, weekDays } from './calendar-dates';
-import { Who, type CalendarDirectory } from './calendar-people';
+import { Participants, type CalendarDirectory } from './calendar-people';
 import type { ScheduledFire } from './calendar-scheduled';
 
 export const UNDATED = 'undated';
@@ -63,7 +63,7 @@ const draggable = (item: CalendarItem) => ({
   },
 });
 
-/** The dot of an item: done (green), overdue (orange), else neutral. The label beside it carries the meaning too. */
+/** The dot before an item in the month grid: done (green), overdue (orange), else neutral. */
 function ItemDot({ item, now }: { item: CalendarItem; now: Date }) {
   const tone = item.status === 'done' ? 'bg-kortix-green' : isOverdue(item, now) ? 'bg-kortix-orange' : 'bg-muted-foreground';
   return <span aria-hidden className={cn('size-1.5 shrink-0 rounded-full', tone)} />;
@@ -73,14 +73,21 @@ function useTimeLabel() {
   const locale = useLocale();
   const t = useTranslations('calendar');
   const clock = new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' });
-  return (item: Pick<CalendarItem, 'starts_at' | 'all_day'>) =>
-    !item.starts_at ? t('noDate') : item.all_day ? t('allDay') : clock.format(new Date(item.starts_at));
+  return (item: Pick<CalendarItem, 'starts_at' | 'ends_at' | 'all_day'>) => {
+    if (!item.starts_at) return t('noDate');
+    if (item.all_day) return t('allDay');
+    const start = clock.format(new Date(item.starts_at));
+    return item.ends_at ? `${start} – ${clock.format(new Date(item.ends_at))}` : start;
+  };
 }
 
 function ItemCard({ item, selected, directory, now, onOpen }: { item: CalendarItem; selected: boolean; directory: CalendarDirectory; now: Date; onOpen: () => void }) {
   const t = useTranslations('calendar');
   const when = useTimeLabel();
-  const lead = item.status === 'done' ? t('status.done') : isOverdue(item, now) ? t('overdue') : item.starts_at ? when(item) : t('status.open');
+  // No status word: a done item has a check and a struck title, an overdue one says so, else the time. Undated items sit under "No date" already.
+  const done = item.status === 'done';
+  const overdue = !done && isOverdue(item, now);
+  const lead = overdue ? t('overdue') : item.starts_at ? when(item) : null;
   return (
     <button
       type="button"
@@ -93,21 +100,21 @@ function ItemCard({ item, selected, directory, now, onOpen }: { item: CalendarIt
         'focus-visible:ring-ring outline-none focus-visible:ring-2 aria-pressed:bg-active',
       )}
     >
-      <span className={cn('line-clamp-2 text-sm font-medium wrap-anywhere', item.status === 'done' && 'text-muted-foreground line-through')}>
+      <span className={cn('line-clamp-2 text-sm font-medium wrap-anywhere', done && 'text-muted-foreground line-through')}>
         {item.title}
       </span>
       <span className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs whitespace-nowrap">
-        <ItemDot item={item} now={now} />
-        <span className="truncate tabular-nums">{lead}</span>
+        {done ? <CheckIcon weight="bold" className="text-kortix-green size-3.5 shrink-0" aria-label={t('status.done')} /> : null}
+        {lead ? <span className={cn('truncate tabular-nums', overdue && 'text-kortix-orange')}>{lead}</span> : null}
         {item.comment_count > 0 ? (
           <span className="inline-flex items-center gap-0.5 tabular-nums">
             <ChatCircleIcon className="size-3.5" aria-label={t('comments', { count: item.comment_count })} />
             {item.comment_count}
           </span>
         ) : null}
-        {item.assignee ? (
+        {item.people.length > 0 ? (
           <span className="ml-auto">
-            <Who who={item.assignee} directory={directory} nameless unknown={t('formerMember')} />
+            <Participants people={item.people} directory={directory} />
           </span>
         ) : null}
       </span>

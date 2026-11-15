@@ -60,9 +60,13 @@ import { useSessionHistoryViewStore } from '../../internal/stores/session-histor
 import {
   type QuickView,
   useIsActionPanelOpen,
+  useIsSidePanelOpen,
   useReadyChip,
   useToggleActionPanel,
+  useToggleRightPanel,
 } from '../../internal/stores/kortix-computer-store';
+import { SESSION_BAR_CLASS } from '../panel/panel-chrome';
+import { Kbd, KbdGroup } from '../../primitives/kbd';
 import { createProjectSession, directSubsessions, restartProjectSession, stopProjectSession } from '@kortix/sdk';
 import {
   qk,
@@ -78,9 +82,9 @@ import {
   ArrowsClockwiseIcon,
   BellIcon,
   BellSlashIcon,
-  CaretDoubleLeftIcon,
   GitForkIcon,
   LinkSimpleIcon,
+  ListBulletsIcon,
   CaretDownIcon,
   CodeSimpleIcon as Code2,
   FileArrowDownIcon as FileDown,
@@ -99,6 +103,9 @@ import {
 } from '@phosphor-icons/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useRef, useState } from 'react';
+
+const modKey =
+  typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
 
 /** Sandbox surfaces reachable from the header. One list drives both the
  *  desktop segment and the mobile sheet, so growing to 4-5 is a one-line add.
@@ -343,7 +350,17 @@ export function SessionSiteHeader({
   // Mobile-only action-panel toggle — see its render site below.
   const isActionPanelOpen = useIsActionPanelOpen();
   const toggleActionPanel = useToggleActionPanel();
+  const toggleRightPanel = useToggleRightPanel();
+  const isDetailPanelOpen = useIsSidePanelOpen();
   const readyChip = useReadyChip();
+  // Something is docked on the right: the sections column or a detail panel.
+  // On a phone only the sections drawer answers to this control.
+  const rightPaneOpen = isMobileViewport
+    ? isActionPanelOpen
+    : isActionPanelOpen || isDetailPanelOpen;
+  const rightPaneLabel = tI18nHardcoded.raw(
+    rightPaneOpen ? 'i18nComplete.text40cd6293d193' : 'i18nComplete.text2534086de9fe',
+  );
   // P5.6: show or hide the messages outside the agent's context (a failed attempt), per
   // session. Listed only while the transcript on screen holds one: otherwise it changes nothing.
   const historyKey = projectSessionId || sessionId;
@@ -563,7 +580,14 @@ export function SessionSiteHeader({
             instead. */}
         <div
           className={cn(
-            'flex items-center justify-between p-2 px-3.5 pt-[max(0.5rem,env(safe-area-inset-top))] pr-4', // audit:allow device safe-area inset, not a spacing step
+            // The shared bar: same height and bottom rule as the detail
+            // panel's bar, so the two rules meet as one line (`panel-chrome.ts`).
+            SESSION_BAR_CLASS,
+            'justify-between px-3.5 pr-4',
+            // A phone's notch inset adds to the bar instead of squeezing the
+            // 28px controls against its rule. Phones have no pane beside the
+            // chat, so a taller bar there breaks no line.
+            'max-md:h-auto max-md:min-h-[calc(var(--spacing)*11+env(safe-area-inset-top))] max-md:pt-[env(safe-area-inset-top)]', // audit:allow device safe-area inset, not a spacing step
             // Unconditional on the shell. The LEFT indent depends on the
             // sidebar (expanded, it covers the macOS lights itself) and is
             // gated by the data attribute — but the RIGHT one does not: this
@@ -571,7 +595,12 @@ export function SessionSiteHeader({
             // sidebar does, so on Win/Linux the trailing dev-tools cluster
             // sits under min/max/close either way.
             desktopShell !== null && 'kx-titlebar-row',
-            sidebarHidden && 'pt-[var(--kx-titlebar-control-top)]',
+            // Desktop shell, sidebar hidden: no padding override. The window
+            // controls sit at `--kx-titlebar-control-top` (6px) and are 28px
+            // tall (centre y=20 at zoom 1); the fixed bar centres its controls
+            // at ~20.2px, about 1px off at the default 0.94 desktop zoom (the
+            // old padded row was ~2px off). The bar keeps its height, so its
+            // rule stays on the detail pane's rule.
           )}
           data-sidebar-collapsed={sidebarHidden || undefined}
         >
@@ -666,7 +695,7 @@ export function SessionSiteHeader({
                     aria-label={tI18nHardcoded.raw(
                       'componentsProjectsProjectSessionList.line312JsxAttrAriaLabelSessionActions',
                     )}
-                    className="text-muted-foreground hover:text-foreground data-[state=open]:bg-card data-[state=open]:text-foreground shrink-0 rounded-md transition-[color,background-color,transform] duration-(--duration-normal) ease-out active:scale-[0.96]"
+                    className="text-foreground data-[state=open]:bg-card shrink-0 rounded-md transition-[color,background-color,transform] duration-(--duration-normal) ease-out active:scale-[0.96]"
                   >
                     <CaretDownIcon className="size-3.5" />
                   </Button>
@@ -715,6 +744,53 @@ export function SessionSiteHeader({
               />
             )}
 
+            {/* The right pane's toggle, first of the panel controls, the way a
+                docked pane's toggle sits in its window's header. A detail panel
+                is up (browser, terminal, files, a preview): it closes the right
+                side, as ⌘I does. Otherwise it shows or hides the sections
+                column. Never ⌘I's "reopen the last thing" — a button must not
+                bring back a terminal the user just closed. On a phone the
+                sections live in the bottom drawer, so it opens that. */}
+            <Hint
+              side="bottom"
+              sideOffset={4}
+              delayDuration={300}
+              label={
+                <span className="flex items-center gap-1.5">
+                  {rightPaneLabel}
+                  {!isMobileViewport && (
+                    <KbdGroup>
+                      <Kbd className="font-mono">{modKey}</Kbd>
+                      <Kbd className="font-mono">I</Kbd>
+                    </KbdGroup>
+                  )}
+                </span>
+              }
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={rightPaneLabel}
+                aria-expanded={rightPaneOpen}
+                aria-keyshortcuts={isMobileViewport ? undefined : 'Meta+I Control+I'}
+                onClick={!isMobileViewport && isDetailPanelOpen ? toggleRightPanel : toggleActionPanel}
+                data-state={rightPaneOpen ? 'open' : 'closed'}
+                className="text-foreground data-[state=open]:bg-card cursor-pointer transition-colors active:scale-[0.96]"
+              >
+                <span className="relative inline-flex">
+                  <ListBulletsIcon className="size-4" />
+                  {/* Badge, not a tag: attached to this control and purely
+                      informational. `setIsActionPanelOpen` clears it. */}
+                  {readyChip?.sessionId === sessionId && !rightPaneOpen && (
+                    <span
+                      className="bg-kortix-green ring-background absolute -top-1 -right-1 size-2 rounded-full ring-2"
+                      aria-hidden
+                    />
+                  )}
+                </span>
+              </Button>
+            </Hint>
+
             <div className="hidden items-center gap-1.5 lg:flex">
               {devTools.map(({ view, label, Icon }) => (
                 <Hint key={view} side="bottom" sideOffset={4} delayDuration={300} label={label}>
@@ -723,7 +799,7 @@ export function SessionSiteHeader({
                     size="icon"
                     aria-label={label}
                     onClick={() => openSessionQuickView(view, 'header')}
-                    className="text-muted-foreground hover:text-foreground cursor-pointer transition-colors active:scale-[0.96]"
+                    className="text-foreground cursor-pointer transition-colors active:scale-[0.96]"
                   >
                     <Icon className="h-4 w-4" />
                   </Button>
@@ -743,7 +819,7 @@ export function SessionSiteHeader({
                     variant="ghost"
                     size="icon"
                     aria-label={tI18nHardcoded.raw('i18nComplete.text96f0c06bbcb7')}
-                    className="text-muted-foreground hover:text-foreground cursor-pointer transition-colors active:scale-[0.96] lg:hidden"
+                    className="text-foreground cursor-pointer transition-colors active:scale-[0.96] lg:hidden"
                   >
                     <Code2 className="h-4 w-4" />
                   </Button>
@@ -800,47 +876,6 @@ export function SessionSiteHeader({
               </Hint>
             )}
 
-            {/* The DETAIL panel's toggle used to sit here and is gone on
-                purpose: that panel opens with content (a terminal, a browser, a
-                file) and closes with its own X or Escape, so a control that
-                opened it empty had nothing to show.
-
-                This one is the ACTION panel's, and mobile-only. On desktop the
-                cards are a column beside the chat with their own chevron; below
-                768px there is no room for a column, so the cards live in the
-                bottom drawer and need a way in from here. Gated on
-                `useIsMobile()` — the same 768px breakpoint the column and the
-                drawer both use, so exactly one control exists at any width and
-                the two can never both show. */}
-            {isMobileViewport && (
-              <Hint
-                side="bottom"
-                sideOffset={4}
-                delayDuration={300}
-                label={tI18nHardcoded.raw('i18nComplete.text2534086de9fe')}
-              >
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={tI18nHardcoded.raw('i18nComplete.text2534086de9fe')}
-                  aria-expanded={isActionPanelOpen}
-                  onClick={toggleActionPanel}
-                  className="text-muted-foreground hover:text-foreground cursor-pointer transition-colors active:scale-[0.96]"
-                >
-                  <span className="relative inline-flex">
-                    <CaretDoubleLeftIcon className="size-4" />
-                    {/* Badge, not a tag: attached to this control and purely
-                        informational. `setIsActionPanelOpen` clears it. */}
-                    {readyChip?.sessionId === sessionId && !isActionPanelOpen && (
-                      <span
-                        className="bg-kortix-green ring-background absolute -top-1 -right-1 size-2 rounded-full ring-2"
-                        aria-hidden
-                      />
-                    )}
-                  </span>
-                </Button>
-              </Hint>
-            )}
           </div>
         </div>
         {/* Floats under this row, anchored to it, so it tracks the titlebar

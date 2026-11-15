@@ -41,11 +41,26 @@ const ORDER: Record<WorkflowAgentStatus, number> = { failed: 0, running: 1, star
 /** A run longer than this lists its first rows and a "Show all". */
 const CAP_FROM = 25;
 const CAP = 20;
+/** A working agent whose session log has not changed for this long reads "Quiet for N min". */
+export const QUIET_AFTER_MS = 2 * 60_000;
+
+/** How long a working agent has written nothing, in ms, once that is {@link QUIET_AFTER_MS} or more; else null. */
+export function quietForMs(agent: WorkflowRunAgent, now: number): number | null {
+  if ((agent.status !== 'running' && agent.status !== 'starting') || agent.quietSince === undefined) return null;
+  const quiet = now - agent.quietSince;
+  return quiet >= QUIET_AFTER_MS ? quiet : null;
+}
+
+/** The working agents that have been quiet that long: the run header counts them. */
+export function quietAgents(agents: readonly WorkflowRunAgent[], now: number): number {
+  return agents.filter((agent) => quietForMs(agent, now) !== null).length;
+}
 
 export function WorkflowRunCard({
   run,
   title,
   subtitle,
+  meta,
   live,
   now,
   actions,
@@ -53,12 +68,17 @@ export function WorkflowRunCard({
   result,
   onOpen,
   stop,
+  bare = false,
 }: {
   run: WorkflowRun;
   title: string;
   subtitle?: string;
+  /** Inline after the subtitle, on its line: "· Spent N credits". Never in the actions, which must not squeeze the title. */
+  meta?: ReactNode;
   live: boolean;
   now: number;
+  /** The header alone, muted: a run that never ran (declined at its approval) has no rows. */
+  bare?: boolean;
   /** The header's words on the right: Pause, Stop, Open run. */
   actions?: ReactNode;
   /** Warnings beside the title: "Large workflow", "Resumed". */
@@ -81,7 +101,8 @@ export function WorkflowRunCard({
       className="border-border mt-1.5 flex min-w-0 flex-col rounded-lg border text-xs"
     >
       {/* One left edge for the header and the rows (px-4); the ring sits in the rows' 16px glyph lane. */}
-      <header className="border-border flex min-w-0 items-start gap-2.5 border-b px-4 py-3">
+      {/* Narrow cards wrap the actions under the title: the title and status keep at least basis-64. */}
+      <header className={cn('border-border flex min-w-0 flex-wrap items-start gap-x-2.5 gap-y-1.5 px-4 py-3', !bare && 'border-b')}>
         <span className="flex h-5 shrink-0 items-center">
           {counts.total > 0 ? (
             <RunProgressRing
@@ -95,21 +116,27 @@ export function WorkflowRunCard({
             <SessionStatusMark status={runGlyphStatus(run.status === 'running' ? 'starting' : run.status)} />
           )}
         </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex min-w-0 flex-1 basis-64 flex-col gap-0.5">
           <div className="flex min-w-0 items-center gap-1.5">
-            <h3 className="text-foreground min-w-0 truncate text-sm font-medium" title={title}>
+            <h3 className={cn('min-w-0 truncate text-sm font-medium', bare ? 'text-muted-foreground' : 'text-foreground')} title={title}>
               {title}
             </h3>
             {chips}
           </div>
-          {subtitle && (
-            <p className="text-muted-foreground min-w-0 truncate tabular-nums" title={subtitle}>
-              {subtitle}
+          {(subtitle || meta) && (
+            <p className="text-muted-foreground flex min-w-0 items-center tabular-nums">
+              {subtitle && (
+                // Progress outranks cost: the state keeps its width up to the line, the cost truncates first.
+                <span className="max-w-full shrink-0 truncate" title={subtitle}>
+                  {subtitle}
+                </span>
+              )}
+              {meta}
             </p>
           )}
         </div>
         {(actions || result) && (
-          <div className="-my-1 flex shrink-0 items-center">
+          <div className="-my-1 ml-auto flex shrink-0 items-center">
             {actions}
             {result && (
               <button
@@ -135,7 +162,7 @@ export function WorkflowRunCard({
         </div>
       )}
       {/* Never a fold: running or ended, the rows are the record of who did what. */}
-      <WorkflowRunRows run={run} live={live} now={now} onOpen={onOpen} stop={stop} />
+      {!bare && <WorkflowRunRows run={run} live={live} now={now} onOpen={onOpen} stop={stop} />}
     </section>
   );
 }
@@ -233,7 +260,8 @@ function PhaseRow({
   const opens = agents.length > 0;
   const pending = !opens && phase.status === 'pending';
   // A closed phase still says it is at work: "4 running · 1 failed".
-  const running = agents.filter((agent) => agent.status === 'running' || agent.status === 'starting').length;
+  // An agent queued for a slot or held (`starting`, no session yet) is not running.
+  const running = agents.filter((agent) => agent.status === 'running' || (agent.status === 'starting' && !!agent.sessionId)).length;
   const meta =
     waits ??
     ([running > 0 ? t('runningCount', { count: running }) : null, tally.failed > 0 ? t('failedSuffix', { count: tally.failed }) : null]
@@ -406,14 +434,22 @@ function AgentRow({
   const t = useTranslations('tools.workflow');
   const working = agent.status === 'running' || agent.status === 'starting';
   const elapsed = elapsedMs(agent, live && working, now);
+  const quiet = live ? quietForMs(agent, now) : null;
   const state =
     agent.status === 'failed'
       ? t('didntFinish')
       : agent.status === 'starting'
         ? t('status.starting')
         : agent.status === 'stopped'
-          ? t('status.stopped')
-          : null;
+          ? // A person's Stop is their decision, never a failure.
+            agent.stoppedBy === 'person'
+            ? t('stoppedByYou')
+            : t('status.stopped')
+          : quiet !== null
+            ? t('quietFor', { minutes: Math.floor(quiet / 60_000) })
+            : null;
+  // A restart or a stall starts a new attempt in a new session, with its own clock: the row says which one.
+  const attempt = (agent.attempt ?? 1) > 1 ? t('attempt', { count: agent.attempt! }) : null;
   // Working and finished rows are one line: status, name, time. Only a failure says why.
   const detail = agent.status === 'failed' ? (agent.summary ?? null) : null;
   const canRetry = agent.status === 'failed' && live && !!agent.sessionId && !!stop.restart;
@@ -432,6 +468,7 @@ function AgentRow({
           <span className={cn('text-foreground min-w-0 flex-1 truncate text-sm', agent.status !== 'done' && 'font-medium')} title={agent.label}>
             {agent.label}
           </span>
+          {attempt && <span className="text-muted-foreground shrink-0">{attempt}</span>}
           {state && <span className="text-muted-foreground shrink-0">{state}</span>}
           {elapsed !== undefined && agent.status !== 'failed' && (
             <span className="text-muted-foreground min-w-9 shrink-0 text-right tabular-nums">{formatElapsed(elapsed)}</span>
@@ -458,7 +495,7 @@ function AgentRow({
         <button
           type="button"
           data-workflow-row
-          aria-label={[t('openAgent', { label: agent.label }), state ?? t(`status.${agent.status === 'done' ? 'done' : agent.status === 'running' ? 'running' : 'starting'}`), elapsed !== undefined && agent.status !== 'failed' ? formatElapsed(elapsed) : null].filter(Boolean).join(', ')}
+          aria-label={[t('openAgent', { label: agent.label }), state ?? t(`status.${agent.status === 'done' ? 'done' : agent.status === 'running' ? 'running' : 'starting'}`), attempt, elapsed !== undefined && agent.status !== 'failed' ? formatElapsed(elapsed) : null].filter(Boolean).join(', ')}
           onClick={() => onOpen(agent)}
           className={cn(rowClass, 'cursor-pointer')}
         >

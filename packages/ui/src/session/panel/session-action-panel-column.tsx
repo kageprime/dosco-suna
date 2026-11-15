@@ -1,21 +1,24 @@
 'use client';
 
 /**
- * The action panel column — the Outputs/Context/Preview cards, and the chevron
- * that toggles them, as a real column in the session's layout.
+ * The action panel column — the Outputs/Context/Preview sections as a docked
+ * pane beside the chat.
  *
  * IN FLOW, never an overlay. It sits beside the chat as a sibling, so opening
  * it takes width away from the transcript and the chat re-centers itself in
- * what is left. An absolutely positioned version floated over the conversation
- * and covered it; this one moves it.
+ * what is left.
  *
- * That is also why there is no `pointer-events-none` dance here any more. The
- * panel occupies space it owns, so it can never sit on top of text the user is
- * trying to select.
+ * Docked, not floating. One hairline (`border-l`) separates it from the chat
+ * and it runs the full height of the body, under the session header's rule.
+ * The sections inside are flat rows divided by hairlines (`easy/panel-card.tsx`).
+ * No card, radius or shadow: the brand rule for an in-flow surface
+ * (`effects.md`), and the look of a docked pane.
  *
- * Deliberately chrome-free. No wrapper card, radius, shadow, border, or
- * background: the three cards carry their own borders and ARE the containers.
- * Anything drawn around them would be a box around boxes.
+ * Resizable. The left edge is a drag handle (pointer and arrow keys); the width
+ * persists per browser. Double-click the edge to reset it.
+ *
+ * Its toggle lives in the session header (`session-site-header.tsx`), beside
+ * the other panel controls, never as a rail over the chat.
  *
  * It toggles ONLY itself. Opening it never opens the right-hand detail panel;
  * that surface is content-driven and opens when something gives it a detail to
@@ -30,65 +33,212 @@
  * "toggle the right side", which is `toggleRightPanel` in the store: close
  * whatever is docked there — this column, a detail panel, or both — and, when
  * nothing is, reopen what this session was last showing, falling back to this
- * column. One key for one visual region. The memory is session-scoped: leave
- * the session and the key is back to opening this column.
+ * column. One key for one visual region.
  *
  * The binding lives on this component only because this is the surface that is
  * always mounted for a session (the detail panel is content-driven and may
  * have nothing to render). It stays mounted while `hidden` under a detail,
  * which is what lets the key close that detail.
- *
- * The chevron is unaffected: it is this column's own control, so it toggles
- * this column and nothing else.
  */
 
-import Hint from '../../primitives/hint';
-import { Kbd, KbdGroup } from '../../primitives/kbd';
 import { ActionPanel } from './action-panel';
 import { useOptionalSessionPanel } from './session-panel-provider';
 import { useIsMobile } from '../../internal/hooks';
 import { cn } from '../../lib/utils';
+import { RESIZE_SEAM_CLASS } from '../../primitives/resize-seam';
 import {
   useIsActionPanelOpen,
   useIsSidePanelOpen,
-  useReadyChip,
-  useToggleActionPanel,
   useToggleRightPanel,
 } from '../../internal/stores/kortix-computer-store';
 import { useTabStore } from '../../internal/stores/tab-store';
-import { CaretDoubleLeftIcon, CaretDoubleRightIcon } from '@phosphor-icons/react';
 import { m } from 'motion/react';
 import { useReducedMotion } from '../../internal/hooks/use-reduced-motion';
-import { useEffect } from 'react';
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
-/** The panel's open width. The inner content is pinned to it so the cards keep
- *  their true width while the container widens — they slide into view rather
- *  than reflowing from squashed to correct on every frame. */
-const PANEL_WIDTH = 380;
+/** Width bounds, in px. The chat keeps at least the rest of the row. */
+export const ACTION_PANEL_DEFAULT_WIDTH = 340;
+export const ACTION_PANEL_MIN_WIDTH = 280;
+export const ACTION_PANEL_MAX_WIDTH = 560;
+/** One arrow-key step on the resize edge. */
+const KEY_STEP = 16;
+const WIDTH_STORAGE_KEY = 'kortix:session-action-panel-width';
 
-const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
-const modSymbol = isMac ? '⌘' : 'Ctrl';
+export function clampActionPanelWidth(width: number, max = ACTION_PANEL_MAX_WIDTH): number {
+  if (!Number.isFinite(width)) return ACTION_PANEL_DEFAULT_WIDTH;
+  return Math.round(Math.min(max, Math.max(ACTION_PANEL_MIN_WIDTH, width)));
+}
 
 /**
- * Motion. This is the one place in this work that animates a LAYOUT property,
- * and it is deliberate: pushing the chat aside IS a layout change, so there is
- * no transform that can express it. The cost is bounded — one 200ms one-shot
- * on an explicit toggle, on a single element.
- *
- * Ease-out, because the panel is entering and leaving the screen and the
- * acceleration belongs up front where the eye already is. 200ms in, 160ms out:
- * exits run ~80% of the entrance, since leaving is a decision already made.
+ * The width on screen and the widest it may go right now, read from the DOM.
+ * The column is capped at half its row (`max-w-[50cqw]`), so on a narrow
+ * window the visible width is below the stored one. A resize must start from
+ * what the user sees, or the edge does not follow the pointer until the drag
+ * passes the stored width.
  */
-/** Collapsed, the column is only the chevron: `size-7` + `mr-1` + the `gap-2`
- *  before the zero-width panel = 10 spacing tokens (`--spacing: 0.23rem`). A
- *  negative margin of the same size cancels it, so the chat centers on the
- *  full row width and the chevron sits over its right edge. Kept in rem so
- *  motion can interpolate it against `0rem`. */
-const COLLAPSED_RAIL_OFFSET = '-2.3rem';
+function liveBounds(handle: HTMLElement) {
+  const column = handle.parentElement;
+  const row = column?.parentElement;
+  const rendered = column?.getBoundingClientRect().width ?? ACTION_PANEL_DEFAULT_WIDTH;
+  const max = row
+    ? Math.min(ACTION_PANEL_MAX_WIDTH, Math.floor(row.getBoundingClientRect().width / 2))
+    : ACTION_PANEL_MAX_WIDTH;
+  return { rendered, max };
+}
 
+function readStoredWidth(): number {
+  try {
+    const raw = window.localStorage.getItem(WIDTH_STORAGE_KEY);
+    return raw ? clampActionPanelWidth(Number(raw)) : ACTION_PANEL_DEFAULT_WIDTH;
+  } catch {
+    return ACTION_PANEL_DEFAULT_WIDTH;
+  }
+}
+
+/** Same-tab writers notify through this event; other tabs through `storage`. */
+const WIDTH_EVENT = 'kortix:session-action-panel-width';
+/** Set only while storage writes fail, so a resize still lasts for this page.
+ *  A working store stays the source of truth, which keeps other tabs' writes
+ *  (the `storage` event) visible here. */
+let memoryWidth: number | null = null;
+
+function writeStoredWidth(width: number) {
+  try {
+    window.localStorage.setItem(WIDTH_STORAGE_KEY, String(width));
+    memoryWidth = null;
+  } catch {
+    memoryWidth = width;
+  }
+  window.dispatchEvent(new Event(WIDTH_EVENT));
+}
+
+function subscribeStoredWidth(onChange: () => void) {
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === WIDTH_STORAGE_KEY) onChange();
+  };
+  window.addEventListener(WIDTH_EVENT, onChange);
+  window.addEventListener('storage', onStorage);
+  return () => {
+    window.removeEventListener(WIDTH_EVENT, onChange);
+    window.removeEventListener('storage', onStorage);
+  };
+}
+
+const getStoredWidth = () => memoryWidth ?? readStoredWidth();
+// The server has no storage: it renders the default, and the client swaps in
+// the stored width after hydration without a mismatch.
+const getServerWidth = () => ACTION_PANEL_DEFAULT_WIDTH;
+
+/**
+ * The column's width, plus a drag/keyboard handle for its left edge. The edge
+ * sits on the column's LEFT, so dragging left (a smaller clientX) widens it.
+ */
+function useActionPanelWidth() {
+  const storedWidth = useSyncExternalStore(subscribeStoredWidth, getStoredWidth, getServerWidth);
+  // The live width while a drag is in flight; storage is written once, on drop.
+  const [dragWidth, setDragWidth] = useState<number | null>(null);
+  const drag = useRef<{
+    startX: number;
+    startWidth: number;
+    max: number;
+    /** The latest width the pointer asked for; what a drop saves. */
+    last: number;
+    /** False for a plain click: a click on the edge must not save anything. */
+    moved: boolean;
+  } | null>(null);
+  const width = dragWidth ?? storedWidth;
+  const dragging = dragWidth !== null;
+
+  const commit = useCallback((next: number, max?: number) => {
+    writeStoredWidth(clampActionPanelWidth(next, max));
+  }, []);
+
+  const onPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      const { rendered, max } = liveBounds(e.currentTarget);
+      const start = clampActionPanelWidth(rendered, max);
+      drag.current = { startX: e.clientX, startWidth: start, max, last: start, moved: false };
+      setDragWidth(start);
+    },
+    [],
+  );
+
+  const onPointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const start = drag.current;
+    if (!start) return;
+    const next = clampActionPanelWidth(start.startWidth + (start.startX - e.clientX), start.max);
+    start.last = next;
+    if (e.clientX !== start.startX) start.moved = true;
+    setDragWidth(next);
+  }, []);
+
+  const onPointerEnd = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      const ended = drag.current;
+      if (!ended) return;
+      drag.current = null;
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+      // Saved from the ref, not from render state: the last move may not have
+      // rendered yet when the pointer lifts.
+      if (ended.moved) commit(ended.last);
+      setDragWidth(null);
+    },
+    [commit],
+  );
+
+  const onKeyDown = useCallback(
+    (e: ReactKeyboardEvent<HTMLDivElement>) => {
+      const step = e.shiftKey ? KEY_STEP * 4 : KEY_STEP;
+      const { rendered, max } = liveBounds(e.currentTarget);
+      if (e.key === 'ArrowLeft') commit(rendered + step, max);
+      else if (e.key === 'ArrowRight') commit(rendered - step, max);
+      else if (e.key === 'Home') commit(max, max);
+      else if (e.key === 'End') commit(ACTION_PANEL_MIN_WIDTH, max);
+      else return;
+      e.preventDefault();
+    },
+    [commit],
+  );
+
+  const onDoubleClick = useCallback(() => commit(ACTION_PANEL_DEFAULT_WIDTH), [commit]);
+
+  return {
+    width,
+    dragging,
+    handleProps: {
+      onPointerDown,
+      onPointerMove,
+      onPointerUp: onPointerEnd,
+      onPointerCancel: onPointerEnd,
+      onKeyDown,
+      onDoubleClick,
+    },
+  };
+}
+
+/**
+ * Motion. Pushing the chat aside IS a layout change, so the width animates —
+ * one 200ms one-shot on an explicit toggle, on a single element. Ease-out,
+ * 200ms in, 160ms out. A drag never animates: the edge follows the pointer.
+ */
 const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 const ENTER = { duration: 0.2, ease: EASE_OUT } as const;
 const EXIT = { duration: 0.16, ease: EASE_OUT } as const;
+const INSTANT = { duration: 0 } as const;
 
 export function SessionActionPanelColumn({
   /**
@@ -105,16 +255,15 @@ export function SessionActionPanelColumn({
   const panel = useOptionalSessionPanel();
   const isMobile = useIsMobile();
   const isOpen = useIsActionPanelOpen();
-  // The chevron's own action — it is this column's control, so it moves this
-  // column and nothing else.
-  const toggle = useToggleActionPanel();
   // ⌘I's action — the whole right side, whichever surface is docked there.
   const toggleRight = useToggleRightPanel();
-  const readyChip = useReadyChip();
   const reduce = useReducedMotion();
+  const { width, dragging, handleProps } = useActionPanelWidth();
+  // Built once: a drag re-renders this column on every pointer move, and the
+  // sections (Outputs can hold hundreds of rows) must not re-render with it.
+  const sections = useMemo(() => <ActionPanel />, []);
   // The right-hand detail panel is showing a browser, a terminal, a file
-  // explorer or a file preview. Post-refactor that panel is content-driven, so
-  // this flag is true exactly when one of those is on screen.
+  // explorer or a file preview.
   const detailPanelOpen = useIsSidePanelOpen();
 
   const sessionId = panel?.sessionId;
@@ -129,11 +278,8 @@ export function SessionActionPanelColumn({
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'i' || e.key === 'I')) {
         e.preventDefault();
-        // NOT `toggle()` — see this file's header. The key owns the right side;
-        // the chevron owns this column. Binding the key to the column left the
-        // detail panel (browser, terminal, files, a preview) with no keyboard
-        // close at all, and pressing ⌘I under one silently moved a column the
-        // detail was covering.
+        // NOT the column's own toggle — see this file's header. The key owns
+        // the right side, so it also closes a detail panel.
         toggleRight();
       }
     };
@@ -152,130 +298,67 @@ export function SessionActionPanelColumn({
 
   // No provider means no panel to render: `SessionChat` also renders read-only
   // inside `legacy-subagent-chat.tsx`, outside `SessionLayout`. Mobile has no
-  // column either — at 375px a side column is the whole screen, so the cards
-  // stay in the bottom drawer they have always used.
+  // column either — at 375px a side column is the whole screen, so the
+  // sections stay in the bottom drawer.
   if (!panel || isMobile) return null;
 
-  const showReadyDot = readyChip?.sessionId === sessionId && !isOpen;
-  const label = isOpen ? 'Collapse pane' : 'Expand pane';
-
   return (
-    // The margin animates with the panel width and uses the same transition,
-    // so the column's net width changes smoothly in both directions and the
-    // chat never jumps.
+    // The width animates; the content inside is pinned to the open width, so
+    // the sections slide into view instead of reflowing on every frame.
     <m.div
       initial={false}
-      animate={{ marginLeft: isOpen ? '0rem' : COLLAPSED_RAIL_OFFSET }}
-      transition={reduce ? { duration: 0 } : isOpen ? ENTER : EXIT}
+      animate={{ width: isOpen ? width : 0 }}
+      transition={reduce || dragging ? INSTANT : isOpen ? ENTER : EXIT}
+      aria-hidden={!isOpen}
+      inert={!isOpen || undefined}
       className={cn(
-        'group/panel relative z-10 flex min-h-0 shrink-0 items-start gap-2 py-3',
-        // Collapsed, the column overlaps the chat's right edge. Only the
-        // chevron takes pointer input, so the chat's scrollbar and wheel
-        // scrolling under the rest of the strip still work.
-        !isOpen && 'pointer-events-none',
-        // A detail panel is showing on the right. The action panel steps aside
-        // ENTIRELY — the control and the cards — so the session is the chat
-        // plus the one thing being looked at, not a transcript squeezed
-        // between two panels.
-        //
-        // Hiding only the chevron would be worse than leaving it: with the
-        // cards expanded there would be no way left to collapse them.
-        //
-        // `hidden` rather than an unmount, so the cards keep their own
-        // expanded/collapsed state and it costs no layout. And render-only on
-        // purpose: `isActionPanelOpen` is never written here, so closing the
-        // detail brings the column back exactly as the user left it. The two
-        // states stay independent — only what is PAINTED depends on both.
+        // Never more than half the body row (`SessionBodyRow` is the
+        // container): on a narrow window the chat keeps the other half.
+        'relative z-10 min-h-0 max-w-[50cqw] shrink-0 self-stretch',
+        // A detail panel is showing on the right: the column steps aside, so
+        // the session is the chat plus the one thing being looked at. `hidden`,
+        // not an unmount, so the sections keep their expanded state.
         detailPanelOpen && 'hidden',
       )}
       data-testid="session-action-panel"
     >
-      <Hint
-        side="left"
-        sideOffset={4}
-        delayDuration={300}
-        label={
-          <span className="flex items-center gap-1.5">
-            {label}
-            <KbdGroup>
-              <Kbd className="font-mono">{modSymbol}</Kbd>
-              <Kbd className="font-mono">I</Kbd>
-            </KbdGroup>
-          </span>
-        }
-      >
-        <button
-          type="button"
-          aria-label={label}
-          aria-expanded={isOpen}
-          onClick={toggle}
-          className={cn(
-            'flex size-7 shrink-0 items-center justify-center rounded-md',
-            'text-foreground/80 hover:text-foreground hover:bg-accent',
-            'transition-[color,background-color,transform,opacity] duration-150 ease-out active:scale-[0.96]',
-            // Expanded, the collapse control steps out of the way: the cards
-            // are the content, and a permanently visible chevron beside them is
-            // chrome the user has already read. Hovering anywhere in the column
-            // brings it back, as does tabbing to it.
-            //
-            // `pointer-events-none` rides WITH the fade, deliberately. Opacity
-            // zero still occupies space AND still receives pointer events, so a
-            // faded-out button stays clickable — an invisible hit target pinned
-            // against the panel's edge. (This is the opacity/visibility
-            // distinction: `visibility: hidden` would drop interaction for us,
-            // but it is not animatable, and the fade is the point.) Both are
-            // restored together on reveal. Focus is unaffected by
-            // `pointer-events`, so the keyboard path still reaches it.
-            isOpen
-              ? 'pointer-events-none opacity-0 group-hover/panel:pointer-events-auto group-hover/panel:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100'
-              : 'pointer-events-auto mr-1',
-          )}
-        >
-          <span className="relative inline-flex">
-            {isOpen ? (
-              <CaretDoubleRightIcon className="size-4" />
-            ) : (
-              <CaretDoubleLeftIcon className="size-4" />
-            )}
-          </span>
-        </button>
-      </Hint>
-
-      {/* Never unmounted — width alone opens and closes it, and the column's
-          own `hidden` (above) covers the detail-panel case, so the cards keep
-          their expand/collapse state through both. `initial={false}` means
-          a session that mounts with the panel already open shows it at full
-          width immediately instead of playing an arrival nobody asked for.
-          The transition ternary is safe here precisely BECAUSE this element
-          never unmounts: there is no exiting node holding stale props. */}
-      <m.div
-        initial={false}
-        animate={{ width: isOpen ? PANEL_WIDTH : 0 }}
-        transition={reduce ? { duration: 0 } : isOpen ? ENTER : EXIT}
-        aria-hidden={!isOpen}
-        inert={!isOpen || undefined}
-        // `self-stretch` against the column's `items-start`: the cards inside
-        // divide the available height between them, and "available" has to be
-        // a real number for that to mean anything. Left at `items-start` this
-        // box was only as tall as its content, so `h-full` further down
-        // resolved against nothing and every card fell back to its natural
-        // height — the stack the panel used to be.
-        className="min-h-0 self-stretch overflow-hidden"
-      >
-        {/* `h-full` hands that height down to the card column. The
-            `overflow-y-auto` stays as the last resort: the cards below Outputs
-            are deliberately unshrinkable, so if they alone exceed the panel —
-            a fully expanded Context with a long file list on a short window —
-            something has to give, and scrolling the whole column is a better
-            failure than clipping a card. In every ordinary case Outputs
-            absorbs the difference and this never engages. */}
+      {isOpen && (
+        // The resize edge: zero-width over the column's `border-l`, with a
+        // 12px hit strip. Hover, focus and drag light the shared resize seam.
         <div
-          className="scrollbar-minimal h-full overflow-y-auto overscroll-contain pr-3"
-          style={{ width: PANEL_WIDTH }}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize pane"
+          // Approximate under the half-row cap: these report the stored
+          // width and the fixed bounds, while the screen may show less.
+          aria-valuemin={ACTION_PANEL_MIN_WIDTH}
+          aria-valuemax={ACTION_PANEL_MAX_WIDTH}
+          aria-valuenow={width}
+          tabIndex={0}
+          data-dragging={dragging || undefined}
+          className={cn(
+            'absolute inset-y-0 -left-1.5 z-20 w-3 cursor-col-resize touch-none outline-none',
+            RESIZE_SEAM_CLASS,
+            'hover:before:opacity-100 focus-visible:before:opacity-100 data-[dragging]:before:opacity-100',
+          )}
+          {...handleProps}
+        />
+      )}
+      <div className="h-full overflow-hidden">
+        <div
+          className={cn(
+            // The same cap as the column, so a capped column still shows its
+            // sections whole instead of clipping their right edge.
+            'border-border bg-background scrollbar-minimal h-full max-w-[50cqw] overflow-y-auto overscroll-contain border-l',
+            // A drag must not select transcript text under the pointer.
+            dragging && 'select-none',
+          )}
+          style={{ width }}
+          data-review-scroll
         >
-          <ActionPanel />
+          {sections}
         </div>
-      </m.div>
+      </div>
     </m.div>
   );
 }

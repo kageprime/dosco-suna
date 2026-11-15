@@ -71,10 +71,24 @@ export function controlRuntimeWorkflowRun(
 export async function runningSessionRuntimeUrl(projectId: string, sessionId: string): Promise<string | null> {
   const known = getSessionRuntime(projectId, sessionId)?.runtimeUrl;
   if (known) return known;
+  const key = rowRuntimeKey(projectId, sessionId);
+  const cached = rowRuntimeUrls.get(key);
+  if (cached) return cached;
   const row = await getWorkspaceSession(projectId, sessionId, { showErrors: false }).catch(() => null);
   const externalId = row ? projectSessionStartSeed(row)?.sandbox?.external_id : undefined;
-  return externalId ? getSandboxUrlForExternalId(externalId) : null;
+  const url = externalId ? getSandboxUrlForExternalId(externalId) : null;
+  if (url) rowRuntimeUrls.set(key, url);
+  return url;
 }
+
+/**
+ * The runtime URL a running session's row named, per session, for the page
+ * lifetime. A workflow poll of a runner session read the row before every box
+ * read: two requests a tick. A failed box read drops the entry, so the next
+ * tick asks the row again and a stopped session answers no runs.
+ */
+const rowRuntimeUrls = new Map<string, string>();
+const rowRuntimeKey = (projectId: string, sessionId: string) => `${projectId}\u0000${sessionId}`;
 
 async function requireRunningRuntimeUrl(projectId: string, sessionId: string): Promise<string> {
   const url = await runningSessionRuntimeUrl(projectId, sessionId);
@@ -127,6 +141,7 @@ export async function readSessionWorkflowRuns(
     return { runs: Array.isArray(answer?.runs) ? answer.runs : [] };
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) return { runs: [] };
+    rowRuntimeUrls.delete(rowRuntimeKey(projectId, sessionId));
     throw error;
   }
 }

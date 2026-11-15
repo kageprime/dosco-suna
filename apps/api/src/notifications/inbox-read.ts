@@ -8,10 +8,12 @@
 import { and, desc, eq, inArray, isNull, lt, type SQL, sql } from 'drizzle-orm';
 import { calendarItems, notifications } from '@kortix/db';
 import type { NotificationKindName } from '@kortix/shared/notification-kinds';
+import { resolveFeatureFlag } from '../feature-flags/registry';
 import { db } from '../shared/db';
 import { loadSessionAccessRows, mayReadProjects, mayReadProjectTriggers, maySeeSessions, type SessionAccessRow } from './access';
 import { mfaWithheldAccounts } from './mfa-gate';
 import { inboxStore } from './inbox-store';
+import { resolvedAskNotifications } from './inbox-resolution';
 import { notificationUrl } from './push-payload';
 import { projectsView } from '../workspaces/rows';
 
@@ -54,12 +56,20 @@ const isAccountNotification = (kind: string) => kind.startsWith('capture_device_
 /** A calendar mention (flag `calendar`): readable while its item exists and the person may open the project. */
 const isCalendarNotification = (row: InboxRowForFilter) => row.kind === 'mention' && Boolean(row.calendarItemId);
 
-/** The calendar rows' items that still exist. No query when no row names one. */
+/**
+ * The calendar rows' items that still exist in a project whose `calendar` flag
+ * is on: a mention from a project whose flag is off again stays hidden (no
+ * count, no inbox row, no digest). No query when no row names one.
+ */
 async function liveCalendarItems(rows: readonly InboxRowForFilter[]): Promise<Set<string>> {
   const ids = [...new Set(rows.flatMap((row) => (isCalendarNotification(row) ? [row.calendarItemId!] : [])))];
   if (ids.length === 0) return new Set();
-  const found = await db.select({ itemId: calendarItems.itemId }).from(calendarItems).where(inArray(calendarItems.itemId, ids));
-  return new Set(found.map((row) => row.itemId));
+  const found = await db
+    .select({ itemId: calendarItems.itemId, experimental: sql<unknown>`${projectsView.metadata}->'experimental'` })
+    .from(calendarItems)
+    .innerJoin(projectsView, eq(projectsView.projectId, calendarItems.projectId))
+    .where(inArray(calendarItems.itemId, ids));
+  return new Set(found.flatMap((row) => (resolveFeatureFlag({ experimental: row.experimental }, 'calendar') ? [row.itemId] : [])));
 }
 
 /** One inbox row as `GET /v1/notifications` returns it. */
@@ -77,6 +87,12 @@ export interface InboxNotification {
   actor_user_id: string | null;
   url: string;
   read: boolean;
+  /**
+   * A `question` or `permission` row whose ask is closed: answered, dismissed,
+   * decided or expired (`inbox-resolution.ts`). False for every other kind.
+   * "Needs you" leaves a resolved row out; the row itself stays in the inbox.
+   */
+  resolved: boolean;
   created_at: string;
 }
 
@@ -98,6 +114,7 @@ const ROW = {
   triggerSlug: notifications.triggerSlug,
   calendarItemId: notifications.calendarItemId,
   kind: notifications.kind,
+  dedupeKey: notifications.dedupeKey,
   title: notifications.title,
   body: notifications.body,
   actorUserId: notifications.actorUserId,
@@ -152,8 +169,8 @@ async function visible<T extends InboxRowForFilter>(
   const seen = await maySeeSessions(userId, [...loaded.values()]);
   for (const id of seen) sessions.set(id, loaded.get(id)!);
 
-  const calendarRows = open.filter(isCalendarNotification);
-  const liveItems = await liveCalendarItems(calendarRows);
+  const liveItems = await liveCalendarItems(open.filter(isCalendarNotification));
+  const calendarRows = open.filter((row) => isCalendarNotification(row) && liveItems.has(row.calendarItemId!));
   const calendarProjects = new Map<string, Set<string>>();
   for (const row of calendarRows) {
     const ids = calendarProjects.get(row.accountId) ?? new Set<string>();
@@ -272,6 +289,7 @@ export async function listInbox(
       break;
     }
   }
+  const resolved = await resolvedAskNotifications(listed);
   return {
     notifications: listed.map((row) => ({
       id: row.notificationId,
@@ -295,6 +313,7 @@ export async function listInbox(
         calendarItemId: row.calendarItemId,
       }),
       read: row.readAt !== null,
+      resolved: resolved.has(row.notificationId),
       created_at: row.createdAt.toISOString(),
     })),
     unread_count: unreadShown,

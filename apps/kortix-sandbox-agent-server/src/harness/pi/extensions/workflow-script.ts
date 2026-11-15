@@ -25,7 +25,12 @@ export interface WorkflowMeta {
   name?: string
   description?: string
   phases?: WorkflowMetaPhase[]
+  /** What each planned agent does, in a few words (`meta.agents`): the approval lists them, one line each. */
+  agents?: string[]
 }
+
+/** `meta.agents` entries the approval lists at most; the rest are counted. */
+export const META_AGENT_LINES = 50
 
 const META_START = /^export\s+const\s+meta\s*=\s*/
 
@@ -160,6 +165,14 @@ function metaShape(raw: Record<string, unknown>): WorkflowMeta {
       const detail = phase && typeof phase === 'object' ? (phase as Record<string, unknown>).detail : undefined
       return { title: title.trim(), ...(typeof detail === 'string' && detail.trim() ? { detail: detail.trim() } : {}) }
     })
+  }
+  // A label list for the approval, never a reason to refuse the script: an entry that is no label is dropped.
+  if (Array.isArray(raw.agents)) {
+    const labels = raw.agents
+      .map((entry) => (typeof entry === 'string' ? entry : entry && typeof entry === 'object' ? (entry as Record<string, unknown>).label : undefined))
+      .filter((label): label is string => typeof label === 'string' && label.trim().length > 0)
+      .map((label) => label.trim().replace(/\s+/g, ' ').slice(0, 120))
+    if (labels.length > 0) meta.agents = labels
   }
   return meta
 }

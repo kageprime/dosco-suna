@@ -31,6 +31,7 @@ import {
   PresentationIcon,
   VideoIcon,
 } from '@phosphor-icons/react';
+import { chalkColors } from '@kortix/shared';
 import { useEffect, useState } from 'react';
 import type { OutputItem } from '../shared/derive-panels';
 import { deliverableKindLabel, isScaffoldingOutput } from '../shared/output-priority';
@@ -92,14 +93,14 @@ function ImageThumb({ path, callID, name }: { path: string; callID: string; name
     // `size-4`, like every other leading glyph in this list — the fallback
     // stands where the thumbnail will, so it must not be a smaller mark.
     const Ico = KIND_ICON.image;
-    return <Ico className="text-muted-foreground size-4" />;
+    return <Ico className="text-foreground size-4" />;
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt={name}
-      className="size-7 rounded-sm object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
+      className="size-6 rounded-sm object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
     />
   );
 }
@@ -112,21 +113,7 @@ function ImageThumb({ path, callID, name }: { path: string; callID: string; name
  * thumbnail (W13): the icon says "picture," the thumb shows which one.
  */
 function OutputIcon({ output }: { output: OutputItem }) {
-  const tile = 'flex size-7 shrink-0 items-center justify-center rounded-sm';
-  /** A quiet ground under the glyph, the same treatment the Context card's
-   *  `FileList` tiles carry. Without it the leading mark floats and the list
-   *  loses the left edge the eye reads down. A real thumbnail is its own
-   *  anchor and fills the whole tile, so it stays bare — a ground under a
-   *  transparent PNG would read as a backing colour the image doesn't have. */
-  const groundedTile = `${tile} bg-muted/70`;
-
-  if (output.kind === 'file') {
-    return (
-      <span className={groundedTile}>
-        {getFileIcon(output.name, { className: 'size-4', variant: 'monochrome' })}
-      </span>
-    );
-  }
+  const tile = 'flex size-6 shrink-0 items-center justify-center rounded-sm';
 
   if (output.kind === 'image' && output.path) {
     return (
@@ -136,10 +123,39 @@ function OutputIcon({ output }: { output: OutputItem }) {
     );
   }
 
+  // The chalk tile Drive uses for a file type: one stable color per extension
+  // (or per kind, for an app or generated media), the glyph in its ink. A list
+  // of eight outputs reads by color before a single name is read.
   const Ico = KIND_ICON[output.kind];
   return (
-    <span className={groundedTile}>
-      <Ico className="text-muted-foreground size-4" />
+    <ChalkTile label={chalkLabel(output)}>
+      {output.kind === 'file' ? (
+        getFileIcon(output.name, { className: 'size-3.5', variant: 'monochrome' })
+      ) : (
+        <Ico className="size-3.5" />
+      )}
+    </ChalkTile>
+  );
+}
+
+/** The chalk key: a file's extension, else its kind. */
+export function chalkLabel(output: { kind: string; name: string }): string {
+  if (output.kind === 'file' && output.name.includes('.')) {
+    return output.name.slice(output.name.lastIndexOf('.') + 1).toUpperCase();
+  }
+  return output.kind.toUpperCase();
+}
+
+/** A 24px chalk tile, fill only (no border); the glyph takes the chalk ink, whatever its own color class. */
+export function ChalkTile({ label, children }: { label: string; children: React.ReactNode }) {
+  const chalk = chalkColors(label);
+  return (
+    <span
+      className="flex size-6 shrink-0 items-center justify-center rounded-sm [&_svg]:text-current!"
+      style={{ backgroundColor: chalk.background, color: chalk.foreground }}
+      aria-hidden
+    >
+      {children}
     </span>
   );
 }
@@ -180,23 +196,22 @@ function OutputRow({
         type="button"
         disabled={!isOpenable(output)}
         onClick={() => isOpenable(output) && onOpenOutput(output)}
-        // `py-2` puts the row at ~44px — a real touch target — and the
-        // transition/press pair is the one the Context card's rows use,
-        // so the two cards sharing this panel move identically.
-        className="hover:bg-accent -mx-0.5 flex w-full items-center gap-2.5 rounded-sm px-1 py-2 text-left transition-[background-color,transform] active:scale-[0.98] disabled:cursor-default"
+        // Compact (~34px): a run can make dozens of outputs, and the chalk
+        // tile carries the type, so a row is the tile, the name and at most
+        // one state word. The kind label repeated what the tile already says.
+        title={`${output.title ?? output.name} · ${deliverableKindLabel(output)}`}
+        className="hover:bg-accent flex w-full items-center gap-2.5 px-4 py-1.5 text-left transition-[background-color,transform] active:scale-[0.998] disabled:cursor-default"
       >
         <OutputIcon output={output} />
         <span className="text-foreground min-w-0 flex-1 truncate text-sm">
           {output.title ?? output.name}
         </span>
-        {output.fresh && (
-          <span className="text-kortix-green shrink-0 text-xs font-medium">
-            {output.fresh === 'new' ? 'New' : 'Updated'}
-          </span>
+        {output.fresh === 'new' && (
+          <span className="text-kortix-green shrink-0 text-xs font-medium">New</span>
         )}
-        <span className="text-muted-foreground shrink-0 text-xs">
-          {deliverableKindLabel(output)}
-        </span>
+        {output.fresh === 'updated' && (
+          <span className="text-muted-foreground shrink-0 text-xs">Updated</span>
+        )}
       </button>
     </li>
   );
@@ -249,7 +264,7 @@ export function OutputRows({
             <div key={group.kind}>
               <p
                 className={cn(
-                  'text-muted-foreground px-1 pb-1 text-xs font-medium',
+                  'text-muted-foreground px-4 pb-1 text-xs font-medium',
                   i > 0 && 'pt-2',
                 )}
               >
@@ -279,9 +294,9 @@ export function OutputRows({
           // along in the transition list because this row also lightens its
           // label on hover — `transition-colors` would have swept in
           // border-color and fill with it.
-          className="text-muted-foreground hover:text-foreground hover:bg-accent -mx-0.5 mt-0.5 flex w-full cursor-pointer items-center gap-2.5 rounded-sm px-1 py-2 text-left text-sm transition-[background-color,color,transform] active:scale-[0.98]"
+          className="text-muted-foreground hover:text-foreground hover:bg-accent mt-0.5 flex w-full cursor-pointer items-center gap-2.5 px-4 py-1.5 text-left text-sm transition-[background-color,color,transform] active:scale-[0.998]"
         >
-          <span className="flex size-7 shrink-0 items-center justify-center">
+          <span className="flex size-6 shrink-0 items-center justify-center">
             <ChevronDown className="size-3.5" />
           </span>
           {/* Say what they are, not just how many — "8 more" is a mystery box;
@@ -372,9 +387,8 @@ export function OutputsCard({
       count={outputs.length}
       isEmpty={outputs.length === 0}
       defaultExpanded={defaultExpanded}
-      emptyArt={<OutputsArt />}
       emptyText={tI18nComplete.raw('textd5f2ad00f99b')}
-      contentClassName={cn('flex min-h-0 flex-col px-2 py-2', !fill && 'max-h-40 overflow-y-auto')}
+      contentClassName={cn('flex min-h-0 flex-col pb-2', !fill && 'max-h-40 overflow-y-auto')}
       fill={fill}
       headerAction={<DownloadAllAction outputs={outputs} />}
     >
@@ -383,23 +397,3 @@ export function OutputsCard({
   );
 }
 
-/**
- * Soft placeholder art — a stacked-document glyph, matching the reference.
- *
- * Full-alpha `border-border` and `bg-muted/50` for the same reason
- * `ContextArt` (context-card.tsx) carries them: on dark, `--border` at 60%
- * and `--muted` at 30% both resolve to within ~0.03 L of `--card`, which left
- * the frame invisible in exactly the state whose whole job is to be seen.
- */
-function OutputsArt() {
-  return (
-    <div
-      aria-hidden
-      className="border-border bg-muted/50 flex h-16 w-20 items-end justify-center gap-1 rounded-md border p-3"
-    >
-      <span className="bg-muted-foreground/30 h-4 w-1.5 rounded-sm" />
-      <span className="bg-muted-foreground/30 h-7 w-1.5 rounded-sm" />
-      <span className="bg-muted-foreground/30 h-5 w-1.5 rounded-sm" />
-    </div>
-  );
-}

@@ -1,10 +1,11 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { CaretRightIcon } from '@phosphor-icons/react';
 
 import { UiLink as Link } from '../../providers/ui-provider';
 import { AgentMarkGlyph, agentMarkVars } from '../../internal/components/agent-mark';
+import { plainTextFromMarkdown, shortSummary } from '../../markdown/inline-code-text';
 import { cn } from '../../internal/lib/utils';
 
 /**
@@ -45,6 +46,12 @@ export function AgentCoverCard({
     }
   };
 
+  // The link's name is the title alone; the summary is its description, not
+  // part of the name (same rule as `CatalogCard`).
+  const id = useId();
+  const titleId = `${id}-title`;
+  const descriptionId = `${id}-description`;
+  const summary = description ? plainTextFromMarkdown(description) : '';
   return (
     <div className="group/card relative flex">
       <Link
@@ -53,6 +60,8 @@ export function AgentCoverCard({
         onClick={handleClick}
         onPointerEnter={onIntent}
         onFocus={onIntent}
+        aria-labelledby={titleId}
+        aria-describedby={summary ? descriptionId : undefined}
         style={agentMarkVars(slug)}
         className={cn(
           'group bg-popover border-border flex flex-1 flex-col overflow-hidden rounded-md border text-left cursor-pointer',
@@ -65,6 +74,7 @@ export function AgentCoverCard({
             <AgentMarkGlyph slug={slug} size={42} />
           </span>
           <span className="flex items-center gap-1.5">
+<<<<<<< HEAD
             {coverLabel ? (
               <span className="bg-background/20 rounded-sm px-2 py-0.5 text-xs font-medium text-(--mark-ink) backdrop-blur-sm">
                 {coverLabel}
@@ -79,15 +89,20 @@ export function AgentCoverCard({
         <span className="flex min-w-0 flex-1 flex-col gap-1.5 px-4 pt-3.5 pb-3.5">
           <span className="flex items-center justify-between gap-2">
             <span className="flex min-w-0 items-center gap-1.5">
-              <span className="text-foreground truncate text-sm font-medium">{title}</span>
+              <span id={titleId} className="text-foreground truncate text-sm font-medium">{title}</span>
               {badges}
             </span>
             <span className="text-muted-foreground shrink-0 font-mono text-xs">@{slug}</span>
           </span>
-          {description ? (
-            <span className="text-muted-foreground line-clamp-2 text-xs leading-relaxed text-pretty">
-              {description}
-            </span>
+          {summary ? (
+            <>
+              <span className="text-muted-foreground line-clamp-2 text-xs leading-relaxed text-pretty">
+                {summary}
+              </span>
+              <span id={descriptionId} className="sr-only" aria-hidden>
+                {shortSummary(description ?? '')}
+              </span>
+            </>
           ) : null}
           {meta ? (
             <span className="border-border text-muted-foreground mt-auto flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t pt-2.5 text-xs">

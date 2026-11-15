@@ -160,7 +160,7 @@ import {
   type TurnEndNotice,
 } from '@kortix/sdk';
 import type { ProviderListResponse } from '@kortix/sdk/react';
-import { isOptimisticSessionPrompt, useRuntimeReady, useSessionPrompts, useSessionWorking } from '@kortix/sdk/react';
+import { isOptimisticSessionPrompt, useRuntimeReady, useSessionPrompts, useSessionUnsentPrompts, useSessionWorking } from '@kortix/sdk/react';
 import { CodeBlockEndpoints, SandboxUrlDetector } from '../media/sandbox-url-detector';
 import { resolveLastTurnWorking } from '../composer/session-composer-readiness';
 import { HarnessSwitchMarker, RestoreNoteMarker, TurnFullText, type FullTextState } from './session-history';
@@ -834,7 +834,13 @@ function useTurnQueueTone({
   pending,
   pendingPrompt,
   interruptedBeforeRun,
-}: Pick<SessionTurnProps, 'pending' | 'pendingPrompt' | 'interruptedBeforeRun'>) {
+  sessionId,
+  projectSessionId,
+}: Pick<SessionTurnProps, 'pending' | 'pendingPrompt' | 'interruptedBeforeRun' | 'sessionId' | 'projectSessionId'>) {
+// A prompt sent while offline: its POST waits for the network, so it is not
+// "sending" yet (finding 07). The SDK keys unsent sends by the project session
+// (the id the prompt was posted to), not the runtime `ses_…` id of the turn.
+const unsentIds = useSessionUnsentPrompts(projectSessionId ?? sessionId);
 // A Stop ended the turn before a step opened under this message, or the
 // prompt still waits for delivery. Both keep the queue tone on the bubble;
 // only a delivery failure adds text.
@@ -848,9 +854,14 @@ const queuedStatus: QueuedPromptStatusState | null =
       : pendingPrompt?.reason === 'held'
         ? 'held'
         : pendingPrompt &&
-            (isOptimisticSessionPrompt(pendingPrompt) || pendingPrompt.state === 'delivering')
-          ? 'sending'
-          : statusState;
+            isOptimisticSessionPrompt(pendingPrompt) &&
+            // The SDK lists a held send by its wire message id, else its client id.
+            unsentIds.includes(pendingPrompt.message_id ?? pendingPrompt.client_message_id)
+          ? 'unsent'
+          : pendingPrompt &&
+              (isOptimisticSessionPrompt(pendingPrompt) || pendingPrompt.state === 'delivering')
+            ? 'sending'
+            : statusState;
   return { queueState, statusState, queuedStatus };
 }
 
@@ -1746,7 +1757,7 @@ function TurnUserBubble(
                     : undefined
                 }
               />
-            ) : queuedStatus === 'sending' || queuedStatus === 'queued' || queuedStatus === 'interrupted' ? (
+            ) : queuedStatus === 'sending' || queuedStatus === 'queued' || queuedStatus === 'interrupted' || queuedStatus === 'unsent' ? (
               <QueuedPromptProgress state={queuedStatus} />
             ) : undefined
           }
@@ -2680,6 +2691,10 @@ const handleCopy = async () => {
     <div
       className={cn(
         'flex items-center gap-0.5',
+        // Under the answer, the first glyph sits on the text's left edge: each
+        // icon is centred in a `size-7` button, so pull the row left by the
+        // glyph's inset, (button − 1.05rem icon) / 2 ≈ 4.5px.
+        !inToolbar && '-ml-[calc((var(--spacing)*7-1.05rem)/2)]', // audit:allow optical alignment: icon inset inside its hit area
         !inToolbar &&
           'duration-normal opacity-0 transition-opacity group-hover/turn:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100 max-md:opacity-100',
       )}
@@ -2759,7 +2774,7 @@ function SessionTurnImpl(props: SessionTurnProps) {
   );
 
   const model = useTurnModelState({ turn, isWorkingTurn, sessionWorking, awaitingUser });
-  const queueTone = useTurnQueueTone({ pending, pendingPrompt, interruptedBeforeRun });
+  const queueTone = useTurnQueueTone({ pending, pendingPrompt, interruptedBeforeRun, sessionId, projectSessionId: props.projectSessionId });
   const errors = useTurnErrorState({ turn, turnOutcome });
   const answered = useAnsweredQuestionState({ turn, questions, sessionId, blocks: model.blocks, hasSteps: model.hasSteps });
   const userContent = useTurnUserContent({ turn, commandMessages, commands });

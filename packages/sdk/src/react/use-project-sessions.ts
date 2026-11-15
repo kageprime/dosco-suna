@@ -252,6 +252,49 @@ function raiseChildCount(
   return changed ? { ...data, pages } : data;
 }
 
+/** The fields of a session row that say how its work is going. A list row and a detail row carry the same values. */
+const LIVE_SESSION_FIELDS = [
+  'status',
+  'runtime_status',
+  'working',
+  'board_state',
+  'work_state',
+  'attention',
+  'last_activity_at',
+  'result_excerpt',
+  'updated_at',
+] as const satisfies ReadonlyArray<keyof ProjectSession>;
+
+/**
+ * Put the live fields of freshly read child rows on each child's own cached
+ * row (`qk.project.session(child)`), which a colleague row reads and nothing
+ * else refreshes while the child works. Only a row already cached is written
+ * (a first read by id still rides the session-open bundle), only when a field
+ * changed, and never when the cache holds a newer version (`updated_at`). The
+ * rest of the cached row stays: a detail row carries fields a list row does
+ * not (`can_publish_response`, whole metadata).
+ */
+function patchCachedChildRows(
+  queryClient: ReturnType<typeof useQueryClient>,
+  projectId: string,
+  fresh: readonly ProjectSession[],
+): void {
+  for (const live of fresh) {
+    const key = qk.project.session(projectId, live.session_id);
+    const row = queryClient.getQueryData<ProjectSession>(key);
+    if (!row || row === live) continue;
+    if (row.updated_at && live.updated_at && Date.parse(row.updated_at) > Date.parse(live.updated_at)) continue;
+    let patched: ProjectSession | null = null;
+    for (const field of LIVE_SESSION_FIELDS) {
+      const value = live[field];
+      if (value === undefined || JSON.stringify(value) === JSON.stringify(row[field])) continue;
+      patched ??= { ...row };
+      (patched as unknown as Record<string, unknown>)[field] = value;
+    }
+    if (patched) queryClient.setQueryData(key, patched);
+  }
+}
+
 /**
  * One session's children (`parent=<sessionId>`), newest first, a page at a
  * time. Its own cache slot per (parent, q), so an expanded row and a search
@@ -283,6 +326,9 @@ export function useSessionChildren(
           (data) => raiseChildCount(data, parentSessionId, page.items.length),
         );
       }
+      // A colleague row reads the child's own row, which nothing else refreshes
+      // while the child works: this poll is the live source for both.
+      patchCachedChildRows(queryClient, projectId, page.items);
       return page;
     },
     getNextPageParam: workspaceSessionsPageParam,

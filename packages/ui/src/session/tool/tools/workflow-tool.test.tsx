@@ -13,6 +13,7 @@ import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { runFromChildren, WorkflowTool } from './workflow-tool';
+import { parseWorkflowRun } from './workflow-run';
 import { WorkflowRunRows } from './workflow-run-card';
 import { SessionIdsProvider } from '../../../providers/session-ids';
 
@@ -72,6 +73,8 @@ function run(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+const parseRun = (doc: unknown) => parseWorkflowRun(doc)!;
 
 function call(state: Record<string, unknown>, name = 'workflow', input: Record<string, unknown> = { script: 'const a = await agent("go")' }) {
   return toolCallBlock({ type: 'tool', tool: name, callID: 'call-1', state: { input, ...state } } as unknown as ToolPart);
@@ -249,8 +252,8 @@ describe('WorkflowTool — background run read live from its runner', () => {
     expect(text).toContain('Research1 of 2 done');
     // Its phases are closed rows: the card stays short while the run works on.
     expect(html.match(/aria-expanded="false"/g)).toHaveLength(2);
-    // The controls go to the runner: Pause and Stop as words; a running agent keeps its own Restart and Stop.
-    expect(html).toContain('aria-label="Pause the run"');
+    // The controls go to the runner: Hold and Stop as words; a running agent keeps its own Restart and Stop.
+    expect(html).toContain('aria-label="Hold new agents"');
     expect(html).toContain('aria-label="Stop the run"');
     expect(html).toContain('aria-label="Open the run&#x27;s session"');
   });
@@ -263,21 +266,33 @@ describe('WorkflowTool — background run read live from its runner', () => {
     expect(text).toContain('Running in the background · Write 1 of 1 done');
   });
 
-  test('a paused run says so and offers Resume', () => {
+  test('a held run says what still works and offers Resume', () => {
     const html = render(<WorkflowTool call={settledCall} />, {
       projectId: 'proj_1',
       sessionId: 'ses_lead',
       client: runnerHolds(run({ paused: true })),
     });
-    expect(textOf(html)).toContain('Paused · Write 0 of 1 done');
+    // Holding stops new agents only: the one at work goes on, and the line says so. The
+    // agent queued for a slot (starting, no session) is held, so it is not counted.
+    expect(textOf(html)).toContain('Holding · 1 still working · Write 0 of 1 done');
+    expect(textOf(html)).not.toContain('Paused');
     expect(html).toContain('aria-label="Resume the run"');
+  });
+
+  test('a run held before any agent started says Holding, not that queued agents still work', () => {
+    const queued = run({ paused: true, agents: run().agents.map((agent) => ({ ...agent, status: 'starting', sessionId: undefined })) });
+    const text = textOf(render(<WorkflowTool call={settledCall} />, { projectId: 'proj_1', sessionId: 'ses_lead', client: runnerHolds(queued) }));
+    expect(text).not.toContain('still working');
+    expect(text).toContain('Holding new agents');
+    // Nor do the phase rows: no agent of the run has a session yet.
+    expect(text).not.toMatch(/\d running/);
   });
 
   test('a run that finished in its runner reads as finished, with no pause or stop', () => {
     const done = run({ status: 'done', endedAt: 1_790_000_060_000, agents: run().agents.map((agent) => ({ ...agent, status: 'done' })) });
     const html = render(<WorkflowTool call={settledCall} />, { projectId: 'proj_1', sessionId: 'ses_lead', client: runnerHolds(done) });
     expect(textOf(html)).toContain('3 agents');
-    expect(html).not.toContain('aria-label="Pause the run"');
+    expect(html).not.toContain('aria-label="Hold new agents"');
     // Ended, the card says how it ended and keeps its phase rows.
     expect(textOf(html)).toContain('Done · 3 agents');
     expect(textOf(html)).toContain('Research2 of 2 done');
@@ -287,6 +302,38 @@ describe('WorkflowTool — background run read live from its runner', () => {
   test('more than 25 agents carry the Large workflow chip', () => {
     const agents = Array.from({ length: 26 }, (_, i) => ({ id: `a${i}`, label: `Agent ${i}`, status: 'running', sessionId: `ses_${i}` }));
     expect(textOf(render(<WorkflowTool call={call({ status: 'running', metadata: run({ agents }) })} />, { running: true }))).toContain('Large workflow');
+  });
+});
+
+describe('WorkflowTool — the approval, and a run the person declined', () => {
+  test('while the approval is open the card is the plan: "Waiting for you · not started", no Hold, no Stop, no clock', () => {
+    const asking = run({ agents: [], phases: [{ title: 'Lookups', status: 'pending' }], awaitingApproval: true, startedAt: Date.now() - 50_000 });
+    const html = render(<WorkflowTool call={call({ status: 'running', metadata: asking })} />, { running: true, projectId: 'proj_1', sessionId: 'ses_lead' });
+    const text = textOf(html);
+    expect(text).toContain('Waiting for you · not started');
+    expect(text).toContain('Lookups');
+    expect(text).not.toContain('50s');
+    expect(html).not.toContain('Hold new agents');
+    expect(html).not.toContain('aria-label="Stop the run"');
+  });
+
+  test('a cancelled approval is one muted line, "Cancelled — nothing ran", with no failure block', () => {
+    const cancelled = run({ status: 'stopped', agents: [], declined: 'cancel', error: 'The person cancelled the run before it started.', endedAt: 1_790_000_053_000 });
+    const output = '<workflow_cancelled>\nThe person cancelled this workflow. No agent started.\n</workflow_cancelled>';
+    const html = render(<WorkflowTool call={call({ status: 'completed', output, metadata: cancelled })} />, { projectId: 'proj_1', sessionId: 'ses_lead' });
+    const text = textOf(html);
+    expect(text).toContain('Cancelled — nothing ran');
+    expect(text).not.toContain('Stopped');
+    expect(text).not.toContain('The workflow stopped before it finished.');
+    expect(text).not.toContain('Details');
+    expect(html).not.toContain('data-workflow-phase=');
+    const chat = run({ status: 'stopped', agents: [], declined: 'chat' });
+    expect(textOf(render(<WorkflowTool call={call({ status: 'completed', output: '', metadata: chat })} />))).toContain('Answered in chat — nothing ran');
+  });
+
+  test('a failed run still shows its failure sentence and Details', () => {
+    const failed = run({ status: 'failed', error: 'child session failed' });
+    expect(textOf(render(<WorkflowTool call={call({ status: 'completed', output: '', metadata: failed })} />))).toContain('The workflow stopped before it finished.');
   });
 });
 
@@ -415,6 +462,31 @@ describe('WorkflowRunRows — an open phase', () => {
     expect(html).toContain('aria-label="Stop Research features"');
     // The phase that stays closed shows none of its agents.
     expect(textOf(html)).not.toContain('Draft the summary');
+  });
+});
+
+describe('WorkflowRunRows — what the person did, and an agent gone quiet', () => {
+  const stop = { enabled: true, pending: new Set<string>(), stop: () => {}, restart: { run: () => {} } };
+  test('a person\'s Stop reads "Stopped by you"; a restarted agent says its attempt; a quiet one says for how long, and the header counts it', () => {
+    const now = 1_790_000_600_000;
+    const doc = run({
+      phases: [{ title: 'Slow', status: 'running' }],
+      agents: [
+        { id: 'a1', label: 'slow-1', phase: 'Slow', status: 'stopped', stoppedBy: 'person', sessionId: 'ses_s1', startedAt: now - 60_000, endedAt: now - 30_000 },
+        { id: 'a2', label: 'slow-2', phase: 'Slow', status: 'running', attempt: 2, sessionId: 'ses_s2', startedAt: now - 12_000 },
+        { id: 'a3', label: 'napper', phase: 'Slow', status: 'running', sessionId: 'ses_s3', startedAt: now - 400_000, quietSince: now - 190_000 },
+        { id: 'a4', label: 'stopped-other', phase: 'Slow', status: 'stopped', sessionId: 'ses_s4' },
+      ],
+    });
+    const text = textOf(render(<WorkflowRunRows run={parseRun(doc)} live now={now} onOpen={() => {}} stop={stop} openPhases={['Slow']} />));
+    expect(text).toContain('slow-1Stopped by you');
+    expect(text).not.toContain("Didn't finish");
+    expect(text).toContain('slow-2attempt 212s');
+    expect(text).toContain('napperQuiet for 3 min');
+    expect(text).toContain('stopped-otherStopped');
+    // The header of a live run counts the quiet agent.
+    const card = textOf(render(<WorkflowTool call={call({ status: 'running', metadata: { ...doc, agents: [{ ...doc.agents[2], quietSince: Date.now() - 190_000 }] } })} />, { running: true }));
+    expect(card).toContain('1 quiet');
   });
 });
 

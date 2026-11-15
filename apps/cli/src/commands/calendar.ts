@@ -16,7 +16,9 @@ import {
   listWorkspaceCalendarItems,
   listWorkspaceCalendarPeople,
   updateWorkspaceCalendarItem,
-  type CalendarAssigneeInput,
+  validateToken,
+  type CalendarParticipant,
+  type CalendarParticipantInput,
   type CalendarItem,
   type CalendarPeople,
   type UpdateCalendarItemInput,
@@ -24,40 +26,45 @@ import {
 import type { Auth } from '../api/auth.ts';
 import { ApiError, withCliErrors } from '../api/client.ts';
 import { splitHelp } from '../command-argv.ts';
-import { emitJson, fail, missing, resolveProjectContext, surfaceApiError, takeFlagBool, takeFlagValue } from '../command-helpers.ts';
+import { emitJson, fail, missing, resolveProjectContext, surfaceApiError, takeFlagBool, takeFlagValue, takeFlagValues } from '../command-helpers.ts';
 import { C, help, status } from '../style.ts';
 
 const HELP = help`Usage: kortix calendar <subcommand> [options]
 
-The workspace's shared calendar. An item has a title, notes, a date (or a date
-and time, or none), an owner (one person or one agent) and comments. Everyone
-in the workspace sees every item. Someone else who @mentions a person or
-assigns them an item notifies that person. A person's comment on an item you
-created in this session comes back to this session as a message.
+The workspace's shared calendar. An item has a title, notes, a date (or a start
+and an end time, or none), the people on it (persons and agents alike) and
+comments. Everyone in the workspace sees every item. Someone else who
+@mentions a person or adds them to an item notifies that person. A person's
+comment on an item you created in this session comes back to this session as
+a message.
 
 Subcommands:
-  ls [--week | --days <n> | --from <date> --to <date>] [--mine] [--assignee <who>] [--done]
+  ls [--week | --days <n> | --from <date> --to <date>] [--mine | --with <who>] [--done]
                       Items in the window (default: today and the next 6 days)
-                      and the open items with no date.
-  add "<title>" [--at <when> | --date <YYYY-MM-DD>] [--assign <who>] [--notes "<text>"]
+                      and the open items with no date. --mine: items you are on.
+  add "<title>" [--at <when> [--until <when>] | --date <YYYY-MM-DD>]
+                [--with <who>[,<who>]]... [--notes "<text>"]
                       Create an item. Put @handle in the notes to notify a person.
-  show <id>           One item with its notes and comments.
+  show <id>           One item with its time, people, notes and comments.
   edit <id> [--title "<t>"] [--at <when> | --date <YYYY-MM-DD> | --no-date]
-            [--assign <who> | --unassign] [--notes "<text>"]
+            [--until <when> | --no-end] [--add <who>]... [--remove <who>]... [--notes "<text>"]
                       Change only the fields given.
   done <id>           Mark it done.
   reopen <id>         Mark it open again.
   comment <id> "<text>"
                       Add a comment. @handle notifies that person.
   rm <id>             Delete the item and its comments.
-  people              Who can be assigned or mentioned, with each @handle.
+  people              Who can be added or mentioned, with each @handle.
 
 <when>: an ISO time ("2026-11-16T15:00:00+01:00"; without an offset it is
 this machine's time zone), "today 15:00", "tomorrow 09:30", or "in 2h" / "in 3d".
+--until is the end of a timed item, after --at.
 <who>: "me" (you, or this session's agent), an email, a person's @handle,
 or "agent:<name>".
 
 Options:
+  --workspace <id>    Workspace (default: linked, or this session's workspace).
+  --host <name>       Operate against a non-default Kortix host.
   --json              Machine-readable output.
   -h, --help          Show this help.
 `;
@@ -133,10 +140,11 @@ export function parseDate(input: string): string | null {
 }
 
 /**
- * `<who>` as an assignee: `me`, an email, `agent:<name>`, or a person's
- * @handle from the directory. A bare name that is no handle is an agent name.
+ * `<who>` as one of the people on an item: `me`, an email, `agent:<name>`, or
+ * a person's @handle from the directory. A bare name that is no handle is an
+ * agent name.
  */
-export function parseWho(input: string, directory: Pick<CalendarPeople, 'people'> | null): CalendarAssigneeInput {
+export function parseWho(input: string, directory: Pick<CalendarPeople, 'people'> | null): CalendarParticipantInput {
   const who = input.trim().replace(/^@/, '');
   if (who.toLowerCase() === 'me') return { me: true };
   if (who.toLowerCase().startsWith('agent:')) return { agent: who.slice(6) };
@@ -144,6 +152,37 @@ export function parseWho(input: string, directory: Pick<CalendarPeople, 'people'
   const person = directory?.people.find((p) => p.handle.toLowerCase() === who.toLowerCase());
   if (person) return { user_id: person.user_id };
   return { agent: who };
+}
+
+/** Every `<who>` of repeated, comma-separated flags (`--with a,b --with c`). */
+export function parseWhoList(values: readonly string[], directory: Pick<CalendarPeople, 'people'> | null): CalendarParticipantInput[] {
+  return values.flatMap((value) => value.split(',')).map((who) => who.trim()).filter(Boolean).map((who) => parseWho(who, directory));
+}
+
+/** A `<who>` as the participant it names on an item, or null when it names nobody this CLI can tell. */
+export function participantOf(
+  input: CalendarParticipantInput,
+  directory: Pick<CalendarPeople, 'people'> | null,
+  me: CalendarParticipant | null,
+): CalendarParticipant | null {
+  if ('me' in input) return me;
+  if ('agent' in input) return { kind: 'agent', agent: input.agent };
+  if ('user_id' in input) return { kind: 'person', user_id: input.user_id };
+  const person = directory?.people.find((p) => p.email?.toLowerCase() === input.email.toLowerCase());
+  return person ? { kind: 'person', user_id: person.user_id } : null;
+}
+
+/** The people on an item after `--add` and `--remove`, as the API takes them (the whole list). */
+export function editedPeople(
+  current: readonly CalendarParticipant[],
+  add: readonly CalendarParticipant[],
+  remove: readonly CalendarParticipant[],
+): CalendarParticipantInput[] {
+  const same = (a: CalendarParticipant, b: CalendarParticipant) =>
+    a.kind === 'person' ? b.kind === 'person' && a.user_id === b.user_id : b.kind === 'agent' && a.agent === b.agent;
+  const next = [...current.filter((p) => !remove.some((r) => same(p, r)))];
+  for (const p of add) if (!next.some((n) => same(n, p))) next.push(p);
+  return next.map((p) => (p.kind === 'person' ? { user_id: p.user_id } : { agent: p.agent }));
 }
 
 /** The list window: `--week` (Monday to Sunday), `--days n` from today, or `--from`/`--to` dates. */
@@ -179,19 +218,23 @@ function parseWindowDate(input: string): Date | null {
 
 // ── Output ──────────────────────────────────────────────────────────────────
 
-function whenLabel(item: CalendarItem): string {
+function whenLabel(item: Pick<CalendarItem, 'starts_at' | 'ends_at' | 'all_day'>): string {
   if (!item.starts_at) return 'no date';
-  const at = new Date(item.starts_at);
   if (item.all_day) return item.starts_at.slice(0, 10);
-  return isoWithOffset(at).slice(0, 16).replace('T', ' ');
+  const start = isoWithOffset(new Date(item.starts_at)).slice(0, 16).replace('T', ' ');
+  if (!item.ends_at) return start;
+  const end = isoWithOffset(new Date(item.ends_at)).slice(0, 16).replace('T', ' ');
+  return `${start} – ${end.slice(0, 10) === start.slice(0, 10) ? end.slice(11) : end}`;
 }
 
-function ownerLabel(item: CalendarItem, directory: CalendarPeople | null): string {
-  if (!item.assignee) return '';
-  if (item.assignee.kind === 'agent') return `agent:${item.assignee.agent}`;
-  const userId = item.assignee.user_id;
-  const person = directory?.people.find((p) => p.user_id === userId);
-  return person ? `@${person.handle}` : userId;
+function peopleLabel(item: CalendarItem, directory: CalendarPeople | null): string {
+  return item.people
+    .map((p) => {
+      if (p.kind === 'agent') return `agent:${p.agent}`;
+      const person = directory?.people.find((d) => d.user_id === p.user_id);
+      return person ? `@${person.handle}` : p.user_id;
+    })
+    .join(', ');
 }
 
 function authorLabel(author: CalendarItem['created_by'], directory: CalendarPeople | null): string {
@@ -206,8 +249,7 @@ function printItems(items: CalendarItem[], directory: CalendarPeople | null): vo
     return;
   }
   for (const item of items) {
-    const owner = ownerLabel(item, directory);
-    const meta = [whenLabel(item), item.status, owner, item.comment_count ? `${item.comment_count} comment${item.comment_count === 1 ? '' : 's'}` : '']
+    const meta = [whenLabel(item), item.status, peopleLabel(item, directory), item.comment_count ? `${item.comment_count} comment${item.comment_count === 1 ? '' : 's'}` : '']
       .filter(Boolean)
       .join(' · ');
     process.stdout.write(`${item.item_id}  ${C.bold}${item.title}${C.reset}\n  ${C.dim}${meta}${C.reset}\n`);
@@ -221,7 +263,20 @@ async function people(ctx: Ctx): Promise<CalendarPeople | null> {
 }
 
 /** `--at`, `--date` or `--no-date` as the date fields of a body; a string is a usage error. */
-function dateFields(argv: string[]): Pick<UpdateCalendarItemInput, 'starts_at' | 'all_day'> | string | null {
+function dateFields(argv: string[]): Pick<UpdateCalendarItemInput, 'starts_at' | 'ends_at' | 'all_day'> | string | null {
+  const until = takeFlagValue(argv, ['--until']);
+  const noEnd = takeFlagBool(argv, ['--no-end']);
+  if (until !== undefined && noEnd) return 'Pass --until or --no-end, not both.';
+  const ends = until !== undefined ? parseWhen(until) : null;
+  if (until !== undefined && !ends) return `--until "${until}" is not a time. Use an ISO time, "today 16:00" or "in 2h".`;
+  const start = startFields(argv);
+  if (typeof start === 'string') return start;
+  if (until !== undefined) return { ...(start ?? {}), ends_at: ends };
+  if (noEnd) return { ...(start ?? {}), ends_at: null };
+  return start;
+}
+
+function startFields(argv: string[]): Pick<UpdateCalendarItemInput, 'starts_at' | 'all_day'> | string | null {
   const at = takeFlagValue(argv, ['--at']);
   const date = takeFlagValue(argv, ['--date']);
   const none = takeFlagBool(argv, ['--no-date']);
@@ -245,24 +300,25 @@ async function list(ctx: Ctx, argv: string[], json: boolean): Promise<number> {
   const days = takeFlagValue(argv, ['--days']);
   const from = takeFlagValue(argv, ['--from']);
   const to = takeFlagValue(argv, ['--to']);
-  const who = takeFlagValue(argv, ['--assignee']);
+  const who = takeFlagValue(argv, ['--with']);
+  if (mine && who) return fail('Pass --mine or --with, not both.');
   const window = listWindow({ week, days, from, to });
   if (typeof window === 'string') return fail(window);
   const directory = await people(ctx);
-  let assignee: string | undefined = mine ? 'me' : undefined;
+  let withFilter: string | undefined = mine ? 'me' : undefined;
   if (who) {
     const parsed = parseWho(who, directory);
-    if ('me' in parsed) assignee = 'me';
-    else if ('agent' in parsed) assignee = `agent:${parsed.agent}`;
-    else if ('user_id' in parsed) assignee = `user:${parsed.user_id}`;
+    if ('me' in parsed) withFilter = 'me';
+    else if ('agent' in parsed) withFilter = `agent:${parsed.agent}`;
+    else if ('user_id' in parsed) withFilter = `user:${parsed.user_id}`;
     else {
       const person = directory?.people.find((p) => p.email?.toLowerCase() === parsed.email.toLowerCase());
       if (!person) return fail(`No person with the email ${parsed.email} in this workspace.`);
-      assignee = `user:${person.user_id}`;
+      withFilter = `user:${person.user_id}`;
     }
   }
   const items = await withCliErrors(ctx.auth, () =>
-    listWorkspaceCalendarItems(ctx.projectId, { ...window, assignee, status: done ? 'done' : undefined }));
+    listWorkspaceCalendarItems(ctx.projectId, { ...window, with: withFilter, status: done ? 'done' : undefined }));
   if (json) emitJson({ from: window.from, to: window.to, items });
   else printItems(items, directory);
   return 0;
@@ -271,13 +327,13 @@ async function list(ctx: Ctx, argv: string[], json: boolean): Promise<number> {
 async function add(ctx: Ctx, argv: string[], json: boolean): Promise<number> {
   const dates = dateFields(argv);
   if (typeof dates === 'string') return fail(dates);
-  const who = takeFlagValue(argv, ['--assign', '--assignee']);
+  const withs = takeFlagValues(argv, ['--with']);
   const notes = takeFlagValue(argv, ['--notes']);
   const title = argv.join(' ').trim();
   if (!title) return missing('a title: kortix calendar add "<title>"');
-  const assignee = who ? parseWho(who, await people(ctx)) : undefined;
+  const participants = withs.length > 0 ? parseWhoList(withs, await people(ctx)) : [];
   const item = await withCliErrors(ctx.auth, () =>
-    createWorkspaceCalendarItem(ctx.projectId, { title, ...(notes !== undefined ? { notes } : {}), ...(dates ?? {}), ...(assignee ? { assignee } : {}) }));
+    createWorkspaceCalendarItem(ctx.projectId, { title, ...(notes !== undefined ? { notes } : {}), ...(dates ?? {}), ...(participants.length ? { people: participants } : {}) }));
   if (json) emitJson({ ok: true, item });
   else process.stdout.write(`${status.ok(`Added ${item.item_id}: ${item.title} (${whenLabel(item)})`)}\n`);
   return 0;
@@ -296,7 +352,7 @@ async function show(ctx: Ctx, itemId: string | undefined, json: boolean): Promis
     `  ${C.dim}id${C.reset}        ${item.item_id}`,
     `  ${C.dim}when${C.reset}      ${whenLabel(item)}`,
     `  ${C.dim}status${C.reset}    ${item.status}`,
-    `  ${C.dim}owner${C.reset}     ${ownerLabel(item, directory) || 'nobody'}`,
+    `  ${C.dim}people${C.reset}    ${peopleLabel(item, directory) || 'nobody'}`,
     `  ${C.dim}created${C.reset}   ${authorLabel(item.created_by, directory)}, ${item.created_at}`,
   ];
   if (item.notes) lines.push('', item.notes);
@@ -308,21 +364,49 @@ async function show(ctx: Ctx, itemId: string | undefined, json: boolean): Promis
   return 0;
 }
 
+/**
+ * "me" on `--add` / `--remove`: this session's agent, else the signed-in
+ * person. A token from KORTIX_TOKEN stores no identity, so the server says who
+ * it is (`GET /accounts/me`).
+ */
+async function whoAmI(ctx: Ctx): Promise<CalendarParticipant | null> {
+  if (process.env.KORTIX_SESSION_ID && process.env.KORTIX_AGENT_NAME) return { kind: 'agent', agent: process.env.KORTIX_AGENT_NAME };
+  if (ctx.auth.user_id) return { kind: 'person', user_id: ctx.auth.user_id };
+  const { identity } = await withCliErrors(ctx.auth, () => validateToken());
+  if (identity?.token_context?.agent) return { kind: 'agent', agent: identity.token_context.agent };
+  return identity?.user_id ? { kind: 'person', user_id: identity.user_id } : null;
+}
+
 async function edit(ctx: Ctx, itemId: string | undefined, argv: string[], json: boolean, fixed: UpdateCalendarItemInput = {}): Promise<number> {
   if (!itemId) return missing('an item id');
   const dates = dateFields(argv);
   if (typeof dates === 'string') return fail(dates);
   const title = takeFlagValue(argv, ['--title']);
   const notes = takeFlagValue(argv, ['--notes']);
-  const who = takeFlagValue(argv, ['--assign', '--assignee']);
-  const unassign = takeFlagBool(argv, ['--unassign']);
-  if (who && unassign) return fail('Pass --assign or --unassign, not both.');
+  const adds = takeFlagValues(argv, ['--add']);
+  const removes = takeFlagValues(argv, ['--remove']);
+  let peopleInput: CalendarParticipantInput[] | undefined;
+  if (adds.length > 0 || removes.length > 0) {
+    const [directory, detail] = await Promise.all([people(ctx), withCliErrors(ctx.auth, () => getWorkspaceCalendarItem(ctx.projectId, itemId))]);
+    const named = [...adds, ...removes];
+    const me = parseWhoList(named, directory).some((input) => 'me' in input) ? await whoAmI(ctx) : null;
+    const resolve = (values: string[]) => parseWhoList(values, directory).map((input) => {
+      const found = participantOf(input, directory, me);
+      if (!found) throw new Error(`"${JSON.stringify(input)}" names nobody in this workspace.`);
+      return found;
+    });
+    try {
+      peopleInput = editedPeople(detail.item.people, resolve(adds), resolve(removes));
+    } catch (error) {
+      return fail((error as Error).message);
+    }
+  }
   const input: UpdateCalendarItemInput = {
     ...fixed,
     ...(title !== undefined ? { title } : {}),
     ...(notes !== undefined ? { notes } : {}),
     ...(dates ?? {}),
-    ...(unassign ? { assignee: null } : who ? { assignee: parseWho(who, await people(ctx)) } : {}),
+    ...(peopleInput ? { people: peopleInput } : {}),
   };
   if (Object.keys(input).length === 0) return fail('Nothing to change. Run `kortix calendar edit --help`.');
   const item = await withCliErrors(ctx.auth, () => updateWorkspaceCalendarItem(ctx.projectId, itemId, input));
@@ -367,7 +451,12 @@ export async function runCalendar(argv: string[]): Promise<number> {
   const sub = rest[0] && !rest[0].startsWith('-') ? rest.shift()! : 'ls';
   if (!SUBCOMMANDS.includes(sub)) return fail(`Unknown subcommand "${sub}". Run \`kortix calendar --help\`.`);
   const json = takeFlagBool(rest, ['--json']);
-  const resolved = await resolveProjectContext({});
+  let resolved: Awaited<ReturnType<typeof resolveProjectContext>>;
+  try {
+    resolved = await resolveProjectContext({ projectArg: takeFlagValue(rest, ['--project', '--workspace']), hostArg: takeFlagValue(rest, ['--host']) });
+  } catch (err) {
+    return fail((err as Error).message);
+  }
   if (!resolved) return 1;
   const ctx: Ctx = { auth: resolved.auth, projectId: resolved.projectId };
   try {

@@ -16,8 +16,15 @@ import {
   listWorkspaceEvalJobs,
   listWorkspaceEvalSuites,
   listWorkspaceEvalTasks,
+  listWorkspaceEvalJobFilterValues,
+  listWorkspaceEvalTrialFilterValues,
   listWorkspaceEvalTrials,
+  listWorkspaceEvalTrialsAcrossJobs,
+  pauseWorkspaceEvalJob,
+  pauseWorkspaceEvalTrial,
   readWorkspaceEvalTaskFile,
+  resumeWorkspaceEvalJob,
+  resumeWorkspaceEvalTrial,
   readWorkspaceEvalTrialFile,
   planWorkspaceEvalJob,
   rerunWorkspaceEvalJob,
@@ -49,6 +56,7 @@ function serve(routes: Record<string, { status: number; body: unknown }>, calls:
 const STATS = {
   n_total_trials: 4,
   n_queued: 0,
+  n_paused: 0,
   n_running: 0,
   n_completed: 3,
   n_errored: 1,
@@ -166,6 +174,52 @@ describe('evals client', () => {
     expect((await compareWorkspaceEvalJobs('p1', ['j1', 'j2'], { by: 'task_agent_model' })).summary.worse).toBe(1);
     expect((await retryWorkspaceEvalTrial('p1', 'j1', 't1')).retry).toBe(1);
     expect((await cancelWorkspaceEvalTrial('p1', 'j1', 't2')).status).toBe('cancelled');
+  });
+
+  test('a job and one trial pause and resume; a soft cancel sends force false, a plain one an empty body', async () => {
+    routes['POST /workspaces/p1/evals/jobs/j1/pause'] = { status: 200, body: { job: { ...JOB, status: 'paused' } } };
+    routes['POST /workspaces/p1/evals/jobs/j1/resume'] = { status: 200, body: { job: { ...JOB, status: 'running' } } };
+    routes['POST /workspaces/p1/evals/jobs/j1/trials/t1/pause'] = { status: 200, body: { trial: { trial_id: 't1', status: 'paused' } } };
+    routes['POST /workspaces/p1/evals/jobs/j1/trials/t1/resume'] = { status: 200, body: { trial: { trial_id: 't1', status: 'queued' } } };
+    routes['POST /workspaces/p1/evals/jobs/j1/cancel'] = { status: 200, body: { job: { ...JOB, status: 'running', cancel_mode: 'soft' } } };
+    routes['POST /workspaces/p1/evals/jobs/j1/trials/t1/cancel'] = { status: 200, body: { trial: { trial_id: 't1', status: 'agent_running' } } };
+    expect((await pauseWorkspaceEvalJob('p1', 'j1')).status).toBe('paused');
+    expect((await resumeWorkspaceEvalJob('p1', 'j1')).status).toBe('running');
+    expect((await pauseWorkspaceEvalTrial('p1', 'j1', 't1')).status).toBe('paused');
+    expect((await resumeWorkspaceEvalTrial('p1', 'j1', 't1')).status).toBe('queued');
+    expect((await cancelWorkspaceEvalJob('p1', 'j1', { force: false })).cancel_mode).toBe('soft');
+    await cancelWorkspaceEvalTrial('p1', 'j1', 't1', { force: false });
+    await cancelWorkspaceEvalJob('p1', 'j1');
+    expect(calls.map((c) => [c.key, c.body])).toEqual([
+      ['POST /workspaces/p1/evals/jobs/j1/pause', {}],
+      ['POST /workspaces/p1/evals/jobs/j1/resume', {}],
+      ['POST /workspaces/p1/evals/jobs/j1/trials/t1/pause', {}],
+      ['POST /workspaces/p1/evals/jobs/j1/trials/t1/resume', {}],
+      ['POST /workspaces/p1/evals/jobs/j1/cancel', { force: false }],
+      ['POST /workspaces/p1/evals/jobs/j1/trials/t1/cancel', { force: false }],
+      ['POST /workspaces/p1/evals/jobs/j1/cancel', {}],
+    ]);
+  });
+
+  test('trials across jobs send their filters, sort and page token; filter values send the field and the scope', async () => {
+    routes['GET /workspaces/p1/evals/trials?job_ids=j1%2Cj2&status=errored%2Ccancelled&task=fix-git&exception_type=AgentTimeoutError&sort=-finished_at&page_size=25&page_token=tok'] = {
+      status: 200,
+      body: { trials: [{ trial_id: 't1', job_name: 'smoke-1' }], total: 61, next_page_token: 'tok2' },
+    };
+    routes['GET /workspaces/p1/evals/trials/filters?field=exception_type&job_ids=j1&limit=10'] = { status: 200, body: { field: 'exception_type', values: [{ value: 'AgentTimeoutError', label: null, count: 4 }], truncated: false } };
+    routes['GET /workspaces/p1/evals/jobs/filters?field=model&agent=worker'] = { status: 200, body: { field: 'model', values: [{ value: 'p/m', label: null, count: 2 }], truncated: true } };
+    const page = await listWorkspaceEvalTrialsAcrossJobs('p1', {
+      job_ids: ['j1', 'j2'],
+      status: ['errored', 'cancelled'],
+      task: ['fix-git'],
+      exception_type: ['AgentTimeoutError'],
+      sort: '-finished_at',
+      page_size: 25,
+      page_token: 'tok',
+    });
+    expect([page.trials[0]!.job_name, page.total, page.next_page_token]).toEqual(['smoke-1', 61, 'tok2']);
+    expect((await listWorkspaceEvalTrialFilterValues('p1', 'exception_type', { job_ids: ['j1'] }, { limit: 10 })).values[0]!.count).toBe(4);
+    expect((await listWorkspaceEvalJobFilterValues('p1', 'model', { agent: 'worker' })).truncated).toBe(true);
   });
 
   test('a .json trial file reads back as written, even when it does not parse', async () => {

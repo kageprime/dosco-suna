@@ -21,6 +21,7 @@ import { Label } from '../../../primitives/label';
 import type { GitStatusType } from '../../tree/components/file-tree-item';
 import type { FileNode } from '../../../internal/files/types';
 import { cn } from '../../../lib/utils';
+import { ManifestIssueMark } from './manifest-issue-mark';
 import Loading from '../../../primitives/loading';
 import { Copy } from '../../../icons/copy';
 import {
@@ -526,7 +527,7 @@ const FileCard = memo(function FileCard({
             </DropdownMenu>
           )}
 
-          <div className="flex min-w-0 items-center px-0.5">
+          <div className="flex min-w-0 items-center gap-1 px-0.5">
             {isRenaming ? (
               <input
                 ref={renameInputRef}
@@ -544,7 +545,10 @@ const FileCard = memo(function FileCard({
                 className="border-primary/50 w-full border-b bg-transparent py-0.5 text-sm outline-none"
               />
             ) : (
-              <span className="text-foreground truncate text-sm font-medium">{node.name}</span>
+              <>
+                <span className="text-foreground truncate text-sm font-medium">{node.name}</span>
+                <ManifestIssueMark path={node.path} name={node.name} />
+              </>
             )}
           </div>
         </div>

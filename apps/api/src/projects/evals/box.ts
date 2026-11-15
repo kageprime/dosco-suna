@@ -103,22 +103,97 @@ export async function boxReady(box: Box): Promise<boolean> {
 /** Bytes per exec call: 64 KiB as base64, half the 128 KiB a single Linux argument may hold. */
 const UPLOAD_CHUNK_BYTES = 48 * 1024;
 
+async function run(box: Box, script: string): Promise<void> {
+  const result = await boxOps().exec(box, script, 60_000);
+  if (result.exitCode !== 0) throw new Error(result.stderr.slice(0, 300) || `exit ${result.exitCode}`);
+}
+
+/**
+ * Write one file, creating its folder. An existing file or symlink at the path
+ * is replaced, never followed. `mode` sets its permissions (octal).
+ */
+export async function writeBoxFile(box: Box, target: string, bytes: Uint8Array, mode?: number): Promise<void> {
+  await run(box, `mkdir -p -- "$(dirname -- ${q(target)})" && rm -f -- ${q(target)} && : > ${q(target)}`);
+  for (let offset = 0; offset < bytes.byteLength; offset += UPLOAD_CHUNK_BYTES) {
+    const chunk = Buffer.from(bytes.subarray(offset, offset + UPLOAD_CHUNK_BYTES)).toString('base64');
+    await run(box, `printf %s ${q(chunk)} | base64 -d >> ${q(target)}`);
+  }
+  if (mode !== undefined) await run(box, `chmod ${(mode & 0o777).toString(8)} -- ${q(target)}`);
+}
+
+/** Make `path` a symlink to `target`, replacing what is there. */
+export async function writeBoxSymlink(box: Box, path: string, target: string): Promise<void> {
+  await run(box, `mkdir -p -- "$(dirname -- ${q(path)})" && rm -rf -- ${q(path)} && ln -s -- ${q(target)} ${q(path)}`);
+}
+
+export async function makeBoxDir(box: Box, path: string): Promise<void> {
+  await run(box, `mkdir -p -- ${q(path)}`);
+}
+
 /** Replace `dir` in the sandbox with these files. Scripts get the execute bit. */
 export async function uploadDir(box: Box, dir: string, files: readonly TaskFile[]): Promise<void> {
-  const run = async (script: string) => {
-    const result = await boxOps().exec(box, script, 60_000);
-    if (result.exitCode !== 0) throw new Error(result.stderr.slice(0, 300) || `exit ${result.exitCode}`);
-  };
-  await run(`rm -rf -- ${q(dir)} && mkdir -p -- ${q(dir)}`);
-  for (const file of files) {
-    const target = `${dir}/${file.path}`;
-    await run(`mkdir -p -- "$(dirname -- ${q(target)})" && : > ${q(target)}`);
-    for (let offset = 0; offset < file.bytes.byteLength; offset += UPLOAD_CHUNK_BYTES) {
-      const chunk = Buffer.from(file.bytes.subarray(offset, offset + UPLOAD_CHUNK_BYTES)).toString('base64');
-      await run(`printf %s ${q(chunk)} | base64 -d >> ${q(target)}`);
-    }
+  await run(box, `rm -rf -- ${q(dir)} && mkdir -p -- ${q(dir)}`);
+  for (const file of files) await writeBoxFile(box, `${dir}/${file.path}`, file.bytes);
+  await run(box, `find ${q(dir)} -type f \\( -name '*.sh' -o -name '*.py' \\) -exec chmod +x {} + ; true`);
+}
+
+/** Bytes per read: 768 KiB, about 1 MiB of base64 on stdout. */
+const READ_CHUNK_BYTES = 768 * 1024;
+
+/** A whole file, read in chunks; null when it is not a regular file. */
+export async function readBoxFile(box: Box, path: string, size: number): Promise<Uint8Array<ArrayBuffer> | null> {
+  const out = new Uint8Array(size);
+  for (let offset = 0; offset < size || offset === 0; offset += READ_CHUNK_BYTES) {
+    const result = await boxOps().exec(box, `[ -f ${q(path)} ] && [ ! -L ${q(path)} ] || exit 44; tail -c +${offset + 1} -- ${q(path)} | head -c ${READ_CHUNK_BYTES} | base64 -w0`, 60_000);
+    if (result.exitCode === 44) return null;
+    if (result.exitCode !== 0) throw new EvalTrialError('DownloadVerifierDirError', `Could not read ${path}: ${result.stderr.slice(0, 200)}`);
+    const chunk = Buffer.from(result.stdout.trim(), 'base64');
+    // The file changed size under the read: keep what was there when it was listed.
+    out.set(chunk.subarray(0, Math.max(0, size - offset)), offset);
+    if (size === 0) break;
   }
-  await run(`find ${q(dir)} -type f \\( -name '*.sh' -o -name '*.py' \\) -exec chmod +x {} + ; true`);
+  return out;
+}
+
+/** What is at a sandbox path, without following a symlink. */
+export type BoxNode =
+  | { kind: 'missing' }
+  | { kind: 'other' }
+  | { kind: 'symlink'; target: string }
+  | { kind: 'file'; mode: number; size: number }
+  | { kind: 'dir'; entries: BoxTreeEntry[]; truncated: boolean };
+
+/** One entry below a directory: `find -printf %y` type, octal mode, size, path relative to the directory, link target. */
+export interface BoxTreeEntry {
+  type: string;
+  mode: number;
+  size: number;
+  path: string;
+  target: string;
+}
+
+/** Describe `path`; for a directory, list up to `limit` entries below it (any depth, symlinks not followed). */
+export async function statBoxTree(box: Box, path: string, limit: number): Promise<BoxNode> {
+  const script = [
+    `S=${q(path)}`,
+    'if [ -L "$S" ]; then printf "L\\0%s" "$(readlink -- "$S")"; exit 0; fi',
+    'if [ -f "$S" ]; then printf "F\\0%s\\0%s" "$(stat -c %a -- "$S")" "$(stat -c %s -- "$S")"; exit 0; fi',
+    `if [ -d "$S" ]; then printf "D\\0"; cd -- "$S" && find . -mindepth 1 -printf '%y\\t%m\\t%s\\t%P\\t%l\\0' 2>/dev/null | head -z -n ${Math.floor(limit) + 1}; exit 0; fi`,
+    'if [ -e "$S" ]; then printf "O"; else printf "M"; fi',
+  ].join('\n');
+  const result = await boxOps().exec(box, script, 60_000);
+  if (result.exitCode !== 0) throw new EvalTrialError('DownloadVerifierDirError', `Could not list ${path}: ${result.stderr.slice(0, 200)}`);
+  const [head, ...rest] = result.stdout.split('\0');
+  if (head === 'M') return { kind: 'missing' };
+  if (head === 'L') return { kind: 'symlink', target: rest[0] ?? '' };
+  if (head === 'F') return { kind: 'file', mode: parseInt(rest[0] ?? '644', 8), size: Number(rest[1]) || 0 };
+  if (head !== 'D') return { kind: 'other' };
+  const entries = rest
+    .filter(Boolean)
+    .map((line) => line.split('\t'))
+    .filter((parts) => parts.length >= 5 && parts[3])
+    .map(([type, mode, size, entryPath, ...target]) => ({ type: type!, mode: parseInt(mode!, 8), size: Number(size) || 0, path: entryPath!, target: target.join('\t') }));
+  return { kind: 'dir', entries: entries.slice(0, limit), truncated: entries.length > limit };
 }
 
 const runDir = (id: string): string => `/var/tmp/kortix-eval/${id.replace(/[^a-zA-Z0-9_-]/g, '')}`;

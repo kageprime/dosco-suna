@@ -35,6 +35,33 @@ describe('deriveSessionBoard', () => {
   });
 });
 
+describe('deriveSessionBoard work_state (audit finding 13)', () => {
+  // A finished child kept `status: running` and `runtime_status: active` until
+  // its idle computer stopped (~10 min). `work_state` is the field that says
+  // whether the work is done, from the same derivation as `board_state`.
+  const at = (input: { meta?: Record<string, unknown>; status?: string; working?: typeof working; attention?: 'question' | null; lastEnded?: ReturnType<typeof ended> }) =>
+    deriveSessionBoard({
+      row: row(input.meta ?? {}, input.status ?? 'running'),
+      working: input.working,
+      attention: input.attention ?? null,
+      lastEnded: input.lastEnded,
+    }).work_state;
+
+  test('a child that answered reads completed while its row still says running', () => {
+    expect(at({ status: 'running', lastEnded: ended('completed'), meta: { result_excerpt: 'FERN' } })).toBe('completed');
+  });
+  test('a live turn and a session that waits for its person read running', () => {
+    expect(at({ working })).toBe('running');
+    expect(at({ working, attention: 'question' })).toBe('running');
+  });
+  test('a requested stop reads stopped, a dead turn failed, nothing yet idle', () => {
+    expect(at({ lastEnded: ended('failed', 'UserStop') })).toBe('stopped');
+    expect(at({ lastEnded: ended('runtime_gone') })).toBe('failed');
+    expect(at({ status: 'failed' })).toBe('failed');
+    expect(at({})).toBe('idle');
+  });
+});
+
 describe('plainExcerpt', () => {
   test('a board row reads words, not markdown', () => {
     expect(plainExcerpt('Saved to `/workspace/out/t.md`. **Option 1** We built *Dosco*:\n\n## Next\n- one [agent](https://example.com) runs\n```js\ncode\n```\nsnake_case_name stays'))

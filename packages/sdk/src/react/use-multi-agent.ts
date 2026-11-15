@@ -163,8 +163,16 @@ export function useSessionWorkflows(
       (await readSessionWorkflowRuns(projectId as string, sessionId as string)).runs,
     enabled: !!projectId && !!sessionId && (options.enabled ?? true),
     ...contract('inventory'),
-    refetchInterval: (state: { state: { data?: WorkflowRunMetadata[] } }) =>
-      state.state.data?.some((run) => run.status === 'running') ? LIVE_RUN_POLL_MS : pollMs(options.live),
+    refetchInterval: (state: { state: { data?: WorkflowRunMetadata[] } }) => {
+      const runs = state.state.data;
+      if (runs?.some((run) => run.status === 'running')) return LIVE_RUN_POLL_MS;
+      // Every run ended (done, failed, stopped) and the session does not work
+      // now: no new information can arrive, so the read stops. A finished
+      // card polled its runner every ~5 s for as long as the page was open.
+      // `live: true` keeps the poll: a working session can start a new run.
+      if (runs && runs.length > 0 && options.live !== true) return false;
+      return pollMs(options.live);
+    },
     refetchIntervalInBackground: false,
   });
   const control = useMutation({

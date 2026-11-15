@@ -300,7 +300,10 @@ function CreateWorkspaceKeyDialog({
   const actsAsLabel = useActsAsLabel();
   const [name, setName] = useState('');
   const [draft, setDraft] = useState<ActsAsDraft>({ actsAs: 'me', agent: '', bot: '', newBotName: '' });
-  const [worksIn, setWorksIn] = useState<KeyReach>('all');
+  // Least privilege by default: a key made on a workspace's page works in
+  // that workspace and lists on that page. "All my workspaces" (a personal
+  // key, listed under Preferences → Personal keys) is an explicit choice.
+  const [worksIn, setWorksIn] = useState<KeyReach>('workspace');
   const [access, setAccess] = useState<KeyAccess>('full');
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
   const [expiry, setExpiry] = useState('');
@@ -391,7 +394,7 @@ function CreateWorkspaceKeyDialog({
     setTimeout(() => {
       setName('');
       setDraft({ actsAs: 'me', agent: '', bot: '', newBotName: '' });
-      setWorksIn('all');
+      setWorksIn('workspace');
       setAccess('full');
       setPicked(new Set());
       setExpiry('');
@@ -562,8 +565,8 @@ function CreateWorkspaceKeyDialog({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">{t('worksInAll')}</SelectItem>
                         <SelectItem value="workspace">{t('worksInWorkspace')}</SelectItem>
+                        <SelectItem value="all">{t('worksInAll')}</SelectItem>
                       </SelectContent>
                     </Select>
                     {personal ? (

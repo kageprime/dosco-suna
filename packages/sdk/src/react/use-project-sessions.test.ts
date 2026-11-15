@@ -9,6 +9,7 @@ import {
   flattenWorkspaceSessionPages,
   workspaceSessionsPageParam,
   shouldScanPastEmptySessionPages,
+  useSessionChildren,
   useWorkspaceSessions,
 } from './use-project-sessions';
 import type { ProjectSessionPage } from '../core/rest/projects-client/sessions';
@@ -389,5 +390,71 @@ describe('useProjectSessions pollFirstPageOnly', () => {
     // N is new; A stays (its page-two cursor starts after it); Z stays loaded.
     expect(list.sessions.map((s) => s.session_id)).toEqual(['N', 'B', 'A', 'Z']);
     expect(list.hasNextPage).toBe(false);
+  });
+});
+
+describe('useSessionChildren keeps each child\'s own row live (audit finding 06)', () => {
+  // A colleague row reads `qk.project.session(child)`; the agents line polls
+  // `sessionChildren(parent)`. Nothing copied one into the other, so a row read
+  // while the child worked said "Working" for minutes after it finished.
+  let children: Array<Record<string, unknown>> = [];
+  let root: ReturnType<typeof create> | undefined;
+  beforeEach(() => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    configureKortix({ backendUrl: 'http://test.local', getToken: async () => 'token' });
+    globalThis.fetch = mock(async () => Response.json(children)) as unknown as typeof fetch;
+  });
+  afterEach(async () => {
+    if (root) await act(async () => root!.unmount());
+    root = undefined;
+  });
+  const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  const idle = { state: 'idle', since: null, turn_token: null, pending_delivery: false };
+  const busy = { state: 'working', since: '2026-11-15T10:00:00.000Z', turn_token: 't1', pending_delivery: false };
+
+  async function mount(client: QueryClient) {
+    function Probe() {
+      useSessionChildren('P1', 'PARENT');
+      return null;
+    }
+    await act(async () => {
+      root = create(React.createElement(QueryClientProvider, { client }, React.createElement(Probe)));
+    });
+    for (let i = 0; i < 5; i++) await settle();
+  }
+
+  test('a child read puts its live state on the cached detail row and keeps detail-only fields', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData<unknown>(qk.project.session('P1', 'C1'), {
+      session_id: 'C1',
+      status: 'running',
+      working: busy,
+      board_state: 'working',
+      result_excerpt: null,
+      can_publish_response: true,
+      updated_at: '2026-11-15T10:00:00.000Z',
+    });
+    children = [
+      { session_id: 'C1', status: 'running', working: idle, board_state: 'completed', result_excerpt: 'FERN', updated_at: '2026-11-15T10:01:00.000Z' },
+      { session_id: 'C2', status: 'running', working: idle, board_state: 'completed', updated_at: '2026-11-15T10:01:00.000Z' },
+    ];
+    await mount(client);
+
+    const row = client.getQueryData<Record<string, unknown>>(qk.project.session('P1', 'C1'));
+    expect(row?.board_state).toBe('completed');
+    expect(row?.working).toEqual(idle);
+    expect(row?.result_excerpt).toBe('FERN');
+    expect(row?.can_publish_response).toBe(true);
+    // A child nobody reads by id gets no entry: the first read by id still rides the session-open bundle.
+    expect(client.getQueryData(qk.project.session('P1', 'C2'))).toBeUndefined();
+  });
+
+  test('a cached row newer than the list answer is left alone', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const newer = { session_id: 'C1', working: busy, board_state: 'working', updated_at: '2026-11-15T10:05:00.000Z' };
+    client.setQueryData<unknown>(qk.project.session('P1', 'C1'), newer);
+    children = [{ session_id: 'C1', working: idle, board_state: 'completed', updated_at: '2026-11-15T10:01:00.000Z' }];
+    await mount(client);
+    expect(client.getQueryData<unknown>(qk.project.session('P1', 'C1'))).toBe(newer);
   });
 });

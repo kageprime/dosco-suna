@@ -104,6 +104,11 @@ const click = async (el: Element) => {
 };
 const switchOf = (key: string) => document.querySelector(`[aria-labelledby="feature-flag-${key}"]`);
 
+test('an override equal to the default offers no reset', async () => {
+  await mount([flag({ key: 'chat', name: 'Spaces', enabled: true, default_enabled: true })]);
+  expect([...document.querySelectorAll('button')].some((b) => b.textContent?.trim() === 'Reset to default')).toBe(false);
+});
+
 test('Reset sends enabled: null, and its switch shows the platform default while the reset is in flight', async () => {
   const patches = await mount([flag({ key: 'reminders', name: 'Loops', enabled: false, default_enabled: true })]);
   expect(switchOf('reminders')?.getAttribute('aria-checked')).toBe('false');
@@ -115,7 +120,9 @@ test('Reset sends enabled: null, and its switch shows the platform default while
 });
 
 test('a Channels reset that keeps Channels as it is sends at once, with no dialog', async () => {
-  const patches = await mount([flag({ key: 'chat', name: 'Spaces', enabled: true, default_enabled: true })]);
+  // An override equal to the default offers no reset, so the reset that keeps
+  // Channels in place is the one from a server that sends no default.
+  const patches = await mount([flag({ key: 'chat', name: 'Spaces', enabled: true, default_enabled: undefined })]);
 
   await click(button('Reset to default'));
 

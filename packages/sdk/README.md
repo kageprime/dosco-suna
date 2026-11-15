@@ -563,13 +563,35 @@ await s.workflows.control(runId, { action: 'pause' }) // 'resume' | 'stop' | 're
 `send` answers `{ status, message, to, note }`: `delivered`, `held` (the receiver's person
 approves it), `refused`, or `dropped` (a duplicate). A `to` that names several sessions is a
 `409` with the candidates. A session row carries `board_state` (`working`, `needs_input`,
-`idle`, `completed`, `failed`, `stopped`), `attention`, `last_activity_at`, `result_excerpt`,
+`idle`, `completed`, `failed`, `stopped`), `work_state`, `attention`, `last_activity_at`, `result_excerpt`,
 `agent_handle`, `team_lead_session_id` and `inbound`; `listWorkspaceSessionsPage(projectId,
 { teamLead })` lists a lead's teammates. In React: `useReachableAgents(pid, sid, scope?)`,
 `usePeerMessages(pid, sid, direction?)` (with `approve` and `deny`), `useTeamTasks(pid, lead)`,
 `useTeammates(pid, lead)` and `useSessionWorkflows(pid, sid)` (with `control`). Each polls
 every 5 s while the page is visible, a running workflow every 2 s. A workflow poll never
-starts a stopped session.
+starts a stopped session. A workflow read whose runs all ended stops polling, unless
+`live: true` says the session works and can start a new run.
+
+#### Is the work done?
+
+A session row has three state fields. Wait on `work_state`, never on `status`.
+
+| Field | Values | Meaning |
+| --- | --- | --- |
+| `work_state` | `running`, `completed`, `failed`, `stopped`, `idle` | Is the work done. `running` while a turn runs or the session waits for its person (`board_state` `working` or `needs_input`). |
+| `status` | `running`, `stopped`, `failed`, … | The stored row lifecycle: `running` from the start until the computer stops. |
+| `runtime_status` | `provisioning`, `active`, … | The computer. An idle computer stays `active` for up to ~10 minutes after the turn ends. |
+
+A child that finished and answered reads `work_state: 'completed'` at once and still reads
+`status: 'running'` until its computer stops. `sessionWorkState(row)` returns `work_state`,
+or derives it from `board_state` (then `working`) on an older API:
+
+```ts
+import { listWorkspaceSessionsPage, sessionWorkState } from '@kortix/sdk';
+
+const { items } = await listWorkspaceSessionsPage(projectId, { parent: leadId });
+const done = items.every((row) => sessionWorkState(row) !== 'running');
+```
 
 ### React runtime
 
@@ -1127,7 +1149,7 @@ the root import — offers the same agents and models and sends the same pick.
 | Function | Input → output |
 |---|---|
 | `projectConfigAgentsToRuntimeAgents(config)` | `/workspaces/:id/detail` config → agent roster, project default first |
-| `composerSelectableAgents(agents, { enableProjects?, includeSubagents? })` | roster → picker list (no hidden agents, no subagents, `project-manager` only with `enableProjects`) |
+| `composerSelectableAgents(agents, { enableProjects?, includeSubagents? })` | roster → picker list (no hidden agents, no subagents, no cron-only starter reflectors, `project-manager` only with `enableProjects`) |
 | `resolveComposerAgent({ agents, boundAgent, defaultAgent, selectedAgent })` | → the agent to send, and `disabled` when none is accessible |
 | `pickerProviderList({ modelPicker })` | `/model-picker` catalog → provider list (the single `kortix` provider). `gatewayEnabled`, `runtimeProviders`, `llmCatalogProviders` and `secretNames` are deprecated and ignored |
 | `flattenModels(providers)` | provider list → `ModelOption[]` (a `FlatModel` plus `id`, the ref a pick stores). Only the `kortix` provider flattens; the `providerMode` option is deprecated and ignored |
@@ -1789,6 +1811,13 @@ a different turn ID or timestamp.
 client). Every write of an inbox row arrives as a `kortix.control.queue` frame,
 whichever API replica served the write. The `GET .../prompts` poll runs only
 while that stream is not connected, and a reconnect reads the list once.
+
+A prompt enqueued while the browser is offline waits for the network: the POST
+goes out once, on reconnect. Until then `useSessionUnsentPrompts(sessionId)`
+lists its wire message id, and the hook files no "working" claim, so a host
+draws "Not sent yet" instead of a running turn. `useNetworkOnline()` is the
+browser's online signal. A held prompt lives in the page only: closing the tab
+before the network returns loses it.
 
 
 ### Why a turn ended

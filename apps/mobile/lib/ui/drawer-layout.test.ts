@@ -4,9 +4,11 @@ import {
   DRAWER_MAX_WIDTH,
   DRAWER_MIN_PEEK,
   PEEK_CARD_VEIL,
+  SIDEBAR_DIM,
   drawerSwipeEdgeWidth,
   peekCardFrame,
   projectDrawerWidth,
+  sidebarDim,
 } from './drawer-layout';
 
 describe('projectDrawerWidth', () => {
@@ -33,31 +35,47 @@ describe('projectDrawerWidth', () => {
 
 describe('peekCardFrame', () => {
   test('closed: a plain page', () => {
-    expect(peekCardFrame(0, 44, false)).toEqual({ borderRadius: 0, veil: 0 });
+    expect(peekCardFrame(0, 44)).toEqual({ borderRadius: 0, veil: 0 });
   });
 
   test('open: the rounded card, its content faded toward the page colour, full size', () => {
-    const open = peekCardFrame(1, 44, false);
+    const open = peekCardFrame(1, 44);
     expect(open.borderRadius).toBe(44);
     expect(open.veil).toBeCloseTo(PEEK_CARD_VEIL, 6);
   });
 
-  test('half way: linear in progress, so it tracks the finger', () => {
-    const half = peekCardFrame(0.5, 44, false);
-    expect(half.borderRadius).toBe(22);
+  test('moving: the full radius by 1/8 of the travel (Claude iOS), the veil linear so it tracks the finger', () => {
+    expect(peekCardFrame(0.0625, 44).borderRadius).toBe(22); // a ramp, no 0 → 44 step
+    expect(peekCardFrame(0.125, 44).borderRadius).toBe(44);
+    const half = peekCardFrame(0.5, 44);
+    expect(half.borderRadius).toBe(44);
     expect(half.veil).toBeCloseTo(PEEK_CARD_VEIL / 2, 6);
   });
 
-  test('Reduce Motion: the radius snaps on, the veil stays', () => {
-    expect(peekCardFrame(0, 44, true)).toEqual({ borderRadius: 0, veil: 0 });
-    const moving = peekCardFrame(0.3, 44, true);
-    expect(moving.borderRadius).toBe(44);
-    expect(moving.veil).toBeCloseTo(0.3 * PEEK_CARD_VEIL, 6);
+  test('card: progress outside 0…1 (a spring) is clamped', () => {
+    expect(peekCardFrame(1.2, 44).borderRadius).toBe(44);
+    expect(peekCardFrame(-0.1, 44).borderRadius).toBe(0);
+  });
+});
+
+describe('sidebarDim', () => {
+  test('open: the sidebar at full light', () => {
+    expect(sidebarDim(1, SIDEBAR_DIM.light)).toBe(0);
   });
 
-  test('progress outside 0…1 (a spring) is clamped', () => {
-    expect(peekCardFrame(1.2, 44, false).borderRadius).toBe(44);
-    expect(peekCardFrame(-0.1, 44, false).borderRadius).toBe(0);
+  test('closing: darker as the card covers it, linear so it tracks the finger', () => {
+    expect(sidebarDim(0.5, SIDEBAR_DIM.light)).toBeCloseTo(SIDEBAR_DIM.light / 2, 6);
+    expect(sidebarDim(0, SIDEBAR_DIM.light)).toBeCloseTo(SIDEBAR_DIM.light, 6);
+  });
+
+  test('the Claude iOS dim: ~45% black under a closed card in light mode', () => {
+    expect(SIDEBAR_DIM.light).toBeCloseTo(0.45, 2);
+    expect(SIDEBAR_DIM.dark).toBeGreaterThan(SIDEBAR_DIM.light);
+  });
+
+  test('dim: progress outside 0…1 (a spring) is clamped', () => {
+    expect(sidebarDim(1.2, SIDEBAR_DIM.light)).toBe(0);
+    expect(sidebarDim(-0.1, SIDEBAR_DIM.light)).toBeCloseTo(SIDEBAR_DIM.light, 6);
   });
 });
 

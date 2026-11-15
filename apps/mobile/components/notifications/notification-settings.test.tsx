@@ -17,6 +17,9 @@ const Empty = () => null;
 
 let record: any;
 let recordOptions: any;
+// The workspace list the app already holds (`useWorkspaces`): a flagged kind's row needs its flag on in one of them.
+const CALENDAR_ON = [{ project: { experimental: { calendar: true } } }];
+let workspaceRows: any[] = CALENDAR_ON;
 let rows: any[] = [];
 let groups: string[] = [];
 const calls: { name: string; args: unknown[] }[] = [];
@@ -52,6 +55,7 @@ const fakes: Record<string, Record<string, unknown>> = {
   '@/contexts': { useAuthContext: () => ({ user: { id: 'user-1' } }) },
   '@/lib/haptics': { haptics: { tap() {}, selection() {} } },
   '@/lib/notifications/registration': { carryOverLegacyKinds: async () => spy('carryOver')() },
+  '@/lib/projects/hooks': { useWorkspaces: () => ({ rows: workspaceRows }) },
 };
 const real = new Set([
   'react',
@@ -108,6 +112,7 @@ beforeEach(() => {
   groups = [];
   record = recordWith();
   recordOptions = undefined;
+  workspaceRows = CALENDAR_ON;
   useNotificationStore.setState({ preferences: PHONE });
 });
 afterEach(async () => {
@@ -162,6 +167,20 @@ describe('Settings → Notifications', () => {
     await render();
     expect(labels()).not.toContain('Message');
     expect(labels()).toContain('Shared with you');
+  });
+
+  test('Mentions (flag `calendar`) has no row while the flag is off in every workspace, and one once a workspace has it on', async () => {
+    const labels = () => rows.map((props) => props.label);
+    workspaceRows = [{ project: { experimental: { calendar: false } } }, { project: { experimental: {} } }];
+    await render();
+    expect(labels()).not.toContain('Mentions');
+    expect(labels()).toContain('Shared with you');
+    workspaceRows = [];
+    await render();
+    expect(labels()).not.toContain('Mentions');
+    workspaceRows = [{ project: { experimental: { calendar: false } } }, ...CALENDAR_ON];
+    await render();
+    expect(labels()).toContain('Mentions');
   });
 
   test("a session kind shows on only when the record and this phone's switch are both on", async () => {

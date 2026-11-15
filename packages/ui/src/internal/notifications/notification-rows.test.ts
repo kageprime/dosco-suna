@@ -307,4 +307,22 @@ describe('tabRows', () => {
     expect(tabUnreadCount(rows, 'needs')).toBe(1);
     expect(tabUnreadCount(rows, 'done')).toBe(2);
   });
+  test('Needs you leaves out an answered question or a decided permission; All keeps it', () => {
+    const answered = row({ kind: 'question', resolved: true, title: 'answered' });
+    const decided = row({ kind: 'permission', resolved: true, title: 'decided' });
+    const open = row({ kind: 'question', resolved: false, title: 'open' });
+    const legacy = row({ kind: 'permission', title: 'older API, no field' });
+    const failed = row({ kind: 'turn_error', title: 'failed' });
+    const all = [answered, decided, open, legacy, failed];
+    expect(tabRows(all, 'needs').map((r) => r.title)).toEqual(['open', 'older API, no field', 'failed']);
+    expect(tabRows(all, 'done').map((r) => r.title)).toEqual([]);
+    expect(tabRows(all, 'all')).toHaveLength(5);
+    expect(tabUnreadCount(all, 'needs')).toBe(3);
+  });
+
+  test('a read turn_error or automation_failed stays in Needs you', () => {
+    const failed = row({ kind: 'turn_error', read: true });
+    const automation = row({ kind: 'automation_failed', read: true });
+    expect(tabRows([failed, automation], 'needs')).toHaveLength(2);
+  });
 });

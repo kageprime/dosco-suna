@@ -2,8 +2,8 @@
  * Calendar: `/v1/workspaces/:workspaceId/calendar/*` (project flag `calendar`).
  *
  * A workspace's shared calendar. An item has a title, notes, an optional date
- * (or date and time), an optional owner (one person or one agent), a status
- * (`open` or `done`) and a flat list of comments. Every person and agent that
+ * (or a start time and an optional end time), the people on it (persons and
+ * agents alike), a status (`open` or `done`) and a flat list of comments. Every person and agent that
  * can open the workspace reads and writes every item.
  *
  * The API derives who calls from the credential: a session credential is its
@@ -11,7 +11,7 @@
  * body never names the author.
  *
  * Notifications: someone else who `@mentions` a person (in the notes or a
- * comment) or assigns them an item sends that person a `mention`
+ * comment) or adds them to an item sends that person a `mention`
  * notification. A person's comment on an item an agent session created, and a
  * person marking it done or open again, is delivered into that session when
  * the person may prompt it.
@@ -36,6 +36,8 @@ export const CALENDAR_LIMITS = {
   undated_items: 200,
   /** Most comments one item read returns, oldest first. */
   comments: 500,
+  /** Most people on one item. */
+  people: 50,
 } as const;
 
 export const CalendarItemStatusSchema = z.enum(['open', 'done']);
@@ -48,12 +50,12 @@ export const CalendarAuthorSchema = z.discriminatedUnion('kind', [
 ]);
 export type CalendarAuthor = z.infer<typeof CalendarAuthorSchema>;
 
-/** Who owns an item: one person, one agent of the workspace, or nobody (`null`). */
-export const CalendarAssigneeSchema = z.discriminatedUnion('kind', [
+/** One of the people on an item: a person, or an agent of the workspace. */
+export const CalendarParticipantSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('person'), user_id: z.string() }),
   z.object({ kind: z.literal('agent'), agent: z.string() }),
 ]);
-export type CalendarAssignee = z.infer<typeof CalendarAssigneeSchema>;
+export type CalendarParticipant = z.infer<typeof CalendarParticipantSchema>;
 
 export const CalendarItemSchema = z.object({
   item_id: z.string(),
@@ -62,9 +64,12 @@ export const CalendarItemSchema = z.object({
   notes: z.string(),
   /** ISO time. Null: no date. With `all_day`, UTC midnight of the date: read its UTC date. */
   starts_at: z.string().nullable(),
+  /** ISO time: the end of a timed item. Null for an all-day item, an undated item or a point in time. */
+  ends_at: z.string().nullable(),
   all_day: z.boolean(),
   status: CalendarItemStatusSchema,
-  assignee: CalendarAssigneeSchema.nullable(),
+  /** Persons and agents alike, in the order they were added. */
+  people: z.array(CalendarParticipantSchema),
   created_by: CalendarAuthorSchema,
   comment_count: z.number().int(),
   completed_at: z.string().nullable(),
@@ -83,18 +88,20 @@ export const CalendarCommentSchema = z.object({
 export type CalendarComment = z.infer<typeof CalendarCommentSchema>;
 
 /**
- * Who to assign. `me`: the caller (a person, or the calling session's agent).
- * `email`: a person of the workspace by email. `null` in a body clears it.
+ * One person or agent to put on an item. `me`: the caller (a person, or the
+ * calling session's agent). `email`: a person of the workspace by email.
  */
-export const CalendarAssigneeInputSchema = z.union([
+export const CalendarParticipantInputSchema = z.union([
   z.object({ user_id: z.string().uuid() }).strict(),
   z.object({ email: z.string().email().max(320) }).strict(),
   z.object({ agent: z.string().min(1).max(128) }).strict(),
   z.object({ me: z.literal(true) }).strict(),
 ]);
-export type CalendarAssigneeInput = z.infer<typeof CalendarAssigneeInputSchema>;
+export type CalendarParticipantInput = z.infer<typeof CalendarParticipantInputSchema>;
 
 const startsAt = z.string().datetime({ offset: true }).nullable();
+/** At most this many people on one item. */
+const people = z.array(CalendarParticipantInputSchema).max(CALENDAR_LIMITS.people);
 
 export const CreateCalendarItemRequestSchema = z
   .object({
@@ -102,9 +109,11 @@ export const CreateCalendarItemRequestSchema = z
     notes: z.string().max(CALENDAR_LIMITS.notes_chars).optional(),
     /** ISO time with an offset. Omitted or null: no date. */
     starts_at: startsAt.optional(),
+    /** ISO time with an offset, after `starts_at`. Only for a timed item. */
+    ends_at: startsAt.optional(),
     /** The date only: `starts_at` is cut to its UTC date. */
     all_day: z.boolean().optional(),
-    assignee: CalendarAssigneeInputSchema.nullable().optional(),
+    people: people.optional(),
     status: CalendarItemStatusSchema.optional(),
   })
   .strict();
@@ -115,8 +124,10 @@ export const UpdateCalendarItemRequestSchema = z
     title: z.string().trim().min(1).max(CALENDAR_LIMITS.title_chars).optional(),
     notes: z.string().max(CALENDAR_LIMITS.notes_chars).optional(),
     starts_at: startsAt.optional(),
+    ends_at: startsAt.optional(),
     all_day: z.boolean().optional(),
-    assignee: CalendarAssigneeInputSchema.nullable().optional(),
+    /** Replaces the whole list. Omitted: unchanged. `[]`: nobody. */
+    people: people.optional(),
     status: CalendarItemStatusSchema.optional(),
   })
   .strict();

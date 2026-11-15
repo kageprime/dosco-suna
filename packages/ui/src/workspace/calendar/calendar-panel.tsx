@@ -1,36 +1,31 @@
 'use client';
 
-// The side panel: one calendar item (when, owner, notes, comments) or one
+// The side panel: one calendar item (when, people, notes, comments) or one
 // scheduled trigger or Loop (read only, with a link to Triggers).
-import type { CalendarAssigneeInput, CalendarItem } from '@kortix/sdk';
 import { ApiError } from '@kortix/sdk';
 import { useWorkspaceCalendarActions, useWorkspaceCalendarItem } from '@kortix/sdk/react';
 import { agentDisplayName } from '@kortix/shared';
-import { ArrowSquareOutIcon, CheckCircleIcon, CircleIcon, DotsThreeIcon, TrashIcon, UserCircleIcon } from '@phosphor-icons/react';
+import { ArrowSquareOutIcon, CheckCircleIcon, CircleIcon, DotsThreeIcon, TrashIcon } from '@phosphor-icons/react';
 import { useState, type ReactNode } from 'react';
 import { describeCadence, describeEvery, describeOneOff } from '../../customize/triggers/schedule/schedule-copy';
 import { useLocale, useTranslations } from '../../i18n';
 import { adminPath, uiRoutes } from '../../lib/routes';
 import { cn } from '../../lib/utils';
 import { Button } from '../../primitives/button';
-import { Checkbox } from '../../primitives/checkbox';
 import { ConfirmDialog } from '../../primitives/confirm-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../primitives/dropdown-menu';
 import { ErrorState } from '../../primitives/error-state';
-import { Input } from '../../primitives/input';
 import { Skeleton } from '../../primitives/skeleton';
 import { SplitSheetBody, SplitSheetHeader, SplitSheetTitle } from '../../primitives/split-sheet';
 import { errorToast } from '../../primitives/toast';
 import { UiLink } from '../../providers/ui-provider';
-import { fromLocalInput, toLocalInput } from './calendar-dates';
-import { MentionText, personName, Who, type CalendarDirectory } from './calendar-people';
+import { MentionText, PeoplePicker, Who, type CalendarDirectory } from './calendar-people';
+import { WhenPicker } from './calendar-when';
 import { everySeconds, type ScheduledFire } from './calendar-scheduled';
 import { MentionTextarea } from './mention-textarea';
 
@@ -39,117 +34,6 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
     <div className="grid min-h-8 grid-cols-[6rem_minmax(0,1fr)] items-center gap-3">
       <dt className="text-muted-foreground text-xs">{label}</dt>
       <dd className="min-w-0 text-sm">{children}</dd>
-    </div>
-  );
-}
-
-/** Who owns the item: nobody, a person (People first) or an agent. */
-export function OwnerMenu({
-  assignee,
-  directory,
-  onChange,
-}: {
-  assignee: CalendarItem['assignee'];
-  directory: CalendarDirectory;
-  onChange: (assignee: CalendarAssigneeInput | null) => void;
-}) {
-  const t = useTranslations('calendar');
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="xs" className="-ml-2.5 max-w-full justify-start font-normal">
-          {assignee ? (
-            <Who who={assignee} directory={directory} unknown={t('formerMember')} />
-          ) : (
-            <span className="text-muted-foreground inline-flex items-center gap-1.5">
-              <UserCircleIcon className="size-4" aria-hidden />
-              {t('nobody')}
-            </span>
-          )}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-80 w-64 overflow-y-auto">
-        <DropdownMenuItem onSelect={() => onChange(null)}>{t('nobody')}</DropdownMenuItem>
-        {directory.people.length > 0 ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>{t('people')}</DropdownMenuLabel>
-            {directory.people.map((person) => (
-              <DropdownMenuItem key={person.user_id} onSelect={() => onChange({ user_id: person.user_id })}>
-                <Who who={{ kind: 'person', user_id: person.user_id }} directory={directory} unknown={personName(person, person.handle)} />
-              </DropdownMenuItem>
-            ))}
-          </>
-        ) : null}
-        {directory.agents.length > 0 ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>{t('agents')}</DropdownMenuLabel>
-            {directory.agents.map((agent) => (
-              <DropdownMenuItem key={agent} onSelect={() => onChange({ agent })}>
-                <Who who={{ kind: 'agent', agent }} directory={directory} unknown={agent} />
-              </DropdownMenuItem>
-            ))}
-          </>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-/** A date and time, or a date only, or none. Saved when the field loses focus. */
-export function WhenField({
-  startsAt,
-  allDay,
-  onChange,
-}: {
-  startsAt: string | null;
-  allDay: boolean;
-  onChange: (value: { starts_at: string | null; all_day: boolean }) => void;
-}) {
-  const t = useTranslations('calendar');
-  const initial = allDay ? (startsAt?.slice(0, 10) ?? '') : toLocalInput(startsAt);
-  const [value, setValue] = useState(initial);
-  // A new value from the server replaces the draft (adjust state while rendering, no effect).
-  const [seen, setSeen] = useState(initial);
-  if (seen !== initial) {
-    setSeen(initial);
-    setValue(initial);
-  }
-  const commit = (next: string, nextAllDay: boolean) => {
-    if (!next) return onChange({ starts_at: null, all_day: false });
-    if (nextAllDay) return onChange({ starts_at: `${next.slice(0, 10)}T00:00:00.000Z`, all_day: true });
-    const iso = fromLocalInput(next);
-    if (iso) onChange({ starts_at: iso, all_day: false });
-  };
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Input
-        type={allDay ? 'date' : 'datetime-local'}
-        value={value}
-        aria-label={t('when')}
-        className="h-8 w-auto"
-        onChange={(event) => setValue(event.target.value)}
-        onBlur={() => value !== initial && commit(value, allDay)}
-        onKeyDown={(event) => event.key === 'Enter' && commit(value, allDay)}
-      />
-      <label className="text-muted-foreground inline-flex items-center gap-1.5 text-xs">
-        <Checkbox
-          checked={allDay}
-          onCheckedChange={(checked) => {
-            const nextAllDay = checked === true;
-            const next = value ? (nextAllDay ? value.slice(0, 10) : `${value.slice(0, 10)}T09:00`) : '';
-            setValue(next);
-            if (next) commit(next, nextAllDay);
-          }}
-        />
-        {t('allDay')}
-      </label>
-      {startsAt ? (
-        <Button variant="ghost" size="xs" onClick={() => onChange({ starts_at: null, all_day: false })}>
-          {t('clearDate')}
-        </Button>
-      ) : null}
     </div>
   );
 }
@@ -285,10 +169,14 @@ export function ItemPanel({
         />
         <dl className="flex flex-col gap-1">
           <Row label={t('when')}>
-            <WhenField startsAt={item.starts_at} allDay={item.all_day} onChange={(value) => save(value)} />
+            <WhenPicker value={{ starts_at: item.starts_at, ends_at: item.ends_at, all_day: item.all_day }} onChange={(value) => save(value)} />
           </Row>
-          <Row label={t('owner')}>
-            <OwnerMenu assignee={item.assignee} directory={directory} onChange={(assignee) => save({ assignee })} />
+          <Row label={t('people')}>
+            <PeoplePicker
+              value={item.people}
+              directory={directory}
+              onChange={(people) => save({ people: people.map((p) => (p.kind === 'person' ? { user_id: p.user_id } : { agent: p.agent })) })}
+            />
           </Row>
           <Row label={t('created')}>
             <span className="text-muted-foreground inline-flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs">

@@ -20,6 +20,7 @@ raw color allowed).
 | `radio-group` | single-select, few options | `#comp-radio` | use |
 | `slider`, `slider-native` | a range | `#comp-slider` | use |
 | `kbd` | a keyboard shortcut | `#comp-kbd` | use |
+| `action-bar` | the floating bar of a temporary mode: a selection, unsaved edits, a pending paste. Title, description, actions with `kbd`, close. `ActionBarDock` places it | `#comp-action-bar` | use |
 | `count-badge` | a count beside a label, tone by meaning | | use |
 | `back-pill` | the back control of a nested view | | use |
 | `confirm-dialog`, `type-to-confirm-dialog` | mandatory before any destructive mutation | `#comp-alert-dialog` (pattern) | use |

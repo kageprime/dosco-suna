@@ -36,6 +36,9 @@ import { SessionsLevel } from './sessions-level';
  *  range" click resolves to. Same value, deliberately un-shared. */
 const DEFAULT_RANGE_PRESET: Exclude<CostRangePreset, 'custom'> = '30d';
 
+/** `?project=all`: every workspace, when the explorer defaults to one. */
+export const ALL_PROJECTS = 'all';
+
 const RESOLVABLE_PRESETS: readonly Exclude<CostRangePreset, 'custom'>[] = [
   '24h',
   '7d',
@@ -89,7 +92,11 @@ export interface ExplorerState {
  * project id, so a URL edited (or bookmarked) into that half-formed shape
  * falls back to level 1 instead of rendering broken.
  */
-export function parseExplorerState(params: URLSearchParams, now: Date): ExplorerState {
+export function parseExplorerState(
+  params: URLSearchParams,
+  now: Date,
+  defaultProjectId: string | null = null,
+): ExplorerState {
   const rawRange = params.get('range');
   let range: CostRange;
   if (rawRange === 'custom') {
@@ -102,7 +109,12 @@ export function parseExplorerState(params: URLSearchParams, now: Date): Explorer
     range = resolvePreset(DEFAULT_RANGE_PRESET, now);
   }
 
-  const projectId = params.get('project');
+  // `defaultProjectId`: the workspace the pane is open in. With no `project`
+  // param the explorer lands on that workspace; `project=all` is the explicit
+  // "every workspace" level, so the top crumb still reaches it.
+  const rawProject = params.get('project');
+  const projectId =
+    rawProject === ALL_PROJECTS ? null : rawProject ?? defaultProjectId;
   const rawSessionId = params.get('session');
   const sessionId = projectId && rawSessionId ? rawSessionId : null;
 
@@ -244,7 +256,10 @@ export function useExplorerClockAnchor(params: URLSearchParams): Date {
  * parse-side guard, so the two stay symmetric even if a caller ever
  * constructs a malformed state directly.
  */
-export function serializeExplorerState(state: ExplorerState): URLSearchParams {
+export function serializeExplorerState(
+  state: ExplorerState,
+  defaultProjectId: string | null = null,
+): URLSearchParams {
   const params = new URLSearchParams();
 
   if (state.range.preset !== DEFAULT_RANGE_PRESET) {
@@ -256,8 +271,12 @@ export function serializeExplorerState(state: ExplorerState): URLSearchParams {
   }
 
   if (state.projectId) {
-    params.set('project', state.projectId);
+    // The default workspace's own level keeps the URL clean; a session under
+    // it still names the project, so the link works outside the workspace.
+    if (state.projectId !== defaultProjectId || state.sessionId) params.set('project', state.projectId);
     if (state.sessionId) params.set('session', state.sessionId);
+  } else if (defaultProjectId) {
+    params.set('project', ALL_PROJECTS);
   }
 
   return params;
@@ -292,11 +311,14 @@ export function buildBreadcrumbCrumbs(
   state: ExplorerState,
   projectLabel: string | null,
   tI18nComplete: UiTranslator,
+  /** The top crumb's name when the explorer defaults to one workspace: it
+   *  reads "All workspaces", because "Usage" would not say where it goes. */
+  topLabel?: string,
 ): ExplorerCrumb[] {
   const crumbs: ExplorerCrumb[] = [
     {
       key: 'usage',
-      label: tI18nComplete.raw('text8d59829c1e15'),
+      label: topLabel ?? tI18nComplete.raw('text8d59829c1e15'),
       current: state.projectId === null,
       target: { range: state.range, projectId: null, sessionId: null },
     },
@@ -406,14 +428,20 @@ function SessionLedgerLevel({
  * search string, so an unrelated param already on the URL (this page's own
  * `?tab=transactions`) survives untouched.
  */
-export function CostExplorer() {
+export function CostExplorer({
+  defaultProjectId = null,
+}: {
+  /** The workspace the pane is open in: the explorer lands on its spend. */
+  defaultProjectId?: string | null;
+} = {}) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+  const tCosts = useTranslations('billing.costs');
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const now = useExplorerClockAnchor(searchParams);
-  const state = parseExplorerState(searchParams, now);
+  const state = parseExplorerState(searchParams, now, defaultProjectId);
 
   const projectsQuery = useSessionCostProjects();
   const projectLabel =
@@ -422,7 +450,7 @@ export function CostExplorer() {
   const pushState = (next: ExplorerState) => {
     const params = new URLSearchParams(searchParams.toString());
     for (const key of EXPLORER_PARAM_KEYS) params.delete(key);
-    for (const [key, value] of serializeExplorerState(next)) params.set(key, value);
+    for (const [key, value] of serializeExplorerState(next, defaultProjectId)) params.set(key, value);
     const query = params.toString();
     router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
   };
@@ -432,7 +460,12 @@ export function CostExplorer() {
     pushState({ range: state.range, projectId, sessionId: null });
   const handleSelectSession = (sessionId: string) => pushState({ ...state, sessionId });
 
-  const crumbs = buildBreadcrumbCrumbs(state, projectLabel, tI18nComplete);
+  const crumbs = buildBreadcrumbCrumbs(
+    state,
+    projectLabel,
+    tI18nComplete,
+    defaultProjectId ? tCosts('allWorkspaces') : undefined,
+  );
   const backIndex = firstClickableCrumbIndex(crumbs);
 
   return (

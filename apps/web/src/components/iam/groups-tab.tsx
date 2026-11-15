@@ -25,6 +25,7 @@ import { FormEvent, useMemo, useState } from 'react';
 
 import { EnterpriseUpsell } from '@/components/iam/enterprise-upsell';
 import { GroupAccessPanel } from '@/components/iam/group-access-panel';
+import { SETTINGS_PAGE_TITLE_CLASS, useSettingsPageTitle } from '@kortix/ui/settings-section-header';
 import { Badge } from '@kortix/ui/badge';
 import { Button } from '@kortix/ui/button';
 import { ConfirmDialog } from '@kortix/ui/confirm-dialog';
@@ -149,6 +150,8 @@ function GroupsList({
   onSelectGroup: (id: string) => void;
 }) {
   const tHardcodedUi = useTranslations('hardcodedUi');
+  // Inside Workspace settings the h1 is the rail row's label.
+  const settingsTitle = useSettingsPageTitle();
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -217,8 +220,8 @@ function GroupsList({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-0.5">
-          <h1 className="text-foreground text-2xl font-medium tracking-tight text-balance">
-            {tHardcodedUi.raw('i18nComplete.text39bbb719fa2b')}
+          <h1 className={SETTINGS_PAGE_TITLE_CLASS}>
+            {settingsTitle ?? tHardcodedUi.raw('i18nComplete.text39bbb719fa2b')}
           </h1>
           <p className="text-muted-foreground text-xs">
             {tHardcodedUi.raw(

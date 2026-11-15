@@ -1,8 +1,11 @@
 'use client';
 
 /**
- * The Enterprise features (SSO, SCIM, advanced roles, audit logs, branding)
- * and their state (.agents/skills/billing/references/plans-and-access.md):
+ * The Enterprise features (SSO, SCIM, advanced roles, audit logs) and their
+ * state (.agents/skills/billing/references/plans-and-access.md). Branding is
+ * not one of them: this row renders only on the Plan pane, which exists only
+ * with billing on (Kortix cloud), and cloud never offers branding
+ * (`apps/api/src/accounts/branding.ts`). Self-host has a Branding pane instead.
  *
  *   - Off: a billing manager turns on the demo; anyone may talk to sales.
  *   - Demo: on, self-serve. A billing manager turns it off.

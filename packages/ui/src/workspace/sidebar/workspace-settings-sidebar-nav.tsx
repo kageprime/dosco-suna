@@ -1,12 +1,13 @@
 'use client';
 
 import { ArrowLeftIcon, MagnifyingGlassIcon, type Icon } from '@phosphor-icons/react';
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import { useTranslations } from '../../i18n';
 import { useIsMobile } from '../../internal/hooks';
 import { uiRoutes } from '../../lib/routes';
 import { cn } from '../../lib/utils';
+import { FadedScrollArea } from '../../primitives/faded-scroll-area';
 import {
   InputGroupSearch,
   InputGroupSearchClear,
@@ -116,6 +117,29 @@ export function WorkspaceSettingsSidebarNav({
 
 const LIST_SCROLL_CLASS =
   'min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden';
+
+/**
+ * The `scrollTop` that brings a row fully into its list, moving the list as
+ * little as possible (`block: 'nearest'`), or `null` when the row is already
+ * in view. Rects are viewport boxes. Only the list moves: `scrollIntoView`
+ * would also scroll every ancestor, and the page must stay where it is.
+ * `margin` keeps the row clear of the list's edge fades.
+ */
+export function scrollTopToReveal(
+  outer: { top: number; bottom: number },
+  row: { top: number; bottom: number },
+  scrollTop: number,
+  margin = 0,
+): number | null {
+  const list = { top: outer.top + margin, bottom: outer.bottom - margin };
+  if (row.top < list.top) return scrollTop - (list.top - row.top);
+  if (row.bottom > list.bottom) {
+    // A row taller than the list shows its top, as `nearest` does.
+    const shift = Math.min(row.bottom - list.bottom, row.top - list.top);
+    return scrollTop + shift;
+  }
+  return null;
+}
 
 /**
  * The search field and what sits under it: the groups while the field is
@@ -421,13 +445,49 @@ function SettingsSearch({
           )}
         </div>
       ) : (
-        <div className={LIST_SCROLL_CLASS}>
-          {rail.groups.map((group) => (
-            <RailGroup key={group.id} group={group} active={active} prefetch={shown} onNavigate={onNavigate} />
-          ))}
-        </div>
+        <RailGroupsList rail={rail} active={active} shown={shown} onNavigate={onNavigate} />
       )}
     </>
+  );
+}
+
+/**
+ * The settings groups. The list scrolls without a scrollbar, so a fade marks
+ * the edge that hides rows, and the open section's row is scrolled into view
+ * on load and on every section change: at 900 px tall the last rows (Feature
+ * flags, Danger zone) sit below the fold.
+ */
+function RailGroupsList({
+  rail,
+  active,
+  shown,
+  onNavigate,
+}: {
+  rail: WorkspaceSettingsRail;
+  active: string | undefined;
+  shown: boolean;
+  onNavigate: () => void;
+}) {
+  const listRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!shown || !list || !active) return;
+    const row = list.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!row) return;
+    // The fades are `fadeSize="8"` (~29 px): reveal the row clear of them. The
+    // browser clamps at the end, where the bottom fade is gone.
+    const next = scrollTopToReveal(list.getBoundingClientRect(), row.getBoundingClientRect(), list.scrollTop, 32);
+    if (next !== null) list.scrollTop = next;
+    // Not on `rail`: a background refetch publishes a new rail object, and the
+    // list must not jump back after the person scrolled it.
+  }, [active, shown]);
+
+  return (
+    <FadedScrollArea ref={listRef} rootClassName="min-h-0 flex-1" fadeSize="8">
+      {rail.groups.map((group) => (
+        <RailGroup key={group.id} group={group} active={active} prefetch={shown} onNavigate={onNavigate} />
+      ))}
+    </FadedScrollArea>
   );
 }
 

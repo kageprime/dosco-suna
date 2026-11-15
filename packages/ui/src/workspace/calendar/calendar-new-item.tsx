@@ -1,26 +1,19 @@
 'use client';
 
-// New item: the title first; when, owner and notes are optional. Opened from
-// the header or from a day's "+" (that day is preset).
-import type { CalendarAssigneeInput, CalendarItem } from '@kortix/sdk';
+// New item: the title first, then two chips (When, People) and the notes.
+// Opened from the header or from a day's "+" (that day is preset). The chips
+// are the same controls the side panel uses.
+import type { CalendarItem, CalendarParticipant } from '@kortix/sdk';
 import { useWorkspaceCalendarActions } from '@kortix/sdk/react';
 import { useState } from 'react';
 import { useTranslations } from '../../i18n';
 import { Button } from '../../primitives/button';
-import { Field, FieldGroup, FieldLabel } from '../../primitives/field';
 import { Input } from '../../primitives/input';
 import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, ModalTitle } from '../../primitives/modal';
 import { errorToast } from '../../primitives/toast';
-import { OwnerMenu, WhenField } from './calendar-panel';
-import type { CalendarDirectory } from './calendar-people';
+import { PeoplePicker, type CalendarDirectory } from './calendar-people';
+import { NO_DATE, WhenPicker, type WhenValue } from './calendar-when';
 import { MentionTextarea } from './mention-textarea';
-
-function ownerPreview(input: CalendarAssigneeInput | null): CalendarItem['assignee'] {
-  if (!input) return null;
-  if ('user_id' in input) return { kind: 'person', user_id: input.user_id };
-  if ('agent' in input) return { kind: 'agent', agent: input.agent };
-  return null;
-}
 
 export function NewItemModal({
   projectId,
@@ -43,16 +36,19 @@ export function NewItemModal({
   // The page remounts this modal for every opening (`key`), so each one starts empty on `day`.
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
-  const [when, setWhen] = useState<{ starts_at: string | null; all_day: boolean }>(() =>
-    day ? { starts_at: `${day}T00:00:00.000Z`, all_day: true } : { starts_at: null, all_day: false },
-  );
-  const [owner, setOwner] = useState<CalendarAssigneeInput | null>(null);
+  const [when, setWhen] = useState<WhenValue>(() => (day ? { starts_at: `${day}T00:00:00.000Z`, ends_at: null, all_day: true } : NO_DATE));
+  const [people, setPeople] = useState<CalendarParticipant[]>([]);
 
   const create = () => {
     const name = title.trim();
     if (!name || actions.create.isPending) return;
     actions.create.mutate(
-      { title: name, notes, ...when, assignee: owner },
+      {
+        title: name,
+        notes,
+        ...when,
+        people: people.map((p) => (p.kind === 'person' ? { user_id: p.user_id } : { agent: p.agent })),
+      },
       {
         onSuccess: (item) => {
           onOpenChange(false);
@@ -72,46 +68,41 @@ export function NewItemModal({
             event.preventDefault();
             create();
           }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault();
+              create();
+            }
+          }}
         >
-          <ModalHeader>
+          <ModalHeader className="pb-4">
             <ModalTitle>{t('newItem')}</ModalTitle>
           </ModalHeader>
-          <ModalBody>
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="calendar-new-title">{t('titleLabel')}</FieldLabel>
-                <Input
-                  id="calendar-new-title"
-                  autoFocus
-                  maxLength={200}
-                  value={title}
-                  placeholder={t('titlePlaceholder')}
-                  onChange={(event) => setTitle(event.target.value)}
-                />
-              </Field>
-              <Field>
-                <FieldLabel>{t('when')}</FieldLabel>
-                <WhenField startsAt={when.starts_at} allDay={when.all_day} onChange={setWhen} />
-              </Field>
-              <Field>
-                <FieldLabel>{t('owner')}</FieldLabel>
-                <OwnerMenu assignee={ownerPreview(owner)} directory={directory} onChange={setOwner} />
-              </Field>
-              <Field>
-                <FieldLabel>{t('notes')}</FieldLabel>
-                <MentionTextarea
-                  value={notes}
-                  onChange={setNotes}
-                  directory={directory}
-                  ariaLabel={t('notes')}
-                  placeholder={t('notesPlaceholder')}
-                  minHeight={72}
-                  onSubmit={create}
-                />
-              </Field>
-            </FieldGroup>
+          <ModalBody className="space-y-3">
+            <Input
+              autoFocus
+              size="lg"
+              maxLength={200}
+              aria-label={t('titleLabel')}
+              value={title}
+              placeholder={t('titlePlaceholder')}
+              onChange={(event) => setTitle(event.target.value)}
+            />
+            <div className="flex flex-wrap items-center gap-1.5">
+              <WhenPicker value={when} onChange={setWhen} />
+              <PeoplePicker value={people} directory={directory} onChange={setPeople} />
+            </div>
+            <MentionTextarea
+              value={notes}
+              onChange={setNotes}
+              directory={directory}
+              ariaLabel={t('notes')}
+              placeholder={t('notesPlaceholder')}
+              minHeight={64}
+              onSubmit={create}
+            />
           </ModalBody>
-          <ModalFooter>
+          <ModalFooter className="pb-5">
             <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
               {t('cancel')}
             </Button>

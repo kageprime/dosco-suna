@@ -10,7 +10,8 @@ import { normalizeEvalConfig, readEvalSuites, type EvalConfigIssue, type EvalSui
 import { parse as parseYaml } from 'yaml';
 import { isRepoFileNotFoundError, readRepoFile, type GitBackedProject } from '../git';
 import type { HarborTask } from './harbor-task';
-import { discoverTasks, filterTasks, gitTree, loadTask, projectTree, registryTaskRefs, resolveGitRef, builtinDatasetSource, isBuiltinDataset, type DiscoveredTask, type EvalTaskRef } from './task-source';
+import { hubDatasetTasks, isHubName, parseHubPackage, resolveHubDataset, resolveHubTask, type HubPackage } from './hub';
+import { discoverTasks, filterTasks, gitTree, hubTree, loadTask, packageRef, projectTree, registryTaskRefs, resolveGitRef, builtinDatasetSource, isBuiltinDataset, type DiscoveredTask, type EvalTaskRef } from './task-source';
 import { EvalTrialError } from './scoring';
 
 /** A request the caller must fix: 422 `eval_invalid` with these lines. */
@@ -137,16 +138,82 @@ export function sourceLabel(source: EvalTaskSource): string {
   return source.path ?? '';
 }
 
-const labelled = (tasks: DiscoveredTask[], label: string): DiscoveredTask[] => tasks.map((entry) => ({ ...entry, ref: { ...entry.ref, source: label } }));
+/** A source that labels its own tasks (a Hub dataset names the revision it resolved to) keeps that label. */
+const labelled = (tasks: DiscoveredTask[], label: string): DiscoveredTask[] => tasks.map((entry) => ({ ...entry, ref: { ...entry.ref, source: entry.ref.source ?? label } }));
 
 /** How many trials one task plans: distinct agents × attempts. */
 const trialsPerTask = (config: EvalJobConfig): number => new Set(config.agents.map((agent) => `${agent.name}\u0000${agent.model_name ?? ''}`)).size * config.n_attempts;
 
-async function tasksOfSource(project: GitBackedProject, commit: string, source: EvalTaskSource, violations: string[], budget = Number.POSITIVE_INFINITY): Promise<DiscoveredTask[]> {
-  return labelled(await readSource(project, commit, source, violations, budget), sourceLabel(source));
+async function tasksOfSource(project: GitBackedProject, commit: string, source: EvalTaskSource, violations: string[], budget = Number.POSITIVE_INFINITY, asTask = false): Promise<DiscoveredTask[]> {
+  return labelled(await readSource(project, commit, source, violations, budget, asTask), sourceLabel(source));
 }
 
-async function readSource(project: GitBackedProject, commit: string, source: EvalTaskSource, violations: string[], budget: number): Promise<DiscoveredTask[]> {
+/** Tasks loaded this many at a time while a job is planned. */
+const LOAD_CONCURRENCY = 16;
+
+async function loadEach(entries: DiscoveredTask[]): Promise<DiscoveredTask[]> {
+  const out: DiscoveredTask[] = new Array(entries.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < entries.length) {
+      const i = next++;
+      const entry = entries[i]!;
+      try {
+        if (entry.ref.kind === 'repo') throw new EvalTrialError('TaskLoadError', 'not a remote task');
+        const tree = entry.ref.kind === 'package' ? hubTree(entry.ref) : gitTree(entry.ref.git_url, entry.ref.commit);
+        out[i] = { ...entry, task: await loadTask(tree, entry.ref), error: null };
+      } catch (err) {
+        if (!(err instanceof EvalTrialError)) throw err;
+        out[i] = { ...entry, task: null, error: `${entry.name ?? entry.ref.path}: ${err.message}` };
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(LOAD_CONCURRENCY, entries.length) }, worker));
+  return out;
+}
+
+/**
+ * A Harbor Hub source (`org/name`, Harbor's package names). Under `tasks` it is
+ * one task package; under `datasets` a dataset package, its tasks filtered by
+ * `task_names` / `n_tasks`. Every task is pinned to its content hash, and a
+ * dataset's tasks score under `org/name@<revision>`, the version they came from.
+ */
+async function readHubSource(source: EvalTaskSource & { name: string }, violations: string[], budget: number, asTask: boolean): Promise<DiscoveredTask[]> {
+  let pkg: HubPackage;
+  try {
+    pkg = parseHubPackage(source.name, source.version);
+  } catch (err) {
+    violations.push(err instanceof Error ? err.message : String(err));
+    return [];
+  }
+  if (asTask) {
+    try {
+      const task = await resolveHubTask(pkg);
+      return loadEach([{ ref: packageRef(task), task: null, error: null, name: `${task.org}/${task.name}` }]);
+    } catch (err) {
+      if (!(err instanceof EvalTrialError)) throw err;
+      violations.push(err.message);
+      return [];
+    }
+  }
+  let entries: DiscoveredTask[];
+  try {
+    const version = await resolveHubDataset(pkg);
+    const label = `${version.name}@${version.revision}`;
+    entries = (await hubDatasetTasks(version)).map((task) => ({ ref: { ...packageRef(task), source: label }, task: null, error: null, name: `${task.org}/${task.name}` }));
+  } catch (err) {
+    if (!(err instanceof EvalTrialError)) throw err;
+    violations.push(err.message);
+    return [];
+  }
+  const kept = filterTasks(entries, source);
+  if (kept.length > budget) {
+    throw new EvalConfigError([`The dataset ${source.name} selects ${kept.length} tasks, more than this job may run (${EVAL_LIMITS.max_trials_per_job} trials). Set \`n_tasks\` or \`task_names\`.`]);
+  }
+  return loadEach(kept);
+}
+
+async function readSource(project: GitBackedProject, commit: string, source: EvalTaskSource, violations: string[], budget: number, asTask = false): Promise<DiscoveredTask[]> {
   if (!source.git_url && source.name && isBuiltinDataset(source.name)) {
     const builtin = builtinDatasetSource(source.name, source.version);
     const found: string[] = [];
@@ -155,6 +222,8 @@ async function readSource(project: GitBackedProject, commit: string, source: Eva
     violations.push(...found.map(() => `The built-in dataset ${source.name} has no tasks at ${builtin.git_commit_id} of the Kortix repository. Pin a version that has it, e.g. version: dev after it ships.`));
     return tasks;
   }
+  // A name with `/` is a Harbor Hub package, as in Harbor (the legacy registry's names have none).
+  if (!source.git_url && !source.path && source.name && isHubName(source.name)) return readHubSource({ ...source, name: source.name }, violations, budget, asTask);
   if (source.git_url) {
     let commit: string;
     try {
@@ -185,7 +254,7 @@ async function readSource(project: GitBackedProject, commit: string, source: Eva
     return [];
   }
   // Filter by the registry's names first, so `n_tasks: 3` fetches three tasks, not the whole dataset.
-  const kept = filterTasks(refs.map((entry) => ({ ref: { ...entry.ref, path: entry.ref.path }, task: null, error: null, name: entry.name })), source);
+  const kept = filterTasks(refs.map((entry) => ({ ref: entry.ref, task: null, error: null })), source);
   // Refuse a job over the trial cap before reading a single task of a large dataset.
   if (kept.length > budget) {
     throw new EvalConfigError([`The dataset ${source.name} selects ${kept.length} tasks, more than this job may run (${EVAL_LIMITS.max_trials_per_job} trials). Set \`n_tasks\` or \`task_names\`.`]);
@@ -208,9 +277,10 @@ export async function planTasks(project: GitBackedProject, commit: string, confi
   const violations: string[] = [];
   const byName = new Map<string, PlannedTask>();
   const perTask = Math.max(1, trialsPerTask(config));
-  for (const source of [...config.tasks, ...config.datasets]) {
+  const sources = [...config.tasks.map((source) => ({ source, asTask: true })), ...config.datasets.map((source) => ({ source, asTask: false }))];
+  for (const { source, asTask } of sources) {
     const budget = Math.floor(EVAL_LIMITS.max_trials_per_job / perTask) - byName.size;
-    for (const found of await tasksOfSource(project, commit, source, violations, budget)) {
+    for (const found of await tasksOfSource(project, commit, source, violations, budget, asTask)) {
       if (!found.task) {
         violations.push(found.error ?? `${found.ref.path}: not a task.`);
         continue;

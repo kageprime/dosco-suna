@@ -148,16 +148,16 @@ describe('ProviderAccessRow — the provider on/off switch', () => {
     expect(out).toContain('Enable OpenAI');
     expect(out).toContain('role="switch"');
     expect(out).toContain('aria-checked="true"');
-    expect(out).not.toMatch(/role="switch"[^>]*disabled/);
+    expect(out).not.toMatch(/role="switch"[^>]*\sdisabled=""/);
   });
 
   test('the project default provider cannot be switched off', () => {
     const out = row({ isDefault: true });
-    expect(out).toMatch(/role="switch"[^>]*disabled/);
+    expect(out).toMatch(/role="switch"[^>]*\sdisabled=""/);
     expect(out).toContain('Choose a workspace default from another provider');
   });
 
   test('read-only members see the state, not a control', () => {
-    expect(row({ canWrite: false })).toMatch(/role="switch"[^>]*disabled/);
+    expect(row({ canWrite: false })).toMatch(/role="switch"[^>]*\sdisabled=""/);
   });
 });

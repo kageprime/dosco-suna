@@ -221,7 +221,8 @@
     },
     "agentAccess": "Agents: {agents}",
     "allAgents": "All agents",
-    "noAgents": "No agents"
+    "noAgents": "No agents",
+    "deliveredOnceSet": "Delivered once a value is set"
   },
   "useCases": {
     "headline": "The loops that run a company",
@@ -768,6 +769,7 @@
       "secretsCommand": "Secrets command",
       "ownClientTitle": "Use your own Git client",
       "ownClientDescription": "Clone with plain <code>git</code> instead of the Dosco command line.",
+      "ownClientHelp": "Clone from this address with any Git client. When git asks, enter any username and a Dosco API key as the password — the Dosco command line does this for you through its credential helper; plain <code>git</code> does not.",
       "cloneAddressDescription": "Clone from this address with any Git client. Dosco signs the request for you, so there is no access token to create, paste, or keep on your machine.",
       "cloneAddress": "Clone address",
       "peopleTitle": "People with access",
@@ -982,15 +984,16 @@
         "startup": "Startup"
       },
       "statuses": {
-        "ready": "ready",
-        "building": "building",
-        "failed": "failed"
+        "ready": "Ready",
+        "building": "Building",
+        "failed": "Failed"
       },
       "stale": {
         "superseded": "Didn’t finish, and a newer setup has replaced it",
         "recovered": "Didn’t finish, but the environment is ready now",
         "retrying": "Didn’t finish — a new attempt is running"
       },
+      "supersededGroup": "{count, plural, one {# older build replaced} other {# older builds replaced}}",
       "outcomes": {
         "ready": "Ready for new sessions",
         "building": "Being prepared now",
@@ -1181,7 +1184,7 @@
         },
         "calendar": {
           "name": "Calendar",
-          "description": "A shared calendar for people and agents: items with a date, an owner and comments, beside the scheduled triggers and Loops. Mention someone with @ to notify them. Agents use `kortix calendar`."
+          "description": "A shared calendar for people and agents: dated items with the people on them and comments, beside the scheduled triggers and Loops. Mention someone with @ to notify them. Agents use `kortix calendar`."
         }
       },
       "channelsSwitch": {
@@ -1693,8 +1696,8 @@
         "needsInput": "Needs input",
         "starting": "Waking",
         "running": "Working",
-        "done": "Ready",
-        "stopped": "Asleep",
+        "done": "Done",
+        "stopped": "Stopped",
         "failed": "Failed",
         "legacy": "Legacy"
       }
@@ -1723,6 +1726,9 @@
       "title": "{file} has {errors, plural, one {# error} other {# errors}} and {warnings, plural, one {# warning} other {# warnings}}",
       "titleErrors": "{file} has {errors, plural, one {# error} other {# errors}}",
       "titleWarnings": "{file} has {warnings, plural, one {# warning} other {# warnings}}",
+      "count": "{errors, plural, one {# error} other {# errors}} and {warnings, plural, one {# warning} other {# warnings}}",
+      "countErrors": "{errors, plural, one {# error} other {# errors}}",
+      "countWarnings": "{warnings, plural, one {# warning} other {# warnings}}",
       "errorsOff": "Agents and triggers with an error are off until it is fixed.",
       "warningsOnly": "Everything still runs.",
       "error": "Error",
@@ -1903,7 +1909,15 @@
       "noMessages": "No messages yet",
       "more": "More"
     },
-    "calendar": "Calendar"
+    "calendar": "Calendar",
+    "running": "Running",
+    "runningCount": "{count, plural, one {# session running} other {# sessions running}}",
+    "runningTitle": "Running now",
+    "runningEmpty": "Nothing is running.",
+    "runningFailed": "Couldn't read what is running.",
+    "runningRetry": "Try again",
+    "runningIn": "in {title}",
+    "runningFirst": "Showing the first {count}."
   },
   "dashboard": {
     "title": "Dashboard",
@@ -2394,6 +2408,8 @@
     "chatInputMachine": "Machine",
     "chatInputMachineDescription": "The machine template this session starts on.",
     "sending": "Sending",
+    "notSentYet": "Not sent yet · sends when you’re back online",
+    "offlineReconnecting": "Offline — reconnecting…",
     "stop": "Stop",
     "startingSession": "Starting session…",
     "sessionStarted": "Session started",
@@ -2911,7 +2927,7 @@
       "featuresGrace": "SSO and SCIM stay on until {date}. Talk to sales to keep Enterprise.",
       "featuresOn": "On",
       "featuresOff": "Off",
-      "featuresOffDescription": "SSO, SCIM, advanced roles, audit logs and branding.",
+      "featuresOffDescription": "SSO, SCIM, advanced roles and audit logs.",
       "featuresDemo": "On as a demo. Talk to sales for a license.",
       "featuresLicensed": "Licensed",
       "featuresLicensedRenews": "Licensed · renews {date}",
@@ -2936,7 +2952,11 @@
       "action": "Add credits or pick a plan to run sessions here."
     },
     "costs": {
-      "billedElsewhere": "{amount} credits of this cost were billed to the workspace it moved from."
+      "billedElsewhere": "{amount} credits of this cost were billed to the workspace it moved from.",
+      "allWorkspaces": "All workspaces",
+      "usageDescriptionWorkspace": "Kortix charges for this workspace. Credits are one balance for all workspaces.",
+      "usageDescriptionAll": "Kortix charges and credit ledger across all workspaces.",
+      "planDescriptionAll": "Plan, credits and spend across all workspaces."
     }
   },
   "ssoRequired": {
@@ -3355,7 +3375,17 @@
       "jsonKeys": "{count, plural, one {JSON · # key} other {JSON · # keys}}",
       "jsonItems": "{count, plural, one {JSON · # item} other {JSON · # items}}",
       "failedSentence": "The workflow stopped before it finished.",
-      "runningCount": "{count} running"
+      "runningCount": "{count} running",
+      "spent": "Spent {credits} credits",
+      "spentHint": "What Kortix billed for this run so far: model calls and computer time of the run and its agents.",
+      "waitingForYou": "Waiting for you · not started",
+      "cancelled": "Cancelled — nothing ran",
+      "answeredInChat": "Answered in chat — nothing ran",
+      "stoppedByYou": "Stopped by you",
+      "attempt": "attempt {count}",
+      "quietFor": "Quiet for {minutes} min",
+      "quietCount": "{count} quiet",
+      "holdingWorking": "Holding · {count} still working"
     },
     "agent": {
       "backgroundWorking": "Working in the background",
@@ -3498,7 +3528,7 @@
       "automation_recovered": "A failing trigger or loop works again.",
       "capture_device_down": "A Capture computer is not recording. Sent to people who manage Capture.",
       "capture_device_recovered": "A Capture computer that stopped records again.",
-      "mention": "Someone else mentions you or assigns you an item on the calendar."
+      "mention": "Someone else mentions you or adds you to an item on the calendar."
     },
     "inbox": {
       "title": "Inbox",
@@ -10483,6 +10513,7 @@
       "text38e64d6a8162": "Commits a SKILL.md to the workspace's default branch. No model or chat needed.",
       "text39cfc32bd12c": "Pasted text",
       "text23d0bb29fca0": "{count, plural, one {# word} other {# words}}",
+      "text3e310b75051c": "Run again",
       "text426699d5a8c0": "{count, plural, one {# character} other {# characters}}",
       "text40078a553439": "Uploaded attachment chunk",
       "text4c7f8000aabd": "Completed attachment upload",
@@ -10846,6 +10877,10 @@
       "text0b2e0f1bf47e": "Every call it made, and who let it",
       "text0b2ecc210632": "The one live channel. Ask the question in the thread where it came up; the answer, the chart and the query come back into the same thread.",
       "text0b348466332c": "Nothing changed yet",
+      "textf83916135509": "used",
+      "texta251c18205f1": "Cached",
+      "text64cd989efc14": "Free space",
+      "textcc6d004b577f": "This file has no changes against the base.",
       "text0b38e3daeb93": "All secrets",
       "text0b3dbab0c668": "- Ship the fix, write the postmortem",
       "text0b495c90447a": "The calendar, the inbox, the applicant system.",
@@ -11715,6 +11750,7 @@
       "text2522f9d16f3b": "The CompanyOS",
       "text25330787f710": "+3",
       "text2534086de9fe": "Show panel",
+      "text40cd6293d193": "Hide panel",
       "text2534e74d5120": "What should the agent change?",
       "text253923d0f0c5": "Connections → Applications → +",
       "text253b18a02165": "Starting up",
@@ -12050,7 +12086,6 @@
       "text2f6a48c637a9": "Webhook removed",
       "text2f6c00ce1d58": "Groups pushed from OneLogin Rules are created in Dosco under their OneLogin names.",
       "text2f6e9daec8e9": "States",
-      "text2f72fafe0ce1": "instead of the Dosco command line.",
       "text2f77668a9dfb": "Message",
       "text2f77dafd3fcc": "connect a provider",
       "text2f80158a9d89": "research/",
@@ -14532,7 +14567,6 @@
       "text7743ce348d92": "draft",
       "text775ddc2119ab": "Copy the \"Identifier (Entity ID)\" and the \"Reply URL (Assertion Consumer Service URL)\" below and paste them into the \"Basic SAML Configuration\" panel — mark the Identifier as Default, and set \"Sign on URL\" to your Dosco sign-in page. Leave Relay State and Logout URL empty. Click \"Save\" and close the edit panel.",
       "text775f96fcc9db": "Token revoked",
-      "text7760401b25c7": "Clone with plain",
       "text7761b572aba8": "Browser notifications",
       "text77793c7508f1": "setup will be reset.",
       "text7779bc2ac4be": "skills/claims/SKILL.md",
@@ -16755,7 +16789,6 @@
       "textb7297226fd1f": "Save name",
       "textb7396994492d": "Add custom SAML app → Attribute mapping",
       "textb73ce9104ddb": "Copy failed - select and copy manually",
-      "textb74106e21108": "does not.",
       "textb7416a669c6b": "Recalled",
       "textb74399647bf0": "Name it after the job it does, so an audit line reads as itself.",
       "textb743a712efa8": "A thread is a session. One, and only one.",
@@ -18332,7 +18365,6 @@
       "texte3190ee3d8a8": "Unable to display workbook",
       "texte31ab643c44f": "member",
       "texte31c7af1f424": "Everyone connects their own account.",
-      "texte327e6c1348b": "Clone from this address with any Git client. When git asks, enter any username and a Dosco API key as the password — the Dosco command line does this for you through its credential helper, plain",
       "texte3311b311078": "Wants CSV as well as xlsx",
       "texte335ed040bfe": "A draft on a branch, reviewed as a diff.",
       "texte339fc8e7d89": "A chat answer cannot be checked or repeated. So the session commits its work: the query, the script, the chart, and a note on what it verified.",
@@ -21447,7 +21479,11 @@
       "texta268bab502cf": "Viewed calendar item",
       "text16d71c4d10a2": "Edited calendar item",
       "text14580c9900ac": "Deleted calendar item",
-      "text96386c724e21": "Commented on calendar item"
+      "text96386c724e21": "Commented on calendar item",
+      "textf543a9f99ce7": "Action Bar",
+      "textca4067071fcf": "Selection",
+      "text4cea356a17a1": "Unsaved edits",
+      "text2358f7b37c07": "The floating bar for a temporary mode: a selection, unsaved edits, a pending paste. A title, a muted description, actions with key hints, and a close button."
     },
     "publicShareConfirm": {
       "title": "Create a public link?",
@@ -21864,11 +21900,14 @@
     "noCapUnlimited": "No cap · spend is unlimited",
     "tokensSub": "{in} in · {out} out",
     "unknownValue": "Unknown",
-    "estimateCoverageUnavailable": "Estimate coverage unavailable.",
     "estimatesSeparate": "Actual spend above is separate. Estimates are never added to charges.",
     "estimatedUsageValueLabel": "LLM estimated usage value (not a bill):",
-    "pricedRequests": "{count} priced requests",
-    "unpricedRequests": "{count} unpriced requests",
+    "pricedRequests": "{count, number} priced requests",
+    "unpricedRequests": "{count, number} unpriced requests",
+    "failedRequests": "{count, number} failed requests",
+    "estimateInfoLabel": "About this estimate",
+    "estimateDetail": "Successful model calls priced at public list rates. Failed requests and models without a known rate are not priced.",
+    "estimateRateVersion": "Rate table: {version}",
     "llmEstimateLabel": "LLM estimate:"
   },
   "triggerComposer": {
@@ -22396,7 +22435,9 @@
     "areaDescription": "Connect apps and channels to your agents, and decide what they may do.",
     "wayMoreNamed": "More for {name}",
     "otherWaysLead": "Other ways:",
-    "typeFilterKortix": "Dosco"
+    "typeFilterKortix": "Dosco",
+    "scopeAll": "All",
+    "scopeAdded": "Added"
   },
   "connectMcp": {
     "title": "Connect Dosco over MCP",
@@ -24712,7 +24753,7 @@
   },
   "calendar": {
     "title": "Calendar",
-    "gateDescription": "A shared calendar for people and agents: items with a date, an owner and comments, beside your scheduled triggers and Loops.",
+    "gateDescription": "A shared calendar for people and agents: dated items with the people on them and comments, beside your scheduled triggers and Loops.",
     "newItem": "New item",
     "today": "Today",
     "previousWeek": "Previous week",
@@ -24729,12 +24770,14 @@
     },
     "people": "People",
     "agents": "Agents",
+    "searchPeople": "Search people and agents",
     "noDate": "No date",
     "noDateHint": "Items without a date wait here.",
     "allDay": "All day",
+    "startTime": "Start time",
+    "endTime": "End time",
     "overdue": "Overdue",
     "status": {
-      "open": "Open",
       "done": "Done"
     },
     "comments": "{count, plural, one {# comment} other {# comments}}",
@@ -24747,9 +24790,7 @@
     "dayEntries": "{day}, {count, plural, one {# entry} other {# entries}}",
     "showWeekOf": "Show the week of {day}",
     "more": "{count} more",
-    "nobody": "Nobody",
     "when": "When",
-    "owner": "Owner",
     "created": "Created",
     "clearDate": "Remove date",
     "saveFailed": "The change was not saved.",
@@ -24947,7 +24988,7 @@
       "newAgent": "New agent",
       "newAgentHelp": "Xera writes the agent into kortix.yaml and opens a change request.",
       "name": "Name",
-      "namePlaceholder": "market-scan",
+      "namePlaceholder": "Market scan",
       "nameHelp": "Lowercase letters, digits and dashes. Saved as <slug></slug>.",
       "nameTaken": "An agent with this name already exists.",
       "howToStart": "How to start",
@@ -26545,7 +26586,11 @@
         "resume": "Could not resume the run",
         "stop": "Could not stop the run",
         "restart": "Could not restart {label}"
-      }
+      },
+      "hold": "Hold new agents",
+      "holdShort": "Hold new agents",
+      "holdHint": "Hold new agents: none starts until you resume; agents already working go on (p)",
+      "holding": "Holding new agents"
     },
     "board": {
       "layoutLabel": "Layout",
@@ -26839,7 +26884,8 @@
         "dangerZone": "Danger zone",
         "evalDatasets": "Datasets",
         "evalTasks": "Tasks",
-        "evalJobs": "Jobs"
+        "evalJobs": "Jobs",
+        "evalTrials": "Trials"
       },
       "accessTitle": "Access",
       "accessDescription": "Who can open this workspace, and with which role.",
@@ -26867,6 +26913,9 @@
       "personalKeysEmpty": "No personal keys. kortix login makes one; keys for a script are made in a workspace's Settings › API keys.",
       "securityDescription": "Sign-in rules, who may open whose sessions, and the rules every API key follows.",
       "rolesDescription": "Built-in and custom roles. Assign them from Members.",
+      "builtInRoles": "Built-in roles",
+      "memberGroupsEnterprise": "Groups are part of Enterprise.",
+      "openGroups": "Open Groups",
       "workspaceId": "Workspace ID",
       "workspaceIdDescription": "For the CLI, the API, and support.",
       "leaveWorkspace": "Leave workspace",
@@ -26880,7 +26929,7 @@
       "apiKeysDescription": "Keys for scripts, CI and integrations. A key acts as you, an agent or a bot. The rules every key follows are in Security.",
       "keys": {
         "title": "API keys",
-        "description": "Keys for scripts, CI and integrations. A key acts as you, an agent or a bot; Works in sets which workspaces it reaches.",
+        "description": "Keys for scripts, CI and integrations. A key acts as you, an agent or a bot. It works in this workspace unless you pick all your workspaces.",
         "newKey": "New key",
         "count": "{count, plural, one {# key} other {# keys}}",
         "emptyTitle": "No API keys",
@@ -27096,7 +27145,9 @@
       "queued": "Queued",
       "running": "Running",
       "completed": "Completed",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "paused": "Paused",
+      "cancelling": "Cancelling"
     },
     "trialStatus": {
       "queued": "Queued",
@@ -27105,7 +27156,8 @@
       "verifying": "Verifying",
       "completed": "Completed",
       "errored": "Errored",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "paused": "Paused"
     },
     "rerunFailed": "Re-run failed",
     "rerunAll": "Re-run all",
@@ -27162,7 +27214,8 @@
       "error": "Error",
       "running": "Running",
       "queued": "Queued",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "paused": "Paused"
     },
     "colMeanScore": "Mean score",
     "metricsHint": "Each trial’s score is the mean of its rewards; this is their mean. Harbor’s metrics per reward key: {metrics}",
@@ -27266,7 +27319,7 @@
     "progressLabel": "Progress",
     "ranFor": "Ran for {time}",
     "recentJobs": "Recent jobs",
-    "registryGroup": "Harbor registry",
+    "registryGroup": "Harbor",
     "registryTasksHint": "Harbor registry datasets list their tasks on their own page",
     "registryUnavailable": "The Harbor registry could not be read ({reason}). Your suites and the built-in datasets are listed.",
     "retryN": "retry {n}",
@@ -27340,7 +27393,7 @@
       "all": "All",
       "suite": "Yours",
       "builtin": "Built-in",
-      "registry": "Harbor registry"
+      "registry": "Harbor"
     },
     "taskTab": {
       "instruction": "Instruction",
@@ -27348,7 +27401,49 @@
       "files": "Files",
       "results": "Results"
     },
-    "colTaskCount": "Tasks"
+    "colTaskCount": "Tasks",
+    "pause": "Pause",
+    "resume": "Resume",
+    "paused": "Job paused",
+    "resumed": "Job resumed",
+    "cancelNow": "Stop now",
+    "cancelNowHint": "Running trials stop and the job ends.",
+    "cancelDrain": "Let running trials finish",
+    "cancelDrainHint": "Nothing new starts or retries. The job ends after its running trials.",
+    "cancelDrainStarted": "The job ends after its running trials",
+    "trialsTitle": "Trials",
+    "trialsDescription": "Every trial of every job, filtered on the server.",
+    "trialsInfo": "Each filter lists its values with how many trials have them, counted among the trials the other filters keep. A row opens the trial beside its job.",
+    "searchTrials": "Search trials",
+    "sortLabel": "Sort",
+    "trialSort": {
+      "desc_created_at": "Newest first",
+      "created_at": "Oldest first",
+      "desc_finished_at": "Last finished",
+      "desc_reward": "Highest reward",
+      "reward": "Lowest reward",
+      "task": "Task A–Z"
+    },
+    "trialFacet": {
+      "status": "Status",
+      "job": "Job",
+      "task": "Task",
+      "agent": "Agent",
+      "model": "Model",
+      "exception_type": "Error"
+    },
+    "trialFacetAny": {
+      "status": "Any status",
+      "job": "All jobs",
+      "task": "All tasks",
+      "agent": "Any agent",
+      "model": "Any model",
+      "exception_type": "Any error"
+    },
+    "noTrialsYet": "No trial has run yet",
+    "displayingRange": "{from}–{to} of {total} trials",
+    "previousPage": "Previous page",
+    "nextPage": "Next page"
   },
   "desktopTabs": {
     "tabs": "Open tabs",
@@ -27373,6 +27468,7 @@
     "settings": "Settings",
     "pages": {
       "apps": "Apps",
+      "calendar": "Calendar",
       "chat": "Chat",
       "drive": "Drive",
       "files": "Files",

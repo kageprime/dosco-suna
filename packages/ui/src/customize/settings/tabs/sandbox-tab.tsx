@@ -159,6 +159,27 @@ export function describeBase(
   };
 }
 
+/**
+ * What the card header names. The slug shows only when it says something the
+ * display name does not ("Default" over `default` read "Default default
+ * Default"), and the `Default` badge only when there is another template to
+ * tell it apart from.
+ */
+export function templateHeaderLabels(
+  template: Pick<SandboxTemplate, 'name' | 'slug' | 'is_default'>,
+  templateCount: number,
+): { showSlug: boolean; showDefaultBadge: boolean } {
+  const nameAsSlug = template.name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return {
+    showSlug: nameAsSlug !== template.slug.toLowerCase(),
+    showDefaultBadge: Boolean(template.is_default) && templateCount > 1,
+  };
+}
+
 /** Locale-aware age for the runtime footer's "Checked …" stamp. */
 
 export function TemplateStateLine({ tone, label }: { tone: TemplateTone; label: string }) {
@@ -203,7 +224,12 @@ export function TemplateRuntimeFooter({
       <span className="text-muted-foreground shrink-0 text-xs">{runtimeLabel}</span>
       <div className="flex flex-wrap items-center gap-1.5">
         {available.map((item) => (
-          <SandboxProviderBadge key={item.provider} item={item} copy={badgeCopy} />
+          <SandboxProviderBadge
+            key={item.provider}
+            item={item}
+            copy={badgeCopy}
+            showProvider={available.length > 1}
+          />
         ))}
       </div>
       {observedAt ? (
@@ -220,11 +246,13 @@ function TemplateCard({
   template,
   canManage,
   onEdit,
+  templateCount,
 }: {
   projectId: string;
   template: SandboxTemplate;
   canManage: boolean;
   onEdit: (tpl: SandboxTemplate) => void;
+  templateCount: number;
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const t = useTranslations('settings.sandbox');
@@ -275,6 +303,7 @@ function TemplateCard({
     builtFrom: t('facts.builtFrom'),
     kortixDefault: t('facts.kortixDefault'),
   });
+  const header = templateHeaderLabels(template, templateCount);
 
   return (
     <>
@@ -290,10 +319,12 @@ function TemplateCard({
           <div className="min-w-0 space-y-1.5">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-foreground truncate text-sm font-medium">{template.name}</span>
-              <Badge variant="secondary" size="sm">
-                {template.slug}
-              </Badge>
-              {template.is_default ? (
+              {header.showSlug ? (
+                <Badge variant="secondary" size="sm">
+                  {template.slug}
+                </Badge>
+              ) : null}
+              {header.showDefaultBadge ? (
                 <Badge variant="muted" size="sm">
                   {t('defaultBadge')}
                 </Badge>
@@ -629,6 +660,7 @@ export function SandboxTab({ projectId }: { projectId: string }) {
                   template={t}
                   canManage={canManage}
                   onEdit={openEditForm}
+                  templateCount={templates.length}
                 />
               ))}
             </ul>

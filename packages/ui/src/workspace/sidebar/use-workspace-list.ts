@@ -29,6 +29,18 @@ export function workspaceListQueryKey(userId: string | null | undefined) {
   return [...qk.projects.workspaces(userId), 'every-state'] as const;
 }
 
+const listEveryWorkspace = () => listWorkspaces({ includeInactive: true });
+
+/**
+ * The workspace list as the app already cached it (the switcher's and the
+ * settings rail's query), with no request of its own: undefined until one of
+ * them loaded it. For a reader that must add no load.
+ */
+export function useCachedWorkspaceSummaries(): WorkspaceSummary[] | undefined {
+  const viewerId = useUiViewerId();
+  return useQuery<WorkspaceSummary[]>({ queryKey: workspaceListQueryKey(viewerId), queryFn: listEveryWorkspace, enabled: false }).data;
+}
+
 export interface WorkspaceList {
   /** Every workspace, most recently opened first. */
   rows: WorkspaceRow[];
@@ -47,7 +59,7 @@ export function useWorkspaceList(options: { retry?: number } = {}): WorkspaceLis
   const accountsQuery = useAccountsList(options.retry === undefined ? undefined : { retry: options.retry });
   const listQuery = useQuery<WorkspaceSummary[]>({
     queryKey: workspaceListQueryKey(viewerId),
-    queryFn: () => listWorkspaces({ includeInactive: true }),
+    queryFn: listEveryWorkspace,
     retry: options.retry,
     ...contract('inventory'),
   });

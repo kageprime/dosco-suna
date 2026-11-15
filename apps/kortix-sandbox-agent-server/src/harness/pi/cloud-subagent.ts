@@ -63,7 +63,13 @@
  * `stallMs` watches the tail of the child's session log at most once a minute:
  * no new message, block, text or reasoning, no status change, and no tool call
  * still running, for `stallMs` stops the child and returns an error with
- * `stalled: true`.
+ * `stalled: true`. `toolTimeoutMs` (with `stallMs`) makes one tool call older
+ * than it a stall too; without it a running tool call is progress however long
+ * it runs. `onQuiet` gets, at each check, when the log last changed.
+ *
+ * A child stopped from outside the call (its turn ended `aborted`, or its row
+ * says `stopped`) is `aborted`, never a failure; `stoppedBy: 'person'` when
+ * the API's turn ledger names a person's Stop (`UserStop`).
  *
  * Names, teams and forks (`agent({ name, fork })`, `extensions/subagents.ts`):
  *  - `handle` stores metadata `agent_handle` (and `kortix.agent.handle` in
@@ -632,12 +638,16 @@ async function settleAndRead(
   http: Http,
   childId: string,
   baseline: string | null,
-  input: Pick<SpawnSessionInput, 'signal' | 'stallMs' | 'waitMs'>,
+  input: Pick<SpawnSessionInput, 'signal' | 'stallMs' | 'waitMs' | 'toolTimeoutMs' | 'onQuiet'>,
   model: { providerID: string; modelID: string },
   opts: CloudSubagentOptions,
 ): Promise<SpawnSessionResult> {
   const signal = input.signal
-  const settled = await waitForIdle(http, childId, baseline, signal, { ...opts, ...(input.waitMs ? { waitCeilingMs: input.waitMs } : {}) }, input.stallMs)
+  const settled = await waitForIdle(http, childId, baseline, signal, { ...opts, ...(input.waitMs ? { waitCeilingMs: input.waitMs } : {}) }, {
+    ...(input.stallMs ? { stallMs: input.stallMs } : {}),
+    ...(input.toolTimeoutMs ? { toolTimeoutMs: input.toolTimeoutMs } : {}),
+    ...(input.onQuiet ? { onQuiet: input.onQuiet } : {}),
+  })
   if (settled.status === 'stalled') {
     // A new attempt starts in a new session: this one must not keep working beside it.
     await stopChild(http, childId)
@@ -645,8 +655,12 @@ async function settleAndRead(
   }
   if (settled.status === 'aborted') {
     // The parent gave up on the call: do not leave the child working (and billing) on its own.
-    if (signal?.aborted) await stopChild(http, childId)
-    return { sessionId: childId, status: 'aborted', text: '', model }
+    if (signal?.aborted) {
+      await stopChild(http, childId)
+      return { sessionId: childId, status: 'aborted', text: '', model }
+    }
+    // Stopped from outside the call: say who, when the API's ledger knows.
+    return { sessionId: childId, status: 'aborted', text: '', model, ...((await stoppedByPerson(http, childId)) ? { stoppedBy: 'person' as const } : {}) }
   }
   if (settled.status === 'timeout') {
     // Stop it: a child nobody waits on would keep using compute, and its freed slot would let the cap be exceeded.
@@ -655,11 +669,25 @@ async function settleAndRead(
   }
   if (settled.status === 'error') return { sessionId: childId, status: 'error', text: '', error: settled.error, model }
   const report = await readFinalText(http, childId)
+  // The child's last turn was stopped, not failed: a Stop from outside this call (a person, task_stop).
+  if (report.aborted) return { sessionId: childId, status: 'aborted', text: '', model, ...((await stoppedByPerson(http, childId)) ? { stoppedBy: 'person' as const } : {}) }
   if (report.error) return { sessionId: childId, status: 'error', text: '', error: report.error, model }
   return { sessionId: childId, status: 'completed', text: report.text, model }
 }
 
+/** The API's turn ledger says a person's Stop ended the child's last turn (`UserStop`). False when it cannot be read. */
+async function stoppedByPerson(http: Http, childId: string): Promise<boolean> {
+  return (await readLastTurnEnd(http, childId))?.name === 'UserStop'
+}
+
 type Settled = { status: 'completed' | 'error' | 'aborted' | 'timeout' | 'stalled'; error?: string }
+
+/** The stall watch of one wait (`SpawnSessionInput.stallMs`, `toolTimeoutMs`, `onQuiet`). */
+interface StallWatch {
+  stallMs?: number
+  toolTimeoutMs?: number
+  onQuiet?: (since: number) => void
+}
 
 /**
  * Poll `GET /v1/projects/:projectId/sessions/:childId` until the child's turn
@@ -673,14 +701,21 @@ async function waitForIdle(
   baseline: string | null,
   signal: AbortSignal | undefined,
   opts: CloudSubagentOptions,
-  stallMs?: number,
+  watch: StallWatch = {},
 ): Promise<Settled> {
   const now = opts.now ?? (() => Date.now())
   const ceiling = opts.waitCeilingMs ?? WAIT_CEILING_MS
   const interval = opts.pollIntervalMs ?? POLL_INTERVAL_MS
   const deadline = now() + ceiling
   let everWorked = false
-  const stall = stallMs && stallMs > 0 ? { lastProgress: now(), lastCheck: now(), signature: undefined as string | undefined } : null
+  const stallMs = watch.stallMs
+  const toolTimeoutMs = watch.toolTimeoutMs && watch.toolTimeoutMs > 0 ? watch.toolTimeoutMs : undefined
+  // `lastOutput`: the log last changed. `lastProgress`: that, or a tool call still running (and within `toolTimeoutMs`).
+  const stall =
+    stallMs && stallMs > 0
+      ? { lastProgress: now(), lastOutput: now(), lastCheck: now(), signature: undefined as string | undefined, toolSeen: new Map<string, number>() }
+      : null
+  const checkEvery = stallMs ? Math.min(STALL_CHECK_MS, stallMs, toolTimeoutMs ?? Infinity) : Infinity
   for (;;) {
     if (signal?.aborted) return { status: 'aborted' }
     if (now() > deadline) return { status: 'timeout', error: `child session did not settle within ${Math.round(ceiling / 60_000)} min` }
@@ -706,12 +741,24 @@ async function waitForIdle(
     } else if (res.status === 404) {
       return { status: 'error', error: 'child session disappeared' }
     }
-    if (stall && stallMs && now() - stall.lastCheck >= Math.min(STALL_CHECK_MS, stallMs)) {
+    if (stall && stallMs && now() - stall.lastCheck >= checkEvery) {
       stall.lastCheck = now()
       const probe = await progressProbe(http, childId)
-      // The first read is the baseline; a change after it, or a tool call still running, is progress.
-      if (probe && (probe.toolRunning || (stall.signature !== undefined && probe.signature !== stall.signature))) stall.lastProgress = now()
-      if (probe) stall.signature = probe.signature
+      if (probe) {
+        // The first read is the baseline; a change after it is new output.
+        if (stall.signature !== undefined && probe.signature !== stall.signature) stall.lastOutput = stall.lastProgress = now()
+        stall.signature = probe.signature
+        if (probe.tool) {
+          // A tool call still running is progress, unless it has run past `toolTimeoutMs` (a hung command).
+          if (!stall.toolSeen.has(probe.tool.id)) stall.toolSeen.set(probe.tool.id, now())
+          const age = now() - (probe.tool.startedAt ?? stall.toolSeen.get(probe.tool.id)!)
+          if (toolTimeoutMs && age > toolTimeoutMs) {
+            return { status: 'stalled', error: `agent stalled: one tool call ran longer than ${durationText(toolTimeoutMs)} (toolTimeoutMs)` }
+          }
+          stall.lastProgress = now()
+        }
+        watch.onQuiet?.(stall.lastOutput)
+      }
       if (now() - stall.lastProgress > stallMs) {
         return { status: 'stalled', error: `agent stalled: no new output for ${Math.round(stallMs / 60_000)} min` }
       }
@@ -727,16 +774,19 @@ async function waitForIdle(
  * most 5 s behind. Null when the tail could not be read: the probe itself
  * never decides a stall.
  */
-async function progressProbe(http: Http, childId: string): Promise<{ signature: string; toolRunning: boolean } | null> {
+async function progressProbe(http: Http, childId: string): Promise<{ signature: string; tool: { id: string; startedAt?: number } | null } | null> {
   try {
     const tail = await readLogTail(http, childId, PROGRESS_MESSAGES)
     if (!tail.ok) return null
     const calls = (m: LogMessage | undefined) => (m?.blocks ?? []).flatMap((b) => (b.type === 'tool_call' ? [b] : []))
     const written = (m: LogMessage) =>
       m.blocks.reduce((n, b) => n + (b.type === 'text' || b.type === 'reasoning' ? (b.text?.length ?? 0) : 0), 0)
+    // The oldest tool call of the newest message that still runs: its age is what `toolTimeoutMs` bounds.
+    const running = calls(tail.messages.at(-1)).find((call) => call.status === 'running' || call.status === 'pending')
+    const startedAt = running?.started_at ? Date.parse(running.started_at) : NaN
     return {
       signature: JSON.stringify(tail.messages.map((m) => [m.message_id, m.status, m.blocks.length, written(m), calls(m).map((c) => c.status)])),
-      toolRunning: calls(tail.messages.at(-1)).some((call) => call.status === 'running' || call.status === 'pending'),
+      tool: running ? { id: running.call_id ?? running.id, ...(Number.isFinite(startedAt) ? { startedAt } : {}) } : null,
     }
   } catch {
     return null
@@ -829,7 +879,7 @@ export interface ChildReport {
   /** Its last turn's final text (`settled` and `stopped` only); '' when none. */
   text: string
   /** How its last turn ended, from the API's turn ledger (`GET …/turn` `last_ended`); absent when unknown. */
-  lastEnd?: { reason: string; error?: string }
+  lastEnd?: { reason: string; error?: string; name?: string }
 }
 
 /**
@@ -911,11 +961,12 @@ async function readLastTurnEnd(http: Http, childId: string): Promise<ChildReport
   try {
     const res = await http.fetchImpl(sessionUrl(http, childId, '/turn'), { headers: http.headers })
     if (res.status !== 200) return undefined
-    const body = (await res.json().catch(() => null)) as { last_ended?: { end_reason?: string | null; error?: { message?: string | null } } } | null
+    const body = (await res.json().catch(() => null)) as { last_ended?: { end_reason?: string | null; error?: { name?: string | null; message?: string | null } } } | null
     const reason = body?.last_ended?.end_reason
     if (!reason) return undefined
     const error = body?.last_ended?.error?.message
-    return { reason, ...(error ? { error } : {}) }
+    const name = body?.last_ended?.error?.name
+    return { reason, ...(error ? { error } : {}), ...(name ? { name } : {}) }
   } catch {
     return undefined
   }
@@ -942,7 +993,7 @@ async function stopChild(http: Http, childId: string): Promise<void> {
  * result. If the newest assistant message of the turn failed, the result is an
  * error, even when an earlier message of the turn has text.
  */
-async function readFinalText(http: Http, childId: string): Promise<{ text: string; error?: string }> {
+async function readFinalText(http: Http, childId: string): Promise<{ text: string; error?: string; aborted?: true }> {
   const pointer = `The subagent ran as the Kortix child session ${childId}; its transcript is that session.`
   let tail: LogTail
   try {
@@ -957,6 +1008,8 @@ async function readFinalText(http: Http, childId: string): Promise<{ text: strin
   const turn = messages.slice(messages.findLastIndex((m) => m.role === 'user') + 1)
   const assistants = turn.filter((m) => m.role === 'assistant')
   const last = assistants.at(-1)
+  // A turn that was stopped ends `aborted` (its error says "The operation was aborted."): a stop, not a failure.
+  if (last && (last.status === 'aborted' || last.finish === 'aborted')) return { text: '', aborted: true }
   if (last?.error) return { text: '', error: `the subagent's last turn failed: ${last.error.message || last.error.code}` }
   const report = [...assistants].reverse().map(reportText).find((text) => text !== '')
   if (report) return { text: report }
@@ -976,6 +1029,11 @@ function reportText(message: LogMessage): string {
   const stored = blocks.reduce((n, b) => n + (b.ref !== undefined ? (b.bytes ?? 0) : 0), 0)
   if (stored > 0) return `${text.slice(0, REPORT_MAX_CHARS)}…[truncated: ${Math.min(text.length, REPORT_MAX_CHARS)} chars of a stored text of ${stored} bytes]`
   return text.length <= REPORT_MAX_CHARS ? text : `${text.slice(0, REPORT_MAX_CHARS)}…[truncated: ${REPORT_MAX_CHARS} of ${text.length} chars]`
+}
+
+/** `90 s`, `3 min`. */
+function durationText(ms: number): string {
+  return ms >= 60_000 ? `${Math.round(ms / 60_000)} min` : `${Math.round(ms / 1000)} s`
 }
 
 function errorText(err: unknown): string {

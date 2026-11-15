@@ -4,7 +4,7 @@ import { Hint } from "./hint";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "./hover-card";
 import { useState } from "react";
 import { cn } from "../lib/utils";
-import { Children, Fragment, isValidElement, type ReactNode } from "react";
+import { Children, isValidElement, type ReactNode } from "react";
 
 export interface InlineMetaProps {
   className?: string;
@@ -23,16 +23,24 @@ export function InlineMeta({ className, children }: InlineMetaProps) {
         className,
       )}
     >
+      {/* Each item is one flex box with its separator dot after it, so a
+          wrapped line never starts with a dot. `inline-flex min-w-0 max-w-full`
+          caps the item at the row width, so a child with `truncate` gets an
+          ellipsis instead of running under the controls beside the row. */}
       {items.map((child, i) => (
-        <Fragment key={isValidElement(child) ? (child.key ?? i) : i}>
-          {i > 0 && (
+        <span
+          key={isValidElement(child) ? (child.key ?? i) : i}
+          data-inline-meta-item=""
+          className="inline-flex max-w-full min-w-0 items-center gap-2"
+        >
+          {child}
+          {i < items.length - 1 && (
             <span
               aria-hidden="true"
               className="bg-muted-foreground size-1 shrink-0 rounded-full"
             />
           )}
-          <span className="min-w-0">{child}</span>
-        </Fragment>
+        </span>
       ))}
     </div>
   );

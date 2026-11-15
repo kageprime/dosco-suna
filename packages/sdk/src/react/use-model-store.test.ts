@@ -276,3 +276,25 @@ describe('favorite models', () => {
     after.resetVisibility();
   });
 });
+
+// ============================================================================
+// The agent last picked in a new composer, per workspace (audit finding 01):
+// the next new session in that workspace starts on it.
+// ============================================================================
+
+describe('the per-workspace agent pick', () => {
+  test('is stored per workspace and read back after a re-mount', () => {
+    captureModelStore([]).setProjectAgentName('workspace-a', 'mykortix');
+    captureModelStore([]).setProjectAgentName('workspace-b', 'worker');
+    const after = captureModelStore([]);
+    expect(after.getProjectAgentName('workspace-a')).toBe('mykortix');
+    expect(after.getProjectAgentName('workspace-b')).toBe('worker');
+    expect(after.getProjectAgentName('workspace-c')).toBeUndefined();
+  });
+
+  test('a cleared pick reads back as none', () => {
+    captureModelStore([]).setProjectAgentName('workspace-a', 'mykortix');
+    captureModelStore([]).setProjectAgentName('workspace-a', undefined);
+    expect(captureModelStore([]).getProjectAgentName('workspace-a')).toBeUndefined();
+  });
+});

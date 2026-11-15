@@ -10,6 +10,7 @@ import { isRuntimeStartingError } from '@kortix/sdk';
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type SharedImageResult, useFileSource } from './file-source';
 import { useFileCaption } from '../../internal/stores/file-preview-store';
+import { useFileAnnotations } from './file-annotations';
 import { getFileCategory, getLanguageFromExt, type FileCategory } from './preview-policy';
 import { usePreviewFit } from './preview-fit';
 import { useContentRevision } from './use-content-revision';
@@ -170,10 +171,13 @@ export function useFileContentState({
   // LSP diagnostics for this file from the global diagnostics store
   // Uses suffix-matching because LSP stores absolute paths but we use relative paths
   const diagByFile = useDiagnosticsStore((s) => s.byFile);
-  const fileDiagnostics = useMemo(
-    () => findDiagnosticsForFile(diagByFile, filePath),
-    [diagByFile, filePath],
-  );
+  // Plus what the surface knows about this file (`FileAnnotationsProvider`):
+  // the repository view's kortix.yaml issues.
+  const annotations = useFileAnnotations(filePath);
+  const fileDiagnostics = useMemo(() => {
+    const lsp = findDiagnosticsForFile(diagByFile, filePath);
+    return annotations.length > 0 ? [...(lsp ?? []), ...annotations] : lsp;
+  }, [diagByFile, filePath, annotations]);
   const fileDiagErrorCount = useMemo(
     () => fileDiagnostics?.filter((d) => d.severity === 1).length ?? 0,
     [fileDiagnostics],

@@ -77,6 +77,7 @@ import { localizeUiCatalog } from '@kortix/ui/i18n';
 import { InlineMeta, InlineMetaHint, InlineMetaTime } from '@kortix/ui/inline-meta';
 import { Input } from '@kortix/ui/input';
 import { Kbd, KbdGroup } from '@kortix/ui/kbd';
+import { ActionBar } from '@kortix/ui/action-bar';
 import { IconInbox } from '@kortix/ui/kortix-icons';
 import { Label } from '@kortix/ui/label';
 import Loading from '@kortix/ui/loading';
@@ -564,6 +565,7 @@ const TOC_SECTIONS = [
       { id: 'comp-progress', label: 'Progress' },
       { id: 'comp-slider', label: 'Slider' },
       { id: 'comp-label', label: 'Label' },
+      { id: 'comp-action-bar', label: 'Action Bar' },
       { id: 'comp-kbd', label: 'Kbd' },
       { id: 'comp-breadcrumb', label: 'Breadcrumb' },
       { id: 'comp-table', label: 'Table' },
@@ -3318,6 +3320,50 @@ export default function BrandPage() {
                           'appHomeDesignSystemPage.line1877JsxAttrPlaceholderYouExampleCom',
                         )}
                       />
+                    </div>
+                  </DemoContainer>
+                </Spec>
+
+                <Spec
+                  id="comp-action-bar"
+                  source="@kortix/ui/action-bar"
+                  name={tI18nHardcoded.raw('i18nComplete.textf543a9f99ce7')}
+                  about={tI18nHardcoded.raw('i18nComplete.text2358f7b37c07')}
+                >
+                  <DemoContainer>
+                    <div className="space-y-4">
+                      <SpecRow label={tI18nHardcoded.raw('i18nComplete.textca4067071fcf')}>
+                        <div className="w-full max-w-xl">
+                          <ActionBar
+                            animateIn={false}
+                            title={tI18nHardcoded('i18nComplete.text1cc5b0d9628f', { count: 3 })}
+                            actions={[
+                              { id: 'select-all', label: tI18nHardcoded.raw('i18nComplete.text1fc9a387654d'), onSelect: () => {} },
+                              { id: 'pause', label: tI18nHardcoded.raw('i18nComplete.text858e4ba7a29f'), onSelect: () => {} },
+                              { id: 'resume', label: tI18nHardcoded.raw('i18nComplete.textd640c7421da0'), disabled: true, onSelect: () => {} },
+                              { id: 'delete', label: tI18nHardcoded.raw('i18nComplete.texte2d0a54968ea'), tone: 'destructive', onSelect: () => {} },
+                            ]}
+                            close={{ label: tI18nHardcoded.raw('i18nComplete.text22206bc67806'), onSelect: () => {} }}
+                          />
+                        </div>
+                      </SpecRow>
+                      <SpecRow label={tI18nHardcoded.raw('i18nComplete.text4cea356a17a1')}>
+                        <div className="w-full max-w-xl">
+                          <ActionBar
+                            animateIn={false}
+                            title={tI18nHardcoded.raw('i18nComplete.textefa5855ff509')}
+                            actions={[
+                              { id: 'discard', label: tI18nHardcoded.raw('i18nComplete.texteb1a70e39274'), onSelect: () => {} },
+                              {
+                                id: 'save',
+                                label: tI18nHardcoded.raw('i18nComplete.text1509f561f241'),
+                                kbd: ['mod', 'S'],
+                                onSelect: () => {},
+                              },
+                            ]}
+                          />
+                        </div>
+                      </SpecRow>
                     </div>
                   </DemoContainer>
                 </Spec>

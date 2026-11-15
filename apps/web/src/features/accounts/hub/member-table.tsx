@@ -176,7 +176,9 @@ export function MemberTableRow({
         />
       ) : null}
       <SelectCell select={select} />
-      <span role="cell" className="flex min-w-0 items-center gap-3">
+      {/* `pr-3`: the grid has no column gap, so at phone width the tags
+          ("You") would touch the role badge in the next column. */}
+      <span role="cell" className="flex min-w-0 items-center gap-3 pr-3">
         {avatar}
         <span
           className={cn(

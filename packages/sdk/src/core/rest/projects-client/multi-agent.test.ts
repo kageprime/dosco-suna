@@ -141,6 +141,14 @@ test('listProjectSessionsPage sends teamLead as team_lead', async () => {
   expect(last().url).toBe('http://test.local/workspaces/p1/sessions?team_lead=s1');
 });
 
+test('listWorkspaceSessionsPage sends working as working=only, and leaves it out when false', async () => {
+  nextBody = [];
+  await listWorkspaceSessionsPage('p1', { working: true, limit: 100 });
+  expect(last().url).toBe('http://test.local/workspaces/p1/sessions?limit=100&working=only');
+  await listWorkspaceSessionsPage('p1', { working: false });
+  expect(last().url).toBe('http://test.local/workspaces/p1/sessions');
+});
+
 test('a session handle binds the multi-agent routes to its own ids', async () => {
   const kortix = createKortix({ backendUrl: 'http://test.local', getToken: async () => 'tok' });
   const session = kortix.session('p1', 's1');

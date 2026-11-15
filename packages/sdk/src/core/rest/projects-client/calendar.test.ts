@@ -36,9 +36,10 @@ const ITEM: CalendarItem = {
   title: 'Approve the Q4 budget',
   notes: '@ana please approve',
   starts_at: '2026-11-16T15:00:00.000Z',
+  ends_at: '2026-11-16T16:00:00.000Z',
   all_day: false,
   status: 'open',
-  assignee: { kind: 'person', user_id: 'u-ana' },
+  people: [{ kind: 'person', user_id: 'u-ana' }, { kind: 'agent', agent: 'finance' }],
   created_by: { kind: 'agent', agent: 'finance', session_id: 's1' },
   comment_count: 1,
   completed_at: null,
@@ -63,16 +64,16 @@ describe('calendar client', () => {
     serve(routes, calls);
   });
 
-  test('list sends the window, the filters and undated=false only when asked', async () => {
+  test('list sends the window, the with filter and undated=false only when asked', async () => {
     const from = '2026-11-09T00:00:00.000Z';
     const to = '2026-11-16T00:00:00.000Z';
-    routes[`GET ${base}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&assignee=me&undated=false`] = { status: 200, body: { items: [ITEM] } };
+    routes[`GET ${base}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&with=me&undated=false`] = { status: 200, body: { items: [ITEM] } };
     routes[`GET ${base}`] = { status: 200, body: { items: [] } };
 
-    expect(await listWorkspaceCalendarItems('p1', { from, to, assignee: 'me', undated: false })).toEqual([ITEM]);
+    expect(await listWorkspaceCalendarItems('p1', { from, to, with: 'me', undated: false })).toEqual([ITEM]);
     expect(await listWorkspaceCalendarItems('p1')).toEqual([]);
     expect(calls.map((c) => c.key)).toEqual([
-      `GET ${base}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&assignee=me&undated=false`,
+      `GET ${base}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&with=me&undated=false`,
       `GET ${base}`,
     ]);
   });
@@ -86,17 +87,18 @@ describe('calendar client', () => {
     const created = await createWorkspaceCalendarItem('p1', {
       title: 'Approve the Q4 budget',
       starts_at: '2026-11-16T15:00:00.000Z',
-      assignee: { email: 'ana@example.test' },
+      ends_at: '2026-11-16T16:00:00.000Z',
+      people: [{ email: 'ana@example.test' }, { agent: 'finance' }],
       notes: '@ana please approve',
     });
     expect(created).toEqual(ITEM);
-    expect((await updateWorkspaceCalendarItem('p1', ITEM.item_id, { status: 'done', starts_at: null })).status).toBe('done');
+    expect((await updateWorkspaceCalendarItem('p1', ITEM.item_id, { status: 'done', people: [] })).status).toBe('done');
     await deleteWorkspaceCalendarItem('p1', ITEM.item_id);
     expect(await addWorkspaceCalendarComment('p1', ITEM.item_id, 'Approved.')).toEqual(COMMENT);
 
     expect(calls.map((c) => [c.key, c.body])).toEqual([
-      [`POST ${base}`, { title: 'Approve the Q4 budget', starts_at: '2026-11-16T15:00:00.000Z', assignee: { email: 'ana@example.test' }, notes: '@ana please approve' }],
-      [`PATCH ${base}/${ITEM.item_id}`, { status: 'done', starts_at: null }],
+      [`POST ${base}`, { title: 'Approve the Q4 budget', starts_at: '2026-11-16T15:00:00.000Z', ends_at: '2026-11-16T16:00:00.000Z', people: [{ email: 'ana@example.test' }, { agent: 'finance' }], notes: '@ana please approve' }],
+      [`PATCH ${base}/${ITEM.item_id}`, { status: 'done', people: [] }],
       [`DELETE ${base}/${ITEM.item_id}`, null],
       [`POST ${base}/${ITEM.item_id}/comments`, { body: 'Approved.' }],
     ]);

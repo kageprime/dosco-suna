@@ -18,6 +18,7 @@ import {
   describeBase,
   describeSource,
   describeState,
+  templateHeaderLabels,
 } from './sandbox-tab';
 
 /**
@@ -419,5 +420,44 @@ describe('template card readability', () => {
     // Overflow is contained to the cell and recoverable via the native title.
     expect(out).toContain('truncate');
     expect(out).toContain('title="a/very/long/image:tag"');
+  });
+});
+
+/** Visible text only: tags and attribute values (aria-label) removed. */
+const visibleText = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+describe('one status vocabulary on the sandbox page', () => {
+  test('the session runtime chip reads "Ready": the provider is in its tooltip, not on the chip', () => {
+    const html = renderProviderPresentation({
+      coverage: [coverageEntry({ provider: 'platinum', status: 'ready' })],
+    });
+    const text = visibleText(html);
+    expect(text).toContain('Ready');
+    expect(text).not.toMatch(/platinum/i);
+    // Sentence case, the StatusBadge chip — not the uppercase mono Badge.
+    expect(html).toContain('data-slot="status-badge"');
+    expect(html).not.toContain('uppercase');
+    // Screen readers still hear which provider is ready.
+    expect(html).toContain('aria-label="Platinum: Ready"');
+  });
+
+  test('the header names a template once when its slug is its name', () => {
+    expect(templateHeaderLabels({ name: 'Default', slug: 'default', is_default: true }, 1)).toEqual({
+      showSlug: false,
+      showDefaultBadge: false,
+    });
+    expect(templateHeaderLabels({ name: 'Data Science', slug: 'data-science', is_default: false }, 2))
+      .toMatchObject({ showSlug: false });
+  });
+
+  test('the header shows the slug when it differs, and Default only beside another template', () => {
+    expect(templateHeaderLabels({ name: 'Default sandbox', slug: 'default', is_default: true }, 2)).toEqual({
+      showSlug: true,
+      showDefaultBadge: true,
+    });
+    expect(templateHeaderLabels({ name: 'GPU', slug: 'ml-gpu', is_default: false }, 2)).toEqual({
+      showSlug: true,
+      showDefaultBadge: false,
+    });
   });
 });

@@ -1,7 +1,7 @@
 {
   "generatedAt": "static",
-  "count": 1813,
-  "aliases": 704,
+  "count": 1827,
+  "aliases": 711,
   "routes": [
     {
       "method": "GET",
@@ -3573,8 +3573,18 @@
     },
     {
       "method": "POST",
+      "path": "/v1/projects/:workspaceId/evals/jobs/:jobId/pause",
+      "aliasOf": "/v1/workspaces/:workspaceId/evals/jobs/:jobId/pause"
+    },
+    {
+      "method": "POST",
       "path": "/v1/projects/:workspaceId/evals/jobs/:jobId/rerun",
       "aliasOf": "/v1/workspaces/:workspaceId/evals/jobs/:jobId/rerun"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:workspaceId/evals/jobs/:jobId/resume",
+      "aliasOf": "/v1/workspaces/:workspaceId/evals/jobs/:jobId/resume"
     },
     {
       "method": "GET",
@@ -3598,8 +3608,23 @@
     },
     {
       "method": "POST",
+      "path": "/v1/projects/:workspaceId/evals/jobs/:jobId/trials/:trialId/pause",
+      "aliasOf": "/v1/workspaces/:workspaceId/evals/jobs/:jobId/trials/:trialId/pause"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:workspaceId/evals/jobs/:jobId/trials/:trialId/resume",
+      "aliasOf": "/v1/workspaces/:workspaceId/evals/jobs/:jobId/trials/:trialId/resume"
+    },
+    {
+      "method": "POST",
       "path": "/v1/projects/:workspaceId/evals/jobs/:jobId/trials/:trialId/retry",
       "aliasOf": "/v1/workspaces/:workspaceId/evals/jobs/:jobId/trials/:trialId/retry"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:workspaceId/evals/jobs/filters",
+      "aliasOf": "/v1/workspaces/:workspaceId/evals/jobs/filters"
     },
     {
       "method": "GET",
@@ -3620,6 +3645,16 @@
       "method": "GET",
       "path": "/v1/projects/:workspaceId/evals/tasks/:taskId/results",
       "aliasOf": "/v1/workspaces/:workspaceId/evals/tasks/:taskId/results"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:workspaceId/evals/trials",
+      "aliasOf": "/v1/workspaces/:workspaceId/evals/trials"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:workspaceId/evals/trials/filters",
+      "aliasOf": "/v1/workspaces/:workspaceId/evals/trials/filters"
     },
     {
       "method": "PATCH",
@@ -6417,7 +6452,15 @@
     },
     {
       "method": "POST",
+      "path": "/v1/workspaces/:workspaceId/evals/jobs/:jobId/pause"
+    },
+    {
+      "method": "POST",
       "path": "/v1/workspaces/:workspaceId/evals/jobs/:jobId/rerun"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/workspaces/:workspaceId/evals/jobs/:jobId/resume"
     },
     {
       "method": "GET",
@@ -6437,7 +6480,19 @@
     },
     {
       "method": "POST",
+      "path": "/v1/workspaces/:workspaceId/evals/jobs/:jobId/trials/:trialId/pause"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/workspaces/:workspaceId/evals/jobs/:jobId/trials/:trialId/resume"
+    },
+    {
+      "method": "POST",
       "path": "/v1/workspaces/:workspaceId/evals/jobs/:jobId/trials/:trialId/retry"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/workspaces/:workspaceId/evals/jobs/filters"
     },
     {
       "method": "GET",
@@ -6454,6 +6509,14 @@
     {
       "method": "GET",
       "path": "/v1/workspaces/:workspaceId/evals/tasks/:taskId/results"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/workspaces/:workspaceId/evals/trials"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/workspaces/:workspaceId/evals/trials/filters"
     },
     {
       "method": "PATCH",

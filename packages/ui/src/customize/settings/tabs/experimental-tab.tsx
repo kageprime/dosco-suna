@@ -57,6 +57,7 @@ import { useTranslations as useI18nTranslations } from '../../../i18n';
 import { useRef, useState } from 'react';
 
 import { Button } from '../../../primitives/button';
+import { InlineCodeText } from '../../../markdown/inline-code-text';
 import {
   InputGroupSearch,
   InputGroupSearchClear,
@@ -131,11 +132,22 @@ export const DEFAULT_EXPERIMENTAL_COPY: ExperimentalCopy = {
   wipNote: 'Not recommended yet: it can change or break.',
 };
 
+/**
+ * The workspace's choice changes what the flag does. An override that equals
+ * the platform default (a flag switched off and on again) changes nothing, so
+ * the row reads as the default and offers no reset. A server that sends no
+ * `default_enabled` leaves this unknown: the row trusts `overridden`.
+ */
+export function overridesDefault(feature: FeatureFlagView): boolean {
+  if (!feature.overridden) return false;
+  return feature.default_enabled === undefined || feature.enabled !== feature.default_enabled;
+}
+
 function originLabel(feature: FeatureFlagView, copy: ExperimentalCopy): string {
   // An internal-only flag (`apps`) is listed only while on, and
   // `PATCH /features` refuses it to anyone but a Kortix operator.
   if (feature.operator_only) return copy.managedByKortix;
-  if (!feature.overridden) return feature.enabled ? copy.defaultOn : copy.defaultOff;
+  if (!overridesDefault(feature)) return feature.enabled ? copy.defaultOn : copy.defaultOff;
   if (feature.default_enabled === undefined) return copy.overridden;
   return `${copy.overridden} · ${feature.default_enabled ? copy.defaultOn : copy.defaultOff}`;
 }
@@ -239,12 +251,12 @@ function ExperimentalFeatureRow({
         </div>
         <p className="text-muted-foreground mt-0.5 text-xs text-pretty">
           {feature.wip ? `${copy.wipNote} ` : null}
-          {feature.description}
+          <InlineCodeText text={feature.description} />
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {pending ? <Loading className="text-muted-foreground size-3.5" /> : null}
-        {feature.overridden && !feature.operator_only ? (
+        {overridesDefault(feature) && !feature.operator_only ? (
           <Button
             variant="ghost"
             size="xs"
@@ -352,7 +364,7 @@ export function ExperimentalTabView({
               onChange={(e) => onQueryChange(e.target.value)}
               variant="popover"
             />
-            <InputGroupSearchClear onClick={() => onQueryChange('')} />
+            {query ? <InputGroupSearchClear onClick={() => onQueryChange('')} /> : null}
           </InputGroupSearch>
         ) : null}
 

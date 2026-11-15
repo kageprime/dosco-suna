@@ -141,4 +141,41 @@ describe('runtime local model selection scoping', () => {
       }),
     ).toBe('reviewer');
   });
+
+  test('a new composer seeds from the agent last picked in this workspace, over the default', () => {
+    expect(
+      resolveCurrentAgentName({
+        rememberedAgentName: 'mykortix',
+        defaultAgentName: 'kortix',
+        lastAgentName: 'builder',
+      }),
+    ).toBe('mykortix');
+  });
+
+  test('the workspace pick seeds new composers only: a session keeps its own agent', () => {
+    expect(
+      resolveCurrentAgentName({
+        sessionId: 'session-1',
+        rememberedAgentName: 'mykortix',
+        defaultAgentName: 'kortix',
+      }),
+    ).toBe('kortix');
+    expect(
+      resolveCurrentAgentName({
+        boundAgentName: 'reviewer',
+        rememberedAgentName: 'mykortix',
+        defaultAgentName: 'kortix',
+      }),
+    ).toBe('reviewer');
+  });
+
+  test('an explicit pick still outranks the remembered workspace pick', () => {
+    expect(
+      resolveCurrentAgentName({
+        explicitAgentName: 'reviewer',
+        rememberedAgentName: 'mykortix',
+        defaultAgentName: 'kortix',
+      }),
+    ).toBe('reviewer');
+  });
 });

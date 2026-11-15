@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Linking, View } from 'react-native';
-import { INBOX_NOTIFICATION_KINDS, type InboxNotificationKind } from '@kortix/sdk';
+import { hiddenNotificationKinds, INBOX_NOTIFICATION_KINDS, type InboxNotificationKind } from '@kortix/sdk';
 import { useNotificationPreferences } from '@kortix/sdk/react';
 import {
   ArrowCounterClockwiseIcon,
@@ -27,6 +27,7 @@ import { useToast } from '@/components/kortix/toast-provider';
 import { useAuthContext } from '@/contexts';
 import { haptics } from '@/lib/haptics';
 import { KIND_LABEL } from '@/lib/notifications/inbox';
+import { useWorkspaces } from '@/lib/projects/hooks';
 import { DEVICE_KIND_SWITCH } from '@/lib/notifications/push';
 import { carryOverLegacyKinds } from '@/lib/notifications/registration';
 import { useNotificationStore, type NotificationPreferences } from '@/stores/notification-store';
@@ -101,8 +102,11 @@ export default function NotificationsScreen() {
   );
 
   const kinds = record.data?.kinds;
-  // The kinds that cannot reach this person now: the API lists them, and the row is hidden.
-  const hiddenKinds = record.data?.hidden_kinds ?? [];
+  // The kinds that cannot reach this person now: the API lists some, and a kind behind a
+  // feature flag hides while the flag is off in every workspace. The list is read from the
+  // cache the app shell fills (enabled false): no request of its own.
+  const workspaces = useWorkspaces(false);
+  const hiddenKinds = hiddenNotificationKinds(record.data, workspaces.rows.map((row) => row.project));
 
   return (
     <SettingsPage>

@@ -16,7 +16,7 @@ import type { AttachmentSubmission } from './attachment-submission';
 import type { ComposerSendReset } from './composer-reset';
 import { type Command, type ModelKey, useProjectConfig, useRuntimeAgents, useRuntimeCommands, useRuntimeConfig, useRuntimeProviders, useSessionModelSelection } from '@kortix/sdk/react';
 import { appendMentionRefs } from '../../internal/lib/project-preamble';
-import { resolveComposerAgent, withChannelAgents } from './composer-agent-access';
+import { chatStartAgent, resolveComposerAgent, withChannelAgents } from './composer-agent-access';
 import { inheritedModelFor } from './chat-input/chat-input-summary';
 import type { DraftScope } from './draft/composer-draft';
 
@@ -175,7 +175,9 @@ export function ComposerChatInput({
   const { data: providers, isLoading: providersLoading } = useRuntimeProviders();
   const { data: config } = useRuntimeConfig();
   const projectConfig = useProjectConfig(projectId);
-  const startAgent = defaultAgentName || projectConfig?.default_agent;
+  // A new chat starts on the place's agent (a channel's), else My Kortix when
+  // the workspace runs it, else kortix.yaml `default_agent` (`chatStartAgent`).
+  const startAgent = defaultAgentName || chatStartAgent(projectConfig);
   const local = useSessionModelSelection({
     agents,
     providers,
@@ -183,6 +185,9 @@ export function ComposerChatInput({
     sessionId,
     boundAgentName,
     defaultAgentName: startAgent,
+    // A new workspace chat remembers the person's pick and starts the next one
+    // on it. A place with its own default agent (a channel) keeps that default.
+    rememberAgent: !sessionId && !boundAgentName && !defaultAgentName,
     projectSession,
   });
   const setAgent = local.agent.set;

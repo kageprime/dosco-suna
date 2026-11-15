@@ -18,7 +18,7 @@ describe('account pane heading navigation', () => {
   });
 
   for (const loading of [true, false]) {
-    test(`Groups and Projects retain level-one titles with loading=${loading}`, () => {
+    test(`Groups keeps its level-one title and Workspaces is a section of Members with loading=${loading}`, () => {
       const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
       if (!loading) {
         client.setQueryData(['account-groups', 'synthetic-account'], []);
@@ -53,7 +53,9 @@ describe('account pane heading navigation', () => {
           />
         </QueryClientProvider>,
       );
-      expect(projects).toMatch(/<h1\b[^>]*>Workspaces<\/h1>/);
+      // Members has one h1 (settings audit, finding 19): its Workspaces list is an h2.
+      expect(projects).toMatch(/<h2\b[^>]*>Workspaces<\/h2>/);
+      expect(projects).not.toContain('<h1');
       client.clear();
     });
   }

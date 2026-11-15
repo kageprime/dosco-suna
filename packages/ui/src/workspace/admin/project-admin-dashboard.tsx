@@ -46,7 +46,11 @@ import { Button } from '../../primitives/button';
 import { EmptyState } from '../../primitives/empty-state';
 import { ErrorState } from '../../primitives/error-state';
 import { FadedScrollArea } from '../../primitives/faded-scroll-area';
-import { SettingsSectionHeader } from '../../primitives/settings-section-header';
+import {
+  SETTINGS_PAGE_COLUMN_CLASS,
+  SettingsPageHeader,
+  SettingsPageTitleProvider,
+} from '../../primitives/settings-section-header';
 import { Skeleton } from '../../primitives/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '../../primitives/tabs';
 import { UiLink as Link, useUiRouter, useUiSearchParams } from '../../providers/ui-provider';
@@ -175,6 +179,7 @@ const RESOURCE_PAGES: Partial<Record<ProjectAdminResourceKey, SectionPage>> = {
   'eval-datasets': lazyPage(() => import('../../customize/evals/eval-datasets-page'), (m) => m.EvalDatasetsPage),
   'eval-tasks': lazyPage(() => import('../../customize/evals/eval-tasks-page'), (m) => m.EvalTasksPage),
   'eval-jobs': lazyPage(() => import('../../customize/evals/eval-jobs-page'), (m) => m.EvalJobsPage),
+  'eval-trials': lazyPage(() => import('../../customize/evals/eval-trials-page'), (m) => m.EvalTrialsPage),
   models: lazyPage(() => import('../../customize/models/models-page'), (m) => m.ModelsPage),
   secrets: lazyPage(() => import('../../customize/secrets/secrets-page'), (m) => m.SecretsPage),
   repo: lazyPage(() => import('../layout/project-files-view'), (m) => m.ProjectFilesView),
@@ -210,10 +215,9 @@ const SETTINGS_PAGES: Record<ProjectAdminSettingsKey, SectionPage> = {
       const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
       return (
         <div className="mx-auto w-full max-w-2xl space-y-8">
-          <SettingsSectionHeader
+          <SettingsPageHeader
             title={tI18nComplete.raw('text95ddc9c4dfd3')}
             description={tI18nComplete.raw('texte0d7209f4c07')}
-            className="pb-1"
           />
           <GitView projectId={projectId} />
         </div>
@@ -641,50 +645,64 @@ export function ProjectAdminDashboard({
 
         <main ref={mainRef} className="bg-background flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {settled && active && activeRow && (ProjectPage || AccountPage) ? (
-            <Suspense key={active} fallback={<CapabilitiesSkeleton />}>
-              {isProjectAdminResource(active) && ProjectPage ? (
-                <div
-                  className={cn(
-                    'flex min-h-0 flex-1 flex-col overflow-hidden',
-                    active === 'apps' && HOST_PANE_CLASS,
-                  )}
-                >
-                  {content ?? <ProjectPage projectId={projectId} />}
-                </div>
-              ) : (
-                // Bounded, not scrolling: the account panes' split sheet
-                // (Invite, New key) splits this column, and the page and the
-                // sheet each scroll inside their own half.
-                <div className="min-h-0 flex-1">
-                  <AccountHubSheetProvider>
-                    {activeRow.project && ProjectPage ? (
-                      <div className="mx-auto flex min-h-0 w-full flex-1 flex-col space-y-6 px-4 py-10 pb-20 lg:py-14">
-                        {/* General places the account half before its
-                            Danger zone; every other section appends it. */}
-                        {active === 'general' ? (
-                          <ProjectPage projectId={projectId} slot={companionPane} />
-                        ) : (
-                          <>
-                            <ProjectPage projectId={projectId} />
-                            {companionPane}
-                          </>
-                        )}
+            // Every page header in the pane reads its title from the rail row,
+            // so the page is named exactly like the row that opened it. A page
+            // below a section (a connector) names itself.
+            <SettingsPageTitleProvider value={content ? null : activeRow.label}>
+              <Suspense key={active} fallback={<CapabilitiesSkeleton />}>
+                {isProjectAdminResource(active) && ProjectPage ? (
+                  <div
+                    className={cn(
+                      'flex min-h-0 flex-1 flex-col overflow-hidden',
+                      active === 'apps' && HOST_PANE_CLASS,
+                    )}
+                  >
+                    {/* The repository browser has no page header of its own, only
+                        its toolbar: the settings page header sits above it. */}
+                    {active === 'repo' && !content ? (
+                      <div className={cn(SETTINGS_PAGE_COLUMN_CLASS, 'shrink-0 pb-6')}>
+                        <SettingsPageHeader title={activeRow.label} />
                       </div>
-                    ) : AccountPage && accountTab && accountId ? (
-                      <EmbeddedAccountHubProvider value={{ accountId, tab: accountTab }}>
-                        <AccountPage
-                          projectId={projectId}
-                          accountId={accountId}
-                          tab={accountTab}
-                          companion={false}
-                          title={isWorkspaceAccountSection(active) ? undefined : activeRow.label}
-                        />
-                      </EmbeddedAccountHubProvider>
                     ) : null}
-                  </AccountHubSheetProvider>
-                </div>
-              )}
-            </Suspense>
+                    {content ?? <ProjectPage projectId={projectId} />}
+                  </div>
+                ) : (
+                  // Bounded, not scrolling: the account panes' split sheet
+                  // (Invite, New key) splits this column, and the page and the
+                  // sheet each scroll inside their own half.
+                  <div className="min-h-0 flex-1">
+                    <AccountHubSheetProvider>
+                      {activeRow.project && ProjectPage ? (
+                        <div className={SETTINGS_PAGE_COLUMN_CLASS}>
+                        <div className="flex w-full max-w-2xl flex-col space-y-6">
+                            {/* General places the account half before its
+                                Danger zone; every other section appends it. */}
+                            {active === 'general' ? (
+                              <ProjectPage projectId={projectId} slot={companionPane} />
+                            ) : (
+                              <>
+                                <ProjectPage projectId={projectId} />
+                                {companionPane}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ) : AccountPage && accountTab && accountId ? (
+                        <EmbeddedAccountHubProvider value={{ accountId, tab: accountTab }}>
+                          <AccountPage
+                            projectId={projectId}
+                            accountId={accountId}
+                            tab={accountTab}
+                            companion={false}
+                            title={isWorkspaceAccountSection(active) ? undefined : activeRow.label}
+                          />
+                        </EmbeddedAccountHubProvider>
+                      ) : null}
+                    </AccountHubSheetProvider>
+                  </div>
+                )}
+              </Suspense>
+            </SettingsPageTitleProvider>
           ) : (
             <CapabilitiesSkeleton />
           )}

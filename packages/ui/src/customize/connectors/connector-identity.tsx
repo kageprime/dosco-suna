@@ -64,8 +64,9 @@ export function ConnectorStatusBadge({
 /**
  * A project connector's logo with its state on it, the way a Slack or Teams
  * app tile shows one: a dot on the bottom-right corner (green Connected,
- * orange Needs account, red Error). The word is for screen readers; the dot
- * carries it on screen.
+ * orange Needs account, red Error). The dot is a second cue only: colour is
+ * never the only means (WCAG 1.4.1). Put {@link ConnectorStatusWord} in the
+ * tile's subtitle, which says the state in words.
  */
 export function ConnectorStatusLogo({
   connector,
@@ -84,7 +85,26 @@ export function ConnectorStatusLogo({
       <span aria-hidden className="bg-background absolute -right-1 -bottom-1 flex size-3 items-center justify-center rounded-full">
         <span className={cn('size-2 rounded-full', STATUS_DOT[tone])} />
       </span>
-      <span className="sr-only">{t(STATUS_WORD[tone])}</span>
+      {/* Connected says nothing on screen, so its word stays for screen readers. */}
+      {tone === 'connected' ? <span className="sr-only">{t(STATUS_WORD[tone])}</span> : null}
     </span>
+  );
+}
+
+/**
+ * The state as visible text after a tile's subtitle (" · Needs account").
+ * A healthy connector stays quiet and renders nothing.
+ */
+export function ConnectorStatusWord({ connector, accountCount }: { connector: AdminConnector; accountCount?: number }) {
+  const t = useTranslations('connectorPages');
+  const tone = connectorTone(connector, accountCount);
+  if (tone === 'connected') return null;
+  return (
+    <>
+      {' · '}
+      <span className="text-foreground" data-connector-tone={tone}>
+        {t(STATUS_WORD[tone])}
+      </span>
+    </>
   );
 }

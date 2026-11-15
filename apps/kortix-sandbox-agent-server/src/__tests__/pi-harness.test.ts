@@ -5149,7 +5149,10 @@ describe('pi session log on the v2 stream (P4.3)', () => {
     // Every record in a batch the journal wrote is on the stream, at the same rev; the stream's other puts are live puts (P4.3b) at lower revs.
     const batches = readdirSync(dump).map((f) => JSON.parse(readFileSync(join(dump, f), 'utf8')) as { puts: Array<{ rev: number; message: SessionLogMessage }> })
     const onStream = new Map(frames.filter((x) => x.type === 'log.message').map((f) => [`${f.payload.message.message_id}@${f.payload.rev}`, f.payload.message]))
-    for (const p of batches.flatMap((b) => b.puts)) expect(onStream.get(`${p.message.message_id}@${p.rev}`)).toEqual(p.message)
+    // A viewer's stream carries the system prompt message without its text (finding 17); the journal keeps it whole.
+    for (const p of batches.flatMap((b) => b.puts)) {
+      expect(onStream.get(`${p.message.message_id}@${p.rev}`)).toEqual(p.message.kind === 'context' ? { ...p.message, blocks: [] } : p.message)
+    }
   })
 
   // F-011: a tab that left a session mid-answer and came back joins the v2 stream live-only.
@@ -5176,6 +5179,41 @@ describe('pi session log on the v2 stream (P4.3)', () => {
     expect(SESSION_LOG_EVENTS['log.message'].safeParse(reply!.payload).success).toBe(true)
     expect(reply!.payload.message).toMatchObject({ thread_id: root, status: 'streaming' })
     expect(reply!.payload.message.blocks).toContainEqual(expect.objectContaining({ type: 'text', text: 'Section 1. The head of the answer.' }))
+  })
+
+  // Finding 17: the box page carried the system prompt (role system, kind context; ~56 KB for
+  // My Kortix, 82% of every page) to every viewer, who drops it at render.
+  test('GET /log and the v2 stream leave out the system prompt (kind context) unless the reader asks with include=context', async () => {
+    const r = await boot({ script: [{ text: 'context answer' }] })
+    const rt = r.service.runtime()!
+    const root = rt.rootId
+    expect(startSessionLogJournal(createPiSessionLogPort(() => r.service.runtime()?.sessionLogSnapshot() ?? null), { generation: 0 })).not.toBeNull()
+    expect((await prompt(r, root, { parts: [{ type: 'text', text: 'hello' }] })).status).toBe(204)
+    await waitFor(() => !rt.busy(), 10_000)
+    const native = piSessionLog(rt.sessionLogSnapshot()!).log.threads[0]!.messages
+    // The stored log keeps the context: the next prompt and the API's copy read it.
+    expect(native.some((m) => m.kind === 'context')).toBe(true)
+
+    const page = (await r.user('/kortix/runtime/log').then((res) => res.json())) as { messages: SessionLogMessage[]; has_more: boolean }
+    expect(page.messages.some((m) => m.kind === 'context')).toBe(false)
+    expect(page.messages.map((m) => m.message_id)).toEqual(native.filter((m) => m.kind !== 'context').map((m) => m.message_id))
+    expect(page.has_more).toBe(false)
+    const withContext = (await r.user('/kortix/runtime/log?include=context').then((res) => res.json())) as { messages: SessionLogMessage[] }
+    expect(withContext.messages.some((m) => m.kind === 'context')).toBe(true)
+
+    const contextPuts = (raw: string) =>
+      raw
+        .split('\n\n')
+        .filter((f) => f.startsWith('event: log.message'))
+        .map((f) => JSON.parse(f.slice(f.indexOf('data: ') + 6)) as { payload: { message?: SessionLogMessage } })
+        // The stream keeps the frame (dense seqs) and drops only the prompt text.
+        .filter((f) => f.payload.message?.kind === 'context' && f.payload.message.blocks.length > 0).length
+    await flushSessionLogJournal()
+    const viewer = await readSse(await r.bearer('/kortix/runtime/events?schema=v2&since=0'), (t) => t.includes('context answer'), 1_500)
+    expect(viewer).toContain('context answer')
+    expect(contextPuts(viewer)).toBe(0)
+    const inspector = await readSse(await r.bearer('/kortix/runtime/events?schema=v2&since=0&include=context'), (t) => contextPuts(t) > 0, 1_500)
+    expect(contextPuts(inspector)).toBeGreaterThan(0)
   })
 
   test('a prompt queued behind a running turn is on the stream at its queued seq from admission, then at its real seq; GET /log shows the seqs the API stores', async () => {

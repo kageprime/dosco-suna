@@ -120,6 +120,17 @@ describe('buildMentionSections agent names', () => {
     expect(section?.items[0]).toMatchObject({ kind: 'agent', label: 'Memory reflector', value: 'memory-reflector' });
   });
 
+  test('a titled agent shows its title, and the title matches the query', () => {
+    const [section] = buildMentionSections({
+      agents: [{ name: 'github-pr-reviewer', title: 'GitHub PR Reviewer' } as never],
+      sessions: [],
+      files: [],
+      query: 'github pr',
+      currentSessionId: undefined,
+    });
+    expect(section?.items[0]).toMatchObject({ kind: 'agent', label: 'GitHub PR Reviewer', value: 'github-pr-reviewer' });
+  });
+
   test('the display name matches the query too', () => {
     const sections = buildMentionSections({
       agents: [{ name: 'memory-reflector' } as never],

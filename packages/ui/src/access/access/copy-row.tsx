@@ -42,6 +42,12 @@ export interface CopyRowProps {
   successMessage?: string;
   /** Extra controls between the value and the copy button (Reveal, Rotate…). */
   actions?: ReactNode;
+  /**
+   * Show the whole value: it sizes the row to the value and wraps at any
+   * character when the row has no room, instead of cutting it off. For an id
+   * a person reads out or compares (the Workspace ID).
+   */
+  wrap?: boolean;
   className?: string;
 }
 
@@ -51,6 +57,7 @@ export function CopyRow({
   display,
   successMessage,
   actions,
+  wrap = false,
   className,
 }: CopyRowProps) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
@@ -65,7 +72,12 @@ export function CopyRow({
     <div className={cn('space-y-1.5', className)}>
       {label ? <span className="text-muted-foreground text-xs font-medium">{label}</span> : null}
       <div className="bg-popover flex items-center gap-2 rounded-md border px-3 py-2">
-        <code className="text-foreground min-w-0 flex-1 truncate font-mono text-xs">
+        <code
+          className={cn(
+            'text-foreground min-w-0 flex-1 font-mono text-xs',
+            wrap ? 'break-all' : 'truncate',
+          )}
+        >
           {display ?? value}
         </code>
         {actions}

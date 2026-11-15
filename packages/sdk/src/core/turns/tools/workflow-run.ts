@@ -46,6 +46,12 @@ export interface WorkflowRun {
   background?: { sessionId: string };
   /** `pause` held new agents back; running agents finish. Cleared by `resume`. */
   paused?: true;
+  /** The approval question is open: no run exists yet. */
+  awaitingApproval?: true;
+  /** The person said no at the approval (`cancel`, or `chat`: answer in chat instead); no agent started. */
+  declined?: 'cancel' | 'chat';
+  /** How long the approval question waited for the person (ms): waiting time, not work. */
+  approvalWaitMs?: number;
 }
 
 const RUN_STATUSES = new Set<WorkflowRunStatus>(['running', 'done', 'failed', 'stopped']);
@@ -82,6 +88,10 @@ function agent(entry: unknown, index: number): WorkflowRunAgent | undefined {
   const attempt = count(entry.attempt);
   const startedAt = time(entry.startedAt);
   const endedAt = time(entry.endedAt);
+  const quietSince = time(entry.quietSince);
+  const earlierSessionIds = Array.isArray(entry.earlierSessionIds)
+    ? entry.earlierSessionIds.filter((id): id is string => typeof id === 'string' && id.length > 0)
+    : [];
   return {
     id: text(entry.id) ?? `a${index + 1}`,
     label,
@@ -96,6 +106,9 @@ function agent(entry: unknown, index: number): WorkflowRunAgent | undefined {
     ...(attempt !== undefined ? { attempt } : {}),
     ...(startedAt !== undefined ? { startedAt } : {}),
     ...(endedAt !== undefined ? { endedAt } : {}),
+    ...(entry.stoppedBy === 'person' ? { stoppedBy: 'person' as const } : {}),
+    ...(quietSince !== undefined ? { quietSince } : {}),
+    ...(earlierSessionIds.length > 0 ? { earlierSessionIds } : {}),
   };
 }
 
@@ -151,6 +164,11 @@ export function parseWorkflowRun(metadata: unknown): WorkflowRun | null {
     ...(resumedFrom ? { resumedFrom } : {}),
     ...(backgroundSession ? { background: { sessionId: backgroundSession } } : {}),
     ...(metadata.paused === true ? { paused: true as const } : {}),
+    ...(metadata.awaitingApproval === true ? { awaitingApproval: true as const } : {}),
+    ...(metadata.declined === 'cancel' || metadata.declined === 'chat' ? { declined: metadata.declined } : {}),
+    ...(typeof metadata.approvalWaitMs === 'number' && Number.isFinite(metadata.approvalWaitMs) && metadata.approvalWaitMs >= 0
+      ? { approvalWaitMs: metadata.approvalWaitMs }
+      : {}),
   };
 }
 

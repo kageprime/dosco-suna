@@ -243,12 +243,13 @@ export function focusProps(
     node.dispatchEvent(event);
     return !event.defaultPrevented;
   };
+  trackFocusMoves();
   return {
     // As in Radix, focus that is already inside the popup when it opens (an
     // `autoFocus` field) stays there; Base UI would move it to its own pick.
     initialFocus: () => {
       const node = getPopup();
-      if (node) returnFocusTo.set(node, document.activeElement);
+      if (node) returnFocusTo.set(node, focusBeforeOpen(node));
       if (node && node.contains(document.activeElement)) return false;
       return onOpenAutoFocus ? run('focusScope.autoFocusOnMount', onOpenAutoFocus) : true;
     },
@@ -274,6 +275,37 @@ export function focusProps(
 
 /** The element that had focus when each popup opened. */
 const returnFocusTo = new WeakMap<HTMLElement, Element | null>();
+
+/** The last focus move: where focus went, and where it came from (`relatedTarget`). */
+let lastFocusMove: { to: EventTarget | null; from: EventTarget | null } | null = null;
+const trackedDocuments = new WeakSet<Document>();
+
+/** Installs one capture `focusin` listener per document, at the first popup render. */
+function trackFocusMoves() {
+  if (typeof document === 'undefined' || trackedDocuments.has(document)) return;
+  trackedDocuments.add(document);
+  document.addEventListener(
+    'focusin',
+    (event) => {
+      lastFocusMove = { to: event.target, from: (event as FocusEvent).relatedTarget };
+    },
+    true,
+  );
+}
+
+/**
+ * Where focus was before the popup opened. An `autoFocus` field inside the
+ * popup takes focus during React's commit, before `initialFocus` runs: then
+ * `activeElement` is that field, and the element it took focus from is the
+ * real return target (a dialog opened from a menu row once returned focus to
+ * a field it had just unmounted, so focus fell to <body>).
+ */
+function focusBeforeOpen(node: HTMLElement): Element | null {
+  const active = document.activeElement;
+  if (!active || !node.contains(active) || lastFocusMove?.to !== active) return active;
+  const from = lastFocusMove.from;
+  return from instanceof Element && !node.contains(from) ? from : null;
+}
 
 /**
  * Base UI `nativeButton` for a trigger: true when it renders a real `<button>`.

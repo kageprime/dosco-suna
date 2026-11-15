@@ -72,9 +72,8 @@ export function AppsCard({
       // The payoff: if the agent got something running, that is the single most
       // interesting fact in the panel. It should not take a click to learn it.
       defaultExpanded={apps.length > 0}
-      emptyArt={<AppsArt />}
       emptyText={tI18nComplete.raw('texte0687cb3046c')}
-      contentClassName="border-border border-t px-2 py-2"
+      contentClassName="pb-2"
     >
       <ul className="flex flex-col gap-0">
         {apps.map((app) => {
@@ -85,12 +84,11 @@ export function AppsCard({
                 type="button"
                 onClick={() => onOpenApp(app)}
                 className={cn(
-                  'hover:bg-accent -mx-0.5 flex w-full items-center gap-2.5 rounded-sm px-1 py-1.5 text-left',
-                  // 0.98 is the row press value the Outputs and Context rows
-                  // use; 0.998 is the CARD HEADER's (`panel-card.tsx`), where a
-                  // full-width surface must barely move. A row that pressed at
-                  // the header's value read as not responding at all.
-                  'transition-[background-color,transform] active:scale-[0.98]',
+                  'hover:bg-accent flex w-full items-center gap-2.5 px-4 py-2 text-left',
+                  // Full-width row: the brand's full-width press value (0.998),
+                  // shared with the Outputs and Context rows. The background
+                  // change carries the press; the scale only confirms it.
+                  'transition-[background-color,transform] active:scale-[0.998]',
                 )}
               >
                 <span className="flex size-7 shrink-0 items-center justify-center" aria-hidden>
@@ -126,19 +124,3 @@ export function AppsCard({
   );
 }
 
-/** Soft placeholder art — a browser window, matching the other cards' empty states. */
-function AppsArt() {
-  return (
-    <div
-      aria-hidden
-      className="border-border/60 bg-muted/30 flex h-16 w-20 flex-col gap-1.5 rounded-md border p-2"
-    >
-      <div className="flex gap-1">
-        <span className="bg-muted-foreground/30 size-1 rounded-full" />
-        <span className="bg-muted-foreground/30 size-1 rounded-full" />
-        <span className="bg-muted-foreground/30 size-1 rounded-full" />
-      </div>
-      <span className="bg-muted-foreground/20 h-full w-full rounded-sm" />
-    </div>
-  );
-}

@@ -281,6 +281,7 @@ import {
   useSessionWorkingStore,
   useAnswerSessionAsk,
   useSessionNeedsYou,
+  useNetworkOnline,
 } from '@kortix/sdk/react';
 import { useStableCallback } from '../../internal/hooks/use-stable-callback';
 import { useReloadForensics } from '../status/reload-forensics';
@@ -1123,6 +1124,12 @@ export function SessionChat({
    * it — a refused send, Stop, and leaving the session.
    */
   const receiptSessionId = projectSessionId ?? '';
+  // The browser reports no network: a send waits for it (the SDK holds the
+  // POST), so it takes no receipt until it goes out, and the composer shows
+  // the offline line instead of a turn that never started (finding 07).
+  const networkOnline = useNetworkOnline();
+  const networkOnlineRef = useRef(networkOnline);
+  networkOnlineRef.current = networkOnline;
   const noteSendReceipt = useCallback(
     (messageId: string, turnId: string | null = messageId) =>
       useSessionWorkingStore
@@ -3191,7 +3198,11 @@ export function SessionChat({
         // The prompt is out of this tab's hands the moment the row lands, so the
         // receipt is taken BEFORE the POST: it is what holds the composer on
         // "working" until `GET .../turn` reports the turn the inbox admitted.
-        noteSendReceipt(messageID, receiptTurnId);
+        // Offline: no receipt yet. The POST waits for the network; the receipt is
+        // taken when the server has the prompt, so no Thinking row stands for a
+        // send that has not left the page.
+        const heldOffline = !networkOnlineRef.current;
+        if (!heldOffline) noteSendReceipt(messageID, receiptTurnId);
         const result = await (async () => {
           try {
             if (!projectId || !projectSessionId) {
@@ -3232,6 +3243,7 @@ export function SessionChat({
             // for it. `useSessionPrompts` raises the inbox floor at the same
             // moment, which is what covers the window before the row is
             // delivered and becomes a turn.
+            if (heldOffline) noteSendReceipt(messageID, receiptTurnId);
             acceptSendReceipt(messageID);
             attachments?.release();
             // The durable row now carries this prompt, so the tab-local draft
@@ -3244,6 +3256,7 @@ export function SessionChat({
             // Resolve that verdict before the composer can restore its draft:
             // recoverFromSendFailure checks asynchronously and returns an error now.
             if (!keepsPainted && (await inboxRowExists().catch(() => false))) {
+              if (heldOffline) noteSendReceipt(messageID, receiptTurnId);
               acceptSendReceipt(messageID);
               attachments?.release();
               if (!paintTranscript)
@@ -5204,6 +5217,15 @@ export function SessionChat({
           {/* Input — hidden in read-only mode (sub-session modal) */}
           {!readOnly && (
             <>
+              {/* The browser has no network: a send waits for it, and the work
+                  timer is not live. One quiet line says so (finding 07). */}
+              {!networkOnline && (
+                <div className={cn(COMPOSER_SHELL_CLASS, 'pb-1.5')}>
+                  <p role="status" aria-live="polite" className="text-muted-foreground text-xs">
+                    {tQueue('offlineReconnecting')}
+                  </p>
+                </div>
+              )}
               <SessionChatInput
                 // `undefined`, not `true`, once released: the composer's own
                 // viewport rule (>= 640px) still decides, so this never forces

@@ -536,3 +536,6 @@ export const EXTENSION_HARNESSES = ['opencode', 'pi'] as const;
  * @deprecated OpenCode only: OpenCode is deleted (2026-10-30). See apps/kortix-sandbox-agent-server/src/harness/README.md "OpenCode is deleted".
  */
 export const RUNTIME_BUILTIN_AGENTS = ['build', 'plan', 'general', 'explore'] as const;
+
+/** The longest `agents.<name>.title`. */
+export const AGENT_TITLE_MAX_LENGTH = 80;

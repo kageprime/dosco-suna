@@ -46,6 +46,7 @@ import {
   ViewerPathPill,
   fileShareInput,
 } from './viewer-actions';
+import { SESSION_BAR_CLASS } from '../../session/panel/panel-chrome';
 
 type View = 'preview' | 'source';
 
@@ -133,7 +134,7 @@ export function FileViewer({
 
   return (
     <div className={cn('flex h-full min-h-0 min-w-0 flex-col', className)}>
-      <div className="flex shrink-0 items-center gap-1 border-b px-2.5 py-2">
+      <div className={cn(SESSION_BAR_CLASS, 'gap-1 px-2.5')}>
         <DetailSidebarToggle className="size-7" />
         {/* Same actions in the same place for every file — they never move.
             Text is the one kind whose content a clipboard can hold, so `Copy`

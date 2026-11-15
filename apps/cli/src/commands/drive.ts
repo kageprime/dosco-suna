@@ -39,6 +39,8 @@ Subcommands:
   put <local> <path>                Upload a local file to <path>. Any size: a file
                                     over 64 MiB goes up in 1 MiB blocks, read from
                                     disk as they are sent.
+                                    \`~\` is your own folder: \`kortix drive put
+                                    report.md "~/From sessions/<title>/report.md"\`.
   mkdir <path>                      Create a folder.
   mv <from> <to>                    Move or rename a file or folder.
   rm <path> [-r]                    Delete a file, or a folder with -r.
@@ -65,6 +67,16 @@ works only in your own private session.
 
 /** Paths in Files are absolute: `Agents/sales/x` means `/Agents/sales/x`. */
 const abs = (p: string) => (p.startsWith('/') ? p : `/${p}`);
+
+/**
+ * A path in Files: absolute, and `~` (alone or as `~/…`) is the caller's own
+ * folder, `/Users/<name>` (My files). Throws when the caller has none.
+ */
+export function drivePath(p: string, personalFolder: string | null): string {
+  if (p !== '~' && !p.startsWith('~/')) return abs(p);
+  if (!personalFolder) throw new Error('You have no folder of your own in Files, so ~ names no folder. Pass a full path.');
+  return `${abs(personalFolder).replace(/\/+$/, '')}${p.slice(1)}`;
+}
 
 export async function runDrive(argv: string[]): Promise<number> {
   const helpCode = splitHelp(argv, HELP);
@@ -100,6 +112,7 @@ export async function runDrive(argv: string[]): Promise<number> {
     return await withKortixScope(ctx.auth, async () => {
       const drive = await getProjectDrive(ctx.projectId);
       const id = drive.driveId;
+      const abs = (p: string) => drivePath(p, drive.personalFolder);
       const done = (payload: unknown, line: string) => {
         if (json) emitJson(payload);
         else process.stdout.write(`${status.ok(line)}\n`);

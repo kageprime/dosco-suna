@@ -22,6 +22,7 @@ import {
   CalendarPeopleResponseSchema,
   CreateCalendarCommentRequestSchema,
   CreateCalendarItemRequestSchema,
+  FeatureDisabledErrorSchema,
   UpdateCalendarItemRequestSchema,
 } from '@kortix/api-contract';
 import type { Context } from 'hono';
@@ -42,7 +43,7 @@ type C = Context<AppEnv>;
 const projectParams = z.object({ workspaceId: z.string() });
 const itemParams = projectParams.extend({ itemId: z.string() });
 const CALENDAR_ERRORS = {
-  403: json(CalendarErrorSchema, 'feature_disabled'),
+  403: json(FeatureDisabledErrorSchema, 'feature_disabled: the calendar flag is off for this workspace'),
   404: json(CalendarErrorSchema, 'calendar_not_found'),
   422: json(CalendarErrorSchema, 'calendar_invalid, with violations'),
 };
@@ -105,7 +106,7 @@ export function registerCalendarRoutes(): void {
       summary: 'List calendar items',
       description:
         'Items dated in `[from, to)` in time order (at most 500, a window of at most 93 days), then open items with no date ' +
-        '(newest first, at most 200) unless `undated=false`. `assignee`: `me`, `user:<id>` or `agent:<name>`. Flag `calendar`.',
+        '(newest first, at most 200) unless `undated=false`. `with`: only items that person or agent is on — `me`, `user:<id>` or `agent:<name>`. Flag `calendar`.',
       ...auth,
       request: {
         params: projectParams,
@@ -114,7 +115,7 @@ export function registerCalendarRoutes(): void {
           to: queryText('ISO time: the end of the window (exclusive).'),
           undated: queryText('`false` leaves out the items with no date.'),
           status: queryText('`open` or `done`.'),
-          assignee: queryText('`me`, `user:<id>` or `agent:<name>`.'),
+          with: queryText('Items this participant is on: `me`, `user:<id>` or `agent:<name>`.'),
         }),
       },
       responses: { 200: json(CalendarListResponseSchema, 'The items'), ...errors(401), ...CALENDAR_ERRORS },
@@ -130,7 +131,7 @@ export function registerCalendarRoutes(): void {
           to: c.req.query('to') || undefined,
           undated: c.req.query('undated') !== 'false',
           status: (status as 'open' | 'done' | undefined) || undefined,
-          assignee: c.req.query('assignee') || undefined,
+          with: c.req.query('with') || undefined,
         });
         return c.json({ items }, 200);
       } catch (error) {
@@ -146,8 +147,8 @@ export function registerCalendarRoutes(): void {
       tags: ['calendar'],
       summary: 'Create a calendar item',
       description:
-        'The caller is the author. `assignee`: `{ user_id }`, `{ email }`, `{ agent }`, `{ me: true }` or null. ' +
-        'A person assigned or @mentioned in the notes by someone else gets a `mention` notification. Flag `calendar`.',
+        'The caller is the author. `people`: persons and agents, each `{ user_id }`, `{ email }`, `{ agent }` or `{ me: true }`. ' +
+        '`ends_at` (after `starts_at`) only for a timed item. A person added or @mentioned in the notes by someone else gets a `mention` notification. Flag `calendar`.',
       ...auth,
       request: { params: projectParams, body: { content: { 'application/json': { schema: lenientBody(CreateCalendarItemRequestSchema.shape) } } } },
       responses: { 201: json(CalendarItemResponseSchema, 'The item'), ...errors(401), ...CALENDAR_ERRORS },
@@ -215,8 +216,8 @@ export function registerCalendarRoutes(): void {
       tags: ['calendar'],
       summary: 'Change a calendar item',
       description:
-        'Only the fields sent change. `starts_at: null` removes the date; `assignee: null` the owner. ' +
-        'A newly assigned person and people newly @mentioned in the notes get a `mention` notification. ' +
+        'Only the fields sent change. `starts_at: null` removes the date; `people` replaces the whole list (`[]`: nobody). ' +
+        'A moved timed item keeps its length; a move to a date only drops `ends_at`. A newly added person and people newly @mentioned in the notes get a `mention` notification. ' +
         'A person who marks an item an agent session created done or open again wakes that session. Flag `calendar`.',
       ...auth,
       request: { params: itemParams, body: { content: { 'application/json': { schema: lenientBody(UpdateCalendarItemRequestSchema.shape) } } } },

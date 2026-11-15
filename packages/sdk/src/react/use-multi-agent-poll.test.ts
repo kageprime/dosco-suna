@@ -9,7 +9,8 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 (globalThis as any).window ??= globalThis;
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 const { configureKortix } = await import('../core/http/config');
-const { usePeerMessages, useTeammates } = await import('./use-multi-agent');
+const { usePeerMessages, useSessionWorkflows, useTeammates } = await import('./use-multi-agent');
+const { setSessionRuntime, clearSessionRuntime } = await import('../core/session/session-runtime-registry');
 
 // One idle session tab sent 12 `peer-messages` reads a minute per mounted
 // reader, and every extra reader of the same list added its own timer: an
@@ -117,4 +118,55 @@ test('a session that works polls its agents every 5 s; an idle one every 30 s', 
   const afterIdle = requests();
   await advance(60_000);
   expect(requests() - afterIdle).toBe(2);
+});
+
+// Finding 14: a finished workflow card polled its runner every ~5 s for as long
+// as the page was open (~1,300 requests an hour per card).
+function WorkflowsReader({ live }: { live?: boolean }) {
+  useSessionWorkflows('p1', 'runner1', live === undefined ? {} : { live });
+  return null;
+}
+
+function serveRuns(status: () => string) {
+  const calls: string[] = [];
+  globalThis.fetch = (async (url: unknown) => {
+    calls.push(String(url));
+    return Response.json({ runs: [{ runId: 'run_1', title: 'T', status: status(), phases: [], agents: [], startedAt: 1 }] });
+  }) as unknown as typeof fetch;
+  return () => calls.filter((url) => url.includes('/kortix/runtime/workflows')).length;
+}
+
+test('a workflow read whose runs all ended stops polling; a running one polls every 2 s', async () => {
+  jest.useFakeTimers();
+  setSessionRuntime('p1', 'runner1', { runtimeSessionId: 'r', opencodeSessionId: 'r', runtimeUrl: 'http://test.local/p/sbx_r/8000', sandboxId: 'sbx_r' });
+  let status = 'running';
+  const requests = serveRuns(() => status);
+  try {
+    await mount(React.createElement(WorkflowsReader, {}));
+    const afterMount = requests();
+    await advance(10_000);
+    expect(requests() - afterMount).toBe(5);
+
+    status = 'done';
+    await advance(2_000);
+    const afterDone = requests();
+    await advance(60_000);
+    expect(requests() - afterDone).toBe(0);
+  } finally {
+    clearSessionRuntime('p1', 'runner1');
+  }
+});
+
+test('a workflow read of a working session keeps polling after its runs ended: a new run can start', async () => {
+  jest.useFakeTimers();
+  setSessionRuntime('p1', 'runner1', { runtimeSessionId: 'r', opencodeSessionId: 'r', runtimeUrl: 'http://test.local/p/sbx_r/8000', sandboxId: 'sbx_r' });
+  const requests = serveRuns(() => 'done');
+  try {
+    await mount(React.createElement(WorkflowsReader, { live: true }));
+    const afterMount = requests();
+    await advance(30_000);
+    expect(requests() - afterMount).toBe(6);
+  } finally {
+    clearSessionRuntime('p1', 'runner1');
+  }
 });

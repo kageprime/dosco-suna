@@ -63,13 +63,17 @@ export function builtinAgentKeyOf(agentName: string | null | undefined): Builtin
 }
 
 /**
+/**
  * An agent's name as a person reads it: Xera for the built-in coordinator,
- * otherwise the manifest key in sentence case with its separators as spaces
+ * then its `kortix.yaml` `title` as written ("GitHub PR reviewer"), otherwise
+ * the manifest key in sentence case with its separators as spaces
  * (`worker` → "Worker", `session-reviewer` → "Session reviewer"). One helper,
  * so the web app, the sidebar and channel posts (Slack) name an agent the same way.
+ * Pass `title` wherever the agent record is in hand; a bare slug keeps the derived name.
  */
-export function agentDisplayName(slug: string): string {
+export function agentDisplayName(slug: string, title?: string | null): string {
   if (isMyKortixAgentName(slug)) return MY_KORTIX_DISPLAY_NAME;
+  if (typeof title === 'string' && title.trim()) return title.trim();
   // Model tool input and event data reach this through `as string` casts, so the
   // slug is `unknown` at runtime. A truthy non-string degrades to its string
   // form instead of crashing the render tree (KRTX-4511: `e.replace is not a

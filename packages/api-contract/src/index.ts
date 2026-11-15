@@ -17,7 +17,7 @@
  */
 import { z } from 'zod';
 import { SessionLogPageSchema } from './session-log/wire';
-import { SessionAttentionSchema, SessionBoardStateSchema, SessionInboundSchema } from './multi-agent';
+import { SessionAttentionSchema, SessionBoardStateSchema, SessionInboundSchema, SessionWorkStateSchema } from './multi-agent';
 import { SESSION_PROMPT_REASONS } from './wire-values';
 
 export * from './memory';
@@ -1212,6 +1212,13 @@ export const ProjectSessionSchema = z.object({
    * older servers omit them.
    */
   board_state: SessionBoardStateSchema.optional(),
+  /**
+   * Is the work done: `running` (a live turn, or waiting for its person),
+   * `completed`, `failed`, `stopped` or `idle`. Read this to wait for a
+   * session. `status` is the stored row lifecycle and `runtime_status` the
+   * computer; neither says the work is done. Older servers omit it.
+   */
+  work_state: SessionWorkStateSchema.optional(),
   /** What the session waits for from its person: `question`, `approval`, or null. */
   attention: SessionAttentionSchema.optional(),
   /** The newest turn start, turn end or accepted prompt (ISO), or null. */
@@ -1240,6 +1247,7 @@ export const ProjectSessionSchema = z.object({
   custom_name: z.string().nullable(),
   labels: z.array(z.string()),
   agent_name: z.string(),
+  /** The stored row lifecycle (`running` from start until the computer stops), not whether the work is done: read `work_state`. */
   status: SessionStatusSchema,
   error: z.string().nullable(),
   metadata: JsonObjectSchema,
@@ -1293,6 +1301,7 @@ export const ProjectSessionSchema = z.object({
   /** May publish one assistant response through a public link: a human owner or project manager who can read it. Single-session reads only. */
   can_publish_response: z.boolean().optional(),
   can_access: z.boolean().optional(),
+  /** The computer's state. `active` while the box runs, which outlives a finished turn by up to ~10 min. */
   runtime_status: z
     .enum(['provisioning', 'active', 'stopped', 'error', 'archived'])
     .nullable()

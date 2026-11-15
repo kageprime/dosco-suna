@@ -66,7 +66,8 @@ export type EvalAgentConfig = z.infer<typeof EvalAgentConfigSchema>;
 export const EvalTaskSourceSchema = z.object({
   path: z.string().min(1).max(500).nullish(),
   name: z.string().min(1).max(200).nullish(),
-  version: z.string().min(1).max(60).nullish(),
+  /** A registry dataset's version, or a Harbor Hub ref: a tag, a revision or `sha256:<digest>`. */
+  version: z.string().min(1).max(80).nullish(),
   /** A public git repository (https on github.com, gitlab.com or huggingface.co); `path` is inside it. */
   git_url: z.string().url().max(500).nullish(),
   /** The commit, branch or tag of `git_url`. A branch or tag is resolved to its commit when the job starts. Default: the default branch. */
@@ -196,6 +197,29 @@ export const EvalTaskDetailResponseSchema = z.object({
 });
 export type EvalTaskDetailResponse = z.infer<typeof EvalTaskDetailResponseSchema>;
 
+/** `paused`: no queued trial starts; running trials go on. Resume puts the paused trials back in the queue. */
+export const EVAL_JOB_STATUSES = ['queued', 'running', 'paused', 'completed', 'cancelled'] as const;
+export type EvalJobStatus = (typeof EVAL_JOB_STATUSES)[number];
+
+/**
+ * `queued` waits for a slot. `paused` waits for a resume (only a queued trial
+ * pauses). `starting` boots the sandbox. `agent_running` runs the agent.
+ * `verifying` runs `tests/test.sh`. `completed` ended with no exception;
+ * `errored` ended with one (it may still hold a valid reward).
+ */
+export const EVAL_TRIAL_STATUSES = [
+  'queued',
+  'paused',
+  'starting',
+  'agent_running',
+  'verifying',
+  'completed',
+  'errored',
+  'cancelled',
+] as const;
+export type EvalTrialStatus = (typeof EVAL_TRIAL_STATUSES)[number];
+export const EVAL_TRIAL_TERMINAL: readonly EvalTrialStatus[] = ['completed', 'errored', 'cancelled'];
+
 /** The last run of one attempt of this task in some job: its result and the job it belongs to. */
 export const EvalTaskResultSchema = z.object({
   job_id: z.string(),
@@ -204,15 +228,7 @@ export const EvalTaskResultSchema = z.object({
   agent: z.string(),
   model: z.string().nullable(),
   attempt: z.number().int(),
-  status: z.enum([
-    'queued',
-    'starting',
-    'agent_running',
-    'verifying',
-    'completed',
-    'errored',
-    'cancelled',
-  ]),
+  status: z.enum(EVAL_TRIAL_STATUSES),
   rewards: z.record(z.string(), z.number()).nullable(),
   reward_valid: z.boolean(),
   exception_type: z.string().nullable(),
@@ -249,7 +265,8 @@ export const EvalDatasetSchema = z.object({
   version: z.string(),
   /** Every version, newest first. */
   versions: z.array(z.string()),
-  kind: z.enum(['builtin', 'registry']),
+  /** `hub`: a Harbor Hub package (`org/name`); `registry`: Harbor's legacy registry.json. */
+  kind: z.enum(['builtin', 'hub', 'registry']),
   description: z.string(),
   /** Tasks of `version`; null when not known without reading the dataset. */
   n_tasks: z.number().int().nullable(),
@@ -273,25 +290,6 @@ export const EvalTasksResponseSchema = z.object({
 
 // ── Jobs and trials ──────────────────────────────────────────────────────────
 
-export const EVAL_JOB_STATUSES = ['queued', 'running', 'completed', 'cancelled'] as const;
-export type EvalJobStatus = (typeof EVAL_JOB_STATUSES)[number];
-
-/**
- * `queued` waits for a slot. `starting` boots the sandbox. `agent_running`
- * runs the agent. `verifying` runs `tests/test.sh`. `completed` ended with no
- * exception; `errored` ended with one (it may still hold a valid reward).
- */
-export const EVAL_TRIAL_STATUSES = [
-  'queued',
-  'starting',
-  'agent_running',
-  'verifying',
-  'completed',
-  'errored',
-  'cancelled',
-] as const;
-export type EvalTrialStatus = (typeof EVAL_TRIAL_STATUSES)[number];
-export const EVAL_TRIAL_TERMINAL: readonly EvalTrialStatus[] = ['completed', 'errored', 'cancelled'];
 
 export const EvalExceptionSchema = z.object({
   exception_type: z.string(),
@@ -379,6 +377,8 @@ export type EvalAgentStats = z.infer<typeof EvalAgentStatsSchema>;
 export const EvalJobStatsSchema = z.object({
   n_total_trials: z.number().int(),
   n_queued: z.number().int(),
+  /** Trials held by a pause (not in `n_queued`). */
+  n_paused: z.number().int().default(0),
   n_running: z.number().int(),
   n_completed: z.number().int(),
   n_errored: z.number().int(),
@@ -400,6 +400,12 @@ export const EvalJobSchema = z.object({
   suite: z.string().nullable(),
   job_name: z.string(),
   status: z.enum(EVAL_JOB_STATUSES),
+  /**
+   * Set by a cancel. `hard`: running trials were stopped. `soft`: queued
+   * trials were cancelled and running ones finish without a retry; the job
+   * ends `cancelled`. Null: not cancelled.
+   */
+  cancel_mode: z.enum(['soft', 'hard']).nullable(),
   /** The commit the tasks and the config were read at. */
   commit: z.string().nullable(),
   ref: z.string().nullable(),
@@ -430,6 +436,41 @@ export const EvalJobResponseSchema = z.object({
   warnings: z.array(z.string()).optional(),
 });
 export const EvalTrialListResponseSchema = z.object({ trials: z.array(EvalTrialSchema) });
+
+/** A trial in the list across jobs: the trial and the name of its job. */
+export const EvalTrialListItemSchema = EvalTrialSchema.extend({ job_name: z.string() });
+export type EvalTrialListItem = z.infer<typeof EvalTrialListItemSchema>;
+
+/** `GET /evals/trials`: the trials of every job of the project that match, one page. */
+export const EvalTrialPageResponseSchema = z.object({
+  trials: z.array(EvalTrialListItemSchema),
+  /** Trials that match the filters, over every page. Every run counts, retries included. */
+  total: z.number().int(),
+  /** Opaque; pass it as `page_token` with the same filters and sort. Null on the last page. */
+  next_page_token: z.string().nullable(),
+});
+export type EvalTrialPageResponse = z.infer<typeof EvalTrialPageResponseSchema>;
+
+export const EVAL_TRIAL_SORTS = ['created_at', '-created_at', 'finished_at', '-finished_at', 'task', '-task', 'reward', '-reward'] as const;
+export type EvalTrialSort = (typeof EVAL_TRIAL_SORTS)[number];
+
+/** The fields `GET /evals/trials/filters` and `GET /evals/jobs/filters` count values of. */
+export const EVAL_TRIAL_FILTER_FIELDS = ['status', 'task', 'agent', 'model', 'exception_type', 'job'] as const;
+export type EvalTrialFilterField = (typeof EVAL_TRIAL_FILTER_FIELDS)[number];
+export const EVAL_JOB_FILTER_FIELDS = ['status', 'suite', 'dataset', 'agent', 'model'] as const;
+export type EvalJobFilterField = (typeof EVAL_JOB_FILTER_FIELDS)[number];
+
+/**
+ * The values a filter can take in the current scope, with how many trials
+ * (or jobs) have each. A field's own filter is left out of its scope, so the
+ * other choices stay visible. `truncated`: more values exist than `limit`.
+ */
+export const EvalFilterValuesResponseSchema = z.object({
+  field: z.string(),
+  values: z.array(z.object({ value: z.string(), label: z.string().nullable(), count: z.number().int() })),
+  truncated: z.boolean(),
+});
+export type EvalFilterValuesResponse = z.infer<typeof EvalFilterValuesResponseSchema>;
 export const EvalTrialResponseSchema = z.object({ trial: EvalTrialSchema });
 
 /** `POST /jobs` with `dry_run: true`: what the job would run. Nothing is created. */
@@ -523,6 +564,14 @@ export const RerunEvalJobRequestSchema = z
   })
   .strict();
 export type RerunEvalJobRequest = z.input<typeof RerunEvalJobRequestSchema>;
+
+/**
+ * Cancel a job or a trial. `force` (default true) stops running trials now.
+ * `force: false` cancels what has not started and lets running trials finish,
+ * with no retry.
+ */
+export const CancelEvalRequestSchema = z.object({ force: z.boolean().default(true) }).strict();
+export type CancelEvalRequest = z.input<typeof CancelEvalRequestSchema>;
 
 export const EvalErrorSchema = z.object({
   error: z.enum(['eval_not_found', 'eval_invalid', 'eval_conflict', 'eval_forbidden', 'feature_disabled', 'eval_unavailable']),

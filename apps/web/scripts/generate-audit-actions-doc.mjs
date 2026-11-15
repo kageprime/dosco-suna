@@ -57,6 +57,7 @@ const FLAGGED_ACTION_PREFIXES = {
   event_triggers: ['trigger.event_apps.', 'trigger.event_types.', 'webhook.event.'],
   chat: ['project.space.', 'space.'],
   session_groups: ['project.session_group.', 'session.group.'],
+  calendar: ['project.calendar.'],
 };
 
 // Actions of the legacy sandbox provider: its code still serves old boxes, and the docs name Platinum only.

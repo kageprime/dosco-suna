@@ -63,7 +63,17 @@ const FAMILY_ICON: Record<StepFamily, LucideIcon> = {
   other: Wrench,
 };
 
-export function StepIcon({ family, status }: { family: StepFamily; status: Step['status'] }) {
+export function StepIcon({
+  family,
+  status,
+  tone = 'muted',
+}: {
+  family: StepFamily;
+  status: Step['status'];
+  /** A done step's color: muted in the stepper, foreground in the session
+   *  panel's Context list, where every glyph is foreground. Failed stays red. */
+  tone?: 'muted' | 'foreground';
+}) {
   const Glyph = FAMILY_ICON[family] ?? Wrench;
 
   // A running step is the one thing the eye must find without reading. Keep the
@@ -81,7 +91,7 @@ export function StepIcon({ family, status }: { family: StepFamily; status: Step[
     <Glyph
       className={cn(
         'size-4 shrink-0',
-        status === 'error' ? 'text-kortix-red' : 'text-muted-foreground',
+        status === 'error' ? 'text-kortix-red' : tone === 'foreground' ? 'text-foreground' : 'text-muted-foreground',
       )}
     />
   );

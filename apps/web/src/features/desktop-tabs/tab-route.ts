@@ -32,6 +32,7 @@ export type TabRoute =
       kind: 'page';
       page:
         | 'apps'
+        | 'calendar'
         | 'chat'
         | 'drive'
         | 'files'
@@ -43,6 +44,7 @@ export type TabRoute =
 
 const PAGES = new Set([
   'apps',
+  'calendar',
   'chat',
   'drive',
   'files',

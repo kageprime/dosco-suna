@@ -18,6 +18,7 @@ import { InlineMeta } from '../../../primitives/inline-meta';
 import Loading from '../../../primitives/loading';
 import { SettingsSubsectionHeader } from '../../../primitives/settings-subsection-header';
 import { Skeleton } from '../../../primitives/skeleton';
+import { StatusBadge, type StatusTone } from '../../../primitives/status';
 import { ErrorState } from '../../../primitives/error-state';
 import {
   type FailedBuildRelevance,
@@ -73,7 +74,7 @@ const BUILD_STATUS_TILE: Record<
   ProjectSnapshotStatus,
   {
     label: string;
-    badgeVariant: 'success' | 'warning' | 'destructive';
+    tone: StatusTone;
     tileBg: string;
     iconColor: string;
     Icon: ComponentType<{ className?: string }>;
@@ -81,21 +82,21 @@ const BUILD_STATUS_TILE: Record<
 > = {
   ready: {
     label: 'ready',
-    badgeVariant: 'success',
+    tone: 'success',
     tileBg: 'bg-kortix-green/15',
     iconColor: 'text-kortix-green',
     Icon: CheckCircleFilled,
   },
   building: {
     label: 'building',
-    badgeVariant: 'warning',
+    tone: 'warning',
     tileBg: 'bg-kortix-yellow/15',
     iconColor: 'text-kortix-yellow',
     Icon: Loading,
   },
   failed: {
     label: 'failed',
-    badgeVariant: 'destructive',
+    tone: 'destructive',
     tileBg: 'bg-kortix-red/15',
     iconColor: 'text-kortix-red',
     Icon: XCircleFilled,
@@ -339,16 +340,19 @@ export function BuildRow({
                 >
                   {outcome.title}
                 </span>
-                <Badge variant={stale ? 'muted' : status.badgeVariant} size="xs">
+                {/* One status chip for the page: sentence case, faint tone,
+                    the same `StatusBadge` the session runtime chip uses. A
+                    build that no longer applies reads neutral, not red. */}
+                <StatusBadge tone={stale ? 'neutral' : status.tone}>
                   {copy.statusLabels[build.status]}
-                </Badge>
+                </StatusBadge>
                 {providerMode === 'pinned' ? <ProviderBadge provider={build.provider} /> : null}
               </div>
               {/* Where `kortix-tpl-…` used to be. The snapshot name identifies
                   nothing a reader recognises; the sentence does. */}
               <div className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
                 <span className="truncate">{outcome.summary}</span>
-                <span className="text-muted-foreground/40">
+                <span aria-hidden>
                   {tI18nComplete.raw('text3b9453dad42b')}
                 </span>
                 <span className="shrink-0 tabular-nums">{timestamp}</span>
@@ -360,6 +364,123 @@ export function BuildRow({
         <DisclosureContent className="overflow-hidden" contentClassName="border-border border-t">
           <DisclosureBody className="px-4 py-4">
             <BuildDetails build={build} providerMode={providerMode} copy={copy} />
+          </DisclosureBody>
+        </DisclosureContent>
+      </Disclosure>
+    </li>
+  );
+}
+
+/** One line of the build log: a build, or a run of builds a newer setup replaced. */
+export type BuildLogEntry =
+  | { kind: 'build'; build: ProjectSnapshotBuild; relevance: FailedBuildRelevance | null }
+  | { kind: 'superseded'; builds: ProjectSnapshotBuild[] };
+
+/** Rows the build log shows. A grouped run counts as one row. */
+const BUILD_LOG_ROWS = 10;
+
+/**
+ * Folds every run of 2+ consecutive superseded failures into one entry.
+ *
+ * A template rebuilt nine times left nine identical "failed" rows under its
+ * one ready build, so the log read as nine failures. A superseded build did
+ * not fail anything a session boots today: it is history, and one muted line
+ * says so. A failure that still blocks, recovered or is being retried keeps
+ * its own row, and so does a lone superseded build.
+ */
+export function groupBuildLog(
+  builds: readonly ProjectSnapshotBuild[],
+  status: SandboxRuntimeStatus | null | undefined,
+  limit = BUILD_LOG_ROWS,
+): BuildLogEntry[] {
+  const entries: BuildLogEntry[] = [];
+  for (const build of builds) {
+    const relevance = describeFailedBuild(build, status);
+    const last = entries.at(-1);
+    if (relevance === 'superseded') {
+      if (last?.kind === 'superseded') last.builds.push(build);
+      else entries.push({ kind: 'superseded', builds: [build] });
+      continue;
+    }
+    entries.push({ kind: 'build', build, relevance });
+  }
+  return entries
+    .map((entry): BuildLogEntry =>
+      entry.kind === 'superseded' && entry.builds.length === 1
+        ? { kind: 'build', build: entry.builds[0]!, relevance: 'superseded' }
+        : entry,
+    )
+    .slice(0, limit);
+}
+
+/** "Oct 12", or "Oct 10 – Oct 12" when the run spans days. */
+export function formatBuildDateSpan(
+  builds: readonly Pick<ProjectSnapshotBuild, 'started_at' | 'finished_at'>[],
+  locale = 'en',
+): string {
+  const times = builds
+    .map((b) => new Date(b.finished_at ?? b.started_at).getTime())
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+  if (times.length === 0) return '—';
+  const fmt = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' });
+  const first = fmt.format(times[0]);
+  const last = fmt.format(times[times.length - 1]);
+  return first === last ? first : `${first} – ${last}`;
+}
+
+/**
+ * A run of superseded builds as one muted row: "9 older builds replaced ·
+ * Oct 12". It opens like every other row, onto the builds it folds.
+ */
+export function SupersededBuildsRow({
+  builds,
+  providerMode,
+  copy: copyOverride,
+}: {
+  builds: ProjectSnapshotBuild[];
+  providerMode: SandboxProviderMode;
+  copy?: SnapshotMessages;
+}) {
+  const translatedCopy = useSnapshotMessages();
+  const copy = copyOverride ?? translatedCopy;
+  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+
+  return (
+    <li>
+      <Disclosure
+        className="group/superseded bg-popover overflow-hidden"
+        variant="outline"
+        transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+      >
+        <DisclosureTrigger>
+          <div className="focus-visible:ring-kortix-base hover:bg-foreground/[0.03] flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors outline-none focus-visible:ring-[0.6px]">
+            <span className="border-border text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-sm border">
+              <StackIcon className="size-5 shrink-0" />
+            </span>
+            <div className="text-muted-foreground flex min-w-0 flex-1 items-center gap-1.5 text-sm">
+              <span className="truncate">{copy.supersededGroup(builds.length)}</span>
+              <span aria-hidden>{tI18nComplete.raw('text3b9453dad42b')}</span>
+              <span className="shrink-0 text-xs tabular-nums">
+                {formatBuildDateSpan(builds, copy.locale)}
+              </span>
+            </div>
+            <ChevronDown className="text-muted-foreground duration-normal size-4 shrink-0 transition-transform ease-out group-data-[state=open]/superseded:rotate-180 motion-reduce:transition-none" />
+          </div>
+        </DisclosureTrigger>
+        <DisclosureContent className="overflow-hidden" contentClassName="border-border border-t">
+          <DisclosureBody className="p-2">
+            <ul className="space-y-2">
+              {builds.map((b) => (
+                <BuildRow
+                  key={b.build_id}
+                  build={b}
+                  providerMode={providerMode}
+                  relevance="superseded"
+                  copy={copy}
+                />
+              ))}
+            </ul>
           </DisclosureBody>
         </DisclosureContent>
       </Disclosure>
@@ -718,14 +839,24 @@ export function SnapshotsTabView({
                 </div>
               ) : (
                 <ul className="space-y-2">
-                  {templateBuilds.slice(0, 10).map((b) => (
-                    <BuildRow
-                      key={b.build_id}
-                      build={b}
-                      providerMode={providerMode}
-                      relevance={describeFailedBuild(b, status)}
-                    />
-                  ))}
+                  {groupBuildLog(templateBuilds, status).map((entry) =>
+                    entry.kind === 'superseded' ? (
+                      <SupersededBuildsRow
+                        key={`superseded-${entry.builds[0]!.build_id}`}
+                        builds={entry.builds}
+                        providerMode={providerMode}
+                        copy={copy}
+                      />
+                    ) : (
+                      <BuildRow
+                        key={entry.build.build_id}
+                        build={entry.build}
+                        providerMode={providerMode}
+                        relevance={entry.relevance}
+                        copy={copy}
+                      />
+                    ),
+                  )}
                 </ul>
               )}
             </section>
@@ -835,6 +966,7 @@ function useSnapshotMessages() {
       building: t('statuses.building'),
       failed: t('statuses.failed'),
     },
+    supersededGroup: (count: number) => t('supersededGroup', { count }),
     stale: {
       superseded: t('stale.superseded'),
       recovered: t('stale.recovered'),

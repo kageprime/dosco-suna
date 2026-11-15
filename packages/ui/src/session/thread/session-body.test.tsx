@@ -37,7 +37,7 @@ describe('SessionBodyRow', () => {
         <span>thread</span>
       </SessionBodyRow>,
     );
-    expect(markup).toContain('class="flex min-h-0 flex-1 overflow-hidden"');
+    expect(markup).toContain('class="@container/session-body flex min-h-0 flex-1 overflow-hidden"');
     expect(markup).toContain('class="relative flex min-w-0 flex-1 flex-col"');
     expect(markup).toContain('<span>thread</span>');
   });

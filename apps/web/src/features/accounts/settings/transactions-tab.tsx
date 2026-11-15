@@ -7,7 +7,9 @@ import { CostExplorer } from '@/features/billing/cost-explorer/cost-explorer';
 import CreditTransactions from '@/features/billing/credit-transactions';
 import { useTranslations } from '@/i18n/use-translations';
 
-export function TransactionsTab() {
+/** `workspaceId`: the workspace the pane is open in. Session costs land on
+ *  its spend; the credit ledger is the account's wallet, shared by all. */
+export function TransactionsTab({ workspaceId }: { workspaceId?: string } = {}) {
   const params = useHubSearchParams();
   const initialTab =
     params.get('transactions') === 'credit-ledger' ? 'credit-ledger' : 'session-costs';
@@ -19,7 +21,7 @@ export function TransactionsTab() {
         <TabsTrigger value="credit-ledger">{tI18nComplete.raw('text1a17a48d8496')}</TabsTrigger>
       </TabsList>
       <TabsContent value="session-costs">
-        <CostExplorer />
+        <CostExplorer defaultProjectId={workspaceId ?? null} />
       </TabsContent>
       <TabsContent value="credit-ledger" className="space-y-6">
         <AccountOverviewTab />

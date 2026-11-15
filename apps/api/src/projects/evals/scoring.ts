@@ -337,6 +337,7 @@ export function computeJobStats(trials: ScoredTrial[], metrics: EvalMetricConfig
   return {
     n_total_trials: live.length,
     n_queued: count(['queued']),
+    n_paused: count(['paused']),
     n_running: count(['starting', 'agent_running', 'verifying']),
     n_completed: count(['completed']),
     n_errored: count(['errored']),

@@ -27,8 +27,9 @@ rewrites it whenever access changes. Read it first; never edit it.
 session outside a Space thread mounts none, and nor does an inline colleague
 or a workflow agent it starts. Then the file tools cannot see Drive: reach it
 only with `kortix drive` (below), and save a file the user keeps with
-`kortix drive put <local> /Users/<name>/<file>`. `/workspace` is this
-session's alone: no other session and not the web app's Files read it.
+`kortix drive put <local> "~/From sessions/<session title>/<file>"` (`~` is
+the user's own folder, `/Users/<name>`). `/workspace` is this session's
+alone: no other session and not the web app's Files read it.
 </overview>
 
 <layout>

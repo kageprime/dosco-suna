@@ -160,12 +160,25 @@ const NEEDS_YOU_KINDS: ReadonlySet<InboxNotification['kind']> = new Set([
 ]);
 
 /**
+ * Whether a row waits on the person: a Needs you kind, unless it is an ask a
+ * person already closed (`resolved`: answered, dismissed, decided or expired).
+ * A resolved ask is in no tab but All.
+ */
+function waitsOnPerson(row: InboxNotification): boolean {
+  return NEEDS_YOU_KINDS.has(row.kind) && row.resolved !== true;
+}
+
+/**
  * The rows a tab shows: unread first, so an untouched row never sits between
  * read ones. Each group keeps the inbox order (newest first; `sort` is stable).
  */
 export function tabRows(rows: readonly InboxNotification[], tab: NotificationTab): InboxNotification[] {
   const shown =
-    tab === 'all' ? [...rows] : rows.filter((row) => NEEDS_YOU_KINDS.has(row.kind) === (tab === 'needs'));
+    tab === 'all'
+      ? [...rows]
+      : tab === 'needs'
+        ? rows.filter(waitsOnPerson)
+        : rows.filter((row) => !NEEDS_YOU_KINDS.has(row.kind));
   return shown.sort((a, b) => Number(a.read) - Number(b.read));
 }
 

@@ -22,8 +22,9 @@ const bar = (props: Partial<Parameters<typeof SelectionBar>[0]> = {}) =>
   );
 // A text button reads its label; the icon-only Exit carries it as aria-label.
 const button = (out: string, label: string) =>
-  out.match(new RegExp(`<button(?:(?!<button).)*?(?:aria-label="${label}"[^>]*>|>${label}</button>)`))?.[0] ??
-  '';
+  out.match(
+    new RegExp(`<button(?:(?!<button).)*?(?:aria-label="${label}"[^>]*>|>${label}</span>(?:(?!<button).)*?</button>)`),
+  )?.[0] ?? '';
 
 describe('SelectionBar', () => {
   test('announces the count and renders Select all, the actions and Exit in order', () => {

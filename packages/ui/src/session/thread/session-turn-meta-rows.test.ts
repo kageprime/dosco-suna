@@ -72,6 +72,36 @@ describe('sessionTurnEndedAt / sessionTurnDurationMs', () => {
   });
 });
 
+describe('sessionTurnDurationMs leaves out the time the turn waited for the person', () => {
+  /** An assistant message holding tool calls (synthetic ids). */
+  function withCalls(time: { created: number; completed: number }, calls: Array<Record<string, unknown>>): SessionLogMessage {
+    return { ...assistantMessage(time), blocks: calls.map((call, i) => ({ type: 'tool_call', id: `blk_${i}`, call_id: `call_${i}`, kind: 'other', input: {}, status: 'complete', ...call })) } as unknown as SessionLogMessage;
+  }
+
+  test('an answered question: its open→answered interval is not work', () => {
+    const t = turn(userMessage(0), [
+      withCalls({ created: 1_000, completed: 70_000 }, [{ name: 'question', kind: 'question', started_at: iso(2_000), ended_at: iso(52_000) }]),
+    ]);
+    expect(sessionTurnDurationMs(t)).toBe(20_000);
+  });
+
+  test('a workflow approval: the run document says how long the person took', () => {
+    const t = turn(userMessage(0), [
+      withCalls({ created: 6_400, completed: 59_000 }, [
+        { name: 'workflow', started_at: iso(6_400), ended_at: iso(58_000), ext: { pi: { version: '1', data: { details: { runId: 'run-1', status: 'running', agents: [], phases: [], startedAt: 57_000, approvalWaitMs: 50_000 } } } } },
+      ]),
+    ]);
+    expect(sessionTurnDurationMs(t)).toBe(9_000);
+  });
+
+  test('a turn with no question is unchanged, and a wait that covers the whole span leaves no duration', () => {
+    const plain = turn(userMessage(0), [withCalls({ created: 1_000, completed: 9_000 }, [{ name: 'bash', kind: 'shell', started_at: iso(1_000), ended_at: iso(8_000) }])]);
+    expect(sessionTurnDurationMs(plain)).toBe(9_000);
+    const allWait = turn(userMessage(0), [withCalls({ created: 1_000, completed: 9_000 }, [{ name: 'question', kind: 'question', started_at: iso(0), ended_at: iso(9_000) }])]);
+    expect(sessionTurnDurationMs(allWait)).toBeNull();
+  });
+});
+
 describe('sessionTurnMetaRows', () => {
   const fullCost: TurnCostInfo = {
     cost: 0.42,

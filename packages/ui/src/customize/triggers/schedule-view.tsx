@@ -133,6 +133,7 @@ import {
   toggleSlug,
   visibleSelection,
 } from './schedule/trigger-selection';
+import { ActionBarDock } from '../../primitives/action-bar';
 import { type BulkVerb, TriggerSelectionBar } from './schedule/trigger-selection-bar';
 import { useEventTitles } from './schedule/use-event-titles';
 import type { ResourceScope } from '../shared/agent-resource-scope';
@@ -949,27 +950,25 @@ export function ScheduleView({
         {selectMode ? (
           // Pinned to the bottom of the list column, not to the end of the list:
           // `sticky` stops where a short list ends.
-          <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex justify-center px-4">
-            <div className="pointer-events-auto w-full max-w-xl">
-              <TriggerSelectionBar
-                selectedCount={actionable.size}
-                shownCount={filtered.length}
-                allSelected={
-                  filtered.length > 0 && filtered.every((t) => selectedSlugs.has(t.slug))
-                }
-                canPause={bulkTargets(triggers, actionable, false).length > 0}
-                canResume={bulkTargets(triggers, actionable, true).length > 0}
-                canDelete={controls.canDelete}
-                progress={bulkProgress}
-                onSelectAll={() => setSelectedSlugs(selectAllShown(filtered))}
-                onClear={() => setSelectedSlugs(new Set())}
-                onPause={() => void runBulk('pause')}
-                onResume={() => void runBulk('resume')}
-                onDelete={() => setBulkDeleteOpen(true)}
-                onExit={exitSelectMode}
-              />
-            </div>
-          </div>
+          <ActionBarDock className="z-10">
+            <TriggerSelectionBar
+              selectedCount={actionable.size}
+              shownCount={filtered.length}
+              allSelected={
+                filtered.length > 0 && filtered.every((t) => selectedSlugs.has(t.slug))
+              }
+              canPause={bulkTargets(triggers, actionable, false).length > 0}
+              canResume={bulkTargets(triggers, actionable, true).length > 0}
+              canDelete={controls.canDelete}
+              progress={bulkProgress}
+              onSelectAll={() => setSelectedSlugs(selectAllShown(filtered))}
+              onClear={() => setSelectedSlugs(new Set())}
+              onPause={() => void runBulk('pause')}
+              onResume={() => void runBulk('resume')}
+              onDelete={() => setBulkDeleteOpen(true)}
+              onExit={exitSelectMode}
+            />
+          </ActionBarDock>
         ) : null}
       </SplitSheetMain>
       <ScheduleDetailSplitContent

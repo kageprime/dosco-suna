@@ -395,8 +395,8 @@ describe('AgentsPanel — the popover rows', () => {
     // Read from the runner: 2 of its 5 agents are done, and it runs after this turn ended.
     expect(text).toContain('Running in the background · 2 of 5 done');
     expect(html).toContain('aria-label="Open run"');
-    // Its controls: pause and stop go to the runner.
-    expect(html).toContain('aria-label="Pause the run"');
+    // Its controls: hold and stop go to the runner.
+    expect(html).toContain('aria-label="Hold new agents"');
     expect(html).toContain('data-testid="agents-line-row"');
   });
 });
@@ -489,13 +489,13 @@ describe('WorkflowRunControls', () => {
     return (label: string) => renderer!.root.findByProps({ 'aria-label': label });
   }
 
-  test('pause, stop and save send their controls to the box that runs the run', async () => {
+  test('hold, stop and save send their controls to the box that runs the run', async () => {
     const sent: string[] = [];
     const button = await mount(
       <WorkflowRunControls projectId="proj_1" controlSessionId="ses_runner" ownerSessionId="ses_lead" run={live} />,
       (text) => void sent.push(text),
     );
-    await act(async () => button('Pause the run').props.onClick({ stopPropagation: noop }));
+    await act(async () => button('Hold new agents').props.onClick({ stopPropagation: noop }));
     await act(async () => button('Stop the run').props.onClick({ stopPropagation: noop }));
     expect(controls).toEqual([
       { runId: 'run-1', body: { action: 'pause' } },
@@ -518,12 +518,37 @@ describe('WorkflowRunControls', () => {
   test('a finished run has no pause or stop; a saved workflow has no save', () => {
     const done = { ...live, status: 'done' as const };
     const html = renderToStaticMarkup(wrap(<WorkflowRunControls projectId="proj_1" controlSessionId="ses_runner" ownerSessionId="ses_lead" run={done} />));
-    expect(html).not.toContain('Pause the run');
+    expect(html).not.toContain('Hold new agents');
     expect(html).not.toContain('Stop the run');
     expect(html).toContain('aria-label="Save"');
     expect(
       renderToStaticMarkup(wrap(<WorkflowRunControls projectId="proj_1" controlSessionId="ses_runner" ownerSessionId="ses_lead" run={{ ...done, name: 'weekly-review' }} />)),
     ).toBe('');
+  });
+
+  test('Hold says what it does, and shows only while the script can still start an agent; a held run keeps Resume', () => {
+    const markup = (doc: typeof live) =>
+      renderToStaticMarkup(wrap(<WorkflowRunControls projectId="proj_1" controlSessionId="ses_runner" ownerSessionId="ses_lead" run={doc} />));
+    // Every planned agent started (5 of 5, each with its session): nothing is left to hold, Stop stays.
+    const allStarted = {
+      ...live,
+      maxAgents: 5,
+      agents: live.agents.map((agent) => (agent.status === 'starting' ? { ...agent, status: 'running' as const, sessionId: agent.sessionId ?? `ses_${agent.id}` } : agent)),
+    };
+    // An agent still queued for a slot can be held.
+    expect(markup({ ...live, maxAgents: 5 })).toContain('aria-label="Hold new agents"');
+    expect(markup(allStarted)).not.toContain('Hold new agents');
+    expect(markup(allStarted)).toContain('aria-label="Stop the run"');
+    // A declared phase has not started: its agents can still be held.
+    expect(markup({ ...allStarted, phases: [{ title: 'Review', status: 'pending' }] })).toContain('aria-label="Hold new agents"');
+    expect(markup({ ...allStarted, paused: true })).toContain('aria-label="Resume the run"');
+  });
+
+  test('before the run exists (its approval is open) there is nothing to hold or stop', () => {
+    const asking = { ...live, agents: [], awaitingApproval: true as const };
+    const html = renderToStaticMarkup(wrap(<WorkflowRunControls projectId="proj_1" controlSessionId="ses_lead" ownerSessionId="ses_lead" run={asking} />));
+    expect(html).not.toContain('Hold new agents');
+    expect(html).not.toContain('Stop the run');
   });
 
   test('file names and the large-run threshold', () => {

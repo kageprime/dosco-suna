@@ -1133,6 +1133,7 @@ The workspace registers what exists. Each agent enables what it uses, by name. A
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
+| `title` | string | the key in sentence case | The agent's name as people read it, e.g. "GitHub PR reviewer". The key under `agents` stays its id: sessions, triggers and @-mentions use the key. |
 | `description` | string | — | What the agent does. An agent that may start it as a subagent reads it to choose. |
 | `model` | string | the project default | `provider/model`. See [Models](/docs/guide#models). |
 | `mode` | `primary`, `subagent`, `all` | `all` | `primary`: people and triggers run it; no agent starts it. `subagent`: only another agent starts it; agent pickers hide it. `all`: both. |
@@ -1740,6 +1741,20 @@ kortix tasks 3f2a1b9c ls      # a lead's list from outside the team
 | `stopped` | The session was stopped. |
 
 Each session row of the API carries the board's fields: `board_state`, `attention` (`question`, `approval` or `null`), `last_activity_at`, `result_excerpt` (at most 280 characters of the last answer), `agent_handle`, `team_lead_session_id` and `inbound`. `kortix sessions status --json` prints `board_state`, `attention`, `agent_handle` and `team_lead_session_id` for each session.
+
+`GET /workspaces/:id/sessions?working=only` lists only the sessions at work now: a live turn on their box, so `working.state` is `working`. Workflow runners, their agents and colleagues are included. The workspace Running view reads it through `useRunningSessions(projectId, { open })` in `@kortix/sdk/react` (`listWorkspaceSessionsPage(projectId, { working: true })`).
+
+#### Is the work done?
+
+A session row has three state fields. Only one of them says whether the work is done.
+
+| Field | Values | Meaning |
+| --- | --- | --- |
+| `work_state` | `running`, `completed`, `failed`, `stopped`, `idle` | Is the work done. `running` while a turn runs or the session waits for its person (`board_state` `working` or `needs_input`). Wait on this field. |
+| `status` | `running`, `stopped`, `failed`, … | The stored row lifecycle. A session stays `running` from its start until its computer stops. |
+| `runtime_status` | `provisioning`, `active`, `stopped`, `error`, `archived` | The computer. An idle computer stays `active` for up to ~10 minutes after the turn ends. |
+
+A child session that finished and answered reads `work_state: "completed"` at once, and still reads `status: "running"` and `runtime_status: "active"` until its computer stops. In the SDK, `sessionWorkState(row)` returns `work_state`, or derives it from `board_state` on an older API.
 
 #### From the SDK
 
@@ -8311,7 +8326,7 @@ See [Computers](/docs/guide#computers).
 | Stored reads | `turn()` | The current turn, read on the server. |
 | Stored reads | `log({ thread?, before_seq?, limit? }?)` | One page of the stored session log, or `null` when the session has none. It answers while the sandbox is stopped. |
 | Stored reads | `liveLog({ thread?, before_seq?, limit? }?)` | One page of a thread of the sandbox's own session log, ahead of `log()` while a turn runs. |
-| Stored reads | `messageAuthors()` · `modelUsage()` · `usage()` · `cost()` · `audit(limit?, options?)` | Who wrote each message · which model answered each turn and what Dosco billed · what the session and every session it started cost, in USD · the session's usage record · the session's audit actions. |
+| Stored reads | `messageAuthors()` · `modelUsage()` · `usage()` · `cost()` · `audit(limit?, options?)` | Who wrote each message · which model answered each turn and what Dosco billed · what the session and every session it started cost, in USD (model calls, plus `compute_cost` for its boxes and `billed_cost`, everything Dosco debited) · the session's usage record · the session's audit actions. |
 | Model and agent | `setModel({ providerID, modelID } \| undefined)` · `setAgent(agent)` | The model or agent of every later `send` on this handle. `send(text, { model, agent })` overrides it for one prompt. |
 | Model and agent | `changeModel('provider/model')` | Persists the model without restarting pi. |
 | Scope | `scope()` · `rescope(scope)` | Read · change the session's scope. |
@@ -8354,6 +8369,7 @@ Every hook is in `@kortix/sdk/react`. Most are React Query hooks: unless a row s
 | `useSessionReminders(projectId, sessionId)` | The session's loops, with `update` and `remove`. |
 | `useSessionMessageAuthors` · `useSessionModelUsage` · `useSessionUsage` · `useSessionProviderSecretPools` | The reads behind `s.messageAuthors()`, `s.modelUsage()`, `s.usage()` and `s.providerSecretPool.list()`. |
 | `useSessionWorkflows` · `usePeerMessages` · `useReachableAgents` · `useTeammates` · `useTeamTasks` | The workflow runs, peer messages, reachable agents, teammates and team tasks of one session. |
+| `useRunningSessions` | The workspace's sessions at work now (`working=only`). Polls every 5 s while `open`, 15 s while any runs, 20 s otherwise. |
 | `useSessionStreamConnected(projectId, sessionId)` | `boolean`: whether the session's live stream is connected. |
 | `useHasSessionDesktop()` | `boolean \| undefined`: whether the open session's computer has a desktop. `undefined` until its daemon answers. |
 

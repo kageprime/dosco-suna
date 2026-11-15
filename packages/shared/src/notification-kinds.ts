@@ -50,7 +50,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationKindPreferences = {
   automation_recovered: { push: true, email: false },
   capture_device_down: { push: true, email: true },
   capture_device_recovered: { push: true, email: false },
-  // Someone else @mentioned you or assigned you a calendar item (flag `calendar`).
+  // Someone else @mentioned you or added you to a calendar item (flag `calendar`).
   // One named person, never a broadcast: the email goes in the digest, only
   // while the row is still unread 15 minutes later.
   mention: { push: true, email: true },

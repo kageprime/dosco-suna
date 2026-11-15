@@ -93,6 +93,28 @@ const PENDING_TITLE_POLL_MS = 3_000;
  *  follow the conversation you are having, slow enough to be one cheap request
  *  a minute. */
 const OPEN_SESSION_POLL_MS = 60_000;
+/**
+ * Poll while a row works and no stream speaks for it: a session the person is
+ * not in (a workflow runner, a colleague, a second chat). On /drive a runner
+ * row said "Working" for 3+ minutes after the run ended (audit finding 04).
+ * Bounded by the condition: the moment no such row works, this stops.
+ */
+export const BACKGROUND_WORK_POLL_MS = 10_000;
+
+/**
+ * Does a listed session work where no stream reaches it? `working.state` is
+ * the server's verdict; the open session's stream patches its own row
+ * (`patchCachedSessionWorking`), so it does not count. A row without
+ * `working` (an older API) adds no poll.
+ */
+export function sessionsWorkingInBackground(
+  sessions: readonly ProjectSession[] | undefined,
+  openSessionId: string | null | undefined,
+): boolean {
+  return (sessions ?? []).some(
+    (session) => session.working?.state === 'working' && session.session_id !== openSessionId,
+  );
+}
 
 /**
  * How often the sidebar refetches the session list, or false for not at all.
@@ -108,6 +130,8 @@ const OPEN_SESSION_POLL_MS = 60_000;
 export function projectSessionsRefetchInterval(params: {
   sessions: ProjectSession[] | undefined;
   hasOpenSession: boolean;
+  /** The open session's id: its own stream keeps its row live, so its work adds no poll. */
+  openSessionId?: string | null;
   /** Injected so the title window below is asserted rather than raced. */
   now?: number;
 }): number | false {
@@ -126,6 +150,7 @@ export function projectSessionsRefetchInterval(params: {
   if (hasSessionAwaitingTitle(params.sessions, params.now ?? Date.now())) {
     return PENDING_TITLE_POLL_MS;
   }
+  if (sessionsWorkingInBackground(params.sessions, params.openSessionId)) return BACKGROUND_WORK_POLL_MS;
   return params.hasOpenSession ? OPEN_SESSION_POLL_MS : false;
 }
 

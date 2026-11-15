@@ -73,6 +73,7 @@ const bytes = (n: number): string =>
 function resultTone(result: WorkspaceEvalTaskResult): CellTone {
   if (result.status === 'cancelled') return 'cancelled';
   if (result.status === 'queued') return 'queued';
+  if (result.status === 'paused') return 'paused';
   if (result.status === 'starting' || result.status === 'agent_running' || result.status === 'verifying') return 'running';
   const { passed, score } = evalTrialScore(result);
   if (score === null) return result.exception_type ? 'error' : 'fail';
@@ -85,6 +86,7 @@ const TONE_BADGE = {
   error: 'warning',
   running: 'info',
   queued: 'neutral',
+  paused: 'warning',
   cancelled: 'neutral',
 } as const;
 

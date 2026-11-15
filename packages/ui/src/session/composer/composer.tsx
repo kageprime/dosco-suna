@@ -492,8 +492,8 @@ export interface SessionChatInputProps {
  *
  * The gutter is equal on both sides. It used to carry `md:pr-1`, a right-side
  * trim against the collapsed action-panel chevron rail, which then took ~37px
- * of the row's width. That rail now takes no width (`COLLAPSED_RAIL_OFFSET` in
- * `session-action-panel-column.tsx`), so the trim only shifted the card 5.5px
+ * of the row's width. Collapsed, the column now takes no width at all
+ * (`session-action-panel-column.tsx`), so the trim only shifted the card 5.5px
  * right of center. A breakpoint may never ZERO this gutter — zero is what let
  * the card touch the panel divider, and `composer-underbar.test.tsx` guards
  * exactly that line.
@@ -1602,7 +1602,7 @@ function ComposerImpl(props: SessionChatInputProps) {
     return available.map((action) => {
       if (action.id === 'switch-agent' && selectedAgent) {
         // The name the agent chip shows, not the slug.
-        return { ...action, value: agentLabels?.[selectedAgent] ?? agentDisplayName(selectedAgent) };
+        return { ...action, value: agentLabels?.[selectedAgent] ?? agentDisplayName(selectedAgent, agents.find((a) => a.name === selectedAgent)?.title) };
       }
       // The ring icon (via `context`) plus the reading as the row's
       // "current setting" text — same grammar as the agent row's value.
@@ -1612,7 +1612,7 @@ function ComposerImpl(props: SessionChatInputProps) {
       return action;
     }).concat(hostSlashActions(hostSlashRows));
   }, [
-    selectedAgent, agentLabels, canSwitchAgent, onCompactClick, onContextClick, contextUsage, tI18nComplete,
+    selectedAgent, agents, agentLabels, canSwitchAgent, onCompactClick, onContextClick, contextUsage, tI18nComplete,
     modelPickerEnabled, contextMeterEnabled, runtimeSlashEnabled, hostSlashRows,
   ]);
 

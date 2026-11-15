@@ -150,6 +150,8 @@ describe('counts and the line', () => {
     expect(lineSummary([at('a', 'working', 10), at('b', 'needs_input', 11)], []).mark).toBe('needs_input');
     expect(lineSummary([at('a', 'working', 10), at('b', 'idle', 11)], []).mark).toBe('working');
     expect(lineSummary([at('a', 'completed', 10)], [{ status: 'running' }])).toMatchObject({ mark: 'working', runs: 1, runningRuns: 1 });
+    // A run waiting for its approval has not started.
+    expect(lineSummary([], [{ status: 'running', awaitingApproval: true }])).toMatchObject({ runs: 1, runningRuns: 0 });
     const done = lineSummary([at('namer', 'completed', 10), at('poet', 'idle', 30)], [{ status: 'done' }]);
     expect(done).toMatchObject({ mark: 'done', agents: 2, working: 0, runs: 1, runningRuns: 0 });
     expect(done.newest?.handle).toBe('poet');

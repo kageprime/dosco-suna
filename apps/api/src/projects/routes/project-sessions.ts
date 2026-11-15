@@ -503,6 +503,10 @@ export function registerProjectSessionsRoutes(): void {
             updated_after: z.string().datetime({ offset: true }).optional(),
             // Only the teammates of this lead session (`metadata.team_lead`).
             team_lead: z.string().min(1).max(128).optional(),
+            // Only the sessions at work now: a live turn on their box
+            // (`working.state` is `working`). Workflow runners, their agents
+            // and colleagues included. A workspace Running view reads it.
+            working: z.literal('only').optional(),
           }),
         },
       responses: {
@@ -609,6 +613,7 @@ export function registerProjectSessionsRoutes(): void {
         agent: query.agent ?? null,
         updatedAfter: query.updated_after ? new Date(query.updated_after) : null,
         teamLead: query.team_lead ?? null,
+        working: query.working === 'only',
       },
       boundCredentialSessionId: callerKortixSessionId(c),
       agentPrincipal: loaded.actor ? isAgentPrincipalActor(loaded.actor) : false,
@@ -637,7 +642,13 @@ export function registerProjectSessionsRoutes(): void {
       spaceId ? readActiveChildAgents(accessibleIds) : Promise.resolve(null),
     ]);
     const boards = await readSessionBoards(inventory.items.filter((item) => item.canAccess).map((item) => item.row), working);
-    const body = inventory.items.map((item) => {
+    // `working=only`: the SQL read every session with a live turn on its box; a
+    // turn the runtime already reported ended is not working, and a row the
+    // caller cannot open carries no work state.
+    const listed = query.working === 'only'
+      ? inventory.items.filter((item) => item.canAccess && working.get(item.row.sessionId)?.state === 'working')
+      : inventory.items;
+    const body = listed.map((item) => {
       const row = item.row;
       const owner = row.createdBy ? inventory.ownerIdentities.get(row.createdBy) : null;
       const serialized = { ...serializeSession(row, {

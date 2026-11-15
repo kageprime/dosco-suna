@@ -770,6 +770,9 @@ export type Command = {
 };
 export type Agent = {
     name: string;
+    /** Kortix: `kortix.yaml` `agents.<name>.title`, the name people read. Set on
+     *  agents read from the project config; `name` stays the id. */
+    title?: string;
     description?: string;
     mode: "subagent" | "primary" | "all";
     native?: boolean;

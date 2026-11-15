@@ -19,8 +19,15 @@
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import {
+  CancelEvalRequestSchema,
   CreateEvalJobRequestSchema,
+  EVAL_JOB_FILTER_FIELDS,
   EVAL_JOB_STATUSES,
+  EVAL_TRIAL_FILTER_FIELDS,
+  EVAL_TRIAL_SORTS,
+  EVAL_TRIAL_STATUSES,
+  EvalFilterValuesResponseSchema,
+  EvalTrialPageResponseSchema,
   EvalCompareResponseSchema,
   EvalDatasetsResponseSchema,
   EvalErrorSchema,
@@ -36,6 +43,7 @@ import {
   EvalTrialResponseSchema,
   RerunEvalJobRequestSchema,
   type EvalJobStatus,
+  type EvalTrialStatus,
 } from '@kortix/api-contract';
 import type { Context } from 'hono';
 import { driveStorageAvailable } from '../../drives/volumes';
@@ -51,7 +59,7 @@ import { EvalConfigError } from '../evals/config';
 import { serializeJob, serializeTrial } from '../evals/serialize';
 import * as evals from '../evals/service';
 import { readEvalFile, trialFolder } from '../evals/storage';
-import { countJobs, getJob, listJobs, listTrials, type EvalJobFilters } from '../evals/store';
+import { countJobs, getJob, listJobs, listTrials, type EvalJobFilters, type EvalTrialFilters } from '../evals/store';
 import { listEvalDatasets } from '../evals/task-source';
 import { assertProjectCapability, loadProjectForUser, projectCapabilityAllowed } from '../lib/access';
 import { projectsApp } from '../lib/app';
@@ -146,6 +154,53 @@ async function parseBody<T>(c: EvalContextC, schema: z.ZodType<T>): Promise<T | 
 function handler(fn: (c: EvalContextC) => Promise<Response>): never {
   return fn as never;
 }
+
+/** A repeated query parameter, also as one comma-separated value: `?status=a&status=b` or `?status=a,b`. */
+function listQuery(c: EvalContextC, name: string): string[] | undefined {
+  const values = (c.req.queries(name) ?? []).flatMap((value) => value.split(',')).map((value) => value.trim()).filter(Boolean);
+  return values.length ? [...new Set(values)] : undefined;
+}
+
+/** The job filters of the query: one value each (`GET /jobs`, `GET /jobs/filters`). */
+function jobFiltersOf(c: EvalContextC): EvalJobFilters | Response {
+  const status = c.req.query('status');
+  if (status !== undefined && !(EVAL_JOB_STATUSES as readonly string[]).includes(status)) return invalid(c, `\`status\` is one of ${EVAL_JOB_STATUSES.join(', ')}.`);
+  return {
+    status: status as EvalJobStatus | undefined,
+    suite: c.req.query('suite') || undefined,
+    dataset: c.req.query('dataset') || undefined,
+    agent: c.req.query('agent') || undefined,
+    model: c.req.query('model') || undefined,
+    q: c.req.query('q') || undefined,
+  };
+}
+
+/** The trial filters of the query (`GET /trials`, `GET /trials/filters`). Each takes several values. */
+function trialFiltersOf(c: EvalContextC): EvalTrialFilters | Response {
+  const status = listQuery(c, 'status');
+  const bad = status?.find((value) => !(EVAL_TRIAL_STATUSES as readonly string[]).includes(value));
+  if (bad) return invalid(c, `\`status\` takes ${EVAL_TRIAL_STATUSES.join(', ')}; got ${bad}.`);
+  const jobIds = listQuery(c, 'job_ids');
+  if (jobIds?.some((id) => !isUuid(id))) return invalid(c, '`job_ids` takes job ids.');
+  return {
+    jobIds,
+    status: status as EvalTrialStatus[] | undefined,
+    task: listQuery(c, 'task'),
+    agent: listQuery(c, 'agent'),
+    model: listQuery(c, 'model'),
+    exceptionType: listQuery(c, 'exception_type'),
+    q: c.req.query('q') || undefined,
+  };
+}
+
+/** `limit` of a filter-values route: 1 to 1000, default 100. */
+function filterLimitOf(c: EvalContextC): number | Response {
+  const raw = c.req.query('limit');
+  const limit = raw === undefined ? 100 : Number(raw);
+  return Number.isInteger(limit) && limit >= 1 && limit <= 1000 ? limit : invalid(c, '`limit` is an integer from 1 to 1000.');
+}
+
+const listParam = (description: string) => z.union([z.string(), z.array(z.string())]).optional().openapi({ description });
 
 async function jobOf(c: EvalContextC, loaded: Loaded) {
   const jobId = c.req.param('jobId') ?? '';
@@ -348,8 +403,8 @@ export function registerEvalRoutes(): void {
       const rawLimit = c.req.query('limit');
       const limit = rawLimit === undefined ? 50 : Number(rawLimit);
       if (!Number.isInteger(limit) || limit < 1 || limit > 200) return invalid(c, '`limit` is an integer from 1 to 200.');
-      const status = c.req.query('status');
-      if (status !== undefined && !(EVAL_JOB_STATUSES as readonly string[]).includes(status)) return invalid(c, `\`status\` is one of ${EVAL_JOB_STATUSES.join(', ')}.`);
+      const filters = jobFiltersOf(c);
+      if (filters instanceof Response) return filters;
       const cursor = c.req.query('cursor');
       let after: string | undefined;
       if (cursor) {
@@ -357,18 +412,139 @@ export function registerEvalRoutes(): void {
         if (!isUuid(id) || !(await getJob(loaded.row.projectId, id))) return invalid(c, '`cursor` is not a page of this list. Start again without it.');
         after = id;
       }
-      const filters: EvalJobFilters = {
-        status: status as EvalJobStatus | undefined,
-        suite: c.req.query('suite') || undefined,
-        dataset: c.req.query('dataset') || undefined,
-        agent: c.req.query('agent') || undefined,
-        model: c.req.query('model') || undefined,
-        q: c.req.query('q') || undefined,
-      };
       const [rows, total] = await Promise.all([listJobs(loaded.row.projectId, { ...filters, limit: limit + 1, after }), countJobs(loaded.row.projectId, filters)]);
       const page = rows.slice(0, limit);
       const next = rows.length > limit ? Buffer.from(page[page.length - 1]!.jobId).toString('base64url') : null;
       return c.json({ jobs: page.map(serializeJob), next_cursor: next, total }, 200);
+    }),
+  );
+
+  // Before `/jobs/{jobId}`: `filters` is not a job id.
+  projectsApp.openapi(
+    createRoute({
+      method: 'get',
+      path: '/{workspaceId}/evals/jobs/filters',
+      tags: ['evals'],
+      summary: 'Values of a job filter',
+      description:
+        `The values one job field takes, with how many jobs have each, most first. \`field\` is one of ${EVAL_JOB_FILTER_FIELDS.join(', ')}. ` +
+        'The other filters of `GET /jobs` narrow the scope; the field\u2019s own filter is left out, so its other values stay visible. `limit` is 1 to 1000 (default 100); `truncated` says more exist. Flag `evals`.',
+      ...auth,
+      request: {
+        params: projectParams,
+        query: z.object({
+          field: z.string().openapi({ description: `One of ${EVAL_JOB_FILTER_FIELDS.join(', ')}.` }),
+          status: z.string().optional(),
+          suite: z.string().optional(),
+          dataset: z.string().optional(),
+          agent: z.string().optional(),
+          model: z.string().optional(),
+          q: z.string().optional(),
+          limit: z.string().optional(),
+        }),
+      },
+      responses: { 200: json(EvalFilterValuesResponseSchema, 'The values'), ...errors(400), ...EVAL_ERRORS },
+    }),
+    handler(async (c) => {
+      const loaded = await scopeOf(c);
+      if (loaded instanceof Response) return loaded;
+      const field = c.req.query('field') ?? '';
+      if (!(EVAL_JOB_FILTER_FIELDS as readonly string[]).includes(field)) return invalid(c, `\`field\` is one of ${EVAL_JOB_FILTER_FIELDS.join(', ')}.`);
+      const filters = jobFiltersOf(c);
+      if (filters instanceof Response) return filters;
+      const limit = filterLimitOf(c);
+      if (limit instanceof Response) return limit;
+      return c.json(await evals.jobFilterValues(loaded.row, field, filters, limit), 200);
+    }),
+  );
+
+  projectsApp.openapi(
+    createRoute({
+      method: 'get',
+      path: '/{workspaceId}/evals/trials',
+      tags: ['evals'],
+      summary: 'List trials across jobs',
+      description:
+        'The trials of every job of the project that match, one page, each with `job_name`. Every run counts, retries included. ' +
+        'Filters take several values (repeat the parameter or separate with commas; values of one filter are ORed, filters are ANDed): `job_ids`, `status`, `task` (task name), `agent`, `model`, `exception_type`; `q` is part of the trial or task name. ' +
+        `\`sort\` is one of ${EVAL_TRIAL_SORTS.join(', ')} (default \`created_at\`; \`reward\` is the mean of the reward keys, no reward last). ` +
+        '`page_size` is 1 to 100 (default 50). Pass `next_page_token` as `page_token` with the same filters and sort; null ends the list. Flag `evals`.',
+      ...auth,
+      request: {
+        params: projectParams,
+        query: z.object({
+          job_ids: listParam('Job ids.'),
+          status: listParam(`Trial statuses: ${EVAL_TRIAL_STATUSES.join(', ')}.`),
+          task: listParam('Task names.'),
+          agent: listParam('Agent names.'),
+          model: listParam('Models.'),
+          exception_type: listParam('Exception types, as `exception.exception_type`.'),
+          q: z.string().optional(),
+          sort: z.string().optional().openapi({ description: `One of ${EVAL_TRIAL_SORTS.join(', ')}.` }),
+          page_size: z.string().optional(),
+          page_token: z.string().optional(),
+        }),
+      },
+      responses: { 200: json(EvalTrialPageResponseSchema, 'One page of trials'), ...errors(400), ...EVAL_ERRORS },
+    }),
+    handler(async (c) => {
+      const loaded = await scopeOf(c);
+      if (loaded instanceof Response) return loaded;
+      const filters = trialFiltersOf(c);
+      if (filters instanceof Response) return filters;
+      const sort = c.req.query('sort');
+      if (sort !== undefined && !(EVAL_TRIAL_SORTS as readonly string[]).includes(sort)) return invalid(c, `\`sort\` is one of ${EVAL_TRIAL_SORTS.join(', ')}.`);
+      const rawSize = c.req.query('page_size');
+      const pageSize = rawSize === undefined ? undefined : Number(rawSize);
+      if (pageSize !== undefined && (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100)) return invalid(c, '`page_size` is an integer from 1 to 100.');
+      try {
+        return c.json(await evals.listTrialsAcrossJobs(loaded.row, filters, { sort, pageSize, pageToken: c.req.query('page_token') || undefined }), 200);
+      } catch (error) {
+        return errorResponse(c, error);
+      }
+    }),
+  );
+
+  projectsApp.openapi(
+    createRoute({
+      method: 'get',
+      path: '/{workspaceId}/evals/trials/filters',
+      tags: ['evals'],
+      summary: 'Values of a trial filter',
+      description:
+        `The values one trial field takes across the project\u2019s jobs, with how many trials have each, most first. \`field\` is one of ${EVAL_TRIAL_FILTER_FIELDS.join(', ')}; for \`job\` the value is the job id and \`label\` its name. ` +
+        'The other filters of `GET /trials` narrow the scope; the field\u2019s own filter is left out. `limit` is 1 to 1000 (default 100); `truncated` says more exist. Flag `evals`.',
+      ...auth,
+      request: {
+        params: projectParams,
+        query: z.object({
+          field: z.string().openapi({ description: `One of ${EVAL_TRIAL_FILTER_FIELDS.join(', ')}.` }),
+          job_ids: listParam('Job ids.'),
+          status: listParam('Trial statuses.'),
+          task: listParam('Task names.'),
+          agent: listParam('Agent names.'),
+          model: listParam('Models.'),
+          exception_type: listParam('Exception types.'),
+          q: z.string().optional(),
+          limit: z.string().optional(),
+        }),
+      },
+      responses: { 200: json(EvalFilterValuesResponseSchema, 'The values'), ...errors(400), ...EVAL_ERRORS },
+    }),
+    handler(async (c) => {
+      const loaded = await scopeOf(c);
+      if (loaded instanceof Response) return loaded;
+      const field = c.req.query('field') ?? '';
+      if (!(EVAL_TRIAL_FILTER_FIELDS as readonly string[]).includes(field)) return invalid(c, `\`field\` is one of ${EVAL_TRIAL_FILTER_FIELDS.join(', ')}.`);
+      const filters = trialFiltersOf(c);
+      if (filters instanceof Response) return filters;
+      const limit = filterLimitOf(c);
+      if (limit instanceof Response) return limit;
+      try {
+        return c.json(await evals.trialFilterValues(loaded.row, field, filters, limit), 200);
+      } catch (error) {
+        return errorResponse(c, error);
+      }
     }),
   );
 
@@ -502,21 +678,54 @@ export function registerEvalRoutes(): void {
       path: '/{workspaceId}/evals/jobs/{jobId}/cancel',
       tags: ['evals'],
       summary: 'Cancel an eval job',
-      description: 'No queued trial starts, and every running trial ends `cancelled` with its sandbox stopped. A job that ended stays as it is. Needs `project.session.start`. Flag `evals`.',
+      description:
+        'No queued or paused trial starts, and no trial is retried. `force` (default `true`): every running trial ends `cancelled` with its sandbox stopped, and the job ends now. ' +
+        '`{"force": false}`: running trials finish with their real results, then the job ends `cancelled`; `cancel_mode` reads `soft` meanwhile. A later `force: true` stops them. A job that ended stays as it is. Needs `project.session.start`. Flag `evals`.',
       ...auth,
-      request: { params: jobParams },
+      request: { params: jobParams, body: { required: false, content: { 'application/json': { schema: lenientBody(CancelEvalRequestSchema.shape) } } } },
       responses: { 200: json(EvalJobResponseSchema, 'The job'), ...errors(400), ...EVAL_ERRORS },
     }),
     handler(async (c) => {
       const loaded = await scopeOf(c, 'run');
       if (loaded instanceof Response) return loaded;
+      const body = await parseBody(c, CancelEvalRequestSchema);
+      if (body instanceof Response) return body;
       try {
-        return c.json({ job: serializeJob(await evals.cancelJob(loaded.row, c.req.param('jobId') ?? '')) }, 200);
+        return c.json({ job: serializeJob(await evals.cancelJob(loaded.row, c.req.param('jobId') ?? '', { force: body.force })) }, 200);
       } catch (error) {
         return errorResponse(c, error);
       }
     }),
   );
+
+  for (const action of ['pause', 'resume'] as const) {
+    projectsApp.openapi(
+      createRoute({
+        method: 'post',
+        path: `/{workspaceId}/evals/jobs/{jobId}/${action}`,
+        tags: ['evals'],
+        summary: action === 'pause' ? 'Pause an eval job' : 'Resume an eval job',
+        description:
+          action === 'pause'
+            ? 'Queued trials become `paused` and no new trial starts; running trials go on. The job reads `paused` until it resumes or ends. A paused job answers `200` unchanged. A job that ended, or that a cancel is draining, answers `409 eval_conflict`. Needs `project.session.start`. Flag `evals`.'
+            : 'Paused trials queue again in their order, and the job reads `running` (or `queued` when no trial started). A job that is not paused and has not ended answers `200` unchanged; an ended job answers `409 eval_conflict`. Needs `project.session.start`. Flag `evals`.',
+        ...auth,
+        request: { params: jobParams },
+        responses: { 200: json(EvalJobResponseSchema, 'The job'), ...errors(400), ...EVAL_ERRORS },
+      }),
+      handler(async (c) => {
+        const loaded = await scopeOf(c, 'run');
+        if (loaded instanceof Response) return loaded;
+        try {
+          const jobId = c.req.param('jobId') ?? '';
+          const job = action === 'pause' ? await evals.pauseJob(loaded.row, jobId) : await evals.resumeJob(loaded.row, jobId);
+          return c.json({ job: serializeJob(job) }, 200);
+        } catch (error) {
+          return errorResponse(c, error);
+        }
+      }),
+    );
+  }
 
   projectsApp.openapi(
     createRoute({
@@ -583,17 +792,21 @@ export function registerEvalRoutes(): void {
       path: '/{workspaceId}/evals/jobs/{jobId}/trials/{trialId}/cancel',
       tags: ['evals'],
       summary: 'Cancel one trial',
-      description: 'A queued or running trial ends `cancelled` and its sandbox stops; the rest of the job runs on. A trial that ended stays as it is. Needs `project.session.start`. Flag `evals`.',
+      description:
+        'A queued or paused trial ends `cancelled`. A running one, with `force` (default `true`), ends `cancelled` and its sandbox stops; with `{"force": false}` it finishes with its real result and is not retried. ' +
+        'The rest of the job runs on. A trial that ended stays as it is. Needs `project.session.start`. Flag `evals`.',
       ...auth,
-      request: { params: trialParams },
+      request: { params: trialParams, body: { required: false, content: { 'application/json': { schema: lenientBody(CancelEvalRequestSchema.shape) } } } },
       responses: { 200: json(EvalTrialResponseSchema, 'The trial'), ...errors(400), ...EVAL_ERRORS },
     }),
     handler(async (c) => {
       const loaded = await scopeOf(c, 'run');
       if (loaded instanceof Response) return loaded;
+      const body = await parseBody(c, CancelEvalRequestSchema);
+      if (body instanceof Response) return body;
       try {
         const jobId = c.req.param('jobId') ?? '';
-        const trial = await evals.cancelOneTrial(loaded.row, jobId, c.req.param('trialId') ?? '');
+        const trial = await evals.cancelOneTrial(loaded.row, jobId, c.req.param('trialId') ?? '', body.force);
         const job = await getJob(loaded.row.projectId, jobId);
         return c.json({ trial: serializeTrial(job!, trial) }, 200);
       } catch (error) {
@@ -601,6 +814,37 @@ export function registerEvalRoutes(): void {
       }
     }),
   );
+
+  for (const action of ['pause', 'resume'] as const) {
+    projectsApp.openapi(
+      createRoute({
+        method: 'post',
+        path: `/{workspaceId}/evals/jobs/{jobId}/trials/{trialId}/${action}`,
+        tags: ['evals'],
+        summary: action === 'pause' ? 'Pause one trial' : 'Resume one trial',
+        description:
+          action === 'pause'
+            ? 'A queued trial becomes `paused` and does not start until it resumes. A paused trial answers `200` unchanged; a trial that started answers `409 eval_conflict`. Needs `project.session.start`. Flag `evals`.'
+            : 'A paused trial queues again. In a paused job it answers `409 eval_conflict`: resume the job. A queued or running trial answers `200` unchanged; an ended one `409`. Needs `project.session.start`. Flag `evals`.',
+        ...auth,
+        request: { params: trialParams },
+        responses: { 200: json(EvalTrialResponseSchema, 'The trial'), ...errors(400), ...EVAL_ERRORS },
+      }),
+      handler(async (c) => {
+        const loaded = await scopeOf(c, 'run');
+        if (loaded instanceof Response) return loaded;
+        try {
+          const jobId = c.req.param('jobId') ?? '';
+          const trialId = c.req.param('trialId') ?? '';
+          const trial = action === 'pause' ? await evals.pauseOneTrial(loaded.row, jobId, trialId) : await evals.resumeOneTrial(loaded.row, jobId, trialId);
+          const job = await getJob(loaded.row.projectId, jobId);
+          return c.json({ trial: serializeTrial(job!, trial) }, 200);
+        } catch (error) {
+          return errorResponse(c, error);
+        }
+      }),
+    );
+  }
 
   projectsApp.openapi(
     createRoute({

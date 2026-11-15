@@ -46,7 +46,7 @@ const TARGET = {
 // blocks and the request forces `Accept-Encoding: identity`, so an unbounded
 // read drags the whole session across the provider ingress — and blows
 // READ_TIMEOUT_MS on exactly the long sessions that leave husks.
-const READ_URL = 'https://daemon.example.test/kortix/runtime/log?limit=4';
+const READ_URL = 'https://daemon.example.test/kortix/runtime/log?limit=4&include=context';
 const ABORT_URL = 'https://daemon.example.test/kortix/runtime/sessions/ses_root/abort';
 
 /**

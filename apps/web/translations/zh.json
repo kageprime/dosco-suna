@@ -206,7 +206,8 @@
     },
     "agentAccess": "代理：{agents}",
     "allAgents": "所有代理",
-    "noAgents": "无代理"
+    "noAgents": "无代理",
+    "deliveredOnceSet": "设置值后才会交付"
   },
   "useCases": {
     "headline": "驱动公司运转的循环",
@@ -933,6 +934,7 @@
       "secretsCommand": "密钥命令",
       "ownClientTitle": "使用自己的 Git 客户端",
       "ownClientDescription": "使用普通 <code>git</code> 克隆，而不是 Kortix 命令行。",
+      "ownClientHelp": "使用任意 Git 客户端从此地址克隆。git 询问时，输入任意用户名，并将 Kortix API 密钥作为密码。Kortix 命令行会通过其凭据助手自动完成这一步，普通 <code>git</code> 不会。",
       "cloneAddressDescription": "可使用任何 Git 客户端从此地址克隆。Kortix 会为请求签名，因此无需创建、粘贴或保存访问令牌。",
       "cloneAddress": "克隆地址",
       "peopleTitle": "有权访问的人员",
@@ -1156,6 +1158,7 @@
         "recovered": "未完成，但环境现在已就绪",
         "retrying": "未完成 — 新的尝试正在运行"
       },
+      "supersededGroup": "{count, plural, other {# 个旧构建已被替换}}",
       "outcomes": {
         "ready": "可供新会话使用",
         "building": "正在准备",
@@ -1346,7 +1349,7 @@
         },
         "calendar": {
           "name": "日历",
-          "description": "人与智能体共享的日历：带日期、负责人和评论的事项，与已排程的触发器和循环并列显示。用 @ 提及某人即可通知对方。智能体使用 `kortix calendar`。"
+          "description": "人与智能体共享的日历：带日期、参与者和评论的事项，与已排程的触发器和循环并列显示。用 @ 提及某人即可通知对方。智能体使用 `kortix calendar`。"
         }
       },
       "channelsSwitch": {
@@ -1678,8 +1681,8 @@
         "needsInput": "等待你的回复",
         "starting": "正在唤醒",
         "running": "工作中",
-        "done": "就绪",
-        "stopped": "休眠中",
+        "done": "已完成",
+        "stopped": "已停止",
         "failed": "失败",
         "legacy": "旧版"
       }
@@ -1708,6 +1711,9 @@
       "title": "{file} 有 {errors, plural, other {# 个错误}}和 {warnings, plural, other {# 个警告}}",
       "titleErrors": "{file} 有 {errors, plural, other {# 个错误}}",
       "titleWarnings": "{file} 有 {warnings, plural, other {# 个警告}}",
+      "count": "{errors, plural, other {# 个错误}}和 {warnings, plural, other {# 个警告}}",
+      "countErrors": "{errors, plural, other {# 个错误}}",
+      "countWarnings": "{warnings, plural, other {# 个警告}}",
       "errorsOff": "有错误的智能体和触发器会保持关闭，直到错误被修复。",
       "warningsOnly": "一切仍正常运行。",
       "error": "错误",
@@ -1888,7 +1894,15 @@
       "noMessages": "还没有消息",
       "more": "更多"
     },
-    "calendar": "日历"
+    "calendar": "日历",
+    "running": "运行中",
+    "runningCount": "{count, plural, other {# 个会话运行中}}",
+    "runningTitle": "正在运行",
+    "runningEmpty": "没有正在运行的内容。",
+    "runningFailed": "无法读取正在运行的内容。",
+    "runningRetry": "重试",
+    "runningIn": "在 {title} 中",
+    "runningFirst": "显示前 {count} 个。"
   },
   "dashboard": {
     "title": "仪表板",
@@ -2357,6 +2371,8 @@
     "chatInputMachine": "机器",
     "chatInputMachineDescription": "此会话启动时使用的机器模板。",
     "sending": "正在发送",
+    "notSentYet": "尚未发送 · 恢复联网后发送",
+    "offlineReconnecting": "离线 — 正在重新连接…",
     "stop": "停止",
     "startingSession": "正在启动会话…",
     "sessionStarted": "会话已启动",
@@ -2896,7 +2912,7 @@
       "featuresGrace": "SSO 和 SCIM 保持开启至 {date}。请联系销售以保留企业版。",
       "featuresOn": "开",
       "featuresOff": "关",
-      "featuresOffDescription": "SSO、SCIM、高级角色、审计日志和品牌定制。",
+      "featuresOffDescription": "SSO、SCIM、高级角色和审计日志。",
       "featuresDemo": "以演示方式开启。如需许可证，请联系销售。",
       "featuresLicensed": "已获许可",
       "featuresLicensedRenews": "已获许可 · {date} 续期",
@@ -2921,7 +2937,11 @@
       "action": "添加积分或选择套餐即可在此运行会话。"
     },
     "costs": {
-      "billedElsewhere": "此费用中的 {amount} 积分已计入其迁出前所在的工作区。"
+      "billedElsewhere": "此费用中的 {amount} 积分已计入其迁出前所在的工作区。",
+      "allWorkspaces": "所有工作区",
+      "usageDescriptionWorkspace": "此工作区的 Kortix 费用。积分是所有工作区共用的一个余额。",
+      "usageDescriptionAll": "所有工作区的 Kortix 费用和积分明细。",
+      "planDescriptionAll": "所有工作区的套餐、积分和支出。"
     }
   },
   "ssoRequired": {
@@ -3340,7 +3360,17 @@
       "jsonKeys": "{count, plural, other {JSON · # 个键}}",
       "jsonItems": "{count, plural, other {JSON · # 项}}",
       "failedSentence": "该工作流在完成前停止了。",
-      "runningCount": "{count} 个运行中"
+      "runningCount": "{count} 个运行中",
+      "spent": "已花费 {credits} 积分",
+      "spentHint": "Kortix 目前为此次运行收取的费用：此次运行及其智能体的模型调用和计算时间。",
+      "waitingForYou": "等待你确认 · 未开始",
+      "cancelled": "已取消 — 未运行任何内容",
+      "answeredInChat": "已在聊天中回答 — 未运行任何内容",
+      "stoppedByYou": "已由你停止",
+      "attempt": "第 {count} 次尝试",
+      "quietFor": "已 {minutes} 分钟无输出",
+      "quietCount": "{count} 个无输出",
+      "holdingWorking": "暂缓中 · {count} 个仍在工作"
     },
     "agent": {
       "backgroundWorking": "正在后台工作",
@@ -3438,7 +3468,7 @@
       "automation_recovered": "失败的触发器或循环恢复正常。",
       "capture_device_down": "有一台 Kortix Capture 电脑未在录制。发送给管理 Capture 的人员。",
       "capture_device_recovered": "停止的 Kortix Capture 电脑已重新录制。",
-      "mention": "其他人提及你，或把日历中的事项分配给你。"
+      "mention": "其他人提及你，或把你添加到日历中的事项。"
     },
     "inbox": {
       "title": "收件箱",
@@ -10423,6 +10453,7 @@
       "text38e64d6a8162": "将 SKILL.md 提交到工作区的默认分支。无需模型或聊天。",
       "text39cfc32bd12c": "粘贴的文本",
       "text23d0bb29fca0": "{count, plural, other {# 个词}}",
+      "text3e310b75051c": "再次运行",
       "text426699d5a8c0": "{count, plural, other {# 个字符}}",
       "text40078a553439": "已上传附件分块",
       "text4c7f8000aabd": "附件上传完成",
@@ -10786,6 +10817,10 @@
       "text0b2e0f1bf47e": "它执行过的每次调用，以及批准者",
       "text0b2ecc210632": "唯一的实时渠道。在问题出现的线程中提问，答案、图表和查询都会回到同一线程。",
       "text0b348466332c": "尚未有任何更改",
+      "textf83916135509": "已用",
+      "texta251c18205f1": "已缓存",
+      "text64cd989efc14": "剩余空间",
+      "textcc6d004b577f": "此文件相对于基础版本没有更改。",
       "text0b38e3daeb93": "所有秘密",
       "text0b3dbab0c668": "- 发布修复并撰写复盘",
       "text0b495c90447a": "日历、收件箱和候选人系统。",
@@ -11655,6 +11690,7 @@
       "text2522f9d16f3b": "CompanyOS",
       "text25330787f710": "+3",
       "text2534086de9fe": "显示面板",
+      "text40cd6293d193": "隐藏面板",
       "text2534e74d5120": "你希望代理修改什么？",
       "text253923d0f0c5": "连接 → 应用 → +",
       "text253b18a02165": "正在启动",
@@ -11990,7 +12026,6 @@
       "text2f6a48c637a9": "Webhook 已移除",
       "text2f6c00ce1d58": "从 OneLogin Rules 推送的组会以其 OneLogin 名称在 Kortix 中创建。",
       "text2f6e9daec8e9": "状态",
-      "text2f72fafe0ce1": "而不是 Kortix 命令行。",
       "text2f77668a9dfb": "消息",
       "text2f77dafd3fcc": "连接提供商",
       "text2f80158a9d89": "research/",
@@ -14472,7 +14507,6 @@
       "text7743ce348d92": "草稿",
       "text775ddc2119ab": "复制下面的“Identifier (Entity ID)”和“Reply URL (Assertion Consumer Service URL)”，粘贴到“Basic SAML Configuration”面板中——将 Identifier 标记为 Default，并将“Sign on URL”设为 Kortix 登录页面。Relay State 和 Logout URL 留空。点击“Save”并关闭编辑面板。",
       "text775f96fcc9db": "令牌已撤销",
-      "text7760401b25c7": "克隆与普通",
       "text7761b572aba8": "浏览器通知",
       "text77793c7508f1": "设置将被重置。",
       "text7779bc2ac4be": "skills/claims/SKILL.md",
@@ -16695,7 +16729,6 @@
       "textb7297226fd1f": "保存名称",
       "textb7396994492d": "添加自定义 SAML 应用 → 属性映射",
       "textb73ce9104ddb": "复制失败 — 请手动选择并复制",
-      "textb74106e21108": "没有。",
       "textb7416a669c6b": "已撤回",
       "textb74399647bf0": "请根据其执行的任务命名，这样审计记录中的名称就能准确反映其用途。",
       "textb743a712efa8": "一个线程就是一个会话，仅此一个。",
@@ -18272,7 +18305,6 @@
       "texte3190ee3d8a8": "无法显示工作簿",
       "texte31ab643c44f": "成员",
       "texte31c7af1f424": "每个人连接自己的账户。",
-      "texte327e6c1348b": "使用任何 Git 客户端从该地址克隆。当 git 询问时，输入任何用户名和 Kortix API 密钥作为密码 - Kortix 命令行通过其凭证助手为您完成此操作，简单",
       "texte3311b311078": "希望同时支持 CSV 和 xlsx",
       "texte335ed040bfe": "分支上的草稿，以差异形式审查。",
       "texte339fc8e7d89": "聊天答案无法核验或重复。因此会话会提交查询、脚本、图表及验证说明。",
@@ -21387,7 +21419,11 @@
       "texta268bab502cf": "查看了日历事项",
       "text16d71c4d10a2": "编辑了日历事项",
       "text14580c9900ac": "删除了日历事项",
-      "text96386c724e21": "评论了日历事项"
+      "text96386c724e21": "评论了日历事项",
+      "textf543a9f99ce7": "操作栏",
+      "textca4067071fcf": "选择",
+      "text4cea356a17a1": "未保存的编辑",
+      "text2358f7b37c07": "临时模式的浮动栏：选择、未保存的编辑、待粘贴内容。标题、弱化的描述、带快捷键提示的操作，以及关闭按钮。"
     },
     "publicShareConfirm": {
       "title": "创建公开链接？",
@@ -21804,11 +21840,14 @@
     "noCapUnlimited": "无上限 · 支出不受限制",
     "tokensSub": "输入 {in} · 输出 {out}",
     "unknownValue": "未知",
-    "estimateCoverageUnavailable": "无法获取估算覆盖范围。",
     "estimatesSeparate": "上方的实际支出单独计算。估算从不计入费用。",
     "estimatedUsageValueLabel": "LLM 估算使用价值(非账单):",
-    "pricedRequests": "{count} 个已计价请求",
-    "unpricedRequests": "{count} 个未计价请求",
+    "pricedRequests": "{count, number} 个已计价请求",
+    "unpricedRequests": "{count, number} 个未计价请求",
+    "failedRequests": "{count, number} 个失败请求",
+    "estimateInfoLabel": "关于此估算",
+    "estimateDetail": "成功的模型调用按公开标价计价。失败的请求和没有已知价格的模型不计价。",
+    "estimateRateVersion": "价格表:{version}",
     "llmEstimateLabel": "LLM 估算:"
   },
   "triggerComposer": {
@@ -22381,7 +22420,9 @@
     "areaDescription": "将应用和渠道连接到智能体，并决定它们可以做什么。",
     "wayMoreNamed": "{name} 的更多操作",
     "otherWaysLead": "其他方式：",
-    "typeFilterKortix": "Kortix"
+    "typeFilterKortix": "Kortix",
+    "scopeAll": "全部",
+    "scopeAdded": "已添加"
   },
   "connectMcp": {
     "title": "通过 MCP 连接 Kortix",
@@ -24697,7 +24738,7 @@
   },
   "calendar": {
     "title": "日历",
-    "gateDescription": "人与智能体共享的日历：带日期、负责人和评论的事项，与已排程的触发器和循环并列显示。",
+    "gateDescription": "人与智能体共享的日历：带日期、参与者和评论的事项，与已排程的触发器和循环并列显示。",
     "newItem": "新建事项",
     "today": "今天",
     "previousWeek": "上一周",
@@ -24714,12 +24755,14 @@
     },
     "people": "成员",
     "agents": "智能体",
+    "searchPeople": "搜索成员和智能体",
     "noDate": "无日期",
     "noDateHint": "没有日期的事项在这里等候。",
     "allDay": "全天",
+    "startTime": "开始时间",
+    "endTime": "结束时间",
     "overdue": "已逾期",
     "status": {
-      "open": "未完成",
       "done": "已完成"
     },
     "comments": "{count, plural, other {# 条评论}}",
@@ -24732,9 +24775,7 @@
     "dayEntries": "{day}，{count, plural, other {# 项}}",
     "showWeekOf": "显示 {day} 所在的周",
     "more": "另外 {count} 项",
-    "nobody": "无人",
     "when": "时间",
-    "owner": "负责人",
     "created": "创建",
     "clearDate": "移除日期",
     "saveFailed": "更改未保存。",
@@ -24932,7 +24973,7 @@
       "newAgent": "New agent",
       "newAgentHelp": "My Kortix 将智能体写入 kortix.yaml 并创建更改请求。",
       "name": "Name",
-      "namePlaceholder": "market-scan",
+      "namePlaceholder": "市场扫描",
       "nameHelp": "Lowercase letters, digits and dashes. Saved as <slug></slug>.",
       "nameTaken": "同名智能体已存在。",
       "howToStart": "How to start",
@@ -26531,7 +26572,11 @@
         "resume": "无法恢复运行",
         "stop": "无法停止运行",
         "restart": "无法重启 {label}"
-      }
+      },
+      "hold": "暂缓新智能体",
+      "holdShort": "暂缓新智能体",
+      "holdHint": "暂缓新智能体：在你继续之前不启动新的；正在工作的会继续 (p)",
+      "holding": "已暂缓新智能体"
     },
     "board": {
       "layoutLabel": "布局",
@@ -26806,7 +26851,8 @@
         "dangerZone": "危险区域",
         "evalDatasets": "数据集",
         "evalTasks": "任务",
-        "evalJobs": "作业"
+        "evalJobs": "作业",
+        "evalTrials": "试验"
       },
       "accessTitle": "访问权限",
       "accessDescription": "谁可以打开此工作区，以及使用哪个角色。",
@@ -26834,6 +26880,9 @@
       "personalKeysEmpty": "没有个人密钥。kortix login 会创建一个;用于脚本的密钥在工作区的设置 › API 密钥中创建。",
       "securityDescription": "登录规则、谁可以打开谁的会话,以及每个 API 密钥遵循的规则。",
       "rolesDescription": "内置角色和自定义角色。在成员中分配。",
+      "builtInRoles": "内置角色",
+      "memberGroupsEnterprise": "群组属于 Enterprise 功能。",
+      "openGroups": "打开群组",
       "workspaceId": "工作区 ID",
       "workspaceIdDescription": "用于 CLI、API 和支持。",
       "leaveWorkspace": "离开工作区",
@@ -26847,7 +26896,7 @@
       "apiKeysDescription": "用于脚本、CI 和集成的密钥。密钥以你、某个智能体或某个机器人的身份运行。所有密钥遵循的规则见“安全”。",
       "keys": {
         "title": "API 密钥",
-        "description": "用于脚本、CI 和集成的密钥。密钥以你、代理或机器人身份行动；“作用范围”决定它能触及哪些工作区。",
+        "description": "用于脚本、CI 和集成的密钥。密钥以你、某个代理或某个机器人的身份运行。除非你选择所有工作区，否则它只在此工作区生效。",
         "newKey": "新建密钥",
         "count": "{count, plural, other {# 个密钥}}",
         "emptyTitle": "没有 API 密钥",
@@ -27057,7 +27106,9 @@
       "queued": "排队中",
       "running": "运行中",
       "completed": "已完成",
-      "cancelled": "已取消"
+      "cancelled": "已取消",
+      "paused": "已暂停",
+      "cancelling": "正在取消"
     },
     "trialStatus": {
       "queued": "排队中",
@@ -27066,7 +27117,8 @@
       "verifying": "验证中",
       "completed": "已完成",
       "errored": "出错",
-      "cancelled": "已取消"
+      "cancelled": "已取消",
+      "paused": "已暂停"
     },
     "rerunFailed": "重新运行失败项",
     "rerunAll": "全部重新运行",
@@ -27123,7 +27175,8 @@
       "error": "错误",
       "running": "运行中",
       "queued": "排队中",
-      "cancelled": "已取消"
+      "cancelled": "已取消",
+      "paused": "已暂停"
     },
     "colMeanScore": "平均分",
     "metricsHint": "每次试验的分数是其奖励的平均值；这里是它们的平均值。Harbor 各奖励键指标：{metrics}",
@@ -27227,7 +27280,7 @@
     "progressLabel": "进度",
     "ranFor": "运行了 {time}",
     "recentJobs": "最近的作业",
-    "registryGroup": "Harbor 注册表",
+    "registryGroup": "Harbor",
     "registryTasksHint": "Harbor 注册表中的数据集在各自页面列出任务",
     "registryUnavailable": "无法读取 Harbor 注册表（{reason}）。已列出你的套件和内置数据集。",
     "retryN": "重试 {n}",
@@ -27301,7 +27354,7 @@
       "all": "全部",
       "suite": "你的",
       "builtin": "内置",
-      "registry": "Harbor 注册表"
+      "registry": "Harbor"
     },
     "taskTab": {
       "instruction": "指令",
@@ -27309,7 +27362,49 @@
       "files": "文件",
       "results": "结果"
     },
-    "colTaskCount": "任务"
+    "colTaskCount": "任务",
+    "pause": "暂停",
+    "resume": "继续",
+    "paused": "作业已暂停",
+    "resumed": "作业已继续",
+    "cancelNow": "立即停止",
+    "cancelNowHint": "正在运行的试验会停止，作业随即结束。",
+    "cancelDrain": "让正在运行的试验完成",
+    "cancelDrainHint": "不再开始或重试任何试验。正在运行的试验完成后作业结束。",
+    "cancelDrainStarted": "正在运行的试验完成后作业结束",
+    "trialsTitle": "试验",
+    "trialsDescription": "所有作业的所有试验，在服务器端筛选。",
+    "trialsInfo": "每个筛选器列出其取值及对应的试验数，只统计其他筛选器保留的试验。点击一行，会在作业旁打开该试验。",
+    "searchTrials": "搜索试验",
+    "sortLabel": "排序",
+    "trialSort": {
+      "desc_created_at": "最新优先",
+      "created_at": "最早优先",
+      "desc_finished_at": "最后完成",
+      "desc_reward": "奖励最高",
+      "reward": "奖励最低",
+      "task": "按任务名称"
+    },
+    "trialFacet": {
+      "status": "状态",
+      "job": "作业",
+      "task": "任务",
+      "agent": "智能体",
+      "model": "模型",
+      "exception_type": "错误"
+    },
+    "trialFacetAny": {
+      "status": "任意状态",
+      "job": "所有作业",
+      "task": "所有任务",
+      "agent": "任意智能体",
+      "model": "任意模型",
+      "exception_type": "任意错误"
+    },
+    "noTrialsYet": "还没有试验",
+    "displayingRange": "第 {from}–{to} 条，共 {total} 条试验",
+    "previousPage": "上一页",
+    "nextPage": "下一页"
   },
   "desktopTabs": {
     "tabs": "已打开的标签页",
@@ -27334,6 +27429,7 @@
     "settings": "设置",
     "pages": {
       "apps": "应用",
+      "calendar": "日历",
       "chat": "聊天",
       "drive": "云盘",
       "files": "文件",

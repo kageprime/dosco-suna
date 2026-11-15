@@ -18,6 +18,12 @@
  *   the newest turn died (failed, runtime gone)   failed
  *   the newest turn completed with an answer      completed
  *   anything else                                 idle
+ *
+ * `work_state` is the same verdict in the words a script waits on: is the
+ * work done. `working` and `needs_input` are `running`; the others keep
+ * their name. `status` stays the stored row lifecycle and `runtime_status`
+ * the computer: a child that answered keeps `status: running` and
+ * `runtime_status: active` until its idle computer stops.
  */
 import {
   AGENT_HANDLE_KEY,
@@ -27,6 +33,7 @@ import {
   type SessionAttention,
   type SessionBoardState,
   type SessionInbound,
+  type SessionWorkState,
 } from '@kortix/api-contract/multi-agent';
 import type { SessionWorking } from '@kortix/api-contract';
 import { connectorCalls, sessionColleagueAccess, sessionPendingPermissions, sessionPendingQuestions, sessionTurns } from '@kortix/db';
@@ -55,12 +62,18 @@ export const RESULT_EXCERPT_MAX_CHARS = 280;
 
 export interface SessionBoardFields {
   board_state: SessionBoardState;
+  work_state: SessionWorkState;
   attention: SessionAttention;
   last_activity_at: string | null;
   result_excerpt: string | null;
   agent_handle: string | null;
   team_lead_session_id: string | null;
   inbound: SessionInbound;
+}
+
+/** `work_state` of a board state. */
+export function workStateOfBoard(state: SessionBoardState): SessionWorkState {
+  return state === 'working' || state === 'needs_input' ? 'running' : state;
 }
 
 type BoardRow = Pick<ProjectSessionRow, 'sessionId' | 'status' | 'metadata'>;
@@ -115,6 +128,7 @@ export function deriveSessionBoard(input: {
     : null;
   return {
     board_state: state,
+    work_state: workStateOfBoard(state),
     attention,
     last_activity_at: lastActivity,
     result_excerpt: excerpt ? excerpt.slice(0, RESULT_EXCERPT_MAX_CHARS) : null,
@@ -213,6 +227,7 @@ export async function readSessionBoards(
 /** The board fields of a row the caller may not open: nothing from its metadata. */
 export const HIDDEN_SESSION_BOARD: SessionBoardFields = {
   board_state: 'idle',
+  work_state: 'idle',
   attention: null,
   last_activity_at: null,
   result_excerpt: null,

@@ -37,6 +37,7 @@ import { requestGitHubUserProof } from '../../../internal/lib/github-user-proof'
 import { PROJECT_ACTIONS } from '../../../internal/lib/project-actions';
 import { useDeploymentCliInstallCommand } from '../../../internal/lib/use-deployment-cli-install-command';
 import { useProjectCans } from '../../../internal/lib/use-project-can';
+import { ManifestIssuesRow } from './manifest-issues-row';
 import { cn } from '../../../internal/lib/utils';
 import {
   getProjectDetail,
@@ -596,6 +597,8 @@ function RepositoryGroup({
             className="h-8 w-44 font-mono text-xs"
           />
         </SettingsRow>
+        {/* The manifest's open issues, under the row that names the file. */}
+        <ManifestIssuesRow projectId={project.project_id} canWrite={canManage} />
       </SettingsRowGroup>
       <Modal open={changeOpen} onOpenChange={(open) => {
         if (changeRepository.isPending) return;
@@ -739,8 +742,11 @@ function LocalSetup({ projectId }: { projectId: string }) {
  * unusual about it (no token to create or store), not with how Dosco resolves
  * the credential.
  */
-function OwnGitClient({ project }: { project: ProjectWithOrigin }) {
+export function OwnGitClient({ project }: { project: ProjectWithOrigin }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
+  const tGit = useI18nTranslations('settings.git');
+  // Whole sentences, so every locale keeps its own word order and spacing.
+  const code = (chunks: ReactNode) => <code className="font-mono">{chunks}</code>;
   const [open, setOpen] = useState(false);
 
   return (
@@ -771,8 +777,7 @@ function OwnGitClient({ project }: { project: ProjectWithOrigin }) {
                 {tI18nComplete.raw('textd29222de0472')}
               </span>
               <span className="text-muted-foreground block text-xs font-normal text-pretty">
-                {tI18nComplete.raw('text7760401b25c7')}
-                <code className="font-mono">git</code> {tI18nComplete.raw('text2f72fafe0ce1')}
+                {tGit.rich('ownClientDescription', { code })}
               </span>
             </span>
             <CaretDownIcon
@@ -786,8 +791,7 @@ function OwnGitClient({ project }: { project: ProjectWithOrigin }) {
         <DisclosureContent variant="outline" contentClassName="border-border border-t">
           <div className="space-y-2 px-4 py-3.5">
             <p className="text-muted-foreground text-xs text-pretty">
-              {tI18nComplete.raw('texte327e6c1348b')}
-              <code className="font-mono">git</code> {tI18nComplete.raw('textb74106e21108')}
+              {tGit.rich('ownClientHelp', { code })}
             </p>
             <CommandLine
               value={gitCloneUrl(project)}

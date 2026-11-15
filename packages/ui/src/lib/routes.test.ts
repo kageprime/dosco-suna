@@ -92,3 +92,13 @@ test('the open session and project are read through the host routes', () => {
   expect(isProjectPath('/w/p/chat/s1', 'p')).toBe(true);
   expect(isProjectPath('/workspaces/p', 'p')).toBe(false);
 });
+
+test('the Inbox route is apps/web\'s /inbox; a host that maps routes links it only when it maps inbox', () => {
+  expect(uiRoutes().inbox?.()).toBe('/inbox');
+  setUiRoutes({ files: () => null });
+  expect(uiRoutes().inbox).toBeUndefined();
+  setUiRoutes({ files: () => null, inbox: () => '/notifications' });
+  expect(uiRoutes().inbox?.()).toBe('/notifications');
+  setUiRoutes({});
+  expect(uiRoutes().inbox?.()).toBe('/inbox');
+});

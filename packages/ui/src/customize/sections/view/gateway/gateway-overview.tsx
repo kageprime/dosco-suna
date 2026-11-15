@@ -15,7 +15,9 @@ import {
 import type { GatewayModelStat } from '@kortix/sdk';
 import { listProjectSessions, PROJECT_SESSION_NAME_LOOKUP_LIMIT } from '@kortix/sdk';
 import { contract, qk } from '@kortix/sdk/react';
+import { InfoIcon } from '@phosphor-icons/react';
 import { cn } from '../../../../internal/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../../primitives/popover';
 
 import {
   CostPanel,
@@ -33,9 +35,19 @@ import {
 import { displayModel } from './_shared';
 import { GatewayBudgetSection } from './gateway-budgets';
 
-/** An LLM usage estimate in US dollars, to 4 decimals. */
-const usd4 = (value: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(value);
+/**
+ * An LLM usage estimate in US dollars, to 2 decimals. A value above zero that
+ * rounds to $0.00 reads "<$0.01", so a small estimate never looks like none.
+ */
+export function usd2(value: number, locale = 'en-US'): string {
+  const fmt = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return value > 0 && value < 0.005 ? `<${fmt.format(0.01)}` : fmt.format(value);
+}
 
 type MetricKey = 'cost' | 'traffic' | 'tokens' | 'latency';
 
@@ -225,20 +237,38 @@ export function GatewayOverview({
             <p className="text-muted-foreground text-xs tabular-nums">
               {tabs.find((m) => m.key === metric)?.sub}
             </p>
-            <p className="text-muted-foreground text-xs tabular-nums">
-              {t('estimatedUsageValueLabel')}{' '}
-              {overview?.estimated_usage_value == null
-                ? t('unknownValue')
-                : usd4(overview.estimated_usage_value)}
-              {' · '}
-              {t('pricedRequests', { count: overview?.priced_requests ?? 0 })}
-              {' · '}
-              {t('unpricedRequests', { count: overview?.unpriced_requests ?? 0 })}
-            </p>
-            <p className="text-muted-foreground text-xs">
-              {overview?.valuation?.coverage ?? t('estimateCoverageUnavailable')} {t('estimatesSeparate')}{' '}
-              {overview?.valuation?.rate_version}
-            </p>
+            {/* The estimate's buckets add up to the Requests headline:
+                priced + unpriced count successful requests only, and the
+                failed bucket is the window's `errors`. Coverage and the rate
+                table sit behind the info icon. */}
+            <div className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-xs tabular-nums">
+              <span>
+                {t('estimatedUsageValueLabel')}{' '}
+                {overview?.estimated_usage_value == null
+                  ? t('unknownValue')
+                  : usd2(overview.estimated_usage_value, locale)}
+                {' · '}
+                {t('pricedRequests', { count: overview?.priced_requests ?? 0 })}
+                {' · '}
+                {t('unpricedRequests', { count: overview?.unpriced_requests ?? 0 })}
+                {errors > 0 ? (
+                  <>
+                    {' · '}
+                    {t('failedRequests', { count: errors })}
+                  </>
+                ) : null}
+              </span>
+              <EstimateInfo
+                label={t('estimateInfoLabel')}
+                lines={[
+                  t('estimateDetail'),
+                  t('estimatesSeparate'),
+                  overview?.valuation?.rate_version
+                    ? t('estimateRateVersion', { version: overview.valuation.rate_version })
+                    : null,
+                ]}
+              />
+            </div>
             <UsageChart
               data={series}
               keys={activeMetric.keys}
@@ -318,7 +348,7 @@ export function GatewayOverview({
                           {' · '}{t('llmEstimateLabel')}{' '}
                           {s.estimated_usage_value == null
                             ? t('unknownValue')
-                            : usd4(s.estimated_usage_value)}
+                            : usd2(s.estimated_usage_value, locale)}
                         </span>
                       </div>
                       <ShareBar
@@ -442,5 +472,30 @@ function Payee({ color, label, amount }: { color: string; label: string; amount:
       <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
       {fmtCredits(amount, locale)} {label}
     </span>
+  );
+}
+
+/**
+ * The estimate's one info icon: what is priced, what is not, the rate table.
+ * A popover, not a hover card, so a tap opens it on touch screens.
+ */
+function EstimateInfo({ label, lines }: { label: string; lines: (string | null)[] }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          className="text-muted-foreground hover:text-foreground focus-visible:text-foreground inline-flex"
+        >
+          <InfoIcon className="size-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent aria-label={label} className="text-muted-foreground space-y-1.5 text-xs">
+        {lines.filter(Boolean).map((line) => (
+          <p key={line}>{line}</p>
+        ))}
+      </PopoverContent>
+    </Popover>
   );
 }

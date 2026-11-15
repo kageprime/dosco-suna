@@ -107,7 +107,7 @@ type LiveInboxNotificationKind = (typeof INBOX_NOTIFICATION_KINDS)[number];
  * agent asks (`question`, `permission`), a session was shared with you
  * (`shared`), an automation fails or works again, or a Capture computer stops
  * recording or records again (`capture_device_down`, `capture_device_recovered`),
- * or someone else @mentioned you or assigned you a calendar item (`mention`, flag `calendar`).
+ * or someone else @mentioned you or added you to a calendar item (`mention`, flag `calendar`).
  * `message` is deprecated: a room message. Rooms were removed (2026-11); the API no longer serves these routes. Removed in the next major.
  */
 export type InboxNotificationKind = LiveInboxNotificationKind | 'message';
@@ -135,6 +135,12 @@ export interface InboxNotification {
   /** The web path that opens the subject; its `?notification=<id>` marks the row read. */
   url: string;
   read: boolean;
+  /**
+   * A `question` or `permission` whose ask is closed: answered, dismissed,
+   * decided or expired. False for every other kind. Absent from an older API:
+   * read it as false. "Needs you" leaves a resolved row out.
+   */
+  resolved?: boolean;
   created_at: string;
 }
 
@@ -197,6 +203,27 @@ export interface NotificationPreferences {
   email_available: boolean;
   /** Kinds that cannot reach the caller now (their feature is off everywhere they are): hide their rows. Absent from older APIs. */
   hidden_kinds?: InboxNotificationKind[];
+}
+
+/** The feature flag each flagged kind exists behind: off in every project of the caller, the kind cannot reach them. */
+const NOTIFICATION_KIND_FLAGS: ReadonlyArray<readonly [InboxNotificationKind, string]> = [['mention', 'calendar']];
+
+/**
+ * The kinds a notification settings screen leaves out: the API's
+ * `hidden_kinds`, then each kind whose feature flag is off in every project
+ * the caller is in (`mention`: flag `calendar`). Pass the caller's projects
+ * across accounts (`useWorkspaces`), which the app has already loaded; while
+ * they are not loaded (`undefined`), a flagged kind stays hidden.
+ */
+export function hiddenNotificationKinds(
+  preferences: Pick<NotificationPreferences, 'hidden_kinds'> | undefined,
+  projects: ReadonlyArray<{ experimental?: Partial<Record<string, boolean>> | null }> | undefined,
+): InboxNotificationKind[] {
+  const hidden = new Set<InboxNotificationKind>(preferences?.hidden_kinds ?? []);
+  for (const [kind, flag] of NOTIFICATION_KIND_FLAGS) {
+    if (!(projects ?? []).some((project) => project.experimental?.[flag] === true)) hidden.add(kind);
+  }
+  return [...hidden];
 }
 
 /** A partial update: only the kinds and channels named change. */

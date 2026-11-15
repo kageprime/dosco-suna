@@ -5,7 +5,12 @@ import { useInCustomizeFrame } from './customize-tab-bar';
 import { cn } from '../../internal/lib/utils';
 import { createContext, type ReactNode, useContext } from 'react';
 
-import { SettingsSectionHeader } from '../../primitives/settings-section-header';
+import {
+  SETTINGS_PAGE_COLUMN_CLASS,
+  SettingsPageHeader,
+  SettingsSectionHeader,
+  useSettingsPageTitle,
+} from '../../primitives/settings-section-header';
 import { CapabilityScrollRootProvider, useCapabilityScrollRootRef } from './capability-scroll-root';
 
 interface CapabilityPageShellProps {
@@ -84,6 +89,7 @@ export function CapabilityPageShell({
   const scrollRef = useCapabilityScrollRootRef();
   const embed = useCapabilityShellEmbed();
   const framed = useInCustomizeFrame();
+  const settingsTitle = useSettingsPageTitle();
   if (embed?.titled) {
     // Beside the agent page's rail: the view's title left (no sentence under
     // it, the Settings dialect), its grant control (`filters`) right; search
@@ -124,6 +130,35 @@ export function CapabilityPageShell({
           </header>
           {filters ? <div className="flex flex-wrap items-center justify-between gap-2">{filters}</div> : null}
           <CapabilityScrollRootProvider scrollRef={scrollRef}>{children}</CapabilityScrollRootProvider>
+        </div>
+      </div>
+    );
+  }
+  if (settingsTitle !== null) {
+    // A Workspace settings section: the settings page header and column, so
+    // the title has the rung, the left edge and the name of every other
+    // section. The frame's title bar holds the sidebar opener.
+    const controls =
+      search || action ? (
+        <div className={cn('flex w-full items-center gap-2', !stacked && 'sm:w-auto')}>
+          {search ? <div className={cn('min-w-0 flex-1', !stacked && 'sm:w-64 sm:flex-none')}>{search}</div> : null}
+          {action}
+        </div>
+      ) : null;
+    return (
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+        <div className={SETTINGS_PAGE_COLUMN_CLASS}>
+          <div className={cn('w-full space-y-5', wide ? 'max-w-7xl' : 'max-w-5xl')}>
+            <SettingsPageHeader
+              title={title}
+              titleAccessory={titleAddon}
+              description={description}
+              action={stacked ? undefined : controls}
+            />
+            {stacked ? controls : null}
+            {filters ? <div className="flex flex-wrap items-center justify-between gap-2">{filters}</div> : null}
+            <CapabilityScrollRootProvider scrollRef={scrollRef}>{children}</CapabilityScrollRootProvider>
+          </div>
         </div>
       </div>
     );

@@ -14,7 +14,7 @@
  * agent is reachable at 720×480.
  */
 
-import { slugifySlug } from '@kortix/manifest-schema';
+import { AGENT_TITLE_MAX_LENGTH, slugifySlug } from '@kortix/manifest-schema';
 import type { ProjectConfigSummary } from '@kortix/sdk';
 import { isMyKortixAgentName } from '@kortix/shared';
 import type * as React from 'react';
@@ -45,14 +45,30 @@ export type CreateAgentStart = 'describe' | 'blank' | 'duplicate';
 /** A phone's footer clears the home indicator: the device inset, at least the footer's own py-3. */
 const FOOTER_SAFE_AREA = 'max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]'; // audit:allow device safe-area inset, not a spacing step
 
+/**
+ * The `title:` a new agent is written with: the name as typed, trimmed, when
+ * the key's derived name would read differently ("GitHub PR Reviewer" →
+ * `github-pr-reviewer` → "Github pr reviewer"). null when the key already
+ * reads as typed, so a plain name adds no key to kortix.yaml.
+ */
+export function createAgentTitle(typed: string, slug: string): string | null {
+  const title = typed.trim().slice(0, AGENT_TITLE_MAX_LENGTH).trim();
+  if (!title || !slug) return null;
+  return title === agentDisplayName(slug) ? null : title;
+}
+
 /** The request My Kortix receives. English, like every configure prompt. */
 export function createAgentPrompt(input: {
   start: CreateAgentStart;
   name: string;
+  /** `agents.<name>.title`, from {@link createAgentTitle}. */
+  title?: string | null;
   description: string;
   from?: { name: string; path: string };
 }): string {
-  const review = 'Then open a change request so I can review and merge it.';
+  const review =
+    (input.title ? `Write \`title: ${JSON.stringify(input.title)}\` in its block: the name people see. The key stays "${input.name}". ` : '') +
+    'Then open a change request so I can review and merge it.';
   const desc = input.description.trim();
   if (input.start === 'duplicate' && input.from) {
     return (
@@ -104,6 +120,10 @@ export function CreateAgentModal({
   const [description, setDescription] = useState('');
   const [from, setFrom] = useState<string>('');
   const slug = name.trim() ? slugifySlug(name, '') : '';
+  const title = createAgentTitle(name, slug);
+  // The preview's placeholder: a display name, and the key it would get.
+  const placeholderSlug = slugifySlug(t('namePlaceholder'), 'new-agent');
+  const placeholderTitle = t('namePlaceholder') === placeholderSlug ? agentDisplayName(placeholderSlug) : t('namePlaceholder');
   // Every declared agent and the built-in ones: a new agent can never take a
   // platform agent's key. `agents` (the Duplicate sources) leaves them out.
   const taken = (config?.agents ?? []).some((a) => a.name === slug) || isMyKortixAgentName(slug);
@@ -116,6 +136,7 @@ export function CreateAgentModal({
       createAgentPrompt({
         start,
         name: slug,
+        title,
         description,
         from: source ? { name: source.name, path: source.path } : undefined,
       }),
@@ -161,6 +182,7 @@ export function CreateAgentModal({
                     value={name}
                     placeholder={t('namePlaceholder')}
                     onChange={(e) => setName(e.target.value)}
+                    maxLength={AGENT_TITLE_MAX_LENGTH}
                     autoFocus
                   />
                   {taken ? (
@@ -197,7 +219,7 @@ export function CreateAgentModal({
                           <SelectItem key={agent.name} value={agent.name}>
                             <span className="flex min-w-0 items-center gap-2">
                               <AgentMark slug={agent.name} />
-                              <span className="truncate">{agentDisplayName(agent.name)}</span>
+                              <span className="truncate">{agentDisplayName(agent.name, agent.title)}</span>
                             </span>
                           </SelectItem>
                         ))}
@@ -229,9 +251,9 @@ export function CreateAgentModal({
                   <AgentMark slug={slug || 'new-agent'} size={42} />
                 </div>
                 <p className={cn('truncate text-lg font-medium', slug ? 'text-foreground' : 'text-muted-foreground')}>
-                  {agentDisplayName(slug || t('namePlaceholder'))}
+                  {slug ? agentDisplayName(slug, title) : placeholderTitle}
                 </p>
-                <p className="text-muted-foreground truncate font-mono text-xs">{`agents.${slug || t('namePlaceholder')}`}</p>
+                <p className="text-muted-foreground truncate font-mono text-xs">{`agents.${slug || placeholderSlug}`}</p>
                 {description.trim() ? (
                   <p className="text-foreground line-clamp-3 pt-1 text-sm text-pretty">{description.trim()}</p>
                 ) : null}
@@ -240,7 +262,7 @@ export function CreateAgentModal({
                 {start === 'duplicate' && source ? (
                   <PreviewFact label={t('copyOf')}>
                     <AgentMark slug={source.name} />
-                    <span className="truncate">{agentDisplayName(source.name)}</span>
+                    <span className="truncate">{agentDisplayName(source.name, source.title)}</span>
                   </PreviewFact>
                 ) : null}
                 <PreviewFact label={tPage('instructions')}>{startsWith.instructions}</PreviewFact>

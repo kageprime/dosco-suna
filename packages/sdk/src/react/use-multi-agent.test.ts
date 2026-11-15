@@ -14,6 +14,7 @@ mock.module('@tanstack/react-query', () => ({
     invalidateQueries: (opts: { queryKey: unknown[] }) => {
       invalidated.push(opts.queryKey);
     },
+    getQueryData: (key: unknown[]) => cache.get(JSON.stringify(key)),
     setQueryData: (key: unknown[], update: (old: unknown) => unknown) => {
       cache.set(JSON.stringify(key), update(cache.get(JSON.stringify(key))));
     },
@@ -102,8 +103,12 @@ describe('multi-agent hooks', () => {
 
   test('workflow runs poll every 2 s while one runs, even in an idle session', () => {
     expect(interval(useSessionWorkflows('p1', 's1', { live: false }) as any, [{ status: 'running' }])).toBe(2_000);
-    expect(interval(useSessionWorkflows('p1', 's1', { live: false }) as any, [{ status: 'done' }])).toBe(30_000);
-    expect(interval(useSessionWorkflows('p1', 's1') as any, [{ status: 'done' }])).toBe(5_000);
+    // Every run ended: the read stops (finding 14), unless the session works and can start a new run.
+    expect(interval(useSessionWorkflows('p1', 's1', { live: false }) as any, [{ status: 'done' }])).toBe(false);
+    expect(interval(useSessionWorkflows('p1', 's1') as any, [{ status: 'done' }])).toBe(false);
+    expect(interval(useSessionWorkflows('p1', 's1', { live: true }) as any, [{ status: 'done' }])).toBe(5_000);
+    // No run yet: the read keeps polling to find the first one.
+    expect(interval(useSessionWorkflows('p1', 's1', { live: false }) as any, [])).toBe(30_000);
   });
 
   test('approve and deny refresh the session agents reads', () => {

@@ -174,9 +174,10 @@ export interface LineSummary extends StripCounts {
 }
 
 /** What the agents line says: `2 agents · 1 working`, `2 agents · poet done`, `1 workflow running`. */
-export function lineSummary(rows: readonly AgentRow[], runs: readonly { status: string }[]): LineSummary {
+export function lineSummary(rows: readonly AgentRow[], runs: readonly { status: string; awaitingApproval?: boolean }[]): LineSummary {
   const counts = stripCounts(rows);
-  const runningRuns = runs.filter((run) => run.status === 'running').length;
+  // A run whose approval is still open has not started: it is not running.
+  const runningRuns = runs.filter((run) => run.status === 'running' && run.awaitingApproval !== true).length;
   let newest: AgentRow | null = null;
   for (const row of rows) if (!newest || row.activityMs > newest.activityMs) newest = row;
   const mark: LineMark =

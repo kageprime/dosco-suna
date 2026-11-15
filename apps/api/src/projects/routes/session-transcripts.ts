@@ -32,6 +32,8 @@ const SessionUsageTotalsSchema = z.object({
   output_tokens: z.number().int(),
   cached_tokens: z.number().int(),
   cache_write_tokens: z.number().int(),
+  compute_cost: z.number(),
+  billed_cost: z.number(),
 });
 
 const SessionUsageTreeSchema = z
@@ -255,7 +257,7 @@ export function registerSessionTranscriptsRoutes(): void {
 
   // GET /v1/projects/:projectId/sessions/:sessionId/usage
   // What the session and every session it started cost, in USD, from the
-  // gateway's request ledger. A sub-agent in the session's sandbox bills under
+  // gateway's request ledger and the compute ledger. A sub-agent in the session's sandbox bills under
   // the session's id; a session it started has its own row and its own id.
   projectsApp.openapi(
     createRoute({
@@ -264,7 +266,7 @@ export function registerSessionTranscriptsRoutes(): void {
       tags: ['sessions'],
       summary: 'Read what a session and the sessions it started cost',
       description:
-        'Returns the model usage of the session and of every descendant session (`parent_session_id`, up to 10 levels and 500 sessions) the caller may open, from the gateway request ledger. Each entry of `sessions` carries `cost` in USD (`kortix_cost`, debited from the Kortix wallet, plus `provider_cost`, paid to the account\'s own provider key), request and token counts. `sessions` lists the session first, then its descendants depth-first, oldest child first. `total` is the sum over `sessions`. `hidden_sessions` counts descendants the caller may not open; a hidden session hides its subtree, and none of it is in `total`. `truncated` is true when the walk stopped at a limit. A sub-agent inside the session\'s sandbox bills under the session\'s own id, so its cost is in the session\'s entry.',
+        'Returns the model usage of the session and of every descendant session (`parent_session_id`, up to 10 levels and 500 sessions) the caller may open, from the gateway request ledger. Each entry of `sessions` carries `cost` in USD (`kortix_cost`, debited from the Kortix wallet, plus `provider_cost`, paid to the account\'s own provider key), request and token counts. `compute_cost` is what the session\'s boxes cost while they were up (`sandbox_compute_sessions`), and `billed_cost` is everything Kortix debited for the session: `kortix_cost + compute_cost`. `sessions` lists the session first, then its descendants depth-first, oldest child first. `total` is the sum over `sessions`. `hidden_sessions` counts descendants the caller may not open; a hidden session hides its subtree, and none of it is in `total`. `truncated` is true when the walk stopped at a limit. A sub-agent inside the session\'s sandbox bills under the session\'s own id, so its cost is in the session\'s entry.',
       ...auth,
       request: { params: z.object({ workspaceId: z.string(), sessionId: z.string() }) },
       responses: { 200: json(SessionUsageTreeSchema, 'Session usage'), ...errors(400, 403, 404) },

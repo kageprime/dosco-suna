@@ -37,6 +37,7 @@
     "./access/iam/session-oversight-card": "./src/access/iam/session-oversight-card.tsx",
     "./access/sharing-picker": "./src/access/sharing-picker.tsx",
     "./accordion": "./src/primitives/accordion.tsx",
+    "./action-bar": "./src/primitives/action-bar.tsx",
     "./alert": "./src/primitives/alert.tsx",
     "./alert-dialog": "./src/primitives/alert-dialog.tsx",
     "./apps": "./src/apps/index.ts",
@@ -639,6 +640,10 @@
       "./accordion": {
         "types": "./dist/primitives/accordion.d.ts",
         "import": "./dist/primitives/accordion.js"
+      },
+      "./action-bar": {
+        "types": "./dist/primitives/action-bar.d.ts",
+        "import": "./dist/primitives/action-bar.js"
       },
       "./alert": {
         "types": "./dist/primitives/alert.d.ts",

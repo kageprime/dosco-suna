@@ -4,6 +4,8 @@
  *   repo: a path in the project repository, at the job's commit.
  *   git:  a path in a public git repository at a pinned commit. A dataset of the
  *         Harbor registry (`terminal-bench@2.0`) is a list of these.
+ *   package: a task version of Harbor Hub (`org/name`), pinned by content hash.
+ *         A Hub dataset (`terminal-bench/terminal-bench-2-1`) is a list of these.
  *
  * A git source is fetched once per (url, commit) into a bare repository under
  * the temp dir of the process (`fetch --depth 1`), then read with `ls-tree`
@@ -19,15 +21,25 @@ import { ttlMemo } from '../../shared/ttl-memo';
 import { listRepoDirectory, listRepoFiles, readRepoFileBytes, type GitBackedProject } from '../git';
 import { runGit, runGitBuffer } from '../git/mirror';
 import { HarborTaskError, parseHarborTask, taskNameMatches, type HarborTask } from './harbor-task';
+import { hubTaskFiles, listHubDatasets, type HubTaskVersion } from './hub';
 import { EvalTrialError } from './scoring';
 
 /** Stored on a trial (`eval_trials.task_ref`): where its task is. */
 export type EvalTaskRef =
   | { kind: 'repo'; path: string; source?: string }
-  | { kind: 'git'; git_url: string; commit: string; path: string; source?: string };
+  | { kind: 'git'; git_url: string; commit: string; path: string; source?: string }
+  /** A Harbor Hub task version. Its files are the archive's root, so `path` is always empty. */
+  | { kind: 'package'; org: string; name: string; content_hash: string; archive_path: string; path: ''; source?: string };
 
 export const taskRefLabel = (ref: EvalTaskRef): string =>
-  ref.kind === 'repo' ? ref.path : `${ref.git_url.replace(/^https:\/\//, '').replace(/\.git$/, '')}@${ref.commit.slice(0, 7)}:${ref.path}`;
+  ref.kind === 'repo'
+    ? ref.path
+    : ref.kind === 'package'
+      ? `${ref.org}/${ref.name}@sha256:${ref.content_hash.slice(0, 12)}`
+      : `${ref.git_url.replace(/^https:\/\//, '').replace(/\.git$/, '')}@${ref.commit.slice(0, 7)}:${ref.path}`;
+
+/** A Hub task version as a task ref. */
+export const packageRef = (task: HubTaskVersion): EvalTaskRef => ({ kind: 'package', org: task.org, name: task.name, content_hash: task.content_hash, archive_path: task.archive_path, path: '' });
 
 export interface TaskFile {
   /** Path relative to the folder that was read. */
@@ -192,8 +204,28 @@ export async function resolveGitRef(gitUrl: string, ref: string | null | undefin
   return sha;
 }
 
+// ── Harbor Hub packages ──────────────────────────────────────────────────────
+
+/** The files of a Hub task version, read from its archive (downloaded once per process). */
+export function hubTree(ref: Extract<EvalTaskRef, { kind: 'package' }>): TaskTree {
+  const files = async () => (await hubTaskFiles(ref)).files;
+  return {
+    async list(path) {
+      return [...(await files()).keys()].filter((file) => under(file, path)).sort();
+    },
+    async listSized(path) {
+      return [...(await files()).entries()].filter(([file]) => under(file, path)).map(([file, bytes]) => ({ path: file, size: bytes.byteLength })).sort((a, b) => a.path.localeCompare(b.path));
+    },
+    async read(path) {
+      const bytes = (await files()).get(path);
+      if (!bytes) throw new EvalTrialError('TaskLoadError', `${ref.org}/${ref.name} has no file ${path}.`);
+      return bytes as Uint8Array<ArrayBuffer>;
+    },
+  };
+}
+
 export const treeFor = (project: GitBackedProject, commit: string, ref: EvalTaskRef): TaskTree =>
-  ref.kind === 'repo' ? projectTree(project, commit) : gitTree(ref.git_url, ref.commit);
+  ref.kind === 'repo' ? projectTree(project, commit) : ref.kind === 'package' ? hubTree(ref) : gitTree(ref.git_url, ref.commit);
 
 // ── Tasks ────────────────────────────────────────────────────────────────────
 
@@ -202,14 +234,15 @@ async function readOptional(tree: TaskTree, paths: readonly string[], path: stri
 }
 
 /** Parse the task at `folder` of a tree whose file list is `paths`. */
-async function loadTaskAt(tree: TaskTree, paths: readonly string[], folder: string): Promise<HarborTask> {
+async function loadTaskAt(tree: TaskTree, paths: readonly string[], folder: string, fallbackName?: string): Promise<HarborTask> {
   const prefix = folder ? `${folder}/` : '';
   const inFolder = paths.filter((path) => path.startsWith(prefix)).map((path) => path.slice(prefix.length));
   return parseHarborTask({
-    folderName: folder.split('/').pop() || 'task',
+    folderName: fallbackName ?? (folder.split('/').pop() || 'task'),
     taskToml: await readOptional(tree, paths, `${prefix}task.toml`),
     instruction: await readOptional(tree, paths, `${prefix}instruction.md`),
     dockerfile: await readOptional(tree, paths, `${prefix}environment/Dockerfile`),
+    testsDockerfile: await readOptional(tree, paths, `${prefix}tests/Dockerfile`),
     paths: inFolder,
   });
 }
@@ -217,7 +250,8 @@ async function loadTaskAt(tree: TaskTree, paths: readonly string[], folder: stri
 /** The task a trial runs, read again at run time. */
 export async function loadTask(tree: TaskTree, ref: EvalTaskRef): Promise<HarborTask> {
   try {
-    return await loadTaskAt(tree, await tree.list(ref.path), ref.path);
+    // A Hub task is the archive's root: its package name stands in for the folder name.
+    return await loadTaskAt(tree, await tree.list(ref.path), ref.path, ref.kind === 'package' ? `${ref.org}/${ref.name}` : undefined);
   } catch (err) {
     if (err instanceof EvalTrialError) throw err;
     throw new EvalTrialError('TaskLoadError', err instanceof Error ? err.message : String(err));
@@ -244,6 +278,8 @@ export async function loadTaskFolder(tree: TaskTree, ref: EvalTaskRef, folder: '
 export interface DiscoveredTask {
   ref: EvalTaskRef;
   task: HarborTask | null;
+  /** The task's name before it is read (a registry or Hub listing names it). */
+  name?: string;
   /** Why the folder is not a task, when `task` is null. */
   error: string | null;
 }
@@ -278,7 +314,7 @@ export async function discoverTasks(
 
 /** Apply a source's `task_names`, `exclude_task_names` and `n_tasks`, in name order. */
 export function filterTasks(tasks: DiscoveredTask[], source: Pick<EvalTaskSource, 'task_names' | 'exclude_task_names' | 'n_tasks'>): DiscoveredTask[] {
-  const nameOf = (entry: DiscoveredTask) => entry.task?.name ?? entry.ref.path.split('/').pop() ?? entry.ref.path;
+  const nameOf = (entry: DiscoveredTask) => entry.task?.name ?? entry.name ?? entry.ref.path.split('/').pop() ?? entry.ref.path;
   let kept = [...tasks].sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
   if (source.task_names?.length) kept = kept.filter((entry) => source.task_names!.some((pattern) => taskNameMatches(nameOf(entry), pattern)));
   if (source.exclude_task_names?.length) kept = kept.filter((entry) => !source.exclude_task_names!.some((pattern) => taskNameMatches(nameOf(entry), pattern)));
@@ -374,16 +410,17 @@ export interface EvalDatasetSummary {
   name: string;
   version: string;
   versions: string[];
-  kind: 'builtin' | 'registry';
+  kind: 'builtin' | 'hub' | 'registry';
   description: string;
   n_tasks: number | null;
 }
 
 /**
- * The datasets a job can name: Kortix's built-in datasets first, then the
- * Harbor registry, one row per dataset with its versions newest first. No
- * dataset is read: a built-in dataset's task count is null until a background
- * count lands. A registry that does not answer leaves `registry_error`.
+ * The datasets a job can name: Kortix's built-in datasets first, then Harbor
+ * Hub, then the legacy Harbor registry, one row per dataset with its versions
+ * newest first. No dataset is read: a built-in dataset's task count is null
+ * until a background count lands. A name on both Harbor sources lists once,
+ * from the Hub. A source that does not answer leaves `registry_error`.
  */
 export async function listEvalDatasets(): Promise<{ datasets: EvalDatasetSummary[]; registry_error: string | null }> {
   const builtins: EvalDatasetSummary[] = Object.entries(BUILTIN_DATASETS).map(([name, dataset]) => ({
@@ -394,16 +431,20 @@ export async function listEvalDatasets(): Promise<{ datasets: EvalDatasetSummary
     description: dataset.description,
     n_tasks: builtinTaskCount(name),
   }));
-  let registry: RegistryDataset[] = [];
-  let registryError: string | null = null;
-  try {
-    registry = await loadRegistry();
-  } catch (err) {
-    registryError = err instanceof Error ? err.message : String(err);
-  }
+  const errors: string[] = [];
+  const [hubResult, registryResult] = await Promise.allSettled([listHubDatasets(), loadRegistry()]);
+  const hub: EvalDatasetSummary[] =
+    hubResult.status === 'fulfilled'
+      ? hubResult.value.filter((dataset) => !isBuiltinDataset(dataset.name)).map((dataset) => ({ ...dataset, kind: 'hub' as const }))
+      : (errors.push(`Harbor Hub: ${hubResult.reason instanceof Error ? hubResult.reason.message : String(hubResult.reason)}`), []);
+  const registry: RegistryDataset[] =
+    registryResult.status === 'fulfilled'
+      ? registryResult.value
+      : (errors.push(`Harbor registry: ${registryResult.reason instanceof Error ? registryResult.reason.message : String(registryResult.reason)}`), []);
+  const onHub = new Set(hub.map((dataset) => dataset.name));
   // The registry lists versions oldest first; a job without one runs the last.
   const byName = new Map<string, RegistryDataset[]>();
-  for (const dataset of registry) byName.set(dataset.name, [...(byName.get(dataset.name) ?? []), dataset]);
+  for (const dataset of registry) if (!onHub.has(dataset.name)) byName.set(dataset.name, [...(byName.get(dataset.name) ?? []), dataset]);
   const listed: EvalDatasetSummary[] = [...byName.entries()].map(([name, versions]) => {
     const latest = versions[versions.length - 1]!;
     return {
@@ -415,7 +456,7 @@ export async function listEvalDatasets(): Promise<{ datasets: EvalDatasetSummary
       n_tasks: Array.isArray(latest.tasks) ? latest.tasks.length : null,
     };
   });
-  return { datasets: [...builtins, ...listed], registry_error: registryError };
+  return { datasets: [...builtins, ...hub, ...listed], registry_error: errors.length ? errors.join(' ') : null };
 }
 
 /** How many tasks a registry dataset has, without reading any of them. */

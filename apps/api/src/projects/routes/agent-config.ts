@@ -18,6 +18,7 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import { ignoredAgentSettings } from '@kortix/api-contract/runtime-relay';
 import {
+  AGENT_TITLE_MAX_LENGTH,
   EVERY_GRANT,
   type ManifestIssue,
   isManifestSyntaxError,
@@ -113,6 +114,8 @@ const AgentBlockSchema = z
     commands: GrantSetSchema.optional(),
     extensions: ExcludableGrantSetSchema.optional(),
     codemode: z.enum(['on', 'only', 'off']).optional(),
+    // The agent's display name (`agents.<name>.title`). The key stays its id.
+    title: z.string().trim().min(1).max(AGENT_TITLE_MAX_LENGTH).optional(),
     // A program agent's command (`agents.<name>.run`): each turn runs it in place of a model.
     run: z.string().trim().min(1).max(4096).optional(),
     // A program agent's run limit, a duration (`30m`). The manifest validator checks its range.

@@ -195,7 +195,8 @@ const writeFiles = Object.entries(SANDBOX_DESKTOP_FILES)
 
 export const SANDBOX_DESKTOP_INSTALL_COMMAND =
   'apt-get update' +
-  ' && if apt-cache show libx264-164 libyuv0 >/dev/null 2>&1; then' +
+  // One package per check: `apt-cache show a b` exits 0 when only one of them exists (Ubuntu 22.04 has libyuv0, no libx264-164).
+  ' && if apt-cache show libx264-164 >/dev/null 2>&1 && apt-cache show libyuv0 >/dev/null 2>&1; then' +
   ` apt-get install -y --no-install-recommends ${SANDBOX_DESKTOP_PACKAGES.join(' ')}` +
   ' && case "$(uname -m)" in' +
   ` x86_64) voxl_arch=amd64; voxl_sha=${VOXL_SHA256_AMD64} ;;` +

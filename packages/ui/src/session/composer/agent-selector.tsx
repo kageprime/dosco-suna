@@ -65,7 +65,7 @@ export function resolveProgramAgent(primaryAgents: Agent[], selectedAgent: strin
 export function agentDisplayLabel(agents: Agent[], selectedAgent: string | null): string {
   const name = resolveDisplayedAgentName(composerSelectableAgents(agents), selectedAgent);
   if (!name) return 'Agent';
-  return agentDisplayName(name);
+  return agentDisplayName(name, agents.find((a) => a.name === name)?.title);
 }
 
 /**
@@ -86,8 +86,8 @@ export function useComposerAgentChoices(agents: Agent[]) {
   const primaryAgents = useMemo(() => composerSelectableAgents(offered), [offered]);
   const label = useCallback(
     (name: string) =>
-      agentLabels?.[name] ?? agentDisplayName(name),
-    [agentLabels],
+      agentLabels?.[name] ?? agentDisplayName(name, agents.find((a) => a.name === name)?.title),
+    [agentLabels, agents],
   );
   return { offered, primaryAgents, label, agentLabels };
 }
@@ -153,6 +153,7 @@ export function AgentSelector({
       (a) =>
         a.name.toLowerCase().includes(q) ||
         (agentLabels?.[a.name] ?? '').toLowerCase().includes(q) ||
+        (a.title ?? '').toLowerCase().includes(q) ||
         (a.description || '').toLowerCase().includes(q),
     );
   }, [primaryAgents, search, agentLabels]);

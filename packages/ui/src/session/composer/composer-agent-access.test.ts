@@ -2,6 +2,7 @@ import type { Agent } from '@kortix/sdk/react';
 import { describe, expect, test } from 'bun:test';
 
 import {
+  chatStartAgent,
   composerSelectableAgents,
   NO_AGENT_ACCESS_HINT,
   NO_AGENT_ACCESS_LABEL,
@@ -252,5 +253,28 @@ describe('withChannelAgents — a channel member posts with the channel’s agen
     expect(withChannelAgents(undefined, ['legal'])).toBeUndefined();
     const roster = [agent('kortix')];
     expect(withChannelAgents(roster, [])).toBe(roster);
+  });
+});
+
+describe('chatStartAgent — the agent a new chat starts on (audit finding 01)', () => {
+  test('My Kortix on: a new chat starts on My Kortix, whatever kortix.yaml default_agent says', () => {
+    expect(chatStartAgent({ default_agent: 'kortix', builtin_agents: { my_kortix: true } })).toBe('mykortix');
+  });
+
+  test('My Kortix off: kortix.yaml default_agent stays the start agent', () => {
+    expect(chatStartAgent({ default_agent: 'kortix', builtin_agents: { my_kortix: false } })).toBe('kortix');
+    expect(chatStartAgent({ default_agent: 'kortix' })).toBe('kortix');
+  });
+
+  test('no config yet: no start agent', () => {
+    expect(chatStartAgent(null)).toBeNull();
+    expect(chatStartAgent(undefined)).toBeNull();
+  });
+});
+
+describe('composerSelectableAgents — schedule-only agents', () => {
+  test('the picker leaves out the starter reflector agents; the rest keep their order', () => {
+    const roster = [agent('mykortix'), agent('kortix'), agent('memory-reflector'), agent('harness-reflector')];
+    expect(composerSelectableAgents(roster).map((a) => a.name)).toEqual(['mykortix', 'kortix']);
   });
 });

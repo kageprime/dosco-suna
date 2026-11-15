@@ -9,6 +9,7 @@ import {
   sessionLastActivityAt,
   shortRelative,
   shouldPollProjectSessions,
+  sessionsWorkingInBackground,
   sortSessionsByLastActivity,
   starterSectionOf,
 } from './project-session-list-helpers';
@@ -156,6 +157,37 @@ describe('projectSessionsRefetchInterval', () => {
     expect(projectSessionsRefetchInterval({ sessions: undefined, hasOpenSession: false })).toBe(
       false,
     );
+  });
+
+  // Audit finding 04: on /drive a workflow runner row said "Working" for 3+ min
+  // after the run ended. Nothing polled: no session was open, and no stream
+  // speaks for a session the person is not in.
+  const busy = { state: 'working' as const, since: null, turn_token: 't', pending_delivery: false };
+  const idle = { state: 'idle' as const, since: null, turn_token: null, pending_delivery: false };
+  test('a row that works in the background polls every 10 s, open session or not', () => {
+    const sessions = [makeSession({ session_id: 'bg', status: 'running', name: 'Run', working: busy })];
+    expect(projectSessionsRefetchInterval({ sessions, hasOpenSession: false })).toBe(10_000);
+    expect(projectSessionsRefetchInterval({ sessions, hasOpenSession: true, openSessionId: 'other' })).toBe(10_000);
+  });
+
+  test('the open session working is not background work: its stream patches the row', () => {
+    const sessions = [makeSession({ session_id: 'open', status: 'running', name: 'Chat', working: busy })];
+    expect(projectSessionsRefetchInterval({ sessions, hasOpenSession: true, openSessionId: 'open' })).toBe(60_000);
+  });
+
+  test('an idle row, or an older API without `working`, adds no poll', () => {
+    const sessions = [makeSession({ status: 'running', name: 'Run', working: idle }), makeSession({ session_id: 's2', status: 'running', name: 'Old' })];
+    expect(projectSessionsRefetchInterval({ sessions, hasOpenSession: false })).toBe(false);
+  });
+});
+
+describe('sessionsWorkingInBackground', () => {
+  const busy = { state: 'working' as const, since: null, turn_token: 't', pending_delivery: false };
+  test('true only for a working row that is not the open session', () => {
+    expect(sessionsWorkingInBackground([makeSession({ session_id: 'a', working: busy })], null)).toBe(true);
+    expect(sessionsWorkingInBackground([makeSession({ session_id: 'a', working: busy })], 'a')).toBe(false);
+    expect(sessionsWorkingInBackground([makeSession({ session_id: 'a' })], null)).toBe(false);
+    expect(sessionsWorkingInBackground(undefined, null)).toBe(false);
   });
 });
 

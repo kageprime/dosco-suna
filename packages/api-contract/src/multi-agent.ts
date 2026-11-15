@@ -74,6 +74,16 @@ export const SessionBoardStateSchema = z.enum([
 ]);
 export type SessionBoardState = z.infer<typeof SessionBoardStateSchema>;
 
+/**
+ * Is the session's work done: the field a script waits on. The same verdict
+ * as `board_state` (`working` and `needs_input` are `running`). Not `status`
+ * (the stored row lifecycle) and not `runtime_status` (the computer): a child
+ * that answered keeps `status: running` and `runtime_status: active` until
+ * its idle computer stops.
+ */
+export const SessionWorkStateSchema = z.enum(['running', 'completed', 'failed', 'stopped', 'idle']);
+export type SessionWorkState = z.infer<typeof SessionWorkStateSchema>;
+
 /** What a session waits for from its person, or null. */
 export const SessionAttentionSchema = z.enum(['question', 'approval']).nullable();
 export type SessionAttention = z.infer<typeof SessionAttentionSchema>;
@@ -241,12 +251,13 @@ export const SESSION_TASK_BLOCKED_CODE = 'task_blocked' as const;
  * - `pause`: no new `agent()` starts; running agents finish.
  * - `resume`: starts resume.
  * - `restart_agent`: stop that agent's session and start it again.
+ * - `stop_agent`: stop that agent for good, as the person's stop; the run goes on.
  * - `stop`: stop every agent and end the run.
  */
 export const WorkflowControlBodySchema = z
   .object({
-    action: z.enum(['pause', 'resume', 'restart_agent', 'stop']),
-    /** `restart_agent` only: the agent's child session id. */
+    action: z.enum(['pause', 'resume', 'restart_agent', 'stop_agent', 'stop']),
+    /** `restart_agent` and `stop_agent` only: the agent's child session id. */
     session_id: z.string().optional(),
   })
   .strict();

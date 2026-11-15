@@ -11,8 +11,11 @@ import {
 import {
   ArrowCounterClockwiseIcon,
   ArrowsLeftRightIcon,
+  CaretDownIcon,
   CheckIcon,
   MinusIcon,
+  PauseIcon,
+  PlayIcon,
   StopIcon,
   TrashIcon,
   WarningIcon,
@@ -27,6 +30,12 @@ import { HighlightedCode } from '../../markdown/code';
 import { CopyButton } from '../../markdown/copy-button';
 import { Button } from '../../primitives/button';
 import { ConfirmDialog } from '../../primitives/confirm-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../primitives/dropdown-menu';
 import { EmptyState } from '../../primitives/empty-state';
 import { ErrorState } from '../../primitives/error-state';
 import { Hint } from '../../primitives/hint';
@@ -84,6 +93,7 @@ import {
   EVAL_TIME,
   EvalDetailPage,
   InfoHint,
+  jobStatusKey,
   jobTone,
   ScoreValue,
   SectionTitle,
@@ -109,12 +119,16 @@ const CELL: Record<CellTone, { tint: string; glyph: ReactNode }> = {
     glyph: <span className="bg-kortix-blue size-1.5 rounded-full" aria-hidden />,
   },
   queued: { tint: 'bg-muted', glyph: null },
+  paused: {
+    tint: 'bg-kortix-yellow/15',
+    glyph: <PauseIcon weight="fill" className="text-kortix-yellow size-3" aria-hidden />,
+  },
   cancelled: {
     tint: 'bg-muted',
     glyph: <MinusIcon className="text-muted-foreground size-3.5" aria-hidden />,
   },
 };
-const LEGEND: CellTone[] = ['pass', 'fail', 'error', 'running', 'queued'];
+const LEGEND: CellTone[] = ['pass', 'fail', 'error', 'running', 'queued', 'paused'];
 
 const seconds = (timing: WorkspaceEvalTiming): string =>
   timing.started_at && timing.finished_at
@@ -123,7 +137,8 @@ const seconds = (timing: WorkspaceEvalTiming): string =>
 
 /** What the trial table shows: every trial, or one bucket of the progress bar. */
 type TrialFilter = 'all' | CellTone;
-const TABS = ['overview', 'health', 'trials', 'config'] as const;
+// Trials first, as Harbor's viewer orders a job page: the progress bar above already sums them up.
+const TABS = ['trials', 'overview', 'health', 'config'] as const;
 type Tab = (typeof TABS)[number];
 
 /**
@@ -238,28 +253,82 @@ export function EvalJobView({ projectId, jobId }: { projectId: string; jobId: st
                     <h1 className="text-foreground min-w-0 text-xl font-medium wrap-break-word">
                       {job.job_name}
                     </h1>
-                    <StatusBadge tone={jobTone(job)}>{t(`status.${job.status}`)}</StatusBadge>
+                    <StatusBadge tone={jobTone(job)}>{t(`status.${jobStatusKey(job)}`)}</StatusBadge>
                   </div>
                   <Summary projectId={projectId} job={job} />
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {isOpenJob(job) ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5"
-                      disabled={actions.cancel.isPending}
-                      aria-busy={actions.cancel.isPending}
-                      onClick={() =>
-                        actions.cancel.mutate(jobId, {
-                          onSuccess: () => successToast(t('cancelled')),
-                        })
-                      }
-                      data-testid="evals-cancel"
-                    >
-                      <StopIcon className="size-3.5" aria-hidden />
-                      {t('cancel')}
-                    </Button>
+                    <>
+                      {job.cancel_mode !== 'soft' ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          disabled={actions.pause.isPending || actions.resume.isPending}
+                          aria-busy={actions.pause.isPending || actions.resume.isPending}
+                          onClick={() =>
+                            (job.status === 'paused' ? actions.resume : actions.pause).mutate(jobId, {
+                              onSuccess: () => successToast(t(job.status === 'paused' ? 'resumed' : 'paused')),
+                              onError: (err) => errorToast(err instanceof Error ? err.message : String(err)),
+                            })
+                          }
+                          data-testid={job.status === 'paused' ? 'evals-resume' : 'evals-pause'}
+                        >
+                          {job.status === 'paused' ? (
+                            <PlayIcon weight="fill" className="size-3.5" aria-hidden />
+                          ) : (
+                            <PauseIcon weight="fill" className="size-3.5" aria-hidden />
+                          )}
+                          {t(job.status === 'paused' ? 'resume' : 'pause')}
+                        </Button>
+                      ) : null}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5"
+                            disabled={actions.cancel.isPending}
+                            aria-busy={actions.cancel.isPending}
+                            data-testid="evals-cancel"
+                          >
+                            <StopIcon className="size-3.5" aria-hidden />
+                            {t('cancel')}
+                            <CaretDownIcon className="text-muted-foreground size-3" aria-hidden />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-72">
+                          <DropdownMenuItem
+                            onSelect={() =>
+                              actions.cancel.mutate(jobId, { onSuccess: () => successToast(t('cancelled')) })
+                            }
+                            data-testid="evals-cancel-now"
+                          >
+                            <span className="flex flex-col gap-0.5">
+                              <span>{t('cancelNow')}</span>
+                              <span className="text-muted-foreground text-xs">{t('cancelNowHint')}</span>
+                            </span>
+                          </DropdownMenuItem>
+                          {job.cancel_mode !== 'soft' ? (
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                actions.cancel.mutate(
+                                  { jobId, force: false },
+                                  { onSuccess: () => successToast(t('cancelDrainStarted')) },
+                                )
+                              }
+                              data-testid="evals-cancel-drain"
+                            >
+                              <span className="flex flex-col gap-0.5">
+                                <span>{t('cancelDrain')}</span>
+                                <span className="text-muted-foreground text-xs">{t('cancelDrainHint')}</span>
+                              </span>
+                            </DropdownMenuItem>
+                          ) : null}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </>
                   ) : (
                     <>
                       {previous ? (
@@ -402,6 +471,7 @@ const BUCKETS: Array<{ tone: CellTone; bar: string }> = [
   { tone: 'error', bar: 'bg-kortix-orange' },
   { tone: 'running', bar: 'bg-kortix-blue' },
   { tone: 'queued', bar: 'bg-muted-foreground/30' },
+  { tone: 'paused', bar: 'bg-kortix-yellow' },
   { tone: 'cancelled', bar: 'bg-muted-foreground/60' },
 ];
 
@@ -470,6 +540,7 @@ function Progress({
 
 const isOpenTrial = (trial: WorkspaceEvalTrial) =>
   trial.status === 'queued' ||
+  trial.status === 'paused' ||
   trial.status === 'starting' ||
   trial.status === 'agent_running' ||
   trial.status === 'verifying';
@@ -570,7 +641,7 @@ function Failures({ trials, onShow }: { trials: WorkspaceEvalTrial[]; onShow: ()
   );
 }
 
-const FILTERS: TrialFilter[] = ['all', 'pass', 'fail', 'error', 'running', 'queued', 'cancelled'];
+const FILTERS: TrialFilter[] = ['all', 'pass', 'fail', 'error', 'running', 'queued', 'paused', 'cancelled'];
 
 /** Every trial (the last run of each attempt), filtered by bucket; a row opens the trial. */
 function TrialTable({
@@ -712,6 +783,7 @@ const TONE_BADGE = {
   error: 'warning',
   running: 'info',
   queued: 'neutral',
+  paused: 'warning',
   cancelled: 'neutral',
 } as const;
 
@@ -1069,25 +1141,49 @@ function TrialPanel({
                       {t('retryTrial')}
                     </Button>
                   ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5"
-                      disabled={actions.cancelTrial.isPending}
-                      onClick={() =>
-                        actions.cancelTrial.mutate(
-                          { jobId, trialId },
-                          {
-                            onSuccess: () => successToast(t('trialCancelled')),
-                            onError: (err) => errorToast(err instanceof Error ? err.message : String(err)),
-                          },
-                        )
-                      }
-                      data-testid="evals-trial-cancel"
-                    >
-                      <StopIcon className="size-3.5" aria-hidden />
-                      {t('cancelTrial')}
-                    </Button>
+                    <>
+                      {trial.status === 'queued' || trial.status === 'paused' ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          disabled={actions.pauseTrial.isPending || actions.resumeTrial.isPending}
+                          onClick={() =>
+                            (trial.status === 'paused' ? actions.resumeTrial : actions.pauseTrial).mutate(
+                              { jobId, trialId },
+                              { onError: (err) => errorToast(err instanceof Error ? err.message : String(err)) },
+                            )
+                          }
+                          data-testid={trial.status === 'paused' ? 'evals-trial-resume' : 'evals-trial-pause'}
+                        >
+                          {trial.status === 'paused' ? (
+                            <PlayIcon weight="fill" className="size-3.5" aria-hidden />
+                          ) : (
+                            <PauseIcon weight="fill" className="size-3.5" aria-hidden />
+                          )}
+                          {t(trial.status === 'paused' ? 'resume' : 'pause')}
+                        </Button>
+                      ) : null}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        disabled={actions.cancelTrial.isPending}
+                        onClick={() =>
+                          actions.cancelTrial.mutate(
+                            { jobId, trialId },
+                            {
+                              onSuccess: () => successToast(t('trialCancelled')),
+                              onError: (err) => errorToast(err instanceof Error ? err.message : String(err)),
+                            },
+                          )
+                        }
+                        data-testid="evals-trial-cancel"
+                      >
+                        <StopIcon className="size-3.5" aria-hidden />
+                        {t('cancelTrial')}
+                      </Button>
+                    </>
                   )}
                   {trial.session_id ? (
                     <Button asChild size="sm" variant="outline">

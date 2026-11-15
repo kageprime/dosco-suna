@@ -9,7 +9,7 @@ import { noteSessionDeleted, noteSessionStopped } from '../../http/session-stopp
 import { isSessionLogPage } from '../../session-log/guard';
 import { loadSessionLogPage, type SessionLogPage, type SessionLogPageQuery } from '../../session-log/source';
 import type { AuditEvent } from './audit';
-import type { SessionAttention, SessionBoardState, SessionInbound } from './multi-agent';
+import type { SessionAttention, SessionBoardState, SessionInbound, SessionWorkState } from './multi-agent';
 import { type ConnectorSharing, unwrap } from './shared';
 
 // ---------------------------------------------------------------------------
@@ -209,6 +209,13 @@ export interface ProjectSession {
   archived_at?: string | null;
   /** Where the session sits on the agent board. Absent on an API before multi-agent. */
   board_state?: SessionBoardState;
+  /**
+   * Is the work done: `running`, `completed`, `failed`, `stopped` or `idle`.
+   * Read this (or `sessionWorkState(row)`) to wait for a session, never
+   * `status` (the row lifecycle) or `runtime_status` (the computer). Absent on
+   * an older API; `sessionWorkState` derives it there.
+   */
+  work_state?: SessionWorkState;
   /** What the session waits for from its person, or null. Absent on an API before multi-agent. */
   attention?: SessionAttention;
   /** The newest turn activity (ISO 8601), or null. Absent on an API before multi-agent. */
@@ -227,6 +234,35 @@ export interface ProjectSession {
 
 /** The workspace name of {@link ProjectSession}: the same type. */
 export type WorkspaceSession = ProjectSession;
+
+const WORK_STATE_OF_BOARD: Record<SessionBoardState, SessionWorkState> = {
+  working: 'running',
+  needs_input: 'running',
+  completed: 'completed',
+  failed: 'failed',
+  stopped: 'stopped',
+  idle: 'idle',
+};
+
+/**
+ * Is this session's work done? The server's `work_state`, else derived from
+ * `board_state`, else from `working` on an API older than both.
+ *
+ * Three fields look like an answer and only this one is: `status` is the
+ * stored row lifecycle and `runtime_status` the computer. A child that
+ * finished and answered keeps `status: 'running'` and
+ * `runtime_status: 'active'` until its idle computer stops (~10 min).
+ *
+ * `running` includes a session that waits for its person (`attention`).
+ */
+export function sessionWorkState(
+  session: Pick<ProjectSession, 'work_state' | 'board_state' | 'working' | 'status'>,
+): SessionWorkState {
+  if (session.work_state) return session.work_state;
+  if (session.board_state) return WORK_STATE_OF_BOARD[session.board_state] ?? 'idle';
+  if (session.working?.state === 'working') return 'running';
+  return session.status === 'failed' ? 'failed' : 'idle';
+}
 
 /**
  * The session that spawned `session`, or `null` when it is a root session.
@@ -492,6 +528,13 @@ export interface ListProjectSessionsOptions {
   updatedAfter?: string;
   /** Only the teammates of this lead session (metadata `team_lead`). Sent as `team_lead`. */
   teamLead?: string;
+  /**
+   * Only the sessions with a live turn now (`working.state === 'working'`):
+   * workflow runners, their agents, colleagues and any other session at work.
+   * Sent as `working=only`. A server without the filter ignores it and
+   * answers the plain list, so read `working` on each row.
+   */
+  working?: boolean;
 }
 
 /** The workspace name of {@link ListProjectSessionsOptions}: the same type. */
@@ -528,6 +571,7 @@ function projectSessionListQuery(options?: ListProjectSessionsOptions): string {
   if (options?.agent) params.set('agent', options.agent);
   if (options?.updatedAfter) params.set('updated_after', options.updatedAfter);
   if (options?.teamLead) params.set('team_lead', options.teamLead);
+  if (options?.working) params.set('working', 'only');
   return querySuffix(params);
 }
 
@@ -2666,6 +2710,10 @@ export interface SessionUsageTotals {
   output_tokens: number;
   cached_tokens: number;
   cache_write_tokens: number;
+  /** What the session's boxes cost while they were up, in USD. Absent from a server before 2026-11-15. */
+  compute_cost?: number;
+  /** Everything Kortix debited, in USD: `kortix_cost + compute_cost`. Own-key spend is not in it. Absent from a server before 2026-11-15. */
+  billed_cost?: number;
 }
 
 /** One session of a `SessionUsage` tree. */

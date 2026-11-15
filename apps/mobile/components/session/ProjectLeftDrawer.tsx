@@ -1,9 +1,11 @@
 /**
  * ProjectLeftDrawer — the project sidebar. It opens from every project page
  * (the hamburger, or a rightward swipe) as the ChatGPT-style peek card: the
- * sidebar takes 82% of the window (max 360pt, `projectDrawerWidth`) and the
- * page slides right as a rounded card (`DrawerPeekCard`, ProjectScreen); a
- * tap or a swipe on the visible strip closes it.
+ * sidebar takes 82% of the window (max 360pt, `projectDrawerWidth`) and lies
+ * still behind the page; the page slides right over it as a rounded card
+ * (`DrawerPeekCard`, ProjectScreen), and the sidebar darkens while the card
+ * covers it (`DrawerSidebarDim`). A tap or a swipe on the visible strip
+ * closes it.
  *
  * Top to bottom:
  * - Switcher row (COR-124/COR-157, Task 4): the account avatar overlapped

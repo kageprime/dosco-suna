@@ -17,6 +17,9 @@ export const evalsHref = (projectId: string): string => adminPath(projectId, 'ev
 export const evalDatasetsHref = (projectId: string): string => adminPath(projectId, 'eval-datasets');
 export const evalTasksHref = (projectId: string): string => adminPath(projectId, 'eval-tasks');
 export const evalJobsHref = (projectId: string): string => adminPath(projectId, 'eval-jobs');
+/** Trials of every job; `jobId` opens the list on one job's trials. */
+export const evalTrialsHref = (projectId: string, jobId?: string): string =>
+  `${adminPath(projectId, 'eval-trials')}${jobId ? `?job=${encodeURIComponent(jobId)}` : ''}`;
 
 export const evalJobHref = (projectId: string, jobId: string, trialId?: string | null): string =>
   `${evalJobsHref(projectId)}/${encodeURIComponent(jobId)}${trialId ? `?trial=${encodeURIComponent(trialId)}` : ''}`;
@@ -143,18 +146,19 @@ export const percent = (value: number | null | undefined): string =>
   value === null || value === undefined ? '—' : `${Math.round(value * 1000) / 10}%`;
 
 export const isOpenJob = (job: Pick<WorkspaceEvalJob, 'status'>): boolean =>
-  job.status === 'queued' || job.status === 'running';
+  job.status === 'queued' || job.status === 'running' || job.status === 'paused';
 
 /** `agent` or `agent @ model`: the one label an agent × model goes by on every surface. */
 export const agentLabel = (agent: string, model: string | null | undefined): string =>
   model ? `${agent} @ ${model}` : agent;
 
-export type CellTone = 'pass' | 'fail' | 'error' | 'running' | 'queued' | 'cancelled';
+export type CellTone = 'pass' | 'fail' | 'error' | 'running' | 'queued' | 'paused' | 'cancelled';
 
 /** What one trial's cell shows. */
 export function trialTone(trial: WorkspaceEvalTrial): CellTone {
   if (trial.status === 'cancelled') return 'cancelled';
   if (trial.status === 'queued') return 'queued';
+  if (trial.status === 'paused') return 'paused';
   if (
     trial.status === 'starting' ||
     trial.status === 'agent_running' ||

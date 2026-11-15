@@ -1,5 +1,9 @@
 import { Button } from '../../primitives/button';
-import { SettingsSectionHeader } from '../../primitives/settings-section-header';
+import {
+  SettingsPageHeader,
+  SettingsSectionHeader,
+  useSettingsPageTitle,
+} from '../../primitives/settings-section-header';
 import { useTranslations } from '../../i18n';
 import { BookOpenIcon } from '@phosphor-icons/react';
 import { UiLink as Link } from '../../providers/ui-provider';
@@ -47,9 +51,12 @@ export function SettingsTabHeader({
   const item =
     contextItem ?? railItemForTab(tab as SettingsTab, (key) => tSettingsRail(key as never));
   const chrome = useSettingsRailChromeCopy();
-  if (!item) return null;
+  // Inside Workspace settings the pane is a page: its rail row names it, and
+  // a pane with no rail entry of its own (Danger zone) still gets its title.
+  const pageTitle = useSettingsPageTitle();
+  if (!item && !pageTitle) return null;
 
-  const docs = item.docsHref ? (
+  const docs = item?.docsHref ? (
     <Button asChild variant="secondary" size="sm" className="gap-1.5">
       {/* New tab: a settings pane opens over live work, and following a link
           in place would discard whatever the person was doing behind it. */}
@@ -60,18 +67,30 @@ export function SettingsTabHeader({
     </Button>
   ) : null;
 
+  const actions =
+    docs || action ? (
+      <div className="flex min-w-0 items-center gap-2">
+        {docs}
+        {action}
+      </div>
+    ) : undefined;
+
+  if (pageTitle) {
+    return (
+      <SettingsPageHeader
+        title={pageTitle}
+        description={hideDescription ? undefined : item?.description}
+        action={actions}
+      />
+    );
+  }
+  if (!item) return null;
+
   return (
     <SettingsSectionHeader
       title={item.label}
       description={hideDescription ? undefined : item.description}
-      action={
-        docs || action ? (
-          <div className="flex min-w-0 items-center gap-2">
-            {docs}
-            {action}
-          </div>
-        ) : undefined
-      }
+      action={actions}
       className="pb-1"
     />
   );

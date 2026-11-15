@@ -57,9 +57,13 @@ export const runtimeVerbPaths = {
   permissionReply: (requestId: string) => `/kortix/runtime/permissions/${segment(requestId)}/reply`,
   /** Stop holding every call that waits on a person (session-asks.ts). A daemon built before parking answers 404. */
   parkAsks: '/kortix/runtime/asks/park',
-  /** The box's own session log (`runtime.log.v1`): a page of the root, newest `limit` before `before_seq`. */
+  /**
+   * The box's own session log (`runtime.log.v1`): a page of the root, newest `limit` before `before_seq`.
+   * `include=context` keeps the system prompt messages in the page, as the box served them before it
+   * left them out for viewers: placement reads every message id. A daemon before that ignores it.
+   */
   log: (opts: { limit: number; beforeSeq?: number | null }) =>
-    `/kortix/runtime/log?limit=${opts.limit}${opts.beforeSeq != null ? `&before_seq=${opts.beforeSeq}` : ''}`,
+    `/kortix/runtime/log?limit=${opts.limit}${opts.beforeSeq != null ? `&before_seq=${opts.beforeSeq}` : ''}&include=context`,
   logMessage: (messageId: string) => `/kortix/runtime/log/messages/${segment(messageId)}`,
   /** What each thread does and what waits on a person (`runtime.actions.v1`). */
   pending: '/kortix/runtime/pending',

@@ -26,6 +26,15 @@ const TILE = {
 
 const MARK = { xs: 'size-3', sm: 'size-3.5', md: 'size-4', lg: 'size-5', xl: 'size-7' } as const;
 
+/**
+ * Dark theme only: a catalogue logo sits on an always-light tile (the same
+ * rule as `LOGO_TILE_BACKGROUND`), so a near-black transparent mark (GitHub,
+ * Brandfetch) keeps its contrast. The inset lives inside the tile, so a
+ * full-bleed square logo fills it edge to edge with no second frame.
+ */
+const DARK_LOGO_TILE = 'dark:bg-white';
+const DARK_LOGO_INSET = { xs: 'dark:p-px', sm: 'dark:p-0.5', md: 'dark:p-0.5', lg: 'dark:p-1', xl: 'dark:p-1.5' } as const;
+
 export type ConnectorLogoSize = keyof typeof TILE;
 
 /**
@@ -69,7 +78,8 @@ function MarkTile({
  * (`connector-logo-source.ts` holds the rule).
  *
  * Kortix-built connectors and connectors with no logo draw a mark on the
- * banner tile. A catalogue logo is the bare image: its own shape is the edge.
+ * banner tile. A catalogue logo is the bare image in the light theme: its own
+ * shape is the edge. In the dark theme it sits on a light tile (`DARK_LOGO_TILE`).
  * A URL that fails to load latches per URL (a swapped URL gets a fresh try)
  * and shows the neutral fallback, so "missing" and "broken" look identical.
  */
@@ -102,7 +112,7 @@ export function ConnectorLogo({
   return (
     <span
       aria-hidden
-      className={cn('flex shrink-0 items-center justify-center overflow-hidden', TILE[size], className)}
+      className={cn('flex shrink-0 items-center justify-center overflow-hidden', TILE[size], DARK_LOGO_TILE, className)}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- third-party logos on arbitrary hosts; the Next loader adds nothing */}
       <img
@@ -112,7 +122,7 @@ export function ConnectorLogo({
         decoding="async"
         referrerPolicy="no-referrer"
         draggable={false}
-        className={cn('size-full object-contain select-none', TILE[size])}
+        className={cn('size-full object-contain select-none', TILE[size], DARK_LOGO_INSET[size])}
         onError={() => setFailedUrl(logo.src)}
       />
     </span>

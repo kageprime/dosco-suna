@@ -60,6 +60,8 @@ function fakeApi(opts: {
   children?: unknown[]
   rows?: unknown[]
   log?: { status: number; body: unknown }
+  /** `GET …/turn`: the turn ledger's answer; absent = the next row, as before. */
+  turn?: unknown
   onRow?: () => void
 }) {
   const calls: Call[] = []
@@ -81,6 +83,7 @@ function fakeApi(opts: {
       const t = opts.log ?? logOf([])
       return new Response(JSON.stringify(t.body), { status: t.status })
     }
+    if (path.endsWith('/turn') && opts.turn !== undefined) return new Response(JSON.stringify(opts.turn), { status: 200 })
     opts.onRow?.()
     const row = rows[Math.min(rowIdx++, rows.length - 1)]
     return new Response(JSON.stringify(row), { status: 200 })
@@ -424,13 +427,42 @@ describe('cloudSpawnSession — guardrails', () => {
     expect(calls.some((c) => c.method === 'POST' && c.url.endsWith('/sessions/child-1/stop'))).toBe(true)
   })
 
-  test('stall watch: a tool call still running is progress, so the wait ends at its ceiling, not as a stall', async () => {
+  test('stall watch: a tool call still running is progress, so the wait ends at its ceiling, not as a stall; it is quiet since the log last changed', async () => {
     const clock = ticking()
     const { impl } = fakeApi({ rows: [WORKING], onRow: clock.onRow, log: logOf([{ role: 'user', text: 'go' }, { role: 'assistant', status: 'streaming', tools: ['complete', 'running'] }]) })
-    const result = await cloudSpawnSession(api(impl), { title: 'x', agent: 'general', systemPrompt: '', prompt: 'go', stallMs: 120_000 }, clock.opts)
+    const quiet: number[] = []
+    const result = await cloudSpawnSession(api(impl), { title: 'x', agent: 'general', systemPrompt: '', prompt: 'go', stallMs: 120_000, onQuiet: (since) => quiet.push(since) }, clock.opts)
     expect(result.status).toBe('error')
     expect(result.stalled).toBeUndefined()
     expect(result.error).toContain('did not settle within 10 min')
+    // A check a minute; the log never changed after the wait began (t = 0), however long the tool ran.
+    expect(quiet.length).toBeGreaterThan(3)
+    expect(new Set(quiet)).toEqual(new Set([0]))
+  })
+
+  test('stall watch: with toolTimeoutMs, one tool call older than it is a stall (a hung command); the child is stopped', async () => {
+    const clock = ticking()
+    const { impl, calls } = fakeApi({ rows: [WORKING], onRow: clock.onRow, log: logOf([{ role: 'user', text: 'go' }, { role: 'assistant', status: 'streaming', tools: ['running'] }]) })
+    const result = await cloudSpawnSession(api(impl), { title: 'x', agent: 'general', systemPrompt: '', prompt: 'go', stallMs: 15 * 60_000, toolTimeoutMs: 120_000 }, clock.opts)
+    expect(result).toMatchObject({ sessionId: 'child-1', status: 'error', stalled: true, error: 'agent stalled: one tool call ran longer than 2 min (toolTimeoutMs)' })
+    expect(calls.some((c) => c.method === 'POST' && c.url.endsWith('/sessions/child-1/stop'))).toBe(true)
+  })
+
+  test('a child whose last turn was stopped is aborted, not failed; the turn ledger\'s UserStop says a person stopped it', async () => {
+    const stoppedLog = logOf([{ role: 'user', text: 'go' }, { role: 'assistant', text: 'half', status: 'aborted', error: { code: 'aborted', message: 'The operation was aborted.' } }])
+    const byPerson = fakeApi({ rows: [IDLE], log: stoppedLog, turn: { turns: [], last_ended: { turn_token: 't1', end_reason: 'completed', ended_at: null, error: { name: 'UserStop', message: null } } } })
+    expect(await cloudSpawnSession(api(byPerson.impl), { title: 'x', agent: 'general', systemPrompt: '', prompt: 'go' }, fast)).toEqual({
+      sessionId: 'child-1',
+      status: 'aborted',
+      text: '',
+      model: { providerID: 'kortix', modelID: 'default' },
+      stoppedBy: 'person',
+    })
+    const unknown = fakeApi({ rows: [IDLE], log: stoppedLog, turn: { turns: [] } })
+    const result = await cloudSpawnSession(api(unknown.impl), { title: 'x', agent: 'general', systemPrompt: '', prompt: 'go' }, fast)
+    expect(result.status).toBe('aborted')
+    expect(result).not.toHaveProperty('stoppedBy')
+    expect(result).not.toHaveProperty('error')
   })
 })
 

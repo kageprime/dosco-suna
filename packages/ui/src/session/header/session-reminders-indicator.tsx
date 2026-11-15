@@ -69,7 +69,7 @@ export function ReminderMark({
     : { reflection: 'text-kortix-purple', disc: 'bg-kortix-purple' };
   return (
     <span className="relative size-4 shrink-0">
-      <AlarmIcon className={cn('size-4', count === 0 && 'text-muted-foreground')} />
+      <AlarmIcon className="size-4" />
       {count > 0 ? (
         <>
           <AlarmIcon

@@ -87,6 +87,7 @@ evals/tasks/<task>/
 ├── task.toml             [agent] timeout_sec, [verifier] timeout_sec, [environment]
 ├── environment/          optional: a Dockerfile, or [environment] docker_image
 ├── tests/test.sh         the verifier: check the end state, write the reward
+├── tests/.harborignore   optional: files of tests/ the sandbox never gets
 └── solution/solve.sh     the reference solution (oracle runs it)
 ```
 
@@ -108,11 +109,25 @@ docker_image = "python:3.12-slim-bookworm"   # optional: the task's own image (D
 
 A task without `docker_image` or a Dockerfile runs in the agent's own
 sandbox. A task with one gets a sandbox template built from it once; later
-trials reuse it.
+trials reuse it. A Dockerfile builds without a build context: `COPY` or `ADD`
+of a local file cannot build (`COPY --from=` and `ADD <url>` can). Making a
+template needs `project.sandbox.write` from whoever starts the job.
 
-Dosco does not run yet: multi-step tasks (`[[steps]]`), docker-compose
-environments, a separate verifier environment, Windows, GPUs. `kortix evals
-tasks <suite>` names each unsupported task and why.
+Dosco runs these Harbor task features as Harbor does:
+- `[environment.healthcheck]`: checked before the agent starts; a failure is
+  `HealthcheckError`.
+- `artifacts = [...]` and `/logs/artifacts/`: collected after the agent into
+  the trial's `artifacts/` folder, symlinks out of the tree and setuid bits removed.
+- A separate verifier (`[verifier] environment_mode = "separate"`,
+  `[verifier.environment]`, or `tests/Dockerfile`): the tests run in a fresh
+  sandbox that gets only the artifacts, never the agent's filesystem.
+- `.harborignore` in `tests/` and `solution/`.
+
+Dosco does not run yet, and says why instead of running it: multi-step tasks
+(`[[steps]]`), docker-compose environments, a restricted network
+(`network_mode = "no-network"`/`allowlist`, `allow_internet = false`: Dosco
+cannot enforce it, so the score would not be comparable), `mcp_servers`,
+Windows, GPUs. `kortix evals tasks <suite>` names each unsupported task and why.
 </tasks>
 
 <graders>
@@ -203,8 +218,8 @@ evals:
     agents: [mykortix]
   terminal-bench:
     datasets:
-      - name: terminal-bench          # a Harbor registry dataset
-        version: "2.0"
+      - name: terminal-bench/terminal-bench-2-1   # a Harbor Hub dataset: org/name
+        version: "6"                              # a tag, a revision, or sha256:<digest>
         n_tasks: 10
     agents: [worker]
   nightly:
@@ -216,7 +231,9 @@ The fields are Harbor's job config fields: `tasks`, `datasets`, `agents`
 `n_concurrent_trials`, `timeout_multiplier`, `retry.max_retries`,
 `override_error_policy`, `metrics` (`mean`, `sum`, `min`, `max`). An agent is
 an agent of kortix.yaml, `oracle` or `nop`. `kortix evals datasets` lists the
-Harbor registry.
+Harbor Hub (`org/name`, the datasets of hub.harborframework.com) and the
+legacy Harbor registry (`terminal-bench@2.0`). A job pins every Hub task to
+its content hash, so a re-run runs the same tasks.
 </suites>
 
 <scoring>
@@ -250,7 +267,7 @@ Harbor registry.
 | `kortix evals init` | write a first task and print a suite |
 | `kortix evals suites` | the suites of kortix.yaml, each with its last score |
 | `kortix evals tasks <suite>` | the tasks a suite selects, and what cannot run |
-| `kortix evals datasets` | the built-in datasets (`kortix/…`) and the Harbor registry |
+| `kortix evals datasets` | the built-in datasets (`kortix/…`), the Harbor Hub and the legacy registry |
 | `kortix evals tasks --dataset <name>[@<version>]` | the tasks of a dataset |
 | `kortix evals run <suite> [--agent <name>[@<model>]] [--attempts <n>] [--task <glob>] [--wait]` | start a job |
 | `kortix evals run --dataset <name>[@<version>] --agent <name> [--task <glob>]` | start a job on a dataset, without a suite |
@@ -258,7 +275,10 @@ Harbor registry.
 | `kortix evals trial <job> <trial> [--file <path>]` | one trial and its files |
 | `kortix evals compare <job_a> <job_b>` | task by task: better, worse, same |
 | `kortix evals rerun <job> --failed` | run the failed trials again |
-| `kortix evals cancel <job>` / `rm <job>` | stop or delete a job |
+| `kortix evals pause <job>` / `resume <job>` | hold the queued trials, running ones go on; queue them again |
+| `kortix evals cancel <job> [--drain]` / `rm <job>` | stop a job (`--drain`: running trials finish, nothing new starts or retries), or delete it |
+| `kortix evals trial retry\|cancel\|pause\|resume <job> <trial>` | act on one trial |
+| `kortix evals trials [--job <id>] [--status errored] [--task <name>] [--model <id>] [--error <type>]` | trials of every job, filtered: where one task fails across jobs, every timeout of one model |
 | `kortix evals judge --criterion <name>="<…>" --input <file>` | score open-ended work in a verifier |
 
 Every command takes `--json`. Each trial is a full session and costs what a

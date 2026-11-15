@@ -125,3 +125,28 @@ describe('AgentsPage access line', () => {
     expect(markup).toContain('@xera');
   });
 });
+
+// Settings audit 2026-11-14, finding 08: the name a person typed survives.
+describe('AgentsPage agent names', () => {
+  test('a titled agent shows its title; an untitled one keeps the derived name', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(qk.project.detail('synthetic-project'), {
+      account_id: 'synthetic-account',
+      config: {
+        default_agent: 'github-pr-reviewer',
+        agents: [
+          { name: 'github-pr-reviewer', title: 'GitHub PR Reviewer', path: '', mode: 'primary', description: null },
+          { name: 'memory-reflector', path: '', mode: 'primary', description: null },
+        ],
+      },
+    });
+    const markup = renderToStaticMarkup(
+      <QueryClientProvider client={client}>
+        <AgentsPage projectId="synthetic-project" />
+      </QueryClientProvider>,
+    );
+    expect(markup).toContain('GitHub PR Reviewer');
+    expect(markup).not.toContain('Github pr reviewer');
+    expect(markup).toContain('Memory reflector');
+  });
+});

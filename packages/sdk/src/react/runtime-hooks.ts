@@ -156,6 +156,8 @@ export {
   OPTIMISTIC_PROMPT_PREFIX,
   SESSION_PROMPTS_POLL_MS,
   SESSION_PROMPTS_IDLE_POLL_MS,
+  useNetworkOnline,
+  useSessionUnsentPrompts,
   type StartSessionWithPromptAdapters,
   type UseSessionPromptsResult,
 } from './use-session-prompts';

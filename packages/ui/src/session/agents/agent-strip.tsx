@@ -44,6 +44,7 @@ import {
   LargeRunBadge,
   useLiveWorkflowRun,
   useRestartAgent,
+  useStopAgent,
   WorkflowRunControls,
 } from './workflow-run-controls';
 
@@ -440,9 +441,10 @@ function WorkflowLineRow({
   const { run, controlSessionId } = useLiveWorkflowRun(projectId, sessionId, listed);
   const now = useNow(1_000, open && run?.status === 'running');
   const restart = useRestartAgent(projectId, controlSessionId, run);
+  const stopWorkflowAgent = useStopAgent(projectId, controlSessionId, run);
   const queryClient = useQueryClient();
   const stopAgent = useMutation({
-    mutationFn: (agent: WorkflowRunAgent) => stopProjectSession(projectId!, agent.sessionId!),
+    mutationFn: (agent: WorkflowRunAgent) => stopWorkflowAgent(agent),
     onSuccess: () => projectId && queryClient.invalidateQueries({ queryKey: qk.project.sessionsScope(projectId) }),
     onError: (error) => errorToast(t('stopFailed'), { description: error instanceof Error ? error.message : undefined }),
   });
@@ -451,7 +453,7 @@ function WorkflowLineRow({
   const progress = counts.total > 0 ? t('runProgress', { done: counts.done, total: counts.total }) : undefined;
   const line = (
     run.status === 'running'
-      ? [run.paused ? tw('paused') : run.background ? t('runBackground') : t('runRunning'), progress]
+      ? [run.paused ? tw('holding') : run.background ? t('runBackground') : t('runRunning'), progress]
       : [progress]
   )
     .filter(Boolean)
@@ -575,9 +577,14 @@ export function useAgentsLine(
     if (wasLive.current && !live && ready) {
       void queryClient.invalidateQueries({ queryKey: qk.project.sessionChildren(pid, sid) });
       void queryClient.invalidateQueries({ queryKey: qk.project.sessionAgents(pid, sid) });
+      // Each child's own row (the colleague row in the chat reads it): exact, so
+      // its multi-agent reads nested under the same key are not refetched too.
+      for (const child of children) {
+        void queryClient.invalidateQueries({ queryKey: qk.project.session(pid, child.session_id), exact: true });
+      }
     }
     wasLive.current = live;
-  }, [live, ready, pid, sid, queryClient]);
+  }, [live, ready, pid, sid, queryClient, children]);
   const stopMutation = useMutation({
     mutationFn: (row: AgentRow) => stopProjectSession(pid, row.sessionId),
     onSettled: (_data, _error, row) => {

@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * `PanelCard` — the reusable Easy-mode card shell. Outputs, Context, Preview
+ * `PanelCard` — the reusable Easy-mode section shell (a flat section of the
+ * docked cards column; the name predates the flat design). Outputs, Context, Preview
  * and Plan are all this component with different contents.
  *
  * Collapsed and empty, a card is a *promise*: a title, soft placeholder art,
@@ -17,10 +18,10 @@ import { CountBadge } from '../../../primitives/count-badge';
 import { Disclosure, DisclosureContent, DisclosureTrigger } from '../../../primitives/disclosure';
 import { Empty, EmptyContent, EmptyDescription, EmptyMedia } from '../../../primitives/empty';
 import { cn } from '../../../lib/utils';
-import { CaretRightIcon as ChevronRight } from '@phosphor-icons/react';
 import { m } from 'motion/react';
 import { useReducedMotion } from '../../../internal/hooks/use-reduced-motion';
 import { type ReactNode, useState } from 'react';
+import { CaretRightSolidIcon } from '../../../icons/caret-right-solid';
 
 export interface PanelCardProps {
   title: string;
@@ -72,18 +73,18 @@ export interface PanelCardProps {
    * card, the rest fixed, is what keeps Context and Preview on screen while
    * Outputs holds two hundred files.
    *
-   * One call-site consequence: the header divider moves to the scroll
-   * container, so a `fill` card's `contentClassName` carries padding only —
-   * pass no `border-t` or the card draws two.
+   * A `fill` card's `contentClassName` carries padding and scrolling only.
    */
   fill?: boolean;
 }
 
-/** Full-width row trigger, clipped by the parent's `overflow-hidden` so its square corners never peek past the card's rounded-md border. */
+/** Full-width section header. A flat row, not a card lid: hover is color
+ *  only. `px-4` is the column's one left edge: the rows below use it too. */
 const HEADER_CLASS = cn(
-  'flex min-h-11 w-full items-center justify-between gap-2 rounded-none px-3.5 py-2 text-left',
-  'transition-[background-color,transform] active:scale-[0.998]',
-  'hover:bg-muted-foreground/[0.04]',
+  'flex min-h-11 w-full items-center justify-between gap-2 px-4 py-2 text-left',
+  'transition-colors duration-(--duration-fast) ease-out',
+  // The same hover fill as the rows below: one hover token per column.
+  'hover:bg-accent',
 );
 
 function CardTitleRow({
@@ -131,7 +132,7 @@ export function PanelCard({
   emptyActions,
   isEmpty,
   defaultExpanded = false,
-  contentClassName = 'border-border border-t p-4',
+  contentClassName = 'px-4 pb-4',
   headerAction,
   fill = false,
 }: PanelCardProps) {
@@ -149,17 +150,21 @@ export function PanelCard({
   }
 
   return (
+    // A section of the docked column, not a card: no fill, no radius, no box.
+    // Sections divide with one hairline under each, the way the column itself
+    // is divided from the chat by one hairline (`panel-chrome.ts`).
     <Disclosure
       open={expanded}
       onOpenChange={setExpanded}
-      variant="outline"
       className={cn(
-        'bg-pane text-popover-foreground border-border overflow-hidden rounded-[calc(var(--radius)-3px)] border ease-out',
+        // `last:border-b-0`: dividers sit BETWEEN sections, no stray rule
+        // under the last one.
+        'text-foreground border-border border-b last:border-b-0',
         fill ? 'flex min-h-0 flex-col' : 'shrink-0',
       )}
       transition={transition}
     >
-      <DisclosureTrigger variant="outline">
+      <DisclosureTrigger>
         {/* `div`, not `button`: `DisclosureTrigger` already clones its role
             ("button"), tabIndex, and Enter/Space handling onto whatever child
             it's given, so a real `<button>` here bought nothing but blocked
@@ -189,7 +194,7 @@ export function PanelCard({
                   transition={transition}
                   className="text-muted-foreground shrink-0"
                 >
-                  <ChevronRight className="size-4" />
+                  <CaretRightSolidIcon className="size-4" />
                 </m.span>
               </span>
             }
@@ -197,14 +202,18 @@ export function PanelCard({
         </div>
       </DisclosureTrigger>
       <DisclosureContent
-        variant="outline"
-        className={cn(
-          fill && 'flex min-h-0 flex-col',
-          fill && expanded && 'border-border border-t',
-        )}
+        className={cn(fill && 'flex min-h-0 flex-col')}
         contentClassName={contentClassName}
       >
-        {isEmpty ? (
+        {isEmpty && !emptyArt ? (
+          // Compact empty: one line in the section's own left edge, plus its
+          // action. The illustrated `Empty` below stays for callers that pass
+          // art; the session column's sections pass none.
+          <div className="flex flex-col items-start gap-2 px-4">
+            {emptyText && <p className="text-muted-foreground text-sm text-pretty">{emptyText}</p>}
+            {emptyActions}
+          </div>
+        ) : isEmpty ? (
           <Empty className="flex-none gap-3 rounded-none border-none p-0 text-center">
             {emptyArt && <EmptyMedia className="mb-0">{emptyArt}</EmptyMedia>}
             {emptyText && <EmptyDescription className="text-pretty">{emptyText}</EmptyDescription>}

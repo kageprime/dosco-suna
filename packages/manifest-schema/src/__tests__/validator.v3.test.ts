@@ -519,3 +519,21 @@ describe('program agents: timeout and trigger input', () => {
     expect(errorPaths(base('', t('[1, 2]')))).toEqual(['triggers[0].payload']);
   });
 });
+
+describe('agents.<name>.title', () => {
+  const titled = (value: string) => swap("  assistant:\n    description: The project's main agent.\n", `  assistant:\n    title: ${value}\n    description: The project's main agent.\n`);
+
+  test('a display name is valid and keeps its casing in the parsed block', () => {
+    const yaml = titled('"GitHub PR Reviewer"');
+    expect(check(yaml).errors).toEqual([]);
+    const agents = validateManifest(yaml).parsed?.agents as Record<string, { title?: string }> | undefined;
+    expect(agents?.assistant?.title).toBe('GitHub PR Reviewer');
+  });
+
+  test('a blank, too long or non-string title is an error at agents.<name>.title', () => {
+    expect(errorPaths(titled('"  "'))).toContain('agents.assistant.title');
+    expect(errorPaths(titled(`"${'x'.repeat(81)}"`))).toContain('agents.assistant.title');
+    expect(errorPaths(titled('42'))).toContain('agents.assistant.title');
+    expect(errorPaths(titled('[a, b]'))).toContain('agents.assistant.title');
+  });
+});

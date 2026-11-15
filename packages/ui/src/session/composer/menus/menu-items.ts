@@ -97,7 +97,7 @@ export function buildMentionSections({
   for (const a of agents) {
     const name = a.name || '';
     // The row reads the name every other surface shows; the slug stays the value.
-    const label = name ? agentDisplayName(name) : '';
+    const label = name ? agentDisplayName(name, a.title) : '';
     if (!name.toLowerCase().includes(q) && !label.toLowerCase().includes(q)) continue;
     agentRows.push({ index: index++, kind: 'agent', label, value: name });
   }

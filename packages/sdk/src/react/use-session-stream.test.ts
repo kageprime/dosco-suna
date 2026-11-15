@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query';
 import { createElement } from 'react';
 import { act, create } from 'react-test-renderer';
 import {
@@ -127,6 +127,54 @@ describe('applySessionControlFrame', () => {
     expect(client.getQueryState(sessionStartKey(P, S))?.isInvalidated).toBe(true);
   });
 
+  // Finding 16: every box-row change cancelled the in-flight `/start` long-poll
+  // and sent a new one: a new session sent 4 `/start` in 1.6 s.
+  test('box-row changes while the /start long-poll is in flight send no second /start; a Stop still re-reads at once', async () => {
+    const client = new QueryClient();
+    // The prefetch's first answer is cached; the page's long-poll is in flight.
+    client.setQueryData(sessionStartKey(P, 's_longpoll'), { stage: 'provisioning' });
+    const signals: AbortSignal[] = [];
+    const answers: ((value: unknown) => void)[] = [];
+    const observer = new QueryObserver(client, {
+      queryKey: sessionStartKey(P, 's_longpoll'),
+      queryFn: ({ signal }) => {
+        signals.push(signal);
+        return new Promise((resolve) => answers.push(resolve));
+      },
+    });
+    const unsubscribe = observer.subscribe(() => {});
+    try {
+      const memory: { runtimeKey?: string } = {};
+      const row = { sandbox_status: 'provisioning', external_id: 'box', waking: true, stop_reason: null };
+      applySessionControlFrame(client, P, 's_longpoll', frame('kortix.control.runtime', row), memory);
+      applySessionControlFrame(client, P, 's_longpoll', frame('kortix.control.runtime', { ...row, external_id: 'box2' }, 2), memory);
+      applySessionControlFrame(client, P, 's_longpoll', frame('kortix.control.runtime', { ...row, sandbox_status: 'active', waking: false }, 3), memory);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expect(signals).toHaveLength(1);
+      expect(signals[0]!.aborted).toBe(false);
+
+      answers[0]!({ stage: 'starting' });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(signals).toHaveLength(1);
+
+      // A Stop: the next poll must report it now, so an in-flight long-poll yields.
+      void client.fetchQuery({ queryKey: sessionStartKey(P, 's_longpoll') }).catch(() => {});
+      expect(signals).toHaveLength(2);
+      applySessionControlFrame(
+        client,
+        P,
+        's_longpoll',
+        frame('kortix.control.runtime', { ...row, sandbox_status: 'stopped', waking: false, stop_reason: 'manual' }, 4),
+        memory,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expect(signals[1]!.aborted).toBe(true);
+      expect(signals).toHaveLength(3);
+    } finally {
+      unsubscribe();
+    }
+  });
+
   test('a user Stop made elsewhere counts as this tab\'s own Stop; a park or a wake does not', () => {
     const client = new QueryClient();
     const stopped: string[] = [];
@@ -169,6 +217,57 @@ describe('applySessionControlFrame', () => {
     expect(client.getQueryData(qk.project.sessionAuditWatermark(P, S))).toBeUndefined();
     expect(client.getQueryState(qk.project.session(P, S))?.isInvalidated).toBe(false);
     expect(memory).toEqual({});
+  });
+});
+
+describe('applySessionControlFrame keeps board_state with working (audit finding 06)', () => {
+  // `working` and `board_state` are one verdict. The frame patched only
+  // `working`, so a row that read `board_state` still said "Working".
+  const idle = { state: 'idle', since: null, turn_token: null, pending_delivery: false };
+  const busy = { state: 'working', since: '2026-11-15T10:00:00.000Z', turn_token: 't2', pending_delivery: false };
+  const row = (fields: Record<string, unknown>) => ({ session_id: S, status: 'running', ...fields });
+  const boardOf = (client: QueryClient) =>
+    client.getQueryData<{ board_state?: string; work_state?: string }>(qk.project.session(P, S));
+
+  test('a turn that ended with an answer reads completed', () => {
+    const client = new QueryClient();
+    client.setQueryData(qk.project.session(P, S), row({ working: busy, board_state: 'working', work_state: 'running' }));
+    const lastEnded = { turn_token: 't2', end_reason: 'completed', ended_at: '2026-11-15T10:01:00.000Z' };
+    applySessionControlFrame(client, P, S, frame('kortix.control.turn', { known: true, turns: [], working: idle, last_ended: lastEnded }), {}, 5);
+    expect(boardOf(client)?.board_state).toBe('completed');
+    expect(boardOf(client)?.work_state).toBe('completed');
+  });
+
+  test('a turn that failed reads failed; an end the frame does not explain reads idle', () => {
+    const client = new QueryClient();
+    client.setQueryData(qk.project.session(P, S), row({ working: busy, board_state: 'working' }));
+    const failed = { turn_token: 't2', end_reason: 'failed', ended_at: null };
+    applySessionControlFrame(client, P, S, frame('kortix.control.turn', { known: true, turns: [], working: idle, last_ended: failed }), {}, 5);
+    expect(boardOf(client)?.board_state).toBe('failed');
+
+    const other = new QueryClient();
+    other.setQueryData(qk.project.session(P, S), row({ working: busy, board_state: 'working' }));
+    applySessionControlFrame(other, P, S, frame('kortix.control.turn', { known: true, turns: [], working: idle }), {}, 5);
+    expect(boardOf(other)?.board_state).toBe('idle');
+  });
+
+  test('a new turn reads working; a row that waits for its person stays needs_input', () => {
+    const client = new QueryClient();
+    client.setQueryData(qk.project.session(P, S), row({ working: idle, board_state: 'completed' }));
+    applySessionControlFrame(client, P, S, frame('kortix.control.turn', { known: true, turns: [], working: busy }), {}, 5);
+    expect(boardOf(client)?.board_state).toBe('working');
+
+    const asking = new QueryClient();
+    asking.setQueryData(qk.project.session(P, S), row({ working: idle, board_state: 'needs_input', attention: 'question' }));
+    applySessionControlFrame(asking, P, S, frame('kortix.control.turn', { known: true, turns: [], working: busy }), {}, 5);
+    expect(boardOf(asking)?.board_state).toBe('needs_input');
+  });
+
+  test('a settled row keeps its board state when the verdict says idle again', () => {
+    const client = new QueryClient();
+    client.setQueryData(qk.project.session(P, S), row({ working: { ...idle, since: 'x' }, board_state: 'stopped' }));
+    applySessionControlFrame(client, P, S, frame('kortix.control.turn', { known: true, turns: [], working: idle }), {}, 5);
+    expect(boardOf(client)?.board_state).toBe('stopped');
   });
 });
 

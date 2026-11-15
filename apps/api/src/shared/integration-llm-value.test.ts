@@ -146,3 +146,46 @@ test('an unsupported-only window remains unknown, never a guessed zero', async (
   expect(report.total.estimated_usage_value).toBeNull();
   expect(report.total.unpriced_requests).toBe(1);
 });
+
+// `GET /gateway/overview` reports `requests` (every row), `errors` (not ok),
+// and the estimate's `priced_requests` / `unpriced_requests` (ok rows only).
+// The Costs page shows priced + unpriced + failed under the Requests headline,
+// so the three buckets must add up to it, for any mix of rows.
+test('priced + unpriced + errors equals requests: the estimate buckets explain the headline', async () => {
+  const id = crypto.randomUUID();
+  await db.insert(projects).values({
+    splitPending: true,
+    projectId: id,
+    accountId,
+    name: 'Bucket invariant',
+    repoUrl: 'https://example.test/buckets.git',
+  });
+  const base = {
+    accountId,
+    projectId: id,
+    requestedModel: 'codex/gpt-6.1-sol',
+    resolvedModel: 'gpt-6.1-sol',
+    provider: 'openai-codex',
+    status: 200,
+    ok: true,
+    inputTokens: 1000,
+    outputTokens: 100,
+    cachedTokens: 500,
+  };
+  await db.insert(gatewayRequestLogs).values([
+    { ...base, requestId: crypto.randomUUID() },
+    { ...base, requestId: crypto.randomUUID(), resolvedModel: 'unknown' },
+    { ...base, requestId: crypto.randomUUID(), status: 500, ok: false },
+    { ...base, requestId: crypto.randomUUID(), resolvedModel: 'unknown', status: 429, ok: false },
+  ]);
+  const [row] = await db
+    .select({
+      ...llmValueFields,
+      requests: sql<number>`count(*)::int`,
+      errors: sql<number>`count(*) filter (where not ok)::int`,
+    })
+    .from(gatewayRequestLogs)
+    .where(eq(gatewayRequestLogs.projectId, id));
+  expect(row).toMatchObject({ requests: 4, errors: 2, priced_requests: 1, unpriced_requests: 1 });
+  expect(row!.priced_requests + row!.unpriced_requests + row!.errors).toBe(row!.requests);
+});

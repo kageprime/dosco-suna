@@ -1,5 +1,6 @@
-import { isSelectableAgent } from '@kortix/sdk';
-import type { ProjectSpace } from '@kortix/sdk';
+import { composerSelectableAgents as sdkComposerSelectableAgents } from '@kortix/sdk';
+import type { ProjectConfigSummary, ProjectSpace } from '@kortix/sdk';
+import { MY_KORTIX_AGENT_NAME } from '@kortix/shared';
 import type { Agent } from '@kortix/sdk/react';
 
 /**
@@ -71,8 +72,23 @@ export interface ComposerAgentResolution {
  * empty picker, and must not read as "we have an agent to run".
  */
 export function composerSelectableAgents(agents: Agent[] | undefined): Agent[] {
-  if (!Array.isArray(agents)) return [];
-  return agents.filter(isSelectableAgent);
+  return sdkComposerSelectableAgents(agents);
+}
+
+/**
+ * The agent a new chat starts on when the person has picked none in this
+ * workspace. With `builtin_agents.my_kortix` on it is My Kortix, the agent
+ * people talk to; else kortix.yaml `default_agent`.
+ *
+ * Chat only. `default_agent` itself is unchanged: it stays the agent a trigger,
+ * a channel or an API call that names none runs, which is what the server runs.
+ */
+export function chatStartAgent(
+  config: Pick<ProjectConfigSummary, 'default_agent' | 'builtin_agents'> | null | undefined,
+): string | null {
+  if (!config) return null;
+  if (config.builtin_agents?.my_kortix) return MY_KORTIX_AGENT_NAME;
+  return config.default_agent ?? null;
 }
 
 /**

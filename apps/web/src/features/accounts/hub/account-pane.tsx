@@ -4,10 +4,12 @@
  * The content column of an account pane in Workspace settings
  * (`/workspaces/<id>/admin/<section>`), right of the settings rail.
  *
- * A centred column (`max-w-2xl` by default) whose first block is the page
- * title and its one-line description, followed by the section's own panels.
- * The column is the same on every route so switching sections never moves
- * the title.
+ * A left-aligned column (`max-w-2xl` by default) whose first block is the
+ * page title and its one-line description, followed by the section's own
+ * panels. Every Workspace settings page shares the gutter, the title rung and
+ * the left edge (`SettingsPageHeader`), so switching sections never moves the
+ * title, whatever the section's width. Inside Workspace settings the title is
+ * the rail row's label.
  *
  * Below `md` the sidebar is a sheet, so the pane also carries a 48px row with
  * the one "back" link; on desktop the sidebar answers that question and the
@@ -19,6 +21,7 @@ import { ArrowLeftIcon } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 
 import { Button } from '@kortix/ui/button';
+import { SettingsPageHeader } from '@kortix/ui/settings-section-header';
 import { Skeleton } from '@kortix/ui/skeleton';
 import { cn } from '@kortix/ui';
 
@@ -97,22 +100,12 @@ export function AccountPane({
           className={cn(
             // A container: the members grid follows the pane's width, not the
             // viewport (the app sidebar and the settings rail sit beside it).
-            '@container mx-auto w-full',
+            '@container w-full',
             width === 'fluid' ? 'space-y-5' : 'space-y-10',
             WIDTH_CLASS[width],
           )}
         >
-          {title ? (
-            <header className="flex flex-wrap items-start justify-between gap-4">
-              <div className="min-w-0 space-y-1">
-                <h1 className="text-foreground text-2xl font-medium tracking-tight text-balance">{title}</h1>
-                {description ? (
-                  <p className="text-muted-foreground text-sm text-pretty">{description}</p>
-                ) : null}
-              </div>
-              {action ? <div className="shrink-0">{action}</div> : null}
-            </header>
-          ) : null}
+          {title ? <SettingsPageHeader title={title} description={description} action={action} /> : null}
           {children}
         </div>
       </div>

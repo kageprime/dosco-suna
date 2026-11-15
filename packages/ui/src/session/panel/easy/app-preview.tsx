@@ -88,6 +88,8 @@ import {
   reportedFrameUrl,
   retargetPreviewUrl,
 } from './frame-history';
+import { SESSION_BAR_CLASS } from '../panel-chrome';
+import { cn } from '../../../lib/utils';
 
 // zustand v5's own hook feeds React's `useSyncExternalStore` a
 // `getServerSnapshot` pinned to `getInitialState()` — correct for real SSR
@@ -540,7 +542,7 @@ function AppPreviewToolbar({
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const isMobile = useIsMobile();
   return (
-    <div className="border-border flex shrink-0 items-center gap-0.5 border-b px-2 py-1">
+    <div className={cn(SESSION_BAR_CLASS, 'gap-0.5 px-2')}>
       <DetailSidebarToggle />
       <SandboxAddressBar
         {...address}

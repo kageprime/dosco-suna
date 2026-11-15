@@ -70,17 +70,3 @@ export function isOverdue(item: Pick<CalendarItem, 'starts_at' | 'all_day' | 'st
   if (item.all_day) return item.starts_at.slice(0, 10) < dayKey(now);
   return new Date(item.starts_at).getTime() < now.getTime();
 }
-
-/** `<input type="datetime-local">` value of an ISO time, in the viewer's zone. */
-export function toLocalInput(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return `${dayKey(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-/** ISO time of an `<input type="datetime-local">` value; null when empty or invalid. */
-export function fromLocalInput(value: string): string | null {
-  if (!value) return null;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}

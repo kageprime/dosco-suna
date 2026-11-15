@@ -5,7 +5,7 @@
  * Every row is synthetic.
  */
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { accounts, gatewayRequestLogs, projectSessions, projects } from '@kortix/db';
+import { accounts, gatewayRequestLogs, projectSessions, projects, sandboxComputeSessions } from '@kortix/db';
 import { eq, inArray, sql } from 'drizzle-orm';
 
 import { SESSION_USAGE_MAX_DEPTH, sessionUsageTree } from '../projects/lib/session-usage';
@@ -42,6 +42,13 @@ async function request(session: string, input: { kortix?: number; provider?: num
   });
 }
 
+async function compute(session: string, costUsd: number) {
+  await db.insert(sandboxComputeSessions).values({
+    accountId: ACCOUNT, sandboxId: crypto.randomUUID(), sessionId: sid(session), provider: 'platinum',
+    cpuCores: 2, memoryGb: 4, diskGb: 10, costUsd: String(costUsd),
+  });
+}
+
 async function rowOf(id: string): Promise<Row> {
   const [row] = await db.select().from(projectSessions).where(eq(projectSessions.sessionId, sid(id)));
   return row;
@@ -66,6 +73,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await db.delete(sandboxComputeSessions).where(eq(sandboxComputeSessions.accountId, ACCOUNT));
   await db.delete(accounts).where(eq(accounts.accountId, ACCOUNT)); // cascades projects, sessions, logs
   await db.execute(sql`delete from auth.users where id = ${OWNER}::uuid`);
 });
@@ -159,5 +167,26 @@ describe('sessionUsageTree', () => {
 
     expect(usage.sessions.map((s) => s.session_id)).toEqual([sid('c-root'), sid('c-1'), sid('c-2')]);
     expect(usage.sessions[0].parent_session_id).toBeNull();
+  });
+
+  test('compute adds to what Kortix billed: billed_cost is wallet LLM plus compute, per session and in total', async () => {
+    await session('w-runner', null, { name: 'Run (workflow)' });
+    await session('w-agent-1', 'w-runner', { at: 1 });
+    await session('w-agent-2', 'w-runner', { at: 2 });
+    await request('w-runner', { kortix: 0.01 });
+    await request('w-agent-1', { kortix: 0.02 });
+    await request('w-agent-2', { provider: 0.5 }); // own key: not billed by Kortix
+    await compute('w-runner', 0.03);
+    await compute('w-agent-1', 0.04);
+    await compute('w-agent-1', 0.01); // a second box lifetime of the same session
+
+    const usage = await sessionUsageTree(await rowOf('w-runner'), seeAllBut());
+
+    expect(usage.sessions.map((s) => [s.session_id, s.compute_cost, s.billed_cost])).toEqual([
+      [sid('w-runner'), 0.03, 0.04],
+      [sid('w-agent-1'), 0.05, 0.07],
+      [sid('w-agent-2'), 0, 0],
+    ]);
+    expect(usage.total).toMatchObject({ kortix_cost: 0.03, provider_cost: 0.5, compute_cost: 0.08, billed_cost: 0.11 });
   });
 });

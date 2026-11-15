@@ -7,7 +7,9 @@ import {
   PROVIDER_PAGE_SIZE,
   ProviderConnectView,
   connectedVia,
+  providerConnectionIds,
   providerMethod,
+  providerRowConnected,
   supportsPooledProviderKey,
   type ProviderConnectViewProps,
   type ProviderListRow,
@@ -164,5 +166,38 @@ describe('provider metadata', () => {
     expect(supportsPooledProviderKey(LLM_PROVIDER_BY_ID.get('openai'))).toBe(true);
     expect(supportsPooledProviderKey(LLM_PROVIDER_BY_ID.get('google'))).toBe(true);
     expect(supportsPooledProviderKey(LLM_PROVIDER_BY_ID.get('qvac'))).toBe(false);
+  });
+});
+
+// Audit finding: a ChatGPT login shared at account level (pooled `codex`)
+// left OpenAI under Available, while its usage meter showed on the row.
+describe('providerRowConnected — subscription logins connect their row', () => {
+  test('a pooled ChatGPT login connects OpenAI and says it is a sign-in', () => {
+    const ids = providerConnectionIds([], ['codex']);
+    expect(providerRowConnected('openai', ids)).toBe(true);
+    expect(connectedVia('openai', ids)).toBe('signIn');
+  });
+
+  test('a pooled Claude login connects Anthropic', () => {
+    expect(providerRowConnected('anthropic', providerConnectionIds([], ['claude-agent']))).toBe(true);
+  });
+
+  test('a project ChatGPT login and a pooled OpenAI key read as both', () => {
+    const ids = providerConnectionIds(['codex'], ['openai']);
+    expect(providerRowConnected('openai', ids)).toBe(true);
+    expect(connectedVia('openai', ids)).toBe('both');
+  });
+
+  test('nothing usable leaves the row unconnected', () => {
+    // `usePooledProviderIds` drops inactive and can_use=false secrets before this.
+    const ids = providerConnectionIds([], []);
+    expect(providerRowConnected('openai', ids)).toBe(false);
+    expect(providerRowConnected('anthropic', ids)).toBe(false);
+  });
+
+  test('one subscription connects only its own row', () => {
+    const ids = providerConnectionIds([], ['codex']);
+    expect(providerRowConnected('anthropic', ids)).toBe(false);
+    expect(providerRowConnected('google', ids)).toBe(false);
   });
 });

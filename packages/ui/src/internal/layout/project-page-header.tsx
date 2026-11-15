@@ -1,5 +1,6 @@
 'use client';
 
+import { useSettingsPageTitle } from '../../primitives/settings-section-header';
 import { useOptionalSidebar } from '../../primitives/sidebar';
 import { SidebarToggle } from './sidebar-toggle';
 
@@ -28,6 +29,9 @@ export function ProjectPageHeader({
   children?: React.ReactNode;
 }) {
   const sidebar = useOptionalSidebar();
+  // Inside Workspace settings (Repository) the settings page header above is
+  // the page's h1 and names the page: this row is only the browser's toolbar.
+  const inSettings = useSettingsPageTitle() !== null;
   return (
     <div
       className="kx-titlebar-row kx-capability-titlebar relative flex shrink-0 items-center gap-1 border-b px-2"
@@ -36,7 +40,7 @@ export function ProjectPageHeader({
       <SidebarToggle />
       <div className="kx-titlebar-tabs flex h-10 min-w-0 flex-1 items-center gap-1.5 px-3">
         {breadcrumb}
-        <h1 className="text-foreground truncate text-sm font-medium">{title}</h1>
+        {inSettings ? null : <h1 className="text-foreground truncate text-sm font-medium">{title}</h1>}
         {titleAccessory}
       </div>
       {children ? <div className="flex shrink-0 items-center gap-1">{children}</div> : null}

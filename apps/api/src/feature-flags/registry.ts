@@ -55,10 +55,13 @@
  *     for a typo. `kortix system-skills` follows the same rule for a skill.
  *   • IAM — `iamActions` on the entry: the account permission catalog leaves
  *     them out until a project of the account has the flag on.
- *   • Notification kind — the settings screens drop a row the preferences
- *     API lists in `hidden_kinds` (empty today: no kind is behind a flag).
- *     Fill it from the flag in notifications/routes.ts while the kind cannot
- *     reach the person.
+ *   • Notification kind — map it to its flag in `NOTIFICATION_KIND_FLAGS`
+ *     (@kortix/sdk notifications.ts). The settings screens hide its row with
+ *     `hiddenNotificationKinds` while the flag is off in every workspace of
+ *     the person, read from the workspace list the app already holds (no
+ *     query on the preferences read, which runs on every page load). The
+ *     inbox hides a flagged kind's rows from a project with the flag off. The
+ *     preferences API's `hidden_kinds` stays for a kind the server must hide.
  *   • Web — `useFeatureFlag` hides every entry point (sidebar row, More menu,
  *     palette via `requiresFlag`, permission group via `featureFlag` in
  *     agent-editor-catalog.ts); a page a deep link still reaches renders
@@ -617,7 +620,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'calendar',
     name: 'Calendar',
     description:
-      'A shared calendar for people and agents: items with a date, an owner and comments, beside the scheduled triggers and Loops. Mention someone with @ to notify them. Agents use `kortix calendar`.',
+      'A shared calendar for people and agents: dated items with the people on them and comments, beside the scheduled triggers and Loops. Mention someone with @ to notify them. Agents use `kortix calendar`.',
     stability: 'experimental',
     available: () => true,
     platformDefault: () => false,
@@ -625,8 +628,10 @@ const FLAGS: readonly FeatureFlagDef[] = [
     enforcementNote:
       'ROUTES: every /v1/workspaces/:id/calendar* route answers 403 `feature_disabled` when off (projects/routes/calendar.ts). ' +
       'Nothing runs while it is off: no worker job, no hook on another write; the scheduled triggers on the page are computed in the browser ' +
-      'from GET /triggers/all. NOTIFICATIONS: only a calendar write sends the `mention` kind. Its settings row shows for everyone: ' +
-      'hiding it would cost a query on every preferences read (the web reads them on every page load), and the kind is generic. BOX: off, a session box has no kortix-calendar skill and its CLI hides `kortix calendar` ' +
+      'from GET /triggers/all. NOTIFICATIONS: only a calendar write sends the `mention` kind. Its settings row (web and mobile) hides while the flag is off in every workspace of the person, ' +
+      'from the cached workspace list with no request of its own (@kortix/sdk hiddenNotificationKinds). A mention row from a project whose flag is off again leaves the inbox, ' +
+      'the unread count and the digest (inbox-read.ts liveCalendarItems: the one query that runs only when mention rows exist). MCP: read_skill lists and serves kortix-calendar only with the project_id ' +
+      'of a workspace where the flag is on, from the /detail it already reads. SIDEBAR: off, the Calendar row and its query never mount. DOCS: the audit action reference leaves project.calendar.* out. BOX: off, a session box has no kortix-calendar skill and its CLI hides `kortix calendar` ' +
       '(KORTIX_FEATURE_FLAGS → kortixd). WEB: no Calendar row and no palette entry; /workspaces/:id/calendar renders FeatureGateScreen. ' +
       'The calendar_items and calendar_comments rows stay.',
   },

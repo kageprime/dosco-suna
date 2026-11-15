@@ -51,6 +51,8 @@ import {
   ViewerPathPill,
   fileShareInput,
 } from '../../../files/viewer/viewer-actions';
+import { SESSION_BAR_CLASS } from '../panel-chrome';
+import { cn } from '../../../lib/utils';
 
 // zustand v5's own hook feeds React's `useSyncExternalStore` a
 // `getServerSnapshot` pinned to `getInitialState()` — correct for real SSR
@@ -118,7 +120,7 @@ function PreviewShell({
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
-      <div className="flex shrink-0 items-center gap-1 border-b px-2.5 py-2">
+      <div className={cn(SESSION_BAR_CLASS, 'gap-1 px-2.5')}>
         <DetailSidebarToggle className="size-7" />
         <ViewerPathPill
           icon={getFileIcon(fileName, { className: 'size-4', variant: 'monochrome' })}

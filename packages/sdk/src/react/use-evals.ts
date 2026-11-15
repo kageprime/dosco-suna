@@ -10,8 +10,15 @@ import {
   getWorkspaceEvalTask,
   getWorkspaceEvalTrial,
   listWorkspaceEvalDatasets,
+  listWorkspaceEvalJobFilterValues,
   listWorkspaceEvalJobs,
   listWorkspaceEvalSuites,
+  listWorkspaceEvalTrialFilterValues,
+  listWorkspaceEvalTrialsAcrossJobs,
+  pauseWorkspaceEvalJob,
+  pauseWorkspaceEvalTrial,
+  resumeWorkspaceEvalJob,
+  resumeWorkspaceEvalTrial,
   listWorkspaceEvalTaskResults,
   listWorkspaceEvalTasks,
   readWorkspaceEvalTaskFile,
@@ -26,6 +33,8 @@ import {
   type StartWorkspaceEvalJobInput,
   type WorkspaceEvalJob,
   type WorkspaceEvalTrial,
+  type WorkspaceEvalTrialFilters,
+  type WorkspaceEvalTrialSort,
 } from '../core/rest/projects-client';
 import { contract } from './query-contracts';
 import { qk } from './query-keys';
@@ -37,7 +46,8 @@ const newKey = () => `${Date.now().toString(36)}-${Math.random().toString(36).sl
 
 /** A job that has not ended re-reads every 5 seconds; an ended one does not. */
 const OPEN_JOB_MS = 5_000;
-const isOpen = (job: Pick<WorkspaceEvalJob, 'status'> | undefined) => job?.status === 'queued' || job?.status === 'running';
+const isOpen = (job: Pick<WorkspaceEvalJob, 'status'> | undefined) => job?.status === 'queued' || job?.status === 'running' || job?.status === 'paused';
+const ENDED_TRIAL = new Set(['completed', 'errored', 'cancelled']);
 
 /** The suites of `evals:` in kortix.yaml, each with its latest job. Pass `null` while the `evals` flag is off. */
 export function useWorkspaceEvalSuites(projectId: string | null | undefined) {
@@ -187,6 +197,47 @@ export function useWorkspaceEvalJob(projectId: string | null | undefined, jobId:
   });
 }
 
+/**
+ * One page of the trials of every job that match, each with `job_name`.
+ * Keeps the last page on screen while the next loads. Re-reads every 5
+ * seconds while a trial of the page has not ended.
+ */
+export function useWorkspaceEvalTrialsAcrossJobs(
+  projectId: string | null | undefined,
+  options?: WorkspaceEvalTrialFilters & { sort?: WorkspaceEvalTrialSort; page_size?: number; page_token?: string },
+) {
+  return useQuery({
+    queryKey: [...qk.project.evals(projectId ?? ''), 'trials', JSON.stringify(options ?? {})] as const,
+    queryFn: () => listWorkspaceEvalTrialsAcrossJobs(projectId as string, options),
+    enabled: !!projectId,
+    ...inventory,
+    placeholderData: (previous) => previous,
+    refetchInterval: (q) => ((q.state.data as { trials: WorkspaceEvalTrial[] } | undefined)?.trials.some((trial) => !ENDED_TRIAL.has(trial.status)) ? OPEN_JOB_MS : false),
+  });
+}
+
+/**
+ * The values of one filter field with their counts, in the scope of the
+ * other filters: `trials` for the trial list across jobs, `jobs` for the job list.
+ */
+export function useWorkspaceEvalFilterValues(
+  projectId: string | null | undefined,
+  of: 'trials' | 'jobs',
+  field: string,
+  filters?: WorkspaceEvalTrialFilters | WorkspaceEvalJobFilters,
+) {
+  return useQuery({
+    queryKey: [...qk.project.evals(projectId ?? ''), 'filters', of, field, JSON.stringify(filters ?? {})] as const,
+    queryFn: () =>
+      of === 'trials'
+        ? listWorkspaceEvalTrialFilterValues(projectId as string, field as Parameters<typeof listWorkspaceEvalTrialFilterValues>[1], filters as WorkspaceEvalTrialFilters)
+        : listWorkspaceEvalJobFilterValues(projectId as string, field as Parameters<typeof listWorkspaceEvalJobFilterValues>[1], filters as WorkspaceEvalJobFilters),
+    enabled: !!projectId && !!field,
+    ...inventory,
+    placeholderData: (previous) => previous,
+  });
+}
+
 /** One trial: its instruction and the files of its folder. */
 export function useWorkspaceEvalTrial(projectId: string | null | undefined, jobId: string | null | undefined, trialId: string | null | undefined) {
   return useQuery({
@@ -207,7 +258,7 @@ export function useWorkspaceEvalTrialFile(projectId: string | null | undefined, 
   });
 }
 
-/** Start, re-run, cancel and delete jobs. Each refreshes every eval read of the project. */
+/** Start, re-run, pause, resume, cancel and delete jobs and trials. Each refreshes every eval read of the project. */
 export function useWorkspaceEvalActions(projectId: string | null | undefined) {
   const client = useQueryClient();
   const refresh = () => client.invalidateQueries({ queryKey: qk.project.evals(projectId ?? '') });
@@ -221,8 +272,17 @@ export function useWorkspaceEvalActions(projectId: string | null | undefined) {
     plan: useMutation({ mutationFn: (input: StartWorkspaceEvalJobInput) => planWorkspaceEvalJob(pid(), input) }),
     rerun: useMutation({ mutationFn: (input: { jobId: string } & RerunWorkspaceEvalJobInput) => rerunWorkspaceEvalJob(pid(), input.jobId, { scope: input.scope, trial_ids: input.trial_ids }, { idempotencyKey: newKey() }), onSuccess: refresh }),
     retryTrial: useMutation({ mutationFn: (input: { jobId: string; trialId: string }) => retryWorkspaceEvalTrial(pid(), input.jobId, input.trialId, { idempotencyKey: newKey() }), onSuccess: refresh }),
-    cancelTrial: useMutation({ mutationFn: (input: { jobId: string; trialId: string }) => cancelWorkspaceEvalTrial(pid(), input.jobId, input.trialId), onSuccess: refresh }),
-    cancel: useMutation({ mutationFn: (jobId: string) => cancelWorkspaceEvalJob(pid(), jobId), onSuccess: refresh }),
+    cancelTrial: useMutation({ mutationFn: (input: { jobId: string; trialId: string; force?: boolean }) => cancelWorkspaceEvalTrial(pid(), input.jobId, input.trialId, { force: input.force }), onSuccess: refresh }),
+    pauseTrial: useMutation({ mutationFn: (input: { jobId: string; trialId: string }) => pauseWorkspaceEvalTrial(pid(), input.jobId, input.trialId), onSuccess: refresh }),
+    resumeTrial: useMutation({ mutationFn: (input: { jobId: string; trialId: string }) => resumeWorkspaceEvalTrial(pid(), input.jobId, input.trialId), onSuccess: refresh }),
+    // A job id stops running trials now; `{ jobId, force: false }` lets them finish.
+    cancel: useMutation({
+      mutationFn: (input: string | { jobId: string; force?: boolean }) =>
+        typeof input === 'string' ? cancelWorkspaceEvalJob(pid(), input) : cancelWorkspaceEvalJob(pid(), input.jobId, { force: input.force }),
+      onSuccess: refresh,
+    }),
+    pause: useMutation({ mutationFn: (jobId: string) => pauseWorkspaceEvalJob(pid(), jobId), onSuccess: refresh }),
+    resume: useMutation({ mutationFn: (jobId: string) => resumeWorkspaceEvalJob(pid(), jobId), onSuccess: refresh }),
     remove: useMutation({ mutationFn: (jobId: string) => deleteWorkspaceEvalJob(pid(), jobId), onSuccess: refresh }),
   };
 }

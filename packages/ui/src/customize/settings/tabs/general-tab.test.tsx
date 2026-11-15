@@ -82,6 +82,17 @@ describe('GeneralTabView', () => {
     expect(out.indexOf('Leave workspace')).toBeLessThan(out.indexOf('Delete workspace'));
   });
 
+  test('the Workspace ID shows all 36 characters: it wraps instead of being cut off', () => {
+    const id = '00000000-0000-4000-8000-000000000000';
+    const out = renderToStaticMarkup(<GeneralTabView workspaceId={id} />);
+    const code = out.match(/<code class="([^"]*)">([^<]*)<\/code>/);
+    expect(code?.[2]).toBe(id);
+    expect(code?.[1].split(' ')).toContain('break-all');
+    expect(code?.[1].split(' ')).not.toContain('truncate');
+    // No fixed cap on the row: at 1440 px the old `max-w-80` left 241 px for 283 px of text.
+    expect(out).not.toContain('max-w-80');
+  });
+
   test('the last owner gets no Leave row', () => {
     const out = renderToStaticMarkup(<GeneralTabView workspaceId="ws-synthetic-1" canLeave={false} />);
     expect(out).not.toContain('Leave workspace');

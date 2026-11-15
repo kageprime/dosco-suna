@@ -14,7 +14,9 @@ export type EvalJobRow = typeof evalJobs.$inferSelect;
 export type EvalTrialRow = typeof evalTrials.$inferSelect;
 
 export const ACTIVE_TRIAL_STATUSES: EvalTrialStatus[] = ['starting', 'agent_running', 'verifying'];
-export const OPEN_TRIAL_STATUSES: EvalTrialStatus[] = ['queued', ...ACTIVE_TRIAL_STATUSES];
+export const OPEN_TRIAL_STATUSES: EvalTrialStatus[] = ['queued', 'paused', ...ACTIVE_TRIAL_STATUSES];
+/** A job the runner still works on: a paused job starts no trial, but its running trials go on. */
+export const OPEN_JOB_STATUSES: EvalJobStatus[] = ['queued', 'running', 'paused'];
 
 export const jobConfig = (job: EvalJobRow): EvalJobConfig => job.config as unknown as EvalJobConfig;
 
@@ -193,7 +195,7 @@ export async function getTrial(jobId: string, trialId: string): Promise<EvalTria
 
 /** Jobs the runner still works on, oldest first. */
 export async function listOpenJobs(limit: number): Promise<EvalJobRow[]> {
-  return db.select().from(evalJobs).where(inArray(evalJobs.status, ['queued', 'running'])).orderBy(asc(evalJobs.createdAt)).limit(limit);
+  return db.select().from(evalJobs).where(inArray(evalJobs.status, OPEN_JOB_STATUSES)).orderBy(asc(evalJobs.createdAt)).limit(limit);
 }
 
 export async function listOpenTrials(jobId: string): Promise<EvalTrialRow[]> {
@@ -205,17 +207,25 @@ export async function listOpenTrials(jobId: string): Promise<EvalTrialRow[]> {
  * cancel (or another runner) moved it first, and the caller drops its step.
  */
 export async function updateTrial(trial: Pick<EvalTrialRow, 'trialId' | 'status'>, patch: Partial<typeof evalTrials.$inferInsert>): Promise<boolean> {
+  // `no_retry` (a soft cancel of a running trial) survives the runner's own run-state writes, which replace the object.
+  const runState = patch.runState
+    ? sql`${JSON.stringify(patch.runState)}::jsonb || jsonb_strip_nulls(jsonb_build_object('no_retry', ${evalTrials.runState}->'no_retry'))`
+    : undefined;
   const updated = await db
     .update(evalTrials)
-    .set({ ...patch, updatedAt: new Date() })
+    .set({ ...patch, ...(runState ? { runState } : {}), updatedAt: new Date() })
     .where(and(eq(evalTrials.trialId, trial.trialId), eq(evalTrials.status, trial.status)))
     .returning({ trialId: evalTrials.trialId });
   return updated.length > 0;
 }
 
-/** Queue one more run of an attempt (after a retryable error, or on request). Null when that run exists. */
+/**
+ * Queue one more run of an attempt (after a retryable error, or on request).
+ * Null when that run exists. A run queued in a paused job starts paused.
+ */
 export async function insertRetry(trial: EvalTrialRow, runState: Record<string, unknown> = {}): Promise<EvalTrialRow | null> {
   const retry = trial.retry + 1;
+  const [job] = await db.select({ status: evalJobs.status }).from(evalJobs).where(eq(evalJobs.jobId, trial.jobId)).limit(1);
   const [row] = await db
     .insert(evalTrials)
     .values({
@@ -228,6 +238,7 @@ export async function insertRetry(trial: EvalTrialRow, runState: Record<string, 
       model: trial.model,
       attempt: trial.attempt,
       retry,
+      status: job?.status === 'paused' ? 'paused' : 'queued',
       runState,
     })
     .onConflictDoNothing({ target: [evalTrials.jobId, evalTrials.trialName] })
@@ -270,14 +281,27 @@ export async function cancelTrial(trial: EvalTrialRow): Promise<EvalTrialRow | n
   return row ?? null;
 }
 
-/** Cancel every trial of a job that has not ended. Returns the ones that had a session. */
-export async function cancelOpenTrials(jobId: string): Promise<EvalTrialRow[]> {
+/**
+ * Cancel the trials of a job that have not ended (`only`: those with one of
+ * these statuses). Returns the cancelled rows; the caller stops their sandboxes.
+ */
+export async function cancelOpenTrials(jobId: string, only: EvalTrialStatus[] = OPEN_TRIAL_STATUSES): Promise<EvalTrialRow[]> {
   const now = new Date();
   return db
     .update(evalTrials)
     .set({ status: 'cancelled', finishedAt: now, updatedAt: now })
-    .where(and(eq(evalTrials.jobId, jobId), inArray(evalTrials.status, OPEN_TRIAL_STATUSES)))
+    .where(and(eq(evalTrials.jobId, jobId), inArray(evalTrials.status, only)))
     .returning();
+}
+
+/** Move a job's trials from one status to another (pause: queued → paused; resume: back). Returns how many moved. */
+export async function moveTrials(jobId: string, from: EvalTrialStatus, to: EvalTrialStatus, trialId?: string): Promise<number> {
+  const moved = await db
+    .update(evalTrials)
+    .set({ status: to, updatedAt: new Date() })
+    .where(and(eq(evalTrials.jobId, jobId), eq(evalTrials.status, from), trialId ? eq(evalTrials.trialId, trialId) : undefined))
+    .returning({ trialId: evalTrials.trialId });
+  return moved.length;
 }
 
 export async function setJobStatus(jobId: string, from: EvalJobRow['status'][], patch: Partial<typeof evalJobs.$inferInsert>): Promise<boolean> {
@@ -338,17 +362,22 @@ export async function countActiveTrials(projectId: string): Promise<number> {
 }
 
 /**
- * Ended trials whose sandbox still runs: a cancel that landed while the runner
- * was creating the session, or a stop that failed. A job that keeps its
+ * Ended trials whose sandbox (or separate verifier's sandbox) still runs: a
+ * cancel that landed while the runner was creating the session, a stop that
+ * failed, or an API that died mid-trial. A job that keeps its
  * sandboxes (`environment.delete: false`) keeps those of its graded trials; a
  * cancelled trial's sandbox stops in every job.
  */
 export async function endedTrialsWithLiveSandbox(limit: number): Promise<Array<{ job: EvalJobRow; sessionId: string }>> {
   const rows = await db
-    .select({ job: evalJobs, sessionId: evalTrials.sessionId })
+    .select({ job: evalJobs, sessionId: sessionSandboxes.sessionId })
     .from(evalTrials)
     .innerJoin(evalJobs, eq(evalJobs.jobId, evalTrials.jobId))
-    .innerJoin(sessionSandboxes, eq(sessionSandboxes.sessionId, evalTrials.sessionId))
+    // The trial's session, or the separate verifier's (its id is in the run state).
+    .innerJoin(
+      sessionSandboxes,
+      or(eq(sessionSandboxes.sessionId, evalTrials.sessionId), eq(sessionSandboxes.sessionId, sql`${evalTrials.runState}->>'verifier_session_id'`)),
+    )
     .where(
       and(
         inArray(evalTrials.status, ['completed', 'errored', 'cancelled']),
@@ -359,4 +388,130 @@ export async function endedTrialsWithLiveSandbox(limit: number): Promise<Array<{
     )
     .limit(limit);
   return rows.filter((row): row is { job: EvalJobRow; sessionId: string } => row.sessionId !== null);
+}
+
+// ── Trials across jobs ───────────────────────────────────────────────────────
+
+/** Filters of the trial list across jobs. Values within one filter are ORed; filters are ANDed. */
+export interface EvalTrialFilters {
+  jobIds?: string[];
+  status?: EvalTrialStatus[];
+  task?: string[];
+  agent?: string[];
+  model?: string[];
+  exceptionType?: string[];
+  /** Substring of the trial or task name. */
+  q?: string;
+}
+
+const exceptionTypeSql = sql`${evalTrials.exception}->>'exception_type'`;
+// The mean of the trial's reward keys; null without a reward.
+const rewardSql = sql`(select avg(r.value::numeric) from jsonb_each_text(${evalTrials.rewards}) r where r.value ~ '^-?[0-9.eE+-]+$')`;
+
+function trialFilters(projectId: string, filters: EvalTrialFilters, omit?: keyof EvalTrialFilters): SQL | undefined {
+  const has = <K extends keyof EvalTrialFilters>(key: K) => key !== omit && filters[key] !== undefined && (!Array.isArray(filters[key]) || (filters[key] as unknown[]).length > 0);
+  return and(
+    eq(evalTrials.projectId, projectId),
+    has('jobIds') ? inArray(evalTrials.jobId, filters.jobIds!) : undefined,
+    has('status') ? inArray(evalTrials.status, filters.status!) : undefined,
+    has('task') ? inArray(evalTrials.taskName, filters.task!) : undefined,
+    has('agent') ? inArray(evalTrials.agent, filters.agent!) : undefined,
+    has('model') ? inArray(evalTrials.model, filters.model!) : undefined,
+    has('exceptionType') ? inArray(exceptionTypeSql, filters.exceptionType!) : undefined,
+    has('q') ? or(ilike(evalTrials.trialName, `%${likeEscape(filters.q!)}%`), ilike(evalTrials.taskName, `%${likeEscape(filters.q!)}%`)) : undefined,
+  );
+}
+
+const TRIAL_ORDER: Record<string, SQL[]> = {
+  created_at: [sql`${evalTrials.createdAt} asc`, sql`${evalTrials.trialId} asc`],
+  '-created_at': [sql`${evalTrials.createdAt} desc`, sql`${evalTrials.trialId} desc`],
+  finished_at: [sql`${evalTrials.finishedAt} asc nulls last`, sql`${evalTrials.trialId} asc`],
+  '-finished_at': [sql`${evalTrials.finishedAt} desc nulls last`, sql`${evalTrials.trialId} desc`],
+  task: [sql`${evalTrials.taskName} asc`, sql`${evalTrials.createdAt} asc`, sql`${evalTrials.trialId} asc`],
+  '-task': [sql`${evalTrials.taskName} desc`, sql`${evalTrials.createdAt} desc`, sql`${evalTrials.trialId} desc`],
+  reward: [sql`${rewardSql} asc nulls last`, sql`${evalTrials.trialId} asc`],
+  '-reward': [sql`${rewardSql} desc nulls last`, sql`${evalTrials.trialId} desc`],
+};
+
+/** One page of a project's trials across its jobs, with each trial's job. */
+export async function listProjectTrials(
+  projectId: string,
+  filters: EvalTrialFilters,
+  opts: { sort: string; limit: number; offset: number },
+): Promise<Array<{ trial: EvalTrialRow; job: EvalJobRow }>> {
+  return db
+    .select({ trial: evalTrials, job: evalJobs })
+    .from(evalTrials)
+    .innerJoin(evalJobs, eq(evalJobs.jobId, evalTrials.jobId))
+    .where(trialFilters(projectId, filters))
+    .orderBy(...(TRIAL_ORDER[opts.sort] ?? TRIAL_ORDER.created_at!))
+    .limit(opts.limit)
+    .offset(opts.offset);
+}
+
+export async function countProjectTrials(projectId: string, filters: EvalTrialFilters): Promise<number> {
+  const [row] = await db.select({ n: sql<number>`count(*)::int` }).from(evalTrials).where(trialFilters(projectId, filters));
+  return row?.n ?? 0;
+}
+
+export type FilterValue = { value: string; label: string | null; count: number };
+
+const TRIAL_FIELD: Record<string, { column: SQL; omit: keyof EvalTrialFilters }> = {
+  status: { column: sql`${evalTrials.status}`, omit: 'status' },
+  task: { column: sql`${evalTrials.taskName}`, omit: 'task' },
+  agent: { column: sql`${evalTrials.agent}`, omit: 'agent' },
+  model: { column: sql`${evalTrials.model}`, omit: 'model' },
+  exception_type: { column: exceptionTypeSql, omit: 'exceptionType' },
+  job: { column: sql`${evalTrials.jobId}::text`, omit: 'jobIds' },
+};
+
+/**
+ * The values one trial field takes in the scope of the other filters, most
+ * trials first, at most `limit` (one more is read to tell whether there are more).
+ */
+export async function trialFilterValues(projectId: string, filters: EvalTrialFilters, field: string, limit: number): Promise<{ values: FilterValue[]; truncated: boolean }> {
+  const spec = TRIAL_FIELD[field];
+  if (!spec) return { values: [], truncated: false };
+  const rows = await db
+    .select({
+      value: sql<string>`${spec.column}`,
+      label: field === 'job' ? sql<string | null>`max(${evalJobs.jobName})` : sql<string | null>`null`,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(evalTrials)
+    .innerJoin(evalJobs, eq(evalJobs.jobId, evalTrials.jobId))
+    .where(and(trialFilters(projectId, filters, spec.omit), sql`${spec.column} is not null`))
+    .groupBy(spec.column)
+    .orderBy(sql`count(*) desc`, spec.column)
+    .limit(limit + 1);
+  return { values: rows.slice(0, limit), truncated: rows.length > limit };
+}
+
+// The values a job field takes: one row per job and value (an array field gives one per element).
+const JOB_FIELD: Record<string, { from: SQL; omit: keyof EvalJobFilters }> = {
+  status: { from: sql`select ${evalJobs.status} as v`, omit: 'status' },
+  suite: { from: sql`select ${evalJobs.suite} as v`, omit: 'suite' },
+  dataset: { from: sql`select d->>'name' as v from jsonb_array_elements(coalesce(${evalJobs.config}->'datasets', '[]'::jsonb)) d`, omit: 'dataset' },
+  agent: { from: sql`select a->>'name' as v from jsonb_array_elements(coalesce(${evalJobs.config}->'agents', '[]'::jsonb)) a`, omit: 'agent' },
+  model: {
+    from: sql`select a->>'model' as v from jsonb_array_elements(coalesce(${evalJobs.stats}->'agents', '[]'::jsonb)) a union select a->>'model_name' from jsonb_array_elements(coalesce(${evalJobs.config}->'agents', '[]'::jsonb)) a`,
+    omit: 'model',
+  },
+};
+
+/** The values one job field takes in the scope of the other job filters, with how many jobs have each. */
+export async function jobFilterValues(projectId: string, filters: EvalJobFilters, field: string, limit: number): Promise<{ values: FilterValue[]; truncated: boolean }> {
+  const spec = JOB_FIELD[field];
+  if (!spec) return { values: [], truncated: false };
+  const scope = jobFilters(projectId, { ...filters, [spec.omit]: undefined });
+  const rows = await db.execute<{ value: string; count: number }>(sql`
+    select x.v as value, count(distinct ${evalJobs.jobId})::int as count
+    from ${evalJobs} cross join lateral (${spec.from}) x
+    where ${scope} and x.v is not null
+    group by x.v
+    order by count(distinct ${evalJobs.jobId}) desc, x.v
+    limit ${limit + 1}
+  `);
+  const list = [...rows].map((row) => ({ value: row.value, label: null, count: Number(row.count) }));
+  return { values: list.slice(0, limit), truncated: list.length > limit };
 }

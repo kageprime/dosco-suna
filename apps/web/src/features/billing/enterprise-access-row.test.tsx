@@ -30,6 +30,13 @@ describe('EnterpriseAccessRow', () => {
     expect(markup).toContain('Talk to sales');
   });
 
+  test('off: lists only what a cloud Enterprise plan delivers, never branding', () => {
+    // The Plan pane exists only with billing on, and cloud never offers branding.
+    const markup = render({ enterprise: { state: 'off' } });
+    expect(markup).toContain('SSO, SCIM, advanced roles and audit logs.');
+    expect(markup.toLowerCase()).not.toContain('branding');
+  });
+
   test('off for a member: no demo switch, Talk to sales stays', () => {
     const markup = render({ enterprise: { state: 'off' }, can_manage_billing: false });
     expect(markup).not.toContain('Turn on demo');

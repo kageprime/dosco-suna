@@ -126,7 +126,7 @@ describe('ExperimentalTabView', () => {
     const out = renderToStaticMarkup(
       <ExperimentalTabView features={[betaFeature]} pendingKeys={['agent_teams']} canManage />,
     );
-    expect(out).toMatch(/role="switch"[^>]*disabled/);
+    expect(out).toMatch(/role="switch"[^>]*\sdisabled=""/);
   });
 
   test('an operator_only flag shows "Managed by Dosco" and a disabled, checked switch even for a manager', () => {
@@ -134,17 +134,17 @@ describe('ExperimentalTabView', () => {
     const out = renderToStaticMarkup(<ExperimentalTabView features={[managed]} canManage />);
     expect(out).toContain('Managed by Dosco');
     expect(out).not.toContain('Overridden for this workspace');
-    expect(out).toMatch(/role="switch"[^>]*aria-checked="true"[^>]*disabled|role="switch"[^>]*disabled[^>]*aria-checked="true"/);
+    expect(out).toMatch(/role="switch"[^>]*aria-checked="true"[^>]*\sdisabled=""|role="switch"[^>]*\sdisabled=""[^>]*aria-checked="true"/);
     // An ordinary flag beside it stays writable.
     const mixed = renderToStaticMarkup(<ExperimentalTabView features={[betaFeature]} canManage />);
-    expect(mixed).not.toMatch(/role="switch"[^>]*disabled/);
+    expect(mixed).not.toMatch(/role="switch"[^>]*\sdisabled=""/);
   });
 
   test('canManage false disables every switch, even with no pending key', () => {
     const out = renderToStaticMarkup(
       <ExperimentalTabView features={[betaFeature]} canManage={false} />,
     );
-    expect(out).toMatch(/role="switch"[^>]*disabled/);
+    expect(out).toMatch(/role="switch"[^>]*\sdisabled=""/);
   });
 
   test('renders an empty state with no features and no table markup', () => {
@@ -189,10 +189,10 @@ describe('ExperimentalTabView', () => {
   });
 
   test('an overridden row names the platform default and offers a reset; an inherited row does not', () => {
-    // Switching a default-on flag off and on again leaves it overridden. The
-    // row must still say what the default is and give a way back to it.
+    // A default-on flag switched off: the row says what the default is and
+    // gives a way back to it.
     const overridden = renderToStaticMarkup(
-      <ExperimentalTabView features={[{ ...betaFeature, default_enabled: true }]} canManage />,
+      <ExperimentalTabView features={[{ ...betaFeature, enabled: false, default_enabled: true }]} canManage />,
     );
     expect(overridden).toContain('Overridden for this workspace');
     expect(overridden).toContain('Default on');
@@ -211,8 +211,37 @@ describe('ExperimentalTabView', () => {
     expect(inherited).not.toContain('Reset to default');
   });
 
+  test('an override equal to the default reads as the default and offers no reset', () => {
+    // Switching a flag off and on again stores an override that changes nothing.
+    for (const [enabled, label] of [
+      [true, 'Default on'],
+      [false, 'Default off'],
+    ] as const) {
+      const out = renderToStaticMarkup(
+        <ExperimentalTabView features={[{ ...betaFeature, enabled, default_enabled: enabled }]} canManage />,
+      );
+      expect(out).toContain(label);
+      expect(out).not.toContain('Overridden for this workspace');
+      expect(out).not.toContain('Reset to default');
+    }
+  });
+
+  test('an override from a server that sends no default keeps its reset', () => {
+    const out = renderToStaticMarkup(<ExperimentalTabView features={[betaFeature]} canManage />);
+    expect(out).toContain('Overridden for this workspace');
+    expect(out).toContain('Reset to default');
+  });
+
+  test('a description renders its code spans as code, without backticks', () => {
+    const out = renderToStaticMarkup(
+      <ExperimentalTabView features={[{ ...betaFeature, description: 'Runs goals and `kortix loop`.' }]} />,
+    );
+    expect(out).toMatch(/<code[^>]*>kortix loop<\/code>\./);
+    expect(out).not.toContain('`');
+  });
+
   test('the reset control follows the switch: disabled without the permission or while pending', () => {
-    const feature = { ...betaFeature, default_enabled: true };
+    const feature = { ...betaFeature, enabled: false, default_enabled: true };
     for (const out of [
       renderToStaticMarkup(<ExperimentalTabView features={[feature]} canManage={false} />),
       renderToStaticMarkup(

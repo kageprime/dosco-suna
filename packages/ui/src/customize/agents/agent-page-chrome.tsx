@@ -30,9 +30,8 @@ import { SETTINGS_SIDEBAR_WIDTH_PX } from '../../internal/components/nav-rail';
 import { CaretRightIcon } from '@phosphor-icons/react';
 import { useInCustomizeFrame } from '../shared/customize-tab-bar';
 import { cn } from '../../internal/lib/utils';
+import { ActionBar, ActionBarDock } from '../../primitives/action-bar';
 import { Button } from '../../primitives/button';
-import { ButtonGroup } from '../../primitives/button-group';
-import { SessionDotMatrix } from '../../primitives/dot-matrix/session-dot-matrix';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -42,13 +41,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../primitives/alert-dialog';
-import { Kbd } from '../../primitives/kbd';
 import { useOptionalSidebar } from '../../primitives/sidebar';
 import { Skeleton } from '../../primitives/skeleton';
 import { StatusDot, type StatusTone } from '../../primitives/status';
 import { UiLink as Link, useUiShallowNavigate } from '../../providers/ui-provider';
-import { m } from 'motion/react';
-import { useReducedMotion } from '../../internal/hooks/use-reduced-motion';
 
 import { FadedScrollArea } from '../../primitives/faded-scroll-area';
 
@@ -390,11 +386,10 @@ export function AgentStatePage({ title, children }: { title: ReactNode; children
 }
 
 /**
- * The unsaved-edits bar, in the shape of the select-mode bar every list uses
- * (`SelectionBar`, the Triggers bulk bar): one popover card, the state on the
- * left with the changed tabs muted after it, then one secondary ButtonGroup of
- * text buttons (Discard, Save ⌘S). It rises in like that bar and leaves at
- * once. While the save runs, the session dot matrix leads and both disable.
+ * The agent page's unsaved-edits bar: an `ActionBar` docked at the bottom of
+ * the page, titled "Unsaved changes." with the changed tabs muted after it, then
+ * Discard and Save ⌘S (the page binds the key). While the save runs, the
+ * session dot matrix leads and both disable.
  */
 export function SaveBar({
   dirty,
@@ -411,39 +406,24 @@ export function SaveBar({
   onSave: () => void;
 }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
-  const reduceMotion = useReducedMotion();
   if (!dirty) return null;
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-4">
-      <m.div
-        initial={{ opacity: 0, transform: reduceMotion ? 'translateY(0px)' : 'translateY(8px)' }}
-        animate={{ opacity: 1, transform: 'translateY(0px)', transition: { duration: 0.18, ease: [0.23, 1, 0.32, 1] } }}
-        className="bg-popover text-popover-foreground border-border pointer-events-auto flex w-full items-center gap-3 rounded-lg border p-2 pl-3.5 shadow-md md:w-auto md:min-w-md md:max-w-full"
-      >
-        <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium" aria-live="polite">
-          {pending ? <SessionDotMatrix size={14} className="shrink-0" /> : null}
-          <span className="shrink-0">{tI18nComplete.raw('textefa5855ff509')}</span>
-          <span className="text-muted-foreground min-w-0 truncate font-normal">{changed}</span>
-        </span>
-        <ButtonGroup className="shrink-0">
-          <Button type="button" variant="secondary" size="sm" className="h-8 shrink-0" onClick={onDiscard} disabled={pending}>
-            {tI18nComplete.raw('texteb1a70e39274')}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="h-8 shrink-0 gap-1.5"
-            onClick={onSave}
-            disabled={pending}
-            aria-busy={pending || undefined}
-          >
-            {tI18nComplete.raw('text1509f561f241')}
-            <Kbd>{tI18nComplete.raw('text8cd003e6301b')}</Kbd>
-          </Button>
-        </ButtonGroup>
-      </m.div>
-    </div>
+    <ActionBarDock>
+      <ActionBar
+        title={tI18nComplete.raw('textefa5855ff509')}
+        description={changed}
+        busy={pending}
+        actions={[
+          { id: 'discard', label: tI18nComplete.raw('texteb1a70e39274'), onSelect: onDiscard },
+          {
+            id: 'save',
+            label: tI18nComplete.raw('text1509f561f241'),
+            kbd: ['mod', 'S'],
+            onSelect: onSave,
+          },
+        ]}
+      />
+    </ActionBarDock>
   );
 }
 
@@ -489,6 +469,6 @@ export function LeaveDialog({
 }
 
 /** The agent's display name, for header titles. */
-export function agentTitle(slug: string): string {
-  return agentDisplayName(slug);
+export function agentTitle(slug: string, title?: string | null): string {
+  return agentDisplayName(slug, title);
 }

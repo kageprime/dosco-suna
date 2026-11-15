@@ -214,7 +214,8 @@ const catalog = {
     },
     "agentAccess": "Agents: {agents}",
     "allAgents": "All agents",
-    "noAgents": "No agents"
+    "noAgents": "No agents",
+    "deliveredOnceSet": "Delivered once a value is set"
   },
   "common": {
     "cancel": "Cancel",
@@ -474,6 +475,7 @@ const catalog = {
       "secretsCommand": "Secrets command",
       "ownClientTitle": "Use your own Git client",
       "ownClientDescription": "Clone with plain <code>git</code> instead of the Dosco command line.",
+      "ownClientHelp": "Clone from this address with any Git client. When git asks, enter any username and a Dosco API key as the password — the Dosco command line does this for you through its credential helper; plain <code>git</code> does not.",
       "cloneAddressDescription": "Clone from this address with any Git client. Dosco signs the request for you, so there is no access token to create, paste, or keep on your machine.",
       "cloneAddress": "Clone address",
       "peopleTitle": "People with access",
@@ -688,15 +690,16 @@ const catalog = {
         "startup": "Startup"
       },
       "statuses": {
-        "ready": "ready",
-        "building": "building",
-        "failed": "failed"
+        "ready": "Ready",
+        "building": "Building",
+        "failed": "Failed"
       },
       "stale": {
         "superseded": "Didn’t finish, and a newer setup has replaced it",
         "recovered": "Didn’t finish, but the environment is ready now",
         "retrying": "Didn’t finish — a new attempt is running"
       },
+      "supersededGroup": "{count, plural, one {# older build replaced} other {# older builds replaced}}",
       "outcomes": {
         "ready": "Ready for new sessions",
         "building": "Being prepared now",
@@ -887,7 +890,7 @@ const catalog = {
         },
         "calendar": {
           "name": "Calendar",
-          "description": "A shared calendar for people and agents: items with a date, an owner and comments, beside the scheduled triggers and Loops. Mention someone with @ to notify them. Agents use `kortix calendar`."
+          "description": "A shared calendar for people and agents: dated items with the people on them and comments, beside the scheduled triggers and Loops. Mention someone with @ to notify them. Agents use `kortix calendar`."
         }
       },
       "channelsSwitch": {
@@ -1187,8 +1190,8 @@ const catalog = {
         "needsInput": "Needs input",
         "starting": "Waking",
         "running": "Working",
-        "done": "Ready",
-        "stopped": "Asleep",
+        "done": "Done",
+        "stopped": "Stopped",
         "failed": "Failed",
         "legacy": "Legacy"
       }
@@ -1217,6 +1220,9 @@ const catalog = {
       "title": "{file} has {errors, plural, one {# error} other {# errors}} and {warnings, plural, one {# warning} other {# warnings}}",
       "titleErrors": "{file} has {errors, plural, one {# error} other {# errors}}",
       "titleWarnings": "{file} has {warnings, plural, one {# warning} other {# warnings}}",
+      "count": "{errors, plural, one {# error} other {# errors}} and {warnings, plural, one {# warning} other {# warnings}}",
+      "countErrors": "{errors, plural, one {# error} other {# errors}}",
+      "countWarnings": "{warnings, plural, one {# warning} other {# warnings}}",
       "errorsOff": "Agents and triggers with an error are off until it is fixed.",
       "warningsOnly": "Everything still runs.",
       "error": "Error",
@@ -1397,7 +1403,15 @@ const catalog = {
       "noMessages": "No messages yet",
       "more": "More"
     },
-    "calendar": "Calendar"
+    "calendar": "Calendar",
+    "running": "Running",
+    "runningCount": "{count, plural, one {# session running} other {# sessions running}}",
+    "runningTitle": "Running now",
+    "runningEmpty": "Nothing is running.",
+    "runningFailed": "Couldn't read what is running.",
+    "runningRetry": "Try again",
+    "runningIn": "in {title}",
+    "runningFirst": "Showing the first {count}."
   },
   "sessionPage": {
     "backToProject": "Back to workspace",
@@ -1695,6 +1709,8 @@ const catalog = {
     "chatInputMachine": "Machine",
     "chatInputMachineDescription": "The machine template this session starts on.",
     "sending": "Sending",
+    "notSentYet": "Not sent yet · sends when you’re back online",
+    "offlineReconnecting": "Offline — reconnecting…",
     "stop": "Stop",
     "startingSession": "Starting session…",
     "sessionStarted": "Session started",
@@ -2117,7 +2133,17 @@ const catalog = {
       "jsonKeys": "{count, plural, one {JSON · # key} other {JSON · # keys}}",
       "jsonItems": "{count, plural, one {JSON · # item} other {JSON · # items}}",
       "failedSentence": "The workflow stopped before it finished.",
-      "runningCount": "{count} running"
+      "runningCount": "{count} running",
+      "spent": "Spent {credits} credits",
+      "spentHint": "What Kortix billed for this run so far: model calls and computer time of the run and its agents.",
+      "waitingForYou": "Waiting for you · not started",
+      "cancelled": "Cancelled — nothing ran",
+      "answeredInChat": "Answered in chat — nothing ran",
+      "stoppedByYou": "Stopped by you",
+      "attempt": "attempt {count}",
+      "quietFor": "Quiet for {minutes} min",
+      "quietCount": "{count} quiet",
+      "holdingWorking": "Holding · {count} still working"
     },
     "agent": {
       "backgroundWorking": "Working in the background",
@@ -2208,7 +2234,7 @@ const catalog = {
       "automation_recovered": "A failing trigger or loop works again.",
       "capture_device_down": "A Capture computer is not recording. Sent to people who manage Capture.",
       "capture_device_recovered": "A Capture computer that stopped records again.",
-      "mention": "Someone else mentions you or assigns you an item on the calendar."
+      "mention": "Someone else mentions you or adds you to an item on the calendar."
     },
     "inbox": {
       "title": "Inbox",
@@ -2745,6 +2771,7 @@ const catalog = {
       "text38e64d6a8162": "Commits a SKILL.md to the workspace's default branch. No model or chat needed.",
       "text39cfc32bd12c": "Pasted text",
       "text23d0bb29fca0": "{count, plural, one {# word} other {# words}}",
+      "text3e310b75051c": "Run again",
       "text426699d5a8c0": "{count, plural, one {# character} other {# characters}}",
       "text8782b778c202": "Delete {value0}",
       "text0005b85debac": "Sound pack played for session events.",
@@ -2859,6 +2886,10 @@ const catalog = {
       "text0af465ef42c0": "On failure",
       "text0b1bdec38bf0": "Default template",
       "text0b348466332c": "Nothing changed yet",
+      "textf83916135509": "used",
+      "texta251c18205f1": "Cached",
+      "text64cd989efc14": "Free space",
+      "textcc6d004b577f": "This file has no changes against the base.",
       "text0b38e3daeb93": "All secrets",
       "text0b5260e1b405": "Updating",
       "text0b5796519393": "SCIM keeps users and groups in sync, including offboarding",
@@ -3160,6 +3191,7 @@ const catalog = {
       "text25054dad693a": "Searched sessions",
       "text2515f730f2e2": "Reuses our existing DB and backups. Simplest to operate.",
       "text2534086de9fe": "Show panel",
+      "text40cd6293d193": "Hide panel",
       "text2534e74d5120": "What should the agent change?",
       "text253b18a02165": "Starting up",
       "text25c9ab3f2bf6": "Can't show these links",
@@ -3275,7 +3307,6 @@ const catalog = {
       "text2f3263f5c933": "e.g. GMAPS-primary",
       "text2f485b9971df": "You're all caught up",
       "text2f5525e787a5": "Pick workspace members to add to this group.",
-      "text2f72fafe0ce1": "instead of the Dosco command line.",
       "text2f77668a9dfb": "Message",
       "text2f80158a9d89": "research/",
       "text2f883b75cd2d": "Search a URL or port",
@@ -4149,7 +4180,6 @@ const catalog = {
       "text76c02b7eddca": "Search skills",
       "text76f48924ee10": "The sandbox holds a handle under this key. Dosco swaps the real value in outside the sandbox, and only on a request to one of these hosts.",
       "text77184595bde3": "Ascending",
-      "text7760401b25c7": "Clone with plain",
       "text7761b572aba8": "Browser notifications",
       "text778ed69bedf7": "Preparing changes…",
       "text77a860cbc585": "Send to agent",
@@ -4903,7 +4933,6 @@ const catalog = {
       "textb6d85433a7ee": "Sessions could not be loaded",
       "textb70354a1faae": "Foo 7B",
       "textb728bd912cde": "Could not load the routing policy.",
-      "textb74106e21108": "does not.",
       "textb7416a669c6b": "Recalled",
       "textb7595e2a8639": "steps",
       "textb762cc8a7284": "Reflects on recent activity and curates .kortix/memory, opening a memory CR each run.",
@@ -5470,7 +5499,6 @@ const catalog = {
       "texte2d15fe36f4d": "Almost ready...",
       "texte2ee2909fe27": "Ctrl",
       "texte3190ee3d8a8": "Unable to display workbook",
-      "texte327e6c1348b": "Clone from this address with any Git client. When git asks, enter any username and a Dosco API key as the password — the Dosco command line does this for you through its credential helper, plain",
       "texte391550d9883": "No agent can receive this secret",
       "texte392a3891c07": "Suspended",
       "texte3ba17e32240": "30d",
@@ -6634,11 +6662,14 @@ const catalog = {
     "noCapUnlimited": "No cap · spend is unlimited",
     "tokensSub": "{in} in · {out} out",
     "unknownValue": "Unknown",
-    "estimateCoverageUnavailable": "Estimate coverage unavailable.",
     "estimatesSeparate": "Actual spend above is separate. Estimates are never added to charges.",
     "estimatedUsageValueLabel": "LLM estimated usage value (not a bill):",
-    "pricedRequests": "{count} priced requests",
-    "unpricedRequests": "{count} unpriced requests",
+    "pricedRequests": "{count, number} priced requests",
+    "unpricedRequests": "{count, number} unpriced requests",
+    "failedRequests": "{count, number} failed requests",
+    "estimateInfoLabel": "About this estimate",
+    "estimateDetail": "Successful model calls priced at public list rates. Failed requests and models without a known rate are not priced.",
+    "estimateRateVersion": "Rate table: {version}",
     "llmEstimateLabel": "LLM estimate:"
   },
   "triggerComposer": {
@@ -7139,7 +7170,9 @@ const catalog = {
     "areaDescription": "Connect apps and channels to your agents, and decide what they may do.",
     "wayMoreNamed": "More for {name}",
     "otherWaysLead": "Other ways:",
-    "typeFilterKortix": "Dosco"
+    "typeFilterKortix": "Dosco",
+    "scopeAll": "All",
+    "scopeAdded": "Added"
   },
   "connectMcp": {
     "title": "Connect Dosco over MCP",
@@ -8016,7 +8049,7 @@ const catalog = {
   },
   "calendar": {
     "title": "Calendar",
-    "gateDescription": "A shared calendar for people and agents: items with a date, an owner and comments, beside your scheduled triggers and Loops.",
+    "gateDescription": "A shared calendar for people and agents: dated items with the people on them and comments, beside your scheduled triggers and Loops.",
     "newItem": "New item",
     "today": "Today",
     "previousWeek": "Previous week",
@@ -8033,12 +8066,14 @@ const catalog = {
     },
     "people": "People",
     "agents": "Agents",
+    "searchPeople": "Search people and agents",
     "noDate": "No date",
     "noDateHint": "Items without a date wait here.",
     "allDay": "All day",
+    "startTime": "Start time",
+    "endTime": "End time",
     "overdue": "Overdue",
     "status": {
-      "open": "Open",
       "done": "Done"
     },
     "comments": "{count, plural, one {# comment} other {# comments}}",
@@ -8051,9 +8086,7 @@ const catalog = {
     "dayEntries": "{day}, {count, plural, one {# entry} other {# entries}}",
     "showWeekOf": "Show the week of {day}",
     "more": "{count} more",
-    "nobody": "Nobody",
     "when": "When",
-    "owner": "Owner",
     "created": "Created",
     "clearDate": "Remove date",
     "saveFailed": "The change was not saved.",
@@ -8251,7 +8284,7 @@ const catalog = {
       "newAgent": "New agent",
       "newAgentHelp": "Xera writes the agent into kortix.yaml and opens a change request.",
       "name": "Name",
-      "namePlaceholder": "market-scan",
+      "namePlaceholder": "Market scan",
       "nameHelp": "Lowercase letters, digits and dashes. Saved as <slug></slug>.",
       "nameTaken": "An agent with this name already exists.",
       "howToStart": "How to start",
@@ -9844,7 +9877,11 @@ const catalog = {
         "resume": "Could not resume the run",
         "stop": "Could not stop the run",
         "restart": "Could not restart {label}"
-      }
+      },
+      "hold": "Hold new agents",
+      "holdShort": "Hold new agents",
+      "holdHint": "Hold new agents: none starts until you resume; agents already working go on (p)",
+      "holding": "Holding new agents"
     },
     "board": {
       "layoutLabel": "Layout",
@@ -10131,7 +10168,8 @@ const catalog = {
         "dangerZone": "Danger zone",
         "evalDatasets": "Datasets",
         "evalTasks": "Tasks",
-        "evalJobs": "Jobs"
+        "evalJobs": "Jobs",
+        "evalTrials": "Trials"
       },
       "accessTitle": "Access",
       "accessDescription": "Who can open this workspace, and with which role.",
@@ -10159,6 +10197,9 @@ const catalog = {
       "personalKeysEmpty": "No personal keys. kortix login makes one; keys for a script are made in a workspace's Settings › API keys.",
       "securityDescription": "Sign-in rules, who may open whose sessions, and the rules every API key follows.",
       "rolesDescription": "Built-in and custom roles. Assign them from Members.",
+      "builtInRoles": "Built-in roles",
+      "memberGroupsEnterprise": "Groups are part of Enterprise.",
+      "openGroups": "Open Groups",
       "workspaceId": "Workspace ID",
       "workspaceIdDescription": "For the CLI, the API, and support.",
       "leaveWorkspace": "Leave workspace",
@@ -10172,7 +10213,7 @@ const catalog = {
       "apiKeysDescription": "Keys for scripts, CI and integrations. A key acts as you, an agent or a bot. The rules every key follows are in Security.",
       "keys": {
         "title": "API keys",
-        "description": "Keys for scripts, CI and integrations. A key acts as you, an agent or a bot; Works in sets which workspaces it reaches.",
+        "description": "Keys for scripts, CI and integrations. A key acts as you, an agent or a bot. It works in this workspace unless you pick all your workspaces.",
         "newKey": "New key",
         "count": "{count, plural, one {# key} other {# keys}}",
         "emptyTitle": "No API keys",
@@ -10347,7 +10388,9 @@ const catalog = {
       "queued": "Queued",
       "running": "Running",
       "completed": "Completed",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "paused": "Paused",
+      "cancelling": "Cancelling"
     },
     "trialStatus": {
       "queued": "Queued",
@@ -10356,7 +10399,8 @@ const catalog = {
       "verifying": "Verifying",
       "completed": "Completed",
       "errored": "Errored",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "paused": "Paused"
     },
     "rerunFailed": "Re-run failed",
     "rerunAll": "Re-run all",
@@ -10413,7 +10457,8 @@ const catalog = {
       "error": "Error",
       "running": "Running",
       "queued": "Queued",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "paused": "Paused"
     },
     "colMeanScore": "Mean score",
     "metricsHint": "Each trial’s score is the mean of its rewards; this is their mean. Harbor’s metrics per reward key: {metrics}",
@@ -10517,7 +10562,7 @@ const catalog = {
     "progressLabel": "Progress",
     "ranFor": "Ran for {time}",
     "recentJobs": "Recent jobs",
-    "registryGroup": "Harbor registry",
+    "registryGroup": "Harbor",
     "registryTasksHint": "Harbor registry datasets list their tasks on their own page",
     "registryUnavailable": "The Harbor registry could not be read ({reason}). Your suites and the built-in datasets are listed.",
     "retryN": "retry {n}",
@@ -10591,7 +10636,7 @@ const catalog = {
       "all": "All",
       "suite": "Yours",
       "builtin": "Built-in",
-      "registry": "Harbor registry"
+      "registry": "Harbor"
     },
     "taskTab": {
       "instruction": "Instruction",
@@ -10599,7 +10644,49 @@ const catalog = {
       "files": "Files",
       "results": "Results"
     },
-    "colTaskCount": "Tasks"
+    "colTaskCount": "Tasks",
+    "pause": "Pause",
+    "resume": "Resume",
+    "paused": "Job paused",
+    "resumed": "Job resumed",
+    "cancelNow": "Stop now",
+    "cancelNowHint": "Running trials stop and the job ends.",
+    "cancelDrain": "Let running trials finish",
+    "cancelDrainHint": "Nothing new starts or retries. The job ends after its running trials.",
+    "cancelDrainStarted": "The job ends after its running trials",
+    "trialsTitle": "Trials",
+    "trialsDescription": "Every trial of every job, filtered on the server.",
+    "trialsInfo": "Each filter lists its values with how many trials have them, counted among the trials the other filters keep. A row opens the trial beside its job.",
+    "searchTrials": "Search trials",
+    "sortLabel": "Sort",
+    "trialSort": {
+      "desc_created_at": "Newest first",
+      "created_at": "Oldest first",
+      "desc_finished_at": "Last finished",
+      "desc_reward": "Highest reward",
+      "reward": "Lowest reward",
+      "task": "Task A–Z"
+    },
+    "trialFacet": {
+      "status": "Status",
+      "job": "Job",
+      "task": "Task",
+      "agent": "Agent",
+      "model": "Model",
+      "exception_type": "Error"
+    },
+    "trialFacetAny": {
+      "status": "Any status",
+      "job": "All jobs",
+      "task": "All tasks",
+      "agent": "Any agent",
+      "model": "Any model",
+      "exception_type": "Any error"
+    },
+    "noTrialsYet": "No trial has run yet",
+    "displayingRange": "{from}–{to} of {total} trials",
+    "previousPage": "Previous page",
+    "nextPage": "Next page"
   }
 };
 

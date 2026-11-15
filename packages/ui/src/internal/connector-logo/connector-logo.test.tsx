@@ -26,6 +26,24 @@ describe('ConnectorLogo', () => {
     expect(html).toContain('object-contain');
   });
 
+  test('a catalogue logo gets a light tile in the dark theme only, inset inside the tile', () => {
+    let renderer!: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(<ConnectorLogo source={{ icon: LOGO }} size="lg" />);
+    });
+    const img = renderer.root.findByType('img');
+    const tile = img.parent!;
+    const tileClasses = String(tile.props.className).split(' ');
+    const imgClasses = String(img.props.className).split(' ');
+    // Light theme: no background, no border, no padding — the bare image.
+    expect(tileClasses.filter((c) => c.startsWith('bg-') || c === 'border')).toEqual([]);
+    expect(imgClasses.filter((c) => /^p-/.test(c))).toEqual([]);
+    // Dark theme: the always-light tile, with the inset on the image inside it.
+    expect(tileClasses).toContain('dark:bg-white');
+    expect(tileClasses.filter((c) => c.startsWith('dark:p'))).toEqual([]);
+    expect(imgClasses).toContain('dark:p-1');
+  });
+
   test('an app without a logo renders the neutral tile, no image', () => {
     const html = renderToStaticMarkup(<ConnectorLogo source={{ slug: 'internal-api' }} size="lg" />);
     expect(html).not.toContain('<img');

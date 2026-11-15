@@ -5,10 +5,10 @@
 // opens its detail in the side panel, which the URL keeps (`?item=<id>`).
 // Items come from the calendar API; the scheduled triggers and Loops come
 // from the trigger list the workspace already serves, computed here.
-import type { CalendarItem } from '@kortix/sdk';
+import type { CalendarItem, CalendarParticipant } from '@kortix/sdk';
 import { useUnifiedTriggers, useWorkspaceCalendarActions, useWorkspaceCalendarItem, useWorkspaceCalendarItems } from '@kortix/sdk/react';
 import { agentDisplayName } from '@kortix/shared';
-import { CaretDownIcon, CaretLeftIcon, CaretRightIcon, CheckIcon, LightningIcon, PlusIcon } from '@phosphor-icons/react';
+import { CaretDownIcon, CaretLeftIcon, CaretRightIcon, PlusIcon, UsersThreeIcon } from '@phosphor-icons/react';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocale, useTranslations } from '../../i18n';
 import { ProjectPageHeader } from '../../internal/layout/project-page-header';
@@ -33,24 +33,15 @@ import { useUiPathname, useUiSearchParams, useUiShallowNavigate, useUiViewerId }
 import { addDays, itemDayKey, moveToDay, parseDayKey, viewRange, weekStart } from './calendar-dates';
 import { NewItemModal } from './calendar-new-item';
 import { FirePanel, ItemPanel } from './calendar-panel';
-import { personName, useCalendarDirectory } from './calendar-people';
+import { ParticipantMark, personName, useCalendarDirectory, type CalendarDirectory } from './calendar-people';
 import { scheduledFires } from './calendar-scheduled';
 import { MonthView, UNDATED, WeekView, type CalendarSelection } from './calendar-views';
 
 type Mode = 'week' | 'month';
-/** `all`, `me`, `user:<id>` or `agent:<name>`: the API's `assignee` filter. */
-type OwnerFilter = string;
+/** `all`, `me`, `user:<id>` or `agent:<name>`: who the items are with (the API's `with` filter). */
+type WithFilter = string;
 
-const TRIGGERS_KEY = 'kortix.calendar.showTriggers';
 const ITEM_ID = /^[0-9a-f-]{36}$/i;
-
-function readShowTriggers(): boolean {
-  try {
-    return window.localStorage.getItem(TRIGGERS_KEY) !== '0';
-  } catch {
-    return true;
-  }
-}
 
 /** The current minute, so "today" and "overdue" move without a reload. */
 function useNow(): Date {
@@ -75,8 +66,7 @@ export function CalendarPage({ projectId }: { projectId: string }) {
 
   const [mode, setMode] = useState<Mode>('week');
   const [anchor, setAnchor] = useState(() => weekStart(new Date()));
-  const [owner, setOwner] = useState<OwnerFilter>('all');
-  const [showTriggers, setShowTriggers] = useState(readShowTriggers);
+  const [filter, setFilter] = useState<WithFilter>('all');
   const [fireId, setFireId] = useState<string | null>(null);
   const [creating, setCreating] = useState<{ open: boolean; day: string | null; n: number }>({ open: false, day: null, n: 0 });
   /** Items moved by a drag, shown on their new day until the list reads them back. */
@@ -90,19 +80,20 @@ export function CalendarPage({ projectId }: { projectId: string }) {
   const items = useWorkspaceCalendarItems(projectId, {
     from: range.from.toISOString(),
     to: range.to.toISOString(),
-    assignee: owner === 'all' ? undefined : owner,
+    with: filter === 'all' ? undefined : filter,
   });
-  const triggers = useUnifiedTriggers(showTriggers ? projectId : null);
+  // Scheduled triggers and Loops always show: everyone, or the picked agent's own.
+  const triggers = useUnifiedTriggers(projectId);
 
   const shownItems = useMemo(
     () => (items.data ?? []).map((item) => (moved[item.item_id] ? { ...item, ...moved[item.item_id] } : item)),
     [items.data, moved],
   );
   const fires = useMemo(() => {
-    if (!showTriggers || owner === 'me' || owner.startsWith('user:')) return [];
+    if (filter === 'me' || filter.startsWith('user:')) return [];
     const all = scheduledFires(triggers.data, range, now);
-    return owner.startsWith('agent:') ? all.filter((fire) => fire.trigger.agent === owner.slice(6)) : all;
-  }, [showTriggers, owner, triggers.data, range, now]);
+    return filter.startsWith('agent:') ? all.filter((fire) => fire.trigger.agent === filter.slice(6)) : all;
+  }, [filter, triggers.data, range, now]);
   const openFire = fireId ? fires.find((fire) => fire.id === fireId) ?? null : null;
 
   const setItemParam = (id: string | null) => {
@@ -150,26 +141,16 @@ export function CalendarPage({ projectId }: { projectId: string }) {
     setAnchor(next === 'week' ? weekStart(anchor) : addDays(anchor, 3));
     setMode(next);
   };
-  const toggleTriggers = () => {
-    const next = !showTriggers;
-    setShowTriggers(next);
-    try {
-      window.localStorage.setItem(TRIGGERS_KEY, next ? '1' : '0');
-    } catch {
-      // A private window keeps the choice for this visit only.
-    }
-  };
-
   const label =
     mode === 'week'
       ? new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }).formatRange(range.from, addDays(range.to, -1))
       : new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(anchor);
 
-  const ownerLabel = (() => {
-    if (owner === 'all') return t('filter.everyone');
-    if (owner === 'me') return t('filter.me');
-    if (owner.startsWith('agent:')) return agentDisplayName(owner.slice(6));
-    return personName(directory.person(owner.slice(5)), t('formerMember'));
+  const filterLabel = (() => {
+    if (filter === 'all') return t('filter.everyone');
+    if (filter === 'me') return t('filter.me');
+    if (filter.startsWith('agent:')) return agentDisplayName(filter.slice(6));
+    return personName(directory.person(filter.slice(5)), t('formerMember'));
   })();
 
   // A deep link to an item in another week shows that week once the item loads.
@@ -208,15 +189,24 @@ export function CalendarPage({ projectId }: { projectId: string }) {
             <div className="ml-auto flex flex-wrap items-center gap-1">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="xs" className="gap-1">
-                    {ownerLabel}
+                  <Button variant="ghost" size="xs" className="gap-1.5">
+                    <FilterGlyph filter={filter} viewerId={viewerId} directory={directory} />
+                    {filterLabel}
                     <CaretDownIcon className="size-3" aria-hidden />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="max-h-80 w-56 overflow-y-auto">
-                  <DropdownMenuRadioGroup value={owner} onValueChange={(value) => setOwner(String(value))}>
-                    <DropdownMenuRadioItem value="all">{t('filter.everyone')}</DropdownMenuRadioItem>
-                    {viewerId ? <DropdownMenuRadioItem value="me">{t('filter.me')}</DropdownMenuRadioItem> : null}
+                  <DropdownMenuRadioGroup value={filter} onValueChange={(value) => setFilter(String(value))}>
+                    <DropdownMenuRadioItem value="all">
+                      <FilterGlyph filter="all" viewerId={viewerId} directory={directory} />
+                      {t('filter.everyone')}
+                    </DropdownMenuRadioItem>
+                    {viewerId ? (
+                      <DropdownMenuRadioItem value="me">
+                        <FilterGlyph filter="me" viewerId={viewerId} directory={directory} />
+                        {t('filter.me')}
+                      </DropdownMenuRadioItem>
+                    ) : null}
                     {directory.people.length > 0 ? (
                       <>
                         <DropdownMenuSeparator />
@@ -225,7 +215,8 @@ export function CalendarPage({ projectId }: { projectId: string }) {
                           .filter((person) => person.user_id !== viewerId)
                           .map((person) => (
                             <DropdownMenuRadioItem key={person.user_id} value={`user:${person.user_id}`}>
-                              {personName(person, person.handle)}
+                              <FilterGlyph filter={`user:${person.user_id}`} viewerId={viewerId} directory={directory} />
+                              <span className="truncate">{personName(person, person.handle)}</span>
                             </DropdownMenuRadioItem>
                           ))}
                       </>
@@ -236,7 +227,8 @@ export function CalendarPage({ projectId }: { projectId: string }) {
                         <DropdownMenuLabel>{t('agents')}</DropdownMenuLabel>
                         {directory.agents.map((agent) => (
                           <DropdownMenuRadioItem key={agent} value={`agent:${agent}`}>
-                            {agentDisplayName(agent)}
+                            <FilterGlyph filter={`agent:${agent}`} viewerId={viewerId} directory={directory} />
+                            <span className="truncate">{agentDisplayName(agent)}</span>
                           </DropdownMenuRadioItem>
                         ))}
                       </>
@@ -244,10 +236,6 @@ export function CalendarPage({ projectId }: { projectId: string }) {
                   </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button variant="ghost" size="xs" className="gap-1.5" aria-pressed={showTriggers} onClick={toggleTriggers}>
-                {showTriggers ? <CheckIcon className="size-3.5 shrink-0" aria-hidden /> : <LightningIcon className="size-3.5 shrink-0" aria-hidden />}
-                {t('triggers')}
-              </Button>
               <Tabs value={mode} onValueChange={(value) => switchMode(value as Mode)}>
                 <TabsList size="xs" aria-label={t('view')}>
                   <TabsTrigger value="week">{t('week')}</TabsTrigger>
@@ -335,6 +323,26 @@ export function CalendarPage({ projectId }: { projectId: string }) {
       />
     </div>
   );
+}
+
+/** The face of a filter row: three people for everyone, else that person's avatar or that agent's mark. */
+function FilterGlyph({ filter, viewerId, directory }: { filter: WithFilter; viewerId: string | undefined; directory: CalendarDirectory }) {
+  const who: CalendarParticipant | null = filter.startsWith('agent:')
+    ? { kind: 'agent', agent: filter.slice(6) }
+    : filter.startsWith('user:')
+      ? { kind: 'person', user_id: filter.slice(5) }
+      : filter === 'me' && viewerId
+        ? { kind: 'person', user_id: viewerId }
+        : null;
+  if (!who) {
+    // The avatars' box (`UserAvatar` xs), so every row's label starts at one edge.
+    return (
+      <span className="flex size-5 shrink-0 items-center justify-center" aria-hidden>
+        <UsersThreeIcon className="size-4" />
+      </span>
+    );
+  }
+  return <ParticipantMark who={who} directory={directory} />;
 }
 
 /**

@@ -3,6 +3,8 @@ import type { SandboxTemplate } from '@kortix/sdk';
 import { useTranslations } from '../../../i18n';
 
 import { Badge } from '../../../primitives/badge';
+import { Hint } from '../../../primitives/hint';
+import { StatusBadge, type StatusTone } from '../../../primitives/status';
 import {
   formatSandboxProvider,
   isLegacySandboxProvider,
@@ -65,13 +67,11 @@ export function availableProviderCoverage(
   );
 }
 
-function providerCoverageVariant(
-  tone: ReturnType<typeof describeProviderCoverage>['tone'],
-): 'success' | 'warning' | 'destructive' | 'muted' {
+function providerCoverageTone(tone: ReturnType<typeof describeProviderCoverage>['tone']): StatusTone {
   if (tone === 'ok') return 'success';
   if (tone === 'busy') return 'warning';
   if (tone === 'fail') return 'destructive';
-  return 'muted';
+  return 'neutral';
 }
 
 /**
@@ -102,9 +102,16 @@ export function latestObservedAt(
 export function SandboxProviderBadge({
   item,
   copy = {},
+  showProvider = false,
 }: {
   item: ProviderCoverageEntry;
   copy?: SandboxProviderBadgeCopy;
+  /**
+   * Name the provider on the chip. Only when more than one provider is listed:
+   * with one, the provider is a server concern and the chip says the state
+   * alone ("Ready"), with the provider in its tooltip.
+   */
+  showProvider?: boolean;
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const state = describeProviderCoverage(item.status, tI18nComplete);
@@ -112,16 +119,18 @@ export function SandboxProviderBadge({
   const provider = formatSandboxProvider(item.provider);
 
   return (
-    <Badge
-      variant={providerCoverageVariant(state.tone)}
-      size="xs"
-      aria-label={`${provider}: ${stateLabel}`}
-    >
-      {provider}
-      <span className="opacity-50" aria-hidden="true">
-        {tI18nComplete.raw('text3b9453dad42b')}
-      </span>
-      {stateLabel}
-    </Badge>
+    <Hint label={provider} side="top">
+      <StatusBadge tone={providerCoverageTone(state.tone)} aria-label={`${provider}: ${stateLabel}`}>
+        {showProvider ? (
+          <>
+            {provider}
+            <span className="opacity-50" aria-hidden="true">
+              {tI18nComplete.raw('text3b9453dad42b')}
+            </span>
+          </>
+        ) : null}
+        {stateLabel}
+      </StatusBadge>
+    </Hint>
   );
 }

@@ -463,9 +463,8 @@ function ProjectPicker({
   return (
     <div className="space-y-4">
       <div className="space-y-0.5">
-        <h1 className="text-foreground text-2xl font-medium tracking-tight text-balance">
-          {tI18nComplete.raw('text04e2a9728af7')}
-        </h1>
+        {/* A section of Members, under the page's own h1. */}
+        <h2 className="text-foreground text-sm font-medium">{tI18nComplete.raw('text04e2a9728af7')}</h2>
         <p className="text-muted-foreground text-xs">{tI18nComplete.raw('text9949095feb15')}</p>
       </div>
 

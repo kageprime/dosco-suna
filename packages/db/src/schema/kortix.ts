@@ -3888,11 +3888,17 @@ export const sandboxTemplates = kortixSchema.table(
     /** 'daytona' (others to follow). */
     provider: text('provider').default('daytona').notNull(),
 
-    // ─── Image definition (exactly one of image / dockerfilePath) ──────────
+    // ─── Image definition (at most one of image / dockerfilePath / dockerfileInline) ──
     /** Public Docker image reference (e.g. python:3.12-slim). */
     image: text('image'),
     /** Repo-relative path to a Dockerfile. Mutually exclusive with `image`. */
     dockerfilePath: text('dockerfile_path'),
+    /**
+     * A Dockerfile's text, for an image defined outside the project repository
+     * (an eval task from a Harbor dataset). Built without a build context, as a
+     * repository Dockerfile is. Mutually exclusive with the two above.
+     */
+    dockerfileInline: text('dockerfile_inline'),
     /** Optional entrypoint override. */
     entrypoint: text('entrypoint'),
 
@@ -10435,7 +10441,13 @@ export const evalJobs = kortixSchema.table('eval_jobs', {
   /** The `evals:` suite of kortix.yaml the job ran; null for an ad-hoc config. */
   suite: text('suite'),
   jobName: text('job_name').notNull(),
-  status: text('status').$type<'queued' | 'running' | 'completed' | 'cancelled'>().default('queued').notNull(),
+  status: text('status').$type<'queued' | 'running' | 'paused' | 'completed' | 'cancelled'>().default('queued').notNull(),
+  /**
+   * Set by a cancel. `hard`: running trials stop now. `soft`: queued trials
+   * are cancelled and running ones finish without a retry; the job then ends
+   * `cancelled`. Null: not cancelled.
+   */
+  cancelMode: text('cancel_mode').$type<'soft' | 'hard'>(),
   /** The commit the config and the tasks were read at. */
   commitSha: text('commit_sha'),
   ref: text('ref'),
@@ -10465,7 +10477,8 @@ export const evalJobs = kortixSchema.table('eval_jobs', {
   index('idx_eval_jobs_project_created').on(table.projectId, table.createdAt),
   uniqueIndex('uniq_eval_jobs_project_name').on(table.projectId, table.jobName),
   index('idx_eval_jobs_active').on(table.status).where(sql`${table.status} in ('queued', 'running')`),
-  check('eval_jobs_status_check', sql`${table.status} in ('queued', 'running', 'completed', 'cancelled')`),
+  check('eval_jobs_status_check', sql`${table.status} in ('queued', 'running', 'paused', 'completed', 'cancelled')`),
+  check('eval_jobs_cancel_mode_check', sql`${table.cancelMode} in ('soft', 'hard')`),
 ]).enableRLS();
 
 export const evalTrials = kortixSchema.table('eval_trials', {
@@ -10484,7 +10497,7 @@ export const evalTrials = kortixSchema.table('eval_trials', {
   attempt: integer('attempt').notNull(),
   retry: integer('retry').default(0).notNull(),
   status: text('status')
-    .$type<'queued' | 'starting' | 'agent_running' | 'verifying' | 'completed' | 'errored' | 'cancelled'>()
+    .$type<'queued' | 'paused' | 'starting' | 'agent_running' | 'verifying' | 'completed' | 'errored' | 'cancelled'>()
     .default('queued')
     .notNull(),
   sessionId: text('session_id'),
@@ -10510,14 +10523,15 @@ export const evalTrials = kortixSchema.table('eval_trials', {
   index('idx_eval_trials_job').on(table.jobId, table.taskName, table.agent, table.attempt),
   uniqueIndex('uniq_eval_trials_job_name').on(table.jobId, table.trialName),
   index('idx_eval_trials_session').on(table.sessionId).where(sql`${table.sessionId} is not null`),
+  index('idx_eval_trials_project_created').on(table.projectId, table.createdAt),
   check(
     'eval_trials_status_check',
-    sql`${table.status} in ('queued', 'starting', 'agent_running', 'verifying', 'completed', 'errored', 'cancelled')`,
+    sql`${table.status} in ('queued', 'paused', 'starting', 'agent_running', 'verifying', 'completed', 'errored', 'cancelled')`,
   ),
 ]).enableRLS();
 
 // ─── Calendar (flag `calendar`) ─────────────────────────────────────────────
-// A workspace's shared calendar: dated items with an owner and comments.
+// A workspace's shared calendar: dated items, the people on them and comments.
 // Scheduled triggers and Loops are not stored here; the clients compute their
 // fires from the trigger list. Every member who can open the workspace reads
 // and writes every item (projects/calendar/).
@@ -10533,9 +10547,8 @@ export const calendarItems = kortixSchema.table('calendar_items', {
   startsAt: timestamp('starts_at', { withTimezone: true }),
   allDay: boolean('all_day').default(false).notNull(),
   status: text('status').$type<'open' | 'done'>().default('open').notNull(),
-  /** The owner: one person, one agent (its kortix.yaml name), or nobody. */
-  assigneeUserId: uuid('assignee_user_id'),
-  assigneeAgent: text('assignee_agent'),
+  /** The end of a timed item; null for an all-day item, an item with no date, or a point in time. */
+  endsAt: timestamp('ends_at', { withTimezone: true }),
   /** Who created it: a person, or an agent session (agent name plus session id). */
   createdByUserId: uuid('created_by_user_id'),
   createdByAgent: text('created_by_agent'),
@@ -10546,9 +10559,27 @@ export const calendarItems = kortixSchema.table('calendar_items', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   index('idx_calendar_items_project_starts').on(table.projectId, table.startsAt),
-  index('idx_calendar_items_project_assignee').on(table.projectId, table.assigneeUserId).where(sql`${table.status} = 'open'`),
   check('calendar_items_status_check', sql`${table.status} in ('open', 'done')`),
-  check('calendar_items_one_assignee', sql`${table.assigneeUserId} IS NULL OR ${table.assigneeAgent} IS NULL`),
+  check('calendar_items_ends_after_starts', sql`${table.endsAt} IS NULL OR (${table.startsAt} IS NOT NULL AND ${table.endsAt} > ${table.startsAt})`),
+]).enableRLS();
+
+/** The people on an item: persons and agents alike, each at most once. */
+export const calendarItemPeople = kortixSchema.table('calendar_item_people', {
+  itemId: uuid('item_id')
+    .notNull()
+    .references(() => calendarItems.itemId, { onDelete: 'cascade' }),
+  projectId: uuid('project_id').notNull(),
+  /** A person; null for an agent. */
+  userId: uuid('user_id'),
+  /** An agent by its kortix.yaml name; null for a person. */
+  agent: text('agent'),
+  addedAt: timestamp('added_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('uniq_calendar_item_people_user').on(table.itemId, table.userId).where(sql`${table.userId} IS NOT NULL`),
+  uniqueIndex('uniq_calendar_item_people_agent').on(table.itemId, table.agent).where(sql`${table.agent} IS NOT NULL`),
+  index('idx_calendar_item_people_project_user').on(table.projectId, table.userId),
+  index('idx_calendar_item_people_project_agent').on(table.projectId, table.agent),
+  check('calendar_item_people_one_kind', sql`(${table.userId} IS NULL) <> (${table.agent} IS NULL)`),
 ]).enableRLS();
 
 export const calendarComments = kortixSchema.table('calendar_comments', {

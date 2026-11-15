@@ -208,7 +208,8 @@ export function GeneralTabView({
   const showDanger = part !== 'settings';
   return (
     <div className="mx-auto w-full max-w-2xl space-y-8">
-      {showSettings ? <SettingsTabHeader tab="general" /> : null}
+      {/* Danger zone alone is a Workspace settings page: its header names it. */}
+      <SettingsTabHeader tab={showSettings ? 'general' : 'danger-zone'} />
 
       {isLoading ? (
         <div className="space-y-5">
@@ -232,13 +233,14 @@ export function GeneralTabView({
           {showSettings && workspaceId ? (
             <SettingsRowGroup>
               <SettingsRow label={copy.workspaceId} description={copy.workspaceIdDescription}>
-                <CopyRow value={workspaceId} className="w-full max-w-80" />
+                <CopyRow value={workspaceId} wrap className="w-full" />
               </SettingsRow>
             </SettingsRowGroup>
           ) : null}
           {showDanger && (canDelete || canLeave) ? (
             <section className="space-y-3">
-              <SettingsSubsectionHeader title={copy.dangerZone} />
+              {/* On its own page the page title already says Danger zone. */}
+              {showSettings ? <SettingsSubsectionHeader title={copy.dangerZone} /> : null}
               <SettingsRowGroup>
                 {canLeave ? (
                   <SettingsRow label={copy.leaveWorkspace} description={copy.leaveDescription}>

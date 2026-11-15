@@ -88,10 +88,10 @@ describe('persistent layer — the terminal lives inside this shell, not beside 
     expect(html).toContain('pty-socket');
     expect(html).toContain('Terminal');
     expect(html).toContain('aria-label="Full screen"');
-    // The shared CARD_FRAME, worn by whichever layer is up. Exactly one card
-    // is on screen here — the duplicated standalone terminal frame this work
-    // deleted would have produced a second.
-    expect(html.match(/inset-y-3 right-3 left-3/g)).toHaveLength(1);
+    // The shared docked frame, worn by whichever layer is up. Exactly one
+    // frame is on screen here — a duplicated standalone terminal frame would
+    // produce a second.
+    expect(html.match(/absolute inset-0 flex min-w-0 flex-col/g)).toHaveLength(1);
   });
 
   test('the body stays mounted once activated, so the PTY survives a close', () => {

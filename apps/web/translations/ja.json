@@ -206,7 +206,8 @@
     },
     "agentAccess": "エージェント: {agents}",
     "allAgents": "すべてのエージェント",
-    "noAgents": "エージェントなし"
+    "noAgents": "エージェントなし",
+    "deliveredOnceSet": "値を設定すると配信されます"
   },
   "useCases": {
     "headline": "会社を動かすループ",
@@ -933,6 +934,7 @@
       "secretsCommand": "シークレット取得コマンド",
       "ownClientTitle": "任意の Git クライアントを使用",
       "ownClientDescription": "Kortix コマンドラインの代わりに通常の <code>git</code> でクローンします。",
+      "ownClientHelp": "任意の Git クライアントでこのアドレスからクローンします。git に求められたら、任意のユーザー名と、パスワードとして Kortix API キーを入力します。Kortix コマンドラインは認証情報ヘルパーでこれを自動で行いますが、通常の <code>git</code> は行いません。",
       "cloneAddressDescription": "任意の Git クライアントでこのアドレスからクローンできます。Kortix がリクエストに署名するため、アクセストークンの作成や保存は不要です。",
       "cloneAddress": "クローンアドレス",
       "peopleTitle": "アクセスできるユーザー",
@@ -1156,6 +1158,7 @@
         "recovered": "完了しませんでしたが、環境は現在準備完了です",
         "retrying": "完了せず、新しい試行が実行中です"
       },
+      "supersededGroup": "{count, plural, other {置き換えられた古いビルド # 件}}",
       "outcomes": {
         "ready": "新しいセッションを開始できます",
         "building": "現在準備中です",
@@ -1346,7 +1349,7 @@
         },
         "calendar": {
           "name": "カレンダー",
-          "description": "人とエージェントの共有カレンダー：日付・担当者・コメント付きの項目を、スケジュール済みのトリガーとループと並べて表示します。@ でメンションすると通知されます。エージェントは `kortix calendar` を使います。"
+          "description": "人とエージェントの共有カレンダー：日付・参加者・コメント付きの項目を、スケジュール済みのトリガーとループと並べて表示します。@ でメンションすると通知されます。エージェントは `kortix calendar` を使います。"
         }
       },
       "channelsSwitch": {
@@ -1678,8 +1681,8 @@
         "needsInput": "回答待ち",
         "starting": "起動中",
         "running": "作業中",
-        "done": "準備完了",
-        "stopped": "スリープ中",
+        "done": "完了",
+        "stopped": "停止",
         "failed": "失敗",
         "legacy": "旧形式"
       }
@@ -1708,6 +1711,9 @@
       "title": "{file} に {errors, plural, other {# 件のエラー}}と{warnings, plural, other {# 件の警告}}があります",
       "titleErrors": "{file} に {errors, plural, other {# 件のエラー}}があります",
       "titleWarnings": "{file} に {warnings, plural, other {# 件の警告}}があります",
+      "count": "{errors, plural, other {# 件のエラー}}と{warnings, plural, other {# 件の警告}}",
+      "countErrors": "{errors, plural, other {# 件のエラー}}",
+      "countWarnings": "{warnings, plural, other {# 件の警告}}",
       "errorsOff": "エラーのあるエージェントとトリガーは、修正されるまでオフになります。",
       "warningsOnly": "すべて引き続き動作します。",
       "error": "エラー",
@@ -1888,7 +1894,15 @@
       "noMessages": "まだメッセージはありません",
       "more": "その他"
     },
-    "calendar": "カレンダー"
+    "calendar": "カレンダー",
+    "running": "実行中",
+    "runningCount": "{count, plural, other {# 件のセッションが実行中}}",
+    "runningTitle": "実行中",
+    "runningEmpty": "実行中のものはありません。",
+    "runningFailed": "実行中のものを読み込めませんでした。",
+    "runningRetry": "再試行",
+    "runningIn": "{title} 内",
+    "runningFirst": "最初の {count} 件を表示しています。"
   },
   "dashboard": {
     "title": "ダッシュボード",
@@ -2357,6 +2371,8 @@
     "chatInputMachine": "マシン",
     "chatInputMachineDescription": "このセッションを起動するマシンテンプレート。",
     "sending": "送信中",
+    "notSentYet": "未送信 · オンラインに戻ると送信されます",
+    "offlineReconnecting": "オフライン — 再接続中…",
     "stop": "停止",
     "startingSession": "セッションを開始しています…",
     "sessionStarted": "セッションを開始しました",
@@ -2896,7 +2912,7 @@
       "featuresGrace": "SSO と SCIM は {date} まで有効のままです。エンタープライズを続けるには営業にお問い合わせください。",
       "featuresOn": "オン",
       "featuresOff": "オフ",
-      "featuresOffDescription": "SSO、SCIM、高度なロール、監査ログ、ブランディング。",
+      "featuresOffDescription": "SSO、SCIM、高度なロール、監査ログ。",
       "featuresDemo": "デモとしてオンです。ライセンスは営業にお問い合わせください。",
       "featuresLicensed": "ライセンス済み",
       "featuresLicensedRenews": "ライセンス済み · {date} に更新",
@@ -2921,7 +2937,11 @@
       "action": "ここでセッションを実行するには、クレジットを追加するかプランを選んでください。"
     },
     "costs": {
-      "billedElsewhere": "このコストのうち {amount} クレジットは、移動元のワークスペースに請求されました。"
+      "billedElsewhere": "このコストのうち {amount} クレジットは、移動元のワークスペースに請求されました。",
+      "allWorkspaces": "すべてのワークスペース",
+      "usageDescriptionWorkspace": "このワークスペースの Kortix 料金。クレジットはすべてのワークスペースで共通の残高です。",
+      "usageDescriptionAll": "すべてのワークスペースの Kortix 料金とクレジット台帳。",
+      "planDescriptionAll": "すべてのワークスペースのプラン、クレジット、利用額。"
     }
   },
   "ssoRequired": {
@@ -3340,7 +3360,17 @@
       "jsonKeys": "{count, plural, other {JSON · # 個のキー}}",
       "jsonItems": "{count, plural, other {JSON · # 個の項目}}",
       "failedSentence": "ワークフローは完了前に停止しました。",
-      "runningCount": "{count} 件実行中"
+      "runningCount": "{count} 件実行中",
+      "spent": "{credits} クレジット使用",
+      "spentHint": "この実行でこれまでに Kortix が請求した額：実行とそのエージェントのモデル呼び出しと計算時間。",
+      "waitingForYou": "あなたの返答待ち · 未開始",
+      "cancelled": "キャンセル — 何も実行されていません",
+      "answeredInChat": "チャットで回答 — 何も実行されていません",
+      "stoppedByYou": "あなたが停止",
+      "attempt": "{count} 回目",
+      "quietFor": "{minutes} 分間出力なし",
+      "quietCount": "{count} 件が出力なし",
+      "holdingWorking": "保留中 · {count} 件が作業中"
     },
     "agent": {
       "backgroundWorking": "バックグラウンドで作業中",
@@ -3438,7 +3468,7 @@
       "automation_recovered": "失敗していたトリガーまたはループが再び動作します。",
       "capture_device_down": "Kortix Capture のコンピューターが記録していません。Capture の管理者に送られます。",
       "capture_device_recovered": "停止していた Kortix Capture のコンピューターが再び記録しています。",
-      "mention": "他の人があなたをメンションするか、カレンダーの項目をあなたに割り当てたとき。"
+      "mention": "他の人があなたをメンションするか、カレンダーの項目にあなたを追加したとき。"
     },
     "inbox": {
       "title": "受信トレイ",
@@ -10423,6 +10453,7 @@
       "text38e64d6a8162": "ワークスペースのデフォルトブランチに SKILL.md をコミットします。モデルもチャットも不要です。",
       "text39cfc32bd12c": "貼り付けたテキスト",
       "text23d0bb29fca0": "{count, plural, other {# 語}}",
+      "text3e310b75051c": "再実行",
       "text426699d5a8c0": "{count, plural, other {# 文字}}",
       "text40078a553439": "添付ファイルのチャンクをアップロードしました",
       "text4c7f8000aabd": "添付ファイルのアップロードが完了しました",
@@ -10786,6 +10817,10 @@
       "text0b2e0f1bf47e": "行ったすべての呼び出しと、許可した人",
       "text0b2ecc210632": "唯一のライブチャネル。質問が生まれたスレッドで尋ねれば、答え、グラフ、クエリが同じスレッドに戻ります。",
       "text0b348466332c": "まだ変更はありません",
+      "textf83916135509": "使用中",
+      "texta251c18205f1": "キャッシュ済み",
+      "text64cd989efc14": "空き容量",
+      "textcc6d004b577f": "このファイルにはベースからの変更がありません。",
       "text0b38e3daeb93": "すべての秘密",
       "text0b3dbab0c668": "- 修正をリリースし、ポストモーテムを書く",
       "text0b495c90447a": "カレンダー、受信トレイ、応募者システム。",
@@ -11655,6 +11690,7 @@
       "text2522f9d16f3b": "CompanyOS",
       "text25330787f710": "+3",
       "text2534086de9fe": "パネルを表示",
+      "text40cd6293d193": "パネルを非表示",
       "text2534e74d5120": "エージェントに何を変更させますか？",
       "text253923d0f0c5": "接続 → アプリケーション → +",
       "text253b18a02165": "起動中",
@@ -11990,7 +12026,6 @@
       "text2f6a48c637a9": "Webhookを削除しました",
       "text2f6c00ce1d58": "OneLogin Rules からプッシュされたグループは、OneLogin の名前で Kortix に作成されます。",
       "text2f6e9daec8e9": "状態",
-      "text2f72fafe0ce1": "Kortix コマンドラインの代わりに。",
       "text2f77668a9dfb": "メッセージ",
       "text2f77dafd3fcc": "プロバイダーを接続",
       "text2f80158a9d89": "research/",
@@ -14472,7 +14507,6 @@
       "text7743ce348d92": "下書き",
       "text775ddc2119ab": "下の「Identifier (Entity ID)」と「Reply URL (Assertion Consumer Service URL)」をコピーし、「Basic SAML Configuration」パネルに貼り付けます。Identifier を Default に設定し、「Sign on URL」には Kortix のサインインページを指定します。Relay State と Logout URL は空欄のままにします。「Save」をクリックして編集パネルを閉じます。",
       "text775f96fcc9db": "トークンを無効化しました",
-      "text7760401b25c7": "プレーンでクローンを作成する",
       "text7761b572aba8": "ブラウザ通知",
       "text77793c7508f1": "設定はリセットされます。",
       "text7779bc2ac4be": "skills/claims/SKILL.md",
@@ -16695,7 +16729,6 @@
       "textb7297226fd1f": "名前を保存",
       "textb7396994492d": "カスタムSAMLアプリを追加 → 属性マッピング",
       "textb73ce9104ddb": "コピーに失敗しました — 選択して手動でコピーしてください",
-      "textb74106e21108": "しません。",
       "textb7416a669c6b": "取り消し済み",
       "textb74399647bf0": "監査ログに処理内容がそのまま表示されるよう、実行するジョブにちなんだ名前を付けてください。",
       "textb743a712efa8": "スレッドはセッションです。1つだけです。",
@@ -18272,7 +18305,6 @@
       "texte3190ee3d8a8": "ワークブックを表示できません",
       "texte31ab643c44f": "メンバー",
       "texte31c7af1f424": "各自のアカウントを接続します。",
-      "texte327e6c1348b": "任意の Git クライアントを使用して、このアドレスからクローンを作成します。 git が尋ねたら、任意のユーザー名とパスワードとして Kortix API キーを入力します。Kortix コマンドラインは、資格情報ヘルパー (プレーン) を通じてこれを行います。",
       "texte3311b311078": "xlsxだけでなくCSVも希望",
       "texte335ed040bfe": "ブランチ上の下書きを、diffとしてレビュー。",
       "texte339fc8e7d89": "チャットの回答は検証も再実行もできません。そこでセッションはクエリ、スクリプト、グラフ、検証内容のメモをコミットします。",
@@ -21387,7 +21419,11 @@
       "texta268bab502cf": "カレンダーの項目を表示",
       "text16d71c4d10a2": "カレンダーの項目を編集",
       "text14580c9900ac": "カレンダーの項目を削除",
-      "text96386c724e21": "カレンダーの項目にコメント"
+      "text96386c724e21": "カレンダーの項目にコメント",
+      "textf543a9f99ce7": "アクションバー",
+      "textca4067071fcf": "選択",
+      "text4cea356a17a1": "未保存の編集",
+      "text2358f7b37c07": "一時的なモードのためのフローティングバー：選択、未保存の編集、保留中の貼り付け。タイトル、控えめな説明、キーヒント付きのアクション、閉じるボタン。"
     },
     "publicShareConfirm": {
       "title": "公開リンクを作成しますか？",
@@ -21804,11 +21840,14 @@
     "noCapUnlimited": "上限なし · 支出は無制限",
     "tokensSub": "入力 {in} · 出力 {out}",
     "unknownValue": "不明",
-    "estimateCoverageUnavailable": "見積もりの対象範囲を取得できません。",
     "estimatesSeparate": "上の実際の支出は別に扱われます。見積もりが請求額に加算されることはありません。",
     "estimatedUsageValueLabel": "LLM の推定利用額(請求ではありません):",
-    "pricedRequests": "料金計算済みリクエスト {count} 件",
-    "unpricedRequests": "料金未計算リクエスト {count} 件",
+    "pricedRequests": "料金計算済みリクエスト {count, number} 件",
+    "unpricedRequests": "料金未計算リクエスト {count, number} 件",
+    "failedRequests": "失敗したリクエスト {count, number} 件",
+    "estimateInfoLabel": "この見積もりについて",
+    "estimateDetail": "成功したモデル呼び出しを公開定価で計算しています。失敗したリクエストと料金が不明なモデルは計算に含まれません。",
+    "estimateRateVersion": "料金表: {version}",
     "llmEstimateLabel": "LLM の推定:"
   },
   "triggerComposer": {
@@ -22381,7 +22420,9 @@
     "areaDescription": "アプリとチャネルをエージェントに接続し、できることを決めます。",
     "wayMoreNamed": "{name} のその他",
     "otherWaysLead": "その他の方法：",
-    "typeFilterKortix": "Kortix"
+    "typeFilterKortix": "Kortix",
+    "scopeAll": "すべて",
+    "scopeAdded": "追加済み"
   },
   "connectMcp": {
     "title": "MCP で Kortix に接続",
@@ -24697,7 +24738,7 @@
   },
   "calendar": {
     "title": "カレンダー",
-    "gateDescription": "人とエージェントの共有カレンダー：日付・担当者・コメント付きの項目を、スケジュール済みのトリガーとループと並べて表示します。",
+    "gateDescription": "人とエージェントの共有カレンダー：日付・参加者・コメント付きの項目を、スケジュール済みのトリガーとループと並べて表示します。",
     "newItem": "新しい項目",
     "today": "今日",
     "previousWeek": "前の週",
@@ -24714,12 +24755,14 @@
     },
     "people": "メンバー",
     "agents": "エージェント",
+    "searchPeople": "メンバーとエージェントを検索",
     "noDate": "日付なし",
     "noDateHint": "日付のない項目はここに表示されます。",
     "allDay": "終日",
+    "startTime": "開始時刻",
+    "endTime": "終了時刻",
     "overdue": "期限切れ",
     "status": {
-      "open": "未完了",
       "done": "完了"
     },
     "comments": "{count, plural, other {# 件のコメント}}",
@@ -24732,9 +24775,7 @@
     "dayEntries": "{day}、{count, plural, other {# 件}}",
     "showWeekOf": "{day} の週を表示",
     "more": "ほか {count} 件",
-    "nobody": "担当なし",
     "when": "日時",
-    "owner": "担当",
     "created": "作成",
     "clearDate": "日付を削除",
     "saveFailed": "変更は保存されませんでした。",
@@ -24932,7 +24973,7 @@
       "newAgent": "New agent",
       "newAgentHelp": "My Kortix がエージェントを kortix.yaml に記述し、変更リクエストを作成します。",
       "name": "Name",
-      "namePlaceholder": "market-scan",
+      "namePlaceholder": "市場調査",
       "nameHelp": "Lowercase letters, digits and dashes. Saved as <slug></slug>.",
       "nameTaken": "この名前のエージェントはすでに存在します。",
       "howToStart": "How to start",
@@ -26531,7 +26572,11 @@
         "resume": "実行を再開できませんでした",
         "stop": "実行を停止できませんでした",
         "restart": "{label} を再起動できませんでした"
-      }
+      },
+      "hold": "新しいエージェントを保留",
+      "holdShort": "新しいエージェントを保留",
+      "holdHint": "新しいエージェントを保留: 再開するまで起動しません。作業中のエージェントは続行します (p)",
+      "holding": "新しいエージェントを保留中"
     },
     "board": {
       "layoutLabel": "レイアウト",
@@ -26806,7 +26851,8 @@
         "dangerZone": "危険な操作",
         "evalDatasets": "データセット",
         "evalTasks": "タスク",
-        "evalJobs": "ジョブ"
+        "evalJobs": "ジョブ",
+        "evalTrials": "トライアル"
       },
       "accessTitle": "アクセス",
       "accessDescription": "このワークスペースを開ける人と、そのロール。",
@@ -26834,6 +26880,9 @@
       "personalKeysEmpty": "個人キーはありません。kortix login で作成されます。スクリプト用のキーはワークスペースの設定 › API キーで作成します。",
       "securityDescription": "サインインのルール、誰が誰のセッションを開けるか、各 API キーのルール。",
       "rolesDescription": "組み込みロールとカスタムロール。メンバーから割り当てます。",
+      "builtInRoles": "組み込みロール",
+      "memberGroupsEnterprise": "グループは Enterprise の機能です。",
+      "openGroups": "グループを開く",
       "workspaceId": "ワークスペース ID",
       "workspaceIdDescription": "CLI、API、サポート用。",
       "leaveWorkspace": "ワークスペースから退出",
@@ -26847,7 +26896,7 @@
       "apiKeysDescription": "スクリプト、CI、連携用のキーです。キーはあなた、エージェント、またはボットとして動作します。すべてのキーに適用されるルールはセキュリティにあります。",
       "keys": {
         "title": "API キー",
-        "description": "スクリプト・CI・連携用のキーです。キーはあなた・エージェント・ボットとして動作し、「適用範囲」でどのワークスペースに届くかを決めます。",
+        "description": "スクリプト、CI、連携用のキー。キーはあなた、エージェント、またはボットとして動作します。すべてのワークスペースを選ばない限り、このワークスペースでのみ使えます。",
         "newKey": "新しいキー",
         "count": "{count, plural, other {# 個のキー}}",
         "emptyTitle": "API キーがありません",
@@ -27057,7 +27106,9 @@
       "queued": "キュー待機中",
       "running": "実行中",
       "completed": "完了",
-      "cancelled": "キャンセル済み"
+      "cancelled": "キャンセル済み",
+      "paused": "一時停止中",
+      "cancelling": "キャンセル中"
     },
     "trialStatus": {
       "queued": "キュー待機中",
@@ -27066,7 +27117,8 @@
       "verifying": "検証中",
       "completed": "完了",
       "errored": "エラー",
-      "cancelled": "キャンセル済み"
+      "cancelled": "キャンセル済み",
+      "paused": "一時停止中"
     },
     "rerunFailed": "失敗したものを再実行",
     "rerunAll": "すべて再実行",
@@ -27123,7 +27175,8 @@
       "error": "エラー",
       "running": "実行中",
       "queued": "待機中",
-      "cancelled": "キャンセル"
+      "cancelled": "キャンセル",
+      "paused": "一時停止中"
     },
     "colMeanScore": "平均スコア",
     "metricsHint": "各トライアルのスコアは報酬の平均で、これはその平均です。報酬キーごとの Harbor の指標: {metrics}",
@@ -27227,7 +27280,7 @@
     "progressLabel": "進捗",
     "ranFor": "実行時間 {time}",
     "recentJobs": "最近のジョブ",
-    "registryGroup": "Harbor レジストリ",
+    "registryGroup": "Harbor",
     "registryTasksHint": "Harbor レジストリのデータセットは、各ページにタスクを表示します",
     "registryUnavailable": "Harbor レジストリを読み込めませんでした（{reason}）。自分のスイートと組み込みデータセットを表示しています。",
     "retryN": "再試行 {n}",
@@ -27301,7 +27354,7 @@
       "all": "すべて",
       "suite": "自分のもの",
       "builtin": "組み込み",
-      "registry": "Harbor レジストリ"
+      "registry": "Harbor"
     },
     "taskTab": {
       "instruction": "指示",
@@ -27309,7 +27362,49 @@
       "files": "ファイル",
       "results": "結果"
     },
-    "colTaskCount": "タスク"
+    "colTaskCount": "タスク",
+    "pause": "一時停止",
+    "resume": "再開",
+    "paused": "ジョブを一時停止しました",
+    "resumed": "ジョブを再開しました",
+    "cancelNow": "今すぐ停止",
+    "cancelNowHint": "実行中のトライアルを停止し、ジョブを終了します。",
+    "cancelDrain": "実行中のトライアルを完了させる",
+    "cancelDrainHint": "新しい開始や再試行は行いません。実行中のトライアルが終わるとジョブも終了します。",
+    "cancelDrainStarted": "実行中のトライアルが終わるとジョブが終了します",
+    "trialsTitle": "トライアル",
+    "trialsDescription": "すべてのジョブのすべてのトライアル。サーバー側で絞り込みます。",
+    "trialsInfo": "各フィルターは値と該当するトライアル数を表示します。数は他のフィルターで残ったトライアルの中で数えます。行を開くと、ジョブの横にトライアルが表示されます。",
+    "searchTrials": "トライアルを検索",
+    "sortLabel": "並べ替え",
+    "trialSort": {
+      "desc_created_at": "新しい順",
+      "created_at": "古い順",
+      "desc_finished_at": "最後に終了した順",
+      "desc_reward": "報酬が高い順",
+      "reward": "報酬が低い順",
+      "task": "タスク名順"
+    },
+    "trialFacet": {
+      "status": "ステータス",
+      "job": "ジョブ",
+      "task": "タスク",
+      "agent": "エージェント",
+      "model": "モデル",
+      "exception_type": "エラー"
+    },
+    "trialFacetAny": {
+      "status": "すべてのステータス",
+      "job": "すべてのジョブ",
+      "task": "すべてのタスク",
+      "agent": "すべてのエージェント",
+      "model": "すべてのモデル",
+      "exception_type": "すべてのエラー"
+    },
+    "noTrialsYet": "まだトライアルはありません",
+    "displayingRange": "{total} 件中 {from}–{to} 件",
+    "previousPage": "前のページ",
+    "nextPage": "次のページ"
   },
   "desktopTabs": {
     "tabs": "開いているタブ",
@@ -27334,6 +27429,7 @@
     "settings": "設定",
     "pages": {
       "apps": "アプリ",
+      "calendar": "カレンダー",
       "chat": "チャット",
       "drive": "ドライブ",
       "files": "ファイル",

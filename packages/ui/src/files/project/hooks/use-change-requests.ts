@@ -49,6 +49,9 @@ export const changeRequestKeys = {
    *  so each project and list invalidation reaches it as well. */
   sessionList: (projectId: string, sessionId: string) =>
     ['project-files', 'change-requests', projectId, 'list', 'session', sessionId] as const,
+  /** The sidebar's newest change requests (every status), nested under `listScope`. */
+  sidebarRecent: (projectId: string) =>
+    ['project-files', 'change-requests', projectId, 'list', 'recent'] as const,
   detail: (projectId: string, crId: string) =>
     ['project-files', 'change-requests', projectId, crId] as const,
   diff: (projectId: string, crId: string) =>
@@ -317,6 +320,20 @@ export function useChangeRequestMergePreview(crId: string | null, enabled = true
 export function invalidateChangeRequestReads(qc: QueryClient, projectId: string): void {
   if (!projectId) return;
   qc.invalidateQueries({ queryKey: changeRequestKeys.project(projectId) });
+  qc.invalidateQueries({ queryKey: qk.project.reviewSummary(projectId) });
+}
+
+/**
+ * What one session's turn can change: that session's change requests (its
+ * outcome cards), the sidebar's recent list and the review summary. Not the
+ * project's other lists, details or diffs: a turn-end read of the whole
+ * project prefix, twice per busy -> idle edge, read the sidebar's 36 KB list
+ * 12-17 times a turn.
+ */
+export function invalidateTurnChangeRequestReads(qc: QueryClient, projectId: string, sessionId: string | undefined): void {
+  if (!projectId) return;
+  if (sessionId) qc.invalidateQueries({ queryKey: changeRequestKeys.sessionList(projectId, sessionId), exact: true });
+  qc.invalidateQueries({ queryKey: changeRequestKeys.sidebarRecent(projectId), exact: true });
   qc.invalidateQueries({ queryKey: qk.project.reviewSummary(projectId) });
 }
 

@@ -1267,3 +1267,63 @@ describe('cost-explorer.tsx clock reads', () => {
     });
   });
 });
+
+// ── Audit finding: Usage inside a workspace totalled every workspace ────────
+// Under /workspaces/<id>/admin/usage the explorer lands on that workspace's
+// spend; `project=all` is the explicit every-workspace level.
+describe('a workspace default (defaultProjectId)', () => {
+  test('with no project param the explorer lands on the open workspace', () => {
+    const state = parseExplorerState(new URLSearchParams(), NOW, 'ws_open');
+    expect(state.projectId).toBe('ws_open');
+    expect(state.sessionId).toBeNull();
+  });
+
+  test('project=all is every workspace', () => {
+    expect(parseExplorerState(new URLSearchParams('project=all'), NOW, 'ws_open').projectId).toBeNull();
+  });
+
+  test('another workspace named on the URL wins over the default', () => {
+    expect(parseExplorerState(new URLSearchParams('project=ws_other'), NOW, 'ws_open').projectId).toBe('ws_other');
+  });
+
+  test('outside a workspace nothing changes: no param is every workspace', () => {
+    expect(parseExplorerState(new URLSearchParams(), NOW).projectId).toBeNull();
+  });
+
+  test('serialize round-trips every level against the same default', () => {
+    const range = resolvePreset('30d', NOW);
+    const levels: ExplorerState[] = [
+      { range, projectId: 'ws_open', sessionId: null },
+      { range, projectId: null, sessionId: null },
+      { range, projectId: 'ws_other', sessionId: null },
+      { range, projectId: 'ws_open', sessionId: 's1' },
+    ];
+    for (const level of levels) {
+      const params = serializeExplorerState(level, 'ws_open');
+      const back = parseExplorerState(params, NOW, 'ws_open');
+      expect({ projectId: back.projectId, sessionId: back.sessionId }).toEqual({
+        projectId: level.projectId,
+        sessionId: level.sessionId,
+      });
+    }
+  });
+
+  test('the default level keeps the URL clean; every workspace writes project=all', () => {
+    const range = resolvePreset('30d', NOW);
+    expect(serializeExplorerState({ range, projectId: 'ws_open', sessionId: null }, 'ws_open').toString()).toBe('');
+    expect(serializeExplorerState({ range, projectId: null, sessionId: null }, 'ws_open').toString()).toBe('project=all');
+  });
+
+  test('the top crumb reads All workspaces and goes to every workspace', () => {
+    const range = resolvePreset('30d', NOW);
+    const crumbs = buildBreadcrumbCrumbs(
+      { range, projectId: 'ws_open', sessionId: null },
+      'Workspace A',
+      testUiTranslator,
+      'All workspaces',
+    );
+    expect(crumbs.map((crumb) => crumb.label)).toEqual(['All workspaces', 'Workspace A']);
+    expect(crumbs[0]!.target.projectId).toBeNull();
+    expect(crumbs[1]!.current).toBe(true);
+  });
+});

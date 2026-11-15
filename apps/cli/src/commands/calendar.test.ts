@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { isoWithOffset, listWindow, parseDate, parseWhen, parseWho } from './calendar.ts';
+import { editedPeople, isoWithOffset, listWindow, parseDate, parseWhen, parseWho, parseWhoList, participantOf } from './calendar.ts';
 
 // A fixed local moment: Saturday 14 November 2026, 13:40 local time.
 const NOW = new Date(2026, 10, 14, 13, 40, 0);
@@ -55,5 +55,26 @@ describe('kortix calendar ls window', () => {
   test('a bad window is a usage error', () => {
     expect(listWindow({ week: false, days: '0' }, NOW)).toBe('--days takes 1 to 93.');
     expect(typeof listWindow({ week: false, from: 'monday' }, NOW)).toBe('string');
+  });
+});
+
+describe('kortix calendar people', () => {
+  const directory = { people: [{ user_id: 'u-ana', name: 'Ana Lima', email: 'ana@example.test', avatar_url: null, handle: 'ana-lima' }] };
+  test('--with takes repeated and comma-separated <who>', () => {
+    expect(parseWhoList(['me,ana-lima', 'agent:finance'], directory)).toEqual([{ me: true }, { user_id: 'u-ana' }, { agent: 'finance' }]);
+  });
+  test('a <who> names a participant: me is this session\'s agent or the person, an email resolves through the directory', () => {
+    const agent = { kind: 'agent' as const, agent: 'kortix' };
+    expect(participantOf({ me: true }, directory, agent)).toEqual(agent);
+    expect(participantOf({ email: 'ana@example.test' }, directory, null)).toEqual({ kind: 'person', user_id: 'u-ana' });
+    expect(participantOf({ email: 'nobody@example.test' }, directory, null)).toBeNull();
+  });
+  test('--add and --remove give the whole new list, each participant once, order kept', () => {
+    const current = [{ kind: 'person' as const, user_id: 'u-ana' }, { kind: 'agent' as const, agent: 'kortix' }];
+    expect(editedPeople(current, [{ kind: 'agent', agent: 'finance' }, { kind: 'person', user_id: 'u-ana' }], [{ kind: 'agent', agent: 'kortix' }])).toEqual([
+      { user_id: 'u-ana' },
+      { agent: 'finance' },
+    ]);
+    expect(editedPeople(current, [], current)).toEqual([]);
   });
 });

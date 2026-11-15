@@ -29,7 +29,7 @@ const calendarRefetch = (everyMs: number) => ({
 });
 
 const queryKeyOf = (query: CalendarListQuery) =>
-  JSON.stringify([query.from ?? '', query.to ?? '', query.assignee ?? '', query.status ?? '', query.undated === false ? 0 : 1]);
+  JSON.stringify([query.from ?? '', query.to ?? '', query.with ?? '', query.status ?? '', query.undated === false ? 0 : 1]);
 
 /**
  * The calendar items of one window and filter

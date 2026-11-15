@@ -301,7 +301,7 @@ async function toView(
     name: t.name,
     isDefault: t.isShared,
     source: t.source,
-    hasDockerfile: !!t.dockerfilePath,
+    hasDockerfile: !!t.dockerfilePath || !!t.dockerfileInline,
     hasImage: !!t.image,
     image: t.image,
     dockerfilePath: t.dockerfilePath,

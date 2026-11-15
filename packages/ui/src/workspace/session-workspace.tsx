@@ -149,7 +149,7 @@ function useSessionPanelSplitState() {
   const panelAspect = useKortixComputerStore((s) => s.panelAspect);
   // `detailOpen` is no longer read here. It gated the resize grip while Easy
   // mode's fixed-width card home lived in this panel; with the cards moved to
-  // the floating overlay an open panel is always showing a resizable detail.
+  // the docked cards column, an open panel is always showing a resizable detail.
   // The store still publishes it (the provider writes it) — nothing in this
   // layout needs to ask any more.
 
@@ -239,7 +239,7 @@ function useSessionPanelBody({
   if (showBrowser && !browserActivated) setBrowserActivated(true);
 
   // Easy mode's body is the detail shell and nothing else — the cards moved to
-  // the floating overlay over the chat. The Advanced branches below are kept
+  // the docked cards column beside the chat. The Advanced branches below are kept
   // intact (Advanced is disabled, not deleted) and are unreachable while
   // `isEasy` is forced true.
   const swappableBody = showAudit ? (
@@ -283,7 +283,7 @@ function useSessionPanelBody({
   return panelBody;
 }
 
-// The provider wraps BOTH panels. It has to: the floating overlay renders
+// The provider wraps BOTH panels. It has to: the docked cards column renders
 // inside `children` (the chat, in the main resizable panel) and every detail
 // renders in the side panel, and a card row clicked in one opens a detail in
 // the other. See `session-panel-provider.tsx`.
@@ -453,22 +453,22 @@ function SessionPanelHandle({ panel }: { panel: SessionPanelProps }) {
   //
   // VISIBLE used to be stricter, hiding the grip while Easy mode showed its
   // fixed-width card home. That home no longer lives here: with the cards moved
-  // to the floating overlay, an open panel is always showing a detail, which is
+  // to the docked cards column, an open panel is always showing a detail, which is
   // always resizable. The two states collapse into one.
+  //
+  // No grip pill: the panel's own `border-l` IS the seam, the way a docked
+  // pane reads. The handle is a zero-width element over that rule with a 12px
+  // invisible hit strip (`after:`); hover, focus and drag light the shared
+  // resize seam (`RESIZE_SEAM_CLASS` in the primitive) and the cursor.
   const handleEnabled = shouldShowPanel && !isExpanded;
-  const handleVisible = handleEnabled;
 
   return (
     <ResizableHandle
-      withHandle={handleEnabled}
       disabled={!handleEnabled}
       className={cn(
-        'z-20 w-0 transition-opacity duration-(--duration-slow)',
+        'z-20 w-0',
         'after:absolute after:inset-y-0 after:-left-1.5 after:w-3',
-        handleEnabled ? '-right-3' : 'pointer-events-none',
-        handleVisible
-          ? 'opacity-100'
-          : 'opacity-0 hover:opacity-100 data-[resize-handle-active]:opacity-100',
+        !handleEnabled && 'pointer-events-none',
       )}
     />
   );
@@ -516,10 +516,9 @@ function SessionPanelSide({ panel }: { panel: SessionPanelProps }) {
         <div
           className={cn(
             'border-border flex h-full min-h-0 w-full min-w-0 flex-col overflow-clip',
-            // Easy mode is chrome-free — the cards carry their own
-            // borders, so a panel border would just box a box. A full-screen
-            // layer has no neighbour to separate from.
-            !isEasy && !isExpanded && 'border-l',
+            // Docked: one hairline between the chat and the panel, in both
+            // modes. A full-screen layer has no neighbour to separate from.
+            !isExpanded && 'border-l',
           )}
         >
           {effectivePanelHeader}

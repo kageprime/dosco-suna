@@ -66,6 +66,7 @@ import { holdLiveStart, liveStartPollMode } from './hold-live-start';
 import { clearStartStash, readStartStash } from './session-start-stash';
 import { reconcileHydratedSessionTitle } from './session-title-sync';
 import { seedModelDefaultsFromOpenBundle } from './prefetch-session-open';
+import { SESSION_START_WAIT_MS } from './prefetch-session-start';
 import { useCanonicalRuntimeSession } from './use-canonical-runtime-session';
 import type { ModelKey } from './use-model-store';
 import { useRuntimeEventStream } from './use-runtime-events';
@@ -1155,7 +1156,7 @@ export function useSession(projectId: string, sessionId: string, options: UseSes
   const queryClient = useQueryClient();
   const titleRefreshAbortRef = useRef<AbortController | null>(null);
   const {
-    waitMs = 15_000,
+    waitMs = SESSION_START_WAIT_MS,
     repositoryMode,
     replayStartStash = true,
     enabled = true,

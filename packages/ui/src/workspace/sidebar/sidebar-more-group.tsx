@@ -1,6 +1,6 @@
 'use client';
 
-import { CaretRightIcon, DotsThreeIcon } from '@phosphor-icons/react';
+import { DotsThreeIcon } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 
 import { useTranslations } from '../../i18n';
@@ -10,6 +10,7 @@ import { Disclosure, DisclosureContent, DisclosureTrigger } from '../../primitiv
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '../../primitives/sidebar';
 import { ProjectNavItems } from './project-nav-items';
 import { ProjectSessionList } from './project-session-list';
+import { CaretRightSolidIcon } from '../../icons/caret-right-solid';
 
 /** Open state lives in the persisted expanded store (closed by default), beside Sessions. */
 const MORE_SECTION_ID = 'section:sidebar-more';
@@ -40,9 +41,9 @@ export function SidebarMoreGroup({ projectId, footer }: { projectId: string; /**
             <SidebarMenuButton className="text-muted-foreground hover:text-sidebar-foreground">
               <DotsThreeIcon weight="bold" />
               <span className="min-w-0 flex-1 truncate">{t('more')}</span>
-              <CaretRightIcon
+              <CaretRightSolidIcon
                 aria-hidden
-                className={cn('size-3! shrink-0 transition-transform duration-(--duration-fast) ease-out motion-reduce:transition-none', open && 'rotate-90')}
+                className={cn('size-4! shrink-0 transition-transform duration-(--duration-fast) ease-out motion-reduce:transition-none', open && 'rotate-90')}
               />
             </SidebarMenuButton>
           </DisclosureTrigger>
@@ -50,7 +51,7 @@ export function SidebarMoreGroup({ projectId, footer }: { projectId: string; /**
       </SidebarMenu>
       <DisclosureContent className="flex min-h-0 flex-1 flex-col" contentClassName="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pt-1">
         <SidebarMenu>
-          <ProjectNavItems projectId={projectId} />
+          <ProjectNavItems projectId={projectId} inbox={false} />
         </SidebarMenu>
         <ProjectSessionList projectId={projectId} secondary />
         {footer}

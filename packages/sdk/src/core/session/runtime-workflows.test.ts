@@ -111,3 +111,32 @@ test('a control to a session that does not run fails with a plain sentence, and 
   await expect(controlSessionWorkflowRun('p1', 's1', 'run_1', { action: 'stop' })).rejects.toThrow('not running');
   expect(requests.some((r) => r.url.endsWith('/start'))).toBe(false);
 });
+
+// Finding 14: a background run's card polled its runner every tick with two
+// requests: the runner's session row (to find its box), then the box's runs.
+test('readSessionWorkflowRuns reads a runner row once, then only its box; a failed box read re-reads the row', async () => {
+  const BOX = 'http://test.local/p/sbx_cache/8000';
+  routes['GET http://test.local/workspaces/p1/sessions/runner_cache'] = {
+    body: {
+      session_id: 'runner_cache',
+      project_id: 'p1',
+      status: 'running',
+      sandbox_id: 'sbx_cache',
+      sandbox_provider: 'platinum',
+      sandbox_url: `${BOX}/`,
+      runtime_session_id: 'rt_cache',
+    },
+  };
+  routes[`GET ${BOX}/kortix/runtime/workflows`] = { body: { runs: [RUN] } };
+  for (let tick = 0; tick < 3; tick++) expect((await readSessionWorkflowRuns('p1', 'runner_cache')).runs).toHaveLength(1);
+  const rowReads = () => requests.filter((r) => r.url.endsWith('/sessions/runner_cache')).length;
+  expect(rowReads()).toBe(1);
+  expect(requests.filter((r) => r.url.endsWith('/kortix/runtime/workflows'))).toHaveLength(3);
+
+  // The box stopped: the proxy refuses the read. The next tick asks the row again.
+  routes[`GET ${BOX}/kortix/runtime/workflows`] = { status: 503, body: { error: 'sandbox not ready' } };
+  await expect(readSessionWorkflowRuns('p1', 'runner_cache')).rejects.toThrow();
+  routes['GET http://test.local/workspaces/p1/sessions/runner_cache'] = { body: { session_id: 'runner_cache', status: 'stopped' } };
+  expect(await readSessionWorkflowRuns('p1', 'runner_cache')).toEqual({ runs: [] });
+  expect(rowReads()).toBe(2);
+});

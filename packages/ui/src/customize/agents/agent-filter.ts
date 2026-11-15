@@ -35,7 +35,9 @@ export function filterAgents(
     if (opts.mode && !agentInMode(agent, opts.mode)) return false;
     if (!q) return true;
     return (
-      agent.name.toLowerCase().includes(q) || (agent.description ?? '').toLowerCase().includes(q)
+      agent.name.toLowerCase().includes(q) ||
+      (agent.title ?? '').toLowerCase().includes(q) ||
+      (agent.description ?? '').toLowerCase().includes(q)
     );
   });
 }

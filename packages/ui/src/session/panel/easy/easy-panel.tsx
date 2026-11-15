@@ -5,10 +5,9 @@
  * (Outputs / Context / Preview / Plan) over the same tool-call data the
  * Advanced stepper renders one-at-a-time.
  *
- * It is the FLOATING panel's whole content. It renders over the chat, anchored
- * top right, and it is nothing but the cards — no header, no tab strip, no
- * border, no wrapper of any kind. The cards carry their own borders, so a
- * container around them would only box a box.
+ * It is the docked cards column's whole content: flat sections, one hairline
+ * under each, no header, no tab strip, no wrapper. The column draws the
+ * vertical rule beside the chat (`session-action-panel-column.tsx`).
  *
  * It owns no state — everything it reads (the derived outputs, the context
  * groups, the running apps, the callback that opens any of them) comes from
@@ -33,7 +32,9 @@ import { useOptionalSessionPanel } from '../session-panel-provider';
 import { useSessionChangeRequestsPanel } from '../../outcomes/session-outcomes-bridge';
 import { ChangeRequestsCard } from './change-requests-card';
 import { AppsCard } from './apps-card';
+import { ChangesCard } from './changes-card';
 import { ContextCard } from './context-card';
+import { useSessionContextUsage } from './context-meter';
 import { pathOutput } from './easy-panel-logic';
 import { OutputsCard } from './outputs-card';
 import { PlanPanelCard } from './plan-card';
@@ -48,6 +49,7 @@ export function EasyPanel() {
   // (see `planBelongsToChat`). `usePlanInChat` is that one decision, shared
   // with `session-chat.tsx` so the two cannot disagree.
   const planInChat = usePlanInChat();
+  const contextUsage = useSessionContextUsage();
   // Null outside a `SessionPanelProvider` — `SessionChat` also renders
   // read-only inside `legacy-subagent-chat.tsx`, which has no panel at all.
   if (!panel) return null;
@@ -69,14 +71,19 @@ export function EasyPanel() {
     // Preview keep `shrink-0` and stay on screen at their full height, always.
     // `min-h-0` is what lets this shrink at all — a flex container defaults to
     // its content's minimum height and would otherwise refuse.
-    <div className="flex h-full min-h-0 flex-col gap-2">
+    <div className="flex h-full min-h-0 flex-col">
       <OutputsCard
         fill={!changeRequests?.requests.length}
         outputs={files}
-        defaultExpanded={outputsDefaultOpen}
+        defaultExpanded={outputsDefaultOpen || files.length > 0}
         onOpenOutput={(o) => handleOpenOutput(o, files)}
       />
+      <ChangesCard
+        onOpenDetail={openDetail}
+        onOpenAll={() => panel.openFiles(true)}
+      />
       <ContextCard
+        usage={contextUsage}
         files={context.files}
         web={context.web}
         tools={context.tools}

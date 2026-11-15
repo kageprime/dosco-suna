@@ -8,6 +8,7 @@
  */
 
 import { ErrorState } from '../../primitives/error-state';
+import { ManifestAnnotationsProvider } from '../../files/project/manifest-annotations';
 import {
   FileExplorerPage,
   FileExplorerSourceProvider,
@@ -72,7 +73,10 @@ export function ProjectFilesView({ projectId }: { projectId: string }) {
     <ProjectFilesProvider value={{ projectId, ref, defaultBranch }}>
       <FileExplorerSourceProvider value={gitRefExplorerSource}>
         <FilesStoreProvider>
-          <FileExplorerPage />
+          {/* kortix.yaml's open issues on its card and in its viewer. */}
+          <ManifestAnnotationsProvider projectId={projectId} onDefaultBranch={!!ref && ref === defaultBranch}>
+            <FileExplorerPage />
+          </ManifestAnnotationsProvider>
         </FilesStoreProvider>
       </FileExplorerSourceProvider>
     </ProjectFilesProvider>

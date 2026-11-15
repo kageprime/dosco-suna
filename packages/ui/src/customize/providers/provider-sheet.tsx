@@ -67,8 +67,9 @@ import { errorToast, successToast } from '../../primitives/toast';
 import {
   ProviderLogoStatus,
   connectedVia,
-  isProviderConnected,
+  providerConnectionIds,
   providerMethod,
+  providerRowConnected,
   type ProviderStatus,
   supportsPooledProviderKey,
   useManagedProvider,
@@ -916,15 +917,17 @@ export function ProviderSheet({
   if (!entry) return null;
 
   const method = providerMethod(entry);
-  const connectedIdSet = new Set([
-    ...connectedProviders.map((provider) => provider.id),
-    ...pooled.pooledProviderIds,
-  ]);
-  const keyConnected = connectedIdSet.has(entry.id);
+  // Project connections plus account-shared ones: a shared ChatGPT login
+  // (`codex`) connects OpenAI, and the header says how.
+  const connectedIdSet = providerConnectionIds(
+    connectedProviders.map((provider) => provider.id),
+    pooled.pooledProviderIds,
+  );
+  const keyConnected = connectedProviders.some((provider) => provider.id === entry.id);
   const status: ProviderStatus =
     method === 'included'
       ? 'included'
-      : isProviderConnected(entry.id, connectedIdSet)
+      : providerRowConnected(entry.id, connectedIdSet)
         ? 'connected'
         : 'none';
 

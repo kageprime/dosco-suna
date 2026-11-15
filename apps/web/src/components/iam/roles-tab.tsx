@@ -13,9 +13,12 @@ import { useTranslations } from '@/i18n/use-translations';
 // or Projects (project scope) exactly like a built-in role is, and shows up as
 // the row's role there. The muted note under the header points at that.
 //
-// Enterprise-gated as a pane (Jay, 2026-10-13): without the `rbac`
-// entitlement the tab is `EnterpriseUpsell` and nothing else — no read-only
-// role list, no disabled New role, no banner.
+// Custom roles are Enterprise (`rbac`); the built-in roles are not. Without
+// the entitlement the tab lists the four built-in roles read-only, each with
+// its one-line summary, and the custom-roles upsell sits under them — no
+// disabled New role, no banner. (2026-10-13 the pane was the upsell alone; the
+// 2026-11-14 settings audit found it promised "Built-in and custom roles" and
+// listed none, while Members showed Owner and Member.)
 //
 // Built-in roles are read-only; only custom (is_system === false) roles can be
 // edited or deleted, and only when canManage is true. Built-ins can be
@@ -74,6 +77,7 @@ import {
   builtinRoleDescriptor,
 } from '@kortix/ui/access/access/index';
 import { AccessRow } from '@kortix/ui/access';
+import { WORKSPACE_ROLE_LADDER } from '@kortix/ui/access/access/workspace-role-dialog';
 import {
   type IamRole,
   type ResourceType,
@@ -109,7 +113,14 @@ interface RolePrefill {
 
 export function RolesTab({ accountId, canManage, rbacEnabled }: RolesTabProps) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
-  if (!rbacEnabled) return <EnterpriseUpsell feature="roles" accountId={accountId} />;
+  if (!rbacEnabled) {
+    return (
+      <div className="space-y-8">
+        <BuiltInRolesList />
+        <EnterpriseUpsell feature="roles" accountId={accountId} />
+      </div>
+    );
+  }
   return (
     <div className="space-y-6">
       {/* Where the "Custom-role assignments" table used to be. A role is
@@ -117,6 +128,36 @@ export function RolesTab({ accountId, canManage, rbacEnabled }: RolesTabProps) {
           nobody hunts for a launcher this tab deliberately no longer has. */}
       <p className="text-muted-foreground text-xs">{tI18nComplete.raw('text019929eebb12')}</p>
       <RolesSection accountId={accountId} canManage={canManage} rbacEnabled={rbacEnabled} />
+    </div>
+  );
+}
+
+/**
+ * The built-in roles, read-only: the one workspace ladder (Owner > Admin >
+ * Manager > Member) with the same name and summary the role picker shows.
+ * Static, so it needs no request and renders on every plan.
+ */
+export function BuiltInRolesList() {
+  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+  const tSettings = useTranslations('workspaces.settings');
+  const tRoles = useTranslations('workspaces.roles');
+  return (
+    <div className="space-y-3">
+      <AccessList header={{ title: tSettings('builtInRoles'), count: WORKSPACE_ROLE_LADDER.length }}>
+        {WORKSPACE_ROLE_LADDER.map((role) => (
+          <AccessRow
+            key={role}
+            leading={<EntityAvatar icon={Shield} label={tRoles(`${role}.label`)} size="sm" />}
+            title={tRoles(`${role}.label`)}
+            badges={
+              <Badge variant="outline" size="sm" className={ROLE_TAG}>
+                {tI18nComplete.raw('text1f43948106d1')}
+              </Badge>
+            }
+            meta={<span className="text-muted-foreground text-xs">{tRoles(`${role}.blurb`)}</span>}
+          />
+        ))}
+      </AccessList>
     </div>
   );
 }

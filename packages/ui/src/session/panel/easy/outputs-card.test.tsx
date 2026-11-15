@@ -160,24 +160,28 @@ describe('OutputRows rhythm matches the Context card (W5)', () => {
     // Sliced per button: an assertion over the whole list would be satisfied
     // by either row type alone, and the point is that BOTH carry it.
     const firstRow = html.slice(html.indexOf('<button'), html.indexOf('</button>'));
-    expect(firstRow).toContain('py-2');
+    expect(firstRow).toContain('py-1.5');
     expect(firstRow).toContain('transition-[background-color,transform]');
-    expect(firstRow).toContain('active:scale-[0.98]');
+    expect(firstRow).toContain('active:scale-[0.998]');
 
     // The fold row is the last button rendered. It keeps a `color` transition
     // of its own for the muted → foreground hover on its label.
     const foldRow = html.slice(html.lastIndexOf('<button'));
     expect(foldRow).toContain('1 more file');
-    expect(foldRow).toContain('py-2');
+    expect(foldRow).toContain('py-1.5');
     expect(foldRow).toContain('transition-[background-color,color,transform]');
-    expect(foldRow).toContain('active:scale-[0.98]');
+    expect(foldRow).toContain('active:scale-[0.998]');
   });
 
-  // A row's leading mark sits on a tile, not loose in the gutter — the same
-  // ground the Context card's file tiles use. A thumbnail fills its own tile,
-  // so that one stays bare.
-  test('a non-thumbnail row gets a grounded leading tile', () => {
-    expect(renderOutputRows([out({ name: 'report.pdf' })])).toContain('bg-muted/70');
+  // A row's leading mark sits on a chalk tile keyed by its type: one stable
+  // fill per extension, no border. Two different types get two colors.
+  test('a non-thumbnail row gets a chalk tile per type, fill only', () => {
+    const pdf = renderOutputRows([out({ name: 'report.pdf' })]);
+    const csv = renderOutputRows([out({ name: 'rows.csv' })]);
+    const fill = (html: string) => /background-color:(hsl\([^)]*\))/.exec(html)?.[1];
+    expect(fill(pdf)).toBeDefined();
+    expect(fill(pdf)).not.toBe(fill(csv));
+    expect(pdf).not.toContain('border-color');
   });
 });
 
@@ -250,7 +254,7 @@ describe('OutputRows kind-group headers on the expanded list (Task 9)', () => {
       expect(cls).toContain('text-xs');
       expect(cls).toContain('font-medium');
       expect(cls).toContain('text-muted-foreground');
-      expect(cls).toContain('px-1');
+      expect(cls).toContain('px-4');
       expect(cls).toContain('pb-1');
     }
     expect(firstClass).not.toContain('pt-2');

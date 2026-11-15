@@ -20,7 +20,7 @@ export const WORKSPACE_SETTINGS_GROUPS = [
   { id: 'library', sections: ['agents', 'models', 'connectors', 'secrets', 'skills', 'drives', 'apps', 'triggers', 'sandbox', 'git', 'repo'] },
   // Evals (flag `evals`): its own group since 2026-11-13, the Harbor Hub's
   // shape: datasets hold tasks, a job runs an agent on a dataset's tasks.
-  { id: 'evals', sections: ['evals', 'eval-datasets', 'eval-tasks', 'eval-jobs'] },
+  { id: 'evals', sections: ['evals', 'eval-datasets', 'eval-tasks', 'eval-jobs', 'eval-trials'] },
   { id: 'people', sections: ['members', 'groups', 'roles', 'identity', 'audit'] },
   { id: 'billing', sections: ['plan', 'usage'] },
   { id: 'advanced', sections: ['feature-flags'] },
@@ -82,6 +82,7 @@ export const WORKSPACE_SETTINGS_LABELS: Readonly<Record<WorkspaceSettingsSection
   'eval-datasets': 'Datasets',
   'eval-tasks': 'Tasks',
   'eval-jobs': 'Jobs',
+  'eval-trials': 'Trials',
   models: 'Models',
   repo: 'Repository',
   members: 'Members',

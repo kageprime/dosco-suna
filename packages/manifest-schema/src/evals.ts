@@ -90,9 +90,15 @@ function normalizeSources(raw: unknown, key: string, issues: EvalConfigIssue[]):
         return;
       }
       if (table.path === undefined) {
+        // Harbor's `ref` (a Hub tag, revision or digest) is the same field as a registry `version`.
+        if (table.version !== undefined && table.ref !== undefined) {
+          issues.push({ path: at, message: 'set `version` or `ref`, not both.', severity: 'error' });
+          return;
+        }
+        const version = table.version ?? table.ref;
         out.push({
           name: table.name,
-          ...(table.version !== undefined ? { version: String(table.version) } : {}),
+          ...(version !== undefined ? { version: String(version) } : {}),
           ...(Array.isArray(table.task_names) ? { task_names: table.task_names } : {}),
           ...(Array.isArray(table.exclude_task_names) ? { exclude_task_names: table.exclude_task_names } : {}),
           ...(typeof table.n_tasks === 'number' ? { n_tasks: table.n_tasks } : {}),

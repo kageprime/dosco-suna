@@ -64,3 +64,12 @@ describe('sanitizeModelStore', () => {
     expect(sanitizeModelStore({ sessionModelFallbackAt: [1] }).sessionModelFallbackAt).toBeUndefined();
   });
 });
+
+describe('sanitizeModelStore: projectAgentName', () => {
+  test('a per-workspace agent map survives; a wrong-typed one is dropped', () => {
+    expect(sanitizeModelStore({ projectAgentName: { 'workspace-a': 'mykortix' } }).projectAgentName).toEqual({
+      'workspace-a': 'mykortix',
+    });
+    expect(sanitizeModelStore({ projectAgentName: 'mykortix' }).projectAgentName).toBeUndefined();
+  });
+});

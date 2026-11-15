@@ -11,7 +11,7 @@ import Loading from '../../primitives/loading';
 import { useTranslations as useI18nTranslations } from '../../i18n';
 import { CaretDownIcon, ChatCircleIcon, GearSixIcon, PlusIcon } from '@phosphor-icons/react';
 import { UiLink as Link } from '../../providers/ui-provider';
-import type { ComponentType } from 'react';
+import { useEffect, useRef, type ComponentType } from 'react';
 
 /**
  * One row of the New menu: icon, title, description (Paper "New menu" V03,
@@ -94,6 +94,15 @@ export function NewEntityMenu({
   };
 }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const pendingRef = useRef<(() => void) | null>(null);
+  const fallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (fallbackRef.current) clearTimeout(fallbackRef.current);
+    },
+    [],
+  );
   if (!manual) {
     return (
       <Button variant={variant} size={size} className="gap-1.5" disabled={pending} onClick={onChat}>
@@ -102,22 +111,48 @@ export function NewEntityMenu({
       </Button>
     );
   }
+  // A row that opens a dialog or panel runs after the menu has closed and
+  // focus is back on the New button. Run from the row itself, the dialog
+  // remembers the row as its return target; the menu unmounts the row, so
+  // Cancel or Escape dropped focus to <body>. Run here, the dialog records the
+  // New button and returns focus to it.
+  const runPending = () => {
+    const open = pendingRef.current;
+    pendingRef.current = null;
+    open?.();
+  };
+  const afterClose = (open: (() => void) | undefined) => {
+    pendingRef.current = open ?? null;
+    // The close hook runs on the frame the menu closes. If it never runs, the
+    // row still opens its dialog, with the old focus behavior.
+    if (fallbackRef.current) clearTimeout(fallbackRef.current);
+    fallbackRef.current = setTimeout(() => {
+      fallbackRef.current = null;
+      if (pendingRef.current === open) runPending();
+    }, 250);
+  };
+  const onCloseAutoFocus = (event: Event) => {
+    if (!pendingRef.current) return;
+    event.preventDefault();
+    triggerRef.current?.focus({ preventScroll: true });
+    runPending();
+  };
   const manualLabel = manual.label ?? 'Set up manually';
   const manualBody = (
     <RichRowBody icon={GearSixIcon} title={manualLabel} description={manual.description} />
   );
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+      <DropdownMenuTrigger ref={triggerRef} asChild>
         <Button variant={variant} size={size} className="gap-1.5" disabled={pending}>
           {pending ? <Loading className="size-4 shrink-0" /> : <PlusIcon className="size-4" />}
           {label}
           {caret ? <CaretDownIcon className="text-muted-foreground size-3.5 shrink-0" /> : null}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-76">
+      <DropdownMenuContent align="end" className="w-76" onCloseAutoFocus={onCloseAutoFocus}>
         {quick ? (
-          <DropdownMenuItem className={RICH_ROW_CLASS} onSelect={quick.onSelect}>
+          <DropdownMenuItem className={RICH_ROW_CLASS} onSelect={() => afterClose(quick.onSelect)}>
             <RichRowBody icon={quick.icon} title={quick.label} description={quick.description} />
           </DropdownMenuItem>
         ) : null}
@@ -135,7 +170,7 @@ export function NewEntityMenu({
             </Link>
           </DropdownMenuItem>
         ) : (
-          <DropdownMenuItem className={RICH_ROW_CLASS} onSelect={manual.onSelect}>
+          <DropdownMenuItem className={RICH_ROW_CLASS} onSelect={() => afterClose(manual.onSelect)}>
             {manualBody}
           </DropdownMenuItem>
         )}

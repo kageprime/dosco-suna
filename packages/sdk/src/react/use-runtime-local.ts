@@ -50,6 +50,13 @@ export interface UseRuntimeLocalOptions {
    */
   defaultAgentName?: string | null;
   /**
+   * Remember the agent picked in this new composer (no `sessionId`) for the
+   * route workspace, and seed the next new composer there from it, ahead of
+   * `defaultAgentName`. A pick no longer in the roster is ignored. Off by
+   * default: a host whose default is the place's own (a channel) leaves it off.
+   */
+  rememberAgent?: boolean;
+  /**
    * @deprecated Inert. Entitlement is resolved server-side into each model's
    * `enabled` flag by `/model-picker` (`freeManagedOnly` drops managed models
    * for free-tier accounts before the catalog is even served), so there is
@@ -234,9 +241,12 @@ export function agentScopedModelSelectionKey(
  *   2. The server-bound agent for a project session (`boundAgentName`) — so an
  *      existing project session never accidentally re-prompts with a different
  *      agent than the one it was created with.
- *   3. The project's declared default (`defaultAgentName`) — the starting pick
+ *   3. The agent last picked in a new composer of this workspace
+ *      (`rememberedAgentName`) — new composers only, so the next new session
+ *      starts where the person left off.
+ *   4. The project's declared default (`defaultAgentName`) — the starting pick
  *      for a new project chat.
- *   4. The global last-used agent — only when there's no session at all (e.g.
+ *   5. The global last-used agent — only when there's no session at all (e.g.
  *      the dashboard composer), so a fresh session inherits the user's most
  *      recent pick.
  */
@@ -246,14 +256,18 @@ export function resolveCurrentAgentName(input: {
   boundAgentName?: string | null;
   defaultAgentName?: string | null;
   explicitAgentName?: string;
+  /** The agent last picked in a new composer of this workspace. Ignored with a `sessionId`. */
+  rememberedAgentName?: string;
   lastAgentName?: string;
 }): string | undefined {
   const boundAgentName = input.boundAgentName?.trim() || undefined;
   const defaultAgentName = input.defaultAgentName?.trim() || undefined;
+  const rememberedAgentName = input.sessionId ? undefined : input.rememberedAgentName?.trim() || undefined;
   return (
     input.explicitAgentName ??
     input.sessionAgentName ??
     boundAgentName ??
+    rememberedAgentName ??
     defaultAgentName ??
     (input.sessionId ? undefined : input.lastAgentName)
   );
@@ -270,6 +284,7 @@ export function useRuntimeLocal({
   sessionId,
   boundAgentName,
   defaultAgentName,
+  rememberAgent = false,
   resolveServerDefault,
   projectSession,
   lastPromptModel,
@@ -331,12 +346,21 @@ export function useRuntimeLocal({
     explicitAgentSelection.scope === agentSelectionScope
       ? explicitAgentSelection.name
       : undefined;
+  // The workspace's remembered pick, while the roster still offers it (a
+  // pending roster cannot say no yet).
+  const remembersAgent = rememberAgent && !sessionId && !!projectId;
+  const storedAgentName = remembersAgent && projectId ? modelStore.getProjectAgentName(projectId) : undefined;
+  const rememberedAgentName =
+    storedAgentName && (!Array.isArray(rawAgents) || composerSelectableAgents(rawAgents).some((a) => a.name === storedAgentName))
+      ? storedAgentName
+      : undefined;
   const currentAgentName = resolveCurrentAgentName({
     sessionId,
     sessionAgentName,
     boundAgentName,
     defaultAgentName,
     explicitAgentName,
+    rememberedAgentName,
     lastAgentName: modelStore.lastAgentName,
   });
   const scopedSessionModelKey = useMemo(
@@ -361,13 +385,18 @@ export function useRuntimeLocal({
       if (name !== undefined || !sessionId) {
         modelStore.setLastAgentName(name);
       }
+      // A pick in a new composer seeds this workspace's next one.
+      if (remembersAgent && projectId && name) modelStore.setProjectAgentName(projectId, name);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       sessionId,
       agentSelectionScope,
+      remembersAgent,
+      projectId,
       modelStore.setSessionAgentName,
       modelStore.setLastAgentName,
+      modelStore.setProjectAgentName,
     ],
   );
 

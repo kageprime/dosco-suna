@@ -147,7 +147,7 @@ export function EvalDatasetView({ projectId, dataset }: { projectId: string; dat
               name={dataset.name}
               badge={
                 <Tag>
-                  {t(`origin.${dataset.kind === 'suite' ? 'suite' : (meta?.kind ?? 'registry')}`)}
+                  {t(`origin.${dataset.kind === 'suite' ? 'suite' : meta?.kind === 'builtin' ? 'builtin' : 'registry'}`)}
                 </Tag>
               }
               description={description}

@@ -10,6 +10,7 @@ export type { FileContentRendererProps } from './file-content-renderer';
 export { FilePreviewModal } from './file-preview-modal';
 export type { FilePreviewModalProps, FilePreviewState } from './file-preview-modal';
 export { FileSourceProvider, useFileSource } from './file-source';
+export { FileAnnotationsProvider, useFileAnnotations } from './file-annotations';
 export type {
   BinaryBlobResult,
   FileContent,

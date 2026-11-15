@@ -7,6 +7,9 @@ import { cn } from '../../../lib/utils';
 import { chalkColors } from '@kortix/shared';
 import { useCallback, useRef, useState } from 'react';
 import { FileContentRenderer, getFileCategory } from './file-content-renderer';
+import { FileAnnotationsProvider } from '../../viewer/file-annotations';
+
+const noAnnotations = () => [];
 
 interface FileThumbnailProps {
   filePath: string;
@@ -132,7 +135,11 @@ export function FileThumbnail({
         }
         aria-hidden
       >
-        <FileContentRenderer filePath={filePath} readOnly showHeader={false} imageControls="none" />
+        {/* No file annotations in a thumbnail: a lint gutter would shift the
+            scaled preview. The card's name carries the issue mark instead. */}
+        <FileAnnotationsProvider diagnosticsFor={noAnnotations}>
+          <FileContentRenderer filePath={filePath} readOnly showHeader={false} imageControls="none" />
+        </FileAnnotationsProvider>
       </div>
       {extBadge}
       {onOpen && (extLower === 'md' || extLower === 'mdx') && (

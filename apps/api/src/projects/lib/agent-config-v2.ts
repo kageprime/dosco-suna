@@ -540,6 +540,7 @@ const GRANT_KEYS_V3: readonly string[] = [
 
 /** The key order of a written v3 agent block. Keys not listed (`network_egress`) follow. */
 const BLOCK_ORDER_V3: readonly string[] = [
+  'title',
   ...BEHAVIOR_KEYS_V3.filter((key) => key !== 'permission'),
   'prompt',
   'prompt_file',

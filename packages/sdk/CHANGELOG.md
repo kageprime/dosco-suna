@@ -5,6 +5,32 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Added (session work state; additive)
+- `ProjectSession.work_state` (`running | completed | failed | stopped | idle`) and the type
+  `SessionWorkState`: is the work done. `status` stays the row lifecycle and `runtime_status`
+  the computer; a finished child keeps `status: 'running'` until its computer stops.
+- `sessionWorkState(row)`: the server's `work_state`, else derived from `board_state`, else
+  from `working`.
+
+### Fixed (colleague state)
+- `useSessionChildren` puts each child's live fields (`working`, `board_state`, `work_state`,
+  `status`, …) on that child's cached `qk.project.session` row, so a colleague row reads the
+  same state as the agents line. Only rows already cached, only changed fields, never a newer row.
+- A `kortix.control.turn` frame now updates `board_state` (and `work_state`) with `working`
+  on the session's cached rows.
+
+### Changed (composer agent choice; additive)
+- `composerSelectableAgents` leaves out `memory-reflector` and `harness-reflector`, the
+  starter's cron-only agents, so the chat picker and the Tab cycle no longer offer them.
+  `isSelectableAgent` (trigger pickers, the Agents page) is unchanged, and a session bound to
+  one still resolves to it.
+- `useRuntimeLocal` / `useSessionModelSelection` take `rememberAgent?: boolean`. On, a new
+  composer (no `sessionId`) stores the agent picked for the route workspace and the next new
+  composer there starts on it, ahead of `defaultAgentName`. `resolveCurrentAgentName` takes
+  the matching optional `rememberedAgentName`. Off by default.
+- `InboxNotification.resolved?: boolean`: a `question` or `permission` row whose ask is
+  closed (answered, dismissed, decided or expired). Absent from an older API: read it as false.
+
 ### Changed (provider keys need no flag)
 - The `pooled_provider_secrets` project flag graduated (2026-11-12): every project has named
   provider keys with sharing, per-session key selection and named ChatGPT/Claude sign-ins.

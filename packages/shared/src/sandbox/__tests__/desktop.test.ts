@@ -40,7 +40,7 @@ describe('session desktop', () => {
   });
 
   test('skips a non-24.04 base instead of failing its build, and links kortix-desktop', () => {
-    expect(SANDBOX_DESKTOP_INSTALL_COMMAND).toContain('if apt-cache show libx264-164 libyuv0');
+    expect(SANDBOX_DESKTOP_INSTALL_COMMAND).toContain('if apt-cache show libx264-164 >/dev/null 2>&1 && apt-cache show libyuv0 >/dev/null 2>&1; then');
     expect(SANDBOX_DESKTOP_INSTALL_COMMAND).toContain('ln -sf /usr/local/bin/kortix-entrypoint /usr/local/bin/kortix-desktop');
     expect([...SANDBOX_DESKTOP_PACKAGES]).toEqual([...SANDBOX_DESKTOP_PACKAGES].sort());
     // E2B's Dockerfile parser cannot read heredocs or newlines.

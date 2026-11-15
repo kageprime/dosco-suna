@@ -180,6 +180,7 @@ export {
   useWorkspaceEvalActions,
   useWorkspaceEvalCompare,
   useWorkspaceEvalDatasets,
+  useWorkspaceEvalFilterValues,
   useWorkspaceEvalJob,
   useWorkspaceEvalJobs,
   useWorkspaceEvalSuites,
@@ -191,6 +192,7 @@ export {
   type WorkspaceEvalTaskSource,
   useWorkspaceEvalTrial,
   useWorkspaceEvalTrialFile,
+  useWorkspaceEvalTrialsAcrossJobs,
 } from './use-evals';
 export {
   useWorkspaceCalendarActions,
@@ -229,6 +231,7 @@ export {
 export { useSessionMessageAuthors } from './use-session-message-authors';
 export { useSessionModelUsage } from './use-session-model-usage';
 export { useSessionUsage } from './use-session-usage';
+export { RUNNING_SESSIONS_LIMIT, useRunningSessions } from './use-running-sessions';
 export { useChangeRequests, changeRequestsKey } from './use-change-requests';
 export { useGatewayRoutingPolicy, gatewayRoutingPolicyKey } from './use-gateway-routing-policy';
 export {

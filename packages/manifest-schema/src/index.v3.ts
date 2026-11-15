@@ -40,6 +40,7 @@ import {
   SPACE_TAB_TYPES,
   TOOL_NAME_RE,
   parseDurationSeconds,
+  AGENT_TITLE_MAX_LENGTH,
 } from './constants';
 
 export { SPACE_HEADER_ITEMS, SPACE_TAB_TYPES };
@@ -132,6 +133,12 @@ export function grantedNamesV3(value: unknown, universe: readonly string[]): str
 
 /** One `agents.<name>` entry. Behavior and grants in one block. */
 export interface AgentBlockV3 {
+  /**
+   * The agent's name as people read it ("GitHub PR reviewer"). The map key stays the
+   * agent's id: sessions, triggers and @-mentions use the key. Absent: the key in
+   * sentence case (`agentDisplayName`).
+   */
+  title?: string;
   description?: string;
   mode?: 'primary' | 'subagent' | 'all';
   model?: string;
@@ -464,6 +471,7 @@ const BEHAVIOR_KEYS_V3 = [
 
 /** Every key an `agents.<name>` block may hold. The agent page maps each to a row. */
 export const AGENT_BLOCK_KEYS_V3 = [
+  'title',
   ...BEHAVIOR_KEYS_V3,
   'prompt',
   'prompt_file',
@@ -489,6 +497,8 @@ export const AGENT_BLOCK_KEYS_V3 = [
   'network_egress',
 ] as const;
 const AGENT_KEYS_V3 = new Set<string>(AGENT_BLOCK_KEYS_V3);
+
+export { AGENT_TITLE_MAX_LENGTH } from './constants';
 
 /** Agent keys of earlier versions, with what replaces each in v3. */
 const RETIRED_AGENT_KEYS_V3: Record<string, string> = {
@@ -871,6 +881,9 @@ function validateAgentBlockV3(
     }
   }
 
+  if (entry.title !== undefined && (typeof entry.title !== 'string' || !entry.title.trim() || entry.title.trim().length > AGENT_TITLE_MAX_LENGTH)) {
+    issues.push({ path: `${where}.title`, message: `must be a non-empty string of at most ${AGENT_TITLE_MAX_LENGTH} characters.`, severity: 'error' });
+  }
   if (entry.prompt !== undefined && (typeof entry.prompt !== 'string' || !entry.prompt.trim())) {
     issues.push({ path: `${where}.prompt`, message: 'must be a non-empty string.', severity: 'error' });
   }

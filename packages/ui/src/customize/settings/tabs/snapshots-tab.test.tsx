@@ -33,7 +33,14 @@ import { TooltipProvider } from '../../../primitives/tooltip';
 
 import type { FailedBuildRelevance } from '../../../workspace/sidebar/footer/sandbox-alert-state';
 import type { SandboxProviderMode } from '../../sections/view/sandbox-provider-coverage';
-import { BuildDetails, BuildRow, SnapshotsTabView, describeBuildOutcome } from './snapshots-tab';
+import {
+  BuildDetails,
+  BuildRow,
+  SnapshotsTabView,
+  describeBuildOutcome,
+  formatBuildDateSpan,
+  groupBuildLog,
+} from './snapshots-tab';
 
 /**
  * Carries forward ALL of `sandbox-view.test.tsx`'s coverage (deleted — see
@@ -416,5 +423,78 @@ describe('SnapshotsTabView', () => {
     expect(out).not.toContain('New template');
     expect(out).not.toContain('Sandbox templates');
     expect(out).not.toContain('No templates resolved yet.');
+  });
+});
+
+describe('superseded builds fold into one muted row', () => {
+  // A template rebuilt nine times left one ready row and nine identical
+  // "failed" rows. A superseded build is history, not a failure.
+  const ready = build({ build_id: 'ready', status: 'ready', snapshot_name: 'kortix-tpl-current' });
+  const superseded = Array.from({ length: 9 }, (_, i) =>
+    build({
+      build_id: `old-${i}`,
+      status: 'failed',
+      snapshot_name: `kortix-tpl-old-${i}`,
+      started_at: '2026-10-12T09:00:00.000Z',
+      finished_at: '2026-10-12T09:05:00.000Z',
+    }),
+  );
+  const status = runtimeStatus({ state: 'ready', snapshot_name: 'kortix-tpl-current' });
+
+  test('9 superseded + 1 ready → 2 rows', () => {
+    const entries = groupBuildLog([ready, ...superseded], status);
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toMatchObject({ kind: 'build', build: { build_id: 'ready' } });
+    expect(entries[1]?.kind).toBe('superseded');
+    expect(entries[1]?.kind === 'superseded' && entries[1].builds).toHaveLength(9);
+  });
+
+  test('the folded row says how many and when, in neutral tone, never "Failed"', () => {
+    const out = renderToStaticMarkup(
+      <TooltipProvider>
+        <SnapshotsTabView templateBuilds={[ready, ...superseded]} status={status} />
+      </TooltipProvider>,
+    );
+    expect(out).toContain('9 older builds replaced');
+    expect(out).toContain('Oct 12');
+    // One status chip, sentence case: the ready row reads "Ready".
+    expect(out).toContain('>Ready<');
+    expect(out).not.toContain('>READY<');
+    // The folded builds are behind the disclosure, not nine red rows.
+    expect(out).not.toContain('Failed');
+    expect(out).not.toContain('bg-kortix-red/15');
+  });
+
+  test('a real failure that is not superseded stays failed, with its category', () => {
+    const blocking = build({ build_id: 'blocking', error: 'exit code 1', error_category: 'quota' });
+    const entries = groupBuildLog(
+      [blocking, ...superseded],
+      runtimeStatus({ state: 'blocked', current_failure: blocking, snapshot_name: 'kortix-tpl-abc123' }),
+    );
+    expect(entries[0]).toMatchObject({ kind: 'build', relevance: 'blocking' });
+    expect(renderBuildRow('automatic', { error_category: 'quota' }, 'blocking')).toContain('Failed');
+    expect(renderBuildDetails('automatic', { error: 'exit code 1', error_category: 'quota' })).toContain(
+      'Snapshot quota reached',
+    );
+  });
+
+  test('a lone superseded build keeps its own row; a recovered failure is never folded', () => {
+    const one = groupBuildLog([ready, superseded[0]!], status);
+    expect(one.map((e) => e.kind)).toEqual(['build', 'build']);
+    expect(one[1]).toMatchObject({ relevance: 'superseded' });
+
+    const recovered = build({ build_id: 'rec', snapshot_name: 'kortix-tpl-current' });
+    const mixed = groupBuildLog([superseded[0]!, recovered, superseded[1]!], status);
+    expect(mixed.map((e) => e.kind)).toEqual(['build', 'build', 'build']);
+  });
+
+  test('the date span reads one day once, or a range', () => {
+    expect(formatBuildDateSpan(superseded)).toBe('Oct 12');
+    expect(
+      formatBuildDateSpan([
+        { started_at: '2026-10-10T09:00:00.000Z', finished_at: null },
+        { started_at: '2026-10-12T09:00:00.000Z', finished_at: null },
+      ]),
+    ).toBe('Oct 10 – Oct 12');
   });
 });

@@ -263,11 +263,12 @@ describe('SidebarRail', () => {
     expect(renderRail(false)).not.toContain('data-slot="sidebar-rail"');
   });
 
-  test('the hit area is 16px wide while the visible seam stays 2px', () => {
+  test('the hit area is 16px wide while the visible seam is one 1px blue line', () => {
     const cls = slotClass(renderRail(true), 'sidebar-rail');
     expect(cls).toContain('w-4');
     // The seam is `RESIZE_SEAM_CLASS`, drawn by `before:` (#10893).
-    expect(cls).toContain('before:w-[2px]');
+    expect(cls).toContain('before:w-px');
+    expect(cls).toContain('before:bg-ring');
   });
 });
 

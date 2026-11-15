@@ -74,7 +74,8 @@ export function SettingsFrame({ children }: { children: ReactNode }) {
         data-sidebar-collapsed={sidebar?.state === 'collapsed' || undefined}
       >
         <SidebarToggle />
-        <h1 className="text-foreground truncate px-2 text-sm font-medium">{tSettings('title')}</h1>
+        {/* The panel's name, not a heading: each section's page header is the page's h1. */}
+        <p className="text-foreground truncate px-2 text-sm font-medium">{tSettings('title')}</p>
       </div>
       {children}
     </InCustomizeFrame.Provider>

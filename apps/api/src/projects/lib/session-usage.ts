@@ -1,6 +1,7 @@
 /**
  * What a session and every session it started cost, in USD, from the gateway's
- * request ledger (`gateway_request_logs`).
+ * request ledger (`gateway_request_logs`) and the compute ledger
+ * (`sandbox_compute_sessions`, one row per box lifetime of a session).
  *
  * A sub-agent inside the session's sandbox calls models on the session's own
  * token, so its requests carry the session's id. A session that a session
@@ -8,7 +9,7 @@
  * `parent_session_id` set, and its requests carry its own id. This rollup reads
  * both: the session's ledger, and the ledger of every descendant row.
  */
-import { gatewayRequestLogs, projectSessions } from '@kortix/db';
+import { gatewayRequestLogs, projectSessions, sandboxComputeSessions } from '@kortix/db';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../../shared/db';
 import { DEFAULT_AGENT_SENTINEL } from '../agents';
@@ -33,6 +34,10 @@ export interface SessionUsageTotals {
   output_tokens: number;
   cached_tokens: number;
   cache_write_tokens: number;
+  /** What the session's boxes cost while they were up, debited from the Kortix wallet. */
+  compute_cost: number;
+  /** Everything Kortix debited for the session: `kortix_cost + compute_cost`. Own-key spend is not in it. */
+  billed_cost: number;
 }
 
 export interface SessionUsageNode extends SessionUsageTotals {
@@ -72,6 +77,8 @@ const ZERO: SessionUsageTotals = {
   output_tokens: 0,
   cached_tokens: 0,
   cache_write_tokens: 0,
+  compute_cost: 0,
+  billed_cost: 0,
 };
 
 /** Money at the 10-decimal precision the ledger stores it at. */
@@ -111,12 +118,25 @@ async function descendantRows(root: Pick<SessionRow, 'sessionId' | 'projectId' |
   return [...rows];
 }
 
-/** The ledger totals of each session id, in one grouped read on `idx_gateway_logs_session`. */
-async function ledgerTotals(projectId: string, sessionIds: string[]): Promise<Map<string, SessionUsageTotals>> {
+/**
+ * The ledger totals of each session id: one grouped read on `idx_gateway_logs_session`,
+ * and one of the compute ledger. The compute ledger has no session index: the read is
+ * scoped to the paying account (`idx_sandbox_compute_sessions_account_time`) and
+ * filtered by session id. The caller already resolved these ids inside the project.
+ */
+async function ledgerTotals(projectId: string, accountId: string, sessionIds: string[]): Promise<Map<string, SessionUsageTotals>> {
   const out = new Map<string, SessionUsageTotals>();
   if (sessionIds.length === 0) return out;
   const logs = gatewayRequestLogs;
-  const rows = await db
+  const computeRows = db
+    .select({
+      sessionId: sandboxComputeSessions.sessionId,
+      cost: sql<number>`coalesce(sum(${sandboxComputeSessions.costUsd}), 0)::float8`,
+    })
+    .from(sandboxComputeSessions)
+    .where(and(eq(sandboxComputeSessions.accountId, accountId), inArray(sandboxComputeSessions.sessionId, sessionIds)))
+    .groupBy(sandboxComputeSessions.sessionId);
+  const llmRows = db
     .select({
       sessionId: logs.sessionId,
       cost: totalSpendSql,
@@ -132,6 +152,7 @@ async function ledgerTotals(projectId: string, sessionIds: string[]): Promise<Ma
     .from(logs)
     .where(and(eq(logs.projectId, projectId), inArray(logs.sessionId, sessionIds)))
     .groupBy(logs.sessionId);
+  const [rows, computed] = await Promise.all([llmRows, computeRows]);
   for (const row of rows) {
     if (!row.sessionId) continue;
     out.set(row.sessionId, {
@@ -144,7 +165,16 @@ async function ledgerTotals(projectId: string, sessionIds: string[]): Promise<Ma
       output_tokens: Number(row.output),
       cached_tokens: Number(row.cached),
       cache_write_tokens: Number(row.cacheWrite),
+      compute_cost: 0,
+      billed_cost: money(Number(row.kortixCost)),
     });
+  }
+  for (const row of computed) {
+    if (!row.sessionId) continue;
+    const totals = out.get(row.sessionId) ?? { ...ZERO };
+    totals.compute_cost = money(Number(row.cost));
+    totals.billed_cost = money(totals.kortix_cost + totals.compute_cost);
+    out.set(row.sessionId, totals);
   }
   return out;
 }
@@ -157,6 +187,8 @@ export function sumSessionUsage(all: readonly SessionUsageTotals[]): SessionUsag
   sum.cost = money(sum.cost);
   sum.kortix_cost = money(sum.kortix_cost);
   sum.provider_cost = money(sum.provider_cost);
+  sum.compute_cost = money(sum.compute_cost);
+  sum.billed_cost = money(sum.billed_cost);
   return sum;
 }
 
@@ -195,7 +227,7 @@ export async function sessionUsageTree(
   };
   walk(root, 0);
 
-  const totals = await ledgerTotals(root.projectId, ordered.map(({ row }) => row.sessionId));
+  const totals = await ledgerTotals(root.projectId, root.accountId, ordered.map(({ row }) => row.sessionId));
   const sessions: SessionUsageNode[] = ordered.map(({ row, depth }) => ({
     session_id: row.sessionId,
     parent_session_id: depth === 0 ? null : row.parentSessionId,

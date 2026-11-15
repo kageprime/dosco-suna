@@ -170,6 +170,7 @@ export const WORKSPACE_KEY_CLASSES = {
   project_only: [
     // The workspace calendar (flag `calendar`, 2026-11-14): items and their comments carry project_id only.
     'calendar_comments',
+    'calendar_item_people',
     'calendar_items',
     // An eval trial carries project_id only (2026-11-13).
     'eval_trials',

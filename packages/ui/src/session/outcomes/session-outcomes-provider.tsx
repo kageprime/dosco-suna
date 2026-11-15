@@ -47,7 +47,8 @@ import { useProjectContext } from '../../files/project/context';
 // NOT `@kortix/sdk/react`'s change-request hook. See the note above — this is
 // a cache-coherence requirement, not a style preference.
 import {
-  invalidateChangeRequestReads,
+  changeRequestKeys,
+  invalidateTurnChangeRequestReads,
   useSessionChangeRequests,
 } from '../../files/project/hooks/use-change-requests';
 
@@ -100,7 +101,7 @@ export function SessionOutcomesProvider({
   const { allowed } = useProjectCan(projectId, PROJECT_ACTIONS.PROJECT_GITOPS_READ);
   const { data } = useSessionChangeRequests(projectSessionId, { refetchInterval: busy ? 5_000 : 60_000, enabled: allowed });
   const requests = useMemo(() => allowed ? (data?.change_requests ?? []) : [], [allowed, data?.change_requests]);
-  useRefreshChangeRequestsOnTurnEnd(busy);
+  useRefreshChangeRequestsOnTurnEnd(busy, projectSessionId);
 
   const all = useMemo(
     // Change requests are the only outcome a turn produces. The derived
@@ -148,19 +149,28 @@ export function SessionOutcomesProvider({
  * (KRTX-3009, KRTX-3010). Only the busy -> idle edge reads: mounting an idle
  * session already fetches.
  */
-function useRefreshChangeRequestsOnTurnEnd(busy: boolean): void {
+function useRefreshChangeRequestsOnTurnEnd(busy: boolean, sessionId: string | undefined): void {
   const qc = useQueryClient();
   const projectId = useProjectContext()?.projectId ?? '';
-  const refresh = useCallback(() => invalidateChangeRequestReads(qc, projectId), [qc, projectId]);
+  // Now: this session's cards. After the settle delay, once, while the session
+  // stays idle: the cards again, the sidebar list and the review summary. A
+  // busy flicker cancels the settle read, so it costs only the cards' read.
+  const refreshCards = useCallback(() => {
+    if (projectId && sessionId) void qc.invalidateQueries({ queryKey: changeRequestKeys.sessionList(projectId, sessionId), exact: true });
+  }, [qc, projectId, sessionId]);
+  const refreshAll = useCallback(
+    () => invalidateTurnChangeRequestReads(qc, projectId, sessionId),
+    [qc, projectId, sessionId],
+  );
   const wasBusy = useRef(busy);
   useEffect(() => {
     const ended = wasBusy.current && !busy;
     wasBusy.current = busy;
     if (!ended) return;
-    refresh();
-    const timer = setTimeout(refresh, CHANGE_REQUEST_SETTLE_MS);
+    refreshCards();
+    const timer = setTimeout(refreshAll, CHANGE_REQUEST_SETTLE_MS);
     return () => clearTimeout(timer);
-  }, [busy, refresh]);
+  }, [busy, refreshCards, refreshAll]);
 }
 
 /** A turn's outcomes, oldest first. `EMPTY` is a module constant so a turn with

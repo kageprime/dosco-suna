@@ -2084,3 +2084,32 @@ test('fork create retains saved history instead of mounting the empty fresh shel
   expect(calls[0]?.body).toEqual({ fork_from_session_id: 'synthetic-source' });
   expect(isSessionFresh('synthetic-fork')).toBe(false);
 });
+
+describe('sessionWorkState (audit finding 13)', () => {
+  // `status` is the row lifecycle and `runtime_status` the computer: a child
+  // that answered keeps `status: running` until its idle computer stops.
+  const row = (fields: Record<string, unknown>) => ({ status: 'running', ...fields }) as never;
+
+  test('the server field wins', async () => {
+    const { sessionWorkState } = await import('./sessions');
+    expect(sessionWorkState(row({ work_state: 'completed', board_state: 'working' }))).toBe('completed');
+  });
+
+  test('an older API: derived from board_state, working and needs_input are running', async () => {
+    const { sessionWorkState } = await import('./sessions');
+    expect(sessionWorkState(row({ board_state: 'completed' }))).toBe('completed');
+    expect(sessionWorkState(row({ board_state: 'working' }))).toBe('running');
+    expect(sessionWorkState(row({ board_state: 'needs_input' }))).toBe('running');
+    expect(sessionWorkState(row({ board_state: 'stopped' }))).toBe('stopped');
+    expect(sessionWorkState(row({ board_state: 'failed' }))).toBe('failed');
+    expect(sessionWorkState(row({ board_state: 'idle' }))).toBe('idle');
+  });
+
+  test('an API before the board: derived from working, never from a running status', async () => {
+    const { sessionWorkState } = await import('./sessions');
+    expect(sessionWorkState(row({ working: { state: 'working', since: null, turn_token: null, pending_delivery: false } }))).toBe('running');
+    expect(sessionWorkState(row({ working: { state: 'idle', since: null, turn_token: null, pending_delivery: false } }))).toBe('idle');
+    expect(sessionWorkState(row({}))).toBe('idle');
+    expect(sessionWorkState(row({ status: 'failed' }))).toBe('failed');
+  });
+});

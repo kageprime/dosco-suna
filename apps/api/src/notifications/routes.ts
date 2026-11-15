@@ -76,6 +76,9 @@ const InboxNotificationSchema = z
     actor_user_id: z.string().uuid().nullable().openapi({ description: 'Who caused it: the sharer or the prompter.' }),
     url: z.string().openapi({ description: 'Web path that opens the subject and marks the row read.' }),
     read: z.boolean(),
+    resolved: z.boolean().openapi({
+      description: 'A question or permission whose ask is closed: answered, dismissed, decided or expired. False for every other kind.',
+    }),
     created_at: z.string(),
   })
   .openapi('InboxNotification');
@@ -369,7 +372,10 @@ export function createNotificationsApp(deps: NotificationsAppDeps = {}) {
   const preferencesResponse = async (userId: string, kinds?: NotificationKindPreferences) => ({
     kinds: kinds ?? (await services.loadPreferences(userId)),
     email_available: services.emailAvailable(),
-    // No kind is behind a feature flag today. Released clients read the field.
+    // A kind behind a feature flag (`mention`: `calendar`) is hidden by the
+    // clients, from the workspace list they already hold (@kortix/sdk
+    // `hiddenNotificationKinds`): no query here on every preferences read.
+    // Released clients read the field.
     hidden_kinds: [],
   });
 
