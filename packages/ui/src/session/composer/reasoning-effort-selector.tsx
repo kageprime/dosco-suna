@@ -298,13 +298,13 @@ export function ReasoningEffortPane({
               tabIndex={checked ? 0 : -1}
               onClick={() => onVariantChange(value)}
               className={cn(
-                'text-foreground flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-left text-sm outline-none',
-                'hover:bg-hover focus-visible:bg-hover focus-visible:ring-kortix-base focus-visible:ring-2',
-                checked && 'bg-active hover:bg-active',
+                'text-foreground flex h-9 cursor-pointer items-center gap-2 rounded-md px-3 text-left text-sm outline-none transition-colors duration-normal',
+                'hover:bg-hover focus-visible:bg-hover focus-visible:ring-ring focus-visible:ring-2',
+                checked && 'bg-active',
               )}
             >
-              <span className="min-w-0 flex-1 truncate">{label}</span>
-              {checked ? <SolidCheckIcon className="text-ring size-4 shrink-0" /> : null}
+              <span className="min-w-0 flex-1 truncate font-medium">{label}</span>
+              {checked ? <SolidCheckIcon className="size-4 shrink-0 text-ring" /> : null}
             </button>
           );
         })}

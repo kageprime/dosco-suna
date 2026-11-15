@@ -1062,20 +1062,17 @@ export function ModelSelector({
             size="sm"
             // `min-w-0 shrink`: in a narrow toolbar (a channel's thread panel) the
             // model name truncates; the controls beside it keep their width.
-            className={cn('min-w-0 shrink rounded-lg hit-area-y-3', triggerVariant === 'ghost' && 'text-muted-foreground')}
+            className={cn(
+              'min-w-0 shrink rounded-lg hit-area-y-3 font-medium gap-1.5',
+              triggerVariant === 'ghost' ? 'text-muted-foreground' : 'bg-surface/80 hover:bg-surface border border-border/40 px-3',
+            )}
           >
-            <span className={cn('max-w-30 truncate', triggerLabelClassName)}>{triggerLabel}</span>
+            <span className={cn('max-w-30 truncate text-foreground font-medium', triggerLabelClassName)}>{triggerLabel}</span>
             {showEffort && (
-              <span className="shrink-0">
+              <span className="shrink-0 text-muted-foreground font-normal">
                 {currentEffort ? effortLabel(currentEffort) : t('auto')}
               </span>
             )}
-            <ChevronDown
-              className={cn(
-                'duration-moderate size-3 transition-transform ease-out',
-                open && 'rotate-180',
-              )}
-            />
           </Button>
           )}
         </CommandPopoverTrigger>
@@ -1087,7 +1084,7 @@ export function ModelSelector({
           side="top"
           align="start"
           sideOffset={8}
-          className="w-[min(21rem,calc(100vw-1.5rem))]"
+          className="w-[min(21rem,calc(100vw-1.5rem))] rounded-md border border-border bg-popover p-0 shadow-xl overflow-hidden"
         >
           <div className="bg-popover flex min-w-0 flex-col">
             <ModelPickerPanel

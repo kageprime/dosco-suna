@@ -2,7 +2,7 @@ import type { FlatModel } from '@kortix/sdk/react';
 
 import { isClaudeSubscriptionModel, isSubscriptionModel, pickerModelName, shouldShowFreeTag } from './model-tags';
 
-export const CURATED_PRIMARY_LIMIT = 5;
+export const CURATED_PRIMARY_LIMIT = 4;
 
 export interface ModelSubtitleStrings {
   freeFast: string;
@@ -15,6 +15,31 @@ export interface ModelSubtitleStrings {
 
 const FAST_MODEL_RE = /\b(flash|haiku|mini|lite|nano|fast|turbo|instant)\b/i;
 const FLAGSHIP_MODEL_RE = /\b(opus|pro|ultra|max|heavy|reasoner|gpt-5|o3|o4|r1|sonnet)\b/i;
+
+/**
+ * Ranks models by capability tier matching Claude's hierarchical ordering:
+ * Tier 1 (Heavy / Reasoning / Toughest challenges): Opus, o1, o3, r1, Fable
+ * Tier 2 (Flagship / Complex work & everyday tasks): Sonnet, GPT-4o, Gemini 2.5 Pro
+ * Tier 3 (Balanced / Simpler tasks): GPT-4o-mini, Flash, Balanced
+ * Tier 4 (Fastest / Quick answers): Haiku, Flash Lite, Nano, Mini, Instant
+ */
+export function modelTierRank(model: Pick<FlatModel, 'modelName' | 'modelID'> & { capabilities?: { reasoning?: boolean } }): number {
+  const text = `${model.modelName} ${model.modelID}`.toLowerCase();
+  if (/\b(fable|opus|o1|o3|r1|deepseek-r1|reasoner)\b/i.test(text)) {
+    return 1;
+  }
+  if (/\b(sonnet|gpt-4o\b|gpt-5|pro|ultra|claude-3-7|claude-3-5-sonnet)\b/i.test(text)) {
+    return 2;
+  }
+  if (/\b(balanced|gpt-4o-mini|haiku|flash)\b/i.test(text)) {
+    return 3;
+  }
+  if (/\b(lite|nano|mini|instant|fast|turbo)\b/i.test(text)) {
+    return 4;
+  }
+  if (model.capabilities?.reasoning) return 1;
+  return 3;
+}
 const EFFORT_PREFERENCE: Readonly<Record<string, number>> = {
   medium: 0,
   high: 1,
@@ -169,9 +194,12 @@ export function curatePrimaryModels(input: {
     }
   }
 
-  // Re-sort the curated slice alphabetically/naturally with favorites & defaults anchored
-  // gently so the list feels stable across selections (no jumping when you click row 3).
+  // Re-sort the curated slice by capability tier (Opus -> Sonnet -> Haiku)
+  // matching Claude's hierarchical arrangement, with favorites anchored within tiers.
   return picked.sort((a, b) => {
+    const aTier = modelTierRank(a);
+    const bTier = modelTierRank(b);
+    if (aTier !== bTier) return aTier - bTier;
     const aPin = ctx.isFavorite(a) || sameModel(a, ctx.accountDefault) ? 0 : 1;
     const bPin = ctx.isFavorite(b) || sameModel(b, ctx.accountDefault) ? 0 : 1;
     if (aPin !== bPin) return aPin - bPin;
@@ -181,7 +209,7 @@ export function curatePrimaryModels(input: {
 
 /**
  * Formats a concise 1-line subtitle for the primary model menu. Prefers the first
- * clean sentence of `model.description` when present, falling back to factual traits.
+ * clean sentence of `model.description` when present, falling back to Claude-style purpose traits.
  */
 export function modelSubtitle(model: FlatModel, strings: ModelSubtitleStrings): string {
   const raw = (model.description ?? '').replace(/\s+/g, ' ').trim();
@@ -200,12 +228,15 @@ export function modelSubtitle(model: FlatModel, strings: ModelSubtitleStrings): 
   if (shouldShowFreeTag(model)) {
     return isFast ? strings.freeFast : strings.freeGeneral;
   }
-  if (isFast) return strings.fast;
-  if (FLAGSHIP_MODEL_RE.test(nameAndId) && !/\bsonnet\b/i.test(nameAndId)) {
+  if (/\b(fable|opus|reasoner|o1|o3|r1)\b/i.test(nameAndId)) {
     return strings.reasoning;
   }
-  if (model.capabilities?.reasoning || /\bsonnet\b/i.test(nameAndId)) {
-    return strings.balanced;
+  if (/\bsonnet\b/i.test(nameAndId) || FLAGSHIP_MODEL_RE.test(nameAndId)) {
+    return strings.general;
   }
-  return strings.general;
+  if (model.capabilities?.reasoning) {
+    return strings.reasoning;
+  }
+  if (isFast) return strings.fast;
+  return strings.balanced;
 }

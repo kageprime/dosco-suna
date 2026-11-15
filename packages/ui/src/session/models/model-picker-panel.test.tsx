@@ -67,16 +67,16 @@ describe('ModelPickerPanel', () => {
     );
 
     expect(html).toContain('Claude Sonnet 4.6');
-    expect(html).toContain('Balanced for everyday work');
-    expect(html).toContain('Thinking');
+    expect(html).toContain('For complex work and everyday tasks');
+    expect(html).toContain('Effort');
     expect(html).toContain('High');
     expect(html).toContain('More models');
-    expect(html).toContain('Upgrade');
+    expect(html).toContain('Learn more');
     expect(html).not.toContain('Ctrl1');
     expect(html).not.toContain('⌘1');
   });
 
-  test('drills into Thinking effort and More models views cleanly', async () => {
+  test('drills into Effort and More models views cleanly', async () => {
     const onVariantChange = mock(() => {});
     let renderer!: ReactTestRenderer;
 
@@ -109,11 +109,11 @@ describe('ModelPickerPanel', () => {
       );
     });
 
-    const thinkingBtn = renderer.root.find(
-      (node) => node.type === 'button' && textOf(node).includes('Thinking'),
+    const effortBtn = renderer.root.find(
+      (node) => node.type === 'button' && textOf(node).includes('Effort'),
     );
     await act(async () => {
-      thinkingBtn.props.onClick();
+      effortBtn.props.onClick();
     });
 
     const radios = renderer.root.findAll((node) => node.type === 'button' && node.props.role === 'radio');
@@ -123,11 +123,7 @@ describe('ModelPickerPanel', () => {
     });
     expect(onVariantChange).toHaveBeenCalledWith('high');
 
-    const backBtn = renderer.root.find((node) => node.type === 'button' && node.props['aria-label'] === 'Back');
-    await act(async () => {
-      backBtn.props.onClick();
-    });
-
+    // Selecting an effort returns smoothly to primary view
     const moreBtn = renderer.root.find(
       (node) => node.type === 'button' && textOf(node).includes('More models'),
     );

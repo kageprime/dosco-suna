@@ -218,9 +218,9 @@ export function ModelPickerPanel({
 
   if (activeView === 'effort' && hasEffort) {
     return (
-      <div ref={rootRef} className="bg-popover flex min-w-0 flex-col" onKeyDown={onKeyDown}>
+      <div ref={rootRef} className="bg-popover flex min-w-0 flex-col p-1.5" onKeyDown={onKeyDown}>
         <SubViewHeader
-          title={t('thinking')}
+          title={t('effort')}
           backLabel={t('back')}
           onBack={() => setView('primary')}
         />
@@ -228,7 +228,10 @@ export function ModelPickerPanel({
           hideHeader
           choices={effort.choices}
           selectedVariant={effort.selectedVariant}
-          onVariantChange={effort.onChange}
+          onVariantChange={(variant) => {
+            effort.onChange(variant);
+            setView('primary');
+          }}
         />
       </div>
     );
@@ -378,9 +381,9 @@ export function ModelPickerPanel({
   const showNavFooter = hasEffort || !!subscriptionProvider || hasMoreModels;
 
   return (
-    <div ref={rootRef} className="bg-popover flex min-w-0 flex-col" onKeyDown={onKeyDown}>
+    <div ref={rootRef} className="bg-popover flex min-w-0 flex-col p-1.5" onKeyDown={onKeyDown}>
       <CommandList className="max-h-[min(22rem,55vh)]">
-        <CommandGroup forceMount>
+        <CommandGroup forceMount className="flex flex-col gap-0.5">
           {curatedModels.map((model) => (
             <PrimaryModelRow
               key={`${model.providerID}:${model.modelID}`}
@@ -389,61 +392,76 @@ export function ModelPickerPanel({
               isSelected={sameModel(selected, model)}
               onSelect={() => onPick(model)}
               connectLabel={connectLabel}
+              onUpgrade={onUpgrade}
             />
           ))}
         </CommandGroup>
       </CommandList>
 
       {showNavFooter ? (
-        <div className="border-border flex flex-col border-t p-1">
+        <div className="flex flex-col pt-0.5">
           {hasEffort ? (
-            <button
-              type="button"
-              onClick={() => setView('effort')}
-              onKeyDown={keepKeyOnButton}
-              className="text-foreground hover:bg-hover focus-visible:bg-hover focus-visible:ring-ring flex h-8 w-full cursor-pointer items-center justify-between gap-2 rounded-sm px-2 text-sm font-medium outline-none focus-visible:ring-2"
-            >
-              <span className="truncate">{t('thinking')}</span>
-              <span className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs font-normal">
-                <span>{currentEffortText}</span>
-                <CaretRightIcon className="size-3.5 shrink-0" />
-              </span>
-            </button>
+            <>
+              <div className="border-border/40 my-1 border-t" />
+              <button
+                type="button"
+                onClick={() => setView('effort')}
+                onKeyDown={keepKeyOnButton}
+                className="text-foreground hover:bg-hover focus-visible:bg-hover focus-visible:ring-ring flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-md px-3 text-sm font-medium outline-none transition-colors duration-normal focus-visible:ring-2"
+              >
+                <span className="truncate">{t('effort')}</span>
+                <span className="text-muted-foreground flex shrink-0 items-center gap-1 text-sm font-normal">
+                  <span>{currentEffortText}</span>
+                  <CaretRightIcon className="size-3.5 shrink-0" />
+                </span>
+              </button>
+            </>
           ) : null}
 
           {subscriptionProvider ? (
-            <SubscriptionFooterButton
-              providerId={subscriptionProvider}
-              label={t('account')}
-              onOpen={() => setView('account')}
-            />
+            <>
+              <div className="border-border/40 my-1 border-t" />
+              <SubscriptionFooterButton
+                providerId={subscriptionProvider}
+                label={t('account')}
+                onOpen={() => setView('account')}
+              />
+            </>
           ) : null}
 
           {hasMoreModels ? (
-            <button
-              type="button"
-              onClick={() => {
-                setBrowseFilter('all');
-                setView('more');
-              }}
-              onKeyDown={keepKeyOnButton}
-              className="text-foreground hover:bg-hover focus-visible:bg-hover focus-visible:ring-ring flex h-8 w-full cursor-pointer items-center justify-between gap-2 rounded-sm px-2 text-sm font-medium outline-none focus-visible:ring-2"
-            >
-              <span className="truncate">{t('moreModels')}</span>
-              <CaretRightIcon className="text-muted-foreground size-3.5 shrink-0" />
-            </button>
+            <>
+              <div className="border-border/40 my-1 border-t" />
+              <button
+                type="button"
+                onClick={() => {
+                  setBrowseFilter('all');
+                  setView('more');
+                }}
+                onKeyDown={keepKeyOnButton}
+                className="text-foreground hover:bg-hover focus-visible:bg-hover focus-visible:ring-ring flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-md px-3 text-sm font-medium outline-none transition-colors duration-normal focus-visible:ring-2"
+              >
+                <span className="truncate">{t('moreModels')}</span>
+                <CaretRightIcon className="text-muted-foreground size-3.5 shrink-0" />
+              </button>
+            </>
           ) : null}
         </div>
       ) : null}
 
-      {onUpgrade ? (
-        <div className="border-border flex items-center justify-between gap-2 border-t px-3 py-2">
-          <span className="text-muted-foreground min-w-0 truncate text-xs">{t('upgradeNote')}</span>
-          <Button type="button" size="xs" variant="outline" onClick={onUpgrade} className="shrink-0">
-            {t('upgrade')}
-          </Button>
-        </div>
-      ) : null}
+      <div className="border-border/40 my-1 border-t" />
+      <div className="text-muted-foreground flex items-center justify-between gap-2 px-3 py-2 text-xs leading-relaxed">
+        <span className="min-w-0 truncate">{t('upgradeNote')}</span>
+        {onUpgrade ? (
+          <button
+            type="button"
+            onClick={onUpgrade}
+            className="text-foreground cursor-pointer shrink-0 font-medium hover:underline"
+          >
+            {t('learnMore')}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -458,13 +476,13 @@ function SubViewHeader({
   onBack: () => void;
 }) {
   return (
-    <div className="border-border flex h-9 shrink-0 items-center gap-1.5 border-b px-1.5">
+    <div className="border-border/40 flex h-9 shrink-0 items-center gap-1.5 border-b px-1.5 pb-1">
       <button
         type="button"
         aria-label={backLabel}
         onClick={onBack}
         onKeyDown={keepKeyOnButton}
-        className="text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-ring flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-sm outline-none focus-visible:ring-2"
+        className="text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-ring flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md outline-none focus-visible:ring-2"
       >
         <ArrowLeftIcon className="size-4" />
       </button>
@@ -479,16 +497,29 @@ function PrimaryModelRow({
   isSelected,
   onSelect,
   connectLabel,
+  onUpgrade,
 }: {
   model: FlatModel;
   subtitle: string;
   isSelected: boolean;
   onSelect: () => void;
   connectLabel: string;
+  onUpgrade?: () => void;
 }) {
   const t = useTranslations('modelSelector');
   const isUnavailable = model.available === false || model.unavailable === true;
+  const isFree = shouldShowFreeTag(model);
+  const isSubscription = isSubscriptionModel(model);
   const displayName = pickerModelName(model);
+
+  let badge: ReactNode = null;
+  if (isUnavailable) {
+    badge = <Tag>{connectLabel}</Tag>;
+  } else if (isFree) {
+    badge = <Tag variant="free">{t('free')}</Tag>;
+  } else if (isSubscription) {
+    badge = <Tag>{t('included')}</Tag>;
+  }
 
   return (
     <CommandItem
@@ -496,29 +527,36 @@ function PrimaryModelRow({
       title={model.modelID}
       onSelect={onSelect}
       className={cn(
-        'group min-h-12 items-center gap-2 rounded-sm px-2.5 py-2',
+        'group min-h-12 items-center gap-2 rounded-md px-3 py-2 cursor-pointer duration-normal transition-colors',
         'hover:bg-hover [&:not([data-nav=pointer]_*)]:data-[selected=true]:bg-hover',
         isSelected && 'bg-active [&:not([data-nav=pointer]_*)]:data-[selected=true]:bg-active',
       )}
     >
-      <div className={cn('min-w-0 flex-1', isUnavailable && 'opacity-50')}>
-        <div className="flex min-w-0 items-center gap-1.5">
+      <div className={cn('min-w-0 flex-1', isUnavailable && 'opacity-60')}>
+        <div className="flex min-w-0 items-center gap-2">
           <span className="text-foreground truncate text-sm font-medium leading-tight">
             {displayName}
           </span>
-          {model.available === false ? (
-            <Tag>{connectLabel}</Tag>
-          ) : shouldShowFreeTag(model) ? (
-            <Tag variant="free">{t('free')}</Tag>
-          ) : isSubscriptionModel(model) ? (
-            <Tag>{t('included')}</Tag>
-          ) : null}
+          {badge}
         </div>
         <p className="text-muted-foreground mt-0.5 truncate text-xs leading-snug">{subtitle}</p>
       </div>
 
-      <span className="flex size-5 shrink-0 items-center justify-center">
-        {isSelected ? <SolidCheckIcon className="text-ring size-4" /> : null}
+      <span className="flex size-5 shrink-0 items-center justify-end">
+        {isUnavailable && onUpgrade ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUpgrade();
+            }}
+            className="text-primary hover:text-primary/80 cursor-pointer text-xs font-semibold hover:underline"
+          >
+            {t('upgrade')}
+          </button>
+        ) : isSelected ? (
+          <SolidCheckIcon className="size-4 shrink-0 text-ring" />
+        ) : null}
       </span>
     </CommandItem>
   );

@@ -2108,19 +2108,21 @@
     "addFavorite": "Add {model} to favorites",
     "removeFavorite": "Remove {model} from favorites",
     "groups": "Model groups",
-    "thinking": "Thinking",
+    "thinking": "Effort",
+    "effort": "Effort",
     "moreModels": "More models",
     "allModels": "All",
     "back": "Back",
     "account": "Account",
     "upgradeNote": "More models on paid plans",
+    "learnMore": "Learn more",
     "subtitle": {
-      "freeFast": "Free, fast for everyday tasks",
-      "freeGeneral": "Free, general-purpose tasks",
-      "reasoning": "For complex work and deep reasoning",
+      "freeFast": "Fastest for quick answers (Free)",
+      "freeGeneral": "Most efficient for simpler tasks (Free)",
+      "reasoning": "For your toughest challenges",
       "fast": "Fastest for quick answers",
-      "balanced": "Balanced for everyday work",
-      "general": "General-purpose model"
+      "balanced": "Most efficient for simpler tasks",
+      "general": "For complex work and everyday tasks"
     }
   },
   "sessionScope": {
