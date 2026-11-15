@@ -131,6 +131,38 @@ describe('cloudCodeRequestFromPrompt', () => {
     ]);
   });
 
+  test('backfills blank tool-result toolName from assistant tool-call and never emits empty functionResponse.name', () => {
+    const { contents } = cloudCodeRequestFromPrompt(
+      [
+        { role: 'user', content: [{ type: 'text', text: 'run' }] },
+        {
+          role: 'assistant',
+          content: [{ type: 'tool-call', toolCallId: 'call_42', toolName: 'bash', input: { cmd: 'ls' } }],
+        },
+        {
+          role: 'tool',
+          content: [{ type: 'tool-result', toolCallId: 'call_42', toolName: '', output: { type: 'text', value: 'ok' } }],
+        },
+        {
+          role: 'tool',
+          content: [{ type: 'tool-result', toolCallId: 'orphan_99', toolName: '   ', output: { type: 'text', value: 'done' } }],
+        },
+      ],
+      undefined,
+    );
+    expect(contents).toEqual([
+      { role: 'user', parts: [{ text: 'run' }] },
+      { role: 'model', parts: [{ functionCall: { name: 'bash', args: { cmd: 'ls' } } }] },
+      {
+        role: 'user',
+        parts: [
+          { functionResponse: { name: 'bash', response: { output: 'ok' } } },
+          { functionResponse: { name: 'unknown_tool', response: { output: 'done' } } },
+        ],
+      },
+    ]);
+  });
+
   test('translates function tools and strips Gemini-hostile schema keys', () => {
     const { tools } = cloudCodeRequestFromPrompt([], [
       {

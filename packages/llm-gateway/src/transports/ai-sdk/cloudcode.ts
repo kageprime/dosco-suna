@@ -460,6 +460,12 @@ function thoughtProviderMetadata(part: Json): Record<string, Record<string, stri
   return typeof sig === 'string' && sig ? { google: { thoughtSignature: sig } } : undefined;
 }
 
+function nonEmptyToolName(value: unknown, fallback?: string): string {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof fallback === 'string' && fallback.trim()) return fallback.trim();
+  return 'unknown_tool';
+}
+
 export function cloudCodeRequestFromPrompt(
   prompt: CloudCodePromptMessage[],
   tools: Array<JsonPart> | undefined,
@@ -467,6 +473,7 @@ export function cloudCodeRequestFromPrompt(
 ): { contents: Json[]; systemInstruction: Json | undefined; tools: Json[] | undefined } {
   const systemTexts: string[] = [];
   const contents: Json[] = [];
+  const toolNameByCallId = new Map<string, string>();
 
   // Consecutive same-role messages merge into one contents entry (Gemini
   // tolerates many parts per message; keeping one message per role run keeps
@@ -531,9 +538,13 @@ export function cloudCodeRequestFromPrompt(
           if (text) parts.push({ text, thought: true, ...(sig ? { thoughtSignature: sig } : {}) });
         } else if (p.type === 'tool-call') {
           const sig = thoughtSignatureOf(p) ?? (modelId && !/claude/i.test(modelId) ? GEMINI_PLACEHOLDER_SIGNATURE : undefined);
+          const name = nonEmptyToolName(p.toolName);
+          if (typeof p.toolCallId === 'string' && p.toolCallId) {
+            toolNameByCallId.set(p.toolCallId, name);
+          }
           parts.push({
             functionCall: {
-              name: typeof p.toolName === 'string' ? p.toolName : 'unknown_tool',
+              name,
               args: parseToolArgs(p.input),
             },
             ...(sig ? { thoughtSignature: sig } : {}),
@@ -550,9 +561,11 @@ export function cloudCodeRequestFromPrompt(
     for (const part of message.content ?? []) {
       const p: any = part;
       if (p.type !== 'tool-result') continue;
+      const mappedName =
+        typeof p.toolCallId === 'string' && p.toolCallId ? toolNameByCallId.get(p.toolCallId) : undefined;
       parts.push({
         functionResponse: {
-          name: typeof p.toolName === 'string' ? p.toolName : 'unknown_tool',
+          name: nonEmptyToolName(p.toolName, mappedName),
           response: functionResponseObject(p.output),
         },
       });
@@ -679,7 +692,7 @@ export function cloudCodeContentFromParts(parts: CloudCodePart[]): JsonPart[] {
       content.push({
         type: 'tool-call',
         toolCallId: toolCallId(toolIndex++),
-        toolName: typeof fn.name === 'string' ? fn.name : 'unknown_tool',
+        toolName: nonEmptyToolName(fn.name),
         input: JSON.stringify(fn.args ?? {}),
         ...(providerMetadata ? { providerMetadata } : {}),
       });
@@ -907,7 +920,7 @@ export function createCloudCodeModel(descriptor: UpstreamDescriptor, opts: Cloud
               controller.enqueue({
                 type: 'tool-call',
                 toolCallId: toolCallId(toolIndex++),
-                toolName: typeof fn.name === 'string' ? fn.name : 'unknown_tool',
+                toolName: nonEmptyToolName(fn.name),
                 input: JSON.stringify(fn.args ?? {}),
                 ...(providerMetadata ? { providerMetadata } : {}),
               });

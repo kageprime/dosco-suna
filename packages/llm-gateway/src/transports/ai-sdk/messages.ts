@@ -192,6 +192,15 @@ export function toModelMessages(rawMessages: unknown): {
   const messages = Array.isArray(rawMessages) ? rawMessages : [];
   const systemParts: string[] = [];
   const out: ModelMessage[] = [];
+  const toolNameByCallId = new Map<string, string>();
+  for (const raw of messages) {
+    const msg = raw as { role?: string; tool_calls?: OpenAiToolCall[] };
+    if (msg.role !== 'assistant' || !Array.isArray(msg.tool_calls)) continue;
+    for (const tc of msg.tool_calls) {
+      const name = tc?.function?.name?.trim();
+      if (tc?.id && name) toolNameByCallId.set(tc.id, name);
+    }
+  }
 
   for (const raw of messages) {
     const m = raw as {
@@ -213,7 +222,7 @@ export function toModelMessages(rawMessages: unknown): {
           {
             type: 'tool-result',
             toolCallId: m.tool_call_id ?? '',
-            toolName: m.name ?? '',
+            toolName: m.name?.trim() || (m.tool_call_id ? toolNameByCallId.get(m.tool_call_id) : undefined) || '',
             output: {
               type: 'text',
               value:

@@ -348,6 +348,24 @@ describe('ai-sdk request conversion', () => {
     });
   });
 
+  it('infers tool-result toolName from assistant tool_calls when OpenAI tool message omits name', () => {
+    const { messages } = toModelMessages([
+      { role: 'user', content: 'list files' },
+      {
+        role: 'assistant',
+        content: '',
+        tool_calls: [{ id: 'call_ls', function: { name: 'list_dir', arguments: '{}' } }],
+      },
+      { role: 'tool', tool_call_id: 'call_ls', content: 'README.md' },
+    ]);
+    expect(messages[2]).toMatchObject({
+      role: 'tool',
+      content: [
+        { type: 'tool-result', toolCallId: 'call_ls', toolName: 'list_dir', output: { type: 'text', value: 'README.md' } },
+      ],
+    });
+  });
+
   it('backfills empty-content messages so Bedrock never sees an empty content field', () => {
     // An assistant turn with no text and no tool_calls (e.g. persisted from an
     // earlier empty upstream completion), an empty user turn, and a blank tool
