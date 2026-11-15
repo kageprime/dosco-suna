@@ -25,6 +25,7 @@
 
 import type { SubscriptionUsage, SubscriptionUsageWindow } from '@kortix/sdk';
 import { useSessionProviderSecretPools, type FlatModel } from '@kortix/sdk/react';
+import { CaretRightIcon } from '@phosphor-icons/react';
 import { useTranslations } from '../../i18n';
 import { needsReconnection } from '../../internal/lib/account-secret-access';
 import { SolidCheckIcon } from '../../internal/icons/solid-check-icon';
@@ -71,7 +72,13 @@ export function peakBlockingWindow(
   return peak;
 }
 
-export function SubscriptionSwitcher({ providerId }: { providerId: 'codex' | 'claude-agent' }) {
+export function SubscriptionSwitcher({
+  providerId,
+  hideHeader = false,
+}: {
+  providerId: 'codex' | 'claude-agent';
+  hideHeader?: boolean;
+}) {
   const t = useTranslations('pooledSecrets');
   const tUsage = useTranslations('subscriptionUsage');
   const { projectId, sessionId } = useSessionIds();
@@ -133,12 +140,12 @@ export function SubscriptionSwitcher({ providerId }: { providerId: 'codex' | 'cl
   };
 
   return (
-    // `border-t`: the pane spans the picker's full width under the rail, the
-    // list and the effort pane, so one rule closes all three above it.
-    <div className="border-t">
-      <div className="text-muted-foreground flex h-9 shrink-0 items-center border-b px-3 text-sm">
-        {t('subscriptionSwitcher')}
-      </div>
+    <div className={hideHeader ? undefined : 'border-t'}>
+      {hideHeader ? null : (
+        <div className="text-muted-foreground flex h-9 shrink-0 items-center border-b px-3 text-sm">
+          {t('subscriptionSwitcher')}
+        </div>
+      )}
       <div role="radiogroup" aria-label={t('subscriptionSwitcher')} onKeyDown={onKeyDown} className="flex flex-col gap-px p-1.5">
         {rows.map((row) => {
           const checked = row.secretId === pinnedId || (row.secretId === null && pinnedId === null);
@@ -221,5 +228,49 @@ export function SubscriptionRowMeter({ text, percent, tone }: { text: string; pe
       </span>
       <span className="max-w-72 truncate">{text}</span>
     </span>
+  );
+}
+
+/**
+ * Compact footer trigger for the primary model menu. Renders nothing when the
+ * session has no switchable logins for `providerId`, preventing a dead sub-view.
+ */
+export function SubscriptionFooterButton({
+  providerId,
+  label,
+  onOpen,
+}: {
+  providerId: 'codex' | 'claude-agent';
+  label: string;
+  onOpen: () => void;
+}) {
+  const t = useTranslations('pooledSecrets');
+  const { projectId, sessionId } = useSessionIds();
+  const pools = useSessionProviderSecretPools(projectId ?? null, sessionId ?? null);
+  const keys = useProviderKeyChoices(projectId ?? '', sessionId);
+
+  const logins = keys.keys.filter((secret) => secret.provider_id === providerId);
+  if (!sessionId || logins.length === 0) return null;
+
+  const pinned = pools.data?.pools.find((pool) => pool.provider_id === providerId)?.secret_ids ?? null;
+  const pinnedId = pinned && pinned.length === 1 ? pinned[0] : null;
+  const activeLogin = pinnedId ? logins.find((secret) => secret.secret_id === pinnedId) : null;
+  const currentLabel = activeLogin?.label ?? t('projectDefaultShort');
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={cn(
+        'text-foreground flex h-8 w-full cursor-pointer items-center justify-between gap-2 rounded-sm px-2 text-sm font-medium outline-none',
+        'hover:bg-hover focus-visible:bg-hover focus-visible:ring-ring focus-visible:ring-2',
+      )}
+    >
+      <span className="truncate">{label}</span>
+      <span className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs font-normal">
+        <span className="max-w-32 truncate">{currentLabel}</span>
+        <CaretRightIcon className="size-3.5 shrink-0" />
+      </span>
+    </button>
   );
 }

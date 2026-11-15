@@ -185,9 +185,8 @@ function ModelRow({
   const isFree = shouldShowFreeTag(model);
   const isSubscription = isSubscriptionModel(model);
   const isAntigravity = isAntigravitySubscriptionModel(model) || groupProviderID === 'antigravity';
-  const modelAny = model as any;
-  const effort = modelAny.defaultEffort;
-  const badge = modelAny.badge;
+  const effort = model.defaultEffort;
+  const badge = model.badge;
   // Display name only — `model.modelName` still carries " (ChatGPT)" for search
   // and for the aria labels below, where there is no group heading to lean on.
   const { lead, trail } = splitModelLabel(pickerModelName(model));
@@ -243,21 +242,19 @@ function ModelRow({
       </span>
 
       {isAntigravity && badge === 'new' && (
-        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0">
-          <Warning className="size-3 text-amber-500" />
+        <span className="bg-kortix-orange/15 text-foreground inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs font-medium leading-none">
+          <Warning className="text-kortix-orange size-3" />
           <span>New</span>
         </span>
       )}
       {isAntigravity && badge === 'notice' && (
-        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
-          <WarningCircle className="size-3 text-blue-400" />
+        <span className="bg-kortix-blue/15 text-foreground inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs font-medium leading-none">
+          <WarningCircle className="text-kortix-blue size-3" />
           <span>Notice</span>
         </span>
       )}
-      {isAntigravity && (badge === 'unavailable' || modelAny.unavailable) && (
-        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded bg-muted/40 text-muted-foreground border border-border/40 shrink-0">
-          <span>Unavailable</span>
-        </span>
+      {isAntigravity && (badge === 'unavailable' || model.unavailable) && (
+        <Tag>Unavailable</Tag>
       )}
 
       {/*
@@ -1090,15 +1087,9 @@ export function ModelSelector({
           side="top"
           align="start"
           sideOffset={8}
-          className={
-            showEffort
-              ? 'w-[min(38rem,calc(100vw-1.5rem))]'
-              : 'w-[min(28rem,calc(100vw-1.5rem))]'
-          }
+          className="w-[min(21rem,calc(100vw-1.5rem))]"
         >
-          {/* `bg-surface` under the panel AND the subscription pane: the pane
-              sat on the popover's own fill, a second surface in light mode. */}
-          <div className="bg-surface flex min-w-0 flex-col">
+          <div className="bg-popover flex min-w-0 flex-col">
             <ModelPickerPanel
               browseModels={browseModels}
               pickableModels={pickableModels}
@@ -1107,6 +1098,7 @@ export function ModelSelector({
               onSearchChange={setSearch}
               searchRight={searchRight}
               selected={availableSelectedModel ?? null}
+              accountDefault={defaultControls?.accountDefault ?? null}
               onPick={handleSelect}
               isFavorite={pickerModelStore.isFavorite}
               setFavorite={pickerModelStore.setFavorite}
@@ -1116,6 +1108,8 @@ export function ModelSelector({
               onConnectChatGpt={chatGptAvailable ? handleOpenChatGpt : undefined}
               onForeignDialog={closePicker}
               connectLabel={tPooled('connect')}
+              subscriptionProvider={subscriptionProvider}
+              onUpgrade={showUpgradeOption ? handleUpgrade : undefined}
               effort={
                 showEffort
                   ? {
@@ -1126,7 +1120,6 @@ export function ModelSelector({
                   : undefined
               }
             />
-            {subscriptionNode}
           </div>
         </CommandPopoverContent>
       </CommandPopover>

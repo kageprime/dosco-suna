@@ -1,40 +1,36 @@
 'use client';
 
 import type { FlatModel } from '@kortix/sdk/react';
-import { StarIcon } from '@phosphor-icons/react';
+import { ArrowLeftIcon, CaretRightIcon, StarIcon } from '@phosphor-icons/react';
 import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import { useTranslations } from '../../i18n';
+import { SolidCheckIcon } from '../../internal/icons/solid-check-icon';
 import { MODEL_SELECTOR_PROVIDER_IDS, ProviderLogo } from '../../internal/lib/provider-branding';
 import { cn } from '../../lib/utils';
-import { SolidCheckIcon } from '../../internal/icons/solid-check-icon';
 import { foreignDialogOpen, openDialogs } from '../../lib/z-stack';
 import { Button } from '../../primitives/button';
 import { CommandGroup, CommandInput, CommandItem, CommandList } from '../../primitives/command';
-import Hint from '../../primitives/hint';
-import { Kbd } from '../../primitives/kbd';
 import Loading from '../../primitives/loading';
 import { Tag } from '../../primitives/tag';
-import { ReasoningEffortPane } from '../composer/reasoning-effort-selector';
+import { effortLabel, ReasoningEffortPane } from '../composer/reasoning-effort-selector';
+import { curatePrimaryModels, modelSubtitle, type ModelSubtitleStrings } from './model-curation';
 import {
-  initialPickerTab,
   modelItemValue,
   pickerGroupId,
   pickerGroupLabel,
   pickerTabOf,
   pickerTabs,
-  splitModelLabel,
   type PickerTabId,
 } from './model-grouping';
-import { pickerModelName, shouldShowFreeTag } from './model-tags';
+import { isSubscriptionModel, pickerModelName, shouldShowFreeTag } from './model-tags';
+import { SubscriptionFooterButton, SubscriptionSwitcher } from './subscription-switcher';
 
 type ModelRef = { providerID: string; modelID: string };
+type PickerView = 'primary' | 'more' | 'effort' | 'account';
+type BrowseFilter = 'all' | PickerTabId;
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
-const MOD = IS_MAC ? '⌘' : 'Ctrl';
-
-/** Rows past the ninth have no digit to bind. */
-const SHORTCUT_ROWS = 9;
 
 const sameModel = (a: ModelRef | null | undefined, b: ModelRef) =>
   !!a && a.providerID === b.providerID && a.modelID === b.modelID;
@@ -55,6 +51,8 @@ export interface ModelPickerPanelProps {
   /** Controls at the right end of the search field (connect, manage). */
   searchRight?: ReactNode;
   selected: ModelRef | null;
+  /** Workspace default model, prioritized alongside favorites in the primary list. */
+  accountDefault?: ModelRef | null;
   onPick: (model: FlatModel) => void;
   isFavorite: (model: ModelRef) => boolean;
   setFavorite: (model: ModelRef, on: boolean) => void;
@@ -68,12 +66,16 @@ export interface ModelPickerPanelProps {
   onConnectChatGpt?: () => void;
   /** Tag for a model whose provider is not connected. */
   connectLabel: string;
+  /** Active subscription provider when the current model bills to a connected login. */
+  subscriptionProvider?: 'codex' | 'claude-agent' | null;
+  /** Present when free-tier members can upgrade from the footer. */
+  onUpgrade?: () => void;
   /**
    * Another dialog opened (the command palette, a modal). The popover sits
    * above every top-level dialog, so it must close rather than float over it.
    */
   onForeignDialog?: () => void;
-  /** Thinking effort for the selected model. Absent = no right pane. */
+  /** Thinking effort for the selected model. Absent = no Thinking footer row. */
   effort?: {
     choices: readonly string[];
     selectedVariant: string | null | undefined;
@@ -82,17 +84,13 @@ export interface ModelPickerPanelProps {
 }
 
 /**
- * The composer's model popover: a rail on the left (Favorites, Kortix,
- * ChatGPT, then one tab per connected provider), the tab's models in the
- * middle, and the selected model's thinking effort on the right. Picking a
- * model or a level keeps it open; Escape or a click outside closes it.
+ * Progressive-disclosure composer model popover:
+ * - Default (`primary`): curated 2-line rows with clean descriptions, inline badges,
+ *   and footer rows for Thinking effort, Subscription account (when applicable),
+ *   and More models.
+ * - `effort` / `account` / `more`: compact single-column drill-down sub-views.
  *
- * The star on a row is a FAVORITE (per browser, `useModelStore`), not the
- * workspace default: favorites collect in the first tab, the way a member
- * keeps the three models they switch between in one place. The workspace
- * default is set in Customize -> Models.
- *
- * Mod + 1..9 picks the visible row with that number while the popover is open.
+ * Mod + 1..9 remains available for quick keyboard selection on visible rows.
  */
 export function ModelPickerPanel({
   browseModels,
@@ -102,6 +100,7 @@ export function ModelPickerPanel({
   onSearchChange,
   searchRight,
   selected,
+  accountDefault,
   onPick,
   isFavorite,
   setFavorite,
@@ -110,11 +109,17 @@ export function ModelPickerPanel({
   searchEmpty,
   onConnectChatGpt,
   connectLabel,
+  subscriptionProvider,
+  onUpgrade,
   effort,
   onForeignDialog,
 }: ModelPickerPanelProps) {
   const t = useTranslations('modelSelector');
+  const tThreads = useTranslations('threads');
   const tPooled = useTranslations('pooledSecrets');
+
+  const [view, setView] = useState<PickerView>('primary');
+  const [browseFilter, setBrowseFilter] = useState<BrowseFilter>('all');
 
   const favorites = useMemo(() => pickableModels.filter(isFavorite), [pickableModels, isFavorite]);
   const tabs = useMemo(
@@ -125,34 +130,38 @@ export function ModelPickerPanel({
       }),
     [browseModels, onConnectChatGpt],
   );
-  const selectedModel = useMemo(
-    () => (selected ? browseModels.find((m) => sameModel(selected, m)) : undefined),
-    [browseModels, selected],
+
+  const curatedModels = useMemo(
+    () =>
+      curatePrimaryModels({
+        browseModels,
+        pickableModels,
+        selected,
+        accountDefault,
+        isFavorite,
+      }),
+    [browseModels, pickableModels, selected, accountDefault, isFavorite],
   );
 
-  // The tab is fixed once the models are there, then moves only on a rail
-  // click: picking or starring a model must not yank the rail elsewhere. The
-  // popover unmounts this panel on close, so every open starts afresh.
-  const [chosenTab, setChosenTab] = useState<PickerTabId | null>(null);
-  const openingTab = initialPickerTab({
-    tabs,
-    selected: selectedModel ?? null,
-    selectedIsFavorite: !!selectedModel && isFavorite(selectedModel),
-    hasFavorites: favorites.length > 0,
-  });
-  // Set during render (React's "adjust state on a prop change" pattern): the
-  // first render with models pins the tab, before anything can move it.
-  if (chosenTab === null && !loading && browseModels.length > 0) setChosenTab(openingTab);
-  const tab = chosenTab && tabs.includes(chosenTab) ? chosenTab : openingTab;
-  const searching = search.trim().length > 0;
+  const subtitleStrings: ModelSubtitleStrings = useMemo(
+    () => ({
+      freeFast: t('subtitle.freeFast'),
+      freeGeneral: t('subtitle.freeGeneral'),
+      reasoning: t('subtitle.reasoning'),
+      fast: t('subtitle.fast'),
+      balanced: t('subtitle.balanced'),
+      general: t('subtitle.general'),
+    }),
+    [t],
+  );
 
-  // Mounted only while the popover is open, so this watches exactly then.
+  // Typing immediately moves into `more` view if not already there.
+  const searching = search.trim().length > 0;
+  const activeView: PickerView = searching ? 'more' : view;
+
   const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!onForeignDialog) return;
-    // A dialog already open when the picker opens is its host (the trigger
-    // composer, a settings modal), not one that opened over it. Counting it
-    // closed the picker ~60 ms after every open inside a modal.
     const host = new Set<Element>(openDialogs());
     const check = () => {
       if (foreignDialogOpen(rootRef.current, host)) onForeignDialog();
@@ -167,26 +176,27 @@ export function ModelPickerPanel({
     return () => observer.disconnect();
   }, [onForeignDialog]);
 
-  const rows = useMemo(() => {
+  const browseRows = useMemo(() => {
     if (searching) return searchModels;
-    if (tab === 'favorites') return favorites;
-    return browseModels.filter((m) => pickerTabOf(m) === tab);
-  }, [searching, searchModels, tab, favorites, browseModels]);
+    if (browseFilter === 'all') return browseModels;
+    if (browseFilter === 'favorites') return favorites;
+    return browseModels.filter((m) => pickerTabOf(m) === browseFilter);
+  }, [searching, searchModels, browseFilter, browseModels, favorites]);
 
-  const sections = useMemo(() => [{ id: searching ? 'search' : tab, models: rows }], [searching, tab, rows]);
-  const ordered = useMemo(() => sections.flatMap((s) => s.models), [sections]);
+  const visibleShortcutModels = activeView === 'primary' ? curatedModels : activeView === 'more' ? browseRows : [];
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!(IS_MAC ? event.metaKey : event.ctrlKey) || event.altKey || event.shiftKey) return;
     if (!/^[1-9]$/.test(event.key)) return;
-    const model = ordered[Number(event.key) - 1];
+    const model = visibleShortcutModels[Number(event.key) - 1];
     if (!model) return;
     event.preventDefault();
     event.stopPropagation();
     onPick(model);
   };
 
-  const tabLabel = (id: PickerTabId) => {
+  const tabLabel = (id: BrowseFilter) => {
+    if (id === 'all') return t('allModels');
     if (id === 'favorites') return t('favorites');
     if (id === 'kortix') return 'Dosco';
     if (id === 'chatgpt') return 'ChatGPT';
@@ -194,159 +204,291 @@ export function ModelPickerPanel({
     return sample ? pickerGroupLabel(id, sample) : id;
   };
 
-  const tabIcon = (id: PickerTabId) => {
-    // One size for every rail glyph: the star, the Kortix mark, each provider.
-    if (id === 'favorites') return <StarIcon weight="fill" className="text-kortix-orange size-4.5" />;
+  const hasMoreModels =
+    browseModels.length > curatedModels.length ||
+    pickableModels.length > curatedModels.length ||
+    !!searchRight ||
+    !!onConnectChatGpt;
+
+  const hasEffort = !!effort && effort.choices.length > 0;
+  const currentEffortText =
+    effort?.selectedVariant && effort.choices.includes(effort.selectedVariant)
+      ? effortLabel(effort.selectedVariant)
+      : tThreads('auto');
+
+  if (activeView === 'effort' && hasEffort) {
     return (
-      <ProviderLogo
-        providerID={id === 'chatgpt' ? 'codex' : id}
-        name={tabLabel(id)}
-        size="xs"
-        className="size-4.5"
-      />
-    );
-  };
-
-  let body: ReactNode;
-  if (loading) {
-    body = (
-      <div className="flex h-full items-center justify-center" role="status" aria-label={t('loading')}>
-        <Loading className="text-muted-foreground size-4 shrink-0" />
-      </div>
-    );
-  } else if (browseModels.length === 0 && !searching) {
-    body = emptyState;
-  } else if (searching && rows.length === 0) {
-    body = searchEmpty;
-  } else if (rows.length === 0 && tab === 'favorites') {
-    body = <p className="text-muted-foreground px-3 py-6 text-center text-sm">{t('favoritesEmpty')}</p>;
-  } else if (rows.length === 0 && tab === 'chatgpt' && onConnectChatGpt) {
-    body = (
-      <div className="flex justify-center px-3 py-6">
-        <Button type="button" size="sm" variant="outline" onClick={onConnectChatGpt}>
-          {tPooled('connectChatGpt')}
-        </Button>
-      </div>
-    );
-  } else {
-    let index = 0;
-    body = sections.map((section) => (
-      <Fragment key={section.id}>
-        <CommandGroup forceMount>
-          {section.models.map((model) => {
-            index += 1;
-            return (
-              <PickerRow
-                key={`${model.providerID}:${model.modelID}`}
-                model={model}
-                isSelected={sameModel(selected, model)}
-                favorite={isFavorite(model)}
-                onToggleFavorite={(on) => setFavorite(model, on)}
-                onSelect={() => onPick(model)}
-                shortcut={index <= SHORTCUT_ROWS ? index : null}
-                connectLabel={connectLabel}
-              />
-            );
-          })}
-        </CommandGroup>
-      </Fragment>
-    ));
-  }
-
-  return (
-    // `bg-surface`: a hair below the white canvas (#fcfcfc light), so the
-    // popover reads as a surface of its own; `card` (#f4f4f4) was too dark.
-    // It covers the `Command` root's `bg-popover`, which matches the page.
-    <div ref={rootRef} className="bg-surface flex min-h-0 flex-col sm:flex-row" onKeyDown={onKeyDown}>
-      <div className="flex h-[min(22rem,55vh)] min-w-0 flex-1">
-        <div
-          role="tablist"
-          aria-label={t('groups')}
-          aria-orientation="vertical"
-          className="flex w-12 shrink-0 flex-col items-center gap-1 overflow-y-auto border-r py-2"
-        >
-          {tabs.map((id) => {
-            const active = !searching && id === tab;
-            return (
-              <Hint key={id} label={tabLabel(id)} side="left" className="z-50">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  aria-label={tabLabel(id)}
-                  onClick={() => {
-                    setChosenTab(id);
-                    if (searching) onSearchChange('');
-                  }}
-                  onKeyDown={keepKeyOnButton}
-                  className={cn(
-                    'text-muted-foreground flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md outline-none',
-                    'hover:bg-hover hover:text-foreground focus-visible:ring-kortix-base focus-visible:ring-2',
-                    active && 'bg-active text-foreground',
-                  )}
-                >
-                  {tabIcon(id)}
-                </button>
-              </Hint>
-            );
-          })}
-        </div>
-
-        <div className="flex min-w-0 flex-1 flex-col">
-          <CommandInput
-            compact
-            placeholder={t('search')}
-            value={search}
-            onValueChange={onSearchChange}
-            rightElement={searchRight}
-          />
-          <CommandList className="max-h-none min-h-0 flex-1">{body}</CommandList>
-        </div>
-      </div>
-
-      {effort && effort.choices.length > 0 ? (
-        <ReasoningEffortPane
+      <div ref={rootRef} className="bg-popover flex min-w-0 flex-col" onKeyDown={onKeyDown}>
+        <SubViewHeader
           title={t('thinking')}
+          backLabel={t('back')}
+          onBack={() => setView('primary')}
+        />
+        <ReasoningEffortPane
+          hideHeader
           choices={effort.choices}
           selectedVariant={effort.selectedVariant}
           onVariantChange={effort.onChange}
-          className="border-t sm:w-44 sm:shrink-0 sm:border-t-0 sm:border-l"
         />
+      </div>
+    );
+  }
+
+  if (activeView === 'account' && subscriptionProvider) {
+    return (
+      <div ref={rootRef} className="bg-popover flex min-w-0 flex-col" onKeyDown={onKeyDown}>
+        <SubViewHeader
+          title={t('account')}
+          backLabel={t('back')}
+          onBack={() => setView('primary')}
+        />
+        <SubscriptionSwitcher providerId={subscriptionProvider} hideHeader />
+      </div>
+    );
+  }
+
+  if (activeView === 'more') {
+    const filterItems: BrowseFilter[] = tabs.length > 1 ? ['all', ...tabs] : [];
+    const backButton = (
+      <button
+        type="button"
+        aria-label={t('back')}
+        onClick={() => {
+          if (searching) onSearchChange('');
+          setView('primary');
+        }}
+        onKeyDown={keepKeyOnButton}
+        className="text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-ring flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-sm outline-none focus-visible:ring-2"
+      >
+        <ArrowLeftIcon className="size-4" />
+      </button>
+    );
+
+    let moreBody: ReactNode;
+    if (loading) {
+      moreBody = (
+        <div className="flex min-h-40 items-center justify-center" role="status" aria-label={t('loading')}>
+          <Loading className="text-muted-foreground size-4 shrink-0" />
+        </div>
+      );
+    } else if (searching && browseRows.length === 0) {
+      moreBody = searchEmpty;
+    } else if (!searching && browseRows.length === 0 && browseFilter === 'favorites') {
+      moreBody = <p className="text-muted-foreground px-3 py-8 text-center text-sm">{t('favoritesEmpty')}</p>;
+    } else if (!searching && browseRows.length === 0 && browseFilter === 'chatgpt' && onConnectChatGpt) {
+      moreBody = (
+        <div className="flex justify-center px-3 py-8">
+          <Button type="button" size="sm" variant="outline" onClick={onConnectChatGpt}>
+            {tPooled('connectChatGpt')}
+          </Button>
+        </div>
+      );
+    } else if (browseRows.length === 0) {
+      moreBody = emptyState;
+    } else {
+      moreBody = (
+        <CommandGroup forceMount>
+          {browseRows.map((model) => (
+            <BrowseModelRow
+              key={`${model.providerID}:${model.modelID}`}
+              model={model}
+              isSelected={sameModel(selected, model)}
+              favorite={isFavorite(model)}
+              onToggleFavorite={(on) => setFavorite(model, on)}
+              onSelect={() => onPick(model)}
+              connectLabel={connectLabel}
+            />
+          ))}
+        </CommandGroup>
+      );
+    }
+
+    return (
+      <div ref={rootRef} className="bg-popover flex min-w-0 flex-col" onKeyDown={onKeyDown}>
+        <CommandInput
+          compact
+          autoFocus
+          placeholder={t('search')}
+          value={search}
+          onValueChange={onSearchChange}
+          leftElement={backButton}
+          rightElement={searchRight}
+        />
+        {!searching && filterItems.length > 0 ? (
+          <div
+            role="tablist"
+            aria-label={t('groups')}
+            className="border-border flex items-center gap-1 overflow-x-auto border-b px-2 py-1.5"
+          >
+            {filterItems.map((id) => {
+              const active = id === browseFilter;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setBrowseFilter(id)}
+                  onKeyDown={keepKeyOnButton}
+                  className={cn(
+                    'flex h-6 shrink-0 cursor-pointer items-center gap-1.5 rounded-sm px-2 text-xs font-medium outline-none',
+                    'focus-visible:ring-ring focus-visible:ring-2',
+                    active
+                      ? 'bg-active text-foreground'
+                      : 'text-muted-foreground hover:bg-hover hover:text-foreground',
+                  )}
+                >
+                  {id === 'favorites' ? (
+                    <StarIcon weight="fill" className="text-kortix-orange size-3" />
+                  ) : null}
+                  <span>{tabLabel(id)}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+        <CommandList className="max-h-[min(19rem,50vh)] min-h-36">{moreBody}</CommandList>
+      </div>
+    );
+  }
+
+  // Primary view
+  if (loading) {
+    return (
+      <div
+        ref={rootRef}
+        className="bg-popover flex min-h-36 items-center justify-center"
+        role="status"
+        aria-label={t('loading')}
+        onKeyDown={onKeyDown}
+      >
+        <Loading className="text-muted-foreground size-4 shrink-0" />
+      </div>
+    );
+  }
+
+  if (curatedModels.length === 0) {
+    return (
+      <div ref={rootRef} className="bg-popover flex min-w-0 flex-col" onKeyDown={onKeyDown}>
+        {emptyState}
+      </div>
+    );
+  }
+
+  const showNavFooter = hasEffort || !!subscriptionProvider || hasMoreModels;
+
+  return (
+    <div ref={rootRef} className="bg-popover flex min-w-0 flex-col" onKeyDown={onKeyDown}>
+      <CommandList className="max-h-[min(22rem,55vh)]">
+        <CommandGroup forceMount>
+          {curatedModels.map((model) => (
+            <PrimaryModelRow
+              key={`${model.providerID}:${model.modelID}`}
+              model={model}
+              subtitle={modelSubtitle(model, subtitleStrings)}
+              isSelected={sameModel(selected, model)}
+              onSelect={() => onPick(model)}
+              connectLabel={connectLabel}
+            />
+          ))}
+        </CommandGroup>
+      </CommandList>
+
+      {showNavFooter ? (
+        <div className="border-border flex flex-col border-t p-1">
+          {hasEffort ? (
+            <button
+              type="button"
+              onClick={() => setView('effort')}
+              onKeyDown={keepKeyOnButton}
+              className="text-foreground hover:bg-hover focus-visible:bg-hover focus-visible:ring-ring flex h-8 w-full cursor-pointer items-center justify-between gap-2 rounded-sm px-2 text-sm font-medium outline-none focus-visible:ring-2"
+            >
+              <span className="truncate">{t('thinking')}</span>
+              <span className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs font-normal">
+                <span>{currentEffortText}</span>
+                <CaretRightIcon className="size-3.5 shrink-0" />
+              </span>
+            </button>
+          ) : null}
+
+          {subscriptionProvider ? (
+            <SubscriptionFooterButton
+              providerId={subscriptionProvider}
+              label={t('account')}
+              onOpen={() => setView('account')}
+            />
+          ) : null}
+
+          {hasMoreModels ? (
+            <button
+              type="button"
+              onClick={() => {
+                setBrowseFilter('all');
+                setView('more');
+              }}
+              onKeyDown={keepKeyOnButton}
+              className="text-foreground hover:bg-hover focus-visible:bg-hover focus-visible:ring-ring flex h-8 w-full cursor-pointer items-center justify-between gap-2 rounded-sm px-2 text-sm font-medium outline-none focus-visible:ring-2"
+            >
+              <span className="truncate">{t('moreModels')}</span>
+              <CaretRightIcon className="text-muted-foreground size-3.5 shrink-0" />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {onUpgrade ? (
+        <div className="border-border flex items-center justify-between gap-2 border-t px-3 py-2">
+          <span className="text-muted-foreground min-w-0 truncate text-xs">{t('upgradeNote')}</span>
+          <Button type="button" size="xs" variant="outline" onClick={onUpgrade} className="shrink-0">
+            {t('upgrade')}
+          </Button>
+        </div>
       ) : null}
     </div>
   );
 }
 
-/**
- * Enter and Space activate the focused button. cmdk handles both on its root
- * and would select the highlighted model row instead, so they stop here; the
- * browser's own activation still runs. Escape and Mod+digit still bubble.
- */
-function keepKeyOnButton(event: KeyboardEvent<HTMLButtonElement>) {
-  if (event.key === 'Enter' || event.key === ' ') event.stopPropagation();
+function SubViewHeader({
+  title,
+  backLabel,
+  onBack,
+}: {
+  title: string;
+  backLabel: string;
+  onBack: () => void;
+}) {
+  return (
+    <div className="border-border flex h-9 shrink-0 items-center gap-1.5 border-b px-1.5">
+      <button
+        type="button"
+        aria-label={backLabel}
+        onClick={onBack}
+        onKeyDown={keepKeyOnButton}
+        className="text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-ring flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-sm outline-none focus-visible:ring-2"
+      >
+        <ArrowLeftIcon className="size-4" />
+      </button>
+      <span className="text-foreground min-w-0 truncate text-sm font-medium">{title}</span>
+    </div>
+  );
 }
 
-function PickerRow({
+function PrimaryModelRow({
   model,
+  subtitle,
   isSelected,
-  favorite,
-  onToggleFavorite,
   onSelect,
-  shortcut,
   connectLabel,
 }: {
   model: FlatModel;
+  subtitle: string;
   isSelected: boolean;
-  favorite: boolean;
-  onToggleFavorite: (on: boolean) => void;
   onSelect: () => void;
-  shortcut: number | null;
   connectLabel: string;
 }) {
   const t = useTranslations('modelSelector');
-  const unavailable = model.available === false;
-  const groupID = pickerGroupId(model);
-  const { lead, trail } = splitModelLabel(pickerModelName(model));
+  const isUnavailable = model.available === false || model.unavailable === true;
+  const displayName = pickerModelName(model);
 
   return (
     <CommandItem
@@ -354,8 +496,62 @@ function PickerRow({
       title={model.modelID}
       onSelect={onSelect}
       className={cn(
-        'group h-9 gap-2',
-        // `--accent` equals the popover surface in dark mode; see ModelRow.
+        'group min-h-12 items-center gap-2 rounded-sm px-2.5 py-2',
+        'hover:bg-hover [&:not([data-nav=pointer]_*)]:data-[selected=true]:bg-hover',
+        isSelected && 'bg-active [&:not([data-nav=pointer]_*)]:data-[selected=true]:bg-active',
+      )}
+    >
+      <div className={cn('min-w-0 flex-1', isUnavailable && 'opacity-50')}>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="text-foreground truncate text-sm font-medium leading-tight">
+            {displayName}
+          </span>
+          {model.available === false ? (
+            <Tag>{connectLabel}</Tag>
+          ) : shouldShowFreeTag(model) ? (
+            <Tag variant="free">{t('free')}</Tag>
+          ) : isSubscriptionModel(model) ? (
+            <Tag>{t('included')}</Tag>
+          ) : null}
+        </div>
+        <p className="text-muted-foreground mt-0.5 truncate text-xs leading-snug">{subtitle}</p>
+      </div>
+
+      <span className="flex size-5 shrink-0 items-center justify-center">
+        {isSelected ? <SolidCheckIcon className="text-ring size-4" /> : null}
+      </span>
+    </CommandItem>
+  );
+}
+
+function BrowseModelRow({
+  model,
+  isSelected,
+  favorite,
+  onToggleFavorite,
+  onSelect,
+  connectLabel,
+}: {
+  model: FlatModel;
+  isSelected: boolean;
+  favorite: boolean;
+  onToggleFavorite: (on: boolean) => void;
+  onSelect: () => void;
+  connectLabel: string;
+}) {
+  const t = useTranslations('modelSelector');
+  const unavailable = model.available === false;
+  const isDisabled = unavailable || model.unavailable === true;
+  const groupID = pickerGroupId(model);
+  const displayName = pickerModelName(model);
+
+  return (
+    <CommandItem
+      value={modelItemValue('model', model)}
+      title={model.modelID}
+      onSelect={onSelect}
+      className={cn(
+        'group h-9 gap-2 rounded-sm',
         'hover:bg-hover [&:not([data-nav=pointer]_*)]:data-[selected=true]:bg-hover',
         isSelected && 'bg-active [&:not([data-nav=pointer]_*)]:data-[selected=true]:bg-active',
       )}
@@ -364,14 +560,14 @@ function PickerRow({
         providerID={groupID}
         name={pickerGroupLabel(groupID, model)}
         size="xs"
-        className="size-4.5"
+        className="size-4 shrink-0"
       />
-      <span className={cn('min-w-0 truncate leading-tight', unavailable && 'opacity-60')}>
-        <span className="text-foreground font-medium">{lead}</span>
-        {trail ? <span className="text-muted-foreground font-normal"> {trail}</span> : null}
+      <span className={cn('flex min-w-0 flex-1 items-center gap-1.5 truncate', isDisabled && 'opacity-50')}>
+        <span className="text-foreground truncate font-medium">{displayName}</span>
+        {model.defaultEffort ? (
+          <span className="text-muted-foreground shrink-0 text-xs">{effortLabel(model.defaultEffort)}</span>
+        ) : null}
       </span>
-      {isSelected ? <SolidCheckIcon className="text-ring size-3.5 shrink-0" /> : null}
-      <span className="flex-1" />
 
       {unavailable ? (
         <Tag>{connectLabel}</Tag>
@@ -387,7 +583,6 @@ function PickerRow({
             : t('addFavorite', { model: model.modelName })
         }
         aria-pressed={favorite}
-        // cmdk selects on the item's click: a star must not also switch models.
         onPointerDown={(e) => e.stopPropagation()}
         onKeyDown={keepKeyOnButton}
         onClick={(e) => {
@@ -395,32 +590,34 @@ function PickerRow({
           onToggleFavorite(!favorite);
         }}
         className={cn(
-          'flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md',
-          'text-muted-foreground hover:text-kortix-orange hover:bg-foreground/10',
-          'duration-normal transition-[color,background-color,transform] ease-out motion-safe:active:scale-[0.96]',
-          'focus-visible:ring-kortix-base focus-visible:ring-2 focus-visible:outline-none',
-          // Hidden means unclickable too; a favorite keeps its star at rest.
+          'flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm',
+          'text-muted-foreground hover:text-kortix-orange hover:bg-hover',
+          'focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none',
           favorite
             ? 'text-kortix-orange hover:text-kortix-orange'
             : 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-data-[selected=true]:pointer-events-auto group-data-[selected=true]:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100',
         )}
       >
-        {/* The colour sits on the svg: CommandItem paints every svg that has no
-            `text-*` class of its own muted, over the button's colour. */}
         <StarIcon
           weight={favorite ? 'fill' : 'regular'}
           className={cn('size-3.5', favorite ? 'text-kortix-orange' : 'text-current')}
         />
       </button>
 
-      {shortcut ? (
-        <Kbd className="bg-muted h-5 w-auto min-w-7 shrink-0 tabular-nums">
-          {MOD}
-          {shortcut}
-        </Kbd>
-      ) : (
-        <span className="w-7 shrink-0" />
-      )}
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        {isSelected ? <SolidCheckIcon className="text-ring size-3.5" /> : null}
+      </span>
     </CommandItem>
   );
 }
+
+/**
+ * Enter and Space activate the focused button. cmdk handles both on its root
+ * and would select the highlighted model row instead, so they stop here; the
+ * browser's own activation still runs. Escape and Mod+digit still bubble.
+ */
+function keepKeyOnButton(event: KeyboardEvent<HTMLButtonElement>) {
+  if (event.key === 'Enter' || event.key === ' ') event.stopPropagation();
+}
+
+export { Fragment };

@@ -225,11 +225,13 @@ interface ReasoningEffortPaneProps {
   onVariantChange: (variant: string | null) => void;
   /** The pane's heading. Defaults to "Thinking effort". */
   title?: string;
+  /** Omit the internal header row when embedded inside a sub-view with its own back bar. */
+  hideHeader?: boolean;
   className?: string;
 }
 
 /**
- * Thinking effort as the right-hand pane of the model popover: the merged
+ * Thinking effort as a pane inside the model popover: the merged
  * model + effort picker (`ModelSelector`'s `reasoning` prop). Same values,
  * same Auto-first rule and same stale-pick rule as the dropdown above.
  *
@@ -243,6 +245,7 @@ export function ReasoningEffortPane({
   selectedVariant,
   onVariantChange,
   title,
+  hideHeader = false,
   className,
 }: ReasoningEffortPaneProps) {
   const t = useTranslations('threads');
@@ -273,9 +276,11 @@ export function ReasoningEffortPane({
   return (
     // The heading names the knob only: the model is the checked row beside it.
     <div className={cn('flex min-w-0 flex-col', className)}>
-      <div className="text-muted-foreground flex h-9 shrink-0 items-center border-b px-3 text-sm">
-        {title ?? t('thinkingEffort')}
-      </div>
+      {hideHeader ? null : (
+        <div className="text-muted-foreground flex h-9 shrink-0 items-center border-b px-3 text-sm">
+          {title ?? t('thinkingEffort')}
+        </div>
+      )}
       <div
         role="radiogroup"
         aria-label={t('thinkingEffort')}

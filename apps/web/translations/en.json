@@ -2108,7 +2108,20 @@
     "addFavorite": "Add {model} to favorites",
     "removeFavorite": "Remove {model} from favorites",
     "groups": "Model groups",
-    "thinking": "Thinking"
+    "thinking": "Thinking",
+    "moreModels": "More models",
+    "allModels": "All",
+    "back": "Back",
+    "account": "Account",
+    "upgradeNote": "More models on paid plans",
+    "subtitle": {
+      "freeFast": "Free, fast for everyday tasks",
+      "freeGeneral": "Free, general-purpose tasks",
+      "reasoning": "For complex work and deep reasoning",
+      "fast": "Fastest for quick answers",
+      "balanced": "Balanced for everyday work",
+      "general": "General-purpose model"
+    }
   },
   "sessionScope": {
     "resetDefault": "Reset to default",
