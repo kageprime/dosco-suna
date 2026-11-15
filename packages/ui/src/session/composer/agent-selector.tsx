@@ -85,8 +85,11 @@ export function useComposerAgentChoices(agents: Agent[]) {
   );
   const primaryAgents = useMemo(() => composerSelectableAgents(offered), [offered]);
   const label = useCallback(
-    (name: string) =>
-      agentLabels?.[name] ?? agentDisplayName(name, agents.find((a) => a.name === name)?.title),
+    (name: string) => {
+      const raw = agentLabels?.[name] ?? agentDisplayName(name, agents.find((a) => a.name === name)?.title);
+      if (/^(kortix|my\s*kortix|dot)$/i.test(raw)) return MY_KORTIX_DISPLAY_NAME;
+      return raw;
+    },
     [agentLabels, agents],
   );
   return { offered, primaryAgents, label, agentLabels };

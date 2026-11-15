@@ -71,7 +71,7 @@ const AUTO_EFFORT = 'auto';
  * diagonal move from a row to the pane crosses other rows; without the rest
  * each of them would swap the pane under the cursor.
  */
-const HOVER_REST_MS = 90;
+const HOVER_REST_MS = 160;
 
 /** Between the panel's bottom edge and the composer card's top edge, in px. */
 const PANEL_GAP = 6;
@@ -242,7 +242,8 @@ export function ChatInputControl({
     isMyKortixAgentName,
   );
   const displayedName = agentChoice.name ?? undefined;
-  const agentLabel = displayedName ? label(displayedName) : t('chatInputAgent');
+  const rawLabel = displayedName ? label(displayedName) : t('chatInputAgent');
+  const agentLabel = /^(kortix|my\s*kortix|dot)$/i.test(rawLabel) ? 'Xera' : rawLabel;
 
   const effortChoices = useMemo(
     () => reasoningEffortChoices(variants, !!onVariantChange),
@@ -382,8 +383,9 @@ export function ChatInputControl({
   if (seen.open !== open || seen.initialRow !== initialRow) {
     setSeen({ open, initialRow });
     if (open) {
-      setActiveId(initialRow);
-      setMoreOpen(items.some((item) => item.extra && item.id === initialRow));
+      const targetRow = initialRow ?? (modelShown ? 'model' : null);
+      setActiveId(targetRow);
+      setMoreOpen(items.some((item) => item.extra && item.id === targetRow));
     } else setSearch('');
   }
   const mainItems = items.filter((item) => !item.extra);
@@ -742,11 +744,33 @@ export function ChatInputControl({
           className="text-muted-foreground data-[state=open]:text-foreground hit-area-y-3 min-w-0 rounded-lg"
         >
           <AgentMark slug={displayedName ?? agentLabel} />
-          <span className={cn('max-w-[7rem] truncate', triggerLabelClassName)}>{agentLabel}</span>
+          <span
+            onClick={(e) => {
+              if (showAgents) {
+                e.stopPropagation();
+                setActiveId('agent');
+                if (!open) setOpen(true);
+              }
+            }}
+            className={cn('max-w-[7rem] truncate', triggerLabelClassName)}
+          >
+            {agentLabel}
+          </span>
           {parts.map((part, i) => (
             <span key={i} className="contents">
               <span aria-hidden>·</span>
               <span
+                onClick={(e) => {
+                  if (i === 0 && modelShown) {
+                    e.stopPropagation();
+                    setActiveId('model');
+                    if (!open) setOpen(true);
+                  } else if (i === 1 && effortShown) {
+                    e.stopPropagation();
+                    setActiveId('effort');
+                    if (!open) setOpen(true);
+                  }
+                }}
                 className={cn(
                   'min-w-0 truncate',
                   i === 0 && modelShown ? 'max-w-[10rem]' : 'shrink-0',

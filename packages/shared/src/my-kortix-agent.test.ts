@@ -15,6 +15,6 @@ describe('agentDisplayName', () => {
   });
 
   test('My Kortix keeps its name whatever the title says', () => {
-    expect(agentDisplayName('mykortix', 'Something else')).toBe('My Kortix');
+    expect(agentDisplayName('mykortix', 'Something else')).toBe('Xera');
   });
 });

@@ -72,14 +72,14 @@ export function builtinAgentKeyOf(agentName: string | null | undefined): Builtin
  * Pass `title` wherever the agent record is in hand; a bare slug keeps the derived name.
  */
 export function agentDisplayName(slug: string, title?: string | null): string {
-  if (isMyKortixAgentName(slug)) return MY_KORTIX_DISPLAY_NAME;
-  if (typeof title === 'string' && title.trim()) return title.trim();
-  // Model tool input and event data reach this through `as string` casts, so the
-  // slug is `unknown` at runtime. A truthy non-string degrades to its string
-  // form instead of crashing the render tree (KRTX-4511: `e.replace is not a
-  // function` took down the session page).
+  if (isMyKortixAgentName(slug) || isMyKortixAgentName(title)) return MY_KORTIX_DISPLAY_NAME;
+  if (typeof title === 'string' && title.trim()) {
+    if (/^(kortix|my\s*kortix|dot)$/i.test(title.trim())) return MY_KORTIX_DISPLAY_NAME;
+    return title.trim();
+  }
   if (typeof slug !== 'string') return String(slug);
   if (slug === 'worker') return 'Worker';
+  if (/^(kortix|my\s*kortix|dot)$/i.test(slug.trim())) return MY_KORTIX_DISPLAY_NAME;
   const words = slug.replace(/[-_]+/g, ' ').trim();
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
