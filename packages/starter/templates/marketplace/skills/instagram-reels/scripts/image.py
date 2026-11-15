@@ -5,7 +5,7 @@
 
 Provider by env IMAGE_PROVIDER: "openai" (default, gpt-image-2, needs OPENAI_API_KEY) or "gemini"
 (Nano Banana, needs GEMINI_API_KEY). Override the model with IMAGE_MODEL. In an interactive or
-triggered Kortix session you can use the built-in `image_gen` tool instead of this script.
+triggered Dosco session you can use the built-in `image_gen` tool instead of this script.
 Every call is appended to image-spend.jsonl next to the output, so the monthly budget is checkable.
 """
 import base64, json, os, sys, time, urllib.request

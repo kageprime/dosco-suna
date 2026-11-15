@@ -72,7 +72,7 @@ sign-in.md): its own URL is public.
 | `403 app_binding_forbidden` | The service is `access: admins` | An admins-only service is never bound. |
 | `404 app_service_not_found` | `<slug>--<service>` names no service | Check `kortix apps show <slug> --json` → `services`. |
 | `503 app_binding_unavailable` | The used App has no running release | Deploy it, or start it. |
-| `401 app_auth_required` | The viewer did not pass the App's access gate | Open the App through Kortix or an access link. |
+| `401 app_auth_required` | The viewer did not pass the App's access gate | Open the App through Dosco or an access link. |
 
 ## What stays on the used App's own host
 

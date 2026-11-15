@@ -36,7 +36,7 @@ needs the mention.
 <overview>
 Once connected, your sandbox is wired into Microsoft Teams. When a teammate `@`-mentions the bot or replies in a conversation the bot owns, the platform spins up this session and hands you the message; your turn IS the Teams reply.
 
-The `teams` CLI is on `$PATH` and **just works** — there is no token in your sandbox and nothing to configure. Turn replies are owned and rendered by the Kortix server; vendor reads run through the Kortix connector gateway, which resolves the Microsoft Graph credential **server-side**. Don't look for an app password, don't reach for an MCP/HTTP workaround — just run the commands below. Two patterns matter most:
+The `teams` CLI is on `$PATH` and **just works** — there is no token in your sandbox and nothing to configure. Turn replies are owned and rendered by the Dosco server; vendor reads run through the connector gateway, which resolves the Microsoft Graph credential **server-side**. Don't look for an app password, don't reach for an MCP/HTTP workaround — just run the commands below. Two patterns matter most:
 
 - **`teams step "..."`** — narrate progress. Repaints the live Adaptive Card in the Teams conversation *as you go*.
 - **`teams send "..."`** — finalize the turn with your answer. This closes the live card and renders the reply. Markdown (headings, `code`, ```fenced blocks```, tables, lists) is converted to card elements, so write normally.
@@ -132,7 +132,7 @@ The rule of thumb: **one checkpoint per meaningful phase** — enough that a tea
 teams send "Reverted api@a3f1 — the new auth middleware dropped the trace header on retries. Errors are back to baseline."
 ```
 
-This finalizes the live card: the "Working on it…" title goes away, your answer renders below the steps, and a link back to the Kortix session is appended automatically. The server wraps your text into the Adaptive Card — you don't build the card yourself; just write a clear, well-structured message.
+This finalizes the live card: the "Working on it…" title goes away, your answer renders below the steps, and a link back to the Dosco session is appended automatically. The server wraps your text into the Adaptive Card — you don't build the card yourself; just write a clear, well-structured message.
 
 - **One `teams send` per turn.** It closes the card; a second call fails (exit 1, `SEND_NOT_RELAYED`). If you have multiple things to say, fold them into one message.
 - **Send the answer LAST.** A `teams step` after it fails.
@@ -152,7 +152,7 @@ This finalizes the live card: the "Working on it…" title goes away, your answe
 <asking-the-user>
 **Need to ask the user something with choices? Call the built-in `question` tool, then END your turn.**
 
-It renders a real card, the same shape as asking in the Kortix app:
+It renders a real card, the same shape as asking in the Dosco app:
 
 - **one question, up to 6 options, one answer** → a button per option, one tap;
 - **several questions, a multi-select, or more than 6 options** → a form: each
@@ -268,7 +268,7 @@ When a teammate attaches a file to their message, its name and download URL are 
 teams download --url "<downloadUrl from the prompt>" --out /workspace/incoming/data.csv
 ```
 
-The download runs through the Kortix server (the credential stays server-side); you just give the URL and an output path.
+The download runs through the Dosco server (the credential stays server-side); you just give the URL and an output path.
 
 ### Images: download, then just look at them
 
@@ -281,7 +281,7 @@ teams download --url "<downloadUrl from the prompt>" --out /workspace/attachment
 # then: read /workspace/attachment.png
 ```
 
-Kortix runs an image-bearing turn on a model that can see images, so this
+Dosco runs an image-bearing turn on a model that can see images, so this
 works even when the conversation's usual model is text-only.
 
 **Do not go looking for OCR.** ImageMagick, tesseract, PIL and an image-captioning
@@ -311,10 +311,10 @@ thread, and team come from the env — pass `--team`, `--channel`, or
 - **`NO_TEAM`**: Teams did not send the team id with this message. Pass
   `--team <team-id>` if the user gave you one; otherwise say in `teams send`
   that you cannot read the channel. Do not guess an id.
-- **A `403` from Microsoft Graph** means the Kortix app is not installed in
+- **A `403` from Microsoft Graph** means the Dosco app is not installed in
   that team, or the tenant has not granted it permission to read messages.
   Say so in `teams send`; do not retry.
-- **`conversation_not_in_project`**: every Kortix workspace in a tenant shares
+- **`conversation_not_in_project`**: every workspace in a tenant shares
   one app, so reads reach only this workspace's conversations. The channel or
   thread belongs to another workspace, or this workspace has no conversation in
   that channel while the tenant has several workspaces. Do not retry with

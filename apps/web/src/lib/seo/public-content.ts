@@ -60,7 +60,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     kind: 'marketing',
     slug: 'contact',
     title: 'Contact sales and book a demo',
-    description: 'Request a tailored Kortix walkthrough for cloud, VPC, or on-prem deployment.',
+    description: 'Request a tailored Dosco walkthrough for managed Cloud or dedicated enterprise deployment.',
     htmlPath: '/contact',
   },
   {
@@ -76,7 +76,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     kind: 'marketing',
     slug: 'legal',
     title: 'Legal',
-    description: 'Kortix terms of service and privacy policy.',
+    description: 'Dosco terms of service and privacy policy.',
     htmlPath: '/legal',
   },
   {
@@ -131,7 +131,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     slug: 'enterprise',
     title: 'Dosco for Enterprise',
     description:
-      'One CompanyOS for every team: agents, skills and memory in one place you own, on Cloud, your VPC or on-prem, with any model.',
+      'One CompanyOS for every team: agents, skills and memory in one place you own, on Cloud or in a dedicated VPC, with any model.',
     htmlPath: '/enterprise',
     markdownPath: '/markdown/enterprise.md',
   },
@@ -201,7 +201,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     slug: 'sovereign',
     title: 'Sovereign platform',
     description:
-      'Dosco is a sovereign agent harness. Run on Cloud, in your VPC or on-prem, with any model and your own keys, and keep your agents, skills and files under your control.',
+      'Dosco is a sovereign agent harness. Run on Cloud or in a dedicated VPC, with any model and your own keys, and keep your agents, skills and files under your control.',
     htmlPath: '/sovereign',
   },
   {
@@ -211,15 +211,6 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     description:
       'SAML 2.0 single sign-on, SCIM 2.0 directory sync, roles and groups, approval rules you set, and an audit log you can export or stream. SOC 2 Type I verified.',
     htmlPath: '/compliance',
-  },
-  {
-    kind: 'marketing',
-    slug: 'self-hosted',
-    title: 'Private AI agents on your infrastructure',
-    description:
-      'Run Dosco on your own infrastructure with isolated sandboxes, your database and your files on disk you control.',
-    htmlPath: '/self-hosted',
-    markdownPath: '/markdown/self-hosted.md',
   },
   {
     kind: 'marketing',

@@ -94,7 +94,7 @@ later, in a review comment or in the files. Setup is not done while
    channels run (Google Ads, Meta, LinkedIn) and where conversions are
    counted (PostHog, GA4, the product database). Write them to
    `marketing.json` → `performance`.
-2. Connect each channel read-only: a Kortix connector when one exists
+2. Connect each channel read-only: a connector when one exists
    (`kortix connectors connect <app> --owner project` gives the person a sign-in
    link), else a read-only token through `kortix secrets request <NAME> --scope
    runtime` (names in `skills/performance/references/platforms.md`). Never a

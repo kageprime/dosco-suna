@@ -21,7 +21,7 @@ export const ACCOUNT_HUB_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   "Read access to the workspace's own audit trail.": 'textf91c9658eeab',
   Roles: 'textc25337055464',
   'Service account tokens for CI and automations, and the rules they follow.': 'text7af0d5b84ba4',
-  'Kortix charges and credit ledger for this workspace.': 'text36569109d4e5',
+  'Dosco charges and credit ledger for this workspace.': 'text36569109d4e5',
   Settings: 'text74a883a037bc',
   Support: 'textbe91940b79f4',
   Tokens: 'texta039dfb9628b',

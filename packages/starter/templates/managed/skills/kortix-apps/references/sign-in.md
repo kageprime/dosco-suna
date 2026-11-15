@@ -1,8 +1,8 @@
-# Kortix sign-in for Apps
+# Dosco sign-in for Apps
 
-Every App can trust Kortix as its identity provider. You build no login
+Every App can trust Dosco as its identity provider. You build no login
 screen, no user table and no invite flow: the people who use an App are the
-workspace's Kortix members, with their real names, Kortix groups and role.
+workspace's Dosco members, with their real names, Dosco groups and role.
 
 `@kortix/sdk` mints, verifies and enforces that identity. The same functions
 work in the browser, a Node or Bun server, a Worker and a Convex function.
@@ -19,8 +19,8 @@ npm i @kortix/sdk          # in every App that mints or checks a token
 - **Audience:** the id of the App the token is for. A token for one App is
   useless on another.
 - **Lifetime:** 15 minutes. Clients fetch a new one before it expires.
-- **Claims:** `sub` (Kortix user id), `email`, `name`, `picture`, `groups`
-  (Kortix group names in the workspace), `group_ids`, `role` (the workspace
+- **Claims:** `sub` (Dosco user id), `email`, `name`, `picture`, `groups`
+  (Dosco group names in the workspace), `group_ids`, `role` (the workspace
   role: `owner`, `admin` or `member`), `account_id`, `project_id`. An agent's token
   has `kind: "agent"`, `sub` = its service account id, no groups and no role.
 
@@ -37,7 +37,7 @@ Every App response carries the three values a verifier needs:
 | Admin tooling on a Convex backend App | `npx convex run --identity '{"subject":"…","issuer":"<KORTIX_AUTH_ISSUER>","groups":["Finance"]}' fn args` | Admin credentials only. Use it to test auth rules. |
 
 An agent session never gets a token that names the person who launched it.
-`/_kortix/token` called with the session's own Kortix token answers
+`/_kortix/token` called with the session's own Dosco token answers
 `403 agent_viewer`. A browser opened on a `kortix apps access-link` URL carries
 that link's sign-in cookie, so the App gets tokens for the user the link was
 minted for. That is how you test an App as a member.
@@ -90,9 +90,9 @@ export async function requireMember(
   requirement?: KortixMemberRequirement,
 ) {
   const identity = await ctx.auth.getUserIdentity();
-  // Only a token Kortix signed names a Kortix member. Users of a second provider never pass.
+  // Only a token Dosco signed names a Dosco member. Users of a second provider never pass.
   if (identity && identity.issuer !== process.env.KORTIX_AUTH_ISSUER) {
-    throw new KortixMemberError("unauthenticated", "Sign in with Kortix to continue.");
+    throw new KortixMemberError("unauthenticated", "Sign in with Dosco to continue.");
   }
   const member = requireKortixMember(identity, requirement);
   return { ...member, name: member.name ?? member.email ?? "Member" };
@@ -142,8 +142,8 @@ Rules that work:
 - Denormalize the display name onto rows the UI lists.
 - Per-row ownership ("only the deal's owner edits it") is your code: compare
   `me.userId` with the row's owner.
-- Group access uses the same Kortix groups as the App's access policy. Add
-  someone to a group in Kortix and they gain the matching rights within 15
+- Group access uses the same Dosco groups as the App's access policy. Add
+  someone to a group in Dosco and they gain the matching rights within 15
   minutes (one token lifetime), with no change to the App.
 
 Show who is signed in with a query, so the UI and the data agree:
@@ -222,7 +222,7 @@ const member = await verifyKortixToken(bearer, {
 requireKortixMember(member, { groups: ["Finance"] });
 ```
 
-Kortix injects `KORTIX_AUTH_ISSUER` (the workspace issuer), `KORTIX_AUTH_AUDIENCE`
+Dosco injects `KORTIX_AUTH_ISSUER` (the workspace issuer), `KORTIX_AUTH_AUDIENCE`
 (the App's own id) and `KORTIX_AUTH_JWKS` (the workspace key set, as a `data:`
 URI) into every server App's runtime. `verifyKortixToken(bearer)` with no
 options reads them. Do not set `KORTIX_AUTH_*` in the App's `env`: the
@@ -234,7 +234,7 @@ URI) or its URL. Every failure, a missing key set included, throws.
 
 ## Groups
 
-Kortix groups belong to an account and need the Enterprise plan. Without it,
+Dosco groups belong to an account and need the Enterprise plan. Without it,
 the `groups` claim is empty and `{ groups: [...] }` refuses everyone. Use
 `roles` (`owner`, `admin`, `member`) or your own roles table keyed on
 `userId` instead.
@@ -245,7 +245,7 @@ Call the route the App calls, from the App's origin, and read the code:
 
 | Answer from `/_kortix/token` | Cause | Fix |
 | --- | --- | --- |
-| `401 no_viewer_identity` | No Kortix session on the request, a `password` App, or a `public` App whose viewer lost access | Open the App through Kortix or an access link; set access `private`, `project` or `restricted`. |
+| `401 no_viewer_identity` | No Dosco session on the request, a `password` App, or a `public` App whose viewer lost access | Open the App through Dosco or an access link; set access `private`, `project` or `restricted`. |
 | `403 agent_viewer` | An agent session's own token | `kortix apps token <app>`. |
 | `403 app_not_linked` | The App does not use the audience App (a new App uses none) | `kortix apps link <app> --uses <slug>`, or `uses: [<slug>]` in the App's `kortix.yaml` block. |
 | `404 viewer_disabled` | The App's viewer is `off` | `kortix apps access <app> --viewer identity`. |
@@ -253,12 +253,12 @@ Call the route the App calls, from the App's origin, and read the code:
 | `200`, but `requireMember` throws `unauthenticated` | The identity's issuer is not `KORTIX_AUTH_ISSUER` | A token from another provider, or an `--identity` without `"issuer"`. |
 | `200`, but Convex answers `401` or `InvalidAuthConfig` | The backend trusts other values than the App's | Compare `npx convex env get KORTIX_AUTH_ISSUER` with `auth.issuer` in `kortix apps show <app> --json`, then run the `kortix apps auth-env` line above again. |
 
-## People who are not Kortix members
+## People who are not Dosco members
 
-Kortix sign-in stays the sign-in for the workspace's own people. When an App
+Dosco sign-in stays the sign-in for the workspace's own people. When an App
 also serves customers or the public, add **Convex Auth** (password, magic
 link, OTP or OAuth) as a second provider in the same backend App. Members
-keep Kortix sign-in; customers get their own accounts in the App; the issuer
+keep Dosco sign-in; customers get their own accounts in the App; the issuer
 tells them apart. Convex's CLI does not set Convex Auth up on a self-hosted
 deployment, so follow these manual steps (from labs.convex.dev/auth/setup/manual).
 
@@ -288,7 +288,7 @@ deployment, so follow these manual steps (from labs.convex.dev/auth/setup/manual
    rm generate-keys.mjs jwt_private_key.txt jwks.txt
    ```
 
-3. Add the provider next to Kortix in `convex/auth.config.ts`:
+3. Add the provider next to Dosco in `convex/auth.config.ts`:
 
    ```ts
    export default {
@@ -324,7 +324,7 @@ deployment, so follow these manual steps (from labs.convex.dev/auth/setup/manual
    `"moduleResolution": "Bundler"` (`npx convex codegen --init` writes both).
 
 5. Gate customer functions on the Convex Auth issuer, the same way
-   `requireMember` gates on the Kortix one:
+   `requireMember` gates on the Dosco one:
 
    ```ts
    import { getAuthUserId } from "@convex-dev/auth/server";
@@ -341,7 +341,7 @@ deployment, so follow these manual steps (from labs.convex.dev/auth/setup/manual
 6. The customer UI is its own App with access `public`, wrapped in
    `ConvexAuthProvider` from `@convex-dev/auth/react` (Convex's `convex-auth`
    skill), on the backend App's own URL. Do not call
-   `kortixToken` there. Keep the staff UI a separate App with Kortix sign-in.
+   `kortixToken` there. Keep the staff UI a separate App with Dosco sign-in.
 
 A customer token never passes `requireMember`, and a member token never
 passes `requireCustomer`. Test both directions before you ship.

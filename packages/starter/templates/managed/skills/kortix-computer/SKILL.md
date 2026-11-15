@@ -1,6 +1,6 @@
 ---
 name: kortix-computer
-description: How to reach a user's CONNECTED COMPUTER (their laptop, desktop, or server) from a Kortix session — read/write files, run shell commands, and drive the desktop (click/type/screenshot) on that machine. A connected computer is an ACCOUNT of the workspace's `computer` connector, called through the same `kortix connectors` path as every other connector, with `--account` picking the machine. Load this when the task is about acting ON a specific physical computer the user has connected ("on my laptop…", "read ~/Downloads on my machine", "run this on my desktop", "click the button on my screen"), or when the user asks how the agent reaches their computer. ALSO load it when the user mentions their own machine or its files and no computer may be connected yet ("my local files", "my Desktop", a path like `~/…`, `/Users/…`, "the repo on my laptop") — this sandbox cannot see their disk, and the skill says how to tell them to connect it. For files INSIDE this sandbox, use normal shell/fs — not this. Load it too whenever the user says "my desktop" or "put it on my desktop" — it says which of three desktops they mean (their Drive folder, this session's screen, their own computer).
+description: How to reach a user's CONNECTED COMPUTER (their laptop, desktop, or server) from a Dosco session — read/write files, run shell commands, and drive the desktop (click/type/screenshot) on that machine. A connected computer is an ACCOUNT of the workspace's `computer` connector, called through the same `kortix connectors` path as every other connector, with `--account` picking the machine. Load this when the task is about acting ON a specific physical computer the user has connected ("on my laptop…", "read ~/Downloads on my machine", "run this on my desktop", "click the button on my screen"), or when the user asks how the agent reaches their computer. ALSO load it when the user mentions their own machine or its files and no computer may be connected yet ("my local files", "my Desktop", a path like `~/…`, `/Users/…`, "the repo on my laptop") — this sandbox cannot see their disk, and the skill says how to tell them to connect it. For files INSIDE this sandbox, use normal shell/fs — not this. Load it too whenever the user says "my desktop" or "put it on my desktop" — it says which of three desktops they mean (their Drive folder, this session's screen, their own computer).
 ---
 
 <skill name="kortix-computer">
@@ -8,7 +8,7 @@ description: How to reach a user's CONNECTED COMPUTER (their laptop, desktop, or
 <which-desktop>
 "My desktop" can mean three places:
 
-- **Their Drive folder,** `~/Desktop` (= `/drives/me`). Kortix mounts it as
+- **Their Drive folder,** `~/Desktop` (= `/drives/me`). Dosco mounts it as
   their desktop in every session. It holds files: the user sees them in
   **Files**, and they last (the `kortix-drives` skill).
 - **Your session desktop.** A workspace agent's microVM runs a Linux screen
@@ -35,7 +35,7 @@ installer file in `~/Desktop` is not installed anywhere.
 </which-desktop>
 
 <overview>
-A member connects their own computer to Kortix (desktop app, or
+A member connects their own computer to Dosco (desktop app, or
 `npx @kortix/agent-tunnel connect`). Each connected computer is one
 **account** of the workspace's **`computer`** connector — exactly like one Gmail
 mailbox is one account of the Gmail connector. You reach it with the normal
@@ -88,7 +88,7 @@ If there is no account, no computer is connected yet. This sandbox cannot see
 the user's disk, so never guess at a local path or pretend to read it. Say so
 in one line and tell the human how to connect it:
 
-- **In the Kortix desktop app:** click **"Connect this computer"** at the
+- **In the Dosco desktop app:** click **"Connect this computer"** at the
   bottom of the workspace sidebar. One click; macOS then asks for the
   permissions it needs.
 - **In the browser:** click **"Connect your computer"** at the bottom of the
@@ -144,26 +144,26 @@ Treat these as real outcomes; do not retry blind:
 - `account_not_found` — `--account` (or a legacy `computer` argument) names no
   reachable computer. Use a label from `kortix connectors accounts computer`.
 - `computer_access_pending` — the owner has not answered the access prompt on
-  their computer yet. Tell them: **"Allow Kortix on your computer (the prompt
+  their computer yet. Tell them: **"Allow Dosco on your computer (the prompt
   on your screen), then tell me to continue."** Retry once, after they confirm.
   Never loop-retry.
 - `computer_access_denied` — the owner chose Deny. Do not retry; the prompt is
-  held back for 10 minutes. Ask them to allow it from the Kortix menu-bar icon
+  held back for 10 minutes. Ask them to allow it from the Dosco menu-bar icon
   or the "Your computer" menu, then continue when they say so.
 - `computer_access_off` — the owner turned access off on the computer. Tell
-  them; only they can turn it back on ("Your computer" → Access in Kortix, or
+  them; only they can turn it back on ("Your computer" → Access in Dosco, or
   `npx @kortix/agent-tunnel@latest access ask` on that computer). Do not retry.
 - `computer_offline` — the machine is paired but not connected. Ask the human
-  to wake it or resume access in the Kortix desktop app.
+  to wake it or resume access in the Dosco desktop app.
 - `computer_unpaired` — the account's machine was disconnected. The human must
   connect the computer again.
 - `computer_capability_not_approved` — the human approved this computer
   without that capability (filesystem, shell, or desktop). They must connect
   the computer again and select it.
-- `computer_desktop_permission_missing` — macOS has not given Kortix
+- `computer_desktop_permission_missing` — macOS has not given Dosco
   Accessibility or Screen Recording on that computer, so it cannot see or
-  use apps. Tell the human: **"Open the Kortix app → Your computer → Allow
-  all."** Retry once after they confirm; Kortix applies a new grant within
+  use apps. Tell the human: **"Open the Dosco app → Your computer → Allow
+  all."** Retry once after they confirm; Dosco applies a new grant within
   30 seconds.
 - `Not allowed on this computer: …` — the call is outside the computer's
   approved scope (for example a path outside `allowed_paths`). Change the

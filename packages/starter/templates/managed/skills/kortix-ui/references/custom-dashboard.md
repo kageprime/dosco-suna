@@ -1,17 +1,17 @@
 # Build a custom dashboard or App on @kortix/sdk + @kortix/ui
 
-A React host with your own chrome around Kortix's whole session experience: a workspace list, a
-sidebar with Kortix's session list, the workspace home composer, the session workspace (thread plus
+A React host with your own chrome around Dosco's whole session experience: a workspace list, a
+sidebar with Dosco's session list, the workspace home composer, the session workspace (thread plus
 side panel with files, viewer, terminal, browser), a workspace Files page, a company theme and a custom
 tool row. Every sample below is a file of one Vite 8 + React 19 + react-router 7 app that installed
 `@kortix/sdk` and `@kortix/ui` from their packed tarballs. It passed `tsc --noEmit` and `vite build`,
-and ran against a live Kortix API: workspace list, a prompt from the home composer, the session opening,
+and ran against a live Dosco API: workspace list, a prompt from the home composer, the session opening,
 the tool rows (the custom one included), the reply, the file in the side panel, the Files page and its
 viewer, 0 console errors.
 
 ## Rules
 
-1. **No raw `fetch` to the Kortix API.** Read with `@kortix/sdk/react` hooks, write with the
+1. **No raw `fetch` to the Dosco API.** Read with `@kortix/sdk/react` hooks, write with the
    `kortix` client. If the SDK lacks a call, the SDK gets it; the host never hand-rolls it.
 2. **One client per host.** Call `createKortix` once, at module scope.
 3. **`useSession(projectId, sessionId)` owns the session**: start, the sandbox, the live stream,
@@ -28,9 +28,9 @@ npm i @openuidev/lang-core@0.3.1 zod   # optional peers of @kortix/sdk; the thre
 npm i tw-animate-css tailwind-scrollbar tailwind-scrollbar-hide   # Tailwind v4 hosts only
 ```
 
-`@kortix/ui` and `@kortix/sdk` carry the Kortix release version: install the same version of each.
+`@kortix/ui` and `@kortix/sdk` carry the Dosco release version: install the same version of each.
 The module entries this guide uses (`session`, `workspace`, `files`, `theme`) need 0.14.4 or later.
-Inside `kortix-ai/CompanyOS`, use `"workspace:*"`.
+Inside `kageprime/dosco-suna`, use `"workspace:*"`.
 Without `@openuidev/lang-core`, `vite build` fails with `Missing export` in `@kortix/sdk/dist/genui`.
 Name `react@19 react-dom@19`: `@kortix/ui` needs React 19.
 
@@ -51,7 +51,7 @@ load those blocks on the client only (`lazyClient`). The root, `theme`, `i18n`, 
 
 A host without Tailwind imports `@kortix/ui/styles.css` once instead: every class the package uses,
 none of yours. Style your own markup with plain CSS over `var(--border)`, `var(--muted)`.
-Never import `@kortix/ui/fonts.css` outside Kortix surfaces: Roobert is Kortix-only.
+Never import `@kortix/ui/fonts.css` outside Dosco surfaces: Roobert is first-party only.
 
 ## 3. The client
 
@@ -76,7 +76,7 @@ export function saveToken(token: string): void {
 // One client per host, created once at module scope. Every @kortix/sdk/react
 // hook and every @kortix/ui/session component reads it.
 export const kortix = createKortix({
-  backendUrl: import.meta.env.VITE_KORTIX_API_URL ?? 'https://api.kortix.com/v1',
+  backendUrl: import.meta.env.VITE_KORTIX_API_URL ?? 'https://api.dosco.live/v1',
   getToken: async () => readToken(),
 });
 ```
@@ -85,7 +85,7 @@ The browser origin must be in the API's CORS list. In local development against 
 not list it, proxy `/v1` through the dev server (Vite: `server.proxy['/v1']`) and point `backendUrl`
 at the dev server's own origin.
 
-**Inside a Kortix App**, the client acts as the person who opened the App. Run
+**Inside an App**, the client acts as the person who opened the App. Run
 `kortix apps access <app> --viewer api` once, then:
 
 ```ts
@@ -102,7 +102,7 @@ Never give an App a personal PAT or API key. The `kortix-apps` skill has the dep
 // src/theme.ts
 import type { KortixTheme } from '@kortix/ui/theme';
 
-// The company brand. Every field is optional: an unset one keeps the Kortix value.
+// The company brand. Every field is optional: an unset one keeps the Dosco value.
 export const acmeTheme: KortixTheme = {
   light: { blue: '#0f766e', ring: '#0f766e', border: '#cbd5e1', muted: '#f1f5f9' },
   dark: { blue: '#2dd4bf', ring: '#2dd4bf', border: '#334155', muted: '#1e293b' },
@@ -187,14 +187,14 @@ pass stable objects (module scope):
 | --- | --- | --- |
 | `link` | a plain `<a>` | its router's link, called with `href` |
 | `navigation` | full page loads; `usePathname` / `useSearchParams` read `window.location` | `{ useRouter, usePathname, useSearchParams, useParams }` of its router |
-| `config` | `{ connectorsEnabled: true, managedModelsEnabled: false }` | `managedModelsEnabled: true` when the deployment serves its model lineup. Billing is the SDK flag `billingEnabled` of `createKortix({ backendUrl, getToken, billingEnabled })`, which every billing gate reads. It is for Kortix's own app: its upgrade actions open the Kortix plan dialog that apps/web mounts. A custom host leaves it off, so no upgrade control renders. |
-| `resolvePreviewUrl` | the SDK preview URL, with the SDK token | an async function of the request (it returns a Promise) that resolves to the framed URL with the host's own scoped token, or to `null` to keep the SDK preview URL (a host whose origin is not the Kortix backend). `config.terminalEnabled: false` hides the Terminal when the host's proxy cannot upgrade a WebSocket. `config.cliConnectEnabled` (default true): false hides the Terminal's "Connect from your machine" bar, for a host that serves no `<origin>/install` installer and ships no Kortix CLI. `config.publicSharesEnabled` (default true): false hides every public-link control, for a host that serves no page at `share.public_path` (`/share/session/<token>`). `config.commandPaletteShortcut` / `config.settingsShortcut` (default false): true when the host opens a command palette on ⌘K or settings on ⌘,; only then does the composer hint at them. `config.providerIconBaseUrl`: where the host serves provider logos (`<base>/<icon>.svg`); without it they load from models.dev, and the Kortix provider draws `useBrand`'s icon. `config.accountApiEnabled` (default true): false for a host that fronts one operator key and blocks the account routes; then no IAM probe, billing or session-oversight request runs, billing state stays empty, and every permission gate shows its control (the server enforces each route). `config.modelPickerEnabled`, `contextMeterEnabled`, `sessionOverridesEnabled`, `runtimeSlashEnabled` (default true): false hides the model and effort pickers, the context ring, the session-overrides gear, or the runtime's skills and commands in the `/` menu. `config.offeredAgents` and `agentLabels`: the agents the composer's picker offers, and their display names. `config.takeFiles` and `attachAccept`: the host takes the composer's files itself, and the attach picker's `accept` list. |
-| `components` | no slots: each control that opens one is hidden | `ShareSessionModal` (`@kortix/ui/workspace` exports Kortix's), `HomeAnnouncement`, `Wallpaper`, `ProjectProviderModal`, `ProviderAccountsModal`, `ConnectorConnectModal`, `ArtifactViewer` (without it, the panel shows an artifact read-only) |
-| `useBrand` | the Kortix marks | a hook that returns `{ app_name, logo_url, icon_url }` |
+| `config` | `{ connectorsEnabled: true, managedModelsEnabled: false }` | `managedModelsEnabled: true` when the deployment serves its model lineup. Billing is the SDK flag `billingEnabled` of `createKortix({ backendUrl, getToken, billingEnabled })`, which every billing gate reads. It is for Dosco's own app: its upgrade actions open the Dosco plan dialog that apps/web mounts. A custom host leaves it off, so no upgrade control renders. |
+| `resolvePreviewUrl` | the SDK preview URL, with the SDK token | an async function of the request (it returns a Promise) that resolves to the framed URL with the host's own scoped token, or to `null` to keep the SDK preview URL (a host whose origin is not the Dosco backend). `config.terminalEnabled: false` hides the Terminal when the host's proxy cannot upgrade a WebSocket. `config.cliConnectEnabled` (default true): false hides the Terminal's "Connect from your machine" bar, for a host that serves no `<origin>/install` installer and ships no Dosco CLI. `config.publicSharesEnabled` (default true): false hides every public-link control, for a host that serves no page at `share.public_path` (`/share/session/<token>`). `config.commandPaletteShortcut` / `config.settingsShortcut` (default false): true when the host opens a command palette on ⌘K or settings on ⌘,; only then does the composer hint at them. `config.providerIconBaseUrl`: where the host serves provider logos (`<base>/<icon>.svg`); without it they load from models.dev, and the Dosco provider draws `useBrand`'s icon. `config.accountApiEnabled` (default true): false for a host that fronts one operator key and blocks the account routes; then no IAM probe, billing or session-oversight request runs, billing state stays empty, and every permission gate shows its control (the server enforces each route). `config.modelPickerEnabled`, `contextMeterEnabled`, `sessionOverridesEnabled`, `runtimeSlashEnabled` (default true): false hides the model and effort pickers, the context ring, the session-overrides gear, or the runtime's skills and commands in the `/` menu. `config.offeredAgents` and `agentLabels`: the agents the composer's picker offers, and their display names. `config.takeFiles` and `attachAccept`: the host takes the composer's files itself, and the attach picker's `accept` list. |
+| `components` | no slots: each control that opens one is hidden | `ShareSessionModal` (`@kortix/ui/workspace` exports Dosco's), `HomeAnnouncement`, `Wallpaper`, `ProjectProviderModal`, `ProviderAccountsModal`, `ConnectorConnectModal`, `ArtifactViewer` (without it, the panel shows an artifact read-only) |
+| `useBrand` | the Dosco marks | a hook that returns `{ app_name, logo_url, icon_url }` |
 | `image` | a plain `<img>` | its image component |
 | `i18n` | the bundled English catalog | `{ useTranslations, useLocale }` (next-intl signatures) or `{ locale, messages }` |
 | `strings` | English copy of the primitives | the keys it translates |
-| `useViewerId` | no viewer: a one-person session names nobody, and a stopped turn never says "Stopped by" | a hook that returns the signed-in Kortix user's id (the owner of the token the SDK sends). A session several people write in needs it to name the other senders |
+| `useViewerId` | no viewer: a one-person session names nobody, and a stopped turn never says "Stopped by" | a hook that returns the signed-in Dosco user's id (the owner of the token the SDK sends). A session several people write in needs it to name the other senders |
 | `useViewer`, `updateViewerMetadata` | `{ id }` from `useViewerId`; preferences stay in this browser | a hook that returns the signed-in user (`id`, `email`, `metadata` with `name`, `full_name`, `avatar_url`); a function that saves profile fields, so UI preferences follow the user across devices |
 
 A Next.js host passes `next/link` and `{ useRouter, usePathname, useSearchParams, useParams }` from
@@ -202,7 +202,7 @@ A Next.js host passes `next/link` and `{ useRouter, usePathname, useSearchParams
 
 ## 5. The workspace shell
 
-Your sidebar chrome around Kortix's session list. Every URL the components link to comes from one route table, `setUiRoutes` (`@kortix/ui`), called once at module load. The defaults are Kortix's own paths: `project` `/workspaces/<id>`, `session` `/workspaces/<id>/sessions/<sessionId>`, `sessions` `/workspaces/<id>/sessions` (`?view=archived|deleted`), `files` `/workspaces/<id>/files`, `drive` `/workspaces/<id>/drive`, `apps` `/workspaces/<id>/apps`, `members` `/workspaces/<id>/members`, `sandboxSettings` `/workspaces/<id>/admin/sandbox`, `customize` `/workspaces/<id>/customize/<page>` (agents, skills, connectors, triggers, reminders, models, secrets, review, settings), `admin` `/workspaces/<id>/admin/<section>` (it follows `customize` when you map only `customize`), `goals` `/workspaces/<id>/goals` (flag `goals`), `artifacts` `/workspaces/<id>/artifacts`, `review` `/workspaces/<id>/review`, and, while the workspace's `chat` flag is on, `space` `/workspaces/<id>/spaces/<slug>`, `memory` `/workspaces/<id>/memory`, `channel` `/workspaces/<id>/c/<slug>` and `dm` `/workspaces/<id>/dm/<agent>`. Return your own path for a page you serve elsewhere. Return `null` for a page you do not serve: every link to it is hidden. `project`, `session`, `channel` and `dm` cannot be null. This app serves the workspace
+Your sidebar chrome around Dosco's session list. Every URL the components link to comes from one route table, `setUiRoutes` (`@kortix/ui`), called once at module load. The defaults are Dosco's own paths: `project` `/workspaces/<id>`, `session` `/workspaces/<id>/sessions/<sessionId>`, `sessions` `/workspaces/<id>/sessions` (`?view=archived|deleted`), `files` `/workspaces/<id>/files`, `drive` `/workspaces/<id>/drive`, `apps` `/workspaces/<id>/apps`, `members` `/workspaces/<id>/members`, `sandboxSettings` `/workspaces/<id>/admin/sandbox`, `customize` `/workspaces/<id>/customize/<page>` (agents, skills, connectors, triggers, reminders, models, secrets, review, settings), `admin` `/workspaces/<id>/admin/<section>` (it follows `customize` when you map only `customize`), `goals` `/workspaces/<id>/goals` (flag `goals`), `artifacts` `/workspaces/<id>/artifacts`, `review` `/workspaces/<id>/review`, and, while the workspace's `chat` flag is on, `space` `/workspaces/<id>/spaces/<slug>`, `memory` `/workspaces/<id>/memory`, `channel` `/workspaces/<id>/c/<slug>` and `dm` `/workspaces/<id>/dm/<agent>`. Return your own path for a page you serve elsewhere. Return `null` for a page you do not serve: every link to it is hidden. `project`, `session`, `channel` and `dm` cannot be null. This app serves the workspace
 home, its files and a session (section 7), so it maps the other pages to `null`.
 
 ```tsx
@@ -224,7 +224,7 @@ import { ProjectSessionList } from '@kortix/ui/workspace';
 import { FolderSimpleIcon, NavigationArrowIcon, SquaresFourIcon } from '@phosphor-icons/react';
 import { Link, Outlet, useLocation, useParams } from 'react-router-dom';
 
-// Every workspace page: your sidebar chrome around Kortix's session list.
+// Every workspace page: your sidebar chrome around Dosco's session list.
 export function ProjectShell() {
   const { projectId = '', sessionId } = useParams();
   const { pathname } = useLocation();
@@ -253,7 +253,7 @@ export function ProjectShell() {
                 ))}
               </SidebarMenu>
             </SidebarGroup>
-            {/* Kortix's session list: sections, status, rename, delete, live poll. */}
+            {/* Dosco's session list: sections, status, rename, delete, live poll. */}
             <SidebarGroup className="min-h-0 flex-1 flex-col py-0">
               <ProjectSessionList projectId={projectId} />
             </SidebarGroup>
@@ -270,7 +270,7 @@ export function ProjectShell() {
 ```
 
 `ProjectSessionList` needs a `SidebarProvider` above it. `ProjectSidebar` (`@kortix/ui/workspace`)
-is Kortix's whole sidebar, account and billing controls included; a host with its own chrome
+is Dosco's whole sidebar, account and billing controls included; a host with its own chrome
 composes the list as above.
 
 ## 6. The pages
@@ -305,7 +305,7 @@ export function ProjectsPage() {
   );
 }
 
-// The project home: Kortix's composer. Sending creates the session and opens it.
+// The project home: Dosco's composer. Sending creates the session and opens it.
 export function HomePage() {
   const { projectId = '' } = useParams();
   return <ProjectHome projectId={projectId} />;
@@ -362,7 +362,7 @@ function SignIn() {
         setToken(draft.trim());
       }}
     >
-      <Label htmlFor="token">Kortix API key</Label>
+      <Label htmlFor="token">Dosco API key</Label>
       <Input id="token" type="password" value={draft} onChange={(event) => setDraft(event.target.value)} />
       <Button type="submit" disabled={!draft.trim()}>
         Open dashboard
@@ -454,16 +454,16 @@ The modules compose at any depth (`modules.md` has every entry with its props an
 
 - The thread alone: `SessionThread` (`@kortix/ui/session`). With no side panel on the page, file and
   preview opens show in a dialog. A page with neither mounts `<FilePreviewHost />` (`@kortix/ui/files`) once.
-- Your own column beside Kortix's panel: `<SessionWorkspace session={session}>{yourThread}</SessionWorkspace>`.
+- Your own column beside Dosco's panel: `<SessionWorkspace session={session}>{yourThread}</SessionWorkspace>`.
 - Your own panel: `SessionPanelProvider` + `ActionPanel` (`@kortix/ui/session-panel`), or
   `SessionTerminal` (`@kortix/ui/terminal`) with the session's `runtimeSessionId`.
 - Blocks (`ComposerChatInput`, `ModelSelector`, `UserMessage`, `ToolPartRenderer`, …) outside the
   composed screens need the two scopes those screens mount: `KortixProjectProvider` (`@kortix/sdk/react`)
   and `SessionIdsProvider` (`@kortix/ui`) with the workspace and session ids.
 - To draw every part yourself: `useChatTurns` and `renderParts` from `@kortix/sdk/react`
-  (https://kortix.com/docs/developers#react).
+  (https://dosco.live/docs/developers#react).
 - Other data for a dashboard: `useProjectApps`, `useProjectTriggers`, `useChangeRequests`,
-  `useGatewayOverview`, `useCan` (https://kortix.com/docs/developers#react-hooks).
+  `useGatewayOverview`, `useCan` (https://dosco.live/docs/developers#react-hooks).
 
 ## 10. Verify
 

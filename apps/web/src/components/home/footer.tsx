@@ -46,7 +46,7 @@ const FOOTER_SECTIONS: FooterSection[] = [
     links: [
       { label: 'Services', href: '/services' },
       { label: 'Careers', href: '/careers' },
-      { label: 'Blog', href: '/blog' },
+      ...(process.env.NEXT_PUBLIC_BLOG_ORIGIN ? [{ label: 'Blog', href: '/blog' }] : []),
       { label: 'Use Cases', href: '/use-cases' },
       { label: 'Brand', href: '/design-system' },
     ],

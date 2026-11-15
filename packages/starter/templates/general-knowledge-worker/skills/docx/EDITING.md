@@ -20,7 +20,7 @@ All editable content lives under `working/word/`. The primary file is `document.
 
 ### Conventions
 
-**Author name for tracked changes and comments:** use "Kortix" unless the user specifies a different identity.
+**Author name for tracked changes and comments:** use "Dosco" unless the user specifies a different identity.
 
 **Make changes with the Edit tool, not scripts.** Writing a Python script to perform string replacements adds unnecessary indirection. The Edit tool provides a clear before/after view of every modification.
 
@@ -36,14 +36,14 @@ Entities and their rendered characters: `&#x2018;` produces a left single quote,
 
 **Marking an insertion:**
 ```xml
-<w:ins w:id="1" w:author="Kortix" w:date="2025-09-20T14:00:00Z">
+<w:ins w:id="1" w:author="Dosco" w:date="2025-09-20T14:00:00Z">
   <w:r><w:t>added material</w:t></w:r>
 </w:ins>
 ```
 
 **Marking a deletion:**
 ```xml
-<w:del w:id="2" w:author="Kortix" w:date="2025-09-20T14:00:00Z">
+<w:del w:id="2" w:author="Dosco" w:date="2025-09-20T14:00:00Z">
   <w:r><w:delText>removed material</w:delText></w:r>
 </w:del>
 ```
@@ -53,10 +53,10 @@ Within a `<w:del>` block, use `<w:delText>` in place of `<w:t>`, and `<w:delInst
 **Replacing a specific value** -- wrap the deleted original and inserted replacement around only the changed portion, leaving surrounding text untouched:
 ```xml
 <w:r><w:t>The budget is </w:t></w:r>
-<w:del w:id="3" w:author="Kortix" w:date="...">
+<w:del w:id="3" w:author="Dosco" w:date="...">
   <w:r><w:delText>$50,000</w:delText></w:r>
 </w:del>
-<w:ins w:id="4" w:author="Kortix" w:date="...">
+<w:ins w:id="4" w:author="Dosco" w:date="...">
   <w:r><w:t>$75,000</w:t></w:r>
 </w:ins>
 <w:r><w:t> for this quarter.</w:t></w:r>
@@ -67,10 +67,10 @@ Within a `<w:del>` block, use `<w:delText>` in place of `<w:t>`, and `<w:delInst
 <w:p>
   <w:pPr>
     <w:rPr>
-      <w:del w:id="5" w:author="Kortix" w:date="2025-09-20T14:00:00Z"/>
+      <w:del w:id="5" w:author="Dosco" w:date="2025-09-20T14:00:00Z"/>
     </w:rPr>
   </w:pPr>
-  <w:del w:id="6" w:author="Kortix" w:date="2025-09-20T14:00:00Z">
+  <w:del w:id="6" w:author="Dosco" w:date="2025-09-20T14:00:00Z">
     <w:r><w:delText>This paragraph should be removed entirely.</w:delText></w:r>
   </w:del>
 </w:p>
@@ -79,7 +79,7 @@ Within a `<w:del>` block, use `<w:delText>` in place of `<w:t>`, and `<w:delInst
 **Rejecting another author's insertion** -- nest your deletion inside their insertion block:
 ```xml
 <w:ins w:author="Bob Chen" w:id="10">
-  <w:del w:author="Kortix" w:id="20">
+  <w:del w:author="Dosco" w:id="20">
     <w:r><w:delText>text they added</w:delText></w:r>
   </w:del>
 </w:ins>
@@ -90,7 +90,7 @@ Within a `<w:del>` block, use `<w:delText>` in place of `<w:t>`, and `<w:delInst
 <w:del w:author="Bob Chen" w:id="10">
   <w:r><w:delText>text they struck</w:delText></w:r>
 </w:del>
-<w:ins w:author="Kortix" w:id="20">
+<w:ins w:author="Dosco" w:id="20">
   <w:r><w:t>text they struck</w:t></w:r>
 </w:ins>
 ```

@@ -1,11 +1,11 @@
 ---
 name: kortix-marketplace
-description: "The Kortix marketplace — how to discover capabilities and IMPORT them into this workspace. The marketplace is a catalog of open git repos: whole ready-made WORKSPACES (registry:project) and individual skills/agents/tools. There is no deterministic 'installer' — you (the agent) import an item by reading its source and merging the files that fit into this workspace, then opening a change request. Use when the user wants to browse/search the Kortix catalog, 'add/clone the <X> workspace', 'import that skill/agent', pull in a marketplace capability, or add a new source."
+description: "The Dosco marketplace — how to discover capabilities and IMPORT them into this workspace. The marketplace is a catalog of open git repos: whole ready-made WORKSPACES (registry:project) and individual skills/agents/tools. There is no deterministic 'installer' — you (the agent) import an item by reading its source and merging the files that fit into this workspace, then opening a change request. Use when the user wants to browse/search the Dosco catalog, 'add/clone the <X> workspace', 'import that skill/agent', pull in a marketplace capability, or add a new source."
 ---
 
 <skill name="kortix-marketplace">
 
-The **Kortix marketplace** is the Kortix-native catalog. Every item is an **open
+The **Dosco marketplace** is the Dosco-native catalog. Every item is an **open
 git repo** made of plain files — a whole clonable **workspace** (its `kortix.yaml`,
 agents, skills, tools) or an individual **skill / agent / tool**. There is **no
 deterministic installer, no version lock, and no update system**: you add an item
@@ -13,7 +13,7 @@ by **importing** it — reading its source and merging what fits into this
 workspace's own files, then opening a change request. Everything you import becomes
 **100% user-owned files** in this repo, exactly like any other code you write.
 
-Why it works this way: the Kortix *system* layer (this `kortix-*` family, the
+Why it works this way: the Dosco *system* layer (this `kortix-*` family, the
 `kortix` CLI) is served live and always-latest, so it never goes stale. Marketplace
 items are the opposite — they're *yours* to own and edit, so they're imported as
 files, not pinned to an upstream that could clobber your changes.
@@ -80,7 +80,7 @@ truth** for what's in this workspace.
 
 <workspaces>
 A whole **workspace** item is the richest thing in the marketplace — a working,
-end-to-end Kortix workspace focused on a function. You can spin it up as its **own
+end-to-end workspace focused on a function. You can spin it up as its **own
 new workspace** (from the web UI's "Add to a workspace" → new workspace, which seeds
 the files deterministically), or **import/merge it into this existing workspace**
 via the recipe above to make this workspace bigger. It's all just files.
@@ -95,7 +95,7 @@ one click; an arbitrary git URL is admin-gated. Once added, its items show up in
 </adding-a-source>
 
 <outside-the-catalog>
-This skill covers the Kortix catalog: whole workspaces + skills/agents/tools,
+This skill covers the Dosco catalog: whole workspaces + skills/agents/tools,
 imported into this repo as owned files via a CR.
 
 When the catalog has nothing that fits, the wider open ecosystem is still fair

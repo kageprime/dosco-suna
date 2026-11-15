@@ -399,7 +399,7 @@ function CatalogAppPage({ projectId, appSegment }: { projectId: string; appSegme
     primary?.kind === 'composio'
       ? 'Composio'
       : primary?.kind === 'kortix'
-        ? 'Kortix'
+        ? 'Dosco'
         : primary?.kind === 'pipedream'
           ? connectorRunsOver(provider)
           : null;

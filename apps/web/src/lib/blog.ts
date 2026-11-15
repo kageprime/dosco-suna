@@ -19,19 +19,19 @@ export interface Author {
 // edit a person once here and every post updates.
 export const AUTHORS: Record<string, Author> = {
   marko: {
-    name: 'Marko Kraemer',
-    role: 'Co-founder',
-    email: 'marko@kortix.ai',
+    name: 'Dosco Team',
+    role: 'Engineering',
+    email: 'support@dosco.live',
   },
   team: {
-    name: 'The Kortix Team',
-    role: 'Kortix',
-    email: 'team@kortix.ai',
+    name: 'The Dosco Team',
+    role: 'Dosco',
+    email: 'support@dosco.live',
   },
 };
 
 export function resolveAuthor(key: string): Author {
-  return AUTHORS[key] ?? { name: key, role: '', email: `${key}@kortix.ai` };
+  return AUTHORS[key] ?? { name: key, role: '', email: `${key}@dosco.live` };
 }
 
 export interface PostFrontmatter {

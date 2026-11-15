@@ -139,7 +139,7 @@ Also see `skills/design-foundations/SKILL.md` for palette, fonts + pairings, cha
 
 Build every palette as **1 accent + neutral surface + neutral text**. The accent is for emphasis only (headings, key data, section markers) — everything else stays neutral. See `skills/design-foundations/SKILL.md` for the full "Earn Every Color" philosophy, contrast rules, and the custom-palette workflow (user hue → derive surfaces by desaturating → test contrast).
 
-**When no topic-specific color is obvious**, fall back to the Kortix neutral system: black/white or soft off-white neutrals with a single accent such as teal `#22808D` only where emphasis is needed (see `skills/design-foundations/SKILL.md`).
+**When no topic-specific color is obvious**, fall back to the default neutral system: black/white or soft off-white neutrals with a single accent such as teal `#22808D` only where emphasis is needed (see `skills/design-foundations/SKILL.md`).
 
 ### For Each Slide
 
@@ -266,7 +266,7 @@ pdftoppm -jpeg -r 150 output.pdf slide
 ls slide-*.jpg   # always ls — zero-padding varies by page count
 ```
 
-2. Start a background review session using the Kortix session orchestration flow (`session_start_background`, or `session_spawn` if the alias is what the runtime exposes). Give it the slide image paths plus a prompt like this:
+2. Start a background review session using the Dosco session orchestration flow (`session_start_background`, or `session_spawn` if the alias is what the runtime exposes). Give it the slide image paths plus a prompt like this:
 
 ```text
 Visually inspect these slides. Assume there are issues — find them.

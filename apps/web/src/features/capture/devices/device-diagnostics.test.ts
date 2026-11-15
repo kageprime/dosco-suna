@@ -90,7 +90,7 @@ describe('diagnosticsText', () => {
   test('one fact per line, with the update reason, machine and sync', () => {
     const text = diagnosticsText(device(diagnostics(), ['update_failed']), 'Fixture PC');
     const lines = text.split('\n');
-    expect(lines[0]).toBe('Kortix Capture diagnostics');
+    expect(lines[0]).toBe('Capture diagnostics');
     expect(lines).toContain('device_id: 00000000-0000-4000-8000-0000000000d1');
     expect(lines).toContain('update: failed (installed 0.1.0, latest 0.1.1, channel stable)');
     expect(lines).toContain('update_last_result: rolled_back 0.1.0 -> 0.1.1 at 2026-11-04T09:00:00.000Z: 0.1.1 did not report healthy in 900 s: session 2: no_new_frame');

@@ -13,7 +13,7 @@ import { v } from "convex/values";
 export default defineSchema({
   projects: defineTable({
     name: v.string(),
-    createdBy: v.string(),               // Kortix user id (identity.subject)
+    createdBy: v.string(),               // Dosco user id (identity.subject)
     archived: v.optional(v.boolean()),
   }).index("by_archived", ["archived"]),
 
@@ -107,7 +107,7 @@ export const move = mutation({
 
 ## Actions (external APIs)
 
-When Kortix has a connector for the system (Gmail, a CRM, an OpenAPI or MCP
+When Dosco has a connector for the system (Gmail, a CRM, an OpenAPI or MCP
 server), call it through `@kortix/sdk` instead of a raw API key: the gateway
 applies the workspace's policy, approvals and audit (connectors.md). Use a raw `fetch` with a key only for an API
 that has no connector:

@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { CaptureAreaShell } from '@/features/capture/area/capture-area-shell';
 
 export const metadata: Metadata = {
-  title: { absolute: 'Dosco Capture', template: '%s · Dosco Capture' },
+  title: { absolute: 'Capture', template: '%s · Capture' },
   robots: { index: false, follow: false },
 };
 

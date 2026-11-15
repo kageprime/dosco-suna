@@ -83,7 +83,7 @@ const FEATURE_COPY: Record<
   branding: {
     title: 'Branding is an Enterprise feature',
     blurb:
-      'Put your own logo, icon, favicon, and product name on the app for everyone in this workspace: Kortix becomes your tool.',
+      'Put your own logo, icon, favicon, and product name on the app for everyone in this workspace: Dosco becomes your tool.',
     points: [
       'Your brandmark in the header and on every loading screen',
       'Your favicon and product name in the browser tab, with dark-mode variants',

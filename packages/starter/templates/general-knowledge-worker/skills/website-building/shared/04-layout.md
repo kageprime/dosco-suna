@@ -100,7 +100,7 @@ Borders, border-radius, and shadows are detail work — the difference between "
 - **Consistency across a page.** If cards use `--radius-lg`, all cards use `--radius-lg`. Don't mix unless there's a semantic reason.
 
 ### Shadows
-- **Tone-match shadows to the surface.** The Kortix palette's `--shadow-sm`, `--shadow-md`, and `--shadow-lg` variables use a warm-tinted shadow color. Reference them directly:
+- **Tone-match shadows to the surface.** The default palette's `--shadow-sm`, `--shadow-md`, and `--shadow-lg` variables use a warm-tinted shadow color. Reference them directly:
   ```css
   .card { box-shadow: var(--shadow-sm); }
   .card:hover { box-shadow: var(--shadow-md); }

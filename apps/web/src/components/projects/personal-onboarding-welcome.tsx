@@ -27,9 +27,9 @@ import { useProjectOnboarding } from '@/hooks/projects/use-project-onboarding';
 import { usePersonalContactTier } from '@/hooks/use-show-personal-contact';
 import { cn } from '@kortix/ui';
 
-const MARKO_CAL_LINK = 'team/kortix/demo';
-const MARKO_CAL_NAMESPACE = 'kortix-onboarding';
-const MARKO_EMAIL = 'marko@dosco.live';
+const MARKO_CAL_LINK = 'team/dosco/demo';
+const MARKO_CAL_NAMESPACE = 'dosco-onboarding';
+const MARKO_EMAIL = 'support@dosco.live';
 const MARKO_WHATSAPP = '17372940835';
 const STORAGE_KEY = 'kortix:marko-welcome-dismissed';
 

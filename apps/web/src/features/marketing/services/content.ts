@@ -38,7 +38,7 @@ export const GUARANTEE = 'Not loving it in the first 2 weeks? Get 50% back, no q
 export const hero = {
   title: 'AI adopted across your company.',
   titleMuted: 'Built for you. Owned by you.',
-  sub: 'Our team maps how your company works, connects your data and ships the agents and apps that run it, on Kortix. Everything lives in a git repo you own.',
+  sub: 'Our team maps how your company works, connects your data and ships the agents and apps that run it, on Dosco. Everything lives in a git repo you own.',
   /** One quiet line under the buttons. The price waits for the pricing section. */
   terms: 'Strategy and build, one team · One flat monthly fee · Everything in a repo you own',
 } as const;
@@ -73,7 +73,7 @@ export const platform = {
   title: 'Built on Dosco.',
   titleMuted: 'The sovereign CompanyOS we make.',
   body: [
-    'Everything we build runs on **Dosco CompanyOS, our own operating system**. Your agents, skills, company memory, connectors and apps live in **one repository you own**.',
+    'Everything we build runs on **CompanyOS, our operating system for autonomous organizations**. Your agents, skills, company memory, connectors and apps live in **one repository you own**.',
     'When we step back, nothing leaves with us: **your team keeps running it on Dosco**, in our cloud, your VPC or your own network.',
   ],
   cells: [
@@ -133,7 +133,7 @@ export const stages = {
       id: 'build',
       n: '04',
       k: 'Build custom apps',
-      v: 'We build the internal apps, dashboards and tools your teams need on top of the unified data, on Kortix CompanyOS.',
+      v: 'We build the internal apps, dashboards and tools your teams need on top of the unified data, on CompanyOS.',
       get: [
         'Internal apps your teams use every day',
         'Dashboards on live company data',
@@ -196,7 +196,7 @@ export const functions = {
 export const compare = {
   title: 'Better than hiring.',
   titleMuted: 'Better than a consultancy.',
-  columns: ['Kortix', 'Hire an AI team', 'A consultancy'] as const,
+  columns: ['Dosco', 'Hire an AI team', 'A consultancy'] as const,
   rows: [
     {
       id: 'strategy',
@@ -250,7 +250,7 @@ export const pricing = {
     'Custom apps and internal tools',
     'Training for your existing team',
     'Everything in a git repo you own',
-    'Kortix Cloud, your VPC, or on-prem',
+    'Cloud, your VPC, or dedicated enterprise deployment',
   ],
   secure: 'Secure checkout by Stripe',
 } as const;
@@ -277,7 +277,7 @@ export const faq = {
     {
       id: 'security',
       q: 'Is our data safe?',
-      a: 'Kortix is open source and SOC 2 Type I verified. Secrets are encrypted per project, and you choose where it runs: Kortix Cloud, your VPC or your own on-prem network.',
+      a: 'Dosco is SOC 2 Type I verified. Secrets are encrypted per workspace, and you choose where it runs: Cloud, your VPC, or a dedicated enterprise deployment.',
     },
     {
       id: 'data',

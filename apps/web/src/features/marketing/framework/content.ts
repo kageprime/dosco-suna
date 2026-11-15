@@ -17,7 +17,7 @@
 
 export const MANIFEST = [
   "# yaml-language-server: $schema=https://kortix.com/schema/kortix.schema.json",
-  "default_agent: kortix",
+  "default_agent: worker",
   "",
   "project:",
   "  name: arcadia",
@@ -63,10 +63,10 @@ export const MANIFEST = [
   "",
   "# Every agent is a pi agent. It gets only what its block lists.",
   "agents:",
-  "  kortix:",
+  "  worker:",
   "    description: The general agent for Arcadia.",
   "    mode: primary",
-  "    prompt_file: agents/kortix.md",
+  "    prompt_file: agents/worker.md",
   '    connectors: "*"',
   '    skills: "*"',
   '    extensions: "*"',
@@ -129,7 +129,7 @@ export const MANIFEST = [
  */
 export const FILES: Record<string, readonly string[]> = {
   'kortix.yaml': MANIFEST,
-  'agents/kortix.md': [
+  'agents/worker.md': [
     'You are the general agent for Arcadia.',
     'Read the company memory in Drive before you start.',
   ],
@@ -294,7 +294,7 @@ export const FILES: Record<string, readonly string[]> = {
 /** The repository tree. A file's `path` opens it; folders only group. */
 export const TREE: readonly { name: string; depth: number; path?: string }[] = [
   { name: 'agents', depth: 0 },
-  { name: 'kortix.md', depth: 1, path: 'agents/kortix.md' },
+  { name: 'worker.md', depth: 1, path: 'agents/worker.md' },
   { name: 'engineering', depth: 1 },
   { name: 'triage.md', depth: 2, path: 'agents/engineering/triage.md' },
   { name: 'marketing', depth: 1 },

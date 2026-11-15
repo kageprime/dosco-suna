@@ -1,67 +1,67 @@
 // Generated from public marketing metadata records.
 export const PUBLIC_METADATA_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
-  'A Kortix agent is a markdown persona with a deny-by-default reach into connectors, secrets and skills. A skill is the markdown that encodes how your company does one job. Both are files in your repo, versioned and reviewed.':
+  'A Dosco agent is a markdown persona with a deny-by-default reach into connectors, secrets and skills. A skill is the markdown that encodes how your company does one job. Both are files in your repo, versioned and reviewed.':
     'texte436179861c8',
-  'About Kortix': 'text56d4e6956bc3',
-  'Browse skills, agents, and commands from every source. Add them to a Kortix workspace in one click.':
+  'About Dosco': 'text56d4e6956bc3',
+  'Browse skills, agents, and commands from every source. Add them to a workspace in one click.':
     'text3d41d76bb5fb',
-  'Build with Kortix from the terminal: drive workspaces, sessions, and agents through the CLI and SDK, wire triggers and connectors, and land every change through a reviewed change request.':
+  'Build with Dosco from the terminal: drive workspaces, sessions, and agents through the CLI and SDK, wire triggers and connectors, and land every change through a reviewed change request.':
     'texte3c63340ccb1',
-  'Careers at Kortix': 'text206d4796597e',
+  'Careers at Dosco': 'text206d4796597e',
   'Company as Code': 'text6007b5baf3f3',
   'Connect 3,000+ apps, MCP servers, OpenAPI, GraphQL and raw HTTP once for the whole company. Agents reach them through one scoped token — credentials stay server-side, every action is allowed, gated, or blocked, and every call is logged.':
     'texta98d70820b62',
-  'Connect Slack or Microsoft Teams to a Kortix workspace and a message in a thread starts a session. The agent works on its own cloud computer and replies in the same thread. Email is in preview.':
+  'Connect Slack or Microsoft Teams to a workspace and a message in a thread starts a session. The agent works on its own cloud computer and replies in the same thread. Email is in preview.':
     'text94c8919486af',
-  'Contact Kortix': 'text20c32c06512f',
-  'Cron schedules and signed webhooks start Kortix sessions with nobody present. Each trigger names the agent it runs as, carries a prompt template, and lands its work through a change request a person approves.':
+  'Contact Dosco': 'text20c32c06512f',
+  'Cron schedules and signed webhooks start Dosco sessions with nobody present. Each trigger names the agent it runs as, carries a prompt template, and lands its work through a change request a person approves.':
     'text270ba743dc3c',
   'Current plans and included features.': 'text05a4a531e6d7',
-  'Download Kortix': 'text5a0cac0326d5',
-  'Every Kortix release, straight from the source. New features, fixes, and improvements — versioned and dated.':
+  'Download Dosco': 'text5a0cac0326d5',
+  'Every Dosco release, straight from the source. New features, fixes, and improvements — versioned and dated.':
     'text3efe2d7294ba',
-  'Field notes on building, running, and governing AI agents that do real work — from the team building Kortix CompanyOS.':
+  'Field notes on building, running, and governing AI agents that do real work — from the team building CompanyOS.':
     'text3661bf7ae497',
-  'Get Kortix for macOS, Windows, Linux, iOS, and Android.': 'textd587acccbf63',
-  'How Kortix is built to survive a security review: an isolated machine per session, connector credentials brokered server-side that never enter that machine, permissions for people and agents, human approval gates, and a change request between an agent and main.':
+  'Get Dosco for macOS, Windows, Linux, iOS, and Android.': 'textd587acccbf63',
+  'How Dosco is built to survive a security review: an isolated machine per session, connector credentials brokered server-side that never enter that machine, permissions for people and agents, human approval gates, and a change request between an agent and main.':
     'textbe229f0684bc',
   'How teams put a workforce of AI agents to work — the loops they engineer, the deliverables they ship, and the reviewed changes that make the company better every day.':
     'text7fa8aef486d8',
-  'Kortix Agent Computer': 'text751b691af4b0',
-  'Kortix Agents & Skills': 'text099b6264cb74',
-  'Kortix Automations': 'text5fc781030fd9',
-  'Kortix Blog': 'textfe5c793e5f1c',
-  'Kortix Changelog': 'text1e2baba1cb9b',
-  'Kortix Channels': 'text681d1d8cf3d9',
-  'Kortix Enterprise': 'text6e3a9a94ccd7',
-  'Kortix Marketplace': 'text5aa2ff9bc46f',
-  'Kortix Security': 'text8eab22952758',
-  'Kortix Solutions by role': 'textce08e2abb642',
-  'Kortix Use Cases': 'text5f513e5b2937',
-  'Kortix connectors': 'text45276c8ce829',
-  'Kortix for developers': 'textcd0f85fb476b',
-  'Kortix legal': 'textd1bc1e7821b0',
-  'Kortix pricing': 'text62d8edaa922d',
-  'Kortix support': 'text42113e7bf6fc',
-  'Kortix terms of service and privacy policy.': 'text460a8b327e17',
+  'Dosco Agent Computer': 'text751b691af4b0',
+  'Dosco Agents & Skills': 'text099b6264cb74',
+  'Dosco Automations': 'text5fc781030fd9',
+  'Dosco Blog': 'textfe5c793e5f1c',
+  'Dosco Changelog': 'text1e2baba1cb9b',
+  'Dosco Channels': 'text681d1d8cf3d9',
+  'Dosco Enterprise': 'text6e3a9a94ccd7',
+  'Dosco Marketplace': 'text5aa2ff9bc46f',
+  'Dosco Security': 'text8eab22952758',
+  'Dosco Solutions by role': 'textce08e2abb642',
+  'Dosco Use Cases': 'text5f513e5b2937',
+  'Dosco connectors': 'text45276c8ce829',
+  'Dosco for developers': 'textcd0f85fb476b',
+  'Dosco legal': 'textd1bc1e7821b0',
+  'Dosco pricing': 'text62d8edaa922d',
+  'Dosco support': 'text42113e7bf6fc',
+  'Dosco terms of service and privacy policy.': 'text460a8b327e17',
   'One platform, eight teams with completely different work. What sales, marketing, product, engineering, finance, people, IT and data science can each hand off — and what comes back.':
     'text1327d65dc73c',
-  'Open positions at Kortix — FDE, GTM and MTS. Belgrade, Serbia and San Francisco. We hire for prolonged ownership.':
+  'Open positions at Dosco — FDE, GTM and MTS. Belgrade, Serbia and San Francisco. We hire for prolonged ownership.':
     'text0f4827ef74ea',
-  'Reach Kortix support by email or Discord, read the answers to the questions people ask most, and find the account deletion steps.':
+  'Reach Dosco support by email or Discord, read the answers to the questions people ask most, and find the account deletion steps.':
     'text5b4afe177d99',
-  'Request a tailored Kortix walkthrough for cloud, VPC, or on-prem deployment.':
+  'Request a tailored Dosco walkthrough for managed Cloud or dedicated enterprise deployment.':
     'text4cd05d3456c4',
-  'Run the same Kortix on your own box. One Docker Compose stack, the same images the managed cloud runs, your database and your files on disk you control. kortix self-host start, then kortix hosts use selfhost.':
+  'Run Dosco in managed Cloud or a dedicated enterprise VPC with isolated E2B sandboxes, scoped credentials, and full audit logs.':
     'textcb7f1382ce75',
-  'Self-host Kortix': 'textdc99025834c1',
+  'Dedicated VPC with Dosco': 'textdc99025834c1',
   'We build self-driving companies. Humans verify, steer, and govern while agent teams do work across engineering, product, operations, finance, support, and growth.':
     'textd7f179da0e70',
   'Our mission: take a company from human to AGI, and let it keep every byte of itself on the way there.':
     'textad70f35eaccc',
-  'Field notes on building, running, and governing AI agents that do real work — from the team building Kortix.':
+  'Field notes on building, running, and governing AI agents that do real work — from the team building Dosco.':
     'text66b6392a2418',
-  'What shipped in Kortix each week, straight from our production releases.':
+  'What shipped in Dosco each week, straight from our production releases.':
     'text19e6841a618f',
   "Contact sales and book a demo": 'text228359b08506',
   "About": 'text4efca0d10c5f',
@@ -82,7 +82,7 @@ export const PUBLIC_METADATA_TRANSLATION_KEYS: Readonly<Record<string, string>> 
   "Company as Code: your company in one git repo": 'textab8ee7418b44',
   "Connectors: 3,000+ apps for AI agents": 'text08c07aa26d80',
   "AI agent security: isolation, permissions, audit": 'textb5ddb92c2667',
-  "Self-hosted AI agents on your infrastructure": 'text111f5fe94248',
+  'Private AI agents in your enterprise VPC': 'text111f5fe94248',
   "AI agents for every team": 'text3ed734962d72',
   "AI agents for engineering teams": 'text1f66405c0804',
   "AI agents for product teams": 'text68f3fc697c04',
@@ -92,7 +92,7 @@ export const PUBLIC_METADATA_TRANSLATION_KEYS: Readonly<Record<string, string>> 
   "AI agents for sales teams": 'text09e71792c6c3',
   "AI agents for marketing teams": 'textaaab3a59b808',
   "AI agents for finance teams": 'text8f480bae8d16',
-  'White-label: your AI product on Platinum.dev compute': 'texta0990a4a86dc',
-  'Fork Kortix, put your brand on it, and sell it as your own product. The license is free. The one requirement is that your compute runs on Platinum.dev.':
+  'White-label: your AI product powered by Dosco Tek': 'texta0990a4a86dc',
+  'Deploy Dosco, put your brand on it, and sell it under your name: custom domains, dedicated cloud compute, and sovereign controls.':
     'text6189ab6313de',
 };

@@ -55,7 +55,7 @@ export const pillars = {
 export const start = {
   eyebrow: 'Start',
   title: 'Two commands.',
-  sub: 'kortix init turns any directory into a Kortix project. kortix ship checks it, asks for missing secrets, pushes it, and runs it. The repo behaves the same on your laptop as in the cloud.',
+  sub: 'kortix init turns any directory into a project. kortix ship checks it, asks for missing secrets, pushes it, and runs it. The repo behaves the same on your laptop as in the cloud.',
   shell: {
     title: 'terminal',
     lines: ['kortix init northwind', 'cd northwind', 'kortix ship'],

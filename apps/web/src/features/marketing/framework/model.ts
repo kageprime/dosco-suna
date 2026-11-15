@@ -26,7 +26,7 @@ import { MANIFEST } from './content';
 export const hero = {
   title: 'Company as code.',
   titleMuted: 'A backend framework and server for agents.',
-  sub: 'A workspace is backed by a git repo. Every agent in it is a custom pi agent: a minimal open-source harness you extend with pi extensions. kortix.yaml declares the agents, connectors, triggers and rules. Kortix deploys them to the cloud and runs every session on its own computer. Build your own experience with @kortix/sdk and @kortix/ui.',
+  sub: 'A workspace is backed by a git repo. Every agent in it is a custom pi agent: a minimal extensible runtime you customize with pi extensions. kortix.yaml declares the agents, connectors, triggers and rules. Dosco deploys them to Cloud and runs every session in its own isolated sandbox. Build your own experience with @kortix/sdk and @kortix/ui.',
   caption: 'One file in one repo.',
   captionMuted: 'Dosco runs what it declares.',
 } as const;
@@ -125,7 +125,7 @@ export const shipTerminal = [
 
 /* What the shipped MANIFEST holds, counted from it. */
 export const shipped = [
-  { k: 'Agents', v: 'kortix, eng-triage, marketing, sales-inbound' },
+  { k: 'Agents', v: 'worker, eng-triage, marketing, sales-inbound' },
   { k: 'Connectors', v: 'github, linkedin, hubspot' },
   { k: 'Skills', v: 'triage-issue, write-post, qualify-lead' },
   { k: 'Triggers', v: 'new-issue, inbound-lead, weekly-post' },
@@ -166,7 +166,7 @@ export const pillars = {
       name: 'Custom pi agents',
       line: 'A minimal harness, deployed to the cloud.',
       facts: [
-        'pi, an open-source agent harness',
+        'pi, a modular agent runtime',
         'pi extensions from npm or the repo',
         'A computer and a branch per session',
       ],
@@ -228,7 +228,7 @@ export const tabs = {
       title: 'pi extensions',
       description: 'Extend the harness with TypeScript.',
       body: [
-        'Every agent runs on pi, a minimal open-source agent harness. A pi extension is a TypeScript module that adds tools or hooks into every turn and tool call.',
+        'Every agent runs on pi, a modular agent runtime. A pi extension is a TypeScript module that adds tools or hooks into every turn and tool call.',
         'Register one from npm or as a file in the repo, then enable it per agent. Each new session loads it on its own cloud computer.',
       ],
     },
@@ -255,7 +255,7 @@ export const tabs = {
       title: 'A computer per session',
       description: 'pi runs the agent on its own cloud computer.',
       body: [
-        'Every new session runs pi, an open-source agent harness, on its own isolated cloud computer. It has a terminal, a browser, Python and Node.js.',
+        'Every new session runs pi, a modular agent runtime, on its own isolated cloud computer. It has a terminal, a browser, Python and Node.js.',
         'It sleeps about 15 to 20 minutes after the last turn. The next message wakes it with its files and history.',
       ],
     },
@@ -434,7 +434,7 @@ export const faqItems = [
     id: 'faq-pi',
     question: 'What runs inside a session?',
     answer:
-      'pi, a minimal open-source agent harness. Every agent you declare is a pi agent, and every new session runs it on its own cloud computer. It calls models only through the Dosco LLM gateway.',
+      'pi, a modular agent runtime. Every agent you declare is a pi agent, and every new session runs it on its own cloud computer. It calls models only through the Dosco LLM gateway.',
   },
   {
     id: 'faq-extensions',

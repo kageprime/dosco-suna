@@ -20,7 +20,7 @@ import { CopyBlock } from '../copy-block';
 
 /** `<api origin>/v1/accounts/<accountId>/capture`. */
 function captureApiBase(backendUrl: string | undefined, accountId: string): string {
-  const base = (backendUrl || 'https://api.kortix.com/v1').replace(/\/+$/, '');
+  const base = (backendUrl || 'https://api.dosco.live/v1').replace(/\/+$/, '');
   return `${base.endsWith('/v1') ? base : `${base}/v1`}/accounts/${accountId}/capture`;
 }
 

@@ -1,6 +1,6 @@
 ---
 name: kortix-system
-description: "How Kortix works and how to change a Kortix workspace from a session: land work through a change request, drive Kortix with the in-sandbox `kortix` CLI, keep files where they last, store or request credentials, schedule work, know the computer a session runs on (its own microVM, its desktop, what lasts) and make an installed package last for every session (a sandbox template), know what the session runtime (pi) can and cannot do, and edit or fix `kortix.yaml`. Load when the user asks what Kortix can do or how it works; asks to create or change an agent, skill, tool, command, extension, permission, model, trigger or loop; asks whether an agent got better or worse, or to benchmark, eval or compare agents or models; asks to save, persist, schedule or ship work; asks what machine you run on, to install software for good, or to put something on \"my desktop\"; you just sent, submitted or started something whose result comes later (a reply, an order, a deploy, a change request, a person's answer); or your system prompt lists `kortix.yaml` issues."
+description: "How Dosco works and how to change a workspace from a session: land work through a change request, drive Dosco with the in-sandbox `kortix` CLI, keep files where they last, store or request credentials, schedule work, know the computer a session runs on (its own microVM, its desktop, what lasts) and make an installed package last for every session (a sandbox template), know what the session runtime (pi) can and cannot do, and edit or fix `kortix.yaml`. Load when the user asks what Dosco can do or how it works; asks to create or change an agent, skill, tool, command, extension, permission, model, trigger or loop; asks whether an agent got better or worse, or to benchmark, eval or compare agents or models; asks to save, persist, schedule or ship work; asks what machine you run on, to install software for good, or to put something on \"my desktop\"; you just sent, submitted or started something whose result comes later (a reply, an order, a deploy, a change request, a person's answer); or your system prompt lists `kortix.yaml` issues."
 ---
 <skill name="kortix-system">
 <live-skills>
@@ -8,7 +8,7 @@ description: "How Kortix works and how to change a Kortix workspace from a sessi
 Your system prompt lists every skill your agent may load, with its path. Read
 a skill's `SKILL.md` with `read` before you work on its topic. Paths inside a
 skill are relative to its folder.
-The Kortix skills (`kortix-*`) come from the deployed platform, not from the
+The Dosco skills (`kortix-*`) come from the deployed platform, not from the
 repository, and update in a running session. Never edit or commit a copy.
 For one your list lacks, or outside a session:
 - `kortix system-skills` lists them; `kortix system-skills get <name>` prints
@@ -17,7 +17,7 @@ A flag-gated skill exists only while its flag is on. Optional skills: `kortix ma
 </live-skills>
 <overview>
 ## The model
-- A **workspace** is a Git repository with `kortix.yaml` at its root. Kortix
+- A **workspace** is a Git repository with `kortix.yaml` at its root. Dosco
   hosts it, or the workspace connects one on GitHub.
 - A **session** is one unit of agent work: one sandbox and one Git branch,
   `$KORTIX_BRANCH_NAME`. Sessions run in parallel and share no sandbox.
@@ -25,13 +25,13 @@ A flag-gated skill exists only while its flag is on. Optional skills: `kortix ma
   permission rules, and the things it may use.
 - Every session starts from the default branch. A change reaches other
   sessions only when its change request merges.
-- `/workspace` starts empty: Kortix checks out the repository there only when
+- `/workspace` starts empty: Dosco checks out the repository there only when
   your agent's `workspace.repos` declares a clone (your prompt then names it
   and its setup progress). Otherwise `kortix workspaces clone` clones the
   repository onto your session branch. Send the change with `kortix cr`.
 - Only your session branch accepts your push. The push needs
   `workspace.gitops.read` in your agent's `kortix_permissions`.
-- Asked what Kortix can do: answer as `references/capabilities.md` says.
+- Asked what Dosco can do: answer as `references/capabilities.md` says.
 </overview>
 <machine>
 ## Your computer and where files last
@@ -80,12 +80,12 @@ change request (CR) is the only way to the default branch. Do every step:
 - A merge that changes `agents` or `default_agent` also needs
   `workspace.agent.write`; `triggers` needs `workspace.trigger.create|update|delete`.
   `503 CR_GOVERNANCE_UNVERIFIED`: nothing merged, retry after `Retry-After`.
-  For people: https://kortix.com/docs/developers#change-requests
+  For people: https://dosco.live/docs/developers#change-requests
 </change-requests>
 <cli>
 ## The `kortix` CLI in the sandbox
 `kortix` is on `$PATH` and signed in: `$KORTIX_TOKEN` is this session's
-workspace-scoped token, `$KORTIX_API_URL` its API. Use it for Kortix cloud
+workspace-scoped token, `$KORTIX_API_URL` its API. Use it for Cloud
 state. Use `git` and the file tools for files and commits.
 - Read commands take `--json`: parse it, never scrape tables. Diagnostics go
   to stderr. Mutations take flags and never prompt.
@@ -94,14 +94,14 @@ state. Use `git` and the file tools for files and commits.
 - The token cannot reach other workspaces or account routes (`kortix workspaces
   ls` answers `403`). `kortix whoami --token-only` prints your agent's grant.
 - Never send the user to a settings page for something the CLI does. For
-  people: https://kortix.com/docs/developers#cli
+  people: https://dosco.live/docs/developers#cli
 
 | Task | Command |
 | --- | --- |
 | What every session does, talk to one | `kortix sessions status`, `sessions log <id>` (read-only), `sessions chat <id> --prompt "…"` |
 | Hand a task to another agent | The `agent` tool (default `session: "separate"`: its own session). From a session a person started it runs in the background: the report arrives later as a message. Deeper, one call waits up to 30 min. A follow-up goes to the same agent: `send_message` to its name, or `agent` with its `task_id` or name; a new agent only for separate parallel work. Not `sessions new` + `wait-for` |
 | Tell another session something; a team's task list | `send_message` (`list_agents` lists who you can reach), `task_create`/`task_list`/`task_update` (flag `agent_teams`; a teammate starts with `agent({ name, team: true })`, its role is for its session only); from a shell `kortix sessions message <to> "…"`, `sessions reachable`, `sessions inbound <id> accept\|hold\|refuse`, `kortix tasks ls\|add\|claim\|done` |
-| Change requests, the review inbox | `kortix cr ls\|show\|diff\|merge-preview`, `kortix review ls`; My Kortix: the `kortix_change_requests` tool |
+| Change requests, the review inbox | `kortix cr ls\|show\|diff\|merge-preview`, `kortix review ls`; Xera: the `kortix_change_requests` tool |
 | Triggers; loops on this session (`<scheduling>`) | `kortix triggers ls\|info\|fire\|add\|set\|enable\|disable`; `kortix loop "…" --in 24h`, `kortix loops ls\|pause\|resume\|rm` |
 | Secrets | `kortix secrets ls\|set\|request\|sync` |
 | Connectors and accounts | `kortix connectors …` (the `kortix-connectors` skill) |
@@ -112,7 +112,7 @@ state. Use `git` and the file tools for files and commits.
 | Tools, feature flags | `kortix tools ls\|eject <name>`, `kortix workspaces features [enable <flag>]` |
 | The manifest | `kortix validate [--scopes]`, `kortix schema` |
 | Score an agent on tasks (flag `evals`, `<evals>`) | `kortix evals datasets\|tasks\|run\|jobs\|show\|compare\|rerun\|judge` |
-| Kortix itself is broken, confusing or missing something | `kortix feedback "<what happened, what you expected>" --kind bug\|friction\|idea`: it reaches the Kortix team with this session's id. File it when it happens, once per problem, then continue with a workaround |
+| Dosco itself is broken, confusing or missing something | `kortix feedback "<what happened, what you expected>" --kind bug\|friction\|idea`: it reaches the Dosco team with this session's id. File it when it happens, once per problem, then continue with a workaround |
 </cli>
 
 <credentials>
@@ -122,7 +122,7 @@ state. Use `git` and the file tools for files and commits.
    session may use, without values. Each entry's `delivery`:
    - `sandbox`: the named env var holds the real value. Never print, echo or
      write it to a file.
-   - `network`: the env var holds a handle. Use it as the credential: Kortix
+   - `network`: the env var holds a handle. Use it as the credential: Dosco
      puts in the value outside the sandbox, only on the listed `hosts`, over
      HTTPS. `[REDACTED]` in a response means it worked. Experimental.
    - `https_broker`: run the entry's `command` (`kortix secrets call …`).
@@ -165,7 +165,7 @@ watch), set up this session's wake-up before you end the turn. Nobody asks.
   the loop with a slower one. Done or past the end date: `kortix loops rm`
   and `kortix triggers rm` every one. Playbook: `references/scheduling.md`.
 - Long jobs (many parts, many days): plan, delegate (`agent`, `workflow`),
-  set the wake-ups, keep the state in `out/status.md`, set Kortix up when the
+  set the wake-ups, keep the state in `out/status.md`, set Dosco up when the
   work repeats, close out: `references/scheduling.md` → Long jobs.
 
 | Workspace work | A `kortix.yaml` trigger (fields: `references/kortix/kortix-yaml.md`) |
@@ -199,11 +199,11 @@ Two models or prompts compare the same way. People view jobs and comparisons in 
 <runtime>
 ## The session runtime: pi
 
-Every session runs pi inside the Kortix daemon. Every model call goes through
-the Kortix LLM gateway. pi has:
+Every session runs pi inside the Dosco daemon. Every model call goes through
+the Dosco LLM gateway. pi has:
 
 - `bash`, `read`, `write`, `edit` on `/workspace`; `glob`, `grep`, `question`.
-- The Kortix tools `web_search`, `image_search`, `image_gen`, `scrape_webpage`,
+- The Dosco tools `web_search`, `image_search`, `image_gen`, `scrape_webpage`,
   `show` (`memory` is retired: use the file tools); workspace tools; `codemode`.
 - Subagents through `agent` (the agents your `subagents` grant names; `name` one to message it, `task_stop` stops it); `send_message`, `list_agents`.
 - Compaction near the context limit and on demand (`kortix sessions compact <id>`); steering: a message sent during a turn is read at its next step.
@@ -232,7 +232,7 @@ each agent enables what it uses. Unknown keys are errors.
 ```yaml
 # yaml-language-server: $schema=https://kortix.com/schema/kortix.schema.json
 default_agent: kortix
-env: { optional: [ORDERS_API_KEY] }       # secret names; values live in Kortix
+env: { optional: [ORDERS_API_KEY] }       # secret names; values live in Dosco
 skills: { triage: skills/triage }         # folder that holds triage/SKILL.md
 tools: { lookup_order: tools/lookup_order.ts }
 commands:
@@ -245,7 +245,7 @@ agents:
     prompt_file: agents/kortix.md         # or prompt: "…"
     permission: { bash: { "git push --force *": ask, "*": allow } }
     tools: "*"                            # "*" is every name; `all` is the same
-    skills: "*"                           # omitted = none, Kortix skills too
+    skills: "*"                           # omitted = none, Dosco skills too
     subagents: [researcher]
     commands: [standup]
     extensions: [audit]
@@ -263,8 +263,8 @@ triggers:
     run: { agent: kortix, prompt: "Summarize yesterday's merged change requests." }
 ```
 
-- `agents`, `default_agent` optional. My Kortix runs only with `builtin_agents: { my_kortix: true }`.
-  No agent named runs `default_agent` (may be `mykortix` when on), else My Kortix when on.
+- `agents`, `default_agent` optional. Xera runs only with `builtin_agents: { my_kortix: true }`.
+  No agent named runs `default_agent` (may be `mykortix` when on), else Xera when on.
 - An agent gets nothing it does not grant. Without `skills` it loads no
   skill, `kortix-system` included. `skills` and `extensions` also take
   `{ exclude: [names] }`: every one but those.
@@ -272,7 +272,7 @@ triggers:
   declared agents with `mode: subagent` or `all`.
 - `tools`: set it on every agent: `all`, `none`, a list, or `{ exclude:
   [names] }`. Omitted, the agent gets every tool and `kortix validate` warns.
-  A `tools:` registry entry with a Kortix tool's name replaces that tool.
+  A `tools:` registry entry with a Dosco tool's name replaces that tool.
 - `permission`: per key `allow | ask | deny`, or a pattern map where the
   longest matching pattern wins. Omitted: `allow`.
 - `kortix_permissions`: what the agent may do to the workspace.
@@ -292,7 +292,7 @@ triggers:
   Keep every file that conversion writes or deletes.
 
 Keys, `imports:`, sandbox templates, triggers: `references/kortix/kortix-yaml.md`.
-Tools: `references/kortix/tools.md`. People: https://kortix.com/docs/developers#kortixyaml-reference
+Tools: `references/kortix/tools.md`. People: https://dosco.live/docs/developers#kortixyaml-reference
 </manifest>
 Model switches, agent-pin permissions and precedence: `references/session-model.md`.
 </skill>

@@ -440,7 +440,7 @@ export const KIND_COPY: Record<TriggerKind, KindCopy> = {
   },
   app: {
     title: 'App events',
-    description: 'Have an agent run when one of your Kortix Apps emits an event.',
+    description: 'Have an agent run when one of your Apps emits an event.',
     noun: 'App event',
     createLabel: 'New App event',
     searchPlaceholder: 'Search App events',

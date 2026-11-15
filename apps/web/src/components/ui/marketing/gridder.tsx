@@ -32,7 +32,7 @@ function createRng(seed: number) {
 // Module-level default so the `words` memo dependency keeps a stable identity
 // across renders; a default parameter would build a fresh array every render
 // and re-run the seeded fill below.
-const DEFAULT_WORDS = ['kortix'];
+const DEFAULT_WORDS = ['dosco'];
 
 export default function KortixGrid({
   count,

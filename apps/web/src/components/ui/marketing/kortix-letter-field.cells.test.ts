@@ -42,7 +42,7 @@ describe('buildTokens', () => {
 
   test('kortix + proper tokens render the expected brand text', () => {
     const tokens = buildTokens(2000, 99);
-    expect(tokens.some((t) => t.kind === 'kortix' && t.text === 'k o r t i x')).toBe(true);
+    expect(tokens.some((t) => t.kind === 'kortix' && t.text === 'd o s c o')).toBe(true);
     expect(tokens.some((t) => t.kind === 'proper' && t.text === PROPER)).toBe(true);
   });
 });
@@ -133,7 +133,7 @@ describe('buildFieldSvg', () => {
   // (so there is no stray DOM text path).
   test('contains the brand tokens inside the svg image content', () => {
     const svg = buildFieldSvg(tokens, grid, 'black', false);
-    expect(svg).toContain('k o r t i x');
+    expect(svg).toContain('d o s c o');
     expect(svg).toContain(SOURCE.split('').join(' '));
     // Self-contained: no external refs that would break as a data URI.
     expect(svg).not.toMatch(/xlink:href/);

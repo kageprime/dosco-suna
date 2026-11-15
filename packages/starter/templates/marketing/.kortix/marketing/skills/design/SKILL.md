@@ -1,6 +1,6 @@
 ---
 name: design
-description: Make on-brand graphics - blog covers, OG images, social cards, thumbnails - with the Kortix `image_gen` tool for the background art and an HTML card for the exact text and the real logo, rendered to PNG at the surface's native size. Load whenever a blog post, social draft, video or answer page needs an image, and whenever a person asks for a cover, an OG image or a social graphic. Load `brand` first.
+description: Make on-brand graphics - blog covers, OG images, social cards, thumbnails - with the Dosco `image_gen` tool for the background art and an HTML card for the exact text and the real logo, rendered to PNG at the surface's native size. Load whenever a blog post, social draft, video or answer page needs an image, and whenever a person asks for a cover, an OG image or a social graphic. Load `brand` first.
 ---
 
 # Design

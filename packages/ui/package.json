@@ -518,6 +518,7 @@
     "./theme.css": "./src/styles/theme.css",
     "./theme/wallpapers": "./src/theme/wallpapers.ts",
     "./toast": "./src/primitives/toast.tsx",
+    "./toast-clearance": "./src/primitives/toast-clearance.ts",
     "./toggle": "./src/primitives/toggle.tsx",
     "./tokens.css": "./src/styles/tokens.css",
     "./tooltip": "./src/primitives/tooltip.tsx",
@@ -670,6 +671,10 @@
       "./breadcrumb": {
         "types": "./dist/primitives/breadcrumb.d.ts",
         "import": "./dist/primitives/breadcrumb.js"
+      },
+      "./breathing-crest": {
+        "types": "./dist/primitives/breathing-crest.d.ts",
+        "import": "./dist/primitives/breathing-crest.js"
       },
       "./browser": {
         "types": "./dist/browser/index.d.ts",
@@ -2534,6 +2539,10 @@
       "./toast": {
         "types": "./dist/primitives/toast.d.ts",
         "import": "./dist/primitives/toast.js"
+      },
+      "./toast-clearance": {
+        "types": "./dist/primitives/toast-clearance.d.ts",
+        "import": "./dist/primitives/toast-clearance.js"
       },
       "./toggle": {
         "types": "./dist/primitives/toggle.d.ts",

@@ -16,7 +16,7 @@ const COPY = {
   connectedDescription: 'Your agent can use {app} now and continues on its own.',
   connect: 'Connect {app}',
   view: 'View',
-  trust: 'You sign in on {app}. Kortix never sees your password.',
+  trust: 'You sign in on {app}. Dosco never sees your password.',
   secureHost: 'Secure sign-in at {host}',
   fallbackApp: 'the app',
 } as const;

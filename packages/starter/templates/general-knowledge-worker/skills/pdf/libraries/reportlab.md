@@ -4,10 +4,10 @@ ReportLab creates PDFs from scratch using either the low-level Canvas API or the
 
 ## PDF Metadata
 
-Always set metadata on every PDF you create. The author MUST be `"Kortix"` and the title MUST describe the document contents.
+Always set metadata on every PDF you create. The author MUST be `"Dosco"` and the title MUST describe the document contents.
 
-- **Canvas**: call `c.setTitle(...)` and `c.setAuthor("Kortix")` immediately after creating the canvas
-- **SimpleDocTemplate**: pass `title=...` and `author="Kortix"` as constructor kwargs
+- **Canvas**: call `c.setTitle(...)` and `c.setAuthor("Dosco")` immediately after creating the canvas
+- **SimpleDocTemplate**: pass `title=...` and `author="Dosco"` as constructor kwargs
 
 ## Canvas API
 
@@ -19,7 +19,7 @@ from reportlab.pdfgen import canvas
 
 c = canvas.Canvas("status.pdf", pagesize=letter)
 c.setTitle("Q4 Project Status")
-c.setAuthor("Kortix")
+c.setAuthor("Dosco")
 w, h = letter
 
 c.setFont("Helvetica-Bold", 18)
@@ -48,7 +48,7 @@ doc = SimpleDocTemplate(
     "sprint_review.pdf",
     pagesize=letter,
     title="Sprint 14 Review",
-    author="Kortix",
+    author="Dosco",
 )
 styles = getSampleStyleSheet()
 story = []

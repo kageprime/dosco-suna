@@ -90,7 +90,7 @@ export const MEGA_MENUS: MegaMenu[] = [
           { label: 'Guide', href: '/docs/guide' },
           { label: 'Use cases', href: '/use-cases' },
           { label: 'Case studies', href: '/case-studies' },
-          { label: 'Blog', href: '/blog' },
+          ...(process.env.NEXT_PUBLIC_BLOG_ORIGIN ? [{ label: 'Blog', href: '/blog' }] : []),
         ],
       },
       {

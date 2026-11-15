@@ -1,6 +1,6 @@
 # Static web Apps
 
-A static App is files. Kortix stores them and serves them itself: no machine,
+A static App is files. Dosco stores them and serves them itself: no machine,
 no cold start, no compute bill, instant rollback. It is the default for every
 UI, including one that uses a Convex backend App for its data.
 
@@ -59,7 +59,7 @@ output with a content hash in its name is immutable for a year:
 `_next/static/`, and files under `assets/` or `static/js|css|media/` named
 like `index-D8j1YYcB.js`. Never overwrite such a file in place; let the
 bundler rename it. A public App's immutable files are also cached at the
-Kortix edge. After a switch to private or a delete, edge copies stay
+Dosco edge. After a switch to private or a delete, edge copies stay
 reachable by exact URL for up to 1 hour. A directory URL without its slash
 (`/docs`) redirects `308` to `/docs/`, so relative links in
 `docs/index.html` resolve. Files over 4 MiB are served uncompressed and

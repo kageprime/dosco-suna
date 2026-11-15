@@ -121,15 +121,15 @@ This outputs 5 harmonious palettes (analogous, complementary, triadic, split-com
 
 Maintain both light and dark modes. Ensure WCAG AA contrast (4.5:1 body text, 3:1 large text).
 
-### Kortix Design System (Fallback Palette — ONLY for Kortix-branded sites)
+### Default Design System (Fallback Palette — ONLY for Dosco-branded sites)
 
-This palette is ONLY for sites that are explicitly Kortix-branded. For everything else, run the palette generator.
+This palette is ONLY for sites that are explicitly Dosco-branded. For everything else, run the palette generator.
 
 ```css
 /* KORTIX DESIGN SYSTEM — warm beige surfaces, teal primary accent */
 
 :root, [data-theme="light"] {
-  /* Surfaces (Kortix Beige) */
+  /* Surfaces (Warm Stone) */
   --color-bg:             #f7f6f2;
   --color-surface:        #f9f8f5;
   --color-surface-2:      #fbfbf9;
@@ -308,12 +308,12 @@ This palette is ONLY for sites that are explicitly Kortix-branded. For everythin
 ## Color Implementation Notes
 
 - **Three text levels**: primary, muted, faint. **Surface layers**: bg → surface → surface-2 → surface-offset.
-- `color-mix(in oklab, ...)` for opacity adjustments. Custom palettes: replace Kortix defaults but keep variable names + both modes.
+- `color-mix(in oklab, ...)` for opacity adjustments. Custom palettes: replace default tokens but keep variable names + both modes.
 - **Better gradients**: `linear-gradient(in oklab, var(--color-primary), var(--color-blue))`. **P3 wide-gamut**: `@media (color-gamut: p3) { :root { --color-primary: oklch(0.48 0.14 192); } }`
 
-### Kortix HSL Equivalents (for Tailwind / shadcn projects)
+### Default HSL Equivalents (for Tailwind / shadcn projects)
 
-When using the fullstack webapp template (Tailwind + shadcn), `index.css` uses HSL values in `H S% L%` format (no `hsl()` wrapper). Below are Kortix HSL conversions for when Kortix is the appropriate fallback (see "Art Direction First" above). For inferred or custom palettes, convert your chosen colors to the same `H S% L%` format:
+When using the fullstack webapp template (Tailwind + shadcn), `index.css` uses HSL values in `H S% L%` format (no `hsl()` wrapper). Below are Dosco HSL conversions for when Dosco is the appropriate fallback (see "Art Direction First" above). For inferred or custom palettes, convert your chosen colors to the same `H S% L%` format:
 
 **Light mode:**
 
@@ -349,7 +349,7 @@ When using the fullstack webapp template (Tailwind + shadcn), `index.css` uses H
 | Warning | `#BB653B` | `20 53% 48%` |
 | Success | `#6DAA45` | `97 43% 47%` |
 
-These are the Kortix fallback values. **Always try to derive a concept-driven palette first** (see "Art Direction First" above). Use Kortix only when the request is truly generic with no topic to infer from. When deriving a custom palette, convert your chosen colors to the same `H S% L%` format and role structure with both light and dark modes.
+These are the default fallback values. **Always try to derive a concept-driven palette first** (see "Art Direction First" above). Use Dosco only when the request is truly generic with no topic to infer from. When deriving a custom palette, convert your chosen colors to the same `H S% L%` format and role structure with both light and dark modes.
 
 ---
 

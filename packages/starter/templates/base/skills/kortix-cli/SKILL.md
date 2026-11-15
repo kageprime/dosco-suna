@@ -1,11 +1,11 @@
 ---
 name: kortix-cli
-description: "Drive Kortix itself from the terminal with the `kortix` CLI — preinstalled and pre-authenticated in every session sandbox. Use whenever a task means acting on THIS workspace's Kortix control plane rather than just editing files: manage secrets, list/spawn/watch/talk-to sessions, open or inspect change requests to land work on main, fire or manage triggers, set a loop to check back on this task later (`kortix loop \"…\" --in 24h --every 1h`), search the screen, action and audio timeline Kortix Capture recorded for the person this session acts for (`kortix capture search \"…\"`, when Capture is on for the account), call connectors, connect Slack, or read workspace info. This is a discovery stub — the full, always-current reference is served live via `kortix skills get kortix-system` and its reference files."
+description: "Drive Dosco itself from the terminal with the `kortix` CLI — preinstalled and pre-authenticated in every session sandbox. Use whenever a task means acting on THIS workspace's Dosco control plane rather than just editing files: manage secrets, list/spawn/watch/talk-to sessions, open or inspect change requests to land work on main, fire or manage triggers, set a loop to check back on this task later (`kortix loop \"…\" --in 24h --every 1h`), search the screen, action and audio timeline Capture recorded for the person this session acts for (`kortix capture search \"…\"`, when Capture is on for the account), call connectors, connect Slack, or read workspace info. This is a discovery stub — the full, always-current reference is served live via `kortix skills get kortix-system` and its reference files."
 ---
 
 # kortix-cli
 
-The **`kortix`** CLI is the control plane for Kortix — the same surface a human
+The **`kortix`** CLI is the control plane for Dosco — the same surface a human
 drives in the dashboard, fully scriptable from a terminal. It is **already
 installed and pre-authenticated** in every session sandbox: the binary is on
 `$PATH` (`/usr/local/bin/kortix`), a workspace-scoped token (`KORTIX_TOKEN`)
@@ -14,11 +14,11 @@ and `KORTIX_API_URL` are pre-injected, so `kortix …` just works with no setup.
 ## Start here
 
 This file is a **discovery stub, not the usage guide.** The full, always-current
-Kortix reference — the manifest, change requests, the runtime — is served
+Dosco reference — the manifest, change requests, the runtime — is served
 **live by the CLI**, so it never goes stale between releases:
 
 ```bash
-kortix skills                    # list the Kortix system skills served live
+kortix skills                    # list the Dosco system skills served live
 kortix skills get kortix-system  # THE reference, then the paths of its reference files
 ```
 
@@ -31,7 +31,7 @@ kortix skills get kortix-system --full    # everything
 ```
 
 Load `kortix skills get kortix-system` before doing anything non-trivial with
-Kortix — the CLI serves version-matched content, which this static stub can't.
+Dosco — the CLI serves version-matched content, which this static stub can't.
 Every command prints its own flags and subcommands: `kortix <command> --help`.
 `kortix skills get kortix-cli` returns this same stub.
 
@@ -45,8 +45,8 @@ kortix sessions status                          # every agent on the project + w
 kortix sessions new --json --wait --prompt "…"  # spawn a subagent, get a ready session id
 kortix connectors call <connector> <action> '…' # run a configured connector action (server-side)
 kortix apps deploy apps/<slug> --slug <slug> --listed  # deploy an App's folder; --listed only for an App people open
-kortix tools ls                                 # the tools this project's sessions get, and removed Kortix tools
-kortix tools eject <name>                       # copy a Kortix tool to tools/<name>.ts to change it
+kortix tools ls                                 # the tools this project's sessions get, and removed Dosco tools
+kortix tools eject <name>                       # copy a Dosco tool to tools/<name>.ts to change it
 kortix cr open --title "…"                       # propose landing your branch on main (the user merges)
 kortix loop "<what to check, what to do, end date>" --in 3h --every 4h  # after you send or start anything: come back and check (kortix-system <scheduling>)
 kortix capture search "<words>"                # the Capture timeline of the person this session acts for (Capture on for the account)

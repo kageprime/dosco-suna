@@ -63,13 +63,13 @@ export const steps: readonly Step[] = [
   },
 ];
 
-/** The public repository's top-level apps (`ls apps packages`). */
+/** An example workspace repository layout. */
 export const repoTree = [
-  { path: 'apps/web', note: 'the web app' },
-  { path: 'apps/api', note: 'the API' },
-  { path: 'apps/llm-gateway', note: 'the LLM gateway' },
-  { path: 'apps/cli', note: 'the CLI' },
-  { path: 'packages/sdk', note: '@kortix/sdk' },
+  { path: 'kortix.yaml', note: 'agents, triggers and rules' },
+  { path: 'agents/', note: 'role prompts and tools' },
+  { path: 'skills/', note: 'reusable workflows' },
+  { path: 'memory/', note: 'shared company knowledge' },
+  { path: 'tools/', note: 'custom workspace tools' },
 ] as const;
 
 /** Install by hand, then the real `start` output. */
@@ -176,19 +176,19 @@ export const topics = {
     {
       id: 'where',
       title: 'What runs where',
-      description: 'Your server, or Kortix Cloud.',
+      description: 'Managed Cloud, or dedicated VPC deployment.',
       body: [
-        'Self-hosting puts the web app, the API, the LLM gateway and the database on your server.',
+        'Dedicated enterprise deployments isolate the web app, the API, the LLM gateway and the database inside your VPC.',
         'Sessions run on isolated cloud sandboxes (E2B) and persistent workspace storage.',
       ],
     },
     {
       id: 'install',
-      title: 'Self-host with one CLI',
-      description: 'One Docker Compose stack.',
+      title: 'Deploy and manage with one CLI',
+      description: 'Single-tenant VPC isolation.',
       body: [
-        'The kortix CLI installs, configures, updates and checks the stack.',
-        'Point a domain at your server for production, with TLS. Or try it on your own machine through a Cloudflare tunnel.',
+        'The CLI configures, ships, updates and checks the workspace stack.',
+        'Dedicated control plane with private networking, TLS, and enterprise identity controls.',
       ],
     },
     {
@@ -205,7 +205,7 @@ export const topics = {
       title: 'Any model, set where you need it',
       description: 'Your keys, your plan, your endpoint.',
       body: [
-        'Every model request goes through the Kortix LLM gateway, which applies budgets, access rules and cost reports.',
+        'Every model request goes through the LLM gateway, which applies budgets, access rules and cost reports.',
         'Set a project default, a model per agent, or a model for one session.',
       ],
     },
@@ -214,7 +214,7 @@ export const topics = {
       title: 'Your company is a repository',
       description: 'Clone it, download it, keep it.',
       body: [
-        'Every project is a git repository: Kortix-managed, or yours on GitHub.',
+        'Every project is a git repository: managed in Cloud, or yours on GitHub.',
         'Any git client clones it over HTTPS. Deleting a project leaves a GitHub repository you connected untouched.',
       ],
     },
@@ -223,7 +223,7 @@ export const topics = {
       title: 'Secret values stay out of git',
       description: 'Names in the repo, values encrypted.',
       body: [
-        'kortix.yaml names the secrets a project needs. The values live in Kortix, encrypted at rest with a key per project.',
+        'kortix.yaml names the secrets a project needs. The values live encrypted at rest with a key per project.',
         'Connector credentials are brokered server-side and never enter the machine.',
       ],
     },
@@ -244,20 +244,20 @@ export const whereRows = [
 
 export const installLines = [
   '# production: your domain, with TLS',
-  '$ kortix self-host init --domain kortix.example.com',
-  '$ kortix self-host start',
+  '$ kortix init --domain app.example.com',
+  '$ kortix deploy',
   '',
   '# evaluate on your own machine',
-  '$ kortix self-host init --tunnel cloudflare',
-  '$ kortix self-host start',
+  '$ kortix env check',
+  '$ kortix deploy',
   '',
   '# check every part of the instance',
-  '$ kortix self-host doctor',
+  '$ kortix doctor',
 ] as const;
 
 export const updateTracks = [
-  { k: 'stable', tag: 'default', v: 'A release Kortix promotes after it runs in production.' },
-  { k: 'latest', tag: '', v: 'Every Kortix release.' },
+  { k: 'stable', tag: 'default', v: 'A release promoted after it runs in production.' },
+  { k: 'latest', tag: '', v: 'Every Dosco release.' },
   { k: '--tag <version>', tag: '', v: 'One exact version. A pin wins over the channel.' },
 ] as const;
 
@@ -275,7 +275,7 @@ export const filesLines = [
   '$ kortix workspaces clone <workspace_id> arcadia',
   '',
   '# with any git client',
-  '$ git clone https://api.kortix.com/v1/git/<workspace_id>.git',
+  '$ git clone https://api.dosco.live/v1/git/<workspace_id>.git',
   '',
   '# as a zip',
   '$ kortix files download -o arcadia.zip',

@@ -232,7 +232,7 @@ function Open() {
   const f = useFrame();
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-10">
-      <Headline lead="Open source." rest="Any model. Your servers." f={f} at={-6} stack />
+      <Headline lead="Enterprise VPC." rest="Any model. Your rules." f={f} at={-6} stack />
       <div className="flex gap-3">
         {MODELS.map((m, i) => (
           <div
@@ -252,7 +252,7 @@ function Open() {
       </div>
       <p className="text-foreground font-mono text-xl" style={rise(f, 110)}>
         <span className="text-muted-foreground">$ </span>
-        <Words text="kortix self-host start" f={f} at={110} gap={3} />
+        <Words text="kortix ship" f={f} at={110} gap={3} />
       </p>
     </div>
   );

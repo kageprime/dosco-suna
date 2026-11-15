@@ -1,22 +1,22 @@
 ---
 name: kortix-ui
-description: "Build React UI with @kortix/ui, the Kortix component library and the whole Kortix session experience as modules (session workspace, thread, composer, side panel, files, file viewer, terminal, workspace sidebar and home, customize pages): Kortix Apps, white-label hosts, custom dashboards on @kortix/sdk and apps/web. Load before you write a component, a page, a chat or session view, a custom dashboard or App, or a className in a React host that renders Kortix UI, or when you theme Kortix components for another brand. Covers setup, the module map, which component to compose, banned primitives, tokens, the dashboard guide, white-label theming and the verify steps."
+description: "Build React UI with @kortix/ui, the Dosco component library and the whole Dosco session experience as modules (session workspace, thread, composer, side panel, files, file viewer, terminal, workspace sidebar and home, customize pages): Apps, white-label hosts, custom dashboards on @kortix/sdk and apps/web. Load before you write a component, a page, a chat or session view, a custom dashboard or App, or a className in a React host that renders UI library, or when you theme Dosco components for another brand. Covers setup, the module map, which component to compose, banned primitives, tokens, the dashboard guide, white-label theming and the verify steps."
 ---
 
 # @kortix/ui
 
-`@kortix/ui` is the one React component library for every Kortix surface: `apps/web`, Kortix Apps, the
+`@kortix/ui` is the one React component library for every Dosco surface: `apps/web`, Apps, the
 white-label demo and SDK customer apps. Components are Tailwind v4 class strings that read CSS variables.
-Docs: https://kortix.com/docs/developers#kortix-ui. Live catalog: https://kortix.com/design-system.
+Docs: https://dosco.live/docs/developers#kortix-ui. Live catalog: https://dosco.live/design-system.
 
 Install: `npm i @kortix/ui @kortix/sdk`, the same version of each (peers: `references/custom-dashboard.md`).
-Module entries and `@kortix/ui/theme` need 0.14.4+. Inside `kortix-ai/CompanyOS`: `"workspace:*"`. Never copy component source.
+Module entries and `@kortix/ui/theme` need 0.14.4+. Inside `kageprime/dosco-suna`: `"workspace:*"`. Never copy component source.
 
 ## 1. Set up once
 
 1. Styles. A Tailwind v4 host: `@import 'tailwindcss'; @import '@kortix/ui/tailwind.css';` in its main CSS, plus the optional peers `tw-animate-css`, `tailwind-scrollbar`, `tailwind-scrollbar-hide`. A host without Tailwind imports `@kortix/ui/styles.css` once: every class the package uses, none of yours.
-2. Fonts. `@kortix/ui/fonts.css` (Roobert) is for Kortix-owned surfaces only. A white-label host never imports it.
-3. Mount once at the root: `QueryClientProvider`, `UiProvider` (`link`, `navigation`: your router, `observesHistory: true` under Next.js; `components`: host slots, a missing slot hides its control; `config`: `managedModelsEnabled`, `connectorsEnabled`, `terminalEnabled`, `cliConnectEnabled`, `publicSharesEnabled`, `commandPaletteShortcut`, `settingsShortcut`, `accountApiEnabled`; `resolvePreviewUrl`; `useBrand`: your marks; `i18n`, `strings`, `image`, `useViewerId`: without it no sender name or "Stopped by" shows), `IconProvider` (`@kortix/ui/icon-provider`), one `<Toaster />` (`@kortix/ui/toast`). `setUiTelemetry` (`@kortix/ui`) once at module load. Dark mode is `dark` on `<html>`. SDK `billingEnabled` stays off (Kortix's app only).
+2. Fonts. `@kortix/ui/fonts.css` (Roobert) is for Dosco-owned surfaces only. A white-label host never imports it.
+3. Mount once at the root: `QueryClientProvider`, `UiProvider` (`link`, `navigation`: your router, `observesHistory: true` under Next.js; `components`: host slots, a missing slot hides its control; `config`: `managedModelsEnabled`, `connectorsEnabled`, `terminalEnabled`, `cliConnectEnabled`, `publicSharesEnabled`, `commandPaletteShortcut`, `settingsShortcut`, `accountApiEnabled`; `resolvePreviewUrl`; `useBrand`: your marks; `i18n`, `strings`, `image`, `useViewerId`: without it no sender name or "Stopped by" shows), `IconProvider` (`@kortix/ui/icon-provider`), one `<Toaster />` (`@kortix/ui/toast`). `setUiTelemetry` (`@kortix/ui`) once at module load. Dark mode is `dark` on `<html>`. SDK `billingEnabled` stays off (Dosco's app only).
 4. Ids, never route params. `SessionThread`, `SessionWorkspace` and `ProjectHome` mount `SessionIdsProvider` and the SDK workspace scope themselves. A block outside them: `KortixProjectProvider` (`@kortix/sdk/react`) and `SessionIdsProvider` (`projectId`, `sessionId`) around it. Links follow `setUiRoutes` (`@kortix/ui`): map each page you do not serve to `null`.
 5. Import by subpath: `import { Modal } from '@kortix/ui/modal'`. The root `@kortix/ui` (section 7) needs no `@kortix/sdk`.
 
@@ -115,7 +115,7 @@ One entry per module. Its curated names are the public API (semver). Every name,
 | `@kortix/ui/access`, `@kortix/ui/customize` | Sharing and roles; workspace configuration pages | `<ConnectorsPage projectId />` |
 | `@kortix/ui/theme`, `@kortix/ui/i18n`, `@kortix/ui/icons` | Theme; `useTranslations`, `useLocale` (next-intl signatures); glyphs | none |
 
-Deep paths (`@kortix/ui/internal/*`, `@kortix/ui/<module>/<path>`) have no semver: only Kortix's own apps import them (`scripts/deep-exports.json`).
+Deep paths (`@kortix/ui/internal/*`, `@kortix/ui/<module>/<path>`) have no semver: only Dosco's own apps import them (`scripts/deep-exports.json`).
 
 ## 9. Recipes
 
@@ -134,11 +134,11 @@ export function Session({ projectId, sessionId }: { projectId: string; sessionId
 ## 10. Verify
 
 1. `tsc --noEmit` adds no error. Run the page in light and dark, at 720 × 480 and a phone width; click every control.
-2. Your diff has no hex, `rgb(`, `-[` spacing bracket, `lucide-react`, `toast(` or `animate-spin`. Kortix-internal: `.agents/skills/kortix-brand/scripts/audit.sh <paths>` is clean. White-label: a new `--kortix-blue` reaches a checked `Switch`.
+2. Your diff has no hex, `rgb(`, `-[` spacing bracket, `lucide-react`, `toast(` or `animate-spin`. Dosco-internal: `.agents/skills/kortix-brand/scripts/audit.sh <paths>` is clean. White-label: a new `--kortix-blue` reaches a checked `Switch`.
 
-## 11. Kortix-internal work
+## 11. Dosco-internal work
 
-In `kortix-ai/CompanyOS`, `kortix-brand` (values, voice) and `kortix-design-system` (which component) in `.agents/skills/` win
+In `kageprime/dosco-suna`, `kortix-brand` (values, voice) and `kortix-design-system` (which component) in `.agents/skills/` win
 over this file. `apps/web` imports `@kortix/ui` like any host and keeps no re-export shims: edit the component in `packages/ui/src/`.
 
 ## Copy and completion icons

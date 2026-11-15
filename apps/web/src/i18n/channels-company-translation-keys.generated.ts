@@ -48,7 +48,7 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
   '  - slug: gmail-read': 'textc5fe821106fd',
   '  - slug: memory-reflector': 'text8012e38cdeb6',
   '  - slug: support-inbox': 'text2a53504249e4',
-  '  "default_agent": "kortix",': 'text3e2a105fd278',
+  '  "default_agent": "worker",': 'text3e2a105fd278',
   '  "permission": "allow"': 'text214c21aedcef',
   '  "theme": "system",': 'text9c4061948874',
   '  // policy.': 'textf4510b04848b',
@@ -58,7 +58,7 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
   '  bash: ask': 'textba8071b5f41a',
   '  default: python': 'texta3b3522bd552',
   '  invoice-clerk:': 'text36ec3a61e2e2',
-  '  kortix:': 'textabd5597038ae',
+  '  worker:': 'textabd5597038ae',
   '  memory-reflector:': 'texta831f13e8ebf',
   '  name: Northwind': 'text417500e4ecdb',
   '  optional: [LINEAR_API_KEY]': 'text9fc96058f7cc',
@@ -67,7 +67,7 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
   '---': 'textcb3f91d54eee',
   '{': 'text021fb596db81',
   '}': 'textd10b36aa74a5',
-  '@kortix draft the Q3 launch note from the changelog and put it in the repo': 'textb11a223ff4eb',
+  '@xera draft the Q3 launch note from the changelog and put it in the repo': 'textb11a223ff4eb',
   '# any conversational source, without channel-specific code': 'text140f8493be16',
   '# check it compiles, ask for the missing secrets,': 'text0f64c7d16c28',
   '# check it, or take it away': 'textaeff4386f94e',
@@ -80,10 +80,10 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
   '# push it up, and bring the whole thing live': 'text878020ed7049',
   '# Reach into the outside world. The definition is in': 'text1195022baf37',
   '# Secret NAMES only. The values are encrypted in the': 'text59af4efa0483',
-  '# self-hosting? the same command falls back to manual': 'textd09ddaf3e168',
+  '# dedicated VPC? the same command falls back to manual': 'textd09ddaf3e168',
   '# The agent that answers when nothing names one.': 'text040fa2b6dfb1',
   '# The machine a session boots on.': 'text6d84fd8ae086',
-  '# turn any directory into a Kortix': 'textbad42e1e2c1c',
+  '# turn any directory into a Dosco': 'textbad42e1e2c1c',
   '# what does the company believe about pricing?': 'textd7a94d927479',
   '# Where the runtime config lives. Past this: files.': 'text3de8d7d7b4ed',
   '# who changed the invoice clerk, and when?': 'text2b30a2bf9f34',
@@ -127,7 +127,7 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
   'A commit you can diff and revert': 'text361b73d4cf43',
   'A company is going to be a git repository.': 'texte2189e484c2d',
   'A company you can clone': 'text929e6e7385a0',
-  'A connected channel’s token is a connector-scoped secret. It does not appear on the workspace’s Secrets page, and Kortix never injects it into a cloud computer. It is resolved server-side at the moment the agent sends a message.':
+  'A connected channel’s token is a connector-scoped secret. It does not appear on the workspace’s Secrets page, and Dosco never injects it into a cloud computer. It is resolved server-side at the moment the agent sends a message.':
     'text33455b560348',
   'A file dropped in the thread is pulled into the agent’s cloud computer. A file the agent produces is uploaded back into the same thread. The deck lands where you asked for the deck.':
     'textfd060941db0c',
@@ -140,7 +140,7 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
     'text16e90a8f3eac',
   'A session starts': 'text5eed558badb4',
   'A session starts only once the channel owner approves the request.': 'text46d3a05ddeb2',
-  'A source that reports both sides of a conversation would otherwise fire the agent on its own reply. filter drops those deliveries with a 200 and no session. Signed with HMAC-SHA256, like every Kortix webhook.':
+  'A source that reports both sides of a conversation would otherwise fire the agent on its own reply. filter drops those deliveries with a 200 and no session. Signed with HMAC-SHA256, like every Dosco webhook.':
     'texta44a159d81b1',
   'A thread is': 'texta992ea2e301d',
   'A thread is a session. One, and only one.': 'textb743a712efa8',
@@ -184,7 +184,7 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
     'text5b50b847365e',
   'connectors:': 'textbe9276fcd0e3',
   Dana: 'text09fb9ff32c5a',
-  'default_agent: kortix': 'textaaf718fd9354',
+  'default_agent: worker': 'textaaf718fd9354',
   Deny: 'text05a2d7332eb9',
   'description: Reconciles invoices against payments.': 'text379fd759f4b9',
   Email: 'text969ccbd3cf63',
@@ -228,23 +228,23 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
   'It reads the git history and the sessions of the last day, then writes what it learned into memory/ as plain markdown.':
     'textbab3f6d8c284',
   'It runs as an agent you chose': 'text7949be83e927',
-  kortix: 'text388f7968512c',
+  dosco: 'text388f7968512c',
   'kortix channels': 'textc27d8467e76a',
-  'Kortix cuts a branch and boots its own isolated cloud computer, exactly as it would for a session started from the dashboard or the CLI. You get a reaction on your own message, not a bot post saying “on it”.':
+  'Dosco cuts a branch and boots its own isolated cloud computer, exactly as it would for a session started from the dashboard or the CLI. You get a reaction on your own message, not a bot post saying “on it”.':
     'text5004ea5fdc72',
   'kortix init · kortix ship · one repo · any model': 'textfc5fe4b93461',
-  'kortix init makes any directory a Kortix. kortix ship brings it live. From then on it is one repo you own — versioned, diffable, and improving itself one reviewed change at a time.':
+  'kortix init sets up any directory as a workspace. kortix ship brings it live. From then on it is one repo you own — versioned, diffable, and improving itself one reviewed change at a time.':
     'texta4b6a3d9d629',
   'kortix init scaffolds it, kortix ship brings it live. It is the same repo doing the same thing, so local development and the live system stopped being different categories.':
     'textd861cc0af73c',
-  'Kortix links a chat sender to a Kortix account before the agent runs for them. Run /kortix login and sign in. An unlinked sender gets a prompt to link, not a session — so a stranger in a shared channel cannot spend your compute.':
+  'Dosco links a chat sender to a Dosco account before the agent runs for them. Run /dosco login and sign in. An unlinked sender gets a prompt to link, not a session — so a stranger in a shared channel cannot spend your compute.':
     'text115e22ef7526',
   'kortix.yaml': 'text1965f383021e',
   'kortix.yaml — triggers': 'text6e68758082bc',
   'kortix.yaml grants': 'text9c9582a7f332',
   'launch-note.md': 'textdd6b0b63da5a',
   'launch-note.md · +64 −0': 'textbbd67a03b342',
-  'Link or unlink your chat identity to your Kortix account': 'textc562664bad32',
+  'Link or unlink your chat identity to your Dosco account': 'textc562664bad32',
   'List the workspaces you can bind this channel to': 'text095830453d5a',
   'List the recent sessions started from this workspace': 'text61715eaa9236',
   Live: 'textb64ac05f17e6',
@@ -262,17 +262,17 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
   'No reply relay. A real channel streams the answer back for you; here the agent has to send the outbound message itself, through a connector you have granted it. Inbound is solved. Outbound is your wiring.':
     'text81c1677c6fc1',
   'northwind — main': 'text6d97796afbde',
-  'Not as a metaphor. A Kortix workspace is backed by a git repo, and that repo is the company: its agents, the skills it has built up, everything it has learned, and the definition of the machines all of it runs on. Versioned. Diffable. Owned outright.':
+  'Not as a metaphor. A workspace is backed by a git repo, and that repo is the company: its agents, the skills it has built up, everything it has learned, and the definition of the machines all of it runs on. Versioned. Diffable. Owned outright.':
     'textf1a43c68a361',
   'Nothing merges itself': 'text956d3b01e6ca',
   'On a card, in the thread': 'textbcd03103c8c1',
-  'On a host with the shared Slack app configured, kortix channels connect prints an install link and you are three clicks from done. On a deployment with no shared app, the same command falls back to manual mode by itself and hands you an app manifest to paste.':
+  'On managed Cloud with the shared Slack app configured, kortix channels connect prints an install link and you are three clicks from done. Custom workspaces can use manual mode and paste an app manifest.':
     'text6f1ff5bd1a8e',
   'On by default, no flag. Connect from the dashboard or the CLI, invite the bot to a channel, and mention it. Everything else on this page describes Slack.':
     'text29c0204b82fd',
   'One change request, waiting in the morning. Merge it and the company knows something new. Close it and nothing happened.':
     'text23ddde8c8e40',
-  'One honest limit: the card carries the decision and a link back into Kortix. Reading the actual diff of a change request happens in the web app, where a diff belongs — Slack is not a code review tool and we are not going to pretend it is.':
+  'One honest limit: the card carries the decision and a link back into Dosco. Reading the actual diff of a change request happens in the web app, where a diff belongs — Slack is not a code review tool and we are not going to pretend it is.':
     'text635ccd16e45c',
   'One is live. Three are behind a switch. We will say which.': 'text738439725624',
   'One repo': 'texta086ad00c629',
@@ -281,8 +281,8 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
     'texta31aa14c0634',
   'Only the owner. Everyone else gets nothing, predictably.': 'text89e2ee9d1cd7',
   'Open a change request against main?': 'text08bd9a10da30',
-  'Open source and self-hostable': 'text782a07562e97',
-  'Open source and self-hostable. Any model, your keys. Kortix Cloud, your own VPC, or fully on-prem.':
+  'versioned and dedicated VPC': 'text782a07562e97',
+  'Any model, your keys. Managed Cloud or your own dedicated VPC.':
     'text1d9a8dde5629',
   'Open the repo': 'text1fa449139a48',
   'opened by invoice-clerk': 'textad42c6b4c691',
@@ -302,7 +302,7 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
     'text43daf9c5f6cf',
   'Rebind this channel to a different workspace, or unbind it': 'text72e3213c16d7',
   'Reviewed by a person, then merged to main': 'text402ce0e016a1',
-  'Run it on Kortix Cloud, in your own VPC, or fully on-prem. Read the code, fork it, audit it. Nobody rents your company back to you.':
+  'Run it on Cloud or in your own dedicated enterprise VPC. Versioned configuration, scoped secrets, and governed review.':
     'text5b4d78bf9475',
   'Run the workspace without leaving the conversation.': 'text429be41120e9',
   Runtime: 'text109311589787',
@@ -336,8 +336,8 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
   'The first message in a thread creates a session. Every later message in that thread reaches the same session — after the sandbox stops overnight, after the person who started it goes home. That mapping is a unique index in the database, not a convention two services agree to honour.':
     'text1f926d1359b8',
   'The honest alternative →': 'text5c5dec8246bd',
-  'the Kortix layer': 'textb85c24628050',
-  'The Kortix layer — one file, at the repo root.': 'text9e957a44dafa',
+  'the Dosco layer': 'textb85c24628050',
+  'The Dosco layer — one file, at the repo root.': 'text9e957a44dafa',
   'The machine can propose. A person decides. Work reaches main only through a change request someone approved, so the company cannot drift while you are not looking.':
     'text3f5c55e70abc',
   'The manifest names secrets and grants them per agent. The values are encrypted in the platform, injected into the machine at runtime, and never written to the repo or the logs.':
@@ -364,10 +364,10 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
   'Three answers to “who may start a session here”': 'text6a1d566e085f',
   'triggers:': 'text84e857cba73b',
   'Turn a directory into a company.': 'text80146a436b03',
-  'Two events for the same brand-new thread arriving at once do not produce two sessions: the second joins the first and is delivered as a follow-up. One Slack workspace bound to more than one Kortix workspace shows a workspace picker on the first mention instead of guessing.':
+  'Two events for the same brand-new thread arriving at once do not produce two sessions: the second joins the first and is delivered as a follow-up. One Slack workspace bound to more than one workspace shows a workspace picker on the first mention instead of guessing.':
     'text15b963086594',
   'Two files define the company.': 'textc6208e337ba1',
-  'Type these as /kortix <command> in Slack, or as plain text in a direct message. Most of what you would otherwise open the dashboard for is one line in the channel.':
+  'Type these as /dosco <command> in Slack, or as plain text in a direct message. Most of what you would otherwise open the dashboard for is one line in the channel.':
     'text6a58a51e04bf',
   'Undo is git revert': 'text3245bd9249a5',
   'What comes back is the work, not a transcript.': 'text6b1dfd74a8f5',

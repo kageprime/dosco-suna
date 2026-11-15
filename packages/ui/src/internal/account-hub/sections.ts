@@ -121,7 +121,7 @@ export const PANE_META: Partial<Record<AccountSection, { title: string; descript
   billing: { title: 'Plan', description: 'Plan, wallet, and spend for this workspace.' },
   transactions: {
     title: 'Usage',
-    description: 'Kortix charges and credit ledger for this workspace.',
+    description: 'Dosco charges and credit ledger for this workspace.',
   },
   tokens: {
     title: 'API keys',

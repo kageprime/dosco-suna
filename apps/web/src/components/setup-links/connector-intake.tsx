@@ -35,7 +35,7 @@ const COPY = {
   loading: 'Loading…',
   connect: 'Connect {app}',
   opening: 'Opening…',
-  privacy: 'Kortix never sees your password. No key is pasted into chat or stored in the repo.',
+  privacy: 'Dosco never sees your password. No key is pasted into chat or stored in the repo.',
   fallbackApp: 'the app',
 } as const;
 

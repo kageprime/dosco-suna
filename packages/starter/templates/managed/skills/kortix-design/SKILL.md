@@ -3,7 +3,7 @@ name: kortix-design
 description: "How every interface you build should look: a dashboard, an analytics view, an internal tool or pipeline, a Dosco App UI, a website, a landing page, a component, a redesign. Load before you write the first className or the first user-facing string, when you review a UI, when a page looks generic or 'AI-made', when you add motion, or when you need the exact name for a design or animation concept."
 ---
 
-# Kortix Design
+# UI Design
 
 Make every interface simple, calm and clean. A person should see what the
 page is for and what to do next, with nothing in the way.
@@ -123,7 +123,7 @@ plain text, no decoration. It looks finished in every state.
 
 ## Dashboards, analytics and internal tools
 
-Most Kortix Apps are dashboards, analytics views and internal tools (a
+Most Apps are dashboards, analytics views and internal tools (a
 content pipeline, a CRM, a tracker). They are used every day, so they stay
 calm and fast to scan.
 

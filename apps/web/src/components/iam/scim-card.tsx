@@ -340,7 +340,7 @@ export function ScimCard({ accountId, canManage }: ScimCardProps) {
                       </>
                     ) : (
                       <>
-                        {tI18nComplete.raw('text7f63d46d6462')} <code>https://api.kortix.com</code>
+                        {tI18nComplete.raw('text7f63d46d6462')} <code>https://api.dosco.live</code>
                         {tI18nComplete.raw('textab5f961f00e8')}
                         <code>/Users</code> {tI18nComplete.raw('text6201111b83a0')}{' '}
                         <code>/Groups</code>.

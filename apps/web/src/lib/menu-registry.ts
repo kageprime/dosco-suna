@@ -911,7 +911,7 @@ export const menuRegistry: MenuItemDef[] = [
   {
     // Kortix Capture is its own area: devices, install and its organization settings live under /capture.
     id: 'capture',
-    label: 'Kortix Capture',
+    label: 'Capture',
     icon: MonitorIcon,
     group: 'navigation',
     showIn: ['commandPalette'],

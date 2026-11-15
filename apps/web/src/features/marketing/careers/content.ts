@@ -111,18 +111,12 @@ export const bar = {
 export const apply = {
   title: 'Tell me what you have worked on.',
   titleMuted: 'I read every application.',
-  body: 'One open question, no form to game. Products, campaigns, companies, things you built for yourself — whatever you want me to know. It comes straight to me. I am Marko.',
+  body: 'One open question, no form to game. Products, campaigns, companies, things you built for yourself — whatever you want me to know. It comes straight to our recruiting team.',
   cta: 'Apply',
-  directLead: 'Or write to me directly:',
+  directLead: 'Or write to us directly:',
   links: [
-    { id: 'email', label: 'marko@dosco.live', href: 'mailto:marko@dosco.live', external: false },
-    { id: 'x', label: '@markokraemer', href: 'https://x.com/markokraemer', external: true },
-    {
-      id: 'linkedin',
-      label: 'linkedin.com/in/markokraemer',
-      href: 'https://linkedin.com/in/markokraemer',
-      external: true,
-    },
+    { id: 'email', label: 'support@dosco.live', href: 'mailto:support@dosco.live', external: false },
+    { id: 'web', label: 'dosco.live', href: 'https://dosco.live', external: true },
   ],
 } as const;
 

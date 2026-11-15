@@ -40,7 +40,7 @@ audits it. The sandbox carries only `KORTIX_TOKEN`.
    ```
    Install prints the next step. `Ready` means no sign-in is needed: call it.
    Exit 3 means the app is already installed: use that slug. When the human
-   finishes signing in, Kortix tells you; do not mint a second link.
+   finishes signing in, Dosco tells you; do not mint a second link.
    For an account the whole workspace uses, `connect <slug> --owner workspace`.
    A trigger or automation runs only on that shared account: for one, mint
    the `--owner workspace` link (tool: `for_trigger=true`) and only that one.
@@ -101,7 +101,7 @@ with `--account "work@example.com"` and say "Checked work@example.com — …".
 the account and chooses who can use it; you are told its name. Never install
 a second profile to get a second account.
 
-**Email** inboxes are accounts of `kortix_email`. Kortix fills in `inbox_id`:
+**Email** inboxes are accounts of `kortix_email`. Dosco fills in `inbox_id`:
 ```sh
 kortix connectors accounts kortix_email
 kortix connectors call kortix_email reply_message \
@@ -126,7 +126,7 @@ the decision and `detail.run` (the run state and a redacted result).
 Read `approval_instructions` every time. When the response has no
 `runs_on_approval` (an older or unscoped token), approval alone does not run
 the call: when the prompt says approved, repeat the exact same call (same
-arguments and `--account`) within 15 minutes, and that call runs once. In a Slack or Teams session Kortix posts the
+arguments and `--account`) within 15 minutes, and that call runs once. In a Slack or Teams session Dosco posts the
 approval card in the thread (`approval_instructions` says so): do not repost
 the link.
 </approvals>
@@ -143,7 +143,7 @@ kortix connectors catalog show composio:gmail       # every way to connect it + 
 
 Ways to connect, best first (the first is marked `recommended`):
 
-0. built by Kortix (`kind: kortix`): the channels Slack, Microsoft Teams,
+0. built by Dosco (`kind: kortix`): the channels Slack, Microsoft Teams,
    Email, Telegram and Discord, and Computer. They are never installed. The
    human sets them up: `kortix channels connect` (Slack; `--platform teams`),
    `kortix channels email inboxes add`, Telegram and Discord on their web
@@ -194,7 +194,7 @@ Credentials:
 - OAuth2 client credentials (an OpenAPI or HTTP API with a client id and
   secret): `kortix connectors credential <slug> --oauth2-client-credentials
   --token-url <url> --client-id <id> --client-secret-from - [--scope "<a b>"]`,
-  secret on stdin. Kortix fetches and refreshes the tokens.
+  secret on stdin. Dosco fetches and refreshes the tokens.
 
 Pipedream exists only for rollback compatibility with already-declared
 connectors. Never add one. If the
@@ -284,7 +284,7 @@ of code and repository files.
 <from-apps-and-backends>
 App, Convex backend and external-program code calls connectors through
 `@kortix/sdk` too. Never give that code a provider key when a connector
-exists: a raw key skips rules, approvals and audit. The Kortix credential
+exists: a raw key skips rules, approvals and audit. The Dosco credential
 decides which accounts a call reaches:
 
 | Where the code runs | Credential | Reaches |

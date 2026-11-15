@@ -30,9 +30,9 @@ no raw HTTP.
    - Public, `is_member: false`: the bot joins itself, `slack join --channel <id>`
      (Slack `conversations.join`; the app holds `channels:join`).
    - Private: Slack lets no bot join itself. The person types
-     `/invite @Kortix` in the channel.
+     `/invite @Dosco` in the channel.
 3. Read once: `slack history --channel <id> --limit 1`. It answers
-   `conversation_not_in_project`: another Kortix workspace owns the channel in
+   `conversation_not_in_project`: another workspace owns the channel in
    this Slack workspace. The person runs `/kortix switch` in the channel, or
    picks another channel.
 4. Write the names into `sources.slack.channels`, enable the trigger

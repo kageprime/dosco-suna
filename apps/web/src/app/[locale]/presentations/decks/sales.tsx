@@ -410,7 +410,7 @@ export function useSlides(): SlideDef[] {
               'Anthropic',
               'Google',
               tI18nHardcoded.raw('i18nComplete.textb13524d6225f'),
-              'On-prem',
+              'Dedicated VPC',
             ].map((p) => (
               <Pill key={p}>
                 <Cpu className="size-3.5" /> {p}

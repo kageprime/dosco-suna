@@ -80,7 +80,7 @@ cd / && rm -rf "$d"
   `source:factory-identity`. `## What`: the failure or the expiry date.
   `## Proposed change`: what the person does:
   1. Sign in to GitHub as `identity.github_login` and open
-     `https://github.com/settings/personal-access-tokens/new?name=Kortix%20factory&description=Software%20Factory%20for%20<R>&target_name=<owner>&expires_in=366&contents=write&pull_requests=write&issues=write&metadata=read&workflows=write&actions=read&checks=read&statuses=read`
+     `https://github.com/settings/personal-access-tokens/new?name=Dosco%20factory&description=Software%20Factory%20for%20<R>&target_name=<owner>&expires_in=366&contents=write&pull_requests=write&issues=write&metadata=read&workflows=write&actions=read&checks=read&statuses=read`
      (a classic token for a personal-account repository: onboarding step B).
   2. Run `kortix secrets request FACTORY_GITHUB_TOKEN --scope runtime` and
      paste the new token in the link.

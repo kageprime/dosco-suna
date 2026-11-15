@@ -398,7 +398,7 @@ const DENSITY_PAGE_OPTIONS: {
   {
     id: 'normal',
     label: 'Normal',
-    description: 'Steps and thinking stream live while Kortix works',
+    description: 'Steps and thinking stream live while Xera works',
   },
   {
     id: 'minimal',

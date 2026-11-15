@@ -1,7 +1,7 @@
 # Connector SDK reference
 
 Use `@kortix/sdk` for durable TypeScript workflows that call external systems
-through the Kortix Connector gateway. The gateway keeps provider credentials
+through the connector gateway. The gateway keeps provider credentials
 server-side and enforces connection access and policy.
 
 ## Client setup
@@ -116,7 +116,7 @@ Failures that throw:
 - HTTP 500 with `reason` starting `upstream_response_too_large`: the
   upstream answer exceeded 64 MiB. Ask for less (a page size, a filter).
 - HTTP 500 with `reason` starting `upstream_timeout`: the upstream did not
-  answer within 60 seconds. The call may have run. Kortix does not
+  answer within 60 seconds. The call may have run. Dosco does not
   deduplicate calls: check the effect before you repeat a write.
 - `call` and `run` abort on the client after 90 seconds (`timeoutMs`), after
   the gateway deadline. A client-side abort (`signal`, a shorter `timeoutMs`)
@@ -146,7 +146,7 @@ const connectors = process.env.KORTIX_PROJECT_ID
   ? kortix.project(process.env.KORTIX_PROJECT_ID).connectors
   : kortix.connectors;
 
-// Inbox addresses are accounts of `kortix_email`; Kortix fills in `inbox_id`.
+// Inbox addresses are accounts of `kortix_email`; Dosco fills in `inbox_id`.
 const inbox = { account: 'support@example.com' };
 const threads = await connectors.call<{ data: Array<{ id: string }> }>(
   'kortix_email.list_threads',
@@ -201,16 +201,16 @@ read: always pass the App's own `projectId`.
 ```ts
 import { createAppViewerKortix } from '@kortix/sdk/server';
 
-const kortix = await createAppViewerKortix(request, { backendUrl: 'https://api.kortix.com/v1' });
+const kortix = await createAppViewerKortix(request, { backendUrl: 'https://api.dosco.live/v1' });
 ```
 
-**Convex action, or an App job with no viewer.** Kortix does not mint a
+**Convex action, or an App job with no viewer.** Dosco does not mint a
 credential for App or backend code. A person creates a service account:
 
 ```sh
 kortix tokens service-accounts new crm-sync --description "Convex CRM sync"   # bearer prints once
 kortix access grant --service-account <id> --role member --workspace <workspace-id>
-npx convex env set KORTIX_API_URL https://api.kortix.com/v1
+npx convex env set KORTIX_API_URL https://api.dosco.live/v1
 npx convex env set KORTIX_PROJECT_ID <project-id>
 npx convex env set KORTIX_API_KEY <kortix_sa_…>
 ```

@@ -274,7 +274,7 @@ export const trust = {
   cells: [
     { k: 'Cloud', v: 'We run the platform and compute sandboxes.' },
     { k: 'Dedicated cloud', v: 'A single-tenant deployment in a cloud account we scope with you.' },
-    { k: 'Your VPC or on-prem', v: 'An isolated enterprise deployment, scoped with us.' },
+    { k: 'Your VPC or dedicated deployment', v: 'An isolated enterprise deployment, scoped with us.' },
     { k: 'Governance & control', v: 'Audit every run, inspect every diff, verify every boundary.' },
   ],
   seal: 'SOC 2 Type I verified',

@@ -34,7 +34,7 @@ export const FOOTER_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Release history': 'textf952fee736ed',
   Sales: 'text8de4e0ea7370',
   Security: 'text8f6fb4eb7f42',
-  'On-prem': 'textbeafec79ffdd',
+  'Dedicated VPC': 'textbeafec79ffdd',
   Solutions: 'text900fe12faa26',
   Status: 'text920e413c7d41',
   Support: 'textbe91940b79f4',

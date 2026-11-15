@@ -125,7 +125,7 @@ const PANELS: Record<TopicId, () => ReactNode> = {
     const tMarketing = useTranslations('hardcodedUi.i18nComplete');
     const { deployments } = localizeContent(tMarketing);
     return withLinks(<Rows rows={deployments} />, [
-      { label: tMarketing('textb817cbd4d6df'), href: '/self-hosted' },
+      { label: tMarketing('textb817cbd4d6df'), href: '/enterprise' },
       { label: tMarketing('texta3df7e7a4b22'), href: '/sovereign' },
     ]);
   },

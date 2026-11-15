@@ -40,7 +40,7 @@ export const MENU_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Home: 'text3a78695388b3',
   'Internal Browser': 'text875c0e464942',
   'Invite members': 'texte85663498c96',
-  'Dosco Capture': 'texta67e3dc962e8',
+  'Capture': 'texta67e3dc962e8',
   'LLM Providers': 'textf9e89f3cc0c8',
   'Light Theme': 'textceab50a6f7f4',
   'Log Out': 'textd57d48b71020',

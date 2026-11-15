@@ -139,7 +139,7 @@ describe('public SEO/AEO content coverage', () => {
   test('renders MDX source documents as clean agent-readable Markdown', () => {
     const resolved = resolvePublicMarkdown(['docs', 'guide.md']);
     expect(resolved?.markdown).toContain(
-      'A plain-language guide to CompanyOS',
+      'What each part of CompanyOS does, how it works, and how to set it up.',
     );
     // The developer reference is its own page, apart from the Guide.
     expect(resolvePublicMarkdown(['docs', 'developers.md'])?.markdown).toContain('## Quickstart');
@@ -397,12 +397,12 @@ describe('bounded public agent index', () => {
   test('a limit that is not a whole decimal number answers 400; an empty one is the default (KRTX-3261)', async () => {
     for (const [index, limit] of ['1e3', '1%20', '25.5', '0', '-1', '0x10', '%2B5'].entries()) {
       const response = getAgentIndex(
-        new Request(`https://kortix.com/api/ai?limit=${limit}`, { headers: { 'x-real-ip': `192.0.2.${40 + index}` } }),
+        new Request(`https://dosco.live/api/ai?limit=${limit}`, { headers: { 'x-real-ip': `192.0.2.${40 + index}` } }),
       );
       expect({ limit, status: response.status }).toEqual({ limit, status: 400 });
       expect(((await response.json()) as any).error).toBe('invalid_limit');
     }
-    const empty = getAgentIndex(new Request('https://kortix.com/api/ai?limit=', { headers: { 'x-real-ip': '192.0.2.60' } }));
+    const empty = getAgentIndex(new Request('https://dosco.live/api/ai?limit=', { headers: { 'x-real-ip': '192.0.2.60' } }));
     expect(empty.status).toBe(200);
     expect(((await empty.json()) as any).pagination.limit).toBe(25);
     const capped = getAgentIndex(new Request('https://kortix.com/api/ai?limit=999', { headers: { 'x-real-ip': '192.0.2.61' } }));

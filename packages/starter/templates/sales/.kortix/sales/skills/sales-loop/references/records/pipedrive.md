@@ -2,8 +2,8 @@
 
 `record.kind: pipedrive`, `record.target: <company subdomain>`.
 `record.objects`: `persons`, `organizations`, `deals`. Custom fields the loop
-writes, created once at setup: `Kortix lead key` (text), `Kortix score`
-(numerical), `Kortix tier` (single option: hot, warm, cold, disqualified) on
+writes, created once at setup: `Dosco lead key` (text), `Dosco score`
+(numerical), `Dosco tier` (single option: hot, warm, cold, disqualified) on
 persons and organizations. Pipedrive addresses a custom field by its hash key:
 read the keys once (`GET /v1/personFields`, `/v1/organizationFields`) and
 write them into sales.json `record.fields`.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish to Instagram through a Kortix connector (Composio Instagram toolkit).
+"""Publish to Instagram through a connector (Composio Instagram toolkit).
 
     python3 ig_publish.py reel     --media final.mp4 --caption-file caption.txt [--cover cover.jpg]
     python3 ig_publish.py story    --media story.jpg            # or a 9:16 .mp4

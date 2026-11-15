@@ -1,23 +1,23 @@
 ---
 title: IT rollout
-description: Install Kortix Capture on many Windows, macOS and Linux computers with one enrollment token. Each computer enrolls and records on its own, with no sign-in to Kortix, and you link it to a person when you want.
+description: Install Capture on many Windows, macOS and Linux computers with one enrollment token. Each computer enrolls and records on its own, with no sign-in to Dosco, and you link it to a person when you want.
 ---
 
-IT installs Kortix Capture, the separate recorder app, on every Windows, macOS
+IT installs Capture, the separate recorder app, on every Windows, macOS
 or Linux computer with one command. The installer adds a machine service. At
 each sign-in the service enrolls the computer and starts recording. Nobody signs
-in to Kortix by hand, and nobody needs a Kortix account. The service restarts the
+in to Dosco by hand, and nobody needs a Dosco account. The service restarts the
 recorder within seconds when it stops.
 
-This page is for the IT team and the Kortix workspace admins. For one person on
-their own computer, see [Capture → Install Kortix Capture](/docs/capture#install-kortix-capture).
+This page is for the IT team and the workspace admins. For one person on
+their own computer, see [Capture → Install Capture](/docs/capture#install-kortix-capture).
 
 ## How it works
 
-1. A workspace admin creates an **enrollment token** in Kortix.
-2. IT installs `KortixCapture-x64.msi` on each computer with the Kortix URL and the
+1. A workspace admin creates an **enrollment token** in Dosco.
+2. IT installs `KortixCapture-x64.msi` on each computer with the Dosco URL and the
    token. The installer writes both to the registry and starts the
-   **Kortix Capture** Windows service.
+   **Capture** Windows service.
 3. At each Windows sign-in the service reads the person's Windows sign-in
    name (the user principal name, for example `jane@corp.example`) and enrolls
    the computer with the token.
@@ -25,7 +25,7 @@ their own computer, see [Capture → Install Kortix Capture](/docs/capture#insta
    workspace. A personal token links it to its person. Any other computer
    records **linked to no one**, which is a normal state: an admin links it to
    a person when that is wanted.
-5. The Kortix Capture icon in the notification area shows that it records.
+5. The Capture icon in the notification area shows that it records.
    Nothing else interrupts the person. When the policy sets a notice, the
    person sees it once.
 
@@ -40,15 +40,15 @@ see it.
 - Turn on Capture for the workspace and set the policy: what is recorded, the
   frame rate, exclusions, retention and **the notice** the person sees. See
   [Capture → The policy](/docs/capture#the-policy).
-- People do not need Kortix accounts. A computer records for the workspace
+- People do not need Dosco accounts. A computer records for the workspace
   whether or not it is linked to a person. To link computers to members as
-  they enroll, turn on **Approve each computer**: Kortix suggests the member
+  they enroll, turn on **Approve each computer**: Dosco suggests the member
   with the computer's sign-in email, and you confirm it.
 - You need the `capture.manage` permission. Workspace owners and admins have it.
 
 ## 1. Create an enrollment token
 
-In Kortix, open **Kortix Capture** → **Devices**, then **Company install**. Create a token and fill in:
+In Dosco, open **Capture** → **Devices**, then **Company install**. Create a token and fill in:
 
 | Field | What it does |
 |---|---|
@@ -59,7 +59,7 @@ In Kortix, open **Kortix Capture** → **Devices**, then **Company install**. Cr
 | Valid for | 7, 30 or 90 days, or **Never**. Computers enrolled before it expires keep recording. |
 | Approve each computer | Every new computer waits for an admin, also when its person is a member. |
 
-Kortix shows the token (`kortix_enr_…`) once. Copy it with the install
+Dosco shows the token (`kortix_enr_…`) once. Copy it with the install
 command next to it. Anyone who has the token can enroll computers into the
 workspace until you revoke it, so handle it like a password.
 
@@ -72,11 +72,11 @@ workspace, else the API answers `400` `capture_enrollment_invalid`.
 
 On one computer, open **Command Prompt as administrator** and paste the line
 from **Devices** → **Company install** (the dialog **Install on company computers**). It downloads the
-installer, installs it silently, waits, checks that the Kortix Capture service
+installer, installs it silently, waits, checks that the Capture service
 exists, and prints whether it worked:
 
 ```bat
-curl.exe -fsSL -o "%TEMP%\KortixCapture-x64.msi" https://github.com/kortix-ai/CompanyOS/releases/latest/download/KortixCapture-x64.msi && start /wait msiexec /i "%TEMP%\KortixCapture-x64.msi" /qn /l*v "%TEMP%\KortixCapture-install.log" KORTIX_URL=https://api.kortix.com ENROLLMENT_TOKEN=kortix_enr_... && sc query KortixCapture >nul 2>&1 && echo Kortix Capture installed. It records from the next Windows sign-in. || echo Install failed. Log: "%TEMP%\KortixCapture-install.log"
+curl.exe -fsSL -o "%TEMP%\KortixCapture-x64.msi" https://github.com/kageprime/dosco-suna/releases/latest/download/KortixCapture-x64.msi && start /wait msiexec /i "%TEMP%\KortixCapture-x64.msi" /qn /l*v "%TEMP%\KortixCapture-install.log" KORTIX_URL=https://api.dosco.live ENROLLMENT_TOKEN=kortix_enr_... && sc query KortixCapture >nul 2>&1 && echo Capture installed. It records from the next Windows sign-in. || echo Install failed. Log: "%TEMP%\KortixCapture-install.log"
 ```
 
 `msiexec` on its own returns at once and installs in the background, and with
@@ -85,11 +85,11 @@ log make the result visible. With the MSI next to the command (Intune, a
 script), the short form is:
 
 ```bat
-msiexec /i KortixCapture-x64.msi /qn KORTIX_URL=https://api.kortix.com ENROLLMENT_TOKEN=kortix_enr_...
+msiexec /i KortixCapture-x64.msi /qn KORTIX_URL=https://api.dosco.live ENROLLMENT_TOKEN=kortix_enr_...
 ```
 
-`KORTIX_URL` is the address of your Kortix API without `/v1`. Self-hosted
-Kortix uses its own API address. The installer marks `ENROLLMENT_TOKEN` as
+`KORTIX_URL` is the address of your Dosco API without `/v1`. Dedicated enterprise
+deployments use their configured API address. The installer marks `ENROLLMENT_TOKEN` as
 hidden, so it does not appear in installer logs.
 
 With Microsoft Intune, add the MSI as a line-of-business or Win32 app and use
@@ -107,7 +107,7 @@ pass no properties.
 The installer never rolls back because the service did not start: it starts the
 service when it can, and Windows starts it about a minute after every boot. The
 MSI installs the Microsoft Edge WebView2 Runtime when a Windows 10 computer does
-not have it; the Kortix Capture window needs it. A person who double-clicks the
+not have it; the Capture window needs it. A person who double-clicks the
 MSI without properties gets the app opened at the end and signs in from it.
 
 ## 3. Check the rollout
@@ -136,9 +136,9 @@ Get-Process kortix-capture | Select-Object Id, SessionId
 The service is `RUNNING`, and a `kortix-capture` process runs in each
 signed-in session.
 
-## What Kortix Capture costs a computer
+## What Capture costs a computer
 
-Kortix Capture runs below normal priority and, on Windows 11, in efficiency
+Capture runs below normal priority and, on Windows 11, in efficiency
 mode, so the apps a person works in always win the CPU. The keyboard and mouse
 hook never waits on Capture's own work.
 
@@ -148,7 +148,7 @@ hook never waits on Capture's own work.
 - **While a person works**, Capture defers what can wait: text recognition
   reads each screen at most every 30 seconds, and video encoding waits for a
   pause (at most 5 minutes).
-- **Text recognition can be off.** In Kortix, **Capture → Settings → Screen
+- **Text recognition can be off.** In Dosco, **Capture → Settings → Screen
   frames → Text recognition → Off** reads no screen text on any computer: the
   least CPU. Search then finds apps, window titles and URLs.
 - **On a slow computer**, Capture slows itself down: a capture or a text read
@@ -169,7 +169,7 @@ the library folder `%APPDATA%\ai.kortix.capture` and the processes
 |---|---|
 | Stop new computers from enrolling | Revoke the token in **Company install**. Enrolled computers keep recording. |
 | Stop one computer | Revoke the device in **Devices**, or deny it in **Waiting for approval**. Its device token stops working at once. The computer does not enroll again until an admin approves it. |
-| Remove Kortix Capture | `msiexec /x KortixCapture-x64.msi /qn` (the same MSI), or **Settings → Apps → Kortix Capture → Uninstall**. The service and the program files go away. Recordings on the computer stay in each person's profile until retention deletes them. |
+| Remove Capture | `msiexec /x KortixCapture-x64.msi /qn` (the same MSI), or **Settings → Apps → Capture → Uninstall**. The service and the program files go away. Recordings on the computer stay in each person's profile until retention deletes them. |
 
 ## What the enrollment token can and cannot do
 
@@ -206,16 +206,16 @@ and asks again on its own.
 
 ## macOS
 
-IT writes the Kortix URL and the token to a root-only file, then installs the
+IT writes the Dosco URL and the token to a root-only file, then installs the
 package. The package installs `Kortix Capture.app` (Developer ID signed and
 notarized), a machine service (LaunchDaemon) that holds the token and enrolls
 each person who signs in, and an agent that records in every session.
 
 ```bash
 sudo mkdir -p "/Library/Application Support/Kortix/Capture"
-echo '{"url":"https://api.kortix.com","enrollment_token":"kortix_enr_..."}' | sudo tee "/Library/Application Support/Kortix/Capture/config.json" >/dev/null
+echo '{"url":"https://api.dosco.live","enrollment_token":"kortix_enr_..."}' | sudo tee "/Library/Application Support/Kortix/Capture/config.json" >/dev/null
 sudo chmod 600 "/Library/Application Support/Kortix/Capture/config.json"
-curl -fsSL -o /tmp/KortixCapture-universal.pkg https://github.com/kortix-ai/CompanyOS/releases/latest/download/KortixCapture-universal.pkg && sudo installer -pkg /tmp/KortixCapture-universal.pkg -target / && echo "Kortix Capture installed."
+curl -fsSL -o /tmp/KortixCapture-universal.pkg https://github.com/kageprime/dosco-suna/releases/latest/download/KortixCapture-universal.pkg && sudo installer -pkg /tmp/KortixCapture-universal.pkg -target / && echo "Capture installed."
 ```
 
 With an MDM, deploy the package and a configuration profile for the domain
@@ -226,24 +226,24 @@ must stay secret.
 macOS asks the person to allow Screen Recording once. A Privacy Preferences
 Policy Control (PPPC) profile can pre-approve Accessibility and Input
 Monitoring for `ai.kortix.capture`; for Screen Recording it can only let a
-standard user approve it. To remove Kortix Capture:
+standard user approve it. To remove Capture:
 `sudo "/Applications/Kortix Capture.app/Contents/Resources/uninstall.sh"`.
 
 ## Linux
 
 ```bash
 sudo install -d -m 755 /etc/kortix
-echo '{"url":"https://api.kortix.com","enrollment_token":"kortix_enr_..."}' | sudo tee /etc/kortix/capture.json >/dev/null
+echo '{"url":"https://api.dosco.live","enrollment_token":"kortix_enr_..."}' | sudo tee /etc/kortix/capture.json >/dev/null
 sudo chmod 600 /etc/kortix/capture.json
-curl -fsSL -o /tmp/kortix-capture_amd64.deb https://github.com/kortix-ai/CompanyOS/releases/latest/download/kortix-capture_amd64.deb && sudo apt-get install -y /tmp/kortix-capture_amd64.deb && echo "Kortix Capture installed."
+curl -fsSL -o /tmp/kortix-capture_amd64.deb https://github.com/kageprime/dosco-suna/releases/latest/download/kortix-capture_amd64.deb && sudo apt-get install -y /tmp/kortix-capture_amd64.deb && echo "Capture installed."
 ```
 
 The package installs a machine service (`kortix-capture-machine`) that holds
 the token and enrolls each person who signs in to a graphical session, and a
-user service that records in every session. Kortix Capture records X11
+user service that records in every session. Capture records X11
 sessions; a Wayland session enrolls but records nothing yet. To remove it:
 `sudo apt purge kortix-capture`.
 
 Without the config file on macOS or Linux, each person chooses
-**Sign in with Kortix…** from the Kortix Capture icon
-([Capture → Install Kortix Capture](/docs/capture#install-kortix-capture)).
+**Sign in with Dosco…** from the Capture icon
+([Capture → Install Capture](/docs/capture#install-kortix-capture)).

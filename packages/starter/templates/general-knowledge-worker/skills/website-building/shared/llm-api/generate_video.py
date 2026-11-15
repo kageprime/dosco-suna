@@ -3,7 +3,7 @@ project and call it from FastAPI (or any async) handlers.
 
 Credentials come from real environment variables — no hidden runtime injection
 (see shared/20-llm-api.md). Set OPENAI_API_KEY, and optionally OPENAI_BASE_URL to
-route calls through the Kortix gateway or any other OpenAI-compatible endpoint.
+route calls through the Dosco gateway or any other OpenAI-compatible endpoint.
 Override the model with the VIDEO_MODEL env var or the `model` argument.
 
 Video generation is slow — tens of seconds to minutes. Call it from a background

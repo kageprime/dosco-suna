@@ -39,11 +39,9 @@ export const productMenu: NavMenu = {
       title: 'Platform',
       links: [
         {
-          name: 'Self-hosted',
-          href: '/self-hosted',
-          // ACCURACY: never "air-gapped" — `self-host start` pulls images from
-          // docker.io, so a fully disconnected install is not shipped.
-          description: 'Your own VPC or your own on-prem network',
+          name: 'Enterprise VPC',
+          href: '/enterprise',
+          description: 'Dedicated VPC or isolated enterprise deployment',
           icon: 'hard-drives',
         },
         {

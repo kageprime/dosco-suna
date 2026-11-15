@@ -280,7 +280,7 @@ Use `allowed_domains: ["sec.gov"]` when targeting SEC filings specifically.
 
 When fact-checking `verify_public_data` claims about publicly traded companies, structured financial data is more reliable than web search for standardized metrics. Two paths, in order of preference:
 
-1. **A finance-data connector (if configured).** If the project has a market-data / financials connector set up through Kortix connectors, query it for the metric — it returns standardized, as-reported figures. Resolve the ticker first, pin the fiscal period from the document's date, then fetch.
+1. **A finance-data connector (if configured).** If the project has a market-data / financials connector set up through Dosco connectors, query it for the metric — it returns standardized, as-reported figures. Resolve the ticker first, pin the fiscal period from the document's date, then fetch.
 2. **Web search (always available).** If no finance connector is configured, fact-check every finance claim with `web_search` using the Search Strategy guidance above.
 
 ### When structured finance data helps vs. web search

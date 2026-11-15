@@ -109,7 +109,7 @@ export function composeTemplateOnboarding(id: TemplateId, setupGuide: string): s
   const template = getTemplate(id);
   const own = getTemplateOnboarding(id);
   return [
-    `# Set up the Kortix ${template.name}`,
+    `# Set up the ${template.name}`,
     '',
     template.summary,
     '',

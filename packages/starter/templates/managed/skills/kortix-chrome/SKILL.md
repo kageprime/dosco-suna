@@ -8,7 +8,7 @@ metadata:
 <skill name="kortix-chrome">
 
 <overview>
-The user installs the Kortix extension in Chrome once. `kortix chrome use`
+The user installs the Dosco extension in Chrome once. `kortix chrome use`
 then attaches that Chrome to this session, and `agent-browser` drives it
 through a CDP endpoint on `127.0.0.1:9333`. It is the user's real chrome:
 their cookies, logins and extensions.
@@ -38,7 +38,7 @@ groups), with a glow around them and a control bar with **Take over** and
 **Stop**. The user may pause you (Take over) or end your access to the browser
 (Stop) at any time. Input commands fail while they have control; wait and retry.
 
-The user picks the access mode in the extension or in Kortix settings: *without
+The user picks the access mode in the extension or in Dosco settings: *without
 asking*, *ask first* (your first `use` shows a prompt in Chrome and waits up to
 90 seconds), or *off*.
 </what_the_user_sees>
@@ -53,8 +53,8 @@ asking*, *ask first* (your first `use` shows a prompt in Chrome and waits up to
   you to act in it, and never navigate a tab of theirs away from its page.
 - **Only tabs it opens**: you see your own tabs and nothing else. If the user
   asks about their other tabs, say so in one line and tell them where to change
-  it: the Kortix extension's options → Tabs → All tabs, or Kortix Settings →
-  Kortix in Chrome. Then run `kortix chrome use` again.
+  it: the Dosco extension's options → Tabs → All tabs, or Dosco Settings →
+  Dosco in Chrome. Then run `kortix chrome use` again.
 </tabs>
 
 
@@ -77,13 +77,13 @@ asking*, *ask first* (your first `use` shows a prompt in Chrome and waits up to
 <errors>
 - **No browser connected** (`chrome_not_connected`, `chrome_offline`): the CLI
   prints a connect link. Send the user ONE line, for example: "I need your
-  Chrome for this. Install the Kortix extension here: <link>. Tell me when it
+  Chrome for this. Install the Dosco extension here: <link>. Tell me when it
   shows Connected." Then wait. Do not fall back to the sandbox browser for a task
   that needs their login.
 - **Denied or stopped** (`chrome_denied`): the user said no, or pressed Stop. Do
   not retry on your own. Ask the user. If they agree, run `kortix chrome use --ask`.
 - **Access off** (`chrome_access_off`): tell the user to switch the browser to
-  "Without asking" or "Ask first" in Kortix settings (Settings → Kortix in Chrome), then wait.
+  "Without asking" or "Ask first" in Dosco settings (Settings → Dosco in Chrome), then wait.
 - **Timeout** (`chrome_consent_timeout`): nobody answered the prompt in Chrome.
   Tell the user to look at Chrome, then run `kortix chrome use --ask` again.
 - **`chrome_dial_failed`**: Chrome did not connect. Ask the user to check that
@@ -93,7 +93,7 @@ asking*, *ask first* (your first `use` shows a prompt in Chrome and waits up to
   released, the user pressed Stop, or Chrome closed. Run `kortix chrome use`;
   after a Stop it answers `chrome_denied`, so ask the user first.
 - **`kortix chrome` is unknown, or `/kortix/chrome/*` answers 404**: this sandbox
-  still runs an older Kortix runtime. It updates itself when the turn ends. Tell
+  still runs an older Dosco runtime. It updates itself when the turn ends. Tell
   the user in one line to send the request again, then stop. Do not inspect or
   restart the daemon.
 </errors>
@@ -108,7 +108,7 @@ asking*, *ask first* (your first `use` shows a prompt in Chrome and waits up to
 - If an `agent-browser` command fails twice with the same CDP error, stop. Do not
   write scripts to probe the CDP endpoint. Run `kortix chrome release`, then
   `kortix chrome use` once; if it still fails, tell the user the exact error in
-  one line and ask them to reload the Kortix extension.
+  one line and ask them to reload the Dosco extension.
 </rules>
 
 </skill>

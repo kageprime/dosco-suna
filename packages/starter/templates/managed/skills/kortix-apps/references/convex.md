@@ -1,17 +1,17 @@
 # The Convex template: data, server logic, realtime
 
-A Convex backend is a plain Kortix App made from the `convex` template: the
+A Convex backend is a plain App made from the `convex` template: the
 self-hosted Convex backend image (pinned by digest), its data on a volume, two
 services, and an admins-only dashboard App shown as a tab of it. Nothing about it is
-special to Kortix: every command here works for any App.
+special to Dosco: every command here works for any App.
 
 Why two Apps: the backend and the dashboard are two different images, and a
-Kortix App runs one image. The Apps page shows them as one: the dashboard is
+App runs one image. The Apps page shows them as one: the dashboard is
 the backend's Dashboard tab. The backend runs 24/7 with its volume; the
 dashboard sleeps when idle.
 
 It gives the workspace a transactional database, TypeScript server functions,
-realtime queries, file storage, schedules and search, with Kortix sign-in.
+realtime queries, file storage, schedules and search, with Dosco sign-in.
 
 ## Launch
 
@@ -56,7 +56,7 @@ The files `launch` writes (a file that already exists is yours: kept):
 | File | What it does |
 | --- | --- |
 | `apps/backend/dashboard/Dockerfile` | `FROM` Convex's dashboard image (pinned by digest), `ENV BACKEND=backend`, copies `start.js`. |
-| `apps/backend/dashboard/start.js` | Runs Convex's dashboard on port 6792. On the App's port 6791 it serves `/` as a page that frames the dashboard and answers its `dashboard-credentials-request` (Convex's embedding protocol) with the admin key; every other path goes to the dashboard. If the dashboard exits, the machine exits and Kortix restarts it. |
+| `apps/backend/dashboard/start.js` | Runs Convex's dashboard on port 6792. On the App's port 6791 it serves `/` as a page that frames the dashboard and answers its `dashboard-credentials-request` (Convex's embedding protocol) with the admin key; every other path goes to the dashboard. If the dashboard exits, the machine exits and Dosco restarts it. |
 
 Both services of `backend` are `public` on purpose: Convex enforces sign-in in its
 functions (`requireMember`, sign-in.md). The dashboard is workspace admins only,
@@ -100,7 +100,7 @@ Every task on the backend runs these six steps in order. Skip none: step 3
 keeps you from breaking what exists, and step 5 is the proof.
 
 If the App's URL is on `*.apps.localhost`, the workspace runs on a developer's
-local Kortix stack, which this sandbox cannot reach. Write the change, say the
+local Dosco stack, which this sandbox cannot reach. Write the change, say the
 App is unreachable from here, and give the user the commands to run.
 
 **1. Install** (once per App directory):
@@ -129,7 +129,7 @@ npx convex codegen --init                   # once: convex/tsconfig.json and con
 
 `auth-env` sets `KORTIX_AUTH_ISSUER`, `KORTIX_AUTH_AUDIENCE` and
 `KORTIX_AUTH_JWKS` (the key set as a `data:` URL) on the Convex deployment, so
-`convex/auth.config.ts` (sign-in.md) verifies Kortix tokens. TypeScript 7 loads
+`convex/auth.config.ts` (sign-in.md) verifies Dosco tokens. TypeScript 7 loads
 no `@types` package by default: add `"types": ["node"]` to `compilerOptions`
 in `convex/tsconfig.json`.
 
@@ -210,7 +210,7 @@ storage, search, migrations): convex-patterns.md.
 - The volume outlives every release and every machine. A redeploy (`rolling`)
   stops the old machine, detaches the volume and mounts it on the new one:
   seconds of downtime, no data loss. A hard kill of the machine or its host
-  loses no acknowledged write (measured on Platinum, 2026-10-10: 0 of 27
+  loses no acknowledged write (measured in testing, 2026-10-10: 0 of 27
   crash cycles lost data).
 - Run **one** machine. Scaling the group above 1 gives each machine its own,
   empty volume: two independent databases behind one URL.
@@ -252,5 +252,5 @@ the live data goes back to the snapshot.
 ## Delete
 
 `kortix apps delete backend --yes` removes the machines and images. Its volumes keep
-a final snapshot for 7 days, then Kortix purges them. To keep the data,
+a final snapshot for 7 days, then Dosco purges them. To keep the data,
 `npx convex export --include-file-storage` first.

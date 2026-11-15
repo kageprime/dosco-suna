@@ -122,7 +122,7 @@ export const thesis = {
       line: 'You own the stack.',
       // ACCURACY: say "open source" and stop. Never characterise the licence.
       body: 'Bring your own model keys. No black box, no lock-in.',
-      hosts: { from: 'kortix cloud', to: 'your servers' },
+      hosts: { from: 'managed cloud', to: 'your servers' },
     },
   ],
 };
@@ -232,7 +232,7 @@ export const closing = {
       id: 'developers-faq-models',
       question: 'Which models can I use?',
       answer:
-        'Bring your own keys: Anthropic, OpenAI or local models. Or run on Dosco compute. Add your keys with kortix providers.',
+        'Bring your own keys: Anthropic, OpenAI or local models. Or run on managed OpenRouter models. Add your keys with kortix providers.',
     },
     {
       id: 'developers-faq-credentials',

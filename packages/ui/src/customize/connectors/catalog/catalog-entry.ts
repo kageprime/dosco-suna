@@ -105,7 +105,7 @@ export function catalogEntryKindLabel(entry: CatalogEntry): string {
     case 'composio':
       return 'Composio';
     case 'kortix':
-      return 'Kortix';
+      return 'Dosco';
     case 'mcp':
       return 'MCP';
     case 'graphql':

@@ -3,7 +3,7 @@ call it from FastAPI (or any async) handlers.
 
 Credentials come from real environment variables — no hidden runtime injection
 (see shared/20-llm-api.md). Set OPENAI_API_KEY, and optionally OPENAI_BASE_URL to
-route calls through the Kortix gateway or any other OpenAI-compatible endpoint.
+route calls through the Dosco gateway or any other OpenAI-compatible endpoint.
 Override the model with the IMAGE_MODEL env var or the `model` argument.
 
 These keys must also be provisioned on the host before you publish — local-only

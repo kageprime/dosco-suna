@@ -162,7 +162,7 @@ skill; the step reads the record first and does only what is missing.
 | Mode | What the agent does | What the person does |
 |---|---|---|
 | `draft` (default) | writes the draft to `approval.draft_in` and submits one Review output | edits and sends it from their own mailbox |
-| `approve_to_send` | calls the mail connector's send tool; a workspace policy holds the call | approves or denies the held call on the Review page; Kortix sends it once |
+| `approve_to_send` | calls the mail connector's send tool; a workspace policy holds the call | approves or denies the held call on the Review page; Dosco sends it once |
 
 `approve_to_send` is allowed only when the root `kortix.yaml` has a
 `policies` rule with `action: require_approval` whose `match` covers the

@@ -187,4 +187,91 @@ describe('Dosco brand surfaces guard', () => {
       { timeout: 15000 },
     );
   });
+
+  describe('Marketing runtime assets, blog rewrite guard, and translation catalog', () => {
+    test('apps/web/public/marketing/dither-wordmark.png exists and is non-empty', () => {
+      const wordmarkPath = join(REPO_ROOT, 'apps', 'web', 'public', 'marketing', 'dither-wordmark.png');
+      expect(existsSync(wordmarkPath)).toBe(true);
+      expect(statSync(wordmarkPath).size).toBeGreaterThan(1000);
+    });
+
+    test('apps/web/src/config/blog-origin.ts leaves DEFAULT_BLOG_ORIGIN unset and guards self-origin /blog loops', () => {
+      const blogOriginPath = join(WEB_SRC, 'config', 'blog-origin.ts');
+      const content = readFileSync(blogOriginPath, 'utf8');
+      expect(content).toContain('const DEFAULT_BLOG_ORIGIN: string | undefined = undefined;');
+      expect(content).toContain('SELF_BLOG_ORIGINS');
+      expect(content).toContain("'https://dosco.live'");
+    });
+
+    test('apps/web/translations/en.json has no banned upstream, Platinum, OSS, or prefixed brand phrases', () => {
+      const enPath = join(REPO_ROOT, 'apps', 'web', 'translations', 'en.json');
+      const content = readFileSync(enPath, 'utf8');
+      const banned = [
+        'Kortix Cloud',
+        'Dosco Cloud',
+        'Dosco Capture',
+        'Dosco CompanyOS',
+        'Dosco Drive',
+        'Kortix Drive',
+        'Kortix Capture',
+        'My Kortix',
+        'Platinum microVM',
+        'Platinum compute',
+        'runs on Platinum',
+        'free to self-host',
+        '20,000+ GitHub stars',
+        '20,000 GitHub stars',
+        'github.com/kortix-ai',
+        'github.com/dosco-ai',
+        'security@kortix.com',
+        'legal@kortix.com',
+        'privacy@kortix.com',
+        '@markokraemer',
+        'KORTIX DOES NOT WARRANT',
+        'One Docker Compose stack.',
+      ];
+      for (const phrase of banned) {
+        expect(content).not.toContain(phrase);
+      }
+    });
+
+    test('apps/web marketing and home code contain no banned Dosco brand prefixes or upstream GitHub links', () => {
+      const dirs = [
+        join(WEB_SRC, 'components', 'home'),
+        join(WEB_SRC, 'features', 'marketing'),
+      ];
+      const bannedPatterns = [
+        /Kortix Cloud/i,
+        /Dosco Cloud/,
+        /Dosco CompanyOS/,
+        /My Kortix/,
+        /github\.com\/kortix-ai/,
+        /github\.com\/dosco-ai/,
+        /security@kortix\.com/i,
+        /One Docker Compose stack/,
+      ];
+      const hits: string[] = [];
+      const walk = (dir: string) => {
+        for (const entry of readdirSync(dir)) {
+          const full = join(dir, entry);
+          const st = statSync(full);
+          if (st.isDirectory()) {
+            if (entry === '__snapshots__' || entry === 'node_modules') continue;
+            walk(full);
+          } else if (/\.(ts|tsx)$/.test(entry) && !/\.test\.(ts|tsx)$/.test(entry)) {
+            const stripped = readFileSync(full, 'utf8')
+              .replace(/\/\*[\s\S]*?\*\//g, '')
+              .replace(/^\s*\/\/.*$/gm, '');
+            for (const re of bannedPatterns) {
+              if (re.test(stripped)) {
+                hits.push(`${full}: ${re}`);
+              }
+            }
+          }
+        }
+      };
+      for (const d of dirs) walk(d);
+      expect(hits).toEqual([]);
+    });
+  });
 });

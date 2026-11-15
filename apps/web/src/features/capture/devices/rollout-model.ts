@@ -42,7 +42,7 @@ export function windowsCmd(url: string, token: string): string {
       `start /wait msiexec /i ${msi} /qn /l*v ${log} KORTIX_URL=${url} ENROLLMENT_TOKEN=${token}`,
       // A rolled-back install can still exit 0 here: the service must exist.
       'sc query KortixCapture >nul 2>&1',
-      'echo Kortix Capture installed. It records from the next Windows sign-in.',
+      'echo Capture installed. It records from the next Windows sign-in.',
     ].join(' && ') + ` || echo Install failed. Log: ${log}`
   );
 }
@@ -62,14 +62,14 @@ export function installCommand(os: RolloutOs, url: string, token: string): strin
       `sudo mkdir -p "${dir}"`,
       `echo '${configJson(url, token)}' | sudo tee "${dir}/config.json" >/dev/null`,
       `sudo chmod 600 "${dir}/config.json"`,
-      `curl -fsSL -o /tmp/KortixCapture-universal.pkg ${installerUrl(url, 'KortixCapture-universal.pkg')} && sudo installer -pkg /tmp/KortixCapture-universal.pkg -target / && echo "Kortix Capture installed."`,
+      `curl -fsSL -o /tmp/KortixCapture-universal.pkg ${installerUrl(url, 'KortixCapture-universal.pkg')} && sudo installer -pkg /tmp/KortixCapture-universal.pkg -target / && echo "Capture installed."`,
     ].join('\n');
   }
   return [
     'sudo install -d -m 755 /etc/kortix',
     `echo '${configJson(url, token)}' | sudo tee /etc/kortix/capture.json >/dev/null`,
     'sudo chmod 600 /etc/kortix/capture.json',
-    `curl -fsSL -o /tmp/kortix-capture_amd64.deb ${installerUrl(url, 'kortix-capture_amd64.deb')} && sudo apt-get install -y /tmp/kortix-capture_amd64.deb && echo "Kortix Capture installed."`,
+    `curl -fsSL -o /tmp/kortix-capture_amd64.deb ${installerUrl(url, 'kortix-capture_amd64.deb')} && sudo apt-get install -y /tmp/kortix-capture_amd64.deb && echo "Capture installed."`,
   ].join('\n');
 }
 

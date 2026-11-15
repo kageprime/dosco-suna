@@ -120,7 +120,7 @@ export const deal = {
   },
 } as const;
 
-export const platinum = {
+export const compute = {
   eyebrow: 'Cloud Compute',
   title: 'Hardware-isolated microVM compute.',
   sub: 'Dosco runs sandboxes in isolated microVMs powered by E2B. Build any workflow, agent team, or cloud solution you need.',
@@ -180,7 +180,7 @@ export const terms = {
     {
       id: 'cost',
       k: 'Cost',
-      v: 'The license is free. You pay Platinum.dev only for the compute you use.',
+      v: 'The license is free. You pay only for the compute you use.',
     },
     {
       id: 'term',
@@ -212,7 +212,7 @@ export const closing = {
 
 export function getLocalizedWhiteLabelContent(tI18nComplete: UiTranslator) {
   return localizeUiCatalog(
-    { hero, scenarios, deal, platinum, steps, terms, closing },
+    { hero, scenarios, deal, compute, steps, terms, closing },
     tI18nComplete,
     WHITE_LABEL_TRANSLATION_KEYS,
   );

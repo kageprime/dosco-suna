@@ -6,7 +6,7 @@ kinds:
 | Kind | Names | Source |
 | --- | --- | --- |
 | Runtime tools | `bash`, `read`, `write`, `edit`, `glob`, `grep`, `question`, `agent` | pi (`../pi.md`). `codemode` is set by `agents.<name>.codemode`. |
-| Kortix tools | `web_search`, `image_search`, `image_gen`, `scrape_webpage`, `show` | Kortix. Always registered. `memory` is retired (2026-10-30): a kortix.yaml that names it gets a warning; an ejected `tools/memory.ts` stays a workspace tool. |
+| Dosco tools | `web_search`, `image_search`, `image_gen`, `scrape_webpage`, `show` | Dosco. Always registered. `memory` is retired (2026-10-30): a kortix.yaml that names it gets a warning; an ejected `tools/memory.ts` stays a workspace tool. |
 | Workspace tools | Any snake_case name | A module in the repository, registered under `tools:`. |
 
 `kortix tools ls` lists the tools the current files give a session:
@@ -22,21 +22,21 @@ kinds:
 5. `kortix validate` exits 0. `kortix tools ls` lists it as `project`.
 6. Commit, push, `kortix cr open`. New sessions load it after the merge.
 
-## Change a Kortix tool
+## Change a Dosco tool
 
-1. `kortix tools eject <name>` writes the Kortix source to `tools/<name>.ts`
+1. `kortix tools eject <name>` writes the Dosco source to `tools/<name>.ts`
    and registers `tools.<name>: tools/<name>.ts`. It refuses when the file
    exists, unless `--force`.
 2. Edit the copy. Keep the name, the arguments and the output shape: skills
    and the web app's tool views depend on them.
 3. `kortix validate`, `kortix tools ls` (kind `kortix (overridden)`), CR.
 
-The copy is the workspace's. Kortix no longer updates it. Delete the entry and
+The copy is the workspace's. Dosco no longer updates it. Delete the entry and
 the file to return to the maintained tool.
 
 ## Remove a tool from an agent
 
-The Kortix tools cannot be unregistered. Hide one per agent:
+The Dosco tools cannot be unregistered. Hide one per agent:
 
 ```yaml
 agents:
@@ -49,7 +49,7 @@ agents:
 ```
 
 Set `tools` on every agent; `tools: "*"` is every tool (`all` is the same). A name must be a
-runtime, Kortix or registered tool. `tools` hides a tool; `permission`
+runtime, Dosco or registered tool. `tools` hides a tool; `permission`
 decides calls to a visible one. A subagent gets the tools both its own list
 and the caller's list allow. Leave `agent` and `task` (its old name) out to
 stop an agent from delegating.

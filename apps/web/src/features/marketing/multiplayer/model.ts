@@ -207,7 +207,7 @@ export const roles = {
 } as const;
 
 export const agentPick = [
-  { k: 'kortix', on: true },
+  { k: 'xera', on: true },
   { k: 'finance-analyst', on: true },
   { k: 'support', on: false },
 ] as const;

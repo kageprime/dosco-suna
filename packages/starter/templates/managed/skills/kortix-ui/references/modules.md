@@ -262,7 +262,7 @@ The frame pool: `ensureFrame` creates a parked frame, `claimFrame` (`key`, `slot
 
 ## `@kortix/ui/artifacts`
 
-Source: `src/artifacts/index.ts`. Kortix Artifacts in any host: the frame policy and link parsing (server-safe), the pooled page frame, and the session views. Artifact frames share the `@kortix/ui/apps` frame pool; their keys start with `ARTIFACT_FRAME_PREFIX`.
+Source: `src/artifacts/index.ts`. Dosco Artifacts in any host: the frame policy and link parsing (server-safe), the pooled page frame, and the session views. Artifact frames share the `@kortix/ui/apps` frame pool; their keys start with `ARTIFACT_FRAME_PREFIX`.
 
 Props: `ArtifactFrame`: `frameKey` (`artifactFrameKey(artifact, version)`), `src`, `title`, `preview` (no input), `className`. `ShowArtifactCard`: `url`, `fallback` (drawn when the viewer cannot open it). `ArtifactPanelPreview`: `url`, `onClose`.
 
@@ -385,7 +385,7 @@ export function Home({ projectId }: { projectId: string }) {
   return <ProjectHome projectId={projectId} beforeSend={async () => {}} />;
 }
 
-// Kortix's session list; it links to /workspaces/<id>/sessions/<sessionId>.
+// Dosco's session list; it links to /workspaces/<id>/sessions/<sessionId>.
 export function Sessions({ projectId }: { projectId: string }) {
   return (
     <SidebarProvider>

@@ -290,7 +290,7 @@ export function GatewayRouting({
       if (!wire || wire === 'auto' || byWire.has(wire)) continue;
       byWire.set(wire, {
         providerID: 'kortix',
-        providerName: 'Kortix',
+        providerName: 'Dosco',
         modelID: wire,
         modelName: wire,
       });

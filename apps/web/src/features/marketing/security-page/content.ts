@@ -56,7 +56,7 @@ export const hero = {
   eyebrow: 'Security',
   title: 'Built to survive a security review.',
   titleMuted: 'The walls sit below the agent.',
-  sub: 'An agent that can install anything, call anything and write anywhere is only safe if the walls are real. In Kortix they sit below the agent, in the platform, where a prompt cannot talk its way past them.',
+  sub: 'An agent that can install anything, call anything and write anywhere is only safe if the walls are real. In Dosco they sit below the agent, in the platform, where a prompt cannot talk its way past them.',
   ctaPrimary: 'Talk to us',
   ctaPrimaryHref: '/contact',
   ctaSecondary: 'Read the docs',
@@ -96,7 +96,7 @@ export const isolation = {
     items: [
       'Another session — same workspace, same team, or another customer',
       'Connector credentials, which are resolved server-side',
-      'Kortix’s own upstream provider keys, which no sandbox may hold',
+      'Dosco’s own upstream provider keys, which no sandbox may hold',
       'Write access to main; a session can only propose',
     ],
   },
@@ -108,8 +108,8 @@ export const isolation = {
     },
     {
       id: 'microvm',
-      k: 'microVM where you ask for it',
-      v: 'On Platinum, Kortix’s own compute, a sandbox is a Cloud Hypervisor microVM.',
+      k: 'Hardware-isolated microVMs',
+      v: 'Every cloud sandbox runs in an isolated E2B microVM with its own filesystem and process namespace.',
     },
     {
       id: 'branch',
@@ -182,7 +182,7 @@ export const credentials = {
     {
       id: 'connectors',
       k: 'Connector credentials never enter the machine',
-      v: '3,000+ apps in a click, plus MCP, OpenAPI, GraphQL and raw HTTP. The third-party credential is held and resolved server-side; the machine holds one scoped Kortix token and calls through it. The same rule covers Kortix’s own provider keys, which no sandbox is allowed to hold.',
+      v: '3,000+ apps in a click, plus MCP, OpenAPI, GraphQL and raw HTTP. The third-party credential is held and resolved server-side; the machine holds one scoped token and calls through it. The same rule covers Dosco’s own provider keys, which no sandbox is allowed to hold.',
     },
     {
       id: 'honest',
@@ -202,7 +202,7 @@ export const identity = {
   eyebrow: 'Identity & permissions',
   title: 'An agent is a principal, not a loophole.',
   titleMuted: 'It carries policies of its own.',
-  sub: 'Most AI tools give the agent whatever the person who started it can reach. Kortix does not. An agent identity carries its own policies, evaluated on their own, so it cannot inherit its way up to something you never granted it.',
+  sub: 'Most AI tools give the agent whatever the person who started it can reach. Dosco does not. An agent identity carries its own policies, evaluated on their own, so it cannot inherit its way up to something you never granted it.',
   /** The permission matrix, drawn from the shipped resource types + presets. */
   matrix: {
     caption: 'Permissions attach to a principal, for an action, on a resource type.',
@@ -240,7 +240,7 @@ export const identity = {
       },
       { k: 'Groups', v: 'Grant to a group once instead of to twenty people twenty times.' },
     ],
-    note: 'Available on Enterprise, and on a self-hosted instance with an Enterprise license. The built-in roles above are free on every plan.',
+    note: 'Available on Enterprise and dedicated enterprise deployments. The built-in roles above are included on every workspace plan.',
   },
   agents: {
     title: 'Service accounts',
@@ -388,22 +388,22 @@ export const audit = {
 export const posture = {
   eyebrow: 'Deployment & posture',
   title: 'Run it where your policy says it has to run.',
-  titleMuted: 'Cloud, your VPC or on-prem.',
-  sub: 'The same product ships as managed cloud, as a stack inside your own network, and as an isolated deployment. Open source, so what you are trusting is code you can read.',
+  titleMuted: 'Cloud or dedicated enterprise VPC.',
+  sub: 'Run on managed Cloud or request a single-tenant VPC deployment with dedicated storage, SSO/SCIM, and full audit logging.',
   deployments: [
     {
       id: 'cloud',
-      k: 'Kortix Cloud',
-      v: 'The managed service. We run the control plane and the compute; you run the company.',
+      k: 'Cloud',
+      v: 'The managed service. We run the control plane and isolated E2B sandboxes; you run the company.',
     },
     {
-      id: 'selfhost',
-      k: 'Self-hosted',
-      v: 'One Docker Compose stack on your box, from the same images the managed cloud runs. Your database and your files sit on disk you control.',
+      id: 'dedicated',
+      k: 'Dedicated cluster',
+      v: 'Single-tenant control plane and Supabase storage provisioned for your organization.',
     },
     {
       id: 'vpc',
-      k: 'Your VPC or on-prem',
+      k: 'Your VPC or dedicated deployment',
       v: 'A single-tenant deployment inside your own network. Isolated topologies are scoped with us rather than self-served.',
     },
   ],
@@ -432,7 +432,7 @@ export const disclosure = {
   title: 'Found something? Tell us privately.',
   titleMuted: 'We acknowledge within 3 business days.',
   sub: 'Please do not open a public issue for a vulnerability. Mail the security contact with the affected version or commit, the reproduction, and the impact.',
-  email: 'security@kortix.com',
+  email: 'support@dosco.live',
   slas: [
     { k: 'Acknowledgement', v: 'Within 3 business days' },
     { k: 'Triage & severity', v: 'Within 5 business days' },

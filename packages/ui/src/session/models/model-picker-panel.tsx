@@ -188,7 +188,7 @@ export function ModelPickerPanel({
 
   const tabLabel = (id: PickerTabId) => {
     if (id === 'favorites') return t('favorites');
-    if (id === 'kortix') return 'Kortix';
+    if (id === 'kortix') return 'Dosco';
     if (id === 'chatgpt') return 'ChatGPT';
     const sample = browseModels.find((m) => pickerTabOf(m) === id);
     return sample ? pickerGroupLabel(id, sample) : id;

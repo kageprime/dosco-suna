@@ -17,7 +17,7 @@ Use real SDKs and real environment variables. Do not assume proxy credentials or
 
 Typical examples: whatever key name the chosen provider's SDK expects
 (e.g. an LLM provider key, or a provider-specific key for image, audio, or
-video services). Don't reuse a Kortix platform credential name for a
+video services). Don't reuse a Dosco platform credential name for a
 project's own BYOK key — they're different things.
 
 If a project needs these services, document the required env vars clearly and fail fast when they are missing.
@@ -30,7 +30,7 @@ For projects that need media generation inline in the backend, `shared/llm-api/`
 
 | File | Does | Key call | Credential |
 | --- | --- | --- | --- |
-| `shared/llm-api/generate_image.py` | Text-to-image and img2img edits (OpenAI) | `await generate_image(prompt, image_bytes=..., aspect_ratio=...)` | `OPENAI_API_KEY` (optional `OPENAI_BASE_URL` → Kortix gateway) |
+| `shared/llm-api/generate_image.py` | Text-to-image and img2img edits (OpenAI) | `await generate_image(prompt, image_bytes=..., aspect_ratio=...)` | `OPENAI_API_KEY` (optional `OPENAI_BASE_URL` → Dosco gateway) |
 | `shared/llm-api/generate_video.py` | Text-to-video and image-to-video (OpenAI / Sora) | `await generate_video(prompt, image_bytes=..., duration=...)` | `OPENAI_API_KEY` (optional `OPENAI_BASE_URL`) |
 | `shared/llm-api/generate_audio.py` | Text-to-speech and multi-speaker dialogue (ElevenLabs) | `await generate_audio(text, voice=...)` / `await generate_dialogue(lines)` | `ELEVENLABS_API_KEY` |
 

@@ -79,14 +79,14 @@ a generic GitHub token secret. `<owner>/<repo>` is the code repository.
 3. **The token**, minted while signed in as the token's account:
    - Organization repository, or the person's own account: a fine-grained
      token, pre-filled:
-     `https://github.com/settings/personal-access-tokens/new?name=Kortix%20factory&description=Software%20Factory%20for%20<owner>%2F<repo>&target_name=<owner>&expires_in=366&contents=write&pull_requests=write&issues=write&metadata=read&workflows=write&actions=read&checks=read&statuses=read`.
+     `https://github.com/settings/personal-access-tokens/new?name=Dosco%20factory&description=Software%20Factory%20for%20<owner>%2F<repo>&target_name=<owner>&expires_in=366&contents=write&pull_requests=write&issues=write&metadata=read&workflows=write&actions=read&checks=read&statuses=read`.
      The person selects **Only select repositories** → `<owner>/<repo>`, and
      generates it. When the organization requires approval of fine-grained
      tokens, an owner approves it at
      `https://github.com/organizations/<owner>/settings/personal-access-token-requests`.
    - Machine user on a personal-account repository: GitHub's fine-grained
      tokens cannot reach another user's repository, so mint a classic token:
-     `https://github.com/settings/tokens/new?description=Kortix%20factory%20<owner>%2F<repo>&scopes=repo,workflow`
+     `https://github.com/settings/tokens/new?description=Dosco%20factory%20<owner>%2F<repo>&scopes=repo,workflow`
      with an expiration of one year. It reaches only the repositories the bot
      can access: this one.
    - **Own account (fallback)**: the fine-grained URL above, signed in as the
@@ -155,7 +155,7 @@ Refuse any production write credential.
 | `errors` | `sources/errors-<tracker>.md`. Poll: the token only. Push: `kortix triggers info source-errors --json` gives `webhook_url`; set it in the tracker with `Authorization: Bearer <FACTORY_ERRORS_WEBHOOK_SECRET>` and send one test alert |
 | `logs-anomaly` | `sources/logs-anomaly.md`: one read-only credential per backend in `sources.logs-anomaly.backends` |
 | `db-observer` | `sources/db-observer.md`: the person creates the read-only role with the SQL there (or a Supabase token); never the application's own URL |
-| `slack` | `sources/slack.md` setup: Slack connected, the bot joins each public channel itself, the person types `/invite @Kortix` in each private one |
+| `slack` | `sources/slack.md` setup: Slack connected, the bot joins each public channel itself, the person types `/invite @Dosco` in each private one |
 | `customer-feedback` | `sources/customer-feedback.md`: one entry per channel in `sources.customer-feedback.channels` and its read credential; a feedback form gets the `source-customer-feedback-webhook` URL with `Authorization: Bearer <FACTORY_FEEDBACK_WEBHOOK_SECRET>` |
 
 Fire each enabled source once (`kortix triggers fire <slug> --wait 300s`)

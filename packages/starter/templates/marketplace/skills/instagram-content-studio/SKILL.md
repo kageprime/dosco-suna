@@ -1,6 +1,6 @@
 ---
 name: instagram-content-studio
-description: "Run a whole Instagram account on Kortix: Reels (voiced vertical video), Stories (9:16 image or video) and feed posts (4:5 single image or carousel), made with an image model (gpt-image-2 / Nano Banana) and a text-to-speech voice (ElevenLabs, or Sarvam Bulbul for Indian languages), checked by a QA gate, and published through the Instagram connector on a schedule, with duplicate protection and a content calendar. Use when a user wants an AI content studio for Instagram, daily stories and posts, a mix of Reels and image posts, or to automate a brand or creator account end to end."
+description: "Run a whole Instagram account on Dosco: Reels (voiced vertical video), Stories (9:16 image or video) and feed posts (4:5 single image or carousel), made with an image model (gpt-image-2 / Nano Banana) and a text-to-speech voice (ElevenLabs, or Sarvam Bulbul for Indian languages), checked by a QA gate, and published through the Instagram connector on a schedule, with duplicate protection and a content calendar. Use when a user wants an AI content studio for Instagram, daily stories and posts, a mix of Reels and image posts, or to automate a brand or creator account end to end."
 ---
 
 # Instagram content studio
@@ -50,7 +50,7 @@ Helpers are in `scripts/`. Copy the folder to `skills/instagram-content-studio/s
    # Gemini instead of OpenAI: kortix secrets request GEMINI_API_KEY --scope runtime ; IMAGE_PROVIDER=gemini
    # Sarvam Bulbul instead of ElevenLabs (Indian languages): kortix secrets request SARVAM_API_KEY --scope runtime
    ```
-   Agents can also use the built-in Kortix `image_gen` tool instead of `image.py`, with no image key needed.
+   Agents can also use the built-in Dosco `image_gen` tool instead of `image.py`, with no image key needed.
 5. **Instagram connector:**
    ```bash
    kortix connectors catalog install instagram --slug instagram
@@ -79,9 +79,9 @@ Helpers are in `scripts/`. Copy the folder to `skills/instagram-content-studio/s
 
 | Job | Default | Alternatives | Notes |
 |---|---|---|---|
-| Images (Reel shots, posters, slides) | **gpt-image-2** via `image.py` or Kortix `image_gen` | **Nano Banana** (`gemini-2.5-flash-image` or newer, `IMAGE_PROVIDER=gemini`, `IMAGE_MODEL=...`) | gpt-image-2 renders short headlines reliably. Nano Banana is cheap and good at keeping a character or product consistent across edits. |
+| Images (Reel shots, posters, slides) | **gpt-image-2** via `image.py` or Dosco `image_gen` | **Nano Banana** (`gemini-2.5-flash-image` or newer, `IMAGE_PROVIDER=gemini`, `IMAGE_MODEL=...`) | gpt-image-2 renders short headlines reliably. Nano Banana is cheap and good at keeping a character or product consistent across edits. |
 | Voice (Reels) | **ElevenLabs** `eleven_multilingual_v2` | `eleven_v3` (audio tags such as `[excited]`), Flash/Turbo (cheaper, lower latency), **Sarvam Bulbul** `bulbul:v3` (Hindi, Bengali, Tamil, Telugu, Gujarati, Kannada, Malayalam, Marathi, Punjabi, Odia and Indian English; `SARVAM_API_KEY`) | ElevenLabs `/with-timestamps` gives character timings, so captions are exact, not guessed. `tts.py` calls ElevenLabs only. Bulbul returns audio without word timings: voice each sentence through the Sarvam API, then get `words.json` from a speech-to-text pass with word timestamps on `narration.wav` before you render. |
-| Agent (topics, facts, scripts, review) | project default Kortix model | — | Needs vision: it must read every frame and preview. |
+| Agent (topics, facts, scripts, review) | project default Dosco model | — | Needs vision: it must read every frame and preview. |
 | Render | ffmpeg (+ optional HTML/Chromium or Remotion/Revideo for motion graphics) | — | Already in the sandbox. |
 
 Prompt pattern for every image: `"<brand style prefix>, <subject and composition>, <aspect> composition, subject in the centre, no text"`. For a poster whose text is part of the art: `"... Large bold clean sans-serif headline at the top reading exactly: \"<≤8 WORDS>\". No other text."` Then **read the image**. If any letter is wrong, regenerate (max 3 times) or drop the baked text and let `card.py` draw the title (`bakedText: false`).
@@ -153,13 +153,13 @@ Alt text for accessibility: the connector's `post_ig_user_media` accepts `alt_te
 
 ## 7. Publishing rules (all formats)
 
-- Media goes to Instagram through a **1-hour Kortix session link** (`kx.share`), revoked after publish. Instagram fetches JPEG images and MP4 video only.
+- Media goes to Instagram through a **1-hour Dosco session link** (`kx.share`), revoked after publish. Instagram fetches JPEG images and MP4 video only.
 - Flow: create container -> poll `status_code` until `FINISHED` -> `post_ig_user_media_publish` -> permalink -> ledger file.
 - **Duplicate safety:** ledger key first, then a live-feed caption fingerprint check, before writing and after any ambiguous error. Unique captions and keys per item.
 - **Limits:** 100 API posts per 24 h (`get_ig_user_content_publishing_limit`). Keep 1 h or more between feed items.
 - **Failures:** max 3 attempts per item, then mark it failed and tell a person. Auth errors mean reconnect `instagram`. Container `ERROR` means the media is out of spec: rerun QA.
 
-## 8. Automate on Kortix
+## 8. Automate on Dosco
 
 ```yaml
 agents:
@@ -191,7 +191,7 @@ triggers:
 | gpt-image-2 | ~$0.006 low / ~$0.04–0.05 medium / ~$0.17–0.21 high per image | Reel (6–10 imgs): ~$0.30–0.50 · Story/post: ~$0.05–0.15 · Carousel (6): ~$0.30 |
 | Nano Banana (Gemini) | ~$0.04 per image | similar or lower |
 | Instagram Graph API, ffmpeg, PIL | $0 | $0 |
-| Agent model tokens | per Kortix usage | the largest variable |
+| Agent model tokens | per Dosco usage | the largest variable |
 
 Example month (1 Reel + 1 Story per day, 3 posts per week): about 30×$0.50 + 30×$0.10 + 13×$0.15 ≈ **$20 of media**, plus agent tokens. Reusing images and capping regenerations keeps it there.
 

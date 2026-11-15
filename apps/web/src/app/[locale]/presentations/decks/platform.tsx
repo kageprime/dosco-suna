@@ -1361,7 +1361,7 @@ export function useSlides(): SlideDef[] {
                 [
                   [Server, tI18nHardcoded.raw('i18nComplete.textf513ed1619ec')],
                   [Building2, tI18nHardcoded.raw('i18nComplete.text63a9ae000680')],
-                  [Box, 'On-prem'],
+                  [Box, 'Dedicated VPC'],
                   [Shield, tI18nHardcoded.raw('i18nComplete.text1b00fe7ae5e3')],
                 ] as [typeof Server, string][]
               ).map(([Icon, h], i) => (

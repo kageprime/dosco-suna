@@ -29,7 +29,7 @@ Use `read` with the full path, e.g. `skills/website-building/shared/01-design-to
 | Web applications | `read skills/webapp/SKILL.md` | SaaS products, dashboards, admin panels, e-commerce, brand experiences |
 | Browser games | `read` `skills/website-building/game/game.md` + `skills/website-building/game/game-testing.md` | 2D Canvas games, Three.js/WebGL, HTML5 games, interactive 3D experiences |
 
-**Step 2: Read shared files** — read `skills/website-building/shared/01-design-tokens.md` and `skills/website-building/shared/02-typography.md` first (mandatory for ALL project types, including webapp). These establish the Kortix design system defaults and typography rules that apply universally. For web applications and dashboards, skip files marked with `†` below — those contain implementation details pre-configured in the fullstack template.
+**Step 2: Read shared files** — read `skills/website-building/shared/01-design-tokens.md` and `skills/website-building/shared/02-typography.md` first (mandatory for ALL project types, including webapp). These establish the Dosco design system defaults and typography rules that apply universally. For web applications and dashboards, skip files marked with `†` below — those contain implementation details pre-configured in the fullstack template.
 
 If the user says just "website" or "site" with no detail, ask what type or default to informational.
 
@@ -41,7 +41,7 @@ If the user says just "website" or "site" with no detail, ask what type or defau
 
 | File | Covers | Load |
 |---|---|---|
-| `shared/01-design-tokens.md` | Type scale, spacing, Kortix palette, base.css | **Always** |
+| `shared/01-design-tokens.md` | Type scale, spacing, default palette, base.css | **Always** |
 | `shared/02-typography.md` | Font selection, pairing, loading, blacklist | **Always** |
 | `shared/04-layout.md` | Spatial composition, responsive, mobile-first | **Always** † |
 | `shared/05-taste.md` | Skeleton loaders, empty/error states, polish | **Always** |
@@ -167,20 +167,20 @@ After building each page:
 
 ## Step 1: Art Direction — Infer Before You Ask, Ask Before You Default
 
-Every site should have a visual identity derived from its content. **Do not skip to the Kortix fallback palette.** The Kortix palette is a last resort for when both inference and asking have failed — not a convenient default.
+Every site should have a visual identity derived from its content. **Do not skip to the default fallback palette.** The default palette is a last resort for when both inference and asking have failed — not a convenient default.
 
 1. **Infer from the subject.** A coffee roaster site → earthy browns, warm cream, hand-drawn feel. A fintech dashboard → cool slate, sharp sans-serif, data-dense. A children's learning app → bright primaries, rounded type, playful motion. The content itself tells you the palette, typography, and spacing before the user says a word.
 2. **Check the Art Direction tables.** Each domain file (`informational.md`, `webapp/SKILL.md`, `game/game.md`) has an Art Direction table mapping site/product types to concept-driven directions and token starting points. Use these as a springboard.
 3. **Derive the five pillars:** Color (warm/cool, accent from subject), Typography (serif/sans, display personality), Spacing (dense/generous), Motion (minimal/expressive), Imagery (photo/illustration/type-only).
 4. **If the subject is genuinely ambiguous, ask** — "What mood are you going for?" and "Any reference sites?" One question is enough.
-5. **Kortix fallback — only when inference AND asking yield nothing.** If the user has been asked and gave no direction, AND the subject matter gives no clear signal, then fall back to Kortix/Swiss defaults.
+5. **default fallback — only when inference AND asking yield nothing.** If the user has been asked and gave no direction, AND the subject matter gives no clear signal, then fall back to Dosco/Swiss defaults.
 
 ### The Fallback: Clean & Swiss (Last Resort)
 
 When inference yielded no clear direction AND the user was asked but gave no style guidance, use defaults from `skills/website-building/shared/01-design-tokens.md` with:
 
 - **Typography:** Satoshi or General Sans body (Fontshare — preferred), or Inter/DM Sans. Weight contrast over font contrast. 3-4 sizes max. Keep text compact — `--text-3xl`/`--text-hero` are for informational site heroes only.
-- **Color:** Kortix palette. Neutral surfaces + one teal accent for CTAs only.
+- **Color:** default palette. Neutral surfaces + one teal accent for CTAs only.
 - **Layout:** Grid-aligned. Generous margins. Asymmetric where interesting.
 - **Motion:** Minimal, functional. Smooth state transitions only.
 - **Imagery:** Generate clean, relevant visuals. No stock photos.

@@ -1,6 +1,6 @@
 // Generated from application option and presentation registries.
 export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
-  'A laptop, a VPS, or your own VPC — the exact same stack as Kortix cloud.': 'text5f303c017ed7',
+  'Managed Cloud, a dedicated VPC, or isolated enterprise deployment on cloud microVMs.': 'text5f303c017ed7',
   'A new machine is being prepared. Sessions started now wait for it to finish — they don’t fail.':
     'textb16ecefb1aec',
   Account: 'text7e1b0d5641f2',
@@ -22,7 +22,7 @@ export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Automate: 'textf9dcbb55deba',
   Billing: 'text3ac8bbca9a74',
   'Branding is an Enterprise feature': 'textc44722e44ce4',
-  'Bring your own keys — Anthropic, OpenAI, or local models — or run on Kortix compute.':
+  'Bring your own keys — Anthropic, OpenAI, or local models — or run on managed OpenRouter models.':
     'text0ced428dea65',
   'Categorizes, prioritizes and routes inbound tickets, drafting an empathetic first reply.':
     'text75c341902d77',
@@ -57,7 +57,7 @@ export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Home: 'text3a78695388b3',
   'How this works': 'textbdbd7706de64',
   'IdP groups map to roles on your workspaces': 'textb978cac03a79',
-  'Kortix prepares a machine the first time you start a session here. Nothing needs to be set up in advance.':
+  'Dosco prepares a machine the first time you start a session here. Nothing needs to be set up in advance.':
     'text5c48b158361a',
   LLM: 'text674900a77b79',
   'LLM Hold Refund': 'text765a8cb04cf5',
@@ -71,7 +71,7 @@ export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'textc910d1020fa8',
   'Nothing prepared yet': 'text8b64afef1a24',
   'Offboard someone everywhere by removing one membership': 'text6d2d6f5347aa',
-  'Open source. Self-host the exact same stack, bring your own runtime and model keys. No black box, no lock-in.':
+  'Versioned in Git. Bring your own runtime and model keys. No black box, no lock-in.':
     'textc417a3753a0b',
   Operate: 'text58c3939c4ce9',
   'Preparing this workspace’s environment': 'text69e4bd3a0f79',
@@ -88,7 +88,7 @@ export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Review: 'textaff0766a5290',
   Roles: 'textc25337055464',
   'Run & talk': 'textde5939dff899',
-  'Runs a thermo-nuclear review and stands up a one-click preview on every pull request to kortix-ai/kortix.':
+  'Runs a deep review and stands up a one-click preview on every pull request in your workspace repo.':
     'text7b56bfd47605',
   'SAML SSO & SCIM are Enterprise features': 'text11bd22785d4b',
   'SCIM keeps users and groups in sync, including offboarding': 'text0b5796519393',
@@ -98,7 +98,7 @@ export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Scaffold & ship': 'textbb742be18fc7',
   Scheduling: 'texted5c58303a98',
   Security: 'text8f6fb4eb7f42',
-  'Self-host anywhere': 'text6416e5f37409',
+  'Dedicated VPC deployment': 'text6416e5f37409',
   Sessions: 'text6fa3cbf451b2',
   'Single sign-on with just-in-time member provisioning': 'texte67b8abd74eb',
   Skills: 'text66d0f523a379',
@@ -129,7 +129,7 @@ export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   ready: 'textb24d6d33736e',
   "Define roles of your own: pick exactly what a member may view and change, then give them out from Members like the built-in ones.": 'text1a836dc94f41',
   "Give a custom role to a person or a group": 'textb2c26ac6527b',
-  "Put your own logo, icon, favicon, and product name on the app for everyone in this workspace: Kortix becomes your tool.": 'textfab4077701b7',
+  'Put your own logo, icon, favicon, and product name on the app for everyone in this workspace: Dosco becomes your tool.': 'textfab4077701b7',
   "IdP groups map to roles in this workspace": 'textfd8fee75dbb5',
   "Bundle members into groups and give the whole group a role: one grant instead of dozens, revoked just as easily.": 'textadca5dfd1e42',
   "A complete, filterable trail of every admin and agent action in this workspace: who did what, where, and when.": 'text16ba47efb9f2',

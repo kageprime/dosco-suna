@@ -3,7 +3,7 @@
 Trigger `support-queue` (cron, every 15 minutes, keyed session). Disabled
 until setup writes `desk.kind` and sets `sources.queue.enabled: true`.
 
-Why a poll and not the desk's own webhook: a Kortix webhook trigger accepts a
+Why a poll and not the desk's own webhook: a Dosco webhook trigger accepts a
 GitHub signature or `Authorization: Bearer <secret>`. Plain, Intercom and
 Zendesk sign their webhooks with their own schemes, so the loop reads the
 queue on a schedule instead. A desk that can send a custom

@@ -1,13 +1,13 @@
 ---
 name: kortix-drives
-description: "The workspace's Drive under `/drives`: the user's own folder (their desktop, also at `~/Desktop`) and any other folder `/drives/README.md` lists, synced with the Kortix web app and every other session. A program the user wants \"on my desktop\" is not a file: the `kortix-computer` skill says where it goes. Load before you read or save a file the user should keep, look for the user's notes, preferences or context, keep memory across sessions (with `kortix-user-memory`), or when you see a file named `... (conflict <date> <time>)...`."
+description: "The workspace's Drive under `/drives`: the user's own folder (their desktop, also at `~/Desktop`) and any other folder `/drives/README.md` lists, synced with the Dosco web app and every other session. A program the user wants \"on my desktop\" is not a file: the `kortix-computer` skill says where it goes. Load before you read or save a file the user should keep, look for the user's notes, preferences or context, keep memory across sessions (with `kortix-user-memory`), or when you see a file named `... (conflict <date> <time>)...`."
 ---
 
 <skill name="kortix-drives">
 
 <overview>
 **Drive** is the workspace's folder tree. It lives outside this sandbox,
-syncs both ways within seconds with the Kortix web app and with every other
+syncs both ways within seconds with the Dosco web app and with every other
 session that mounts it, keeps a version history, and outlives this session.
 Each folder under `/drives` is one folder of Drive that this session may use.
 
@@ -20,10 +20,10 @@ What is kept:
   the session reopens. Put tools in a sandbox template.
 
 `/drives/README.md` is the live map for THIS session: which folders are
-mounted, where, read-only or read-write, and any open conflicts. Kortix
+mounted, where, read-only or read-write, and any open conflicts. Dosco
 rewrites it whenever access changes. Read it first; never edit it.
 
-**No `/drives/README.md` means no Drive is mounted here.** A My Kortix
+**No `/drives/README.md` means no Drive is mounted here.** A Xera
 session outside a Space thread mounts none, and nor does an inline colleague
 or a workflow agent it starts. Then the file tools cannot see Drive: reach it
 only with `kortix drive` (below), and save a file the user keeps with
@@ -51,7 +51,7 @@ session's alone: no other session and not the web app's Files read it.
 
 <memory>
 Memory is Markdown files in these folders. People read and edit the same
-files in the Kortix web app (Memory tabs and Drive). This is the one table of
+files in the Dosco web app (Memory tabs and Drive). This is the one table of
 where a durable fact goes:
 
 | Fact about | Save in |
@@ -109,7 +109,7 @@ session.
 <conflicts>
 When two writers change the same file at the same time, nothing is lost:
 one version stays at the path and the other is saved beside it as
-`<name> (conflict <date> <time>)<ext>`. Kortix tells the user in the web app.
+`<name> (conflict <date> <time>)<ext>`. Dosco tells the user in the web app.
 
 - Tell the user about a conflict copy that touches your work.
 - Do not delete or rename a conflict copy on your own. Merge the two versions

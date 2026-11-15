@@ -1,6 +1,6 @@
 # Call connectors from an App
 
-An App reaches Gmail, a CRM or any connected system through Kortix
+An App reaches Gmail, a CRM or any connected system through Dosco
 connectors and `@kortix/sdk`. Prefer a connector over a raw provider API key:
 the connector gateway applies the workspace's policy, approvals and audit. The
 full recipes and error answers are in the `kortix-connectors` skill
@@ -14,7 +14,7 @@ full recipes and error answers are in the `kortix-connectors` skill
 
 ## A service account for a Convex backend App
 
-**The credential is a human step.** Kortix does not mint a credential for App
+**The credential is a human step.** Dosco does not mint a credential for App
 code. Ask the user to run:
 
 ```sh
@@ -26,8 +26,8 @@ An agent session cannot do this for them. They store the bearer with
 `npx convex env set KORTIX_API_KEY` (value on stdin). Build the rest while you
 wait. Then set, with `npx convex env set`:
 
-- `KORTIX_API_URL`: the Kortix API with `/v1` (`https://api.kortix.com/v1` on
-  Kortix cloud).
+- `KORTIX_API_URL`: the Dosco API with `/v1` (`https://api.dosco.live/v1` on
+  Cloud).
 - `KORTIX_PROJECT_ID`: the workspace id.
 
 ```ts

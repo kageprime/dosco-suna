@@ -160,7 +160,7 @@ shadcn/ui uses its own CSS variable naming convention. Map your palette to shadc
 
 ```css
 :root {
-  /* Kortix light → shadcn variables (H S% L% format) */
+  /* Dosco light → shadcn variables (H S% L% format) */
   --background: 45 24% 96%;       /* --color-bg #F7F6F2 */
   --foreground: 44 23% 14%;       /* --color-text #28251D */
   --card: 45 25% 97%;             /* --color-surface #F9F8F5 */

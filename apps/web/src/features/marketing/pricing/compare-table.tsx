@@ -57,7 +57,7 @@ function compareGroups(
       rows: [
         { label: 'SAML SSO and SCIM directory sync', marks: [false, false, true] },
         { label: 'Advanced RBAC and audit logs', marks: [false, false, true] },
-        { label: 'Deployment', marks: ['Cloud', 'Cloud', 'Cloud, VPC or on-prem'] },
+        { label: 'Deployment', marks: ['Cloud', 'Cloud', 'Cloud, VPC or dedicated enterprise'] },
         { label: 'Support', marks: [false, 'Email', 'Dedicated'] },
         { label: 'SLA and DPA', marks: [false, false, true] },
       ],

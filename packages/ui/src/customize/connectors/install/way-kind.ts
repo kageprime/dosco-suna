@@ -6,7 +6,7 @@ export type WayKind = DiscoverConnectorVariant['kind'] | 'pipedream';
 const LABELS: Record<WayKind, string> = {
   mcp: 'MCP',
   composio: 'Composio',
-  kortix: 'Kortix',
+  kortix: 'Dosco',
   pipedream: 'Pipedream',
   openapi: 'REST API',
   graphql: 'GraphQL',

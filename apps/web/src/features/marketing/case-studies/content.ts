@@ -64,7 +64,7 @@ export type CaseStudy = {
   id: string;
   /** A logo on a white tile (the client's own, or a symbol Kortix drew), or a drawn brand mark. */
   logo?: { src: string; alt: string; width: number; height: number };
-  mark?: 'dosco' | 'kortix' | 'platinum';
+  mark?: 'dosco' | 'compute';
   /** Kept in this file, not shown anywhere. */
   hidden?: boolean;
   category: string;
@@ -109,13 +109,13 @@ export const caseStudies: { title: string; titleMuted: string; items: readonly C
       facts: [
         'Fiber routes designed from GIS and imagery',
         'Bills of materials from GIS layers',
-        'Self-hosted in its own cloud',
+        'Isolated enterprise cloud deployment',
         'Single sign-on',
       ],
     },
     {
-      id: 'platinum',
-      mark: 'platinum',
+      id: 'cloud-infra',
+      mark: 'compute',
       category: 'Cloud infrastructure',
       title: 'Autonomous software engineering.',
       body: 'Engineering agents pick up issues, write the code and test every flow on video. People approve what ships.',
@@ -178,7 +178,7 @@ export const caseStudies: { title: string; titleMuted: string; items: readonly C
         'Credit programs found per customer',
         'Applications prepared by agents',
         'A person approves every submission',
-        'Runs as one Kortix project',
+        'Runs as one workspace project',
       ],
     },
     {

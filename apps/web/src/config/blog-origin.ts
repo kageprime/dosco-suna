@@ -1,16 +1,19 @@
 /**
- * Origin the /blog rewrites in next.config.ts proxy to. The blog is a separate
- * Next.js app (kortix-ai/marketing, basePath /blog) deployed for production.
- * An unset KORTIX_BLOG_ORIGIN falls back to the canonical origin, so /blog
- * serves the real blog on every deployment — the site's own navigation
- * advertises the route on all of them. An explicit empty value keeps /blog
- * unserved.
+ * Origin the /blog rewrites in next.config.ts proxy to.
+ * Unset by default so /blog never proxies back to the main site origin
+ * (which causes a 508 Loop Detected when proxying https://dosco.live to itself).
+ * Set KORTIX_BLOG_ORIGIN explicitly to a distinct blog host if a standalone
+ * blog deployment is attached.
  */
-const DEFAULT_BLOG_ORIGIN = 'https://dosco.live';
+const DEFAULT_BLOG_ORIGIN: string | undefined = undefined;
+const SELF_BLOG_ORIGINS = new Set(['https://dosco.live', 'http://dosco.live', 'https://www.dosco.live', 'http://www.dosco.live']);
 
 function resolveBlogOrigin(origin: string | undefined): string | undefined {
-  if (origin === undefined) return DEFAULT_BLOG_ORIGIN;
-  return origin.replace(/\/+$/, '') || undefined;
+  const candidate = (origin ?? DEFAULT_BLOG_ORIGIN)?.replace(/\/+$/, '');
+  if (!candidate || SELF_BLOG_ORIGINS.has(candidate.toLowerCase())) {
+    return undefined;
+  }
+  return candidate;
 }
 
 export const BLOG_ORIGIN = resolveBlogOrigin(process.env.KORTIX_BLOG_ORIGIN);

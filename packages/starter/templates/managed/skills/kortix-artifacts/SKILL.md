@@ -1,6 +1,6 @@
 ---
 name: kortix-artifacts
-description: "Share work from the workspace's Drive as artifacts with the `kortix artifacts` CLI: a `doc` (a Markdown file people read and edit in place, exportable as PDF) or an `html` page (a slide deck, dashboard, mockup, tool or app). The files stay plain files in Drive; every save is a version from the Drive history; people open artifacts in the Kortix app under Artifacts and share them with the project, chosen people, or anyone with a link. Load when the user asks for a doc, report, write-up, plan, proposal, spec, decision record, comparison, deck, slides, presentation, dashboard, tracker, mockup, tool, page, or anything meant to be read, kept or shared; when a reply would run past a screen of structured content; or when the user names an artifact or an artifact link."
+description: "Share work from the workspace's Drive as artifacts with the `kortix artifacts` CLI: a `doc` (a Markdown file people read and edit in place, exportable as PDF) or an `html` page (a slide deck, dashboard, mockup, tool or app). The files stay plain files in Drive; every save is a version from the Drive history; people open artifacts in the Dosco app under Artifacts and share them with the project, chosen people, or anyone with a link. Load when the user asks for a doc, report, write-up, plan, proposal, spec, decision record, comparison, deck, slides, presentation, dashboard, tracker, mockup, tool, page, or anything meant to be read, kept or shared; when a reply would run past a screen of structured content; or when the user names an artifact or an artifact link."
 ---
 
 <skill name="kortix-artifacts">
@@ -118,7 +118,7 @@ same artifact as the plan changes: its history keeps every earlier version.
 <types>
 | Type | For | The file |
 |---|---|---|
-| `doc` | specs, reports, memos, plans | a **Markdown** file (`report.md`). Kortix renders and styles it; people edit it in place and export it as PDF. |
+| `doc` | specs, reports, memos, plans | a **Markdown** file (`report.md`). Dosco renders and styles it; people edit it in place and export it as PDF. |
 | `html` | decks, dashboards, mockups, tools | an **HTML** file, or a folder with `index.html` and its assets. Served exactly as written. |
 
 `kortix artifacts types <type>` prints the format rules and a starter.
@@ -131,7 +131,7 @@ Need charts or layout? Make an html artifact.
 
 **html**: a complete page, served exactly as written: write the `<!doctype>`,
 the viewport meta and the `<title>` yourself. It runs sandboxed (no cookies;
-storage may throw; no access to Kortix). Its images, data and scripts sit in
+storage may throw; no access to Dosco). Its images, data and scripts sit in
 the same folder and load by relative path. Load libraries from a CDN at a
 pinned version (Chart.js for charts, Reveal.js for decks). It must work from
 400 px to a large screen and in light and dark. The full contract is in

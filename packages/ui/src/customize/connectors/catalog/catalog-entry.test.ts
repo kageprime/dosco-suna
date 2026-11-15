@@ -169,7 +169,7 @@ describe('catalogEntryKindLabel', () => {
     expect(catalogEntryKindLabel(discover('openapi'))).toBe('API');
     expect(catalogEntryKindLabel(discover('graphql'))).toBe('GraphQL');
     expect(catalogEntryKindLabel(discover('composio'))).toBe('Composio');
-    expect(catalogEntryKindLabel(discover('kortix'))).toBe('Kortix');
+    expect(catalogEntryKindLabel(discover('kortix'))).toBe('Dosco');
   });
 
 });

@@ -23,7 +23,7 @@ from xml.etree import ElementTree as ET
 from constants import STATE_FILENAME
 from models import DocumentIssue, format_comment
 
-AUTHOR_NAME = "Kortix"
+AUTHOR_NAME = "Dosco"
 AUTHOR_INITIALS = "KTX"
 
 NS_PRES = "http://schemas.openxmlformats.org/presentationml/2006/main"

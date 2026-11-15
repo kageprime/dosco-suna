@@ -6,19 +6,19 @@ description: "Per-user memory in the user's own Drive folder: `/drives/me/Memory
 <skill name="kortix-user-memory">
 
 <overview>
-Each person in a Kortix workspace has their own folder in Drive,
+Each person in a workspace has their own folder in Drive,
 `Users/<name>`, mounted in their sessions at `/drives/me` (and
-`~/Desktop`). Kortix creates `/drives/me/Memory` in it. That folder is this
+`~/Desktop`). Dosco creates `/drives/me/Memory` in it. That folder is this
 user's memory: what you keep about THIS person, read back in every session
 they start.
 
 - It is private to the user until they share their folder.
-- It syncs with the Kortix web app (Drive → My files → Memory) within
+- It syncs with the Dosco web app (Drive → My files → Memory) within
   seconds. The user can read, edit and delete every file there.
 - It is plain markdown. Use the file tools (`read`, `write`, `edit`, `bash`).
-- `Memory/mykortix/` in it is My Kortix's: one page per fact that My
-  Kortix keeps with its `kortix_memory` tool. Read it if it helps; leave
-  its files to My Kortix and the user.
+- `Memory/mykortix/` in it is Xera's: one page per fact that 
+  Xera keeps with its `kortix_memory` tool. Read it if it helps; leave
+  its files to Xera and the user.
 
 User memory is not workspace or team memory. Where every other fact goes is
 the one table in the `kortix-drives` skill (`<memory>`).
@@ -87,7 +87,7 @@ Create the folder if it is missing: `mkdir -p /drives/me/Memory`.
 ### Drop
 
 - Secrets, passwords, tokens, API keys, card numbers. Those go in the
-  Kortix Secrets Manager.
+  Secrets Manager.
 - Anything that is only about this conversation.
 - Facts the repo, Drive or a connector already holds — point to them.
 - Guesses about the user. Store what they said or did, not what you infer

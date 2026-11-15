@@ -136,5 +136,5 @@ export function diagnosticsText(device: CaptureDevice, name: string): string {
   lines.push(['described', or(d?.described_at, 'never')]);
   lines.push(['last_credentials', or(d?.last_credentials_at ?? device.last_credentials_at, 'never')]);
   lines.push(['created', device.created_at]);
-  return ['Kortix Capture diagnostics', ...lines.map(([k, v]) => `${k}: ${v}`)].join('\n');
+  return ['Capture diagnostics', ...lines.map(([k, v]) => `${k}: ${v}`)].join('\n');
 }

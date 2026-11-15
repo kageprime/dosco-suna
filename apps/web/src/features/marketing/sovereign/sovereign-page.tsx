@@ -60,7 +60,7 @@ function LockIn() {
               </div>
               <div className="flex flex-wrap gap-2.5">
                 <MarketingButton variant="secondary" size="md" className="hit-area-y-1" asChild>
-                  <Link href="/self-hosted">{tMarketing('text57eb8520e834')}</Link>
+                  <Link href="/enterprise">{tMarketing('text57eb8520e834')}</Link>
                 </MarketingButton>
                 <MarketingButton size="md" className="hit-area-y-1" asChild>
                   <Link href="/contact">{tMarketing('text1d1d94fb5397')}</Link>

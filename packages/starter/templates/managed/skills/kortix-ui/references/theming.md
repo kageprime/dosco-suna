@@ -10,7 +10,7 @@ variables. Never fork or restyle a component: a forked copy stops receiving fixe
 // src/theme.ts
 import type { KortixTheme } from '@kortix/ui/theme';
 
-// The company brand. Every field is optional: an unset one keeps the Kortix value.
+// The company brand. Every field is optional: an unset one keeps the Dosco value.
 export const acmeTheme: KortixTheme = {
   light: { blue: '#0f766e', ring: '#0f766e', border: '#cbd5e1', muted: '#f1f5f9' },
   dark: { blue: '#2dd4bf', ring: '#2dd4bf', border: '#334155', muted: '#1e293b' },
@@ -31,7 +31,7 @@ const themeCss = themeToCss(acmeTheme);
 ```
 
 `themeToCss` is pure (runs on the server). Its rules out-rank `tokens.css`, so the `<style>` can sit
-anywhere. A `dark` color falls back to the Kortix dark default, never to your `light` value.
+anywhere. A `dark` color falls back to the Dosco dark default, never to your `light` value.
 
 ## 2. One subtree
 
@@ -95,12 +95,12 @@ Shared values (both modes):
 | `durations.<step>`, `easing.<curve>` | `--duration-*`, `--ease-*` | Motion: `fast` … `slower`; `default`, `in`, `out`, `inOut` |
 | `vars` | any `--name` | Anything else |
 
-Defaults and the fixed values (scrims, 10–12px captions, a few keyframe durations): https://kortix.com/docs/developers#tokens.
+Defaults and the fixed values (scrims, 10–12px captions, a few keyframe durations): https://dosco.live/docs/developers#tokens.
 
 ## 5. Rules
 
-1. Your marks go through `UiProvider useBrand` (`{ app_name, logo_url, icon_url, logo_dark_url, icon_dark_url }`): the UI draws them in place of Kortix's.
-2. Never load `@kortix/ui/fonts.css` (Roobert is Kortix-only). Set `fonts.sans`.
+1. Your marks go through `UiProvider useBrand` (`{ app_name, logo_url, icon_url, logo_dark_url, icon_dark_url }`): the UI draws them in place of Dosco's.
+2. Never load `@kortix/ui/fonts.css` (Roobert is first-party only). Set `fonts.sans`.
 3. Plain CSS works too, after the `@kortix/ui` import: light values in `:root:not(.dark)`, dark values in `.dark`.
    A bare `:root` rule also matches `<html class="dark">`.
 4. Verify in the browser: `getComputedStyle(document.documentElement).getPropertyValue('--radius')` shows your value,

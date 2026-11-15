@@ -1,5 +1,6 @@
 // Generated from the final user-visible i18n audit. Keys are SHA-256(message)[0:12].
 export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
+  Download: 'textd6eafe823591',
   'Danger zone': 'textfd8b8dae4421',
   "trigger": 'text683259feabbf',
   "New trigger": 'texta38f4ea67a30',
@@ -21,7 +22,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   "New connector event": 'text85a6c98e5584',
   "Search connector events": 'text165d9237c163',
   "No connector events yet": 'texta9caf7909165',
-  "Have an agent run when one of your Kortix Apps emits an event.": 'text451ef98453d2',
+  'Have an agent run when one of your Apps emits an event.': 'text451ef98453d2',
   "App event": 'text5441e7146193',
   "New App event": 'text064694999e1f',
   "Search App events": 'text1934aa0740bb',
@@ -53,13 +54,13 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   '90d': 'textc906817c1dd2',
   'A chosen list of members and groups': 'text0aae241fd603',
   'A message in Slack starts a session.': 'text07d41a5b065b',
-  'A model answers; an agent finishes the job. Kortix runs the loop around it — reading the repo, planning, calling tools, checking its own work, returning a branch you can review.':
+  'A model answers; an agent finishes the job. Dosco runs the loop around it — reading the repo, planning, calling tools, checking its own work, returning a branch you can review.':
     'texte11b6fe4e5fb',
-  'A Rauch-style hard-pixel particle rendering of the Kortix symbol.': 'text20432b11333f',
+  'A Rauch-style hard-pixel particle rendering of the Dosco symbol.': 'text20432b11333f',
   'A trigger starts a session at 3am.': 'textd62393fd9c05',
-  'All in one — Kortix': 'text16b9d8d63ecb',
+  'All in one — Dosco': 'text16b9d8d63ecb',
   About: 'text4efca0d10c5f',
-  'About Kortix – The open AGI platform': 'text18f31a325716',
+  'About Dosco — Agent Operating System': 'text18f31a325716',
   Actions: 'textff8059dc6752',
   Active: 'text92340695899b',
   'Active accounts': 'text2c7765e1edc9',
@@ -115,7 +116,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'blocked by the agent file': 'text38f7cb30a3fb',
   'Blocks all access — redirects everyone to maintenance page': 'textd822735073db',
   Blog: 'text8c6bc099534a',
-  'Bring your own API key or connect ChatGPT. You pay your model provider directly and keep Kortix credits for Agent Computer runtime.':
+  'Bring your own API key or connect ChatGPT. You pay your model provider directly and keep Dosco credits for Agent Computer runtime.':
     'text72a85d21512f',
   Browser: 'textd31de1a5c5c8',
   'Browser tab — 32×32 PNG or ICO. Uses the icon when none is set.': 'text81b95130940b',
@@ -127,7 +128,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Bundles: 'textff042b6ded4e',
   Cancelled: 'textd353a99eb455',
   Careers: 'text7e658675b5ca',
-  'Careers at Kortix – Open positions': 'text47f57c0ab829',
+  'Careers at Dosco – Open positions': 'text47f57c0ab829',
   'Categorizes, prioritizes and routes inbound tickets, drafting an empathetic first reply.':
     'text75c341902d77',
   Changelog: 'textead07c84baac',
@@ -137,7 +138,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Choose which agent answers': 'texta33bc2792173',
   'Choose which model runs this turn': 'text0e22e022480d',
   'Claude Code': 'text246ef8c1130d',
-  'Clone a full, working Kortix workspace in one click, or add skills from every source into your own.':
+  'Clone a full, working workspace in one click, or add skills from every source into your own.':
     'text5a7b24722fae',
   Closed: 'textc21ead0614e7',
   'Cloud runtime': 'texta5a909060ba4',
@@ -168,7 +169,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Context: 'texta6e600a10fed',
   continuing: 'text6e9f041725ac',
   'Control plane': 'textf15d0e7f86b0',
-  "Conway's Game of Life, seeded from the Kortix logo.": 'text6f3297022a6b',
+  'Conway\'s Game of Life, seeded from the Dosco logo.': 'text6f3297022a6b',
   Copied: 'text8d525e5f158b',
   Costs: 'textb88fc5fc4765',
   "Couldn't confirm this session is idle": 'text86de1bf4e1be',
@@ -204,7 +205,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Dismissible blue banner — announcements, updates': 'text75653f1b94ce',
   Docs: 'text7af023c43013',
   Done: 'text11a6767d5674',
-  'Download Kortix': 'text5a0cac0326d5',
+  'Download Dosco': 'text5a0cac0326d5',
   Edit: 'text464c4ffd019e',
   Edited: 'text7117f0807129',
   Email: 'text969ccbd3cf63',
@@ -227,8 +228,8 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Errors: 'textcb702378f315',
   Europe: 'texte595f45dc6c9',
   'Every action, human or agent, is written down — on every plan.': 'text02d887f458d5',
-  'Every Kortix release, straight from the source.': 'text526c3dafbee8',
-  'Every Kortix release, straight from the source. New features, fixes, and improvements — versioned and dated.':
+  'Every Dosco release, straight from the source.': 'text526c3dafbee8',
+  'Every Dosco release, straight from the source. New features, fixes, and improvements — versioned and dated.':
     'text3efe2d7294ba',
   'Every member of this workspace': 'text7b9908a3c44a',
   'Every member of this workspace.': 'text78fc0a25db23',
@@ -261,13 +262,13 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'texta36cac573efd',
   'Full Lockdown': 'text84175b810ac7',
   'Full workspace control — edit, deploy, triggers, members, delete.': 'texta9bbb082ce1b',
-  'Game of Life — Kortix': 'textc94d0e1fcb3d',
+  'Game of Life — Dosco': 'textc94d0e1fcb3d',
   Gateway: 'text41ed52921661',
   'General knowledge worker — full tool access; codes, researches, writes and runs ops end-to-end in an isolated sandbox.':
     'textd9d167d882e5',
   'Get the app for your desktop, your phone, or your terminal.': 'text86522c506bbf',
   'git push origin main': 'text16f880284c51',
-  'GitHub stars on kortix-ai/CompanyOS': 'texta64b1e9803b3',
+  'Dosco active repositories': 'texta64b1e9803b3',
   'Give agents access to outside tools — and reach them from Slack, Teams or email.':
     'text5c61792162c9',
   'Give another app a private address that starts an agent when it sends a request.':
@@ -276,7 +277,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'has finished.': 'text895b9a4f7450',
   'Have an agent do something on a repeating schedule, or once at a set time.': 'text16f9c1359c2e',
   Home: 'text3a78695388b3',
-  'How Kortix contains an agent: one sandbox per session, connector keys the machine never holds, a human gate before anything reaches main, and a record of every action.':
+  'How Dosco contains an agent: one sandbox per session, connector keys the machine never holds, a human gate before anything reaches main, and a record of every action.':
     'textc87ea324be83',
   'How much thinking the model does before answering': 'textbd570c66902c',
   Icon: 'texta35abcd6dac9',
@@ -286,10 +287,10 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Input: 'text36ecb4f86691',
   'Input Needed': 'text6e8c98a8560e',
   'Install it to your Slack workspace': 'text8e8d76bd474e',
-  'Install the CLI and drive Kortix from your shell.': 'text1f1146934bab',
-  'Internal Kortix presentations.': 'text2e7ba6cc8aa3',
+  'Install the CLI and drive Dosco from your shell.': 'text1f1146934bab',
+  'Internal Dosco presentations.': 'text2e7ba6cc8aa3',
   'iPhone and iPad': 'text0c567ac76e89',
-  'Isolated execution, scoped credentials, and a complete audit trail are how the platform is built. SSO and role-based access come standard; self-host it entirely if you want.':
+  'Isolated execution, scoped credentials, and a complete audit trail are how the platform is built. SSO, role-based access, and dedicated VPC deployment come standard.':
     'textdeefeb7a0e9e',
   Isolation: 'text45c4fc064e52',
   'It all starts with a sentence.': 'text5dfe877b22ee',
@@ -298,24 +299,24 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Keep model billing with your provider': 'textcd996e5c44e9',
   'Keys are resolved on our side of the wall. The machine the model drives never holds them.':
     'texte6229e214e88',
-  'Kortix CompanyOS – the open-source operating system for your company': 'textce34af36d804',
-  'Kortix is building the open AGI platform. A company owns all of it — every agent, all of their data, every skill, every connector, the memory, the whole configuration, on their own infrastructure.':
+  'CompanyOS — Dosco Tek': 'textce34af36d804',
+  'Dosco is building the open AGI platform. A company owns all of it — every agent, all of their data, every skill, every connector, the memory, the whole configuration, on their own infrastructure.':
     'text445cf0a2abfa',
-  'Kortix — Presentations': 'textd84b8be91e7b',
-  'Kortix API documentation': 'text7b3c138b383d',
-  'Kortix API health': 'text6170d1002071',
-  'Kortix Changelog': 'text1e2baba1cb9b',
-  'Kortix Gateway': 'text88099e99f545',
-  'Kortix OpenAPI document': 'texte84ccb2c62c8',
-  'Kortix Public Content': 'textcc9a80a16e3c',
-  'Kortix permissions': 'text8f12a6e05e6d',
-  'kortix-ai/kortix · since Mon': 'textc4736485c745',
+  'Dosco — Presentations': 'textd84b8be91e7b',
+  'Dosco API documentation': 'text7b3c138b383d',
+  'Dosco API health': 'text6170d1002071',
+  'Dosco Changelog': 'text1e2baba1cb9b',
+  'Dosco Gateway': 'text88099e99f545',
+  'Dosco OpenAPI document': 'texte84ccb2c62c8',
+  'Dosco Public Content': 'textcc9a80a16e3c',
+  'Dosco permissions': 'text8f12a6e05e6d',
+  'dosco/workspace · since Mon': 'textc4736485c745',
   Latency: 'texte0e7d293043c',
   Legacy: 'text1432897a6136',
   Light: 'textdbcd5e7bb7a0',
   LinkedIn: 'textdd84425b72da',
   Linux: 'text4828e60247c1',
-  'List Kortix public documentation and marketing pages.': 'text442e47369852',
+  'List Dosco public documentation and marketing pages.': 'text442e47369852',
   'List models': 'text908aa27de870',
   'Loading your workspace': 'text22cd35468c29',
   Logo: 'textd707dc2f1936',
@@ -326,7 +327,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Manager: 'text8b2085f74dfa',
   Markdown: 'text0e52f6b9d025',
   Marketplace: 'textc608981d8d68',
-  'Marketplace — Clone a ready-made Kortix workspace': 'text7eebc3924618',
+  'Marketplace — Clone a ready-made workspace': 'text7eebc3924618',
   Member: 'text7c968fb71f50',
   "Members, billing, roles, and audit live in each workspace's own settings.":
     'textfde028796e58',
@@ -380,7 +381,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   p50: 'text875636a511da',
   p95: 'textf771f4d32eee',
   p99: 'textc0de5a24d752',
-  'Particle Mark — Kortix': 'text6397aa583ce4',
+  'Particle Mark — Dosco': 'text6397aa583ce4',
   'Paste an existing App': 'text8dec007c368b',
   'Paste two values back here': 'text5230d9ff907c',
   'Patched the retry to back off': 'text004bad6bfbd7',
@@ -411,7 +412,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Pure black & white, zero accent — Swiss minimalism': 'textbef51dd5402b',
   'Querying metrics.q3': 'texte402dcff5083',
   'Ran the billing suite': 'text5d405d8955db',
-  'Read the Markdown representation of a Kortix public page.': 'text768b4b146c74',
+  'Read the Markdown representation of a Dosco public page.': 'text768b4b146c74',
   'Read the webhook handler': 'text2bdb956493fd',
   'Read, run sessions, and fire triggers — no editing or config. The workspace floor role.':
     'texta808a5ca5a95',
@@ -442,22 +443,22 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Run an agent automatically — on a schedule, or when another app sends a signal.':
     'text8e8a12e4e1f7',
   'Run everything': 'text3eb4b44dde07',
-  'Run Kortix on your own machine, with your files and your terminal.': 'text11790d7a2dd3',
+  'Run Dosco on your own machine, with your files and your terminal.': 'text11790d7a2dd3',
   'Run the billing suite': 'textfd11491690d6',
   'Run the weekly finance report and email the team…': 'text6a876a597b69',
   Running: 'textf4ccae29e1bb',
-  'Runs a thermo-nuclear review and stands up a one-click preview on every pull request to kortix-ai/kortix.':
+  'Runs a deep review and stands up a one-click preview on every pull request in your workspace repo.':
     'text7b56bfd47605',
   'Runs without asking': 'text46066a3c43cc',
   'Sales & marketing': 'text8228542fed70',
   'Sales deck': 'text14d04a4900a4',
   Sandbox: 'text67fc62497e85',
-  'scaffold a new Kortix workspace': 'textaeb72f2ccad6',
+  'scaffold a new workspace': 'textaeb72f2ccad6',
   'Scanning commits since Monday…': 'text70e8adbbc0b2',
   Scheduled: 'text4724f344c1c0',
   Schedules: 'text221ff19c904c',
   Scheduling: 'texted5c58303a98',
-  'Search and read Kortix public documentation and API metadata.': 'text072fd9c0ffc8',
+  'Search and read Dosco public documentation and API metadata.': 'text072fd9c0ffc8',
   Secrets: 'textd8707d411d99',
   'Secrets, approvals, and the way work lands.': 'text9414211277f7',
   Security: 'text8f6fb4eb7f42',
@@ -487,8 +488,8 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'texte2cc5cc46d8e',
   'Start a session anywhere and pick up where you left off.': 'text3c481db9e3e6',
   'start an agent session': 'textf4d3cad9353c',
-  'Steps and thinking stream live while Kortix works': 'text9014b90b5360',
-  'Steps and thinking stream live while Kortix works.': 'textdf4e2990214a',
+  'Steps and thinking stream live while Xera works': 'text9014b90b5360',
+  'Steps and thinking stream live while Dosco works.': 'textdf4e2990214a',
   Stopped: 'text1a4f630ac1b6',
   'Store encrypted values and control where each value can be used.': 'text6bae6cd973f1',
   Subagents: 'text88296ab3d666',
@@ -513,15 +514,15 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'text/markdown': 'text3e0188e2ccab',
   text2f2fc7f2e9ce: 'text2a9575e3e816',
   'The company is a directory.': 'text2c8c07e01e73',
-  'The company narrative: where Kortix came from, what it is, and why a company runs on a repo and a workforce of agents.':
+  'The company narrative: where Dosco came from, what it is, and why a company runs on a repo and a workforce of agents.':
     'textec2392b36354',
   "The floor role for the workspace. No implicit access — they see only what they've been granted, directly or through a group.":
     'text6562d4f7e6fb',
   'The gate': 'textb46788a7c320',
-  'The in-depth platform walkthrough — the full Kortix surface, from workspaces and sessions to connectors, channels and change requests.':
+  'The in-depth platform walkthrough — the full Dosco surface, from workspaces and sessions to connectors, channels and change requests.':
     'text7484ed6d3897',
-  'The Kortix team': 'text49e7ba9f095d',
-  'The open-source CompanyOS. Every agent, skill, and memory is a file in one versioned repo you own — a workforce of AI agents that does real work, shared across your whole team from Slack, Teams, the web, or the CLI. Self-hostable, any model, your keys.':
+  'The Dosco team': 'text49e7ba9f095d',
+  'CompanyOS: your agents, skills, memory, and connectors in one versioned repo you own. Any model, your keys.':
     'text2bf70270bfde',
   'The questions people ask before the first session.': 'text2b7df1bf48b2',
   'The record': 'textd9fa05c93112',
@@ -624,7 +625,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Clear notifications': 'texte6f312c6b6ef',
   'Clone address': 'textac830bd3c755',
   'Clone command': 'text6264f3bfdd91',
-  'Clone from this address with any Git client. When git asks, enter any username and a Kortix API key as the password — the Kortix command line does this for you through its credential helper, plain':
+  'Clone from this address with any Git client. When git asks, enter any username and a Dosco API key as the password — the Dosco command line does this for you through its credential helper, plain':
     'texte327e6c1348b',
   'Clone with plain': 'text7760401b25c7',
   'Conditions saved': 'textfc62a0071f66',
@@ -693,8 +694,8 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Granted of — some failed.': 'text21b1727307b8',
   Health: 'text55898449eb74',
   'How the model samples, and how many tool calls one run may make.': 'text33439eb47c9a',
-  'Install the Kortix command line': 'text81fbecb138f6',
-  'instead of the Kortix command line.': 'text2f72fafe0ce1',
+  'Install the Dosco command line': 'text81fbecb138f6',
+  'instead of the Dosco command line.': 'text2f72fafe0ce1',
   Instructions: 'text934652dce41d',
   'Instructions and scripts this agent can load into a session.': 'textb27e54100c96',
   'Instructions and scripts this agent can load into a session. Click a skill to read it.':
@@ -707,8 +708,8 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'is now .': 'textf4d149d4f9a4',
   'is now the workspace default': 'text384c077e42b5',
   "It may have been renamed or removed from the workspace's configuration.": 'text2ad30464c3ed',
-  "Kortix can't reach this repository": 'textcb25ff313d81',
-  'Kortix did not create this repository, so it cannot add collaborators to it. Manage access from the repository settings on GitHub.':
+  'Dosco can\'t reach this repository': 'textcb25ff313d81',
+  'Dosco did not create this repository, so it cannot add collaborators to it. Manage access from the repository settings on GitHub.':
     'text6e5a03445559',
   'Last 24 hours': 'text5c37cf8f018b',
   'Leave without saving?': 'text2190d03af90a',
@@ -811,14 +812,14 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'textec3e7d0c8967',
   'Test Notification': 'texta6b96f0e7c5c',
   'The 300 most recent sandboxes. Refreshes every 10 seconds.': 'textd038adbf2bca',
-  'The file in your repository that tells Kortix how to run this workspace.': 'text0ec4cd70d04c',
+  'The file in your repository that tells Dosco how to run this workspace.': 'text0ec4cd70d04c',
   'The members and groups you pick, in addition to trigger managers.': 'text96ea07dfbadc',
   'The model this agent runs on is set in its source file. With the model gateway on, a per-agent pin can override it above.':
     'text9dee2a1acfd9',
   'The newest provisioning failures, with the class the API assigned them.': 'text9bd290d1b0ce',
   'The production support entrypoint. Every number below is live — the overview polls every 15 seconds.':
     'text211be77ddd51',
-  'The recipe for the machine a session runs on, and the record of every time Kortix prepared one.':
+  'The recipe for the machine a session runs on, and the record of every time Dosco prepared one.':
     'text2c063e7ab5f6',
   'The repository this workspace runs from, and who can reach it.': 'texte0d7209f4c07',
   'The same numbers the charts below encode as colour, as text.': 'text7055405b8f29',
@@ -883,13 +884,13 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'It is all recorded, on every plan. Recording is never gated — actions, approvals and the session transcript are captured whatever you pay. Reading, exporting and streaming that audit trail out to your own SIEM is an Enterprise entitlement, so on the lower plans the record exists but the export does not.':
     'text36814e8d3c88',
   'Is my company data yours?': 'text618ad8d1c91a',
-  'No. A workspace is backed by a git repository — clone it and the agents, the skills and everything the company has learned come with you. Self-host and the database, the files, the repos, the secrets and the audit record all sit on disk you control, on one Docker Compose stack built from the same images the managed cloud runs. It is not air-gapped, and we will not pretend otherwise: agent sandboxes run on the compute provider you configure, and your instance has to be reachable so they can call back.':
+  'No. A workspace is backed by a git repository — export it and the agents, the skills and everything your company has learned come with you. On dedicated enterprise VPC deployments, the database, files, repos, secrets and audit record stay inside infrastructure you control while agent sandboxes run on isolated E2B cloud microVMs configured for your topology.':
     'textda09b5e9847d',
   'Can I use the models I already pay for?': 'text151863950f0e',
   'Yes. Bring your own API key for any major provider, or sign in with the ChatGPT subscription you already pay for, or use the managed gateway and bring no key at all. The model is a line of configuration in your repo, so switching provider is a diff rather than a migration.':
     'text055026a9c10e',
   'What does it cost?': 'texte8dc9deba44c',
-  'Free is $0: 500 credits a month on your first workspace and every feature, with your own key or ChatGPT subscription for models. Kortix-managed models need a paid plan. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole workspace. Self-hosting the software costs nothing; you pay your own model bill and your own compute bill instead.':
+  'Free is $0: 500 credits a month on your first workspace and every feature, with your own key or ChatGPT subscription for models. Managed models via OpenRouter are available on paid plans. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole workspace.':
     'text1554fd387f25',
   'Why we are building it': 'text7ee5a6d5e8ad',
   'Read the source': 'text625b22ba31d0',
@@ -906,7 +907,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'per session': 'textf92898c93eec',
   'per message': 'text83d0be53d592',
   answers: 'text677fe21b65f4',
-  'We are building the open-source CompanyOS. Every company should own all of it.':
+  'Dosco Tek builds managed autonomous agent workspaces. Every company owns its configuration and output.':
     'text5f58426c214e',
   'One kortix.yaml.': 'text52867b778586',
   'Your AI workforce, as code.': 'textd0dfd435b2f4',
@@ -914,7 +915,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'text6dc0b331852f',
   'For humans': 'text1cd4ee467781',
   'For agents': 'text04acce351310',
-  'Install the Kortix CLI with `curl -fsSL https://kortix.com/install | bash`, then run `kortix system-skills` to learn how to drive Kortix.':
+  'Install the Dosco CLI with `curl -fsSL https://dosco.live/install | bash`, then run `kortix system-skills` to learn how to drive Dosco.':
     'text9f5c9fa004f0',
   'Read the docs': 'text559b1cc46027',
   Copy: 'texte21f935f11d7',
@@ -934,12 +935,12 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Agents, skills, triggers, connectors and policies are plain files in one repo. Diff them, review them in a change request, roll them back.':
     'text2ec1c779f38c',
   'You own the stack.': 'text48ab3bffe3da',
-  'Open source. Self-host the exact same stack, bring your own runtime and model keys. No black box, no lock-in.':
+  'Versioned in Git. Bring your own runtime and model keys. No black box, no lock-in.':
     'textc417a3753a0b',
-  'kortix cloud': 'textea64448cda1c',
+  'managed cloud': 'textea64448cda1c',
   'your servers': 'textdb80902e511f',
   'Write it like code. Run it like a fleet.': 'textcb3d2cb4cb30',
-  'Agents live in your repo as files. Kortix runs each session in its own sandbox.':
+  'Agents live in your repo as files. Dosco runs each session in its own sandbox.':
     'text3d560e7ee7e8',
   'One line to start.': 'textbeb2f69dc6cc',
   'kortix init adds kortix.yaml, agents/ and skills/ to your repo.': 'text9df55ba340b6',
@@ -967,8 +968,8 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'text9437e615bbce',
   'Read docs': 'text1a87861144c3',
   'Click a command to copy it': 'textfd1ce199bf3f',
-  'Filter Kortix CLI commands': 'text4eea9450c253',
-  'Kortix CLI commands': 'text6617536cfbc2',
+  'Filter Dosco CLI commands': 'text4eea9450c253',
+  'Dosco CLI commands': 'text6617536cfbc2',
   'Copy failed': 'text5b50e7a693fe',
   'Click to copy': 'text6fdb8f60b253',
   'Scaffold and ship': 'text063bbc13dd0b',
@@ -989,7 +990,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Open, review & merge change requests': 'text4c8c67dac30c',
   'Invite, grant & revoke access': 'text5d2e6aa802d4',
   Operate: 'text58c3939c4ce9',
-  'Run your own Kortix cloud': 'text866551d87f8c',
+  'Run your own dedicated VPC': 'text866551d87f8c',
   'Switch cloud ↔ local': 'text39d62d3a69b7',
   'Bring your own model keys': 'texta4d1a10ca1cd',
   'Every tool,': 'text854c7f775847',
@@ -1004,16 +1005,16 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Managed from the terminal': 'textb5a285ec4167',
   'Questions, answered.': 'text7094632abbd6',
   'Which models can I use?': 'text16b672d86284',
-  'Bring your own keys: Anthropic, OpenAI or local models. Or run on Kortix compute. Add your keys with kortix providers.':
+  'Bring your own keys: Anthropic, OpenAI or local models. Or run on managed OpenRouter models. Add your keys with kortix providers.':
     'text671f35507c5d',
-  'Can I self-host Kortix?': 'text9a80eb70d6b4',
-  'Yes. Run the exact same stack on a laptop, a VPS or your own VPC with kortix self-host.':
+  'Can Dosco run in a dedicated VPC?': 'text9a80eb70d6b4',
+  'Yes. Deploy dedicated enterprise infrastructure in your own VPC or run managed Cloud with zero ops.':
     'textb393e2a90943',
   'Where do my tool credentials live?': 'text25ef8b079eed',
-  'Connector credentials stay server-side and never reach the sandbox. Agents reach connectors through one scoped Kortix token.':
+  'Connector credentials stay server-side and never reach the sandbox. Agents reach connectors through one scoped Dosco token.':
     'textc6bea3767895',
   'Can agents use the CLI themselves?': 'textd4586396b9ba',
-  'Yes. The same Kortix CLI runs inside every sandbox, pre-authenticated, so agents use the exact commands you do.':
+  'Yes. The same Dosco CLI runs inside every sandbox, pre-authenticated, so agents use the exact commands you do.':
     'text9e52157faaab',
   'How do runs stay isolated?': 'text48b78a9ab65b',
   'Every session runs in its own sandbox on its own git branch. Nothing is shared between runs.':

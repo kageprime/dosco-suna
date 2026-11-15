@@ -1,17 +1,17 @@
 ---
 title: Capture
-description: Record each member's screen, input actions and audio 24/7 into a searchable timeline that belongs to the Kortix workspace.
+description: Record each member's screen, input actions and audio 24/7 into a searchable timeline that belongs to the workspace.
 ---
 
-Kortix Capture records a member's own computer all day, so you can find and replay anything that happened on screen. It records three layers:
+Capture records a member's own computer all day, so you can find and replay anything that happened on screen. It records three layers:
 
 - the screen: video, the app, the window title, the URL and the on-screen text;
 - input actions (clicks, typing), each with a screenshot;
 - audio, with a transcript, when the workspace's policy turns it on.
 
-Kortix uploads the recordings, indexes them into one timeline per person, and lets you rewatch and search any moment.
+Dosco uploads the recordings, indexes them into one timeline per person, and lets you rewatch and search any moment.
 
-Capture belongs to the Kortix workspace. One workspace has one Capture setup: one switch and one policy. Every computer signs in to the workspace.
+Capture belongs to the workspace. One workspace has one Capture setup: one switch and one policy. Every computer signs in to the workspace.
 
 ## Turn Capture on
 
@@ -21,46 +21,48 @@ it is off:
 
 - every Capture route answers `403` with `code: "capture_disabled"`;
 - a device cannot sign in or get storage credentials;
-- Kortix indexes nothing new.
+- Dosco indexes nothing new.
 
-Kortix Capture has its own area at `/capture`. Open **Kortix Capture** from
+Capture has its own area at `/capture`. Open **Capture** from
 the command palette (or go to `/capture`), choose **Settings**, and turn on
-**Kortix Capture** for the organization. The same page holds the organization's
-rules: what computers record, how long Kortix keeps it, where it is stored, an
+**Capture** for the organization. The same page holds the organization's
+rules: what computers record, how long Dosco keeps it, where it is stored, an
 workspace-wide pause and an optional notice. The area also has **Devices** and
 **Timeline**.
 
 From the API: `PATCH /v1/accounts/<account_id>/capture` with `{"enabled": true}`.
 From TypeScript: `kortix.capture.account(accountId).workspace.setEnabled(true)`.
 
-## Install Kortix Capture
+<a id="install-kortix-capture" />
 
-Kortix Capture is its own app, installed apart from the Kortix app. It runs in
+## Install Capture
+
+Capture is its own app, installed apart from the Dosco app. It runs in
 the background on Windows, macOS and Linux, shows an icon in the notification
-area (the menu bar on macOS), and records into one Kortix workspace. A computer
+area (the menu bar on macOS), and records into one workspace. A computer
 connects in one of two ways:
 
 | Way | For | How |
 |---|---|---|
-| Sign in with Kortix | one person on their own computer | the person approves the computer in the browser |
+| Sign in with Dosco | one person on their own computer | the person approves the computer in the browser |
 | Enrollment token | IT, for many computers at once | IT installs with a token; nobody signs in. See [IT rollout](/docs/capture/rollout) |
 
 Download the installer for the computer: [Windows](/download/capture/windows)
 (`.msi`), [macOS](/download/capture/macos) (`.pkg`) or
 [Linux](/download/capture/linux) (`.deb`). The same links are in **Devices** under
-**Get Kortix Capture**.
+**Get Capture**.
 
-Every Kortix release carries the installers, under the same version. The
-[releases page](https://github.com/kortix-ai/CompanyOS/releases/latest) lists them
+Every Dosco release carries the installers, under the same version. The
+[releases page](https://github.com/kageprime/dosco-suna/releases/latest) lists them
 with their checksums in `CAPTURE-SHA256SUMS`. A computer with the machine service
 (every installer) updates itself: it checks for a signed release every 6 hours,
 installs it, and goes back to the previous version when the new one does not record.
 To update by hand, install a newer installer over the old one. The configuration stays.
 
-To sign in with Kortix:
+To sign in with Dosco:
 
-1. Install Kortix Capture and open it from the Kortix Capture icon.
-2. Choose **Sign in with Kortix…**. The browser opens `/capture/authorize`
+1. Install Capture and open it from the Capture icon.
+2. Choose **Sign in with Dosco…**. The browser opens `/capture/authorize`
    with a code. Check that the code matches, then choose the workspace. Only
    workspaces with Capture on are listed.
 3. On macOS, grant the permissions when asked: Screen Recording for the
@@ -68,17 +70,17 @@ To sign in with Kortix:
    audio. Windows and Linux ask for none.
 
 Without the icon, run
-`kortix-capture sync setup --provider kortix --issuer <your Kortix API>`.
+`kortix-capture sync setup --provider kortix --issuer <your Dosco API>`.
 
 The computer then records into that workspace as you and uploads every finished
 item. It gets a revocable device token and, from it, short-lived storage
 credentials for its own folder (`orgs/<account_id>/<device_id>/`) and read
 access to the policy. Signing in again on the same computer reuses the device.
-Forgetting a time range on the device removes it from Kortix too.
+Forgetting a time range on the device removes it from Dosco too.
 
 ## Link a computer to a person
 
-Every computer is a device in **Devices**. The list shows each device's state (**Recording**, **Paused**, **Offline**, **Needs permission** and others), its Capture version (with **Update available** or **Update failed**), when it last recorded, and a fleet summary. **Device details** in a device's `...` menu shows what the computer reports: the version, the update state and why an update failed, the OS and build, CPU, memory, free disk, sync and policy. **Copy diagnostics** copies it as text for a support request. Kortix sends a notification to the people who manage Capture when a computer stops recording, and again when it recovers. A computer you signed in
+Every computer is a device in **Devices**. The list shows each device's state (**Recording**, **Paused**, **Offline**, **Needs permission** and others), its Capture version (with **Update available** or **Update failed**), when it last recorded, and a fleet summary. **Device details** in a device's `...` menu shows what the computer reports: the version, the update state and why an update failed, the OS and build, CPU, memory, free disk, sync and policy. **Copy diagnostics** copies it as text for a support request. Dosco sends a notification to the people who manage Capture when a computer stops recording, and again when it recovers. A computer you signed in
 records for you. A computer IT enrolled with a personal token records for the
 member the token names. A computer IT enrolled with a company token records for
 the workspace, **linked to no one**. That is a normal state: link it to a person
@@ -96,7 +98,7 @@ it.
 
 ## Who sees what
 
-Access is Kortix IAM. Capture has no roles of its own.
+Access is Dosco IAM. Capture has no roles of its own.
 
 | Who | Reads | Writes |
 |---|---|---|
@@ -107,7 +109,7 @@ Access is Kortix IAM. Capture has no roles of its own.
 
 Workspace owners and admins have `capture.read_all` and `capture.manage` by
 default. To give either one to someone else, add it to a custom role
-(**Workspace settings** → **Roles**). A Kortix API key acts as the person
+(**Workspace settings** → **Roles**). A Dosco API key acts as the person
 who made it, with the same permissions.
 
 Every read of another member's data writes `capture.member_view` to the
@@ -136,7 +138,7 @@ One policy applies to every device of the workspace:
     macOS and Windows ids together and shows by name.
   - Anything skipped is blacked out, a display with nothing left to record
     writes no frame, and actions in skipped apps are not recorded. A person can
-    add their own entries in Kortix Capture (Settings, Apps and websites) but
+    add their own entries in Capture (Settings, Apps and websites) but
     cannot remove the organization's or switch an inclusion policy back.
     Audio is not filtered by app: leave the audio layer off under an inclusion
     policy;
@@ -144,12 +146,12 @@ One policy applies to every device of the workspace:
 - **Screen frames**: the resolution (720p to 4K) and text recognition
   (accurate, fast or off). Left on **Each computer decides**, a computer uses
   1440p and accurate text recognition. Set, every computer uses it and shows it
-  locked. Kortix Capture sets the frame rate itself: up to 2 frames a second
+  locked. Capture sets the frame rate itself: up to 2 frames a second
   while someone works, one every 2 s otherwise, and fewer on a busy computer.
   Clicks, typing and scrolling are recorded with their own screenshots;
 - on an organization's computer, a person's pause or off switch ends by itself
   at the next 06:00 local time;
-- retention: **In Kortix** is how many days Kortix keeps recordings (`remote_days`, default 90, `0` keeps them without a limit), and **On the computer** is how many hours a computer keeps its local copy after upload (`local_hours`, default 0);
+- retention: **In Dosco** is how many days Dosco keeps recordings (`remote_days`, default 90, `0` keeps them without a limit), and **On the computer** is how many hours a computer keeps its local copy after upload (`local_hours`, default 0);
 - an optional notice: each person sees it once, and again when its text changes;
 - **Experimental → Privacy controls** (off by default) shows personal-data
   masking on the computer (each computer first downloads a ~1 GB model).
@@ -160,13 +162,13 @@ Retention is a ceiling: a person can keep recordings on their own computer for a
 A computer gets the policy the moment it signs in or IT enrolls it, so a new
 computer starts under your exclusion or inclusion policy with nothing to set up.
 Until the policy has arrived (seconds after sign-in), the computer records
-nothing. In Kortix Capture, Settings, Apps and websites says where its rules
+nothing. In Capture, Settings, Apps and websites says where its rules
 come from: "Synced from" your organization with the policy type, or "Set on
 this computer" when it is not synced to an organization.
 
-Kortix publishes the policy to `orgs/<account_id>/policy.json` in the capture
+Dosco publishes the policy to `orgs/<account_id>/policy.json` in the capture
 store, where every device reads it within a minute. A device cannot write a
-policy of its own. Kortix also enforces the layers when it indexes: a device
+policy of its own. Dosco also enforces the layers when it indexes: a device
 never widens the policy.
 
 A device records every connected display, the active one (the display with
@@ -175,26 +177,28 @@ timeline names the display of every item and frame.
 
 ## Where recordings are stored
 
-By default Kortix keeps and indexes the recordings (**Kortix-managed**). Under **Settings** → **Storage**, an owner or admin can point the workspace at an S3 bucket they own instead: AWS S3, or an S3-compatible store such as MinIO. Kortix reads, indexes and signs recordings in that bucket.
+By default Dosco keeps and indexes the recordings (**Dosco-managed**). Under **Settings** → **Storage**, an owner or admin can point the workspace at an S3 bucket they own instead: AWS S3, or an S3-compatible store such as MinIO. Dosco reads, indexes and signs recordings in that bucket.
 
 | Field | Meaning |
 |---|---|
 | **Endpoint** | Leave empty for AWS. For another S3-compatible store, the full URL. |
 | **Region**, **Bucket** | The bucket's location and name. |
 | **Path-style URLs** | On for MinIO and most self-hosted stores; off for AWS. |
-| **Access** | An **IAM role (STS)** that Kortix assumes (recommended: each computer gets credentials for its own folder), or a static **Access key** pair (every computer gets workspace-wide access to the bucket). |
+| **Access** | An **IAM role (STS)** that Dosco assumes (recommended: each computer gets credentials for its own folder), or a static **Access key** pair (every computer gets workspace-wide access to the bucket). |
 
-Kortix writes a test object before it saves the choice. Switching does not move recordings that are already stored. Client-side encryption on a computer is incompatible with indexing: a recording a computer encrypts cannot be searched or played in Kortix. From the API: `GET` and `PUT /v1/accounts/<account_id>/capture/storage` (`capture.manage`). On a self-hosted Kortix, see [Self-hosting](/docs/developers#self-hosting).
+Dosco writes a test object before it saves the choice. Switching does not move recordings that are already stored. Client-side encryption on a computer is incompatible with indexing: a recording a computer encrypts cannot be searched or played in Dosco. From the API: `GET` and `PUT /v1/accounts/<account_id>/capture/storage` (`capture.manage`). For dedicated enterprise storage configuration, see [Dedicated VPC deployment](/docs/developers#self-hosting).
 
-## Kortix Capture API
+<a id="kortix-capture-api" />
 
-Everything Capture records is readable with a Kortix API key, from a script, a
+## Capture API
+
+Everything Capture records is readable with a Dosco API key, from a script, a
 notebook, a BI tool or an agent.
 
-**Auth.** Create a key in Kortix (**Settings** → **Personal access keys**, or **Create an API key** in the **Kortix Capture API** dialog on **Devices**) or with
+**Auth.** Create a key in Dosco (**Settings** → **Personal access keys**, or **Create an API key** in the **Capture API** dialog on **Devices**) or with
 `POST /v1/accounts/tokens`. Send it as `Authorization: Bearer kortix_pat_…`.
 
-**Base URL.** `https://<your Kortix API>/v1/accounts/<account_id>/capture`.
+**Base URL.** `https://<your Dosco API>/v1/accounts/<account_id>/capture`.
 `GET /v1/accounts` lists your accounts.
 
 **Scoping.** Every route reads your own data by default. With

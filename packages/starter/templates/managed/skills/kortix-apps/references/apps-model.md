@@ -14,7 +14,7 @@ marks the live one.
   image, the release's env and secrets, and no volume. A non-zero exit fails the
   release: nothing changes, the live release keeps serving. Use it for schema
   migrations of an external database.
-- Kortix keeps the 5 newest ready releases besides the live one as rollback
+- Dosco keeps the 5 newest ready releases besides the live one as rollback
   targets.
 
 ## Machines
@@ -53,7 +53,7 @@ Every machine gets this environment, besides the release's `env` and `secrets`:
 | `KORTIX_APP_ID` | the App's id |
 | `KORTIX_APP_TOKEN` | the App's bearer for its App events and scheduled runs (SKILL.md, "Start an agent from an App") |
 | `KORTIX_APP_EVENTS_URL` | where the App posts App events: `…/v1/projects/<project_id>/apps/<app_id>/events` |
-| `KORTIX_AUTH_ISSUER`, `KORTIX_AUTH_AUDIENCE`, `KORTIX_AUTH_JWKS` | verify the App's Kortix sign-in tokens (sign-in.md) |
+| `KORTIX_AUTH_ISSUER`, `KORTIX_AUTH_AUDIENCE`, `KORTIX_AUTH_JWKS` | verify the App's Dosco sign-in tokens (sign-in.md) |
 
 ## Services
 
@@ -95,26 +95,26 @@ mounts:
   - { source: data, destination: /data, initial_size_gb: 10, snapshot_retention_days: 5 }
 ```
 
-- A volume is a persistent disk (Platinum). It outlives every release and every
+- A volume is a persistent disk. It outlives every release and every
   machine. Each machine of a mounted group has its own volume; a new machine
   takes a free volume of that name first, else gets a new, empty one.
 - One machine writes a volume at a time. A release with a mount deploys
   `rolling`: stop the old machine, commit and detach the volume, mount it on
   the new machine. Seconds of downtime; no acknowledged write lost.
-- Snapshots: Kortix takes one every day. Daily and manual snapshots are kept
+- Snapshots: Dosco takes one every day. Daily and manual snapshots are kept
   `snapshot_retention_days` (default 5, at most 60). `volumes snapshot` takes one now; `volumes restore`
   makes a snapshot the volume's contents again (a new version; nothing is
   lost); `volumes fork` makes an instant, unattached copy; `volumes set
   --retention <days>` keeps daily snapshots longer. A snapshot commits the
   mounted volume first, then pins that commit.
-- Size: Platinum allots every volume a fixed 100 GB; a volume cannot grow.
+- Size: each volume is allotted a fixed 100 GB; a volume cannot grow.
   `kortix apps volumes` shows use and size. Keep uploads and documents that
   can outgrow it in object storage.
 - Scale: a group with a mount runs one machine (`409 volume_single_machine`).
   Scale it up with `kortix apps set --cpu/--memory-gb`. `scale count
   --new-volumes` gives each new machine its own, empty volume.
 - Destroying a volume (or the App) keeps a final snapshot for 7 days, then
-  Kortix purges it.
+  Dosco purges it.
 - A mount's `destination` cannot sit under a system directory (`/etc`, `/usr`,
   `/var`, `/kortix`, …): use `/data`, `/convex/data`, `/srv/...`.
 
@@ -134,7 +134,7 @@ its own volume.
 
 ## Display
 
-`display` says where Kortix shows the App. It is presentation only: how the
+`display` says where Dosco shows the App. It is presentation only: how the
 App runs and who may open it do not change.
 
 ```yaml

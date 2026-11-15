@@ -150,7 +150,7 @@ A marker is the first text of an internal note, exactly as written.
 | Mode | What the agent does | What the person does |
 |---|---|---|
 | `draft` (default) | `draft.create` and one Review output (`kortix review submit --kind output --title "Reply: <category> · <conversation key>" --detail '{"preview":"<the draft>"}'`) | edits and sends it from the desk |
-| `approve_to_send` | calls `reply.send` through the desk connector; a workspace policy holds the call | approves or denies the held call on the Review page; Kortix sends it once |
+| `approve_to_send` | calls `reply.send` through the desk connector; a workspace policy holds the call | approves or denies the held call on the Review page; Dosco sends it once |
 | `auto_reply` | calls `reply.send`, re-reads the conversation, adds `[support-loop] sent`, then `conversation.mark_done` | reads the `sent` notes in the weekly digest |
 
 Rules for the modes:

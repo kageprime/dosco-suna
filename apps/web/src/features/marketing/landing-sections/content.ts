@@ -27,7 +27,7 @@ export const stack = {
   description:
     'Your agents, skills, company memory and connectors live in one git repo you own. Each session works on its own branch and sends its changes back as a change request.',
   /** The starter repo, as `kortix init` writes it. Real paths, four lines. */
-  tree: ['kortix.yaml', 'agents/kortix.md', 'skills/pdf/SKILL.md', 'memory/MEMORY.md'],
+  tree: ['kortix.yaml', 'agents/worker.md', 'skills/pdf/SKILL.md', 'memory/MEMORY.md'],
   layers: [
     {
       id: 'repo',
@@ -113,7 +113,7 @@ export const security = {
       id: 'hosting',
       title: 'Where it runs',
       description:
-        'Run it on Dosco Cloud, in your VPC, or on your own on-prem network. Self-host is free.',
+        'Run in Cloud, or request a dedicated Enterprise cloud deployment.',
     },
     {
       id: 'compliance',
@@ -125,10 +125,10 @@ export const security = {
 } as const;
 
 export const openSourceLine = {
-  title: '20,000+ GitHub stars.',
-  titleMuted: 'Open source. Read it, fork it, audit it.',
-  ctaLabel: 'Read the source',
-  ctaHref: 'https://github.com/kageprime/dosco-suna',
+  title: 'Proprietary cloud harness.',
+  titleMuted: 'Managed E2B sandboxes, isolated per session.',
+  ctaLabel: 'Explore security',
+  ctaHref: '/security',
 } as const;
 
 export const faqHeading = {

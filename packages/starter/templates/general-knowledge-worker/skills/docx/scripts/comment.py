@@ -74,7 +74,7 @@ CURLY_QUOTE_MAP = {
     "\u2019": "&#x2019;",
 }
 
-DEFAULT_AUTHOR = "Kortix"
+DEFAULT_AUTHOR = "Dosco"
 DEFAULT_INITIALS = "P"
 
 

@@ -129,7 +129,7 @@ export const faq = {
       id: 'ownership',
       question: 'Is my company data yours?',
       answer:
-        'No. A workspace is backed by a git repository — clone it and the agents, the skills and everything the company has learned come with you. Self-host and the database, the files, the repos, the secrets and the audit record all sit on disk you control, on one Docker Compose stack built from the same images the managed cloud runs. It is not air-gapped, and we will not pretend otherwise: agent sandboxes run on the compute provider you configure, and your instance has to be reachable so they can call back.',
+        'No. A workspace is backed by a git repository — export it and the agents, the skills and everything your company has learned come with you. On dedicated enterprise VPC deployments, the database, files, repos, secrets and audit record stay inside infrastructure you control while agent sandboxes run on isolated E2B cloud microVMs configured for your topology.',
     },
     {
       id: 'models',
@@ -141,7 +141,7 @@ export const faq = {
       id: 'price',
       question: 'What does it cost?',
       answer:
-        'Free is $0: 500 credits a month on your first workspace and every feature, with your own key or ChatGPT subscription for models. Kortix-managed models need a paid plan. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole workspace. Self-hosting the software costs nothing; you pay your own model bill and your own compute bill instead.',
+        'Free is $0: 500 credits a month on your first workspace and every feature, with your own key or ChatGPT subscription for models. Managed models via OpenRouter are available on paid plans. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole workspace.',
     },
   ] satisfies readonly FaqItem[],
 } as const;

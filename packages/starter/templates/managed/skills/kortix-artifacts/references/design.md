@@ -32,7 +32,7 @@ injected. So:
   - no cookies;
   - `localStorage` and `sessionStorage` throw, so wrap every read and write in
     `try/catch` and render correctly without them;
-  - no access to Kortix.
+  - no access to Dosco.
 
   Use storage only for per-viewer conveniences (a remembered tab), never for
   data that must persist. Data that must persist goes into the artifact's
@@ -182,7 +182,7 @@ The reader expects a distinct point of view.
 
 ## 8. Docs
 
-A doc is Markdown that Kortix renders with one stylesheet, so the craft is
+A doc is Markdown that Dosco renders with one stylesheet, so the craft is
 structure and words:
 
 - One `# Title`, then the answer in the first paragraph.

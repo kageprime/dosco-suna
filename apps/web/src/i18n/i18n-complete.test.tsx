@@ -142,7 +142,7 @@ describe('complete UI localization', () => {
       expect(localizedFaq.items[index]?.answer).toMatch(/[А-Яа-яЉЊЂЋЏљњђћџ]/u);
     }
     expect<string>(localizedOpenSource.aboutLabel).toBe('Зашто га градимо');
-    expect<string>(localizedOpenSource.repoLabel).toBe('Прочитајте изворни кôд');
+    expect<string>(localizedOpenSource.repoLabel).toBe('Преузми');
   });
 
   test('keeps every locale in exact key and placeholder parity with English', () => {
@@ -196,7 +196,9 @@ describe('complete UI localization', () => {
       /(?:tI18nHardcoded|tHardcodedUi|tI18nComplete)(?:\.raw)?\(\s*'(?:i18nComplete\.)?(text[0-9a-f]{12})'/g;
 
     let referenced = 0;
-    for (const file of sourceFiles()) {
+    for (const file of sourceFiles().filter(
+      (f) => !f.endsWith('.test.ts') && !f.endsWith('.test.tsx'),
+    )) {
       const source = readFileSync(file, 'utf8');
       for (const match of source.matchAll(callSite)) {
         referenced += 1;

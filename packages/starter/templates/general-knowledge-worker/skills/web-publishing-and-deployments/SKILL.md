@@ -1,6 +1,6 @@
 ---
 name: web-publishing-and-deployments
-description: "Publish a website or web app from the sandbox to a public URL, and deploy to cloud providers — get a live link to share, ship a static site or SPA, put a built site online, or deploy a framework app / container. Use when the user says 'publish this', 'deploy it', 'put it online', 'give me a live URL', 'host this', 'share a preview link', or wants to make a site/app they (or you) just built reachable on the web. Covers the zero-account instant path (Cloudflare) and permanent hosting (Vercel, incl. any Dockerfile). Also owns the publish GUARDRAILS: never publish unprompted, how to honestly take a site down, the runtime-dependency and data-persistence checks, and the mandatory pre-publish security review. Prefers Kortix Apps (a stable Kortix URL behind Kortix sign-in) when the project has Apps on. Points at kortix-marketplace for other providers and deeper provider-specific skills."
+description: "Publish a website or web app from the sandbox to a public URL, and deploy to cloud providers — get a live link to share, ship a static site or SPA, put a built site online, or deploy a framework app / container. Use when the user says 'publish this', 'deploy it', 'put it online', 'give me a live URL', 'host this', 'share a preview link', or wants to make a site/app they (or you) just built reachable on the web. Covers the zero-account instant path (Cloudflare) and permanent hosting (Vercel, incl. any Dockerfile). Also owns the publish GUARDRAILS: never publish unprompted, how to honestly take a site down, the runtime-dependency and data-persistence checks, and the mandatory pre-publish security review. Prefers Apps (a stable Dosco URL behind Dosco sign-in) when the project has Apps on. Points at kortix-marketplace for other providers and deeper provider-specific skills."
 defaultProjectInstall: true
 ---
 
@@ -38,7 +38,7 @@ overwriting the site with a blank page, a placeholder, or a redirect — that
 leaves confusing, half-broken state and is not a real unpublish. Point the user
 at the real control (their deploy platform's dashboard, or stopping the shared
 sandbox preview), leave the project files untouched, and say plainly that a
-shared preview URL is public-by-link if they asked for privacy. For a Kortix
+shared preview URL is public-by-link if they asked for privacy. For a Dosco
 App, the real controls are `kortix apps access <slug> --mode private` and
 `kortix apps delete <slug> --yes`; run them only when the user asks.
 
@@ -51,7 +51,7 @@ App, the real controls are `kortix apps access <slug> --mode private` and
    "Security review" below.
 3. **Flag runtime-only dependencies that won't survive publishing.** API keys
    set in the dev environment aren't automatically present in a standalone
-   deployment, and anything reaching back into the Kortix agent runtime or its
+   deployment, and anything reaching back into the Dosco agent runtime or its
    connectors has no bridge once deployed. Scan first:
 
    ```bash
@@ -70,7 +70,7 @@ App, the real controls are `kortix apps access <slug> --mode private` and
    URL and anon key provisioned as production env vars — never hardcoded into
    the shipped bundle.
 5. **Use secure cookies behind the preview proxy.** Sites served through the
-   sandbox preview proxy sit behind Kortix's domain — set `Secure`,
+   sandbox preview proxy sit behind Dosco's domain — set `Secure`,
    explicitly-named, properly-scoped session cookies rather than relying on
    framework defaults.
 
@@ -110,10 +110,10 @@ final output directory (`dist/`, `out/`, `build/`, `.next/`, …), not source.
 
 ## Which one?
 
-**Kortix Apps first.** Apps are available in every project. Deploy with the
+**Apps first.** Apps are available in every project. Deploy with the
 `kortix-apps` system skill
-(`kortix system-skills get kortix-apps`). It gives a stable Kortix URL that
-stays up, private to the user by default, with Kortix sign-in for the project
+(`kortix system-skills get kortix-apps`). It gives a stable Dosco URL that
+stays up, private to the user by default, with Dosco sign-in for the project
 or selected people, and no user account on another host. A built static site
 or SPA deploys in seconds as a static App with no compute cost. Use another
 host only when the user names Cloudflare, Vercel, or another host, or when

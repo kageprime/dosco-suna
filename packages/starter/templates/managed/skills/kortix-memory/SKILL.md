@@ -6,7 +6,7 @@ description: How to read, write, and curate workspace memory in `memory/` — th
 <skill name="kortix-memory">
 
 <overview>
-Every Kortix workspace has a **workspace brain** at `memory/` — a
+Every workspace has a **workspace brain** at `memory/` — a
 folder of curated markdown files describing what this workspace is,
 which connections it uses, the conventions the team works by, and
 the decisions worth not re-litigating.
@@ -38,7 +38,7 @@ Memory is **continuously CRUD'd**:
 - Both consult this skill for the rubric.
 
 Memory is **team-shared**: it lives in the repo, every session sees the
-same content. Edits land on `main` only via a Kortix change request —
+same content. Edits land on `main` only via a Dosco change request —
 never by pushing directly.
 </overview>
 
@@ -111,7 +111,7 @@ there's enough depth to warrant a click.
 - Facts derivable from the repo layout, file names, or `git log`.
 - One-off task state that won't matter next week.
 - Anything that's already in `kortix.yaml`, `AGENTS.md`, or a SKILL.md.
-- Secrets, tokens, API keys, PII — those live in the Kortix Secrets
+- Secrets, tokens, API keys, PII — those live in the Secrets
   Manager, never in memory files.
 - Speculation about future plans. Memory describes what *is*, not
   what might be.
@@ -154,7 +154,7 @@ the normal change-request flow (below).
 ### Landing memory on `main`
 
 Session branches die when sessions end. Memory edits reach `main`
-only via a Kortix change request — same path as any code change:
+only via a Dosco change request — same path as any code change:
 
 ```sh
 git add -A -- memory
@@ -185,7 +185,7 @@ passes. On each run the curator:
 5. Opens one `memory: …` CR with the edits. It does not merge it.
 6. Leaves memory untouched when nothing is worth changing.
 
-Kortix manages this skill: an edit to it is replaced on the next update.
+Dosco manages this skill: an edit to it is replaced on the next update.
 To change *what gets remembered*, write the workspace's own rules into the
 curator's prompt. A merged CR takes effect on the next run.
 
@@ -209,7 +209,7 @@ curator's prompt. A merged CR takes effect on the next run.
   ends with `kortix cr open`.
 - **Don't put secrets in memory.** Memory is read into context and
   committed to the repo. Secrets, tokens, API keys, and PII belong in
-  the Kortix Secrets Manager, surfaced as env vars at runtime — not in
+  the Secrets Manager, surfaced as env vars at runtime — not in
   `memory/`.
 
 </gotchas>

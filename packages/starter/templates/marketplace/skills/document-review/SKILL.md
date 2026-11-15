@@ -134,7 +134,7 @@ An "issue" is a specific problem found in the document. Issues are the primary o
 
 ## Background Session Setup
 
-Document review is a long, meticulous process — always run it in a background session using the Kortix sessions flow.
+Document review is a long, meticulous process — always run it in a background session using the Dosco sessions flow.
 
 Before spawning, determine which **issue types** are relevant from the user's request. When in doubt, default to all 5 types. Examples:
 - "review this", "audit this" → all 5 types
@@ -282,7 +282,7 @@ Create an annotated copy of the document with issues as comments. `{base_name}` 
   - `python3 skills/document-review/scripts/annotate_pptx.py input.pptx {base_name}_reviewed.pptx`
   - `python3 skills/document-review/scripts/annotate_xlsx.py input.xlsx {base_name}_reviewed.xlsx`
 - **DOCX** — `read `skills/docx/SKILL.md`` and follow its workflow to unpack, edit XML, and repack. Use `manage_state.py get-issues` to list all issues, then for each issue:
-  1. **Add a comment** using `comment.py --author "Kortix"`, then insert `<w:commentRangeStart>`, `<w:commentRangeEnd>`, and `<w:commentReference>` markers in `document.xml`. Place `<w:commentRangeStart>` immediately before the first `<w:r>` that contains the `original_text`, and `<w:commentRangeEnd>` immediately after the last `<w:r>` that contains it — do NOT place these at the paragraph or body level.
+  1. **Add a comment** using `comment.py --author "Dosco"`, then insert `<w:commentRangeStart>`, `<w:commentRangeEnd>`, and `<w:commentReference>` markers in `document.xml`. Place `<w:commentRangeStart>` immediately before the first `<w:r>` that contains the `original_text`, and `<w:commentRangeEnd>` immediately after the last `<w:r>` that contains it — do NOT place these at the paragraph or body level.
 
      **Comment text format** — every comment MUST use this exact single-line format. Do NOT use `\n` or line breaks — `comment.py` renders them as literal text, not actual breaks. No "Suggested" line — the tracked change shows the fix.
 
@@ -294,12 +294,12 @@ Create an annotated copy of the document with issues as comments. `{base_name}` 
 
      Example `comment.py` call for a spelling issue:
      ```bash
-     python3 skills/docx/scripts/comment.py unpacked/ 0 "[Spelling/Grammar | low] The word 'acheived' is misspelled." --author "Kortix"
+     python3 skills/docx/scripts/comment.py unpacked/ 0 "[Spelling/Grammar | low] The word 'acheived' is misspelled." --author "Dosco"
      ```
 
      Example for a numerical consistency issue:
      ```bash
-     python3 skills/docx/scripts/comment.py unpacked/ 1 "[Numerical Consistency | high] Region totals sum to 800, not the stated 900." --author "Kortix"
+     python3 skills/docx/scripts/comment.py unpacked/ 1 "[Numerical Consistency | high] Region totals sum to 800, not the stated 900." --author "Dosco"
      ```
   2. **Apply tracked changes** (best effort) when `new_text` differs from `original_text`: find the exact `<w:r>` in `document.xml` whose `<w:t>` contains `original_text` and replace that `<w:r>` with a `<w:del>` + `<w:ins>` pair. Copy the `<w:rPr>` from that specific `<w:r>` into both the `<w:del>` and `<w:ins>` runs — do NOT use `<w:rPr>` from any other run (e.g., the title or a different paragraph). Wrap the comment markers tightly around the `<w:del>` and `<w:ins>` so the comment is anchored to the change.
 
@@ -310,10 +310,10 @@ Create an annotated copy of the document with issues as comments. `{base_name}` 
   The combined pattern for a comment with a tracked change:
   ```xml
   <w:commentRangeStart w:id="0"/>
-  <w:del w:id="1" w:author="Kortix" w:date="{timestamp}">
+  <w:del w:id="1" w:author="Dosco" w:date="{timestamp}">
     <w:r><w:rPr><!-- original formatting --></w:rPr><w:delText>original text</w:delText></w:r>
   </w:del>
-  <w:ins w:id="2" w:author="Kortix" w:date="{timestamp}">
+  <w:ins w:id="2" w:author="Dosco" w:date="{timestamp}">
     <w:r><w:rPr><!-- original formatting --></w:rPr><w:t>new text</w:t></w:r>
   </w:ins>
   <w:commentRangeEnd w:id="0"/>

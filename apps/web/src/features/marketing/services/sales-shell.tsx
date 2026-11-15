@@ -32,7 +32,7 @@ export function SalesShell({ children }: { children: ReactNode }) {
             'text-muted-foreground flex flex-col gap-4 py-10 pb-28 text-sm sm:flex-row sm:items-center sm:justify-between lg:pb-10',
           )}
         >
-          <span>© {new Date().getFullYear()} Kortix</span>
+          <span>© {new Date().getFullYear()} Dosco</span>
           <nav
             aria-label={tMarketing('text26c87bb51e69')}
             className="flex flex-wrap gap-x-6 gap-y-2"

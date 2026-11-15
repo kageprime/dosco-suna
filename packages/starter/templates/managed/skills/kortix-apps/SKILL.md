@@ -3,9 +3,9 @@ name: kortix-apps
 description: "Build, deploy and operate Dosco Apps through the pre-authenticated CLI or SDK: static sites and SPAs, Dockerfile or OCI servers, workers, and stateful backends (a database, a Convex backend) with persistent volumes, snapshots and built-in Dosco sign-in. Use when the user asks to publish, host, deploy, preview, inspect, scale, wake, suspend, roll back, debug, or remove an App; asks for a database, an API, a backend, a data model, auth, or 'store this'; asks for an internal tool, business app, CRM, tracker, dashboard, portal, or any app the team logs in to; before writing any Convex code; or asks what an App costs or how it runs."
 ---
 
-# Kortix Apps
+# Apps
 
-Kortix Apps are built from three parts:
+Apps are built from three parts:
 
 - **Release:** every deploy is an immutable release (v1, v2, …): the build
   plus its config. Rollback is a new release from an old one.
@@ -15,13 +15,13 @@ Kortix Apps are built from three parts:
   and every machine, and keeps daily snapshots.
 
 An App is one workspace-scoped thing: a stable URL, an access policy, labels,
-its releases, machines and volumes. A static App is files Kortix serves itself
+its releases, machines and volumes. A static App is files Dosco serves itself
 (no machine). Every App says what it supports in `app.capabilities`:
 `deployments`, `rollback`, `preview`, `member_tokens`, plus `static`, or
 `sleep` · `machines` · `scale` · `exec` for a server, plus `volumes` ·
 `snapshots` when it has volumes. Branch on capabilities only.
 
-Kortix chooses and operates the provider. Never select Cloudflare, Vercel, or
+Dosco chooses and operates the provider. Never select Cloudflare, Vercel, or
 another host.
 
 ## Preflight
@@ -56,7 +56,7 @@ Default to static for every UI. Server logic for a UI (queries, writes,
 webhooks, integrations, schedules) lives in the backend App, not in a second
 server.
 
-Before creating or modifying any internal app or Kortix App UI, load and
+Before creating or modifying any internal app or App UI, load and
 apply `kortix-design`, including delegated app builders. Put this requirement
 in every delegated builder's brief before UI work starts. Load it before the
 first className or user-facing string. It owns the token plan, the states,
@@ -103,7 +103,7 @@ apps:
     type: dockerfile
     command: ["node", "server.js"]
     labels: [backend]
-    display: { preview: none }     # where Kortix shows it: listed (default false), preview (live | none), parent (a tab of another App)
+    display: { preview: none }     # where Dosco shows it: listed (default false), preview (live | none), parent (a tab of another App)
     always_on: false               # on demand: stops when idle, wakes on a request or a trigger
     idle_timeout_seconds: 300      # 120–86400; a stop keeps the disk and loses memory
     processes: { app: "", worker: "node worker.js" }   # "" = the image's command
@@ -182,7 +182,7 @@ scheduled agent run fits only when a model must judge each check. Start it with
    token from `kortix apps events credentials <app>` (workspace admins). The
    token posts as that App: keep it out of chat, files and commits.
 
-**Have Kortix call the App.** A poller does not need to run 24/7: deploy it
+**Have Dosco call the App.** A poller does not need to run 24/7: deploy it
 `--on-demand` and add a schedule that calls it.
 
 ```yaml
@@ -193,7 +193,7 @@ triggers:
 ```
 
 Or: `kortix triggers add poll-inbox --every 5m --target-app inbox-poller --target-path /tick --apply`.
-Kortix wakes the App and sends `x-kortix-trigger`, `x-kortix-trigger-source`
+Dosco wakes the App and sends `x-kortix-trigger`, `x-kortix-trigger-source`
 and `x-kortix-delivery-id`. A `2xx` counts as fired; any other status fails
 the run (`429` and `5xx` are retried); a `3xx` is not followed. No session,
 no model.
@@ -232,7 +232,7 @@ kortix apps volumes fork <app> <volume> <name>      # an instant, unattached cop
 kortix apps volumes set <app> <volume> --retention 30   # keep daily snapshots 30 days
 ```
 
-One machine writes a volume at a time; Kortix enforces it. A release with a
+One machine writes a volume at a time; Dosco enforces it. A release with a
 mount deploys `rolling` (stop the old machine, detach, mount on the new one):
 seconds of downtime, no data loss.
 
@@ -256,7 +256,7 @@ kortix apps access-link <app> --json      # a 5-minute signed browser link
 
 ## Acting as the viewer
 
-An App that calls the Kortix API for each person who opens it must act as that
+An App that calls the Dosco API for each person who opens it must act as that
 person, never as one shared key.
 
 ```bash
@@ -269,7 +269,7 @@ kortix apps access <app> --viewer api
 - On the App's server: `createAppViewerKortix(request, { backendUrl })` from
   `@kortix/sdk/server`, one client per request.
 - In the browser: `createKortix({ backendUrl: '/_kortix/api/v1', getToken: kortixAppViewerToken() })`
-  from `@kortix/sdk`. Never call `https://api.kortix.com/v1` from the browser.
+  from `@kortix/sdk`. Never call `https://api.dosco.live/v1` from the browser.
 - Never give the App a personal PAT or API key. Never log the viewer headers.
 
 ## Apps that use other Apps
@@ -291,7 +291,7 @@ and schedule runs (above).
 ## Internal apps: a backend App + a static UI
 
 An internal app is a Convex backend App for data and logic plus a static App
-for the UI. Kortix signs the team in: the UI knows who is looking, and every
+for the UI. Dosco signs the team in: the UI knows who is looking, and every
 function knows who is calling.
 
 ```text
@@ -306,7 +306,7 @@ member's browser ──▶ App "crm" (static UI, access: project)
 apps/backend/                  # Convex functions for App "backend" (references/convex.md)
   package.json                 # "convex", "@kortix/sdk"
   convex/schema.ts
-  convex/auth.config.ts        # Kortix sign-in (references/sign-in.md)
+  convex/auth.config.ts        # Dosco sign-in (references/sign-in.md)
   convex/lib/auth.ts           # requireMember()
   convex/<domain>.ts           # queries + mutations per domain
   convex/seed.ts               # internal seed, demo data only
@@ -333,7 +333,7 @@ Every session downloads the whole repository, so keep it small. Create
    files to `apps/backend/dashboard/`; the dashboard is the Dashboard tab of `backend`).
 3. **Schema + sign-in.** `convex/schema.ts` with an index for every filter,
    `convex/auth.config.ts` and `convex/lib/auth.ts` from references/sign-in.md.
-   Store `me.userId` as owner/author ids. Use Kortix roles
+   Store `me.userId` as owner/author ids. Use Dosco roles
    (`{ roles: ["owner", "admin"] }`) or groups (Enterprise only; without it
    the `groups` claim is empty, so use roles). Do not build a user table.
 4. **Functions.** Every public query and mutation calls `requireMember(ctx)`
@@ -343,7 +343,7 @@ Every session downloads the whole repository, so keep it small. Create
 6. **UI.** Vite + React + TypeScript, `npm install convex @kortix/sdk`. Wire
    `src/convex.ts` as references/sign-in.md, "The browser", shows. Read the
    signed-in member with a `members:me` query, never `useConvexAuth()`.
-   Components, theme and the whole Kortix session experience (session workspace,
+   Components, theme and the whole Dosco session experience (session workspace,
    workspace home, session list, files) come from `@kortix/ui`:
    `kortix system-skills file kortix-ui references/custom-dashboard.md`.
 7. **Quality bar.** A product, not a demo: navigation and create/edit/delete
@@ -358,7 +358,7 @@ Every session downloads the whole repository, so keep it small. Create
    kortix apps link crm --uses backend
    ```
    Never `public` for internal data: a public App has no signed-in member.
-9. **Integrations** only through Kortix connectors (references/connectors.md).
+9. **Integrations** only through Dosco connectors (references/connectors.md).
 10. **Ship** once Verify passed: in your clone (`kortix workspaces clone`),
     commit, push the session branch, open a change request (kortix-system,
     `<change-requests>`). Merge it only when the user asks.

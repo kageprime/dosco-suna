@@ -1,6 +1,6 @@
-export const SOURCE = '01kortixcomputer';
+export const SOURCE = '01doscocomputer';
 export const PROPER = SOURCE.split('').join(' ');
-export const KORTIX = 'kortix'.split('').join(' ');
+export const KORTIX = 'dosco'.split('').join(' ');
 
 export type TokenKind = 'scrambled' | 'proper' | 'kortix';
 

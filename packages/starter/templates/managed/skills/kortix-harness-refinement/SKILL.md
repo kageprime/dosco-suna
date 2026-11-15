@@ -170,7 +170,7 @@ what future sessions inherit.
 </landing-rules>
 
 <guardrails>
-- **Never edit managed `kortix-*` skills.** Kortix serves them from
+- **Never edit managed `kortix-*` skills.** Dosco serves them from
   `/opt/kortix/managed-skills` and replaces them on every update, and
   `skills:` refuses a `kortix-` name. To extend platform behavior, create
   a workspace skill with a different name.
@@ -182,7 +182,7 @@ what future sessions inherit.
   (agent and registry entries in `kortix.yaml`, `agents/`, `skills/`,
   `tools/`, `extensions/`, `memory/`) — never mixed with task/code changes.
 - **No secrets, tokens, or PII** in any harness file. Secrets belong in
-  the Kortix Secrets Manager.
+  the Secrets Manager.
 - **Budget.** A mid-session refinement should cost a small fraction of
   the session: minutes, not hours. If a fix needs deep work (a real
   tool rewrite), record it in memory as a TODO and open the CR with what

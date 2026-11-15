@@ -39,7 +39,7 @@ export function ChromeMock({ className }: { className?: string }) {
               {/* Under the button's right corner: the cursor never covers the label. */}
               <span className="absolute top-full right-1 -mt-0.5 flex flex-col items-end">
                 <CursorIcon weight="fill" className="text-kortix-base size-4" />
-                <span className="bg-popover -mt-0.5 rounded-sm border px-1.5 py-0.5 text-xs">Kortix</span>
+                <span className="bg-popover -mt-0.5 rounded-sm border px-1.5 py-0.5 text-xs">Dosco</span>
               </span>
             </span>
           </div>

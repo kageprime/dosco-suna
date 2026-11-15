@@ -12,10 +12,10 @@ defaults keep today's behavior, so a valid file stays valid.
 
 | Key | Holds |
 | --- | --- |
-| `default_agent` | The agent that runs when nothing names one, and the agent My Kortix starts when it names none. A declared, enabled agent that is not `mode: subagent`, or `mykortix` when My Kortix is on. Omitted: My Kortix when it is on. |
+| `default_agent` | The agent that runs when nothing names one, and the agent Xera starts when it names none. A declared, enabled agent that is not `mode: subagent`, or `mykortix` when Xera is on. Omitted: Xera when it is on. |
 | `project` | `name`, `description`: shown in the dashboard. |
 | `imports` | Repository paths of more YAML files or folders (below). |
-| `env` | `required` and `optional` secret names. Values live in Kortix, never here. |
+| `env` | `required` and `optional` secret names. Values live in Dosco, never here. |
 | `sandbox` | `default` template slug and `templates` (below). |
 | `skills` | Registry: name → folder that holds `<name>/SKILL.md`. |
 | `tools` | Registry: name → `.ts`/`.js` module (`tools.md`). |
@@ -25,9 +25,9 @@ defaults keep today's behavior, so a valid file stays valid.
 | `apps` | Map of Apps and their settings (the `kortix-apps` skill). |
 | `triggers` | List of triggers (below). |
 | `policy`, `policies`, `approvals` | Connector call policies and how long a held call stays decidable (`approvals.ttl`: `30m`, `4h`, `7d`; default 24h). Approve runs the held call once, as its caller, and resumes the agent with the result: the agent does not repeat it. A caller without a workspace-scoped token repeats it within 15 minutes. |
-| `builtin_agents` | `my_kortix: true` adds My Kortix, the built-in agent (slug `mykortix`). Absent, `false` or an unreadable file = off. |
+| `builtin_agents` | `my_kortix: true` adds Xera, the built-in agent (slug `mykortix`). Absent, `false` or an unreadable file = off. |
 | `spaces` | Work in progress: channels per area of work (below). |
-| `agents` | Map of agent name → agent block. Omitted: My Kortix only. |
+| `agents` | Map of agent name → agent block. Omitted: Xera only. |
 
 ## Agent block
 
@@ -43,7 +43,7 @@ defaults keep today's behavior, so a valid file stays valid.
 | `enabled` | `false`: no session can start with this agent. Default `true`. |
 | `codemode` | `on` (default), `only`, `off`. |
 | `tools` | `"*"`, `none`, a list, or `{ exclude: [names] }`. Set it on every agent: omitted is every tool, with a warning. |
-| `skills`, `extensions` | `"*"`, `none` (default), registered names, or `{ exclude: [names] }`: every one but those. Kortix skills count as registered. |
+| `skills`, `extensions` | `"*"`, `none` (default), registered names, or `{ exclude: [names] }`: every one but those. Dosco skills count as registered. |
 | `subagents`, `commands` | `"*"`, `none` (default) or registered names. `subagents` is who this agent may call with the `agent` tool. |
 | `connectors`, `secrets`, `apps` | `"*"`, `none` (default) or names. |
 | `policy_sets` | Connector slug → policy set name for this agent. |
@@ -167,8 +167,8 @@ sandbox:
   `RUN` heredoc, a Debian-family base.
 - A session uses the first that is set: an explicit template, the agent's
   `sandbox`, `sandbox.default`, the platform `default`. A template nothing names is never used, even when it is the only one.
-- Kortix adds its own layer on top: the CLI, the daemon, agent-browser, the document tools, and on an `ubuntu:24.04` base the desktop. A package installed in a session can be gone when it reopens.
-- To keep one for every session: a Dockerfile (`FROM ubuntu:24.04`, then `RUN apt-get update && apt-get install -y --no-install-recommends <pkg>`), a template with `dockerfile:`, and `sandbox.default: <slug>` or the agent's `sandbox`. Run `kortix validate`, then open a CR. On merge Kortix builds the image (`kortix sandboxes builds`); sessions that start after the build use it.
+- Dosco adds its own layer on top: the CLI, the daemon, agent-browser, the document tools, and on an `ubuntu:24.04` base the desktop. A package installed in a session can be gone when it reopens.
+- To keep one for every session: a Dockerfile (`FROM ubuntu:24.04`, then `RUN apt-get update && apt-get install -y --no-install-recommends <pkg>`), a template with `dockerfile:`, and `sandbox.default: <slug>` or the agent's `sandbox`. Run `kortix validate`, then open a CR. On merge Dosco builds the image (`kortix sandboxes builds`); sessions that start after the build use it.
 
 ## triggers
 
@@ -204,7 +204,7 @@ triggers:
 
 | `run:` | Does |
 | --- | --- |
-| `prompt` (+ `agent`, `model`, `session`, `session_key`, `session_id`) | Prompts an agent session. Without `agent` it runs `default_agent` (My Kortix when it is on and `default_agent` is omitted). |
+| `prompt` (+ `agent`, `model`, `session`, `session_key`, `session_id`) | Prompts an agent session. Without `agent` it runs `default_agent` (Xera when it is on and `default_agent` is omitted). |
 | `app` (+ `path` default `/`, `method` `POST` or `GET`, `payload`) | Calls the App. No session, no model. |
 
 - Other fields: `slug` (required, `[a-z0-9][a-z0-9_-]{0,127}`, unique across
@@ -217,12 +217,12 @@ triggers:
 - `type: change_request` fires once per merged change request of the
   workspace. `filter.base` is the branch it must merge into (any when absent);
   other `filter` keys match the payload as on any trigger.
-- Webhook auth: `X-Kortix-Signature: sha256=<hex>` (or `X-Hub-Signature-256`)
+- Webhook auth: `X-Dosco-Signature: sha256=<hex>` (or `X-Hub-Signature-256`)
   = HMAC-SHA256 of `<timestamp>.<body>` with the secret, plus the
-  **required** `X-Kortix-Timestamp` (epoch seconds, within 5 minutes), so a
+  **required** `X-Dosco-Timestamp` (epoch seconds, within 5 minutes), so a
   captured delivery cannot replay. A signature without the timestamp, or of
   the bare body, is refused `401`. Or the static token: the secret as
-  `X-Kortix-Token` or `Authorization: Bearer`, no timestamp. A plain GitHub
+  `X-Dosco-Token` or `Authorization: Bearer`, no timestamp. A plain GitHub
   webhook signs the bare body, so it uses the static token. Answers: `202`
   queued, `200` skipped (paused or capped), `401` for every miss before
   authentication (no such enabled webhook trigger, bad signature, missing or
@@ -247,7 +247,7 @@ adds fixed values under the fire's own keys; `kortix triggers fire <slug>
 ## Problems
 
 `kortix validate` exits `1` on an error, unknown keys included. `kortix
-ship`, the CR merge and every Kortix write refuse such a file. A file
+ship`, the CR merge and every Dosco write refuse such a file. A file
 already on the default branch never stops the workspace. What runs with an
 error:
 
@@ -257,10 +257,10 @@ error:
 | An agent or a trigger | That entry is off. A session that names the agent fails with the issue. |
 | A connector, App, skill, tool, command, extension, space or sandbox template | That entry is gone. |
 | `project` or `default_agent` | The key falls back to its default. |
-| Anything else (`env`, `sandbox`, `policy`, `policies`, `approvals`, `imports`, an unknown format version, YAML syntax) | No workspace agent runs. My Kortix runs when the file sets `builtin_agents.my_kortix: true`, so it can fix the file. |
+| Anything else (`env`, `sandbox`, `policy`, `policies`, `approvals`, `imports`, an unknown format version, YAML syntax) | No workspace agent runs. Xera runs when the file sets `builtin_agents.my_kortix: true`, so it can fix the file. |
 
 Each rule only takes access away. The workspace page shows the errors and
-the warnings without a fix id, with **Fix with My Kortix**. Every session's
+the warnings without a fix id, with **Fix with Xera**. Every session's
 system prompt lists the errors.
 
 A deprecated key is not an error: it still works, and `kortix validate`
@@ -268,7 +268,7 @@ warns with its replacement and a fix id. Run `kortix validate --fix` to
 rewrite every deprecated key (and the files `imports:` names) to the latest
 shape, comments kept. Never write a deprecated key in new config.
 
-An older format still works: Kortix reads it converted, each agent `.md`
+An older format still works: Dosco reads it converted, each agent `.md`
 frontmatter as the agent's keys and its body as the prompt. `kortix
 validate` warns once (`fix: legacy-format`), lists what has no place in
 this format, and validates the converted file. `kortix validate --fix`

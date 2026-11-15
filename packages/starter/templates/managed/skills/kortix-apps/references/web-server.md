@@ -74,7 +74,7 @@ next authorized request, a trigger or scheduled run that calls the App, or
 `kortix apps start`, wakes it. A rollback starts
 the target runtime first.
 
-When a Kortix release changes the App supervisor image, Kortix rebuilds a
+When a Dosco release changes the App supervisor image, Dosco rebuilds a
 server App's runtime from the same artifact in the background: on its next
 cold start (on demand), or in a keep-alive pass (always on). Traffic stays on
 the active deployment until the replacement passes readiness. A release that
@@ -149,5 +149,5 @@ Register the App's API as a workspace connector whose base URL is the App URL
 `kortix connectors call`. For an App of the same workspace on `https`, the
 connector gateway adds a 60-second App assertion. The App gate verifies it,
 resolves it to the session's own token, and applies the App's access policy
-to that session. Neither the agent nor the App handles a Kortix credential.
+to that session. Neither the agent nor the App handles a Dosco credential.
 Never paste a personal token into the App instead.

@@ -39,7 +39,7 @@ const VALUE_PROPS = [
     title: 'Deployment options',
     // ACCURACY: the managed cloud is the shipped deployment. Do not turn this
     // card into a VPC, on-prem or air-gapped marketing claim.
-    desc: 'Dosco Cloud, with a dedicated cloud deployment for Enterprise.',
+    desc: 'Managed Cloud, with a dedicated cloud deployment for Enterprise.',
   },
   {
     title: 'Access and audit',

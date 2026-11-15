@@ -86,7 +86,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
     'text25e8e1211a52',
   'Agents rewrite themselves — and get reviewed for it': 'text5cb597e2c71c',
   allow: 'text410083735735',
-  'agents/kortix.md': 'textf300b6a90b8c',
+  'agents/worker.md': 'textf300b6a90b8c',
   'agents/memory-reflector.md': 'texta73e5a6e493d',
   'An agent can edit kortix.yaml — it is a file. But the edit only applies to sessions started after a person merges the change request, and even then the ceiling still holds.':
     'texta1d6b2ab7919',
@@ -111,7 +111,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'Browse agents, skills and whole workspaces, add one to your workspace in a click, and what arrives is files in your repo — not a dependency you rent. It is labelled beta because sources and updates are still moving, and it is on for every workspace.':
     'text0970b91b1fea',
   'Browse the marketplace': 'textfd5be8c298fd',
-  'Browse the marketplace without signing in. Kortix ships its own registry — 62 agents, 61 skills and 62 workspace templates — and you can switch on curated outside registries with one click. None load by default.':
+  'Browse the marketplace without signing in. Dosco ships its own registry — 62 agents, 61 skills and 62 workspace templates — and you can switch on curated outside registries with one click. None load by default.':
     'text43298f298ad8',
   'Build the workforce': 'text63803e6b696c',
   'Builds the outbound campaign and runs it.': 'textdf0b5ba1b462',
@@ -137,7 +137,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   Engineering: 'text729bb48d0f86',
   'Every agent gets its own computer — its own isolated Linux machine, pre-set-up with your repo, tools and dependencies. It can install, run and break anything. Nothing to configure, no local machine required.':
     'text2f64ffb3d90b',
-  'Every layer above brought together in one platform your team owns, deploys and scales end to end — from the model to the finished work. That’s Kortix.':
+  'Every layer above brought together in one platform your team owns, deploys and scales end to end — from the model to the finished work. That’s Dosco.':
     'text72af875c4c3d',
   'Every layer an AI workforce needs — unified.': 'text8de470893fb4',
   'Every morning it sweeps the day’s errors, groups them, reproduces the worst one on its own machine, patches it and opens a change request against main.':
@@ -148,7 +148,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
     'textb21276f9e4bb',
   'Everything is files': 'text81c55672efb4',
   'Excerpt of a skill that ships in every new workspace.': 'text0bc2032da091',
-  'Excerpt of the default agent in every new Kortix workspace.': 'textbb650fd852da',
+  'Excerpt of the default agent in every new workspace.': 'textbb650fd852da',
   'Export times out over 10k rows': 'textb39845ffaebd',
   'Filter state lost on reload': 'textd1d6f38c037e',
   Finance: 'textb696d75511dc',
@@ -168,7 +168,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'H1 plan': 'text65d23c2e3efe',
   'Has Monday’s numbers before Monday.': 'text9dbd9adc95ad',
   'hiring/staff-infra-pipeline.xlsx': 'text4f660d25cd0f',
-  'How Kortix is secured': 'textae799eb0e384',
+  'How Dosco is secured': 'textae799eb0e384',
   'how this company drives a browser': 'text06f5a933a39f',
   'How your company does one job, written down once.': 'text3b349c99c012',
   'If the item needs a key or a connected app, the agent hands you a fill-in link in the same turn. You never paste a credential into a chat, and the agent never sees the value.':
@@ -192,8 +192,8 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'It tracks the queries you care about, finds the pages losing ground, rewrites them against the brief, and opens each rewrite as a change request.':
     'text06cf627597d9',
   'It wires itself up': 'textf87700ba8e67',
-  Kortix: 'textab54cf5e1d9d',
-  'Kortix Cloud, your own VPC, or your own on-prem network. It is open source, so you can read every line of what you are trusting.':
+  Dosco: 'textab54cf5e1d9d',
+  'Cloud, your own VPC, or your own dedicated VPC network. It is versioned, so you can read every line of what you are trusting.':
     'textb6de6f87c92d',
   'kortix.yaml': 'text1965f383021e',
   'Large Language Models': 'text0340bfb383fc',
@@ -207,7 +207,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   Mobile: 'textcbaad3cf4a65',
   'month end close': 'textecc7ed048b32',
   'More than prose': 'text11ad216eb380',
-  'Most tools hand you one layer and rent you the rest. Kortix is all of them, open source, running wherever you put it.':
+  'Most tools hand you one layer and rent you the rest. Dosco is all of them, versioned, running wherever you put it.':
     'text3c579d4ff304',
   new: 'text11507a0e2f5e',
   'No systems depth': 'textdfa2cff42f0c',
@@ -220,10 +220,10 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'One platform': 'text708bb99739ea',
   'One thing this is not: a package manager. There is no lockfile, no version pin and no automatic update — an item you add becomes your own files, exactly like code you wrote. That is a deliberate trade, and it is the one we would make again.':
     'textcd3fefb94c04',
-  'Open source': 'text67a0d2e0dab4',
-  'Open source · Any model, your keys · Self-host, VPC, or on-prem': 'textb205e3c57a77',
-  'Open source · SSO, RBAC & on-prem · Any model, your keys · No lock-in': 'texte6ae56a1f248',
-  'Open source and self-hostable. Any model, your keys. Kortix Cloud, your own VPC, or fully on-prem.':
+  'No vendor lock-in': 'text67a0d2e0dab4',
+  'versioned · Any model, your keys · dedicated VPC, VPC, or dedicated VPC': 'textb205e3c57a77',
+  'versioned · SSO, RBAC & dedicated VPC · Any model, your keys · No lock-in': 'texte6ae56a1f248',
+  'Any model, your keys. Managed Cloud or your own dedicated VPC.':
     'text1d9a8dde5629',
   OpenAI: 'text8b7d1a3187ab',
   OpenRouter: 'texteb70c3bc14fa',
@@ -261,7 +261,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'reports/win-rate-weekly.md': 'textb093a8be33b1',
   'Request demo': 'text915b64b69378',
   right: 'text27042f4e6eca',
-  'Run any frontier model and switch between them as they improve. Bring your own API keys, the subscription you already pay for, or your own models running on your hardware. Kortix stays model-agnostic, so every agent uses the best model for the job.':
+  'Run any frontier model and switch between them as they improve. Bring your own API keys, the subscription you already pay for, or your own models running on your hardware. Dosco stays model-agnostic, so every agent uses the best model for the job.':
     'text3de53020a79f',
   'Run your whole company from one repo you own.': 'textda780699fda4',
   'Runs freely. No prompt, no pause.': 'texta80791a70348',
@@ -274,7 +274,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'Security & compliance': 'text4aeeea333672',
   'Security & Governance': 'text72cbbeda15fa',
   'Security & trust': 'textf1608bbc8b05',
-  'Self-hostable': 'texta2536dee19c6',
+  'dedicated VPC': 'texta2536dee19c6',
   'Set one action for a whole capability — read, edit, bash, task, websearch, or reaching outside the workspace — or add glob rules underneath it, so git push asks while everything else is allowed.':
     'text8591ccff74ef',
   Signal: 'text1e9806e4227b',
@@ -287,7 +287,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   sourced: 'text11d1b3d47709',
   'Sources the pipeline, not just the inbox.': 'text664de33d29c2',
   SSO: 'text5ba3ac9fc8e8',
-  'SSO, members, groups and role-based access come built in, with per-resource permissions for people and agents, encrypted secrets and a full audit trail. Self-host so the entire platform runs inside your own environment.':
+  'SSO, members, groups and role-based access come built in, with per-resource permissions for people and agents, encrypted secrets and a full audit trail. dedicated VPC so the entire platform runs inside your own environment.':
     'text0f600458e375',
   Stage: 'textde838855e4a6',
   'Start a session': 'textb7a2eb97cb86',
@@ -300,14 +300,14 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'The description is the trigger': 'text9f0729000e20',
   'The editor writes a branch, not a row': 'textab0cd0201348',
   'the generalist, in every workspace': 'text573c97ef1fcf',
-  'The grant block covers the whole surface, not just tools: which sandbox image the agent boots, which connectors and channels it may call, which secrets it may receive, which skills it may invoke, and what it may do to Kortix itself. An agent with no grants gets none of it. You grant explicitly, or the answer is no — and on top of that sits a ceiling nothing in the config can lift.':
+  'The grant block covers the whole surface, not just tools: which sandbox image the agent boots, which connectors and channels it may call, which secrets it may receive, which skills it may invoke, and what it may do to Dosco itself. An agent with no grants gets none of it. You grant explicitly, or the answer is no — and on top of that sits a ceiling nothing in the config can lift.':
     'text2abfd058360d',
   'The grant that applies at session start is what the agent declares, intersected with the role of whoever launched it. Grant an agent everything and it still gets exactly your own permissions — no more, on any path.':
     'textea25cb521ec9',
-  'The leading open-source alternative to': 'text3d40244f591d',
+  'The leading versioned alternative to': 'text3d40244f591d',
   'The manifest rejects a behavioral field in the governance block, with an error pointing at the agent’s own .md file.':
     'textec69732f4600',
-  'The open-source CompanyOS': 'text1806843c0554',
+  'The versioned CompanyOS': 'text1806843c0554',
   'the runtime your agents think in': 'text16886514658f',
   'The session opens a change request. You read exactly which files are about to join your company, and merge when you are happy. Nothing lands unreviewed.':
     'text2fa77dd466b4',
@@ -321,7 +321,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'Thousands in parallel': 'text6643779e9647',
   Total: 'textc9b3c38247f7',
   'Turns what users say into what ships.': 'text5ec9729027c3',
-  'Two agents ship in every new workspace: kortix, the generalist, and memory-reflector, which curates the workspace brain.':
+  'Two agents ship in every new workspace: Xera, the generalist, and memory-reflector, which curates the workspace brain.':
     'textf475451ba670',
   'Two files: {skill} behind, and {agent} in front.': 'texta442c09ab113',
   'Two files. No hidden object behind them.': 'texte935b72cac56',
@@ -335,10 +335,10 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'Win rate by quarter': 'text8a5603decf3a',
   'Write it once. Every session knows it.': 'textec73f9f19e7c',
   'You approve it': 'text10d9cd688efc',
-  'Your agents, their skills, your company memory and every connector in one platform. Any model, your keys, self-hosted or managed cloud.':
+  'Your agents, their skills, your company memory and every connector in one platform. Any model, your keys, Cloud or dedicated VPC.':
     'text32017b8ca825',
   'Your four new platform hires': 'text66e6ac60ab94',
-  'Your own, on-prem': 'textb2279807303a',
+  'Your own, dedicated VPC': 'textb2279807303a',
   'Yours down to the metal': 'text66a87e22056f',
   'Yours, down to the metal': 'text30e23f940700',
   'Saw you are hiring four platform engineers.': 'text3f66f3329185',

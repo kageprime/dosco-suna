@@ -1,11 +1,11 @@
 ---
 name: instagram-reels
-description: "Build and run an automated Instagram Reels pipeline on Kortix: topic and fact check, hook-first script, text-to-speech narration with word timestamps (ElevenLabs, or Sarvam Bulbul for Indian languages), AI images, a 1080x1920 render with animated captions inside Instagram's safe zones, machine QA plus frame review, and publishing through the Instagram connector (container -> poll -> publish) with duplicate protection. Use when a user wants to make Reels, post short vertical videos to Instagram on a schedule, or turn content into Reels for a business or creator account."
+description: "Build and run an automated Instagram Reels pipeline on Dosco: topic and fact check, hook-first script, text-to-speech narration with word timestamps (ElevenLabs, or Sarvam Bulbul for Indian languages), AI images, a 1080x1920 render with animated captions inside Instagram's safe zones, machine QA plus frame review, and publishing through the Instagram connector (container -> poll -> publish) with duplicate protection. Use when a user wants to make Reels, post short vertical videos to Instagram on a schedule, or turn content into Reels for a business or creator account."
 ---
 
 # Instagram Reels
 
-Turns a topic into a finished, checked Reel and publishes it to an Instagram Business or Creator account through the Kortix Instagram connector. It works for one Reel made in a session, and for a schedule that runs with nobody watching.
+Turns a topic into a finished, checked Reel and publishes it to an Instagram Business or Creator account through the Dosco Instagram connector. It works for one Reel made in a session, and for a schedule that runs with nobody watching.
 
 ```
 topic -> source + fact ledger -> script -> voice + word timings -> shot list -> images
@@ -91,7 +91,7 @@ Re-voice one sentence at a time to fix a read. Shorten the script rather than sp
 ```bash
 python3 scripts/image.py "<brand style prefix>, <subject + composition>, vertical, subject centred, no text" work/shot-01.png --aspect 9:16 --quality medium
 ```
-(or the Kortix `image_gen` tool). Keep one fixed style prefix per brand. Ask for no text in the image, since the renderer adds it. Read every image and regenerate wrong ones. Cap attempts per Reel and per month.
+(or the Dosco `image_gen` tool). Keep one fixed style prefix per brand. Ask for no text in the image, since the renderer adds it. Read every image and regenerate wrong ones. Cap attempts per Reel and per month.
 
 **Instagram safe zones (1080x1920):** keep text and faces out of the **top ~250 px** and the **bottom ~540 px** (caption, buttons, audio label), and out of the right **~120 px** (like/comment/share rail). The profile grid shows the **centre 1080x1350** (4:5), so the cover's subject and title must fit there.
 
@@ -131,13 +131,13 @@ The machine checks must all pass (1080x1920, H.264 yuv420p, AAC, 5–90 s, -16 t
 python3 scripts/ig_publish.py reel --media out/reel.mp4 --caption-file out/caption.txt --cover out/cover.jpg \
   --key reel-2026-10-30-why-saturn-is-flat --ledger-dir state/published
 ```
-How it works: the MP4 gets a **1-hour Kortix session link** -> `post_ig_user_media` (`media_type: REELS`, `video_url`, `caption`, `share_to_feed: true`, optional `cover_url`) -> poll `status_code` every 10 s until `FINISHED` (up to 10 min) -> `post_ig_user_media_publish` -> permalink -> ledger file -> link revoked.
+How it works: the MP4 gets a **1-hour Dosco session link** -> `post_ig_user_media` (`media_type: REELS`, `video_url`, `caption`, `share_to_feed: true`, optional `cover_url`) -> poll `status_code` every 10 s until `FINISHED` (up to 10 min) -> `post_ig_user_media_publish` -> permalink -> ledger file -> link revoked.
 
 - **Duplicate safety:** the ledger key and the live feed (first 80 normalised caption characters) are checked before any write, and again after an ambiguous publish error. A post that went through is recorded, never posted twice. Make every caption unique.
 - **Limits:** 100 API-published posts per 24 h per account (`get_ig_user_content_publishing_limit`). For a healthy feed, space Reels at least an hour apart.
 - **Errors:** `9007` / not ready means the container wasn't `FINISHED`: keep polling. Container `ERROR` means the file is out of spec: rerun QA. Auth errors mean reconnect the connector (`kortix connectors connect instagram`). Allow 3 attempts per Reel, then mark it failed for a person.
 
-## 9. Automate on Kortix
+## 9. Automate on Dosco
 
 Two agents: a producer (voice and image keys, no Instagram connector) writes passed Reels into `queue/`, and a publisher (Instagram connector only) posts the oldest one.
 
@@ -166,7 +166,7 @@ Store finished media and ledgers on the project Drive (`/drives/<folder>/`) or S
 | or Sarvam Bulbul TTS, same chars (₹30 per 10k chars on `bulbul:v3`, ~$0.035 per 1k) | ~$0.02–0.03 |
 | 6–10 images, gpt-image-2 medium (~$0.04–0.05) or Nano Banana (~$0.04) | ~$0.25–0.50 |
 | Render, QA, Instagram Graph API | $0 |
-| Agent model tokens | largest variable: check Kortix usage |
+| Agent model tokens | largest variable: check Dosco usage |
 
 ## Hard rules
 - Never publish a Reel that failed QA or skipped the frame review.

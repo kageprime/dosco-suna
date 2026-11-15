@@ -29,7 +29,7 @@ const post: Post = {
     tags: ['Field notes'],
     draft: false,
   },
-  author: { name: 'The Kortix Team', role: 'Kortix', email: 'team@kortix.ai' },
+  author: { name: 'The Dosco Team', role: 'Dosco', email: 'support@dosco.live' },
   readingTime: 4,
 };
 

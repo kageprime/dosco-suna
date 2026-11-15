@@ -201,7 +201,7 @@ const SDK_LINES = [
   "import { createKortix } from '@kortix/sdk';",
   '',
   'const kortix = createKortix({',
-  "  backendUrl: 'https://api.kortix.com/v1',",
+  "  backendUrl: 'https://api.dosco.live/v1',",
   '  getToken,',
   '});',
   '',

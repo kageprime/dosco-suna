@@ -13,7 +13,7 @@ against evals the way you build code against tests: write the tasks first,
 measure, change one thing, measure again. A change that does not raise the
 score, or that lowers it on any task, does not ship.
 
-Kortix runs the **Harbor task format** unchanged
+Dosco runs the **Harbor task format** unchanged
 (https://harborframework.com/docs/tasks). Names:
 
 | Term | Meaning |
@@ -97,7 +97,7 @@ timeout_sec = 600.0
 
 [verifier]
 timeout_sec = 120.0
-environment_mode = "shared"     # Kortix runs the verifier in the trial's sandbox
+environment_mode = "shared"     # Dosco runs the verifier in the trial's sandbox
 
 [verifier.env]
 EXPECTED_ROWS = "42"
@@ -110,7 +110,7 @@ A task without `docker_image` or a Dockerfile runs in the agent's own
 sandbox. A task with one gets a sandbox template built from it once; later
 trials reuse it.
 
-Kortix does not run yet: multi-step tasks (`[[steps]]`), docker-compose
+Dosco does not run yet: multi-step tasks (`[[steps]]`), docker-compose
 environments, a separate verifier environment, Windows, GPUs. `kortix evals
 tasks <suite>` names each unsupported task and why.
 </tasks>
@@ -124,7 +124,7 @@ tasks <suite>` names each unsupported task and why.
 | deterministic | run the code, query the file, compare output | coding, data, files, anything with one right end state |
 | reference | compare with an expected answer kept in `tests/` | extraction, numbers, "the answer is X" |
 | model judge | `kortix evals judge` scores against named criteria | writing, research, summaries, tone |
-| agent judge | a Kortix session inspects the result, then writes the score | open work that needs investigation to judge |
+| agent judge | a Dosco session inspects the result, then writes the score | open work that needs investigation to judge |
 
 Deterministic, with partial credit:
 
@@ -198,7 +198,7 @@ evals:
         model_name: <provider/model>   # the same agent on another model
     n_attempts: 3
     n_concurrent_trials: 4
-  my-kortix:                      # a built-in dataset Kortix ships
+  my-kortix:                      # a built-in dataset Dosco ships
     datasets: [{ name: kortix/my-kortix }]
     agents: [mykortix]
   terminal-bench:

@@ -1,4 +1,4 @@
-"""Shared helpers: Kortix connector calls, 1-hour public media links, one-file-per-post ledger."""
+"""Shared helpers: connector calls, 1-hour public media links, one-file-per-post ledger."""
 import datetime, json, os, re, shutil, subprocess, urllib.parse
 
 def kortix(args, timeout=600):
@@ -28,7 +28,7 @@ def share(path, label):
     link = kortix(["sessions", "links", session, "create", "--file", f"public/{name}", "--expires", expires, "--label", label])
     token = link.get("public_token") or link.get("token")
     if not token: raise RuntimeError(f"share link failed: {json.dumps(link)[:200]}")
-    api = urllib.parse.urlparse(os.environ.get("KORTIX_API_URL", "https://api.kortix.com/v1"))
+    api = urllib.parse.urlparse(os.environ.get("KORTIX_API_URL", "https://api.dosco.live/v1"))
     url = f"{api.scheme}://{api.netloc}/v1/p/public-share/{token}/file"
     def revoke():
         try: kortix(["sessions", "links", session, "revoke", link["share_id"]])

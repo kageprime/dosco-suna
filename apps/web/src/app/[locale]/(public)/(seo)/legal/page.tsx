@@ -453,7 +453,7 @@ const TERMS = parseTerms(TERMS_OF_SERVICE);
 function TermsInline({ text }: { text: string }) {
   return (
     <>
-      {text.split(/(\*\*[^*]+\*\*|[a-z]+@kortix\.com)/g).map((part, index) => {
+      {text.split(/(\*\*[^*]+\*\*|[a-z]+@(?:dosco\.live|kortix\.com))/g).map((part, index) => {
         if (part.startsWith('**') && part.endsWith('**')) {
           return (
             <strong key={index} className="text-foreground font-medium">
@@ -461,7 +461,7 @@ function TermsInline({ text }: { text: string }) {
             </strong>
           );
         }
-        if (/^[a-z]+@kortix\.com$/.test(part)) return <MailLink key={index} address={part} />;
+        if (/^[a-z]+@(?:dosco\.live|kortix\.com)$/.test(part)) return <MailLink key={index} address={part} />;
         return <Fragment key={index}>{part}</Fragment>;
       })}
     </>

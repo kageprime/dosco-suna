@@ -327,7 +327,7 @@ function triggerChatPrompt(agentName: string | null): string {
   return (
     `I want to set up a trigger that starts the "${agentName}" agent in this workspace. ` +
     'Ask me what it should do and on what schedule or event, then create it with the ' +
-    'Kortix CLI and show me the result.'
+    'Dosco CLI and show me the result.'
   );
 }
 

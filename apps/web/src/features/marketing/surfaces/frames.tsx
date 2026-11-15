@@ -97,10 +97,10 @@ function ThemedShot({ src, alt, width, height, sizes }: { src: string; alt: stri
 }
 
 const PHONE_SHOTS = {
-  start: 'The Kortix iPhone app: a new session with a photo attached and a prompt typed in the composer.',
-  permission: 'The Kortix iPhone app: a session paused on a permission request to run git push, with Deny, Allow once and Always allow.',
-  review: 'The Kortix iPhone app: change request #2, its details, what changed, and the Request changes and Merge buttons.',
-  notify: 'The Kortix iPhone app: notification settings with switches for task completions, errors, questions and permission requests.',
+  start: 'The Dosco iPhone app: a new session with a photo attached and a prompt typed in the composer.',
+  permission: 'The Dosco iPhone app: a session paused on a permission request to run git push, with Deny, Allow once and Always allow.',
+  review: 'The Dosco iPhone app: change request #2, its details, what changed, and the Request changes and Merge buttons.',
+  notify: 'The Dosco iPhone app: notification settings with switches for task completions, errors, questions and permission requests.',
 } as const;
 
 /** One iOS Simulator screenshot of the shipped app (1206x2622, stored at 603x1311) in a phone body. */
@@ -124,7 +124,7 @@ export function DesktopShot() {
     <div className="bg-background relative w-full overflow-hidden rounded-lg border">
       <ThemedShot
         src="/images/desktop-app/session-full"
-        alt="The Kortix desktop app on macOS: the Arcadia project's sessions, and a session that fixed a billing bug, proved it with tests and opened a change request."
+        alt="The Dosco desktop app on macOS: the Arcadia project's sessions, and a session that fixed a billing bug, proved it with tests and opened a change request."
         width={2304}
         height={1440}
         sizes="(min-width: 1280px) 1152px, 100vw"

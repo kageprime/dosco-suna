@@ -425,7 +425,7 @@ export function Composer({ text }: { text: string }) {
             size="sm"
             className="text-muted-foreground rounded-lg"
           >
-            <span className="max-w-[100px] truncate">Kortix</span>
+            <span className="max-w-[100px] truncate">Xera</span>
             <CaretDownIcon className="size-3" />
           </Button>
         </div>

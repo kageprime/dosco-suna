@@ -1,11 +1,11 @@
 ---
 title: Guide
-description: "What each part of Kortix CompanyOS does, how it works, and how to set it up."
+description: "What each part of CompanyOS does, how it works, and how to set it up."
 ---
 
-Kortix is an open-source CompanyOS: the cloud-native agent harness for companies. Your agents, their skills and what they may access are files in one git repository. Kortix runs the agents in the cloud, each session on its own cloud computer, and your team works with them from the web, desktop and mobile apps, or from Slack, Microsoft Teams, Telegram and Discord.
+Dosco is CompanyOS: the cloud-native agent harness for companies. Your agents, their skills and what they may access are files in one git repository. Dosco runs the agents in the cloud, each session on its own cloud computer, and your team works with them from the web, desktop and mobile apps, or from Slack, Microsoft Teams, Telegram and Discord.
 
-This guide explains each part of Kortix in the order you meet it, and how to set it up in the web app. To build on Kortix from code or run it on your own servers, read [Developers](/docs/developers).
+This guide explains each part of Dosco in the order you meet it, and how to set it up in the web app. To build on Dosco from code, read [Developers](/docs/developers).
 
 <a id="a-backend-for-agents" />
 <a id="a-workspace-for-people" />
@@ -14,7 +14,7 @@ This guide explains each part of Kortix in the order you meet it, and how to set
 
 <Steps>
 <Step title="A workspace holds everything">
-A workspace is backed by one git repository. Its agents, skills, memory and connector settings are files in it. Kortix hosts the repository for you, or you connect your own on GitHub.
+A workspace is backed by one git repository. Its agents, skills, memory and connector settings are files in it. Dosco hosts the repository for you, or you connect your own on GitHub.
 </Step>
 <Step title="You start a session">
 A session is one piece of agent work. You describe a task, and an agent picks it up. The session runs on its own cloud computer, so it never touches your own computer or another session.
@@ -29,7 +29,7 @@ When an agent changes the workspace itself, for example a skill or its memory, i
 
 Around that loop:
 
-- **You talk to My Kortix.** It hands each task to the agent made for it, in a session of its own, and tells you the result. You keep talking while the work runs. See [The built-in agent](#the-built-in-agent).
+- **You talk to Xera.** It hands each task to the agent made for it, in a session of its own, and tells you the result. You keep talking while the work runs. See [The built-in agent](#the-built-in-agent).
 - **Agents start without you.** A schedule, a webhook or an event in another app starts a session with nobody at the keyboard. See [Triggers](#triggers).
 - **Agents run in parallel.** Each session has its own cloud computer, so many agents work at once without getting in each other's way. See [Several agents at once](#several-agents-at-once).
 - **Long jobs keep their details.** When a session's context fills up, the agent continues in a fresh context and looks up the exact earlier lines it needs in the session's full record. Nothing is summarized away.
@@ -41,15 +41,15 @@ Around that loop:
 | --- | --- | --- |
 | Agents | Instructions, a model and a list of what the agent may use. Every session runs one agent. | [Agents](/docs/guide#agents) |
 | Skills | A written procedure an agent loads for one kind of task. | [Skills](/docs/guide#skills) |
-| Apps | Websites, internal tools and backends that agents build and Kortix hosts. | [Apps](/docs/guide#apps) |
+| Apps | Websites, internal tools and backends that agents build and Dosco hosts. | [Apps](/docs/guide#apps) |
 | Drive | Files that outlive a session, including what agents remember about you. | [Drive](/docs/guide#drive) |
 | Artifacts | Docs and web pages shared from Drive, with one link and a version history. | [Artifacts](/docs/guide#artifacts) |
 | Connectors | Governed access to the apps and APIs your team uses. | [Connectors](/docs/guide#connectors) |
 | Triggers | Schedules, webhooks, events and merged change requests that start an agent or wake a session. | [Triggers](/docs/guide#triggers) |
 | Computers | The cloud computer each session runs on, and your own computer if you connect it. | [Computers](/docs/guide#computers) |
-| Models | The AI models agents run on: Kortix-managed, your own provider keys, or your ChatGPT or Claude subscription. | [Models](/docs/guide#models) |
+| Models | The AI models agents run on: Dosco-managed, your own provider keys, or your ChatGPT or Claude subscription. | [Models](/docs/guide#models) |
 | Outcomes | A goal an agent works on until a separate check confirms that it is done. | [Outcomes](/docs/guide#outcomes) |
-| Channels | Slack, Microsoft Teams, Telegram and Discord, where people start work by messaging the Kortix bot. | [Channels](/docs/guide#channels) |
+| Channels | Slack, Microsoft Teams, Telegram and Discord, where people start work by messaging the Dosco bot. | [Channels](/docs/guide#channels) |
 | Everywhere | The web, desktop and mobile apps, the terminal, and other AI tools. | [Everywhere](/docs/guide#everywhere) |
 | People and access | Members, roles, and who may run which agent. | [People and access](/docs/guide#teams) |
 | Security | Isolation, secrets, the audit log and single sign-on. | [Security](/docs/guide#security) |
@@ -57,18 +57,18 @@ Around that loop:
 
 ## Get started
 
-<video src="/media/guide/get-started.mp4" aria-label="Getting started in Kortix: open a workspace and start its first session" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/get-started.mp4" aria-label="Getting started in Dosco: open a workspace and start its first session" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
 Create a workspace, run a session, connect an app and invite your team. You do all of it in the web app.
 
 ### What you need
 
-- A Kortix account. Sign up at [kortix.com](https://kortix.com).
-- Nothing else. Kortix can host your workspace's repository, so you do not need a GitHub account.
+- A Dosco account. Sign up at [dosco.live](https://dosco.live).
+- Nothing else. Dosco can host your workspace's repository, so you do not need a GitHub account.
 
 ### Create your first workspace
 
-A workspace is backed by one git repository. It holds your agents, skills, memory and connector settings. Kortix does not create one for you.
+A workspace is backed by one git repository. It holds your agents, skills, memory and connector settings. Dosco does not create one for you.
 
 <Steps>
 <Step title="Open Create a workspace">
@@ -78,10 +78,10 @@ On the workspaces page, select **Create workspace**. From inside a workspace, op
 Type a **Workspace name**.
 </Step>
 <Step title="Choose where the repository lives">
-Under **Git account**, choose **Kortix managed** for the simplest start: Kortix creates and manages a private repository for you. If your company uses GitHub, pick your GitHub account instead.
+Under **Git account**, choose **Dosco managed** for the simplest start: Dosco creates and manages a private repository for you. If your company uses GitHub, pick your GitHub account instead.
 </Step>
 <Step title="Create it">
-Click **Create workspace**. The workspace starts with My Kortix, a general-purpose agent called `worker`, and a set of ready-made skills.
+Click **Create workspace**. The workspace starts with Xera, a general-purpose agent called Worker (`worker`), and a set of ready-made skills.
 </Step>
 </Steps>
 
@@ -104,13 +104,13 @@ The side panel shows the agent's plan and outputs. If the agent changed files in
 </Step>
 </Steps>
 
-On the Free plan, a session needs a model that you connect: your own provider key or a ChatGPT subscription. The Credits plan and Enterprise can also use Kortix-managed models. See [Models](/docs/guide#models).
+On the Free plan, a session needs a model that you connect: your own provider key or a ChatGPT subscription. The Credits plan and Enterprise can also use Dosco-managed models. See [Models](/docs/guide#models).
 
 <a id="connect-your-first-tool" />
 
 ### Connect your first app
 
-Agents become more useful when they can reach the apps your team uses. A connector gives them that access under your rules. The login stays on the Kortix server and never enters the agent's computer.
+Agents become more useful when they can reach the apps your team uses. A connector gives them that access under your rules. The login stays on the Dosco server and never enters the agent's computer.
 
 <Steps>
 <Step title="Open Connectors">
@@ -162,7 +162,7 @@ Roles and groups are described in [People and access](/docs/guide#teams).
 
 ### Notifications
 
-Kortix tells you when something needs you or is done:
+Dosco tells you when something needs you or is done:
 
 - A session you started, prompted or follow finishes, fails, asks you a question or asks for a permission.
 - Someone shares a session with you.
@@ -172,7 +172,7 @@ Kortix tells you when something needs you or is done:
 
 Every notification lands in your **Inbox**: select **Inbox** in the sidebar, or search for it with `Cmd+K`. **Needs you** lists what waits for your answer; **Done** lists the rest. Select a notification to open it. **Mark all as read** clears the count.
 
-Kortix also sends a push to your phone and to this browser. Select **Turn on** in the Inbox to get them while every Kortix tab is closed. When you have the session open, its notifications arrive already read.
+Dosco also sends a push to your phone and to this browser. Select **Turn on** in the Inbox to get them while every Dosco tab is closed. When you have the session open, its notifications arrive already read.
 
 Email is off for most kinds until you turn it on. A failing App, a paused trigger and a capture computer that stopped are emailed by default. Choose push and email per kind in **Settings** → **Notifications**.
 
@@ -182,55 +182,55 @@ The desktop app (macOS, Windows, Linux) and the mobile app (iPhone, iPad, Androi
 
 ## Agents
 
-<video src="/media/guide/agents.mp4" aria-label="Agents in Kortix: the agent list, an agent's instructions, adding an agent" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/agents.mp4" aria-label="Agents in Dosco: the agent list, an agent's instructions, adding an agent" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
-An agent is a set of instructions, a model and a list of what it may use. The instructions say what the agent does, how, and what it must never do. Every session runs one agent. Kortix agents run on pi, an open-source agent harness, and developers can extend them with pi extensions.
+An agent is a set of instructions, a model and a list of what it may use. The instructions say what the agent does, how, and what it must never do. Every session runs one agent. Dosco agents run on pi, an open-source agent harness, and developers can extend them with pi extensions.
 
 ### What an agent is made of
 
 An agent has two halves:
 
 - **Behavior.** Its instructions, its model, and its rules for which tools it may use freely, use after asking, or never use.
-- **Access.** The connectors, secrets, skills, Apps, Kortix permissions and workspace repository it may use.
+- **Access.** The connectors, secrets, skills, Apps, Dosco permissions and workspace repository it may use.
 
 Access is denied by default. An agent gets no connector, secret, skill, App or workspace repository until you grant it.
 
 ### The built-in agent
 
-**My Kortix** is the agent you talk to. A session that names no agent runs it. My Kortix hands each task to the workspace agent made for it and acts with your permissions.
+**Xera** is the agent you talk to. A session that names no agent runs it. Xera hands each task to the workspace agent made for it and acts with your permissions.
 
-- **It has your rights and no more.** In this workspace, My Kortix can do what your role allows: create and change agents, connectors, schedules and people. When your role does not allow something, it says so and names the people who can grant it.
+- **It has your rights and no more.** In this workspace, Xera can do what your role allows: create and change agents, connectors, schedules and people. When your role does not allow something, it says so and names the people who can grant it.
 - **It asks first** before an action that affects other people (an invitation, a role change), deletes something, or gives an agent more access. It shows what changes, before and after.
 - **It hands off the work.** Writing, research, code and anything that uses a connected app go to the agent made for the job, each in its own session. Open that session from its card in your session.
 - **Each action is a card** that shows what it did, what changed, and a link to the page where you see the change.
 - **Workspace settings stay with you.** Billing, the workspace's members and other workspaces are out of its reach. It tells you where to click.
 
-Every new workspace also has one workspace agent, `worker`. It is the general-purpose agent that My Kortix hands work to when no other agent fits. It may use every connector, secret, skill and Kortix permission in the workspace, and it works on a copy of the workspace's repository. Edit its instructions to fit your company. A workspace created before `worker` existed has an agent called `kortix` instead.
+Every new workspace also has one workspace agent, `worker`. It is the general-purpose agent that Xera hands work to when no other agent fits. It may use every connector, secret, skill and Dosco permission in the workspace, and it works on a copy of the workspace's repository. Edit its instructions to fit your company. A workspace created before `worker` existed has an agent called `kortix` instead.
 
-My Kortix is on when the workspace's `kortix.yaml` sets `builtin_agents.my_kortix: true`, as every new workspace does.
+Xera is on when the workspace's `kortix.yaml` sets `builtin_agents.my_kortix: true`, as every new workspace does.
 
 ### Several agents at once
 
-My Kortix runs your work in the background while you keep talking to it. Ask for three things in a row, and three agents work on them at the same time. Each task runs in its own session, listed under your session in the sidebar. My Kortix answers at once with the agent it chose, and tells you the outcome when the agent finishes, with a link to the work. A **Worker complete** or **Worker failed** card opens that session.
+Xera runs your work in the background while you keep talking to it. Ask for three things in a row, and three agents work on them at the same time. Each task runs in its own session, listed under your session in the sidebar. Xera answers at once with the agent it chose, and tells you the outcome when the agent finishes, with a link to the work. A **Worker complete** or **Worker failed** card opens that session.
 
-To steer the work, tell My Kortix what you want:
+To steer the work, tell Xera what you want:
 
 | You say | What happens |
 | --- | --- |
-| "How's the post writer doing?" | My Kortix tells you the current state without waiting for the end. |
+| "How's the post writer doing?" | Xera tells you the current state without waiting for the end. |
 | "Tell the post writer to keep it under 500 words." | That agent gets the message. |
 | "Stop the research." | That agent stops. |
-| "Ask the post writer to add a summary too." | The same agent continues in its own session, with everything it already knows. My Kortix starts a new agent only for separate work. |
+| "Ask the post writer to add a summary too." | The same agent continues in its own session, with everything it already knows. Xera starts a new agent only for separate work. |
 | "Tell the session working on the pricing page that the copy is approved." | That session gets the message. Type `@` to pick a session by name. |
 | "Tell me when it's done." | You get one notice when that session finishes. |
 
-When work waits on someone else, such as replies to emails an agent sent, the agent sets its own check-ins and My Kortix tells you what each check found. See [Loops](#reminders).
+When work waits on someone else, such as replies to emails an agent sent, the agent sets its own check-ins and Xera tells you what each check found. See [Loops](#reminders).
 
 **Messages from other sessions.** A message from another session shows as one line, for example **Message from @reviewer**. It never approves anything for you. To decide on each message yourself, set the session to **Hold messages**: each message then waits 5 minutes for your **Approve** or **Deny**. **Refuse messages** turns them all away.
 
-**Workflows.** For a big job, such as checking every page of a website, My Kortix proposes a workflow: a plan that runs many agents at once. You approve it first. Its card shows each agent's progress and has **Pause**, **Restart**, **Stop** and **Save**. To ask for a workflow, write `ultracode` in your message. One workflow runs at most 50 agents, 8 at a time, for at most 2 hours. A workflow with more than 25 agents shows **Large workflow**.
+**Workflows.** For a big job, such as checking every page of a website, Xera proposes a workflow: a plan that runs many agents at once. You approve it first. Its card shows each agent's progress and has **Pause**, **Restart**, **Stop** and **Save**. To ask for a workflow, write `ultracode` in your message. One workflow runs at most 50 agents, 8 at a time, for at most 2 hours. A workflow with more than 25 agents shows **Large workflow**.
 
-**Helpers for one job.** You can ask for a helper with its own instructions, a faster or a stronger model, or read-only access: "have a fast model read these 40 pages, and the strongest one write the summary." My Kortix sets it up for this job only and changes no agent. A new tool or extension is a change to the workspace: an agent proposes it, and it works after you approve it.
+**Helpers for one job.** You can ask for a helper with its own instructions, a faster or a stronger model, or read-only access: "have a fast model read these 40 pages, and the strongest one write the summary." Xera sets it up for this job only and changes no agent. A new tool or extension is a change to the workspace: an agent proposes it, and it works after you approve it.
 
 **Agent teams.** A team is a group of agents that share one to-do list and talk to each other. Ask for one: "Start a team of three: one researches, one writes, one checks the facts." The lead splits the work into items, each teammate takes the next free item, and the lead puts the answers together for you. Each teammate runs one of your agents, and its role applies to its own session only: no agent is created or changed, and the team is not saved. Agent teams are experimental and off by default. Turn them on in **Workspace admin** → **Feature flags** → **Agent teams**.
 
@@ -249,7 +249,7 @@ Select **Customize** in the sidebar, then **Agents** → **New**.
 Open the agent and edit its **Basics** and **Model**. The instructions say what the agent does, how, and what it must never do.
 </Step>
 <Step title="Give it access">
-Under **Access**, turn on what the job needs: **Skills**, **Connectors**, **Secrets**, **Apps** and **Kortix permissions**. If the agent works on the workspace's files, also turn on **Workspace repository access** on its **Workspace** page.
+Under **Access**, turn on what the job needs: **Skills**, **Connectors**, **Secrets**, **Apps** and **Dosco permissions**. If the agent works on the workspace's files, also turn on **Workspace repository access** on its **Workspace** page.
 </Step>
 <Step title="Assign it to people">
 On the agent's **People** page, choose who may run it.
@@ -296,11 +296,11 @@ Each turn runs the command once, in the session's computer:
 | **Input** | The message, on standard input and as JSON in the file named by `$KORTIX_EVENT_PATH` (`prompt`, `agent`, `session_id`). A trigger with no `prompt` sends its whole payload as JSON: the webhook body, the event, or the schedule details, plus the trigger's `payload`. |
 | **Parameters** | Fixed for the agent: arguments in `run`. Per trigger: `run.payload`, merged into the input (the fire's own keys win). Credentials: `secrets`, as environment variables. |
 | **Reply** | What the command prints. It renders as Markdown, like a model's reply. |
-| **Failure** | A non-zero exit fails the turn and shows the end of the error output. Kortix does not run a failed command again. |
+| **Failure** | A non-zero exit fails the turn and shows the end of the error output. Dosco does not run a failed command again. |
 | **Time limit** | `timeout`, from `1s` to `6h`. Default `30m`. A run that takes longer is stopped and the turn fails. |
 | **Stop** | **Stop** ends the command and everything it started. |
 | **Folder** | The agent's first `workspace.repos` path, else `/workspace`. The command waits until `workspace.setup` is done. |
-| **Kortix access** | The computer holds the agent's own token: `createKortix({ backendUrl: process.env.KORTIX_API_URL, getToken: async () => process.env.KORTIX_TOKEN })` from `@kortix/sdk` acts as the agent. |
+| **Dosco access** | The computer holds the agent's own token: `createKortix({ backendUrl: process.env.KORTIX_API_URL, getToken: async () => process.env.KORTIX_TOKEN })` from `@kortix/sdk` acts as the agent. |
 
 Each fire with the default `session: fresh` starts a new computer and runs `workspace.setup` again. For a frequent trigger, `session: reuse` keeps one session: its computer resumes with the dependencies already installed.
 
@@ -314,15 +314,15 @@ A program agent has no model, so it cannot take `model`, `prompt` or `prompt_fil
 | **Secrets** | Encrypted credentials, such as an API key. |
 | **Skills** | The procedures the agent may load. |
 | **Apps** | The workspace's Apps whose access is restricted or private. |
-| **Kortix permissions** | Actions in Kortix itself, such as starting sessions or merging changes. |
+| **Dosco permissions** | Actions in Dosco itself, such as starting sessions or merging changes. |
 | **Workspace repository access** | The right to clone the workspace's repository into the session's computer with `kortix workspaces clone`, on the session's own branch. `/workspace` starts empty. In `kortix.yaml` this is `workspace.gitops.read` in `kortix_permissions`; `worker` has it. |
-| **Tools** | Built-in abilities such as web search, image search, image generation, reading web pages and workspace memory. See [Kortix tools](/docs/developers#kortix-tools). |
+| **Tools** | Built-in abilities such as web search, image search, image generation, reading web pages and workspace memory. See [Dosco tools](/docs/developers#kortix-tools). |
 
-**An agent acts as itself, not as you.** Kortix gives each agent its own identity in each workspace, so the agent does the same thing whoever runs it. Your role does not lend it extra power.
+**An agent acts as itself, not as you.** Dosco gives each agent its own identity in each workspace, so the agent does the same thing whoever runs it. Your role does not lend it extra power.
 
 **Your personal accounts stay personal.** A personal connector account, a personal secret or your own computer reaches a session only when the session is private and runs on your behalf. A shared session or a scheduled run reaches none of them.
 
-To see exactly what an agent may do, open its **Kortix permissions** page: the **What this agent can do** panel lists it.
+To see exactly what an agent may do, open its **Dosco permissions** page: the **What this agent can do** panel lists it.
 
 ### How an agent asks before risky actions
 
@@ -339,18 +339,18 @@ Connectors can hold actions for approval too. A connector rule can hold an actio
 Changes to the workspace itself go through review as well. When an agent changes a skill, its memory or another agent, it opens a change request. A person reviews it on the **Review** page and selects **Ship it** to merge it.
 
 <Callout type="warning">
-`worker` holds every Kortix permission, so it is allowed to merge its own change requests. Its standing instructions tell it to merge only when you ask. To require a person every time, remove the merge permission from the agent's **Kortix permissions**.
+`worker` holds every Dosco permission, so it is allowed to merge its own change requests. Its standing instructions tell it to merge only when you ask. To require a person every time, remove the merge permission from the agent's **Dosco permissions**.
 </Callout>
 
 ### When kortix.yaml has a problem
 
-`kortix.yaml` can contain a mistake, such as a misspelled key or a skill that is not registered. The workspace then shows a banner that lists the problems. Select **Fix with My Kortix**: My Kortix fixes the file and opens a change request for you to review. If My Kortix is off, the button reads **Fix in a new session**. Every session's agent also gets the list, so you can ask any agent to fix it.
+`kortix.yaml` can contain a mistake, such as a misspelled key or a skill that is not registered. The workspace then shows a banner that lists the problems. Select **Fix with Xera**: Xera fixes the file and opens a change request for you to review. If Xera is off, the button reads **Fix in a new session**. Every session's agent also gets the list, so you can ask any agent to fix it.
 
-The workspace keeps running while the file has a mistake. Kortix turns off only the broken part, such as one agent or one trigger, and never gives an agent more access than the file grants. When the mistake is in a part that the whole workspace depends on, only My Kortix runs until the file is fixed. The rules are in the [kortix.yaml reference](/docs/developers#when-kortixyaml-has-a-problem).
+The workspace keeps running while the file has a mistake. Dosco turns off only the broken part, such as one agent or one trigger, and never gives an agent more access than the file grants. When the mistake is in a part that the whole workspace depends on, only Xera runs until the file is fixed. The rules are in the [kortix.yaml reference](/docs/developers#when-kortixyaml-has-a-problem).
 
 ## Skills
 
-<video src="/media/guide/skills.mp4" aria-label="Skills in Kortix: the skill list and one skill opened" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/skills.mp4" aria-label="Skills in Dosco: the skill list and one skill opened" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
 A skill is a Markdown file that tells an agent how to do one task, step by step. Skills hold how your company does things, so agents do a task the same way every time. An agent loads a skill only when the task matches the skill's description.
 
@@ -365,9 +365,9 @@ A skill is a Markdown file that tells an agent how to do one task, step by step.
 
 A new workspace includes ready-made skills for documents, spreadsheets, PDFs, presentations, design, websites, web apps, publishing, browsing the web, and converting documents to Markdown.
 
-Kortix also adds system skills to every workspace. They teach agents how to use Kortix itself, for example its memory, connectors and Apps. You cannot change or remove them. An agent loads them only when it has access to them, like any other skill.
+Dosco also adds system skills to every workspace. They teach agents how to use Dosco itself, for example its memory, connectors and Apps. You cannot change or remove them. An agent loads them only when it has access to them, like any other skill.
 
-More skills are in the [marketplace](https://kortix.com/marketplace). Installing one starts a session that adds the skill to your workspace and opens a change request for you to review.
+More skills are in the [marketplace](https://dosco.live/marketplace). Installing one starts a session that adds the skill to your workspace and opens a change request for you to review.
 
 ### Add a skill
 
@@ -411,9 +411,9 @@ You can also add a reflection agent: an agent that a schedule runs to review rec
 
 ## Apps
 
-<video src="/media/guide/apps.mp4" aria-label="Apps in Kortix: the Apps page and adding an App" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/apps.mp4" aria-label="Apps in Dosco: the Apps page and adding an App" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
-An App is a website, an internal tool or a backend that your workspace hosts on Kortix. An agent builds and deploys it from a session. Each App has one stable URL, a setting for who may open it, and numbered releases. Kortix signs people in before your App runs, so a private App needs no login code of its own.
+An App is a website, an internal tool or a backend that your workspace hosts on Dosco. An agent builds and deploys it from a session. Each App has one stable URL, a setting for who may open it, and numbered releases. Dosco signs people in before your App runs, so a private App needs no login code of its own.
 
 ### How it works
 
@@ -437,14 +437,14 @@ Workspace managers, workspace owners and workspace admins can open every App in 
 
 An App that runs a server runs in one of two modes:
 
-- **Always on.** It runs around the clock, and Kortix restarts it when it stops. Use it for live updates, background work and databases.
+- **Always on.** It runs around the clock, and Dosco restarts it when it stops. Use it for live updates, background work and databases.
 - **On demand.** It stops after a quiet period, and the next visitor or trigger wakes it. A stopped App uses no compute.
 
 A new App is always on. A static App has no server, so neither mode applies.
 
 #### Releases and rollback
 
-Each deploy creates a new numbered release, and a release never changes. If a new release fails its checks, visitors keep the previous one. A rollback creates a new release from an older one. It changes the code and settings, never the App's stored data. Kortix also takes a daily snapshot of an App's stored data.
+Each deploy creates a new numbered release, and a release never changes. If a new release fails its checks, visitors keep the previous one. A rollback creates a new release from an older one. It changes the code and settings, never the App's stored data. Dosco also takes a daily snapshot of an App's stored data.
 
 ### Set it up
 
@@ -456,7 +456,7 @@ Start a session and say what you need: who uses it, what it shows, and what data
 The agent builds the App on its cloud computer and deploys it. A new App is private: only you can open it.
 </Step>
 <Step title="Open it and check it">
-Open the App from **Apps** in the workspace sidebar, in a browser where you are signed in to Kortix.
+Open the App from **Apps** in the workspace sidebar, in a browser where you are signed in to Dosco.
 </Step>
 <Step title="Share it">
 Set who may open it, for example the whole workspace or a group, and send people the link.
@@ -467,7 +467,7 @@ A tool that runs somewhere else can be listed on the Apps page too. An agent add
 
 ## Drive
 
-<video src="/media/guide/drive.mp4" aria-label="Drive in Kortix: My files and the New menu" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/drive.mp4" aria-label="Drive in Dosco: My files and the New menu" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
 Drive holds files that outlive a session. Every person has their own folder, **My files**. When an agent makes a file for you, it saves it there, and what agents remember about you lives there too. Open **Drive** in the sidebar to browse, upload and edit your files.
 
@@ -479,7 +479,7 @@ Drive holds files that outlive a session. Every person has their own folder, **M
 - **Search.** `kortix search <words>` finds files by name and by text in every folder you may open, including folders a session did not open. In a session, it searches the folders that session may use.
 - **Large files.** Drive takes a file of any size, up to the workspace's storage limit: in the web app, with `kortix drive put <local> <path>`, or through the API. A file over 64 MiB uploads in 1 MiB blocks, and only the blocks that Drive does not have yet are sent. The file appears when its last block arrives.
 
-Every workspace has a Drive. Its files are stored on Platinum, where sessions run.
+Every workspace has a Drive. Its files are stored in Cloud storage (`Supabase Storage`), encrypted at rest and mounted in each isolated E2B session.
 
 ### Memory
 
@@ -490,9 +490,9 @@ Memory is Markdown files in Drive: facts about you, your work, your conventions 
 | `Memory` in **My files** | Only you and your sessions. Each agent keeps its notes about you in its own subfolder. |
 | `Memory` in a channel's folder | The channel's members. Channels are experimental and off by default. |
 
-Agents read and write Memory files through the folders their session opens. Kortix does not paste memory into every prompt: a system skill tells each agent to read memory at the start of a task.
+Agents read and write Memory files through the folders their session opens. Dosco does not paste memory into every prompt: a system skill tells each agent to read memory at the start of a task.
 
-**My Kortix remembers you.** Tell My Kortix "remember that I like short replies", or correct how it works, and it saves one short page about it. Say "forget that I work on the launch", and it deletes the page. It confirms in one line, for example "Noted: you like replies short." My Kortix reads these pages at the start of every session in this workspace. They are in **My files**, under `Memory/mykortix`, and only you see them. Ask "what do you remember about me?" to see them.
+**Xera remembers you.** Tell Xera "remember that I like short replies", or correct how it works, and it saves one short page about it. Say "forget that I work on the launch", and it deletes the page. It confirms in one line, for example "Noted: you like replies short." Xera reads these pages at the start of every session in this workspace. They are in **My files**, under `Memory/mykortix`, and only you see them. Ask "what do you remember about me?" to see them.
 
 The workspace repository can hold memory too: a `memory/` folder with `MEMORY.md` as its index, for what the workspace is and how it works. Agents edit it with their file tools, and every edit lands through a change request.
 
@@ -507,11 +507,11 @@ Besides Drive, two places hold a session's files:
 | Place | What it holds |
 | --- | --- |
 | Your workspace's repository | What the agent committed. Open it from **Customize** → **Repo**. |
-| Session attachments | Files people attached, and copies of files the agent showed you. Kortix saves them at the end of every turn, so you can download them while the session sleeps. |
+| Session attachments | Files people attached, and copies of files the agent showed you. Dosco saves them at the end of every turn, so you can download them while the session sleeps. |
 
 On the session's own computer, only `/workspace` and `/drives` are kept. See [What is kept](#what-is-kept).
 
-When you delete a session, Kortix keeps its messages and its stored files for 30 days, so you can restore it.
+When you delete a session, Dosco keeps its messages and its stored files for 30 days, so you can restore it.
 
 ## Artifacts
 
@@ -522,7 +522,7 @@ Artifacts are on in every project.
 ### What an Artifact is
 
 - **A doc** is a folder in Drive with an `index.md`. It opens in an editor. It saves itself 2 seconds after you stop typing, and every save is a version. When someone else saves the doc while you edit it, autosave stops and you pick **Reload** or **Keep mine**. **Export as PDF** prints it.
-- **A page** is a folder with an `index.html` and its files: styles, scripts, images. It opens in a sandbox: its scripts run, but they cannot reach Kortix or your account.
+- **A page** is a folder with an `index.html` and its files: styles, scripts, images. It opens in a sandbox: its scripts run, but they cannot reach Dosco or your account.
 - **Where it lives.** A new Artifact is a folder under `Artifacts` in **My files**. An agent can also share a folder that is already in Drive. **Stop sharing** removes the Artifact and its links. Its files stay in Drive.
 - **Who sees it.** **Private** (only you and the people you add), **Workspace** (everyone in the workspace) or **Public** (anyone with the link, without signing in). Its creator and workspace managers change it with **Share**. To edit an Artifact, you need write access to its folder in Drive.
 - **Versions.** **History**, the clock button in the header, lists the saves by day. Saves less than 5 minutes apart show as one row. Open a save to read it. **Restore** writes it back as a new save.
@@ -540,9 +540,9 @@ Agents publish and save Artifacts from the command line. The full list is in [Ar
 
 ## Connectors
 
-<video src="/media/guide/connectors.mp4" aria-label="Connectors in Kortix: the catalog and the approval rules" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/connectors.mp4" aria-label="Connectors in Dosco: the catalog and the approval rules" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
-A connector gives agents access to one outside app, such as Gmail, Linear, Notion or Stripe. Kortix stores the login, picks the account for each call, applies your rules and records every call. The login never enters the agent's computer.
+A connector gives agents access to one outside app, such as Gmail, Linear, Notion or Stripe. Dosco stores the login, picks the account for each call, applies your rules and records every call. The login never enters the agent's computer.
 
 ### How it works
 
@@ -550,7 +550,7 @@ A connector call involves three things:
 
 | Part | Decides | Example |
 | --- | --- | --- |
-| **Connector** | How Kortix reaches the app. | Linear, through its own server |
+| **Connector** | How Dosco reaches the app. | Linear, through its own server |
 | **Account** | Whose login the call uses. | The team inbox, or your own inbox |
 | **Rules** | What the agent may do in the app. | Read only, for the support agent |
 
@@ -599,7 +599,7 @@ Every action follows one of three rules:
 
 You can also mark a whole connector as sensitive. Then every action without its own rule needs approval, reads included. A workspace can also use a careful default: reads run, and writes or deletions wait for approval.
 
-The source of each action says whether it is a read: the HTTP method, the GraphQL operation, or the MCP server's own annotation. Composio and Pipedream apps say nothing, so Kortix counts an action as a read only when its name starts with a read verb (`list_`, `get_`, `fetch_`, `search_`) and neither its name nor its description names a change (send, create, update, delete, modify, move). Every other action counts as a write.
+The source of each action says whether it is a read: the HTTP method, the GraphQL operation, or the MCP server's own annotation. Composio and Pipedream apps say nothing, so Dosco counts an action as a read only when its name starts with a read verb (`list_`, `get_`, `fetch_`, `search_`) and neither its name nor its description names a change (send, create, update, delete, modify, move). Every other action counts as a write.
 
 #### Approving a held action
 
@@ -611,34 +611,34 @@ Open **Review** → **Needs you**, follow the approval link, or use the approval
 The page shows what the app will receive, with private values hidden.
 </Step>
 <Step title="Decide">
-Choose **Approve** or **Deny**, with an optional note to the agent. **Approve** runs the action once, as the agent that asked, and Kortix resumes the agent with the result.
+Choose **Approve** or **Deny**, with an optional note to the agent. **Approve** runs the action once, as the agent that asked, and Dosco resumes the agent with the result.
 </Step>
 </Steps>
 
 - An approval covers one exact action. If a detail changes, the action needs a new approval.
-- An approved action runs once, and the agent does not send it again. Kortix checks the workspace's rules again when it runs the action, so a **Block** rule still wins.
+- An approved action runs once, and the agent does not send it again. Dosco checks the workspace's rules again when it runs the action, so a **Block** rule still wins.
 - A workspace manager, or the person who started the session, decides.
 - A held action expires when nobody decides within 24 hours, unless your workspace sets another time.
 - There is no "approve everything in this session". An action that must run unattended needs an **Allow** rule.
 - A script that signs in with a workspace token gets the same treatment: **Approve** runs its call, and the script reads the outcome. A script with any other token must send the same call again within 15 minutes after the approval.
 
-### Use Kortix from Claude, ChatGPT or Cursor
+### Use Dosco from Claude, ChatGPT or Cursor
 
-Connectors also work the other way round: your AI tool can start Kortix sessions, read their results and call your connectors through Kortix, with your permissions. See [Other AI tools (MCP)](/docs/guide#other-ai-tools-mcp).
+Connectors also work the other way round: your AI tool can start Dosco sessions, read their results and call your connectors through Dosco, with your permissions. See [Other AI tools (MCP)](/docs/guide#other-ai-tools-mcp).
 
 ## Triggers
 
 {/* The section was "Automations" until 2026-10-28; published links name #automations. */}
 <a id="automations" />
 
-<video src="/media/guide/automations.mp4" aria-label="Triggers in Kortix: creating a daily scheduled trigger" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/automations.mp4" aria-label="Triggers in Dosco: creating a daily scheduled trigger" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
 A trigger starts agent work with nobody at the keyboard. It has two parts: a **source**, which decides when it fires, and a **target**, which decides what a fire does.
 
 | Source | Fires when | Good for |
 | --- | --- | --- |
 | **Schedule** | A time arrives, or a fixed period passes (`cron`, `every`, `at`, `in`). | Daily reports, weekly reviews, regular checks. |
-| **App event** | One of your own Kortix Apps reports something. | Sources that fit none of the others. See [Apps](/docs/guide#apps). |
+| **App event** | One of your own Apps reports something. | Sources that fit none of the others. See [Apps](/docs/guide#apps). |
 | **Connector event** | Something happens in a connected app. | New issues, new messages, new orders. |
 | **Webhook** | Another system sends a signed request to the trigger's address. | Form tools, payment systems, code hosts. |
 | **Change request merged** | A change request of the workspace merges, into one branch or any branch. | Release notes, a check after a deploy. |
@@ -650,7 +650,7 @@ Connector events are experimental and off by default. Turn them on in **Workspac
 | **Agent** | Starts a new session of that agent, on its own cloud computer. | A trigger |
 | **Session** | Wakes one session that already exists, with its full history. | A loop |
 
-Any source works with either target. To react to something outside Kortix, use a webhook when the other system can send one. Otherwise, use a schedule that checks it.
+Any source works with either target. To react to something outside Dosco, use a webhook when the other system can send one. Otherwise, use a schedule that checks it.
 
 A trigger lives in one of two places:
 
@@ -661,7 +661,7 @@ A trigger lives in one of two places:
 
 ### What happens when a trigger fires
 
-1. Kortix fills in your instruction with the details of the event, such as fields from the webhook's request.
+1. Dosco fills in your instruction with the details of the event, such as fields from the webhook's request.
 2. It starts a new session, with your chosen agent and model, on its own cloud computer.
 3. The agent does the work, using the connectors it may use.
 4. The **Triggers** page shows the trigger's last run and its status, and the session appears in your lists.
@@ -740,7 +740,7 @@ To watch something around the clock, such as a status page or a price, an agent 
 
 ## Computers
 
-<video src="/media/guide/computers.mp4" aria-label="Computers in Kortix: connecting your own computer" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/computers.mp4" aria-label="Computers in Dosco: connecting your own computer" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
 Every session runs on its own isolated cloud computer with the workspace's files, a terminal, a browser, Python, Node.js and document tools. You can also connect your own computer, for work that needs it. Your computer itself decides what agents may do on it.
 
@@ -748,7 +748,7 @@ Every session runs on its own isolated cloud computer with the workspace's files
 
 <Steps>
 <Step title="You start a session">
-Kortix gives the session its own branch of your workspace and starts a cloud computer for it. An agent with **Workspace repository access**, such as `worker`, gets a copy of the repository in `/workspace`.
+Dosco gives the session its own branch of your workspace and starts a cloud computer for it. An agent with **Workspace repository access**, such as `worker`, gets a copy of the repository in `/workspace`.
 </Step>
 <Step title="The agent works on its computer">
 The agent reads your workspace, runs commands, browses the web and writes files. It saves its work to the session's own branch.
@@ -757,7 +757,7 @@ The agent reads your workspace, runs commands, browses the web and writes files.
 When the agent changes the workspace, it opens a change request. A person reviews it and merges it.
 </Step>
 <Step title="The computer sleeps when idle">
-About 15 to 20 minutes after the last turn, Kortix stops the computer. It keeps `/workspace`, the branch and the session's messages. A new message or a preview request wakes it.
+About 15 to 20 minutes after the last turn, Dosco stops the computer. It keeps `/workspace`, the branch and the session's messages. A new message or a preview request wakes it.
 </Step>
 </Steps>
 
@@ -775,15 +775,15 @@ An agent can set this up for you. Ask it to install a program for good: it insta
 
 #### Previews
 
-Any website or tool that the agent starts on its computer can be opened from outside it. The preview panel of the session page offers common ports, such as **App preview** and **Frontend preview**, plus any other port. A preview asks you to sign in to Kortix first. To show a preview to someone outside Kortix, the session owner creates a public link.
+Any website or tool that the agent starts on its computer can be opened from outside it. The preview panel of the session page offers common ports, such as **App preview** and **Frontend preview**, plus any other port. A preview asks you to sign in to Dosco first. To show a preview to someone outside Dosco, the session owner creates a public link.
 
 #### Desktop
 
-Sessions of your workspace's agents run on a computer with a desktop. Select **Desktop** in the session header to watch it live. My Kortix runs on a smaller computer without a desktop, so its sessions have no **Desktop** button: it hands browsing to your agents' sessions.
+Sessions of your workspace's agents run on a computer with a desktop. Select **Desktop** in the session header to watch it live. Xera runs on a smaller computer without a desktop, so its sessions have no **Desktop** button: it hands browsing to your agents' sessions.
 
 The desktop has one browser, and you share it with the agent. You see each page the agent visits, and the browser on the dock opens that same window with the same tabs and logins. The agent has control by default. Select **Take over** to click and type yourself, for example to sign in to a site for the agent, or to use the terminal or the file manager on the dock. Select **Return control** to hand control back. The desktop resizes to fit the panel. When it is open in more than one window, it fits the window where someone last clicked or typed, and the other windows show it scaled.
 
-You can ask the agent to put an app on its desktop, for example "install QGIS and open it on your desktop", and watch it in the panel. When you say "my desktop", the agent puts files in **My files**, which every session you start opens at `~/Desktop`, and puts programs on the session's desktop. When your own computer is connected to Kortix, the agent first asks which one you mean.
+You can ask the agent to put an app on its desktop, for example "install QGIS and open it on your desktop", and watch it in the panel. When you say "my desktop", the agent puts files in **My files**, which every session you start opens at `~/Desktop`, and puts programs on the session's desktop. When your own computer is connected to Dosco, the agent first asks which one you mean.
 
 A session on a custom sandbox template gets the desktop when the template's base image is Ubuntu 24.04.
 
@@ -800,7 +800,7 @@ sandbox:
 ```
 
 - Traffic through the residential address is billed per GB from your credits. It shows as **Residential proxy** in the credit history.
-- Kortix's own services and common package registries connect directly. That traffic is not billed as proxy traffic.
+- Dosco's own services and common package registries connect directly. That traffic is not billed as proxy traffic.
 - UDP is blocked while the proxy is on, so QUIC and WebRTC cannot reveal the computer's own address. Browsers and tools fall back to TCP.
 - Sessions on the template start only where your deployment offers a residential IP. Elsewhere they do not start: they never fall back to the computer's own address.
 - `{ country: us }` instead of `true` picks the country of the address. See the [kortix.yaml reference](/docs/developers#residential-ip).
@@ -827,7 +827,7 @@ Your computer is private by default. Only you use it, from your private sessions
 
 <Steps>
 <Step title="Start the connection">
-In the Kortix desktop app, select **Connect this computer** in the sidebar. A browser window opens the approval page.
+In the Dosco desktop app, select **Connect this computer** in the sidebar. A browser window opens the approval page.
 </Step>
 <Step title="Check the code and name the computer">
 Check that the code on the page matches the code on the computer. Give the computer a name, for example "Work laptop".
@@ -836,7 +836,7 @@ Check that the code on the page matches the code on the computer. Give the compu
 Keep **Only you**, or choose **Also share with** the current workspace.
 </Step>
 <Step title="Choose the capabilities and approve">
-Select **Filesystem**, **Shell**, **Computer Use**, or a mix. On macOS, select **Allow all** when asked, and give Kortix the permissions macOS requests.
+Select **Filesystem**, **Shell**, **Computer Use**, or a mix. On macOS, select **Allow all** when asked, and give Dosco the permissions macOS requests.
 </Step>
 </Steps>
 
@@ -860,25 +860,25 @@ Open **Customize** → **Connectors** → **Computers** → **Accounts** and sel
 
 ## Models
 
-<video src="/media/guide/models.mp4" aria-label="Models in Kortix: providers, a custom endpoint and costs" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/models.mp4" aria-label="Models in Dosco: providers, a custom endpoint and costs" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
-A model is the AI an agent runs on. You can use Kortix-managed models, your own provider keys, a ChatGPT subscription or a Claude subscription. Set a default for the workspace, pin a model to an agent, or pick one for a single session. Every model request goes through the Kortix LLM gateway, which applies budgets, access rules and cost reports.
+A model is the AI an agent runs on. You can use Dosco-managed models, your own provider keys, a ChatGPT subscription or a Claude subscription. Set a default for the workspace, pin a model to an agent, or pick one for a single session. Every model request goes through the Dosco LLM gateway, which applies budgets, access rules and cost reports.
 
 ### How it works
 
-#### Kortix-managed models
+#### Dosco-managed models
 
-Kortix-managed models need no key. They are the models that Platinum Inference offers. The model picker lists them under **Kortix**, with each model's context size and image support.
+Dosco-managed models need no key. They route through OpenRouter and Dosco-managed model providers, listed under **Dosco** with each model's context size and image support.
 
 - Managed models need the Credits plan or Enterprise. They are not available on Free.
 - Managed requests use credits from your workspace's wallet. See [Billing](/docs/guide#billing).
 - Managed models run only through inference providers with zero data retention.
 - The managed lineup has no OpenAI or Anthropic models. Use your own key or subscription for those.
-- A self-hosted Kortix has no managed models. Connect your own providers there.
+- Dedicated enterprise VPC deployments can restrict models to approved OpenRouter routes or your own provider keys.
 
 #### Your own keys and subscriptions
 
-When a request runs on your own key or subscription, your provider bills it. Every plan, Free included, can use your own key or a ChatGPT subscription. For the Kortix fee on your own keys, see [What uses credits](/docs/guide#what-uses-credits).
+When a request runs on your own key or subscription, your provider bills it. Every plan, Free included, can use your own key or a ChatGPT subscription. For the Dosco fee on your own keys, see [What uses credits](/docs/guide#what-uses-credits).
 
 A provider key belongs to the whole workspace.
 
@@ -886,14 +886,14 @@ A provider key belongs to the whole workspace.
 
 Connect a Claude Pro or Max plan, and Claude models run on it: **Claude Opus 5.5**, **Claude Fable 5.1**, **Claude Sonnet 5.5** and **Claude Haiku 5.5** (`claude-agent/opus`, `claude-agent/fable`, `claude-agent/sonnet`, `claude-agent/haiku`).
 
-- Each turn runs through Claude Code, Anthropic's own program, on the session's computer. Claude Code sends each model request to the Kortix LLM gateway, which adds the Claude account's login and forwards the request to Anthropic unchanged. The login never enters the session's computer. Claude requests use no credits.
+- Each turn runs through Claude Code, Anthropic's own program, on the session's computer. Claude Code sends each model request to the Dosco LLM gateway, which adds the Claude account's login and forwards the request to Anthropic unchanged. The login never enters the session's computer. Claude requests use no credits.
 - Everything else works as with any other model: the agent's tools, permissions, questions, subagents, skills and pi extensions, and the messages and tool calls the session shows.
 - You can switch between a Claude subscription model and any other model in the same session. The new model sees the whole session.
-- A Claude account works like a ChatGPT account. A new one is shared with everyone in the workspace when you may share workspace keys, and only you can use it otherwise; you can make it private or limit it to chosen members. A session uses the accounts selected for it, then your own, then one shared with the workspace. Triggers, channels and shared sessions run with no person, so they use only the shared ones. Kortix stores the login encrypted and never shows it again.
+- A Claude account works like a ChatGPT account. A new one is shared with everyone in the workspace when you may share workspace keys, and only you can use it otherwise; you can make it private or limit it to chosen members. A session uses the accounts selected for it, then your own, then one shared with the workspace. Triggers, channels and shared sessions run with no person, so they use only the shared ones. Dosco stores the login encrypted and never shows it again.
 - Your Claude plan sets the limits. When every Claude account the session may use reaches its limit, the workspace's [fallback models](/docs/guide#fallback-models) take over the turn, and the session moves to the model that answered. It moves back to Claude once an account has room again. A fallback model with a smaller context window than the session needs cannot take over. A workspace without fallback models ends the turn with "Your Claude subscription limit is reached" and the time it resets.
-- Claude Code features that Kortix has no version of do not apply: plan usage (`/usage`), auto mode and Claude Code's own skills.
+- Claude Code features that Dosco has no version of do not apply: plan usage (`/usage`), auto mode and Claude Code's own skills.
 
-**A ChatGPT subscription also generates images.** With a connected ChatGPT account, the `image_gen` tool can use `gpt-image-2` on your plan. ChatGPT sets its own image limit, separate from the chat limit, and reaching it does not pause the account for chat. An OpenAI, Google, xAI or OpenRouter key also generates images. Kortix-managed models do not generate images. See [Generate images](/docs/developers#generate-images).
+**A ChatGPT subscription also generates images.** With a connected ChatGPT account, the `image_gen` tool can use `gpt-image-2` on your plan. ChatGPT sets its own image limit, separate from the chat limit, and reaching it does not pause the account for chat. An OpenAI, Google, xAI or OpenRouter key also generates images. Dosco-managed models do not generate images. See [Generate images](/docs/developers#generate-images).
 
 #### Which model a session uses
 
@@ -915,7 +915,7 @@ On the Credits plan or Enterprise, a session runs on the platform default model.
 <Step title="Connect your own provider">
 Open **Customize** → **Models** → **Providers** and paste a key. For a ChatGPT subscription, choose **Use your ChatGPT subscription** in the model picker, then **Connect ChatGPT**.
 
-For a Claude subscription, open **Customize** → **Models** → **Providers** → **Anthropic**. Under **Claude accounts**, choose **Sign in with Claude**, name the account and choose who can use it. Approve Kortix on claude.com, paste the code that Claude shows you, and choose **Connect Claude**. The Claude models then appear in the model picker under **Claude subscription**. To share an account later, open its menu and choose **Manage access**. From a terminal, run `kortix providers login claude`. A token made with `claude setup-token` works too: pipe it to `kortix providers login claude --token-stdin`.
+For a Claude subscription, open **Customize** → **Models** → **Providers** → **Anthropic**. Under **Claude accounts**, choose **Sign in with Claude**, name the account and choose who can use it. Approve Dosco on claude.com, paste the code that Claude shows you, and choose **Connect Claude**. The Claude models then appear in the model picker under **Claude subscription**. To share an account later, open its menu and choose **Manage access**. From a terminal, run `kortix providers login claude`. A token made with `claude setup-token` works too: pipe it to `kortix providers login claude --token-stdin`.
 </Step>
 <Step title="Pick another model">
 Choose a model in the composer's model picker. A stopped session uses the new model when it starts again. Switching the model of a running session restarts the agent on its computer and ends the turn in progress.
@@ -929,7 +929,7 @@ Workspace owners, admins and workspace managers get an email at 80% and at 100% 
 
 #### Charges and estimated usage value
 
-**Costs** shows what Kortix charged. It also shows **LLM estimated usage value (not a bill)**: what the same requests would cost at the provider's list price. The estimate is never added to charges or budgets.
+**Costs** shows what Dosco charged. It also shows **LLM estimated usage value (not a bill)**: what the same requests would cost at the provider's list price. The estimate is never added to charges or budgets.
 
 - A ChatGPT subscription request has no charge, but it can have an estimate.
 - Only requests to `gpt-6.1-sol`, on an OpenAI key or a ChatGPT subscription, get an estimate. **Costs** counts the priced and the unpriced requests.
@@ -937,13 +937,13 @@ Workspace owners, admins and workspace managers get an email at 80% and at 100% 
 
 #### Fallback models
 
-Open **Customize** → **Models** → **Routing** to list up to 8 models that the gateway tries in order when a model fails. When a fallback model answers, the composer shows **Running on** and its name. A request on your own key moves to a Kortix-billed model only when your own fallback list names that model.
+Open **Customize** → **Models** → **Routing** to list up to 8 models that the gateway tries in order when a model fails. When a fallback model answers, the composer shows **Running on** and its name. A request on your own key moves to a Dosco-billed model only when your own fallback list names that model.
 
 The fallback list also takes over when the requested model is unknown or retired, and when every Claude account of a session is at its plan limit. Every successful gateway answer names the model you asked for (`x-kortix-requested-model`) and the model that answered (`x-kortix-model`). When they differ, a fallback model answered.
 
 ## Outcomes
 
-An outcome in Kortix is a **goal**: what you want, plus a definition of done. The agent assigned to it works on it, wake after wake, until a separate verifier session confirms that it is done.
+An outcome in Dosco is a **goal**: what you want, plus a definition of done. The agent assigned to it works on it, wake after wake, until a separate verifier session confirms that it is done.
 
 Goals are experimental and off by default. Turn them on in **Workspace admin** → **Feature flags** → **Goals**. Goals also need loops, which are on by default.
 
@@ -953,13 +953,13 @@ Three things work together:
 | --- | --- |
 | Agent | Who works on the goal. The agent's grants decide what the goal may touch. |
 | Loop or trigger | When work starts: the heartbeat, your answer, a merged change request. |
-| Goal | What done means. Kortix keeps the goal's state; the brief and the proof sit in a folder in Drive. |
+| Goal | What done means. Dosco keeps the goal's state; the brief and the proof sit in a folder in Drive. |
 
 ### How it works
 
 #### Where a goal lives
 
-Kortix keeps each goal as a record: its state, the pause, the owner and verifier sessions, the limits, and which criteria the verifier passed. Only Kortix changes that record, so an agent cannot mark its own goal done, pause it, or raise its own limits.
+Dosco keeps each goal as a record: its state, the pause, the owner and verifier sessions, the limits, and which criteria the verifier passed. Only Dosco changes that record, so an agent cannot mark its own goal done, pause it, or raise its own limits.
 
 Each goal also has a folder in Drive, `Goals/<slug>/` in **My files** of the person who started it:
 
@@ -986,7 +986,7 @@ The goal's page shows each person only the controls they may use.
 
 #### Pause and stop
 
-- **Pause** keeps the goal's state and starts no new turn until a person resumes it. A turn that is already running finishes, but Kortix refuses any change it tries to make to the goal.
+- **Pause** keeps the goal's state and starts no new turn until a person resumes it. A turn that is already running finishes, but Dosco refuses any change it tries to make to the goal.
 - **Resume** starts the heartbeat again and wakes the owner once.
 - **Stop** closes the goal: the heartbeat goes, and the owner's running turn is stopped. **Start again** reopens it in the same folder.
 
@@ -1013,7 +1013,7 @@ When only you can unblock the goal, it asks you and waits in **Waiting on you**.
 
 <a id="check" />
 
-The agent never judges its own work. When every criterion has its proof, Kortix starts a separate verifier session that did none of the work. The verifier checks each criterion and gives one result per criterion: pass, fail or inconclusive. Kortix accepts the verdict only from that session and only when it covers every current criterion. A pass on every criterion makes the goal done. Anything else sends it back to work, with the findings in `log.md`.
+The agent never judges its own work. When every criterion has its proof, Dosco starts a separate verifier session that did none of the work. The verifier checks each criterion and gives one result per criterion: pass, fail or inconclusive. Dosco accepts the verdict only from that session and only when it covers every current criterion. A pass on every criterion makes the goal done. Anything else sends it back to work, with the findings in `log.md`.
 
 On the goal's page a criterion shows as:
 
@@ -1027,7 +1027,7 @@ A goal grants no access of its own. An email, a Slack message or a connector cal
 
 #### Limits
 
-Kortix checks a goal's limits before each turn starts, so a stuck goal does not use up your credits: at most 12 wakes per UTC day and at most 10 sessions in total, by default. The goal's page shows the wakes used today and the sessions used. The agent cannot change these limits.
+Dosco checks a goal's limits before each turn starts, so a stuck goal does not use up your credits: at most 12 wakes per UTC day and at most 10 sessions in total, by default. The goal's page shows the wakes used today and the sessions used. The agent cannot change these limits.
 
 When a goal cannot go on by itself, its page says **Blocked**, why, and the next step:
 
@@ -1059,7 +1059,7 @@ Open **Goals** in the workspace sidebar. It lists every goal you can see: your o
 
 ## Channels
 
-Channels connect a workspace to Slack, Microsoft Teams, Telegram and Discord. People mention the Kortix bot with a task, and the agent replies in the same place, with live progress. Each channel decides who may talk to the bot: in Slack and Teams, each person links their Kortix account; in Telegram and Discord, the workspace keeps a list of allowed people.
+Channels connect a workspace to Slack, Microsoft Teams, Telegram and Discord. People mention the Dosco bot with a task, and the agent replies in the same place, with live progress. Each channel decides who may talk to the bot: in Slack and Teams, each person links their Dosco account; in Telegram and Discord, the workspace keeps a list of allowed people.
 
 ### Slack and Microsoft Teams
 
@@ -1070,9 +1070,9 @@ Channels connect a workspace to Slack, Microsoft Teams, Telegram and Discord. Pe
 - **In Slack, one thread is one session.** The first message in a thread starts the session, and later messages in the thread continue it.
 - **In a Slack channel, a mention starts the agent.** In the agent's thread, the person who started it keeps talking with plain replies. Anyone else mentions the bot to reach it; their other replies stay between people, and the agent reads them the next time it runs.
 - **In a direct message with the bot, every message reaches the agent.** That session is private to you. The bot's status line shows what the agent is doing.
-- **People link automatically.** A Slack member whose confirmed email matches a member of the Kortix workspace needs no `/kortix login`. A workspace that requires two-factor sign-in still asks for `/kortix login` from a session that passed it.
+- **People link automatically.** A Slack member whose confirmed email matches a member of the workspace needs no `/kortix login`. A workspace that requires two-factor sign-in still asks for `/kortix login` from a session that passed it.
 - **Private content follows the person.** The agent reads a private channel or DM only for someone who is in it. Public channels are open to every agent, as to every member.
-- **Each reply is signed by the agent.** The author is the agent's name and face, as in Kortix, not "Kortix". Every reply has **Switch agent**, which opens the channel's agent picker and changes the agent for the channel's next threads, and **Open in Kortix**, which opens the session.
+- **Each reply is signed by the agent.** The author is the agent's name and face, as in Dosco, not "Dosco". Every reply has **Switch agent**, which opens the channel's agent picker and changes the agent for the channel's next threads, and **Open in Dosco**, which opens the session.
 - **The agent moves through public channels on its own.** It joins a public channel when it needs to read one. A private channel needs a person to invite the bot.
 - **In Teams, each channel post is its own session.** A personal or group chat keeps one session until someone sends `/new`.
 
@@ -1080,11 +1080,11 @@ Channels connect a workspace to Slack, Microsoft Teams, Telegram and Discord. Pe
 
 <a id="each-person-is-their-own-account" />
 
-A Slack or Teams message carries no Kortix login, so each person links their Kortix account once: `/kortix login` in Slack, `/login` in Teams. Only you see the link. It works once and expires after 10 minutes.
+A Slack or Teams message carries no Dosco login, so each person links their Dosco account once: `/kortix login` in Slack, `/login` in Teams. Only you see the link. It works once and expires after 10 minutes.
 
 After that:
 
-- Kortix checks that the sender is a workspace member who may start sessions.
+- Dosco checks that the sender is a workspace member who may start sessions.
 - The agent acts with its own permissions, not with the sender's role.
 - Your private connector accounts reach only your direct messages with the bot, never a shared channel.
 - A person who is not in the workspace gets a card to request access. The workspace owners and admins receive the request.
@@ -1106,9 +1106,9 @@ Each channel has a join policy. It decides who may join a session that started t
 <a id="approvals-in-the-thread" />
 <a id="questions-in-the-thread" />
 
-When an agent asks for a decision, the card shows a title, a summary, a risk note and buttons such as **Approve** and **Deny**. Every card also has **View in Kortix**. When the agent wants to use a connector action that needs approval, the card shows what it will do. A workspace manager, or the person who started the session, selects **Approve** or **Deny**.
+When an agent asks for a decision, the card shows a title, a summary, a risk note and buttons such as **Approve** and **Deny**. Every card also has **View in Dosco**. When the agent wants to use a connector action that needs approval, the card shows what it will do. A workspace manager, or the person who started the session, selects **Approve** or **Deny**.
 
-When the agent asks a question, Kortix posts it with one button per option. In Teams, several questions, or a question with several answers, arrive as one form. You can also reply with an answer of your own.
+When the agent asks a question, Dosco posts it with one button per option. In Teams, several questions, or a question with several answers, arrive as one form. You can also reply with an answer of your own.
 
 - Every click and every form submission reaches the agent, also when several people answer.
 - The message then shows the answer and who gave it, in place of the buttons.
@@ -1119,10 +1119,10 @@ When the agent asks a question, Kortix posts it with one button per option. In T
 
 <Steps>
 <Step title="Connect Slack or Teams">
-Open **Customize** → **Connectors** and select the **Channels** scope. Select **Add to Slack**, or connect **Microsoft Teams**. For Teams, a tenant admin grants consent once, and the Kortix app appears in your organization's Teams catalog.
+Open **Customize** → **Connectors** and select the **Channels** scope. Select **Add to Slack**, or connect **Microsoft Teams**. For Teams, a tenant admin grants consent once, and the Dosco app appears in your organization's Teams catalog.
 </Step>
 <Step title="Add the bot">
-Invite the bot to a Slack channel, or add the Kortix app to a Teams chat or channel. A direct message with the bot needs no invitation.
+Invite the bot to a Slack channel, or add the Dosco app to a Teams chat or channel. A direct message with the bot needs no invitation.
 </Step>
 <Step title="Link your account">
 Send `/kortix login` in Slack or `/login` in Teams, open the link, and sign in. You do this once per Slack workspace or Teams tenant.
@@ -1132,7 +1132,7 @@ The agent replies in the thread, with live progress.
 </Step>
 </Steps>
 
-One Slack workspace runs in one Kortix workspace: every channel and DM there. Adding Kortix to Slack from another Kortix workspace moves the connection there, and the first workspace loses its Slack connector. `/kortix workspaces` in Slack says which workspace it runs in. A workspace that needs a separate bot in the same Slack workspace runs its own Slack app.
+One Slack workspace runs in one workspace: every channel and DM there. Adding Dosco to Slack from another workspace moves the connection there, and the first workspace loses its Slack connector. `/kortix workspaces` in Slack says which workspace it runs in. A workspace that needs a separate bot in the same Slack workspace runs its own Slack app.
 
 When one Teams tenant serves several workspaces, the first message in a new channel shows a workspace picker. The choice binds the channel to that workspace.
 
@@ -1147,7 +1147,7 @@ People message a Telegram bot that you create, and the agent answers in the Tele
 In Telegram, message **@BotFather**, send `/newbot`, and copy the token it gives you.
 </Step>
 <Step title="Connect it">
-Open **Customize** → **Connectors**, select the **Channels** scope, and select **Connect** on Telegram. Paste the **Bot token** and the **Allowed Telegram user ids**. Kortix keeps the token on the server.
+Open **Customize** → **Connectors**, select the **Channels** scope, and select **Connect** on Telegram. Paste the **Bot token** and the **Allowed Telegram user ids**. Dosco keeps the token on the server.
 </Step>
 <Step title="Message the bot">
 A message from an allowed person starts a session. Anyone else gets a reply that shows their Telegram user ID. When they write to the bot in a private chat, they also appear under **Allowed users** → **Wants access**, where a workspace manager allows them with one click or dismisses the request. You can also add a person by user ID.
@@ -1156,7 +1156,7 @@ A message from an allowed person starts a session. Anyone else gets a reply that
 
 **Who may use the bot.** Telegram has no account link: the allowed-user list decides who may talk to the bot, and only an allowed person's taps count. Every allowed person can run every command. In a group, every member sees the bot's replies, also members who are not allowed. A reply can show the workspace name, model IDs and a link to the session; the link opens only for people with access to the workspace.
 
-**Commands.** Commands run in Kortix, not in the agent:
+**Commands.** Commands run in Dosco, not in the agent:
 
 | Command | What it does |
 | --- | --- |
@@ -1173,31 +1173,31 @@ A message from an allowed person starts a session. Anyone else gets a reply that
 
 <Expandable title="Telegram limits and edge cases">
 
-- **Order.** Kortix hands one Telegram chat's messages and taps to the agent one at a time, in Telegram's order. A tap on a button waits for the messages you sent before it. A message that fails holds the next ones for one retry, usually 10 to 30 seconds; then they go on without it.
-- **Files.** Each photo and file shows above the message text in the session, as a file you attach in Kortix does. A file over the 8 MB limit does not arrive, and the agent tells you. Each photo of an album arrives as its own message, and a sticker arrives as its emoji.
-- **Command words.** Kortix answers 11 words as commands: `new`, `reset`, `stop`, `cancel`, `status`, `model`, `models`, `agent`, `agents`, `help` and `start`. Every other message goes to the agent, including one that starts with `/` and a command for another bot, such as `/status@other_bot`. A command in a photo's caption runs the command and does not send the photo: send the photo again without the command.
+- **Order.** Dosco hands one Telegram chat's messages and taps to the agent one at a time, in Telegram's order. A tap on a button waits for the messages you sent before it. A message that fails holds the next ones for one retry, usually 10 to 30 seconds; then they go on without it.
+- **Files.** Each photo and file shows above the message text in the session, as a file you attach in Dosco does. A file over the 8 MB limit does not arrive, and the agent tells you. Each photo of an album arrives as its own message, and a sticker arrives as its emoji.
+- **Command words.** Dosco answers 11 words as commands: `new`, `reset`, `stop`, `cancel`, `status`, `model`, `models`, `agent`, `agents`, `help` and `start`. Every other message goes to the agent, including one that starts with `/` and a command for another bot, such as `/status@other_bot`. A command in a photo's caption runs the command and does not send the photo: send the photo again without the command.
 - **Menus.** `/model` and `/agent` list 8 choices per page, after **Workspace default** on the first page, with **More ›** and **‹ Back**. A tap changes the menu message to the result. A menu works once: a pick, **Stop** or **New conversation** removes its buttons. A tap on a used menu, on one whose option or session is gone, on a copy forwarded into another chat, or on a menu older than 30 days answers "This menu is out of date": send the command again.
 - **`/stop` and `/new`** stop the run of the Telegram chat's session only when that chat started the run. A run started anywhere else (the web app, the API, a trigger) keeps going, and the reply links to it. `/new` while the session is still starting does not stop it: it still answers your earlier message.
 - **Model and agent.** `/model` and `/agent` apply to the whole Telegram chat, including every topic of a forum group. A Telegram chat uses only models and provider keys that the whole workspace shares, never one person's key or subscription.
-- **Questions.** Kortix posts a question with buttons only where the agent may send a Telegram message without approval. Otherwise the agent asks in its own words, and that message waits for approval or is refused. More than 6 options turn pages with **More ›** and **‹ Back**. A tap on a question that is already answered changes nothing.
+- **Questions.** Dosco posts a question with buttons only where the agent may send a Telegram message without approval. Otherwise the agent asks in its own words, and that message waits for approval or is refused. More than 6 options turn pages with **More ›** and **‹ Back**. A tap on a question that is already answered changes nothing.
 - **Where the agent writes.** A session that a Telegram chat started or continues sends, edits and deletes messages only in that chat and its topics, and quotes only messages from there. So does every session it starts. A session started from the web app or a trigger can send to any chat of the bot.
-- **The bot's menu.** Connecting the bot adds the Kortix commands at the top of its menu and keeps every entry you set in @BotFather. Kortix leaves out its own entry when one of yours has the same name, or when the menu would pass Telegram's limit of 100 commands. Disconnecting removes only the entries Kortix added.
+- **The bot's menu.** Connecting the bot adds the Dosco commands at the top of its menu and keeps every entry you set in @BotFather. Dosco leaves out its own entry when one of yours has the same name, or when the menu would pass Telegram's limit of 100 commands. Disconnecting removes only the entries Dosco added.
 - **Groups.** In a group, the bot reads only commands, replies to it and mentions. To let it read every message, send `/setprivacy` to @BotFather, or make the bot a group admin.
-- **Access requests** keep only who asked: the user ID, the username, the name and when they last wrote, never the message. Kortix keeps the newest 20 requests for 30 days. Disconnecting the bot deletes them.
-- **Deleting the workspace** disconnects the bot. Kortix deletes its token, and removes its webhook unless the webhook now points at another workspace.
+- **Access requests** keep only who asked: the user ID, the username, the name and when they last wrote, never the message. Dosco keeps the newest 20 requests for 30 days. Disconnecting the bot deletes them.
+- **Deleting the workspace** disconnects the bot. Dosco deletes its token, and removes its webhook unless the webhook now points at another workspace.
 
 </Expandable>
 
 ### Discord
 
-People mention the Kortix app in a Discord server, or message it directly, and the agent answers in a Discord thread.
+People mention the Dosco app in a Discord server, or message it directly, and the agent answers in a Discord thread.
 
 <Steps>
-<Step title="Add Kortix to your server">
-Open **Customize** → **Connectors**, select the **Channels** scope, and select **Add to Discord** on Discord. On Discord's page, pick the server; you need the **Manage Server** permission there. Kortix allows your own Discord account at once, and **Open Discord** takes you to the server.
+<Step title="Add Dosco to your server">
+Open **Customize** → **Connectors**, select the **Channels** scope, and select **Add to Discord** on Discord. On Discord's page, pick the server; you need the **Manage Server** permission there. Dosco allows your own Discord account at once, and **Open Discord** takes you to the server.
 </Step>
 <Step title="Mention the app with a task">
-In a text channel, mention the app: `@Kortix what changed in the release?`. Kortix starts a thread on your message, and the agent answers in the thread. Mention the app in the thread to continue.
+In a text channel, mention the app: `@Kortix what changed in the release?`. Dosco starts a thread on your message, and the agent answers in the thread. Mention the app in the thread to continue.
 </Step>
 <Step title="Allow the people">
 A mention or a direct message from an allowed person starts a session. Anyone else gets a reply that shows their user ID and appears under **Allowed users** → **Wants access**, where a workspace manager allows them with one click or dismisses the request. You can also add a person by user ID.
@@ -1206,22 +1206,22 @@ A mention or a direct message from an allowed person starts a session. Anyone el
 
 **One Discord thread is one session.** A mention in a text or announcement channel starts a thread on the message, and a later mention in that thread continues the session. A direct message with the app is one session until `/new`, and every message in it reaches the agent. In a channel without threads, such as a voice channel's text chat, the channel is the session.
 
-**In a server, only a mention reaches the agent**, as in Slack. People talk in the thread without the agent until someone mentions it. Kortix marks each message it hands to the agent with ⏳, and replaces it with ✅ when the run finishes. When the run fails or you stop it, the ⏳ goes and the reply says what happened.
+**In a server, only a mention reaches the agent**, as in Slack. People talk in the thread without the agent until someone mentions it. Dosco marks each message it hands to the agent with ⏳, and replaces it with ✅ when the run finishes. When the run fails or you stop it, the ⏳ goes and the reply says what happened.
 
-**Commands.** `/help`, `/status`, `/new`, `/stop`, `/model`, `/agent` and `/connect` run in Kortix, not in the agent. They work in a channel, in a thread and in a direct message, and also typed after a mention. A command in a channel applies to the whole channel: `/model` there sets the model of every thread in it. In the web app, **N channels** on the Discord card lists every channel and direct message Kortix answered in; pick one to set its agent and model.
+**Commands.** `/help`, `/status`, `/new`, `/stop`, `/model`, `/agent` and `/connect` run in Dosco, not in the agent. They work in a channel, in a thread and in a direct message, and also typed after a mention. A command in a channel applies to the whole channel: `/model` there sets the model of every thread in it. In the web app, **N channels** on the Discord card lists every channel and direct message Dosco answered in; pick one to set its agent and model.
 
 **Photos, files and voice messages reach the agent**, up to 8 MB per message, as in Telegram. So do a forwarded message's text and files, and a poll's question and answers. Questions come with buttons, 4 options per page.
 
 <Expandable title="Discord limits and edge cases">
 
-- **Mentions.** A reply to the app counts only with **@mention** on; when it is off, Kortix says so once. An edit that adds a mention within 15 minutes counts. A self-hosted Kortix whose Discord application has the Message Content intent can let every message in a Kortix thread through (`DISCORD_MESSAGE_CONTENT`).
+- **Mentions.** A reply to the app counts only with **@mention** on; when it is off, Dosco says so once. An edit that adds a mention within 15 minutes counts. Dedicated enterprise deployments whose Discord application has the Message Content intent can let every message in a thread through (`DISCORD_MESSAGE_CONTENT`).
 - **What the agent can read.** Without the Message Content intent, Discord shows the agent only the messages that mention it, direct messages and its own messages. To ask about a discussion, paste the part you mean.
 - **Menus.** `/model` and `/agent` list the choices with **More ›** and **‹ Back**. A pick, **Stop** or **New conversation** works once. A press on an old menu answers "This menu is out of date": use the command again. A notice that only you see confirms a tap, or says why it changed nothing.
-- **Order.** One thread's messages and taps reach the agent one at a time, in Discord's order. When Kortix cannot take a message after several tries, it asks you to send it again.
+- **Order.** One thread's messages and taps reach the agent one at a time, in Discord's order. When Dosco cannot take a message after several tries, it asks you to send it again.
 - **Workspaces.** A server can serve several workspaces. A channel goes to the first workspace that answered there; `/connect` lists the workspaces and binds the channel to the one you pick. A direct message goes to the one workspace that allows you; otherwise `/connect` picks.
 - **Where the agent writes.** The `kortix_discord` connector reads and writes only in the workspace's own server, threads and direct messages. In a server that several workspaces share, it acts only in its own threads, direct messages and bound channels. A session that a Discord thread started reads and writes only there. A direct message moved to another workspace with `/connect` keeps its earlier messages from the new workspace. One workspace makes at most 60 Discord calls a minute.
-- **Permissions.** Discord asks for them when you add the app: view channels, send messages, send messages in threads, create public threads, read message history, attach files, add reactions and embed links. When a channel denies one, Kortix says so. A slash command where the app cannot post answers, to you only, with the permission to grant. In a private thread, mention the app or add it first.
-- **Archiving.** Kortix threads archive after a day without messages, and a new message opens the thread again. When a server reaches Discord's limit of active threads, Kortix says so instead of starting one.
+- **Permissions.** Discord asks for them when you add the app: view channels, send messages, send messages in threads, create public threads, read message history, attach files, add reactions and embed links. When a channel denies one, Dosco says so. A slash command where the app cannot post answers, to you only, with the permission to grant. In a private thread, mention the app or add it first.
+- **Archiving.** Dosco threads archive after a day without messages, and a new message opens the thread again. When a server reaches Discord's limit of active threads, Dosco says so instead of starting one.
 - **Disconnecting** removes the server from the workspace. When no other workspace uses the server, the app leaves it. Removing the app from the server disconnects it from every workspace.
 - **Access requests** keep only who asked: the user ID, the username, the display name and when they last wrote, never the message.
 
@@ -1229,19 +1229,19 @@ A mention or a direct message from an allowed person starts a session. Anyone el
 
 ## Everywhere
 
-Kortix runs in the web app, the desktop app, the mobile app, the terminal, and other AI tools through MCP. All of them open the same workspaces and sessions.
+Dosco runs in the web app, the desktop app, the mobile app, the terminal, and other AI tools through MCP. All of them open the same workspaces and sessions.
 
 ### The web app
 
-The web app is the main place to work. It runs at [kortix.com](https://kortix.com), and after you sign in it opens the workspace you had open last. In a session, you pick the agent and the model for the next turn, attach files or drop them on the page, and send messages while the agent works: it reads them at its next step. [Find your way around the web app](#find-your-way-around-the-web-app) lists what is where.
+The web app is the main place to work. It runs at [dosco.live](https://dosco.live), and after you sign in it opens the workspace you had open last. In a session, you pick the agent and the model for the next turn, attach files or drop them on the page, and send messages while the agent works: it reads them at its next step. [Find your way around the web app](#find-your-way-around-the-web-app) lists what is where.
 
 **Voice calls.** While the message box is empty, its send button is a call button. Select it to talk to the agent. On the workspace home, the call starts a new session with the agent you picked. In a session, it calls that session's agent. The agent hears you, answers in a voice and sees a screen you share, and what you both say appears in the session's chat. The call stays in the corner while you open other pages of the workspace, with **Mute microphone**, **Share screen**, **Open the chat** and **End call**. You can also call an agent from its page in **Customize** → **Agents**. One call runs at a time. A session whose computer started before calls were turned on gets them at its next start. Voice calls are experimental and off by default. Turn them on in **Workspace admin** → **Feature flags** → **Voice calls**. The desktop app has no voice calls yet.
 
 ### The desktop app
 
-The desktop app is the web app in a native window, for macOS, Windows and Linux. Download it at [kortix.com/download](https://kortix.com/download).
+The desktop app is the web app in a native window, for macOS, Windows and Linux. Download it at [dosco.live/download](https://dosco.live/download).
 
-- **Quick Entry.** Press `Cmd+Shift+Space` on a Mac, or `Ctrl+Shift+Space` on Windows and Linux, in any app. Type a task in the prompt bar and press Enter: Kortix starts a new session with it.
+- **Quick Entry.** Press `Cmd+Shift+Space` on a Mac, or `Ctrl+Shift+Space` on Windows and Linux, in any app. Type a task in the prompt bar and press Enter: Dosco starts a new session with it.
 - **Screenshots.** On macOS, the camera button in Quick Entry takes a screenshot and attaches it.
 - **Updates.** The app updates itself. When an update is ready, choose **Restart now** or **Later**.
 - **Your computer.** With a connected computer, the app stays in the menu bar or the system tray when you close the last window. See [Computers](/docs/guide#computers).
@@ -1261,16 +1261,16 @@ The mobile app runs on iPhone, iPad and Android. Get it from the App Store or Go
 The `kortix` command line does from a terminal what the web app does: it creates and clones workspaces, runs sessions, reviews change requests, and configures agents, connectors and secrets. It runs on macOS and Linux; on Windows, use WSL.
 
 ```sh
-curl -fsSL https://kortix.com/install | bash
+curl -fsSL https://dosco.live/install | bash
 ```
 
 Then run `kortix login`. Your browser opens, and you approve the sign-in there. The [CLI reference](/docs/developers#cli) lists every command.
 
-`kortix tui` opens a full Kortix client inside your terminal. One session fills the screen, and you do everything from its input: type `/` to list every command, `/sessions` to open another session, `/new` to start one, and `/drive` or `/approvals` to open that screen. With no session open, the first prompt you type starts one. `/sidebar` shows your workspaces and sessions in a sidebar, and the TUI remembers that choice. The TUI is experimental, so its commands and keys can change between releases.
+`kortix tui` opens a full Dosco client inside your terminal. One session fills the screen, and you do everything from its input: type `/` to list every command, `/sessions` to open another session, `/new` to start one, and `/drive` or `/approvals` to open that screen. With no session open, the first prompt you type starts one. `/sidebar` shows your workspaces and sessions in a sidebar, and the TUI remembers that choice. The TUI is experimental, so its commands and keys can change between releases.
 
 ### Other AI tools (MCP)
 
-The Kortix MCP server lets another AI tool, such as Claude, ChatGPT, Cursor or Codex, use Kortix. You install nothing: you add one URL to the tool and sign in. From there, the tool can:
+The Dosco MCP server lets another AI tool, such as Claude, ChatGPT, Cursor or Codex, use Dosco. You install nothing: you add one URL to the tool and sign in. From there, the tool can:
 
 - start sessions and send them messages;
 - read a session's progress;
@@ -1281,13 +1281,13 @@ The tool acts as you, with your permissions, and reaches every workspace you can
 
 <Steps>
 <Step title="Copy the URL">
-In the web app, open the workspace menu at the top left and select **Connect MCP**. The dialog shows the URL of your Kortix (on Kortix Cloud, `https://api.kortix.com/v1/mcp`) and an install action for Claude, Claude Code, Cursor, Codex and other MCP clients.
+In the web app, open the workspace menu at the top left and select **Connect MCP**. The dialog shows the URL of your Dosco (on Cloud, `https://api.dosco.live/v1/mcp`) and an install action for Claude, Claude Code, Cursor, Codex and other MCP clients.
 </Step>
 <Step title="Add it to your tool">
 In Claude, open **Settings** → **Connectors** → **Add custom connector** and paste the URL. ChatGPT needs developer mode and **OAuth** sign-in. In Cursor, select **Add** on the Cursor row of the dialog.
 </Step>
 <Step title="Sign in">
-On the first call, your browser opens the Kortix consent screen. Approve it only when you connected the tool yourself.
+On the first call, your browser opens the Dosco consent screen. Approve it only when you connected the tool yourself.
 </Step>
 </Steps>
 
@@ -1301,7 +1301,7 @@ A workspace holds your company's people, agents, sessions and files. You decide 
 
 ### How it works
 
-- **Workspace.** Your company's place in Kortix: its members, agents, skills, connectors, files, settings and billing. A git repository backs it. One login can belong to several workspaces.
+- **Workspace.** Your company's place in Dosco: its members, agents, skills, connectors, files, settings and billing. A git repository backs it. One login can belong to several workspaces.
 - **Workspace role.** Each person has one: owner, admin or member.
 - **Access role.** What a person may do with the workspace's sessions, agents and settings: manager or member.
 - **Group.** A named set of people. Give a group access, and every person in it gets it.
@@ -1327,10 +1327,10 @@ Members are unlimited and cost nothing extra. See [Billing](/docs/guide#billing)
 
 <Steps>
   <Step title="Create a team workspace first">
-    Open the workspace menu, select **Create workspace**, and create your team's workspace there. A personal workspace that an older version of Kortix created at sign-up cannot use single sign-on.
+    Open the workspace menu, select **Create workspace**, and create your team's workspace there. A personal workspace that an older version of Dosco created at sign-up cannot use single sign-on.
   </Step>
   <Step title="Invite your teammates">
-    Open **Workspace settings** → **Members** and select **Invite**. Type their email addresses and pick a role. A person who already has a Kortix login joins at once. Everyone else gets an email invitation that stays valid for 14 days.
+    Open **Workspace settings** → **Members** and select **Invite**. Type their email addresses and pick a role. A person who already has a Dosco login joins at once. Everyone else gets an email invitation that stays valid for 14 days.
   </Step>
   <Step title="Give them access">
     Open **Workspace settings** → **Workspaces**, pick the workspace, and select **Grant access**. Pick **Manager** or **Member**. You can also set a date when the access ends.
@@ -1352,7 +1352,7 @@ Creating groups and adding people to them is an Enterprise feature. If your comp
 
 A member sees only themselves in the member list, not other members or groups. Owners and admins see everyone. In a workspace, people still appear where their work shows, for example as the owner of a session.
 
-A person who opens a workspace they cannot read sees **Request access**. Kortix tells the workspace's managers, who approve or reject the request.
+A person who opens a workspace they cannot read sees **Request access**. Dosco tells the workspace's managers, who approve or reject the request.
 
 ### Share a session
 
@@ -1372,7 +1372,7 @@ You can also create a **Public link**. It shows the session, read-only, to anyon
 
 <a id="how-agents-work-reaches-the-company-repository" />
 
-Your agents, skills and settings live in the workspace's shared repository. Kortix keeps it safe from unreviewed changes:
+Your agents, skills and settings live in the workspace's shared repository. Dosco keeps it safe from unreviewed changes:
 
 1. Each session works on its own branch, a private copy of the repository.
 2. When the agent finishes, it opens a change request: a request to merge that branch into the shared one.
@@ -1384,7 +1384,7 @@ An agent can merge its own change request only when it holds the merge permissio
 
 ## Security
 
-Each session runs in its own isolated sandbox. Secrets and connector logins are stored encrypted and stay outside the sandbox where possible. Every agent has its own permissions, and an audit log records every action. Single sign-on, directory sync and self-hosting are available for companies that need them.
+Each session runs in its own isolated sandbox. Secrets and connector logins are stored encrypted and stay outside the sandbox where possible. Every agent has its own permissions, and an audit log records every action. Single sign-on, directory sync and dedicated enterprise VPC deployments are available for companies that need them.
 
 ### How it works
 
@@ -1404,7 +1404,7 @@ A session runs with the agent's permissions, not with the permissions of the per
 
 <a id="secrets-you-choose-who-uses-them" />
 
-A secret is a password, an API key or a token that a session needs. Kortix encrypts every value, and no page, command or API shows a stored value again.
+A secret is a password, an API key or a token that a session needs. Dosco encrypts every value, and no page, command or API shows a stored value again.
 
 Each secret has an audience:
 
@@ -1417,22 +1417,22 @@ Each secret has an audience:
 You also choose how the secret reaches the sandbox:
 
 - **Environment variable.** The sandbox gets the real value, and code in the session can read it.
-- **Egress-enforced.** The sandbox gets a stand-in that is worthless on its own. Kortix swaps in the real value outside the sandbox, and only on requests to the web addresses you list.
+- **Egress-enforced.** The sandbox gets a stand-in that is worthless on its own. Dosco swaps in the real value outside the sandbox, and only on requests to the web addresses you list.
 - **Disabled.** The value stays stored and reaches no session.
 
 <a id="verify-it-with-two-probes" />
 
-To check egress-enforced delivery, run two probes in a session. First, print the variable: it shows the stand-in, not the real value. Then call an endpoint of the API that uses the credential, never one that echoes request headers back: `200` means Kortix swapped in the real value, `401` means it did not.
+To check egress-enforced delivery, run two probes in a session. First, print the variable: it shows the stand-in, not the real value. Then call an endpoint of the API that uses the credential, never one that echoes request headers back: `200` means Dosco swapped in the real value, `401` means it did not.
 
 <Callout type="warning">
 A secret delivered as an environment variable is a real value inside the session. For a web API key, use egress-enforced delivery unless code needs the real value.
 </Callout>
 
-#### Connector logins stay with Kortix
+#### Connector logins stay with Dosco
 
 <a id="connector-credentials-stay-with-kortix" />
 
-When you connect an app such as Gmail or Linear, Kortix stores the login, and it never enters the sandbox. For each call, Kortix picks the account, applies your rules, makes the call and records it. Your rules decide what each agent may do in each app: **Allow**, **Ask** for a person's approval, or **Block**. Approvals wait on the **Review** page. Kortix also refuses connector requests to private or internal network addresses.
+When you connect an app such as Gmail or Linear, Dosco stores the login, and it never enters the sandbox. For each call, Dosco picks the account, applies your rules, makes the call and records it. Your rules decide what each agent may do in each app: **Allow**, **Ask** for a person's approval, or **Block**. Approvals wait on the **Review** page. Dosco also refuses connector requests to private or internal network addresses.
 
 ### Audit log
 
@@ -1458,7 +1458,7 @@ Scripts, CI jobs and integrations use API keys. **Workspace settings** → **API
 
 - **You**: your role in this workspace. The key stops working when you leave.
 - **An agent**: one of the workspace's agents, with exactly what it may do. Its actions are audited as the agent, and the key keeps working when the person who created it leaves.
-- **A bot**: an identity for CI or an integration, with its own role (Member when Kortix creates it).
+- **A bot**: an identity for CI or an integration, with its own role (Member when Dosco creates it).
 
 Every member creates and revokes their own keys. Keys that act as an agent or a bot need the permission to manage credentials. A key can be narrowed to **Read only** or to a custom list of permissions, never beyond the rights of who it acts as. It expires after 90 days unless you pick another date. The CLI is `kortix keys`; the API is in [Get an API key](/docs/developers#get-an-api-key).
 
@@ -1466,22 +1466,24 @@ Every member creates and revokes their own keys. Keys that act as an agent or a 
 
 With single sign-on (SAML), your team signs in through your company's identity provider. Turn on **Enforce SSO for this domain**, and other ways to sign in stop working for that email domain.
 
-Directory sync (SCIM) lets your identity provider add, update and remove members and groups in Kortix. When someone leaves your company, they lose access to Kortix too. Set up single sign-on first.
+Directory sync (SCIM) lets your identity provider add, update and remove members and groups in Dosco. When someone leaves your company, they lose access to Dosco too. Set up single sign-on first.
 
-Both are Enterprise features. Set them up under **Workspace settings** → **Identity & directory**. They need a team workspace, not the personal workspace Kortix creates at sign-up.
+Both are Enterprise features. Set them up under **Workspace settings** → **Identity & directory**. They need a team workspace, not the personal workspace Dosco creates at sign-up.
 
-### Run Kortix on your own infrastructure
+<a id="run-kortix-on-your-own-infrastructure" />
 
-You can run the whole Kortix platform on a server you control. This is called self-hosting: the web app, the API and the database run on your server, and a command-line tool installs, updates and checks it. Two things to know:
+### Dedicated VPC deployment
 
-- Sessions still run on cloud sandboxes from Platinum, not on your server.
-- Your server must be reachable from the internet, so that those sandboxes can call back.
+Enterprise customers can run Dosco in a dedicated single-tenant VPC connected to isolated E2B microVMs and customer-isolated storage:
 
-A self-hosted instance has billing off by default. A Kortix Enterprise license turns on the Enterprise features for every workspace on it. The installation guide is in [Self-hosting](/docs/developers#self-hosting).
+- Sessions run on isolated E2B cloud microVMs, keeping agent execution separate from your control plane.
+- Your control plane exposes an HTTPS API endpoint so isolated E2B sandboxes can stream events and file state back securely.
+
+An Enterprise contract enables SSO, SCIM, audit streaming, and dedicated branding. See [Dedicated VPC deployment](/docs/developers#self-hosting) for deployment configuration.
 
 #### Brand your instance
 
-With an Enterprise license, your instance can show your company's name and logo instead of Kortix, including on the sign-in page. Branding is a self-hosting feature: Kortix Cloud does not offer it.
+With an Enterprise license, your workspace and dedicated deployment can show your company's name and logo instead of Dosco, including on the sign-in page.
 
 1. Sign in as an owner or admin of your company workspace.
 2. Open **Workspace settings** → **Branding**.
@@ -1510,20 +1512,20 @@ The sign-in page uses the oldest branded workspace among the company workspaces 
 
 ## Billing
 
-Kortix bills a workspace in credits. One credit is $0.01. Credits sit in one wallet for the whole workspace. Members are free and unlimited.
+Dosco bills a workspace in credits. One credit is $0.01. Credits sit in one wallet for the whole workspace. Members are free and unlimited.
 
 To see your balance, open **Workspace settings** → **Billing** → **Plan**.
 
 ### Plans
 
-A workspace is on one of two plans: Free or Credits. See [kortix.com/pricing](https://kortix.com/pricing) for current prices.
+A workspace is on one of two plans: Free or Credits. See [dosco.live/pricing](https://dosco.live/pricing) for current prices.
 
 | | Free | Credits |
 | --- | --- | --- |
 | Price | No charge | A monthly amount you choose, from $50 to $50,000 |
 | Credits | 500 credits every month | 100 credits per dollar of your monthly amount, every billing cycle |
 | Members | Unlimited | Unlimited, no charge per member |
-| Kortix-managed models | None | All |
+| Dosco-managed models | None | All |
 | Buy extra credits | Yes | Yes |
 | Auto top-up | No | Yes |
 | Workspaces | 1 | 200 |
@@ -1534,18 +1536,18 @@ A workspace is on one of two plans: Free or Credits. See [kortix.com/pricing](ht
 
 #### Enterprise
 
-Enterprise is not a plan. It turns on extra features on either plan: single sign-on, directory sync, groups and custom roles, and the audit log. On a self-hosted instance it also turns on branding. With Enterprise, there is no limit on workspaces. To get it, select **Talk to sales** in the app, or email [support@kortix.com](mailto:support@kortix.com). See [Security](/docs/guide#security).
+Enterprise is not a plan. It turns on extra features on either plan: single sign-on, directory sync, groups and custom roles, and the audit log. It can also enable custom workspace branding. With Enterprise, there is no limit on workspaces. To get it, select **Talk to sales** in the app, or email [support@dosco.live](mailto:support@dosco.live). See [Security](/docs/guide#security).
 
 ### What uses credits
 
 | What | How it is counted |
 | --- | --- |
-| Kortix-managed models | The tokens each request uses, at the provider's base price plus a 5.5% platform fee. |
+| Dosco-managed models | The tokens each request uses, at the provider's base price plus a 5.5% platform fee. |
 | Models on your own key | Nothing for the first $1,000 of usage a month. After that, 5% of each request's list price. ChatGPT and Claude subscription requests are never charged. With an Enterprise license, there is no fee. |
 | Session computers | The size the computer reserves, for the seconds it runs. Computers that run Apps count too. |
-| Web tools | Each web search, image search or web scraping request that goes through Kortix. |
+| Web tools | Each web search, image search or web scraping request that goes through Dosco. |
 | Residential proxy | The data a session sends and receives through a residential IP address, per GB. Only for sandbox templates that ask for it. See [Residential IP address](/docs/guide#residential-ip-address). |
-| Storage | The data kept in Drive and in each session's `/workspace`, per GiB-hour, for as long as it is kept. Kortix measures stored data once a day, compressed and with duplicate blocks counted once, and charges each day after it ends. |
+| Storage | The data kept in Drive and in each session's `/workspace`, per GiB-hour, for as long as it is kept. Dosco measures stored data once a day, compressed and with duplicate blocks counted once, and charges each day after it ends. |
 
 A stopped or sleeping computer uses no compute; its files still count as storage. The default session computer costs about $0.11 an hour, about 11 credits.
 
@@ -1558,7 +1560,7 @@ The wallet holds two kinds of credits:
 | Expiring | Your plan's monthly grant | On Credits, unused credits roll over for one month, then expire. On Free, each monthly grant replaces what is left. |
 | Non-expiring | Top-ups, bonuses, refunds and promotions | Never |
 
-Kortix spends expiring credits first. Work that already finished is always recorded, even if the balance goes below zero, but a new run needs a positive balance.
+Dosco spends expiring credits first. Work that already finished is always recorded, even if the balance goes below zero, but a new run needs a positive balance.
 
 ### Add credits
 
@@ -1573,7 +1575,7 @@ Every plan can buy credits, and purchased credits never expire. A top-up of $50 
   </Step>
 </Steps>
 
-A card payment adds credits at once. A bank debit can take several business days. If an auto top-up charge fails for good, Kortix turns auto top-up off and emails every owner and admin the reason.
+A card payment adds credits at once. A bank debit can take several business days. If an auto top-up charge fails for good, Dosco turns auto top-up off and emails every owner and admin the reason.
 
 ### Change your plan
 
@@ -1597,5 +1599,5 @@ To continue, add credits or update the payment method. On Free, you can also sub
 | Where | What it shows |
 | --- | --- |
 | **Billing** → **Plan** | The plan, the wallet, spend this period (compute, storage, models) and auto top-up |
-| **Billing** → **Usage** | Kortix charges and the credit history |
+| **Billing** → **Usage** | Dosco charges and the credit history |
 | **Customize** → **Models** → **Costs**, in a workspace | Model spend and budgets for that workspace |

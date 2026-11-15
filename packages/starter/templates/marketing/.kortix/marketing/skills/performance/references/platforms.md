@@ -1,6 +1,6 @@
 # Platforms: read-only access
 
-Use a Kortix connector when one is connected for the platform: it holds the
+Use a connector when one is connected for the platform: it holds the
 login, and its policy keeps writes behind an approval. Without one, use the
 platform's API with the read-only credential named here. Read the vendor docs
 once when a call is rejected; field names change between API versions.

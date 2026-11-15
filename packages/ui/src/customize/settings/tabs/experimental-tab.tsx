@@ -117,7 +117,7 @@ export interface ExperimentalCopy {
 export const DEFAULT_EXPERIMENTAL_COPY: ExperimentalCopy = {
   overridden: 'Overridden for this workspace',
   reset: 'Reset to default',
-  managedByKortix: 'Managed by Kortix',
+  managedByKortix: 'Managed by Dosco',
   defaultOn: 'Default on',
   defaultOff: 'Default off',
   search: 'Search features',

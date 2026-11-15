@@ -42,7 +42,7 @@ const CELLS = [
   {
     icon: PlugsIcon,
     k: 'No lock-in',
-    v: 'Any model with your own keys, on Cloud, dedicated VPC or on-prem.',
+    v: 'Any model with your own keys, on Cloud or a dedicated enterprise VPC.',
   },
 ];
 

@@ -12,13 +12,13 @@ const sourceFRAMEWORK = {
   titleMuted: 'A framework underneath.',
   body: [
     'People work in the workspace. Underneath, Dosco is a **backend framework for agents**: a project is a git repository, and **kortix.yaml** declares its agents, skills, tools and triggers.',
-    'Every agent is a **custom pi agent**: the **open-source pi coding agent** plus your prompt, skills and **pi extensions**, deployed to the cloud. Every session runs on its own computer. Triggers run agent loops **24/7**. **@kortix/sdk** and **@kortix/ui** let you build your own experience on the same backend.',
+    'Every agent is a **custom pi agent**: the **extensible pi agent runtime** plus your prompt, skills and **pi extensions**, deployed to Cloud. Every session runs on its own isolated sandbox. Triggers run agent loops **24/7**. **@kortix/sdk** and **@kortix/ui** let you build your own experience on the same backend.',
   ],
   cells: [
     { k: 'kortix.yaml', v: 'Agents, access, tools and triggers in one versioned file.' },
     {
       k: 'pi coding agent',
-      v: 'The open-source harness every agent runs on. Extend it with pi extensions.',
+      v: 'The extensible runtime every agent runs on. Extend it with pi extensions.',
     },
     { k: '@kortix/sdk', v: 'One typed client for projects, sessions and live events.' },
     { k: '@kortix/ui', v: 'The React components the workspace is built from.' },

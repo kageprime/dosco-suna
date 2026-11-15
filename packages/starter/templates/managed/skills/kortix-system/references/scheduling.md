@@ -57,7 +57,7 @@ wake-up is a promise nobody keeps: the session sleeps until someone types.
    Slack or Teams thread, put the channel and thread ids in the loop text.
 6. **On each fire:** check, act, record the outcome in the record file.
    Report only what changed: a workspace agent ends silently on an empty
-   check; My Kortix and a person's direct session say one short line. After
+   check; Xera and a person's direct session say one short line. After
    3 empty checks in a row, replace the loop with a slower one
    (`kortix loops rm <id>`, then `kortix loop` with the same text and the next
    cadence). The moment the condition holds or the end date passes, remove
@@ -128,7 +128,7 @@ job the same way.
 
    On every wake: read the state, advance it, update `out/status.md`, then
    re-arm or remove the wake-ups.
-5. **Set Kortix up when the work repeats.** A check that outlives this job
+5. **Set Dosco up when the work repeats.** A check that outlives this job
    becomes a workspace trigger (`kortix triggers add <slug> --cron … --apply`,
    or a webhook) or a watcher App ("Watch 24/7"). A recurring role becomes its
    own agent or skill, landed through a CR. Ask the person once first for
@@ -203,7 +203,7 @@ An automation is a trigger that starts a colleague's session on each event
 that matters: each new support email, each new issue, each form submission.
 Set it up so a run never starts for noise, a follow-up reaches the session
 that already knows the thing, and a run with nothing to say says nothing.
-My Kortix does this with `kortix_schedules` `automate`; any agent can do it
+Xera does this with `kortix_schedules` `automate`; any agent can do it
 with the CLI:
 
 ```bash
@@ -219,7 +219,7 @@ kortix triggers runs issue-triage
 ```
 
 1. **Filter at the source** (`--filter`): only the actions that matter; skip
-   bots and Kortix itself. A filtered event starts nothing.
+   bots and Dosco itself. A filtered event starts nothing.
 2. **One session per thing** (`--session-key`: thread, issue, sender).
 3. **A prompt that judges first**, and otherwise stops with no message.
 4. **Least access and a cap**: narrow agent, fast model, `--max-runs-per-day`.
@@ -230,7 +230,7 @@ kortix triggers runs issue-triage
 
 ## Cron cheat-sheet
 
-Kortix uses croner, 6 fields: `second minute hour day-of-month month
+Dosco uses croner, 6 fields: `second minute hour day-of-month month
 day-of-week`. A 5-field expression works too (seconds = 0). Day-of-week
 `0` or `7` is Sunday, `1` Monday; `MON-FRI` works. `@hourly`, `@daily`,
 `@weekly`, `@monthly`, `@yearly` work.
@@ -275,7 +275,7 @@ it ends silently: a daily "nothing new" trains people to ignore it.
 
 ## Idempotency
 
-Kortix fires each slot once. It does not dedupe your work: two runs can find
+Dosco fires each slot once. It does not dedupe your work: two runs can find
 the same item.
 
 - Scope by time: only data newer than `{{ cron.last_scheduled_for }}` (empty
@@ -325,7 +325,7 @@ The pattern has four parts:
    `KORTIX_APP_ID`, `KORTIX_APP_TOKEN` and `KORTIX_APP_EVENTS_URL`.
 2. **The poll**: an `every` trigger that calls the App, no session, no model.
 3. **The App event**: POST `{name, data?, id?}` to `$KORTIX_APP_EVENTS_URL`
-   with `Authorization: Bearer $KORTIX_APP_TOKEN`. Kortix keeps each `id` for
+   with `Authorization: Bearer $KORTIX_APP_TOKEN`. Dosco keeps each `id` for
    30 days and fires once per `id`, so an `id` built from the content is the
    change detector: an unchanged page posts the same `id` and fires nothing.
 4. **The wake-up**: a session trigger (`--on app`) or a `kortix.yaml`
@@ -359,7 +359,7 @@ on a `kortix.yaml` trigger) tells the person once when the watcher stops posting
   summary event, not one per item. One event is at most 8 KiB; `name` is
   1-128 letters, digits and `. _ : / -`. The answer is
   `202 {accepted, deduped, suppressed, triggers}`; `401 app_token_invalid`.
-- Kortix wakes an on-demand App for each call and sends `x-kortix-trigger`,
+- Dosco wakes an on-demand App for each call and sends `x-kortix-trigger`,
   `x-kortix-trigger-source`, `x-kortix-delivery-id`. A `2xx` is a fired run;
   `429` and `5xx` are retried; a `3xx` is not followed.
 - The App can pace itself instead with App runs (`run_after`, `run_at`):

@@ -55,7 +55,7 @@ export function manifestFixPrompt(health: ProjectManifestHealth): string {
     (issue) =>
       `- ${issueLocation(file, issue)} ${issue.severity}${issue.path ? ` \`${issue.path}\`` : ''}: ${issue.message}`,
   );
-  return `Fix the project manifest \`${file}\`. The Kortix server reports ${[health.errors && plural(health.errors, 'error'), health.warnings && plural(health.warnings, 'warning')].filter(Boolean).join(' and ')}:
+  return `Fix the project manifest \`${file}\`. The server reports ${[health.errors && plural(health.errors, 'error'), health.warnings && plural(health.warnings, 'warning')].filter(Boolean).join(' and ')}:
 
 ${issues.join('\n')}
 

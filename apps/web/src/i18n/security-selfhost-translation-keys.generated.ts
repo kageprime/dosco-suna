@@ -4,7 +4,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
     'text5e2ce6656b32',
   '/enterprise': 'text28346646cd67',
   '2 vCPU / 4 GB floor, 4 vCPU / 16 GB for real use': 'text66dee8fd0152',
-  '3,000+ apps in a click, plus MCP, OpenAPI, GraphQL and raw HTTP. The third-party credential is held and resolved server-side; the machine holds one scoped Kortix token and calls through it. The same rule covers Kortix’s own provider keys, which no sandbox is allowed to hold.':
+  '3,000+ apps in a click, plus MCP, OpenAPI, GraphQL and raw HTTP. The third-party credential is held and resolved server-side; the machine holds one scoped token and calls through it. The same rule covers Dosco’s own provider keys, which no sandbox is allowed to hold.':
     'text1c81f8a26f00',
   'A change request is a diff. An agent rewriting its own prompt is reviewed the same way a code change is — because it is one. A change request whose manifest does not validate cannot merge at all.':
     'textd4edcc30c8f6',
@@ -14,16 +14,16 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'A fresh RSA keypair for SAML, so SSO has a key the day you turn it on': 'textd68363e3fe3f',
   'A key is granted to a session, not pasted into a prompt.': 'text9181ff5dca36',
   'A laptop': 'text5c65777abb06',
-  'A laptop, a VPS, or your own network.': 'texteccba86b787c',
+  'Managed Cloud or your dedicated VPC.': 'texteccba86b787c',
   'A person or a group can be narrowed to named agents and skills inside a workspace: marketing may use this agent and that skill, and nothing else. Anything you leave unscoped stays workspace-wide, so narrowing is something you opt into rather than something you have to undo.':
     'text3c86ce6ea087',
   'A person reads the diff': 'texta6e5f1bdfb1f',
   'A record for the domain and for api.<domain>': 'text6251a79326de',
   'A runtime secret a session is granted is a real environment value inside that session, because that is how a tool uses it. We would rather say so than tell you it is invisible. The controls that matter are the two gates above, and the fact that the machine is destroyed with it.':
     'text36f80c38222d',
-  'A self-hosted instance has no managed model lineup and does not want one. You connect the providers you already pay for, and every model call routes through the gateway running on your own box.':
+  'Use managed OpenRouter models or connect the providers you already pay for, and every model call routes through the gateway.':
     'text45ba74fd89a9',
-  'A self-hosted instance runs its own gateway for its own model routing. It never sees or routes to Kortix credentials, and there is no platform fee on a self-hosted workspace.':
+  'Your workspace runs its own gateway routing for BYOK keys. Connector and provider credentials remain encrypted server-side.':
     'text2c9254d4dcde',
   'A service account is a first-class machine identity the workspace owns, not a human token wearing a hat. Policies attach to it directly, and a request it makes is evaluated purely against its own policies — it never inherits from the person who created it.':
     'text93cf8ed6d1fd',
@@ -32,7 +32,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'A session is not a tab in a shared runtime. It is a machine of its own, and the database will not let two sessions have the same one. Separating two of your own sessions is the same mechanism as separating two different customers.':
     'text77413322bcd5',
   "A session's chamber: what is {inside}, and what {outside}.": 'text8552ade1b621',
-  'A single-tenant deployment inside your own network. Air-gapped and other isolated topologies are scoped with us rather than self-served.':
+  'A single-tenant deployment inside your own VPC. Isolated enterprise topologies are scoped with us.':
     'text0b930139d03b',
   'A tool needs a real credential to do real work, so the honest question is not whether the machine ever holds one. It is which machine holds which key, who decided that, and what never gets in at all.':
     'textf680871347c5',
@@ -54,7 +54,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'An agent declares in kortix.yaml which secrets it may ever be given. A session receives the intersection of that grant and the role of the person who started it — so an agent can never reach past its own declaration, or past the human behind it.':
     'text4f0fb30e3bee',
   'An agent is a principal, not a loophole.': 'textbc346bfb5269',
-  'An agent that can install anything, call anything and write anywhere is only safe if the walls are real. In Kortix they sit below the agent, in the platform, where a prompt cannot talk its way past them.':
+  'An agent that can install anything, call anything and write anywhere is only safe if the walls are real. In Dosco they sit below the agent, in the platform, where a prompt cannot talk its way past them.':
     'textb9c1352c8c67',
   'Another session — same workspace, same team, or another customer': 'text0686a22fbf7d',
   'Anthropic, OpenAI, Google, Groq, xAI, DeepSeek, Mistral, Bedrock and OpenRouter, or the ChatGPT and Copilot subscription you already hold.':
@@ -65,7 +65,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
     'textc73d5a471c50',
   Audit: 'textbb6aea287396',
   'Automatic TLS. Rendered only when you set a domain': 'text870770429ab2',
-  'Available on Enterprise, and on a self-hosted instance with an Enterprise licence. The built-in roles above are free on every plan.':
+  'Available on Enterprise and dedicated VPC deployments. The built-in roles above are included on every workspace.':
     'text7ea4733fb624',
   'Baseline workspace membership.': 'textb90eab55d0d5',
   'bring the stack up': 'text0e8cb88f5b30',
@@ -76,7 +76,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   Certified: 'textc9996efd134f',
   'Change request, default-deny merge': 'textedca37f6aca7',
   channel: 'text69e36568cd8b',
-  'choose which Kortix you are talking to': 'text893dc256bfc8',
+  'choose which Dosco you are talking to': 'text893dc256bfc8',
   cloudflared: 'textfc8932c70118',
   'Configuration is files. Who changed which agent, which skill and which policy, and who approved it, is git history you already know how to read.':
     'text5acfbdbae44a',
@@ -90,7 +90,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   Credentials: 'textd48a617c7da5',
   'Custom roles': 'textc703c7f9cbe6',
   'data plane': 'text7225a08be0c6',
-  'A Platinum API key. This is the one credential the stack genuinely cannot start without.':
+  'An E2B API key, Supabase Storage credentials, and your model provider key (OpenRouter or BYOK).':
     'texta4df7a062ff9',
   'Decide what needs a human before it happens.': 'text77ad70aefdce',
   'default_mode: risk makes reads run and sends writes and destructive calls to a person. A workspace with no policy block keeps the permissive legacy default, so set this explicitly.':
@@ -120,7 +120,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'Every host port, reassigned automatically if one is already taken': 'text469bcc02c9f9',
   'Every internal URL the services use to find each other': 'text8545f075422b',
   'Every workspace repo and every secret the platform holds': 'textf8ef2de56f6b',
-  'Everything the CLI generates is rotatable later with kortix self-host env rotate, and every value is visible with kortix self-host env ls, masked unless you ask for --show.':
+  'Rotate workspace API keys and secrets anytime in Settings → Secrets or with `kortix secrets`.':
     'textbebd0ee2eb17',
   'Export it or stream it': 'textce3a4968d879',
   'File storage, as a second directory next to it': 'textab0c820f8e1b',
@@ -153,16 +153,16 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
     'text6c94c3a6a6fa',
   'It keeps itself current': 'text51b143371424',
   'Its own sandbox, with its own filesystem and its own lifetime': 'text58f084456f75',
-  kortix: 'text388f7968512c',
-  'Kortix Cloud': 'text493bdb7154e4',
-  'kortix self-host start': 'textdbef6cc84fef',
-  'kortix self-host start registers the selfhost host for you and makes it active.':
+  dosco: 'text388f7968512c',
+  'Cloud': 'text493bdb7154e4',
+  'kortix ship': 'textdbef6cc84fef',
+  'Configured endpoints register your host for `kortix` CLI workflows.':
     'text8ea44187f958',
-  'kortix-api': 'text53b816218aba',
-  'kortix-migrate': 'text763fafcec9c0',
-  'kortix-updater': 'text52b1035fcd14',
+  'dosco-api': 'text53b816218aba',
+  'dosco-migrate': 'text763fafcec9c0',
+  'dosco-updater': 'text52b1035fcd14',
   'kortix.yaml': 'text1965f383021e',
-  'Kortix’s own upstream provider keys, which no sandbox may hold': 'text9fac860db4d4',
+  'Dosco’s own upstream provider keys, which no sandbox may hold': 'text9fac860db4d4',
   'llm-gateway': 'text1a89c40bda2b',
   Machine: 'text8f1cc42d7c1c',
   'Manage members, groups, roles, tokens and billing.': 'text0ef1d8916df6',
@@ -176,7 +176,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'Merging is default-deny': 'text829e67c6a623',
   'microVM where you ask for it': 'textb3960c7e6888',
   Models: 'textd17d2d78d76e',
-  'Most AI tools give the agent whatever the person who started it can reach. Kortix does not. An agent identity carries its own policies, evaluated on their own, so it cannot inherit its way up to something you never granted it.':
+  'Most AI tools give the agent whatever the person who started it can reach. Dosco does not. An agent identity carries its own policies, evaluated on their own, so it cannot inherit its way up to something you never granted it.':
     'text1aeb8993945b',
   'Need it inside your own network, with SSO and a licence? Talk to us.': 'text0eae7ee74fc9',
   'never crosses in': 'text818da9a35cdc',
@@ -187,7 +187,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'Not a community edition.': 'texte3bbf2902a7f',
   'not on your box': 'textaa57cad004f0',
   'Nothing is shared, because nothing is shared.': 'text9045e34e96f2',
-  'On Platinum, Kortix’s own compute and the reference provider, a sandbox is a Cloud Hypervisor microVM. Daytona remains a legacy fallback, and its removal is scheduled. We will tell you which one you are on rather than blur them together.':
+  'Each session sandbox runs inside an isolated E2B cloud microVM so no two sessions ever share a filesystem, process table, or network namespace.':
     'text4752074ca727',
   'on your box': 'text425aa668a9e4',
   'One branch per session': 'textb0f2f6dd1e38',
@@ -195,7 +195,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'One Docker Compose project': 'textc28e1cbeedd6',
   'One Docker Compose stack on your box, from the same images the managed cloud runs. Your database and your files sit on disk you control.':
     'textf17e37545b39',
-  'One Docker Compose stack, built from the same images the managed cloud runs. Your database, your files, your repos and your policies sit on disk you control. It is open source, so what you are running is code you can read.':
+  'Managed Cloud or single-tenant VPC deployment with your workspace git repos, files, and policies under your control.':
     'textfbdfd536fa56',
   'One honest exception': 'text7b2aba63cf85',
   'One sandbox per session': 'texta8c9aab244af',
@@ -236,28 +236,28 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   Runtime: 'text109311589787',
   'Same images as the cloud · One command · Any model, your keys': 'text60e3fb7a4521',
   'SAML 2.0 SSO': 'text1e9406a77696',
-  'SAML SSO, SCIM directory sync, custom roles, groups and reading the audit log are Enterprise entitlements. On a self-hosted instance they switch on with an Enterprise licence. The built-in owner, admin, member, manager and editor roles are there on every install, and the audit record is written on every install whether or not you can read it back yet.':
+  'SAML SSO, SCIM directory sync, custom roles, groups and reading the audit log are Enterprise entitlements. The built-in owner, admin, member, manager and editor roles are there on every workspace, and every event is written to the audit record.':
     'text2288facc3728',
   sandbox: 'textb7ad567477c8',
-  'Sandbox compute runs on Platinum. Daytona remains a legacy fallback, and its removal is scheduled. Fully isolated topologies are scoped with us rather than self-served.':
+  'Sandbox compute runs on isolated E2B cloud microVMs. Dedicated VPC topologies are scoped with our enterprise team.':
     'text9c282c968d5e',
   'SCIM 2.0': 'text98fe74b2a48a',
   'Scope a team to specific agents': 'text7bbd0566a549',
   Secrets: 'textd8707d411d99',
   Security: 'text8f6fb4eb7f42',
-  'security@kortix.com': 'text67b8b00d7d81',
+  'support@dosco.live': 'text67b8b00d7d81',
   'See enterprise': 'text08c74a58ac03',
-  'Self-host free': 'text6cad1856bada',
-  'Self-hosted': 'textbeafec79ffdd',
-  'Self-hosting is free and always will be. Kortix Cloud is the same product with the box, the upgrades and the sandbox tier taken off your hands.':
+  'Managed Enterprise VPC': 'text6cad1856bada',
+  'Dedicated VPC': 'textbeafec79ffdd',
+  'Start free with Cloud, or move up to a dedicated single-tenant VPC with full enterprise controls.':
     'text2461783e77d5',
-  'Self-hosting is not a smaller Kortix with the interesting parts removed. It is the whole control plane — workspaces, repos, secrets, connectors, policies, audit — running inside your network, on storage you back up yourself.':
+  'Every deployment includes the full control plane — workspaces, repos, secrets, connectors, policies, audit — running on isolated cloud microVMs.':
     'text4e1407fe77a8',
   'Send the questionnaire, the architecture questions, the deployment constraints. We would rather answer them properly than have you guess from a marketing page.':
     'text5b643170d839',
   'service account': 'textd7da08389824',
   'Service accounts': 'text1642d9e225e6',
-  'Sessions call the gateway inside your own stack, over your own domain or tunnel. Kortix has no credential in that path and no visibility into it.':
+  'Sessions route LLM calls through your workspace gateway with credentials held server-side and never placed in the sandbox.':
     'text23ad3a862df5',
   'Set the default you want': 'text2bf623481fd8',
   Shredded: 'texta69c197df026',
@@ -281,7 +281,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'The database password, the JWT signing secret and the API keys derived from it':
     'text7d0d0e55bc3e',
   'The file is wiped on shutdown and the machine is destroyed with it.': 'text68631de30841',
-  'The frontend, the API and the gateway are the published Kortix images. A self-hosted instance never builds its own — it consumes exactly what the release pipeline already produced.':
+  'Every workspace runs the verified Dosco release stack built and deployed from our release pipeline.':
     'texte46c387f3dee',
   'The gateway is yours': 'textea59a002b930',
   'The gateway, service and tunnel signing tokens': 'text841050a9c1e6',
@@ -291,7 +291,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
     'textec81d7aae411',
   'The machine is not precious. A bad install or a wiped directory goes away with it. Only what the session commits survives.':
     'text7067d94fd86f',
-  'The managed service. We run the control plane and the compute; you run the company.':
+  'The managed service. We run the control plane and isolated E2B sandboxes; you run the company.':
     'text568db3e36c44',
   'The person’s role and the agent’s declared grant must both allow it.': 'text01a556bb9792',
   'The Postgres data directory, the storage directory, and the .env that holds every key the instance uses. Back up those three and you have backed up the instance. There is no separate backup service to configure, and nothing to export from us.':
@@ -303,8 +303,8 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'The same artifact runs on a laptop, a VPS or a cloud VM. A domain is one environment variable, not a different deployment. Everything lives in one instance directory you can back up by copying it.':
     'text894031366a18',
   'The same images': 'text92f91971fba0',
-  'The same Kortix, on your box.': 'textf99aa2b72432',
-  'The same product ships as managed cloud, as a stack inside your own network, and as an isolated deployment. Open source, so what you are trusting is code you can read.':
+  'The same Dosco, in a dedicated VPC.': 'textf99aa2b72432',
+  'The same product ships on managed Cloud and as a dedicated single-tenant deployment inside your VPC.':
     'textcbb8b2ff8cdf',
   'The same product surface': 'text01ea7ab2073a',
   'The same stack inside your network. Isolated and air-gapped topologies need the sandbox tier moved inside with it, which we scope with you.':
@@ -318,9 +318,9 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
     'text931f3ba125af',
   'The web app': 'text5b265f545bde',
   'The whole docker-compose.yml and .env, written at mode 0600': 'text13c531d3fe85',
-  'There is no separate provisioning step and no console to click through. One command brings the stack up. One more decides which Kortix your CLI is talking to.':
+  'One workspace configuration connects web, Slack, Teams, and the `kortix` CLI to the exact same agent fleet.':
     'text8bf73992ff9b',
-  'This is not a stripped build with the good parts held back for the paid tier. Self-hosted instances run the same images the managed cloud runs, produced by the same pipeline, on the same release train.':
+  'Enterprise VPC workspaces run the exact same Dosco platform with dedicated isolation and SLA.':
     'textc01240eae6d5',
   'Three actions': 'text4b39312e24c1',
   'Tokens are stored per host, so switching hosts switches the account and the default workspace with it.':
@@ -333,7 +333,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'Unlocks SAML SSO, SCIM directory sync, custom roles, groups and audit read on this instance.':
     'textaea3a7e97183',
   Updates: 'text22e2bada8f1c',
-  'Use Kortix Cloud': 'textb627f853304f',
+  'Use Cloud': 'textb627f853304f',
   Used: 'textae7d8dfac9ff',
   'Values are sealed with AES-256-GCM. The key is derived per workspace with HKDF-SHA256, so one workspace’s ciphertext cannot be opened with another workspace’s key. The envelope is versioned, so the scheme can move forward without a flag day.':
     'text1ece34602eea',
@@ -358,8 +358,8 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
     'text5df59d04d374',
   'Your data is two directories and a file': 'text965609f12205',
   'Your own roles and fine-grained policy bindings beyond the presets.': 'textcac616ab8697',
-  'Your own VPC or on-prem': 'text2a568b20ca7b',
+  'Cloud or your own VPC': 'text2a568b20ca7b',
   'Your provider, your keys': 'text48d12c2f0363',
   'Your sandbox provider and its key': 'text6b23ec7fdf98',
-  'Your VPC or on-prem': 'textfbc1c4745323',
+  'Your VPC or dedicated deployment': 'textfbc1c4745323',
 };

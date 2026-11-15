@@ -325,7 +325,7 @@ export const trust = {
   cells: [
     { k: 'Cloud', v: 'We run the control plane and compute sandboxes.' },
     { k: 'Dedicated cloud', v: 'A single-tenant deployment in a cloud account we scope with you.' },
-    { k: 'Your VPC or on-prem', v: 'An isolated enterprise deployment, scoped with us.' },
+    { k: 'Dedicated VPC', v: 'An isolated enterprise deployment, scoped with us.' },
     { k: 'Governance & control', v: 'Audit every run, inspect every diff, verify every boundary.' },
     { k: 'SAML 2.0 and SCIM 2.0', v: 'Your identity provider decides who gets in.' },
     { k: 'Any model', v: 'Your own provider keys, or Dosco-managed.' },

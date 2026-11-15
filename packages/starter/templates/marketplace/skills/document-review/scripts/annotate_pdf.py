@@ -17,7 +17,7 @@ import fitz
 from constants import STATE_FILENAME
 from models import format_comment
 
-AUTHOR = "Kortix"
+AUTHOR = "Dosco"
 SEVERITY_COLORS = {
     "high": (1, 0, 0),
     "medium": (1, 0.65, 0),

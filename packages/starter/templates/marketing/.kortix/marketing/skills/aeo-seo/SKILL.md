@@ -21,7 +21,7 @@ sample, never a ranking.
 - `.kortix/marketing/queries.md`: the tracked questions. Still holds
   `TODO(onboarding)`: end `aeo-audit` with `errors=queries-unset`.
 - `channels.competitor-intel.competitors`: the competitor domains.
-- Tools: `web_search` and `scrape_webpage` (Kortix tools), `curl`,
+- Tools: `web_search` and `scrape_webpage` (Dosco tools), `curl`,
   `agent-browser` for pages that need JavaScript, and Lighthouse through
   `npx lighthouse` when it installs.
 

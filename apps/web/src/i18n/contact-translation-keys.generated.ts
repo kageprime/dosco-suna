@@ -5,7 +5,7 @@ export const CONTACT_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Batteries included': 'textc389ec160165',
   'Deployment options': 'textd261d4c6fc5b',
   'Enterprise-ready': 'textcc66da5b19e4',
-  'Dosco Cloud, with a dedicated cloud deployment for Enterprise.': 'textc6a5e338a7cc',
+  'Managed Cloud, with a dedicated cloud deployment for Enterprise.': 'textc6a5e338a7cc',
   'See agents run your actual workflows end-to-end — not a generic demo.': 'text7e6e766e8dff',
   'Bring your own models, no vendor lock-in.': 'textef33ff6fa4c6',
   'SSO, RBAC, audit logs, secrets manager — and open to audit.': 'text8ebe73f4611c',

@@ -61,7 +61,7 @@ Pick frame numbers inside the intro, two steps and the end card
 
 ## Not verified
 
-- A render inside a Kortix sandbox image: the test ran on a Linux dev box.
+- A render inside a Dosco sandbox image: the test ran on a Linux dev box.
   Chrome Headless Shell downloads on `browser ensure` (261 MB on disk) and needs
   outbound network once.
 - H.264 MP4 input clips: only VP8 WebM from agent-browser was tested.

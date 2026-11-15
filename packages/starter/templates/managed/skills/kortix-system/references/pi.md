@@ -1,7 +1,7 @@
 # pi: tools, permissions, subagents, extensions
 
-pi is the runtime of every Kortix session. It runs inside the Kortix daemon
-in the sandbox, calls models only through the Kortix LLM gateway, and reads
+pi is the runtime of every Dosco session. It runs inside the Dosco daemon
+in the sandbox, calls models only through the Dosco LLM gateway, and reads
 its config from `kortix.yaml` and the files it names.
 
 ## Tools
@@ -25,7 +25,7 @@ its config from `kortix.yaml` and the files it names.
 
 - The three web tools (`web_search`, `image_search`, `scrape_webpage`) bill
   the workspace. No key is needed in the sandbox.
-- Workspace tools from `tools:` run like the Kortix tools (`kortix/tools.md`).
+- Workspace tools from `tools:` run like the Dosco tools (`kortix/tools.md`).
 - `agents.<name>.codemode`: `on` (default), `only` (the model sees only
   `codemode`), `off`. A script may call `agent` (each hand-off gets its own card); `question` and `workflow` stay direct calls.
 - Not on pi: `webfetch`, `websearch`, `todowrite`, `lsp`, `apply_patch`,
@@ -79,7 +79,7 @@ Arguments: `description`, `prompt`, `subagent_type` (a declared agent) or
   `agent` and `task` out of `tools` to stop an agent from delegating.
 - A subagent runs with its own prompt, model and permission. A call must pass both the subagent's rules and the caller's: a `deny` from either wins. A child never gets a tool its caller lacks.
 - An inline agent runs as the caller's own agent, with the caller's access: its grant, connectors, secrets, computer type and the channel the caller's chat came from. Its `instructions` are its whole system prompt (at most 4,096 characters in a separate session).
-- Only My Kortix may give an inline agent more: `connectors` and `secrets` in the spec. A person allows that exact list first; the call starts nothing until then and says so, and the decision arrives as a new message. After an allow, the same call starts the colleague with exactly that list.
+- Only Xera may give an inline agent more: `connectors` and `secrets` in the spec. A person allows that exact list first; the call starts nothing until then and says so, and the decision arrives as a new message. After an allow, the same call starts the colleague with exactly that list.
 - `session: "separate"` (the default) runs the subagent in its own new
   session with its own sandbox and branch. The one call waits until that
   session finishes (up to 30 minutes) and returns its final message: ask the

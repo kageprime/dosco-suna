@@ -53,7 +53,7 @@ const PILLARS: { mode: DitherMode; icon: PhosphorIcon; name: string; line: strin
     name: 'Company as code',
     line: 'Extensible to the core.',
     body: 'Every agent, skill, rule, connector and piece of context is a file in one git repo.',
-    facts: ['Every agent and skill a file in git', 'An open-source agent harness'],
+    facts: ['Every agent and skill a file in git', 'A file-backed agent harness'],
   },
   {
     mode: 'shield',

@@ -30,7 +30,7 @@ does the outreach after the fix.
 
 | Kind | Settings | Read (the items updated since the cursor) |
 |---|---|---|
-| `kortix_email` | none: the workspace's Kortix inbox; forward the support address to it | `kortix connectors call kortix_email list_threads '{"limit":100}' --out /tmp/factory/feedback/email.json`, then `get_thread '{"thread_id":"<id>"}'` for the threads newer than the cursor. Page with `after` |
+| `kortix_email` | none: the workspace's Dosco inbox; forward the support address to it | `kortix connectors call kortix_email list_threads '{"limit":100}' --out /tmp/factory/feedback/email.json`, then `get_thread '{"thread_id":"<id>"}'` for the threads newer than the cursor. Page with `after` |
 | `plain` | `PLAIN_API_KEY` (read scopes) | `POST https://core-api.uk.plain.com/graphql/v1`, `Authorization: Bearer $PLAIN_API_KEY`: `{ threads(filters: { statuses: [TODO, DONE] }, first: 50) { edges { node { id title status updatedAt { iso8601 } } } pageInfo { hasNextPage endCursor } } }`; keep the threads with `updatedAt` after the cursor; page with `after: "<endCursor>"` |
 | `intercom` | `INTERCOM_ACCESS_TOKEN` | `POST https://api.intercom.io/conversations/search` with headers `Authorization: Bearer $INTERCOM_ACCESS_TOKEN`, `Intercom-Version: 2.11` and body `{"query":{"field":"updated_at","operator":">","value":<cursor unix>},"pagination":{"per_page":50}}`; the first message is `source.body` |
 | `zendesk` | `ZENDESK_SUBDOMAIN`, `ZENDESK_EMAIL`, `ZENDESK_API_TOKEN` | `GET https://$ZENDESK_SUBDOMAIN.zendesk.com/api/v2/incremental/tickets/cursor.json?start_time=<cursor unix>` with basic auth `$ZENDESK_EMAIL/token:$ZENDESK_API_TOKEN`; keep `subject`, `description`, `tags`; follow `after_cursor` until `end_of_stream` |

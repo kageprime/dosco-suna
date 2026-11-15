@@ -21,18 +21,18 @@ export const WHITE_LABEL_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Build your own AI product on Dosco.': 'textd8e2b67ec496',
   'Competitive rates': 'text2a64b1f9ed34',
   Cost: 'text204a5eb2cd28',
-  'Create an API key in the Platinum.dev dashboard. Access is by request today: email support@dosco.live from the address you signed with.':
+  'Add your sandbox provider credentials and storage keys in your environment. Access is by request: email support@dosco.live.':
     'text0d9fbe256201',
   'Custom agreements': 'textf4967f9f60fc',
-  'Each Platinum.dev sandbox is a hardware-isolated microVM. Every session your product starts gets its own.':
+  'Each sandbox is a hardware-isolated microVM. Every session your product starts gets its own.':
     'texteaf736a322fd',
   'Every new service': 'textc24e12a407bb',
-  'Every sandbox your product starts runs on Platinum.dev, from the day you sign.':
+  'Every sandbox your product starts runs on isolated cloud microVMs powered by E2B.':
     'text627ed481fbae',
   'Everything is yours to change. The compute is ours.': 'text26878b22f02b',
-  'Fork Dosco, put your brand on it, and sell it as your own: a vertical AI product, a wrapper, or a whole cloud business. The license is free. The one requirement is that your compute runs on Platinum.dev.':
+  'Deploy Dosco, put your brand on it, and deliver it under your name: a vertical AI product, an agency solution, or a private company deployment.':
     'text03d3a96b6cf0',
-  'Get Platinum.dev access': 'text90b061967dcb',
+  'Contact our enterprise team': 'text90b061967dcb',
   'Get a license': 'textfab19d39124b',
   'How it works': 'text9c870aa6e5e9',
   'If Dosco ends it': 'textc06bb7d99b34',
@@ -41,7 +41,7 @@ export const WHITE_LABEL_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'text115bdf31a28d',
   'Dosco gives you the agents, the sandboxes, the connectors and the repo underneath. You bring the market, the brand and the front end.':
     'textb475d38fb868',
-  'Dosco may end the default agreement with notice. You then have up to 90 days to move existing customers. After that, the terms apply as they do to everyone.':
+  'Dosco may end the agreement with notice. You then have up to 90 days to move existing customers. After that, standard commercial terms apply.':
     'textbb34416ac186',
   'Dosco underneath, your interface and your plans on top. Your customers see one product: yours.':
     'textb1629a8ab76f',
@@ -51,27 +51,27 @@ export const WHITE_LABEL_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'One requirement, stated in full. Nothing else in the agreement restricts what you build.':
     'text98bf8b3add9b',
   'One supplier': 'text44e2b28a8efa',
-  'Platinum.dev': 'textfb791d3beeee',
-  'Platinum.dev commits to rates that are competitive with comparable providers. Show us a lower rate for a comparable service, and Dosco matches it or releases you for that service.':
+  'Hardware-isolated microVM compute.': 'textfb791d3beeee',
+  'Pay only for what you run, with transparent meter rates and zero idle costs.':
     'text2d530fb254cc',
-  'Platinum.dev is the compute floor under Dosco. As long as your product runs on it, build any wrapper or cloud business you want.':
+  'Dosco runs sandboxes in isolated microVMs powered by E2B. Build any workflow, agent team, or cloud solution you need.':
     'text07c5fdb5b6da',
-  'Point your Dosco at Platinum.dev and rebrand': 'text7c12a9200d91',
+  'Configure, deploy, rebrand.': 'text7c12a9200d91',
   'Read the agreement': 'text41b257b886b2',
   'Read the full agreement': 'text750572bf5eb7',
   'Regional providers': 'text05b1604e2f98',
   Sandboxes: 'text3f2c01e07be5',
-  'Set three values in your API environment, on any infrastructure. Then change the code, or upload your name and logo in Branding settings.':
+  'Set your application title, logos, and custom domains in your Branding settings panel.':
     'textefbebbd5bf86',
   'Sign the agreement': 'text1b84235a2025',
   'Sign the agreement and start building.': 'text51e98db5e5f9',
   'Sign the agreement online': 'texte810aac576c8',
-  'Sign, connect, rebrand.': 'text790824fde0d6',
+  'Three simple steps to launch your branded agent platform.': 'text790824fde0d6',
   Term: 'textc6f3bfd45614',
   'The agreement': 'textf01f31b2f2aa',
   'The deal': 'text0cc627256465',
   'The default runs until either side ends it. You may leave at any time.': 'texta8e9bf810c3f',
-  'The license is free. You pay Platinum.dev only for the compute you use.': 'textfb5760f93135',
+  'The license is free. You pay only for the compute you use.': 'textfb5760f93135',
   'The license is in force the moment you sign. Your product, your brand, our compute.':
     'text9dbb9295e8bf',
   'The one thing you need from us is compute.': 'textc897764874f9',
@@ -80,9 +80,9 @@ export const WHITE_LABEL_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'The whole product, under your brand: ship it, price it, support it.': 'textca045660b259',
   'Three steps, and no call with us unless you want custom terms.': 'text0d68dc7a9ba1',
   'Vertical AI': 'text31122808c69c',
-  'Volumes, runners, AI compute and inference join the agreement as Platinum.dev offers them and Dosco uses them.':
+  'Compute, storage, and models route cleanly through designated cloud providers.':
     'textaa51b8a57281',
-  'Volumes, runners, AI compute and inference move to Platinum.dev once it offers them and Dosco uses them. You get 90 days to move.':
+  'Bring your own API keys or use managed infrastructure with zero operational overhead.':
     'text7a6b878dd5f1',
   'What you can build': 'text81ce7be09e9d',
   'What you commit to': 'text87d30f096dd2',
@@ -90,7 +90,7 @@ export const WHITE_LABEL_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'White-label': 'textc711077aba84',
   'You keep the copyright and license notices in the source. Your customers never need to see Dosco.':
     'textb1a7b0d78bd8',
-  'You pay Platinum.dev for the compute you use, through your own Platinum.dev account. You run no sandbox fleet of your own.':
+  'Use managed E2B and OpenRouter providers or connect your own keys with zero fleet maintenance.':
     'text8fa936af714e',
   'Your name, logo, domain and colors in place of Dosco.': 'text8bbbac648ee6',
   'Your own AI cloud': 'text0aac08509e10',

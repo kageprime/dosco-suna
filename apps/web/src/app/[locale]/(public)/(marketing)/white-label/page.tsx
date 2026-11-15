@@ -38,7 +38,7 @@ function Bullets({ title, items }: { title: string; items: readonly string[] }):
 }
 
 /**
- * `/white-label` — build your own product on Dosco, on Platinum.dev compute.
+ * `/white-label` — build your own product on Dosco, on dedicated cloud compute.
  *
  * Copy lives in `features/marketing/white-label/content.ts`, and that file's
  * header lists what the page may and may not claim. The binding text is
@@ -48,7 +48,7 @@ function Bullets({ title, items }: { title: string; items: readonly string[] }):
  */
 export default async function WhiteLabelPage(): Promise<ReactNode> {
   const tI18nComplete = await getTranslations('hardcodedUi.i18nComplete');
-  const { closing, deal, hero, platinum, scenarios, steps, terms } =
+  const { closing, deal, hero, compute, scenarios, steps, terms } =
     getLocalizedWhiteLabelContent(tI18nComplete);
   return (
     <div className="bg-background relative">
@@ -96,16 +96,16 @@ export default async function WhiteLabelPage(): Promise<ReactNode> {
 
       <SectionDivider />
 
-      {/* ── 3 · Platinum.dev ────────────────────────────────────────────── */}
-      <section id="platinum" className="mx-auto max-w-7xl px-6 py-24 md:py-30">
+      {/* ── 3 · Cloud Compute ──────────────────────────────────────────── */}
+      <section id="compute" className="mx-auto max-w-7xl px-6 py-24 md:py-30">
         <SectionHeader
-          eyebrow={platinum.eyebrow}
-          title={platinum.title}
-          description={platinum.sub}
+          eyebrow={compute.eyebrow}
+          title={compute.title}
+          description={compute.sub}
         />
         <Reveal delay={0.06}>
           <div className="mt-10">
-            <RowList rows={platinum.rows} />
+            <RowList rows={compute.rows} />
           </div>
         </Reveal>
       </section>

@@ -4,7 +4,6 @@ import { Badge } from '@kortix/ui/badge';
 import { KortixLogo } from '@kortix/ui/kortix-logo';
 import { IconFrame } from '@/components/ui/marketing/icon-frame';
 import { APPS } from '@/features/marketing/how-it-work/app-domains';
-import { Github } from '@kortix/ui/internal/icons/github';
 import { Slack } from '@kortix/ui/internal/icons/slack';
 import { faviconUrlForHostname, cn } from '@kortix/ui';
 import {
@@ -277,19 +276,18 @@ const TERMINAL: { at: number; cmd?: string; out?: string }[] = [
 ];
 
 const RUNS = [
-  { icon: CloudIcon, label: 'Dosco Cloud' },
-  { icon: HardDrivesIcon, label: 'Your servers' },
-  { icon: BuildingsIcon, label: 'On-prem' },
+  { icon: CloudIcon, label: 'Cloud' },
+  { icon: HardDrivesIcon, label: 'Dedicated VPC' },
+  { icon: BuildingsIcon, label: 'Enterprise clusters' },
 ];
 
 export function OpenSource() {
   const f = useFrame();
-  const stars = Math.round(interp(f, 300, 380, 0, 20000, ease.outCubic) / 100) * 100;
 
   return (
     <div className="absolute inset-0 flex items-center gap-14 px-20">
       <div className="flex-1 space-y-8">
-        <Headline lead="Open source." rest="Yours down to the metal." f={f} at={-6} size="text-5xl" stack />
+        <Headline lead="Yours in git." rest="Engineered to last." f={f} at={-6} size="text-5xl" stack />
         <Window title="~/code" style={rise(f, 20, { dist: 30, scale: 0.97 })}>
           <div className="min-h-64 space-y-1 px-5 py-4 font-mono text-sm">
             {TERMINAL.filter((l) => f >= l.at).map((l) =>
@@ -322,13 +320,8 @@ export function OpenSource() {
             </div>
           );
         })}
-        <div className="flex items-center gap-3 px-4 pt-5" style={rise(f, 300)}>
-          <Github className="text-foreground size-7" />
-          <span className="text-foreground text-4xl font-medium tracking-tight tabular-nums">
-            {stars.toLocaleString('en-US')}
-            {f >= 380 ? '+' : ''}
-          </span>
-          <span className="text-muted-foreground text-base">GitHub stars</span>
+        <div className="text-muted-foreground px-4 pt-5 text-sm" style={rise(f, 300)}>
+          Every agent, skill, and trigger lives in your repository.
         </div>
       </div>
     </div>
@@ -349,7 +342,7 @@ export function EndCard() {
         The agentic operating system
       </p>
       <p className="text-foreground font-mono text-lg" style={rise(f, 48)}>
-        kortix.com
+        dosco.live
       </p>
     </div>
   );

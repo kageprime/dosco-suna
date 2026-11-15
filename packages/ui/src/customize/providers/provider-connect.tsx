@@ -373,7 +373,7 @@ export function useManagedProvider(projectId: string | null): LlmProviderEntry {
       }));
     return {
       id: 'kortix',
-      label: 'Kortix',
+      label: 'Dosco',
       envVars: [],
       authRequirement: { methods: [] },
       helpUrl: null,
