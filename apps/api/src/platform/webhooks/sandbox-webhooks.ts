@@ -72,24 +72,35 @@ export function verifyHmacSha256(rawBody: string, secret: string, headerValue: s
 
 /**
  * HMAC-SHA-256 for E2B sandbox lifecycle webhooks.
- * E2B sends an `e2b-signature` header containing a base64-encoded HMAC-SHA256
- * digest with padding stripped. Also accepts standard hex or prefixed format.
+ * E2B sends an `e2b-signature` header containing a base64-encoded digest
+ * with padding stripped. Also accepts plain SHA-256(secret + body), hex, and versioned candidates.
  */
 export function verifyE2bSignature(rawBody: string, secret: string, headerValue: string | undefined): boolean {
   if (!headerValue) return false;
-  const cleaned = headerValue.trim().replace(/^v\d+=/i, '').replace(/=+$/, '');
+  const candidates = headerValue
+    .split(/[\s,]+/)
+    .map((p) => p.replace(/^(t=\d+|v\d+=|sha256=)/i, '').replace(/=+$/, '').trim())
+    .filter(Boolean);
 
-  // 1. Standard E2B format: Base64 without trailing '='
-  const expectedBase64 = createHmac('sha256', secret).update(rawBody, 'utf8').digest('base64').replace(/=+$/, '');
-  if (safeEqual(cleaned, expectedBase64)) return true;
+  // 1. Standard E2B format: HMAC-SHA256 Base64 without trailing '='
+  const hmacBase64 = createHmac('sha256', secret).update(rawBody, 'utf8').digest('base64').replace(/=+$/, '');
+  if (candidates.some((c) => safeEqual(c, hmacBase64))) return true;
 
-  // 2. Base64 with padding
-  const expectedBase64Padded = createHmac('sha256', secret).update(rawBody, 'utf8').digest('base64');
-  if (safeEqual(cleaned, expectedBase64Padded)) return true;
+  // 2. Base64 with padding (HMAC-SHA256)
+  const hmacBase64Padded = createHmac('sha256', secret).update(rawBody, 'utf8').digest('base64');
+  if (candidates.some((c) => safeEqual(c, hmacBase64Padded))) return true;
 
-  // 3. Hex format fallback
-  const expectedHex = createHmac('sha256', secret).update(rawBody, 'utf8').digest('hex');
-  if (safeEqual(cleaned.toLowerCase(), expectedHex.toLowerCase())) return true;
+  // 3. Plain SHA-256 hash over (secret + rawBody) Base64 without padding
+  const sha256SecretBodyBase64 = createHash('sha256').update(secret + rawBody, 'utf8').digest('base64').replace(/=+$/, '');
+  if (candidates.some((c) => safeEqual(c, sha256SecretBodyBase64))) return true;
+
+  // 4. Plain SHA-256 hash over (secret + rawBody) Hex
+  const sha256SecretBodyHex = createHash('sha256').update(secret + rawBody, 'utf8').digest('hex');
+  if (candidates.some((c) => safeEqual(c.toLowerCase(), sha256SecretBodyHex.toLowerCase()))) return true;
+
+  // 5. Hex HMAC-SHA256 fallback
+  const hmacHex = createHmac('sha256', secret).update(rawBody, 'utf8').digest('hex');
+  if (candidates.some((c) => safeEqual(c.toLowerCase(), hmacHex.toLowerCase()))) return true;
 
   return false;
 }
