@@ -54,7 +54,7 @@ newest() {
 }
 base=""
 base_max=""
-for ref in refs/remotes/origin/dev refs/remotes/upstream/dev; do
+for ref in refs/remotes/origin/dev refs/remotes/origin/main refs/remotes/upstream/dev; do
   sha=$(git rev-parse -q --verify "$ref") || continue
   max=$(newest "$sha")
   [ -n "$max" ] || continue
@@ -75,9 +75,16 @@ out=$(while read -r _ local_sha remote_ref _; do
   git diff --no-renames --diff-filter=A --name-only "$base...$local_sha" -- \
     "$dir/*.sql" "$dir/*.concurrent.ts"
 done | sort -u | while read -r f; do
-  # origin/dev already runs this exact file (migrations are immutable): a
-  # stage-fix branch that cherry-picks a dev fix onto staging adds nothing new.
-  git cat-file -e "$base:$f" 2>/dev/null && continue
+  # Any already-deployed trunk ref (origin/dev, origin/main, upstream/dev) runs
+  # immutable migrations: cherry-picks and sovereign fork migrations stay valid.
+  already_on_trunk=
+  for trunk_ref in "$base" refs/remotes/origin/dev refs/remotes/origin/main; do
+    if git cat-file -e "$trunk_ref:$f" 2>/dev/null; then
+      already_on_trunk=1
+      break
+    fi
+  done
+  [ -n "$already_on_trunk" ] && continue
   ts=$(basename "$f" | sed -En 's#^([0-9]{17})_.*#\1#p')
   [ -n "$ts" ] && [ "$ts" -le "$base_max" ] && echo "  $f"
 done || true)

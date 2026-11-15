@@ -110,6 +110,20 @@ describe('migration-order guard', () => {
     expect(check('dev').status).toBe(0);
   });
 
+  it('allows an already-shipped migration on origin/main even when upstream/dev sorts newer', () => {
+    const { add, push, git } = repo('refs/remotes/upstream/dev');
+    const fork = git('rev-parse', 'HEAD').stdout.trim();
+    git('switch', '-q', '-c', 'sovereign', fork);
+    const shipped = add('20260909134742448_paystack_columns.sql');
+    git('update-ref', 'refs/remotes/origin/main', shipped);
+    git('switch', '-q', 'dev');
+    git('update-ref', 'refs/remotes/upstream/dev', add('20261114171401000_newer_upstream.sql'));
+    git('switch', '-q', '-c', 'dosco-sync', 'HEAD');
+    git('merge', '-q', 'sovereign');
+    expect(push(git('rev-parse', 'HEAD').stdout.trim(), 'refs/heads/main').status).toBe(0);
+    expect(push(add('20261006182246238_out_of_order.sql'), 'refs/heads/main').status).toBe(1);
+  });
+
   it('--head and --pr need a value', () => {
     const { git } = repo();
     const dir = git('rev-parse', '--show-toplevel').stdout.trim();
