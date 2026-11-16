@@ -17,7 +17,7 @@ import { useUiHostConfig } from '../../providers/ui-provider';
 import { cn } from '../../lib/utils';
 import { TRIGGER_CARET_CLASS, triggerVariants } from '../../primitives/trigger-variants';
 import type { Agent } from '@kortix/sdk/react';
-import { agentDisplayName, isMyKortixAgentName } from '@kortix/shared';
+import { agentDisplayName, isMyKortixAgentName, MY_KORTIX_DISPLAY_NAME } from '@kortix/shared';
 import { InlineCodeText } from '../../markdown/inline-code-text';
 import { CaretDownIcon, CheckIcon } from '@phosphor-icons/react';
 import { AgentMark } from '../../internal/components/agent-mark';

@@ -8,10 +8,14 @@ const nextConfig = readFileSync(new URL('../../next.config.ts', import.meta.url)
 
 describe('resolveTurbopackFileSystemCacheForBuild', () => {
   const KEY = 'KORTIX_TURBOPACK_BUILD_CACHE';
+  const VERCEL_KEY = 'VERCEL';
   const saved = process.env[KEY];
+  const savedVercel = process.env[VERCEL_KEY];
   afterEach(() => {
     if (saved === undefined) delete process.env[KEY];
     else process.env[KEY] = saved;
+    if (savedVercel === undefined) delete process.env[VERCEL_KEY];
+    else process.env[VERCEL_KEY] = savedVercel;
   });
 
   test('explicit override wins over memory', () => {
@@ -25,22 +29,32 @@ describe('resolveTurbopackFileSystemCacheForBuild', () => {
     // The measured OOM: 11 GB sandbox, no swap — the persistent build cache
     // pushed the build to 9.5 GB RSS and the kernel OOM killer SIGKILLed it.
     delete process.env[KEY];
+    delete process.env[VERCEL_KEY];
     expect(resolveTurbopackFileSystemCacheForBuild(11.3 * GB)).toBe(false);
+  });
+
+  test('unset on Vercel container defaults off even when host os.totalmem() exceeds 14 GB', () => {
+    delete process.env[KEY];
+    process.env[VERCEL_KEY] = '1';
+    expect(resolveTurbopackFileSystemCacheForBuild(32 * GB)).toBe(false);
   });
 
   test('unset: 16 GB CI runner keeps upstream default (on)', () => {
     delete process.env[KEY];
+    delete process.env[VERCEL_KEY];
     expect(resolveTurbopackFileSystemCacheForBuild(16 * GB)).toBe(true);
   });
 
   test('empty string is not an override', () => {
     process.env[KEY] = '';
+    delete process.env[VERCEL_KEY];
     expect(resolveTurbopackFileSystemCacheForBuild(16 * GB)).toBe(true);
     expect(resolveTurbopackFileSystemCacheForBuild(11.3 * GB)).toBe(false);
   });
 
   test('a typo falls back to the memory-based default', () => {
     process.env[KEY] = 'ful';
+    delete process.env[VERCEL_KEY];
     expect(resolveTurbopackFileSystemCacheForBuild(16 * GB)).toBe(true);
     expect(resolveTurbopackFileSystemCacheForBuild(11.3 * GB)).toBe(false);
   });

@@ -31,5 +31,9 @@ export function resolveTurbopackFileSystemCacheForBuild(totalMem: number = os.to
         `expected one of 'on', 'off'. Falling back to the memory-based default.`,
     );
   }
+  // On Vercel, builds run inside an 8 GB container whose `os.totalmem()`
+  // can reflect host RAM (>= 14 GB) rather than the cgroup limit. Keeping the
+  // persistent build cache off avoids ~2+ GB RSS growth that causes SIGKILL.
+  if (process.env.VERCEL) return false;
   return totalMem >= SMALL_MACHINE_BUILD_CACHE_MAX_BYTES;
 }
