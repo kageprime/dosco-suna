@@ -34,7 +34,7 @@ import { Button } from '@kortix/ui/button';
 import { Input } from '@kortix/ui/input';
 import Loading from '@kortix/ui/loading';
 import { errorToast } from '@kortix/ui/toast';
-import { AuthFrame } from '@kortix/ui/internal/auth/auth-card-shell';
+import { AuthFrame, AuthLegalCopy } from '@kortix/ui/internal/auth/auth-card-shell';
 import { useBrandName } from '@kortix/ui/internal/branding/branding-provider';
 import {
   FieldError,
@@ -1100,72 +1100,90 @@ function AuthCardForm({
   /* ── Entry step ── */
   return (
     <>
-      <m.div {...rise(0)}>
+      <m.div {...rise(0)} className="text-center">
         {/* One system: no sign-in/sign-up toggle. Continue routes new emails
             into registration and existing ones into sign-in automatically. */}
-        <StepHeader title={t('welcome', { name: brandName })} description={t('automaticAccount')} />
+        <h1 className="text-foreground text-2xl font-semibold tracking-tight text-balance">
+          {t('welcome', { name: brandName })}
+        </h1>
+        <p className="text-muted-foreground mt-2 text-sm text-pretty">{t('automaticAccount')}</p>
       </m.div>
 
       <m.div {...rise(0.06)}>
-        {info && <InfoStrip message={info} />}
-
-        {googleEnabled && (
-          <>
-            <Suspense fallback={null}>
-              <GoogleSignIn
-                returnUrl={returnUrl}
-                mobileCallbackState={mobileCallbackState ?? undefined}
-              />
-            </Suspense>
-            <OrDivider label={t('or')} />
-          </>
+        {info && (
+          <div className="mt-6">
+            <InfoStrip message={info} />
+          </div>
         )}
 
-        {/* The pre-hydration submit guard targets this attribute. It ships
-            from the root layout <head> (lib/auth/entry-hydration-guard.ts):
-            a <script> rendered here is created by React on the client and
-            logs "Encountered a script tag while rendering React component". */}
-        <form onSubmit={handleEntryContinue} className="space-y-5" data-hydrate-guard>
-          <div className="space-y-3">
-            <FieldLabel htmlFor="email">{t('email')}</FieldLabel>
-            <Input
-              ref={emailRef}
-              id="email"
-              name="email"
-              type="email"
-              size="md"
-              placeholder={t('emailPlaceholder')}
-              // Controlled: React owns the value. The one exception is the
-              // hydration moment — React 19 resets the field to the rendered
-              // value then, discarding pre-hydration typing — and the mount
-              // effect above restores the guard's stash (and replays an
-              // intercepted submit) right after — see lib/auth/entry-hydration-guard.ts.
-              // The submit handler reads the DOM value first, so a
-              // last-keystroke race before a commit never drops a character.
-              value={email}
-              onChange={(e) => {
-                if (errorMessage) setErrorMessage(null);
-                setEmail(e.target.value);
-              }}
-              required
-              autoComplete="email"
-              autoFocus
-              aria-invalid={!!errorMessage || undefined}
-              aria-describedby={errorMessage ? 'email-error' : undefined}
-            />
-            {errorMessage && <FieldError id="email-error" message={errorMessage} />}
-          </div>
-          <Button type="submit" size="lg" disabled={pending} className="w-full">
-            {pendingAction === 'continue' ? <Loading className="size-4 shrink-0" /> : null}
-            {t('continue')}
-          </Button>
-        </form>
+        <div className="border-border bg-card mt-7 rounded-xl border p-6">
+          {googleEnabled && (
+            <>
+              <Suspense fallback={null}>
+                <GoogleSignIn
+                  returnUrl={returnUrl}
+                  mobileCallbackState={mobileCallbackState ?? undefined}
+                />
+              </Suspense>
+              <OrDivider label={t('or')} />
+            </>
+          )}
+
+          {/* The pre-hydration submit guard targets this attribute. It ships
+              from the root layout <head> (lib/auth/entry-hydration-guard.ts):
+              a <script> rendered here is created by React on the client and
+              logs "Encountered a script tag while rendering React component". */}
+          <form onSubmit={handleEntryContinue} className="space-y-3" data-hydrate-guard>
+            <div>
+              <label htmlFor="email" className="sr-only">
+                {t('email')}
+              </label>
+              <Input
+                ref={emailRef}
+                id="email"
+                name="email"
+                type="email"
+                size="lg"
+                placeholder={t('emailPlaceholder')}
+                // Controlled: React owns the value. The one exception is the
+                // hydration moment — React 19 resets the field to the rendered
+                // value then, discarding pre-hydration typing — and the mount
+                // effect above restores the guard's stash (and replays an
+                // intercepted submit) right after — see lib/auth/entry-hydration-guard.ts.
+                // The submit handler reads the DOM value first, so a
+                // last-keystroke race before a commit never drops a character.
+                value={email}
+                onChange={(e) => {
+                  if (errorMessage) setErrorMessage(null);
+                  setEmail(e.target.value);
+                }}
+                required
+                autoComplete="email"
+                autoFocus
+                aria-invalid={!!errorMessage || undefined}
+                aria-describedby={errorMessage ? 'email-error' : undefined}
+              />
+              {errorMessage && (
+                <div className="mt-2">
+                  <FieldError id="email-error" message={errorMessage} />
+                </div>
+              )}
+            </div>
+            <Button type="submit" size="lg" disabled={pending} className="w-full">
+              {pendingAction === 'continue' ? <Loading className="size-4 shrink-0" /> : null}
+              {t('continue')}
+            </Button>
+          </form>
+
+          <AuthLegalCopy className="text-muted-foreground mt-4 text-center text-xs text-balance" />
+        </div>
 
         {/* The alternatives share one quiet row. SSO is the discoverable
             counterpart of the silent home-realm discovery Continue already
             performs, rendered only when this deployment has SAML enabled, so
             self-hosted installs without SSO never show a dead door. */}
         <QuietLinks
+          className="justify-center"
           links={[
             passwordEnabled && magicLinkEnabled
               ? {
@@ -1384,7 +1402,7 @@ function AuthContent() {
   // A stale/invalidated session (sessionExpired, or forceForm from the
   // safety-net timeout) also lands here — never a dead shell.
   return (
-    <AuthFrame>
+    <AuthFrame footerVariant="none" showShowcase>
       <AuthCardForm
         callbackError={searchParams.get('expired') === 'true' || searchParams.has('error') || searchParams.has('error_code')}
         returnUrl={returnUrl}

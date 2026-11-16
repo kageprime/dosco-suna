@@ -11,7 +11,7 @@ import {
   InfoIcon as InfoCircleSolid,
 } from '@phosphor-icons/react';
 import { m, useReducedMotion } from 'motion/react';
-import { useEffect, useRef } from 'react';
+import { createContext, useContext, useEffect, useRef } from 'react';
 
 import { inputFocusClasses, inputSurfaceClasses } from '../../primitives/input';
 import { KortixLogo } from '../../primitives/kortix-logo';
@@ -84,6 +84,8 @@ export function AuthMobileLogo() {
   );
 }
 
+export const AuthFrameHasTopLogoContext = createContext(false);
+
 export function StepHeader({
   title,
   description,
@@ -103,18 +105,21 @@ export function StepHeader({
   markOnMobile?: boolean;
   description?: React.ReactNode;
 }) {
+  const hasTopLogo = useContext(AuthFrameHasTopLogoContext);
+  const showDefaultMark = !mark && !hasTopLogo;
   return (
     <div className="mb-8">
       {mark ? (
         <div className={markOnMobile ? undefined : 'hidden md:block'}>{mark}</div>
-      ) : (
+      ) : showDefaultMark ? (
         <div className={markOnMobile ? undefined : 'hidden md:block'}>
           <KortixLogo variant="icon" size={24} className="text-foreground" />
         </div>
-      )}
+      ) : null}
       <h1
         className={cn(
-          'text-foreground text-2xl font-semibold tracking-tight text-balance md:mt-6',
+          'text-foreground text-2xl font-semibold tracking-tight text-balance',
+          (mark || showDefaultMark) && 'md:mt-6',
           mark && markOnMobile && 'mt-6',
         )}
       >
