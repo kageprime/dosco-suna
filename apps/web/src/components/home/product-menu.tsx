@@ -26,10 +26,6 @@ export const MEGA_MENUS: MegaMenu[] = [
   {
     id: 'product',
     label: 'Product',
-    // What the product is and what it is made of. Pricing lives in the bar
-    // only. Each pillar has its own page (/multiplayer, /framework for company
-    // as code, /sovereign); Outcomes lands on the home section; the building
-    // blocks open their Guide sections.
     groups: [
       {
         title: 'The CompanyOS',
@@ -41,25 +37,6 @@ export const MEGA_MENUS: MegaMenu[] = [
         ],
       },
       {
-        title: 'Building blocks',
-        // Each opens its Guide page (docs revamp, 2026-10-27).
-        links: [
-          { label: 'Agents', href: '/docs/guide#agents' },
-          { label: 'Skills', href: '/docs/guide#skills' },
-          // Apps: the compute platform (sites, internal tools, backends with data,
-          // functions and realtime).
-          { label: 'Apps', href: '/docs/guide#apps' },
-          // Drive: shared folders for people and agents (the Files feature).
-          { label: 'Drive', href: '/docs/guide#drive' },
-          { label: 'Connectors', href: '/docs/guide#connectors' },
-          { label: 'Automations', href: '/docs/guide#automations' },
-          { label: 'Computers', href: '/docs/guide#computers' },
-          { label: 'Models', href: '/docs/guide#models' },
-        ],
-      },
-      {
-        // ACCURACY: the channel set is Slack, Microsoft Teams and email
-        // (kortix-brand claims.md). Email has no page yet.
         title: 'Use it from',
         links: [
           { label: 'Desktop', href: '/desktop' },
@@ -72,22 +49,20 @@ export const MEGA_MENUS: MegaMenu[] = [
         title: 'Run it',
         links: [
           { label: 'Security', href: '/security' },
-          // ACCURACY: never "air-gapped" (see site-config.ts).
           { label: 'Enterprise', href: '/enterprise' },
           { label: 'Compliance', href: '/compliance' },
+          { label: 'Pricing', href: '/pricing' },
         ],
       },
     ],
   },
   {
     id: 'resources',
-    // /developers stays live but is in no menu (founder, 2026-10-27).
     label: 'Resources',
     groups: [
       {
         title: 'Learn',
         links: [
-          { label: 'Guide', href: '/docs/guide' },
           { label: 'Use cases', href: '/use-cases' },
           { label: 'Case studies', href: '/case-studies' },
           ...(process.env.NEXT_PUBLIC_BLOG_ORIGIN ? [{ label: 'Blog', href: '/blog' }] : []),
@@ -103,8 +78,7 @@ export const MEGA_MENUS: MegaMenu[] = [
       {
         title: 'Company',
         links: [
-          { label: 'Careers', href: '/careers' },
-          { label: 'Contact', href: '/contact' },
+          { label: 'Services', href: '/services' },
           { label: 'Legal', href: '/legal/terms' },
         ],
       },
@@ -129,18 +103,18 @@ type MegaMenuPanelProps = {
 function PlatformCard({ onNavigate }: { onNavigate: () => void }) {
   return (
     <Link
-      href="/docs"
+      href="/marketplace"
       onClick={onNavigate}
       className="group/platform bg-foreground text-background outline-ring flex flex-col justify-between gap-8 rounded-lg p-5 focus-visible:outline-2 focus-visible:outline-offset-2"
     >
       <span className="flex flex-col">
-        <span className="text-lg font-medium">Dosco Tek</span>
+        <span className="text-lg font-medium">Marketplace</span>
         <span className="text-background/80 mt-1 text-sm">
-          The harness that powers companies that run agents.
+          Discover skills, plugins, and tools to power your workspace.
         </span>
       </span>
       <span className="group-hover/platform:text-ring inline-flex items-center gap-1.5 text-sm transition-colors duration-moderate">
-        Explore Documentation
+        Explore Marketplace
         <ArrowUpRightIcon className="size-3.5 opacity-0 transition-opacity duration-moderate group-hover/platform:opacity-100 group-focus-visible/platform:opacity-100" />
       </span>
     </Link>

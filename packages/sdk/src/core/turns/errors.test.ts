@@ -293,6 +293,16 @@ describe('unwrapError — a message that is itself a serialized body is unwrappe
     expect(unwrapError(html)).toBe('502 Bad Gateway');
   });
 
+  test('a status-prefixed HTML error page collapses cleanly rather than leaking raw HTML', () => {
+    const herokuHtml =
+      '503 <!DOCTYPE html> <html> <head> <meta name="viewport" content="width=device-width, initial-scale=1"> <meta charset="utf-8"> <title>Application Error</title> <style media="screen"> html,body,iframe { margin: 0; padding: 0; } </style> </head> <body> <iframe src="https://www.herokucdn.com/error-pages/application-error.html"></iframe> </body> </html>';
+    expect(unwrapError(herokuHtml)).toBe('The server timed out or was temporarily unavailable (Heroku 503).');
+
+    const genericHtml =
+      '504 <!DOCTYPE html><html><head><title>Gateway Timeout</title></head><body>504 Gateway Timeout</body></html>';
+    expect(unwrapError(genericHtml)).toBe('Gateway Timeout');
+  });
+
   // CodeQL js/bad-tag-filter: `<\/script>` does not match a close tag with
   // whitespace before the bracket, which HTML permits. The script body then
   // survives the strip and lands in the user's transcript row.

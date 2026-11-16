@@ -8,10 +8,32 @@ import type { Tool } from '@earendil-works/pi-ai'
 import { PREFIX, SERVER, description, original, short } from './names'
 import type { PendingTools } from './pending'
 
-/** A tool's JSON schema without typebox's symbol keys, always an object schema (MCP requires one). */
+/** A tool's JSON schema without typebox's symbol keys, always a valid Draft 2020-12 object schema. */
 function inputSchema(tool: Tool): { type: 'object'; [key: string]: unknown } {
   const schema = JSON.parse(JSON.stringify(tool.parameters ?? {})) as Record<string, unknown>
-  return { ...schema, type: 'object' }
+  const out = { ...schema, type: 'object' }
+  if (out.properties && typeof out.properties === 'object') {
+    const props = { ...(out.properties as Record<string, any>) }
+    for (const [key, val] of Object.entries(props)) {
+      if (val && typeof val === 'object') {
+        if (Array.isArray(val.anyOf)) {
+          const arrayBranch = val.anyOf.find((b: any) => b?.type === 'array')
+          const stringBranch = val.anyOf.find((b: any) => b?.type === 'string')
+          const chosen = arrayBranch ?? stringBranch ?? val.anyOf[0] ?? {}
+          const { anyOf, ...rest } = val
+          props[key] = { ...rest, ...chosen }
+        } else if (Array.isArray(val.oneOf)) {
+          const arrayBranch = val.oneOf.find((b: any) => b?.type === 'array')
+          const stringBranch = val.oneOf.find((b: any) => b?.type === 'string')
+          const chosen = arrayBranch ?? stringBranch ?? val.oneOf[0] ?? {}
+          const { oneOf, ...rest } = val
+          props[key] = { ...rest, ...chosen }
+        }
+      }
+    }
+    out.properties = props
+  }
+  return out
 }
 
 export async function createToolServer(tools: readonly Tool[], pending: PendingTools): Promise<McpSdkServerConfigWithInstance> {

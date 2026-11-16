@@ -275,7 +275,34 @@ export function toModelMessages(rawMessages: unknown): {
   };
 }
 
-// OpenAI `tools` → an AI SDK ToolSet with NO `execute`. Without an implementation the
+function sanitizeToolSchema(raw: unknown): object {
+  if (!raw || typeof raw !== 'object') return { type: 'object', properties: {} };
+  const schema = { ...(raw as Record<string, unknown>), type: 'object' };
+  if (schema.properties && typeof schema.properties === 'object') {
+    const props = { ...(schema.properties as Record<string, any>) };
+    for (const [key, val] of Object.entries(props)) {
+      if (val && typeof val === 'object') {
+        if (Array.isArray(val.anyOf)) {
+          const arrayBranch = val.anyOf.find((b: any) => b?.type === 'array');
+          const stringBranch = val.anyOf.find((b: any) => b?.type === 'string');
+          const chosen = arrayBranch ?? stringBranch ?? val.anyOf[0] ?? {};
+          const { anyOf, ...rest } = val;
+          props[key] = { ...rest, ...chosen };
+        } else if (Array.isArray(val.oneOf)) {
+          const arrayBranch = val.oneOf.find((b: any) => b?.type === 'array');
+          const stringBranch = val.oneOf.find((b: any) => b?.type === 'string');
+          const chosen = arrayBranch ?? stringBranch ?? val.oneOf[0] ?? {};
+          const { oneOf, ...rest } = val;
+          props[key] = { ...rest, ...chosen };
+        }
+      }
+    }
+    schema.properties = props;
+  }
+  return schema;
+}
+
+// OpenAI `tools` -> an AI SDK ToolSet with NO `execute`. Without an implementation the
 // SDK surfaces the model's tool call in the stream and stops the step (it never
 // tries to run the tool), which is exactly the relay-to-client behaviour the
 // gateway needs — the session runtime executes tools, not us.
@@ -288,7 +315,7 @@ export function toToolSet(rawTools: unknown): ToolSet | undefined {
     if (!fn?.name) continue;
     set[fn.name] = tool({
       description: fn.description,
-      inputSchema: jsonSchema((fn.parameters as object) ?? { type: 'object', properties: {} }),
+      inputSchema: jsonSchema(sanitizeToolSchema(fn.parameters)),
     });
   }
   return Object.keys(set).length ? set : undefined;

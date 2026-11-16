@@ -36,19 +36,16 @@ const FOOTER_SECTIONS: FooterSection[] = [
   {
     title: 'Resources',
     links: [
-      { label: 'Guide', href: '/docs/guide' },
-      { label: 'Documentation', href: '/docs' },
       { label: 'Marketplace', href: '/marketplace' },
+      { label: 'Use Cases', href: '/use-cases' },
+      { label: 'Case Studies', href: '/case-studies' },
     ],
   },
   {
     title: 'Company',
     links: [
       { label: 'Services', href: '/services' },
-      { label: 'Careers', href: '/careers' },
       ...(process.env.NEXT_PUBLIC_BLOG_ORIGIN ? [{ label: 'Blog', href: '/blog' }] : []),
-      { label: 'Use Cases', href: '/use-cases' },
-      { label: 'Brand', href: '/design-system' },
     ],
   },
   {

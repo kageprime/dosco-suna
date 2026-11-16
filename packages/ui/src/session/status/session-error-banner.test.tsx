@@ -172,6 +172,22 @@ describe('TurnErrorDisplay checkpoint row', () => {
     expect(html.indexOf(sentence)).toBeGreaterThan(headingRowEnd);
   });
 
+  test('sanitizes status-prefixed HTML error pages and avoids rendering raw unknown metadata', () => {
+    const herokuHtml =
+      '503 <!DOCTYPE html> <html> <head> <meta name="viewport" content="width=device-width, initial-scale=1"> <meta charset="utf-8"> <title>Application Error</title> <style media="screen"> html,body,iframe { margin: 0; padding: 0; } </style> </head> <body> <iframe src="https://www.herokucdn.com/error-pages/application-error.html"></iframe> </body> </html>';
+    const html = renderToStaticMarkup(
+      <TurnErrorDisplay
+        errorText={herokuHtml}
+        errorDetails={{ code: 'unknown', message: herokuHtml }}
+        defaultDetailsOpen
+      />,
+    );
+    expect(html).not.toContain('<!DOCTYPE html>');
+    expect(html).not.toContain('<iframe');
+    expect(html).toContain('The server timed out or was temporarily unavailable (Heroku 503).');
+    expect(html).not.toContain('>unknown<');
+  });
+
   test('open: the raw text renders inside the disclosure', () => {
     const html = renderToStaticMarkup(
       <TurnErrorDisplay errorText={sentence} errorRaw={raw} defaultDetailsOpen />,

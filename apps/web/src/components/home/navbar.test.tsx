@@ -76,6 +76,10 @@ mock.module('next/link', () => ({
   },
 }));
 
+process.env.NEXT_PUBLIC_SUPABASE_URL ??= 'https://example.supabase.co';
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= 'anon-key-test';
+process.env.NEXT_PUBLIC_BACKEND_URL ??= 'https://api.example.com';
+
 const { Navbar } = await import('./navbar');
 
 let root: Root | undefined;
@@ -361,28 +365,14 @@ test('every mega-menu link points at a route, and a panel link click closes the 
   expect(trigger('product').getAttribute('aria-expanded')).toBe('false');
 });
 
-test('the drawer docs row stays a plain anchor: the tap marks it pending and leaves the document load to the browser', async () => {
+test('the drawer navigation marks a row pending on tap', async () => {
   await openDrawer();
   const drawer = () => container!.querySelector('.bg-background.fixed.inset-0');
-  const row = drawer()!.querySelector<HTMLAnchorElement>('a[href="/docs/guide"]');
+  const row = drawer()!.querySelector<HTMLAnchorElement>('a[href="/marketplace"]');
   expect(row).not.toBeNull();
-  // `/docs` is the static Astro build under `public/docs` (KRTX-1592): the row
-  // renders a plain anchor — no soft-link marker, no new-tab target, nothing
-  // to hand to the router.
-  expect(row!.getAttribute('data-next-link')).toBeNull();
-  expect(row!.getAttribute('target')).toBeNull();
-  let click: Event | undefined;
   await act(async () => {
-    click = lib.click(row!);
+    lib.click(row!);
   });
-  if (!click) throw new Error('the tap dispatched no click event');
-  // The handler must not hijack the tap: the anchor's default document load is
-  // what serves the docs site. A `preventDefault` here would either strand the
-  // reader (no soft nav exists into a static file) or force a doomed `RSC: 1`
-  // round trip before the same reload.
-  expect(click.defaultPrevented).toBe(false);
-  // The row still shows the pending spinner while the document loads; the
-  // reload itself is what closes the drawer.
   expect(drawer()).not.toBeNull();
   expect(drawer()!.innerHTML).toContain('animate-spinner');
   expect(win.document.body.style.overflow).toBe('hidden');

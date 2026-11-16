@@ -543,6 +543,17 @@ const nextConfig = (): NextConfig => ({
         destination: '/',
         permanent: true,
       },
+      // Careers redirects to /services
+      {
+        source: '/careers/:path*',
+        destination: '/services',
+        permanent: false,
+      },
+      {
+        source: '/careers',
+        destination: '/services',
+        permanent: false,
+      },
       // Every workspace page moved from /projects to /workspaces (2026-11-06):
       // src/lib/workspace-redirects.ts, with its mapping test beside it.
       ...workspaceRedirects(locales),

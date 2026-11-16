@@ -22,6 +22,8 @@ export interface UiRoutes {
   files: (projectId: string, panel?: 'proposed-changes') => string | null;
   drive: (projectId: string) => string | null;
   apps: (projectId: string) => string | null;
+  /** The workspace marketplace */
+  marketplace?: (projectId: string) => string | null;
   /** @deprecated Rooms were removed (2026-11); ignored. Removed in the next major. */
   rooms?: (projectId: string) => string | null;
   /** The project's goals (flag `goals`); a goal is `<goals>/<scope>/<slug>`. */
@@ -76,6 +78,7 @@ const DEFAULT_ROUTES = {
   files: (p: string, panel?: 'proposed-changes') => `/workspaces/${p}/files${panel ? `?panel=${panel}` : ''}`,
   drive: (p: string) => `/workspaces/${p}/drive`,
   apps: (p: string) => `/workspaces/${p}/apps`,
+  marketplace: (p: string) => `/workspaces/${p}/marketplace`,
   goals: (p: string) => `/workspaces/${p}/goals`,
   artifacts: (p: string) => `/workspaces/${p}/artifacts`,
   calendar: (p: string) => `/workspaces/${p}/calendar`,

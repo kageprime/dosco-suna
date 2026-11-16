@@ -1,5 +1,4 @@
-import { ConsentGate } from '@/components/consent-gate';
-import { DownloadCloseButton } from '@/features/marketing/download/close-button';
+import { MarketingShell } from '@/app/[locale]/(public)/(marketing)/marketing-shell';
 import { localizedDownloadContent } from '@/features/marketing/download/content';
 import type { DesktopOs } from '@kortix/ui/internal/lib/detect-os';
 import {
@@ -45,25 +44,22 @@ export default async function DownloadPage({
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col justify-center px-6 py-16">
-      <ConsentGate />
+    <MarketingShell>
+      <main className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col justify-center px-6 pt-28 pb-16">
+        <header className="mb-10 text-center">
+          <h1 className="text-foreground text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+            {hero.title}
+          </h1>
+          <p className="text-muted-foreground mx-auto mt-3 max-w-md text-balance">{hero.sub}</p>
+        </header>
 
-      {/* This route renders no nav and no footer, so the X is the way out. */}
-      <DownloadCloseButton />
-
-      <header className="mb-10 text-center">
-        <h1 className="text-foreground text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-          {hero.title}
-        </h1>
-        <p className="text-muted-foreground mx-auto mt-3 max-w-md text-balance">{hero.sub}</p>
-      </header>
-
-      <DownloadOptions
-        detected={
-          normalizePlatform(params.platform) ?? detectPlatform(headerList.get('user-agent'))
-        }
-        sizes={sizes}
-      />
-    </main>
+        <DownloadOptions
+          detected={
+            normalizePlatform(params.platform) ?? detectPlatform(headerList.get('user-agent'))
+          }
+          sizes={sizes}
+        />
+      </main>
+    </MarketingShell>
   );
 }

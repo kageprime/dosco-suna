@@ -283,7 +283,8 @@ function GatewayMetaLine({
   leading?: string;
   details?: TurnErrorGatewayDetails;
 }) {
-  const metadata = [leading, details?.provider, details?.code, details?.requestId]
+  const code = details?.code && details.code !== 'unknown' ? details.code : undefined;
+  const metadata = [leading, details?.provider, code, details?.requestId]
     .filter(Boolean)
     .join(' · ');
   if (!metadata) return null;
@@ -449,6 +450,12 @@ function TurnErrorCheckpoint({
   const failures = gateway?.attemptFailures ?? [];
   const canOpen = describeTurnErrorRow({ text, gateway, raw }).expandable;
 
+  const displayText = /^\s*(?:\d{3}\s+)?<(?:!doctype|html|head|body)\b/i.test(text)
+    ? (text.includes('application-error') || text.includes('Application Error')
+        ? 'The server timed out or was temporarily unavailable (Heroku 503).'
+        : 'The server returned an error page.')
+    : text;
+
   const row = (
     <div className="w-full text-left text-sm">
       <div className="flex items-center gap-3">
@@ -471,7 +478,7 @@ function TurnErrorCheckpoint({
           canOpen && 'group-hover/trigger:text-foreground duration-fast transition-colors',
         )}
       >
-        {text}
+        {displayText}
       </p>
     </div>
   );

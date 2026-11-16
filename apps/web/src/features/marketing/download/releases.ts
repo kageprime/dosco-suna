@@ -141,15 +141,23 @@ function normalizeAssets(assets: GithubAsset[] | undefined): ReleaseAsset[] {
       .map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size ?? 0 }));
 }
 
+export const DEFAULT_STABLE_RELEASE: Release = {
+  version: '0.1.0',
+  assets: [
+    {
+      name: 'Dosco-Setup-0.1.0.exe',
+      url: `https://github.com/${REPO}/releases/download/v0.1.0/Dosco-Setup-0.1.0.exe`,
+      size: 104857600,
+    },
+  ],
+};
+
 /**
- * Fetch the newest release. Returns null on any failure — rate limit, network,
- * malformed payload. Callers MUST degrade rather than error: the page hides its
- * metadata line and the redirect handlers fall back to RELEASES_PAGE. A visitor
- * never sees a broken button because GitHub was slow.
+ * Fetch the newest release. Returns DEFAULT_STABLE_RELEASE on any failure — rate limit, network,
+ * malformed payload. Callers degrade gracefully.
  *
  * The 10-minute revalidate keeps a burst of clicks off GitHub's rate limit.
- * The 3 s timeout bounds a click on /download/<platform>: past it the visitor
- * gets the releases page instead of a hanging request.
+ * The 1.5 s timeout bounds the request so visitors never experience long hangs.
  */
 export async function getLatestRelease(): Promise<Release | null> {
   try {
@@ -159,15 +167,15 @@ export async function getLatestRelease(): Promise<Release | null> {
         'User-Agent': 'kortix-download',
       },
       next: { revalidate: 600 },
-      signal: AbortSignal.timeout(3_000),
+      signal: AbortSignal.timeout(1_500),
     });
-    if (!res.ok) return null;
+    if (!res.ok) return DEFAULT_STABLE_RELEASE;
     const data = (await res.json()) as { tag_name?: string; assets?: GithubAsset[] };
     const assets = normalizeAssets(data.assets);
-    if (!assets.length) return null;
+    if (!assets.length) return DEFAULT_STABLE_RELEASE;
     return { version: (data.tag_name ?? '').replace(/^v/, ''), assets };
   } catch {
-    return null;
+    return DEFAULT_STABLE_RELEASE;
   }
 }
 

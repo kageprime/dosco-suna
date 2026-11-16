@@ -1,9 +1,6 @@
 'use client';
 
 import { useTranslations } from '@/i18n/use-translations';
-import { useState } from 'react';
-
-import { DemoQualifierModal } from '@/features/contact/demo-qualifier-modal';
 import { useEnglishOnly } from '@/features/marketing/kit/english-only';
 import { MarketingButton } from '@/features/marketing/kit/marketing-button';
 import { CopyRow, LinkRow } from '@/features/marketing/kit/copy-row';
@@ -15,10 +12,6 @@ const CONTACT_EMAIL = 'support@dosco.live';
 const SUPPORT_EMAIL = 'support@dosco.live';
 const SECURITY_EMAIL = 'security@dosco.live';
 const DISCORD_URL = 'https://discord.com/invite/RvFhXUdZ9H';
-
-// Public demo event (cal.com/team/dosco/demo) + a namespace unique to it.
-const CAL_LINK = 'team/dosco/demo';
-const CAL_NAMESPACE = 'dosco-enterprise-demo';
 
 /* The English two-line heading. Other locales show the translated "See Dosco
    run your company's work" as a one-line title (`useEnglishOnly`), so the
@@ -75,10 +68,9 @@ const CHANNELS = [
 export default function ContactPage() {
   const tI18nHardcoded = useTranslations('hardcodedUi');
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
-  const [open, setOpen] = useState(false);
   const valueProps = localizeUiCatalog(VALUE_PROPS, tI18nComplete, CONTACT_TRANSLATION_KEYS);
   const englishOnly = useEnglishOnly();
-  const translatedTitle = `${tI18nHardcoded.raw('autoAppPublicMarketingContactPageJsxTextSeeKortixRun82bdbdad')} ${tI18nHardcoded.raw('autoAppPublicMarketingContactPageJsxTextYourCompanyS9f04147b')}`;
+  const translatedTitle = 'See Dosco run your company\'s work.';
 
   return (
     <PageFrame>
@@ -86,16 +78,18 @@ export default function ContactPage() {
         <PageHero
           title={englishOnly(HEADING.title) ?? translatedTitle}
           titleMuted={englishOnly(HEADING.titleMuted)}
-          sub={tI18nHardcoded.raw('autoAppPublicMarketingContactPageJsxTextBookA30ee0f8c6a')}
+          sub="Reach out to our team directly. We are happy to help with technical questions, onboarding, or custom enterprise deployments."
           actions={
             <>
-              <MarketingButton size="md" className="hit-area-y-1" variant="secondary" asChild>
-                <a href={`mailto:${CONTACT_EMAIL}`}>
-                  {tI18nHardcoded.raw('autoAppPublicMarketingContactPageJsxTextEmailUs505f9598')}
+              <MarketingButton size="md" className="hit-area-y-1" asChild>
+                <a href={`mailto:${CONTACT_EMAIL}?subject=Dosco%20Inquiry`}>
+                  Email us
                 </a>
               </MarketingButton>
-              <MarketingButton size="md" className="hit-area-y-1" onClick={() => setOpen(true)}>
-                {tI18nHardcoded.raw('autoAppPublicMarketingContactPageJsxTextBookADemofaaea0a0')}
+              <MarketingButton size="md" className="hit-area-y-1" variant="secondary" asChild>
+                <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer">
+                  Join Discord
+                </a>
               </MarketingButton>
             </>
           }
@@ -115,7 +109,7 @@ export default function ContactPage() {
                 ))}
               </ul>
               <p className="text-muted-foreground border-t pt-6 pb-2 text-sm text-pretty lg:pt-8">
-                {tI18nHardcoded.raw('autoAppPublicMarketingContactPageJsxTextASolutionsEngineer7001e57e')}
+                Direct assistance from the Dosco engineering team. All inquiries typically receive a response within 24 hours.
               </p>
             </div>
             <ul className="bg-card divide-y border-t lg:border-t-0 lg:border-l">
@@ -129,14 +123,6 @@ export default function ContactPage() {
           </div>
         </Band>
       </section>
-
-      <DemoQualifierModal
-        open={open}
-        onOpenChange={setOpen}
-        calLink={CAL_LINK}
-        calNamespace={CAL_NAMESPACE}
-        source="contact"
-      />
     </PageFrame>
   );
 }

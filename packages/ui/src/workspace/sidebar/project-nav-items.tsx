@@ -7,6 +7,7 @@ import { ProjectInboxNavItem } from './footer/project-inbox-nav';
 import { ProjectArtifactsNavItem } from './footer/project-artifacts-nav';
 import { ProjectRunningNavItem } from './footer/project-running-nav';
 import { ProjectFilesNavItem } from './footer/project-files-nav';
+import { ProjectMarketplaceNavItem } from './footer/project-marketplace-nav';
 import {
   CustomizeGlyph,
   useCapabilityAccess,
@@ -31,7 +32,7 @@ import { adminPath } from '../../lib/routes';
  */
 // `inbox` is first: it is the one row that says something waits on you.
 // `running` is last: it shows only while something works, so it never moves the rows above it.
-const NAV_ROWS = ['inbox', 'customize', 'files', 'apps', 'calendar', 'goals', 'artifacts', 'running'] as const;
+const NAV_ROWS = ['inbox', 'customize', 'files', 'apps', 'marketplace', 'calendar', 'goals', 'artifacts', 'running'] as const;
 type NavRowId = (typeof NAV_ROWS)[number];
 
 /** `inbox={false}`: the host shows the Inbox row elsewhere (Spaces on: beside Review, `project-spaces-nav`). */
@@ -117,6 +118,8 @@ function NavItem({ id, projectId }: { id: NavRowId; projectId: string }) {
       return <CustomizeNavEntry projectId={projectId} />;
     case 'apps':
       return <ProjectAppsNavItem projectId={projectId} />;
+    case 'marketplace':
+      return <ProjectMarketplaceNavItem projectId={projectId} />;
     case 'files':
       return <ProjectFilesNavItem projectId={projectId} />;
     case 'calendar':

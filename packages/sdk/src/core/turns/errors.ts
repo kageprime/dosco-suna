@@ -43,6 +43,10 @@ function stripErrorPrefixes(str: string): string {
     if (next === s) break;
     s = next;
   }
+  const statusHtmlOrJson = s.match(/^(\d{3})\s+(<(?:!doctype|html|head|body)\b|\{)/i);
+  if (statusHtmlOrJson) {
+    s = s.slice(statusHtmlOrJson[1].length).trim();
+  }
   return s;
 }
 
@@ -65,10 +69,13 @@ function messageFieldFromJsonish(str: string): string | undefined {
  * page never lands in a transcript row.
  */
 function textFromHtml(str: string): string | undefined {
-  if (!/^\s*<(?:!doctype|html|head|body)\b/i.test(str)) return undefined;
+  if (!/^\s*(?:\d{3}\s+)?<(?:!doctype|html|head|body)\b/i.test(str)) return undefined;
   // One lowercased copy, reused by both scans below, so tag matching is
   // case-insensitive without a regex.
   const lower = str.toLowerCase();
+  if (lower.includes('herokucdn.com/error-pages/application-error.html') || lower.includes('application error')) {
+    return 'The server timed out or was temporarily unavailable (Heroku 503).';
+  }
   const title = titleFromHtml(str, lower);
   if (title) return title;
   const text = visibleTextFromHtml(str, lower);

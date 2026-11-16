@@ -13,25 +13,14 @@ import { useTranslations } from '@/i18n/use-translations';
 import { trackCtaSignup } from '@/lib/analytics/gtm';
 import { showsMarketingLink } from '@/lib/config';
 import { cn } from '@kortix/ui';
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from '@kortix/ui/context-menu';
 import { localizeUiCatalog } from '@kortix/ui/i18n';
-import { Download } from '@kortix/ui/internal/icons/download';
 import { PROJECT_LANDING_PATH } from '@kortix/ui/internal/lib/onboarding/landing-destination';
 import { latestProjectPath } from '@kortix/ui/internal/lib/onboarding/last-project-cookie';
 import Loading from '@kortix/ui/loading';
-import { errorToast, successToast } from '@kortix/ui/toast';
 import {
   CaretDownIcon,
   CaretUpIcon,
-  StackIcon as Layers,
   ListIcon as Menu,
-  TextTIcon as Type,
   XIcon as X,
 } from '@phosphor-icons/react';
 import { m, useReducedMotion } from 'motion/react';
@@ -396,24 +385,6 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
   // A row is pending when its target is the navigation in flight.
   const isPending = (href: string) => href.split('#')[0] === pendingHref;
 
-  // "Brandmark" is the symbol, "Logomark" is the wordmark (the brandkit's own
-  // naming). The copied color follows the active theme.
-  const copyBrandSvg = async (kind: 'symbol' | 'wordmark') => {
-    const color = document.documentElement.classList.contains('dark') ? 'White' : 'Black';
-    const path =
-      kind === 'symbol'
-        ? `/brandkit/Logo/Brandmark/SVG/Brandmark ${color}.svg`
-        : `/brandkit/Logo/Logomark/SVG/Logomark ${color}.svg`;
-    try {
-      const response = await fetch(path);
-      if (!response.ok) throw new Error(`Brand SVG fetch failed: ${response.status}`);
-      const svg = await response.text();
-      await navigator.clipboard.writeText(svg);
-      successToast(tHardcodedUi.raw('i18nComplete.textc46a054cc5d2'));
-    } catch {
-      errorToast(tHardcodedUi.raw('i18nComplete.text5d9940f7d30f'));
-    }
-  };
 
   const signInLabel = tHardcodedUi.raw('componentsHomeNavbar.logIn');
   const getStartedLabel = tHardcodedUi.raw('componentsHomeNavbar.line312JsxTextGetStarted');
@@ -468,48 +439,14 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
           )}
         >
           <div className={cn(MARKETING_CONTAINER, 'relative flex h-16 items-center justify-between')}>
-            <ContextMenu>
-              <ContextMenuTrigger asChild className="group/kortix-logo">
-                <Link
-                  href="/"
-                  aria-label={homeLabel}
-                  onPointerEnter={closeOnEnter}
-                  className="text-foreground outline-ring flex h-16 w-fit shrink-0 items-center rounded-sm focus-visible:outline-2"
-                >
-                  <KortixLogo size={15} variant="logomark" />
-                </Link>
-              </ContextMenuTrigger>
-              {/* Brand menu: copy the theme-matching SVG, download the brandkit, open the design system. */}
-              <ContextMenuContent className="w-56">
-                <ContextMenuItem onClick={() => copyBrandSvg('symbol')} className="gap-2 text-sm">
-                  <KortixLogo size={14} variant="symbol" className="text-foreground" />
-                  {tHardcodedUi.raw('componentsHomeNavbar.copySymbolSvg')}
-                </ContextMenuItem>
-                <ContextMenuItem onClick={() => copyBrandSvg('wordmark')} className="gap-2 text-sm">
-                  <Type className="size-3.5 shrink-0" />
-                  {tHardcodedUi.raw('componentsHomeNavbar.copyWordmarkSvg')}
-                </ContextMenuItem>
-                <ContextMenuItem
-                  onClick={() => {
-                    const a = document.createElement('a');
-                    a.href = '/brandkit/dosco-brand-assets.zip';
-                    a.download = 'dosco-brand-assets.zip';
-                    a.click();
-                  }}
-                  className="gap-2 text-sm"
-                >
-                  <Download className="size-3.5 shrink-0" />
-                  {tHardcodedUi.raw('componentsHomeNavbar.downloadBrandAssets')}
-                </ContextMenuItem>
-                <ContextMenuSeparator />
-                <ContextMenuItem asChild className="gap-2 text-sm">
-                  <Link href="/design-system" prefetch>
-                    <Layers className="size-3.5 shrink-0" />
-                    {tHardcodedUi.raw('componentsHomeNavbar.line259JsxTextDesignSystem')}
-                  </Link>
-                </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
+            <Link
+              href="/"
+              aria-label={homeLabel}
+              onPointerEnter={closeOnEnter}
+              className="text-foreground outline-ring flex h-16 w-fit shrink-0 items-center rounded-sm focus-visible:outline-2"
+            >
+              <KortixLogo size={15} variant="logomark" />
+            </Link>
 
             {/* The CompanyOS / Services switcher: centred in the bar from xl,
                 after the logo below it. Centred at lg (1024 px), it covers
