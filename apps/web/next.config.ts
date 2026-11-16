@@ -139,8 +139,10 @@ function resolveTurbopackMemoryEviction(): false | 'auto' | 'full' {
         `expected one of 'auto', 'full', 'false'.`,
     );
   }
-  // On Vercel / CI, stay on 'auto' to avoid disk-serialization thrashing.
-  if (process.env.VERCEL || process.env.CI) return 'auto';
+  // On Vercel / CI, drop intermediate memory after snapshots to stay inside
+  // the 8 GB container limit. 'auto' relies on OS swap signals which do not
+  // exist in swapless Linux cgroups, causing resident memory to climb to 7.8 GB.
+  if (process.env.VERCEL || process.env.CI) return 'full';
   return 'auto';
 }
 
