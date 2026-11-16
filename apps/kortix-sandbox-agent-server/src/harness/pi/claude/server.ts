@@ -10,10 +10,11 @@ import type { PendingTools } from './pending'
 
 /** A tool's JSON schema without typebox's symbol keys, always a valid Draft 2020-12 object schema. */
 function inputSchema(tool: Tool): { type: 'object'; [key: string]: unknown } {
-  const schema = JSON.parse(JSON.stringify(tool.parameters ?? {})) as Record<string, unknown>
-  const out = { ...schema, type: 'object' }
-  if (out.properties && typeof out.properties === 'object') {
-    const props = { ...(out.properties as Record<string, any>) }
+  const schema = (JSON.parse(JSON.stringify(tool.parameters ?? {})) ?? {}) as Record<string, unknown>
+  const out: { type: 'object'; [key: string]: unknown } = { ...schema, type: 'object' }
+  const rawProps = out['properties']
+  if (rawProps && typeof rawProps === 'object') {
+    const props: Record<string, any> = { ...(rawProps as Record<string, any>) }
     for (const [key, val] of Object.entries(props)) {
       if (val && typeof val === 'object') {
         if (Array.isArray(val.anyOf)) {
@@ -31,7 +32,7 @@ function inputSchema(tool: Tool): { type: 'object'; [key: string]: unknown } {
         }
       }
     }
-    out.properties = props
+    out['properties'] = props
   }
   return out
 }
