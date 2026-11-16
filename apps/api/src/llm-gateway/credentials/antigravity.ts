@@ -128,55 +128,47 @@ export async function resolveAntigravityCredential(
   let sourceSecretId: string | null = null;
   let sourceIsAccountResource = false;
 
-  // 1. Check project secrets
-  for (const name of candidateNames) {
-    const resolved = await resolveProjectSecretForConsumer({
-      projectId,
-      accountId: resolvedAccountId,
-      sessionId,
-      actorUserId: userId,
-      principalUserId: userId,
-      name,
-      consumer: 'llm_gateway',
-    }).catch(() => null);
-
-    if (resolved?.value) {
-      rawSecret = resolved.value;
-      sourceSecretId = resolved.secretId;
-      break;
-    }
+  // 1. Check project secrets in parallel while preserving candidateNames precedence
+  const projectResults = await Promise.all(
+    candidateNames.map((name) =>
+      resolveProjectSecretForConsumer({
+        projectId,
+        accountId: resolvedAccountId,
+        sessionId,
+        actorUserId: userId,
+        principalUserId: userId,
+        name,
+        consumer: 'llm_gateway',
+      }).catch(() => null),
+    ),
+  );
+  const resolvedProject = projectResults.find((resolved) => Boolean(resolved?.value));
+  if (resolvedProject?.value) {
+    rawSecret = resolvedProject.value;
+    sourceSecretId = resolvedProject.secretId;
   }
 
-  // 2. If not found in project secrets, check account secret resources
+  // 2. If not found in project secrets, check account secret resources (personal default, then shared) in one wave
   if (!rawSecret && resolvedAccountId) {
     const { resolveDefaultProviderAccountSecret, resolveProjectSharedProviderSecrets } = await import(
       '../../secrets/account-resource'
     );
 
     const providerIds = ['antigravity', 'google'];
+    const pairs = providerIds.flatMap((providerId) => candidateNames.map((name) => ({ providerId, name })));
 
-    // Check personal default account secret
-    for (const providerId of providerIds) {
-      for (const name of candidateNames) {
-        const acctSecret = await resolveDefaultProviderAccountSecret(resolvedAccountId, projectId, userId, {
-          providerId,
-          name,
-        }).catch(() => null);
-        if (acctSecret?.value) {
-          rawSecret = acctSecret.value;
-          sourceSecretId = acctSecret.secretId;
-          sourceIsAccountResource = true;
-          break;
-        }
-      }
-      if (rawSecret) break;
-    }
-
-    // Check project shared provider secrets
-    if (!rawSecret) {
-      for (const providerId of providerIds) {
-        for (const name of candidateNames) {
-          const shared = await resolveProjectSharedProviderSecrets({
+    const [defaultResults, sharedResults] = await Promise.all([
+      Promise.all(
+        pairs.map(({ providerId, name }) =>
+          resolveDefaultProviderAccountSecret(resolvedAccountId, projectId, userId, {
+            providerId,
+            name,
+          }).catch(() => null),
+        ),
+      ),
+      Promise.all(
+        pairs.map(({ providerId, name }) =>
+          resolveProjectSharedProviderSecrets({
             accountId: resolvedAccountId,
             projectId,
             userId,
@@ -184,16 +176,22 @@ export async function resolveAntigravityCredential(
             sessionId,
             providerId,
             name,
-          }).catch(() => null);
-          const secret = shared?.secrets?.[0];
-          if (secret?.value) {
-            rawSecret = secret.value;
-            sourceSecretId = secret.secretId;
-            sourceIsAccountResource = true;
-            break;
-          }
-        }
-        if (rawSecret) break;
+          }).catch(() => null),
+        ),
+      ),
+    ]);
+
+    const acctSecret = defaultResults.find((secret) => Boolean(secret?.value));
+    if (acctSecret?.value) {
+      rawSecret = acctSecret.value;
+      sourceSecretId = acctSecret.secretId;
+      sourceIsAccountResource = true;
+    } else {
+      const sharedSecret = sharedResults.map((shared) => shared?.secrets?.[0]).find((secret) => Boolean(secret?.value));
+      if (sharedSecret?.value) {
+        rawSecret = sharedSecret.value;
+        sourceSecretId = sharedSecret.secretId;
+        sourceIsAccountResource = true;
       }
     }
   }

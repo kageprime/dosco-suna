@@ -76,14 +76,71 @@ export interface MiddlewareAuth {
 }
 
 const MAX_LIVE_SESSIONS = 10_000;
+/**
+ * Maximum wait for the GoTrue liveness ping once `getClaims()` has already
+ * verified the ES256 signature locally. Exceeding it falls back to `claims`
+ * rather than stalling Edge Middleware into a 504 timeout.
+ */
+export const LIVENESS_TIMEOUT_MS = 1_500;
+/** Maximum wait when `getClaims()` could not verify locally and must hit `getUser()`. */
+export const FALLBACK_GET_USER_TIMEOUT_MS = 2_500;
+
+type GetUserResult = Awaited<ReturnType<MiddlewareAuth['getUser']>>;
+
+class LivenessTimeoutError extends Error {
+  constructor() {
+    super('Supabase auth check timed out');
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  // Prevent unhandledRejection if the underlying promise rejects after timeout.
+  promise.catch(() => {});
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new LivenessTimeoutError()), ms);
+    }),
+  ]).finally(() => {
+    if (timer !== undefined) clearTimeout(timer);
+  });
+}
+
 // replica-local: session id → when its live confirmation expires (ms).
 // ponytail: per replica, so a sign-out is seen within the TTL, not at once; a shared store if that window must close.
 const liveSessions = new Map<string, number>();
+// Coalesce concurrent cold-cache GoTrue liveness checks per session id.
+const inFlightLiveness = new Map<string, Promise<GetUserResult>>();
 
 function rememberLive(sessionId: string, expSeconds: unknown) {
   const until = Math.min(Date.now() + SESSION_LIVENESS_TTL_MS, typeof expSeconds === 'number' ? expSeconds * 1000 : Infinity);
   if (liveSessions.size >= MAX_LIVE_SESSIONS) liveSessions.delete(liveSessions.keys().next().value!);
   liveSessions.set(sessionId, until);
+}
+
+function startSessionLivenessCheck(
+  auth: MiddlewareAuth,
+  sessionId: unknown,
+  expSeconds: unknown,
+): { promise: Promise<GetUserResult>; shared: boolean } {
+  if (typeof sessionId !== 'string') return { promise: auth.getUser(), shared: false };
+  const existing = inFlightLiveness.get(sessionId);
+  if (existing) return { promise: existing, shared: true };
+
+  const pending = auth
+    .getUser()
+    .then((res) => {
+      if (res.data.user && !res.error) rememberLive(sessionId, expSeconds);
+      return res;
+    })
+    .finally(() => {
+      if (inFlightLiveness.get(sessionId) === pending) {
+        inFlightLiveness.delete(sessionId);
+      }
+    });
+  inFlightLiveness.set(sessionId, pending);
+  return { promise: pending, shared: true };
 }
 
 /** A 4xx is GoTrue's verdict on the token; anything else (network, 5xx) says nothing about it. */
@@ -148,7 +205,18 @@ function asError(value: unknown): Error | null {
   return value instanceof Error ? value : (value as Error);
 }
 
-export async function resolveMiddlewareIdentity(auth: MiddlewareAuth): Promise<MiddlewareIdentity> {
+export interface ResolveMiddlewareIdentityOptions {
+  livenessTimeoutMs?: number;
+  fallbackTimeoutMs?: number;
+}
+
+export async function resolveMiddlewareIdentity(
+  auth: MiddlewareAuth,
+  options: ResolveMiddlewareIdentityOptions = {},
+): Promise<MiddlewareIdentity> {
+  const livenessTimeoutMs = options.livenessTimeoutMs ?? LIVENESS_TIMEOUT_MS;
+  const fallbackTimeoutMs = options.fallbackTimeoutMs ?? FALLBACK_GET_USER_TIMEOUT_MS;
+
   try {
     const { data, error } = await auth.getClaims();
 
@@ -164,16 +232,19 @@ export async function resolveMiddlewareIdentity(auth: MiddlewareAuth): Promise<M
         const sessionId = data?.claims?.session_id;
         // Signature verified locally, and GoTrue confirmed the session within the TTL.
         if (typeof sessionId === 'string' && (liveSessions.get(sessionId) ?? 0) > Date.now()) return verified;
+        const liveness = startSessionLivenessCheck(auth, sessionId, data?.claims?.exp);
         try {
-          const live = await auth.getUser();
+          const live = await withTimeout(liveness.promise, livenessTimeoutMs);
           if (live.data.user && !live.error) {
-            if (typeof sessionId === 'string') rememberLive(sessionId, data?.claims?.exp);
             return { user: live.data.user, authError: null, source: 'get-user' };
           }
           if (!live.error || isVerdict(live.error)) {
             return { user: null, authError: asError(live.error), source: 'get-user' };
           }
         } catch (error) {
+          if (error instanceof LivenessTimeoutError && typeof sessionId === 'string' && inFlightLiveness.get(sessionId) === liveness.promise) {
+            inFlightLiveness.delete(sessionId);
+          }
           if (isVerdict(error)) return { user: null, authError: asError(error), source: 'get-user' };
         }
         return verified;
@@ -192,7 +263,7 @@ export async function resolveMiddlewareIdentity(auth: MiddlewareAuth): Promise<M
   }
 
   try {
-    const { data, error } = await auth.getUser();
+    const { data, error } = await withTimeout(auth.getUser(), fallbackTimeoutMs);
     return { user: data.user ?? null, authError: asError(error), source: 'get-user' };
   } catch (error) {
     return { user: null, authError: asError(error), source: 'get-user' };

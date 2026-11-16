@@ -22,6 +22,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { accountTokens, sessionSandboxes } from '@kortix/db';
 
 let capturedWheres: unknown[] = [];
+let capturedSelectCalls = 0;
 let rows: Array<Record<string, unknown>> = [];
 /** Rows the SECOND (relaxed) lookup returns — the dead-credential naming read. */
 let deadRows: Array<Record<string, unknown>> = [];
@@ -29,27 +30,44 @@ let leaseRows: Array<Record<string, unknown>> = [];
 
 mock.module('../shared/db', () => ({
   db: {
-    select: () => ({
-      from: (table: unknown) => table === sessionSandboxes ? ({
+    select: () => {
+      capturedSelectCalls += 1;
+      const joinedTables = new Set<unknown>();
+      const primaryChain = {
+        leftJoin: (joinedTable: unknown) => {
+          joinedTables.add(joinedTable);
+          return primaryChain;
+        },
         where: (cond: unknown) => {
           capturedWheres.push(cond);
-          return { limit: async () => leaseRows };
+          // The first lookup: the active-row gate, joined to accounts (+ optional session lease).
+          return {
+            limit: async () =>
+              joinedTables.has(sessionSandboxes)
+                ? rows.map((row) => ({ ...row, leaseStatus: leaseRows[0]?.status ?? null }))
+                : rows,
+          };
         },
-      }) : ({
-        innerJoin: () => ({
-          where: (cond: unknown) => {
-            capturedWheres.push(cond);
-            // The first lookup: the active-row gate, joined to accounts.
-            return { limit: async () => rows };
-          },
-        }),
-        where: (cond: unknown) => {
-          capturedWheres.push(cond);
-          // The naming re-read (KRTX-1564): no join, no active filters.
-          return { limit: async () => deadRows };
-        },
-      }),
-    }),
+      };
+      return {
+        from: (table: unknown) =>
+          table === sessionSandboxes
+            ? {
+                where: (cond: unknown) => {
+                  capturedWheres.push(cond);
+                  return { limit: async () => leaseRows };
+                },
+              }
+            : {
+                innerJoin: () => primaryChain,
+                where: (cond: unknown) => {
+                  capturedWheres.push(cond);
+                  // The naming re-read (KRTX-1564): no join, no active filters.
+                  return { limit: async () => deadRows };
+                },
+              },
+      };
+    },
     update: () => ({
       set: () => ({ where: async () => undefined, catch: () => undefined }),
     }),
@@ -82,6 +100,7 @@ function filteredColumns(node: unknown, seen = new Set<unknown>(), out: string[]
 
 beforeEach(() => {
   capturedWheres = [];
+  capturedSelectCalls = 0;
   rows = [];
   deadRows = [];
   leaseRows = [];
@@ -182,20 +201,27 @@ describe('validateAccountToken revocation gate', () => {
     });
   });
 
-  test('an active session can use its sandbox credential', async () => {
+  test('an active session can use its sandbox credential in a single DB query', async () => {
     const { secretKey } = generateAccountTokenPair();
     rows = [{
       tokenId: 'tok-session', accountId: 'acct-1', userId: 'user-1',
       projectId: 'project-1', sessionId: 'session-1', status: 'active',
       expiresAt: null, lastUsedAt: new Date(), createdAt: new Date(),
       agentGrant: null, patIdleRevokeDays: null,
+      sessionAccountId: 'acct-1', sessionVisibility: 'private', sessionCreatedBy: 'user-1',
     }];
     leaseRows = [{ status: 'active' }];
 
     const result = await validateAccountToken(secretKey);
 
+    expect(capturedSelectCalls).toBe(1);
     expect(result.isValid).toBe(true);
     expect(result.sessionId).toBe('session-1');
+    expect(result.sessionContext).toEqual({
+      accountId: 'acct-1',
+      visibility: 'private',
+      createdBy: 'user-1',
+    });
   });
 
   test('a malformed token is refused before any lookup runs', async () => {

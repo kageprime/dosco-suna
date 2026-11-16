@@ -46,6 +46,17 @@ export interface AccountTokenValidationResult {
   /** A workspace key's scope inside its creator's role (`iam/key-scope.ts`);
    *  null = the creator's whole role. */
   scopes?: KeyScopes | null;
+  /**
+   * Session metadata joined alongside a session token so gateway admission can
+   * resolve personal-resource ownership without a separate roundtrip. `null`
+   * means the joined `project_sessions` row is absent; `undefined` means a
+   * non-session token or a test stub without join columns.
+   */
+  sessionContext?: {
+    accountId: string;
+    visibility: 'private' | 'project' | 'restricted';
+    createdBy: string | null;
+  } | null;
   error?: string;
   /** True = the credential itself can never come back (missing, revoked,
    *  expired, or its sandbox lease closed). The auth middleware turns this
@@ -898,8 +909,8 @@ async function validateAccountTokenMatching(
   options: { skipSessionLease?: boolean } = {},
 ): Promise<AccountTokenValidationResult> {
   try {
-    // Join the owning account so we can apply idle-revoke without a
-    // second round-trip on the hot path.
+    // Join the owning account (for idle-revoke) plus active sandbox lease and
+    // session metadata (when scoped to a session) in a single roundtrip.
     const [row] = await db
       .select({
         tokenId: accountTokens.tokenId,
@@ -916,9 +927,29 @@ async function validateAccountTokenMatching(
         serviceAccountId: accountTokens.serviceAccountId,
         scopes: accountTokens.scopes,
         patIdleRevokeDays: accountsView.patIdleRevokeDays,
+        leaseStatus: sessionSandboxes.status,
+        sessionAccountId: projectSessions.accountId,
+        sessionVisibility: projectSessions.visibility,
+        sessionCreatedBy: projectSessions.createdBy,
       })
       .from(accountTokens)
       .innerJoin(accountsView, eq(accountsView.accountId, accountTokens.accountId))
+      .leftJoin(
+        sessionSandboxes,
+        and(
+          eq(sessionSandboxes.sessionId, accountTokens.sessionId),
+          eq(sessionSandboxes.accountId, accountTokens.accountId),
+          or(isNull(accountTokens.projectId), eq(sessionSandboxes.projectId, accountTokens.projectId)),
+          inArray(sessionSandboxes.status, ['provisioning', 'active']),
+        ),
+      )
+      .leftJoin(
+        projectSessions,
+        and(
+          eq(projectSessions.sessionId, accountTokens.sessionId),
+          or(isNull(accountTokens.projectId), eq(projectSessions.projectId, accountTokens.projectId)),
+        ),
+      )
       .where(
         and(
           match(),
@@ -1004,34 +1035,21 @@ async function validateAccountTokenMatching(
 
     // A session credential is authority for one live sandbox, not a durable
     // project PAT. Refuse it whenever that sandbox is not provisioning or
-    // active. This closes the stopped/deleted-session replay window without
-    // affecting human CLI tokens, and permits the daemon's boot callbacks.
-    if (row.sessionId && !options.skipSessionLease) {
-      const [lease] = await db
-        .select({ status: sessionSandboxes.status })
-        .from(sessionSandboxes)
-        .where(
-          and(
-            eq(sessionSandboxes.sessionId, row.sessionId),
-            eq(sessionSandboxes.accountId, row.accountId),
-            ...(row.projectId ? [eq(sessionSandboxes.projectId, row.projectId)] : []),
-            inArray(sessionSandboxes.status, ['provisioning', 'active']),
-          ),
-        )
-        .limit(1);
-      if (!lease)
-        return {
-          isValid: false,
-          error: SESSION_LEASE_REFUSAL,
-          credentialDead: true,
-          refusedIdentity: {
-            accountId: row.accountId,
-            userId: row.userId,
-            tokenId: row.tokenId,
-            projectId: row.projectId,
-            sessionId: row.sessionId,
-          },
-        };
+    // active (verified in the primary LEFT JOIN). This closes the
+    // stopped/deleted-session replay window without affecting human CLI tokens.
+    if (row.sessionId && !options.skipSessionLease && !row.leaseStatus) {
+      return {
+        isValid: false,
+        error: SESSION_LEASE_REFUSAL,
+        credentialDead: true,
+        refusedIdentity: {
+          accountId: row.accountId,
+          userId: row.userId,
+          tokenId: row.tokenId,
+          projectId: row.projectId,
+          sessionId: row.sessionId,
+        },
+      };
     }
 
     // Idle-revoke: if the account has an idle policy and the PAT hasn't
@@ -1068,6 +1086,17 @@ async function validateAccountTokenMatching(
 
     updateLastUsedThrottled(row.tokenId).catch(() => {});
 
+    const sessionContext =
+      row.sessionId && row.sessionAccountId !== undefined
+        ? row.sessionAccountId
+          ? {
+              accountId: row.sessionAccountId,
+              visibility: (row.sessionVisibility ?? 'private') as 'private' | 'project' | 'restricted',
+              createdBy: row.sessionCreatedBy ?? null,
+            }
+          : null
+        : undefined;
+
     return {
       isValid: true,
       accountId: row.accountId,
@@ -1080,6 +1109,7 @@ async function validateAccountTokenMatching(
       serviceAccountId: row.serviceAccountId ?? null,
       expiresAt: row.expiresAt ?? null,
       scopes: readKeyScopes(row.scopes),
+      ...(sessionContext !== undefined ? { sessionContext } : {}),
     };
   } catch (err) {
     console.error('Account token validation error:', err);

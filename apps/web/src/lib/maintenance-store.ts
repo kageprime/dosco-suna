@@ -134,10 +134,25 @@ function backendUrl(): string {
   ).replace(/\/$/, '');
 }
 
+const EDGE_CONFIG_READ_TIMEOUT_MS = 1_500;
+
 async function readEdgeConfig(key: string): Promise<MaintenanceConfig | null> {
   const client = getEdgeClient();
   if (!client) return null;
-  return (await client.get<MaintenanceConfig>(key)) ?? null;
+  const readPromise = client.get<MaintenanceConfig>(key);
+  readPromise.catch(() => {});
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const result = await Promise.race([
+      readPromise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Edge Config read timed out')), EDGE_CONFIG_READ_TIMEOUT_MS);
+      }),
+    ]);
+    return result ?? null;
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 async function writeEdgeConfig(key: string, config: MaintenanceConfig): Promise<MaintenanceConfig> {

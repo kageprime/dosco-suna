@@ -24,7 +24,7 @@
  */
 import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 import { accountTokens, projectSessions, readStoredAgentGrant } from '@kortix/db';
-import type { AgentGrant } from '@kortix/db';
+import type { AgentGrant, StoredAgentGrant } from '@kortix/db';
 import { loadTokenBinding, type Actor } from '../../iam/actor';
 import { agentPrincipalModeFor, isGovernedAgentGrant } from '../../iam/agent-principal';
 import { db } from '../../shared/db';
@@ -113,36 +113,56 @@ export async function resolveSessionPersonalOwner(input: {
    *  the on-behalf-of human of a PRIVATE session, else null. Secret audiences
    *  (`secret-audience.ts`) use it — a narrowed value has no legacy answer. */
   strict?: boolean;
+  /** Prefetched session / service-account token metadata (e.g. from token JOIN)
+   *  so hot paths avoid duplicate `project_sessions` / `account_tokens` reads. */
+  prefetched?: {
+    session?: {
+      accountId: string;
+      visibility: PersonalSessionVisibility;
+      createdBy: string | null;
+    } | null;
+    serviceAccountToken?: {
+      agentGrant: StoredAgentGrant | AgentGrant | null;
+      onBehalfOfUserId: string | null;
+    } | null;
+  };
 }): Promise<string | null> {
   const legacy = input.strict ? null : input.legacyUserId;
   if (!input.sessionId) return legacy;
   try {
-    // Both reads take the session id alone: they go out together.
+    const hasPrefetchedSession = input.prefetched?.session !== undefined;
+    const hasPrefetchedToken = input.prefetched?.serviceAccountToken !== undefined;
+
+    // Both reads take the session id alone: any un-prefetched side goes out together.
     const [[session], [token]] = await Promise.all([
-      db
-        .select({
-          accountId: projectSessions.accountId,
-          visibility: projectSessions.visibility,
-          createdBy: projectSessions.createdBy,
-        })
-        .from(projectSessions)
-        .where(and(eq(projectSessions.sessionId, input.sessionId), eq(projectSessions.projectId, input.projectId)))
-        .limit(1),
-      db
-        .select({
-          agentGrant: accountTokens.agentGrant,
-          onBehalfOfUserId: accountTokens.onBehalfOfUserId,
-        })
-        .from(accountTokens)
-        .where(
-          and(
-            eq(accountTokens.sessionId, input.sessionId),
-            eq(accountTokens.status, 'active'),
-            isNull(accountTokens.revokedAt),
-            isNotNull(accountTokens.serviceAccountId),
-          ),
-        )
-        .limit(1),
+      hasPrefetchedSession
+        ? Promise.resolve([input.prefetched!.session ?? undefined])
+        : db
+            .select({
+              accountId: projectSessions.accountId,
+              visibility: projectSessions.visibility,
+              createdBy: projectSessions.createdBy,
+            })
+            .from(projectSessions)
+            .where(and(eq(projectSessions.sessionId, input.sessionId), eq(projectSessions.projectId, input.projectId)))
+            .limit(1),
+      hasPrefetchedToken
+        ? Promise.resolve([input.prefetched!.serviceAccountToken ?? undefined])
+        : db
+            .select({
+              agentGrant: accountTokens.agentGrant,
+              onBehalfOfUserId: accountTokens.onBehalfOfUserId,
+            })
+            .from(accountTokens)
+            .where(
+              and(
+                eq(accountTokens.sessionId, input.sessionId),
+                eq(accountTokens.status, 'active'),
+                isNull(accountTokens.revokedAt),
+                isNotNull(accountTokens.serviceAccountId),
+              ),
+            )
+            .limit(1),
     ]);
     if (!session) return null;
     const visibility = input.visibility ?? session.visibility;
@@ -158,7 +178,7 @@ export async function resolveSessionPersonalOwner(input: {
       });
       return personalResourceOwner({ agentPrincipal: true, onBehalfOfUserId: minted, visibility });
     }
-    const grant = readStoredAgentGrant(token.agentGrant);
+    const grant = readStoredAgentGrant(token.agentGrant as StoredAgentGrant | null | undefined);
     if (!input.strict && !isGovernedAgentGrant(grant)) return input.legacyUserId;
     return personalResourceOwner({
       agentPrincipal: true,

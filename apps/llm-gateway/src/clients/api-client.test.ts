@@ -250,7 +250,7 @@ describe('ApiClient', () => {
     expect(calls).toBe(2);
   });
 
-  test('gives up after maxAttempts when every attempt times out', async () => {
+  test('gives up after 2 attempts when every slow attempt times out', async () => {
     let calls = 0;
     const fetchImpl: FetchLike = async () => {
       calls += 1;
@@ -263,7 +263,38 @@ describe('ApiClient', () => {
       timeoutMs: 20,
     });
     await expect(c.authorize('tok')).rejects.toBeInstanceOf(Error);
+    expect(calls).toBe(2);
+  });
+
+  test('still retries 3 attempts on fast 5xx responses', async () => {
+    let calls = 0;
+    const c = client(async () => {
+      calls += 1;
+      return calls < 3 ? jsonResponse({}, 503) : jsonResponse({ ok: true, principal });
+    });
+    expect(await c.authorize('tok')).toEqual({ ok: true, principal });
     expect(calls).toBe(3);
+  });
+
+  test('reads GATEWAY_API_TIMEOUT_MS and GATEWAY_ADMIT_TIMEOUT_MS overrides from env', async () => {
+    const prevApiTimeout = process.env.GATEWAY_API_TIMEOUT_MS;
+    const prevAdmitTimeout = process.env.GATEWAY_ADMIT_TIMEOUT_MS;
+    process.env.GATEWAY_API_TIMEOUT_MS = '25';
+    process.env.GATEWAY_ADMIT_TIMEOUT_MS = '25';
+    try {
+      const api = createApiClient({
+        baseUrl: 'https://api.test',
+        token: 'secret',
+        fetchImpl: async () => new Promise<Response>(() => {}),
+      });
+      await expect(api.authorize('tok')).rejects.toBeInstanceOf(Error);
+      await expect(api.admit('tok', { requestedModel: 'm', requires: { imageInput: false } })).resolves.toBeNull();
+    } finally {
+      if (prevApiTimeout === undefined) delete process.env.GATEWAY_API_TIMEOUT_MS;
+      else process.env.GATEWAY_API_TIMEOUT_MS = prevApiTimeout;
+      if (prevAdmitTimeout === undefined) delete process.env.GATEWAY_ADMIT_TIMEOUT_MS;
+      else process.env.GATEWAY_ADMIT_TIMEOUT_MS = prevAdmitTimeout;
+    }
   });
 
   // The counterpart of the rule above. A settlement write has nobody waiting on

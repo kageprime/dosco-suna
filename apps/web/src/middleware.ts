@@ -39,6 +39,32 @@ type Locale = (typeof locales)[number];
 // param (Server Actions, Route Handlers). See i18n/request.ts.
 const NEXT_INTL_LOCALE_HEADER = 'X-NEXT-INTL-LOCALE';
 
+// Bound Supabase network hops inside Edge Middleware (JWKS cold fetch / GoTrue)
+// so a stalled Supabase endpoint cannot exhaust Vercel's invocation budget (504).
+const SUPABASE_MIDDLEWARE_FETCH_TIMEOUT_MS = 2_500;
+
+const boundedSupabaseFetch = Object.assign(
+  function boundedSupabaseFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+    const controller = new AbortController();
+    const callerSignal = init?.signal ?? (typeof Request !== 'undefined' && input instanceof Request ? input.signal : undefined);
+    const onCallerAbort = () => controller.abort(callerSignal?.reason);
+    if (callerSignal?.aborted) {
+      controller.abort(callerSignal.reason);
+    } else if (callerSignal) {
+      callerSignal.addEventListener('abort', onCallerAbort, { once: true });
+    }
+    const timer = setTimeout(
+      () => controller.abort(new Error('Supabase edge request timed out')),
+      SUPABASE_MIDDLEWARE_FETCH_TIMEOUT_MS,
+    );
+    return fetch(input, { ...init, signal: controller.signal }).finally(() => {
+      clearTimeout(timer);
+      callerSignal?.removeEventListener('abort', onCallerAbort);
+    });
+  },
+  typeof fetch.preconnect === 'function' ? { preconnect: fetch.preconnect.bind(fetch) } : {},
+) as typeof fetch;
+
 // Public application surfaces that support explicit locale routing for SEO
 // and unauthenticated language verification (/de/developers, /sr/pricing, etc.).
 const MARKETING_ROUTES = [
@@ -782,6 +808,7 @@ export async function middleware(request: NextRequest) {
     );
     if (plan === 'fresh') {
       const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+        global: { fetch: boundedSupabaseFetch },
         // `@supabase/ssr` never sets `secure` itself — see the doc comment in
         // `lib/supabase/client.ts`. A Kortix in Chrome side panel request gets
         // partitioned cookies (`lib/supabase/panel-cookies.ts`).

@@ -232,6 +232,68 @@ describe('resolveMiddlewareIdentity', () => {
     expect(identity.authError?.message).toBe('network down');
     expect(identity.source).toBe('get-user');
   });
+
+  test('slow getUser liveness check times out and falls back to verified claims without stalling middleware', async () => {
+    const { auth } = fakeAuth({
+      getClaims: async () => ({
+        data: { claims: { sub: 'user-slow-gotrue', session_id: 'sess-slow-gotrue', exp: Math.floor(Date.now() / 1000) + 3600 } },
+        error: null,
+      }),
+      getUser: () => new Promise(() => {}),
+    });
+
+    const startedAt = Date.now();
+    const identity = await resolveMiddlewareIdentity(auth, { livenessTimeoutMs: 25 });
+
+    expect(Date.now() - startedAt).toBeLessThan(500);
+    expect(identity.user).toEqual({ id: 'user-slow-gotrue' });
+    expect(identity.authError).toBeNull();
+    expect(identity.source).toBe('claims');
+  });
+
+  test('concurrent cold requests for the same session coalesce into a single getUser call', async () => {
+    let resolvePending!: (value: { data: { user: { id: string } | null }; error: unknown }) => void;
+    let getUserCalls = 0;
+    const auth = {
+      getClaims: async () => ({
+        data: { claims: { sub: 'user-coalesce', session_id: 'sess-coalesce', exp: Math.floor(Date.now() / 1000) + 3600 } },
+        error: null,
+      }),
+      getUser: () => {
+        getUserCalls += 1;
+        return new Promise<{ data: { user: { id: string } | null }; error: unknown }>((resolve) => {
+          resolvePending = resolve;
+        });
+      },
+    };
+
+    const p1 = resolveMiddlewareIdentity(auth);
+    const p2 = resolveMiddlewareIdentity(auth);
+    const p3 = resolveMiddlewareIdentity(auth);
+    await Promise.resolve();
+    resolvePending({ data: { user: { id: 'user-coalesce' } }, error: null });
+
+    const [i1, i2, i3] = await Promise.all([p1, p2, p3]);
+    expect(getUserCalls).toBe(1);
+    expect(i1.user).toEqual({ id: 'user-coalesce' });
+    expect(i2.user).toEqual({ id: 'user-coalesce' });
+    expect(i3.user).toEqual({ id: 'user-coalesce' });
+  });
+
+  test('fallback getUser after unverified claims times out cleanly instead of hanging forever', async () => {
+    const { auth } = fakeAuth({
+      getClaims: async () => ({ data: null, error: new Error('unverifiable') }),
+      getUser: () => new Promise(() => {}),
+    });
+
+    const startedAt = Date.now();
+    const identity = await resolveMiddlewareIdentity(auth, { fallbackTimeoutMs: 25 });
+
+    expect(Date.now() - startedAt).toBeLessThan(500);
+    expect(identity.user).toBeNull();
+    expect(identity.authError?.message).toBe('Supabase auth check timed out');
+    expect(identity.source).toBe('get-user');
+  });
 });
 
 describe('cookieIdentityPlan', () => {

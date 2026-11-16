@@ -107,6 +107,20 @@ async function resolvePrincipalWithReason(
     // Personal provider keys follow the session's on-behalf-of human in a
     // private session under the agent-principal model (spec 2026-09-22 §2.3).
     // Flag OFF returns `userId`, and the field stays absent (legacy).
+    const prefetched =
+      account.sessionContext !== undefined || account.serviceAccountId
+        ? {
+            ...(account.sessionContext !== undefined ? { session: account.sessionContext } : {}),
+            ...(account.serviceAccountId
+              ? {
+                  serviceAccountToken: {
+                    agentGrant: account.agentGrant ?? null,
+                    onBehalfOfUserId: account.onBehalfOfUserId ?? null,
+                  },
+                }
+              : {}),
+          }
+        : undefined;
     const personalUserId =
       account.projectId && account.sessionId
         ? await resolveSessionPersonalOwner({
@@ -114,6 +128,7 @@ async function resolvePrincipalWithReason(
             sessionId: account.sessionId,
             accountId: account.accountId,
             legacyUserId: account.userId,
+            ...(prefetched ? { prefetched } : {}),
           })
         : account.userId;
     return {

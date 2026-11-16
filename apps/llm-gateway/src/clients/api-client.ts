@@ -103,6 +103,20 @@ const INTERNAL_DOWN_MS = 60_000;
 /** The ping's private attempt: a VPC hop that has not answered /health in 1 s is down. */
 const PRIVATE_PING_MS = 1_000;
 
+/** Per-attempt timeout for single-step control-plane RPCs (env: GATEWAY_API_TIMEOUT_MS). */
+const DEFAULT_API_TIMEOUT_MS = 12_000;
+/** Timeout for combined `/internal/gateway/admit` RPC (env: GATEWAY_ADMIT_TIMEOUT_MS). */
+const DEFAULT_ADMIT_TIMEOUT_MS = 15_000;
+/** Cap slow-timeout retries so a congested DB pool does not multiply in-flight queries 3x. */
+const MAX_SLOW_TIMEOUT_ATTEMPTS = 2;
+
+function positiveIntEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 interface ResolutionErrorBody {
   code: NoUpstreamReasonCode;
   message: string;
@@ -151,8 +165,8 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
       throw err;
     }
   };
-  const timeoutMs = opts.timeoutMs ?? 5_000;
-  const admitTimeoutMs = opts.admitTimeoutMs ?? 10_000;
+  const timeoutMs = opts.timeoutMs ?? positiveIntEnv('GATEWAY_API_TIMEOUT_MS', DEFAULT_API_TIMEOUT_MS);
+  const admitTimeoutMs = opts.admitTimeoutMs ?? positiveIntEnv('GATEWAY_ADMIT_TIMEOUT_MS', DEFAULT_ADMIT_TIMEOUT_MS);
 
   /**
    * One control-plane call, with bounded retries.
@@ -180,6 +194,7 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     payload: unknown,
     { retryOnTimeout = false, once = false }: { retryOnTimeout?: boolean; once?: boolean } = {},
   ): Promise<T> => {
+    let timeoutAttempts = 0;
     return withRetry(
       async (signal) => {
         let response: Response;
@@ -209,25 +224,18 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
         maxDelayMs: 1_000,
         timeoutMs: once ? admitTimeoutMs : timeoutMs,
         // `timeoutMs` is a PER-ATTEMPT budget, and withRetry settles an attempt
-        // that overruns it with a `TimeoutError` — not with whatever `fn` would
-        // eventually have thrown once the abort landed. Accepting only
-        // `ApiUnavailableError` here therefore made `maxAttempts: 3` dead code
-        // for the single failure mode these retries exist for: a SLOW control
-        // plane. The un-retried `TimeoutError` escaped `authorize()` in
-        // simple-handler.ts and reached the client as an opaque
-        // `503 gateway_error "Gateway unavailable"`.
-        //
-        // Measured on staging 2026-09-16: 2 of 30 identical
-        // `POST /v1/llm/chat/completions` calls answered that 503 at 5.14 s and
-        // 5.15 s (exactly this 5 s budget); the other 28 answered
-        // `400 provider_disabled` in 2.0-3.2 s. That is the GW-ACCESS-1
-        // release-gate flake (runs 35012251397, 35036053187).
-        //
-        // Worst case stays bounded by `maxAttempts`: 3 x 5 s plus ~0.3 s of
-        // backoff before the caller is told the API is unreachable.
-        isRetryable: (err) =>
-          err instanceof ApiUnavailableError ||
-          (retryOnTimeout && err instanceof TimeoutError),
+        // that overruns it with a `TimeoutError`. Slow timeouts retry at most
+        // once (2 total attempts at 12 s) to tolerate cold DB/TLS stalls while
+        // preventing a 3x retry storm on an overloaded pool; fast 5xx/connect
+        // errors keep all 3 attempts.
+        isRetryable: (err) => {
+          if (err instanceof ApiUnavailableError) return true;
+          if (retryOnTimeout && err instanceof TimeoutError) {
+            timeoutAttempts += 1;
+            return timeoutAttempts < MAX_SLOW_TIMEOUT_ATTEMPTS;
+          }
+          return false;
+        },
       },
     );
   };
