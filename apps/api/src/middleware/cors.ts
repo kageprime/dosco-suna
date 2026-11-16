@@ -2,6 +2,11 @@ import { cors } from 'hono/cors';
 import { KORTIX_EXTENSION_ORIGIN } from '../shared/kortix-extension';
 
 const CLOUD_ORIGINS = [
+  'https://dosco.live',
+  'https://www.dosco.live',
+  'https://dosco-virid.vercel.app',
+  'https://dosco-scme19.vercel.app',
+  'https://dosco-git-main-scme19.vercel.app',
   'https://www.kortix.com',
   'https://kortix.com',
   'https://dev.kortix.com',
@@ -17,9 +22,9 @@ const LOCAL_ORIGINS = [
   'http://127.0.0.1:3010',
 ];
 
-const PREVIEW_ORIGIN = /^https:\/\/[a-z0-9-]+\.(vercel\.app|preview\.kortix\.com)$/i;
+const PREVIEW_ORIGIN = /^https:\/\/[a-z0-9-]+\.(vercel\.app|preview\.dosco\.live|preview\.kortix\.com)$/i;
 /** `PREVIEW_ORIGIN` as CSP source expressions. */
-const PREVIEW_ORIGIN_SOURCES = ['https://*.vercel.app', 'https://*.preview.kortix.com'];
+const PREVIEW_ORIGIN_SOURCES = ['https://*.vercel.app', 'https://*.preview.dosco.live', 'https://*.preview.kortix.com'];
 
 interface CorsMiddlewareOptions {
   internalEnvironment: string;

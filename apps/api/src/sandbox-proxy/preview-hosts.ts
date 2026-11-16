@@ -183,12 +183,22 @@ export function resolvePreviewHost(hostname: string): ResolvedPreviewHost | null
  *
  * Same-origin requests need none of this and are given none: callers pass ''.
  */
+const TRUSTED_DOSCO_ORIGINS = new Set([
+  'https://dosco.live',
+  'https://www.dosco.live',
+  'https://dosco-virid.vercel.app',
+  'https://dosco-scme19.vercel.app',
+  'https://dosco-git-main-scme19.vercel.app',
+]);
+
 export function isAllowedPreviewOrigin(origin: string): boolean {
-  const frontend = (config.FRONTEND_URL || '').trim();
-  if (!frontend) return false;
+  if (!origin) return false;
   try {
     const candidate = new URL(origin).origin;
-    return candidate === new URL(frontend).origin || aliasFrontendOrigins().includes(candidate);
+    if (TRUSTED_DOSCO_ORIGINS.has(candidate)) return true;
+    const frontend = (config.FRONTEND_URL || '').trim();
+    if (frontend && candidate === new URL(frontend).origin) return true;
+    return aliasFrontendOrigins().includes(candidate);
   } catch {
     return false;
   }
@@ -198,12 +208,14 @@ export function isAllowedPreviewOrigin(origin: string): boolean {
  *  (preview-bridge.ts): the same set `isAllowedPreviewOrigin` accepts. */
 export function previewParentOrigins(): string[] {
   const frontend = (config.FRONTEND_URL || '').trim();
-  if (!frontend) return [];
-  try {
-    return [...new Set([new URL(frontend).origin, ...aliasFrontendOrigins()])];
-  } catch {
-    return [];
+  const set = new Set<string>(TRUSTED_DOSCO_ORIGINS);
+  if (frontend) {
+    try {
+      set.add(new URL(frontend).origin);
+    } catch {}
   }
+  for (const alias of aliasFrontendOrigins()) set.add(alias);
+  return [...set];
 }
 
 export function previewCorsHeaders(origin: string): Record<string, string> {
