@@ -263,6 +263,11 @@ const nextConfig = (): NextConfig => ({
     ignoreBuildErrors: true,
   },
 
+  // Skip ESLint during build (done in CI) to conserve build memory
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+
   // Same OOM kill as the staticGeneration* knobs below (next.config's
   // experimental block): the prerender phase maps stack traces to source while
   // it renders, and on an 8 GB build machine that mapping is one more
