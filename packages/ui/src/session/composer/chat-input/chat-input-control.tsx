@@ -860,7 +860,7 @@ export function ChatInputControl({
               role="tablist"
               aria-orientation="vertical"
               aria-label={t('chatInput')}
-              className="flex w-72 shrink-0 flex-col gap-px overflow-y-auto p-1.5"
+              className="scrollbar-hide [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden flex w-72 shrink-0 flex-col gap-px overflow-y-auto p-1.5"
             >
               {listIds.map((id) => {
                 if (id === MORE_ROW) {
@@ -971,7 +971,7 @@ export function ChatInputControl({
                   </div>
                 ) : null}
                 {modelPane ? (
-                  <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                     <ModelSelector
                       appearance="inline"
                       models={models}
@@ -985,7 +985,7 @@ export function ChatInputControl({
                     />
                   </div>
                 ) : (
-                  <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5">
+                  <div className="scrollbar-hide [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5">
                     {editor}
                     {notice}
                   </div>

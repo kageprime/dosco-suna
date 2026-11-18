@@ -1083,30 +1083,34 @@ export function ModelSelector({
             // `min-w-0 shrink`: in a narrow toolbar (a channel's thread panel) the
             // model name truncates; the controls beside it keep their width.
             className={cn(
-              'min-w-0 shrink rounded-lg hit-area-y-3 font-medium gap-1.5',
-              triggerVariant === 'ghost' ? 'text-muted-foreground' : 'bg-surface/80 hover:bg-surface border border-border/40 px-3',
+              'min-w-0 shrink rounded-md h-7 px-2 text-xs font-medium gap-1.5 hit-area-y-2',
+              triggerVariant === 'ghost' ? 'text-muted-foreground hover:text-foreground' : 'bg-surface/80 hover:bg-surface border border-border/40',
             )}
           >
-            <span className={cn('max-w-30 truncate text-foreground font-medium', triggerLabelClassName)}>{triggerLabel}</span>
+            <span className={cn('max-w-28 truncate text-foreground font-medium', triggerLabelClassName)}>{triggerLabel}</span>
             {showEffort && (
               <span className="shrink-0 text-muted-foreground font-normal">
                 {currentEffort ? effortLabel(currentEffort) : t('auto')}
               </span>
             )}
+            <ChevronDown
+              className={cn(
+                'duration-moderate size-3 text-muted-foreground transition-transform ease-out shrink-0',
+                open && 'rotate-180',
+              )}
+            />
           </Button>
           )}
         </CommandPopoverTrigger>
 
-        {/* `min(...)`, not a hard `300px`: on a 320px viewport a fixed 300px
-            popover plus the trigger's own inset pushed the panel off-screen.
-            Same shape `mention-menu.tsx` uses. */}
+        {/* Compact single-column popover: small footprint, doesn't interfere with chat */}
         <CommandPopoverContent
           side="top"
           align="start"
-          sideOffset={8}
-          className="w-[min(21rem,calc(100vw-1.5rem))] rounded-md border border-border bg-popover p-0 shadow-xl overflow-hidden"
+          sideOffset={6}
+          className="w-[min(19.5rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-popover p-0 shadow-xl overflow-hidden"
         >
-          <div className="bg-popover flex min-w-0 flex-col">
+          <div className="bg-popover flex min-w-0 flex-col overflow-hidden">
             <ModelPickerPanel
               browseModels={browseModels}
               pickableModels={pickableModels}
@@ -1137,6 +1141,7 @@ export function ModelSelector({
                   : undefined
               }
             />
+            {subscriptionNode}
           </div>
         </CommandPopoverContent>
       </CommandPopover>

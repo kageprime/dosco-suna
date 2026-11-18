@@ -37,7 +37,7 @@ const CATALOG: FlatModel[] = [
 ];
 
 describe('ModelPickerPanel', () => {
-  test('renders compact curated primary list with descriptions, footer rows, upgrade bar, and no keycap pills', () => {
+  test('renders compact single-column model list with filter tabs and inline effort options', () => {
     const html = renderToStaticMarkup(
       <IntlTestProvider locale="en" onError={() => {}}>
         <Command shouldFilter={false}>
@@ -55,7 +55,6 @@ describe('ModelPickerPanel', () => {
             emptyState={<div>Empty</div>}
             searchEmpty={<div>No match</div>}
             connectLabel="Connect"
-            onUpgrade={() => {}}
             effort={{
               choices: ['low', 'medium', 'high'],
               selectedVariant: 'high',
@@ -66,17 +65,15 @@ describe('ModelPickerPanel', () => {
       </IntlTestProvider>,
     );
 
-    expect(html).toContain('Claude Sonnet 4.6');
-    expect(html).toContain('For complex work and everyday tasks');
-    expect(html).toContain('Effort');
+    expect(html).toContain('Claude');
+    expect(html).toContain('Sonnet 4.6');
+    expect(html).toContain('modelSelector.all');
     expect(html).toContain('High');
-    expect(html).toContain('More models');
-    expect(html).toContain('Learn more');
-    expect(html).not.toContain('Ctrl1');
-    expect(html).not.toContain('⌘1');
+    expect(html).toContain('Auto');
+    expect(html).toContain('scrollbar-hide');
   });
 
-  test('drills into Effort and More models views cleanly', async () => {
+  test('switches provider tabs and picks effort options cleanly', async () => {
     const onVariantChange = mock(() => {});
     let renderer!: ReactTestRenderer;
 
@@ -109,30 +106,21 @@ describe('ModelPickerPanel', () => {
       );
     });
 
-    const effortBtn = renderer.root.find(
-      (node) => node.type === 'button' && textOf(node).includes('Effort'),
-    );
-    await act(async () => {
-      effortBtn.props.onClick();
-    });
+    // Provider filter tabs exist (All, Favorites, Dosco, etc.)
+    const tabs = renderer.root.findAll((node) => node.type === 'button' && node.props.role === 'tab');
+    expect(tabs.length).toBeGreaterThanOrEqual(2);
 
-    const radios = renderer.root.findAll((node) => node.type === 'button' && node.props.role === 'radio');
-    expect(radios.length).toBe(4); // Auto + low + medium + high
+    // Effort buttons exist inline (Auto, Low, Medium, High)
+    const effortButtons = renderer.root.findAll(
+      (node) => node.type === 'button' && ['Auto', 'Low', 'Medium', 'High'].includes(textOf(node).trim()),
+    );
+    expect(effortButtons.length).toBe(4);
+
+    // Clicking high effort calls onVariantChange
     await act(async () => {
-      radios[3]!.props.onClick();
+      effortButtons[3]!.props.onClick();
     });
     expect(onVariantChange).toHaveBeenCalledWith('high');
-
-    // Selecting an effort returns smoothly to primary view
-    const moreBtn = renderer.root.find(
-      (node) => node.type === 'button' && textOf(node).includes('More models'),
-    );
-    await act(async () => {
-      moreBtn.props.onClick();
-    });
-
-    const tabs = renderer.root.findAll((node) => node.type === 'button' && node.props.role === 'tab');
-    expect(tabs.length).toBeGreaterThanOrEqual(3); // All, Favorites, Dosco, Google Antigravity
 
     renderer.unmount();
   });
