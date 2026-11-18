@@ -33,10 +33,10 @@ describe('resolveTurbopackFileSystemCacheForBuild', () => {
     expect(resolveTurbopackFileSystemCacheForBuild(11.3 * GB)).toBe(false);
   });
 
-  test('unset on Vercel container defaults off even when host os.totalmem() exceeds 14 GB', () => {
+  test('unset on Vercel container defaults on so turbopackGc and persistent cache function', () => {
     delete process.env[KEY];
     process.env[VERCEL_KEY] = '1';
-    expect(resolveTurbopackFileSystemCacheForBuild(32 * GB)).toBe(false);
+    expect(resolveTurbopackFileSystemCacheForBuild(32 * GB)).toBe(true);
   });
 
   test('unset: 16 GB CI runner keeps upstream default (on)', () => {

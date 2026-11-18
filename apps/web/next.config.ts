@@ -458,6 +458,10 @@ const nextConfig = (): NextConfig => ({
     // memory and from that cache. It is a no-op when the FS cache is off, and
     // Turbopack skips it when turbopackMemoryEviction is false.
     turbopackGc: true,
+    // Use worker threads for Turbopack Node plugin evaluation (PostCSS/Tailwind/loaders)
+    // instead of 'childProcesses' which spawns multiple separate Node.js processes that
+    // exhaust container memory.
+    turbopackPluginRuntimeStrategy: 'workerThreads',
     // The Vercel build machine is 8 GB (both plan defaults), and the default
     // `next build` fan-out killed it: build-utils SIGKILLed `next build` (OOM)
     // on 2026-10-20. The default spawns os.cpus()-1 prerender workers for this
