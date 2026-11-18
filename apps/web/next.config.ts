@@ -139,8 +139,10 @@ function resolveTurbopackMemoryEviction(): false | 'auto' | 'full' {
         `expected one of 'auto', 'full', 'false'.`,
     );
   }
-  // On Vercel / CI, stay on 'auto' to avoid disk-serialization thrashing.
-  if (process.env.VERCEL || process.env.CI) return 'auto';
+  // On Vercel / CI, drop intermediate memory after snapshots to stay inside
+  // the 8 GB container limit. 'auto' relies on OS swap signals which do not
+  // exist in swapless Linux cgroups, causing resident memory to climb to 7.8 GB.
+  if (process.env.VERCEL || process.env.CI) return 'full';
   return 'auto';
 }
 
@@ -457,7 +459,14 @@ const nextConfig = (): NextConfig => ({
     // 20GB in 2 days and 60GB in one case. GC drops unreachable work from
     // memory and from that cache. It is a no-op when the FS cache is off, and
     // Turbopack skips it when turbopackMemoryEviction is false.
-    turbopackGc: true,
+    turbopackGc: process.env.VERCEL
+      ? { minProgressMs: 100, rootTtlMs: 0 }
+      : true,
+    // Keep dependencyTracking enabled in Turbopack (`persistentCaching || hasDeferredEntries`
+    // in next/dist/build/turbopack-build/impl.js:105) even when persistentCaching is false on
+    // Vercel, and split compilation into two sequential waves so Wave 1 ASTs are evicted and
+    // garbage-collected before Wave 2 starts.
+    deferredEntries: process.env.VERCEL ? ['/[locale]/(public)', '/[locale]/admin'] : undefined,
     // Use worker threads for Turbopack Node plugin evaluation (PostCSS/Tailwind/loaders)
     // instead of 'childProcesses' which spawns multiple separate Node.js processes that
     // exhaust container memory.

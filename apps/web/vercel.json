@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node scripts/generate-fumadocs-source.mjs && NODE_OPTIONS=--max-old-space-size=2048 next build",
+  "buildCommand": "node scripts/generate-fumadocs-source.mjs && NODE_OPTIONS=--max-old-space-size=2560 next build --debug-build-paths \"app/**,!app/**/debug/**,!app/**/presentations/**,!app/**/game-of-life/**,!app/**/rauch/**,!app/**/a1o/**,!app/**/loopmaxxing/**,!app/**/design-system/**,!app/**/capture/**,!app/**/eval-datasets/**,!app/**/eval-jobs/**,!app/**/eval-tasks/**,!app/**/evals/**\"",
   "installCommand": "pnpm install --frozen-lockfile",
   "regions": ["lhr1"],
   "rewrites": [
