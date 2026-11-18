@@ -2,16 +2,12 @@
 // call here speaks the Platinum volumes API; nothing above this file does.
 
 import { createHash } from 'node:crypto';
-import { drives } from '@kortix/db';
-import { eq } from 'drizzle-orm';
 import { logger } from '../lib/logger';
-import { db } from '../shared/db';
 import { isPlatinumConfigured, platinumFetch, platinumRegionControlPlane } from '../shared/platinum';
 import { logWindowDecision } from '../shared/log-window';
 import { ttlMemo } from '../shared/ttl-memo';
 import { DEFAULT_SANDBOX_MOUNT_LIMIT } from './access';
 import { parseVolumeWriteCommit, type VolumeWriteCommit } from './volume-commit';
-import { config } from '../config';
 import {
   type DriveStorageStatus,
   type DriveLimitDetail,
@@ -133,7 +129,7 @@ export function retryAfterSeconds(header: string | null): number {
 }
 
 export function driveStorageAvailable(): boolean {
-  return isPlatinumConfigured() || Boolean(config.SUPABASE_URL && config.SUPABASE_SERVICE_ROLE_KEY);
+  return isPlatinumConfigured() || Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
 const FILE_TIMEOUT_MS = 5 * 60_000;
@@ -156,6 +152,11 @@ export const DRIVE_MOVING_MESSAGE = 'These files are moving to another region. T
 export async function assertDriveWritable(volume: DriveVolume): Promise<void> {
   if (volume.unfenced) return;
   if (!volume.moving) {
+    const [{ drives }, { eq }, { db }] = await Promise.all([
+      import('@kortix/db'),
+      import('drizzle-orm'),
+      import('../shared/db'),
+    ]);
     const [row] = await db
       .select({ move: drives.platinumVolumeMove })
       .from(drives)
@@ -373,6 +374,7 @@ export async function getDriveVolume(volume: DriveVolume, signal?: AbortSignal):
 
 export async function deleteDriveVolume(volume: DriveVolume): Promise<void> {
   if (!isPlatinumConfigured()) {
+    bustVolumeListCache(volume.name);
     return supabaseDriveStorage.deleteVolume(volume);
   }
   await call(volume, `${v(volume)}?missing_ok=true`, { method: 'DELETE' });
@@ -408,6 +410,9 @@ const volumeListKey = (volume: DriveVolume, path: string): string => `${volume.n
  */
 export const volumeListLoader = async (volume: DriveVolume, path: string): Promise<VolumeEntry[]> => {
   try {
+    if (!isPlatinumConfigured()) {
+      return await supabaseDriveStorage.listVolumeFiles(volume, path, false);
+    }
     const q = new URLSearchParams({ path, recursive: 'false', limit: '10000' });
     const r = await callJson<{ entries: VolumeEntry[] }>(volume, `${v(volume)}/files?${q}`);
     return r.entries ?? [];
@@ -438,10 +443,10 @@ export async function listVolumeFiles(
   signal?: AbortSignal,
   at?: string,
 ): Promise<VolumeEntry[]> {
+  if (!recursive && !at && !signal) return volumeListMemo(volume, path);
   if (!isPlatinumConfigured()) {
     return supabaseDriveStorage.listVolumeFiles(volume, path, recursive, signal, at);
   }
-  if (!recursive && !at && !signal) return volumeListMemo(volume, path);
   const q = new URLSearchParams({ path, recursive: String(recursive), limit: '10000', ...(at ? { at } : {}) });
   const r = await callJson<{ entries: VolumeEntry[] }>(volume, `${v(volume)}/files?${q}`, signal ? { signal } : {});
   return r.entries ?? [];
@@ -466,6 +471,7 @@ export async function writeVolumeFile(
   opts: { overwrite: boolean; ifMatch?: string },
 ): Promise<{ path: string; size: number; version?: string; commit?: VolumeWriteCommit }> {
   if (!isPlatinumConfigured()) {
+    bustVolumeListCache(volume.name);
     return supabaseDriveStorage.writeVolumeFile(volume, path, body, opts);
   }
   const q = new URLSearchParams({ path, overwrite: String(opts.overwrite) });
@@ -545,6 +551,7 @@ export async function putVolumeUploadBlock(volume: DriveVolume, uploadId: string
 
 export async function commitVolumeUpload(volume: DriveVolume, uploadId: string): Promise<unknown> {
   if (!isPlatinumConfigured()) {
+    bustVolumeListCache(volume.name);
     return supabaseDriveStorage.commitVolumeUpload(volume, uploadId);
   }
   return callJson<unknown>(volume, `${v(volume)}/files/upload/${encodeURIComponent(uploadId)}/commit`, {
@@ -568,6 +575,7 @@ export async function writeVolumeFiles(
 ): Promise<VolumeWriteCommit | undefined> {
   if (!files.length) return;
   if (!isPlatinumConfigured()) {
+    bustVolumeListCache(volume.name);
     return supabaseDriveStorage.writeVolumeFiles(volume, files, opts);
   }
   const blocks = new Map<string, Uint8Array<ArrayBuffer>>();
@@ -591,6 +599,7 @@ export async function writeVolumeFiles(
 
 export async function moveVolumeFile(volume: DriveVolume, src: string, dst: string): Promise<void> {
   if (!isPlatinumConfigured()) {
+    bustVolumeListCache(volume.name);
     return supabaseDriveStorage.moveVolumeFile(volume, src, dst);
   }
   await call(volume, `${v(volume)}/files/move`, {
@@ -602,6 +611,7 @@ export async function moveVolumeFile(volume: DriveVolume, src: string, dst: stri
 
 export async function removeVolumeFile(volume: DriveVolume, path: string, recursive: boolean): Promise<void> {
   if (!isPlatinumConfigured()) {
+    bustVolumeListCache(volume.name);
     return supabaseDriveStorage.removeVolumeFile(volume, path, recursive);
   }
   const q = new URLSearchParams({ path, recursive: String(recursive) });

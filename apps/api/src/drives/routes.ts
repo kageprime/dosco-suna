@@ -388,15 +388,14 @@ async function existingFileSize(drive: DriveRow, path: string): Promise<number> 
   );
 }
 
-/** The file's current version, as the download's ETag names it; null when there is no file. */
+/** The file's current version, as statVolumeFile names it; null when there is no file. */
 async function currentFileVersion(drive: DriveRow, path: string): Promise<string | null> {
   return readDriveVolume(
     drive,
     async (volume) => {
       try {
-        const res = await readVolumeFile(volume, path);
-        await res.body?.cancel().catch(() => undefined);
-        return res.headers.get('etag');
+        const stat = await statVolumeFile(volume, path);
+        return stat.type === 'file' ? stat.version : null;
       } catch (err) {
         if (err instanceof DriveStorageError && err.status === 404) return null;
         throw err;

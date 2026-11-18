@@ -1,4 +1,3 @@
-import { getSupabase } from '../../shared/supabase';
 import { logger } from '../../lib/logger';
 import type { VolumeWriteCommit } from '../volume-commit';
 import {
@@ -17,8 +16,17 @@ import {
 
 const DRIVES_BUCKET = 'drives';
 let drivesBucketChecked = false;
+const volumeHeads = new Map<string, string>();
+const FILE_READ_TIMEOUT_MS = 5 * 60_000;
+
+function supabaseOriginAndKey(): { url: string; key: string } | null {
+  const url = process.env.SUPABASE_URL?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  return url && key ? { url: url.replace(/\/+$/, ''), key } : null;
+}
 
 export async function getDrivesStorage() {
+  const { getSupabase } = await import('../../shared/supabase');
   const supabase = getSupabase();
   if (!drivesBucketChecked) {
     await supabase.storage.createBucket(DRIVES_BUCKET, { public: false }).catch(() => null);
@@ -30,6 +38,71 @@ export async function getDrivesStorage() {
 export function volumeStorageKey(volume: DriveVolume, path: string): string {
   const norm = path.startsWith('/') ? path : `/${path}`;
   return `${volume.name}${norm}`.replace(/^\/+/, '');
+}
+
+function encodeStoragePath(key: string): string {
+  return key
+    .split('/')
+    .map((part) => encodeURIComponent(part))
+    .join('/');
+}
+
+async function resolveVolumeHead(volumeName: string): Promise<string> {
+  const cached = volumeHeads.get(volumeName);
+  if (cached) return cached;
+  if (!process.env.DATABASE_URL) {
+    const fallback = 'sb-initial';
+    volumeHeads.set(volumeName, fallback);
+    return fallback;
+  }
+  try {
+    const [{ drives }, { eq }, { db }] = await Promise.all([
+      import('@kortix/db'),
+      import('drizzle-orm'),
+      import('../../shared/db'),
+    ]);
+    const [row] = await db
+      .select({
+        updatedAt: drives.updatedAt,
+        indexHead: drives.indexHead,
+        conflictScanHead: drives.conflictScanHead,
+      })
+      .from(drives)
+      .where(eq(drives.platinumVolumeName, volumeName))
+      .limit(1);
+    const head =
+      row?.updatedAt instanceof Date
+        ? `sb-${row.updatedAt.getTime()}`
+        : row?.indexHead || row?.conflictScanHead || 'sb-initial';
+    volumeHeads.set(volumeName, head);
+    return head;
+  } catch {
+    const fallback = 'sb-initial';
+    volumeHeads.set(volumeName, fallback);
+    return fallback;
+  }
+}
+
+async function bumpVolumeHead(volumeName: string): Promise<string> {
+  const now = new Date();
+  const head = `sb-${now.getTime()}-${crypto.randomUUID().slice(0, 8)}`;
+  volumeHeads.set(volumeName, head);
+  if (!process.env.DATABASE_URL) return head;
+  try {
+    const [{ drives }, { eq }, { db }] = await Promise.all([
+      import('@kortix/db'),
+      import('drizzle-orm'),
+      import('../../shared/db'),
+    ]);
+    await db
+      .update(drives)
+      .set({ updatedAt: now })
+      .where(eq(drives.platinumVolumeName, volumeName))
+      .catch(() => null);
+  } catch {
+    // Best-effort DB timestamp sync
+  }
+  return head;
 }
 
 interface PendingUpload {
@@ -91,24 +164,29 @@ export class SupabaseDriveStorage implements DriveStorageProvider {
 
   async openVolume(volume: DriveVolume, _signal?: AbortSignal): Promise<VolumeInfo> {
     await getDrivesStorage();
+    const head = await resolveVolumeHead(volume.name);
     return {
       id: volume.name,
       logical_bytes: 0,
       file_count: 0,
       last_commit_at: new Date().toISOString(),
+      head_commit_id: head,
     };
   }
 
   async getVolume(volume: DriveVolume, _signal?: AbortSignal): Promise<VolumeInfo> {
+    const head = await resolveVolumeHead(volume.name);
     return {
       id: volume.name,
       logical_bytes: 0,
       file_count: 0,
       last_commit_at: new Date().toISOString(),
+      head_commit_id: head,
     };
   }
 
   async deleteVolume(volume: DriveVolume): Promise<void> {
+    volumeHeads.delete(volume.name);
     const entries = await listSupabaseFiles(volume, '/', true);
     const keys = entries.filter((e) => e.type === 'file').map((e) => volumeStorageKey(volume, e.path));
     if (keys.length > 0) {
@@ -177,17 +255,59 @@ export class SupabaseDriveStorage implements DriveStorageProvider {
       throw new DriveStorageError(404, 'File or folder not found', 'file_not_found');
     }
     const isDir = match.id === null;
+    const size = Number(match.metadata?.size ?? 0);
+    const mtime = Date.parse(match.updated_at ?? match.created_at ?? '') || Date.now();
+    const version = match.version ?? (match.metadata?.eTag as string | undefined) ?? `"${size}-${mtime}"`;
     return {
       path,
       type: isDir ? 'dir' : 'file',
-      size: Number(match.metadata?.size ?? 0),
-      mtime: Date.parse(match.updated_at ?? match.created_at ?? '') || Date.now(),
-      version: match.version ?? String(Date.now()),
+      size,
+      mtime,
+      version,
     };
   }
 
   async readVolumeFile(volume: DriveVolume, path: string, range?: string, _at?: string): Promise<Response> {
     const key = volumeStorageKey(volume, path);
+    const creds = supabaseOriginAndKey();
+    if (creds) {
+      const url = `${creds.url}/storage/v1/object/authenticated/${DRIVES_BUCKET}/${encodeStoragePath(key)}`;
+      const res = await fetch(url, {
+        headers: {
+          apikey: creds.key,
+          authorization: `Bearer ${creds.key}`,
+          ...(range ? { range } : {}),
+        },
+        signal: AbortSignal.timeout(FILE_READ_TIMEOUT_MS),
+      });
+      if (res.status === 416) {
+        return new Response(null, {
+          status: 416,
+          headers: {
+            ...(res.headers.get('content-range') ? { 'Content-Range': res.headers.get('content-range')! } : {}),
+          },
+        });
+      }
+      if (res.ok && res.body) {
+        const headers = new Headers({
+          'Content-Type': res.headers.get('content-type') || 'application/octet-stream',
+          'Accept-Ranges': 'bytes',
+        });
+        for (const h of ['content-length', 'content-range', 'etag']) {
+          const val = res.headers.get(h);
+          if (val) headers.set(h, val);
+        }
+        return new Response(res.body, {
+          status: res.status === 206 ? 206 : 200,
+          headers,
+        });
+      }
+      const text = await res.text().catch(() => '');
+      if (res.status === 404 || (res.status === 400 && /not.?found/i.test(text))) {
+        throw new DriveStorageError(404, 'File or folder not found', 'file_not_found');
+      }
+    }
+
     const bucket = await getDrivesStorage();
     const { data, error } = await bucket.download(key);
     if (error || !data) {
@@ -262,9 +382,10 @@ export class SupabaseDriveStorage implements DriveStorageProvider {
       logger.warn('[drives] Supabase upload failed:', { error: String(error) });
       throw new DriveStorageError(503, 'Drive storage write failed', 'storage_error');
     }
-    const version = String(Date.now());
+    const head = await bumpVolumeHead(volume.name);
+    const version = head;
     const commit: VolumeWriteCommit = {
-      commit_id: crypto.randomUUID().replace(/-/g, ''),
+      commit_id: head,
       outcome: 'fast',
     };
     return {
@@ -281,11 +402,13 @@ export class SupabaseDriveStorage implements DriveStorageProvider {
     opts: { overwrite: boolean },
   ): Promise<VolumeWriteCommit | undefined> {
     if (!files.length) return;
+    let lastCommit: VolumeWriteCommit | undefined;
     for (const f of files) {
-      await this.writeVolumeFile(volume, f.path, f.bytes, opts);
+      const res = await this.writeVolumeFile(volume, f.path, f.bytes, opts);
+      lastCommit = res.commit;
     }
-    return {
-      commit_id: crypto.randomUUID().replace(/-/g, ''),
+    return lastCommit ?? {
+      commit_id: await bumpVolumeHead(volume.name),
       outcome: 'fast',
     };
   }
@@ -309,6 +432,7 @@ export class SupabaseDriveStorage implements DriveStorageProvider {
         throw new DriveStorageError(503, 'Failed to move file', 'move_failed');
       }
     }
+    await bumpVolumeHead(volume.name);
   }
 
   async removeVolumeFile(volume: DriveVolume, path: string, recursive: boolean): Promise<void> {
@@ -322,6 +446,7 @@ export class SupabaseDriveStorage implements DriveStorageProvider {
     } else {
       await bucket.remove([key]);
     }
+    await bumpVolumeHead(volume.name);
   }
 
   async volumeFolderUsage(volume: DriveVolume, path: string): Promise<{ bytes: number; complete: boolean } | null> {

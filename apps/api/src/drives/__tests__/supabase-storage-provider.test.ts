@@ -98,6 +98,14 @@ describe('Supabase Drive Storage Provider', () => {
     expect(legacyDriveStatus(errRate)).toBe(503);
   });
 
+  test('getVolume returns deterministic head_commit_id', async () => {
+    const info1 = await supabaseDriveStorage.getVolume(dummyVolume);
+    const info2 = await supabaseDriveStorage.getVolume(dummyVolume);
+    expect(typeof info1.head_commit_id).toBe('string');
+    expect(info1.head_commit_id!.length).toBeGreaterThan(0);
+    expect(info2.head_commit_id).toBe(info1.head_commit_id);
+  });
+
   test('formatBytes formats human readable byte units', () => {
     expect(formatBytes(500)).toBe('500 bytes');
     expect(formatBytes(1024)).toBe('1 KB');
