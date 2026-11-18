@@ -34,12 +34,9 @@ const buildCommand = vercelJson.buildCommand ?? '';
 const match = /--max-old-space-size=(\d+)/.exec(buildCommand);
 const heapMb = match ? Number(match[1]) : null;
 
+const isWebpack = buildCommand.includes('--webpack');
 const CONTAINER_GB = 8;
 const COLD_BASELINE_GB = 1;
-// With webpackBuildWorker: true, compile and generate phases are isolated.
-// The webpack worker runs alone during compile (parent is light), then exits.
-// The prerender worker runs alone during generate. They never overlap at peak.
-const WEBPACK_BUILD_WORKER = true;
 
 if (heapMb === null) {
   console.log('No --max-old-space-size in the build command.');
@@ -47,21 +44,19 @@ if (heapMb === null) {
 }
 
 const heapGb = heapMb / 1024;
-// With webpackBuildWorker, peak is the single heaviest process + light parent.
-// Without it, peak is parent (doing webpack) + prerender worker = 2× cap.
-const compilePhase = WEBPACK_BUILD_WORKER
-  ? heapGb + 0.5 // webpack worker (up to cap) + light parent (~500 MB)
-  : heapGb;       // parent does webpack itself
-const generatePhase = heapGb + 1.0; // parent (~1 GB during generate) + prerender worker (up to cap)
+// In Turbopack (Next.js 16 default), compile runs in native Rust (~2.5 GB peak).
+// Node parent stays light (~500 MB). Prerender runs with 1 worker capped at heapMb.
+const compilePhase = isWebpack ? heapGb + 0.5 : 3.0;
+const generatePhase = isWebpack ? heapGb + 1.0 : heapGb + 0.8;
 const peakPhase = Math.max(compilePhase, generatePhase);
 const worstCase = peakPhase + COLD_BASELINE_GB;
 
 console.log(`build command:      ${buildCommand}`);
+console.log(`compiler:           ${isWebpack ? 'webpack' : 'turbopack (Next 16 default)'}`);
 console.log(`heap cap:           ${heapMb} MB (${heapGb.toFixed(2)} GB)`);
 console.log(`container:          ${CONTAINER_GB} GB`);
-console.log(`webpackBuildWorker: ${WEBPACK_BUILD_WORKER}`);
-console.log(`compile phase:      ${compilePhase.toFixed(2)} GB (webpack worker + light parent)`);
-console.log(`generate phase:     ${generatePhase.toFixed(2)} GB (parent + prerender worker)`);
+console.log(`compile phase:      ${compilePhase.toFixed(2)} GB`);
+console.log(`generate phase:     ${generatePhase.toFixed(2)} GB`);
 console.log(`cold baseline:      +${COLD_BASELINE_GB} GB (native allocations outside V8)`);
 console.log(`worst case:         ${worstCase.toFixed(2)} GB of ${CONTAINER_GB} GB`);
 
