@@ -375,6 +375,30 @@ const nextConfig = (): NextConfig => ({
     },
   },
 
+  // Webpack configuration mirroring the Turbopack externalization & loader rules
+  webpack: (config: any, { isServer }: { isServer: boolean }) => {
+    if (!isServer) {
+      config.resolve = config.resolve || {};
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        canvas: path.join(__dirname, 'src/lib/empty-module.ts'),
+      };
+
+      config.module = config.module || {};
+      config.module.rules = config.module.rules || [];
+      config.module.rules.push({
+        test: /@phosphor-icons\/react\/dist\/defs\/[^/]+\.es\.js$/,
+        use: [
+          {
+            loader: path.join(__dirname, 'scripts/phosphor-weights-loader.cjs'),
+            options: { weights: [...SHIPPED_ICON_WEIGHTS] },
+          },
+        ],
+      });
+    }
+    return config;
+  },
+
   // Performance optimizations
   experimental: {
     // Next 16 gives a dynamic page segment a client-cache TTL of 0, so every
