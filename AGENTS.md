@@ -169,6 +169,10 @@ Every agent working in this repository MUST strictly protect and never delete or
 - **Frontend (`apps/web`)**:
   - Deployed to Vercel project `dosco` (`dosco.live` / `dosco-virid.vercel.app`).
   - Root directory is `apps/web`.
+  - **8 GB Vercel Build Envelope**:
+    - `apps/web/vercel.json` `buildCommand` must stay `<= 256` characters, use Turbopack (`NODE_OPTIONS=--max-old-space-size=3584 next build`), never use `--webpack`, and pass `--debug-build-paths 'app/**,!app/**/debug/**,!app/**/presentations/**,!app/**/design-system/**,!app/**/capture/**,!app/**/eval*/**,!app/**/loopmaxxing/**,!app/**/rauch/**,!app/**/a1o/**'` to exclude non-production route trees so cold compilation fits inside 8 GB.
+    - `apps/web/src/config/turbopack-build-cache.ts` must return `false` when `process.env.VERCEL` is set (`turbopackFileSystemCacheForBuild: false`).
+    - `apps/web/next.config.ts` must keep `cpus: 1`, `staticGenerationMinPagesPerWorker: 10000`, `staticGenerationMaxConcurrency: 1`, `turbopackMemoryEviction: 'auto'`, and must NEVER set `turbopackPluginRuntimeStrategy: 'workerThreads'` (which deadlocks `@tailwindcss/oxide` N-API and custom loaders for 30+ minutes when paired with `cpus: 1`).
 
 ### 5. Mandatory Upstream Merge Guard
 When syncing changes from upstream Kortix (`kortix-ai/CompanyOS` or `kortix-ai/suna`):
@@ -177,13 +181,15 @@ When syncing changes from upstream Kortix (`kortix-ai/CompanyOS` or `kortix-ai/s
    - Verify `e2b.ts` and E2B references were not deleted or stripped.
    - Verify `driveStorageAvailable()` was not replaced with `isPlatinumConfigured()`.
    - Verify `Dockerfile.heroku` was not overwritten.
+   - Verify `apps/web/vercel.json`, `apps/web/next.config.ts`, and `apps/web/src/config/turbopack-build-cache.ts` preserve the Vercel 8 GB build envelope and `--debug-build-paths` route pruning.
    - Verify Dosco brand rules and "Xera" / "Worker" agent naming were preserved.
    - Verify upstream navbar GitHub stars and `kortix-ai/CompanyOS` links are not reintroduced.
    - Verify translations in `en.json` and `packages/ui/src/i18n/en.ts` retain generic "workspace" and Dosco terms.
 3. **Mandatory gates**:
    - Run `bun test apps/api/src/platform/providers/dosco-sovereignty.test.ts`
+   - Run `bun test apps/web/src/config/turbopack-build-cache.test.ts`
    - Run `bun test tests/unit/dosco-brand-surfaces.test.ts`
-   If either fails, fix the regression immediately.
+   If any fails, fix the regression immediately.
 
 ## Skills live in `.agents/skills/`
 

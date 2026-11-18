@@ -476,6 +476,25 @@ const googleEnabled = enabledProviders.includes('google');
 - Production aliases: `dosco-virid.vercel.app`,
   `dosco-scme19.vercel.app`, `dosco-git-main-scme19.vercel.app`.
 
+### 5.4 Build Memory Envelope & Route Pruning (8 GB Vercel Container)
+
+Vercel builds run inside an 8 GB Linux cgroup container with no swap. Every change to `apps/web/vercel.json`, `apps/web/next.config.ts`, or `apps/web/src/config/turbopack-build-cache.ts` must preserve these invariants (enforced by `apps/web/src/config/turbopack-build-cache.test.ts`):
+
+1. **Always use Turbopack (`next build`), never `--webpack`:**
+   Webpack compiles the full module AST inside Node's V8 heap — at 4096 MB it aborts with `SIGABRT` (JavaScript heap out of memory), and at 5120–6144 MB total container RSS exceeds 8 GB and gets killed with `SIGKILL` (`[BUILD_UTILS_SPAWN_SIGKILL]`).
+2. **Prune non-production routes via `--debug-build-paths` in `apps/web/vercel.json` (<= 256 chars):**
+   ```json
+   "buildCommand": "NODE_OPTIONS=--max-old-space-size=3584 next build --debug-build-paths 'app/**,!app/**/debug/**,!app/**/presentations/**,!app/**/design-system/**,!app/**/capture/**,!app/**/eval*/**,!app/**/loopmaxxing/**,!app/**/rauch/**,!app/**/a1o/**'"
+   ```
+   - Excludes 54 dev/internal routes (32 `/debug/*` test harnesses, `/presentations/*`, `/design-system/*`, `/capture/*`, `/eval*`, and demo pages), dropping compiled entrypoints from 198 to 144 so Turbopack stays safely under 8 GB.
+   - Vercel's schema rejects `buildCommand` strings longer than **256 characters** (currently 236 chars).
+3. **Never set `turbopackPluginRuntimeStrategy: 'workerThreads'` alongside `cpus: 1`:**
+   Pairing `workerThreads` with `cpus: 1` deadlocks `@tailwindcss/oxide` (Rust N-API) and custom JS loaders inside the single worker thread, hanging the build for 30+ minutes. Keep Next's default `'childProcesses'`.
+4. **Keep `turbopackFileSystemCacheForBuild: false` on Vercel (`turbopack-build-cache.ts`) and `turbopackMemoryEviction: 'auto'`:**
+   The persistent build cache reaches ~2.4 GB (exceeding Vercel Hobby's 1.5 GB cache limit) and adds ~2 GB RSS during serialization.
+5. **Prerender only `defaultLocale` (`en`) on Vercel (`apps/web/src/i18n/static-params.ts`) with `staticGenerationMinPagesPerWorker: 10000` and `staticGenerationMaxConcurrency: 1`:**
+   Prevents multi-worker prerender fan-out across 9 locales.
+
 ---
 
 ## 6. Custom domain: dosco.live

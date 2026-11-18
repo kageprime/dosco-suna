@@ -5,6 +5,9 @@ import { resolveTurbopackFileSystemCacheForBuild } from './turbopack-build-cache
 
 const GB = 1024 ** 3;
 const nextConfig = readFileSync(new URL('../../next.config.ts', import.meta.url), 'utf8');
+const vercelJson = JSON.parse(
+  readFileSync(new URL('../../vercel.json', import.meta.url), 'utf8'),
+) as { buildCommand?: string };
 
 describe('resolveTurbopackFileSystemCacheForBuild', () => {
   const KEY = 'KORTIX_TURBOPACK_BUILD_CACHE';
@@ -69,5 +72,24 @@ describe('next.config.ts wiring', () => {
       /^import \{ resolveTurbopackFileSystemCacheForBuild \} from '\.\/src\/config\/turbopack-build-cache';$/m,
     );
     expect(nextConfig).toMatch(/^\s*turbopackFileSystemCacheForBuild: resolveTurbopackFileSystemCacheForBuild\(\),$/m);
+  });
+
+  test('next.config.ts never pairs cpus: 1 with turbopackPluginRuntimeStrategy: workerThreads', () => {
+    // Pairing cpus: 1 with workerThreads deadlocks @tailwindcss/oxide N-API and custom
+    // loaders inside the single worker thread for 30+ minutes on Vercel.
+    expect(nextConfig).not.toMatch(/turbopackPluginRuntimeStrategy:\s*['"](?:force)?[wW]orkerThreads['"]/);
+  });
+
+  test('vercel.json buildCommand fits <= 256 chars, uses Turbopack, and prunes non-prod routes', () => {
+    const cmd = vercelJson.buildCommand ?? '';
+    expect(cmd.length).toBeGreaterThan(0);
+    expect(cmd.length).toBeLessThanOrEqual(256);
+    expect(cmd).not.toContain('--webpack');
+    expect(cmd).toContain('--debug-build-paths');
+    expect(cmd).toContain('!app/**/debug/**');
+    expect(cmd).toContain('!app/**/presentations/**');
+    expect(cmd).toContain('!app/**/design-system/**');
+    expect(cmd).toContain('!app/**/capture/**');
+    expect(cmd).toContain('!app/**/eval*/**');
   });
 });
