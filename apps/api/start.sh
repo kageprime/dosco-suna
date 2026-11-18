@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-# Disable background workers on web dynos to protect HTTP request latency and prevent connection pool starvation.
+# Disable background workers on the web API process to protect HTTP request latency and prevent connection pool starvation.
 if [ -n "$DYNO" ] && [ -z "$KORTIX_WORKERS_ENABLED" ]; then
   case "$DYNO" in
     web.*)
@@ -12,6 +12,9 @@ fi
 
 GATEWAY_PORT="${LLM_GATEWAY_PROXY_PORT:-8090}"
 API_PORT="${PORT:-8008}"
+INTERNAL_WORKER_PORT="${INTERNAL_WORKER_PORT:-8009}"
+WORKER_DB_POOL_MAX="${WORKER_DB_POOL_MAX:-3}"
+ENABLE_IN_DYNO_WORKER="${ENABLE_IN_DYNO_WORKER:-true}"
 
 if [ -z "$GATEWAY_INTERNAL_TOKEN" ]; then
   export GATEWAY_INTERNAL_TOKEN="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
@@ -39,10 +42,18 @@ else
   echo "[startup] Warning: LLM gateway directory not found, gateway not started locally"
 fi
 
+API_DIR="/app/apps/api"
+if [ ! -d "$API_DIR" ]; then
+  API_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
+fi
+
 cleanup() {
   echo "[shutdown] Stopping child processes..."
   if [ -n "$GATEWAY_PID" ]; then
     kill -TERM "$GATEWAY_PID" 2>/dev/null || true
+  fi
+  if [ -n "$WORKER_PID" ]; then
+    kill -TERM "$WORKER_PID" 2>/dev/null || true
   fi
   if [ -n "$API_PID" ]; then
     kill -TERM "$API_PID" 2>/dev/null || true
@@ -50,14 +61,23 @@ cleanup() {
 }
 trap cleanup SIGTERM SIGINT EXIT
 
-API_DIR="/app/apps/api"
-if [ ! -d "$API_DIR" ]; then
-  API_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
+# In-dyno background worker: runs as an isolated subprocess with its own event loop and small DB pool.
+if [ "$ENABLE_IN_DYNO_WORKER" = "true" ]; then
+  echo "[startup] Starting isolated In-Dyno Worker on :${INTERNAL_WORKER_PORT} (DB_POOL_MAX=${WORKER_DB_POOL_MAX})..."
+  (
+    cd "$API_DIR"
+    PORT="$INTERNAL_WORKER_PORT" \
+    DB_POOL_MAX="$WORKER_DB_POOL_MAX" \
+    KORTIX_WORKERS_ENABLED="true" \
+    KORTIX_PROCESS_ROLE="worker" \
+    exec bun run src/worker.ts
+  ) &
+  WORKER_PID=$!
 fi
 
 echo "[startup] Starting Dosco API on port ${API_PORT}..."
 cd "$API_DIR"
-bun run src/index.ts &
+KORTIX_WORKERS_ENABLED="false" KORTIX_PROCESS_ROLE="web" bun run src/index.ts &
 API_PID=$!
 
 if [ -n "$GATEWAY_PID" ]; then
