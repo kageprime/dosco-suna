@@ -1,5 +1,5 @@
 {
-  "buildCommand": "NODE_OPTIONS=--max-old-space-size=2560 next build --debug-build-paths 'app/**,!app/**/debug/**,!app/**/presentations/**,!app/**/design-system/**,!app/**/capture/**,!app/**/eval*/**,!app/**/loopmaxxing/**,!app/**/rauch/**,!app/**/a1o/**'",
+  "buildCommand": "NODE_OPTIONS=--max-old-space-size=3584 next build --debug-build-paths 'app/**,!app/**/debug/**,!app/**/presentations/**,!app/**/design-system/**,!app/**/capture/**,!app/**/eval*/**,!app/**/loopmaxxing/**,!app/**/rauch/**,!app/**/a1o/**'",
   "installCommand": "pnpm install --frozen-lockfile",
   "regions": ["lhr1"],
   "rewrites": [

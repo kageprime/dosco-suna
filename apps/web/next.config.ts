@@ -139,10 +139,8 @@ function resolveTurbopackMemoryEviction(): false | 'auto' | 'full' {
         `expected one of 'auto', 'full', 'false'.`,
     );
   }
-  // On Vercel / CI, drop intermediate memory after snapshots to stay inside
-  // the 8 GB container limit. 'auto' relies on OS swap signals which do not
-  // exist in swapless Linux cgroups, causing resident memory to climb to 7.8 GB.
-  if (process.env.VERCEL || process.env.CI) return 'full';
+  // On Vercel / CI, stay on 'auto' to avoid disk-serialization thrashing.
+  if (process.env.VERCEL || process.env.CI) return 'auto';
   return 'auto';
 }
 
@@ -263,11 +261,6 @@ const nextConfig = (): NextConfig => ({
     ignoreBuildErrors: true,
   },
 
-  // Skip ESLint during build (done in CI) to conserve build memory
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-
   // Same OOM kill as the staticGeneration* knobs below (next.config's
   // experimental block): the prerender phase maps stack traces to source while
   // it renders, and on an 8 GB build machine that mapping is one more
@@ -375,30 +368,6 @@ const nextConfig = (): NextConfig => ({
     },
   },
 
-  // Webpack configuration mirroring the Turbopack externalization & loader rules
-  webpack: (config: any, { isServer }: { isServer: boolean }) => {
-    if (!isServer) {
-      config.resolve = config.resolve || {};
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        canvas: path.join(__dirname, 'src/lib/empty-module.ts'),
-      };
-
-      config.module = config.module || {};
-      config.module.rules = config.module.rules || [];
-      config.module.rules.push({
-        test: /@phosphor-icons\/react\/dist\/defs\/[^/]+\.es\.js$/,
-        use: [
-          {
-            loader: path.join(__dirname, 'scripts/phosphor-weights-loader.cjs'),
-            options: { weights: [...SHIPPED_ICON_WEIGHTS] },
-          },
-        ],
-      });
-    }
-    return config;
-  },
-
   // Performance optimizations
   experimental: {
     // Next 16 gives a dynamic page segment a client-cache TTL of 0, so every
@@ -459,18 +428,7 @@ const nextConfig = (): NextConfig => ({
     // 20GB in 2 days and 60GB in one case. GC drops unreachable work from
     // memory and from that cache. It is a no-op when the FS cache is off, and
     // Turbopack skips it when turbopackMemoryEviction is false.
-    turbopackGc: process.env.VERCEL
-      ? { minProgressMs: 100, rootTtlMs: 0 }
-      : true,
-    // Keep dependencyTracking enabled in Turbopack (`persistentCaching || hasDeferredEntries`
-    // in next/dist/build/turbopack-build/impl.js:105) even when persistentCaching is false on
-    // Vercel, and split compilation into two sequential waves so Wave 1 ASTs are evicted and
-    // garbage-collected before Wave 2 starts.
-    deferredEntries: process.env.VERCEL ? ['/[locale]/(public)', '/[locale]/admin'] : undefined,
-    // Use worker threads for Turbopack Node plugin evaluation (PostCSS/Tailwind/loaders)
-    // instead of 'childProcesses' which spawns multiple separate Node.js processes that
-    // exhaust container memory.
-    turbopackPluginRuntimeStrategy: 'workerThreads',
+    turbopackGc: true,
     // The Vercel build machine is 8 GB (both plan defaults), and the default
     // `next build` fan-out killed it: build-utils SIGKILLed `next build` (OOM)
     // on 2026-10-20. The default spawns os.cpus()-1 prerender workers for this
@@ -508,17 +466,6 @@ const nextConfig = (): NextConfig => ({
     // prints the arithmetic.
     staticGenerationMinPagesPerWorker: 10000,
     staticGenerationMaxConcurrency: 1,
-    // Isolate the webpack compilation into its own worker process so it does
-    // not share the parent's V8 heap. The parent stays light during compile,
-    // then the webpack worker exits, and the prerender worker runs alone
-    // during generate. They never overlap at peak, so 4096 MB per process
-    // fits inside the 8 GB Vercel container (~4 GB compile + ~1 GB parent
-    // during generate + ~2 GB prerender worker = ~5 GB peak).
-    webpackBuildWorker: true,
-    // Reduce webpack's peak heap by releasing intermediate structures earlier.
-    // Without this, webpack compilation reached 4044 MB and hit the 4096 MB
-    // cap. With it, the peak drops below the cap.
-    webpackMemoryOptimizations: true,
     // Optimize package imports for faster builds and smaller bundles
     optimizePackageImports: [
       '@phosphor-icons/react',
