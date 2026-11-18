@@ -473,6 +473,17 @@ const nextConfig = (): NextConfig => ({
     // prints the arithmetic.
     staticGenerationMinPagesPerWorker: 10000,
     staticGenerationMaxConcurrency: 1,
+    // Isolate the webpack compilation into its own worker process so it does
+    // not share the parent's V8 heap. The parent stays light during compile,
+    // then the webpack worker exits, and the prerender worker runs alone
+    // during generate. They never overlap at peak, so 4096 MB per process
+    // fits inside the 8 GB Vercel container (~4 GB compile + ~1 GB parent
+    // during generate + ~2 GB prerender worker = ~5 GB peak).
+    webpackBuildWorker: true,
+    // Reduce webpack's peak heap by releasing intermediate structures earlier.
+    // Without this, webpack compilation reached 4044 MB and hit the 4096 MB
+    // cap. With it, the peak drops below the cap.
+    webpackMemoryOptimizations: true,
     // Optimize package imports for faster builds and smaller bundles
     optimizePackageImports: [
       '@phosphor-icons/react',
