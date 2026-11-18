@@ -351,7 +351,10 @@ function CommandPopoverContent({
       <Command
         shouldFilter={shouldFilter}
         defaultValue={defaultValue}
-        className={CMDK_SHARED_CLASSES}
+        className={cn(
+          CMDK_SHARED_CLASSES,
+          className?.includes('overflow-visible') && 'overflow-visible',
+        )}
       >
         {children}
       </Command>

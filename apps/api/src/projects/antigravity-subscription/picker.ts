@@ -1,17 +1,23 @@
 /**
  * The Google Antigravity subscription models as the model picker lists them:
- * one dedicated group with reasoning efforts, status badges, and availability.
+ * one dedicated group matching the curated 8-model Antigravity lineup, with
+ * reasoning efforts, status badges, and live availability merged in.
  */
 import {
   ANTIGRAVITY_DEFAULT_MODEL,
-  ANTIGRAVITY_MODELS,
   ANTIGRAVITY_PROVIDER_ID,
   ANTIGRAVITY_PROVIDER_NAME,
+  type AntigravityModel,
 } from '@kortix/api-contract/antigravity';
 import { resolveAntigravityCredential } from '../../llm-gateway/credentials/antigravity';
-import { fetchAvailableAntigravityModels } from '../../llm-gateway/credentials/antigravity-cloudcode';
+import {
+  fetchAvailableAntigravityModels,
+  selectCuratedAntigravityPickerModels,
+} from '../../llm-gateway/credentials/antigravity-cloudcode';
 import { countUsableAntigravityAccounts } from './accounts';
 import { modelAccessAllows, type ProjectModelAccess } from '../../llm-gateway/model-access';
+
+export { selectCuratedAntigravityPickerModels };
 
 export async function antigravitySubscriptionPickerGroup(input: {
   accountId: string;
@@ -21,14 +27,14 @@ export async function antigravitySubscriptionPickerGroup(input: {
   modelOverrides: Record<string, boolean>;
 }) {
   const connected = (await countUsableAntigravityAccounts(input.accountId, input.projectId, input.userId).catch(() => 0)) > 0;
-  let models = ANTIGRAVITY_MODELS;
+  let liveModels: AntigravityModel[] | null = null;
   if (connected) {
     const credential = await resolveAntigravityCredential(input.projectId, input.userId, input.accountId).catch(() => null);
     if (credential?.access) {
-      const liveModels = await fetchAvailableAntigravityModels(credential.access, credential.project).catch(() => null);
-      if (liveModels?.length) models = liveModels;
+      liveModels = await fetchAvailableAntigravityModels(credential.access, credential.project).catch(() => null);
     }
   }
+  const models = selectCuratedAntigravityPickerModels(liveModels);
   return {
     providerId: ANTIGRAVITY_PROVIDER_ID,
     name: ANTIGRAVITY_PROVIDER_NAME,

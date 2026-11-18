@@ -90,10 +90,10 @@ describe('proxyAttemptTimeoutMs', () => {
   // The generic window, shrunk to whatever budget remains, with a 1s floor so
   // the last attempt still gets a chance.
   test.each([
-    [50_000, 15_000],
-    [40_000, 15_000],
-    [15_000, 15_000],
-    [10_000, 10_000],
+    [50_000, PROXY_ATTEMPT_TIMEOUT_MS],
+    [40_000, PROXY_ATTEMPT_TIMEOUT_MS],
+    [PROXY_ATTEMPT_TIMEOUT_MS, PROXY_ATTEMPT_TIMEOUT_MS],
+    [8_000, 8_000],
     [2_500, 2_500],
     [800, 1_000],
     [0, 1_000],
@@ -105,15 +105,15 @@ describe('proxyAttemptTimeoutMs', () => {
     );
   });
 
-  // A blocking turn and an upload get ~the whole remaining budget, not the 15s
-  // cap, but never more than remains, and never less than the 1s floor.
+  // A blocking turn and an upload get ~the whole remaining budget, not the
+  // generic connect cap, never more than remains, and never less than the 1s floor.
   test.each([
     ['POST', '/session/abc123/message'],
     ['POST', '/session/abc123/command'],
     ['POST', '/session/abc123/summarize'],
     ['POST', '/file/upload'],
   ])('%s %s gets the remaining budget, bounded and floored', (method, path) => {
-    expect(proxyAttemptTimeoutMs(40_000, { method, path })).toBe(39_500);
+    expect(proxyAttemptTimeoutMs(20_000, { method, path })).toBe(19_500);
     expect(proxyAttemptTimeoutMs(PROXY_RETRY_BUDGET_MS, { method, path })).toBe(
       PROXY_RETRY_BUDGET_MS - 500,
     );
@@ -121,6 +121,6 @@ describe('proxyAttemptTimeoutMs', () => {
     expect(proxyAttemptTimeoutMs(200, { method, path })).toBe(1_000);
   });
 
-  // The 60 s ALB idle cut is proven on the route, on a fake clock against a
+  // The router idle cut is proven on the route, on a fake clock against a
   // hanging upstream: e2e-preview-proxy "when every upstream hangs".
 });

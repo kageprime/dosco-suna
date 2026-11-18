@@ -37,6 +37,13 @@ describe('requestDeadline exemptions', () => {
   });
 
   test.each([
+    '/v1/connectors/workspaces/00000000-0000-4000-a000-000000000001/sessions/00000000-0000-4000-a000-000000000002/connect-requests',
+    '/v1/connectors/projects/00000000-0000-4000-a000-000000000001/sessions/00000000-0000-4000-a000-000000000002/connect-requests',
+  ])('keeps GET connect-requests %s bounded by the request deadline', (path) => {
+    expect(isExempt(ctx(path, 'GET'))).toBe(false);
+  });
+
+  test.each([
     '/v1/projects/00000000-0000-4000-a000-000000000001/commit-push',
     '/v1/projects/00000000-0000-4000-a000-000000000001/provision',
   ])('leaves existing exemption %s unchanged', (path) => {

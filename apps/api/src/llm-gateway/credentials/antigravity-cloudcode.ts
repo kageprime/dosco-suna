@@ -226,6 +226,39 @@ export function normalizeCloudCodeAvailableModels(raw: unknown): AntigravityMode
   return normalized;
 }
 
+/**
+ * Restricts live Cloud Code model entries to the curated 8-model Antigravity
+ * lineup in canonical order, merging live availability, efforts, and quota
+ * signals onto each entry instead of letting raw Cloud Code aliases bloat the picker.
+ */
+export function selectCuratedAntigravityPickerModels(
+  liveModels: readonly AntigravityModel[] | null | undefined,
+): AntigravityModel[] {
+  if (!liveModels?.length) return [...ANTIGRAVITY_MODELS];
+  const liveByKey = new Map<string, AntigravityModel>();
+  for (const live of liveModels) {
+    liveByKey.set(live.id, live);
+    liveByKey.set(live.resolved, live);
+  }
+  return ANTIGRAVITY_MODELS.map((curated) => {
+    const live =
+      liveByKey.get(curated.id) ??
+      liveByKey.get(curated.resolved) ??
+      liveModels.find((m) => m.resolved.startsWith(`${curated.resolved}-`));
+    if (!live) return curated;
+    return {
+      ...curated,
+      description: live.description || curated.description,
+      efforts: live.efforts?.length ? live.efforts : curated.efforts,
+      defaultEffort: live.defaultEffort ?? curated.defaultEffort,
+      badge: live.badge ?? curated.badge,
+      unavailable: live.unavailable ?? curated.unavailable,
+      context: live.context || curated.context,
+      output: live.output || curated.output,
+    };
+  });
+}
+
 /** Look up the most recently fetched live Cloud Code model definition by UI id or wire stem. */
 export function lookupAntigravityDynamicModel(idOrResolved: string): AntigravityModel | undefined {
   return dynamicModelsByKey.get(idOrResolved);

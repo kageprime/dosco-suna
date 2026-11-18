@@ -32,12 +32,45 @@ const CATALOG: FlatModel[] = [
   model({ providerID: 'kortix', modelID: 'claude-haiku-4-5', modelName: 'Claude Haiku 4.5' }),
   model({ providerID: 'kortix', modelID: 'gpt-5-4', modelName: 'GPT-5.4', capabilities: { reasoning: true } }),
   model({ providerID: 'kortix', modelID: 'openrouter/free', modelName: 'Free Router', free: true }),
-  model({ providerID: 'antigravity', modelID: 'gemini-3-5-flash-low', modelName: 'Gemini 3.5 Flash Lite', defaultEffort: 'low' }),
-  model({ providerID: 'antigravity', modelID: 'gemini-3-5-flash-high', modelName: 'Gemini 3.5 Flash Lite', defaultEffort: 'high' }),
+  model({
+    providerID: 'antigravity',
+    modelID: 'gemini-4-argon',
+    modelName: 'Gemini 4 Argon',
+    defaultEffort: 'medium',
+    badge: 'new',
+    variants: { low: {}, medium: {}, high: {}, extra: {} },
+  }),
+  model({
+    providerID: 'antigravity',
+    modelID: 'gemini-4-hydrogen',
+    modelName: 'Gemini 4 Hydrogen',
+    defaultEffort: 'medium',
+    badge: 'new',
+    variants: { low: {}, medium: {}, high: {}, extra: {} },
+  }),
+  model({
+    providerID: 'antigravity',
+    modelID: 'orchestrator-argon',
+    modelName: 'Orchestrator (Argon)',
+    badge: 'new',
+  }),
+  model({
+    providerID: 'antigravity',
+    modelID: 'gpt-oss-120b',
+    modelName: 'GPT-OSS 120B (Medium)',
+    badge: 'notice',
+  }),
+  model({
+    providerID: 'antigravity',
+    modelID: 'gemini-4-carbon',
+    modelName: 'Gemini 4 Carbon',
+    badge: 'unavailable',
+    unavailable: true,
+  }),
 ];
 
 describe('ModelPickerPanel', () => {
-  test('renders compact single-column model list with filter tabs and inline effort options', () => {
+  test('renders Antigravity-style Model header, effort labels, pill badges, View Usage, and inline effort fallback', () => {
     const html = renderToStaticMarkup(
       <IntlTestProvider locale="en" onError={() => {}}>
         <Command shouldFilter={false}>
@@ -47,7 +80,7 @@ describe('ModelPickerPanel', () => {
             searchModels={CATALOG}
             search=""
             onSearchChange={() => {}}
-            selected={{ providerID: 'kortix', modelID: 'claude-sonnet-4-6' }}
+            selected={{ providerID: 'antigravity', modelID: 'gemini-4-argon' }}
             onPick={() => {}}
             isFavorite={() => false}
             setFavorite={() => {}}
@@ -55,8 +88,9 @@ describe('ModelPickerPanel', () => {
             emptyState={<div>Empty</div>}
             searchEmpty={<div>No match</div>}
             connectLabel="Connect"
+            onViewUsage={() => {}}
             effort={{
-              choices: ['low', 'medium', 'high'],
+              choices: ['low', 'medium', 'high', 'extra'],
               selectedVariant: 'high',
               onChange: () => {},
             }}
@@ -65,16 +99,23 @@ describe('ModelPickerPanel', () => {
       </IntlTestProvider>,
     );
 
-    expect(html).toContain('Claude');
-    expect(html).toContain('Sonnet 4.6');
-    expect(html).toContain('modelSelector.all');
+    expect(html).toContain('Model');
+    expect(html).toContain('Gemini 4 Argon');
+    expect(html).toContain('Orchestrator (Argon)');
+    expect(html).toContain('GPT-OSS 120B (Medium)');
+    expect(html).toContain('Gemini 4 Carbon');
+    expect(html).toContain('New');
+    expect(html).toContain('Notice');
+    expect(html).toContain('Unavailable');
+    expect(html).toContain('View Usage');
     expect(html).toContain('High');
     expect(html).toContain('Auto');
     expect(html).toContain('scrollbar-hide');
   });
 
-  test('switches provider tabs and picks effort options cleanly', async () => {
+  test('switches provider tabs, opens the right-hand effort submenu, and picks an effort cleanly', async () => {
     const onVariantChange = mock(() => {});
+    const onPick = mock(() => {});
     let renderer!: ReactTestRenderer;
 
     await act(async () => {
@@ -87,8 +128,8 @@ describe('ModelPickerPanel', () => {
               searchModels={CATALOG}
               search=""
               onSearchChange={() => {}}
-              selected={{ providerID: 'kortix', modelID: 'claude-sonnet-4-6' }}
-              onPick={() => {}}
+              selected={{ providerID: 'antigravity', modelID: 'gemini-4-hydrogen' }}
+              onPick={onPick}
               isFavorite={() => false}
               setFavorite={() => {}}
               loading={false}
@@ -96,7 +137,7 @@ describe('ModelPickerPanel', () => {
               searchEmpty={<div>No match</div>}
               connectLabel="Connect"
               effort={{
-                choices: ['low', 'medium', 'high'],
+                choices: ['low', 'medium', 'high', 'extra'],
                 selectedVariant: 'medium',
                 onChange: onVariantChange,
               }}
@@ -106,21 +147,28 @@ describe('ModelPickerPanel', () => {
       );
     });
 
-    // Provider filter tabs exist (All, Favorites, Dosco, etc.)
+    // Provider filter tabs exist (All, Dosco, Google Antigravity)
     const tabs = renderer.root.findAll((node) => node.type === 'button' && node.props.role === 'tab');
     expect(tabs.length).toBeGreaterThanOrEqual(2);
 
-    // Effort buttons exist inline (Auto, Low, Medium, High)
-    const effortButtons = renderer.root.findAll(
-      (node) => node.type === 'button' && ['Auto', 'Low', 'Medium', 'High'].includes(textOf(node).trim()),
+    // Open the Antigravity-style right-hand effort submenu for Gemini 4 Hydrogen
+    const hydrogenChevron = renderer.root.find(
+      (node) => node.type === 'button' && node.props['aria-label'] === 'Select effort for Gemini 4 Hydrogen',
     );
-    expect(effortButtons.length).toBe(4);
-
-    // Clicking high effort calls onVariantChange
     await act(async () => {
-      effortButtons[3]!.props.onClick();
+      hydrogenChevron.props.onClick({ stopPropagation: () => {} });
     });
-    expect(onVariantChange).toHaveBeenCalledWith('high');
+
+    const submenuRadios = renderer.root.findAll(
+      (node) => node.type === 'button' && node.props.role === 'menuitemradio',
+    );
+    expect(submenuRadios.map((n) => textOf(n).trim())).toEqual(['Low', 'Medium', 'High', 'Extra']);
+
+    // Clicking Extra inside the submenu sets the effort variant
+    await act(async () => {
+      submenuRadios[3]!.props.onClick({ stopPropagation: () => {} });
+    });
+    expect(onVariantChange).toHaveBeenCalledWith('extra');
 
     renderer.unmount();
   });

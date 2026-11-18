@@ -24,12 +24,13 @@ describe('Google Antigravity api-contract', () => {
     expect(argon).toBeDefined();
     expect(argon?.badge).toBe('new');
     expect(argon?.defaultEffort).toBe('medium');
+    expect(argon?.efforts).toEqual(['low', 'medium', 'high', 'extra']);
 
     const hydrogen = ANTIGRAVITY_MODELS.find((m) => m.id === 'gemini-4-hydrogen');
     expect(hydrogen).toBeDefined();
     expect(hydrogen?.badge).toBe('new');
-    expect(hydrogen?.defaultEffort).toBe('extra');
-    expect(hydrogen?.efforts).toContain('extra');
+    expect(hydrogen?.defaultEffort).toBe('medium');
+    expect(hydrogen?.efforts).toEqual(['low', 'medium', 'high', 'extra']);
 
     const orchestrator = ANTIGRAVITY_MODELS.find((m) => m.id === 'orchestrator-argon');
     expect(orchestrator).toBeDefined();

@@ -607,7 +607,11 @@ export function ModelSelector({
               selected: selectedModel,
             }),
         )
-        .sort((a, b) => a.modelName.localeCompare(b.modelName));
+        .sort((a, b) => {
+          // Preserve Google Antigravity's curated lineup order (matches Image 1).
+          if (isAntigravitySubscriptionModel(a) && isAntigravitySubscriptionModel(b)) return 0;
+          return a.modelName.localeCompare(b.modelName);
+        });
     },
     [models, pickerModelStore.isVisible, selectedModel],
   );
@@ -1039,6 +1043,8 @@ export function ModelSelector({
               connectLabel={tPooled('connect')}
               subscriptionProvider={subscriptionProvider}
               onUpgrade={showUpgradeOption ? handleUpgrade : undefined}
+              onViewUsage={canConnectProvider ? () => handleOpenProviderModal('providers') : undefined}
+              inlineMode
               effort={
                 showEffort
                   ? {
@@ -1090,7 +1096,11 @@ export function ModelSelector({
             <span className={cn('max-w-28 truncate text-foreground font-medium', triggerLabelClassName)}>{triggerLabel}</span>
             {showEffort && (
               <span className="shrink-0 text-muted-foreground font-normal">
-                {currentEffort ? effortLabel(currentEffort) : t('auto')}
+                {currentEffort
+                  ? effortLabel(currentEffort)
+                  : current?.defaultEffort
+                    ? effortLabel(current.defaultEffort)
+                    : t('auto')}
               </span>
             )}
             <ChevronDown
@@ -1103,14 +1113,14 @@ export function ModelSelector({
           )}
         </CommandPopoverTrigger>
 
-        {/* Compact single-column popover: small footprint, doesn't interfere with chat */}
+        {/* Antigravity-style compact model popover with right-hand effort submenu */}
         <CommandPopoverContent
           side="top"
           align="start"
           sideOffset={6}
-          className="w-[min(19.5rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-popover p-0 shadow-xl overflow-hidden"
+          className="w-[min(19.5rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-popover p-0 shadow-2xl overflow-visible"
         >
-          <div className="bg-popover flex min-w-0 flex-col overflow-hidden">
+          <div className="bg-popover flex min-w-0 flex-col rounded-xl overflow-visible">
             <ModelPickerPanel
               browseModels={browseModels}
               pickableModels={pickableModels}
@@ -1131,6 +1141,7 @@ export function ModelSelector({
               connectLabel={tPooled('connect')}
               subscriptionProvider={subscriptionProvider}
               onUpgrade={showUpgradeOption ? handleUpgrade : undefined}
+              onViewUsage={canConnectProvider ? () => handleOpenProviderModal('providers') : undefined}
               effort={
                 showEffort
                   ? {

@@ -157,6 +157,11 @@ export function isExempt(c: Context): boolean {
 
   // A canonical `/v1/workspaces/…` request is exempt exactly when its legacy twin is.
   const path = asLegacyWorkspaceRoute(c.req.path);
+  // Session connect-requests is a pure DB read: keep the 25s deadline so pool
+  // contention returns a CORS-bearing 503 instead of Heroku's bare 30s H12.
+  if (c.req.method === 'GET' && /^\/v1\/connectors\/projects\/[^/]+\/sessions\/[^/]+\/connect-requests$/.test(path)) {
+    return false;
+  }
   for (const p of EXEMPT_PREFIXES) {
     if (path === p || path.startsWith(p + '/')) return true;
   }

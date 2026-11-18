@@ -2,13 +2,12 @@ import { BLOCKING_TURN_VERBS } from '@kortix/api-contract/runtime-relay';
 import { classifyRuntimeRequest } from './runtime-request';
 
 // Total wall-clock budget for the preview proxy's auto-wake retry loop. Must
-// stay under the AWS ALB's 60s idle timeout: when every attempt hangs (a cold or
-// errored sandbox whose Daytona upstream never answers) the proxy has to return
-// its own friendly portUnreachable page BEFORE the load balancer severs the idle
-// connection — otherwise the browser gets the LB/CDN's bare 502 (Cloudflare's
-// branded error page) instead. 50s leaves ~10s of headroom.
-export const PROXY_RETRY_BUDGET_MS = 50_000;
-export const PROXY_ATTEMPT_TIMEOUT_MS = 15_000;
+// stay well under Heroku's 30s router H12 timeout (as well as AWS ALB's 60s):
+// when every attempt hangs, the proxy returns its own CORS-bearing error
+// response BEFORE the edge router severs the connection with a bare 503 HTML
+// page that lacks Access-Control-Allow-Origin headers.
+export const PROXY_RETRY_BUDGET_MS = 24_000;
+export const PROXY_ATTEMPT_TIMEOUT_MS = 10_000;
 
 // Delays between the proxy's retry attempts. Short early delays so a transient
 // post-restore RX stall (the daemon briefly unreachable ~1s) clears on the next
