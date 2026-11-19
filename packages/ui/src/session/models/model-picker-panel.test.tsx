@@ -178,4 +178,34 @@ describe('ModelPickerPanel', () => {
 
     renderer.unmount();
   });
+
+  test('minimizes non-selected provider groups and shows only the active group models on initial open', () => {
+    const html = renderToStaticMarkup(
+      <IntlTestProvider locale="en" onError={() => {}}>
+        <Command shouldFilter={false}>
+          <ModelPickerPanel
+            browseModels={CATALOG}
+            pickableModels={CATALOG}
+            searchModels={CATALOG}
+            search=""
+            onSearchChange={() => {}}
+            selected={{ providerID: 'antigravity', modelID: 'gemini-4-hydrogen' }}
+            onPick={() => {}}
+            isFavorite={() => false}
+            setFavorite={() => {}}
+            loading={false}
+            emptyState={<div>Empty</div>}
+            searchEmpty={<div>No match</div>}
+            connectLabel="Connect"
+          />
+        </Command>
+      </IntlTestProvider>,
+    );
+
+    // Dosco (5 models in fixture) stays minimized while Google Antigravity (selected) is expanded.
+    expect(html).toContain('Dosco');
+    expect(html).not.toContain('Claude Opus 4.6');
+    expect(html).toContain('Google Antigravity');
+    expect(html).toContain('Gemini 4 Hydrogen');
+  });
 });

@@ -722,6 +722,7 @@ function ExpandedBody({
     content = (
       <>
         <div className="border-border space-y-3 border-t py-3">
+          <SubscriptionUsageSection accountId={pooled.accountId} projectId={projectId} providerId="antigravity" compact />
           <p className="text-foreground text-xs font-medium">{tPooled('antigravityAccounts')}</p>
           <AccountSecretResourcesPanel
             accountId={pooled.accountId}

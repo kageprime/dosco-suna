@@ -44,7 +44,10 @@ const modelListCache = new Map<string, { models: AntigravityModel[]; fetchedAt: 
 const dynamicModelsByKey = new Map<string, AntigravityModel>();
 
 function staticModelFor(key: string): AntigravityModel | undefined {
-  return ANTIGRAVITY_MODELS.find((m) => m.id === key || m.resolved === key);
+  const lower = key.trim().toLowerCase();
+  return ANTIGRAVITY_MODELS.find(
+    (m) => m.id === key || m.resolved === key || m.name.toLowerCase() === lower,
+  );
 }
 
 function mapCloudCodeBadge(
@@ -226,8 +229,93 @@ export function normalizeCloudCodeAvailableModels(raw: unknown): AntigravityMode
   return normalized;
 }
 
+export interface CloudCodeModelQuotaWindow {
+  /** Slug-safe model key for subscription usage windows (e.g. `gemini_4_neon`). */
+  slug: string;
+  /** Used share in 0-100 (`1 - remainingFraction`). */
+  usedPercent: number;
+  /** ISO reset timestamp when provided by Cloud Code, or null. */
+  resetTime: string | null;
+}
+
 /**
- * Restricts live Cloud Code model entries to the curated 8-model Antigravity
+ * Extracts per-model remaining quota fractions and reset timestamps from a
+ * Cloud Code `/v1internal:fetchAvailableModels` response payload, ordered by
+ * the curated `ANTIGRAVITY_MODELS` lineup (excluding unavailable placeholders
+ * unless they report a real reset timestamp).
+ */
+export function extractCloudCodeModelQuotas(raw: unknown): CloudCodeModelQuotaWindow[] {
+  if (!raw || typeof raw !== 'object') return [];
+  const data = raw as CloudCodeFetchAvailableModelsResponse;
+  const models = data.models && typeof data.models === 'object' ? data.models : null;
+  if (!models) return [];
+
+  const orderedIds = orderedCloudCodeModelIds(data);
+  const variantsByStem = new Map<string, string[]>();
+  for (const rawId of orderedIds) {
+    const stem = rawId.replace(EFFORT_SUFFIX_RE, '');
+    const list = variantsByStem.get(stem) ?? [];
+    list.push(rawId);
+    variantsByStem.set(stem, list);
+  }
+
+  const emittedSlugs = new Set<string>();
+  const quotasByCuratedId = new Map<string, CloudCodeModelQuotaWindow>();
+  const extraQuotas: CloudCodeModelQuotaWindow[] = [];
+
+  for (const [stem, groupIds] of variantsByStem) {
+    const first = models[groupIds[0]!];
+    if (!first || typeof first !== 'object') continue;
+    const rawDisplay = typeof first.displayName === 'string'
+      ? first.displayName.replace(EFFORT_DISPLAY_RE, '').trim()
+      : '';
+    const fallback = staticModelFor(stem) ?? (rawDisplay ? staticModelFor(rawDisplay) : undefined);
+
+    let minRemaining: number | null = null;
+    let resetTime: string | null = null;
+    let anyDisabledOnly = true;
+
+    for (const id of groupIds) {
+      const details = models[id];
+      if (!details || typeof details !== 'object') continue;
+      if (details.disabled !== true) anyDisabledOnly = false;
+      const frac = details.quotaInfo?.remainingFraction;
+      if (typeof frac === 'number' && Number.isFinite(frac)) {
+        const clamped = Math.min(1, Math.max(0, frac));
+        minRemaining = minRemaining === null ? clamped : Math.min(minRemaining, clamped);
+      }
+      if (!resetTime && typeof details.quotaInfo?.resetTime === 'string' && details.quotaInfo.resetTime.trim()) {
+        resetTime = details.quotaInfo.resetTime.trim();
+      }
+    }
+
+    if (minRemaining === null) continue;
+    if (anyDisabledOnly && !resetTime && fallback?.unavailable) continue;
+
+    const rawKey = fallback?.id ?? stem;
+    const slug = rawKey.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    if (!slug || emittedSlugs.has(slug)) continue;
+    emittedSlugs.add(slug);
+
+    const usedPercent = Math.round((1 - minRemaining) * 1000) / 10;
+    const entry: CloudCodeModelQuotaWindow = { slug, usedPercent, resetTime };
+    if (fallback) {
+      quotasByCuratedId.set(fallback.id, entry);
+    } else {
+      extraQuotas.push(entry);
+    }
+  }
+
+  const ordered: CloudCodeModelQuotaWindow[] = [];
+  for (const curated of ANTIGRAVITY_MODELS) {
+    const hit = quotasByCuratedId.get(curated.id);
+    if (hit) ordered.push(hit);
+  }
+  return [...ordered, ...extraQuotas];
+}
+
+/**
+ * Restricts live Cloud Code model entries to the curated Antigravity
  * lineup in canonical order, merging live availability, efforts, and quota
  * signals onto each entry instead of letting raw Cloud Code aliases bloat the picker.
  */
@@ -236,18 +324,22 @@ export function selectCuratedAntigravityPickerModels(
 ): AntigravityModel[] {
   if (!liveModels?.length) return [...ANTIGRAVITY_MODELS];
   const liveByKey = new Map<string, AntigravityModel>();
+  const liveByName = new Map<string, AntigravityModel>();
   for (const live of liveModels) {
     liveByKey.set(live.id, live);
     liveByKey.set(live.resolved, live);
+    liveByName.set(live.name.trim().toLowerCase(), live);
   }
   return ANTIGRAVITY_MODELS.map((curated) => {
     const live =
       liveByKey.get(curated.id) ??
       liveByKey.get(curated.resolved) ??
-      liveModels.find((m) => m.resolved.startsWith(`${curated.resolved}-`));
+      liveModels.find((m) => m.resolved.startsWith(`${curated.resolved}-`)) ??
+      liveByName.get(curated.name.trim().toLowerCase());
     if (!live) return curated;
-    return {
+    const merged: AntigravityModel = {
       ...curated,
+      resolved: live.resolved || curated.resolved,
       description: live.description || curated.description,
       efforts: live.efforts?.length ? live.efforts : curated.efforts,
       defaultEffort: live.defaultEffort ?? curated.defaultEffort,
@@ -256,6 +348,10 @@ export function selectCuratedAntigravityPickerModels(
       context: live.context || curated.context,
       output: live.output || curated.output,
     };
+    if (merged.resolved !== curated.resolved) {
+      dynamicModelsByKey.set(curated.id, merged);
+    }
+    return merged;
   });
 }
 

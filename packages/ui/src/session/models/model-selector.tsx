@@ -65,6 +65,7 @@ import {
 } from './model-tags';
 import { useModelConnectionGate } from './use-model-connection-gate';
 import { ModelPickerPanel } from './model-picker-panel';
+import { PickerUsageView } from './picker-usage-view';
 import { effortLabel, reasoningEffortChoices } from '../composer/reasoning-effort-selector';
 import { SubscriptionSwitcher, subscriptionProviderOf } from './subscription-switcher';
 
@@ -530,6 +531,7 @@ export function ModelSelector({
   const chatGptAvailable =
     chatGptPossible && !(modelAccess.data?.disabledProviders ?? []).includes('codex');
   const [chatGptOpen, setChatGptOpen] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
   // Every write this picker offers is `project.model.write` on the API: the
   // star sets the ACCOUNT default (the default for every member, not a personal
   // one), and "+" / sliders open the provider modal. A member without the leaf
@@ -575,6 +577,7 @@ export function ModelSelector({
   useEffect(() => {
     if (!open) {
       setSearch('');
+      setUsageOpen(false);
       // Back to the defaults on every open. A section the user toggled last
       // time is not a preference they set; carrying it would make the
       // picker's height depend on history.
@@ -710,12 +713,16 @@ export function ModelSelector({
   }, [defaultControls?.accountDefault, visibleModels]);
 
   const handleOpenProviderModal = useCallback(
-    (tab: ProviderModalTab) => {
+    (tab: ProviderModalTab, providerId?: string) => {
       setOpen(false);
-      openConnectProvider(tab);
+      openConnectProvider(tab, providerId);
     },
     [openConnectProvider, setOpen],
   );
+
+  const handleOpenUsage = useCallback(() => {
+    setUsageOpen(true);
+  }, []);
 
   const handleOpenChatGpt = useCallback(() => {
     setOpen(false);
@@ -974,10 +981,7 @@ export function ModelSelector({
                     {open && section.id === 'antigravity' && (
                       <CommandItem
                         value="antigravity-view-usage"
-                        onSelect={() => {
-                          const tab: ProviderModalTab = 'providers';
-                          handleOpenProviderModal(tab);
-                        }}
+                        onSelect={handleOpenUsage}
                         className="text-xs text-muted-foreground hover:text-foreground flex items-center justify-between px-3 py-2 cursor-pointer border-t border-border/40 mt-1"
                       >
                         <span className="flex items-center gap-1.5 font-medium">
@@ -1020,42 +1024,51 @@ export function ModelSelector({
       <>
         {modals}
         <div className="flex min-h-0 flex-1 flex-col">
-          <Command
-            shouldFilter={false}
-            className="min-h-0 flex-1 rounded-none bg-transparent"
-          >
-            <ModelPickerPanel
-              browseModels={browseModels}
-              pickableModels={pickableModels}
-              searchModels={visibleModels}
-              search={search}
-              onSearchChange={setSearch}
-              searchRight={searchRight}
-              selected={availableSelectedModel ?? null}
-              accountDefault={defaultControls?.accountDefault ?? null}
-              onPick={handleSelect}
-              isFavorite={pickerModelStore.isFavorite}
-              setFavorite={pickerModelStore.setFavorite}
-              loading={modelsLoading || entitlementsPending}
-              emptyState={noModelsState}
-              searchEmpty={searchEmptyState}
-              onConnectChatGpt={chatGptAvailable ? handleOpenChatGpt : undefined}
-              connectLabel={tPooled('connect')}
-              subscriptionProvider={subscriptionProvider}
-              onUpgrade={showUpgradeOption ? handleUpgrade : undefined}
-              onViewUsage={canConnectProvider ? () => handleOpenProviderModal('providers') : undefined}
-              inlineMode
-              effort={
-                showEffort
-                  ? {
-                      choices: effortChoices,
-                      selectedVariant: reasoning?.selectedVariant,
-                      onChange: handleEffortChange,
-                    }
-                  : undefined
-              }
+          {usageOpen ? (
+            <PickerUsageView
+              projectId={projectId}
+              preferredProvider={subscriptionProvider ?? 'antigravity'}
+              onBack={() => setUsageOpen(false)}
+              onManageProviders={canConnectProvider ? (id) => handleOpenProviderModal('providers', id ?? 'google') : undefined}
             />
-          </Command>
+          ) : (
+            <Command
+              shouldFilter={false}
+              className="min-h-0 flex-1 rounded-none bg-transparent"
+            >
+              <ModelPickerPanel
+                browseModels={browseModels}
+                pickableModels={pickableModels}
+                searchModels={visibleModels}
+                search={search}
+                onSearchChange={setSearch}
+                searchRight={searchRight}
+                selected={availableSelectedModel ?? null}
+                accountDefault={defaultControls?.accountDefault ?? null}
+                onPick={handleSelect}
+                isFavorite={pickerModelStore.isFavorite}
+                setFavorite={pickerModelStore.setFavorite}
+                loading={modelsLoading || entitlementsPending}
+                emptyState={noModelsState}
+                searchEmpty={searchEmptyState}
+                onConnectChatGpt={chatGptAvailable ? handleOpenChatGpt : undefined}
+                connectLabel={tPooled('connect')}
+                subscriptionProvider={subscriptionProvider}
+                onUpgrade={showUpgradeOption ? handleUpgrade : undefined}
+                onViewUsage={projectId ? handleOpenUsage : undefined}
+                inlineMode
+                effort={
+                  showEffort
+                    ? {
+                        choices: effortChoices,
+                        selectedVariant: reasoning?.selectedVariant,
+                        onChange: handleEffortChange,
+                      }
+                    : undefined
+                }
+              />
+            </Command>
+          )}
           {subscriptionNode}
         </div>
       </>
@@ -1121,37 +1134,46 @@ export function ModelSelector({
           className="w-[min(21rem,calc(100vw-1.5rem))] overflow-visible rounded-lg border border-border bg-popover p-0 text-popover-foreground shadow-md"
         >
           <div className="bg-popover text-popover-foreground flex min-w-0 flex-col overflow-visible rounded-lg">
-            <ModelPickerPanel
-              browseModels={browseModels}
-              pickableModels={pickableModels}
-              searchModels={visibleModels}
-              search={search}
-              onSearchChange={setSearch}
-              searchRight={searchRight}
-              selected={availableSelectedModel ?? null}
-              accountDefault={defaultControls?.accountDefault ?? null}
-              onPick={handleSelect}
-              isFavorite={pickerModelStore.isFavorite}
-              setFavorite={pickerModelStore.setFavorite}
-              loading={modelsLoading || entitlementsPending}
-              emptyState={noModelsState}
-              searchEmpty={searchEmptyState}
-              onConnectChatGpt={chatGptAvailable ? handleOpenChatGpt : undefined}
-              onForeignDialog={closePicker}
-              connectLabel={tPooled('connect')}
-              subscriptionProvider={subscriptionProvider}
-              onUpgrade={showUpgradeOption ? handleUpgrade : undefined}
-              onViewUsage={canConnectProvider ? () => handleOpenProviderModal('providers') : undefined}
-              effort={
-                showEffort
-                  ? {
-                      choices: effortChoices,
-                      selectedVariant: reasoning?.selectedVariant,
-                      onChange: handleEffortChange,
-                    }
-                  : undefined
-              }
-            />
+            {usageOpen ? (
+              <PickerUsageView
+                projectId={projectId}
+                preferredProvider={subscriptionProvider ?? 'antigravity'}
+                onBack={() => setUsageOpen(false)}
+                onManageProviders={canConnectProvider ? (id) => handleOpenProviderModal('providers', id ?? 'google') : undefined}
+              />
+            ) : (
+              <ModelPickerPanel
+                browseModels={browseModels}
+                pickableModels={pickableModels}
+                searchModels={visibleModels}
+                search={search}
+                onSearchChange={setSearch}
+                searchRight={searchRight}
+                selected={availableSelectedModel ?? null}
+                accountDefault={defaultControls?.accountDefault ?? null}
+                onPick={handleSelect}
+                isFavorite={pickerModelStore.isFavorite}
+                setFavorite={pickerModelStore.setFavorite}
+                loading={modelsLoading || entitlementsPending}
+                emptyState={noModelsState}
+                searchEmpty={searchEmptyState}
+                onConnectChatGpt={chatGptAvailable ? handleOpenChatGpt : undefined}
+                onForeignDialog={closePicker}
+                connectLabel={tPooled('connect')}
+                subscriptionProvider={subscriptionProvider}
+                onUpgrade={showUpgradeOption ? handleUpgrade : undefined}
+                onViewUsage={projectId ? handleOpenUsage : undefined}
+                effort={
+                  showEffort
+                    ? {
+                        choices: effortChoices,
+                        selectedVariant: reasoning?.selectedVariant,
+                        onChange: handleEffortChange,
+                      }
+                    : undefined
+                }
+              />
+            )}
             {subscriptionNode}
           </div>
         </CommandPopoverContent>

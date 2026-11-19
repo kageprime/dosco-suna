@@ -222,26 +222,23 @@ describe('isPickerGroupOpen', () => {
     toggled: new Map<string, boolean>(),
   };
 
-  test('a secondary group is collapsed by default when total groups exceed 3', () => {
+  test('non-selected groups start minimized even when total groups are 3 or fewer', () => {
+    expect(isPickerGroupOpen({ ...base, totalGroups: 2 })).toBe(false);
+    expect(isPickerGroupOpen({ ...base, totalGroups: 3 })).toBe(false);
     expect(isPickerGroupOpen({ ...base, totalGroups: 4 })).toBe(false);
   });
 
-  test('all groups start open when total groups are 3 or fewer', () => {
-    expect(isPickerGroupOpen({ ...base, totalGroups: 2 })).toBe(true);
-    expect(isPickerGroupOpen({ ...base, totalGroups: 3 })).toBe(true);
+  test('the first group also starts minimized when another model or none is selected', () => {
+    expect(isPickerGroupOpen({ ...base, groupIndex: 0, totalGroups: 3 })).toBe(false);
   });
 
-  test('the first group — the managed set — starts open', () => {
-    expect(isPickerGroupOpen({ ...base, groupIndex: 0 })).toBe(true);
+  test('only the group holding the selected model starts open, so the check has a home', () => {
+    expect(isPickerGroupOpen({ ...base, containsSelected: true, totalGroups: 3 })).toBe(true);
   });
 
-  test('the group holding the selected model starts open, so the check has a home', () => {
-    expect(isPickerGroupOpen({ ...base, containsSelected: true })).toBe(true);
-  });
-
-  test('the first group collapses when the user collapses it', () => {
+  test('a selected group collapses when the user collapses it', () => {
     expect(
-      isPickerGroupOpen({ ...base, groupIndex: 0, toggled: new Map([['codex', false]]) }),
+      isPickerGroupOpen({ ...base, groupIndex: 0, containsSelected: true, toggled: new Map([['codex', false]]) }),
     ).toBe(false);
   });
 

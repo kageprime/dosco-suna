@@ -112,3 +112,54 @@ test('a pinned model this viewer is not offered falls back to the default', () =
   });
   expect(local().model.sendKey).toEqual(kortix('model-a'));
 });
+
+test('an explicit model pick persists as last-used across reloads, new sessions, and agent switches ahead of serverDefault', () => {
+  const agents = [
+    { name: 'xera', description: 'Coordinator', mode: 'primary' },
+    { name: 'worker', description: 'Worker', mode: 'primary' },
+  ] as UseRuntimeLocalOptions['agents'];
+  const first = render({
+    agents,
+    providers,
+    boundAgentName: 'xera',
+    resolveServerDefault,
+  });
+  act(() => first().model.set(kortix('model-b'), { recent: true }));
+  act(() => root?.unmount());
+
+  // Switching to a different agent or opening a brand-new composer keeps the last-used model.
+  const nextAgent = render({
+    agents,
+    providers,
+    boundAgentName: 'worker',
+    resolveServerDefault,
+  });
+  expect(nextAgent().model.currentKey).toEqual(kortix('model-b'));
+  expect(nextAgent().model.sendKey).toEqual(kortix('model-b'));
+  act(() => root?.unmount());
+
+  const newSession = render({
+    agents,
+    providers,
+    sessionId: 'ses_brand_new',
+    resolveServerDefault,
+  });
+  expect(newSession().model.currentKey).toEqual(kortix('model-b'));
+  expect(newSession().model.sendKey).toEqual(kortix('model-b'));
+});
+
+test('an explicit account-wide global default clears lastUsedModel so the new default takes effect everywhere', async () => {
+  const { setGlobalDefaultModel } = await import('./use-model-store');
+  const first = render({
+    providers,
+    resolveServerDefault,
+  });
+  act(() => first().model.set(kortix('model-b'), { recent: true }));
+  act(() => root?.unmount());
+
+  act(() => setGlobalDefaultModel(kortix('model-c')));
+  const next = render({
+    providers,
+  });
+  expect(next().model.currentKey).toEqual(kortix('model-c'));
+});

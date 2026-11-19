@@ -152,6 +152,17 @@ export function antigravityWireModelId(entry: AntigravityModel): string {
  */
 export const ANTIGRAVITY_MODELS: readonly AntigravityModel[] = [
   {
+    id: 'gemini-4-neon',
+    name: 'Gemini 4 Neon',
+    resolved: 'gemini-4-neon',
+    description: 'Latest frontier Gemini 4 reasoning and coding model with selectable effort',
+    defaultEffort: 'medium',
+    efforts: ['low', 'medium', 'high', 'extra'],
+    badge: 'new',
+    context: 1_000_000,
+    output: 64_000,
+  },
+  {
     id: 'gemini-4-argon',
     name: 'Gemini 4 Argon',
     resolved: 'gemini-4-argon',
@@ -169,6 +180,15 @@ export const ANTIGRAVITY_MODELS: readonly AntigravityModel[] = [
     description: 'High-capacity deep-reasoning flagship with extra thinking budget',
     defaultEffort: 'medium',
     efforts: ['low', 'medium', 'high', 'extra'],
+    badge: 'new',
+    context: 1_000_000,
+    output: 64_000,
+  },
+  {
+    id: 'orchestrator-neon',
+    name: 'Orchestrator (Neon)',
+    resolved: 'orchestrator-neon',
+    description: 'Dedicated multi-step agent orchestrator powered by Gemini 4 Neon',
     badge: 'new',
     context: 1_000_000,
     output: 64_000,

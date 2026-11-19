@@ -19,7 +19,7 @@
  */
 
 /** Bump to ship a new shell. The old caches die at activate. */
-const SHELL_VERSION = 'v3';
+const SHELL_VERSION = 'v4';
 const SHELL_CACHE = `kortix-shell-${SHELL_VERSION}`;
 const STATIC_CACHE = `kortix-static-${SHELL_VERSION}`;
 const CURRENT_CACHES = new Set([SHELL_CACHE, STATIC_CACHE]);
@@ -215,7 +215,7 @@ self.addEventListener('push', (event) => {
     (tag ? self.registration.getNotifications({ tag }) : Promise.resolve([]))
       .catch(() => [])
       .then((existing) =>
-        self.registration.showNotification(message.title || 'Kortix', {
+        self.registration.showNotification(message.title || 'Dosco', {
           body: message.body || '',
           tag,
           renotify: alertsAgain(existing),

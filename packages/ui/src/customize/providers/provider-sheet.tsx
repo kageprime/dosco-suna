@@ -1041,6 +1041,7 @@ export function ProviderSheet({
     // Google Antigravity accounts, exactly as Claude accounts; Google Gemini API keys below them.
     content = (
       <SplitSheetBody className="space-y-7">
+        <SubscriptionUsageSection accountId={pooled.accountId} projectId={projectId} providerId="antigravity" />
         <div className="space-y-3">
           <p className="text-foreground text-sm font-medium">{tPooled('antigravityAccounts')}</p>
           <p className="text-muted-foreground text-xs text-pretty">

@@ -20,7 +20,8 @@ import { logger } from '../lib/logger';
 import { readAccountSecret } from '../secrets/account-resource';
 import { CODEX_USER_AGENT, resolveCodexAccountCredential } from './credentials/codex';
 import { parseCodexAuth } from './credentials/codex-core';
-import { parseAntigravityAuth } from './credentials/antigravity';
+import { isTokenExpired, parseAntigravityAuth, refreshAntigravityToken } from './credentials/antigravity';
+import { ANTIGRAVITY_HUB_USER_AGENT, extractCloudCodeModelQuotas } from './credentials/antigravity-cloudcode';
 
 export const SUBSCRIPTION_PROVIDERS = new Set(['codex', 'claude-agent', 'antigravity']);
 
@@ -243,11 +244,32 @@ export function claudeUsageFromBody(body: unknown, now = Date.now()): Subscripti
   return withLimit(usageSnapshot(windows.sort(byWindowLength), { limited: false, now, source: 'usage_endpoint' }), false);
 }
 
+/**
+ * Google Antigravity's Cloud Code `/v1internal:fetchAvailableModels` body:
+ * each curated/grouped model carries `quotaInfo: { remainingFraction, resetTime }`.
+ * Individual model limits use `model_<slug>` ids (never falsely blocking sibling
+ * models when e.g. Claude quota exhausts while Gemini still has capacity); the
+ * account is `limited: true` only when every reported model hits 100% used.
+ */
+export function antigravityUsageFromBody(body: unknown, now = Date.now()): SubscriptionUsage | null {
+  const quotas = extractCloudCodeModelQuotas(body);
+  if (!quotas.length) return null;
+  const windows: UsageWindowInput[] = quotas.map((entry) => ({
+    fallback: `model_${entry.slug.slice(0, 34)}`,
+    used_percent: entry.usedPercent,
+    window_minutes: null,
+    resets_at: resetIso(entry.resetTime, now),
+  }));
+  const snapshot = usageSnapshot(windows, { limited: false, now, source: 'usage_endpoint' });
+  const allExhausted = quotas.every((entry) => entry.usedPercent >= 100);
+  return withLimit(snapshot, allExhausted);
+}
+
 type UsageRow = Pick<typeof accountSecretResources.$inferSelect,
   'secretId' | 'accountId' | 'projectId' | 'providerId' | 'valueEnc' | 'createdBy' | 'updatedAt' | 'usage' | 'usageCheckedAt' | 'providerAccount'>;
 
-async function fetchJson(fetchImpl: FetchImpl, url: string, headers: Record<string, string>): Promise<unknown | null> {
-  const response = await fetchImpl(url, { method: 'GET', headers, signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS) });
+async function fetchJson(fetchImpl: FetchImpl, url: string, headers: Record<string, string>, init?: RequestInit): Promise<unknown | null> {
+  const response = await fetchImpl(url, { method: 'GET', ...init, headers, signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS) });
   if (!response.ok) {
     logger.warn('[subscription-usage] the provider refused a usage read', { url, status: response.status });
     await response.body?.cancel().catch(() => undefined);
@@ -256,7 +278,45 @@ async function fetchJson(fetchImpl: FetchImpl, url: string, headers: Record<stri
   return response.json().catch(() => null);
 }
 
+async function antigravityProviderUsage(row: UsageRow, fetchImpl: FetchImpl): Promise<SubscriptionUsage | null> {
+  const raw = readAccountSecret(row.accountId, row.secretId, row.valueEnc);
+  const auth = parseAntigravityAuth(raw);
+  if (!auth) return null;
+
+  let access = auth.access && !isTokenExpired(auth) ? auth.access : null;
+  if (!access && auth.refresh) {
+    try {
+      const refreshed = await refreshAntigravityToken(auth.refresh, {
+        clientId: auth.client_id,
+        clientSecret: auth.client_secret,
+      });
+      access = refreshed.access_token;
+    } catch {
+      return null;
+    }
+  }
+  if (!access) return null;
+
+  const body = await fetchJson(
+    fetchImpl,
+    'https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels',
+    {
+      authorization: `Bearer ${access}`,
+      'content-type': 'application/json',
+      'user-agent': ANTIGRAVITY_HUB_USER_AGENT,
+    },
+    {
+      method: 'POST',
+      body: JSON.stringify(auth.project ? { project: auth.project } : {}),
+    },
+  );
+  return antigravityUsageFromBody(body);
+}
+
 async function providerUsage(row: UsageRow, fetchImpl: FetchImpl): Promise<SubscriptionUsage | null> {
+  if (row.providerId === 'antigravity') {
+    return antigravityProviderUsage(row, fetchImpl);
+  }
   if (row.providerId === 'claude-agent') {
     const token = readAccountSecret(row.accountId, row.secretId, row.valueEnc);
     if (!token) return null;

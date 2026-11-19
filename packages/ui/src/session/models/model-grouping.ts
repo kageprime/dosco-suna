@@ -111,6 +111,12 @@ export function splitModelLabel(modelName: string | undefined): {
  *  4. THE SELECTED MODEL'S GROUP starts open, so opening the picker shows what
  *     you are currently on.
  */
+/**
+ * Whether a provider section starts open. The active group containing the
+ * selected model opens automatically while all other provider groups stay
+ * minimized to keep long catalogs compact; search always opens matching
+ * sections, and user clicks override per open visit.
+ */
 export function isPickerGroupOpen(input: {
   groupIndex: number;
   groupProviderID: string;
@@ -123,8 +129,7 @@ export function isPickerGroupOpen(input: {
   if (input.hasSearch) return true;
   const toggled = input.toggled.get(input.groupProviderID);
   if (toggled !== undefined) return toggled;
-  if (input.totalGroups !== undefined && input.totalGroups <= 3) return true;
-  return input.groupIndex === 0 || input.containsSelected;
+  return input.containsSelected;
 }
 
 /** One collapsible section in the picker: a heading and the models under it. */

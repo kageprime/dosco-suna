@@ -65,6 +65,11 @@ export function windowLabel(id: string, t: Translate, options: { modelWeekly?: b
     const span = scoped[2] === 'five_hour' ? t('fiveHour') : scoped[2] === 'weekly' ? t('weekly') : null;
     return span ? `${scope} · ${span}` : scope;
   }
+  if (id.startsWith('model_')) {
+    return modelName(id.slice('model_'.length))
+      .replace(/\bGpt Oss\b/g, 'GPT-OSS')
+      .replace(/\b120b\b/g, '120B');
+  }
   return title(id);
 }
 
@@ -82,6 +87,30 @@ export function accountLine(account: SubscriptionAccount | null | undefined, lab
 /** The windows still in force: a window whose reset passed no longer limits anything. */
 export function currentWindows(usage: SubscriptionUsage, now: number): SubscriptionUsageWindow[] {
   return usage.windows.filter((window) => !window.resets_at || Date.parse(window.resets_at) > now);
+}
+
+/**
+ * A reset time a person reads at a glance: the clock time today, the weekday
+ * and time within a week, else the date.
+ */
+export function formatReset(iso: string, now: number, locale: string): string {
+  const at = new Date(iso);
+  const ms = at.getTime() - now;
+  if (Number.isNaN(ms)) return '';
+  const sameDay = new Date(now).toDateString() === at.toDateString();
+  const options: Intl.DateTimeFormatOptions = sameDay ? { hour: 'numeric', minute: '2-digit' }
+    : ms < 6 * 24 * 60 * 60 * 1000 ? { weekday: 'short', hour: 'numeric', minute: '2-digit' }
+      : { month: 'short', day: 'numeric' };
+  return new Intl.DateTimeFormat(locale, options).format(at);
+}
+
+/** The usage to show: the live read when it answered, else the snapshot the list carried. */
+export function shownUsage(
+  live: SubscriptionUsage | null | undefined,
+  listed: SubscriptionUsage | null | undefined,
+): SubscriptionUsage | null {
+  if (live && listed) return Date.parse(live.observed_at) >= Date.parse(listed.observed_at) ? live : listed;
+  return live ?? listed ?? null;
 }
 
 /** A login that cannot take a model call now, and when that ends (null: unknown). */

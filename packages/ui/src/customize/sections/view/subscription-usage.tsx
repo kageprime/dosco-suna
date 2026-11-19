@@ -10,9 +10,11 @@ import { Progress } from '../../../primitives/progress';
 import {
   accountLine,
   currentWindows as current,
+  formatReset,
   isBlockingWindow,
   loginLimit,
   modelName,
+  shownUsage,
   USAGE_TONE_BAR,
   usageTone,
   weeklyModel,
@@ -36,26 +38,7 @@ export const SUBSCRIPTION_ROW: Readonly<Record<string, string>> = {
 /** A snapshot older than this says when it was observed. */
 const STALE_MS = 10 * 60 * 1000;
 
-/**
- * A reset time a person reads at a glance: the clock time today, the weekday
- * and time within a week, else the date.
- */
-export function formatReset(iso: string, now: number, locale: string): string {
-  const at = new Date(iso);
-  const ms = at.getTime() - now;
-  if (Number.isNaN(ms)) return '';
-  const sameDay = new Date(now).toDateString() === at.toDateString();
-  const options: Intl.DateTimeFormatOptions = sameDay ? { hour: 'numeric', minute: '2-digit' }
-    : ms < 6 * 24 * 60 * 60 * 1000 ? { weekday: 'short', hour: 'numeric', minute: '2-digit' }
-      : { month: 'short', day: 'numeric' };
-  return new Intl.DateTimeFormat(locale, options).format(at);
-}
-
-/** The usage to show: the live read when it answered, else the snapshot the list carried. */
-export function shownUsage(live: SubscriptionUsage | null | undefined, listed: SubscriptionUsage | null | undefined): SubscriptionUsage | null {
-  if (live && listed) return Date.parse(live.observed_at) >= Date.parse(listed.observed_at) ? live : listed;
-  return live ?? listed ?? null;
-}
+export { formatReset, shownUsage };
 
 /** The login's email and plan, under its name: the live read when it answered, else the list's. */
 export function SubscriptionAccountLine({ accountId, projectId, secret }: { accountId: string; projectId: string; secret: AccountSecretResource }) {
@@ -90,7 +73,7 @@ export interface SubscriptionSummary {
  * One provider's logins in one line: how many can work now, when the next
  * one is back, and the fullest window of the ones that can.
  */
-export function summarizeSubscriptions(logins: Array<{ secret: Pick<SubscriptionConnection, 'active' | 'needs_reauth_at' | 'status'>; usage: SubscriptionUsage | null }>, now: number): SubscriptionSummary {
+export function summarizeSubscriptions(logins: Array<{ secret: Pick<SubscriptionConnection, 'active' | 'needs_reauth_at' | 'status'> & { provider_id?: string | null }; usage: SubscriptionUsage | null }>, now: number): SubscriptionSummary {
   let available = 0;
   let unknown = 0;
   let limited = 0;
@@ -98,20 +81,26 @@ export function summarizeSubscriptions(logins: Array<{ secret: Pick<Subscription
   let peak: SubscriptionUsageWindow | null = null;
   for (const { secret, usage } of logins) {
     if (!usable(secret)) continue;
-    // Only a plan window says whether the login can work; extra usage or code review alone does not.
-    if (!usage || !current(usage, now).some((window) => isBlockingWindow(window.id))) {
+    const active = usage ? current(usage, now) : [];
+    const blocking = active.filter((window) => isBlockingWindow(window.id));
+    // Antigravity tracks per-model quota windows (`model_*`) rather than a single
+    // 5-hour/weekly plan window, so any current window proves active capacity.
+    const pool = blocking.length > 0 ? blocking : secret.provider_id === 'antigravity' ? active : [];
+    if (!usage || pool.length === 0) {
       unknown += 1;
       continue;
     }
     const limit = loginLimit(usage, now);
-    if (limit.limited) {
+    const allExpired = limit.limited || (secret.provider_id === 'antigravity' && pool.every((w) => w.used_percent >= 100));
+    if (allExpired) {
       limited += 1;
-      if (limit.until && (!nextBack || Date.parse(limit.until) < Date.parse(nextBack))) nextBack = limit.until;
+      const until = limit.until ?? pool.map((w) => w.resets_at).filter((at): at is string => Boolean(at)).sort()[0] ?? null;
+      if (until && (!nextBack || Date.parse(until) < Date.parse(nextBack))) nextBack = until;
       continue;
     }
     available += 1;
-    for (const window of usage ? current(usage, now) : []) {
-      if (isBlockingWindow(window.id) && (!peak || window.used_percent > peak.used_percent)) peak = window;
+    for (const window of pool) {
+      if (!peak || window.used_percent > peak.used_percent) peak = window;
     }
   }
   return { total: logins.length, available, unknown, limited, nextBack, peak };
@@ -303,7 +292,7 @@ export function useLiveSubscriptionUsages(accountId: string | null | undefined, 
 export function SubscriptionUsageSection({ accountId, projectId, providerId, compact = false }: {
   accountId: string;
   projectId: string;
-  providerId: 'codex' | 'claude-agent';
+  providerId: 'codex' | 'claude-agent' | 'antigravity';
   /** The quick dialog's accordion: headings there are `text-xs`. */
   compact?: boolean;
 }) {

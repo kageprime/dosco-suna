@@ -262,6 +262,17 @@ describe('sw.js push', () => {
     expect(shown).toHaveLength(1);
   });
 
+  test('uses Dosco as the fallback notification title and brands offline.html as Dosco', async () => {
+    await push({ body: 'Reconnected' });
+    expect(shown[0].title).toBe('Dosco');
+
+    const offlineHtml = readFileSync(new URL('../../../public/offline.html', import.meta.url), 'utf8');
+    expect(offlineHtml).toContain('<title>Dosco — offline</title>');
+    expect(offlineHtml).toContain('Dosco needs a connection.');
+    expect(offlineHtml.toLowerCase()).not.toContain('kortix');
+    expect(offlineHtml).toContain('data:image/png;base64,');
+  });
+
   test('shows the message whichever tab is open or focused', async () => {
     windows = [client(`${ORIGIN}/workspaces/p1/sessions/ses-b`, false)];
     await push(message);

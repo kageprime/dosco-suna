@@ -31,7 +31,7 @@ import { needsReconnection } from '../../internal/lib/account-secret-access';
 import { SolidCheckIcon } from '../../internal/icons/solid-check-icon';
 import { cn } from '../../lib/utils';
 import { useSessionIds } from '../../providers/session-ids';
-import { isClaudeSubscriptionModel, isSubscriptionModel } from './model-tags';
+import { isAntigravitySubscriptionModel, isClaudeSubscriptionModel, isSubscriptionModel } from './model-tags';
 import Loading from '../../primitives/loading';
 import {
   accountLine,
@@ -47,20 +47,23 @@ import { useProviderKeyChoices } from '../overrides/provider-secret-pool-editor'
 /** The provider whose pooled logins pay for a subscription model. Null for every other model. */
 export function subscriptionProviderOf(
   model: Pick<FlatModel, 'providerID' | 'modelID'> & { provider?: string | null },
-): 'codex' | 'claude-agent' | null {
+): 'codex' | 'claude-agent' | 'antigravity' | null {
   if (isSubscriptionModel(model)) return 'codex';
   if (isClaudeSubscriptionModel(model)) return 'claude-agent';
+  if (isAntigravitySubscriptionModel(model)) return 'antigravity';
   return null;
 }
 
 /**
  * The window to show beside a login: the fullest one still in force that
  * gates its model calls (`isBlockingWindow`, the rule the provider sheet's
- * summary and the gateway's limit state share). Null when nothing is reported.
+ * summary and the gateway's limit state share). For Antigravity, falls back
+ * to the fullest active model quota window. Null when nothing is reported.
  */
 export function peakBlockingWindow(
   usage: SubscriptionUsage | null | undefined,
   now: number,
+  providerId?: 'codex' | 'claude-agent' | 'antigravity',
 ): SubscriptionUsageWindow | null {
   if (!usage) return null;
   let peak: SubscriptionUsageWindow | null = null;
@@ -69,6 +72,12 @@ export function peakBlockingWindow(
     if (window.resets_at && Date.parse(window.resets_at) <= now) continue;
     if (!peak || window.used_percent > peak.used_percent) peak = window;
   }
+  if (!peak && providerId === 'antigravity') {
+    for (const window of usage.windows) {
+      if (window.resets_at && Date.parse(window.resets_at) <= now) continue;
+      if (!peak || window.used_percent > peak.used_percent) peak = window;
+    }
+  }
   return peak;
 }
 
@@ -76,7 +85,7 @@ export function SubscriptionSwitcher({
   providerId,
   hideHeader = false,
 }: {
-  providerId: 'codex' | 'claude-agent';
+  providerId: 'codex' | 'claude-agent' | 'antigravity';
   hideHeader?: boolean;
 }) {
   const t = useTranslations('pooledSecrets');
@@ -108,7 +117,7 @@ export function SubscriptionSwitcher({
   const rows: Array<{ secretId: string | null; label: string; line: string | null; window: SubscriptionUsageWindow | null; limited: boolean; broken: boolean }> = [
     { secretId: null, label: t('projectDefaultShort'), line: t('subscriptionSwitcherDefault'), window: null, limited: false, broken: false },
     ...logins.map((secret) => {
-      const peak = peakBlockingWindow(secret.usage, now);
+      const peak = peakBlockingWindow(secret.usage, now, providerId);
       return {
         secretId: secret.secret_id,
         label: secret.label,
@@ -240,7 +249,7 @@ export function SubscriptionFooterButton({
   label,
   onOpen,
 }: {
-  providerId: 'codex' | 'claude-agent';
+  providerId: 'codex' | 'claude-agent' | 'antigravity';
   label: string;
   onOpen: () => void;
 }) {

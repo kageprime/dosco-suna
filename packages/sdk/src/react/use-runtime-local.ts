@@ -417,6 +417,7 @@ export function useRuntimeLocal({
     () => agentScopedModelSelectionKey(providerMode, currentAgent?.name),
     [providerMode, currentAgent?.name],
   );
+  const lastUsedModelSlotKey = `${providerMode}:__last_used__`;
 
   // What the server says this session runs on. A new object each render from
   // the caller must not recompute the resolution, so key it by value.
@@ -479,6 +480,10 @@ export function useRuntimeLocal({
           // agent-less slot when the caller has access to no agent at all).
           modelStore.getSelectedModel(agentModelSlotKey),
           currentAgent ? modelStore.getSelectedModel(currentAgent.name) : undefined,
+          // Last model explicitly chosen anywhere in this browser (so reloads,
+          // new composers, and agent hydration keep the user's pick instead
+          // of snapping back to serverDefault). Cleared by setGlobalDefaultModel.
+          modelStore.getSelectedModel(lastUsedModelSlotKey),
         ],
         // The gateway-configured default for the current agent (agent -> project
         // -> account -> platform), when the host supplies a resolver.
@@ -544,6 +549,9 @@ export function useRuntimeLocal({
       // render and the trigger snapped back to the server default.
       if (next) {
         modelStore.setSelectedModel(agentModelSlotKey, next);
+        if (!options?.autoSeed && model) {
+          modelStore.setSelectedModel(lastUsedModelSlotKey, model);
+        }
       }
       // Also persist per-session so the selection survives page reload
       if (scopedSessionModelKey && next) {
@@ -614,9 +622,11 @@ export function useRuntimeLocal({
     if (!currentAgent) return;
     if (prevAgentRef.current === currentAgent.name) return;
     prevAgentRef.current = currentAgent.name;
-    // Don't override if user already has a persisted selection for this agent
+    // Don't override if user already has a persisted selection for this agent or a last-used pick
     const persisted = modelStore.getSelectedModel(currentAgent.name);
     if (persisted && isModelValid(persisted)) return;
+    const lastUsed = modelStore.getSelectedModel(lastUsedModelSlotKey);
+    if (lastUsed && isModelValid(lastUsed)) return;
     // Don't override if user set a global default during onboarding setup
     if (modelStore.globalDefault && isModelValid(modelStore.globalDefault)) return;
     if (currentAgent.model) {

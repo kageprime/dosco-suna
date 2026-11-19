@@ -205,20 +205,23 @@ describe('fetchAvailableAntigravityModels', () => {
     expect(carbon?.badge).toBe('unavailable');
   });
 
-  test('selectCuratedAntigravityPickerModels restricts noisy 21-model Cloud Code lists to the 8 curated models in canonical order', async () => {
+  test('selectCuratedAntigravityPickerModels restricts noisy Cloud Code lists to the curated models in canonical order including Gemini 4 Neon and Orchestrator (Neon)', async () => {
     const { selectCuratedAntigravityPickerModels } = await import('../llm-gateway/credentials/antigravity-cloudcode');
     const noisyLive = [
       { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', resolved: 'gemini-2.5-flash', description: 'legacy', context: 1_000_000, output: 64_000 },
       { id: 'gemini-3-pro', name: 'Gemini 3 Pro', resolved: 'gemini-3-pro', description: 'legacy', context: 1_000_000, output: 64_000 },
       { id: 'chat_20706', name: 'Experimental', resolved: 'chat_20706', description: 'extra', context: 1_000_000, output: 64_000 },
       { id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5', resolved: 'claude-sonnet-4-5', description: 'old', context: 200_000, output: 32_000 },
+      { id: 'gemini-4-neon', name: 'Gemini 4 Neon', resolved: 'gemini-4-neon', description: 'neon', efforts: ['low', 'medium', 'high', 'extra'] as const, defaultEffort: 'medium' as const, badge: 'new' as const, context: 1_000_000, output: 64_000 },
       { id: 'gemini-4-carbon', name: 'Gemini 4 Carbon', resolved: 'gemini-4-carbon', description: 'carbon', unavailable: true, badge: 'unavailable' as const, context: 2_000_000, output: 64_000 },
       { id: 'gemini-4-hydrogen', name: 'Gemini 4 Hydrogen', resolved: 'gemini-4-hydrogen', description: 'hydrogen', efforts: ['low', 'medium', 'high', 'extra'] as const, defaultEffort: 'medium' as const, badge: 'new' as const, context: 1_000_000, output: 64_000 },
     ];
     const curated = selectCuratedAntigravityPickerModels(noisyLive as never);
     expect(curated.map((m) => m.name)).toEqual([
+      'Gemini 4 Neon',
       'Gemini 4 Argon',
       'Gemini 4 Hydrogen',
+      'Orchestrator (Neon)',
       'Orchestrator (Argon)',
       'Gemini 3.8 Flash',
       'Claude Opus 5.5',

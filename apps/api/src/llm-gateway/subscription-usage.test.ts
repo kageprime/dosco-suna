@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { subscriptionUsageFromHeaders } from '@kortix/llm-gateway';
-import { claudeAccountFromProfile, claudeUsageFromBody, codexAccountFromLogin, codexUsageFromBody, mergeSubscriptionUsage } from './subscription-usage';
+import { antigravityUsageFromBody, claudeAccountFromProfile, claudeUsageFromBody, codexAccountFromLogin, codexUsageFromBody, mergeSubscriptionUsage } from './subscription-usage';
 
 const NOW = Date.parse('2026-11-04T14:00:00Z');
 
@@ -81,7 +81,44 @@ describe('provider usage endpoint bodies', () => {
   test('a body without windows is no usage', () => {
     expect(codexUsageFromBody({ detail: 'Unauthorized' }, NOW)).toBeNull();
     expect(claudeUsageFromBody({ error: { type: 'permission_error' } }, NOW)).toBeNull();
+    expect(antigravityUsageFromBody({ models: {} }, NOW)).toBeNull();
     expect(claudeUsageFromBody(null, NOW)).toBeNull();
+  });
+
+  test('Antigravity fetchAvailableModels: derives used_percent from lowest remainingFraction and resets_at per model', () => {
+    expect(antigravityUsageFromBody({
+      models: {
+        'gemini-4-neon-medium': {
+          displayName: 'Gemini 4 Neon (Medium)',
+          quotaInfo: { remainingFraction: 0.75, resetTime: '2026-11-04T19:00:00Z' },
+        },
+        'gemini-4-neon-high': {
+          displayName: 'Gemini 4 Neon (High)',
+          quotaInfo: { remainingFraction: 0.65, resetTime: '2026-11-04T19:00:00Z' },
+        },
+        'claude-opus-5-5-medium': {
+          displayName: 'Claude Opus 5.5 (Medium)',
+          quotaInfo: { remainingFraction: 0, resetTime: '2026-11-05T02:00:00Z' },
+        },
+      },
+    }, NOW)).toEqual({
+      windows: [
+        { id: 'model_gemini_4_neon', window_minutes: null, used_percent: 35, resets_at: '2026-11-04T19:00:00.000Z' },
+        { id: 'model_claude_opus_5_5', window_minutes: null, used_percent: 100, resets_at: '2026-11-05T02:00:00.000Z' },
+      ],
+      limited: false,
+      observed_at: '2026-11-04T14:00:00.000Z',
+      source: 'usage_endpoint',
+    });
+  });
+
+  test('Antigravity marks account limited only when every reported model quota is exhausted', () => {
+    expect(antigravityUsageFromBody({
+      models: {
+        'gemini-4-neon-medium': { quotaInfo: { remainingFraction: 0, resetTime: '2026-11-04T19:00:00Z' } },
+        'gemini-4-argon-medium': { quotaInfo: { remainingFraction: 0, resetTime: '2026-11-04T19:00:00Z' } },
+      },
+    }, NOW)?.limited).toBe(true);
   });
 });
 

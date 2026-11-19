@@ -268,4 +268,24 @@ describe('SubscriptionSwitcher', () => {
     expect(html).toMatch(/role="radio"[^>]*disabled/);
     expect(html).toContain('Only the session owner or a workspace manager');
   });
+
+  test('recognizes Google Antigravity models and selects peak active model quota window', async () => {
+    const { peakBlockingWindow, subscriptionProviderOf } = await import('./subscription-switcher');
+    expect(subscriptionProviderOf({ providerID: 'antigravity', modelID: 'gemini-4-neon' })).toBe('antigravity');
+    const peak = peakBlockingWindow(
+      {
+        windows: [
+          { id: 'model_gemini_4_neon', window_minutes: null, used_percent: 25, resets_at: '2026-11-19T18:00:00Z' },
+          { id: 'model_claude_opus_5_5', window_minutes: null, used_percent: 82, resets_at: '2026-11-19T18:00:00Z' },
+        ],
+        limited: false,
+        observed_at: '2026-11-19T12:00:00Z',
+        source: 'usage_endpoint',
+      },
+      Date.parse('2026-11-19T12:00:00Z'),
+      'antigravity',
+    );
+    expect(peak?.id).toBe('model_claude_opus_5_5');
+    expect(peak?.used_percent).toBe(82);
+  });
 });

@@ -93,7 +93,7 @@ export interface ModelPickerPanelProps {
   /** Tag for a model whose provider is not connected. */
   connectLabel: string;
   /** Active subscription provider when the current model bills to a connected login. */
-  subscriptionProvider?: 'codex' | 'claude-agent' | null;
+  subscriptionProvider?: 'codex' | 'claude-agent' | 'antigravity' | null;
   /** Present when free-tier members can upgrade from the footer. */
   onUpgrade?: () => void;
   /** Opens provider usage / connection management ("View Usage"). */
