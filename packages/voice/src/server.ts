@@ -4,6 +4,7 @@
 // marks turns itself by sending {type: 'turn', state: 'start' | 'end'} (push-to-talk, own endpointer).
 // {type: 'text', text} is a typed user turn in the same conversation.
 import { NAME, whoOf } from './name'
+import { spokenName } from './kortix'
 import { appendFile, mkdirSync } from 'node:fs'
 import type { ServerWebSocket } from 'bun'
 import * as brain from './brain'
@@ -77,7 +78,9 @@ async function open(ws: WS) {
   const lang = (q.get('lang') ?? process.env.VOICE_LANG ?? 'en').toLowerCase().split('-')[0]!
   // The assistant's name in this call: the call page's persona (?agent=), else the agent the session runs (a host binds it:
   // a call placed from the engineering agent's page greeted as "Kortix"), else this deployment's (VOICE_NAME).
-  const agent = q.get('agent')?.replace(/[^\p{L}\p{N} .'-]/gu, '').trim().slice(0, 32) || brain.nameOf?.(q.get('session')) || NAME
+  // spokenName normalises coordinator slugs (mykortix, my-kortix, …) to "Xera" so the voice never self-identifies as a slug.
+  const rawAgent = q.get('agent')?.replace(/[^\p{L}\p{N} .'-]/gu, '').trim().slice(0, 32) || brain.nameOf?.(q.get('session')) || NAME
+  const agent = spokenName(rawAgent) || NAME
   let named = agent // her name in the lines she says (a persona change renames the ones after it)
   // In a meeting the disclosure (its exact words kept) says who it is, to everyone, and nothing more.
   const ROOM_HELLO: Record<string, string> = {

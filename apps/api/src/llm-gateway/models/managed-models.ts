@@ -294,7 +294,7 @@ function sovereignVoicePrivateModels(): ManagedModel[] {
       {
         id: 'qwen3.8-27b',
         name: 'Qwen 3.8 27B (Voice)',
-        upstreamModelId: config.VOICE_GROQ_FAST_MODEL?.trim() || 'qwen/qwen3-32b',
+        upstreamModelId: config.VOICE_GROQ_FAST_MODEL?.trim() || 'qwen/qwen3.8-27b',
         pricing: { inputPerMillion: 0.29, outputPerMillion: 0.59 },
         vision: false,
         limit: { context: 131072, output: 16384 },

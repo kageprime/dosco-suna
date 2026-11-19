@@ -302,7 +302,7 @@ describe('the managed lineup with OpenRouter as provider', () => {
 
       expect(getRuntimeManagedModel('qwen3.8-27b')).toMatchObject({
         id: 'qwen3.8-27b',
-        upstreamModelId: 'qwen/qwen3-32b',
+        upstreamModelId: 'qwen/qwen3.8-27b',
         private: true,
       });
       expect(getRuntimeManagedModel('gpt-oss-20b')).toMatchObject({

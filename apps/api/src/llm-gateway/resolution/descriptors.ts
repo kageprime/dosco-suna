@@ -266,10 +266,9 @@ export function managedCandidates(managed: Pick<ManagedModel, 'id'> & Partial<Pi
 
     if (GROQ_VOICE_CHAT_MODEL_IDS.has(managed.id) && config.GROQ_API_KEY) {
       const upstreamModel =
-        fullModel?.upstreamModelId ??
-        (managed.id === 'gpt-oss-20b'
+        managed.id === 'gpt-oss-20b'
           ? 'openai/gpt-oss-20b'
-          : (config.VOICE_GROQ_FAST_MODEL?.trim() || 'qwen/qwen3-32b'));
+          : (config.VOICE_GROQ_FAST_MODEL?.trim() || 'qwen/qwen3.8-27b');
       const pricing = managed.pricing ?? fullModel?.pricing;
       return [{
         provider: 'groq',

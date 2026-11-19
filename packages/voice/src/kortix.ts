@@ -38,7 +38,7 @@ export const relayPort = (): Promise<number> => start()
  * host's hook for a note the voice wrote into the session outside any turn (a turn the fast lane answered, a call's
  * transcript); a host that publishes the session's log at a turn's end publishes it then too, so the chat has it now.
  */
-const PLATFORM_COORDINATOR_SLUGS = new Set(['mykortix', 'my-kortix', 'my_kortix', 'xera', 'dot', 'kortix', 'meta'])
+const PLATFORM_COORDINATOR_SLUGS = new Set(['mykortix', 'my-kortix', 'my_kortix', 'my kortix', 'xera', 'dot', 'kortix', 'meta'])
 
 /** An agent's name as said in a call: Dosco's coordinator slugs always map to "Xera", otherwise title-cased words. */
 export const spokenName = (slug: string): string => {

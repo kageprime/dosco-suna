@@ -350,7 +350,7 @@ describe('managed models: one Platinum inference candidate', () => {
       expect(managedCandidates({ id: 'qwen3.8-27b', pricing: { inputPerMillion: 0.29, outputPerMillion: 0.59 } })).toMatchObject([{
         provider: 'groq',
         baseUrl: 'https://api.groq.com/openai/v1',
-        resolvedModel: 'qwen/qwen3-32b',
+        resolvedModel: 'qwen/qwen3.8-27b',
       }]);
       expect(managedCandidates({ id: 'gpt-oss-20b' })).toMatchObject([{
         provider: 'groq',
