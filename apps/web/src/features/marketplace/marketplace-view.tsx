@@ -1,9 +1,11 @@
 'use client';
 
 import { useTranslations } from '@/i18n/use-translations';
+import { CaretLeftIcon as ChevronLeft } from '@phosphor-icons/react';
 import { useMemo, useRef } from 'react';
 
 import { Button } from '@kortix/ui/button';
+import { SidebarToggle } from '@kortix/ui/internal/layout/sidebar-toggle';
 import Loading from '@kortix/ui/loading';
 import { Skeleton } from '@kortix/ui/skeleton';
 import { useMarketplaceItem, useMarketplaceItems, useMarketplaces } from '@/hooks/marketplace';
@@ -38,24 +40,36 @@ export function MarketplaceView({ projectId }: { projectId: string }) {
 
   return (
     <MarketplaceSurfaceProvider surface={surface}>
-      {openId ? (
-        <div className="h-full min-h-0 px-4 py-4">
-          <MarketplaceDetailOverlay onBack={closeDetail} />
-        </div>
-      ) : (
-        <div className="flex h-full min-h-0 flex-col">
-          {/* Fixed top bar — stays put; the content below scrolls. */}
-          <div className="border-border/60 flex shrink-0 items-center gap-3 border-b px-4 py-2.5">
-            <h2 className="text-foreground text-sm font-medium">
+      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+        {/* Canonical titlebar row — matches `SettingsFrame`, stays pinned while panes scroll. */}
+        <div className="kx-titlebar-row kx-capability-titlebar relative flex h-11 shrink-0 items-center gap-1 border-b px-2">
+          <SidebarToggle />
+          {openId ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={closeDetail}
+              className="text-muted-foreground hover:text-foreground h-7 gap-1 px-2 text-sm font-medium"
+            >
+              <ChevronLeft className="size-3.5" aria-hidden />
               {tI18nComplete.raw('textc608981d8d68')}
-            </h2>
-          </div>
-
-          <div className="h-full min-h-0 flex-1 px-4 py-4">
-            <MarketplaceExploreTab scrollContainerRef={browseScrollContainerRef} />
-          </div>
+            </Button>
+          ) : (
+            <p className="text-foreground truncate px-2 text-sm font-medium">
+              {tI18nComplete.raw('textc608981d8d68')}
+            </p>
+          )}
         </div>
-      )}
+
+        <div className="min-h-0 flex-1 overflow-hidden">
+          {openId ? (
+            <MarketplaceDetailOverlay onBack={closeDetail} />
+          ) : (
+            <MarketplaceExploreTab scrollContainerRef={browseScrollContainerRef} />
+          )}
+        </div>
+      </div>
     </MarketplaceSurfaceProvider>
   );
 }
@@ -79,10 +93,12 @@ function MarketplaceExploreTab({
 
   if (itemsQuery.isLoading || marketplacesQuery.isLoading) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-[72px] rounded-md" />
-        ))}
+      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-8">
+        <div className="grid gap-3 sm:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-[72px] rounded-md" />
+          ))}
+        </div>
       </div>
     );
   }

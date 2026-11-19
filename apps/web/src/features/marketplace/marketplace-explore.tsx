@@ -5,12 +5,15 @@ import { PlusIcon as Plus, MagnifyingGlassIcon as Search } from '@phosphor-icons
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 
 import { Button } from '@kortix/ui/button';
+import { FadedScrollArea } from '@kortix/ui/faded-scroll-area';
 import {
   InputGroupSearch,
   InputGroupSearchClear,
   InputGroupSearchIcon,
   InputGroupSearchInput,
 } from '@kortix/ui/input-group';
+import { SETTINGS_PAGE_TITLE_CLASS } from '@kortix/ui/settings-section-header';
+import { Tabs, TabsList, TabsTrigger } from '@kortix/ui/tabs';
 import { MarketplaceAvatar } from '@/features/marketplace/marketplace-avatar';
 import { displayCompanyLabel } from '@/features/marketplace/marketplace-company-filter';
 import { MarketplacePagedGrid } from '@/features/marketplace/marketplace-paged-grid';
@@ -34,18 +37,7 @@ function sectionId(type: string): string {
   return `type-${type.replace('registry:', '')}`;
 }
 
-function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
-  return (
-    <div className="mb-4 space-y-1">
-      <h2 className="text-foreground text-xl font-medium tracking-tight text-balance">{title}</h2>
-      {subtitle ? (
-        <p className="text-muted-foreground text-sm leading-relaxed text-pretty">{subtitle}</p>
-      ) : null}
-    </div>
-  );
-}
-
-/** One row in the left-rail source filter. */
+/** One row in the embedded left-rail source filter (Workspace Settings rail dialect). */
 function SourceRow({
   label,
   count,
@@ -65,16 +57,48 @@ function SourceRow({
       onClick={onClick}
       aria-current={active ? 'true' : undefined}
       className={cn(
-        'flex h-9 w-full items-center gap-2 rounded-md px-2.5 text-sm transition-colors',
+        'flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2.5 text-sm transition-colors',
         active
-          ? 'bg-primary/[0.06] text-foreground font-medium'
-          : 'text-muted-foreground hover:text-foreground hover:bg-foreground/5',
+          ? 'bg-active text-foreground font-medium'
+          : 'text-foreground hover:bg-hover',
       )}
     >
       {avatar ? <span className="shrink-0">{avatar}</span> : null}
       <span className="min-w-0 flex-1 truncate text-left">{label}</span>
       {count !== undefined ? (
         <span className="text-muted-foreground shrink-0 text-xs tabular-nums">{count}</span>
+      ) : null}
+    </button>
+  );
+}
+
+/** Compact source chip for the `< lg` horizontal mobile strip. */
+function MobileSourceChip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count?: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={active ? 'true' : undefined}
+      className={cn(
+        'inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-xs whitespace-nowrap transition-colors',
+        active
+          ? 'bg-active text-foreground font-medium'
+          : 'text-muted-foreground hover:bg-hover hover:text-foreground',
+      )}
+    >
+      <span>{label}</span>
+      {count !== undefined ? (
+        <span className="text-muted-foreground tabular-nums">{count}</span>
       ) : null}
     </button>
   );
@@ -188,6 +212,8 @@ export function MarketplaceExplore({
   // the public page ('all') stays fully SSR'd and a deep-linked `?source=` is
   // picked up after hydration; embedded (Customize) keeps it purely local.
   const [source, setSource] = useState<string>(ALL_SOURCES);
+  const [scope, setScope] = useState<'all' | 'workspaces' | 'skills'>('all');
+  const [sourcesExpanded, setSourcesExpanded] = useState(false);
 
   const [query, setQuery] = useState('');
   const debounced = useDebounce(query, 250).debouncedValue.trim();
@@ -226,6 +252,9 @@ export function MarketplaceExplore({
   const selectSource = useCallback(
     (id: string) => {
       setSource(id);
+      if (id !== ALL_SOURCES && id !== 'kortix') {
+        setScope('all');
+      }
       if (syncUrl) {
         const url = new URL(marketplaceSourceHref(id), window.location.origin);
         if (debounced) url.searchParams.set('q', debounced);
@@ -448,91 +477,177 @@ export function MarketplaceExplore({
     );
   }
 
+  const visibleEmbeddedSources = sourcesExpanded
+    ? marketplaces
+    : marketplaces.filter((m, i) => i < RAIL_SOURCE_LIMIT || m.id === source);
+  const hasFoldedSources = marketplaces.length > visibleEmbeddedSources.length;
+
+  const canFilterByScope =
+    !searching && projectItems.length > 0 && (isAll || source === 'kortix') && showSkills;
+  const showEmbeddedProjects = showProjects && scope !== 'skills';
+  const showEmbeddedSkills = showSkills && scope !== 'workspaces';
+
+  const embeddedRailHeader = (
+    <div className="flex items-center justify-between gap-2 px-1.5">
+      <div className="text-muted-foreground text-xs font-medium">
+        {tI18nComplete.raw('textcaf85b0888d7')}
+      </div>
+      {canManageSources ? (
+        <button
+          type="button"
+          onClick={() => setAddSourceOpen(true)}
+          className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs font-medium transition-colors"
+        >
+          <Plus className="size-3.5 shrink-0" aria-hidden />
+          {tI18nComplete.raw('text9fd728c66c9a')}
+        </button>
+      ) : null}
+    </div>
+  );
+
+  const embeddedMobileSidebar = (
+    <FadedScrollArea orientation="horizontal" fadeColor="from-background" className="min-w-0 flex-1 px-3 py-2">
+      <div className="flex w-fit items-center gap-1.5">
+        <MobileSourceChip
+          label={tI18nComplete.raw('text08e774c5bacc')}
+          active={isAll}
+          onClick={() => selectSource(ALL_SOURCES)}
+        />
+        {marketplaces.map((m) => (
+          <MobileSourceChip
+            key={m.id}
+            label={displayCompanyLabel(m.id, m.label)}
+            count={m.count}
+            active={source === m.id}
+            onClick={() => selectSource(m.id)}
+          />
+        ))}
+      </div>
+    </FadedScrollArea>
+  );
+
   return (
     <MarketplaceShell
       embedded
       scrollRef={scrollContainerRef}
       crumbs={crumbs}
+      railHeader={embeddedRailHeader}
+      mobileSidebar={embeddedMobileSidebar}
       sidebar={
-        <>
-          <div className="space-y-2">
-            <h1 className="text-foreground text-2xl font-semibold tracking-tight text-balance">
-              {tI18nComplete.raw('texta9ab23617be7')}
-            </h1>
-            <p className="text-muted-foreground text-sm leading-relaxed text-pretty">
-              {tI18nComplete.raw('texte09bc645d309')}
-            </p>
-          </div>
-
-          {searchField}
-
-          <div className="space-y-1">
-            <div className="flex items-center justify-between gap-2 px-2.5 pb-1">
-              <div className="text-muted-foreground text-xs font-medium">
-                {tI18nComplete.raw('textcaf85b0888d7')}
-              </div>
-              {canManageSources ? (
-                <button
-                  type="button"
-                  onClick={() => setAddSourceOpen(true)}
-                  className="text-muted-foreground hover:text-foreground -mr-1 inline-flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs font-medium transition-colors"
-                >
-                  <Plus className="size-3.5 shrink-0" />
-                  {tI18nComplete.raw('text9fd728c66c9a')}
-                </button>
-              ) : null}
-            </div>
+        <div className="space-y-0.5">
+          <SourceRow
+            label={tI18nComplete.raw('text08e774c5bacc')}
+            active={isAll}
+            onClick={() => selectSource(ALL_SOURCES)}
+          />
+          {visibleEmbeddedSources.map((m) => (
             <SourceRow
-              label={tI18nComplete.raw('text08e774c5bacc')}
-              active={isAll}
-              onClick={() => selectSource(ALL_SOURCES)}
+              key={m.id}
+              label={displayCompanyLabel(m.id, m.label)}
+              count={m.count}
+              active={source === m.id}
+              avatar={
+                <MarketplaceAvatar
+                  id={m.id}
+                  owner={m.owner}
+                  sourceUrl={m.sourceUrl}
+                  label={m.label}
+                  size="xs"
+                />
+              }
+              onClick={() => selectSource(m.id)}
             />
-            {marketplaces.map((m) => (
-              <SourceRow
-                key={m.id}
-                label={displayCompanyLabel(m.id, m.label)}
-                count={m.count}
-                active={source === m.id}
-                avatar={
-                  <MarketplaceAvatar
-                    id={m.id}
-                    owner={m.owner}
-                    sourceUrl={m.sourceUrl}
-                    label={m.label}
-                    size="xs"
-                  />
-                }
-                onClick={() => selectSource(m.id)}
-              />
-            ))}
-          </div>
-
-          {canManageSources ? (
-            <AddMarketplaceModal open={addSourceOpen} onOpenChange={setAddSourceOpen} />
+          ))}
+          {hasFoldedSources || sourcesExpanded ? (
+            <button
+              type="button"
+              onClick={() => setSourcesExpanded((prev) => !prev)}
+              className="text-muted-foreground hover:text-foreground hover:bg-hover flex h-8 w-full cursor-pointer items-center rounded-md px-2.5 text-left text-xs font-medium transition-colors"
+            >
+              {sourcesExpanded
+                ? tI18nComplete.raw('text94ea9b1d33a0')
+                : tI18nComplete.raw('textf5c9bd131486')}
+            </button>
           ) : null}
-        </>
+        </div>
       }
     >
-      <div className="space-y-16">
-        {showProjects ? (
-          <section className="scroll-mt-28">
-            <SectionHeading
-              title={tI18nComplete.raw('text4b11e510f62b')}
-              subtitle={tI18nComplete.raw('textc068cf296b8d')}
-            />
-            <MarketplaceProjectsGrid
-              items={projectItems}
-              query={debounced}
-              gridClassName={gridClassName}
-            />
-          </section>
-        ) : null}
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <div className="min-w-0 space-y-1 sm:max-w-lg">
+              <h1 className={SETTINGS_PAGE_TITLE_CLASS}>
+                {sourceLabel ?? tI18nComplete.raw('texta9ab23617be7')}
+              </h1>
+              <p className="text-muted-foreground text-sm text-pretty">
+                {tI18nComplete.raw('texte09bc645d309')}
+              </p>
+            </div>
+            <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
+              <div className="min-w-0 flex-1 sm:w-64 sm:flex-none">{searchField}</div>
+              {canManageSources ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAddSourceOpen(true)}
+                  className="shrink-0 gap-1.5 lg:hidden"
+                >
+                  <Plus className="size-3.5 shrink-0" aria-hidden />
+                  {tI18nComplete.raw('text9fd728c66c9a')}
+                </Button>
+              ) : null}
+            </div>
+          </header>
 
-        {showSkills ? (
-          <div className="space-y-12">
-            <SectionHeading title={skillsTitle} subtitle={tI18nComplete.raw('text705edc563dcc')} />
-            {skillsGrid}
-          </div>
+          {canFilterByScope ? (
+            <Tabs
+              value={scope}
+              onValueChange={(value) => setScope(value as 'all' | 'workspaces' | 'skills')}
+            >
+              <TabsList size="sm">
+                <TabsTrigger value="all" size="sm">
+                  {tI18nComplete.raw('texta52ace420f21')}
+                </TabsTrigger>
+                <TabsTrigger value="workspaces" size="sm">
+                  {tI18nComplete.raw('text04e2a9728af7')}
+                </TabsTrigger>
+                <TabsTrigger value="skills" size="sm">
+                  {tI18nComplete.raw('text66d0f523a379')}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          ) : null}
+        </div>
+
+        <div className="space-y-10">
+          {showEmbeddedProjects ? (
+            <section className="space-y-3">
+              {scope === 'all' ? (
+                <h2 className="text-foreground text-sm font-medium">
+                  {tI18nComplete.raw('text4b11e510f62b')}
+                </h2>
+              ) : null}
+              <MarketplaceProjectsGrid
+                items={projectItems}
+                query={debounced}
+                gridClassName={gridClassName}
+              />
+            </section>
+          ) : null}
+
+          {showEmbeddedSkills ? (
+            <section className="space-y-3">
+              {showEmbeddedProjects ? (
+                <h2 className="text-foreground text-sm font-medium">{skillsTitle}</h2>
+              ) : null}
+              {skillsGrid}
+            </section>
+          ) : null}
+        </div>
+
+        {canManageSources ? (
+          <AddMarketplaceModal open={addSourceOpen} onOpenChange={setAddSourceOpen} />
         ) : null}
       </div>
     </MarketplaceShell>

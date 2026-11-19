@@ -71,19 +71,25 @@ function Crumbs({ crumbs }: { crumbs: MarketplaceCrumb[] }) {
 }
 
 /**
- * Embedded (Customize panel) layout: the rail stays put on desktop and ONLY the
- * main column scrolls. A top fade appears once that column is scrolled — the
- * same cue the sidebar session list uses — so the fixed tab bar above reads as
- * elevated over the content sliding under it.
+ * Embedded (Customize / Workspace Marketplace) layout: the rail stays put on
+ * desktop and ONLY the main column scrolls (bounded by the parent's `h-svh`).
+ * On `< lg` screens a compact horizontal strip (`mobileSidebar`) replaces the
+ * vertical rail so the catalog sits immediately below the titlebar, matching
+ * `ProjectSettingsPage` and `ProjectAdminDashboard`. A top fade appears once
+ * the main column scrolls.
  */
 function EmbeddedShell({
   crumbs,
   sidebar,
+  railHeader,
+  mobileSidebar,
   children,
   scrollRef,
 }: {
   crumbs: MarketplaceCrumb[];
   sidebar: ReactNode;
+  railHeader?: ReactNode;
+  mobileSidebar?: ReactNode;
   children: ReactNode;
   scrollRef?: RefObject<HTMLElement | null>;
 }) {
@@ -110,12 +116,34 @@ function EmbeddedShell({
   }, []);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 lg:flex-row lg:gap-8">
-      <aside className="space-y-6 lg:w-64 lg:shrink-0 lg:self-stretch lg:overflow-y-auto lg:pr-1">
-        <Crumbs crumbs={crumbs} />
-        {sidebar}
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+      {mobileSidebar ? (
+        <div className="border-border/60 bg-background flex shrink-0 flex-col border-b lg:hidden">
+          {mobileSidebar}
+        </div>
+      ) : null}
+
+      <aside
+        className={cn(
+          'min-h-0 flex-col bg-inherit',
+          mobileSidebar
+            ? 'hidden border-r lg:flex'
+            : 'flex max-h-[38svh] shrink-0 overflow-hidden border-b lg:max-h-none lg:border-r lg:border-b-0',
+        )}
+      >
+        {railHeader ? <div className="shrink-0 px-3 pt-4 pb-2">{railHeader}</div> : null}
+        <div
+          className={cn(
+            'min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
+            mobileSidebar ? 'px-2 pt-1 pb-6' : 'space-y-5 px-4 py-4 lg:py-5',
+          )}
+        >
+          {mobileSidebar ? null : <Crumbs crumbs={crumbs} />}
+          {sidebar}
+        </div>
       </aside>
-      <div className="relative min-h-0 min-w-0 flex-1">
+
+      <main className="bg-background relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div
           className={cn(
             'from-background pointer-events-none absolute inset-x-0 top-0 z-10 h-6 bg-gradient-to-b to-transparent transition-opacity duration-(--duration-moderate)',
@@ -123,10 +151,12 @@ function EmbeddedShell({
           )}
           aria-hidden
         />
-        <div ref={setMainRef} className="h-full overflow-y-auto lg:pr-1">
-          {children}
+        <div ref={setMainRef} className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-6xl px-4 py-6 pb-20 sm:px-8 sm:py-8">
+            {children}
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
@@ -138,14 +168,16 @@ function EmbeddedShell({
  *
  * - **Page** (default): window-scrolled, a 3/12 rail `sticky` to the viewport
  *   beside a 9/12 main column that runs to the container's right edge.
- * - **`embedded`** (Customize panel): the whole thing fills its parent's height
- *   (`h-full`); on desktop the rail stays put and ONLY the main column scrolls
- *   (`scrollRef` is attached there so a virtualized grid measures against it),
+ * - **`embedded`** (Workspace Marketplace): fills its bounded parent height
+ *   (`h-full`); the rail and main column scroll independently (`scrollRef` is
+ *   attached to the main scroller so virtualized grids measure against it),
  *   with a top fade once scrolled.
  */
 export function MarketplaceShell({
   crumbs,
   sidebar,
+  railHeader,
+  mobileSidebar,
   children,
   embedded = false,
   sidebarLast = false,
@@ -153,6 +185,10 @@ export function MarketplaceShell({
 }: {
   crumbs: MarketplaceCrumb[];
   sidebar: ReactNode;
+  /** Embedded only: non-scrolling header anchored at the top of the desktop rail. */
+  railHeader?: ReactNode;
+  /** Embedded only: horizontal rail strip shown below `lg` instead of the stacked sidebar. */
+  mobileSidebar?: ReactNode;
   children: ReactNode;
   embedded?: boolean;
   /** Page only: below `lg`, render the rail after the main column. */
@@ -163,7 +199,13 @@ export function MarketplaceShell({
 }) {
   if (embedded) {
     return (
-      <EmbeddedShell crumbs={crumbs} sidebar={sidebar} scrollRef={scrollRef}>
+      <EmbeddedShell
+        crumbs={crumbs}
+        sidebar={sidebar}
+        railHeader={railHeader}
+        mobileSidebar={mobileSidebar}
+        scrollRef={scrollRef}
+      >
         {children}
       </EmbeddedShell>
     );

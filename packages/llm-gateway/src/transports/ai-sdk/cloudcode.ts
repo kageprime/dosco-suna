@@ -474,6 +474,12 @@ export function cloudCodeRequestFromPrompt(
   const systemTexts: string[] = [];
   const contents: Json[] = [];
   const toolNameByCallId = new Map<string, string>();
+  // Claude via Cloud Code (Vertex Anthropic proxy) translates Gemini
+  // functionCall/functionResponse into tool_use/tool_result and requires
+  // matching `id` fields on both (`messages.N.content.M.tool_use.id: Field required`).
+  const isClaude = !!modelId && /claude/i.test(modelId);
+  let syntheticCallSeq = 0;
+  const unmatchedClaudeCallIds: string[] = [];
 
   // Consecutive same-role messages merge into one contents entry (Gemini
   // tolerates many parts per message; keeping one message per role run keeps
@@ -537,13 +543,17 @@ export function cloudCodeRequestFromPrompt(
           // model's own prior reasoning stays attributable on multi-turn calls.
           if (text) parts.push({ text, thought: true, ...(sig ? { thoughtSignature: sig } : {}) });
         } else if (p.type === 'tool-call') {
-          const sig = thoughtSignatureOf(p) ?? (modelId && !/claude/i.test(modelId) ? GEMINI_PLACEHOLDER_SIGNATURE : undefined);
+          const sig = thoughtSignatureOf(p) ?? (modelId && !isClaude ? GEMINI_PLACEHOLDER_SIGNATURE : undefined);
           const name = nonEmptyToolName(p.toolName);
-          if (typeof p.toolCallId === 'string' && p.toolCallId) {
-            toolNameByCallId.set(p.toolCallId, name);
+          const rawCallId = typeof p.toolCallId === 'string' && p.toolCallId ? p.toolCallId : undefined;
+          const callId = rawCallId ?? (isClaude ? `call_vrtx_${syntheticCallSeq++}` : undefined);
+          if (callId) {
+            toolNameByCallId.set(callId, name);
+            if (isClaude) unmatchedClaudeCallIds.push(callId);
           }
           parts.push({
             functionCall: {
+              ...(isClaude && callId ? { id: callId } : {}),
               name,
               args: parseToolArgs(p.input),
             },
@@ -561,10 +571,18 @@ export function cloudCodeRequestFromPrompt(
     for (const part of message.content ?? []) {
       const p: any = part;
       if (p.type !== 'tool-result') continue;
-      const mappedName =
-        typeof p.toolCallId === 'string' && p.toolCallId ? toolNameByCallId.get(p.toolCallId) : undefined;
+      const rawResultId = typeof p.toolCallId === 'string' && p.toolCallId ? p.toolCallId : undefined;
+      const mappedName = rawResultId ? toolNameByCallId.get(rawResultId) : undefined;
+      if (isClaude && rawResultId) {
+        const matchedIdx = unmatchedClaudeCallIds.indexOf(rawResultId);
+        if (matchedIdx !== -1) unmatchedClaudeCallIds.splice(matchedIdx, 1);
+      }
+      const resultId = isClaude
+        ? (rawResultId ?? unmatchedClaudeCallIds.shift() ?? `call_vrtx_${syntheticCallSeq++}`)
+        : undefined;
       parts.push({
         functionResponse: {
+          ...(resultId ? { id: resultId } : {}),
           name: nonEmptyToolName(p.toolName, mappedName),
           response: functionResponseObject(p.output),
         },
@@ -691,7 +709,7 @@ export function cloudCodeContentFromParts(parts: CloudCodePart[]): JsonPart[] {
       const providerMetadata = thoughtProviderMetadata(part);
       content.push({
         type: 'tool-call',
-        toolCallId: toolCallId(toolIndex++),
+        toolCallId: typeof fn.id === 'string' && fn.id ? fn.id : toolCallId(toolIndex++),
         toolName: nonEmptyToolName(fn.name),
         input: JSON.stringify(fn.args ?? {}),
         ...(providerMetadata ? { providerMetadata } : {}),
@@ -919,7 +937,7 @@ export function createCloudCodeModel(descriptor: UpstreamDescriptor, opts: Cloud
               const providerMetadata = thoughtProviderMetadata(p);
               controller.enqueue({
                 type: 'tool-call',
-                toolCallId: toolCallId(toolIndex++),
+                toolCallId: typeof fn.id === 'string' && fn.id ? fn.id : toolCallId(toolIndex++),
                 toolName: nonEmptyToolName(fn.name),
                 input: JSON.stringify(fn.args ?? {}),
                 ...(providerMetadata ? { providerMetadata } : {}),

@@ -1118,9 +1118,9 @@ export function ModelSelector({
           side="top"
           align="start"
           sideOffset={6}
-          className="w-[min(19.5rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-popover p-0 shadow-2xl overflow-visible"
+          className="w-[min(21rem,calc(100vw-1.5rem))] overflow-visible rounded-lg border border-border bg-popover p-0 text-popover-foreground shadow-md"
         >
-          <div className="bg-popover flex min-w-0 flex-col rounded-xl overflow-visible">
+          <div className="bg-popover text-popover-foreground flex min-w-0 flex-col overflow-visible rounded-lg">
             <ModelPickerPanel
               browseModels={browseModels}
               pickableModels={pickableModels}

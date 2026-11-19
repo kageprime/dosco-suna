@@ -552,4 +552,78 @@ describe('cloudcode model via streamText', () => {
       { functionCall: { name: 'get_weather', args: { city: 'Osaka' } }, thoughtSignature: GEMINI_PLACEHOLDER_SIGNATURE },
     ]);
   });
+
+  test('includes matching toolCallId on functionCall and functionResponse for Claude models and preserves upstream fn.id', async () => {
+    const { contents } = cloudCodeRequestFromPrompt(
+      [
+        { role: 'user', content: [{ type: 'text', text: 'check repo' }] },
+        {
+          role: 'assistant',
+          content: [
+            { type: 'tool-call', toolCallId: 'toolu_vrtx_01Abc', toolName: 'read_file', input: '{"path":"a.ts"}' },
+            { type: 'tool-call', toolCallId: '', toolName: 'list_dir', input: '{}' },
+          ],
+        },
+        {
+          role: 'tool',
+          content: [
+            { type: 'tool-result', toolCallId: 'toolu_vrtx_01Abc', toolName: 'read_file', output: { type: 'text', value: 'ok' } },
+            { type: 'tool-result', toolCallId: '', toolName: 'list_dir', output: { type: 'text', value: 'files' } },
+          ],
+        },
+      ],
+      undefined,
+      'claude-sonnet-5-5-medium',
+    );
+    expect(contents).toEqual([
+      { role: 'user', parts: [{ text: 'check repo' }] },
+      {
+        role: 'model',
+        parts: [
+          { functionCall: { id: 'toolu_vrtx_01Abc', name: 'read_file', args: { path: 'a.ts' } } },
+          { functionCall: { id: 'call_vrtx_0', name: 'list_dir', args: {} } },
+        ],
+      },
+      {
+        role: 'user',
+        parts: [
+          { functionResponse: { id: 'toolu_vrtx_01Abc', name: 'read_file', response: { output: 'ok' } } },
+          { functionResponse: { id: 'call_vrtx_0', name: 'list_dir', response: { output: 'files' } } },
+        ],
+      },
+    ]);
+
+    const parsed = cloudCodeContentFromParts([
+      { functionCall: { id: 'toolu_vrtx_upstream_99', name: 'bash', args: { cmd: 'pwd' } } },
+    ]);
+    expect(parsed).toEqual([
+      {
+        type: 'tool-call',
+        toolCallId: 'toolu_vrtx_upstream_99',
+        toolName: 'bash',
+        input: '{"cmd":"pwd"}',
+      },
+    ]);
+
+    const { fetch: streamFetch } = fakeFetch(
+      () =>
+        new Response(
+          'data: {"response":{"candidates":[{"content":{"role":"model","parts":[{"functionCall":{"id":"toolu_vrtx_stream_7","name":"bash","args":{"cmd":"ls"}}}]},"finishReason":"STOP"}]}}\n\n',
+          { status: 200, headers: { 'content-type': 'text/event-stream' } },
+        ),
+    );
+    const streamResult = streamText({
+      model: createCloudCodeModel(descriptor({ resolvedModel: 'claude-opus-5-5-high' }), { fetch: streamFetch }),
+      prompt: 'hi',
+    });
+    const parts: unknown[] = [];
+    for await (const part of streamResult.fullStream) parts.push(part);
+    expect(parts).toContainEqual(
+      expect.objectContaining({
+        type: 'tool-call',
+        toolCallId: 'toolu_vrtx_stream_7',
+        toolName: 'bash',
+      }),
+    );
+  });
 });

@@ -113,7 +113,7 @@ describe('ModelPickerPanel', () => {
     expect(html).toContain('scrollbar-hide');
   });
 
-  test('switches provider tabs, opens the right-hand effort submenu, and picks an effort cleanly', async () => {
+  test('groups providers inline without top tabs, opens the right-hand effort submenu, and picks an effort cleanly', async () => {
     const onVariantChange = mock(() => {});
     const onPick = mock(() => {});
     let renderer!: ReactTestRenderer;
@@ -147,9 +147,15 @@ describe('ModelPickerPanel', () => {
       );
     });
 
-    // Provider filter tabs exist (All, Dosco, Google Antigravity)
+    // No top horizontal provider tablist
     const tabs = renderer.root.findAll((node) => node.type === 'button' && node.props.role === 'tab');
-    expect(tabs.length).toBeGreaterThanOrEqual(2);
+    expect(tabs).toHaveLength(0);
+
+    // Provider groups appear inline cleanly
+    const renderedText = textOf(renderer.toJSON());
+    expect(renderedText).toContain('Dosco');
+    expect(renderedText).toContain('Google Antigravity');
+    expect(renderedText).not.toContain('modelSelector.all');
 
     // Open the Antigravity-style right-hand effort submenu for Gemini 4 Hydrogen
     const hydrogenChevron = renderer.root.find(
