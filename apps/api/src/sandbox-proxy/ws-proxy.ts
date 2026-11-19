@@ -44,6 +44,8 @@ import { recheckStreamAccess } from '../shared/stream-access-recheck';
  * clears Cloudflare's ~100 s WebSocket idle timeout on the browser leg.
  */
 export const PREVIEW_WS_KEEPALIVE_MS = 25_000;
+/** Bound upstream WS dial so a silent or firewalled sandbox port fails promptly instead of hanging forever. */
+export const PREVIEW_WS_CONNECT_TIMEOUT_MS = 15_000;
 
 /** Per-connection state stashed on the upgraded socket's `data`. */
 export interface PreviewWsData {
@@ -58,6 +60,8 @@ export interface PreviewWsData {
   queue?: Array<string | Buffer | ArrayBuffer | Uint8Array>;
   /** Interval that pings both legs — see PREVIEW_WS_KEEPALIVE_MS. */
   keepalive?: ReturnType<typeof setInterval>;
+  /** Connect timeout before upstream `onopen` fires. */
+  connectTimer?: ReturnType<typeof setTimeout>;
   /** The connect-time session gate, asked again while the socket is open. */
   accessCheck?: () => Promise<boolean>;
   /** Stops the periodic re-check. */
@@ -147,6 +151,12 @@ export function stopPreviewWsKeepalive(state: PreviewWsData): void {
   if (!state.keepalive) return;
   clearInterval(state.keepalive);
   state.keepalive = undefined;
+}
+
+function stopPreviewWsConnectTimer(state: PreviewWsData): void {
+  if (!state.connectTimer) return;
+  clearTimeout(state.connectTimer);
+  state.connectTimer = undefined;
 }
 
 /** True when the path is a path-based preview route eligible for WS proxying. */
@@ -362,8 +372,19 @@ export const previewWsHandlers = {
     upstream.binaryType = 'arraybuffer';
     state.upstream = upstream;
     armPreviewWsAccessRecheck(ws);
+    stopPreviewWsConnectTimer(state);
+    state.connectTimer = setTimeout(() => {
+      stopPreviewWsConnectTimer(state);
+      if (state.ready) return;
+      invalidateFailedHandshake();
+      stopPreviewWsKeepalive(state);
+      stopPreviewWsAccessRecheck(state);
+      try { upstream.close(); } catch {}
+      try { ws.close(4504, 'upstream connect timeout'); } catch {}
+    }, PREVIEW_WS_CONNECT_TIMEOUT_MS);
 
     upstream.onopen = () => {
+      stopPreviewWsConnectTimer(state);
       state.ready = true;
       const queued = state.queue ?? [];
       state.queue = [];
@@ -381,6 +402,7 @@ export const previewWsHandlers = {
     };
 
     upstream.onclose = (ev: CloseEvent) => {
+      stopPreviewWsConnectTimer(state);
       invalidateFailedHandshake();
       stopPreviewWsKeepalive(state);
       stopPreviewWsAccessRecheck(state);
@@ -388,6 +410,7 @@ export const previewWsHandlers = {
     };
 
     upstream.onerror = () => {
+      stopPreviewWsConnectTimer(state);
       invalidateFailedHandshake();
       stopPreviewWsKeepalive(state);
       stopPreviewWsAccessRecheck(state);
@@ -408,6 +431,7 @@ export const previewWsHandlers = {
   close(ws: ServerWs) {
     // The interval holds a reference to the socket pair. Leaving it armed after
     // a close leaks one timer per terminal the box has ever opened.
+    stopPreviewWsConnectTimer(ws.data);
     stopPreviewWsKeepalive(ws.data);
     stopPreviewWsAccessRecheck(ws.data);
     try { ws.data.upstream?.close(); } catch {}

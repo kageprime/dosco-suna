@@ -72,3 +72,26 @@ test("a call is named by the agent its session runs: a call to another agent nev
   expect(greeting).toContain('My Engineering Agent')
   await e.emit('session_shutdown')
 })
+
+test('spokenName maps Dosco coordinator slugs to Xera and unbound hosted sessions close instead of hanging', async () => {
+  const { spokenName } = await import('./kortix')
+  for (const slug of ['mykortix', 'my-kortix', 'my_kortix', 'xera', 'dot', 'kortix', 'meta', 'MYKORTIX']) {
+    expect(spokenName(slug)).toBe('Xera')
+  }
+  const bound = fakePi('ses_pi_bound')
+  attach(bound.pi, 'ses_bound')
+  await bound.emit('session_start')
+  const port = await relayPort()
+  const events = await new Promise<string[]>((done) => {
+    const out: string[] = []
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/stream?session=ses_unknown&tts=mock&recall=0`)
+    const timer = setTimeout(() => (ws.close(), done(out)), 3000)
+    ws.onmessage = (m) => { if (typeof m.data === 'string') out.push(m.data) }
+    ws.onclose = () => { clearTimeout(timer); done(out) }
+  })
+  expect(events.some((raw) => {
+    const msg = JSON.parse(raw) as { type?: string; why?: string }
+    return msg.type === 'closed' && typeof msg.why === 'string' && msg.why.includes('not bound')
+  })).toBe(true)
+  await bound.emit('session_shutdown')
+})

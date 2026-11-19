@@ -281,4 +281,93 @@ describe('the managed lineup with OpenRouter as provider', () => {
       config.OPENROUTER_API_KEY = origOpenRouter;
     }
   });
+
+  test('registers sovereign audio models and private voice fast models without exposing private models in the lineup', async () => {
+    const origPlatinum = config.PLATINUM_INFERENCE_API_KEY;
+    const origOpenRouter = config.OPENROUTER_API_KEY;
+    const origGroq = config.GROQ_API_KEY;
+    const origInworld = config.INWORLD_API_KEY;
+    const origVoiceGroq = config.VOICE_GROQ_FAST_MODEL;
+    config.PLATINUM_INFERENCE_API_KEY = '';
+    config.OPENROUTER_API_KEY = 'sk-or-test-sovereign';
+    config.GROQ_API_KEY = 'gsk-test-sovereign';
+    config.INWORLD_API_KEY = 'aW53b3JsZC10ZXN0';
+    config.VOICE_GROQ_FAST_MODEL = '';
+    try {
+      expect(await loadManagedLineup()).toBe(true);
+      expect(isManagedAudioModelId('whisper-large-v3')).toBe(true);
+      expect(isManagedAudioModelId('whisper-large-v3-turbo')).toBe(true);
+      expect(isManagedAudioModelId('inworld-tts-2')).toBe(true);
+      expect(isManagedAudioModelId('inworld-tts-2-flash')).toBe(true);
+
+      expect(getRuntimeManagedModel('qwen3.8-27b')).toMatchObject({
+        id: 'qwen3.8-27b',
+        upstreamModelId: 'qwen/qwen3-32b',
+        private: true,
+      });
+      expect(getRuntimeManagedModel('gpt-oss-20b')).toMatchObject({
+        id: 'gpt-oss-20b',
+        upstreamModelId: 'openai/gpt-oss-20b',
+        private: true,
+      });
+      expect(getRuntimeManagedModel('gemini-3.5-flash-lite')).toMatchObject({
+        id: 'gemini-3.5-flash-lite',
+        upstreamModelId: 'google/gemini-2.5-flash-lite',
+        vision: true,
+        private: true,
+      });
+
+      const listedIds = managedLineup().map((m) => m.id);
+      const servedIds = servedManagedModels().map((m) => m.id);
+      for (const id of ['qwen3.8-27b', 'gpt-oss-20b', 'gemini-3.5-flash-lite']) {
+        expect(listedIds).not.toContain(id);
+        expect(servedIds).not.toContain(id);
+      }
+    } finally {
+      config.PLATINUM_INFERENCE_API_KEY = origPlatinum;
+      config.OPENROUTER_API_KEY = origOpenRouter;
+      config.GROQ_API_KEY = origGroq;
+      config.INWORLD_API_KEY = origInworld;
+      config.VOICE_GROQ_FAST_MODEL = origVoiceGroq;
+    }
+  });
+
+  test('registers voice audio and private fast models with OPENROUTER_API_KEY alone (zero extra voice keys)', async () => {
+    const origPlatinum = config.PLATINUM_INFERENCE_API_KEY;
+    const origOpenRouter = config.OPENROUTER_API_KEY;
+    const origGroq = config.GROQ_API_KEY;
+    const origInworld = config.INWORLD_API_KEY;
+    config.PLATINUM_INFERENCE_API_KEY = '';
+    config.OPENROUTER_API_KEY = 'sk-or-test-fallback';
+    config.GROQ_API_KEY = '';
+    config.INWORLD_API_KEY = '';
+    try {
+      expect(await loadManagedLineup()).toBe(true);
+      expect(isManagedAudioModelId('whisper-large-v3')).toBe(true);
+      expect(isManagedAudioModelId('whisper-large-v3-turbo')).toBe(true);
+      expect(isManagedAudioModelId('inworld-tts-2')).toBe(true);
+      expect(isManagedAudioModelId('inworld-tts-2-flash')).toBe(true);
+      expect(getRuntimeManagedModel('qwen3.8-27b')).toMatchObject({
+        id: 'qwen3.8-27b',
+        upstreamModelId: 'qwen/qwen3.7-flash',
+        private: true,
+      });
+      expect(getRuntimeManagedModel('gpt-oss-20b')).toMatchObject({
+        id: 'gpt-oss-20b',
+        upstreamModelId: 'openai/gpt-oss-20b',
+        private: true,
+      });
+      expect(getRuntimeManagedModel('gemini-3.5-flash-lite')).toMatchObject({
+        id: 'gemini-3.5-flash-lite',
+        upstreamModelId: 'google/gemini-2.5-flash-lite',
+        vision: true,
+        private: true,
+      });
+    } finally {
+      config.PLATINUM_INFERENCE_API_KEY = origPlatinum;
+      config.OPENROUTER_API_KEY = origOpenRouter;
+      config.GROQ_API_KEY = origGroq;
+      config.INWORLD_API_KEY = origInworld;
+    }
+  });
 });

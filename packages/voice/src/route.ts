@@ -37,7 +37,7 @@ const system = (workspace: string, contextual: boolean) =>
   // a trailing "what is Cortex AI?" example shifted follow-ups ("And Porto?" after Portugal's population → Portugal,
   // topic-routing 2 of 12 wrong), and the same example first sent "What can Kortix do?" to the web.
   `E.g. ${EXAMPLES.map(([turn, need, query, card]) => `"${turn}" → ${JSON.stringify(contextual ? { locationEvidence: null, canonicalName: null, requestedPeriod: null, query, card, need } : { need, query, card })}`).join('; ')}.` +
-  ` The assistant itself is ${NAME}${NAME === 'Kortix' ? ' (speech-to-text often hears Cortex)' : ''}: a question about it or what it can do is "none".`
+  ` The assistant itself is ${NAME}${NAME === 'Xera' ? ' (speech-to-text often hears Sera or Sarah)' : ''}: a question about it or what it can do is "none".`
 
 // One per kind of decision, in the reply's own shape: mid-call the router left out the F1 and price cards (2/6, 1/6)
 // that had no example, while version and fx, which had one, were 6/6.

@@ -504,6 +504,8 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
     }),
     // The platform coordinator uses API-level delegation.
     ...(input.platformMetaAgent ? { KORTIX_META_AGENT: '1' } : {}),
+    VOICE_NAME: 'Xera',
+    ...(config.INWORLD_WORKSPACE ? { INWORLD_WORKSPACE: config.INWORLD_WORKSPACE } : {}),
     // The restore graduated on 2026-11-05: a current daemon reconciles at every boot without this key.
     // A daemon older than that skips the reconcile unless it reads '1', so every box gets it. Delete
     // the key once the runtime floor (session-open/runtime-floor-policy.ts) excludes those daemons.

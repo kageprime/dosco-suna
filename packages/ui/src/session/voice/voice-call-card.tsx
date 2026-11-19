@@ -29,6 +29,8 @@ import { useVoiceCallStore, type ActiveCall } from './voice-call-store';
 const ENDED: Record<CallEnd, { key: string; dot: string | null }> = {
   closed: { key: 'ended', dot: null },
   unavailable: { key: 'unavailable', dot: 'bg-kortix-orange' },
+  billing: { key: 'billing', dot: 'bg-kortix-orange' },
+  audio_unavailable: { key: 'audioUnavailable', dot: 'bg-kortix-orange' },
   failed: { key: 'failed', dot: 'bg-kortix-red' },
   lost: { key: 'lost', dot: 'bg-kortix-red' },
 };
@@ -52,13 +54,21 @@ function useCallBox(call: ActiveCall): { sandboxId?: string; failed?: boolean } 
   useEffect(() => {
     let stopped = false;
     void (async () => {
-      // Each /start long-polls up to 25 s; a fresh session's first ones may find no row yet (null): asked again.
-      for (let i = 0; i < 24 && !stopped; i++) {
+      const deadline = Date.now() + 90_000;
+      let emptyStreak = 0;
+      // Each /start long-polls up to 25 s; cap total wait at 90 s or 6 consecutive null/error responses.
+      for (let i = 0; i < 24 && !stopped && Date.now() < deadline; i++) {
         const started = await startProjectSession(call.projectId, call.sessionId, 25_000).catch(() => undefined);
         if (stopped) return;
         const sandboxId = started?.stage === 'ready' ? started.sandbox?.external_id : undefined;
         if (sandboxId) return void setBox({ sandboxId });
-        if (started && started.stage === 'failed' && !started.retriable) return void setBox({ failed: true });
+        if (!started) {
+          emptyStreak++;
+          if (emptyStreak >= 6) return void setBox({ failed: true });
+        } else {
+          emptyStreak = 0;
+          if (started.stage === 'failed' && !started.retriable) return void setBox({ failed: true });
+        }
         await new Promise((r) => setTimeout(r, 1000));
       }
       if (!stopped) setBox({ failed: true });
@@ -186,7 +196,7 @@ function Card({
       <div className="flex items-center gap-1">
         {ended ? (
           <>
-            {state?.end !== 'unavailable' && controls && (
+            {state?.end !== 'unavailable' && state?.end !== 'billing' && controls && (
               <Button variant="secondary" size="sm" onClick={controls.callAgain}>
                 <PhoneIcon weight="fill" className="size-3.5" />
                 {t('callAgain')}

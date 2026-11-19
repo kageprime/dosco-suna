@@ -145,9 +145,70 @@ describe('Dosco sovereignty invariants', () => {
 
       const content = readFileSync(agentsMdPath, 'utf8');
       expect(content).toContain('## Dosco Sovereign Architecture: Protected Surfaces Against Upstream Divergence');
+      expect(content).toContain('Upstream Platinum-Delta Audit');
       expect(content).toContain('apps/api/src/platform/providers/e2b.ts');
       expect(content).toContain('Supabase Storage');
       expect(content).toContain('Xera');
+    });
+  });
+
+  describe('voice call sovereignty (Platinum → Groq/Inworld → OpenRouter, Xera default)', () => {
+    test('gateway audio pipeline allows groq, inworld, and openrouter alongside platinum', () => {
+      const audioPath = join(REPO_ROOT, 'packages', 'llm-gateway', 'src', 'pipeline', 'audio.ts');
+      const content = readFileSync(audioPath, 'utf8');
+      expect(content).toContain("descriptor.provider === 'groq'");
+      expect(content).toContain("descriptor.provider === 'inworld'");
+      expect(content).toContain("descriptor.provider === 'openrouter'");
+    });
+
+    test('loadManagedLineup registers voice audio and private fast models with OpenRouter alone or Groq+Inworld', async () => {
+      const {
+        loadManagedLineup,
+        isManagedAudioModelId,
+        getRuntimeManagedModel,
+        managedLineup,
+      } = await import('../../llm-gateway/models/managed-models');
+      const origPlatinum = config.PLATINUM_INFERENCE_API_KEY;
+      const origOpenRouter = config.OPENROUTER_API_KEY;
+      const origGroq = config.GROQ_API_KEY;
+      const origInworld = config.INWORLD_API_KEY;
+      const origManaged = config.KORTIX_MANAGED_PROVIDER_ENABLED;
+
+      config.PLATINUM_INFERENCE_API_KEY = '';
+      config.OPENROUTER_API_KEY = 'sk-or-test-sovereign';
+      config.KORTIX_MANAGED_PROVIDER_ENABLED = true;
+
+      try {
+        config.GROQ_API_KEY = '';
+        config.INWORLD_API_KEY = '';
+        expect(await loadManagedLineup()).toBe(true);
+        for (const audioId of ['whisper-large-v3', 'whisper-large-v3-turbo', 'inworld-tts-2', 'inworld-tts-2-flash']) {
+          expect(isManagedAudioModelId(audioId)).toBe(true);
+        }
+        for (const privateId of ['qwen3.8-27b', 'gpt-oss-20b', 'gemini-3.5-flash-lite']) {
+          expect(getRuntimeManagedModel(privateId)?.private).toBe(true);
+          expect(managedLineup().map((m) => m.id)).not.toContain(privateId);
+        }
+
+        config.GROQ_API_KEY = 'gsk-test-sovereign';
+        config.INWORLD_API_KEY = 'inworld-test-b64';
+        expect(await loadManagedLineup()).toBe(true);
+        expect(isManagedAudioModelId('whisper-large-v3')).toBe(true);
+        expect(isManagedAudioModelId('inworld-tts-2')).toBe(true);
+      } finally {
+        config.PLATINUM_INFERENCE_API_KEY = origPlatinum;
+        config.OPENROUTER_API_KEY = origOpenRouter;
+        config.GROQ_API_KEY = origGroq;
+        config.INWORLD_API_KEY = origInworld;
+        config.KORTIX_MANAGED_PROVIDER_ENABLED = origManaged;
+      }
+    });
+
+    test('packages/voice defaults NAME to Xera, never Kortix', () => {
+      const voiceNamePath = join(REPO_ROOT, 'packages', 'voice', 'src', 'name.ts');
+      const content = readFileSync(voiceNamePath, 'utf8');
+      expect(content).toContain("'Xera'");
+      expect(content).not.toMatch(/VOICE_NAME\?\.trim\(\)\s*\|\|\s*'Kortix'/);
     });
   });
 });

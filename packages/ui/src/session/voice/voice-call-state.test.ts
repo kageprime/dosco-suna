@@ -48,11 +48,22 @@ describe('reduceCall', () => {
     expect(reduceCall(state, { type: 'drop' })).toMatchObject({ phase: 'reconnecting', redials: 0 });
   });
 
-  test("the relay's closed ends the call, and the socket close after it changes nothing", () => {
+  test("the relay's closed ends the call, classifies billing/audio failures, and ignores later drops", () => {
     const closed = run([{ type: 'ready' }, { type: 'closed' }]);
-    expect(closed).toMatchObject({ phase: 'ended', end: 'closed' });
+    expect(closed).toMatchObject({ phase: 'ended', end: 'closed', reason: null });
     expect(reduceCall(closed, { type: 'drop' })).toBe(closed);
     expect(reduceCall(closed, { type: 'ready' })).toBe(closed);
+
+    expect(run([{ type: 'ready' }, { type: 'closed', why: 'plan_upgrade_required' }]))
+      .toMatchObject({ phase: 'ended', end: 'billing', reason: 'plan_upgrade_required' });
+    expect(run([{ type: 'ready' }, { type: 'closed', why: 'insufficient_credits' }]))
+      .toMatchObject({ phase: 'ended', end: 'billing', reason: 'insufficient_credits' });
+    for (const code of ['audio_model_unsupported', 'model_not_found', 'model_disabled_on_deployment', 'provider_disabled', 'audio_unavailable']) {
+      expect(run([{ type: 'ready' }, { type: 'closed', why: code }]))
+        .toMatchObject({ phase: 'ended', end: 'audio_unavailable', reason: code });
+    }
+    expect(run([{ type: 'ready' }, { type: 'closed', why: 'goodbye' }]))
+      .toMatchObject({ phase: 'ended', end: 'closed', reason: 'goodbye' });
   });
 
   test('a failed audio start ends a live call as failed', () => {

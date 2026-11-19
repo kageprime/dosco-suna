@@ -1,6 +1,6 @@
 'use client';
 
-import { getAuthToken, getSandboxUrlForExternalId, probePreviewPort } from '@kortix/sdk';
+import { getAuthToken, getSandboxUrlForExternalId, probePreviewPort, type PreviewPortProbe } from '@kortix/sdk';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { CallAudio } from './call-audio';
@@ -10,6 +10,7 @@ import {
   createPlayback,
   DIAL_MS,
   INITIAL_CALL,
+  READY_TIMEOUT_MS,
   reduceCall,
   REDIAL_MS,
   SPEAKING_HOLD_MS,
@@ -28,8 +29,25 @@ interface RelayMessage {
   role?: string;
   who?: string;
   text?: string;
+  why?: string;
   inRate?: number;
   outRate?: number;
+}
+
+/** Sends an authenticated HEAD probe when a token is available so proxy auth passes without placing credentials in URLs. */
+async function probeVoiceRelay(url: string, token: string | null): Promise<PreviewPortProbe> {
+  if (!token) return probePreviewPort(url);
+  try {
+    const res = await fetch(url, {
+      method: 'HEAD',
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (res.status === 502 || res.status === 503 || res.status === 504) return 'unreachable';
+    return res.ok ? 'reachable' : 'unknown';
+  } catch {
+    return 'unknown';
+  }
 }
 
 /** What the share and mute controls reach of the call the effect runs. */
@@ -60,6 +78,7 @@ export function useVoiceCall(sessionId: string, sandboxId: string) {
     let socket: WebSocket | undefined;
     let audio: CallAudio | undefined;
     let redial: ReturnType<typeof setTimeout> | undefined;
+    let readyTimer: ReturnType<typeof setTimeout> | undefined;
     let frame = 0;
     let heardAt = -Infinity;
     let snapAt = -Infinity;
@@ -80,6 +99,7 @@ export function useVoiceCall(sessionId: string, sandboxId: string) {
       setState(current);
       if (current.phase === 'ended') {
         clearTimeout(redial);
+        clearTimeout(readyTimer);
         dropAudio();
         shareRef.current?.stop(false);
         socket?.close();
@@ -97,6 +117,7 @@ export function useVoiceCall(sessionId: string, sandboxId: string) {
     };
 
     const onReady = (message: RelayMessage) => {
+      clearTimeout(readyTimer);
       step({ type: 'ready', at: Date.now() });
       // A redialed call is a new call on the relay: it sees the shared screen again.
       shareRef.current?.sampler.snap();
@@ -141,7 +162,8 @@ export function useVoiceCall(sessionId: string, sandboxId: string) {
           return void share.sampler.snap();
         }
         case 'closed':
-          return void step({ type: 'closed' });
+          clearTimeout(readyTimer);
+          return void step({ type: 'closed', why: message.why });
       }
     };
 
@@ -153,15 +175,22 @@ export function useVoiceCall(sessionId: string, sandboxId: string) {
       );
       opened.binaryType = 'arraybuffer';
       socket = opened;
+      clearTimeout(readyTimer);
+      readyTimer = setTimeout(() => {
+        if (!disposed && socket === opened && current.phase !== 'live' && current.phase !== 'ended') {
+          opened.close(4000, 'ready timeout');
+        }
+      }, READY_TIMEOUT_MS);
       opened.onmessage = onMessage;
       opened.onclose = () => {
         if (disposed || socket !== opened) return;
+        clearTimeout(readyTimer);
         dropAudio();
         if (current.phase === 'connecting') {
           // Before the first `ready`: dialed again while a box that just started opens the relay's port (DIAL_MS).
           // After the last try, a port nothing listens on is a sandbox without the relay: the proxy answers that
           // itself (502/503/504), and the probe tells it from a failed dial.
-          void probePreviewPort(voiceRelayHealthUrl(portUrl)).then((relay) => {
+          void probeVoiceRelay(voiceRelayHealthUrl(portUrl), token).then((relay) => {
             if (disposed) return;
             const next = step({ type: 'drop', relay });
             if (next.phase === 'connecting') redial = setTimeout(() => void dial(false), DIAL_MS[next.redials - 1]);
@@ -176,6 +205,7 @@ export function useVoiceCall(sessionId: string, sandboxId: string) {
     const teardown = () => {
       disposed = true;
       clearTimeout(redial);
+      clearTimeout(readyTimer);
       dropAudio();
       shareRef.current?.stop(false);
       socket?.close();

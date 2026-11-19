@@ -11,8 +11,37 @@ import { modelsHeaders, sttFetch, speechUrl, viaModels, voicesUrl } from './mode
 // Vendor error text reaches stderr verbatim: drop line breaks so it cannot forge log lines (CodeQL js/log-injection).
 const oneline = (v: unknown) => String(v).replace(/[\r\n]+/g, ' ')
 
+export type AudioGatewayError = { status: number; code?: string; message: string }
+
+/** Reads structured gateway refusal envelopes (`{ error: { code, message } }`) or plain HTTP text from audio routes. */
+export async function parseGatewayError(res: Response | undefined): Promise<AudioGatewayError> {
+  if (!res) return { status: 0, code: 'audio_unavailable', message: 'audio service unreachable' }
+  const raw = await res.clone().text().catch(() => '')
+  let code: string | undefined
+  let message: string | undefined
+  try {
+    const parsed = JSON.parse(raw) as { code?: unknown; message?: unknown; error?: unknown }
+    if (typeof parsed?.code === 'string' && parsed.code) code = parsed.code
+    if (typeof parsed?.message === 'string' && parsed.message) message = parsed.message
+    if (parsed?.error && typeof parsed.error === 'object') {
+      const errObj = parsed.error as { code?: unknown; message?: unknown }
+      if (!code && typeof errObj.code === 'string' && errObj.code) code = errObj.code
+      if (!message && typeof errObj.message === 'string' && errObj.message) message = errObj.message
+    } else if (!message && typeof parsed?.error === 'string' && parsed.error) {
+      message = parsed.error
+    }
+  } catch {
+    // non-JSON body handled below
+  }
+  return {
+    status: res.status,
+    ...(code ? { code } : {}),
+    message: message || raw.slice(0, 200) || `HTTP ${res.status}`,
+  }
+}
+
 export type Stt = { feed(pcm: Uint8Array, loud: boolean): void; commit(): void; peek?(): Promise<string>; speculate?(): void; close(): void }
-export type SttEvents = { ready(): void; text(t: string, lang?: string, conf?: number): void; close(why: string): void; keep?(t: string): boolean; lang?: string; guess?(t: string): void; names?(): string[]; model?: string; engine?: 'groq' | 'gemini' } // names: said in this call, for the prompt // guess: a speculative transcript // keep: a short result too precious to drop (the wake name); lang: the call's starting language
+export type SttEvents = { ready(): void; text(t: string, lang?: string, conf?: number): void; close(why: string): void; onError?(err: AudioGatewayError): void; keep?(t: string): boolean; lang?: string; guess?(t: string): void; names?(): string[]; model?: string; engine?: 'groq' | 'gemini' } // names: said in this call, for the prompt // guess: a speculative transcript // keep: a short result too precious to drop (the wake name); lang: the call's starting language
 // Voiced speech crosses zero far less often than noise: median zero-crossing rate 0.05-0.14 per sample for
 // the bench's speech, 0.50 for broadband noise; 70-100% of loud speech frames are under 0.25, no noise frame is.
 // Whisper never hears a segment without vowels in it (it invents "Okay, let's go." for noise).
@@ -33,7 +62,7 @@ const repo = process.env.VOICE_WORKSPACE ?? process.env.KORTIX_WORKSPACE
 // Code files only, not tests, benches or notes: their names ("named-evidence-proof", "personas") took prompt slots real words need.
 const files = repo ? Bun.spawnSync(['git', '-C', repo, 'ls-files']).stdout.toString().split('\n').filter((f) => /\.(?:tsx?|jsx?|mjs|py|go|rs|rb|java|kt|swift|cs|php|vue|svelte)$/.test(f) && !/(?:^|\/)(?:bench|tests?|__tests__|fixtures|runs|spec)\//.test(f) && !/\.(?:test|spec)\.[^/]+$/.test(f)) : []
 const names = files.sort((a, b) => a.split('/').length - b.split('/').length).map((f) => f.split('/').pop()!.replace(/\.\w+$/, ''))
-const terms = [...(process.env.VOCAB ?? `${NAME},Kortix,Bun,TypeScript`).split(',').map((t) => t.trim()), ...names.filter((n) => /^\w[\w-]{2,23}$/.test(n))]
+const terms = [...(process.env.VOCAB ?? `${NAME},Dosco,Bun,TypeScript`).split(',').map((t) => t.trim()), ...names.filter((n) => /^\w[\w-]{2,23}$/.test(n))]
 const VOCAB = terms.filter((t, i) => terms.findIndex((u) => u.toLowerCase() === t.toLowerCase()) === i).slice(0, 40)
 /** The names Whisper is biased toward (the product's and the project's), for reading a turn as it was said. */
 export const vocab = () => VOCAB
@@ -79,10 +108,10 @@ export const stts: Record<string, (e: SttEvents) => Stt> = {
     }
     // conf: Whisper's mean log-probability of the words used (src/cascade.ts reads a low one as unsure hearing).
     const clip = async (pcm: Uint8Array, ms: number, strict: boolean): Promise<{ text: string; apply(): void; conf?: number }> => {
-      const r = e.engine === 'gemini' ? await hearGemini(pcm, e.names?.()) : await transcribe(pcm, strict, e.keep, LANG, e.model, e.names?.())
+      const r = e.engine === 'gemini' ? await hearGemini(pcm, e.names?.()) : await transcribe(pcm, strict, e.keep, LANG, e.model, e.names?.(), e.onError)
       const f = r.lang && family(r.lang)
       if (LANG || !r.lang || f === family(lang) || !r.text) return { text: r.text, conf: r.conf, apply() {} }
-      const p = e.engine === 'gemini' ? r : await transcribe(pcm, strict, e.keep, lang, e.model, e.names?.())
+      const p = e.engine === 'gemini' ? r : await transcribe(pcm, strict, e.keep, lang, e.model, e.names?.(), e.onError)
       const n = r.text.split(/\s+/).length
       const better = n >= 3 && r.conf > p.conf + 0.05 && (!LANGS || LANGS.map(family).includes(f!)) // "hr" for Serbian speech is Serbian
       const twice = better && f === last
@@ -191,7 +220,7 @@ async function hearGemini(pcm: Uint8Array, names: string[] = []): Promise<{ text
   const text = ((j?.candidates?.[0]?.content?.parts ?? []) as any[]).map((p) => p.text ?? '').join('').trim()
   return { text, conf: text ? 0 : -9 }
 }
-async function transcribe(pcm: Uint8Array, strict = true, keep?: (t: string) => boolean, lang?: string, model = process.env.WHISPER_MODEL ?? 'whisper-large-v3', names: string[] = []): Promise<{ text: string; lang?: string; conf: number }> {
+async function transcribe(pcm: Uint8Array, strict = true, keep?: (t: string) => boolean, lang?: string, model = process.env.WHISPER_MODEL ?? 'whisper-large-v3', names: string[] = [], onError?: (err: AudioGatewayError) => void): Promise<{ text: string; lang?: string; conf: number }> {
   const extra = names.filter((n) => !VOCAB.some((v) => v.toLowerCase() === n.toLowerCase())).slice(0, 15)
   const head = Buffer.alloc(44)
   head.write('RIFF', 0), head.writeUInt32LE(36 + pcm.length, 4), head.write('WAVEfmt ', 8), head.writeUInt32LE(16, 16)
@@ -216,27 +245,37 @@ async function transcribe(pcm: Uint8Array, strict = true, keep?: (t: string) => 
       .then((r) => (r.ok && chargeStt(model, pcm.length / 32000, strict ? undefined : 'peek'), r)), // each answered request is billed, a race's or hedge's second too
     strict ? RACE : HEDGE,
   ).catch(() => undefined)
-  if (!res?.ok) return console.error('[cascade whisper]', res?.status, await res?.text()), { text: '', conf: -9 }
+  if (!res?.ok) {
+    const err = await parseGatewayError(res)
+    console.error('[cascade whisper]', err.status, err.code ?? '', oneline(err.message))
+    onError?.(err)
+    return { text: '', conf: -9 }
+  }
   // Whisper invents text for noise and echo. Keep only segments it believes are speech.
-  const { segments = [], language } = (await res.json()) as { segments?: Seg[]; language?: string }
+  const { segments = [], language, text: rawText } = (await res.json()) as { segments?: Seg[]; language?: string; text?: string }
   const detected = language && (ISO[language.toLowerCase()] ?? language.toLowerCase())
-  let text = segments.filter(heard).map((s) => s.text).join('').trim()
+  const effectiveSegments: Seg[] = segments.length > 0
+    ? segments
+    : typeof rawText === 'string' && rawText.trim()
+      ? [{ text: rawText.trim(), no_speech_prob: 0.01, avg_logprob: -0.2, compression_ratio: 1 }]
+      : []
+  let text = effectiveSegments.filter(heard).map((s) => s.text).join('').trim()
   // One or two words is where hallucinations live ("CometEdit" from echo): demand more confidence,
   // except for a command, which is never a stock hallucination and costs more to miss than to mishear.
   // Short real words score -0.5 to -0.9 ("Thanks, bye." -0.54, "Hey, what?" -0.59, "Sweet!" -0.75, all with no-speech
   // 0.00, dropped at -0.5 in simulated calls: 0.85 of the caller's words reached the agent); noise read as words
   // scores worse or is marked as no speech ("Reth.me" 0.87/-0.81, "Ovoaip." 0.43/-1.08).
-  const sure = segments.every((s) => (s.no_speech_prob < 0.3 && s.avg_logprob > -0.8) || s.avg_logprob > -0.4)
+  const sure = effectiveSegments.every((s) => (s.no_speech_prob < 0.3 && s.avg_logprob > -0.8) || s.avg_logprob > -0.4)
   if (strict && text.split(/\s+/).length <= 2 && !sure && !COMMAND.test(text) && !keep?.(text)) text = ''
-  if (process.env.DEBUG && !text) console.error('whisper dropped', JSON.stringify(segments.map((s) => [s.text, s.no_speech_prob.toFixed(2), s.avg_logprob.toFixed(2), s.compression_ratio.toFixed(1)])))
-  // On unclear audio Whisper can read back its own prompt ("Kortix, Bun, TypeScript").
+  if (process.env.DEBUG && !text) console.error('whisper dropped', JSON.stringify(effectiveSegments.map((s) => [s.text, s.no_speech_prob.toFixed(2), s.avg_logprob.toFixed(2), s.compression_ratio.toFixed(1)])))
+  // On unclear audio Whisper can read back its own prompt ("Dosco, Bun, TypeScript").
   const said = text.toLowerCase().match(/[\p{L}\p{N}']+/gu) ?? []
   // Whisper's stock phrases on noise ("Thank you.") are also what callers say last: kept when Whisper is certain.
-  const certain = segments.every((s) => s.no_speech_prob < 0.1 && s.avg_logprob > -0.7)
+  const certain = effectiveSegments.every((s) => s.no_speech_prob < 0.1 && s.avg_logprob > -0.7)
   const prompted = new Set([...PROMPT, ...extra.flatMap((n) => n.toLowerCase().match(/[\p{L}\p{N}']+/gu) ?? [])])
   if (said.every((w) => prompted.has(w)) || (HALLUCINATION.test(text) && (!certain || SUBTITLE.test(text) || REPEATED.test(text)))) text = ''
   // Serbian comes back in Cyrillic when pinned ("Какво ће време"): Latin, as the user would type it.
-  const conf = segments.length ? segments.reduce((a, s) => a + s.avg_logprob, 0) / segments.length : -9
+  const conf = effectiveSegments.length ? effectiveSegments.reduce((a, s) => a + s.avg_logprob, 0) / effectiveSegments.length : -9
   if (CAPTURE && strict) {
     const id = `${CAPTURE}/${new Date().toISOString().replace(/[:.]/g, '-')}-${model}`
     void Bun.write(`${id}.wav`, file).catch(() => {})
@@ -542,6 +581,33 @@ export function inworldId(v: string): string {
 export const voicesKnown = () => known.length > 0
 
 const cache = new Map<string, Promise<Uint8Array | undefined>>()
+
+/** Cached fixed-phrase speech returning a Response so non-OK gateway refusals preserve status/code (never cached). */
+export async function cachedSpeak(
+  text: string,
+  voice?: string,
+  lang = 'en',
+  via: 'xai' | 'gemini' | 'inworld' | 'mock' | 'models' = xaiSpeaks(lang) ? 'xai' : 'gemini',
+): Promise<Response | undefined> {
+  const key = `${via}|${lang}|${voice ?? ''}|${text}`
+  const hit = cache.get(key)
+  if (hit) {
+    const pcm = await hit
+    if (pcm) return new Response(pcm as Uint8Array<ArrayBuffer>)
+    cache.delete(key)
+  }
+  try {
+    const res = await (via === 'xai' ? ttss.xai!(lang) : via === 'inworld' ? ttss.inworld!(lang) : via === 'models' ? ttss.models!(lang) : via === 'mock' ? ttss.mock!() : ttss.gemini!())
+      .speak(text, voice, new AbortController().signal)
+    if (!res.ok) return res
+    const trimmed = trim(new Uint8Array(await res.arrayBuffer()))
+    cache.set(key, Promise.resolve(trimmed))
+    return new Response(trimmed as Uint8Array<ArrayBuffer>)
+  } catch {
+    return undefined
+  }
+}
+
 export function cached(text: string, voice?: string, lang = 'en', via: 'xai' | 'gemini' | 'inworld' | 'mock' | 'models' = xaiSpeaks(lang) ? 'xai' : 'gemini'): Promise<Uint8Array | undefined> {
   const key = `${via}|${lang}|${voice ?? ''}|${text}`
   if (!cache.has(key))
@@ -549,8 +615,8 @@ export function cached(text: string, voice?: string, lang = 'en', via: 'xai' | '
       key,
       (via === 'xai' ? ttss.xai!(lang) : via === 'inworld' ? ttss.inworld!(lang) : via === 'models' ? ttss.models!(lang) : via === 'mock' ? ttss.mock!() : ttss.gemini!())
         .speak(text, voice, new AbortController().signal)
-        .then(async (r) => (r.ok ? trim(new Uint8Array(await r.arrayBuffer())) : undefined))
-        .catch(() => undefined),
+        .then(async (r) => (r.ok ? trim(new Uint8Array(await r.arrayBuffer())) : (cache.delete(key), undefined)))
+        .catch(() => (cache.delete(key), undefined)),
     )
   return cache.get(key)!
 }

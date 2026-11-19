@@ -3,6 +3,7 @@
 // fresh session at the next turn boundary, seeded with this call's transcript. Session resumption
 // is not used because it makes Google retain session state for up to 24 h (no zero retention).
 import { type Provider, b64, unb64 } from './model'
+import { NAME } from './name'
 
 const URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent'
 
@@ -92,7 +93,7 @@ export const gemini: Provider = (o, h) => {
     audio: (pcm) => send({ realtimeInput: { audio: { data: b64(pcm), mimeType: 'audio/pcm;rate=16000' } } }),
     result: (id, name, output) => {
       later = later.filter((l) => !l.transient)
-      if (!pending.delete(id)) return say(`Kortix finished. ${output}`) // the call was dropped: speak it anyway
+      if (!pending.delete(id)) return say(`${NAME} finished. ${output}`) // the call was dropped: speak it anyway
       send({ toolResponse: { functionResponses: [{ id, name, response: { result: output, scheduling: 'WHEN_IDLE' } }] } })
     },
     say,

@@ -61,6 +61,7 @@ const KORTIX_APPD_HEALTH_WAIT =
   'sleep 1; done; exit 1';
 import { sandboxOwnershipMarker } from '../sandbox-ownership';
 import { logger } from '../../lib/logger';
+import { buildFeatureFlagSandboxEnv } from '../../projects/lib/feature-flag-env';
 
 const MANAGED_METADATA = 'kortix_managed';
 const ENV_METADATA = 'kortix_env';
@@ -605,6 +606,42 @@ export class E2BProvider implements SandboxProvider {
     // template start command during that boot; this explicit check makes the
     // Dosco runtime invariant independent of provider startup behavior.
     const envVars = await loadRuntimeEnv(sandbox);
+    if (envVars.KORTIX_WORKLOAD_TYPE !== 'app') {
+      let envChanged = false;
+      if (!envVars.VOICE_NAME) {
+        envVars.VOICE_NAME = 'Xera';
+        envChanged = true;
+      }
+      if (config.INWORLD_WORKSPACE && envVars.INWORLD_WORKSPACE !== config.INWORLD_WORKSPACE) {
+        envVars.INWORLD_WORKSPACE = config.INWORLD_WORKSPACE;
+        envChanged = true;
+      }
+      if (envVars.KORTIX_PROJECT_ID) {
+        const freshFlags = await buildFeatureFlagSandboxEnv(envVars.KORTIX_PROJECT_ID).catch((err) => {
+          logger.warn('[e2b] failed to refresh feature flags on wake; keeping persisted flags', {
+            externalId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          return null;
+        });
+        if (freshFlags !== null) {
+          const nextValue = freshFlags.KORTIX_FEATURE_FLAGS;
+          if (nextValue !== envVars.KORTIX_FEATURE_FLAGS) {
+            if (nextValue === undefined) delete envVars.KORTIX_FEATURE_FLAGS;
+            else envVars.KORTIX_FEATURE_FLAGS = nextValue;
+            envChanged = true;
+          }
+        }
+      }
+      if (envChanged) {
+        await persistRuntimeEnv(sandbox, envVars).catch((err) =>
+          logger.warn('[e2b] failed to persist refreshed runtime env on wake', {
+            externalId,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
+    }
     if (envVars.KORTIX_WORKLOAD_TYPE === 'app') await ensureAppEntrypoint(sandbox, envVars);
     // RESUME, not create: this is the path that has to survive a provider
     // resume which brings the VM back with a dead process tree.

@@ -433,3 +433,214 @@ describe('GET /audio/voices', () => {
     expect(body.retry_after).toBeUndefined();
   });
 });
+
+describe('sovereign Groq STT + Inworld TTS audio', () => {
+  const groqStt: UpstreamDescriptor = {
+    provider: 'groq',
+    kind: 'openai-compat',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    apiKey: 'gsk-test',
+    billingMode: 'credits',
+    markup: 1.2,
+    resolvedModel: 'whisper-large-v3-turbo',
+    publicProvider: 'kortix',
+  };
+
+  const inworldTts: UpstreamDescriptor = {
+    provider: 'inworld',
+    kind: 'openai-compat',
+    baseUrl: 'https://api.inworld.ai',
+    apiKey: 'inworld-b64',
+    omitAuthorization: true,
+    headers: { authorization: 'Basic inworld-b64' },
+    billingMode: 'credits',
+    markup: 1.2,
+    resolvedModel: 'inworld-tts-2',
+    publicProvider: 'kortix',
+  };
+
+  test('Groq STT forces verbose_json upstream, applies 10s minimum duration rate, and supports text/json/verbose_json', async () => {
+    const segments = [{ id: 0, start: 0, end: 1.5, text: ' hello' }];
+    const { calls, usage, transcribe } = setup(
+      { resolveUpstream: async (_p, model) => [{ ...groqStt, resolvedModel: model }] },
+      async () => json({ text: 'hello', duration: 1.5, segments }),
+    );
+    const resVerbose = await transcribe({ model: 'whisper-large-v3-turbo', file: clip(), response_format: 'verbose_json' });
+    expect(resVerbose.status).toBe(200);
+    expect(await resVerbose.json()).toEqual({ text: 'hello', duration: 1.5, segments, usage: { type: 'duration', seconds: 10 } });
+    expect((calls[0]!.init.body as FormData).get('response_format')).toBe('verbose_json');
+    expect(header(calls[0]!, 'authorization')).toBe('Bearer gsk-test');
+    // 10s minimum at $0.04/hr = 0.000111111...
+    expect(billed(usage)[0]!.upstreamCost).toBeCloseTo((10 / 3600) * 0.04, 10);
+    expect(billed(usage)[0]!.finalCost).toBeCloseTo((10 / 3600) * 0.04 * 1.2, 10);
+
+    const resJson = await transcribe({ model: 'whisper-large-v3-turbo', file: clip(), response_format: 'json' });
+    expect(resJson.status).toBe(200);
+    expect(await resJson.json()).toEqual({ text: 'hello', usage: { type: 'duration', seconds: 10 } });
+
+    const resText = await transcribe({ model: 'whisper-large-v3-turbo', file: clip(), response_format: 'text' });
+    expect(resText.status).toBe(200);
+    expect(await resText.text()).toBe('hello');
+  });
+
+  test('Groq STT fails closed with audio_model_unpriced when duration is missing', async () => {
+    const { usage, transcribe } = setup(
+      { resolveUpstream: async (_p, model) => [{ ...groqStt, resolvedModel: model }] },
+      async () => json({ text: 'no duration' }),
+    );
+    const res = await transcribe({ model: 'whisper-large-v3-turbo', file: clip() });
+    expect(res.status).toBe(502);
+    expect(((await res.json()) as ErrorBody).code).toBe('audio_model_unpriced');
+    expect(billed(usage)).toHaveLength(0);
+    expect(refunds(usage)).toHaveLength(1);
+  });
+
+  test('Inworld TTS streams decoded NDJSON PCM and MP3 chunks and bills character rate', async () => {
+    const chunkA = Buffer.from([1, 2, 3, 4]).toString('base64');
+    const chunkB = Buffer.from([5, 6]).toString('base64');
+    const ndjson = `${JSON.stringify({ result: { audioContent: chunkA } })}\n${JSON.stringify({ result: { audioContent: chunkB } })}\n`;
+    const { calls, usage, speech } = setup(
+      { resolveUpstream: async (_p, model) => [{ ...inworldTts, resolvedModel: model }] },
+      async () => new Response(ndjson, { status: 200 }),
+    );
+    const res = await speech({ model: 'inworld-tts-2', input: 'Hi Xera!', voice: 'Ashley', response_format: 'pcm', sample_rate: 24000 });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('audio/pcm');
+    expect(res.headers.get('x-sample-rate')).toBe('24000');
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3, 4, 5, 6]));
+    expect(calls[0]!.url).toBe('https://api.inworld.ai/tts/v1/voice:stream');
+    expect(header(calls[0]!, 'authorization')).toBe('Basic inworld-b64');
+    expect(JSON.parse(String(calls[0]!.init.body))).toEqual({
+      text: 'Hi Xera!',
+      voiceId: 'Ashley',
+      modelId: 'inworld-tts-2',
+      audioConfig: { audioEncoding: 'PCM', sampleRateHertz: 24000 },
+    });
+    const expectedUsd = (8 / 1_000_000) * 25;
+    expect(billed(usage)[0]!.upstreamCost).toBeCloseTo(expectedUsd, 10);
+    expect(billed(usage)[0]!.finalCost).toBeCloseTo(expectedUsd * 1.2, 10);
+
+    const mp3Res = await speech({ model: 'inworld-tts-2-flash', input: 'Test', voice: 'Dennis', response_format: 'mp3' });
+    expect(mp3Res.status).toBe(200);
+    expect(mp3Res.headers.get('content-type')).toBe('audio/mpeg');
+    expect(mp3Res.headers.get('x-sample-rate')).toBeNull();
+  });
+
+  test('Inworld TTS refunds hold and returns 502 on in-band error before any audio', async () => {
+    const ndjson = `${JSON.stringify({ error: { message: 'voice not found' } })}\n`;
+    const { usage, speech } = setup(
+      { resolveUpstream: async (_p, model) => [{ ...inworldTts, resolvedModel: model }] },
+      async () => new Response(ndjson, { status: 200 }),
+    );
+    const res = await speech({ model: 'inworld-tts-2', input: 'Hi.', voice: 'Missing' });
+    expect(res.status).toBe(502);
+    expect(((await res.json()) as ErrorBody).code).toBe('audio_upstream_error');
+    expect(billed(usage)).toHaveLength(0);
+    expect(refunds(usage)).toHaveLength(1);
+  });
+
+  test('Inworld GET /audio/voices normalizes { voices } list', async () => {
+    const { calls, voices } = setup(
+      { resolveUpstream: async (_p, model) => [{ ...inworldTts, resolvedModel: model }] },
+      async () => json({ voices: [{ voiceId: 'Ashley', displayName: 'Ashley', description: 'Warm', languages: ['en'], tags: ['female'] }] }),
+    );
+    const res = await voices('inworld-tts-2');
+    expect(res.status).toBe(200);
+    expect(calls[0]!.url).toBe('https://api.inworld.ai/tts/v1/voices');
+    expect(header(calls[0]!, 'authorization')).toBe('Basic inworld-b64');
+    expect(await res.json()).toEqual({
+      object: 'list',
+      data: [{ id: 'Ashley', name: 'Ashley', description: 'Warm', languages: ['en'], tags: ['female'] }],
+    });
+  });
+
+  const openrouterAudio: UpstreamDescriptor = {
+    provider: 'openrouter',
+    kind: 'openai-compat',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    apiKey: 'sk-or-test',
+    billingMode: 'credits',
+    markup: 1.2,
+    resolvedModel: 'hexgrad/kokoro-82m',
+    publicProvider: 'kortix',
+    headers: { 'HTTP-Referer': 'https://dosco.live', 'X-Title': 'Dosco AI' },
+  };
+
+  test('OpenRouter STT bills usage.cost or fallback duration rate and synthesizes segments when omitted', async () => {
+    const { usage, transcribe } = setup(
+      { resolveUpstream: async () => [{ ...openrouterAudio, resolvedModel: 'openai/whisper-large-v3-turbo' }] },
+      async () => json({ text: 'openrouter hello', duration: 6 }),
+    );
+    const res = await transcribe({ model: 'whisper-large-v3', file: clip(), response_format: 'verbose_json' });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      text: 'openrouter hello',
+      duration: 6,
+      segments: [{ text: 'openrouter hello', no_speech_prob: 0.01, avg_logprob: -0.2, compression_ratio: 1 }],
+      usage: { type: 'duration', seconds: 6 },
+    });
+    expect(billed(usage)[0]!.upstreamCost).toBeCloseTo((6 / 3600) * 0.012, 10);
+    expect(billed(usage)[0]!.finalCost).toBeCloseTo((6 / 3600) * 0.012 * 1.2, 10);
+
+    const { usage: costUsage, transcribe: costTranscribe } = setup(
+      { resolveUpstream: async () => [{ ...openrouterAudio, resolvedModel: 'openai/whisper-large-v3-turbo' }] },
+      async () => json({ text: 'billed directly', usage: { seconds: 4, cost: 0.0005 } }),
+    );
+    const resCost = await costTranscribe({ model: 'whisper-large-v3', file: clip() });
+    expect(resCost.status).toBe(200);
+    expect(billed(costUsage)[0]!.upstreamCost).toBeCloseTo(0.0005, 10);
+  });
+
+  test('OpenRouter TTS (hexgrad/kokoro-82m) maps incompatible default voice to af_heart and bills $0.99/1M chars', async () => {
+    const { calls, usage, speech } = setup(
+      { resolveUpstream: async () => [openrouterAudio] },
+      async () => new Response(new Uint8Array([10, 20, 30, 40]), {
+        status: 200,
+        headers: { 'content-type': 'audio/pcm;rate=24000;channels=1' },
+      }),
+    );
+    const res = await speech({ model: 'inworld-tts-2', input: 'Hello from Dosco!', voice: 'Ashley', response_format: 'pcm' });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('audio/pcm');
+    expect(res.headers.get('x-sample-rate')).toBe('24000');
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(new Uint8Array([10, 20, 30, 40]));
+    expect(calls[0]!.url).toBe('https://openrouter.ai/api/v1/audio/speech');
+    expect(header(calls[0]!, 'authorization')).toBe('Bearer sk-or-test');
+    expect(JSON.parse(String(calls[0]!.init.body))).toEqual({
+      model: 'hexgrad/kokoro-82m',
+      input: 'Hello from Dosco!',
+      voice: 'af_heart',
+      response_format: 'pcm',
+    });
+    const expectedUsd = (17 / 1_000_000) * 0.99;
+    expect(billed(usage)[0]!.upstreamCost).toBeCloseTo(expectedUsd, 10);
+    expect(billed(usage)[0]!.finalCost).toBeCloseTo(expectedUsd * 1.2, 10);
+  });
+
+  test('OpenRouter :free TTS serves with zero cost without failing unpriced check', async () => {
+    const { calls, usage, speech } = setup(
+      { resolveUpstream: async () => [{ ...openrouterAudio, resolvedModel: 'heygen/heygen-voice-1-turbo:free' }] },
+      async () => new Response(new Uint8Array([1, 2]), { status: 200, headers: { 'content-type': 'audio/pcm' } }),
+    );
+    const res = await speech({ model: 'inworld-tts-2', input: 'Free test', voice: 'noelle', response_format: 'pcm' });
+    expect(res.status).toBe(200);
+    expect(JSON.parse(String(calls[0]!.init.body))).toMatchObject({
+      model: 'heygen/heygen-voice-1-turbo:free',
+      voice: 'noelle',
+    });
+    expect(usage.at(-1)).toMatchObject({ upstreamCost: 0, finalCost: 0 });
+  });
+
+  test('OpenRouter GET /audio/voices returns curated catalog voices for hexgrad/kokoro-82m', async () => {
+    const { calls, voices } = setup(
+      { resolveUpstream: async () => [openrouterAudio] },
+    );
+    const res = await voices('inworld-tts-2');
+    expect(res.status).toBe(200);
+    expect(calls).toHaveLength(0);
+    const body = (await res.json()) as { object: string; data: { id: string; name: string }[] };
+    expect(body.object).toBe('list');
+    expect(body.data.some((v) => v.id === 'af_heart')).toBe(true);
+    expect(body.data.some((v) => v.id === 'bm_george')).toBe(true);
+  });
+});

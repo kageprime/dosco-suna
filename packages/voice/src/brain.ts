@@ -8,12 +8,16 @@ export type { Agent, Bus, Recall, SendExtra, TurnEvents, TurnOptions } from './a
 
 let standalone: Agent | undefined
 let bound: Agent | undefined
+let hosted = false
 // A host with several sessions in one process (a Kortix box: one relay, a call per session) binds each by the id a
 // call names it with (`/stream?session=<id>`); a call's every agent call carries that id, so it reaches its own.
 const sessions = new Map<string, Agent>()
 // The sessions whose host gave the agent the voice's tools (src/voice-tools.ts): it acts on its call with them.
 const withTools = new Set<string>()
 const backends: Record<string, () => Agent> = { pi: () => (standalone ??= pi.standalone()) }
+
+/** True once a multi-session sandbox host has registered at least one session with bind(). */
+export const isHosted = () => hosted
 
 /** The agent every call uses: the one bound with `use`, else VOICE_AGENT's. */
 export function agent(): Agent {
@@ -32,6 +36,7 @@ export function use(next: Agent | undefined) {
 /** Binds one session of a many-session host under `id`; undefined unbinds it (the session shut down). `tools`: the
  * host gave that session's agent the voice's tools. `name`: the agent's own, the call's name unless the call names one. */
 export function bind(id: string, next: Agent | undefined, o: { tools?: boolean; name?: string } = {}) {
+  if (next) hosted = true
   if (next) sessions.set(id, next)
   else sessions.delete(id)
   if (next && o.tools) withTools.add(id)
@@ -47,8 +52,12 @@ export const nameOf = (sid: string | null | undefined): string | undefined => (s
 export const tools = (sid: string | null | undefined) => !!sid && withTools.has(sid)
 
 const of = (sid: string | null | undefined) => (sid && sessions.get(sid)) || agent()
-/** A bound session's own id stands; any other goes to the agent, which makes or finds one. */
-export const session = (id?: string | null) => (id && sessions.has(id) ? Promise.resolve(id) : agent().session(id))
+/** A bound session's own id stands; a hosted relay rejects unbound ids instead of spawning a standalone agent. */
+export const session = (id?: string | null) => {
+  if (id && sessions.has(id)) return Promise.resolve(id)
+  if (hosted && !bound) return Promise.reject(new Error('session is not bound to this voice relay'))
+  return agent().session(id)
+}
 export const ask = (sid: string, request: string) => of(sid).ask(sid, request)
 export const remember = (sid: string, note: string, synthetic = false) => of(sid).remember(sid, note, synthetic)
 export const recall = (sid: string, chars?: number) => of(sid).recall(sid, chars)

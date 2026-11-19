@@ -27,7 +27,7 @@ import { ponder as roomPonder, confirm as roomConfirm, history as roomHistory, j
 import { changed as screenChanged, look, ocr, see, VISUAL, visionOn } from './vision'
 import { follows, foresight, toneOf } from './anticipate'
 import { lookup, preconnect, prefetch, warm as warmSearch, workspaceMap } from './prefetch'
-import { type Stt, type Tts, type Utterance, cached, inworldVoice, inworldVoices, stts, ttsDefault, ttss, vocab, voiced, voicesKnown } from './speech'
+import { type AudioGatewayError, type Stt, type Tts, type Utterance, cached, cachedSpeak, inworldVoice, inworldVoices, parseGatewayError, stts, ttsDefault, ttss, vocab, voiced, voicesKnown } from './speech'
 import { resolved, type Card, type Route } from './route'
 import { cardData, cue, glance, judge as judgeCard, leans, routeAhead, spokenCard, whenHeard } from './judge'
 import { content } from './pages'
@@ -284,7 +284,7 @@ export const DEFAULT_RULES =
   "arrives, lead with the answer to what they asked and what it means for their goal, in a sentence or two, then " +
   "stop; if they are in the middle of something, answer that first. Before anything irreversible " +
   "(deleting, deploying, sending), ask for a clear yes. Their words are speech-to-text: you are " +
-  `${NAME} (${NAME === 'Kortix' ? 'often heard as Cortex, Cortix or Kortex' : 'often heard as a sound-alike'}), and when` + " a sound-alike fits the conversation better than the literal words, take it. A name you do not know in " +
+  `${NAME} (${NAME === 'Xera' ? 'often heard as Sera, Zera or Sarah' : 'often heard as a sound-alike'}), and when` + " a sound-alike fits the conversation better than the literal words, take it. A name you do not know in " +
   "their words is most often ordinary words heard as one: read it by its sound against what you just said or asked " +
   "before taking it as a name, and never build on a name you know nothing about. " +
   "If the words still make no sense, say you didn't catch that. " +
@@ -1000,6 +1000,27 @@ export const cascade: Provider = (o, h) => {
   const log = (...a: unknown[]) => process.env.DEBUG && console.error('voice', performance.now() | 0, ...a)
   // Every decision the voice layer makes, into the call's trace (VOICE_TRACE_DIR; bench/traces.ts shows them per turn).
   const note = (kind: string, data: Record<string, unknown> = {}) => h.event?.(kind, data)
+  const TERMINAL_AUDIO_CODES = new Set([
+    'plan_upgrade_required',
+    'insufficient_credits',
+    'audio_model_unsupported',
+    'model_not_found',
+    'model_disabled_on_deployment',
+    'provider_disabled',
+  ])
+  let ttsFailures = 0
+  let sttFailures = 0
+  let audioClosed = false
+  const onAudioFailure = (stage: 'stt' | 'tts', err: AudioGatewayError) => {
+    note('audio-error', { stage, status: err.status, code: err.code ?? '', message: err.message })
+    if (stage === 'tts') ttsFailures++
+    else sttFailures++
+    const consecutive = stage === 'tts' ? ttsFailures : sttFailures
+    if (!audioClosed && live() && ((err.code && TERMINAL_AUDIO_CODES.has(err.code)) || consecutive >= 2)) {
+      audioClosed = true
+      h.close(err.code || err.message || 'audio_unavailable')
+    }
+  }
   const audible = () => (playing > 0 && performance.now() < playing + TAIL) || !!current?.audible
   // Echo path. Without (enough) echo cancellation the mic hears the agent. Every mic frame is paired with
   // the agent frame playing at that moment; over the last second, the lag where the two level envelopes
@@ -1062,6 +1083,7 @@ export const cascade: Provider = (o, h) => {
   const stt: Stt = stts[o.stt && stts[o.stt] ? o.stt : process.env.VOICE_STT ?? 'whisper']!({
     ready: h.ready,
     close: h.close,
+    onError: (err) => onAudioFailure('stt', err),
     lang,
     // The words at a 100 ms pause start the search, the card and the answer's start (the subject comes last: the glances
     // during speech rarely have it).
@@ -1086,6 +1108,7 @@ export const cascade: Provider = (o, h) => {
     },
     keep: (t) => !!o.wake && words(t).length > 0 && addressed(t),
     text(t, l, conf) {
+      if (conf !== undefined && conf > -9) sttFailures = 0
       // Whisper was unsure of these words (a low mean log-probability): the turn is told so, to read them by sound
       // and by what makes sense in this call (research: OpenAI's realtime guide "do not guess from unclear audio",
       // the user's "it should guess from context"; split by confidence, 2026-11-02).
@@ -1273,7 +1296,7 @@ export const cascade: Provider = (o, h) => {
         close()
         const synth = () =>
           fixed
-            ? cached(line, o.voice, tongue(), one).then((pcm) => pcm && new Response(pcm as Uint8Array<ArrayBuffer>))
+            ? cachedSpeak(line, o.voice, tongue(), one)
             : tts
               ? tts.speak(`${inworldFamily && t.tone ? `[${t.tone}] ` : ''}${en ? speakable(line) : bare(line)}`, o.voice, ac.signal, me.rate) // xAI and Inworld both perform [chuckle] and [sigh] (measured: neither is read aloud)
               : gem.speak((en ? speakable(line) : bare(line)).replace(TAGS, ''), o.voice, ac.signal)
@@ -1388,7 +1411,12 @@ export const cascade: Provider = (o, h) => {
 
   async function play(t: Turn, sp: Speaker, audio: Promise<Response | undefined>, begin: () => void, fixedAudio = false) {
     const res = await audio
-    if (!res?.ok || t.ac.signal.aborted || !sp.alive) return
+    if (t.ac.signal.aborted || !sp.alive) return
+    if (!res?.ok) {
+      onAudioFailure('tts', await parseGatewayError(res))
+      return
+    }
+    ttsFailures = 0
     let odd: Uint8Array | undefined // PCM16 needs whole samples
     let lead = true // the utterance has not made a sound yet
     let first = true // this clip's first audio

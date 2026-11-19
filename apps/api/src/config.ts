@@ -610,6 +610,14 @@ export const envSchema = z.object({
   PLATINUM_INFERENCE_API_KEY: optStr,
   OPENROUTER_URL: optUrl('https://openrouter.ai/api/v1'),
   OPENROUTER_API_KEY: optStr,
+  OPENROUTER_VOICE_STT_MODEL: optStrDefault('openai/whisper-large-v3-turbo'),
+  OPENROUTER_VOICE_TTS_MODEL: optStrDefault('hexgrad/kokoro-82m'),
+  GROQ_URL: optUrl('https://api.groq.com/openai/v1'),
+  GROQ_API_KEY: optStr,
+  VOICE_GROQ_FAST_MODEL: optStr,
+  INWORLD_URL: optUrl('https://api.inworld.ai'),
+  INWORLD_API_KEY: optStr,
+  INWORLD_WORKSPACE: optStr,
   GOOGLE_ANTIGRAVITY_CLIENT_ID: optStr,
   GOOGLE_ANTIGRAVITY_CLIENT_SECRET: optStr,
   GOOGLE_ANTIGRAVITY_REDIRECT_URI: optStr,
@@ -1672,6 +1680,14 @@ export const config = {
   PLATINUM_INFERENCE_API_KEY: env.PLATINUM_INFERENCE_API_KEY,
   OPENROUTER_URL: env.OPENROUTER_URL,
   OPENROUTER_API_KEY: env.OPENROUTER_API_KEY,
+  OPENROUTER_VOICE_STT_MODEL: env.OPENROUTER_VOICE_STT_MODEL,
+  OPENROUTER_VOICE_TTS_MODEL: env.OPENROUTER_VOICE_TTS_MODEL,
+  GROQ_URL: env.GROQ_URL,
+  GROQ_API_KEY: env.GROQ_API_KEY,
+  VOICE_GROQ_FAST_MODEL: env.VOICE_GROQ_FAST_MODEL,
+  INWORLD_URL: env.INWORLD_URL,
+  INWORLD_API_KEY: env.INWORLD_API_KEY,
+  INWORLD_WORKSPACE: env.INWORLD_WORKSPACE,
   KORTIX_MANAGED_FREE_TIER_ENABLED: env.KORTIX_MANAGED_FREE_TIER_ENABLED,
   // Unset → follow billing (cloud keeps its revenue lineup even if the env
   // blob misses the var; self-host stays off). Explicit value always wins.
@@ -1962,6 +1978,17 @@ export const config = {
     return this.ALLOWED_SANDBOX_PROVIDERS.includes('platinum') && !!this.PLATINUM_API_KEY;
   },
 };
+
+/**
+ * True when the deployment has a managed STT + TTS audio path configured
+ * (Platinum Inference, Groq/Inworld, or OpenRouter fallback).
+ */
+export function voiceAudioAvailable(): boolean {
+  if (config.PLATINUM_INFERENCE_API_KEY) return true;
+  const hasStt = Boolean(config.GROQ_API_KEY || config.OPENROUTER_API_KEY);
+  const hasTts = Boolean(config.INWORLD_API_KEY || config.OPENROUTER_API_KEY);
+  return hasStt && hasTts;
+}
 
 // ─── Billing Markup Constants ────────────────────────────────────────────────
 //

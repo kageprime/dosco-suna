@@ -102,6 +102,7 @@ mock.module('../credentials/codex', () => ({
 // managed and Codex descriptors and the pricing lookup are stubbed; the
 // pricing stub records every id it is asked for, in call order.
 let livePricingCalls: string[] = [];
+let managedCandidatesOverride: ((managed: { id: string }) => unknown[]) | null = null;
 const realDescriptors = await import('./descriptors');
 mock.module('./descriptors', () => ({
   ...realDescriptors,
@@ -118,17 +119,20 @@ mock.module('./descriptors', () => ({
     livePricingCalls.push(`${providerId}/${modelId}`);
     return undefined;
   },
-  managedCandidates: (managed: { id: string }) => [
-    {
-      provider: 'kortix-managed',
-      kind: 'bedrock',
-      baseUrl: 'https://managed.test',
-      apiKey: 'm',
-      billingMode: 'credits',
-      markup: 1,
-      resolvedModel: managed.id,
-    },
-  ],
+  managedCandidates: (managed: { id: string }) =>
+    managedCandidatesOverride
+      ? managedCandidatesOverride(managed)
+      : [
+          {
+            provider: 'kortix-managed',
+            kind: 'bedrock',
+            baseUrl: 'https://managed.test',
+            apiKey: 'm',
+            billingMode: 'credits',
+            markup: 1,
+            resolvedModel: managed.id,
+          },
+        ],
 }));
 
 let catalogUpstream: { baseUrl?: string; envVar: string; kind: string } | null = null;
@@ -196,6 +200,7 @@ beforeEach(() => {
   runtimeManagedModel = undefined;
   knownManagedModelId = null;
   managedAudioModelId = null;
+  managedCandidatesOverride = null;
   capabilities = { reasoning: false, temperature: true };
   livePricingCalls = [];
   getAccountTier.mockClear();
@@ -748,16 +753,16 @@ describe('resolveCandidates — managed model tier gating', () => {
 
   test('freeModelsOnly principal resolves free managed models without upgrade error', async () => {
     runtimeManagedModel = {
-      id: 'deepseek-v4.1-flash-free',
-      upstreamModelId: 'deepseek/deepseek-v4.1-flash-free',
+      id: 'openrouter-free',
+      upstreamModelId: 'openrouter/free',
       pricing: { inputPerMillion: 0, outputPerMillion: 0 },
     } as any;
     const candidates = await resolveCandidates(
       principal({ freeModelsOnly: true }),
-      'deepseek-v4.1-flash-free',
+      'openrouter-free',
     );
     expect(candidates.length).toBeGreaterThan(0);
-    expect(candidates[0]?.resolvedModel).toBe('deepseek-v4.1-flash-free');
+    expect(candidates[0]?.resolvedModel).toBe('openrouter-free');
   });
 
   test('a free-tier account is refused the platform default too', async () => {
@@ -861,6 +866,40 @@ describe('resolveCandidates — managed model tier gating', () => {
   // so `effectiveModel` here is already `deepseek-v4.1-flash` by the time
   // resolution runs — this never reaches `model_retired` at all. It just
   // works, transparently, the instant `deepseek-v4.1-flash` is servable.
+
+  test('preserves provider auth/attribution headers for inworld and openrouter without adding x-platinum-session', async () => {
+    managedAudioModelId = 'inworld-tts-2';
+    runtimeManagedModel = { id: 'qwen3.8-27b', private: true };
+    managedCandidatesOverride = (managed) =>
+      managed.id === 'inworld-tts-2'
+        ? [{
+            provider: 'inworld',
+            kind: 'openai-compat',
+            baseUrl: 'https://api.inworld.ai',
+            apiKey: 'aW53b3JsZC10ZXN0',
+            omitAuthorization: true,
+            headers: { authorization: 'Basic aW53b3JsZC10ZXN0' },
+            billingMode: 'credits',
+            markup: 2,
+            resolvedModel: 'inworld-tts-2',
+          }]
+        : [{
+            provider: 'openrouter',
+            kind: 'openai-compat',
+            baseUrl: 'https://openrouter.ai/api/v1',
+            apiKey: 'sk-or-test',
+            headers: { 'HTTP-Referer': 'https://dosco.live', 'X-Title': 'Dosco AI' },
+            billingMode: 'credits',
+            markup: 2,
+            resolvedModel: 'qwen/qwen3.7-flash',
+          }];
+
+    const p = principal({ sessionId: 'ses_voice' });
+    const [tts] = await resolveCandidates(p, 'inworld-tts-2');
+    expect(tts?.headers).toEqual({ authorization: 'Basic aW53b3JsZC10ZXN0' });
+    const [chat] = await resolveCandidates(p, 'qwen3.8-27b');
+    expect(chat?.headers).toEqual({ 'HTTP-Referer': 'https://dosco.live', 'X-Title': 'Dosco AI' });
+  });
 });
 
 describe('resolveCandidates — codex + unknown provider', () => {

@@ -314,6 +314,83 @@ describe('managed models: one Platinum inference candidate', () => {
       config.OPENROUTER_API_KEY = undefined;
     }
   });
+
+  test('routes sovereign voice audio and fast models to Groq, Inworld, and OpenRouter without Platinum', () => {
+    config.PLATINUM_INFERENCE_API_KEY = undefined;
+    config.GROQ_API_KEY = 'gsk-voice-test';
+    config.INWORLD_API_KEY = 'aW53b3JsZC10ZXN0';
+    config.OPENROUTER_API_KEY = 'sk-or-voice-test';
+    try {
+      expect(managedCandidates({ id: 'whisper-large-v3' })).toEqual([{
+        provider: 'groq',
+        kind: 'openai-compat',
+        baseUrl: 'https://api.groq.com/openai/v1',
+        apiKey: 'gsk-voice-test',
+        billingMode: 'credits',
+        markup: 2,
+        resolvedModel: 'whisper-large-v3',
+        publicProvider: 'kortix',
+      }]);
+      expect(managedCandidates({ id: 'whisper-large-v3-turbo' })[0]?.provider).toBe('groq');
+
+      expect(managedCandidates({ id: 'inworld-tts-2' })).toEqual([{
+        provider: 'inworld',
+        kind: 'openai-compat',
+        baseUrl: 'https://api.inworld.ai',
+        apiKey: 'aW53b3JsZC10ZXN0',
+        omitAuthorization: true,
+        headers: { authorization: 'Basic aW53b3JsZC10ZXN0' },
+        billingMode: 'credits',
+        markup: 2,
+        resolvedModel: 'inworld-tts-2',
+        publicProvider: 'kortix',
+      }]);
+      expect(managedCandidates({ id: 'inworld-tts-2-flash' })[0]?.provider).toBe('inworld');
+
+      expect(managedCandidates({ id: 'qwen3.8-27b', pricing: { inputPerMillion: 0.29, outputPerMillion: 0.59 } })).toMatchObject([{
+        provider: 'groq',
+        baseUrl: 'https://api.groq.com/openai/v1',
+        resolvedModel: 'qwen/qwen3-32b',
+      }]);
+      expect(managedCandidates({ id: 'gpt-oss-20b' })).toMatchObject([{
+        provider: 'groq',
+        resolvedModel: 'openai/gpt-oss-20b',
+      }]);
+      expect(managedCandidates({ id: 'gemini-3.5-flash-lite' })).toMatchObject([{
+        provider: 'openrouter',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        resolvedModel: 'gemini-3.5-flash-lite',
+      }]);
+
+      // When Groq & Inworld are unset, audio & voice chat fall back onto OpenRouter.
+      config.GROQ_API_KEY = undefined;
+      config.INWORLD_API_KEY = undefined;
+      expect(managedCandidates({ id: 'whisper-large-v3' })).toMatchObject([{
+        provider: 'openrouter',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        resolvedModel: 'openai/whisper-large-v3-turbo',
+      }]);
+      expect(managedCandidates({ id: 'inworld-tts-2' })).toMatchObject([{
+        provider: 'openrouter',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        resolvedModel: 'hexgrad/kokoro-82m',
+      }]);
+      expect(managedCandidates({ id: 'qwen3.8-27b' })).toMatchObject([{
+        provider: 'openrouter',
+        resolvedModel: 'qwen3.8-27b',
+      }]);
+
+      // With all managed provider keys unset, nothing resolves.
+      config.OPENROUTER_API_KEY = undefined;
+      expect(managedCandidates({ id: 'whisper-large-v3' })).toEqual([]);
+      expect(managedCandidates({ id: 'inworld-tts-2' })).toEqual([]);
+    } finally {
+      config.PLATINUM_INFERENCE_API_KEY = 'pt_live_test';
+      config.GROQ_API_KEY = undefined;
+      config.INWORLD_API_KEY = undefined;
+      config.OPENROUTER_API_KEY = undefined;
+    }
+  });
 });
 
 describe('bedrockByokBaseUrl', () => {

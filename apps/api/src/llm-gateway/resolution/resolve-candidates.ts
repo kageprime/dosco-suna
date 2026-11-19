@@ -57,7 +57,7 @@ import { isAwsRegion } from './aws-region';
 const BEDROCK_REGION_ENV_VAR = BEDROCK_REGION_NAME;
 
 const PLAN_UPGRADE_SUGGESTION =
-  'Your plan includes no Kortix-managed models. Upgrade to Credits, or connect your own provider key or ChatGPT account. List connected models with /v1/llm/v1/models?scope=picker in your project.';
+  'Your plan includes no Dosco-managed models. Upgrade to Credits, or connect your own provider key or ChatGPT account. List connected models with /v1/llm/v1/models?scope=picker in your project.';
 
 /**
  * The same block, for a plan that is PAID but simply does not include managed
@@ -284,7 +284,7 @@ function opencodeHeaders(baseUrl: string, principal: AuthedPrincipal): Record<st
   // ponytail: an API-key caller shares one session id across its conversations;
   // forward the caller's own x-opencode-session if that ever costs cache hits.
   const session = principal.sessionId ?? principal.keyId ?? principal.userId;
-  return { 'x-opencode-session': session, 'User-Agent': 'Kortix (https://kortix.com)' };
+  return { 'x-opencode-session': session, 'User-Agent': 'Dosco (https://dosco.live)' };
 }
 
 /**
@@ -479,10 +479,16 @@ async function resolveManagedCandidates(principal: AuthedPrincipal, effectiveMod
       throw noManagedModelsError(effectiveModel, isPaidTier(tier ?? 'free'));
     }
   }
-  // Upstream conversation/session tracking
+  // Upstream conversation/session tracking for Platinum; preserve provider auth/attribution headers for external sovereign upstreams.
   const session = principal.sessionId ?? principal.keyId ?? principal.userId;
-  return managedCandidates(managed).map((candidate) => ({ ...candidate, headers: { 'x-platinum-session': session } }));
+  return managedCandidates(managed).map((candidate) =>
+    SOVEREIGN_EXTERNAL_PROVIDERS.has(candidate.provider)
+      ? candidate
+      : { ...candidate, headers: { ...candidate.headers, 'x-platinum-session': session } },
+  );
 }
+
+const SOVEREIGN_EXTERNAL_PROVIDERS = new Set(['openrouter', 'groq', 'inworld']);
 
 function noManagedModelsError(model: string, tierIsPaid: boolean): GatewayResolutionError {
   return tierIsPaid

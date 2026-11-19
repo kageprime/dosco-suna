@@ -73,3 +73,55 @@ test('say() and a typed turn after close() start nothing', async () => {
   expect(seen.texts).toEqual([])
   expect(seen.turns).toBe(0)
 })
+
+test('terminal gateway refusal during TTS closes the call cleanly instead of staying silent', async () => {
+  jest.useRealTimers()
+  const originalFetch = globalThis.fetch
+  const savedModelsUrl = process.env.VOICE_MODELS_URL
+  const savedTts = process.env.VOICE_TTS
+  process.env.VOICE_MODELS_URL = 'http://models.test/v1'
+  delete process.env.VOICE_TTS
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({ error: { code: 'plan_upgrade_required', message: 'requires a paid plan' } }),
+      { status: 400, headers: { 'content-type': 'application/json' } },
+    )) as unknown as typeof fetch
+
+  try {
+    const closes: string[] = []
+    brain.use({
+      session: async () => 'ses_billing',
+      ask: async () => '',
+      remember: async () => {},
+      recall: async () => ({ text: '', thread: undefined as never }),
+      progress: async () => '',
+      bus: () => ({ on: () => () => {}, close() {} }),
+      turn: async () => {},
+      steer: async () => false,
+      send: async () => {},
+      abort: async () => undefined,
+    })
+    const model = cascade(
+      { session: 'ses_billing', instructions: '', tools: [], lang: 'en' },
+      {
+        ready() {},
+        audio() {},
+        clear() {},
+        text() {},
+        tool() {},
+        close: (why) => void closes.push(why),
+      },
+    )
+    model.say('Hi, I am Xera.')
+    await new Promise((r) => setTimeout(r, 40))
+    expect(closes).toEqual(['plan_upgrade_required'])
+    await model.close()
+  } finally {
+    globalThis.fetch = originalFetch
+    if (savedModelsUrl === undefined) delete process.env.VOICE_MODELS_URL
+    else process.env.VOICE_MODELS_URL = savedModelsUrl
+    if (savedTts === undefined) delete process.env.VOICE_TTS
+    else process.env.VOICE_TTS = savedTts
+    brain.use(undefined)
+  }
+})

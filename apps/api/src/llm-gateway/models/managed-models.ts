@@ -274,39 +274,123 @@ async function readOpenRouterModels(baseUrl: string, apiKey: string, fetchImpl: 
   return res.json();
 }
 
+/** Audio models served by Dosco's sovereign voice providers (Groq/Inworld, or OpenRouter fallback). */
+function sovereignManagedAudioModelIds(): string[] {
+  const ids: string[] = [];
+  if (config.GROQ_API_KEY || config.OPENROUTER_API_KEY) {
+    ids.push('whisper-large-v3', 'whisper-large-v3-turbo');
+  }
+  if (config.INWORLD_API_KEY || config.OPENROUTER_API_KEY) {
+    ids.push('inworld-tts-2', 'inworld-tts-2-flash');
+  }
+  return ids;
+}
+
+/** Private low-latency models reserved for voice turn routing/vision; never listed in pickers. */
+function sovereignVoicePrivateModels(): ManagedModel[] {
+  const models: ManagedModel[] = [];
+  if (config.GROQ_API_KEY) {
+    models.push(
+      {
+        id: 'qwen3.8-27b',
+        name: 'Qwen 3.8 27B (Voice)',
+        upstreamModelId: config.VOICE_GROQ_FAST_MODEL?.trim() || 'qwen/qwen3-32b',
+        pricing: { inputPerMillion: 0.29, outputPerMillion: 0.59 },
+        vision: false,
+        limit: { context: 131072, output: 16384 },
+        private: true,
+      },
+      {
+        id: 'gpt-oss-20b',
+        name: 'GPT-OSS 20B (Voice)',
+        upstreamModelId: 'openai/gpt-oss-20b',
+        pricing: { inputPerMillion: 0.075, outputPerMillion: 0.3 },
+        vision: false,
+        limit: { context: 131072, output: 16384 },
+        private: true,
+      },
+    );
+  } else if (config.OPENROUTER_API_KEY) {
+    models.push(
+      {
+        id: 'qwen3.8-27b',
+        name: 'Qwen 3.8 27B (Voice)',
+        upstreamModelId: 'qwen/qwen3.7-flash',
+        pricing: { inputPerMillion: 0.03, outputPerMillion: 0.13 },
+        vision: false,
+        limit: { context: 1000000, output: 16384 },
+        private: true,
+      },
+      {
+        id: 'gpt-oss-20b',
+        name: 'GPT-OSS 20B (Voice)',
+        upstreamModelId: 'openai/gpt-oss-20b',
+        pricing: { inputPerMillion: 0.05, outputPerMillion: 0.2 },
+        vision: false,
+        limit: { context: 131072, output: 16384 },
+        private: true,
+      },
+    );
+  }
+  if (config.OPENROUTER_API_KEY) {
+    models.push({
+      id: 'gemini-3.5-flash-lite',
+      name: 'Gemini 3.5 Flash Lite (Voice)',
+      upstreamModelId: 'google/gemini-2.5-flash-lite',
+      pricing: { inputPerMillion: 0.1, outputPerMillion: 0.4 },
+      vision: true,
+      limit: { context: 1048576, output: 16384 },
+      private: true,
+    });
+  }
+  return models;
+}
+
 /**
- * Reads Platinum's `/models` into the lineup, or loads OpenRouter paid + `:free`
+ * Reads Platinum's `/models` into the lineup, or loads sovereign OpenRouter + Groq/Inworld
  * models when Platinum is not configured (syncing live prices and `:free` additions).
  */
 export async function loadManagedLineup(fetchImpl: FetchLike = fetch): Promise<boolean> {
-  if (!config.KORTIX_MANAGED_PROVIDER_ENABLED || (!config.PLATINUM_INFERENCE_API_KEY && !config.OPENROUTER_API_KEY)) {
+  if (
+    !config.KORTIX_MANAGED_PROVIDER_ENABLED ||
+    (!config.PLATINUM_INFERENCE_API_KEY &&
+      !config.OPENROUTER_API_KEY &&
+      !config.GROQ_API_KEY &&
+      !config.INWORLD_API_KEY)
+  ) {
     if (loaded.models.length || loaded.audio.length) setLineup([]);
     return true;
   }
-  if (config.OPENROUTER_API_KEY && !config.PLATINUM_INFERENCE_API_KEY) {
-    let paidModels: ManagedModel[] = [...DEFAULT_OPENROUTER_MANAGED_MODELS];
-    const shouldFetchLive = fetchImpl !== fetch || !config.OPENROUTER_API_KEY.startsWith('sk-or-test');
-    if (shouldFetchLive) {
-      try {
-        const body = await readOpenRouterModels(
-          config.OPENROUTER_URL ?? 'https://openrouter.ai/api/v1',
-          config.OPENROUTER_API_KEY,
-          fetchImpl,
-        );
-        paidModels = paidOpenRouterModelsWithLivePrices(body);
-        if (config.KORTIX_MANAGED_FREE_TIER_ENABLED) {
-          setFreeManagedModelsFromOpenRouterBody(body);
+  if (!config.PLATINUM_INFERENCE_API_KEY) {
+    let paidModels: ManagedModel[] = [];
+    if (config.OPENROUTER_API_KEY) {
+      paidModels = [...DEFAULT_OPENROUTER_MANAGED_MODELS];
+      const shouldFetchLive = fetchImpl !== fetch || !config.OPENROUTER_API_KEY.startsWith('sk-or-test');
+      if (shouldFetchLive) {
+        try {
+          const body = await readOpenRouterModels(
+            config.OPENROUTER_URL ?? 'https://openrouter.ai/api/v1',
+            config.OPENROUTER_API_KEY,
+            fetchImpl,
+          );
+          paidModels = paidOpenRouterModelsWithLivePrices(body);
+          if (config.KORTIX_MANAGED_FREE_TIER_ENABLED) {
+            setFreeManagedModelsFromOpenRouterBody(body);
+          }
+        } catch (err) {
+          logger.warn('[managed-lineup] OpenRouter /models sync failed; keeping fallback lineup', {
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
-      } catch (err) {
-        logger.warn('[managed-lineup] OpenRouter /models sync failed; keeping fallback lineup', {
-          error: err instanceof Error ? err.message : String(err),
-        });
       }
     }
-    if (JSON.stringify({ models: paidModels, audio: [] }) !== JSON.stringify(loaded)) {
-      setLineup(paidModels);
-      logger.info('[managed-lineup] loaded OpenRouter managed models', {
+    const models = [...paidModels, ...sovereignVoicePrivateModels()];
+    const audio = sovereignManagedAudioModelIds();
+    if (JSON.stringify({ models, audio }) !== JSON.stringify(loaded)) {
+      setLineup(models, audio);
+      logger.info('[managed-lineup] loaded sovereign managed models', {
         models: paidModels.map((m) => m.id),
+        audio,
       });
     }
     return true;

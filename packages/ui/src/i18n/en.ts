@@ -9603,6 +9603,8 @@ const catalog = {
     "ended": "Call ended",
     "failed": "Could not start the call",
     "lost": "Could not reconnect the call",
+    "billing": "Voice calls require a paid plan with credits.",
+    "audioUnavailable": "Voice audio is unavailable on this deployment right now.",
     "unavailable": "This session's sandbox started before voice calls were turned on. Calls work from its next start.",
     "callAgain": "Call again",
     "openChat": "Open the chat",

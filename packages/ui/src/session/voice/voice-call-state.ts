@@ -12,6 +12,10 @@ export type CallEnd =
   | 'closed'
   /** Nothing listens on the relay's port: the sandbox started before the flag was on. */
   | 'unavailable'
+  /** Account plan or credit balance prevented the call from running. */
+  | 'billing'
+  /** Gateway audio models or upstream voice providers are unavailable. */
+  | 'audio_unavailable'
   /** The first dial or the audio failed. */
   | 'failed'
   /** A live call dropped and every redial failed. */
@@ -31,6 +35,8 @@ export interface CallState {
   /** The latest line said or heard. */
   line: CallLine | null;
   end: CallEnd | null;
+  /** Close reason code or detail reported by the relay. */
+  reason: string | null;
   /** The browser gave no microphone: the call only listens to the voice. */
   micBlocked: boolean;
   /** Redials since the call was last live (or, before its first `ready`, since it was placed). */
@@ -44,10 +50,14 @@ export const INITIAL_CALL: CallState = {
   speaking: false,
   line: null,
   end: null,
+  reason: null,
   micBlocked: false,
   redials: 0,
   liveAt: null,
 };
+
+/** Max wait for the relay's initial `{type:'ready'}` frame per dial attempt before retrying or closing. */
+export const READY_TIMEOUT_MS = 15_000;
 
 /** A live call that drops is dialed again after each of these waits, then it ends as `lost`. */
 export const REDIAL_MS = [1_000, 2_000, 4_000] as const;
@@ -62,17 +72,33 @@ export const DIAL_MS = [1_000, 2_000, 3_000, 4_000] as const;
 export type CallEvent =
   | { type: 'ready'; at?: number }
   | { type: 'text'; role?: unknown; who?: unknown; text?: unknown }
-  | { type: 'closed' }
+  | { type: 'closed'; why?: string }
   /** The socket closed without `closed`. `relay` is the health probe's answer, taken only for a first dial. */
   | { type: 'drop'; relay?: PreviewPortProbe }
   | { type: 'audio-failed' }
   | { type: 'speaking'; on: boolean }
   | { type: 'mic-blocked' };
 
+function classifyClosedReason(why?: string): CallEnd {
+  const lower = why?.trim().toLowerCase() ?? '';
+  if (!lower) return 'closed';
+  if (lower.includes('plan_upgrade_required') || lower.includes('insufficient_credits')) return 'billing';
+  if (
+    lower.includes('audio_model_unsupported') ||
+    lower.includes('model_not_found') ||
+    lower.includes('model_disabled_on_deployment') ||
+    lower.includes('provider_disabled') ||
+    lower.includes('audio_unavailable')
+  ) {
+    return 'audio_unavailable';
+  }
+  return 'closed';
+}
+
 export function reduceCall(state: CallState, event: CallEvent): CallState {
   switch (event.type) {
     case 'ready':
-      return state.phase === 'ended' ? state : { ...state, phase: 'live', redials: 0, liveAt: state.liveAt ?? event.at ?? null };
+      return state.phase === 'ended' ? state : { ...state, phase: 'live', redials: 0, reason: null, liveAt: state.liveAt ?? event.at ?? null };
     case 'text': {
       const { role, who, text } = event;
       // `screen` lines are what the voice read off a shared screen: neither said nor heard.
@@ -80,7 +106,7 @@ export function reduceCall(state: CallState, event: CallEvent): CallState {
       return { ...state, line: { role, who: typeof who === 'string' ? who : '', text: text.trim() } };
     }
     case 'closed':
-      return ended(state, 'closed');
+      return { ...ended(state, classifyClosedReason(event.why)), reason: event.why ?? null };
     case 'audio-failed':
       return state.phase === 'ended' ? state : ended(state, 'failed');
     case 'drop':

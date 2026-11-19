@@ -158,11 +158,13 @@ export function livePricing(
   };
 }
 
+const GROQ_AUDIO_MODEL_IDS = new Set(['whisper-large-v3', 'whisper-large-v3-turbo']);
+const INWORLD_AUDIO_MODEL_IDS = new Set(['inworld-tts-2', 'inworld-tts-2-flash']);
+const GROQ_VOICE_CHAT_MODEL_IDS = new Set(['qwen3.8-27b', 'gpt-oss-20b']);
+
 /**
- * A managed model's one upstream: Dosco Platinum inference. Platinum owns the
- * model's upstream chain, failover and privacy terms, and reports its price as
- * `usage.cost`, which the gateway bills; `pricing` applies only without it.
- * An audio model has no token `pricing`: its price is always reported.
+ * A managed model's upstream: Platinum when configured, else Dosco's sovereign
+ * providers (Groq STT & fast chat, Inworld TTS, OpenRouter general & vision chat).
  */
 export function managedCandidates(managed: Pick<ManagedModel, 'id'> & Partial<Pick<ManagedModel, 'pricing'>>): UpstreamDescriptor[] {
   // CLOUD-ONLY gate, defense-in-depth: the lineup is already empty with
@@ -193,22 +195,112 @@ export function managedCandidates(managed: Pick<ManagedModel, 'id'> & Partial<Pi
     }
   }
 
-  if (config.OPENROUTER_API_KEY && !config.PLATINUM_INFERENCE_API_KEY) {
-    return [{
-      provider: 'openrouter',
-      kind: 'openai-compat',
-      baseUrl: config.OPENROUTER_URL ?? 'https://openrouter.ai/api/v1',
-      apiKey: config.OPENROUTER_API_KEY,
-      billingMode: 'credits',
-      markup: llmPriceMarkup(),
-      resolvedModel: fullModel?.upstreamModelId ?? managed.id,
-      pricing: managed.pricing,
-      publicProvider: 'kortix',
-      headers: {
-        'HTTP-Referer': 'https://dosco.live',
-        'X-Title': 'Dosco AI',
-      },
-    }];
+  if (!config.PLATINUM_INFERENCE_API_KEY) {
+    if (GROQ_AUDIO_MODEL_IDS.has(managed.id)) {
+      if (config.GROQ_API_KEY) {
+        return [{
+          provider: 'groq',
+          kind: 'openai-compat',
+          baseUrl: config.GROQ_URL ?? 'https://api.groq.com/openai/v1',
+          apiKey: config.GROQ_API_KEY,
+          billingMode: 'credits',
+          markup: llmPriceMarkup(),
+          resolvedModel: managed.id,
+          publicProvider: 'kortix',
+        }];
+      }
+      if (config.OPENROUTER_API_KEY) {
+        return [{
+          provider: 'openrouter',
+          kind: 'openai-compat',
+          baseUrl: config.OPENROUTER_URL ?? 'https://openrouter.ai/api/v1',
+          apiKey: config.OPENROUTER_API_KEY,
+          billingMode: 'credits',
+          markup: llmPriceMarkup(),
+          resolvedModel: config.OPENROUTER_VOICE_STT_MODEL?.trim() || 'openai/whisper-large-v3-turbo',
+          publicProvider: 'kortix',
+          headers: {
+            'HTTP-Referer': 'https://dosco.live',
+            'X-Title': 'Dosco AI',
+          },
+        }];
+      }
+      return [];
+    }
+
+    if (INWORLD_AUDIO_MODEL_IDS.has(managed.id)) {
+      if (config.INWORLD_API_KEY) {
+        return [{
+          provider: 'inworld',
+          kind: 'openai-compat',
+          baseUrl: config.INWORLD_URL ?? 'https://api.inworld.ai',
+          apiKey: config.INWORLD_API_KEY,
+          omitAuthorization: true,
+          headers: {
+            authorization: `Basic ${config.INWORLD_API_KEY}`,
+          },
+          billingMode: 'credits',
+          markup: llmPriceMarkup(),
+          resolvedModel: managed.id,
+          publicProvider: 'kortix',
+        }];
+      }
+      if (config.OPENROUTER_API_KEY) {
+        return [{
+          provider: 'openrouter',
+          kind: 'openai-compat',
+          baseUrl: config.OPENROUTER_URL ?? 'https://openrouter.ai/api/v1',
+          apiKey: config.OPENROUTER_API_KEY,
+          billingMode: 'credits',
+          markup: llmPriceMarkup(),
+          resolvedModel: config.OPENROUTER_VOICE_TTS_MODEL?.trim() || 'hexgrad/kokoro-82m',
+          publicProvider: 'kortix',
+          headers: {
+            'HTTP-Referer': 'https://dosco.live',
+            'X-Title': 'Dosco AI',
+          },
+        }];
+      }
+      return [];
+    }
+
+    if (GROQ_VOICE_CHAT_MODEL_IDS.has(managed.id) && config.GROQ_API_KEY) {
+      const upstreamModel =
+        fullModel?.upstreamModelId ??
+        (managed.id === 'gpt-oss-20b'
+          ? 'openai/gpt-oss-20b'
+          : (config.VOICE_GROQ_FAST_MODEL?.trim() || 'qwen/qwen3-32b'));
+      const pricing = managed.pricing ?? fullModel?.pricing;
+      return [{
+        provider: 'groq',
+        kind: 'openai-compat',
+        baseUrl: config.GROQ_URL ?? 'https://api.groq.com/openai/v1',
+        apiKey: config.GROQ_API_KEY,
+        billingMode: 'credits',
+        markup: llmPriceMarkup(),
+        resolvedModel: upstreamModel,
+        ...(pricing ? { pricing } : {}),
+        publicProvider: 'kortix',
+      }];
+    }
+
+    if (config.OPENROUTER_API_KEY) {
+      return [{
+        provider: 'openrouter',
+        kind: 'openai-compat',
+        baseUrl: config.OPENROUTER_URL ?? 'https://openrouter.ai/api/v1',
+        apiKey: config.OPENROUTER_API_KEY,
+        billingMode: 'credits',
+        markup: llmPriceMarkup(),
+        resolvedModel: fullModel?.upstreamModelId ?? managed.id,
+        pricing: managed.pricing,
+        publicProvider: 'kortix',
+        headers: {
+          'HTTP-Referer': 'https://dosco.live',
+          'X-Title': 'Dosco AI',
+        },
+      }];
+    }
   }
 
   if (config.PLATINUM_INFERENCE_API_KEY) {

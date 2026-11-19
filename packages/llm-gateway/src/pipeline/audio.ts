@@ -152,11 +152,151 @@ function speechInput(req: AudioRequest): Parsed {
 }
 
 /**
- * Only Kortix's managed upstream (Platinum Inference) serves audio: each of
- * its answers states the price the request is billed at.
+ * Only Dosco's managed audio upstreams (Platinum Inference or Dosco's sovereign
+ * Groq / Inworld / OpenRouter providers) serve audio: every request either
+ * carries a price header/field or resolves via the managed rate card below.
  */
 function servesAudio(descriptor: UpstreamDescriptor): boolean {
-  return descriptor.provider === 'platinum' && descriptor.billingMode === 'credits';
+  return (
+    descriptor.billingMode === 'credits' &&
+    (descriptor.provider === 'platinum' ||
+      descriptor.provider === 'groq' ||
+      descriptor.provider === 'inworld' ||
+      descriptor.provider === 'openrouter')
+  );
+}
+
+const GROQ_STT_USD_PER_HOUR: Record<string, number> = {
+  'whisper-large-v3': 0.111,
+  'whisper-large-v3-turbo': 0.04,
+};
+const GROQ_STT_MIN_SECONDS = 10;
+
+const INWORLD_TTS_USD_PER_MILLION_CHARS: Record<string, number> = {
+  'inworld-tts-2': 25,
+  'inworld-tts-2-flash': 15,
+};
+
+const OPENROUTER_STT_USD_PER_HOUR: Record<string, number> = {
+  'openai/whisper-large-v3-turbo': 0.012,
+  'openai/whisper-large-v3': 0.027,
+  'qwen/qwen3-asr-0.6b': 0.012,
+  'qwen/qwen3-asr-1.7b': 0.027,
+  'openai/whisper-1': 0.36,
+};
+
+interface OpenRouterVoiceMeta {
+  id: string;
+  name: string;
+  description: string;
+  languages: string[];
+  tags: string[];
+}
+
+interface OpenRouterTtsEntry {
+  usdPerMillionChars: number;
+  free?: true;
+  defaultVoice?: string;
+  supportedVoices: readonly string[];
+  voices: readonly OpenRouterVoiceMeta[];
+}
+
+const KOKORO_ALL_VOICES = [
+  'af_alloy', 'af_aoede', 'af_bella', 'af_heart', 'af_jessica', 'af_kore', 'af_nicole', 'af_nova', 'af_river', 'af_sarah', 'af_sky',
+  'am_adam', 'am_echo', 'am_eric', 'am_fenrir', 'am_liam', 'am_michael', 'am_onyx', 'am_puck', 'am_santa',
+  'bf_alice', 'bf_emma', 'bf_isabella', 'bf_lily',
+  'bm_daniel', 'bm_fable', 'bm_george', 'bm_lewis',
+  'ef_dora', 'em_alex', 'em_santa',
+  'ff_siwis',
+  'hf_alpha', 'hf_beta', 'hm_omega', 'hm_psi',
+  'if_sara', 'im_nicola',
+  'jf_alpha', 'jf_gongitsune', 'jf_nezumi', 'jf_tebukuro', 'jm_kumo',
+  'pf_dora', 'pm_alex', 'pm_santa',
+  'zf_xiaobei', 'zf_xiaoni', 'zf_xiaoxiao', 'zf_xiaoyi', 'zm_yunjian', 'zm_yunxi', 'zm_yunxia', 'zm_yunyang',
+] as const;
+
+const kokoroVoiceMeta = (id: string, description: string, languages: string[], tags: string[]): OpenRouterVoiceMeta => ({
+  id,
+  name: id.replace(/^[a-z]{2}_/, '').replace(/^./, (c) => c.toUpperCase()),
+  description,
+  languages,
+  tags,
+});
+
+const KOKORO_CURATED_VOICES: readonly OpenRouterVoiceMeta[] = [
+  kokoroVoiceMeta('af_heart', 'Warm expressive American female voice', ['en'], ['female', 'warm']),
+  kokoroVoiceMeta('af_bella', 'Clear conversational American female voice', ['en'], ['female', 'conversational']),
+  kokoroVoiceMeta('af_sarah', 'Calm steady American female voice', ['en'], ['female', 'calm']),
+  kokoroVoiceMeta('af_nova', 'Bright friendly American female voice', ['en'], ['female', 'bright']),
+  kokoroVoiceMeta('af_sky', 'Light crisp American female voice', ['en'], ['female']),
+  kokoroVoiceMeta('af_alloy', 'Balanced neutral American female voice', ['en'], ['female', 'neutral']),
+  kokoroVoiceMeta('am_adam', 'Deep resonant American male voice', ['en'], ['male', 'deep']),
+  kokoroVoiceMeta('am_michael', 'Calm steady American male voice', ['en'], ['male', 'calm']),
+  kokoroVoiceMeta('am_echo', 'Clear neutral American male voice', ['en'], ['male']),
+  kokoroVoiceMeta('am_liam', 'Warm modern American male voice', ['en'], ['male', 'warm']),
+  kokoroVoiceMeta('bf_emma', 'Poised British female voice', ['en'], ['female', 'british']),
+  kokoroVoiceMeta('bf_alice', 'Crisp British female voice', ['en'], ['female', 'british']),
+  kokoroVoiceMeta('bm_george', 'Deep calm British male voice', ['en'], ['male', 'british', 'calm']),
+  kokoroVoiceMeta('bm_daniel', 'Clear authoritative British male voice', ['en'], ['male', 'british']),
+  kokoroVoiceMeta('ef_dora', 'Expressive Spanish female voice', ['es'], ['female', 'spanish']),
+  kokoroVoiceMeta('ff_siwis', 'Natural French female voice', ['fr'], ['female', 'french']),
+];
+
+const simpleVoices = (ids: readonly string[], lang: string): OpenRouterVoiceMeta[] =>
+  ids.map((id) => ({ id, name: id.replace(/^./, (c) => c.toUpperCase()), description: id, languages: [lang], tags: [] }));
+
+const OPENROUTER_TTS_CATALOG: Record<string, OpenRouterTtsEntry> = {
+  'hexgrad/kokoro-82m': {
+    usdPerMillionChars: 0.99,
+    defaultVoice: 'af_heart',
+    supportedVoices: KOKORO_ALL_VOICES,
+    voices: KOKORO_CURATED_VOICES,
+  },
+  'heygen/heygen-voice-1-turbo:free': {
+    usdPerMillionChars: 0,
+    free: true,
+    defaultVoice: 'noelle',
+    supportedVoices: ['nadine', 'tabitha', 'bram', 'gareth', 'noelle', 'meredith', 'sabrina', 'lucian', 'weston', 'vincent'],
+    voices: simpleVoices(['nadine', 'tabitha', 'bram', 'gareth', 'noelle', 'meredith', 'sabrina', 'lucian', 'weston', 'vincent'], 'en'),
+  },
+  'heygen/heygen-voice-1-turbo': {
+    usdPerMillionChars: 4,
+    defaultVoice: 'noelle',
+    supportedVoices: ['nadine', 'tabitha', 'bram', 'gareth', 'noelle', 'meredith', 'sabrina', 'lucian', 'weston', 'vincent'],
+    voices: simpleVoices(['nadine', 'tabitha', 'bram', 'gareth', 'noelle', 'meredith', 'sabrina', 'lucian', 'weston', 'vincent'], 'en'),
+  },
+  'x-ai/grok-voice-tts-1.0': {
+    usdPerMillionChars: 15,
+    defaultVoice: 'ara',
+    supportedVoices: ['eve', 'ara', 'rex', 'sal', 'leo'],
+    voices: simpleVoices(['eve', 'ara', 'rex', 'sal', 'leo'], 'en'),
+  },
+  'fish-audio/s2.1-pro-free:free': {
+    usdPerMillionChars: 0,
+    free: true,
+    defaultVoice: undefined,
+    supportedVoices: [],
+    voices: [],
+  },
+  'openai/gpt-4o-mini-tts': {
+    usdPerMillionChars: 15,
+    defaultVoice: 'alloy',
+    supportedVoices: ['alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse'],
+    voices: simpleVoices(['alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse'], 'en'),
+  },
+};
+
+function resolveOpenRouterTtsVoice(entry: OpenRouterTtsEntry | undefined, requestedRaw: unknown): string | undefined {
+  const requested = typeof requestedRaw === 'string' ? requestedRaw.trim() : '';
+  if (entry) {
+    if (requested) {
+      const matched = entry.supportedVoices.find((v) => v.toLowerCase() === requested.toLowerCase());
+      if (matched) return matched;
+    }
+    return entry.defaultVoice;
+  }
+  if (!requested || requested.toLowerCase() === 'ashley') return undefined;
+  return requested;
 }
 
 function trace(run: Run, fields: TraceFields): void {
@@ -287,10 +427,16 @@ async function recordUsage(run: Run, cost: { upstreamCost: number; finalCost: nu
   }
 }
 
-/** Speech-to-text: one upstream call, billed from the answer's `usage.cost`. */
+/** Speech-to-text: one upstream call, billed from the answer's `usage.cost` or sovereign duration rate. */
 async function transcribe(run: Run, input: Extract<Input, { operation: 'transcriptions' }>): Promise<Response> {
   const descriptor = run.descriptor!;
-  input.form.set('model', descriptor.resolvedModel ?? run.model);
+  const modelId = descriptor.resolvedModel ?? run.model;
+  input.form.set('model', modelId);
+  const sovereignStt = descriptor.provider === 'groq' || descriptor.provider === 'openrouter';
+  if (sovereignStt) {
+    // Ask sovereign upstreams for verbose_json so duration / segments / usage are present.
+    input.form.set('response_format', 'verbose_json');
+  }
   const headers = upstreamHeaders(descriptor, run.id);
   // fetch writes the multipart content type, with its boundary.
   delete headers['content-type'];
@@ -317,18 +463,250 @@ async function transcribe(run: Run, input: Extract<Input, { operation: 'transcri
   if (!answer || typeof answer !== 'object') {
     return refuse(run, stopped(run, AUDIO_STOP) ?? upstreamError(`${run.model} returned an unreadable answer.`));
   }
-  const { usage, ...transcript } = answer as { usage?: { seconds?: unknown; cost?: unknown }; text?: unknown };
-  const cost = priced(run, usage?.cost);
+  const { usage, ...transcript } = answer as {
+    usage?: { seconds?: unknown; cost?: unknown };
+    duration?: unknown;
+    text?: unknown;
+    segments?: unknown;
+  };
+  let cost = priced(run, usage?.cost);
+  let billedSeconds = typeof usage?.seconds === 'number' ? usage.seconds : undefined;
+  if (!cost && sovereignStt) {
+    const rawDuration = typeof transcript.duration === 'number' ? transcript.duration : billedSeconds;
+    const ratePerHour =
+      descriptor.provider === 'groq' ? GROQ_STT_USD_PER_HOUR[modelId] : OPENROUTER_STT_USD_PER_HOUR[modelId];
+    const minSeconds = descriptor.provider === 'groq' ? GROQ_STT_MIN_SECONDS : 1;
+    if (typeof rawDuration === 'number' && Number.isFinite(rawDuration) && rawDuration >= 0 && ratePerHour !== undefined) {
+      billedSeconds = Math.max(rawDuration, minSeconds);
+      cost = priced(run, (billedSeconds / 3600) * ratePerHour);
+    }
+  }
   if (!cost) return refuse(run, unpriced(run));
+  // OpenRouter transcription providers may omit `segments`: synthesize one so voice filters keep spoken text.
+  const normalizedTranscript =
+    descriptor.provider === 'openrouter' &&
+    typeof transcript.text === 'string' &&
+    transcript.text.trim() &&
+    (!Array.isArray(transcript.segments) || transcript.segments.length === 0)
+      ? {
+          ...transcript,
+          segments: [{ text: transcript.text, no_speech_prob: 0.01, avg_logprob: -0.2, compression_ratio: 1.0 }],
+        }
+      : transcript;
   // The client gets the billed duration; the upstream's price stays internal.
-  const duration = typeof usage?.seconds === 'number' ? { usage: { type: 'duration', seconds: usage.seconds } } : {};
-  const body = input.format === 'text' ? String(transcript.text ?? '') : JSON.stringify({ ...transcript, ...duration });
+  const duration = billedSeconds !== undefined ? { usage: { type: 'duration', seconds: billedSeconds } } : {};
+  const body = input.format === 'text'
+    ? String(normalizedTranscript.text ?? '')
+    : input.format === 'json' && sovereignStt
+      ? JSON.stringify({ text: String(normalizedTranscript.text ?? ''), ...duration })
+      : JSON.stringify({ ...normalizedTranscript, ...duration });
   await recordUsage(run, cost);
   trace(run, { status: 200, ok: true, servedModel: run.model, ...cost });
   return new Response(body, {
     status: 200,
     headers: { 'content-type': input.format === 'text' ? 'text/plain; charset=utf-8' : 'application/json' },
   });
+}
+
+function streamAudioBody(
+  run: Run,
+  cost: { upstreamCost: number; finalCost: number },
+  firstChunk: Uint8Array,
+  nextChunk: () => Promise<Uint8Array | null>,
+  cancelUpstream: (reason: unknown) => Promise<void>,
+  headers: Headers,
+): Response {
+  void recordUsage(run, cost);
+  let ended = false;
+  const end = (fields: TraceFields) => {
+    if (ended) return;
+    ended = true;
+    trace(run, { servedModel: run.model, ...cost, ...fields });
+  };
+  const audio = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(firstChunk);
+    },
+    async pull(controller) {
+      try {
+        const chunk = await nextChunk();
+        if (!chunk) {
+          end({ status: 200, ok: true });
+          controller.close();
+          return;
+        }
+        controller.enqueue(chunk);
+      } catch (error) {
+        const stop = stopped(run, AUDIO_STOP);
+        end({
+          status: stop?.status ?? 502,
+          ok: false,
+          errorCode: stop?.code ?? 'audio_stream_failed',
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
+        controller.error(error);
+      }
+    },
+    async cancel(reason) {
+      end({ status: 499, ok: false, errorCode: 'client_aborted', errorMessage: 'The client cancelled the stream.' });
+      await cancelUpstream(reason).catch(() => {});
+    },
+  });
+  return new Response(audio, { status: 200, headers });
+}
+
+function decodeInworldNdjsonLine(line: string): Uint8Array | undefined {
+  const parsed = JSON.parse(line) as { result?: { audioContent?: string }; error?: { message?: string } };
+  if (parsed.error) throw new Error(`inworld: ${parsed.error.message ?? 'upstream error'}`);
+  if (!parsed.result?.audioContent) return undefined;
+  return new Uint8Array(Buffer.from(parsed.result.audioContent, 'base64'));
+}
+
+async function speakInworld(run: Run, input: Extract<Input, { operation: 'speech' }>): Promise<Response> {
+  const descriptor = run.descriptor!;
+  const modelId = descriptor.resolvedModel ?? run.model;
+  const textInput = String(input.body.input ?? '');
+  const charRate = INWORLD_TTS_USD_PER_MILLION_CHARS[modelId];
+  const cost = charRate !== undefined ? priced(run, (Math.max(1, textInput.length) / 1_000_000) * charRate) : null;
+  if (!cost) return refuse(run, unpriced(run));
+
+  const format = input.body.response_format === 'mp3' ? 'mp3' : 'pcm';
+  const sampleRate = typeof input.body.sample_rate === 'number' ? input.body.sample_rate : 24_000;
+  const speed = typeof input.body.speed === 'number' ? input.body.speed : undefined;
+  let response: Response;
+  try {
+    response = await run.fetchImpl(`${trimTrailingSlash(descriptor.baseUrl)}/tts/v1/voice:stream`, {
+      method: 'POST',
+      headers: upstreamHeaders(descriptor, run.id),
+      body: JSON.stringify({
+        text: textInput,
+        voiceId: String(input.body.voice),
+        modelId,
+        audioConfig: {
+          audioEncoding: format === 'mp3' ? 'MP3' : 'PCM',
+          ...(format === 'mp3' ? {} : { sampleRateHertz: sampleRate }),
+          ...(speed !== undefined && speed !== 1 ? { speakingRate: speed } : {}),
+        },
+      }),
+      signal: run.signal,
+    });
+  } catch (error) {
+    run.logger.warn(`[gateway] ${run.id}: ${descriptor.provider} audio unreachable — ${error instanceof Error ? error.message : String(error)}`);
+    return refuse(run, stopped(run, AUDIO_STOP) ?? unreachable(run));
+  }
+  run.emit.mark('upstream_response');
+  if (!response.ok || !response.body) return refuse(run, await upstreamRefusal(run, response));
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  const nextChunk = async (): Promise<Uint8Array | null> => {
+    for (;;) {
+      const nl = buf.indexOf('\n');
+      if (nl >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line) continue;
+        const pcm = decodeInworldNdjsonLine(line);
+        if (pcm?.byteLength) return pcm;
+        continue;
+      }
+      const { value, done } = await reader.read();
+      if (done) {
+        const tail = buf.trim();
+        buf = '';
+        if (!tail) return null;
+        const pcm = decodeInworldNdjsonLine(tail);
+        return pcm?.byteLength ? pcm : null;
+      }
+      buf += decoder.decode(value, { stream: true });
+    }
+  };
+
+  let firstChunk: Uint8Array | null;
+  try {
+    firstChunk = await nextChunk();
+  } catch (error) {
+    run.logger.warn(`[gateway] ${run.id}: ${descriptor.provider} speech failed before audio — ${error instanceof Error ? error.message : String(error)}`);
+    return refuse(run, stopped(run, AUDIO_STOP) ?? upstreamError(`${run.model} stopped before any audio.`));
+  }
+  if (!firstChunk) return refuse(run, upstreamError(`${run.model} returned no audio.`));
+
+  const headers = new Headers({ 'content-type': format === 'mp3' ? 'audio/mpeg' : 'audio/pcm' });
+  if (format === 'pcm') headers.set('x-sample-rate', String(sampleRate));
+  return streamAudioBody(run, cost, firstChunk, nextChunk, (reason) => reader.cancel(reason), headers);
+}
+
+async function speakOpenRouter(run: Run, input: Extract<Input, { operation: 'speech' }>): Promise<Response> {
+  const descriptor = run.descriptor!;
+  const modelId = descriptor.resolvedModel ?? run.model;
+  const textInput = String(input.body.input ?? '');
+  const entry = OPENROUTER_TTS_CATALOG[modelId];
+  const isFree = modelId.endsWith(':free') || Boolean(entry?.free);
+  const catalogCost = isFree
+    ? { upstreamCost: 0, finalCost: 0 }
+    : entry?.usdPerMillionChars
+      ? priced(run, (Math.max(1, textInput.length) / 1_000_000) * entry.usdPerMillionChars)
+      : null;
+  if (entry && !catalogCost) return refuse(run, unpriced(run));
+
+  const format = input.body.response_format === 'mp3' ? 'mp3' : 'pcm';
+  const voice = resolveOpenRouterTtsVoice(entry, input.body.voice);
+  const payload: Record<string, unknown> = {
+    model: modelId,
+    input: textInput,
+    response_format: format,
+  };
+  if (voice) payload.voice = voice;
+  if (typeof input.body.speed === 'number') payload.speed = input.body.speed;
+
+  let response: Response;
+  try {
+    response = await run.fetchImpl(`${trimTrailingSlash(descriptor.baseUrl)}/audio/speech`, {
+      method: 'POST',
+      headers: upstreamHeaders(descriptor, run.id),
+      body: JSON.stringify(payload),
+      signal: run.signal,
+    });
+  } catch (error) {
+    run.logger.warn(`[gateway] ${run.id}: ${descriptor.provider} audio unreachable — ${error instanceof Error ? error.message : String(error)}`);
+    return refuse(run, stopped(run, AUDIO_STOP) ?? unreachable(run));
+  }
+  run.emit.mark('upstream_response');
+  if (!response.ok || !response.body) return refuse(run, await upstreamRefusal(run, response));
+
+  const cost = catalogCost ?? priced(run, response.headers.get(SPEECH_COST_HEADER));
+  if (!cost) {
+    void response.body.cancel().catch(() => {});
+    return refuse(run, unpriced(run));
+  }
+
+  const reader = response.body.getReader();
+  const nextChunk = async (): Promise<Uint8Array | null> => {
+    for (;;) {
+      const next = await reader.read();
+      if (next.done) return null;
+      if (next.value.byteLength > 0) return next.value;
+    }
+  };
+  let firstChunk: Uint8Array | null;
+  try {
+    firstChunk = await nextChunk();
+  } catch (error) {
+    run.logger.warn(`[gateway] ${run.id}: ${descriptor.provider} speech failed before audio — ${error instanceof Error ? error.message : String(error)}`);
+    return refuse(run, stopped(run, AUDIO_STOP) ?? upstreamError(`${run.model} stopped before any audio.`));
+  }
+  if (!firstChunk) return refuse(run, upstreamError(`${run.model} returned no audio.`));
+
+  const upstreamCt = response.headers.get('content-type') ?? '';
+  const parsedRate = Number(upstreamCt.match(/\brate=(\d+)/i)?.[1]);
+  const sampleRate =
+    Number.isFinite(parsedRate) && parsedRate > 0
+      ? parsedRate
+      : (typeof input.body.sample_rate === 'number' ? input.body.sample_rate : 24_000);
+  const headers = new Headers({ 'content-type': format === 'mp3' ? 'audio/mpeg' : 'audio/pcm' });
+  if (format === 'pcm') headers.set('x-sample-rate', String(sampleRate));
+  return streamAudioBody(run, cost, firstChunk, nextChunk, (reason) => reader.cancel(reason), headers);
 }
 
 /**
@@ -340,6 +718,8 @@ async function transcribe(run: Run, input: Extract<Input, { operation: 'transcri
  */
 async function speak(run: Run, input: Extract<Input, { operation: 'speech' }>): Promise<Response> {
   const descriptor = run.descriptor!;
+  if (descriptor.provider === 'inworld') return speakInworld(run, input);
+  if (descriptor.provider === 'openrouter') return speakOpenRouter(run, input);
   let response: Response;
   try {
     response = await run.fetchImpl(`${trimTrailingSlash(descriptor.baseUrl)}/audio/speech`, {
@@ -360,56 +740,25 @@ async function speak(run: Run, input: Extract<Input, { operation: 'speech' }>): 
     return refuse(run, unpriced(run));
   }
   const reader = response.body.getReader();
-  let first: Awaited<ReturnType<typeof reader.read>>;
+  const nextChunk = async (): Promise<Uint8Array | null> => {
+    for (;;) {
+      const next = await reader.read();
+      if (next.done) return null;
+      if (next.value.byteLength > 0) return next.value;
+    }
+  };
+  let firstChunk: Uint8Array | null;
   try {
-    do first = await reader.read();
-    while (!first.done && first.value.byteLength === 0);
+    firstChunk = await nextChunk();
   } catch (error) {
     run.logger.warn(`[gateway] ${run.id}: ${descriptor.provider} speech failed before audio — ${error instanceof Error ? error.message : String(error)}`);
     return refuse(run, stopped(run, AUDIO_STOP) ?? upstreamError(`${run.model} stopped before any audio.`));
   }
-  if (first.done) return refuse(run, upstreamError(`${run.model} returned no audio.`));
-  void recordUsage(run, cost);
-  let ended = false;
-  const end = (fields: TraceFields) => {
-    if (ended) return;
-    ended = true;
-    trace(run, { servedModel: run.model, ...cost, ...fields });
-  };
-  const chunk = first.value;
-  const audio = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(chunk);
-    },
-    async pull(controller) {
-      try {
-        const next = await reader.read();
-        if (next.done) {
-          end({ status: 200, ok: true });
-          controller.close();
-          return;
-        }
-        controller.enqueue(next.value);
-      } catch (error) {
-        const stop = stopped(run, AUDIO_STOP);
-        end({
-          status: stop?.status ?? 502,
-          ok: false,
-          errorCode: stop?.code ?? 'audio_stream_failed',
-          errorMessage: error instanceof Error ? error.message : String(error),
-        });
-        controller.error(error);
-      }
-    },
-    async cancel(reason) {
-      end({ status: 499, ok: false, errorCode: 'client_aborted', errorMessage: 'The client cancelled the stream.' });
-      await reader.cancel(reason).catch(() => {});
-    },
-  });
+  if (!firstChunk) return refuse(run, upstreamError(`${run.model} returned no audio.`));
   const headers = new Headers({ 'content-type': response.headers.get('content-type') ?? 'application/octet-stream' });
   const sampleRate = response.headers.get('x-sample-rate');
   if (sampleRate) headers.set('x-sample-rate', sampleRate);
-  return new Response(audio, { status: 200, headers });
+  return streamAudioBody(run, cost, firstChunk, nextChunk, (reason) => reader.cancel(reason), headers);
 }
 
 /** `POST /audio/transcriptions` and `POST /audio/speech`, OpenAI-shaped, on Kortix's managed audio models. */
@@ -518,28 +867,44 @@ export async function handleVoicesRequest(runtime: HandlerRuntime, req: VoicesRe
   const resolved = await resolve(run, null);
   if (!('baseUrl' in resolved)) return audioRefusalResponse(run.site, resolved);
   run.descriptor = resolved;
+  if (resolved.provider === 'openrouter') {
+    const modelId = resolved.resolvedModel ?? req.model;
+    const voices = OPENROUTER_TTS_CATALOG[modelId]?.voices ?? [];
+    return new Response(JSON.stringify({ object: 'list', data: voices }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
   const headers = upstreamHeaders(resolved, id);
   delete headers['content-type'];
   let response: Response;
+  const voicesPath = resolved.provider === 'inworld' ? '/tts/v1/voices' : '/audio/voices';
   try {
-    response = await run.fetchImpl(`${trimTrailingSlash(resolved.baseUrl)}/audio/voices`, { method: 'GET', headers, signal: run.signal });
+    response = await run.fetchImpl(`${trimTrailingSlash(resolved.baseUrl)}${voicesPath}`, { method: 'GET', headers, signal: run.signal });
   } catch (error) {
     logger.warn(`[gateway] ${id}: ${resolved.provider} voices unreachable — ${error instanceof Error ? error.message : String(error)}`);
     return audioRefusalResponse(run.site, stopped(run, AUDIO_STOP) ?? unreachable(run));
   }
   if (!response.ok) return audioRefusalResponse(run.site, await upstreamRefusal(run, response));
-  const answer = (await response.json().catch(() => null)) as { data?: unknown } | null;
-  if (!Array.isArray(answer?.data)) return audioRefusalResponse(run.site, upstreamError(`${run.model} returned an unreadable voice list.`));
+  const answer = (await response.json().catch(() => null)) as { data?: unknown; voices?: unknown } | null;
+  const rawList = resolved.provider === 'inworld' ? (answer?.voices ?? answer?.data) : answer?.data;
+  if (!Array.isArray(rawList)) return audioRefusalResponse(run.site, upstreamError(`${run.model} returned an unreadable voice list.`));
   const strings = (value: unknown) => (Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []);
   // Only the documented fields reach the client.
-  const data = (answer.data as Record<string, unknown>[])
-    .filter((voice) => typeof voice?.id === 'string')
-    .map((voice) => ({
-      id: voice.id,
-      name: typeof voice.name === 'string' ? voice.name : voice.id,
-      description: typeof voice.description === 'string' ? voice.description : '',
-      languages: strings(voice.languages),
-      tags: strings(voice.tags),
-    }));
+  const data = (rawList as Record<string, unknown>[])
+    .flatMap((voice) => {
+      const voiceId = typeof voice?.id === 'string' ? voice.id : typeof voice?.voiceId === 'string' ? voice.voiceId : '';
+      if (!voiceId) return [];
+      const displayName = typeof voice?.displayName === 'string' && voice.displayName ? voice.displayName
+        : typeof voice?.name === 'string' && voice.name ? voice.name
+          : voiceId;
+      return [{
+        id: voiceId,
+        name: displayName,
+        description: typeof voice?.description === 'string' ? voice.description : '',
+        languages: strings(voice?.languages),
+        tags: strings(voice?.tags),
+      }];
+    });
   return new Response(JSON.stringify({ object: 'list', data }), { status: 200, headers: { 'content-type': 'application/json' } });
 }

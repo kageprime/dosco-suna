@@ -128,7 +128,7 @@ corner to make sure the output is good.
 
 Dosco is not a downstream fork intended for convergence with upstream Kortix (`kortix-ai/CompanyOS`). Dosco is an independent, proprietary managed platform with its own production infrastructure.
 
-Upstream Kortix has coupled core platform operations to **Platinum** (proprietary Cloud Hypervisor microVMs, Platinum Volumes, Platinum inference, and regional microVM clusters), and regularly deprecates or removes alternative providers. **Dosco does not use Platinum as a required dependency.**
+Upstream Kortix has coupled core platform operations to **Platinum** (proprietary Cloud Hypervisor microVMs, Platinum Volumes, Platinum inference, and regional microVM clusters), and regularly deprecates or removes alternative providers. Dosco plans to optionally adopt paid Platinum sandboxes and model gateway in the future, so Platinum providers remain intact — while every production feature MUST ALSO work on Dosco's sovereign free/low-cost stack (E2B, Supabase Storage, OpenRouter, Groq/Inworld) when `PLATINUM_*` keys are unset (**Dual-Path Platinum Parity Rule**).
 
 Every agent working in this repository MUST strictly protect and never delete or disable the following sovereign surfaces during edits, refactors, or upstream merges:
 
@@ -154,11 +154,22 @@ Every agent working in this repository MUST strictly protect and never delete or
   - Project serializers (`apps/api/src/projects/lib/serializers.ts`), feature flags (`feature-flag-env.ts`), memory turns (`turn-start.ts`), and volume routes MUST use `driveStorageAvailable()`, NEVER `isPlatinumConfigured()`.
 
 ### 3. LLM Gateway & Inference: OpenRouter & BYOK
-- **Production requirement**: Dosco powers managed agent models through **OpenRouter** and designated zero-cost models, not Platinum Inference.
+- **Production requirement**: Dosco powers managed agent models through **OpenRouter** and designated zero-cost models when `PLATINUM_INFERENCE_API_KEY` is unset, while preserving Platinum for future paid adoption.
 - **Protected catalogs**:
   - `apps/api/src/llm-gateway/models/free-models.ts` (`openrouter-free` / `openrouter/free`).
-  - `apps/api/src/llm-gateway/models/managed-models.ts` (`DEFAULT_OPENROUTER_MANAGED_MODELS`).
+  - `apps/api/src/llm-gateway/models/managed-models.ts` (`DEFAULT_OPENROUTER_MANAGED_MODELS`, `sovereignVoicePrivateModels`).
   - `apps/api/src/llm-gateway/resolution/descriptors.ts` candidate routing must preserve OpenRouter execution when `PLATINUM_INFERENCE_API_KEY` is not configured.
+
+### 3a. Voice Calls & Audio Inference: Platinum → Groq/Inworld → OpenRouter
+- **Production requirement**: Voice calls (`voice_call`) must never require Platinum Inference to connect or speak. Audio and private voice fast-models route in priority order:
+  1. `PLATINUM_INFERENCE_API_KEY` → Platinum Inference (intact for future paid adoption).
+  2. `GROQ_API_KEY` / `INWORLD_API_KEY` → Groq Whisper STT (`whisper-large-v3`, `whisper-large-v3-turbo`) + Groq fast chat (`qwen3.8-27b`, `gpt-oss-20b`) / Inworld TTS-2 (`inworld-tts-2`, `inworld-tts-2-flash`).
+  3. `OPENROUTER_API_KEY` → OpenRouter audio fallback (`OPENROUTER_VOICE_STT_MODEL` default `openai/whisper-large-v3-turbo`, `OPENROUTER_VOICE_TTS_MODEL` default `hexgrad/kokoro-82m`) and OpenRouter chat/vision (`gemini-3.5-flash-lite` → `google/gemini-2.5-flash-lite`), so voice calls work out of the box with zero extra provider keys.
+- **Protected voice surfaces**:
+  - `packages/llm-gateway/src/pipeline/audio.ts` (`servesAudio` allows `platinum`, `groq`, `inworld`, `openrouter`).
+  - `apps/api/src/llm-gateway/models/managed-models.ts` & `descriptors.ts` (sovereign audio IDs + private voice models).
+  - `apps/api/src/platform/providers/e2b.ts` (`wakeSandboxRuntime` refreshes `KORTIX_FEATURE_FLAGS`, `VOICE_NAME`, and `INWORLD_WORKSPACE`).
+  - `packages/voice/src/name.ts` (defaults `NAME` to `'Xera'`, never `'Kortix'`).
 
 ### 4. Deployment Pipeline: Heroku Container & Vercel Frontend
 - **API Runtime (`apps/api`)**:
@@ -174,18 +185,20 @@ Every agent working in this repository MUST strictly protect and never delete or
     - `apps/web/src/config/turbopack-build-cache.ts` must return `false` when `process.env.VERCEL` is set (`turbopackFileSystemCacheForBuild: false`).
     - `apps/web/next.config.ts` must keep `cpus: 1`, `staticGenerationMinPagesPerWorker: 10000`, `staticGenerationMaxConcurrency: 1`, `turbopackMemoryEviction: 'auto'`, and must NEVER set `turbopackPluginRuntimeStrategy: 'workerThreads'` (which deadlocks `@tailwindcss/oxide` N-API and custom loaders for 30+ minutes when paired with `cpus: 1`).
 
-### 5. Mandatory Upstream Merge Guard
+### 5. Mandatory Upstream Merge Guard & Platinum-Delta Audit
 When syncing changes from upstream Kortix (`kortix-ai/CompanyOS` or `kortix-ai/suna`):
 1. **Never merge upstream directly into `heroku-clean`**. Always merge into an isolated sync branch first.
-2. **Review diff against protected surfaces**:
-   - Verify `e2b.ts` and E2B references were not deleted or stripped.
+2. **Upstream Platinum-Delta Audit**: For every new or modified Platinum-coupled feature in the diff (compute/sandboxes, storage/drives, LLM/audio/search/media gateway, feature flags), keep Platinum support intact for future paid adoption AND plan/implement a verified sovereign free/low-cost equivalent on Dosco's stack (E2B, Supabase Storage, OpenRouter, Groq/Inworld) before merging to `heroku-clean`, so Dosco is never left behind or silently broken.
+3. **Review diff against protected surfaces**:
+   - Verify `e2b.ts` and E2B references were not deleted or stripped, and `wakeSandboxRuntime` flag refresh remains intact.
    - Verify `driveStorageAvailable()` was not replaced with `isPlatinumConfigured()`.
+   - Verify `servesAudio` and `managedCandidates` preserve Groq/Inworld + OpenRouter fallback when `PLATINUM_INFERENCE_API_KEY` is unset.
    - Verify `Dockerfile.heroku` was not overwritten.
    - Verify `apps/web/vercel.json`, `apps/web/next.config.ts`, and `apps/web/src/config/turbopack-build-cache.ts` preserve the Vercel 8 GB build envelope and `--debug-build-paths` route pruning.
-   - Verify Dosco brand rules and "Xera" / "Worker" agent naming were preserved.
+   - Verify Dosco brand rules and "Xera" / "Worker" agent naming were preserved (`packages/voice/src/name.ts` default `'Xera'`).
    - Verify upstream navbar GitHub stars and `kortix-ai/CompanyOS` links are not reintroduced.
    - Verify translations in `en.json` and `packages/ui/src/i18n/en.ts` retain generic "workspace" and Dosco terms.
-3. **Mandatory gates**:
+4. **Mandatory gates**:
    - Run `bun test apps/api/src/platform/providers/dosco-sovereignty.test.ts`
    - Run `bun test apps/web/src/config/turbopack-build-cache.test.ts`
    - Run `bun test tests/unit/dosco-brand-surfaces.test.ts`
