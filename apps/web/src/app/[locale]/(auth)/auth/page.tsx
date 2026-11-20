@@ -45,6 +45,7 @@ import {
   StepHeader,
 } from '@kortix/ui/internal/auth/auth-primitives';
 import { useAuth } from '@/features/providers/auth-provider';
+import { ForestScene } from '@/features/marketing/kit/forest-scene';
 import { invalidateTokenCache, setBootstrapAuthToken } from '@/lib/auth-token';
 import { ENTRY_EMAIL_STASH_KEY, ENTRY_SUBMIT_FLAG_KEY } from '@/lib/auth/entry-hydration-guard';
 import { buildMobileSessionHandoffUrl } from '@/lib/auth/mobile-handoff';
@@ -1402,7 +1403,7 @@ function AuthContent() {
   // A stale/invalidated session (sessionExpired, or forceForm from the
   // safety-net timeout) also lands here — never a dead shell.
   return (
-    <AuthFrame footerVariant="none" showShowcase>
+    <AuthFrame footerVariant="none" showcase={<ForestScene />}>
       <AuthCardForm
         callbackError={searchParams.get('expired') === 'true' || searchParams.has('error') || searchParams.has('error_code')}
         returnUrl={returnUrl}

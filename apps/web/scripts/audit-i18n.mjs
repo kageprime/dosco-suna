@@ -191,7 +191,6 @@ const ignoredPathParts = [
   '/src/features/marketing/enterprise/summary.ts',
   '/src/features/marketing/how-it-work/step/step-models.tsx',
   '/src/features/marketing/kit/copy-row.tsx',
-  '/src/features/marketing/landing-hero/sand-band-hero.tsx',
   '/src/features/marketing/landing-hero/session-window.tsx',
   '/src/features/marketing/landing-sections/content.ts',
   '/src/features/marketing/landing-sections/faq-section.tsx',
@@ -1047,8 +1046,6 @@ function scanFile(file) {
           ['RANGES', 'sessionsConfig', 'accountsConfig', 'burnConfig'].includes(catalogRoot)) ||
         (file === path.join(srcDir, 'features/accounts/settings/branding-tab.tsx') &&
           catalogRoot === 'SLOTS') ||
-        (file === path.join(srcDir, 'features/marketing/hero-surfaces.tsx') &&
-          catalogRoot === 'SURFACES') ||
         (file ===
           path.join(uiSrcDir, 'customize/sections/view/gateway/gateway-budgets.tsx') &&
           ['PERIODS', 'ACTIONS'].includes(catalogRoot)) ||

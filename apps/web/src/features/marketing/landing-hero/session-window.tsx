@@ -200,6 +200,9 @@ export function useFitScale(frame: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
     const el = frame.current;
     if (!el) return;
+    // Fitting is an enhancement: a synthetic or embedded DOM without the
+    // observer keeps the board at 1:1 instead of throwing out of the effect.
+    if (typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(([entry]) => {
       if (entry) setScale(entry.contentRect.width / W);
     });
