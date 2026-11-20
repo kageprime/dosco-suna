@@ -208,3 +208,45 @@ describe('App machine exec has the 95 s completion deadline', () => {
     }
   });
 });
+
+/**
+ * 2026-11-20, Dosco prod: `POST …/sessions/:id/start` was the only route still
+ * exempt for a purely DB reason — a pool-starved prologue queued past Heroku's
+ * 30 s router timeout and answered a bare H12 (no JSON/CORS/Retry-After). The
+ * route itself is now bounded at the general deadline; it waits at most
+ * START_AWAIT_MAX_MS and the open is idempotent. Its replacement is the
+ * setup-link connector start, one provider call under the connector timeout.
+ */
+describe('the session open is bounded, its replacement setup-link start is exempt', () => {
+  const project = '/v1/projects/00000000-0000-4000-a000-000000000001';
+  const session = `${project}/sessions/00000000-0000-4000-a000-000000000002/start`;
+  const workspace = `/v1/workspaces/00000000-0000-4000-a000-000000000001/sessions/00000000-0000-4000-a000-000000000002/start`;
+  const setupLink = '/v1/setup-links/connectors/tok/start';
+
+  test.each([session, workspace])('bounds the session open %s', (path) => {
+    expect(isExempt(ctx(path))).toBe(false);
+    expect(requestDeadlineMs(ctx(path))).toBe(25_000);
+  });
+
+  test('bounds a deeper path under the session start', () => {
+    const deeper = `${session}/extra`;
+    expect(isExempt(ctx(deeper))).toBe(false);
+    expect(requestDeadlineMs(ctx(deeper))).toBe(25_000);
+  });
+
+  test('exempts the setup-link connector start and its exact path only', () => {
+    expect(isExempt(ctx(setupLink))).toBe(true);
+    expect(requestDeadlineMs(ctx(setupLink))).toBeNull();
+    // Anchored: another method, a child path and a missing /v1 prefix are all
+    // still bounded, so the exemption cannot silently widen.
+    for (const [path, method] of [
+      [setupLink, 'GET'],
+      [`${setupLink}/extra`, 'POST'],
+      ['/v1/setup-links/connectors', 'POST'],
+      ['v1/setup-links/connectors/tok/start', 'POST'],
+    ] as const) {
+      expect(isExempt(ctx(path, method))).toBe(false);
+      expect(requestDeadlineMs(ctx(path, method))).not.toBeNull();
+    }
+  });
+});

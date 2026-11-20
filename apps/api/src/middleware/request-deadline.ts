@@ -76,11 +76,17 @@ const EXEMPT_PREFIXES = [
 // These either boot sandboxes, push git repos, or sweep batches — work that
 // can exceed the deadline while behaving correctly. Enumerated from 7 days of
 // prod duration data (2026-06-12).
+// 2026-11-20, Dosco prod: the unified session open
+// (`POST …/sessions/:id/start`) is deliberately NOT in the fragment list. It
+// waits at most START_AWAIT_MAX_MS (15 s), so the general deadline leaves 10 s
+// for its prologue. While it was exempt, a pool-starved prologue queued past
+// Heroku's 30 s router timeout and answered a bare H12 with no JSON, no CORS
+// and no Retry-After. A bounded request answers a retryable 503
+// `request_deadline` instead; the start itself is idempotent.
 const EXEMPT_FRAGMENTS = [
   '/turn-question',
   '/provision-stream',
   '/provision', // managed repo create + sandbox boot
-  '/start', // unified session open: provision/resume + pin
   // resolve
   '/commit-push', // host-driven git commit+push
   '/marketplace/install', // marketplace item install — git-bound like
@@ -144,6 +150,11 @@ const EXEMPT_METHOD_PATH_PATTERNS: Array<{ method: string; path: RegExp }> = [
   // substring. The `/v1/workspaces` alias exempts identically
   // (`asLegacyWorkspaceRoute`).
   { method: 'POST', path: /\/sessions\/[^/]+\/config-release$/ },
+  // The connector setup link's hosted-authorization mint. One provider call
+  // (Pipedream/Composio) under the connector's own timeout. It was covered by
+  // the broad `/start` fragment until that fragment was narrowed to bound the
+  // session open (2026-11-20); this is the exact replacement.
+  { method: 'POST', path: /^\/v1\/setup-links\/connectors\/[^/]+\/start$/ },
   // The ws UPGRADE needs no entry — `isExempt` returns true for any request
   // carrying `Upgrade: websocket` before it reaches these lists.
 ];

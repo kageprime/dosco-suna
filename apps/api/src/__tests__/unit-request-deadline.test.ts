@@ -46,7 +46,8 @@ function makeApp() {
   app.get('/v1/llm/chat/completions', slow); // exempt prefix (LLM streaming)
   app.post('/v1/connectors/projects/x/connectors', slow); // exempt prefix (git + provider sync)
   app.post('/v1/billing/webhooks/stripe', slow); // exempt prefix (webhook)
-  app.post('/v1/projects/x/sessions/y/start', slow); // exempt fragment (long sync op)
+  app.post('/v1/projects/x/sessions/y/start', slow); // bounded: pool-starved prologue must answer 503, not a bare H12
+  app.post('/v1/setup-links/connectors/tok/start', slow); // exempt: one hosted-authorization mint under its own timeout
   app.post('/v1/projects/x/oauth/openai/start', slow); // exempt fragment (OAuth device flow — start can be slow on a cold replica)
   app.post('/v1/projects', slow); // exempt method+path (provision)
   app.get('/v1/projects', slow); // bounded — only POST is exempt
@@ -110,8 +111,16 @@ describe('requestDeadline', () => {
     expect(res.status).toBe(200);
   });
 
-  it('exempts long sync sandbox ops (start) via fragment', async () => {
+  it('bounds POST /v1/projects/:id/sessions/:id/start (no bare-H12 exempt fragment)', async () => {
     const res = await makeApp().request('/v1/projects/x/sessions/y/start', {
+      method: 'POST',
+    });
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({ code: 'request_deadline' });
+  });
+
+  it('still exempts the setup-link connector start (hosted-authorization mint)', async () => {
+    const res = await makeApp().request('/v1/setup-links/connectors/tok/start', {
       method: 'POST',
     });
     expect(res.status).toBe(200);
