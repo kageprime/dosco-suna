@@ -25,7 +25,7 @@ import { listAgentServiceAccounts, ensureAgentServiceAccount } from '../../repos
 import { loadConfigWithFilesCached } from '../../projects/lib/project-resources';
 import { ACTION_CATALOG_WIRE, validateActions } from './role-presets';
 import { toWorkspaceAction } from '@kortix/shared/workspace-actions';
-import { mapLimit } from '@kortix/registry';
+import { mapWithConcurrency } from '../../shared/map-with-concurrency';
 import { TimeoutError, withTimeout } from '../../shared/with-timeout';
 import { accountIdParam } from '../../shared/route-params';
 import { projectsView } from '../../workspaces/rows';
@@ -164,7 +164,7 @@ const RoleIdParam = z.object({ workspaceId: z.string(), roleId: z.string() });
 //  1. `loadConfigWithFilesCached` — a 20s per-project TTL memo (see
 //     project-resources.ts) so a picker opened repeatedly (or by several
 //     admins) doesn't re-clone the same handful of projects every time.
-//  2. `mapLimit` bounds how many project reads run at once, instead of
+//  2. `mapWithConcurrency` bounds how many project reads run at once, instead of
 //     firing all of them into the git layer simultaneously.
 //  3. A whole-phase deadline: if eager provisioning is still running past the
 //     budget, return whatever is already in `byKey` (already-provisioned
@@ -218,7 +218,7 @@ export async function eagerlyProvisionAgentIdentities(
   byKey: Map<string, AgentIdentity>,
   deps: EagerProvisionDeps = defaultEagerProvisionDeps,
 ): Promise<void> {
-  const eagerProvisioning = mapLimit(projectRows as EagerProvisionProjectRow[], deps.concurrency, async (p) => {
+  const eagerProvisioning = mapWithConcurrency(projectRows as EagerProvisionProjectRow[], deps.concurrency, async (p) => {
     let agentNames: string[] = ['default'];
     try {
       const config = await withTimeout(deps.loadConfig(p), deps.perProjectBudgetMs, 'agent-identities config load');

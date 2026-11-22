@@ -471,12 +471,10 @@ flow(
     const attach = (extra: Record<string, unknown> = {}) => session.sandbox.post('/v1/chrome/attach', { ticket, ...extra });
     let attachmentId = '';
     try {
-      await ctx.step("the project's chrome flag off → attach 403 feature_disabled; cleared it stays off until launch (CHROME_LAUNCHED), so an operator turns it on", async () => {
+      await ctx.step("the project's chrome flag off → attach 403 feature_disabled; cleared, it is on by default again (the next step attaches)", async () => {
         await setFeatureAsOperator(ctx, project.id, 'chrome', false);
         (await attach()).status(403).body().has('$.code', 'feature_disabled').has('$.feature', 'chrome');
         await setFeatureAsOperator(ctx, project.id, 'chrome', null);
-        (await attach()).status(403).body().has('$.code', 'feature_disabled').has('$.feature', 'chrome');
-        await setFeatureAsOperator(ctx, project.id, 'chrome', true);
       });
 
       await ctx.step('mode always: attach → 200; the extension gets an attach frame without a prompt', async () => {
@@ -534,7 +532,7 @@ flow(
         attachmentId = frame.attachmentId;
       });
 
-      await ctx.step('Stop in Chrome → detached "stopped"; the next attach → 403 chrome_denied, no connectUrl before launch', async () => {
+      await ctx.step('Stop in Chrome → detached "stopped"; the next attach → 403 chrome_denied with the connect page', async () => {
         control.send({ type: 'detached', attachmentId, reason: 'stopped' });
         await waitFor(() => attach(), {
           until: (r) => r.statusCode === 403,
@@ -544,8 +542,8 @@ flow(
         });
         const r = await attach();
         r.status(403).body().has('$.code', 'chrome_denied').exists('$.error');
-        // The web app has no /settings/chrome page before launch (CHROME_LAUNCHED, #11436).
-        if ('connectUrl' in r.json<Record<string, unknown>>()) throw new Error('connectUrl names a page that does not exist');
+        const { connectUrl } = r.json<{ connectUrl?: string }>();
+        if (!connectUrl?.endsWith('/settings/chrome')) throw new Error(`connectUrl: ${connectUrl}`);
       });
 
       await ctx.step('ask=true shows a new prompt; deny in Chrome → 403 chrome_denied', async () => {

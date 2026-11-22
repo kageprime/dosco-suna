@@ -1,9 +1,7 @@
 # Scheduling playbook
 
-Read this when you decide whether and how to schedule work, every time you
-start something whose result comes later, and before a long job. The decision
-tables and `403 feature_disabled` are in `SKILL.md` → `<scheduling>`; trigger fields
-are in `kortix/kortix-yaml.md` → triggers.
+Read this before you schedule work, after you start something whose result
+comes later, and before a long job. Trigger fields: `kortix/kortix-yaml.md`.
 
 ## Follow-through
 
@@ -27,8 +25,7 @@ wake-up is a promise nobody keeps: the session sleeps until someone types.
      the URL to give it;
    - a page, a status, a price or an API that sends nothing ("tell me whenever
      it changes"): a watcher App that posts App events ("Watch 24/7" below),
-     then `--on app --app <slug>`. A loop wakes a model on every check; the
-     App wakes one only when something changed.
+     then `--on app --app <slug>`.
 2. **Add a fallback loop** whenever the event might not come: a reply may
    never arrive, a webhook may never be called. With no event, the loop is
    the signal.
@@ -107,9 +104,7 @@ job the same way.
    a follow-up goes to the same name), a `workflow` for many parallel agents,
    a team only when they must share a task list. A hand-off, a teammate and
    a workflow report back by themselves: set no loop for them.
-3. **Set wake-ups.** For every wait on the outside world: an event that wakes
-   this session when one exists, plus a fallback loop with an end date
-   ("Follow-through" above).
+3. **Set wake-ups** for every wait on the outside world ("Follow-through").
 4. **Keep the state outside the context.** A woken turn reads it first:
    - the loop text: what is pending, the next step, the stop rule;
    - `out/status.md` in `/workspace` (kept for the life of the session; in
@@ -161,13 +156,11 @@ order from the best one." In the first turn:
 5. The reply ends: "Searching for printers and requesting 12 quotes. I'll
    check every working morning until 14 Nov and bring you the comparison."
 
-When the person picks a printer, `printer-outreach` places the order; this
-session replaces its loop with a daily delivery check until the tracking
-says delivered. The person says the team orders stickers every quarter:
-propose a quarterly trigger for a fresh quote round, and create it only
-after they agree. At delivery: remove both loops, `task_stop`
-`printer-outreach`, mark `out/status.md` done, and report the order, the
-printer and the delivery date in three lines.
+When the person picks a printer, `printer-outreach` orders; this session's
+loop becomes a daily delivery check. The team orders every quarter: propose a
+quarterly trigger, and create it only after they agree. At delivery: remove
+both loops, `task_stop` `printer-outreach`, mark `out/status.md` done, and
+report the order, the printer and the delivery date in three lines.
 
 ## Where a trigger lives
 
@@ -268,10 +261,9 @@ day-of-week`. A 5-field expression works too (seconds = 0). Day-of-week
 
 ## Notify, or stay silent
 
-Nobody watches a scheduled run. When it finds something new or actionable,
-it pushes a message itself, usually `slack send --channel "#growth" --text
-"…"` (the `kortix-slack` skill) or a connector action. When nothing changed,
-it ends silently: a daily "nothing new" trains people to ignore it.
+Nobody watches a scheduled run. It pushes what is new or actionable itself
+(`slack send`, the `kortix-slack` skill, or a connector action) and otherwise
+ends silently: a daily "nothing new" trains people to ignore it.
 
 ## Idempotency
 
@@ -410,23 +402,12 @@ Saying "I stopped it" without a config change leaves it firing.
 
 ## Checklist
 
-- [ ] Every wait has a wake-up: an event, a fallback loop, an end date, and
-      one line to the person.
-- [ ] The loop text names what was sent, to whom, what to check, each
-      outcome, and when to stop.
-- [ ] Right mechanism: loop, session trigger, one-off `at`, `cron`/`every`,
-      webhook, App call, or App events.
+- [ ] Every wait has a wake-up (an event, a fallback loop, an end date) and one
+      line to the person. The loop text says what to check, each outcome, and
+      when to stop.
 - [ ] 6-field cron, `timezone` set, no day-of-month + day-of-week trap, no
-      exact-minute check.
-- [ ] Session mode chosen on purpose; the prompt carries all context.
-- [ ] Idempotent: scoped by `cron.last_scheduled_for`, records what it handled.
-- [ ] Notifies only on something new; silent otherwise.
-- [ ] An event trigger filters at the source (`--filter`), keys one session
-      per thing when follow-ups come (`--session-key`), and is capped
-      (`--max-runs-per-day`).
-- [ ] Its prompt judges first and stops silently when the event does not count.
-- [ ] Dry-run with `kortix triggers fire <slug> --dry-run --payload …` for an
-      event that should run and one that should not; then tested once with
-      `kortix triggers fire <slug>`.
-- [ ] A review of `kortix triggers runs <slug>` is scheduled a few days out.
+      exact-minute check. Session mode chosen on purpose.
+- [ ] Idempotent (`cron.last_scheduled_for`); notifies only on something new.
+- [ ] An event trigger filters, keys and caps ("Automations"), judges first,
+      and is dry-run for an event that should run and one that should not.
 - [ ] Removed when the work is done; the user knows how to stop it.

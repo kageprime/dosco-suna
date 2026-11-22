@@ -443,17 +443,20 @@ connectors:
     expect(missing.warningPaths).toContain('connectors[0].spec');
   });
 
-  test('auth.secret is rejected', () => {
-    const { errorPaths } = summarize(`
+  test('auth.secret names a project secret: a secret name is accepted, anything else is rejected', () => {
+    const connector = (secret: string) => `
 connectors:
   - slug: stripe
     provider: openapi
     spec: https://example.com/openapi.json
     auth:
       type: bearer
-      secret: STRIPE_API_KEY
-`);
-    expect(errorPaths).toContain('connectors[0].auth.secret');
+      secret: ${secret}
+`;
+    expect(summarize(connector('STRIPE_API_KEY')).errorPaths).not.toContain('connectors[0].auth.secret');
+    expect(summarize(connector('sk_live_not_a_name')).errorPaths).toContain('connectors[0].auth.secret');
+    expect(summarize(connector('42')).errorPaths).toContain('connectors[0].auth.secret');
+    expect(summarize(connector('" STRIPE_API_KEY "')).errorPaths).toContain('connectors[0].auth.secret');
   });
 
   test('a valid `headers` table is accepted', () => {
@@ -888,5 +891,32 @@ describe('apps: release config (processes, services, mounts, vm, deploy, labels)
       'apps.db.display.space: must be a space slug (lowercase letters, digits, "-" or "_", at most 63 characters).',
       'apps.db.display.agent: must be an agent name.',
     ]);
+  });
+});
+
+describe('validateManifest — on/run trigger agent references', () => {
+  const trigger = (agent: unknown) => ({
+    agents: { writer: { prompt: 'Write.', tools: '*' } },
+    triggers: [{ slug: 'digest', on: { every: '5m' }, run: { agent, prompt: 'Go.' } }],
+  });
+
+  test('rejects an undeclared agent at the nested path', () => {
+    const result = summarize(trigger('ghost'));
+    expect(result.valid).toBe(false);
+    expect(result.errorPaths).toEqual(['triggers[0].run.agent']);
+    expect(result.issues[0].message).toContain('does not match any declared agent');
+  });
+
+  test.each(['writer', ' writer ', 'default', 'mykortix', 'meta', undefined, null])('accepts %s', (agent) => {
+    expect(summarize(trigger(agent)).errorPaths).toEqual([]);
+  });
+
+  test.each(['', '   ', 42, false])('rejects invalid agent %s at the nested path', (agent) => {
+    expect(summarize(trigger(agent)).errorPaths).toContain('triggers[0].run.agent');
+  });
+
+  test('keeps flat references checked', () => {
+    expect(summarize({ triggers: [{ slug: 'digest', type: 'cron', every: '5m', agent: 'ghost', prompt: 'Go.' }] }).errorPaths)
+      .toContain('triggers[0].agent');
   });
 });

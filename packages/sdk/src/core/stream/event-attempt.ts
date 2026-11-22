@@ -409,13 +409,18 @@ export function reconnectDelay(retryCount: number, fastPath: boolean, t: EventSt
 
 /** Resolve after `delayMs`, or immediately when `signal` aborts. */
 export function abortableDelay(t: EventStreamTimers, signal: AbortSignal, delayMs: number): Promise<void> {
+  if (signal.aborted) return Promise.resolve();
   return new Promise<void>((resolve) => {
-    const timer = t.setTimeout(resolve, delayMs);
-    const onAbort = () => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener('abort', finish);
       t.clearTimeout(timer);
       resolve();
     };
-    signal.addEventListener('abort', onAbort, { once: true });
+    const timer = t.setTimeout(finish, delayMs);
+    signal.addEventListener('abort', finish, { once: true });
   });
 }
 

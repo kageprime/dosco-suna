@@ -6,6 +6,7 @@
   "scripts": {
     "build": "bun run scripts/build.ts",
     "build:dev": "KORTIX_EXTENSION_DEV=1 bun run scripts/build.ts",
+    "package": "bun run scripts/package.ts",
     "typecheck": "tsc --noEmit",
     "smoke": "bun run scripts/smoke.ts",
     "test": "node ../../scripts/test-guard.mjs \"bun test --timeout ${KORTIX_TEST_TIMEOUT_MS:-15000}\""

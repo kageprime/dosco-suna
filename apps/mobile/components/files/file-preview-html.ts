@@ -254,6 +254,7 @@ export function generateDocxHtml(base64Data: string, isDark: boolean): string {
   const borderColor = isDark ? THEME.dark.border : THEME.light.border;
   const mutedBgColor = isDark ? THEME.dark.muted : THEME.light.muted;
   const mutedForegroundColor = isDark ? THEME.dark.mutedForeground : THEME.light.mutedForeground;
+  const linkColor = THEME.accent[isDark ? 'dark' : 'light'].blue;
   const zebraStripeColor = withAlpha(isDark ? THEME.dark.foreground : THEME.light.foreground, isDark ? 0.03 : 0.02);
 
   return `
@@ -357,7 +358,7 @@ export function generateDocxHtml(base64Data: string, isDark: boolean): string {
       margin: 1em 0;
     }
     #container a {
-      color: ${THEME.accent.blue};
+      color: ${linkColor};
       text-decoration: underline;
     }
     #container blockquote {

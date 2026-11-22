@@ -573,7 +573,7 @@ const TODOS = [
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <section data-case={label} className="border-border/40 border-b py-6">
-      <p className="text-muted-foreground/60 mb-3 font-mono text-xs">{label}</p>
+      <p className="text-muted-foreground mb-3 font-mono text-xs">{label}</p>
       {children}
     </section>
   );
@@ -617,7 +617,7 @@ export default function DebugTurnPage() {
             {tI18nComplete.raw('textf15fd3df9642')} {dark ? 'dark' : 'light'}
           </button>
 
-          <p id="activate-count" className="text-muted-foreground/60 mb-6 font-mono text-xs">
+          <p id="activate-count" className="text-muted-foreground mb-6 font-mono text-xs">
             {tI18nComplete.raw('textb5cec06a6ef5')} {activateCount}
           </p>
 

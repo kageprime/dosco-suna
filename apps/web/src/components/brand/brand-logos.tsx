@@ -1,7 +1,7 @@
 /**
- * Official brand logos — Apple / Windows / Linux / Google Play.
+ * Official brand logos — Apple / Windows / Linux / Google Play / Chrome.
  *
- * All four marks the /download page needs live here, so its five rows draw from
+ * All five marks the /download page needs live here, so its five rows draw from
  * one source rather than mixing a local wrapper with a raw icon import. Apple
  * covers two rows: macOS on the desktop card, iPhone and iPad on the mobile one.
  *
@@ -16,7 +16,7 @@
  * still wins over the bound default, so those glyphs stay solid regardless of
  * DEFAULT_ICON_WEIGHT.
  *
- * Apple, Windows and Linux are `currentColor` and inherit the row's text
+ * Apple, Windows, Linux and Chrome are `currentColor` and inherit the row's text
  * colour. Google Play is the four-colour original, because its mark has no
  * recognisable single-colour form — flattening it produces a bare triangle.
  *
@@ -387,6 +387,23 @@ export function LinuxMark({ className }: MarkProps) {
           <stop offset={1} stopColor="white" stopOpacity={0} />
         </linearGradient>
       </defs>
+    </svg>
+  );
+}
+
+/** Google Chrome, from simple-icons (CC0): the same glyph as `public/browser-icons/chrome.svg`. */
+export function ChromeMark({ className }: MarkProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+      className={cn('size-4', className)}
+      aria-hidden="true"
+    >
+      <path
+        fill="currentColor"
+        d="M12 0C8.21 0 4.831 1.757 2.632 4.501l3.953 6.848A5.454 5.454 0 0 1 12 6.545h10.691A12 12 0 0 0 12 0zM1.931 5.47A11.943 11.943 0 0 0 0 12c0 6.012 4.42 10.991 10.189 11.864l3.953-6.847a5.45 5.45 0 0 1-6.865-2.29zm13.342 2.166a5.446 5.446 0 0 1 1.45 7.09l.002.001h-.002l-5.344 9.257c.206.01.413.016.621.016 6.627 0 12-5.373 12-12 0-1.54-.29-3.011-.818-4.364zM12 16.364a4.364 4.364 0 1 1 0-8.728 4.364 4.364 0 0 1 0 8.728Z"
+      />
     </svg>
   );
 }

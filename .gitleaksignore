@@ -165,3 +165,9 @@ b214b7afb277b75ee9726ab828002b90e49245db:tests/unit/client-resilience.test.ts:ge
 # black-box test classifies as `prod`. Not a credential. The test now assembles
 # it at runtime; this is the commit where it was one literal (#12644).
 d61aa124384b7232c32c08d17d566e797f142133:apps/cli/src/__tests__/plan.blackbox.test.ts:generic-api-key:15
+
+# apps/api/src/projects/evals/hub.ts holds the Harbor Hub's Supabase
+# PUBLISHABLE key (sb_publishable_…): public and read-only by design, the same
+# value Harbor ships in its own open-source client (src/harbor/auth/constants.py).
+# It reads public eval tasks; it is not a Kortix credential.
+6093ff1aa5ad5338b4aa0af63221a870cf702001:apps/api/src/projects/evals/hub.ts:generic-api-key:22

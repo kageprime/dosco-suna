@@ -107,6 +107,61 @@ export function SpaceFolderView({
 }
 
 /**
+ * A Drive folder by path, for a place that is not a channel or DM: a Space's
+ * folder tab. `ownFolder` (the Space's `/Spaces/<group_id>`) is made on first
+ * open; any other missing folder shows `missing`. Drive off: the place's
+ * Drive-off state.
+ */
+export function DriveFolderAt({
+  projectId,
+  path,
+  place,
+  ownFolder,
+  missing,
+}: {
+  projectId: string;
+  path: string;
+  place: string;
+  ownFolder: string | null;
+  missing: ReactNode;
+}) {
+  const t = useTranslations('spaces');
+  const availability = useDriveAvailability(projectId);
+  const drive = useProjectDrive(projectId, availability.enabled);
+  if (availability.isLoading) return null;
+  if (!availability.enabled) return <DriveOff place={place} />;
+  if (drive.isError) {
+    return (
+      <ErrorState
+        size="sm"
+        title={t('folder.loadError')}
+        action={
+          <Button variant="outline" size="sm" onClick={() => void drive.refetch()}>
+            {t('view.retry')}
+          </Button>
+        }
+      />
+    );
+  }
+  if (!drive.data) return null;
+  return (
+    <SpaceDriveFolder
+      key={path}
+      projectId={projectId}
+      drive={drive.data}
+      path={path}
+      label={path === ownFolder ? place : (path.split('/').filter(Boolean).at(-1) ?? path)}
+      tab="files"
+      place={place}
+      note={null}
+      hidden={null}
+      make={path === ownFolder}
+      missing={missing}
+    />
+  );
+}
+
+/**
  * One folder in the explorer. A folder not made yet (a DM's, or a channel's
  * from before folders were made on create) is made on first open; when the
  * caller may not make it, the tab shows its empty state.

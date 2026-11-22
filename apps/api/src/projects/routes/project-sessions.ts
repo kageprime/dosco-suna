@@ -103,6 +103,7 @@ async function sessionReadResponse(c: Context<AppEnv>, projectId: string, sessio
   // A read: a subagent finds the session that spawned it (`kortix sessions log <parent>`).
   const visible = await loadVisibleSession(loaded, sessionId, c.get('sessionId') ?? null, callerKortixSessionId(c), {
     spawnAncestorRead: true,
+    triggerReaderRead: true,
   });
   if (!visible) return c.json({ error: 'Not found' }, 404);
   // A soft-deleted session is gone for a read-by-id, exactly as it is for the
@@ -592,6 +593,7 @@ export function registerProjectSessionsRoutes(): void {
       return c.json({ error: 'group must be a group id or none' }, 400);
     }
     const inventory = await loadProjectSessionInventory({
+      actor: loaded.actor,
       projectId,
       accountId: loaded.row.accountId,
       userId: loaded.userId,

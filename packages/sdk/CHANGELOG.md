@@ -31,6 +31,26 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `InboxNotification.resolved?: boolean`: a `question` or `permission` row whose ask is
   closed (answered, dismissed, decided or expired). Absent from an older API: read it as false.
 
+### Deprecated (the marketplace was removed)
+- The marketplace was removed (2026-11-20). Every `/v1/marketplace/*` route and
+  `POST /workspaces/:id/marketplace/install-session` answer `410 ENDPOINT_RETIRED`.
+  These names stay exported, marked `@deprecated`, and are removed in the next major:
+  `kortix.marketplace.*`, `listMarketplaceCatalogItems`, `getMarketplaceCatalogItem`,
+  `getMarketplaceCatalogItemFile`, `listMarketplaces`, `listFeaturedMarketplaces`,
+  `listMarketplaceSources`, `addMarketplaceSource`, `removeMarketplaceSource`,
+  `createMarketplaceInstallSession`, `listPublicMarketplaceItems`, `listPublicMarketplaces`,
+  `getPublicMarketplaceItem`, `getPublicMarketplaceItemFile`, and their types
+  (`MarketplaceCatalogItem`, `MarketplaceCatalogStatus`, `MarketplaceItemsResponse`,
+  `ListMarketplaceItemsOptions`, `MarketplaceEntry`, `MarketplacesResponse`,
+  `FeaturedMarketplacesResponse`, `MarketplaceItemFile`, `MarketplaceSource`,
+  `MarketplaceSourcesResponse`, `AddMarketplaceSourceInput`, `AddMarketplaceSourceResponse`,
+  `PublicMarketplaceQuery`).
+- The `marketplace` project flag is withdrawn. `FeatureFlagKey` keeps `'marketplace'`, marked
+  `@deprecated`; `FEATURE_FLAG_KEYS` no longer lists it and the API no longer sends it.
+- `source_item_id` (on `CreateProjectRepoInput` and `ProvisionProjectInput`) and
+  `marketplace_items` (on `ProvisionProjectInput`) are deprecated. The API answers `400` when
+  `source_item_id` is set and ignores `marketplace_items`.
+
 ### Changed (provider keys need no flag)
 - The `pooled_provider_secrets` project flag graduated (2026-11-12): every project has named
   provider keys with sharing, per-session key selection and named ChatGPT/Claude sign-ins.

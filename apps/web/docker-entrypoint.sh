@@ -58,9 +58,11 @@ fi
 SED_SCRIPT=$(mktemp)
 needs_rewrite=false
 
-# Append a sed replacement for one baked -> runtime value, flag the rewrite, and
-# log it. (The backend-host block below deliberately does neither — see there.)
+# When the bundle contains the baked value, append a sed replacement for one
+# baked -> runtime value, flag the rewrite, and log it. (The backend-host block
+# below deliberately does neither — see there.)
 rewrite() {
+  grep -rq "$1" "$BUNDLE_DIR" 2>/dev/null || return 0
   printf 's|%s|%s|g\n' "$1" "$2" >> "$SED_SCRIPT"
   needs_rewrite=true
   echo "[entrypoint] $3"
@@ -68,9 +70,7 @@ rewrite() {
 
 # Supabase URL (placeholder)
 if [ -n "$RUNTIME_SUPABASE_URL" ] && [ "$RUNTIME_SUPABASE_URL" != "$BAKED_SUPABASE_URL" ]; then
-  if grep -rq "$BAKED_SUPABASE_URL" "$BUNDLE_DIR" 2>/dev/null; then
-    rewrite "$BAKED_SUPABASE_URL" "$RUNTIME_SUPABASE_URL" "Supabase URL: ${BAKED_SUPABASE_URL} -> ${RUNTIME_SUPABASE_URL}"
-  fi
+  rewrite "$BAKED_SUPABASE_URL" "$RUNTIME_SUPABASE_URL" "Supabase URL: ${BAKED_SUPABASE_URL} -> ${RUNTIME_SUPABASE_URL}"
 fi
 
 # Supabase URL (dev builds with local Supabase CLI URLs)
@@ -80,14 +80,10 @@ if [ -n "$RUNTIME_SUPABASE_URL" ]; then
   for dev_url in $DEV_SUPABASE_URLS; do
     for scheme in "https://" "http://"; do
       full_dev_url="${scheme}${dev_url}"
-      if grep -rq "$full_dev_url" "$BUNDLE_DIR" 2>/dev/null; then
-        rewrite "$full_dev_url" "$RUNTIME_SUPABASE_URL" "Supabase URL (dev): ${full_dev_url} -> ${RUNTIME_SUPABASE_URL}"
-      fi
+      rewrite "$full_dev_url" "$RUNTIME_SUPABASE_URL" "Supabase URL (dev): ${full_dev_url} -> ${RUNTIME_SUPABASE_URL}"
     done
     # Fallback: bare host:port (no scheme) — only if full URL wasn't already matched
-    if grep -rq "$dev_url" "$BUNDLE_DIR" 2>/dev/null; then
-      rewrite "$dev_url" "$RUNTIME_SUPABASE_URL" "Supabase URL (dev bare): ${dev_url} -> ${RUNTIME_SUPABASE_URL}"
-    fi
+    rewrite "$dev_url" "$RUNTIME_SUPABASE_URL" "Supabase URL (dev bare): ${dev_url} -> ${RUNTIME_SUPABASE_URL}"
   done
 fi
 
@@ -102,7 +98,7 @@ done
 
 if [ -n "$RUNTIME_ANON_KEY" ]; then
   for baked_key in $DEV_ANON_KEYS; do
-    if [ "$RUNTIME_ANON_KEY" != "$baked_key" ] && grep -rq "$baked_key" "$BUNDLE_DIR" 2>/dev/null; then
+    if [ "$RUNTIME_ANON_KEY" != "$baked_key" ]; then
       rewrite "$baked_key" "$RUNTIME_ANON_KEY" "Supabase anon key: replacing ($baked_key)"
     fi
   done
@@ -110,9 +106,7 @@ fi
 
 # Backend URL (/v1 path)
 if [ -n "$RUNTIME_BACKEND_URL" ] && [ "$RUNTIME_BACKEND_URL" != "$BAKED_BACKEND_URL" ]; then
-  if grep -rq "$BAKED_BACKEND_URL" "$BUNDLE_DIR" 2>/dev/null; then
-    rewrite "$BAKED_BACKEND_URL" "${RUNTIME_BACKEND_URL%/}" "Backend: ${BAKED_BACKEND_URL} -> ${RUNTIME_BACKEND_URL}"
-  fi
+  rewrite "$BAKED_BACKEND_URL" "${RUNTIME_BACKEND_URL%/}" "Backend: ${BAKED_BACKEND_URL} -> ${RUNTIME_BACKEND_URL}"
 fi
 
 # Backend host (without /v1 — some code references the base URL directly).
@@ -126,9 +120,7 @@ fi
 
 # Public frontend URL used by callback and absolute-link code.
 if [ -n "$RUNTIME_APP_URL" ] && [ "$RUNTIME_APP_URL" != "$BAKED_APP_URL" ]; then
-  if grep -rq "$BAKED_APP_URL" "$BUNDLE_DIR" 2>/dev/null; then
-    rewrite "$BAKED_APP_URL" "${RUNTIME_APP_URL%/}" "App URL: ${BAKED_APP_URL} -> ${RUNTIME_APP_URL}"
-  fi
+  rewrite "$BAKED_APP_URL" "${RUNTIME_APP_URL%/}" "App URL: ${BAKED_APP_URL} -> ${RUNTIME_APP_URL}"
 fi
 
 # ── Billing flag rewrite ──────────────────────────────────────────────────────

@@ -81,6 +81,45 @@ describe('rbac cutover views runtime cleanup', () => {
   });
 });
 
+describe('role_assignments workspace scope lock order', () => {
+  const FILE = '20261114162256000_role_assignments_workspace_scope.sql';
+  const SOURCE = [
+    "set lock_timeout = '2s';",
+    'ALTER TABLE kortix.role_assignments DROP CONSTRAINT IF EXISTS role_assignments_scope_type_check;',
+    'CREATE OR REPLACE VIEW kortix.account_members AS SELECT 1;',
+  ].join('\n');
+
+  test('locks the three views before the first role_assignments ALTER, only in the runtime copy', () => {
+    const root = mkdtempSync(join(tmpdir(), 'role-scope-override-'));
+    roots.push(root);
+    const dir = join(root, 'migrations');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, FILE), SOURCE);
+    const runtime = materializeMigrationRuntimeDirectory(dir, {
+      roleAssignmentsScopeExpectedSha256: createHash('sha256').update(SOURCE).digest('hex'),
+    });
+    roots.push(runtime.path);
+    const rewritten = readFileSync(join(runtime.path, FILE), 'utf8');
+    const lock = 'LOCK TABLE kortix.account_members, kortix.project_members, kortix.project_group_grants IN ACCESS EXCLUSIVE MODE;';
+    // A reader takes the view, then the table: the migration must take them in the same order.
+    expect(rewritten.split(lock).length - 1).toBe(1);
+    expect(rewritten.indexOf(lock)).toBeLessThan(rewritten.indexOf('ALTER TABLE kortix.role_assignments'));
+    expect(readFileSync(join(dir, FILE), 'utf8')).toBe(SOURCE);
+    expect(runtime.appliedOverrides.some((o) => o.includes('role_assignments_workspace_scope'))).toBe(true);
+  });
+
+  test('fails closed on a checksum mismatch', () => {
+    const root = mkdtempSync(join(tmpdir(), 'role-scope-override-'));
+    roots.push(root);
+    const dir = join(root, 'migrations');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, FILE), SOURCE);
+    expect(() =>
+      materializeMigrationRuntimeDirectory(dir, { roleAssignmentsScopeExpectedSha256: '0'.repeat(64) }),
+    ).toThrow(/checksum mismatch/);
+  });
+});
+
 describe('materializeMigrationRuntimeDirectory', () => {
   test('changes only the known audit-v2 timeout and keeps the immutable source untouched', () => {
     const sql = "SET lock_timeout = '5s';\nSET statement_timeout = '120s';\nSELECT 1;\n";
@@ -199,5 +238,18 @@ describe('superseded gateway_logs covering indexes', () => {
     expect(() => materializeMigrationRuntimeDirectory(dir, { supersededIndexExpectedSha256: { [file]: sha } })).toThrow(
       'checksum mismatch',
     );
+  });
+});
+
+describe('duplicate trigger-admissions twin runtime correction', () => {
+  const file = '20261120094700000_trigger_admissions_workspace_twin.sql';
+
+  test('fails closed when the committed file drifts from the approved checksum', () => {
+    const root = mkdtempSync(join(tmpdir(), 'kortix-migration-runtime-'));
+    roots.push(root);
+    const dir = join(root, 'migrations');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, file), "set lock_timeout = '2s';\n");
+    expect(() => materializeMigrationRuntimeDirectory(dir)).toThrow(`${file} checksum mismatch`);
   });
 });

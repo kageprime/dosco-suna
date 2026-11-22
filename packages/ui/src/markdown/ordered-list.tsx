@@ -60,7 +60,7 @@ export function MarkdownOrderedList({ children, start, reversed }: MarkdownOrder
     <ol
       start={startOrdinal}
       reversed={reversed}
-      className="marker:text-muted-foreground/80 my-4 list-outside list-decimal space-y-1 marker:font-medium marker:tabular-nums first:mt-0 last:mb-0 [&_p]:mb-2 [&_p]:last:mb-0"
+      className="marker:text-muted-foreground my-4 list-outside list-decimal space-y-1 marker:font-medium marker:tabular-nums first:mt-0 last:mb-0 [&_p]:mb-2 [&_p]:last:mb-0"
       style={{ paddingInlineStart: orderedListGutter(digits) }}
     >
       {children}

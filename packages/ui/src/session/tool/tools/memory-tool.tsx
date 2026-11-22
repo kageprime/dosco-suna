@@ -182,7 +182,7 @@ export function MemoryTool({ call, defaultOpen, forceOpen, locked }: ToolProps) 
                       <span className="text-muted-foreground truncate font-mono text-xs">
                         {name}
                       </span>
-                      <span className="text-muted-foreground/50 ml-auto shrink-0 text-xs tabular-nums">
+                      <span className="text-muted-foreground ml-auto shrink-0 text-xs tabular-nums">
                         {entry.size}
                       </span>
                     </div>
@@ -270,7 +270,7 @@ export function MemoryTool({ call, defaultOpen, forceOpen, locked }: ToolProps) 
       ) : (
         <ToolResultCard>
           {insertLine != null && (
-            <div className="text-muted-foreground/70 px-3 pt-2 text-xs">
+            <div className="text-muted-foreground px-3 pt-2 text-xs">
               {tI18nHardcoded.raw('autoFeaturesSessionToolRenderersJsxTextInsertedAtLine1bc36059')}
               {String(insertLine)}
             </div>
@@ -281,9 +281,9 @@ export function MemoryTool({ call, defaultOpen, forceOpen, locked }: ToolProps) 
   } else if (command === 'rename') {
     body = (
       <ToolResultCard>
-        <div className="text-muted-foreground/80 flex flex-wrap items-center gap-1.5 px-2 py-1.5 font-mono text-xs">
+        <div className="text-muted-foreground flex flex-wrap items-center gap-1.5 px-2 py-1.5 font-mono text-xs">
           <span className="truncate">{memoryRelPath(oldPath || path)}</span>
-          <ChevronRight className="text-muted-foreground/40 size-3 shrink-0" />
+          <ChevronRight className="text-muted-foreground size-3 shrink-0" />
           <span className="text-foreground/80 truncate">{memoryRelPath(newPath)}</span>
         </div>
       </ToolResultCard>
@@ -291,7 +291,7 @@ export function MemoryTool({ call, defaultOpen, forceOpen, locked }: ToolProps) 
   } else if (command === 'delete') {
     body = (
       <ToolResultCard>
-        <div className="text-muted-foreground/70 flex items-center gap-1.5 px-2 py-1.5 text-xs">
+        <div className="text-muted-foreground flex items-center gap-1.5 px-2 py-1.5 text-xs">
           <Trash2 className="size-3 shrink-0" />
           <span className="truncate font-mono">{relPath}</span>
         </div>

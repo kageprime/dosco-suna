@@ -116,6 +116,18 @@ const BEAMS_IMAGE = `data:image/svg+xml;utf8,${encodeURIComponent(
 </svg>`,
 )}`;
 
+// The beams without the paper texture: the SVG alone, no WebGL. For small art
+// that stays mounted, such as the sidebar's promo cards, where a live canvas
+// per card would hold a GPU context on every page.
+export function BeamsStill() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={BEAMS_IMAGE} alt="" className="absolute inset-0 size-full object-cover" />
+    </div>
+  );
+}
+
 // Hairlines crossing at the corners of the middle third. Percent positions and
 // a fixed 1px width, so they hold on the tall panel and on the phone banner.
 const BEAM_LINES: readonly { vertical: boolean; at: string }[] = [

@@ -517,8 +517,10 @@ describe('pi workflow tool', () => {
     ])
     expect(part.output).toContain(JSON.stringify([null, 'answer: fine', null], null, 2))
     expect(part.output).toContain('agents: 3 (2 stopped, 1 done)')
-    expect(part.output).toContain('- a1 "agent-2" stopped by the person — do not rerun unless asked (session child-1)')
-    expect(part.output).toContain('- a3 "agent-3" stopped (session child-3)')
+    // The three agents start in parallel, so which child session each one gets depends on arrival
+    // order: assert the line's meaning and that it names a child session, not the session number.
+    expect(part.output).toMatch(/- a1 "agent-2" stopped by the person — do not rerun unless asked \(session child-\d\)/)
+    expect(part.output).toMatch(/- a3 "agent-3" stopped \(session child-\d\)/)
   })
 
   test('structured output: JSON in a fence parses, a corrective follow-up fixes a bad answer, 5 bad answers return { schema_error, text } and the run goes on, strict: true throws, a contradictory schema starts no agent', async () => {
@@ -1344,21 +1346,21 @@ describe('pi workflow tool, saved workflows', () => {
         { text: 'done' },
       ],
       INLINE,
-      { checkout: true, files: { '.kortix/workflows/audit.js': audit, '.kortix/workflows/triage.js': "return 'ok'" } },
+      { checkout: true, files: { 'workflows/audit.js': audit, 'workflows/triage.js': "return 'ok'" } },
     )
     expect(await inlineTurn(rt)).toBe('completed')
     const tool = (model.bodies[before]!.tools as Array<{ function: { name: string; description: string } }>).find((t) => t.function.name === 'workflow')!
-    expect(tool.function.description).toContain('runs the saved workflow .kortix/workflows/<name>.js. Saved: audit, triage.')
+    expect(tool.function.description).toContain('runs the saved workflow workflows/<name>.js. Saved: audit, triage.')
     const ran = frames.filter((f) => f.tool === 'workflow' && f.state.status === 'completed').at(-1)!.state
     expect(ran.metadata).toMatchObject({ name: 'audit', title: 'Audit the given files', status: 'done', phases: [{ title: 'Audit', status: 'done' }] })
     expect(api.creates.map((c) => c.initial_prompt)).toEqual(['Audit a.ts'])
     const [unknown, both] = frames.filter((f) => f.tool === 'workflow' && f.state.status === 'error').map((f) => f.state.error!)
-    expect(unknown).toBe(`No saved workflow "missing": there is no missing.js in .kortix/workflows/ in this session's project checkout.`)
+    expect(unknown).toBe(`No saved workflow "missing": there is no missing.js in workflows/ in this session's project checkout.`)
     expect(both).toBe('Pass either a script or a name, not both: with name, pass script "".')
   })
 
   test('no checkout (My Kortix): name with script "" reads the saved workflow through the API; an unknown name names the default branch folder', async () => {
-    api.files.set('.kortix/workflows/audit.js', audit)
+    api.files.set('workflows/audit.js', audit)
     const { rt, frames, workspace } = await boot(
       [
         { tool: 'workflow', args: { script: '', name: 'audit', args: { files: ['b.ts'] } } },
@@ -1370,9 +1372,9 @@ describe('pi workflow tool, saved workflows', () => {
     expect(await inlineTurn(rt)).toBe('completed')
     expect(api.creates.map((c) => c.initial_prompt)).toEqual(['Audit b.ts'])
     expect(frames.filter((f) => f.tool === 'workflow' && f.state.status === 'completed').at(-1)!.state.metadata).toMatchObject({ name: 'audit', status: 'done' })
-    expect(lastWorkflowPart(frames).error).toBe(`No saved workflow "audit-2": there is no audit-2.js in .kortix/workflows/ on the project's default branch.`)
+    expect(lastWorkflowPart(frames).error).toBe(`No saved workflow "audit-2": there is no audit-2.js in workflows/ on the project's default branch.`)
     // The tool never writes a saved workflow, here or through another session.
-    expect(await Bun.file(join(workspace, '.kortix/workflows/audit-2.js')).exists()).toBe(false)
+    expect(await Bun.file(join(workspace, 'workflows/audit-2.js')).exists()).toBe(false)
   })
 })
 
@@ -1561,7 +1563,7 @@ describe('pi workflow tool, origin, size and ultracode', () => {
 
 describe('pi workflow tool, workflows as commands', () => {
   test('the bundled deep-research and a saved workflow are /name commands; a saved one of the same name wins', async () => {
-    const { rt } = await boot([], {}, { checkout: true, files: { '.kortix/workflows/audit.js': "return agent('audit')", '.kortix/workflows/deep-research.js': "return agent('mine')" } })
+    const { rt } = await boot([], {}, { checkout: true, files: { 'workflows/audit.js': "return agent('audit')", 'workflows/deep-research.js': "return agent('mine')" } })
     const workflows = rt.commandList().filter((command) => command.source === 'workflow')
     expect(workflows.map((command) => [command.name, command.description])).toEqual([
       ['audit', 'Run the saved workflow audit'],

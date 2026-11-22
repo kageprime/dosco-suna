@@ -70,7 +70,7 @@ export function SessionGetTool({ call, defaultOpen, forceOpen, locked }: ToolPro
         <ToolOutputFallback output={output} toolName="session_get" />
       ) : parsed ? (
         <div className="divide-border/20 divide-y">
-          <div className="text-muted-foreground/60 flex flex-wrap gap-x-4 gap-y-1 px-3 py-2.5 text-xs">
+          <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 px-3 py-2.5 text-xs">
             {parsed.id && <span className="font-mono text-xs">{parsed.id}</span>}
             {parsed.created && (
               <span className="flex items-center gap-1">
@@ -105,15 +105,15 @@ export function SessionGetTool({ call, defaultOpen, forceOpen, locked }: ToolPro
                   className="hover:bg-muted/20 flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left transition-colors"
                 >
                   {showTodos ? (
-                    <ChevronDown className="text-muted-foreground/40 size-2.5" />
+                    <ChevronDown className="text-muted-foreground size-2.5" />
                   ) : (
-                    <ChevronRight className="text-muted-foreground/40 size-2.5" />
+                    <ChevronRight className="text-muted-foreground size-2.5" />
                   )}
-                  <ListTodo className="text-muted-foreground/60 size-3" />
+                  <ListTodo className="text-muted-foreground size-3" />
                   <span className="text-xs font-medium">
                     {tHardcodedUi.raw('i18nComplete.textbd02b9a7d71d')}
                   </span>
-                  <span className="text-muted-foreground/50 ml-auto text-xs">
+                  <span className="text-muted-foreground ml-auto text-xs">
                     {parsed.todos.length}
                   </span>
                 </button>
@@ -139,7 +139,7 @@ export function SessionGetTool({ call, defaultOpen, forceOpen, locked }: ToolPro
                         <span
                           className={cn(
                             'leading-snug',
-                            isComplete && 'text-muted-foreground/50 line-through',
+                            isComplete && 'text-muted-foreground line-through',
                             isProgress && 'font-medium',
                           )}
                         >
@@ -165,15 +165,15 @@ export function SessionGetTool({ call, defaultOpen, forceOpen, locked }: ToolPro
                   className="hover:bg-muted/20 flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left transition-colors"
                 >
                   {showConv ? (
-                    <ChevronDown className="text-muted-foreground/40 size-2.5" />
+                    <ChevronDown className="text-muted-foreground size-2.5" />
                   ) : (
-                    <ChevronRight className="text-muted-foreground/40 size-2.5" />
+                    <ChevronRight className="text-muted-foreground size-2.5" />
                   )}
-                  <MessageCircle className="text-muted-foreground/60 size-3" />
+                  <MessageCircle className="text-muted-foreground size-3" />
                   <span className="text-xs font-medium">
                     {tHardcodedUi.raw('i18nComplete.textccca18175753')}
                   </span>
-                  <span className="text-muted-foreground/50 ml-auto text-xs">
+                  <span className="text-muted-foreground ml-auto text-xs">
                     {parsed.msgCount}{' '}
                     {tHardcodedUi.raw('componentsSessionToolRenderers.line5824JsxTextMsgs')}
                     {parsed.toolCount} {tHardcodedUi.raw('i18nComplete.textf9d35d43770d')}
@@ -189,7 +189,7 @@ export function SessionGetTool({ call, defaultOpen, forceOpen, locked }: ToolPro
           )}
 
           {parsed.compression && (
-            <div className="text-muted-foreground/40 flex items-center gap-2 px-3 py-2 text-xs">
+            <div className="text-muted-foreground flex items-center gap-2 px-3 py-2 text-xs">
               <Minimize2 className="size-2.5" />
               <span>{parsed.compression}</span>
             </div>
@@ -197,7 +197,7 @@ export function SessionGetTool({ call, defaultOpen, forceOpen, locked }: ToolPro
 
           {!parsed.hasConversation && parsed.todos.length === 0 && (
             <div className="px-3 py-3 text-center">
-              <p className="text-muted-foreground/40 text-xs italic">
+              <p className="text-muted-foreground text-xs italic">
                 {tHardcodedUi.raw(
                   'componentsSessionToolRenderers.line5856JsxTextNoMessagesInThisSession',
                 )}

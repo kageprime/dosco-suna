@@ -81,7 +81,7 @@ function BranchRow({ branch }: { branch: ProjectBranch }) {
 
       <div className="flex flex-col items-start gap-0">
         {branch.subject && (
-          <span className="text-muted-foreground/80 truncate text-xs">{branch.subject}</span>
+          <span className="text-muted-foreground truncate text-xs">{branch.subject}</span>
         )}
         <div className="flex items-center gap-1.5">
           <span className="text-foreground truncate font-mono text-xs">

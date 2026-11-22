@@ -50,6 +50,17 @@ function badTitle(title: string): boolean {
 }
 
 describe('route lookup', () => {
+  test('Space sharing and tab updates have distinct audit actions on both workspace paths', () => {
+    for (const prefix of ['projects', 'workspaces']) {
+      for (const [suffix, action, title] of [
+        ['sharing', 'project.session_group.sharing.update', 'Updated session group sharing'],
+        ['tabs', 'project.session_group.tabs.update', 'Updated session group tabs'],
+      ]) {
+        expect(auditLabelForRoute('PUT', `/v1/${prefix}/:workspaceId/session-groups/:groupId/${suffix}`)).toEqual({ action, title });
+        expect(auditLabelForAction(action)?.title).toBe(title);
+      }
+    }
+  });
   test('a row written before the 2026-11-05 param rename (`:projectId`, `:accountId`) keeps its label', () => {
     expect(auditLabelForRoute('GET', '/v1/projects/:projectId/search')).toEqual(
       auditLabelForRoute('GET', '/v1/projects/:workspaceId/search'),
@@ -280,4 +291,15 @@ describe('catalog shape', () => {
     }
     expect(bad).toEqual([]);
   });
+});
+
+describe('space mutation audit labels', () => {
+  for (const root of ['projects', 'workspaces']) {
+    test(`${root} sharing and tabs have readable labels`, () => {
+      expect(auditLabelForRoute('PUT', `/v1/${root}/:workspaceId/session-groups/:groupId/sharing`))
+        .toEqual({ action: 'project.session_group.sharing.update', title: 'Updated session group sharing' });
+      expect(auditLabelForRoute('PUT', `/v1/${root}/:workspaceId/session-groups/:groupId/tabs`))
+        .toEqual({ action: 'project.session_group.tabs.update', title: 'Updated session group tabs' });
+    });
+  }
 });

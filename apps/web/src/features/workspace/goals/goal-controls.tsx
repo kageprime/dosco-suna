@@ -1,7 +1,6 @@
 'use client';
 
 import { Button } from '@kortix/ui/button';
-import { ButtonGroup } from '@kortix/ui/button-group';
 import { ConfirmDialog } from '@kortix/ui/confirm-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@kortix/ui/dropdown-menu';
 import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertActions as BannerAlertActions, AlertMedia as BannerAlertMedia } from '@kortix/ui/alert';
@@ -119,7 +118,7 @@ function GoalControls({ projectId, goal, actions, onShare }: { projectId: string
   const sessionHref = goal.coordinatorSessionId ? uiRoutes().session(projectId, goal.coordinatorSessionId) : null;
   const control = (action: 'pause' | 'resume' | 'restart', icon: ReactNode, label: string) => (
     <Button
-      size="xs"
+      size="sm"
       variant="secondary"
       className="gap-1.5"
       disabled={busy}
@@ -136,14 +135,13 @@ function GoalControls({ projectId, goal, actions, onShare }: { projectId: string
 
   return (
     <>
-      {/* The visible control and the ⋯ menu: one secondary button group. */}
-      <ButtonGroup>
+      {/* The visible control, then the ⋯ menu: two secondary buttons 8px apart (the page header's gap). */}
         {caps.pause ? control('pause', <PauseIcon weight="fill" className="size-3.5 shrink-0" aria-hidden />, t('pause')) : null}
         {caps.resume ? control('resume', <PlayIcon weight="fill" className="size-3.5 shrink-0" aria-hidden />, t('resume')) : null}
         {caps.restart ? control('restart', <PlayIcon weight="fill" className="size-3.5 shrink-0" aria-hidden />, t('restart')) : null}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="icon-sm" variant="secondary" aria-label={t('moreActions')} data-testid="goal-more">
+            <Button size="icon-base" variant="secondary" aria-label={t('moreActions')} data-testid="goal-more">
               <DotsThreeIcon className="size-4" aria-hidden />
             </Button>
           </DropdownMenuTrigger>
@@ -169,7 +167,6 @@ function GoalControls({ projectId, goal, actions, onShare }: { projectId: string
             ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
-      </ButtonGroup>
       <ConfirmDialog
         open={stopping}
         onOpenChange={(next) => actions.pending !== 'stop' && setStopping(next)}

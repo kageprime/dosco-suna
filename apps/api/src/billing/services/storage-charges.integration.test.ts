@@ -204,6 +204,78 @@ beforeEach(async () => {
 });
 
 withDb('storage billing on PostgreSQL', () => {
+  test('concurrent pending claims and a later retry debit the ledger once', async () => {
+    await setCursor(YESTERDAY);
+    feed[YESTERDAY] = [receipt('volume', driveVol, 1000)];
+    let entered: () => void = () => {};
+    let release: () => void = () => {};
+    const settling = new Promise<void>((resolve) => { entered = resolve; });
+    const released = new Promise<void>((resolve) => { release = resolve; });
+    const first = syncStorageCharges({
+      ...deps,
+      settle: async (input) => {
+        entered();
+        await released;
+        return deps.settle(input);
+      },
+    });
+    await settling;
+    // A second process observes the pending claim and replays its exact key.
+    await syncStorageCharges(deps);
+    release();
+    await first;
+    await syncStorageCharges(deps);
+    expect((await ledger(paying)).map((d) => [d.key, Number(d.amount)])).toEqual([
+      [`platinum-storage:home:volume:${driveVol}:${YESTERDAY}:1`, -0.082],
+    ]);
+    expect((await chargeRows())[0]).toMatchObject({ chargeSeq: 1, pendingUsd: null, chargedUsd: '0.0820000000' });
+  });
+
+  test('a moved drive retains attribution through from_name on the old feed', async () => {
+    await setCursor(YESTERDAY);
+    const oldName = 'kd-0123456789abcdef0123';
+    await db.update(drives).set({
+      platinumVolumeName: 'kd-abcdef0123456789abcd',
+      platinumVolumeMove: { to: 'us-test', from_name: oldName, from_region: null, started_at: '2026-10-30T00:00:00Z' },
+    }).where(eq(drives.platinumVolumeId, driveVol));
+    const oldVolume = `vol_old_${crypto.randomUUID()}`;
+    names[oldVolume] = oldName;
+    feed[YESTERDAY] = [receipt('volume', oldVolume, 1000)];
+    await syncStorageCharges(deps);
+    expect((await chargeRows())[0]).toMatchObject({ resourceId: oldVolume, accountId: paying, projectId: project.project_id });
+    expect((await ledger(paying)).map((d) => [d.key, Number(d.amount)])).toEqual([
+      [`platinum-storage:home:volume:${oldVolume}:${YESTERDAY}:1`, -0.082],
+    ]);
+    expect(lookups).toEqual([oldVolume]);
+  });
+
+  test('two feeds share the 300 name lookup budget and resume on the next tick', async () => {
+    await setCursor(YESTERDAY);
+    await deps.writeCursor(`${STORAGE_CURSOR_KEY}.away`, YESTERDAY);
+    const twoFeeds = {
+      ...deps,
+      feeds: () => [{ name: 'home' }, { name: 'away', origin: 'http://away.example.test' }],
+      usage: async (source: import('./storage-charges').StorageFeed) => {
+        const resources = Array.from({ length: source.name === 'home' ? 299 : 2 }, (_, i) => receipt('volume', `${source.name}_${i}`, 1000));
+        return { resources, total_gib_hours: resources.length * 1000, total_metered_micros: resources.length * 82000 };
+      },
+      volumeName: async (source: import('./storage-charges').StorageFeed, id: string) => {
+        lookups.push(`${source.name}:${id}`);
+        return `kws-${sessionId}`;
+      },
+    };
+    const first = await syncStorageCharges(twoFeeds);
+    expect(first).toMatchObject({ charged: 300, failed: 0 });
+    expect(lookups).toHaveLength(300);
+    expect(lookups.at(-1)).toBe('away:away_0');
+    expect(await ledger(paying)).toHaveLength(300);
+    lookups = [];
+    const retry = await syncStorageCharges(twoFeeds);
+    expect(retry).toMatchObject({ charged: 1, failed: 0 });
+    expect(lookups).toEqual(['away:away_1']);
+    expect(await ledger(paying)).toHaveLength(301);
+  });
+
   test('the first tick sets the cursor to today and charges nothing: never retroactive', async () => {
     feed[YESTERDAY] = [receipt('volume', driveVol, 1000)];
     await syncStorageCharges(deps);

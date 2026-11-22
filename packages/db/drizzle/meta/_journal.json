@@ -1793,6 +1793,55 @@
       "when": 1794679755268,
       "tag": "20261114180915_calendar_item_people",
       "breakpoints": true
+    },
+    {
+      "idx": 254,
+      "version": "7",
+      "when": 1794843345955,
+      "tag": "20261116153545_eval_drop_pause_and_cancel_mode",
+      "breakpoints": true
+    },
+    {
+      "idx": 255,
+      "version": "7",
+      "when": 1794851145393,
+      "tag": "20261116174545_eval_trial_workspaces",
+      "breakpoints": true
+    },
+    {
+      "idx": 256,
+      "version": "7",
+      "when": 1794929899430,
+      "tag": "20261117153819_session_groups_description",
+      "breakpoints": true
+    },
+    {
+      "idx": 257,
+      "version": "7",
+      "when": 1795002117581,
+      "tag": "20261118114157_session_groups_sharing_and_tabs",
+      "breakpoints": true
+    },
+    {
+      "idx": 258,
+      "version": "7",
+      "when": 1795093875738,
+      "tag": "20261119131115_session_groups_icon",
+      "breakpoints": true
+    },
+    {
+      "idx": 259,
+      "version": "7",
+      "when": 1795101766911,
+      "tag": "20261119152246_trigger_hard_admissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 260,
+      "version": "7",
+      "when": 1795115180233,
+      "tag": "20261119190620_app_deployment_source",
+      "breakpoints": true
     }
   ]
 }

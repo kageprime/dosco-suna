@@ -139,7 +139,7 @@ export function AppErrorCard({ error, reset }: { error: Error; reset: () => void
                     {tI18nHardcoded.raw('componentsCommonErrorBoundary.errorDetails')}
                   </span>
                 </span>
-                <span className="text-muted-foreground/70 truncate font-mono text-xs">
+                <span className="text-muted-foreground truncate font-mono text-xs">
                   {signature}
                 </span>
               </Button>

@@ -1,8 +1,8 @@
 ---
 title: Workspaces — one account, one project, one concept (the Slack model)
-status: Release 1 LIVE on prod (v0.15.3, 2026-11-10); the legacy split DONE on prod (2026-11-12, 635 moves, 0 split_pending); Release 2a in progress (R2a-0, R2a-1 live; R2a-2 #12489 and R2a-3a #12487 landing; R2a-3b unblocked); Release 3 not built
+status: Release 1 LIVE on prod (v0.15.3, 2026-11-10); the legacy split DONE on prod (2026-11-12), staging and dev (2026-11-16), 0 split_pending everywhere; Release 2a in progress (R2a-0, R2a-1 on prod; R2a-2 #12489 and R2a-3a #12487 on dev, next release; R2a-3b next); Release 3 not built
 owner: dimitrije (from marko, 2026-11-10)
-updated: 2026-11-14
+updated: 2026-11-16
 ---
 
 # Workspaces
@@ -134,6 +134,42 @@ Each stage is its own PR on branch `workspaces` or a sub-branch merged back.
    `projects(account_id) where status = 'active'`.
 10. **Later, separate initiative:** code repos as connected resources of a
     workspace, so a developer with 5 repos has 1 workspace, not 5.
+
+## Status (2026-11-16): staging and dev are split too
+
+R2a-2 (#12489) and R2a-3a (#12487, with `20261114171401000`) are live on `dev`, not yet on
+staging or prod. The next release carries their 29 migrations. A 55P03 on a hot table rolls
+one twin file back: find the lock holder, rerun the job, never raise `lock_timeout`.
+
+The `workspace_split` setting went to `apply` on staging and dev at 14:12 UTC (the user's
+go, after prod). Aggregates only:
+
+| | Staging | Dev |
+|---|---|---|
+| Moves | 416 `done` in 188 accounts, 15:33–17:04 UTC, 0 `failed` | 111 `done` (106, then the 5 below), 0 `failed` |
+| Held (`account_has_identity_provider`) | 0 | 11 runs in 3 accounts, see below |
+| After | 0 `split_pending`, 0 accounts with 2+ workspace rows, 0 with 2+ active projects; every `done` run has `repaired_at`, `billing`, `account_finished_at`; invariants equal the baseline taken before the switch | the same, except I4 +2 (below) |
+
+No operator command releases an IdP hold. On dev the 3 held accounts were two Kortix SSO test
+tenants and one test account:
+
+1. 6 projects with no session in 30 days were archived as `archiveProjectRow` does (status
+   `archived`, project tokens revoked). An archive skips three things a move does, so they
+   were done by hand: the flag (`projects_split_pending_sync` updates active rows only, so a
+   row archived while flagged keeps `split_pending`), the account's expand rows
+   (`workspace-split.ts fill --null`), and the account name (the `nameSourceAfterKeeper`
+   rule, I6).
+2. 5 projects used in the last 30 days moved. The two accounts' SSO provider and SCIM tokens
+   pointed at a synthetic account for 21 min (`account_id` and `workspace_id` saved and
+   restored), `workspace-split.ts plan <account>` planned the runs, and the worker moved
+   them. With no backlog the worker sleeps `IDLE_MS` (60 min) between ticks. Never do this
+   on prod: the split-off has no SSO enforcement and no SCIM deprovisioning.
+
+Dev I4 +2: two split-offs of the first-uuid account carry a grant of a user id that does not
+exist in auth. The split copies every grant with its project (I7); the source held it before.
+
+R2a-3b step 1's gate (no account holds 2+ workspace rows) holds on dev, staging and prod.
+Next: R2a-3b. Open before the Release 2 gate: I4, I6, I11 on prod.
 
 ## Status (2026-11-14): the legacy split is done
 

@@ -20,6 +20,7 @@ let server: ReturnType<typeof Bun.serve> | null = null;
 let calls: Call[] = [];
 let mergeable = true;
 let upToDate = false;
+let dashboardUrl: string | undefined;
 
 function writeConfig(apiBase: string): string {
   const path = join(tmp, 'config.json');
@@ -78,6 +79,8 @@ function startServer(): string {
       calls.push({ method: req.method, path: url.pathname + url.search, body });
       const base = `/v1/workspaces/${PROJECT}`;
 
+      if (url.pathname === base && req.method === 'GET') return Response.json({ dashboard_url: dashboardUrl });
+      if (url.pathname === `${base}/change-requests` && req.method === 'POST') return Response.json(changeRequest(), { status: 201 });
       if (url.pathname === `${base}/change-requests` && req.method === 'GET') {
         return Response.json({ change_requests: [changeRequest()] });
       }
@@ -213,6 +216,7 @@ describe('kortix cr — review parity', () => {
     calls = [];
     mergeable = true;
     upToDate = false;
+    dashboardUrl = undefined;
   });
 
   afterEach(() => {
@@ -233,6 +237,25 @@ describe('kortix cr — review parity', () => {
     ]) {
       expect(r.stdout).toContain(fragment);
     }
+  });
+
+  test('show gives agents an explicit browser URL instead of a guessed REST path', async () => {
+    const config = writeConfig(startServer());
+    const r = await runCli(['cr', 'show', CR_ID, '--workspace', PROJECT, '--json'], config);
+    expect(r.code).toBe(0);
+    expect(JSON.parse(r.stdout).url).toBe(`http://127.0.0.1:3000/workspaces/${PROJECT}/review?id=cr%3A${CR_ID}`);
+  });
+
+  test('show and open use the server-provided workspace URL on a nonstandard self-host', async () => {
+    dashboardUrl = `https://review.example.test:8443/prefix/workspaces/${PROJECT}/`;
+    const config = writeConfig(startServer());
+    const expected = `https://review.example.test:8443/prefix/workspaces/${PROJECT}/review?id=cr%3A${CR_ID}`;
+    const show = await runCli(['cr', 'show', '4', '--workspace', PROJECT], config);
+    expect(show.code).toBe(0);
+    expect(show.stdout).toContain(expected);
+    const opened = await runCli(['cr', 'open', '--head', 'feature', '--title', 'Synthetic change', '--workspace', PROJECT], config);
+    expect(opened.code).toBe(0);
+    expect(opened.stdout).toContain(expected);
   });
 
   // KRTX-3371: the requests a merge carried are merged too, and the CLI says which.

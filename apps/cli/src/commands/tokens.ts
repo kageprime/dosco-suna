@@ -1,3 +1,4 @@
+import { isRecord } from '@kortix/shared/guards';
 import { ApiError } from '../api/client.ts';
 import { splitHelp } from '../command-argv.ts';
 import {
@@ -201,18 +202,17 @@ export async function runTokens(argv: string[]): Promise<number> {
       case 'list': {
         // The client already appends `?account_id=`; `mine` narrows to the
         // caller's own hand-minted keys (no session or connector tokens).
-        const tokens = await ctx.client.get<AccountToken[]>(
-          `/accounts/tokens${mine ? '?mine=true' : ''}`,
-        );
+        const { tokens, base } = await listRevocableTokens(ctx.client, mine);
         // `?mine=true` keeps dead keys as history — the settings page renders
         // them muted — but a CLI list means "keys that still authenticate":
         // status='active' AND revoked_at null, the server's own live predicate
         // (listAccountTokens / validateAccountToken / isRevokedRow in
         // apps/api/src/repositories/account-tokens.ts; the two columns are not
         // tied by any DB constraint, so both halves are needed). `--all` brings
-        // the history back.
+        // the history back. The `/me/tokens` fallback is that same personal
+        // history, so it is filtered even without `--mine`.
         const visible =
-          mine && !all
+          (mine || base !== '/accounts/tokens') && !(mine && all)
             ? tokens.filter((t) => t.status === 'active' && !t.revoked_at)
             : tokens;
         const hidden = tokens.length - visible.length;
@@ -322,6 +322,21 @@ export async function runTokens(argv: string[]): Promise<number> {
   }
 }
 
+/** Personal credentials remain manageable after their original workspace closes. */
+async function listRevocableTokens(
+  client: NonNullable<ReturnType<typeof resolveAccountContext>>['client'],
+  mine: boolean,
+): Promise<{ tokens: AccountToken[]; base: string }> {
+  const base = '/accounts/tokens';
+  try {
+    return { tokens: await client.get<AccountToken[]>(`${base}${mine ? '?mine=true' : ''}`), base };
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 403 || !isRecord(error.body) || error.body.code !== 'workspace_closed') throw error;
+    // The personal endpoint enforces its own credential and ownership fences.
+    return { tokens: await client.get<AccountToken[]>('/me/tokens'), base: '/me/tokens' };
+  }
+}
+
 /** `kortix tokens rm` — revoke a key, or delete an already-revoked personal key. */
 async function revokeToken(
   client: NonNullable<ReturnType<typeof resolveAccountContext>>['client'],
@@ -356,20 +371,20 @@ async function revokeToken(
       return 0;
     }
   }
-  const tokens = await client.get<AccountToken[]>('/accounts/tokens?mine=true');
+  const { tokens, base } = await listRevocableTokens(client, true);
   const token = tokens.find((row) => row.token_id === tokenId);
   const query = token?.status === 'revoked' ? '?delete_revoked=true' : '';
   let deleted = false;
   try {
     const result = await client.delete<{ deleted?: boolean }>(
-      `/accounts/tokens/${encodeURIComponent(tokenId)}${query}`,
+      `${base}/${encodeURIComponent(tokenId)}${query}`,
     );
     deleted = result.deleted === true;
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 404 || !token) throw error;
     // A lost response can replay a completed operation. Verify its intended
     // result without issuing a second, different mutation.
-    const remaining = await client.get<AccountToken[]>('/accounts/tokens?mine=true');
+    const remaining = await client.get<AccountToken[]>(`${base}?mine=true`);
     const current = remaining.find((row) => row.token_id === tokenId);
     deleted = token.status === 'revoked';
     if (deleted ? current !== undefined : current?.status !== 'revoked') throw error;

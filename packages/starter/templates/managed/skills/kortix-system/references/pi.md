@@ -56,6 +56,12 @@ permission:
 - `bash` patterns match each command of the line. pi splits on `;`, `&`,
   `|` and newlines and reads `$(…)` and backtick bodies. The strictest
   answer wins.
+- A heredoc body is text when each command on its line only reads or
+  ignores its input (`cd /tmp; cat > notes.md <<'EOF'`). A body sent to a
+  program that can run it (`sh <<EOF`, `cat <<EOF | bash`) is matched as
+  commands. A line that does not parse (an open quote) asks when a
+  restricted pattern's first word is in it: write text with a quoted
+  heredoc, not inside `'…'`.
 - File patterns match the resolved path, relative to `/workspace`. A path
   outside it also answers to `external_directory`. A path rule does not
   govern `bash`: `cat secrets/a` is a `bash` command.

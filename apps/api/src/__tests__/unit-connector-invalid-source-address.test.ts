@@ -2,12 +2,12 @@ import { describe, expect, test } from 'bun:test';
 
 /**
  * Regression for Better Stack API prod pattern `f5c0ce61…` —
- * `Error: Only https registry URLs on public hosts are allowed.`
+ * `Error: Only https URLs on public hosts are allowed.`
  * (mechanism `generic`, `handled:true`), call site `assertAllowedSourceAddress`
- * in `apps/api/src/marketplace/catalog.ts`, on
+ * in the former `marketplace/catalog.ts` (now `shared/source-address-guard.ts`), on
  * `POST /v1/connectors/projects/:id/connectors` (8 occurrences, last 2026-08-04).
  *
- * Root cause: `assertAllowedSourceAddress` (the marketplace LFI/SSRF guard)
+ * Root cause: `assertAllowedSourceAddress` (the LFI/SSRF guard)
  * throws a bare `Error` when a user submits a non-https or non-public URL as a
  * connector source. The throw is a VALID security validation, NOT a server
  * defect — but the connector `POST /connectors` route handler called
@@ -24,7 +24,7 @@ import { describe, expect, test } from 'bun:test';
  * The fix:
  *  1. `assertAllowedSourceAddress` now throws a TYPED
  *     `AllowedSourceValidationError` (stable `code: 'invalid_source_address'`),
- *     exported from `marketplace/catalog.ts` (mirrors `RepoFileNotFoundError`).
+ *     exported from `shared/source-address-guard.ts` (mirrors `RepoFileNotFoundError`).
  *  2. The `POST /connectors` + `POST /connectors/auth-discovery` route handlers
  *     catch the typed error and return a STRUCTURED 400
  *     `{ error: 'invalid_source_address', code, message }` instead of letting
@@ -44,7 +44,7 @@ import {
   assertAllowedEndpointUrl,
   assertAllowedSourceAddress,
   isAllowedSourceValidationError,
-} from '../marketplace/catalog';
+} from '../shared/source-address-guard';
 import { config } from '../config';
 import { UnsafeEgressError } from '../shared/ssrf-guard';
 import {
@@ -75,7 +75,7 @@ describe('assertAllowedSourceAddress throws a typed AllowedSourceValidationError
       'invalid_source_address',
     );
     expect((caught as AllowedSourceValidationError).message).toBe(
-      'Only https registry URLs on public hosts are allowed.',
+      'Only https URLs on public hosts are allowed.',
     );
     expect((caught as AllowedSourceValidationError).name).toBe(
       'AllowedSourceValidationError',
@@ -118,10 +118,15 @@ describe('assertAllowedSourceAddress throws a typed AllowedSourceValidationError
   });
 
   test('allowed sources do NOT throw', () => {
-    expect(() => assertAllowedSourceAddress('anthropics/skills')).not.toThrow();
     expect(() =>
       assertAllowedSourceAddress('https://example.com/registry.json'),
     ).not.toThrow();
+  });
+
+  test('GitHub shorthand is no URL and is refused (its only user, the marketplace, was removed)', () => {
+    expect(() => assertAllowedSourceAddress('anthropics/skills')).toThrow(
+      AllowedSourceValidationError,
+    );
   });
 
   test('isAllowedSourceValidationError narrows (negative cases)', () => {
@@ -205,7 +210,7 @@ function buildRouter(throwFromCreate = false, discoveryError?: Error): {
       // assertAllowedSourceAddress on the draft endpoint, which throws the
       // typed validation error for a non-https / private / local source.
       throw new AllowedSourceValidationError(
-        'Only https registry URLs on public hosts are allowed.',
+        'Only https URLs on public hosts are allowed.',
       );
     },
     createConnector: async () => {
@@ -214,7 +219,7 @@ function buildRouter(throwFromCreate = false, discoveryError?: Error): {
         // The sync path (resolveCatalog / loadSourceText) ALSO calls
         // assertAllowedSourceAddress on re-materialize — same typed throw.
         throw new AllowedSourceValidationError(
-          'Only https registry URLs on public hosts are allowed.',
+          'Only https URLs on public hosts are allowed.',
         );
       }
       return { ok: true, sync: { synced: 1, errors: [] } };
@@ -257,7 +262,7 @@ describe('connector router: assertAllowedSourceAddress throw → structured 400 
     expect(body.error).toBe('invalid_source_address');
     expect(body.code).toBe('invalid_source_address');
     expect(body.message).toBe(
-      'Only https registry URLs on public hosts are allowed.',
+      'Only https URLs on public hosts are allowed.',
     );
   });
 
@@ -282,7 +287,7 @@ describe('connector router: assertAllowedSourceAddress throw → structured 400 
     expect(body.error).toBe('invalid_source_address');
     expect(body.code).toBe('invalid_source_address');
     expect(body.message).toBe(
-      'Only https registry URLs on public hosts are allowed.',
+      'Only https URLs on public hosts are allowed.',
     );
     // createConnector must NOT be reached when discovery throws — the 400
     // short-circuits before the manifest write.
@@ -310,7 +315,7 @@ describe('connector router: assertAllowedSourceAddress throw → structured 400 
     const body = await res.json();
     expect(body.code).toBe('invalid_source_address');
     expect(body.message).toBe(
-      'Only https registry URLs on public hosts are allowed.',
+      'Only https URLs on public hosts are allowed.',
     );
   });
 
@@ -361,7 +366,7 @@ describe('connector router: assertAllowedSourceAddress throw → structured 400 
 });
 
 // Characterize both public guards before sharing their string-only host policy.
-describe('marketplace URL host admission', () => {
+describe('URL host admission', () => {
   test.each([
     ['localhost', false], ['SUB.LOCALHOST.', false], ['127.2.3.4', false],
     ['0.0.0.0', false], ['169.254.169.254', false], ['10.1.2.3', false],
@@ -376,7 +381,7 @@ describe('marketplace URL host admission', () => {
       expect(() => assertAllowedEndpointUrl(address)).not.toThrow();
     } else {
       expect(() => assertAllowedSourceAddress(address)).toThrow(
-        'Only https registry URLs on public hosts are allowed.',
+        'Only https URLs on public hosts are allowed.',
       );
       expect(() => assertAllowedEndpointUrl(address)).toThrow(
         'Connector endpoints must use https on a public host.',
@@ -391,7 +396,7 @@ test('operator allow-host bypass remains endpoint-only and precedes HTTPS checks
   try {
     expect(() => assertAllowedEndpointUrl('http://localhost./mcp')).not.toThrow();
     expect(() => assertAllowedSourceAddress('http://localhost./registry.json')).toThrow(
-      'Only https registry URLs on public hosts are allowed.',
+      'Only https URLs on public hosts are allowed.',
     );
     expect(() => assertAllowedEndpointUrl('http://user:password@localhost/mcp')).toThrow(
       'Connector endpoints must not embed credentials.',

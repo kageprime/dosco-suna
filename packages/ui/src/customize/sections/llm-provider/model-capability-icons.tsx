@@ -4,7 +4,7 @@ import Hint from '../../../primitives/hint';
 import { BrainIcon as Brain, EyeIcon as Eye, WrenchIcon as Wrench } from '@phosphor-icons/react';
 import { useTranslations } from '../../../i18n';
 
-const ICON_CLASS = 'text-muted-foreground/50 size-3.5 shrink-0';
+const ICON_CLASS = 'text-muted-foreground size-3.5 shrink-0';
 
 /**
  * Compact capability chips — reasoning / tool-calling / vision — mirrored

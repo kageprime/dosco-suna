@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { canonicalPublicPath } from '@/lib/canonical-public-path';
 
-const PUBLIC = ['/', '/pricing', '/legal', '/marketplace', '/docs'];
+const PUBLIC = ['/', '/pricing', '/legal', '/use-cases', '/docs'];
 const LOCALES = ['en', 'de', 'ja'];
 const canonical = (pathname: string) => canonicalPublicPath(pathname, PUBLIC, LOCALES);
 
@@ -42,8 +42,8 @@ describe('canonicalPublicPath', () => {
     expect(canonical('/Projects')).toBeNull();
     expect(canonical('/workspaces/')).toBeNull();
     expect(canonical('/workspaces/AbC/sessions/XyZ')).toBeNull();
-    expect(canonical('/marketplace/AcmeCorp/Skill')).toBeNull();
-    expect(canonical('/marketplace/acme/')).toBeNull();
+    expect(canonical('/use-cases/Research-Agent')).toBeNull();
+    expect(canonical('/use-cases/research-agent/')).toBeNull();
     expect(canonical('/Docs/Getting-Started')).toBeNull();
     expect(canonical('/XX/Pricing')).toBeNull();
   });

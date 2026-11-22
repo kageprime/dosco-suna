@@ -17,6 +17,13 @@
  */
 import { SLUG_RE } from './constants';
 
+/** `value` without trailing `char`s. A loop, not `/x+$/`: that regex backtracks quadratically on a long run of `char`s mid-string. */
+function trimTrailing(value: string, char: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === char) end -= 1;
+  return value.slice(0, end);
+}
+
 export interface EvalConfigIssue {
   /** Path below the suite, e.g. `agents[0].name`. Empty for the suite itself. */
   path: string;
@@ -121,7 +128,7 @@ function normalizeSources(raw: unknown, key: string, issues: EvalConfigIssue[]):
       out.push({
         git_url: gitUrl,
         ...(typeof ref === 'string' ? { git_commit_id: ref } : {}),
-        path: typeof table.path === 'string' ? table.path.replace(/^\.\//, '').replace(/\/+$/, '') : '',
+        path: typeof table.path === 'string' ? trimTrailing(table.path.replace(/^\.\//, ''), '/') : '',
         ...(Array.isArray(table.task_names) ? { task_names: table.task_names } : {}),
         ...(Array.isArray(table.exclude_task_names) ? { exclude_task_names: table.exclude_task_names } : {}),
         ...(typeof table.n_tasks === 'number' ? { n_tasks: table.n_tasks } : {}),
@@ -141,7 +148,7 @@ function normalizeSources(raw: unknown, key: string, issues: EvalConfigIssue[]):
       issues.push({ path: `${at}.n_tasks`, message: 'must be a positive integer.', severity: 'error' });
     }
     out.push({
-      path: (table.path as string).replace(/^\.\//, '').replace(/\/+$/, ''),
+      path: trimTrailing((table.path as string).replace(/^\.\//, ''), '/'),
       ...(Array.isArray(table.task_names) ? { task_names: table.task_names } : {}),
       ...(Array.isArray(table.exclude_task_names) ? { exclude_task_names: table.exclude_task_names } : {}),
       ...(typeof table.n_tasks === 'number' ? { n_tasks: table.n_tasks } : {}),

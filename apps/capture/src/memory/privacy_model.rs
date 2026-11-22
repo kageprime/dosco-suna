@@ -486,60 +486,44 @@ fn install(paths: &MemoryPaths, state: &Arc<Mutex<InstallState>>) -> Result<()> 
     Ok(())
 }
 
+// Microsoft's NuGet package Microsoft.ML.OnnxRuntime 1.23.2 holds the native
+// library of every platform. github.com/microsoft/onnxruntime answers 404 since
+// 2026-11-17. scripts/install_privacy_runtime.py pins the same file.
+const RUNTIME_ARCHIVE: &str = "microsoft.ml.onnxruntime.1.23.2.nupkg";
+const RUNTIME_ARCHIVE_SHA256: &str =
+    "25fe172f7fcdf34f2b5b02c8b997f6b88abc282956849d4af4335af23d0c4e4a";
+
 fn install_runtime(
     root: &Path,
     state: &Arc<Mutex<InstallState>>,
     client: &reqwest::blocking::Client,
 ) -> Result<()> {
-    let (asset, hash) = match (std::env::consts::OS, std::env::consts::ARCH) {
-        ("macos", "aarch64") => (
-            "onnxruntime-osx-arm64-1.23.2.tgz",
-            "b4d513ab2b26f088c66891dbbc1408166708773d7cc4163de7bdca0e9bbb7856",
-        ),
-        ("macos", "x86_64") => (
-            "onnxruntime-osx-x86_64-1.23.2.tgz",
-            "d10359e16347b57d9959f7e80a225a5b4a66ed7d7e007274a15cae86836485a6",
-        ),
-        ("windows", "x86_64") => (
-            "onnxruntime-win-x64-1.23.2.zip",
-            "0b38df9af21834e41e73d602d90db5cb06dbd1ca618948b8f1d66d607ac9f3cd",
-        ),
-        ("linux", "x86_64") => (
-            "onnxruntime-linux-x64-1.23.2.tgz",
-            "1fa4dcaef22f6f7d5cd81b28c2800414350c10116f5fdd46a2160082551c5f9b",
-        ),
+    let member = match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("macos", "aarch64") => "runtimes/osx-arm64/native/libonnxruntime.dylib",
+        ("macos", "x86_64") => "runtimes/osx-x64/native/libonnxruntime.dylib",
+        ("windows", "x86_64") => "runtimes/win-x64/native/onnxruntime.dll",
+        ("linux", "x86_64") => "runtimes/linux-x64/native/libonnxruntime.so",
         _ => anyhow::bail!("Local privacy model runtime is unavailable on this platform"),
     };
-    let archive = root.join(asset);
+    let archive = root.join(RUNTIME_ARCHIVE);
     download(
         client,
-        &format!("https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/{asset}"),
+        &format!(
+            "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.23.2/{RUNTIME_ARCHIVE}"
+        ),
         &archive,
-        hash,
+        RUNTIME_ARCHIVE_SHA256,
         state,
     )?;
-    let target = root.join(RUNTIME_NAME);
     state.lock().phase = "runtime";
-    if asset.ends_with(".zip") {
-        let mut archive = zip::ZipArchive::new(File::open(&archive)?)?;
-        let entry = format!("onnxruntime-win-x64-1.23.2/lib/{RUNTIME_NAME}");
-        let mut entry = archive.by_name(&entry)?;
-        std::io::copy(&mut entry, &mut File::create(&target)?)?;
-    } else {
-        let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(File::open(&archive)?));
-        let mut found = false;
-        for entry in archive.entries()? {
-            let mut entry = entry?;
-            if entry.header().entry_type().is_file()
-                && entry.path()?.file_name().is_some_and(|n| n == RUNTIME_NAME)
-            {
-                std::io::copy(&mut entry, &mut File::create(&target)?)?;
-                found = true;
-                break;
-            }
-        }
-        anyhow::ensure!(found, "Privacy runtime archive missing library");
-    }
+    // Write beside the target, then rename: an interrupted copy never leaves a
+    // partial library that a later install would take as present.
+    let partial = root.join(format!("{RUNTIME_NAME}.partial"));
+    let mut bundle = zip::ZipArchive::new(File::open(&archive)?)?;
+    std::io::copy(&mut bundle.by_name(member)?, &mut File::create(&partial)?)?;
+    fs::rename(&partial, root.join(RUNTIME_NAME))?;
+    // The package (~123 MB) holds every platform; only this library is kept.
+    fs::remove_file(&archive).ok();
     Ok(())
 }
 

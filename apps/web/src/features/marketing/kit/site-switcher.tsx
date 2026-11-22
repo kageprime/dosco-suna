@@ -40,7 +40,7 @@ export function SiteSwitcher({ className }: { className?: string }) {
       {SITES.map((site, i) => (
         <Fragment key={site.id}>
           {i > 0 ? (
-            <span aria-hidden className="text-muted-foreground/50 select-none">
+            <span aria-hidden className="text-muted-foreground select-none">
               /
             </span>
           ) : null}

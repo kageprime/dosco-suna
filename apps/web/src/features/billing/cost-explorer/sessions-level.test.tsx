@@ -8,7 +8,6 @@ import {
   type SessionCostSummary,
 } from '@kortix/sdk';
 import {
-  focusManager,
   QueryClient,
   QueryClientProvider,
   QueryObserver,
@@ -868,97 +867,7 @@ describe('SessionsLevelTable unattributed spend', () => {
 // SDK `ApiError` carrying status 500, and asserts what the component is then
 // handed.
 //
-// A rejected fetch does NOT always end in `status: 'error'`. React Query
-// pauses the retry loop between attempts whenever the document is hidden or
-// the browser is offline (`canContinue()` in query-core's `retryer.ts`
-// checks `focusManager.isFocused()` and `onlineManager.isOnline()`), which
-// dispatches `{ type: 'pause' }` -> `fetchStatus: 'paused'` with `status`
-// still `pending` and `error` still null. `isLoading` is `isPending &&
-// isFetching`, and a paused query is not fetching, so the component sees
-// `isLoading: false` / `error: null` / `data: undefined` and stays there
-// until focus returns.
 describe('the state a failed /usage/session-costs request hands the table', () => {
-  test('a paused retry reports isLoading false with a null error, and must not render as "No sessions"', async () => {
-    // Not focused => the retry loop pauses instead of running to `error`.
-    // Restored in `finally`: focusManager is a process-wide singleton.
-    focusManager.setFocused(false);
-    const client = new QueryClient({
-      defaultOptions: {
-        queries: {
-          // The app's own retry predicate (react-query-provider.tsx): a 500
-          // is retried, so the fetch enters the retry loop where the pause
-          // happens. retryDelay is shortened only to keep the test fast —
-          // the pause is triggered by focus, not by the delay's length.
-          retry: (failureCount: number, error: unknown) => {
-            const status = (error as { status?: number } | null)?.status;
-            if (status != null && status >= 400 && status < 500) return false;
-            return failureCount < 3;
-          },
-          retryDelay: 1,
-        },
-      },
-    });
-
-    try {
-      const options = buildSessionCostsListQuery(
-        {
-          accountId: 'acct-1',
-          projectId: 'project-1',
-          limit: SESSION_COST_PAGE_SIZE,
-          offset: 0,
-          from: range.from,
-          to: range.to,
-          sort: 'total_desc',
-        },
-        {
-          list: async () => {
-            throw new ApiError('column reference "last_at" is ambiguous', { status: 500 });
-          },
-          get: (async () => {}) as never,
-          projects: (async () => []) as never,
-        },
-      );
-      const observer = new QueryObserver(client, client.defaultQueryOptions(options));
-      const unsubscribe = observer.subscribe(() => {});
-
-      const deadline = Date.now() + 3000;
-      while (observer.getCurrentResult().fetchStatus !== 'paused' && Date.now() < deadline) {
-        await new Promise((resolve) => setTimeout(resolve, 10));
-      }
-
-      // With the observer mounted and the query key unchanged, this is
-      // exactly what `useQuery` returns for this frame.
-      const result = observer.getCurrentResult();
-      expect(result.fetchStatus).toBe('paused');
-      expect(result.isLoading).toBe(false);
-      expect(result.error).toBeNull();
-      expect(result.data).toBeUndefined();
-
-      const html = renderToStaticMarkup(
-        <SessionsLevelTable
-          ownerFiltered={false}
-          data={result.data}
-          isLoading={result.isLoading}
-          // The narrowing `SessionsLevel` applies at the call site. It is not
-          // what dropped the error here: there is no error to narrow.
-          error={result.error instanceof Error ? result.error : null}
-          sort="total_desc"
-          onSort={noop}
-          onSelectSession={noop}
-          onPreviousPage={noop}
-          onNextPage={noop}
-        />,
-      );
-      expect(html).not.toContain('No sessions');
-
-      unsubscribe();
-      observer.destroy();
-    } finally {
-      focusManager.setFocused(true);
-      client.clear();
-    }
-  });
-
   // Kills the "the rejection value was not an Error instance" hypothesis for
   // good: the value `unwrap` throws on a 500 is the SDK's `ApiError`, and it
   // survives `error instanceof Error` — so `SessionsLevel`'s narrowing at

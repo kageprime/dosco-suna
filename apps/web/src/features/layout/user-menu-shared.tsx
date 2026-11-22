@@ -48,10 +48,8 @@ import {
   QuestionIcon,
   ScrollIcon,
   ShieldCheckIcon,
-  StorefrontIcon,
   Sun,
 } from '@phosphor-icons/react';
-import Link from 'next/link';
 import * as React from 'react';
 import { useState } from 'react';
 import { INTERFACE_THEME_OPTIONS, ThemeSwatch, useInterfaceTheme } from './interface-theme';
@@ -60,13 +58,6 @@ type MenuLink = {
   label: string;
   href: string;
   Icon: React.ComponentType<{ className?: string }>;
-  /**
-   * Navigate in place instead of opening a new tab. Only Marketplace: it is
-   * somewhere you go and act — browse, install — so it belongs in the session
-   * you are already in. Everything else under Help is something you read, and
-   * losing your workspace to go read it is the wrong trade.
-   */
-  internal?: boolean;
 };
 
 /**
@@ -81,7 +72,6 @@ export const HELP_LINKS: MenuLink[] = [
   // same /contact page as Support, and Blog is marketing, not help.
   { label: 'Docs', href: '/docs', Icon: BookOpenIcon },
   { label: 'Support', href: '/contact', Icon: LifebuoyIcon },
-  { label: 'Marketplace', href: '/marketplace', Icon: StorefrontIcon, internal: true },
 ];
 
 /** Kept separate so a divider can hold the legal pages apart from the rest. */
@@ -167,7 +157,7 @@ export function ThemeSubmenu() {
  * Every reference and legal page collapsed into one submenu, so the top level
  * only carries things you act on rather than eight links.
  *
- * External rows render a real `<a target="_blank" rel="noopener noreferrer">` rather than calling
+ * Every row renders a real `<a target="_blank" rel="noopener noreferrer">` rather than calling
  * `window.open` from a handler. Three reasons: the browser opens the tab inside
  * the click's own user-gesture window, so no popup blocker can eat it — a
  * deferred close is exactly the kind of gap that trips one; cmd-click and
@@ -182,34 +172,22 @@ export function HelpSubmenu({ onClose }: { onClose: () => void }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const helpLinks = useLocalizedUiCatalog(HELP_LINKS);
   const legalLinks = useLocalizedUiCatalog(LEGAL_LINKS);
-  const renderMenuLink = ({ label, href, Icon, internal }: MenuLink) =>
-    internal ? (
-      // An anchor, exactly like the external branch below. `router.push` from a
-      // menu row runs the RSC fetch cold at click time, and that fetch degrades
-      // into a full document load whenever it answers wrong — a build-id skew
-      // mid-deploy, a maintenance redirect, a network blip.
-      <DropdownMenuItem key={href} asChild onClick={onClose}>
-        <Link href={href} prefetch>
-          <Icon />
-          {label}
-        </Link>
-      </DropdownMenuItem>
-    ) : (
-      <DropdownMenuItem key={href} asChild>
-        <a
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(event) => {
-            if (openExternalRoute(href)) event.preventDefault();
-            onClose();
-          }}
-        >
-          <Icon />
-          {label}
-        </a>
-      </DropdownMenuItem>
-    );
+  const renderMenuLink = ({ label, href, Icon }: MenuLink) => (
+    <DropdownMenuItem key={href} asChild>
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(event) => {
+          if (openExternalRoute(href)) event.preventDefault();
+          onClose();
+        }}
+      >
+        <Icon />
+        {label}
+      </a>
+    </DropdownMenuItem>
+  );
 
   return (
     <DropdownMenuSub>

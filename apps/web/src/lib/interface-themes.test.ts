@@ -103,8 +103,8 @@ describe('interface theme model', () => {
     expect(new Set(INTERFACE_THEME_IDS).size).toBe(INTERFACE_THEME_IDS.length);
   });
 
-  test('with nothing chosen, System resolves to Pure light and Pure dark', () => {
-    expect(DEFAULT_THEME_CHOICE).toEqual({ light: 'pure-light', dark: 'pure-dark' });
+  test('with nothing chosen, System resolves to Kortix light and Kortix dark', () => {
+    expect(DEFAULT_THEME_CHOICE).toEqual({ light: 'light', dark: 'dark' });
   });
 
   test('every picker row round-trips through mode + palette', () => {
@@ -149,24 +149,24 @@ describe('interface theme model', () => {
   });
 
   test('legacy or unknown stored palettes read as the defaults', () => {
-    expect(normalizeLightTheme(undefined)).toBe('pure-light');
-    expect(normalizeLightTheme('soft')).toBe('pure-light');
-    expect(normalizeLightTheme('dark')).toBe('pure-light');
+    expect(normalizeLightTheme(undefined)).toBe('light');
+    expect(normalizeLightTheme('soft')).toBe('light');
+    expect(normalizeLightTheme('dark')).toBe('light');
     expect(normalizeLightTheme('light')).toBe('light');
-    expect(normalizeDarkTheme('pure')).toBe('pure-dark');
-    expect(normalizeDarkTheme('light')).toBe('pure-dark');
+    expect(normalizeDarkTheme('pure')).toBe('dark');
+    expect(normalizeDarkTheme('light')).toBe('dark');
     expect(normalizeDarkTheme('dark')).toBe('dark');
     // The pre-generated `jellybean` id now aliases to its terminal-theme id.
     expect(normalizeDarkTheme('jellybean')).toBe('jellybeans-default');
     expect(normalizeDarkTheme('iceberg-dark')).toBe('iceberg-dark');
     expect(normalizeLightTheme('iceberg-light')).toBe('iceberg-light');
     // A light palette is never a dark one, and vice versa.
-    expect(normalizeDarkTheme('iceberg-light')).toBe('pure-dark');
-    expect(normalizeDarkTheme('dark-blue')).toBe('pure-dark');
+    expect(normalizeDarkTheme('iceberg-light')).toBe('dark');
+    expect(normalizeDarkTheme('dark-blue')).toBe('dark');
     // Palettes that were removed, or never existed, read as the default.
-    expect(normalizeLightTheme('light-blue')).toBe('pure-light');
-    expect(normalizeDarkTheme('midnight')).toBe('pure-dark');
-    expect(normalizeDarkTheme('graphite-blue')).toBe('pure-dark');
+    expect(normalizeLightTheme('light-blue')).toBe('light');
+    expect(normalizeDarkTheme('midnight')).toBe('dark');
+    expect(normalizeDarkTheme('graphite-blue')).toBe('dark');
   });
 });
 
@@ -219,7 +219,7 @@ describe('INTERFACE_THEME_INIT_SCRIPT', () => {
   });
 
   test('a first visit, a legacy blob or an unknown id gets the defaults', () => {
-    const defaults = { 'data-light-theme': 'pure-light', 'data-dark-theme': 'pure-dark' };
+    const defaults = { 'data-light-theme': 'light', 'data-dark-theme': 'dark' };
     expect(runInitScript(null)).toEqual(defaults);
     expect(runInitScript(blob({ lightTone: 'soft', darkTone: 'soft' }))).toEqual(defaults);
     expect(runInitScript(blob({ lightTheme: 'dark', darkTheme: 'neon' }))).toEqual(defaults);
@@ -251,8 +251,8 @@ describe('INTERFACE_THEME_INIT_SCRIPT', () => {
     const stored = blob({ reduceMotion: true });
     for (const path of ['/workspaces/p1/sessions/s1', '/projects/p1', '/new', '/settings/preferences']) {
       expect(runInitScript(stored, false, path)).toEqual({
-        'data-light-theme': 'pure-light',
-        'data-dark-theme': 'pure-dark',
+        'data-light-theme': 'light',
+        'data-dark-theme': 'dark',
         'data-reduce-motion': '',
       });
     }

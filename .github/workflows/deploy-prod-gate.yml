@@ -1,0 +1,66 @@
+name: Deploy Prod gate
+
+# Called by the Deploy Prod followers (mobile-ota.yml, mobile-store.yml) on
+# their workflow_run event. `ship` is true when the triggering Deploy Prod run
+# succeeded, or failed only in its best-effort installer builds: the Kortix
+# Capture and desktop jobs of deploy-prod.yml (every job whose name contains
+# "Kortix Capture" or "desktop"). The mobile apps need neither: from v0.16.0 to
+# v0.16.2 a Capture build failure held back every mobile release. Any other
+# failed, cancelled or timed-out job blocks, as does a run that ended other
+# than `success` or `failure`. Deploy Prod itself stays red, so the installer
+# failure is still seen and fixed.
+
+on:
+  workflow_call:
+    outputs:
+      ship:
+        description: "true: the release is live; the mobile release may go ahead"
+        value: ${{ jobs.gate.outputs.ship }}
+
+permissions:
+  actions: read
+
+jobs:
+  gate:
+    name: The release is live
+    runs-on: ${{ vars.CI_RUNNER_S || 'ubuntu-24.04' }}
+    timeout-minutes: 5
+    outputs:
+      ship: ${{ steps.check.outputs.ship }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          set -euo pipefail
+          if [ "$CONCLUSION" = success ]; then
+            echo "ship=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$CONCLUSION" != failure ]; then
+            echo "Deploy Prod run $RUN_ID ended '$CONCLUSION': no mobile release."
+            echo "ship=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Every job of the latest attempt that did not succeed and was not
+          # skipped. The reusable Capture build reports its jobs as
+          # "Build prod Kortix Capture / <job>".
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?filter=latest&per_page=100" \
+            --jq '.jobs[] | select(.conclusion != "success" and .conclusion != "skipped")
+              | "\(if (.name | test("Kortix Capture|desktop")) then "installer" else "blocking" end)\t\(.conclusion)\t\(.name)"' \
+            > "$RUNNER_TEMP/not-green.tsv"
+          if grep -q '^blocking' "$RUNNER_TEMP/not-green.tsv"; then
+            echo "Deploy Prod run $RUN_ID failed outside its installer builds: no mobile release."
+            grep '^blocking' "$RUNNER_TEMP/not-green.tsv" | cut -f2-
+            echo "ship=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! grep -q '^installer' "$RUNNER_TEMP/not-green.tsv"; then
+            echo "::error::Deploy Prod run $RUN_ID failed, but no failed job was found; refusing to ship."
+            echo "ship=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "::warning::Deploy Prod run $RUN_ID failed only in installer builds; the mobile release goes ahead. Failed: $(cut -f3 "$RUNNER_TEMP/not-green.tsv" | paste -sd ';' -)"
+          echo "ship=true" >> "$GITHUB_OUTPUT"

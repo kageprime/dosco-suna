@@ -2,8 +2,8 @@
  * Dosco app events (source `mcp`): what each event type asks a read-only MCP
  * tool, and how the answer becomes items. Pure: no DB, no network.
  *
- * Curated types are built on Google tools whose input and output schemas were
- * read from a live `tools/list` (2026-10-19). Any other read-only list or
+ * Curated types are built on Kortix's Google MCP servers (connectors/google),
+ * whose tools follow Composio's names and answer Composio's shapes. Any other read-only list or
  * search tool of an MCP connector is the generic `new_item.<tool>`.
  */
 import { createHash } from 'node:crypto';
@@ -137,48 +137,46 @@ export function eventIdOf(key: string): string {
 }
 
 // ─── Gmail ──────────────────────────────────────────────────────────────────
+// Kortix's Google MCP servers (connectors/google): Composio-compatible tools.
 
 /** Labels of mail the user wrote: a trigger that replies by email must not fire on its own reply. */
 const OWN_MAIL_LABELS = new Set(['SENT', 'DRAFT']);
 
+const addresses = (value: unknown): string[] =>
+  (str(value) ?? '').split(',').map((a) => a.trim()).filter(Boolean);
+
 function gmailItems(output: unknown): PollItem[] | null {
   const body = asRecord(parseToolOutput(output));
   if (!body) return null;
-  // Gmail answers `{}` for zero matches.
-  if (body.threads === undefined) return [];
-  if (!Array.isArray(body.threads)) return null;
+  if (body.messages === undefined) return [];
+  if (!Array.isArray(body.messages)) return null;
   const items: PollItem[] = [];
-  for (const raw of body.threads) {
-    const thread = asRecord(raw);
-    const threadId = str(thread?.id);
-    if (!thread || !threadId) continue;
-    for (const rawMessage of Array.isArray(thread.messages) ? thread.messages : []) {
-      const message = asRecord(rawMessage);
-      const id = str(message?.id);
-      if (!message || !id) continue;
-      const labels = strings(message.labelIds);
-      if (labels.some((label) => OWN_MAIL_LABELS.has(label))) continue;
-      // internalDate is when Gmail received it; the Date header is the sender's claim.
-      const time = timeOf(message.internalDate) ?? timeOf(message.date);
-      items.push({
-        key: id,
-        time,
-        data: {
-          id,
-          thread_id: threadId,
-          subject: str(message.subject),
-          from: str(message.sender),
-          to: strings(message.toRecipients),
-          cc: strings(message.ccRecipients),
-          date: iso(time),
-          snippet: str(message.snippet),
-          labels,
-          url: str(message.viewUrl),
-          thread_url: str(thread.viewUrl),
-          message_count: typeof thread.messageCount === 'number' ? thread.messageCount : null,
-        },
-      });
-    }
+  for (const raw of body.messages) {
+    const message = asRecord(raw);
+    const id = str(message?.messageId);
+    if (!message || !id) continue;
+    const labels = strings(message.labelIds);
+    if (labels.some((label) => OWN_MAIL_LABELS.has(label))) continue;
+    const time = timeOf(message.messageTimestamp);
+    const threadId = str(message.threadId);
+    items.push({
+      key: id,
+      time,
+      data: {
+        id,
+        thread_id: threadId,
+        subject: str(message.subject),
+        from: str(message.sender),
+        to: addresses(message.to),
+        cc: addresses(message.cc),
+        date: iso(time),
+        snippet: str(asRecord(message.preview)?.body),
+        labels,
+        url: str(message.display_url),
+        thread_url: threadId ? `https://mail.google.com/mail/u/0/#all/${threadId}` : null,
+        message_count: null,
+      },
+    });
   }
   return items;
 }
@@ -189,7 +187,7 @@ const gmailMessageReceived: EventDefinition = {
   description: 'An email arrives that matches your search. Mail you send and drafts never fire.',
   app: 'gmail',
   delivery: 'poll',
-  tool: 'search_threads',
+  tool: 'fetch_emails',
   configSchema: {
     type: 'object',
     properties: {
@@ -205,10 +203,10 @@ const gmailMessageReceived: EventDefinition = {
   payloadSchema: {
     type: 'object',
     properties: {
-      id: { type: 'string', description: 'Gmail message id. To read the whole email, call get_message with it.' },
-      thread_id: { type: 'string', description: 'Gmail thread id (get_thread).' },
+      id: { type: 'string', description: 'Gmail message id. To read the whole email, call fetch_message_by_message_id with it.' },
+      thread_id: { type: 'string', description: 'Gmail thread id (fetch_message_by_thread_id).' },
       subject: { type: 'string', description: 'Subject line.' },
-      from: { type: 'string', description: 'Sender email address.' },
+      from: { type: 'string', description: 'Sender.' },
       to: { type: 'array', items: { type: 'string' }, description: 'To recipients.' },
       cc: { type: 'array', items: { type: 'string' }, description: 'Cc recipients.' },
       date: { type: 'string', description: 'When Gmail received it (ISO 8601).' },
@@ -216,37 +214,40 @@ const gmailMessageReceived: EventDefinition = {
       labels: { type: 'array', items: { type: 'string' }, description: 'Gmail label ids, such as INBOX and UNREAD.' },
       url: { type: 'string', description: 'Link to the message in Gmail.' },
       thread_url: { type: 'string', description: 'Link to the thread in Gmail.' },
-      message_count: { type: 'integer', description: 'Messages in the thread.' },
     },
   },
   request(config) {
     const query = str(config.query)?.trim() ?? 'in:inbox';
     // The 2-day window bounds each check; the floor (24 h) is inside it.
-    return { args: { query: `(${query}) newer_than:2d`, pageSize: 50, view: 'THREAD_VIEW_MINIMAL' }, maxPages: 4, newestFirst: true };
+    return {
+      args: { query: `(${query}) newer_than:2d`, max_results: 50, include_payload: false, verbose: false },
+      maxPages: 4,
+      newestFirst: true,
+    };
   },
   items: gmailItems,
 };
 
 // ─── Google Calendar ────────────────────────────────────────────────────────
 
-/** list_events takes local times with no offset; with timeZone UTC a naive UTC time is exact. */
-const naiveUtc = (ms: number): string => new Date(ms).toISOString().slice(0, 19);
 const DAY_MS = 24 * 60 * 60_000;
 const LOOKAHEAD_DAYS = [7, 30, 90, 365];
 
 function calendarItems(output: unknown): PollItem[] | null {
   const body = asRecord(parseToolOutput(output));
   if (!body) return null;
-  if (body.events === undefined) return [];
-  if (!Array.isArray(body.events)) return null;
+  if (body.items === undefined) return [];
+  if (!Array.isArray(body.items)) return null;
   const items: PollItem[] = [];
-  for (const raw of body.events) {
+  for (const raw of body.items) {
     const event = asRecord(raw);
     const id = str(event?.id);
     if (!event || !id || event.status === 'cancelled') continue;
     const start = asRecord(event.start);
     const end = asRecord(event.end);
-    const conference = asRecord(asRecord(event.conferenceData)?.videoEntryPoint);
+    const video = (Array.isArray(asRecord(event.conferenceData)?.entryPoints) ? (asRecord(event.conferenceData)!.entryPoints as unknown[]) : [])
+      .map(asRecord)
+      .find((point) => point?.entryPointType === 'video');
     // A repeating event fires once, for the series.
     const key = str(event.recurringEventId) ?? id;
     items.push({
@@ -270,7 +271,7 @@ function calendarItems(output: unknown): PollItem[] | null {
           return email ? [{ email, name: str(attendee?.displayName), response: str(attendee?.responseStatus) }] : [];
         }),
         url: str(event.htmlLink),
-        meeting_url: str(conference?.uri) ?? str(event.conferenceUrl),
+        meeting_url: str(video?.uri) ?? str(event.hangoutLink),
         created: str(event.created),
         updated: str(event.updated),
       },
@@ -285,7 +286,7 @@ const calendarEventCreated: EventDefinition = {
   description: 'Someone adds an event to the calendar. A new repeating event fires once.',
   app: 'google_calendar',
   delivery: 'poll',
-  tool: 'list_events',
+  tool: 'events_list',
   configSchema: {
     type: 'object',
     properties: {
@@ -304,7 +305,7 @@ const calendarEventCreated: EventDefinition = {
   payloadSchema: {
     type: 'object',
     properties: {
-      id: { type: 'string', description: 'Event id (get_event).' },
+      id: { type: 'string', description: 'Event id (events_get).' },
       series_id: { type: ['string', 'null'], description: 'Id of the repeating series, when the event repeats.' },
       title: { type: 'string', description: 'Event title.' },
       description: { type: 'string', description: 'Event description.' },
@@ -326,12 +327,12 @@ const calendarEventCreated: EventDefinition = {
     const query = str(config.query)?.trim();
     return {
       args: {
-        ...(calendarId ? { calendarId } : {}),
-        startTime: naiveUtc(ctx.now - DAY_MS),
-        endTime: naiveUtc(ctx.now + days * DAY_MS),
-        timeZone: 'UTC',
-        pageSize: 250,
-        ...(query ? { fullText: query } : {}),
+        calendarId: calendarId ?? 'primary',
+        timeMin: new Date(ctx.now - DAY_MS).toISOString(),
+        timeMax: new Date(ctx.now + days * DAY_MS).toISOString(),
+        singleEvents: true,
+        maxResults: 250,
+        ...(query ? { query } : {}),
       },
       maxPages: 4,
     };
@@ -342,6 +343,7 @@ const calendarEventCreated: EventDefinition = {
 // ─── Google Drive ───────────────────────────────────────────────────────────
 
 const DRIVE_FOLDER_ID = /^[A-Za-z0-9_-]{10,}$/;
+const DRIVE_FIELDS = 'nextPageToken, files(id, name, mimeType, webViewLink, parents, owners(emailAddress), createdTime, modifiedTime, size, fileExtension)';
 
 function driveItems(output: unknown): PollItem[] | null {
   const body = asRecord(parseToolOutput(output));
@@ -352,19 +354,20 @@ function driveItems(output: unknown): PollItem[] | null {
     const file = asRecord(raw);
     const id = str(file?.id);
     if (!file || !id) return [];
+    const owner = Array.isArray(file.owners) ? asRecord(file.owners[0]) : null;
     return [{
       key: id,
       time: timeOf(file.createdTime),
       data: {
         id,
-        title: str(file.title),
+        title: str(file.name),
         mime_type: str(file.mimeType),
-        url: str(file.viewUrl),
-        folder_id: str(file.parentId),
-        owner: str(file.owner),
+        url: str(file.webViewLink),
+        folder_id: strings(file.parents)[0] ?? null,
+        owner: str(owner?.emailAddress),
         created: str(file.createdTime),
         modified: str(file.modifiedTime),
-        size: str(file.fileSize),
+        size: str(file.size),
         extension: str(file.fileExtension),
       },
     }];
@@ -377,7 +380,7 @@ const driveFileCreated: EventDefinition = {
   description: 'A file is created in Drive, or in the folder you pick.',
   app: 'google_drive',
   delivery: 'poll',
-  tool: 'search_files',
+  tool: 'find_file',
   configSchema: {
     type: 'object',
     properties: {
@@ -389,7 +392,7 @@ const driveFileCreated: EventDefinition = {
       query: {
         type: 'string',
         title: 'Only files that match',
-        description: "A Drive search clause, such as mimeType = 'application/pdf' or title contains 'invoice'.",
+        description: "A Drive search clause, such as mimeType = 'application/pdf' or name contains 'invoice'.",
       },
       interval: INTERVAL_PROPERTY,
     },
@@ -397,7 +400,7 @@ const driveFileCreated: EventDefinition = {
   payloadSchema: {
     type: 'object',
     properties: {
-      id: { type: 'string', description: 'Drive file id (read_file_content, get_file_metadata).' },
+      id: { type: 'string', description: 'Drive file id (get_file_metadata, download_file).' },
       title: { type: 'string', description: 'File name.' },
       mime_type: { type: 'string', description: 'MIME type.' },
       url: { type: 'string', description: 'Link to the file.' },
@@ -415,10 +418,11 @@ const driveFileCreated: EventDefinition = {
     const clauses = [
       // 2 minutes of overlap for search-index lag; `seen` drops the repeats.
       `createdTime > '${new Date(ctx.floor - 2 * 60_000).toISOString()}'`,
-      ...(folder ? [`parentId = '${folder}'`] : []),
+      'trashed = false',
+      ...(folder ? [`'${folder}' in parents`] : []),
       ...(query ? [`(${query})`] : []),
     ];
-    return { args: { query: clauses.join(' and '), pageSize: 50, excludeContentSnippets: true }, maxPages: 4 };
+    return { args: { q: clauses.join(' and '), pageSize: 100, orderBy: 'createdTime desc', fields: DRIVE_FIELDS }, maxPages: 4, newestFirst: true };
   },
   items: driveItems,
 };

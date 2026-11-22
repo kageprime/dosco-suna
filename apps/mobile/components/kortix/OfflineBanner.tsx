@@ -55,22 +55,20 @@ export function OfflineBanner() {
   // The banner is an absolute overlay above the whole navigator, so it MUST stay
   // opaque: an opaque theme background carries the tint layer below.
   const base = isDark ? THEME.dark.background : THEME.light.background;
+  const accent = THEME.accent[isDark ? 'dark' : 'light'];
   // Tint = the state's accent at a low alpha over that base. The composite lands
   // within ~1-4pp lightness of the literals it replaces, so the dark banner stays
   // dark and the light banner stays light.
   const tint = offline
     ? withAlpha(isDark ? THEME.dark.destructive : THEME.light.destructive, isDark ? 0.18 : 0.14)
-    : withAlpha(THEME.accent.green, isDark ? 0.18 : 0.14);
-  // Foreground: the state's accent in both themes. `destructive` has a per-theme
-  // value. `accent.green` is theme-invariant, and HSL lightness (28.5%) badly
-  // understates how it reads -- relative luminance weights green at 0.7152, so
-  // measured WCAG contrast on its own tint is 4.08:1 in dark and 3.44:1 in light.
-  // The dark case is the STRONGER of the two, and ~15 other sites already render
-  // this green as text on the dark background (4.81:1). Keep the success signal
-  // in the text, not only in the 18%-alpha tint.
+    : withAlpha(accent.green, isDark ? 0.18 : 0.14);
+  // Foreground: the state's accent in both themes. `destructive` and
+  // `accent.green` both have a per-theme value (J-7). Measured WCAG contrast of
+  // the green on its own tint is 4.98:1 in light and 4.14:1 in dark. Keep the
+  // success signal in the text, not only in the low-alpha tint.
   const fg = offline
     ? (isDark ? THEME.dark.destructive : THEME.light.destructive)
-    : THEME.accent.green;
+    : accent.green;
 
   return (
     <Animated.View

@@ -462,6 +462,53 @@ describe('ApiClient private path', () => {
 
   afterEach(() => setSystemTime());
 
+  test('a failed private POST sends ping public until the private retry window expires', async () => {
+    const now = Date.parse('2026-11-19T12:00:00Z');
+    setSystemTime(now);
+    const seen: string[] = [];
+    const api = privateClient(async (url) => {
+      seen.push(url);
+      if (url.endsWith('/admit')) throw new TypeError('connection refused');
+      return jsonResponse({ principal });
+    });
+    expect(await api.admit('tok', input)).toBeNull();
+    await api.ping();
+    setSystemTime(now + 59_999);
+    await api.ping();
+    setSystemTime(now + 60_000);
+    await api.ping();
+    expect(seen).toEqual([
+      'http://api.internal:8008/internal/gateway/admit',
+      'https://api.test/health',
+      'https://api.test/health',
+      'http://api.internal:8008/health',
+    ]);
+  });
+
+  test('a failed private ping sends POST public until the private retry window expires', async () => {
+    const now = Date.parse('2026-11-19T12:00:00Z');
+    setSystemTime(now);
+    const seen: string[] = [];
+    const api = privateClient(async (url) => {
+      seen.push(url);
+      if (url === 'http://api.internal:8008/health') throw new TypeError('connection refused');
+      return jsonResponse({ principal });
+    });
+    expect((await api.ping()).ok).toBe(true);
+    await api.authenticate('tok');
+    setSystemTime(now + 59_999);
+    await api.authenticate('tok');
+    setSystemTime(now + 60_000);
+    await api.authenticate('tok');
+    expect(seen).toEqual([
+      'http://api.internal:8008/health',
+      'https://api.test/health',
+      'https://api.test/internal/gateway/authenticate',
+      'https://api.test/internal/gateway/authenticate',
+      'http://api.internal:8008/internal/gateway/authenticate',
+    ]);
+  });
+
   test('sends control-plane calls and the ping to the private URL, with the same auth', async () => {
     const seen: string[] = [];
     const api = privateClient(async (url, init) => {

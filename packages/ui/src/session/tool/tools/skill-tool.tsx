@@ -89,9 +89,9 @@ export function SkillTool({ call, defaultOpen, forceOpen, locked }: ToolProps) {
               {skillFiles.map((file) => (
                 <div
                   key={file}
-                  className="text-muted-foreground/80 flex items-center gap-1.5 font-mono text-xs"
+                  className="text-muted-foreground flex items-center gap-1.5 font-mono text-xs"
                 >
-                  <FileDashedIcon className="text-muted-foreground/40 size-3 shrink-0" />
+                  <FileDashedIcon className="text-muted-foreground size-3 shrink-0" />
                   <span className="truncate">{file}</span>
                 </div>
               ))}

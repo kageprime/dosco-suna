@@ -112,7 +112,7 @@ const fakes: Record<string, Record<string, unknown>> = {
     THEME: {
       light: { background: 'b', foreground: 'f', mutedForeground: 'm', destructive: 'd' },
       dark: { background: 'b', foreground: 'f', mutedForeground: 'm', destructive: 'd' },
-      accent: { orange: 'o' },
+      accent: { light: { orange: 'o' }, dark: { orange: 'o' } },
     },
     withAlpha: (color: string) => color,
   },

@@ -370,22 +370,23 @@ export function registerSecretsRoutes(): void {
       if (moved.created) {
         capturePersonEvent(c, loaded, projectId, 'provider_configured', { provider: moved.providerId, method: 'api_key' });
       }
-      // The same check the Models panel's save runs, off the response path:
-      // this route's older clients read no verification. The default-model
-      // seed waits for it, as on the Models panel path.
-      void verifyAndRecordAccountKey({
+      // The same check the Models panel's save runs, answered with the save:
+      // a key the provider refuses is saved, and the caller says so.
+      const verification = await verifyAndRecordAccountKey({
         secretId: moved.secretId, accountId: loaded.row.accountId, projectId, providerId: moved.providerId, name,
-      }, loaded.userId)
-        .then((verification) => seedProjectDefaultModelOnConnect({
-          projectId, accountId: loaded.row.accountId, userId: loaded.userId, secretName: name,
-          ...(verification ? { keyCheck: verification.status } : {}),
-        }))
-        .catch(() => undefined);
+      }, loaded.userId);
+      void seedProjectDefaultModelOnConnect({
+        projectId, accountId: loaded.row.accountId, userId: loaded.userId, secretName: name,
+        ...(verification ? { keyCheck: verification.status } : {}),
+      });
       return c.json({
         identifier, name, strategy: 'broker', consumer: 'llm_gateway', configured: true,
         // Where the key went: a named account, listed in Models → Providers.
         stored_in: 'provider_account', secret_resource_id: moved.secretId, provider_id: moved.providerId,
         delivery_sync: null,
+        verification: verification
+          ? { status: verification.status, message: verification.message, checked_at: verification.checkedAt.toISOString() }
+          : null,
       }, 200);
     };
     if (explicitConsumer === 'llm_gateway' && value !== null) {

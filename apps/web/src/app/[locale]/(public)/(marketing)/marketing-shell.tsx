@@ -4,7 +4,7 @@ import { ConsentGate } from '@/components/consent-gate';
 import Footer from '@/components/home/footer';
 import { Navbar } from '@/components/home/navbar';
 import { ANNOUNCEMENT_BAR_HEIGHT, AnnouncementBar } from '@/features/marketing/kit/announcement-bar';
-import { isLoopmaxxingEnabled } from '@/lib/config';
+import { isLoopmaxxingAnnounced } from '@/lib/config';
 import { Children } from 'react';
 
 // The "Request a demo" modal provider is mounted once in the root layout
@@ -16,8 +16,8 @@ export function MarketingShell({
   children: React.ReactNode;
 }>) {
   const routedChildren = Children.toArray(children);
-  // The one announcement today is Loopmaxxing: no bar until it is live.
-  const announce = isLoopmaxxingEnabled();
+  // The one announcement today is Loopmaxxing: no bar until it is announced.
+  const announce = isLoopmaxxingAnnounced();
 
   return (
     <div className="relative min-h-dvh w-full">

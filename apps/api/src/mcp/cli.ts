@@ -52,6 +52,8 @@ export const DENY_SUBCOMMANDS: { path: [string, string]; denial: Denial }[] = [
   { path: ['drive', 'put'], denial: { reason: 'it uploads a local file, and this server has none', use: 'run_command in a session sandbox, where the file lives: `kortix drive put <file> <path>` there' } },
   { path: ['artifacts', 'publish'], denial: { reason: 'it uploads a local file or folder, and this server has none', use: 'run_command in a session sandbox, where the file lives: `kortix artifacts publish <file|dir>` there' } },
   { path: ['artifacts', 'pull'], denial: { reason: 'it writes files to a local folder, and this server has none', use: '`kortix artifacts cat <artifact> [<path>]` prints one file here; pull in a session sandbox' } },
+  { path: ['evals', 'init'], denial: { reason: 'it writes a first task into a local folder, and this server has no project checkout', use: 'run_command in a session sandbox, where the repository lives: `kortix evals init` there' } },
+  { path: ['evals', 'judge'], denial: { reason: "it is an eval verifier step: it reads a trial's local files and writes its reward file", use: 'nothing: a trial\'s tests/test.sh runs it in that trial\'s sandbox' } },
   { path: ['apps', 'deploy'], denial: { reason: 'it deploys a local directory, and this server has none', use: 'run_command in a session sandbox, where the source lives: `kortix apps deploy <path>` there' } },
   { path: ['apps', 'token'], denial: { reason: 'it prints a sign-in token for an App into this conversation', use: 'run_command in a session sandbox: `kortix apps token <app>` there' } },
   ...['create', 'new'].map((sub) => ({
@@ -72,8 +74,8 @@ export const CLI_ALLOWED = [
   'whoami', 'doctor', 'validate', 'schema', 'accounts', 'members', 'groups', 'tokens', 'keys', 'billing',
   'workspaces', 'workspace', 'projects', 'project',
   'sessions', 'session', 'chat', 'files', 'cr', 'review', 'triggers', 'automations', 'tasks', 'loops', 'loop', 'reminders', 'remind', 'connectors',
-  'secrets', 'providers', 'env', 'gateway', 'apps', 'channels', 'sandboxes', 'marketplace', 'system-skills',
-  'skills', 'registry', 'agents', 'models', 'access', 'roles', 'permissions', 'perms', 'audit', 'grants', 'feedback', 'drive', 'search', 'artifacts', 'spaces', 'calendar', 'help', 'version',
+  'secrets', 'providers', 'env', 'gateway', 'apps', 'channels', 'sandboxes', 'system-skills',
+  'skills', 'agents', 'models', 'access', 'roles', 'permissions', 'perms', 'audit', 'grants', 'feedback', 'drive', 'search', 'artifacts', 'spaces', 'calendar', 'evals', 'help', 'version',
 ];
 
 export function denial(args: string[]): Denial | null {
@@ -250,7 +252,7 @@ export const KORTIX_TOOL = {
   name: 'kortix',
   title: 'Run the kortix CLI',
   description:
-    'Run the real `kortix` CLI as you: everything the CLI does (secrets, triggers, cr, review, loops, agents, models, gateway, providers, channels, sandboxes, apps, marketplace, files, access, roles, permissions, audit, grants, members, groups, tokens, billing, workspaces, sessions, system-skills, …). `args` is the argv after `kortix`, e.g. ["secrets","ls","--json"]. Discover with ["--help"] and ["<group>","--help"]; prefer `--json` for output you parse. `project_id` sets the project the command runs in; `session_id` sets the session where a command takes one. Returns {exit_code, stdout (or json: the parsed value when the output is JSON, e.g. with --json), stderr}; a non-zero exit code is `isError`. First-class tools exist for sessions, sandbox files and connectors: prefer start_session, run_command, read_file and call_connector to this one. Refused before it runs: `--host`, hosts, login, logout, init, ship, update, uninstall, self-host, tui, connect, chat without --prompt, token, env pull|push, apps deploy (a local directory: use run_command in a session sandbox), apps token, apps exec. Commands time out after about 45 seconds.',
+    'Run the real `kortix` CLI as you: everything the CLI does (secrets, triggers, cr, review, loops, agents, models, gateway, providers, channels, sandboxes, apps, files, access, roles, permissions, audit, grants, members, groups, tokens, billing, workspaces, sessions, system-skills, …). `args` is the argv after `kortix`, e.g. ["secrets","ls","--json"]. Discover with ["--help"] and ["<group>","--help"]; prefer `--json` for output you parse. `project_id` sets the project the command runs in; `session_id` sets the session where a command takes one. Returns {exit_code, stdout (or json: the parsed value when the output is JSON, e.g. with --json), stderr}; a non-zero exit code is `isError`. First-class tools exist for sessions, sandbox files and connectors: prefer start_session, run_command, read_file and call_connector to this one. Refused before it runs: `--host`, hosts, login, logout, init, ship, update, uninstall, self-host, tui, connect, chat without --prompt, token, env pull|push, apps deploy (a local directory: use run_command in a session sandbox), apps token, apps exec. Commands time out after about 45 seconds.',
   inputSchema: {
     type: 'object',
     properties: {

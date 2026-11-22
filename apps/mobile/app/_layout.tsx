@@ -44,6 +44,7 @@ import * as SystemUI from 'expo-system-ui';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { IN_APP_BROWSER_OPTIONS } from '@/lib/utils/link-target';
+import { closeBrowserOnAppOpen } from '@/lib/utils/browser-return';
 import { createDeepLinkScope } from '@/lib/auth/deep-link-scope';
 import { resolveShareLinkUrl } from '@/lib/share-link';
 import React, { useEffect, useState } from 'react';
@@ -247,6 +248,10 @@ export default function RootLayout() {
       isHandlingDeepLink = true;
 
       const url = event.url;
+      if (closeBrowserOnAppOpen(url, Platform.OS, WebBrowser)) {
+        isHandlingDeepLink = false;
+        return;
+      }
       const parsedUrl = Linking.parse(url);
       const shareUrl = resolveShareLinkUrl(url);
 

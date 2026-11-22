@@ -43,7 +43,9 @@ export interface Redirect {
  */
 export const DESKTOP_SHELL_UA = 'DoscoDesktop';
 export const LEGACY_DESKTOP_SHELL_UA = 'KortixDesktop';
-const DESKTOP: Condition = { type: 'header', key: 'user-agent', value: `.*(${DESKTOP_SHELL_UA}|${LEGACY_DESKTOP_SHELL_UA}).*` };
+/** A `has`/`missing` redirect condition that matches the desktop shell's user agent. */
+export const DESKTOP_SHELL_HEADER: Condition = { type: 'header', key: 'user-agent', value: `.*(${DESKTOP_SHELL_UA}|${LEGACY_DESKTOP_SHELL_UA}).*` };
+const DESKTOP: Condition = DESKTOP_SHELL_HEADER;
 
 /** True for a request from the desktop shell. */
 export function isDesktopShell(userAgent: string | null | undefined): boolean {
@@ -75,8 +77,8 @@ function withDesktopShell(rules: Redirect[]): Redirect[] {
     const destination = desktopShellPath(rule.destination);
     const twin: Redirect[] = destination === rule.source || rule.source === '/new'
       ? []
-      : [{ ...rule, destination, has: [...(rule.has ?? []), DESKTOP] }];
-    return [...twin, { ...rule, missing: [...(rule.missing ?? []), DESKTOP] }];
+      : [{ ...rule, destination, has: [...(rule.has ?? []), DESKTOP_SHELL_HEADER] }];
+    return [...twin, { ...rule, missing: [...(rule.missing ?? []), DESKTOP_SHELL_HEADER] }];
   });
 }
 

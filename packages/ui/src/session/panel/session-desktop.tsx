@@ -50,7 +50,7 @@ import { useHasSessionDesktop, useProjectSession } from '@kortix/sdk/react';
 import { isMetaCoordinatorSession } from '../actions/session-label';
 import { ArrowSquareOutIcon, MonitorIcon } from '@phosphor-icons/react';
 import { type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { SESSION_BAR_CLASS } from './panel-chrome';
+import { SESSION_BAR_CLASS } from '../../internal/layout/panel-chrome';
 
 export const DESKTOP_URL = 'http://localhost:6901/';
 /** How often the panel asks again until the desktop answers. */

@@ -1,6 +1,6 @@
 'use client';
 
-import { SubscriptionOffer } from '../../session/models/subscription-offer';
+import { SubscriptionOfferContext } from '../../session/models/model-connection-layout';
 import { useLayoutEffect, useState, type ReactNode } from 'react';
 
 import { HashIcon, XIcon } from '@phosphor-icons/react';
@@ -211,8 +211,13 @@ export function ProjectHomeWelcomeBody({
               the width it will be there. */}
           {sentTurn ? <div className="w-full px-4">{sentTurn}</div> : null}
 
-          {composer ? <div className="flex w-full flex-col gap-4">{composer}</div> : null}
-          {composer && !sentTurn ? <SubscriptionOffer projectId={projectId} /> : null}
+          {/* The composer's `ModelConnectionBar` shows the optional offer under
+              the card, until the first turn is sent. */}
+          {composer ? (
+            <SubscriptionOfferContext.Provider value={sentTurn ? null : projectId}>
+              <div className="flex w-full flex-col gap-4">{composer}</div>
+            </SubscriptionOfferContext.Provider>
+          ) : null}
 
         </div>
 

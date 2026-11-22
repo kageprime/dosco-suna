@@ -525,7 +525,8 @@ flow('SEC-POOL-5', {
   await ctx.step('a member starts a ChatGPT account only they can use, however it is spelled', async () => {
     for (const sharing of [{ mode: 'private', ownerId: member.userId }, { mode: 'members', memberIds: [member.userId] }]) {
       const started = await asMember.post(startPath, { resource_label: 'ChatGPT · Member', sharing }, { params: startParams });
-      started.status([200, 502]);
+      // 502: OpenAI refused the device-code request; 503: OpenAI is down.
+      started.status([200, 502, 503]);
       if (started.statusCode === 200) started.body().exists('$.flow_id').exists('$.user_code');
     }
   });
@@ -567,7 +568,7 @@ flow('SEC-POOL-5', {
 
   await ctx.step('the member reconnects only their own account, in place', async () => {
     const reconnect = await asMember.post(startPath, { resource_id: mine }, { params: startParams });
-    reconnect.status([200, 502]);
+    reconnect.status([200, 502, 503]);
     (await asMember.post(startPath, { resource_id: ownersPrivate }, { params: startParams })).status(403)
       .body().has('$.error', 'Only the person who connected this ChatGPT account can reconnect it');
     (await asMember.post(startPath, { resource_id: mine, resource_label: 'Renamed' }, { params: startParams })).status(400);
@@ -890,6 +891,12 @@ flow('SEC-POOL-8', {
         name: 'ANTHROPIC_API_KEY', value: 'sk-ant-api03-kortix-e2e-not-a-key-1', strategy: 'broker', consumer: 'llm_gateway',
       }, { params });
       saved.status(200).body().has('$.stored_in', 'provider_account').has('$.provider_id', 'anthropic');
+      // The write answers with the provider's check of the key: Anthropic refuses
+      // it (`invalid`), or the check has no answer offline (`unknown`).
+      const verification = saved.json<{ verification: { status: string; message: string; checked_at: string } | null }>().verification;
+      if (!verification || !['invalid', 'unknown'].includes(verification.status) || !verification.message || !verification.checked_at) {
+        throw new Error(`the saved key carries no check: ${saved.text().slice(0, 300)}`);
+      }
       const keys = await workspaceKeys();
       if (keys.length !== 1 || keys[0]!.access_mode !== 'project' || keys[0]!.provider_id !== 'anthropic') {
         throw new Error(`expected one workspace key, got ${JSON.stringify(keys)}`);

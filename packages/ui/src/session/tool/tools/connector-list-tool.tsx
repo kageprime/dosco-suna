@@ -51,7 +51,7 @@ export function ConnectorListTool({ call, defaultOpen, forceOpen }: ToolProps) {
               <div className="min-w-0 flex-1">
                 <div className="text-foreground truncate font-medium">{conn.name}</div>
                 {conn.description && (
-                  <div className="text-muted-foreground/60">{conn.description}</div>
+                  <div className="text-muted-foreground">{conn.description}</div>
                 )}
               </div>
               <Badge variant="outline" className="h-5 shrink-0 py-0 text-xs capitalize">

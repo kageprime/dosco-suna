@@ -10,7 +10,6 @@ import {
 } from '../github';
 import { GitHubPersonalAccountCreateUnsupportedError } from '../lib/github-create-errors';
 import { resolveGitHubUserToken } from '../lib/github-user-token';
-import { buildProjectSeedFilesFromItem } from '../seed-files';
 import { buildStarterFiles, normalizeStarterTemplateId } from '../starter';
 import { createRoute, z } from '@hono/zod-openapi';
 import { createByoWorkspaceAccount, resolveByoCreateScope, resolveByoCreateTarget } from './byo-new-workspace';
@@ -40,7 +39,7 @@ import {
   serializeProjectGitConnection,
 } from '../lib/serializers';
 import { readJsonObject } from '../../shared/http-body';
-import { getCatalogItemDetail } from '../../marketplace/catalog';
+import { SOURCE_ITEM_ID_REMOVED } from '../provision-core';
 import { rethrowDatabaseError } from '../../shared/database-errors';
 
 export function registerProjectFromRepositoryRoutes(): void {
@@ -263,7 +262,6 @@ export function registerProjectFromRepositoryRoutes(): void {
               name: z.string().openapi({ description: 'Repository name: letters, numbers, hyphens, underscores or dots.' }),
               private: z.boolean().optional().openapi({ description: 'Create a private repository. Default true.' }),
               description: z.string().optional().openapi({ description: 'Repository description.' }),
-              source_item_id: z.string().optional().openapi({ description: 'Marketplace project item id to clone into the repository.' }),
               starter_template: z.string().optional().openapi({ description: 'Starter template id to seed the repository.' }),
               installation_id: z.string().optional().openapi({ description: 'GitHub App installation id to create the repository under.' }),
               account_id: z.string().optional().openapi({ description: 'The workspace whose GitHub connection the request uses. When that workspace already holds its project, a person gets a new workspace (the installation authorizes this one repository for it). Defaults to the caller\'s workspace.' }),
@@ -290,15 +288,9 @@ export function registerProjectFromRepositoryRoutes(): void {
       return c.json({ error: 'name must contain only letters, numbers, hyphens, underscores or dots' }, 400);
     }
 
-    // Resolve through the public marketplace detail gate before creating
-    // anything upstream. Hidden/support items remain internal even when a caller
-    // knows their catalog id.
-    const sourceItemId = normalizeString(body.source_item_id ?? body.sourceItemId);
-    if (sourceItemId) {
-      const sourceItem = await getCatalogItemDetail(sourceItemId);
-      if (!sourceItem || sourceItem.type !== 'registry:project') {
-        return c.json({ error: `Unknown or non-cloneable project item "${sourceItemId}"` }, 400);
-      }
+    // Cloning a marketplace project was removed with the marketplace.
+    if (normalizeString(body.source_item_id ?? body.sourceItemId)) {
+      return c.json({ error: SOURCE_ITEM_ID_REMOVED }, 400);
     }
     const starterTemplate = normalizeStarterTemplateId(
       body.starter_template ?? body.starterTemplate,
@@ -462,15 +454,7 @@ export function registerProjectFromRepositoryRoutes(): void {
     // working project shape on first session boot. A partial starter is not a
     // usable project, so it lands as one commit or not at all.
     const [ownerLogin, repoSlug] = repo.full_name.split('/');
-    const starter = sourceItemId
-      ? (await buildProjectSeedFilesFromItem({
-          id: sourceItemId,
-          projectName,
-          repoFullName: repo.full_name,
-          extraMarketplaceItems: [],
-          now: new Date().toISOString(),
-        })).files
-      : buildStarterFiles({
+    const starter = buildStarterFiles({
       projectName,
       repoFullName: repo.full_name,
       template: starterTemplate,

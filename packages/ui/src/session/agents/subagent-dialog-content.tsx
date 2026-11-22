@@ -1,24 +1,28 @@
 'use client';
 
-import { stopProjectSession, type ProjectSession, type SessionPromptPart } from '@kortix/sdk';
+import { stopProjectSession, type ProjectSession } from '@kortix/sdk';
 import { qk, useNow, useProjectSession, usePromptAttachments } from '@kortix/sdk/react';
-import { ArrowUpIcon, ArrowSquareOutIcon, ImageIcon, PlusIcon, SquareIcon, WarningCircleIcon, XIcon } from '@phosphor-icons/react';
+import { ArrowSquareOutIcon, SquareIcon, XIcon } from '@phosphor-icons/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+
 
 import { useTranslations } from '../../i18n';
 import { agentDisplayName } from '../../internal/components/agent-mark';
+import { SESSION_BAR_CLASS } from '../../internal/layout/panel-chrome';
 import { uiRoutes } from '../../lib/routes';
 import { cn } from '../../lib/utils';
 import { Button } from '../../primitives/button';
 import { ButtonGroup } from '../../primitives/button-group';
 import { ErrorState } from '../../primitives/error-state';
 import { Hint } from '../../primitives/hint';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '../../primitives/hover-card';
 import { Modal, ModalContent, ModalDescription, ModalTitle } from '../../primitives/modal';
 import { Skeleton } from '../../primitives/skeleton';
 import { errorToast, successToast } from '../../primitives/toast';
 import { UiLink } from '../../providers/ui-provider';
 import { useSessionIds } from '../../providers/session-ids';
+import { appendMentionRefs } from '../../internal/lib/project-preamble';
+import { SessionChatInput } from '../composer/session-chat-input';
 import { agentRowOf, isActive, shortElapsed, type AgentRow } from './agent-model';
 import { AgentFace, AgentFailure } from './agent-surface';
 import { AgentStateMark } from './agent-state-mark';
@@ -118,12 +122,13 @@ function SubagentActions({
     <ButtonGroup className="shrink-0">
       <ButtonGroup>
       {projectId && sub.kind === 'peek' && (
-        <Button asChild variant="secondary" size="xs">
-          <UiLink href={uiRoutes().session(projectId, sessionId)} onClick={onLeave} aria-label={t('openPage')}>
-            <ArrowSquareOutIcon className="size-3.5 shrink-0" />
-            <span className="max-sm:sr-only">{t('openPage')}</span>
-          </UiLink>
-        </Button>
+        <Hint label={t('openPage')} side="bottom">
+          <Button asChild variant="secondary" size="icon">
+            <UiLink href={uiRoutes().session(projectId, sessionId)} onClick={onLeave} aria-label={t('openPage')}>
+              <ArrowSquareOutIcon className="size-3.5 shrink-0" />
+            </UiLink>
+          </Button>
+        </Hint>
       )}
       {sub.agent && isActive(sub.agent.state) && (
         <Hint label={tStrip('stopHint')} side="bottom">
@@ -281,26 +286,34 @@ export function SubagentPanel({ sessionId, title, handle, projectId: projectIdPr
   const elapsed = sub.agent?.state === 'working' && sub.agent.workingSinceMs !== null ? shortElapsed(now - sub.agent.workingSinceMs) : null;
   return (
     <section data-testid="subagent-panel" data-body={sub.kind} aria-label={name} className="flex h-full min-h-0 min-w-0 flex-col">
-      <header className="flex shrink-0 items-center gap-2 px-3 py-2.5">
+      {/* The shared session bar (`panel-chrome.ts`): same height and rule as the chat header beside it, so the two lines meet. */}
+      <header className={cn(SESSION_BAR_CLASS, 'gap-2 px-3')}>
         {leading}
-        <AgentFace handle={face} />
-        <h2 className="text-foreground max-w-40 min-w-0 shrink-0 truncate text-sm font-semibold" title={name}>
-          {name}
-        </h2>
-        {task && (
-          <span className="text-muted-foreground min-w-0 truncate text-sm" title={task}>
-            {task}
-          </span>
-        )}
-        {sub.agent && (
-          <span data-agent-state={sub.agent.state} className="text-muted-foreground flex shrink-0 items-center gap-1.5 pl-1 text-xs tabular-nums">
-            <AgentStateMark state={sub.agent.state} />
-            <span aria-hidden className="max-sm:hidden">
-              {stateText}
-            </span>
-            {elapsed && <span className="max-sm:hidden">{elapsed}</span>}
-          </span>
-        )}
+        {/* The face and the name are one target: hover fills it, and it opens the details
+            (state with its time, then the task). No status icon in the bar. */}
+        <HoverCard openDelay={300} closeDelay={100}>
+          <HoverCardTrigger asChild>
+            <div
+              tabIndex={0}
+              className="hover:bg-secondary focus-visible:ring-ring duration-fast -ml-1.5 flex h-8 min-w-0 cursor-default items-center gap-2 rounded-md px-1.5 transition-colors outline-none focus-visible:ring-2"
+            >
+              <AgentFace handle={face} />
+              <h2 data-agent-state={sub.agent?.state} className="text-foreground min-w-0 truncate text-sm font-semibold">
+                {name}
+              </h2>
+            </div>
+          </HoverCardTrigger>
+          <HoverCardContent side="bottom" align="start" sideOffset={6} animated={false} className="w-64 p-3">
+            <p className="text-foreground truncate text-sm font-medium">{name}</p>
+            {sub.agent ? (
+              <p className="text-muted-foreground mt-1 flex items-center gap-1.5 text-xs tabular-nums">
+                <AgentStateMark state={sub.agent.state} />
+                <span>{[stateText, elapsed].filter(Boolean).join(' · ')}</span>
+              </p>
+            ) : null}
+            {task ? <p className="text-muted-foreground border-border mt-2.5 line-clamp-3 border-t pt-2.5 text-xs text-pretty">{task}</p> : null}
+          </HoverCardContent>
+        </HoverCard>
         <span className="min-w-0 flex-1" />
         <SubagentActions sub={sub} projectId={projectId} sessionId={sessionId} onLeave={onClose}>
           <CloseAction onClose={onClose} />
@@ -360,153 +373,42 @@ function SubagentMessageBox({
   autoFocus?: boolean;
 }) {
   const t = useTranslations('multiAgent.subagent');
-  const [text, setText] = useState('');
-  const fileInput = useRef<HTMLInputElement>(null);
   const uploads = usePromptAttachments(projectId);
-  const [waiting, setWaiting] = useState(false);
-  const send = useSteerSession(projectId, {
-    onSent: () => {
-      setText('');
-      successToast(t('sent'));
-      onSent();
-    },
-    onError: (error) => errorToast(t('sendFailed'), { description: error instanceof Error ? error.message : undefined }),
-  });
-  const busy = send.isPending || waiting;
-  const images = uploads.attachments;
-  const submit = async () => {
-    const message = text.trim();
-    if ((!message && images.length === 0) || busy) return;
-    const ids = images.map((image) => image.id);
-    let files: SessionPromptPart[] = [];
-    if (ids.length > 0) {
-      // The send owns its uploads from here: closing the dialog while they finish does not cancel them.
-      uploads.submit(ids);
-      setWaiting(true);
-      try {
-        files = await uploads.whenReady(ids);
-      } catch (error) {
-        uploads.reclaim(ids);
-        errorToast(t('sendFailed'), { description: error instanceof Error ? error.message : undefined });
-        return;
-      } finally {
-        setWaiting(false);
-      }
-    }
-    // Delivered, the uploads are released; refused, they go back to the box for a retry.
-    // Settled in this function, not in per-call callbacks (those skip once the dialog unmounts).
-    try {
-      await send.mutateAsync({ sessionId, text: message, files });
-      uploads.forget(ids);
-    } catch {
-      uploads.reclaim(ids);
-    }
-  };
-  const canSend = (!!text.trim() || images.length > 0) && !busy;
+  const send = useSteerSession(projectId);
+  // The main composer in its one-row `inline` mode: the same @ menu, paste and
+  // attachments, growing into the card when the text wraps. A message steers
+  // the sub-agent through the API's prompt route.
   return (
-    <form
-      className={cn('shrink-0 px-4 pt-2 pb-4', className)}
-      onSubmit={(event) => {
-        event.preventDefault();
-        void submit();
-      }}
-    >
-      <div className="border-border bg-muted focus-within:border-ring focus-within:ring-ring/15 flex min-w-0 flex-col rounded-xl border transition-[border-color,box-shadow] focus-within:ring-3">
-        {images.length > 0 && (
-          <ul aria-label={t('attachments')} className="flex min-w-0 flex-wrap gap-1.5 px-3 pt-2.5">
-            {images.map((image) => (
-              <li key={image.id} className="bg-background text-muted-foreground flex h-7 max-w-64 min-w-0 items-center gap-1.5 rounded-md pr-1 pl-2 text-xs">
-                {image.status === 'error' ? (
-                  <WarningCircleIcon weight="fill" aria-hidden className="text-kortix-red size-3.5 shrink-0" />
-                ) : (
-                  <ImageIcon className="size-3.5 shrink-0" />
-                )}
-                <span className="min-w-0 truncate" title={image.error?.message}>
-                  {image.filename}
-                </span>
-                {image.status === 'error' && (
-                  <>
-                    <span className="sr-only">{t('attachFailed')}</span>
-                    <button
-                      type="button"
-                      onClick={() => uploads.retry(image.id)}
-                      className="text-foreground hover:bg-muted shrink-0 cursor-pointer rounded-sm px-1 outline-none focus-visible:ring-kortix-base focus-visible:ring-[0.6px]"
-                    >
-                      {t('retry')}
-                    </button>
-                  </>
-                )}
-                <button
-                  type="button"
-                  aria-label={t('removeAttachment', { name: image.filename })}
-                  onClick={() => void uploads.remove(image.id)}
-                  className="hover:text-foreground flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm outline-none focus-visible:ring-kortix-base focus-visible:ring-[0.6px]"
-                >
-                  <XIcon className="size-3" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="flex min-w-0 items-center gap-1 p-1.5">
-          <Hint label={t('attachImages')} side="top">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-base"
-              aria-label={t('attachImages')}
-              disabled={busy}
-              onClick={() => fileInput.current?.click()}
-              className="text-muted-foreground hover:text-foreground shrink-0"
-            >
-              <PlusIcon className="size-4" />
-            </Button>
-          </Hint>
-          <input
-            ref={fileInput}
-            type="file"
-            accept="image/*"
-            multiple
-            hidden
-            onChange={(event) => {
-              const files = Array.from(event.target.files ?? []);
-              event.target.value = '';
-              if (files.length === 0) return;
-              try {
-                uploads.addMany(files);
-              } catch (error) {
-                errorToast(t('attachFailed'), { description: error instanceof Error ? error.message : undefined });
-              }
-            }}
-          />
-          <input
-            data-testid="subagent-dialog-message"
-            // The box mounts once the agent's row loads: with a mouse it takes the focus then (onOpenAutoFocus covers a cached row).
-            autoFocus={autoFocus && finePointer()}
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            placeholder={t('messagePlaceholder', { name })}
-            aria-label={t('messageLabel', { name })}
-            // Read-only, not disabled, while a send runs: the field keeps the focus for the next message.
-            readOnly={busy}
-            aria-disabled={busy}
-            className="text-foreground placeholder:text-muted-foreground h-8 min-w-0 flex-1 bg-transparent px-1.5 text-sm outline-none"
-          />
-          <Hint label={t('send')} side="top">
-            {/* A filled send button with an up arrow, at the Button's default radius. */}
-            <Button
-              type="submit"
-              size="icon-base"
-              aria-label={t('send')}
-              disabled={!canSend}
-              aria-busy={busy}
-              className="shrink-0 transition-[color,background-color,opacity,scale] duration-(--duration-slow) ease-out active:scale-[0.96] active:duration-(--duration-normal)"
-            >
-              <ArrowUpIcon className="size-4" />
-            </Button>
-          </Hint>
-        </div>
-      </div>
-    </form>
+    <div data-testid="subagent-dialog-message" className={cn('shrink-0 px-4 pb-4', className)}>
+      <SessionChatInput
+        inline
+        hideAgentPicker
+        projectId={projectId}
+        sessionId={sessionId}
+        promptAttachments={uploads}
+        placeholder={t('messagePlaceholder', { name })}
+        // Static: the composer's rotating tips (⌘K, / commands) are for the main chat.
+        hint={t('messagePlaceholder', { name })}
+        autoFocus={autoFocus && finePointer()}
+        isSending={send.isPending}
+        clearOnSend
+        cardClassName="rounded-lg"
+        underbarPlacement="inline"
+        slashMenuPlacement="above"
+        onSend={async (text, _files, mentions, attachments) => {
+          const message = appendMentionRefs(text.trim(), mentions);
+          try {
+            const files = attachments ? await attachments.whenReady() : [];
+            await send.mutateAsync({ sessionId, text: message, files });
+            attachments?.release();
+            successToast(t('sent'));
+            onSent();
+          } catch (error) {
+            errorToast(t('sendFailed'), { description: error instanceof Error ? error.message : undefined });
+            throw error;
+          }
+        }}
+      />
+    </div>
   );
 }

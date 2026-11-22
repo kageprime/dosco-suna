@@ -1,6 +1,6 @@
 ---
 name: compliance
-description: "Customer-facing compliance duties that code runs: the subprocessor list and its automatic 30-day DPA notice, Terms of Service changes, customer logo use (publicity), and the audit evidence it leaves. Load WHENEVER you add, remove or change a subprocessor (a new model provider, host, email or analytics vendor), route customer data to a new third party, touch apps/web/.../legal/subprocessors, packages/shared/src/subprocessors.ts or apps/api/src/billing/services/subprocessor-notices.ts, the Terms of Service text or packages/shared/src/terms.ts, or need proof for an auditor that customers were notified. Load too for staff access to a customer account: act-as impersonation, 'Open as admin', and its audit trail; and for a penetration test report: the status of each finding and the risks Kortix accepts. Load too for the 90-day deletion of a terminated account's data (the retention backstop, kortix.retention_erasures, RETENTION_ERASURE_MODE) and its monthly evidence."
+description: "Customer-facing compliance duties that code runs: the subprocessor list and its automatic 30-day DPA notice, Terms of Service changes, customer logo use (publicity), and the audit evidence it leaves. Load WHENEVER you add, remove or change a subprocessor (a new model provider, host, email or analytics vendor), route customer data to a new third party, touch apps/web/.../legal/subprocessors, packages/shared/src/subprocessors.ts or apps/api/src/billing/services/subprocessor-notices.ts, the Terms of Service text or packages/shared/src/terms.ts, or need proof for an auditor that customers were notified. Load too for staff access to a customer account: act-as impersonation, 'Open as admin', and its audit trail; and for a penetration test report: the status of each finding and the risks Kortix accepts. Load too for the 90-day deletion of a terminated account's data (the retention backstop, kortix.retention_erasures, RETENTION_ERASURE_MODE) and its monthly evidence. Load too for the Google OAuth verification of the Kortix Google connectors: a Google scope change, the privacy policy's Google user data section, the demo video, the yearly CASA security assessment."
 ---
 
 # Compliance
@@ -183,6 +183,17 @@ That query reaches 14 days back. Older events: the export,
 `GET /v1/accounts/<account_id>/audit/export?action=admin.impersonate.`.
 
 Contract: flows `IMP-1` and `IMP-2` (`pnpm test -- --id IMP-2`).
+
+## Google OAuth verification
+
+The Kortix Google connectors (Gmail, Calendar, Drive, Docs, Sheets) use the
+GCP project `kortix-connectors`. Google must verify it before prod uses it,
+and its restricted scopes need a CASA security assessment every 12 months.
+Scopes, justifications, the demo video, the privacy policy section, the
+obligations and the status log are in
+[references/google-oauth-verification.md](references/google-oauth-verification.md).
+A new Google scope changes that file, the privacy policy and the Data Access
+page in the same PR.
 
 ## Penetration test findings
 

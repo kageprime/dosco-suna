@@ -110,7 +110,7 @@ for(var i=0;i<O.length;i++){try{window.parent.postMessage({type:T,path:p,length:
 if(window.navigation&&window.navigation.addEventListener)window.navigation.addEventListener('currententrychange',report);
 addEventListener('popstate',report);
 addEventListener('hashchange',report);
-setInterval(report,${POLL_MS});
+window.setInterval(report,${POLL_MS});
 report();
 })();`;
   return `<script>${body}</script>`;

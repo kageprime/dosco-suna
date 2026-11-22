@@ -1215,13 +1215,13 @@ export const menuRegistry: MenuItemDef[] = [
   },
   {
     id: 'theme-light',
-    label: 'Light Theme',
+    label: 'Kortix Light Theme',
     icon: Sun,
     group: 'theme',
     showIn: ['commandPalette'],
     kind: 'theme',
     themeValue: 'light',
-    keywords: 'theme light mode bright day',
+    keywords: 'theme kortix light mode default bright day',
   },
   {
     id: 'theme-pure-light',
@@ -1235,13 +1235,13 @@ export const menuRegistry: MenuItemDef[] = [
   },
   {
     id: 'theme-dark',
-    label: 'Dark Theme',
+    label: 'Kortix Dark Theme',
     icon: Moon,
     group: 'theme',
     showIn: ['commandPalette'],
     kind: 'theme',
     themeValue: 'dark',
-    keywords: 'theme dark mode night',
+    keywords: 'theme kortix dark mode default night',
   },
   {
     id: 'theme-pure-dark',

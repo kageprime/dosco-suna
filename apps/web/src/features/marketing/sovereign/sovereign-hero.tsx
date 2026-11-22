@@ -4,6 +4,7 @@ import { useTranslations } from '@/i18n/use-translations';
 
 import Link from '@/components/site-link';
 import { MarketingButton } from '@/features/marketing/kit/marketing-button';
+import { Github } from '@kortix/ui/internal/icons/github';
 import { HeroBand, PageHero } from '@/features/marketing/kit/page-frame';
 import { useWalkthrough, WalkPanel, WalkTabs } from '@/features/marketing/kit/walkthrough';
 import { Terminal, Window } from '@/features/marketing/kit/window';
@@ -168,6 +169,7 @@ export function SovereignHero() {
           <>
             <MarketingButton variant="secondary" size="md" className="hit-area-y-1" asChild>
               <a href={hero.github.href} target="_blank" rel="noreferrer">
+                <span data-slot="icon" aria-hidden="true" className="inline-flex"><Github /></span>
                 {hero.github.label}
               </a>
             </MarketingButton>

@@ -169,12 +169,11 @@ export function isRetryablePlatinumBuildError(err: unknown): boolean {
   //   - `rate_limited` (server.ts) — the per-org mutation-rate bucket
   //     (PT_ORG_MUT_RATE, 20 req/s). Transient; retrying is right.
   //   - `org_template_quota_exceeded` (api/templates.ts pickBuildHost) — the
-  //     per-org COUNT cap on live templates (tiers 10/50/500). This does NOT
-  //     self-clear: nothing frees a template row on its own, and Dosco has no
-  //     org-wide GC for Platinum (snapshots/quota-gc.ts is Daytona-only — it
-  //     imports listDaytonaSnapshots/deleteDaytonaSnapshotById exclusively). So
-  //     burning BUILD_ATTEMPTS on it is pure delay in front of a wall, and it
-  //     buries the one error an operator actually needs to see. Fail fast; the
+  //     per-org COUNT cap on live templates (tiers 10/50/500). It clears only
+  //     when the quota GC (snapshots/quota-gc.ts, one pass per maintenance
+  //     sweep) deletes superseded templates, minutes later. So burning
+  //     BUILD_ATTEMPTS on it is pure delay in front of a wall, and it buries
+  //     the one error an operator actually needs to see. Fail fast; the
   //     caller falls through to the cold path and the session still boots.
   if (m.includes('org_template_quota_exceeded')) return false;
   return (

@@ -12,8 +12,10 @@ import {
 import { useId, type ReactNode } from 'react';
 
 import { useUiViewer } from '../../providers/ui-provider';
-import { ModelConnectionLayoutContext } from '../../session/models/model-connection-layout';
-import { SubscriptionOffer } from '../../session/models/subscription-offer';
+import {
+  ModelConnectionLayoutContext,
+  SubscriptionOfferContext,
+} from '../../session/models/model-connection-layout';
 import { SESSION_TRANSCRIPT_CLASS } from '../../session/thread/session-transcript-class';
 import { useTranslations } from '../../i18n';
 import { cn } from '../../internal/lib/utils';
@@ -50,9 +52,10 @@ const CAPABILITIES: ReadonlyArray<{ key: string; icon: Icon }> = [
  * inviting the items describe.
  *
  * The "Connect ChatGPT" and "Connect Claude" tiles sit directly above the
- * composer (`ModelConnectionLayoutContext`): with no model they are the
- * composer's own `ModelConnectionBar`, with a model they are the dismissible
- * `SubscriptionOffer`. Every other composer keeps them below.
+ * composer (`ModelConnectionLayoutContext`). The composer's `ModelConnectionBar`
+ * owns them: with no model the undismissible rows, with a model the
+ * dismissible `SubscriptionOffer` (`SubscriptionOfferContext`). Every other
+ * composer keeps them below.
  *
  * The welcome fades in once, over 300ms. It is opacity only, so reduced motion
  * needs no other variant.
@@ -119,10 +122,7 @@ export function FirstChat({ projectId, composer }: { projectId: string; composer
           </section>
         </div>
 
-        <div className="relative z-10 mx-auto w-full max-w-210 shrink-0 pb-2 empty:hidden">
-          <SubscriptionOffer projectId={projectId} />
-        </div>
-        {composer}
+        <SubscriptionOfferContext.Provider value={projectId}>{composer}</SubscriptionOfferContext.Provider>
       </div>
     </ModelConnectionLayoutContext.Provider>
   );

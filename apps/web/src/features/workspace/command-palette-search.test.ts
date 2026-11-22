@@ -403,11 +403,9 @@ describe('queries return the rows they name', () => {
     expect(hits('agents')).toContain('nav:proj-agents');
     expect(hits('skills')).not.toContain('nav:restart-config');
     expect(hits('skills')).toContain('nav:proj-skills');
-    // The Marketplace installs both and used to keep the words. It is a
-    // section of `/workspaces/<id>/config` now, and that row deliberately drops
-    // 'agents'/'skills': it would shadow the two rows above, which ARE those
-    // pages, and `filteredNavItems` preserves declaration order rather than
-    // ranking by relevance.
+    // No other row may keep these words: it would shadow the two rows above,
+    // which ARE those pages, and `filteredNavItems` preserves declaration
+    // order rather than ranking by relevance.
     expect(hits('skills')).toEqual(['nav:proj-skills']);
   });
 

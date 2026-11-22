@@ -674,8 +674,9 @@ jobs:
       # API rebuilds from its Git mirror.
       #
       # KORTIX_CHROME_ENABLED=true serves Kortix in Chrome (/v1/chrome/* and
-      # the extension socket) on dev. Staging and prod leave it unset, so the
-      # API answers 404 there. Rollback: remove the key and redeploy.
+      # the extension socket) on dev. Staging and prod set it too, so the
+      # Chrome Web Store build works on kortix.com. Rollback: remove the key
+      # and redeploy.
       #
       # KORTIX_PLATINUM_US_REGION_DEFAULT=true turns `us_region` on for every
       # dev project that has made no choice: its new Files are created in

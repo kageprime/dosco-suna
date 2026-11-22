@@ -1,3 +1,6 @@
+import { changeRequestReviewPath } from '@kortix/shared/change-request-links';
+import { listHosts } from '../api/config.ts';
+import { sameApiBase } from '../api/auth.ts';
 import type { ApiClient } from '../api/client.ts';
 import type {
   ChangeRequest,
@@ -20,6 +23,7 @@ import {
 } from '../command-helpers.ts';
 import { UUID_RE } from '../iam.ts';
 import { C, pad, status } from '../style.ts';
+import { webDashboardUrl } from '../web-url.ts';
 
 // `kortix cr` — the diff surfaces, plus the plumbing every CR verb shares.
 //
@@ -305,4 +309,16 @@ export async function crVersionDiff(argv: string[], opts: CtxOpts, json = false)
       ` ${C.green}+${diff.additions}${C.reset} ${C.red}-${diff.deletions}${C.reset}\n\n`,
   );
   return 0;
+}
+
+/** The server's workspace URL is authoritative; old servers fall back to the selected host. */
+export async function changeRequestWebUrl(
+  ctx: { client: ApiClient; projectId: string },
+  crId: string,
+): Promise<string> {
+  const project = await ctx.client.get<{ dashboard_url?: string }>(`/workspaces/${ctx.projectId}`).catch(() => null);
+  const host = listHosts().find(({ host }) => sameApiBase(host.url, ctx.client.apiBase))?.host;
+  const workspaceUrl = project?.dashboard_url || `${webDashboardUrl(ctx.client.apiBase, host?.dashboard_url)}/workspaces/${encodeURIComponent(ctx.projectId)}`;
+  const path = changeRequestReviewPath(ctx.projectId, crId);
+  return `${workspaceUrl.replace(/\/+$/, '')}/review${path.slice(path.indexOf('?'))}`;
 }

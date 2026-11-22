@@ -657,8 +657,8 @@ export function GeneralTab({
       successToast(tWorkspaces('deletedToast'));
       // qk.projects.scope(): for a single-account user the archived
       // project's account IS the primary account qk.projects.list() (no
-      // args) resolves to, so a precise invalidation would leave the
-      // marketplace picker showing the archived project until gcTime
+      // args) resolves to, so a precise invalidation would leave a project
+      // picker showing the archived project until gcTime
       // evicts it. Archiving is rare — over-invalidating costs nothing.
       queryClient.invalidateQueries({ queryKey: qk.projects.scope() });
       setArchiveOpen(false);

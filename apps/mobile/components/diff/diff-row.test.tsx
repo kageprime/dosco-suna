@@ -39,7 +39,7 @@ mock.module('@/lib/utils/theme', () => ({
   THEME: {
     light: { foreground: 'fg', mutedForeground: 'muted', border: 'border', destructive: 'red' },
     dark: { foreground: 'fg-dark', mutedForeground: 'muted-dark', border: 'border-dark', destructive: 'red-dark' },
-    accent: { green: 'green', purple: 'purple', blue: 'blue' },
+    accent: { light: { green: 'green', purple: 'purple', blue: 'blue' }, dark: { green: 'green', purple: 'purple', blue: 'blue' } },
   },
   withAlpha: (color: string, alpha: number) => `alpha(${color},${alpha})`,
 }));

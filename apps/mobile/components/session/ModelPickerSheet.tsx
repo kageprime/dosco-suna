@@ -109,7 +109,7 @@ export const ModelPickerSheet = React.memo(React.forwardRef<SheetRef, ModelPicke
     const [tab, setTab] = React.useState(MODEL_TAB);
 
     const agentOptions = React.useMemo<PickerOption[]>(
-      () => (agent?.agents ?? []).filter(isSelectableAgent).map((a) => ({ key: a.name, label: agentDisplayName(a.name) })),
+      () => (agent?.agents ?? []).filter(isSelectableAgent).map((a) => ({ key: a.name, label: agentDisplayName(a.name, a.title) })),
       [agent?.agents],
     );
     const hasAgentTab = !!agent && (agentOptions.length >= 2 || !!agent.onCreate);

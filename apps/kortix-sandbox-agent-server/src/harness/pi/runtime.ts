@@ -1290,7 +1290,7 @@ export class PiRuntime {
    * in a session.
    * A command shadows a skill of the same name. Then the workflows this
    * session can run by name (`source: 'workflow'`, listed as a template): the
-   * project checkout's saved `.kortix/workflows/<name>.js` and the bundled
+   * project checkout's saved `workflows/<name>.js` and the bundled
    * ones, as Claude Code lists saved and bundled workflows as `/name`.
    */
   commandList(): Array<{ name: string; description: string; source: 'command' | 'skill' | 'workflow'; template: string; hints: string[]; agents?: string[] }> {

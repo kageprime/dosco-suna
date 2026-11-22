@@ -7,7 +7,7 @@
     { "name": "FACTORY_GITHUB_WEBHOOK_SECRET", "required": true, "delivery": "connector", "why": "Signs the GitHub webhooks for labeled issues and pull request reviews.", "generate": true },
     { "name": "FACTORY_ERRORS_WEBHOOK_SECRET", "required": false, "delivery": "connector", "why": "source-errors: your error tracker's webhook (Authorization: Bearer).", "generate": true },
     { "name": "FACTORY_FEEDBACK_WEBHOOK_SECRET", "required": false, "delivery": "connector", "why": "source-customer-feedback-webhook: your feedback form's webhook (Authorization: Bearer).", "generate": true },
-    { "name": "LINEAR_API_KEY", "required": false, "delivery": "sandbox", "why": "Ticket store Linear, when the workspace has no Linear connector." },
+    { "name": "LINEAR_API_KEY", "required": false, "delivery": "sandbox", "why": "Ticket store Linear, only when the person refuses the Linear connector (provider composio, app linear)." },
     { "name": "JIRA_API_TOKEN", "required": false, "delivery": "sandbox", "why": "Ticket store Jira, with JIRA_BASE_URL and JIRA_EMAIL, when the workspace has no Jira connector." },
     { "name": "ASANA_ACCESS_TOKEN", "required": false, "delivery": "sandbox", "why": "Ticket store Asana, when the workspace has no Asana connector." },
     { "name": "SENTRY_AUTH_TOKEN", "required": false, "delivery": "sandbox", "why": "source-errors with Sentry: read issues and events (with SENTRY_ORG). Scopes event:read, project:read." },

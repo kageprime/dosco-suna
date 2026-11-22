@@ -133,6 +133,14 @@ const MEMORY_LOOKUP_TOOL_NAMES = new Set([
   'oc-mem-search',
 ]);
 
+/**
+ * A failed `show` presented nothing, so no surface draws it (2026-11-16). Of failed
+ * calls, `isInvisibleActivityPart` names only that one: every other failure stays.
+ */
+export function isUnpresentedFailure(call: ToolCallBlock): boolean {
+  return call.status === 'error' && isInvisibleActivityPart(call);
+}
+
 export function shouldShowToolPartInActionsPanel(call: ToolCallBlock): boolean {
   if (MEMORY_LOOKUP_TOOL_NAMES.has(call.name)) return false;
   // A `show` that handed nothing over, or a read of an empty memory folder,

@@ -202,7 +202,7 @@ b = Series("Mobile", [2, 1])`);
     expect(texts(root)).toContain('Compute is 58% of the total');
     expect(texts(root)).toContain('4,200 of 7,200 USD');
     const fills = all(root, 'svg-path').map((n) => n.props.fill);
-    expect(fills[0]).toBe('hsla(210, 93%, 56.9%, 1)');
+    expect(fills[0]).toBe('hsla(208.9, 82.5%, 50.1%, 1)');
   });
 
   test('treemap: a block too small for text shows none; a tap on any block shows its data', () => {

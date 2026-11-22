@@ -77,8 +77,13 @@ import {
   ShowMoreButton,
 } from '../../session/list/session-list-chrome';
 import {
-  SessionGroupNameModal,
   SessionGroupSections,
+  SpacesHeading,
+  NewSessionGroupRow,
+  keepFocusForNewGroup,
+  markNewGroupFocus,
+  nextSessionGroupName,
+  sessionGroupSectionId,
   UngroupDropArea,
   startSessionDrag,
   useSessionGroupActions,
@@ -121,6 +126,8 @@ import {
   type ProjectSession,
   type ProjectSessionGroup,
 } from '@kortix/sdk';
+import { SpaceFormModal } from '../session-spaces/space-form-modal';
+import { SpaceIconBare } from '../session-spaces/space-icon';
 import {
   qk,
   useProjectSession,
@@ -136,9 +143,9 @@ import {
   ArrowsSplitIcon,
   CheckIcon,
   DotsThreeIcon,
+  FunnelSimpleIcon,
   FolderSimpleIcon,
   FolderSimpleMinusIcon,
-  FolderSimplePlusIcon,
   PlusIcon,
   PushPinIcon,
   PushPinSlashIcon,
@@ -157,7 +164,6 @@ import { formatDistanceToNowStrict } from 'date-fns';
 import { UiLink, useUiPathname, useUiRouter, useUiSearchParams, useUiViewerId } from '../../providers/ui-provider';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSessionListActions } from '../../session/actions/use-session-list-actions';
-import { Separator } from '../../primitives/separator';
 import { CaretRightSolidIcon } from '../../icons/caret-right-solid';
 
 interface ProjectSessionListProps {
@@ -261,6 +267,7 @@ export function ProjectSessionList({ projectId, secondary = false }: ProjectSess
     [groupsEnabled, groupsQuery.data],
   );
   const groupActions = useSessionGroupActions(projectId, groups);
+  const tGroups = useTranslations('sidebar.sessionGroups');
   const [groupToRename, setGroupToRename] = useState<ProjectSessionGroup | null>(null);
   // `fileSessionId`: the row whose "New group…" opened the dialog goes into the new group.
   const [groupCreate, setGroupCreate] = useState<{ fileSessionId: string | null } | null>(null);
@@ -425,6 +432,7 @@ export function ProjectSessionList({ projectId, secondary = false }: ProjectSess
   const collapsedSections = useSessionFilterStore(selectCollapsedSections(projectId));
   const collapsedSectionIds = useMemo(() => new Set(collapsedSections), [collapsedSections]);
   const toggleSectionCollapsed = useSessionFilterStore((s) => s.toggleSectionCollapsed);
+  const collapseAllSections = useSessionFilterStore((s) => s.collapseAllSections);
   // Open by default: the collapsed-sections store, as Channels and Direct
   // messages. Closed by default (`secondary`): the expanded store, as Shared
   // and Automated. Both persist per project.
@@ -699,7 +707,7 @@ export function ProjectSessionList({ projectId, secondary = false }: ProjectSess
     // that case here instead of letting `FadedScrollArea` render nothing with
     // no explanation.
     // `more`: no row yet, but a list has a next page. Its Load more renders below.
-    if (viewState !== 'more' && grouped.sections.length === 0 && visibleOtherCount === 0 && groups.length === 0) {
+    if (viewState !== 'more' && grouped.sections.length === 0 && visibleOtherCount === 0) {
       return (
         <div className="text-muted-foreground px-2 pt-1 pb-2 text-xs">{t('allSectionsHidden')}</div>
       );
@@ -707,38 +715,6 @@ export function ProjectSessionList({ projectId, secondary = false }: ProjectSess
 
     return (
       <FadedScrollArea fadeColor="from-background" className="h-full min-h-0 space-y-px">
-        {/* Pinned is the top of the list, not a block above it. Its caret shows
-            on hover. With group headers below, the next header separates it;
-            without them, a line keeps an unpinned row from reading as pinned. */}
-        <StarterSection
-          title={tPinArchive('section')}
-          query={pinnedQuery}
-          sessions={visiblePinned}
-          open={!collapsedSectionIds.has(PINNED_SECTION_ID)}
-          onToggle={() => toggleSectionCollapsed(projectId, PINNED_SECTION_ID)}
-          renderNode={(session) => renderSessionNode(session, false)}
-          caretOnHover
-        />
-        {groups.length > 0 && (
-          <SessionGroupSections
-            projectId={projectId}
-            groups={groups}
-            labels={labels}
-            collapsedSectionIds={collapsedSectionIds}
-            onToggleSection={(sectionId) => toggleSectionCollapsed(projectId, sectionId)}
-            passesFacets={passesFacets}
-            renderNode={(session) => renderSessionNode(session, false)}
-            actions={groupActions}
-            onRename={setGroupToRename}
-          />
-        )}
-        {/* Without headers below, a line keeps the next row from reading as
-            part of the pinned rows or of the last group. */}
-        {(visiblePinned.length > 0 || groups.length > 0) && !grouped.showHeaders && (
-          <div className="px-2 py-1">
-            <Separator />
-          </div>
-        )}
         {groupsEnabled ? (
           <UngroupDropArea onDropSession={(sessionId) => void groupActions.move(sessionId, null)}>
             {renderUngrouped(grouped)}
@@ -816,7 +792,59 @@ export function ProjectSessionList({ projectId, secondary = false }: ProjectSess
         secondary ? (listOpen ? 'flex-1' : 'shrink-0') : 'h-full',
       )}
     >
-      {/* The header collapses the whole list: Pinned, the time or status
+      {/* The spaces, then Pinned, sit above Sessions, outside it: they stay in
+          view while the list is closed. Capped at half the column so they
+          never push Sessions out of view; past that they scroll. */}
+      {listsReady && (pinnedQuery.sessions.length > 0 || pinnedQuery.hasNextPage || groupsEnabled || groups.length > 0 || groupCreate) && (
+        <div className="max-h-[50%] min-h-0 shrink-0 space-y-px overflow-y-auto">
+          {groupsEnabled && <SpacesHeading projectId={projectId} onNew={() => setGroupCreate({ fileSessionId: null })} />}
+          {groups.length > 0 && (
+            <SessionGroupSections
+              projectId={projectId}
+              groups={groups}
+              labels={labels}
+              collapsedSectionIds={collapsedSectionIds}
+              onToggleSection={(sectionId) => toggleSectionCollapsed(projectId, sectionId)}
+              passesFacets={passesFacets}
+              renderNode={(session) => renderSessionNode(session, false)}
+              actions={groupActions}
+              onRename={setGroupToRename}
+              onNewGroup={() => setGroupCreate({ fileSessionId: null })}
+              onCollapseOthers={(groupId) => {
+                // A space's id in the set means open: keep every other section's state, and only this space open.
+                const spaceIds = new Set(groups.map((group) => sessionGroupSectionId(group.group_id)));
+                collapseAllSections(projectId, [
+                  ...Array.from(collapsedSectionIds).filter((id) => !spaceIds.has(id)),
+                  sessionGroupSectionId(groupId),
+                ]);
+              }}
+            />
+          )}
+          {groupsEnabled && groupCreate && (
+            // A new group is named in place, at the end of the groups: no dialog.
+            <NewSessionGroupRow
+              projectId={projectId}
+              defaultName={nextSessionGroupName(groups, tGroups('newGroup'))}
+              onDone={(group) => {
+                const fileSessionId = groupCreate.fileSessionId;
+                setGroupCreate(null);
+                // The row whose "New group…" opened it goes in.
+                if (group && fileSessionId) void groupActions.move(fileSessionId, group.group_id);
+              }}
+            />
+          )}
+          <StarterSection
+            title={tPinArchive('section')}
+            query={pinnedQuery}
+            sessions={visiblePinned}
+            open={!collapsedSectionIds.has(PINNED_SECTION_ID)}
+            onToggle={() => toggleSectionCollapsed(projectId, PINNED_SECTION_ID)}
+            renderNode={(session) => renderSessionNode(session, false)}
+            caretOnHover
+          />
+        </div>
+      )}
+      {/* The header collapses the sessions in no group: the time or status
           sections, Shared, Automated. Open by default (closed when
           `secondary`); the choice persists. */}
       <Disclosure
@@ -863,18 +891,13 @@ export function ProjectSessionList({ projectId, secondary = false }: ProjectSess
       />
 
       {groupsEnabled && (
-        <SessionGroupNameModal
+        // Rename opens the space's own edit dialog: name, icon and what it is for, in one place.
+        <SpaceFormModal
           projectId={projectId}
-          group={groupToRename}
-          open={!!groupToRename || !!groupCreate}
+          space={groupToRename}
+          open={!!groupToRename}
           onOpenChange={(open) => {
-            if (open) return;
-            setGroupToRename(null);
-            setGroupCreate(null);
-          }}
-          onCreated={(group) => {
-            // The row whose menu opened it goes in; the group appearing with it is the result.
-            if (groupCreate?.fileSessionId) void groupActions.move(groupCreate.fileSessionId, group.group_id);
+            if (!open) setGroupToRename(null);
           }}
         />
       )}
@@ -991,7 +1014,7 @@ function SessionListHeader({
             className={controlClass}
             onClick={onNewGroup}
           >
-            <FolderSimplePlusIcon className="size-4" />
+            <PlusIcon className="size-3.5" />
           </Button>
         </Hint>
       )}
@@ -1011,7 +1034,7 @@ function SessionListHeader({
               aria-label={t('sessionViewOptions')}
               className={controlClass}
             >
-              <DotsThreeIcon className="size-4" />
+              <FunnelSimpleIcon className="size-4" />
             </Button>
           </DropdownMenuTrigger>
         </DropdownMenu>
@@ -1155,7 +1178,7 @@ function SessionSectionMenu({
             }
           }}
         >
-          <DotsThreeIcon className="size-4" />
+          <FunnelSimpleIcon className="size-4" />
         </Button>
       </DropdownMenuTrigger>
       <SessionFilterMenu
@@ -1250,7 +1273,8 @@ function StarterSection({
     <Disclosure
       open={open}
       onOpenChange={onToggle}
-      className="group/section space-y-1"
+      // The rows' own 1px rhythm under the header, the same as Spaces and Sessions.
+      className="group/section space-y-px"
       transition={{ duration: 0.15, ease: 'easeOut' }}
     >
       <DisclosureTrigger>
@@ -1737,7 +1761,7 @@ function ProjectSessionRow({
               <DotsThreeIcon className="size-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="right" className="w-44">
+          <DropdownMenuContent align="start" side="right" className="w-44" onCloseAutoFocus={keepFocusForNewGroup}>
             <DropdownMenuItem
               className="cursor-pointer"
               onSelect={() => deferAfterClose(() => onRename(session.session_id, displayTitle))}
@@ -1768,8 +1792,10 @@ function ProjectSessionRow({
                         disabled={current}
                         onSelect={() => deferAfterClose(() => onMoveToGroup(session.session_id, group.group_id))}
                       >
-                        {current ? <CheckIcon /> : <FolderSimpleIcon />}
-                        <span className="truncate">{group.name}</span>
+                        {/* The space's own icon and name, as the sidebar's Spaces section draws them. */}
+                        <SpaceIconBare space={group} />
+                        <span className="min-w-0 flex-1 truncate first-letter:uppercase">{group.name}</span>
+                        {current ? <CheckIcon className="text-muted-foreground ml-auto" /> : null}
                       </DropdownMenuItem>
                     );
                   })}
@@ -1777,9 +1803,12 @@ function ProjectSessionRow({
                   {onNewGroupFor && (
                     <DropdownMenuItem
                       className="cursor-pointer"
-                      onSelect={() => deferAfterClose(() => onNewGroupFor(session.session_id))}
+                      onSelect={() => {
+                        markNewGroupFocus();
+                        deferAfterClose(() => onNewGroupFor(session.session_id));
+                      }}
                     >
-                      <FolderSimplePlusIcon />
+                      <PlusIcon />
                       {tGroups('newGroupFromMenu')}
                     </DropdownMenuItem>
                   )}

@@ -53,7 +53,7 @@ const SWATCH: Record<ProjectGlyphPaletteColor, string> = {
   magenta: 'bg-glyph-solid-magenta',
 };
 
-const DOT = cn(
+export const COLOR_DOT = cn(
   'relative flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full',
   'transition-[scale,box-shadow] duration-fast active:scale-[0.92]',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover',
@@ -62,7 +62,7 @@ const DOT = cn(
 /** Selected dot: a ring one gap away, in the dot's own colour. */
 const DOT_SELECTED = 'ring-[1.5px] ring-offset-2 ring-offset-popover ring-[color:var(--glyph)]';
 
-const RAINBOW =
+export const COLOR_DOT_RAINBOW =
   'bg-[conic-gradient(from_180deg,#f25f5c,#f7b32b,#a6d96a,#4fc3f7,#7e57c2,#e05fbf,#f25f5c)]';
 
 /**
@@ -130,7 +130,7 @@ export function GlyphPicker({
                 aria-label={`Colour: ${preset}`}
                 onClick={() => onColorChange(preset)}
                 style={selected ? { '--glyph': `var(--glyph-solid-${preset})` } as never : undefined}
-                className={cn(DOT, SWATCH[preset], selected && DOT_SELECTED)}
+                className={cn(COLOR_DOT, SWATCH[preset], selected && DOT_SELECTED)}
               >
                 {selected ? <CheckIcon weight="bold" className="size-3 text-white" /> : null}
               </button>
@@ -143,7 +143,7 @@ export function GlyphPicker({
             aria-pressed={isCustom}
             aria-label="Custom colour"
             onClick={() => setCustomOpen(true)}
-            className={cn(DOT, RAINBOW, isCustom && 'ring-foreground ring-offset-popover ring-[1.5px] ring-offset-2')}
+            className={cn(COLOR_DOT, COLOR_DOT_RAINBOW, isCustom && 'ring-foreground ring-offset-popover ring-[1.5px] ring-offset-2')}
           />
         </div>
       )}
@@ -155,7 +155,7 @@ export function GlyphPicker({
           placeholder="Search icons…"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          className="text-foreground placeholder:text-muted-foreground/70 h-full w-full bg-transparent text-sm outline-none [&::-webkit-search-cancel-button]:appearance-none"
+          className="text-foreground placeholder:text-muted-foreground h-full w-full bg-transparent text-sm outline-none [&::-webkit-search-cancel-button]:appearance-none"
         />
       </div>
 
@@ -271,7 +271,11 @@ function useDrag(onMove: (x: number, y: number) => void) {
   };
 }
 
-function CustomColor({
+/**
+ * The custom colour field: a HEX input, a saturation/value square and a hue
+ * rail. Shared with `color-picker.tsx`.
+ */
+export function CustomColor({
   color,
   onChange,
   onClose,
@@ -299,7 +303,7 @@ function CustomColor({
       <div className="mb-3 flex items-center gap-3">
         <span aria-hidden className="size-6 shrink-0 rounded-full" style={{ background: hex }} />
         <label className="flex min-w-0 flex-1 items-center gap-2.5 text-sm">
-          <span className="text-muted-foreground/80">HEX</span>
+          <span className="text-muted-foreground">HEX</span>
           <span className="text-foreground">#</span>
           <input
             aria-label="Hex colour"
@@ -322,7 +326,7 @@ function CustomColor({
           type="button"
           aria-label="Back to preset colours"
           onClick={onClose}
-          className={cn(DOT, RAINBOW, 'ring-foreground ring-offset-popover ring-[1.5px] ring-offset-2')}
+          className={cn(COLOR_DOT, COLOR_DOT_RAINBOW, 'ring-foreground ring-offset-popover ring-[1.5px] ring-offset-2')}
         />
       </div>
 

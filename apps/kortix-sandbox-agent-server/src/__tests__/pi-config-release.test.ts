@@ -6,7 +6,7 @@
  */
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Hono } from 'hono'
@@ -202,6 +202,41 @@ describe('pi config releases: boot', () => {
     expect(unreadable.releases.report()).toMatchObject({ release_id: one.descriptor.release_id, proven: true })
   })
 
+  test('retained bytes do not authorize an unproven, unrelated, tampered or missing fallback', async () => {
+    const one = release('deploy', 'old')
+    serveRelease(api, one)
+    await create().releases.boot()
+    const pointer = await readBootConfigPointer(root)
+    expect(pointer).not.toBeNull()
+    if (!pointer) throw new Error('fixture did not prove its release')
+    const two = release('review', 'unavailable')
+    api.respond({ status: 200, json: two.descriptor })
+    api.archiveOverride = { status: 500, json: { error: 'store down' } }
+    for (const candidate of [
+      { ...pointer, proven: false },
+      { ...pointer, dir: repo },
+      { ...pointer, dir: join(root, 'f'.repeat(64)) },
+    ]) {
+      writeFileSync(join(root, 'current.json'), JSON.stringify(candidate))
+      const { releases } = create()
+      await releases.boot()
+      expect(releases.projectRoot()).toBeNull()
+      expect(releases.report().source).toBe('image-default')
+    }
+    writeFileSync(join(root, 'current.json'), JSON.stringify(pointer))
+    const skill = join(pointer.dir, 'skills/deploy/SKILL.md')
+    chmodSync(skill, 0o644)
+    writeFileSync(skill, 'tampered')
+    const tampered = create().releases
+    await tampered.boot()
+    expect(tampered.projectRoot()).toBeNull()
+    chmodSync(join(pointer.dir, 'skills/deploy'), 0o755)
+    rmSync(skill)
+    const missing = create().releases
+    await missing.boot()
+    expect(missing.projectRoot()).toBeNull()
+  })
+
   test('a published archive the store cannot deliver is downloaded through the API', async () => {
     const one = release('deploy', 'archive through the API')
     const configRelease = publishRelease(api, one)
@@ -350,6 +385,33 @@ describe('pi config releases: boot', () => {
 })
 
 describe('pi config releases: convergence', () => {
+  test('bootstrap paths survive three releases and a daemon boot without rerunning business commands', async () => {
+    write(repo, 'scripts/bounded-job', '#!/bin/sh\nprintf "bootstrap:%s\\n" "$1"\n')
+    chmodSync(join(repo, 'scripts/bounded-job'), 0o755)
+    const one = release('deploy', 'first')
+    serveRelease(api, one)
+    const { releases } = create()
+    await releases.boot()
+    const firstRoot = releases.projectRoot() ?? ''
+    const helper = join(firstRoot, 'scripts/bounded-job')
+    const scriptsLink = join(tmp, 'scripts')
+    symlinkSync(join(firstRoot, 'scripts'), scriptsLink)
+    const runtime = fakeRuntime()
+    for (const name of ['second', 'third']) {
+      serveRelease(api, release(name, name))
+      expect((await releases.converge(runtime)).outcome).toBe('applied')
+    }
+    const rebooted = create().releases
+    await rebooted.boot()
+    for (const loop of ['triage-startup', 'infra-startup']) {
+      for (const path of [helper, join(scriptsLink, 'bounded-job')]) {
+        const result = spawnSync(path, [loop], { encoding: 'utf8' })
+        expect(result.status).toBe(0)
+        expect(result.stdout).toBe(`bootstrap:${loop}\n`)
+      }
+    }
+  })
+
   test('a base move applies in place: the runtime reconfigures once, nothing restarts, a repeat is unchanged', async () => {
     const one = release('deploy', 'from release one')
     serveRelease(api, one)

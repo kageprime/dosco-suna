@@ -257,10 +257,15 @@ const showParameters = {
   type: 'object',
   properties: {
     action: { type: 'string', description: "Action: 'show' to present an item to the user." },
+    // "type unless items" is required by `validate` (run by the harness before the permission gate and
+    // execute), not by a top-level anyOf: provider tool APIs document top-level combinators as
+    // unsupported (Anthropic input_schema; OpenAI strict mode), not tested here. '' is in the enum
+    // because a model may fill the unused outer type beside 'items'; `validate` rejects it alone.
     type: {
       type: 'string',
+      enum: ['', ...TYPES],
       description:
-        "Type of item. Required for single-item 'show' (omit when using 'items'). " +
+        "Type of item. Required unless 'items' is given (each item then carries its own type). " +
         "Options: 'file' (any file on disk), 'image' (image file), 'url' (web link or localhost preview), " +
         "'text' (inline text), 'error' (error message), 'video' (video file), 'audio' (audio file), " +
         "'code' (syntax-highlighted code block), 'markdown' (rendered markdown), " +
@@ -333,6 +338,27 @@ const showParameters = {
 
 const shown = (value: unknown) => JSON.stringify(value, null, 2)
 
+/** The `items` carousel, `null` for single-item mode, or why `items` is invalid. */
+function parsedItems(args: Record<string, unknown>): unknown[] | null | string {
+  if (!args.items) return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(String(args.items))
+  } catch {
+    return "Invalid JSON in 'items' parameter. Must be a JSON array of objects."
+  }
+  // A model fills the unused optional `items` with "null" or "[]" beside a single item: that is single-item mode.
+  if (parsed === null || (Array.isArray(parsed) && parsed.length === 0)) return null
+  return Array.isArray(parsed) ? parsed : "'items' must be a non-empty JSON array."
+}
+
+/** Why a call is malformed before anything runs: invalid `items`, or a single item without a type. */
+function callError(args: Record<string, unknown>): string | undefined {
+  const items = parsedItems(args)
+  if (typeof items === 'string') return items
+  if (!items && !args.type) return `'type' is required. Use one of: ${TYPES.join(', ')}. A single item names its own type (type='url' for a link); several items go in 'items'.`
+}
+
 /** A relative `path` resolves against the project checkout (`context.directory`). */
 export default {
   description:
@@ -368,18 +394,12 @@ export default {
     "v1 and v2 of a design), make ONE show call with 'items' — not one show call per output. " +
     'Give each item its own title so the user can tell them apart while paging.',
   parameters: showParameters,
+  validate: callError,
   async execute(args: Record<string, any>, { directory: dir }: ToolContext): Promise<string> {
-    let parsed: unknown = null
-    if (args.items) {
-      try {
-        parsed = JSON.parse(args.items)
-      } catch {
-        throw new Error("Invalid JSON in 'items' parameter. Must be a JSON array of objects.")
-      }
-    }
-    // A model fills the unused optional `items` with "null" or "[]" beside a single item: that is single-item mode.
-    if (parsed !== null && !(Array.isArray(parsed) && parsed.length === 0)) {
-      if (!Array.isArray(parsed)) throw new Error("'items' must be a non-empty JSON array.")
+    const error = callError(args)
+    if (error) throw new Error(error)
+    const parsed = parsedItems(args)
+    if (Array.isArray(parsed)) {
       const entries: ShowEntry[] = []
       const errors: string[] = []
       parsed.forEach((item, i) => {

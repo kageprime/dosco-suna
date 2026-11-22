@@ -147,14 +147,14 @@ export function SessionFilesPanel({
 
       {/* The currently-changed files (git status). */}
       <div className="min-h-0 flex-1 overflow-auto p-3">
-        <div className="text-muted-foreground/60 mb-2 flex items-center gap-1.5 px-1 text-xs font-medium tracking-wide uppercase">
+        <div className="text-muted-foreground mb-2 flex items-center gap-1.5 px-1 text-xs font-medium tracking-wide uppercase">
           <FileDiff className="size-3.5" />
           {tHardcodedUi.raw('i18nComplete.textbbd4b6a86bc6')}
-          {changedCount > 0 && <span className="text-muted-foreground/40">· {changedCount}</span>}
+          {changedCount > 0 && <span className="text-muted-foreground">· {changedCount}</span>}
         </div>
 
         {isLoadingChanges ? (
-          <div className="text-muted-foreground/50 flex items-center justify-center gap-2 py-10 text-xs">
+          <div className="text-muted-foreground flex items-center justify-center gap-2 py-10 text-xs">
             <Loading className="size-4 shrink-0" />
             {tHardcodedUi.raw('componentsSessionSessionFilesPanel.line113JsxTextLoadingChanges')}
           </div>
@@ -179,7 +179,7 @@ export function SessionFilesPanel({
                   </span>
                   <span className="text-foreground/90 truncate font-medium">{name}</span>
                   {dir && (
-                    <span className="text-muted-foreground/50 truncate font-mono text-[10px]">
+                    <span className="text-muted-foreground truncate font-mono text-[10px]">
                       {dir.replace(/\/$/, '')}
                     </span>
                   )}
@@ -188,7 +188,7 @@ export function SessionFilesPanel({
             })}
           </div>
         ) : (
-          <div className="text-muted-foreground/60 px-1 py-8 text-center text-xs">
+          <div className="text-muted-foreground px-1 py-8 text-center text-xs">
             {tHardcodedUi.raw(
               'componentsSessionSessionFilesPanel.line151JsxTextNoChangesYetFilesTheAgentCreatesOr',
             )}

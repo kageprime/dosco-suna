@@ -416,6 +416,8 @@ await apps.access.update(app.app_id, {
 const browserSession = await apps.access.session(app.app_id);
 ```
 
+Deployment inputs accept optional `source_commit`, `source_ref`, and `source_force` provenance. Deployment reads return these fields. `kortix apps deploy` records the checkout HEAD and branch, warns for dirty files, and refuses before upload when HEAD does not contain the live commit. Merge the live commit first, or use `--force` (recorded on the deployment). Legacy releases, non-git sources, and commits still unknown after fetching skip this CLI check. This is a client-side ancestry check, not server-side serialization of concurrent deploys.
+
 Access modes are `private`, `project`, `restricted`, `public`, and `password`. An access session exchanges a five-minute URL for an eight-hour, host-only cookie. A stopped or idle App resumes on the same public request. Transient machine requests receive `202 app_starting` and `Retry-After: 3`.
 
 Branch on `app.capabilities` (`machines`, `scale`, `exec`, `volumes`, `snapshots`, `static`, …). A call for a capability the App lacks answers `409 app_capability_unsupported`. A backend (database, Convex) is an ordinary server App with a volume; there is no backend type.
@@ -502,9 +504,10 @@ In React, `useSessionMessageAuthors(projectId, sessionId, messageCount)` reads t
 
 ### Share one response
 
-The web session's **Share response** button publishes one finished response.
-The prompt stays private unless the person selects **Prompt and response**.
-The SDK exposes the same operations as named exports:
+Response sharing is available through the SDK and API. The transcript no longer
+offers a Share response button or dialog. Existing public links remain active.
+Use `unshareTurn` to revoke an existing link. The prompt stays private unless
+`include_prompt` is true. The SDK exposes these operations as named exports:
 
 ```ts
 import { getTurnShare, shareTurn, unshareTurn, getPublicResponse } from '@kortix/sdk';
@@ -738,7 +741,7 @@ exhaustive — see `API-MAP.md` for the full per-domain surface:
 | `kortix.projects` | project-named calls, kept permanently: list · get · detail · create · provision · createWorkspace · update · archive · llmCatalog · modelPicker · sandboxTemplates · sessions (+ more: `listForAccount`, `sandboxHealth`, `createSession`) |
 | `kortix.accounts` | list · get · create · members · invites · `secretResources.{list,create,rotate,retry,verify,remove,grant,revoke,setAccess}` (a provider API key is checked against its provider on create and rotate; `verify` checks it again; the result is `verification`) · `subscriptions.{list,usage}` (project-authorized usage for named and legacy ChatGPT logins; reads credentials in place) · `tokens.{list,create,revoke}` (account-scoped CLI PATs, `kortix_pat_…`) · `audit.{log,export,activity,webhooks.*}` (filterable project/session reconstruction log; `activity` = who was active and how often, per UTC day) · `branding.{get,update,uploadAsset,removeAsset,reset}` (Enterprise organization branding: logo / icon / favicon, light + dark, product name) (+ more: `updateName`, `leave`, `invite`, `removeMember`, `updateMemberRole`) |
 | `kortix.billing` | entitlement/usage reads: `accountState` · `accountStateMinimal` · `transactions` · `transactionsSummary` · `creditBreakdown` · `usageHistory` · `usageRollup` · `sessionCosts.{list,get}` · `tierConfigurations` (with `min_monthly_usd` / `max_monthly_usd`) — plus a curated mutation surface: `setPlan` (subscribe to or change the credits plan; `useSetBillingPlan()` in `@kortix/sdk/react`) · `subscription.{createPortalSession,cancel,reactivate}` · `credits.{purchase,redeem,autoTopupSettings,configureAutoTopup}` (`redeem({ code, accountId })` adds a credit code's amount to the non-expiring credits, once per account). `checkout.{createSession,confirmSession}`, `subscription.{scheduleDowngrade,cancelScheduledChange,prorationPreview}`, `createPerSeatCheckout` and `claimPerSeatBilling` are deprecated: they reject with `ENDPOINT_RETIRED` |
-| `kortix.marketplace` | public marketplace catalog browse + sources (not project-scoped): `items` · `item` · `itemFile` · `marketplaces` · `featured` · `sources.{list,add,remove}`. A project installs an item through `createMarketplaceInstallSession(projectId, itemId)`, which starts a session whose agent merges the item into the project and opens a change request; it resolves `{ session_id }` |
+| `kortix.marketplace` | **Deprecated.** The marketplace was removed (2026-11-20); every call rejects with `410 ENDPOINT_RETIRED`. Removed in the next major. |
 | `kortix.github` | account-scoped GitHub App installs and repo linking: `getInstallation` · `listInstallations` · `listLinkableInstallations` (each entry carries `linked_to_other_accounts`, a count and never a tenant name) · `listRepositories` · `listRepositoryBranches` · `linkInstallation` · `saveInstallation` · `deleteInstallation` · `linkRepository` (`source: 'managed'` imports a repository the instance backend holds — self-host operator only, and mutually exclusive with `installation_id`) · `replaceProjectRepository` (changes an existing project's repository with an expected old URL; accepts a repository-scoped PAT or a temporary GitHub user proof for a repository-scoped App grant; can atomically copy selected shared runtime secrets from another project in the same account) |
 | `kortix.gitBackend` | the instance git backend ("Kortix managed", one per deployment, never an account connection): `get()` → `{configured, kind: 'app'|'pat'|null, owner}` (any authenticated user) · `repositories({search?, limit?})` (self-host operator only; 403 otherwise) |
 | `kortix.notifications` | native push for a person's devices: `registerDeviceToken` · `unregisterDeviceToken` (Expo push tokens) · `releaseDeviceToken(token, { backendUrl?, signal? })` (**no token needed**: a signed-out app removes its device token from a backend, `POST /v1/notifications/device-token/release`; resolves `{ ok: true }`, a non-2xx answer throws `ApiError` with `status`). A session push reaches the phone of the person who created the session |
@@ -1275,7 +1278,7 @@ These project names have no identical twin:
 
 | Legacy name | Use instead | Why |
 |---|---|---|
-| `listProjects()` | `listWorkspaces()` | Lists one account's projects; `listWorkspaces` lists every workspace of the caller |
+| `listProjects()` | `listWorkspaces()` | Lists the projects of every account of a person, or of the one account a credential is bound to; `listWorkspaces` lists every workspace of the caller |
 | `useProjects(accountId?)`, `UseProjectsOptions`, `projectsQueryOptions`, `ProjectsKey`, `ProjectsListKey` | `useWorkspaces()`, `UseWorkspacesOptions` | The same difference, in React |
 | `getProject(id)` | `getWorkspace(id)` | `getWorkspace` adds the role, the state and the settings block |
 | `updateProject(id, input)` | `updateWorkspace(id, input)` | `updateWorkspace` refuses a settings key with `workspace_setting_read_only` |
@@ -1567,7 +1570,7 @@ permanently:
 
 | Canonical | Legacy (permanent) | Note |
 |---|---|---|
-| `GET /v1/workspaces` | `GET /v1/projects` | Not an alias: canonical lists every workspace of the caller in one request; legacy lists one account's projects (`?account_id=`) |
+| `GET /v1/workspaces` | `GET /v1/projects` | Not an alias: canonical lists every workspace of the caller in one request; legacy lists the projects of every account of a person, or one account's with `?account_id=` |
 | `POST /v1/workspaces` | `POST /v1/projects/provision` with `new_workspace: true` | Not an alias: `POST /v1/projects` imports a GitHub repository into an account |
 | `GET`/`PATCH /v1/workspaces/:id` | `GET`/`PATCH /v1/projects/:id` | Not an alias: canonical adds `role`, `state` and the settings block, and refuses a settings key |
 | `/v1/workspaces/:id/<sub-path>` | `/v1/projects/:id/<sub-path>` | Same handler |

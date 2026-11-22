@@ -61,12 +61,7 @@ import { AccountHubSheetProvider } from '../../internal/account-hub/hub-sheet';
 import { useAccountHubAccess } from '../../internal/account-hub/use-account-hub-access';
 import { useAccountsList } from '../../internal/hooks/account/use-accounts-list';
 import { useIsMobile } from '../../internal/hooks';
-import {
-  RAIL_HORIZONTAL_ROW_CLASS,
-  RAIL_ROW_CLASS,
-  RailGroup,
-  SETTINGS_SIDEBAR_WIDTH_PX,
-} from '../../internal/components/nav-rail';
+import { RAIL_HORIZONTAL_ROW_CLASS } from '../../internal/components/nav-rail';
 import { adminResourceRowOpen, capabilityAccess } from '../../internal/layout/project-settings-nav';
 import { SettingsNavProvider } from '../../internal/layout/settings-nav-context';
 import { withStaleChunkRecovery } from '../../internal/lib/chunk-reload';
@@ -179,7 +174,6 @@ const RESOURCE_PAGES: Partial<Record<ProjectAdminResourceKey, SectionPage>> = {
   'eval-datasets': lazyPage(() => import('../../customize/evals/eval-datasets-page'), (m) => m.EvalDatasetsPage),
   'eval-tasks': lazyPage(() => import('../../customize/evals/eval-tasks-page'), (m) => m.EvalTasksPage),
   'eval-jobs': lazyPage(() => import('../../customize/evals/eval-jobs-page'), (m) => m.EvalJobsPage),
-  'eval-trials': lazyPage(() => import('../../customize/evals/eval-trials-page'), (m) => m.EvalTrialsPage),
   models: lazyPage(() => import('../../customize/models/models-page'), (m) => m.ModelsPage),
   secrets: lazyPage(() => import('../../customize/secrets/secrets-page'), (m) => m.SecretsPage),
   repo: lazyPage(() => import('../layout/project-files-view'), (m) => m.ProjectFilesView),
@@ -430,9 +424,6 @@ export function ProjectAdminDashboard({
     accountId,
   ]);
 
-  // The rail's footer: the Support group (Help), drawn under the groups.
-  const footerRows = groups.find((group) => group.id === RAIL_FOOTER_GROUP)?.rows ?? [];
-
   // The sections of this page; a link-out row (Capture) is never active.
   const rows = groups.flatMap((group) => group.rows).filter((row) => !row.href);
   const linkOut = groups.flatMap((group) => group.rows).find((row) => row.href && row.key === section);
@@ -487,9 +478,9 @@ export function ProjectAdminDashboard({
   }, [isMobile, settled, active]);
 
   // Publish the rail: the project sidebar drills into it (Back, then these
-  // groups), so on the desktop the rail lives there and not in this page.
+  // groups). On the desktop the rail lives only there, open or closed with
+  // the sidebar: the page never draws a second one.
   const setRail = useWorkspaceSettingsRailStore((s) => s.setRail);
-  const railInSidebar = useWorkspaceSettingsRailStore((s) => s.sidebarDocked) && !isMobile;
   const accessCheckFailed = canAdmin?.isError === true;
   useEffect(() => {
     // The gate probe failed: publish no rows, so the sidebar shows Back
@@ -579,14 +570,8 @@ export function ProjectAdminDashboard({
 
   return (
     <SettingsNavProvider value={settingsNav}>
-      <div
-        className={cn('min-h-0 flex-1 overflow-hidden', isMobile || railInSidebar ? 'flex flex-col' : 'grid')}
-        // The Settings page's rail width, so the two settings surfaces are one shape.
-        style={
-          isMobile || railInSidebar ? undefined : { gridTemplateColumns: `${SETTINGS_SIDEBAR_WIDTH_PX}px 1fr` }
-        }
-      >
-        {railInSidebar ? null : isMobile ? (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {isMobile ? (
           // The frame's title bar names the panel; this row is the rail only.
           <nav aria-label={title} className="border-border/60 bg-background flex shrink-0 flex-col border-b">
             <FadedScrollArea ref={stripRef} orientation="horizontal" fadeColor="from-background" className="min-w-0 flex-1 py-2">
@@ -595,7 +580,7 @@ export function ProjectAdminDashboard({
                   <Tabs value={active} className="w-fit">
                     <TabsList orientation="horizontal" className="w-fit">
                       {groups.flatMap((group) => group.rows).map((row) => (
-                        <RailTrigger key={row.key} projectId={projectId} row={row} horizontal />
+                        <RailTrigger key={row.key} projectId={projectId} row={row} />
                       ))}
                     </TabsList>
                   </Tabs>
@@ -605,43 +590,7 @@ export function ProjectAdminDashboard({
               )}
             </FadedScrollArea>
           </nav>
-        ) : (
-          <aside className="flex min-h-0 flex-col border-r bg-inherit">
-            <nav
-              aria-label={title}
-              className="flex min-h-0 flex-1 [scrollbar-width:none] flex-col gap-4 overflow-y-auto px-2 pt-4 pb-2 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-            >
-              {settled ? (
-                <Tabs value={active} orientation="vertical" className="gap-4">
-                  {groups
-                    .filter((group) => group.id !== RAIL_FOOTER_GROUP)
-                    .map((group) => (
-                      <RailGroup key={group.id} label={tSettings(`groups.${group.id}`)}>
-                        {group.rows.map((row) => (
-                          <RailTrigger key={row.key} projectId={projectId} row={row} />
-                        ))}
-                      </RailGroup>
-                    ))}
-                </Tabs>
-              ) : (
-                <RailSkeleton />
-              )}
-            </nav>
-            {/* Help sits under the groups, outside the scrolling list: it is
-                where a person goes when the rest of the rail did not help. */}
-            {settled && footerRows.length > 0 ? (
-              <div className="border-border/60 shrink-0 border-t px-2 py-2">
-                <Tabs value={active} orientation="vertical">
-                  <RailGroup>
-                    {footerRows.map((row) => (
-                      <RailTrigger key={row.key} projectId={projectId} row={row} />
-                    ))}
-                  </RailGroup>
-                </Tabs>
-              </div>
-            ) : null}
-          </aside>
-        )}
+        ) : null}
 
         <main ref={mainRef} className="bg-background flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {settled && active && activeRow && (ProjectPage || AccountPage) ? (
@@ -657,13 +606,6 @@ export function ProjectAdminDashboard({
                       active === 'apps' && HOST_PANE_CLASS,
                     )}
                   >
-                    {/* The repository browser has no page header of its own, only
-                        its toolbar: the settings page header sits above it. */}
-                    {active === 'repo' && !content ? (
-                      <div className={cn(SETTINGS_PAGE_COLUMN_CLASS, 'shrink-0 pb-6')}>
-                        <SettingsPageHeader title={activeRow.label} />
-                      </div>
-                    ) : null}
                     {content ?? <ProjectPage projectId={projectId} />}
                   </div>
                 ) : (
@@ -674,7 +616,7 @@ export function ProjectAdminDashboard({
                     <AccountHubSheetProvider>
                       {activeRow.project && ProjectPage ? (
                         <div className={SETTINGS_PAGE_COLUMN_CLASS}>
-                        <div className="flex w-full max-w-2xl flex-col space-y-6">
+                          <div className="flex w-full max-w-2xl flex-col space-y-6">
                             {/* General places the account half before its
                                 Danger zone; every other section appends it. */}
                             {active === 'general' ? (
@@ -718,52 +660,18 @@ export function ProjectAdminDashboard({
 function RailTrigger({
   projectId,
   row,
-  horizontal = false,
 }: {
   projectId: string;
   row: RailRow;
-  horizontal?: boolean;
 }) {
   const Glyph = row.icon;
   return (
-    <TabsTrigger
-      value={row.key}
-      asChild
-      size={horizontal ? undefined : 'md'}
-      className={horizontal ? RAIL_HORIZONTAL_ROW_CLASS : RAIL_ROW_CLASS}
-    >
+    <TabsTrigger value={row.key} asChild className={RAIL_HORIZONTAL_ROW_CLASS}>
       <Link href={row.href ?? projectAdminHref(projectId, row.key)} prefetch>
         <Glyph className="size-4 shrink-0" />
-        <span className={cn(!horizontal && 'truncate')}>{row.label}</span>
+        <span>{row.label}</span>
       </Link>
     </TabsTrigger>
-  );
-}
-
-/** The loaded rail's shape: five labelled groups of icon + label rows. */
-const RAIL_SKELETON_GROUPS = [
-  ['w-16', 'w-16', 'w-20', 'w-10', 'w-16', 'w-20', 'w-16'],
-  ['w-20', 'w-14', 'w-12', 'w-12', 'w-16', 'w-14', 'w-20'],
-  ['w-16', 'w-14', 'w-12', 'w-16', 'w-16'],
-  ['w-10', 'w-12'],
-  ['w-10'],
-];
-
-function RailSkeleton() {
-  return (
-    <div className="space-y-4" aria-hidden>
-      {RAIL_SKELETON_GROUPS.map((group, g) => (
-        <div key={g} className="space-y-1">
-          <Skeleton className="mx-2.5 my-2 h-3 w-20 rounded-sm" />
-          {group.map((width, i) => (
-            <div key={i} className="flex h-8 items-center gap-2 px-2.5">
-              <Skeleton className="size-4 shrink-0 rounded-sm" />
-              <Skeleton className={cn('h-3.5 rounded-sm', width)} />
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
   );
 }
 

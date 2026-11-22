@@ -227,8 +227,7 @@ triggers:
   queued, `200` skipped (paused or capped), `401` for every miss before
   authentication (no such enabled webhook trigger, bad signature, missing or
   stale timestamp), `402` no usable model.
-- `kortix triggers pause` stops every trigger of the workspace; `resume`
-  starts them again. `enabled: false` stops one.
+- Stop one trigger, or all: `../scheduling.md` → Stop a trigger.
 
 Prompt variables, `{{ dotted.path }}` (a missing value renders empty; an object
 or list renders as JSON; `{{ payload }}` is the whole payload). `run.payload`

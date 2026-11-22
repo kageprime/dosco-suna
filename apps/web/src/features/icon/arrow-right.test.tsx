@@ -3,7 +3,10 @@ import { Window } from 'happy-dom';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 const start = mock((_state: string) => Promise.resolve());
+// The real module first: code under test reads exports this stub does not name (MotionGlobalConfig).
+const realMotion = await import('motion/react');
 mock.module('motion/react', () => ({
+  ...realMotion,
   useAnimation: () => ({ start }),
   motion: { path: ({ d }: { d: string }) => <path d={d} /> },
 }));

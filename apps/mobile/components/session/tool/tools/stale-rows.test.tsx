@@ -55,7 +55,7 @@ mock.module('@/components/session/chain-of-thought', () => ({
   DisclosureContent: ({ open, children }: HostProps) => (open ? React.createElement(React.Fragment, null, children) : null),
 }));
 mock.module('@/lib/session/turn-body', () => ({ toDisplayPath: (path: string) => path }));
-mock.module('@/lib/utils/theme', () => ({ THEME: { accent: { red: 'red' } } }));
+mock.module('@/lib/utils/theme', () => ({ THEME: { accent: { light: { red: 'red' }, dark: { red: 'red' } } } }));
 
 // The REAL `../shared/infrastructure` runs (its contexts, `BasicTool`, `ToolEmptyState`,
 // `useToolLive`, the `partOutput` accessors). Only its heavy leaf modules are stubbed.

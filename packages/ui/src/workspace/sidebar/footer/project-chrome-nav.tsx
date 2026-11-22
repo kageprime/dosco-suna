@@ -1,20 +1,20 @@
 'use client';
 
-import { useChromeConnections } from '@kortix/sdk/react';
-import { XIcon } from '@phosphor-icons/react';
-import { useCallback, useState } from 'react';
+import type { PromoSlide } from './promo-card';
+import { PromoMark } from './promo-card';
 
-import {
-  SidebarMenuAction,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar,
-} from '../../../primitives/sidebar';
+import { useChromeConnections } from '@kortix/sdk/react';
+import { CursorClickIcon, KeyIcon } from '@phosphor-icons/react';
+import { useCallback, useState, useSyncExternalStore, type ReactNode } from 'react';
+
+import { useTranslations } from '../../../i18n';
 import { BrowserIcon } from '../../../internal/chrome/browser-icon';
 import { useIsMobile } from '../../../internal/hooks';
-import { useTranslations } from '../../../i18n';
+import { useSidebar } from '../../../primitives/sidebar';
 
 export const CHROME_PROMO_DISMISSED_KEY = 'kortix.chrome-promo.dismissed';
+
+const subscribeNoop = () => () => {};
 
 function readDismissed(): boolean {
   try {
@@ -24,18 +24,11 @@ function readDismissed(): boolean {
   }
 }
 
-/**
- * "Kortix in Chrome": an advertisement, not a status widget. It shows
- * until the caller connected a browser or dismisses it. The sidebar owns the
- * connect dialog, not this row: on a phone the row lives in the sidebar sheet,
- * and closing the sheet unmounts it together with anything it renders.
- */
-export function ProjectChromeNavItem({ onOpenConnect }: { onOpenConnect: () => void }) {
-  // Client-only: the row renders nothing until its query resolves, so the
-  // server render and the first client render agree.
-  const [dismissed, setDismissed] = useState(() =>
-    typeof window === 'undefined' ? true : readDismissed(),
-  );
+/** Whether the Chrome slide was dismissed in this browser, and the dismiss. */
+export function useChromePromoDismissed(): [boolean, () => void] {
+  // The server and the hydrating render read "dismissed"; the stored flag applies after.
+  const stored = useSyncExternalStore(subscribeNoop, readDismissed, () => true);
+  const [dismissedNow, setDismissed] = useState(false);
   const dismiss = useCallback(() => {
     setDismissed(true);
     try {
@@ -44,16 +37,25 @@ export function ProjectChromeNavItem({ onOpenConnect }: { onOpenConnect: () => v
       // Private mode or blocked storage: dismissed for this page view only.
     }
   }, []);
-  if (dismissed) return null;
-  return <ChromePromo onDismiss={dismiss} onOpenConnect={onOpenConnect} />;
+  return [stored || dismissedNow, dismiss];
 }
 
-function ChromePromo({
-  onDismiss,
+/**
+ * "Add Kortix to Chrome": the Chrome slide of the sidebar's promo switcher
+ * (`project-promo-cards.tsx`). An advertisement, not a status widget: the
+ * slide is `null` while the browser list loads and once the caller connected
+ * a browser. Mount it only while the slide is not dismissed, so a dismissed
+ * slide polls no browser list. The sidebar owns the connect dialog: on a
+ * phone the card unmounts with the sidebar sheet.
+ */
+export function ChromePromoSlide({
   onOpenConnect,
+  onDismiss,
+  children,
 }: {
-  onDismiss: () => void;
   onOpenConnect: () => void;
+  onDismiss: () => void;
+  children: (slide: PromoSlide | null) => ReactNode;
 }) {
   const t = useTranslations('chrome');
   const isMobile = useIsMobile();
@@ -62,23 +64,31 @@ function ChromePromo({
   // faster while it is open.
   const connections = useChromeConnections({ refetchInterval: 60_000 });
 
-  if (!connections.isSuccess || connections.data.length > 0) return null;
+  if (!connections.isSuccess || connections.data.length > 0) return children(null);
 
-  return (
-    <SidebarMenuItem>
-      <SidebarMenuButton
-        className="text-sidebar-foreground bg-hover group-has-data-[sidebar=menu-action]/menu-item:pr-8"
-        onClick={() => {
-          onOpenConnect();
-          if (isMobile) setOpenMobile(false);
-        }}
-      >
-        <BrowserIcon brand="chrome" tone="current" className="text-muted-foreground size-4" />
-        <span className="min-w-0 flex-1 truncate">{t('promoLabel')}</span>
-      </SidebarMenuButton>
-      <SidebarMenuAction onClick={onDismiss} aria-label={t('dismissPromo')} showOnHover className="mr-1">
-        <XIcon />
-      </SidebarMenuAction>
-    </SidebarMenuItem>
-  );
+  return children({
+    id: 'chrome',
+    marks: (
+      <>
+        <PromoMark>
+          <BrowserIcon brand="chrome" tone="current" className="size-5" />
+        </PromoMark>
+        <PromoMark>
+          <KeyIcon className="size-5" />
+        </PromoMark>
+        <PromoMark>
+          <CursorClickIcon className="size-5" />
+        </PromoMark>
+      </>
+    ),
+    title: t('connectTitle'),
+    description: t('connectDescription'),
+    cta: t('connect'),
+    dismissLabel: t('dismissPromo'),
+    onDismiss,
+    onClick: () => {
+      onOpenConnect();
+      if (isMobile) setOpenMobile(false);
+    },
+  });
 }

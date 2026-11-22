@@ -1,8 +1,11 @@
+import type { TriggerReaders } from '@kortix/manifest-schema';
 import { createHash } from 'node:crypto';
 import { CRON_MIN_INTERVAL_SECONDS, type TriggerFilter, cronIntervalError } from '@kortix/manifest-schema';
 import { Cron } from 'croner';
 
 export interface TriggerScheduleSpec {
+  sessionReaders?: TriggerReaders;
+  defaultSessionReaders?: TriggerReaders;
   slug: string;
   /** `monitor` never schedules — `nextTriggerScheduleSlot` returns null for it,
    *  so the cron sweep's `trigger_type = 'cron'` claim can never see one. */
@@ -32,7 +35,8 @@ export interface TriggerScheduleSpec {
   maxLatenessSeconds?: number;
   /** type=app only — see GitTriggerSpec.expectEventWithinSeconds. */
   expectEventWithinSeconds?: number;
-  /** Any type — see GitTriggerSpec.maxRunsPerHour / maxRunsPerDay. */
+  /** Include manual fires in atomically reserved run caps. */
+  hardRunCaps?: boolean;
   maxRunsPerHour?: number;
   maxRunsPerDay?: number;
   /** See GitTriggerSpec.overlap. */
@@ -73,6 +77,8 @@ export function triggerScheduleRevision(spec: TriggerScheduleSpec): string {
       )
     : null;
   const scheduleConfig = {
+    ...(spec.sessionReaders ? { sessionReaders: spec.sessionReaders } : {}),
+    ...(spec.defaultSessionReaders ? { defaultSessionReaders: spec.defaultSessionReaders } : {}),
     type: spec.type,
     enabled: spec.enabled,
     cron: spec.cron,
@@ -101,6 +107,7 @@ export function triggerScheduleRevision(spec: TriggerScheduleSpec): string {
     ...(spec.expectEventWithinSeconds ? { expectEventWithinSeconds: spec.expectEventWithinSeconds } : {}),
     // Run caps (KRTX-1721): the same rule. Cron, event and monitor fires read
     // them from the stored spec.
+    ...(spec.hardRunCaps ? { hardRunCaps: true } : {}),
     ...(spec.maxRunsPerHour ? { maxRunsPerHour: spec.maxRunsPerHour } : {}),
     ...(spec.overlap ? { overlap: spec.overlap } : {}),
     ...(spec.maxRunsPerDay ? { maxRunsPerDay: spec.maxRunsPerDay } : {}),

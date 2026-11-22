@@ -70,8 +70,9 @@ function startApi() {
 }
 
 function seedWorkspace(): void {
-  // `projects link` refuses directories without a `.kortix/` scaffold.
-  mkdirSync(join(tmp, '.kortix'), { recursive: true });
+  // `projects link` binds a git checkout that holds a kortix.yaml.
+  writeFileSync(join(tmp, 'kortix.yaml'), 'name: synthetic-workspace\n');
+  Bun.spawnSync(['git', 'init', '-q'], { cwd: tmp });
   writeFileSync(
     join(tmp, 'config.json'),
     JSON.stringify({
@@ -146,8 +147,8 @@ test('projects link --host authenticates with the named host key, not the sessio
   // A word-bounded 403: the stub's random port (e.g. 40403) is printed too.
   expect(run.stderr).not.toMatch(/\b403\b/);
 
-  const link = JSON.parse(readFileSync(join(tmp, '.kortix', 'link.json'), 'utf8'));
-  expect(link.project_id).toBe(TARGET_PROJECT_ID);
-  expect(link.host).toBe(HOST_NAME);
-  expect(link.host_url).toBe(apiBase);
+  const config = Bun.spawnSync(['git', '-C', tmp, 'config', '--local', '--get-regexp', '^kortix\\.'], { stdout: 'pipe' }).stdout.toString();
+  expect(config).toContain(`kortix.workspace ${TARGET_PROJECT_ID}`);
+  expect(config).toContain(`kortix.host ${HOST_NAME}`);
+  expect(config).toContain(`kortix.host-url ${apiBase}`);
 });

@@ -140,7 +140,7 @@ export function AppReleasesPanel({
       {live ? <LiveRelease projectId={projectId} app={app} deployment={live} serving={serving} /> : null}
       {history.length ? (
         <section className={cn('flex flex-col gap-1', live && 'pt-6')}>
-          <h3 className="text-muted-foreground/70 px-0 pb-1 text-xs font-medium">{t.raw('text0e7696009337')}</h3>
+          <h3 className="text-muted-foreground px-0 pb-1 text-xs font-medium">{t.raw('text0e7696009337')}</h3>
           <ul className="-mx-2 flex flex-col gap-1">
             {history.map((item) => {
               if (item.kind === 'release') return row(item.deployment);
@@ -155,18 +155,18 @@ export function AppReleasesPanel({
                     onClick={() => toggleRun(item.key)}
                     className="hover:bg-muted/50 focus-visible:ring-ring flex h-13 items-center gap-3 rounded-md px-2 text-left focus-visible:ring-2 focus-visible:outline-none"
                   >
-                    <span className="text-muted-foreground/70 flex w-8 shrink-0 items-center">
+                    <span className="text-muted-foreground flex w-8 shrink-0 items-center">
                       {open ? <CaretDownIcon className="size-4" /> : <CaretRightIcon className="size-4" />}
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="text-foreground text-sm">
                         {t('textb1a7e40c2d08', { value0: item.deployments.length })}
                       </span>
-                      <span className="text-muted-foreground/70 font-mono text-xs">
+                      <span className="text-muted-foreground font-mono text-xs">
                         {t('text13b411b641ec', { value0: oldest.version, value1: newest.version })}
                       </span>
                     </span>
-                    <span className="text-muted-foreground/70 w-15 shrink-0 text-right text-xs tabular-nums">
+                    <span className="text-muted-foreground w-15 shrink-0 text-right text-xs tabular-nums">
                       {relativeTime(newest.created_at)}
                     </span>
                     <span className="w-20 shrink-0" aria-hidden />
@@ -211,7 +211,7 @@ function LiveRelease({
 
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="text-muted-foreground/70 text-xs font-medium">{t.raw('textb1a7e40c2d01')}</h3>
+      <h3 className="text-muted-foreground text-xs font-medium">{t.raw('textb1a7e40c2d01')}</h3>
       <div className="bg-muted/40 flex flex-col gap-3 rounded-lg border p-4">
         <div className="flex items-center gap-2">
           <span className="text-foreground font-mono text-sm font-medium">v{deployment.version}</span>
@@ -224,7 +224,7 @@ function LiveRelease({
               {serving ? t.raw('textb1a7e40c2d02') : appCopy.deployment.ready.label}
             </span>
           </span>
-          <span className="text-muted-foreground/70 shrink-0 text-xs">
+          <span className="text-muted-foreground shrink-0 text-xs">
             {t('textb1a7e40c2d03', { value0: relativeTime(releasedAt(deployment)) })}
           </span>
         </div>
@@ -232,7 +232,7 @@ function LiveRelease({
           <dl className="flex gap-6">
             {facts.map((fact) => (
               <div key={fact.label} className="flex flex-col gap-0.5">
-                <dt className="text-muted-foreground/70 text-xs">{fact.label}</dt>
+                <dt className="text-muted-foreground text-xs">{fact.label}</dt>
                 <dd className={cn('text-foreground text-sm', fact.mono && 'font-mono')}>{fact.value}</dd>
               </div>
             ))}
@@ -306,7 +306,7 @@ const ReleaseRow = memo(function ReleaseRow({
               />
               <span className={cn('truncate text-sm', failed ? 'text-destructive' : 'text-foreground')}>{label}</span>
             </span>
-            <span className="text-muted-foreground/70 w-15 shrink-0 text-right text-xs tabular-nums">
+            <span className="text-muted-foreground w-15 shrink-0 text-right text-xs tabular-nums">
               {relativeTime(deployment.created_at)}
             </span>
           </button>
@@ -329,9 +329,9 @@ const ReleaseRow = memo(function ReleaseRow({
         <span className="text-foreground w-8 shrink-0 font-mono text-sm font-medium">v{deployment.version}</span>
         <span className="flex min-w-0 flex-1 flex-col">
           <span className={cn('text-sm', failed ? 'text-destructive' : 'text-foreground')}>{label}</span>
-          {reason ? <span className="text-muted-foreground/70 truncate text-xs">{reason}</span> : null}
+          {reason ? <span className="text-muted-foreground truncate text-xs">{reason}</span> : null}
         </span>
-        <span className="text-muted-foreground/70 w-15 shrink-0 text-right text-xs tabular-nums">
+        <span className="text-muted-foreground w-15 shrink-0 text-right text-xs tabular-nums">
           {relativeTime(deployment.created_at)}
         </span>
       </button>
@@ -439,7 +439,7 @@ function LogLine({ tone, text, time }: { tone: 'done' | 'error' | 'muted'; text:
           'size-3.5 shrink-0 fill-none stroke-current stroke-[1.5]',
           tone === 'done' && 'text-kortix-green',
           tone === 'error' && 'text-destructive',
-          tone === 'muted' && 'text-muted-foreground/70',
+          tone === 'muted' && 'text-muted-foreground',
         )}
       >
         <path d={LOG_GLYPH[tone]} strokeLinecap="round" strokeLinejoin="round" />
@@ -452,7 +452,7 @@ function LogLine({ tone, text, time }: { tone: 'done' | 'error' | 'muted'; text:
       >
         {text}
       </span>
-      {time ? <span className="text-muted-foreground/70 shrink-0 font-mono text-xs tabular-nums">{time}</span> : null}
+      {time ? <span className="text-muted-foreground shrink-0 font-mono text-xs tabular-nums">{time}</span> : null}
     </div>
   );
 }

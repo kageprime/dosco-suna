@@ -944,7 +944,10 @@ jobs:
 
   # ── Build, sign and verify the prod Kortix Capture installers ───────────────
   # Best-effort like build-desktop: no job gates on it. The reusable workflow
-  # installs each installer on its own OS runner before it passes.
+  # installs each installer on its own OS runner before it passes. Its failure
+  # ends this run red but does not hold back the mobile release: the gate
+  # (deploy-prod-gate.yml) lets jobs whose name contains "Kortix Capture" or
+  # "desktop" fail. Keep those words in these job names.
   build-capture:
     name: Build prod Kortix Capture
     needs: version
@@ -986,7 +989,10 @@ jobs:
     name: GitHub Release v${{ needs.version.outputs.version }}
     needs: [version, retag-images, build-cli, deploy-ecs, verify-live-version, frontend-auth-proof]
     runs-on: ${{ vars.CI_RUNNER_M_2204 || 'ubuntu-22.04' }}
-    timeout-minutes: 15
+    # On the Vulcan runners "Download CLI artifacts" (386 MB) alone took
+    # 11.6, 10.8 and 14.7 min for v0.16.1-v0.16.3; at 15 min v0.16.3's job
+    # timed out and left no GitHub Release.
+    timeout-minutes: 30
     permissions:
       contents: write
       # Keyless cosign signing of SHA256SUMS needs a GitHub OIDC token.
@@ -1330,7 +1336,13 @@ jobs:
       # for KORTIX_SANDBOX_IDLE_DELETE_MINUTES is deleted. A project an
       # operator set to `false` stays off. Rollback: remove the key and
       # redeploy; sessions that already have a volume keep it.
-      KORTIX_ECS_ENV_OVERRIDES: '{"KORTIX_PREVIEW_BASE_DOMAIN":"p.kortix.com","KORTIX_CAPTURE_S3_BUCKET":"kortix-prod-capture-store","KORTIX_CAPTURE_S3_REGION":"eu-west-2","KORTIX_CAPTURE_SQS_QUEUE_URL":"https://sqs.eu-west-2.amazonaws.com/935064898258/kortix-prod-capture-store-manifests","KORTIX_CAPTURE_STS_ROLE_ARN":"arn:aws:iam::935064898258:role/kortix-prod-capture-store-device","AUDIT_ARCHIVE_BUCKET":"kortix-prod-audit-archive","AUDIT_ARCHIVE_REGION":"eu-west-2","AUDIT_ARCHIVE_ENABLED":"true","KORTIX_CONFIG_ARCHIVE_S3_BUCKET":"kortix-prod-project-snapshots","KORTIX_CONFIG_ARCHIVE_S3_REGION":"eu-west-2","KORTIX_CONFIG_ARCHIVE_RETAIN_PER_PROJECT":"0","KORTIX_WORKSPACE_VOLUMES":"on"}'
+      #
+      # KORTIX_CHROME_ENABLED=true serves Kortix in Chrome (/v1/chrome/* and the
+      # extension socket): the public Chrome Web Store build signs in to
+      # kortix.com, and every project gets the `chrome` flag by default.
+      # Rollback: remove the key and redeploy; every /v1/chrome route answers 404
+      # again and the flag is unavailable.
+      KORTIX_ECS_ENV_OVERRIDES: '{"KORTIX_PREVIEW_BASE_DOMAIN":"p.kortix.com","KORTIX_CAPTURE_S3_BUCKET":"kortix-prod-capture-store","KORTIX_CAPTURE_S3_REGION":"eu-west-2","KORTIX_CAPTURE_SQS_QUEUE_URL":"https://sqs.eu-west-2.amazonaws.com/935064898258/kortix-prod-capture-store-manifests","KORTIX_CAPTURE_STS_ROLE_ARN":"arn:aws:iam::935064898258:role/kortix-prod-capture-store-device","AUDIT_ARCHIVE_BUCKET":"kortix-prod-audit-archive","AUDIT_ARCHIVE_REGION":"eu-west-2","AUDIT_ARCHIVE_ENABLED":"true","KORTIX_CONFIG_ARCHIVE_S3_BUCKET":"kortix-prod-project-snapshots","KORTIX_CONFIG_ARCHIVE_S3_REGION":"eu-west-2","KORTIX_CONFIG_ARCHIVE_RETAIN_PER_PROJECT":"0","KORTIX_WORKSPACE_VOLUMES":"on","KORTIX_CHROME_ENABLED":"true"}'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Configure AWS credentials (OIDC)
@@ -2075,10 +2087,22 @@ jobs:
           set -euo pipefail
           # needs verify-live-version: the public endpoints serve VERSION, so
           # both moving channels name a version that runs in prod.
+          # Docker Hub can answer 429 to a logged-in runner (v0.16.3: a blob
+          # HEAD request, so :prod stayed on v0.16.2). A re-tag by digest is
+          # idempotent: retry each image 4 times, 30/60/120 s apart.
           for IMAGE in kortix/kortix-api kortix/kortix-gateway kortix/kortix-frontend; do
-            docker buildx imagetools create \
-              --tag "$IMAGE:prod" \
-              --tag "$IMAGE:latest" \
-              "$IMAGE:${VERSION}"
-            echo "✓ $IMAGE:prod + :latest → ${VERSION}"
+            for pause in 30 60 120 0; do
+              if docker buildx imagetools create \
+                --tag "$IMAGE:prod" \
+                --tag "$IMAGE:latest" \
+                "$IMAGE:${VERSION}"; then
+                echo "✓ $IMAGE:prod + :latest → ${VERSION}"
+                continue 2
+              fi
+              [ "$pause" -gt 0 ] || break
+              echo "::warning::re-tag of $IMAGE failed; retrying in ${pause} s"
+              sleep "$pause"
+            done
+            echo "::error::re-tag of $IMAGE failed 4 times"
+            exit 1
           done

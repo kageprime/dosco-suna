@@ -263,7 +263,7 @@ export function Terminal({
         {lines.map((l, i) => {
           if (l.kind === 'comment')
             return (
-              <div key={i} className="text-muted-foreground/60">
+              <div key={i} className="text-muted-foreground">
                 {l.text}
               </div>
             );
@@ -310,7 +310,7 @@ export function Spine({
           <span
             className={cn(
               'font-mono text-xs tracking-wider uppercase transition-colors',
-              i === active ? 'text-foreground' : 'text-muted-foreground/35',
+              i === active ? 'text-foreground' : 'text-muted-foreground',
             )}
           >
             <span className="tabular-nums">{`0${i + 1}`}</span> {c}
@@ -391,7 +391,7 @@ export function Steps({
           key={step.n}
           className={cn('border-border bg-card flex flex-col p-5 sm:p-6', GRID_4_RULES[i])}
         >
-          <span className="text-muted-foreground/45 font-mono text-xs tracking-widest tabular-nums">
+          <span className="text-muted-foreground font-mono text-xs tracking-widest tabular-nums">
             {step.n}
           </span>
           <h3 className="text-foreground mt-5 text-base leading-tight font-medium">{step.title}</h3>

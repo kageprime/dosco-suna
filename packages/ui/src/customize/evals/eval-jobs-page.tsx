@@ -25,7 +25,7 @@ import { InfoHint, JobsTable, ListFooter } from './eval-ui';
 import { RunEvalModal } from './run-eval-modal';
 
 const ANY = '__any__';
-const STATUSES: WorkspaceEvalJobStatus[] = ['running', 'queued', 'paused', 'completed', 'cancelled'];
+const STATUSES: WorkspaceEvalJobStatus[] = ['running', 'queued', 'completed', 'cancelled'];
 
 /** The newest jobs, searched by name, kept by status, dataset and agent; two or more selected compare. */
 export function EvalJobsPage({ projectId }: { projectId: string }) {

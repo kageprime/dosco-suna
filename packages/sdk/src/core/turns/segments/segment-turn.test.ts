@@ -127,7 +127,7 @@ describe('segmentTurn', () => {
     expect(segmentTurn([running]).map((s) => s.kind)).toEqual(['standalone']);
   });
 
-  test('a show whose STATE errored stays — a failure is real content', () => {
+  test('a show whose STATE errored is dropped: a failed show presented nothing (2026-11-16)', () => {
     const failed = {
       id: '1',
       type: 'tool',
@@ -136,7 +136,7 @@ describe('segmentTurn', () => {
       state: { status: 'error', error: 'boom' },
     } as unknown as ToolPart;
 
-    expect(segmentTurn([failed]).map((s) => s.kind)).toEqual(['standalone']);
+    expect(segmentTurn([failed])).toEqual([]);
   });
 
   test('a show that handed over only a title is empty', () => {

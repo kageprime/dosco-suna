@@ -27,7 +27,7 @@ export const SUBPROCESSOR_NOTICE_DAYS = 30;
 /** The time a merged row has to reach prod before its notice gives fewer than 30 days. */
 export const SUBPROCESSOR_RELEASE_DAYS = 7;
 
-export const SUBPROCESSORS_UPDATED = "2026-10-27";
+export const SUBPROCESSORS_UPDATED = "2026-11-19";
 
 /** The first day `row` may process customer personal data (`YYYY-MM-DD`), or null for an established row. */
 export function subprocessorEffectiveDate(row: Subprocessor): string | null {
@@ -186,7 +186,7 @@ export const SUBPROCESSORS_CORE: readonly Subprocessor[] = [
   },
   {
     name: "PostHog, Inc.",
-    purpose: "Product analytics",
+    purpose: "Product analytics and session replay; replays of signed-in use hide input and all text except our interface labels",
     location: "European Union",
   },
   {

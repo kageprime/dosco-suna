@@ -682,6 +682,7 @@ function SessionChatInputImpl({
                 : composerChip({
                     connectModel: modelUnavailable,
                     agentName: agent?.name,
+                    agentTitle: agent?.title,
                     pendingAgentName,
                     agentsLoading,
                     modelName: model ? pickerModelName(model) : undefined,

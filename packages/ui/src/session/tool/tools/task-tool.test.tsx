@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+import { useEffect } from 'react';
 import { configureKortix, toolCallBlock } from '@kortix/sdk';
 import { qk } from '@kortix/sdk/react';
 import type { ToolPart } from '../../../internal/session-types';
@@ -77,7 +78,10 @@ const call = toolCallBlock({
 /** The agents line's poll, as `agent-strip.tsx` mounts it. */
 function ChildrenPoll() {
   const list = useSessionChildren(P, PARENT, { limit: 50 });
-  refetchChildren = list.refetch;
+  // Hand the refetch out after render: React Compiler forbids reassigning an outer variable during render.
+  useEffect(() => {
+    refetchChildren = list.refetch;
+  });
   return null;
 }
 

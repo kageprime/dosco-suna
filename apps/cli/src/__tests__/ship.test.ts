@@ -411,7 +411,7 @@ describe('runShip guards before any network call', () => {
   test('a folder with no Kortix manifest refuses to ship', async () => {
     const exit = await runShip([]);
     expect(exit).toBe(1);
-    expect(stderr).toContain('Not a Kortix workspace — no .kortix/ or kortix.yaml in');
+    expect(stderr).toContain('Not a Kortix workspace — no kortix.yaml in');
     expect(stderr).toContain('kortix init');
     expect(stdout).toBe('');
   });

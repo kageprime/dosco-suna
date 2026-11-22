@@ -1,25 +1,28 @@
 /**
  * `kortix templates` — the hand-approved templates (`@kortix/starter/templates`)
- * and adding one to the repository you stand in: its `.kortix/<id>/` folder
- * plus one line under `imports:` in `kortix.yaml`. The one-prompt setup guide
+ * and adding one to the workspace repository you stand in: its files in the
+ * root layout (`agents/`, `skills/`, `<id>.yaml`, a settings JSON) plus one
+ * line under `imports:` in `kortix.yaml`. The one-prompt setup guide
  * drives `add --json` and acts on the `next` steps it prints.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { manifestCandidatePaths } from '@kortix/manifest-schema';
 import { SETUP_GUIDE } from '@kortix/shared/setup-guide';
-import { composeTemplateOnboarding, getTemplate, getTemplateFiles, isTemplateId, listTemplates, TEMPLATE_IDS, type TemplateInfo } from '@kortix/starter/templates';
+import { composeTemplateOnboarding, composeTemplateSteps, getTemplate, getTemplateFiles, isTemplateId, listTemplates, TEMPLATE_IDS, type TemplateInfo } from '@kortix/starter/templates';
 import { takeFlagBool, takeFlagValue } from '../command-helpers.ts';
 import { githubRepoFromRemote } from '../github-remote.ts';
 import { runGit } from '../git-run.ts';
 import { addManifestImport } from '../manifest-edit.ts';
 import { runTemplatesDoctor } from './templates-doctor.ts';
 import { C, help, status } from '../style.ts';
+import { currentCredential, reportTemplateAdded } from '../setup-telemetry.ts';
 
 const HELP = help`Usage: kortix templates <command> [options]
 
-Hand-approved sets of agents and triggers. Adding one writes .kortix/<id>/ and
-adds it under imports: in kortix.yaml. Nothing reaches Kortix until you push.
+Hand-approved sets of agents and triggers. Adding one writes agents/, skills/,
+<id>.yaml and a settings JSON in the workspace repository, and imports <id>.yaml
+in kortix.yaml. Nothing reaches Kortix until you push.
 
 Commands:
   ls                     List the templates.
@@ -28,11 +31,12 @@ Commands:
                          Exit 1 while any line is red. --repo, --json.
   onboard <id>           Print the steps a coding agent follows to set the
                          template up with you: its own onboarding, then the
-                         setup guide with the template chosen.
+                         setup guide with the template chosen. --steps prints
+                         only the template's own steps.
   add <id>               Add the template to the repository in this directory.
 
 Options for add:
-  --repo <owner/repo>    The GitHub repository. Default: the origin remote.
+  --repo <owner/repo>    The code repository on GitHub. Default: the origin remote.
   --branch <name>        The default branch. Default: origin's HEAD, else the current branch.
   --force                Overwrite template files that differ.
 
@@ -109,7 +113,7 @@ function runShow(id: string | undefined, json: boolean): number {
   return 0;
 }
 
-function runAdd(argv: string[], json: boolean): number {
+async function runAdd(argv: string[], json: boolean): Promise<number> {
   const repoFlag = takeFlagValue(argv, ['--repo']);
   const branchFlag = takeFlagValue(argv, ['--branch']);
   const force = takeFlagBool(argv, ['--force']);
@@ -175,12 +179,13 @@ function runAdd(argv: string[], json: boolean): number {
     written,
     next: nextSteps(template),
   };
+  await reportTemplateAdded(currentCredential(), template.id);
   if (json) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return 0;
   }
   process.stdout.write(`${status.ok(`${template.name} added for ${repoFullName} (${defaultBranch})`)}\n`);
-  process.stdout.write(`${status.info(`${written.length} files under ${template.import_path}; ${basename(manifest)} ${imported === 'added' ? 'imports it' : 'already imported it'}`)}\n`);
+  process.stdout.write(`${status.info(`${written.length} files written; ${basename(manifest)} ${imported === 'added' ? 'imports' : 'already imported'} ${template.import_path}`)}\n`);
   process.stdout.write(`\n  Next:\n`);
   for (const secret of template.secrets) {
     const how = secret.generate ? 'a random value' : 'your value';
@@ -193,9 +198,9 @@ function runAdd(argv: string[], json: boolean): number {
   return 0;
 }
 
-function runOnboard(id: string | undefined): number {
+function runOnboard(id: string | undefined, stepsOnly: boolean): number {
   if (!isTemplateId(id)) return fail(`Name a template: ${TEMPLATE_IDS.join(', ')}`);
-  process.stdout.write(composeTemplateOnboarding(id, SETUP_GUIDE));
+  process.stdout.write(stepsOnly ? composeTemplateSteps(id) : composeTemplateOnboarding(id, SETUP_GUIDE));
   return 0;
 }
 
@@ -210,7 +215,7 @@ export async function runTemplates(argv: string[]): Promise<number> {
   if (command === 'ls' || command === 'list') return rest.length > 0 ? fail(`Unexpected argument: ${rest[0]}`) : runList(json);
   if (command === 'show') return runShow(rest[0], json);
   if (command === 'add') return runAdd(rest, json);
-  if (command === 'onboard') return runOnboard(rest[0]);
+  if (command === 'onboard') return runOnboard(rest.find((arg) => arg !== '--steps'), rest.includes('--steps'));
   if (command === 'doctor') {
     const repoFlag = takeFlagValue(rest, ['--repo']);
     if (!isTemplateId(rest[0])) return fail(`Name a template: ${TEMPLATE_IDS.join(', ')}`);

@@ -20,3 +20,24 @@ describe('built docs document titles', () => {
     expect(inner.match(/<title>(.*?)<\/title>/)?.[1]).toBe('Audit actions - Kortix CompanyOS');
   }, 120_000);
 });
+
+// The shipped search index against the shipped pages: a section result must
+// open at its heading, so its `#id` has to be an id the built page renders.
+describe('built docs search index', () => {
+  test('links each h2/h3 section to the heading id on its page', async () => {
+    const { buildBlumeDocs } = await import('./blume-docs.mjs');
+    buildBlumeDocs();
+    const docsRoot = new URL('../public/docs/', import.meta.url);
+    const documents: { route: string; title: string }[] = await Bun.file(new URL('blume-search.json', docsRoot)).json();
+    expect(documents.find((doc) => doc.title === 'Sessions from code')?.route).toBe('/developers#sessions-from-code');
+    const sections = documents.filter((doc) => doc.route.includes('#'));
+    expect(sections.length).toBeGreaterThan(100);
+    const missing: string[] = [];
+    for (const { route } of sections) {
+      const [page, id] = route.split('#');
+      const html = await Bun.file(new URL(`.${page.replace(/\/?$/, '/')}index.html`, docsRoot)).text();
+      if (!html.includes(`id="${id}"`)) missing.push(route);
+    }
+    expect(missing).toEqual([]);
+  }, 120_000);
+});

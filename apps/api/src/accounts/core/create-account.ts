@@ -34,9 +34,13 @@ export async function createOwnedAccount(input: {
   userId: string;
   name: string;
   email?: string | null;
+  /** The account's id, instead of a random one: a create the caller retries converges on it (an eval trial's workspace). */
+  accountId?: string;
+  /** false: the account never takes the person's one free credit grant (a workspace Kortix makes for them, not one they made). */
+  freeCredits?: boolean;
 }): Promise<CreatedAccountRow> {
   const { userId, name, email } = input;
-  const account = await insertAccountRow({ name });
+  const account = await insertAccountRow({ name, ...(input.accountId ? { accountId: input.accountId } : {}) });
 
   await db.insert(accountMemberships).values({
     userId,
@@ -54,7 +58,7 @@ export async function createOwnedAccount(input: {
   if (config.KORTIX_BILLING_INTERNAL_ENABLED) {
     try {
       // One free grant per person: only their first workspace gets credits.
-      const freeCredits = await claimFirstWorkspaceFreeCredits(userId, account.accountId);
+      const freeCredits = input.freeCredits === false ? false : await claimFirstWorkspaceFreeCredits(userId, account.accountId);
       await initializeFreeTierAccount(account.accountId, { freeCredits });
     } catch (err) {
       logger.warn('[accounts] Failed to initialize free tier', {

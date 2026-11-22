@@ -5,11 +5,11 @@
  * their OpenAPI schemas; this file holds what they do.
  *
  * The legacy names keep their own handlers and meaning: `GET /v1/projects`
- * lists ONE account's projects, `POST /v1/projects/provision` takes
+ * lists the bare project records (every account of a person, one account
+ * with `?account_id=`), `POST /v1/projects/provision` takes
  * `new_workspace`, `GET /v1/projects/:id` is the bare project record.
  */
 import type { Context } from 'hono';
-import { HTTPException } from 'hono/http-exception';
 
 import { autoClaimPendingInvites } from '../../accounts/core/app';
 import { ACCOUNT_ACTIONS, PROJECT_ACTIONS, authorize, workspaceRoleFor, type WorkspaceRole } from '../../iam';
@@ -21,6 +21,7 @@ import {
   canonicalWorkspaceDecision,
   workspaceNotFound,
 } from '../../middleware/workspace-account';
+import { isRevokedSession } from '../../middleware/session-gate';
 import { readJsonObject } from '../../shared/http-body';
 import { impersonatedAccountFor } from '../../shared/impersonation';
 import { workspaceIdParam } from '../../shared/route-params';
@@ -51,11 +52,6 @@ function stateOf(ws: CanonicalWorkspace | undefined): WorkspaceState {
   if (ws?.lifecycle === 'closing') return 'deleting';
   if (ws?.lifecycle === 'dormant') return 'setup_required';
   return 'active';
-}
-
-function isRevokedSession(error: unknown): boolean {
-  if (error instanceof HTTPException) return error.status === 401;
-  return (error as { code?: unknown } | null)?.code === 'session_token_revoked';
 }
 
 /** The candidates of a caller that is not a person signed in as themselves: one account, its live rows. */

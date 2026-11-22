@@ -154,7 +154,7 @@ function VerdictBlock({
 
 /* ── compare matrix (reuses the comparison-page look) ────────────────────── */
 
-const LEAN_OFF_CLASS = { them: 'text-muted-foreground/30', kortix: 'text-background/40' } as const;
+const LEAN_OFF_CLASS = { them: 'text-muted-foreground', kortix: 'text-background/40' } as const;
 
 function LeanMark({ side, lean }: { side: 'them' | 'kortix'; lean: RowLean }) {
   if (lean === side || lean === 'both') {

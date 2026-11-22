@@ -1,6 +1,7 @@
 // Secrets — project/shared + personal secret overrides, provider OAuth, git creds.
 
 import { backendApi } from '../../http/api-client';
+import type { AccountKeyVerification } from './account-secret-resources';
 import type { ConnectionShare } from './connectors';
 import { type ConnectorSharing, type ProjectGitConnection, unwrap } from './shared';
 
@@ -138,6 +139,9 @@ export interface ProjectSecret {
    *  with `upsertProjectSecret`. Absent when no shared value is set, and on
    *  older servers. `mine.status` reports my own override. */
   status?: SecretValueStatus;
+  /** A provider key write only: the provider's verdict on the saved key.
+   *  `null` when no check ran. Absent on every other write and on older servers. */
+  verification?: AccountKeyVerification | null;
 }
 
 /** The workspace name of {@link ProjectSecret}: the same type. */

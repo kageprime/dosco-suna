@@ -571,14 +571,8 @@ const FileCard = memo(function FileCard({
 
 // ─── Main Grid View ─────────────────────────────────────────────────────────
 
-/** Descriptions for elevated system directories */
-const ELEVATED_DIR_META: Record<string, { description: string }> = {
-  '.kortix': { description: 'Workspace config, tasks, context' },
-};
-
 export function DriveGridView(props: DriveListingProps) {
   const {
-    elevatedDirs,
     dirs,
     files,
     onNavigateToDir,
@@ -598,45 +592,6 @@ export function DriveGridView(props: DriveListingProps) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   return (
     <div className="space-y-7 p-5">
-      {elevatedDirs.length > 0 && (
-        <section className="space-y-2">
-          <SectionHeader
-            label={tI18nComplete.raw('text6725e7bbcd28')}
-            count={elevatedDirs.length}
-          />
-          <div
-            className="grid gap-x-4 gap-y-5"
-            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(168px, 1fr))" }}
-          >
-            {elevatedDirs.map((node) => {
-              const meta = ELEVATED_DIR_META[node.name];
-              const description = meta
-                ? tI18nComplete.raw(
-                    node.name === '.kortix' ? 'text85231c543c71' : 'text96ef9c0ac0c9',
-                  )
-                : undefined;
-              return (
-                <button
-                  type="button"
-                  key={node.path}
-                  onClick={() => onNavigateToDir(node)}
-                  title={description}
-                  className="group relative flex w-full min-w-0 cursor-pointer flex-col gap-2 text-left select-none"
-                >
-                  <DriveFolderThumbnail
-                    path={node.path}
-                    className="h-[120px]"
-                  />
-                  <span className="text-foreground truncate px-0.5 text-sm font-medium">
-                    {node.name}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
       {dirs.length > 0 && (
         <section className="space-y-2">
           <SectionHeader label={tI18nComplete.raw('textc4d6bb200f4c')} count={dirs.length} />

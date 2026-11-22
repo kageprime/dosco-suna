@@ -558,11 +558,14 @@ export async function uploadDriveFile(
     const blob = body instanceof Blob ? body : new Blob([body]);
     return retryTransient(() => uploadWithProgress(Xhr, endpoint, blob, headers, onProgress, options?.signal), retry);
   }
+  // Bytes, not the Blob: a compiled Bun binary (the `kortix` CLI) segfaults after a fetch whose body is a
+  // file-backed Blob, as `uploadInBlocks` notes for a slice. A single upload is at most 64 MiB.
+  const bytes = body instanceof Blob ? new Uint8Array(await body.arrayBuffer()) : body;
   let result: DriveUploadResult;
   try {
     // Each attempt is quiet: only the final outcome reaches the app-wide handler.
     result = await withRetries(
-      () => backendApi.putRaw<DriveUploadResult>(endpoint, body, { signal: options?.signal, headers, showErrors: false }),
+      () => backendApi.putRaw<DriveUploadResult>(endpoint, bytes, { signal: options?.signal, headers, showErrors: false }),
       'Failed to upload file',
       retry,
     );

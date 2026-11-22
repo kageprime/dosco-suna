@@ -13,7 +13,6 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { accountMembers, projectGitConnections, projectMembers, projects } from '@kortix/db';
 
-process.env.KORTIX_DEFAULT_MARKETPLACES = '';
 process.env.MANAGED_GIT_PROVIDER = 'github';
 
 const USER_ID = '00000000-0000-4000-a000-000000000001';

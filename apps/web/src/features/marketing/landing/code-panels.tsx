@@ -65,13 +65,13 @@ function tokenizeShell(line: string): Tok[] {
    read as a hole in it. Hierarchy comes from weight and opacity, with one earned
    colour on success output — the brand is otherwise achromatic. */
 const TOKEN_CLASS: Record<string, string> = {
-  comment: 'text-muted-foreground/55',
+  comment: 'text-muted-foreground',
   string: 'text-foreground/70',
   keyword: 'text-muted-foreground',
   fn: 'text-foreground font-medium',
   type: 'text-foreground/80',
-  punct: 'text-muted-foreground/50',
-  prompt: 'text-muted-foreground/35 select-none',
+  punct: 'text-muted-foreground',
+  prompt: 'text-muted-foreground select-none',
   cmd: 'text-foreground font-medium',
   flag: 'text-muted-foreground',
   ok: 'text-emerald-600 dark:text-emerald-400',

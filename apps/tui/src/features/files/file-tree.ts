@@ -179,14 +179,6 @@ export function filterRows(rows: readonly TreeRow[], query: string): TreeRow[] {
 }
 
 /**
- * Dot-prefixed names that are shown even when hidden entries are off.
- *
- * The same name the web explorer exempts (`use-file-list.ts`): `.kortix` holds
- * the project's config, so hiding it hides the product.
- */
-export const ALWAYS_VISIBLE_DOTFILES: ReadonlySet<string> = new Set(['.kortix']);
-
-/**
  * Drop dot-prefixed rows, and every row beneath a dropped directory.
  *
  * Without this the first thing a reader sees in a Kortix workspace is `.git`
@@ -198,7 +190,7 @@ export function hideDotfiles(rows: readonly TreeRow[]): TreeRow[] {
   const kept: TreeRow[] = [];
   for (const row of rows) {
     if (hiddenPrefixes.some((prefix) => row.path.startsWith(prefix))) continue;
-    if (row.name.startsWith('.') && !ALWAYS_VISIBLE_DOTFILES.has(row.name)) {
+    if (row.name.startsWith('.')) {
       if (row.type === 'directory') hiddenPrefixes.push(`${row.path}/`);
       continue;
     }

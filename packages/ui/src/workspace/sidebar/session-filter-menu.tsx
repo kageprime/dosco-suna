@@ -55,7 +55,23 @@ import {
   type SessionViewSurface,
 } from '../../internal/stores/session-filter-store';
 import type { ProjectSession } from '@kortix/sdk';
-import { GlobeIcon, LockSimpleIcon, TagIcon, UsersIcon as UsersSolid } from '@phosphor-icons/react';
+import {
+  ArchiveIcon,
+  ArrowSquareInIcon,
+  ArrowsDownUpIcon,
+  ArrowsInLineVerticalIcon,
+  CircleDashedIcon,
+  EyeIcon,
+  GlobeIcon,
+  ListBulletsIcon,
+  LockSimpleIcon,
+  SquaresFourIcon,
+  TagIcon,
+  TrashIcon,
+  UserCircleIcon,
+  UsersIcon as UsersSolid,
+} from '@phosphor-icons/react';
+import { SessionStatusMark } from '../../session/list/session-status-mark';
 
 import { CountBadge } from '../../primitives/count-badge';
 import {
@@ -295,7 +311,9 @@ export function SessionFilterMenu({
   // Owner and Access are the page's facets: the page lists every session the
   // viewer may open (for an account admin with session oversight, everyone's),
   // while the sidebar is the viewer's own working set.
-  const pageFacets = surface === 'page';
+  const pageFacets = surface !== 'sidebar';
+  // A space's list is one flat history: it is ordered and filtered, never grouped.
+  const grouped = surface !== 'space';
   const ownerLabels = { you: t('ownerValue.you'), unknown: t('ownerValue.unknown') };
   const setGroupMode = useSessionFilterStore((s) => s.setGroupMode);
   const setOrderMode = useSessionFilterStore((s) => s.setOrderMode);
@@ -390,7 +408,8 @@ export function SessionFilterMenu({
   const pageFacetVisibility = pageFacets
     ? resolvePageFacetVisibility(sessions, activeOwners, activeAccess)
     : { owner: false, access: false };
-  const showOwnerFacet = pageFacetVisibility.owner;
+  // A space always offers its members, even when one person started every session.
+  const showOwnerFacet = surface === 'space' ? ownerOptions.length > 0 : pageFacetVisibility.owner;
   const showAccessFacet = pageFacetVisibility.access;
   // Server-side facet: `sessions` already carry every selected label, so the
   // options are the labels that co-occur with the current selection.
@@ -421,7 +440,9 @@ export function SessionFilterMenu({
 
   return (
     <DropdownMenuContent align={align} side={side} className="w-56 p-1">
+      {grouped && (
       <FilterSubmenu
+        icon={<SquaresFourIcon />}
         trigger={
           <>
             <span className="min-w-0 flex-1 truncate">{t('grouping')}</span>
@@ -441,8 +462,10 @@ export function SessionFilterMenu({
           ))}
         </DropdownMenuRadioGroup>
       </FilterSubmenu>
+      )}
 
       <FilterSubmenu
+        icon={<ArrowsDownUpIcon />}
         trigger={
           <>
             <span className="min-w-0 flex-1 truncate">{t('ordering')}</span>
@@ -463,8 +486,9 @@ export function SessionFilterMenu({
         </DropdownMenuRadioGroup>
       </FilterSubmenu>
 
-      {showOptions.length > 0 && (
+      {grouped && showOptions.length > 0 && (
         <FilterSubmenu
+          icon={<EyeIcon />}
           trigger={
             <>
               <span className="min-w-0 flex-1 truncate">{t('show')}</span>
@@ -505,6 +529,7 @@ export function SessionFilterMenu({
           </div>
           {statusOptions.length > 0 && (
             <FilterSubmenu
+              icon={<CircleDashedIcon />}
               trigger={
                 <>
                   <span className="min-w-0 flex-1 truncate">{t('status')}</span>
@@ -519,6 +544,9 @@ export function SessionFilterMenu({
                   checked={statusFilterSet.has(option.value)}
                   onCheckedChange={() => toggleStatusFilter(projectId, option.value, surface)}
                 >
+                  <span className="flex size-4 shrink-0 items-center justify-center">
+                    <SessionStatusMark status={option.value} />
+                  </span>
                   <span className="min-w-0 flex-1 truncate">{statusLabels[option.value]}</span>
                   <CountBadge count={option.count} className="ml-auto" />
                 </FilterCheckboxItem>
@@ -527,6 +555,7 @@ export function SessionFilterMenu({
           )}
           {sourceOptions.length > 0 && (
             <FilterSubmenu
+              icon={<ArrowSquareInIcon />}
               trigger={
                 <>
                   <span className="min-w-0 flex-1 truncate">{t('source')}</span>
@@ -553,6 +582,7 @@ export function SessionFilterMenu({
           )}
           {labelOptions.length > 0 && (
             <FilterSubmenu
+              icon={<TagIcon />}
               trigger={
                 <>
                   <span className="min-w-0 flex-1 truncate">{t('labels')}</span>
@@ -576,16 +606,18 @@ export function SessionFilterMenu({
           )}
           {showOwnerFacet && (
             <FilterSubmenu
+              icon={<UserCircleIcon />}
               trigger={
                 <>
-                  <span className="min-w-0 flex-1 truncate">{t('owner')}</span>
+                  <span className="min-w-0 flex-1 truncate">{surface === 'space' ? t('members') : t('owner')}</span>
                   {activeOwners.length > 0 && <FacetActiveDot />}
                 </>
               }
               className="max-h-80 w-56 overflow-y-auto p-1"
             >
               {ownerOptions.map((option) => {
-                const label = option.isViewer
+                // A space names everyone, the viewer included: its menu reads as a list of members.
+                const label = option.isViewer && surface !== 'space'
                   ? t('ownerValue.you')
                   : option.value === UNKNOWN_OWNER_KEY
                     ? t('ownerValue.unknown')
@@ -600,6 +632,8 @@ export function SessionFilterMenu({
                       size="xs"
                       name={option.name ?? undefined}
                       email={option.email ?? ''}
+                      avatarUrl={option.avatarUrl}
+                      colorKey={option.value}
                     />
                     <span className="min-w-0 flex-1 truncate">{label}</span>
                     <CountBadge count={option.count} className="ml-auto" />
@@ -610,6 +644,7 @@ export function SessionFilterMenu({
           )}
           {showAccessFacet && (
             <FilterSubmenu
+              icon={<LockSimpleIcon />}
               trigger={
                 <>
                   <span className="min-w-0 flex-1 truncate">{t('access')}</span>
@@ -633,12 +668,13 @@ export function SessionFilterMenu({
                 );
               })}
             </FilterSubmenu>
-          )}{' '}
+          )}
         </>
       )}
 
-      <DropdownMenuSeparator />
+      {grouped && <DropdownMenuSeparator />}
 
+      {grouped && (
       <DropdownMenuItem
         className="cursor-pointer"
         onSelect={() =>
@@ -657,20 +693,31 @@ export function SessionFilterMenu({
           )
         }
       >
+        <ArrowsInLineVerticalIcon />
         {t('collapseAll')}
       </DropdownMenuItem>
+      )}
       {/* The sidebar hides archived and deleted sessions; the sessions page lists them. */}
       {!pageFacets && sessionsHref && archivedHref && deletedHref && (
         <>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild className="cursor-pointer">
-            <Link href={sessionsHref}>{tI18nComplete.raw('text78648d4d6649')}</Link>
+            <Link href={sessionsHref}>
+              <ListBulletsIcon />
+              {tI18nComplete.raw('text78648d4d6649')}
+            </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild className="cursor-pointer">
-            <Link href={archivedHref}>{tPinArchive('showArchived')}</Link>
+            <Link href={archivedHref}>
+              <ArchiveIcon />
+              {tPinArchive('showArchived')}
+            </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild className="cursor-pointer">
-            <Link href={deletedHref}>{tDeleted('view')}</Link>
+            <Link href={deletedHref}>
+              <TrashIcon />
+              {tDeleted('view')}
+            </Link>
           </DropdownMenuItem>
         </>
       )}
@@ -679,17 +726,23 @@ export function SessionFilterMenu({
 }
 
 function FilterSubmenu({
+  icon,
   trigger,
   className,
   children,
 }: {
+  /** The row's leading glyph: every row of the menu carries one. */
+  icon: React.ReactNode;
   trigger: React.ReactNode;
   className: string;
   children: React.ReactNode;
 }) {
   return (
     <DropdownMenuSub>
-      <DropdownMenuSubTrigger>{trigger}</DropdownMenuSubTrigger>
+      <DropdownMenuSubTrigger>
+        {icon}
+        {trigger}
+      </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className={className}>{children}</DropdownMenuSubContent>
     </DropdownMenuSub>
   );
@@ -698,6 +751,7 @@ function FilterSubmenu({
 function FilterRadioItem(props: React.ComponentProps<typeof DropdownMenuRadioItem>) {
   return <DropdownMenuRadioItem {...props} onSelect={(event) => event.preventDefault()} />;
 }
+/** A multi-select row: a checkbox, since several can be on at once. */
 function FilterCheckboxItem(props: React.ComponentProps<typeof DropdownMenuCheckboxItem>) {
-  return <DropdownMenuCheckboxItem {...props} onSelect={(event) => event.preventDefault()} />;
+  return <DropdownMenuCheckboxItem indicator="checkbox" {...props} onSelect={(event) => event.preventDefault()} />;
 }

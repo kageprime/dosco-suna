@@ -133,7 +133,7 @@ export function GenerationControlsPanel({
               {config.temperature !== undefined ? (
                 <span className="tabular-nums"> — {config.temperature.toFixed(2)}</span>
               ) : (
-                <span className="text-muted-foreground/70">
+                <span className="text-muted-foreground">
                   {' '}
                   {tI18nComplete.raw('text5a5735e88fae')}
                 </span>
@@ -171,7 +171,7 @@ export function GenerationControlsPanel({
               {config.topP !== undefined ? (
                 <span className="tabular-nums"> — {config.topP.toFixed(2)}</span>
               ) : (
-                <span className="text-muted-foreground/70">
+                <span className="text-muted-foreground">
                   {' '}
                   {tI18nComplete.raw('text5a5735e88fae')}
                 </span>
@@ -205,7 +205,7 @@ export function GenerationControlsPanel({
         <div className="flex items-center justify-between gap-3">
           <Label className="text-muted-foreground text-xs font-normal">
             {tI18nComplete.raw('text397dda0799ba')}
-            <span className="text-muted-foreground/70 tabular-nums">
+            <span className="text-muted-foreground tabular-nums">
               {' '}
               {tI18nComplete.raw('text6f3f7befce1e')}{' '}
               {caps.maxOutputTokens.ceiling.toLocaleString()}

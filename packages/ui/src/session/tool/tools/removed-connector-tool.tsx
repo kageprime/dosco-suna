@@ -23,7 +23,7 @@ export function RemovedConnectorTool({ call, defaultOpen, forceOpen, locked }: T
           <span className="text-foreground text-xs font-medium whitespace-nowrap">
             {tHardcodedUi.raw('componentsSessionToolRenderers.line5270JsxTextLegacyConnectorTool')}
           </span>
-          <span className="text-muted-foreground/60 ml-auto text-xs font-medium whitespace-nowrap">
+          <span className="text-muted-foreground ml-auto text-xs font-medium whitespace-nowrap">
             {tHardcodedUi.raw('i18nComplete.texte1f79758cc42')}
           </span>
         </div>

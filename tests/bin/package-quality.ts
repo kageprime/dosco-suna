@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { rejectFocusedTests } from './reject-focused-tests';
 
 const root = resolve(import.meta.dir, '../..');
 const skipSdkTests = process.env.KORTIX_PACKAGE_SKIP_SDK_TESTS === '1';
@@ -106,33 +107,6 @@ async function runAll(tasks: Promise<unknown>[]): Promise<void> {
     (result): result is PromiseRejectedResult => result.status === 'rejected',
   );
   if (failure) throw failure.reason;
-}
-
-async function rejectFocusedTests(): Promise<void> {
-  // git grep, never rg: GitHub's runner images ship no ripgrep. It searches
-  // tracked and untracked files minus .gitignore (no node_modules), and exits
-  // 1 on no match, like rg.
-  // A pathspec `*` crosses directories, so `apps/*.test.ts` is recursive.
-  const extensions = ['spec.ts', 'test.ts', 'test.tsx', 'test.mts', 'test.js'];
-  const child = Bun.spawn(
-    [
-      'git',
-      'grep',
-      '--untracked',
-      '-n',
-      '-E',
-      String.raw`(^|[^A-Za-z0-9_$.])(describe|test|it)\.only\(`,
-      '--',
-      ...['apps', 'packages', 'tests'].flatMap((dir) => extensions.map((ext) => `${dir}/*.${ext}`)),
-    ],
-    { cwd: root, stdout: 'pipe', stderr: 'inherit' },
-  );
-  const output = await new Response(child.stdout).text();
-  const code = await child.exited;
-  if (code === 1) return;
-  if (code !== 0) throw new Error(`focused-test scan exited with code ${code}`);
-  process.stderr.write(output);
-  throw new Error('focused test (.only) committed');
 }
 
 async function verifyPublishablePackage(directory: string, build = true): Promise<void> {
@@ -248,7 +222,7 @@ if (repoChecks) {
       './tests/unit/undici-advisory.test.js',
     ]),
   ]);
-  await rejectFocusedTests();
+  await rejectFocusedTests(root);
 }
 // apps/web's download-layout test launches Playwright Chromium. CI installs
 // the browser in the workflow before this lane; a worker sandbox that runs the

@@ -41,7 +41,7 @@ export function SandBandHero() {
           >
             Talk to sales
           </MarketingButton>
-          <MarketingButton variant="accent" size="md" className="hit-area-y-1" asChild>
+          <MarketingButton variant="primary" size="md" className="hit-area-y-1" asChild>
             <Link href="/auth">Start for free</Link>
           </MarketingButton>
         </div>

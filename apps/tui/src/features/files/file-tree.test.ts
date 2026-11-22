@@ -195,12 +195,13 @@ describe('hideDotfiles', () => {
 
   test('drops dot entries and everything beneath a dropped directory', () => {
     const rows = hideDotfiles(flatten(treeWithDots()));
-    expect(rows.map((row) => row.name)).toEqual(['.kortix', 'agents', 'README.md']);
+    expect(rows.map((row) => row.name)).toEqual(['README.md']);
   });
 
-  test('.kortix is always visible', () => {
+  test('.kortix is an ordinary dot folder: hidden with everything under it', () => {
     const rows = hideDotfiles(flatten(treeWithDots()));
-    expect(rows.some((row) => row.name === '.kortix')).toBe(true);
+    expect(rows.some((row) => row.name === '.kortix')).toBe(false);
+    expect(rows.some((row) => row.name === 'agents')).toBe(false);
     expect(rows.some((row) => row.name === '.git')).toBe(false);
     expect(rows.some((row) => row.name === 'HEAD')).toBe(false);
   });

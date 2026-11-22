@@ -119,7 +119,7 @@ export function WriteTool({ call, defaultOpen, forceOpen, locked }: ToolProps) {
         // shimmer this used to draw promised content that could never arrive,
         // on every restored session, forever.
         <ToolResultCard bodyClassName="px-2 py-1.5">
-          <span className="text-muted-foreground/60 text-xs">
+          <span className="text-muted-foreground text-xs">
             {tI18nComplete.raw('text93168435f3ae')}
           </span>
         </ToolResultCard>

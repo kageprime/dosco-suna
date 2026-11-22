@@ -1,6 +1,8 @@
-import { AppleMark, LinuxMark, PlayStoreMark, WindowsMark } from '@/components/brand/brand-logos';
+import { AppleMark, ChromeMark, LinuxMark, PlayStoreMark, WindowsMark } from '@/components/brand/brand-logos';
+import { Button } from '@/components/ui/marketing/button';
 import { useTranslations } from '@/i18n/use-translations';
 import Link from '@/components/site-link';
+import { KORTIX_EXTENSION_STORE_URL } from '@kortix/ui/internal/chrome/extension';
 
 import { DesktopCardImage, MobileCardImage } from './card-images';
 import { localizedDownloadContent } from './content';
@@ -23,7 +25,7 @@ const MOBILE_MARKS: Record<MobileOs, CardRow['Mark']> = {
 };
 
 /**
- * The Desktop card, the Mobile card and the Terminal block. The /download page
+ * The Desktop card, the Mobile card, the Chrome extension and the Terminal block. The /download page
  * and the in-app Download App modal both render THIS, so the two surfaces stay
  * one design.
  *
@@ -127,7 +129,29 @@ export function DownloadOptions({
           filled={onPhone ? detected : null}
         />
       </div>
+      <ChromeExtensionBlock />
       <TerminalBlock />
     </div>
+  );
+}
+
+/**
+ * Kortix in Chrome, public in the Chrome Web Store since 2026-11-21. One row,
+ * the Terminal block's shape: the extension has no platform to pick. Its
+ * strings are the in-app `chrome` ones, so every locale has them.
+ */
+function ChromeExtensionBlock() {
+  const t = useTranslations('chrome');
+  return (
+    <section className="bg-popover flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border px-5 py-4">
+      <ChromeMark className="text-foreground size-5 shrink-0" />
+      <h2 className="text-foreground text-base font-medium">{t('pill')}</h2>
+      <p className="text-muted-foreground w-full text-sm sm:w-auto sm:flex-1">{t('connectDescription')}</p>
+      <Button asChild size="sm" variant="outline" className="shrink-0 active:scale-[0.96]">
+        <Link href={KORTIX_EXTENSION_STORE_URL} target="_blank" rel="noopener noreferrer">
+          {t('addToChrome')}
+        </Link>
+      </Button>
+    </section>
   );
 }

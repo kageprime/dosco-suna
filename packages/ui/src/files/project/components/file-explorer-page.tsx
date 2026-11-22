@@ -87,7 +87,7 @@ export function FileExplorerPage({ embedded = false }: { embedded?: boolean } = 
 
   const isRootPath = currentPath === '/' || currentPath === '.' || currentPath === '';
 
-  const { elevatedDirs, dirs, fileItems } = useSortedListing(files, partial);
+  const { dirs, fileItems } = useSortedListing(files, partial);
 
   const handleNavigateToDir = useCallback(
     (node: FileNode) => {
@@ -181,7 +181,6 @@ export function FileExplorerPage({ embedded = false }: { embedded?: boolean } = 
     !error &&
     Boolean(files) &&
     !listing.hasNextPage &&
-    elevatedDirs.length === 0 &&
     dirs.length === 0 &&
     fileItems.length === 0;
 
@@ -250,7 +249,6 @@ export function FileExplorerPage({ embedded = false }: { embedded?: boolean } = 
             <>
               {viewMode === 'grid' ? (
                 <DriveGridView
-                  elevatedDirs={elevatedDirs}
                   dirs={dirs}
                   files={fileItems}
                   onNavigateToDir={handleNavigateToDir}
@@ -264,7 +262,6 @@ export function FileExplorerPage({ embedded = false }: { embedded?: boolean } = 
                 />
               ) : (
                 <DriveListView
-                  elevatedDirs={elevatedDirs}
                   dirs={dirs}
                   files={fileItems}
                   sortDisabled={partial}

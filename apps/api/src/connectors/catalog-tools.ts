@@ -4,7 +4,8 @@
  *
  *   mcp       `mcp-tools.json` (`scripts/probe-one-click-mcp.ts`): a public
  *             server's own `tools/list`, else the Claude directory's names.
- *             An OAuth server lists its tools only after sign-in.
+ *             An OAuth server lists its tools only after sign-in. Kortix's
+ *             own Google servers (`./google`) list their definitions.
  *   composio  Composio's tool list for the toolkit, live.
  *   openapi   the spec's operations, live, through the connector egress.
  *   graphql, postman, http: nothing to read before install.
@@ -13,6 +14,8 @@ import { composioRestClient } from './composio-catalog-search';
 import { withKortixComposioTools } from './composio-youtube-upload';
 import type { ConnectorSurfaceVariant } from './connector-catalog';
 import { createConnectorEgressFetch } from './egress';
+import { googleServiceForUrl } from './google/host';
+import { GOOGLE_TOOLS } from './google/server';
 import mcpTools from './mcp-tools.json';
 import { parseSpecDocument } from './spec-doc';
 
@@ -46,6 +49,11 @@ const capped = (tools: CatalogTool[], source: CatalogTools['source']): CatalogTo
 });
 
 function mcpCatalogTools(url: string): CatalogTools {
+  // Kortix's own Google servers: their tool definitions are in this process.
+  const service = googleServiceForUrl(url.trim());
+  if (service) {
+    return capped(GOOGLE_TOOLS[service].map((tool) => ({ name: tool.name, description: tool.description })), 'mcp');
+  }
   const tools = SNAPSHOT[url.trim()] ?? SNAPSHOT[url.trim().replace(/\/+$/, '')] ?? [];
   if (!tools.length) return capped([], 'none');
   const described = tools.some(([, description]) => description);

@@ -85,7 +85,7 @@ function ScrapeResultItem({ result }: { result: ScrapeResult }) {
 				    this one opens the scraped page IN PLACE — same glyph `InlineFileList`
 				    uses to say "this expands rather than navigates". */}
         <div className="hover:bg-muted flex w-full cursor-pointer items-center gap-2.5 rounded-sm px-2 py-2 transition-colors duration-150">
-          <CaretRightIcon className="text-muted-foreground/60 size-3.5 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
+          <CaretRightIcon className="text-muted-foreground size-3.5 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
           <FaviconAvatar value={url} size="xs" className="shrink-0" />
           <span className="text-foreground min-w-0 flex-1 truncate text-sm">
             {result.title || hostname}

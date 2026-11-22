@@ -26,8 +26,8 @@ function skillNameOf(path: string): string | null {
 // `templates/managed/` holds the family itself; `templates/base/` still carries
 // `kortix-cli` (the one managed skill deliberately left in the scaffold). Both
 // roots feed the bake, so the injected set stays complete no matter which root a
-// skill lives in — the failure mode that silently stranded `kortix-computer`
-// under `templates/marketplace/` for its entire life.
+// skill lives in — the failure mode that once stranded `kortix-computer`
+// outside the bake for its entire life.
 const files = [
   ...getManagedSkillFiles(),
   ...getStarterFiles({ projectName: 'Kortix', template: 'general-knowledge-worker' }),

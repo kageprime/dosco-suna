@@ -11,6 +11,7 @@
 
 import { selectableProjectAgents, type ProjectConfigSummary } from '@kortix/sdk';
 import type { Agent } from '@/lib/session/runtime-data';
+import { agentDisplayName as sharedAgentDisplayName } from '@kortix/shared';
 
 export interface PickerOption {
   /** Unique row id: the gateway wire id (home) or `providerID/modelID` (thread). */
@@ -91,6 +92,8 @@ export interface ComposerChip {
 export function composerChip(i: {
   connectModel: boolean;
   agentName: string | null | undefined;
+  /** The agent's configured `title`, which web's selector shows over its name. */
+  agentTitle?: string | null;
   modelName: string | null | undefined;
   /** The agent the last send used, shown until `agentName` resolves. */
   pendingAgentName?: string | null;
@@ -100,7 +103,7 @@ export function composerChip(i: {
   if (i.connectModel) return { label: 'Connect model', variant: 'secondary' };
   const agentName = i.agentName || (i.agentsLoading ? i.pendingAgentName : null);
   if (!agentName && i.agentsLoading) return null;
-  const label = agentName ? agentDisplayName(agentName) : i.modelName;
+  const label = agentName ? agentDisplayName(agentName, i.agentName ? i.agentTitle : null) : i.modelName;
   return label ? { label, variant: 'ghost' } : null;
 }
 
@@ -127,6 +130,7 @@ export function homeAgentPick(i: {
 export function threadAgents(config: ProjectConfigSummary): Agent[] {
   return selectableProjectAgents(config).map((a) => ({
     name: a.name,
+    ...(a.title ? { title: a.title } : {}),
     description: a.description ?? undefined,
     mode: a.mode === 'primary' ? 'primary' : 'all',
     options: {},
@@ -147,8 +151,8 @@ export function latestAssistantAgent(messages: ReadonlyArray<{ role: string; age
   return null;
 }
 
-export function agentDisplayName(name: string | undefined): string {
-  return name ? capitalise(name) : 'Agent';
+export function agentDisplayName(name: string | undefined, title?: string | null): string {
+  return name ? sharedAgentDisplayName(name, title) : 'Agent';
 }
 
 /**

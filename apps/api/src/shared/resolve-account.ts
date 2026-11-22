@@ -143,7 +143,7 @@ export async function accountKeyForWorkspaceId(id: string): Promise<string | nul
   return accountKeyOfWorkspace(id, { activeOnly: true });
 }
 
-async function accountExists(accountId: string): Promise<boolean> {
+export async function accountExists(accountId: string): Promise<boolean> {
   if (!isUuid(accountId)) return false;
   const [row] = await db
     .select({ accountId: accountsView.accountId })

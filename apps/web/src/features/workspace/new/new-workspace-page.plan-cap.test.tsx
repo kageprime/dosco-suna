@@ -140,7 +140,10 @@ const motionValue = (initial: number) => ({
   remove: () => {},
   destroy: () => {},
 });
+// The real module first: code under test reads exports this stub does not name (MotionGlobalConfig).
+const realMotion = await import('motion/react');
 mock.module('motion/react', () => ({
+  ...realMotion,
   AnimatePresence: ({ children }: { children: ReactNode }) => <>{children}</>,
   // @kortix/ui's UiProvider wraps its tree in LazyMotion.
   LazyMotion: ({ children }: { children: ReactNode }) => <>{children}</>,

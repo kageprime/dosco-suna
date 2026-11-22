@@ -134,7 +134,7 @@ apply to product UI, not only to the styleguide.
 | Banned                                                                                                                                       | Use instead                                                                                                                                                                                                                                                                                  |
 | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`SectionCard`** (`packages/ui/src/primitives/section-card.tsx`)                                                                            | `Card` (`card.tsx`), `Label` + `bg-popover rounded-md border` panel, or `Disclosure` — see `project-settings-page.tsx`                                                                                                                                                                       |
-| **`List` / `ListRow`** (`packages/ui/src/primitives/list.tsx`)                                                                               | `<ul className="space-y-2">` + entity row classes — see `access-row.tsx`, `review-detail.tsx`                                                                                                                                                                                                |
+| **`List` / `ListRow`** (`packages/ui/src/primitives/list.tsx`)                                                                               | In a modal, popover or sheet: one grouped container (see _Grouped rows_). On a page: `<ul className="space-y-2">` + entity row classes — see `access-row.tsx`, `review-detail.tsx`                                                                                                                                                                                                |
 | **`Dialog` / `DialogContent`** in feature code                                                                                               | **`Modal`** from `packages/ui/src/primitives/modal.tsx` — see `secrets-view.tsx`, `channels-view.tsx`                                                                                                                                                                                        |
 | **`Tooltip` / `TooltipTrigger` / `TooltipContent`** in feature code                                                                          | **`Hint`** from `packages/ui/src/primitives/hint.tsx`                                                                                                                                                                                                                                        |
 | **`@/lib/toast`** (deleted; never recreate it), raw `sonner`, `toast.success/error/info/warning()`, `toast.custom()`                         | Named helpers from `packages/ui/src/primitives/toast.tsx`. An action button is the `button` option (a `Button`), not sonner's `action`. `tests/unit/toast-single-source.test.ts` fails on any other `sonner` import                                                                          |
@@ -259,6 +259,78 @@ Rules:
 - **Major blocks inside body:** `space-y-4` (search + list), `space-y-6` (tab panels), `space-y-8` (settings sections).
 - Mobile-first: test narrow width.
 
+### Page header: one row for every project page
+
+Every standalone project page (Spaces, Goals, a goal, Apps, Artifacts, an
+artifact, Files, Calendar, Inbox, Memory) opens with `ProjectPageHeader`
+(`@kortix/ui/workspace`). A page that must draw its own row uses
+`PROJECT_PAGE_HEADER_CLASS`. Never write header numbers by hand.
+
+1. **Geometry.** 44px tall (`h-12`), 11px gutters (`px-3`), a bottom border.
+   The sidebar toggle, then the title, then the actions at the trailing edge,
+   8px apart (`gap-2`).
+2. **Title.** The page's `<h1>`, `text-sm font-medium`, on the toggle's line.
+   A child page puts its parent first as a breadcrumb: `Goals › <goal>`.
+3. **Actions, in this order:** search, sort, view controls, then the primary
+   action. Sort is `SortMenu` (`@kortix/ui/sort-menu`). Search depends on the
+   page: a page with a filter row under the header (Goals' All / Assigned to
+   me, Artifacts' scope tabs) puts a plain `InputGroupSearch` (`sm:w-64`) at
+   the end of that row, never in the header. A page with no filter row
+   (Spaces, Apps) puts `ExpandableSearch` (`size="sm"`,
+   `buttonVariant="outline"`) in the header, before sort.
+4. **Sizes.** Every action is 29px tall: `size="sm"` for a labelled button,
+   `size="icon-base"` for an icon button. No `xs`, no `icon-sm` in a page
+   header. An icon is `size-4` in an icon button and `size-3.5` beside a
+   label.
+5. **Variants.** The page's primary action ("New space", "New goal",
+   "New doc") is the default variant, last, with `PlusIcon`. Item actions on
+   a child page ("Pause goal", "Share", ⋯) are `secondary`. Search, sort and
+   view controls are `outline`.
+6. **Spacing between actions.** The header's actions are separate buttons
+   8px apart, not one `ButtonGroup`. The only group in a header is a
+   segmented choice of one value (Apps' grid density): `ButtonGroup` of
+   `outline` `icon-base` buttons with `aria-pressed`; the chosen one adds
+   `bg-secondary text-foreground`, the others are `text-muted-foreground`.
+7. **Sort.** `SortMenu` offers the page's orders as radio rows (Last
+   activity, Name, Date created). `useStoredSort(key, orders, fallback)`
+   keeps the choice per page in this browser; the first render uses the
+   fallback, so server HTML matches. Grouped lists keep the order inside
+   each group.
+8. **What shows when.** Search and sort appear only once the page has items
+   to search. The primary action shows in every state, the empty state
+   included, unless the empty state itself is the starter (Goals).
+
+Reference: `packages/ui/src/workspace/session-spaces/spaces-page.tsx`,
+`apps/web/src/features/workspace/goals/goals-page.tsx`,
+`apps/web/src/features/apps/apps-view.tsx`.
+
+### List page rows: one line, fixed trailing columns
+
+A list page (Spaces) shows items as rows, not cards, when a row's facts fit
+on one line.
+
+1. **Groups.** A filled, collapsible header per group (`Collapsible`,
+   `bg-muted/60`, `h-9`, `rounded-md`, `text-sm text-muted-foreground`), the
+   group's name and its count, a `CaretDownIcon` that turns `-90deg` when
+   closed. A group with no rows is not drawn.
+2. **Row.** `h-11`, `rounded-md`, `hover:bg-hover`, the whole row one link.
+   Leading: the item's bare glyph (`size-5`, no tile), then the name
+   (`text-sm`, `truncate`).
+3. **Trailing columns.** Fixed widths, so every row lines up: people
+   (`SessionParticipantStack`, the session header's avatar stack, never
+   hand-drawn faces), access (`w-24`, a `size-3.5` icon and a word), time
+   (`w-28`, `text-right`, `tabular-nums`, `whitespace-nowrap`), then the ⋯
+   slot (`w-7`). A column that runs out of room truncates; it never pushes
+   into the next one.
+4. **Row menu.** The ⋯ button is a sibling of the link, never inside it.
+   `ghost`, `icon-xs`, hidden until the row is hovered or focused
+   (`opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100`),
+   always shown on touch (`pointer-coarse:opacity-100`) and while its menu is
+   open (`data-[state=open]:opacity-100`). Only a viewer who may manage the
+   item gets one; the slot stays to keep the columns aligned.
+5. **Small screens.** People and access hide below `sm`; name, time and ⋯
+   stay.
+
 ## Card & panel patterns (no SectionCard)
 
 A panel inside another panel, a form panel in a settings section and a floating panel are `bg-popover rounded-md border` surfaces. A bordered list that sits directly on a page is `bg-background` plus `border-border`: the color rule wins over this recipe ([`color.md`](../kortix-brand/references/visual/color.md), in-flow section, Q11). Two sanctioned ways to build a panel — never `SectionCard`:
@@ -304,6 +376,69 @@ Panels are **flat**: border, no shadow — elevation is for overlays (see _Eleva
   </div>
 </section>
 ```
+
+### Composition: one grid per surface
+
+Tokens and primitives do not make a surface look finished. A surface looks
+cheap when every part is correct alone and the parts do not agree with each
+other. Before you ship a modal, a popover, a sheet or a settings panel, check
+these six rules. Each one is a number you can measure.
+
+1. **One inset.** Choose one horizontal inset for the surface (`px-3` in a
+   modal, `px-4` in a page panel). Every row, field and group uses it. The
+   text of every row starts on the same vertical line.
+2. **One control height.** A field and the button beside it have the same
+   height (`Input size="md"` with `Button size="lg"`, or `sm` with the
+   default). A copy field, a search field and an add field in one surface
+   are the same height.
+3. **One leading slot.** Every row in a surface has the same leading box
+   (`size-8` avatar or `size-8` icon tile). Never a `size-9` tile under a
+   `size-8` avatar: the titles then start 4px apart.
+4. **One row height.** Rows in one group have one height. Give the row a
+   `min-h-*` that fits the two-line case, so a one-line row and a two-line
+   row are equal. Name over meta uses `leading-tight` on both lines.
+5. **One trailing edge.** The last glyph of every trailing slot ends on the
+   same vertical line: a role word, a `Role ▾` button, a caret. A text
+   button there takes a negative end margin equal to its padding
+   (`-mr-2.5` for `size="sm"`), so its label ends on the edge, not its
+   padding. A control that changes a row sits in the trailing slot, never
+   in the title position.
+6. **An inset button fills its field.** A button inside a field sits one
+   inset from the top, the bottom and the end (`p-1`, `h-full`) and keeps
+   the `Button`'s default radius: never a one-off radius. Never a small
+   button floating in a tall field.
+
+### Grouped rows: one container, not a card per row
+
+Rows of the same kind that belong to one question ("who has access", "which
+keys") are **one bordered container with a hairline between rows**:
+
+```tsx
+<section className="space-y-2">
+  <h3 className="text-muted-foreground text-xs font-medium">People with access</h3>
+  <ul className="divide-border border-border divide-y rounded-md border">
+    <li className="flex min-h-14 items-center gap-3 px-3 py-2">
+      {/* leading: size-8 avatar or tile */}
+      {/* body: min-w-0 flex-1, name over meta, leading-tight */}
+      {/* trailing: role word, or Button variant="ghost" size="sm" className="-mr-2.5" */}
+    </li>
+  </ul>
+</section>
+```
+
+- The container has no fill: it sits on the surface it is in. A filled card
+  per row puts N outlines and N gaps where one outline reads as one list.
+- A group with one row (a single setting, such as general access) is the
+  same container and the same row. It is not a different component.
+- Sections are `space-y-5` apart; a label is `space-y-2` above its group.
+- Inside a `Modal`, a popover or a sheet, always use the group.
+
+Use the separate **entity row** below only for a page-level list where each
+row is its own object with its own actions, state and navigation (agents,
+connectors, secrets). Never mix the two in one surface.
+
+**Reference:** `packages/ui/src/workspace/session-spaces/space-share-modal.tsx`
+(`GROUP`, `ROW`, `TRAILING_BUTTON`, and the copy-link field).
 
 ### Entity row (list item)
 
@@ -477,7 +612,7 @@ Icons in buttons: `size-3.5 shrink-0` (dense) or `size-4` (header). Always `shri
 
 ### Button groups — the default for buttons in a row
 
-**Two or more buttons side by side that serve one surface are a `ButtonGroup`** (`@kortix/ui/button-group`). A toolbar cluster, a back/forward pair, a header's action set and a viewer's close cluster are all groups. Do not line buttons up with `flex gap-1` and hand-tuned `ml-*`: the group owns the spacing (`gap-px`) and joins the corners of neighbours, so a row of controls reads as one object instead of loose icons.
+**Two or more buttons side by side that serve one surface are a `ButtonGroup`** (`@kortix/ui/button-group`). A toolbar cluster, a back/forward pair and a viewer's close cluster are all groups. **Exception:** a project page header's actions are separate buttons 8px apart (see Page header, rule 6). Do not line buttons up with `flex gap-1` and hand-tuned `ml-*`: the group owns the spacing (`gap-px`) and joins the corners of neighbours, so a row of controls reads as one object instead of loose icons.
 
 | Rule                                                                                                                                                 | Why                                                                                                                                                           |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |

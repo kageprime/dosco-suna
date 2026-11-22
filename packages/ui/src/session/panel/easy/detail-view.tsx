@@ -46,9 +46,9 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { ToolPartRenderer, ToolSurfaceContext } from '../../tool/tool-renderers';
+import { isUnpresentedFailure, ToolPartRenderer, ToolSurfaceContext } from '../../tool/tool-renderers';
 import { PanelWidthButton } from '../../../files/viewer/viewer-actions';
-import { DOCKED_LAYER_CLASS, SESSION_BAR_CLASS } from '../panel-chrome';
+import { DOCKED_LAYER_CLASS, SESSION_BAR_CLASS } from '../../../internal/layout/panel-chrome';
 
 import { CloseButton, DetailSidebarToggle } from '../../../files/viewer/viewer-chrome';
 
@@ -717,7 +717,8 @@ export function ToolParts({
   summary?: string;
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
-  const visible = collapseSnapshots(calls);
+  // A failed `show` presented nothing: no row, no failure banner, no full-height slot.
+  const visible = collapseSnapshots(calls).filter((call) => !isUnpresentedFailure(call));
   // A step's own icon already went red for this (StepIcon, ContextCard) — but
   // that glance lives on the panel's home, one screen back. Once the user has
   // actually opened the failed step, the detail must say so too, not just show

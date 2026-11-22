@@ -127,6 +127,21 @@ describe('lintMigrationSet', () => {
     expect(errors).toEqual([]);
   });
 
+  test('rejects two migrations sharing a slug', () => {
+    const errors = lintMigrationSet(['20260101000000000_add_widget.sql', '20260102000000000_add_widget.sql']);
+    expect(errors).toEqual([
+      expect.stringContaining('20260102000000000_add_widget.sql: duplicate migration slug "add_widget"'),
+    ]);
+  });
+
+  test('allows the one duplicate slug merged before the rule', () => {
+    const errors = lintMigrationSet([
+      '20261120083000000_trigger_admissions_workspace_twin.sql',
+      '20261120094700000_trigger_admissions_workspace_twin.sql',
+    ]);
+    expect(errors).toEqual([]);
+  });
+
   test('rejects two migrations sharing a timestamp', () => {
     const errors = lintMigrationSet(['20260101000000000_a.sql', '20260101000000000_b.sql']);
     expect(errors.some((e) => e.includes('duplicate migration timestamp'))).toBe(true);

@@ -65,7 +65,7 @@ import {
   useToggleActionPanel,
   useToggleRightPanel,
 } from '../../internal/stores/kortix-computer-store';
-import { SESSION_BAR_CLASS } from '../panel/panel-chrome';
+import { SESSION_BAR_CLASS } from '../../internal/layout/panel-chrome';
 import { Kbd, KbdGroup } from '../../primitives/kbd';
 import { createProjectSession, directSubsessions, restartProjectSession, stopProjectSession } from '@kortix/sdk';
 import {
@@ -96,7 +96,7 @@ import {
   PushPinIcon,
   PushPinSlashIcon,
   ArrowCounterClockwiseIcon as RotateCcw,
-  ShareIcon as Share,
+  ShareNetworkIcon as Share,
   SquareIcon as Square,
   TerminalIcon,
   TrashIcon,
@@ -862,7 +862,7 @@ export function SessionSiteHeader({
                 open={isMobileViewport ? undefined : false}
               >
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="xs"
                   aria-label={shareLabel}
                   onClick={() => setShareOpen(true)}

@@ -49,13 +49,18 @@ const POSTS_DIR = path.join(process.cwd(), 'content', 'posts');
 const WORDS_PER_MINUTE = 230;
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
 
+type DefaultedField = 'description' | 'author' | 'tags' | 'readingTime' | 'draft';
+/** A post's frontmatter as YAML parses it: unquoted dates arrive as `Date`, defaulted fields may be absent. */
+type Frontmatter = Omit<BlogPostEntry, 'slug' | 'body' | 'date' | 'updated' | DefaultedField> &
+  Partial<Pick<BlogPostEntry, DefaultedField>> & { date: unknown; updated?: unknown };
+
 function asDate(value: unknown): string {
   return value instanceof Date ? value.toISOString().slice(0, 10) : String(value);
 }
 
 export function parsePost(slug: string, source: string): BlogPostEntry {
   const match = FRONTMATTER.exec(source);
-  const data = (match ? parseYaml(match[1]) : {}) as Record<string, any>;
+  const data: Frontmatter = match ? parseYaml(match[1]) : {};
   const body = (match ? source.slice(match[0].length) : source).trim();
   const words = `${data.lead ?? ''} ${body}`.split(/\s+/).filter(Boolean).length;
   return {

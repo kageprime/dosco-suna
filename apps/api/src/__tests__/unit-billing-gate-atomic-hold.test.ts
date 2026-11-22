@@ -49,12 +49,17 @@ mock.module('../billing/services/free-tier', () => ({
   ensureFreeTierAccountReady: async () => {},
 }));
 
+// The wallet refuses with InsufficientCreditsError, as `wallet.debit` does. The
+// gate treats only that error as a refusal; any other error is a wallet fault
+// and propagates (billing-gate.test.ts covers that path).
+const { InsufficientCreditsError } = await import('../errors');
+
 mock.module('../billing/wallet', () => ({
   wallet: {
     debit: async ({ accountId, amount }: { accountId: string; amount: number }) => {
       debitCalls.push({ accountId, amount });
       if (deductShouldFail) {
-        throw new Error('Insufficient credits');
+        throw new InsufficientCreditsError(0, amount);
       }
       return { amount, balance: 0, transactionId: 'txn-1', replayed: false };
     },

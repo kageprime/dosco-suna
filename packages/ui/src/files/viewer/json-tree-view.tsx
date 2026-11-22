@@ -48,7 +48,7 @@ function JsonNode({
     return (
       <div style={{ paddingLeft: depth * 20 }}>
         {keyName !== null && <span className="text-primary/70">{`"${keyName}"`}: </span>}
-        <span className="text-muted-foreground/50 italic">
+        <span className="text-muted-foreground italic">
           {tHardcodedUi.raw('i18nComplete.text74234e98afe7')}
         </span>
       </div>
@@ -110,17 +110,17 @@ function JsonNode({
           className="hover:bg-muted/30 inline-flex cursor-pointer items-center gap-1 rounded-sm text-left transition-colors"
           onClick={() => setIsCollapsed((v) => !v)}
         >
-          <span className="text-muted-foreground/40 w-3.5 text-center text-xs select-none">
+          <span className="text-muted-foreground w-3.5 text-center text-xs select-none">
             {isCollapsed ? '\u25B6' : '\u25BC'}
           </span>
           {keyName !== null && <span className="text-primary/70">{`"${keyName}"`}: </span>}
           {isCollapsed ? (
-            <span className="text-muted-foreground/40">
+            <span className="text-muted-foreground">
               [{count} {tHardcodedUi.raw('i18nComplete.text4a33eacd5fa6')}
               {count !== 1 ? 's' : ''}]
             </span>
           ) : (
-            <span className="text-muted-foreground/30">[</span>
+            <span className="text-muted-foreground">[</span>
           )}
         </button>
         {!isCollapsed && (
@@ -128,7 +128,7 @@ function JsonNode({
             {value.map((item, idx) => (
               <JsonNode key={idx} value={item} keyName={null} depth={depth + 1} />
             ))}
-            <div style={{ paddingLeft: depth * 20 }} className="text-muted-foreground/30">
+            <div style={{ paddingLeft: depth * 20 }} className="text-muted-foreground">
               ]
             </div>
           </>
@@ -149,16 +149,16 @@ function JsonNode({
           className="hover:bg-muted/30 inline-flex cursor-pointer items-center gap-1 rounded-sm text-left transition-colors"
           onClick={() => setIsCollapsed((v) => !v)}
         >
-          <span className="text-muted-foreground/40 w-3.5 text-center text-xs select-none">
+          <span className="text-muted-foreground w-3.5 text-center text-xs select-none">
             {isCollapsed ? '\u25B6' : '\u25BC'}
           </span>
           {keyName !== null && <span className="text-primary/70">{`"${keyName}"`}: </span>}
           {isCollapsed ? (
-            <span className="text-muted-foreground/40">
+            <span className="text-muted-foreground">
               {'{' + count + ' key' + (count !== 1 ? 's' : '') + '}'}
             </span>
           ) : (
-            <span className="text-muted-foreground/30">{'{'}</span>
+            <span className="text-muted-foreground">{'{'}</span>
           )}
         </button>
         {!isCollapsed && (
@@ -166,7 +166,7 @@ function JsonNode({
             {entries.map(([k, v]) => (
               <JsonNode key={k} value={v} keyName={k} depth={depth + 1} />
             ))}
-            <div style={{ paddingLeft: depth * 20 }} className="text-muted-foreground/30">
+            <div style={{ paddingLeft: depth * 20 }} className="text-muted-foreground">
               {'}'}
             </div>
           </>

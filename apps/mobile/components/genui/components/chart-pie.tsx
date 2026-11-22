@@ -39,6 +39,7 @@ export function PieChartCard({ node, props }: { node: GenuiNode; props: Record<s
   const { i18n } = useTranslation();
   const { colorScheme } = useColorScheme();
   const theme = colorScheme === 'dark' ? THEME.dark : THEME.light;
+  const accent = THEME.accent[colorScheme === 'dark' ? 'dark' : 'light'];
   const focus = useSeriesFocus();
   // A streamed pie arrives before its slices resolve (the parent line comes first): hold its space until one lands.
   const raw = kids(props.slices).map((slice) => ({ label: String(slice.props.label), value: Number(slice.props.value) || 0 }));
@@ -57,7 +58,7 @@ export function PieChartCard({ node, props }: { node: GenuiNode; props: Record<s
     key: `p${i}`,
     ...slice,
     percent: percent(slice.value),
-    fill: variant === 'focus' && i === 0 ? withAlpha(THEME.accent.blue, 1) : ink(PIE_RAMP[i] ?? 0.12),
+    fill: variant === 'focus' && i === 0 ? withAlpha(accent.blue, 1) : ink(PIE_RAMP[i] ?? 0.12),
   }));
   const head = ['', unit, '%'];
   const rows = slices.map((slice) => [slice.label, slice.value, `${slice.percent}%`]);

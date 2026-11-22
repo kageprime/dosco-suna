@@ -10,6 +10,16 @@ Ids: `D1` to `D8` and `D4a` to `D4k` come from the 2026-10-01 brand-kit build. `
 
 ---
 
+## 2026-11-21
+
+### D43 Wallpapers carry color: ten gradients and a custom one replace the monochrome set
+- **Date:** 2026-11-21
+- **Decision:** The wallpaper picker is Dither (the default, unchanged), ten colored gradients, Blank and Custom. Brandmark, Pixel Beams, Silk, Grain and Neuro leave the picker. A person who had one selected gets Dither. Custom is a palette only: 2 to 5 colors, from 18 ready-made palettes or a picker per color, drawn as Ember's dithered corner bloom. No shape, finish, placement or saved presets: those were built and removed the same day as too complex. Every gradient keeps the area behind the centered content clear (`calm` on its `GradientConfig`).
+- **Why:** the founder-side ask on 2026-11-21: the monochrome set read as ugly, and the references were dithered color blooms and grained gradients on a dark page. Color in a wallpaper is art, not chrome: it sits in the art layer (D4d) and no control takes a color from it.
+- **Where:** `packages/ui/src/theme/wallpaper-gradients.ts` (presets), `packages/ui/src/theme/wallpapers.ts` (registry), [graphic-elements.md](visual/graphic-elements.md) "Wallpapers".
+- **Supersedes:** the unwritten "wallpapers are monochrome" convention. No earlier entry stated it.
+- **Source:** the `wallpapers-v2` branch.
+
 ## 2026-11-09
 
 ### D42 The home hero has no trait line: title, then subhead
@@ -462,7 +472,7 @@ Ids: `D1` to `D8` and `D4a` to `D4k` come from the 2026-10-01 brand-kit build. `
 - **Source:** surface agents S1 and S2 (2026-10-01).
 
 ### Q40 Status chips, banners, spinners and the Badge
-- **Decision:** A filled banner has `border-transparent`. A chip label is `text-foreground`, with the hue on its glyph and tint. A diff counter or git status letter may paint `STATUS_TEXT` (contrast OPEN under J-7). `Badge` has no `color` prop: the 17-hue showcase map is deleted. `update` is `kortix-orange`. `destructive` stays the one red chip variant and still paints red text: debt. Paused and budget-reached states are `kortix-orange`. Badge geometry (`rounded-[5px] py-[0.1rem] text-[0.8rem]`) is recorded as debt with the nearest steps, not allowlisted. A test that pins `animate-spinner-spin` is changed with the code it pins. Why: S4 hit each gap while moving the primitives to tokens.
+- **Decision:** A filled banner has `border-transparent`. A chip label is `text-foreground`, with the hue on its glyph and tint. A diff counter or git status letter may paint `STATUS_TEXT` (green and red pass 4.5:1 on every light ground, J-7). `Badge` has no `color` prop: the 17-hue showcase map is deleted. `update` is `kortix-orange`. `destructive` stays the one red chip variant and still paints red text: debt. Paused and budget-reached states are `kortix-orange`. Badge geometry (`rounded-[5px] py-[0.1rem] text-[0.8rem]`) is recorded as debt with the nearest steps, not allowlisted. A test that pins `animate-spinner-spin` is changed with the code it pins. Why: S4 hit each gap while moving the primitives to tokens.
 - **Where:** `visual/color.md`, `visual/motion.md`, `visual/typography.md` (known drift).
 - **Source:** surface agents S4 and S6 (2026-10-01).
 
@@ -747,7 +757,7 @@ Ids: `D1` to `D8` and `D4a` to `D4k` come from the 2026-10-01 brand-kit build. `
 - **Where:** `visual/color.md`.
 - **Supersedes:** the Tailwind palette classes in `status.tsx`, and the yellow-as-info mapping.
 - **Source:** brand-kit build 2026-10-01.
-- **Related:** J-4 (mobile status parity, resolved), J-7 (light and dark accent pairs for text, open).
+- **Related:** J-4 (mobile status parity, resolved), J-7 (light and dark accent pairs, resolved).
 
 ### D4a Floating panels open and close with no animation
 - **Decision:** Menus, selects, popovers, tooltips, submenus and the command palette open and close with no animation. Modals, sheets and toasts keep 200 to 300ms. The hover card is the only animated floating panel.
@@ -879,7 +889,7 @@ Eight decisions made while the generator replaced the hand-written token blocks.
 - **J-4.** Resolved: web status uses `kortix-green` and `kortix-orange`; mobile semantic status aliases these accents.
 - **J-5.** Mobile keeps stock spacing (decided). It also keeps stock type (`text-xs` is 12px on mobile, 13px on web) and stock radius (`rounded-xl` 12px against 14px). Decide whether type and radius follow web.
 - **J-6.** `text-md` sets line height with a denominator of 0.9375 against a 0.9rem size (21.12px, not 22px). Fix the denominator or delete `text-md` (8 uses). Until then add no use.
-- **J-7.** `kortix-*` accents are theme-invariant and measure 2.4 to 4.0:1 on white. Decide on light and dark pairs for text use.
+- **J-7.** Resolved 2026-11-19: each `kortix-*` accent has a light and a dark value. See J-7 below.
 - **CLI banner.** The ASCII "KORTIX" banner ignores `NO_COLOR` and ships inside customer-site templates. Decide whether it is a sanctioned treatment.
 - **App icons.** The favicon, mobile icon and desktop icon do not match. One icon spec is OPEN.
 - **Outlined `Card`.** It ships `rounded-xl` and a `border-border/60`. Both conflict with `rounded-md` and one border color.
@@ -906,11 +916,11 @@ Eight decisions made while the generator replaced the hand-written token blocks.
 - **Supersedes:** none.
 - **Source:** `visual-system.json` `J-6`.
 
-### J-7 (OPEN) Light and dark accent pairs for text
-- **Decision:** Open. See the J-7 bullet in K4. Paint accents on glyphs, dots, tints and charts only.
-- **Why:** Every `kortix-*` accent measures 2.4 to 4.0:1 on white.
-- **Where:** `visual/color.md`.
-- **Supersedes:** none.
+### J-7 Light and dark accent pairs
+- **Decision:** Each `kortix-*` accent has a light and a dark value at the same OKLCH hue. Dark keeps the old values. Light: green `#037225` and red `#c21425` (4.55:1 on `#dedede`, the darkest light fill token, so hovered and selected rows pass, for diff counters); orange `#b47508`, yellow `#9f7f02`, blue `#1784e9` and purple `#9b70c5` (3.8:1 on white, 3.05:1 on `#e6e6e6`, the 3:1 glyph floor). Accents still paint glyphs, dots, tints and charts only. The hand-written `pure-light` and `light` palettes in `globals.css` take the same light values. Mobile takes both values: `global.css` per scope and native `THEME.accent[tone]` (KRTX-5033).
+- **Why:** The theme-invariant accents measured 2.38 to 3.98:1 on white. Orange (2.83:1) and yellow (2.38:1) failed the 3:1 floor for a status glyph (WCAG 1.4.11). Green and red at 4.5:1 also make `STATUS_TEXT` legal.
+- **Where:** `visual/color.md`, `visual-system.json` `color.accents`.
+- **Supersedes:** "Theme-invariant today" in `color.accents.rule`.
 - **Source:** `visual-system.json` `J-7`.
 
 ### J-8 Duration tokens compile

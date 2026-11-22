@@ -87,7 +87,7 @@ describe('shouldResetClientState — the in-document marker is per-tab', () => {
     ).toBe(true);
   });
 
-  test('both markers agreeing with the incoming user is the only no-reset case', () => {
+  test('both markers agreeing with the incoming user does not reset', () => {
     expect(
       shouldResetClientState({
         inDocumentUserId: USER_A,
@@ -101,5 +101,34 @@ describe('shouldResetClientState — the in-document marker is per-tab', () => {
 describe('the marker key', () => {
   test('is the value already written in browsers today, so no user is re-reset', () => {
     expect(IDENTITY_MARKER_KEY).toBe('kortix-last-user-id');
+  });
+});
+
+describe('returning to a tab whose storage marker drifted', () => {
+  test('the same document user retains its live state', () => {
+    expect(shouldResetClientState({
+      inDocumentUserId: USER_A,
+      persistedUserId: null,
+      nextUserId: USER_A,
+    })).toBe(false);
+  });
+
+  test('the same document user retains its live state when another document rewrote the marker', () => {
+    // The Kortix side panel frames this origin with its own partitioned session
+    // cookie but shares this origin's localStorage, so it can publish another
+    // account into the marker while this tab stays signed in.
+    expect(shouldResetClientState({
+      inDocumentUserId: USER_A,
+      persistedUserId: USER_B,
+      nextUserId: USER_A,
+    })).toBe(false);
+  });
+
+  test('a different document user still resets without a persisted marker', () => {
+    expect(shouldResetClientState({
+      inDocumentUserId: USER_B,
+      persistedUserId: null,
+      nextUserId: USER_A,
+    })).toBe(true);
   });
 });

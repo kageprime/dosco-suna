@@ -11,12 +11,15 @@ import { workspaceAccountLabel } from '@kortix/ui/workspace/sidebar/workspace-gr
  */
 
 import { useWorkspaceDirectory } from '@kortix/ui/workspace/sidebar/use-workspace-directory';
-import { type KortixAccount } from '@kortix/sdk';
+import { type KortixAccount, type KortixProject } from '@kortix/sdk';
 
 /** Exactly the fields this list reads — nothing else from `KortixAccount`. */
 export type AccountMembership = Pick<KortixAccount, 'account_id' | 'name' | 'account_role'> & {
   /** The workspace's id: the row links to its settings. Absent: the account hub link. */
   workspace_id?: string;
+  /** The workspace's icon, as the switcher draws it. */
+  icon?: KortixProject['icon'];
+  icon_glyph?: KortixProject['icon_glyph'];
 };
 
 export interface AccountMembershipsCopy {
@@ -78,6 +81,8 @@ export function useAccountMemberships(): { accounts: AccountMembership[]; isLoad
       name: row.project.name,
       account_role: row.role,
       workspace_id: row.workspaceId,
+      icon: row.project.icon,
+      icon_glyph: row.project.icon_glyph,
     })),
     isLoading: directory.loading,
   };

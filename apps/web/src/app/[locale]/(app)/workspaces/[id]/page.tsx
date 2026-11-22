@@ -97,7 +97,9 @@ export default function ProjectIndexPage() {
       seededRef.current = true;
       useComposerPrefillStore.getState().setPrefill(projectId, prompt);
     }
-    if (channelHref) {
+    // Not under the setup modal (`setup/page.tsx` renders this page beneath
+    // it): leaving for the space would close the modal it was opened for.
+    if (channelHref && !pathname.endsWith('/setup')) {
       router.replace(channelHref);
       return;
     }

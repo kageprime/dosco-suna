@@ -23,6 +23,7 @@ import { Claude } from '../icons/claude';
 import { ClaudeCode } from '../icons/claude-code';
 import { Codex } from '../icons/codex';
 import { Cursor } from '../icons/cursor';
+import { OpenAI } from '../icons/open-ai';
 import { SolidCheckIcon } from '../icons/solid-check-icon';
 import { useCopy } from '../hooks/use-copy';
 import { useTranslations } from '../../i18n';
@@ -38,7 +39,7 @@ export function cursorInstallUrl(url: string): string {
   return `cursor://anysphere.cursor-deeplink/mcp/install?name=kortix&config=${btoa(JSON.stringify({ url }))}`;
 }
 
-type ClientId = 'claude' | 'claude-code' | 'cursor' | 'codex' | 'other';
+type ClientId = 'claude' | 'chatgpt' | 'claude-code' | 'cursor' | 'codex' | 'other';
 
 export interface Client {
   id: ClientId;
@@ -58,6 +59,9 @@ const OtherLogo = ({ className }: { className?: string }) => (
 
 export const CLIENTS: readonly Client[] = [
   { id: 'claude', name: 'Claude', Logo: Claude, action: { kind: 'url' } },
+  // ChatGPT adds a remote MCP server as a custom connector in developer mode,
+  // with OAuth sign-in: the URL is all it needs.
+  { id: 'chatgpt', name: 'ChatGPT', Logo: OpenAI, action: { kind: 'url' } },
   {
     id: 'claude-code',
     name: 'Claude Code',
@@ -77,8 +81,8 @@ export const CLIENTS: readonly Client[] = [
   { id: 'other', name: null, Logo: OtherLogo, action: { kind: 'url' } },
 ];
 
-/** The four named clients, drawn on the art. */
-const ART_CLIENTS = CLIENTS.filter((client) => client.id !== 'other');
+/** Four named clients, drawn on the art: the two chat apps, then the two coding tools. */
+const ART_CLIENTS = CLIENTS.filter((client) => client.id !== 'other' && client.id !== 'claude-code');
 
 export function ConnectMcpModal({
   open,
@@ -109,10 +113,11 @@ export function ConnectMcpModal({
             <div className="relative grid grid-cols-4 gap-2.5 sm:grid-cols-2">
               {ART_CLIENTS.map(({ id, Logo }) => (
                 // `bg-foreground` is white under the art's `dark` scope: the marks carry their
-                // own brand colors (Codex brings its own white tile).
+                // own brand colors (Codex brings its own white tile). `text-background`
+                // inks the one mark drawn in `currentColor` (OpenAI) black on it.
                 <span
                   key={id}
-                  className="bg-foreground flex size-16 items-center justify-center rounded-xl shadow-lg"
+                  className="bg-foreground text-background flex size-16 items-center justify-center rounded-xl shadow-lg"
                 >
                   <Logo className="size-8" />
                 </span>

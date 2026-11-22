@@ -14,6 +14,8 @@ export type NoiseKind = 'runtime' | 'sentry';
 export interface NoiseFrame {
   filename?: unknown;
   function?: unknown;
+  lineno?: unknown;
+  colno?: unknown;
 }
 
 export interface NoiseEvidence {

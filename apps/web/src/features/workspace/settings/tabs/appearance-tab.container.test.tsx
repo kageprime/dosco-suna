@@ -55,7 +55,10 @@ const CATALOG_KEY_ALIASES: Record<string, string> = {
 /** The catalog keys for every leaf of the copy table — the keys the
  *  container must translate, derived from the table alone. */
 const expectedLeafKeys = (table: unknown, prefix = ''): string[] => {
-  if (typeof table === 'string') return [`${NAMESPACE}.${CATALOG_KEY_ALIASES[prefix] ?? prefix}`];
+  // A function leaf (`custom.paletteLabel: (count) => …`) is one catalog key too.
+  if (typeof table === 'string' || typeof table === 'function') {
+    return [`${NAMESPACE}.${CATALOG_KEY_ALIASES[prefix] ?? prefix}`];
+  }
   return Object.entries(table as Record<string, unknown>).flatMap(([key, value]) =>
     expectedLeafKeys(value, prefix ? `${prefix}.${key}` : key),
   );

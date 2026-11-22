@@ -141,7 +141,7 @@ interface Scope {
  * with it — otherwise the write would be authorized against the wrong account.
  *
  * The project and its credential come from `resolveProjectContext`, the same
- * resolver the project-member form uses: a `.kortix/link.json` outranks the
+ * resolver the project-member form uses: the checkout's link outranks the
  * injected KORTIX_PROJECT_ID and travels with its own host's credential.
  * Resolving them apart paired the sandbox's project with the link host's
  * token, and the assignment form answered "Not found" where the

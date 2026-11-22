@@ -318,3 +318,23 @@ describe('the settle re-abort is a requested stop', () => {
     expect(aborts).toEqual([['ses-1', { requestedStop: true }]]);
   });
 });
+
+describe('per-row Stop settlement without a box', () => {
+  test.each(['interrupted', 'held', 'stop-paused'] as const)('%s', async (outcome) => {
+    const { settleStopPausedRow } = await import('./inbox-hold-settle');
+    const wire = id(T, 'USER1USER1USER');
+    const tip = tipOf([
+      { id: wire, role: 'user' },
+      ...(outcome === 'interrupted' ? [{ id: id(T + 100, 'ASST1ASST1ASST'), role: 'assistant' as const, parentID: wire, completed: T + 150 }] : []),
+    ]);
+    const { deps, calls } = fakeDeps({ removeMessage: async () => outcome !== 'stop-paused' });
+    const out = { waitedMs: 0, claimedLeft: 0, reAborted: false, heldBack: 0, closedAsInterrupted: 0, unreadable: false };
+    await settleStopPausedRow('s', { commandId: 'c', wireIds: [wire] }, tip, deps, false, out, async () => null);
+    expect(out.closedAsInterrupted).toBe(outcome === 'interrupted' ? 1 : 0);
+    expect(out.heldBack).toBe(outcome === 'held' ? 1 : 0);
+    expect(calls.close).toEqual(outcome === 'interrupted' ? [['c']] : []);
+    expect(calls.hold).toEqual(outcome === 'held' ? [['c']] : []);
+    expect(calls.closeTurn).toEqual(outcome === 'held' ? [['s', wire]] : []);
+    expect(calls.readTip).toEqual([]);
+  });
+});

@@ -36,7 +36,7 @@ const { openInstanceChooser, focusInstanceChooser } = require('./instance-choose
 const { explainNetError, hostOf, normalizeInstanceUrl } = require('./instance-rules');
 const { createInstanceStore } = require('./instance-store');
 const { isConfiguredAppUrl, isTrustedAppSender } = require('./native-sender');
-const { isAppPath, isPreviewHost } = require('./nav-rules');
+const { isAppPath, isPreviewHost, isStripeHostedPage } = require('./nav-rules');
 const { rendererGoneNeedsRecovery } = require('./renderer-recovery');
 const { setupCrashTelemetry } = require('./crash-telemetry');
 const { NAVIGATION_SHORTCUTS, historyTarget } = require('./navigation');
@@ -232,6 +232,7 @@ function shouldLoadInApp(urlStr) {
   if (u.pathname.startsWith('/auth/v1/')) return false;
   const host = u.hostname;
   if (isPreviewHost(host)) return true;
+  if (isStripeHostedPage(u)) return true;
   // Navigation and native commands share the configured frontend origin.
   if (isConfiguredAppUrl(urlStr, instanceStore.appUrl()) && isAppPath(u.pathname)) return true;
   return false;

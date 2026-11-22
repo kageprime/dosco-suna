@@ -65,3 +65,12 @@ test('every other host, a missing host and a malformed host disallow everything'
     expect(renderRobotsTxt(host), String(host)).toBe(NON_CANONICAL);
   }
 });
+
+test('loopmaxxing.sh allows crawlers and names its own sitemap', () => {
+  for (const host of ['loopmaxxing.sh', 'www.loopmaxxing.sh:443']) {
+    const robots = renderRobotsTxt(host);
+    expect(robots).toContain('Allow: /');
+    expect(robots).not.toContain('Disallow: /');
+    expect(robots).toContain('Sitemap: https://loopmaxxing.sh/sitemap.xml');
+  }
+});

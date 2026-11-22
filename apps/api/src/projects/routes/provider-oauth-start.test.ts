@@ -65,6 +65,7 @@ mock.module('../../secrets/account-resource', () => ({
   memberMayReadProject: async () => memberMayRead,
 }));
 
+const { DeviceAuthUnavailableError } = await import('../../llm-gateway/credentials/codex-core');
 const realCodex = await import('../codex-device-auth');
 mock.module('../codex-device-auth', () => ({
   ...realCodex,
@@ -252,6 +253,17 @@ describe('POST /:projectId/oauth/:provider/start — refusals', () => {
   test('a provider failure is 502 with its message', async () => {
     startError = new Error('upstream down');
     expect(await refusal({})).toEqual({ status: 502, body: { error: 'upstream down' } });
+  });
+
+  test('a provider outage is a typed 503 with Retry-After', async () => {
+    startError = new DeviceAuthUnavailableError('ChatGPT');
+    const response = await start({});
+    expect(response.status).toBe(503);
+    expect(response.headers.get('retry-after')).toBe('30');
+    expect(await response.json()).toEqual({
+      error: 'ChatGPT sign-in is temporarily unavailable. Try again in a moment.',
+      code: 'provider_auth_unavailable',
+    });
   });
 });
 

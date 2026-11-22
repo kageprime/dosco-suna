@@ -69,15 +69,15 @@ async function resolve(input: { projectId: string; teamId: string | null | undef
   const token = teamId ? await loadSlackTokenForProject(projectId) : null;
   if (!token || !teamId) return { channel: null, user: null, text };
   const mentioned = [...new Set([...text.matchAll(UNLABELLED_MENTION)].map((m) => m[1]!))].slice(0, MAX_MENTIONS);
-  const [binding, user, ...names] = await Promise.all([
+  const [binding, user, names] = await Promise.all([
     event.channel ? backfillSlackBindingLabel(teamId, event.channel, projectId, token) : null,
     event.user ? slackUserName(token, teamId, event.user) : null,
-    ...mentioned.map((id) => slackUserName(token, teamId, id)),
+    Promise.all(mentioned.map((id) => slackUserName(token, teamId, id))),
   ]);
-  const nameOf = new Map(mentioned.map((id, i) => [id, names[i] as string | null]));
+  const nameOf = new Map(mentioned.map((id, i) => [id, names[i] ?? null]));
   return {
-    channel: binding ? channelLabel(binding as SlackConversationLabel) : null,
-    user: (user as string | null) ?? null,
+    channel: binding ? channelLabel(binding) : null,
+    user: user ?? null,
     text: text.replace(UNLABELLED_MENTION, (whole, id: string) => {
       const name = nameOf.get(id);
       return name ? `<@${id}|${name}>` : whole;

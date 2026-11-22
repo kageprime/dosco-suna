@@ -78,7 +78,6 @@ const MARKETING_ROUTES = [
   '/download',
   '/enterprise',
   '/legal',
-  '/marketplace',
   '/pricing',
   '/security',
   '/services',
@@ -114,7 +113,7 @@ function isExactMarketingPath(pathname: string): boolean {
 // Pure marketing/promo routes that a self-host with the landing page disabled
 // (KORTIX_PUBLIC_DISABLE_LANDING_PAGE) should NOT serve — they bounce to the
 // app. Functional public routes (/auth, /docs, /legal,
-// /marketplace, /share, /download, /maintenance, …) stay reachable; only the
+// /share, /download, /maintenance, …) stay reachable; only the
 // marketing site itself is deactivated.
 const SELF_HOST_MARKETING_ONLY = [
   '/launch',
@@ -198,7 +197,6 @@ const PUBLIC_ROUTES = [
   '/legal',
   '/api/auth',
   '/share', // Shared content should be public
-  '/marketplace', // Public read-only marketplace directory; installs still require auth
   '/secret-intake', // Agent-minted secret setup links — token-gated, MUST be openable with no login (e.g. from a Slack link)
   '/connect', // Agent-minted Pipedream Quick Connect links — token-gated, MUST be openable with no login (distinct from authed /connectors)
   '/master-login', // Master password admin login
@@ -300,7 +298,6 @@ const DESKTOP_ALLOWED_ROUTES = [
   '/capture',
   '/github',
   '/cli',
-  '/marketplace',
   '/maintenance',
   '/countryerror',
   '/debug',
@@ -335,9 +332,21 @@ export async function middleware(request: NextRequest) {
       return NextResponse.rewrite(landing);
     }
     if (pathname === '/loopmaxxing') return NextResponse.redirect(`https://${visitorHostname(request)}/`, 308);
+    // Its own sitemap and llms.txt; robots.txt answers per host in its route.
+    const own = LOOPMAXXING_SITE_FILES[pathname];
+    if (own) {
+      const file = request.nextUrl.clone();
+      file.pathname = own;
+      return NextResponse.rewrite(file);
+    }
     if (!LOOPMAXXING_SERVED.test(pathname)) {
       return NextResponse.redirect(`https://kortix.com${pathname}${request.nextUrl.search}`, 307);
     }
+  }
+  // On kortix.com the page has one address, loopmaxxing.sh: a permanent
+  // redirect gives search engines one URL to rank instead of a copy per locale.
+  if (KORTIX_SITE_HOSTS.has(visitorHostname(request)) && LOOPMAXXING_PAGE.test(pathname) && loopmaxxingEnabled()) {
+    return NextResponse.redirect(`https://loopmaxxing.sh/${request.nextUrl.search}`, 308);
   }
   // These are probes for server files, not product routes. A plain response also
   // avoids rendering the translated application shell for sensitive-file probes.
@@ -705,7 +714,7 @@ export async function middleware(request: NextRequest) {
   // marketing surface is deactivated: the homepage and every marketing route
   // bounce straight to the app — authenticated users to /workspaces, everyone
   // else to /auth. Functional public routes (/docs, /legal,
-  // /marketplace, /share, …) are unaffected. Read via process.env directly —
+  // /share, …) are unaffected. Read via process.env directly —
   // NEXT_PUBLIC_ vars are inlined at build time, so in Docker containers they'd
   // carry the image's placeholder value; the runtime container env
   // (KORTIX_PUBLIC_/NEXT_PUBLIC_ set at `docker run`) is what must win here,
@@ -1008,8 +1017,22 @@ export async function middleware(request: NextRequest) {
  */
 /** The hosts of the developer landing. */
 const LOOPMAXXING_HOSTS = new Set(['loopmaxxing.sh', 'www.loopmaxxing.sh']);
-/** What those hosts serve themselves, beside the landing at their root. */
-const LOOPMAXXING_SERVED = /^\/(?:setup\.md|factory\.md|install(?:\.sh)?|loops\/[^/]+)$/;
+/**
+ * What those hosts serve themselves, beside the landing at their root. The
+ * page's own API calls stay on the host: a redirect to kortix.com is
+ * cross-origin, and the response carries no CORS header.
+ */
+const LOOPMAXXING_SERVED = /^\/(?:setup\.md|factory\.md|install(?:\.sh)?|loops\/[^/]+|api\/github-stars|robots\.txt)$/;
+/** The host's own crawler files, rewritten to `app/loopmaxxing-site/`. */
+const LOOPMAXXING_SITE_FILES: Record<string, string> = {
+  '/sitemap.xml': '/loopmaxxing-site/sitemap.xml',
+  '/llms.txt': '/loopmaxxing-site/llms.txt',
+  '/llms-full.txt': '/loopmaxxing-site/llms.txt',
+};
+/** The production marketing hosts, where /loopmaxxing moves to its own domain. */
+const KORTIX_SITE_HOSTS = new Set(['kortix.com', 'www.kortix.com']);
+/** /loopmaxxing and every locale copy of it, such as /de/loopmaxxing. */
+const LOOPMAXXING_PAGE = new RegExp(`^/(?:(?:${locales.join('|')})/)?loopmaxxing/?$`);
 
 /** Read at request time (dynamic key), so one image serves dev with it and prod without. */
 function loopmaxxingEnabled(): boolean {

@@ -62,6 +62,33 @@ export const QUOTA_GC_ORG_HIGH_WATER = 80;
 /** Once reclaiming, free down to here — a buffer, not just back under the high-water mark. */
 export const QUOTA_GC_ORG_TARGET = 85;
 
+/**
+ * The org-wide image cap a GC pass defends, per provider. Daytona meters
+ * snapshots (100/org). Platinum meters templates per org (tiers 10/50/500) and
+ * exposes no read of the tier, so its cap is configuration
+ * (`PLATINUM_TEMPLATE_QUOTA`). Prod filled 500/500 on 2026-11-19 while no
+ * pass ran for Platinum: every build in the org failed with
+ * `org_template_quota_exceeded`.
+ */
+export interface OrgImageBudget {
+  limit: number;
+  /** Start reclaiming at this org total. */
+  highWater: number;
+  /** The org total a pass must be able to reach, or the budget is unresolved. */
+  target: number;
+}
+
+export const DAYTONA_ORG_BUDGET: OrgImageBudget = {
+  limit: DAYTONA_ORG_SNAPSHOT_LIMIT,
+  highWater: QUOTA_GC_ORG_HIGH_WATER,
+  target: QUOTA_GC_ORG_TARGET,
+};
+
+/** Reclaim from 80% of the Platinum cap, and plan for 70%. */
+export function platinumOrgBudget(limit: number): OrgImageBudget {
+  return { limit, highWater: Math.floor(limit * 0.8), target: Math.floor(limit * 0.7) };
+}
+
 /** Live env defaults are booted constantly, so they're always in the freshest set. */
 export const QUOTA_GC_KEEP_FRESHEST_DEFAULTS = 12;
 
@@ -137,8 +164,8 @@ export const MANAGED_PREFIXES = [
 
 /** States that mean a build is IN FLIGHT — deleting these would break a live boot. */
 const IN_FLIGHT_STATES = new Set(['building', 'pulling']);
-/** States that mean the snapshot is pure waste. */
-const BROKEN_STATES = new Set(['error', 'build_failed']);
+/** States that mean the snapshot is pure waste (Daytona `error`/`build_failed`, Platinum `failed`). */
+const BROKEN_STATES = new Set(['error', 'build_failed', 'failed']);
 
 export interface SnapshotLike {
   id: string;
@@ -156,7 +183,10 @@ export interface ReapCandidate {
 export interface SelectInput {
   /** EVERY snapshot in the org, including stock images. A partial list must never be passed. */
   all: SnapshotLike[];
-  /** Names any local `sandbox_templates` row still points at. Never reaped. */
+  /**
+   * Names (and provider ids) this environment still boots from: template rows,
+   * their last-ready fallbacks, project routing pins, App images. Never reaped.
+   */
   referenced: ReadonlySet<string>;
   /**
    * FIX-K-lite: image identifiers (ppwarm NAME or provider external id) that are
@@ -167,6 +197,8 @@ export interface SelectInput {
    */
   pinnedImages?: ReadonlySet<string>;
   now: number;
+  /** The provider's org cap. Defaults to Daytona's. */
+  budget?: OrgImageBudget;
 }
 
 export interface SelectResult {
@@ -221,10 +253,11 @@ function byFreshestFirst(a: SnapshotLike, b: SnapshotLike): number {
 export function selectSnapshotsToReap(input: SelectInput): SelectResult {
   const { all, referenced, now } = input;
   const pinned = input.pinnedImages ?? new Set<string>();
+  const budget = input.budget ?? DAYTONA_ORG_BUDGET;
 
   const orgTotal = all.length;
   const managed = all.filter((s) => isManaged(s.name));
-  const underPressure = orgTotal >= QUOTA_GC_ORG_HIGH_WATER;
+  const underPressure = orgTotal >= budget.highWater;
 
   const result: SelectResult = {
     orgTotal,
@@ -242,6 +275,7 @@ export function selectSnapshotsToReap(input: SelectInput): SelectResult {
   const pool = managed.filter(
     (s) =>
       !referenced.has(s.name) &&
+      !referenced.has(s.id) &&
       !IN_FLIGHT_STATES.has(s.state) &&
       !pinned.has(s.name) &&
       !pinned.has(s.id),
@@ -301,7 +335,7 @@ export function selectSnapshotsToReap(input: SelectInput): SelectResult {
   //    so there is nothing left to trade for headroom: what remains is a live
   //    template or default image that some project boots from. Report the
   //    shortfall instead of evicting something a session needs.
-  result.budgetUnresolved = orgTotal - candidates.length - QUOTA_GC_ORG_TARGET > 0;
+  result.budgetUnresolved = orgTotal - candidates.length - budget.target > 0;
 
   result.deferred = Math.max(0, candidates.length - QUOTA_GC_MAX_PER_PASS);
   result.doomed = candidates.slice(0, QUOTA_GC_MAX_PER_PASS);

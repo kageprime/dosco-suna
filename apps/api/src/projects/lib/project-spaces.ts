@@ -15,7 +15,7 @@
  * as not found. A taken slug's 409 never names a hidden channel.
  */
 import { SPACE_TAB_KINDS, type PrivateChannelSummary, type Space, type SpaceCreateInput, type SpaceTab, type SpaceUpdateInput } from '@kortix/api-contract';
-import { projectSessions, projectSpaceLinks, projectSpaceMembers, projectSpaces } from '@kortix/db';
+import { projectSessions, projectSpaceLinks, projectSpaceMembers, projectSpaces, type ProjectSpaceTabRecord } from '@kortix/db';
 import { spaceSlug } from '@kortix/shared';
 import { type SQL, and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { probeLinkEmbeddable } from '../../apps/external';
@@ -95,7 +95,7 @@ export function serializeSpace(row: SpaceRow, viewer: SpaceViewer, isMember: boo
  * here, on read: no migration rewrites the stored jsonb, and the next write
  * stores the list without it.
  */
-function serializeTabs(tabs: SpaceRow['tabs'] | null | undefined): SpaceTab[] {
+export function serializeTabs(tabs: SpaceRow['tabs'] | null | undefined): SpaceTab[] {
   return (tabs ?? []).flatMap((tab): SpaceTab[] => {
     if (!(SPACE_TAB_KINDS as readonly string[]).includes(tab.kind) || !tab.ref) return [];
     const kind = tab.kind as SpaceTab['kind'];
@@ -623,6 +623,32 @@ export async function mayEditSpaceTabs(
 }
 
 /**
+ * Tabs as stored, for a channel or a Space (session group): a link tab's
+ * `embeddable` is kept from the stored tab with the same URL, else probed once
+ * (`probeLinkEmbeddable`, all new URLs at once, 5 s each). A value in the
+ * request is ignored.
+ */
+export async function storedSpaceTabs(
+  previous: ProjectSpaceTabRecord[] | null | undefined,
+  tabs: readonly SpaceTab[],
+  probe: (url: string) => Promise<boolean> = (url) => probeLinkEmbeddable(url, config.FRONTEND_URL),
+): Promise<ProjectSpaceTabRecord[]> {
+  const known = new Map(
+    (previous ?? []).filter((tab) => tab.kind === 'link' && typeof tab.embeddable === 'boolean').map((tab) => [tab.ref, tab.embeddable === true]),
+  );
+  const fresh = [...new Set(tabs.filter((tab) => tab.kind === 'link' && !known.has(tab.ref)).map((tab) => tab.ref))];
+  const probed = await Promise.all(fresh.map(async (url) => [url, await probe(url)] as const));
+  for (const [url, embeddable] of probed) known.set(url, embeddable);
+  return tabs.map((tab) => ({
+    id: tab.id,
+    title: tab.title,
+    kind: tab.kind,
+    ref: tab.ref,
+    ...(tab.kind === 'link' ? { embeddable: known.get(tab.ref) === true } : {}),
+  }));
+}
+
+/**
  * Replace a space's tabs (the whole ordered list). A link tab's `embeddable`
  * is the server's: kept from the stored tab with the same URL, else probed
  * once (`probeLinkEmbeddable`, all new URLs at once, 5 s each). A value in
@@ -634,19 +660,7 @@ export async function setSpaceTabs(
   tabs: readonly SpaceTab[],
   probe: (url: string) => Promise<boolean> = (url) => probeLinkEmbeddable(url, config.FRONTEND_URL),
 ): Promise<SpaceRow | null> {
-  const known = new Map(
-    (space.tabs ?? []).filter((tab) => tab.kind === 'link' && typeof tab.embeddable === 'boolean').map((tab) => [tab.ref, tab.embeddable === true]),
-  );
-  const fresh = [...new Set(tabs.filter((tab) => tab.kind === 'link' && !known.has(tab.ref)).map((tab) => tab.ref))];
-  const probed = await Promise.all(fresh.map(async (url) => [url, await probe(url)] as const));
-  for (const [url, embeddable] of probed) known.set(url, embeddable);
-  const stored = tabs.map((tab) => ({
-    id: tab.id,
-    title: tab.title,
-    kind: tab.kind,
-    ref: tab.ref,
-    ...(tab.kind === 'link' ? { embeddable: known.get(tab.ref) === true } : {}),
-  }));
+  const stored = await storedSpaceTabs(space.tabs, tabs, probe);
   const spaceId = space.spaceId;
   const [row] = await db
     .update(projectSpaces)

@@ -139,10 +139,10 @@ export function ActionNavigator({
       />
 
       <span className="text-muted-foreground flex shrink-0 items-center gap-1.5 pl-1 text-xs tabular-nums">
-        {mounted && timeLabel && <span className="text-muted-foreground/60">{timeLabel}</span>}
+        {mounted && timeLabel && <span className="text-muted-foreground">{timeLabel}</span>}
         <span>
           {index + 1}
-          <span className="text-muted-foreground/40">/</span>
+          <span className="text-muted-foreground">/</span>
           {count}
         </span>
         {isLive && atLatest && (

@@ -73,6 +73,8 @@ suite('Workspaces R2a: twin foreign keys into kortix.workspaces', () => {
       const old = await foreignKeysInto(client, 'kortix.projects', 'project_id');
       const twins = await foreignKeysInto(client, 'kortix.workspaces', 'workspace_id');
       expect(old.length).toBeGreaterThan(70);
+      // Hard-cap reservations must survive the same workspace cutover as triggers.
+      expect(old.some((fk) => fk.child === 'kortix.project_trigger_admissions' && fk.column === 'project_id')).toBe(true);
       const twinOf = new Map(twins.map((fk) => [`${fk.child}.${fk.column}`, fk]));
       const missing = old.filter((fk) => !twinOf.has(`${fk.child}.${fk.column}`)).map((fk) => `${fk.child}.${fk.column}`);
       expect(missing).toEqual([]);
@@ -100,9 +102,9 @@ suite('Workspaces R2a: twin foreign keys into kortix.workspaces', () => {
           `insert into kortix.projects (project_id, account_id, name, repo_url) values ($1, $2, 'Synthetic twin', 'https://example.invalid/twin.git')`,
           [PROJECT, ACCOUNT],
         );
-        await client.query(`insert into kortix.project_llm_routing_policies (project_id) values ($1)`, [PROJECT]);
+        await client.query(`insert into kortix.project_trigger_admissions (project_id, slug) values ($1, 'synthetic-cap')`, [PROJECT]);
         await client.query('commit');
-        const { rows } = await client.query(`select count(*)::int as n from kortix.project_llm_routing_policies where project_id = $1`, [PROJECT]);
+        const { rows } = await client.query(`select count(*)::int as n from kortix.project_trigger_admissions where project_id = $1`, [PROJECT]);
         expect(rows[0].n).toBe(1);
       } finally {
         await client.query('rollback').catch(() => undefined);
@@ -119,7 +121,7 @@ suite('Workspaces R2a: twin foreign keys into kortix.workspaces', () => {
           `insert into kortix.projects (project_id, account_id, name, repo_url) values ($1, $2, 'Synthetic twin', 'https://example.invalid/twin.git')`,
           [PROJECT, ACCOUNT],
         );
-        await client.query(`insert into kortix.project_llm_routing_policies (project_id) values ($1)`, [PROJECT]);
+        await client.query(`insert into kortix.project_trigger_admissions (project_id, slug) values ($1, 'synthetic-cap')`, [PROJECT]);
 
         // A stray delete of the live row (the class 20261111135934314 removed from the reconcile).
         await client.query('begin');
@@ -129,18 +131,51 @@ suite('Workspaces R2a: twin foreign keys into kortix.workspaces', () => {
           (error: { code?: string; constraint?: string }) => error,
         );
         expect(refused?.code).toBe('23503');
-        expect(refused?.constraint).toBe('project_llm_routing_policies_project_id_workspaces_fk');
+        expect(refused?.constraint).toBe('project_trigger_admissions_project_id_workspaces_fk');
         const { rows: kept } = await client.query(`select count(*)::int as n from kortix.workspaces where workspace_id = $1`, [PROJECT]);
         expect(kept[0].n).toBe(1);
 
         // The old key cascades; the reconcile then deletes the row; the twin finds nothing at commit.
         await client.query(`delete from kortix.projects where project_id = $1`, [PROJECT]);
         const { rows: gone } = await client.query(
-          `select (select count(*)::int from kortix.project_llm_routing_policies where project_id = $1) as children,
+          `select (select count(*)::int from kortix.project_trigger_admissions where project_id = $1) as children,
                   (select count(*)::int from kortix.workspaces where workspace_id = $1) as rows`,
           [PROJECT],
         );
         expect(gone[0]).toEqual({ children: 0, rows: 0 });
+      } finally {
+        await client.query('rollback').catch(() => undefined);
+        await client.query(`delete from kortix.accounts where account_id = $1`, [ACCOUNT]);
+      }
+    });
+  });
+
+  test('trigger admissions defer workspace checks, reject a lost workspace, and retain project cascade', async () => {
+    await withClient(async (client) => {
+      try {
+        await client.query('begin');
+        await client.query(`insert into kortix.accounts (account_id, name) values ($1, 'Synthetic admission')`, [ACCOUNT]);
+        await client.query(
+          `insert into kortix.projects (project_id, account_id, name, repo_url) values ($1, $2, 'Synthetic admission', 'https://example.invalid/admission.git')`,
+          [PROJECT, ACCOUNT],
+        );
+        await client.query(`insert into kortix.project_trigger_admissions (project_id, slug) values ($1, 'boundary')`, [PROJECT]);
+        await client.query('commit');
+
+        await client.query('begin');
+        await client.query(`delete from kortix.workspaces where workspace_id = $1`, [PROJECT]);
+        const refused = await client.query('commit').then(
+          () => null,
+          (error: { code?: string; constraint?: string }) => error,
+        );
+        expect(refused?.code).toBe('23503');
+        expect(refused?.constraint).toBe('project_trigger_admissions_project_id_workspaces_fk');
+        const count = async () => Number((await client.query(
+          `select count(*)::int as n from kortix.project_trigger_admissions where project_id = $1`, [PROJECT],
+        )).rows[0].n);
+        expect(await count()).toBe(1);
+        await client.query(`delete from kortix.projects where project_id = $1`, [PROJECT]);
+        expect(await count()).toBe(0);
       } finally {
         await client.query('rollback').catch(() => undefined);
         await client.query(`delete from kortix.accounts where account_id = $1`, [ACCOUNT]);

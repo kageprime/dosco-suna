@@ -173,6 +173,9 @@ export const SECRET_DEFS: SecretDef[] = [
   // JSON: Kortix's own OAuth clients for MCP catalogue apps without dynamic
   // client registration (apps/api/src/connectors/mcp-apps.ts).
   { key: 'KORTIX_OAUTH_CLIENTS', category: 'connectors', kind: 'operator', required: false },
+  // Origin of the connector OAuth redirect URI when KORTIX_URL is not stable
+  // (a quick tunnel). Empty: KORTIX_URL.
+  { key: 'KORTIX_OAUTH_CALLBACK_ORIGIN', category: 'connectors', kind: 'operator', required: false },
 
   // Reachability (tunnel mode only — see self-host/tunnel.ts). Both optional:
   // absent, the `cloudflared` service runs a free zero-config quick tunnel
@@ -334,6 +337,7 @@ export const KEY_SERVICE_MAP: Record<string, readonly string[]> = {
   PIPEDREAM_ENVIRONMENT: ['kortix-api'],
   PIPEDREAM_WEBHOOK_SECRET: ['kortix-api'],
   KORTIX_OAUTH_CLIENTS: ['kortix-api'],
+  KORTIX_OAUTH_CALLBACK_ORIGIN: ['kortix-api'],
 
   // Reachability
   CLOUDFLARE_TUNNEL_TOKEN: ['cloudflared'],

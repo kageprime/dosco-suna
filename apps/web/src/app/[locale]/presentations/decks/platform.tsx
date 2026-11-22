@@ -35,7 +35,6 @@ import {
   HardDrivesIcon as Server,
   ShieldIcon as Shield,
   SparkleIcon as Sparkles,
-  StorefrontIcon as Store,
   UsersIcon as Users,
   WebhooksLogoIcon as Webhook,
 } from '@phosphor-icons/react';
@@ -515,7 +514,7 @@ export function useSlides(): SlideDef[] {
                   </div>
                 </Panel>
                 {i < arr.length - 1 ? (
-                  <ArrowRight className="text-muted-foreground/50 size-5 shrink-0" />
+                  <ArrowRight className="text-muted-foreground size-5 shrink-0" />
                 ) : null}
               </div>
             ))}
@@ -619,7 +618,7 @@ export function useSlides(): SlideDef[] {
                 </Panel>
               ))}
             </div>
-            <Lead className="text-muted-foreground/80">
+            <Lead className="text-muted-foreground">
               {tI18nHardcoded.raw('autoAppPresentationSlidesPlatformJsxTextThisIsTheOnly74f58f8b')}
             </Lead>
           </div>
@@ -797,11 +796,11 @@ export function useSlides(): SlideDef[] {
                   </span>
                 ))}
               </div>
-              <ArrowRight className="text-muted-foreground/50 size-5 rotate-90" />
+              <ArrowRight className="text-muted-foreground size-5 rotate-90" />
               <div className="bg-foreground text-background rounded-sm px-7 py-4 font-mono text-lg font-medium">
                 {tI18nHardcoded.raw('autoAppPresentationSlidesPlatformJsxText1KORTIXTOKEN7cd8465b')}
               </div>
-              <ArrowRight className="text-muted-foreground/50 size-5 rotate-90" />
+              <ArrowRight className="text-muted-foreground size-5 rotate-90" />
               <Pill>
                 {tI18nHardcoded.raw(
                   'autoAppPresentationSlidesPlatformJsxTextSandboxScopedAudited1023f72c',
@@ -1507,7 +1506,7 @@ export function useSlides(): SlideDef[] {
               'autoAppPresentationSlidesPlatformJsxAttrLeadWeBuildOur3a652ae7',
             )}
           />
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <IconFeature
               icon={Code2}
               title={tI18nHardcoded.raw(
@@ -1532,13 +1531,6 @@ export function useSlides(): SlideDef[] {
               )}
             />
             <IconFeature
-              icon={Store}
-              title={tI18nHardcoded.raw('i18nComplete.textc608981d8d68')}
-              body={tI18nHardcoded.raw(
-                'autoAppPresentationSlidesPlatformJsxAttrBodyAgentsSkillsWholedd8eefbc',
-              )}
-            />
-            <IconFeature
               icon={Boxes}
               title={tI18nHardcoded.raw('i18nComplete.textfb791d3beeee')}
               body={tI18nHardcoded.raw(
@@ -1546,7 +1538,7 @@ export function useSlides(): SlideDef[] {
               )}
             />
           </div>
-          <Lead className="text-muted-foreground/80 mt-8">
+          <Lead className="text-muted-foreground mt-8">
             {tI18nHardcoded.raw('autoAppPresentationSlidesPlatformJsxTextTheLabsArePaid7834c27f')}
           </Lead>
         </Slide>

@@ -33,7 +33,7 @@ export interface StatusMeta {
 export const STATUS_META: Record<KortixTaskStatus, StatusMeta> = {
   todo: {
     icon: Circle,
-    color: 'text-muted-foreground/70',
+    color: 'text-muted-foreground',
     bg: 'bg-muted/30',
     border: 'border-border',
     label: 'Planned',
@@ -77,7 +77,7 @@ export const STATUS_META: Record<KortixTaskStatus, StatusMeta> = {
   },
   cancelled: {
     icon: XCircle,
-    color: 'text-muted-foreground/40',
+    color: 'text-muted-foreground',
     bg: 'bg-muted/20',
     border: 'border-border',
     label: 'Cancelled',

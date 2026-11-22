@@ -15,10 +15,8 @@
 import { backendApi } from '../../http/api-client';
 import { unwrap } from './shared';
 
-/** `paused`: no queued trial starts; running trials go on. */
-export type WorkspaceEvalJobStatus = 'queued' | 'running' | 'paused' | 'completed' | 'cancelled';
-/** `paused`: a queued trial held until it (or its job) resumes. */
-export type WorkspaceEvalTrialStatus = 'queued' | 'paused' | 'starting' | 'agent_running' | 'verifying' | 'completed' | 'errored' | 'cancelled';
+export type WorkspaceEvalJobStatus = 'queued' | 'running' | 'completed' | 'cancelled';
+export type WorkspaceEvalTrialStatus = 'queued' | 'starting' | 'agent_running' | 'verifying' | 'completed' | 'errored' | 'cancelled';
 
 export interface WorkspaceEvalAgentConfig {
   name: string;
@@ -111,8 +109,6 @@ export interface WorkspaceEvalUsage {
 export interface WorkspaceEvalJobStats {
   n_total_trials: number;
   n_queued: number;
-  /** Trials held by a pause (not in `n_queued`). */
-  n_paused: number;
   n_running: number;
   n_completed: number;
   n_errored: number;
@@ -132,8 +128,6 @@ export interface WorkspaceEvalJob {
   suite: string | null;
   job_name: string;
   status: WorkspaceEvalJobStatus;
-  /** Set by a cancel: `hard` stopped running trials, `soft` lets them finish. Null: not cancelled. */
-  cancel_mode: 'soft' | 'hard' | null;
   /** The commit the tasks and the config were read at. */
   commit: string | null;
   ref: string | null;
@@ -318,42 +312,6 @@ export interface StartWorkspaceEvalJobInput {
   ref?: string;
 }
 
-/** Filters of `listWorkspaceEvalTrialsAcrossJobs`. Values of one filter are ORed; filters are ANDed. */
-export interface WorkspaceEvalTrialFilters {
-  job_ids?: string[];
-  status?: WorkspaceEvalTrialStatus[];
-  /** Task names. */
-  task?: string[];
-  agent?: string[];
-  model?: string[];
-  /** `exception.exception_type` values, such as `AgentTimeoutError`. */
-  exception_type?: string[];
-  /** Part of the trial or task name. */
-  q?: string;
-}
-
-/** Order of `listWorkspaceEvalTrialsAcrossJobs`; `-` is descending. `reward` is the mean of the reward keys, no reward last. */
-export type WorkspaceEvalTrialSort = 'created_at' | '-created_at' | 'finished_at' | '-finished_at' | 'task' | '-task' | 'reward' | '-reward';
-
-/** A trial in the list across jobs: the trial and the name of its job. */
-export type WorkspaceEvalTrialListItem = WorkspaceEvalTrial & { job_name: string };
-
-/** The values a filter field takes in a scope, with how many trials (or jobs) have each, most first. */
-export interface WorkspaceEvalFilterValues {
-  field: string;
-  /** `label`: a display name when `value` is an id (the job name of a `job` value). */
-  values: Array<{ value: string; label: string | null; count: number }>;
-  /** More values exist than the limit returned. */
-  truncated: boolean;
-}
-
-/** `force` (default true) stops running trials now; `false` lets them finish, with no retry. */
-export interface WorkspaceEvalCancelOptions {
-  force?: boolean;
-}
-
-const cancelBody = (options?: WorkspaceEvalCancelOptions) => (options?.force === undefined ? {} : { force: options.force });
-
 /** Retries of a POST with the same key return the job the first one created. */
 export interface WorkspaceEvalRequestOptions {
   idempotencyKey?: string;
@@ -444,56 +402,6 @@ export async function listWorkspaceEvalJobs(
   );
 }
 
-const list = (values?: readonly string[]) => (values?.length ? values.join(',') : undefined);
-
-/**
- * The trials of every job of the workspace that match, one page, each with
- * `job_name`. Every run counts, retries included. Pass `next_page_token` back
- * as `page_token` with the same filters and sort; null ends the list.
- */
-export async function listWorkspaceEvalTrialsAcrossJobs(
-  projectId: string,
-  options?: WorkspaceEvalTrialFilters & { sort?: WorkspaceEvalTrialSort; page_size?: number; page_token?: string },
-): Promise<{ trials: WorkspaceEvalTrialListItem[]; total: number; next_page_token: string | null }> {
-  const { job_ids, status, task, agent, model, exception_type, q, sort, page_size, page_token } = options ?? {};
-  return unwrap(
-    await backendApi.get<{ trials: WorkspaceEvalTrialListItem[]; total: number; next_page_token: string | null }>(
-      `${evalsPath(projectId)}/trials${query({ job_ids: list(job_ids), status: list(status), task: list(task), agent: list(agent), model: list(model), exception_type: list(exception_type), q, sort, page_size, page_token })}`,
-    ),
-    'Eval trials request failed',
-  );
-}
-
-/** The values one trial field takes across the workspace's jobs, in the scope of the other filters (its own is left out). */
-export async function listWorkspaceEvalTrialFilterValues(
-  projectId: string,
-  field: 'status' | 'task' | 'agent' | 'model' | 'exception_type' | 'job',
-  filters?: WorkspaceEvalTrialFilters,
-  options?: { limit?: number },
-): Promise<WorkspaceEvalFilterValues> {
-  const { job_ids, status, task, agent, model, exception_type, q } = filters ?? {};
-  return unwrap(
-    await backendApi.get<WorkspaceEvalFilterValues>(
-      `${evalsPath(projectId)}/trials/filters${query({ field, job_ids: list(job_ids), status: list(status), task: list(task), agent: list(agent), model: list(model), exception_type: list(exception_type), q, limit: options?.limit })}`,
-    ),
-    'Eval trial filter request failed',
-  );
-}
-
-/** The values one job field takes across the workspace's jobs, in the scope of the other job filters (its own is left out). */
-export async function listWorkspaceEvalJobFilterValues(
-  projectId: string,
-  field: 'status' | 'suite' | 'dataset' | 'agent' | 'model',
-  filters?: WorkspaceEvalJobFilters,
-  options?: { limit?: number },
-): Promise<WorkspaceEvalFilterValues> {
-  const { status, suite, dataset, agent, model, q } = filters ?? {};
-  return unwrap(
-    await backendApi.get<WorkspaceEvalFilterValues>(`${evalsPath(projectId)}/jobs/filters${query({ field, status, suite, dataset, agent, model, q, limit: options?.limit })}`),
-    'Eval job filter request failed',
-  );
-}
-
 const idempotency = (options?: WorkspaceEvalRequestOptions) => (options?.idempotencyKey ? { headers: { 'Idempotency-Key': options.idempotencyKey } } : {});
 
 /**
@@ -557,38 +465,13 @@ export async function retryWorkspaceEvalTrial(projectId: string, jobId: string, 
 }
 
 /** Cancel one queued or running trial; its sandbox stops. The rest of the job runs on. */
-export async function cancelWorkspaceEvalTrial(projectId: string, jobId: string, trialId: string, options?: WorkspaceEvalCancelOptions): Promise<WorkspaceEvalTrial> {
-  return unwrap(await backendApi.post<{ trial: WorkspaceEvalTrial }>(`${trialPath(projectId, jobId, trialId)}/cancel`, cancelBody(options)), 'Eval trial cancel failed').trial;
+export async function cancelWorkspaceEvalTrial(projectId: string, jobId: string, trialId: string): Promise<WorkspaceEvalTrial> {
+  return unwrap(await backendApi.post<{ trial: WorkspaceEvalTrial }>(`${trialPath(projectId, jobId, trialId)}/cancel`, {}), 'Eval trial cancel failed').trial;
 }
 
-/**
- * Cancel a job: no queued or paused trial starts and nothing is retried. By
- * default every running trial ends `cancelled` with its sandbox stopped.
- * `{ force: false }` lets running trials finish; the job then ends `cancelled`
- * (`cancel_mode: 'soft'` meanwhile).
- */
-export async function cancelWorkspaceEvalJob(projectId: string, jobId: string, options?: WorkspaceEvalCancelOptions): Promise<WorkspaceEvalJob> {
-  return unwrap(await backendApi.post<{ job: WorkspaceEvalJob }>(`${jobPath(projectId, jobId)}/cancel`, cancelBody(options)), 'Eval job cancel failed').job;
-}
-
-/** Pause a job: its queued trials wait and no new trial starts; running trials go on. */
-export async function pauseWorkspaceEvalJob(projectId: string, jobId: string): Promise<WorkspaceEvalJob> {
-  return unwrap(await backendApi.post<{ job: WorkspaceEvalJob }>(`${jobPath(projectId, jobId)}/pause`, {}), 'Eval job pause failed').job;
-}
-
-/** Resume a paused job: its paused trials queue again. */
-export async function resumeWorkspaceEvalJob(projectId: string, jobId: string): Promise<WorkspaceEvalJob> {
-  return unwrap(await backendApi.post<{ job: WorkspaceEvalJob }>(`${jobPath(projectId, jobId)}/resume`, {}), 'Eval job resume failed').job;
-}
-
-/** Pause one queued trial. A trial that started throws `ApiError` 409. */
-export async function pauseWorkspaceEvalTrial(projectId: string, jobId: string, trialId: string): Promise<WorkspaceEvalTrial> {
-  return unwrap(await backendApi.post<{ trial: WorkspaceEvalTrial }>(`${trialPath(projectId, jobId, trialId)}/pause`, {}), 'Eval trial pause failed').trial;
-}
-
-/** Resume one paused trial. In a paused job it throws `ApiError` 409: resume the job. */
-export async function resumeWorkspaceEvalTrial(projectId: string, jobId: string, trialId: string): Promise<WorkspaceEvalTrial> {
-  return unwrap(await backendApi.post<{ trial: WorkspaceEvalTrial }>(`${trialPath(projectId, jobId, trialId)}/resume`, {}), 'Eval trial resume failed').trial;
+/** No queued trial starts; every running trial ends `cancelled` with its sandbox stopped. */
+export async function cancelWorkspaceEvalJob(projectId: string, jobId: string): Promise<WorkspaceEvalJob> {
+  return unwrap(await backendApi.post<{ job: WorkspaceEvalJob }>(`${jobPath(projectId, jobId)}/cancel`, {}), 'Eval job cancel failed').job;
 }
 
 /** Delete an ended job and its folder in Files. A running job throws `ApiError` 409. */

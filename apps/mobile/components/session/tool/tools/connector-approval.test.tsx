@@ -57,7 +57,7 @@ await mockGraph(
     'react-i18next': { useTranslation: () => ({ t: (k: string) => k }) },
     'nativewind': { useColorScheme: () => ({ colorScheme: 'light' }) },
     '@/lib/utils/theme': {
-      THEME: { light: { background: 'bg', foreground: 'fg', card: 'card', muted: 'mu', mutedForeground: 'mfg', border: 'bd', destructive: 'dest' }, dark: {}, accent: { blue: 'blue', yellow: 'yellow', orange: 'orange', green: 'green', purple: 'purple', red: 'red' } },
+      THEME: { light: { background: 'bg', foreground: 'fg', card: 'card', muted: 'mu', mutedForeground: 'mfg', border: 'bd', destructive: 'dest' }, dark: {}, accent: { light: { blue: 'blue', yellow: 'yellow', orange: 'orange', green: 'green', purple: 'purple', red: 'red' }, dark: { blue: 'blue', yellow: 'yellow', orange: 'orange', green: 'green', purple: 'purple', red: 'red' } } },
       MOTION: { duration: { normal: 150, fast: 100 }, easing: { inOut: [0.4, 0, 0.2, 1] } },
       withAlpha: (c: string, a?: number) => `alpha(${c},${a})`,
     },

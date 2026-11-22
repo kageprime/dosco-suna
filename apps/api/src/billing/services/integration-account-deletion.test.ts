@@ -50,7 +50,7 @@ const past = () => new Date(Date.now() - 60_000).toISOString();
  * `team` seeds an account with its own id; `requester` files the request as
  * someone who is not a member at all.
  */
-async function seed(opts: { logs?: number; subscription?: boolean; team?: boolean; requester?: string; scheduledFor?: string } = {}) {
+async function seed(opts: { logs?: number; subscription?: boolean; team?: boolean; requester?: string; scheduledFor?: string; reason?: string } = {}) {
   const userId = crypto.randomUUID();
   const accountId = opts.team ? crypto.randomUUID() : userId;
   await db.insert(accounts).values({ accountId, name: 'deletion-test' });
@@ -74,7 +74,7 @@ async function seed(opts: { logs?: number; subscription?: boolean; team?: boolea
   }
   const [request] = await db
     .insert(accountDeletionRequests)
-    .values({ accountId, userId: opts.requester ?? userId, scheduledFor: opts.scheduledFor ?? past(), status: 'pending' })
+    .values({ accountId, userId: opts.requester ?? userId, scheduledFor: opts.scheduledFor ?? past(), status: 'pending', reason: opts.reason })
     .returning();
   return { accountId, userId, requestId: request!.id };
 }
@@ -121,6 +121,19 @@ beforeEach(() => {
 });
 
 describe('scheduled deletion', () => {
+  for (const reason of ['workspace_deleted', 'workspace_deleted:subscription_cancelled']) {
+    test(`${reason}: a personal workspace is erased without deleting its login`, async () => {
+      const { accountId, requestId } = await seed({ reason, subscription: false });
+      const { getAccountDeletionStatus } = await import('./account-deletion');
+      expect((await getAccountDeletionStatus(accountId)).has_pending_deletion).toBe(false);
+      const result = await processScheduledDeletions();
+      expect(result.errors).toEqual([]);
+      expect(await accountExists(accountId)).toBe(false);
+      expect(await requestStatus(requestId)).toBe('completed');
+      expect(deleteUser).not.toHaveBeenCalled();
+    });
+  }
+
   test('deletes data across chunk boundaries, then the auth user, and keeps the receipt', async () => {
     const { accountId, userId, requestId } = await seed({ logs: 5_001 });
     expect(await logCount(accountId)).toBe(5_001);

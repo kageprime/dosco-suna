@@ -150,6 +150,33 @@ beforeEach(async () => {
 });
 
 withDb('box disk billing on PostgreSQL', () => {
+  test('a lost wallet response through the box caller replays the same debit once', async () => {
+    const paying = await account('box-disk-lost-response');
+    await sessionBox(paying, ids.stopped);
+    listed.stopped = [box(ids.stopped, 'stopped', '2026-10-31T10:00:00.000Z', { diskGb: 7 })];
+    now = at('2026-11-01T00:30:00.000Z');
+    let loseResponse = true;
+    const replayDeps = {
+      ...deps,
+      settle: async (input: Parameters<typeof deps.settle>[0]) => {
+        const result = await deps.settle(input);
+        if (loseResponse) {
+          loseResponse = false;
+          throw new Error('wallet response lost');
+        }
+        return result;
+      },
+    };
+    expect(await syncBoxDiskCharges(replayDeps)).toMatchObject({ failed: 1 });
+    expect(await ledger(paying)).toHaveLength(1);
+    await syncBoxDiskCharges(replayDeps);
+    await syncBoxDiskCharges(replayDeps);
+    expect((await ledger(paying)).map((d) => [d.key, Number(d.amount), d.description])).toEqual([
+      [`platinum-storage:home:box_disk:${ids.stopped}:2026-10-31:1`, -0.007056, 'Stopped computer disk · 2026-10-31 · 98.00 GB-hours'],
+    ]);
+    expect((await rows(ids.stopped)).find((r) => r.day === '2026-10-31')).toMatchObject({ chargeSeq: 1, chargedUsd: '0.0070560000' });
+  });
+
   test('the first tick only starts the meter', async () => {
     expect(await deps.readSetting(`${BOX_DISK_START_KEY}.home`)).toEqual({ at: '2026-10-31T06:00:00.000Z' });
     expect(listCalls).toEqual([]);

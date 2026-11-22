@@ -103,12 +103,12 @@ export function ReadTool({ call, defaultOpen, forceOpen, locked }: ToolProps) {
               return (
                 <div
                   key={entry}
-                  className="text-muted-foreground/80 flex items-center gap-1.5 font-mono text-xs"
+                  className="text-muted-foreground flex items-center gap-1.5 font-mono text-xs"
                 >
                   {isDir ? (
-                    <Folder className="text-muted-foreground/40 size-3 shrink-0" />
+                    <Folder className="text-muted-foreground size-3 shrink-0" />
                   ) : (
-                    <FileIcon className="text-muted-foreground/40 size-3 shrink-0" />
+                    <FileIcon className="text-muted-foreground size-3 shrink-0" />
                   )}
                   <span className="truncate">{entry}</span>
                 </div>

@@ -6,6 +6,7 @@ import {
   TRIGGER_MAX_EXPECT_EVENT_WITHIN_SECONDS,
   formatDurationSeconds,
   normalizeTriggerList,
+  parseTriggerReaders,
   parseChangeRequestFilter,
   parseDurationSeconds,
   parseTriggerFilter,
@@ -178,8 +179,8 @@ export function parseExpectEventWithin(
  */
 export function parseRunCaps(
   row: Record<string, unknown>,
-): { maxRunsPerHour?: number; maxRunsPerDay?: number } | { error: string } {
-  const caps: { maxRunsPerHour?: number; maxRunsPerDay?: number } = {};
+): { maxRunsPerHour?: number; maxRunsPerDay?: number; hardRunCaps?: boolean } | { error: string } {
+  const caps: { maxRunsPerHour?: number; maxRunsPerDay?: number; hardRunCaps?: boolean } = {};
   for (const [field, key] of [['max_runs_per_hour', 'maxRunsPerHour'], ['max_runs_per_day', 'maxRunsPerDay']] as const) {
     const raw = row[field];
     if (raw === undefined || raw === null) continue;
@@ -187,6 +188,10 @@ export function parseRunCaps(
       return { error: `${field} must be a whole number of at least 1` };
     }
     caps[key] = raw;
+  }
+  if (row.hard_run_caps !== undefined) {
+    if (typeof row.hard_run_caps !== 'boolean') return { error: 'hard_run_caps must be a boolean' };
+    caps.hardRunCaps = row.hard_run_caps;
   }
   return caps;
 }
@@ -267,6 +272,8 @@ export function extractTriggers(manifest: ParsedManifest): LoadedTriggers {
     };
   }
 
+  const sharedReaders = manifest.raw.trigger_session_readers === undefined ? null : parseTriggerReaders(manifest.raw.trigger_session_readers);
+  if (sharedReaders && 'error' in sharedReaders) return { specs: [], errors: [{ slug: '(top-level)', path: filename, error: sharedReaders.error }] };
   const specs: GitTriggerSpec[] = [];
   const errors: GitTriggerParseError[] = [];
   const seenSlugs = new Set<string>();
@@ -291,7 +298,7 @@ export function extractTriggers(manifest: ParsedManifest): LoadedTriggers {
       return;
     }
     seenSlugs.add(result.spec.slug);
-    specs.push(result.spec);
+    specs.push({ ...result.spec, ...(sharedReaders && 'readers' in sharedReaders ? { defaultSessionReaders: sharedReaders.readers } : {}) });
   });
 
   specs.sort((a, b) => a.slug.localeCompare(b.slug));
@@ -374,10 +381,12 @@ export function triggerSpecToFlatEntry(spec: GitTriggerSpec): Record<string, unk
     type: spec.type,
     agent: spec.agent,
   };
+  if (spec.sessionReaders) entry.session_readers = spec.sessionReaders;
   // Only emit model when set so manifests on the "Default" path stay byte-stable.
   if (spec.model) entry.model = spec.model;
   entry.enabled = spec.enabled;
   // Only when set, like model: an uncapped manifest stays byte-stable.
+  if (spec.hardRunCaps) entry.hard_run_caps = true;
   if (spec.maxRunsPerHour) entry.max_runs_per_hour = spec.maxRunsPerHour;
   if (spec.maxRunsPerDay) entry.max_runs_per_day = spec.maxRunsPerDay;
   if (spec.overlap) entry.overlap = spec.overlap;
@@ -481,11 +490,13 @@ export function triggerSpecToOnRunEntry(spec: GitTriggerSpec): Record<string, un
       };
   return {
     slug: spec.slug,
+    ...(spec.sessionReaders ? { session_readers: spec.sessionReaders } : {}),
     ...(spec.name !== spec.slug ? { name: spec.name } : {}),
     on,
     run,
     ...(spec.enabled ? {} : { enabled: false }),
     ...(Object.keys(filter).length > 0 ? { filter } : {}),
+    ...(spec.hardRunCaps ? { hard_run_caps: true } : {}),
     ...(spec.maxRunsPerHour ? { max_runs_per_hour: spec.maxRunsPerHour } : {}),
     ...(spec.maxRunsPerDay ? { max_runs_per_day: spec.maxRunsPerDay } : {}),
     ...(spec.overlap ? { overlap: spec.overlap } : {}),
@@ -545,6 +556,8 @@ function parseTriggerEntry(
   if ('error' in lateness) return err(slug, lateness.error);
   const silence = parseExpectEventWithin(row, type);
   if ('error' in silence) return err(slug, silence.error);
+  const readers = row.session_readers === undefined ? null : parseTriggerReaders(row.session_readers);
+  if (readers && 'error' in readers) return err(slug, readers.error);
   const caps = parseRunCaps(row);
   if ('error' in caps) return err(slug, caps.error);
   const overlap = parseOverlap(row);
@@ -668,6 +681,7 @@ function parseTriggerEntry(
     model,
     enabled,
     promptTemplate: prompt,
+    ...(readers && 'readers' in readers ? { sessionReaders: readers.readers } : {}),
     ...(runPayload ? { runPayload } : {}),
     ...parsedTarget,
     sessionMode,

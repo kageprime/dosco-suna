@@ -37,13 +37,14 @@ type StatusType = Exclude<ToastType, 'loading'>;
  * `WarningCircle` in orange · info a filled `Info` in the foreground colour.
  */
 function typeIcon(type: StatusType, isDark: boolean): { icon: AppIcon; color: string } {
+  const accent = THEME.accent[isDark ? 'dark' : 'light'];
   switch (type) {
     case 'success':
-      return { icon: CheckCircleIcon, color: THEME.accent.green };
+      return { icon: CheckCircleIcon, color: accent.green };
     case 'error':
-      return { icon: XCircleIcon, color: THEME.accent.red };
+      return { icon: XCircleIcon, color: accent.red };
     case 'warning':
-      return { icon: WarningCircleIcon, color: THEME.accent.orange };
+      return { icon: WarningCircleIcon, color: accent.orange };
     case 'info':
       return { icon: InfoIcon, color: isDark ? THEME.dark.foreground : THEME.light.foreground };
   }
@@ -243,7 +244,7 @@ export function useToastSkin(): ToastSkin {
       actionButtonText: {
         fontFamily: 'Roobert-Medium',
         fontSize: 14,
-        color: THEME.accent.blue,
+        color: THEME.accent[isDark ? 'dark' : 'light'].blue,
       },
       // Transparent, never a second filled button beside the action (Jay,
       // 2026-09-22). Only a loading / infinite toast shows it at all.

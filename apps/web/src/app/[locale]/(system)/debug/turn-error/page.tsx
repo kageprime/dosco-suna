@@ -138,6 +138,22 @@ const CASES: DebugCase[] = [
     row: 'checkpoint, opens',
   },
   {
+    // kortixd's turn error for an OpenRouter key the provider refused (KRTX-5026).
+    // The row says the key was refused; "User not found." stays in the fold.
+    title: 'A provider key the provider refused (OpenRouter 401)',
+    error: {
+      name: 'ProviderAuthError',
+      data: {
+        providerID: 'openrouter',
+        message:
+          '401: {"message":"User not found.","type":"invalid_request_error","code":"provider_key_rejected","provider":"openrouter"}',
+      },
+      code: 'auth',
+    },
+    sentence: 'User not found.',
+    row: 'checkpoint, opens',
+  },
+  {
     title: 'Plain sentence (nothing to open)',
     error: { name: 'UnknownError', data: { message: 'Connection reset by peer' } },
     sentence: 'Connection reset by peer',

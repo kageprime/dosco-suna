@@ -73,7 +73,7 @@ function ThoughtStepBody({ texts, running }: { texts: ReadonlyArray<string>; run
         rootClassName={cn('h-auto', THOUGHT_MAX_H)}
         className={THOUGHT_MAX_H}
       >
-        <p className="text-foreground/60 text-sm leading-[1.5] text-pretty">{text}</p>
+        <p className="text-muted-foreground text-sm leading-[1.5] text-pretty">{text}</p>
       </FadedScrollArea>
     </div>
   );

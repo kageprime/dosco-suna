@@ -1,3 +1,4 @@
+import { sessionSharedThroughSpace } from '../../projects/surface';
 import { timeUpstream } from '../../middleware/upstream-timing';
 import { recordTurnStageMarks } from '../../lib/server-timing';
 import { getTraceHeaders } from '../../lib/request-context';
@@ -388,6 +389,7 @@ export async function respondFromUpstream(
                 userId: access.userId,
                 callerSessionId: access.callerSessionId ?? null,
                 boundCredentialSessionId: access.boundCredentialSessionId,
+                sharedThroughSpace: () => sessionSharedThroughSpace(record.projectId, access.userId, record.sessionId),
               }),
             ),
           )

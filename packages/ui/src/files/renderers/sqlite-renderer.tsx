@@ -186,7 +186,7 @@ function getTypeIcon(sqlType: string) {
     return <Calendar className="text-kortix-purple h-3 w-3" />;
   if (t.includes('BLOB') || t.includes('BINARY'))
     return <Database className="text-kortix-orange h-3 w-3" />;
-  return <FileQuestion className="text-muted-foreground/50 h-3 w-3" />;
+  return <FileQuestion className="text-muted-foreground h-3 w-3" />;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -824,8 +824,8 @@ export function SqliteRenderer({
     return (
       <div className={cn('flex h-full w-full items-center justify-center', className)}>
         <div className="flex flex-col items-center gap-3">
-          <Loading className="text-muted-foreground/40 h-6 w-6" />
-          <span className="text-muted-foreground/60 text-sm">
+          <Loading className="text-muted-foreground h-6 w-6" />
+          <span className="text-muted-foreground text-sm">
             {tHardcodedUi.raw(
               'componentsFileRenderersSqliteRenderer.line733JsxTextLoadingDatabase',
             )}
@@ -894,7 +894,7 @@ export function SqliteRenderer({
       {/* ── Top toolbar ──────────────────────────────────────────────── */}
       <div className="flex h-10 shrink-0 items-center gap-2 border-b px-3 py-1.5">
         {/* Left: summary (no filename — parent header already shows it) */}
-        <span className="text-muted-foreground/60 text-xs tabular-nums">
+        <span className="text-muted-foreground text-xs tabular-nums">
           {tables.filter((t) => t.type === 'table').length}{' '}
           {tHardcodedUi.raw('i18nComplete.text0d4fc4a78d37')}
           {tables.filter((t) => t.type === 'table').length !== 1 ? 's' : ''}
@@ -961,7 +961,7 @@ export function SqliteRenderer({
                   'inline-flex h-6 cursor-pointer items-center gap-1 rounded-sm px-2 text-xs transition-colors',
                   viewMode === mode
                     ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground/60 hover:text-foreground',
+                    : 'text-muted-foreground hover:text-foreground',
                 )}
                 onClick={() => setViewMode(mode)}
               >
@@ -982,7 +982,7 @@ export function SqliteRenderer({
           {/* Table search */}
           <div className="border-b p-2">
             <div className="relative">
-              <Search className="text-muted-foreground/50 absolute top-1/2 left-2 h-3 w-3 -translate-y-1/2" />
+              <Search className="text-muted-foreground absolute top-1/2 left-2 h-3 w-3 -translate-y-1/2" />
               <Input
                 type="text"
                 placeholder={tHardcodedUi.raw(
@@ -1030,7 +1030,7 @@ export function SqliteRenderer({
                   <Table2 className="text-kortix-blue h-3.5 w-3.5 shrink-0" />
                 )}
                 <span className="flex-1 truncate text-xs font-medium">{table.name}</span>
-                <span className="text-muted-foreground/50 shrink-0 text-xs tabular-nums">
+                <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
                   {table.rowCount.toLocaleString()}
                 </span>
               </button>
@@ -1038,7 +1038,7 @@ export function SqliteRenderer({
           </div>
 
           {/* Sidebar footer */}
-          <div className="text-muted-foreground/30 border-t px-3 py-1.5 text-xs tabular-nums">
+          <div className="text-muted-foreground border-t px-3 py-1.5 text-xs tabular-nums">
             {filteredTables.length}/{tables.length}{' '}
             {tHardcodedUi.raw('i18nComplete.textbaaf53622a51')}
           </div>
@@ -1061,7 +1061,7 @@ export function SqliteRenderer({
                   <span className="text-foreground truncate text-xs font-medium">
                     {selectedTableInfo.name}
                   </span>
-                  <span className="text-muted-foreground/40 shrink-0 text-xs tabular-nums">
+                  <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
                     {selectedTableInfo.rowCount.toLocaleString()} ×{' '}
                     {selectedTableInfo.columns.length}
                   </span>
@@ -1072,7 +1072,7 @@ export function SqliteRenderer({
                   {isEditable && (
                     <>
                       <button
-                        className="text-muted-foreground/50 hover:text-foreground hover:bg-muted inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md transition-colors"
+                        className="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md transition-colors"
                         onClick={handleAddRow}
                         title={tHardcodedUi.raw(
                           'componentsFileRenderersSqliteRenderer.line941JsxAttrTitleInsertRow',
@@ -1081,7 +1081,7 @@ export function SqliteRenderer({
                         <Plus className="h-3.5 w-3.5" />
                       </button>
                       <button
-                        className="text-muted-foreground/50 hover:bg-destructive/10 hover:text-destructive inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md transition-colors"
+                        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md transition-colors"
                         onClick={handleDeleteSelected}
                         title={tHardcodedUi.raw(
                           'componentsFileRenderersSqliteRenderer.line948JsxAttrTitleDeleteSelectedRows',
@@ -1096,7 +1096,7 @@ export function SqliteRenderer({
 
                   {/* Quick search */}
                   <div className="relative">
-                    <Search className="text-muted-foreground/40 absolute top-1/2 left-2 h-3 w-3 -translate-y-1/2" />
+                    <Search className="text-muted-foreground absolute top-1/2 left-2 h-3 w-3 -translate-y-1/2" />
                     <Input
                       type="text"
                       placeholder={tHardcodedUi.raw(
@@ -1119,7 +1119,7 @@ export function SqliteRenderer({
                   </div>
 
                   <button
-                    className="text-muted-foreground/50 hover:text-foreground hover:bg-muted inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md transition-colors"
+                    className="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md transition-colors"
                     onClick={handleExportCsv}
                     title={tHardcodedUi.raw(
                       'componentsFileRenderersSqliteRenderer.line979JsxAttrTitleExportAsCsv',
@@ -1262,7 +1262,7 @@ export function SqliteRenderer({
                           key={col.cid}
                           className="hover:bg-muted/30 border-b transition-colors last:border-0"
                         >
-                          <td className="text-muted-foreground/50 px-3 py-2 tabular-nums">
+                          <td className="text-muted-foreground px-3 py-2 tabular-nums">
                             {col.cid}
                           </td>
                           <td className="text-foreground px-3 py-2 font-medium">
@@ -1293,7 +1293,7 @@ export function SqliteRenderer({
                               </span>
                             )}
                           </td>
-                          <td className="text-muted-foreground/60 px-3 py-2 font-mono">
+                          <td className="text-muted-foreground px-3 py-2 font-mono">
                             {col.dflt_value ?? '—'}
                           </td>
                         </tr>
@@ -1306,7 +1306,7 @@ export function SqliteRenderer({
               {/* Stats — compact inline */}
               <div className="flex items-center gap-4 text-xs">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-muted-foreground/50">
+                  <span className="text-muted-foreground">
                     {tHardcodedUi.raw('i18nComplete.text101f2ff3de22')}
                   </span>
                   <span className="font-medium tabular-nums">
@@ -1314,7 +1314,7 @@ export function SqliteRenderer({
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-muted-foreground/50">
+                  <span className="text-muted-foreground">
                     {tHardcodedUi.raw('i18nComplete.text53aade77cd69')}
                   </span>
                   <span className="font-medium tabular-nums">
@@ -1323,7 +1323,7 @@ export function SqliteRenderer({
                 </div>
                 {selectedTableInfo.columns.some((c) => c.pk) && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-muted-foreground/50">
+                    <span className="text-muted-foreground">
                       {tHardcodedUi.raw(
                         'componentsFileRenderersSqliteRenderer.line1146JsxTextPrimaryKeys',
                       )}
@@ -1335,7 +1335,7 @@ export function SqliteRenderer({
                 )}
                 {selectedTableInfo.columns.some((c) => c.notnull) && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-muted-foreground/50">
+                    <span className="text-muted-foreground">
                       {tHardcodedUi.raw(
                         'componentsFileRenderersSqliteRenderer.line1152JsxTextNotNull',
                       )}
@@ -1355,9 +1355,9 @@ export function SqliteRenderer({
               {/* Query input */}
               <div className="shrink-0 space-y-2 border-b p-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground/50 text-xs">SQL</span>
+                  <span className="text-muted-foreground text-xs">SQL</span>
                   <div className="ml-auto flex items-center gap-1.5">
-                    <span className="text-muted-foreground/30 text-xs">
+                    <span className="text-muted-foreground text-xs">
                       {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac')
                         ? '⌘'
                         : 'Ctrl'}
@@ -1392,7 +1392,7 @@ export function SqliteRenderer({
                   className={cn(
                     'bg-muted/30 h-24 w-full cursor-text rounded-md border px-3 py-2 font-mono text-xs',
                     'focus:ring-ring resize-none focus:ring-1 focus:outline-none',
-                    'placeholder:text-muted-foreground/30',
+                    'placeholder:text-muted-foreground',
                   )}
                   spellCheck={false}
                 />
@@ -1413,7 +1413,7 @@ export function SqliteRenderer({
                       {tHardcodedUi.raw('i18nComplete.text634768dae147')}
                       {queryResult.rowCount !== 1 ? 's' : ''}
                     </span>
-                    <span className="text-muted-foreground/30">·</span>
+                    <span className="text-muted-foreground">·</span>
                     <span>
                       {queryResult.time.toFixed(1)}
                       {tHardcodedUi.raw('i18nComplete.textf785c3ce1d58')}
@@ -1436,8 +1436,8 @@ export function SqliteRenderer({
                 {!queryResult && (
                   <div className="flex flex-1 items-center justify-center">
                     <div className="space-y-2 text-center">
-                      <Play className="text-muted-foreground/20 mx-auto h-8 w-8" />
-                      <p className="text-muted-foreground/40 text-sm">
+                      <Play className="text-muted-foreground mx-auto h-8 w-8" />
+                      <p className="text-muted-foreground text-sm">
                         {tHardcodedUi.raw(
                           'componentsFileRenderersSqliteRenderer.line1237JsxTextWriteAQueryAndPressRun',
                         )}
@@ -1448,7 +1448,7 @@ export function SqliteRenderer({
 
                 {queryResult && queryResult.rows.length === 0 && !queryResult.error && (
                   <div className="flex flex-1 items-center justify-center">
-                    <p className="text-muted-foreground/40 text-sm">
+                    <p className="text-muted-foreground text-sm">
                       {tHardcodedUi.raw(
                         'componentsFileRenderersSqliteRenderer.line1246JsxTextQueryReturnedNoRows',
                       )}
@@ -1480,7 +1480,7 @@ export function SqliteRenderer({
                 <span className="text-muted-foreground truncate font-mono text-xs">
                   {expandedCell.column}
                 </span>
-                <span className="text-muted-foreground/30 shrink-0 text-xs tabular-nums">
+                <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
                   {tHardcodedUi.raw('i18nComplete.text634768dae147')} {expandedCell.rowIndex + 1}
                 </span>
               </div>
@@ -1506,7 +1506,7 @@ export function SqliteRenderer({
                   className={cn(
                     'h-full min-h-[180px] w-full cursor-text bg-transparent p-4 font-mono text-sm',
                     'resize-none focus:outline-none',
-                    'placeholder:text-muted-foreground/20',
+                    'placeholder:text-muted-foreground',
                   )}
                   placeholder="NULL"
                   aria-label={`${expandedCell.column} value`}
@@ -1516,14 +1516,14 @@ export function SqliteRenderer({
               ) : (
                 <pre className="text-muted-foreground min-h-[180px] p-4 font-mono text-sm break-all whitespace-pre-wrap select-text">
                   {expandedCell.value || (
-                    <span className="text-muted-foreground/30 italic">NULL</span>
+                    <span className="text-muted-foreground italic">NULL</span>
                   )}
                 </pre>
               )}
             </div>
 
             {/* Footer */}
-            <div className="text-muted-foreground/30 border-t px-4 py-1.5 text-xs tabular-nums">
+            <div className="text-muted-foreground border-t px-4 py-1.5 text-xs tabular-nums">
               {expandedEditValue.length.toLocaleString()}{' '}
               {tHardcodedUi.raw('i18nComplete.text1ce93dacbcf4')}
             </div>

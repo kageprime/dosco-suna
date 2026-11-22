@@ -96,7 +96,6 @@ ARG KORTIX_COMMIT=unknown
 COPY apps/cli ./apps/cli
 COPY packages/llm-catalog ./packages/llm-catalog
 COPY packages/manifest-schema ./packages/manifest-schema
-COPY packages/registry ./packages/registry
 COPY packages/sdk ./packages/sdk
 COPY packages/shared ./packages/shared
 COPY packages/starter ./packages/starter
@@ -158,7 +157,6 @@ COPY packages/db/package.json ./packages/db/
 COPY packages/agent-tunnel/package.json ./packages/agent-tunnel/
 COPY packages/starter/package.json ./packages/starter/
 COPY packages/manifest-schema/package.json ./packages/manifest-schema/
-COPY packages/registry/package.json ./packages/registry/
 COPY packages/llm-gateway/package.json ./packages/llm-gateway/
 COPY packages/sdk/package.json ./packages/sdk/
 COPY packages/minimatch-compat/package.json ./packages/minimatch-compat/
@@ -204,7 +202,6 @@ COPY packages/db ./packages/db
 COPY packages/agent-tunnel ./packages/agent-tunnel
 COPY packages/starter ./packages/starter
 COPY packages/manifest-schema ./packages/manifest-schema
-COPY packages/registry ./packages/registry
 COPY packages/llm-gateway ./packages/llm-gateway
 COPY packages/sdk ./packages/sdk
 COPY packages/minimatch-compat ./packages/minimatch-compat
@@ -285,7 +282,7 @@ COPY --from=deps /app/packages/agent-tunnel/package.json ./packages/agent-tunnel
 COPY --from=deps /app/packages/starter/src ./packages/starter/src
 COPY --from=deps /app/packages/starter/package.json ./packages/starter/package.json
 COPY --from=deps /app/packages/starter/tsconfig.json ./packages/starter/tsconfig.json
-# starter and registry import @kortix/manifest-schema/layout. pnpm links it in
+# starter imports @kortix/manifest-schema/layout. pnpm links it in
 # the package's own node_modules; the root node_modules hoists no @kortix package.
 COPY --from=deps /app/packages/starter/node_modules ./packages/starter/node_modules
 # Project-scaffold templates read at runtime: packages/starter/src/index.ts
@@ -305,10 +302,6 @@ COPY --from=deps /app/packages/api-contract/tsconfig.json ./packages/api-contrac
 # re-exports `@kortix/sdk/wire-values`, and only this link resolves it from the
 # package's own root (the root node_modules hoists no @kortix package).
 COPY --from=deps /app/packages/api-contract/node_modules ./packages/api-contract/node_modules
-COPY --from=deps /app/packages/registry/src ./packages/registry/src
-COPY --from=deps /app/packages/registry/package.json ./packages/registry/package.json
-COPY --from=deps /app/packages/registry/tsconfig.json ./packages/registry/tsconfig.json
-COPY --from=deps /app/packages/registry/node_modules ./packages/registry/node_modules
 
 # Migrations are NOT bundled into the image: deployed ensureSchema() is warn-only
 # (it never applies at boot), and migrations run in the deploy pipeline's

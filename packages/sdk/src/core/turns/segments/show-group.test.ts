@@ -36,6 +36,23 @@ describe('groupShowSegments', () => {
     expect((grouped[0] as { parts: ToolPart[] }).parts.map((p) => p.id)).toEqual(['1', '2']);
   });
 
+  test('a failed show renders nowhere: alone it is no segment, beside a retry the retry stands alone, between two shows they group', () => {
+    const failed = (id: string) => tool(id, 'show', { action: 'show', url: 'https://example.test/a', title: 'Catalog' }, 'error', { error: "'type' is required." });
+    const ids = (segments: ReturnType<typeof groupShowSegments>) =>
+      segments.map((s) => (s.kind === 'show-group' ? s.parts.map((p) => p.id) : s.kind === 'standalone' ? [s.part.id] : [s.kind]));
+
+    expect(groupShowSegments(segmentTurn([failed('f')]))).toEqual([]);
+    expect(ids(groupShowSegments(segmentTurn([failed('f'), shown('r')])))).toEqual([['r']]);
+    expect(groupShowSegments(segmentTurn([failed('f'), shown('r')]))[0].kind).toBe('standalone');
+    expect(ids(groupShowSegments(segmentTurn([shown('1'), failed('f'), shown('2')])))).toEqual([['1', '2']]);
+    expect(groupShowSegments(segmentTurn([failed('f'), failed('g')]))).toEqual([]);
+  });
+
+  test('a show still running stays: it may yet succeed', () => {
+    const running = tool('r', 'show', { type: 'url', url: 'https://example.test/a' }, 'running');
+    expect(groupShowSegments(segmentTurn([running]))).toHaveLength(1);
+  });
+
   test('a single show call stays a standalone segment', () => {
     const grouped = groupShowSegments(segmentTurn([shown('1')]));
 
@@ -175,19 +192,13 @@ describe('showGroupItems', () => {
     expect(showGroupItems([running])[0].status).toBe('ready');
   });
 
-  test('a failed call keeps its slot and carries the error', () => {
+  test('a failed call contributes no item: the person sees only what was shown (2026-11-16)', () => {
     const failed = tool('2', 'show', { type: 'image', title: 'Docs' }, 'error', {
       error: 'File not found: /workspace/docs.png',
     });
-    const items = showGroupItems([shown('1'), failed]);
 
-    expect(items[1]).toEqual({
-      callID: 'call_2',
-      status: 'error',
-      type: 'error',
-      title: 'Docs',
-      error: 'File not found: /workspace/docs.png',
-    });
+    expect(showGroupItems([shown('1'), failed]).map((i) => i.callID)).toEqual(['call_1']);
+    expect(showGroupItems([failed])).toEqual([]);
   });
 
   test('a settled call with an empty payload is dropped', () => {

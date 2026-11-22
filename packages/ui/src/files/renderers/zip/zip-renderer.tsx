@@ -392,7 +392,7 @@ function EntryPreview({ zip, entry }: { zip: JSZip; entry: ZipEntry }) {
             ? tI18nComplete('textf37bf4f7a338', { value0: formatFileSize(entry.size) })
             : tI18nComplete.raw('text05b10b151f65')}
         </span>
-        <span className="text-muted-foreground/70 text-xs">
+        <span className="text-muted-foreground text-xs">
           {tI18nComplete.raw('text43f9e1786f27')}
         </span>
       </Centered>
@@ -604,7 +604,7 @@ export function ZipRenderer({
           </span>
           {summary.folders > 0 && (
             <>
-              <span className="text-muted-foreground/40">
+              <span className="text-muted-foreground">
                 {tI18nComplete.raw('text3b9453dad42b')}
               </span>
               <span className="tabular-nums">
@@ -612,7 +612,7 @@ export function ZipRenderer({
               </span>
             </>
           )}
-          <span className="text-muted-foreground/40">{tI18nComplete.raw('text3b9453dad42b')}</span>
+          <span className="text-muted-foreground">{tI18nComplete.raw('text3b9453dad42b')}</span>
           <span className="tabular-nums">
             {formatFileSize(summary.bytes)} {tI18nComplete.raw('text83055ac70034')}
           </span>
@@ -621,7 +621,7 @@ export function ZipRenderer({
             must not get wrong. */}
           {loaded.truncated > 0 && (
             <>
-              <span className="text-muted-foreground/40">
+              <span className="text-muted-foreground">
                 {tI18nComplete.raw('text3b9453dad42b')}
               </span>
               <span className="text-kortix-orange tabular-nums">

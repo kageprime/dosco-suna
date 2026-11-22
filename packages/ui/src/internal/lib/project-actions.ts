@@ -34,7 +34,6 @@ export type CustomizeSection =
   | 'git'
   | 'review'
   | 'commands'
-  | 'marketplace'
   | 'secrets'
   | 'llm-management'
   | 'llm-overview'
@@ -64,10 +63,9 @@ export type CustomizeSection =
  *   actual Slack connect/disconnect routes assert project.connector.write.
  * - `git` surfaces repository metadata and clone instructions; pushes remain
  *   separately gated by project.gitops.push.
- * - sandbox/settings/marketplace have no dedicated read leaf, so
- *   they stay visible on project.read and gate writes on the closest real leaf
- *   the backend asserts (e.g. sandbox rebuild → sandbox.write, marketplace
- *   install → gitops.push).
+ * - sandbox/settings have no dedicated read leaf, so they stay visible on
+ *   project.read and gate writes on the closest real leaf the backend asserts
+ *   (e.g. sandbox rebuild → sandbox.write).
  */
 export const CUSTOMIZE_SECTION_ACCESS: Record<
   CustomizeSection,
@@ -118,7 +116,6 @@ export const CUSTOMIZE_SECTION_ACCESS: Record<
     read: PROJECT_ACTIONS.PROJECT_MEMBERS_READ,
     write: PROJECT_ACTIONS.PROJECT_MEMBERS_MANAGE,
   },
-  marketplace: { read: PROJECT_ACTIONS.PROJECT_READ, write: PROJECT_ACTIONS.PROJECT_GITOPS_PUSH },
   // LLM gateway sections — visible to any project member; the backend enforces
   // the specific gateway capability (logs/spend.read, budget.set, keys.manage)
   // on each mutation route, so visibility gates on project.read.

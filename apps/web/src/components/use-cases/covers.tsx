@@ -156,7 +156,7 @@ function DuoCover({ a, b }: { a: ReactNode; b: ReactNode }) {
     <CoverBackdrop>
       <div className="absolute inset-0 flex items-center justify-center gap-3 transition-transform duration-slow ease-out group-hover:scale-[1.03] sm:gap-4">
         {a}
-        <span className="text-muted-foreground/40 text-lg font-light">×</span>
+        <span className="text-muted-foreground text-lg font-light">×</span>
         {b}
       </div>
     </CoverBackdrop>

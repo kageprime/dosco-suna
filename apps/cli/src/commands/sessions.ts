@@ -90,13 +90,14 @@ Subcommands:
      [--children <session-id>]      --shared = another member did,
      [--label <label>]...           --automated = a trigger, channel or API
      [--pinned|--archived|--deleted] key did; each lists top-level sessions
-                                    with their child count. --search <q>
+     [--space <space-id>]           with their child count. --search <q>
                                     matches every session you can see.
                                     --children <id> lists one session's
                                     children. --label <l> (repeatable)
                                     lists sessions carrying every given
-                                    label. The list leaves out the sessions
-                                    you archived: --archived lists only
+                                    label. --space <id> lists the sessions
+                                    of one space. The list leaves out the
+                                    sessions you archived: --archived lists only
                                     them, --pinned only your pinned ones.
                                     --deleted lists the deleted sessions
                                     you can still restore, with their full
@@ -114,6 +115,7 @@ Subcommands:
                                     session to that agent (default: My
                                     Kortix; default_agent when My Kortix is
                                     off, or when My Kortix starts it).
+                                    --space <id> files it in that space.
                                     --model <id> overrides the model. A
                                     model on an API key or a ChatGPT
                                     subscription runs on every key you may
@@ -511,6 +513,8 @@ export type SessionOverrides = {
   runtimeContext?: Record<string, string>;
   labels?: string[];
   metadata?: Record<string, string>;
+  /** The space (session group id) the new session is filed in. */
+  space?: string;
 };
 
 
@@ -553,6 +557,8 @@ export function parseSessionOverrides(argv: string[]): SessionOverrides {
   }
   const labels = takeFlagValues(argv, ['--label']);
   if (labels.length) out.labels = labels;
+  const space = takeFlagValue(argv, ['--space'])?.trim();
+  if (space) out.space = space;
   for (const pair of takeFlagValues(argv, ['--meta'])) {
     const [key, value] = parseMetaPair(pair);
     (out.metadata ??= {})[key] = value;
@@ -718,6 +724,7 @@ async function sessionsNew(
   if (overrides.connectors !== undefined) body.connector_bindings = overrides.connectors;
   if (overrides.runtimeContext) body.runtime_context = overrides.runtimeContext;
   if (overrides.labels) body.labels = overrides.labels;
+  if (overrides.space) body.group_id = overrides.space;
   if (overrides.metadata) body.metadata = overrides.metadata;
 
   const prepared = await prepareClientCreatedBranch(ctx, body);

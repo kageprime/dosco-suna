@@ -102,3 +102,15 @@ test('the Inbox route is apps/web\'s /inbox; a host that maps routes links it on
   setUiRoutes({});
   expect(uiRoutes().inbox?.()).toBe('/inbox');
 });
+
+test('the Spaces routes are apps/web pages; a host that maps routes links them only when it maps them', () => {
+  expect(uiRoutes().sessionSpaces?.('p')).toBe('/workspaces/p/spaces');
+  expect(uiRoutes().sessionSpace?.('p', 'g1')).toBe('/workspaces/p/space/g1');
+  setUiRoutes({ files: () => null });
+  expect(uiRoutes().sessionSpaces).toBeUndefined();
+  expect(uiRoutes().sessionSpace).toBeUndefined();
+  setUiRoutes({ sessionSpaces: (p) => `/w/${p}/spaces`, sessionSpace: (p, g) => `/w/${p}/spaces/${g}` });
+  expect(uiRoutes().sessionSpace?.('p', 'g1')).toBe('/w/p/spaces/g1');
+  setUiRoutes({});
+  expect(uiRoutes().sessionSpaces?.('p')).toBe('/workspaces/p/spaces');
+});

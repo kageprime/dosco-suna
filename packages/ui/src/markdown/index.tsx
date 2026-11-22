@@ -12,7 +12,7 @@ export { UnifiedMarkdown } from './unified-markdown';
 export type { UnifiedMarkdownProps } from './unified-markdown';
 export { CopyOverlay } from './code';
 export { CodeHighlight, HighlightedCode } from './code/code-block';
-export { INLINE_CODE } from './code/inline-chip';
+export { INLINE_CODE } from './inline-chip';
 export { InlineCodeText, plainTextFromMarkdown, shortSummary, splitInlineCode } from './inline-code-text';
 export type { InlineCodeSegment } from './inline-code-text';
 export { CopyButton } from './copy-button';

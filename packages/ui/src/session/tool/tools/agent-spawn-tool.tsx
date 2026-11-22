@@ -98,7 +98,7 @@ export function AgentSpawnTool({ call, defaultOpen, forceOpen }: ToolProps) {
           <>
             {verification && (
               <ToolResultCard>
-                <div className="text-muted-foreground/60 px-2 py-1.5 text-xs leading-relaxed">
+                <div className="text-muted-foreground px-2 py-1.5 text-xs leading-relaxed">
                   ✓ {verification}
                 </div>
               </ToolResultCard>
@@ -109,7 +109,7 @@ export function AgentSpawnTool({ call, defaultOpen, forceOpen }: ToolProps) {
           <ToolResultCard>
             <div className="space-y-2 px-2 py-1.5">
               {verification && (
-                <div className="text-muted-foreground/60 text-xs leading-relaxed">
+                <div className="text-muted-foreground text-xs leading-relaxed">
                   ✓ {verification}
                 </div>
               )}
@@ -125,14 +125,14 @@ export function AgentSpawnTool({ call, defaultOpen, forceOpen }: ToolProps) {
                         key={step.id}
                         className="text-muted-foreground flex items-center gap-1.5 truncate text-xs"
                       >
-                        <Check className="text-muted-foreground/50 size-2.5 shrink-0" />
+                        <Check className="text-muted-foreground size-2.5 shrink-0" />
                         {info.title}
                         {info.subtitle ? ` · ${info.subtitle}` : ''}
                       </div>
                     );
                   })}
                   {childCalls.length > 3 && (
-                    <div className="text-muted-foreground/50 pl-4 text-xs">
+                    <div className="text-muted-foreground pl-4 text-xs">
                       +{childCalls.length - 3} {tI18nComplete.raw('text187897ce0afc')}
                     </div>
                   )}

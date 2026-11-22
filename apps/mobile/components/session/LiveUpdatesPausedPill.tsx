@@ -16,6 +16,7 @@ import { ArrowClockwiseIcon } from '@/lib/icons';
 import { haptics } from '@/lib/haptics';
 import { useOnlineStatus } from '@/lib/network/use-online-status';
 import { THEME } from '@/lib/utils/theme';
+import { useTone } from '@/lib/utils/tone';
 import { ComposerStatusAction, ComposerStatusPill } from './ComposerStatusPill';
 
 interface LiveUpdatesPausedPillProps {
@@ -24,6 +25,7 @@ interface LiveUpdatesPausedPillProps {
 
 export function LiveUpdatesPausedPill({ onReconnect }: LiveUpdatesPausedPillProps) {
   const online = useOnlineStatus();
+  const orange = THEME.accent[useTone()].orange;
   if (!online) return null;
 
   const handleReconnect = () => {
@@ -34,7 +36,7 @@ export function LiveUpdatesPausedPill({ onReconnect }: LiveUpdatesPausedPillProp
   return (
     <ComposerStatusPill
       accessibilityLiveRegion="polite"
-      dotColor={THEME.accent.orange}
+      dotColor={orange}
       label="Live updates paused"
       actions={
         <ComposerStatusAction

@@ -179,7 +179,7 @@ export function ApplyPatchTool({ call, defaultOpen, forceOpen, locked }: ToolPro
                   {hasDiff ? (
                     <ChevronRight
                       className={cn(
-                        'text-muted-foreground/60 size-3.5 shrink-0 transition-transform',
+                        'text-muted-foreground size-3.5 shrink-0 transition-transform',
                         isOpen && 'rotate-90',
                       )}
                     />

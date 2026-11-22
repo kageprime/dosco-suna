@@ -23,9 +23,17 @@ import {
 } from '@kortix/ui/internal/auth/auth-consent';
 import { ErrorStrip, FieldLabel, Rise, StepHeader } from '@kortix/ui/internal/auth/auth-primitives';
 import { useAuth } from '@/features/providers/auth-provider';
-import { approveCliDevice, createAccountToken, isNoWorkspaceError, revokeAccountToken } from '@kortix/sdk';
+import {
+  approveCliDevice,
+  createAccountToken,
+  isNoWorkspaceError,
+  revokeAccountToken,
+  type KortixProject,
+} from '@kortix/sdk';
 import { PlusIcon } from '@phosphor-icons/react';
+import type { WorkspaceRow } from '@kortix/ui/workspace/project-selector/project-selector-model';
 import { useWorkspaceDirectory } from '@kortix/ui/workspace/sidebar/use-workspace-directory';
+import { InlineCreateWorkspace } from './inline-create-workspace';
 import { validateCallback } from './validate-callback';
 
 const normalizeCliCode = (code: string) => code.trim().toUpperCase().replace(/-/g, '');
@@ -86,17 +94,36 @@ function CliAuthorizeInner() {
   // person whose workspaces merely failed to load is a dead end (KRTX-4788).
   // The 409 `no_workspace` stays authoritative — it does not read the list.
   const listFailed = directory.failedAccountIds.length > 0;
+  // A workspace created on this page (KRTX-4940). It is a choice as soon as
+  // the create answers, before the refetched list carries it.
+  const [created, setCreated] = useState<Pick<WorkspaceRow, 'workspaceId' | 'accountId' | 'project'> | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const withoutWorkspace =
-    noWorkspace || (!directory.loading && !listFailed && directory.openable.length === 0);
+    noWorkspace || (!created && !directory.loading && !listFailed && directory.openable.length === 0);
+  const choices =
+    created && !directory.openable.some((row) => row.workspaceId === created.workspaceId)
+      ? [...directory.openable, created]
+      : directory.openable;
   // A CLI key acts in ONE workspace. With 2+ the person picks which; the
-  // most recently opened one is preselected. The key is account-scoped, so
-  // the choice is sent as the workspace's `account_id`.
+  // most recently opened one is preselected, a created one is selected. The
+  // key is account-scoped, so the choice is sent as the workspace's `account_id`.
   const [pickedWorkspaceId, setPickedWorkspaceId] = useState<string | null>(null);
-  const pickedRow =
-    directory.openable.find((row) => row.workspaceId === pickedWorkspaceId) ?? directory.openable[0] ?? null;
+  const pickedRow = choices.find((row) => row.workspaceId === pickedWorkspaceId) ?? choices[0] ?? null;
   const targetAccountId = pickedRow?.accountId;
+  // Creating selects the new workspace by the account the server answered
+  // with. It never authorizes: Authorize stays a separate press.
+  const onWorkspaceCreated = (project: KortixProject) => {
+    setCreated({ workspaceId: project.project_id, accountId: project.account_id, project });
+    setPickedWorkspaceId(project.project_id);
+    setNoWorkspace(false);
+    setCreateOpen(false);
+    setError(null);
+    setPhase('idle');
+  };
+  // `/workspaces/new` comes back here once the workspace exists (`returnUrl`).
+  const moreOptionsHref = `/workspaces/new?returnUrl=${encodeURIComponent(`/cli/authorize?${params.toString()}`)}`;
   const workspacePicker =
-    directory.openable.length > 1 ? (
+    choices.length > 1 ? (
       <div className="space-y-2">
         <FieldLabel htmlFor="cli-workspace">{tCli('workspaceLabel')}</FieldLabel>
         <Select value={pickedRow?.workspaceId ?? ''} onValueChange={setPickedWorkspaceId}>
@@ -104,7 +131,7 @@ function CliAuthorizeInner() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {directory.openable.map((row) => (
+            {choices.map((row) => (
               <SelectItem key={row.workspaceId} value={row.workspaceId} size="md">
                 <span className="flex min-w-0 items-center gap-2">
                   <EntityAvatar
@@ -121,6 +148,30 @@ function CliAuthorizeInner() {
         </Select>
       </div>
     ) : null;
+  const workspaceChoice = (
+    <div className="space-y-3">
+      {workspacePicker}
+      {createOpen ? (
+        <InlineCreateWorkspace
+          moreOptionsHref={moreOptionsHref}
+          onCreated={onWorkspaceCreated}
+          onCancel={() => setCreateOpen(false)}
+        />
+      ) : (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground hover:text-foreground -ml-3"
+          disabled={phase === 'authorizing'}
+          onClick={() => setCreateOpen(true)}
+        >
+          <PlusIcon className="size-4 shrink-0" />
+          {tCli('createAction')}
+        </Button>
+      )}
+    </div>
+  );
   // Synchronous in-flight guard (the pattern of `tokens-tab.tsx`): two clicks
   // before the re-render that disables the button minted two API keys.
   const inFlightRef = useRef(false);
@@ -137,9 +188,10 @@ function CliAuthorizeInner() {
     return <AuthPendingScreen />;
   }
 
-  if (listFailed && !withoutWorkspace && (userCode || (callback && state && validation.ok))) {
+  if (listFailed && !created && !withoutWorkspace && (userCode || (callback && state && validation.ok))) {
     // The one way forward is a retry: approving needs a workspace, and the
-    // person may have one that this page just could not see.
+    // person may have one that this page just could not see. A workspace
+    // created here is known without the list.
     return (
       <AuthStatusScreen
         title={tCli('loadFailedTitle')}
@@ -154,21 +206,13 @@ function CliAuthorizeInner() {
   }
 
   if (withoutWorkspace && (userCode || (callback && state && validation.ok))) {
-    // `/workspaces/new` comes back here once the workspace exists (`returnUrl`), and
-    // the person approves the sign-in with a workspace to act in.
-    const here = `/cli/authorize?${params.toString()}`;
+    // The first workspace is created right here; the consent below follows
+    // with it selected, and the person approves the sign-in there.
     return (
       <AuthStatusScreen
         title={tCli('noWorkspaceTitle')}
         description={tCli('noWorkspaceBody')}
-        action={
-          <Button asChild size="lg" className="w-full gap-1.5">
-            <Link href={`/workspaces/new?returnUrl=${encodeURIComponent(here)}`}>
-              <PlusIcon className="size-4 shrink-0" />
-              {tCli('createAction')}
-            </Link>
-          </Button>
-        }
+        action={<InlineCreateWorkspace moreOptionsHref={moreOptionsHref} onCreated={onWorkspaceCreated} />}
       />
     );
   }
@@ -195,11 +239,12 @@ function CliAuthorizeInner() {
         </Rise>
         <Rise delay={0.06}>
           {error ? <ErrorStrip message={error} /> : null}
+          <div className="mb-3">{workspaceChoice}</div>
           <form
             className="space-y-3"
             onSubmit={async (event) => {
               event.preventDefault();
-              if (!confirmed || approving || inFlightRef.current) return;
+              if (!confirmed || approving || createOpen || inFlightRef.current) return;
               inFlightRef.current = true;
               setPhase('authorizing');
               setError(null);
@@ -215,7 +260,6 @@ function CliAuthorizeInner() {
               }
             }}
           >
-            {workspacePicker}
             <FieldLabel htmlFor="cli-user-code">{tI18nComplete.raw('cliDeviceCode')}</FieldLabel>
             <Input
               id="cli-user-code"
@@ -232,7 +276,7 @@ function CliAuthorizeInner() {
               onCheckedChange={setMatchConfirmed}
               label={tI18nComplete.raw('cliDeviceConfirm')}
             />
-            <Button type="submit" size="lg" className="w-full" disabled={!confirmed || approving}>
+            <Button type="submit" size="lg" className="w-full" disabled={!confirmed || approving || createOpen}>
               {approving ? <Loading className="size-4 shrink-0" /> : null}
               {tI18nComplete.raw('cliDeviceAction')}
             </Button>
@@ -372,9 +416,9 @@ function CliAuthorizeInner() {
           {label ? <DetailRow label={tI18nComplete.raw('text6ba0bdeccb42')} value={label} /> : null}
         </DetailPanel>
 
-        {workspacePicker ? <div className="mt-5">{workspacePicker}</div> : null}
+        <div className="mt-5">{workspaceChoice}</div>
 
-        <Button size="lg" className="mt-5 w-full" onClick={authorize} disabled={busy}>
+        <Button size="lg" className="mt-5 w-full" onClick={authorize} disabled={busy || createOpen}>
           {busy ? <Loading className="size-4 shrink-0" /> : null}
           {tI18nComplete.raw('textb6741b4ccf6d')}
         </Button>

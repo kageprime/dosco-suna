@@ -96,8 +96,7 @@ describe('skillDocumentPath — the install layout, when nothing says otherwise'
   // The payload archaeology above was the wrong instinct. A skill's location is
   // not something to be recovered from the runtime's output at all: this product
   // OWNS where skills live. A project keeps them in the root `skills/<name>/`
-  // (the harness-neutral layout; marketplace installs land there in every
-  // project), and the app writes that path in prose (configure-prompts.ts).
+  // (the harness-neutral layout), and the app writes that path in prose (configure-prompts.ts).
   // The skill's NAME is the join.
 
   test('a name alone is enough — no directory anywhere in the payload', () => {

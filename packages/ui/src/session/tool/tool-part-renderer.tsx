@@ -17,6 +17,7 @@ import {
   ToolRunningContext,
   ToolSurfaceContext,
   TurnLiveContext,
+  isUnpresentedFailure,
 } from './shared/infrastructure';
 import { ToolRegistry } from './shared/registry';
 import { ToolError } from './tool-error';
@@ -175,6 +176,7 @@ function ToolPartRendererImpl({
 
   // The SDK's verdict on tools that never render (a todo read, context bookkeeping).
   if (!shouldShowToolPart(call)) return null;
+  if (isUnpresentedFailure(call)) return null;
 
   // A failed `task` dispatch is still a dispatch. OpenCode keeps the child
   // session alive through the failure (its id rides the part's

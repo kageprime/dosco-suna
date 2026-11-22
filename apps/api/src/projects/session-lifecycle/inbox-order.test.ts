@@ -63,3 +63,18 @@ describe('compareInboxSendOrder', () => {
     expect([transcript, none, composer].sort(compareInboxSendOrder)).toEqual([composer, none, transcript]);
   });
 });
+
+describe('SQL FIFO predicates', () => {
+  test('preceding and following preserve the tuple and parameter order', async () => {
+    const { PgDialect } = await import('drizzle-orm/pg-core');
+    const { inboxPrecedesRow, inboxFollowsRow } = await import('./inbox-order');
+    const dialect = new PgDialect();
+    const input = row('00000000-0000-0000-0000-000000000001', 1234, '2026-08-01T00:00:00Z', 'msg_synthetic');
+    const before = dialect.sqlToQuery(inboxPrecedesRow(input));
+    const after = dialect.sqlToQuery(inboxFollowsRow(input));
+    expect(before.params).toEqual([1234, 'msg_synthetic', input.commandId]);
+    expect(after.params).toEqual(before.params);
+    expect(before.sql).toContain('< ($1::bigint, $2::text COLLATE "C", $3::uuid)');
+    expect(after.sql).toBe(before.sql.replace('< ($1', '> ($1'));
+  });
+});

@@ -11,6 +11,11 @@ import type {
   CommitmentInfo,
   ScheduledChange,
 } from '../../types';
+import { getStripe } from '../../shared/stripe';
+import { noWorkspaceError } from '../../shared/no-workspace';
+import { accountExists } from '../../shared/resolve-account';
+import { isUuid } from '../../shared/validate';
+import { listStripeCustomerIdsByAccountId } from '../repositories/customers';
 import { getCreditAccount } from '../repositories/credit-accounts';
 import { getAutoTopupSettings } from './auto-topup';
 import { accountHoldsComp } from './account-write-owner';
@@ -426,4 +431,60 @@ function extractScheduledChange(
   }
 
   return null;
+}
+
+/** Read-only identity safety check. Legacy personal billing used account_id = user_id. */
+export async function buildWorkspacelessAccountState(userId: string) {
+  // The id is quoted into a Stripe search query (stripeNamesLiveSubscription).
+  if (!isUuid(userId)) throw new Error('Workspace-less billing state requires a user id');
+  // A workspace still keyed by this id belongs to its members; a person without
+  // a membership never reads it (shared/resolve-account.ts).
+  if (await accountExists(userId)) throw noWorkspaceError();
+  const [account, customers] = await Promise.all([
+    getCreditAccount(userId),
+    listStripeCustomerIdsByAccountId(userId),
+  ]);
+  // An unknown status is not evidence that recurring billing has ended. A store
+  // cancellation keeps the entitlement until its expiry, so only a past expiry ends it.
+  const storeEnded = Boolean(account?.revenuecatCancelledAt && account.revenuecatCancelAtPeriodEnd &&
+    new Date(account.revenuecatCancelAtPeriodEnd).getTime() <= Date.now());
+  // A subscription the wallet already proves needs no provider read; absence always does.
+  const active = Boolean(
+    (account?.stripeSubscriptionId && live(account.stripeSubscriptionStatus)) ||
+    ((account?.revenuecatSubscriptionId || account?.revenuecatCustomerId) && !storeEnded),
+  ) || await stripeNamesLiveSubscription(userId, customers);
+  return {
+    billing_state: active ? 'active' : account ? 'no_subscription' : 'no_account',
+    has_active_subscription: active,
+    subscription: { status: active ? 'active' : 'no_subscription' },
+    can_manage_billing: false,
+  };
+}
+
+const live = (status: string | null | undefined) => !['canceled', 'incomplete_expired'].includes(status ?? '');
+
+/** Every Stripe read propagates its error: a failed lookup is never absence. */
+async function stripeNamesLiveSubscription(userId: string, customers: string[]): Promise<boolean> {
+  for (const customer of customers) {
+    for (let after: string | undefined; ;) {
+      const page = await getStripe().subscriptions.list({
+        customer, status: 'all', limit: 100, ...(after ? { starting_after: after } : {}),
+      });
+      if (page.data.some((sub) => live(sub.status))) return true;
+      if (!page.has_more) break;
+      after = page.data.at(-1)?.id;
+      if (!after) throw new Error('Incomplete subscription listing');
+    }
+  }
+  // A subscription can name the identity before (or without) a customer mapping
+  // (legacy-stripe-sync.ts).
+  for (let page: string | undefined; ;) {
+    const found = await getStripe().subscriptions.search({
+      query: `metadata['account_id']:'${userId}'`, limit: 100, ...(page ? { page } : {}),
+    });
+    if (found.data.some((sub) => live(sub.status))) return true;
+    if (!found.has_more) return false;
+    page = found.next_page ?? undefined;
+    if (!page) throw new Error('Incomplete subscription search');
+  }
 }

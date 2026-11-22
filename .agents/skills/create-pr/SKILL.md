@@ -1,28 +1,26 @@
 ---
 name: create-pr
-description: "Write the title and body of a Kortix pull request for a human reviewer who decides \"merge or iterate\" without reading the diff: English only, a Conventional Commits title that names the outcome, the demo video right after the summary, what is affected, a verification table, risks and rollback, and reviewer focus. Uploads the video and screenshots with `gh pr create/edit --attach`. Load whenever you run `gh pr create` or `gh pr edit`, write or rewrite a PR title or description, attach a video or screenshot to a PR, or hand off finished work for review, even when the user only says \"open a PR\" or \"update the PR text\"."
+description: "Write the title and body of a Kortix pull request for a human reviewer who decides \"merge or iterate\" without reading the diff: English only, a Conventional Commits title that names the outcome, only Demo video and Quick verification, with detailed evidence linked. Uploads the video and screenshots with `gh pr create/edit --attach`. Load whenever you run `gh pr create` or `gh pr edit`, write or rewrite a PR title or description, attach a video or screenshot to a PR, or hand off finished work for review, even when the user only says \"open a PR\" or \"update the PR text\"."
 ---
 
 # Create a pull request
 
 The title and body are for a human who will not open the diff. Their one question is
 **"Do I merge this, or send it back?"** Every line helps answer it. Cut a line that does
-not, even when it is true and took effort to find. Short is not the goal; nothing
-unnecessary is. A one-line fix gets a few lines. An IAM change gets as much as the
-reviewer needs to trust it.
+not, even when it is true and took effort to find. Keep the body short. Put detailed evidence in linked PR comments or artifacts so the
+reviewer can inspect it without expanding the body.
 
 This skill owns the PR text. The **contributing** skill owns the loop around it: branch,
 commit, verify, record the demo, merge, deploy dev. Follow the section order in
-[the PR template](../../../.github/pull_request_template.md). Delete a section that does
-not apply. Never fill one with "N/A".
+[the PR template](../../../.github/pull_request_template.md). Use only `## Demo video` and `## Quick verification`, in that order. Keep both headings;
+explain a non-visual video exception in one sentence.
 
 ## 1. Gather facts before you write
 
 - `git log --oneline origin/dev..HEAD` and `git diff --stat origin/dev...HEAD`: what the
   branch changes.
 - The verification you ran in this session: exact commands, results, and the commit they
-  ran on. Never write a result you did not see. A skipped or blocked check is a row in the
-  table, not an omission.
+  ran on. Never write a result you did not see. State skipped or blocked checks and their reasons; do not omit them.
 - `gh pr checks <pr>` when the PR exists and a `test` or `preview` run happened. Pending is
   not PASS.
 - The demo video, recorded and checked frame by frame (**contributing** step 4).
@@ -47,7 +45,7 @@ not apply. Never fill one with "N/A".
 
 - Describe behavior, not code. Name who (user, admin, agent, self-host operator), where
   (route, screen, CLI command, API route), what they now see or can do, and what happened
-  before. File and function names go only in "Reviewer focus" and "Changed files".
+  before. Name a file or function only when it helps the reviewer verify the change.
 - Be concrete. Numbers, routes, status codes, exact UI labels in quotes. "Faster" becomes
   "first token in 9 s instead of 19 s on a new session". Never "improved", "various",
   "some cleanup".
@@ -64,27 +62,26 @@ not apply. Never fill one with "N/A".
 reviewer will not check, anything the title or the video already shows, and repeated
 caveats.
 
-**Sections:**
+**Sections (no others):**
 
-- **Summary.** 2–5 sentences: the behavior that changed, for whom, on which surface, and
-  why. Link the issue (`Closes #<n>` or the Linear key).
-- **Demo.** See section 4.
-- **What is affected.** Users and roles, surfaces, data, migrations, auth/IAM, billing,
-  secrets, workers, integrations. Name what is not affected where a reviewer would worry.
-- **Verification.** One row per check that matters, with what it proves. Example row:
-  `` `curl -X POST …/v1/projects/<id>/secrets` as a member without the role `` · PASS ·
-  "returns `403`; the secret list is unchanged". Then 1–2 sentences: why you are confident, and what is
-  not verified. When a check failed for a reason unrelated to the change, keep the row and
-  give the reason.
-- **Risks and rollback.** Regressions, migrations, flags, env vars, rollout order, decisions
-  the reviewer must make, and the revert path. "None" only when that is true.
-- **Reviewer focus.** 1–3 checks, highest risk first, each with the file or screen to read.
-- **Changed files.** Collapsed. Paths grouped by responsibility, one short line each.
+- **Demo video.** The attached demo and a short caption, or the non-visual exception below.
+- **Quick verification.** Start with `Outcome: <what was accomplished>` in one sentence
+  (or 1–3 high-level bullets). Then a few actionable checks: where to go, what to do,
+  and the expected result. Summarize checks actually run and link detailed evidence. State material
+  risks and failed, blocked or skipped checks. Link the issue when one exists.
+
+Keep compact fenced commands and actual runner summaries under Quick verification when
+required by evidence gates; a collapsed block is allowed. Link verbose logs, tested
+commit/environment, design detail, RCAs, risk/rollback notes and longer review context
+in PR comments or artifacts. Keep evidence accessible
+and free of secrets and customer data. A shorter body does not reduce testing, safety,
+independent-review or merge requirements. Never replace required checks with instructions
+for the reviewer to run them.
 
 ## 4. Demo video and screenshots
 
-Every PR carries a demo video, placed right after the Summary so the reviewer sees the
-change before reading about it. Record it with agent-browser on your worktree's local stack
+Put the demo first, under `## Demo video`, so the reviewer sees the change before
+reading the verification bullets. Record it with agent-browser on your worktree's local stack
 (**contributing** step 4). Keep the files in the gitignored `output/pr/`.
 
 - Before the video, write a bold caption: surface, route, viewport, state, and what to watch

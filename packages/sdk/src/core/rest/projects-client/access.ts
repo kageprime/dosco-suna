@@ -43,6 +43,10 @@ export interface ProjectAccessMember {
   })[];
   user_id: string;
   email: string | null;
+  /** The person's display name from their profile; null when they set none. Absent on older APIs. */
+  name?: string | null;
+  /** The person's profile picture; null when they have none. Absent on older APIs. */
+  avatar_url?: string | null;
   account_role: AccountRole;
   project_role: ProjectRole | null;
   effective_project_role: ProjectRole | null;

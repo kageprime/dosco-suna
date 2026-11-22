@@ -26,8 +26,9 @@ Dual-licensed with LGPL-2.1-or-later as one option:
   - r-efi 5.3.0, 6.0.0 (MIT OR Apache-2.0 OR LGPL-2.1-or-later; used under MIT)
 
 ONNX Runtime 1.23.2, MIT License, Copyright (c) Microsoft Corporation.
-  The installers bundle the runtime library. Its license text and third-party
-  notices ship beside it as privacy-runtime-notices.txt
+  The installers bundle the runtime library from Microsoft's NuGet package
+  Microsoft.ML.OnnxRuntime 1.23.2. Its license text and third-party notices
+  ship beside it as privacy-runtime-notices.txt
   (scripts/install_privacy_runtime.py).
 
 The on-device privacy model is downloaded at first use from

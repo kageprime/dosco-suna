@@ -233,6 +233,17 @@ async function readOptional(tree: TaskTree, paths: readonly string[], path: stri
   return paths.includes(path) ? text(await tree.read(path)) : null;
 }
 
+/** `steps/<name>/instruction.md` of every step folder. */
+async function stepInstructions(tree: TaskTree, paths: readonly string[], prefix: string, inFolder: readonly string[]): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const path of inFolder) {
+    const match = /^steps\/([^/]+)\/instruction\.md$/.exec(path);
+    const text = match ? await readOptional(tree, paths, `${prefix}${path}`) : null;
+    if (match && text !== null) out[match[1]!] = text;
+  }
+  return out;
+}
+
 /** Parse the task at `folder` of a tree whose file list is `paths`. */
 async function loadTaskAt(tree: TaskTree, paths: readonly string[], folder: string, fallbackName?: string): Promise<HarborTask> {
   const prefix = folder ? `${folder}/` : '';
@@ -244,6 +255,7 @@ async function loadTaskAt(tree: TaskTree, paths: readonly string[], folder: stri
     dockerfile: await readOptional(tree, paths, `${prefix}environment/Dockerfile`),
     testsDockerfile: await readOptional(tree, paths, `${prefix}tests/Dockerfile`),
     paths: inFolder,
+    stepInstructions: await stepInstructions(tree, paths, prefix, inFolder),
   });
 }
 
@@ -258,8 +270,8 @@ export async function loadTask(tree: TaskTree, ref: EvalTaskRef): Promise<Harbor
   }
 }
 
-/** The files of one folder of a task (`tests`, `solution`), within the size limit. */
-export async function loadTaskFolder(tree: TaskTree, ref: EvalTaskRef, folder: 'tests' | 'solution'): Promise<TaskFile[]> {
+/** The files of one folder of a task (`tests`, `solution`, a step's `steps/<name>/tests`), within the size limit. */
+export async function loadTaskFolder(tree: TaskTree, ref: EvalTaskRef, folder: string): Promise<TaskFile[]> {
   const root = `${ref.path ? `${ref.path}/` : ''}${folder}`;
   const paths = (await tree.list(root)).filter((path) => under(path, root));
   const files: TaskFile[] = [];
@@ -359,7 +371,7 @@ const KORTIX_REPO = 'https://github.com/kortix-ai/suna.git';
 export const BUILTIN_DATASETS: Record<string, { path: string; description: string }> = {
   'kortix/my-kortix': {
     path: 'evals/my-kortix',
-    description: 'What people ask My Kortix to do: answer, analyze, write a file, ask when a request is ambiguous, schedule a Loop. Run it before and after any change to My Kortix.',
+    description: 'What My Kortix can do, one task per capability (agents, colleagues, triggers, connectors, secrets, memory, Drive, Apps, documents, code, research, browser, media, evals, permissions, asking first, follow-through), each graded on the workspace it leaves, in a workspace of its own. Run it before and after any change to My Kortix.',
   },
 };
 

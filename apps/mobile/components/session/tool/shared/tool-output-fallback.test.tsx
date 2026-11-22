@@ -46,7 +46,7 @@ await mockGraph(
       THEME: {
         light: { background: 'bg', surface: 'sf', foreground: 'fg', mutedForeground: 'mf', secondary: 'sec', danger: 'dgr', warning: 'wrn', border: 'bd' },
         dark: { background: 'bg-d', surface: 'sf-d', foreground: 'fg-d', mutedForeground: 'mf-d', secondary: 'sec-d', danger: 'dgr-d', warning: 'wrn-d', border: 'bd-d' },
-        accent: { blue: 'blue', yellow: 'yellow', orange: 'orange', green: 'green', purple: 'purple', red: 'red' },
+        accent: { light: { blue: 'blue', yellow: 'yellow', orange: 'orange', green: 'green', purple: 'purple', red: 'red' }, dark: { blue: 'blue', yellow: 'yellow', orange: 'orange', green: 'green', purple: 'purple', red: 'red' } },
       },
       withAlpha: (color: string) => color,
       MOTION: { duration: { normal: 120 }, easing: { inOut: [0.4, 0, 0.2, 1] } },

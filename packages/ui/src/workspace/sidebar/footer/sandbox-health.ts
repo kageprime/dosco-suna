@@ -107,7 +107,7 @@ export const CATEGORY_TEXT: Record<'critical' | 'warning', string> = {
 };
 
 export const CATEGORY_CAUSE: Record<string, string> = {
-  quota: 'This project has no room for another sandbox image. Removing an old one frees space.',
+  quota: 'Kortix’s image storage was full. Kortix frees space on its own. Retry in a few minutes.',
   dockerfile: 'A step in the project’s Dockerfile did not finish.',
   git: 'The build could not read the project’s repository. Its access may have expired.',
   tunnel: 'The sandbox could not reach Dosco while it was being built.',

@@ -25,7 +25,6 @@ export const FOOTER_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'For developers': 'text6f79cf5c144a',
   LinkedIn: 'textdd84425b72da',
   Marketing: 'textf5904cf7a123',
-  Marketplace: 'textc608981d8d68',
   People: 'text7db20897053b',
   Pricing: 'textdfe95783edfe',
   Privacy: 'text54a57c3147c4',

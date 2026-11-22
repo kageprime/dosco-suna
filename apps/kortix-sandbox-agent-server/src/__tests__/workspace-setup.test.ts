@@ -119,6 +119,16 @@ describe('runWorkspaceSetup', () => {
     expect(readFileSync(join(workspace, 'runs.txt'), 'utf8')).toBe('run\nrun\n')
   })
 
+  test('the done marker lives in the checkout .git/, never in the working tree', async () => {
+    const cloned = spec({ repos: [{ path: workspace }], setup: ['echo run >> runs.txt'] })
+    await runWorkspaceSetup(cloned, options())
+    expect(existsSync(join(workspace, '.git', 'kortix-workspace-setup.done.json'))).toBe(true)
+    expect(existsSync(join(workspace, '.kortix'))).toBe(false)
+    const again = await runWorkspaceSetup(cloned, options())
+    expect(again.reused).toBe(true)
+    expect(readFileSync(join(workspace, 'runs.txt'), 'utf8')).toBe('run\n')
+  })
+
   test('a clone path outside the workspace fails that step and touches nothing there', async () => {
     const outside = join(root, 'elsewhere')
     const status = await runWorkspaceSetup(spec({ repos: [{ path: outside }] }), options())

@@ -544,7 +544,6 @@ function routeArea(rawPath: string): string {
   if (path.startsWith('/v1/billing/')) return 'Billing';
   if (path.startsWith('/v1/tunnel/')) return 'Computer';
   if (path.startsWith('/v1/admin/')) return 'Administration';
-  if (path.startsWith('/v1/marketplace/')) return 'Marketplace';
   if (path.startsWith('/v1/webhooks/')) return 'Webhooks';
   if (path.includes('/channels/')) return 'Channels';
   if (path.startsWith('/v1/router/') || path.startsWith('/v1/llm/')) return 'Models';

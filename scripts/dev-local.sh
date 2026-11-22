@@ -111,6 +111,9 @@ load_local_env() {
 ensure_dev_tunnel() {
   local api_port="${PORT:-8008}"
   local api_origin="http://localhost:${api_port}"
+  # OAuth providers (Google) accept only registered redirect URIs: keep the
+  # sign-in callback on localhost while KORTIX_URL becomes the tunnel.
+  export KORTIX_OAUTH_CALLBACK_ORIGIN="${KORTIX_OAUTH_CALLBACK_ORIGIN:-$api_origin}"
   local default_provider="${ALLOWED_SANDBOX_PROVIDERS%%,*}"
 
   # Callers below (the watchdog and the supervised API loop) read

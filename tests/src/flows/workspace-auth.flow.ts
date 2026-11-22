@@ -228,6 +228,7 @@ flow(
       'GET /v1/workspaces/:workspaceId/sessions',
       'GET /v1/workspaces/:workspaceId/secrets',
       'PATCH /v1/workspaces/:workspaceId',
+      'GET /v1/projects',
     ],
   },
   async (ctx) => {
@@ -236,9 +237,12 @@ flow(
       const team = await ctx.fixtures.team();
       // Git-backed: PATCH /workspaces/:w renames the config repo too.
       const w = await team.project({ managedGit: true });
+      // A second workspace of the same person, in its own account, with no session policy.
+      const other = await (await ctx.fixtures.team()).project();
       const email = `${ctx.fixtures.name('wsa4')}@example.test`.toLowerCase();
       const person = await ctx.fixtures.userWithEmail(email, { label: 'WSA4', noAccount: true });
       (await ctx.client.as(ctx.P.OWNER).post(`/v1/workspaces/${w.id}/members`, { email, role: 'admin' })).status(201);
+      (await ctx.client.as(ctx.P.OWNER).post(`/v1/workspaces/${other.id}/members`, { email, role: 'admin' })).status(201);
       // A session the flow owns, so it can also refresh it.
       const grant = await passwordGrantSession(ctx.env, email, PASSWORD);
       const sessionPrincipal = keyPrincipal(person, grant.accessToken, 'WSA4_SESSION');
@@ -266,6 +270,11 @@ flow(
           r.status(401).body().has('$.code', 'session_token_revoked');
         }
         (await ctx.client.as(sessionPrincipal).patch(`/v1/workspaces/${w.id}`, { name: 'x' })).status(401);
+      });
+
+      await ctx.step('GET /v1/projects with that session answers 200: the other account still lists, the revoked one is left out', async () => {
+        const ids = (await ctx.client.as(sessionPrincipal).get('/v1/projects')).status(200).json<Array<{ project_id: string }>>().map((r) => r.project_id);
+        if (!ids.includes(other.id) || ids.includes(w.id)) throw new Error(`listed ${JSON.stringify(ids)}`);
       });
 
       await ctx.step('a refreshed token keeps the session id and stays 401', async () => {

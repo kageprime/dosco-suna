@@ -1,4 +1,4 @@
-import type { ResolvedManifest, TriggerFilter } from '@kortix/manifest-schema';
+import type { TriggerReaders, ResolvedManifest, TriggerFilter } from '@kortix/manifest-schema';
 
 /**
  * The source of a trigger (a kortix.yaml trigger or a loop). `change_request` fires
@@ -24,6 +24,10 @@ export interface GitTriggerEventFields {
 }
 
 export interface GitTriggerSpec {
+  /** Explicit per-trigger override. Absent: inherit the shared default. */
+  sessionReaders?: TriggerReaders;
+  /** Resolved shared default; never serialized as an explicit override. */
+  defaultSessionReaders?: TriggerReaders;
   /** URL-safe slug — unique per project. */
   slug: string;
   /**
@@ -84,6 +88,8 @@ export interface GitTriggerSpec {
    * when unset: the platform default (60) applies.
    */
   maxRunsPerHour?: number;
+  /** Include manual fires in atomically reserved run caps. */
+  hardRunCaps?: boolean;
   /** Any trigger type (`max_runs_per_day`): runs started in a UTC day. Omitted when unset: no daily cap. */
   maxRunsPerDay?: number;
   /**

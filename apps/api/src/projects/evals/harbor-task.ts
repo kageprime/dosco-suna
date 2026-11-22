@@ -87,8 +87,45 @@ export interface HarborTask {
   verifierMode: 'shared' | 'separate';
   /** Set when `verifierMode` is `separate`. */
   verifierEnvironment: HarborVerifierEnvironment | null;
+  /** `[[steps]]` in order; empty for a single-step task. */
+  steps: HarborStep[];
+  /** `multi_step_reward_strategy`: the trial's reward is the per-key mean of its steps, or the last step's. */
+  stepRewardStrategy: 'mean' | 'final';
+  /** `[metadata.kortix]`: how Kortix runs the task. */
+  kortix: KortixTaskOptions;
   /** Why Kortix cannot run this task, or null. */
   unsupported: string | null;
+}
+
+/**
+ * One step of a multi-step task (`steps/<name>/`). Every step continues the
+ * same session: a Kortix agent is a chat, so a later step is the person's next
+ * message, never a new agent in the same sandbox.
+ */
+export interface HarborStep {
+  name: string;
+  instruction: string;
+  /** `[steps.agent].timeout_sec`; null takes the task's. */
+  agentTimeoutSec: number | null;
+  verifierTimeoutSec: number | null;
+  verifierEnv: Record<string, string>;
+  /** Below it the remaining steps are skipped: a number gates the `reward` key, a table each key it names. */
+  minReward: number | Record<string, number> | null;
+  hasTests: boolean;
+  hasSolution: boolean;
+  /** `steps/<name>/workdir/setup.sh`: it runs before the step's instruction is sent. */
+  hasSetup: boolean;
+  hasWorkdir: boolean;
+}
+
+/** `[metadata.kortix]`, Kortix's own table in Harbor's free-form metadata. */
+export interface KortixTaskOptions {
+  /** `fresh`: every trial runs in a workspace of its own, made for it and deleted after it. */
+  workspace: 'shared' | 'fresh';
+  /** What a fresh workspace may spend, moved from the job's workspace and refunded after; null is the default. */
+  budgetUsd: number | null;
+  /** `[metadata].requires_flags`: a fresh workspace gets them turned on. */
+  flags: string[];
 }
 
 export class HarborTaskError extends Error {
@@ -245,6 +282,68 @@ export interface HarborTaskFiles {
   testsDockerfile?: string | null;
   /** Paths of the task folder, relative to it. */
   paths: readonly string[];
+  /** `steps/<name>/instruction.md` of every step that has one. */
+  stepInstructions?: Readonly<Record<string, string>>;
+}
+
+/** Harbor's portable step name: a directory name on every OS. */
+const STEP_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+
+function parseMinReward(value: unknown, where: string): number | Record<string, number> | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (isTable(value) && Object.values(value).every((v) => typeof v === 'number' && Number.isFinite(v))) return value as Record<string, number>;
+  throw new HarborTaskError(`${where}: min_reward must be a number or a table of numbers.`);
+}
+
+/** `[[steps]]` with their folders. The unsupported reason comes back separately: a step Kortix cannot run yet is named, not run. */
+function parseSteps(toml: Record<string, unknown>, files: HarborTaskFiles, has: (path: string) => boolean): { steps: HarborStep[]; unsupported: string | null } {
+  if (!Array.isArray(toml.steps)) return { steps: [], unsupported: null };
+  const seen = new Set<string>();
+  let unsupported: string | null = null;
+  const steps = toml.steps.map((entry): HarborStep => {
+    const raw = table(entry);
+    const name = typeof raw.name === 'string' ? raw.name : '';
+    if (!STEP_NAME.test(name) || name === '.' || name === '..') throw new HarborTaskError(`${files.folderName}: step name ${JSON.stringify(name)} is not a portable directory name.`);
+    const key = name.normalize('NFC').toLowerCase();
+    if (seen.has(key)) throw new HarborTaskError(`${files.folderName}: step names must be unique: ${name}.`);
+    seen.add(key);
+    const dir = `steps/${name}`;
+    const instruction = files.stepInstructions?.[name];
+    if (instruction === undefined) throw new HarborTaskError(`${files.folderName}: no ${dir}/instruction.md.`);
+    if (!has(`${dir}/tests/test.sh`)) throw new HarborTaskError(`${files.folderName}: no ${dir}/tests/test.sh.`);
+    const agent = table(raw.agent);
+    const verifier = table(raw.verifier);
+    if (!unsupported && raw.healthcheck !== undefined) unsupported = `Step ${name} has its own healthcheck, which Kortix does not run yet.`;
+    if (!unsupported && Array.isArray(raw.artifacts) && raw.artifacts.length > 0) unsupported = `Step ${name} collects its own artifacts, which Kortix does not run yet.`;
+    if (!unsupported && (verifier.environment_mode === 'separate' || isTable(verifier.environment))) unsupported = `Step ${name} has a separate verifier, which Kortix does not run for steps yet.`;
+    return {
+      name,
+      instruction: cleanInstruction(instruction),
+      agentTimeoutSec: positive(agent.timeout_sec),
+      verifierTimeoutSec: positive(verifier.timeout_sec),
+      verifierEnv: stringMap(verifier.env),
+      minReward: parseMinReward(raw.min_reward, `${files.folderName} step ${name}`),
+      hasTests: true,
+      hasSolution: has(`${dir}/solution/solve.sh`),
+      hasSetup: has(`${dir}/workdir/setup.sh`),
+      hasWorkdir: files.paths.some((path) => path.startsWith(`${dir}/workdir/`)),
+    };
+  });
+  return { steps, unsupported };
+}
+
+function parseKortixOptions(metadata: Record<string, unknown>, where: string): KortixTaskOptions {
+  const own = table(metadata.kortix);
+  const workspace = own.workspace ?? 'shared';
+  if (workspace !== 'shared' && workspace !== 'fresh') throw new HarborTaskError(`${where}: [metadata.kortix] workspace must be "shared" or "fresh".`);
+  let budgetUsd: number | null = null;
+  if (own.budget_usd !== undefined) {
+    budgetUsd = positive(own.budget_usd);
+    if (budgetUsd === null || budgetUsd > 100) throw new HarborTaskError(`${where}: [metadata.kortix] budget_usd must be more than 0 and at most 100.`);
+  }
+  const flags = Array.isArray(metadata.requires_flags) ? metadata.requires_flags.filter((flag): flag is string => typeof flag === 'string' && flag !== '') : [];
+  return { workspace, budgetUsd, flags };
 }
 
 /** Parse one task folder. Throws `HarborTaskError` when it is not a runnable task. */
@@ -257,7 +356,7 @@ export function parseHarborTask(files: HarborTaskFiles): HarborTask {
     throw new HarborTaskError(`${files.folderName}/task.toml is not valid TOML: ${err instanceof Error ? err.message : String(err)}`);
   }
   const has = (path: string) => files.paths.includes(path);
-  const multiStep = Array.isArray(toml.steps) || files.paths.some((path) => path.startsWith('steps/'));
+  const multiStep = Array.isArray(toml.steps);
   const environment = table(toml.environment);
   const verifier = table(toml.verifier);
   const agent = table(toml.agent);
@@ -278,25 +377,36 @@ export function parseHarborTask(files: HarborTaskFiles): HarborTask {
     ['[verifier.environment]', restrictedNetwork(verifierEnvironment)],
   ].find(([, mode]) => mode !== null);
 
-  let unsupported: string | null = null;
-  if (multiStep) unsupported = 'Multi-step tasks (`[[steps]]`) do not run on Kortix yet.';
-  else if (environment.os === 'windows') unsupported = 'Windows tasks do not run on Kortix.';
-  else if (hasCompose) unsupported = 'Multi-container tasks (`environment/docker-compose.yaml`) do not run on Kortix yet.';
-  else if (positive(environment.gpus) || environment.tpu || positive(verifierEnvironment.gpus)) unsupported = 'GPU and TPU tasks do not run on Kortix.';
-  else if (resolved.conflict) unsupported = '`environment_mode = "shared"` under `[verifier]` cannot be combined with `[verifier.environment]`.';
-  else if (resolved.environment?.source === 'tests-dockerfile' && files.paths.some((path) => /^tests\/docker-compose\.ya?ml$/.test(path))) {
-    unsupported = 'A multi-container verifier (`tests/docker-compose.yaml`) does not run on Kortix yet.';
-  } else if (sidecar) unsupported = 'Artifacts from a Compose service other than `main` need a multi-container environment, which Kortix does not run yet.';
-  else if (Array.isArray(environment.mcp_servers) && environment.mcp_servers.length > 0) {
-    unsupported = 'This task gives the agent MCP servers (`[[environment.mcp_servers]]`). Kortix sessions do not attach task MCP servers, so the agent would run without the tools the task expects.';
-  } else if (network) {
-    unsupported = `This task restricts network access (${network[0]} network_mode = "${network[1]}"). Kortix does not enforce sandbox network policies yet, so the agent would run with full internet access and the score would not be comparable.`;
+  const parsedSteps = parseSteps(toml, files, has);
+  const kortix = parseKortixOptions(table(toml.metadata), files.folderName);
+  let unsupported: string | null = parsedSteps.unsupported;
+  if (unsupported === null) unsupported = unsupportedReason();
+  function unsupportedReason(): string | null {
+    if (multiStep && resolved.mode === 'separate') return 'A multi-step task with a separate verifier does not run on Kortix yet.';
+    if (kortix.workspace === 'fresh' && (dockerImage || has('environment/Dockerfile'))) {
+      return "A task in a fresh workspace runs on the agent's own sandbox: it cannot also name a docker_image or an environment/Dockerfile.";
+    }
+    if (environment.os === 'windows') return 'Windows tasks do not run on Kortix.';
+    if (hasCompose) return 'Multi-container tasks (`environment/docker-compose.yaml`) do not run on Kortix yet.';
+    if (positive(environment.gpus) || environment.tpu || positive(verifierEnvironment.gpus)) return 'GPU and TPU tasks do not run on Kortix.';
+    if (resolved.conflict) return '`environment_mode = "shared"` under `[verifier]` cannot be combined with `[verifier.environment]`.';
+    if (resolved.environment?.source === 'tests-dockerfile' && files.paths.some((path) => /^tests\/docker-compose\.ya?ml$/.test(path))) {
+      return 'A multi-container verifier (`tests/docker-compose.yaml`) does not run on Kortix yet.';
+    }
+    if (sidecar) return 'Artifacts from a Compose service other than `main` need a multi-container environment, which Kortix does not run yet.';
+    if (Array.isArray(environment.mcp_servers) && environment.mcp_servers.length > 0) {
+      return 'This task gives the agent MCP servers (`[[environment.mcp_servers]]`). Kortix sessions do not attach task MCP servers, so the agent would run without the tools the task expects.';
+    }
+    if (network) {
+      return `This task restricts network access (${network[0]} network_mode = "${network[1]}"). Kortix does not enforce sandbox network policies yet, so the agent would run with full internet access and the score would not be comparable.`;
+    }
+    return null;
   }
 
   const taskName = typeof table(toml.task).name === 'string' ? String(table(toml.task).name).trim() : '';
   return {
     name: taskName || files.folderName,
-    instruction: files.instruction === null ? '' : cleanInstruction(files.instruction),
+    instruction: files.instruction !== null ? cleanInstruction(files.instruction) : (parsedSteps.steps[0]?.instruction ?? ''),
     agentTimeoutSec: positive(agent.timeout_sec) ?? EVAL_LIMITS.agent_timeout_sec_default,
     verifierTimeoutSec: positive(verifier.timeout_sec) ?? EVAL_LIMITS.verifier_timeout_sec_default,
     buildTimeoutSec: positive(environment.build_timeout_sec) ?? 600,
@@ -320,6 +430,9 @@ export function parseHarborTask(files: HarborTaskFiles): HarborTask {
     artifacts,
     verifierMode: resolved.mode,
     verifierEnvironment: resolved.environment,
+    steps: parsedSteps.steps,
+    stepRewardStrategy: toml.multi_step_reward_strategy === 'final' ? 'final' : 'mean',
+    kortix,
     unsupported,
   };
 }

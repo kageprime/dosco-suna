@@ -39,7 +39,9 @@ rare case you want CI before the merge, add the `test` or `preview` label (one r
 4. **Record a demo video** of the change with agent-browser, on the local stack.
 5. **Open the PR against `dev`.** Write the title and body for a human reviewer who decides
    "merge or iterate" without reading the diff: English only, in the section order of
-   `.github/pull_request_template.md` (the **create-pr** skill). Attach the video:
+   `.github/pull_request_template.md`: only `## Demo video` and `## Quick verification`
+   (a few actionable bullets). Link detailed output and review context in PR comments or
+   evidence. Testing, safety and reviewer/merge gates stay unchanged (the **create-pr** skill). Attach the video:
    `gh pr create --base dev --body-file output/pr/body.md --attach ./output/pr/demo.mp4`.
 6. **Merge.** Squash-merge it to `dev` when it is verified: the local checks passed and the
    PR has no conflict. No approval and no CI check is needed for `dev`. The merge does not

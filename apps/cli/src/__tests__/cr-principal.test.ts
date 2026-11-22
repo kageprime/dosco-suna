@@ -285,6 +285,11 @@ describe('kortix cr resolves one principal (KRTX-1486)', () => {
       },
       {
         method: 'GET',
+        path: `/v1/workspaces/${LINKED_PROJECT}`,
+        token: CONFIG_TOKEN,
+      },
+      {
+        method: 'GET',
         path: `/v1/workspaces/${LINKED_PROJECT}/change-requests/aaaaaaaa-0000-4000-8000-000000000003/diff`,
         token: CONFIG_TOKEN,
       },

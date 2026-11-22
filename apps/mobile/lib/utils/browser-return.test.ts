@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 
-import { waitForForegroundReturn, type AppStateSubscribe } from './browser-return';
+import { redirectSystemPath } from '@/app/+native-intent';
+
+import { closeBrowserOnAppOpen, waitForForegroundReturn, type AppStateSubscribe } from './browser-return';
 
 function fakeAppState() {
   let listener: ((state: string) => void) | null = null;
@@ -50,5 +52,66 @@ describe('waitForForegroundReturn', () => {
     const app = fakeAppState();
     waitForForegroundReturn(app.subscribe).cancel();
     expect(app.removed).toBe(true);
+  });
+});
+
+describe('closeBrowserOnAppOpen (iOS Smart App Banner OPEN)', () => {
+  function fakeBrowser(open: boolean) {
+    const calls: string[] = [];
+    return {
+      calls,
+      dismissAuthSession: () => { calls.push('dismissAuthSession'); },
+      // iOS rejects with WebBrowserNotOpenException when no browser is open.
+      dismissBrowser: () => {
+        calls.push('dismissBrowser');
+        return open ? Promise.resolve({ type: 'dismiss' }) : Promise.reject(new Error('not open'));
+      },
+    };
+  }
+
+  test('the bare app URL closes the in-app browser on iOS', () => {
+    for (const url of ['kortix://', 'kortix:///', ' KORTIX:// ']) {
+      const browser = fakeBrowser(true);
+      expect(closeBrowserOnAppOpen(url, 'ios', browser)).toBe(true);
+      expect(browser.calls).toEqual(['dismissAuthSession', 'dismissBrowser']);
+    }
+  });
+
+  test('no open browser is not an error', async () => {
+    const browser = fakeBrowser(false);
+    expect(closeBrowserOnAppOpen('kortix://', 'ios', browser)).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(browser.calls).toEqual(['dismissAuthSession', 'dismissBrowser']);
+  });
+
+  test('Android has no dismiss API: handled, nothing called', () => {
+    const browser = fakeBrowser(true);
+    expect(closeBrowserOnAppOpen('kortix://', 'android', browser)).toBe(true);
+    expect(browser.calls).toEqual([]);
+  });
+
+  test('every other link is left to its own handler and closes nothing', () => {
+    for (const url of [
+      'kortix://auth/callback?mobile_callback=1&state=s',
+      'https://kortix.com/auth/callback?mobile_callback=1&state=s',
+      'https://kortix.com/share/abc',
+      'kortix://invites/00000000-0000-4000-8000-000000000000',
+      'kortix://connectors',
+      'kortix://connectors/done',
+      'kortix://providers',
+      'kortix://web',
+      'https://kortix.com/',
+    ]) {
+      const browser = fakeBrowser(true);
+      expect(closeBrowserOnAppOpen(url, 'ios', browser)).toBe(false);
+      expect(browser.calls).toEqual([]);
+    }
+  });
+});
+
+describe('redirectSystemPath: the iOS Smart App Banner OPEN (kortix://)', () => {
+  test('a warm open keeps the current screen; a cold start begins at the splash', () => {
+    expect(redirectSystemPath({ path: 'kortix://', initial: false })).toBeNull();
+    expect(redirectSystemPath({ path: 'kortix://', initial: true })).toBe('/');
   });
 });

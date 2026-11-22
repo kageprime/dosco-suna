@@ -1,6 +1,6 @@
 import { shouldShowToolPart } from '../../../internal/session-types';
 import { sessionLogOpenCall, type SessionLogMessage, type ToolCallBlock } from '@kortix/sdk';
-import { shouldShowToolPartInActionsPanel } from '../../tool/tool-renderers';
+import { isUnpresentedFailure, shouldShowToolPartInActionsPanel } from '../../tool/tool-renderers';
 
 /**
  * Flatten a thread's messages into the ordered list of tool calls worth
@@ -48,7 +48,7 @@ export function collectAllToolCalls(messages: SessionLogMessage[] | undefined): 
     for (const block of msg.blocks) {
       if (block.type !== 'tool_call') continue;
       const call = sessionLogOpenCall(block);
-      if (shouldShowToolPart(call)) calls.push(call);
+      if (shouldShowToolPart(call) && !isUnpresentedFailure(call)) calls.push(call);
     }
   }
   return calls;

@@ -122,13 +122,13 @@ function ScalarValue({ value }: { value: string }) {
 function NestedTable({ data }: { data: Record<string, string> }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const entries = Object.entries(data);
-  if (entries.length === 0) return <span className="text-muted-foreground/60">—</span>;
+  if (entries.length === 0) return <span className="text-muted-foreground">—</span>;
   return (
     <div className="inline-flex flex-wrap gap-x-3 gap-y-1">
       {entries.map(([k, v]) => (
         <Badge key={k} size="sm" variant="secondary" className="gap-1">
-          <span className="text-muted-foreground/70">{k}</span>
-          <span className="text-muted-foreground/30">{tI18nComplete.raw('text3b9453dad42b')}</span>
+          <span className="text-muted-foreground">{k}</span>
+          <span className="text-muted-foreground">{tI18nComplete.raw('text3b9453dad42b')}</span>
           <ScalarValue value={v} />
         </Badge>
       ))}
@@ -247,7 +247,7 @@ export function MarkdownFrontmatterCard({
       <div className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 text-xs leading-relaxed">
         {entries.map(([key, value]) => (
           <React.Fragment key={key}>
-            <span className="text-muted-foreground/70 select-none">{key}</span>
+            <span className="text-muted-foreground select-none">{key}</span>
             <FrontmatterValueBody value={value} />
           </React.Fragment>
         ))}

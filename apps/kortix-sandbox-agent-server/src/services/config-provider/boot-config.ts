@@ -683,15 +683,18 @@ async function removeTree(dir: string): Promise<void> {
 }
 
 /**
- * Remove every release except `keep`: its directory, its manifest, and any
- * leftover staging directory. The pointer and the quarantine stay.
+ * Remove abandoned staging entries, not materialized releases. Conversation
+ * history and bootstrap symlinks can still name any earlier release, even
+ * after a daemon restart. The session sandbox owns their lifetime.
+ * Keeping bytes does not authorize them: boot still verifies the chosen release.
  */
 export async function pruneBootConfigs(root: string, keep: readonly string[]): Promise<void> {
   const kept = new Set(keep)
   for (const entry of await readdir(root, { withFileTypes: true }).catch(() => [])) {
     if (entry.name === POINTER_FILE || entry.name === QUARANTINE_FILE) continue
     const id = entry.name.slice(0, 64)
-    if (kept.has(id) && (entry.name === id || entry.name === `${id}.json`)) continue
+    // ponytail: retain releases for the sandbox lifetime; add reference tracking only if disk use requires reclamation.
+    if ((kept.has(id) || isReleaseId(id)) && (entry.name === id || entry.name === `${id}.json`)) continue
     const path = join(root, entry.name)
     if (entry.isDirectory()) await removeTree(path).catch(() => undefined)
     else if (entry.name.endsWith('.json') || entry.name.endsWith('.tmp')) await rm(path, { force: true }).catch(() => undefined)

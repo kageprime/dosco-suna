@@ -9,9 +9,9 @@ import type { ExplorerQueryResult, FileExplorerSource } from '../explorer-source
 
 /**
  * Characterization of the two git/sandbox explorers' shared listing core
- * (KRTX-4922): `DriveExplorer` and the read-only `FileExplorerPage` pin
- * `.kortix` first, sort folders and files by the store's sort field and
- * order, keep the server order for a partly loaded folder (KRTX-1723), and
+ * (KRTX-4922): `DriveExplorer` and the read-only `FileExplorerPage` list
+ * folders before files, sort each by the store's sort field and order (a dot
+ * folder such as `.github` is an ordinary folder: nothing is pinned), keep the server order for a partly loaded folder (KRTX-1723), and
  * the read-only page offers no write action.
  */
 
@@ -40,7 +40,7 @@ const node = (name: string, type: FileNode['type']): FileNode => ({
 const SERVER_ORDER = [
   node('zeta', 'directory'),
   node('b.txt', 'file'),
-  node('.kortix', 'directory'),
+  node('.github', 'directory'),
   node('alpha', 'directory'),
   node('a.md', 'file'),
   node('c.json', 'file'),
@@ -195,35 +195,35 @@ const EXPLORERS = [
 ] as const;
 
 describe.each(EXPLORERS)('%s listing order', (_name, explorer) => {
-  test('name ascending: .kortix first, then folders, then files', async () => {
+  test('name ascending: folders, then files', async () => {
     sortListing('name', 'asc');
     await mount(explorer());
-    expect(listedNames()).toEqual(['.kortix', 'alpha', 'zeta', 'a.md', 'b.txt', 'c.json']);
+    expect(listedNames()).toEqual(['.github', 'alpha', 'zeta', 'a.md', 'b.txt', 'c.json']);
   });
 
-  test('name descending reverses folders and files; .kortix stays first', async () => {
+  test('name descending reverses folders and files', async () => {
     sortListing('name', 'desc');
     await mount(explorer());
-    expect(listedNames()).toEqual(['.kortix', 'zeta', 'alpha', 'c.json', 'b.txt', 'a.md']);
+    expect(listedNames()).toEqual(['zeta', 'alpha', '.github', 'c.json', 'b.txt', 'a.md']);
   });
 
   test('type ascending sorts files by extension', async () => {
     sortListing('type', 'asc');
     await mount(explorer());
-    expect(listedNames()).toEqual(['.kortix', 'alpha', 'zeta', 'c.json', 'a.md', 'b.txt']);
+    expect(listedNames()).toEqual(['alpha', 'zeta', '.github', 'c.json', 'a.md', 'b.txt']);
   });
 
   test('type descending reverses the extension order', async () => {
     sortListing('type', 'desc');
     await mount(explorer());
-    expect(listedNames()).toEqual(['.kortix', 'zeta', 'alpha', 'b.txt', 'a.md', 'c.json']);
+    expect(listedNames()).toEqual(['.github', 'zeta', 'alpha', 'b.txt', 'a.md', 'c.json']);
   });
 
   test('a partly loaded folder keeps the server order (KRTX-1723)', async () => {
     sortListing('name', 'desc');
     listing = { ...COMPLETE, hasNextPage: true, fetchNextPage: async () => undefined };
     await mount(explorer());
-    expect(listedNames()).toEqual(['.kortix', 'zeta', 'alpha', 'b.txt', 'a.md', 'c.json']);
+    expect(listedNames()).toEqual(['zeta', '.github', 'alpha', 'b.txt', 'a.md', 'c.json']);
   });
 });
 
@@ -259,7 +259,7 @@ describe('FileExplorerPage is read-only', () => {
     await act(async () => window.dispatchEvent(paste));
     expect(paste.defaultPrevented).toBe(false);
     expect(store.getState().clipboard).toBeNull();
-    expect(listedNames()).toEqual(['.kortix', 'alpha', 'zeta', 'a.md', 'b.txt', 'c.json']);
+    expect(listedNames()).toEqual(['.github', 'alpha', 'zeta', 'a.md', 'b.txt', 'c.json']);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

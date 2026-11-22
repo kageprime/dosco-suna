@@ -9,7 +9,9 @@ import { CountBadge } from '@kortix/ui/count-badge';
 import { EmptyArt } from '@kortix/ui/empty-art';
 import { EmptyState } from '@kortix/ui/empty-state';
 import { ErrorState } from '@kortix/ui/error-state';
+import { InputGroupSearch, InputGroupSearchClear, InputGroupSearchIcon, InputGroupSearchInput } from '@kortix/ui/input-group';
 import { Skeleton } from '@kortix/ui/skeleton';
+import { SortMenu, useStoredSort } from '@kortix/ui/sort-menu';
 import { Tabs, TabsList, TabsTrigger } from '@kortix/ui/tabs';
 import {
   ALL_SPACES,
@@ -32,11 +34,24 @@ import {
   useSpaceFilter,
   useSpacesEnabled,
 } from '@kortix/ui/workspace';
-import { PlusIcon, TargetIcon } from '@phosphor-icons/react';
+import { MagnifyingGlassIcon, PlusIcon, TargetIcon } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { GoalStarter } from './goal-starter';
 import { NewGoalModal } from './new-goal-modal';
+
+type GoalSort = 'activity' | 'name' | 'created';
+const GOAL_SORTS: GoalSort[] = ['activity', 'name', 'created'];
+
+/** Goals in the picked order; each group below keeps it. */
+function sortGoals(goals: ProjectGoal[], sort: GoalSort): ProjectGoal[] {
+  const sorted = [...goals];
+  if (sort === 'name') {
+    return sorted.sort((a, b) => a.record.title.localeCompare(b.record.title, undefined, { sensitivity: 'base' }));
+  }
+  const at = (goal: ProjectGoal) => (sort === 'created' ? goal.record.created_at : goal.record.updated_at);
+  return sorted.sort((a, b) => at(b).localeCompare(at(a)));
+}
 
 /**
  * /workspaces/[id]/goals — every goal the API lets the viewer read (their own,
@@ -68,10 +83,25 @@ export function GoalsPage({ projectId }: { projectId: string }) {
   const viewerId = useUiViewerId();
   const [mine, setMine] = useState(false);
   const [creating, setCreating] = useState(false);
-  const all = (goals.data ?? []).filter(
-    (goal) =>
-      (space === ALL_SPACES || spaceOf(goal) === space) &&
-      (!mine || goalAssignedTo(goal, viewerId)),
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useStoredSort<GoalSort>('kortix:goals-sort', GOAL_SORTS, 'activity');
+  const tSort = useTranslations('listSort');
+  const sortLabel: Record<GoalSort, string> = {
+    activity: tSort('lastActivity'),
+    name: tSort('name'),
+    created: tSort('created'),
+  };
+  const query = search.trim().toLowerCase();
+  const all = sortGoals(
+    (goals.data ?? []).filter(
+      (goal) =>
+        (space === ALL_SPACES || spaceOf(goal) === space) &&
+        (!mine || goalAssignedTo(goal, viewerId)) &&
+        (!query ||
+          goal.record.title.toLowerCase().includes(query) ||
+          goal.record.summary.toLowerCase().includes(query)),
+    ),
+    sort,
   );
   const spaceLabel = (goal: ProjectGoal) =>
     spacesOn && space === ALL_SPACES ? labels.get(spaceOf(goal)) : undefined;
@@ -87,7 +117,6 @@ export function GoalsPage({ projectId }: { projectId: string }) {
   const newGoal = (
     <Button
       size="sm"
-      variant="outline"
       className="gap-1.5"
       onClick={() => setCreating(true)}
       data-testid="goals-new"
@@ -99,7 +128,19 @@ export function GoalsPage({ projectId }: { projectId: string }) {
 
   return (
     <div className="flex h-svh flex-col overflow-hidden">
-      <ProjectPageHeader title={t('title')}>{hasGoals ? newGoal : null}</ProjectPageHeader>
+      <ProjectPageHeader title={t('title')}>
+        {hasGoals ? (
+          <>
+            <SortMenu
+              value={sort}
+              onValueChange={setSort}
+              options={GOAL_SORTS.map((mode) => ({ value: mode, label: sortLabel[mode] }))}
+              label={tSort('sortBy', { mode: sortLabel[sort] })}
+            />
+            {newGoal}
+          </>
+        ) : null}
+      </ProjectPageHeader>
       <NewGoalModal projectId={projectId} open={creating} onOpenChange={setCreating} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-8 px-4 py-6 pb-20 md:px-8">
@@ -156,13 +197,29 @@ export function GoalsPage({ projectId }: { projectId: string }) {
                   value={space}
                   onValueChange={setSpace}
                 />
+                <InputGroupSearch className="min-w-0 flex-1 sm:w-64 sm:flex-none">
+                  <InputGroupSearchIcon>
+                    <MagnifyingGlassIcon />
+                  </InputGroupSearchIcon>
+                  <InputGroupSearchInput
+                    placeholder={t('search')}
+                    aria-label={t('search')}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    variant="popover"
+                    size="sm"
+                  />
+                  <InputGroupSearchClear onClick={() => setSearch('')} />
+                </InputGroupSearch>
               </div>
               {all.length === 0 ? (
                 <EmptyState
                   size="sm"
                   media={<EmptyArt icon={TargetIcon} />}
                   title={
-                    mine
+                    query
+                      ? t('noMatch')
+                      : mine
                       ? t('noneAssigned')
                       : t('spaceEmpty', {
                           space: spaceFilterLabel(space, spaces, tSpaces('projectWide')),
@@ -172,7 +229,11 @@ export function GoalsPage({ projectId }: { projectId: string }) {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => (mine ? setMine(false) : setSpace(ALL_SPACES))}
+                      onClick={() => {
+                        setSearch('');
+                        if (mine) setMine(false);
+                        else setSpace(ALL_SPACES);
+                      }}
                     >
                       {t('showAll')}
                     </Button>

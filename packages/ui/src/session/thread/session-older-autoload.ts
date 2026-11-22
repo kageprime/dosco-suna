@@ -61,9 +61,8 @@ export function olderAutoloadExhausted(state: {
 }
 
 /** Decides whether the top sentinel coming into view should pull the previous
- *  page of history — the transcript equivalent of
- *  `shouldFetchNextMarketplacePage`, extracted for the same reason: the paging
- *  decision is then unit-testable without a real `IntersectionObserver`.
+ *  page of history. Extracted so the paging decision is unit-testable without
+ *  a real `IntersectionObserver`.
  *
  *  `lastPullFailed` is the one condition the old manual button gave us for
  *  free. An observer re-arms whenever its dependencies change, so a cursor the

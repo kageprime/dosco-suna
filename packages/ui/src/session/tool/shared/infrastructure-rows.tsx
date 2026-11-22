@@ -97,7 +97,7 @@ function PanelToolRow({
         </div>
       )}
       {badge && (
-        <span className="text-muted-foreground/60 shrink-0 font-mono text-xs whitespace-nowrap tabular-nums">
+        <span className="text-muted-foreground shrink-0 font-mono text-xs whitespace-nowrap tabular-nums">
           {badge}
         </span>
       )}
@@ -198,7 +198,7 @@ function ActivatableToolRow({
     >
       {header}
       <PanelRight
-        className="text-muted-foreground/30 size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-80"
+        className="text-muted-foreground size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-80"
         mirrored
       />
     </div>

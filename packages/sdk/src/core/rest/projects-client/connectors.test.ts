@@ -1353,6 +1353,20 @@ test('listSessionConnectRequests reads the connectors this session is waiting on
   expect(result).toEqual([{ slug: 'gmail', app: 'gmail', provider: 'composio', connected: false }]);
 });
 
+test('listSessionConnectRequests: a viewer who may not connect accounts (403) gets the error, not the global error toast', async () => {
+  // A member opening a session someone shared with them (a Space) reads this
+  // in the background; the card stays hidden, so a toast is noise.
+  const errors: unknown[] = [];
+  configureKortix({ backendUrl: 'http://test.local', getToken: async () => 'tok', onError: (e) => errors.push(e) });
+  try {
+    nextResponse = { status: 403, body: { error: 'forbidden (workspace.connector.write)' } };
+    await expect(listSessionConnectRequests('P1', 'S1')).rejects.toBeTruthy();
+    expect(errors).toHaveLength(0);
+  } finally {
+    configureKortix({ backendUrl: 'http://test.local', getToken: async () => 'tok' });
+  }
+});
+
 test('listSessionConnectRequests types the account each request lands on', async () => {
   const row = {
     slug: 'gmail',

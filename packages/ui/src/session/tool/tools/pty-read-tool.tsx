@@ -150,7 +150,7 @@ export function PtyReadTool({ call, defaultOpen, forceOpen, locked }: ToolProps)
             >
               <PreWithPaths
                 text={parsed.buffer.earlier}
-                className="text-muted-foreground/70 font-mono text-xs leading-relaxed whitespace-pre-wrap"
+                className="text-muted-foreground font-mono text-xs leading-relaxed whitespace-pre-wrap"
               />
             </FoldedSection>
           )}
@@ -159,7 +159,7 @@ export function PtyReadTool({ call, defaultOpen, forceOpen, locked }: ToolProps)
             className="text-foreground/80 px-2 py-1.5 font-mono text-xs leading-relaxed whitespace-pre-wrap"
           />
           {parsed.bufferInfo && (
-            <div className="text-muted-foreground/50 px-2 pb-1.5 text-xs">{parsed.bufferInfo}</div>
+            <div className="text-muted-foreground px-2 pb-1.5 text-xs">{parsed.bufferInfo}</div>
           )}
         </ToolResultCard>
       ) : null}

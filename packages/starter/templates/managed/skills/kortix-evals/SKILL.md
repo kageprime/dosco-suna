@@ -275,10 +275,8 @@ its content hash, so a re-run runs the same tasks.
 | `kortix evals trial <job> <trial> [--file <path>]` | one trial and its files |
 | `kortix evals compare <job_a> <job_b>` | task by task: better, worse, same |
 | `kortix evals rerun <job> --failed` | run the failed trials again |
-| `kortix evals pause <job>` / `resume <job>` | hold the queued trials, running ones go on; queue them again |
-| `kortix evals cancel <job> [--drain]` / `rm <job>` | stop a job (`--drain`: running trials finish, nothing new starts or retries), or delete it |
-| `kortix evals trial retry\|cancel\|pause\|resume <job> <trial>` | act on one trial |
-| `kortix evals trials [--job <id>] [--status errored] [--task <name>] [--model <id>] [--error <type>]` | trials of every job, filtered: where one task fails across jobs, every timeout of one model |
+| `kortix evals cancel <job>` / `rm <job>` | stop or delete a job |
+| `kortix evals trial retry\|cancel <job> <trial>` | run one ended trial again, or stop one |
 | `kortix evals judge --criterion <name>="<…>" --input <file>` | score open-ended work in a verifier |
 
 Every command takes `--json`. Each trial is a full session and costs what a

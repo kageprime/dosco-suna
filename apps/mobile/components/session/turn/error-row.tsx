@@ -30,6 +30,7 @@ import {
 } from '@/lib/session/busy-status';
 import { webSpace } from '@/lib/session/user-message';
 import { THEME, withAlpha } from '@/lib/utils/theme';
+import { useTone } from '@/lib/utils/tone';
 
 /** `text-sm leading-snug` (1.375). */
 const ITEM_TITLE_TYPE = { fontSize: 14, lineHeight: 14 * 1.375, fontFamily: FONT_MEDIUM } as const;
@@ -37,8 +38,8 @@ const ITEM_TITLE_TYPE = { fontSize: 14, lineHeight: 14 * 1.375, fontFamily: FONT
 type ErrorTone = 'error' | 'warning';
 
 const TONE = {
-  error: THEME.accent.red,
-  warning: THEME.accent.orange,
+  error: 'red',
+  warning: 'orange',
 } as const;
 
 export function ErrorRow({
@@ -93,7 +94,7 @@ export function StatusTile({
   /** The content has an `ItemDescription`. `false` centres the tile (web `TILE_CENTERED`). */
   hasDescription?: boolean;
 }) {
-  const color = TONE[tone];
+  const color = THEME.accent[useTone()][TONE[tone]];
   return (
     <View
       style={[

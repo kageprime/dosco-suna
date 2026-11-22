@@ -217,63 +217,15 @@ async function main() {
     });
     const page = await context.newPage();
 
-    for (const family of MARK_FAMILIES) {
-      if (!wanted(family.id)) continue;
-      const shot = (size, format, quality) =>
-        capture(page, {
-          html: markPageHtml({
-            w: size.w,
-            h: size.h,
-            bg: theme.bg,
-            fg: theme.fg,
-            svgFile: family.svg,
-            widthRatio: size.w >= size.h ? family.width.landscape : family.width.portrait,
-          }),
-          format,
-          quality,
-        });
-
-      for (const size of MARK_SIZES) {
-        await page.setViewportSize({ width: size.w, height: size.h });
-        const file = `kortix-${family.id}-${theme.id}-${size.w}x${size.h}.png`;
-        const buf = await shot(size, 'png');
-        writeFileSync(join(OUT_DIR, file), buf);
-        entries.push({
-          group: 'mark',
-          id: family.id,
-          name: family.name,
-          theme: theme.id,
-          size,
-          file,
-        });
-        console.log(
-          `${family.id} ${theme.id} ${size.w}x${size.h} → ${(buf.length / 1024).toFixed(0)} KB`,
-        );
-      }
-
-      await page.setViewportSize({ width: PREVIEW.w, height: PREVIEW.h });
-      const previewFile = `kortix-${family.id}-${theme.id}-preview.jpg`;
-      writeFileSync(join(OUT_DIR, previewFile), await shot(PREVIEW, 'jpeg', PREVIEW_QUALITY));
-      previews.set(`${family.id}-${theme.id}`, `/wallpapers/downloads/${previewFile}`);
-    }
-
-    for (const wallpaper of PRODUCT_WALLPAPERS) {
-      if (!wanted(wallpaper.id)) continue;
-      const shot = (size, format, quality) =>
-        capture(page, {
-          url: `${BASE}/debug/wallpaper?id=${wallpaper.id}&theme=${theme.id}&px=${size.w * size.h}`,
-          shader: wallpaper.id !== 'brandmark',
-          format,
-          quality,
-        });
-
-      for (const size of PRODUCT_SIZES) {
+    /** One wallpaper at every size, then its card preview. */
+    const render = async (wallpaper, group, sizes, shot) => {
+      for (const size of sizes) {
         await page.setViewportSize({ width: size.w, height: size.h });
         const file = `kortix-${wallpaper.id}-${theme.id}-${size.w}x${size.h}.${ext(wallpaper.format)}`;
         const buf = await shot(size, wallpaper.format);
         writeFileSync(join(OUT_DIR, file), buf);
         entries.push({
-          group: 'product',
+          group,
           id: wallpaper.id,
           name: wallpaper.name,
           theme: theme.id,
@@ -290,6 +242,38 @@ async function main() {
       const previewFile = `kortix-${wallpaper.id}-${theme.id}-preview.jpg`;
       writeFileSync(join(OUT_DIR, previewFile), await shot(PREVIEW, 'jpeg', PREVIEW_QUALITY));
       previews.set(`${wallpaper.id}-${theme.id}`, `/wallpapers/downloads/${previewFile}`);
+    };
+
+    for (const family of MARK_FAMILIES) {
+      if (!wanted(family.id)) continue;
+      const shot = (size, format, quality) =>
+        capture(page, {
+          html: markPageHtml({
+            w: size.w,
+            h: size.h,
+            bg: theme.bg,
+            fg: theme.fg,
+            svgFile: family.svg,
+            widthRatio: size.w >= size.h ? family.width.landscape : family.width.portrait,
+          }),
+          format,
+          quality,
+        });
+
+      await render({ ...family, format: 'png' }, 'mark', MARK_SIZES, shot);
+    }
+
+    for (const wallpaper of PRODUCT_WALLPAPERS) {
+      if (!wanted(wallpaper.id)) continue;
+      const shot = (size, format, quality) =>
+        capture(page, {
+          url: `${BASE}/debug/wallpaper?id=${wallpaper.id}&theme=${theme.id}&px=${size.w * size.h}`,
+          shader: wallpaper.id !== 'brandmark',
+          format,
+          quality,
+        });
+
+      await render(wallpaper, 'product', PRODUCT_SIZES, shot);
     }
 
     await context.close();

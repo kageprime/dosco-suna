@@ -43,8 +43,53 @@ test('after the launch the root is the landing page and other pages are kortix.c
   expect(own.headers.get('location')).toBe('https://loopmaxxing.sh/');
 });
 
+test('after the launch the page reads its star count from the host itself', async () => {
+  // A redirect to kortix.com would be cross-origin with no CORS header: the header's count would vanish.
+  process.env[FLAG] = 'true';
+  const res = await middleware(request('/api/github-stars'));
+  expect(res.headers.get('location') ?? '').not.toContain('kortix.com');
+});
+
 test('after the launch the setup guide is served under the host itself', async () => {
   process.env[FLAG] = 'true';
   const res = await middleware(request('/setup.md'));
   expect(res.headers.get('location') ?? '').not.toContain('kortix.com');
+});
+
+test('after the launch the host serves its own robots.txt, sitemap and llms.txt', async () => {
+  process.env[FLAG] = 'true';
+  const robots = await middleware(request('/robots.txt'));
+  expect(robots.headers.get('location') ?? '').not.toContain('kortix.com');
+  for (const [path, file] of [
+    ['/sitemap.xml', '/loopmaxxing-site/sitemap.xml'],
+    ['/llms.txt', '/loopmaxxing-site/llms.txt'],
+    ['/llms-full.txt', '/loopmaxxing-site/llms.txt'],
+  ]) {
+    const res = await middleware(request(path));
+    expect(res.headers.get('x-middleware-rewrite')).toContain(file);
+  }
+});
+
+function kortixRequest(path: string): NextRequest {
+  const req = new NextRequest(`https://kortix.com${path}`);
+  req.headers.set('host', 'kortix.com');
+  req.headers.set('x-forwarded-proto', 'https');
+  return req;
+}
+
+test('after the launch kortix.com/loopmaxxing and its locale copies move to loopmaxxing.sh', async () => {
+  process.env[FLAG] = 'true';
+  for (const path of ['/loopmaxxing', '/de/loopmaxxing', '/loopmaxxing/']) {
+    const res = await middleware(kortixRequest(path));
+    expect(res.status).toBe(308);
+    expect(res.headers.get('location')).toBe('https://loopmaxxing.sh/');
+  }
+  // The wordmark sheet stays on kortix.com.
+  const sheet = await middleware(kortixRequest('/loopmaxxing/wordmark'));
+  expect(sheet.headers.get('location') ?? '').not.toContain('loopmaxxing.sh');
+});
+
+test('before the launch kortix.com/loopmaxxing is not redirected', async () => {
+  const res = await middleware(kortixRequest('/loopmaxxing'));
+  expect(res.headers.get('location') ?? '').not.toContain('loopmaxxing.sh');
 });

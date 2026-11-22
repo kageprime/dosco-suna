@@ -1,6 +1,6 @@
 import type React from 'react';
 
-import { INLINE_CODE } from './code/inline-chip';
+import { INLINE_CODE } from './inline-chip';
 
 export type InlineCodeSegment = { kind: 'text' | 'code'; value: string };
 
@@ -39,7 +39,7 @@ export function plainTextFromMarkdown(input: string): string {
       segment.kind === 'code'
         ? segment.value
         : segment.value
-            .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+            .replace(/!?\[([^[\]]*)\]\([^()\s]*\)/g, '$1')
             .replace(/(\*\*|__|~~)(?=\S)([\s\S]*?\S)\1/g, '$2')
             .replace(/(^|[^\w*])\*(?=\S)([^*]*?\S)\*(?![\w*])/g, '$1$2')
             .replace(/(^|[^\w])_(?=\S)([^_]*?\S)_(?!\w)/g, '$1$2'),

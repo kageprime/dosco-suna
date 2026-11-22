@@ -5,17 +5,23 @@ import { useOptionalSidebar } from '../../primitives/sidebar';
 import { SidebarToggle } from './sidebar-toggle';
 
 /**
- * The header of a standalone project page (Files, Apps):
- * the sidebar toggle, then the page title as the page's `<h1>`. It uses the
- * same title-bar classes as the agent identity header (`agent-page-chrome.tsx`), so it
- * has the same height and clears the desktop window controls the same way.
- * A page has one view, so the title is plain text, not a one-tab underline
- * bar. `titleAccessory` sits right after the title (a docs link). `children`
- * sit at the trailing edge (page actions).
+ * The one header of a standalone project page (Spaces, Goals, Apps, Artifacts,
+ * Files, Calendar, a goal, an artifact): 44px tall (`h-12`), 11px gutters
+ * (`px-3`), the sidebar toggle, the title as the page's `<h1>` on the toggle's
+ * line, and the actions 8px apart (`gap-2`) at the trailing edge. Actions are
+ * `size="sm"` buttons or `size="icon-base"` icon buttons (both 29px), the
+ * primary one in the default variant. A page that draws its own row (the
+ * artifact viewer) uses `PROJECT_PAGE_HEADER_CLASS`, never its own numbers.
  *
- * The e2e journey `18-apps-ui` finds the page by the
- * `<h1>`.
+ * The title-bar classes (`kx-titlebar-row`, `kx-titlebar-tabs`) let the
+ * desktop app give the row its window-control band. `breadcrumb` sits before
+ * the title ("Goals ›"), `titleAccessory` after it (a docs link).
+ *
+ * The e2e journey `18-apps-ui` finds the page by the `<h1>`.
  */
+export const PROJECT_PAGE_HEADER_CLASS =
+  'kx-titlebar-row kx-capability-titlebar border-border relative flex h-12 shrink-0 items-center gap-2 border-b px-3';
+
 export function ProjectPageHeader({
   title,
   titleAccessory,
@@ -29,21 +35,19 @@ export function ProjectPageHeader({
   children?: React.ReactNode;
 }) {
   const sidebar = useOptionalSidebar();
-  // Inside Workspace settings (Repository) the settings page header above is
-  // the page's h1 and names the page: this row is only the browser's toolbar.
-  const inSettings = useSettingsPageTitle() !== null;
+  // Inside Workspace settings (Repository) this row is the page header: its
+  // h1 reads the settings rail word, so no second heading sits above it, and
+  // the settings title bar owns the one sidebar opener.
+  const settingsTitle = useSettingsPageTitle();
   return (
-    <div
-      className="kx-titlebar-row kx-capability-titlebar relative flex shrink-0 items-center gap-1 border-b px-2"
-      data-sidebar-collapsed={sidebar?.state === 'collapsed' || undefined}
-    >
-      <SidebarToggle />
-      <div className="kx-titlebar-tabs flex h-10 min-w-0 flex-1 items-center gap-1.5 px-3">
+    <div className={PROJECT_PAGE_HEADER_CLASS} data-sidebar-collapsed={sidebar?.state === 'collapsed' || undefined}>
+      {settingsTitle === null ? <SidebarToggle /> : null}
+      <div className="kx-titlebar-tabs flex h-full min-w-0 flex-1 items-center gap-1.5">
         {breadcrumb}
-        {inSettings ? null : <h1 className="text-foreground truncate text-sm font-medium">{title}</h1>}
+        <h1 className="text-foreground truncate text-sm font-medium">{settingsTitle ?? title}</h1>
         {titleAccessory}
       </div>
-      {children ? <div className="flex shrink-0 items-center gap-1">{children}</div> : null}
+      {children ? <div className="flex shrink-0 items-center gap-2">{children}</div> : null}
     </div>
   );
 }

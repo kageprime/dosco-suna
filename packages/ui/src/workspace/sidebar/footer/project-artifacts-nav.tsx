@@ -86,7 +86,7 @@ export function ProjectArtifactsNavItem({ projectId }: { projectId: string }) {
         </span>
         {t('artifacts')}
       </ProjectNavRow>
-      <NavHoverCardContent {...card.contentProps}>
+      <NavHoverCardContent {...card.contentProps} className="w-80">
         {showSearch ? (
           <div className="border-border border-b p-1">
             <InputGroupSearch>

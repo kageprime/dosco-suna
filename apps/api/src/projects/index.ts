@@ -101,7 +101,6 @@ import { registerProjectMyMemoryRoutes } from './routes/project-my-memory';
 import { registerChangeRequestsRoutes } from './routes/change-requests';
 import { registerPromptAttachmentsRoutes } from './routes/prompt-attachments';
 import { registerChangeRequestActionsRoutes } from './routes/change-request-actions';
-import { registerMarketplaceInstallSessionRoutes } from './routes/marketplace-install-session';
 import { registerReviewItemsRoutes } from './routes/review-items';
 import { registerAgentScopeRoutes } from './routes/agent-scope';
 import { registerAgentCapabilitiesRoutes } from './routes/agent-capabilities';
@@ -208,7 +207,6 @@ export function registerAllProjectRoutes(): void {
   registerChangeRequestsRoutes();
   registerPromptAttachmentsRoutes();
   registerChangeRequestActionsRoutes();
-  registerMarketplaceInstallSessionRoutes();
   registerReviewItemsRoutes();
   registerAgentScopeRoutes();
   registerAgentConfigRoutes();

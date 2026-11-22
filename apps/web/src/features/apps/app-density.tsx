@@ -205,12 +205,13 @@ export function AppGridColumnsControl({
           <Hint key={key} side="bottom" label={option.label}>
             <Button
               type="button"
-              variant="secondary"
-              size="icon-sm"
+              variant="outline"
+              size="icon-base"
               aria-pressed={active}
               aria-label={option.label}
               onClick={() => onChange(key)}
-              className={active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}
+              // Outline like search and sort beside it; the chosen density is filled.
+              className={active ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'}
             >
               <Glyph className="size-4" />
             </Button>

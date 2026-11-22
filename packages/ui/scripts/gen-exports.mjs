@@ -46,6 +46,8 @@ export const INTERNAL = new Set([
   // Shared internals of dropdown-menu/context-menu and command.
   'primitives/menu-base.tsx',
   'primitives/command-core.tsx',
+  // The WebGL renderer of gradient-wallpaper.tsx.
+  'primitives/gradient-wallpaper-gl.ts',
 ]);
 
 // One curated barrel per module: the public API. Explicit names, no `export *`.

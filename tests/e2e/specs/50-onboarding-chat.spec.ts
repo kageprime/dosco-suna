@@ -3,8 +3,10 @@ import { expect, test } from '@playwright/test';
 
 import { type Env, loadEnv } from '../../src/core/env';
 import { createDatabaseProject, deleteDatabaseProject } from '../../src/fixtures/database-project';
+import { createLocalGitRepository, type LocalGitRepository } from '../../src/fixtures/local-git';
 import { queryDatabaseRows, runDatabaseSql } from '../helpers/database';
 import { createApiJsonClient } from '../helpers/http';
+import { ensureOwnedAccount } from '../helpers/accounts';
 import { fundAccount, isDeployedTarget } from '../helpers/manifest-project';
 import {
   type AuthSession,
@@ -33,6 +35,7 @@ interface Provisioned {
   /** A managed-git project from `POST /projects/provision`, deleted through the API. */
   provisioned?: boolean;
   accountId: string;
+  repository?: LocalGitRepository;
   session: AuthSession;
   userId: string;
   email: string;
@@ -50,15 +53,10 @@ async function freshUserWithProject(options: { realProject?: boolean } = {}): Pr
   // keeps the four parallel provisions collision-free.
   const email = `e2e-onboarding-chat-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}@example.test`;
   const user = await createAuthUser(email, authOptions);
+  let repository: LocalGitRepository | undefined;
   try {
     const session = await signIn(email, authOptions);
-    const accounts = await api<Array<{ account_id: string; personal_account?: boolean }>>(
-      session.access_token,
-      'GET',
-      '/accounts',
-    );
-    const account = accounts.find((row) => row.personal_account) ?? accounts[0];
-    expect(account).toBeDefined();
+    const account = { account_id: await ensureOwnedAccount(api, session.access_token) };
     // The database fixture stamps `onboarding_completed_at` by default so
     // other journeys land on the usual home; null it here so this fresh
     // project opens on the onboarding chat.
@@ -74,15 +72,18 @@ async function freshUserWithProject(options: { realProject?: boolean } = {}): Pr
       );
       return { projectId: real.project_id, provisioned: true, accountId: account.account_id, session, userId: user.id, email, env };
     }
+    repository = await createLocalGitRepository('Onboarding journey');
     const project = await createDatabaseProject(env, {
       accountId: account.account_id,
       userId: user.id,
       name: `Onboarding chat ${randomUUID().slice(0, 8)}`,
+      repoUrl: repository.repoUrl,
       metadata: { onboarding_completed_at: null },
     });
-    return { projectId: project.id, accountId: account.account_id, session, userId: user.id, email, env };
+    return { projectId: project.id, accountId: account.account_id, session, userId: user.id, email, env, repository };
   } catch (error) {
-    await cleanup({ userId: user.id, email });
+    await repository?.dispose();
+    await deleteAuthUser(user.id, authOptions);
     throw error;
   }
 }
@@ -94,6 +95,7 @@ async function cleanup(user: Provisioned) {
     await api(user.session.access_token, 'DELETE', `/projects/${projectId}`, undefined, [200, 204, 404]).catch(() => undefined);
   } else {
     await deleteDatabaseProject(env, projectId).catch(() => undefined);
+    await user.repository?.dispose();
   }
   const rows = await queryDatabaseRows<{ account_id: string }>(
     'select distinct account_id::text from kortix.account_members where user_id = $1::uuid',
@@ -151,9 +153,10 @@ test.describe('50 — a new project opens on the first chat, which runs the onbo
       await expect(page.getByRole('heading', { level: 1, name: /I'm Kortix\./ })).toBeVisible();
       await expect(page.getByText('What you can do with Kortix')).toBeVisible();
       await expect(page.getByRole('link', { name: 'Your first chat with Kortix' })).toBeVisible();
-      expect(new URL(page.url()).searchParams.get('chat')).toBe('first');
+      await expect.poll(() => new URL(page.url()).searchParams.get('chat')).toBe('first');
       await expect(page.getByRole('button', { name: /Connect ChatGPT/ })).toBeVisible({ timeout: 30_000 });
       await expect(page.getByRole('button', { name: /Connect Claude/ })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Send message', exact: true })).toBeDisabled();
       await expect(page.getByRole('progressbar', { name: 'Setup progress' })).toHaveCount(0);
 
       // The promo opens right after hydration; give it the time it would take.
@@ -161,6 +164,17 @@ test.describe('50 — a new project opens on the first chat, which runs the onbo
       await expect(promoTitle(page)).toHaveCount(0);
       expect(new URL(page.url()).pathname).toBe(`/workspaces/${user.projectId}`);
       expect(stamps).toEqual([]);
+
+      // Model setup must not lock the owner out of workspace administration.
+      await page.goto(`/workspaces/${user.projectId}/admin/danger-zone`);
+      await expect(page.getByRole('button', { name: 'Delete workspace', exact: true })).toBeVisible();
+      await expect(page.getByTestId('connect-model-step')).toHaveCount(0);
+      await page.goto(`/workspaces/${user.projectId}/admin/api-keys`);
+      await expect(page.getByRole('heading', { name: 'API keys', exact: true })).toBeVisible();
+      await page.keyboard.press('ControlOrMeta+k');
+      const palette = page.getByRole('dialog', { name: 'Command Palette', exact: true });
+      await expect(palette.getByRole('combobox')).toBeVisible();
+      await expect(palette.getByRole('option', { name: 'Workspace settings', exact: true })).toBeVisible();
     } finally {
       await cleanup(user);
     }

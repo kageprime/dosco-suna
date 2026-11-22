@@ -64,6 +64,12 @@ mock.module('../channels/install-store', () => ({
   listProjectsForWorkspace: async () => ['proj-1'],
   loadSlackInstall: async () => null,
 }));
+const introPosts: unknown[][] = [];
+mock.module('../channels/slack/link', () => ({
+  linkedSlackProject: async () => 'proj-1',
+  holdsSlackWorkspace: async () => true,
+  recordSlackChannel: async () => {},
+}));
 mock.module('../channels/slack-api', () => ({
   addReaction: async () => {},
   appendStream: async () => {},
@@ -75,7 +81,7 @@ mock.module('../channels/slack-api', () => ({
   joinChannel: async () => true,
   openDmChannel: async () => 'D1',
   postEphemeral: async () => true,
-  postBlocks: async () => 'ts',
+  postBlocks: async (...args: unknown[]) => { introPosts.push(args); return 'ts'; },
   postMessage: async () => 'ts',
   publishHomeView: async () => {},
   removeReaction: async () => {},
@@ -86,7 +92,7 @@ mock.module('../channels/slack-api', () => ({
   updateMessage: async () => {},
 }));
 
-const { classifyEvent, isStarterReplyInOwnThread } = await import('../channels/slack/dispatch');
+const { classifyEvent, isStarterReplyInOwnThread, maybePostChannelIntro } = await import('../channels/slack/dispatch');
 
 const BOT = 'B1';
 const ev = (e: Record<string, unknown>) => ({ type: 'message', ...e }) as any;
@@ -94,6 +100,7 @@ const ev = (e: Record<string, unknown>) => ({ type: 'message', ...e }) as any;
 afterAll(() => mock.restore());
 beforeEach(() => {
   dbResults = [];
+  introPosts.length = 0;
   lastWhere = null;
 });
 
@@ -301,5 +308,24 @@ describe('isStarterReplyInOwnThread — the person who started the thread needs 
     expect(await isStarterReplyInOwnThread('proj-1', 'T1', reply({ thread_ts: undefined }))).toBe(false);
     expect(await isStarterReplyInOwnThread('proj-1', 'T1', reply({ bot_id: 'B1' }))).toBe(false);
     expect(await isStarterReplyInOwnThread('proj-1', 'T1', reply({ subtype: 'message_changed' }))).toBe(false);
+  });
+});
+
+describe('channel-connected welcome', () => {
+  test('posts only the connection status and task instructions, with matching fallback', async () => {
+    await maybePostChannelIntro('T1', { type: 'member_joined_channel', user: 'B1', channel: 'C1' });
+    expect(introPosts).toEqual([['xoxb-test', 'C1',
+      'Kortix is connected. Mention @Kortix to start a task. Mention Kortix in the thread to follow up.',
+      [
+        { type: 'header', text: { type: 'plain_text', text: 'Kortix is connected.', emoji: false } },
+        { type: 'section', text: { type: 'mrkdwn', text: 'Mention @Kortix to start a task. Mention Kortix in the thread to follow up.' } },
+      ],
+    ]]);
+  });
+
+  test('does not welcome a human joining the channel or an event without a channel', async () => {
+    await maybePostChannelIntro('T1', { type: 'member_joined_channel', user: 'U1', channel: 'C1' });
+    await maybePostChannelIntro('T1', { type: 'member_joined_channel', user: 'B1' });
+    expect(introPosts).toEqual([]);
   });
 });

@@ -304,6 +304,20 @@ describe('kortix projects set / rename', () => {
     expect(calls).toEqual([]);
   });
 
+  test('glyphs lists the names and colors --glyph accepts, with no request sent', async () => {
+    const config = writeConfig(startServer());
+    const r = await runCli(['workspaces', 'glyphs', '--json'], config);
+    expect(r.code).toBe(0);
+    const out = JSON.parse(r.stdout) as { groups: { label: string; names: string[] }[]; colors: string[] };
+    const names = out.groups.flatMap((group) => group.names);
+    expect(names).toContain('Phone');
+    expect(out.colors).toContain('blue');
+    expect(calls).toEqual([]);
+
+    const set = await runCli(['workspaces', 'set', '--project', PROJECT, '--glyph', `${names.at(-1)}:blue`], config);
+    expect(set.code).toBe(0);
+  });
+
   test('--icon together with --glyph is refused (a project shows one icon)', async () => {
     const config = writeConfig(startServer());
     const r = await runCli(

@@ -2,7 +2,13 @@ const { describe, expect, test } = require('bun:test');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 
-const { APP_PATH_PREFIXES, isAppPath, isApprovalDialogPath, isPreviewHost } = require('./nav-rules');
+const {
+  APP_PATH_PREFIXES,
+  isAppPath,
+  isApprovalDialogPath,
+  isPreviewHost,
+  isStripeHostedPage,
+} = require('./nav-rules');
 
 /**
  * The web middleware's `DESKTOP_ALLOWED_ROUTES`, read from source. The shell
@@ -57,6 +63,37 @@ describe('desktop navigation gate', () => {
     expect(isPreviewHost('p1.localhost')).toBe(true);
     expect(isPreviewHost('evilkortix.cloud')).toBe(false);
     expect(isPreviewHost('github.com')).toBe(false);
+  });
+});
+
+describe('isStripeHostedPage', () => {
+  const stays = (url) => isStripeHostedPage(new URL(url));
+
+  test('keeps Stripe Checkout and the billing portal in the app window', () => {
+    // Subscribe and Manage billing leave the app for these pages. In the window,
+    // their success, cancel and return URLs come back to it; in the system
+    // browser the window kept its spinner and never saw the return.
+    expect(stays('https://checkout.stripe.com/c/pay/cs_test_synthetic#fid')).toBe(true);
+    expect(stays('https://billing.stripe.com/p/session/test_synthetic')).toBe(true);
+    // Kortix's own Stripe domain, a CNAME to Stripe's hosted checkout.
+    expect(stays('https://pay.kortix.com/c/pay/cs_live_synthetic')).toBe(true);
+    expect(stays('https://pay.kortix.com/p/session/live_synthetic')).toBe(true);
+  });
+
+  test('sends other Stripe hosts and lookalikes to the system browser', () => {
+    expect(stays('https://stripe.com/pricing')).toBe(false);
+    expect(stays('https://dashboard.stripe.com/payments')).toBe(false);
+    expect(stays('https://connect.stripe.com/oauth/authorize')).toBe(false);
+    expect(stays('https://checkout.stripe.com.example.test/c/pay/x')).toBe(false);
+    expect(stays('https://evilcheckout.stripe.com/c/pay/x')).toBe(false);
+    expect(stays('https://checkout-stripe.com/c/pay/x')).toBe(false);
+    expect(stays('https://pay.kortix.com.example.test/c/pay/x')).toBe(false);
+    expect(stays('https://kortix.com/pricing')).toBe(false);
+  });
+
+  test('requires https on the default port', () => {
+    expect(stays('http://checkout.stripe.com/c/pay/x')).toBe(false);
+    expect(stays('https://checkout.stripe.com:8443/c/pay/x')).toBe(false);
   });
 });
 

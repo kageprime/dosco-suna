@@ -99,10 +99,10 @@ export function TodoWriteTool({ call, defaultOpen, forceOpen, locked }: ToolProp
                   className={cn(
                     'min-w-0 flex-1 text-xs leading-snug text-pretty',
                     i + 1 < total && 'pb-3',
-                    todo.status === 'completed' && 'text-muted-foreground/60 line-through',
+                    todo.status === 'completed' && 'text-muted-foreground line-through',
                     todo.status === 'in_progress' && 'text-foreground font-medium',
                     todo.status === 'pending' && 'text-muted-foreground',
-                    todo.status === 'cancelled' && 'text-muted-foreground/40 line-through',
+                    todo.status === 'cancelled' && 'text-muted-foreground line-through',
                   )}
                 >
                   {todo.content}

@@ -6,6 +6,7 @@ export {
   ToolActivateContext,
   ToolSurfaceContext,
   TurnLiveContext,
+  isUnpresentedFailure,
   shouldShowToolPartInActionsPanel,
   type ToolSurface,
 } from './shared/infrastructure';

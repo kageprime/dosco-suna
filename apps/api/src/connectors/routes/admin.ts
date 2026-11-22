@@ -2,7 +2,7 @@
 import { type OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { OAuth2ClientCredentialsSchema, UpdateConnectionCredentialInputSchema } from '@kortix/api-contract';
 import type { Context } from 'hono';
-import { INVALID_SOURCE_ADDRESS_CODE, isAllowedSourceValidationError } from '../../marketplace/catalog';
+import { INVALID_SOURCE_ADDRESS_CODE, isAllowedSourceValidationError } from '../../shared/source-address-guard';
 import { auth, errors, json, lenientBody } from '../../openapi';
 import { UnsafeEgressError } from '../../shared/ssrf-guard';
 import type { ConnectorAuthDiscovery } from '../auth-discovery';

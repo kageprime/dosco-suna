@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getTemplate } from '@kortix/starter/templates';
-import { doctorExitCode, templateTriggerSlugs } from '../commands/templates-doctor.ts';
+import { doctorExitCode, legacyTemplateFolder, templateTriggerSlugs } from '../commands/templates-doctor.ts';
 
 // `kortix templates doctor` is the onboarding's finish line: red while any
 // check fails, green only when every line is green or a warning.
@@ -15,13 +15,13 @@ test('any red line exits 1; warnings alone exit 0', () => {
   expect(doctorExitCode([{ name: 'a', state: 'ok', detail: '' }, { name: 'b', state: 'fail', detail: '' }])).toBe(1);
 });
 
-test('trigger slugs come from every YAML under the template folder, nested ones included', () => {
+test('trigger slugs come from the template\'s import file at the root; the old .kortix/<id>/ folder is reported', () => {
   dir = mkdtempSync(join(tmpdir(), 'kortix-doctor-'));
   const template = getTemplate('software-factory');
-  mkdirSync(join(dir, template.import_path, 'more'), { recursive: true });
-  writeFileSync(join(dir, template.import_path, 'a.yaml'), 'triggers:\n  - slug: one\n    on: { cron: "0 0 1 * * *" }\n');
-  writeFileSync(join(dir, template.import_path, 'more', 'b.yml'), 'triggers:\n  - slug: two\n');
-  writeFileSync(join(dir, template.import_path, 'notes.md'), 'triggers: not yaml');
+  writeFileSync(join(dir, template.import_path), 'triggers:\n  - slug: one\n    on: { cron: "0 0 1 * * *" }\n  - slug: two\n');
   expect(templateTriggerSlugs(dir, template).sort()).toEqual(['one', 'two']);
   expect(templateTriggerSlugs(join(dir, 'missing'), template)).toEqual([]);
+  expect(legacyTemplateFolder(dir, template)).toBeNull();
+  mkdirSync(join(dir, '.kortix', 'software-factory'), { recursive: true });
+  expect(legacyTemplateFolder(dir, template)).toBe('.kortix/software-factory/');
 });

@@ -19,6 +19,7 @@
  *      kortix.yaml entry to `provider: mcp` and syncs. The other connections
  *      keep their rows but lose their old binding, so their owners sign in again.
  */
+import { googleServiceForUrl } from './google/host';
 import {
   connectionCredentials,
   connectorConnections,
@@ -465,8 +466,10 @@ export type MoveResult =
   | { ok: false; status: 400 | 404 | 409 | 502; error: string };
 
 /** Why this connector cannot move now, or null. Checked at the start and again at the switch. */
-async function moveBlocker(projectId: string, connectorId: string, slug: string, provider: string): Promise<string | null> {
-  const rules = await oldToolRules(projectId, connectorId, slug);
+async function moveBlocker(projectId: string, connectorId: string, slug: string, provider: string, to: McpApp): Promise<string | null> {
+  // Kortix's Google servers keep Composio's tool names: its rules still match after the move.
+  const keepsToolNames = provider === 'composio' && googleServiceForUrl(to.url) !== null;
+  const rules = keepsToolNames ? [] : await oldToolRules(projectId, connectorId, slug);
   if (rules.length > 0) return toolRulesRefusal(slug, provider, rules);
   if (provider !== 'composio') return null;
   const unmapped = unmappedTriggers(await connectorEventTriggers(projectId, slug));
@@ -513,7 +516,7 @@ export async function moveConnector(input: {
       error: `Dosco has no connection for ${String(app ?? input.slug)} on this deployment yet. The connector keeps working through ${providerName(connector.providerType)}.`,
     };
   }
-  const blocker = await moveBlocker(input.projectId, connector.connectorId, input.slug, connector.providerType);
+  const blocker = await moveBlocker(input.projectId, connector.connectorId, input.slug, connector.providerType, to);
   if (blocker) return { ok: false, status: 409, error: blocker };
 
   const own = await db
@@ -603,7 +606,7 @@ export async function finishMarkedMove(connectionId: string): Promise<CrudResult
   const app = markedMoveApp(row);
   if (!app) return null;
   // A rule or a trigger added after the move started still names the old provider's tools or events.
-  const blocker = await moveBlocker(row.projectId, row.connectorId, row.slug, row.providerType);
+  const blocker = await moveBlocker(row.projectId, row.connectorId, row.slug, row.providerType, app);
   if (blocker) {
     logger.warn('[connectors] connector move waits on old tool rules or triggers', { connectionId });
     return { ok: false, status: 409, error: blocker };

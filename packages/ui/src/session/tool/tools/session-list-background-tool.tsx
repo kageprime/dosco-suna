@@ -59,8 +59,8 @@ export function SessionListBackgroundTool({ call, defaultOpen, forceOpen, locked
               <span className="text-foreground/70 truncate font-mono text-xs">
                 {w.id.slice(-12)}
               </span>
-              <span className="text-muted-foreground/50 flex-1 truncate text-xs">{w.project}</span>
-              <span className="text-muted-foreground/40 text-xs">{w.status}</span>
+              <span className="text-muted-foreground flex-1 truncate text-xs">{w.project}</span>
+              <span className="text-muted-foreground text-xs">{w.status}</span>
             </div>
           ))}
         </div>

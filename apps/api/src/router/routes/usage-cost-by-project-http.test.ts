@@ -12,6 +12,8 @@ let authType = 'supabase';
 let sandboxId: string | null = null;
 let tokenProjectId: string | null = null;
 let listInput: Record<string, unknown> | null = null;
+let listCalls = 0;
+let listFailure = false;
 let resolveAccountDenied = false;
 let usageCapabilityDenied = false;
 // The project an account-wide caller's `project_id` loads to; null = not found.
@@ -93,6 +95,8 @@ mock.module('../../projects/lib/access', () => ({
 
 mock.module('../../shared/cost-rollups', () => ({
   listCostByProject: async (input: Record<string, unknown>) => {
+    listCalls += 1;
+    if (listFailure) throw new HTTPException(503, { message: 'cost query unavailable' });
     listInput = input;
     return {
       projects: projectsToReturn,
@@ -121,6 +125,7 @@ mock.module('../../shared/session-costs', () => ({
   getSessionCostRecord: async () => {
     throw new Error('getSessionCostRecord should not be called from cost-by-project tests');
   },
+  findSessionCostOwner: async () => null,
 }));
 
 const { usageApp } = await import('./usage');
@@ -142,6 +147,8 @@ beforeEach(() => {
   sandboxId = null;
   tokenProjectId = null;
   listInput = null;
+  listCalls = 0;
+  listFailure = false;
   resolveAccountDenied = false;
   usageCapabilityDenied = false;
   loadedProject = null;
@@ -242,12 +249,16 @@ describe('GET /v1/usage/cost-by-project', () => {
     // Omitted, or with its own account/workspace as account_id: still W only.
     for (const query of ['', `?account_id=${ACCOUNT_ID}`, `?project_id=${PROJECT_ID}&account_id=${PROJECT_ID}`]) {
       listInput = null;
+  listCalls = 0;
+  listFailure = false;
       expect((await app.request(`/v1/usage/cost-by-project${query}`)).status).toBe(200);
       expect((listInput as Record<string, unknown> | null)?.projectId).toBe(PROJECT_ID);
     }
     // Another workspace or another account: refused, nothing read.
     for (const query of [`?project_id=${ACCOUNT_ID}`, `?account_id=${OTHER_ACCOUNT_ID}`]) {
       listInput = null;
+  listCalls = 0;
+  listFailure = false;
       expect((await app.request(`/v1/usage/cost-by-project${query}`)).status).toBe(403);
       expect(listInput).toBeNull();
     }
@@ -264,6 +275,8 @@ describe('GET /v1/usage/cost-by-project', () => {
     const app = createTestApp();
     for (const format of ['', '&format=csv']) {
       listInput = null;
+  listCalls = 0;
+  listFailure = false;
       const response = await app.request(`/v1/usage/cost-by-project?project_id=${PROJECT_ID}${format}`);
       expect(response.status).toBe(200);
       expect(listInput).toMatchObject({ accountId: ACCOUNT_ID, projectId: PROJECT_ID });
@@ -275,6 +288,8 @@ describe('GET /v1/usage/cost-by-project', () => {
     const app = createTestApp();
     const read = async (query: string) => {
       listInput = null;
+  listCalls = 0;
+  listFailure = false;
       const response = await app.request(`/v1/usage/cost-by-project?${query}`);
       expect(listInput).toBeNull();
       return response.status;
@@ -423,3 +438,23 @@ describe('GET /v1/usage/cost-by-project?format=csv', () => {
     expect(listInput).toBeNull();
   });
 });
+
+// Both renderers must run one guarded read, including when that read fails.
+for (const format of ['', '&format=csv']) {
+  test(`one cost query with distinct pagination: ${format || 'json'}`, async () => {
+    const response = await createTestApp().request(
+      `/v1/usage/cost-by-project?limit=7&offset=13&from=2026-07-01&to=2026-07-03${format}`,
+    );
+    expect(response.status).toBe(200);
+    expect(listCalls).toBe(1);
+    expect(listInput).toMatchObject({ limit: format ? 10_000 : 7, offset: format ? 0 : 13 });
+  });
+
+  test(`one failed cost query propagates: ${format || 'json'}`, async () => {
+    listFailure = true;
+    const response = await createTestApp().request(`/v1/usage/cost-by-project?limit=7${format}`);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: 'cost query unavailable' });
+    expect(listCalls).toBe(1);
+  });
+}

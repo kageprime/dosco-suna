@@ -52,7 +52,7 @@ export const OUTCOME_TINT: Record<OutcomeTone, { bg: string; fg: string; ring: s
   },
   destructive: { bg: 'bg-kortix-red/15', fg: 'text-kortix-red/85', ring: 'ring-kortix-red/40' },
   info: { bg: 'bg-kortix-blue/15', fg: 'text-kortix-blue/85', ring: 'ring-kortix-blue/40' },
-  neutral: { bg: 'bg-muted', fg: 'text-muted-foreground/85', ring: 'ring-border/70' },
+  neutral: { bg: 'bg-muted', fg: 'text-muted-foreground', ring: 'ring-border/70' },
 };
 
 export function outcomeTint(tone: OutcomeTone): { bg: string; fg: string; ring: string } {

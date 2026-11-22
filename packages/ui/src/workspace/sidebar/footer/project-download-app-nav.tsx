@@ -1,15 +1,20 @@
 'use client';
 
-import { DownloadSimpleIcon } from '@phosphor-icons/react';
+import type { PromoSlide } from './promo-card';
+import { PromoMark } from './promo-card';
+
+import { AppWindowIcon, CommandIcon, LaptopIcon } from '@phosphor-icons/react';
 import { useCallback, useState, useSyncExternalStore } from 'react';
 
-import { useSidebar } from '../../../primitives/sidebar';
+import { useTranslations } from '../../../i18n';
 import { useIsMobile } from '../../../internal/hooks';
 import { isDesktop } from '../../../internal/lib/desktop';
-import { useTranslations } from '../../../i18n';
-import { PromoNavRow } from './promo-nav-row';
+import { useSidebar } from '../../../primitives/sidebar';
 
 export const DOWNLOAD_APP_PROMO_DISMISSED_KEY = 'kortix.download-app-promo.dismissed';
+
+/** The window, Quick Entry, and the computer it connects in one click. */
+const MARKS = [AppWindowIcon, CommandIcon, LaptopIcon] as const;
 
 const subscribeNoop = () => () => {};
 
@@ -24,13 +29,14 @@ function readHidden(): boolean {
 }
 
 /**
- * "Download app": the same promo row as "Connect MCP", shown until dismissed
- * and never inside the desktop app. It moved here from the workspace menu,
- * where it sat two levels deep. After a dismiss, Apps and extensions in the
- * workspace menu still offers the download.
+ * "Get the desktop app": a slide of the sidebar's promo switcher
+ * (`project-promo-cards.tsx`), shown until dismissed and never inside the
+ * desktop app. `onOpenDownload` opens the download dialog (desktop and phone
+ * apps); without it, there is no slide. After a dismiss, Apps and extensions
+ * in the workspace menu still offers the download.
  */
-export function ProjectDownloadAppNavItem({ onOpenDownload }: { onOpenDownload: () => void }) {
-  const t = useTranslations('sidebar');
+export function useDesktopAppPromo(onOpenDownload: (() => void) | undefined): PromoSlide | null {
+  const t = useTranslations('sidebar.desktopPromo');
   const tComputers = useTranslations('computers');
   const isMobile = useIsMobile();
   const { setOpenMobile } = useSidebar();
@@ -45,18 +51,23 @@ export function ProjectDownloadAppNavItem({ onOpenDownload }: { onOpenDownload: 
       // Private mode or blocked storage: dismissed for this page view only.
     }
   }, []);
-  if (stored || dismissedNow) return null;
+  if (!onOpenDownload || stored || dismissedNow) return null;
 
-  return (
-    <PromoNavRow
-      icon={<DownloadSimpleIcon className="text-muted-foreground size-4 shrink-0" />}
-      label={t('workspace.downloadApp')}
-      dismissLabel={tComputers('dismissPromo')}
-      onDismiss={dismiss}
-      onClick={() => {
-        onOpenDownload();
-        if (isMobile) setOpenMobile(false);
-      }}
-    />
-  );
+  return {
+    id: 'desktop',
+    marks: MARKS.map((MarkIcon, index) => (
+      <PromoMark key={index}>
+        <MarkIcon className="size-5" />
+      </PromoMark>
+    )),
+    title: t('title'),
+    description: t('description'),
+    cta: t('cta'),
+    dismissLabel: tComputers('dismissPromo'),
+    onDismiss: dismiss,
+    onClick: () => {
+      onOpenDownload();
+      if (isMobile) setOpenMobile(false);
+    },
+  };
 }

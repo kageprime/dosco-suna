@@ -22,7 +22,7 @@ const DARK_BACKGROUNDS = {
   'pure-dark': '#0A0A0A',
   ...terminalThemeBackgrounds.dark,
 };
-const DEFAULT_CHOICE = { light: 'pure-light', dark: 'pure-dark' };
+const DEFAULT_CHOICE = { light: 'light', dark: 'dark' };
 
 /** Ids stored by earlier builds that now live under a terminal-theme id. */
 const LEGACY_DARK_THEME_IDS = { jellybean: 'jellybeans-default' };
@@ -31,7 +31,7 @@ function normalizeTheme(theme) {
   return THEMES.has(theme) ? theme : 'light';
 }
 
-/** Unknown or missing palettes fall back to Pure light / Pure dark. */
+/** Unknown or missing palettes fall back to Kortix light / Kortix dark (`light` / `dark`). */
 function normalizeChoice(choice) {
   const source = choice && typeof choice === 'object' ? choice : {};
   const dark =

@@ -58,6 +58,8 @@ const ghost = {
 let mineFixture: unknown[] | null = null;
 /** The token the CLI itself authenticates with, as `/accounts/me` reports it. */
 let meTokenId: string | null = 'tok_self';
+let workspaceClosed = false;
+let workspaceDenial = 'workspace_closed';
 
 let tmp: string;
 let runner: string;
@@ -65,6 +67,11 @@ let api: FakeApi | null = null;
 
 const routes: Parameters<typeof startFakeApi>[0] = (req, url, body) => {
   const p = url.pathname;
+  if (workspaceClosed && p.startsWith('/v1/accounts/tokens')) {
+    return Response.json({ error: 'Workspace closed', code: workspaceDenial }, { status: 403 });
+  }
+  if (p === '/v1/me/tokens' && req.method === 'GET') return Response.json([laptop, ci, ghost]);
+  if (p === '/v1/me/tokens/tok_a' && req.method === 'DELETE') return Response.json({ ok: true });
   if (p === '/v1/me' && req.method === 'GET') {
     return Response.json({ user_id: 'user_1', email: 'user@example.test', token_context: { auth_type: 'pat', token_id: meTokenId } });
   }
@@ -221,6 +228,8 @@ describe('kortix tokens', () => {
     api = null;
     mineFixture = null;
     meTokenId = 'tok_self';
+    workspaceClosed = false;
+    workspaceDenial = 'workspace_closed';
     rmSync(tmp, { recursive: true, force: true });
   });
 
@@ -443,6 +452,42 @@ describe('kortix tokens', () => {
         ),
       );
     }
+  });
+
+  test('a closed workspace does not block listing or revoking the caller personal keys', async () => {
+    const config = boot();
+    workspaceClosed = true;
+    const listed = await runCommand(runner, ['ls', '--mine', '--json'], { cwd: tmp, configFile: config });
+    expect(listed.code).toBe(0);
+    expect(JSON.parse(listed.stdout).map((row: { id: string }) => row.id)).toEqual(['tok_a']);
+    const revoked = await runCommand(runner, ['rm', 'tok_a', '-y', '--force'], { cwd: tmp, configFile: config });
+    expect(revoked.code).toBe(0);
+    expect(revoked.stdout).toContain('Revoked');
+    expect(api?.requests.find((r) => r.method === 'DELETE')?.path).toBe('/v1/me/tokens/tok_a');
+  });
+
+  test('a closed workspace lists only live personal keys unless --mine --all', async () => {
+    const config = boot();
+    workspaceClosed = true;
+    const ids = async (args: string[]) => {
+      const r = await runCommand(runner, ['ls', ...args, '--json'], { cwd: tmp, configFile: config });
+      expect(r.code).toBe(0);
+      return JSON.parse(r.stdout).map((row: { id: string }) => row.id);
+    };
+    expect(await ids([])).toEqual(['tok_a']);
+    expect(await ids(['--all'])).toEqual(['tok_a']);
+    expect(await ids(['--mine'])).toEqual(['tok_a']);
+    expect(await ids(['--mine', '--all'])).toEqual(['tok_a', 'tok_b', 'tok_c']);
+  });
+
+  test('an ordinary permission denial never falls back to the personal surface', async () => {
+    const config = boot();
+    workspaceClosed = true;
+    workspaceDenial = 'account_role_insufficient';
+    const result = await runCommand(runner, ['rm', 'tok_a', '-y', '--force'], { cwd: tmp, configFile: config });
+    expect(result.code).toBe(1);
+    expect(api?.requests.some((r) => r.path.startsWith('/v1/me/tokens'))).toBe(false);
+    expect(api?.requests.some((r) => r.method === 'DELETE')).toBe(false);
   });
 
   test('rm -y DELETEs with account_id; a 404 surfaces and exits 1', async () => {

@@ -34,7 +34,7 @@ mock.module('./db', () => ({
   },
 }));
 mock.module('../billing/services/entitlements', () => ({ accountHasEntitlement: () => entitlement() }));
-mock.module('../marketplace/catalog', () => ({ assertAllowedSourceAddress: () => {} }));
+mock.module('./source-address-guard', () => ({ assertAllowedSourceAddress: () => {} }));
 mock.module('./ssrf-guard', () => ({ safeEgressFetch: () => fetchResult() }));
 mock.module('./audit-query', () => ({ serializeAuditEvent: () => ({ event_id: 'e1' }) }));
 

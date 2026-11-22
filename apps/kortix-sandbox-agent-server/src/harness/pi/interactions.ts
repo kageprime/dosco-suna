@@ -132,27 +132,35 @@ function heredocBodiesEnd(line: string, from: number, heredocs: Heredoc[]): numb
 }
 
 /**
- * Commands that read stdin as data. Any other program can run its stdin
- * (`sh`, `$SHELL`, `./run.sh`, `sudo …`), so only these make a heredoc body
- * data. `sed`, `awk`, `psql` and `mysql` are left out: their stdin can run a
- * shell command.
+ * Commands that never run their stdin: they read it as data, or they ignore
+ * it. Any other program can run its stdin (`sh`, `$SHELL`, `./run.sh`,
+ * `sudo …`), so only these make a heredoc body data. `sed`, `awk`, `psql`
+ * and `mysql` are left out: their stdin can run a shell command. So are
+ * commands that can change what a later `cat` runs (`export PATH=…`,
+ * `source`, `alias`, `cp`, `ln`).
  */
-const STDIN_DATA_READERS = new Set([
+const NEVER_RUNS_STDIN = new Set([
+  // Read stdin as data.
   'cat', 'tee', 'grep', 'egrep', 'fgrep', 'rg', 'head', 'tail', 'wc', 'sort', 'uniq', 'tr', 'cut', 'jq', 'yq',
   'base64', 'gh', 'git', 'diff', 'cmp', 'comm', 'column', 'envsubst', 'read', 'mapfile', 'readarray', 'fmt', 'fold',
   'nl', 'paste', 'xxd', 'od', 'gzip', 'md5sum', 'sha256sum', 'curl',
+  // Ignore stdin. Agents write `cd /tmp; cat > body.md <<'EOF'`.
+  'cd', 'pushd', 'popd', 'mkdir', 'pwd', 'ls', 'echo', 'printf', 'true', 'false', ':',
 ])
 
 /**
  * Whether a heredoc's line may run the body: some command on it (the one
- * that declares the heredoc, or one it is piped to) is not a data reader.
- * Leading `NAME=value` assignments are skipped. Word based, so a quoted `|`
- * reads as a new command: it errs towards reading a body as commands.
+ * that declares the heredoc, or one it is piped to) may run its stdin, or
+ * the line ends in a pipe that bash continues after the body
+ * (`cat <<EOF |`, the body, then `sh`). Leading `NAME=value` assignments are
+ * skipped. Word based, so a quoted `|` reads as a new command: it errs
+ * towards reading a body as commands.
  */
 function readsStdinAsCode(text: string): boolean {
+  if (/(?<!\|)\|&?\s*$/.test(text)) return true
   return text.split(/[;&|()]+/).some((segment) => {
     const words = segment.trim().replace(RESERVED_PREFIX, '').split(/\s+/).filter((word) => word && !/^\w+=/.test(word))
-    return words.length > 0 && !STDIN_DATA_READERS.has(words[0]!)
+    return words.length > 0 && !NEVER_RUNS_STDIN.has(words[0]!)
   })
 }
 
@@ -166,7 +174,7 @@ const RESERVED_ALONE = new Set(['fi', 'done', 'esac', '}'])
  * read as commands of its own. A command keeps its substitutions' text.
  * A `#` comment is skipped. A heredoc body is data and is skipped, except an
  * unquoted one that runs `$(…)` or `` `…` `` (bash expands those) and one
- * whose line has a command that is not a data reader (`sh <<EOF`,
+ * whose line has a command that may run its stdin (`sh <<EOF`,
  * `cat <<EOF | bash`): those bodies are read as commands. `null` when the quotes or brackets do not balance.
  * ponytail: not a bash grammar — `case` arms read as unbalanced or as extra
  * commands, so they fail closed. Use tree-sitter-bash when a manifest needs

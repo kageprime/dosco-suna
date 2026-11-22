@@ -3,7 +3,12 @@ import type { ReactElement } from 'react';
 
 /** One `toast.custom` call. */
 type Created = {
-  render: (id: string | number) => ReactElement<{ items?: { sessionId: string }[]; title?: string }>;
+  render: (id: string | number) => ReactElement<{
+    items?: { sessionId: string }[];
+    title?: string;
+    onOpen?: (sessionId: string) => void;
+    options?: { actions?: { label: string; onClick: () => void }[] };
+  }>;
   options: { id: string | number; onDismiss?: () => void; onAutoClose?: () => void };
 };
 
@@ -29,14 +34,20 @@ mock.module('sonner', () => ({
 const { dismissStaleNotificationToasts, isStaleToast, markSessionOnScreen, showInAppNotification } = await import(
   './web-notifications'
 );
+const { __resetAppRouterForTests, registerAppRouter } = await import('./navigation/router-bridge');
+const { useTabStore } = await import('../stores/tab-store');
 
 const STACK = 'web-notification-session-stack';
 const single = (sessionId: string) => `web-notification-session-${sessionId}`;
 const realWindow = globalThis.window;
 
+/** The URLs a bare `history.pushState` wrote, which no App Router renders. */
+let pushedStates: string[] = [];
+
 function at(pathname: string) {
   globalThis.window = {
     location: { pathname, search: '' },
+    history: { pushState: (_state: unknown, _title: string, url: string) => pushedStates.push(url) },
     innerWidth: 1200,
   } as unknown as typeof globalThis.window;
 }
@@ -64,6 +75,7 @@ beforeEach(() => {
   created = [];
   everCreated = [];
   dismissed = [];
+  pushedStates = [];
   at('/workspaces/p1/files');
 });
 
@@ -71,6 +83,7 @@ afterEach(() => {
   // Every toast closes, so no test inherits another's tracking.
   for (const { options } of everCreated) options.onDismiss?.();
   globalThis.window = realWindow;
+  __resetAppRouterForTests();
 });
 
 describe('isStaleToast: whether a toast on screen still qualifies', () => {
@@ -244,5 +257,38 @@ describe('dismissStaleNotificationToasts: a toast leaves when the screen moves',
     created = [];
     dismissStaleNotificationToasts();
     expect([created, dismissed]).toEqual([[], []]);
+  });
+});
+
+describe('opening a session from its toast while another session is on screen (KRTX-5008)', () => {
+  let routed: string[] = [];
+  beforeEach(() => {
+    routed = [];
+    registerAppRouter({
+      push: (href) => routed.push(href),
+      replace: () => {},
+      prefetch: () => {},
+      back: () => {},
+    });
+    at('/workspaces/p1/sessions/on-screen');
+  });
+
+  // The sidebar opens a session with a router link. The session page renders the
+  // route's params, which a bare `history.pushState` leaves on the old session.
+  test('the single toast routes to its session, as the sidebar does', () => {
+    turn('finished');
+    lastCreated().render('id').props.options?.actions?.at(-1)?.onClick();
+    expect(routed).toEqual(['/workspaces/p1/sessions/finished']);
+    expect(pushedStates).toEqual([]);
+    expect(useTabStore.getState().activeTabId).toBe('finished');
+  });
+
+  test('a stack routes to the session picked in it', () => {
+    turn('first');
+    turn('second');
+    lastCreated().render('id').props.onOpen?.('first');
+    expect(routed).toEqual(['/workspaces/p1/sessions/first']);
+    expect(pushedStates).toEqual([]);
+    expect(useTabStore.getState().activeTabId).toBe('first');
   });
 });

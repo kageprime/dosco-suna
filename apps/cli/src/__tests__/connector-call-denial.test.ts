@@ -53,6 +53,8 @@ beforeAll(() => {
     port: 0,
     async fetch(req) {
       const url = new URL(req.url);
+      // Only the CLI's API calls: a dev box's port probe (`GET /`) must not take captured[0].
+      if (!url.pathname.startsWith('/v1/')) return new Response(null, { status: 404 });
       captured.push({
         path: url.pathname,
         body: (await req.json().catch(() => ({}))) as Record<string, unknown>,

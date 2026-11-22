@@ -1712,8 +1712,10 @@ export async function listSessionConnectRequests(
   sessionId: string,
 ): Promise<SessionConnectRequest[]> {
   const result = unwrap(
+    // A background read: a viewer who may not connect accounts (403) sees no card, not an error toast.
     await backendApi.get<{ connectors?: SessionConnectRequest[] }>(
       `/connectors/workspaces/${projectId}/sessions/${encodeURIComponent(sessionId)}/connect-requests`,
+      { showErrors: false },
     ),
   );
   return result.connectors ?? [];

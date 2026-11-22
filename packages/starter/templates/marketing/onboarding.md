@@ -2,7 +2,7 @@
 
 Run the guide below as written. This template adds six steps at the points
 named here. The loop is one agent, `marketing`, with a skill library under
-`.kortix/marketing/skills/`. Read `.kortix/marketing/agents/marketing.md`
+`skills/`. Read `agents/marketing.md`
 once before you start: it holds the roles, the hard rules and the run line.
 Every output is a draft: a pull request, an issue or a file in a pull
 request. A person merges and publishes.
@@ -17,9 +17,9 @@ Read only; never `cat` an env file.
 1. **The site.** Find the website in the repository: the framework
    (`next.config.*`, `astro.config.*`, `docusaurus.config.*`, `hugo.toml`,
    `_config.yml`, `gatsby-config.*`, plain HTML), its root folder, the build
-   command, the static or public folder. No website in this repository:
-   **Ask** where it lives. Another repository: the loop runs there instead;
-   stop and tell the person to set the template up in that repository.
+   command, the static or public folder. No website in the code repository:
+   **Ask** where it lives. Another repository: name that one as the code
+   repository (`kortix templates add marketing --repo <owner/repo>`).
 2. **Blog and changelog.** Find the posts folder and the changelog
    (`skills/blog-post/references/format.md`, `skills/changelog/references/format.md`).
    A hosted CMS: record its name; the blog role writes drafts to
@@ -40,9 +40,9 @@ Read only; never `cat` an env file.
    AEO audit is on.
 7. **Ask** for 5 to 25 questions buyers ask an AI assistant about this
    category. Propose them from the site's own copy; the person edits. Write
-   them and the product sentence into `.kortix/marketing/queries.md` and
+   them and the product sentence into `skills/aeo-seo/queries.md` and
    remove its `TODO(onboarding)` markers.
-8. Write `.kortix/marketing/marketing.json`: `site.*` from steps 1 to 4,
+8. Write `marketing.json`: `site.*` from steps 1 to 4,
    `channels.<name>.enabled` from step 5, the competitors from step 6. Set
    each chosen channel's trigger to `enabled: true` and every other one to
    `enabled: false` in `marketing.yaml`, so the two files agree. Keep
@@ -54,18 +54,18 @@ Read only; never `cat` an env file.
 
 ### B. In guide step 4: fill the brand skill
 
-Run `.kortix/marketing/skills/brand/references/extraction.md`: read the
+Run `skills/brand/references/extraction.md`: read the
 repository and the live site and fill `voice.md`, `visual.md` and
 `claims.md`. The brand needs no question of its own: put the voice in one
 line on the `Defaults:` line of guide step 3, and show a test card from the
 `design` skill in the guide's step 9 report. The person corrects the brand
 later, in a review comment or in the files. Setup is not done while
-`grep -rn "TODO(onboarding)" .kortix/marketing/` prints a line.
+`grep -rn "TODO(onboarding)" marketing.json agents/marketing.md skills/` prints a line.
 
 ### C. In guide step 4: the dev environment
 
 1. Add `dev-environment` to `agents.marketing.skills` in
-   `.kortix/marketing/marketing.yaml` once `kortix.yaml` registers it. The
+   `marketing.yaml` once `kortix.yaml` registers it. The
    blog, video, AEO and SEO roles build and open the site with its commands.
 2. Video on: the sandbox Dockerfile installs Node.js 22 or later and
    `ffmpeg`. HyperFrames needs both (`skills/video/references/hyperframes.md`).
@@ -75,7 +75,7 @@ later, in a review comment or in the files. Setup is not done while
 1. `GH_TOKEN`: the Software Factory's token serves this template too. Run
    `kortix secrets ls`: `GH_TOKEN` is set, so skip its request. Else request
    it as the guide says; the token needs `contents`, `pull_requests` and
-   `issues` write on this repository.
+   `issues` write on the code repository.
 2. `MARKETING_GITHUB_WEBHOOK_SECRET`: generated, as the guide says.
 3. No social network token. The loop drafts; a person posts. Refuse a
    request to store an X, LinkedIn or YouTube token for this template.

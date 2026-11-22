@@ -536,8 +536,8 @@ export function PlanSteps({
             className={cn(
               'min-w-0 flex-1 text-pretty',
               ROW_TEXT,
-              todo.status === 'completed' && 'text-muted-foreground/60 line-through',
-              todo.status === 'cancelled' && 'text-muted-foreground/40 line-through',
+              todo.status === 'completed' && 'text-muted-foreground line-through',
+              todo.status === 'cancelled' && 'text-muted-foreground line-through',
               todo.status === 'in_progress' && 'text-foreground font-medium',
               todo.status === 'pending' && 'text-foreground/85',
             )}

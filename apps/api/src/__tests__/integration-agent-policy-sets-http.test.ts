@@ -120,3 +120,24 @@ describe('agent policy_sets through the agent write routes', () => {
     });
   }
 });
+
+test('connector policy sets: HTTP create, empty rules, rename, read-back and delete', async () => {
+  const request = (suffix: string, method = 'GET', body?: unknown) => app.request(
+    `/v1/connectors/projects/${PROJECT}/connectors/qa-mail/${suffix}`,
+    { method, headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) },
+  );
+  expect((await request('policy-sets/synthetic', 'PUT', { description: 'Synthetic policy' })).status).toBe(200);
+  expect((await request('policies?policy_set=synthetic', 'PUT', { policies: [] })).status).toBe(200);
+  expect(committed().connectors[0].policy_sets.synthetic).toEqual({ description: 'Synthetic policy' });
+  expect((await request('policy-sets/synthetic/name', 'PUT', { name: 'renamed' })).status).toBe(200);
+  const list = await request('policy-sets');
+  expect(list.status).toBe(200);
+  expect(await list.json()).toMatchObject({ sets: expect.arrayContaining([{ name: 'renamed', description: 'Synthetic policy', policies: [], agents: [] }]) });
+  expect(committed().connectors[0].policy_sets.synthetic).toBeUndefined();
+  expect(committed().connectors[0].policy_sets.renamed).toEqual({ description: 'Synthetic policy' });
+  expect((await request('policy-sets/renamed', 'DELETE')).status).toBe(200);
+  expect(committed().connectors[0].policy_sets.renamed).toBeUndefined();
+  const missing = await request('policy-sets/missing', 'DELETE');
+  expect(missing.status).toBe(404);
+  expect(await missing.json()).toEqual({ error: 'connector "qa-mail" has no policy set "missing"', code: 'policy_set_not_found' });
+});

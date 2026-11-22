@@ -80,7 +80,7 @@ export function EmojiPicker({
           aria-label="Search emoji"
           placeholder="Search emoji…"
           className={cn(
-            'text-foreground placeholder:text-muted-foreground/70 h-full w-full bg-transparent text-sm outline-none',
+            'text-foreground placeholder:text-muted-foreground h-full w-full bg-transparent text-sm outline-none',
             '[&::-webkit-search-cancel-button]:appearance-none',
           )}
         />

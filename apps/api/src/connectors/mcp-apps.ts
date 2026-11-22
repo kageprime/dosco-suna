@@ -26,11 +26,11 @@
  */
 import type { OAuth2ApplicationInput } from '@kortix/api-contract';
 import { CHANNEL_PLATFORM_IDS, CHANNELS } from '@kortix/shared/channel-descriptors';
-import { config } from '../config';
-import { logger } from '../lib/logger';
 import { composioVisibleToolkits, publicToolkit } from './composio-catalog-search';
 import { connectorIdentity } from './catalog-install';
 import { appNameKey } from './connect-direct-twins';
+import { googleMcpUrl } from './google/host';
+import { kortixOAuthClients } from './kortix-oauth-clients';
 import {
   type ComposioCatalogCard,
   type ConnectorCatalogItem,
@@ -56,6 +56,15 @@ export interface KortixClientAuth {
   tokenEndpointAuthMethod: 'client_secret_basic' | 'client_secret_post';
   scopes: string[];
   authorizationParams?: Record<string, string>;
+  /** The provider's userinfo endpoint and the field that names the account (`connected_as`). */
+  identity?: { url: string; field: string };
+  /**
+   * The provider keeps ONE grant per account for this client: revoking any of
+   * its tokens revokes every token of the account (Google). Disconnect then
+   * revokes upstream only for the account's last live connection
+   * (`revokeConnectionOAuth2`).
+   */
+  oneGrantPerAccount?: boolean;
 }
 
 export interface McpApp {
@@ -85,14 +94,19 @@ const GOOGLE = {
   tokenEndpointAuthMethod: 'client_secret_post',
   // Google issues a refresh token only for offline access, on a fresh consent.
   authorizationParams: { access_type: 'offline', prompt: 'consent' },
+  identity: { url: 'https://openidconnect.googleapis.com/v1/userinfo', field: 'email' },
+  oneGrantPerAccount: true,
 } as const;
 
-/** The scopes each Google Workspace MCP server requires (developers.google.com,
- *  "Configure the Google Workspace MCP servers"). */
-const DRIVE_SCOPES = [
-  'https://www.googleapis.com/auth/drive.readonly',
-  'https://www.googleapis.com/auth/drive.file',
-];
+/**
+ * Google scopes. Gmail and Drive need restricted scopes, Calendar, Docs,
+ * Sheets and contacts sensitive ones: the OAuth consent screen of the
+ * deployment's Google project must list every one (GCP `kortix-connectors`
+ * for staging and prod, `kortix-connectors-dev` for local and dev).
+ */
+const GOOGLE_IDENTITY = ['openid', 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'];
+const googleScope = (name: string) => `https://www.googleapis.com/auth/${name}`;
+const DRIVE = googleScope('drive');
 
 export const MCP_APPS: readonly McpApp[] = [
   { slug: 'linear', name: 'Linear', description: 'Issues, projects and cycles.', domain: 'linear.app', categories: ['productivity', 'developer-tools'], url: 'https://mcp.linear.app/mcp', icon: true, auth: DCR },
@@ -122,25 +136,27 @@ export const MCP_APPS: readonly McpApp[] = [
   { slug: 'deepwiki', name: 'DeepWiki', description: 'Ask about any public GitHub repository.', domain: 'deepwiki.com', categories: ['developer-tools'], url: 'https://mcp.deepwiki.com/mcp', icon: false, auth: NONE },
   { slug: 'context7', name: 'Context7', description: 'Up-to-date docs for libraries and frameworks.', domain: 'context7.com', categories: ['developer-tools'], url: 'https://mcp.context7.com/mcp', icon: false, auth: NONE },
   { slug: 'cloudflare', name: 'Cloudflare', description: 'Accounts, Workers and DNS.', domain: 'cloudflare.com', categories: ['developer-tools', 'hosting'], url: 'https://mcp.cloudflare.com/mcp', icon: true, auth: DCR },
+  // Kortix's own Google MCP servers (./google): Composio-compatible tools over
+  // Google's REST APIs, served in-process. The URLs never reach the network.
   {
-    slug: 'gmail', name: 'Gmail', description: 'Read, search and draft email.', domain: 'gmail.com', categories: ['email'], url: 'https://gmailmcp.googleapis.com/mcp/v1', icon: true,
-    auth: { ...GOOGLE, scopes: ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.compose'] },
+    slug: 'gmail', name: 'Gmail', description: 'Read, search, send and organize email.', domain: 'gmail.com', categories: ['email'], url: googleMcpUrl('gmail'), icon: true,
+    auth: { ...GOOGLE, scopes: [...GOOGLE_IDENTITY, googleScope('gmail.modify'), googleScope('gmail.settings.basic'), googleScope('contacts.readonly'), googleScope('contacts.other.readonly')] },
   },
   {
-    slug: 'google_calendar', name: 'Google Calendar', description: 'Calendars, events and free time.', domain: 'calendar.google.com', categories: ['productivity', 'meetings'], url: 'https://calendarmcp.googleapis.com/mcp/v1', icon: true,
-    auth: { ...GOOGLE, scopes: ['https://www.googleapis.com/auth/calendar.calendarlist.readonly', 'https://www.googleapis.com/auth/calendar.events.freebusy', 'https://www.googleapis.com/auth/calendar.events.readonly'] },
+    slug: 'google_calendar', name: 'Google Calendar', description: 'Calendars, events and free time.', domain: 'calendar.google.com', categories: ['productivity', 'meetings'], url: googleMcpUrl('calendar'), icon: true,
+    auth: { ...GOOGLE, scopes: [...GOOGLE_IDENTITY, googleScope('calendar')] },
   },
   {
-    slug: 'google_drive', name: 'Google Drive', description: 'Files and folders.', domain: 'drive.google.com', categories: ['productivity'], url: 'https://drivemcp.googleapis.com/mcp/v1', icon: true,
-    auth: { ...GOOGLE, scopes: DRIVE_SCOPES },
+    slug: 'google_drive', name: 'Google Drive', description: 'Find, read, upload and share files.', domain: 'drive.google.com', categories: ['productivity'], url: googleMcpUrl('drive'), icon: true,
+    auth: { ...GOOGLE, scopes: [...GOOGLE_IDENTITY, DRIVE] },
   },
   {
-    slug: 'google_docs', name: 'Google Docs', description: 'Documents.', domain: 'docs.google.com', categories: ['productivity'], url: 'https://docsmcp.googleapis.com/mcp/v1', icon: true,
-    auth: { ...GOOGLE, scopes: [...DRIVE_SCOPES, 'https://www.googleapis.com/auth/documents.readonly', 'https://www.googleapis.com/auth/documents'] },
+    slug: 'google_docs', name: 'Google Docs', description: 'Read, write and edit documents.', domain: 'docs.google.com', categories: ['productivity'], url: googleMcpUrl('docs'), icon: true,
+    auth: { ...GOOGLE, scopes: [...GOOGLE_IDENTITY, googleScope('documents'), DRIVE] },
   },
   {
-    slug: 'google_sheets', name: 'Google Sheets', description: 'Spreadsheets.', domain: 'sheets.google.com', categories: ['productivity', 'data'], url: 'https://sheetsmcp.googleapis.com/mcp/v1', icon: true,
-    auth: { ...GOOGLE, scopes: [...DRIVE_SCOPES, 'https://www.googleapis.com/auth/spreadsheets.readonly', 'https://www.googleapis.com/auth/spreadsheets'] },
+    slug: 'google_sheets', name: 'Google Sheets', description: 'Read and update spreadsheets.', domain: 'sheets.google.com', categories: ['productivity', 'data'], url: googleMcpUrl('sheets'), icon: true,
+    auth: { ...GOOGLE, scopes: [...GOOGLE_IDENTITY, googleScope('spreadsheets'), DRIVE] },
   },
   {
     slug: 'github', name: 'GitHub', description: 'Repositories, issues and pull requests.', domain: 'github.com', categories: ['developer-tools'], url: 'https://api.githubcopilot.com/mcp/', icon: true,
@@ -172,32 +188,7 @@ export const MCP_APPS: readonly McpApp[] = [
   },
 ];
 
-interface KortixOAuthClient {
-  client_id: string;
-  client_secret: string;
-}
-
-let parsedClients: { raw: string; clients: Map<string, KortixOAuthClient> } | null = null;
-
-/** `KORTIX_OAUTH_CLIENTS`, parsed once per value. A malformed value lists no client. */
-export function kortixOAuthClients(raw: string = config.KORTIX_OAUTH_CLIENTS ?? ''): Map<string, KortixOAuthClient> {
-  if (parsedClients?.raw === raw) return parsedClients.clients;
-  const clients = new Map<string, KortixOAuthClient>();
-  if (raw.trim()) {
-    try {
-      for (const [name, value] of Object.entries(JSON.parse(raw) as Record<string, unknown>)) {
-        const entry = value as Partial<KortixOAuthClient> | null;
-        if (typeof entry?.client_id === 'string' && entry.client_id && typeof entry.client_secret === 'string' && entry.client_secret) {
-          clients.set(name, { client_id: entry.client_id, client_secret: entry.client_secret });
-        }
-      }
-    } catch {
-      logger.warn('[mcp-apps] KORTIX_OAUTH_CLIENTS is not valid JSON; no Kortix OAuth client is configured');
-    }
-  }
-  parsedClients = { raw, clients };
-  return clients;
-}
+export { kortixOAuthClients };
 
 /** An app is usable when it needs no client of Kortix's, or that client is configured. */
 export function mcpAppAvailable(app: McpApp, clients = kortixOAuthClients()): boolean {
@@ -251,6 +242,46 @@ export function kortixClientApplication(
     ...(auth.scopes.length ? { scopes: auth.scopes } : {}),
     ...(auth.authorizationParams ? { authorization_params: auth.authorizationParams } : {}),
   };
+}
+
+/** The `kortix_client` sign-in a stored OAuth application was issued through, matched by issuer and client id. */
+function kortixClientAuthFor(application: Pick<OAuth2ApplicationInput, 'issuer' | 'client_id'>, clients = kortixOAuthClients()): KortixClientAuth | null {
+  for (const app of MCP_APPS) {
+    if (app.auth.kind !== 'kortix_client' || app.auth.issuer !== application.issuer) continue;
+    if (clients.get(app.auth.client)?.client_id === application.client_id) return app.auth;
+  }
+  return null;
+}
+
+/**
+ * A stored application with the deployment's CURRENT secret for Kortix's own
+ * client. Every credential row keeps the application it signed in with, so a
+ * rotated client secret would otherwise break every refresh. Any other
+ * application is returned unchanged.
+ */
+export function withCurrentKortixClientSecret<T extends Pick<OAuth2ApplicationInput, 'issuer' | 'client_id' | 'client_secret'>>(
+  application: T,
+  clients = kortixOAuthClients(),
+): T {
+  const auth = kortixClientAuthFor(application, clients);
+  const secret = auth ? clients.get(auth.client)?.client_secret : undefined;
+  return secret && secret !== application.client_secret ? { ...application, client_secret: secret } : application;
+}
+
+/** Whether a stored application signed in through a Kortix client whose provider keeps one grant per account (Google). */
+export function kortixClientHasOneGrantPerAccount(
+  application: Pick<OAuth2ApplicationInput, 'issuer' | 'client_id'>,
+  clients = kortixOAuthClients(),
+): boolean {
+  return kortixClientAuthFor(application, clients)?.oneGrantPerAccount === true;
+}
+
+/** The userinfo endpoint that names the account a Kortix-client sign-in authorized, or null. */
+export function kortixClientIdentity(
+  application: Pick<OAuth2ApplicationInput, 'issuer' | 'client_id'>,
+  clients = kortixOAuthClients(),
+): { url: string; field: string } | null {
+  return kortixClientAuthFor(application, clients)?.identity ?? null;
 }
 
 /** The Popular section, in this order. */

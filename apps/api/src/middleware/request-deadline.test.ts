@@ -12,16 +12,6 @@ function ctx(path: string, method = 'POST') {
 }
 
 describe('requestDeadline exemptions', () => {
-  test.each([
-    '/v1/projects/00000000-0000-4000-a000-000000000001/marketplace/install',
-    '/v1/projects/00000000-0000-4000-a000-000000000001/registry/install',
-    '/v1/projects/00000000-0000-4000-a000-000000000001/marketplace/update',
-    '/v1/projects/00000000-0000-4000-a000-000000000001/marketplace/update-all',
-    '/v1/projects/00000000-0000-4000-a000-000000000001/registry/update',
-  ])('exempts install/update route %s', (path) => {
-    expect(isExempt(ctx(path))).toBe(true);
-  });
-
   // The MCP server bounds itself at 55 s (mcp/index.ts REQUEST_BUDGET_MS):
   // read_session waits and run_command runs up to 45 s. A client that sends
   // only `Accept: application/json` gets no event-stream exemption.
@@ -30,7 +20,7 @@ describe('requestDeadline exemptions', () => {
   });
 
   test.each([
-    '/v1/marketplace/items',
+    '/v1/accounts',
     '/v1/projects/00000000-0000-4000-a000-000000000001/registry',
   ])('does not exempt bounded route %s', (path) => {
     expect(isExempt(ctx(path))).toBe(false);
@@ -145,7 +135,7 @@ describe('attachment completion has its own request deadline', () => {
   });
 
   test('the other attachment routes keep the general deadline', () => {
-    const general = requestDeadlineMs(ctx('/v1/marketplace/items', 'GET'));
+    const general = requestDeadlineMs(ctx('/v1/accounts', 'GET'));
     expect(general).toBeGreaterThan(0);
     for (const [path, method] of [
       [`${project}/attachments`, 'POST'],
@@ -166,7 +156,7 @@ describe('attachment completion has its own request deadline', () => {
   test('P2.13: the session-log attachment upload (PUT …/log/blobs/<sha256>) gets 95 s; its lookup keeps the general deadline', () => {
     const blob = `${project}/sessions/00000000-0000-4000-a000-000000000002/log/blobs/${'a'.repeat(64)}`;
     expect(requestDeadlineMs(ctx(blob, 'PUT'))).toBe(95_000);
-    const general = requestDeadlineMs(ctx('/v1/marketplace/items', 'GET'));
+    const general = requestDeadlineMs(ctx('/v1/accounts', 'GET'));
     expect(requestDeadlineMs(ctx(blob, 'GET'))).toBe(general);
     expect(requestDeadlineMs(ctx(`${blob}/extra`, 'PUT'))).toBe(general);
   });
@@ -197,7 +187,7 @@ describe('App machine exec has the 95 s completion deadline', () => {
   });
 
   test('the anchoring is exact: other methods and paths keep the general deadline', () => {
-    const general = requestDeadlineMs(ctx('/v1/marketplace/items', 'GET'));
+    const general = requestDeadlineMs(ctx('/v1/accounts', 'GET'));
     for (const [path, method] of [
       [`${project}/apps/00000000-0000-4000-a000-000000000003/exec`, 'GET'],
       [`${project}/apps/00000000-0000-4000-a000-000000000003/exec/extra`, 'POST'],

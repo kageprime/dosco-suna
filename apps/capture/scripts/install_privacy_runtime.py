@@ -1,20 +1,31 @@
 #!/usr/bin/env python3
 """Build/package helper: fetch a checksum-pinned official ONNX Runtime library.
 No model, user data, credentials, or inference requests. Python is build-only.
+
+The source is Microsoft's NuGet package Microsoft.ML.OnnxRuntime 1.23.2: one
+archive with the native library of every platform, its LICENSE and its
+ThirdPartyNotices.txt. github.com/microsoft/onnxruntime answers 404 since
+2026-11-17, so its release archives are gone. NuGet never replaces a
+published version's file, and the pinned SHA-256 rejects any other bytes.
 """
 import argparse
 import hashlib
 from pathlib import Path
 import shutil
-import tarfile
+import time
 import urllib.request
 import zipfile
 
+ARCHIVE = "microsoft.ml.onnxruntime.1.23.2.nupkg"
+ARCHIVE_SHA256 = "25fe172f7fcdf34f2b5b02c8b997f6b88abc282956849d4af4335af23d0c4e4a"
+ARCHIVE_URL = f"https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.23.2/{ARCHIVE}"
+NOTICES = ("LICENSE", "ThirdPartyNotices.txt")
+# platform -> (library inside the package, file name the app loads)
 ASSETS = {
-    "macos-arm64": ("onnxruntime-osx-arm64-1.23.2.tgz", "b4d513ab2b26f088c66891dbbc1408166708773d7cc4163de7bdca0e9bbb7856", "libonnxruntime.1.23.2.dylib"),
-    "macos-x86_64": ("onnxruntime-osx-x86_64-1.23.2.tgz", "d10359e16347b57d9959f7e80a225a5b4a66ed7d7e007274a15cae86836485a6", "libonnxruntime.1.23.2.dylib"),
-    "windows-x86_64": ("onnxruntime-win-x64-1.23.2.zip", "0b38df9af21834e41e73d602d90db5cb06dbd1ca618948b8f1d66d607ac9f3cd", "onnxruntime.dll"),
-    "linux-x86_64": ("onnxruntime-linux-x64-1.23.2.tgz", "1fa4dcaef22f6f7d5cd81b28c2800414350c10116f5fdd46a2160082551c5f9b", "libonnxruntime.so.1.23.2"),
+    "macos-arm64": ("runtimes/osx-arm64/native/libonnxruntime.dylib", "libonnxruntime.1.23.2.dylib"),
+    "macos-x86_64": ("runtimes/osx-x64/native/libonnxruntime.dylib", "libonnxruntime.1.23.2.dylib"),
+    "windows-x86_64": ("runtimes/win-x64/native/onnxruntime.dll", "onnxruntime.dll"),
+    "linux-x86_64": ("runtimes/linux-x64/native/libonnxruntime.so", "libonnxruntime.so.1.23.2"),
 }
 
 def digest(path):
@@ -23,6 +34,20 @@ def digest(path):
         while chunk := file.read(128 * 1024): hash.update(chunk)
         return hash.hexdigest()
 
+def fetch(target):
+    # 4 attempts, 10/30/90 s apart: a first read from the CDN can stall for
+    # over 60 s (seen 2026-11-21); the next attempt took 4-7 s.
+    for attempt, pause in enumerate((10, 30, 90, None), start=1):
+        try:
+            with urllib.request.urlopen(ARCHIVE_URL, timeout=60) as source, target.open("wb") as file:
+                shutil.copyfileobj(source, file, 128 * 1024)
+            return
+        except OSError as error:
+            if pause is None:
+                raise SystemExit(f"ONNX Runtime download failed after {attempt} attempts: {error}")
+            print(f"ONNX Runtime download attempt {attempt} failed ({error}); retrying in {pause} s", flush=True)
+            time.sleep(pause)
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--platform", choices=ASSETS, required=True)
@@ -30,44 +55,24 @@ def main():
     args = parser.parse_args()
     destination = args.destination.resolve()
     destination.mkdir(parents=True, exist_ok=True)
-    name, expected, library = ASSETS[args.platform]
+    member, library = ASSETS[args.platform]
     cache = destination / ".privacy-runtime-cache"
     cache.mkdir(exist_ok=True)
-    archive = cache / name
-    if not archive.exists() or digest(archive) != expected:
+    archive = cache / ARCHIVE
+    if not archive.exists() or digest(archive) != ARCHIVE_SHA256:
         temporary = archive.with_suffix(".download")
-        with urllib.request.urlopen(f"https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/{name}", timeout=60) as source, temporary.open("wb") as target:
-            shutil.copyfileobj(source, target, 128 * 1024)
-        if digest(temporary) != expected:
+        fetch(temporary)
+        if digest(temporary) != ARCHIVE_SHA256:
             temporary.unlink()
             raise SystemExit("ONNX Runtime archive checksum mismatch")
         temporary.replace(archive)
-    notices = []
-    found = False
-    if name.endswith(".zip"):
-        with zipfile.ZipFile(archive) as bundle:
-            for member in bundle.infolist():
-                base = Path(member.filename).name
-                if base == library:
-                    with bundle.open(member) as source, (destination / library).open("wb") as target:
-                        shutil.copyfileobj(source, target, 128 * 1024)
-                    found = True
-                elif base.lower() in {"license", "license.txt", "thirdpartynotices.txt"}:
-                    notices.append(bundle.read(member).decode("utf-8", errors="replace"))
-    else:
-        with tarfile.open(archive) as bundle:
-            for member in bundle:
-                if not member.isfile():
-                    continue
-                base = Path(member.name).name
-                if base == library:
-                    with bundle.extractfile(member) as source, (destination / library).open("wb") as target:
-                        shutil.copyfileobj(source, target, 128 * 1024)
-                    found = True
-                elif base.lower() in {"license", "license.txt", "thirdpartynotices.txt"}:
-                    notices.append(bundle.extractfile(member).read().decode("utf-8", errors="replace"))
-    if not found or not notices:
-        raise SystemExit("Pinned archive lacks runtime or license notices")
+    with zipfile.ZipFile(archive) as bundle:
+        names = set(bundle.namelist())
+        if member not in names or not all(name in names for name in NOTICES):
+            raise SystemExit("Pinned archive lacks runtime or license notices")
+        with bundle.open(member) as source, (destination / library).open("wb") as target:
+            shutil.copyfileobj(source, target, 128 * 1024)
+        notices = [bundle.read(name).decode("utf-8", errors="replace") for name in NOTICES]
     (destination / "privacy-runtime-notices.txt").write_text("\n\n".join(notices))
     print(f"PRIVACY_RUNTIME_OK platform={args.platform} library={library} sha256={digest(destination / library)}")
 

@@ -19,6 +19,7 @@ import {
   isTriggerRunSession,
   loadSessionGrants,
   resolveShareSubject,
+  isSessionTargetVisibleToCaller,
 } from '../connectors/share';
 import { authorize } from '../iam';
 import { actorForServiceAccount, actorForUser } from '../iam/actor';
@@ -91,6 +92,9 @@ export async function canAccessSandboxSession(input: {
    *  the sessions that spawned it, as on the REST read path (`SessionReadOptions`). Answers
    *  whether the target spawned the caller's session; injected, as `shared/` cannot reach `projects/`. */
   spawnAncestorRead?: () => Promise<boolean>;
+  /** The session is in a Space the caller sees (`sessionSharedThroughSpace`): the space shares it. Injected, as
+   *  `shared/` cannot read the flag; absent: no space widens the verdict. */
+  sharedThroughSpace?: () => Promise<boolean>;
 }): Promise<boolean> {
   // callerSessionId MUST be in the key. In Dosco-as-a-Backend every end-user
   // shares one `userId` (the wrapper credential), so without it end-user A and
@@ -220,6 +224,18 @@ async function readSandboxSessionAccess(
         accountSessionOversight: true,
         spaceVisible,
       });
+    }
+    // A Space the caller sees shares the sessions in it: the same rule
+    // `loadVisibleSession` applies, so who may open the transcript may reach
+    // its runtime. Never across a hidden channel or to a sibling backend session.
+    if (
+      !allowed &&
+      spaceVisible &&
+      isSessionTargetVisibleToCaller(ownership) &&
+      input.sharedThroughSpace !== undefined &&
+      (await input.sharedThroughSpace())
+    ) {
+      allowed = true;
     }
   }
   sessionVisibilityCache.set(key, { allowed, expiresAt: Date.now() + SESSION_VISIBILITY_TTL_MS });

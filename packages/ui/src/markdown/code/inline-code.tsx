@@ -25,7 +25,7 @@ import { outputPathForName, useOutputPaths } from './output-paths-context';
 import { childrenToText } from './children-text';
 // Server-safe by design — see `inline-chip.tsx`. Re-exported so the client
 // consumers that already import them from here keep working.
-import { HexColorCode, INLINE_CODE, isHexColor } from './inline-chip';
+import { HexColorCode, INLINE_CODE, isHexColor } from '../inline-chip';
 
 export { HexColorCode, INLINE_CODE, isHexColor };
 

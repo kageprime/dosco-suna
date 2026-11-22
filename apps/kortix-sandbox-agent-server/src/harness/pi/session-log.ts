@@ -300,12 +300,15 @@ function deriveThread(input: {
   /** The thread's creation (ms): the time of a message pi-ai stamps 0 (its initial system message). */
   createdAt: number
   images: Map<string, string>
+  /** Derive only `entries[from..]`: a result and an edit follow what they belong to, so the tail alone holds those of its entries. */
+  from?: number
 }): Derived[] {
   const { threadId, entries } = input
+  const from = input.from ?? 0
   const v1 = new Map(input.transcript.map((m) => [m.info.id as string, m]))
   const results = new Map<string, J>()
   const edits = new Map<string, J[]>()
-  for (const e of entries) {
+  for (const e of entries.slice(from)) {
     if (e.type === 'message' && e.message?.role === 'toolResult') results.set(e.message.toolCallId, e)
     if (e.type === 'context_edit') edits.set(e.targetId, [...(edits.get(e.targetId) ?? []), e])
   }
@@ -313,7 +316,7 @@ function deriveThread(input: {
   const lastAssistant = entries.findLast((e) => e.type === 'message' && e.message?.role === 'assistant')
   const out: Derived[] = []
 
-  for (const e of entries) {
+  for (const e of entries.slice(from)) {
     const own = edits.get(e.id) ?? []
     const latest = own.at(-1)
     const replacement = own.findLast((x) => x.replacement !== null)?.replacement
@@ -526,8 +529,11 @@ export function piSessionLog(
   /** False skips the per-message hashing: a read (`GET /kortix/runtime/log`) never uses
    * the hashes — only the journal relay (`changes`) and a restore do — and digesting every
    * entry's JSON on a long session costs hundreds of milliseconds per read (KRTX-4488:
-   * ~75% of a scaled-up export).*/
-  opts: { hashes?: boolean } = {},
+   * ~75% of a scaled-up export).
+   * `tail`: derive only the last `tail` entries of the root branch: a read of the newest page costs
+   * the page, not the session. Children are derived whole; a child whose spawning call is before the
+   * window has `spawned_by: null` there, so the caller widens the window then. */
+  opts: { hashes?: boolean; tail?: number } = {},
 ): { log: SessionLog; hashes: Map<string, string>; images: Map<string, string> } {
   const created = s.header?.timestamp ?? iso(0)
   const hashMessages = opts.hashes !== false
@@ -542,7 +548,7 @@ export function piSessionLog(
   const seqOf = rootSeqs(s)
   const branch = activeBranch(all, s.leafId)
   const store = codemodeStore(branch)
-  const rootMessages = finish(deriveThread({ threadId: s.rootId, entries: branch, ids: (e) => s.entryMessageIds[e.id], transcript: s.transcript, busy: s.busy, child: false, seqOf: (e) => seqOf(e.id), createdAt: Date.parse(created), images }))
+  const rootMessages = finish(deriveThread({ threadId: s.rootId, entries: branch, ids: (e) => s.entryMessageIds[e.id], transcript: s.transcript, busy: s.busy, child: false, seqOf: (e) => seqOf(e.id), createdAt: Date.parse(created), images, from: Math.max(0, branch.length - (opts.tail ?? branch.length)) }))
   const root: SessionLogThread = {
     ...V, thread_id: s.rootId, parent_thread_id: null, spawned_by: null, agent: s.agent, title: s.title, created_at: created, messages: rootMessages,
     ...(s.header ? { ext: { pi: { version: PI_VERSION, native_id: s.header.id, data: { cwd: s.header.cwd, header_version: s.header.version ?? null, ...(Object.keys(store).length ? { codemode_store: store } : {}) } } } } : {}),

@@ -32,3 +32,33 @@ export function waitForForegroundReturn(subscribe: AppStateSubscribe): {
   });
   return { returned, cancel };
 }
+
+/** The bare app URL, `kortix://`: the iOS Smart App Banner's OPEN. */
+export function isAppOpenUrl(url: string): boolean {
+  return /^kortix:\/\/\/?$/i.test(url.trim());
+}
+
+type InAppBrowser = {
+  dismissAuthSession: () => void;
+  dismissBrowser: () => Promise<unknown>;
+};
+
+/**
+ * The iOS Smart App Banner on kortix.com opens the bare app URL, `kortix://`
+ * (`app-argument`, apps/web `app/[locale]/layout.tsx`). The banner also shows
+ * in this app's own in-app browser. Its OPEN then reaches the app that is
+ * already running behind the browser, so nothing visible happened. This
+ * closes that browser, so OPEN lands the user back in the app.
+ * Returns `true` when `url` is the bare app URL: the caller handles nothing
+ * else. iOS only: expo-web-browser has no dismiss on Android, and the banner
+ * is iOS only.
+ */
+export function closeBrowserOnAppOpen(url: string, os: string, browser: InAppBrowser): boolean {
+  if (!isAppOpenUrl(url)) return false;
+  if (os === 'ios') {
+    browser.dismissAuthSession();
+    // Rejects with WebBrowserNotOpenException when no Safari View Controller is open.
+    browser.dismissBrowser().catch(() => {});
+  }
+  return true;
+}

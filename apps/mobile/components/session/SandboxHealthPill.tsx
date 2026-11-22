@@ -1,13 +1,6 @@
 /**
- * SandboxHealthPill — a bar directly above the chat input, drawn as the
- * composer card, that appears while the session's computer is not ready. Its
- * words are the SDK's (`sessionConnectionLabel`): a yellow dot and "Waking
- * computer · 53s" for a parked or booting computer; an orange dot, "Can't
- * reach computer · 53s", and the Health action only when a dial
- * failed.
- *
- * The pill self-hides as soon as the sandbox is reachable again, so it's
- * safe to mount globally on session-level screens.
+ * Confirmed connection faults stay actionable. Routine sleep, wake and
+ * connecting states are silent, matching web's sessionComposerReadiness.
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -15,6 +8,7 @@ import { Animated, Easing } from 'react-native';
 import { WarningCircleIcon as CircleAlert } from '@/lib/icons';
 import { useSandboxContext } from '@/contexts/SandboxContext';
 import { THEME } from '@/lib/utils/theme';
+import { useTone } from '@/lib/utils/tone';
 import { sessionConnectionLabel } from '@kortix/sdk';
 import {
   useElapsedSince,
@@ -34,13 +28,11 @@ export function SandboxHealthPill({ onHealth, whenReachable }: SandboxHealthPill
   const { sandboxUrl } = useSandboxContext();
   const { reachable, downSince, checked, connection } = useSandboxReachability(sandboxUrl);
   const elapsed = useElapsedSince(downSince);
-  // The SDK's words for the computer: "Waking computer" for a parked or
-  // booting one, "Can't reach computer" only when a dial failed.
   const wording = sessionConnectionLabel(connection);
   const faulted = wording?.tone === 'danger';
-  const dotColor = faulted ? THEME.accent.orange : THEME.accent.yellow;
+  const dotColor = THEME.accent[useTone()].orange;
 
-  const show = checked && !reachable && wording !== null;
+  const show = checked && !reachable && faulted;
 
   // Amber dot ping animation (mirrors `animate-ping` on web).
   const pingAnim = useRef(new Animated.Value(0)).current;
@@ -58,7 +50,7 @@ export function SandboxHealthPill({ onHealth, whenReachable }: SandboxHealthPill
     return () => loop.stop();
   }, [show, pingAnim]);
 
-  if (!show) return whenReachable ? <>{whenReachable}</> : null;
+  if (!show) return reachable && whenReachable ? <>{whenReachable}</> : null;
 
   const pingScale = pingAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 2.2] });
   const pingOpacity = pingAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] });

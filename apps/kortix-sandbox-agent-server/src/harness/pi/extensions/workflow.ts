@@ -143,7 +143,7 @@
  * controlled on its current runner session's box, which runs it; the parent
  * box lists it with that runner session and its last known state.
  *
- * Saved workflows: `.kortix/workflows/<name>.js` in the project; `name` runs
+ * Saved workflows: `workflows/<name>.js` in the project; `name` runs
  * one. A bundled workflow (`bundled-workflows.ts`, `deep-research`) runs by
  * name when the project has none of that name. A box with a checkout reads its working tree (and lists the names in
  * the tool description); My Kortix's box reads the default branch through the

@@ -12,7 +12,7 @@ import {
   serviceAccounts,
 } from '@kortix/db';
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
-import { mapLimit } from '@kortix/registry';
+import { mapWithConcurrency } from '../../shared/map-with-concurrency';
 import {
   canonicalConnectorAlias,
   publicConnectorAlias,
@@ -1678,7 +1678,7 @@ export async function resolveEffectiveSessionConnectorBindings(input: {
       agentId: await sessionAgentId(input.sessionId),
     });
     const RESOLVE_CONCURRENCY = 8;
-    await mapLimit(boundRows, RESOLVE_CONCURRENCY, async (bound) => {
+    await mapWithConcurrency(boundRows, RESOLVE_CONCURRENCY, async (bound) => {
       const connector: ConnectorRequirementRow = {
         connectorId: bound.connectorId,
         projectId: input.projectId,

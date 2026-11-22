@@ -402,7 +402,7 @@ async function addMemoryTurnLayers(req: ForwardRequest, state: ForwardState): Pr
     void notifyPersonMentions(req, state.requestBody);
   }
   const put = (parts: readonly (string | null | undefined)[]) => {
-    const system = turnSystemText(where?.system ?? null, [thread?.system, ...parts]);
+    const system = turnSystemText(where?.system ?? null, [thread?.system, where?.spaceBrief, ...parts]);
     if (system) state.requestBody = withMemoryTurn(state.requestBody, { system });
   };
   try {

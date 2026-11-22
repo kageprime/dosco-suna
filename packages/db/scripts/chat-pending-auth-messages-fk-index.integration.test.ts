@@ -20,6 +20,8 @@ const suite = databaseUrl ? describe : describe.skip;
 /** The foreign keys the committed migrations declare on the table. */
 const EXPECTED_FKS: Record<string, { columns: string[] }> = {
   chat_pending_auth_messages_project_id_fkey: { columns: ['project_id'] },
+  // Workspaces R2a-3a twin of the project key (20261114163016000_workspaces_twin_fk_batch_2).
+  chat_pending_auth_messages_project_id_workspaces_fk: { columns: ['project_id'] },
 };
 
 suite('kortix.chat_pending_auth_messages foreign keys are covered by indexes', () => {

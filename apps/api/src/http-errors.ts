@@ -11,6 +11,7 @@ import { TrieRouter } from 'hono/router/trie-router';
 import { HTTPException } from 'hono/http-exception';
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { isManifestSyntaxError } from '@kortix/manifest-schema';
+import { boundedIssues } from './openapi';
 import { ManifestWriteRefusedError } from './projects/surface';
 import { BillingError } from './errors';
 import { logger as appLogger } from './lib/logger';
@@ -745,7 +746,7 @@ function handleUnhandledError(err: Error, c: Context): Response {
   const abort = handleSandboxProxyAbort(err, c, errName, path);
   if (abort) return abort;
   if (err instanceof ManifestWriteRefusedError) {
-    return c.json({ error: err.message, code: err.code }, 409);
+    return c.json({ error: err.message, code: err.code, ...(err.issues.length > 0 ? boundedIssues(err.issues) : {}) }, 409);
   }
   if (isManifestSyntaxError(err)) {
     // kortix.yaml is not YAML: a repository state the caller can fix, never a

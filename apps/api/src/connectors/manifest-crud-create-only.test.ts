@@ -6,6 +6,7 @@ import {
 import * as realConnectorSync from './sync';
 
 let storedConnectors: Record<string, unknown>[] = [];
+let storedAgents: Record<string, unknown> = {};
 let commitCalls = 0;
 let commitAttempts = 0;
 let syncCalls = 0;
@@ -83,6 +84,7 @@ mock.module('../projects/surface', () => ({
       revision: String(manifestRevision),
       raw: {
         connectors: structuredClone(storedConnectors),
+        agents: structuredClone(storedAgents),
       },
     };
     manifestReads += 1;
@@ -93,7 +95,7 @@ mock.module('../projects/surface', () => ({
     _project: unknown,
     manifest: {
       revision?: string | null;
-      raw: { connectors?: Record<string, unknown>[] };
+      raw: { connectors?: Record<string, unknown>[]; agents?: Record<string, unknown> };
     },
   ) => {
     commitAttempts += 1;
@@ -125,6 +127,7 @@ mock.module('../projects/surface', () => ({
       }
       commitCalls += 1;
       storedConnectors = structuredClone(manifest.raw.connectors ?? []);
+      storedAgents = structuredClone(manifest.raw.agents ?? {});
       manifestRevision += 1;
       return { ok: true as const };
     } finally {
@@ -145,6 +148,8 @@ mock.module('./sync', () => ({
 }));
 
 const {
+  upsertConnectorPolicySetInManifest,
+  renameConnectorPolicySetInManifest,
   deleteConnectorFromManifest,
   setConnectorAuthorizationStrategyInManifest,
   setConnectorCredentialModeInManifest,
@@ -162,6 +167,7 @@ const { ensureChannelConnectorDeclared, removeChannelConnectorDeclared } = await
 beforeEach(() => {
   manifestRetry.sleep = async () => {};
   storedConnectors = [];
+  storedAgents = {};
   commitCalls = 0;
   commitAttempts = 0;
   syncCalls = 0;
@@ -529,4 +535,37 @@ describe('entry mutation boundary characterization', () => {
     expect(await mutations[0]()).toMatchObject({ ok: true });
     expect(storedConnectors[0]).not.toHaveProperty('credential');
   });
+});
+
+
+describe('policy ownership characterization', () => {
+  test('rename retries fresh manifest and rewrites the assignment in the same commit', async () => {
+    storedConnectors = [{ slug: 'mail-primary', provider: 'mcp', url: 'https://example.test/mcp', policy_sets: { reader: { policies: [] } } }];
+    storedAgents = { helper: { connectors: ['mail-primary'], policy_sets: { 'mail-primary': 'reader' } } };
+    forcedCommitConflicts = 1;
+    conflictEntry = { ...storedConnectors[0], name: 'Concurrent definition edit' };
+    expect(await renameConnectorPolicySetInManifest('project-1', 'account-1', 'mail-primary', 'reader', 'viewer')).toMatchObject({ ok: true });
+    expect(storedConnectors).toEqual([{ ...conflictEntry, policy_sets: { viewer: { policies: [] } } }]);
+    expect(storedAgents).toEqual({ helper: { connectors: ['mail-primary'], policy_sets: { 'mail-primary': 'viewer' } } });
+    expect(commitAttempts).toBe(2);
+    expect(commitCalls).toBe(1);
+    expect(syncedSlugs).toEqual(['mail-primary']);
+  });
+
+  test('empty base rules remove the field and sync only the named connector', async () => {
+    storedConnectors = [{ slug: 'mail-primary', provider: 'mcp', url: 'https://example.test/mcp', policies: [{ match: '*', action: 'block' }] }];
+    expect(await setConnectorPoliciesInManifest('project-1', 'account-1', 'mail-primary', [])).toMatchObject({ ok: true });
+    expect(storedConnectors).toEqual([{ slug: 'mail-primary', provider: 'mcp', url: 'https://example.test/mcp' }]);
+    expect(syncedSlugs).toEqual(['mail-primary']);
+  });
+});
+
+
+test('existing set without edits and rename to itself do not commit, but sync only the slug', async () => {
+  storedConnectors = [{ slug: 'mail-primary', provider: 'mcp', url: 'https://example.test/mcp', policy_sets: { reader: {} } }];
+  expect(await upsertConnectorPolicySetInManifest('project-1', 'account-1', 'mail-primary', 'reader', undefined)).toMatchObject({ ok: true });
+  expect(await renameConnectorPolicySetInManifest('project-1', 'account-1', 'mail-primary', 'reader', 'reader')).toMatchObject({ ok: true });
+  expect(commitCalls).toBe(0);
+  expect(syncCalls).toBe(2);
+  expect(syncedSlugs).toEqual(['mail-primary']);
 });

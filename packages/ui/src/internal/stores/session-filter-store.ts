@@ -47,7 +47,7 @@ export const EMPTY_LIST: readonly never[] = Object.freeze([]);
  * The sidebar keeps the bare `projectId` as its key, so every value persisted
  * before surfaces existed keeps working and keeps belonging to the sidebar.
  */
-export type SessionViewSurface = 'sidebar' | 'page';
+export type SessionViewSurface = 'sidebar' | 'page' | 'space';
 
 function scopeKey(projectId: string, surface: SessionViewSurface): string {
   return surface === 'sidebar' ? projectId : `${projectId}::${surface}`;

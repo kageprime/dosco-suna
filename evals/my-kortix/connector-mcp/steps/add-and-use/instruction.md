@@ -1,0 +1,1 @@
+Add the DeepWiki MCP server (https://mcp.deepwiki.com/mcp, it needs no sign-in) to this workspace. You have my OK for that. Then use it to list the top-level sections of the DeepWiki page for the GitHub repository facebook/react.

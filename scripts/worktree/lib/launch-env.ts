@@ -41,6 +41,8 @@ export function apiLaunchEnv(ports: Ports, c: SlotCreds, opts: ApiLaunchOpts = {
     KORTIX_APPS_LOCAL: 'true',
     KORTIX_APPS_LOCAL_PORT: String(ports.api),
     KORTIX_URL: opts.kortixUrl || `http://localhost:${ports.api}`,
+    // OAuth providers redirect the browser on this machine: the registered localhost URI.
+    KORTIX_OAUTH_CALLBACK_ORIGIN: `http://localhost:${ports.api}`,
     ...(opts.instanceId ? { KORTIX_INSTANCE_ID: opts.instanceId } : {}),
     NEXT_PUBLIC_BACKEND_URL: `http://localhost:${ports.api}/v1`,
     KORTIX_PUBLIC_BACKEND_URL: `http://localhost:${ports.api}/v1`,

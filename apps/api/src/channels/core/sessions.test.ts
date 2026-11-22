@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import { chatIdentityStub } from '../../__tests__/helpers/chat-identity-stub';
+import * as realIam from '../../iam';
+import * as realPreviewOwnership from '../../shared/preview-ownership';
 
 // `/kortix sessions` lists recent chat-started sessions. Only sessions the
 // caller's linked Dosco account may open on the web are listed.
@@ -11,7 +13,12 @@ function chain(): any {
   c.then = (resolve: (r: unknown[]) => unknown) => Promise.resolve(resolve(threadRows));
   return c;
 }
-mock.module('../../shared/db', () => ({ db: { select: () => chain() }, hasDatabase: () => true }));
+mock.module('../../shared/db', () => ({
+  db: { select: () => chain() },
+  hasDatabase: () => true,
+  withDbTransaction: <T,>(action: () => Promise<T>): Promise<T> => action(),
+  afterDbCommit: (action: () => unknown) => action(),
+}));
 
 let linked: { userId: string } | null = { userId: 'user-1' };
 const memberOf = new Set(['acct-a']);
@@ -22,11 +29,15 @@ mock.module('./identity', () =>
   }),
 );
 const readable = new Set(['proj-a']);
+// Spread the real modules: `mock.module` replaces a module wholesale, and a
+// stub that lists exports by hand fails the whole file on the next new import.
 mock.module('../../iam', () => ({
+  ...realIam,
   authorize: async (_actor: unknown, _action: string, resource: { id: string }) => ({ allowed: readable.has(resource.id) }),
 }));
 const visibleSessions = new Set(['s-a1', 's-a3', 's-b1']);
 mock.module('../../shared/preview-ownership', () => ({
+  ...realPreviewOwnership,
   canAccessSandboxSession: async (input: { sessionId: string; callerSessionId: string | null }) =>
     input.callerSessionId === null && visibleSessions.has(input.sessionId),
 }));

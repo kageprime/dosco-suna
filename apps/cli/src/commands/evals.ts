@@ -24,27 +24,14 @@ import {
   listWorkspaceEvalSuites,
   listWorkspaceEvalTasks,
   listWorkspaceEvalTrials,
-  listWorkspaceEvalTrialsAcrossJobs,
-  pauseWorkspaceEvalJob,
-  pauseWorkspaceEvalTrial,
   readWorkspaceEvalTrialFile,
-  resumeWorkspaceEvalJob,
-  resumeWorkspaceEvalTrial,
   rerunWorkspaceEvalJob,
   retryWorkspaceEvalTrial,
   startWorkspaceEvalJob,
 } from '@kortix/sdk';
-import type {
-  WorkspaceEvalJob,
-  WorkspaceEvalJobConfig,
-  WorkspaceEvalJobFilters,
-  WorkspaceEvalJobStatus,
-  WorkspaceEvalTrial,
-  WorkspaceEvalTrialSort,
-  WorkspaceEvalTrialStatus,
-} from '@kortix/sdk';
+import type { WorkspaceEvalJob, WorkspaceEvalJobConfig, WorkspaceEvalJobFilters, WorkspaceEvalJobStatus, WorkspaceEvalTrial } from '@kortix/sdk';
 import type { Auth } from '../api/auth.ts';
-import { withCliErrors } from '../api/client.ts';
+import { ApiError, createApiClient, withCliErrors } from '../api/client.ts';
 import { splitHelp } from '../command-argv.ts';
 import { emitJson, fail, resolveProjectContext, surfaceApiError, takeFlagBool, takeFlagValue, takeFlagValues } from '../command-helpers.ts';
 import { C, help, pad } from '../style.ts';
@@ -88,36 +75,21 @@ Subcommands:
   show <job_id>         One job: score per agent and model, then every trial.
   watch <job_id>        Print trial progress until the job ends. Exits 1 when
                         the job was cancelled or a trial errored.
-  trials [--job <id>]... [--status <s,...>] [--task <name>]... [--agent <name>]
-        [--model <id>] [--error <exception type>]... [-q <text>]
-        [--sort created_at|finished_at|task|reward] [--desc] [--limit <n>]
-        [--page <token>]
-                        Trials of every job, filtered: the errored runs of one
-                        task across jobs, every timeout of a model, … Prints the
-                        count of every match and the next page command.
   trial <job_id> <trial_id> [--file <path>]
                         One trial: reward, error, timings, the instruction and
                         its files. --file prints one file (verifier/test-stdout.txt).
   trial retry <job_id> <trial_id>
                         Run one ended trial again inside its job; the new run
                         replaces it in every score.
-  trial cancel <job_id> <trial_id> [--drain]
+  trial cancel <job_id> <trial_id>
                         Stop one queued or running trial; the job runs on.
-                        --drain lets a running trial finish, with no retry.
-  trial pause|resume <job_id> <trial_id>
-                        Hold one queued trial, or queue it again.
   compare <job_a> <job_b> [<job_c>...] [--by task|task_agent_model]
                         Task by task: the pass rate in each job, and the change
                         from the first job to the last.
   rerun <job_id> [--failed | --errored]
                         A new job with the trials of this one (all, the failed
                         ones, or the errored ones), at the same commit.
-  pause <job_id>        Hold a job: queued trials wait, running ones go on.
-  resume <job_id>       Queue a paused job's trials again.
-  cancel <job_id> [--drain]
-                        Stop a job: no trial starts, running sandboxes stop.
-                        --drain lets running trials finish (no retry); the job
-                        then ends cancelled.
+  cancel <job_id>       Stop a job: no trial starts, running sandboxes stop.
   rm <job_id>           Delete an ended job and its folder in Files.
 
 In a verifier (tests/test.sh), for open-ended tasks:
@@ -140,7 +112,7 @@ Options:
   -h, --help            Show this help.
 `;
 
-const SUBCOMMANDS = ['judge', 'init', 'suites', 'tasks', 'datasets', 'run', 'jobs', 'ls', 'show', 'watch', 'trials', 'trial', 'compare', 'rerun', 'pause', 'resume', 'cancel', 'rm'];
+const SUBCOMMANDS = ['judge', 'init', 'suites', 'tasks', 'datasets', 'run', 'jobs', 'ls', 'show', 'watch', 'trial', 'compare', 'rerun', 'cancel', 'rm'];
 
 interface Ctx {
   auth: Auth;
@@ -156,7 +128,6 @@ const short = (id: string): string => id.slice(0, 8);
 function statusColor(status: string): string {
   if (status === 'completed') return C.green;
   if (status === 'errored' || status === 'cancelled') return C.red;
-  if (status === 'paused') return C.yellow;
   return C.cyan;
 }
 
@@ -169,9 +140,7 @@ function scoreLine(job: WorkspaceEvalJob): string {
 
 function progressLine(job: WorkspaceEvalJob): string {
   const s = job.stats;
-  const paused = s.n_paused ? ` · ${s.n_paused} paused` : '';
-  const draining = job.cancel_mode === 'soft' && job.status !== 'cancelled' ? ' · cancelling after running trials' : '';
-  return `${s.n_completed + s.n_errored + s.n_cancelled}/${s.n_total_trials} done · ${s.n_running} running · ${s.n_queued} queued${paused} · ${s.n_errored} errored${draining}`;
+  return `${s.n_completed + s.n_errored + s.n_cancelled}/${s.n_total_trials} done · ${s.n_running} running · ${s.n_queued} queued · ${s.n_errored} errored`;
 }
 
 // ── init ─────────────────────────────────────────────────────────────────────
@@ -208,9 +177,14 @@ function initTask(dir: string | undefined, json: boolean): number {
   const written: string[] = [];
   for (const [path, content] of Object.entries(INIT_FILES)) {
     const target = join(root, path);
-    if (existsSync(target)) continue;
     mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, content, { mode: path.endsWith('.sh') ? 0o755 : 0o644 });
+    // 'wx' creates the file or fails when it exists: no window between a check and the write.
+    try {
+      writeFileSync(target, content, { mode: path.endsWith('.sh') ? 0o755 : 0o644, flag: 'wx' });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST') continue;
+      throw error;
+    }
     written.push(target);
   }
   const tasksDir = dir ?? 'evals/tasks';
@@ -280,7 +254,7 @@ async function listDatasets(ctx: Ctx): Promise<number> {
   process.stdout.write(`\n  ${C.dim}${pad('DATASET', w)}  ${pad('KIND', 8)}  ${pad('TASKS', 6)}  DESCRIPTION${C.reset}\n`);
   for (const d of datasets) process.stdout.write(`  ${pad(`${d.name}@${d.version}`, w)}  ${pad(d.kind, 8)}  ${pad(d.n_tasks === null ? '—' : String(d.n_tasks), 6)}  ${d.description.slice(0, 80)}\n`);
   if (catalog.registry_error) process.stdout.write(`\n  ${C.red}The Harbor registry is not listed: ${catalog.registry_error}${C.reset}\n`);
-  process.stdout.write(`\n  ${C.dim}Use one in a suite: datasets: [{ name: terminal-bench/terminal-bench-2-1, ref: latest, n_tasks: 5 }]${C.reset}\n\n`);
+  process.stdout.write(`\n  ${C.dim}Use one in a suite: datasets: [{ name: terminal-bench, version: "2.0", n_tasks: 5 }]${C.reset}\n\n`);
   return 0;
 }
 
@@ -300,7 +274,7 @@ async function listJobs(ctx: Ctx, filters: WorkspaceEvalJobFilters): Promise<num
   return 0;
 }
 
-const JOB_STATUSES: readonly WorkspaceEvalJobStatus[] = ['queued', 'running', 'paused', 'completed', 'cancelled'];
+const JOB_STATUSES: readonly WorkspaceEvalJobStatus[] = ['queued', 'running', 'completed', 'cancelled'];
 
 function jobFilterFlags(rest: string[]): WorkspaceEvalJobFilters | string {
   const status = takeFlagValue(rest, ['--status']);
@@ -361,69 +335,16 @@ async function resolveTrialId(ctx: Ctx, jobId: string, trialArg: string | undefi
   return match[0]!.trial_id;
 }
 
-type TrialAction = 'retry' | 'cancel' | 'pause' | 'resume';
-
-async function trialAction(ctx: Ctx, action: TrialAction, jobArg: string | undefined, trialArg: string | undefined, drain = false): Promise<number> {
+async function trialAction(ctx: Ctx, action: 'retry' | 'cancel', jobArg: string | undefined, trialArg: string | undefined): Promise<number> {
   const jobId = await resolveJobId(ctx, jobArg);
   const trialId = await resolveTrialId(ctx, jobId, trialArg);
-  const trial = await sdk(ctx, () => {
-    if (action === 'retry') return retryWorkspaceEvalTrial(ctx.projectId, jobId, trialId);
-    if (action === 'pause') return pauseWorkspaceEvalTrial(ctx.projectId, jobId, trialId);
-    if (action === 'resume') return resumeWorkspaceEvalTrial(ctx.projectId, jobId, trialId);
-    return cancelWorkspaceEvalTrial(ctx.projectId, jobId, trialId, drain ? { force: false } : undefined);
-  });
+  const trial = await sdk(ctx, () => (action === 'retry' ? retryWorkspaceEvalTrial(ctx.projectId, jobId, trialId) : cancelWorkspaceEvalTrial(ctx.projectId, jobId, trialId)));
   if (ctx.json) return (emitJson({ trial }), 0);
   process.stdout.write(
     action === 'retry'
       ? `  Queued ${C.bold}${trial.trial_name}${C.reset} (retry ${trial.retry}) in job ${short(jobId)}. Follow it: kortix evals watch ${short(jobId)}\n`
-      : `  ${trial.trial_name}: ${trial.status}${action === 'cancel' && drain && trial.status !== 'cancelled' ? ' (finishes, no retry)' : ''}\n`,
+      : `  ${trial.trial_name}: ${trial.status}\n`,
   );
-  return 0;
-}
-
-const TRIAL_STATUSES: readonly WorkspaceEvalTrialStatus[] = ['queued', 'paused', 'starting', 'agent_running', 'verifying', 'completed', 'errored', 'cancelled'];
-const TRIAL_SORTS = ['created_at', 'finished_at', 'task', 'reward'];
-
-/** `kortix evals trials`: the trials of every job that match, one page. */
-async function listAllTrials(ctx: Ctx, rest: string[]): Promise<number> {
-  const csv = (values: string[]) => values.flatMap((value) => value.split(',')).map((value) => value.trim()).filter(Boolean);
-  const status = csv(takeFlagValues(rest, ['--status']));
-  const bad = status.find((value) => !(TRIAL_STATUSES as readonly string[]).includes(value));
-  if (bad) return fail(`--status takes ${TRIAL_STATUSES.join(', ')}; got ${bad}.`);
-  const sort = takeFlagValue(rest, ['--sort']);
-  if (sort && !TRIAL_SORTS.includes(sort)) return fail(`--sort is one of ${TRIAL_SORTS.join(', ')}.`);
-  const desc = takeFlagBool(rest, ['--desc']);
-  const limit = takeFlagValue(rest, ['--limit']);
-  if (limit !== undefined && !(Number.isInteger(Number(limit)) && Number(limit) >= 1 && Number(limit) <= 100)) return fail('--limit is an integer from 1 to 100.');
-  const jobIds: string[] = [];
-  for (const job of csv(takeFlagValues(rest, ['--job']))) jobIds.push(await resolveJobId(ctx, job));
-  const filters = {
-    job_ids: jobIds,
-    status: status as WorkspaceEvalTrialStatus[],
-    task: csv(takeFlagValues(rest, ['--task'])),
-    agent: csv(takeFlagValues(rest, ['--agent'])),
-    model: csv(takeFlagValues(rest, ['--model'])),
-    exception_type: csv(takeFlagValues(rest, ['--error'])),
-    q: takeFlagValue(rest, ['-q', '--query']),
-  };
-  const page = await sdk(ctx, () =>
-    listWorkspaceEvalTrialsAcrossJobs(ctx.projectId, {
-      ...filters,
-      sort: (sort ? `${desc ? '-' : ''}${sort}` : desc ? '-created_at' : undefined) as WorkspaceEvalTrialSort | undefined,
-      page_size: limit ? Number(limit) : undefined,
-      page_token: takeFlagValue(rest, ['--page']),
-    }),
-  );
-  if (ctx.json) return (emitJson(page), 0);
-  if (!page.trials.length) {
-    process.stdout.write('  No trial matches.\n');
-    return 0;
-  }
-  const w = Math.max(5, ...page.trials.map((t) => t.trial_name.length));
-  const jw = Math.max(3, ...page.trials.map((t) => t.job_name.length));
-  process.stdout.write(`\n  ${C.dim}${pad('JOB', jw)}  ${pad('TRIAL', w)}  ${pad('ID', 8)}  RESULT${C.reset}\n`);
-  for (const trial of page.trials) process.stdout.write(`  ${pad(trial.job_name, jw)}  ${pad(trial.trial_name, w)}  ${short(trial.trial_id)}  ${trialCell(trial)}\n`);
-  process.stdout.write(`\n  ${C.dim}${page.trials.length} of ${page.total} trial(s).${page.next_page_token ? ` Next page: add --page ${page.next_page_token}` : ''}${C.reset}\n\n`);
   return 0;
 }
 
@@ -626,11 +547,11 @@ async function judge(argv: string[], json: boolean): Promise<number> {
   if (!criteria.size) return fail('Pass at least one --criterion <name>="<what earns 1.0>".');
   const creds = sessionCredentials();
   if (!creds) return fail(`No session credentials: set KORTIX_TOKEN and KORTIX_API_URL, or run inside a Kortix sandbox (${JUDGE_ENV_FILE}).`);
-  const gateway = `${new URL(creds.apiUrl).origin}/v1/llm/v1`;
-  const headers = { Authorization: `Bearer ${creds.token}`, 'content-type': 'application/json' };
+  // The LLM gateway is a Kortix API route (/v1/llm/v1/*): it goes through the SDK client.
+  const gateway = (timeoutMs: number) => createApiClient({ apiBase: creds.apiUrl, token: creds.token, signal: AbortSignal.timeout(timeoutMs) });
   if (!model) {
     // The first model the gateway serves this session.
-    const listed = (await fetch(`${gateway}/models`, { headers, signal: AbortSignal.timeout(30_000) }).then((r) => r.json()).catch(() => null)) as { data?: Array<{ id: string }> } | null;
+    const listed = await gateway(30_000).get<{ data?: Array<{ id: string }> }>('/llm/v1/models').catch(() => null);
     model = listed?.data?.[0]?.id ?? '';
     if (!model) return fail('No model: pass --model <id> or set KORTIX_EVAL_JUDGE_MODEL.');
   }
@@ -657,18 +578,14 @@ async function judge(argv: string[], json: boolean): Promise<number> {
   ].join('\n');
   let reply = '';
   for (let attempt = 1; attempt <= 3; attempt += 1) {
-    const res = await fetch(`${gateway}/chat/completions`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ model, temperature: 0, max_tokens: 4_000, messages: [{ role: 'user', content: prompt }] }),
-      signal: AbortSignal.timeout(180_000),
-    }).catch((err) => err as Error);
-    if (res instanceof Error || !res.ok) {
-      if (attempt === 3) return fail(`The judge model did not answer: ${res instanceof Error ? res.message : `HTTP ${res.status} ${(await res.text()).slice(0, 300)}`}`);
+    const body = await gateway(180_000)
+      .post<{ choices?: Array<{ message?: { content?: string | null } }> }>('/llm/v1/chat/completions', { model, temperature: 0, max_tokens: 4_000, messages: [{ role: 'user', content: prompt }] })
+      .catch((err) => err as Error);
+    if (body instanceof Error) {
+      if (attempt === 3) return fail(`The judge model did not answer: ${body instanceof ApiError && body.status ? `HTTP ${body.status} ` : ''}${body.message.slice(0, 300)}`);
       await Bun.sleep(2_000 * attempt);
       continue;
     }
-    const body = (await res.json()) as { choices?: Array<{ message?: { content?: string | null } }> };
     reply = body.choices?.[0]?.message?.content ?? '';
     if (parseJudgeReply(reply, names)) break;
   }
@@ -676,12 +593,11 @@ async function judge(argv: string[], json: boolean): Promise<number> {
   if (!result) return fail(`The judge's reply is not one score per criterion: ${reply.slice(0, 300)}`);
   // Merge: a test.sh may have written code-checked rewards first.
   let merged: Record<string, number> = {};
-  if (existsSync(out)) {
-    try {
-      merged = JSON.parse(readFileSync(out, 'utf8')) as Record<string, number>;
-    } catch {
-      merged = {};
-    }
+  try {
+    merged = JSON.parse(readFileSync(out, 'utf8')) as Record<string, number>;
+  } catch {
+    // No reward file yet, or an unreadable one: start empty.
+    merged = {};
   }
   merged = { ...merged, ...result.scores };
   mkdirSync(dirname(out), { recursive: true });
@@ -734,13 +650,8 @@ export async function runEvals(argv: string[]): Promise<number> {
         return await showJob(ctx, rest[0]);
       case 'watch':
         return await watchJob(ctx, await resolveJobId(ctx, rest[0]));
-      case 'trials':
-        return await listAllTrials(ctx, rest);
       case 'trial': {
-        if (rest[0] === 'retry' || rest[0] === 'cancel' || rest[0] === 'pause' || rest[0] === 'resume') {
-          const drain = takeFlagBool(rest, ['--drain']);
-          return await trialAction(ctx, rest[0], rest[1], rest[2], drain);
-        }
+        if (rest[0] === 'retry' || rest[0] === 'cancel') return await trialAction(ctx, rest[0], rest[1], rest[2]);
         const file = takeFlagValue(rest, ['--file']);
         return await showTrial(ctx, rest[0], rest[1], file);
       }
@@ -753,19 +664,9 @@ export async function runEvals(argv: string[]): Promise<number> {
         return await rerunJob(ctx, id, rest);
       }
       case 'cancel': {
-        const drain = takeFlagBool(rest, ['--drain']);
-        const job = await sdk(ctx, async () => cancelWorkspaceEvalJob(ctx.projectId, await resolveJobId(ctx, rest[0]), drain ? { force: false } : undefined));
+        const job = await sdk(ctx, async () => cancelWorkspaceEvalJob(ctx.projectId, await resolveJobId(ctx, rest[0])));
         if (ctx.json) return (emitJson({ job }), 0);
-        const left = job.status === 'cancelled' ? '' : ` · ${job.stats.n_running} running trial(s) finish, then it ends cancelled`;
-        process.stdout.write(`  ${job.job_name}: ${job.status} (${job.stats.n_cancelled} trial(s) cancelled${left})\n`);
-        return 0;
-      }
-      case 'pause':
-      case 'resume': {
-        const jobId = await resolveJobId(ctx, rest[0]);
-        const job = await sdk(ctx, () => (sub === 'pause' ? pauseWorkspaceEvalJob(ctx.projectId, jobId) : resumeWorkspaceEvalJob(ctx.projectId, jobId)));
-        if (ctx.json) return (emitJson({ job }), 0);
-        process.stdout.write(`  ${job.job_name}: ${statusColor(job.status)}${job.status}${C.reset}  ${C.dim}${progressLine(job)}${C.reset}\n`);
+        process.stdout.write(`  ${job.job_name}: ${job.status} (${job.stats.n_cancelled} trial(s) cancelled)\n`);
         return 0;
       }
       case 'rm': {

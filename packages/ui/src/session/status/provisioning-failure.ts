@@ -151,10 +151,10 @@ function inboxPromptForRecovery(prompts: readonly SessionPrompt[]): RecoveryProm
  * read yet. Reading both keeps the failure card's "copy your prompt" and Retry
  * working before and after the session row loads.
  *
- * A session that an agent, a trigger, a channel, MCP or a marketplace install
- * created has neither: its first prompt is `metadata.initial_prompt`. That
- * prompt is shown only while `runtimeSessionId` is empty, which is the same
- * condition under which the restart re-delivers it.
+ * A session that an agent, a trigger, a channel or MCP created has neither:
+ * its first prompt is `metadata.initial_prompt`. That prompt is shown only
+ * while `runtimeSessionId` is empty, which is the same condition under which
+ * the restart re-delivers it.
  *
  * `inboxPrompts` is `GET .../prompts`. A session the current API created keeps
  * its first prompt ONLY there, so it answers before the start stash: the stash

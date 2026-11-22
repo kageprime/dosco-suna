@@ -8,8 +8,7 @@
 // The fix checks the API surface before using it: without a real WebGL
 // context the canvas stays empty, the documented degradation.
 //
-// Harness pattern of `features/marketplace/add-to-project-dialog-guard.test.tsx`:
-// happy-dom globals, then the components via dynamic import, then createRoot
+// Harness: happy-dom globals, then the components via dynamic import, then createRoot
 // under `act`, with a boundary that stands in for `app/[locale]/error.tsx`.
 import { afterEach, describe, expect, test } from 'bun:test';
 import React, { act } from 'react';

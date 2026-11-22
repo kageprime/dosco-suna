@@ -42,7 +42,7 @@ export default function CreditTransactions({ accountId }: Props) {
   if (!billingActive) {
     return (
       <div className="border-border text-muted-foreground flex flex-col items-center gap-2 rounded-md border border-dashed px-4 py-10 text-center text-sm">
-        <Coins className="text-muted-foreground/50 size-5" />
+        <Coins className="text-muted-foreground size-5" />
         <p>{tHardcodedUi.raw('i18nComplete.texte95b29e0f9c7')}</p>
       </div>
     );

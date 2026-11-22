@@ -252,18 +252,18 @@ function ProvisioningView({
           motion the mobile loader uses, on the same waiting moment. */}
       <BreathingCrest size={40} />
 
-      <p className="text-foreground/55 max-w-[320px] truncate text-sm font-normal">{label}</p>
+      <p className="text-muted-foreground max-w-[320px] truncate text-sm font-normal">{label}</p>
 
       <DeterminateProgress pct={pct} />
 
-      <div className="text-muted-foreground/50 flex items-center gap-2 text-xs">
+      <div className="text-muted-foreground flex items-center gap-2 text-xs">
         <span className="font-medium tabular-nums">{Math.round(pct)}%</span>
         <span className="bg-foreground/[0.08] h-[10px] w-px" aria-hidden />
         <span className="max-w-[220px] truncate">{stageText}</span>
       </div>
 
       {machineInfo?.ip && (
-        <div className="text-muted-foreground/35 inline-flex items-center gap-1.5 font-mono text-xs tracking-wide">
+        <div className="text-muted-foreground inline-flex items-center gap-1.5 font-mono text-xs tracking-wide">
           <span className="bg-foreground/40 h-1 w-1 rounded-full" />
           {machineInfo.location?.toLowerCase().match(/us|hil/) ? 'US' : 'EU'}
           <span>·</span>
@@ -324,13 +324,13 @@ function ErrorView({
           {label}
         </h1>
         {(serverType || location) && (
-          <p className="text-muted-foreground/35 font-mono text-xs">
+          <p className="text-muted-foreground font-mono text-xs">
             {[serverType, location].filter(Boolean).join(' · ')}
           </p>
         )}
       </div>
 
-      <p className="text-muted-foreground/60 max-w-[320px] text-center text-xs leading-relaxed wrap-break-word">
+      <p className="text-muted-foreground max-w-[320px] text-center text-xs leading-relaxed wrap-break-word">
         {message}
       </p>
 
@@ -358,7 +358,7 @@ function StoppedView({ label, backHref }: { label: string; backHref: string }) {
         className="border-border/40 bg-foreground/[0.03] flex h-12 w-12 items-center justify-center rounded-full border"
         aria-hidden
       >
-        <Power className="text-muted-foreground/60 h-5 w-5" />
+        <Power className="text-muted-foreground h-5 w-5" />
       </div>
 
       <div className="flex flex-col items-center gap-1">
@@ -366,7 +366,7 @@ function StoppedView({ label, backHref }: { label: string; backHref: string }) {
           {label}
           {tHardcodedUi.raw('componentsDashboardConnectingScreen.line469JsxTextIsStopped')}
         </h1>
-        <p className="text-muted-foreground/55 max-w-[300px] text-center text-xs leading-relaxed">
+        <p className="text-muted-foreground max-w-[300px] text-center text-xs leading-relaxed">
           {tHardcodedUi.raw(
             'componentsDashboardConnectingScreen.line472JsxTextOpenANewSessionOrReturnToProjects',
           )}
@@ -397,7 +397,7 @@ function BackLink({ href }: { href: string }) {
     <Link
       href={href}
       prefetch
-      className="text-muted-foreground/35 hover:text-foreground/70 fixed top-[calc(1.25rem+var(--kx-titlebar-inset,0px))] left-5 inline-flex cursor-pointer items-center gap-1.5 text-xs transition-colors"
+      className="text-muted-foreground hover:text-foreground/70 fixed top-[calc(1.25rem+var(--kx-titlebar-inset,0px))] left-5 inline-flex cursor-pointer items-center gap-1.5 text-xs transition-colors"
     >
       <ArrowLeft className="h-3 w-3" />
       {tI18nComplete.raw('text76900f1bfd16')}

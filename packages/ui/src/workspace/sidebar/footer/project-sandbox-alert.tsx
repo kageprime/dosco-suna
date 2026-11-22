@@ -167,7 +167,7 @@ function SandboxAlertContent({
               {/* When it failed, always — an undated error reads as a live one. */}
               {failedAt ? (
                 <>
-                  <span aria-hidden className="text-muted-foreground/40">
+                  <span aria-hidden className="text-muted-foreground">
                     {' · '}
                   </span>
                   <span className="text-muted-foreground tabular-nums">{failedAt}</span>

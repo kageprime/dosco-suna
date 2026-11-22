@@ -234,7 +234,7 @@ export function showBlobSource(input: {
 function RendererFallback({ className }: { className?: string }) {
   return (
     <div className={cn('flex items-center justify-center', className || 'h-[420px]')}>
-      <Loading className="text-muted-foreground/40 h-4 w-4" />
+      <Loading className="text-muted-foreground h-4 w-4" />
     </div>
   );
 }
@@ -242,8 +242,8 @@ function RendererFallback({ className }: { className?: string }) {
 function LoadError({ message }: { message: string }) {
   return (
     <div className="flex h-[300px] flex-col items-center justify-center gap-2 p-8 text-center">
-      <FileWarning className="text-muted-foreground/30 h-6 w-6" />
-      <p className="text-muted-foreground/60 max-w-sm text-xs">{message}</p>
+      <FileWarning className="text-muted-foreground h-6 w-6" />
+      <p className="text-muted-foreground max-w-sm text-xs">{message}</p>
     </div>
   );
 }
@@ -252,11 +252,11 @@ function FileCard({ title, fileName, path }: { title?: string; fileName: string;
   return (
     <div className="flex items-center gap-4 px-5 py-5">
       <div className="bg-muted/20 flex size-12 items-center justify-center rounded-xl">
-        <FileText className="text-muted-foreground/40 size-6" />
+        <FileText className="text-muted-foreground size-6" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="text-foreground truncate text-sm font-medium">{title || fileName}</div>
-        <div className="text-muted-foreground/50 mt-0.5 truncate font-mono text-xs">{path}</div>
+        <div className="text-muted-foreground mt-0.5 truncate font-mono text-xs">{path}</div>
       </div>
     </div>
   );
@@ -506,11 +506,11 @@ export function ShowContentRenderer({
       return (
         <div className="flex h-full items-center gap-4 px-5 py-5">
           <div className="bg-muted/20 flex size-12 items-center justify-center rounded-xl">
-            <FileText className="text-muted-foreground/40 size-6" />
+            <FileText className="text-muted-foreground size-6" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-foreground truncate text-sm font-medium">{title || name}</div>
-            <div className="text-muted-foreground/50 mt-0.5 truncate font-mono text-xs">{path}</div>
+            <div className="text-muted-foreground mt-0.5 truncate font-mono text-xs">{path}</div>
           </div>
         </div>
       );
@@ -704,10 +704,10 @@ export function ShowContentRenderer({
           )}
         >
           <div className="bg-muted/50 flex h-14 w-14 items-center justify-center rounded-2xl">
-            <Music className="text-muted-foreground/40 size-6" />
+            <Music className="text-muted-foreground size-6" />
           </div>
           {(title || fileName) && (
-            <p className="text-muted-foreground/60 text-xs">{title || fileName}</p>
+            <p className="text-muted-foreground text-xs">{title || fileName}</p>
           )}
           <audio controls src={blobUrl} className="w-full max-w-sm" preload="metadata" />
         </div>
@@ -1276,6 +1276,8 @@ export function ShowCarousel({
 
   const currentItem = items[currentIndex];
   if (!currentItem) return null;
+  // The 420px slot holds media steady while paging; link cards are one row each and need none.
+  const linkCardsOnly = items.every((item) => item.type === 'url' && !(item.url && parseLocalhostUrl(item.url) && !isAppRouteUrl(item.url)));
 
   return (
     <div
@@ -1286,7 +1288,7 @@ export function ShowCarousel({
       tabIndex={fill || count < 2 ? undefined : -1}
       onKeyDown={fill || count < 2 ? undefined : (e) => handleArrowKey(e)}
     >
-      <div className={cn(fill ? 'min-h-0 flex-1 overflow-hidden' : 'min-h-[420px]')}>
+      <div className={cn(fill ? 'min-h-0 flex-1 overflow-hidden' : !linkCardsOnly && 'min-h-[420px]')}>
         {currentItem.status === 'pending' ? (
           <div
             className={cn(
@@ -1388,7 +1390,7 @@ export function ShowCarousel({
 
           <span className="text-muted-foreground shrink-0 pl-1 text-xs tabular-nums">
             {currentIndex + 1}
-            <span className="text-muted-foreground/40">/</span>
+            <span className="text-muted-foreground">/</span>
             {count}
           </span>
         </div>

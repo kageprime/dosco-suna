@@ -2,7 +2,7 @@
 import { unannotatedActionRisk } from './action-risk';
 import { likelyToolRisk } from './policy-templates';
 import type { Risk } from './types';
-import { mapLimit } from '@kortix/registry';
+import { mapWithConcurrency } from '../shared/map-with-concurrency';
 import {
   connectorConnections,
   connectorActions,
@@ -159,7 +159,7 @@ export async function listCatalog(
   // Resolution and account listing share one request-local snapshot. Concurrency
   // only bounds channel install reads; it does not hide per-entry SQL fan-out.
   const CATALOG_RESOLVE_CONCURRENCY = 8;
-  const resolved = await mapLimit(conns, CATALOG_RESOLVE_CONCURRENCY, async (row): Promise<CatalogConnector | null> => {
+  const resolved = await mapWithConcurrency(conns, CATALOG_RESOLVE_CONCURRENCY, async (row): Promise<CatalogConnector | null> => {
     // Per-agent assignment: an agent only sees connectors its grant lists —
     // consistent with the call gate, so it never lists a tool it can't invoke.
     // This is the ONLY access gate — connectors are project-wide visible to

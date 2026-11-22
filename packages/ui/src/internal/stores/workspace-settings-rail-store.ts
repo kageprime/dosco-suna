@@ -45,14 +45,6 @@ interface WorkspaceSettingsRailState {
   returnTo: Record<string, string>;
   setReturnTo: (projectId: string, href: string) => void;
   /**
-   * The project sidebar is docked open on the desktop, so on a settings route
-   * it shows this rail. The page then hides its own rail: one rail on screen,
-   * never two. A host without the project sidebar never sets it, so its page
-   * keeps the rail.
-   */
-  sidebarDocked: boolean;
-  setSidebarDocked: (sidebarDocked: boolean) => void;
-  /**
    * A settings search result waiting to land: once `section` is on screen,
    * the page scrolls to `text` and marks it (`useSettingsSearchLanding`).
    */
@@ -66,8 +58,6 @@ export const useWorkspaceSettingsRailStore = create<WorkspaceSettingsRailState>(
   returnTo: {},
   setReturnTo: (projectId, href) =>
     set((state) => (state.returnTo[projectId] === href ? state : { returnTo: { ...state.returnTo, [projectId]: href } })),
-  sidebarDocked: false,
-  setSidebarDocked: (sidebarDocked) => set({ sidebarDocked }),
   pendingFind: null,
   setPendingFind: (pendingFind) => set({ pendingFind }),
 }));

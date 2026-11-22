@@ -503,7 +503,7 @@ describe('WorkflowRunControls', () => {
     ]);
     await act(async () => button('Save').props.onClick({ stopPropagation: noop }));
     expect(sent).toHaveLength(1);
-    expect(sent[0]).toContain('.kortix/workflows/weekly-competitor-review.js');
+    expect(sent[0]).toContain('workflows/weekly-competitor-review.js');
     expect(sent[0]).toContain('change request');
   });
 

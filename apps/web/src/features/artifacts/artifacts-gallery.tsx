@@ -10,6 +10,7 @@ import { useSlashFocus } from '@kortix/ui/internal/hooks/use-slash-focus';
 import { InputGroupSearch, InputGroupSearchClear, InputGroupSearchIcon, InputGroupSearchInput } from '@kortix/ui/input-group';
 import Loading from '@kortix/ui/loading';
 import { Skeleton } from '@kortix/ui/skeleton';
+import { SortMenu, useStoredSort } from '@kortix/ui/sort-menu';
 import { Tabs, TabsList, TabsTrigger } from '@kortix/ui/tabs';
 import { successToast } from '@kortix/ui/toast';
 import {
@@ -44,9 +45,20 @@ function matches(a: Artifact, scope: ArtifactListScope, q: string, viewerId: str
   return !q || a.title.toLowerCase().includes(q) || !!a.description?.toLowerCase().includes(q);
 }
 
+type ArtifactSort = 'activity' | 'name' | 'created';
+const ARTIFACT_SORTS: ArtifactSort[] = ['activity', 'name', 'created'];
+
+/** Artifacts in the picked order: last edit, title, or newest first. */
+function sortArtifacts(artifacts: Artifact[], sort: ArtifactSort): Artifact[] {
+  const sorted = [...artifacts];
+  if (sort === 'name') return sorted.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
+  const at = (artifact: Artifact) => (sort === 'created' ? artifact.created_at : artifact.updated_at);
+  return sorted.sort((a, b) => at(b).localeCompare(at(a)));
+}
+
 /**
  * /workspaces/[id]/artifacts — every artifact the viewer may see, as live
- * previews, and a New doc button after the search (the Skills page's pair).
+ * previews. The header holds the order and New doc; the search sits beside the tabs.
  * A new doc joins the grid where you are; its toast opens it.
  */
 export function ArtifactsGallery({ projectId }: { projectId: string }) {
@@ -82,13 +94,34 @@ export function ArtifactsGallery({ projectId }: { projectId: string }) {
   const { spaces, groups, spaceOf } = spaceScope(cards, config, spacesOn, (artifact) => artifact);
   const labels = new Map(groups.map((group) => [group.name, group.label]));
   const [space, setSpace] = useSpaceFilter(projectId);
-  const shown = (paged ? cards : cards.filter((a) => matches(a, scope, query, viewerId))).filter(
-    (artifact) => space === ALL_SPACES || spaceOf(artifact) === space,
+  const tSort = useTranslations('listSort');
+  const [sort, setSort] = useStoredSort<ArtifactSort>('kortix:artifacts-sort', ARTIFACT_SORTS, 'activity');
+  const sortLabel: Record<ArtifactSort, string> = {
+    activity: tSort('lastActivity'),
+    name: tSort('name'),
+    created: tSort('created'),
+  };
+  const shown = sortArtifacts(
+    (paged ? cards : cards.filter((a) => matches(a, scope, query, viewerId))).filter(
+      (artifact) => space === ALL_SPACES || spaceOf(artifact) === space,
+    ),
+    sort,
   );
 
   return (
     <div className="flex h-svh flex-col overflow-hidden">
-      <ProjectPageHeader title={t('title')} />
+      <ProjectPageHeader title={t('title')}>
+        <SortMenu
+          value={sort}
+          onValueChange={setSort}
+          options={ARTIFACT_SORTS.map((mode) => ({ value: mode, label: sortLabel[mode] }))}
+          label={tSort('sortBy', { mode: sortLabel[sort] })}
+        />
+        <Button size="sm" className="gap-1.5" onClick={newDoc} disabled={create.isPending} aria-busy={create.isPending}>
+          {create.isPending ? <Loading className="size-3.5 shrink-0" /> : <PlusIcon className="size-3.5 shrink-0" />}
+          {t('newDoc')}
+        </Button>
+      </ProjectPageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 pb-20 md:px-8">
           <section className="flex flex-col gap-4">
@@ -103,28 +136,22 @@ export function ArtifactsGallery({ projectId }: { projectId: string }) {
                     ))}
                   </TabsList>
                 </Tabs>
-                {/* Search, then New: the Skills page's pair (an h-9 search and a secondary h-9 button). */}
-                <div className="flex w-full items-center gap-2 sm:w-auto">
-                  <InputGroupSearch className="min-w-0 flex-1 sm:w-64 sm:flex-none">
-                    <InputGroupSearchIcon>
-                      <MagnifyingGlassIcon />
-                    </InputGroupSearchIcon>
-                    <InputGroupSearchInput
-                      ref={searchRef}
-                      placeholder={t('search')}
-                      aria-label={t('search')}
-                      value={q}
-                      onChange={(e) => setQ(e.target.value)}
-                      variant="popover"
-                      size="sm"
-                    />
-                    <InputGroupSearchClear onClick={() => setQ('')} />
-                  </InputGroupSearch>
-                  <Button variant="secondary" className="shrink-0 gap-1.5" onClick={newDoc} disabled={create.isPending} aria-busy={create.isPending}>
-                    {create.isPending ? <Loading className="size-4 shrink-0" /> : <PlusIcon className="size-4" />}
-                    {t('newDoc')}
-                  </Button>
-                </div>
+                {/* The search, focused on arrival on desktop; "/" jumps back to it. */}
+                <InputGroupSearch className="min-w-0 flex-1 sm:w-64 sm:flex-none">
+                  <InputGroupSearchIcon>
+                    <MagnifyingGlassIcon />
+                  </InputGroupSearchIcon>
+                  <InputGroupSearchInput
+                    ref={searchRef}
+                    placeholder={t('search')}
+                    aria-label={t('search')}
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    variant="popover"
+                    size="sm"
+                  />
+                  <InputGroupSearchClear onClick={() => setQ('')} />
+                </InputGroupSearch>
               </div>
               <SpaceFilterTabs spaces={spaces} groups={groups} value={space} onValueChange={setSpace} />
             </div>

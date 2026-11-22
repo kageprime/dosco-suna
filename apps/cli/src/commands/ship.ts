@@ -29,7 +29,7 @@ import {
   projectIsManaged,
   resolveProjectGitTarget,
 } from '../project-git.ts';
-import { isKortixProject, loadLink, saveLink } from '../project-link.ts';
+import { isKortixProject, LINK_LOCATION, loadLink, migrateLegacyLink, saveLink } from '../project-link.ts';
 import { promptSecret } from '../prompts.ts';
 import { C, help, status } from '../style.ts';
 import { projectWebUrl } from '../web-url.ts';
@@ -54,11 +54,12 @@ Every run:
 First ship vs. after:
   * First ship   uses the saved host default workspace when this folder is unlinked.
                  Without a default, creates a cloud workspace + git repo, links
-                 this folder (.kortix/link.json), then pushes.
+                 this checkout (git config kortix.workspace), then pushes.
+                 The link stays in .git/config and is never committed.
   * Every ship   after that sees the link, skips setup, and just commits +
                  pushes. Continuous by design — re-run as often as you like.
-                 The link travels in .kortix/link.json, so a teammate who
-                 clones a linked repo can \`kortix ship\` from it too.
+                 A teammate runs \`kortix workspaces clone\`, which links the
+                 clone the same way.
                  Ship uses --host, the link's host, or the configured active
                  host's saved login. Workspace order: --workspace, folder link,
                  saved host default. Injected session auth/project is ignored.
@@ -156,7 +157,7 @@ export async function runShip(argv: string[]): Promise<number> {
   // ── Guards ───────────────────────────────────────────────────────────────
   if (!isKortixProject()) {
     process.stderr.write(
-      `${status.err(`Not a Kortix workspace — no .kortix/ or kortix.yaml in ${process.cwd()}.`)}\n` +
+      `${status.err(`Not a Kortix workspace — no kortix.yaml in ${process.cwd()}.`)}\n` +
         `  ${C.dim}Run ${C.reset}${C.cyan}kortix init${C.reset}${C.dim} here first.${C.reset}\n`,
     );
     return 1;
@@ -167,6 +168,12 @@ export async function runShip(argv: string[]): Promise<number> {
         `  ${C.dim}Run ${C.reset}${C.cyan}kortix init${C.reset}${C.dim} (it runs git init for you).${C.reset}\n`,
     );
     return 1;
+  }
+
+  // An older CLI wrote the link into .kortix/link.json and committed it. Move it
+  // into the git config before the commit below, so the commit deletes the file.
+  if (!flags.dryRun && migrateLegacyLink()) {
+    process.stdout.write(`  ${C.dim}moved the workspace link from .kortix/link.json to ${LINK_LOCATION}${C.reset}\n`);
   }
 
   // Ship binds this workspace, not the session that happens to run the CLI.
@@ -245,8 +252,8 @@ function prepareManifest(flags: ShipFlags): { ok: boolean; env: EnvSpec } {
     return { ok: false, env: empty };
   }
 
-  // NO MANIFEST AT ALL. This used to pass as "a `.kortix/`-only project —
-  // nothing to verify", and it is the client half of the same defect as the
+  // NO MANIFEST AT ALL. This used to pass as "a project with only a config
+  // folder — nothing to verify", and it is the client half of the same defect as the
   // server's opt-in seeding: it let `kortix ship` push a project that has no
   // kortix.yaml, so the project came out with no declared agents and no skills.
   //
@@ -623,7 +630,7 @@ async function buildShippedTemplates(client: ApiClient, projectId: string): Prom
   }
 }
 
-/** Write `.kortix/link.json` so this folder is bound to the cloud project.
+/** Link this checkout to the cloud project (git config `kortix.workspace`).
  *  Called the moment the project exists — see the note at its first-ship call
  *  site for why ordering matters. */
 async function bindShippedFolder(

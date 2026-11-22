@@ -176,7 +176,7 @@ const CountrySelectOption = ({
     >
       <FlagComponent country={country} countryName={countryName} />
       <span className="flex-1 text-sm">{countryName}</span>
-      <span className="text-foreground/50 text-sm">
+      <span className="text-muted-foreground text-sm">
         {`+${RPNInput.getCountryCallingCode(country)}`}
       </span>
       <CheckIcon

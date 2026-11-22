@@ -630,7 +630,7 @@ export default function AdminAccountsPage() {
                       <div className="truncate text-sm font-medium">{accountLabelFor(account)}</div>
                       <div className="text-muted-foreground truncate text-xs">
                         {account.ownerEmail || tI18nComplete.raw('textaca82dbb8ef0')}
-                        <span className="text-muted-foreground/40 mx-1.5">·</span>
+                        <span className="text-muted-foreground mx-1.5">·</span>
                         <span className="font-mono">{account.accountId.slice(0, 8)}</span>
                       </div>
                     </div>

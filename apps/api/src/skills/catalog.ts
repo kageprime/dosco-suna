@@ -18,18 +18,11 @@
  * (see apps/api/Dockerfile), so the served text ships with the deploy and cannot
  * drift from the running version. No git clone, no network fetch, no cache to
  * invalidate.
- *
- * `getMarketplaceFiles()` is included alongside the starter walk because one
- * managed name — `kortix-computer` — lives in the `marketplace` template layer
- * rather than the base/general-knowledge-worker layers. Without it that skill
- * would be listed in `KORTIX_MANAGED_SKILL_NAMES` but unresolvable here.
  */
 
 import { SKILLS_DIR } from '@kortix/manifest-schema';
-import { parseFrontmatter } from '@kortix/registry';
 import {
   getManagedSkillFiles,
-  getMarketplaceFiles,
   getStarterFiles,
   isKortixManagedSkillName,
 } from '@kortix/starter';
@@ -38,6 +31,18 @@ import {
 const SKILLS_PREFIX = `${SKILLS_DIR}/`;
 /** The skill body every skill has; everything else under the dir is a reference. */
 const SKILL_ENTRYPOINT = 'SKILL.md';
+
+/** One top-level `key: value` from a SKILL.md frontmatter block, unquoted. */
+function frontmatterValue(body: string, key: string): string | undefined {
+  if (!body.startsWith('---')) return undefined;
+  const end = body.indexOf('\n---', 3);
+  if (end === -1) return undefined;
+  for (const line of body.slice(3, end).split(/\r?\n/)) {
+    const match = line.match(/^([A-Za-z0-9_-]+):\s*(.+)$/);
+    if (match?.[1] === key) return match[2]!.trim().replace(/^["']|["']$/g, '');
+  }
+  return undefined;
+}
 
 export interface ManagedSkillFile {
   /** Path relative to the skill directory, e.g. `references/bindings.md`. */
@@ -68,7 +73,7 @@ export interface ManagedSkillSummary {
 }
 
 /**
- * Walk the starter + marketplace template trees and group the managed `kortix-*`
+ * Walk the managed + starter template trees and group the managed `kortix-*`
  * skills by name. Pure (no I/O beyond @kortix/starter's own template read) and
  * exported for unit tests; production callers use the memoized `managedSkills()`.
  */
@@ -76,7 +81,6 @@ export function buildManagedSkills(): Map<string, ManagedSkill> {
   const files = [
     ...getManagedSkillFiles(),
     ...getStarterFiles({ projectName: 'Kortix', template: 'general-knowledge-worker' }),
-    ...getMarketplaceFiles(),
   ];
 
   const grouped = new Map<string, ManagedSkillFile[]>();
@@ -104,7 +108,7 @@ export function buildManagedSkills(): Map<string, ManagedSkill> {
       .sort((a, b) => a.path.localeCompare(b.path));
     skills.set(name, {
       name,
-      description: parseFrontmatter(body).description ?? '',
+      description: frontmatterValue(body, 'description') ?? '',
       body,
       references,
       bytes: entries.reduce((total, e) => total + e.content.length, 0),

@@ -154,6 +154,9 @@ that failed.
 - The only hold left is `account_has_identity_provider` (an SSO provider or a
   live SCIM token): the split-off would not carry the IdP. Confirming a keeper
   does not release it.
+  No operator command releases it. On dev (2026-11-16) the held projects were
+  archived (unused) or moved while the account's IdP rows pointed elsewhere
+  (README, "Status (2026-11-16)"). Never on prod.
 - The plan pass also clears a `split_pending` flag left on an account's only
   active project (`stale_flags_cleared`); the `projects_split_pending_sync`
   trigger keeps the flag right for every later write.

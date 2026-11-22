@@ -100,7 +100,10 @@ describe('a cross-session message in the thread', () => {
     expect(button().props['aria-expanded']).toBe(false);
     await act(async () => button().props.onClick());
     expect(button().props['aria-expanded']).toBe(true);
-    expect(JSON.stringify(tree!.toJSON())).toContain('Line one.\\nLine two.');
+    // The full text, its line break kept as a <br> (chat markdown keeps single breaks).
+    const opened = JSON.stringify(tree!.toJSON());
+    expect(opened).toContain('"Line one.",{"type":"br"');
+    expect(opened).toContain('Line two.');
     await act(async () => button().props.onClick());
     // Closed again; the tool row keeps its body mounted and hidden, as every tool row does.
     expect(button().props['aria-expanded']).toBe(false);

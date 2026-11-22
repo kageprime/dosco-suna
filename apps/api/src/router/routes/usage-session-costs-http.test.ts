@@ -17,6 +17,8 @@ let sandboxId: string | null = null;
 /** A workspace-bound token (a session token): its workspace and account. */
 let tokenProjectId: string | null = null;
 let listInput: Record<string, unknown> | null = null;
+let listCalls = 0;
+let listFailure = false;
 let detailInput: Record<string, unknown> | null = null;
 let detailFound = true;
 let projectAccessInput: { projectId: string; action: string } | null = null;
@@ -142,6 +144,8 @@ mock.module('../../iam/directory-visibility', () => ({
 
 mock.module('../../shared/session-costs', () => ({
   listSessionCosts: async (input: Record<string, unknown>) => {
+    listCalls += 1;
+    if (listFailure) throw new HTTPException(503, { message: 'cost query unavailable' });
     listInput = input;
     return {
       sessions: sessionsToReturn,
@@ -157,6 +161,7 @@ mock.module('../../shared/session-costs', () => ({
     if (!detailFound) return null;
     return { ...summary, model_usage: [], ledger_entries: [] };
   },
+  findSessionCostOwner: async () => null,
   // usage.ts also imports getCostSummary from cost-rollups.ts, which imports
   // this named export from the real session-costs.ts module. This file only
   // exercises the /session-costs routes (getCostSummary is never called),
@@ -185,6 +190,8 @@ beforeEach(() => {
   tokenProjectId = null;
   directoryView = 'full';
   listInput = null;
+  listCalls = 0;
+  listFailure = false;
   detailInput = null;
   detailFound = true;
   projectAccessInput = null;
@@ -361,6 +368,8 @@ describe('GET /v1/usage/session-costs', () => {
   test.each(['not-a-uuid', "x' OR 1=1--", '123'])('rejects the malformed owner_id %p with 400', async (ownerId) => {
     for (const query of [`owner_id=${encodeURIComponent(ownerId)}`, `owner_id=${encodeURIComponent(ownerId)}&format=csv`]) {
       listInput = null;
+  listCalls = 0;
+  listFailure = false;
       const response = await createTestApp().request(`/v1/usage/session-costs?${query}`);
 
       expect(response.status).toBe(400);
@@ -374,6 +383,8 @@ describe('GET /v1/usage/session-costs', () => {
     expect(listInput).toMatchObject({ ownerId: SECONDARY_ACCOUNT_ID });
 
     listInput = null;
+  listCalls = 0;
+  listFailure = false;
     const empty = await createTestApp().request('/v1/usage/session-costs?owner_id=');
     expect(empty.status).toBe(200);
     expect(listInput).toMatchObject({ ownerId: undefined });
@@ -594,6 +605,8 @@ describe('session costs with a workspace-bound token', () => {
     expect(detailInput).toMatchObject({ accountId: ACCOUNT_ID, projectId: PROJECT_ID, sessionId: SESSION_ID });
 
     listInput = null;
+  listCalls = 0;
+  listFailure = false;
     detailInput = null;
     expect((await app.request(`/v1/usage/session-costs?project_id=${SECONDARY_ACCOUNT_ID}`)).status).toBe(403);
     expect((await app.request(`/v1/usage/session-costs/${SESSION_ID}?account_id=${SECONDARY_ACCOUNT_ID}`)).status).toBe(403);
@@ -601,3 +614,23 @@ describe('session costs with a workspace-bound token', () => {
     expect(detailInput).toBeNull();
   });
 });
+
+// Both renderers must run one guarded read, including when that read fails.
+for (const format of ['', '&format=csv']) {
+  test(`one cost query with distinct pagination: ${format || 'json'}`, async () => {
+    const response = await createTestApp().request(
+      `/v1/usage/session-costs?limit=7&offset=13&from=2026-07-01&to=2026-07-03${format}`,
+    );
+    expect(response.status).toBe(200);
+    expect(listCalls).toBe(1);
+    expect(listInput).toMatchObject({ limit: format ? 10_000 : 7, offset: format ? 0 : 13 });
+  });
+
+  test(`one failed cost query propagates: ${format || 'json'}`, async () => {
+    listFailure = true;
+    const response = await createTestApp().request(`/v1/usage/session-costs?limit=7${format}`);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: 'cost query unavailable' });
+    expect(listCalls).toBe(1);
+  });
+}

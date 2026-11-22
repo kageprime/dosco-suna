@@ -70,8 +70,11 @@ const POLICY_GROUPS: Array<[EvalErrorPolicy, string[]]> = [
     'RuntimeRequestError',
     'AddTestsDirError',
     'DownloadVerifierDirError',
-    // Kortix: the sandbox stopped under the turn.
+    // Kortix: the sandbox stopped under the turn, or a fresh workspace could not be made.
     'SandboxGoneError',
+    'WorkspaceSetupError',
+    // Kortix: a step's setup.sh failed, so the step never started.
+    'StepSetupError',
   ]],
   // The model API failed: grade for the record, the reward does not count, run it again.
   [policy(true, true, false), [
@@ -337,7 +340,6 @@ export function computeJobStats(trials: ScoredTrial[], metrics: EvalMetricConfig
   return {
     n_total_trials: live.length,
     n_queued: count(['queued']),
-    n_paused: count(['paused']),
     n_running: count(['starting', 'agent_running', 'verifying']),
     n_completed: count(['completed']),
     n_errored: count(['errored']),
@@ -347,4 +349,30 @@ export function computeJobStats(trials: ScoredTrial[], metrics: EvalMetricConfig
     usage: trials.reduce<EvalUsage | null>((total, trial) => addUsage(total, trial.usage), null),
     agents,
   };
+}
+
+// ── Multi-step tasks (Harbor multi_step.py) ──────────────────────────────────
+
+/**
+ * The trial's reward from its steps' rewards (null: the step's verifier wrote
+ * none). `final` is the last step's, verbatim. `mean` is the per-key mean over
+ * the steps that have a reward, a key a step lacks counting as 0.
+ */
+export function multiStepRewards(strategy: 'mean' | 'final', steps: Array<EvalRewards | null>): EvalRewards | null {
+  if (steps.length === 0) return null;
+  if (strategy === 'final') return steps[steps.length - 1] ?? null;
+  const valid = steps.filter((rewards): rewards is EvalRewards => rewards !== null);
+  const keys = [...new Set(valid.flatMap((rewards) => Object.keys(rewards)))];
+  if (keys.length === 0) return null;
+  return Object.fromEntries(keys.map((key) => [key, valid.reduce((sum, rewards) => sum + (rewards[key] ?? 0), 0) / valid.length]));
+}
+
+/** Why a step's rewards stop the remaining steps, or null. A missing reward or key reads as -inf. */
+export function minRewardFailure(rewards: EvalRewards | null, minReward: number | Record<string, number>): string | null {
+  const thresholds = typeof minReward === 'number' ? { reward: minReward } : minReward;
+  for (const [key, threshold] of Object.entries(thresholds)) {
+    const actual = rewards?.[key] ?? Number.NEGATIVE_INFINITY;
+    if (actual < threshold) return `${key}=${actual} below min_reward ${threshold}`;
+  }
+  return null;
 }

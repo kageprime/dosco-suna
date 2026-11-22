@@ -1594,7 +1594,7 @@ function ScopeLine({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <Icon className="text-muted-foreground/70 size-3.5 shrink-0" />
+      <Icon className="text-muted-foreground size-3.5 shrink-0" />
       <span className="text-muted-foreground text-xs font-medium">{label}</span>
       {items.map((name) => (
         <Badge key={name} variant="outline" size="xs" className="font-mono">
@@ -1623,7 +1623,7 @@ export function BlastRadiusPreview({
   return (
     <div className="border-border/60 bg-muted/30 space-y-2 rounded-md border p-3">
       <div className="flex items-center gap-1.5">
-        <ArrowElbowDownRightIcon className="text-muted-foreground/70 size-3.5 shrink-0" />
+        <ArrowElbowDownRightIcon className="text-muted-foreground size-3.5 shrink-0" />
         <span className="text-foreground text-xs font-medium">
           {tI18nComplete.raw('text4fb37eec9d1d')}
         </span>

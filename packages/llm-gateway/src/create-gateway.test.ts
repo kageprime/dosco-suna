@@ -349,3 +349,49 @@ describe('gateway.listModels — scope plumbing', () => {
     expect((await gateway.listModels('Bearer bad', { managedOnly: true })).status).toBe(401);
   });
 });
+
+test('Claude passthrough caller records inclusive counts in both ledgers without billing or payloads', async () => {
+  const usages: import('./domain/usage').UsageEvent[] = [];
+  const traces: import('./domain/trace').GatewayTrace[] = [];
+  const upstream = Bun.serve({ port: 0, fetch: () => Response.json({ model: 'claude-opus-5-5', usage: { input_tokens: 11, output_tokens: 53, cache_read_input_tokens: 23, cache_creation_input_tokens: 37 }, content: [{ text: 'synthetic private response' }] }) });
+  try {
+    const gateway = createGateway(makeHooks({
+      authenticate: async () => ({ ...principal, sessionId: 'synthetic-session' }),
+      claudeCredentials: async () => ({ credentials: [{ secretId: 'synthetic-key', apiKey: 'synthetic-token' }] }),
+      recordUsage: async (event) => { usages.push(event); },
+      recordTrace: async (trace) => { traces.push(trace); },
+    }), { claudeCodeUpstream: `http://localhost:${upstream.port}` });
+    const response = await gateway.claudeCode({ method: 'POST', path: '/v1/messages', search: '', headers: new Headers({ authorization: 'Bearer good' }), body: new TextEncoder().encode('{"model":"claude-opus-5-5"}') });
+    expect(response.status).toBe(200);
+    await response.text();
+    expect(usages).toHaveLength(1);
+    expect(usages[0]).toMatchObject({ provider: 'claude-agent', model: 'claude-agent/opus', promptTokens: 71, completionTokens: 53, cachedTokens: 23, cacheWriteTokens: 37, finalCost: 0, upstreamCost: 0, billingMode: 'none', sessionId: 'synthetic-session' });
+    expect(traces).toHaveLength(1);
+    expect(traces[0]).toMatchObject({ requestId: usages[0]?.requestId, resolvedModel: 'claude-opus-5-5', servedModel: 'claude-agent/opus', ok: true, request: null, response: null });
+  } finally { upstream.stop(true); }
+});
+
+for (const damaged of ['missing-output', 'malformed-delta']) {
+  test(`Claude HTTP caller relays ${damaged} but marks both ledgers incomplete`, async () => {
+    const usages: import('./domain/usage').UsageEvent[] = [];
+    const traces: import('./domain/trace').GatewayTrace[] = [];
+    const text = damaged === 'missing-output'
+      ? '{"model":"claude-opus-5-5","usage":{"input_tokens":100}}'
+      : 'data: {"type":"message_start","message":{"model":"claude-opus-5-5","usage":{"input_tokens":11,"output_tokens":1}}}\n\ndata: {broken}\n\ndata: {"type":"message_stop"}\n\n';
+    const upstream = Bun.serve({ port: 0, fetch: () => new Response(text, { headers: { 'content-type': damaged === 'missing-output' ? 'application/json' : 'text/event-stream' } }) });
+    try {
+      const gateway = createGateway(makeHooks({
+        claudeCredentials: async () => ({ credentials: [{ secretId: 'synthetic-key', apiKey: 'synthetic-token' }] }),
+        recordUsage: async (event) => { usages.push(event); },
+        recordTrace: async (trace) => { traces.push(trace); },
+      }), { claudeCodeUpstream: `http://localhost:${upstream.port}` });
+      const response = await gateway.claudeCode({ method: 'POST', path: '/v1/messages', search: '', headers: new Headers({ authorization: 'Bearer good' }), body: new TextEncoder().encode('{"model":"claude-opus-5-5"}') });
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe(text);
+      expect(usages).toHaveLength(1);
+      expect(usages[0]).toMatchObject({ promptTokens: damaged === 'missing-output' ? 100 : 11, completionTokens: damaged === 'missing-output' ? 0 : 1, usageEstimated: true });
+      expect(traces).toHaveLength(1);
+      expect(traces[0]).toMatchObject({ ok: false, metadata: { usageEstimated: true } });
+    } finally { upstream.stop(true); }
+  });
+}

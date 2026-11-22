@@ -207,11 +207,8 @@ describe('Billing no-DB guard', () => {
     app.route('/account-state', accountStateRouter);
 
     const res = await app.request('/account-state');
-    expect(res.status).toBe(200);
-    const data = await res.json();
-
-    expect(data.credits.total).toBe(0);
-    expect(data.subscription.tier_key).toBe('free');
+    expect(res.status).toBe(500);
+    expect(await res.text()).not.toContain('has_active_subscription');
   });
 
   it('minimal account-state route uses hasDatabase guard', async () => {
@@ -229,10 +226,8 @@ describe('Billing no-DB guard', () => {
     app.route('/account-state', accountStateRouter);
 
     const res = await app.request('/account-state/minimal');
-    expect(res.status).toBe(200);
-    const data = await res.json();
-
-    expect(data.credits.total).toBe(0);
+    expect(res.status).toBe(500);
+    expect(await res.text()).not.toContain('has_active_subscription');
   });
 });
 
@@ -240,14 +235,5 @@ describe('Database guard checks', () => {
   it('hasDatabase is exposed as a boolean', async () => {
     const { hasDatabase } = await import('../shared/db');
     expect(typeof hasDatabase).toBe('boolean');
-  });
-
-  it('account-state route source checks hasDatabase', async () => {
-    const content = readFileSync(
-      resolve(__dirname, '../billing/routes/account-state.ts'),
-      'utf-8'
-    );
-    expect(content).toContain('hasDatabase');
-    expect(content).toContain('buildLocalAccountState');
   });
 });

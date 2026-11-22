@@ -34,11 +34,11 @@ describe('AgentStatusTool joins the shared BasicTool shell', () => {
   test('inline surface renders the standard compact row, not bespoke chrome', () => {
     const html = renderToStaticMarkup(<AgentStatusTool call={toolCallBlock(makePart(OUTPUT))} />);
 
-    // Grammar: inline row = flex items-center gap-1.5 py-0.5 text-xs text-muted-foreground/70.
+    // Grammar: inline row = flex items-center gap-1.5 py-0.5 text-xs text-muted-foreground.
     expect(html).toContain('items-center');
     expect(html).toContain('gap-1.5');
     expect(html).toContain('py-0.5');
-    expect(html).toContain('text-muted-foreground/70');
+    expect(html).toContain('text-muted-foreground');
 
     // Title comes from the shared trigger, not a hand-rolled <Layers> header.
     expect(html).toContain('Agent status');

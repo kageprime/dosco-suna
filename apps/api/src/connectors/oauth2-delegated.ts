@@ -55,13 +55,17 @@ export async function resolveStoredDelegatedCredential(
   if (!stored.token.refresh_token) {
     throw new Error('Delegated OAuth2 credential requires reconnection');
   }
+  // Kortix's own OAuth clients refresh with the deployment's current secret,
+  // so rotating one does not break every stored connection.
+  const { withCurrentKortixClientSecret } = await import('./mcp-apps');
+  const application = withCurrentKortixClientSecret(stored.application);
   const token = await refreshOAuth2Token(
-    stored.application,
+    application,
     stored.token.refresh_token,
     runtime,
   );
   return {
     accessToken: token.access_token,
-    updatedValue: createStoredDelegatedCredential(stored.application, token),
+    updatedValue: createStoredDelegatedCredential(application, token),
   };
 }

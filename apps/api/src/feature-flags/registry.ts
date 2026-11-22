@@ -109,7 +109,6 @@
  * Kortix operator on request. Their 403 says "contact Kortix" instead of
  * naming a toggle the caller cannot see (gate.ts).
  */
-import { CHROME_LAUNCHED } from '@kortix/shared/chrome-launch';
 import { config } from '../config';
 import { platinumUsRegion } from '../shared/platinum-region';
 import type { FeatureFlagKey, FeatureFlagStability } from '@kortix/api-contract';
@@ -170,17 +169,10 @@ export interface FeatureFlagDef {
  * `computer` connector. The platform-wide `TUNNEL_ENABLED` env is the only gate.
  */
 const FLAGS: readonly FeatureFlagDef[] = [
-  {
-    key: 'marketplace',
-    name: 'Marketplace',
-    description:
-      'Browse and 1-click install skills from a marketplace of community & vendor registries (any SKILL.md repo). Sources, updates, and team scopes are still in flux.',
-    stability: 'beta',
-    available: () => true,
-    // On by default for every project — no longer gated behind an opt-in toggle.
-    platformDefault: () => true,
-    enforcement: 'routes',
-  },
+  // `marketplace` withdrawn (2026-11-20): the marketplace was removed (11
+  // installs in the 90 days before). Its routes answer 410 (routes/retired.ts).
+  // The API no longer lists, resolves or accepts the key. A stored
+  // `experimental.marketplace` override is inert.
   // `connectors_api_discover` graduated (2026-10-24) with `connectors_v2`:
   // integrations.sh is part of the one Kortix catalog every project browses.
   // A stored override is inert.
@@ -370,9 +362,9 @@ const FLAGS: readonly FeatureFlagDef[] = [
   // serializer keeps sending `true` for older clients.
   {
     key: 'chat',
-    name: 'Spaces',
+    name: 'Channels',
     description:
-      "Spaces with Kortix, the way Slack works: every message is a thread, Kortix's newest reply shows under it, Kortix can start threads, and you share spaces with people. Replaces the session list in the sidebar.",
+      "Channels with Kortix, the way Slack works: every message is a thread, Kortix's newest reply shows under it, Kortix can start threads, and you share channels with people. Replaces the session list in the sidebar.",
     stability: 'experimental',
     wip: true,
     available: () => true,
@@ -442,9 +434,10 @@ const FLAGS: readonly FeatureFlagDef[] = [
   },
   {
     key: 'session_groups',
-    name: 'Session groups',
+    // Product word "Spaces" since 2026-11-17; the key keeps its name (stored on projects).
+    name: 'Spaces',
     description:
-      "Group the sidebar's sessions into named folders that everyone in the workspace shares, for example one per store or client. Move a session into a group from its menu or by dragging it; reorder and collapse the groups.",
+      'Group sessions into spaces, each with its own files and tabs. A new space is private to you; share it with people or with the whole workspace. Start a session in a space from its page or from the Space picker under the composer. Every session in a space knows what the space is for and mounts its Files folder.',
     stability: 'experimental',
     wip: true,
     available: () => true,
@@ -454,7 +447,9 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'ROUTES: every /projects/:id/session-groups route and PUT /projects/:id/sessions/:sid/group answer 403 ' +
       '`feature_disabled` while off (projects/routes/session-groups.ts). The session list ignores `group` while off, ' +
       "so the sidebar lists every session again. Turning it off deletes nothing: the groups and each session's " +
-      '`group_id` stay and come back when it is turned on. WEB: no group sections, no New group and no Move to group.',
+      '`group_id` stay and come back when it is turned on. WEB: no space sections, no Spaces page or picker, no New space and no Move to space. ' +
+      'SESSIONS: session create ignores `group_id` while off. On, every session of a space (a child: its parent\'s) gets the "## This space" ' +
+      'turn text (projects/lib/session-where.ts: name, description, mounted folder) and mounts /Spaces/<group_id> read-write at /drives/space (drives/service.ts sessionGroupFolder). SHARING: a group is private to its creator by default; sharing it (people or the whole project) shares every session in it and its folder (shared/session-group-access.ts).',
   },
   {
     key: 'chrome',
@@ -462,20 +457,18 @@ const FLAGS: readonly FeatureFlagDef[] = [
     description:
       "Let a session drive your own Chrome, with your logins, through the Kortix in Chrome extension: it opens its tabs in a group named after the session, and you can take over or stop it at any time.",
     stability: 'experimental',
-    // Off on staging and prod until the Chrome Web Store listing is public.
+    // Where the API serves /v1/chrome (KORTIX_CHROME_ENABLED: local, dev, staging, prod).
     available: () => config.KORTIX_CHROME_ENABLED,
-    // Not launched (CHROME_LAUNCHED, #11436): the web has no Chrome surface, so
-    // no project gets it by default and the catalog does not offer it. An
-    // operator can still turn it on for one project (the extension's dev pairing).
-    platformDefault: () => CHROME_LAUNCHED,
-    ...(CHROME_LAUNCHED ? {} : { catalogHidden: true as const }),
+    // Launched 2026-11-21: the extension is public in the Chrome Web Store, so
+    // every project gets it where the API serves the routes.
+    platformDefault: () => true,
     enforcement: 'routes',
     enforcementNote:
       'ROUTES: POST /v1/chrome/attach answers 403 `feature_disabled` when the calling session\'s project has it ' +
       'off (chrome/routes.ts); release stays open so a session can always let go. The browsers a person ' +
       'connected are account-level and gated only by KORTIX_CHROME_ENABLED (404 when off). BOX: off, the ' +
       'session has no kortix-chrome skill and its CLI hides and refuses `kortix chrome` (KORTIX_FEATURE_FLAGS). ' +
-      'WEB: no sidebar row, no Chrome card in Apps and extensions, no Settings page.',
+      'WEB: no Chrome card in Apps and extensions and no Chrome promo card. Settings → Kortix in Chrome is account-level and stays.',
   },
   {
     key: 'agent_teams',

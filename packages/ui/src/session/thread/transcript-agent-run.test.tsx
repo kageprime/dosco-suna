@@ -111,20 +111,33 @@ describe('agent run fold (KRTX-4732)', () => {
     expect([...layout.settledLaunches]).toEqual(['launch']);
   });
 
-  test('the anchor reads as one row over every answer of the run; the reports stay folded', () => {
+  test('the anchor reads as one row over the final answer; intermediate replies stay folded', () => {
     const out = html({ ...base(anchor), agentRun: run, runTurns });
     expect(out).toContain('Worked for 5m · 3 agents');
-    // Every answer stays in view, in order, the last one last: the agent may answer in full
-    // before the last report arrives.
-    const interim = out.indexOf('Got the numbers, waiting on the review.');
-    expect(interim).toBeGreaterThan(out.indexOf('Worked for 5m · 3 agents'));
-    expect(out.indexOf('The launch post is ready.')).toBeGreaterThan(interim);
-    // A report turn with no answer draws no block.
-    expect(out.match(/data-testid="agent-run-answer"/g)).toHaveLength(1);
+    expect(out).not.toContain('Got the numbers, waiting on the review.');
+    expect(out.indexOf('The launch post is ready.')).toBeGreaterThan(out.indexOf('Worked for 5m · 3 agents'));
+    expect(out).not.toContain('data-testid="agent-run-answer"');
     // Folded and not yet opened: no report is mounted.
     expect(out).not.toContain('data-testid="agent-run-member"');
     expect(out).not.toContain('metrics-checker');
     expect(out).not.toContain('Worked for 6s');
+  });
+
+  test('peer progress keeps intermediate answers inside expanded activity (KRTX-4982)', async () => {
+    const out = html({ ...base(anchor), agentRun: run, runTurns });
+    expect(out).toContain('The launch post is ready.');
+    expect(out).not.toContain('Got the numbers, waiting on the review.');
+    await act(async () => {
+      mounted = create(
+        <QueryClientProvider client={new QueryClient()}>
+          <TranscriptTurnRow {...base(anchor)} agentRun={run} runTurns={runTurns} />
+        </QueryClientProvider>,
+      );
+    });
+    const toggle = mounted!.root.findAll((node) => node.type === 'button' && node.props['aria-expanded'] === false)[0]!;
+    await act(async () => toggle.props.onClick());
+    const fold = mounted!.root.find((node) => node.props['data-testid'] === 'agent-run-fold');
+    expect(fold.findAll((node) => typeof node.props.content === 'string' && node.props.content.includes('Got the numbers, waiting on the review.')).length).toBeGreaterThan(0);
   });
 
   test('an absorbed turn draws nothing', () => {
@@ -154,6 +167,21 @@ describe('agent run fold (KRTX-4732)', () => {
   test('a live run says how many agents reported', () => {
     const live = { ...run, live: true, durationMs: null, reported: 2 };
     expect(html({ ...base(anchor), agentRun: live, runTurns, isWorkingTurn: true, sessionWorking: true })).toContain('Working · 2 of 3 agents reported');
+  });
+
+  test('live peer activity stays behind the same progress disclosure', async () => {
+    const live = { ...run, live: true, durationMs: null, reported: 2 };
+    await act(async () => {
+      mounted = create(
+        <QueryClientProvider client={new QueryClient()}>
+          <TranscriptTurnRow {...base(byId.get('r2')!)} agentRun={live} runTurns={runTurns.slice(0, 1)} isWorkingTurn sessionWorking />
+        </QueryClientProvider>,
+      );
+    });
+    const notice = mounted!.root.find((node) => node.props['data-testid'] === 'peer-message-turn');
+    let wrapper = notice.parent;
+    while (wrapper && !(wrapper.type === 'div' && 'hidden' in wrapper.props)) wrapper = wrapper.parent;
+    expect(wrapper?.props.hidden).toBe(true);
   });
 
   test('every agent reported: the launch turn folds its agent rows behind its own row', () => {

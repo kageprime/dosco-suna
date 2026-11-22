@@ -34,13 +34,23 @@ export const isServicesPagesEnabled = (): boolean => {
 };
 
 /**
- * Whether Loopmaxxing is live: the /loopmaxxing page, the loopmaxxing.sh host
- * and the announcement bar that links to it. Off by default: dev sets
- * KORTIX_PUBLIC_LOOPMAXXING_ENABLED=true, and `next dev` turns it on locally.
- * Prod leaves it unset until the launch.
+ * Whether Loopmaxxing is reachable: the /loopmaxxing page and the
+ * loopmaxxing.sh host. Off by default: KORTIX_PUBLIC_LOOPMAXXING_ENABLED=true
+ * turns it on, and `next dev` turns it on locally.
  */
 export const isLoopmaxxingEnabled = (): boolean => {
   return getEnv().LOOPMAXXING_ENABLED;
+};
+
+/**
+ * Whether Loopmaxxing is announced: the marketing site shows the announcement
+ * bar that links to it. A reachable page stays unannounced until
+ * KORTIX_PUBLIC_LOOPMAXXING_ANNOUNCED=true (dev, staging and prod set it
+ * since the launch, 2026-11-19; `next dev` turns it on locally). On Vercel
+ * the value is a project variable, not this repo's .env.prod.
+ */
+export const isLoopmaxxingAnnounced = (): boolean => {
+  return getEnv().LOOPMAXXING_ENABLED && getEnv().LOOPMAXXING_ANNOUNCED;
 };
 
 const SERVICES_PAGES = new Set(['/services']);

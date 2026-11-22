@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import * as realAccess from '../../projects/lib/access';
 import * as realAuthorize from '../../iam/authorize';
+import * as realDirectoryVisibility from '../../iam/directory-visibility';
 
 const ACCOUNT_ID = '00000000-0000-4000-a000-000000000001';
 const PROJECT_ID = '00000000-0000-4000-a000-000000000002';
@@ -22,11 +23,17 @@ let projectCapabilityInput: {
   action: string;
 } | null = null;
 let projectCapabilityDenied = false;
+let summaryGate: Promise<void> | null = null;
+/** `visibleDirectory`: an admin sees every owner; a plain member only themselves. */
+let directoryView: 'full' | 'own-only' = 'full';
+/** The stored owner of SESSION_ID; undefined = no such session in the account. */
+let sessionOwner: string | null | undefined = USER_ID;
 
 interface TestContext {
   set(key: string, value: unknown): void;
   req: {
     query(key: string): string | undefined;
+    header(key: string): string | undefined;
   };
 }
 
@@ -47,7 +54,7 @@ const summary = {
 
 mock.module('../../middleware/auth', () => ({
   combinedAuth: async (c: TestContext, next: () => Promise<void>) => {
-    c.set('userId', USER_ID);
+    c.set('userId', c.req.header('x-test-user') ?? USER_ID);
     c.set('authType', authType);
     if (sandboxId) c.set('sandboxId', sandboxId);
     if (tokenProjectId) {
@@ -100,6 +107,7 @@ mock.module('../../projects/lib/access', () => ({
 mock.module('../../shared/cost-rollups', () => ({
   getCostSummary: async (input: Record<string, unknown>) => {
     summaryInput = input;
+    await summaryGate;
     return summary;
   },
   listCostByProject: async () => ({
@@ -109,6 +117,15 @@ mock.module('../../shared/cost-rollups', () => ({
     offset: 0,
     next_offset: null,
   }),
+}));
+
+// visibleDirectory's real `authorize` reads the action catalog in the database.
+mock.module('../../iam/directory-visibility', () => ({
+  ...realDirectoryVisibility,
+  visibleDirectory: async () =>
+    directoryView === 'full'
+      ? { userIds: null, groupIds: null, projectIds: null }
+      : { userIds: new Set([USER_ID]), groupIds: new Set(), projectIds: new Set() },
 }));
 
 // session-costs.ts is a real module usage.ts also imports (for the sibling
@@ -123,9 +140,12 @@ mock.module('../../shared/session-costs', () => ({
   getSessionCostRecord: async () => {
     throw new Error('getSessionCostRecord should not be called from cost-summary tests');
   },
+  findSessionCostOwner: async (input: { sessionId: string }) =>
+    input.sessionId === SESSION_ID && sessionOwner !== undefined ? { ownerId: sessionOwner } : null,
 }));
 
 const { usageApp } = await import('./usage');
+const { COST_READ_MAX_WAITING } = await import('../../shared/cost-read-guard');
 
 function createTestApp() {
   const app = new Hono();
@@ -147,6 +167,36 @@ beforeEach(() => {
   projectAccessInput = null;
   projectCapabilityInput = null;
   projectCapabilityDenied = false;
+  summaryGate = null;
+  directoryView = 'full';
+  sessionOwner = USER_ID;
+});
+
+describe('GET /v1/usage/cost-summary read guard', () => {
+  test('answers 429 once one read runs and the queue is full, then recovers', async () => {
+    let release!: () => void;
+    summaryGate = new Promise<void>((resolve) => (release = resolve));
+    const app = createTestApp();
+    // Fill the replica-wide queue with distinct callers: one caller is now
+    // limited to two in-flight rollups before it can reach this guard.
+    const running = Array.from({ length: 1 + COST_READ_MAX_WAITING }, (_, index) =>
+      app.request(`/v1/usage/cost-summary?account_id=${ACCOUNT_ID}`, {
+        headers: { 'x-test-user': `cost-summary-caller-${index}` },
+      }),
+    );
+    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const refused = await app.request(`/v1/usage/cost-summary?account_id=${ACCOUNT_ID}`, {
+      headers: { 'x-test-user': 'cost-summary-overflow' },
+    });
+    expect(refused.status).toBe(429);
+    expect(await refused.json()).toEqual({ error: 'Too many cost reads are queued on this server. Retry shortly.' });
+
+    release();
+    for (const response of await Promise.all(running)) expect(response.status).toBe(200);
+    expect((await app.request(`/v1/usage/cost-summary?account_id=${ACCOUNT_ID}`)).status).toBe(200);
+  });
 });
 
 describe('GET /v1/usage/cost-summary', () => {
@@ -192,6 +242,32 @@ describe('GET /v1/usage/cost-summary', () => {
     expect(summaryInput?.accountId).toBe(ACCOUNT_ID);
     expect(summaryInput?.sessionId).toBe(SESSION_ID);
     expect(summaryInput?.projectId).toBeUndefined();
+  });
+
+  test('a caller who reads only their own session costs gets their own session, and 404 for anyone else\'s or an unknown one', async () => {
+    directoryView = 'own-only';
+    const url = `/v1/usage/cost-summary?account_id=${ACCOUNT_ID}&session_id=${SESSION_ID}`;
+
+    expect((await createTestApp().request(url)).status).toBe(200);
+    expect(summaryInput?.sessionId).toBe(SESSION_ID);
+
+    summaryInput = null;
+    sessionOwner = '00000000-0000-4000-a000-000000000099';
+    expect((await createTestApp().request(url)).status).toBe(404);
+    expect(summaryInput).toBeNull();
+
+    sessionOwner = undefined;
+    expect((await createTestApp().request(url)).status).toBe(404);
+    expect(summaryInput).toBeNull();
+  });
+
+  test('a caller who sees every owner reads any session of the account', async () => {
+    sessionOwner = '00000000-0000-4000-a000-000000000099';
+    const response = await createTestApp().request(
+      `/v1/usage/cost-summary?account_id=${ACCOUNT_ID}&session_id=${SESSION_ID}`,
+    );
+    expect(response.status).toBe(200);
+    expect(summaryInput?.sessionId).toBe(SESSION_ID);
   });
 
   test('rejects an inverted window with 400', async () => {

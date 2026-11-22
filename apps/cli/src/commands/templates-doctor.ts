@@ -1,13 +1,13 @@
 /**
  * `kortix templates doctor <id>` — the loops doctor (`kortix doctor --loops`)
- * plus what only the template knows: its folder is imported, the secrets its
+ * plus what only the template knows: its file (`<id>.yaml`) is imported, the secrets its
  * template.json lists that kortix.yaml does not name (an agent granted
  * `secrets: "*"`), and a dev sandbox when the template needs one.
  */
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { manifestCandidatePaths, parseManifestText } from '@kortix/manifest-schema';
-import { getTemplate, type TemplateInfo } from '@kortix/starter/templates';
+import { getTemplate, getTemplateFiles, type TemplateInfo } from '@kortix/starter/templates';
 import { type Check, doctorExitCode } from '../onboarding/loops-doctor.ts';
 import { C, status } from '../style.ts';
 import { doctorChecks, loadLoopsState } from './onboard.ts';
@@ -15,39 +15,34 @@ import { doctorChecks, loadLoopsState } from './onboard.ts';
 export type { Check, CheckState } from '../onboarding/loops-doctor.ts';
 export { doctorExitCode };
 
-/** Trigger slugs the template's rendered YAML declares, read from the repository. */
+/** Trigger slugs the template's import file (`<id>.yaml`) declares, read from the repository. */
 export function templateTriggerSlugs(root: string, template: TemplateInfo): string[] {
-  const dir = join(root, template.import_path);
-  if (!existsSync(dir)) return [];
-  const slugs: string[] = [];
-  const walk = (path: string) => {
-    for (const entry of readdirSync(path, { withFileTypes: true })) {
-      const full = join(path, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (/\.ya?ml$/.test(entry.name)) {
-        const doc = parseManifestText(readFileSync(full, 'utf8')) as { triggers?: Array<{ slug?: string }> };
-        for (const trigger of doc.triggers ?? []) if (trigger.slug) slugs.push(trigger.slug);
-      }
-    }
-  };
-  walk(dir);
-  return slugs;
+  const file = join(root, template.import_path);
+  // Read directly: a missing file or a directory throws, with no window between a check and the read.
+  let text: string;
+  try {
+    text = readFileSync(file, 'utf8');
+  } catch {
+    return [];
+  }
+  const doc = parseManifestText(text) as { triggers?: Array<{ slug?: string }> };
+  return (doc.triggers ?? []).flatMap((trigger) => (trigger.slug ? [trigger.slug] : []));
 }
 
-/** All text of the installed template folder: what this repository really runs. */
+/** The template's folder of the old layout (`.kortix/<id>/`), when the repository still has it. */
+export function legacyTemplateFolder(root: string, template: TemplateInfo): string | null {
+  const folder = `.kortix/${template.id}`;
+  return existsSync(join(root, folder)) ? `${folder}/` : null;
+}
+
+/** All text of the template's files in the repository: what this repository really runs. */
 export function installedText(root: string, template: TemplateInfo): string {
-  const dir = join(root, template.import_path);
-  if (!existsSync(dir)) return '';
-  let text = '';
-  const walk = (path: string) => {
-    for (const entry of readdirSync(path, { withFileTypes: true })) {
-      const full = join(path, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else text += readFileSync(full, 'utf8');
-    }
-  };
-  walk(dir);
-  return text;
+  const paths = getTemplateFiles(template.id, { repoFullName: 'owner/repo', defaultBranch: 'main' }).map((file) => file.path);
+  return paths
+    .map((path) => join(root, path))
+    .filter((abs) => existsSync(abs) && statSync(abs).isFile())
+    .map((abs) => readFileSync(abs, 'utf8'))
+    .join('');
 }
 
 export async function runTemplatesDoctor(template: TemplateInfo, opts: { repo: string | null; json: boolean }): Promise<number> {
@@ -57,12 +52,15 @@ export async function runTemplatesDoctor(template: TemplateInfo, opts: { repo: s
   });
   const root = state.root;
   const manifest = manifestCandidatePaths().map((path) => join(root, path)).find((path) => existsSync(path));
-  const imported = manifest ? readFileSync(manifest, 'utf8').includes(template.import_path.replace(/\/$/, '')) : false;
+  const imported = manifest ? readFileSync(manifest, 'utf8').includes(template.import_path) : false;
   const declared = templateTriggerSlugs(root, template);
+  const legacy = legacyTemplateFolder(root, template);
   const checks: Check[] = [
     imported && declared.length > 0
       ? { name: 'template added', state: 'ok', detail: `${template.import_path} imported, ${declared.length} triggers` }
-      : { name: 'template added', state: 'fail', detail: 'not in this repository', fix: `kortix templates add ${template.id}` },
+      : legacy
+        ? { name: 'template added', state: 'fail', detail: `old layout: the template is in ${legacy}. Move its agent to agents/, its skills to skills/, its YAML and JSON to the root, and import ${template.import_path}` }
+        : { name: 'template added', state: 'fail', detail: 'not in this repository', fix: `kortix templates add ${template.id}` },
     ...(await doctorChecks(state, manifestFile)),
   ];
 

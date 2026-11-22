@@ -98,13 +98,15 @@ function runBridge(opts: { prefix?: string; framed?: boolean; href: string; navi
   const body = script.replace(/^<script>/, '').replace(/<\/script>$/, '');
   const element = { parentNode: { removeChild: () => (removed = true) } };
   const history = { length: 1 };
-  new Function('window', 'document', 'location', 'history', 'addEventListener', 'setInterval', body)(
+  // The script polls through `window.setInterval`: a bare `setInterval(` at the
+  // start of a line reads as an import-time timer to unit-worker-scope-wiring.
+  win.setInterval = (fn: () => void) => (tick = fn);
+  new Function('window', 'document', 'location', 'history', 'addEventListener', body)(
     win,
     { currentScript: element },
     location,
     history,
     (name: string, fn: () => void) => (listeners[name] = fn),
-    (fn: () => void) => (tick = fn),
   );
   return {
     posted,

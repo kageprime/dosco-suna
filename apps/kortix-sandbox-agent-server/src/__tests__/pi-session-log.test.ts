@@ -257,6 +257,18 @@ describe('pi session-log export', () => {
     expect(piSessionLog(fixture()).hashes).toEqual(hashed.hashes)
   })
 
+  test('a tail derives only the last entries: those messages equal the same suffix of the whole log, seqs and edits included (KRTX-4488)', () => {
+    const whole = piSessionLog(fixture(), { hashes: false }).log.threads[0]!.messages
+    for (const tail of [1, 2, 3, 5, 8, 15, 99]) {
+      const part = piSessionLog(fixture(), { hashes: false, tail }).log.threads[0]!.messages
+      expect(part.length).toBeLessThanOrEqual(tail)
+      expect(part).toEqual(whole.slice(whole.length - part.length))
+    }
+    // The 7-entry window holds the failed attempt and the edit that hides it.
+    const four = piSessionLog(fixture(), { hashes: false, tail: 7 }).log.threads[0]!.messages
+    expect(four.find((m) => m.message_id === 'msg_h')).toMatchObject({ in_context: false, hidden_reason: 'failed_attempt' })
+  })
+
   test('a sub-agent child is a thread spawned by the task call', () => {
     const child = piSessionLog(fixture()).log.threads[1]!
     expect(child).toMatchObject({ thread_id: CHILD, parent_thread_id: ROOT, spawned_by: { message_id: 'msg_k', call_id: 'call_task' }, agent: 'general' })

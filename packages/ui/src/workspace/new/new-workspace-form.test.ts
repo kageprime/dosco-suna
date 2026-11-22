@@ -9,7 +9,6 @@ describe('INITIAL_FORM_STATE', () => {
       icon: null,
       source: 'managed',
       defaultBranch: 'main',
-      templateId: null,
       accountId: null,
       // The two GitHub sources need an installation, and `github-import`
       // additionally a repository. Null on a `managed` default, where neither
@@ -78,16 +77,6 @@ describe('buildProvisionPayload', () => {
     });
     expect(payload.icon_glyph).toEqual({ name: 'Rocket', color: 'green' });
     expect('icon' in payload).toBe(false);
-  });
-
-  test('sends source_item_id only when a template is chosen', () => {
-    expect('source_item_id' in buildProvisionPayload({ ...INITIAL_FORM_STATE, name: 'x' })).toBe(
-      false,
-    );
-    expect(
-      buildProvisionPayload({ ...INITIAL_FORM_STATE, name: 'x', templateId: 'item-1' })
-        .source_item_id,
-    ).toBe('item-1');
   });
 
   test('never sends account_id: the server picks the account for a new workspace', () => {

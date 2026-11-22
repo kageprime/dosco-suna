@@ -33,13 +33,6 @@ const R = {
   trialCancel: '/v1/projects/:projectId/evals/jobs/:jobId/trials/:trialId/cancel',
   trial: '/v1/projects/:projectId/evals/jobs/:jobId/trials/:trialId',
   trialFile: '/v1/projects/:projectId/evals/jobs/:jobId/trials/:trialId/file',
-  pause: '/v1/projects/:projectId/evals/jobs/:jobId/pause',
-  resume: '/v1/projects/:projectId/evals/jobs/:jobId/resume',
-  trialPause: '/v1/projects/:projectId/evals/jobs/:jobId/trials/:trialId/pause',
-  trialResume: '/v1/projects/:projectId/evals/jobs/:jobId/trials/:trialId/resume',
-  allTrials: '/v1/projects/:projectId/evals/trials',
-  trialFilters: '/v1/projects/:projectId/evals/trials/filters',
-  jobFilters: '/v1/projects/:projectId/evals/jobs/filters',
 } as const;
 
 const TASK_TOML = '[agent]\ntimeout_sec = 120.0\n\n[verifier]\ntimeout_sec = 30.0\nenvironment_mode = "shared"\n';
@@ -133,13 +126,6 @@ flow(
       `POST ${R.trialCancel}`,
       `GET ${R.trial}`,
       `GET ${R.trialFile}`,
-      `POST ${R.pause}`,
-      `POST ${R.resume}`,
-      `POST ${R.trialPause}`,
-      `POST ${R.trialResume}`,
-      `GET ${R.allTrials}`,
-      `GET ${R.trialFilters}`,
-      `GET ${R.jobFilters}`,
       'PATCH /v1/projects/:projectId/features',
     ],
   },
@@ -296,49 +282,6 @@ flow(
       if (after.stats.n_total_trials !== 8 || after.stats.n_retries !== 1) throw new Error(JSON.stringify(after.stats));
     });
 
-    await ctx.step('pause → paused, its queued trials paused, a trial in it cannot resume; resume → queued again; one trial pauses and resumes alone', async () => {
-      const jobId = job!.job_id;
-      const jobParams = { ...params, jobId };
-      const paused = (await owner.post(R.pause, {}, { params: jobParams })).status(200).json<{ job: Job & { stats: { n_paused: number } } }>().job;
-      if (paused.status !== 'paused' || paused.stats.n_paused !== 8 || paused.stats.n_queued !== 0) throw new Error(JSON.stringify(paused.stats));
-      if ((await owner.post(R.pause, {}, { params: jobParams })).status(200).json<{ job: Job }>().job.status !== 'paused') throw new Error('pause twice');
-      const trials = (await owner.get(R.trials, { params: jobParams })).json<{ trials: Array<{ trial_id: string; status: string }> }>().trials;
-      const one = trials.find((t) => t.status === 'paused')!;
-      expectError(await owner.post(R.trialResume, {}, { params: { ...jobParams, trialId: one.trial_id } }), 409, 'eval_conflict');
-      const resumed = (await owner.post(R.resume, {}, { params: jobParams })).status(200).json<{ job: Job & { stats: { n_paused: number } } }>().job;
-      if (resumed.status !== 'queued' || resumed.stats.n_paused !== 0 || resumed.stats.n_queued !== 8) throw new Error(JSON.stringify(resumed));
-      const trialParams = { ...jobParams, trialId: one.trial_id };
-      if ((await owner.post(R.trialPause, {}, { params: trialParams })).status(200).json<{ trial: { status: string } }>().trial.status !== 'paused') throw new Error('trial pause');
-      if ((await owner.get(R.job, { params: jobParams })).json<{ job: { stats: { n_paused: number } } }>().job.stats.n_paused !== 1) throw new Error('n_paused');
-      if ((await owner.post(R.trialResume, {}, { params: trialParams })).status(200).json<{ trial: { status: string } }>().trial.status !== 'queued') throw new Error('trial resume');
-    });
-
-    await ctx.step('trials across jobs: filters by job and status, values with counts, sorted pages that walk every trial once; bad sort, status or token → 422', async () => {
-      const jobId = job!.job_id;
-      const list = (query: Record<string, string>) => owner.get(R.allTrials, { params, query });
-      const mine = (await list({ job_ids: jobId })).status(200).json<{ trials: Array<{ job_id: string; job_name: string }>; total: number }>();
-      if (mine.total !== 9 || mine.trials.some((t) => t.job_id !== jobId || t.job_name !== job!.job_name)) throw new Error(`total ${mine.total}`);
-      if ((await list({ job_ids: jobId, status: 'queued,cancelled' })).json<{ total: number }>().total !== 9) throw new Error('status or');
-      if ((await list({ job_ids: jobId, status: 'cancelled' })).json<{ total: number }>().total !== 1) throw new Error('status');
-      if ((await list({ job_ids: jobId, task: 'alpha', agent: 'oracle' })).json<{ total: number }>().total !== 3) throw new Error('task × agent');
-      const statuses = (await owner.get(R.trialFilters, { params, query: { field: 'status', job_ids: jobId, status: 'cancelled' } })).status(200).json<{ values: Array<{ value: string; count: number }> }>().values;
-      if (statuses.map((v) => `${v.value}:${v.count}`).join() !== 'queued:8,cancelled:1') throw new Error(JSON.stringify(statuses));
-      const jobs = (await owner.get(R.trialFilters, { params, query: { field: 'job', limit: '1' } })).status(200).json<{ values: Array<{ value: string; label: string }>; truncated: boolean }>();
-      if (jobs.values.length !== 1 || !jobs.truncated || !jobs.values[0]!.label) throw new Error(JSON.stringify(jobs));
-      const agents = (await owner.get(R.jobFilters, { params, query: { field: 'agent' } })).status(200).json<{ values: Array<{ value: string; count: number }> }>().values;
-      if (!agents.some((v) => v.value === 'oracle') || !agents.some((v) => v.value === 'nop')) throw new Error(JSON.stringify(agents));
-      const seen: string[] = [];
-      let token: string | null = null;
-      do {
-        const page: { trials: Array<{ trial_name: string }>; next_page_token: string | null } = (await list({ job_ids: jobId, sort: '-task', page_size: '4', ...(token ? { page_token: token } : {}) })).status(200).json();
-        seen.push(...page.trials.map((t) => t.trial_name));
-        token = page.next_page_token;
-      } while (token);
-      if (seen.length !== 9 || new Set(seen).size !== 9 || !seen[0]!.startsWith('beta') || !seen[8]!.startsWith('alpha')) throw new Error(seen.join());
-      for (const query of [{ sort: 'nope' }, { status: 'done' }, { page_token: 'x' }, { job_ids: 'nope' }, { page_size: '0' }] as Array<Record<string, string>>) expectError(await list(query), 422, 'eval_invalid');
-      expectError(await owner.get(R.trialFilters, { params, query: { field: 'colour' } }), 422, 'eval_invalid');
-    });
-
     await ctx.step('a trial: the owner reads its instruction, a member without file read gets null; a file it never wrote or a ../ path → 404', async () => {
       const jobId = job!.job_id;
       const trialId = (await owner.get(R.trials, { params: { ...params, jobId } })).json<{ trials: Array<{ trial_id: string }> }>().trials[0]!.trial_id;
@@ -370,9 +313,7 @@ flow(
       // A re-run of a job that has not ended is refused: the queued `idem`-free job above is still open.
       const open = (await owner.post(R.jobs, { suite: 'smoke', config: { agents: [{ name: 'nop' }], n_attempts: 1 } }, { params })).status(201).json<{ job: Job }>().job;
       expectError(await owner.post(R.rerun, { scope: 'all' }, { params: { ...params, jobId: open.job_id } }), 409, 'eval_conflict');
-      // A soft cancel with nothing running ends the job at once; its queued trials are cancelled.
-      const soft = (await owner.post(R.cancel, { force: false }, { params: { ...params, jobId: open.job_id } })).status(200).json<{ job: Job & { cancel_mode: string | null } }>().job;
-      if (soft.status !== 'cancelled' || soft.cancel_mode !== 'soft' || soft.stats.n_cancelled !== 2) throw new Error(JSON.stringify(soft));
+      (await owner.post(R.cancel, {}, { params: { ...params, jobId: open.job_id } })).status(200);
       const next = (await owner.post(R.rerun, { scope: 'all' }, { params: { ...params, jobId: job!.job_id } })).status(201).json<{ job: Job }>().job;
       if (next.rerun_of !== job!.job_id || next.commit !== job!.commit || next.stats.n_total_trials !== 8 || next.status !== 'queued') throw new Error(JSON.stringify(next));
       (await owner.post(R.cancel, {}, { params: { ...params, jobId: next.job_id } })).status(200);

@@ -2,8 +2,8 @@
 
 Run the guide below as written. This template adds five steps at the points
 named here. The loop is one agent, `support`, with one contract skill,
-`support-loop`, and five task skills. Its files are under `.kortix/support/`:
-read `skills/support-loop/SKILL.md` once before you start, so you know the
+`support-loop`, and five task skills. Its files are `support.yaml`, `support.json`, `agents/support.md` and
+`skills/support-*/`: read `skills/support-loop/SKILL.md` once before you start, so you know the
 desk, the sources and the approval modes you set up.
 
 Every **Ask** below is a question for the one message of guide step 3, with
@@ -12,11 +12,11 @@ its recommended answer. Never ask it where it appears.
 ### A. In guide steps 2 to 4: analyse the team, then support.json
 
 1. Run every check of
-   `.kortix/support/skills/support-loop/references/analysis.md`: the connected
+   `skills/support-loop/references/analysis.md`: the connected
    connectors (`kortix connectors ls --json`), the env names
    (`kortix env push --from <file> --names --json`: `PLAIN_`, `INTERCOM_`,
    `ZENDESK_` prefixes), the README, the docs folder, a feedback widget in the
-   code, and whether `.kortix/software-factory/factory.json` exists. Read
+   code, and whether `factory.json` exists. Read
    only; never `cat` an env file, never open a customer conversation.
 2. **Ask** which desk is the source of truth (analysis section 2). Recommend
    the one the evidence shows; none: a JSON file in a new private repository.
@@ -26,11 +26,11 @@ its recommended answer. Never ask it where it appears.
    and recommended to start: `draft` for every category. Say plainly: the
    agent never refunds, credits or changes an account, and a security report
    always goes to a person.
-5. Write `.kortix/support/support.json` (analysis section 5). Turn each
+5. Write `support.json` (analysis section 5). Turn each
    chosen source's trigger on and every other source's trigger off in
    `support.yaml`.
-6. The Software Factory is in this repository: set its `source-support-inbox`
-   trigger `enabled: false` in `factory.yaml` and
+6. The Software Factory is in this workspace: set its `source-support-inbox`
+   trigger `enabled: false` in `software-factory.yaml` and
    `sources.support-inbox.enabled: false` in `factory.json`. This loop files
    the support defects into the same store; two producers would file each
    defect twice.

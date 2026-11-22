@@ -84,7 +84,7 @@ function BreadcrumbSegments({
 
         return (
           <div key={pathToHere} className="flex min-w-0 shrink-0 items-center gap-0.5">
-            <ChevronRight className="text-muted-foreground/50 h-3 w-3 shrink-0" />
+            <ChevronRight className="text-muted-foreground h-3 w-3 shrink-0" />
             {isLast && fileMode ? (
               /* File name — non-clickable active segment with optional icon */
               <span className="text-foreground bg-muted/30 inline-flex max-w-[200px] items-center gap-1.5 truncate rounded-lg px-1.5 py-1 text-xs font-medium">

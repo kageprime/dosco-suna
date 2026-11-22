@@ -1,3 +1,4 @@
+import { parseTriggerReaders } from '@kortix/manifest-schema';
 import type { TriggerSessionAccess } from '@kortix/api-contract';
 import { qualifiedColumn } from '../shared/sql-qualified-column';
 import {
@@ -280,7 +281,7 @@ export async function applyTriggerSessionAccess(input: {
   if (!serviceAccountId) throw new Error('Trigger agent service account is unavailable');
   await db.transaction(async (tx) => {
     const [runtime] = await tx
-      .select({ sessionAccessMode: projectTriggerRuntime.sessionAccessMode })
+      .select({ sessionAccessMode: projectTriggerRuntime.sessionAccessMode, scheduleSpec: projectTriggerRuntime.scheduleSpec })
       .from(projectTriggerRuntime)
       .where(
         and(
@@ -323,9 +324,15 @@ export async function applyTriggerSessionAccess(input: {
           }
         : { mode, memberIds: [], groupIds: [] };
     const grants = grantsFor(access);
+    const stored = runtime?.scheduleSpec;
+    const readers = parseTriggerReaders(stored?.sessionReaders ?? stored?.defaultSessionReaders);
+    const readerMetadata = row.spaceKind !== 'dm' && 'readers' in readers
+      ? { trigger_session_readers: readers.readers }
+      : {};
     await tx
       .update(projectSessions)
       .set({
+        metadata: sql`${projectSessions.metadata} || ${JSON.stringify(readerMetadata)}::jsonb`,
         createdBy: serviceAccountId,
         visibility: triggerSessionAccessToVisibility(access),
         updatedAt: new Date(),

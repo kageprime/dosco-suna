@@ -11,6 +11,7 @@ mock.module('../../shared/audit', () => ({ recordAuditEvent: async (event: Recor
 const {
   opencodeInferenceBaseUrl, parseOpencodeLogin, pollOpencodeDeviceAuth, resolveOpencodeLogin, startOpencodeDeviceAuth,
 } = await import('./opencode-console');
+const { DeviceAuthUnavailableError } = await import('./codex-core');
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
 const DAY = 24 * 60 * 60 * 1000;
@@ -30,6 +31,15 @@ describe('OpenCode Console device flow', () => {
       verificationUrl: 'https://opencode.ai/console/device?user_code=ABCD-EFGH&client_id=opencode-cli',
       userCode: 'ABCD-EFGH', deviceCode: 'dev', intervalMs: 5000,
     });
+  });
+
+  test('a console 5xx on start is an outage, a 4xx a plain failure', async () => {
+    const outage = await startOpencodeDeviceAuth(async () => json(503, {})).catch((err: unknown) => err);
+    expect(outage).toBeInstanceOf(DeviceAuthUnavailableError);
+    expect(outage).toHaveProperty('message', 'OpenCode sign-in is temporarily unavailable. Try again in a moment.');
+    const refusal = await startOpencodeDeviceAuth(async () => json(400, {})).catch((err: unknown) => err);
+    expect(refusal).not.toBeInstanceOf(DeviceAuthUnavailableError);
+    expect(refusal).toHaveProperty('message', 'Failed to start OpenCode authorization (400)');
   });
 
   test('poll is pending on authorization_pending and slow_down', async () => {

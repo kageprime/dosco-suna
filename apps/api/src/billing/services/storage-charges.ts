@@ -1,9 +1,9 @@
 /**
- * Volume storage billing: Platinum meters every volume Dosco creates (a
+ * Volume storage billing: Platinum meters every volume Kortix creates (a
  * project's Files drive `kd-…`, a session's /workspace volume `kws-<session>`,
- * a box's scratch disk, Dosco's own Workers' storage) on its stored bytes.
+ * a box's scratch disk, Kortix's own Workers' storage) on its stored bytes.
  * This tick turns what Platinum metered into a charge in credits on the
- * account that owns the resource, at the Dosco storage rate
+ * account that owns the resource, at the Kortix storage rate
  * (STORAGE_RATES_USD_PER_GIB_HOUR, platform/providers/compute-rates.ts).
  *
  * Two sources, one row per (control plane, meter, resource, UTC day):
@@ -33,27 +33,30 @@
  * under the same key, which moves no money twice.
  *
  * Attribution: drive → account and project; `kws-<session_id>` → session →
- * account and project; a scratch disk → the session box. A resource Dosco
+ * account and project; a scratch disk → the session box. A resource Kortix
  * cannot attribute (another deployment's in the same Platinum org, a deleted
  * owner, a volume Platinum no longer lists, a Worker's storage) is recorded
- * with no account and an `unattributed_reason`: Dosco's own cost, never
+ * with no account and an `unattributed_reason`: Kortix's own cost, never
  * charged to anyone.
  *
  * Never retroactive: the first tick of a feed starts both sources at its own
  * day. The disk of a stopped or archived box is billed by box-disk-charges.ts
  * into the same table.
  */
-import { drives, platformSettings, projectSessions, sessionSandboxes, storageCharges } from '@kortix/db';
-import { and, eq, inArray, or, sql } from 'drizzle-orm';
+import { storageCharges } from '@kortix/db';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { logger } from '../../lib/logger';
-import { STORAGE_RATES_USD_PER_GIB_HOUR, type StorageResourceKind } from '../../platform/providers/compute-rates';
+import { type StorageResourceKind } from '../../platform/providers/compute-rates';
 import { db } from '../../shared/db';
-import { platinumJson, platinumRegionControlPlane } from '../../shared/platinum';
-import { platinumUsRegion } from '../../shared/platinum-region';
-import { getCreditAccount } from '../repositories/credit-accounts';
-import type { SettleInput } from '../wallet';
-import { resolveAccountBilling } from './billing-cache';
+import { platinumJson } from '../../shared/platinum';
 import { settleAndCheckAutoTopup } from './wallet-debits';
+
+import { STORAGE_ROW_COLUMNS, type StoredRow, type StorageSettleDeps, chargeStorageRow, toStoredRow } from './storage-charge-row';
+import { type PlatinumVolumeUsageResource, type StorageOwner, resolveOwners, rowKey } from './storage-owners';
+import { type StorageFeed, accountStorageBilled, addDays, dayStartMs, readPlatformSetting, storageFeeds, utcDay, writePlatformSetting } from './storage-shared';
+export * from './storage-charge-row';
+export * from './storage-owners';
+export * from './storage-shared';
 
 export const STORAGE_CURSOR_KEY = 'platinum.volume_storage.cursor';
 /** An ended day is read again on this many later days, for late growth. */
@@ -66,9 +69,6 @@ const MAX_OPEN_DAYS = 14;
 const USAGE_PAGE_LIMIT = 1000;
 /** Volume names looked up per tick; the rest resolve on the next tick. */
 const MAX_NAME_LOOKUPS_PER_TICK = 300;
-/** A difference below this stays uncharged until it grows past it. */
-export const MIN_STORAGE_CHARGE_USD = 0.000001;
-const DAY_MS = 86_400_000;
 
 export const STORAGE_EVENTS_KEY = 'platinum.volume_storage.events';
 /** The event_type of a volume meter event in GET /v1/billing/events. */
@@ -77,8 +77,6 @@ export const VOLUME_STORAGE_EVENT = 'volume.storage';
 const EVENTS_PAGE_LIMIT = 500;
 /** Event pages a tick reads at most; the rest are read on the next tick. */
 const MAX_EVENT_PAGES_PER_TICK = 40;
-
-export type UnattributedReason = 'not_kortix' | 'volume_gone' | 'owner_gone' | 'unsupported_kind';
 
 /** One `volume.storage` event of GET /v1/billing/events (Platinum apps/api/src/billingEvents.ts). */
 export interface PlatinumStorageEvent {
@@ -120,101 +118,15 @@ export interface StorageEventsState {
   fullFrom: string | null;
 }
 
-export interface PlatinumVolumeUsageResource {
-  resource_kind: string;
-  resource_id: string;
-  gib_hours: number;
-  metered_micros: number;
-}
-
 export interface PlatinumVolumeUsagePage {
   total_gib_hours: number;
   total_metered_micros: number;
   resources: PlatinumVolumeUsageResource[];
 }
 
-/** One control plane. `origin` undefined is PLATINUM_API_URL. */
-export interface StorageFeed {
-  name: string;
-  origin?: string;
-}
-
-export interface StorageOwner {
-  accountId: string | null;
-  projectId: string | null;
-  sessionId: string | null;
-  driveId: string | null;
-  volumeName: string | null;
-  unattributedReason: UnattributedReason | null;
-}
-
-/** The charge state of one (feed, kind, resource, day) row. */
-export interface StorageChargeState {
-  chargedGibHours: number;
-  chargeSeq: number;
-  pendingGibHours: number | null;
-  pendingUsd: number | null;
-}
-
-export type StorageChargePlan =
-  | { action: 'none' }
-  | { action: 'replay'; seq: number; gibHours: number; amountUsd: number }
-  | { action: 'charge'; seq: number; gibHours: number; amountUsd: number };
-
-/** USD for `gibHours` of one meter, rounded to the ledger's 10 decimals. */
-export function storageChargeUsd(kind: StorageResourceKind, gibHours: number): number {
-  return Math.round(gibHours * STORAGE_RATES_USD_PER_GIB_HOUR[kind] * 1e10) / 1e10;
-}
-
-/**
- * The next wallet write for a row: a pending charge first (same key, same
- * amount), else the GiB-hours Platinum metered past what was charged. Never a
- * refund: a smaller reading than what was charged charges nothing.
- */
-export function planStorageCharge(
-  kind: StorageResourceKind,
-  state: StorageChargeState,
-  meteredGibHours: number,
-): StorageChargePlan {
-  if (state.pendingGibHours !== null && state.pendingUsd !== null) {
-    return { action: 'replay', seq: state.chargeSeq + 1, gibHours: state.pendingGibHours, amountUsd: state.pendingUsd };
-  }
-  if (!Number.isFinite(meteredGibHours)) return { action: 'none' };
-  const amountUsd = storageChargeUsd(kind, meteredGibHours - state.chargedGibHours);
-  if (amountUsd < MIN_STORAGE_CHARGE_USD) return { action: 'none' };
-  return { action: 'charge', seq: state.chargeSeq + 1, gibHours: meteredGibHours, amountUsd };
-}
-
-export function storageChargeKey(feed: string, kind: string, resourceId: string, day: string, seq: number): string {
-  return `platinum-storage:${feed}:${kind}:${resourceId}:${day}:${seq}`;
-}
-
-const DRIVE_VOLUME = /^kd-[0-9a-f]{20}$/;
-const WORKSPACE_VOLUME = /^kws-(.+)$/;
-
-/** What a volume name says about its owner: a Files drive, a session's /workspace, or neither. */
-export function classifyVolumeName(name: string): { kind: 'drive' } | { kind: 'workspace'; sessionId: string } | { kind: 'other' } {
-  if (DRIVE_VOLUME.test(name)) return { kind: 'drive' };
-  const workspace = WORKSPACE_VOLUME.exec(name);
-  if (workspace?.[1]) return { kind: 'workspace', sessionId: workspace[1] };
-  return { kind: 'other' };
-}
-
-/** A meter of Platinum's volume feed. The box disk kinds are Dosco's own meter, never read from Platinum. */
+/** A meter of Platinum's volume feed. The box disk kinds are Kortix's own meter, never read from Platinum. */
 export function isStorageResourceKind(kind: unknown): kind is StorageResourceKind {
   return kind === 'volume' || kind === 'volume_snapshot' || kind === 'scratch' || kind === 'worker_storage';
-}
-
-export function utcDay(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 10);
-}
-
-function dayStartMs(day: string): number {
-  return Date.parse(`${day}T00:00:00.000Z`);
-}
-
-export function addDays(day: string, days: number): string {
-  return utcDay(dayStartMs(day) + days * DAY_MS);
 }
 
 /** The ended days a tick reads: from the cursor through yesterday, oldest first, at most MAX_DAYS_PER_TICK. */
@@ -244,24 +156,6 @@ export function nextStorageCursor(cursor: string, today: string, read: string[],
   return next < floor ? floor : next;
 }
 
-export interface StoredRow extends StorageChargeState, StorageOwner {
-  id: string;
-  resourceKind: StorageResourceKind;
-  resourceId: string;
-  usageDay: string;
-  waived: boolean;
-  /** What was metered: the larger of the receipt and the events. */
-  gibHours: number;
-  eventGibHours: number;
-}
-
-/** The deps the charge step needs: shared with box-disk-charges.ts. */
-export interface StorageSettleDeps {
-  /** Whether the account's storageBilling entitlement is on (and it has a credit account). */
-  storageBilled(accountId: string): Promise<boolean>;
-  settle(input: SettleInput): Promise<unknown>;
-}
-
 export interface StorageChargeDeps extends StorageSettleDeps {
   feeds(): StorageFeed[];
   /** One UTC day of Platinum's volume receipts, or null when this Platinum has no volume meter (404). */
@@ -277,40 +171,14 @@ export interface StorageChargeDeps extends StorageSettleDeps {
   now(): number;
 }
 
-export async function readPlatformSetting(key: string): Promise<unknown> {
-  const [row] = await db
-    .select({ value: platformSettings.value })
-    .from(platformSettings)
-    .where(eq(platformSettings.key, key));
-  return row?.value ?? null;
-}
-
-export async function writePlatformSetting(key: string, value: Record<string, unknown>): Promise<void> {
-  await db
-    .insert(platformSettings)
-    .values({ key, value })
-    .onConflictDoUpdate({ target: platformSettings.key, set: { value, updatedAt: new Date() } });
-}
-
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-/** Dosco's storage charge rule: compute's (compute-metering.ts startComputeSession), then the storageBilling override. */
-export async function accountStorageBilled(accountId: string): Promise<boolean> {
-  // No credit account, nothing to debit. Recorded as waived, so the day closes.
-  if (!(await getCreditAccount(accountId))) return false;
-  return (await resolveAccountBilling(accountId)).entitlements.storageBilling !== false;
-}
 
 function notFound(error: unknown): boolean {
   return error instanceof Error && (error as { status?: unknown }).status === 404;
 }
 
 export const storageChargeDeps: StorageChargeDeps = {
-  feeds() {
-    const region = platinumUsRegion();
-    const origin = region ? platinumRegionControlPlane(region) : null;
-    return [{ name: 'home' }, ...(region && origin ? [{ name: region, origin }] : [])];
-  },
+  feeds: storageFeeds,
   async usage(feed, day) {
     const start = dayStartMs(day);
     const query = new URLSearchParams({ since_ms: String(start), until_ms: String(start), limit: String(USAGE_PAGE_LIMIT) });
@@ -599,7 +467,7 @@ async function chargeDay(
   });
   if (resources.length >= USAGE_PAGE_LIMIT) {
     // GET /v1/billing/volume-usage has no cursor: past 1,000 resources a day the
-    // smallest receipts are not listed. Recorded as Dosco's own cost here.
+    // smallest receipts are not listed. Recorded as Kortix's own cost here.
     const listed = resources.reduce((sum, r) => sum + (Number(r.gib_hours) || 0), 0);
     logger.error('[storage-billing] Platinum listed only the largest volumes of the day; the rest are not charged', {
       feed: feed.name,
@@ -649,119 +517,8 @@ async function chargeDay(
   return ok;
 }
 
-/**
- * Charge one row up to `meteredGibHours`. Returns the USD charged, or why
- * nothing was. Shared by the volume feed and the box disk meter.
- */
-export async function chargeStorageRow(
-  feed: string,
-  row: StoredRow,
-  meteredGibHours: number,
-  deps: StorageSettleDeps,
-): Promise<number | 'unattributed' | 'waived' | 'none'> {
-  if (!row.accountId) return 'unattributed';
-  let state: StorageChargeState = row;
-  let charged = 0;
-  // At most a replay and one new charge.
-  for (let step = 0; step < 2; step++) {
-    const plan = planStorageCharge(row.resourceKind, state, meteredGibHours);
-    if (plan.action === 'none') break;
-    if (plan.action === 'charge') {
-      if (!(await deps.storageBilled(row.accountId))) {
-        await markWaived(row.id, true);
-        return 'waived';
-      }
-      await markPending(row.id, state.chargeSeq, plan.gibHours, plan.amountUsd);
-    }
-    const deltaGibHours = plan.gibHours - state.chargedGibHours;
-    const unit = row.resourceKind === 'box_disk' || row.resourceKind === 'box_disk_archived' ? 'GB-hours' : 'GiB-hours';
-    await deps.settle({
-      accountId: row.accountId,
-      amount: plan.amountUsd,
-      description: `${storageLabel(row)} · ${row.usageDay} · ${deltaGibHours.toFixed(2)} ${unit}`,
-      kind: 'storage_debit',
-      key: { request: storageChargeKey(feed, row.resourceKind, row.resourceId, row.usageDay, plan.seq) },
-      audit: {
-        storage_feed: feed,
-        storage_resource_kind: row.resourceKind,
-        platinum_resource_id: row.resourceId,
-        usage_day: row.usageDay,
-        gib_hours: deltaGibHours,
-        charge_seq: plan.seq,
-        project_id: row.projectId,
-        session_id: row.sessionId,
-        drive_id: row.driveId,
-      },
-    });
-    await finalizeCharge(row.id, plan.seq, plan.gibHours, plan.amountUsd);
-    charged += plan.amountUsd;
-    state = { chargedGibHours: plan.gibHours, chargeSeq: plan.seq, pendingGibHours: null, pendingUsd: null };
-  }
-  if (row.waived && charged > 0) await markWaived(row.id, false);
-  return charged > 0 ? charged : 'none';
-}
-
-function storageLabel(row: Pick<StoredRow, 'resourceKind' | 'driveId' | 'sessionId'>): string {
-  if (row.resourceKind === 'box_disk') return 'Stopped computer disk';
-  if (row.resourceKind === 'box_disk_archived') return 'Archived computer disk';
-  if (row.resourceKind === 'scratch') return 'Scratch disk';
-  if (row.driveId) return 'Files storage';
-  if (row.sessionId) return 'Workspace storage';
-  return 'Storage';
-}
-
-function rowKey(resource: { resource_kind: string; resource_id: string }): string {
-  return `${resource.resource_kind}:${resource.resource_id}`;
-}
-
 function dayRowKey(kind: string, resourceId: string, day: string): string {
   return `${kind}:${resourceId}:${day}`;
-}
-
-export const STORAGE_ROW_COLUMNS = {
-  id: storageCharges.id,
-  resourceKind: storageCharges.resourceKind,
-  resourceId: storageCharges.resourceId,
-  usageDay: storageCharges.usageDay,
-  accountId: storageCharges.accountId,
-  projectId: storageCharges.projectId,
-  sessionId: storageCharges.sessionId,
-  driveId: storageCharges.driveId,
-  volumeName: storageCharges.volumeName,
-  unattributedReason: storageCharges.unattributedReason,
-  waived: storageCharges.waived,
-  gibHours: storageCharges.gibHours,
-  eventGibHours: storageCharges.eventGibHours,
-  chargedGibHours: storageCharges.chargedGibHours,
-  chargeSeq: storageCharges.chargeSeq,
-  pendingGibHours: storageCharges.pendingGibHours,
-  pendingUsd: storageCharges.pendingUsd,
-};
-const ROW_COLUMNS = STORAGE_ROW_COLUMNS;
-
-type RawRow = { [K in keyof typeof ROW_COLUMNS]: unknown };
-
-export function toStoredRow(raw: RawRow): StoredRow {
-  const num = (value: unknown) => (value === null || value === undefined ? null : Number(value));
-  return {
-    id: raw.id as string,
-    resourceKind: raw.resourceKind as StorageResourceKind,
-    resourceId: raw.resourceId as string,
-    usageDay: raw.usageDay as string,
-    accountId: (raw.accountId as string | null) ?? null,
-    projectId: (raw.projectId as string | null) ?? null,
-    sessionId: (raw.sessionId as string | null) ?? null,
-    driveId: (raw.driveId as string | null) ?? null,
-    volumeName: (raw.volumeName as string | null) ?? null,
-    unattributedReason: (raw.unattributedReason as UnattributedReason | null) ?? null,
-    waived: raw.waived === true,
-    gibHours: num(raw.gibHours) ?? 0,
-    eventGibHours: num(raw.eventGibHours) ?? 0,
-    chargedGibHours: num(raw.chargedGibHours) ?? 0,
-    chargeSeq: Number(raw.chargeSeq) || 0,
-    pendingGibHours: num(raw.pendingGibHours),
-    pendingUsd: num(raw.pendingUsd),
-  };
 }
 
 /** The rows of these (kind, resource, day) keys that exist, by dayRowKey. */
@@ -769,7 +526,7 @@ async function loadRows(feed: string, keys: Array<{ kind: string; resourceId: st
   const rows = new Map<string, StoredRow>();
   if (!keys.length) return rows;
   const found = await db
-    .select(ROW_COLUMNS)
+    .select(STORAGE_ROW_COLUMNS)
     .from(storageCharges)
     .where(
       and(
@@ -820,7 +577,7 @@ async function insertRow(
         updatedAt: new Date(),
       },
     })
-    .returning(ROW_COLUMNS);
+    .returning(STORAGE_ROW_COLUMNS);
   if (!raw) throw new Error('storage charge row was not written');
   return toStoredRow(raw);
 }
@@ -874,11 +631,11 @@ async function applyEvent(feed: string, u: UsableEvent, owner: StorageOwner): Pr
       },
       setWhere: sql`not (${u.event.id} = any(${storageCharges.eventIds}))`,
     })
-    .returning(ROW_COLUMNS);
+    .returning(STORAGE_ROW_COLUMNS);
   if (raw) return toStoredRow(raw);
   // Applied before (a replayed page): the row as it is, for a pending charge to finish.
   const [current] = await db
-    .select(ROW_COLUMNS)
+    .select(STORAGE_ROW_COLUMNS)
     .from(storageCharges)
     .where(
       and(
@@ -890,196 +647,4 @@ async function applyEvent(feed: string, u: UsableEvent, owner: StorageOwner): Pr
     );
   if (!current) throw new Error('storage charge row was not written');
   return toStoredRow(current);
-}
-
-async function markPending(id: string, seq: number, gibHours: number, amountUsd: number): Promise<void> {
-  const updated = await db
-    .update(storageCharges)
-    .set({ pendingGibHours: String(gibHours), pendingUsd: String(amountUsd), updatedAt: new Date() })
-    .where(and(eq(storageCharges.id, id), eq(storageCharges.chargeSeq, seq), sql`${storageCharges.pendingUsd} is null`))
-    .returning({ id: storageCharges.id });
-  // Another process moved the row first (a leadership flap): stop, the next tick reads it fresh.
-  if (!updated.length) throw new Error('storage charge row changed under this tick');
-}
-
-async function finalizeCharge(id: string, seq: number, gibHours: number, amountUsd: number): Promise<void> {
-  await db
-    .update(storageCharges)
-    .set({
-      chargedGibHours: String(gibHours),
-      chargedUsd: sql`${storageCharges.chargedUsd} + ${String(amountUsd)}::numeric`,
-      chargeSeq: seq,
-      pendingGibHours: null,
-      pendingUsd: null,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(storageCharges.id, id), eq(storageCharges.chargeSeq, seq - 1)));
-}
-
-async function markWaived(id: string, waived: boolean): Promise<void> {
-  await db.update(storageCharges).set({ waived, updatedAt: new Date() }).where(eq(storageCharges.id, id));
-}
-
-const UNATTRIBUTED = (reason: UnattributedReason, volumeName: string | null = null): StorageOwner => ({
-  accountId: null,
-  projectId: null,
-  sessionId: null,
-  driveId: null,
-  volumeName,
-  unattributedReason: reason,
-});
-
-/**
- * The owner of every resource that has no row for this day yet: first the
- * owner its row of an earlier day recorded, then the database by volume id,
- * then Platinum's name for the volume. A resource missing from the map waits
- * for the next tick (the per-tick name lookups ran out).
- */
-export async function resolveOwners(
-  feed: StorageFeed,
-  deps: Pick<StorageChargeDeps, 'volumeName'>,
-  resources: PlatinumVolumeUsageResource[],
-  lookups: { left: number },
-  /** Volume names the caller already has (an event carries its volume's name): no Platinum lookup for these. */
-  known: ReadonlyMap<string, string | null> = new Map(),
-): Promise<Map<string, StorageOwner>> {
-  const owners = new Map<string, StorageOwner>();
-  if (!resources.length) return owners;
-
-  await resolveFromEarlierRows(feed, resources, owners);
-  const pending = resources.filter((r) => !owners.has(rowKey(r)));
-
-  // Legacy volume snapshots, and Dosco's own Workers' storage: Dosco's cost.
-  for (const r of pending.filter((r) => r.resource_kind === 'volume_snapshot' || r.resource_kind === 'worker_storage')) {
-    owners.set(rowKey(r), UNATTRIBUTED('unsupported_kind', known.get(r.resource_id) ?? null));
-  }
-
-  await resolveScratchOwners(pending, owners);
-  await resolveVolumeOwners(feed, deps, lookups, known, pending, owners);
-  return owners;
-}
-
-async function resolveFromEarlierRows(
-  feed: StorageFeed,
-  resources: PlatinumVolumeUsageResource[],
-  owners: Map<string, StorageOwner>,
-): Promise<void> {
-  // 1. An earlier day's row: one lookup per volume for its whole life.
-  const earlier = await db.execute(sql`
-    SELECT DISTINCT ON (resource_kind, resource_id)
-           resource_kind, resource_id, account_id, project_id, session_id, drive_id, volume_name, unattributed_reason
-      FROM kortix.storage_charges
-     WHERE feed = ${feed.name} AND resource_id = ANY(${sql.param(resources.map((r) => r.resource_id))}::text[])
-     ORDER BY resource_kind, resource_id, usage_day DESC`);
-  for (const r of earlier as unknown as Array<Record<string, string | null>>) {
-    // A deleted account or project was set null on the earlier row: the volume is now unattributed.
-    owners.set(rowKey({ resource_kind: r.resource_kind as string, resource_id: r.resource_id as string }), {
-      accountId: r.account_id ?? null,
-      projectId: r.project_id ?? null,
-      sessionId: r.session_id ?? null,
-      driveId: r.drive_id ?? null,
-      volumeName: r.volume_name ?? null,
-      unattributedReason: r.account_id ? null : ((r.unattributed_reason as UnattributedReason | null) ?? 'owner_gone'),
-    });
-  }
-}
-
-async function resolveScratchOwners(pending: PlatinumVolumeUsageResource[], owners: Map<string, StorageOwner>): Promise<void> {
-  // 2. Scratch disks: the resource id is the box's Platinum id.
-  const scratch = pending.filter((r) => r.resource_kind === 'scratch');
-  if (scratch.length) {
-    const boxes = await db
-      .select({ externalId: sessionSandboxes.externalId, accountId: sessionSandboxes.accountId, projectId: sessionSandboxes.projectId, sessionId: sessionSandboxes.sessionId })
-      .from(sessionSandboxes)
-      .where(and(eq(sessionSandboxes.provider, 'platinum'), inArray(sessionSandboxes.externalId, scratch.map((r) => r.resource_id))));
-    const byId = new Map(boxes.map((b) => [b.externalId, b]));
-    for (const r of scratch) {
-      const box = byId.get(r.resource_id);
-      owners.set(
-        rowKey(r),
-        box
-          ? { accountId: box.accountId, projectId: box.projectId ?? null, sessionId: box.sessionId, driveId: null, volumeName: null, unattributedReason: null }
-          : UNATTRIBUTED('not_kortix'),
-      );
-    }
-  }
-}
-
-async function resolveVolumeOwners(
-  feed: StorageFeed,
-  deps: Pick<StorageChargeDeps, 'volumeName'>,
-  lookups: { left: number },
-  known: ReadonlyMap<string, string | null>,
-  pending: PlatinumVolumeUsageResource[],
-  owners: Map<string, StorageOwner>,
-): Promise<void> {
-  // 3. Volumes: a drive that recorded the volume id, else Platinum's name.
-  const volumes = pending.filter((r) => r.resource_kind === 'volume');
-  if (!volumes.length) return;
-  const byVolumeId = await db
-    .select({ driveId: drives.driveId, accountId: drives.accountId, projectId: drives.projectId, volumeId: drives.platinumVolumeId, name: drives.platinumVolumeName })
-    .from(drives)
-    .where(inArray(drives.platinumVolumeId, volumes.map((r) => r.resource_id)));
-  const driveById = new Map(byVolumeId.map((d) => [d.volumeId, d]));
-  const named: Array<{ resource: PlatinumVolumeUsageResource; name: string }> = [];
-  for (const r of volumes) {
-    const drive = driveById.get(r.resource_id);
-    if (drive) {
-      owners.set(rowKey(r), { accountId: drive.accountId, projectId: drive.projectId ?? null, sessionId: null, driveId: drive.driveId, volumeName: drive.name, unattributedReason: null });
-      continue;
-    }
-    let name = known.get(r.resource_id) ?? null;
-    if (!name) {
-      if (lookups.left <= 0) continue;
-      lookups.left -= 1;
-      name = await deps.volumeName(feed, r.resource_id);
-    }
-    if (!name) owners.set(rowKey(r), UNATTRIBUTED('volume_gone'));
-    else named.push({ resource: r, name });
-  }
-  if (!named.length) return;
-
-  const driveNames = named.filter((n) => classifyVolumeName(n.name).kind === 'drive').map((n) => n.name);
-  const driveRows = driveNames.length
-    ? await db
-        .select({ driveId: drives.driveId, accountId: drives.accountId, projectId: drives.projectId, name: drives.platinumVolumeName, move: drives.platinumVolumeMove })
-        .from(drives)
-        .where(or(inArray(drives.platinumVolumeName, driveNames), inArray(sql<string>`${drives.platinumVolumeMove}->>'from_name'`, driveNames)))
-    : [];
-  const driveByName = new Map<string, (typeof driveRows)[number]>();
-  for (const d of driveRows) {
-    driveByName.set(d.name, d);
-    // A region move's old volume, until it is purged, belongs to the same drive.
-    if (d.move?.from_name) driveByName.set(d.move.from_name, d);
-  }
-  const sessionIds = named.flatMap((n) => {
-    const c = classifyVolumeName(n.name);
-    return c.kind === 'workspace' ? [c.sessionId] : [];
-  });
-  const sessions = sessionIds.length
-    ? await db
-        .select({ sessionId: projectSessions.sessionId, accountId: projectSessions.accountId, projectId: projectSessions.projectId })
-        .from(projectSessions)
-        .where(inArray(projectSessions.sessionId, sessionIds))
-    : [];
-  const sessionById = new Map(sessions.map((s) => [s.sessionId, s]));
-
-  for (const { resource, name } of named) {
-    const c = classifyVolumeName(name);
-    if (c.kind === 'drive') {
-      const d = driveByName.get(name);
-      owners.set(
-        rowKey(resource),
-        d ? { accountId: d.accountId, projectId: d.projectId ?? null, sessionId: null, driveId: d.driveId, volumeName: name, unattributedReason: null } : UNATTRIBUTED('owner_gone', name),
-      );
-    } else if (c.kind === 'workspace') {
-      const s = sessionById.get(c.sessionId);
-      owners.set(
-        rowKey(resource),
-        s ? { accountId: s.accountId, projectId: s.projectId, sessionId: s.sessionId, driveId: null, volumeName: name, unattributedReason: null } : UNATTRIBUTED('owner_gone', name),
-      );
-    } else {
-      owners.set(rowKey(resource), UNATTRIBUTED('not_kortix', name));
-    }
-  }
 }

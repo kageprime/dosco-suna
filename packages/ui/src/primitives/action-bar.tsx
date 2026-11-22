@@ -37,7 +37,7 @@ import { XIcon } from '@phosphor-icons/react';
 import { m } from 'motion/react';
 import { type ReactNode, useSyncExternalStore } from 'react';
 
-import { useReducedMotion } from '../internal/hooks/use-reduced-motion';
+import { useReducedMotion } from '../lib/reduced-motion';
 import { cn } from '../lib/utils';
 import { Button } from './button';
 import { ButtonGroup } from './button-group';

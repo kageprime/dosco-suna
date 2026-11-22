@@ -15,6 +15,7 @@
 //        code_verifier) → {access_token, refresh_token, expires_in, id_token}
 
 import { OPENCODE_USER_AGENT } from '@kortix/shared';
+import { DeviceAuthUnavailableError } from '../llm-gateway/credentials/codex-core';
 
 const OPENAI_AUTH_BASE = 'https://auth.openai.com';
 const CODEX_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
@@ -41,6 +42,7 @@ export async function startCodexDeviceAuth(): Promise<CodexDeviceChallenge> {
     headers: { 'Content-Type': 'application/json', 'User-Agent': USER_AGENT },
     body: JSON.stringify({ client_id: CODEX_CLIENT_ID }),
   });
+  if (res.status >= 500) throw new DeviceAuthUnavailableError('ChatGPT');
   if (!res.ok) {
     throw new Error(`Failed to start ChatGPT device authorization (${res.status})`);
   }

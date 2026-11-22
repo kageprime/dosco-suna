@@ -152,40 +152,30 @@ describe('SettingsPanelShell — desktop rail', () => {
   });
 
   /**
-   * The rail's "Search settings" field is gone with the full-screen shell.
-   *
-   * It filtered three rows that are all visible at once, in a 13rem rail — the
-   * field was written when the rail was 28 rows across four groups. The search
-   * that remains is the command palette's, derived from these same groups
-   * (`settings-palette-items.ts`) and reachable without opening the dialog.
-   * `filterRailGroups` / `railItemMatches` were deleted with it, so this is
-   * pinned here rather than left to the absent test file.
+   * The desktop rail is the project sidebar drilled into Workspace settings:
+   * a header band, a Back row, a search field, then the groups (Jay,
+   * 2026-11-21). The rail lists the personal rows and every workspace the
+   * person belongs to, so the field is back.
    */
-  test('the rail carries no search field', () => {
+  test('the rail carries a search field under the Back row', () => {
     const html = render();
-    expect(html).not.toContain('data-slot="input-group-search"');
-    expect(html).not.toContain('aria-label="Search settings"');
-    expect(html).not.toContain('No settings match');
+    expect(html).toContain('data-slot="input-group-search"');
+    expect(html).toContain(`aria-label="${DEFAULT_SETTINGS_RAIL_CHROME_COPY.search}"`);
+    expect(html.indexOf('Back to app')).toBeLessThan(html.indexOf('data-slot="input-group-search"'));
   });
 
-  /**
-   * The rail's exit is the `Back to app` row the account settings sidebar
-   * leads with (`accounts/hub/account-settings-sidebar.tsx`), so the overlay
-   * and `/accounts/**` read as one surface. It is a `ModalClose`: the app is
-   * what the dialog was covering.
-   */
   test('the desktop rail leads with a Back to app row that closes the dialog', () => {
     const html = render();
     expect(html).toContain('Back to app');
     expect(html).not.toContain('Back to workspace');
   });
 
-  test('Back to app starts at the left edge of the web sidebar row', () => {
+  test('the header band sits in the native titlebar row, above Back', () => {
     const html = render();
-    expect(html).toMatch(
-      /<aside[^>]*>[\s\S]*?<div class="[^"]*kx-titlebar-row[^"]*kx-titlebar-band-height[^"]*justify-start[^"]*"/,
-    );
-    expect(html).toMatch(/kx-titlebar-row[\s\S]*?Back to app/);
+    expect(html).toMatch(/<aside[^>]*>\s*<div class="[^"]*kx-titlebar-row[^"]*kx-overlay-sidebar-titlebar[^"]*"/);
+    const band = html.indexOf('kx-overlay-sidebar-titlebar');
+    expect(band).toBeLessThan(html.indexOf('Back to app'));
+    expect(html.indexOf('Back to app')).toBeLessThan(html.indexOf('data-slot="input-group-search"'));
   });
 
   test('Settings breadcrumb shares the native titlebar row', () => {

@@ -108,7 +108,7 @@ export function MemorySearchTool({ call, defaultOpen, forceOpen, locked }: ToolP
                     <span className="shrink-0">
                       {sourceLabel} / {hit.type}
                     </span>
-                    <span className="text-muted-foreground/60 shrink-0 font-mono text-xs">
+                    <span className="text-muted-foreground shrink-0 font-mono text-xs">
                       #{hit.id}
                     </span>
                     {/* The preview is the hit's only human-readable name —
@@ -119,7 +119,7 @@ export function MemorySearchTool({ call, defaultOpen, forceOpen, locked }: ToolP
                       {hitPreview(hit.content)}
                     </span>
                     {hit.confidence != null && (
-                      <span className="text-muted-foreground/60 shrink-0 text-xs">
+                      <span className="text-muted-foreground shrink-0 text-xs">
                         {Math.round(hit.confidence * 100)}
                         {tHardcodedUi.raw('componentsSessionToolRenderers.line2011JsxTextConf')}
                       </span>

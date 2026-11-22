@@ -27,8 +27,6 @@ describe('buildProjectSeedFiles — the seeded manifest satisfies its own requir
       projectName: 'Acme Co',
       repoFullName: 'kortix/acme-co',
       template: 'minimal',
-      marketplaceItems: [],
-      now: new Date('2026-07-05T00:00:00Z').toISOString(),
     });
 
     const manifest = seed.files.find((f) => f.path === 'kortix.yaml');
@@ -42,8 +40,6 @@ describe('buildProjectSeedFiles — the seeded manifest satisfies its own requir
       projectName: 'Acme Co',
       repoFullName: 'kortix/acme-co',
       template: 'minimal',
-      marketplaceItems: [],
-      now: new Date('2026-07-05T00:00:00Z').toISOString(),
     });
     const manifestFile = seed.files.find((f) => f.path === 'kortix.yaml')!;
     const result = validateManifest(manifestFile.content);
@@ -56,8 +52,6 @@ describe('buildProjectSeedFiles — the seeded manifest satisfies its own requir
       projectName: 'Acme Co',
       repoFullName: 'kortix/acme-co',
       template: 'minimal',
-      marketplaceItems: [],
-      now: new Date('2026-07-05T00:00:00Z').toISOString(),
     });
     const manifestFile = seed.files.find((f) => f.path === 'kortix.yaml')!;
     const manifest = parseManifestString(manifestFile.content, 'kortix.yaml');

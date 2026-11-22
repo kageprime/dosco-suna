@@ -99,6 +99,14 @@ export function accountMembersAmong(accountId: string, userIds: string[]) {
     .where(and(eq(accountMembers.accountId, accountId), inArray(accountMembers.userId, userIds)));
 }
 
+/** Each listed member's account role: the people rows of a session group. */
+export function accountMemberRolesAmong(accountId: string, userIds: string[]) {
+  return db
+    .select({ userId: accountMembers.userId, accountRole: accountMembers.accountRole })
+    .from(accountMembers)
+    .where(and(eq(accountMembers.accountId, accountId), inArray(accountMembers.userId, userIds)));
+}
+
 /** The member list: who is here, the super-admin bypass flag, and since when. */
 export function accountDirectoryRows(accountId: string) {
   return db

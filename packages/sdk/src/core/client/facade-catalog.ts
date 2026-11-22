@@ -58,10 +58,8 @@ export function bindCatalog() {
   const connectStatus = P.getConnectStatus;
 
   /**
-   * Public marketplace catalog browse (`/v1/marketplace/*`) — top-level and
-   * distinct from `project(id).marketplace`, which is install-scoped (commits
-   * an item onto a specific project's branch). This is read-only browsing +
-   * the authed "add a marketplace source" surface.
+   * @deprecated The marketplace was removed (2026-11-20); every call rejects
+   * with `410 ENDPOINT_RETIRED`. Removed in the next major.
    */
   const marketplace = {
     items: (options?: Parameters<typeof P.listMarketplaceCatalogItems>[0]) =>

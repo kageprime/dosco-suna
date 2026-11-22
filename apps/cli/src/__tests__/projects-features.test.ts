@@ -39,7 +39,7 @@ function catalog(overrides: Record<string, boolean | null> = {}) {
     { key: 'reminders', name: 'Reminders', stability: 'experimental', available: true, def: false },
     // Internal-only: listed only while on, written only by a Kortix operator.
     { key: 'session_log', name: 'Session log', stability: 'experimental', available: true, def: false, operatorOnly: true },
-    { key: 'marketplace', name: 'Marketplace', stability: 'beta', available: true, def: true },
+    { key: 'shared_drives', name: 'Shared drives', stability: 'beta', available: true, def: true },
     { key: 'us_region', name: 'US Region', stability: 'experimental', available: false, def: false },
   ];
   return defs.flatMap((d) => {
@@ -94,7 +94,7 @@ function startServer(initial: Record<string, boolean | null> = {}): string {
             { status: 403 },
           );
         }
-        if (!['reminders', 'marketplace', 'us_region'].includes(body.feature)) {
+        if (!['reminders', 'shared_drives', 'us_region'].includes(body.feature)) {
           return Response.json({ error: `Unknown feature flag '${body.feature}'` }, { status: 400 });
         }
         if (body.enabled === null) delete state[body.feature];
@@ -163,13 +163,13 @@ describe('kortix projects features', () => {
     expect(r.code).toBe(0);
     expect(r.stdout).toContain('reminders');
     expect(r.stdout).toMatch(/reminders\s+off\s+default/);
-    expect(r.stdout).toMatch(/marketplace\s+on\s+default/);
+    expect(r.stdout).toMatch(/shared_drives\s+on\s+default/);
     expect(r.stdout).toMatch(/us_region\s+n\/a\s+unavailable/);
 
     const j = await runCli(['projects', 'features', '--project', PROJECT, '--json'], config);
     expect(j.code).toBe(0);
     const rows = JSON.parse(j.stdout) as Array<{ key: string; enabled: boolean }>;
-    expect(rows.map((x) => x.key)).toEqual(['reminders', 'marketplace', 'us_region']);
+    expect(rows.map((x) => x.key)).toEqual(['reminders', 'shared_drives', 'us_region']);
   });
 
   test('enable PATCHes /features {feature, enabled:true} and reports the effective state', async () => {
@@ -185,15 +185,15 @@ describe('kortix projects features', () => {
 
   test('disable then reset clears the override (enabled:null)', async () => {
     const config = writeConfig(startServer());
-    const d = await runCli(['projects', 'features', 'disable', 'marketplace', '--project', PROJECT], config);
+    const d = await runCli(['projects', 'features', 'disable', 'shared_drives', '--project', PROJECT], config);
     expect(d.code).toBe(0);
-    expect(d.stdout).toContain('marketplace disabled — effective: off');
-    const rs = await runCli(['projects', 'features', 'reset', 'marketplace', '--project', PROJECT], config);
+    expect(d.stdout).toContain('shared_drives disabled — effective: off');
+    const rs = await runCli(['projects', 'features', 'reset', 'shared_drives', '--project', PROJECT], config);
     expect(rs.code).toBe(0);
-    expect(rs.stdout).toContain('marketplace reset to default — effective: on');
+    expect(rs.stdout).toContain('shared_drives reset to default — effective: on');
     expect(patches.map((p) => p.body)).toEqual([
-      { feature: 'marketplace', enabled: false },
-      { feature: 'marketplace', enabled: null },
+      { feature: 'shared_drives', enabled: false },
+      { feature: 'shared_drives', enabled: null },
     ]);
   });
 

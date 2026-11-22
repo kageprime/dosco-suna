@@ -100,7 +100,7 @@ describe('ActivityFileChipStep', () => {
         (svg) => `<svg class="${svg.match(/class="([^"]+)"/)?.[1]}"/>`,
       ),
     ).toBe(
-      '<div data-status="done" class="select-none text-foreground/80 hover:text-foreground flex w-full cursor-pointer items-center gap-3 text-left text-sm leading-[1.5] transition-colors" role="button" aria-expanded="false" tabindex="0"><svg class="text-muted-foreground size-4 flex-none"/><span class="min-w-0 truncate font-medium">Read 3 files</span><svg class="text-muted-foreground/40 size-3.5 flex-none transition-transform group-data-[state=open]/step:rotate-90"/></div>',
+      '<div data-status="done" class="select-none text-foreground/80 hover:text-foreground flex w-full cursor-pointer items-center gap-3 text-left text-sm leading-[1.5] transition-colors" role="button" aria-expanded="false" tabindex="0"><svg class="text-muted-foreground size-4 flex-none"/><span class="min-w-0 truncate font-medium">Read 3 files</span><svg class="text-muted-foreground size-3.5 flex-none transition-transform group-data-[state=open]/step:rotate-90"/></div>',
     );
   });
 

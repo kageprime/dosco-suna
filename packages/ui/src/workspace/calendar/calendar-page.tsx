@@ -162,7 +162,7 @@ export function CalendarPage({ projectId }: { projectId: string }) {
   return (
     <div className="flex h-svh flex-col overflow-hidden">
       <ProjectPageHeader title={t('title')}>
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setCreating((c) => ({ open: true, day: null, n: c.n + 1 }))}>
+        <Button size="sm" className="gap-1.5" onClick={() => setCreating((c) => ({ open: true, day: null, n: c.n + 1 }))}>
           <PlusIcon className="size-3.5 shrink-0" aria-hidden />
           {t('newItem')}
         </Button>

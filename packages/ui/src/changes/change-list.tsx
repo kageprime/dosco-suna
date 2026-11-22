@@ -75,7 +75,7 @@ export function ChangeSummary({
       <span className="shrink-0">{fileCount(totals.files)}</span>
       {(totals.additions > 0 || totals.deletions > 0) && (
         <>
-          <span className="text-muted-foreground/40" aria-hidden>
+          <span className="text-muted-foreground" aria-hidden>
             {tI18nComplete.raw('text3b9453dad42b')}
           </span>
           <DiffStat additions={totals.additions} deletions={totals.deletions} />
@@ -134,7 +134,7 @@ export function DiffLayoutToggle({
                 'active:scale-[0.96]',
                 active
                   ? 'bg-secondary text-foreground'
-                  : 'text-muted-foreground/70 hover:text-foreground',
+                  : 'text-muted-foreground hover:text-foreground',
               )}
             >
               <Icon className="size-3.5" />
@@ -221,12 +221,12 @@ function ChangeRow({
             <span className="sr-only">{kind.label}:</span>
             <span className="text-foreground min-w-0 shrink truncate text-sm">{name}</span>
             {dir && (
-              <span className="text-muted-foreground/50 hidden min-w-0 shrink truncate text-xs sm:inline">
+              <span className="text-muted-foreground hidden min-w-0 shrink truncate text-xs sm:inline">
                 {dir}
               </span>
             )}
             {from && (
-              <span className="text-muted-foreground/50 hidden shrink-0 truncate text-xs md:inline">
+              <span className="text-muted-foreground hidden shrink-0 truncate text-xs md:inline">
                 {tI18nComplete.raw('text75857a458999')} {from.name}
               </span>
             )}

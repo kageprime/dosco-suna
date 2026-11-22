@@ -50,7 +50,7 @@ FOUND=0
 EXCLUDE_RE='(globals\.css|packages/ui/src/styles/|\.test\.|\.stories\.|\.generated\.|packages/ui/src/i18n/en\.ts|/browser-noise/|/lib/blog-posts|node_modules|\.next)'
 
 # Art layer (D4d): raw hex, gradients and WebGL live here and only here.
-ART_RE='(/paper-wallpaper-shaders\.|/wallpaper-shaders\.|/wallpaper-background\.|/shader-wallpaper\.|/shader-safe\.|/pixel-kortix-mark\.|/dot-matrix/|/kortix-hyper-logo\.|/prismatic-burst\.|/animated-bg\.|/dotmatrix-loader\.|/kortix-logo\.tsx|/components/brand/brand-logos\.)'
+ART_RE='(/paper-wallpaper-shaders\.|/wallpaper-gradients\.|/gradient-wallpaper|/wallpaper-shaders\.|/wallpaper-background\.|/shader-wallpaper\.|/shader-safe\.|/pixel-kortix-mark\.|/dot-matrix/|/kortix-hyper-logo\.|/prismatic-burst\.|/animated-bg\.|/dotmatrix-loader\.|/kortix-logo\.tsx|/components/brand/brand-logos\.)'
 
 # Third-party logo files: provider colors are the escape hatch. House glyphs in the
 # same folder (kortix, home, download, solid-check-icon, sidebar-toggle, plus, close,
@@ -216,9 +216,11 @@ scan "Weight off the 400/500/600 ladder" \
   'the ladder is font-normal, font-medium, font-semibold'
 
 # Mono-uppercase is the Badge chip (D4e) and, on marketing and decks, the eyebrow.
+# `first-letter:uppercase` is not a label style: it sentence-cases a name a
+# person typed in lower case (a space in the sidebar), so it is skipped.
 scan "Uppercase label in app chrome" \
   '\buppercase\b' \
-  'sentence case, text-xs text-muted-foreground. The Badge chip is the one sanctioned uppercase label' app "$BADGE_RE"
+  'sentence case, text-xs text-muted-foreground. The Badge chip is the one sanctioned uppercase label' app "($BADGE_RE|first-letter:uppercase)"
 
 # ── Loading and icons ───────────────────────────────────────────────────────
 

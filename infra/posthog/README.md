@@ -2,7 +2,7 @@
 
 Terraform definitions for the Kortix product-analytics dashboards in PostHog
 EU Cloud, project `334925` ("Kortix"). Applying this folder creates or updates
-7 dashboards, their insights, and 4 conversion-goal actions. Definitions live
+9 dashboards, their insights, and 4 conversion-goal actions. Definitions live
 here; data lives in PostHog. The event contract and the privacy rules are in
 the `product-analytics` skill (`.agents/skills/product-analytics/SKILL.md`).
 
@@ -15,10 +15,14 @@ the `product-analytics` skill (`.agents/skills/product-analytics/SKILL.md`).
 | Kortix · Setup & adoption | Connectors, secrets, triggers, apps, feature flags, billing gates and the checkout funnel |
 | Kortix · Acquisition | Visitors, referrers, UTM source and campaign, landing pages and bounce, first-touch source of signups, visitor → signup |
 | Kortix · Conversion | Goals per day (Signed up, Activated, Subscribed, Topped up), visitor → paid funnel, signup → paid rate, checkout by tier, billing gate → top-up, time to paid |
+| Kortix · Setup | The setup prompt: prompt copies and setups started (two numbers, never joined), runs started → template → onboard green → ready (per `setup_id`, and by coding agent), setup started → first real run per person, copies by template, minutes to ready, where onboard stops |
+| Kortix · Speed | Page load and in-app navigation to data shown (`screen_ready`), p75 by continent, country and screen; API reads per screen |
 
 Every insight sets `filterTestAccounts`. The project's test-account filter
-keeps `environment = production` and drops `@kortix.ai` / `@kortix.com`
-people and the internal cohort, so local, dev and staging traffic never shows.
+keeps `environment = production` and drops the cohort "Internal / Test users",
+so local, dev and staging traffic and Kortix staff never show. The API puts
+staff in that cohort (`$internal_or_test_user`); see the `product-analytics`
+skill, "Kortix staff are out of every chart".
 
 ## Files
 

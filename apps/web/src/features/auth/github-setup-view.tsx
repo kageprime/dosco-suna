@@ -146,7 +146,7 @@ export function GitHubSetupView({
                       {installation.owner_type === 'User' ? 'Personal' : 'Organization'}
                       {installation.repository_selection ? (
                         <>
-                          <span aria-hidden className="text-muted-foreground/40">
+                          <span aria-hidden className="text-muted-foreground">
                             {' \u2022 '}
                           </span>
                           {installation.repository_selection === 'all'

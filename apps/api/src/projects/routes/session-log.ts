@@ -175,6 +175,7 @@ async function sessionReadGate(
   // A read: a subagent reads the conversation of the sessions that spawned it.
   const visible = await loadVisibleSession(loaded, sessionId, c.get('sessionId') ?? null, callerKortixSessionId(c), {
     spawnAncestorRead: true,
+    triggerReaderRead: true,
   });
   // A deleted session reads nothing (KRTX-2744, as `GET …/transcript`): its stored log and
   // loss report are content of a session the trash model advertises as gone. The restore

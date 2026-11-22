@@ -72,7 +72,6 @@ export const MEGA_MENUS: MegaMenu[] = [
         title: 'Get Dosco',
         links: [
           { label: 'Download', href: '/download' },
-          { label: 'Marketplace', href: '/marketplace' },
         ],
       },
       {

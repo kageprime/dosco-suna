@@ -1,3 +1,4 @@
+import { sessionSharedThroughSpace } from '../../projects/surface';
 import { ingressTargetUrl } from '../../platform/providers/ingress-url';
 import { KORTIX_USER_CONTEXT_HEADER } from '../../shared/kortix-user-context';
 import { canAccessPreviewSandbox, canAccessSandboxSession } from '../../shared/preview-ownership';
@@ -66,6 +67,7 @@ export async function resolvePreviewWsUpstream(opts: {
   // opencode WebSockets to :4096 on Daytona, so keying on 8000 alone left the
   // PTY/opencode WS leg ungated there — the same hole this PR closes on the HTTP
   // side, one function further down the file.
+  const { projectId: spaceProjectId, sessionId: spaceSessionId } = record;
   if (
     !(await canAccessSandboxSession({
       sessionId: record.sessionId,
@@ -74,6 +76,7 @@ export async function resolvePreviewWsUpstream(opts: {
       userId,
       callerSessionId: callerSessionId ?? null,
       boundCredentialSessionId,
+      sharedThroughSpace: () => sessionSharedThroughSpace(spaceProjectId, userId, spaceSessionId),
     }))
   ) {
     return {
@@ -139,6 +142,7 @@ export async function resolvePreviewWsUpstream(opts: {
       userId,
       callerSessionId: callerSessionId ?? null,
       boundCredentialSessionId,
+      sharedThroughSpace: () => sessionSharedThroughSpace(record.projectId, userId, record.sessionId),
     }),
   );
   return { ok: true, url: upstreamUrl.toString(), headers, accessCheck };

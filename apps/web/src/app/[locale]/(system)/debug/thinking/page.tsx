@@ -27,7 +27,7 @@ function Row({
     <div className="space-y-2">
       <div className="space-y-0.5">
         <p className="text-muted-foreground font-mono text-xs">{label}</p>
-        {hint ? <p className="text-muted-foreground/60 text-xs">{hint}</p> : null}
+        {hint ? <p className="text-muted-foreground text-xs">{hint}</p> : null}
       </div>
       {children}
     </div>

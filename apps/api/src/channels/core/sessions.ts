@@ -1,3 +1,4 @@
+import { sessionSharedThroughSpace } from '../../projects/surface';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { chatThreads, projectSessions } from '@kortix/db';
 import { db } from '../../shared/db';
@@ -91,6 +92,7 @@ export async function listVisibleChatSessions(
           userId: identity.userId,
           callerSessionId: null,
           boundCredentialSessionId: null,
+          sharedThroughSpace: () => sessionSharedThroughSpace(row.projectId, identity.userId, row.sessionId),
         })),
     ),
   );

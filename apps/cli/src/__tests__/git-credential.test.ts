@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -147,5 +147,47 @@ describe('Git credential protocol', () => {
     expect(code).toBe(0);
     expect(stdout).toBe('');
     expect(stderr).toBe('');
+  });
+
+  test("a sandbox clone pushes as the sandbox: its link names a host with no stored login", async () => {
+    // `kortix workspaces clone` in a session writes a link to the host `cloud`; the session's identity is its
+    // environment (KORTIX_TOKEN), never a stored login, so the helper must fall back to it.
+    const server: ReturnType<typeof Bun.serve> = Bun.serve({
+      port: 0,
+      fetch: (req): Response =>
+        new URL(req.url).pathname === '/v1/workspaces/proj_1'
+          ? Response.json(project({ git_origin_url: `http://127.0.0.1:${server.port}/v1/git/proj_1.git` }))
+          : new Response('not found', { status: 404 }),
+    });
+    try {
+      const cwd = mkdtempSync(join(tmpdir(), 'kortix-git-credential-sandbox-'));
+      const config = join(cwd, 'config.json');
+      writeFileSync(config, JSON.stringify({ active: 'cloud', hosts: {} }));
+      mkdirSync(join(cwd, '.kortix'));
+      writeFileSync(join(cwd, '.kortix', 'link.json'), JSON.stringify({ project_id: 'proj_1', account_id: 'acct_1', host: 'cloud', host_url: `http://127.0.0.1:${server.port}/v1` }));
+      const proc = Bun.spawn({
+        cmd: [process.execPath, CLI_ENTRY, 'git-credential', 'get'],
+        cwd,
+        env: {
+          ...process.env,
+          KORTIX_CONFIG_FILE: config,
+          KORTIX_TOKEN: 'kortix_sandbox_test',
+          KORTIX_API_URL: `http://127.0.0.1:${server.port}/v1`,
+          KORTIX_NO_UPDATE_CHECK: '1',
+          KORTIX_DISABLE_SANDBOX_ENV_FILE: '1',
+          NO_COLOR: '1',
+          FORCE_COLOR: '0',
+        },
+        stdin: new Blob([`protocol=http\nhost=127.0.0.1:${server.port}\npath=v1/git/proj_1.git\n\n`]),
+        stdout: 'pipe',
+        stderr: 'pipe',
+      });
+      const [code, stdout, stderr] = await Promise.all([proc.exited, new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
+      expect(stderr).toBe('');
+      expect(code).toBe(0);
+      expect(stdout).toContain('password=kortix_sandbox_test');
+    } finally {
+      server.stop(true);
+    }
   });
 });

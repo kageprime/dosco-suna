@@ -117,7 +117,9 @@ describe('startSandboxPortProxy HTTP', () => {
       hostname: '127.0.0.1',
       port: 0,
       idleTimeout: 0,
-      fetch: () => {
+      fetch: (req) => {
+        // Only the test's stream: a dev box's port probe (`GET /`) through the proxy must not take `push`.
+        if (new URL(req.url).pathname !== '/global/event') return new Response(null, { status: 404 });
         const stream = new ReadableStream<Uint8Array>({
           start(controller) {
             controller.enqueue(new TextEncoder().encode('data: {"type":"server.connected"}\n\n'));

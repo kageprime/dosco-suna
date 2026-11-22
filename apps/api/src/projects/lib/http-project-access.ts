@@ -54,7 +54,7 @@ export async function assertProjectCapability(
   action: string,
   // Optional per-OBJECT narrowing: when supplied, the verdict is additionally
   // intersected with the object grants for this specific agent/skill.
-  resource?: { type: 'agent' | 'skill'; id: string },
+  resource?: { type: 'agent' | 'skill' | 'trigger'; id: string },
 ): Promise<void> {
   if (isRepositoryProjectAction(action)) {
     await assertAgentSessionWorkspaceAllowsRepository(c, accountId, projectId);

@@ -172,7 +172,7 @@ export function createKortix(config: KortixPlatformConfig = sandboxConfig(), opt
     sandboxShares,
     /** Deployment-wide Pipedream/easy-connect availability flag (not project-scoped). */
     connectStatus,
-    /** Public marketplace catalog browse + sources (`/v1/marketplace/*`, not project-scoped). */
+    /** @deprecated The marketplace was removed (2026-11-20); every call rejects with `410 ENDPOINT_RETIRED`. Removed in the next major. */
     marketplace,
     /** Kortix Capture: `account(id)` (the tenant), the device sign-in approval, and `me` (the agent tool's reads). */
     capture: captureClient,

@@ -121,13 +121,8 @@ describe('runChrome against a daemon', () => {
   });
 });
 
-describe('feature-off line before launch', () => {
-  test('names no enable command for chrome: the flag is not offered (CHROME_LAUNCHED)', () => {
-    const line = featureOffMessage('`kortix chrome`', 'chrome', new Set());
-    expect(line).not.toContain('features enable');
-    expect(line).toContain('not available yet');
-  });
-  test('other flags keep the enable hint', () => {
-    expect(featureOffMessage('`kortix goals`', 'goals', new Set())).toContain('kortix workspaces features enable goals');
+describe('feature-off line', () => {
+  test('chrome names the command that turns its flag on, like every flag', () => {
+    expect(featureOffMessage('`kortix chrome`', 'chrome', new Set())).toContain('kortix workspaces features enable chrome');
   });
 });

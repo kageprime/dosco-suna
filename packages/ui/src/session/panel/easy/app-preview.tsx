@@ -88,7 +88,7 @@ import {
   reportedFrameUrl,
   retargetPreviewUrl,
 } from './frame-history';
-import { SESSION_BAR_CLASS } from '../panel-chrome';
+import { SESSION_BAR_CLASS } from '../../../internal/layout/panel-chrome';
 import { cn } from '../../../lib/utils';
 
 // zustand v5's own hook feeds React's `useSyncExternalStore` a

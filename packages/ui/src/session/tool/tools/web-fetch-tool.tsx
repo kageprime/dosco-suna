@@ -96,13 +96,13 @@ export function WebFetchTool({ call, defaultOpen, forceOpen, locked }: ToolProps
               <span className="text-foreground group-hover:text-primary block truncate text-xs font-medium">
                 {domain}
               </span>
-              <span className="text-muted-foreground/50 block truncate font-mono text-[10px]">
+              <span className="text-muted-foreground block truncate font-mono text-[10px]">
                 {domain}
               </span>
             </span>
-            <ExternalLink className="text-muted-foreground/30 group-hover:text-muted-foreground/60 size-3 shrink-0" />
+            <ExternalLink className="text-muted-foreground group-hover:text-foreground size-3 shrink-0" />
           </a>
-          <p className="text-muted-foreground/80 px-3 py-2 font-mono text-xs leading-relaxed wrap-break-word whitespace-pre-wrap">
+          <p className="text-muted-foreground px-3 py-2 font-mono text-xs leading-relaxed wrap-break-word whitespace-pre-wrap">
             {errorSummary}
           </p>
         </div>
@@ -120,11 +120,11 @@ export function WebFetchTool({ call, defaultOpen, forceOpen, locked }: ToolProps
               <span className="text-foreground group-hover:text-primary block truncate text-xs font-medium">
                 {readable.title || domain}
               </span>
-              <span className="text-muted-foreground/50 block truncate font-mono text-[10px]">
+              <span className="text-muted-foreground block truncate font-mono text-[10px]">
                 {domain}
               </span>
             </span>
-            <ExternalLink className="text-muted-foreground/30 group-hover:text-muted-foreground/60 size-3 shrink-0" />
+            <ExternalLink className="text-muted-foreground group-hover:text-foreground size-3 shrink-0" />
           </a>
 
           <p className="text-foreground/80 px-3 py-2 text-xs leading-relaxed wrap-break-word whitespace-pre-wrap">
@@ -135,7 +135,7 @@ export function WebFetchTool({ call, defaultOpen, forceOpen, locked }: ToolProps
             <DisclosureTrigger>
               <button
                 type="button"
-                className="border-border/40 text-muted-foreground/60 hover:text-foreground flex w-full items-center gap-1.5 border-t px-3 py-2 text-xs transition-colors"
+                className="border-border/40 text-muted-foreground hover:text-foreground flex w-full items-center gap-1.5 border-t px-3 py-2 text-xs transition-colors"
               >
                 <ChevronRight
                   className={cn('size-3 transition-transform', rawOpen && 'rotate-90')}
@@ -152,7 +152,7 @@ export function WebFetchTool({ call, defaultOpen, forceOpen, locked }: ToolProps
                   pane with the source of a page whose readable text is already
                   rendered above. It is the exception the un-cap is for:
                   everything the reader came for uncaps; the dump does not. */}
-              <pre className="text-muted-foreground/70 max-h-96 overflow-auto px-3 pb-2 font-mono text-[11px] leading-relaxed wrap-break-word whitespace-pre-wrap">
+              <pre className="text-muted-foreground max-h-96 overflow-auto px-3 pb-2 font-mono text-[11px] leading-relaxed wrap-break-word whitespace-pre-wrap">
                 {rawHtmlPreview}
               </pre>
             </DisclosureContent>

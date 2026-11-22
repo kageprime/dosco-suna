@@ -127,7 +127,7 @@ export function ConnectorRiskBadge({ risk }: { risk?: unknown }) {
 
 export function ConnectorJson({ value }: { value: unknown }) {
   if (value == null || (typeof value === 'object' && Object.keys(value as object).length === 0)) {
-    return <span className="text-muted-foreground/60 font-mono text-xs">{'{}'}</span>;
+    return <span className="text-muted-foreground font-mono text-xs">{'{}'}</span>;
   }
   const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
   return <OutputBlock text={text} />;

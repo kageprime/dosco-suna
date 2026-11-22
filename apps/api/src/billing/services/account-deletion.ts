@@ -37,6 +37,7 @@ import {
 import { deleteUserSessionStates, releaseProjectEventSubscriptions, settleLiveSessionsOfAccounts } from '../../projects/surface';
 import { deleteAccountExternalStores } from './account-erasure-stores';
 import { accountsView, deleteAccountRows, projectsView } from '../../workspaces/rows';
+import { isWorkspaceDeletion } from '../../workspaces/deletion-reason';
 
 const GRACE_PERIOD_DAYS = 14;
 const ACTIVE_DELETION_REQUEST_EXISTS = 'An active deletion request already exists for this account';
@@ -138,10 +139,11 @@ export async function requestAccountDeletion(
   };
 }
 
+/** Personal-deletion status; a workspace close must not replace Profile’s account controls. */
 export async function getAccountDeletionStatus(accountId: string) {
   const request = await getActiveDeletionRequest(accountId);
 
-  if (!request) {
+  if (!request || isWorkspaceDeletion(request.reason)) {
     return {
       has_pending_deletion: false,
       deletion_scheduled_for: null,
@@ -194,16 +196,22 @@ export async function cancelAccountDeletion(accountId: string) {
  * the requester's login and leaves the sandboxes of their other accounts
  * alone: a team account the requester owns, or a request an operator made
  * while acting as a customer (impersonation refuses these routes now, but a
- * pending row from before keeps the operator as its requester).
+ * pending row from before keeps the operator as its requester). A workspace
+ * close (`request.reason`) shares the queue but never deletes the person or
+ * reclaims their other workspaces, even when account_id = user_id (KRTX-4946).
  *
  * Every step is idempotent and throws on failure, so the caller can retry the
  * whole routine. The caller owns the request row (`completed` only after this
  * returns).
  */
-export async function runAccountDeletion(accountId: string, userId?: string, requestId?: string) {
-  const requester = userId === accountId ? userId : undefined;
+export async function runAccountDeletion(
+  accountId: string,
+  userId?: string,
+  request?: { id: string; reason?: string | null } | null,
+) {
+  const requester = userId === accountId && !isWorkspaceDeletion(request?.reason) ? userId : undefined;
   await performDeletion(accountId, requester);
-  await deleteAccountData(accountId, requestId);
+  await deleteAccountData(accountId, request?.id);
   if (requester) await deleteLogin(requester);
 }
 
@@ -249,7 +257,7 @@ export async function deleteLoginWithoutAccount(userId: string) {
  */
 export async function deleteAccountForPerson(accountId: string): Promise<void> {
   const request = await getActiveDeletionRequest(accountId);
-  await runAccountDeletion(accountId, undefined, request?.id);
+  await runAccountDeletion(accountId, undefined, request);
   if (request) await markDeletionCompleted(request.id);
 }
 
@@ -326,7 +334,7 @@ export async function deleteAccountImmediately(accountId: string, userId?: strin
     throw new BillingError('The deletion request changed while it was read. Reload and try again.', 409);
   }
   try {
-    await runAccountDeletion(accountId, userId ?? request?.userId, request?.id);
+    await runAccountDeletion(accountId, userId ?? request?.userId, request);
   } catch (err) {
     if (request) await releaseDeletionRequest(request.id).catch(() => {});
     throw err;
@@ -362,7 +370,7 @@ export async function processScheduledDeletions(): Promise<{
     try {
       // The request row carries the requester, so the scheduled path gets the
       // same owner-wide sweep as the immediate one.
-      await runAccountDeletion(request.accountId, request.userId, request.id);
+      await runAccountDeletion(request.accountId, request.userId, request);
       await markDeletionCompleted(request.id);
       processed++;
     } catch (err) {

@@ -16,12 +16,15 @@ export function kickPreBuild(
   project: GitBackedProject,
   opts: { slug?: string; accountId: string; source: SnapshotBuildSource; provider?: string },
 ): void {
-  void ensureSandboxImage(project, opts).catch((err) =>
-    console.warn(
-      `[snapshots] pre-build failed for ${project.projectId} (slug=${opts.slug ?? 'default'}, ${opts.source}):`,
-      err instanceof Error ? err.message : err,
-    ),
+  fireAndForget(
+    ensureSandboxImage(project, opts),
+    `[snapshots] pre-build failed for ${project.projectId} (slug=${opts.slug ?? 'default'}, ${opts.source}):`,
   );
+}
+
+/** Run `work` unawaited; a rejection warns with `message` instead of surfacing. */
+function fireAndForget(work: Promise<unknown>, message: string): void {
+  void work.catch((err) => console.warn(message, err instanceof Error ? err.message : err));
 }
 
 /** Providers a project can route a new session to for proactive template builds. */
@@ -148,11 +151,9 @@ export function kickProjectTemplatePrebuilds(
   project: GitBackedProject,
   opts: { accountId: string; source: SnapshotBuildSource },
 ): void {
-  void reconcileProjectTemplates(project, opts).catch((err) =>
-    console.warn(
-      `[snapshots] project-template reconcile failed for ${project.projectId} (${opts.source}):`,
-      err instanceof Error ? err.message : err,
-    ),
+  fireAndForget(
+    reconcileProjectTemplates(project, opts),
+    `[snapshots] project-template reconcile failed for ${project.projectId} (${opts.source}):`,
   );
 }
 
@@ -172,44 +173,45 @@ export async function deleteSandboxImage(
     | { slug?: string; provider?: string; template?: ResolvedTemplate }
     = {},
 ): Promise<{ deleted: boolean; snapshotName: string; slug: string }> {
-  // A caller holding the EXACT provider identity to drop (the session heal:
-  // the snapshot name the session actually booted) passes `snapshotName`:
-  // delete that name and never re-derive it from a slug — a project template
-  // named `default-warm` that disappears mid-provision would otherwise fall
-  // back to the shared platform default and make the heal delete the image
-  // every tenant's next session boots from (KRTX-4465, Strix CWE-367).
+  let target: { providerId: string; snapshotName: string; slug: string; templateId?: string | null };
   if ('snapshotName' in opts) {
-    const directProvider = getSandboxProvider(opts.provider);
-    const wasThere = await directProvider.getSnapshotState(opts.snapshotName);
-    await directProvider.deleteSnapshot(opts.snapshotName);
-    return {
-      deleted: wasThere === 'active' || wasThere === 'building',
-      snapshotName: opts.snapshotName,
-      slug: opts.slug ?? '',
+    // A caller holding the EXACT provider identity to drop (the session heal:
+    // the snapshot name the session actually booted) passes `snapshotName`:
+    // delete that name and never re-derive it from a slug — a project template
+    // named `default-warm` that disappears mid-provision would otherwise fall
+    // back to the shared platform default and make the heal delete the image
+    // every tenant's next session boots from (KRTX-4465, Strix CWE-367).
+    target = { providerId: opts.provider, snapshotName: opts.snapshotName, slug: opts.slug ?? '' };
+  } else {
+    // A caller that ALREADY resolved the template (the rebuild route's guard
+    // authorizes the resolved row before reaching here) passes it back: delete
+    // exactly that identity, never re-resolve the raw slug — a project row that
+    // disappears between the caller's resolve and this one would fall back to
+    // the shared platform default (the check/use window, KRTX-4465).
+    const template = opts.template ?? await resolveTemplateForBuildSlug(project, opts.slug);
+    const identity = await computeTemplateIdentity(project, template);
+    target = {
+      providerId: opts.provider ?? template.provider,
+      snapshotName: identity.snapshotName,
+      slug: template.slug,
+      templateId: template.templateId,
     };
   }
-  // A caller that ALREADY resolved the template (the rebuild route's guard
-  // authorizes the resolved row before reaching here) passes it back: delete
-  // exactly that identity, never re-resolve the raw slug — a project row that
-  // disappears between the caller's resolve and this one would fall back to
-  // the shared platform default (the check/use window, KRTX-4465).
-  const template = opts.template ?? await resolveTemplateForBuildSlug(project, opts.slug);
-  const provider = getSandboxProvider(opts.provider ?? template.provider);
-  const identity = await computeTemplateIdentity(project, template);
-  const before = await provider.getSnapshotState(identity.snapshotName);
-  await provider.deleteSnapshot(identity.snapshotName);
+  const provider = getSandboxProvider(target.providerId);
+  const before = await provider.getSnapshotState(target.snapshotName);
+  await provider.deleteSnapshot(target.snapshotName);
   // Reflect on the template row.
-  if (template.templateId) {
+  if (target.templateId) {
     try {
-      await refreshTemplateState(template.templateId);
+      await refreshTemplateState(target.templateId);
     } catch {
       /* best-effort */
     }
   }
   return {
     deleted: before === 'active' || before === 'building',
-    snapshotName: identity.snapshotName,
-    slug: template.slug,
+    snapshotName: target.snapshotName,
+    slug: target.slug,
   };
 }
 
@@ -236,8 +238,6 @@ export interface SandboxTemplateView {
   ready: boolean;
   provider: string;
   builtFromCommit: string | null;
-  lastBuiltAt: string | null;
-  lastError: string | null;
   /** Fresh launch-readiness observations for this exact content identity. */
   providerCoverage?: SandboxTemplateProviderCoverage[];
   /** `residential_proxy`; null = off. */
@@ -275,7 +275,9 @@ async function toView(
     includeProviderCoverage?: boolean;
   },
 ): Promise<SandboxTemplateView> {
-  const identity = await computeTemplateIdentity(project, t);
+  // Listings already opt into bounded stale mirror reads. Do not override
+  // that policy with the build path's forced tip proof for a Dockerfile.
+  const identity = await computeTemplateIdentity(project, t, { freshness: false });
   let state: string = t.providerState ?? 'missing';
   let providerCoverage: SandboxTemplateProviderCoverage[] | undefined;
   if (opts.includeProviderCoverage) {
@@ -316,8 +318,6 @@ async function toView(
     ready: state === 'active',
     provider: t.provider,
     builtFromCommit: t.builtFromCommit,
-    lastBuiltAt: null,
-    lastError: null,
     residentialProxy: t.residentialProxy,
     ...(providerCoverage ? { providerCoverage } : {}),
   };

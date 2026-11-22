@@ -42,7 +42,7 @@ const WEBHOOK_ROW = {
   lastError: null,
 };
 
-mock.module('../marketplace/catalog', () => ({
+mock.module('../shared/source-address-guard', () => ({
   assertAllowedSourceAddress: () => {},
 }));
 

@@ -526,9 +526,11 @@ export function validateTriggerAgentRefsV2(
 ): void {
   if (!Array.isArray(node)) return;
   node.forEach((entry, i) => {
-    if (!isTable(entry) || entry.agent === undefined || entry.agent === null) return;
-    const where = `${path}[${i}].agent`;
-    if (typeof entry.agent !== 'string' || !entry.agent.trim()) {
+    if (!isTable(entry)) return;
+    const run = isTable(entry.run) ? entry.run : entry;
+    if (run.agent === undefined || run.agent === null) return;
+    const where = `${path}[${i}]${run === entry ? '' : '.run'}.agent`;
+    if (typeof run.agent !== 'string' || !run.agent.trim()) {
       issues.push({
         path: where,
         message: 'agent must be a non-empty string naming a declared agent.',
@@ -536,7 +538,7 @@ export function validateTriggerAgentRefsV2(
       });
       return;
     }
-    const name = entry.agent.trim();
+    const name = run.agent.trim();
     // `default` is the runtime's "the default agent" sentinel; `mykortix` (and its old `meta`) is My Kortix.
     if (!agentNames.includes(name) && name !== 'default' && !isMyKortixAgentName(name)) {
       issues.push({

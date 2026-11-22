@@ -10,10 +10,10 @@
  * find their row by that default label only, so a relabel would have made
  * the next connect create a duplicate row. This file proves it does not.
  *
- * Composio itself is a fake runtime (`setComposioRuntimeForTest`). The API
+ * Composio's runtime and REST catalog are fakes. The API
  * route handlers, the connection rows, and the SQL are real.
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { accounts, connectorConnections, connectors, projects } from '@kortix/db';
 import { and, eq } from 'drizzle-orm';
 import type { ComposioRuntime, ComposioSessionLike } from '../connectors/composio';
@@ -25,6 +25,7 @@ import type { ComposioRuntime, ComposioSessionLike } from '../connectors/composi
 const previousKey = process.env.COMPOSIO_API_KEY;
 process.env.COMPOSIO_API_KEY = 'test-composio-key';
 const { setComposioRuntimeForTest } = await import('../connectors/composio');
+const { setComposioRestClientForTest } = await import('../connectors/composio-catalog-search');
 const { dbConnectorRouterDeps } = await import('../connectors/db-deps');
 const { db } = await import('../shared/db');
 
@@ -146,8 +147,30 @@ async function connectAndFinish(input: {
   return started!;
 }
 
+// No HTTP belongs in this real-Postgres suite: both Composio adapters are fakes.
+// Count attempts as well as rejecting them because provider failures can be caught.
+let externalRequests = 0;
+const fetchGuard = spyOn(globalThis, 'fetch').mockImplementation(
+  Object.assign(async () => {
+    externalRequests += 1;
+    throw new Error('Unexpected external HTTP in connector identity DB suite');
+  }, { preconnect: globalThis.fetch.preconnect }),
+);
+
+afterEach(() => {
+  expect(externalRequests).toBe(0);
+});
+
 beforeAll(async () => {
   setComposioRuntimeForTest(fakeRuntime);
+  setComposioRestClientForTest({
+    toolkits: {
+      async list() { return { items: [] }; },
+    },
+    authConfigs: {
+      async list() { return { items: [] }; },
+    },
+  });
   await db.insert(accounts).values({ accountId: ACCOUNT, name: 'connected-as-test' });
   await db.insert(projects).values({
     projectId: PROJECT,
@@ -178,12 +201,15 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  externalRequests = 0;
   pendingAuthorization = null;
   probes = 0;
 });
 
 afterAll(async () => {
+  fetchGuard.mockRestore();
   setComposioRuntimeForTest(null);
+  setComposioRestClientForTest(null);
   if (previousKey === undefined) delete process.env.COMPOSIO_API_KEY;
   else process.env.COMPOSIO_API_KEY = previousKey;
   await db.delete(connectorConnections).where(eq(connectorConnections.projectId, PROJECT));

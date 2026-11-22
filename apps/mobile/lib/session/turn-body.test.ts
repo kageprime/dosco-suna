@@ -299,6 +299,14 @@ describe('turnSegments (no show carousel on mobile)', () => {
       blocks.map((b) => b.id),
     );
   });
+
+  test('a failed show draws no card; its successful retry does', () => {
+    const blocks = blocksOf([
+      tool('show', { status: 'error', input: { url: 'https://example.test/a', title: 'Catalog' }, error: "'type' is required." }),
+      tool('show', { input: { type: 'url', url: 'https://example.test/a', title: 'Catalog' } }),
+    ]);
+    expect(turnSegments(blocks, new Set()).map((s) => (s.kind === 'standalone' ? s.block.id : s.kind))).toEqual([blocks[1]!.id]);
+  });
 });
 
 describe('lastTextBlockId', () => {

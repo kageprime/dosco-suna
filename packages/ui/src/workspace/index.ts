@@ -8,7 +8,7 @@
 // review); since Turbopack does not tree-shake this barrel in dev, re-exporting
 // it made all ~44 routes that import `@kortix/ui/workspace` compile that graph.
 // The /admin route imports it directly from '@kortix/ui/workspace/admin/project-admin-dashboard'.
-export { ProjectPageHeader } from '../internal/layout/project-page-header';
+export { PROJECT_PAGE_HEADER_CLASS, ProjectPageHeader } from '../internal/layout/project-page-header';
 export { useCapabilityAccess, useProjectNavRows } from '../internal/layout/project-settings-nav';
 export { SidebarToggle } from '../internal/layout/sidebar-toggle';
 export {

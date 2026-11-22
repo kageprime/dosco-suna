@@ -5,7 +5,9 @@ name: Mobile OTA
 # fingerprint differs from the newest build on the channel and says so.
 #
 #   Deploy Prod succeeded  -> channel `production` (store builds), so the JS
-#                             ships with the API it was released with
+#                             ships with the API it was released with. A run
+#                             that failed only in its Kortix Capture or
+#                             desktop builds counts too (deploy-prod-gate.yml).
 #   workflow_dispatch      -> the chosen channel: `dev` ships the dev branch to
 #                             dev-backend builds; `production` ships the `prod`
 #                             branch, never unreleased dev code
@@ -39,17 +41,28 @@ permissions:
   id-token: write # aws-env reads EXPO_TOKEN from AWS Secrets Manager
 
 jobs:
-  publish:
-    name: Publish ${{ github.event_name == 'workflow_run' && 'production' || inputs.channel || 'dev' }}
-    # Only a green Deploy Prod of `prod` in this repository, started by a push
-    # or a person, starts a release. A pull request can run its own copy of a
+  gate:
+    name: Deploy Prod gate
+    # Only a Deploy Prod run of `prod` in this repository, started by a push
+    # or a person, reaches the gate. A pull request can run its own copy of a
     # workflow named "Deploy Prod"; that run must never reach the credentials.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       contains(fromJSON('["push", "workflow_dispatch"]'), github.event.workflow_run.event) &&
-       github.event.workflow_run.head_branch == 'prod' &&
-       github.event.workflow_run.head_repository.full_name == github.repository)
+      github.event_name == 'workflow_run' &&
+      contains(fromJSON('["push", "workflow_dispatch"]'), github.event.workflow_run.event) &&
+      github.event.workflow_run.head_branch == 'prod' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    permissions:
+      actions: read # the gate reads the jobs of the Deploy Prod run
+    uses: ./.github/workflows/deploy-prod-gate.yml
+
+  publish:
+    name: Publish ${{ github.event_name == 'workflow_run' && 'production' || inputs.channel || 'dev' }}
+    needs: gate
+    # A dispatch, or a Deploy Prod run the gate passed: it succeeded, or only
+    # its Kortix Capture or desktop builds failed (deploy-prod-gate.yml).
+    if: >-
+      !cancelled() &&
+      (github.event_name == 'workflow_dispatch' || needs.gate.outputs.ship == 'true')
     runs-on: ${{ vars.CI_RUNNER_M || 'ubuntu-24.04' }}
     timeout-minutes: 30
     # One publish per channel at a time, never cancelled: a cancelled run can

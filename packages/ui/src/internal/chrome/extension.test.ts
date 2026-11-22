@@ -2,8 +2,6 @@ import { afterEach, describe, expect, test } from 'bun:test';
 
 import {
   apiOrigin,
-  CHROME_INSTALL_DOCS_PATH,
-  CHROME_STORE_LISTED,
   chromeSettingsLink,
   connectExtension,
   isChromiumBrowser,
@@ -30,11 +28,7 @@ afterEach(() => {
   delete (globalThis as Record<string, unknown>).chrome;
 });
 
-describe('store listing', () => {
-  test('the listing is not public: no surface offers Add to Chrome', () => {
-    expect(CHROME_STORE_LISTED).toBe(false);
-    expect(CHROME_INSTALL_DOCS_PATH).toBe('/docs/connect/chrome');
-  });
+describe('settings link', () => {
   test('the link to copy opens Settings → Kortix in Chrome', () => {
     expect(chromeSettingsLink('https://app.example.com')).toBe('https://app.example.com/settings/chrome');
   });

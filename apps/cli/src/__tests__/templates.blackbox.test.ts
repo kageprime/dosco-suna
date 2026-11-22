@@ -4,9 +4,10 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-// `kortix templates add <id>` adds a template to an existing repository: its
-// .kortix/<id>/ folder plus one line under imports: in kortix.yaml. The
-// one-prompt setup guide runs it with --json and acts on `next`.
+// `kortix templates add <id>` adds a template to the workspace repository: its
+// files in the root layout (agents/, skills/, <id>.yaml, a settings JSON) plus
+// one line under imports: in kortix.yaml. The one-prompt setup guide runs it
+// with --repo <code repository> --json and acts on `next`.
 
 const CLI_ENTRY = join(resolve(import.meta.dir, '..', '..'), 'src', 'index.ts');
 let repo: string;
@@ -49,8 +50,9 @@ test('add into a repository with kortix.yaml: files written, import appended, co
   const manifest = readFileSync(join(repo, 'kortix.yaml'), 'utf8');
   expect(manifest).toContain('# mine');
   expect(manifest).toContain('# keep');
-  expect(manifest).toMatch(/imports:\n\s+- \.kortix\/software-factory\//);
-  const prompt = readFileSync(join(repo, '.kortix/software-factory/agents/factory.md'), 'utf8');
+  expect(manifest).toMatch(/imports:\n\s+- software-factory\.yaml/);
+  expect(existsSync(join(repo, '.kortix'))).toBe(false);
+  const prompt = readFileSync(join(repo, 'agents/engineer.md'), 'utf8');
   expect(prompt).toContain('acme/shop');
   expect(prompt).not.toContain('{{');
 
@@ -61,11 +63,11 @@ test('add into a repository with kortix.yaml: files written, import appended, co
 
 test('a changed template file is refused without --force and replaced with it', () => {
   expect(kortix(['templates', 'add', 'marketing', '--repo', 'acme/shop']).code).toBe(0);
-  const file = join(repo, '.kortix/marketing/marketing.yaml');
+  const file = join(repo, 'marketing.yaml');
   writeFileSync(file, `${readFileSync(file, 'utf8')}# local edit\n`);
   const refused = kortix(['templates', 'add', 'marketing', '--repo', 'acme/shop']);
   expect(refused.code).toBe(1);
-  expect(refused.stderr).toContain('.kortix/marketing/marketing.yaml');
+  expect(refused.stderr).toContain('marketing.yaml');
   expect(kortix(['templates', 'add', 'marketing', '--repo', 'acme/shop', '--force']).code).toBe(0);
   expect(readFileSync(file, 'utf8')).not.toContain('# local edit');
 });
@@ -81,7 +83,7 @@ test('no kortix.yaml: one is created with My Kortix and the import; no GitHub re
   expect(JSON.parse(r.stdout)).toMatchObject({ manifest_created: true, default_branch: 'trunk' });
   const manifest = readFileSync(join(repo, 'kortix.yaml'), 'utf8');
   expect(manifest).toContain('my_kortix: true');
-  expect(manifest).toContain('- .kortix/marketing/');
+  expect(manifest).toContain('- marketing.yaml');
 });
 
 test('a business loop adds without a dev sandbox or GitHub webhooks, and names its generated webhook secret', () => {
@@ -92,11 +94,11 @@ test('a business loop adds without a dev sandbox or GitHub webhooks, and names i
     expect(out.next).toMatchObject({ github_webhooks: [], needs_dev_sandbox: false });
     const webhook = out.next.secrets.find((s: { name: string }) => s.name === `${id.toUpperCase()}_WEBHOOK_SECRET`);
     expect(webhook).toMatchObject({ required: true, delivery: 'connector', generate: true });
-    expect(readFileSync(join(repo, `.kortix/${id}/agents/${id}.md`), 'utf8')).toContain('acme/shop');
-    expect(existsSync(join(repo, `.kortix/${id}/${id}.json`))).toBe(true);
+    expect(readFileSync(join(repo, `agents/${id}.md`), 'utf8')).toContain('acme/shop');
+    expect(existsSync(join(repo, `${id}.json`))).toBe(true);
   }
   const manifest = readFileSync(join(repo, 'kortix.yaml'), 'utf8');
-  for (const id of ['sales', 'recruiting', 'support']) expect(manifest).toContain(`- .kortix/${id}/`);
+  for (const id of ['sales', 'recruiting', 'support']) expect(manifest).toContain(`- ${id}.yaml`);
 });
 
 test('an unknown template is refused with the list', () => {
@@ -117,7 +119,14 @@ test('onboard prints the chosen template, then the setup guide; an unknown templ
   const r = kortix(['templates', 'onboard', 'software-factory']);
   expect(r.code).toBe(0);
   expect(r.stdout).toContain('# Set up the Kortix Software Factory');
-  expect(r.stdout).toContain('kortix templates add software-factory --json');
+  expect(r.stdout).toContain('kortix templates add software-factory --repo <owner/repo> --json');
   expect(r.stdout).toContain('# Set up Kortix on this repository');
   expect(kortix(['templates', 'onboard', 'nope']).code).toBe(1);
+
+  // --steps: only the template's own steps, for the guide's investigation.
+  const steps = kortix(['templates', 'onboard', 'software-factory', '--steps']);
+  expect(steps.code).toBe(0);
+  expect(steps.stdout).toContain('# Software Factory (`software-factory`)');
+  expect(steps.stdout).toContain('**Ask**');
+  expect(steps.stdout).not.toContain('# Set up Kortix on this repository');
 });

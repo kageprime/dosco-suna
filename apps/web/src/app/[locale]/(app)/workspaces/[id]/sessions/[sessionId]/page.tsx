@@ -28,6 +28,7 @@ import { errorToast, successToast } from '@kortix/ui/toast';
 import { ErrorState } from '@kortix/ui/error-state';
 import { useOpenSessionRead } from '@/features/notifications/use-open-session-read';
 import { useAuth } from '@/features/providers/auth-provider';
+import { markScreenReady } from '@/lib/analytics/screen-timing';
 import { MissingSessionBoundary } from '@/features/session/missing-session-boundary';
 import {
   SessionImageBanner,
@@ -178,6 +179,8 @@ export default function ProjectSessionPage() {
       key={`${projectId}/${sessionId}`}
       projectId={projectId}
       sessionId={sessionId}
+      // The bare frame: the skeleton's header mounts its own session readers.
+      pending={<HeaderlessSessionSurface>{null}</HeaderlessSessionSurface>}
       fallback={
         <InlineSessionError
           title={tSessionPage('missing.title')}
@@ -687,6 +690,11 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
   // box is still waking and without the chat having mounted. Latched: the store only ever grows for a live session,
   // but a transient empty read must never resurrect the shell.
   const hasTranscript = useTranscriptPresence(session.savedTranscript);
+  // `screen_ready` for this screen: its saved conversation is on screen. A
+  // new session has none and reports nothing (lib/analytics/screen-timing.ts).
+  useEffect(() => {
+    if (hasTranscript) markScreenReady();
+  }, [hasTranscript]);
   const repositoryDisconnect = useRepositoryDisconnect(projectId);
   // A session whose clone predates a repository replacement still has its
   // transcript. Do not replace a readable conversation with a failure card.

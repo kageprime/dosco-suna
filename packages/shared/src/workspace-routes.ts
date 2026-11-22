@@ -164,8 +164,9 @@ export function legacyWorkspaceRoute(path: string): string | null {
  * Legacy routes whose canonical name is a different route, so they are not an
  * alias of it. Each `METHOD /path` names the legacy route:
  *
- * - `GET /v1/projects` lists ONE account's projects; `GET /v1/workspaces` lists
- *   every workspace of the caller, across accounts.
+ * - `GET /v1/projects` lists the projects of every account of a person (one
+ *   account's with `?account_id=`); `GET /v1/workspaces` lists every workspace
+ *   of the caller with its role and state.
  * - `POST /v1/projects` imports a GitHub repository into an account;
  *   `POST /v1/workspaces` creates a new workspace.
  * - `GET /v1/projects/:workspaceId` is the project record;
@@ -210,7 +211,7 @@ export const WORKSPACE_LEGACY_ONLY_ROUTES: readonly string[] = [
  * replacement (`x-kortix-replaced-by`). Keys and values are `METHOD template`.
  */
 export const WORKSPACE_LEGACY_REPLACEMENTS: Readonly<Record<string, string>> = {
-  // One account's projects → every workspace; a repository import into an account → the workspace import.
+  // The project list → the workspace list; a repository import into an account → the workspace import.
   'GET /v1/projects': 'GET /v1/workspaces',
   'POST /v1/projects': 'POST /v1/workspaces/link-repository',
   'GET /v1/projects/:workspaceId': 'GET /v1/workspaces/:workspaceId',

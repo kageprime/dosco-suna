@@ -1,7 +1,6 @@
 'use client';
 
 import { readAccountParam } from '@kortix/ui/workspace/new/account-param';
-import { readCloneParam } from '@kortix/ui/workspace/new/clone-param';
 import { readSourceParam } from '@kortix/ui/workspace/new/source-param';
 import { useTranslations } from '@/i18n/use-translations';
 import { useSignedOutRedirect } from '@/lib/auth/use-signed-out-redirect';
@@ -110,7 +109,6 @@ export function NewWorkspacePage() {
   const tWorkspaces = useTranslations('workspaces.create');
   const { user, isLoading: authLoading } = useAuth();
   const searchParams = useSearchParams();
-  const cloneItemId = readCloneParam(new URLSearchParams(searchParams?.toString() ?? ''));
   const router = useRouter();
   const connectComputer = searchParams?.get('connect') === 'computer';
   // `?returnUrl=` sends the person back where a workspace was missing (the
@@ -140,7 +138,6 @@ export function NewWorkspacePage() {
   const [state, setState] = useState<NewWorkspaceFormState>(() => ({
     ...INITIAL_FORM_STATE,
     ...(handedName ? { name: handedName } : {}),
-    templateId: cloneItemId,
     ...(initialSource ? { source: initialSource } : {}),
   }));
   const [touched, setTouched] = useState(false);
@@ -292,10 +289,6 @@ export function NewWorkspacePage() {
                 void create(effectiveState);
               }}
             >
-              {state.templateId && (
-                <p className="text-muted-foreground text-center text-xs">{t('templateSeed')}</p>
-              )}
-
               {/* No card. A single question does not need a bordered surface
                     to group it — the border was drawing a box around one field
                     on an otherwise empty page, which reads as chrome rather than

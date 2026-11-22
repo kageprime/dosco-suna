@@ -37,5 +37,9 @@ const loadDomMaxFeatures = () => import('@/lib/motion/dom-max').then((mod) => mo
  * deferred (non-initial) chunk either way, so it's a fine trade.
  */
 export function LazyMotionProvider({ children }: { children: ReactNode }) {
+  // `LazyMotion` asks for the features after mount, and the page mounts only
+  // once `I18nProvider` has its catalog. Starting the download during this
+  // render runs it beside the catalog; the module cache answers the later ask.
+  if (typeof window !== 'undefined') void import('@/lib/motion/dom-max').catch(() => {});
   return <LazyMotion features={loadDomMaxFeatures}>{children}</LazyMotion>;
 }

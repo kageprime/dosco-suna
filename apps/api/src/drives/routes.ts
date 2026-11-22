@@ -3,6 +3,7 @@
 // A folder the caller may not see answers 404, so a path is never an oracle
 // for someone's private folder.
 
+import { SESSION_GROUPS_DIR } from '@kortix/shared';
 import { logger } from '../lib/logger';
 import { createRoute, z } from '@hono/zod-openapi';
 import type { Context } from 'hono';
@@ -57,6 +58,7 @@ import {
   PRIVATE_CHANNELS_DIR,
   type PrivateChannelFolders,
   privateChannelFolderOf,
+  reservedRootInUse,
 } from './folders';
 import {
   type DriveRow,
@@ -64,6 +66,7 @@ import {
   driveSubjectFor,
   driveVolume,
   privateChannelRows,
+  sessionGroupFolderNames,
   enforceProjectMounts,
   ensureProjectDrive,
   getDrive,
@@ -338,8 +341,8 @@ function structural(path: string, caller: Caller): boolean {
   return (
     path === '/' ||
     path === USERS_DIR ||
-    // `/Channels` holds the tree together only while it holds a private channel's folder.
-    (path === PRIVATE_CHANNELS_DIR && privateFolders(caller).size > 0) ||
+    // `/Channels` and `/Spaces` hold the tree together only while they hold a reserved folder.
+    reservedRootInUse(path, privateFolders(caller)) ||
     personalFolderOf(path) === path ||
     privateChannelFolderOf(path, privateFolders(caller)) === path ||
     path === caller.personalFolder
@@ -716,6 +719,8 @@ drivesApp.openapi(
     const channelNames = entries.some((e) => privateChannelFolderOf(e.path, privateFolders(caller)) === e.path)
       ? new Map((await privateChannelRows(drive.projectId!)).flatMap((r) => (r.folder && r.slug ? [[r.folder, `#${r.slug}`] as const] : [])))
       : null;
+    // A space's folder is named by its id (`/Spaces/<group_id>`); it lists under the space's name.
+    const spaceNames = path === SESSION_GROUPS_DIR ? await sessionGroupFolderNames(drive.projectId!) : null;
     return c.json({
       access: folderAccess(path, grants, subject),
       entries: entries
@@ -723,6 +728,7 @@ drivesApp.openapi(
         .map((e) => ({
           ...e,
           ...(channelNames?.has(e.path) ? { name: channelNames.get(e.path)! } : {}),
+          ...(spaceNames?.has(e.path) ? { name: spaceNames.get(e.path)! } : {}),
           ...(personNames?.has(e.path) ? { name: personNames.get(e.path)! } : {}),
           access: folderAccess(e.path, grants, subject),
           ...(e.type === 'dir' && sharedPaths.has(e.path) ? { shared: true } : {}),

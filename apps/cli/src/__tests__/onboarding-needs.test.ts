@@ -36,3 +36,13 @@ test('a Slack install link that returns to another deployment is not offered', (
   expect(slackReturnsHere(link('https://api.example.test/v1/webhooks/slack/oauth/callback'), 'https://api.example.test/v1')).toBe(true);
   expect(slackReturnsHere(link('https://other.example.test/v1/webhooks/slack/oauth/callback'), 'https://api.example.test/v1')).toBe(false);
 });
+
+test('a connector switched off in kortix.yaml is not one to connect', () => {
+  const needs = manifestNeeds({
+    connectors: [
+      { slug: 'linear', provider: 'mcp', url: 'https://mcp.example.test/mcp' },
+      { slug: 'retired', provider: 'mcp', url: 'https://old.example.test/mcp', enabled: false },
+    ],
+  });
+  expect(needs.connectors.map((c) => c.slug)).toEqual(['linear']);
+});

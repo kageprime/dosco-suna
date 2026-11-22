@@ -54,7 +54,10 @@ mock.module('@kortix/ui/workspace/sidebar/use-workspace-directory', () => ({
   }),
 }));
 const approved: string[] = [];
+// The real module first: the page also imports the workspace create, which reads other SDK exports.
+const realSdk = await import('@kortix/sdk');
 mock.module('@kortix/sdk', () => ({
+  ...realSdk,
   approveCliDevice: async (code: string) => {
     approved.push(code);
     return {};

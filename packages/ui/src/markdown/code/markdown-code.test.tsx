@@ -4,7 +4,7 @@ import { UiProvider } from '../../providers/ui-provider';
 import { beforeAll, describe, expect, test } from 'bun:test';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import { isHexColor } from './inline-chip';
+import { isHexColor } from '../inline-chip';
 import { OutputPathsContext } from './output-paths-context';
 import { MarkdownCode, type MarkdownCodeProps } from './markdown-code';
 import { highlightAsync, SHIKI_THEME_LIGHT } from './shiki-highlighter';

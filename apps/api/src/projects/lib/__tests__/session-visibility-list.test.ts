@@ -16,25 +16,28 @@
  * read, plus at most one memoized owner probe per distinct `created_by`.
  */
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import type { Actor } from '../../../iam/actor';
 import { getTableName, type Table } from 'drizzle-orm';
+import { getViewConfig, isPgView, type PgView } from 'drizzle-orm/pg-core';
 
 // ─── A counting fake db, keyed by table name ───────────────────────────────
 let statements = 0;
+let managerAllowed = true;
 const results = new Map<string, unknown[][]>();
 
-function serve(table: Table): unknown[] {
+function serve(table: Table | PgView): unknown[] {
   statements += 1;
-  const queue = results.get(getTableName(table));
+  const queue = results.get(isPgView(table) ? getViewConfig(table).name : getTableName(table));
   return queue?.shift() ?? [];
 }
 
 function makeChain(): any {
   const chain: any = {};
-  let table: Table | null = null;
+  let table: Table | PgView | null = null;
   for (const method of ['where', 'limit', 'orderBy']) {
     chain[method] = () => chain;
   }
-  chain.from = (t: Table) => {
+  chain.from = (t: Table | PgView) => {
     table = t;
     return chain;
   };
@@ -52,7 +55,7 @@ mock.module('../../../shared/db', () => ({
 // never run in these non-trigger fixtures. Fail the test loudly if it does.
 mock.module('../../../iam/authorize', () => ({
   authorize: async (_actor: unknown, action: string) => {
-    if (action === 'project.members.manage') return { allowed: true };
+    if (action === 'project.members.manage' || action === 'project.trigger.update') return { allowed: managerAllowed };
     throw new Error(`authorize(${action}) must not run for non-trigger list fixtures`);
   },
 }));
@@ -121,6 +124,7 @@ function sessionRow(sessionId: string, overrides: Record<string, unknown> = {}) 
 
 beforeEach(() => {
   statements = 0;
+  managerAllowed = true;
   results.clear();
 });
 
@@ -147,6 +151,59 @@ describe('loadVisibleSessionsForList (KRTX-532 pool-saturation regression)', () 
     // among them) plus one memoized owner probe per distinct creator: 5
     // statements total for this fixture.
     expect(statements).toBe(5);
+  });
+
+  test('reader opt-in does not add per-row queries for a none principal', async () => {
+    const ids = Array.from({ length: 30 }, (_, i) => `reader-none-${i}`);
+    results.set('project_sessions', [ids.map((id) => sessionRow(id, { spaceId: `channel-${id}` }))]);
+    results.set('account_group_members', [[]]);
+    results.set('project_session_grants', [[]]);
+
+    const visible = await loadVisibleSessionsForList(loaded, ids, null, null, {
+      triggerReaderRead: true,
+    });
+
+    expect(visible.size).toBe(30);
+    expect(statements).toBeLessThanOrEqual(5);
+  });
+
+  test('human reader lists batch space kinds once for thirty channel sessions', async () => {
+    const ids = Array.from({ length: 30 }, (_, i) => `reader-human-${i}`);
+    results.set('project_sessions', [ids.map((id) => sessionRow(id, { spaceId: `channel-${id}` }))]);
+    results.set('account_group_members', [[]]);
+    results.set('project_session_grants', [[]]);
+    results.set('account_members', [[{ userId: 'human-1' }]]);
+    results.set('project_spaces', [ids.map((id) => ({ spaceId: `channel-${id}`, kind: 'channel' }))]);
+    const actor: Actor = { userId: 'human-1', accountId: '11111111-1111-4111-8111-111111111111', credential: { kind: 'jwt' }, ctx: {} };
+
+    const visible = await loadVisibleSessionsForList({ ...loaded, actor }, ids, null, null, {
+      triggerReaderRead: true,
+    });
+
+    expect(visible.size).toBe(30);
+    expect(statements).toBeLessThanOrEqual(6);
+  });
+
+  test('batched reader space checks still reject DMs and hidden private channels', async () => {
+    managerAllowed = false;
+    const ids = ['open-trigger', 'dm-trigger', 'hidden-trigger'];
+    const metadata = { source: 'trigger:cron', trigger_kind: 'git', trigger_slug: 'daily', trigger_session_readers: { humans: 'members', agents: [] } };
+    results.set('project_sessions', [ids.map((id) => sessionRow(id, {
+      createdBy: 'another-human', visibility: 'private', spaceId: id, metadata,
+    }))]);
+    results.set('account_group_members', [[]]);
+    results.set('project_session_grants', [[]]);
+    results.set('account_members', [[{ userId: 'reader' }]]);
+    results.set('project_spaces', [
+      [{ spaceId: 'hidden-trigger', kind: 'channel', visibility: 'private', isDefault: false, member: false }],
+      [{ spaceId: 'open-trigger', kind: 'channel' }, { spaceId: 'dm-trigger', kind: 'dm' }, { spaceId: 'hidden-trigger', kind: 'channel' }],
+    ]);
+    const actor: Actor = { userId: 'reader', accountId: '11111111-1111-4111-8111-111111111111', credential: { kind: 'jwt' }, ctx: {} };
+    const visible = await loadVisibleSessionsForList({ ...loaded, userId: 'reader', actor }, ids, null, null, {
+      triggerReaderRead: true,
+    });
+    expect([...visible.keys()]).toEqual(['open-trigger']);
+    expect(visible.get('open-trigger')?.canManageLifecycle).toBe(false);
   });
 
   test('invisible sessions are excluded, not errors', async () => {

@@ -88,6 +88,7 @@ async function requestJson<T>(
   return body as T;
 }
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export interface PublicMarketplaceQuery {
   query?: string;
   type?: string;
@@ -107,6 +108,7 @@ function marketplaceQuery(input?: PublicMarketplaceQuery): string {
   return query ? `?${query}` : '';
 }
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export function listPublicMarketplaceItems<
   T = {
     items: unknown[];
@@ -120,6 +122,7 @@ export function listPublicMarketplaceItems<
   return requestJson<T>(`/marketplace/items${marketplaceQuery(query)}`, options);
 }
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export function listPublicMarketplaces<
   T = {
     marketplaces: unknown[];
@@ -131,6 +134,7 @@ export function listPublicMarketplaces<
   return requestJson<T>('/marketplace/marketplaces', options);
 }
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export function getPublicMarketplaceItem<T = Record<string, unknown>>(
   id: string,
   options: HostRequestOptions,
@@ -138,6 +142,7 @@ export function getPublicMarketplaceItem<T = Record<string, unknown>>(
   return requestJson<T>(`/marketplace/items/${encodeURIComponent(id)}`, options);
 }
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export function getPublicMarketplaceItemFile<T = Record<string, unknown>>(
   id: string,
   path: string,

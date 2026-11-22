@@ -157,3 +157,49 @@ describe('a Dockerfile builds without a build context', () => {
     expect('reason' in inlineDockerfile(steps('FROM ubuntu:24.04\nCOPY a.bin /a.bin\n'), huge)).toBe(true);
   });
 });
+
+describe('multi-step tasks (Harbor [[steps]])', () => {
+  const stepPaths = ['task.toml', 'steps/ask/instruction.md', 'steps/ask/tests/test.sh', 'steps/do/instruction.md', 'steps/do/tests/test.sh', 'steps/do/solution/solve.sh', 'steps/do/workdir/setup.sh'];
+  const parseSteps = (taskToml: string, paths = stepPaths, stepInstructions: Record<string, string> = { ask: 'Set it up.\n', do: '<!-- canary -->\nYes.\n' }) =>
+    parseHarborTask({ folderName: 'flow', taskToml, instruction: null, dockerfile: null, paths, stepInstructions });
+  const toml = 'multi_step_reward_strategy = "final"\n[agent]\ntimeout_sec = 300\n[[steps]]\nname = "ask"\nmin_reward = 1.0\n[[steps]]\nname = "do"\nmin_reward = { reward = 1.0, made = 1 }\n[steps.agent]\ntimeout_sec = 120\n[steps.verifier]\ntimeout_sec = 60\n[steps.verifier.env]\nX = "1"\n';
+
+  test('steps in order, each with its instruction, files, timeouts and gate', () => {
+    const task = parseSteps(toml);
+    expect(task.unsupported).toBeNull();
+    expect(task.stepRewardStrategy).toBe('final');
+    expect(task.instruction).toBe('Set it up.');
+    expect(task.steps).toEqual([
+      { name: 'ask', instruction: 'Set it up.', agentTimeoutSec: null, verifierTimeoutSec: null, verifierEnv: {}, minReward: 1, hasTests: true, hasSolution: false, hasSetup: false, hasWorkdir: false },
+      { name: 'do', instruction: 'Yes.', agentTimeoutSec: 120, verifierTimeoutSec: 60, verifierEnv: { X: '1' }, minReward: { reward: 1, made: 1 }, hasTests: true, hasSolution: true, hasSetup: true, hasWorkdir: true },
+    ]);
+  });
+  test('the strategy defaults to mean; a single-step task has no steps', () => {
+    expect(parseSteps('[[steps]]\nname = "ask"\n[[steps]]\nname = "do"\n').stepRewardStrategy).toBe('mean');
+    expect(parse('').steps).toEqual([]);
+  });
+  test('a step needs its instruction and tests; names are unique and portable', () => {
+    expect(() => parseSteps('[[steps]]\nname = "ask"\n[[steps]]\nname = "do"\n', stepPaths, { ask: 'x' })).toThrow('steps/do/instruction.md');
+    expect(() => parseSteps('[[steps]]\nname = "ask"\n[[steps]]\nname = "do"\n', stepPaths.filter((p) => p !== 'steps/do/tests/test.sh'))).toThrow('steps/do/tests/test.sh');
+    expect(() => parseSteps('[[steps]]\nname = "ask"\n[[steps]]\nname = "ASK"\n')).toThrow('unique');
+    expect(() => parseSteps('[[steps]]\nname = "../x"\n')).toThrow('portable');
+    expect(() => parseSteps('[[steps]]\nname = "ask"\n[[steps]]\nname = "nope"\n')).toThrow('steps/nope/instruction.md');
+  });
+  test('what a Kortix step cannot do yet is named: a separate verifier, a step healthcheck or step artifacts', () => {
+    expect(parseSteps(`${toml}[steps.healthcheck]\ncommand = "true"\n`).unsupported).toContain('healthcheck');
+    expect(parseSteps('[[steps]]\nname = "ask"\nartifacts = ["/x"]\n[[steps]]\nname = "do"\n').unsupported).toContain('artifacts');
+    expect(parseSteps('[verifier]\nenvironment_mode = "separate"\n[[steps]]\nname = "ask"\n[[steps]]\nname = "do"\n').unsupported).toContain('separate');
+  });
+});
+
+describe('[metadata.kortix]', () => {
+  test('a fresh workspace per trial and its budget; the default is the shared workspace', () => {
+    expect(parse('').kortix).toEqual({ workspace: 'shared', budgetUsd: null, flags: [] });
+    expect(parse('[metadata]\nrequires_flags = ["reminders"]\n[metadata.kortix]\nworkspace = "fresh"\nbudget_usd = 3.5\n').kortix).toEqual({ workspace: 'fresh', budgetUsd: 3.5, flags: ['reminders'] });
+    expect(() => parse('[metadata.kortix]\nworkspace = "mine"\n')).toThrow('workspace');
+    expect(() => parse('[metadata.kortix]\nbudget_usd = -1\n')).toThrow('budget_usd');
+  });
+  test('a fresh workspace runs the default sandbox: a task image is refused', () => {
+    expect(parse('[environment]\ndocker_image = "x:1"\n[metadata.kortix]\nworkspace = "fresh"\n').unsupported).toContain('fresh workspace');
+  });
+});

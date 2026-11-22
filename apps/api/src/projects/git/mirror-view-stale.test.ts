@@ -147,3 +147,11 @@ describe('reads at a commit', () => {
     expect(await mirrorTip(repoPath)).toBe(pushed);
   });
 });
+
+test('a persisted option-shaped default branch cannot overwrite a host file', async () => {
+  await viewRead();
+  const target = join(testRoot, 'must-survive');
+  await writeFile(target, 'unchanged');
+  await refreshMirror({ ...project, defaultBranch: `--output=${target}` }).catch(() => undefined);
+  expect(await Bun.file(target).text()).toBe('unchanged');
+});

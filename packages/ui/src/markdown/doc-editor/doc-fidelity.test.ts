@@ -5,11 +5,23 @@ import { DOMParser as ProseMirrorParser } from '@tiptap/pm/model';
 import { Window } from 'happy-dom';
 
 import { docExtensions } from './doc-extensions';
+import { isMarkdown } from './doc-paste';
 import { MAX_DOC_BYTES, hashText } from './doc-fidelity';
 import { docRoundTrips, htmlToMarkdown, markdownToHtml } from './markdown';
 
 // TipTap parses and prints HTML with the browser DOM.
-const DOM_GLOBALS = ['window', 'document', 'DOMParser', 'Node', 'HTMLElement', 'Element', 'navigator', 'ClipboardEvent'] as const;
+const DOM_GLOBALS = [
+  'window',
+  'document',
+  'DOMParser',
+  'Node',
+  'HTMLElement',
+  'Element',
+  'navigator',
+  'ClipboardEvent',
+  'DataTransfer',
+  'KeyboardEvent',
+] as const;
 const saved: Record<string, unknown> = {};
 beforeAll(() => {
   const win = new Window();
@@ -383,5 +395,98 @@ describe('no regression for a file the editor already wrote as it is', () => {
       expect(out).not.toContain('data-md');
       expect(out).not.toContain('data-raw-markdown');
     }
+  });
+});
+
+describe('pasted Markdown opens as formatting, as a typed one does', () => {
+  // Jay's paste (KRTX-4947): it stayed `- `, `####` and `**` text on the artifact page.
+  const JAY = '- bullet one\n- bullet two not working in artifact\n\n#### jay\n\n**bold also not working**';
+
+  /** A real paste event on the editor, the way a browser delivers Cmd+V (Cmd+Shift+V with `shift`). */
+  function paste(editor: Editor, data: Record<string, string>, { shift = false } = {}) {
+    const clipboardData = new DataTransfer();
+    for (const [type, value] of Object.entries(data)) clipboardData.setData(type, value);
+    if (shift) editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', shiftKey: true }));
+    editor.view.dom.dispatchEvent(new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true }));
+    if (shift) editor.view.dom.dispatchEvent(new KeyboardEvent('keyup', { key: 'Shift' }));
+  }
+
+  /** An empty doc with the cursor in its one paragraph. */
+  function emptyEditor(): Editor {
+    const editor = openEditor('');
+    editor.commands.setTextSelection(1);
+    return editor;
+  }
+
+  const blocks = (editor: Editor) => {
+    const types: string[] = [];
+    editor.state.doc.forEach((node) => types.push(node.type.name));
+    return types.join(' ');
+  };
+
+  test('a plain-text clipboard becomes a list, a heading and bold', () => {
+    const editor = emptyEditor();
+    paste(editor, { 'text/plain': JAY });
+    expect(blocks(editor)).toBe('bulletList heading paragraph');
+    expect(save(editor)).toBe('- bullet one\n- bullet two not working in artifact\n\n#### jay\n\n**bold also not working**\n');
+    editor.destroy();
+  });
+
+  test('a code editor clipboard (unformatted HTML lines) becomes formatting too', () => {
+    const editor = emptyEditor();
+    const lines = JAY.split('\n').map((line) => `<div><span>${line || '<br>'}</span></div>`);
+    paste(editor, { 'text/plain': JAY, 'text/html': `<meta charset="utf-8"><div style="white-space: pre;">${lines.join('')}</div>` });
+    expect(blocks(editor)).toBe('bulletList heading paragraph');
+    expect(save(editor)).toBe('- bullet one\n- bullet two not working in artifact\n\n#### jay\n\n**bold also not working**\n');
+    editor.destroy();
+  });
+
+  test('inline Markdown pasted mid-sentence stays in that paragraph', () => {
+    const editor = openEditor('Say , now.\n');
+    editor.commands.setTextSelection(5);
+    paste(editor, { 'text/plain': '**hello** and `code`' });
+    expect(save(editor)).toBe('Say **hello** and `code`, now.\n');
+    editor.destroy();
+  });
+
+  test('Shift+paste keeps the text exactly as typed', () => {
+    const editor = emptyEditor();
+    paste(editor, { 'text/plain': '- bullet one\n#### jay' }, { shift: true });
+    expect(blocks(editor)).toBe('paragraph paragraph');
+    expect(editor.getText()).toContain('- bullet one');
+    expect(editor.getText()).toContain('#### jay');
+    editor.destroy();
+  });
+
+  test('a paste inside a code block keeps the Markdown as code', () => {
+    const editor = openEditor('```\nx\n```\n');
+    editor.commands.setTextSelection(2);
+    paste(editor, { 'text/plain': '- bullet one\n**bold**' });
+    const code = editor.state.doc.firstChild as ProseMirrorNode;
+    expect(code.type.name).toBe('codeBlock');
+    expect(code.textContent).toBe('x- bullet one\n**bold**');
+    editor.destroy();
+  });
+
+  test('a formatted HTML clipboard keeps its own formatting', () => {
+    const editor = emptyEditor();
+    paste(editor, { 'text/plain': '- not a list', 'text/html': '<p><em>- not a list</em></p>' });
+    expect(blocks(editor)).toBe('paragraph');
+    expect(save(editor)).toBe('*\\- not a list*');
+    editor.destroy();
+  });
+
+  test('only Markdown syntax counts as Markdown', () => {
+    for (const text of ['- a', '#### jay', '**b**', '> quote', '1. one', '[docs](https://kortix.com)', '```\ncode\n```'])
+      expect([text, isMarkdown(text)]).toEqual([text, true]);
+    for (const text of ['Plain words.', 'https://kortix.com', '    indented text', '2 * 3 = 6', '**b** <div>x</div>'])
+      expect([text, isMarkdown(text)]).toEqual([text, false]);
+  });
+
+  test('plain prose pastes as it did before', () => {
+    const editor = emptyEditor();
+    paste(editor, { 'text/plain': 'Two plus 2 * 3 is eight.' });
+    expect(save(editor)).toBe('Two plus 2 \\* 3 is eight.');
+    editor.destroy();
   });
 });

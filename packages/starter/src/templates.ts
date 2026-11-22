@@ -30,7 +30,11 @@ export interface TemplateInfo {
   label?: string;
   /** The template's agents run the repository's dev environment. */
   needs_dev_sandbox: boolean;
-  /** The folder a repository imports, such as `.kortix/software-factory/`. */
+  /**
+   * The file `kortix.yaml` imports: `<id>.yaml` at the repository root, such as
+   * `software-factory.yaml`. The other files sit in the root layout
+   * (`agents/`, `skills/`, `<settings>.json`), beside the workspace's own.
+   */
   import_path: string;
 }
 
@@ -77,7 +81,7 @@ export function getTemplate(id: TemplateId): TemplateInfo {
   const meta = rawTemplateFiles(id).find((file) => file.path === 'template.json');
   if (!meta) throw new Error(`template ${id} has no template.json`);
   const parsed = JSON.parse(meta.content) as Omit<TemplateInfo, 'import_path'>;
-  return { ...parsed, id, github_webhooks: parsed.github_webhooks ?? [], import_path: `.kortix/${id}/` };
+  return { ...parsed, id, github_webhooks: parsed.github_webhooks ?? [], import_path: `${id}.yaml` };
 }
 
 export function listTemplates(): TemplateInfo[] {
@@ -101,6 +105,17 @@ export function getTemplateFiles(id: TemplateId, vars: TemplateVars): Array<{ pa
 }
 
 /**
+ * One template's own setup steps, without the guide: what
+ * `kortix templates onboard <id> --steps` prints while the setup guide's agent
+ * investigates (guide step 2). Its **Ask** lines go into the guide's step 3 message.
+ */
+export function composeTemplateSteps(id: TemplateId): string {
+  const template = getTemplate(id);
+  const own = getTemplateOnboarding(id);
+  return [`# ${template.name} (\`${template.id}\`)`, '', template.summary, '', ...(own ? [own.trim(), ''] : [])].join('\n');
+}
+
+/**
  * The full onboarding of one template: its own steps, then the generic setup
  * guide with the template chosen. `kortix templates onboard <id>` prints it and
  * the web serves it (`/factory.md` for the Software Factory), so both say the same.
@@ -113,8 +128,8 @@ export function composeTemplateOnboarding(id: TemplateId, setupGuide: string): s
     '',
     template.summary,
     '',
-    `The template is chosen: \`${template.id}\`. In step 3 of the guide below, offer only its loops. In step 4,`,
-    `add only this one (\`kortix templates add ${template.id} --json\`) and adapt it.`,
+    `The template is chosen: \`${template.id}\`. Question 1 of guide step 3 is settled: offer only its sources.`,
+    `In guide step 4, install it (\`kortix templates add ${template.id} --repo <owner/repo> --json\`, the code repository) and adapt it.`,
     'Every **Ask** in the steps below is a question for the one message of guide step 3, with its',
     'recommended answer. Never ask it where it appears.',
     '',

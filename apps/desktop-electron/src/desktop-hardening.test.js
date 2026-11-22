@@ -207,17 +207,17 @@ describe('native theme persistence', () => {
   });
 
   it('chooses a launch background without drawing a theme flash', () => {
-    // No stored palettes = the defaults, Pure light / Pure dark.
-    expect(themeState.backgroundForTheme?.('light', true)).toBe('#FFFFFF');
-    expect(themeState.backgroundForTheme?.('dark', false)).toBe('#0A0A0A');
-    expect(themeState.backgroundForTheme?.('system', false)).toBe('#FFFFFF');
-    expect(themeState.backgroundForTheme?.('system', true)).toBe('#0A0A0A');
+    // No stored palettes = the defaults, Kortix light / Kortix dark.
+    expect(themeState.backgroundForTheme?.('light', true)).toBe('#F0F0F0');
+    expect(themeState.backgroundForTheme?.('dark', false)).toBe('#090909');
+    expect(themeState.backgroundForTheme?.('system', false)).toBe('#F0F0F0');
+    expect(themeState.backgroundForTheme?.('system', true)).toBe('#090909');
   });
 
   it('matches the canvas of the stored light or dark palette', () => {
-    const choice = { light: 'light', dark: 'dark' };
-    expect(themeState.backgroundForTheme?.('light', true, choice)).toBe('#F0F0F0');
-    expect(themeState.backgroundForTheme?.('dark', false, choice)).toBe('#090909');
+    const choice = { light: 'pure-light', dark: 'pure-dark' };
+    expect(themeState.backgroundForTheme?.('light', true, choice)).toBe('#FFFFFF');
+    expect(themeState.backgroundForTheme?.('dark', false, choice)).toBe('#0A0A0A');
     // Generated Kortix themes resolve from kortix-theme-backgrounds.json.
     expect(themeState.backgroundForTheme?.('light', false, { light: 'catppuccin-latte' })).toBe(
       '#EFF1F5',
@@ -233,27 +233,27 @@ describe('native theme persistence', () => {
     expect(themeState.backgroundForTheme?.('dark', false, { dark: 'iceberg-dark' })).toBe('#161821');
     expect(themeState.backgroundForTheme?.('light', false, { light: 'iceberg-light' })).toBe('#E8E9EC');
     // A removed palette falls back to the default canvas.
-    expect(themeState.backgroundForTheme?.('dark', false, { dark: 'midnight' })).toBe('#0A0A0A');
+    expect(themeState.backgroundForTheme?.('dark', false, { dark: 'midnight' })).toBe('#090909');
     // A light id stored as the dark choice is never a dark palette.
     expect(themeState.backgroundForTheme?.('dark', false, { dark: 'catppuccin-latte' })).toBe(
-      '#0A0A0A',
+      '#090909',
     );
   });
 
   it('keeps only known palettes as stored choices', () => {
     expect(themeState.normalizeChoice?.({ light: 'light', dark: 'neon' })).toEqual({
       light: 'light',
-      dark: 'pure-dark',
+      dark: 'dark',
     });
     expect(themeState.normalizeChoice?.(undefined)).toEqual({
-      light: 'pure-light',
-      dark: 'pure-dark',
+      light: 'light',
+      dark: 'dark',
     });
     // Prototype keys are not palettes.
-    expect(themeState.normalizeChoice?.({ light: 'toString' }).light).toBe('pure-light');
+    expect(themeState.normalizeChoice?.({ light: 'toString' }).light).toBe('light');
     // The legacy `jellybean` id aliases to its terminal-theme replacement.
     expect(themeState.normalizeChoice?.({ dark: 'jellybean' })).toEqual({
-      light: 'pure-light',
+      light: 'light',
       dark: 'jellybeans-default',
     });
     // A generated terminal-theme id is a known palette.

@@ -35,7 +35,7 @@ audits it. The sandbox carries only `KORTIX_TOKEN`.
 2. **Add an app the workspace lacks**, then hand the human the link:
    ```sh
    kortix connectors catalog <name>          # `installed as <slug>` = it is already here
-   kortix connectors catalog install <id>    # e.g. kortix:linear, composio:gmail; live at once
+   kortix connectors catalog install <id>    # e.g. kortix:linear, kortix:gmail; live at once
    kortix connectors connect <slug>          # prints the sign-in link for the human
    ```
    Install prints the next step. `Ready` means no sign-in is needed: call it.
@@ -138,7 +138,7 @@ Search the catalog first:
 kortix connectors catalog gmail                     # one row per app
 kortix connectors catalog crm --kind mcp,composio   # kortix, mcp, composio, openapi, graphql
 kortix connectors catalog notes --one-click         # apps the human connects by signing in
-kortix connectors catalog show composio:gmail       # every way to connect it + its tools
+kortix connectors catalog show kortix:gmail         # every way to connect it + its tools
 ```
 
 Ways to connect, best first (the first is marked `recommended`):
@@ -150,14 +150,17 @@ Ways to connect, best first (the first is marked `recommended`):
    pages, Computer
    with `npx --yes @kortix/agent-tunnel@latest connect` on that machine or
    the desktop app;
-1. a one-click MCP server: the vendor's own; the human only signs in;
+1. a one-click MCP server: the vendor's own, or Kortix's own for Gmail,
+   Google Calendar, Drive, Docs and Sheets (`kortix:gmail`,
+   `kortix:google_calendar`, …: Composio's tool names and arguments, so a
+   Composio skill or rule works unchanged); the human only signs in;
 2. Composio: a third-party partner that runs the sign-in (one click);
 3. an MCP server that needs the human's own OAuth app or key, then the REST
    (OpenAPI) and GraphQL APIs: they need a key or token after install.
 
 ```sh
 kortix connectors catalog install kortix:linear
-kortix connectors catalog install composio:gmail --name "Support inbox"
+kortix connectors catalog install kortix:gmail --name "Support inbox"
 kortix connectors catalog install <id> --way <way-id>
 ```
 
@@ -212,8 +215,8 @@ agent's set.
 ```yaml
 connectors:
   - slug: gmail
-    provider: composio
-    app: gmail
+    provider: mcp
+    url: https://google.mcp.kortix.com/gmail
     policy_sets:
       read_only:
         description: Read and search, never send

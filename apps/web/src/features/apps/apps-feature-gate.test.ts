@@ -164,8 +164,7 @@ test('the Apps header is the capability tab bar, not a settings masthead', () =>
     uiSourcePath('internal/layout/project-page-header.tsx'),
     'utf8',
   );
-  const BAR = 'relative flex shrink-0 items-center gap-1 border-b px-2';
-  expect(header).toContain(`kx-titlebar-row kx-capability-titlebar ${BAR}`);
+  expect(header).toContain('export const PROJECT_PAGE_HEADER_CLASS');
   expect(view).toContain('<ProjectPageHeader');
 
   // `CustomizeSectionWrapper` is the settings-section shell: an 80px centred

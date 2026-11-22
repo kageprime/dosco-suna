@@ -86,7 +86,8 @@ function base(state: OnboardState): string {
 
 // ── ship ─────────────────────────────────────────────────────────────────────
 
-const KORTIX_PATH = /^(kortix\.ya?ml|\.kortix\/.*)$/;
+// kortix.yaml, and the old link file a ship moves into the git config.
+const KORTIX_PATH = /^(kortix\.ya?ml|\.kortix\/link\.json)$/;
 
 /** Changed paths from `git status --porcelain` (renames: the new path). */
 function changedPaths(root: string): string[] {
@@ -97,7 +98,7 @@ export async function phaseShip(state: OnboardState): Promise<PhaseOutcome> {
   const changed = changedPaths(state.root);
   const foreign = changed.filter((path) => !KORTIX_PATH.test(path));
   if (foreign.length > 0) {
-    return { status: 'failed', detail: `${foreign.length} changed files outside kortix.yaml and .kortix/ (first: ${foreign[0]}): commit them or move them aside, then run onboard again` };
+    return { status: 'failed', detail: `${foreign.length} changed files outside kortix.yaml (first: ${foreign[0]}): commit them or move them aside, then run onboard again` };
   }
   if (changed.length === 0 && state.ctx) {
     const head = runGit(state.root, ['rev-parse', 'HEAD']).stdout.trim();
@@ -342,12 +343,59 @@ export async function phaseSlack(state: OnboardState): Promise<PhaseOutcome> {
 
 interface ConnectorRow { slug: string; state?: string; status?: string; authSecret?: string | null; secretSet?: boolean }
 
+/** One step the workspace's setup page shows: a connector to sign in, a secret to paste, Slack to add. */
+export interface PendingSetupItem { kind: 'connector' | 'secret' | 'slack'; name: string }
+
+/**
+ * The steps a person still has to finish on the setup page
+ * (\`<web>/workspaces/<id>/setup\`), read-only so \`onboard --wait\` can poll it.
+ * The same rules as the secrets, slack and connectors phases, without their
+ * writes: no intake link, no generated secret, no connect call.
+ */
+export async function pendingSetup(state: OnboardState): Promise<PendingSetupItem[]> {
+  if (!state.ctx) return [];
+  const { client } = state.ctx;
+  const pending: PendingSetupItem[] = [];
+  const required = state.needs.secrets.filter((s) => s.required && !s.webhook);
+  if (required.length) {
+    const resp = await client.get<{ items?: Array<{ name: string; configured: boolean }> }>(`${base(state)}/secrets`);
+    const set = new Set((resp.items ?? []).filter((r) => r.configured).map((r) => r.name));
+    for (const secret of required) if (!set.has(secret.name)) pending.push({ kind: 'secret', name: secret.name });
+  }
+  if (state.opts.channels.length > 0 || state.needs.uses_slack) {
+    const install = await client.get<unknown>(`${base(state)}/channels/slack/installation`).catch(() => null);
+    if (!install) pending.push({ kind: 'slack', name: 'Slack' });
+  }
+  const slugs = [...new Set([...state.needs.connectors.map((c) => c.slug), ...state.opts.connect])];
+  if (slugs.length) {
+    const { connectors } = await client.get<{ connectors: ConnectorRow[] }>(`/connectors/workspaces/${state.ctx.projectId}/connectors?include_schemas=false`);
+    for (const slug of slugs) {
+      const row = connectors.find((c) => c.slug === slug);
+      const current = row?.state ?? row?.status;
+      // A connector switched off in kortix.yaml is not a step: the setup page does not list it either.
+      if (!row || row.status === 'disabled' || row.state === 'disabled') continue;
+      if (current !== 'connected' && current !== 'active') pending.push({ kind: 'connector', name: slug });
+    }
+  }
+  return pending;
+}
+
 export async function phaseConnectors(state: OnboardState): Promise<PhaseOutcome> {
   const slugs = [...new Set([...state.needs.connectors.map((c) => c.slug), ...state.opts.connect])];
   if (slugs.length === 0) return { status: 'skipped', detail: 'kortix.yaml declares no connector' };
   if (!state.ctx) return { status: 'failed', detail: 'no workspace' };
   const ex = `/connectors/workspaces/${state.ctx.projectId}`;
-  const { connectors } = await state.ctx.client.get<{ connectors: ConnectorRow[] }>(`${ex}/connectors?include_schemas=false`);
+  const list = () => state.ctx!.client.get<{ connectors: ConnectorRow[] }>(`${ex}/connectors?include_schemas=false`).then((r) => r.connectors);
+  let connectors = await list();
+  // The workspace applies kortix.yaml on a push through Kortix, on ship, or on a
+  // periodic sweep. A push straight to GitHub, or a branch switched after the
+  // first ship, reaches none of them yet: apply it now, as `kortix connectors sync`.
+  const syncErrors = new Map<string, string>();
+  if (slugs.some((slug) => !connectors.some((c) => c.slug === slug))) {
+    const synced = await state.ctx.client.post<{ errors?: Array<{ slug: string; error: string }> }>(`${ex}/connectors/sync`).catch(() => null);
+    for (const e of synced?.errors ?? []) syncErrors.set(e.slug, e.error);
+    connectors = await list();
+  }
   const notes: string[] = [];
   let waiting = 0;
   let failed = 0;
@@ -355,7 +403,12 @@ export async function phaseConnectors(state: OnboardState): Promise<PhaseOutcome
     const row = connectors.find((c) => c.slug === slug);
     const current = row?.state ?? row?.status;
     if (current === 'connected' || current === 'active') { notes.push(`${slug} connected`); continue; }
-    if (!row) { failed += 1; notes.push(`${slug} is not on the workspace (ship first, or check the slug)`); continue; }
+    if (!row) {
+      failed += 1;
+      const why = syncErrors.get(slug) ?? syncErrors.get('(manifest)') ?? syncErrors.get('(git-auth)');
+      notes.push(`${slug} is not on the workspace after a sync${why ? `: ${why}` : ' (check the slug in kortix.yaml on the branch the workspace reads)'}`);
+      continue;
+    }
     if (row.authSecret && !row.secretSet) {
       const link = await state.ctx.client.post<{ url: string }>(`/workspaces/${state.ctx.projectId}/secret-requests`, { names: [row.authSecret], scope: 'connector' });
       state.actions.push({ kind: 'secret_request', what: `Paste the credential of connector ${slug} (${row.authSecret})`, url: link.url });

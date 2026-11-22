@@ -301,3 +301,18 @@ describe('trigger session access — migrated database', () => {
     expect(await grantsOf(dmRun)).toEqual([context.memberId]);
   });
 });
+
+test('reader defaults apply to new sessions only and explicit sharing clears the reader stamp', async () => {
+  const sessionId = crypto.randomUUID();
+  const readers = { humans: 'members', agents: ['observer'] };
+  await db.insert(projectTriggerRuntime).values({ projectId: context.projectId, slug, scheduleSpec: { defaultSessionReaders: readers } }).onConflictDoUpdate({ target: [projectTriggerRuntime.projectId, projectTriggerRuntime.slug], set: { scheduleSpec: { defaultSessionReaders: readers } } });
+  await db.insert(projectSessions).values({ sessionId, projectId: context.projectId, accountId: context.accountId, branchName: sessionId, agentName, createdBy: humanStandIn, visibility: 'private', metadata: { source: 'trigger:cron', trigger_kind: 'git', trigger_slug: slug } });
+  await applyTriggerSessionAccess({ projectId: context.projectId, sessionId, triggerSlug: slug });
+  const read = async () => (await db.select().from(projectSessions).where(eq(projectSessions.sessionId, sessionId)))[0];
+  expect((await read())?.metadata?.trigger_session_readers).toEqual(readers);
+  await db.update(projectTriggerRuntime).set({ scheduleSpec: { sessionReaders: { humans: 'none', agents: [] } } }).where(and(eq(projectTriggerRuntime.projectId, context.projectId), eq(projectTriggerRuntime.slug, slug)));
+  expect((await read())?.metadata?.trigger_session_readers).toEqual(readers);
+  const { setSessionSharing } = await import('../connectors/share');
+  await setSessionSharing(sessionId, { mode: 'private', ownerId: humanStandIn });
+  expect((await read())?.metadata).not.toHaveProperty('trigger_session_readers');
+});

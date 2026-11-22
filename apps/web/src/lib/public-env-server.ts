@@ -36,6 +36,8 @@ function readServerPublicEnv(): PublicRuntimeEnv {
       read('SERVICES_PAGES_ENABLED') === 'true' || process.env.NODE_ENV === 'development',
     LOOPMAXXING_ENABLED:
       read('LOOPMAXXING_ENABLED') === 'true' || process.env.NODE_ENV === 'development',
+    LOOPMAXXING_ANNOUNCED:
+      read('LOOPMAXXING_ANNOUNCED') === 'true' || process.env.NODE_ENV === 'development',
     RESTRICT_ACCOUNT_CREATION: read('RESTRICT_ACCOUNT_CREATION') === 'true',
     APP_URL: read('APP_URL') || process.env.NEXT_PUBLIC_URL || process.env.PUBLIC_URL,
     SANDBOX_ID: read('SANDBOX_ID') || undefined,

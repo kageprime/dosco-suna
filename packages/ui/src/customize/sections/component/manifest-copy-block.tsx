@@ -85,7 +85,7 @@ export function ManifestCopyBlock({
     >
       {/* Filename left, copy opposite: the row reads [what] … [action]. */}
       <div className="border-border/40 flex items-center justify-between gap-2 border-b px-2 py-1">
-        <span className="text-muted-foreground/70 truncate font-mono text-xs">{filename}</span>
+        <span className="text-muted-foreground truncate font-mono text-xs">{filename}</span>
         {ready ? (
           // No `Hint` here on purpose. It renders `TooltipTrigger asChild`,
           // which clones its child to attach a ref and the hover/focus

@@ -130,7 +130,7 @@ function ChromeEmptyTab() {
           state.environment === 'unsupported' ? (
             <ChromeCopyLink />
           ) : (
-            <ChromeInstallActions state={state} showGuide={false} />
+            <ChromeInstallActions state={state} />
           )
         }
       />

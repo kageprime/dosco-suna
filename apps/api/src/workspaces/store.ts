@@ -208,7 +208,10 @@ export async function listUserWorkspaceCandidates(userId: string): Promise<Works
     SELECT ra.account_id FROM kortix.role_assignments ra
      WHERE ra.principal_type = 'user' AND ra.principal_id = ${uid}::uuid
        AND ra.account_id IS NOT NULL
-       AND (ra.expires_at IS NULL OR ra.expires_at > now())`;
+       AND (ra.expires_at IS NULL OR ra.expires_at > now())
+    EXCEPT
+    -- A workspace Kortix made for one eval trial (projects/evals/trial-workspace.ts) is nobody's to open.
+    SELECT w.trial_account_id FROM kortix.eval_trial_workspaces w WHERE w.deleted_at IS NULL`;
   const live = await liveRecordsOf(ids);
   if (live.length === 0) return [];
   const accountIds = [...new Set(live.map((record) => record.accountId))];

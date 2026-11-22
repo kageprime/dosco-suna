@@ -11,6 +11,7 @@ const app = join(import.meta.dir, '..');
 // KORTIX_SMOKE_CHROME points at another Chrome build.
 const CHROME = process.env.KORTIX_SMOKE_CHROME || chromium.executablePath();
 const EXT_ID = 'gefbbnjgoiljpbnalgafbhbfdhikgjek';
+const VERSION: string = JSON.parse(await Bun.file(join(app, 'src/manifest.json')).text()).version;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let failures = 0;
 const check = (name: string, ok: boolean, detail = '') => {
@@ -213,7 +214,7 @@ try {
   check('extension loads with the pinned ID', true);
   await until('control socket auth', () => frames.find((f) => f.type === 'auth'));
   const auth = frames.find((f) => f.type === 'auth');
-  check('control: auth frame carries token and identity', auth.token === 'test' && auth.info.extensionVersion === '1.0.0' && !!auth.info.os, JSON.stringify(auth));
+  check('control: auth frame carries token and identity', auth.token === 'test' && auth.info.extensionVersion === VERSION && !!auth.info.os, JSON.stringify(auth));
   await until('stored chromeId', async () => (await sw!.eval(`chrome.storage.local.get('chromeId').then(r => r.chromeId)`)) === 'b1');
   check('control: chromeId stored from auth_ok', true);
 

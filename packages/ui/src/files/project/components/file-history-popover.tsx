@@ -225,7 +225,7 @@ export function FileHistoryPopoverContent({ filePath, onClose }: FileHistoryPopo
 
         {!!error && !isLoading && (
           <div className="flex flex-col items-center justify-center gap-2 p-6 text-center">
-            <AlertCircle className="text-muted-foreground/30 h-6 w-6" />
+            <AlertCircle className="text-muted-foreground h-6 w-6" />
             <p className="text-muted-foreground text-xs">
               {error instanceof Error &&
               error.message.includes(tHardcodedUi.raw('i18nComplete.texte7d93eed5869'))
@@ -239,7 +239,7 @@ export function FileHistoryPopoverContent({ filePath, onClose }: FileHistoryPopo
 
         {!isLoading && !error && totalCheckpoints === 0 && (
           <div className="flex flex-col items-center justify-center gap-2 p-6 text-center">
-            <History className="text-muted-foreground/20 h-6 w-6" />
+            <History className="text-muted-foreground h-6 w-6" />
             <p className="text-muted-foreground text-xs">
               {tHardcodedUi.raw(
                 'featuresProjectFilesComponentsFileHistoryPopover.line224JsxTextNoCheckpointsYet',

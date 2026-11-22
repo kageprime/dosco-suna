@@ -288,9 +288,9 @@ function ActivityFileChipStepImpl({
     count === 1 && paths.length === 1
       ? toDisplayPath(paths[0])
       : `${count} ${count === 1 ? 'file' : 'files'}`;
-  const label =
-    `${status === 'running' ? family.running : family.verb} ${object}` +
-    (status === 'error' ? ` · ${failedCount} failed` : '');
+  const verb = status === 'running' ? family.running : family.verb;
+  const failed = status === 'error' ? ` · ${failedCount} failed` : '';
+  const label = `${verb} ${object}${failed}`;
   const Icon = iconFor(calls[0]);
 
   return (
@@ -342,7 +342,12 @@ function ActivityFileChipStepImpl({
               {label}
             </TextShimmer>
           ) : (
-            <span className="min-w-0 truncate font-medium">{label}</span>
+            // Verb, path and verdict as separate text nodes: a masked session
+            // replay keeps the verb and hides the path (apps/web replay-labels.ts).
+            <span className="min-w-0 truncate font-medium">
+              {verb} {object}
+              {failed}
+            </span>
           )
         }
       />

@@ -40,7 +40,7 @@ function DeckCard({ deck, i }: { deck: DeckDef; i: number }) {
           <span className="text-muted-foreground font-mono text-[10px] tracking-widest uppercase">
             {deck.kind}
           </span>
-          <span className="text-muted-foreground/60 group-hover:text-foreground font-mono text-xs transition-colors">
+          <span className="text-muted-foreground group-hover:text-foreground font-mono text-xs transition-colors">
             ↗
           </span>
         </div>
@@ -62,15 +62,15 @@ function DeckCard({ deck, i }: { deck: DeckDef; i: number }) {
 
         <dl className="border-border text-muted-foreground mt-6 flex items-center gap-5 border-t pt-4 font-mono text-[11px] tracking-wider tabular-nums">
           <div className="flex gap-1.5">
-            <dt className="text-muted-foreground/50">{tI18nComplete.raw('textfd2c8f1dc03c')}</dt>
+            <dt className="text-muted-foreground">{tI18nComplete.raw('textfd2c8f1dc03c')}</dt>
             <dd>{slides.length}</dd>
           </div>
           <div className="flex gap-1.5">
-            <dt className="text-muted-foreground/50">{tI18nComplete.raw('text8459419d4cfe')}</dt>
+            <dt className="text-muted-foreground">{tI18nComplete.raw('text8459419d4cfe')}</dt>
             <dd>{builds}</dd>
           </div>
           <div className="flex gap-1.5">
-            <dt className="text-muted-foreground/50">≈</dt>
+            <dt className="text-muted-foreground">≈</dt>
             <dd>
               {minutes} {tI18nComplete.raw('text1f6fa6f69d18')}
             </dd>
@@ -121,7 +121,7 @@ export function PresentationsIndex() {
           ))}
         </div>
 
-        <p className="text-muted-foreground/60 mt-12 font-mono text-xs">
+        <p className="text-muted-foreground mt-12 font-mono text-xs">
           {tI18nComplete.raw('text68af88a17bcb')}{' '}
           <span className="text-muted-foreground">{tI18nComplete.raw('text2cf3f78e80d0')}</span>
           {tI18nComplete.raw('text4d1f460178d9')}

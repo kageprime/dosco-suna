@@ -66,7 +66,7 @@ export const AdvancedPanel = memo(function AdvancedPanel({
 
   if (count === 0) {
     return (
-      <div className="text-muted-foreground/70 flex h-full items-center justify-center p-8 text-center text-sm">
+      <div className="text-muted-foreground flex h-full items-center justify-center p-8 text-center text-sm">
         {tHardcodedUi.raw('componentsSessionSessionActionsPanel.line152JsxTextNoActionsYet')}
       </div>
     );

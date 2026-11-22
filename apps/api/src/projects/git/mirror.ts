@@ -855,7 +855,7 @@ export async function ensureStoreObjects(
  */
 async function rootTreeIds(repoPath: string, revs: readonly string[]): Promise<string[]> {
   if (revs.length === 0) return [];
-  const listed = await runGitCapture(['log', '--no-walk=unsorted', '--format=%T', ...revs, '--'], repoPath);
+  const listed = await runGitCapture(['log', '--no-walk=unsorted', '--format=%T', '--end-of-options', ...revs, '--'], repoPath);
   if (listed.exitCode !== 0) return [];
   return listed.stdout.split('\n').map((line) => line.trim()).filter((id) => /^[0-9a-f]{40}$/.test(id));
 }

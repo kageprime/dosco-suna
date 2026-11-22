@@ -31,6 +31,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { sessionAccessSummary, sessionAccessView } from './share-session-access';
 import { refreshAfterShare } from './share-session-cache';
+import { SessionPeoplePicker } from './session-people-picker';
 
 /**
  * The three options, worded from the EDITOR's seat.
@@ -167,6 +168,9 @@ export function ShareSessionModal({
                   : delegateCopy(view.ownerLabel, tI18nComplete)
               }
               disabledModes={view.disabledModes}
+              renderMembers={(selection, change) => (
+                <SessionPeoplePicker projectId={projectId} session={session} value={selection} onChange={change} />
+              )}
             />
           ) : (
             // Read-only, not hidden: a person a session was shared with should

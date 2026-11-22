@@ -32,7 +32,7 @@ import { PROJECT_ACTIONS } from '../../../internal/lib/project-actions';
 import { useProjectPageCans } from '../../../internal/lib/use-project-can';
 import { Button } from '../../../primitives/button';
 import Loading from '../../../primitives/loading';
-import { ManifestIssueList, manifestFixPrompt } from './manifest-issue-list';
+import { ManifestIssueList, manifestFixPrompt } from '../../../customize/sections/view/manifest-issue-list';
 import { SidebarAlert, SidebarAlertActions, SidebarAlertBody, SidebarAlertText } from './sidebar-alert';
 
 // The fix prompt and the issue list are shared with the Git tab

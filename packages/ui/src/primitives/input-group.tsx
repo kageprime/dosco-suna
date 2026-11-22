@@ -165,7 +165,7 @@ function InputGroupSearchInput({
       data-slot="input-group-search-control"
       variant={variant}
       size={size}
-      className={cn('peer placeholder:text-muted-foreground/60 pl-9', className)}
+      className={cn('peer placeholder:text-muted-foreground pl-9', className)}
       {...props}
     />
   );

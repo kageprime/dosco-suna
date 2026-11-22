@@ -158,7 +158,7 @@ export function CheckpointsPanel({ open = false, onClose }: CheckpointsPanelProp
                           <span className="truncate" title={c.author_email}>
                             {c.author_name}
                           </span>
-                          <span className="text-muted-foreground/30" aria-hidden>
+                          <span className="text-muted-foreground" aria-hidden>
                             ·
                           </span>
                           <span className="shrink-0" title={fullDateTimeFormat.format(ts)}>
@@ -172,7 +172,7 @@ export function CheckpointsPanel({ open = false, onClose }: CheckpointsPanelProp
               </div>
             ))}
             {data?.hasMore && (
-              <p className="text-muted-foreground/60 px-3 pt-4 text-xs">
+              <p className="text-muted-foreground px-3 pt-4 text-xs">
                 {tI18nComplete.raw('text55fa9981994c')} {total}{' '}
                 {tI18nComplete.raw('text0b9049066497')}
               </p>

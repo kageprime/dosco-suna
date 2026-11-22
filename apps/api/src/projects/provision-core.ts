@@ -35,13 +35,7 @@ import {
 import { normalizeStarterTemplateId } from './starter';
 import { GitHubApiError } from './github';
 import { GitHubPersonalAccountCreateUnsupportedError } from './lib/github-create-errors';
-import {
-  buildProjectSeedFiles,
-  buildProjectSeedFilesFromItem,
-  defaultAgentFromSeedFiles,
-  normalizeMarketplaceItems,
-} from './seed-files';
-import { getCatalogItemDetail } from '../marketplace/catalog';
+import { buildProjectSeedFiles, defaultAgentFromSeedFiles } from './seed-files';
 import { remoteBranchExists } from './git';
 import { config } from '../config';
 import { logger as appLogger } from '../lib/logger';
@@ -89,6 +83,10 @@ import {
   resolveNewWorkspaceAccount,
 } from './new-workspace';
 import { deleteProjectRows, insertProjectRow, metadataMergeGitSeed, type ProjectRowInsert, projectsView, updateProjectRows } from '../workspaces/rows';
+
+/** The 400 body text for a create that still sends the removed `source_item_id`. */
+export const SOURCE_ITEM_ID_REMOVED =
+  'source_item_id is no longer supported: the marketplace was removed. Create the workspace without it.';
 
 export const PROVISION_PHASES = [
   'validating',
@@ -158,6 +156,12 @@ export interface ProvisionContext {
    * project_id = workspace_id, so the workspace keeps its id (design.md §3.2 C1).
    */
   projectId?: string;
+  /**
+   * A workspace an eval trial runs in (`projects/evals/trial-workspace.ts`):
+   * no template prebuild (the trial's sessions boot the agent's own sandbox)
+   * and no `project_created` product event (nobody created a project).
+   */
+  evalTrial?: boolean;
 }
 
 /**
@@ -224,7 +228,7 @@ export async function runProvision(ctx: ProvisionContext, emit: ProvisionEmit): 
   const validated = ctx.validated ? { request: ctx.validated } : await validateProvisionRequest(body);
   if ('result' in validated) return validated.result;
   const { request } = validated;
-  const { provider, backend, name, sourceItemId, starterTemplate } = request;
+  const { provider, backend, name, starterTemplate } = request;
 
   // Managed repo name = a readable slug from the display name + the project's
   // UUID, so managed repos under the shared org NEVER collide (two projects can
@@ -267,11 +271,10 @@ export async function runProvision(ctx: ProvisionContext, emit: ProvisionEmit): 
   // and the provision's own seed rollback (a failed seed deletes the repo and
   // the row) is what keeps that state transient.
   const clientOwnsFirstCommit = body.seed_starter === false || body.seedStarter === false;
-  const seedStarter = !clientOwnsFirstCommit || !!sourceItemId;
-  const marketplaceItems = normalizeMarketplaceItems(body.marketplace_items ?? body.marketplaceItems);
+  const seedStarter = !clientOwnsFirstCommit;
   const initialSeedState = buildManagedRepoSeedState(
     seedStarter
-      ? { seeded: false, expected: true, reason: 'pending', at: now.toISOString(), template: sourceItemId ?? starterTemplate }
+      ? { seeded: false, expected: true, reason: 'pending', at: now.toISOString(), template: starterTemplate }
       : { seeded: false, expected: true, reason: 'client_owns_first_commit', at: now.toISOString(), template: starterTemplate },
   );
 
@@ -342,7 +345,6 @@ export async function runProvision(ctx: ProvisionContext, emit: ProvisionEmit): 
 
   const seeding = await seedProvisionedRepo(emit, request, scope, {
     seedStarter,
-    marketplaceItems,
     repoSlug,
     now,
     row,
@@ -354,7 +356,7 @@ export async function runProvision(ctx: ProvisionContext, emit: ProvisionEmit): 
   if ('result' in seeding) return seeding.result;
   const { seeded } = seeding;
 
-  if (seeded) {
+  if (seeded && !ctx.evalTrial) {
     kickProjectTemplatePrebuilds(
       {
         projectId: row.projectId,
@@ -373,7 +375,7 @@ export async function runProvision(ctx: ProvisionContext, emit: ProvisionEmit): 
   // account takes the project's.
   if (ctx.newWorkspace) await renameAccountOfSoleProject(row, row.name);
 
-  captureProductEvent({
+  if (!ctx.evalTrial) captureProductEvent({
     userId: scope.userId,
     accountId: scope.accountId,
     event: 'project_created',
@@ -381,13 +383,10 @@ export async function runProvision(ctx: ProvisionContext, emit: ProvisionEmit): 
     properties: {
       project_id: row.projectId,
       // The starter is normalized to a default; only a named one is a template.
-      origin: sourceItemId
-        ? 'marketplace'
-        : ((ctx.body as Record<string, unknown>).starter_template ?? (ctx.body as Record<string, unknown>).starterTemplate)
-          ? 'template'
-          : 'blank',
+      origin: ((ctx.body as Record<string, unknown>).starter_template ?? (ctx.body as Record<string, unknown>).starterTemplate)
+        ? 'template'
+        : 'blank',
       provider: String(provider),
-      from_marketplace: Boolean(sourceItemId),
       starter_template: starterTemplate ? String(starterTemplate) : null,
       seeded,
     },
@@ -413,7 +412,6 @@ interface ProvisionRequest {
   idempotencyKey: string | null;
   icon: string | null;
   iconGlyph: ReturnType<typeof normalizeProjectGlyph>;
-  sourceItemId: string | null;
   starterTemplate: ReturnType<typeof normalizeStarterTemplateId>;
 }
 
@@ -496,15 +494,11 @@ async function validateProvisionRequest(
   // PATCH path needs.
   const iconGlyph = normalizeProjectGlyph(body.icon_glyph);
 
-  // "Clone project" — seed the new repo from a `registry:project` marketplace
-  // item instead of the blank starter. Resolved + type-checked BEFORE any
-  // upstream repo/DB row is created, same as the name checks above.
-  const sourceItemId = normalizeString(body.source_item_id ?? body.sourceItemId);
-  if (sourceItemId) {
-    const sourceItem = await getCatalogItemDetail(sourceItemId);
-    if (!sourceItem || sourceItem.type !== 'registry:project') {
-      return { result: { status: 400, body: { error: `Unknown or non-cloneable project item "${sourceItemId}"` } } };
-    }
+  // "Clone a marketplace project" was removed with the marketplace
+  // (2026-11-20). Refuse the field instead of ignoring it: an ignored id would
+  // quietly create a blank workspace the caller did not ask for.
+  if (normalizeString(body.source_item_id ?? body.sourceItemId)) {
+    return { result: { status: 400, body: { error: SOURCE_ITEM_ID_REMOVED } } };
   }
   const starterTemplate = normalizeStarterTemplateId(
     body.starter_template ?? body.starterTemplate,
@@ -517,7 +511,6 @@ async function validateProvisionRequest(
       idempotencyKey,
       icon,
       iconGlyph,
-      sourceItemId,
       starterTemplate,
     },
   };
@@ -547,7 +540,7 @@ async function replayOrEnforceProjectQuota(
   //
   // NON-GOAL, stated so callers can rely on it: the key is NOT a fingerprint of
   // the request. It identifies the ATTEMPT, not the payload. The same key with
-  // a different `name`, `starter_template`, or `source_item_id` returns the
+  // a different `name` or `starter_template` returns the
   // FIRST project, silently ignoring the new payload. Clients must therefore
   // mint a fresh key per distinct create, and reuse one only across retries of
   // the same create.
@@ -823,11 +816,10 @@ async function insertProvisionedProject(
 /** Push and verify the scaffold seed. A failed seed rolls back the repo and the project row. */
 async function seedProvisionedRepo(
   emit: ProvisionEmit,
-  { backend, name, sourceItemId, starterTemplate }: ProvisionRequest,
+  { backend, name, starterTemplate }: ProvisionRequest,
   scope: ProvisionContext['scope'],
   {
     seedStarter,
-    marketplaceItems,
     repoSlug,
     now,
     row,
@@ -837,7 +829,6 @@ async function seedProvisionedRepo(
     internalPushToken,
   }: {
     seedStarter: boolean;
-    marketplaceItems: string[];
     repoSlug: string;
     now: Date;
     row: ProjectRow;
@@ -859,21 +850,11 @@ async function seedProvisionedRepo(
   if (seedStarter) {
     try {
       if (!internalPushToken) throw new Error('no push credential resolved for seeding');
-      const seed = sourceItemId
-        ? await buildProjectSeedFilesFromItem({
-            id: sourceItemId,
-            projectName: name,
-            repoFullName: repoSlug,
-            extraMarketplaceItems: marketplaceItems,
-            now: now.toISOString(),
-          })
-        : await buildProjectSeedFiles({
-            projectName: name,
-            repoFullName: repoSlug,
-            template: starterTemplate,
-            marketplaceItems,
-            now: now.toISOString(),
-          });
+      const seed = await buildProjectSeedFiles({
+        projectName: name,
+        repoFullName: repoSlug,
+        template: starterTemplate,
+      });
       // Seed a deterministic scaffold root followed by the project's small
       // customization commit. Fresh-session boot can import that exact second
       // commit from the API mirror as a bounded Git bundle, on top of the
@@ -923,7 +904,7 @@ async function seedProvisionedRepo(
         expected: true,
         reason: 'seeded',
         at: new Date().toISOString(),
-        template: sourceItemId ?? starterTemplate,
+        template: starterTemplate,
       });
       row.metadata = {
         ...((row.metadata as Record<string, unknown> | null) ?? {}),

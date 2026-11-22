@@ -44,7 +44,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 urlencoding = "2.1"
 uuid = { version = "1.8", features = ["v4", "v5", "serde"] }
 zstd = "0.13"
-tar = "0.4"
 rusqlite = { version = "0.31", features = ["bundled"] }
 regex = "1"
 image = { version = "0.24", default-features = false, features = ["jpeg", "png", "ico"] }
@@ -57,7 +56,6 @@ arboard = { version = "3", default-features = false, features = ["image-data"] }
 tracing-appender = "0.2"
 ort = { version = "=2.0.0-rc.11", default-features = false, features = ["std", "load-dynamic"] }
 tokenizers = { version = "0.22", default-features = false, features = ["fancy-regex"] }
-flate2 = "1"
 zip = { version = "9.4", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [dev-dependencies]

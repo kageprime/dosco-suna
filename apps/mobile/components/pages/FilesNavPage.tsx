@@ -109,6 +109,7 @@ import { projectArchiveRequest } from '@/lib/projects/projects-client';
 import type { ProjectBranch, ProjectCommit } from '@/lib/projects/projects-client';
 import { relativeTime } from '@/lib/projects/triggers-format';
 import { THEME } from '@/lib/utils/theme';
+import { useTone } from '@/lib/utils/tone';
 
 interface FilesNavPageProps {
   page: { id: string; label: string };
@@ -201,8 +202,9 @@ async function saveTextToDevice(content: string, filename: string): Promise<Save
  * Kortix files, git on git's dotfiles), filled, in the muted foreground.
  */
 function EntryIcon({ file, size }: { file: SandboxFile; size: number }) {
+  const tone = useTone();
   if (file.type === 'directory') {
-    return <FolderIcon size={size} weight="fill" color={THEME.accent[folderTone(file.name)]} />;
+    return <FolderIcon size={size} weight="fill" color={THEME.accent[tone][folderTone(file.name)]} />;
   }
   return <FileGlyph name={file.name} size={size} />;
 }

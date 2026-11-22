@@ -43,10 +43,18 @@ mock.module('../../iam', () => ({
 mock.module('../../iam/actor', () => ({
   actorForUser: (userId: string, accountId: string) => ({ type: 'user', id: userId, accountId }),
 }));
+// access.ts reaches turn-start.ts and forward-to-sandbox.ts, which import the
+// rest of these names: a wholesale mock must list each one, or the module
+// graph fails to load before any test runs.
 mock.module('../pre-prompt-env-sync', () => ({
   DEFAULT_AGENT_SENTINEL: 'default',
   jsonProxyError: (body: unknown, status: number) =>
     new Response(JSON.stringify(body), { status }),
+  bodyWithoutPromptAgent: (body: unknown) => body,
+  isTurnStartEnvSync: () => false,
+  requestedPromptAgent: () => null,
+  requestedPromptManagedModelId: () => null,
+  runPrePromptEnvSync: async () => null,
 }));
 
 const { refuseSessionOrControlAccess, reportSessionAccessRefusal } = await import('./access');

@@ -55,7 +55,7 @@ export const RETRY_DELAY_MS = [400, 1_200];
  * Deliberately NOT the full form state. `icon` and `defaultBranch` are
  * refinements a user can still be adjusting between a failed submit and a
  * retry — a retry must reuse the SAME key, not mint a new one just because
- * the icon changed. `name`, `accountId`, `templateId` and `source` are what
+ * the icon changed. `name`, `accountId` and `source` are what
  * actually identifies a genuinely different workspace: keying on those means
  * creating "suna-web" then, moments later, "kortix-api" in the same account
  * mints two independent keys instead of the second create silently returning
@@ -66,7 +66,6 @@ export function fingerprintOf(state: NewWorkspaceFormState): string {
   return [
     state.accountId ?? 'new',
     state.name.trim(),
-    state.templateId ?? '',
     state.source,
   ].join(':');
 }
@@ -609,9 +608,11 @@ export type CreateOrchestrationClient = {
    * on the project by itself (KRTX-1419).
    *
    * Implemented as `router.replace`, never `push`: the form state this
-   * replaces is not somewhere the user may navigate back into.
+   * replaces is not somewhere the user may navigate back into. A host that
+   * stays on its page (the CLI sign-in, KRTX-4940) reads the created
+   * `project` instead, to select its account.
    */
-  enterProject: (projectId: string) => void;
+  enterProject: (projectId: string, project: KortixProject) => void;
   now: () => number;
 };
 
@@ -736,7 +737,7 @@ export async function runCreate(
       // `completeThenNotify` accepts for the wizard's own exits.
       await client.completeOnboarding(project.project_id).catch(() => {});
     }
-    client.enterProject(project.project_id);
+    client.enterProject(project.project_id, project);
     return { ok: true, project };
   } catch (error) {
     return { ok: false, error };
@@ -755,7 +756,9 @@ export async function runCreate(
  * the switcher read — for the owned empty account the GitHub sources act in
  * (`resolveTargetAccountId`). The managed source lets the server choose.
  */
-export function useCreateWorkspace(options?: { enterProject?: (projectId: string) => void }): {
+export function useCreateWorkspace(options?: {
+  enterProject?: (projectId: string, project: KortixProject) => void;
+}): {
   create: (state: NewWorkspaceFormState) => Promise<void>;
   status: CreateStatus;
   error: string | null;

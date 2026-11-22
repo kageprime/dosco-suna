@@ -77,6 +77,7 @@ describe('project config agent discovery', () => {
         // resolver reads `native?.model ?? null`.
         model: null,
         space: null,
+        title: null,
         source: 'kortix.yaml',
         enabled: true,
         sandbox: null,
@@ -89,6 +90,7 @@ describe('project config agent discovery', () => {
         mode: 'subagent',
         model: null,
         space: null,
+        title: null,
         source: 'kortix.yaml',
         enabled: true,
         sandbox: null,
@@ -101,6 +103,7 @@ describe('project config agent discovery', () => {
         mode: null,
         model: null,
         space: null,
+        title: null,
         source: 'kortix.yaml',
         enabled: false,
         sandbox: null,

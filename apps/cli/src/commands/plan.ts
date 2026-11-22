@@ -12,6 +12,7 @@ import { runGit } from '../git-run.ts';
 import { readKortixState, REFERENCE_REPOS } from '../onboarding/kortix-state.ts';
 import { envValues, listFiles, proposeDevEnv, scanEnv, scanCodeEnvNames, scanIntegrations, scanMcpServers, scanRepository, scanStack, scanUnrecognized, scrubValues } from '../onboarding/repo-scan.ts';
 import { C, help, status } from '../style.ts';
+import { currentCredential, reportSetupStarted } from '../setup-telemetry.ts';
 
 const HELP = help`Usage: kortix plan [options]
 
@@ -108,5 +109,8 @@ export async function runPlan(argv: string[]): Promise<number> {
   const plan = await buildPlan(resolve(flags.dir ?? process.cwd()));
   if (flags.json) process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
   else printPlan(plan);
+  // The guide's step 1: a guided setup starts here (setup-telemetry.ts).
+  // has_workspace = this repository is linked to a workspace (a rerun), not the host's default workspace.
+  await reportSetupStarted(currentCredential(), { has_workspace: plan.kortix.workspace?.source === 'link', has_manifest: Boolean(plan.kortix.manifest) });
   return 0;
 }

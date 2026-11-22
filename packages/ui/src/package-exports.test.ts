@@ -54,3 +54,11 @@ test.skipIf(!existsSync(at('dist/index.js')))('every publishConfig target exists
   ];
   expect(targets.filter((t) => !existsSync(at(t)))).toEqual([]);
 });
+
+// A workspace-only entry leaves downstream npm consumers unable to import it.
+test('sort-menu is available through the published package subpath', () => {
+  expect(pkg.publishConfig.exports['./sort-menu']).toEqual({
+    types: './dist/primitives/sort-menu.d.ts',
+    import: './dist/primitives/sort-menu.js',
+  });
+});

@@ -2,6 +2,7 @@
 // the verdict and the activity writes live in `iam/session-gate.ts`.
 
 import type { Context, MiddlewareHandler } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { evaluateSessionGate, loadPolicyAndActivity, markRevoked, touchActivity } from '../iam/session-gate';
 import { auditSessionFirstSight } from './auth-audit';
 import { requestClientIp } from './client-ip';
@@ -56,6 +57,15 @@ export function enforceSessionPolicy(c: Context, accountId: string): Promise<voi
   return check;
 }
 
+
+/**
+ * True for the `401 session_token_revoked` of `enforceSessionPolicy`. A list
+ * across accounts leaves that one account out instead of failing the request.
+ */
+export function isRevokedSession(error: unknown): boolean {
+  if (error instanceof HTTPException) return error.status === 401;
+  return (error as { code?: unknown } | null)?.code === 'session_token_revoked';
+}
 
 async function checkSessionPolicy(c: Context, accountId: string): Promise<void> {
   const userId = c.get('userId') as string | undefined;

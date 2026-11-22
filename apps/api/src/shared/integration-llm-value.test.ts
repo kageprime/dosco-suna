@@ -3,7 +3,8 @@ import { accounts, gatewayRequestLogs, projects } from '@kortix/db';
 import { eq, sql } from 'drizzle-orm';
 import { db } from './db';
 import { totalSpendSql } from './llm-spend';
-import { llmValueFields } from './llm-value';
+import { estimateLlmValue, llmValueFields } from './llm-value';
+import { gatewaySeriesRows } from '../projects/lib/gateway-series';
 import { listProjectGatewaySourceSpend } from './session-costs';
 
 const accountId = crypto.randomUUID();
@@ -188,4 +189,40 @@ test('priced + unpriced + errors equals requests: the estimate buckets explain t
     .where(eq(gatewayRequestLogs.projectId, id));
   expect(row).toMatchObject({ requests: 4, errors: 2, priced_requests: 1, unpriced_requests: 1 });
   expect(row!.priced_requests + row!.unpriced_requests + row!.errors).toBe(row!.requests);
+});
+
+
+test.each([
+  ['openai-codex', 'gpt-6.1-terra'],
+  ['morph_abliterated', 'morph-dsv41flash-abliterated'],
+  ['claude-agent', 'claude-opus-5-5'],
+  ['claude-agent', 'claude-sonnet-5-5'],
+])('SQL values match request estimates for %s/%s', async (provider, model) => {
+  const requestId = crypto.randomUUID();
+  await db.insert(gatewayRequestLogs).values({ accountId, projectId, requestId,
+    requestedModel: model, resolvedModel: model, provider, status: 200, ok: true,
+    billingMode: 'none', inputTokens: 300001, outputTokens: 53, cachedTokens: 23, cacheWriteTokens: 37 });
+  const [row] = await db.select(llmValueFields).from(gatewayRequestLogs).where(eq(gatewayRequestLogs.requestId, requestId));
+  expect(row?.estimated_usage_value).toBeCloseTo(estimateLlmValue({ provider, model, input: 300001, output: 53, cached: 23, cacheWrite: 37 }) ?? -1, 10);
+  expect(row?.priced_requests).toBe(1);
+});
+
+
+test('daily gateway series includes every newly priced model without changing billed cost', async () => {
+  const isolatedProjectId = crypto.randomUUID();
+  await db.insert(projects).values({ projectId: isolatedProjectId, accountId, name: 'Synthetic series', repoUrl: 'https://example.test/repo.git' });
+  const models = [
+    { provider: 'openai-codex', model: 'gpt-6.1-terra' },
+    { provider: 'morph_abliterated', model: 'morph-dsv41flash-abliterated' },
+    { provider: 'claude-agent', model: 'claude-opus-5-5' },
+  ];
+  await db.insert(gatewayRequestLogs).values(models.map(({ provider, model }) => ({
+    accountId, projectId: isolatedProjectId, requestId: crypto.randomUUID(),
+    requestedModel: model, resolvedModel: model, provider,
+    status: 200, ok: true, billingMode: 'none', inputTokens: 1000, outputTokens: 100, cachedTokens: 500,
+  })));
+  const rows = await gatewaySeriesRows(isolatedProjectId, 1);
+  expect(rows).toHaveLength(1);
+  expect(rows[0]?.estimated_usage_value).toBeCloseTo(0.005398, 10);
+  expect(rows[0]?.priced_requests).toBe(3);
 });

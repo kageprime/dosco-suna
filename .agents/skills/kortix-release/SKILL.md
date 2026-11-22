@@ -283,6 +283,7 @@ npm view @kortix/sdk version
 npm view @kortix/agent-tunnel version
 npm view @kortix/llm-catalog version
 gh release view "vX.Y.Z" --repo kortix-ai/CompanyOS --json name,body,assets --jq '{name,assetCount:(.assets|length)}'   # 24 assets
+for i in api gateway frontend; do for t in X.Y.Z prod; do curl -fsS "https://hub.docker.com/v2/repositories/kortix/kortix-$i/tags/$t" | jq -r --arg t "$i:$t" '"\($t) \(.digest)"'; done; done   # :prod digest = :X.Y.Z digest
 ```
 
 The API and the gateway report the promoted staging SHA: deploy-prod retags
@@ -296,7 +297,10 @@ publishes the JS bundle. `Mobile Store` builds and submits a new app version
 when `apps/mobile/app.json` carries one: Android to the Play production track,
 iOS to App Review with release after approval. Both must end green. A
 `Mobile Store` warning asks for a version bump or a person in App Store
-Connect (runbook: `apps/mobile/BUILD_GUIDE.md`).
+Connect (runbook: `apps/mobile/BUILD_GUIDE.md`). Both also run when
+`Deploy Prod` failed only in its Kortix Capture or desktop installer builds
+(`deploy-prod-gate.yml`); any other failed job stops them, and you then
+dispatch them by hand once prod is live.
 
 ### Step 10 — self-host `:stable`
 

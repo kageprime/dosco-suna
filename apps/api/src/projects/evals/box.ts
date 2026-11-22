@@ -73,12 +73,7 @@ export function rateLimitWaitMs(message: string): number | null {
   return Math.min(10_000, Math.max(250, seconds * 1000)) + Math.floor(Math.random() * 500);
 }
 
-let ops: BoxOps = liveOps;
-export const boxOps = (): BoxOps => ops;
-/** Swap the sandbox channel for a test; null restores the live one. */
-export function setBoxOpsForTests(next: BoxOps | null): void {
-  ops = next ?? liveOps;
-}
+export const boxOps = (): BoxOps => liveOps;
 
 /** The trial session's sandbox once the provider has created it, and whether it runs. */
 export async function sessionBox(sessionId: string): Promise<{ box: Box | null; status: string } | null> {
@@ -206,7 +201,15 @@ const runDir = (id: string): string => `/var/tmp/kortix-eval/${id.replace(/[^a-z
 export async function launch(
   box: Box,
   id: string,
-  input: { command: string; cwd: string | null; env: Record<string, string>; timeoutSec: number; outputPath: string },
+  input: {
+    command: string;
+    cwd: string | null;
+    env: Record<string, string>;
+    timeoutSec: number;
+    outputPath: string;
+    /** Run as this user when the image has it (Harbor's `[agent] user`), else as root. */
+    user?: string | null;
+  },
 ): Promise<void> {
   const dir = runDir(id);
   const exports = Object.entries(input.env)
@@ -227,7 +230,9 @@ export async function launch(
     '#!/bin/bash',
     `D=${q(dir)}`,
     'echo $$ > "$D/pid"',
-    `timeout -k 10 ${seconds} bash "$D/run.sh" > ${q(input.outputPath)} 2>&1 < /dev/null`,
+    `U=${q(input.user ?? '')}`,
+    'if [ -n "$U" ] && id -u "$U" >/dev/null 2>&1; then RUN="runuser -u $U -- bash"; else RUN=bash; fi',
+    `timeout -k 10 ${seconds} $RUN "$D/run.sh" > ${q(input.outputPath)} 2>&1 < /dev/null`,
     'echo $? > "$D/exit.tmp" && mv "$D/exit.tmp" "$D/exit"',
   ].join('\n');
   const script = [
@@ -236,6 +241,8 @@ export async function launch(
     `mkdir -p "$D" "$(dirname -- ${q(input.outputPath)})"`,
     `printf %s ${q(Buffer.from(body).toString('base64'))} | base64 -d > "$D/run.sh"`,
     `printf %s ${q(Buffer.from(wrapper).toString('base64'))} | base64 -d > "$D/wrap.sh"`,
+    // Another user runs the script: it reads it, never writes it.
+    'chmod 755 "$D" && chmod 644 "$D/run.sh"',
     ': > "$D/started"',
     '(setsid bash "$D/wrap.sh" < /dev/null > /dev/null 2>&1 &)',
     // Return only once the wrapper runs in its own session: the exec ends the call's processes when it

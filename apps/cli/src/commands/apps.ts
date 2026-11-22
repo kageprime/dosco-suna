@@ -14,6 +14,7 @@ import {
   takeFlagValue,
 } from '../command-helpers.ts';
 import { C, help, pad, status } from '../style.ts';
+import { terminalSafe } from '../token-denial.ts';
 import { accessCommand, accessLinkCommand } from './apps-access.ts';
 import { eventsCommand } from './apps-events.ts';
 import { addAppBlocks } from './apps-launch-yaml.ts';
@@ -37,6 +38,7 @@ import {
   scoped,
   slugFrom,
   stageArtifact,
+  deployProvenance,
   waitForDeployment,
 } from './apps-deploy.ts';
 
@@ -112,6 +114,7 @@ Subcommands:
                                     A new App is unlisted unless kortix.yaml sets
                                     display.listed: true. Pass --listed for a
                                     site or UI people open.
+    --force                         Deploy even when HEAD does not contain the live commit.
     --no-wait                       Return after the deployment is queued.
     --wait-seconds <seconds>        Default: 1200.
   set <id|slug>                     Change an existing App. Only the flags you
@@ -661,6 +664,8 @@ async function deployOne(
   return scoped(ctx, async () => {
     let app = await provisionDeployApp(ctx.apps, flags, manifestDefaults, sourcePath);
 
+    const provenance = await deployProvenance(ctx.apps, app, sourcePath, flags.force);
+
     if (flags.accessMode) {
       await ctx.apps.access.update(app.app_id, {
         mode: flags.accessMode,
@@ -689,6 +694,7 @@ async function deployOne(
       const staged = await stageArtifact(ctx.apps, flags, sourcePath, json);
       cleanup = staged.cleanup;
       let deployment = await ctx.apps.deployments.create(app.app_id, {
+        ...provenance,
         artifact_id: staged.artifactId,
         source: staged.source,
         ...(flags.provider ? { provider: flags.provider } : {}),
@@ -749,7 +755,7 @@ async function showCommand(
           ? `  ${C.bold}live${C.reset}`
           : '';
       process.stdout.write(
-        `  v${deployment.version}  ${deployment.status}  ${deployment.deployment_id}${live}\n`,
+        `  v${deployment.version}  ${deployment.status}  ${deployment.deployment_id}${live}${deployment.source_commit ? `  ${terminalSafe(deployment.source_commit)}${deployment.source_ref ? ` (${terminalSafe(deployment.source_ref)})` : ''}` : ''}${deployment.source_force ? '  forced' : ''}\n`,
       );
     }
     process.stdout.write('\n');

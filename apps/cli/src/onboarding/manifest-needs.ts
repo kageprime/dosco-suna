@@ -125,6 +125,8 @@ export function manifestNeeds(data: Record<string, unknown>, _root?: string): Ma
       if (platform === 'slack') slackConnector = true;
       continue; // a channel connector is connected with `kortix channels connect`, not the connector flow
     }
+    // Switched off in kortix.yaml: nothing calls it, so nobody signs in to it (the setup page skips it too).
+    if (entry.enabled === false) continue;
     connectors.push({ slug: entry.slug, provider });
   }
 

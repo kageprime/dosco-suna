@@ -8,8 +8,8 @@ import type { ReactNode } from 'react';
    one line of output. Same idiom as `agent-computer/code-panel.tsx`, extended
    with the two languages this page needs. */
 
-const COMMENT = 'text-muted-foreground/50';
-const PROMPT = 'text-muted-foreground/35 select-none';
+const COMMENT = 'text-muted-foreground';
+const PROMPT = 'text-muted-foreground select-none';
 const KEY = 'text-foreground/85';
 const VALUE = 'text-muted-foreground';
 const PLAIN = 'text-foreground/70';
@@ -123,7 +123,7 @@ export function CodePanel({
       </div>
 
       {caption ? (
-        <p className="border-border text-muted-foreground/70 border-t px-5 py-3 text-xs leading-relaxed">
+        <p className="border-border text-muted-foreground border-t px-5 py-3 text-xs leading-relaxed">
           {caption}
         </p>
       ) : null}

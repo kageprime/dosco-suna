@@ -46,7 +46,7 @@ function SessionChangeRequestsImpl({ items, onOpen }: SessionChangeRequestsProps
               <Icon
                 as={REVIEW_KIND_ICONS[item.kind]}
                 size={20}
-                color={tone === 'muted' ? THEME[isDark ? 'dark' : 'light'].mutedForeground : THEME.accent[tone]}
+                color={tone === 'muted' ? THEME[isDark ? 'dark' : 'light'].mutedForeground : THEME.accent[isDark ? 'dark' : 'light'][tone]}
               />
             }
             label={item.title}

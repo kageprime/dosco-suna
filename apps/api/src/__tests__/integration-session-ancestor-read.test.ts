@@ -18,6 +18,8 @@ import type { Actor } from '../iam/actor';
 import { loadVisibleSession } from '../projects/lib/session-visibility';
 import type { ProjectRow } from '../projects/lib/serializers';
 import { db } from '../shared/db';
+import { recordTriggerRun } from '../projects/trigger-execution-store';
+import { listVisibleTriggerRuns } from '../projects/trigger-runs';
 
 const ACCOUNT = crypto.randomUUID();
 const PROJECT = crypto.randomUUID();
@@ -109,6 +111,18 @@ describe('a session token reads the sessions that spawned it', () => {
 
   test('a person-set parent_session_id grants no read', async () => {
     expect(await readAs('adopted', 'root')).toBeNull();
+  });
+
+  test('a dispatcher sees exactly its worker run; a sibling sees neither session nor run', async () => {
+    const runId = await recordTriggerRun({ projectId: PROJECT, slug: 'worker', source: 'manual', spec: {}, payload: {}, status: 'succeeded', sessionId: id('grandchild'), now: new Date() });
+    expect(runId).not.toBeNull();
+    if (!runId) throw new Error('Run persistence failed');
+    const list = (caller: string) => listVisibleTriggerRuns({
+      loaded: { row: projectRow, userId: LAUNCHER, actor: boxActor(caller) }, binding: id(caller), slug: 'worker', limit: 20, cursor: null,
+    });
+    expect((await list('child')).runs.map((run) => run.run_id)).toEqual([runId]);
+    expect((await list('sibling')).runs).toEqual([]);
+    expect(await readAs('sibling', 'grandchild')).toBeNull();
   });
 
   test('the parent still owns its child', async () => {

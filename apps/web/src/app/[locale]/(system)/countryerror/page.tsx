@@ -27,7 +27,7 @@ export default function CountryError() {
           </h1>
 
           {/* Description */}
-          <p className="text-foreground/60 px-2 text-center text-sm leading-relaxed sm:text-base">
+          <p className="text-muted-foreground px-2 text-center text-sm leading-relaxed sm:text-base">
             {tHardcodedUi.raw(
               'appCountryerrorPage.line28JsxTextWeReSorryKortixIsCurrentlyUnavailableIn',
             )}
@@ -44,7 +44,7 @@ export default function CountryError() {
                   <span className="text-foreground text-sm font-medium">
                     {tHardcodedUi.raw('appCountryerrorPage.line41JsxTextRegionRestricted')}
                   </span>
-                  <span className="text-foreground/60 text-sm">
+                  <span className="text-muted-foreground text-sm">
                     {tHardcodedUi.raw(
                       'appCountryerrorPage.line44JsxTextServiceNotAvailableInYourLocation',
                     )}
@@ -73,7 +73,7 @@ export default function CountryError() {
           </div>
 
           {/* Footer text */}
-          <p className="text-foreground/40 text-center text-sm">
+          <p className="text-muted-foreground text-center text-sm">
             {tHardcodedUi.raw('appCountryerrorPage.line71JsxTextIfYouBelieveThisIsAnErrorPlease')}
           </p>
         </div>

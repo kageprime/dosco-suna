@@ -69,12 +69,6 @@ describe('fingerprintOf', () => {
     expect(a).not.toBe(b);
   });
 
-  test('changes when the template changes', () => {
-    const a = fingerprintOf({ ...INITIAL_FORM_STATE, name: 'x', templateId: 't1' });
-    const b = fingerprintOf({ ...INITIAL_FORM_STATE, name: 'x', templateId: 't2' });
-    expect(a).not.toBe(b);
-  });
-
   test('does NOT change when only the icon or default branch changes — those are refinements, not a new create', () => {
     const a = fingerprintOf({ ...INITIAL_FORM_STATE, name: 'x', defaultBranch: 'main' });
     const b = fingerprintOf({ ...INITIAL_FORM_STATE, name: 'x', defaultBranch: 'develop' });
@@ -593,6 +587,25 @@ describe('runCreate: the full create() orchestration', () => {
     expect(handoffs).toEqual(['created-handoff']);
     expect(stamps.length).toBe(1);
     expect(handoffs.length).toBe(1);
+  });
+
+  // KRTX-4940: a host that stays on its page (the CLI sign-in) selects the
+  // created workspace by the account the server answered with, never by where
+  // the refreshed list happens to put it.
+  test('on success, hands the created project with its account to the host', async () => {
+    const handoffs: Array<{ projectId: string; accountId: string }> = [];
+    const result = await runCreate(
+      { ...INITIAL_FORM_STATE, name: 'x' },
+      null,
+      'user-1',
+      {
+        ...noopClient(),
+        runCreateAttempt: async () => fakeProject('created-elsewhere', 'acct-new'),
+        enterProject: (projectId, project) => handoffs.push({ projectId, accountId: project.account_id }),
+      },
+    );
+    expect(result.ok).toBe(true);
+    expect(handoffs).toEqual([{ projectId: 'created-elsewhere', accountId: 'acct-new' }]);
   });
 
   /**

@@ -139,7 +139,7 @@ export function SessionDiffViewer({
                 aria-label={fullscreenLabel}
                 aria-pressed={!!isFullscreen}
                 onClick={onToggleFullscreen}
-                className="text-muted-foreground/70 hover:text-foreground active:scale-[0.96]"
+                className="text-muted-foreground hover:text-foreground active:scale-[0.96]"
               >
                 {isFullscreen ? (
                   <ArrowsInSimpleIcon className="size-3.5" />

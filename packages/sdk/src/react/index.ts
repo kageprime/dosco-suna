@@ -180,7 +180,6 @@ export {
   useWorkspaceEvalActions,
   useWorkspaceEvalCompare,
   useWorkspaceEvalDatasets,
-  useWorkspaceEvalFilterValues,
   useWorkspaceEvalJob,
   useWorkspaceEvalJobs,
   useWorkspaceEvalSuites,
@@ -192,7 +191,6 @@ export {
   type WorkspaceEvalTaskSource,
   useWorkspaceEvalTrial,
   useWorkspaceEvalTrialFile,
-  useWorkspaceEvalTrialsAcrossJobs,
 } from './use-evals';
 export {
   useWorkspaceCalendarActions,
@@ -330,6 +328,9 @@ export {
   useDeleteWorkspaceSessionGroup, useDeleteProjectSessionGroup,
   useWorkspaceSessionGroups, useProjectSessionGroups,
   useRenameWorkspaceSessionGroup, useRenameProjectSessionGroup,
+  useUpdateWorkspaceSessionGroup,
+  useSetWorkspaceSessionGroupSharing,
+  useSetWorkspaceSessionGroupTabs,
   useReorderWorkspaceSessionGroups, useReorderProjectSessionGroups,
   useSetWorkspaceSessionGroup, useSetProjectSessionGroup,
 } from './use-session-groups';

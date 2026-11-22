@@ -29,7 +29,7 @@ export function ChainStepTrigger({
         {trailing}
         <CaretRightIcon
           className={cn(
-            'text-muted-foreground/40 size-3.5 flex-none',
+            'text-muted-foreground size-3.5 flex-none',
             'transition-transform group-data-[state=open]/step:rotate-90',
           )}
         />

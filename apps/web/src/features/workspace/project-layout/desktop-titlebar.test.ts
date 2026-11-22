@@ -386,13 +386,6 @@ describe('nothing re-hard-codes the band', () => {
     expect(control).toContain('z-50');
   });
 
-  test('the session header takes the band offsets from the shared row class', () => {
-    expect(sessionHeader).toContain('kx-titlebar-row');
-    expect(sessionHeader).toContain('pt-[var(--kx-titlebar-control-top)]');
-    expect(sessionHeader).not.toContain('ml-[96px]');
-    expect(sessionHeader).not.toContain('pt-[12px]');
-  });
-
   // The row class carries BOTH indents, and they have different triggers. The
   // left one is gated on `data-sidebar-collapsed` (an expanded sidebar covers
   // the macOS lights itself); the right one must not be, because this column's

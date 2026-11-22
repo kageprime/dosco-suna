@@ -266,7 +266,7 @@ function StepFigure({
         ) : (
           <div className="border-border/60 bg-muted/30 text-muted-foreground flex aspect-video w-full flex-col items-center justify-center gap-1 rounded-md border border-dashed px-4 text-center text-xs">
             <span className="font-medium">{tI18nComplete.raw('textefff9994c52b')}</span>
-            <span className="text-muted-foreground/80">{alt}</span>
+            <span className="text-muted-foreground">{alt}</span>
           </div>
         )
       ) : (
@@ -356,7 +356,7 @@ function ClaimsTable({
               </Button>
             </span>
             <span className="flex min-w-0 items-center gap-1.5">
-              <ArrowRight className="text-muted-foreground/60 size-3 shrink-0" />
+              <ArrowRight className="text-muted-foreground size-3 shrink-0" />
               <code className="text-foreground truncate font-mono text-xs">{row.source}</code>
               <Button
                 variant="ghost"

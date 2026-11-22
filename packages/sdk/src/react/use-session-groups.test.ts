@@ -22,7 +22,7 @@ import {
 // and a refusal puts the server's state back.
 
 function group(id: string, position: number): ProjectSessionGroup {
-  return { group_id: id, name: `Store ${id}`, position, created_by: null, created_at: '2026-10-27T00:00:00.000Z', updated_at: '2026-10-27T00:00:00.000Z' };
+  return { group_id: id, name: `Store ${id}`, description: null, position, created_by: null, created_at: '2026-10-27T00:00:00.000Z', updated_at: '2026-10-27T00:00:00.000Z' };
 }
 function row(sessionId: string, groupId: string | null = null): ProjectSession {
   return { session_id: sessionId, group_id: groupId } as ProjectSession;

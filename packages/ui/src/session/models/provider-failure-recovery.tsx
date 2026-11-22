@@ -43,14 +43,14 @@ export function ProviderFailureRecovery({
               <p className="text-muted-foreground mb-1 text-xs font-medium">
                 {t('attachments', { count: attachmentNames.length })}
               </p>
-              <ul className="text-muted-foreground/70 space-y-0.5 text-xs">
+              <ul className="text-muted-foreground space-y-0.5 text-xs">
                 {attachmentNames.map((name, index) => (
                   <li key={`${name}-${index}`} className="break-all">
                     {name}
                   </li>
                 ))}
               </ul>
-              <p className="text-muted-foreground/70 mt-1 text-xs">{t('reattach')}</p>
+              <p className="text-muted-foreground mt-1 text-xs">{t('reattach')}</p>
             </div>
           ) : null}
         </div>

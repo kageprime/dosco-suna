@@ -238,7 +238,7 @@ describe('message rows (a channel thread panel)', () => {
     const prompt = html.indexOf('spawned prompt');
     const row = html.lastIndexOf('data-slot="message-row"', prompt);
     const header = html.slice(row, prompt);
-    expect(header).toContain('Research-Bot');
+    expect(header).toContain('Research bot');
     expect(header).not.toContain('Thread Owner');
   });
 });

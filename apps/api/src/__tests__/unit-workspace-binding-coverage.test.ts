@@ -113,6 +113,9 @@ describe('the fence decides each credential × route class', () => {
     ['GET', '/v1/chrome/connections', sessionPat, true],
     ['GET', '/v1/chrome/connections', projectPat, 'platform-route'],
     ['DELETE', '/v1/chrome/connections', sessionPat, 'person-route'],
+    ['POST', '/v1/cli/setup-events', sessionPat, true],
+    ['POST', '/v1/cli/setup-events', projectPat, 'platform-route'],
+    ['POST', '/v1/cli/device/start', sessionPat, 'person-route'],
     // ambient, handler-bound
     ['GET', '/v1/usage/cost-summary', projectPat, true],
     ['GET', '/v1/usage/cost-by-project', projectPat, true],

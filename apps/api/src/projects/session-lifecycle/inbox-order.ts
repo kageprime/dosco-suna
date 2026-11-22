@@ -68,16 +68,18 @@ export function inboxOrderBy() {
   ] as const;
 }
 
-/** Rows that precede `row` in the exact tuple used by {@link inboxOrderBy}. */
-export function inboxPrecedesRow(row: InboxOrderRow) {
+function inboxOrderTupleSql(comparator: '<' | '>', row: InboxOrderRow) {
   const wireMessageId = (row.payload as { wireMessageId?: unknown } | null)?.wireMessageId;
   return sql`(${inboxSentAtSql}, ${inboxWireIdSql}, ${sessionLifecycleCommands.commandId})
-    < (${inboxSendOrderMs(row)}::bigint, ${typeof wireMessageId === 'string' ? wireMessageId : ''}::text COLLATE "C", ${row.commandId}::uuid)`;
+    ${sql.raw(comparator)} (${inboxSendOrderMs(row)}::bigint, ${typeof wireMessageId === 'string' ? wireMessageId : ''}::text COLLATE "C", ${row.commandId}::uuid)`;
+}
+
+/** Rows that precede `row` in the exact tuple used by {@link inboxOrderBy}. */
+export function inboxPrecedesRow(row: InboxOrderRow) {
+  return inboxOrderTupleSql('<', row);
 }
 
 /** Rows that follow `row` in the exact tuple used by {@link inboxOrderBy}. */
 export function inboxFollowsRow(row: InboxOrderRow) {
-  const wireMessageId = (row.payload as { wireMessageId?: unknown } | null)?.wireMessageId;
-  return sql`(${inboxSentAtSql}, ${inboxWireIdSql}, ${sessionLifecycleCommands.commandId})
-    > (${inboxSendOrderMs(row)}::bigint, ${typeof wireMessageId === 'string' ? wireMessageId : ''}::text COLLATE "C", ${row.commandId}::uuid)`;
+  return inboxOrderTupleSql('>', row);
 }

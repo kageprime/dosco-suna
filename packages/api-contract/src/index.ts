@@ -60,7 +60,6 @@ export type OkResponse = z.infer<typeof OkResponseSchema>;
  * Code-level names are the FeatureFlag* family.
  */
 export const FeatureFlagMapSchema = z.object({
-  marketplace: z.boolean(),
   reminders: z.boolean(),
   secrets_egress: z.boolean(),
   us_region: z.boolean(),
@@ -1077,6 +1076,15 @@ export const SessionCreateInputSchema = z
      * the flag off; a session in no space is not a thread.
      */
     space_id: z.string().uuid().nullable().optional(),
+    /**
+     * The space (session group, product word "Space") a person's own
+     * top-level session is filed in. Read only while the project's
+     * `session_groups` flag is on. Absent: a fork keeps its source's space,
+     * anything else is in none. A session another session starts is never
+     * filed; it belongs to its parent's space. An unknown id: 404
+     * `group_not_found`.
+     */
+    group_id: z.string().uuid().nullable().optional(),
     session_id: z
       .string()
       .regex(
@@ -1660,24 +1668,82 @@ export const SpaceLinkCreateInputSchema = z
 export type SpaceLinkCreateInput = z.infer<typeof SpaceLinkCreateInputSchema>;
 
 /**
- * A session group: a named folder of the project's sessions in the sidebar
- * (`/projects/:id/session-groups`, behind the `session_groups` flag). Every
- * project member sees the same groups in the same order. A session is in at
- * most one group (`ProjectSession.group_id`).
+ * A session group (product word "Space"): a named folder of the project's
+ * sessions (`/projects/:id/session-groups`, behind the `session_groups` flag).
+ * Every project member sees the same groups in the same order. A session is
+ * in at most one group (`ProjectSession.group_id`). Every session of a group
+ * is told the group's name and description at turn start, and mounts the
+ * group's Files folder.
  */
 export const SESSION_GROUP_NAME_MAX = 80;
+/** The longest group description. */
+export const SESSION_GROUP_DESCRIPTION_MAX = 2000;
+/** Who sees a group: its creator and members (`private`, the default) or the whole project. */
+export const SESSION_GROUP_VISIBILITIES = ['private', 'project'] as const;
+/** The most people one group is shared with by name. */
+export const SESSION_GROUP_MEMBERS_MAX = 200;
 /** The most groups one project may have. */
 export const SESSION_GROUPS_MAX = 50;
+
+/**
+ * A space's icon: an emoji XOR a glyph from the project glyph catalogue
+ * (`@kortix/shared` `PROJECT_GLYPH_GROUPS`, a preset colour or `#rrggbb`).
+ * The API refuses anything else with 400 `invalid_icon`.
+ */
+export const SessionGroupIconSchema = z.union([
+  z.object({ emoji: z.string().min(1).max(64) }).strict(),
+  z.object({ glyph: z.object({ name: z.string().min(1).max(64), color: z.string().min(1).max(16) }).strict() }).strict(),
+]);
+export type SessionGroupIcon = z.infer<typeof SessionGroupIconSchema>;
+
+/** One person who sees a private group: its creator or a member, with their profile. */
+export const SessionGroupPersonSchema = z
+  .object({
+    user_id: z.string(),
+    /** The profile's display name; null when they set none. */
+    name: z.string().nullable(),
+    email: z.string().nullable(),
+    avatar_url: z.string().nullable(),
+    /** The group's creator. */
+    is_creator: z.boolean(),
+    /** Their role in the workspace; null when they are no longer in it. */
+    workspace_role: z.enum(['owner', 'admin', 'member']).nullable(),
+    /** When they were added to the group; null for its creator. */
+    added_at: z.string().nullable(),
+  })
+  .strict();
+export type SessionGroupPerson = z.infer<typeof SessionGroupPersonSchema>;
 
 export const SessionGroupSchema = z
   .object({
     group_id: z.string(),
     name: z.string(),
+    /** What the group is for; null when none was given. */
+    description: z.string().nullable(),
+    /** The group's icon. Null on a group created before icons: clients draw `suggestSpaceIcon(name)`. */
+    icon: SessionGroupIconSchema.nullable(),
+    /**
+     * `private`: its creator and `member_ids` see it and every session in it.
+     * `project`: everyone in the project does. New groups are `private`.
+     */
+    visibility: z.enum(SESSION_GROUP_VISIBILITIES),
+    /** The people a `private` group is shared with (its creator not listed). */
+    member_ids: z.array(z.string()),
+    /** Its creator, then `member_ids`, each with a profile: every viewer of the group can read it. */
+    people: z.array(SessionGroupPersonSchema),
+    /** The tabs after Sessions, in order: a channel's tab shape (`SpaceTabSchema`). */
+    tabs: z.array(SpaceTabSchema),
+    /** The caller may change its sharing and delete it: its creator, or an owner or admin under account session oversight. */
+    can_manage: z.boolean(),
     /** 0-based place in the project's order; the list is sorted by it. */
     position: z.number().int().nonnegative(),
     created_by: z.string().nullable(),
     created_at: z.string(),
     updated_at: z.string(),
+    /** List only: the group's top-level sessions the caller can open (soft-deleted ones excluded). */
+    session_count: z.number().int().nonnegative().optional(),
+    /** List only: when the newest of those sessions last changed; null with none. */
+    last_activity_at: z.string().nullable().optional(),
   })
   .strict();
 export type SessionGroup = z.infer<typeof SessionGroupSchema>;
@@ -1686,12 +1752,34 @@ export const SessionGroupListSchema = z.object({ groups: z.array(SessionGroupSch
 export type SessionGroupList = z.infer<typeof SessionGroupListSchema>;
 
 const SessionGroupNameSchema = z.string().trim().min(1).max(SESSION_GROUP_NAME_MAX);
+/** Trimmed; empty or null clears it. */
+const SessionGroupDescriptionSchema = z.string().trim().max(SESSION_GROUP_DESCRIPTION_MAX).nullable();
 
-/** A new group goes last in the order. A name another group of the project has (any case) is refused. */
-export const SessionGroupCreateInputSchema = z.object({ name: SessionGroupNameSchema }).strict();
+/**
+ * A new group goes last in the order. A name another group of the project has (any case) is refused.
+ * Without `icon`, the group gets the icon `suggestSpaceIcon(name)` gives.
+ */
+export const SessionGroupCreateInputSchema = z
+  .object({
+    name: SessionGroupNameSchema,
+    description: SessionGroupDescriptionSchema.optional(),
+    icon: SessionGroupIconSchema.optional(),
+  })
+  .strict();
 export type SessionGroupCreateInput = z.infer<typeof SessionGroupCreateInputSchema>;
 
-export const SessionGroupUpdateInputSchema = z.object({ name: SessionGroupNameSchema }).strict();
+/** Rename a group, change its description, change its icon, or any of them. `icon: null` takes the icon off. */
+export const SessionGroupUpdateInputSchema = z
+  .object({
+    name: SessionGroupNameSchema.optional(),
+    description: SessionGroupDescriptionSchema.optional(),
+    icon: SessionGroupIconSchema.nullable().optional(),
+  })
+  .strict()
+  .refine(
+    (input) => input.name !== undefined || input.description !== undefined || input.icon !== undefined,
+    'Give name, description, icon, or any of them',
+  );
 export type SessionGroupUpdateInput = z.infer<typeof SessionGroupUpdateInputSchema>;
 
 /** The project's groups in their new order: every group id, each once. */
@@ -1706,6 +1794,25 @@ export const SessionGroupOrderInputSchema = z
 export type SessionGroupOrderInput = z.infer<typeof SessionGroupOrderInputSchema>;
 
 /** File a session into a group of its project, or take it out of its group (`null`). */
+/**
+ * `PUT /projects/:id/session-groups/:groupId/sharing`: who sees the group,
+ * replacing what was there. `private` with no `member_ids` is "Only me";
+ * `private` with ids is "Specific people"; `project` is "Everyone in this
+ * workspace" (ids are then ignored and cleared). Its creator and owners or
+ * admins under account session oversight only (`can_manage`).
+ */
+export const SessionGroupSharingInputSchema = z
+  .object({
+    visibility: z.enum(SESSION_GROUP_VISIBILITIES),
+    member_ids: z
+      .array(z.string().uuid())
+      .max(SESSION_GROUP_MEMBERS_MAX)
+      .refine((ids) => new Set(ids).size === ids.length, 'member_ids must name each person once')
+      .default([]),
+  })
+  .strict();
+export type SessionGroupSharingInput = z.infer<typeof SessionGroupSharingInputSchema>;
+
 export const SessionGroupAssignInputSchema = z.object({ group_id: z.string().uuid().nullable() }).strict();
 export type SessionGroupAssignInput = z.infer<typeof SessionGroupAssignInputSchema>;
 
@@ -2016,6 +2123,7 @@ export const TriggerFilterValueSchema = z.union([z.string(), TriggerFilterCondit
 export type TriggerFilterValue = z.infer<typeof TriggerFilterValueSchema>;
 
 export const TriggerSchema = z.object({
+  session_readers: z.object({ humans: z.enum(['none', 'members']), agents: z.array(z.string()) }).optional(),
   slug: z.string(),
   path: z.string(),
   name: z.string(),
@@ -2094,6 +2202,7 @@ export const TriggerSchema = z.object({
    * Runs the trigger may start in any 60 minutes. Null when unset: the default,
    * 60, applies. A fire past it is a skipped run with reason `throttled: …`.
    */
+  hard_run_caps: z.boolean().optional(),
   max_runs_per_hour: z.number().int().nullable().optional(),
   /** Runs the trigger may start in a UTC day. Null when unset: no daily cap. */
   max_runs_per_day: z.number().int().nullable().optional(),

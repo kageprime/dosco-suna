@@ -79,7 +79,7 @@ export function manifestPath(cwd: string = process.cwd()): string {
 
 /**
  * Parse the local manifest (kortix.yaml or kortix.yml). Returns null when
- * there's no manifest (a project may be `.kortix/`-only). Throws the parser's
+ * there's no manifest. Throws the parser's
  * syntax error — callers surface that as the "does it compile" failure.
  */
 export function loadLocalManifest(cwd: string = process.cwd()): LocalManifest | null {

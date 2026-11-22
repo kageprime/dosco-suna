@@ -77,7 +77,7 @@ function ringFor(tier: PlanTier, isDark: boolean): Ring {
       // Dark: s 55 · 45 · 60 · 45 · 50, L 82 · 52 · 92 · 44 · 72.
       // Light: darker and a touch richer so it clears the 95.7% drawer —
       // s 50 · 45 · 55 · 45 · 48, L 66 · 38 · 82 · 32 · 56.
-      const h = hueOf(THEME.accent.yellow);
+      const h = hueOf(THEME.accent[isDark ? 'dark' : 'light'].yellow);
       const [sat, l] = isDark
         ? [[55, 45, 60, 45, 50], [82, 52, 92, 44, 72]]
         : [[50, 45, 55, 45, 48], [66, 38, 82, 32, 56]];

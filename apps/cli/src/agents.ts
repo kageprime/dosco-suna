@@ -66,7 +66,7 @@ export interface WireAgentsInput {
   /**
    * The skills `kortix.yaml` registers: name → path from the repository root.
    * When the root has no `skills/` folder, each one is linked on its own, so a
-   * skill under `.kortix/` reaches the local tools too.
+   * skill in another folder reaches the local tools too.
    */
   skills?: Record<string, string>;
   /** The repository had an `AGENTS.md` of its own: keep it and add a Kortix section. */

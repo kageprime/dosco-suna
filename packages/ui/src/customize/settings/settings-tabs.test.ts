@@ -238,10 +238,6 @@ describe('legacySectionRedirect', () => {
     }
   });
 
-  test('marketplace redirects to the Customize index — the product removed it, it did not move', () => {
-    expect(legacySectionRedirect('p1', 'marketplace')).toBe('/workspaces/p1/customize');
-  });
-
   test('graduated capability pages still leave the overlay', () => {
     expect(legacySectionRedirect('p1', 'skills')).toBe('/workspaces/p1/admin/skills');
     expect(legacySectionRedirect('p1', 'agents')).toBe('/workspaces/p1/admin/agents');

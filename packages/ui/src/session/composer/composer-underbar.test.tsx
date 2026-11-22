@@ -378,8 +378,8 @@ describe('ComposerUnderbar — host config (white-label hosts)', () => {
   test('offeredAgents narrows the picker and agentLabels names the agent', () => {
     const html = hosted({ offeredAgents: ['lumen-counsel'], agentLabels: { 'lumen-counsel': 'Counsel' } }, null);
     expect(html).toContain('Counsel');
-    expect(html).not.toContain('Lumen-Counsel');
+    expect(html).not.toContain('Lumen counsel');
     expect(html).not.toContain('Kortix');
-    expect(hosted({}, 'lumen-counsel')).toContain('Lumen-Counsel');
+    expect(hosted({}, 'lumen-counsel')).toContain('Lumen counsel');
   });
 });

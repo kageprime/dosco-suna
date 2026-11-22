@@ -94,6 +94,14 @@ export const RETIRED_ROUTES: ReadonlyArray<readonly [method: string, path: strin
   ...['seed', 'updates', 'lease', 'flushed', 'reset'].map(
     (step) => ['POST', `/v1/projects/:workspaceId/artifacts/:artifactId/doc/${step}`] as const,
   ),
+  // The marketplace (removed 2026-11-20): the catalog browse, its sources and
+  // the agent install. 11 installs in the 90 days before. CLIs in older
+  // sandbox images still list `kortix marketplace`, and published SDKs keep
+  // the deprecated `kortix.marketplace.*` calls: both get this 410.
+  ['ALL', '/v1/marketplace'],
+  ['ALL', '/v1/marketplace/*'],
+  ['POST', '/v1/projects/:workspaceId/marketplace/install-session'],
+  ['POST', '/v1/workspaces/:workspaceId/marketplace/install-session'],
 ];
 
 function gone(c: Context) {

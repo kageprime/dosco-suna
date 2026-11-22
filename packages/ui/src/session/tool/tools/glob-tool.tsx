@@ -97,7 +97,7 @@ export function GlobTool({ call, defaultOpen, forceOpen, locked }: ToolProps) {
             {triggerLabel}
           </span>
           {triggerBadge && (
-            <span className="text-muted-foreground/70 ml-auto shrink-0 text-sm whitespace-nowrap">
+            <span className="text-muted-foreground ml-auto shrink-0 text-sm whitespace-nowrap">
               {triggerBadge}
             </span>
           )}

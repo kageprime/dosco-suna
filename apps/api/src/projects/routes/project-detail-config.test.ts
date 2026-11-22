@@ -129,6 +129,8 @@ mock.module('../lib/access', () => ({
 
 mock.module('../config-summary/service', () => ({
   savedProjectConfig: async () => savedSummary,
+  // projects/surface.ts re-exports it; a mock without it fails the import.
+  scheduleConfigSummary: () => {},
 }));
 
 mock.module('../lib/git', () => ({

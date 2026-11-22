@@ -13,6 +13,7 @@
  */
 
 import { Menu as MenuPrimitive } from '@base-ui/react/menu';
+import { Checkbox } from './checkbox';
 import { CheckIcon as Check, CaretRightIcon as ChevronRight } from '@phosphor-icons/react';
 import * as React from 'react';
 
@@ -263,6 +264,11 @@ export type MenuCheckboxItemProps = Omit<RowBaseProps, 'onChange'> & {
   onCheckedChange?: (checked: boolean) => void;
   reverse?: boolean;
   size?: MenuRowSize;
+  /**
+   * `check` (default): a check on picked rows only. `checkbox`: a box on every
+   * row, ticked when picked, for a list where several can be on at once.
+   */
+  indicator?: 'check' | 'checkbox';
 };
 
 export function makeMenuCheckboxItem(slotName?: string) {
@@ -276,6 +282,7 @@ export function makeMenuCheckboxItem(slotName?: string) {
         onCheckedChange,
         reverse,
         size = 'sm',
+        indicator = 'check',
         disabled,
         textValue,
         onSelect,
@@ -308,9 +315,20 @@ export function makeMenuCheckboxItem(slotName?: string) {
           )}
         >
           <span className={cn(MENU_INDICATOR, 'absolute', reverse ? 'right-2' : 'left-2')}>
-            <MenuPrimitive.CheckboxItemIndicator>
-              <Check className={MENU_INDICATOR_ICON} />
-            </MenuPrimitive.CheckboxItemIndicator>
+            {indicator === 'checkbox' ? (
+              // Drawn, not a second control: the row is the checkbox (role, keyboard, click).
+              <Checkbox
+                checked={checked ?? false}
+                tabIndex={-1}
+                aria-hidden
+                // Fills the 15px indicator slot: the form checkbox is 18px.
+                className="pointer-events-none size-4 rounded-[calc(var(--radius)-6px)] [&_svg]:size-3"
+              />
+            ) : (
+              <MenuPrimitive.CheckboxItemIndicator>
+                <Check className={MENU_INDICATOR_ICON} />
+              </MenuPrimitive.CheckboxItemIndicator>
+            )}
           </span>
           {children}
         </MenuPrimitive.CheckboxItem>

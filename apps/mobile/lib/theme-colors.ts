@@ -11,13 +11,11 @@
 // 73 `getSheetBg(isDark)` calls on gorhom BottomSheetModal
 // `backgroundStyle`, and 352 `theme.primary` / `theme.accent` reads
 // elsewhere — and a `className` cannot reach those props. Every value
-// exported below is derived from THEME (or from `@/lib/ui/accent`, which
-// is separately hex-free: `KORTIX_BLUE_HSL` matches `--kortix-blue`). This
+// exported below is derived from THEME. This
 // file is deleted once milestones M4/M5 convert those 70 consumers from
 // inline style props to className styling — at that point THEME +
 // Tailwind classes are the only color path left.
 import { useColorScheme } from 'nativewind';
-import { accentColor, accentSoft } from '@/lib/ui/accent';
 import { THEME, withAlpha } from '@/lib/utils/theme';
 
 // Re-exported for this file's existing internal/external callers. The
@@ -30,9 +28,6 @@ interface ThemeColors {
   primary: string;
   primaryForeground: string;
   primaryLight: string;
-  /** Single interactive accent (kortix-blue). */
-  accent: string;
-  accentSoft: string;
 }
 
 // `primary`/`primaryForeground` used to be a literal near-black-on-near-white
@@ -48,12 +43,12 @@ interface ThemeColors {
 //     (NOT THEME.dark.primary, L=89.8%, delta 7.5pp — that would visibly
 //     dim white text/icons to light gray.)
 //   dark  primaryFg  old L≈7.7%  -> THEME.dark.primaryForeground   (L=9%,   delta 1.3pp)
-const LIGHT: Omit<ThemeColors, 'accent' | 'accentSoft'> = {
+const LIGHT: ThemeColors = {
   primary: THEME.light.primary,
   primaryForeground: THEME.light.primaryForeground,
   primaryLight: withAlpha(THEME.light.primary, 0.08),
 };
-const DARK: Omit<ThemeColors, 'accent' | 'accentSoft'> = {
+const DARK: ThemeColors = {
   primary: THEME.dark.foreground,
   primaryForeground: THEME.dark.primaryForeground,
   primaryLight: withAlpha(THEME.dark.foreground, 0.08),
@@ -61,9 +56,7 @@ const DARK: Omit<ThemeColors, 'accent' | 'accentSoft'> = {
 
 export function useThemeColors(): ThemeColors {
   const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const base = isDark ? DARK : LIGHT;
-  return { ...base, accent: accentColor(), accentSoft: accentSoft(isDark) };
+  return colorScheme === 'dark' ? DARK : LIGHT;
 }
 
 /**

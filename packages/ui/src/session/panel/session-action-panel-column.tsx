@@ -45,6 +45,7 @@ import { ActionPanel } from './action-panel';
 import { useOptionalSessionPanel } from './session-panel-provider';
 import { useIsMobile } from '../../internal/hooks';
 import { cn } from '../../lib/utils';
+import { useTranslations } from '../../i18n';
 import { RESIZE_SEAM_CLASS } from '../../primitives/resize-seam';
 import {
   useIsActionPanelOpen,
@@ -252,6 +253,7 @@ export function SessionActionPanelColumn({
 }: {
   hotkey?: boolean;
 } = {}) {
+  const t = useTranslations('sessionUi.panel');
   const panel = useOptionalSessionPanel();
   const isMobile = useIsMobile();
   const isOpen = useIsActionPanelOpen();
@@ -328,7 +330,7 @@ export function SessionActionPanelColumn({
         <div
           role="separator"
           aria-orientation="vertical"
-          aria-label="Resize pane"
+          aria-label={t('resizePane')}
           // Approximate under the half-row cap: these report the stored
           // width and the fixed bounds, while the screen may show less.
           aria-valuemin={ACTION_PANEL_MIN_WIDTH}

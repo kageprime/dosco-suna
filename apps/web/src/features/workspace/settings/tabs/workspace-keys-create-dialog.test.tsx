@@ -4,12 +4,14 @@
  * dialog there minted a WORKSPACE-bound key while reading "Acts as: You" —
  * and every other workspace refused it, so the first CLI setup failed.
  *
- * The dialog now asks where the key works, and "All my workspaces" — a
- * personal key, the same credential `kortix login` mints — is the default:
+ * The dialog now asks where the key works. Since #12750 the default is
+ * "Only this workspace": a key made on a workspace's API keys page works only
+ * there and lists on that page.
  *
- *   - the default mint goes to `createAccountToken` (no `project_id`: the
- *     key acts as the person in every workspace of theirs);
- *   - "Only this workspace" keeps the workspace key (`createWorkspaceKey`).
+ *   - the default mint goes to `createWorkspaceKey`;
+ *   - "All my workspaces" mints a personal key, the same credential
+ *     `kortix login` mints (`createAccountToken`, no `project_id`: the key
+ *     acts as the person in every workspace of theirs).
  *
  * The Radix Select is mocked as a native <select> so the test can drive
  * `onValueChange` the way the browser does.
@@ -180,67 +182,10 @@ beforeEach(() => {
 });
 
 describe('CreateWorkspaceKeyDialog — where a key works (KRTX-4787)', () => {
-  test('the default mint is a personal key: it acts in every workspace of the person', async () => {
+  test('the default mint is a workspace key: it works only in this workspace (#12750)', async () => {
     const root = await openCreateDialog();
     try {
       await fillAndSubmit(root);
-      expect(personalMints).toHaveLength(1);
-      expect(personalMints[0]?.name).toBe('setup-key');
-      expect(personalMints[0]?.accountId).toBe(ACCOUNT);
-      // No `project_id`: the key is bound to no workspace.
-      expect(personalMints[0]?.projectId).toBeUndefined();
-      expect(workspaceMints).toEqual([]);
-    } finally {
-      await act(async () => root.unmount());
-    }
-  });
-
-  test('a stale Custom access (zero picks) left by "Only this workspace" does not block the personal mint', async () => {
-    const root = await openCreateDialog();
-    try {
-      const selectByValue = (value: string) => {
-        const select = root.root.findAllByType('select').find((node) => node.props.value === value);
-        if (!select) throw new Error(`no select offering "${value}"`);
-        return select;
-      };
-      // Works in → "Only this workspace": the Access select appears.
-      await act(async () => {
-        selectByValue('all').props.onChange({ target: { value: 'workspace' } });
-      });
-      // Access → Custom, pick nothing: Create is disabled, the cause is visible.
-      await act(async () => {
-        selectByValue('full').props.onChange({ target: { value: 'custom' } });
-      });
-      // Works in → back to "All my workspaces": the Access select hides. The
-      // leftover Custom-with-zero-picks must not keep Create disabled — the
-      // control that would clear it is gone from the page.
-      await act(async () => {
-        selectByValue('workspace').props.onChange({ target: { value: 'all' } });
-      });
-      const input = root.root.findByProps({ id: 'workspace-key-name' });
-      await act(async () => {
-        input.props.onChange({ target: { value: 'setup-key' } });
-      });
-      const submit = root.root.findByProps({ type: 'submit' });
-      expect(submit.props.disabled).toBe(false);
-      const form = root.root.findByType('form');
-      await act(async () => {
-        form.props.onSubmit({ preventDefault() {} });
-      });
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 20));
-      });
-      expect(personalMints).toHaveLength(1);
-      expect(workspaceMints).toEqual([]);
-    } finally {
-      await act(async () => root.unmount());
-    }
-  });
-
-  test('"Only this workspace" still mints a workspace key', async () => {
-    const root = await openCreateDialog();
-    try {
-      await fillAndSubmit(root, 'workspace');
       expect(workspaceMints).toHaveLength(1);
       expect(workspaceMints[0]?.workspaceId).toBe(WORKSPACE);
       expect(workspaceMints[0]?.name).toBe('setup-key');
@@ -271,6 +216,9 @@ describe('CreateWorkspaceKeyDialog — where a key works (KRTX-4787)', () => {
       await fillAndSubmit(root, 'all');
       // The personal path minted despite access === custom with 0 picked.
       expect(personalMints).toHaveLength(1);
+      expect(personalMints[0]?.name).toBe('setup-key');
+      expect(personalMints[0]?.accountId).toBe(ACCOUNT);
+      // No `project_id`: the key is bound to no workspace.
       expect(personalMints[0]?.projectId).toBeUndefined();
       expect(workspaceMints).toEqual([]);
     } finally {

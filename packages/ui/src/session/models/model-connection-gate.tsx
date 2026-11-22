@@ -7,8 +7,8 @@ import { useContext, useState, type ReactNode } from 'react';
 import { useTranslations } from '../../i18n';
 
 import { Button } from '../../primitives/button';
-import { ModelConnectionLayoutContext } from './model-connection-layout';
-import { ConnectPlanRows } from './subscription-offer';
+import { ModelConnectionLayoutContext, SubscriptionOfferContext } from './model-connection-layout';
+import { ConnectPlanRows, SubscriptionOffer } from './subscription-offer';
 import { useModelConnectionGate } from './use-model-connection-gate';
 
 // Enter waits a beat (delay) so the composer paints first, then the bar slides
@@ -30,14 +30,25 @@ const BAR_EXIT = { type: 'spring', duration: 0.35, bounce: 0 } as const;
  * click away in the model picker and the provider dialog.
  *
  * `show` must only flip on settled data (see `entitlementsPending`).
+ *
+ * On project home (`SubscriptionOfferContext`) the bar also owns the optional
+ * `SubscriptionOffer`, in the same slot, when the composer has a model. One
+ * owner, one decision: the composer's selection. The page's `/model-picker`
+ * read can disagree with it, and then both sets of rows rendered.
  */
 export function ModelConnectionBar({ show }: { show: boolean }) {
   const above = useContext(ModelConnectionLayoutContext) === 'above';
-  return show ? (
-    <div className={above ? 'mb-4 flex flex-col gap-2' : 'mt-4 flex flex-col gap-1'}>
-      <NoModelReason />
-      <ConnectPlanRows dismissible={false} />
-    </div>
+  const offerProjectId = useContext(SubscriptionOfferContext);
+  if (show) {
+    return (
+      <div className={above ? 'mb-4 flex flex-col gap-2' : 'mt-4 flex flex-col gap-1'}>
+        <NoModelReason />
+        <ConnectPlanRows dismissible={false} />
+      </div>
+    );
+  }
+  return offerProjectId ? (
+    <SubscriptionOffer projectId={offerProjectId} className={above ? 'mb-4' : 'mt-4'} />
   ) : null;
 }
 

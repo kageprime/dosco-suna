@@ -158,4 +158,35 @@ describe('createSubmitLatch', () => {
     d.settle(2);
     await third;
   });
+
+  test('a refused submit mid-send captures nothing: the draft stays put', async () => {
+    // A Drive file still downloading (KRTX-4223): the stash would clear the editor and drop its chip.
+    const d = controlledDispatch();
+    let captures = 0;
+    let pending = false;
+    const submit = createSubmitLatch(
+      d.dispatch,
+      () => `draft-${++captures}`,
+      () => pending,
+    );
+    const first = submit();
+    pending = true;
+    void submit();
+    expect(captures).toBe(0);
+    expect(d.calls()).toBe(1);
+    pending = false; // the download landed: the same Enter now stashes and sends
+    void submit();
+    expect(captures).toBe(1);
+    expect(d.args()[1]).toBe('draft-1');
+    d.settle(0);
+    d.settle(1);
+    await first;
+  });
+
+  test('a refused submit while idle dispatches nothing', async () => {
+    const d = controlledDispatch();
+    const submit = createSubmitLatch(d.dispatch, () => true, () => true);
+    void submit();
+    expect(d.calls()).toBe(0);
+  });
 });

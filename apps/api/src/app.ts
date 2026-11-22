@@ -47,7 +47,6 @@ import { edgeApp } from './edge/tls-check';
 // `app` before it settles.
 import { gitProxyApp } from './git-proxy';
 import { mountLlmGateway } from './llm-gateway/wire';
-import { marketplaceApp } from './marketplace';
 import { createMcpApp } from './mcp';
 import { oauthApp } from './oauth';
 import { opsApp } from './ops';
@@ -117,6 +116,8 @@ import { createCaptureRouter } from './capture/device-routes';
 app.route('/v1/capture', createCaptureRouter());
 import { createCliDeviceRouter } from './cli/device-routes';
 app.route('/v1/cli/device', createCliDeviceRouter());
+import { createCliSetupEventsApp } from './cli/setup-events';
+app.route('/v1/cli/setup-events', createCliSetupEventsApp()); // POST: guided-setup milestones from the CLI, to product analytics
 
 // /v1/accounts/* — account & member management lives in ./accounts router.
 // Permanent legacy name: the workspace-scoped families are also served under
@@ -258,7 +259,6 @@ app.route('/v1/sessions', sessionsApp); // GET /v1/sessions/:sessionId — one s
 // falls back to app.fetch), so the mount binds it here instead of importing
 // the app back — that would cycle app.ts and inbound-dispatch.ts.
 app.route('/v1/mcp', createMcpApp((req) => dispatchInProcess(req, app)));
-app.route('/v1/marketplace', marketplaceApp); // /v1/marketplace — browse the registry catalog
 
 // /v1/skills — the kortix-managed system skills (how Kortix itself works), served
 // straight out of @kortix/starter so the text always matches this deploy. This is

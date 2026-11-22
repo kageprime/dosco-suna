@@ -43,13 +43,6 @@ const ME = {
 let tmp: string;
 let server: ReturnType<typeof Bun.serve> | null = null;
 let apiBase = '';
-/** The POST …/marketplace/install-session answer the recorder serves. */
-let installSession: { status: number; body: unknown } = {
-  status: 201,
-  body: { session_id: 'session-install' },
-};
-/** When non-200, GET …/turn answers with this status (a mid-poll failure). */
-let turnStatus = 200;
 
 function writeConfig(): string {
   const path = join(tmp, 'config.json');
@@ -121,22 +114,13 @@ beforeAll(() => {
     fetch: async (req) => {
       const { pathname } = new URL(req.url);
       if (pathname.endsWith('/me')) return Response.json(ME);
-      if (pathname.endsWith('/marketplace/install-session')) {
-        if (req.method !== 'POST')
-          return Response.json({ error: 'method not allowed' }, { status: 405 });
-        return Response.json(installSession.body, { status: installSession.status });
-      }
       if (pathname.endsWith('/turn')) {
-        if (turnStatus !== 200)
-          return Response.json({ error: 'turn exploded' }, { status: turnStatus });
         return Response.json({
           turns: [],
           last_ended: { turn_token: 'turn-help', end_reason: 'completed', error: null },
         });
       }
       if (pathname.endsWith('/prompts')) return Response.json({ prompts: [] });
-      if (pathname.endsWith('/sessions/session-install'))
-        return Response.json({ status: 'running', error: null });
       return Response.json({ error: 'not recorded' }, { status: 404 });
     },
   });
@@ -254,72 +238,6 @@ describe('KRTX-1802: `kortix token --help`', () => {
     expect(r.code).toBe(0);
     expect(r.stdout).toContain('workspace token');
     expect(r.stdout).toContain(ME.token_context.project_id);
-  });
-});
-
-describe('KRTX-2075: marketplace install error hint', () => {
-  test('a 400 before any session exists names the cause without the session hint', async () => {
-    installSession = { status: 400, body: { error: 'Unknown item "test:pdf"' } };
-    try {
-      const r = await runCli([
-        'marketplace',
-        'install',
-        'test:pdf',
-        '--project',
-        'project-test',
-        '--json',
-      ]);
-      expect(r.code).toBe(1);
-      expect(r.stderr).toContain('Unknown item "test:pdf"');
-      expect(r.stderr).not.toContain('Inspect the session');
-    } finally {
-      installSession = { status: 201, body: { session_id: 'session-install' } };
-    }
-  });
-
-  test('a 402 plan gate names the plan cause without the session hint', async () => {
-    installSession = {
-      status: 402,
-      body: {
-        error:
-          'Marketplace installs run an agent import that needs a model. This plan does not include managed models.',
-        code: 'no_servable_model',
-      },
-    };
-    try {
-      const r = await runCli([
-        'marketplace',
-        'install',
-        'test:pdf',
-        '--project',
-        'project-test',
-        '--json',
-      ]);
-      expect(r.code).toBe(1);
-      expect(r.stderr).toContain('plan does not include managed models');
-      expect(r.stderr).not.toContain('Inspect the session');
-    } finally {
-      installSession = { status: 201, body: { session_id: 'session-install' } };
-    }
-  });
-
-  test('a failure after the session was created keeps the session hint', async () => {
-    turnStatus = 500;
-    try {
-      const r = await runCli([
-        'marketplace',
-        'install',
-        'test:pdf',
-        '--project',
-        'project-test',
-        '--json',
-      ]);
-      expect(r.code).toBe(1);
-      expect(r.stderr).toContain('in session session-install');
-      expect(r.stderr).toContain('Inspect the session before retrying.');
-    } finally {
-      turnStatus = 200;
-    }
   });
 });
 

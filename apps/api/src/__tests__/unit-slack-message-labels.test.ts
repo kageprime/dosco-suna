@@ -207,3 +207,19 @@ describe('slackUserNames', () => {
     release();
   });
 });
+
+test('empty mentions and absent channel preserve the sender and text', async () => {
+  expect(await slackMessageLabels({ projectId: 'p1', teamId: 'T0TEST', event: event({ channel: undefined, text: '' }) }))
+    .toEqual({ channel: null, user: 'Sam Rivera', text: '' });
+  expect(userLookups).toEqual(['U0TEST1']);
+});
+
+test('multiple mentions retain order, deduplicate lookups, and cap at ten', async () => {
+  const ids = Array.from({ length: 12 }, (_, i) => `U0MULTI${i}`);
+  for (const id of ids) people[id] = `Person ${id}`;
+  const text = [...ids, ids[0]].map((id) => `<@${id}>`).join(' ');
+  const expected = [...ids, ids[0]].map((id) => ids.indexOf(id) < 10 ? `<@${id}|Person ${id}>` : `<@${id}>`).join(' ');
+  expect(await slackMessageLabels({ projectId: 'p1', teamId: 'T0TEST', event: event({ text }) }))
+    .toEqual({ channel: '#general', user: 'Sam Rivera', text: expected });
+  expect(userLookups).toEqual(['U0TEST1', ...ids.slice(0, 10)]);
+});

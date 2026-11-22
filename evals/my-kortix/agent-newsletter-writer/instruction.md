@@ -1,0 +1,1 @@
+Set up an agent for our monthly customer newsletter. It turns the notes I paste into a short, friendly newsletter, and it never makes up numbers or facts that are not in my notes. Call it Newsletter writer. Go ahead and create it.

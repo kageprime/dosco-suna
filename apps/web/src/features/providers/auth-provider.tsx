@@ -9,7 +9,7 @@ import { safeGetItem, safeSetItem } from '@kortix/ui/internal/lib/storage/manage
 import { createClient } from '@/lib/supabase/client';
 import { rememberValidatedUser } from '@/lib/supabase/mfa';
 import { resetClientState } from '@/lib/utils/reset-client-state';
-import { Session, SupabaseClient, User } from '@supabase/supabase-js';
+import { Session, SupabaseClient, User, type UserResponse } from '@supabase/supabase-js';
 import {
   createContext,
   ReactNode,
@@ -37,8 +37,45 @@ const AUTH_BOOTSTRAP_TIMEOUT_MS = 15_000;
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+type InitialSessionRead = {
+  supabase: SupabaseClient;
+  session: ReturnType<SupabaseClient['auth']['getSession']>;
+  /** `getUser()` for that session; null when there is no session. */
+  user: Promise<UserResponse | null>;
+};
+
+let initialSessionRead: InitialSessionRead | null = null;
+let initialSessionReadTaken = false;
+
+/**
+ * Starts the bootstrap's `getSession()` → `getUser()` reads during the first
+ * render, once per document. The bootstrap effect runs only after the page
+ * hydrates, and hydration waits for the i18n catalog (`I18nProvider`).
+ * Started here, the auth round trip runs beside the catalog download instead
+ * of after it.
+ */
+function startInitialSessionRead(supabase: SupabaseClient) {
+  if (typeof window === 'undefined' || initialSessionRead || initialSessionReadTaken) return;
+  const session = supabase.auth.getSession();
+  const user = session.then(({ data }) => (data.session ? supabase.auth.getUser() : null));
+  // The bootstrap awaits both and handles their errors. These handlers only
+  // keep a rejection that lands before it awaits from reading as unhandled.
+  session.catch(() => {});
+  user.catch(() => {});
+  initialSessionRead = { supabase, session, user };
+}
+
+/** The first bootstrap takes the started read, once. Retries read again. */
+function takeInitialSessionRead(supabase: SupabaseClient): InitialSessionRead | null {
+  const read = initialSessionRead?.supabase === supabase ? initialSessionRead : null;
+  initialSessionRead = null;
+  initialSessionReadTaken = true;
+  return read;
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const supabase = useMemo(() => createClient(), []);
+  startInitialSessionRead(supabase);
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -94,10 +131,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const getInitialSession = async () => {
+      const early = bootstrapAttempt === 0 ? takeInitialSessionRead(supabase) : null;
       try {
         const {
           data: { session: currentSession },
-        } = await withAuthBootstrapTimeout(supabase.auth.getSession(), AUTH_BOOTSTRAP_TIMEOUT_MS);
+        } = await withAuthBootstrapTimeout(
+          early ? early.session : supabase.auth.getSession(),
+          AUTH_BOOTSTRAP_TIMEOUT_MS,
+        );
         if (!active) return;
 
         if (currentSession) {
@@ -105,7 +146,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // sessions after a DB reset where the JWT is valid but the user
           // no longer exists.
           const { data: validated, error: userError } = await withAuthBootstrapTimeout(
-            supabase.auth.getUser(),
+            early
+              ? early.user.then((response) => response ?? supabase.auth.getUser())
+              : supabase.auth.getUser(),
             AUTH_BOOTSTRAP_TIMEOUT_MS,
           );
           if (!active) return;

@@ -50,7 +50,7 @@ const fakes: Record<string, Record<string, unknown>> = {
   '@/components/kortix/toast-provider': { useToast: () => ({ error() {}, success() {} }) },
   '@/lib/projects/hooks': { useProjectBranches: () => empty, useProjectSessions: () => empty },
   '@/lib/review/use-review': { reviewKeys: { list: () => ['review'] }, useReviewItems: () => empty },
-  '@/lib/utils/theme': { THEME: { light: { background: 'b' }, dark: { background: 'b' }, accent: {} } },
+  '@/lib/utils/theme': { THEME: { light: { background: 'b' }, dark: { background: 'b' }, accent: { light: {}, dark: {} } } },
 };
 const real = new Set(['react', '@kortix/sdk', '@/lib/review/review-verdict', '@/lib/review/review-meta']);
 const stubs: Record<string, Record<string, unknown>> = {};

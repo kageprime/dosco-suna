@@ -118,6 +118,8 @@ const NOT_WORKERS: Record<string, string> = {
     'renews the lock of one claimed command while its drain lane or inline create runs',
   'router/config/model-pricing.ts': 'refreshes the in-memory model pricing',
   'sandbox-proxy/ws-proxy.ts': 'keepalive ping on one open preview WebSocket',
+  'sandbox-proxy/preview-bridge.ts':
+    "the setInterval is in the script injected into a preview page; it runs in the user's browser, never in the API",
   'shared/stream-access-recheck.ts': 're-checks access for one open session stream; runs inside that stream',
   'replica/access-control-cache.ts': 'refreshes the in-memory access-control cache',
   'replica/event-loop-lag.ts': 'measures event-loop lag',

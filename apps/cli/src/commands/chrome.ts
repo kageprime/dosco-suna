@@ -6,7 +6,6 @@
  * that Chrome. Protocol: .agents/skills/kortix-chrome/references/protocol.md.
  * `ls` talks to the API; use/status/release talk to kortixd on loopback.
  */
-import { CHROME_LAUNCHED } from '@kortix/shared/chrome-launch';
 import { splitHelp } from '../command-argv.ts';
 import {
   emitJson,
@@ -155,8 +154,7 @@ export async function runChrome(argv: string[]): Promise<number> {
     if (!ctx) return 1;
     try {
       const list = await ctx.client.get<ChromeInfo[]>('/chrome/connections');
-      // Before launch the web app has no page to connect a browser on.
-      const connectUrl = CHROME_LAUNCHED ? `${webBase(ctx.client.apiBase)}/settings/chrome` : undefined;
+      const connectUrl = `${webBase(ctx.client.apiBase)}/settings/chrome`;
       if (json) emitJson(list);
       else process.stdout.write(`${formatChromeList(list, connectUrl)}\n`);
       return 0;

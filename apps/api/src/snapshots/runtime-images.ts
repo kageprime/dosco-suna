@@ -58,7 +58,6 @@ export function metaRuntimeArtifacts(root: string) {
     { label: 'sdk', path: resolve(root, 'packages/sdk/src') },
     { label: 'llm-catalog', path: resolve(root, 'packages/llm-catalog/src') },
     { label: 'manifest-schema', path: resolve(root, 'packages/manifest-schema/src') },
-    { label: 'registry', path: resolve(root, 'packages/registry/src') },
     { label: 'shared', path: resolve(root, 'packages/shared/src') },
     { label: 'starter', path: resolve(root, 'packages/starter/src') },
     // The managed skills baked into the image live under templates/, not

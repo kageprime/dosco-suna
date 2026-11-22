@@ -18,6 +18,7 @@ let uploaded: Uint8Array | null = null;
 let appFields: Record<string, unknown> = {};
 /** Project secrets that already hold a value. */
 let configuredSecrets: string[] = [];
+let liveDeployment: Record<string, unknown> | null = null;
 /** Slugs of the Apps created during the test (one id serves them all). */
 let created: string[] = [];
 /** The deployments route answers 400 app_config_invalid with these issues. */
@@ -172,6 +173,9 @@ function startServer(): string {
       ) {
         return Response.json(artifact('archive', null));
       }
+      if (path === `/v1/workspaces/${PROJECT}/apps/${APP_ID}/deployments` && req.method === 'GET') {
+        return Response.json({ deployments: liveDeployment ? [liveDeployment] : [] });
+      }
       if (path === `/v1/workspaces/${PROJECT}/apps/${APP_ID}/deployments` && req.method === 'POST') {
         if (configIssues) return Response.json({ error: 'The release config is invalid', code: 'app_config_invalid', issues: configIssues }, { status: 400 });
         return Response.json(deployment());
@@ -247,6 +251,7 @@ describe('kortix apps deploy (characterization)', () => {
     configuredSecrets = [];
     created = [];
     configIssues = null;
+    liveDeployment = null;
   });
 
   afterEach(() => {
@@ -254,6 +259,107 @@ describe('kortix apps deploy (characterization)', () => {
     server = null;
     rmSync(tmp, { recursive: true, force: true });
     process.env = { ...ORIGINAL_ENV };
+  });
+
+  function git(...args: string[]): string {
+    const result = Bun.spawnSync(['git', ...args], { cwd: tmp, env: {
+      ...process.env, GIT_AUTHOR_NAME: 'Synthetic', GIT_COMMITTER_NAME: 'Synthetic',
+      GIT_AUTHOR_EMAIL: 'agent@example.test', GIT_COMMITTER_EMAIL: 'agent@example.test',
+    } });
+    if (result.exitCode !== 0) throw new Error(result.stderr.toString());
+    return result.stdout.toString().trim();
+  }
+
+  async function gitDeploy(force = false) {
+    created = ['storefront'];
+    appFields = { active_deployment_id: 'dep-1' };
+    const config = writeConfig(startServer());
+    return runCli(['apps', 'deploy', '.', '--app', 'storefront', '--type', 'static',
+      '--project', PROJECT, '--no-wait', '--json', ...(force ? ['--force'] : [])], config);
+  }
+
+  function gitCheckout() {
+    git('init', '-b', 'feature');
+    writeFileSync(join(tmp, 'index.html'), 'synthetic site');
+    git('add', 'index.html');
+    git('commit', '-m', 'base');
+    return git('rev-parse', 'HEAD');
+  }
+
+  test('a divergent live commit refuses before any artifact upload and names its version and session', async () => {
+    gitCheckout();
+    git('checkout', '-b', 'other');
+    git('commit', '--allow-empty', '-m', 'live');
+    const live = git('rev-parse', 'HEAD');
+    git('checkout', 'feature');
+    liveDeployment = deployment({ source_commit: live, source_session_id: 'synthetic-session', version: 7 });
+    const result = await gitDeploy();
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toContain(live);
+    expect(result.stderr).toContain('synthetic-session');
+    expect(result.stderr).toContain('v7');
+    expect(result.stderr).toContain('merge it first, or pass --force');
+    expect(calls.some((c) => c.method === 'POST' && c.path.includes('/artifacts'))).toBe(false);
+    expect(uploaded).toBeNull();
+  });
+
+  test('a descendant records its commit and branch, warns for dirty files, and uploads', async () => {
+    const live = gitCheckout();
+    git('commit', '--allow-empty', '-m', 'descendant');
+    liveDeployment = deployment({ source_commit: live });
+    const result = await gitDeploy();
+    expect(result.code).toBe(0);
+    expect(deploymentCall()?.body).toMatchObject({ source_commit: git('rev-parse', 'HEAD'), source_ref: 'feature', source_force: false });
+    expect(result.stderr).toContain('dirty');
+    expect(uploaded).not.toBeNull();
+  });
+
+  test('--force records the override even when the live commit is divergent', async () => {
+    gitCheckout();
+    git('checkout', '-b', 'other');
+    git('commit', '--allow-empty', '-m', 'live');
+    liveDeployment = deployment({ source_commit: git('rev-parse', 'HEAD') });
+    git('checkout', 'feature');
+    const result = await gitDeploy(true);
+    expect(result.code).toBe(0);
+    expect(deploymentCall()?.body).toMatchObject({ source_force: true });
+    expect(uploaded).not.toBeNull();
+  });
+
+  test('an unknown live commit after fetch does not block deployment', async () => {
+    gitCheckout();
+    liveDeployment = deployment({ source_commit: 'a'.repeat(40) });
+    const result = await gitDeploy();
+    expect(result.code).toBe(0);
+    expect(uploaded).not.toBeNull();
+  });
+
+  test('show prints the source commit for every version', async () => {
+    created = ['storefront'];
+    liveDeployment = deployment({ source_commit: 'b'.repeat(40), source_ref: 'feature', source_force: true });
+    const result = await runCli(['apps', 'show', 'storefront', '--project', PROJECT], writeConfig(startServer()));
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('b'.repeat(40));
+    expect(result.stdout).toContain('feature');
+    expect(result.stdout).toContain('forced');
+  });
+
+  test('show neutralizes terminal escapes in a stored source ref', async () => {
+    created = ['storefront'];
+    liveDeployment = deployment({ source_commit: 'b'.repeat(40), source_ref: 'feat\x1b]52;c;cHduZWQ=\x07\x1b[2Kx\nv9  ready' });
+    const result = await runCli(['apps', 'show', 'storefront', '--project', PROJECT], writeConfig(startServer()));
+    expect(result.code).toBe(0);
+    expect(result.stdout).not.toContain('\x1b]52');
+    expect(result.stdout).not.toContain('\x1b[2K');
+    expect(result.stdout).toContain('(featx?v9  ready)');
+  });
+
+  test('a live deployment without provenance keeps the git checkout deploy working', async () => {
+    gitCheckout();
+    liveDeployment = deployment();
+    const result = await gitDeploy();
+    expect(result.code).toBe(0);
+    expect(uploaded).not.toBeNull();
   });
 
   test('a manifest block seeds the App and deployment; an explicit flag wins over the manifest value', async () => {

@@ -21,10 +21,16 @@ function projectPages(dir: string): string[] {
 function samplePath(route: string): string {
   const segments = route
     .split(sep)
-    .filter((s) => s && !/^\(.*\)$/.test(s)) // route groups add no segment
+    .filter((s) => s && !s.startsWith('@') && !/^\(.*\)$/.test(s)) // slots and route groups add no segment
+    .map((s) => s.replace(/^\(\.\)/, '')) // same-level interception keeps the public segment
     .map((s) => (s.startsWith('[...') ? 'a/b' : s.startsWith('[') ? 'x1' : s));
   return `/workspaces/${P}${segments.length ? `/${segments.join('/')}` : ''}`;
 }
+
+test('parallel setup page uses its public URL, not its slot or interception marker', () => {
+  expect(samplePath(join('@modal', '(.)setup'))).toBe(`/workspaces/${P}/setup`);
+  expect(samplePath(join('(group)', 'sessions', '[id]'))).toBe(`/workspaces/${P}/sessions/x1`);
+});
 
 describe('every project page is a named tab', () => {
   const pages = projectPages(ROUTES);

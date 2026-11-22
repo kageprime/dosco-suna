@@ -211,6 +211,8 @@ export const WORKSPACE_KEY_CLASSES = {
     'project_snapshot_archives',
     'project_space_links',
     'project_space_watchers',
+    // A trigger's hard run-cap admissions carry project_id only (2026-11-19, KRTX-4961).
+    'project_trigger_admissions',
     'project_trigger_executions',
     'project_trigger_runtime',
     'project_trigger_session_access_grants',

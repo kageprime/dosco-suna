@@ -431,6 +431,10 @@ async function buildMemberRows(input: {
       return {
         user_id: member.userId,
         email: identities.get(member.userId)?.email ?? null,
+        /** The auth profile's display name; null when it has none. */
+        name: identities.get(member.userId)?.displayName ?? null,
+        /** The auth profile's picture; null when it has none. */
+        avatar_url: identities.get(member.userId)?.avatarUrl ?? null,
         account_role: accountRole,
         project_role: projectRole,
         effective_project_role: fold.effective_project_role,

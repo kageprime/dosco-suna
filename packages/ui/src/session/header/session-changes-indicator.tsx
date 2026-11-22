@@ -162,7 +162,7 @@ export function SessionChangesIndicator({ sessionId }: { sessionId: string }) {
                     )}
                   </span>
                   {dir && (
-                    <span className="text-muted-foreground/60 ml-auto max-w-[45%] shrink-0 truncate">
+                    <span className="text-muted-foreground ml-auto max-w-[45%] shrink-0 truncate">
                       {dir}
                     </span>
                   )}

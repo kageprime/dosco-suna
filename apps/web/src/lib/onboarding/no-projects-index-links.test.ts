@@ -3,16 +3,15 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * The removed `/workspaces` index took two query-string forms with it:
- * `?new=1` opened the create modal, `?clone=<id>` seeded it from a
- * marketplace item. Both now live on `/workspaces/new` (see `clone-param.ts`).
+ * The removed `/workspaces` index took the `?new=1` query-string form with
+ * it: it opened the create modal. Create now lives on `/workspaces/new`.
  *
- * Scoped to the query-string forms deliberately, not to the bare `/workspaces`
+ * Scoped to the query-string form deliberately, not to the bare `/workspaces`
  * string: `/workspaces` itself is still a real prefix for `/workspaces/:id`, so a
  * whole-string sweep cannot tell a destination (wrong, must repoint) from a
  * prefix/allowlist check (`startsWith('/workspaces')`, `pathname.indexOf(...)`)
- * that legitimately still matches every open project. `?new=1` and `?clone=`
- * have no such double meaning — nothing needs them to survive.
+ * that legitimately still matches every open project. `?new=1` has no such
+ * double meaning — nothing needs it to survive.
  */
 const SRC = join(import.meta.dir, '..', '..');
 
@@ -29,13 +28,6 @@ describe('no links to the removed projects index', () => {
   test('nothing routes to /workspaces?new=1 — create lives at /new', () => {
     const offenders = [...sourceFiles(SRC)].filter((file) =>
       readFileSync(file, 'utf8').includes('/workspaces?new=1'),
-    );
-    expect(offenders).toEqual([]);
-  });
-
-  test('nothing routes to /workspaces?clone= — cloning lives at /new?clone=', () => {
-    const offenders = [...sourceFiles(SRC)].filter((file) =>
-      readFileSync(file, 'utf8').includes('/workspaces?clone='),
     );
     expect(offenders).toEqual([]);
   });

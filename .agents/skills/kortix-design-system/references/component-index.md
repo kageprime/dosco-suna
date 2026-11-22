@@ -119,7 +119,7 @@ raw color allowed).
 | `mermaid-renderer` | a Mermaid diagram | | use |
 | `preview-image` | an image with a loading state | | use |
 | `file-tree` | a file tree | | use |
-| `wallpaper-shaders`, `paper-wallpaper-shaders`, `shader-safe` | WebGL wallpapers with a static fallback | `#wallpapers` | art |
+| `wallpaper-shaders`, `gradient-wallpaper`, `paper-wallpaper-shaders`, `shader-safe` | WebGL wallpapers with a static fallback | `#wallpapers` | art |
 | `dot-matrix/` | `SessionDotMatrix`, the session busy mark | | use |
 | `menu-recipe` | `menuRow()`, `MENU_PANEL_STATIC`, `FLOATING_PANEL(_SURFACE)` | | internal |
 | `trigger-variants` | shared trigger styles | | internal |

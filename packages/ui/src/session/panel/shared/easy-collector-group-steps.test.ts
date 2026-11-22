@@ -32,3 +32,12 @@ describe('groupSteps with the Easy-mode collector', () => {
     expect(steps[0].label).toBe('Read 3 files');
   });
 });
+
+describe('collectAllToolCalls: a failed show is in no panel list (2026-11-16)', () => {
+  it('drops a failed show, keeps a running one and any other failed tool', () => {
+    const messages = [
+      { role: 'assistant', kind: 'turn', in_context: true, blocks: [call('show', 'error', { url: 'https://example.test/a' }), call('show', 'running'), call('bash', 'error')] } as SessionLogMessage,
+    ];
+    expect(collectAllToolCalls(messages).map((c) => `${c.name}:${c.status}`)).toEqual(['show:running', 'bash:error']);
+  });
+});

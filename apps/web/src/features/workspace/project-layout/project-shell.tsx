@@ -45,10 +45,6 @@ import { writeLastProjectId } from '@kortix/ui/internal/lib/onboarding/last-proj
 import { cn, uiRoutes } from '@kortix/ui';
 import { BillingAccountProvider } from '@kortix/ui/internal/stores/billing-account-context';
 import { useProjectSessionTabsStore } from '@/stores/project-session-tabs-store';
-import { GlobalUpgradeModal } from '@/features/billing/global-upgrade-modal';
-import { isBillingEnabled } from '@/lib/config';
-import { ConnectModelStep } from '@kortix/ui/session/models/connect-model-step';
-import { useWorkspaceModelGate } from '@kortix/ui/session/models/use-workspace-model-gate';
 import { getProject, getProjectDetail } from '@kortix/sdk';
 import {
   contract,
@@ -262,12 +258,6 @@ export function ProjectShell({ projectId, initialSidebarOpen, children }: Projec
 
   const openTab = useProjectSessionTabsStore((s) => s.openTab);
 
-  // No workspace page opens until the viewer can run a model: a new workspace
-  // lands on "Connect a model" right after setup, and so does any workspace
-  // whose models are all gone (Free plan, nothing connected). Paid plans run
-  // on Kortix models and pass.
-  const modelGate = useWorkspaceModelGate(projectId);
-
   useLayoutEffect(() => {
     if (activeSessionId) openTab(projectId, activeSessionId);
   }, [projectId, activeSessionId, openTab]);
@@ -278,19 +268,7 @@ export function ProjectShell({ projectId, initialSidebarOpen, children }: Projec
     return <div className="bg-background min-h-screen" />;
   }
 
-  // The same frame the access check and the route loaders paint, so a
-  // workspace that waits for its model answer shows one continuous screen.
-  if (modelGate === 'pending') return <ProjectPendingScreen />;
-
-  if (modelGate === 'blocked') {
-    return (
-      // The account the upgrade dialog and the plan check read: this workspace's.
-      <BillingAccountProvider accountId={projectAccountId ?? null} resolved={!!projectAccountId}>
-        <ConnectModelStep projectId={projectId} workspaceName={projectRow?.name} />
-        {isBillingEnabled() && <GlobalUpgradeModal />}
-      </BillingAccountProvider>
-    );
-  }
+  // Model availability gates the composer, not navigation or workspace settings.
 
   return (
     // `resolved` is what keeps the sidebar's billing items from flickering:

@@ -112,12 +112,12 @@ export function ToolListRow({
       {chevron && (
         <ChevronRight
           className={cn(
-            'text-muted-foreground/60 size-3.5 shrink-0 transition-transform',
+            'text-muted-foreground size-3.5 shrink-0 transition-transform',
             chevron === 'expanded' && 'rotate-90',
           )}
         />
       )}
-      <span className="text-muted-foreground/60 group-hover:text-foreground/70 shrink-0 transition-colors [&>svg]:size-4">
+      <span className="text-muted-foreground group-hover:text-foreground/70 shrink-0 transition-colors [&>svg]:size-4">
         {icon}
       </span>
       <span
@@ -230,7 +230,7 @@ export function InlineGrepResults({
                     key={j}
                     className="border-border/10 flex items-start gap-0 border-b last:border-b-0"
                   >
-                    <span className="text-muted-foreground/50 w-10 shrink-0 py-1 pr-2 text-right font-mono text-xs select-none">
+                    <span className="text-muted-foreground w-10 shrink-0 py-1 pr-2 text-right font-mono text-xs select-none">
                       {match.line}
                     </span>
                     <span className="text-foreground/70 py-1 pr-2 font-mono text-xs leading-relaxed break-all">

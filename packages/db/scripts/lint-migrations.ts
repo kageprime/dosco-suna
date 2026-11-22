@@ -129,6 +129,11 @@ function checkMergeConflictMarkers(filename: string, raw: string): string[] {
   return [];
 }
 
+// Merged before this rule: #12938 and #12944 shipped the same slug and the
+// same constraint, and the second failed every deploy with 42710. Its runtime
+// correction is in migration-runtime-overrides.ts.
+const DUPLICATE_SLUG_ALLOWED = new Set(['20261120094700000_trigger_admissions_workspace_twin.sql']);
+
 // Set-level invariant: every migration's 17-digit timestamp must be unique.
 // (Ordering within a checkout is the sorted filename order; "a new migration
 // must come AFTER every merged one" is enforced by the git-aware sequence gate
@@ -146,6 +151,21 @@ export function lintMigrationSet(filenames: string[]): string[] {
       );
     } else {
       seen.set(ts, f);
+    }
+  }
+  // Two migrations with one slug are almost always two branches doing the same
+  // change (the trigger-admissions twin above). Merge dev and drop yours.
+  const slugs = new Map<string, string>();
+  for (const f of filenames) {
+    if (!TS_RE.test(f)) continue;
+    const slug = f.replace(/^\d{17}_/, '').replace(/\.(concurrent\.ts|sql)$/, '');
+    const first = slugs.get(slug);
+    if (first && !DUPLICATE_SLUG_ALLOWED.has(f)) {
+      errors.push(
+        `${f}: duplicate migration slug "${slug}" (also ${first}). Another migration already makes this change: merge dev and check it before you add a second one.`,
+      );
+    } else if (!first) {
+      slugs.set(slug, f);
     }
   }
   return errors;

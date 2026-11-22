@@ -105,8 +105,8 @@ export function WorkspaceSettingsSidebarNav({
       )}
 
       {rail?.footer ? (
-        // Help sits under the groups, outside the scrolling list, behind the
-        // page rail's hairline: it must not read as a row of the last group.
+        // Help sits under the groups, outside the scrolling list, behind a
+        // hairline: it must not read as a row of the last group.
         <div className="border-sidebar-border shrink-0 border-t">
           <RailGroup group={rail.footer} active={active} prefetch={shown} onNavigate={onNavigate} />
         </div>

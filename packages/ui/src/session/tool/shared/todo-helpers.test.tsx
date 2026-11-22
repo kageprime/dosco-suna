@@ -100,7 +100,7 @@ describe('TodoStatusIcon — one silhouette, four meanings', () => {
     expect(render('completed')).toContain('text-kortix-green');
     expect(render('in_progress')).toContain('text-kortix-orange');
     expect(render('pending')).toContain('text-muted-foreground');
-    expect(render('cancelled')).toContain('text-muted-foreground/40');
+    expect(render('cancelled')).toContain('text-muted-foreground');
     for (const status of STATUSES) {
       expect(render(status)).not.toMatch(/text-(emerald|amber|green|red|slate|zinc)-\d/);
     }

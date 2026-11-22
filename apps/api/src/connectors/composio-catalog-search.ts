@@ -1,4 +1,5 @@
 import ComposioClient from '@composio/client';
+import { kortixReplacedToolkits } from './kortix-oauth-clients';
 
 import { boundedCount } from './connector-catalog';
 
@@ -256,6 +257,8 @@ async function cachedCustomAuthConfigIds(catalogClient: ComposioCatalogClient) {
  * install read as Slack being "double added" (KRTX-2353) — and the pipedream
  * catalogue already drops its Slack apps (`NATIVE_APP_SLUGS` in
  * pipedream-catalog.ts), so the Composio path was the one gap left.
+ * Gmail, Google Calendar, Drive, Docs and Sheets join them on a deployment
+ * with Kortix's own Google client (`kortixReplacedToolkits`).
  */
 export const NATIVE_TOOLKITS: ReadonlySet<string> = new Set(['microsoft_teams', 'slack']);
 
@@ -269,7 +272,7 @@ async function hiddenToolkits(
   catalogClient: ComposioCatalogClient,
   catalog: CatalogToolkit[],
 ): Promise<Set<string>> {
-  const hidden = new Set(NATIVE_TOOLKITS);
+  const hidden = new Set([...NATIVE_TOOLKITS, ...kortixReplacedToolkits()]);
   const needy = catalog.filter(requiresOwnAuthConfig).map((item) => item.slug.toLowerCase());
   if (needy.length === 0) return hidden;
   if (!catalogClient.authConfigs) {
@@ -293,7 +296,7 @@ export async function composioHiddenToolkits(
     return await hiddenToolkits(catalogClient, await catalogSnapshot(catalogClient));
   } catch (error) {
     console.warn('[composio] toolkit catalogue unavailable, hiding only native toolkits:', error);
-    return new Set(NATIVE_TOOLKITS);
+    return new Set([...NATIVE_TOOLKITS, ...kortixReplacedToolkits()]);
   }
 }
 

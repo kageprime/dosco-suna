@@ -26,6 +26,8 @@ mock.module('../../internal/hooks/use-auto-scroll', () => ({
 }));
 
 const realSdk = await import('@kortix/sdk/react');
+const { KortixWorkspaceProvider } = realSdk;
+const { configureKortix } = await import('@kortix/sdk');
 const baseFixtureMessages = [
   {
     info: { id: 'user-fixture', role: 'user', time: { created: 1 } },
@@ -65,7 +67,7 @@ let agentCommandsData: { name: string }[] | undefined = [];
 /** The options the last render passed to `useRuntimeAgents`. */
 let runtimeAgentsArgs: { directory?: string; projectId?: string | null } | undefined;
 /** The props the last render handed the composer — the host-wire observables. */
-let composerProps: { commandsResolved?: boolean; onSend?: SessionChatInputProps['onSend'] } | undefined;
+let composerProps: { commandsResolved?: boolean; onSend?: SessionChatInputProps['onSend']; onModelChange?: SessionChatInputProps['onModelChange'] } | undefined;
 mock.module('@kortix/sdk/react', () => ({
   ...realSdk,
   useSessionTurnOutcome: () => persistedOutcome,
@@ -119,6 +121,7 @@ mock.module('../composer/composer', () => ({
     lockForApproval?: boolean;
     commandsResolved?: boolean;
     onSend?: SessionChatInputProps['onSend'];
+    onModelChange?: SessionChatInputProps['onModelChange'];
   }) => {
     composerProps = props;
     return (
@@ -950,5 +953,41 @@ describe('SessionChat agent roster source', () => {
     // Assigned inside the mocked hook: TS cannot see that write from here.
     const args = runtimeAgentsArgs as { projectId?: string | null } | undefined;
     expect(args?.projectId).toBe('project-fixture');
+  });
+});
+
+// A thread mounts SessionChat with the runtime id (`sessionId`) and the durable
+// id (`projectSessionId`). The project API accepts only the durable one, so a
+// composer pick must save to it, never to the runtime id.
+describe('SessionChat model pick', () => {
+  test('a composer pick saves to the durable session, not the runtime session', async () => {
+    const writes: string[] = [];
+    const originalFetch = globalThis.fetch;
+    configureKortix({ backendUrl: 'http://synthetic.local/v1', getToken: async () => 'synthetic-token' });
+    globalThis.fetch = Object.assign(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      if (request.method === 'PUT') writes.push(new URL(request.url).pathname);
+      return Response.json({ model: 'kortix/model-b', applied_live: true });
+    }, { preconnect: originalFetch.preconnect });
+    try {
+      renderToStaticMarkup(
+        <QueryClientProvider client={new QueryClient()}>
+          <IntlTestProvider locale="en" messages={enMessages} onError={() => {}}>
+            <TestUiHost params={ROUTE} viewerId="viewer-1">
+              <KortixWorkspaceProvider projectId="project-fixture">
+                <SidebarProvider>
+                  <SessionChat sessionId="ses_runtime_fixture" projectId="project-fixture" projectSessionId="project-session-fixture" />
+                </SidebarProvider>
+              </KortixWorkspaceProvider>
+            </TestUiHost>
+          </IntlTestProvider>
+        </QueryClientProvider>,
+      );
+      composerProps?.onModelChange?.({ providerID: 'kortix', modelID: 'model-b' });
+      for (let i = 0; i < 50 && writes.length === 0; i++) await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(writes).toEqual(['/v1/workspaces/project-fixture/sessions/project-session-fixture/model']);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

@@ -23,7 +23,7 @@ import { createRoot } from '@opentui/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { resolveHost } from '../src/auth/hosts.ts';
-import { ALWAYS_VISIBLE_DOTFILES, FilesScreen } from '../src/features/files/index.ts';
+import { FilesScreen } from '../src/features/files/index.ts';
 import { initKortix, kortix } from '../src/kortix.ts';
 
 const INTERACTIVE = process.argv.includes('--interactive');
@@ -90,10 +90,10 @@ if (INTERACTIVE) {
       .map((node) => `${node.type === 'directory' ? 'd' : 'f'} ${node.name}`)
       .join(', ')}`,
   );
-  // The screen hides dot entries by default (`.kortix` exempt), so
-  // the walk below targets the rows that are actually on screen.
+  // The screen hides dot entries by default, so the walk below targets the
+  // rows that are actually on screen.
   const onScreenNodes = rootListing.filter(
-    (node) => !node.name.startsWith('.') || ALWAYS_VISIBLE_DOTFILES.has(node.name),
+    (node) => !node.name.startsWith('.'),
   );
   const firstDirectory = onScreenNodes.find((node) => node.type === 'directory');
   const firstFile = onScreenNodes.find((node) => node.type === 'file');
@@ -133,7 +133,7 @@ if (INTERACTIVE) {
   banner('FRAME 1 — /workspace listed from the real sandbox (dot entries hidden)');
   console.log(frame());
   const hiddenNames = rootListing
-    .filter((node) => node.name.startsWith('.') && !ALWAYS_VISIBLE_DOTFILES.has(node.name))
+    .filter((node) => node.name.startsWith('.'))
     .map((node) => node.name);
   console.log(
     `dot entries hidden: ${JSON.stringify(hiddenNames)} — on screen: ${hiddenNames.filter((name) => frame().includes(name)).length}`,

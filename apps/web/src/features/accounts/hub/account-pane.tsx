@@ -4,12 +4,11 @@
  * The content column of an account pane in Workspace settings
  * (`/workspaces/<id>/admin/<section>`), right of the settings rail.
  *
- * A left-aligned column (`max-w-2xl` by default) whose first block is the
- * page title and its one-line description, followed by the section's own
- * panels. Every Workspace settings page shares the gutter, the title rung and
- * the left edge (`SettingsPageHeader`), so switching sections never moves the
- * title, whatever the section's width. Inside Workspace settings the title is
- * the rail row's label.
+ * A centred column (`max-w-2xl` by default) whose first block is the page
+ * title and its one-line description, followed by the section's own panels.
+ * Every Workspace settings page shares the gutter and the title rung
+ * (`SettingsPageHeader`). Inside Workspace settings the title is the rail
+ * row's label.
  *
  * Below `md` the sidebar is a sheet, so the pane also carries a 48px row with
  * the one "back" link; on desktop the sidebar answers that question and the
@@ -100,7 +99,7 @@ export function AccountPane({
           className={cn(
             // A container: the members grid follows the pane's width, not the
             // viewport (the app sidebar and the settings rail sit beside it).
-            '@container w-full',
+            '@container mx-auto w-full',
             width === 'fluid' ? 'space-y-5' : 'space-y-10',
             WIDTH_CLASS[width],
           )}

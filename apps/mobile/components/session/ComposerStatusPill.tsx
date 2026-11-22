@@ -45,7 +45,7 @@ export function ComposerStatusAction({
 }
 
 interface ComposerStatusPillProps extends React.ComponentPropsWithoutRef<typeof View> {
-  /** The dot's fill: `THEME.accent.*`, chosen by the pill's status tone. */
+  /** The dot's fill: `THEME.accent[tone].*`, chosen by the pill's status tone. */
   dotColor: string;
   /** Ping-halo interpolations while the status pulses; absent draws a still dot. */
   ping?: {

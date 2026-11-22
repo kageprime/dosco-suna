@@ -45,7 +45,7 @@ beforeEach(() => {
 const opts = { backendUrl: 'http://backend.test/v1', accessToken: 'tok' };
 const input = { account_id: 'acc-1', name: 'My First Project', seed_starter: true };
 
-test('GitHub project creation accepts a marketplace project template', () => {
+test('the deprecated source_item_id still type-checks on a GitHub create (removed in the next major)', () => {
   const createInput: CreateProjectRepoInput = {
     account_id: 'acc-1',
     name: 'support-agent',
@@ -1028,7 +1028,6 @@ describe('provisionProjectStream', () => {
 
 test('FEATURE_FLAG_KEYS lists every flag key exactly once', () => {
   const expected: FeatureFlagKey[] = [
-    'marketplace',
     'reminders',
     'secrets_egress',
     'us_region',

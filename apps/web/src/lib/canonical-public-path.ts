@@ -8,7 +8,7 @@
  * needs it) left `/pricing/` a 200 duplicate of `/pricing` (KRTX-3234). Only
  * an exact public page qualifies, with an optional locale prefix: app paths
  * and deeper public paths can carry case-sensitive ids and names
- * (`/marketplace/<company>/…`).
+ * (`/use-cases/<slug>`).
  */
 export function canonicalPublicPath(
   pathname: string,

@@ -57,7 +57,7 @@ const LEGACY_LOCAL_API_BASE = 'http://localhost:13738';
 
 /** The global default project for a host — used by every project-scoped
  *  command (connectors, sessions, …) when the cwd is not bound
- *  to a project via `.kortix/link.json`. Carries its account_id so the
+ *  to a project by a checkout link (git config `kortix.workspace`). Carries its account_id so the
  *  default always resolves under the right account. */
 export interface DefaultProjectRef {
   project_id: string;
@@ -211,7 +211,7 @@ export function deleteConfig(): void {
 /**
  * True when the platform-injected `KORTIX_TOKEN` is present.
  * `activeHost()` then resolves to a
- * synthetic env host, which must outrank a `.kortix/link.json` host —
+ * synthetic env host, which must outrank a checkout link's host —
  * inside a sandbox the named host has no stored credentials, so honoring
  * the link would strand a fully-authenticated CLI on "not logged in".
  */

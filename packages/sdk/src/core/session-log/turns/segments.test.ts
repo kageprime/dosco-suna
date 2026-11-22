@@ -210,7 +210,21 @@ describe('sessionLogShowGroupCall', () => {
     const live = sessionLogShowGroupCall([one, call('show3', 'show', { type: 'image', path: '/3.png' }, { status: 'running', result: undefined })]);
     expect(live.status).toBe('running');
     const failed = sessionLogShowGroupCall([one, call('show4', 'show', { title: 'Chart' }, { status: 'error', result: { content: [{ type: 'text', text: 'gone' }], is_error: true, error: { message: 'gone' } } })]);
-    expect((failed.input as { items: unknown[] }).items.at(-1)).toEqual({ status: 'error', type: 'error', title: 'Chart', content: 'gone' });
+    expect((failed.input as { items: unknown[] }).items).toEqual([{ status: 'ready', type: 'image', path: '/1.png' }]);
+  });
+
+  test('a failed call and its retry: only the retry is shown, and "Open" targets it', () => {
+    // The 2026-11-16 incident: `show` without `type` failed, the retry with `type: 'url'` succeeded.
+    const url = 'https://example.test/workspaces/synthetic/artifacts/synthetic';
+    const missingType = "'type' is required.";
+    const failed = call('show1', 'show', { action: 'show', url, title: 'Catalog' }, { status: 'error', result: { content: [{ type: 'text', text: missingType }], is_error: true, error: { message: missingType } } });
+    const retried = call('show2', 'show', { action: 'show', type: 'url', url, title: 'Catalog' });
+    const merged = sessionLogShowGroupCall([failed, retried]);
+    expect(merged).toMatchObject({ id: 'show1', call_id: 'call_show2', status: 'complete' });
+    expect((merged.input as { items: unknown[] }).items).toEqual([{ status: 'ready', type: 'url', url, title: 'Catalog' }]);
+    // The transcript never draws the failed call: the turn's segments hold only the retry.
+    expect(sessionLogTurnSegments([failed, retried]).map((s) => [s.kind, 'block' in s ? s.block.id : s.blocks.map((b) => b.id)])).toEqual([['standalone', 'show2']]);
+    expect(sessionLogTurnSegments([failed])).toEqual([]);
   });
 
   test('each item keeps the sha256 its own call\'s output gives its file (R38)', () => {

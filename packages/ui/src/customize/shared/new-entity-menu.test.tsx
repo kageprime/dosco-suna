@@ -6,6 +6,10 @@
  *
  * Rendered with `createRoot` on happy-dom (the floating-panel-motion.test.tsx
  * setup), driven with real clicks and key presses.
+ *
+ * Base UI moves focus on happy-dom's own window timers, which a fake global
+ * clock does not drive. Each step waits for its observable result (`until`),
+ * never a fixed delay: a fixed 30 ms wait lost the race on a cold first test.
  */
 import { afterEach, describe, expect, test } from 'bun:test';
 import React, { act, useState } from 'react';
@@ -64,7 +68,11 @@ function Page({ autoFocus }: { autoFocus: boolean }) {
   );
 }
 
-const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
+/** Yields until `done()` holds, at most 2 s; the assertions after it report a miss. */
+async function until(done: () => boolean) {
+  const deadline = Date.now() + 2000;
+  while (!done() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 5));
+}
 const active = () => win.document.activeElement as unknown as HTMLElement | null;
 /** A readable name for the focused element, so a failure says where focus went. */
 const describeFocus = () => {
@@ -85,7 +93,7 @@ async function openDialog(autoFocus: boolean) {
   await act(async () => {
     trigger.focus();
     trigger.click();
-    await settle();
+    await until(() => win.document.querySelector('[role="menuitem"]') !== null);
   });
   const item = [...win.document.querySelectorAll('[role="menuitem"]')].find((el) =>
     el.textContent?.includes('Set up manually'),
@@ -94,7 +102,7 @@ async function openDialog(autoFocus: boolean) {
   await act(async () => {
     item!.focus();
     item!.click();
-    await settle();
+    await until(() => win.document.querySelector('[role="dialog"]')?.contains(win.document.activeElement) === true);
   });
   // Not vacuous: the dialog is open and holds focus.
   const dialog = win.document.querySelector('[role="dialog"]') as unknown as HTMLElement | null;
@@ -109,7 +117,7 @@ describe.each([false, true])('NewEntityMenu — closing the manual dialog return
     const cancel = [...win.document.querySelectorAll('button')].find((el) => el.textContent === 'Cancel') as unknown as HTMLButtonElement;
     await act(async () => {
       cancel.click();
-      await settle();
+      await until(() => win.document.querySelector('[role="dialog"]') === null && active() === trigger);
     });
     expect(win.document.querySelector('[role="dialog"]')).toBeNull();
     expect(describeFocus()).toBe('button:menu-trigger:New trigger');
@@ -120,7 +128,7 @@ describe.each([false, true])('NewEntityMenu — closing the manual dialog return
     const { trigger } = await openDialog(autoFocus);
     await act(async () => {
       active()!.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }) as unknown as Event);
-      await settle();
+      await until(() => win.document.querySelector('[role="dialog"]') === null && active() === trigger);
     });
     expect(win.document.querySelector('[role="dialog"]')).toBeNull();
     expect(describeFocus()).toBe('button:menu-trigger:New trigger');

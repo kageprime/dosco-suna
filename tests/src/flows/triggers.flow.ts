@@ -10,7 +10,7 @@ import { TriggerListSchema } from '@kortix/api-contract';
 import { flow } from '../core/flow';
 import { waitFor } from '../core/poll';
 import { CliSandbox, throwIfCliInfraFailure } from '../fixtures/cli';
-import { createDatabaseSession } from '../fixtures/database-project';
+import { bindDatabaseSessionCredential, createDatabaseSession } from '../fixtures/database-project';
 import { enableEnterpriseDemo } from '../fixtures/enterprise-access';
 import { signedWebhookHeaders, webhookSignature, withDb } from '../fixtures/chat';
 
@@ -171,6 +171,22 @@ flow(
       for (const needle of ['on:', 'cron:', 'run:', 'model: anthropic/claude-sonnet-4-6', 'do nightly work']) {
         if (!text.includes(needle)) throw new Error(`kortix.yaml lacks "${needle}":\n${text}`);
       }
+    });
+    await ctx.step('an undeclared agent → 400 and no manifest commit', async () => {
+      const owner = ctx.client.as(ctx.P.OWNER);
+      const file = () => owner.get('/v1/workspaces/:projectId/files/content', { params: { projectId: p.id }, query: { path: 'kortix.yaml' } });
+      const before = (await file()).status(200).json<{ content: string }>().content;
+      const response = await owner.post('/v1/workspaces/:projectId/triggers', {
+        name: 'Unknown agent', slug: 'unknown-agent', type: 'cron', cron: '0 0 3 * * *', agent: 'ghost', prompt_template: 'Go.',
+      }, { params: { projectId: p.id } });
+      response.status(400);
+      if (!response.json<{ error: string }>().error.includes('triggers[1].run.agent')) throw new Error('missing nested agent error');
+      const after = (await file()).status(200).json<{ content: string }>().content;
+      if (after !== before) throw new Error('rejected trigger changed the manifest');
+      const patched = await owner.patch('/v1/workspaces/:projectId/triggers/:slug', { agent: 'ghost' }, { params: { projectId: p.id, slug: 'nightly' } });
+      patched.status(400);
+      if (!patched.json<{ error: string }>().error.includes('triggers[0].run.agent')) throw new Error('missing PATCH agent error');
+      if ((await file()).status(200).json<{ content: string }>().content !== before) throw new Error('rejected PATCH changed the manifest');
     });
     await ctx.step('duplicate slug → 409', async () => {
       const r = await ctx.client
@@ -3428,3 +3444,126 @@ flow(
     }
   },
 );
+
+// Hard caps reserve attempts before dispatch, including manual fires of disabled schedules.
+flow('TRG-46', {
+  domain: 'triggers', requires: ['database'],
+  routes: ['POST /v1/workspaces/:projectId/triggers', 'POST /v1/workspaces/:projectId/triggers/:slug/fire', 'GET /v1/workspaces/:projectId/triggers/:slug/runs'],
+}, async (ctx) => {
+  if (ctx.env.target !== 'local') return;
+  const p = await ctx.fixtures.project({ managedGit: true });
+  const owner = ctx.client.as(ctx.P.OWNER);
+  const params = { projectId: p.id, slug: 'hard-worker' };
+  await ctx.step('save a disabled keyed worker with hard limits and preserve them on read-back', async () => {
+    const response = await owner.post('/v1/workspaces/:projectId/triggers', {
+      name: 'Hard worker', type: 'cron', cron: '0 0 9 * * *', enabled: false,
+      prompt_template: 'Draft', session_key: '{{ body.thread_id }}',
+      filter: { 'body.thread_id': { prefix: 'th_' } },
+      hard_run_caps: true, max_runs_per_hour: 5, max_runs_per_day: 20,
+    }, { params });
+    response.status(201);
+    if (!response.text().includes('"hard_run_caps":true')) throw new Error('hard cap policy lost on read-back');
+  });
+  await ctx.step('invalid and missing keys start nothing and do not consume admission', async () => {
+    for (const payload of [{ body: { thread_id: 'x' } }, {}]) {
+      (await owner.post('/v1/workspaces/:projectId/triggers/:slug/fire', { payload }, { params })).status(429);
+    }
+    await withDb(ctx, async (db) => {
+      const result = await db.query('select count(*)::int as n from kortix.project_trigger_admissions where project_id = $1', [p.id]);
+      if (result.rows[0]?.n !== 0) throw new Error('invalid payload consumed admission');
+    });
+  });
+  await ctx.step('concurrent manual fires admit five; the sixth is refused with persisted history', async () => {
+    const results = await Promise.all(Array.from({ length: 6 }, () => owner.post('/v1/workspaces/:projectId/triggers/:slug/fire', {
+      payload: { body: { thread_id: 'th_synthetic' } },
+    }, { params })));
+    // The deterministic local account has no model. Admitted attempts fail 402,
+    // but still spend a reservation: retries cannot evade a hard attempt budget.
+    if (results.filter((r) => r.statusCode === 402).length !== 5 || results.filter((r) => r.statusCode === 429).length !== 1) {
+      throw new Error(`unexpected dispatch statuses: ${results.map((r) => r.statusCode).join(',')}`);
+    }
+    const history = await owner.get('/v1/workspaces/:projectId/triggers/:slug/runs', { params });
+    history.status(200);
+    if (!history.text().includes('hard max_runs_per_hour 5')) throw new Error('hard-cap refusal missing from history');
+  });
+});
+
+flow('TRG-47', {
+  domain: 'triggers', requires: ['database'],
+  routes: ['POST /v1/workspaces/:projectId/triggers', 'POST /v1/workspaces/:projectId/cli-token', 'POST /v1/workspaces/:projectId/triggers/:slug/fire', 'GET /v1/workspaces/:projectId/sessions/:sessionId', 'GET /v1/workspaces/:projectId/triggers/:slug/runs'],
+}, async (ctx) => {
+  if (ctx.env.target !== 'local') return;
+  const p = await ctx.fixtures.project({ managedGit: true });
+  const owner = ctx.client.as(ctx.P.OWNER);
+  const params = { projectId: p.id, slug: 'draft-worker' };
+  let secret = '';
+  let worker = '';
+  await ctx.step('seed a dispatcher and its private keyed draft worker with a session-bound credential', async () => {
+    (await owner.post('/v1/workspaces/:projectId/triggers', {
+      name: 'Draft worker', type: 'cron', cron: '0 0 9 * * *', enabled: false,
+      prompt_template: 'Draft only', session_key: '{{ body.thread_id }}',
+    }, { params })).status(201);
+    const dispatcher = await createDatabaseSession(ctx.env, { projectId: p.id, accountId: p.accountId!, userId: ctx.P.OWNER.userId!, visibility: 'private' });
+    worker = await createDatabaseSession(ctx.env, {
+      projectId: p.id, accountId: p.accountId!, userId: ctx.P.OWNER.userId!, visibility: 'private', parentSessionId: dispatcher,
+      metadata: { trigger_kind: 'git', trigger_slug: 'draft-worker', trigger_session_key: 'th_synthetic' },
+    });
+    await withDb(ctx, (db) => db.query("update kortix.project_sessions set status = 'stopped' where project_id = $1", [p.id]));
+    const minted = await owner.post('/v1/workspaces/:projectId/cli-token', { name: ctx.fixtures.name('dispatcher') }, { params });
+    minted.status(201);
+    const token = minted.json<{ token_id: string; secret_key: string }>();
+    secret = token.secret_key;
+    await bindDatabaseSessionCredential(ctx.env, { tokenId: token.token_id, commandId: crypto.randomUUID(), sessionId: dispatcher, accountId: p.accountId!, projectId: p.id });
+  });
+  await ctx.step('the bound dispatcher fires the disabled schedule twice, reads its worker, and sees exactly one persisted row per fire', async () => {
+    const box = ctx.client.as({ label: 'synthetic-dispatcher', auth: { mode: 'bearer', token: secret } });
+    for (let n = 1; n <= 2; n += 1) {
+      const result = await box.post('/v1/workspaces/:projectId/triggers/:slug/fire', { payload: { body: { thread_id: 'th_synthetic' } } }, { params });
+      result.status(202).body().has('$.session_id', worker);
+      (await box.get('/v1/workspaces/:projectId/sessions/:sessionId', { params: { ...params, sessionId: worker } })).status(200);
+      const history = await box.get('/v1/workspaces/:projectId/triggers/:slug/runs', { params });
+      history.status(200);
+      const runs = history.json<{ runs: Array<{ session_id: string }> }>().runs;
+      if (runs.length !== n || runs.some((run) => run.session_id !== worker)) throw new Error('dispatcher run history lost or duplicated');
+    }
+    const cli = new CliSandbox('keyed-draft');
+    try {
+      const result = await cli.run(['triggers', 'runs', 'draft-worker', '--json'], { env: { KORTIX_TOKEN: secret, KORTIX_PROJECT_ID: p.id } });
+      if (result.exitCode !== 0 || !result.stdout.includes(worker)) throw new Error(`CLI run history failed: ${result.all}`);
+    } finally { cli.dispose(); }
+  });
+});
+
+flow('TRG-44', {
+  domain: 'triggers',
+  routes: [
+    'GET /v1/workspaces/:projectId/sessions/:sessionId',
+    'GET /v1/workspaces/:projectId/sessions',
+    'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
+    'POST /v1/workspaces/:projectId/sessions/:sessionId/prompts',
+    'GET /v1/workspaces/:projectId/triggers/:slug/runs',
+  ],
+}, async (ctx) => {
+  const team = await ctx.fixtures.team({ enterprise: true });
+  const project = await team.project();
+  const member = await team.addMember('member');
+  if (!member.userId) throw new Error('reader fixture needs a member');
+  await team.grantProjectRole(project.id, member.userId, 'member');
+  const ownerId = ctx.P.OWNER.userId;
+  if (!ownerId) throw new Error('reader fixture needs an owner');
+  const sessionId = await createDatabaseSession(ctx.env, {
+    projectId: project.id, accountId: team.id, userId: ownerId, visibility: 'private',
+    metadata: { source: 'trigger:cron', trigger_kind: 'git', trigger_slug: 'reader-proof', trigger_session_readers: { humans: 'members', agents: [] } },
+  });
+  const client = ctx.client.as(member);
+  await ctx.step('a non-owner member reads the trigger session and finds it in the list', async () => {
+    (await client.get('/v1/workspaces/:projectId/sessions/:sessionId', { params: { projectId: project.id, sessionId } })).status(200).body().has('$.session_id', sessionId);
+    const list = await client.get('/v1/workspaces/:projectId/sessions', { params: { projectId: project.id } });
+    list.status(200);
+    if (!JSON.stringify(list.json()).includes(sessionId)) throw new Error('reader session missing from inventory');
+  });
+  await ctx.step('the same reader cannot start or prompt that session', async () => {
+    (await client.post('/v1/workspaces/:projectId/sessions/:sessionId/start', {}, { params: { projectId: project.id, sessionId } })).status(404);
+    (await client.post('/v1/workspaces/:projectId/sessions/:sessionId/prompts', { client_message_id: 'reader-denied', parts: [{ type: 'text', text: 'Do not run.' }] }, { params: { projectId: project.id, sessionId } })).status(404);
+  });
+});

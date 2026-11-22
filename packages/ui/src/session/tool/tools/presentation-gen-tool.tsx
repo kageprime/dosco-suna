@@ -107,7 +107,7 @@ export function PresentationGenTool({ call, defaultOpen, forceOpen, locked }: To
             <span className="bg-muted-foreground/10 h-3 w-32 animate-pulse rounded" />
           ) : null}
           {parsed?.success && action === 'create_slide' && parsed.total_slides && (
-            <span className="text-muted-foreground/60 ml-auto shrink-0 font-mono text-xs whitespace-nowrap">
+            <span className="text-muted-foreground ml-auto shrink-0 font-mono text-xs whitespace-nowrap">
               {parsed.total_slides} {parsed.total_slides === 1 ? 'slide' : 'slides'}
             </span>
           )}
@@ -122,7 +122,7 @@ export function PresentationGenTool({ call, defaultOpen, forceOpen, locked }: To
                 if (parsed?.viewer_url) openPreview?.(e, parsed.viewer_url, viewerProxyUrl);
               }}
             >
-              <ExternalLink className="text-muted-foreground/60 hover:text-foreground size-3 transition-colors" />
+              <ExternalLink className="text-muted-foreground hover:text-foreground size-3 transition-colors" />
             </a>
           )}
         </div>
@@ -144,7 +144,7 @@ export function PresentationGenTool({ call, defaultOpen, forceOpen, locked }: To
                 {parsed.slide_title ? `: ${parsed.slide_title}` : ''}
               </span>
               {parsed.total_slides && (
-                <span className="text-muted-foreground/50 ml-auto text-xs">
+                <span className="text-muted-foreground ml-auto text-xs">
                   ({parsed.total_slides} {tHardcodedUi.raw('i18nComplete.text665c0285727d')}
                 </span>
               )}
@@ -160,7 +160,7 @@ export function PresentationGenTool({ call, defaultOpen, forceOpen, locked }: To
                 {tHardcodedUi.raw('i18nComplete.texte3e4aec37372')}
               </span>
               {parsed.message && parsed.message !== `Slide ${parsed.slide_number} validated` && (
-                <span className="text-muted-foreground/60 truncate">{parsed.message}</span>
+                <span className="text-muted-foreground truncate">{parsed.message}</span>
               )}
             </div>
           )}
@@ -194,7 +194,7 @@ export function PresentationGenTool({ call, defaultOpen, forceOpen, locked }: To
           )}
 
           {parsed.slide_file && action !== 'preview' && action !== 'serve' && (
-            <div className="text-muted-foreground/50 truncate font-mono text-xs">
+            <div className="text-muted-foreground truncate font-mono text-xs">
               {parsed.slide_file}
             </div>
           )}
@@ -203,7 +203,7 @@ export function PresentationGenTool({ call, defaultOpen, forceOpen, locked }: To
 
       {!parsed && output && (
         <div data-scrollable className="max-h-96 overflow-auto p-2">
-          <pre className="text-muted-foreground/60 font-mono text-xs whitespace-pre-wrap">
+          <pre className="text-muted-foreground font-mono text-xs whitespace-pre-wrap">
             {output}
           </pre>
         </div>

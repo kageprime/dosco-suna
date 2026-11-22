@@ -19,7 +19,7 @@ import { auditEventsAll, auditWebhookDeliveries, auditWebhooks } from '@kortix/d
 import { and, desc, eq, isNull, or } from 'drizzle-orm';
 import { ACCOUNT_ACTIONS, assertAuthorized } from '../iam';
 import { actorOf } from '../iam/actor';
-import { assertAllowedSourceAddress } from '../marketplace/catalog';
+import { assertAllowedSourceAddress } from '../shared/source-address-guard';
 import { ErrorSchema, auth, errors, json, makeOpenApiApp } from '../openapi';
 import {
   AUDIT_READ_FLUSH_BARRIER_MS,
@@ -710,7 +710,7 @@ auditRouter.openapi(
     }
     // SSRF guard: reject private/link-local/internal targets (e.g. cloud
     // metadata at 169.254.169.254). This endpoint fires a server-side test
-    // delivery immediately on create, so the same guard used for marketplace
+    // delivery immediately on create, so the same guard used for connector
     // source URLs applies here.
     try {
       assertAllowedSourceAddress(url);

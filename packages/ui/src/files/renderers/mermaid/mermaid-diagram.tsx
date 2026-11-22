@@ -181,7 +181,7 @@ export function MermaidDiagram({ source, fileName, onShowSource, className }: Me
   if (state.status === 'empty') {
     return (
       <Centered className={className}>
-        <Diagram className="text-muted-foreground/60 size-5" />
+        <Diagram className="text-muted-foreground size-5" />
         <span>{t.raw('textde340d411411')}</span>
       </Centered>
     );
@@ -191,7 +191,7 @@ export function MermaidDiagram({ source, fileName, onShowSource, className }: Me
     const { message, line } = state.error;
     return (
       <Centered className={className} role="alert">
-        <Warning className="text-muted-foreground/60 size-5" />
+        <Warning className="text-muted-foreground size-5" />
         <span className="text-foreground font-medium">{t.raw('textc53147a0d05b')}</span>
         {line !== null && (
           <span className="text-muted-foreground text-xs tabular-nums">

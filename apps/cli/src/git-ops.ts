@@ -5,7 +5,7 @@ import { type ApiClient, ApiError } from './api/client.ts';
 import type { AccountMembership, MeResponse, ProjectSummary } from './api/types.ts';
 import { loadLocalManifest } from './manifest.ts';
 import { type ProjectGitTarget, projectIsManaged } from './project-git.ts';
-import { loadLink } from './project-link.ts';
+import { LINK_LOCATION, loadLink } from './project-link.ts';
 import { confirm } from './prompts.ts';
 import { NO_WORKSPACE_LINE } from './api/no-workspace.ts';
 import { C, status } from './style.ts';
@@ -465,7 +465,7 @@ export function explainLinkedProjectError(
       `\n${status.err("This folder is linked to a workspace you can't access.")}\n` +
         `  ${C.dim}linked workspace ${C.reset}${projectId}${linkedAccount}\n` +
         `  ${C.dim}logged in as     ${C.reset}account ${auth.account_id.slice(0, 8)} ${C.faded}(host "${host}")${C.reset}, no access to it\n\n` +
-        `  ${C.dim}The link lives in ${C.reset}.kortix/link.json${C.dim}. Fix it one way:${C.reset}\n` +
+        `  ${C.dim}The link lives in ${C.reset}${LINK_LOCATION}${C.dim}. Fix it one way:${C.reset}\n` +
         `    ${C.dim}• Log in as a person who has access:${C.reset}  ${C.cyan}kortix logout && kortix login${C.reset}\n` +
         `    ${C.dim}• Or get invited to that workspace, then retry.${C.reset}\n` +
         `    ${C.dim}• Or ship this folder as a new workspace:${C.reset}  ${C.cyan}kortix workspaces unlink${C.reset}${C.dim} then ${C.reset}${C.cyan}kortix ship${C.reset}\n\n`,

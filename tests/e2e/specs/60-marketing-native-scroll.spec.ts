@@ -13,6 +13,28 @@ import { expect, test, type Page } from '@playwright/test';
 // box and restarts, which no journey survives.
 const SHELL_ROUTES = ['/', '/use-cases', '/services'] as const;
 
+// Hydration adopts the HTML the server sent. React threw it away and rendered
+// the page again in the browser whenever a provider above the i18n catalog
+// wait changed its context before the catalog loaded (`I18nProvider`): the
+// page went blank for up to ~1 s on a cold load, white on loopmaxxing.sh. The
+// heading the server sent must be the heading on the hydrated page.
+test('the landing page hydrates its server HTML instead of rendering it again', async ({ page }) => {
+  await page.addInitScript(() => {
+    document.addEventListener('DOMContentLoaded', () => {
+      Reflect.set(window, '__serverHeading', document.querySelector('h1'));
+    });
+  });
+  await page.goto('/', { waitUntil: 'networkidle' });
+  // The same hydration barrier as below: ConsentGate's mount effect.
+  await expect(page.locator('html')).toHaveClass(/consent-enabled/, { timeout: 30_000 });
+  const serverHeading = await page.evaluate(() => {
+    const heading = Reflect.get(window, '__serverHeading') as Element | null;
+    return heading ? { connected: heading.isConnected } : null;
+  });
+  expect(serverHeading, 'the server HTML has a heading').not.toBeNull();
+  expect(serverHeading?.connected, 'the server-rendered heading is still in the document').toBe(true);
+});
+
 test('marketing pages scroll natively: no scroll hijack on the wheel', async ({ page }) => {
   for (const route of SHELL_ROUTES) {
     await page.goto(route, { waitUntil: 'networkidle' });

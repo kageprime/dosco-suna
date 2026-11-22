@@ -104,6 +104,16 @@ const FAILED_TASK = {
   },
 } satisfies ToolPart;
 
+describe('a failed show renders nothing on any surface (2026-11-16)', () => {
+  const failedShow = { type: 'tool', tool: 'show', callID: 'call-show', state: { status: 'error', input: { url: 'https://example.test/a', title: 'Catalog' }, error: 'type is required' } } as unknown as ToolPart;
+
+  test('panel and inline draw nothing for it; a failed bash still draws its error card', () => {
+    expect(renderPanel(failedShow)).toBe('');
+    expect(renderToStaticMarkup(withProviders(<ToolPartRenderer call={toolCallBlock(failedShow)} sessionId="s1" />))).toBe('');
+    expect(renderPanel(THROWN)).toContain('This step failed');
+  });
+});
+
 describe('an errored task dispatch renders as a dispatch row, not a dead error card', () => {
   test('the child thread stays openable and the failure reason stays visible', () => {
     const html = renderPanel(FAILED_TASK);

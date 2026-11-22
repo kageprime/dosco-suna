@@ -1,7 +1,7 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { AccountStateResponse, AppEnv } from '../../types';
-import { buildAccountState, buildMinimalAccountState, buildLocalAccountState } from '../services/account-state';
+import { buildAccountState, buildMinimalAccountState, buildWorkspacelessAccountState } from '../services/account-state';
 import { claimedFreeGrantWorkspace } from '../services/free-grant';
 import { hasDatabase } from '../../shared/db';
 import { config } from '../../config';
@@ -11,6 +11,7 @@ import { actorOf } from '../../iam/actor';
 import { ACCOUNT_ACTIONS } from '../../iam/actions';
 import { denialReasonMessage } from '../../iam/denial-message';
 import { makeOpenApiApp, json, auth } from '../../openapi';
+import { isNoWorkspaceError } from '../../shared/no-workspace';
 import { OpaqueSchema } from './opaque-schema';
 
 export const accountStateRouter = makeOpenApiApp<AppEnv>();
@@ -92,12 +93,28 @@ const AccountStateQuerySchema = z.object({
   workspace_id: z.string().optional().openapi({ description: 'The workspace to read (the canonical name of account_id; either id works).' }),
 });
 
+async function accountStateFor(c: Context<AppEnv>, minimal: boolean) {
+  if (!hasDatabase) throw new Error('Authoritative billing state requires a database');
+  let accountId: string;
+  try {
+    accountId = await resolveScopedAccountId(c, 'query');
+  } catch (err) {
+    // Only a person's unscoped request may read their legacy identity key.
+    if (!isNoWorkspaceError(err) || c.get('authType') !== 'supabase' ||
+        c.req.query('account_id') || c.req.query('workspace_id') || c.get('accountId')) throw err;
+    return c.json(await buildWorkspacelessAccountState(c.get('userId')), 200);
+  }
+  const state = await (minimal ? buildMinimalAccountState(accountId) : buildAccountState(accountId));
+  if (!config.KORTIX_BILLING_INTERNAL_ENABLED) state.credits.can_run = true;
+  return c.json(await viewFor(c, accountId, state), 200);
+}
+
 accountStateRouter.openapi(
   createRoute({
     method: 'get',
     path: '/',
     tags: ['billing'],
-    summary: 'Full account billing state (always available; returns local mock when billing disabled)',
+    summary: 'Authoritative account billing state',
     ...auth,
     request: { query: AccountStateQuerySchema },
     responses: {
@@ -106,26 +123,7 @@ accountStateRouter.openapi(
       200: json(OpaqueSchema, 'Account billing state'),
     },
   }),
-  async (c) => {
-    if (!hasDatabase) {
-      return c.json({ ...buildLocalAccountState(), can_manage_billing: true });
-    }
-    const accountId = await resolveScopedAccountId(c, 'query');
-
-    try {
-      const state = await buildAccountState(accountId);
-      // Billing disabled — return real data but never block the user
-      if (!config.KORTIX_BILLING_INTERNAL_ENABLED) {
-        state.credits.can_run = true;
-      }
-      return c.json(await viewFor(c, accountId, state), 200);
-    } catch (err) {
-      // DB schema may not have billing tables (e.g. local dev without kortix schema).
-      // Fall back to local account state so the app isn't blocked.
-      console.error('[billing] account-state failed, falling back to local:', (err as Error)?.message || err);
-      return c.json({ ...buildLocalAccountState(), can_manage_billing: true });
-    }
-  },
+  (c) => accountStateFor(c, false),
 );
 
 accountStateRouter.openapi(
@@ -133,27 +131,12 @@ accountStateRouter.openapi(
     method: 'get',
     path: '/minimal',
     tags: ['billing'],
-    summary: 'Minimal account billing state (always available; returns local mock when billing disabled)',
+    summary: 'Minimal authoritative account billing state',
     ...auth,
     request: { query: AccountStateQuerySchema },
     responses: {
       200: json(OpaqueSchema, 'Minimal account billing state'),
     },
   }),
-  async (c) => {
-    if (!hasDatabase) {
-      return c.json({ ...buildLocalAccountState(), can_manage_billing: true });
-    }
-    const accountId = await resolveScopedAccountId(c, 'query');
-    try {
-      const state = await buildMinimalAccountState(accountId);
-      if (!config.KORTIX_BILLING_INTERNAL_ENABLED) {
-        state.credits.can_run = true;
-      }
-      return c.json(await viewFor(c, accountId, state), 200);
-    } catch (err) {
-      console.error('[billing] minimal account-state failed, falling back to local:', (err as Error)?.message || err);
-      return c.json({ ...buildLocalAccountState(), can_manage_billing: true });
-    }
-  },
+  (c) => accountStateFor(c, true),
 );

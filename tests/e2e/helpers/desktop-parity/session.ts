@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { fileURLToPath } from "node:url";
 import { installBrowserSessionDirect } from "../session-auth";
+import { expectSettingsLayout } from "../settings-layout";
 import { dismissOnboarding, selectAccountForUi } from "../ui";
 import {
   api,
@@ -149,6 +150,70 @@ function defineSessionParity(desktop: boolean): void {
       }
     });
 
+    test("Workspace settings keeps one collapsible sidebar and a centered column", async ({
+      page,
+      baseURL,
+      desktopApp,
+    }) => {
+      test.setTimeout(240_000);
+      await resize(page, desktopApp, 1440, 900);
+      await pinMacPlatform(page);
+      const { session, accounts, project, dispose } = await provisionDesktopScene({
+        databaseUrl: desktopDatabaseUrl(),
+        emailPrefix: "e2e-desktop-settings",
+        name: "Desktop settings layout",
+      });
+      try {
+        const general = `${baseURL}/workspaces/${project.id}/admin/general`;
+        await installBrowserSessionDirect(page, session, general, authOptions);
+        await selectAccountForUi(page, accounts[0].account_id);
+        await page.goto(general);
+        await dismissOnboarding(page);
+        await expect(page.locator("main h1")).toBeVisible({ timeout: 60_000 });
+        const opener = page.getByRole("button", { name: "Open sidebar", exact: true });
+        const collapse = page.getByRole("button", { name: "Collapse sidebar", exact: true });
+        if (await opener.isVisible()) await opener.click();
+        await expect(collapse).toBeVisible();
+        // Off the sidebar's edge, so a collapsed sidebar does not peek open.
+        await page.mouse.move(1000, 600);
+        await expectSettingsLayout(page, 1, "sidebar open");
+
+        await collapse.click();
+        await page.mouse.move(1000, 600);
+        // Collapsed, the page draws no second settings sidebar, and one
+        // opener brings the app sidebar back: on the desktop shell it is the
+        // title-bar control, clear of the traffic lights.
+        await expectSettingsLayout(page, 0, "sidebar collapsed");
+        await expect(opener).toHaveCount(1);
+        if (desktop) {
+          const box = await opener.boundingBox();
+          expect(box?.x ?? -1, "the opener clears the native window controls").toBeGreaterThanOrEqual(62);
+          expect(box?.y ?? Infinity, "the opener shares the traffic-light row").toBeLessThan(40);
+        }
+        await page.screenshot({ path: test.info().outputPath("settings-collapsed.png"), scale: "css" });
+        await opener.click();
+        await page.mouse.move(1000, 600);
+        await expectSettingsLayout(page, 1, "sidebar reopened");
+
+        if (desktopApp) {
+          // Browser zoom keeps one sidebar and the centered column.
+          const window = await desktopApp.browserWindow(page);
+          const zoom = await window.evaluate((window) => window.webContents.getZoomFactor());
+          await window.evaluate((window) => window.webContents.setZoomFactor(1.25));
+          await expectSettingsLayout(page, 1, "zoomed in");
+          await window.evaluate((window, factor) => window.webContents.setZoomFactor(factor), zoom);
+        }
+
+        // The minimum window: the sidebar is a sheet, the page shows its
+        // strip of sections, and the column still centers.
+        await resize(page, desktopApp, 720, 480);
+        await expectSettingsLayout(page, 1, "minimum window");
+        await page.screenshot({ path: test.info().outputPath("settings-minimum-window.png"), scale: "css" });
+      } finally {
+        await dispose();
+      }
+    });
+
     test("sidebar, settings, agents and connectors remain aligned and clickable", async ({
       page,
       baseURL,
@@ -206,11 +271,12 @@ function defineSessionParity(desktop: boolean): void {
         if (desktop) {
           expect(box!.y, "workspace selector shares the traffic-light row").toBeLessThan(40);
         }
-        // The Download app row sits in the sidebar footer, never in the
-        // desktop app (it is the download).
-        await expect(
-          page.getByRole("button", { name: "Download app", exact: true }),
-        ).toHaveCount(desktop ? 0 : 1);
+        // The desktop app is a slide of the sidebar's promo card (its dot
+        // carries the slide title), never inside the desktop app (it is the
+        // download).
+        const desktopSlide = page.getByRole("button", { name: "Get the desktop app", exact: true });
+        if (desktop) await expect(desktopSlide).toHaveCount(0);
+        else await expect(desktopSlide.first()).toBeVisible();
         await switcher.click();
         await page.getByRole("menuitem", { name: /^Settings/ }).click();
         const dialog = page.getByRole("dialog");

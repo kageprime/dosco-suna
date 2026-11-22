@@ -24,6 +24,7 @@ import {
   pollOpencodeDeviceAuth,
   startOpencodeDeviceAuth,
 } from '../../llm-gateway/credentials/opencode-console';
+import { DeviceAuthUnavailableError } from '../../llm-gateway/credentials/codex-core';
 import { resolveCatalogUpstream } from '../../llm-gateway/models/provider-registry';
 import { requestPersonalOwner } from '../lib/personal-resources';
 import {
@@ -187,7 +188,7 @@ export function registerProviderOauthRoutes(): void {
         },
       responses: {
           200: json(z.any(), 'Device challenge'),
-          ...errors(400, 401, 403, 404, 502),
+          ...errors(400, 401, 403, 404, 502, 503),
       },
     }),
     async (c: any) => {
@@ -242,6 +243,11 @@ export function registerProviderOauthRoutes(): void {
       }
     } catch (err) {
       rethrowDatabaseError(err);
+      // The provider's outage: a typed 503 the SDK shows and does not report.
+      if (err instanceof DeviceAuthUnavailableError) {
+        c.header('Retry-After', '30');
+        return c.json({ error: err.message, code: 'provider_auth_unavailable' }, 503);
+      }
       return c.json({
         error: err instanceof Error ? err.message : `Failed to start ${cfg.label} authorization`,
       }, 502);

@@ -16,7 +16,8 @@ import { readFileSync } from 'node:fs';
 // bunfig.toml → preload note), so this file must not mock a module another
 // test file reads unmocked — `@/lib/utils/theme` especially: theme.test.ts
 // pins the real THEME against global.css. The expected accent colors are
-// therefore read from theme.ts's source instead of importing or mocking it.
+// therefore read from theme.ts's source instead of importing or mocking it:
+// the first `--kortix-<name>` line is THEME.accent.light, the tone mocked below.
 const themeSource = readFileSync(import.meta.dir + '/../../lib/utils/theme.ts', 'utf8');
 const accent = (name: 'orange' | 'yellow') => {
   const value = themeSource.match(new RegExp(`${name}: '([^']+)', // --kortix-${name}`))?.[1];
@@ -113,6 +114,7 @@ mock.module('@/hooks/useSandboxReachability', () => ({
 }));
 mock.module('@/lib/network/use-online-status', () => ({ useOnlineStatus: () => online }));
 mock.module('@/lib/haptics', () => ({ haptics: { tap: () => taps++ } }));
+mock.module('@/lib/utils/tone', () => ({ useTone: () => 'light' }));
 
 let SandboxHealthPill: typeof import('./SandboxHealthPill').SandboxHealthPill;
 let LiveUpdatesPausedPill: typeof import('./LiveUpdatesPausedPill').LiveUpdatesPausedPill;
@@ -207,17 +209,16 @@ describe('SandboxHealthPill chrome', () => {
     expect(pillText(pills[0])).toBe('Health');
   });
 
-  test('a waking computer draws the same card in yellow with no actions', async () => {
-    wording = { label: 'Waking computer', tone: 'progress' };
-    const root = await render(<SandboxHealthPill onHealth={() => {}} />);
+  for (const label of ['Waking computer', 'Connecting']) {
+    test(`${label} is silent during normal startup`, async () => {
+      wording = { label, tone: 'progress' };
+      const root = await render(<SandboxHealthPill onHealth={() => {}} />);
 
-    expect(byClassName(root, WRAPPER)).toHaveLength(1);
-    expect(byClassName(root, CARD)).toHaveLength(1);
-    const dots = instances(root, (node) => node.props.style?.width === 8 && node.props.style?.borderRadius === 4);
-    expect(dots).toHaveLength(2);
-    for (const dot of dots) expect(dot.props.style.backgroundColor).toBe(ACCENT_YELLOW);
-    expect(actionPills(root)).toHaveLength(0);
-  });
+      expect(byClassName(root, WRAPPER)).toHaveLength(0);
+      expect(actionPills(root)).toHaveLength(0);
+      expect(loopCounts.started).toBe(0);
+    });
+  }
 
   test('a reachable computer hides the pill and mounts its slot instead', async () => {
     wording = { label: "Can't reach computer", tone: 'danger' };

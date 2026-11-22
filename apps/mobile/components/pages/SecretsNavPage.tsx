@@ -596,8 +596,9 @@ function ManifestBanner({ status, path, error, isDark }: { status?: string; path
   const muted = isDark ? THEME.dark.mutedForeground : THEME.light.mutedForeground;
   if (!status || status === 'loaded') return null;
   const warn = status === 'error';
-  const color = warn ? THEME.accent.orange : muted;
-  const bg = warn ? withAlpha(THEME.accent.orange, 0.08) : (isDark ? withAlpha(THEME.dark.foreground, 0.04) : withAlpha(THEME.light.foreground, 0.03));
+  const orange = THEME.accent[isDark ? 'dark' : 'light'].orange;
+  const color = warn ? orange : muted;
+  const bg = warn ? withAlpha(orange, 0.08) : (isDark ? withAlpha(THEME.dark.foreground, 0.04) : withAlpha(THEME.light.foreground, 0.03));
   const text =
     status === 'missing'
       ? 'No kortix.yaml manifest — declare required env keys to track them here.'
@@ -618,6 +619,7 @@ export function SecretsNavPage({
 }: SecretsNavPageProps) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const accent = THEME.accent[isDark ? 'dark' : 'light'];
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const [selectedName, setSelectedName] = useState<string | null>(null);
@@ -673,9 +675,9 @@ export function SecretsNavPage({
         <ManifestBanner status={data?.manifest_status} path={data?.manifest_path} error={data?.manifest_error} isDark={isDark} />
 
         {missingRequired > 0 && (
-          <View style={{ marginHorizontal: 16, marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: withAlpha(THEME.accent.orange, 0.08), flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-            <ShieldAlert size={16} color={THEME.accent.orange} />
-            <Text style={{ flex: 1, fontSize: 12.5, color: THEME.accent.orange }}>
+          <View style={{ marginHorizontal: 16, marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: withAlpha(accent.orange, 0.08), flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+            <ShieldAlert size={16} color={accent.orange} />
+            <Text style={{ flex: 1, fontSize: 12.5, color: accent.orange }}>
               {missingRequired} required {missingRequired === 1 ? 'secret is' : 'secrets are'} not set.
             </Text>
           </View>

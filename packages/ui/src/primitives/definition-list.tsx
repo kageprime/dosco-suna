@@ -47,7 +47,7 @@ export function DefinitionRow({ label, labelWidth = 110, children, title }: Defi
   return (
     <div className="flex items-baseline gap-6 py-2.5">
       <dt
-        className="text-muted-foreground/70 shrink-0 text-xs font-medium"
+        className="text-muted-foreground shrink-0 text-xs font-medium"
         style={{ width: labelWidth }}
       >
         {label}

@@ -428,7 +428,11 @@ export async function projectImageRegion(projectId: string): Promise<string | un
 export async function computeTemplateIdentity(
   project: GitBackedProject,
   template: ResolvedTemplate,
-  deps: { imageRegion?: (projectId: string) => Promise<string | undefined> } = {},
+  deps: {
+    imageRegion?: (projectId: string) => Promise<string | undefined>;
+    /** Read-only views may use the request's bounded stale mirror policy. */
+    freshness?: false | 'tip-proof';
+  } = {},
 ): Promise<{
   snapshotName: string;
   contentHash: string;
@@ -459,7 +463,7 @@ export async function computeTemplateIdentity(
     );
   }
   const runtimeFingerprint = await currentRuntimeArtifactFingerprint();
-  const { dockerfile: userDockerfile, commit } = await resolveUserDockerfile(project, template);
+  const { dockerfile: userDockerfile, commit } = await resolveUserDockerfile(project, template, deps.freshness);
   const region = template.isShared
     ? undefined
     : await (deps.imageRegion ?? projectImageRegion)(project.projectId);
@@ -510,6 +514,7 @@ export async function computeTemplateIdentity(
 export async function resolveUserDockerfile(
   project: GitBackedProject,
   template: ResolvedTemplate,
+  freshness: false | 'tip-proof' = 'tip-proof',
 ): Promise<{ dockerfile: string; commit: string | null }> {
   if (template.isShared) return { dockerfile: PLATFORM_DEFAULT_USER_DOCKERFILE, commit: null };
   if (template.dockerfilePath) {
@@ -519,7 +524,7 @@ export async function resolveUserDockerfile(
     // as one. So a project with its own Dockerfile paid a full fetch on nearly
     // every new session, in front of the provider create. One branch at most
     // now, and the proof the env build shares makes it none.
-    const commitSha = await resolveCommitSha(project, project.defaultBranch, 'tip-proof');
+    const commitSha = await resolveCommitSha(project, project.defaultBranch, freshness);
     const bytes = await readRepoFile(project, template.dockerfilePath, commitSha);
     const normalized = normalizeUserDockerfileForSnapshot(bytes);
     if (!normalized.trim()) {

@@ -67,10 +67,8 @@ function runnableScript(bundleDir) {
   return path;
 }
 
-function makeBundle() {
-  const dir = mkdtempSync(join(tmpdir(), 'kortix-entrypoint-blocks-'));
-  mkdirSync(join(dir, 'static'), { recursive: true });
-  const body = [
+function makeBundle(
+  body = [
     `const supabase = "${BAKED.supabase}";`,
     `const anon = "${BAKED.anon}";`,
     `const backend = "${BAKED.backend}";`,
@@ -78,11 +76,30 @@ function makeBundle() {
     `const app = "${BAKED.app}";`,
     `const cfg = { BILLING_ENABLED:!0 };`,
     '',
-  ].join('\n');
+  ].join('\n'),
+) {
+  const dir = mkdtempSync(join(tmpdir(), 'kortix-entrypoint-blocks-'));
+  mkdirSync(join(dir, 'static'), { recursive: true });
   writeFileSync(join(dir, 'static', 'main.js'), body);
   writeFileSync(join(dir, 'index.html'), body);
   return dir;
 }
+
+/** Run the patched entrypoint over `bundle` with only `env` as the runtime values. */
+function run(bundle, env) {
+  const bin = shimBinDir();
+  return spawnSync('/bin/sh', [runnableScript(bundle)], {
+    env: { PATH: bin ? `${bin}:${process.env.PATH}` : process.env.PATH, ...env },
+    encoding: 'utf8',
+  });
+}
+
+const RUNTIME_ENV = {
+  NEXT_PUBLIC_SUPABASE_URL: RUNTIME.supabase,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: RUNTIME.anon,
+  NEXT_PUBLIC_BACKEND_URL: RUNTIME.backend,
+  NEXT_PUBLIC_APP_URL: RUNTIME.app,
+};
 
 describe('docker-entrypoint.sh placeholder blocks', () => {
   test('rewrites every baked placeholder to its runtime value and logs each (not the backend host)', () => {
@@ -123,5 +140,73 @@ describe('docker-entrypoint.sh placeholder blocks', () => {
     expect(result.stdout).toContain('[entrypoint] App URL:');
     expect(result.stdout).toContain('[entrypoint] Billing:');
     expect(result.stdout).not.toContain('[entrypoint] Backend host');
+  });
+
+  test('a placeholder the bundle does not contain is neither rewritten nor logged', () => {
+    const bundle = makeBundle('const nothing = "baked";\n');
+    const result = run(bundle, RUNTIME_ENV);
+    expect(result.status).toBe(0);
+    expect(readFileSync(join(bundle, 'static/main.js'), 'utf8')).toBe('const nothing = "baked";\n');
+    expect(result.stdout).not.toContain('[entrypoint] Supabase');
+    expect(result.stdout).not.toContain('[entrypoint] Backend:');
+    expect(result.stdout).not.toContain('[entrypoint] App URL:');
+    expect(result.stdout).toContain('[entrypoint] Billing: OFF (no rewrite needed)');
+    expect(result.stdout).toContain('[entrypoint] No URL rewrites needed');
+  });
+
+  test('a runtime value equal to the baked one is left alone', () => {
+    const bundle = makeBundle();
+    const before = readFileSync(join(bundle, 'static/main.js'), 'utf8');
+    const result = run(bundle, {
+      NEXT_PUBLIC_SUPABASE_URL: BAKED.supabase,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: BAKED.anon,
+      NEXT_PUBLIC_BACKEND_URL: BAKED.backend,
+      NEXT_PUBLIC_APP_URL: BAKED.app,
+      NEXT_PUBLIC_BILLING_ENABLED: 'true',
+    });
+    expect(result.status).toBe(0);
+    expect(readFileSync(join(bundle, 'static/main.js'), 'utf8')).toBe(before);
+    expect(result.stdout).not.toContain('[entrypoint] Supabase');
+    expect(result.stdout).not.toContain('[entrypoint] Backend:');
+    expect(result.stdout).not.toContain('[entrypoint] App URL:');
+    expect(result.stdout).toContain('[entrypoint] Billing: ON (no rewrite needed)');
+    expect(result.stdout).toContain('[entrypoint] No URL rewrites needed');
+  });
+
+  test('rewrites local Supabase CLI URLs, full before bare, and a baked sb_publishable key', () => {
+    const bundle = makeBundle(
+      [
+        'const a = "http://127.0.0.1:54321/auth";',
+        'const b = "ws://localhost:54321/realtime";',
+        'const k = "sb_publishable_ABC-123";',
+        '',
+      ].join('\n'),
+    );
+    const result = run(bundle, RUNTIME_ENV);
+    expect(result.status).toBe(0);
+    expect(readFileSync(join(bundle, 'static/main.js'), 'utf8')).toBe(
+      [
+        `const a = "${RUNTIME.supabase}/auth";`,
+        `const b = "ws://${RUNTIME.supabase}/realtime";`,
+        `const k = "${RUNTIME.anon}";`,
+        '',
+      ].join('\n'),
+    );
+    expect(result.stdout).toContain(`[entrypoint] Supabase URL (dev): http://127.0.0.1:54321 -> ${RUNTIME.supabase}`);
+    expect(result.stdout).toContain(`[entrypoint] Supabase URL (dev bare): 127.0.0.1:54321 -> ${RUNTIME.supabase}`);
+    expect(result.stdout).toContain(`[entrypoint] Supabase URL (dev bare): localhost:54321 -> ${RUNTIME.supabase}`);
+    expect(result.stdout).not.toContain('[entrypoint] Supabase URL (dev): http://localhost:54321');
+    expect(result.stdout).toContain('[entrypoint] Supabase anon key: replacing (sb_publishable_ABC-123)');
+    expect(result.stdout).not.toContain('[entrypoint] Supabase URL: ');
+  });
+
+  test('a trailing slash on the runtime backend URL is dropped from the rewritten URL and host', () => {
+    const bundle = makeBundle();
+    const result = run(bundle, { NEXT_PUBLIC_BACKEND_URL: 'https://api.real.com/v1/' });
+    expect(result.status).toBe(0);
+    const text = readFileSync(join(bundle, 'static/main.js'), 'utf8');
+    expect(text).toContain('const backend = "https://api.real.com/v1";');
+    expect(text).toContain('const backendHost = "https://api.real.com";');
+    expect(result.stdout).toContain('[entrypoint] Backend: http://localhost:8008/v1 -> https://api.real.com/v1/');
   });
 });

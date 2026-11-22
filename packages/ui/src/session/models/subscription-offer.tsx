@@ -160,15 +160,15 @@ export function ConnectPlanRows({
  * composer. New projects run on Kortix models, and most people already pay
  * for ChatGPT or Claude.
  *
- * Shown only when a model already runs (with none, the composer's own
- * `ModelConnectionBar` shows the same rows, undismissible), no ChatGPT or
- * Claude plan serves one yet, and the viewer may change the project's models.
- * `px-4` is the composer shell's gutter, so the rows span the card's width.
+ * The composer's `ModelConnectionBar` renders it, only when the composer has a
+ * model (with none, the bar shows the same rows, undismissible). It then shows
+ * when a model already runs, no ChatGPT or Claude plan serves one yet, and the
+ * viewer may change the project's models.
  */
-export function SubscriptionOffer({ projectId }: { projectId: string }) {
+export function SubscriptionOffer({ projectId, className }: { projectId: string; className?: string }) {
   const models = useWorkspaceModels(projectId);
   const { canWriteProviders } = useModelConnectionGate(undefined, { projectId });
   const show =
     canWriteProviders && models.some(isRunnableModel) && !hasRunnableSubscriptionModel(models);
-  return show ? <ConnectPlanRows projectId={projectId} dismissible className="px-4" /> : null;
+  return show ? <ConnectPlanRows projectId={projectId} dismissible className={className} /> : null;
 }

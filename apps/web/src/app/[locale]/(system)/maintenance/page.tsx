@@ -100,7 +100,7 @@ export default async function MaintenancePage({
         )}
 
         {/* Auto-refresh hint */}
-        <p className="text-muted-foreground/60 text-xs">
+        <p className="text-muted-foreground text-xs">
           {tHardcodedUi.raw(
             'appMaintenancePage.line61JsxTextThisPageRefreshesAutomaticallyEvery30Seconds',
           )}

@@ -12,6 +12,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 
 import { useBillingAccountId } from '../stores/billing-account-context';
+import { costReadBusyRetryDelay, retryCostReadBusy } from './use-cost-explorer';
 
 export const SESSION_COST_PAGE_SIZE = 25;
 const SESSION_COST_STALE_TIME_MS = 30_000;
@@ -76,6 +77,8 @@ export function buildSessionCostsListQuery(
     queryFn: () => sources.list(options),
     enabled: Boolean(input.accountId),
     staleTime: SESSION_COST_STALE_TIME_MS,
+    retry: retryCostReadBusy,
+    retryDelay: costReadBusyRetryDelay,
   };
 }
 
@@ -111,6 +114,9 @@ export function buildSessionCostDetailQuery(
     // for the exact session the user is looking at).
     enabled: Boolean(input.sessionId) && Boolean(input.accountId),
     staleTime: SESSION_COST_STALE_TIME_MS,
+    // The detail route shares the per-caller cost-read bound: a 429 is "try again shortly".
+    retry: retryCostReadBusy,
+    retryDelay: costReadBusyRetryDelay,
   };
 }
 

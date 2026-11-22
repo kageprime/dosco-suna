@@ -88,8 +88,20 @@ export function isInvisibleActivityPart(call: ActivityPartLike | ToolCallBlock):
   if (part.type === 'step-start' || part.type === 'step-finish') return true;
   if (part.type === 'text' && !part.text?.trim()) return true;
   if (isEmptyShowPart(part)) return true;
+  if (isFailedShowPart(part)) return true;
   if (isEmptyMemoryViewPart(part)) return true;
   return false;
+}
+
+/**
+ * A `show` call that failed presented nothing, so no surface draws it (Marko,
+ * 2026-11-16: "dont show errd ones"; a call without `type` failed, its retry
+ * succeeded, and the card opened on the failure). The call stays in the
+ * session log and the model's context. A running show stays: it may succeed.
+ */
+function isFailedShowPart(part: ActivityPartLike): boolean {
+  const name = normalizeActivityToolName(part.tool);
+  return (name === 'show' || name === 'show_user') && part.state?.status === 'error';
 }
 
 /** The fields this module reads off a part. Deliberately structural — the turn
@@ -140,9 +152,7 @@ function isEmptyMemoryViewPart(part: ActivityPartLike): boolean {
  *     streaming its arguments; its input is empty because it has not arrived
  *     yet, and hiding it would make the row flicker in mid-turn. The running
  *     card carries its own spinner and stays.
- *   - **Never `error`.** A call whose STATE is an error renders the failure
- *     card from `ToolPartRenderer`, which is real content about a real event.
- *     Failures stay visible; only the blank card goes.
+ *   - **Never `error`.** A failed call is `isFailedShowPart`'s case, not this one.
  *
  * No `type === 'tool'` check is needed: only a tool part carries `tool`, so a
  * text/reasoning/snapshot part normalizes to `''` and falls out on the name.

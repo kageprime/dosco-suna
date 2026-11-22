@@ -1,3 +1,4 @@
+import { drainCostReadQueries } from './cost-read-guard';
 import { llmValueFields, llmValueBasis } from './llm-value';
 import { numberValue, isoValue, type NumericValue, type TemporalValue } from './cost-values';
 import { gatewayRequestLogs, projectSessions, sandboxComputeSessions, sessionSandboxes } from '@kortix/db';
@@ -450,7 +451,7 @@ async function loadSessionTotals(
   scope: Required<CostScope>,
   sessionId: string,
 ): Promise<{ llm: LlmAggregateRow | undefined; compute: ComputeAggregateRow | undefined; billedElsewhere: number }> {
-  const [llmRows, computeRows] = await Promise.all([
+  const [llmRows, computeRows] = await drainCostReadQueries([
     db
       .select({
         ...llmAggregateFields,
@@ -503,7 +504,7 @@ async function loadReconciliation(
     lt(sandboxComputeSessions.startedAt, window.to.toISOString()),
   ];
 
-  const [llmResult, computeResult] = await Promise.all([
+  const [llmResult, computeResult] = await drainCostReadQueries([
     db
       .select({
         cost: kortixBilledSpendSql,
@@ -645,7 +646,7 @@ export async function listSessionCosts(input: {
     asc(projectSessions.sessionId),
   ];
 
-  const [sessionRows, totalRows, reconciliation] = await Promise.all([
+  const [sessionRows, totalRows, reconciliation] = await drainCostReadQueries([
     db
       .select({
         sessionId: projectSessions.sessionId,
@@ -765,7 +766,7 @@ async function loadLedgerEntries(
   scope: Required<CostScope>,
   sessionId: string,
 ): Promise<SessionCostLedgerEntry[]> {
-  const [llmRows, computeRows] = await Promise.all([
+  const [llmRows, computeRows] = await drainCostReadQueries([
     db
       .select({
         id: gatewayRequestLogs.logId,
@@ -842,6 +843,23 @@ async function loadLedgerEntries(
   return sortLedgerEntriesNewestFirst([...llmEntries, ...computeEntries]);
 }
 
+/**
+ * The owner of one session of this account: `{ ownerId }`, or null when the
+ * account has no such session. One indexed row; the cost routes compare it
+ * with `sessionCostOwner` before they read a session's spend.
+ */
+export async function findSessionCostOwner(input: {
+  accountId: string;
+  sessionId: string;
+}): Promise<{ ownerId: string | null } | null> {
+  const [row] = await db
+    .select({ ownerId: projectSessions.createdBy })
+    .from(projectSessions)
+    .where(and(eq(projectSessions.accountId, input.accountId), eq(projectSessions.sessionId, input.sessionId)))
+    .limit(1);
+  return row ?? null;
+}
+
 export async function getSessionCostRecord(input: {
   accountId: string;
   projectId?: string;
@@ -873,7 +891,7 @@ export async function getSessionCostRecord(input: {
   // The session is this account's (checked above): its rows are read by its
   // project, so a session from before a move keeps its history (CostScope).
   const scope = { accountId: input.accountId, projectId: session.projectId };
-  const [totals, ownerById, modelUsage, ledgerEntries] = await Promise.all([
+  const [totals, ownerById, modelUsage, ledgerEntries] = await drainCostReadQueries([
     loadSessionTotals(scope, session.sessionId),
     resolveSessionOwnerIdentities(ownerIds, input.accountId),
     loadModelUsage(scope, session.sessionId),
@@ -900,7 +918,7 @@ export async function listProjectGatewaySessionSpend(input: {
   /** The caller's session filter (`ProjectReadView.where`); absent reads every session. */
   sessionsVisibleTo?: (sessionColumn: AnyColumn) => SQL | undefined;
 }): Promise<{ window_days: number; sessions: LegacyGatewaySessionRow[] }> {
-  const [llmRows, computeRows] = await Promise.all([
+  const [llmRows, computeRows] = await drainCostReadQueries([
     db
       .select({
         sessionId: gatewayRequestLogs.sessionId,

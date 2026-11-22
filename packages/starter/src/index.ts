@@ -10,8 +10,8 @@
  *
  * Editing the starter is plain file editing — shared Kortix runtime
  * files live under `templates/base/`, richer starter layers live under
- * `templates/<template>/`, optional first-party marketplace items live
- * under `templates/marketplace/`, and both the API and CLI pick them up.
+ * `templates/<template>/`, the managed `kortix-*` skills live under
+ * `templates/managed/`, and both the API and CLI pick them up.
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -81,11 +81,7 @@ const GENERAL_KNOWLEDGE_WORKER_TEMPLATE_DIR = join(
   'templates',
   'general-knowledge-worker',
 );
-const MARKETPLACE_TEMPLATE_DIR = join(import.meta.dir, '..', 'templates', 'marketplace');
 const MANAGED_TEMPLATE_DIR = join(import.meta.dir, '..', 'templates', 'managed');
-
-/** Roots that may legitimately hold nothing — see `rawFilesForRoot`. */
-const OPTIONAL_TEMPLATE_ROOTS = new Set(['marketplace-projects']);
 
 // Build artifacts and OS cruft that can appear in a working tree but must never
 // be scaffolded into a user's repo. This MUST stay in sync with the identical
@@ -105,12 +101,6 @@ const IGNORED_TEMPLATE_DIRS = new Set([
   'node_modules',
 ]);
 const IGNORED_TEMPLATE_FILES = new Set(['.DS_Store', 'Thumbs.db']);
-const MARKETPLACE_PROJECTS_TEMPLATE_DIR = join(
-  import.meta.dir,
-  '..',
-  'templates',
-  'marketplace-projects',
-);
 
 export function normalizeStarterTemplateId(value: unknown): StarterTemplateId {
   if (typeof value === 'string' && (STARTER_TEMPLATE_IDS as readonly string[]).includes(value)) {
@@ -147,7 +137,7 @@ export function listGeneralKnowledgeWorkerSkills(): string[] {
  * ordering — both the API and CLI rely on that.
  */
 export function getStarterFiles(vars: StarterVars): StarterFile[] {
-  const resolvedVars: Required<StarterVars> = {
+  const resolvedVars = {
     projectName: vars.projectName,
     repoFullName: vars.repoFullName ?? 'your-org/your-repo',
     template: normalizeStarterTemplateId(vars.template),
@@ -166,7 +156,7 @@ export function getStarterFiles(vars: StarterVars): StarterFile[] {
   const byPath = new Map<string, StarterFile>();
   for (const root of roots) {
     for (const raw of rawFilesForRoot(root.name, root.dir)) {
-      byPath.set(raw.path, { path: raw.path, content: interpolate(raw.content, resolvedVars) });
+      byPath.set(raw.path, { path: raw.path, content: interpolateVars(raw.content, resolvedVars) });
     }
   }
 
@@ -219,55 +209,6 @@ export function getManagedSkillFiles(): StarterFile[] {
 }
 
 /**
- * Optional first-party items that are listed in the Kortix marketplace but are
- * not part of the starter floor.
- */
-export function getMarketplaceFiles(): StarterFile[] {
-  return rawFilesForRoot('marketplace', MARKETPLACE_TEMPLATE_DIR).sort((a, b) =>
-    a.path.localeCompare(b.path),
-  );
-}
-
-/**
- * Full, clonable example Kortix projects listed in the marketplace under
- * `registry:project`. Each is a subdirectory keyed by slug (e.g.
- * `marketplace-projects/support-agent-kit/...`); paths returned here are
- * still slug-prefixed — callers that turn this into registry items strip the
- * slug to get each project's own repo-relative paths. Raw (uninterpolated) —
- * `{{var}}` placeholders are resolved by the installer at clone time using
- * the real destination project's name, not this fixture's.
- */
-export function getProjectTemplateFiles(): StarterFile[] {
-  return rawFilesForRoot('marketplace-projects', MARKETPLACE_PROJECTS_TEMPLATE_DIR).sort((a, b) =>
-    a.path.localeCompare(b.path),
-  );
-}
-
-/**
- * Map of every bundled-catalog file path → its real repo-relative source path
- * (under `packages/starter/templates/`). Lets the marketplace build a "View
- * source" link for a first-party skill/agent/tool without guessing which
- * template root it came from. Precedence matches the catalog build
- * (base < general-knowledge-worker < managed < marketplace) so an overridden
- * file resolves to the root that actually wins.
- */
-export function getStarterCatalogSourceMap(): Map<string, string> {
-  const roots: Array<{ name: string; dir: string }> = [
-    { name: 'base', dir: BASE_TEMPLATE_DIR },
-    { name: 'general-knowledge-worker', dir: GENERAL_KNOWLEDGE_WORKER_TEMPLATE_DIR },
-    { name: 'managed', dir: MANAGED_TEMPLATE_DIR },
-    { name: 'marketplace', dir: MARKETPLACE_TEMPLATE_DIR },
-  ];
-  const map = new Map<string, string>();
-  for (const root of roots) {
-    for (const file of rawFilesForRoot(root.name, root.dir)) {
-      map.set(file.path, `packages/starter/templates/${root.name}/${file.path}`);
-    }
-  }
-  return map;
-}
-
-/**
  * Raw (uninterpolated) files for one template root. Walks the directory on
  * disk; if that is unavailable — the compiled `kortix` binary, where the
  * template tree was never embedded into `$bunfs` — falls back to the static
@@ -280,11 +221,6 @@ function rawFilesForRoot(name: string, dir: string): StarterFile[] {
     if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error;
     const embedded = EMBEDDED_STARTER[name];
     if (!embedded) {
-      // An OPTIONAL root that is legitimately empty (git does not track empty
-      // directories, so retiring every item under it removes the root outright)
-      // must degrade to "no files", not take down the whole catalog build. Only
-      // a root the scaffold actually needs is worth throwing over.
-      if (OPTIONAL_TEMPLATE_ROOTS.has(name)) return [];
       throw new Error(`starter template "${name}" is unavailable on disk and not embedded`);
     }
     return embedded.files;
@@ -302,19 +238,14 @@ function rawFilesForRoot(name: string, dir: string): StarterFile[] {
  * Replace `{{name}}` placeholders. Only `\w+` identifiers — keeps
  * accidental matches in code/docs (e.g. `{{ body.action }}` in a
  * trigger prompt) from being treated as substitution targets. Exported so
- * other callers with their own `{{var}}` content (e.g. the API's
- * `registry:project` clone path in `apps/api/src/projects/seed-files.ts`)
- * reuse this exact convention instead of reimplementing the regex.
+ * other callers with their own `{{var}}` content reuse this exact convention
+ * instead of reimplementing the regex.
  */
 export function interpolateVars(input: string, vars: Record<string, string>): string {
   return input.replace(/\{\{(\w+)\}\}/g, (match, name: string) => {
     if (name in vars) return vars[name]!;
     return match; // leave unknown placeholders intact
   });
-}
-
-function interpolate(input: string, vars: Required<StarterVars>): string {
-  return interpolateVars(input, vars as unknown as Record<string, string>);
 }
 
 function walk(root: string): string[] {

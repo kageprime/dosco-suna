@@ -191,7 +191,7 @@ export function MfaRequiredCard({ accountId, canManage }: MfaRequiredCardProps) 
                       <span className="text-foreground truncate">
                         {emailByUserId.get(l.user_id) ?? l.user_id}
                       </span>
-                      <span className="text-muted-foreground/80">·</span>
+                      <span className="text-muted-foreground">·</span>
                       <span className="text-muted-foreground capitalize">{l.account_role}</span>
                     </li>
                   ))}

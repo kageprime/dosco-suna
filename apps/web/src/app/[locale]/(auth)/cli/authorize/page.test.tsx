@@ -57,6 +57,19 @@ mock.module('@/features/providers/auth-provider', () => ({
 mock.module('@kortix/ui/workspace/sidebar/use-workspace-directory', () => ({
   useWorkspaceDirectory: directoryMock,
 }));
+// The empty list renders the inline create (KRTX-4940); its network side is
+// not what these screens are about.
+mock.module('@kortix/ui/workspace/new/use-create-workspace', () => ({
+  useCreateWorkspace: () => ({
+    create: async () => {},
+    status: 'idle',
+    error: null,
+    retry: () => {},
+    canRetry: false,
+    limitReached: false,
+    phase: null,
+  }),
+}));
 
 // motion/react with no DOM: render the same tag with the animation-only props
 // stripped, and always claim reduced motion so no animation timing runs.
@@ -85,7 +98,10 @@ const motionComponents = new Proxy(
       }),
   },
 );
+// The real module first: code under test reads exports this stub does not name (MotionGlobalConfig).
+const realMotion = await import('motion/react');
 mock.module('motion/react', () => ({
+  ...realMotion,
   AnimatePresence: ({ children }: { children: ReactNode }) => <>{children}</>,
   LazyMotion: ({ children }: { children: ReactNode }) => <>{children}</>,
   m: motionComponents,
@@ -163,6 +179,7 @@ test('a loaded empty list keeps the create-workspace screen', () => {
   const text = textOf(renderer);
   expect(text).toContain('Create a workspace to sign in the CLI');
   expect(text).toContain('The CLI signs in to a workspace');
+  expect(renderer.root.findAll((node) => node.props.id === 'cli-workspace-name').length).toBeGreaterThan(0);
   expect(findButtonWithText(renderer, 'Try again')).toBeNull();
 });
 

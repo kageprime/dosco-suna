@@ -10,8 +10,8 @@
 //      notification worker sends a digest
 //
 // `PUSH_NOTIFICATIONS_ENABLED=false` stops pushes, never rows or email. Never throws.
-import { and, eq, gt, inArray, sql } from 'drizzle-orm';
-import { sessionPresenceLeases } from '@kortix/db';
+import { and, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
+import { evalTrialWorkspaces, sessionPresenceLeases } from '@kortix/db';
 import {
   IMMEDIATE_EMAIL_KINDS,
   NEVER_DIGESTED_KINDS,
@@ -78,6 +78,8 @@ export interface NotifierDeps {
   sendEmailNow(input: ImmediateEmailInput): Promise<'sent' | 'skipped' | 'failed'>;
   now(): Date;
   logger: Pick<Console, 'warn'>;
+  /** An account nobody is notified about: a workspace made for one eval trial. */
+  silentAccount?(accountId: string): Promise<boolean>;
 }
 
 export interface DeliveryRecord {
@@ -97,6 +99,7 @@ function wantsDigest(kind: NotificationKindName, prefs: NotificationKindPreferen
 export async function deliver(input: DeliverInput, deps: NotifierDeps = liveNotifierDeps()): Promise<DeliveryRecord[]> {
   const recipients = [...new Set(input.recipients.filter((id) => typeof id === 'string' && id.length > 0))];
   if (recipients.length === 0) return [];
+  if (input.accountId && deps.silentAccount && (await deps.silentAccount(input.accountId).catch(() => false))) return [];
   const records: DeliveryRecord[] = [];
   try {
     const prefs = await deps.loadPreferences(
@@ -221,6 +224,16 @@ export async function loadSessionPresence(sessionId: string, userIds: readonly s
 }
 
 /** The notifier wired to Postgres, Expo, Web Push and email. Tests replace the senders. */
+/** A live workspace made for one eval trial (projects/evals/trial-workspace.ts): its sessions notify nobody. */
+async function isEvalTrialAccount(accountId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: evalTrialWorkspaces.trialAccountId })
+    .from(evalTrialWorkspaces)
+    .where(and(eq(evalTrialWorkspaces.trialAccountId, accountId), isNull(evalTrialWorkspaces.deletedAt)))
+    .limit(1);
+  return Boolean(row);
+}
+
 export function liveNotifierDeps(overrides: Partial<NotifierDeps> = {}): NotifierDeps {
   const devices = pushDeviceTokenStore();
   return {
@@ -236,6 +249,7 @@ export function liveNotifierDeps(overrides: Partial<NotifierDeps> = {}): Notifie
     sendEmailNow: sendImmediateNotificationEmail,
     now: () => new Date(),
     logger,
+    silentAccount: isEvalTrialAccount,
     ...overrides,
   };
 }

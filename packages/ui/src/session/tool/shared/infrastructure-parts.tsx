@@ -205,7 +205,7 @@ export function isTriggerTitle(val: unknown): val is TriggerTitle {
 
 export function ToolEmptyState({ message }: { message: string }) {
   return (
-    <div className="text-muted-foreground/40 flex items-center justify-center gap-1.5 px-3 py-3">
+    <div className="text-muted-foreground flex items-center justify-center gap-1.5 px-3 py-3">
       <Search className="size-3" />
       <span className="text-xs">{message}</span>
     </div>

@@ -3,6 +3,11 @@ import { parseFilterFlags, parseRunCapFlags } from './triggers-manifest.ts';
 
 // KRTX-1721: the run caps a trigger flag sets, on `add` and on `set`.
 describe('parseRunCapFlags', () => {
+  test('hard caps require an explicit boolean and round trip to the policy field', () => {
+    expect(parseRunCapFlags({ hardRunCaps: 'true' }, false)).toEqual({ caps: { hard_run_caps: true } });
+    expect(parseRunCapFlags({ hardRunCaps: 'false' }, true)).toEqual({ caps: { hard_run_caps: false } });
+    expect(parseRunCapFlags({ hardRunCaps: 'yes' }, false)).toHaveProperty('error');
+  });
   test('a whole number of at least 1 becomes the manifest field', () => {
     expect(parseRunCapFlags({ maxRunsPerHour: '5', maxRunsPerDay: '40' }, false)).toEqual({
       caps: { max_runs_per_hour: 5, max_runs_per_day: 40 },

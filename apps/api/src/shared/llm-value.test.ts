@@ -28,3 +28,20 @@ test('request estimates reconcile when grouped without adding charges', () => {
   if (a === null || b === null) throw new Error('Known rates must be priced');
   expect(a + b).toBeCloseTo(0.0051, 10);
 });
+test.each([
+  ['openai-codex', 'gpt-6.1-terra', 0.001025],
+  ['morph_abliterated', 'morph-dsv41flash-abliterated', 0.000273],
+  ['claude-agent', 'claude-opus-5-5', 0.0041],
+  ['claude-agent', 'claude-sonnet-5-5', 0.00205],
+])('prices %s/%s independently of charges', (provider, model, expected) => {
+  expect(estimateLlmValue({ ...call, provider, model })).toBeCloseTo(expected, 10);
+});
+
+test('context threshold and provider identity stay exact', () => {
+  expect(estimateLlmValue({ ...call, model: 'gpt-6.1-terra', input: 272000, output: 0, cached: 0 })).toBe(0.272);
+  expect(estimateLlmValue({ ...call, model: 'gpt-6.1-terra', input: 272001, output: 0, cached: 0 })).toBe(0.544002);
+  expect(estimateLlmValue({ ...call, provider: 'unrecognized' })).toBeNull();
+  expect(estimateLlmValue({ ...call, input: -1 })).toBeNull();
+  expect(estimateLlmValue({ ...call, output: NaN })).toBeNull();
+  expect(estimateLlmValue({ ...call, cacheWrite: 501 })).toBeNull();
+});

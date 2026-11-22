@@ -40,7 +40,6 @@ import {
   type BashOutputView,
 } from '@/lib/session/tools/files-bash';
 import { webSpace } from '@/lib/session/user-message';
-import { THEME } from '@/lib/utils/theme';
 import {
   BasicTool,
   HighlightedCode,
@@ -154,7 +153,7 @@ function CommandBlock({
             style={[
               TURN_TYPE.xs,
               // `kortix-red`, matching the trigger's "Command failed".
-              { fontFamily: monoFont, fontVariant: ['tabular-nums'], color: THEME.accent.red },
+              { fontFamily: monoFont, fontVariant: ['tabular-nums'], color: palette.kortixRed },
             ]}
           >
             {exitLine}
@@ -244,7 +243,7 @@ export function BashTrigger(props: {
         <Text
           variant="muted"
           numberOfLines={1}
-          style={[type, { flexShrink: 1, color: content.failed ? THEME.accent.red : palette.foreground }]}
+          style={[type, { flexShrink: 1, color: content.failed ? palette.kortixRed : palette.foreground }]}
         >
           {content.title}
         </Text>

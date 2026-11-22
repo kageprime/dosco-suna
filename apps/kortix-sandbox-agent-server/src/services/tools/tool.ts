@@ -61,6 +61,13 @@ export interface KortixTool {
   description: string
   /** JSON Schema of the arguments; `type: 'object'`. */
   parameters: Record<string, unknown>
+  /**
+   * Optional: why a call is malformed in a way the schema cannot say (a field required only in
+   * one mode), or nothing. The harness runs it before the permission gate and `execute`; pi
+   * reports the message as the call's error. A model API rejects a top-level `anyOf`, so a
+   * conditional requirement lives here, not in `parameters`.
+   */
+  validate?(args: Record<string, unknown>): string | undefined
   execute(args: Record<string, any>, context: ToolContext): unknown
 }
 
@@ -73,6 +80,7 @@ export function asTool(value: unknown): KortixTool | string {
     return '`parameters` must be a JSON Schema object (`{ type: "object", properties: { … } }`)'
   }
   if (typeof tool.execute !== 'function') return '`execute(args, context)` must be a function'
+  if (tool.validate !== undefined && typeof tool.validate !== 'function') return '`validate(args)` must be a function when given'
   return tool as KortixTool
 }
 

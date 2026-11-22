@@ -1,3 +1,4 @@
+import { configCommitMessage } from '../lib/config-commit-message';
 // POST /v1/projects/:projectId/skills — create a skill on the default branch.
 //
 // The Skills catalog's "New" control has two ways in: a configure chat session
@@ -146,7 +147,7 @@ export function registerProjectSkillsRoutes(): void {
         files: writes.files, deletes: [...plan.deletes, ...writes.deletes], alsoExpect: writes.alsoExpect,
         branch: project.defaultBranch, expectedCommit: commit,
         expectedFileRevision: { path: manifest.path || loaded.row.manifestPath || 'kortix.yaml', sha: manifest.revision, candidatePaths: manifest.candidatePaths },
-        message: `chore: remove project skill ${body.data.folder}`,
+        message: configCommitMessage(`chore: remove project skill ${body.data.folder}`),
       });
       invalidateProjectResourceConfig(projectId);
       return c.json({ ok: true as const, commitSha: result.commitSha, removed: plan.deletes }, 200);
@@ -279,7 +280,7 @@ export function registerProjectSkillsRoutes(): void {
           sha: manifest.revision ?? null,
           candidatePaths: manifest.candidatePaths,
         },
-        message,
+        message: configCommitMessage(message),
       });
       invalidateProjectResourceConfig(projectId);
     } catch (err) {

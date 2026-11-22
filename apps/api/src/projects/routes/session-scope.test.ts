@@ -129,7 +129,12 @@ mock.module('../lib/secret-grant', () => ({
     return agentGrant;
   },
 }));
+// Spread the real module: `mock.module` replaces it WHOLESALE, and the route's
+// graph also imports `requestAgentPrincipalReach` from it (through
+// session-connector-bindings → connection-mutation).
+const realPersonalResources = await import('../lib/personal-resources');
 mock.module('../lib/personal-resources', () => ({
+  ...realPersonalResources,
   resolveSessionPersonalOwner: async () => ownerId,
 }));
 const realSecrets = await import('../secrets');

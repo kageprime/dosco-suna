@@ -191,12 +191,13 @@ export function serializeSession(
   // auto title so list reads resolve the SAME string the session header shows
   // live, but never a user rename.
   const runtimeTitle = runtimeRootTitleFromSnapshot(runtimeSessions, row.runtimeSessionId);
+  const pinnedModel = typeof row.metadata?.model === 'string' ? row.metadata.model.trim() || null : null;
+  // A saved pick applies to the next turn, before the conversation log catches up.
+  const selectedModel = row.metadata?.model_source === 'explicit'
+    ? pinnedModel ?? ctx?.conversationModel ?? null
+    : ctx?.conversationModel ?? pinnedModel;
   return {
-    model: canAccess
-      ? (ctx?.conversationModel ?? (typeof row.metadata?.model === 'string'
-        ? row.metadata.model.trim() || null
-        : null))
-      : null,
+    model: canAccess ? selectedModel : null,
     session_id: row.sessionId,
     account_id: row.accountId,
     project_id: row.projectId,

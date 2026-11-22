@@ -7,7 +7,8 @@
  *
  * Providers cap how many templates an org may hold: Platinum refuses builds
  * past its per-org template count (`org_template_quota_exceeded`, tiers
- * 10/50/500), and `snapshots/quota-gc.ts` reclaims Daytona only. A build that
+ * 10/50/500). `snapshots/quota-gc.ts` reclaims superseded images under org
+ * pressure, and an untracked App image only after its idle floor. A build that
  * hits the cap reclaims unused images once and retries once
  * (`buildWithImageQuotaGuard`); a second refusal fails the deployment with
  * `app_image_quota_exceeded` instead of three retries on a backoff.
@@ -58,6 +59,7 @@ import { pauseComputeSession } from '../billing/services/compute-metering';
 import { config, type SandboxProviderName } from '../config';
 import { logger } from '../lib/logger';
 import { getProvider, type SandboxProvider } from '../platform/providers';
+import { removeProviderBox } from '../platform/providers/remove-box';
 import { db } from '../shared/db';
 import { escalateProviderAuthOutage } from '../shared/provider-auth';
 import { mapWithConcurrency } from '../shared/map-with-concurrency';
@@ -510,21 +512,16 @@ export async function removeAppRuntime(
     // runtime row stops holding its deployment's image hostage.
     return true;
   }
-  try {
-    await provider.remove(runtime.externalId);
-    return true;
-  } catch (error) {
-    const status = await provider.getStatus(runtime.externalId).catch(() => 'unknown' as const);
-    if (status === 'removed') return true;
-    escalateProviderAuthOutage(runtime.provider, 'app runtime removal', error);
-    logger.warn('[apps] runtime removal failed; maintenance retries it', {
-      runtimeId: runtime.runtimeId,
-      provider: runtime.provider,
-      status,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return false;
-  }
+  const { removed, status, error } = await removeProviderBox(provider, runtime.externalId);
+  if (removed) return true;
+  escalateProviderAuthOutage(runtime.provider, 'app runtime removal', error);
+  logger.warn('[apps] runtime removal failed; maintenance retries it', {
+    runtimeId: runtime.runtimeId,
+    provider: runtime.provider,
+    status,
+    error: error instanceof Error ? error.message : String(error),
+  });
+  return false;
 }
 
 /** Mark removed runtimes `deleted`, give back their volumes and close their compute meter. */

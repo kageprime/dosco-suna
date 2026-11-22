@@ -328,11 +328,19 @@ export function useSessionLogSync(
       stream?.close();
       stream = joinStream({ projectId, sessionId, ...options });
     };
+    let pageRevision = 0;
+    let appliedPageRevision = 0;
+    // Order successful pages by request start, across API and runtime sources.
+    // A newer failed request cannot invalidate a useful answer. Stream record
+    // revisions and tombstones are reconciled by the reducer, not this ordering.
     const load = async (): Promise<SessionLogRead> => {
+      if (stopped) return { answer: null, retryAfterMs: null };
+      const revision = ++pageRevision;
       const read = await readSessionLog(loader, projectId, sessionId, { limit: SESSION_LOG_FIRST_PAGE_LIMIT }, controller.signal);
       if (stopped) return { answer: null, retryAfterMs: null };
       const { answer } = read;
-      if (answer && answer !== 'missing') {
+      if (answer && answer !== 'missing' && revision > appliedPageRevision) {
+        appliedPageRevision = revision;
         store().applySessionLogPage(sessionId, answer);
         void copies?.write(projectId, sessionId, answer);
       }
@@ -359,6 +367,7 @@ export function useSessionLogSync(
         liveSkipUntil = 0;
       }
       if (Date.now() < liveSkipUntil) return false;
+      const revision = ++pageRevision;
       const page = await live({ limit: SESSION_LOG_FIRST_PAGE_LIMIT }).catch(() => null);
       if (stopped || !page) {
         liveFailures += 1;
@@ -367,7 +376,10 @@ export function useSessionLogSync(
       }
       liveFailures = 0;
       liveSkipUntil = 0;
-      store().applySessionLogPage(sessionId, page);
+      if (revision > appliedPageRevision) {
+        appliedPageRevision = revision;
+        store().applySessionLogPage(sessionId, page);
+      }
       return true;
     };
     // One box read on the wire at a time: a reconnect, a resync, a tab-visible signal
@@ -383,11 +395,31 @@ export function useSessionLogSync(
     };
     // A re-read: the box's page while the box serves one, else the API's.
     const reload = async (): Promise<void> => {
-      if (!(await loadLive())) await load();
+      if (stopped) return;
+      if (!(await loadLive()) && !stopped) await load();
     };
     // The re-read a turn end asks for. A box read already on the wire started before the turn
     // ended and answers a snapshot without the finished reply: read again once it settles.
+    let cancelSettlement: (() => void) | null = null;
+    let settlement = 0;
+    // Turn-end can precede the durable journal commit. Bound follow-ups even when
+    // a valid page is incomplete: the page has no turn-token commit watermark.
+    const followSettlement = () => {
+      cancelSettlement?.();
+      const token = ++settlement;
+      let retry = 0;
+      const next = () => {
+        if (stopped || token !== settlement || retry === SESSION_LOG_RETRY_DELAYS_MS.length) return;
+        cancelSettlement = schedule(() => {
+          cancelSettlement = null;
+          if (stopped || token !== settlement) return;
+          void (onV2 ? reload() : attempt()).finally(next);
+        }, SESSION_LOG_RETRY_DELAYS_MS[retry++] ?? SESSION_LOG_RETRY_MAX_MS);
+      };
+      next();
+    };
     const reloadAfterTurnEnd = () => {
+      followSettlement();
       const stale = liveRead;
       // A box read that failed reads the API's page: a wedged box must not cost two proxy budgets.
       void (stale ? stale.then(async (ok) => void (ok ? await reload() : await load())) : reload());
@@ -400,6 +432,7 @@ export function useSessionLogSync(
       const ended = payload?.last_ended?.turn_token ?? null;
       const seen = lastEnded;
       lastEnded = ended;
+      if (seen === undefined && ended) followSettlement();
       return seen !== undefined && ended !== seen;
     };
     // Re-read after a reconnect (`up` after a drop); the first report is the connection already up.
@@ -530,6 +563,7 @@ export function useSessionLogSync(
       stopVisible();
       stopped = true;
       cancelRetry?.();
+      cancelSettlement?.();
       controller.abort();
       stream?.close();
       store().dropSessionLog(sessionId);

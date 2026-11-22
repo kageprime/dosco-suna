@@ -215,11 +215,6 @@ export const TIERS: readonly CommandTier[] = [
             args: '<subcommand>',
             blurb: 'Deploy Apps (sites and servers) with stable Kortix URLs',
           },
-          {
-            name: 'marketplace',
-            args: '<subcommand>',
-            blurb: 'Search, show, install, and uninstall workspace marketplace skills',
-          },
         ],
       },
       {

@@ -112,7 +112,7 @@ export function FileThumbnail({
         className={cn('bg-popover relative overflow-hidden rounded-md', className)}
       >
         <div className="flex h-full w-full items-center justify-center">
-          <Loading className="text-muted-foreground/40 size-4" />
+          <Loading className="text-muted-foreground size-4" />
         </div>
         {extBadge}
       </div>

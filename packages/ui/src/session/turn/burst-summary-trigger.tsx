@@ -9,8 +9,8 @@ import { CaretRightIcon } from '@phosphor-icons/react';
  * open state would rotate every burst caret nested inside it.
  */
 const CARET_SCOPE = {
-  burst: 'group-hover/burst:text-muted-foreground/70 group-data-[state=open]/burst:rotate-90',
-  work: 'group-hover/work:text-muted-foreground/70 group-data-[state=open]/work:rotate-90',
+  burst: 'group-hover/burst:text-foreground group-data-[state=open]/burst:rotate-90',
+  work: 'group-hover/work:text-foreground group-data-[state=open]/work:rotate-90',
 } as const;
 
 export function BurstSummaryTrigger({
@@ -45,7 +45,7 @@ export function BurstSummaryTrigger({
         ) : (
           <div
             className={cn(
-              'text-muted-foreground/70 hover:text-muted-foreground',
+              'text-muted-foreground hover:text-foreground',
               'flex w-full cursor-pointer items-center gap-2',
               'text-left text-sm transition-colors',
             )}
@@ -82,7 +82,7 @@ export function BurstSummaryTrigger({
                 row has no hover response at all. */}
             <CaretRightIcon
               className={cn(
-                'text-muted-foreground/40 size-3.5 flex-none transition-[transform,color]',
+                'text-muted-foreground size-3.5 flex-none transition-[transform,color]',
                 CARET_SCOPE[scope],
               )}
             />

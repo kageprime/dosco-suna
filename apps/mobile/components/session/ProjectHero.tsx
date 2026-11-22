@@ -59,7 +59,7 @@ export const ProjectHero = React.memo(function ProjectHero() {
   const colors = React.useMemo(() => {
     const chosen = LOGO_PALETTES.find((p) => p.id === paletteId);
     if (!chosen?.accent) return { palette: null, front: null };
-    const accent = THEME.accent[chosen.accent];
+    const accent = THEME.accent[tone][chosen.accent];
     return {
       palette: logoPaletteColors(accent, tone),
       front: logoFrontColor(accent, tone),

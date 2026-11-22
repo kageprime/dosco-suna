@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { runWithContext, setContextField } from '../../lib/request-context';
 
 const git = await import('../git');
 const branches = await import('../git/branches');
@@ -13,6 +14,8 @@ let gitCommit:
     }
   | undefined;
 let contentsWrites = 0;
+let contentsMessage = '';
+
 let shaReads = 0;
 let shaError: Error | null = null;
 
@@ -35,7 +38,8 @@ mock.module('../github', () => ({
     if (shaError) throw shaError;
     return 'b'.repeat(40);
   },
-  commitFile: async () => {
+  commitFile: async (options: Parameters<typeof github.commitFile>[0]) => {
+    contentsMessage = options.message;
     contentsWrites += 1;
   },
 }));
@@ -63,6 +67,18 @@ beforeEach(() => {
 });
 
 describe('manifest compare-and-swap routing', () => {
+  for (const revision of [undefined, 'a'.repeat(40)]) {
+    test(`attributes the ${revision ? 'git CLI' : 'GitHub Contents'} write`, async () => {
+      await runWithContext('PATCH', '/config', async () => {
+        setContextField('userId', 'synthetic-actor');
+        setContextField('authSessionId', 'synthetic-session');
+        const result = await commitManifest(project, { path: 'kortix.yaml', revision, raw: { connectors: [] } }, 'chore: edit config');
+        expect(result).toEqual({ ok: true });
+        expect(revision ? gitCommit?.options.message : contentsMessage).toBe('chore: edit config\n\nKortix-Actor: synthetic-actor\nKortix-Session: synthetic-session');
+      });
+    });
+  }
+
   test('uses generic Git and protects every logical manifest candidate', async () => {
     const result = await commitManifest(
       project,

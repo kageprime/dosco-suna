@@ -75,16 +75,18 @@ mock.module('../billing/services/compute-metering', () => ({
 mock.module('../snapshots/builder', () => ({
   reconcileStaleBuilds: tracked({ checked: 0, closedReady: 0, closedFailed: 0 }),
 }));
+const emptyQuotaGcPass = async () => ({
+  orgTotal: 0,
+  managedCount: 0,
+  eligible: 0,
+  deleted: 0,
+  deferred: 0,
+  budgetUnresolved: false,
+  dryRun: false,
+});
 mock.module('../snapshots/quota-gc', () => ({
-  reconcileSnapshotQuota: async () => ({
-    orgTotal: 0,
-    managedCount: 0,
-    eligible: 0,
-    deleted: 0,
-    deferred: 0,
-    budgetUnresolved: false,
-    dryRun: false,
-  }),
+  reconcileSnapshotQuota: emptyQuotaGcPass,
+  reconcilePlatinumTemplateQuota: emptyQuotaGcPass,
 }));
 // Controllable per-test: the first call can be made to hang forever (to
 // simulate the exact 2026-07-02 failure mode — an unbounded provider call

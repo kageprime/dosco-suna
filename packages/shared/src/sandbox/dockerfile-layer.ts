@@ -119,7 +119,7 @@ export function kortixWorkstationTooling(opts: KortixToolchainLayerOpts): string
   return [
     '# ─── Project-agent workstation (dockerfile-layer.ts) ───',
     'USER root',
-    // Office, PDF, OCR, and LaTeX tools support the starter marketplace skills.
+    // Office, PDF, OCR, and LaTeX tools support the starter document skills.
     // Baked into every layered image so custom sandbox Dockerfiles get the
     // same tool floor as the platform default image.
     'RUN apt-get update \\',

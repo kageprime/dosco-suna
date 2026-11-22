@@ -188,13 +188,6 @@ const coveringRouteOptions = ({ route }: { route: { params?: object } }) => ({
 /** Shared empty list: a fresh `[]` per render would re-render the thread. */
 const EMPTY_SUB_AGENTS: ProjectSession[] = [];
 
-/**
- * What the waking view says. The composer there is disabled, so it promises
- * no send (the SDK's `SESSION_NOTICE.waking` says messages queue; web keeps
- * its live send button, mobile does not).
- */
-const WAKING_NOTICE = "Waking this session's computer. You can send messages when it's ready.";
-
 export function ProjectScreen() {
   const { id: projectId } = useLocalSearchParams<{ id: string }>();
 
@@ -812,7 +805,6 @@ export function ProjectScreen() {
               restarting={restartingSession}
               showLoader={!viewDrawerOpen}
               thread={savedCopyThread}
-              statusLabel={WAKING_NOTICE}
               sessionId={savedCopyRootId ?? undefined}
               empty={connectingEmpty}
               projectId={projectId}

@@ -57,7 +57,7 @@ const DevicePollSchema = z.object({
 });
 
 function callbackUrl(requestUrl: string): string {
-  return nativeOAuth2CallbackUrl(requestUrl, config.KORTIX_URL);
+  return nativeOAuth2CallbackUrl(requestUrl, config.KORTIX_OAUTH_CALLBACK_ORIGIN || config.KORTIX_URL);
 }
 
 function allowedRedirectUri(value: string | undefined, projectId: string): string | undefined {

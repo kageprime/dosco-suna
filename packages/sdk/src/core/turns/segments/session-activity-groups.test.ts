@@ -81,6 +81,18 @@ describe('image_gen is a deliverable', () => {
 });
 
 describe('isInvisibleActivityPart', () => {
+  test('a failed show presents nothing (2026-11-16); a running show stays until it settles; other failed tools stay', () => {
+    const show = (status: string) => ({ tool: 'show', state: { status, input: { url: 'https://example.test/a', title: 'Catalog' } } });
+    expect(isInvisibleActivityPart(show('error'))).toBe(true);
+    expect(isInvisibleActivityPart({ ...show('error'), tool: 'show_user' })).toBe(true);
+    expect(isInvisibleActivityPart(show('running'))).toBe(false);
+    expect(isInvisibleActivityPart({ ...show('completed'), state: { status: 'completed', input: { type: 'url', url: 'https://example.test/a' } } })).toBe(false);
+    expect(isInvisibleActivityPart({ tool: 'bash', state: { status: 'error', input: { command: 'false' } } })).toBe(false);
+    // Streaming: the same call while it runs renders, once it fails it does not.
+    expect(segmentTurn([{ id: 'p', type: 'tool', callID: 'c', ...show('running') } as unknown as ToolPart])).toHaveLength(1);
+    expect(segmentTurn([{ id: 'p', type: 'tool', callID: 'c', ...show('error') } as unknown as ToolPart])).toHaveLength(0);
+  });
+
   test('bookkeeping parts and blank text render nothing', () => {
     expect(isInvisibleActivityPart({ type: 'snapshot' })).toBe(true);
     expect(isInvisibleActivityPart({ type: 'patch' })).toBe(true);

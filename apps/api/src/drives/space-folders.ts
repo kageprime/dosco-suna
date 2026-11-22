@@ -4,7 +4,7 @@
 // and never fails the request.
 
 import { projectSessions, sessionSandboxes } from '@kortix/db';
-import { spaceDriveFolders } from '@kortix/shared';
+import { sessionGroupDriveFolder, spaceDriveFolders } from '@kortix/shared';
 import { and, eq } from 'drizzle-orm';
 import { projectFeatureFlagEnabled } from '../feature-flags/for-project';
 import { logger } from '../lib/logger';
@@ -63,6 +63,19 @@ export async function makeChannelFolders(accountId: string, projectId: string, s
     if (drive && folders) await makeFolders(drive, [folders.files, folders.memory]);
   } catch (err) {
     logger.warn(`[drives] the folders of channel #${slug} in project ${projectId} were not made`, {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+/** A space's folder (`sessionGroupDriveFolder`, flag `session_groups`). Best effort, like a channel's: a failure is logged. */
+export async function makeSessionGroupFolder(accountId: string, projectId: string, groupId: string): Promise<void> {
+  try {
+    const drive = await driveWhenOn(accountId, projectId);
+    const folder = sessionGroupDriveFolder(groupId);
+    if (drive && folder) await makeFolders(drive, [folder]);
+  } catch (err) {
+    logger.warn(`[drives] the folder of space ${groupId} in project ${projectId} was not made`, {
       error: err instanceof Error ? err.message : String(err),
     });
   }

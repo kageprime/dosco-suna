@@ -195,13 +195,28 @@ describe('PUT /model-defaults?scope=agent — an undeclared agentName is refused
     expect(rows).toEqual([{ scope_key: 'kortix', model: 'deepseek-v4.1-flash' }]);
   });
 
-  test('DELETE keeps the lenient clear-on-miss (stale-pin cleanup path)', async () => {
+  test('DELETE clears a retired legacy pin on repeated fresh HTTP reads', async () => {
+    if (!ctx) throw new Error('missing seeded project');
+    const { accountId, projectId } = ctx;
+    await db.insert(accountModelPreferences).values({
+      accountId, scope: 'agent', scopeKey: 'retired', model: 'legacy-model',
+    });
     const secret = await ownerToken();
-    const res = await app.request(
-      `/v1/projects/${ctx!.projectId}/model-defaults?scope=agent&agentName=${encodeURIComponent('does-not-exist')}`,
-      { method: 'DELETE', headers: { Authorization: `Bearer ${secret}` } },
-    );
-    expect(res.status).toBe(200);
+    const headers = { Authorization: `Bearer ${secret}` };
+    const path = `/v1/projects/${projectId}/model-defaults`;
+    const before = await app.request(path, { headers });
+    expect(before.status).toBe(200);
+    expect((await before.json()).agentDefaults.retired).toBe('legacy-model');
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const res = await app.request(`${path}?scope=agent&agentName=retired`, {
+        method: 'DELETE', headers,
+      });
+      expect(res.status).toBe(200);
+      expect((await res.json()).ok).toBe(true);
+      const after = await app.request(path, { headers });
+      expect(after.status).toBe(200);
+      expect((await after.json()).agentDefaults).toEqual({ kortix: 'deepseek-v4.1-flash' });
+    }
   });
 });
 

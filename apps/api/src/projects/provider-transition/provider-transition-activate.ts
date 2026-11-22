@@ -7,7 +7,7 @@ import { auditProviderTransition, type ProviderTransitionAuditRow } from './prov
 import { LIVE_TRANSITION_STATUSES } from './provider-transition-core';
 import {
   ACTIVE_EXTERNAL_ID_META_KEY, ACTIVE_SNAPSHOT_NAME_META_KEY,
-  PIN_META_KEY, TRANSITION_META_KEY,
+  PIN_META_KEY, TRANSITION_META_KEY, transitionMarker,
 } from './provider-transition-routing';
 import { TRANSITION_AUDIT_COLUMNS, type Queryable } from './provider-transition-store';
 import { metadataMerge, projectsView, updateProjectRows, updateProjectRowsReturning, type ProjectRow } from '../../workspaces/rows';
@@ -59,14 +59,14 @@ async function writeActivationPin(tx: Queryable, args: ActivationArgs): Promise<
     [ACTIVE_EXTERNAL_ID_META_KEY]: args.externalTemplateId,
     // FIX-K-lite: record the active ppwarm image NAME so the GC guard can match.
     [ACTIVE_SNAPSHOT_NAME_META_KEY]: args.snapshotName,
-    [TRANSITION_META_KEY]: {
+    ...transitionMarker({
       status: 'activated',
-      target_provider: args.targetProvider,
+      target: args.targetProvider,
       generation: args.generation,
-      snapshot_name: args.snapshotName,
-      external_template_id: args.externalTemplateId,
-      activated_at: args.now.toISOString(),
-    },
+      now: args.now,
+      snapshotName: args.snapshotName,
+      externalTemplateId: args.externalTemplateId,
+    }),
   };
   await updateProjectRows(eq(projectsView.projectId, args.projectId), { metadata: metadataMerge(activationPatch), updatedAt: args.now }, tx);
 }
@@ -192,12 +192,12 @@ export async function setPinWithGenerationBump(
     // the FOR UPDATE lock + generation bump (both UNCHANGED) — never the whole
     // object, so a concurrent metadata writer can't be reverted.
     const patch: Record<string, unknown> = {
-      [TRANSITION_META_KEY]: {
+      ...transitionMarker({
         status: args.pin === null ? 'cleared' : 'activated',
-        target_provider: args.pin,
+        target: args.pin,
         generation: newGen,
-        activated_at: args.now.toISOString(),
-      },
+        now: args.now,
+      }),
     };
     // The default/source provider carries no Platinum-style external id or ppwarm
     // image, so clear both the external id and the active-snapshot-name record.

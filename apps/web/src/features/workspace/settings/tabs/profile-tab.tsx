@@ -3,6 +3,7 @@
 import { useAccountsList } from '@kortix/ui/internal/hooks/account/use-accounts-list';
 import { localizedCopy } from './localized-copy';
 import { removeProfileAvatar } from './profile-avatar';
+import { PROFILE_QUERY_KEY, profileInitials as getInitials, useProfileIdentity } from './profile-query';
 
 /**
  * The Profile tab — profile picture, email, display name, and account
@@ -93,18 +94,6 @@ import { cn } from '@kortix/ui';
 import { SettingsTabHeader } from '@kortix/ui/customize/settings/settings-tab-header';
 import { isOfflineUploadError } from './avatar-upload-error';
 
-const PROFILE_QUERY_KEY = ['account', 'profile'] as const;
-
-function getInitials(name: string): string {
-  return (
-    name
-      .split(' ')
-      .map((part) => part[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2) || 'U'
-  );
-}
 
 type DeletionType = 'grace-period' | 'immediate';
 
@@ -675,18 +664,7 @@ export function ProfileTab() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- Profile (name, email, avatar) ---------------------------------
-  const profileQuery = useQuery({
-    queryKey: PROFILE_QUERY_KEY,
-    queryFn: async () => {
-      const { data } = await supabase.auth.getUser();
-      return {
-        name: data.user?.user_metadata?.name || data.user?.email?.split('@')[0] || '',
-        email: data.user?.email || '',
-        avatarUrl: data.user?.user_metadata?.avatar_url || '',
-      };
-    },
-    staleTime: 10_000,
-  });
+  const profileQuery = useProfileIdentity();
 
   const [nameDraft, setNameDraft] = useState('');
   const [nameTouched, setNameTouched] = useState(false);

@@ -169,11 +169,15 @@ export function templateHeaderLabels(
   template: Pick<SandboxTemplate, 'name' | 'slug' | 'is_default'>,
   templateCount: number,
 ): { showSlug: boolean; showDefaultBadge: boolean } {
-  const nameAsSlug = template.name
+  const dashed = template.name
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+    .replace(/^-+/, '');
+  // Trailing dashes with a loop: `/-+$/` backtracks quadratically on a long run of dashes.
+  let end = dashed.length;
+  while (end > 0 && dashed[end - 1] === '-') end -= 1;
+  const nameAsSlug = dashed.slice(0, end);
   return {
     showSlug: nameAsSlug !== template.slug.toLowerCase(),
     showDefaultBadge: Boolean(template.is_default) && templateCount > 1,

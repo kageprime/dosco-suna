@@ -83,9 +83,7 @@ export function UserAvatar({
         sizes.box,
         'shrink-0 overflow-hidden rounded-sm p-0 font-medium',
         ring && 'ring-background ring-2',
-        // A photo keeps an edge on a light page: a 1px inset hairline over it.
-        avatarUrl &&
-          'after:ring-border after:pointer-events-none after:absolute after:inset-0 after:rounded-sm after:ring-1 after:ring-inset',
+        // No ring over a photo: avatar tiles draw no border anywhere.
         variant === 'primary' && 'bg-primary text-primary-foreground',
         className,
       )}

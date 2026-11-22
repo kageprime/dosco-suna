@@ -52,8 +52,8 @@ describe('env-config server branch BACKEND_URL precedence', () => {
   // `BACKEND_URL` for server-side SDK fetches. The server branch must prefer
   // the ABSOLUTE value (mirroring `SUPABASE_URL` right above it): a relative
   // URL here makes every server-side `fetch()` throw `Failed to parse URL`,
-  // and each caller silently falls back to empty data (e.g. the marketplace
-  // item page served its notFound() 404). The browser is unaffected: it reads
+  // and each caller silently falls back to empty data (a server-rendered
+  // page served its notFound() 404). The browser is unaffected: it reads
   // `window.__KORTIX_RUNTIME_CONFIG`, which the server serializes from the
   // public values (see public-env-server.ts).
   test('prefers the absolute BACKEND_URL over the root-relative public value', () => {

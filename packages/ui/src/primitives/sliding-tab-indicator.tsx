@@ -2,7 +2,7 @@
 
 import { cn } from '../lib/utils';
 import { m, type Transition } from 'motion/react';
-import { useReducedMotion } from '../internal/hooks/use-reduced-motion';
+import { useReducedMotion } from '../lib/reduced-motion';
 import {
   useCallback,
   useLayoutEffect,

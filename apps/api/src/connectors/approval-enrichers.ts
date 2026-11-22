@@ -8,7 +8,9 @@
  * content changed asks again (`content_changed`).
  */
 import { buildArgsPreviewDetails, isPlainRecord } from './args-preview';
-import { type CallInput, type GatewayConnector, type GatewayDeps, runComposioAction } from './gateway';
+import { executeCall } from './call';
+import { type CallInput, type GatewayConnector, type GatewayDeps, callOutput, runComposioAction } from './gateway';
+import { KORTIX_GOOGLE_MCP_ORIGIN } from './google/host';
 import { contentDigest } from './request-digest';
 import type { ActionBinding } from './types';
 import { withTimeout } from '../shared/with-timeout';
@@ -50,6 +52,20 @@ function header(headers: unknown, name: string): string {
   return isPlainRecord(hit) && typeof hit.value === 'string' ? hit.value : '';
 }
 
+function draftPreview(message: Record<string, unknown>, resolvedFrom: string): Record<string, unknown> {
+  const headers = isPlainRecord(message.payload) ? message.payload.headers : null;
+  const attachments = Array.isArray(message.attachmentList) ? message.attachmentList : [];
+  return {
+    from: resolvedFrom,
+    to: header(headers, 'to'),
+    cc: header(headers, 'cc'),
+    bcc: header(headers, 'bcc'),
+    subject: header(headers, 'subject'),
+    body: typeof message.messageText === 'string' ? message.messageText : '',
+    attachments: attachments.flatMap((a) => (isPlainRecord(a) && typeof a.filename === 'string' && a.filename ? [a.filename] : [])),
+  };
+}
+
 /**
  * `GMAIL_SEND_DRAFT {draft_id}`: one `GMAIL_GET_DRAFT {draft_id, format: full}`
  * read. Shape verified against a live mailbox on 2026-10-20:
@@ -64,17 +80,7 @@ async function gmailSendDraft(ctx: ApprovalEnricherContext): Promise<Record<stri
   const draft = await composioRead(ctx, 'GMAIL_GET_DRAFT', { draft_id: draftId, format: 'full' });
   const message = draft?.id === draftId && isPlainRecord(draft.message) ? draft.message : null;
   if (!message) return null;
-  const headers = isPlainRecord(message.payload) ? message.payload.headers : null;
-  const attachments = Array.isArray(message.attachmentList) ? message.attachmentList : [];
-  return {
-    from: header(headers, 'from') || (await gmailSender(ctx)) || '',
-    to: header(headers, 'to'),
-    cc: header(headers, 'cc'),
-    bcc: header(headers, 'bcc'),
-    subject: header(headers, 'subject'),
-    body: typeof message.messageText === 'string' ? message.messageText : '',
-    attachments: attachments.flatMap((a) => (isPlainRecord(a) && typeof a.filename === 'string' && a.filename ? [a.filename] : [])),
-  };
+  return draftPreview(message, header(isPlainRecord(message.payload) ? message.payload.headers : null, 'from') || (await gmailSender(ctx)) || '');
 }
 
 /**
@@ -87,6 +93,73 @@ async function gmailSendEmail(ctx: ApprovalEnricherContext): Promise<Record<stri
   const from = typeof named === 'string' && named ? named : await gmailSender(ctx);
   return from ? { from } : null;
 }
+
+/** One read-only tool of the held call's MCP server, on the same connection: its output, or null. */
+async function mcpRead(
+  ctx: ApprovalEnricherContext,
+  tool: string,
+  args: Record<string, unknown>,
+): Promise<Record<string, unknown> | null> {
+  if (ctx.binding.kind !== 'mcp' || !ctx.connector.baseUrl) return null;
+  const secret = ctx.connector.hasAuth ? await ctx.deps.resolveCredential(ctx.connector, null) : null;
+  if (ctx.connector.hasAuth && !secret) return null;
+  const result = await executeCall({
+    binding: { kind: 'mcp', tool },
+    baseUrl: ctx.connector.baseUrl,
+    auth: ctx.connector.auth,
+    headers: ctx.connector.headers,
+    secret,
+    args,
+    fetchImpl: ctx.deps.fetchImpl,
+  });
+  if (!result.ok) return null;
+  const { output, upstreamError } = callOutput('mcp', result.data, secret);
+  return !upstreamError && isPlainRecord(output) ? output : null;
+}
+
+/**
+ * Kortix Gmail `send_draft {draft_id}`: one `get_draft` read. The tool answers
+ * `{id, message}` with the message in Composio's MessageBody shape.
+ */
+async function kortixGmailSendDraft(ctx: ApprovalEnricherContext): Promise<Record<string, unknown> | null> {
+  const draftId = ctx.args.draft_id;
+  if (typeof draftId !== 'string' || !draftId) return null;
+  const draft = await mcpRead(ctx, 'get_draft', { draft_id: draftId, format: 'full' });
+  const message = draft?.id === draftId && isPlainRecord(draft.message) ? draft.message : null;
+  if (!message) return null;
+  const from = header(isPlainRecord(message.payload) ? message.payload.headers : null, 'from');
+  const profile = from ? null : await mcpRead(ctx, 'get_profile', {});
+  return draftPreview(message, from || (typeof profile?.emailAddress === 'string' ? profile.emailAddress : ''));
+}
+
+/** Kortix Gmail `send_email`, `reply_to_thread`, `forward_message`: the sender the arguments do not show. */
+async function kortixGmailSender(ctx: ApprovalEnricherContext): Promise<Record<string, unknown> | null> {
+  const named = ctx.args.from_email;
+  if (typeof named === 'string' && named) return { from: named };
+  const profile = await mcpRead(ctx, 'get_profile', {});
+  return typeof profile?.emailAddress === 'string' && profile.emailAddress ? { from: profile.emailAddress } : null;
+}
+
+/** Kortix Gmail `forward_message {message_id}`: what is forwarded, and from which mailbox. */
+async function kortixGmailForward(ctx: ApprovalEnricherContext): Promise<Record<string, unknown> | null> {
+  const messageId = ctx.args.message_id;
+  if (typeof messageId !== 'string' || !messageId) return null;
+  const [message, sender] = await Promise.all([
+    mcpRead(ctx, 'fetch_message_by_message_id', { message_id: messageId, format: 'full' }),
+    kortixGmailSender(ctx),
+  ]);
+  if (!message || message.messageId !== messageId) return null;
+  const attachments = Array.isArray(message.attachmentList) ? message.attachmentList : [];
+  return {
+    from: sender?.from ?? '',
+    forwarded_from: typeof message.sender === 'string' ? message.sender : '',
+    forwarded_subject: typeof message.subject === 'string' ? message.subject : '',
+    forwarded_body: typeof message.messageText === 'string' ? message.messageText : '',
+    attachments: attachments.flatMap((a) => (isPlainRecord(a) && typeof a.filename === 'string' && a.filename ? [a.filename] : [])),
+  };
+}
+
+const KORTIX_GMAIL = `mcp:${new URL(KORTIX_GOOGLE_MCP_ORIGIN).host}/gmail`;
 
 const intOf = (value: unknown): number | null =>
   typeof value === 'number' && Number.isInteger(value) ? value : null;
@@ -142,6 +215,10 @@ export const APPROVAL_ENRICHERS: Readonly<Record<string, ApprovalEnricher>> = {
   'composio:GMAIL_SEND_DRAFT': gmailSendDraft,
   'composio:GMAIL_SEND_EMAIL': gmailSendEmail,
   'composio:GITHUB_MERGE_A_PULL_REQUEST': githubMergePullRequest,
+  [`${KORTIX_GMAIL}/send_draft`]: kortixGmailSendDraft,
+  [`${KORTIX_GMAIL}/send_email`]: kortixGmailSender,
+  [`${KORTIX_GMAIL}/reply_to_thread`]: kortixGmailSender,
+  [`${KORTIX_GMAIL}/forward_message`]: kortixGmailForward,
 };
 
 const APPROVAL_ENRICH_TIMEOUT_MS = 3_000;
@@ -157,7 +234,10 @@ export function enricherKey(connector: GatewayConnector, binding: ActionBinding,
   if (binding.kind === 'mcp') {
     let host = connector.slug;
     try {
-      host = new URL(connector.baseUrl ?? '').host || host;
+      const url = new URL(connector.baseUrl ?? '');
+      host = url.host || host;
+      // Kortix's Google servers share one host: the path names the service.
+      if (url.origin === KORTIX_GOOGLE_MCP_ORIGIN) host = `${url.host}${url.pathname.replace(/\/+$/, '')}`;
     } catch {
       /* no base URL: the slug names the server */
     }

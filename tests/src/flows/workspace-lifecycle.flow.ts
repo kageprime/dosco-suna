@@ -366,3 +366,39 @@ flow(
     });
   },
 );
+
+
+flow(
+  'WS-LIFE-5',
+  {
+    domain: 'workspaces',
+    requires: ['database'],
+    routes: ['DELETE /v1/workspaces/:workspaceId', 'GET /v1/account/deletion-status', 'DELETE /v1/account/delete-immediately'],
+  },
+  async (ctx) => {
+    const owner = await ctx.fixtures.user({ label: 'LIFE5-OWNER', noAccount: true });
+    const userId = owner.userId;
+    if (!userId) throw new Error('the fixture must have a user id');
+    const projectId = crypto.randomUUID();
+    await withDb(ctx, async (db) => {
+      await db.query('INSERT INTO kortix.accounts(account_id, name) VALUES ($1::uuid, $2)', [userId, ctx.fixtures.name('life5')]);
+      await db.query("INSERT INTO kortix.account_members(account_id, user_id, account_role) VALUES ($1::uuid, $1::uuid, 'owner')", [userId]);
+      await db.query('INSERT INTO kortix.projects(project_id, account_id, name, repo_url) VALUES ($1::uuid, $2::uuid, $3, $4)',
+        [projectId, userId, ctx.fixtures.name('life5'), 'https://example.test/cleanup.git']);
+    });
+    ctx.track('project', projectId);
+    const asOwner = ctx.client.as(owner);
+    await ctx.step('deleting the only legacy workspace schedules workspace erasure, not personal deletion', async () => {
+      (await asOwner.del('/v1/workspaces/:workspaceId', { params: { workspaceId: projectId } }))
+        .status(200).body().has('$.deleted', true).exists('$.deletion_scheduled_for');
+      (await asOwner.get('/v1/account/deletion-status')).status(200).body().has('$.has_pending_deletion', false);
+      const row = await lifecycleOf(ctx, projectId);
+      if (row?.lifecycle !== 'closing') throw new Error('the workspace must retain its closing lifecycle');
+      if ((await passwordGrantStatus(ctx, owner)) !== 200) throw new Error('workspace deletion must keep the login');
+    });
+    await ctx.step('the person can still explicitly delete their account immediately', async () => {
+      (await asOwner.del('/v1/account/delete-immediately')).status(200).body().has('$.success', true);
+      if ((await passwordGrantStatus(ctx, owner)) !== 400) throw new Error('explicit account deletion must remove the login');
+    });
+  },
+);

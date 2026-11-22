@@ -20,6 +20,7 @@ import {
   timed,
 } from '../onboarding/phases.ts';
 import { C, help, status } from '../style.ts';
+import { currentCredential, reportSetupReady } from '../setup-telemetry.ts';
 import { doctorChecks, loadLoopsState } from './onboard.ts';
 
 export const LOOPS_HELP = help`Usage: kortix doctor --loops [--fix] [options]
@@ -99,6 +100,7 @@ export async function runLoopsDoctor(argv: string[]): Promise<number> {
     checks = await doctorChecks(state, manifestFile);
   }
   const code = doctorExitCode(checks);
+  if (code === 0) await reportSetupReady(currentCredential(), { project_id: state.ctx?.projectId ?? null, via: 'doctor' });
   if (flags.json) {
     process.stdout.write(`${JSON.stringify({ ready: code === 0, checks, fixed, user_actions: state.actions }, null, 2)}\n`);
     return code;

@@ -17,9 +17,12 @@
  * A 429 rests that account and the request moves to the next one; a 401 marks
  * the account for reconnection and moves on. Every response's plan usage
  * headers go to `notePoolUsage`. Nothing here translates the
- * request, reads the reply, logs a body or logs a token. The account token
+ * request or logs a body. Only token counts are observed in transit. The account token
  * never leaves the gateway and the API.
  */
+import { observeClaudeUsage } from './usage';
+import type { TokenCounts, UsageEvent } from '../domain/usage';
+import type { GatewayTrace } from '../domain/trace';
 import { createHash } from 'node:crypto';
 import type { AuthedPrincipal } from '../domain/principal';
 import { upstreamFetch } from '../upstream-fetch';
@@ -40,6 +43,8 @@ export type ClaudeCodeCredentials =
   } };
 
 export interface ClaudeCodeHooks {
+  recordUsage?: (event: UsageEvent) => Promise<void>;
+  recordTrace?: (trace: GatewayTrace) => Promise<void>;
   authenticate: (token: string) => Promise<AuthedPrincipal | null>;
   /** The Claude accounts the principal may use for `model` (Anthropic's model id), best first, or why none. */
   claudeCredentials: (principal: AuthedPrincipal, input: { model: string | null }) => Promise<ClaudeCodeCredentials>;
@@ -158,7 +163,11 @@ export function createClaudeCodePassthrough(hooks: ClaudeCodeHooks, deps: Claude
     const principal = await hooks.authenticate(token);
     if (!principal) return anthropicError(401, 'Invalid Kortix session token');
 
-    const found = await hooks.claudeCredentials(principal, { model: requestModel(req.body) });
+    const startedAt = new Date().toISOString();
+    const started = Date.now();
+    const model = requestModel(req.body);
+    const id = crypto.randomUUID();
+    const found = await hooks.claudeCredentials(principal, { model });
     if ('error' in found) {
       const { status, message, suggestion, retryAfterSeconds, restSeconds } = found.error;
       const text = suggestion ? `${message} ${suggestion}` : message;
@@ -188,7 +197,30 @@ export function createClaudeCodePassthrough(hooks: ClaudeCodeHooks, deps: Claude
           logger.warn('[claude-code] could not mark a refused Claude account', { secretId: credential.secretId, error: String(err) });
         });
       } else {
-        return relay(response);
+        const relayed = relay(response);
+        if (!response.ok || req.path !== '/v1/messages') return relayed;
+        return observeClaudeUsage(relayed, (usage) => {
+          const resolved = usage.model ?? model ?? 'unknown';
+          const alias = resolved.startsWith('claude-opus-') ? 'opus'
+            : resolved.startsWith('claude-sonnet-') ? 'sonnet'
+            : resolved.startsWith('claude-haiku-') ? 'haiku'
+            : resolved.startsWith('claude-fable-') ? 'fable' : resolved;
+          const servedModel = `claude-agent/${alias}`;
+          const counts = { promptTokens: usage.promptTokens, completionTokens: usage.completionTokens,
+            cachedTokens: usage.cachedTokens, cacheWriteTokens: usage.cacheWriteTokens };
+          const common: Omit<UsageEvent, keyof TokenCounts | 'model'> = { accountId: principal.accountId, actorUserId: principal.userId,
+            projectId: principal.projectId, sessionId: principal.sessionId, provider: 'claude-agent',
+            billingMode: 'none', streaming: response.headers.get('content-type')?.includes('text/event-stream') ?? false,
+            requestId: id, upstreamCost: 0, finalCost: 0 };
+          void hooks.recordUsage?.({ ...common, ...counts, model: servedModel, usageEstimated: !usage.complete })
+            .catch((error) => logger.warn('[claude-code] usage recording failed', { error: String(error) }));
+          void hooks.recordTrace?.({ ...common, startedAt, keyId: principal.keyId,
+            requestedModel: servedModel, resolvedModel: resolved, servedModel,
+            status: response.status, ok: usage.complete, latencyMs: Date.now() - started,
+            attempts: index + 1, candidatesTried: ['claude-agent'], usage: counts,
+            request: null, response: null, metadata: { usageEstimated: !usage.complete },
+          }).catch((error) => logger.warn('[claude-code] trace recording failed', { error: String(error) }));
+        });
       }
       if (!more) {
         last = response;

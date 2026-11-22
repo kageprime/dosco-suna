@@ -142,6 +142,19 @@ export function createTokenRateLimit(
     limit: Math.max(1, Math.floor(unvalidatedPerMinute / 100)),
     windowMs: 60_000,
   };
+  const charge = (key: string, sourceKey: string | null) => {
+    evictOldest(chargedShared, MAX_CHARGED_SHARED);
+    chargedShared.add(key);
+    if (!sourceKey) return;
+    let bySource = chargedSource.get(key);
+    if (!bySource) {
+      evictOldest(chargedSource, MAX_CHARGED_SHARED);
+      bySource = new Map();
+      chargedSource.set(key, bySource);
+    }
+    if (!bySource.has(sourceKey)) evictOldest(bySource, MAX_SOURCE_KEYS_PER_CREDENTIAL);
+    bySource.set(sourceKey, Math.min((bySource.get(sourceKey) ?? 0) + 1, sourcePolicy.limit));
+  };
   const limit = (
     request: Request,
     headers = new Headers(),
@@ -164,41 +177,14 @@ export function createTokenRateLimit(
     // source's small share.
     const sourceKey =
       !validated && source && (options.trustEdgeClientIp ?? true) ? source : null;
-    const fromSource =
-      preValidation && !preValidation.allowed
-        ? null
-        : sourceKey
-          ? sourceLimiter.check(sourceKey, sourcePolicy)
-          : null;
-    const result =
-      preValidation && !preValidation.allowed
-        ? preValidation
-        : fromSource && !fromSource.allowed
-          ? fromSource
-          : limiter.check(validated ? key : UNVALIDATED, validated ? policy : sharedPolicy);
-    if (!validated && result.allowed) {
-      if (chargedShared.size >= MAX_CHARGED_SHARED) {
-        const oldest = chargedShared.values().next().value;
-        if (oldest !== undefined) chargedShared.delete(oldest);
-      }
-      chargedShared.add(key);
-      if (sourceKey) {
-        let bySource = chargedSource.get(key);
-        if (!bySource) {
-          if (chargedSource.size >= MAX_CHARGED_SHARED) {
-            const oldest = chargedSource.keys().next().value;
-            if (oldest !== undefined) chargedSource.delete(oldest);
-          }
-          bySource = new Map();
-          chargedSource.set(key, bySource);
-        }
-        if (bySource.size >= MAX_SOURCE_KEYS_PER_CREDENTIAL && !bySource.has(sourceKey)) {
-          const oldest = bySource.keys().next().value;
-          if (oldest !== undefined) bySource.delete(oldest);
-        }
-        bySource.set(sourceKey, Math.min((bySource.get(sourceKey) ?? 0) + 1, sourcePolicy.limit));
-      }
-    }
+    const admit = () => {
+      if (preValidation && !preValidation.allowed) return preValidation;
+      const fromSource = sourceKey ? sourceLimiter.check(sourceKey, sourcePolicy) : null;
+      if (fromSource && !fromSource.allowed) return fromSource;
+      return limiter.check(validated ? key : UNVALIDATED, validated ? policy : sharedPolicy);
+    };
+    const result = admit();
+    if (!validated && result.allowed) charge(key, sourceKey);
     // Advertise the allowance that governs this caller (KRTX-4608): for an
     // unvalidated credential that is its own pre-validation allowance, whose
     // counter a client can watch move and exhaust. The shared pool refills
@@ -306,4 +292,10 @@ function rateLimitedResponse(path: string, retryAfterSeconds: number): Response 
     suggestion: 'Slow down. The limit is per credential per minute.',
     retryAfterSeconds,
   });
+}
+
+function evictOldest(collection: Set<string> | Map<string, unknown>, cap: number): void {
+  if (collection.size < cap) return;
+  const oldest = collection.keys().next().value;
+  if (oldest !== undefined) collection.delete(oldest);
 }

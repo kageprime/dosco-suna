@@ -2,5 +2,5 @@
 export type LightThemeId = string;
 export type DarkThemeId = string;
 
-export const DEFAULT_LIGHT_THEME: LightThemeId = 'pure-light';
-export const DEFAULT_DARK_THEME: DarkThemeId = 'pure-dark';
+export const DEFAULT_LIGHT_THEME: LightThemeId = 'light';
+export const DEFAULT_DARK_THEME: DarkThemeId = 'dark';

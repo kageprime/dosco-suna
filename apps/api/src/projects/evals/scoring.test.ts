@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { EvalJobConfigSchema } from '@kortix/api-contract';
 import { planTrials } from './config';
 import { cleanInstruction, dockerfileWorkdir, parseHarborTask, taskNameMatches } from './harbor-task';
-import { EvalTrialError, computeJobStats, computeMetric, errorPolicyFor, parseRewards, passAtKEstimate, passAtKValues, shouldRetry, toEvalException, turnFailureType, type ScoredTrial } from './scoring';
+import { EvalTrialError, computeJobStats, computeMetric, errorPolicyFor, parseRewards, passAtKEstimate, passAtKValues, shouldRetry, toEvalException, turnFailureType, type ScoredTrial, minRewardFailure, multiStepRewards } from './scoring';
 
 const trial = (over: Partial<ScoredTrial>): ScoredTrial => ({
   taskName: 't1',
@@ -217,5 +217,21 @@ describe('provider rate limits', () => {
     expect(wait).toBeGreaterThanOrEqual(2000);
     expect(wait).toBeLessThan(2500);
     expect(rateLimitWaitMs('exec -> 500 internal')).toBeNull();
+  });
+});
+
+describe('multi-step rewards (Harbor multi_step.py)', () => {
+  test('final is the last step verbatim; mean is per key over steps with a reward, a missing key counting 0', () => {
+    expect(multiStepRewards('final', [{ reward: 1 }, { reward: 0, x: 1 }])).toEqual({ reward: 0, x: 1 });
+    expect(multiStepRewards('final', [{ reward: 1 }, null])).toBeNull();
+    expect(multiStepRewards('mean', [{ reward: 1, a: 1 }, null, { reward: 0 }])).toEqual({ reward: 0.5, a: 0.5 });
+    expect(multiStepRewards('mean', [null, null])).toBeNull();
+    expect(multiStepRewards('mean', [])).toBeNull();
+  });
+  test('min_reward: a number gates `reward`, a table each key; missing reads as -inf', () => {
+    expect(minRewardFailure({ reward: 1 }, 1)).toBeNull();
+    expect(minRewardFailure({ reward: 0.5 }, 1)).toContain('reward=0.5');
+    expect(minRewardFailure({ a: 1 }, { a: 1, b: 0 })).toContain('b=-Infinity');
+    expect(minRewardFailure(null, 0)).toContain('-Infinity');
   });
 });

@@ -92,7 +92,7 @@ While they run, send 3 unrelated prompts.
 
 ## Follow-ups
 
-- A bundled deep-research workflow (`.kortix/workflows/deep-research.js` in new projects).
+- A bundled deep-research workflow (`workflows/deep-research.js` in new projects).
 - Workflow pause from the model: today the person pauses from the card; My Kortix only stops (`task_stop`).
 - Cross-project messages beyond `project_id` resolution: no listing across projects.
 - Check the async live gate on dev after the deploy, and the notice coalescing under 5+ finished children.

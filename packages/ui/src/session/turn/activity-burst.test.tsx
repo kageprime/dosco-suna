@@ -162,7 +162,7 @@ describe('ActivityGroupStep', () => {
 
   test('group trigger skeleton', () => {
     expect(rowNodes(triggerRow(render(false), 'Read 2 files'))).toBe(
-      '<div data-status="done" class="select-none text-foreground/80 hover:text-foreground flex w-full cursor-pointer items-center gap-3 text-left text-sm leading-[1.5] transition-colors" role="button" aria-expanded="false" tabindex="0"><svg class="text-muted-foreground size-4 flex-none"/><span class="min-w-0 truncate font-medium">Read 2 files</span><svg class="text-muted-foreground/40 size-3.5 flex-none transition-transform group-data-[state=open]/step:rotate-90"/></div>',
+      '<div data-status="done" class="select-none text-foreground/80 hover:text-foreground flex w-full cursor-pointer items-center gap-3 text-left text-sm leading-[1.5] transition-colors" role="button" aria-expanded="false" tabindex="0"><svg class="text-muted-foreground size-4 flex-none"/><span class="min-w-0 truncate font-medium">Read 2 files</span><svg class="text-muted-foreground size-3.5 flex-none transition-transform group-data-[state=open]/step:rotate-90"/></div>',
     );
   });
 
@@ -743,7 +743,7 @@ describe('ActivityBurst', () => {
       } as unknown as Part,
     ]);
     expect(rowNodes(triggerRow(markup, 'Thinking'))).toBe(
-      '<div class="select-none text-foreground/80 hover:text-foreground flex w-full cursor-pointer items-center gap-3 text-left text-sm leading-[1.5] transition-colors" role="button" aria-expanded="false" tabindex="0"><span class="font-medium tabular-nums">Thinking</span><svg class="text-muted-foreground/40 size-3.5 flex-none transition-transform group-data-[state=open]/step:rotate-90"/></div>',
+      '<div class="select-none text-foreground/80 hover:text-foreground flex w-full cursor-pointer items-center gap-3 text-left text-sm leading-[1.5] transition-colors" role="button" aria-expanded="false" tabindex="0"><span class="font-medium tabular-nums">Thinking</span><svg class="text-muted-foreground size-3.5 flex-none transition-transform group-data-[state=open]/step:rotate-90"/></div>',
     );
   });
 
@@ -1393,7 +1393,7 @@ describe('answered question step', () => {
 
   test('answered question trigger skeleton', () => {
     expect(rowNodes(triggerRow(renderBurst([answered('q')]), '2 answered'))).toBe(
-      '<div class="select-none text-foreground/80 hover:text-foreground flex w-full cursor-pointer items-center gap-3 text-left text-sm leading-[1.5] transition-colors" role="button" aria-expanded="false" tabindex="0"><svg class="text-muted-foreground size-4 flex-none"/><span class="font-medium">Questions</span><span class="text-muted-foreground tabular-nums">2 answered</span><svg class="text-muted-foreground/40 size-3.5 flex-none transition-transform group-data-[state=open]/step:rotate-90"/></div>',
+      '<div class="select-none text-foreground/80 hover:text-foreground flex w-full cursor-pointer items-center gap-3 text-left text-sm leading-[1.5] transition-colors" role="button" aria-expanded="false" tabindex="0"><svg class="text-muted-foreground size-4 flex-none"/><span class="font-medium">Questions</span><span class="text-muted-foreground tabular-nums">2 answered</span><svg class="text-muted-foreground size-3.5 flex-none transition-transform group-data-[state=open]/step:rotate-90"/></div>',
     );
   });
 

@@ -353,13 +353,13 @@ export function registerRuntimeTriggersRoutes(): void {
         if (access.response) return access.response;
         return runReminderResponse(c, access, row.slug);
       }
-      await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_TRIGGER_FIRE);
+      await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_TRIGGER_FIRE, { type: 'trigger', id: row.slug });
       if (spec.agent !== 'default') {
         await assertMayRunAgent(c, loaded.row.accountId, projectId, spec.agent, PROJECT_ACTIONS.PROJECT_TRIGGER_FIRE);
       }
       const now = new Date();
       const payload = { trigger: { slug: spec.slug, type: spec.type, kind: 'runtime' }, fired_at: now.toISOString() };
-      const result = await fireGitTrigger({ spec, project: loaded.row, payload, renderedPrompt: spec.promptTemplate, source: 'manual', deliberate: true });
+      const result = await fireGitTrigger({ spec, project: loaded.row, payload, renderedPrompt: spec.promptTemplate, source: 'manual', deliberate: true, callerSessionId: callerKortixSessionId(c) });
       await recordTriggerRun({ projectId, slug: spec.slug, source: 'manual', spec, payload, ...triggerRunFromFire(result), now });
       if (result.status !== 'queued' && result.status !== 'fired') {
         return c.json({ error: result.error ?? result.reason ?? 'The trigger could not run' }, 409);

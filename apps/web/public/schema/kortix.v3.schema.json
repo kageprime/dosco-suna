@@ -142,6 +142,29 @@
       "deprecated": true,
       "description": "Selects nothing: every new session runs pi."
     },
+    "trigger_session_readers": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "humans": {
+          "type": "string",
+          "enum": [
+            "none",
+            "members"
+          ],
+          "description": "Current human account members may read newly created trigger sessions. No mutation rights. Default: none."
+        },
+        "agents": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$"
+          },
+          "description": "Explicit named monitoring agents. Read only; no implicit agent access. Default: []."
+        }
+      },
+      "description": "Shared additive reader default for newly created trigger sessions. Existing sharing and IAM are unchanged. No implicit backfill."
+    },
     "project": {
       "type": "object",
       "description": "`name`: the project's name. A push that changes it renames the project, and a rename in Kortix commits it here. `description`: text for people who read the repository.",
@@ -322,6 +345,29 @@
               "type"
             ],
             "properties": {
+              "session_readers": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "humans": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "members"
+                    ],
+                    "description": "Current human account members may read newly created trigger sessions. No mutation rights. Default: none."
+                  },
+                  "agents": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$"
+                    },
+                    "description": "Explicit named monitoring agents. Read only; no implicit agent access. Default: []."
+                  }
+                },
+                "description": "Additive read-only policy for new sessions; overrides trigger_session_readers in full."
+              },
               "slug": {
                 "type": "string",
                 "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$"
@@ -565,6 +611,10 @@
               "expect_event_within": {
                 "type": "string",
                 "pattern": "^([1-9][0-9]*)(s|m|h|d)$"
+              },
+              "hard_run_caps": {
+                "type": "boolean",
+                "description": "Atomically cap every fire, including manual fires. No implicit manual override."
               },
               "max_runs_per_hour": {
                 "type": "integer",
@@ -974,6 +1024,29 @@
               "run"
             ],
             "properties": {
+              "session_readers": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "humans": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "members"
+                    ],
+                    "description": "Current human account members may read newly created trigger sessions. No mutation rights. Default: none."
+                  },
+                  "agents": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$"
+                    },
+                    "description": "Explicit named monitoring agents. Read only; no implicit agent access. Default: []."
+                  }
+                },
+                "description": "Additive read-only policy for new sessions; overrides trigger_session_readers in full."
+              },
               "slug": {
                 "type": "string",
                 "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$",
@@ -1117,6 +1190,10 @@
                   ]
                 },
                 "description": "Payload path → a value (equals), or one operator: `not`, `in`, `exists`, `prefix`, `not_prefix`. A fire runs only when every path matches."
+              },
+              "hard_run_caps": {
+                "type": "boolean",
+                "description": "Atomically cap every fire, including manual fires. No implicit manual override."
               },
               "max_runs_per_hour": {
                 "type": "integer",
@@ -1523,7 +1600,11 @@
                 ],
                 "description": "`oauth1` works on `openapi`, `postman` and `http` only."
               },
-              "secret": false,
+              "secret": {
+                "type": "string",
+                "pattern": "^[A-Z_][A-Z0-9_]{0,63}$",
+                "description": "The name of the project secret Kortix sends as the credential. Its value lives in Secrets, never in this file."
+              },
               "in": {
                 "default": "header",
                 "description": "Where the credential goes."

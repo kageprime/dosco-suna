@@ -3,7 +3,7 @@ import { AppRouteRouteModule } from 'next/dist/server/route-modules/app-route/mo
 
 // KRTX-3380 (pentest http.contract): a bare 405 breaks RFC 9110 §15.5.6.
 // Next serves App Route handlers from dist/compiled/next-server/app-route*.js
-// (what module.compiled selects at runtime), patched by patches/next@16.4.2.patch.
+// (what module.compiled selects at runtime), patched by patches/next@16.4.5.patch.
 // This drives that exact bundle: build a route module around a userland
 // module, then resolve the handler Next would run for a method.
 // Next's RouteKind is an ambient const enum (unusable under isolatedModules),

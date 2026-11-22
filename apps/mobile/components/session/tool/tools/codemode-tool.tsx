@@ -17,7 +17,6 @@ import { CheckIcon, FileCodeIcon, MinusIcon, ProhibitIcon, WarningIcon } from '@
 import { disclosureKey } from '@/lib/session/disclosure-store';
 import { BASH_PANE, bashPaneInset } from '@/lib/session/tools/files-bash';
 import { webSpace } from '@/lib/session/user-message';
-import { THEME } from '@/lib/utils/theme';
 import {
   BasicTool,
   HighlightedCode,
@@ -116,9 +115,9 @@ function CallMark({ status }: { status: ScriptCall['status'] }) {
   const palette = useTurnPalette();
   const size = TURN_SPACE.statusIcon;
   if (status === 'running') return <RunningLoader size={size} />;
-  if (status === 'ok') return <CheckIcon size={size} color={THEME.accent.green} />;
-  if (status === 'error') return <WarningIcon weight="fill" size={size} color={THEME.accent.red} />;
-  if (status === 'refused') return <ProhibitIcon weight="fill" size={size} color={THEME.accent.orange} />;
+  if (status === 'ok') return <CheckIcon size={size} color={palette.kortixGreen} />;
+  if (status === 'error') return <WarningIcon weight="fill" size={size} color={palette.kortixRed} />;
+  if (status === 'refused') return <ProhibitIcon weight="fill" size={size} color={palette.kortixOrange} />;
   return <MinusIcon size={size} color={palette.mutedForeground} />;
 }
 

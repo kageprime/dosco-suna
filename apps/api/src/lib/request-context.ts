@@ -41,6 +41,8 @@ export interface RequestContext {
   userEmail?: string;
   /** Dosco project ID (set by route middleware/handlers when known) */
   projectId?: string;
+  /** Session bound by authentication; never a route-target session. */
+  authSessionId?: string;
   /** Dosco project session ID (set by route middleware/handlers when known) */
   sessionId?: string;
   /** Sandbox ID (set by route handlers that operate on a sandbox) */

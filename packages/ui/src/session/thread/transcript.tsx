@@ -104,7 +104,6 @@ import type { TurnServedModel } from '../turn/served-model';
 import { SessionBusyIndicator } from '../status/session-busy-indicator';
 import { useAnswerStreaming } from '../turn/answer-streaming';
 import { SessionTurnMeta } from './session-turn-meta';
-import { TurnShareButton } from './turn-share';
 import {
   sessionTurnDurationMs,
   sessionTurnEndedAt,
@@ -432,8 +431,7 @@ interface SessionTurnProps {
   isLast: boolean;
   ownsPlan: boolean;
   sessionId: string;
-  /** The Kortix project and project-session ids. With both, a settled turn
-   *  offers Share (`TurnShareButton`). Absent (a child session): no Share. */
+  /** The Kortix project and project-session ids. */
   projectId?: string;
   projectSessionId?: string;
   sessionStatus: import('../../internal/session-types').SessionStatus | undefined;
@@ -1806,8 +1804,8 @@ function TurnToolBlocks(
   // a row) settles with its "Worked for" row open, so nothing they were
   // reading disappears under them.
   const split = useMemo(
-    () => (fold && !working ? splitSessionLogTurnWork(segments.filter(segmentRendersSomething), { working, foldStartedWork }) : null),
-    [fold, segments, working, foldStartedWork],
+    () => (fold && (!working || !!runLabel) ? splitSessionLogTurnWork(segments.filter(segmentRendersSomething), { working: working && !runLabel, foldStartedWork }) : null),
+    [fold, segments, working, foldStartedWork, runLabel],
   );
   // A settled turn whose prompt is another agent's notice folds the notice
   // row into this work fold with the work it led to (KRTX-4732): the parent's
@@ -1818,7 +1816,7 @@ function TurnToolBlocks(
   // answer instead — the gate below keeps the block mounted for it.
   // The run's other turns fold here too (KRTX-4732); while the turn still works, the run's
   // row already stands, closed, over the reports that came before.
-  const noticeFold = (!!workNotice || !!runContent) && fold && !working;
+  const noticeFold = (!!workNotice || !!runContent) && fold && (!working || !!runLabel);
   // A turn whose only work started agents has no steps, but its agent rows are what the
   // person tracks: they draw (and fold once every agent reported, `foldStartedWork`).
   const startedWork = useMemo(
@@ -2474,7 +2472,7 @@ function TurnFooter(
           duration / cost would be permanently invisible, and tap-emulated
           `:hover` would leave exactly one arbitrary turn's bar lit. */}
       {/* A turn that ended in tool calls alone ("Worked for 13s") has nothing to
-          copy or share: no bar, so no empty hover band under it. */}
+          copy: no bar, so no empty hover band under it. */}
       {!working && !props.hideActionBar && hasCopyableResponse(response, answered.inlineContentParts) && (
         <TurnActionBar
           response={response}
@@ -2484,17 +2482,6 @@ function TurnFooter(
           costInfo={costInfo}
           servedModel={servedModel}
           tHardcodedUi={tHardcodedUi}
-          // A continuation turn's id names a compaction marker, not a user
-          // message, so it has no response of its own to share.
-          share={
-            turn.continues
-              ? undefined
-              : {
-                  projectId,
-                  sessionId: projectSessionId,
-                  turnId: turn.id,
-                }
-          }
         />
       )}
     <ConnectProviderDialog
@@ -2652,7 +2639,6 @@ function TurnActionBar({
   servedModel,
   tHardcodedUi,
   inToolbar = false,
-  share,
 }: {
   /** Inside a message row's toolbar, which owns the hover reveal. */
   inToolbar?: boolean;
@@ -2663,7 +2649,6 @@ function TurnActionBar({
   costInfo: TurnSettledMeta['costInfo'];
   servedModel?: TurnServedModel;
   tHardcodedUi: ReturnType<typeof useTranslations>;
-  share?: { projectId?: string; sessionId?: string; turnId: string };
 }) {
   const [copied, setCopied] = useState(false);
 // ---- Copy response ----
@@ -2726,9 +2711,6 @@ const handleCopy = async () => {
               </AnimatePresence>
             </span>
           </Button>
-      ) : null}
-      {response && share ? (
-        <TurnShareButton projectId={share.projectId} sessionId={share.sessionId} turnId={share.turnId} />
       ) : null}
         <SessionTurnMeta
           endedAt={turnEndedAt}
@@ -2811,14 +2793,14 @@ function SessionTurnImpl(props: SessionTurnProps) {
   const inRun = !!props.agentRun || !!props.runMember;
   const turnSegments = useMemo(() => (inRun ? withoutRelayCalls(segments) : segments), [inRun, segments]);
   const { runTurns, agentRun } = props;
-  // The run's other turns, drawn by the anchor, each as a run member: its work in the fold,
-  // its answer under the run row. Each member is a memoized row: a render of the anchor costs a
-  // shallow prop compare per member.
-  const runMembers = (part: 'work' | 'answer') =>
+  // The run's other turns stay inside the anchor's activity fold, including interim replies.
+  // Only the anchor's final answer stays at the top level. Memoized members only
+  // need a shallow prop comparison when their anchor streams.
+  const runContent =
     agentRun && runTurns?.length
-      ? runTurns.map((member) => (
+      ? runTurns.flatMap((member) => (['work', 'answer'] as const).map((part) => (
           <SessionTurn
-            key={member.id}
+            key={`${member.id}:${part}`}
             {...props}
             turn={member}
             runMember={part}
@@ -2833,10 +2815,8 @@ function SessionTurnImpl(props: SessionTurnProps) {
             isLast={false}
             ownsPlan={false}
           />
-        ))
+        )))
       : null;
-  const runContent = runMembers('work');
-  const runAnswers = runMembers('answer');
   // A compaction turn's message-state — `inFlight` (the marker still
   // streams its summary) is the half of "is this compaction running" the
   // working projection cannot see, because it deliberately knows nothing
@@ -3020,11 +3000,6 @@ function SessionTurnImpl(props: SessionTurnProps) {
                   costInfo={meta.costInfo}
                   servedModel={props.servedModel}
                   tHardcodedUi={tHardcodedUi}
-                  share={
-                    turn.continues
-                      ? undefined
-                      : { projectId: props.projectId, sessionId: props.projectSessionId, turnId: turn.id }
-                  }
                 />
               )
             }
@@ -3090,7 +3065,6 @@ function SessionTurnImpl(props: SessionTurnProps) {
           runLabel={agentRun ? sessionLogAgentRunLabel(agentRun) : undefined}
           foldStartedWork={props.foldStartedWork}
         />
-        {runAnswers}
         <TurnAssistantBlock {...props} model={model} answered={answered} userContent={userContent} tHardcodedUi={tHardcodedUi} />
       </GenuiTelemetryContext.Provider>
       <TurnFooter {...props} model={model} errors={errors} answered={answered} status={status} retry={retry} meta={meta} tHardcodedUi={tHardcodedUi} connectProviderOpen={connectProviderOpen} onConnectProviderOpenChange={setConnectProviderOpen} />

@@ -27,13 +27,17 @@ import {
   phaseShip,
   phaseSlack,
   phaseWebhooks,
+  pendingSetup,
   resolveWorkspace,
   timed,
   type UserAction,
 } from '../onboarding/phases.ts';
 import { C, help, status } from '../style.ts';
+import { currentCredential, reportOnboardRun, reportSetupReady } from '../setup-telemetry.ts';
 import { channelList } from './channels-join.ts';
 import { githubRepoFromRemote } from '../github-remote.ts';
+import { openInBrowser } from '../browser.ts';
+import { projectWebUrl } from '../web-url.ts';
 
 const HELP = help`Usage: kortix onboard --yes [options]
 
@@ -75,7 +79,11 @@ Options:
   --connect <slug,...>      Also connect these connectors.
   --github-token -          Read a GitHub token from stdin for ship (no App).
   --build-timeout <sec>     How long to wait for each image (default 1800).
-  -m, --message <msg>       Commit message when kortix.yaml or .kortix/ changed
+  --no-open                 Do not open the setup page in the browser.
+  --wait                    When the person has steps left, wait until the
+                            setup page shows them done, then finish the run.
+  --wait-timeout <sec>      How long --wait waits (default 1800).
+  -m, --message <msg>       Commit message when kortix.yaml changed
                             (default "chore: add Kortix loops").
   -h, --help                Show this help.
 
@@ -134,9 +142,27 @@ export async function doctorChecks(state: OnboardState, manifestFile: string | n
   });
 }
 
-function nextStep(phases: PhaseResult[], actions: UserAction[], ready: boolean, state: OnboardState): string {
+/** Poll the setup page's steps until none is left or the time is up; the steps still open. */
+async function waitForSetup(state: OnboardState, timeoutSec: number): Promise<Awaited<ReturnType<typeof pendingSetup>>> {
+  const interval = Number(process.env.KORTIX_ONBOARD_POLL_MS) || 5000;
+  const deadline = Date.now() + timeoutSec * 1000;
+  let left = await pendingSetup(state);
+  let shown = -1;
+  while (left.length > 0 && Date.now() < deadline) {
+    if (left.length !== shown) {
+      process.stderr.write(`       ${C.dim}waiting:${C.reset} ${left.length} left on the setup page (${left.map((item) => item.name).join(', ')})\n`);
+      shown = left.length;
+    }
+    await Bun.sleep(interval);
+    left = await pendingSetup(state).catch(() => left);
+  }
+  return left;
+}
+
+function nextStep(phases: PhaseResult[], actions: UserAction[], ready: boolean, state: OnboardState, setupUrl: string | null): string {
   const failed = phases.find((p) => p.status === 'failed');
   if (failed) return `Fix the ${failed.name} phase (${failed.detail}), then run kortix onboard --yes --json again.`;
+  if (setupUrl) return `The person finishes the steps on the setup page (${setupUrl}). Run kortix onboard --yes --json --wait: it waits until the page is done, then finishes. Hand any other user_action to the person.`;
   if (actions.length) return 'Hand each user_action to the person. When they are done, run kortix onboard --yes --json again: it skips what is done.';
   if (!ready) return 'Run kortix doctor --loops --fix --json, then fix each remaining red line by its fix.';
   const proof = state.needs.triggers.find((t) => t.enabled && !t.webhook);
@@ -154,7 +180,17 @@ function phaseLine(p: PhaseResult): string {
   return MARK[p.status](`${p.name.padEnd(10)} ${p.status.replace(/_/g, ' ')}  ${C.dim}${p.detail} (${(p.duration_ms / 1000).toFixed(1)}s)${C.reset}`);
 }
 
+/** The user_actions the workspace's setup page shows; the others stay in the terminal. */
+const SETUP_PAGE_KINDS = new Set<UserAction['kind']>(['connector_sign_in', 'secret_request', 'slack_install']);
+
+/** Seconds the run before this one waited on the setup page: `--wait` finishes with a second pass. */
+let carriedWaitS = 0;
+
 export async function runOnboard(argv: string[]): Promise<number> {
+  const original = [...argv];
+  const runStarted = Date.now();
+  let waitedS = carriedWaitS;
+  carriedWaitS = 0;
   const flags = takeFlags(argv, HELP, (rest) => {
     const envPairs: Array<{ file: string; only: string[] }> = [];
     // `--env-file A --only X,Y --env-file B --only Z`: each --only belongs to the --env-file before it.
@@ -180,11 +216,18 @@ export async function runOnboard(argv: string[]): Promise<number> {
       connect: takeFlagValues(rest, ['--connect']).flatMap((v) => v.split(',')).map((s) => s.trim()).filter(Boolean),
       tokenFromStdin: token === '-',
       buildTimeout: Number(takeFlagValue(rest, ['--build-timeout']) ?? 1800),
+      open: !takeFlagBool(rest, ['--no-open']),
+      wait: takeFlagBool(rest, ['--wait']),
+      waitTimeout: Number(takeFlagValue(rest, ['--wait-timeout']) ?? 1800),
       message: takeFlagValue(rest, ['--message', '-m']) ?? 'chore: add Kortix loops',
       envPairs,
     };
   });
   if (typeof flags === 'number') return flags;
+  if (!Number.isFinite(flags.waitTimeout) || flags.waitTimeout < 0) {
+    process.stderr.write(`${status.err('--wait-timeout must be a number of seconds')}\n`);
+    return 2;
+  }
   if (!Number.isFinite(flags.buildTimeout) || flags.buildTimeout < 0) {
     process.stderr.write(`${status.err('--build-timeout must be a number of seconds')}\n`);
     return 2;
@@ -257,6 +300,25 @@ export async function runOnboard(argv: string[]): Promise<number> {
     return errors.length ? { status: 'failed', detail: `${errors.length} errors: ${formatIssueLine(errors[0]!, state.root).trim()}` } : { status: 'done', detail: `${readFileSync(manifestFile, 'utf8').split('\n').length} lines, ${state.needs.triggers.length} triggers` };
   }));
   const blocked = (reason: string) => (name: PhaseName): PhaseResult => ({ name, status: 'skipped', duration_ms: 0, detail: reason });
+  // Every sign-in, secret and Slack step on one page: the person clicks there, not in the terminal.
+  // The server's own workspace URL (its FRONTEND_URL) first; a guess from the API host only without one.
+  let workspaceUrl: string | null = null;
+  const setupPageUrl = () =>
+    state.ctx && workspaceUrl && state.actions.some((a) => SETUP_PAGE_KINDS.has(a.kind))
+      ? `${workspaceUrl}/setup${state.opts.channels.length > 0 || state.needs.uses_slack ? '?slack=1' : ''}`
+      : null;
+  let announced = false;
+  const announceSetupPage = async () => {
+    if (state.ctx && !workspaceUrl) {
+      const project = await state.ctx.client.get<{ dashboard_url?: string | null }>(`/workspaces/${state.ctx.projectId}`).catch(() => null);
+      workspaceUrl = projectWebUrl(state.ctx.apiBase, state.ctx.projectId, project?.dashboard_url);
+    }
+    const url = setupPageUrl();
+    if (!url || announced) return;
+    announced = true;
+    const opened = flags.open && !process.env.KORTIX_NO_BROWSER && openInBrowser(url);
+    process.stderr.write(`       ${C.dim}person:${C.reset} ${opened ? 'the setup page is open in the browser' : 'open the setup page'}: ${C.cyan}${url}${C.reset}\n`);
+  };
 
   if (phases[0]!.status === 'failed') {
     for (const name of ORDER.slice(1)) record(blocked('kortix.yaml is not valid')(name));
@@ -271,6 +333,8 @@ export async function runOnboard(argv: string[]): Promise<number> {
       record(await timed('webhooks', () => phaseWebhooks(state)));
       record(await timed('slack', () => phaseSlack(state)));
       record(await timed('connectors', () => phaseConnectors(state)));
+      // The person works through the setup page while the image builds.
+      await announceSetupPage();
       record(await timed('sandbox', () => phaseSandbox(state)));
     }
   }
@@ -280,15 +344,45 @@ export async function runOnboard(argv: string[]): Promise<number> {
   const ready = doctorExitCode(checks) === 0;
   record({ name: 'doctor', status: ready ? 'done' : 'waiting_on_person', duration_ms: Date.now() - started, detail: ready ? 'every line green' : `red: ${checks.filter((c) => c.state === 'fail').map((c) => c.name).join(', ')}` });
 
+  await announceSetupPage();
+  const setupUrl = setupPageUrl();
   const result = {
     workspace: state.ctx?.projectId ?? null,
     repo: state.repo,
     phases,
     user_actions: state.actions,
+    setup_url: setupUrl,
     doctor: { ready, checks },
-    next: nextStep(phases, state.actions, ready, state),
+    next: nextStep(phases, state.actions, ready, state, setupUrl),
   };
   const code = phases.some((p) => p.status === 'failed') ? 1 : state.actions.length > 0 || !ready ? 4 : 0;
+  if (setupUrl && flags.wait && code === 4) {
+    const waitStarted = Date.now();
+    const left = await waitForSetup(state, flags.waitTimeout);
+    waitedS += Math.round((Date.now() - waitStarted) / 1000);
+    // Done on the page: one more pass finishes the phases that waited and prints the result.
+    if (left.length === 0) {
+      const again = original.filter((arg) => arg !== '--wait');
+      carriedWaitS = waitedS;
+      return runOnboard(again.includes('--no-open') ? again : [...again, '--no-open']);
+    }
+    result.next = `The setup page still lists ${left.map((item) => item.name).join(', ')} after ${flags.waitTimeout}s. Run kortix onboard --yes --json --wait again when the person is back.`;
+  }
+  const credential = currentCredential();
+  await reportOnboardRun(credential, {
+    project_id: state.ctx?.projectId ?? null,
+    exit_code: code,
+    wait: flags.wait,
+    waited_s: waitedS,
+    duration_s: Math.round((Date.now() - runStarted) / 1000),
+    steps_left: state.actions.length,
+    connectors: state.needs.connectors.length,
+    secrets: state.needs.secrets.length,
+    sandbox_templates: state.needs.sandbox_templates.length,
+    slack: state.needs.uses_slack || state.opts.channels.length > 0,
+    phases: Object.fromEntries(phases.map((phase) => [phase.name, phase.status])),
+  });
+  if (code === 0) await reportSetupReady(credential, { project_id: state.ctx?.projectId ?? null, via: 'onboard' });
   if (flags.json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   else process.stdout.write(`\n  ${result.next}\n\n`);
   return code;

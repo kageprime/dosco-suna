@@ -1,4 +1,4 @@
-import { loadAuth, loadAuthForHost } from '../api/auth.ts';
+import { loadAuth, loadAuthForHost, loadEnvAuth } from '../api/auth.ts';
 import { clientFromAuth } from '../api/client.ts';
 import type { ProjectSummary } from '../api/types.ts';
 import { loadLink } from '../project-link.ts';
@@ -80,7 +80,10 @@ export async function runGitCredential(argv: string[]): Promise<number> {
   const link = loadLink();
   if (!requestUrl || !link?.project_id) return 0;
 
-  const auth = link.host ? loadAuthForHost(link.host) : loadAuth();
+  // A clone made in a session links a host with no stored login: the session's identity is its environment.
+  // The credential below is only ever the linked workspace's own repository's.
+  const stored = link.host ? loadAuthForHost(link.host) : loadAuth();
+  const auth = stored?.token ? stored : (loadEnvAuth() ?? stored);
   if (!auth?.token) {
     const hint = link.host ? ` --host ${link.host}` : '';
     process.stderr.write(`Kortix Git needs login. Run: kortix login${hint}\n`);

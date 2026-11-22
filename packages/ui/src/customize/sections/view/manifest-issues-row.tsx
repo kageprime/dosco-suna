@@ -25,7 +25,7 @@ import Loading from '../../../primitives/loading';
 import {
   ManifestIssueList,
   manifestFixPrompt,
-} from '../../../workspace/sidebar/footer/manifest-issue-list';
+} from './manifest-issue-list';
 import { useConfigureThread } from '../../use-configure-thread';
 
 /** Presentational: renders under renderToStaticMarkup. Nothing unless there are issues. */

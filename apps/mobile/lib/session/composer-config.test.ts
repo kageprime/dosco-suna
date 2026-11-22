@@ -102,6 +102,16 @@ describe('composer chip (KRTX-247)', () => {
       composerChip({ connectModel: false, agentName: 'plan', pendingAgentName: 'kortix', agentsLoading: false, modelName: 'Sonnet 5' }),
     ).toEqual({ label: 'Plan', variant: 'ghost' });
   });
+
+  test('the chip names the selected agent by its configured title, like the picker row (KRTX-4980)', () => {
+    expect(
+      composerChip({ connectModel: false, agentName: 'github-pr-reviewer', agentTitle: 'GitHub PR Reviewer', modelName: 'Sonnet 5' }),
+    ).toEqual({ label: 'GitHub PR Reviewer', variant: 'ghost' });
+    // The title belongs to the resolved agent, never to the pending one.
+    expect(
+      composerChip({ connectModel: false, agentName: null, agentTitle: 'GitHub PR Reviewer', pendingAgentName: 'kortix', agentsLoading: true, modelName: 'Sonnet 5' }),
+    ).toEqual({ label: 'Kortix', variant: 'ghost' });
+  });
 });
 
 describe('thinking level names', () => {
@@ -224,10 +234,14 @@ describe('agents — the SDK resolver over the thread roster', () => {
     });
   });
 
-  test('display name capitalises the first letter; unknown agent says Agent', () => {
+  test('display names match web, including built-in agents and separated words', () => {
+    expect(agentDisplayName('mykortix')).toBe('My Kortix');
+    expect(agentDisplayName('meta')).toBe('My Kortix');
     expect(agentDisplayName('kortix')).toBe('Kortix');
-    expect(agentDisplayName('chief-of-staff')).toBe('Chief-of-staff');
+    expect(agentDisplayName('chief-of-staff')).toBe('Chief of staff');
     expect(agentDisplayName(undefined)).toBe('Agent');
+    expect(agentDisplayName('reviewer', 'PR reviewer')).toBe('PR reviewer');
+    expect(agentDisplayName('mykortix', 'mykortix')).toBe('My Kortix');
   });
 });
 

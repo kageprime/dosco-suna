@@ -9,7 +9,6 @@ export interface NewWorkspaceFormState {
   icon: ProjectIconValue;
   source: RepositorySource;
   defaultBranch: string;
-  templateId: string | null;
   /**
    * The account whose GitHub connection the GitHub sources use
    * (`githubSourceAccount`): their installations are account-scoped. The
@@ -40,7 +39,6 @@ export const INITIAL_FORM_STATE: NewWorkspaceFormState = {
   icon: null,
   source: 'managed',
   defaultBranch: 'main',
-  templateId: null,
   accountId: null,
   installationId: null,
   repoFullName: null,
@@ -82,8 +80,6 @@ export function buildProvisionPayload(state: NewWorkspaceFormState): Record<stri
 
   if (state.icon && 'emoji' in state.icon) payload.icon = state.icon.emoji;
   else if (state.icon && 'glyph' in state.icon) payload.icon_glyph = state.icon.glyph;
-
-  if (state.templateId) payload.source_item_id = state.templateId;
 
   return payload;
 }

@@ -499,7 +499,8 @@ const routeOf = (event: UsageEvent) => OPERATION_ROUTES.get(event.operation) ?? 
 export async function recordGatewayUsage(event: UsageEvent): Promise<void> {
   // The request is over: its cost is in the logged spend (or it cost nothing),
   // so its in-flight budget reservation must stop counting.
-  releaseBudgetReservation(event.projectId, event.actorUserId);
+  // Claude passthrough authenticates without taking a block-budget reservation.
+  if (event.provider !== 'claude-agent') releaseBudgetReservation(event.projectId, event.actorUserId);
   const pureHoldRefund = isPureHoldRefund(event);
   // A pure hold refund observed nothing — no upstream call happened.
   if (!pureHoldRefund) extendDeadlineForLlmActivity(event.sessionId);

@@ -11,7 +11,7 @@ import {
   setActiveAccount,
   setDefaultProject,
 } from '../api/config.ts';
-import { resolveProjectId, saveLink } from '../project-link.ts';
+import { loadLink, migrateLegacyLink, resolveProjectId, saveLink } from '../project-link.ts';
 import { renderContext, renderHostNotice } from '../host-notice.ts';
 import { stripAnsi } from '../style.ts';
 
@@ -148,14 +148,30 @@ describe('resolveProjectId fallback order', () => {
         default_project: { project_id: 'proj_default', account_id: 'account_1' },
       }),
     });
-    mkdirSync(join(tmp, '.kortix'), { recursive: true });
+    Bun.spawnSync(['git', 'init', '-q'], { cwd: tmp });
     process.chdir(tmp);
     saveLink(
       { project_id: 'proj_linked', account_id: 'account_1', linked_at: '2026-01-01T00:00:00.000Z' },
       tmp,
     );
-    expect(existsSync(join(tmp, '.kortix', 'link.json'))).toBe(true);
+    // The link is in .git/config: the working tree gets no .kortix/ folder.
+    expect(existsSync(join(tmp, '.kortix'))).toBe(false);
     expect(resolveProjectId()).toBe('proj_linked');
+  });
+
+  test('an older .kortix/link.json still resolves, and migrating moves it into the git config', () => {
+    Bun.spawnSync(['git', 'init', '-q'], { cwd: tmp });
+    mkdirSync(join(tmp, '.kortix'), { recursive: true });
+    writeFileSync(
+      join(tmp, '.kortix', 'link.json'),
+      JSON.stringify({ project_id: 'proj_legacy', account_id: 'account_1', host: 'test' }),
+    );
+    process.chdir(tmp);
+    expect(resolveProjectId()).toBe('proj_legacy');
+    expect(migrateLegacyLink(tmp)).toBe(true);
+    expect(existsSync(join(tmp, '.kortix'))).toBe(false);
+    expect(loadLink(tmp)).toMatchObject({ project_id: 'proj_legacy', host: 'test' });
+    expect(resolveProjectId()).toBe('proj_legacy');
   });
 });
 
@@ -188,7 +204,7 @@ describe('renderContext + host notice', () => {
         default_project: { project_id: 'proj_a', account_id: 'account_1', name: 'Alpha' },
       }),
     });
-    mkdirSync(join(tmp, '.kortix'), { recursive: true });
+    Bun.spawnSync(['git', 'init', '-q'], { cwd: tmp });
     saveLink(
       { project_id: 'proj_linked', account_id: 'account_1', linked_at: '2026-01-01T00:00:00.000Z' },
       tmp,
@@ -277,7 +293,7 @@ describe('renderContext + host notice', () => {
       cloud: loggedInHost({ url: 'https://api.kortix.com' }),
       customdev: loggedInHost({ url: 'https://dev-api.kortix.com' }),
     });
-    mkdirSync(join(tmp, '.kortix'), { recursive: true });
+    Bun.spawnSync(['git', 'init', '-q'], { cwd: tmp });
     saveLink(
       {
         project_id: 'proj_linked',

@@ -13,7 +13,7 @@ import { and, eq, inArray, isNotNull, notExists, or, sql } from 'drizzle-orm';
 import { getImpersonationContext } from '../shared/impersonation';
 import { parse as parseYaml } from 'yaml';
 import { hasEmailInboxes, loadSlackInstall, purgeLegacyEmailState } from '../channels/install-store';
-import { assertAllowedEndpointUrl, assertAllowedSourceAddress } from '../marketplace/catalog';
+import { assertAllowedEndpointUrl, assertAllowedSourceAddress } from '../shared/source-address-guard';
 import { safeEgressFetch, UnsafeEgressError } from '../shared/ssrf-guard';
 import { configuredTimeoutMs, withTimeout } from '../shared/with-timeout';
 import { config } from '../config';

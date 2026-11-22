@@ -4,25 +4,25 @@ import { type ComponentProps } from 'react';
 import { cn } from '@kortix/ui';
 
 const SIZES = {
-  sm: 'h-9 px-4 text-xs',
-  md: 'h-10 px-6 text-sm',
-  lg: 'h-12 px-6 text-base',
+  sm: 'h-8 px-2.5 text-xs',
+  md: 'h-10 px-3.5 text-sm',
+  lg: 'h-12 px-5 text-base',
 } as const;
 
 export type MarketingButtonProps = ComponentProps<'button'> & {
   /**
-   * `primary` is the lit grey button, `secondary` the dark one with a hairline
-   * edge, `accent` the brand-blue one: the single main action of a page.
+   * `primary` is the solid ink button (paper in dark): the main action.
+   * `secondary` is the near-paper button beside it. Ink and paper only.
    */
-  variant?: 'primary' | 'secondary' | 'accent';
+  variant?: 'primary' | 'secondary';
   size?: keyof typeof SIZES;
   /** Render the child (a `Link`, an `a`) with the button's look. */
   asChild?: boolean;
 };
 
 /**
- * The marketing button, after Buio's dimensional button. The gradient, edge,
- * hover swap and press scale live in the `kx-button` class in globals.css;
+ * The marketing button, the "inner stroke" button. The fill, the two edge
+ * rings, hover and press scale live in the `kx-button` class in globals.css;
  * this file only picks the variant and the size.
  *
  * Sizes: `sm` is for the navbar only. Every in-page button is `size="md"`
@@ -41,7 +41,7 @@ export function MarketingButton({
     <Comp
       data-variant={variant}
       className={cn(
-        'kx-button inline-flex shrink-0 items-center justify-center gap-2 rounded-sm font-medium whitespace-nowrap select-none',
+        'kx-button inline-flex shrink-0 items-center justify-center gap-2 rounded-[calc(var(--radius)-0.2rem)] font-medium whitespace-nowrap select-none',
         'outline-ring focus-visible:outline-2 focus-visible:outline-offset-2',
         'disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0',
         SIZES[size],

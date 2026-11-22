@@ -2,11 +2,12 @@
 
 /**
  * Starts PostHog on every page once the browser is idle, links the visitor to
- * the signed-in user, and re-applies the per-page masking rule on
- * each navigation. Renders nothing. See lib/analytics/posthog-client.ts.
+ * the signed-in user (which also decides session replay), and re-applies the
+ * per-page masking rule on each navigation. Renders nothing. See
+ * lib/analytics/posthog-client.ts.
  */
 
-import { startPostHog, syncPostHogPage } from '@/lib/analytics/posthog-client';
+import { setReplayUser, startPostHog, syncPostHogPage } from '@/lib/analytics/posthog-client';
 import { createClient } from '@/lib/supabase/client';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -33,9 +34,12 @@ export function PostHogHost() {
     const cancelIdle = whenIdle(() => {
       void createClient()
         .auth.getSession()
-        .then(({ data }) => data.session?.user.id ?? null)
+        .then(({ data }) => {
+          const user = data.session?.user;
+          return user ? { id: user.id, createdAt: user.created_at } : null;
+        })
         .catch(() => null)
-        .then((userId) => startPostHog(userId))
+        .then((user) => startPostHog(user))
         .then((client) => {
           if (!cancelled) setPosthog(client);
         });
@@ -58,8 +62,11 @@ export function PostHogHost() {
         identified = user.id;
         // The user id only: no email or name goes to PostHog (data minimization).
         posthog.identify(user.id, undefined, { signed_up_at: user.created_at });
+        setReplayUser(posthog, { id: user.id, createdAt: user.created_at });
       } else if (event === 'SIGNED_OUT') {
         identified = null;
+        // Before reset: the next session decides, and masks, as anonymous.
+        setReplayUser(posthog, null);
         posthog.reset();
       }
     });

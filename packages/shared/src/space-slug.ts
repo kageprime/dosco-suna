@@ -104,3 +104,19 @@ export function driveRelativeDisplayCrumbs(rootLabel: string, path: string, base
       .map((segment, index) => driveEntryDisplayName(`/${parts.slice(0, baseParts.length + index + 1).join('/')}`, segment)),
   ];
 }
+
+/**
+ * A space's folder in the project's Files (flag `session_groups`; a space is a
+ * session group): `/Spaces/<group_id>`. Outside `/Company`, like a private
+ * channel's: only the people who see the space reach it (admins only under
+ * account session oversight). Named by the group's id, never its name: a
+ * rename moves nothing, and a later space that takes the name never inherits
+ * the folder. Every session of the space mounts it read-write. Null for an id
+ * that is not one plain path segment.
+ */
+export function sessionGroupDriveFolder(groupId: string): string | null {
+  return FOLDER_SEGMENT.test(groupId) ? `${SESSION_GROUPS_DIR}/${groupId}` : null;
+}
+
+/** Where every space's folder lives (`sessionGroupDriveFolder`). */
+export const SESSION_GROUPS_DIR = '/Spaces';

@@ -4,6 +4,7 @@
  * Each command starts apps/cli/src/index.ts in an isolated process. The flows
  * assert exit status, JSON/stdout, local files, and API read-back state.
  */
+import { spawnSync } from 'node:child_process';
 import { flow } from '../core/flow';
 import { waitFor } from '../core/poll';
 import { CliSandbox, throwIfCliInfraFailure, type CliResult } from '../fixtures/cli';
@@ -75,18 +76,23 @@ flow(
         if (item.project_id !== project.id) throw new Error(`projects info returned ${item.project_id}`);
       });
 
-      await ctx.step('kortix projects link and unlink write and remove .kortix/link.json', async () => {
+      await ctx.step('kortix projects link refuses a folder outside git (exit 1, names git init), then link and unlink write and remove git config kortix.workspace', async () => {
         requireExit(
           await sandbox.run(['init', 'linked', '-y', '--no-git']),
           0,
           'kortix init',
         );
         sandbox.enter('linked');
+        const outside = await sandbox.run(['projects', 'link', project.id]);
+        requireExit(outside, 1, 'kortix projects link outside git');
+        if (!/not inside a git checkout/i.test(outside.all) || !/git init/.test(outside.all)) throw new Error(`link outside git: ${outside.all.slice(0, 300)}`);
+        const linkedWorkspace = () => spawnSync('git', ['-C', sandbox.cwd, 'config', '--local', '--get', 'kortix.workspace'], { encoding: 'utf8' }).stdout.trim();
+        if (spawnSync('git', ['-C', sandbox.cwd, 'init', '-q']).status !== 0) throw new Error('git init failed');
         requireExit(await sandbox.run(['projects', 'link', project.id]), 0, 'kortix projects link');
-        const link = JSON.parse(sandbox.readFile('.kortix/link.json')) as { project_id: string };
-        if (link.project_id !== project.id) throw new Error(`link points at ${link.project_id}`);
+        if (linkedWorkspace() !== project.id) throw new Error(`git config kortix.workspace is "${linkedWorkspace()}", want ${project.id}`);
+        if (sandbox.exists('.kortix/link.json')) throw new Error('projects link wrote .kortix/link.json');
         requireExit(await sandbox.run(['projects', 'unlink']), 0, 'kortix projects unlink');
-        if (sandbox.exists('.kortix/link.json')) throw new Error('projects unlink left link.json behind');
+        if (linkedWorkspace() !== '') throw new Error(`projects unlink left kortix.workspace = ${linkedWorkspace()}`);
       });
 
       await ctx.step('kortix projects open prints the dashboard URL without changing state', async () => {

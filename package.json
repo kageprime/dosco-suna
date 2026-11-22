@@ -79,7 +79,7 @@
       "systeminformation@<5.33.16": "5.33.16",
       "@icons-pack/react-simple-icons@>=13.11.2 <14": "13.11.1",
       "import-in-the-middle": "3.0.0",
-      "next@>=15.0.0 <16.4.2": "16.4.2",
+      "next@>=15.0.0 <16.4.5": "16.4.5",
       "@types/react": "19.2.18",
       "@types/react-dom": "19.2.3",
       "axios@>=1.0.0 <1.20.0": "1.20.0",
@@ -182,7 +182,8 @@
       "undici@8.12.2": "patches/undici@8.12.2.patch",
       "@electron/asar@3.4.1": "patches/@electron__asar@3.4.1.patch",
       "rimraf@2.6.3": "patches/rimraf@2.6.3.patch",
-      "next@16.4.2": "patches/next@16.4.2.patch"
+      "streamdown@1.6.11": "patches/streamdown@1.6.11.patch",
+      "next@16.4.5": "patches/next@16.4.5.patch"
     }
   },
   "version": "1.0.0",

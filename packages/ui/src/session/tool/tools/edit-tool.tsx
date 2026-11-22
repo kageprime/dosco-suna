@@ -173,7 +173,7 @@ export function EditTool({ call, defaultOpen, forceOpen, locked }: ToolProps) {
         // that was never going to arrive. `write-tool.tsx` dropped that shimmer;
         // `edit` kept it, so one situation had two answers.
         <ToolResultCard bodyClassName="px-2 py-1.5">
-          <span className="text-muted-foreground/60 text-xs">
+          <span className="text-muted-foreground text-xs">
             {tI18nComplete.raw('text93168435f3ae')}
           </span>
         </ToolResultCard>

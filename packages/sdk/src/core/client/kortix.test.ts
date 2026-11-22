@@ -777,7 +777,7 @@ test('kortix.mobileClientPolicy hits the public clients endpoint', async () => {
 });
 
 test('project(id) covers experimental-feature toggle, sandbox provider pin, and repo-collaborator invite', async () => {
-  await kortix.project('PID123').updateExperimentalFeature('marketplace', true);
+  await kortix.project('PID123').updateExperimentalFeature('shared_drives', true);
   expect(last().url).toContain('/workspaces/PID123/experimental');
   expect(last().method).toBe('PATCH');
 

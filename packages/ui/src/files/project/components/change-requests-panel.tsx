@@ -64,7 +64,7 @@ function CrIcon({ status }: { status: ChangeRequestStatus }) {
   if (status === 'merged') {
     return <CheckCircleIcon weight="fill" className="text-kortix-purple size-4" />;
   }
-  if (status === 'closed') return <XCircleIcon className="text-muted-foreground/60 size-4" />;
+  if (status === 'closed') return <XCircleIcon className="text-muted-foreground size-4" />;
   return <GitDiffIcon className="text-kortix-green size-4" />;
 }
 
@@ -211,7 +211,7 @@ export function ChangeRequestsPanel({ open = false, onClose }: ChangeRequestsPan
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline gap-1.5">
-                        <span className="text-muted-foreground/70 shrink-0 text-xs tabular-nums">
+                        <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
                           #{cr.number}
                         </span>
                         <span
@@ -228,7 +228,7 @@ export function ChangeRequestsPanel({ open = false, onClose }: ChangeRequestsPan
                         title={fullTimestampFormat.format(tsFromCr(cr))}
                       >
                         <span className="truncate">{crTimeLabel(cr)}</span>
-                        <span className="text-muted-foreground/30" aria-hidden>
+                        <span className="text-muted-foreground" aria-hidden>
                           ·
                         </span>
                         <span className="truncate">

@@ -1,5 +1,7 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
 import { Label } from '../primitives/label';
 import { RadioGroup, RadioGroupItem } from '../primitives/radio-group';
 import {
@@ -72,6 +74,7 @@ export function SharingPicker({
   showHeading = true,
   hideMembers = false,
   disabledModes,
+  renderMembers,
 }: {
   projectId: string;
   value: SharingSelection;
@@ -91,6 +94,12 @@ export function SharingPicker({
    * they inherit it). Keeps one mental model: resources live on agents.
    */
   hideMembers?: boolean;
+  /**
+   * What "specific people" shows under the options. Absent: the search list
+   * (`SubjectPicker`). The session share dialog passes its own: the add field
+   * and the people with access (`access/share-dialog`).
+   */
+  renderMembers?: (value: SharingSelection, onChange: (next: SharingSelection) => void) => ReactNode;
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const c = localizeUiCatalog<SharingCopy>(
@@ -143,7 +152,8 @@ export function SharingPicker({
           />
         )}
       </RadioGroup>
-      {offerMembers && value.mode === 'members' && (
+      {offerMembers && value.mode === 'members' && renderMembers ? renderMembers(value, onChange) : null}
+      {offerMembers && value.mode === 'members' && !renderMembers && (
         <SubjectPicker
           projectId={projectId}
           memberIds={value.memberIds}

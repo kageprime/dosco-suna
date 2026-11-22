@@ -82,12 +82,12 @@ export function AppMachinesPanel({ projectId, app, canDeploy }: { projectId: str
                 a labeled card for the group, then a labeled list of its
                 machines, with the same spacing between them. */}
             <section className="flex flex-col gap-2">
-              <h3 className="text-muted-foreground/70 text-xs font-medium">{tI18nComplete.raw('textb1a7e40c2d19')}</h3>
+              <h3 className="text-muted-foreground text-xs font-medium">{tI18nComplete.raw('textb1a7e40c2d19')}</h3>
               <div className="bg-muted/40 flex flex-col gap-3 rounded-lg border p-4">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-foreground truncate font-mono text-sm font-medium">{group}</span>
                   <span className="flex shrink-0 items-center gap-2">
-                    <span className="text-muted-foreground/70 text-xs">{tI18nComplete.raw('textc061da196eae')}</span>
+                    <span className="text-muted-foreground text-xs">{tI18nComplete.raw('textc061da196eae')}</span>
                     {canScale ? (
                       <MachineCount
                         count={scaleOf(group)}
@@ -106,7 +106,7 @@ export function AppMachinesPanel({ projectId, app, canDeploy }: { projectId: str
                     { label: tI18nComplete.raw('textb1a7e40c2d1d'), value: `${vm.disk_gb} GB` },
                   ].map((fact) => (
                     <div key={fact.label} className="flex flex-col gap-0.5">
-                      <dt className="text-muted-foreground/70 text-xs">{fact.label}</dt>
+                      <dt className="text-muted-foreground text-xs">{fact.label}</dt>
                       <dd className="text-foreground text-sm">{fact.value}</dd>
                     </div>
                   ))}
@@ -114,7 +114,7 @@ export function AppMachinesPanel({ projectId, app, canDeploy }: { projectId: str
               </div>
             </section>
             <section className="flex flex-col gap-1 pt-6">
-              <h3 className="text-muted-foreground/70 pb-1 text-xs font-medium">{tI18nComplete.raw('textc061da196eae')}</h3>
+              <h3 className="text-muted-foreground pb-1 text-xs font-medium">{tI18nComplete.raw('textc061da196eae')}</h3>
               <ul className="-mx-2 flex flex-col gap-1">
                 {members.map((machine) => (
                   <MachineRow key={machine.instance_id} machine={machine} canDeploy={canDeploy} machines={machines} />
@@ -198,9 +198,9 @@ function MachineRow({
       <span className="text-foreground w-20 shrink-0 font-mono text-sm font-medium">{machine.machine_id.slice(0, 8)}</span>
       <span className="min-w-0 flex-1 truncate text-sm">
         <span className={running ? 'text-kortix-green' : 'text-foreground'}>{stateLabel}</span>
-        <span className="text-muted-foreground/70"> · {detail}</span>
+        <span className="text-muted-foreground"> · {detail}</span>
       </span>
-      <span className="text-muted-foreground/70 w-15 shrink-0 text-right text-xs tabular-nums">{since}</span>
+      <span className="text-muted-foreground w-15 shrink-0 text-right text-xs tabular-nums">{since}</span>
       <span className="flex w-20 shrink-0 justify-end">
         {canDeploy && running ? (
           <Button

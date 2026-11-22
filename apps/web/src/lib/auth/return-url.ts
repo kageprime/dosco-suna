@@ -24,8 +24,8 @@ const LEGACY_AUTH_RETURN_PREFIXES = [
  *    invite, a CLI pairing code, an OAuth consent screen). Dropping these
  *    strands the very flow that sent the user to sign up.
  *  - *public* pages — nothing behind them is account-scoped, so a brand-new
- *    identity renders them exactly like an old one. These are the marketplace
- *    and use-case CTAs that started the signup in the first place.
+ *    identity renders them exactly like an old one. These are the use-case
+ *    CTAs that started the signup in the first place.
  *
  * Everything else is account-scoped, and a brand-new account cannot own a
  * resource that existed before it did. See `resolveNewAccountReturnUrl`.
@@ -38,14 +38,13 @@ const SIGNUP_SAFE_RETURN_PREFIXES = [
   '/slack/login',
   '/teams/login',
   '/github/setup',
-  '/marketplace',
   '/use-cases',
   // A credit-code link (`/redeem?code=…`): the code is redeemed for the
   // signed-in account itself, so a seconds-old account can act on it.
   '/redeem',
 ] as const;
 
-/** Prefix match on path segment boundaries, so `/marketplace` never matches `/marketplace-evil`. */
+/** Prefix match on path segment boundaries, so `/use-cases` never matches `/use-cases-evil`. */
 function matchesReturnPrefix(value: string, prefix: string): boolean {
   return value === prefix || value.startsWith(`${prefix}/`) || value.startsWith(`${prefix}?`);
 }
@@ -81,7 +80,7 @@ export function sanitizeAuthReturnUrl(
   // password flow to attach auth_event, the callback to prepend the origin —
   // and that collapses dot segments. So a prefix test against the raw string
   // is testing a path the browser will never visit:
-  // `/marketplace/../workspaces/<id>` passes a `/marketplace` check and then
+  // `/use-cases/../workspaces/<id>` passes a `/use-cases` check and then
   // lands on `/workspaces/<id>`, which is exactly the foreign-project bug the
   // signup rule below exists to prevent (and would equally slip a
   // `/x/../dashboard` past LEGACY_AUTH_RETURN_PREFIXES). Normalizing here

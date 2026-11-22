@@ -93,19 +93,19 @@ export function AgentStatusTool({ call, defaultOpen, forceOpen }: ToolProps) {
                   ) : row.status === 'input_needed' ? (
                     <Clock className={cn('size-3 shrink-0', STATUS_TEXT.warning)} />
                   ) : row.status === 'cancelled' ? (
-                    <X className="text-muted-foreground/40 size-3 shrink-0" />
+                    <X className="text-muted-foreground size-3 shrink-0" />
                   ) : (
-                    <Circle className="text-muted-foreground/40 size-3 shrink-0" />
+                    <Circle className="text-muted-foreground size-3 shrink-0" />
                   )}
 
                   <span className="text-foreground/80 flex-1 truncate text-xs">{row.title}</span>
 
-                  <span className="text-muted-foreground/50 shrink-0 font-mono text-xs">
+                  <span className="text-muted-foreground shrink-0 font-mono text-xs">
                     {row.id.slice(-8)}
                   </span>
 
                   {hasSession && (
-                    <ChevronRight className="text-muted-foreground/20 size-3 shrink-0" />
+                    <ChevronRight className="text-muted-foreground size-3 shrink-0" />
                   )}
                 </div>
               );

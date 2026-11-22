@@ -75,6 +75,34 @@ describe('handleErrorResponse · connectors_provider_unavailable 503', () => {
   });
 });
 
+describe('handleErrorResponse · provider_auth_unavailable 503', () => {
+  test('a provider outage on a sign-in start is SILENT to onError and keeps its message and code', async () => {
+    errors.length = 0;
+    const result = await handleErrorResponse(
+      response(503, {
+        error: 'ChatGPT sign-in is temporarily unavailable. Try again in a moment.',
+        code: 'provider_auth_unavailable',
+      }),
+      signal,
+      true,
+      undefined,
+      'POST',
+    );
+    expect(result.error).toMatchObject({
+      code: 'provider_auth_unavailable',
+      message: 'ChatGPT sign-in is temporarily unavailable. Try again in a moment.',
+    });
+    expect(errors).toHaveLength(0);
+    expect(result.error && isReportedWriteFailure(result.error)).toBe(false);
+  });
+
+  test('the code on another status still reports', async () => {
+    errors.length = 0;
+    await handleErrorResponse(response(502, { error: 'x', code: 'provider_auth_unavailable' }), signal, true, undefined, 'POST');
+    expect(errors).toHaveLength(1);
+  });
+});
+
 describe('handleErrorResponse · approval expired 409', () => {
   test('the body code reaches ApiError.code, so a host can tell an expired approval apart', async () => {
     const result = await handleErrorResponse(

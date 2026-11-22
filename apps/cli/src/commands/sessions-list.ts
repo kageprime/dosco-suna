@@ -9,6 +9,8 @@ export interface SessionListFlags {
   children?: string;
   /** Sessions carrying every one of these labels. */
   labels?: string[];
+  /** The sessions of one space (a session group id). */
+  space?: string;
   /** Only your pinned or only your archived sessions; or Recently deleted:
    *  the deleted sessions you may restore (`kortix sessions restore`). */
   view?: 'pinned' | 'archived' | 'deleted';
@@ -28,6 +30,8 @@ export function takeSessionListFlags(rest: string[]): SessionListFlags {
   const children = takeFlagValue(rest, ['--children']);
   if (children && picked.length) throw new Error('--children cannot be combined with --mine, --shared or --automated');
   const labels = takeFlagValues(rest, ['--label']);
+  const space = takeFlagValue(rest, ['--space'])?.trim();
+  if (space !== undefined && !/^[0-9a-f-]{36}$/i.test(space)) throw new Error('--space takes a space id (kortix sessions ls --json shows group_id)');
   const pinned = takeFlagBool(rest, ['--pinned']);
   const archived = takeFlagBool(rest, ['--archived']);
   const deleted = takeFlagBool(rest, ['--deleted']);
@@ -35,7 +39,7 @@ export function takeSessionListFlags(rest: string[]): SessionListFlags {
     throw new Error(deleted ? 'pass only one of --pinned, --archived, --deleted' : 'pass only one of --pinned, --archived');
   }
   const view = pinned ? 'pinned' : archived ? 'archived' : deleted ? 'deleted' : undefined;
-  return { startedBy: picked[0], search, children, ...(labels.length ? { labels } : {}), ...(view ? { view } : {}) };
+  return { startedBy: picked[0], search, children, ...(labels.length ? { labels } : {}), ...(space ? { space } : {}), ...(view ? { view } : {}) };
 }
 
 /**
@@ -52,6 +56,7 @@ export function sessionListQuery(flags: SessionListFlags, parentId?: string): st
   if (flags.startedBy) params.set('started_by', flags.startedBy);
   if (flags.search) params.set('q', flags.search);
   for (const label of flags.labels ?? []) params.append('label', label);
+  if (flags.space) params.set('group', flags.space);
   if (flags.view) params.set(flags.view, 'only');
   return params.size > 0 ? `?${params}` : '';
 }

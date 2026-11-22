@@ -41,13 +41,10 @@ export function useFileList(dirPath: string, options?: { enabled?: boolean }) {
   });
 
   // Filter hidden files client-side so the cache stays complete.
-  // .kortix is always shown — it is the elevated system dir.
   const data = useMemo(() => {
     if (!query.data) return query.data;
     if (showHidden) return query.data;
-    return query.data.filter(
-      (node) => !node.name.startsWith('.') || node.name === '.kortix',
-    );
+    return query.data.filter((node) => !node.name.startsWith('.'));
   }, [query.data, showHidden]);
 
   return { ...query, data };

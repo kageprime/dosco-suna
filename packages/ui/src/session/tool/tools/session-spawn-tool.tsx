@@ -77,8 +77,8 @@ export function SessionSpawnTool({ call, forceOpen }: ToolProps) {
       <div
         data-component="tool-trigger"
         className={cn(
-          'group text-muted-foreground/70 flex max-w-full items-center gap-1.5 py-0.5 text-xs transition-colors select-none',
-          '[&>span:first-child>svg]:text-muted-foreground/50 [&>span:first-child>svg]:size-3.5',
+          'group text-muted-foreground flex max-w-full items-center gap-1.5 py-0.5 text-xs transition-colors select-none',
+          '[&>span:first-child>svg]:text-muted-foreground [&>span:first-child>svg]:size-3.5',
         )}
       >
         <span className="shrink-0">
@@ -105,7 +105,7 @@ export function SessionSpawnTool({ call, forceOpen }: ToolProps) {
             <span className="ml-auto size-2 shrink-0 animate-pulse rounded-full bg-current opacity-50" />
           )}
           {isCompleted && childCalls.length > 0 && (
-            <span className="text-muted-foreground/60 ml-auto shrink-0 font-mono text-xs whitespace-nowrap">
+            <span className="text-muted-foreground ml-auto shrink-0 font-mono text-xs whitespace-nowrap">
               {childCalls.length} {tI18nComplete.raw('textb7595e2a8639')}
             </span>
           )}

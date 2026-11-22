@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from 'b
 import { Window } from 'happy-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { act } from 'react';
+import { act, createElement } from 'react';
 import type { Container, Root } from 'react-dom/client';
 
 // Synthetic values only: every id, name and text below is invented.
@@ -93,6 +93,16 @@ mock.module('./legacy-subagent-chat', () => ({
 }));
 
 // React DOM picks its change-event support when it loads: load it after `document` exists.
+// The shared composer's rich editor does not run here: a stub stands in for it and
+// calls the box's `onSend`, so the test still proves where a message goes.
+mock.module('../composer/session-chat-input', () => ({
+  SessionChatInput: (props: { placeholder?: string; onSend: (text: string, files?: unknown[], mentions?: unknown[]) => Promise<void> }) =>
+    createElement(
+      'button',
+      { type: 'button', 'data-testid': 'composer-stub', onClick: () => void props.onSend('Use a shorter name', [], []).catch(() => {}) },
+      props.placeholder,
+    ),
+}));
 const { createRoot } = await import('react-dom/client');
 const { IntlTestProvider } = await import('../../test-utils/intl');
 const { TestUiHost } = await import('../../test-utils/ui-host');
@@ -177,7 +187,7 @@ describe('SubagentDialog: a child that is its own project session', () => {
     expect(text).toContain('runs as My Kortix');
     expect(text).toContain('working · 1m');
     expect(dom.q('[data-turn="u0"]')).not.toBeNull();
-    expect(dom.q('a[href="/workspaces/proj_1/sessions/ses_child"]')?.textContent).toContain('Open page');
+    expect(dom.q('a[href="/workspaces/proj_1/sessions/ses_child"]')?.getAttribute('aria-label')).toBe('Open page');
     expect(dom.q('[aria-label="Stop namer"]')).not.toBeNull();
     expect(dom.q('[aria-label="Close"]')).not.toBeNull();
   });
@@ -196,16 +206,9 @@ describe('SubagentDialog: a child that is its own project session', () => {
 
   test('the message box sends to the child as a steer', async () => {
     const dom = await open();
-    const input = dom.q('[data-testid="subagent-dialog-message"]') as unknown as HTMLInputElement;
-    expect(input.getAttribute('placeholder')).toBe('Message namer…');
-    await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(windowObject.HTMLInputElement.prototype, 'value')!.set!;
-      setter.call(input, 'Use a shorter name');
-      input.dispatchEvent(new windowObject.Event('input', { bubbles: true }) as unknown as Event);
-    });
-    await act(async () => {
-      input.closest('form')!.dispatchEvent(new windowObject.Event('submit', { bubbles: true, cancelable: true }) as unknown as Event);
-    });
+    const box = dom.q('[data-testid="composer-stub"]') as unknown as HTMLButtonElement;
+    expect(box.textContent).toBe('Message namer…');
+    await act(async () => box.click());
     expect(prompts).toHaveLength(1);
     expect(prompts[0]).toMatchObject({
       projectId: PROJECT,
@@ -272,13 +275,13 @@ describe('SubagentPanel: an agent beside the chat', () => {
     const panel = dom.q('[data-testid="subagent-panel"]')!;
     expect(panel.getAttribute('data-body')).toBe('peek');
     expect(panel.querySelector('header [data-tone="agent"]')).not.toBeNull();
-    // The name the chat row showed, then what it works on, then the row's own state words.
+    // The name the chat row showed; its state, time and task open on hover over the name, so the bar never overflows.
     expect(panel.querySelector('header h2')?.textContent).toBe('namer');
-    expect(panel.querySelector('header')?.textContent).toContain('Name the release');
-    expect(panel.querySelector('header [data-agent-state="working"]')?.textContent).toContain('Working1m');
+    expect(panel.querySelector('header h2')?.getAttribute('data-agent-state')).toBe('working');
+    expect(panel.querySelector('header')?.textContent).not.toContain('Name the release');
     // Beside the chat, opening it leaves the focus where the person was typing.
     expect(windowObject.document.activeElement?.getAttribute('data-testid')).not.toBe('subagent-dialog-message');
-    expect(dom.q('a[href="/workspaces/proj_1/sessions/ses_child"]')?.textContent).toContain('Open page');
+    expect(dom.q('a[href="/workspaces/proj_1/sessions/ses_child"]')?.getAttribute('aria-label')).toBe('Open page');
     expect(dom.q('[aria-label="Stop namer"]')).not.toBeNull();
     expect(dom.q('[data-turn="u0"]')).not.toBeNull();
     expect(dom.q('[data-testid="subagent-dialog-message"]')).not.toBeNull();

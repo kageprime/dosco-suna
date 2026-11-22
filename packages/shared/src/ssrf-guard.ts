@@ -2,7 +2,7 @@
  * SSRF egress guard — DNS-resolving replacement for the old hostname-string
  * `isPrivateHost` regex.
  *
- * The previous guard (`marketplace/catalog.ts:isPrivateHost`) only string-matched
+ * The previous guard (`isPrivateHost` in the former marketplace catalog) only string-matched
  * the hostname, so a public domain that DNS-resolves to a private/link-local/
  * cloud-metadata IP (DNS-rebinding) passed the check and was then fetched with
  * the server's network position. This module resolves the hostname at fetch
@@ -11,8 +11,7 @@
  * `http://169.254.169.254/` is also blocked.
  *
  * Used by every external-URL egress site that takes a caller-influenced URL:
- * connector spec/route/graphql/mcp fetches, marketplace source add, and
- * audit-webhook delivery. See F-1 (weekly pentest, runs #1–#4) and
+ * connector spec/route/graphql/mcp fetches and audit-webhook delivery. See F-1 (weekly pentest, runs #1–#4) and
  * https://github.com/kortix-ai/CompanyOS/issues/4442.
  */
 import { lookup as dnsLookup } from 'node:dns/promises';

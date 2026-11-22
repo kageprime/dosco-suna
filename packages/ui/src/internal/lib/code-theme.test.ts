@@ -50,6 +50,9 @@ const EXEMPT: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   // The glyph registry lists `horizon` as a search keyword for the
   // RoadHorizon / SunHorizon icons, not as a Shiki theme.
   [join(PKG_ROOT, 'src/primitives/glyph-registry.tsx'), new Set(['horizon'])],
+  // A gradient wallpaper pattern (GRADIENT_PATTERNS), stored in a user's saved
+  // wallpaper setting, not a Shiki theme.
+  [join(PKG_ROOT, 'src/theme/wallpaper-gradients.ts'), new Set(['horizon'])],
   // shiki-highlighter.test.ts quotes a real bundled id, 'github-dark', inside
   // an '@ts-expect-error' directive to prove the type lock rejects a
   // foreign-but-real theme, not just a typo — see that file's "the lock"

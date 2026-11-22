@@ -444,6 +444,9 @@ export function isVercelLiveFeedbackNoise(input: {
   return sources.some(isFeedbackFrame) && !sources.some(isFirstPartyResolvedSource);
 }
 
+const CSP_EVAL_MESSAGE =
+  /^Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script/;
+
 export const INJECTED_SCRIPT_RULES: readonly NoiseRule[] = [
   { id: 'onetrust-json-parse', appliesTo: 'both', match: isOneTrustJsonParseNoise },
   { id: 'redefine-webdriver', appliesTo: 'both', match: isRedefineWebdriverNoise },
@@ -476,10 +479,23 @@ export const INJECTED_SCRIPT_RULES: readonly NoiseRule[] = [
     id: 'injected-csp-eval',
     appliesTo: 'sentry',
     match: ({ message, frames }) =>
-      /^Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script/.test(
-        normalizeString(message),
-      ) &&
+      CSP_EVAL_MESSAGE.test(normalizeString(message)) &&
       frames.length > 0 &&
       frames.every((frame) => frame.filename === '<anonymous>'),
+  },
+  {
+    // KRTX-5011: heic2any's decoder worker calls `new Function` at worker line
+    // 2:1320381, and the CSP blocks it (KRTX-3580). PR #10981 removed heic2any
+    // from Kortix; a third-party script that bundles it (a browser extension)
+    // still starts the worker on our pages. Require the CSP message and a
+    // stack of exactly that one `blob:` frame; any other blob worker reports.
+    id: 'third-party-heic2any-worker-csp-eval',
+    appliesTo: 'sentry',
+    match: ({ message, frames }) =>
+      CSP_EVAL_MESSAGE.test(stripErrorWrappers(normalizeString(message).replace(/^Uncaught /, ''))) &&
+      frames.length === 1 &&
+      normalizeString(frames[0]?.filename).startsWith('blob:') &&
+      frames[0]?.lineno === 2 &&
+      frames[0]?.colno === 1320381,
   },
 ];

@@ -4,7 +4,7 @@
 // resolving.
 
 import { rm } from 'node:fs/promises';
-import { mapLimit } from '@kortix/registry';
+import { mapWithConcurrency } from '../../shared/map-with-concurrency';
 import { validateRef } from '../git-ref';
 import { isUuid } from '../../shared/validate';
 import { FIELD_SEP } from './commits';
@@ -166,7 +166,7 @@ async function readCachedBranchMetadata(
     branches.length <= BRANCH_COMPARE_LIMIT
       ? branches
       : branches.filter((branch) => branch.is_default);
-  await mapLimit(comparable, BRANCH_COMPARE_CONCURRENCY, async (b) => {
+  await mapWithConcurrency(comparable, BRANCH_COMPARE_CONCURRENCY, async (b) => {
     if (b.is_default) {
       b.ahead = 0;
       b.behind = 0;

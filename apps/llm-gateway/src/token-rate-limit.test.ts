@@ -132,6 +132,55 @@ describe('credentials the gateway has not validated (KRTX-4528)', () => {
     ).toBe(429);
   });
 
+  test('source refusal does not spend the shared allowance', () => {
+    setSystemTime(new Date('2026-11-19T12:00:00Z'));
+    const limit = createTokenRateLimit(600, 2);
+    expect(limit(fake(0), new Headers(), 'source-a')).toBeNull();
+    const headers = new Headers();
+    expect(limit(fake(1), headers, 'source-a')?.status).toBe(429);
+    expect(headers.get('RateLimit-Limit')).toBe('1');
+    expect(limit(fake(2), new Headers(), 'source-b')).toBeNull();
+    expect(limit(fake(3), new Headers(), 'source-c')?.status).toBe(429);
+  });
+
+  test('shared refusal records no refundable source charge', () => {
+    setSystemTime(new Date('2026-11-19T12:00:00Z'));
+    const limit = createTokenRateLimit(600, 1);
+    expect(limit(fake(0), new Headers(), 'source-a')).toBeNull();
+    expect(limit(fake(1), new Headers(), 'source-b')?.status).toBe(429);
+    limit.validated('kortix_fake_1');
+    limit.validated('kortix_fake_0');
+    expect(limit(fake(2), new Headers(), 'source-b')?.status).toBe(429);
+    expect(limit(fake(3), new Headers(), 'source-c')).toBeNull();
+  });
+
+  test('evicts the oldest credential refund at the shared and source caps', () => {
+    setSystemTime(new Date('2026-11-19T12:00:00Z'));
+    const limit = createTokenRateLimit(100_000, 100_000);
+    for (let i = 0; i < 50_001; i++)
+      expect(limit(fake(i), new Headers(), `source-${i}`)).toBeNull();
+    expect(limit.chargedCount()).toBe(50_000);
+    for (let i = 0; i < 1_000; i++)
+      expect(limit(fake(50_001 + i), new Headers(), 'source-0')).toBeNull();
+    limit.validated('kortix_fake_0');
+    expect(limit.chargedCount()).toBe(50_000);
+    expect(limit(fake(60_000), new Headers(), 'source-0')?.status).toBe(429);
+    limit.validated('kortix_fake_51000');
+    expect(limit.chargedCount()).toBe(49_999);
+    expect(limit(fake(60_001), new Headers(), 'source-0')).toBeNull();
+  });
+
+  test('only the newest eight sources retain their bounded refunds', () => {
+    setSystemTime(new Date('2026-11-19T12:00:00Z'));
+    const limit = createTokenRateLimit(600, 100);
+    for (let i = 0; i < 9; i++)
+      expect(limit(fake(0), new Headers(), `source-${i}`)).toBeNull();
+    limit.validated('kortix_fake_0');
+    expect(limit(fake(1), new Headers(), 'source-0')?.status).toBe(429);
+    for (let i = 1; i < 9; i++)
+      expect(limit(fake(i + 1), new Headers(), `source-${i}`)).toBeNull();
+  });
+
   test('the charged-shared set is capped: a flood cannot grow it without bound', () => {
     setSystemTime(new Date('2026-11-02T12:00:00Z'));
     const limit = createTokenRateLimit(1_000_000);

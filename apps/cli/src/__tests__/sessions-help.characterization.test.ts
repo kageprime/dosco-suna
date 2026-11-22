@@ -69,7 +69,8 @@ const PINS: Record<string, Pin> = {
 
 /** The group help's sha: bare `sessions`, `<sub> --help` behind the group
  *  guard and the group's own `--help` all print the same bytes. */
-const GROUP_HELP_SHA = 'f6bd00009634e41f8502422730bdc6158ae372d94ea3cbda6f4510c0bb9aae5b';
+// PR #12798 added space-related session flags to the group help.
+const GROUP_HELP_SHA = '45f9afd3ca77a4cb3528b23d2f50c5312968b1eecd9c141c4be0624f0ff95a3c';
 
 async function runCli(args: string[]) {
   const env: Record<string, string | undefined> = {

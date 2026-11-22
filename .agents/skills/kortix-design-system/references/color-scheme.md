@@ -69,9 +69,9 @@ transparent), not blue.
 | `kortix-blue` | info, open, in review | brand (that is `kortix-base`) |
 | `kortix-purple` | the owner role badge (`Badge variant="royal"`) | anything else |
 
-Accents are the same value in light and dark. They paint a glyph, a dot, a
-`/15` tint or a chart, and the label beside them stays ink: every accent
-measures 2.4 to 4.0:1 on white and fails AA as body text (J-7). Color is never
+Accents have a light and a dark value (J-7): the light value is darker so a
+glyph holds 3:1 on `#e6e6e6`, the light `card` ground. They paint a glyph, a dot, a `/15` tint
+or a chart, and the label beside them stays ink. Color is never
 the only carrier: the word or the glyph shape repeats the meaning.
 
 A filled status banner is `bg-kortix-*/15` with `border-transparent`; only the

@@ -11,7 +11,7 @@ import {
   markerActive,
 } from './api/config.ts';
 import { ApiError, clientFromAuth, type ApiClient } from './api/client.ts';
-import { loadLink, resolveProjectId, resolveProjectRef } from './project-link.ts';
+import { LINK_LOCATION, loadLink, resolveProjectId, resolveProjectRef } from './project-link.ts';
 import { ensureDefaultProjectBinding } from './project-bind.ts';
 import { NO_WORKSPACE_CODE, NO_WORKSPACE_LINE } from './api/no-workspace.ts';
 import { denialDetailFromBody, machineErrors, recordPermissionDenial, withIssues, writeMachineError } from './token-denial.ts';
@@ -25,7 +25,7 @@ interface ProjectContextOpts {
   hostArg?: string;
   /**
    * Enforce ONE principal (KRTX-1486, the change-request commands): a
-   * project resolved from .kortix/link.json travels with its own host's
+   * project resolved from the checkout's link travels with its own host's
    * stored credential — never the sandbox's ambient session token, which is
    * bound to the sandbox's own project. Without stored credentials for that
    * host the command stops with an explicit login pointer instead of a
@@ -122,7 +122,7 @@ export function resolveProjectAuth(opts: { hostArg?: string; envPin?: boolean } 
  *
  * Host resolution order:
  *   1. --host flag (per-invocation override)
- *   2. .kortix/link.json's `host` field (per-directory binding — its stored
+ *   2. the checkout link's `host` (git config `kortix.host` — its stored
  *      credentials are what make a NON-session project reachable from inside
  *      a sandbox, where the injected token is scoped to the session's project)
  *   3. KORTIX_TOKEN (platform-injected sandbox auth — the fallback when the
@@ -132,7 +132,7 @@ export function resolveProjectAuth(opts: { hostArg?: string; envPin?: boolean } 
  *
  * Project id resolution order (resolveProjectRef):
  *   1. --project flag
- *   2. .kortix/link.json in cwd (the most specific binding — it outranks the
+ *   2. the checkout's link (the most specific binding — it outranks the
  *      session env so a linked clone reaches its own project; the host notice
  *      already displays it as "linked", so behavior must match)
  *   3. KORTIX_PROJECT_ID env (platform-injected inside a sandbox)
@@ -165,7 +165,7 @@ export async function resolveProjectContext(
   let auth: Auth | null = resolvedAuth;
   if (!auth?.token) {
     if (hostName) {
-      const source = opts.hostArg ? '(--host)' : '(from .kortix/link.json)';
+      const source = opts.hostArg ? '(--host)' : `(from ${LINK_LOCATION})`;
       process.stderr.write(
         `${status.err(`Host "${hostName}" ${source} is not logged in.`)} Run ` +
           `${C.cyan}kortix login --host ${hostName}${C.reset}.\n`,
@@ -211,7 +211,7 @@ export async function resolveProjectContext(
     defaultProject = ref?.source === 'default';
     // ONE PRINCIPAL (KRTX-1486): the ambient sandbox session token is bound
     // to the sandbox's own project. A project the CLI config resolved
-    // (.kortix/link.json) must never pair with it — writes 403 cross-project
+    // (the checkout's link) must never pair with it — writes 403 cross-project
     // and reads return the wrong project's rows. The link project travels
     // with its own host's stored credential; without stored credentials for
     // that host, stop with an explicit login pointer instead of a doomed
@@ -228,7 +228,7 @@ export async function resolveProjectContext(
           : 'a host with no stored credentials';
         process.stderr.write(
           `${status.err(
-            `This directory is linked to a workspace on ${hostLabel} (.kortix/link.json), but only the ambient sandbox session token is available here. It cannot act on that workspace.`,
+            `This directory is linked to a workspace on ${hostLabel} (${LINK_LOCATION}), but only the ambient sandbox session token is available here. It cannot act on that workspace.`,
           )} Run ${C.cyan}kortix login --host ${configHostName ?? '<host>'}${C.reset} first.\n`,
         );
         return null;
@@ -286,7 +286,7 @@ export function resolveProjectTokenContext(): AccountContext | null {
  *      `--account` (`accountArg`)
  *   2. `KORTIX_WORKSPACE_ID`, then `KORTIX_PROJECT_ID` (platform-injected in a
  *      session box; a script's own value wins over the link and the default)
- *   3. `.kortix/link.json` in cwd
+ *   3. the checkout's link (git config `kortix.workspace`)
  *   4. the default workspace (`kortix workspaces use`)
  *   5. the older active account, then the account of the stored credential
  *

@@ -92,61 +92,63 @@ describe('tool answers', () => {
     expect(parseToolOutput([{ type: 'text', text: 'Sorry, no.' }])).toBeNull();
   });
 
-  test('Gmail: one item per received message; sent mail and drafts never fire; {} is zero matches', () => {
+  test('Gmail: one item per received message; sent mail and drafts never fire; no messages is zero matches', () => {
     const gmail = curated('gmail.message.received');
+    expect(gmail.tool).toBe('fetch_emails');
     const items = gmail.items({
-      threads: [{
-        id: 't1',
-        viewUrl: 'https://mail.google.com/t1',
-        messageCount: 3,
-        messages: [
-          { id: 'm1', internalDate: String(NOW - 5_000), date: '2030-01-01T00:00:00Z', sender: 'a@example.com', subject: 'Hi', labelIds: ['INBOX', 'UNREAD'] },
-          { id: 'm2', internalDate: String(NOW - 4_000), labelIds: ['SENT'] },
-          { id: 'm3', internalDate: String(NOW - 3_000), labelIds: ['DRAFT'] },
-        ],
-      }],
+      messages: [
+        { messageId: 'm1', threadId: 't1', messageTimestamp: new Date(NOW - 5_000).toISOString(), sender: 'a@example.com', subject: 'Hi', to: 'me@example.com, b@example.com', labelIds: ['INBOX', 'UNREAD'], preview: { body: 'Hello' }, display_url: 'https://mail.google.com/mail/u/0/#all/m1' },
+        { messageId: 'm2', threadId: 't1', messageTimestamp: new Date(NOW - 4_000).toISOString(), labelIds: ['SENT'] },
+        { messageId: 'm3', threadId: 't1', messageTimestamp: new Date(NOW - 3_000).toISOString(), labelIds: ['DRAFT'] },
+      ],
+      nextPageToken: '',
     })!;
     expect(items.map((i) => i.key)).toEqual(['m1']);
-    // internalDate is the receive time: a forged Date header does not move it.
+    // messageTimestamp is Gmail's receive time (internalDate): a forged Date header does not move it.
     expect(items[0]!.time).toBe(NOW - 5_000);
-    expect(items[0]!.data).toMatchObject({ id: 'm1', thread_id: 't1', from: 'a@example.com', subject: 'Hi', message_count: 3 });
+    expect(items[0]!.data).toMatchObject({ id: 'm1', thread_id: 't1', from: 'a@example.com', subject: 'Hi', to: ['me@example.com', 'b@example.com'], snippet: 'Hello' });
     expect(gmail.items({})).toEqual([]);
-    expect(gmail.items({ threads: 'nope' })).toBeNull();
+    expect(gmail.items({ messages: 'nope' })).toBeNull();
     expect(gmail.request({}, { now: NOW, floor: NOW })).toMatchObject({ maxPages: 4, newestFirst: true });
     expect(gmail.request({ query: 'from:billing@example.com' }, { now: NOW, floor: NOW }).args).toEqual({
       query: '(from:billing@example.com) newer_than:2d',
-      pageSize: 50,
-      view: 'THREAD_VIEW_MINIMAL',
+      max_results: 50,
+      include_payload: false,
+      verbose: false,
     });
     expect(gmail.request({}, { now: NOW, floor: NOW }).args.query).toBe('(in:inbox) newer_than:2d');
   });
 
-  test('Calendar: a repeating event is one item; cancelled events never fire; the window is naive UTC', () => {
+  test('Calendar: a repeating event is one item; cancelled events never fire; the window is RFC 3339', () => {
     const calendar = curated('google_calendar.event.created');
+    expect(calendar.tool).toBe('events_list');
     const items = calendar.items({
-      events: [
+      items: [
         { id: 'e1_20261020', recurringEventId: 'e1', created: '2026-10-19T11:59:00Z', start: { dateTime: '2026-10-20T09:00:00Z' } },
         { id: 'e1_20261027', recurringEventId: 'e1', created: '2026-10-19T11:59:00Z', start: { dateTime: '2026-10-27T09:00:00Z' } },
         { id: 'gone', status: 'cancelled', created: '2026-10-19T11:59:00Z' },
-        { id: 'allday', created: '2026-10-19T11:58:00Z', start: { date: '2026-10-21' } },
+        { id: 'allday', created: '2026-10-19T11:58:00Z', start: { date: '2026-10-21' }, conferenceData: { entryPoints: [{ entryPointType: 'video', uri: 'https://meet.google.com/abc' }] } },
       ],
     })!;
     expect(items.map((i) => i.key)).toEqual(['e1', 'e1', 'allday']);
-    expect(items[2]!.data).toMatchObject({ all_day: true, start: '2026-10-21' });
+    expect(items[2]!.data).toMatchObject({ all_day: true, start: '2026-10-21', meeting_url: 'https://meet.google.com/abc' });
     expect(plan(items).fire.map((i) => i.key)).toEqual(['allday', 'e1']);
     const { args, maxPages } = calendar.request({ lookahead_days: 7, calendar_id: 'team@example.com' }, { now: NOW, floor: NOW });
-    expect(args).toMatchObject({ calendarId: 'team@example.com', startTime: '2026-10-18T12:00:00', endTime: '2026-10-26T12:00:00', timeZone: 'UTC' });
+    expect(args).toMatchObject({ calendarId: 'team@example.com', timeMin: '2026-10-18T12:00:00.000Z', timeMax: '2026-10-26T12:00:00.000Z', singleEvents: true });
     expect(maxPages).toBe(4);
-    expect(calendar.request({ lookahead_days: 9999 }, { now: NOW, floor: NOW }).args.endTime).toBe('2026-11-18T12:00:00');
+    expect(calendar.request({ lookahead_days: 9999 }, { now: NOW, floor: NOW }).args.timeMax).toBe('2026-11-18T12:00:00.000Z');
+    expect(calendar.request({}, { now: NOW, floor: NOW }).args.calendarId).toBe('primary');
   });
 
   test('Drive: the query starts 2 min before the floor; a malformed folder id is refused', () => {
     const drive = curated('google_drive.file.created');
+    expect(drive.tool).toBe('find_file');
     const { args } = drive.request({ folder_id: '1AbCdEfGhIjKlMn', query: "mimeType = 'application/pdf'" }, { now: NOW, floor: NOW - 60_000 });
-    expect(args.query).toBe("createdTime > '2026-10-19T11:57:00.000Z' and parentId = '1AbCdEfGhIjKlMn' and (mimeType = 'application/pdf')");
+    expect(args.q).toBe("createdTime > '2026-10-19T11:57:00.000Z' and trashed = false and '1AbCdEfGhIjKlMn' in parents and (mimeType = 'application/pdf')");
+    expect(args).toMatchObject({ orderBy: 'createdTime desc', pageSize: 100 });
     expect(() => drive.request({ folder_id: "x' or '1'='1" }, { now: NOW, floor: NOW })).toThrow('folder_id must be a Drive folder ID');
-    expect(drive.items({ files: [{ id: 'f1', createdTime: '2026-10-19T11:59:00Z', title: 'Q3.pdf' }] })).toEqual([
-      expect.objectContaining({ key: 'f1', time: Date.parse('2026-10-19T11:59:00Z') }),
+    expect(drive.items({ files: [{ id: 'f1', createdTime: '2026-10-19T11:59:00Z', name: 'Q3.pdf', parents: ['p1'], owners: [{ emailAddress: 'o@example.com' }] }] })).toEqual([
+      expect.objectContaining({ key: 'f1', time: Date.parse('2026-10-19T11:59:00Z'), data: expect.objectContaining({ title: 'Q3.pdf', folder_id: 'p1', owner: 'o@example.com' }) }),
     ]);
   });
 });
@@ -221,7 +223,7 @@ describe('bounds', () => {
 });
 
 describe('classifyCall: what a gateway answer does to the stream', () => {
-  const classify = (result: Parameters<typeof classifyCall>[0]) => classifyCall(result, 'Gmail', 'gmail', 'search_threads');
+  const classify = (result: Parameters<typeof classifyCall>[0]) => classifyCall(result, 'Gmail', 'gmail', 'fetch_emails');
 
   test('a signed-out account parks for a person; a vendor 401/403 is transient', () => {
     expect(classify({ status: 'denied', reason: 'needs_auth' }).kind).toBe('needs_connection');
@@ -249,7 +251,7 @@ describe('classifyCall: what a gateway answer does to the stream', () => {
       message: 'Gmail limited the request rate.',
       retryAfterSeconds: 120,
     });
-    expect(classify({ status: 'error', reason: `${UPSTREAM_TIMEOUT}: gmail.search_threads did not answer` }).kind).toBe('transient');
+    expect(classify({ status: 'error', reason: `${UPSTREAM_TIMEOUT}: gmail.fetch_emails did not answer` }).kind).toBe('transient');
     expect(classify({ status: 'error', reason: 'Bad gateway', upstreamStatus: 502 }).kind).toBe('transient');
     expect(classify({ status: 'ok', data: null, risk: 'read', binding: 'mcp', output: null, upstreamStatus: 200, upstreamError: 'quota' }).kind).toBe('transient');
     expect(classify({ status: 'ok', data: null, risk: 'read', binding: 'mcp', output: {}, upstreamStatus: 200 }).kind).toBe('ok');

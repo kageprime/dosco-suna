@@ -31,6 +31,7 @@ export function serviceAccountPrincipal(c: Context, id: string, accountId: strin
   c.set('iamTokenId', id);
   setSentryUser({ id, accountId });
   setContextField('userId', id);
+  setContextField('authSessionId', '');
   setContextField('accountId', accountId);
   if (preview?.enabled) setPreviewSessionCookie(c, preview.token);
   auditLoginSuccess({ c, userId: id, accountId, authType: 'service_account' });
@@ -79,6 +80,7 @@ export function patPrincipal(c: Context, result: Awaited<ReturnType<typeof impor
   }
   setSentryUser({ id: userId, accountId: result.accountId });
   setContextField('userId', userId);
+  setContextField('authSessionId', result.sessionId ?? '');
   if (result.accountId) setContextField('accountId', result.accountId);
   if (preview?.enabled) setPreviewSessionCookie(c, preview.token);
   auditLoginSuccess({ c, userId, accountId: result.accountId ?? null, authType: c.get('authType') === 'service_account' ? 'service_account' : 'pat',
@@ -102,6 +104,7 @@ export async function jwtPrincipal(c: Context, userId: string, email: string, pa
   if (!preview && path === 'local') await jitSyncSso(userId, email, payload);
   setSentryUser({ id: userId, email: sentryEmail ?? email });
   setContextField('userId', userId);
+  setContextField('authSessionId', typeof payload?.session_id === 'string' ? payload.session_id : '');
   setContextField('userEmail', email);
   if (preview?.enabled) setPreviewSessionCookie(c, preview.token);
   auditLoginSuccess({ c, userId, authType: 'supabase', metadata: !preview && path === 'local'

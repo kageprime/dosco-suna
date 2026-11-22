@@ -84,7 +84,7 @@ function TileGrid({
 }
 
 /**
- * The use-case catalog as a marketplace: filters on the left (search, then
+ * The use-case library as a filterable directory: filters on the left (search, then
  * every team with its count), the results on the right. With no filter the
  * right side opens with three picks, then every use case grouped by team.
  */

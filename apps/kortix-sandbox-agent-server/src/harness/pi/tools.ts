@@ -218,11 +218,20 @@ function agentTool(definition: ToolDefinition<any, any, any>): AgentTool<any, an
 
 /** A hosted tool as the pi `Agent` runs it: the call's context names this session and agent. */
 function hostedAgentTool(tool: HostedTool, cwd: string, caller: () => { sessionId: string; agent: string; turnId?: string }): AgentTool<any, undefined> {
+  const { validate } = tool
   return {
     name: tool.name,
     label: tool.name,
     description: tool.description,
     parameters: tool.parameters as never,
+    // pi runs this before the schema check, the permission gate and execute; a throw is the call's error.
+    ...(validate && {
+      prepareArguments(args: unknown) {
+        const error = validate(args as Record<string, unknown>)
+        if (error) throw new Error(error)
+        return args
+      },
+    }),
     async execute(_id, args, signal) {
       const text = await runTool(tool, args as Record<string, unknown>, { ...caller(), directory: cwd, env: sessionEnv(), signal: signal ?? new AbortController().signal })
       return { content: [{ type: 'text', text }], details: undefined }

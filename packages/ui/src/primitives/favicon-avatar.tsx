@@ -40,7 +40,7 @@ export function FaviconAvatar({ value, size = 'xs', className, alt = '' }: Favic
         />
       ) : null}
       <AvatarFallback delayMs={0} className="bg-muted/60">
-        <Globe className={cn('text-muted-foreground/50', sizes.icon)} />
+        <Globe className={cn('text-muted-foreground', sizes.icon)} />
       </AvatarFallback>
     </Avatar>
   );

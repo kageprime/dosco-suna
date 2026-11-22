@@ -214,7 +214,12 @@ export function isOtherProject(projectId: string | null | undefined): boolean {
 }
 
 /**
- * Navigate to a session by opening/activating its tab and navigating to it.
+ * Open a session: activate its tab and route to it through the App Router, the
+ * way the sidebar's session link does.
+ *
+ * A bare `history.pushState` moved the URL, and the sidebar's selection with
+ * it, but not the route params the session page renders: the session on screen
+ * kept its transcript (KRTX-5008).
  *
  * `projectId` is required for a real URL. `/sessions/<id>` — what this used to
  * build — is not a route at all: it is a leftover of the instance-scoped scheme
@@ -225,29 +230,20 @@ export function isOtherProject(projectId: string | null | undefined): boolean {
 function navigateToSession(
   sessionId: string,
   sessionTitle?: string,
-  opts?: { forceNavigation?: boolean; projectId?: string | null; search?: string },
+  opts?: { projectId?: string | null; search?: string },
 ) {
   const projectId = opts?.projectId ?? currentProjectId();
   if (!projectId) return;
-  const href = projectSessionHref(projectId, sessionId) + (opts?.search ?? '');
-  try {
-    // Open/activate the tab in the tab store + pushState
-    openTabAndNavigate({
+  openTabAndNavigate(
+    {
       id: sessionId,
       title: sessionTitle || 'Session',
       type: 'session',
-      href,
-    });
-    // A native notification click can arrive while the tab is backgrounded, so
-    // the tab store's pushState alone may not bring the session into view.
-    // `softNavigate` routes through the App Router; `window.location.assign`
-    // here tore down and rebooted the whole SPA on every notification click.
-    if (opts?.forceNavigation && window.location.pathname !== href) {
-      softNavigate(href);
-    }
-  } catch {
-    softNavigate(href);
-  }
+      href: projectSessionHref(projectId, sessionId) + (opts?.search ?? ''),
+    },
+    undefined,
+    softNavigate,
+  );
 }
 
 /**
@@ -491,7 +487,7 @@ export function sendWebNotification(
       notification.onclick = () => {
         window.focus();
         notification?.close();
-        openPayload(payload, true);
+        openPayload(payload);
         payload.onClick?.();
       };
 
@@ -585,14 +581,11 @@ const NOTIFICATION_TOAST_VARIANT: Record<WebNotificationType, 'success' | 'error
 };
 
 /** Open what the notification is about: its session, or its `href`. */
-function openPayload(payload: WebNotificationPayload, forceNavigation: boolean) {
+function openPayload(payload: WebNotificationPayload) {
   if (payload.threadHref) {
     softNavigate(payload.threadHref);
   } else if (payload.sessionId) {
-    navigateToSession(payload.sessionId, payload.body, {
-      forceNavigation,
-      projectId: payload.projectId,
-    });
+    navigateToSession(payload.sessionId, payload.body, { projectId: payload.projectId });
   } else if (payload.href) {
     softNavigate(payload.href);
   }
@@ -684,7 +677,7 @@ function showInAppToast(payload: WebNotificationPayload) {
               {
                 label: actionLabel,
                 onClick: () => {
-                  openPayload(payload, false);
+                  openPayload(payload);
                   payload.onClick?.();
                 },
               },
@@ -740,7 +733,7 @@ function showSessionToast(payload: WebNotificationPayload, sessionId: string) {
 }
 
 function openSessionToast(target: ShownSessionToast) {
-  openPayload(target.payload, false);
+  openPayload(target.payload);
   target.payload.onClick?.();
 }
 

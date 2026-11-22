@@ -20,6 +20,7 @@ import { WallpaperBackground } from '@/components/ui/wallpaper-background';
 import { cn } from '@kortix/ui';
 import { DEFAULT_WALLPAPER_ID, type Wallpaper } from '@kortix/ui/theme';
 import { CheckCircleIcon as CheckCircleSolid } from '@phosphor-icons/react';
+import type { ReactNode } from 'react';
 
 /** Exported so `features/workspace/settings/tabs/preferences-tab.tsx` can reuse
  *  this card instead of re-implementing the wallpaper picker — see that
@@ -28,6 +29,7 @@ import { CheckCircleIcon as CheckCircleSolid } from '@phosphor-icons/react';
 export function WallpaperCard({
   wallpaper,
   thumbSrc,
+  thumb,
   isActive,
   onSelect,
   defaultLabel = 'Default',
@@ -35,6 +37,8 @@ export function WallpaperCard({
   wallpaper: Wallpaper;
   /** Pre-rendered preview image — shader wallpapers never run a live canvas in the picker */
   thumbSrc?: string;
+  /** A still drawn on the client, for wallpapers with no image file. */
+  thumb?: ReactNode;
   isActive: boolean;
   onSelect: () => void;
   defaultLabel?: string;
@@ -43,7 +47,7 @@ export function WallpaperCard({
     <button
       type="button"
       onClick={onSelect}
-      className="group relative cursor-pointer rounded-md text-left"
+      className="group relative w-full cursor-pointer rounded-md text-left"
     >
       <div
         className={cn(
@@ -52,7 +56,9 @@ export function WallpaperCard({
         )}
       >
         <div className="absolute inset-0" aria-hidden="true">
-          {thumbSrc ? (
+          {thumb ? (
+            thumb
+          ) : thumbSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={thumbSrc}
@@ -72,15 +78,11 @@ export function WallpaperCard({
             isActive ? 'bg-transparent' : 'group-hover:bg-foreground/[0.06] bg-transparent',
           )}
         />
-
-        {isActive && (
-          <div className="absolute top-2.5 right-2.5">
-            <CheckCircleSolid weight="fill" className="size-4" />
-          </div>
-        )}
       </div>
-      <div className="px-1.5 py-1">
-        <span className="text-foreground flex items-center gap-1 text-xs font-medium">
+      {/* The check sits in the caption, not on the thumbnail: the thumbnail's
+          top corners hold the card actions. */}
+      <div className="flex items-center justify-between gap-2 px-1.5 py-1">
+        <span className="text-foreground flex min-w-0 items-center gap-1 text-xs font-medium">
           {wallpaper.name}
           {wallpaper.id === DEFAULT_WALLPAPER_ID && (
             <Badge size="sm" variant="secondary">
@@ -88,6 +90,7 @@ export function WallpaperCard({
             </Badge>
           )}
         </span>
+        {isActive && <CheckCircleSolid weight="fill" className="size-4 shrink-0" />}
       </div>
     </button>
   );

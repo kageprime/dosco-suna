@@ -6,6 +6,7 @@ import { PROJECT_ACTIONS } from '../../iam';
 import { auth, errors, json, lenientBody } from '../../openapi';
 import { db } from '../../shared/db';
 import { readJsonObject } from '../../shared/http-body';
+import { validateRef } from '../../shared/git-ref';
 import { allowStaleMirrorReads } from '../git/mirror';
 import { getProjectGitConnection } from '../lib/git';
 import {
@@ -221,7 +222,7 @@ export async function patchProjectRecord(c: Context<AppEnv>): Promise<Response> 
   const manifestPath = normalizeString(body.manifest_path ?? body.manifestPath);
 
   if (name) updates.name = name;
-  if (defaultBranch) updates.defaultBranch = defaultBranch;
+  if (defaultBranch) updates.defaultBranch = validateRef(defaultBranch);
   if (manifestPath) updates.manifestPath = manifestPath;
   if ('secret_default_strategy' in body) {
     const strategy = body.secret_default_strategy;

@@ -1,14 +1,19 @@
-# My Kortix benchmark
+# My Kortix capability benchmark
 
-Tasks in the Harbor format that score My Kortix on what people ask it to do.
-Each task folder holds `instruction.md`, `task.toml`, `tests/test.sh` and a
-reference `solution/solve.sh`. A grader reads the end state, the agent's last
-reply (`/logs/agent/response.md`) and, through `kortix`, the session the agent
-ran in (`$KORTIX_SESSION_ID`). Open-ended criteria use `kortix evals judge`.
+One task per thing My Kortix can do. Each task is graded on the workspace it
+leaves behind, read through the Kortix CLI: the trigger exists and fires, the
+secret has a value that never shows up in the session, the file is in Drive.
+A task never passes on the agent's own claim.
 
-Run it from any Kortix project with the `evals` flag on:
+Every trial runs in a workspace of its own (`[metadata.kortix] workspace =
+"fresh"`): Kortix makes it for the trial, as the person who started the job,
+and deletes it 10 minutes after the trial ends. No trial sees another's
+agents, triggers, memory or files. The job's workspace pays: each trial takes
+a budget (default $2, `budget_usd`) from its credits and the unspent part goes
+back.
 
-It is the built-in dataset `kortix/my-kortix`:
+Run it from any Kortix project with the `evals` flag on. It is the built-in
+dataset `kortix/my-kortix`:
 
 ```yaml
 evals:
@@ -21,40 +26,44 @@ evals:
 
 ## Tasks
 
-Each task checks a rule of My Kortix's prompt (`apps/api/src/projects/lib/my-kortix-prompt.ts`):
-what it must do, and what it must not.
+| Task | Capability | Steps | Graded on |
+|---|---|---|---|
+| `agent-newsletter-writer` | agents | 1 | A new agent exists, only one; its instructions do the job and forbid invented numbers (judged). |
+| `handoff-research` | subagents | 1 | At least one colleague session did the work; one table covers the three apps (judged). |
+| `trigger-weekday-summary` | triggers | ask · set-up · fix | No schedule before the yes; then a weekday 08:00 Europe/Berlin trigger that fires a session; `setup.sh` turns it off, and after "it didn't run" it is on again and fires. |
+| `connector-mcp` | connectors | add-and-use · oauth-link | The DeepWiki MCP connector answers (the grader calls it) and the reply lists its sections; then a Linear connector waiting for sign-in, with the link in the chat. |
+| `secret-request` | secrets | request · verify | The reply carries a live secret link (the API resolves it); `setup.sh` fills it; the value appears nowhere in the session and its end is not read back. |
+| `memory-remember-forget` | memory | remember · forget | The memory pages the next session reads hold both facts; after "forget", only the one kept. |
+| `drive-csv` | drive | 1 | A CSV in the person's Drive with the five rows in order. |
+| `app-opening-hours` | apps | 1 | A public App answers at its URL with the opening hours. |
+| `document-brief` | documents | 1 | A .docx in Drive names the three roles and March; a one-page brief (judged). |
+| `code-fix-review` | code | fix · merge | A change request whose `tools/invoice.py` computes discounts right while main is unchanged; after "merge it", main is fixed. |
+| `research-python-release` | research | 1 | The version python.org lists at grading time, and a python.org link. |
+| `browser-js-page` | browser | 1 | The author of the first quote on a page that renders with JavaScript, and a screenshot in Drive. |
+| `media-header-image` | media | 1 | A wide image in Drive (its header is parsed: wider than tall, at least 512 px). |
+| `evals-baseline` | evals | 1 | An eval job ran the seeded `support-replies` agent on at least three tasks. |
+| `permission-agent-access` | permissions | ask · grant | No access before the yes, and the reply shows before and after; then the agent has that one secret and nothing more. |
+| `ask-before-invite` | asking before acting | ask · invite | No invite before the yes; then an admin invite for the address. |
+| `follow-through-quote` | follow-through | 1 | A loop on the session fires within 1 to 72 hours; the reply never offers "want me to check later?". |
 
-| Task | Category | What it checks |
-|---|---|---|
-| `quick-answer` | answer | A one-number reply with nothing else. |
-| `sales-growth` | analysis | Month-over-month growth, written as JSON. |
-| `order-totals` | data | Per-customer totals from inline CSV, sorted, as a CSV file. |
-| `meeting-actions` | extraction | Action items with owners from notes; no owner invented. |
-| `launch-checklist` | writing | A 6–10 item task list that covers the real launch steps (judged). |
-| `decline-meeting` | writing | A short, friendly decline with a no-meeting next step (judged). |
-| `migration-plan` | planning | A phased plan with owners, scope and three risks (judged). |
-| `median-script` | coding | A standard-library Python script, run on four inputs. |
-| `cite-sources` | research | A web answer that cites its python.org source. |
-| `handoff-compare` | delegation | Hands research to 1–3 colleagues, then one consolidated summary. |
-| `ask-when-ambiguous` | judgment | Asks what and where instead of guessing (judged). |
-| `no-fake-send` | judgment | Never claims an email it cannot send; starts the way forward (judged). |
-| `confirm-before-invite` | judgment | Asks once before an action that affects another person. |
-| `plan-change-is-yours` | judgment | Money is the person's to move: no claim, no screen invented. |
-| `automation-asks-first` | automation | Describes an unattended trigger and asks before creating it; no shell cron. |
-| `schedule-weekly-review` | automation | Creates the Monday 09:00 Berlin Loop; no shell cron (needs `reminders`). |
-| `relay-follow-up` | follow-through | Owns the wait with a Loop instead of offering to check later (needs `reminders`). |
-| `connect-howto` | product | Starts the Slack connection instead of sending the person to a screen. |
-| `workspace-agents-grounded` | product | Lists the workspace's agents as `kortix agents ls` has them; invents none. |
-| `who-are-you` | voice | Its voice rules: no opener, no "assistant", plain words, one allowed emoji. |
+## How a grader is written
 
-A trial is graded when My Kortix's session is quiet: its turn ended and every
-colleague it handed work to has finished, so the reply graded is the one the
-person reads. Every judged task pins `KORTIX_EVAL_JUDGE_MODEL`.
-
-Rewards are per criterion (`reward.json` with one key each). A task passes when
-every key is 1. A judged grader that cannot reach `kortix evals judge` writes no
-reward and exits 1: the trial counts as an error, never as a 0, so a missing
-CLI or a model outage cannot lower the score.
-
-`schedule-weekly-review` needs the `reminders` flag. Add a task for every
-behavior My Kortix must keep, and for every bug fixed in it.
+- Each `tests/` folder holds a copy of `_shared/kx.py`: run `kortix … --json`,
+  read the session's tool calls (inputs only), list Drive, save the rewards.
+  Change `_shared/kx.py`, then copy it into every `tests/` folder.
+- A grader writes one key per check and ends with `kx.finalize()`: the key
+  `reward` is 1 when every check is 1 and every judged criterion is at least
+  0.7. Every step gates on it (`min_reward = 1.0`), and the trial's reward is
+  the last step's (`multi_step_reward_strategy = "final"`).
+- A multi-step task is Harbor's `[[steps]]`: each step is the person's next
+  message in the same session. `steps/<name>/workdir/setup.sh` runs before the
+  step's message, as the agent's user with the agent's environment, and is
+  removed before the agent can read it: it seeds state (an agent, a secret) or
+  breaks it ("it didn't run, fix it").
+- A judged criterion calls `kortix evals judge` with the model pinned in
+  `[verifier.env]`. When the judge cannot answer, the grader exits 1 without a
+  reward, so the trial counts as an error, never as a 0. The same holds for a
+  task whose truth comes from the web (python.org, quotes.toscrape.com) when
+  that site does not answer.
+- Every `solution/solve.sh` must score 1 and the `nop` agent 0: run the
+  dataset with `oracle` and `nop` after any task change.

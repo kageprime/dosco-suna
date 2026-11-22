@@ -129,7 +129,6 @@ export const MARKETING_SECONDARY_TRANSLATION_KEYS: Readonly<Record<string, strin
   'Thousands run in parallel with no crossover between them': 'text7649df43bb7f',
   'Titles are flat. Everyone on the technical side is Member of Technical Staff.':
     'text7cd6fdbc65e2',
-  'Use-case and marketplace-driven content.': 'textac7cbbbb7b16',
   'Watch a session live, diff every change to an agent or a skill, and land work through a change request.':
     'text0cc5a54b089c',
   'We are building the open AGI platform.': 'textc6bfaece0982',

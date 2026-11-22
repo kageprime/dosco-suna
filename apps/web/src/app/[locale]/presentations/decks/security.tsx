@@ -154,7 +154,7 @@ export function useSlides(): SlideDef[] {
             {answers.map((a, i) => (
               <Rise key={a.title} i={i + 2}>
                 <Panel className="flex h-full flex-col p-6">
-                  <span className="text-muted-foreground/45 font-mono text-xs tabular-nums">
+                  <span className="text-muted-foreground font-mono text-xs tabular-nums">
                     {`0${i + 1}`}
                   </span>
                   <h3 className="text-foreground mt-5 text-lg font-medium tracking-tight">
@@ -326,7 +326,7 @@ export function useSlides(): SlideDef[] {
             {answers.map((a, i) => (
               <Rise key={a.title} i={i + 1}>
                 <Panel className="flex flex-col gap-1.5 p-6">
-                  <span className="text-muted-foreground/45 font-mono text-xs tabular-nums">
+                  <span className="text-muted-foreground font-mono text-xs tabular-nums">
                     {`0${i + 1}`}
                   </span>
                   <span className="text-foreground mt-3 text-lg font-medium tracking-tight">

@@ -127,7 +127,7 @@ describe('pendingSessionPromptForRecovery', () => {
   const AGENT_PROMPT = 'Summarize the open pull requests and post the summary.';
 
   test('shows the initial_prompt of a session an agent, trigger or channel created', () => {
-    // Spawned, trigger, channel, MCP and marketplace sessions store their
+    // Spawned, trigger, channel and MCP sessions store their
     // first prompt as `metadata.initial_prompt`, never as `pending_prompt`.
     expect(
       pendingSessionPromptForRecovery(SESSION_ID, { source: 'agent', initial_prompt: AGENT_PROMPT }),

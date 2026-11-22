@@ -18,7 +18,9 @@ import {
 import { CapabilityPageShell } from '@kortix/ui/customize/shared/capability-page-shell';
 import { Hint } from '@kortix/ui/hint';
 
+import { ExpandableSearch } from '@kortix/ui/expandable-search';
 import { Skeleton } from '@kortix/ui/skeleton';
+import { SortMenu, useStoredSort } from '@kortix/ui/sort-menu';
 import { errorToast } from '@kortix/ui/toast';
 
 import { EmptyState } from '@kortix/ui/empty-state';
@@ -29,7 +31,7 @@ import { useTranslations } from '@/i18n/use-translations';
 import { useDebounce, cn } from '@kortix/ui';
 import { createAppAccessSession, type App } from '@kortix/sdk';
 import { useAppAccess, useProjectApps, useProjectTriggers } from '@kortix/sdk/react';
-import { HardDrivesIcon, InfoIcon, SquaresFourIcon } from '@phosphor-icons/react';
+import { HardDrivesIcon, InfoIcon, MagnifyingGlassIcon, SquaresFourIcon } from '@phosphor-icons/react';
 
 import Link from '@/components/site-link';
 import { useSearchParams } from 'next/navigation';
@@ -52,6 +54,17 @@ export { DEPLOYMENT_COPY, deployNotice, appHost } from '@kortix/ui/apps';
 export { AppPreview, AppPreviewOverlay, PREVIEW_SPINNER_DELAY_MS, scheduleSlowPreview, PREVIEW_VIEWPORT_WIDTH, PREVIEW_VIEWPORT_HEIGHT, PREVIEW_TILE_ASPECT, previewScale } from '@kortix/ui/apps';
 export { APP_GRID_CONTAINER, APP_GRID_DEFAULT_COLUMNS, APP_GRID_COLUMN_OPTIONS, APP_GRID_COLUMN_ORDER, APP_GRID_COLUMNS_STORAGE_KEY, parseAppGridColumns, type AppGridColumns } from './app-density';
 
+type AppSort = 'activity' | 'name' | 'created';
+const APP_SORTS: AppSort[] = ['activity', 'name', 'created'];
+
+/** Apps in the picked order: last change, name, or newest first. */
+function sortApps(apps: App[], sort: AppSort): App[] {
+  const sorted = [...apps];
+  if (sort === 'name') return sorted.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  const at = (app: App) => (sort === 'created' ? app.created_at : app.updated_at);
+  return sorted.sort((a, b) => at(b).localeCompare(at(a)));
+}
+
 function AppsControls({
   columns,
   onColumnsChange,
@@ -69,7 +82,7 @@ function AppsControls({
   showColumns: boolean;
 }) {
   return showColumns ? (
-    <div className="flex shrink-0 items-center pr-1">
+    <div className="flex shrink-0 items-center">
       <AppGridColumnsControl value={columns} onChange={onColumnsChange} />
     </div>
   ) : null;
@@ -132,8 +145,27 @@ export function AppsView({
   }, [requestedAppId]);
   const [gridColumns, setGridColumns] = useAppGridColumns();
   const triggers = useProjectTriggers(projectId);
-  const grid = apps.data ? gridApps(apps.data, canAdmin) : [];
-  const background = apps.data ? hiddenApps(apps.data, canAdmin) : [];
+  // The page's header search and order. The agent editor's pane has no header: its list stays as served.
+  const tApps = useTranslations('appsList');
+  const tSort = useTranslations('listSort');
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useStoredSort<AppSort>('kortix:apps-sort', APP_SORTS, 'activity');
+  const sortLabel: Record<AppSort, string> = {
+    activity: tSort('lastActivity'),
+    name: tSort('name'),
+    created: tSort('created'),
+  };
+  const query = agentGrant ? '' : search.trim().toLowerCase();
+  const arrange = (list: App[]) =>
+    agentGrant
+      ? list
+      : sortApps(
+          list.filter((app) => !query || app.name.toLowerCase().includes(query) || app.slug.toLowerCase().includes(query)),
+          sort,
+        );
+  const grid = apps.data ? arrange(gridApps(apps.data, canAdmin)) : [];
+  const background = apps.data ? arrange(hiddenApps(apps.data, canAdmin)) : [];
+  const hasApps = (apps.data?.length ?? 0) > 0;
   // Open or closed is the reader's call and survives a reload. Until they
   // choose, it opens only when there is no grid above it to look at instead.
   const backgroundKey = `kortix:apps:background-open:${projectId}`;
@@ -250,6 +282,8 @@ export function AppsView({
                 />
               ))}
             </ul>
+          ) : query && !background.length ? (
+            <EmptyState size="sm" icon={MagnifyingGlassIcon} title={tApps('noMatch')} />
           ) : background.length ? (
             <p className="text-muted-foreground mb-7 text-sm text-pretty">{tI18nComplete.raw('text0d209cd1f377')}</p>
           ) : (
@@ -384,7 +418,26 @@ export function AppsView({
             </Link>
           </Hint>
         }
+       
       >
+        {hasApps ? (
+          <>
+            <ExpandableSearch
+              value={search}
+              onValueChange={setSearch}
+              label={tApps('search')}
+              size="sm"
+              buttonVariant="outline"
+              className="w-40 sm:w-56"
+            />
+            <SortMenu
+              value={sort}
+              onValueChange={setSort}
+              options={APP_SORTS.map((mode) => ({ value: mode, label: sortLabel[mode] }))}
+              label={tSort('sortBy', { mode: sortLabel[sort] })}
+            />
+          </>
+        ) : null}
         {controls}
       </ProjectPageHeader>
 

@@ -63,6 +63,7 @@ export function SchedulesPage({
 }: SchedulesPageProps) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const accent = THEME.accent[isDark ? 'dark' : 'light'];
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
@@ -115,13 +116,13 @@ export function SchedulesPage({
 
       <PageContent>
         {errors.length > 0 && (
-          <View style={{ marginHorizontal: 16, marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: withAlpha(THEME.accent.orange, 0.08) }}>
+          <View style={{ marginHorizontal: 16, marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: withAlpha(accent.orange, 0.08) }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <Icon as={TriangleAlert} size={15} color={THEME.accent.orange} />
-              <Text style={{ fontSize: 12.5, fontFamily: 'Roobert-Medium', color: THEME.accent.orange }}>Some triggers couldn't be parsed</Text>
+              <Icon as={TriangleAlert} size={15} color={accent.orange} />
+              <Text style={{ fontSize: 12.5, fontFamily: 'Roobert-Medium', color: accent.orange }}>Some triggers couldn't be parsed</Text>
             </View>
             {errors.map((e) => (
-              <Text key={e.slug + e.path} style={{ fontSize: 12, color: THEME.accent.orange, marginTop: 2 }}>{e.path} — {e.error}</Text>
+              <Text key={e.slug + e.path} style={{ fontSize: 12, color: accent.orange, marginTop: 2 }}>{e.path} — {e.error}</Text>
             ))}
           </View>
         )}

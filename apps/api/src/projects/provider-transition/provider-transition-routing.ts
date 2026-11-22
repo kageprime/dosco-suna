@@ -21,6 +21,29 @@ export const ACTIVE_SNAPSHOT_NAME_META_KEY = 'active_sandbox_snapshot_name';
  *  change to @kortix/api-contract. */
 export const TRANSITION_META_KEY = 'sandbox_provider_transition';
 
+/** The `TRANSITION_META_KEY` entry activation and the pin set/clear write: the
+ *  one place the marker's keys are named. `snapshotName` / `externalTemplateId`
+ *  are written only when given (the pin set/clear path has neither). */
+export function transitionMarker(args: {
+  status: 'activated' | 'cleared';
+  target: string | null;
+  generation: number;
+  now: Date;
+  snapshotName?: string;
+  externalTemplateId?: string | null;
+}): Record<string, unknown> {
+  return {
+    [TRANSITION_META_KEY]: {
+      status: args.status,
+      target_provider: args.target,
+      generation: args.generation,
+      ...(args.snapshotName !== undefined && { snapshot_name: args.snapshotName }),
+      ...(args.externalTemplateId !== undefined && { external_template_id: args.externalTemplateId }),
+      activated_at: args.now.toISOString(),
+    },
+  };
+}
+
 function asMeta(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? { ...(v as Record<string, unknown>) } : {};
 }

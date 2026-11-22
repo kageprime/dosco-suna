@@ -25,7 +25,7 @@ const NOT_FOUND = /\b404\b|not found|no such file|does not exist/i;
  * read the app's cookies, storage or DOM). A file that is gone shows the tab's
  * `missing` state ("Remove tab"). Drive off: the same state.
  */
-export function SpaceFileView({ projectId, path, title, missing }: SpaceFile & { projectId: string }) {
+export function SpaceFileView({ projectId, path, title, missing }: Pick<SpaceFile, 'path' | 'title' | 'missing'> & { projectId: string }) {
   const t = useTranslations('spaces');
   const { user } = useAuth();
   const availability = useDriveAvailability(projectId);

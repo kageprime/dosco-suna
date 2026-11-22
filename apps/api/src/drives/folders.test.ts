@@ -10,6 +10,7 @@ import {
   NO_PRIVATE_CHANNEL_FOLDERS,
   planFolderMounts,
   privateChannelFolderOf,
+  reservedRootInUse,
   sessionMountCandidates,
 } from './folders';
 
@@ -292,5 +293,52 @@ describe('shared Drives', () => {
       CH,
     ).mounts.map((m) => `${m.path}${m.readOnly ? ':ro' : ''}`);
     expect(plan).toEqual(['/Sales:ro', '/Channels/deals']);
+  });
+});
+
+describe('a space folder (session_groups)', () => {
+  test('a session in a space mounts the space folder read-write at /drives/space, beside its person folder', () => {
+    const SPACE = '/Spaces/3f2a0c1e-0000-4000-8000-000000000001';
+    const grants: FolderGrant[] = [{ path: '/Users/ana', level: 'manage', principalType: 'user', principalId: 'ana' }];
+    const mounts = planFolderMounts(
+      sessionMountCandidates(grants, {
+        agentId: null,
+        owner: 'ana',
+        groupIds: new Set(),
+        own: '/Users/ana',
+        channelFolder: null,
+        privateChannelFolders: NO_PRIVATE_CHANNEL_FOLDERS,
+        spaceFolder: SPACE,
+      }),
+      16,
+    ).mounts;
+    expect(mounts.map((m) => [m.path, m.mountPath, m.readOnly])).toEqual([
+      ['/Users/ana', '/drives/me', false],
+      [SPACE, '/drives/space', false],
+    ]);
+  });
+});
+
+describe('a Space folder is reserved like a private channel folder', () => {
+  const SPACE = '/Spaces/3f2a0c1e-0000-4000-8000-000000000001';
+  const reserved = new Set([SPACE]);
+
+  test('an admin does not reach it by role; a grant on it does (the API computes one for each person who sees the space)', () => {
+    expect(folderAccess(`${SPACE}/outline.md`, [], { userId: 'admin', admin: true, privateChannelFolders: reserved })).toBe('none');
+    const grant: FolderGrant = { path: SPACE, level: 'write', principalType: 'user', principalId: 'ana', source: 'system' };
+    expect(folderAccess(`${SPACE}/outline.md`, [grant], { userId: 'ana', privateChannelFolders: reserved })).toBe('write');
+  });
+
+  test('a grant on /Spaces itself never reaches into a reserved space folder; another folder under /Spaces is ordinary', () => {
+    const top: FolderGrant = { path: '/Spaces', level: 'manage', principalType: 'user', principalId: 'bob' };
+    expect(folderAccess(`${SPACE}/outline.md`, [top], { userId: 'bob', privateChannelFolders: reserved })).toBe('none');
+    expect(privateChannelFolderOf(`${SPACE}/a/b.md`, reserved)).toBe(SPACE);
+    expect(privateChannelFolderOf('/Spaces/other/b.md', reserved)).toBeNull();
+  });
+
+  test('/Spaces holds the tree together only while it holds a space folder', () => {
+    expect(reservedRootInUse('/Spaces', reserved)).toBe(true);
+    expect(reservedRootInUse('/Spaces', NO_PRIVATE_CHANNEL_FOLDERS)).toBe(false);
+    expect(reservedRootInUse('/Company', reserved)).toBe(false);
   });
 });

@@ -124,7 +124,7 @@ export function SessionMetadataList({ sessions }: { sessions: ParsedSessionMeta[
               : 'group cursor-default opacity-70 transition-colors',
           )}
         >
-          <MessageCircle className="text-muted-foreground group-hover:text-foreground/60 mt-0.5 size-3.5 shrink-0 transition-colors" />
+          <MessageCircle className="text-muted-foreground group-hover:text-foreground mt-0.5 size-3.5 shrink-0 transition-colors" />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <div className="flex items-center gap-2">
               <span className="text-foreground truncate text-xs font-medium">{s.title}</span>
@@ -145,7 +145,7 @@ export function SessionMetadataList({ sessions }: { sessions: ParsedSessionMeta[
               </span>
             </div>
           </div>
-          <ExternalLink className="text-muted-foreground/0 group-hover:text-muted-foreground mt-1 size-3 shrink-0 transition-colors" />
+          <ExternalLink className="text-muted-foreground mt-1 size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
         </button>
       ))}
     </div>
@@ -187,9 +187,9 @@ export function InlineSessionMessagesList({ messages }: { messages: ParsedSessio
             >
               {msg.role}
             </span>
-            <span className="text-muted-foreground/50 ml-auto text-xs">#{msg.index}</span>
+            <span className="text-muted-foreground ml-auto text-xs">#{msg.index}</span>
             {msg.cost > 0 && (
-              <span className="text-muted-foreground/50 text-xs tabular-nums">
+              <span className="text-muted-foreground text-xs tabular-nums">
                 {tCredits('creditCount', {
                   count: msg.cost * 100,
                   formatted: formatUsdAsCredits(msg.cost),
@@ -201,7 +201,7 @@ export function InlineSessionMessagesList({ messages }: { messages: ParsedSessio
             <div className="text-foreground/90 text-xs leading-relaxed wrap-break-word whitespace-pre-wrap">
               {msg.content.slice(0, 800)}
               {msg.content.length > 800 && (
-                <span className="text-muted-foreground/50">
+                <span className="text-muted-foreground">
                   {' '}
                   {tHardcodedUi.raw('componentsSessionToolRenderers.line2350JsxTextTruncated')}
                 </span>

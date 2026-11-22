@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdtemp, open, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -174,6 +175,7 @@ interface DeployFlags {
   readinessPath?: string;
   spa?: boolean;
   provider?: AppHostingProvider;
+  force: boolean;
   wait: boolean;
   waitSeconds: number;
   includeNodeModules: boolean;
@@ -231,6 +233,7 @@ export function deployFlags(rest: string[]): DeployFlags {
     readinessPath: takeFlagValue(rest, ['--readiness-path']),
     spa: spa ? true : noSpa ? false : undefined,
     provider,
+    force: takeFlagBool(rest, ['--force']),
     wait: !takeFlagBool(rest, ['--no-wait']),
     waitSeconds,
     includeNodeModules: takeFlagBool(rest, ['--include-node-modules']),
@@ -565,4 +568,39 @@ export async function waitForDeployment(
     throw new Error(current.error || `Deployment ${current.status}`);
   }
   return current;
+}
+
+/** Git ancestry is checked before staging: a refusal must upload nothing. */
+export async function deployProvenance(apps: AppsHandle, app: App, path: string | undefined, force: boolean) {
+  if (!path) return force ? { source_force: true } : {};
+  // An archive can be built elsewhere: its parent checkout is not provenance.
+  if (!(await stat(path)).isDirectory()) return force ? { source_force: true } : {};
+  const cwd = path;
+  const git = (...args: string[]) => spawnSync('git', ['-C', cwd, ...args], {
+    encoding: 'utf8', timeout: 15_000, stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  const head = git('rev-parse', '--verify', 'HEAD');
+  if (head.status !== 0) return force ? { source_force: true } : {};
+  const commit = head.stdout.trim();
+  const ref = git('symbolic-ref', '--quiet', '--short', 'HEAD');
+  if (git('status', '--porcelain').stdout.trim()) {
+    process.stderr.write('Warning: dirty work tree; source_commit records HEAD, not uncommitted changes.\n');
+  }
+  if (!force && app.active_deployment_id) {
+    const live = (await apps.deployments.list(app.app_id))
+      .find((row) => row.deployment_id === app.active_deployment_id);
+    if (live?.source_commit) {
+      const known = () => git('cat-file', '-e', `${live.source_commit}^{commit}`).status === 0;
+      if (!known()) git('fetch', '--all', '--quiet');
+      if (!known()) {
+        process.stderr.write(`Warning: live commit ${live.source_commit} is unknown locally after fetch; skipping ancestry check.\n`);
+      } else {
+        const ancestry = git('merge-base', '--is-ancestor', live.source_commit, commit);
+        if (ancestry.status !== 0) {
+          throw new Error(`Live v${live.version} (${live.source_commit}), deployed by session ${live.source_session_id ?? 'unknown'}, is not contained in HEAD ${commit}; merge it first, or pass --force`);
+        }
+      }
+    }
+  }
+  return { source_commit: commit, source_ref: ref.status === 0 ? ref.stdout.trim() : null, source_force: force };
 }

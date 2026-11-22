@@ -60,7 +60,10 @@ const realUseMemo = realReact.useMemo;
 const motionStub: Record<string, (props: Record<string, unknown>) => unknown> = {
   div: (props) => (wrapperProps.push(props), props.children ?? null),
 };
+// The real module first: code under test reads exports this stub does not name (MotionGlobalConfig).
+const realMotion = await import('motion/react');
 mock.module('motion/react', () => ({
+  ...realMotion,
   m: new Proxy(motionStub, { get: (stub, el: string) => stub[el] ?? stub.div }),
   useMotionValue: () => ({ on: () => () => {}, set: () => {} }),
   useTransform: () => ({ on: () => () => {} }),

@@ -14,7 +14,8 @@
  *    into two accounts overwrite each other's marker while each keeps its own
  *    query cache intact.
  *
- * Either marker disagreeing means the state on screen is not this user's.
+ * The in-document marker, once set, decides; the persisted one decides only
+ * for a document that has published nobody yet (a cold load).
  */
 /** The origin-wide marker key. One name, read and written in one place. */
 export const IDENTITY_MARKER_KEY = 'kortix-last-user-id';
@@ -48,6 +49,16 @@ export type IdentityMarkers = {
  * load. Both are wasted work, never wrong state. The opposite error hands one
  * account another account's cached workspaces.
  *
+ * A document that already published a user decides on `inDocumentUserId`
+ * alone. Its in-memory caches are that user's, and re-adopting the same user
+ * reads nothing from storage (`adoptDeviceCaches` is a no-op for it). The
+ * persisted marker can drift while this document stays signed in: storage was
+ * cleared or blocked, or the Kortix side panel — which shares this origin's
+ * localStorage but keeps its own partitioned session cookie — published
+ * another account. auth-js emits `SIGNED_IN` when a tab becomes visible with a
+ * valid access token, so trusting the drifted marker there wiped the live
+ * interface on each such return.
+ *
  * The persisted marker does NOT survive a reset, on `SIGNED_OUT` or anywhere
  * else. `resetClientState()` sweeps every `localStorage`/`sessionStorage` key
  * this app owns (`clear-local-storage.ts`'s prefix sweep), and
@@ -65,6 +76,6 @@ export function shouldResetClientState({
   persistedUserId,
   nextUserId,
 }: IdentityMarkers): boolean {
-  if (inDocumentUserId !== null && inDocumentUserId !== nextUserId) return true;
+  if (inDocumentUserId !== null) return inDocumentUserId !== nextUserId;
   return persistedUserId !== nextUserId;
 }

@@ -312,6 +312,8 @@ test('an abort during the wait before a resend stops at once', async () => {
   }) as unknown as typeof fetch;
   let settled: unknown;
   const pending = uploadDriveFile(D, '/a/x', new Blob(['a']), { signal: controller.signal }).catch((e: unknown) => (settled = e));
+  // From the request on (the Blob is read to bytes first, in turns of its own).
+  for (let turn = 0; turn < 50 && calls.length === 0; turn++) await new Promise((resolve) => setImmediate(resolve));
   await new Promise((resolve) => setTimeout(resolve, 0));
   // Two event-loop turns, not the 500 ms wait: no wall clock, so load cannot flake it.
   await new Promise((resolve) => setImmediate(resolve));
@@ -556,4 +558,12 @@ test('a file-backed Blob above 64 MiB uploads over a real socket', async () => {
     configureKortix({ backendUrl: 'http://test.local', getToken: async () => 'tok' });
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test('a single upload sends the Blob as bytes: a compiled Bun crashes on a file-backed Blob body', async () => {
+  respond(200, { path: '/a/x.txt', size: 3 });
+  await uploadDriveFile(D, '/a/x.txt', new Blob(['abc']));
+  const body = last().body;
+  expect(body).toBeInstanceOf(Uint8Array);
+  expect(new TextDecoder().decode(body as Uint8Array)).toBe('abc');
 });

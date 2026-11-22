@@ -2,8 +2,9 @@
 
 Run the guide below as written. This template adds five steps at the points
 named here. The loop is one agent, `recruiting`, with one contract skill,
-`recruiting-loop`, and six task skills. Its files are under
-`.kortix/recruiting/`: read `skills/recruiting-loop/SKILL.md` once before you
+`recruiting-loop`, and six task skills. Its files are `recruiting.yaml`,
+`recruiting.json`, `agents/recruiting.md` and `skills/recruiting-*/`: read
+`skills/recruiting-loop/SKILL.md` once before you
 start, so you know the fairness rules, the system of record, the sources and
 the approval modes you set up.
 
@@ -13,7 +14,7 @@ its recommended answer. Never ask it where it appears.
 ### A. In guide steps 2 to 4: analyse the team, then recruiting.json
 
 1. Run every check of
-   `.kortix/recruiting/skills/recruiting-loop/references/analysis.md`: the
+   `skills/recruiting-loop/references/analysis.md`: the
    connected connectors (`kortix connectors ls --json`), the env names
    (`kortix env push --from <file> --names --json`), the README and any
    careers form handler in the code, the public careers page. Read only;
@@ -30,7 +31,7 @@ its recommended answer. Never ask it where it appears.
    mailbox, the record) and the retention period (`retention_days`, default
    180). Say plainly: a person decides every advance and every reject, and
    the agent never sends a message.
-5. Write `.kortix/recruiting/recruiting.json` (analysis section 5). Turn each
+5. Write `recruiting.json` (analysis section 5). Turn each
    chosen source's trigger on and every other source's trigger off in
    `recruiting.yaml`.
 

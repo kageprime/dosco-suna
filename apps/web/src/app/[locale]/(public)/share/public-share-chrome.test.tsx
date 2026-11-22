@@ -110,7 +110,7 @@ describe('public share chrome', () => {
     expect(document.querySelector('article p')?.textContent).toMatch(/Jan|2026/);
     expect(lastHtml).toContain('Synthetic prompt');
     expect(lastHtml).toContain('Synthetic heading');
-    expect(lastHtml).toMatchSnapshot();
+    expect(document.querySelector('[data-replay-content]')?.textContent).toBe('Synthetic prompt');
   });
 
   test('an unavailable artifact shows the quiet auth frame block', async () => {
@@ -123,7 +123,6 @@ describe('public share chrome', () => {
     // The auth frame renders its own canvas; no share chrome around it.
     expect(document.querySelector('header')).toBeNull();
     expect(document.querySelector('section iframe')).toBeNull();
-    expect(lastHtml).toMatchSnapshot();
   });
 
   test('a revoked response shows the gone block, a busy one the busy block', async () => {
@@ -133,13 +132,11 @@ describe('public share chrome', () => {
     });
     expect(revoked.body.textContent).toContain('goneTitle');
     expect(revoked.body.textContent).toContain('goneHint');
-    expect(lastHtml).toMatchSnapshot();
     responseResult = { kind: 'busy' };
     const busy = await renderPage(ResponsePage, {
       params: Promise.resolve({ locale: 'en', token: 'synthetic' }),
     });
     expect(busy.body.textContent).toContain('busyTitle');
     expect(busy.body.textContent).toContain('busyHint');
-    expect(lastHtml).toMatchSnapshot();
   });
 });

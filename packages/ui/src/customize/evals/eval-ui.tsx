@@ -65,14 +65,9 @@ export const EVAL_TIME: Intl.DateTimeFormatOptions = {
 };
 
 /** The tone of a job's status: green when every trial ended clean, orange with errors. */
-/** The status a job's badge reads: `cancelling` while a soft cancel lets running trials finish. */
-export const jobStatusKey = (job: Pick<WorkspaceEvalJob, 'status' | 'cancel_mode'>): string =>
-  job.cancel_mode === 'soft' && job.status !== 'cancelled' && job.status !== 'completed' ? 'cancelling' : job.status;
-
 export function jobTone(job: Pick<WorkspaceEvalJob, 'status' | 'stats'>): StatusTone {
   if (job.status === 'completed') return job.stats.n_errored ? 'warning' : 'success';
   if (job.status === 'cancelled') return 'neutral';
-  if (job.status === 'paused') return 'warning';
   return 'info';
 }
 
@@ -375,7 +370,7 @@ export function JobsTable({
                 </span>
               </TableCell>
               <TableCell>
-                <StatusBadge tone={jobTone(job)}>{t(`status.${jobStatusKey(job)}`)}</StatusBadge>
+                <StatusBadge tone={jobTone(job)}>{t(`status.${job.status}`)}</StatusBadge>
               </TableCell>
               <TableCell className="hidden w-40 sm:table-cell">
                 <span className="flex flex-col gap-1">

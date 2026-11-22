@@ -3,6 +3,8 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, sy
 import { tmpdir } from 'node:os'
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
+import { validateToolArguments, type ToolCall } from '@earendil-works/pi-ai'
+import { createWorkspaceTools } from '@/harness/pi/tools'
 import { PermissionBroker, compilePermissionPolicy } from '@/harness/pi/interactions'
 import imageGen, { IMAGE_GEN_SESSION_LIMIT, IMAGE_GEN_TURN_LIMIT } from '@/services/tools/kortix/image_gen'
 import imageSearch from '@/services/tools/kortix/image_search'
@@ -712,6 +714,81 @@ describe('show', () => {
     await expect(show({})).rejects.toThrow("'type' is required.")
     await expect(show({ type: 'url' })).rejects.toThrow("'url' is required when type is 'url'.")
     await expect(show({ type: 'text' })).rejects.toThrow("'content' is required when type is 'text'.")
+  })
+
+  describe('explicit type contract: a single item names its type, items need no outer type', () => {
+    // The exact call of the 2026-11-16 incident: a url, a title, a description, no type, no items.
+    const INCIDENT = {
+      action: 'show',
+      url: 'https://example.test/workspaces/synthetic/artifacts/synthetic',
+      title: 'Automation use-case catalog',
+      description: 'Private artifact. 108 use cases, filterable by process, status and priority.',
+    }
+    /** pi's own pre-execution check of a tool call against this schema (agent-loop: validateToolArguments). */
+    const piValidates = (args: ToolCall['arguments']) => validateToolArguments({ name: 'show', description: '', parameters: showTool.parameters as never }, { type: 'toolCall', id: 'c1', name: 'show', arguments: args })
+
+    /** The show tool as the pi Agent runs it: pi calls `prepareArguments` before the schema check, the permission gate and execute. */
+    const piShow = () => createWorkspaceTools(dir, [{ ...showTool, name: 'show', source: 'kortix' }]).find((tool) => tool.name === 'show')!
+    const HINT = "'type' is required. Use one of: file, image, url, text, error, video, audio, code, markdown, pdf, html, csv, xlsx, docx, pptx. A single item names its own type (type='url' for a link); several items go in 'items'."
+
+    test('the incident payload is refused at the pre-execution boundary, naming the fix', () => {
+      expect(() => piShow().prepareArguments!(INCIDENT)).toThrow(HINT)
+      expect(() => piShow().prepareArguments!({ ...INCIDENT, type: '' })).toThrow(HINT)
+      expect(() => piShow().prepareArguments!({ ...INCIDENT, type: null })).toThrow(HINT)
+    })
+
+    test('the boundary passes a typed single item, items with no or an empty outer type, and an empty items value beside a type', () => {
+      const items = JSON.stringify([{ type: 'url', url: INCIDENT.url }])
+      for (const args of [{ ...INCIDENT, type: 'url' }, { action: 'show', items }, { action: 'show', type: '', items }, { ...INCIDENT, type: 'url', items: 'null' }]) {
+        expect(piShow().prepareArguments!(args)).toEqual(args)
+      }
+      expect(() => piShow().prepareArguments!({ action: 'show', items: 'not json' })).toThrow("Invalid JSON in 'items' parameter.")
+    })
+
+    test('execute refuses the incident payload too (a direct or ejected call skips the harness)', async () => {
+      await expect(showTool.execute(INCIDENT, ctx())).rejects.toThrow(HINT)
+    })
+
+    test('the same payload with type url is shown, through pi validation and execute', async () => {
+      const args = piValidates({ ...INCIDENT, type: 'url' })
+      const result = JSON.parse(out(await showTool.execute(args, ctx())))
+      expect(result.entry).toMatchObject({ type: 'url', variant: 'full', url: INCIDENT.url, title: INCIDENT.title })
+    })
+
+    test('pi rejects an unknown type from the schema alone, before execute runs', () => {
+      expect(() => piValidates({ ...INCIDENT, type: 'link' })).toThrow('Validation failed for tool "show"')
+    })
+
+    test('multi-item mode needs no outer type: pi validation passes and each item carries its own', async () => {
+      const items = JSON.stringify([
+        { type: 'url', url: INCIDENT.url, title: 'Catalog' },
+        { type: 'text', content: 'done', title: 'Note' },
+      ])
+      const args = piValidates({ action: 'show', title: 'Two', items })
+      const result = JSON.parse(out(await showTool.execute(args, ctx())))
+      expect(result.items.map((item: { type: string }) => item.type)).toEqual(['url', 'text'])
+      expect(result).not.toHaveProperty('warnings')
+    })
+
+    test('an empty outer type beside items is ignored, as the contract says; an empty single type is still rejected', async () => {
+      const items = JSON.stringify([{ type: 'url', url: INCIDENT.url }])
+      const result = JSON.parse(out(await showTool.execute(piValidates({ action: 'show', type: '', items }), ctx())))
+      expect(result.items.map((item: { type: string }) => item.type)).toEqual(['url'])
+      await expect(showTool.execute(piValidates({ ...INCIDENT, type: '' }), ctx())).rejects.toThrow(HINT)
+    })
+
+    test('an item without its own type is a warning beside a good item, and an error alone', async () => {
+      const result = JSON.parse(out(await show({ items: JSON.stringify([{ url: INCIDENT.url }, { type: 'url', url: INCIDENT.url }]) })))
+      expect(result.items).toHaveLength(1)
+      expect(result.warnings).toEqual(["Item 0: 'type' is required. Use one of: " + 'file, image, url, text, error, video, audio, code, markdown, pdf, html, csv, xlsx, docx, pptx.'])
+      await expect(show({ items: JSON.stringify([{ url: INCIDENT.url }]) })).rejects.toThrow("Item 0: 'type' is required.")
+    })
+
+    test('the schema states the contract in the type description and enum; the boundary, not the schema, requires it', () => {
+      const parameters = showTool.parameters as { properties: Record<string, { enum?: string[]; description: string }> }
+      expect(parameters.properties.type!.enum).toEqual(['', 'file', 'image', 'url', 'text', 'error', 'video', 'audio', 'code', 'markdown', 'pdf', 'html', 'csv', 'xlsx', 'docx', 'pptx'])
+      expect(parameters.properties.type!.description).toContain("Required unless 'items' is given")
+    })
   })
 
   test('items become one carousel; a bad item is a warning while a good one remains', async () => {

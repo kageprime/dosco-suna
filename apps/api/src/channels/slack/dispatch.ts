@@ -244,40 +244,21 @@ export async function isStarterReplyInOwnThread(projectId: string, teamId: strin
   return origin?.thread_ts === event.thread_ts && origin.channel === event.channel && origin.user === event.user;
 }
 
-const CHANNEL_INTRO_FALLBACK = "Kortix is now connected to this channel. Mention @Kortix with a task to get started.";
+const CHANNEL_INTRO_FALLBACK = 'Kortix is connected. Mention @Kortix to start a task. Mention Kortix in the thread to follow up.';
 
 async function postChannelIntro(projectId: string, channelId: string): Promise<void> {
   const token = await loadSlackTokenForProject(projectId);
   if (!token) return;
-  const [project] = await db
-    .select({ name: projectsView.name })
-    .from(projectsView)
-    .where(eq(projectsView.projectId, projectId))
-    .limit(1);
-  const projectLine = project?.name
-    ? `This channel is connected to *${escapeMrkdwn(project.name)}*.`
-    : 'This channel is connected to a Kortix workspace.';
   const blocks: Array<Record<string, unknown>> = [
     {
       type: 'header',
-      text: { type: 'plain_text', text: 'Kortix is connected to this channel', emoji: false },
+      text: { type: 'plain_text', text: 'Kortix is connected.', emoji: false },
     },
     {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: [
-          '`@`-mention Kortix with a task and an agent gets on it — working across your connected tools and replying right here in the thread. Tag Kortix again in the thread to follow up — it reads the thread first.',
-          projectLine,
-          'Agent, model, and session policy settings are shared by this Slack channel.',
-          '',
-          'Try something like:',
-          '• `@Kortix summarize this thread and draft a reply to the customer`',
-          '• `@Kortix pull last week’s signups, group them by source, and drop a CSV here`',
-          '• `@Kortix put together a one-pager on our Q2 numbers`',
-          '',
-          'Use the app slash command with `help` to see channel settings.',
-        ].join('\n'),
+        text: 'Mention @Kortix to start a task. Mention Kortix in the thread to follow up.',
       },
     },
   ];

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Kortix",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Let Kortix agents use this browser, with you watching.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmUk5wVZuybiXqt+Oxvm3UoMAoQvJNf7vL0LD0x+ohjIiIrHh0hmDjVVPPG15j0gPWoIiP4U5uLzjxBWTOZspSyORnk7otwvPuZ/yi7MPArA5xgdaeiLxgY6fIkeBzIa/FWKf3btum9xjUAPLmn6k3GYJWpy/9pltZRHN70Yy249ytq2O37vBpfwFY8FPlSaPykUx3pmrDHhwXGdc5lIx6ArdbiILeB87u0BibpDvte80wa6XSnBiXMxYdIlvu/YUf2RwEy7PxFqMb+JJJTpKR/w7WbUi4aGFBNHo+LU1dH3Grw4N9WZGYDvfVWeaCH3Ac530RQzyw5WEMynzMlm4/QIDAQAB",
   "minimum_chrome_version": "125",

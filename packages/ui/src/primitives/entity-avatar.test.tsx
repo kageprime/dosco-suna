@@ -83,7 +83,7 @@ describe('EntityAvatar — what the tile shows', () => {
   test('the emoji beats an icon component', () => {
     // The icon branch is the one an `emoji ? … : IconComponent ? …` chain gets
     // wrong when the two are swapped: with the icon checked first, every
-    // marketplace/account tile that passes BOTH would keep showing the icon
+    // account tile that passes BOTH would keep showing the icon
     // and the project emoji would never appear.
     const html = render({ label: 'Demo', icon: RocketIcon, emoji: '🚀' });
 

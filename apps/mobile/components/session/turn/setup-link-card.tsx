@@ -31,6 +31,7 @@ import { KeyIcon } from '@/lib/icons';
 import type { SetupLinkKind } from '@/lib/markdown/setup-links';
 import { openLink } from '@/lib/utils/open-link';
 import { THEME, withAlpha } from '@/lib/utils/theme';
+import { useTone } from '@/lib/utils/tone';
 import { ConnectorAppMark } from '../connector-handshake';
 import { ConnectorHandoffContext } from '../tool/shared/connector-handoff-context';
 import { RESULT_ROW_TILE } from '../tool/shared/result-row';
@@ -47,6 +48,7 @@ interface SetupLinkCardProps {
 
 export function SetupLinkCard({ kind, token, href, label }: SetupLinkCardProps) {
   const handoff = React.useContext(ConnectorHandoffContext);
+  const orange = THEME.accent[useTone()].orange;
   const queryClient = useQueryClient();
   // Links connected from a card in this app run, kept in the query cache: the
   // transcript recycles its rows while the browser is open, and the card that
@@ -81,9 +83,9 @@ export function SetupLinkCard({ kind, token, href, label }: SetupLinkCardProps) 
               width: RESULT_ROW_TILE,
               height: RESULT_ROW_TILE,
               borderRadius: 8,
-              backgroundColor: withAlpha(THEME.accent.orange, 0.15),
+              backgroundColor: withAlpha(orange, 0.15),
             }}>
-            <Icon as={KeyIcon} size={20} weight="fill" color={THEME.accent.orange} />
+            <Icon as={KeyIcon} size={20} weight="fill" color={orange} />
           </View>
         }
         title={label || 'Enter credentials'}

@@ -50,7 +50,6 @@ const MARKETING_SOURCES = {
   developers: 'apps/web/src/app/[locale]/(public)/(marketing)/developers/page.tsx',
   enterprise: 'apps/web/src/app/[locale]/(public)/(marketing)/enterprise/page.tsx',
   pricing: 'apps/web/src/app/[locale]/(public)/(marketing)/pricing/page.tsx',
-  marketplace: 'apps/web/src/app/[locale]/(public)/(marketing)/marketplace/page.tsx',
   legal: 'apps/web/src/app/[locale]/(public)/(seo)/legal/page.tsx',
   security: 'apps/web/src/app/[locale]/(public)/(marketing)/security/page.tsx',
   'self-hosted': 'apps/web/src/app/[locale]/(public)/(marketing)/self-hosted/page.tsx',

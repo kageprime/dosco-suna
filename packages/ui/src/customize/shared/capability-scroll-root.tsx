@@ -17,8 +17,7 @@ import { createContext, useContext, useRef, type ReactNode, type RefObject } fro
  * shell. Putting the element in `useState` means every one of them re-renders
  * once on mount to publish a value that only one descendant reads. A ref is
  * stable across renders, so the provider re-renders nothing; consumers resolve
- * `.current` in a layout effect after the ref has attached — the same handoff
- * `AncestorVirtualGrid` uses in `marketplace-paged-grid.tsx:326-331`.
+ * `.current` in a layout effect after the ref has attached.
  *
  * The context defaults to a ref holding `null`, which is exactly what an
  * observer wants when there is no shell: `root: null` means the viewport, so a

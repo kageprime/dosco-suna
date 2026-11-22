@@ -1,3 +1,7 @@
+import { eq } from 'drizzle-orm';
+import { db } from '../shared/db';
+import { projectsView } from '../workspaces/rows';
+import { syncProjectConnectors, type SyncResult } from './sync';
 import { commitManifest, loadManifestForEdit } from '../projects/lib/triggers';
 
 export type ManifestMutationResult =
@@ -24,7 +28,7 @@ export type ManifestCommitResult =
       body?: Record<string, unknown>;
     };
 
-type EditableManifest = Awaited<ReturnType<typeof loadManifestForEdit>>;
+export type EditableManifest = Awaited<ReturnType<typeof loadManifestForEdit>>;
 type ManifestProject = Parameters<typeof loadManifestForEdit>[0];
 
 function isRevisionConflict(result: ManifestCommitResult): boolean {
@@ -85,4 +89,31 @@ export async function mutateManifestWithRetry(
     }
   }
   throw new Error('unreachable connector manifest retry state');
+}
+
+export type CrudResult =
+  | { ok: true; sync?: SyncResult }
+  // `body` overrides the default `{ error }` envelope when the failure has a
+  // machine-readable contract (today: the `feature_disabled` 403).
+  | { ok: false; error: string; status: number; body?: Record<string, unknown> };
+
+export async function loadRow(projectId: string) {
+  const [row] = await db.select().from(projectsView).where(eq(projectsView.projectId, projectId)).limit(1);
+  return row ?? null;
+}
+
+export async function mutateProjectConnectorManifest(
+  projectId: string,
+  accountId: string,
+  operation: string,
+  mutate: (manifest: EditableManifest) => ManifestMutationResult,
+  /** The one connector the edit touches: only it is synced. Omit to sync all. */
+  onlySlug?: string,
+): Promise<CrudResult> {
+  const row = await loadRow(projectId);
+  if (!row) return { ok: false, error: 'project not found', status: 404 };
+  const result = await mutateManifestWithRetry(row, operation, mutate);
+  if (!result.ok) return result;
+  const sync = await syncProjectConnectors(projectId, accountId, onlySlug ? { onlySlugs: new Set([onlySlug]) } : {});
+  return { ok: true, sync };
 }

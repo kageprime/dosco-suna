@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'bun:test';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { SessionRetryDisplay, TurnErrorDisplay, actionableSuggestion, describeTurnErrorRow } from './session-error-banner';
 
@@ -306,5 +308,44 @@ describe('describeTurnErrorRow', () => {
     expect(
       describeTurnErrorRow({ text: 'Upstream failed', gateway: { requestId: 'req_debug' } }),
     ).toEqual({ kind: 'checkpoint', expandable: true });
+  });
+});
+
+// KRTX-5026: OpenRouter answers a mistyped key with 401 "User not found.". The
+// row says the key was refused; the provider's words stay in the fold.
+describe('TurnErrorDisplay — a provider key the provider refused', () => {
+  const gateway = { code: 'provider_key_rejected', provider: 'openrouter', requestId: 'req_key_rejected' };
+  // The row's fix button (`ProviderKeySlot`) reads the project through react-query.
+  const render = (row: ReactElement) =>
+    renderToStaticMarkup(<QueryClientProvider client={new QueryClient()}>{row}</QueryClientProvider>);
+
+  test('closed: the row names the refused key, not the provider text', () => {
+    const html = render(<TurnErrorDisplay errorText="User not found." errorDetails={gateway} />);
+    expect(html).toContain('Your OpenRouter key was rejected. Update it in Models.');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain('User not found.');
+  });
+
+  test('open: the provider text is in the detail', () => {
+    const html = render(
+      <TurnErrorDisplay errorText="User not found." errorDetails={gateway} defaultDetailsOpen />,
+    );
+    expect(html).toContain('Your OpenRouter key was rejected. Update it in Models.');
+    expect(html).toContain('User not found.');
+  });
+
+  test('a bare 401 with no code names the provider of the routed model', () => {
+    const html = render(
+      <TurnErrorDisplay errorText="invalid x-api-key" errorDetails={{ upstreamStatus: 401, resolvedModel: 'anthropic/claude-sonnet-4.6' }} />,
+    );
+    expect(html).toContain('Your Anthropic key was rejected. Update it in Models.');
+  });
+
+  test('another provider failure keeps its own sentence', () => {
+    const html = render(
+      <TurnErrorDisplay errorText="No openai API key is connected." errorDetails={{ code: 'provider_not_connected', provider: 'openai' }} />,
+    );
+    expect(html).toContain('No openai API key is connected.');
+    expect(html).not.toContain('key was rejected');
   });
 });

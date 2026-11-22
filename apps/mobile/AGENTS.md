@@ -554,11 +554,11 @@ that drops props silently breaks the screens that still pass them.
    `isDark ? a : b` pairs in this codebase had their branches swapped — the
    "dark" branch held the lighter value. Check both literals' actual
    lightness before converting a ternary to a token.
-8. `THEME.accent.{blue,yellow,orange,green,purple,red}` is theme-invariant
-   brand color — same value in both themes. `THEME.light.*` / `THEME.dark.*`
-   is semantic and flips per theme. Don't confuse the two `accent` things:
-   `THEME.accent.*` (brand) vs. `THEME.light.accent` / `THEME.dark.accent`
-   (the semantic `--accent` token, which does invert).
+8. `THEME.accent[tone].{blue,yellow,orange,green,purple,red}` is brand
+   color with a light and a dark value (J-7): read it with `useTone()` (or the
+   component's `isDark`), never one theme's value in both. Don't confuse the
+   two `accent` things: `THEME.accent[tone].*` (brand) vs.
+   `THEME.light.accent` / `THEME.dark.accent` (the semantic `--accent` token).
 
 ## Known unmigrated state (not a TODO — don't convert without owning it)
 

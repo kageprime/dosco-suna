@@ -4,7 +4,7 @@
 
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { mapLimit } from '@kortix/registry';
+import { mapWithConcurrency } from '../../shared/map-with-concurrency';
 import { validateRef } from '../git-ref';
 import {
   ensureCommitTrees,
@@ -102,7 +102,7 @@ async function readRemoteBranchTip(
 /**
  * Hash every file's content into a git blob object (`git hash-object -w`),
  * with bounded concurrency — this used to be one subprocess at a time, which
- * dominated wall-clock time for many-file marketplace installs. Each file
+ * dominated wall-clock time for many-file commits. Each file
  * gets its own uniquely-named temp file so concurrent writes never collide,
  * and the returned array preserves input order regardless of completion
  * order (downstream index construction must stay deterministic).
@@ -112,7 +112,7 @@ export async function hashBlobs(
   tempDir: string,
   repoPath: string,
 ): Promise<Array<{ path: string; sha: string }>> {
-  return mapLimit(
+  return mapWithConcurrency(
     files.map((file, i) => ({ file, i })),
     HASH_CONCURRENCY,
     async ({ file, i }) => {
@@ -400,7 +400,7 @@ interface CommitFilesOptions {
  * writes/removals into the branch tip's tree through a throwaway index,
  * `commit-tree` once, then push (creating the branch from an empty tree if it
  * doesn't exist). Used anywhere multiple files need one atomic commit — e.g.
- * an agent-driven marketplace import's change request.
+ * an agent config edit (kortix.yaml plus a prompt file).
  */
 export async function commitMultipleFilesToBranch(
   project: GitBackedProject,

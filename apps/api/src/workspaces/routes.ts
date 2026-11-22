@@ -8,7 +8,8 @@
  *
  * Mounted on `/v1/workspaces` BEFORE the project-route alias
  * (`workspaceProjectsApp`), which leaves these four out. The legacy names keep
- * their old meaning: `GET /v1/projects` lists one account,
+ * their old meaning: `GET /v1/projects` lists the bare project records (every
+ * account of a person, one account with `?account_id=`),
  * `POST /v1/projects/provision` takes `new_workspace`, `GET /v1/projects/:id`
  * is the bare project record. The handlers live in
  * `projects/routes/workspace-records.ts`.
@@ -111,11 +112,9 @@ const CREATE_FIELDS = {
   icon: z.string().optional().openapi({ description: 'Workspace icon name.' }),
   icon_glyph: z.string().optional().openapi({ description: 'Workspace icon glyph.' }),
   provider: z.string().optional().openapi({ description: 'Managed Git provider. Defaults to the deployment default (github).' }),
-  source_item_id: z.string().optional().openapi({ description: 'Marketplace item to clone into the new repository.' }),
   starter_template: z.string().optional().openapi({ description: 'Starter template id to seed the repository.' }),
   default_branch: z.string().optional().openapi({ description: 'Default branch. Default main.' }),
   seed_starter: z.boolean().optional().openapi({ description: 'Set false when the client makes the first commit itself.' }),
-  marketplace_items: z.array(z.any()).optional().openapi({ description: 'Marketplace items to install.' }),
   idempotency_key: z.string().optional().openapi({ description: 'Makes a retry safe: the same key answers the workspace it created.' }),
 };
 
@@ -132,7 +131,7 @@ export function registerWorkspaceRootRoutes(): void {
       tags: ['workspaces'],
       summary: 'List workspaces',
       description:
-        'Every workspace the caller may open, across every account, in one request: most recently opened first, then by name. A workspace-bound key lists its one workspace. The legacy `GET /v1/projects` keeps its old meaning (one account, `?account_id=`).',
+        'Every workspace the caller may open, across every account, in one request: most recently opened first, then by name. A workspace-bound key lists its one workspace. The legacy `GET /v1/projects` lists the bare project records: every account of a person, one account with `?account_id=`.',
       ...auth,
       middleware: [supabaseAuth] as const,
       responses: { 200: json(z.array(WorkspaceSummarySchema), 'The caller’s workspaces'), ...errors(401) },

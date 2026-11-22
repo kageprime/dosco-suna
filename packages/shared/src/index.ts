@@ -11,6 +11,7 @@ export * from "./constants/upload-limits";
 export * from "./constants/auto-topup";
 export * from "./runtime-versions";
 export * from "./project-glyphs";
+export * from "./space-icon";
 export * from "./my-kortix-agent";
 export * from "./environment-secret";
 export * from "./utils/format-relative";

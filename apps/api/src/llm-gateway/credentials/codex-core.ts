@@ -26,6 +26,15 @@ export interface RefreshTokenResponse {
   id_token?: string;
 }
 
+/** A sign-in provider's device-code endpoint answered 5xx: an outage on its side,
+ *  not a Kortix fault. The start route answers it with a typed 503 the clients
+ *  show and do not report (KRTX-5014). */
+export class DeviceAuthUnavailableError extends Error {
+  constructor(label: string) {
+    super(`${label} sign-in is temporarily unavailable. Try again in a moment.`);
+  }
+}
+
 export class CodexRefreshError extends Error {
   /** The provider's error code, when it sent one. */
   readonly code?: string;

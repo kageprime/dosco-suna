@@ -1513,6 +1513,9 @@ export const projectSpaceVisibilityEnum = kortixSchema.enum('project_space_visib
  * before 2026-11-04 may hold `threads` or `memory`: the API drops those on
  * read.
  */
+/** A space's icon (`project_session_groups.icon`): an emoji XOR a catalogue glyph. */
+export type SessionGroupIconRecord = { emoji: string } | { glyph: { name: string; color: string } };
+
 export interface ProjectSpaceTabRecord {
   id: string;
   title: string;
@@ -1952,10 +1955,14 @@ export const projectSessionInitiatorEnum = kortixSchema.enum('project_session_in
 ]);
 
 /**
- * A session group: a named folder of a project's sessions in the sidebar,
- * behind the `session_groups` flag. Every project member sees the same groups
- * in the same order (`position`, 0-based). A session is in at most one group
- * (`project_sessions.group_id`); deleting a group leaves its sessions in none.
+ * A session group (product word "Space"): a named folder of a project's
+ * sessions, behind the `session_groups` flag. `private` (the default): only
+ * its creator and its members (`project_session_group_members`) see it, and
+ * they see every session in it whatever the session's own sharing. `project`:
+ * everyone in the project does. Account session oversight shows every group
+ * to owners and admins. The groups share one order (`position`, 0-based). A
+ * session is in at most one group (`project_sessions.group_id`); deleting a
+ * group leaves its sessions in none, back to their own sharing.
  */
 export const projectSessionGroups = kortixSchema.table(
   'project_session_groups',
@@ -1969,6 +1976,14 @@ export const projectSessionGroups = kortixSchema.table(
       .references(() => projects.projectId, { onDelete: 'cascade' }),
     /** Trimmed, 1–80 characters; unique in the project in any case. */
     name: text('name').notNull(),
+    /** What the space is for, at most 2000 characters (the API checks it). Every session of the space reads it at turn start. */
+    description: text('description'),
+    /** `private` | `project` (check below). */
+    visibility: text('visibility').default('private').notNull(),
+    /** The tabs after Sessions, in order (at most 20): a channel's tab shape (`ProjectSpaceTabRecord`, kinds file|folder|artifact|app|link). */
+    tabs: jsonb('tabs').$type<ProjectSpaceTabRecord[]>().default(sql`'[]'::jsonb`).notNull(),
+    /** `{ emoji }` or `{ glyph: { name, color } }` (the API checks it); null: clients draw the icon `suggestSpaceIcon` gives the name. */
+    icon: jsonb('icon').$type<SessionGroupIconRecord>(),
     position: integer('position').notNull(),
     createdBy: uuid('created_by'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -1977,8 +1992,26 @@ export const projectSessionGroups = kortixSchema.table(
   (table) => [
     check('project_session_groups_name_check', sql`char_length(${table.name}) between 1 and 80`),
     check('project_session_groups_position_check', sql`${table.position} >= 0`),
+    check('project_session_groups_visibility_check', sql`${table.visibility} in ('private', 'project')`),
     uniqueIndex('uniq_project_session_groups_name').on(table.projectId, sql`lower(${table.name})`),
     index('idx_project_session_groups_project').on(table.projectId, table.position),
+  ],
+);
+
+/** The people a private session group (Space) is shared with; its creator is not listed. */
+export const projectSessionGroupMembers = kortixSchema.table(
+  'project_session_group_members',
+  {
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => projectSessionGroups.groupId, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull(),
+    addedBy: uuid('added_by'),
+    addedAt: timestamp('added_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.groupId, table.userId] }),
+    index('idx_project_session_group_members_user').on(table.userId),
   ],
 );
 
@@ -2865,6 +2898,23 @@ export const projectMonitorBoxes = kortixSchema.table(
       .where(sql`${table.status} IN ('provisioning', 'starting', 'running', 'stopping')`),
   ],
 );
+
+/**
+ * Durable reservations serialize hard run caps across every firing replica.
+ * The R2a workspace twin is SQL-managed, like the other project FKs:
+ * project_trigger_admissions_project_id_workspaces_fk is NO ACTION,
+ * DEFERRABLE INITIALLY DEFERRED (not expressible in Drizzle), and NOT VALID.
+ */
+export const projectTriggerAdmissions = kortixSchema.table(
+  'project_trigger_admissions',
+  {
+    admissionId: uuid('admission_id').defaultRandom().primaryKey(),
+    projectId: uuid('project_id').notNull().references(() => projects.projectId, { onDelete: 'cascade' }),
+    slug: varchar('slug', { length: 128 }).notNull(),
+    admittedAt: timestamp('admitted_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index('idx_trigger_admissions_cap').on(table.projectId, table.slug, table.admittedAt)],
+).enableRLS();
 
 /**
  * Durable execution queue for materialized cron slots.
@@ -6172,6 +6222,9 @@ export const appDeployments = kortixSchema.table(
     readyAt: timestamp('ready_at', { withTimezone: true }),
     failedAt: timestamp('failed_at', { withTimezone: true }),
     createdBy: uuid('created_by').notNull(),
+    sourceCommit: text('source_commit'),
+    sourceRef: text('source_ref'),
+    sourceForce: boolean('source_force').default(false).notNull(),
     sourceSessionId: text('source_session_id').references(() => projectSessions.sessionId, {
       onDelete: 'set null',
     }),
@@ -10441,13 +10494,7 @@ export const evalJobs = kortixSchema.table('eval_jobs', {
   /** The `evals:` suite of kortix.yaml the job ran; null for an ad-hoc config. */
   suite: text('suite'),
   jobName: text('job_name').notNull(),
-  status: text('status').$type<'queued' | 'running' | 'paused' | 'completed' | 'cancelled'>().default('queued').notNull(),
-  /**
-   * Set by a cancel. `hard`: running trials stop now. `soft`: queued trials
-   * are cancelled and running ones finish without a retry; the job then ends
-   * `cancelled`. Null: not cancelled.
-   */
-  cancelMode: text('cancel_mode').$type<'soft' | 'hard'>(),
+  status: text('status').$type<'queued' | 'running' | 'completed' | 'cancelled'>().default('queued').notNull(),
   /** The commit the config and the tasks were read at. */
   commitSha: text('commit_sha'),
   ref: text('ref'),
@@ -10477,8 +10524,7 @@ export const evalJobs = kortixSchema.table('eval_jobs', {
   index('idx_eval_jobs_project_created').on(table.projectId, table.createdAt),
   uniqueIndex('uniq_eval_jobs_project_name').on(table.projectId, table.jobName),
   index('idx_eval_jobs_active').on(table.status).where(sql`${table.status} in ('queued', 'running')`),
-  check('eval_jobs_status_check', sql`${table.status} in ('queued', 'running', 'paused', 'completed', 'cancelled')`),
-  check('eval_jobs_cancel_mode_check', sql`${table.cancelMode} in ('soft', 'hard')`),
+  check('eval_jobs_status_check', sql`${table.status} in ('queued', 'running', 'completed', 'cancelled')`),
 ]).enableRLS();
 
 export const evalTrials = kortixSchema.table('eval_trials', {
@@ -10497,7 +10543,7 @@ export const evalTrials = kortixSchema.table('eval_trials', {
   attempt: integer('attempt').notNull(),
   retry: integer('retry').default(0).notNull(),
   status: text('status')
-    .$type<'queued' | 'paused' | 'starting' | 'agent_running' | 'verifying' | 'completed' | 'errored' | 'cancelled'>()
+    .$type<'queued' | 'starting' | 'agent_running' | 'verifying' | 'completed' | 'errored' | 'cancelled'>()
     .default('queued')
     .notNull(),
   sessionId: text('session_id'),
@@ -10526,8 +10572,42 @@ export const evalTrials = kortixSchema.table('eval_trials', {
   index('idx_eval_trials_project_created').on(table.projectId, table.createdAt),
   check(
     'eval_trials_status_check',
-    sql`${table.status} in ('queued', 'paused', 'starting', 'agent_running', 'verifying', 'completed', 'errored', 'cancelled')`,
+    sql`${table.status} in ('queued', 'starting', 'agent_running', 'verifying', 'completed', 'errored', 'cancelled')`,
   ),
+]).enableRLS();
+
+/**
+ * A workspace made for one eval trial (`[metadata.kortix] workspace = "fresh"`,
+ * apps/api/src/projects/evals/trial-workspace.ts). The row is written before
+ * the account exists and outlives it: the workspace switcher hides its account,
+ * the runner's sweep deletes the workspace once the trial ended, and the money
+ * moved for it (budget out of the payer, refund back) stays on record.
+ * No foreign keys: the trial account, its project and the job are deleted
+ * while this row stays.
+ */
+export const evalTrialWorkspaces = kortixSchema.table('eval_trial_workspaces', {
+  trialAccountId: uuid('trial_account_id').primaryKey(),
+  trialProjectId: uuid('trial_project_id').notNull(),
+  trialId: uuid('trial_id').notNull(),
+  jobId: uuid('job_id').notNull(),
+  /** The job's workspace: it pays for the trial and keeps its results. */
+  payerAccountId: uuid('payer_account_id').notNull(),
+  jobProjectId: uuid('job_project_id').notNull(),
+  /** The person the trial acts as: the owner of the trial workspace. */
+  ownerUserId: uuid('owner_user_id').notNull(),
+  budgetUsd: numeric('budget_usd', { precision: 12, scale: 4 }).default('0').notNull(),
+  fundedAt: timestamp('funded_at', { withTimezone: true }),
+  /** What went back to the payer (negative: the trial spent past its budget, and the payer paid the rest). */
+  refundUsd: numeric('refund_usd', { precision: 12, scale: 4 }),
+  settledAt: timestamp('settled_at', { withTimezone: true }),
+  /** The sweep deletes the workspace after this: late compute and model charges land first. */
+  cleanupAfter: timestamp('cleanup_after', { withTimezone: true }),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  lastError: text('last_error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('uniq_eval_trial_workspaces_trial').on(table.trialId),
+  index('idx_eval_trial_workspaces_live').on(table.cleanupAfter).where(sql`${table.deletedAt} is null`),
 ]).enableRLS();
 
 // ─── Calendar (flag `calendar`) ─────────────────────────────────────────────

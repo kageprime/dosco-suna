@@ -101,7 +101,7 @@ export function useLiveWorkflowRun(
 export function useSaveWorkflowPrompt() {
   const t = useTranslations('multiAgent.workflow');
   return (run: WorkflowRun) =>
-    t('savePrompt', { title: run.title || run.name || run.runId, runId: run.runId, file: `.kortix/workflows/${workflowFileName(run)}.js` });
+    t('savePrompt', { title: run.title || run.name || run.runId, runId: run.runId, file: `workflows/${workflowFileName(run)}.js` });
 }
 
 export function LargeRunBadge() {

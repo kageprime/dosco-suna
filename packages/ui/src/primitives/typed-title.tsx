@@ -19,7 +19,7 @@
 import { shouldTypeOnChange, TYPE_SPEED_MS } from './typed-title-logic';
 import { TypingAnimation } from './typing-animation';
 import { cn } from '../lib/utils';
-import { useReducedMotion } from '../internal/hooks/use-reduced-motion';
+import { useReducedMotion } from '../lib/reduced-motion';
 import { useCallback, useState } from 'react';
 
 export { TYPE_SPEED_MS };

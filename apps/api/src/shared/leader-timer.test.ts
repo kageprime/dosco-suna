@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, jest, mock, test } from 'bun:test';
 import { DrizzleQueryError } from 'drizzle-orm/errors';
 
 let leader = true;
@@ -16,6 +16,32 @@ mock.module('../lib/logger', () => ({
 }));
 const { leaderTimer } = await import('./leader-timer');
 
+// Time is fake: each test steps the clock 1 ms at a time and lets the promise
+// chains between timers settle, so no assertion depends on the host's speed.
+// (The real-time version failed in CI with 3 ticks where 2 were due.)
+let clock = 0;
+const flush = async () => {
+  for (let i = 0; i < 50; i++) await Promise.resolve();
+};
+const advance = async (ms: number) => {
+  await flush();
+  for (let t = 0; t < ms; t++) {
+    jest.advanceTimersByTime(1);
+    clock += 1;
+    await flush();
+  }
+};
+const fakeSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+beforeEach(() => {
+  clock = 0;
+  jest.useFakeTimers();
+});
+afterEach(() => {
+  jest.clearAllTimers();
+  jest.useRealTimers();
+});
+
 describe('leaderTimer', () => {
   test('a stop then start while a tick runs leaves one chain, not two', async () => {
     leader = true;
@@ -31,7 +57,7 @@ describe('leaderTimer', () => {
     timer.stop();
     timer.start();
     release();
-    await Bun.sleep(130);
+    await advance(130);
     timer.stop();
     // One chain at ~20 ms spacing gives about 6 ticks. Two chains give about 12.
     expect(ticks).toBeLessThan(9);
@@ -53,15 +79,15 @@ describe('leaderTimer', () => {
       return 1_000;
     });
     timer.start();
-    await Bun.sleep(20);
+    await advance(20);
     expect(runs).toBe(1);
     timer.stop();
     timer.start();
     // The next run is due at once; it waits for the first run, however long that takes.
-    await Bun.sleep(100);
+    await advance(100);
     expect(runs).toBe(1);
     release();
-    await Bun.sleep(50);
+    await advance(50);
     timer.stop();
     // The second run returned 1 s: no third run in the 50 ms window.
     expect([runs, maxActive]).toEqual([2, 1]);
@@ -75,7 +101,7 @@ describe('leaderTimer', () => {
       return 10;
     });
     timer.start();
-    await Bun.sleep(40);
+    await advance(40);
     timer.stop();
     expect(ticks).toBe(0);
   });
@@ -92,11 +118,11 @@ describe('leaderTimer', () => {
       return 60_000;
     });
     timer.start();
-    await Bun.sleep(10);
+    await advance(10);
     const stopped = Promise.resolve(timer.stop()).then(() => {
       stopResolved = true;
     });
-    await Bun.sleep(5);
+    await advance(5);
     expect(settled).toBe(false); // the tick is still in flight
     expect(stopResolved).toBe(false); // stop() has not resolved yet
     release();
@@ -113,11 +139,11 @@ describe('leaderTimer', () => {
       return 0;
     });
     timer.start();
-    await Bun.sleep(25);
+    await advance(25);
     expect(ticks).toBeGreaterThanOrEqual(3);
     timer.stop();
     const seen = ticks;
-    await Bun.sleep(25);
+    await advance(25);
     expect(ticks).toBe(seen);
   });
 
@@ -129,10 +155,10 @@ describe('leaderTimer', () => {
       return 10;
     });
     timer.start();
-    await Bun.sleep(35);
+    await advance(35);
     timer.stop();
     const seen = ticks;
-    await Bun.sleep(40);
+    await advance(40);
     expect(ticks).toBe(seen);
   });
 
@@ -144,12 +170,12 @@ describe('leaderTimer', () => {
       return 40;
     });
     timer.start();
-    await Bun.sleep(5);
+    await advance(5);
     expect(ticks).toBe(1);
     timer.wake();
-    await Bun.sleep(20);
+    await advance(20);
     expect(ticks).toBe(1); // still armed at 40 ms
-    await Bun.sleep(45);
+    await advance(45);
     expect(ticks).toBe(2); // the armed tick fired on its own delay
     timer.stop();
   });
@@ -165,12 +191,12 @@ describe('leaderTimer', () => {
       return 60_000;
     });
     timer.start();
-    await Bun.sleep(10);
+    await advance(10);
     expect(ticks).toBe(1); // the first run is held by the gate
     timer.wake();
     timer.wake();
     release();
-    await Bun.sleep(30);
+    await advance(30);
     expect(ticks).toBe(2); // one extra tick, not one per wake
     timer.stop();
   });
@@ -181,17 +207,17 @@ describe('leaderTimer', () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => (release = resolve));
     const timer = leaderTimer(async () => {
-      runs.push(Date.now());
+      runs.push(clock);
       if (runs.length === 1) await gate;
       // The held run returns a huge idle delay; the wake tick returns 0 (backlog).
       return runs.length === 2 ? 0 : 60_000;
     });
     timer.start();
-    await Bun.sleep(10); // run 1 is held by the gate
+    await advance(10); // run 1 is held by the gate
     timer.wake();
-    await Bun.sleep(5); // the 0 ms wake timer fires and takes over the next fire
+    await advance(5); // the 0 ms wake timer fires and takes over the next fire
     release(); // run 1 finishes while the wake tick is already waiting behind it
-    await Bun.sleep(80);
+    await advance(80);
     await timer.stop();
     // Run 1 finished with 60_000 and must not arm it over the waiting wake tick;
     // the wake tick re-runs, returns 0, and that 0 re-arms run 3 at once.
@@ -212,18 +238,18 @@ describe('leaderTimer', () => {
       active += 1;
       maxActive = Math.max(maxActive, active);
       if (runs === 1) await gate;
-      else await Bun.sleep(20);
+      else await fakeSleep(20);
       active -= 1;
       return 2_000;
     });
     timer.start();
-    await Bun.sleep(10); // run 1 is held by the gate
+    await advance(10); // run 1 is held by the gate
     timer.wake();
-    await Bun.sleep(10); // the wake timer fired; its tick now waits behind run 1
+    await advance(10); // the wake timer fired; its tick now waits behind run 1
     timer.wake(); // must not queue a second waiter against the same run
-    await Bun.sleep(10);
+    await advance(10);
     release();
-    await Bun.sleep(60);
+    await advance(60);
     await timer.stop();
     expect([runs, maxActive]).toEqual([2, 1]);
   });
@@ -246,7 +272,7 @@ describe('leaderTimer', () => {
       { name: 'workspace-split' },
     );
     timer.start();
-    await Bun.sleep(20);
+    await advance(20);
     timer.stop();
     const entry = errorLogs.find((e) => e.message.includes('tick failed'));
     if (!entry) throw new Error('no tick-failed log line was written');
@@ -269,7 +295,7 @@ describe('leaderTimer', () => {
       { name: 'workspace-split' },
     );
     timer.start();
-    await Bun.sleep(20);
+    await advance(20);
     timer.stop();
     const entry = errorLogs.find((e) => e.message.includes('tick failed'));
     if (!entry) throw new Error('no tick-failed log line was written');

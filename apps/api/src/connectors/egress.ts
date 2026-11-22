@@ -24,6 +24,7 @@ import { config } from '../config';
 import { isPrivateIp, safeEgressFetch, UnsafeEgressError } from '../shared/ssrf-guard';
 import { isIP } from 'node:net';
 import type { FetchImpl } from './call';
+import { googleServiceForUrl } from './google/host';
 
 /** Stable prefix of the error a refused connector request carries. */
 export const CONNECTOR_EGRESS_BLOCKED = 'connector_egress_blocked';
@@ -39,6 +40,20 @@ const configuredAllowHosts = (): readonly string[] => config.KORTIX_CONNECTOR_EG
 export function createConnectorEgressFetch(options: ConnectorEgressOptions = {}): FetchImpl {
   const allowPrivateHosts = options.allowPrivateHosts ?? configuredAllowHosts;
   return async (url, init) => {
+    // Kortix's own Google MCP servers run inside this process (google/host.ts):
+    // the request never leaves it, and their name does not resolve in DNS.
+    if (googleServiceForUrl(url)) {
+      const { dispatchGoogleMcp } = await import('./google/server');
+      const res = await dispatchGoogleMcp(
+        new Request(url, { method: init.method, headers: init.headers, body: init.body, signal: init.signal }),
+      );
+      return {
+        status: res.status,
+        ok: res.ok,
+        text: () => (init.maxResponseBytes ? readCapped(res, init.maxResponseBytes) : res.text()),
+        headers: res.headers,
+      };
+    }
     let res: Response;
     try {
       res = await safeEgressFetch(url, {

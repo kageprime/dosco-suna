@@ -103,6 +103,8 @@ const stored = new Map<string, Uint8Array>();
 let hangDelete = false;
 /** A Storage GET that fails as an outage (5xx), not as a missing object. */
 let failGet = false;
+let signResets = 0;
+let signStatus: number | undefined;
 /** A Storage write refused for size (the bucket limit is below the file). */
 let refuseWriteForSize = false;
 const bucketPath = (path: string) => path.slice(path.indexOf('/staged-files/'));
@@ -124,6 +126,8 @@ globalThis.fetch = Object.assign(
       return Response.json({ url: `${path.slice('/storage/v1'.length)}?token=signed-token` });
     }
     if (path.startsWith('/storage/v1/object/sign/')) {
+      if (signResets-- > 0) throw Object.assign(new Error('ECONNRESET: The socket connection was closed unexpectedly.'), { code: 'ECONNRESET' });
+      if (signStatus) return Response.json({ message: 'synthetic storage refusal' }, { status: signStatus });
       if (!stored.has(bucketPath(path)) && !object) return Response.json({ statusCode: '404', error: 'not_found' }, { status: 400 });
       return Response.json({ signedURL: `${path.slice('/storage/v1'.length)}?token=read-token` });
     }
@@ -176,6 +180,8 @@ beforeEach(() => {
   stored.clear();
   hangDelete = false;
   failGet = false;
+  signResets = 0;
+  signStatus = undefined;
   refuseWriteForSize = false;
   config.PROMPT_ATTACHMENT_UPLOAD_MODE = 'direct';
   config.PROMPT_ATTACHMENT_CHUNK_BYTES = 65536;
@@ -447,6 +453,7 @@ test('re-signing an upload whose object already landed returns a target, not a 5
 test('a signed download URL for a missing object answers 404 attachment_not_found', async () => {
   const storageModule = await import('./prompt-attachment-storage');
   await expect(storageModule.signedDownloadUrl('a/b/c/file', 60)).rejects.toMatchObject({ status: 404, code: 'attachment_not_found' });
+  expect(storage).toHaveLength(1);
 });
 
 test('a chunk Storage refuses for size answers 413 attachment_size_limit, not a retry', async () => {
@@ -457,4 +464,29 @@ test('a chunk Storage refuses for size answers 413 attachment_size_limit, not a 
   await expect(
     attachments.uploadPromptAttachmentChunk(scope, handle.attachment_id, 0, new Uint8Array([1, 2, 3, 4])),
   ).rejects.toMatchObject({ status: 413, code: 'attachment_size_limit' });
+});
+
+test('signed download recovers from one socket reset', async () => {
+  const { signedDownloadUrl } = await import('./prompt-attachment-storage');
+  object = new Uint8Array([1]);
+  signResets = 1;
+  expect(await signedDownloadUrl('a/b/c/file', 60)).toContain('read-token');
+  expect(storage).toHaveLength(2);
+});
+
+test('signed download bounds socket-reset retries at two attempts', async () => {
+  const { signedDownloadUrl } = await import('./prompt-attachment-storage');
+  signResets = 3;
+  await expect(signedDownloadUrl('a/b/c/file', 60)).rejects.toMatchObject({ status: 503, code: 'attachment_storage_unavailable' });
+  expect(storage).toHaveLength(2);
+});
+
+test('signed download does not retry permanent or unclassified HTTP failures', async () => {
+  const { signedDownloadUrl } = await import('./prompt-attachment-storage');
+  for (const status of [400, 401, 403, 500]) {
+    storage.length = 0;
+    signStatus = status;
+    await expect(signedDownloadUrl('a/b/c/file', 60)).rejects.toMatchObject({ status: 503 });
+    expect(storage).toHaveLength(1);
+  }
 });

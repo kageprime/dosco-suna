@@ -46,7 +46,6 @@ function toPost(page: any): Post {
       tags: d.tags,
       cover: d.cover,
       draft: d.draft,
-      template: d.template,
     },
     author: resolveAuthor(d.author),
     readingTime: readingTimeFor(USE_CASES_DIR, slug),

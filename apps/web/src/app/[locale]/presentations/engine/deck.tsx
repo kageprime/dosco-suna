@@ -253,7 +253,7 @@ export function Deck({
         </div>
 
         {/* slide label, bottom-left */}
-        <div className="text-muted-foreground/70 pointer-events-none absolute bottom-6 left-6 font-mono text-xs tracking-wider uppercase sm:left-8">
+        <div className="text-muted-foreground pointer-events-none absolute bottom-6 left-6 font-mono text-xs tracking-wider uppercase sm:left-8">
           {slide.label}
         </div>
       </div>
@@ -277,7 +277,7 @@ export function Deck({
         </Ctrl>
         <span className="text-muted-foreground px-2 font-mono text-xs tabular-nums">
           {String(index + 1).padStart(2, '0')}
-          <span className="text-muted-foreground/40"> / {String(total).padStart(2, '0')}</span>
+          <span className="text-muted-foreground"> / {String(total).padStart(2, '0')}</span>
         </span>
         {/* Build pips — how many presses are left on this slide. */}
         {slideSteps > 0 ? (
@@ -372,11 +372,11 @@ export function Deck({
                       : [(s.notes as string | undefined) ?? '—'];
                     return (
                       <li key={s.id} className="flex gap-4">
-                        <span className="text-muted-foreground/50 w-6 shrink-0 pt-0.5 font-mono text-xs tabular-nums">
+                        <span className="text-muted-foreground w-6 shrink-0 pt-0.5 font-mono text-xs tabular-nums">
                           {String(i + 1).padStart(2, '0')}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-muted-foreground/70 font-mono text-[10px] tracking-widest uppercase">
+                          <p className="text-muted-foreground font-mono text-[10px] tracking-widest uppercase">
                             {s.label}
                           </p>
                           {lines.map((line, li) => (
@@ -385,7 +385,7 @@ export function Deck({
                               className="text-foreground mt-1.5 text-[15px] leading-relaxed whitespace-pre-line"
                             >
                               {lines.length > 1 ? (
-                                <span className="text-muted-foreground/40 font-mono text-[11px]">
+                                <span className="text-muted-foreground font-mono text-[11px]">
                                   {`→${li} `}
                                 </span>
                               ) : null}
@@ -519,7 +519,7 @@ function Thumb({
         </div>
       </div>
       <div className="flex items-center gap-2 px-0.5">
-        <span className="text-muted-foreground/60 font-mono text-xs tabular-nums">
+        <span className="text-muted-foreground font-mono text-xs tabular-nums">
           {String(n).padStart(2, '0')}
         </span>
         <span

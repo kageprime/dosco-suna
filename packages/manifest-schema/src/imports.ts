@@ -2,8 +2,8 @@
  * Manifest imports — split one `kortix.yaml` across several YAML files.
  *
  *     imports:
- *       - .kortix/triggers/          # a directory: every .yaml/.yml under it
- *       - .kortix/agents.yaml        # a single file
+ *       - triggers/                  # a directory: every .yaml/.yml under it
+ *       - software-factory.yaml      # a single file
  *
  * An imported file declares only the COLLECTIONS — `triggers`, `connectors`,
  * `agents`, `apps`, `tools`, `skills`, `commands`, `extensions` — and may itself

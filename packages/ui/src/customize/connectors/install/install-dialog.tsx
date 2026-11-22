@@ -24,7 +24,12 @@ import { wayKindLabel, type WayKind } from './way-kind';
 export interface InstallWay {
   kind: WayKind;
   oneClick: boolean;
+  /** The server URL of an MCP way, when the catalogue has one. */
+  url?: string | null;
 }
+
+/** Kortix's own Google servers (the API's `connectors/google`): Kortix connects, not the vendor's MCP server. */
+const KORTIX_GOOGLE_MCP = 'https://google.mcp.kortix.com/';
 
 /**
  * Install → this dialog → the connector. The text says which way it
@@ -125,6 +130,9 @@ export function wayDescription(
 ): string {
   if (way.kind === 'composio') return t('wayComposio', { name: appName });
   if (way.kind === 'kortix') return t('wayChannel', { name: appName });
-  if (way.kind === 'mcp') return way.oneClick ? t('wayMcpOneClick', { name: appName }) : t('wayMcpSetup', { name: appName });
+  if (way.kind === 'mcp') {
+    if (way.url?.startsWith(KORTIX_GOOGLE_MCP)) return t('wayKortixGoogle', { name: appName });
+    return way.oneClick ? t('wayMcpOneClick', { name: appName }) : t('wayMcpSetup', { name: appName });
+  }
   return t('wayApi', { name: appName, kind: wayKindLabel(way.kind) });
 }

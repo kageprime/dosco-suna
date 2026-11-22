@@ -34,7 +34,7 @@ import { useOptionalSidebar } from '@kortix/ui/sidebar';
 import { Skeleton } from '@kortix/ui/skeleton';
 import { SplitSheet, SplitSheetMain } from '@kortix/ui/split-sheet';
 import { dismissToast, errorToast, progressToast, successToast } from '@kortix/ui/toast';
-import { SidebarToggle } from '@kortix/ui/workspace';
+import { PROJECT_PAGE_HEADER_CLASS, SidebarToggle } from '@kortix/ui/workspace';
 import {
   ArrowClockwiseIcon,
   ArrowCounterClockwiseIcon,
@@ -321,14 +321,14 @@ function ArtifactViewerContent({ projectId, artifactId, onClose }: ArtifactViewe
           : 'flex h-svh flex-col overflow-hidden'
       }
     >
-      {/* The project page header (ProjectPageHeader's title-bar classes): a breadcrumb, then quiet actions.
+      {/* The project page header (`PROJECT_PAGE_HEADER_CLASS`): a breadcrumb, then quiet actions.
           Embedded in the session panel: the panel's own plain header row. */}
       <header
         ref={header}
         className={
           embedded
             ? 'flex h-10 shrink-0 items-center gap-1 border-b px-1'
-            : 'kx-titlebar-row kx-capability-titlebar relative flex shrink-0 items-center gap-1 border-b px-2'
+            : PROJECT_PAGE_HEADER_CLASS
         }
         data-sidebar-collapsed={embedded ? undefined : sidebar?.state === 'collapsed' || undefined}
       >
@@ -336,7 +336,7 @@ function ArtifactViewerContent({ projectId, artifactId, onClose }: ArtifactViewe
         <Breadcrumb
           className={cn(
             !embedded && 'kx-titlebar-tabs',
-            'flex h-10 min-w-0 flex-1 items-center px-3',
+            embedded ? 'flex h-10 min-w-0 flex-1 items-center px-3' : 'flex h-full min-w-0 flex-1 items-center',
           )}
         >
           <BreadcrumbList className="min-w-0 flex-nowrap gap-1.5 sm:gap-1.5">
@@ -448,7 +448,7 @@ function ArtifactViewerContent({ projectId, artifactId, onClose }: ArtifactViewe
               <DropdownMenu open={historyOpen} onOpenChange={setHistoryOpen}>
                 <Hint label={`${t('history')} · ${t('editedAgo', { time: relativeTime(artifact.updated_at, locale) })}`} side="bottom">
                   <DropdownMenuTrigger asChild>
-                    <Button size="icon-sm" variant="secondary" aria-label={t('history')}>
+                    <Button size={embedded ? 'icon-sm' : 'icon-base'} variant="secondary" aria-label={t('history')}>
                       <ClockCounterClockwiseIcon className="size-3.5" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -503,7 +503,7 @@ function ArtifactViewerContent({ projectId, artifactId, onClose }: ArtifactViewe
               {/* A narrow header (a small window, the session panel) moves Ask AI into ⋯. */}
               {canEdit && !compact ? (
                 <Button
-                  size="xs"
+                  size={embedded ? 'xs' : 'sm'}
                   variant="secondary"
                   onClick={() => setAsking((open) => !open)}
                   aria-expanded={asking}
@@ -518,7 +518,7 @@ function ArtifactViewerContent({ projectId, artifactId, onClose }: ArtifactViewe
                 compact ? (
                   <Hint label={t('share')} side="bottom">
                     <Button
-                      size="icon-sm"
+                      size={embedded ? 'icon-sm' : 'icon-base'}
                       variant="secondary"
                       aria-label={t('share')}
                       onClick={() => setSharing(true)}
@@ -528,7 +528,7 @@ function ArtifactViewerContent({ projectId, artifactId, onClose }: ArtifactViewe
                   </Hint>
                 ) : (
                   <Button
-                    size="xs"
+                    size={embedded ? 'xs' : 'sm'}
                     variant="secondary"
                     onClick={() => setSharing(true)}
                   >
@@ -538,7 +538,7 @@ function ArtifactViewerContent({ projectId, artifactId, onClose }: ArtifactViewe
               ) : null}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="icon-sm" variant="secondary" aria-label={t('actions')}>
+                  <Button size={embedded ? 'icon-sm' : 'icon-base'} variant="secondary" aria-label={t('actions')}>
                     <DotsThreeIcon className="size-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -618,14 +618,14 @@ function ArtifactViewerContent({ projectId, artifactId, onClose }: ArtifactViewe
           <ButtonGroup className="shrink-0 items-center">
             {/* `data-no-panel`: the session's link interceptor would reopen it in this panel. */}
             <Hint label={t('openFullPage')} side="bottom">
-              <Button size="icon-sm" variant="ghost" aria-label={t('openFullPage')} asChild>
+              <Button size={embedded ? 'icon-sm' : 'icon-base'} variant="ghost" aria-label={t('openFullPage')} asChild>
                 <Link href={`/workspaces/${projectId}/artifacts/${artifactId}`} data-no-panel>
                   <ArrowsOutSimpleIcon className="size-3.5" />
                 </Link>
               </Button>
             </Hint>
             <Hint label={t('close')} side="bottom">
-              <Button size="icon-sm" variant="ghost" aria-label={t('close')} onClick={onClose}>
+              <Button size={embedded ? 'icon-sm' : 'icon-base'} variant="ghost" aria-label={t('close')} onClick={onClose}>
                 <XIcon className="size-3.5" />
               </Button>
             </Hint>

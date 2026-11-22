@@ -59,9 +59,9 @@ describe('groupSteps', () => {
     expect(steps).toHaveLength(1);
   });
 
-  it('keeps a show whose state errored — a failure is real content', () => {
-    const steps = groupSteps([part('show', 'error', {})]);
-    expect(steps).toHaveLength(1);
+  it('drops a show whose state errored: a failed show presented nothing (2026-11-16)', () => {
+    expect(groupSteps([part('show', 'error', {})])).toHaveLength(0);
+    expect(groupSteps([part('bash', 'error', {})])).toHaveLength(1);
   });
 
   it('consecutive writes fold into one edit step', () => {

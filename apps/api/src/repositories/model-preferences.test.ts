@@ -69,6 +69,16 @@ describe('getAccountModelDefaults', () => {
     expect(defaults.projects).toEqual({ p1: 'anthropic/claude-sonnet-4.6', p2: 'qwen3.7-max' });
   });
 
+  test('an explicit clear suppresses only this project’s legacy agent fallback', async () => {
+    selectRows = [
+      { scope: 'agent', scopeKey: 'retired', projectId: null, model: 'legacy-model' },
+      { scope: 'agent', scopeKey: 'retired', projectId: 'proj-a', model: '' },
+      { scope: 'agent', scopeKey: 'unrelated', projectId: 'proj-a', model: 'other-model' },
+    ];
+    expect((await getAccountModelDefaults('a1', 'proj-a')).agents).toEqual({ unrelated: 'other-model' });
+    expect((await getAccountModelDefaults('a1', 'proj-b')).agents).toEqual({ retired: 'legacy-model' });
+  });
+
   test('empty → all buckets empty', async () => {
     expect(await getAccountModelDefaults('a1')).toEqual({ account: null, agents: {}, projects: {} });
   });
@@ -209,7 +219,8 @@ describe('upsertAccountModelPreference', () => {
 describe('deleteAccountModelPreference', () => {
   test('agent scope with a projectId only targets that project\'s row', async () => {
     await deleteAccountModelPreference({ accountId: 'a1', scope: 'agent', scopeKey: 'kortix', projectId: 'proj-a' });
-    expect(deleteWhereArgs.length).toBeGreaterThan(0);
+    expect(insertedValues).toMatchObject({ accountId: 'a1', scope: 'agent', scopeKey: 'kortix', projectId: 'proj-a', model: '' });
+    expect(conflictMode).toBe('update');
   });
 
   test('agent scope without a projectId targets the legacy (project_id IS NULL) row only', async () => {

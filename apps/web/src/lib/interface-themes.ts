@@ -9,7 +9,7 @@
  *
  * Both choices are stored at once, so "System" follows the OS with whichever
  * light and dark theme the person picked last. With nothing picked, System
- * resolves to Pure light and Pure dark.
+ * resolves to Kortix light and Kortix dark (the `light` and `dark` palettes).
  */
 
 import { locales } from '@/i18n/config';

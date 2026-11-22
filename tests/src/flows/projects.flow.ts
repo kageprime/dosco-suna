@@ -192,6 +192,18 @@ flow("PROJ-7", { domain: "projects", routes: ["PATCH /v1/workspaces/:projectId"]
     );
     r.status(200).body().has("$.name", name).has("$.default_branch", "release").has("$.manifest_path", "ops/kortix.yaml").has("$.repo_url", repoUrl);
   });
+  await ctx.step("unsafe default branches return 400 and leave the stored branch unchanged", async () => {
+    for (const key of ["default_branch", "defaultBranch"]) {
+      const response = await ctx.client.as(ctx.P.OWNER).patch(
+        "/v1/workspaces/:projectId",
+        { [key]: "--output=/tmp/kortix-invalid-ref" },
+        { params: { projectId: p.id } },
+      );
+      response.status(400);
+    }
+    const unchanged = await ctx.client.as(ctx.P.OWNER).get("/v1/workspaces/:projectId", { params: { projectId: p.id } });
+    unchanged.status(200).body().has("$.default_branch", "release");
+  });
   await ctx.step("a project member (floor role) cannot patch the project → 403", async () => {
     const team = await ctx.fixtures.team();
     const tp = await team.project();

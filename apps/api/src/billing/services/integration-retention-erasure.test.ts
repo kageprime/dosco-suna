@@ -43,7 +43,7 @@ const DAY = 24 * 3600 * 1000;
 const daysAgo = (n: number) => new Date(Date.now() - n * DAY).toISOString();
 
 /** A personal account (id = owner user id) with one deletion request. */
-async function closure(opts: { closedDaysAgo: number; status?: string; paid?: boolean }) {
+async function closure(opts: { closedDaysAgo: number; status?: string; paid?: boolean; reason?: string }) {
   const accountId = crypto.randomUUID();
   await db.insert(accounts).values({ accountId, name: 'retention-test' });
   if (opts.paid) {
@@ -57,6 +57,7 @@ async function closure(opts: { closedDaysAgo: number; status?: string; paid?: bo
       status: opts.status ?? 'pending',
       requestedAt: daysAgo(opts.closedDaysAgo + 14),
       scheduledFor: daysAgo(opts.closedDaysAgo),
+      reason: opts.reason,
     })
     .returning();
   return { accountId, requestId: request!.id };
@@ -145,4 +146,16 @@ withDb('retention erasure backstop — real PostgreSQL', () => {
     const open = await closure({ closedDaysAgo: 85 });
     expect((await claimOpenDeletionRequest(open.requestId))?.status).toBe('processing');
   }, 30_000);
+
+  for (const reason of ['workspace_deleted', 'workspace_deleted:subscription_cancelled']) {
+    test(`${reason}: execute erases the overdue workspace close and keeps the owner's login`, async () => {
+      deletedAuthUsers = [];
+      const due = await closure({ closedDaysAgo: 85, reason });
+      await processRetentionErasures({ mode: 'execute', afterDays: 80 });
+      expect(await accountExists(due.accountId)).toBe(false);
+      expect(await requestStatus(due.requestId)).toBe('completed');
+      expect((await evidence(due.accountId)).map((r) => r.outcome)).toEqual(['erased']);
+      expect(deletedAuthUsers).not.toContain(due.accountId);
+    }, 30_000);
+  }
 });

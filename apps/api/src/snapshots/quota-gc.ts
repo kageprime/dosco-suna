@@ -16,13 +16,23 @@
  * header for why each of those was wrong before, and for the cross-environment
  * safety argument (one Daytona org, many databases).
  *
+ * One pass per provider org: Daytona (snapshots, 100/org) and Platinum
+ * (templates, `PLATINUM_TEMPLATE_QUOTA`). Platinum ran without a pass until
+ * 2026-11-19, when prod held 500/500 templates and every build in the org
+ * failed with `org_template_quota_exceeded`. The Platinum list route omits
+ * `lastUsedAt`, so the pass reads it per template from the detail route, only
+ * under pressure and only for the images the idle rule could reap. Platinum's
+ * own `409 template_in_use` keeps any image a sandbox still runs from.
+ *
  * Never acts on a partial view: if any provider, reference, or pin read fails,
  * the pass does nothing.
  */
 
 import { appDeployments, appImages, sandboxTemplates } from '@kortix/db';
 import { type BudgetReportState, decideBudgetReport } from './budget-report-policy';
-import { eq, isNotNull } from 'drizzle-orm';
+import { eq, isNotNull, sql } from 'drizzle-orm';
+import { config } from '../config';
+import { logger } from '../lib/logger';
 import {
   deleteDaytonaSnapshotById,
   isDaytonaConfigured,
@@ -30,12 +40,19 @@ import {
 } from '../shared/daytona';
 import { db } from '../shared/db';
 import { escalateProviderAuthOutage } from '../shared/provider-auth';
+import { projectsView } from '../workspaces/rows';
+import { fetchAllTemplates, productionPlatinumClient, type PlatinumClient } from './providers/platinum-templates';
+import { templateInUseCount } from './providers/platinum-upload';
 import {
   appDeploymentSnapshotName,
-  DAYTONA_ORG_SNAPSHOT_LIMIT,
+  DAYTONA_ORG_BUDGET,
+  DEFAULT_PREFIX,
+  PPWARM_PREFIX,
   QUOTA_GC_MAX_PER_PASS,
-  QUOTA_GC_ORG_TARGET,
+  QUOTA_GC_MIN_IDLE_MS,
   isManaged,
+  type OrgImageBudget,
+  platinumOrgBudget,
   type SnapshotLike,
   selectSnapshotsToReap,
 } from './quota-gc-select';
@@ -63,6 +80,10 @@ export interface QuotaGcResult {
 }
 
 export interface SnapshotQuotaIo {
+  /** The provider whose org this pass reclaims. Defaults to `daytona`. */
+  provider?: 'daytona' | 'platinum';
+  /** The org cap. Defaults to Daytona's. */
+  budget?: OrgImageBudget;
   isConfigured(): boolean;
   listSnapshots(): Promise<SnapshotLike[]>;
   loadReferencedSnapshotNames(now: number): Promise<Set<string>>;
@@ -105,15 +126,107 @@ export async function loadReferencedSnapshotNames(now: number): Promise<Set<stri
   for (const row of await db.select({ name: appImages.imageName }).from(appImages)) {
     referenced.add(row.name);
   }
+  // A template row's last-ready image per provider: the boot fallback while
+  // its current image builds or fails (`last-ready-image.ts`).
+  for (const row of await db.execute<{ name: string | null }>(sql`
+    select distinct v->>'snapshotName' as name
+    from kortix.sandbox_templates, jsonb_each(coalesce(metadata->'lastReady', '{}'::jsonb)) as e(k, v)
+  `)) {
+    if (row.name) referenced.add(row.name);
+  }
+  // Project routing pins (`ACTIVE_EXTERNAL_ID_META_KEY` and
+  // `ACTIVE_SNAPSHOT_NAME_META_KEY` in provider-transition-routing.ts): a
+  // provider template id or name a project boots from directly.
+  for (const row of await db
+    .select({
+      id: sql<string | null>`${projectsView.metadata}->>'active_sandbox_external_template_id'`,
+      name: sql<string | null>`${projectsView.metadata}->>'active_sandbox_snapshot_name'`,
+    })
+    .from(projectsView)
+    .where(sql`${projectsView.metadata} ?| array['active_sandbox_external_template_id', 'active_sandbox_snapshot_name']`)) {
+    if (row.id) referenced.add(row.id);
+    if (row.name) referenced.add(row.name);
+  }
   return referenced;
 }
 
 const defaultSnapshotQuotaIo: SnapshotQuotaIo = {
+  provider: 'daytona',
+  budget: DAYTONA_ORG_BUDGET,
   isConfigured: isDaytonaConfigured,
   listSnapshots: listDaytonaSnapshots,
   loadReferencedSnapshotNames,
   deleteSnapshotById: deleteDaytonaSnapshotById,
 };
+
+/** Parallel template detail reads per batch. */
+const PLATINUM_DETAIL_CONCURRENCY = 6;
+
+/**
+ * The Platinum org's templates as GC input. Global templates belong to
+ * Platinum, not to the org, and do not count against its cap.
+ */
+export function platinumSnapshotQuotaIo(
+  client: PlatinumClient = productionPlatinumClient,
+  now: () => number = Date.now,
+): SnapshotQuotaIo {
+  const budget = platinumOrgBudget(config.PLATINUM_TEMPLATE_QUOTA);
+  return {
+    provider: 'platinum',
+    budget,
+    isConfigured: () => client.isConfigured(),
+    listSnapshots: async () => {
+      const snapshots: SnapshotLike[] = (await fetchAllTemplates(client))
+        .filter((template) => template.global !== true && typeof template.name === 'string')
+        .map((template) => ({
+          id: template.id,
+          name: template.name as string,
+          state: template.state ?? 'unknown',
+          createdAt: template.createdAt ?? null,
+          lastUsedAt: null,
+        }));
+      if (snapshots.length < budget.highWater) return snapshots;
+      // The idle rule needs the last use. A template created inside the idle
+      // floor cannot have been idle that long, so only older ones are read.
+      const idleCandidates = snapshots.filter((snapshot) => {
+        if (!isManaged(snapshot.name) || snapshot.name.startsWith(DEFAULT_PREFIX)) return false;
+        if (snapshot.name.startsWith(PPWARM_PREFIX)) return false;
+        const created = snapshot.createdAt ? Date.parse(snapshot.createdAt) : Number.NaN;
+        return Number.isFinite(created) && now() - created > QUOTA_GC_MIN_IDLE_MS;
+      });
+      for (let i = 0; i < idleCandidates.length; i += PLATINUM_DETAIL_CONCURRENCY) {
+        await Promise.all(
+          idleCandidates.slice(i, i + PLATINUM_DETAIL_CONCURRENCY).map(async (snapshot) => {
+            try {
+              const detail = await client.json<{ lastUsedAt?: string | null }>(
+                `/v1/templates/${encodeURIComponent(snapshot.id)}`,
+              );
+              snapshot.lastUsedAt = detail.lastUsedAt ?? null;
+            } catch {
+              // Unknown last use: count it as used now, so this pass keeps it.
+              snapshot.lastUsedAt = new Date(now()).toISOString();
+            }
+          }),
+        );
+      }
+      return snapshots;
+    },
+    loadReferencedSnapshotNames,
+    deleteSnapshotById: async (templateId) => {
+      try {
+        await client.json(`/v1/templates/${encodeURIComponent(templateId)}`, { method: 'DELETE' });
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (/ -> 404(?:\s|$)/.test(message)) return true;
+        // A sandbox still runs from it. Platinum keeps it; a later pass retries.
+        if (templateInUseCount(message) !== null) return false;
+        logger.warn('[snapshot-gc] platinum template delete failed', { templateId, error: message.slice(0, 200) });
+        return false;
+      }
+    },
+  };
+}
 
 /**
  * One GC pass. Safe to call from the periodic maintenance sweep; all failure
@@ -124,14 +237,26 @@ const defaultSnapshotQuotaIo: SnapshotQuotaIo = {
  * makes the alarm edge-triggered ACROSS passes; tests pass their own through
  * `opts.budgetState` so one case cannot decide the next one's verdict.
  */
-const budgetReportState: BudgetReportState = { lastReportedAtMs: null };
+// replica-local: one alarm memo per provider org, see the comment above.
+const budgetReportStates = new Map<string, BudgetReportState>();
+
+function budgetReportStateFor(provider: string): BudgetReportState {
+  let state = budgetReportStates.get(provider);
+  if (!state) {
+    state = { lastReportedAtMs: null };
+    budgetReportStates.set(provider, state);
+  }
+  return state;
+}
 
 export async function reconcileSnapshotQuota(
   opts: { dryRun?: boolean; now?: number; budgetState?: BudgetReportState } = {},
   io: SnapshotQuotaIo = defaultSnapshotQuotaIo,
 ): Promise<QuotaGcResult> {
   const dryRun = opts.dryRun ?? false;
-  const budgetState = opts.budgetState ?? budgetReportState;
+  const provider = io.provider ?? 'daytona';
+  const budget = io.budget ?? DAYTONA_ORG_BUDGET;
+  const budgetState = opts.budgetState ?? budgetReportStateFor(provider);
   const result: QuotaGcResult = {
     observationStatus: 'provider_not_configured',
     orgTotal: 0,
@@ -154,9 +279,9 @@ export async function reconcileSnapshotQuota(
     // this pass RESOLVES with the failed status. Escalate here, or a dead
     // key pages nobody from the GC (the G9 probe on PR #12557:
     // `org_list_failed, captured: 0`).
-    escalateProviderAuthOutage('daytona', 'snapshot quota GC', err);
+    escalateProviderAuthOutage(provider, 'snapshot quota GC', err);
     console.warn(
-      '[snapshot-gc] org listing failed — pass skipped:',
+      `[snapshot-gc] ${provider} org listing failed — pass skipped:`,
       err instanceof Error ? err.message : err,
     );
     return result;
@@ -183,7 +308,7 @@ export async function reconcileSnapshotQuota(
 
   result.observationStatus = 'complete';
 
-  const plan = selectSnapshotsToReap({ all, referenced, now });
+  const plan = selectSnapshotsToReap({ all, referenced, now, budget });
   result.orgTotal = plan.orgTotal;
   result.managedCount = plan.managedCount;
   result.eligible = plan.doomed.length + plan.deferred;
@@ -208,15 +333,16 @@ export async function reconcileSnapshotQuota(
   ) {
     if (plan.budgetUnresolved) {
       console.error(
-        `[snapshot-gc] BUDGET UNRESOLVED: org=${plan.orgTotal} target=${QUOTA_GC_ORG_TARGET} ` +
-          `limit=${DAYTONA_ORG_SNAPSHOT_LIMIT} — evicted everything eligible and still over. ` +
-          `The per-project warm cache floor exceeds the org snapshot quota; raise the quota ` +
-          `or gate the warm bake. Builds will start failing with 'Snapshot quota exceeded'.`,
+        `[snapshot-gc] BUDGET UNRESOLVED: provider=${provider} org=${plan.orgTotal} target=${budget.target} ` +
+          `limit=${budget.limit} — evicted everything eligible and still over. ` +
+          `What remains is live, recently used, or outside the Kortix namespaces. Raise the ` +
+          `provider quota (PLATINUM_TEMPLATE_QUOTA for Platinum) or delete images Kortix does ` +
+          `not manage. At the limit every build in the org fails.`,
       );
     } else {
       console.log(
-        `[snapshot-gc] budget resolved: org=${plan.orgTotal} target=${QUOTA_GC_ORG_TARGET} ` +
-          `limit=${DAYTONA_ORG_SNAPSHOT_LIMIT} — back inside the snapshot budget.`,
+        `[snapshot-gc] budget resolved: provider=${provider} org=${plan.orgTotal} target=${budget.target} ` +
+          `limit=${budget.limit} — back inside the snapshot budget.`,
       );
     }
     budgetState.lastReportedAtMs = plan.budgetUnresolved ? now : null;
@@ -226,21 +352,28 @@ export async function reconcileSnapshotQuota(
 
   for (const { snapshot, reason } of plan.doomed) {
     if (dryRun) {
-      console.log(`[snapshot-gc] DRY RUN would delete ${snapshot.name} (${reason})`);
+      console.log(`[snapshot-gc] DRY RUN would delete ${provider} ${snapshot.name} (${reason})`);
       result.deleted++;
       continue;
     }
     const ok = await io.deleteSnapshotById(snapshot.id);
-    console.log(`[snapshot-gc] delete ${snapshot.name} (${reason}): ${ok ? 'ok' : 'failed'}`);
+    console.log(`[snapshot-gc] delete ${provider} ${snapshot.name} (${reason}): ${ok ? 'ok' : 'kept'}`);
     if (ok) result.deleted++;
   }
 
   console.log(
-    `[snapshot-gc] org=${result.orgTotal} managed=${result.managedCount} ` +
+    `[snapshot-gc] ${provider} org=${result.orgTotal} managed=${result.managedCount} ` +
       `eligible=${result.eligible} ${dryRun ? 'would-delete' : 'deleted'}=${result.deleted}` +
       (result.deferred > 0
         ? ` deferred=${result.deferred} (cap ${QUOTA_GC_MAX_PER_PASS}/pass)`
         : ''),
   );
   return result;
+}
+
+/** One GC pass over the Platinum org's templates. */
+export function reconcilePlatinumTemplateQuota(
+  opts: { dryRun?: boolean; now?: number } = {},
+): Promise<QuotaGcResult> {
+  return reconcileSnapshotQuota(opts, platinumSnapshotQuotaIo());
 }

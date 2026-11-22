@@ -119,6 +119,7 @@ export type TurnPalette = ReturnType<typeof turnPalette>;
 /** Every colour a turn row uses, derived from THEME tokens (web opacity modifiers → `withAlpha`). */
 function turnPalette(isDark: boolean) {
   const t = isDark ? THEME.dark : THEME.light;
+  const accent = THEME.accent[isDark ? 'dark' : 'light'];
   return {
     foreground: t.foreground,
     /** `text-foreground/80` — row labels. */
@@ -169,19 +170,20 @@ function turnPalette(isDark: boolean) {
     // Web `components/ui/status.tsx` tones. `STATUS_TEXT.info` is
     // `text-blue-600 dark:text-blue-400`, which has no mobile token; the brand
     // `--kortix-blue` is the closest token and stands in for it.
-    info: THEME.accent.blue,
+    info: accent.blue,
     /** `STATUS_BG.*` — `bg-kortix-{green,yellow,blue}/10`, `bg-destructive/10`. */
-    successBg: withAlpha(THEME.accent.green, 0.1),
-    warningBg: withAlpha(THEME.accent.yellow, 0.1),
-    infoBg: withAlpha(THEME.accent.blue, 0.1),
+    successBg: withAlpha(accent.green, 0.1),
+    warningBg: withAlpha(accent.yellow, 0.1),
+    infoBg: withAlpha(accent.blue, 0.1),
     /** `STATUS_BORDER.*` — `border-kortix-{green,yellow,blue}`, `border-destructive/30`. */
-    successBorder: THEME.accent.green,
-    warningBorder: THEME.accent.yellow,
-    infoBorder: THEME.accent.blue,
+    successBorder: accent.green,
+    warningBorder: accent.yellow,
+    infoBorder: accent.blue,
     destructive30: withAlpha(t.destructive, 0.3),
-    /** `text-kortix-green` / `text-kortix-orange` — todo glyphs. */
-    kortixGreen: THEME.accent.green,
-    kortixOrange: THEME.accent.orange,
+    /** `text-kortix-green` / `text-kortix-orange` / `text-kortix-red` — status glyphs. */
+    kortixGreen: accent.green,
+    kortixOrange: accent.orange,
+    kortixRed: accent.red,
     /** Diff rows: addition / deletion washes behind changed lines. */
     diffAddBg: withAlpha(t.success, 0.1),
     diffDelBg: withAlpha(t.destructive, 0.1),

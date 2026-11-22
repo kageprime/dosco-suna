@@ -6,8 +6,6 @@ import {
   STARTER_TEMPLATE_IDS,
   type StarterFile,
   getManagedSkillFiles,
-  getMarketplaceFiles,
-  getProjectTemplateFiles,
   getStarterFiles,
   isKortixManagedSkillName,
   listGeneralKnowledgeWorkerSkills,
@@ -224,8 +222,8 @@ describe('getStarterFiles', () => {
   });
 
   /**
-   * The scaffold floor. Anything beyond this is a marketplace install — the
-   * point of the cut, and the thing most likely to creep back one "surely this
+   * The scaffold floor. Anything beyond this is a skill the project adds —
+   * the point of the cut, and the thing most likely to creep back one "surely this
    * one is universal" skill at a time.
    */
   test('the scaffold ships exactly the agreed skill floor', () => {
@@ -256,7 +254,7 @@ describe('getStarterFiles', () => {
     ].sort());
   });
 
-  test('minimal starter ships no harness folder, no tool copies and no optional marketplace skills', () => {
+  test('minimal starter ships no harness folder, no tool copies and no optional skills', () => {
     const files = getStarterFiles({ projectName: 'X', template: 'minimal' });
     const paths = new Set(files.map((f) => f.path));
 
@@ -267,23 +265,6 @@ describe('getStarterFiles', () => {
     expect(paths.has('skills/kortix-cli/SKILL.md')).toBe(true);
     expect(paths.has('skills/kortix-system/SKILL.md')).toBe(false);
     expect(paths.has('skills/agent-browser/SKILL.md')).toBe(false);
-  });
-
-  test('marketplace source contains optional first-party skills only', () => {
-    const paths = new Set(getMarketplaceFiles().map((f) => f.path));
-
-    expect(paths.has('kortix.registry.json')).toBe(true);
-    expect(paths.has('runtime/skills/email-triage/SKILL.md')).toBe(true);
-    // `agent-browser` is scaffolded now (driving a browser is a floor capability,
-    // not an optional install), so it must NOT also sit in the marketplace root —
-    // its hand-written kortix.registry.json entry was removed with the move.
-    expect(paths.has('runtime/skills/agent-browser/SKILL.md')).toBe(false);
-    expect(paths.has('runtime/pty/pty-tools.ts')).toBe(false);
-    expect(paths.has('runtime/tools/memory.ts')).toBe(false);
-    expect(paths.has('runtime/tools/web_search.ts')).toBe(false);
-    expect(paths.has('runtime/tools/scrape_webpage.ts')).toBe(false);
-    expect(paths.has('runtime/tools/image_search.ts')).toBe(false);
-    expect(paths.has('runtime/tools/lib/get-env.ts')).toBe(false);
   });
 });
 
@@ -304,7 +285,6 @@ describe('KORTIX_MANAGED_SKILL_NAMES', () => {
       'kortix-genui',
       'kortix-goals',
       'kortix-harness-refinement',
-      'kortix-marketplace',
       'kortix-memory',
       'kortix-onboarding',
       'kortix-program-agents',
@@ -328,8 +308,8 @@ describe('KORTIX_MANAGED_SKILL_NAMES', () => {
    * Being LISTED as managed does not inject anything — the baked
    * `/opt/kortix/managed-skills` set is built by walking template roots, so a
    * managed skill living in a root the bake does not walk is declared managed and
-   * reaches no sandbox at all. That silently stranded `kortix-computer` under
-   * `templates/marketplace/` for its entire life.
+   * reaches no sandbox at all. That once stranded `kortix-computer` outside
+   * the bake for its entire life.
    *
    * `templates/managed/` now owns the family and `scripts/write-managed-skills.ts`
    * walks it alongside the starter roots (which still carry `kortix-cli`), so the
@@ -396,99 +376,5 @@ describe('listGeneralKnowledgeWorkerSkills', () => {
   test('entries are unique', () => {
     const skills = listGeneralKnowledgeWorkerSkills();
     expect(new Set(skills).size).toBe(skills.length);
-  });
-});
-
-describe('marketplace registry — first-party use-case templates', () => {
-  const files = getMarketplaceFiles();
-  const filePaths = new Set(files.map((f) => f.path));
-  const registryFile = files.find((f) => f.path === 'kortix.registry.json');
-  const registry = JSON.parse(registryFile?.content ?? '{"items":[]}') as {
-    items: Array<Record<string, unknown>>;
-  };
-  const items = registry.items;
-  const names = new Set(items.map((i) => i.name as string));
-  const templates = items.filter((i) => i.type === 'registry:template');
-
-  function fileIsPresent(p: string): boolean {
-    return filePaths.has(p) || filePaths.has(`${p}/SKILL.md`);
-  }
-
-  test('ships the registry manifest and at least the known templates', () => {
-    expect(registryFile).toBeDefined();
-    expect(templates.length).toBeGreaterThanOrEqual(30);
-  });
-
-  test('every item name is unique', () => {
-    expect(names.size).toBe(items.length);
-  });
-
-  test('every referenced payload file is shipped in the marketplace bundle', () => {
-    for (const item of items) {
-      for (const f of (item.files as Array<{ path: string }> | undefined) ?? []) {
-        expect(fileIsPresent(f.path)).toBe(true);
-      }
-    }
-  });
-
-  test('every template dependency resolves to a shipped item', () => {
-    for (const t of templates) {
-      for (const dep of (t.registryDependencies as string[] | undefined) ?? []) {
-        expect(names.has(dep)).toBe(true);
-      }
-    }
-  });
-
-  test('every template declares a cron cadence input', () => {
-    for (const t of templates) {
-      const inputs = (t.inputs as Array<{ type: string }> | undefined) ?? [];
-      expect(inputs.some((i) => i.type === 'cron')).toBe(true);
-    }
-  });
-
-  test('each trigger targets a declared agent and only references declared inputs', () => {
-    for (const t of templates) {
-      const block = (t.meta as Record<string, any>)?.template ?? {};
-      const agents = block.agents ?? {};
-      const inputKeys = new Set(
-        ((t.inputs as Array<{ key: string }> | undefined) ?? [])
-          .map((i) => i.key)
-          .concat('projectName'),
-      );
-      for (const trig of (block.triggers as Array<Record<string, any>>) ?? []) {
-        if (trig.agent) expect(Object.keys(agents)).toContain(trig.agent);
-        const refs = [...String(trig.prompt ?? '').matchAll(/\{\{\s*([\w.-]+)\s*\}\}/g)].map(
-          (m) => m[1],
-        );
-        for (const ref of refs) expect(inputKeys.has(ref)).toBe(true);
-      }
-    }
-  });
-
-  test('secret env keys are surfaced as optional env in the manifest block', () => {
-    for (const t of templates) {
-      const envVars = (t.envVars as Record<string, string> | undefined) ?? {};
-      if (Object.keys(envVars).length === 0) continue;
-      const optional = ((t.meta as Record<string, any>)?.template?.env_optional as string[]) ?? [];
-      for (const key of Object.keys(envVars)) expect(optional).toContain(key);
-    }
-  });
-});
-
-
-describe('marketplace projects — full project templates', () => {
-  /**
-   * The bundled department templates (SEO / Marketing / Website Studio) were
-   * retired: the marketplace leads with the single Kortix Starter project rather
-   * than a wall of half-relevant verticals, and the synthetic starter item is
-   * built in the API catalog, not from this root.
-   *
-   * The `registry:project` machinery itself stays — this root is the extension
-   * point for bundling an example project again — so the contract worth pinning
-   * is that an EMPTY root degrades cleanly instead of throwing the catalog build.
-   */
-  test('an empty project-template root yields no files and does not throw', () => {
-    expect(() => getProjectTemplateFiles()).not.toThrow();
-    expect(getProjectTemplateFiles()).toEqual([]);
   });
 });

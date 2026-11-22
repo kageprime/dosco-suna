@@ -106,8 +106,10 @@ A mobile task does not authorize a production promotion or a manual submission.
 needs a new version and a store build: OTA cannot ship it.
 
 After every successful `Deploy Prod`, `.github/workflows/mobile-store.yml` runs
-`scripts/store-release.mjs` on the deployed commit. Per platform it does each
-step only when it is missing:
+`scripts/store-release.mjs` on the deployed commit. A `Deploy Prod` that failed
+only in its Kortix Capture or desktop installer builds counts as successful
+(`.github/workflows/deploy-prod-gate.yml`); any other failed job stops the
+mobile release. Per platform it does each step only when it is missing:
 
 1. **Build:** no finished `prod-store` store build of this version exists, so
    it builds one on EAS.
@@ -169,7 +171,7 @@ Unset `MOBILE_MIN_VERSION` to lift it.
 
 | Event | Channel | Reaches |
 |---|---|---|
-| `Deploy Prod` succeeded (each production release) | `production` | `prod-store`, `prod-apk` builds |
+| `Deploy Prod` succeeded, or failed only in its Kortix Capture or desktop builds (each production release) | `production` | `prod-store`, `prod-apk` builds |
 | Actions → Mobile OTA → Run workflow, channel `dev` | `dev` | `dev-store`, `dev-apk` builds |
 | Actions → Mobile OTA → Run workflow, channel `production` | `production` | a re-run of the released `prod` branch, whichever branch the button runs from (`dry_run` publishes nothing) |
 

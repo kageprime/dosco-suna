@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import { createElement, useState, type ReactNode } from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
+import type { LoadSessionLogPage, SessionLogPage } from '../core/session-log/source';
+import type { SessionControlStreamOptions } from '../core/session/control-stream';
 import type { SessionLog } from '../core/session-log/types';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -372,7 +374,7 @@ describe('useSessionLog / useSessionLogThread without v2: the fromV1 view of the
 describe('useSessionLogSync: negotiation, the first page and the stream', () => {
   type Joined = { options: Record<string, any>; closed: boolean };
   let joined: Joined[] = [];
-  const joinStream = (options: Record<string, any>) => {
+  const joinStream = (options: SessionControlStreamOptions) => {
     const entry: Joined = { options, closed: false };
     joined.push(entry);
     return { close: () => { entry.closed = true; } };
@@ -403,16 +405,204 @@ describe('useSessionLogSync: negotiation, the first page and the stream', () => 
     timers = [];
   });
   type LivePage = ((query: { limit: number }) => Promise<unknown>) | null;
-  function mount(options: { enabled?: boolean; loader?: ((...a: unknown[]) => Promise<unknown>) | null; livePage?: LivePage }) {
+  function mount(options: { enabled?: boolean; loader?: LoadSessionLogPage | null; livePage?: LivePage }) {
     const state = { dialect: '', setLivePage: (_: LivePage) => {} };
     render(() => {
       const [livePage, setLivePage] = useState<LivePage>(() => options.livePage ?? null);
       state.setLivePage = (next) => setLivePage(() => next);
-      state.dialect = useSessionLogSync(PROJECT, SESSION, { enabled: options.enabled ?? true, loader: options.loader as never, livePage: livePage as never, joinStream: joinStream as never, schedule });
+      state.dialect = useSessionLogSync(PROJECT, SESSION, { enabled: options.enabled ?? true, loader: options.loader, livePage: livePage as never, joinStream, schedule });
       return null;
     });
     return state;
   }
+  function deferredPage() {
+    let resolve: (page: SessionLogPage | null) => void = () => { throw new Error('not initialized'); };
+    const promise = new Promise<SessionLogPage | null>((done) => { resolve = done; });
+    return { promise, resolve };
+  }
+  const userPage = (): SessionLogPage => ({ ...page(), messages: page().messages.filter((m) => m.role === 'user') });
+  const latestStream = () => {
+    const entry = joined.at(-1);
+    if (!entry) throw new Error('stream not joined');
+    return entry.options;
+  };
+  const heldMessages = () => Object.values(useSyncStore.getState().sessionLogs[SESSION]?.messages ?? {}).flat();
+  const ended = (token: string) => ({ type: 'kortix.control.turn', payload: { last_ended: { turn_token: token } } });
+
+  test('KRTX-4973: delayed same-generation API fallback cannot settle over a newer runtime page', async () => {
+    let apiReads = 0;
+    const pending = deferredPage();
+    let liveWorks = false;
+    const loader: LoadSessionLogPage = async () => ++apiReads === 1 ? page() : pending.promise;
+    mount({ loader, livePage: async () => liveWorks ? page() : null });
+    await flush();
+    const stream = latestStream();
+    act(() => stream.onRuntimeResync());
+    await flush();
+    liveWorks = true;
+    act(() => stream.onRuntimeResync());
+    await flush();
+    await act(async () => pending.resolve(userPage()));
+    await flush();
+    expect(heldMessages()).toEqual(page().messages);
+  });
+
+  test('KRTX-4973: newer failed read does not discard a successful page during log traffic', async () => {
+    let reads = 0;
+    const pending = deferredPage();
+    const loader: LoadSessionLogPage = async () => {
+      reads++;
+      if (reads === 1) return page();
+      if (reads === 2) return pending.promise;
+      throw new Error('newer read failed');
+    };
+    mount({ loader });
+    await flush();
+    const stream = latestStream();
+    act(() => stream.onRuntimeResync());
+    await flush();
+    act(() => stream.onRuntimeResync());
+    await flush();
+    act(() => stream.onRuntimeEvent({ type: 'log.state', properties: { rev: 100, session: {} } }));
+    await act(async () => pending.resolve(userPage()));
+    await flush();
+    expect(heldMessages()).toEqual(userPage().messages);
+  });
+
+  test('KRTX-4973: failed and incomplete turn-end reads recover the assistant in the thread hook', async () => {
+    let reads = 0;
+    let shown: ReturnType<typeof useSessionLogThread> = null;
+    const loader: LoadSessionLogPage = async () => {
+      reads++;
+      if (reads === 2) throw new Error('temporary read failure');
+      return reads < 4 ? userPage() : page();
+    };
+    render(() => {
+      useSessionLogSync(PROJECT, SESSION, { enabled: true, loader, joinStream, schedule });
+      shown = useSessionLogThread({ projectId: PROJECT, sessionId: SESSION });
+      return null;
+    });
+    const roles = () => shown?.messages.map((m) => m.role) ?? [];
+    await flush();
+    act(() => latestStream().onControl(ended('old')));
+    act(() => latestStream().onControl(ended('new')));
+    await flush();
+    expect(roles()).not.toContain('assistant');
+    await runTimers();
+    expect(roles()).not.toContain('assistant');
+    await runTimers();
+    expect(roles()).toContain('assistant');
+  });
+
+  test('KRTX-4973: initial last_ended recovers a reply committed after the first page', async () => {
+    let committed = false;
+    const loader: LoadSessionLogPage = async () => committed ? page() : userPage();
+    mount({ loader });
+    await flush();
+    act(() => latestStream().onControl(ended('already-ended')));
+    committed = true;
+    await runTimers();
+    expect(heldMessages()).toEqual(page().messages);
+  });
+
+  test('KRTX-4973: initial completed snapshot renegotiates after initial failures exhaust', async () => {
+    let reads = 0;
+    let state = '';
+    const outcomes: string[] = [];
+    const loader: LoadSessionLogPage = async () => {
+      reads++;
+      if (reads <= 4) throw new Error('initial read unavailable');
+      return page();
+    };
+    render(() => {
+      state = useSessionLogSync(PROJECT, SESSION, {
+        enabled: true, loader, joinStream, schedule,
+        onRead: (outcome) => { outcomes.push(outcome); },
+      });
+      return null;
+    });
+    await flush();
+    for (let retry = 0; retry < 3; retry++) await runTimers();
+    expect(reads).toBe(4);
+    expect(state).toBe('missing');
+    expect(timers.filter((timer) => !timer.cancelled)).toHaveLength(0);
+    act(() => latestStream().onControl(ended('completed-before-join')));
+    await runTimers();
+    expect(reads).toBe(5);
+    expect(state).toBe('v2');
+    expect(latestStream().schema).toBe('v2');
+    expect(latestStream().runtime).toBe(true);
+    expect(outcomes.at(-1)).toBe('page');
+    expect(heldMessages()).toEqual(page().messages);
+    await runTimers();
+    await runTimers();
+    expect(reads).toBe(7);
+    expect(timers.filter((timer) => !timer.cancelled)).toHaveLength(0);
+  });
+
+  test('KRTX-4973: incomplete pages exhaust only three delayed follow-ups', async () => {
+    let reads = 0;
+    const loader: LoadSessionLogPage = async () => { reads++; return userPage(); };
+    mount({ loader });
+    await flush();
+    act(() => latestStream().onControl(ended('old')));
+    act(() => latestStream().onControl(ended('new')));
+    await flush();
+    for (const ms of [2000, 10000, 30000]) {
+      expect(timers.filter((t) => !t.cancelled).map((t) => t.ms)).toEqual([ms]);
+      await runTimers();
+    }
+    expect(reads).toBe(5);
+    expect(timers.filter((t) => !t.cancelled)).toHaveLength(0);
+  });
+
+  for (const source of ['runtime', 'api']) {
+    test(`KRTX-4973: switch established v2 cancels settlement and pending ${source} read`, async () => {
+      const pending = deferredPage();
+      let reads = 0;
+      let liveReads = 0;
+      let switchSession: (id: string) => void = () => { throw new Error('not mounted'); };
+      const loader: LoadSessionLogPage = async (_project, id) => {
+        reads++;
+        return id === SESSION && source === 'api' && reads > 1 ? pending.promise : page();
+      };
+      const livePage = async () => ++liveReads === 1 ? page() : pending.promise;
+      render(() => {
+        const [id, setId] = useState(SESSION);
+        switchSession = setId;
+        useSessionLogSync(PROJECT, id, { enabled: true, loader, livePage: source === 'runtime' ? livePage : null, joinStream, schedule });
+        return null;
+      });
+      await flush();
+      const stream = latestStream();
+      act(() => stream.onControl(ended('old')));
+      act(() => stream.onRuntimeResync());
+      await flush();
+      act(() => stream.onControl(ended('new')));
+      act(() => switchSession('kses_other'));
+      await flush();
+      const before = reads;
+      await act(async () => pending.resolve(null));
+      await flush();
+      await runTimers();
+      expect(reads).toBe(before);
+      expect(useSyncStore.getState().sessionLogs[SESSION]).toBeUndefined();
+      expect(useSyncStore.getState().sessionLogs.kses_other).toBeDefined();
+      expect(timers.filter((t) => !t.cancelled)).toHaveLength(0);
+    });
+  }
+
+  test('KRTX-4973: current authoritative pages still remove absent unrevisioned messages', async () => {
+    let newest: SessionLogPage = page();
+    const loader: LoadSessionLogPage = async () => newest;
+    mount({ loader });
+    await flush();
+    newest = userPage();
+    act(() => latestStream().onRuntimeResync());
+    await flush();
+    expect(heldMessages()).toEqual(newest.messages);
+  });
+
   const failure = (status: number, fields: { code?: string; retryAfter?: string } = {}) =>
     Object.assign(new Error(`HTTP ${status}`), {
       status,

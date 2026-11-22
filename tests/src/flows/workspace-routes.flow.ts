@@ -322,6 +322,19 @@ flow(
       }
     });
 
+    await ctx.step('GET /v1/projects with no account_id lists the projects of all 3 accounts, as GET /v1/workspaces does', async () => {
+      type Row = { project_id: string; account_id: string; updated_at: string };
+      const legacy = (await ctx.client.as(ctx.P.OWNER).get('/v1/projects')).status(200).json<Row[]>();
+      for (const [index, ws] of workspaces.entries()) {
+        const row = legacy.find((r) => r.project_id === ws.id);
+        if (!row) throw new Error(`project of account ${index + 1} of 3 missing from GET /v1/projects`);
+        if (row.account_id !== teams[index]?.id) throw new Error(`row ${index + 1}: account_id ${row.account_id}`);
+      }
+      // `updated_at` is ISO-8601 UTC: text order is time order.
+      const updated = legacy.map((r) => r.updated_at);
+      if (updated.join() !== [...updated].sort().reverse().join()) throw new Error(`list not most-recently-updated-first: ${updated.join()}`);
+    });
+
     await ctx.step('the legacy GET /v1/projects?account_id= lists one account only', async () => {
       const legacy = (await ctx.client.as(ctx.P.OWNER).get('/v1/projects', { query: { account_id: teams[0]!.id } })).status(200).json<any[]>();
       if (legacy.map((r) => r.project_id).join() !== workspaces[0]!.id) throw new Error(`legacy list ${legacy.map((r) => r.project_id)}`);

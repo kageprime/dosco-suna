@@ -18,6 +18,7 @@
  * has one shape.
  */
 
+import { parseTriggerReaders, type TriggerReaders } from './trigger-readers';
 import { validateAgentPolicySetRefs } from './policy-sets';
 import {
   AGENT_MODES_V2,
@@ -406,6 +407,7 @@ export interface ManifestV3 {
   connectors?: Array<Record<string, unknown>>;
   apps?: Record<string, unknown>;
   triggers?: Array<Record<string, unknown>>;
+  trigger_session_readers?: TriggerReaders;
   policy?: Record<string, unknown>;
   policies?: Array<Record<string, unknown>>;
   /** `ttl`: how long a held connector call waits for a decision (`30m`, `4h`, `7d`). */
@@ -436,6 +438,7 @@ const TOP_LEVEL_KEYS_V3 = [
   'connectors',
   'apps',
   'triggers',
+  'trigger_session_readers',
   'policy',
   'policies',
   'approvals',
@@ -544,6 +547,10 @@ export function validateManifestBody(parsed: Record<string, unknown>, issues: Ma
   validateEnv(parsed.env, 'env', issues);
   validateSandbox(parsed.sandbox, 'sandbox', issues);
   validateRuntimeV2(parsed.runtime, 'runtime', issues);
+  if (parsed.trigger_session_readers !== undefined) {
+    const readers = parseTriggerReaders(parsed.trigger_session_readers);
+    if ('error' in readers) issues.push({ path: 'trigger_session_readers', message: readers.error, severity: 'error' });
+  }
   validateTriggers(parsed.triggers, 'triggers', issues, triggerAgentContextV3(parsed));
   validateConnectors(parsed.connectors, 'connectors', issues);
   validateAppsV2(parsed.apps, 'apps', issues);

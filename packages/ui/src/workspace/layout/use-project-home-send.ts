@@ -44,6 +44,8 @@ export interface UseProjectHomeSendOptions {
     /** The new thread's id the instant Enter is pressed (the create keeps it): a chat opens its thread from here. */
     onCreating?: (sessionId: string) => void;
   };
+  /** The space (session group, flag `session_groups`) each new session is filed in; null or absent: none. */
+  groupId?: string | null;
 }
 
 /**
@@ -52,7 +54,7 @@ export interface UseProjectHomeSendOptions {
  * message on its first frame. `ProjectHome` uses it when the host passes no
  * `onSend`.
  */
-export function useProjectHomeSend(projectId: string, { beforeSend, space }: UseProjectHomeSendOptions = {}) {
+export function useProjectHomeSend(projectId: string, { beforeSend, space, groupId }: UseProjectHomeSendOptions = {}) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const tComposerAttachments = useTranslations('hardcodedUi.composerAttachments');
   const newSession = useNewProjectSession(projectId);
@@ -164,6 +166,7 @@ export function useProjectHomeSend(projectId: string, { beforeSend, space }: Use
             ...buildNewSessionCreateInput(options),
             // No space: a regular session, filed in no space under `chat` too.
             space_id: space ? space.spaceId : null,
+            ...(groupId ? { group_id: groupId } : {}),
             ...(heldAttachments
               ? {}
               : {
@@ -207,6 +210,8 @@ export function useProjectHomeSend(projectId: string, { beforeSend, space }: Use
             useFirstPromptPreviewStore.getState().setFirstPromptPreview(sessionId, text, files ?? []);
             // A space opens the thread beside its timeline (a gate Retry too).
             space?.onOpen(sessionId);
+            // A space's session lists (the sidebar section, the space page) do not refetch on focus: show the new row now.
+            if (groupId) void queryClient.invalidateQueries({ queryKey: [...qk.project.sessionsScope(projectId), 'list-paged'] });
             resolve(sessionId);
           },
         });
@@ -222,7 +227,7 @@ export function useProjectHomeSend(projectId: string, { beforeSend, space }: Use
       }
       startHeldPost(heldAttachments, sessionId);
     },
-    [beforeSend, space, newSession, projectId, tI18nComplete, tComposerAttachments, queryClient, viewer],
+    [beforeSend, space, groupId, newSession, projectId, tI18nComplete, tComposerAttachments, queryClient, viewer],
   );
 
   return { send, sending, draftHandoffScope };

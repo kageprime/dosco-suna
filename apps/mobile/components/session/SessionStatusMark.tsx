@@ -52,16 +52,17 @@ const WORKING_TRAIL = [
 
 function useToneColor(tone: StatusMarkTone): string {
   const { colorScheme } = useColorScheme();
+  const scheme = colorScheme === 'dark' ? 'dark' : 'light';
   switch (tone) {
     case 'green':
-      return THEME.accent.green;
+      return THEME.accent[scheme].green;
     case 'blue':
-      return THEME.accent.blue;
+      return THEME.accent[scheme].blue;
     case 'red':
-      return THEME.accent.red;
+      return THEME.accent[scheme].red;
     case 'muted':
     default:
-      return (colorScheme === 'dark' ? THEME.dark : THEME.light).mutedForeground;
+      return THEME[scheme].mutedForeground;
   }
 }
 

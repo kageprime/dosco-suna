@@ -457,7 +457,7 @@ function RepositoryGroup({
         (current) => (current ? { ...current, project: updated } : current),
       );
       // qk.projects.scope(): reaches every account's list (and the
-      // accountless slot the marketplace picker reads), restoring the reach
+      // accountless slot), restoring the reach
       // the old bare projects-literal prefix match had. Repo-settings edits
       // are rare — over-invalidating costs nothing.
       queryClient.invalidateQueries({ queryKey: qk.projects.scope() });

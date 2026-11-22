@@ -1,17 +1,24 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync, rmSync, rmdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { activeHostName, defaultProject, getHost, markerActive } from './api/config.ts';
 import { sandboxEnvValue } from './api/sandbox-env.ts';
 
 /**
- * `.kortix/link.json` — the per-repo binding between a working
- * directory and a Kortix cloud project.
+ * The binding between a local checkout and a Kortix workspace: which
+ * workspace, on which host, the CLI uses in this folder when no
+ * `--workspace` is given. `kortix ship`, `kortix workspaces link` and
+ * `kortix workspaces clone` write it.
  *
- * Lives inside `.kortix/` (alongside the sandbox `Dockerfile`), so
- * the link travels with the branch when teammates clone the repo —
- * they don't have to re-link. Also stores which host the project
- * belongs to so commands always hit the right Kortix instance even if
- * the user's globally-active host is a different one.
+ * It lives in the checkout's own git config (the `[kortix]` section of
+ * `.git/config`), never in a file of the working tree: git never commits it,
+ * so a workspace repository holds no CLI state. Any folder inside the
+ * checkout resolves it, as git config does.
+ *
+ * Older CLIs wrote `.kortix/link.json` into the folder, and `kortix ship`
+ * committed it. That file is still read when the git config holds no binding,
+ * and {@link saveLink} / {@link migrateLegacyLink} move it into the git config
+ * and delete it.
  */
 export interface ProjectLink {
   project_id: string;
@@ -23,24 +30,72 @@ export interface ProjectLink {
   linked_at: string;
 }
 
-export function linkFilePath(cwd = process.cwd()): string {
+/** The git config keys of the binding, in the `[kortix]` section. */
+const LINK_KEYS = {
+  project_id: 'kortix.workspace',
+  account_id: 'kortix.account',
+  host: 'kortix.host',
+  host_url: 'kortix.host-url',
+  linked_at: 'kortix.linked-at',
+} as const satisfies Record<keyof ProjectLink, string>;
+
+/** Where the CLI keeps the binding, for messages: `git config kortix.workspace`. */
+export const LINK_LOCATION = `this checkout's git config (${LINK_KEYS.project_id})`;
+
+/** The file older CLIs wrote. Read as a fallback, never written. */
+export function legacyLinkFilePath(cwd = process.cwd()): string {
   return resolve(cwd, '.kortix', 'link.json');
 }
 
-/** Is the cwd plausibly a Kortix project? We require either an existing
- *  `.kortix/` directory (from `kortix init`) or a manifest (`kortix.yaml`
- *  or `kortix.yml`) at the root. Refusing to auto-create `.kortix/` from a
- *  random directory prevents stray folders. */
+/** Is the cwd a Kortix workspace folder? It has a manifest (`kortix.yaml` or
+ *  `kortix.yml`) at its root. A bare `.kortix/` folder is the layout older
+ *  CLIs wrote and does not count. */
 export function isKortixProject(cwd = process.cwd()): boolean {
-  return (
-    existsSync(resolve(cwd, '.kortix')) ||
-    existsSync(resolve(cwd, 'kortix.yaml')) ||
-    existsSync(resolve(cwd, 'kortix.yml'))
-  );
+  return existsSync(resolve(cwd, 'kortix.yaml')) || existsSync(resolve(cwd, 'kortix.yml'));
 }
 
-export function loadLink(cwd = process.cwd()): ProjectLink | null {
-  const path = linkFilePath(cwd);
+function git(cwd: string, args: string[]): { ok: boolean; status: number | null; stdout: string } {
+  const result = spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  return { ok: result.status === 0, status: result.status, stdout: result.stdout ?? '' };
+}
+
+/** Is the folder inside a git checkout? The link needs one. */
+export function isGitCheckout(cwd = process.cwd()): boolean {
+  return git(resolve(cwd), ['rev-parse', '--is-inside-work-tree']).ok;
+}
+
+/** Per process, per folder: commands resolve the link several times. A write
+ *  clears it all: every folder of the checkout (and its symlinked paths) reads it. */
+const gitLinkCache = new Map<string, ProjectLink | null>();
+
+function loadGitLink(cwd: string): ProjectLink | null {
+  const key = resolve(cwd);
+  if (gitLinkCache.has(key)) return gitLinkCache.get(key) ?? null;
+  // Exit 1: no [kortix] keys. Exit 128: not inside a git checkout.
+  const out = git(key, ['config', '--local', '--get-regexp', '^kortix\\.']);
+  const values = new Map<string, string>();
+  if (out.ok) {
+    for (const line of out.stdout.split('\n')) {
+      const space = line.indexOf(' ');
+      if (space > 0) values.set(line.slice(0, space), line.slice(space + 1).trim());
+    }
+  }
+  const projectId = values.get(LINK_KEYS.project_id);
+  const link: ProjectLink | null = projectId
+    ? {
+        project_id: projectId,
+        account_id: values.get(LINK_KEYS.account_id) ?? '',
+        host: values.get(LINK_KEYS.host) || undefined,
+        host_url: values.get(LINK_KEYS.host_url) || undefined,
+        linked_at: values.get(LINK_KEYS.linked_at) ?? new Date().toISOString(),
+      }
+    : null;
+  gitLinkCache.set(key, link);
+  return link;
+}
+
+function loadLegacyLink(cwd: string): ProjectLink | null {
+  const path = legacyLinkFilePath(cwd);
   if (!existsSync(path)) return null;
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as Partial<ProjectLink>;
@@ -58,23 +113,75 @@ export function loadLink(cwd = process.cwd()): ProjectLink | null {
   }
 }
 
-export function saveLink(link: ProjectLink, cwd = process.cwd()): void {
-  const path = linkFilePath(cwd);
-  mkdirSync(dirname(path), { recursive: true });
-  // Order keys so the file is human-friendly + diffs predictable.
-  const ordered = {
-    project_id: link.project_id,
-    account_id: link.account_id,
-    host: link.host,
-    host_url: link.host_url,
-    linked_at: link.linked_at,
-  };
-  writeFileSync(path, JSON.stringify(ordered, null, 2) + '\n', 'utf8');
+/** The folder's binding: the checkout's git config, else an older CLI's `.kortix/link.json`. */
+export function loadLink(cwd = process.cwd()): ProjectLink | null {
+  return loadGitLink(cwd) ?? loadLegacyLink(cwd);
 }
 
+/** Thrown by {@link saveLink} outside a git checkout: the binding lives in git config. */
+export class NotAGitCheckoutError extends Error {
+  constructor(cwd: string) {
+    super(`${cwd} is not inside a git checkout. Run git init (kortix init does it) and retry.`);
+    this.name = 'NotAGitCheckoutError';
+  }
+}
+
+/** Delete an older CLI's `.kortix/link.json`, and `.kortix/` when it is left empty. */
+function removeLegacyLink(cwd: string): boolean {
+  const path = legacyLinkFilePath(cwd);
+  if (!existsSync(path)) return false;
+  rmSync(path, { force: true });
+  const dir = resolve(cwd, '.kortix');
+  try {
+    if (readdirSync(dir).length === 0) rmdirSync(dir);
+  } catch {
+    // Already gone, or not ours to remove.
+  }
+  return true;
+}
+
+/** Bind the checkout to a workspace: write the `[kortix]` git config keys and
+ *  delete an older CLI's `.kortix/link.json`. Throws {@link NotAGitCheckoutError}
+ *  outside a git checkout. `keepLegacyFile` leaves that file alone: a fresh
+ *  clone of a repository that committed it stays clean, and the next
+ *  `kortix ship` deletes it in its own commit. */
+export function saveLink(
+  link: ProjectLink,
+  cwd = process.cwd(),
+  opts: { keepLegacyFile?: boolean } = {},
+): void {
+  const key = resolve(cwd);
+  if (!git(key, ['rev-parse', '--is-inside-work-tree']).ok) throw new NotAGitCheckoutError(key);
+  // A rebind drops every old key first, so no stale host or account survives.
+  git(key, ['config', '--local', '--remove-section', 'kortix']);
+  for (const [field, name] of Object.entries(LINK_KEYS) as Array<[keyof ProjectLink, string]>) {
+    const value = link[field];
+    if (value) git(key, ['config', '--local', name, value]);
+  }
+  gitLinkCache.clear();
+  if (!opts.keepLegacyFile) removeLegacyLink(key);
+}
+
+/** Remove the binding: the `[kortix]` git config keys and an older `.kortix/link.json`. */
 export function clearLink(cwd = process.cwd()): void {
-  const path = linkFilePath(cwd);
-  if (existsSync(path)) rmSync(path, { force: true });
+  const key = resolve(cwd);
+  gitLinkCache.clear();
+  git(key, ['config', '--local', '--remove-section', 'kortix']);
+  gitLinkCache.clear();
+  removeLegacyLink(key);
+}
+
+/**
+ * Move an older CLI's `.kortix/link.json` into the git config and delete it.
+ * Returns true when it moved one. When the git config already holds a binding,
+ * the file is only deleted: the git config wins.
+ */
+export function migrateLegacyLink(cwd = process.cwd()): boolean {
+  const legacy = loadLegacyLink(cwd);
+  if (!legacy || !git(resolve(cwd), ['rev-parse', '--is-inside-work-tree']).ok) return false;
+  if (loadGitLink(cwd)) return removeLegacyLink(resolve(cwd));
+  saveLink(legacy, cwd);
+  return true;
 }
 
 /**
@@ -92,7 +199,7 @@ export function envWorkspaceId(): string | undefined {
  * Resolve which project a CLI command should operate on, in order:
  *   1. --workspace / --project / projectArg
  *   2. KORTIX_WORKSPACE_ID, then KORTIX_PROJECT_ID env (platform-injected inside a sandbox)
- *   3. .kortix/link.json in cwd (per-repo binding)
+ *   3. the checkout's link (git config `kortix.workspace`, else an older `.kortix/link.json`)
  *   4. the active host's global default project (`kortix projects use`)
  * Returns null if none of those are set.
  *
@@ -148,7 +255,7 @@ export interface ProjectRef {
 
 /**
  * resolveProjectContext's project resolution, with the winning source
- * attached: --workspace/--project → link.json → KORTIX_WORKSPACE_ID →
+ * attached: --workspace/--project → the checkout's link → KORTIX_WORKSPACE_ID →
  * KORTIX_PROJECT_ID → the active host's default. The directory link is the most specific binding, so it outranks
  * the session env for every caller of this path.
  *

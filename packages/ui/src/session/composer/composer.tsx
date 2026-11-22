@@ -1,7 +1,8 @@
 'use client';
 
 import { errorToast } from '../../primitives/toast';
-import { type UiSlashAction, useUiHostConfig } from '../../providers/ui-provider';
+import { type UiSlashAction, useUiHostConfig, useUiViewerId } from '../../providers/ui-provider';
+import { attachmentMime } from '../../internal/lib/attachment-mime';
 import { useTranslations } from '../../i18n';
 import { cn } from '../../lib/utils';
 import { isImageFile } from '../../internal/lib/utils/file-utils';
@@ -12,11 +13,18 @@ import type {
   ProviderListResponse,
   UsePromptAttachmentsResult,
 } from '@kortix/sdk/react';
-import { useProjectConfig, usePromptAttachments, useRuntimeSessions } from '@kortix/sdk/react';
+import {
+  projectDriveQueryOptions,
+  useFeatureFlag,
+  useProjectConfig,
+  usePromptAttachments,
+  useRuntimeSessions,
+} from '@kortix/sdk/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useActiveSpace } from '../../internal/stores/active-space-store';
 import { MoonIcon, WarningIcon } from '@phosphor-icons/react';
-import { SESSION_NOTICE, type SessionLogMessage } from '@kortix/sdk';
-import { agentDisplayName, newPastedContentId, type PastedContent, splitPastedContent, trimPastedText } from '@kortix/shared';
+import { downloadDriveFile, SESSION_NOTICE, type SessionLogMessage } from '@kortix/sdk';
+import { agentDisplayName, MAX_PROMPT_ATTACHMENT_BYTES, newPastedContentId, type PastedContent, splitPastedContent, trimPastedText } from '@kortix/shared';
 import type { JSONContent } from '@tiptap/core';
 import type { RefObject } from 'react';
 import {
@@ -34,6 +42,8 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { extractClipboardFiles } from './clipboard-files';
+import { createDriveChipSync, type DriveChipSync, driveUploadName, drivePathsIn, withoutDriveChips } from './drive-mentions';
+import type { DriveMentionSource } from './menus/mention-menu';
 import { mergeFailedSubmissionFiles } from './composer-draft-recovery';
 import { resolveComposerResetOnSend, type ComposerSendReset } from './composer-reset';
 import { disownSentAttachmentPreviews, revokeUnsentPreview } from './sent-attachment-previews';
@@ -114,6 +124,7 @@ import { type ContextUsage, getContextUsage } from './context-ring';
 import type { ComposerEditorHandle } from './editor/composer-editor';
 import { useComposerFocus } from './hooks/use-composer-focus';
 import { useMenuRevalidation } from './hooks/use-file-search';
+import { useLatestRef } from './hooks/use-latest-ref';
 import { controlToOpenFor, hostSlashActions, localizedSlashActions, slashActionShown, type SlashAction } from './menus/slash-actions';
 import type { SlashFile } from './menus/slash-files';
 import { outsideAgentMentions, SpaceMentionContext } from './menus/space-mentions';
@@ -393,6 +404,18 @@ export interface SessionChatInputProps {
    */
   underbarPlacement?: 'below' | 'inline';
   /**
+   * One row (attach, text, send) while the text fits one line, the full card
+   * once it wraps or anything is attached; back to one row when emptied. Off
+   * by default: only a narrow pane (a sub-agent beside the chat) opts in.
+   */
+  inline?: boolean;
+  /**
+   * Draw no agent picker. Only for a box with no agent choice: a message to an
+   * existing sub-agent goes to that agent, so a picker there would lie. Every
+   * composer that starts or continues a turn keeps it (see `ComposerUnderbar`).
+   */
+  hideAgentPicker?: boolean;
+  /**
    * The agent picker shows the agent's tile alone, its name in the tooltip
    * and the menu. A narrow inline toolbar (a channel's thread panel) gives
    * the model name the width instead.
@@ -613,6 +636,8 @@ function ComposerImpl(props: SessionChatInputProps) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const tModelGate = useTranslations('sessionUi.modelGate');
   const tComposerAttachments = useTranslations('hardcodedUi.composerAttachments');
+  /** For the submit latch, created once at the first submit: the toast speaks the current locale. */
+  const driveFilePendingMessageRef = useLatestRef(tComposerAttachments('driveFilePending'));
   const tHardcodedUi = useTranslations('hardcodedUi');
   const tThreads = useTranslations('threads');
 
@@ -839,7 +864,7 @@ function ComposerImpl(props: SessionChatInputProps) {
     [restoreQuoteTexts, restorePastes, tComposerAttachments],
   );
 
-  const { handleDocChange, clearSavedDraft } = useComposerDraft({
+  const { handleDocChange, clearSavedDraft, sendRefused } = useComposerDraft({
     active: draftActive,
     scope: draftScope,
     handoffScope: draftHandoffScope,
@@ -1043,6 +1068,100 @@ function ComposerImpl(props: SessionChatInputProps) {
       if (uploadId) void removePromptAttachment(uploadId);
     },
     [removePromptAttachment],
+  );
+
+  // ── Drive `@` mentions ────────────────────────────────────────────────
+  // A picked Drive file is fetched with the viewer's own access (the server
+  // answers 404 for a file they may not read) and staged as an ordinary
+  // attachment marked with its Drive path, so it reaches the agent like any
+  // upload: no session mount changes, no second file transport.
+  const drivesOn = useFeatureFlag(projectId ?? null, 'drives').enabled;
+  const viewerId = useUiViewerId();
+  const queryClient = useQueryClient();
+  /** Drive paths still downloading: a second pick of one attaches nothing, and Send waits. */
+  const pendingDrivePathsRef = useRef(new Set<string>());
+  // Declared before the question-lock effect below, so it holds the new value when that effect empties the editor.
+  const lockForQuestionRef = useLatestRef(lockForQuestion);
+  const pickDriveFile = useCallback(
+    async ({ path, name, size }: { path: string; name: string; size?: number }) => {
+      const attached = () => attachedFilesRef.current.some((file) => file.kind !== 'remote' && file.drivePath === path);
+      // Every other way to attach refuses here too: an answer to a question takes only text.
+      if (disabled || lockForQuestionRef.current || pendingDrivePathsRef.current.has(path) || attached()) return;
+      const dropChips = () => {
+        const doc = editorRef.current?.getDocument();
+        if (doc) setDocumentWithoutStealingFocus(editorRef.current, withoutDriveChips(doc, path));
+      };
+      // Too large for a message: say so before the browser downloads it.
+      if (size !== undefined && size > MAX_PROMPT_ATTACHMENT_BYTES) {
+        errorToast(tComposerAttachments('refusedTooLarge', { name }));
+        dropChips();
+        return;
+      }
+      pendingDrivePathsRef.current.add(path);
+      let file: File;
+      try {
+        const drive = await queryClient.fetchQuery(projectDriveQueryOptions(projectId ?? undefined, viewerId));
+        const blob = await downloadDriveFile(drive.driveId, path);
+        const taken = attachedFilesRef.current.map((held) => (held.kind === 'local' ? held.file.name : held.filename));
+        // Drive serves every file as `application/octet-stream`: the name says what it is (an image reaches the model as one).
+        file = new File([blob], driveUploadName(name, path, taken), {
+          type: attachmentMime(blob.type === 'application/octet-stream' ? '' : blob.type, name),
+        });
+      } catch {
+        // Deleted, moved, or no longer shared with the viewer: say so, and take the chip back.
+        errorToast(tComposerAttachments('driveFileUnavailable', { name }));
+        dropChips();
+        return;
+      } finally {
+        pendingDrivePathsRef.current.delete(path);
+      }
+      // The chip went away while the file downloaded: nothing to attach.
+      if (!drivePathsIn(editorRef.current?.getDocument()).has(path)) return;
+      const before = new Set(attachedFilesRef.current);
+      appendAttachedFiles([file]);
+      const added = attachedFilesRef.current.find((held) => !before.has(held));
+      // Refused by the message limits: `appendAttachedFiles` already said why.
+      if (!added || added.kind === 'remote') return dropChips();
+      const next = attachedFilesRef.current.map((held) => (held === added ? { ...added, drivePath: path } : held));
+      attachedFilesRef.current = next;
+      setAttachedFiles(next);
+    },
+    [appendAttachedFiles, disabled, lockForQuestionRef, projectId, queryClient, tComposerAttachments, viewerId],
+  );
+  const pickDriveFileRef = useLatestRef(pickDriveFile);
+  const removeAttachedFileRef = useLatestRef(removeAttachedFile);
+  const driveChipSyncRef = useRef<DriveChipSync | null>(null);
+  // Lazy-created at the first use (never during render, which the compiler's ref rules forbid).
+  const driveChipSync = useCallback(
+    () =>
+      (driveChipSyncRef.current ??= createDriveChipSync({
+        tray: () => attachedFilesRef.current,
+        remove: (index) => removeAttachedFileRef.current(index),
+        refetch: (file) => void pickDriveFileRef.current(file),
+        paused: () => lockForQuestionRef.current,
+      })),
+    [lockForQuestionRef, pickDriveFileRef, removeAttachedFileRef],
+  );
+  const handleDocChangeWithDrive = useCallback(
+    (doc: JSONContent, isEmpty: boolean) => {
+      handleEditorDocChange(doc, isEmpty);
+      driveChipSync().onDoc(doc, applyingHistoryRef.current);
+    },
+    [driveChipSync, handleEditorDocChange],
+  );
+  const driveMentions = useMemo<DriveMentionSource | null>(
+    // A host that keeps files in its own store (`takeFiles`) gets no Drive rows.
+    () =>
+      projectId && drivesOn && !takeFiles
+        ? {
+            projectId,
+            onPick: (file) => {
+              driveChipSync().trust(file.path);
+              void pickDriveFile(file);
+            },
+          }
+        : null,
+    [projectId, drivesOn, takeFiles, driveChipSync, pickDriveFile],
   );
 
   const retryAttachedFile = useCallback(
@@ -1870,6 +1989,7 @@ function ComposerImpl(props: SessionChatInputProps) {
           // The host refused the send before anything durable happened. Its uploads
           // are back in the tray, and the draft returns: a failed file shows its
           // Retry; a ready one sends again without re-upload.
+          sendRefused();
           const currentDoc = editorRef.current?.getDocument() ?? null;
           const currentIsEmpty = editorRef.current?.isEmpty() ?? true;
           const sentFiles = filesToSend ?? [];
@@ -1932,6 +2052,7 @@ function ComposerImpl(props: SessionChatInputProps) {
       onCommand,
       onHoldCommand,
       clearSavedDraft,
+      sendRefused,
       handleDocChange,
       setQuoteList,
       restoreQuoteTexts,
@@ -2037,6 +2158,13 @@ function ComposerImpl(props: SessionChatInputProps) {
           attachmentSubmission,
           placement: submitPlacementRef.current,
         };
+      },
+      // A Drive file still downloading would leave without its bytes (a message), be thrown away (a
+      // command), or lose its chip to a mid-send stash. Every submit waits for it, the stash included.
+      () => {
+        if (pendingDrivePathsRef.current.size === 0) return false;
+        errorToast(driveFilePendingMessageRef.current);
+        return true;
       },
     );
     return submitLatchRef.current();
@@ -2147,6 +2275,7 @@ function ComposerImpl(props: SessionChatInputProps) {
     attachedFiles,
     promptAttachmentItems,
     removeAttachedFile,
+    driveMentions,
     retryAttachedFile,
     pastes,
     removePaste,
@@ -2162,7 +2291,7 @@ function ComposerImpl(props: SessionChatInputProps) {
     historyPosition:
       historyIndex === null ? null : { index: historyIndex + 1, total: historyEntries.length },
     setIsEmpty,
-    handleDocChange: handleEditorDocChange,
+    handleDocChange: handleDocChangeWithDrive,
     allSessions,
     slashActions,
     handleSelectAction,
@@ -2209,6 +2338,8 @@ function ComposerImpl(props: SessionChatInputProps) {
         // this stacking context sits above them; the dock's own `z-99` only
         // ranks inside this shell and cannot do that job.
         slashMenuPlacement === 'below' && 'z-50',
+        // `inline` sits in a host that already has its gutter (the sub-agent panel): no second one.
+        props.inline && 'px-0',
         parentClassName,
       )}
     >

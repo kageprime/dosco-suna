@@ -1,12 +1,12 @@
-// Public marketplace catalog browse (`/v1/marketplace/*`) — distinct from the
-// project-scoped install surface in `./marketplace.ts` (`/projects/:id/marketplace/*`,
-// `/projects/:id/registry/*`). Read-only catalog routes are public; the
-// "sources" ("Add a marketplace") routes require auth. See
-// apps/api/src/marketplace/index.ts for the server-side handlers.
+// The marketplace client. The marketplace was removed on 2026-11-20: every
+// `/v1/marketplace/*` route and `POST /workspaces/:id/marketplace/install-session`
+// answer `410 ENDPOINT_RETIRED` (apps/api/src/routes/retired.ts). These names
+// stay exported, deprecated, until the next major.
 
 import { backendApi } from '../../http/api-client';
 import { unwrap } from './shared';
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export interface MarketplaceCatalogItem {
   id: string;
   title: string;
@@ -16,6 +16,7 @@ export interface MarketplaceCatalogItem {
   [key: string]: unknown;
 }
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export interface MarketplaceCatalogStatus {
   loading?: boolean;
   pending?: number | string[];
@@ -24,10 +25,12 @@ export interface MarketplaceCatalogStatus {
   hasMore?: boolean;
 }
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export interface MarketplaceItemsResponse extends MarketplaceCatalogStatus {
   items: MarketplaceCatalogItem[];
 }
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export interface ListMarketplaceItemsOptions {
   query?: string;
   type?: string;
@@ -36,7 +39,11 @@ export interface ListMarketplaceItemsOptions {
   offset?: number;
 }
 
-/** Browse the public registry catalog (no auth required). */
+/**
+ * Browse the public registry catalog (no auth required).
+ *
+ * @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major.
+ */
 export async function listMarketplaceCatalogItems(
   options?: ListMarketplaceItemsOptions,
 ): Promise<MarketplaceItemsResponse> {
@@ -50,31 +57,46 @@ export async function listMarketplaceCatalogItems(
   return unwrap(await backendApi.get<MarketplaceItemsResponse>(`/marketplace/items${query}`));
 }
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export interface MarketplaceEntry {
   name: string;
   item_count: number;
   [key: string]: unknown;
 }
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export interface MarketplacesResponse extends MarketplaceCatalogStatus {
   marketplaces: MarketplaceEntry[];
 }
 
-/** Distinct marketplaces (sources) with item counts. */
+/**
+ * Distinct marketplaces (sources) with item counts.
+ *
+ * @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major.
+ */
 export async function listMarketplaces(): Promise<MarketplacesResponse> {
   return unwrap(await backendApi.get<MarketplacesResponse>('/marketplace/marketplaces'));
 }
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export interface FeaturedMarketplacesResponse {
   featured: MarketplaceEntry[];
 }
 
-/** Curated featured marketplaces. */
+/**
+ * Curated featured marketplaces.
+ *
+ * @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major.
+ */
 export async function listFeaturedMarketplaces(): Promise<FeaturedMarketplacesResponse> {
   return unwrap(await backendApi.get<FeaturedMarketplacesResponse>('/marketplace/marketplaces/featured'));
 }
 
-/** A single catalog item's full detail (manifest + file listing). */
+/**
+ * A single catalog item's full detail (manifest + file listing).
+ *
+ * @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major.
+ */
 export async function getMarketplaceCatalogItem(id: string): Promise<Record<string, unknown>> {
   return unwrap(
     await backendApi.get<Record<string, unknown>>(`/marketplace/items/${encodeURIComponent(id)}`),
@@ -82,13 +104,18 @@ export async function getMarketplaceCatalogItem(id: string): Promise<Record<stri
   );
 }
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export interface MarketplaceItemFile {
   path: string;
   content: string;
   [key: string]: unknown;
 }
 
-/** Read a single file's content out of a catalog item (before installing it). */
+/**
+ * Read a single file's content out of a catalog item (before installing it).
+ *
+ * @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major.
+ */
 export async function getMarketplaceCatalogItemFile(
   id: string,
   path: string,
@@ -103,6 +130,7 @@ export async function getMarketplaceCatalogItemFile(
 
 // ── Sources ("Add a marketplace") — authed, platform-global ────────────────
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export interface MarketplaceSource {
   id: string;
   address: string;
@@ -112,15 +140,21 @@ export interface MarketplaceSource {
   [key: string]: unknown;
 }
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export interface MarketplaceSourcesResponse {
   sources: MarketplaceSource[];
 }
 
-/** List operator-managed marketplace sources (a GitHub repo, Git URL, or local folder). */
+/**
+ * List operator-managed marketplace sources (a GitHub repo, Git URL, or local folder).
+ *
+ * @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major.
+ */
 export async function listMarketplaceSources(): Promise<MarketplaceSourcesResponse> {
   return unwrap(await backendApi.get<MarketplaceSourcesResponse>('/marketplace/sources'));
 }
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export interface AddMarketplaceSourceInput {
   address: string;
   gitRef?: string;
@@ -128,11 +162,16 @@ export interface AddMarketplaceSourceInput {
   label?: string;
 }
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export interface AddMarketplaceSourceResponse {
   source: MarketplaceSource;
 }
 
-/** Add a marketplace source. Rejects local-folder/private/non-https addresses server-side. */
+/**
+ * Add a marketplace source. Rejects local-folder/private/non-https addresses server-side.
+ *
+ * @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major.
+ */
 export async function addMarketplaceSource(
   input: AddMarketplaceSourceInput,
 ): Promise<AddMarketplaceSourceResponse> {
@@ -142,7 +181,11 @@ export async function addMarketplaceSource(
   );
 }
 
-/** Remove a marketplace source by id. */
+/**
+ * Remove a marketplace source by id.
+ *
+ * @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major.
+ */
 export async function removeMarketplaceSource(id: string): Promise<{ ok: boolean }> {
   return unwrap(
     await backendApi.delete<{ ok: boolean }>(`/marketplace/sources/${encodeURIComponent(id)}`),
@@ -150,6 +193,7 @@ export async function removeMarketplaceSource(id: string): Promise<{ ok: boolean
   );
 }
 
+/** @deprecated The marketplace was removed (2026-11-20); the API answers `410 ENDPOINT_RETIRED`. Removed in the next major. */
 export async function createMarketplaceInstallSession(
   projectId: string,
   itemId: string,

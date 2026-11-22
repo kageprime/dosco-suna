@@ -6,7 +6,6 @@ import { parseManifestText, validateManifest } from '@kortix/manifest-schema';
 import {
   DEFAULT_STARTER_TEMPLATE_ID,
   STARTER_TEMPLATE_IDS,
-  getStarterCatalogSourceMap,
   getStarterFiles,
   listGeneralKnowledgeWorkerSkills,
 } from '../index';
@@ -139,29 +138,6 @@ describe('the starter manifest is the one kortix.yaml format', () => {
     expect(manifest).not.toContain('harness-reflector');
     expect(manifest).not.toContain('session-reviewer');
     expect(manifest).toContain('tools: "*"');
-  });
-});
-
-describe('starter catalog source map', () => {
-  test('every entry points at a template file that exists on disk', () => {
-    const missing = [...getStarterCatalogSourceMap().values()].filter(
-      (source) => !existsSync(join(REPO_ROOT, source)),
-    );
-
-    expect(missing).toEqual([]);
-  });
-
-  test('names no multi-harness template root', () => {
-    const roots = new Set(
-      [...getStarterCatalogSourceMap().values()].map((source) => source.split('/')[3]),
-    );
-
-    expect([...roots].sort()).toEqual([
-      'base',
-      'general-knowledge-worker',
-      'managed',
-      'marketplace',
-    ]);
   });
 });
 

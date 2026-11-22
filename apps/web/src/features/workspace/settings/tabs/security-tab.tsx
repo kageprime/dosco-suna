@@ -570,9 +570,9 @@ export function DevicesSection({
             return (
               <div key={device.id} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  {/* The device kind, with the browser's logo pinned bottom-right — the
-                      marketplace avatar's corner badge. Its ring takes the group's
-                      fill, so it reads as a cut-out, not an outline. */}
+                  {/* The device kind, with the browser's logo pinned bottom-right as a
+                      corner badge. Its ring takes the group's fill, so it reads as a
+                      cut-out, not an outline. */}
                   <span className="relative inline-flex shrink-0">
                     <span className="bg-muted flex size-8 items-center justify-center rounded-sm">
                       <DeviceIcon className="text-muted-foreground size-4" />

@@ -25,13 +25,6 @@ type Props = {
    */
   fill?: boolean;
   /**
-   * Exposes the scrollable ancestor div (the one carrying `overflow-y-auto`)
-   * to callers that need to virtualize a list against it — e.g.
-   * `MarketplaceBrowser`'s `@tanstack/react-virtual` grid — without coupling
-   * to this component's internal class names.
-   */
-  scrollContainerRef?: React.Ref<HTMLDivElement>;
-  /**
    * Floating open/collapse control at the top-left of this section. Opt-in —
    * the project shell no longer mounts a mobile sheet opener, so pages that
    * sit under this wrapper without their own header toggle need this. Default
@@ -89,7 +82,6 @@ const CustomizeSectionWrapper = ({
   docs,
   className,
   fill,
-  scrollContainerRef,
   showSidebarToggleButton = false,
 }: Props) => {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
@@ -129,7 +121,7 @@ const CustomizeSectionWrapper = ({
         >
           {heading}
         </header>
-        <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">
           {children}
         </div>
       </div>
@@ -139,7 +131,7 @@ const CustomizeSectionWrapper = ({
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       {showSidebarToggleButton ? <SectionSidebarToggle /> : null}
-      <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {/* `max-w-2xl` is the settings panel's content column — the same
             container every tab in `features/workspace/settings/tabs/` uses, and
             the width the design system prescribes ("Container: mx-auto w-full

@@ -156,99 +156,100 @@ export default function EmailAuthScreen() {
     [resetToForm]
   );
 
-  // ── Sign in: send a code, or check the password ───────────────────────────
-  const handleSignIn = React.useCallback(async () => {
-    const trimmedEmail = email.trim().toLowerCase();
-    if (!emailValid) {
-      setErrorMessage('Enter a valid email address.');
-      return;
-    }
-    const resending = !!sentEmail;
-    setLoading(true);
-    clearMessages();
-    try {
-      if (await requiresSso(trimmedEmail)) {
-        switchToSso(trimmedEmail);
+  // ── Every email door: validate, then one loading pass with fresh messages ──
+  // `invalid`: why the input cannot be sent, else null. `checkSso`: ask the API
+  // whether the domain requires single sign-on first (every door but SSO's).
+  const submitEmail = React.useCallback(
+    async (invalid: string | null, run: (trimmedEmail: string) => Promise<void>, checkSso = true) => {
+      if (invalid) {
+        setErrorMessage(invalid);
         return;
       }
-      if (method === 'magic') {
-        const res = await signInWithMagicLink({ email: trimmedEmail });
-        if (!res?.success) {
-          setErrorMessage(friendlyCodeError(res?.error?.message));
+      setLoading(true);
+      clearMessages();
+      try {
+        const trimmedEmail = email.trim().toLowerCase();
+        if (checkSso && (await requiresSso(trimmedEmail))) {
+          switchToSso(trimmedEmail);
           return;
         }
-        setSentEmail(trimmedEmail);
-        setOtpCode('');
-        if (resending) setInfo('New code sent.');
-        return;
+        await run(trimmedEmail);
+      } finally {
+        setLoading(false);
       }
-      const res = await signIn({ email: trimmedEmail, password });
-      if (!res?.success) {
-        setErrorMessage(friendlySignInError(res?.error?.message));
-        return;
+    },
+    [email, clearMessages, switchToSso]
+  );
+
+  // ── Sign in: send a code, or check the password ───────────────────────────
+  const handleSignIn = React.useCallback(() => {
+    const resending = !!sentEmail;
+    return submitEmail(emailValid ? null : 'Enter a valid email address.', async (trimmedEmail) => {
+      try {
+        if (method === 'magic') {
+          const res = await signInWithMagicLink({ email: trimmedEmail });
+          if (!res?.success) {
+            setErrorMessage(friendlyCodeError(res?.error?.message));
+            return;
+          }
+          setSentEmail(trimmedEmail);
+          setOtpCode('');
+          if (resending) setInfo('New code sent.');
+          return;
+        }
+        const res = await signIn({ email: trimmedEmail, password });
+        if (!res?.success) {
+          setErrorMessage(friendlySignInError(res?.error?.message));
+          return;
+        }
+        router.replace('/');
+      } catch (err: any) {
+        log.error('Email sign-in exception:', err);
+        setErrorMessage(err?.message || 'Could not sign in.');
       }
-      router.replace('/');
-    } catch (err: any) {
-      log.error('Email sign-in exception:', err);
-      setErrorMessage(err?.message || 'Could not sign in.');
-    } finally {
-      setLoading(false);
-    }
-  }, [email, emailValid, sentEmail, method, password, signIn, signInWithMagicLink, clearMessages, switchToSso, router]);
+    });
+  }, [emailValid, sentEmail, method, password, signIn, signInWithMagicLink, submitEmail, router]);
 
   // ── Create account ────────────────────────────────────────────────────────
-  const handleSignUp = React.useCallback(async () => {
-    if (!emailValid) {
-      setErrorMessage('Enter a valid email address.');
-      return;
-    }
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setErrorMessage(`Use at least ${MIN_PASSWORD_LENGTH} characters for your password.`);
-      return;
-    }
-    setLoading(true);
-    clearMessages();
-    try {
-      const trimmedEmail = email.trim().toLowerCase();
-      if (await requiresSso(trimmedEmail)) {
-        switchToSso(trimmedEmail);
-        return;
+  const handleSignUp = React.useCallback(() => {
+    const invalid = !emailValid
+      ? 'Enter a valid email address.'
+      : password.length < MIN_PASSWORD_LENGTH
+        ? `Use at least ${MIN_PASSWORD_LENGTH} characters for your password.`
+        : null;
+    return submitEmail(invalid, async (trimmedEmail) => {
+      try {
+        const res = await signUp({ email: trimmedEmail, password });
+        if (!res?.success) {
+          setErrorMessage(res?.error?.message || 'Could not create your account.');
+          return;
+        }
+        if (res.requiresEmailConfirmation) {
+          setInfo('Check your email to confirm your account, then sign in.');
+          return;
+        }
+        router.replace('/');
+      } catch (err: any) {
+        log.error('Sign-up exception:', err);
+        setErrorMessage(err?.message || 'Could not create your account.');
       }
-      const res = await signUp({ email: trimmedEmail, password });
-      if (!res?.success) {
-        setErrorMessage(res?.error?.message || 'Could not create your account.');
-        return;
-      }
-      if (res.requiresEmailConfirmation) {
-        setInfo('Check your email to confirm your account, then sign in.');
-        return;
-      }
-      router.replace('/');
-    } catch (err: any) {
-      log.error('Sign-up exception:', err);
-      setErrorMessage(err?.message || 'Could not create your account.');
-    } finally {
-      setLoading(false);
-    }
-  }, [email, emailValid, password, signUp, clearMessages, switchToSso, router]);
+    });
+  }, [emailValid, password, signUp, submitEmail, router]);
 
   // ── SSO: the email's domain → its identity provider in the browser ───────
-  const handleSso = React.useCallback(async () => {
-    const trimmedEmail = email.trim().toLowerCase();
-    if (!emailValid) {
-      setErrorMessage('Enter your work email address.');
-      return;
-    }
-    setLoading(true);
-    clearMessages();
-    try {
-      const res = await signInWithSSO(trimmedEmail);
-      // Success is routed away by the auth layout.
-      if (!res?.success) setErrorMessage(friendlySsoError(trimmedEmail, res?.error?.message));
-    } finally {
-      setLoading(false);
-    }
-  }, [email, emailValid, signInWithSSO, clearMessages]);
+  const handleSso = React.useCallback(
+    () =>
+      submitEmail(
+        emailValid ? null : 'Enter your work email address.',
+        async (trimmedEmail) => {
+          const res = await signInWithSSO(trimmedEmail);
+          // Success is routed away by the auth layout.
+          if (!res?.success) setErrorMessage(friendlySsoError(trimmedEmail, res?.error?.message));
+        },
+        false
+      ),
+    [emailValid, signInWithSSO, submitEmail]
+  );
 
   const submit = ssoOnly ? handleSso : isSignup ? handleSignUp : handleSignIn;
 
@@ -300,30 +301,19 @@ export default function EmailAuthScreen() {
   );
 
   // ── Forgot password ───────────────────────────────────────────────────────
-  const handleForgotPassword = React.useCallback(async () => {
-    if (!emailValid) {
-      setErrorMessage('Enter your email address first.');
-      return;
-    }
-    setLoading(true);
-    clearMessages();
-    try {
-      const trimmedEmail = email.trim().toLowerCase();
-      // A recovery link would sign in the password identity the org closed.
-      if (await requiresSso(trimmedEmail)) {
-        switchToSso(trimmedEmail);
-        return;
-      }
-      const res = await resetPassword({ email: trimmedEmail });
-      if (!res?.success) {
-        setErrorMessage(res?.error?.message || 'Could not send the reset email.');
-        return;
-      }
-      setInfo('Check your email for a link to reset your password.');
-    } finally {
-      setLoading(false);
-    }
-  }, [email, emailValid, resetPassword, clearMessages, switchToSso]);
+  // A recovery link would sign in the password identity the org closed.
+  const handleForgotPassword = React.useCallback(
+    () =>
+      submitEmail(emailValid ? null : 'Enter your email address first.', async (trimmedEmail) => {
+        const res = await resetPassword({ email: trimmedEmail });
+        if (!res?.success) {
+          setErrorMessage(res?.error?.message || 'Could not send the reset email.');
+          return;
+        }
+        setInfo('Check your email for a link to reset your password.');
+      }),
+    [emailValid, resetPassword, submitEmail]
+  );
 
   const toggleMode = React.useCallback(() => {
     void Haptics.selectionAsync();

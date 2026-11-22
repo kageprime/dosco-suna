@@ -29,9 +29,6 @@ export interface WorkflowMeta {
   agents?: string[]
 }
 
-/** `meta.agents` entries the approval lists at most; the rest are counted. */
-export const META_AGENT_LINES = 50
-
 const META_START = /^export\s+const\s+meta\s*=\s*/
 
 /** Skip whitespace and comments from `pos`. */

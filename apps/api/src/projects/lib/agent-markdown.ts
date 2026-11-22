@@ -4,11 +4,9 @@
  * (decision 2026-07-05: "OpenCode behavior lives in the native .md; Kortix
  * governance lives in kortix.yaml — one home per concern").
  *
- * Distinct from `@kortix/registry`'s `parseFrontmatter` (a dependency-free
- * flat-string reader used for SKILL.md metadata, shipped into the sandbox/CLI
- * bundle) — an agent's frontmatter can carry a full nested `permission` tree,
- * numbers, and booleans, so this uses the real YAML parser (already a
- * dependency of apps/api) instead.
+ * An agent's frontmatter can carry a full nested `permission` tree, numbers,
+ * and booleans, so this uses the real YAML parser (already a dependency of
+ * apps/api), not a flat-string reader.
  */
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 

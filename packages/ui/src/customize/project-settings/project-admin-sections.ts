@@ -3,7 +3,6 @@ import {
   ChartBarIcon,
   DatabaseIcon,
   ListChecksIcon,
-  ListBulletsIcon,
   PlayCircleIcon,
   BookOpenTextIcon,
   CpuIcon,
@@ -61,7 +60,6 @@ export type ProjectAdminResourceKey = Extract<
   | 'eval-datasets'
   | 'eval-tasks'
   | 'eval-jobs'
-  | 'eval-trials'
   | 'models' | 'secrets' | 'apps' | 'drives' | 'repo'
 >;
 
@@ -193,7 +191,6 @@ export const PROJECT_ADMIN_RESOURCES: readonly ProjectAdminResource[] = [
   { key: 'eval-datasets', icon: DatabaseIcon, capability: null, host: false, flag: 'evals', memberOpen: true },
   { key: 'eval-tasks', icon: ListChecksIcon, capability: null, host: false, flag: 'evals', memberOpen: true },
   { key: 'eval-jobs', icon: PlayCircleIcon, capability: null, host: false, flag: 'evals', memberOpen: true },
-  { key: 'eval-trials', icon: ListBulletsIcon, capability: null, host: false, flag: 'evals', memberOpen: true },
   { key: 'models', icon: CpuIcon, capability: 'models', host: false },
   { key: 'repo', icon: FoldersIcon, capability: 'files', host: false, flag: 'drives' },
 ];

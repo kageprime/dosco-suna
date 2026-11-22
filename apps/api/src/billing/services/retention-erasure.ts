@@ -148,7 +148,7 @@ async function erase(row: RetentionCandidate): Promise<{ outcome: RetentionOutco
     return { outcome: 'skipped_live' };
   }
   try {
-    await runAccountDeletion(request.accountId, request.userId, request.id);
+    await runAccountDeletion(request.accountId, request.userId, request);
     await markDeletionCompleted(request.id);
     return { outcome: 'erased' };
   } catch (err) {

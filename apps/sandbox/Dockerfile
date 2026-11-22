@@ -77,7 +77,6 @@ WORKDIR /cli
 COPY apps/cli ./apps/cli
 COPY packages/llm-catalog ./packages/llm-catalog
 COPY packages/manifest-schema ./packages/manifest-schema
-COPY packages/registry ./packages/registry
 COPY packages/sdk ./packages/sdk
 COPY packages/shared ./packages/shared
 COPY packages/starter ./packages/starter

@@ -28,13 +28,11 @@ import { runHosts } from './commands/hosts.ts';
 import { runInit } from './commands/init.ts';
 import { runLogin } from './commands/login.ts';
 import { runLogout } from './commands/logout.ts';
-import { runMarketplace } from './commands/marketplace.ts';
 import { runMembers } from './commands/members.ts';
 import { runModels } from './commands/models.ts';
 import { runPermissions } from './commands/permissions.ts';
 import { runProjects } from './commands/projects.ts';
 import { runProviders } from './commands/providers.ts';
-import { runRegistry } from './commands/registry.ts';
 import { runReminders } from './commands/reminders.ts';
 import { runGoals } from './commands/goals.ts';
 import { runEvals } from './commands/evals.ts';
@@ -218,8 +216,7 @@ async function offerInteractiveUpdate(): Promise<boolean> {
  * argv[0] → handler for every routed command. Aliases point at the same
  * handler (`deploy`→ship, `t`→tui, `perms`→permissions,
  * `session`→sessions, `workspace`/`projects`/`project`→workspaces); the token-only, remind and
- * skills adapters keep their extra arguments; `registry` keeps its stderr
- * warning. `help`, `version`, `git-credential` and bare `kortix` stay
+ * skills adapters keep their extra arguments. `help`, `version`, `git-credential` and bare `kortix` stay
  * special-cased in main() — they are landing-screen or protocol verbs, not
  * subcommand dispatch.
  *
@@ -288,15 +285,8 @@ const COMMAND_HANDLERS: Record<string, RootCommandHandler> = {
   apps: (rest) => runApps(rest),
   channels: (rest) => runChannels(rest),
   sandboxes: (rest) => runSandboxes(rest),
-  marketplace: (rest) => runMarketplace(rest),
   'system-skills': (rest, invoked) => runSystemSkills(rest, invoked),
   skills: (rest, invoked) => runSystemSkills(rest, invoked),
-  registry: (rest) => {
-    process.stderr.write(
-      `${C.yellow}developer command:${C.reset} registry is an internal marketplace authoring format; use ${C.cyan}kortix marketplace${C.reset} for normal install/search.\n`,
-    );
-    return runRegistry(rest);
-  },
   agents: (rest) => runAgents(rest),
   tools: (rest) => runTools(rest),
   models: (rest) => runModels(rest),

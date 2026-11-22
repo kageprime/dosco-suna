@@ -68,9 +68,6 @@ Options:
   --no-git             Don't run \`git init\` in the new workspace directory.
   -y, --yes            Skip prompts (requires a project-name).
   -h, --help           Show this help.
-
-Adding more marketplace items later is an agent import, not part of init:
-start a session and ask the agent to bring one in.
 `;
 
 interface InitFlags {
@@ -269,7 +266,7 @@ async function initNewProject(flags: InitFlags): Promise<number> {
   // ── Detect existing Kortix files ─────────────────────────────────────
   let overwrite = flags.overwrite;
   if (
-    ['kortix.yaml', 'kortix.yml', '.kortix'].some((path) => existsSync(resolve(cwd, path))) &&
+    ['kortix.yaml', 'kortix.yml'].some((path) => existsSync(resolve(cwd, path))) &&
     !overwrite &&
     !flags.yes
   ) {

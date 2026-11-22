@@ -54,9 +54,9 @@ describe('INTERFACE_THEME_OPTIONS', () => {
     const labelled = INTERFACE_THEME_OPTIONS.filter((option) => option.kind === 'labelled');
     expect(labelled.map((option) => themes[option.labelKey])).toEqual([
       'System',
-      'Light',
+      'Kortix light',
       'Pure light',
-      'Dark',
+      'Kortix dark',
       'Pure dark',
     ]);
   });

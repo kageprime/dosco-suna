@@ -1,16 +1,29 @@
 'use client';
 
-import { GrainShader, NeuroShader } from '@kortix/ui/paper-wallpaper-shaders';
 import { ShaderWallpaper } from '@/components/ui/shader-wallpaper';
-import { DitherShader, SilkShader } from '@kortix/ui/wallpaper-shaders';
 import { cn } from '@kortix/ui';
-import { DEFAULT_WALLPAPER_ID, getWallpaperById, Wallpaper } from '@kortix/ui/theme';
+import { GradientWallpaper } from '@kortix/ui/gradient-wallpaper';
 import { useUserPreferencesStore } from '@kortix/ui/internal/stores/user-preferences-store';
+import { GrainShader, NeuroShader } from '@kortix/ui/paper-wallpaper-shaders';
+import {
+  customGradientConfig,
+  DEFAULT_WALLPAPER_ID,
+  getSelectableWallpaper,
+  getWallpaperById,
+  normalizeCustomWallpaper,
+  normalizePresetOverrides,
+  presetWithOverride,
+  Wallpaper,
+  type GradientConfig,
+  type PresetOverride,
+} from '@kortix/ui/theme';
+import { DitherShader, SilkShader } from '@kortix/ui/wallpaper-shaders';
 import Image from 'next/image';
-import { memo, type ComponentType } from 'react';
+import { memo, useMemo, type ComponentType } from 'react';
 
-// One shader composition per wallpaper id; unknown shader ids fall back
-// to the Pixel Beams preset in ShaderWallpaper.
+// The shader compositions that predate the gradient engine: Dither (the
+// default) and the wallpapers retired from the picker. Unknown shader ids
+// fall back to the Pixel Beams preset in ShaderWallpaper.
 const SHADER_WALLPAPERS: Partial<
   Record<Wallpaper['id'], ComponentType<{ maxPixelCount?: number }>>
 > = {
@@ -40,8 +53,18 @@ export const WallpaperBackground = memo(function WallpaperBackground({
   const storeWallpaperId = useUserPreferencesStore(
     (s) => s.preferences.wallpaperId ?? DEFAULT_WALLPAPER_ID,
   );
-  const wallpaperId = wallpaperIdProp ?? storeWallpaperId;
-  const wallpaper = getWallpaperById(wallpaperId);
+  const storedCustom = useUserPreferencesStore((s) => s.preferences.customWallpaper);
+  // A prop names any wallpaper that can render. A stored preference names
+  // only what the picker offers: a retired id resolves to the default.
+  const wallpaper = wallpaperIdProp
+    ? getWallpaperById(wallpaperIdProp)
+    : getSelectableWallpaper(storeWallpaperId);
+  const storedOverrides = useUserPreferencesStore((s) => s.preferences.wallpaperOverrides);
+  const overrides = useMemo(() => normalizePresetOverrides(storedOverrides), [storedOverrides]);
+  const customGradient = useMemo(
+    () => customGradientConfig(normalizeCustomWallpaper(storedCustom)),
+    [storedCustom],
+  );
 
   const centerTopClass = preview ? 'top-[50%]' : 'top-[46%]';
 
@@ -92,6 +115,17 @@ export const WallpaperBackground = memo(function WallpaperBackground({
     );
   }
 
+  // ── Gradient wallpapers: the ten presets and the user's own ──────────
+  if (wallpaper.type === 'gradient' || wallpaper.type === 'custom') {
+    if (wallpaper.type === 'custom') return <GradientWallpaper config={customGradient} />;
+    return wallpaper.gradient ? (
+      <PresetGradient
+        config={wallpaper.gradient}
+        override={overrides[wallpaper.id as keyof typeof overrides]}
+      />
+    ) : null;
+  }
+
   // ── WebGL shader compositions ────────────────────────────────────────
   // Each shader wallpaper has its own preset picked by id. Shader
   // wallpapers render without the logomark overlay — the composition is
@@ -136,3 +170,16 @@ export const WallpaperBackground = memo(function WallpaperBackground({
     </div>
   );
 });
+
+/** A preset with the person's override. Memoized so the shader keeps its
+ *  params object, and with it its uniforms, until the override changes. */
+function PresetGradient({
+  config,
+  override,
+}: {
+  config: GradientConfig;
+  override?: PresetOverride;
+}) {
+  const applied = useMemo(() => presetWithOverride(config, override), [config, override]);
+  return <GradientWallpaper config={applied} />;
+}

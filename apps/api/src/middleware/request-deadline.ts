@@ -89,16 +89,6 @@ const EXEMPT_FRAGMENTS = [
   '/provision', // managed repo create + sandbox boot
   // resolve
   '/commit-push', // host-driven git commit+push
-  '/marketplace/install', // marketplace item install — git-bound like
-  // /commit-push (fetch + hash + commit + push)
-  '/registry/install', // registry item install — same git-bound path
-  '/marketplace/update', // marketplace item update(s) — also matches
-  // /marketplace/update-all (path.includes), and
-  // (intentionally) the GET .../updates
-  // drift-listing routes, which are
-  // GitHub-scan-heavy and legitimately long
-  '/registry/update', // registry item update — same git-bound path,
-  // plus its GET .../updates drift-listing route
   '/snapshots', // sandbox template builds
   '/legacy-migration', // legacy VM → project migration runs
   '/oauth/', // provider OAuth device flow — `start` runs

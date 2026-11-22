@@ -6,6 +6,9 @@
  *   agents/<name>.md          an agent's prompt (`agents.<name>.prompt_file`)
  *   skills/<name>/SKILL.md    skills (`skills.<name>.path`)
  *   memory/                   project memory
+ *   workflows/<name>.js       saved workflows (kortixd `workflow-store.ts`)
+ *
+ * No `.kortix/` folder: a workspace repository holds no Kortix-local state.
  *
  * Dependency-free on purpose: `index.v2.ts` and `json-schema.ts` both import
  * it, and neither may import the other.
@@ -14,6 +17,7 @@
 export const AGENTS_DIR = 'agents';
 export const SKILLS_DIR = 'skills';
 export const MEMORY_DIR = 'memory';
+export const WORKFLOWS_DIR = 'workflows';
 /** The conventional prompt file of a new agent (`agents.<name>.prompt_file`). */
 export function defaultAgentFile(agentName: string): string {
   return `${AGENTS_DIR}/${agentName}.md`;

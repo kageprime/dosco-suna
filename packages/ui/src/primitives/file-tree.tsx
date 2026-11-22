@@ -57,7 +57,7 @@ export interface FileTreeNavProps {
 /**
  * The file rows inside a `FileTree`: one indented button per file, the
  * selected one on a quiet fill. Shared by the capability entity modal and the
- * marketplace item rail so both trees are the same component.
+ * eval task view so both trees are the same component.
  */
 export function FileTreeNav({ nodes, selectedPath, onSelect, label }: FileTreeNavProps) {
   if (nodes.length === 0) return null;

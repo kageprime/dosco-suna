@@ -13,7 +13,7 @@
  *  - A runner session's spent hand-off: `<state>/handoff.json`, written
  *    before the runner runs its one workflow. A runner that holds it runs no
  *    other hand-off, also after its box restarts.
- *  - Saved workflows: `.kortix/workflows/<name>.js` in the project repository,
+ *  - Saved workflows: `workflows/<name>.js` in the project repository,
  *    read only. A box with a project checkout reads the working tree. A box
  *    without one (My Kortix) reads the default branch through the Kortix API
  *    with the session token (`GET /v1/projects/:id/files/content?path=…`).
@@ -26,8 +26,9 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFile
 import { join } from 'node:path'
 import { kortixApiFetch } from '@/lib/kortix-api/workspace-routes'
 
-/** The repository folder of saved workflows. */
-export const SAVED_WORKFLOWS_DIR = '.kortix/workflows'
+/** The repository folder of saved workflows, at the root next to `agents/` and
+ *  `skills/` (`packages/manifest-schema/src/layout.ts`, `WORKFLOWS_DIR`). */
+export const SAVED_WORKFLOWS_DIR = 'workflows'
 /** A saved workflow's name: its file is `<name>.js`. */
 const SAVED_NAME = /^[a-z0-9][a-z0-9_-]{0,63}$/
 const RUN_ID = /^[A-Za-z0-9_-]{8,64}$/

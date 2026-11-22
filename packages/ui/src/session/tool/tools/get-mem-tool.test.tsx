@@ -176,7 +176,7 @@ describe('the closed get_mem row names the memory (gate finding 4)', () => {
     // The subtitle span carries the memory's own words…
     expect(html).toContain('title="Refactored auth flow"');
     // …and the id rides the badge, which is the row's `shrink-0` trailing slot.
-    expect(html).toContain('text-muted-foreground/60 shrink-0 font-mono text-xs');
+    expect(html).toContain('text-muted-foreground shrink-0 font-mono text-xs');
     expect(html).toContain('>#42</span>');
   });
 

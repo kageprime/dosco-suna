@@ -1953,5 +1953,6 @@
 {"input":{"exception":{"values":[{"value":"xbrowser is not defined","stacktrace":{"frames":[{"filename":"<anonymous>","function":"execute_auto_fill"},{"filename":"app:///_next/static/chunks/main.js","function":"r"}]}}]}},"runtime":false,"sentry":false},
 {"input":{"exception":{"values":[{"value":"xbrowser is not defined","stacktrace":{"frames":[{"filename":"app:///apps/web/src/app/auth/page.tsx","function":"AuthPage"},{"filename":"<anonymous>","function":"?"}]}}]}},"runtime":false,"sentry":false},
 {"input":{"exception":{"values":[{"value":"swbrowser is not defined"}]}},"runtime":false,"sentry":false},
-{"input":{"message":"Uncaught ReferenceError: swbrowser is not defined","filename":""},"runtime":false,"sentry":false}
+{"input":{"message":"Uncaught ReferenceError: swbrowser is not defined","filename":""},"runtime":false,"sentry":false},
+{"input":{"exception":{"values":[{"type":"Error","value":"Uncaught EvalError: Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://www.googletagmanager.com\".\n","mechanism":{"type":"auto.browser.global_handlers.onerror","handled":false},"stacktrace":{"frames":[{"filename":"blob:app:///00000000-0000-4000-8000-000000000000","function":"?","lineno":2,"colno":1320381}]}}]}},"runtime":false,"sentry":true}
 ]

@@ -52,20 +52,9 @@ import { providerBoxBelongsToThisInstance } from '../../platform/providers/plati
 import { sandboxOwnershipMarker } from '../../platform/sandbox-ownership';
 import { db } from '../../shared/db';
 import { platinumJson } from '../../shared/platinum';
-import {
-  STORAGE_ROW_COLUMNS,
-  type StorageFeed,
-  type StorageOwner,
-  type StorageSettleDeps,
-  accountStorageBilled,
-  addDays,
-  chargeStorageRow,
-  readPlatformSetting,
-  storageChargeDeps,
-  toStoredRow,
-  utcDay,
-  writePlatformSetting,
-} from './storage-charges';
+import { STORAGE_ROW_COLUMNS, type StorageSettleDeps, chargeStorageRow, toStoredRow } from './storage-charge-row';
+import type { StorageOwner } from './storage-owners';
+import { type StorageFeed, accountStorageBilled, addDays, readPlatformSetting, storageFeeds, utcDay, writePlatformSetting } from './storage-shared';
 import { settleAndCheckAutoTopup } from './wallet-debits';
 
 export const BOX_DISK_START_KEY = 'platinum.box_disk.start';
@@ -209,7 +198,7 @@ interface PlatinumBoxPage {
 }
 
 export const boxDiskDeps: BoxDiskDeps = {
-  feeds: () => storageChargeDeps.feeds(),
+  feeds: storageFeeds,
   async listBoxes(feed, state) {
     const boxes = new Map<string, PlatinumBox>();
     for (let page = 0, offset = 0; page < MAX_LIST_PAGES; page++, offset += LIST_PAGE_LIMIT) {

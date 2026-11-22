@@ -1,3 +1,4 @@
+import { kortixReplacedToolkits } from './kortix-oauth-clients';
 import {
   Composio,
   type ToolRouterCreateSessionConfig,
@@ -633,7 +634,7 @@ export async function composioCatalogPage(input: {
   const hiddenToolkits =
     input.catalogClient || !input.runtime
       ? composioHiddenToolkits(input.catalogClient ?? composioRestClient())
-      : Promise.resolve(new Set<string>(NATIVE_TOOLKITS));
+      : Promise.resolve(new Set<string>([...NATIVE_TOOLKITS, ...kortixReplacedToolkits()]));
   const category = input.category?.trim();
   if (category) {
     if (!runtime.toolkits) throw new Error('Composio toolkit catalogue is unavailable');

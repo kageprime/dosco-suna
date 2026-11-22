@@ -172,7 +172,7 @@ describe('BasicTool panel surface — the disclosure row', () => {
 
     expect(html).toContain('Generating slides');
     expect(html).toContain('min-w-0 flex-1 truncate text-sm font-medium');
-    expect(html).toContain('text-muted-foreground/60 shrink-0 font-mono text-xs');
+    expect(html).toContain('text-muted-foreground shrink-0 font-mono text-xs');
     expect(html).toContain('4 slides');
     // Still a row, not the old sticky header.
     expect(html).not.toContain('sticky');
@@ -570,6 +570,12 @@ describe('shouldShowToolPartInActionsPanel — empty show', () => {
     expect(
       shouldShowToolPartInActionsPanel(showPart('completed', { path: '/workspace/q3.pdf' })),
     ).toBe(true);
+  });
+
+  test('drops a failed show (2026-11-16: failed shows are not presented) but keeps another failed tool', () => {
+    expect(shouldShowToolPartInActionsPanel(showPart('error', { url: 'https://example.test/a' }))).toBe(false);
+    const bash = toolCallBlock({ type: 'tool', tool: 'bash', callID: 'b', state: { status: 'error', input: { command: 'false' } } } as unknown as ToolPart);
+    expect(shouldShowToolPartInActionsPanel(bash)).toBe(true);
   });
 
   test('keeps a still-running show — its input has not arrived yet', () => {

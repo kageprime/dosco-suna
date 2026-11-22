@@ -1,0 +1,24 @@
+# Docker images that Vulcan bakes into this repository's warm runner template.
+#
+# Vulcan reads this file from `dev` and pulls every image below into the
+# template, so a CI job finds them on disk instead of downloading them.
+# Before this file, the core test lanes pulled the Supabase images from
+# ghcr.io on every run (30-113 s per lane; Vulcan mirrors only docker.io).
+#
+# Format: one image reference per line; `#` starts a comment.
+# Keep the Supabase tags equal to the ones the pinned Supabase CLI
+# (`supabase` in package.json) pulls. A stale entry only makes CI slower:
+# the job pulls the missing image as before.
+
+# `supabase start` (tests/src/core/local-stack.ts). The registry is ghcr.io
+# because .github/workflows/tests.yml sets SUPABASE_INTERNAL_IMAGE_REGISTRY.
+ghcr.io/supabase/postgres:17.6.1.165
+ghcr.io/supabase/gotrue:v2.196.0
+ghcr.io/supabase/postgrest:v16.1
+ghcr.io/supabase/kong:2.8.1
+ghcr.io/supabase/storage-api:v1.70.3
+ghcr.io/supabase/postgres-meta:v0.98.0
+ghcr.io/supabase/mailpit:v1.30.2
+
+# Throwaway databases of tests/migration and packages/db integration suites.
+postgres:16-alpine

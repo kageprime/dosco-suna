@@ -13,9 +13,6 @@ import { useMemo } from 'react';
  * and the props contract of the two views that render them.
  */
 
-/** System directories always pinned at the top of the listing. */
-const ELEVATED_DIRS = new Set(['.kortix']);
-
 /** Sort and separate dirs and files, by the store's sort field and order. */
 export function useSortedListing(files: FileNode[] | undefined, partial: boolean) {
   const sortBy = useFilesStore((s) => s.sortBy);
@@ -23,7 +20,6 @@ export function useSortedListing(files: FileNode[] | undefined, partial: boolean
   return useMemo(() => {
     if (!files)
       return {
-        elevatedDirs: [] as FileNode[],
         dirs: [] as FileNode[],
         fileItems: [] as FileNode[],
       };
@@ -52,13 +48,9 @@ export function useSortedListing(files: FileNode[] | undefined, partial: boolean
     // A partial folder keeps the server's name order: a sorted subset would
     // put a later page's rows above the ones shown (KRTX-1723).
     const sorted = (nodes: FileNode[]) => (partial ? nodes : nodes.sort(sortFn));
-    const allDirs = files.filter((f) => f.type === 'directory');
-    const elevatedDirs = allDirs
-      .filter((f) => ELEVATED_DIRS.has(f.name))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    const dirs = sorted(allDirs.filter((f) => !ELEVATED_DIRS.has(f.name)));
+    const dirs = sorted(files.filter((f) => f.type === 'directory'));
     const fileItems = sorted(files.filter((f) => f.type === 'file'));
-    return { elevatedDirs, dirs, fileItems };
+    return { dirs, fileItems };
   }, [files, sortBy, sortOrder, partial]);
 }
 
@@ -108,7 +100,6 @@ export function ListingSkeleton({ viewMode }: { viewMode: ViewMode }) {
 
 /** The props `DriveGridView` and `DriveListView` share. */
 export interface DriveListingProps {
-  elevatedDirs: FileNode[];
   dirs: FileNode[];
   files: FileNode[];
   onNavigateToDir: (node: FileNode) => void;

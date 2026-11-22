@@ -34,18 +34,17 @@ import { accountDeletionRequests, accountTokens, accounts, projects } from '@kor
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import { logger } from '../lib/logger';
+import { WORKSPACE_CLOSE_REASON, WORKSPACE_CLOSE_REASON_SUBSCRIPTION } from './deletion-reason';
 import { db, withDbTransaction } from '../shared/db';
 import { isUniqueViolation } from '../shared/postgres-errors';
 import { cancelDeletionRequest } from '../billing/repositories/account-deletion';
 import { asWorkspaceId, type WorkspaceAccountKey, type WorkspaceId } from './ids';
 import { accountIsPaying, getWorkspace, type WorkspaceRecord } from './store';
 
+export { WORKSPACE_CLOSE_REASON, WORKSPACE_CLOSE_REASON_SUBSCRIPTION } from './deletion-reason';
+
 /** Days a closed workspace can be restored (the account-deletion grace, D6b). */
 export const WORKSPACE_DELETION_GRACE_DAYS = 14;
-
-/** `account_deletion_requests.reason` of a close; the second marks a subscription the close set to cancel. */
-export const WORKSPACE_CLOSE_REASON = 'workspace_deleted';
-export const WORKSPACE_CLOSE_REASON_SUBSCRIPTION = 'workspace_deleted:subscription_cancelled';
 
 export type WorkspaceLifecycleErrorCode =
   | 'workspace_not_found'

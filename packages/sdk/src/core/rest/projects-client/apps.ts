@@ -387,6 +387,11 @@ export type AppSource =
 export type CreateAppDeploymentInput = CreateAppBuildInput;
 
 export interface CreateAppBuildInput {
+  /** Deploying checkout HEAD; absent for sources outside Git. */
+  source_commit?: string;
+  source_ref?: string | null;
+  /** Explicit bypass of the CLI live-commit ancestry guard. */
+  source_force?: boolean;
   artifact_id: string;
   source: AppSource;
   /** Optional infrastructure preference. Omit it to use the server policy. */
@@ -404,6 +409,9 @@ export interface CreateAppBuildInput {
 }
 
 export interface AppDeployment {
+  source_commit?: string | null;
+  source_ref?: string | null;
+  source_force?: boolean;
   deployment_id: string;
   app_id: string;
   /** `null` for a historic record made without an artifact. */

@@ -288,3 +288,22 @@ describe('PATCH /:projectId — invalid icon is NOT a clear', () => {
     expect(metadataQuery().params).toEqual(['{"manifest_project_name":"renamed-despite-bad-icon"}']);
   });
 });
+
+describe('default branch validation', () => {
+  test('rejects option-shaped branches before writing settings', async () => {
+    for (const key of ['default_branch', 'defaultBranch']) {
+      for (const branch of ['--output=/tmp/kortix-invalid-ref', '-x', 'a..b', 'a b']) {
+        setCalls = [];
+        const response = await patch({ [key]: branch });
+        expect(response.status).toBe(400);
+        expect(setCalls).toHaveLength(0);
+      }
+    }
+  });
+
+  test('accepts a safe branch without requiring a reachable upstream', async () => {
+    const response = await patch({ default_branch: 'feature/new-branch' });
+    expect(response.status).toBe(200);
+    expect(lastSet().defaultBranch).toBe('feature/new-branch');
+  });
+});

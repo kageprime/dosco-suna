@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 
-import { buildCostByProjectQuery, buildCostSummaryQuery } from './use-cost-explorer';
+import {
+  buildCostByProjectQuery,
+  buildCostSummaryQuery,
+  costReadBusyRetryDelay,
+  retryCostReadBusy,
+} from './use-cost-explorer';
+import { buildSessionCostsListQuery } from './use-session-costs';
 
 const sources = {
   summary: async () => ({ totals: {}, previous: {}, series: [], models: [] }) as never,
@@ -121,5 +127,35 @@ describe('buildCostByProjectQuery', () => {
       { accountId: 'a', from: 'F', to: 'T', sort: 'total_desc', limit: 25, offset: 25 },
     ]);
     expect(query.staleTime).toBe(30_000);
+  });
+});
+
+describe('cost_read_busy retry', () => {
+  test('retries a 429 up to its bound and never another 4xx or 5xx', () => {
+    expect(retryCostReadBusy(0, { status: 429 })).toBe(true);
+    expect(retryCostReadBusy(19, { status: 429 })).toBe(true);
+    expect(retryCostReadBusy(20, { status: 429 })).toBe(false);
+    expect(retryCostReadBusy(0, { status: 403 })).toBe(false);
+    expect(retryCostReadBusy(0, { status: 503 })).toBe(false);
+    expect(retryCostReadBusy(0, new Error('boom'))).toBe(false);
+    expect(retryCostReadBusy(0, null)).toBe(false);
+  });
+
+  test('waits about the server retry_after_seconds, with jitter', () => {
+    for (let i = 0; i < 20; i++) {
+      const delay = costReadBusyRetryDelay();
+      expect(delay).toBeGreaterThanOrEqual(5_000);
+      expect(delay).toBeLessThan(7_000);
+    }
+  });
+
+  test('the three guarded cost reads carry the retry policy', () => {
+    const summary = buildCostSummaryQuery({ accountId: 'a' }, sources);
+    const byProject = buildCostByProjectQuery({ accountId: 'a', offset: 0 }, sources);
+    const sessions = buildSessionCostsListQuery({ accountId: 'a', limit: 25, offset: 0 } as never);
+    for (const query of [summary, byProject, sessions]) {
+      expect(query.retry).toBe(retryCostReadBusy);
+      expect(query.retryDelay).toBe(costReadBusyRetryDelay);
+    }
   });
 });

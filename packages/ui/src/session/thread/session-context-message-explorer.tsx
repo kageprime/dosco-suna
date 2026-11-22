@@ -173,7 +173,7 @@ const RawMessage = memo(function RawMessage({
             </Badge>
             <span className="text-muted-foreground">{row.id}</span>
           </div>
-          <div className="text-muted-foreground/60 shrink-0 text-xs tabular-nums">
+          <div className="text-muted-foreground shrink-0 text-xs tabular-nums">
             {formatTime(row.created)}
           </div>
         </div>

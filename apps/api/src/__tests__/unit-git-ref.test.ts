@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { HTTPException } from 'hono/http-exception';
 import { validateRef, validateSha } from '../projects/git-ref';
 
 describe('validateRef', () => {
@@ -24,6 +25,22 @@ describe('validateRef', () => {
 
   test('rejects empty ref', () => {
     expect(() => validateRef('')).toThrow();
+  });
+
+  // A client-supplied bad ref is a 4xx, not a 500: a plain Error reached
+  // app.onError as an unhandled exception and paged Better Stack (KRTX-4929).
+  test('a rejected ref or sha is a 400 HTTPException, not a paging 500', () => {
+    const rejected = [() => validateRef('a b'), () => validateRef('--output=/x'), () => validateRef(''), () => validateSha('zz')];
+    for (const call of rejected) {
+      try {
+        call();
+        throw new Error('expected a throw');
+      } catch (err) {
+        expect(err).toBeInstanceOf(HTTPException);
+        if (!(err instanceof HTTPException)) throw err;
+        expect(err.status).toBe(400);
+      }
+    }
   });
 });
 

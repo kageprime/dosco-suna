@@ -88,7 +88,7 @@ describe('bashCommands reads heredocs and comments', () => {
   })
 
   // Any program can run its stdin, so a body is data only when every command
-  // on its line is a known data reader; anything else keeps its lines as commands.
+  // on its line never runs its stdin; anything else keeps its lines as commands.
   test.each([
     ['$SHELL', "$SHELL <<'EOF'\nrm -rf /\nEOF"],
     ['a function defined on the line', "f(){ sh; }; f <<'EOF'\nrm -rf /\nEOF"],
@@ -96,6 +96,16 @@ describe('bashCommands reads heredocs and comments', () => {
     ['sudo cat (a wrapper)', "sudo cat <<'EOF'\nrm -rf /\nEOF"],
     ['an escaped space before # (not a comment)', 'echo a\\ #; rm -rf /'],
     ['$((1<<2)) is no heredoc', 'echo $((1<<2))\nrm -rf /\n2'],
+    // A function named like a data reader runs the body (`cat(){ sh; }`).
+    ['a data reader redefined on the line', "cd /tmp; cat(){ sh; }; cat <<'EOF'\nrm -rf /\nEOF"],
+    // `export` can point `cat` at another program (`PATH=…`).
+    ['export before the reader', "export PATH=/x:$PATH; cat <<'EOF'\nrm -rf /\nEOF"],
+    ['cd before an interpreter', "cd /tmp; sh <<'EOF'\nrm -rf /\nEOF"],
+    ['cd before a reader piped to an interpreter', "cd /tmp && cat <<'EOF' | bash\nrm -rf /\nEOF"],
+    // bash reads the body, then the pipeline goes on: the body reaches `sh`.
+    ['a pipe that continues after the body', "cat <<'EOF' |\nrm -rf /\nEOF\nsh"],
+    ['|& that continues after the body', "cat <<'EOF' |&\nrm -rf /\nEOF\nsh"],
+    ['a pipe and a comment that continue after the body', "cat <<'EOF' | # next\nrm -rf /\nEOF\nsh"],
   ])('%s does not hide rm from a deny', (_name, line) => {
     expect(resolvePolicyRule(compilePermissionPolicy({ bash: { '*': 'allow', 'rm *': 'deny' } }), 'bash', { command: line }, '/workspace')).toBe('deny')
   })
@@ -105,8 +115,28 @@ describe('bashCommands reads heredocs and comments', () => {
     ['A=1 tee', "A=1 tee notes.md <<'EOF'\nit's\nEOF"],
     ['gh pr create --body-file -', "gh pr create --body-file - <<'EOF'\nit's done\nEOF"],
     ['git commit -F -', "git commit -F - <<'EOF'\ndon't\nEOF"],
+    // Commands that ignore stdin cannot run the body: agents write a `cd` first.
+    // Read as commands, `it's` leaves the line unparsed and `rm` makes it ask.
+    ['cd /tmp; cat >', "cd /tmp; cat > body.md <<'EOF'\nit's not rm\nEOF"],
+    ['cd && cat >', "cd /workspace && cat > body.md <<'EOF'\nit's not rm\nEOF"],
+    ['mkdir -p && cat >', "mkdir -p notes && cat > notes/a.md <<'EOF'\nit's not rm\nEOF"],
+    ['cd && git commit -F -', "cd repo && git commit -F - <<'EOF'\nit's not rm\nEOF"],
+    ['cat, then echo', "cat > a.md <<'EOF' && echo saved\nit's not rm\nEOF"],
   ])('a data reader (%s) keeps its body as data', (_name, line) => {
     expect(resolvePolicyRule(compilePermissionPolicy({ bash: { '*': 'allow', 'rm *': 'deny' } }), 'bash', { command: line }, '/workspace')).toBe('allow')
+  })
+
+  /**
+   * Prod, 2026-11-17: an agent with `kortix` rules asked a person to approve
+   * a change-request body. `cd /tmp;` before the heredoc made its markdown
+   * read as commands, an apostrophe in it left the line unparsed, and the
+   * `kortix` call after the body matched a restricted rule's first word.
+   */
+  test('a markdown body after cd stays data under kortix rules', () => {
+    const policy = compilePermissionPolicy({ bash: { '*': 'allow', 'kortix cr merge *': 'deny', 'kortix triggers fire *': 'ask' } })
+    const write = "cd /tmp; cat > body.md <<'EOF'\n## What\nStore it in the viewer's browser.\nEOF\n"
+    expect(resolvePolicyRule(policy, 'bash', { command: `${write}kortix connectors call linear run @body.md` }, '/workspace')).toBe('allow')
+    expect(resolvePolicyRule(policy, 'bash', { command: `${write}kortix cr merge 7` }, '/workspace')).toBe('deny')
   })
 
   test.each([

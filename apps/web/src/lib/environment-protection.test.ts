@@ -104,6 +104,34 @@ describe('authorizeEnvironment', () => {
     }
   });
 
+  test('always allows the setup guide, the loop guides and the installer', () => {
+    // The prompt copied on a gated deployment tells a coding agent to curl
+    // these: a 401 stops the setup at its first step.
+    for (const pathname of ['/setup.md', '/factory.md', '/install', '/install.sh', '/loops/software-factory.md']) {
+      expect(
+        authorizeEnvironment({
+          enabled: 'true',
+          password: 'test-password',
+          authorization: null,
+          pathname,
+        }),
+      ).toEqual({ allowed: true, source: 'setup-guide' });
+    }
+  });
+
+  test('exempts exactly the setup files, not pages beside them', () => {
+    for (const pathname of ['/setup', '/setup.md/x', '/installer', '/loops', '/loops/software-factory', '/loopmaxxing', '/docs/setup.md']) {
+      expect(
+        authorizeEnvironment({
+          enabled: 'true',
+          password: 'test-password',
+          authorization: null,
+          pathname,
+        }),
+      ).toEqual({ allowed: false, reason: 'credentials_required' });
+    }
+  });
+
   test('rejects missing and malformed credentials', () => {
     for (const authorization of [null, 'Bearer token', 'Basic not-base64%%%']) {
       expect(

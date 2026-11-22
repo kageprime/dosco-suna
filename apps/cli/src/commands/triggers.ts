@@ -210,7 +210,10 @@ Run limits (any type; add, add --apply, and set):
                            is a skipped run, "throttled: …".
   --max-runs-per-day <n>   Runs it may start in a UTC day (default: no cap).
                            On \`set\`, \`none\` removes either cap.
-A manual \`fire\` is never held, but it counts.
+A manual \`fire\` bypasses soft limits, but counts.
+  --hard-run-caps true|false
+                           Atomically cap every fire, including manual.
+                           Failed attempts count; no implicit override.
   --expect-event-within <dur>
                            App triggers: no App event for this long (5m or
                            more, e.g. 30m) tells the trigger's watchers once;
@@ -292,6 +295,7 @@ export async function runTriggers(argv: string[]): Promise<number> {
     tf.runAt = takeFlagValue(rest, ['--run-at']);
     tf.model = takeFlagValue(rest, ['--model']);
     tf.sessionMode = takeFlagValue(rest, ['--session-mode']);
+    tf.hardRunCaps = takeFlagValue(rest, ['--hard-run-caps']);
     tf.maxRunsPerHour = takeFlagValue(rest, ['--max-runs-per-hour']);
     tf.maxRunsPerDay = takeFlagValue(rest, ['--max-runs-per-day']);
     tf.overlap = takeFlagValue(rest, ['--overlap']);

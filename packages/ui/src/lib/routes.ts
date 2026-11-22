@@ -69,6 +69,13 @@ export interface UiRoutes {
    * too, so it never links a page it does not serve.
    */
   inbox?: () => string | null;
+  /**
+   * The workspace's Spaces (session groups, flag `session_groups`), and one
+   * space's page. apps/web pages: a host that maps any route links them only
+   * when it maps them too.
+   */
+  sessionSpaces?: (projectId: string) => string | null;
+  sessionSpace?: (projectId: string, groupId: string) => string | null;
 }
 
 const DEFAULT_ROUTES = {
@@ -93,6 +100,8 @@ const DEFAULT_ROUTES = {
   // The workspace Review queue has its own page.
   review: (p: string) => `/workspaces/${p}/review`,
   inbox: () => '/inbox',
+  sessionSpaces: (p: string) => `/workspaces/${p}/spaces`,
+  sessionSpace: (p: string, groupId: string) => `/workspaces/${p}/space/${encodeURIComponent(groupId)}`,
 };
 
 export const defaultUiRoutes: UiRoutes = DEFAULT_ROUTES;
@@ -111,7 +120,10 @@ export function setUiRoutes(overrides: Partial<UiRoutes>): void {
   const review = overrides.review ?? (overrides.customize ? undefined : DEFAULT_ROUTES.review);
   // Inbox is apps/web's page: a host that maps any route links it only when it maps `inbox`.
   const inbox = overrides.inbox ?? (Object.keys(overrides).length === 0 ? DEFAULT_ROUTES.inbox : undefined);
-  routes = { ...DEFAULT_ROUTES, ...overrides, ...(admin ? { admin } : {}), review, inbox };
+  const ownsAll = Object.keys(overrides).length === 0;
+  const sessionSpaces = overrides.sessionSpaces ?? (ownsAll ? DEFAULT_ROUTES.sessionSpaces : undefined);
+  const sessionSpace = overrides.sessionSpace ?? (ownsAll ? DEFAULT_ROUTES.sessionSpace : undefined);
+  routes = { ...DEFAULT_ROUTES, ...overrides, ...(admin ? { admin } : {}), review, inbox, sessionSpaces, sessionSpace };
 }
 
 export function uiRoutes(): UiRoutes {

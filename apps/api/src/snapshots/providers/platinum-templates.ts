@@ -11,6 +11,10 @@ export interface PlatinumTemplate {
   id: string;
   name?: string;
   state?: string;
+  /** ISO time. The quota GC's only age signal: Platinum records no last use. */
+  createdAt?: string;
+  /** A Platinum-owned template every org can boot; not counted in the org cap. */
+  global?: boolean;
   /** Echoed by /from-build since Platinum #1326; absent on an older API. */
   kernel_modules?: string;
   /** Redacted podman output. Only on the by-id detail row (the list strips it);

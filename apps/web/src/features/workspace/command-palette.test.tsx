@@ -23,8 +23,7 @@ import {
 } from './settings-palette-items';
 
 // No `flags` any more: the three flag-gated rail rows (Marketplace, Review,
-// Voice) moved to `/workspaces/<id>/config` with the rest of project
-// configuration. One row varies by platform instead: Kortix in Chrome, offered
+// Voice) left the rail; none of them is a settings tab now. One row varies by platform instead: Kortix in Chrome, offered
 // only where the platform switch is on. These tests describe that platform.
 const IN_A_PROJECT: SettingsPaletteParams = { hasProject: true, chromeOffered: true };
 const NO_PROJECT: SettingsPaletteParams = { hasProject: false, chromeOffered: true };
@@ -156,8 +155,8 @@ describe('offered tabs survive the panel filter', () => {
   });
 
   test('Kortix in Chrome is offered only where the platform offers it', () => {
-    // Staging and prod until launch: the browser list answers 404, so no row
-    // leads to a page that cannot load.
+    // A self-hosted server answers the browser list with 404, so no row leads
+    // to a page that cannot load.
     expect(tabsFor({ hasProject: true })).not.toContain('chrome');
     expect(tabsFor({ hasProject: false })).not.toContain('chrome');
     expect(tabsFor(IN_A_PROJECT)).toContain('chrome');
@@ -199,7 +198,7 @@ describe('search terms carried across from the removed registry entries', () => 
     // Everything else that used to be listed here named a tab that has left
     // this rail. The thirteen project-configuration words (secrets, env, git,
     // github, members, collaborators, slack, telegram, llm, openrouter,
-    // marketplace, approvals, livekit, templates, danger zone, customize) are
+    // approvals, livekit, templates, danger zone, customize) are
     // answered by the `proj-customize` registry row now — pinned in the case
     // below — and the eight account words (subscription, ledger, pat, sso, …)
     // by the `account-*` rows, pinned in the case after that.

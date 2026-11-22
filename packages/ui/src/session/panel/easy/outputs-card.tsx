@@ -190,6 +190,7 @@ function OutputRow({
   output: OutputItem;
   onOpenOutput: (output: OutputItem) => void;
 }) {
+  const t = useTranslations('sessionUi.panel');
   return (
     <li className="flex items-center">
       <button
@@ -207,10 +208,10 @@ function OutputRow({
           {output.title ?? output.name}
         </span>
         {output.fresh === 'new' && (
-          <span className="text-kortix-green shrink-0 text-xs font-medium">New</span>
+          <span className="text-kortix-green shrink-0 text-xs font-medium">{t('outputNew')}</span>
         )}
         {output.fresh === 'updated' && (
-          <span className="text-muted-foreground shrink-0 text-xs">Updated</span>
+          <span className="text-muted-foreground shrink-0 text-xs">{t('outputUpdated')}</span>
         )}
       </button>
     </li>

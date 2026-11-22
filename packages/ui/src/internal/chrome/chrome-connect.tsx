@@ -4,7 +4,6 @@ import { platformConfig, type ChromeConnection } from '@kortix/sdk';
 import { useChromeConnections } from '@kortix/sdk/react';
 import {
   AppWindowIcon,
-  ArrowUpRightIcon,
   LinkSimpleIcon,
   PuzzlePieceIcon,
   SignInIcon,
@@ -26,8 +25,6 @@ import { cn } from '../lib/utils';
 import { BrowserIcon, BrowserLogoTile } from './browser-icon';
 import {
   apiOrigin,
-  CHROME_INSTALL_DOCS_PATH,
-  CHROME_STORE_LISTED,
   chromeSettingsLink,
   connectExtension,
   isChromiumBrowser,
@@ -169,20 +166,17 @@ export function ChromeCopyLink({ size = 'sm', className }: { size?: 'sm' | 'lg';
 
 /**
  * The action that moves this browser forward: Connect once the extension is
- * there, otherwise Connect plus "How to install" (or "Add to Chrome" once the
- * Web Store listing is public). Renders nothing for a connected browser.
+ * there, otherwise "Add to Chrome" (the Web Store listing). Renders nothing for
+ * a connected browser.
  */
 export function ChromeInstallActions({
   state,
   size = 'sm',
   className,
-  showGuide = true,
 }: {
   state: ChromeConnectState;
   size?: 'sm' | 'lg';
   className?: string;
-  /** The "How to install" link. Off where the page already links the docs. */
-  showGuide?: boolean;
 }) {
   const t = useTranslations('chrome');
   const { checking, installed, connected, connect } = state;
@@ -199,42 +193,21 @@ export function ChromeInstallActions({
 
   if (installed) return <div className={className}>{connectButton}</div>;
 
-  if (CHROME_STORE_LISTED) {
-    return (
-      <div className={cn('space-y-2', className)}>
-        <Button asChild size={size} className={full} aria-disabled={checking}>
-          <a
-            href={KORTIX_EXTENSION_STORE_URL}
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => setOpenedStore(true)}
-          >
-            <ChromeButtonMark />
-            {t('addToChrome')}
-          </a>
-        </Button>
-        {openedStore ? (
-          <p className="text-muted-foreground text-center text-xs text-pretty">{t('finishInChrome')}</p>
-        ) : null}
-      </div>
-    );
-  }
-
   return (
-    <div
-      className={cn(
-        size === 'lg' ? 'flex flex-col gap-2' : 'flex flex-wrap items-center gap-x-3 gap-y-2',
-        className,
-      )}
-    >
-      {connectButton}
-      {showGuide ? (
-        <Button asChild variant="ghost" size={size} className={cn('gap-1.5', size === 'sm' && 'text-muted-foreground')}>
-          <a href={CHROME_INSTALL_DOCS_PATH} target="_blank" rel="noreferrer">
-            {t('howToInstall')}
-            <ArrowUpRightIcon className="size-3.5 shrink-0" />
-          </a>
-        </Button>
+    <div className={cn('space-y-2', className)}>
+      <Button asChild size={size} className={full} aria-disabled={checking}>
+        <a
+          href={KORTIX_EXTENSION_STORE_URL}
+          target="_blank"
+          rel="noreferrer"
+          onClick={() => setOpenedStore(true)}
+        >
+          <ChromeButtonMark />
+          {t('addToChrome')}
+        </a>
+      </Button>
+      {openedStore ? (
+        <p className="text-muted-foreground text-center text-xs text-pretty">{t('finishInChrome')}</p>
       ) : null}
     </div>
   );
@@ -277,29 +250,7 @@ export function ChromeConnectSteps({
       key: 'install',
       icon: PuzzlePieceIcon,
       done: installed,
-      description: installed ? (
-        t('steps.install.done')
-      ) : CHROME_STORE_LISTED ? (
-        t('steps.install.description')
-      ) : (
-        <>
-          {t('steps.install.descriptionUnlisted')}
-          {/* The dialog's action row links the guide itself; the inline page has no such row. */}
-          {showActions ? null : (
-            <>
-              {' '}
-              <a
-                href={CHROME_INSTALL_DOCS_PATH}
-                target="_blank"
-                rel="noreferrer"
-                className="text-foreground underline underline-offset-2"
-              >
-                {t('howToInstall')}
-              </a>
-            </>
-          )}
-        </>
-      ),
+      description: t(installed ? 'steps.install.done' : 'steps.install.description'),
     },
     {
       key: 'connect',

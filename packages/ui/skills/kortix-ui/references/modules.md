@@ -37,6 +37,8 @@ Names: `Close`, `Copy`, `SidebarGlyph`, `SolidRightArrow`
 ## `@kortix/ui/theme`
 
 Source: `src/theme/index.ts`. White-label theming: tokens to CSS, a themed subtree, the session wallpapers.
+The colored wallpapers are data (`src/theme/wallpaper-gradients.ts`): a `GradientConfig` is a pattern, a finish
+and a palette; `normalizeCustomWallpaper` and `normalizePresetOverrides` clean a saved setting.
 
 Props: `ThemeScope`: `theme`, `className`, any `div` prop. `themeToCss(theme, selector?)`. Every key: `theming.md`.
 
@@ -52,7 +54,7 @@ export function Preview({ children }: { children: ReactNode }) {
 }
 ```
 
-Names: `THEME_COLOR_VARS`, `themeToCss`, `themeToCssVars`, `KortixTheme`, `ThemeColor`, `ThemeColors`, `ThemeCssVars`, `ThemeDurationStep`, `ThemeEasing`, `ThemeShadowStep`, `ThemeTextStep`, `ThemeScope`, `ThemeScopeProps`, `DEFAULT_WALLPAPER_ID`, `WALLPAPERS`, `getWallpaperById`, `Wallpaper`
+Names: `THEME_COLOR_VARS`, `themeToCss`, `themeToCssVars`, `KortixTheme`, `ThemeColor`, `ThemeColors`, `ThemeCssVars`, `ThemeDurationStep`, `ThemeEasing`, `ThemeShadowStep`, `ThemeTextStep`, `ThemeScope`, `ThemeScopeProps`, `DEFAULT_WALLPAPER_ID`, `WALLPAPERS`, `getWallpaperById`, `Wallpaper`, `getSelectableWallpaper`, `PickerWallpaper`, `PickerWallpaperId`, `GRADIENT_PRESETS`, `GRADIENT_PATTERNS`, `GRADIENT_FINISHES`, `GRADIENT_MIN_COLORS`, `GRADIENT_MAX_COLORS`, `GradientConfig`, `GradientPattern`, `GradientFinish`, `GradientWallpaperId`, `gradientColors`, `CUSTOM_PALETTES`, `CUSTOM_COLOR_PRESETS`, `DEFAULT_CUSTOM_WALLPAPER`, `CustomWallpaperConfig`, `customGradientConfig`, `normalizeCustomWallpaper`, `nextCustomColor`, `randomCustomColors`, `randomCustomWallpaper`, `PresetOverride`, `PresetOverrides`, `normalizePresetOverrides`, `presetWithOverride`, `DEFAULT_WALLPAPER_OPACITY`, `OPACITY_LIMITS`
 
 ## `@kortix/ui/i18n`
 
@@ -89,7 +91,9 @@ export function Answer({ text }: { text: string }) {
 
 Code outside markdown: `CodeHighlight` (`code`, `language`) draws one highlighted block without the markdown parser; `INLINE_CODE` is the class string of an inline code chip.
 
-Names: `markdownPolicy`, `MarkdownPolicy`, `MarkdownTrust`, `MarkdownVariant`, `UnifiedMarkdown`, `UnifiedMarkdownProps`, `CopyOverlay`, `CodeHighlight`, `HighlightedCode`, `INLINE_CODE`, `CopyButton`, `MarkdownWithFrontmatter`, `languageLabel`, `normalizeLanguage`
+Short agent-written strings: `InlineCodeText` (`text`) draws `code spans` as inline chips with no block elements, safe in a menu row. `splitInlineCode` splits a line into `InlineCodeSegment`s, `plainTextFromMarkdown` returns the plain words, `shortSummary` (`input`, `max` = 160) the first sentence for an `aria-describedby`.
+
+Names: `markdownPolicy`, `MarkdownPolicy`, `MarkdownTrust`, `MarkdownVariant`, `UnifiedMarkdown`, `UnifiedMarkdownProps`, `CopyOverlay`, `CodeHighlight`, `HighlightedCode`, `INLINE_CODE`, `CopyButton`, `MarkdownWithFrontmatter`, `languageLabel`, `normalizeLanguage`, `InlineCodeText`, `InlineCodeSegment`, `plainTextFromMarkdown`, `shortSummary`, `splitInlineCode`
 
 ## `@kortix/ui/genui`
 
@@ -187,7 +191,7 @@ Source: `src/files/viewer/index.ts`. Render any file kind (pdf, docx, xlsx, csv,
 
 Mount: `FileViewer` with `content` needs no provider, no SDK client and no `QueryClientProvider`; with a `shareContext` it needs both (its Copy link reads the session). `FileContentRenderer`: inside `FileSourceProvider` (where the bytes come from).
 
-Props: `FileViewer`: `content`, `fileName`, optional `path`, `onClose`, `refresh`, `className`. `HTML_PREVIEW_IFRAME_CLASS` is the class list of the HTML preview's iframe, for a host that draws its own. `FileContentRenderer`: `filePath`, `showHeader`, `readOnly`, `targetLine`, `onSaved`. `FileSource`: `id`, `useFileContent`, `useBinaryBlob`, `download`, `upload`, optional `save`, `bytesOnly`.
+Props: `FileViewer`: `content`, `fileName`, optional `path`, `onClose`, `refresh`, `className`. `HTML_PREVIEW_IFRAME_CLASS` is the class list of the HTML preview's iframe, for a host that draws its own. `FileContentRenderer`: `filePath`, `showHeader`, `readOnly`, `targetLine`, `onSaved`. `FileSource`: `id`, `useFileContent`, `useBinaryBlob`, `download`, `upload`, optional `save`, `bytesOnly`. `FileAnnotationsProvider` (`diagnosticsFor(filePath)`) adds diagnostics the LSP store does not hold, such as `kortix.yaml` issues; `useFileAnnotations(filePath)` reads them, none outside a provider.
 
 ```tsx
 import { FileViewer } from '@kortix/ui/file-viewer';
@@ -198,7 +202,7 @@ export function Note({ text }: { text: string }) {
 }
 ```
 
-Names: `FileContentRenderer`, `FileContentRendererProps`, `FilePreviewModal`, `FilePreviewModalProps`, `FilePreviewState`, `FileSourceProvider`, `useFileSource`, `BinaryBlobResult`, `FileContent`, `FileContentResult`, `FilePatch`, `FilePatchHunk`, `FileSource`, `HtmlPreview`, `PreviewFitProvider`, `isUsableIntrinsicSize`, `SaveAsPdfButton`, `framePolicy`, `getFileCategory`, `getLanguageFromExt`, `FileCategory`, `FrameContent`, `FramePolicy`, `FileViewer`, `ShowCarouselItem`
+Names: `FileContentRenderer`, `FileContentRendererProps`, `FilePreviewModal`, `FilePreviewModalProps`, `FilePreviewState`, `FileSourceProvider`, `useFileSource`, `BinaryBlobResult`, `FileContent`, `FileContentResult`, `FilePatch`, `FilePatchHunk`, `FileSource`, `HtmlPreview`, `PreviewFitProvider`, `isUsableIntrinsicSize`, `SaveAsPdfButton`, `framePolicy`, `getFileCategory`, `getLanguageFromExt`, `FileCategory`, `FrameContent`, `FramePolicy`, `FileViewer`, `ShowCarouselItem`, `FileAnnotationsProvider`, `useFileAnnotations`
 
 ## `@kortix/ui/terminal`
 
@@ -359,7 +363,7 @@ Names: `ActionPanel`, `AdvancedPanel`, `DiffDialog`, `EasyPanel`, `openSessionQu
 
 ## `@kortix/ui/workspace`
 
-Source: `src/workspace/index.ts`. Composed workspace screens: session workspace, workspace sidebar, sessions list, workspace home, permission and route helpers.
+Source: `src/workspace/index.ts`. `PROJECT_PAGE_HEADER_CLASS` is the shared workspace page-header class. Composed workspace screens: session workspace, workspace sidebar, sessions list, workspace home, permission and route helpers.
 
 Mount: `SessionWorkspace` takes `session` (the `useSession` result): the thread plus the resizable side panel. `children` replaces the thread. `SessionLayout` is the same layout with explicit ids (`sessionId` = runtime id, `projectId`, `projectSessionId`, `bootStage`, `transient`) and the thread as `children`. Workspace screens take `projectId`; `ProjectSessionList` mounts inside a `SidebarProvider`. `ProjectHome` sends by itself (`useProjectHomeSend`: create the session with the prompt, open it); `beforeSend` gates it, `onSend` replaces it.
 
@@ -401,7 +405,7 @@ Channels and memory (behind the `chat` flag): `SpaceView` (`projectId`, `target`
 
 Spaces (Work in progress, behind the `chat` flag; a space is a channel declared in kortix.yaml `spaces:`): `SPACES_FLAG` is that flag key. `useSpacesEnabled` (`projectId`) is true only while it is on. `spaceScope` (`items`, `config`, `enabled`, `bindingOf`) returns `{ spaces, groups, spaceOf }` for a list page; off, it offers no spaces and every item is workspace-wide. `useActiveSpace` (`projectId`) is the viewer's active space and its setter; off, it reads `null`. `useSpaceFilter` (`projectId`) is a list page's space filter value and setter; off, it is always `ALL_SPACES`. `SpaceFilterTabs` (`spaces`, `groups`, `value`, `onValueChange`) is the filter, and renders nothing without spaces. `spaceFilterLabel` (`value`, `spaces`, `projectWide`) names a filter value for an empty state.
 
-Names: `SpaceView`, `SpaceViewProps`, `SpaceTarget`, `SpaceFolder`, `ChannelGlyph`, `agentLabel`, `MemoryView`, `MemoryViewProps`, `CompanyMemoryPage`, `MemoryLayerRef`, `useMemoryPageHref`, `ProjectPageHeader`, `useCapabilityAccess`, `useProjectNavRows`, `SidebarToggle`, `activeCapabilityTab`, `agentHref`, `capabilityTabHref`, `channelsHref`, `remindersHref`, `reviewHref`, `CUSTOMIZE_SECTION_ACCESS`, `CUSTOMIZE_SECTION_GATE_ACTIONS`, `PROJECT_ACTIONS`, `isCustomizeSectionVisible`, `CustomizeSection`, `ProjectAction`, `usePermission`, `usePermissions`, `usePermissionsFor`, `PROJECT_PAGE_ACTIONS`, `useProjectCan`, `useProjectCans`, `useProjectPageCans`, `CanResult`, `formatFireTime`, `nearestFire`, `reminderTitle`, `scheduleLabel`, `ProjectHomeWallpaper`, `ProjectHomeWelcomeBody`, `InstantSessionShell`, `ProjectFilesView`, `ProjectHome`, `ProjectHomeSendOptions`, `useProjectHomeSend`, `UseProjectHomeSendOptions`, `SavedSessionSkeleton`, `SessionLayout`, `SessionWorkspace`, `SessionLayoutProps`, `SessionWorkspaceProps`, `ProjectSessionsView`, `ProjectSessionList`, `ProjectSidebar`, `ShareSessionModal`
+Names: `SpaceView`, `SpaceViewProps`, `SpaceTarget`, `SpaceFolder`, `ChannelGlyph`, `agentLabel`, `MemoryView`, `MemoryViewProps`, `CompanyMemoryPage`, `MemoryLayerRef`, `useMemoryPageHref`, `ProjectPageHeader`, `PROJECT_PAGE_HEADER_CLASS`, `useCapabilityAccess`, `useProjectNavRows`, `SidebarToggle`, `activeCapabilityTab`, `agentHref`, `capabilityTabHref`, `channelsHref`, `remindersHref`, `reviewHref`, `CUSTOMIZE_SECTION_ACCESS`, `CUSTOMIZE_SECTION_GATE_ACTIONS`, `PROJECT_ACTIONS`, `isCustomizeSectionVisible`, `CustomizeSection`, `ProjectAction`, `usePermission`, `usePermissions`, `usePermissionsFor`, `PROJECT_PAGE_ACTIONS`, `useProjectCan`, `useProjectCans`, `useProjectPageCans`, `CanResult`, `formatFireTime`, `nearestFire`, `reminderTitle`, `scheduleLabel`, `ProjectHomeWallpaper`, `ProjectHomeWelcomeBody`, `InstantSessionShell`, `ProjectFilesView`, `ProjectHome`, `ProjectHomeSendOptions`, `useProjectHomeSend`, `UseProjectHomeSendOptions`, `SavedSessionSkeleton`, `SessionLayout`, `SessionWorkspace`, `SessionLayoutProps`, `SessionWorkspaceProps`, `ProjectSessionsView`, `ProjectSessionList`, `ProjectSidebar`, `ShareSessionModal`
 
 ## `@kortix/ui/access`
 

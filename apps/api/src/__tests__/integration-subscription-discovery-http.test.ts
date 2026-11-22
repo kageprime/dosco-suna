@@ -122,3 +122,37 @@ test('an account owner cannot use a foreign tenant project id for subscription d
     actorId = MEMBER;
   }
 });
+
+
+test('workspace managers may refresh private login usage without permission to use the login', async () => {
+  actorId = OWNER;
+  try {
+    const listed = await app.request(`${path()}?project_id=${project.project_id}`);
+    expect(listed.status).toBe(200);
+    const privateLogin = (await listed.json()).secrets.find((row: { secret_id: string }) => row.secret_id === ids.private);
+    expect(privateLogin.can_use).toBe(false);
+    for (const route of [
+      `${path()}/${ids.private}/usage?project_id=${project.project_id}`,
+      `/v1/accounts/${project.account_id}/subscription-connections/${ids.private}/usage?project_id=${project.project_id}&storage=account_resource`,
+    ]) {
+      const response = await app.request(route, { method: 'POST' });
+      expect(response.status).toBe(200);
+      expect((await response.json()).usage.windows[0].used_percent).toBe(42);
+    }
+  } finally {
+    actorId = MEMBER;
+  }
+});
+
+test('subscription connection usage denies non-granted members and foreign project context', async () => {
+  const base = `/v1/accounts/${project.account_id}/subscription-connections`;
+  for (const secretId of [ids.private, ids.foreign]) {
+    expect((await app.request(`${base}/${secretId}/usage?project_id=${project.project_id}&storage=account_resource`, { method: 'POST' })).status).toBe(403);
+  }
+  actorId = OWNER;
+  try {
+    expect((await app.request(`${base}/${ids.private}/usage?project_id=${otherAccountProject.project_id}&storage=account_resource`, { method: 'POST' })).status).toBe(403);
+  } finally {
+    actorId = MEMBER;
+  }
+});

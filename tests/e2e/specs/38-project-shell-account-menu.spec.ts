@@ -94,7 +94,7 @@ test.describe('38 — The project shell knows who you are', () => {
         expect([...order].sort((x, y) => x - y)).toEqual(order);
         // Rows with a better home are gone for an owner: Leave (Workspace
         // settings › Danger zone), Appearance (Preferences), Download app
-        // (sidebar footer).
+        // (the sidebar's promo card).
         for (const gone of ['More', 'Leave', 'Appearance', 'Download app']) {
           expect(rows.some((row) => row.startsWith(gone))).toBe(false);
         }

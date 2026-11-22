@@ -1,3 +1,4 @@
+import { sessionSharedThroughSpace } from '../../projects/surface';
 import { HTTPException } from 'hono/http-exception';
 import {
   DEAD_CREDENTIAL_BURST_SUPPRESSED,
@@ -150,6 +151,7 @@ export async function refuseSessionOrControlAccess(input: {
       callerSessionId: callerSessionId ?? null,
       boundCredentialSessionId,
       spawnAncestorRead,
+      sharedThroughSpace: () => sessionSharedThroughSpace(record.projectId, userId, record.sessionId),
     }))
   ) {
     // Name the branch. See `takeSessionAccessRefusal`: six branches can refuse

@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { closeSync, existsSync, fchmodSync, mkdirSync, openSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { closeSync, existsSync, fchmodSync, mkdirSync, openSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { logger } from '@/lib/log/logger'
 
@@ -15,14 +15,15 @@ import { logger } from '@/lib/log/logger'
  * secrets the same way the agent's own shell does. The first failure stops the rest; the
  * session keeps running. Progress is a JSON status file and `/kortix/health`
  * `workspace_setup`; output goes to one owner-only log. A box that resumes on its volume
- * finds the done marker for the same spec in `/workspace/.kortix` and runs nothing again.
+ * finds the done marker for the same spec in the checkout's `.git/` and runs nothing again.
+ * The marker never sits in the working tree, so no commit can pick it up.
  */
 
 export const WORKSPACE_SETUP_STATUS_PATH = process.env.KORTIX_WORKSPACE_SETUP_STATUS_PATH || '/tmp/kortix/workspace-setup.json'
 export const WORKSPACE_SETUP_LOG_PATH = process.env.KORTIX_WORKSPACE_SETUP_LOG_PATH || '/tmp/kortix/workspace-setup.log'
 /** Appended to the agent's system prompt (harness/pi/runtime.ts), like the secret capabilities file. */
 export const WORKSPACE_SETUP_NOTE_PATH = process.env.KORTIX_WORKSPACE_SETUP_NOTE_PATH || '/tmp/kortix/workspace-setup.md'
-const DONE_MARKER = '.kortix/workspace-setup.done.json'
+const DONE_MARKER = 'kortix-workspace-setup.done.json'
 const STEP_TIMEOUT_MS = Number(process.env.KORTIX_WORKSPACE_SETUP_STEP_TIMEOUT_MS) || 30 * 60_000
 
 export interface WorkspaceSetupStepSpec {
@@ -130,6 +131,21 @@ export function workspaceSetupHash(spec: WorkspaceSetupSpec): string {
   return createHash('sha256').update(JSON.stringify({ repos: spec.repos, setup: spec.setup })).digest('hex')
 }
 
+/**
+ * The done marker: inside the checkout's `.git/` (on the volume, never in a commit). A
+ * folder with no `.git/` directory keeps it beside the status file, so a resumed box runs
+ * the setup again. Resolved at read and at write: the first clone can create `.git/`.
+ */
+function doneMarkerPath(workspace: string, statusPath: string): string {
+  const gitDir = join(workspace, '.git')
+  try {
+    if (statSync(gitDir).isDirectory()) return join(gitDir, DONE_MARKER)
+  } catch {
+    // No checkout here.
+  }
+  return join(dirname(statusPath), DONE_MARKER)
+}
+
 /** A step's folder: `cwd` relative to `base`, or absolute; null when it leaves the workspace. */
 function stepDir(workspace: string, base: string, cwd: string | undefined): string | null {
   if (!cwd) return base
@@ -203,7 +219,7 @@ export async function runWorkspaceSetup(spec: WorkspaceSetupSpec, options: Works
     logger.warn('[workspace-setup] prompt note write failed', { err: (err as Error).message })
   }
 
-  const marker = join(options.workspace, DONE_MARKER)
+  const marker = doneMarkerPath(options.workspace, statusPath)
   const hash = workspaceSetupHash(spec)
   try {
     if ((JSON.parse(readFileSync(marker, 'utf8')) as { hash?: string }).hash === hash) {
@@ -271,7 +287,7 @@ export async function runWorkspaceSetup(spec: WorkspaceSetupSpec, options: Works
     Object.assign(status, { state: 'done', ended_at: now() })
     save()
     try {
-      writeAtomic(marker, `${JSON.stringify({ hash, done_at: status.ended_at })}\n`)
+      writeAtomic(doneMarkerPath(options.workspace, statusPath), `${JSON.stringify({ hash, done_at: status.ended_at })}\n`)
     } catch (err) {
       logger.warn('[workspace-setup] done marker write failed; a resume runs it again', { err: (err as Error).message })
     }

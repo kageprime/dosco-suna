@@ -46,9 +46,9 @@ export type SettingsTab =
   | 'sessions'
   | 'preferences'
   | 'connected'
-  // The browsers a person connected with the Kortix Chrome extension. After
-  // launch (CHROME_LAUNCHED) the API and the CLI link here (`/settings/chrome`)
-  // when an agent needs a browser and none is connected; before it, nothing does.
+  // The browsers a person connected with the Kortix Chrome extension. The API
+  // and the CLI link here (`/settings/chrome`) when an agent needs a browser
+  // and none is connected.
   | 'chrome'
   // API keys came BACK, and only half of what left returned. The old
   // `api-keys` tab listed three kinds of credential at once — a person's own
@@ -246,11 +246,6 @@ export const GRADUATED: Record<string, (projectId: string) => string> = {
   'llm-budgets': (p) => capabilityTabHref(p, 'models'),
   'llm-keys': (p) => capabilityTabHref(p, 'models'),
   'llm-api': (p) => capabilityTabHref(p, 'models'),
-  // Marketplace was removed from the product outright, not relocated. The
-  // closest honest destination for a stale bookmark is the Customize index —
-  // it lists every surface that replaced it, rather than a 404 or a pane that
-  // no longer exists.
-  marketplace: (p) => `/workspaces/${p}/customize`,
 };
 
 /**

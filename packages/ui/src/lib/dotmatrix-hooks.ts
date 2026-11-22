@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { DotMatrixPhase } from './dotmatrix-core';
-import { useReducedMotion } from '../internal/hooks/use-reduced-motion';
+import { useReducedMotion } from './reduced-motion';
 
 /** The OS setting or the "Reduce motion" switch (`use-reduced-motion.ts`). */
 export function usePrefersReducedMotion(): boolean {

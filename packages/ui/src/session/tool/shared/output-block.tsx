@@ -48,7 +48,7 @@ export function OutputBlock({
       {markdown ? (
         <UnifiedMarkdown content={text} trust="agent" />
       ) : (
-        <pre className="text-muted-foreground/80 font-mono text-xs wrap-break-word whitespace-pre-wrap">
+        <pre className="text-muted-foreground font-mono text-xs wrap-break-word whitespace-pre-wrap">
           {text}
         </pre>
       )}
@@ -69,7 +69,7 @@ export function ToolSection({
 }) {
   return (
     <div className={cn('space-y-1', className)}>
-      <div className="text-muted-foreground/60 text-[10px] font-medium tracking-wider uppercase">
+      <div className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
         {label}
       </div>
       {children}
@@ -120,7 +120,7 @@ export function FoldedSection({
       <DisclosureTrigger>
         <div
           className={cn(
-            'text-muted-foreground/60 hover:text-muted-foreground flex w-full cursor-pointer items-center gap-1 text-left text-[10px] font-medium tracking-wider uppercase transition-colors',
+            'text-muted-foreground hover:text-foreground flex w-full cursor-pointer items-center gap-1 text-left text-[10px] font-medium tracking-wider uppercase transition-colors',
             triggerClassName,
           )}
         >
@@ -154,7 +154,7 @@ export function ToolField({
 }) {
   return (
     <div className="flex items-baseline gap-2 text-xs">
-      <span className="text-muted-foreground/60 shrink-0">{label}</span>
+      <span className="text-muted-foreground shrink-0">{label}</span>
       <span className={cn('text-foreground/80 min-w-0 truncate', mono && 'font-mono')}>
         {value}
       </span>

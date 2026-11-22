@@ -10,6 +10,7 @@ import { ClaudeConnectionSlot, claudeConnectionAction } from '../models/claude-c
 import { AskOwnerForCreditsButton } from '../models/ask-owner-for-credits-button';
 import { providerKeyFix } from '../models/provider-key-action';
 import { ProviderKeySlot } from '../models/provider-key-slot';
+import { PROVIDER_LABELS } from '../../internal/lib/provider-branding';
 
 import { Button } from '../../primitives/button';
 import { ChainOfThoughtStep } from '../../primitives/chain-of-thought';
@@ -594,6 +595,7 @@ export function TurnErrorDisplay({
   modelOptions,
   className,
 }: TurnErrorDisplayProps) {
+  const tKeys = useTranslations('pooledSecrets');
   const text = error ? error.message : errorText;
   if (!text) return null;
   // `error.gateway` (send-failure path) wins over the `errorDetails` prop
@@ -650,12 +652,16 @@ export function TurnErrorDisplay({
   // The same for the member's own Claude subscription (Claude models run on it).
   const claude = chatGpt ? null : claudeConnectionAction(text);
 
+  // A refused key reads as the key, not the provider's own words ("User not
+  // found."); those stay in the fold.
+  const keyRejected = providerFix?.code === 'provider_key_rejected';
+
   // Real errors → a checkpoint row in the activity lane, not a boxed alert.
   return (
     <TurnErrorCheckpoint
-      text={text}
+      text={keyRejected ? tKeys('keyRejected', { provider: PROVIDER_LABELS[providerFix.providerId] ?? providerFix.providerId }) : text}
       gateway={gateway}
-      raw={errorRaw}
+      raw={keyRejected ? (errorRaw ?? text) : errorRaw}
       defaultOpen={defaultDetailsOpen}
       action={chatGpt ? <ChatGptConnectionSlot action={chatGpt} /> : claude ? <ClaudeConnectionSlot action={claude} />
         : providerFix ? <ProviderKeySlot providerId={providerFix.providerId} /> : undefined}

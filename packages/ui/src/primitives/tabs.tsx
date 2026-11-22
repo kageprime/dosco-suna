@@ -490,7 +490,7 @@ function FilterBarItem({ className, ...props }: React.ComponentProps<'button'>) 
       type="button"
       className={cn(
         'duration-normal inline-flex h-[calc(100%-4px)] flex-1 cursor-pointer items-center justify-center gap-1.5 border border-transparent px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
-        'text-muted-foreground/60 hover:text-foreground/80',
+        'text-muted-foreground hover:text-foreground/80',
         'data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:ring-foreground/6 data-[state=active]:shadow-sm data-[state=active]:ring-1',
         'disabled:pointer-events-none disabled:opacity-50',
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",

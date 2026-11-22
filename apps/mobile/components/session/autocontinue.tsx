@@ -174,6 +174,7 @@ export const AutoContinueSheet = React.memo(function AutoContinueSheet({
 
   const { height: screenHeight } = useWindowDimensions();
   const muted = isDark ? THEME.dark.mutedForeground : THEME.light.mutedForeground;
+  const accent = THEME.accent[isDark ? 'dark' : 'light'];
   const border = isDark ? withAlpha(THEME.dark.foreground, 0.1) : withAlpha(THEME.light.foreground, 0.08);
 
   // Bridge `visible` prop to the imperative BottomSheetModal API.
@@ -237,7 +238,7 @@ export const AutoContinueSheet = React.memo(function AutoContinueSheet({
                 }}
                 accessibilityLabel={`Use ${detailAlg.label}`}>
                 <Text className="text-kortix-purple">Use</Text>
-                <CheckIcon size={18} color={THEME.accent.purple} />
+                <CheckIcon size={18} color={accent.purple} />
               </Button>
             }
           />
@@ -270,7 +271,7 @@ export const AutoContinueSheet = React.memo(function AutoContinueSheet({
                   Strengths
                 </Text>
                 {detailAlg.strengths.map((s, idx) => (
-                  <Text key={idx} style={{ fontSize: 13, color: THEME.accent.green, marginBottom: 6 }}>
+                  <Text key={idx} style={{ fontSize: 13, color: accent.green, marginBottom: 6 }}>
                     • {s}
                   </Text>
                 ))}
@@ -280,7 +281,7 @@ export const AutoContinueSheet = React.memo(function AutoContinueSheet({
                   Weaknesses
                 </Text>
                 {detailAlg.weaknesses.map((s, idx) => (
-                  <Text key={idx} style={{ fontSize: 13, color: THEME.accent.orange, marginBottom: 6 }}>
+                  <Text key={idx} style={{ fontSize: 13, color: accent.orange, marginBottom: 6 }}>
                     • {s}
                   </Text>
                 ))}
@@ -332,7 +333,7 @@ export const AutoContinueSheet = React.memo(function AutoContinueSheet({
                   Manual — you send each message
                 </Text>
               </View>
-              {!isActive && <CheckIcon size={18} color={THEME.accent.purple} />}
+              {!isActive && <CheckIcon size={18} color={accent.purple} />}
             </Button>
 
             <Button
@@ -348,10 +349,10 @@ export const AutoContinueSheet = React.memo(function AutoContinueSheet({
                 alignItems: 'center',
                 paddingVertical: 14,
                 paddingHorizontal: 20,
-                backgroundColor: isActive ? withAlpha(THEME.accent.purple, 0.08) : 'transparent',
+                backgroundColor: isActive ? withAlpha(accent.purple, 0.08) : 'transparent',
               }}
             >
-              <InfinityIcon color={isActive ? (THEME.accent.purple) : muted} size={18} />
+              <InfinityIcon color={isActive ? accent.purple : muted} size={18} />
               <View style={{ marginLeft: 12, flex: 1 }}>
                 <Text style={{ fontSize: 15, fontFamily: 'Roobert-Medium', color: isDark ? THEME.dark.foreground : THEME.light.foreground }}>
                   On
@@ -362,7 +363,7 @@ export const AutoContinueSheet = React.memo(function AutoContinueSheet({
                     : 'Pick an algorithm and the agent will continue on its own'}
                 </Text>
               </View>
-              {isActive && <CheckIcon size={18} color={THEME.accent.purple} />}
+              {isActive && <CheckIcon size={18} color={accent.purple} />}
             </Button>
           </View>
 
@@ -388,7 +389,7 @@ export const AutoContinueSheet = React.memo(function AutoContinueSheet({
                   paddingHorizontal: 20,
                   borderBottomWidth: idx < algorithms.length - 1 ? StyleSheet.hairlineWidth : 0,
                   borderBottomColor: border,
-                  backgroundColor: isSelected ? (isDark ? withAlpha(THEME.dark.foreground, 0.04) : withAlpha(THEME.accent.purple, 0.07)) : 'transparent',
+                  backgroundColor: isSelected ? (isDark ? withAlpha(THEME.dark.foreground, 0.04) : withAlpha(accent.purple, 0.07)) : 'transparent',
                 }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -414,7 +415,7 @@ export const AutoContinueSheet = React.memo(function AutoContinueSheet({
                     <InfoIcon size={18} color={muted} />
                   </Button>
                   {isSelected && (
-                    <CheckIcon size={18} color={THEME.accent.purple} />
+                    <CheckIcon size={18} color={accent.purple} />
                   )}
                 </View>
               </Button>

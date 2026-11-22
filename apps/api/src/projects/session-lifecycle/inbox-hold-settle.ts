@@ -238,6 +238,66 @@ export interface HoldSettlement {
   unreadable: boolean;
 }
 
+export async function settleStopPausedRow(
+  sessionId: string,
+  row: StopPausedRow,
+  tip: PlacementTipMessage[],
+  deps: HoldSettleDeps,
+  stable: boolean,
+  out: HoldSettlement,
+  readFullLog: () => Promise<PlacementTipMessage[] | null>,
+): Promise<void> {
+  let fullLog: PlacementTipMessage[] | null | undefined;
+  const ids = row.wireIds;
+  if (ids.length === 0) return;
+  // An id absent from the tip is unread only if the whole transcript lacks
+  // it too: the tip window may just not reach back to a message read long
+  // ago, and wire-id clocks cannot tell the two apart. When the whole read
+  // fails the row stays stop-paused, the duplicating-but-never-losing path.
+  let reached = false;
+  let undecided = false;
+  for (const id of ids) {
+    if (!stable || tip.some((m) => m.id === id)) {
+      if (reachedPlacement(tip, id)) reached = true;
+      continue;
+    }
+    fullLog ??= await readFullLog();
+    if (!fullLog) undecided = true;
+    else if (fullLog.some((m) => m.id === id)) reached = true;
+  }
+  if (!reached && undecided) return;
+  if (reached) {
+    await deps.closeDelivered(row.commandId);
+    out.closedAsInterrupted += 1;
+    return;
+  }
+  // Unreached: take the copies out of the transcript, then hold the row.
+  // If a copy cannot be removed the row stays stop-paused — the old,
+  // duplicating-but-never-losing path.
+  let removedAll = true;
+  for (const id of ids) {
+    const present = tip.some((m) => m.id === id);
+    if (!present) continue;
+    if (!(await deps.removeMessage(sessionId, id))) removedAll = false;
+  }
+  if (!removedAll) return;
+  await deps.holdAsQueued(row.commandId);
+  // The turn authority opened for this delivery must not keep the session
+  // reading as working: nothing is running this prompt any more.
+  for (const id of ids) {
+    try {
+      await deps.closeTurn(sessionId, id);
+    } catch (err) {
+      logger.warn('[inbox-hold] could not close the ledger turn of a held-back prompt', {
+        session_id: sessionId,
+        message_id: id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  out.heldBack += 1;
+}
+
 export async function settleInboxHoldAfterStop(
   sessionId: string,
   deps: HoldSettleDeps = liveHoldSettleDeps,
@@ -290,54 +350,10 @@ export async function settleInboxHoldAfterStop(
   const stable = capability;
   let fullLog: PlacementTipMessage[] | null | undefined;
   for (const row of stopPaused) {
-    const ids = row.wireIds;
-    if (ids.length === 0) continue;
-    // An id absent from the tip is unread only if the whole transcript lacks
-    // it too: the tip window may just not reach back to a message read long
-    // ago, and wire-id clocks cannot tell the two apart. When the whole read
-    // fails the row stays stop-paused, the duplicating-but-never-losing path.
-    let reached = false;
-    let undecided = false;
-    for (const id of ids) {
-      if (!stable || tip.some((m) => m.id === id)) {
-        if (reachedPlacement(tip, id)) reached = true;
-        continue;
-      }
+    await settleStopPausedRow(sessionId, row, tip, deps, stable, out, async () => {
       fullLog ??= await deps.readFullLog(sessionId).catch(() => null);
-      if (!fullLog) undecided = true;
-      else if (fullLog.some((m) => m.id === id)) reached = true;
-    }
-    if (!reached && undecided) continue;
-    if (reached) {
-      await deps.closeDelivered(row.commandId);
-      out.closedAsInterrupted += 1;
-      continue;
-    }
-    // Unreached: take the copies out of the transcript, then hold the row.
-    // If a copy cannot be removed the row stays stop-paused — the old,
-    // duplicating-but-never-losing path.
-    let removedAll = true;
-    for (const id of ids) {
-      const present = tip.some((m) => m.id === id);
-      if (!present) continue;
-      if (!(await deps.removeMessage(sessionId, id))) removedAll = false;
-    }
-    if (!removedAll) continue;
-    await deps.holdAsQueued(row.commandId);
-    // The turn authority opened for this delivery must not keep the session
-    // reading as working: nothing is running this prompt any more.
-    for (const id of ids) {
-      try {
-        await deps.closeTurn(sessionId, id);
-      } catch (err) {
-        logger.warn('[inbox-hold] could not close the ledger turn of a held-back prompt', {
-          session_id: sessionId,
-          message_id: id,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-    out.heldBack += 1;
+      return fullLog;
+    });
   }
   return out;
 }

@@ -3,8 +3,6 @@
  * Protocol: .agents/skills/kortix-chrome/references/protocol.md
  */
 
-import { CHROME_LAUNCHED } from '@kortix/shared/chrome-launch';
-
 /** A browser is online when its last ping is newer than this. */
 export const ONLINE_WINDOW_MS = 75_000;
 /**
@@ -138,13 +136,13 @@ export class ChromeError extends Error {
   }
 }
 
-/** The error body of every browser route. Before launch there is no page to
- *  connect a browser on (CHROME_LAUNCHED), so the body names none. */
+/** The error body of every browser route. `connectUrl` is the web page where a
+ *  person connects or manages a browser. */
 export function chromeErrorBody(code: ChromeErrorCode, frontendUrl: string) {
   return {
     error: ERRORS[code].error,
     code,
-    ...(CHROME_LAUNCHED ? { connectUrl: `${frontendUrl.replace(/\/+$/, '')}/settings/chrome` } : {}),
+    connectUrl: `${frontendUrl.replace(/\/+$/, '')}/settings/chrome`,
   };
 }
 

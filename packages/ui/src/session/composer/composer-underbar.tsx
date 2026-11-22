@@ -39,6 +39,8 @@ const EMPTY_AGENTS: Agent[] = [];
  */
 export interface ComposerUnderbarProps {
   onAttachClick: () => void;
+  /** No agent control: see `SessionChatInputProps.hideAgentPicker`. */
+  hideAgentPicker?: boolean;
 
   /** Already filtered to non-hidden, non-subagent agents (`primaryAgents` in
    *  composer.tsx) — this component does no further filtering. */
@@ -87,6 +89,7 @@ export interface ComposerUnderbarProps {
 
 export function ComposerUnderbar({
   onAttachClick,
+  hideAgentPicker = false,
   agents,
   selectedAgent,
   agentMenuOpen,
@@ -165,7 +168,7 @@ export function ComposerUnderbar({
           </Button>
         </Hint>
 
-        {chatInput ? (
+        {hideAgentPicker ? null : chatInput ? (
           <ChatInputControl
             {...chatInput}
             agents={noAccessibleAgents ? EMPTY_AGENTS : agents}

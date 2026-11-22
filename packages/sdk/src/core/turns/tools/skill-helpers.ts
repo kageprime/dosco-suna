@@ -61,8 +61,7 @@ export function skillInputDir(input: Record<string, unknown>): string {
  * Where this product installs a skill, relative to the workspace root.
  *
  * Not a guess and not a convention borrowed from upstream — it is this repo's
- * own layout: a project keeps its skills in the root `skills/` (marketplace
- * installs land there in every project), and the product tells users the same
+ * own layout: a project keeps its skills in the root `skills/`, and the product tells users the same
  * path in prose (`configure-prompts.ts`). Projects created before 2026-09 keep
  * theirs in `.kortix/opencode/skills`; the runtime states that location in its
  * output (a `Base directory:` line), which wins over this fallback.

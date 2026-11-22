@@ -10,7 +10,7 @@ import {
   resolveProjectCloneTarget,
   saveClonedProjectLink,
 } from "../commands/projects.ts";
-import { loadLink, saveLink } from "../project-link.ts";
+import { loadLink } from "../project-link.ts";
 
 function project(overrides: Partial<ProjectSummary> = {}): ProjectSummary {
   return {
@@ -101,17 +101,19 @@ test("a cloned repo is bound to its project without dirtying git status", () => 
   ).toBe("");
 });
 
-test("a shipped clone preserves an existing matching link byte for byte", () => {
+test("a clone of a repository an older CLI shipped links through git config and leaves its committed link file untouched", () => {
   const repo = mkdtempSync(resolve(tmpdir(), "kortix-shipped-clone-"));
   spawnSync("git", ["init", "-b", "main"], { cwd: repo });
-  saveLink({
+  // An older `kortix ship` committed this file.
+  mkdirSync(resolve(repo, ".kortix"), { recursive: true });
+  const path = resolve(repo, ".kortix/link.json");
+  writeFileSync(path, `${JSON.stringify({
     project_id: "proj_1",
     account_id: "acct_1",
     host: "dev",
     host_url: "https://dev-api.kortix.com",
     linked_at: "2026-01-01T00:00:00.000Z",
-  }, repo);
-  const path = resolve(repo, ".kortix/link.json");
+  }, null, 2)}\n`);
   const original = readFileSync(path, "utf8");
   spawnSync("git", ["add", "."], { cwd: repo });
   const committed = spawnSync("git", ["-c", "user.name=Test", "-c", "user.email=test@example.test", "commit", "-m", "seed"], { cwd: repo });
@@ -123,10 +125,14 @@ test("a shipped clone preserves an existing matching link byte for byte", () => 
     const status = spawnSync("git", ["status", "--porcelain"], { cwd: repo, encoding: "utf8" });
     expect(status.status).toBe(0);
     expect(status.stdout).toBe("");
+    const config = spawnSync("git", ["config", "--local", "kortix.workspace"], { cwd: repo, encoding: "utf8" });
+    expect(config.stdout.trim()).toBe("proj_1");
   }
 
+  // The git config wins over the committed file.
   saveClonedProjectLink(repo, project({ project_id: "proj_2" }), "dev", "https://dev-api.kortix.com");
   expect(loadLink(repo)?.project_id).toBe("proj_2");
+  expect(readFileSync(path, "utf8")).toBe(original);
 });
 
 test("a proxied clone installs an on-demand Kortix credential helper without storing a token", () => {

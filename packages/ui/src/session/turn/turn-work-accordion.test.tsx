@@ -37,7 +37,7 @@ describe('TurnWorkAccordion', () => {
 
   test('the row caret answers its own group, never an inner burst', () => {
     const html = row(134_000);
-    expect(html).toContain('group-hover/work:text-muted-foreground/70');
+    expect(html).toContain('group-hover/work:text-foreground');
     expect(html).not.toContain('/burst');
   });
 });

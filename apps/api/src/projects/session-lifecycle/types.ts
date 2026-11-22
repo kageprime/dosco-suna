@@ -43,6 +43,12 @@ export type SessionInvocationSource =
   | 'system:goal'
   /** The eval runner (`projects/evals/`, flag `evals`): one session per trial. */
   | 'system:eval'
+  /**
+   * A trial in a workspace made for it (`projects/evals/trial-workspace.ts`): the
+   * person's own chat with the agent, origin `user`, so it runs the harness a
+   * person gets (their Drive and memory). The workspace is empty and theirs.
+   */
+  | 'eval:trial'
   /** A person's reply on a calendar item an agent session created (`projects/calendar/`, flag `calendar`). */
   | 'system:calendar'
   | 'admin';

@@ -166,7 +166,7 @@ export function TodoStatusIcon({
         <KnockoutDisc
           maskId={maskId}
           path={CANCEL_PATH}
-          className={cn('text-muted-foreground/40', size, className)}
+          className={cn('text-muted-foreground', size, className)}
         />
       );
 

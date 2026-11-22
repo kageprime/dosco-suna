@@ -20,6 +20,9 @@ import {
 } from '../provision-core';
 import { newWorkspaceCallerDenial, wantsNewWorkspace } from '../new-workspace';
 import { newWorkspaceCallerOf } from '../lib/new-workspace-caller';
+import { getAccountMembership } from '../lib/user-identity';
+import { userAccountNameRows } from '../../iam/membership-read';
+import { isRevokedSession } from '../../middleware/session-gate';
 import { createRoute, z } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import { and, desc, eq, inArray } from 'drizzle-orm';
@@ -104,6 +107,73 @@ const NEW_WORKSPACE_FIELD = z.boolean().optional().openapi({
     'Create a whole workspace: the server creates a new account named after the project (a retry with the same idempotency_key returns the first one), then provisions into it. Excludes account_id (400 new_workspace_with_account_id). 403 account_creation_restricted where the deployment restricts account creation.',
 });
 
+type AccountScope = Awaited<ReturnType<typeof resolveProjectAccount>>;
+
+/**
+ * The active projects of one account the caller can read, most recently
+ * updated first: what `GET /v1/projects?account_id=` lists.
+ */
+async function listAccountProjects(c: Context, scope: AccountScope) {
+  // Ask the engine which projects the caller can READ. It returns one of:
+  // { mode: 'all' } | { mode: 'none' } | { mode: 'allow_only' }.
+  // 'all' = account admin/owner (manager on every project); 'allow_only'
+  // = enumerated project ids from the caller's own assignments plus every
+  // group they belong to; 'none' = no access.
+  const accessible = await listAccessible(
+    await actorOf(c, scope.accountId),
+    'project.read',
+    'project',
+  );
+
+  // Empty, whatever the reason. `account_mfa_required` cannot reach here: the
+  // listing is deliberately not MFA-gated, because challenging someone for
+  // opening the project switcher is worse than showing the names and
+  // challenging them when they open one. `authorize` still denies every
+  // per-project action with the coded 403 the step-up dialog keys on.
+  if (accessible.mode === 'none') return [];
+
+  // Build the project rows + the per-row role label the UI renders. The engine
+  // answers yes/no, not "at what tier", so the caller's own direct project
+  // assignments are read here — from `role_assignments`, the same store the
+  // verdict above came from. Neither this read nor the row read needs the
+  // other, so they run together.
+  const baseWhere = and(
+    eq(projectsView.accountId, scope.accountId),
+    eq(projectsView.status, 'active'),
+  );
+
+  // mode === 'allow_only' with nothing enumerated. The 'none' case was
+  // returned above.
+  if (accessible.mode !== 'all' && accessible.allowed.size === 0) return [];
+  const [grants, rows] = await Promise.all([
+    projectRoleGrants({ accountId: scope.accountId, userId: scope.userId }),
+    db
+      .select()
+      .from(projectsView)
+      .where(
+        accessible.mode === 'all'
+          ? baseWhere
+          : and(baseWhere, inArray(projectsView.projectId, [...accessible.allowed])),
+      )
+      .orderBy(desc(projectsView.updatedAt)),
+  ]);
+  const roleByProject = new Map(grants.map((g) => [g.projectId, g.projectRole]));
+
+  // Heuristic for effective_role label (UI only, NOT auth):
+  //   - account-manager → 'manager' (legacy owner/admin gets full label)
+  //   - explicit project_members row → that role
+  //   - otherwise → 'member' (engine allowed read but we don't know the
+  //     exact role; safe minimum for UI affordances)
+  const accountManager = isAccountManager(scope.accountRole);
+  return rows.map((row) => {
+    const projectRole = roleByProject.get(row.projectId) ?? null;
+    const effectiveRole = accountManager
+      ? 'manager'
+      : projectRole ?? 'member';
+    return serializeProject(row, { projectRole, effectiveRole });
+  });
+}
+
 export function registerProjectsRoutes(): void {
   projectsApp.use('/*', supabaseAuth);
 
@@ -113,83 +183,51 @@ export function registerProjectsRoutes(): void {
       path: '/',
       tags: ['projects'],
       summary: 'List projects',
+      description:
+        'The active projects the caller can read, most recently updated first. A person (a browser session or an unscoped personal access token) lists every account they belong to; `?account_id=` lists one account. Every other credential (a workspace-bound key, an API key, a service account, an OAuth client, an operator acting as an account) lists its one account.',
       ...auth,
       responses: {
           200: json(z.array(ProjectSchema), 'Projects the caller can read'),
       },
     }),
     async (c) => {
+    const namesAccount = Boolean(c.req.query('account_id') ?? c.req.query('accountId'));
     // A person with no workspace has no projects. The list is `[]`, like
     // GET /v1/accounts, never a 409: the switcher reads it on every page.
-    let scope: Awaited<ReturnType<typeof resolveProjectAccount>>;
+    let scope: AccountScope;
     try {
       scope = await resolveProjectAccount(c);
     } catch (err) {
-      if (isNoWorkspaceError(err) && !c.req.query('account_id') && !c.req.query('accountId')) return c.json([]);
+      if (isNoWorkspaceError(err) && !namesAccount) return c.json([]);
       throw err;
     }
-    // Reach through `any` for non-typed context keys set by the auth
-    // middleware (the AppEnv only types userId/userEmail).
-    // Ask the engine which projects the caller can READ. It returns one of:
-    // { mode: 'all' } | { mode: 'none' } | { mode: 'allow_only' }.
-    // 'all' = account admin/owner (manager on every project); 'allow_only'
-    // = enumerated project ids from the caller's own assignments plus every
-    // group they belong to; 'none' = no access.
-    const accessible = await listAccessible(
-      await actorOf(c, scope.accountId),
-      'project.read',
-      'project',
+    // Only a person lists across accounts (`newWorkspaceCallerDenial`: a
+    // browser session or an unscoped PAT). Every other credential, and a
+    // request that names an account, lists one account.
+    if (namesAccount || newWorkspaceCallerDenial(newWorkspaceCallerOf(c)) !== null) {
+      return c.json(await listAccountProjects(c, scope));
+    }
+    // A person who names no account lists every account they belong to: the
+    // union of `?account_id=` over their memberships, as GET /v1/workspaces
+    // lists them. Before, only the earliest-joined account listed, and the
+    // other workspaces looked absent (KRTX-4926). An account whose session
+    // policy revoked this session is left out; the others still list.
+    const memberships = await Promise.all(
+      (await userAccountNameRows(scope.userId)).map((row) => getAccountMembership(scope.userId, row.accountId)),
     );
-
-    // Empty, whatever the reason. `account_mfa_required` cannot reach here: the
-    // listing is deliberately not MFA-gated, because challenging someone for
-    // opening the project switcher is worse than showing the names and
-    // challenging them when they open one. `authorize` still denies every
-    // per-project action with the coded 403 the step-up dialog keys on.
-    if (accessible.mode === 'none') return c.json([]);
-
-    // Build the project rows + the per-row role label the UI renders. The engine
-    // answers yes/no, not "at what tier", so the caller's own direct project
-    // assignments are read here — from `role_assignments`, the same store the
-    // verdict above came from. Neither this read nor the row read needs the
-    // other, so they run together.
-    const baseWhere = and(
-      eq(projectsView.accountId, scope.accountId),
-      eq(projectsView.status, 'active'),
-    );
-
-    // mode === 'allow_only' with nothing enumerated. The 'none' case was
-    // returned above.
-    if (accessible.mode !== 'all' && accessible.allowed.size === 0) return c.json([]);
-    const [grants, rows] = await Promise.all([
-      projectRoleGrants({ accountId: scope.accountId, userId: scope.userId }),
-      db
-        .select()
-        .from(projectsView)
-        .where(
-          accessible.mode === 'all'
-            ? baseWhere
-            : and(baseWhere, inArray(projectsView.projectId, [...accessible.allowed])),
-        )
-        .orderBy(desc(projectsView.updatedAt)),
-    ]);
-    const roleByProject = new Map(grants.map((g) => [g.projectId, g.projectRole]));
-
-    // Heuristic for effective_role label (UI only, NOT auth):
-    //   - account-manager → 'manager' (legacy owner/admin gets full label)
-    //   - explicit project_members row → that role
-    //   - otherwise → 'member' (engine allowed read but we don't know the
-    //     exact role; safe minimum for UI affordances)
-    const accountManager = isAccountManager(scope.accountRole);
-    return c.json(
-      rows.map((row) => {
-        const projectRole = roleByProject.get(row.projectId) ?? null;
-        const effectiveRole = accountManager
-          ? 'manager'
-          : projectRole ?? 'member';
-        return serializeProject(row, { projectRole, effectiveRole });
+    const perAccount = await Promise.all(
+      memberships.map(async (membership) => {
+        if (!membership) return [];
+        try {
+          return await listAccountProjects(c, { userId: scope.userId, accountId: membership.accountId, accountRole: membership.accountRole });
+        } catch (err) {
+          if (isRevokedSession(err)) return [];
+          throw err;
+        }
       }),
     );
+    // `updated_at` is an ISO-8601 UTC string: text order is time order.
+    return c.json(perAccount.flat().sort((a, b) => b.updated_at.localeCompare(a.updated_at)));
   },
   );
 
@@ -390,11 +428,9 @@ export function registerProjectsRoutes(): void {
               provider: z.string().optional().openapi({ description: 'Managed Git provider. Defaults to the deployment default (github).' }),
               icon: z.string().optional().openapi({ description: 'Project icon name.' }),
               icon_glyph: z.string().optional().openapi({ description: 'Project icon glyph.' }),
-              source_item_id: z.string().optional().openapi({ description: 'Marketplace project item id to clone into the new repository.' }),
               starter_template: z.string().optional().openapi({ description: 'Starter template id to seed the repository.' }),
               default_branch: z.string().optional().openapi({ description: 'Default branch. Default main.' }),
               seed_starter: z.boolean().optional().openapi({ description: 'Set false when the client makes the first commit itself.' }),
-              marketplace_items: z.array(z.any()).optional().openapi({ description: 'Marketplace items to install into the new project.' }),
               account_id: z.string().optional().openapi({ description: 'Account to create the project in. Defaults to the caller\'s account.' }),
               new_workspace: NEW_WORKSPACE_FIELD,
             }) } } },
@@ -448,11 +484,9 @@ export function registerProjectsRoutes(): void {
               provider: z.string().optional().openapi({ description: 'Managed Git provider. Defaults to the deployment default (github).' }),
               icon: z.string().optional().openapi({ description: 'Project icon name.' }),
               icon_glyph: z.string().optional().openapi({ description: 'Project icon glyph.' }),
-              source_item_id: z.string().optional().openapi({ description: 'Marketplace project item id to clone into the new repository.' }),
               starter_template: z.string().optional().openapi({ description: 'Starter template id to seed the repository.' }),
               default_branch: z.string().optional().openapi({ description: 'Default branch. Default main.' }),
               seed_starter: z.boolean().optional().openapi({ description: 'Set false when the client makes the first commit itself.' }),
-              marketplace_items: z.array(z.any()).optional().openapi({ description: 'Marketplace items to install into the new project.' }),
               account_id: z.string().optional().openapi({ description: 'Account to create the project in. Defaults to the caller\'s account.' }),
               new_workspace: NEW_WORKSPACE_FIELD,
             }) } } },

@@ -343,6 +343,13 @@ export interface CreateProjectSessionInput {
    * no space, as with the flag off (the regular new-session composer).
    */
   space_id?: string | null;
+  /**
+   * The space (session group, `listWorkspaceSessionGroups`) to file the
+   * session in. Needs the project's `session_groups` flag. Omitted: a fork
+   * keeps its source's group, anything else is in none. An unknown id rejects
+   * with 404 `group_not_found`.
+   */
+  group_id?: string | null;
   base_ref?: string;
   agent_name?: string;
   /** Slug of the sandbox template to boot from. Defaults to "default". */

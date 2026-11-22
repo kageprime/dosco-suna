@@ -52,6 +52,8 @@ export interface SessionOwnerFacetOption {
   value: string;
   name: string | null;
   email: string | null;
+  /** Their profile picture; null when they have none. */
+  avatarUrl?: string | null;
   /** The viewer's own sessions. Rendered as "You" and listed first. */
   isViewer: boolean;
   count: number;
@@ -85,12 +87,14 @@ export function resolveOwnerFacetOptions(
       existing.count += 1;
       existing.name ??= session.owner_name ?? null;
       existing.email ??= session.owner_email ?? null;
+      existing.avatarUrl ??= session.owner_avatar_url ?? null;
       continue;
     }
     byOwner.set(key, {
       value: key,
       name: session.owner_name ?? null,
       email: session.owner_email ?? null,
+      avatarUrl: session.owner_avatar_url ?? null,
       isViewer: key !== UNKNOWN_OWNER_KEY && session.is_owner === true,
       count: 1,
     });

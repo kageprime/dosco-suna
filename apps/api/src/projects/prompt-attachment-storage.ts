@@ -170,7 +170,18 @@ export function storageWriteFailure(error: unknown, message?: string): PromptAtt
 
 /** A short-lived signed download URL. A missing object is 404, never a retry. */
 export async function signedDownloadUrl(path: string, expiresInSeconds: number): Promise<string> {
-  const { data, error } = await storage().createSignedUrl(path, expiresInSeconds);
+  let { data, error } = await storage().createSignedUrl(path, expiresInSeconds);
+  // Storage wraps fetch failures in originalError. Signing is read-only: retry
+  // one reset connection, never an HTTP refusal or a write with unknown outcome.
+  if (
+    error &&
+    'originalError' in error &&
+    error.originalError instanceof Error &&
+    'code' in error.originalError &&
+    error.originalError.code === 'ECONNRESET'
+  ) {
+    ({ data, error } = await storage().createSignedUrl(path, expiresInSeconds));
+  }
   if (data?.signedUrl) return data.signedUrl;
   if (isMissingObject(error))
     throw new PromptAttachmentError(

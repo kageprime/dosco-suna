@@ -9,6 +9,7 @@
 import { beforeAll, describe, expect, mock, test } from 'bun:test';
 import React from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+import type { ProjectConfigSummary } from '@kortix/sdk';
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 type HostProps = React.PropsWithChildren<Record<string, unknown>>;
@@ -152,8 +153,8 @@ describe('ModelPickerSheet', () => {
     const props = pickerProps(r);
     expect(props.title).toBe('Agent');
     expect(props.options).toEqual([
-      { key: 'agent-a', label: 'Agent-a' },
-      { key: 'agent-b', label: 'Agent-b' },
+      { key: 'agent-a', label: 'Agent a' },
+      { key: 'agent-b', label: 'Agent b' },
     ]);
     expect(props.activeKey).toBe('agent-a');
     const trailing = props.titleTrailing as { props?: { children?: unknown } };
@@ -170,6 +171,33 @@ describe('ModelPickerSheet', () => {
     })(trailing);
     await act(async () => press?.());
     expect(onCreate).toHaveBeenCalled();
+  });
+
+  test('the Agent tab names the project roster by its configured titles (KRTX-4980)', async () => {
+    const { threadAgents } = await import('@/lib/session/composer-config');
+    const config: ProjectConfigSummary = {
+      is_kortix_repo: true,
+      signals: {},
+      manifest_raw: null,
+      default_agent: 'mykortix',
+      agent_discovery: 'declarative',
+      agents: [
+        { name: 'mykortix', path: 'a', title: 'mykortix', description: null, mode: 'primary' },
+        { name: 'github-pr-reviewer', path: 'b', title: 'GitHub PR Reviewer', description: null, mode: 'primary' },
+        { name: 'chief-of-staff', path: 'c', title: null, description: null, mode: 'primary' },
+      ],
+      skills: [],
+      commands: [],
+      env: { required: [], optional: [] },
+    };
+    const r = await render({ ...baseProps, agent: { ...baseProps.agent, agents: threadAgents(config), activeName: 'mykortix' } });
+    r.ref.current?.open();
+    await act(async () => (pickerProps(r).tabs as { onSelect: (i: number) => void }).onSelect(0));
+    expect(pickerProps(r).options).toEqual([
+      { key: 'mykortix', label: 'My Kortix' },
+      { key: 'github-pr-reviewer', label: 'GitHub PR Reviewer' },
+      { key: 'chief-of-staff', label: 'Chief of staff' },
+    ]);
   });
 
   test('open() resets to the Model tab after the Agent tab was shown', async () => {

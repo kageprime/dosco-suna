@@ -3,8 +3,9 @@ import { parseManifestText } from '@kortix/manifest-schema';
 import { getTemplate, getTemplateFiles, listTemplates, TEMPLATE_IDS } from './templates';
 import embedded from './embedded.generated.json' with { type: 'json' };
 
-// Every hand-approved template is complete: metadata, an importable folder
-// that holds only collections, and no placeholder left after rendering.
+// Every hand-approved template is complete: metadata, one importable file
+// that holds only collections, files in the root layout (`agents/`, `skills/`)
+// that no other template writes, and no placeholder left after rendering.
 const IMPORTABLE = new Set(['agents', 'apps', 'tools', 'skills', 'commands', 'extensions', 'triggers', 'connectors', 'imports']);
 
 describe('templates', () => {
@@ -14,19 +15,23 @@ describe('templates', () => {
       const t = getTemplate(id);
       expect(t.name.length).toBeGreaterThan(0);
       expect(t.summary.split(/\s+/).length).toBeLessThanOrEqual(30);
-      expect(t.import_path).toBe(`.kortix/${id}/`);
+      expect(t.import_path).toBe(`${id}.yaml`);
       expect((embedded as Record<string, { files: unknown[] }>)[`template:${id}`]?.files.length).toBeGreaterThan(1);
     }
   });
 
-  test('rendered files sit under .kortix/<id>/, resolve every placeholder, and import only collections', () => {
+  test('rendered files sit in the root layout, resolve every placeholder, and import only collections', () => {
+    const owner = new Map<string, string>();
     for (const id of TEMPLATE_IDS) {
       const files = getTemplateFiles(id, { repoFullName: 'acme/shop', defaultBranch: 'main' });
       const triggers = new Set<string>();
       for (const file of files) {
-        expect(file.path.startsWith(`.kortix/${id}/`)).toBe(true);
+        // The import file and one settings file at the root; everything else in agents/ or skills/.
+        expect({ path: file.path, ok: /^(agents|skills)\//.test(file.path) || /^[\w-]+\.(ya?ml|json)$/.test(file.path) }).toEqual({ path: file.path, ok: true });
+        expect({ path: file.path, also: owner.get(file.path) ?? null }).toEqual({ path: file.path, also: null });
+        owner.set(file.path, id);
         expect(file.content).not.toMatch(/\{\{(repoFullName|defaultBranch)\}\}/);
-        if (!/\.ya?ml$/.test(file.path)) continue;
+        if (file.path !== getTemplate(id).import_path) continue;
         const doc = parseManifestText(file.content) as Record<string, unknown>;
         for (const key of Object.keys(doc)) expect(IMPORTABLE.has(key)).toBe(true);
         const agents = new Set(Object.keys((doc.agents as object) ?? {}));

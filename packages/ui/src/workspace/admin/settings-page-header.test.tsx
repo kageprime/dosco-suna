@@ -60,9 +60,8 @@ describe('Workspace settings page header', () => {
     expect(h1s(renderToStaticMarkup(<SettingsPageHeader title="Git repo" />))[0]?.text).toBe('Git repo');
   });
 
-  test('the Repository toolbar drops its title under the settings h1, keeps it as the page title elsewhere', () => {
-    expect(h1s(inSettings('Repository', <ProjectPageHeader title="Repo" />))).toEqual([]);
-    expect(inSettings('Repository', <ProjectPageHeader title="Repo" />)).not.toContain('>Repo<');
+  test('the Repository toolbar is the page header: its h1 reads the rail word in settings, its own title elsewhere', () => {
+    expect(h1s(inSettings('Repository', <ProjectPageHeader title="Repo" />)).map((h) => h.text)).toEqual(['Repository']);
     expect(h1s(renderToStaticMarkup(<ProjectPageHeader title="Repo" />))[0]?.text).toBe('Repo');
   });
 });

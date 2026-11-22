@@ -178,7 +178,7 @@ export function GetMemTool({ call, defaultOpen, forceOpen, locked }: ToolProps) 
                         adjacent, exactly as the `Observation #482` line above
                         sets them, and the token stays whole for every locale. */}
                     {report.prompt && (
-                      <span className="text-muted-foreground/60 inline-flex items-baseline text-xs">
+                      <span className="text-muted-foreground inline-flex items-baseline text-xs">
                         {tHardcodedUi.raw('componentsSessionToolRenderers.line1811JsxTextPrompt')}
                         <span className="text-foreground/80">{report.prompt}</span>
                       </span>

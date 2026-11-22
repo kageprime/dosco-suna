@@ -61,6 +61,22 @@ describe('sessionListQuery', () => {
   });
 });
 
+describe('--space', () => {
+  const SPACE = '3f2a0c1e-0000-4000-8000-000000000001';
+
+  test('takes a space id and lists that space with ?group=', () => {
+    const rest = ['--space', SPACE];
+    const flags = takeSessionListFlags(rest);
+    expect(rest).toEqual([]);
+    expect(flags.space).toBe(SPACE);
+    expect(sessionListQuery(flags)).toBe(`?group=${SPACE}`);
+  });
+
+  test('refuses a value that is not a space id', () => {
+    expect(() => takeSessionListFlags(['--space', 'q4-launch'])).toThrow('--space takes a space id');
+  });
+});
+
 describe('startedByLabel', () => {
   test('viewer -> you, others -> label, none -> dash', () => {
     expect(startedByLabel(row({ type: 'member', id: 'u1', label: 'Ada' }), 'u1')).toBe('you');

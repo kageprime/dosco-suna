@@ -24,9 +24,11 @@ const OPEN = 'member@open.example.test';
 let params: Record<string, string> = {};
 const goTrue: string[] = [];
 const checked: string[] = [];
+/** Per-test GoTrue answers by method name; a method absent here succeeds. */
+let answers: Record<string, () => Promise<unknown>> = {};
 const ok = async (name: string, input: { email: string }) => {
   goTrue.push(`${name} ${input.email}`);
-  return { success: true };
+  return answers[name] ? answers[name]() : { success: true };
 };
 
 mock.module('react-native', () => ({
@@ -65,10 +67,7 @@ mock.module('@/contexts', () => ({
     signUp: (input: { email: string }) => ok('signUp', input),
     signInWithMagicLink: (input: { email: string }) => ok('signInWithMagicLink', input),
     resetPassword: (input: { email: string }) => ok('resetPassword', input),
-    signInWithSSO: async (email: string) => {
-      goTrue.push(`signInWithSSO ${email}`);
-      return { success: true };
-    },
+    signInWithSSO: (email: string) => ok('signInWithSSO', { email }),
   }),
 }));
 
@@ -95,6 +94,7 @@ afterEach(() => {
   tree = undefined;
   globalThis.fetch = realFetch;
   params = {};
+  answers = {};
   goTrue.length = 0;
   checked.length = 0;
 });
@@ -265,5 +265,202 @@ describe('the SSO-required form', () => {
       password: hasField('Password'),
       forgot: hasButton('Forgot password?'),
     }).toEqual({ notice: false, sso: true, password: false, forgot: false });
+  });
+});
+
+/** The message line under the form, else null. */
+const message = () => {
+  const node = tree?.root.findAll(
+    (n) =>
+      n.type === 'text' &&
+      n.props.variant === 'muted' &&
+      String(n.props.className).includes('mt-3'),
+  )[0];
+  return node ? textOf(node) : null;
+};
+
+describe('every email door: validate, one loading pass, fresh messages', () => {
+  test('sign-in with an invalid email shows the reason and asks nobody', async () => {
+    render();
+    type('Email address', 'not-an-email');
+    type('Password', 'synthetic-password');
+    await press('Sign in');
+    expect({ message: message(), checked, goTrue }).toEqual({
+      message: 'Enter a valid email address.',
+      checked: [],
+      goTrue: [],
+    });
+  });
+
+  test('sign-up checks the email before the password length', async () => {
+    render();
+    await press('Create account');
+    type('Email address', 'not-an-email');
+    type('Password', 'short');
+    await press('Create account');
+    expect(message()).toBe('Enter a valid email address.');
+
+    type('Email address', OPEN);
+    type('Password', 'short');
+    await press('Create account');
+    expect({ message: message(), checked, goTrue }).toEqual({
+      message: 'Use at least 6 characters for your password.',
+      checked: [],
+      goTrue: [],
+    });
+  });
+
+  test('a password reset and SSO name their own invalid-email reason', async () => {
+    render();
+    await press('Forgot password?');
+    expect(message()).toBe('Enter your email address first.');
+
+    act(() => tree?.unmount());
+    params = { method: 'sso' };
+    render();
+    type('Email address', 'not-an-email');
+    await press('Continue with SSO');
+    expect({ message: message(), goTrue }).toEqual({
+      message: 'Enter your work email address.',
+      goTrue: [],
+    });
+  });
+
+  test('a rejected password maps to its friendly message and the button comes back', async () => {
+    answers = {
+      signIn: async () => ({ success: false, error: { message: 'Invalid login credentials' } }),
+    };
+    render();
+    type('Email address', ` ${OPEN.toUpperCase()} `);
+    type('Password', 'synthetic-password');
+    await press('Sign in');
+    expect({ message: message(), goTrue, signIn: hasButton('Sign in') }).toEqual({
+      message: 'Incorrect email or password.',
+      goTrue: [`signIn ${OPEN}`],
+      signIn: true,
+    });
+  });
+
+  test('a thrown sign-in shows its message and ends the loading state', async () => {
+    answers = {
+      signIn: async () => {
+        throw new Error('network down');
+      },
+    };
+    render();
+    type('Email address', OPEN);
+    type('Password', 'synthetic-password');
+    await press('Sign in');
+    expect({
+      message: message(),
+      signingIn: hasButton('Signing in…'),
+      signIn: hasButton('Sign in'),
+    }).toEqual({
+      message: 'network down',
+      signingIn: false,
+      signIn: true,
+    });
+  });
+
+  test('the button reads its loading label while the attempt runs', async () => {
+    let finish: (value: unknown) => void = () => {};
+    answers = {
+      signIn: () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    };
+    render();
+    type('Email address', OPEN);
+    type('Password', 'synthetic-password');
+    await press('Sign in');
+    expect(hasButton('Signing in…')).toBe(true);
+    await act(async () => {
+      finish({ success: false, error: { message: 'Email not confirmed' } });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect({ message: message(), signIn: hasButton('Sign in') }).toEqual({
+      message: 'Confirm your email before signing in.',
+      signIn: true,
+    });
+  });
+
+  test('an email code that cannot be sent explains why; a sent one opens the code step', async () => {
+    answers = {
+      signInWithMagicLink: async () => ({
+        success: false,
+        error: { message: 'Signups not allowed for otp' },
+      }),
+    };
+    render();
+    await press('Use email code');
+    type('Email address', OPEN);
+    await press('Continue');
+    expect(message()).toBe('No account uses this email. Create an account first.');
+
+    answers = {};
+    await press('Continue');
+    expect({ step: hasField('Verification code'), message: message() }).toEqual({
+      step: true,
+      message: null,
+    });
+
+    // Resend from the code step: a new code, with its notice.
+    await press('Resend code');
+    expect({ message: message(), goTrue }).toEqual({
+      message: 'New code sent.',
+      goTrue: [
+        `signInWithMagicLink ${OPEN}`,
+        `signInWithMagicLink ${OPEN}`,
+        `signInWithMagicLink ${OPEN}`,
+      ],
+    });
+  });
+
+  test('sign-up that needs a confirmation says so; a failed one shows the error', async () => {
+    answers = { signUp: async () => ({ success: true, requiresEmailConfirmation: true }) };
+    render();
+    await press('Create account');
+    type('Email address', OPEN);
+    type('Password', 'synthetic-password');
+    await press('Create account');
+    expect(message()).toBe('Check your email to confirm your account, then sign in.');
+
+    answers = { signUp: async () => ({ success: false }) };
+    await press('Create account');
+    expect(message()).toBe('Could not create your account.');
+  });
+
+  test('a password reset reports its result, and a new attempt clears the old notice', async () => {
+    render();
+    type('Email address', OPEN);
+    await press('Forgot password?');
+    expect(message()).toBe('Check your email for a link to reset your password.');
+
+    answers = {
+      resetPassword: async () => ({ success: false, error: { message: 'rate limited' } }),
+    };
+    await press('Forgot password?');
+    expect(message()).toBe('rate limited');
+  });
+
+  test('SSO maps a missing provider to its domain and stays silent on a cancel', async () => {
+    params = { method: 'sso' };
+    answers = {
+      signInWithSSO: async () => ({ success: false, error: { message: 'No SSO provider found' } }),
+    };
+    render();
+    type('Email address', OPEN);
+    await press('Continue with SSO');
+    expect({ message: message(), checked }).toEqual({
+      message: 'Single sign-on is not set up for open.example.test.',
+      checked: [],
+    });
+
+    answers = {
+      signInWithSSO: async () => ({ success: false, error: { message: 'User cancelled' } }),
+    };
+    await press('Continue with SSO');
+    expect(message()).toBeNull();
   });
 });

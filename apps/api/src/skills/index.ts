@@ -39,7 +39,7 @@ import { getManagedSkill, getManagedSkillFile, listManagedSkills } from './catal
 
 /**
  * A skill behind a flag this platform does not offer (`available` is false, for
- * example `chrome` before launch) does not exist here: no project can turn it on,
+ * example `chrome` on a self-hosted server) does not exist here: no project can turn it on,
  * so no box has it. It is not listed and not served, to the CLI, MCP and the API.
  */
 function offered(featureFlag: string | null | undefined): boolean {

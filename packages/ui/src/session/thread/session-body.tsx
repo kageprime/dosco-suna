@@ -68,9 +68,7 @@ export function SessionBodyRow({
     // `@container/session-body`: the action panel caps its width at half of
     // this row (`50cqw`), so the chat always keeps the other half.
     <div className="@container/session-body flex min-h-0 flex-1 overflow-hidden">
-      {/* `data-toast-anchor`: this column resizes when the action panel opens,
-          which moves the docked composer; toast-clearance.ts watches it. */}
-      <div className="relative flex min-w-0 flex-1 flex-col" data-toast-anchor="">
+      <div className="relative flex min-w-0 flex-1 flex-col">
         {children}
       </div>
       {actionPanel && <SessionActionPanelColumn hotkey={!transient} />}

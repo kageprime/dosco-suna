@@ -83,7 +83,7 @@ export const LogoPaletteSheet = React.forwardRef<SheetRef>((_props, ref) => {
               leading={
                 <Swatch
                   colors={
-                    logoPaletteSwatch(palette.accent ? THEME.accent[palette.accent] : null, tone) ?? {
+                    logoPaletteSwatch(palette.accent ? THEME.accent[tone][palette.accent] : null, tone) ?? {
                       // The default metal: the page's foreground over its border tone.
                       highlight: THEME[tone].foreground,
                       body: THEME[tone].border,

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { withCostReadGuard } from './cost-read-guard';
 import { gatewayRequestLogs, projectSessions, sandboxComputeSessions } from '@kortix/db';
 import { Column, SQL, type SQLWrapper, Table, getTableColumns, is, sql } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core';
@@ -12,6 +13,7 @@ type QueryRecord = {
 };
 
 let queryRecords: QueryRecord[] = [];
+let executeQuery: ((record: QueryRecord, rows: unknown[]) => Promise<unknown[]>) | undefined;
 let resultForQuery: (fields: Record<string, unknown>, table: unknown) => unknown[] = () => [];
 
 // The mock never talks to Postgres, so render the recorded WHERE clause to real
@@ -210,7 +212,7 @@ function createQueryBuilder(record: QueryRecord, rows: unknown[]) {
   };
   // biome-ignore lint/suspicious/noThenProperty: The Drizzle query mock must be awaitable.
   builder.then = (resolve: (value: unknown[]) => unknown, reject: (error: unknown) => unknown) =>
-    Promise.resolve(rows).then(resolve, reject);
+    (executeQuery ? executeQuery(record, rows) : Promise.resolve(rows)).then(resolve, reject);
   return builder;
 }
 
@@ -289,6 +291,7 @@ const costWindow = {
 };
 
 beforeEach(() => {
+  executeQuery = undefined;
   queryRecords = [];
   resultForQuery = () => [];
 });
@@ -884,4 +887,37 @@ describe('listProjectGatewaySessionSpend service', () => {
       ],
     });
   });
+});
+
+test('the session report drains nested reconciliation before releasing the cost-read permit', async () => {
+  let release: () => void = () => { throw new Error('not initialized'); };
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const failure = new Error('reconciliation query failed');
+  const executions = new Map<QueryRecord, number>();
+  let active = 0;
+  executeQuery = async (record, rows) => {
+    executions.set(record, (executions.get(record) ?? 0) + 1);
+    if ('requests' in record.fields) throw failure;
+    if ('windows' in record.fields) {
+      active++;
+      try { await gate; } finally { active--; }
+    }
+    return rows;
+  };
+  const report = withCostReadGuard(() => listSessionCosts({
+    accountId, window: costWindow, sort: 'total_desc', limit: 25, offset: 0,
+  }));
+  const outcome = report.then(() => undefined, (error: unknown) => error);
+  let nextStarted = false;
+  let activeAtNext = -1;
+  const next = withCostReadGuard(async () => { nextStarted = true; activeAtNext = active; });
+  for (let i = 0; i < 30; i++) await Promise.resolve();
+  const premature = nextStarted;
+  release();
+  expect(await outcome).toBe(failure);
+  await next;
+  expect(premature).toBe(false);
+  expect(activeAtNext).toBe(0);
+  expect(executions.size).toBe(4);
+  expect([...executions.values()]).toEqual([1, 1, 1, 1]);
 });

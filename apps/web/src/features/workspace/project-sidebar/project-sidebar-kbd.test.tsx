@@ -105,11 +105,8 @@ mock.module('@kortix/ui/internal/tunnel/computer-connect', () => ({
 mock.module('@kortix/ui/internal/layout/connect-mcp-modal', () => ({
   ConnectMcpModal: () => null,
 }));
-mock.module('@kortix/ui/workspace/sidebar/footer/project-mcp-nav', () => ({
-  ProjectMcpNavItem: () => null,
-}));
-mock.module('@kortix/ui/workspace/sidebar/footer/project-computer-nav', () => ({
-  ProjectComputerNavItem: () => null,
+mock.module('@kortix/ui/workspace/sidebar/footer/project-promo-cards', () => ({
+  ProjectPromoCards: () => null,
 }));
 mock.module('@kortix/ui/workspace/sidebar/footer/project-manifest-issues-alert', () => ({
   ProjectManifestIssuesAlert: () => null,
@@ -126,8 +123,11 @@ mock.module('@kortix/ui/workspace/sidebar/footer/project-upgrade-button', () => 
 mock.module('@kortix/ui/workspace/repository-disconnected', () => ({
   ProjectRepositoryDisconnectedAlert: () => null,
 }));
-mock.module('@kortix/ui/workspace/sidebar/project-nav-items', () => ({
-  ProjectNavItems: () => null,
+// A signed-in viewer: the nav rows render as for a real person.
+const realUiProvider = await import('@kortix/ui/providers/ui-provider');
+mock.module('@kortix/ui/providers/ui-provider', () => ({
+  ...realUiProvider,
+  useUiViewerId: () => 'synthetic-viewer',
 }));
 mock.module('@kortix/ui/internal/layout/open-command-palette', () => ({
   openCommandPalette: () => undefined,
@@ -260,17 +260,39 @@ test('with chat off, the sidebar keeps New session, the session list and Cmd+J',
   expect(newSessionCalls).toBe(1);
 });
 
-const INBOX_HREF = 'href="/workspaces/synthetic-project/inbox"';
+// Inbox (`/inbox`, the person's notifications) is not a sidebar nav row in any
+// variant (KRTX-4949): it opens from the workspace menu (`workspace-switcher.tsx`),
+// ⌘K and the notification toast. A Needs-you notification waits (the inbox mock
+// above), so a row would also carry its count badge.
+const INBOX = ['href="/inbox"', 'inbox.title'];
 
-// The Inbox is a row in the workspace menu (`workspace-switcher.tsx`), not a
-// sidebar nav row, with Spaces off or on.
-test('the sidebar has no Inbox row (KRTX-1742)', async () => {
+function expectNoInbox(html: string) {
+  for (const needle of INBOX) expect(html).not.toContain(needle);
+}
+
+test('the desktop sidebar has no Inbox row (KRTX-4949)', async () => {
   await mountSidebar(1280);
-  expect(container!.innerHTML).not.toContain(INBOX_HREF);
+  expect(document.body.innerHTML).toContain('newSession');
+  expectNoInbox(document.body.innerHTML);
 });
 
-test('with chat on, the sidebar has no Inbox row either', async () => {
+test('the mobile sheet has no Inbox row (KRTX-4949)', async () => {
+  await mountSidebar(390);
+  expect(document.body.innerHTML).toContain('newSession');
+  expectNoInbox(document.body.innerHTML);
+});
+
+test('with chat on, neither the Spaces list nor the opened More group has an Inbox row (KRTX-4949)', async () => {
   channelsOn = true;
   await mountSidebar(1280);
-  expect(container!.innerHTML).not.toContain(INBOX_HREF);
+  expectNoInbox(document.body.innerHTML);
+  const more = [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'more');
+  expect(more).toBeDefined();
+  await act(async () => {
+    more?.click();
+  });
+  const html = document.body.innerHTML;
+  // The Spaces list still renders (Review is its first row; the test above checks the order).
+  expect(html).toContain('href="/workspaces/synthetic-project/review"');
+  expectNoInbox(html);
 });

@@ -131,10 +131,12 @@ flow(
         (await ctx.client.as(ctx.P.NONMEMBER).get(REACHABLE, { params: { ...p, sessionId: lead } })).status(403).body().has('$.code', 'workspace_access_denied');
         (await ctx.client.as(ctx.P.ANON).get(REACHABLE, { params: { ...p, sessionId: lead } })).status(401);
       });
-      await ctx.step('the session row carries the board fields: agent_handle, inbound accept, board_state idle, work_state idle, attention null', async () => {
+      // The reviewer has no box, so its 3 messages stay queued: a prompt on its way is `working`
+      // with `pending_delivery` (deriveSessionWorking), never `idle`, however long the read waits.
+      await ctx.step('the session row carries the board fields: agent_handle, inbound accept, attention null; the queued messages make it working, pending delivery', async () => {
         (await ctx.client.as(ctx.P.OWNER).get(SESSION, { params: { ...p, sessionId: reviewer } })).status(200).body()
           .has('$.agent_handle', 'reviewer').has('$.inbound', 'accept').has('$.attention', null).has('$.team_lead_session_id', null).has('$.result_excerpt', null)
-          .has('$.board_state', 'idle').has('$.work_state', 'idle');
+          .has('$.board_state', 'working').has('$.work_state', 'running').has('$.working.pending_delivery', true).has('$.working.turn_token', null);
       });
     } finally {
       await dropTokens(ctx, project.id, [leadToken.token_id, reviewerToken.token_id]);

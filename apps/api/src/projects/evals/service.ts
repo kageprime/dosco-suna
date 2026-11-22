@@ -29,17 +29,7 @@ import { evalsDrive, jobFolder, json, listEvalFiles, removeEvalFolder, trialFold
 import {
   cancelOpenTrials,
   cancelTrial,
-  countProjectTrials,
   deleteJob,
-  jobFilterValues as readJobFilterValues,
-  listProjectTrials,
-  moveTrials,
-  OPEN_JOB_STATUSES,
-  trialFilterValues as readTrialFilterValues,
-  updateTrial,
-  type EvalJobFilters,
-  type EvalTrialFilters,
-  type FilterValue,
   getJob,
   getTrial,
   insertJob,
@@ -469,7 +459,7 @@ export async function rerunJob(project: ProjectRow, requester: JobRequester, job
   const hash = requestHash(`rerun:${job.jobId}`, request);
   const replay = await replayOf(project, requester, hash);
   if (replay) return { job: replay, replayed: true };
-  if ((OPEN_JOB_STATUSES as string[]).includes(job.status)) {
+  if (job.status === 'queued' || job.status === 'running') {
     throw new EvalConflictError('The job is still running. Retry one trial inside it, or cancel it before you run it again.', job.jobId);
   }
   const all = await listTrials(job.jobId);
@@ -526,24 +516,16 @@ export async function retryTrial(project: ProjectRow, jobId: string, trialId: st
   if (later) throw new EvalConflictError('A later run of this attempt exists. Retry that run instead.', job.jobId);
   const run = await insertRetry(trial, idempotencyKey ? { idempotency_key: idempotencyKey } : {});
   if (!run) throw new EvalConflictError('A later run of this attempt exists. Retry that run instead.', job.jobId);
-  // The job is open again: the runner starts the new run on its next tick. A retry overrides an earlier cancel.
-  await setJobStatus(job.jobId, ['completed', 'cancelled'], { status: 'running', finishedAt: null, cancelMode: null });
+  // The job is open again: the runner starts the new run on its next tick.
+  await setJobStatus(job.jobId, ['completed', 'cancelled'], { status: 'running', finishedAt: null });
   await refreshJobStats(job);
   return { trial: run, replayed: false };
 }
 
-/**
- * Cancel one trial that has not ended. `force` (default): a running trial's
- * sandbox stops now. `force: false`: a queued or paused trial is cancelled,
- * and a running one finishes with its real result but is not retried.
- */
-export async function cancelOneTrial(project: ProjectRow, jobId: string, trialId: string, force = true): Promise<EvalTrialRow> {
+/** Cancel one queued or running trial; its sandbox stops. The rest of the job runs on. */
+export async function cancelOneTrial(project: ProjectRow, jobId: string, trialId: string): Promise<EvalTrialRow> {
   const { job, trial } = await jobAndTrial(project, jobId, trialId);
   if (ENDED.has(trial.status)) return trial;
-  if (!force && trial.status !== 'queued' && trial.status !== 'paused') {
-    await updateTrial(trial, { runState: { ...trial.runState, no_retry: true } });
-    return (await getTrial(job.jobId, trial.trialId)) ?? trial;
-  }
   const cancelled = await cancelTrial(trial);
   if (!cancelled) return (await getTrial(job.jobId, trial.trialId)) ?? trial;
   if (cancelled.sessionId) await stopTrialSandbox(job, cancelled.sessionId);
@@ -551,144 +533,23 @@ export async function cancelOneTrial(project: ProjectRow, jobId: string, trialId
   return cancelled;
 }
 
-/**
- * Cancel a job. No queued or paused trial starts, and no trial is retried.
- * `force` (default): every running trial's sandbox stops and the job ends
- * now. `force: false`: running trials finish with their real results, and the
- * runner ends the job `cancelled` after the last one. A hard cancel of a job
- * that a soft cancel is draining stops its running trials.
- */
-export async function cancelJob(project: ProjectRow, jobId: string, opts: { force?: boolean; now?: Date } = {}): Promise<EvalJobRow> {
-  const force = opts.force ?? true;
-  const now = opts.now ?? new Date();
+/** Cancel a job: no queued trial starts, and every running trial's sandbox stops. */
+export async function cancelJob(project: ProjectRow, jobId: string, now: Date = new Date()): Promise<EvalJobRow> {
   const job = await getJob(project.projectId, checkedId(jobId));
   if (!job) throw new EvalNotFoundError();
   if (job.status === 'completed' || job.status === 'cancelled') return job;
-  if (!force) {
-    await cancelOpenTrials(job.jobId, ['queued', 'paused']);
-    // Nothing left running: the job ends now, as the runner would on its next tick.
-    const draining = (await listTrials(job.jobId)).some((trial) => !ENDED.has(trial.status));
-    await setJobStatus(job.jobId, OPEN_JOB_STATUSES, draining ? { cancelMode: 'soft' } : { cancelMode: 'soft', status: 'cancelled', finishedAt: now });
-    await refreshJobStats(job);
-    return (await getJob(project.projectId, jobId)) ?? job;
-  }
   const cancelled = await cancelOpenTrials(job.jobId);
-  await setJobStatus(job.jobId, OPEN_JOB_STATUSES, { status: 'cancelled', cancelMode: 'hard', finishedAt: now });
+  await setJobStatus(job.jobId, ['queued', 'running'], { status: 'cancelled', finishedAt: now });
   await Promise.all(cancelled.filter((trial) => trial.sessionId).map((trial) => stopTrialSandbox(job, trial.sessionId!)));
   await refreshJobStats(job);
   return (await getJob(project.projectId, jobId)) ?? job;
-}
-
-/**
- * Pause a job: its queued trials wait (`paused`) and no new trial starts.
- * Running trials go on. A job a cancel is draining cannot pause.
- */
-export async function pauseJob(project: ProjectRow, jobId: string): Promise<EvalJobRow> {
-  const job = await getJob(project.projectId, checkedId(jobId));
-  if (!job) throw new EvalNotFoundError();
-  if (job.status === 'paused') return job;
-  if (job.status !== 'queued' && job.status !== 'running') throw new EvalConflictError(`The job is ${job.status}. Only a queued or running job pauses.`, job.jobId);
-  if (job.cancelMode) throw new EvalConflictError('The job is being cancelled. It cannot pause.', job.jobId);
-  await setJobStatus(job.jobId, ['queued', 'running'], { status: 'paused' });
-  await moveTrials(job.jobId, 'queued', 'paused');
-  await refreshJobStats(job);
-  return (await getJob(project.projectId, jobId)) ?? job;
-}
-
-/** Resume a paused job: its paused trials queue again in their order. */
-export async function resumeJob(project: ProjectRow, jobId: string): Promise<EvalJobRow> {
-  const job = await getJob(project.projectId, checkedId(jobId));
-  if (!job) throw new EvalNotFoundError();
-  if (job.status !== 'paused') {
-    if (job.status === 'queued' || job.status === 'running') return job;
-    throw new EvalConflictError(`The job is ${job.status}. Only a paused job resumes.`, job.jobId);
-  }
-  await setJobStatus(job.jobId, ['paused'], { status: job.startedAt ? 'running' : 'queued' });
-  await moveTrials(job.jobId, 'paused', 'queued');
-  await refreshJobStats(job);
-  return (await getJob(project.projectId, jobId)) ?? job;
-}
-
-/** Pause one queued trial: it does not start until it resumes. A trial that started cannot pause. */
-export async function pauseOneTrial(project: ProjectRow, jobId: string, trialId: string): Promise<EvalTrialRow> {
-  const { job, trial } = await jobAndTrial(project, jobId, trialId);
-  if (trial.status === 'paused') return trial;
-  if (trial.status !== 'queued') throw new EvalConflictError('Only a queued trial pauses.', job.jobId);
-  await moveTrials(job.jobId, 'queued', 'paused', trial.trialId);
-  await refreshJobStats(job);
-  return (await getTrial(job.jobId, trial.trialId)) ?? trial;
-}
-
-/** Resume one paused trial. In a paused job it stays paused until the job resumes. */
-export async function resumeOneTrial(project: ProjectRow, jobId: string, trialId: string): Promise<EvalTrialRow> {
-  const { job, trial } = await jobAndTrial(project, jobId, trialId);
-  if (trial.status !== 'paused') {
-    if (trial.status === 'queued' || !ENDED.has(trial.status)) return trial;
-    throw new EvalConflictError(`The trial is ${trial.status}. Only a paused trial resumes.`, job.jobId);
-  }
-  if (job.status === 'paused') throw new EvalConflictError('The job is paused. Resume the job to start its trials.', job.jobId);
-  await moveTrials(job.jobId, 'paused', 'queued', trial.trialId);
-  await refreshJobStats(job);
-  return (await getTrial(job.jobId, trial.trialId)) ?? trial;
-}
-
-// ── Trials across jobs ───────────────────────────────────────────────────────
-
-export const TRIAL_PAGE_SIZE = { default: 50, max: 100 };
-
-const pageToken = {
-  encode: (offset: number): string => Buffer.from(JSON.stringify({ o: offset })).toString('base64url'),
-  decode: (token: string | undefined): number => {
-    if (!token) return 0;
-    try {
-      const { o } = JSON.parse(Buffer.from(token, 'base64url').toString('utf8')) as { o?: unknown };
-      if (typeof o === 'number' && Number.isInteger(o) && o >= 0) return o;
-    } catch {
-      // fall through
-    }
-    throw new EvalConfigError(['page_token is not a token this list returned.']);
-  },
-};
-
-/** One page of the project's trials across jobs, filtered and sorted. */
-export async function listTrialsAcrossJobs(
-  project: ProjectRow,
-  filters: EvalTrialFilters,
-  opts: { sort?: string; pageSize?: number; pageToken?: string },
-): Promise<{ trials: Array<ReturnType<typeof serializeTrial> & { job_name: string }>; total: number; next_page_token: string | null }> {
-  if (filters.jobIds?.some((id) => !isUuid(id))) throw new EvalConfigError(['job_ids holds a value that is not a job id.']);
-  const limit = Math.min(Math.max(opts.pageSize || TRIAL_PAGE_SIZE.default, 1), TRIAL_PAGE_SIZE.max);
-  const offset = pageToken.decode(opts.pageToken);
-  const [rows, total] = await Promise.all([
-    listProjectTrials(project.projectId, filters, { sort: opts.sort ?? 'created_at', limit, offset }),
-    countProjectTrials(project.projectId, filters),
-  ]);
-  return {
-    trials: rows.map(({ trial, job }) => ({ ...serializeTrial(job, trial), job_name: job.jobName })),
-    total,
-    next_page_token: offset + rows.length < total && rows.length === limit ? pageToken.encode(offset + rows.length) : null,
-  };
-}
-
-const FILTER_LIMIT = { default: 100, max: 1000 };
-const clampLimit = (limit?: number) => Math.min(Math.max(limit || FILTER_LIMIT.default, 1), FILTER_LIMIT.max);
-
-/** The values a trial field takes across the project's jobs, in the scope of the other filters. */
-export async function trialFilterValues(project: ProjectRow, field: string, filters: EvalTrialFilters, limit?: number): Promise<{ field: string; values: FilterValue[]; truncated: boolean }> {
-  if (filters.jobIds?.some((id) => !isUuid(id))) throw new EvalConfigError(['job_ids holds a value that is not a job id.']);
-  return { field, ...(await readTrialFilterValues(project.projectId, filters, field, clampLimit(limit))) };
-}
-
-/** The values a job field takes across the project's jobs, in the scope of the other job filters. */
-export async function jobFilterValues(project: ProjectRow, field: string, filters: EvalJobFilters, limit?: number): Promise<{ field: string; values: FilterValue[]; truncated: boolean }> {
-  return { field, ...(await readJobFilterValues(project.projectId, filters, field, clampLimit(limit))) };
 }
 
 /** Delete an ended job: its rows and its folder in Files. The trial sessions stay. */
 export async function removeJob(project: ProjectRow, jobId: string): Promise<void> {
   const job = await getJob(project.projectId, checkedId(jobId));
   if (!job) throw new EvalNotFoundError();
-  if ((OPEN_JOB_STATUSES as string[]).includes(job.status)) throw new EvalConflictError('Cancel the job before you delete it.', job.jobId);
+  if (job.status === 'queued' || job.status === 'running') throw new EvalConflictError('Cancel the job before you delete it.', job.jobId);
   await deleteJob(project.projectId, jobId);
   await removeEvalFolder(job.driveId, job.folder);
 }

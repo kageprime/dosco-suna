@@ -23,8 +23,8 @@
  * **Why the two constants below are mirrored rather than imported.**
  * `ACCOUNT_SCOPED_SETTINGS_TABS` lives in `settings/settings-panel.tsx` and
  * `STANDALONE_DEFAULT_SETTINGS_TAB` in `settings/standalone-settings-route.tsx`.
- * Importing either one drags the whole settings tab tree (`MarketplaceView`,
- * `ScheduleView`, twenty-odd tab modules) into the command-palette chunk —
+ * Importing either one drags the whole settings tab tree (`ScheduleView`,
+ * twenty-odd tab modules) into the command-palette chunk —
  * including on `/accounts/**`, where the palette mounts and the panel never
  * does. `settings-palette-items.test.ts`-style pinning happens instead:
  * `command-palette.test.tsx` imports the real constants and asserts these are
@@ -200,10 +200,8 @@ export interface SettingsPaletteParams {
   /** The platform offers Kortix in Chrome (`useChromeOffered`); off, its Settings row is not offered. */
   chromeOffered?: boolean;
   // `flags: RailFlags` used to sit here. Marketplace, Review and Voice were
-  // the only flag-gated rows and all three moved to `/workspaces/<id>/config`,
-  // whose own sub-nav composes them
-  // (`capabilities/project-settings/project-settings-sections.ts`). Nothing
-  // left in this rail varies by flag, so `railGroups()` takes none either.
+  // the only flag-gated rows and all three left the rail. Nothing left in this
+  // rail varies by flag, so `railGroups()` takes none either.
 }
 
 /**

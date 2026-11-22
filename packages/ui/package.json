@@ -59,6 +59,7 @@
     "./checkbox": "./src/primitives/checkbox.tsx",
     "./checkbox-group": "./src/primitives/checkbox-group.tsx",
     "./collapsible": "./src/primitives/collapsible.tsx",
+    "./color-picker": "./src/primitives/color-picker.tsx",
     "./command": "./src/primitives/command.tsx",
     "./components.css": "./src/styles/components.css",
     "./composer": "./src/session/composer/index.ts",
@@ -120,7 +121,6 @@
     "./customize/shared/capability-page-shell": "./src/customize/shared/capability-page-shell.tsx",
     "./customize/shared/capability-skeleton": "./src/customize/shared/capability-skeleton.tsx",
     "./customize/shared/customize-tab-bar": "./src/customize/shared/customize-tab-bar.tsx",
-    "./customize/shared/entity/entity-files": "./src/customize/shared/entity/entity-files.ts",
     "./customize/shared/feature-gate-screen": "./src/customize/shared/feature-gate-screen.tsx",
     "./customize/shared/use-customize-prefetch": "./src/customize/shared/use-customize-prefetch.ts",
     "./customize/shared/with-search": "./src/customize/shared/with-search.ts",
@@ -196,6 +196,7 @@
     "./entity-avatar": "./src/primitives/entity-avatar.tsx",
     "./error-boundary": "./src/primitives/error-boundary.tsx",
     "./error-state": "./src/primitives/error-state.tsx",
+    "./expandable-search": "./src/primitives/expandable-search.tsx",
     "./faded-scroll-area": "./src/primitives/faded-scroll-area.tsx",
     "./favicon-avatar": "./src/primitives/favicon-avatar.tsx",
     "./field": "./src/primitives/field.tsx",
@@ -215,6 +216,7 @@
     "./glyph-picker": "./src/primitives/glyph-picker.tsx",
     "./glyph-registry": "./src/primitives/glyph-registry.tsx",
     "./glyph-tint": "./src/primitives/glyph-tint.ts",
+    "./gradient-wallpaper": "./src/primitives/gradient-wallpaper.tsx",
     "./hint": "./src/primitives/hint.tsx",
     "./histogram-bars": "./src/primitives/histogram-bars.tsx",
     "./hover-card": "./src/primitives/hover-card.tsx",
@@ -281,6 +283,7 @@
     "./internal/hooks/use-slash-focus": "./src/internal/hooks/use-slash-focus.ts",
     "./internal/icons/claude": "./src/internal/icons/claude.tsx",
     "./internal/icons/codex": "./src/internal/icons/codex.tsx",
+    "./internal/icons/cursor": "./src/internal/icons/cursor.tsx",
     "./internal/icons/discord": "./src/internal/icons/discord.tsx",
     "./internal/icons/download": "./src/internal/icons/download.tsx",
     "./internal/icons/edge": "./src/internal/icons/edge.tsx",
@@ -318,7 +321,6 @@
     "./internal/lib/navigation/router-bridge": "./src/internal/lib/navigation/router-bridge.ts",
     "./internal/lib/onboarding/landing-destination": "./src/internal/lib/onboarding/landing-destination.ts",
     "./internal/lib/onboarding/last-project-cookie": "./src/internal/lib/onboarding/last-project-cookie.ts",
-    "./internal/lib/onboarding/provision-errors": "./src/internal/lib/onboarding/provision-errors.ts",
     "./internal/lib/onboarding/use-app-home": "./src/internal/lib/onboarding/use-app-home.ts",
     "./internal/lib/project-preamble": "./src/internal/lib/project-preamble.ts",
     "./internal/lib/promo-art": "./src/internal/lib/promo-art.ts",
@@ -423,6 +425,7 @@
     "./portal": "./src/primitives/portal.tsx",
     "./preview-image": "./src/primitives/preview-image.tsx",
     "./print.css": "./src/styles/print.css",
+    "./profile-hover-card": "./src/primitives/profile-hover-card.tsx",
     "./progress": "./src/primitives/progress.tsx",
     "./progress-ring": "./src/primitives/progress-ring.tsx",
     "./project-icon-picker": "./src/primitives/project-icon-picker.tsx",
@@ -448,11 +451,9 @@
     "./session/composer/session-chat-input": "./src/session/composer/session-chat-input.tsx",
     "./session/list/session-status-mark": "./src/session/list/session-status-mark.tsx",
     "./session/models/ask-owner-for-credits-button": "./src/session/models/ask-owner-for-credits-button.tsx",
-    "./session/models/connect-model-step": "./src/session/models/connect-model-step.tsx",
     "./session/models/model-grouping": "./src/session/models/model-grouping.ts",
     "./session/models/model-search-empty": "./src/session/models/model-search-empty.tsx",
     "./session/models/model-selector": "./src/session/models/model-selector.tsx",
-    "./session/models/use-workspace-model-gate": "./src/session/models/use-workspace-model-gate.ts",
     "./session/panel/audit/audit-credential-label": "./src/session/panel/audit/audit-credential-label.ts",
     "./session/panel/easy/detail-view": "./src/session/panel/easy/detail-view.tsx",
     "./session/participants/session-participants": "./src/session/participants/session-participants.tsx",
@@ -500,6 +501,7 @@
     "./slider-native": "./src/primitives/slider-native.tsx",
     "./sliding-tab-indicator": "./src/primitives/sliding-tab-indicator.tsx",
     "./slot": "./src/primitives/slot.tsx",
+    "./sort-menu": "./src/primitives/sort-menu.tsx",
     "./split-sheet": "./src/primitives/split-sheet.tsx",
     "./spotlight-card": "./src/primitives/spotlight-card.tsx",
     "./status": "./src/primitives/status.tsx",
@@ -543,9 +545,7 @@
     "./workspace/layout/sidebar-cookie": "./src/workspace/layout/sidebar-cookie.ts",
     "./workspace/new/account-param": "./src/workspace/new/account-param.ts",
     "./workspace/new/advanced-fields": "./src/workspace/new/advanced-fields.tsx",
-    "./workspace/new/clone-param": "./src/workspace/new/clone-param.ts",
     "./workspace/new/new-workspace-form": "./src/workspace/new/new-workspace-form.ts",
-    "./workspace/new/provision-new-workspace": "./src/workspace/new/provision-new-workspace.ts",
     "./workspace/new/source-param": "./src/workspace/new/source-param.ts",
     "./workspace/new/use-create-workspace": "./src/workspace/new/use-create-workspace.ts",
     "./workspace/new/use-project-quota": "./src/workspace/new/use-project-quota.ts",
@@ -560,17 +560,19 @@
     "./workspace/review/mock-data": "./src/workspace/review/mock-data.ts",
     "./workspace/review/review-center": "./src/workspace/review/review-center.tsx",
     "./workspace/review/types": "./src/workspace/review/types.ts",
+    "./workspace/session-spaces/space-detail-page": "./src/workspace/session-spaces/space-detail-page.tsx",
+    "./workspace/session-spaces/space-icon": "./src/workspace/session-spaces/space-icon.tsx",
+    "./workspace/session-spaces/spaces-page": "./src/workspace/session-spaces/spaces-page.tsx",
     "./workspace/settings/use-leave-workspace": "./src/workspace/settings/use-leave-workspace.tsx",
+    "./workspace/setup/workspace-setup-modal": "./src/workspace/setup/workspace-setup-modal.tsx",
     "./workspace/sidebar/footer/project-apps-nav": "./src/workspace/sidebar/footer/project-apps-nav.tsx",
     "./workspace/sidebar/footer/project-balance-warning": "./src/workspace/sidebar/footer/project-balance-warning.tsx",
-    "./workspace/sidebar/footer/project-computer-nav": "./src/workspace/sidebar/footer/project-computer-nav.tsx",
     "./workspace/sidebar/footer/project-manifest-issues-alert": "./src/workspace/sidebar/footer/project-manifest-issues-alert.tsx",
-    "./workspace/sidebar/footer/project-mcp-nav": "./src/workspace/sidebar/footer/project-mcp-nav.tsx",
+    "./workspace/sidebar/footer/project-promo-cards": "./src/workspace/sidebar/footer/project-promo-cards.tsx",
     "./workspace/sidebar/footer/project-sandbox-alert": "./src/workspace/sidebar/footer/project-sandbox-alert.tsx",
     "./workspace/sidebar/footer/project-upgrade-button": "./src/workspace/sidebar/footer/project-upgrade-button.tsx",
     "./workspace/sidebar/footer/sandbox-health": "./src/workspace/sidebar/footer/sandbox-health.ts",
     "./workspace/sidebar/modal/share-session-modal": "./src/workspace/sidebar/modal/share-session-modal.tsx",
-    "./workspace/sidebar/project-nav-items": "./src/workspace/sidebar/project-nav-items.tsx",
     "./workspace/sidebar/project-session-list": "./src/workspace/sidebar/project-session-list.tsx",
     "./workspace/sidebar/project-sidebar": "./src/workspace/sidebar/project-sidebar.tsx",
     "./workspace/sidebar/session-brief-hover-card": "./src/workspace/sidebar/session-brief-hover-card.tsx",
@@ -728,6 +730,10 @@
       "./collapsible": {
         "types": "./dist/primitives/collapsible.d.ts",
         "import": "./dist/primitives/collapsible.js"
+      },
+      "./color-picker": {
+        "types": "./dist/primitives/color-picker.d.ts",
+        "import": "./dist/primitives/color-picker.js"
       },
       "./command": {
         "types": "./dist/primitives/command.d.ts",
@@ -969,10 +975,6 @@
       "./customize/shared/customize-tab-bar": {
         "types": "./dist/customize/shared/customize-tab-bar.d.ts",
         "import": "./dist/customize/shared/customize-tab-bar.js"
-      },
-      "./customize/shared/entity/entity-files": {
-        "types": "./dist/customize/shared/entity/entity-files.d.ts",
-        "import": "./dist/customize/shared/entity/entity-files.js"
       },
       "./customize/shared/feature-gate-screen": {
         "types": "./dist/customize/shared/feature-gate-screen.d.ts",
@@ -1271,6 +1273,10 @@
         "types": "./dist/primitives/error-state.d.ts",
         "import": "./dist/primitives/error-state.js"
       },
+      "./expandable-search": {
+        "types": "./dist/primitives/expandable-search.d.ts",
+        "import": "./dist/primitives/expandable-search.js"
+      },
       "./faded-scroll-area": {
         "types": "./dist/primitives/faded-scroll-area.d.ts",
         "import": "./dist/primitives/faded-scroll-area.js"
@@ -1343,6 +1349,10 @@
       "./glyph-tint": {
         "types": "./dist/primitives/glyph-tint.d.ts",
         "import": "./dist/primitives/glyph-tint.js"
+      },
+      "./gradient-wallpaper": {
+        "types": "./dist/primitives/gradient-wallpaper.d.ts",
+        "import": "./dist/primitives/gradient-wallpaper.js"
       },
       "./hint": {
         "types": "./dist/primitives/hint.d.ts",
@@ -1608,6 +1618,10 @@
         "types": "./dist/internal/icons/codex.d.ts",
         "import": "./dist/internal/icons/codex.js"
       },
+      "./internal/icons/cursor": {
+        "types": "./dist/internal/icons/cursor.d.ts",
+        "import": "./dist/internal/icons/cursor.js"
+      },
       "./internal/icons/discord": {
         "types": "./dist/internal/icons/discord.d.ts",
         "import": "./dist/internal/icons/discord.js"
@@ -1755,10 +1769,6 @@
       "./internal/lib/onboarding/last-project-cookie": {
         "types": "./dist/internal/lib/onboarding/last-project-cookie.d.ts",
         "import": "./dist/internal/lib/onboarding/last-project-cookie.js"
-      },
-      "./internal/lib/onboarding/provision-errors": {
-        "types": "./dist/internal/lib/onboarding/provision-errors.d.ts",
-        "import": "./dist/internal/lib/onboarding/provision-errors.js"
       },
       "./internal/lib/onboarding/use-app-home": {
         "types": "./dist/internal/lib/onboarding/use-app-home.d.ts",
@@ -2170,6 +2180,10 @@
         "import": "./dist/primitives/preview-image.js"
       },
       "./print.css": "./dist/styles/print.css",
+      "./profile-hover-card": {
+        "types": "./dist/primitives/profile-hover-card.d.ts",
+        "import": "./dist/primitives/profile-hover-card.js"
+      },
       "./progress": {
         "types": "./dist/primitives/progress.d.ts",
         "import": "./dist/primitives/progress.js"
@@ -2270,10 +2284,6 @@
         "types": "./dist/session/models/ask-owner-for-credits-button.d.ts",
         "import": "./dist/session/models/ask-owner-for-credits-button.js"
       },
-      "./session/models/connect-model-step": {
-        "types": "./dist/session/models/connect-model-step.d.ts",
-        "import": "./dist/session/models/connect-model-step.js"
-      },
       "./session/models/model-grouping": {
         "types": "./dist/session/models/model-grouping.d.ts",
         "import": "./dist/session/models/model-grouping.js"
@@ -2285,10 +2295,6 @@
       "./session/models/model-selector": {
         "types": "./dist/session/models/model-selector.d.ts",
         "import": "./dist/session/models/model-selector.js"
-      },
-      "./session/models/use-workspace-model-gate": {
-        "types": "./dist/session/models/use-workspace-model-gate.d.ts",
-        "import": "./dist/session/models/use-workspace-model-gate.js"
       },
       "./session/panel/audit/audit-credential-label": {
         "types": "./dist/session/panel/audit/audit-credential-label.d.ts",
@@ -2478,6 +2484,10 @@
         "types": "./dist/primitives/slot.d.ts",
         "import": "./dist/primitives/slot.js"
       },
+      "./sort-menu": {
+        "types": "./dist/primitives/sort-menu.d.ts",
+        "import": "./dist/primitives/sort-menu.js"
+      },
       "./split-sheet": {
         "types": "./dist/primitives/split-sheet.d.ts",
         "import": "./dist/primitives/split-sheet.js"
@@ -2638,17 +2648,9 @@
         "types": "./dist/workspace/new/advanced-fields.d.ts",
         "import": "./dist/workspace/new/advanced-fields.js"
       },
-      "./workspace/new/clone-param": {
-        "types": "./dist/workspace/new/clone-param.d.ts",
-        "import": "./dist/workspace/new/clone-param.js"
-      },
       "./workspace/new/new-workspace-form": {
         "types": "./dist/workspace/new/new-workspace-form.d.ts",
         "import": "./dist/workspace/new/new-workspace-form.js"
-      },
-      "./workspace/new/provision-new-workspace": {
-        "types": "./dist/workspace/new/provision-new-workspace.d.ts",
-        "import": "./dist/workspace/new/provision-new-workspace.js"
       },
       "./workspace/new/source-param": {
         "types": "./dist/workspace/new/source-param.d.ts",
@@ -2706,9 +2708,25 @@
         "types": "./dist/workspace/review/types.d.ts",
         "import": "./dist/workspace/review/types.js"
       },
+      "./workspace/session-spaces/space-detail-page": {
+        "types": "./dist/workspace/session-spaces/space-detail-page.d.ts",
+        "import": "./dist/workspace/session-spaces/space-detail-page.js"
+      },
+      "./workspace/session-spaces/space-icon": {
+        "types": "./dist/workspace/session-spaces/space-icon.d.ts",
+        "import": "./dist/workspace/session-spaces/space-icon.js"
+      },
+      "./workspace/session-spaces/spaces-page": {
+        "types": "./dist/workspace/session-spaces/spaces-page.d.ts",
+        "import": "./dist/workspace/session-spaces/spaces-page.js"
+      },
       "./workspace/settings/use-leave-workspace": {
         "types": "./dist/workspace/settings/use-leave-workspace.d.ts",
         "import": "./dist/workspace/settings/use-leave-workspace.js"
+      },
+      "./workspace/setup/workspace-setup-modal": {
+        "types": "./dist/workspace/setup/workspace-setup-modal.d.ts",
+        "import": "./dist/workspace/setup/workspace-setup-modal.js"
       },
       "./workspace/sidebar/footer/project-apps-nav": {
         "types": "./dist/workspace/sidebar/footer/project-apps-nav.d.ts",
@@ -2718,17 +2736,13 @@
         "types": "./dist/workspace/sidebar/footer/project-balance-warning.d.ts",
         "import": "./dist/workspace/sidebar/footer/project-balance-warning.js"
       },
-      "./workspace/sidebar/footer/project-computer-nav": {
-        "types": "./dist/workspace/sidebar/footer/project-computer-nav.d.ts",
-        "import": "./dist/workspace/sidebar/footer/project-computer-nav.js"
-      },
       "./workspace/sidebar/footer/project-manifest-issues-alert": {
         "types": "./dist/workspace/sidebar/footer/project-manifest-issues-alert.d.ts",
         "import": "./dist/workspace/sidebar/footer/project-manifest-issues-alert.js"
       },
-      "./workspace/sidebar/footer/project-mcp-nav": {
-        "types": "./dist/workspace/sidebar/footer/project-mcp-nav.d.ts",
-        "import": "./dist/workspace/sidebar/footer/project-mcp-nav.js"
+      "./workspace/sidebar/footer/project-promo-cards": {
+        "types": "./dist/workspace/sidebar/footer/project-promo-cards.d.ts",
+        "import": "./dist/workspace/sidebar/footer/project-promo-cards.js"
       },
       "./workspace/sidebar/footer/project-sandbox-alert": {
         "types": "./dist/workspace/sidebar/footer/project-sandbox-alert.d.ts",
@@ -2745,10 +2759,6 @@
       "./workspace/sidebar/modal/share-session-modal": {
         "types": "./dist/workspace/sidebar/modal/share-session-modal.d.ts",
         "import": "./dist/workspace/sidebar/modal/share-session-modal.js"
-      },
-      "./workspace/sidebar/project-nav-items": {
-        "types": "./dist/workspace/sidebar/project-nav-items.d.ts",
-        "import": "./dist/workspace/sidebar/project-nav-items.js"
       },
       "./workspace/sidebar/project-session-list": {
         "types": "./dist/workspace/sidebar/project-session-list.d.ts",

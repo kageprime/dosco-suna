@@ -46,7 +46,7 @@ export default function DebugDotMatrixPage() {
                 </span>
               </h2>
               {inSessionPool ? null : (
-                <p className="text-muted-foreground/60 text-xs">
+                <p className="text-muted-foreground text-xs">
                   {tI18nComplete.raw('textfdda4f15f6cb')}
                 </p>
               )}

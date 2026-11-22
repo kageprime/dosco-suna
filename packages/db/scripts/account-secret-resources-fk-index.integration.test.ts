@@ -19,6 +19,8 @@ const suite = databaseUrl ? describe : describe.skip;
 const EXPECTED_FKS: Record<string, { columns: string[] }> = {
   account_secret_resources_account_id_accounts_account_id_fk: { columns: ['account_id'] },
   account_secret_resources_project_id_projects_project_id_fk: { columns: ['project_id'] },
+  // Workspaces R2a-3a twin of the project key (20261114163015000_workspaces_twin_fk_batch_1).
+  account_secret_resources_project_id_workspaces_fk: { columns: ['project_id'] },
 };
 
 suite('kortix.account_secret_resources foreign keys are covered by indexes', () => {

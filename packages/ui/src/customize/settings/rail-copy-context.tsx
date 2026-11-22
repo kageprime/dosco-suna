@@ -11,6 +11,8 @@ export interface SettingsRailChromeCopy {
   backToApp: string;
   close: string;
   docs: string;
+  search: string;
+  searchNoResults: string;
 }
 
 export const DEFAULT_SETTINGS_RAIL_CHROME_COPY: SettingsRailChromeCopy = {
@@ -18,6 +20,8 @@ export const DEFAULT_SETTINGS_RAIL_CHROME_COPY: SettingsRailChromeCopy = {
   backToApp: 'Back to app',
   close: 'Close',
   docs: 'Docs',
+  search: 'Search preferences',
+  searchNoResults: 'No matches',
 };
 
 interface SettingsRailCopyValue {

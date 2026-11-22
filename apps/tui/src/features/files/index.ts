@@ -23,7 +23,6 @@ export {
   viewerSyntaxStyle,
 } from './file-viewer.tsx';
 export {
-  ALWAYS_VISIBLE_DOTFILES,
   type DirectoryLoad,
   type FileTree,
   type TreeNode,

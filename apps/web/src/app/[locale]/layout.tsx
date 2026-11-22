@@ -380,17 +380,7 @@ export default async function RootLayout({
                     desktop shell unless its shell navigates already. */}
                     <DesktopBackButton />
                     <ReactQueryProvider>
-                      {/* `--toast-offset-bottom` / `--toast-offset-right` are set by a
-                      composer docked at the window bottom (`@kortix/ui`
-                      toast-clearance.ts): a toast sits above its Send/Stop
-                      button, right-aligned with it. */}
-                      <Toaster
-                        offset={{
-                          bottom: 'var(--toast-offset-bottom, 24px)',
-                          right: 'var(--toast-offset-right, 24px)',
-                        }}
-                        mobileOffset={{ bottom: 'var(--toast-offset-bottom, 16px)' }}
-                      />
+                      <Toaster />
                       {/* Global "Request a demo" qualifier modal — mounted once here
                       so a public-site CTA can open it via useRequestDemo(). In
                       the signed-in app, "Talk to sales" is one click

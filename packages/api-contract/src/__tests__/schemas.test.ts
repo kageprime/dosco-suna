@@ -37,7 +37,9 @@ import {
   SessionGroupListSchema,
   SessionGroupOrderInputSchema,
   SessionGroupSchema,
+  SessionGroupSharingInputSchema,
   SessionGroupUpdateInputSchema,
+  SESSION_GROUP_DESCRIPTION_MAX,
   SESSION_GROUP_NAME_MAX,
   SessionScopeInputSchema,
   SessionScopeSchema,
@@ -138,7 +140,6 @@ function projectFixture(overrides: Record<string, unknown> = {}) {
     effective_project_role: 'manager',
     dashboard_url: 'https://kortix.com/projects/11111111-2222-4333-8444-555555555555',
     experimental: {
-      marketplace: false,
       monitors: false,
       reminders: false,
       warm_sessions: false,
@@ -464,6 +465,13 @@ describe('session group contracts', () => {
   const GROUP = {
     group_id: '22222222-3333-4444-8555-666666666666',
     name: 'Store A',
+    description: null,
+    icon: { glyph: { name: 'Storefront', color: 'blue' } },
+    visibility: 'private' as const,
+    member_ids: [],
+    people: [{ user_id: '99999999-8888-4777-8666-555555555555', name: 'Ana', email: 'ana@example.test', avatar_url: null, is_creator: true, workspace_role: 'owner', added_at: null }],
+    tabs: [],
+    can_manage: true,
     position: 0,
     created_by: '99999999-8888-4777-8666-555555555555',
     created_at: NOW,
@@ -489,6 +497,34 @@ describe('session group contracts', () => {
     expect(SessionGroupCreateInputSchema.safeParse({ name: 'x'.repeat(SESSION_GROUP_NAME_MAX) }).success).toBe(true);
     expect(SessionGroupUpdateInputSchema.parse({ name: ' Store B ' })).toEqual({ name: 'Store B' });
     expect(SessionGroupCreateInputSchema.safeParse({ name: 'Store A', position: 3 }).success).toBe(false);
+  });
+
+  test('a description is trimmed, at most SESSION_GROUP_DESCRIPTION_MAX characters, and null clears it', () => {
+    expect(SessionGroupCreateInputSchema.parse({ name: 'A', description: '  Launch plan  ' })).toEqual({ name: 'A', description: 'Launch plan' });
+    expect(SessionGroupCreateInputSchema.safeParse({ name: 'A', description: 'x'.repeat(SESSION_GROUP_DESCRIPTION_MAX + 1) }).success).toBe(false);
+    expect(SessionGroupUpdateInputSchema.parse({ description: null })).toEqual({ description: null });
+    expect(SessionGroupUpdateInputSchema.safeParse({}).success).toBe(false);
+  });
+
+  test('an icon is an emoji or a glyph, never both; null clears it on update', () => {
+    expect(SessionGroupCreateInputSchema.parse({ name: 'A', icon: { emoji: '🚀' } }).icon).toEqual({ emoji: '🚀' });
+    expect(SessionGroupCreateInputSchema.parse({ name: 'A', icon: { glyph: { name: 'Rocket', color: 'red' } } }).icon).toEqual({
+      glyph: { name: 'Rocket', color: 'red' },
+    });
+    expect(SessionGroupCreateInputSchema.safeParse({ name: 'A', icon: { emoji: '🚀', glyph: { name: 'Rocket', color: 'red' } } }).success).toBe(false);
+    expect(SessionGroupCreateInputSchema.safeParse({ name: 'A', icon: null }).success).toBe(false);
+    expect(SessionGroupUpdateInputSchema.parse({ icon: null })).toEqual({ icon: null });
+    expect(SessionGroupSchema.parse({ ...GROUP, icon: null }).icon).toBeNull();
+  });
+
+  test('sharing: private (with or without people) or project; ids are uuids, each once; nothing else', () => {
+    const ana = '11111111-2222-4333-8444-555555555555';
+    expect(SessionGroupSharingInputSchema.parse({ visibility: 'private' })).toEqual({ visibility: 'private', member_ids: [] });
+    expect(SessionGroupSharingInputSchema.parse({ visibility: 'private', member_ids: [ana] }).member_ids).toEqual([ana]);
+    expect(SessionGroupSharingInputSchema.safeParse({ visibility: 'private', member_ids: [ana, ana] }).success).toBe(false);
+    expect(SessionGroupSharingInputSchema.safeParse({ visibility: 'private', member_ids: ['ana'] }).success).toBe(false);
+    expect(SessionGroupSharingInputSchema.safeParse({ visibility: 'everyone' }).success).toBe(false);
+    expect(SessionGroupSchema.safeParse({ ...GROUP, visibility: 'restricted' }).success).toBe(false);
   });
 
   test('an order names each group once, by id', () => {
@@ -884,7 +920,6 @@ describe('envelopes', () => {
     // The static tuple order of a zod `keyof()` follows union order, which tsgo
     // (TypeScript 7) sorts differently from tsc 5; the runtime order is the contract.
     expect(FEATURE_FLAG_KEYS as readonly string[]).toEqual([
-      'marketplace',
       'reminders',
       'secrets_egress',
       'us_region',

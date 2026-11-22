@@ -101,6 +101,7 @@ const projectWebhookRejectedRunLimiter = new TokenBucketRateLimiter('project_web
 const projectSecretWriteLimiter = new TokenBucketRateLimiter('project_secret_write');
 const llmGatewayLimiter = new TokenBucketRateLimiter('llm_gateway');
 const feedbackLimiter = new TokenBucketRateLimiter('feedback');
+const setupEventLimiter = new TokenBucketRateLimiter('setup_event');
 const deviceTokenReleaseLimiter = new TokenBucketRateLimiter('device_token_release');
 
 /**
@@ -149,6 +150,63 @@ export function storedLogReadDenial(c: Context, sessionId: string): StoredLogRea
       retry_after_seconds: retryAfterSeconds,
     },
     retryAfter: String(retryAfterSeconds),
+  };
+}
+
+const usageRollupLimiter = new TokenBucketRateLimiter('usage_rollup');
+/** Concurrent rollups one caller may hold; the DB pool is 6 connections (DEFAULT_DB_POOL_MAX). */
+const USAGE_ROLLUPS_IN_FLIGHT_PER_CALLER = 2;
+// replica-local: the pool this guards is per replica too, so each replica counts its own in-flight rollups.
+const usageRollupInFlight = new Map<string, number>();
+
+/**
+ * Per-caller ceiling on the cost reads (`GET /v1/usage`, `/session-costs`,
+ * `/session-costs/{sessionId}`, `/cost-by-project`, `/cost-summary`; `KORTIX_USAGE_ROLLUPS_PER_MIN`, 60 per
+ * route). INCIDENT 2026-11-13 22:09 UTC (KRTX-4895): one CLI client sent
+ * ~500–800 req/min for four minutes, 368 of them `GET /v1/usage/session-costs`.
+ * Each rollup is a heavy aggregation that holds a DB pool connection until the
+ * 25 s request deadline, so ~140 concurrent callers drained the pool; every other
+ * route (about 40, `GET /v1/notifications` among them) then waited in the auth
+ * lookup for a connection and answered 503 at 25 s (348 5xx of 4955 requests in
+ * one 5-min bucket). The bucket is keyed on (caller, route): a caller only spends
+ * their own budget. 60/min per route keeps every real dashboard, export and CLI
+ * report unthrottled. Replica-local, like every limiter here. Runs after auth, so
+ * the caller is the authenticated user id (else the client key); the 429 carries
+ * `Retry-After` and writes no audit row (a flood must not become an audit flood).
+ */
+export function createUsageRollupRateLimitMiddleware() {
+  const deny = (c: Context, retryAfterSeconds: number) =>
+    c.json(
+      {
+        error: 'rate_limit_exceeded',
+        message: 'Cost rollups are being requested faster than the limit. Slow the polling or honor Retry-After.',
+        retry_after_seconds: retryAfterSeconds,
+      },
+      429,
+      { 'Retry-After': String(retryAfterSeconds) },
+    );
+  return async (c: Context, next: Next) => {
+    const userId = c.get('userId');
+    const caller = typeof userId === 'string' && userId ? userId : requestClientKey(c);
+    // The bucket bounds requests per minute, not connections held: it starts full,
+    // so 60 simultaneous rollups would still park the whole pool until the 25 s
+    // deadline. Cap what one caller may have in flight across every rollup route.
+    const inFlight = usageRollupInFlight.get(caller) ?? 0;
+    if (inFlight >= USAGE_ROLLUPS_IN_FLIGHT_PER_CALLER) return deny(c, 1);
+    // Keyed on the route pattern: every `/session-costs/{sessionId}` read spends one bucket.
+    const result = usageRollupLimiter.check(`${caller}:${c.req.routePath}`, {
+      limit: positiveInt(config.KORTIX_USAGE_ROLLUPS_PER_MIN, 60),
+      windowMs: 60_000,
+    });
+    if (!result.allowed) return deny(c, Math.ceil((result.retryAfterMs ?? result.resetMs) / 1000));
+    usageRollupInFlight.set(caller, inFlight + 1);
+    try {
+      return await next();
+    } finally {
+      const left = (usageRollupInFlight.get(caller) ?? 1) - 1;
+      if (left <= 0) usageRollupInFlight.delete(caller);
+      else usageRollupInFlight.set(caller, left);
+    }
   };
 }
 
@@ -328,6 +386,27 @@ export function createFeedbackRateLimitMiddleware() {
         resourceType: 'feedback',
         resourceId: userId ?? null,
         metadata: { limiter: 'feedback' },
+      },
+    };
+  });
+}
+
+/**
+ * Guards `POST /v1/cli/setup-events`, keyed on the caller's user id like
+ * feedback. A guided setup sends about ten events in an hour; 20 a minute stops
+ * a loop from spending the PostHog plan's monthly event limit.
+ */
+export function createSetupEventRateLimitMiddleware() {
+  return createAuditedRateLimitMiddleware(setupEventLimiter, (c) => {
+    const userId = c.get('userId') as string | undefined;
+    return {
+      key: userId ? `user:${userId}` : `ip:${requestClientKey(c)}`,
+      policy: { limit: 20, windowMs: 60_000 },
+      auditContext: {
+        action: RATE_LIMIT_EXCEEDED_ACTION,
+        resourceType: 'setup_event',
+        resourceId: userId ?? null,
+        metadata: { limiter: 'setup_event' },
       },
     };
   });

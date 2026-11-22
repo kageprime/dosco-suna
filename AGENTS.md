@@ -213,7 +213,7 @@ from `npx skills add` and are pinned in `skills-lock.json`. The PR procedure is 
 
 The repository has no `docs/` tree. Put a runbook or spec in the skill that owns the
 surface (`.agents/skills/<name>/references/`). Put an incident rule in the learnings
-ledger. Put design detail and RCAs in the PR body. Never cite a repo path that does
+ledger. Link design detail and RCAs from the PR body to PR comments or evidence. Never cite a repo path that does
 not exist. The pre-commit hook and `tests/unit/no-docs-tree.test.ts` reject a new
 `docs/` file and any citation of one.
 
@@ -441,7 +441,11 @@ or a name filter after `--`: `pnpm --filter <pkg> test -- -t <name>`. CI and
 Linux run the full suite.
 
 No hook or gate requires a test run before a push or a merge into `dev`. Write
-in the PR body what you ran and why. A diff that no test reads (docs, a skill,
+a short result under `## Quick verification`. Keep compact fenced commands and actual
+runner summaries there when evidence gates require them (collapsed blocks are allowed).
+Link verbose logs in PR comments or evidence. The body uses only `## Demo video` and `## Quick verification` (a few
+actionable bullets), as defined by `.github/pull_request_template.md`. This changes
+presentation only, not testing, safety or reviewer/merge gates. A diff that no test reads (docs, a skill,
 a standalone script) needs no run. When the nightly run or the release suite
 turns red on your change, you fix forward on `dev` the same day.
 

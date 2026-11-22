@@ -5,7 +5,7 @@ import path from 'path';
 import { BLOG_ORIGIN } from './src/config/blog-origin';
 import { resolveTurbopackFileSystemCacheForBuild } from './src/config/turbopack-build-cache';
 import { locales } from './src/i18n/catalog.mjs';
-import { workspaceRedirects } from './src/lib/workspace-redirects';
+import { DESKTOP_SHELL_HEADER, workspaceRedirects } from './src/lib/workspace-redirects';
 import { SHIPPED_ICON_WEIGHTS } from '@kortix/ui/lib/icon-config';
 import {
   embedContentSecurityPolicy,
@@ -370,6 +370,12 @@ const nextConfig = (): NextConfig => ({
 
   // Performance optimizations
   experimental: {
+    // Next 16.4 stops `next dev` under a coding agent (it reads the agent's
+    // environment) to print an upgrade notice, and lets it start only on a
+    // retry within 5 minutes. `pnpm dev` and `pnpm worktree start` take longer
+    // than that to reach the web server, so every agent session's stack died
+    // at the notice. Next.js upgrades arrive through Dependabot and PRs.
+    agentUpgrade: false,
     // Next 16 gives a dynamic page segment a client-cache TTL of 0, so every
     // navigation to a route under `workspaces/[id]/layout.tsx` (which awaits
     // cookies(), making the whole subtree dynamic) discards the segment and
@@ -990,6 +996,21 @@ const nextConfig = (): NextConfig => ({
         { source: `/markdown${page}.md`, destination: '/markdown/index.md', permanent: true },
         { source: `/markdown${page}/:path*`, destination: '/markdown/index.md', permanent: true },
       ]),
+      // The marketplace was removed on 2026-11-20. Its pages are indexed public
+      // URLs, so each one (any item path, any locale) lands on the use-case
+      // library with a 308. The desktop shell is excluded: installed shells
+      // list /marketplace as an app path, and a redirect to /use-cases would
+      // open the browser and leave the window empty. The middleware sends the
+      // shell to its landing page instead.
+      ...['/marketplace', '/marketplace/:path*'].flatMap((source) => [
+        { source, destination: '/use-cases', permanent: true, missing: [DESKTOP_SHELL_HEADER] },
+        {
+          source: `/:locale(${locales.join('|')})${source}`,
+          destination: '/:locale/use-cases',
+          permanent: true,
+          missing: [DESKTOP_SHELL_HEADER],
+        },
+      ]),
       // /cli was removed on 2026-10-29; the CLI is documented in the docs
       // tree. Exact path only: /cli/authorize is the CLI sign-in flow.
       { source: '/cli', destination: '/docs/developers#cli', permanent: true },
@@ -1103,7 +1124,9 @@ const nextConfig = (): NextConfig => ({
       },
       {
         source: '/ingest/:path*',
-        destination: 'https://eu.i.posthog.com/:path*',
+        // POSTHOG_INGEST_ORIGIN points a local run at a capture sink
+        // (product-analytics skill, "Verify an event"). Production leaves it unset.
+        destination: `${process.env.POSTHOG_INGEST_ORIGIN || 'https://eu.i.posthog.com'}/:path*`,
       },
       // /docs is a Blume static build in public/docs/. Astro writes clean URLs as
       // directories, and Next's static handler does not resolve a directory index,
@@ -1249,13 +1272,6 @@ const nextConfig = (): NextConfig => ({
         source: '/.well-known/apple-app-site-association',
         headers: [{ key: 'Content-Type', value: 'application/json' }],
       },
-      // Kortix in Chrome is not launched: its docs page is reachable by link from the app on
-      // dev, and no search engine indexes it (content/docs/connect/chrome.mdx `noindex`).
-      // Remove with the page's `noindex` at launch.
-      ...['/docs/connect/chrome', '/docs/connect/chrome.md', '/docs/connect/chrome.mdx'].map((source) => ({
-        source,
-        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
-      })),
       {
         source: '/fonts/:path*',
         headers: [

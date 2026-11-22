@@ -11,6 +11,7 @@ export const MONO_FONT = MONO_FONT_FAMILY;
  */
 export function markdownPalette(isDark: boolean) {
   const t = isDark ? THEME.dark : THEME.light;
+  const accent = THEME.accent[isDark ? 'dark' : 'light'];
   return {
     /** `text-foreground/95` — paragraphs and list items. */
     text: withAlpha(t.foreground, 0.95),
@@ -23,8 +24,8 @@ export function markdownPalette(isDark: boolean) {
     mutedDecoration: withAlpha(t.mutedForeground, 0.5),
     border: t.border,
     /** `text-kortix-blue`, underline `decoration-kortix-blue/40`. */
-    link: THEME.accent.blue,
-    linkDecoration: withAlpha(THEME.accent.blue, 0.4),
+    link: accent.blue,
+    linkDecoration: withAlpha(accent.blue, 0.4),
     /** `marker:text-muted-foreground/60` (ul) and `/80` (ol). */
     bulletMarker: withAlpha(t.mutedForeground, 0.6),
     orderedMarker: withAlpha(t.mutedForeground, 0.8),

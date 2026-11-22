@@ -108,7 +108,7 @@ export function ImageSearchTool({ call, defaultOpen, forceOpen, locked }: ToolPr
             {humanizeSearchQuery(displayQuery)}
           </span>
           {imageResults.length > 0 && (
-            <span className="text-muted-foreground/60 ml-auto shrink-0 font-mono text-xs whitespace-nowrap">
+            <span className="text-muted-foreground ml-auto shrink-0 font-mono text-xs whitespace-nowrap">
               {isBatch ? `${batchCount}q, ` : ''}
               {imageResults.length} {tHardcodedUi.raw('i18nComplete.text21b2eed1e328')}
             </span>

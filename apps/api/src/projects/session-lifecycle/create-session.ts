@@ -63,6 +63,10 @@ export async function createCommandStatus(
   return row?.status ?? null;
 }
 
+function failedCreate(fields: Omit<SessionLifecycleResult, 'status'>): SessionLifecycleResult {
+  return { status: 'failed', ...fields };
+}
+
 export async function createSession(
   command: CreateSessionCommand,
 ): Promise<SessionLifecycleResult> {
@@ -76,27 +80,7 @@ export async function createSession(
   const reason = shouldQueue ? (backpressure?.reason ?? 'queued by policy') : null;
 
   if (!command.idempotencyKey && !shouldQueue) {
-    const result = await executeCreateSession(command);
-    if (result.status === 'created' && result.sessionId) {
-      const postCreate = await finalizeCreatedSession({
-        row: null,
-        projectId: command.project.projectId,
-        sessionId: result.sessionId,
-        actions: command.postCreate,
-        source: command.source,
-        attempts: 0,
-      });
-      if (!postCreate.ok) {
-        return {
-          status: 'failed',
-          sessionId: result.sessionId,
-          row: result.row,
-          retryable: false,
-          error: { status: 500, body: { error: postCreate.error } },
-        };
-      }
-    }
-    return result;
+    return createThenFinalize(command, null);
   }
 
   const claimed = await claimCreateSessionCommand(command, {
@@ -118,7 +102,7 @@ export async function createSession(
   // The create can take a while: a provider create, then a first prompt
   // delivered into the new session. The lease is renewed for as long as it
   // runs, so the drain never reclaims a row this request still holds.
-  return withCommandLeaseHeartbeat(claimed.row, () => runInlineCreate(command, claimed.row));
+  return withCommandLeaseHeartbeat(claimed.row, () => createThenFinalize(command, claimed.row));
 }
 
 /** The reply to a create whose key already owns a command row: cross-tenant
@@ -154,10 +138,10 @@ async function resolveExistingCreateCommand(
     ] as const;
     for (const [hasConflict, code, suffix] of conflicts) {
       if (hasConflict()) {
-        return {
-          status: 'failed', commandId: row.commandId, retryable: false,
+        return failedCreate({
+          commandId: row.commandId, retryable: false,
           error: { status: 409, body: { error: `Idempotency key was already used with ${suffix}`, code } },
-        };
+        });
       }
     }
     const existingResult = resultFromExistingCommand(row);
@@ -173,8 +157,7 @@ async function resolveExistingCreateCommand(
         // back as a create "success" poisons the key forever (every follow-up
         // continueSession → no-session). Treat it as spent: 409, use a new key.
         if (sessionIsTombstoned(sessionRow)) {
-          return {
-            status: 'failed',
+          return failedCreate({
             commandId: row.commandId,
             retryable: false,
             error: {
@@ -184,7 +167,7 @@ async function resolveExistingCreateCommand(
                 code: 'IDEMPOTENCY_KEY_SESSION_DELETED',
               },
             },
-          };
+          });
         }
         existingResult.row = sessionRow;
       }
@@ -267,26 +250,24 @@ async function finalizeInlineCreateThrow(
     // person reconnects GitHub, and the caller needs the cause, not a 503.
     if (isRepositoryDisconnectedError(err)) {
       await markCommandFailed(row, message, { retryable: false, attempts: row.attempts + 1 });
-      return {
-        status: 'failed',
+      return failedCreate({
         commandId: row.commandId,
         retryable: false,
         requeued: false,
         error: { status: 409, body: repositoryDisconnectedBody(err) },
-      };
+      });
     }
     const outcome = await markCommandFailed(row, message, {
       retryable: true,
       attempts: row.attempts + 1,
     });
-    return {
-      status: 'failed',
+    return failedCreate({
       commandId: row.commandId,
       retryable: true,
       // A lost lease means another owner holds the row.
       requeued: outcome !== 'dead_lettered',
       error: { status: 503, body: { error: message } },
-    };
+    });
 }
 
 /** Principal type for a queued create whose enqueue recorded none: the row's
@@ -315,20 +296,20 @@ async function resolveQueuedCreatePrincipal(
   return requestingPrincipalType;
 }
 
-/** The inline create, under the lease `claimCreateSessionCommand` returned. */
-async function runInlineCreate(
+async function createThenFinalize(
   command: CreateSessionCommand,
-  row: SessionLifecycleCommandRow,
+  row: SessionLifecycleCommandRow | null,
 ): Promise<SessionLifecycleResult> {
   let result: SessionLifecycleResult;
   try {
-    result = await executeCreateSession({
+    result = await executeCreateSession(row ? {
       ...command,
       attachmentSourceCommandId: row.commandId,
       createCommandId: row.commandId,
-    });
+    } : command);
   } catch (err) {
-    return finalizeInlineCreateThrow(row, err);
+    if (row) return finalizeInlineCreateThrow(row, err);
+    throw err;
   }
   if (result.status === 'created' && result.sessionId) {
     const postCreate = await finalizeCreatedSession({
@@ -337,22 +318,22 @@ async function runInlineCreate(
       sessionId: result.sessionId,
       actions: command.postCreate,
       source: command.source,
-      attempts: row.attempts + 1,
+      attempts: row ? row.attempts + 1 : 0,
     });
     if (!postCreate.ok) {
-      return {
-        status: 'failed',
-        commandId: row.commandId,
+      return failedCreate({
+        ...(row ? { commandId: row.commandId } : {}),
         sessionId: result.sessionId,
         row: result.row,
-        retryable: true,
-        requeued: postCreate.requeued,
+        retryable: row !== null,
+        ...(row ? { requeued: postCreate.requeued } : {}),
         error: { status: 500, body: { error: postCreate.error } },
-      };
+      });
     }
-    return { ...result, commandId: row.commandId };
+    return row ? { ...result, commandId: row.commandId } : result;
   }
 
+  if (!row) return result;
   const message = String(result.error?.body?.error ?? result.reason ?? 'Failed to create session');
   // This is the INLINE path — the queued branch returned above — so `result` is
   // about to be handed to a waiting caller. Marking it retryable would leave the
@@ -382,21 +363,19 @@ export async function executeQueuedCreate(
     .where(eq(projectsView.projectId, row.projectId))
     .limit(1);
   if (!project) {
-    return {
-      status: 'failed',
+    return failedCreate({
       commandId: row.commandId,
       retryable: false,
       error: { status: 404, body: { error: 'Project not found' } },
-    };
+    });
   }
   const userId = row.actorUserId ?? (await resolveProjectAutomationActor(project.accountId));
   if (!userId) {
-    return {
-      status: 'failed',
+    return failedCreate({
       commandId: row.commandId,
       retryable: false,
       error: { status: 409, body: { error: 'No account owner available to own the session' } },
-    };
+    });
   }
   const requestingPrincipalType = await resolveQueuedCreatePrincipal(row, project, payload);
 
@@ -452,11 +431,10 @@ async function executeCreateSession(
   // A deleted workspace starts no session (KRTX-1714). Every create path meets
   // here, and the chat channels load the project by id with no status filter.
   if (command.project.status === 'archived') {
-    return {
-      status: 'failed',
+    return failedCreate({
       retryable: false,
       error: { status: 404, body: { error: 'This workspace was deleted', code: 'project_archived' } },
-    };
+    });
   }
   const metadata = {
     source: command.source,
@@ -483,11 +461,10 @@ async function executeCreateSession(
   });
 
   if (result.error) {
-    return {
-      status: 'failed',
+    return failedCreate({
       error: result.error,
       retryable: isRetryableCreateError(result.error.status),
-    };
+    });
   }
   if (result.pendingPromptIdempotencyKey) {
     void drainSessionLifecycleQueue({

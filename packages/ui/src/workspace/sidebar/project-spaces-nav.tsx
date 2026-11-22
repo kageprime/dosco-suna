@@ -11,7 +11,6 @@ import { useTranslations } from '../../i18n';
 import { HoverPrefetchLink } from '../../internal/components/hover-prefetch-link';
 import { useIsMobile } from '../../internal/hooks';
 import { reviewHref } from '../../internal/lib/capability-tab-routes';
-import { ProjectInboxNavItem } from './footer/project-inbox-nav';
 import { uiRoutes } from '../../lib/routes';
 import { Button } from '../../primitives/button';
 import { CountBadge } from '../../primitives/count-badge';
@@ -76,8 +75,6 @@ export function ProjectSpacesNav({ projectId }: { projectId: string }) {
   return (
     <FadedScrollArea fadeColor="from-background" className="h-full min-h-0">
       <SidebarMenu className="gap-px" onKeyDown={moveFocus}>
-        {/* The person's Inbox, one click away, above the workspace's Review queue. */}
-        <ProjectInboxNavItem />
         {review ? (
           // Spacing, not a rule, sets Review apart from the spaces.
           <SidebarMenuItem className="mb-2">

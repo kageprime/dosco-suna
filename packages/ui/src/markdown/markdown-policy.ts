@@ -11,7 +11,7 @@
  * - `agent` — the project's agent or a project member wrote it: messages,
  *   questions, `show` cards, project files, change-request descriptions.
  * - `untrusted` — a third party wrote it: scraped pages, tool and connector
- *   output, marketplace listings from a registry.
+ *   output.
  */
 export type MarkdownTrust = 'trusted' | 'agent' | 'untrusted';
 

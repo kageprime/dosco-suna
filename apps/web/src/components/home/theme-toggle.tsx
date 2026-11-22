@@ -170,7 +170,7 @@ export function ThemeToggle({ variant = 'icon', className, systemTheme = true }:
                   ? cn(
                       'inline-flex size-7 cursor-pointer items-center justify-center rounded-md',
                       'transition-colors duration-150 ease-out [&>svg]:size-4',
-                      active ? 'text-foreground' : 'text-muted-foreground/60 hover:text-foreground',
+                      active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
                     )
                   : '[&amp;&gt;svg]:size-4 hover:text-foreground text-foreground inline-flex size-7 cursor-pointer items-center justify-center rounded-[calc(var(--radius)-6px)] transition-colors duration-150 ease-out'
               }

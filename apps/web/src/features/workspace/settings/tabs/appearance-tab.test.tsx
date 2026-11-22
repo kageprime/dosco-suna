@@ -5,7 +5,12 @@ import { describe, expect, test } from 'bun:test';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { AppearanceTabView, DEFAULT_APPEARANCE_TAB_COPY, themeRowValue } from './appearance-tab';
+import {
+  AppearanceTabView,
+  COPY_KEY_ALIASES,
+  DEFAULT_APPEARANCE_TAB_COPY,
+  themeRowValue,
+} from './appearance-tab';
 
 /** A row's expected trigger label: the catalog entry for a Dosco row, the
  *  terminal theme's own name verbatim otherwise — mirrors `nameFor` in
@@ -57,13 +62,20 @@ describe('AppearanceTabView', () => {
           densities: { normal: 'Нормално', minimal: 'Минимално' },
           wallpapers: {
             dither: 'Дитеринг',
-            brandmark: 'Знак бренда',
-            nebula: 'Пикселски зраци',
-            silk: 'Свила',
-            grain: 'Зрно',
-            neuro: 'Неуро',
+            ember: 'Жар',
+            prism: 'Призма',
+            tide: 'Плима',
+            aurora: 'Аурора',
+            dusk: 'Сумрак',
+            eclipse: 'Помрачење',
+            lagoon: 'Лагуна',
+            cumulus: 'Кумулус',
+            moss: 'Маховина',
+            iris: 'Ирис',
+            custom: 'Прилагођено',
             blank: 'Празно',
           },
+          custom: DEFAULT_APPEARANCE_TAB_COPY.custom,
           defaultWallpaper: 'Подразумевано',
         }}
       />,
@@ -72,7 +84,7 @@ describe('AppearanceTabView', () => {
     expect(out).toContain('Густина разговора');
     expect(out).toContain('Богати одговори');
     expect(out).toContain('Системска');
-    expect(out).toContain('Пикселски зраци');
+    expect(out).toContain('Помрачење');
     expect(out).not.toContain('>Theme<');
   });
 
@@ -183,4 +195,32 @@ describe('theme picker opening highlight', () => {
     expect(themeRowValue(darkTerminal.value, copy)).toBe(`${labelFor(darkTerminal)} ${darkTerminal.value} ${copy.themeGroups.darkThemes}`);
     expect(themeRowValue(lightTerminal.value, copy)).toBe(`${labelFor(lightTerminal)} ${lightTerminal.value} ${copy.themeGroups.lightThemes}`);
   });
+});
+
+describe('Appearance catalogs', () => {
+  // Every leaf of the default copy is looked up under `settings.appearance`.
+  // A key that lands anywhere else renders as its raw path.
+  const leaves = (value: unknown, prefix = ''): string[] =>
+    typeof value === 'object' && value !== null
+      ? Object.entries(value).flatMap(([key, child]) => leaves(child, prefix ? `${prefix}.${key}` : key))
+      : [prefix];
+  const paths = leaves(DEFAULT_APPEARANCE_TAB_COPY).map((key) => COPY_KEY_ALIASES[key] ?? key);
+
+  for (const locale of ['en', 'de', 'es', 'fr', 'it', 'ja', 'pt', 'sr', 'zh']) {
+    test(`${locale} has every Appearance label`, () => {
+      const catalog = JSON.parse(
+        readFileSync(join(import.meta.dir, `../../../../../translations/${locale}.json`), 'utf8'),
+      ) as { settings: { appearance: Record<string, unknown> } };
+      const missing = paths.filter(
+        (path) =>
+          typeof path
+            .split('.')
+            .reduce<unknown>(
+              (node, key) => (node as Record<string, unknown> | undefined)?.[key],
+              catalog.settings.appearance,
+            ) !== 'string',
+      );
+      expect(missing).toEqual([]);
+    });
+  }
 });

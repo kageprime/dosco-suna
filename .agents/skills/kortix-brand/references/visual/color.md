@@ -71,7 +71,7 @@ Values live in `visual-system.json` (keys `color.*`). This file says which token
 
 ## Accents and status
 
-The `kortix-*` accents are the only source of hue in product UI. Same value in light and dark. See `color.accents.*`.
+The `kortix-*` accents are the only source of hue in product UI. Each accent has a light and a dark value at the same hue (J-7); `kortix-base` follows `--ring` in both. Mobile follows both values (`global.css` and `THEME.accent[tone]`). See `color.accents.*`.
 
 | Token | Meaning. Use it for nothing else |
 | --- | --- |
@@ -89,7 +89,7 @@ The `kortix-*` accents are the only source of hue in product UI. Same value in l
 
 **Rule.** Map status to one hue per meaning, as the table says (D5). — *Why:* three sources gave three greens, two reds and three warning hues (`status.tsx` emerald/amber, `badge.tsx` hex, `alert.tsx` yellow-as-info). One mapping ends it. — *Where:* app, marketing, deck, mobile (mobile `success`/`warning` alias these accents; see `decisions.md` J-4). CLI maps it to ANSI, see below. — *When silent:* if the state is not in the table, it is idle: `text-muted-foreground`.
 
-**Rule.** Paint accents on glyphs, dots, tints and charts. Keep the text label beside them in `text-foreground` or `text-muted-foreground`. — *Why:* every `kortix-*` accent fails AA as body text on a white ground. Measured 2.4 to 4.0:1, yellow lowest (D5, `decisions.md` J-7). — *Where:* app, marketing, mobile, deck. — *When silent:* an icon or a dot carries the hue. The words stay ink.
+**Rule.** Paint accents on glyphs, dots, tints and charts. Keep the text label beside them in `text-foreground` or `text-muted-foreground`. — *Why:* an accent is not body text. In light, green and red measure 4.55:1 on `#dedede`, the darkest light fill token (hovered and selected rows included), and 6.1:1 on white (they paint diff counters), and orange, yellow, blue and purple measure 3.8:1 on white and 3.05:1 on `#e6e6e6`, the 3:1 floor for a glyph. Dark keeps the brighter values (D5, `decisions.md` J-7). — *Where:* app, marketing, mobile, deck. — *When silent:* an icon or a dot carries the hue. The words stay ink.
 
 **Rule.** A status tint is `bg-kortix-*/15`. The glyph takes the solid token. No other opacity. — *Why:* `/15` is the majority value, it is `effects.tint_opacity`, Jay's recent code (#8491 "New" badge) uses it, and one value means one look. The `/10` + `/40` pairs in `alert.tsx` are debt. — *Where:* app, marketing, mobile. — *When silent:* `/15`. If a tint is too weak on a surface, change the surface, not the opacity.
 

@@ -290,3 +290,46 @@ describe('github merge enricher', () => {
     expect(await resolveApprovalPreview(merge, githubCtx(pullRequest({ number: 7 })).ctx)).toEqual(unavailable);
   });
 });
+
+describe('draft provider equivalence', () => {
+  test('the same message, missing headers and sender fallback have identical digest-bearing previews', async () => {
+    for (const headers of [[header('From', 'named@example.test'), header('To', 'buyer@example.test')], []]) {
+      const row = draftRow('r-1', headers, { attachmentList: undefined });
+      const composio = gmailCtx({ GMAIL_GET_DRAFT: [row], GMAIL_GET_PROFILE: PROFILE }, { draft_id: 'r-1' });
+      const calls: string[] = [];
+      const native: ApprovalEnricherContext = {
+        ...composio.ctx,
+        connector: { ...composio.ctx.connector, provider: 'mcp', baseUrl: 'https://google.mcp.kortix.com/gmail', hasAuth: false },
+        binding: { kind: 'mcp', tool: 'send_draft' },
+        deps: { ...composio.ctx.deps, fetchImpl: async (_input, init) => {
+          const rpc = JSON.parse(String(init?.body));
+          calls.push(rpc.params.name);
+          return Response.json({ jsonrpc: '2.0', id: rpc.id, result: { structuredContent: rpc.params.name === 'get_draft' ? row : PROFILE } });
+        } },
+      };
+      expect(await resolveApprovalPreview(APPROVAL_ENRICHERS['mcp:google.mcp.kortix.com/gmail/send_draft'], native)).toEqual(
+        await resolveApprovalPreview(APPROVAL_ENRICHERS['composio:GMAIL_SEND_DRAFT'], composio.ctx),
+      );
+      expect(calls).toEqual(headers.length ? ['get_draft'] : ['get_draft', 'get_profile']);
+    }
+  });
+});
+
+test('native draft rejects mismatched ids and failed reads without a profile request', async () => {
+  for (const fail of [false, true]) {
+    const base = gmailCtx({}, { draft_id: 'expected' });
+    const calls: string[] = [];
+    const native: ApprovalEnricherContext = {
+      ...base.ctx,
+      connector: { ...base.ctx.connector, provider: 'mcp', baseUrl: 'https://google.mcp.kortix.com/gmail', hasAuth: false },
+      binding: { kind: 'mcp', tool: 'send_draft' },
+      deps: { ...base.ctx.deps, fetchImpl: async (_input, init) => {
+        const rpc = JSON.parse(String(init?.body));
+        calls.push(rpc.params.name);
+        return Response.json({ jsonrpc: '2.0', id: rpc.id, result: fail ? { isError: true, content: [{ type: 'text', text: 'unavailable' }] } : { structuredContent: draftRow('wrong', []) } });
+      } },
+    };
+    expect(await resolveApprovalPreview(APPROVAL_ENRICHERS['mcp:google.mcp.kortix.com/gmail/send_draft'], native)).toEqual({ resolved_error: 'unavailable' });
+    expect(calls).toEqual(['get_draft']);
+  }
+});

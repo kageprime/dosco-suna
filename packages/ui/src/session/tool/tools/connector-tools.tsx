@@ -70,18 +70,18 @@ export function ConnectorsTool({ call, defaultOpen, forceOpen, locked }: ToolPro
               key={String(c.slug ?? '') || `${String(c.name ?? '')}:${String(c.provider ?? '')}`}
               className="flex items-center gap-2 px-2 py-1 text-xs"
             >
-              <Plug className="text-muted-foreground/50 size-3 shrink-0" />
+              <Plug className="text-muted-foreground size-3 shrink-0" />
               <span className="text-foreground truncate font-medium">
                 {String(c.name || c.slug || '')}
               </span>
-              <span className="text-muted-foreground/60 font-mono">{String(c.provider ?? '')}</span>
-              <span className="text-muted-foreground/50 ml-auto">
+              <span className="text-muted-foreground font-mono">{String(c.provider ?? '')}</span>
+              <span className="text-muted-foreground ml-auto">
                 {String(c.tools ?? 0)} {tI18nComplete.raw('textf9d35d43770d')}
               </span>
               <span
                 className={cn(
                   'text-[10px] font-semibold uppercase',
-                  c.status === 'active' ? STATUS_TEXT.success : 'text-muted-foreground/60',
+                  c.status === 'active' ? STATUS_TEXT.success : 'text-muted-foreground',
                 )}
               >
                 {String(c.status ?? '')}

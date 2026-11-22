@@ -61,6 +61,38 @@ const TRANSCRIPT_SHARE_EXPORTS = [
   'PublicSessionTranscriptToolCall',
 ];
 
+/** The marketplace was removed (2026-11-20): every `/v1/marketplace/**` route
+ *  and `POST /workspaces/:id/marketplace/install-session` answer
+ *  `410 ENDPOINT_RETIRED`. The client names stay exported until the next major. */
+const MARKETPLACE_EXPORTS = [
+  'listMarketplaceCatalogItems',
+  'getMarketplaceCatalogItem',
+  'getMarketplaceCatalogItemFile',
+  'listMarketplaces',
+  'listFeaturedMarketplaces',
+  'listMarketplaceSources',
+  'addMarketplaceSource',
+  'removeMarketplaceSource',
+  'createMarketplaceInstallSession',
+  'listPublicMarketplaceItems',
+  'listPublicMarketplaces',
+  'getPublicMarketplaceItem',
+  'getPublicMarketplaceItemFile',
+  'MarketplaceCatalogItem',
+  'MarketplaceCatalogStatus',
+  'MarketplaceItemsResponse',
+  'ListMarketplaceItemsOptions',
+  'MarketplaceEntry',
+  'MarketplacesResponse',
+  'FeaturedMarketplacesResponse',
+  'MarketplaceItemFile',
+  'MarketplaceSource',
+  'MarketplaceSourcesResponse',
+  'AddMarketplaceSourceInput',
+  'AddMarketplaceSourceResponse',
+  'PublicMarketplaceQuery',
+];
+
 /**
  * The workspace rename (PR #11857): each older `Project*` / `Account*` name
  * that has an exact `Workspace*` equivalent carries `@deprecated` naming the
@@ -140,6 +172,15 @@ describe('deprecated exports', () => {
     '%s is @deprecated and removed in the next major',
     (name) => {
       expect(deprecation(name)).toMatch(REMOVED_IN_NEXT_MAJOR);
+    },
+  );
+
+  test.each(MARKETPLACE_EXPORTS)(
+    '%s is @deprecated (the marketplace was removed) and removed in the next major',
+    (name) => {
+      const text = deprecation(name);
+      expect(text).toContain('marketplace was removed');
+      expect(text).toMatch(REMOVED_IN_NEXT_MAJOR);
     },
   );
 

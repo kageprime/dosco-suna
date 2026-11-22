@@ -216,7 +216,7 @@ function SessionFilesExplorerInner({
                   </Badge>
                   <ArrowRightIcon
                     aria-hidden
-                    className="text-muted-foreground/40 size-3 shrink-0"
+                    className="text-muted-foreground size-3 shrink-0"
                   />
                   {/* The arrow is decorative, so the relationship is stated once
                   for anyone who cannot see it. */}

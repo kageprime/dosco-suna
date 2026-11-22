@@ -60,6 +60,13 @@ const ANALYTICS_EXCLUDED_PREFIXES = [
   '/oauth',
   '/preview',
   '/github',
+  // Signed-in pages outside /workspaces. `/checkout` is not here: GTM reports
+  // the purchase there.
+  '/inbox',
+  '/panel',
+  '/redeem',
+  '/capture',
+  '/discord',
 ];
 
 export function isAnalyticsExcludedPath(pathname: string): boolean {

@@ -1,4 +1,6 @@
-import { TimeoutError, withRetry } from '@kortix/llm-gateway';
+import { TimeoutError } from '@kortix/llm-gateway';
+import { ApiUnavailableError, createControlPlaneTransport, type ApiClientOptions, type ApiPingResult } from './control-plane-transport';
+export { ApiUnavailableError, type ApiClientOptions, type ApiPingResult, type FetchLike } from './control-plane-transport';
 import type { ReplayedResponse } from '../idempotency';
 import {
   GatewayResolutionError,
@@ -17,41 +19,6 @@ import {
   type UpstreamDescriptor,
   type UsageEvent,
 } from '@kortix/llm-gateway';
-
-export type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
-
-export interface ApiClientOptions {
-  baseUrl: string;
-  /**
-   * The API inside the VPC (KORTIX_API_INTERNAL_URL), tried before `baseUrl`.
-   * A call it does not answer marks it down for a minute; `baseUrl` serves.
-   */
-  internalBaseUrl?: string;
-  token: string;
-  /** Proof for `/internal/*` at the public API edge (KORTIX_INTERNAL_EDGE_KEY). */
-  edgeKey?: string;
-  fetchImpl?: FetchLike;
-  timeoutMs?: number;
-  /** One /admit attempt: it runs four steps, so it gets more than `timeoutMs`. */
-  admitTimeoutMs?: number;
-}
-
-export class ApiUnavailableError extends Error {
-  constructor(
-    readonly path: string,
-    readonly status?: number,
-  ) {
-    super(`kortix api ${path} unavailable${status ? ` (${status})` : ''}`);
-    this.name = 'ApiUnavailableError';
-  }
-}
-
-export interface ApiPingResult {
-  ok: boolean;
-  latencyMs: number;
-  status?: number;
-  error?: string;
-}
 
 export interface ApiClient {
   authenticate: (token: string) => Promise<AuthedPrincipal | null>;
@@ -97,26 +64,6 @@ const REFUSAL_MEMO_MAX = 1_000;
  * entry must stay bytes-small) and the memo key is lossy — two longer ids share one key. */
 const MEMOIZABLE_MODEL_MAX = 200;
 
-/** How long a private URL that did not answer is skipped for the public one. */
-const INTERNAL_DOWN_MS = 60_000;
-
-/** The ping's private attempt: a VPC hop that has not answered /health in 1 s is down. */
-const PRIVATE_PING_MS = 1_000;
-
-/** Per-attempt timeout for single-step control-plane RPCs (env: GATEWAY_API_TIMEOUT_MS). */
-const DEFAULT_API_TIMEOUT_MS = 12_000;
-/** Timeout for combined `/internal/gateway/admit` RPC (env: GATEWAY_ADMIT_TIMEOUT_MS). */
-const DEFAULT_ADMIT_TIMEOUT_MS = 15_000;
-/** Cap slow-timeout retries so a congested DB pool does not multiply in-flight queries 3x. */
-const MAX_SLOW_TIMEOUT_ATTEMPTS = 2;
-
-function positiveIntEnv(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (!raw) return fallback;
-  const parsed = Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
 interface ResolutionErrorBody {
   code: NoUpstreamReasonCode;
   message: string;
@@ -147,99 +94,7 @@ function billingResult(result: BillingBody): { holdUsd?: number } | Error {
 }
 
 export function createApiClient(opts: ApiClientOptions): ApiClient {
-  const baseUrl = opts.baseUrl.replace(/\/+$/, '');
-  const internalBaseUrl = opts.internalBaseUrl?.replace(/\/+$/, '') || undefined;
-  const rawFetch: FetchLike = opts.fetchImpl ?? ((input, init) => fetch(input, init));
-  // ponytail: one per-process switch; a broken private path costs one failed attempt per minute.
-  let internalDownUntil = 0;
-  const privateUp = () => !!internalBaseUrl && Date.now() >= internalDownUntil;
-  // A thrown fetch (refused, reset, DNS, timeout) on the private URL sends the
-  // next minute of calls to the public one. A response, even a 5xx, is the
-  // API answering, so it keeps the private URL.
-  const fetchImpl = async (path: string, init: RequestInit): Promise<Response> => {
-    if (!internalBaseUrl || !privateUp()) return rawFetch(`${baseUrl}${path}`, init);
-    try {
-      return await rawFetch(`${internalBaseUrl}${path}`, init);
-    } catch (err) {
-      internalDownUntil = Date.now() + INTERNAL_DOWN_MS;
-      throw err;
-    }
-  };
-  const timeoutMs = opts.timeoutMs ?? positiveIntEnv('GATEWAY_API_TIMEOUT_MS', DEFAULT_API_TIMEOUT_MS);
-  const admitTimeoutMs = opts.admitTimeoutMs ?? positiveIntEnv('GATEWAY_ADMIT_TIMEOUT_MS', DEFAULT_ADMIT_TIMEOUT_MS);
-
-  /**
-   * One control-plane call, with bounded retries.
-   *
-   * `retryOnTimeout` says whether a SLOW attempt (one that produced no response
-   * inside `timeoutMs`) may be repeated. It is a per-call decision because the
-   * two kinds of call differ in what a repeat costs:
-   *
-   * - Admission and resolution calls are what the caller is waiting on. A
-   *   repeat that succeeds turns a hard error into a served request. The
-   *   admission hold is the one nuance: `/authorize` may already have taken a
-   *   1-cent atomic hold the timed-out attempt never learned about, and that
-   *   hold is orphaned — but it is orphaned by the timeout itself, not by the
-   *   retry, and NOT retrying leaves the same orphan plus a failed request. Only
-   *   a full control-plane outage (every attempt times out) can orphan more than
-   *   one, and nothing is being served then anyway.
-   * - `recordUsage` / `recordTrace` are settlement WRITES with nobody waiting.
-   *   A timed-out attempt that the API actually committed would be charged
-   *   twice by a repeat, so they keep the narrow policy: retry a refused or
-   *   5xx-answered attempt, never a silent one.
-   * - `/admit` is never repeated (`once`): see `admit` below.
-   */
-  const post = async <T>(
-    path: string,
-    payload: unknown,
-    { retryOnTimeout = false, once = false }: { retryOnTimeout?: boolean; once?: boolean } = {},
-  ): Promise<T> => {
-    let timeoutAttempts = 0;
-    return withRetry(
-      async (signal) => {
-        let response: Response;
-        try {
-          response = await fetchImpl(path, {
-            method: 'POST',
-            headers: {
-              'content-type': 'application/json',
-              authorization: `Bearer ${opts.token}`,
-              // Edge proof for /internal/* on the public API host (api-router worker).
-              ...(opts.edgeKey ? { 'x-kortix-internal-edge-key': opts.edgeKey } : {}),
-            },
-            body: JSON.stringify(payload),
-            signal,
-          });
-        } catch {
-          throw new ApiUnavailableError(path);
-        }
-        if (!response.ok) {
-          throw new ApiUnavailableError(path, response.status);
-        }
-        return (await response.json()) as T;
-      },
-      {
-        maxAttempts: once ? 1 : 3,
-        baseDelayMs: 100,
-        maxDelayMs: 1_000,
-        timeoutMs: once ? admitTimeoutMs : timeoutMs,
-        // `timeoutMs` is a PER-ATTEMPT budget, and withRetry settles an attempt
-        // that overruns it with a `TimeoutError`. Slow timeouts retry at most
-        // once (2 total attempts at 12 s) to tolerate cold DB/TLS stalls while
-        // preventing a 3x retry storm on an overloaded pool; fast 5xx/connect
-        // errors keep all 3 attempts.
-        isRetryable: (err) => {
-          if (err instanceof ApiUnavailableError) return true;
-          if (retryOnTimeout && err instanceof TimeoutError) {
-            timeoutAttempts += 1;
-            return timeoutAttempts < MAX_SLOW_TIMEOUT_ATTEMPTS;
-          }
-          return false;
-        },
-      },
-    );
-  };
-
+  const { post, ping } = createControlPlaneTransport(opts);
   // ponytail: per-process memo; a mixed fleet mid-rollout can flip it once per minute.
   let admitMissingUntil = 0;
 
@@ -429,30 +284,6 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
       );
       return result.models ?? {};
     },
-    // The ping owns both attempts, each on its own signal: a private path that
-    // hangs costs PRIVATE_PING_MS, trips the switch, and the public URL answers.
-    ping: async () => {
-      const started = Date.now();
-      const health = (base: string, ms: number) =>
-        rawFetch(`${base}/health`, { method: 'GET', signal: AbortSignal.timeout(ms) });
-      try {
-        let res: Response | undefined;
-        if (internalBaseUrl && privateUp()) {
-          try {
-            res = await health(internalBaseUrl, PRIVATE_PING_MS);
-          } catch {
-            internalDownUntil = Date.now() + INTERNAL_DOWN_MS;
-          }
-        }
-        res ??= await health(baseUrl, 3_000);
-        return { ok: res.ok, latencyMs: Date.now() - started, status: res.status };
-      } catch (err) {
-        return {
-          ok: false,
-          latencyMs: Date.now() - started,
-          error: err instanceof Error ? err.message : String(err),
-        };
-      }
-    },
+    ping,
   };
 }

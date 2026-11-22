@@ -251,7 +251,7 @@ export default function AdminProjectsPage() {
                         <span className="font-mono">{project.projectId.slice(0, 8)}</span>
                         {project.status === 'archived' && (
                           <>
-                            <span className="text-muted-foreground/40 mx-1.5">·</span>
+                            <span className="text-muted-foreground mx-1.5">·</span>
                             <span>{tI18nComplete.raw('textbdb86505f806')}</span>
                           </>
                         )}
@@ -289,7 +289,7 @@ export default function AdminProjectsPage() {
                     >
                       {project.activeSessionCount}
                     </span>
-                    <span className="text-muted-foreground/40 mx-0.5">/</span>
+                    <span className="text-muted-foreground mx-0.5">/</span>
                     <span>{project.sessionCount}</span>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs">

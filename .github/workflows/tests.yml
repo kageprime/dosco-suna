@@ -107,6 +107,8 @@ jobs:
       # registry: Data limit exceeded" → supabase_rest_kortix-local 503, no
       # shard signal) while the same lane's ghcr.io pulls answered. GHCR hosts
       # the same official mirrors; pin every supabase image pull to it.
+      # Vulcan bakes these images into the repo's warm runner template from
+      # .github/vulcan-images.txt: update that list with the Supabase CLI.
       SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -256,6 +258,16 @@ jobs:
               docker ps -a --filter "publish=$port" --format '{{.ID}} {{.Image}} {{.Status}} {{.Ports}}' || true
             fi
           done
+      - name: Wait for the warm template's Docker images
+        # Vulcan loads the images of .github/vulcan-images.txt in the
+        # background when a job starts. `supabase start` would otherwise pull
+        # any image whose load has not finished from ghcr.io. The helper
+        # exits at once when nothing is loading; other runners skip the step.
+        if: startsWith(matrix.lane, 'core-')
+        run: |
+          if [ -x /opt/vulcan/bin/wait-warm-images ]; then
+            /opt/vulcan/bin/wait-warm-images 120
+          fi
       - name: Run the root test lane
         run: |
           set -euo pipefail

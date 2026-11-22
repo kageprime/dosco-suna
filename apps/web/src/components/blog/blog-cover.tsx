@@ -109,7 +109,7 @@ export function BlogCover({
           ))}
           {withKortix && (
             <>
-              <span className="text-muted-foreground/40 text-2xl font-light">×</span>
+              <span className="text-muted-foreground text-2xl font-light">×</span>
               <Chip>
                 <KortixLogo size={30} variant="symbol" className="text-foreground" />
               </Chip>

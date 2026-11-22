@@ -353,13 +353,10 @@ describe('THEME carries the Task 7 (M2) tokens Task 8 missed', () => {
 });
 
 /**
- * The 6 brand accents (`--kortix-*`) are declared byte-identical in
- * `:root` and `.dark:root` — THEME.accent carries them as one
- * theme-invariant group (see lib/utils/theme.ts). Pin each one against
- * both scopes so a change to either scope's token — or a drift between
- * the two scopes themselves — is caught here.
+ * The 6 brand accents (`--kortix-*`) have a light and a dark value (J-7).
+ * THEME.accent.light pins `:root`, THEME.accent.dark pins `.dark:root`.
  */
-describe('THEME.accent carries the 6 brand accents, theme-invariant', () => {
+describe('THEME.accent carries the 6 brand accents per theme', () => {
   const keyToToken: Record<string, string> = {
     blue: 'kortix-blue',
     yellow: 'kortix-yellow',
@@ -369,20 +366,24 @@ describe('THEME.accent carries the 6 brand accents, theme-invariant', () => {
     red: 'kortix-red',
   };
 
+  const scopes = (): Record<'light' | 'dark', Record<string, string>> => THEME.accent;
+
   for (const [themeKey, cssName] of Object.entries(keyToToken)) {
-    it(`${themeKey}: matches --${cssName} in both :root and .dark:root, which are identical`, () => {
-      const light = token(':root', cssName);
-      const dark = token('.dark:root', cssName);
-      expect(light).toBe(dark);
-      expect(THEME.accent[themeKey as keyof typeof THEME.accent] as string).toBe(light);
-      expect(THEME.accent[themeKey as keyof typeof THEME.accent] as string).toBe(dark);
+    it(`${themeKey}: light matches :root --${cssName}, dark matches .dark:root`, () => {
+      expect(scopes().light[themeKey]).toBe(token(':root', cssName));
+      expect(scopes().dark[themeKey]).toBe(token('.dark:root', cssName));
     });
   }
+
+  it('has exactly the 6 accents in each theme', () => {
+    expect(Object.keys(scopes().light).sort()).toEqual(Object.keys(keyToToken).sort());
+    expect(Object.keys(scopes().dark).sort()).toEqual(Object.keys(keyToToken).sort());
+  });
 });
 
 /**
  * `--chart-1..5`, the one data-viz ramp, is declared byte-identical in both
- * scopes, so THEME.chart is theme-invariant like THEME.accent. Index 0 is
+ * scopes, so THEME.chart is theme-invariant. Index 0 is
  * `--chart-1`.
  */
 describe('THEME.chart carries the 5 chart tokens, theme-invariant', () => {
@@ -456,8 +457,10 @@ describe('withAlpha emits a color React Native can parse', () => {
         if (normalizeColor(value) == null) rejected.push(`${scope}.${name} = ${value}`);
       }
     }
-    for (const [name, value] of Object.entries(THEME.accent)) {
-      if (normalizeColor(value) == null) rejected.push(`accent.${name} = ${value}`);
+    for (const scope of ['light', 'dark'] as const) {
+      for (const [name, value] of Object.entries(THEME.accent[scope])) {
+        if (normalizeColor(value) == null) rejected.push(`accent.${scope}.${name} = ${value}`);
+      }
     }
     expect(rejected).toEqual([]);
   });
@@ -474,9 +477,11 @@ describe('withAlpha emits a color React Native can parse', () => {
         if (normalizeColor(out) == null) rejected.push(`${scope}.${name} -> ${out}`);
       }
     }
-    for (const [name, value] of Object.entries(THEME.accent)) {
-      const out = withAlpha(value, 0.2);
-      if (normalizeColor(out) == null) rejected.push(`accent.${name} -> ${out}`);
+    for (const scope of ['light', 'dark'] as const) {
+      for (const [name, value] of Object.entries(THEME.accent[scope])) {
+        const out = withAlpha(value, 0.2);
+        if (normalizeColor(out) == null) rejected.push(`accent.${scope}.${name} -> ${out}`);
+      }
     }
     expect(rejected).toEqual([]);
   });
@@ -519,7 +524,7 @@ describe('toHexColor matches the real parser for every THEME colour', () => {
 
   it('agrees with normalizeColor on every plain-hsl token (±1 per channel)', () => {
     const mismatched: string[] = [];
-    const scopes = [THEME.light, THEME.dark, THEME.accent] as Record<string, string>[];
+    const scopes = [THEME.light, THEME.dark, THEME.accent.light, THEME.accent.dark] as Record<string, string>[];
     for (const scope of scopes) {
       for (const [name, value] of Object.entries(scope)) {
         if (typeof value !== 'string' || !plainHsl.test(value)) continue;
@@ -547,7 +552,7 @@ describe('toHexColor matches the real parser for every THEME colour', () => {
   it('matches withAlpha under normalizeColor for every plain-hsl token (±1 per channel)', () => {
     const rgba = (int: number) => [...channels(int), int & 255];
     const mismatched: string[] = [];
-    const scopes = [THEME.light, THEME.dark, THEME.accent] as Record<string, string>[];
+    const scopes = [THEME.light, THEME.dark, THEME.accent.light, THEME.accent.dark] as Record<string, string>[];
     for (const scope of scopes) {
       for (const [name, value] of Object.entries(scope)) {
         if (typeof value !== 'string' || !plainHsl.test(value)) continue;

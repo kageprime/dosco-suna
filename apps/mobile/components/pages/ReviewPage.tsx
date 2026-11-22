@@ -169,7 +169,7 @@ export function ReviewPage({
     (tone: ReviewTone) =>
       tone === 'muted'
         ? (isDark ? THEME.dark : THEME.light).mutedForeground
-        : THEME.accent[tone],
+        : THEME.accent[isDark ? 'dark' : 'light'][tone],
     [isDark],
   );
   // Read from the live list, so a verdict made elsewhere updates the open sheet.

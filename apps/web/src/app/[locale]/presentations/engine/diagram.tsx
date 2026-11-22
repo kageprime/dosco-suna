@@ -128,7 +128,7 @@ export function Box({
           TONE_RING[tone],
         )}
       >
-        {label ? <p className="text-muted-foreground/70 font-mono text-xs">{label}</p> : null}
+        {label ? <p className="text-muted-foreground font-mono text-xs">{label}</p> : null}
         {title ? (
           <p className={cn('mt-2 text-sm leading-tight font-medium', TONE_TEXT[tone])}>{title}</p>
         ) : null}
@@ -193,7 +193,7 @@ export function Link({
         <m.span
           animate={{ opacity: on ? 1 : 0 }}
           transition={{ duration: 0.4, ease: EASE }}
-          className="text-muted-foreground/80 mb-2 text-center font-mono text-xs leading-tight tracking-wider whitespace-nowrap"
+          className="text-muted-foreground mb-2 text-center font-mono text-xs leading-tight tracking-wider whitespace-nowrap"
         >
           {label}
         </m.span>
@@ -378,7 +378,7 @@ export function BrokerDiagram({
         >
           <div className="mt-3 flex flex-col gap-1.5">
             <Chip tone={step >= 1 ? 'active' : 'idle'}>KORTIX_TOKEN</Chip>
-            <span className="text-muted-foreground/70 text-xs leading-snug">
+            <span className="text-muted-foreground text-xs leading-snug">
               {content.texte7e7dd001381}
             </span>
           </div>
@@ -501,7 +501,7 @@ export function ChangeRequestDiagram({
           </span>
           <div className="flex flex-1 items-center gap-3">
             <Reveal on={step >= 1} className="flex flex-1 items-center gap-3">
-              <span className="text-muted-foreground/50 font-mono text-xs">
+              <span className="text-muted-foreground font-mono text-xs">
                 {content.text693dd5a55830}
               </span>
               <Dot on={step >= 1} />

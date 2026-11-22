@@ -312,14 +312,14 @@ describe('POST /create-repo — the starter commit and the registration', () => 
     );
   });
 
-  test('a selected marketplace project commits its own files, named after the project', async () => {
+  test('source_item_id is refused with 400 before any GitHub write (the marketplace was removed)', async () => {
     currentOwner = { login: 'acme', type: 'Organization' };
 
     const res = await postCreateRepo({ source_item_id: 'kortix-projects:starter', project_name: 'Company OS' });
 
-    expect(res.status).toBe(201);
-    const files = mockCommitFiles.mock.calls[0]![0].files;
-    expect(files.map((file) => file.path)).toContain('skills/agent-browser/SKILL.md');
-    expect(files.find((file) => file.path === 'kortix.yaml')?.content).toContain('name: "Company OS"');
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain('the marketplace was removed');
+    expect(mockCreateRepo).not.toHaveBeenCalled();
+    expect(mockCommitFiles).not.toHaveBeenCalled();
   });
 });

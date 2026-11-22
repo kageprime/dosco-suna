@@ -46,7 +46,7 @@ import {
   ViewerPathPill,
   fileShareInput,
 } from './viewer-actions';
-import { SESSION_BAR_CLASS } from '../../session/panel/panel-chrome';
+import { SESSION_BAR_CLASS } from '../../internal/layout/panel-chrome';
 
 type View = 'preview' | 'source';
 

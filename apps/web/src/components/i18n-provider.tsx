@@ -15,11 +15,11 @@ import { ReactNode, Suspense, use, useCallback, useEffect, useRef, useState } fr
  * - SSR renders against the full catalog that the RSC layer loaded
  *   (`i18n/messages.ts`). The HTML carries no messages.
  * - Browser catalogs ship as bundler chunks, cached with the app's assets.
- * - On the client, the tree below this provider hydrates only once that catalog
- *   has resolved. Until then React keeps the server HTML (a dehydrated Suspense
- *   boundary), which already shows every string of the first paint. Content
- *   that appears after mount (dialogs, auth-dependent controls) therefore
- *   always renders with the full catalog.
+ * - On the client, nothing hydrates until that catalog has resolved (see
+ *   `I18nProvider`). Until then React keeps the server HTML, which already
+ *   shows every string of the first paint. Content that appears after mount
+ *   (dialogs, auth-dependent controls) therefore always renders with the full
+ *   catalog.
  */
 
 const hydrationCatalogs = new Map<Locale, Promise<MessageTree>>();
@@ -54,6 +54,22 @@ export function I18nProvider({
   children: ReactNode;
   initialLocale?: Locale;
 }) {
+  // The catalog wait sits here, above the Suspense boundary, and no Suspense
+  // boundary sits above this provider. On the client the root itself suspends:
+  // React commits nothing and keeps all server HTML until the catalog loads.
+  //
+  // Inside the boundary the wait broke hydration. The providers above it
+  // (`AuthProvider` publishing `isLoading: false`, next-themes the system
+  // theme, `LazyMotionProvider` its features) committed first and changed
+  // their context while the boundary still waited. React cannot hydrate a
+  // suspended boundary whose context changed: it deleted the server HTML and
+  // rendered the page again in the browser, blank until the catalog arrived
+  // (up to ~1 s on a cold load). Those providers now render before this wait
+  // and start their requests during that render, beside the catalog download.
+  //
+  // `CatalogProvider` reads the same promise, already fulfilled, and does not
+  // suspend. On the server the catalog is already loaded.
+  if (typeof window !== 'undefined') use(hydrationCatalog(initialLocale));
   return (
     <Suspense fallback={null}>
       <CatalogProvider initialLocale={initialLocale}>{children}</CatalogProvider>
@@ -71,14 +87,13 @@ function CatalogProvider({
   // Always call `use` on the client. Never short-circuit it with a direct
   // cache read of an already-loaded catalog.
   //
-  // React suspends this component on the first client render, then replays it
+  // `I18nProvider` already waited for this promise, so `use` returns its value
+  // without suspending. If this component ever suspends here, React replays it
   // with the rerender dispatcher (ReactFiberHooks `useThenable`). `use` switches
   // the dispatcher back to mount/update when no hooks remain from the suspended
   // attempt. A skipped `use` leaves the rerender dispatcher in place, so the
   // first `useState` throws minified React error #467 ("Update hook called on
-  // initial render") during hydration. When the catalog is already loaded,
-  // `loadClientCatalog` resolves synchronously, so `use` returns without
-  // suspending and the fast path is preserved.
+  // initial render") during hydration.
   const initialCatalog =
     typeof window === 'undefined'
       ? serverCatalog(initialLocale)

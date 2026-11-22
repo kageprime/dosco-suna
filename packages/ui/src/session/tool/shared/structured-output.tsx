@@ -67,7 +67,7 @@ export function StructuredOutput({ sections }: { sections: OutputSection[] }) {
                 key={key}
                 className="bg-muted/40 border-border/60 flex items-start gap-2 rounded-md border px-2.5 py-1.5"
               >
-                <Ban className="text-muted-foreground/70 mt-0.5 size-3 shrink-0" />
+                <Ban className="text-muted-foreground mt-0.5 size-3 shrink-0" />
                 <div className="min-w-0 flex-1">
                   {section.errorType && (
                     <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
@@ -86,7 +86,7 @@ export function StructuredOutput({ sections }: { sections: OutputSection[] }) {
               <div key={key}>
                 <button
                   onClick={() => setShowTrace((v) => !v)}
-                  className="text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/30 flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors"
+                  className="text-muted-foreground hover:text-foreground hover:bg-muted/30 flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors"
                 >
                   <ChevronRight
                     className={cn('size-3 shrink-0 transition-transform', showTrace && 'rotate-90')}
@@ -94,17 +94,17 @@ export function StructuredOutput({ sections }: { sections: OutputSection[] }) {
                   <span className="text-xs font-medium">
                     {tHardcodedUi.raw('componentsSessionToolRenderers.line1597JsxTextStackTrace')}
                   </span>
-                  <span className="text-muted-foreground/40 ml-1 font-mono text-xs">
+                  <span className="text-muted-foreground ml-1 font-mono text-xs">
                     {section.lines.length} {tHardcodedUi.raw('i18nComplete.text5ea44c3961f1')}
                   </span>
                 </button>
                 {showTrace && (
                   <div className="mt-1 overflow-hidden">
-                    <pre className="text-muted-foreground/60 max-h-64 overflow-auto p-2.5 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap">
+                    <pre className="text-muted-foreground max-h-64 overflow-auto p-2.5 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap">
                       {section.lines.map((line, li) => {
                         if (/^\s+File "/.test(line)) {
                           return (
-                            <span key={li} className="text-muted-foreground/80">
+                            <span key={li} className="text-muted-foreground">
                               {line}
                               {'\n'}
                             </span>

@@ -59,6 +59,8 @@ const KORTIX_LABELS: readonly {
   labelKey: InterfaceThemeLabel;
   group: 'light' | 'dark';
 }[] = [
+  // `light` and `dark` are the defaults (DEFAULT_LIGHT_THEME /
+  // DEFAULT_DARK_THEME), labelled "Kortix light" / "Kortix dark".
   { value: 'light', labelKey: 'light', group: 'light' },
   { value: 'pure-light', labelKey: 'pureLight', group: 'light' },
   { value: 'dark', labelKey: 'dark', group: 'dark' },

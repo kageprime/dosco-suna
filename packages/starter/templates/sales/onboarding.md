@@ -2,8 +2,8 @@
 
 Run the guide below as written. This template adds five steps at the points
 named here. The loop is one agent, `sales`, with one contract skill,
-`sales-loop`, and six task skills. Its files are under `.kortix/sales/`: read
-`skills/sales-loop/SKILL.md` once before you start, so you know the system of
+`sales-loop`, and six task skills. Its files are `sales.yaml`, `sales.json`, `agents/sales.md` and
+`skills/sales-*/`: read `skills/sales-loop/SKILL.md` once before you start, so you know the system of
 record, the sources and the approval modes you set up.
 
 Every **Ask** below is a question for the one message of guide step 3, with
@@ -12,7 +12,7 @@ its recommended answer. Never ask it where it appears.
 ### A. In guide steps 2 to 4: analyse the team, then sales.json
 
 1. Run every check of
-   `.kortix/sales/skills/sales-loop/references/analysis.md`: what the company
+   `skills/sales-loop/references/analysis.md`: what the company
    sells, the connected connectors (`kortix connectors ls --json`), the env
    names, the signup handler in the code. Read only; never `cat` an env file.
 2. **Ask** which system of record is the source of truth (analysis section
@@ -24,7 +24,7 @@ its recommended answer. Never ask it where it appears.
 4. **Ask** where drafts go (`approval.draft_in`: the Review page, the
    mailbox, the CRM) and whether the agent may move deal stages. Defaults:
    `review` and `notes`. Say plainly: the agent never sends a message.
-5. Write `.kortix/sales/sales.json` (analysis section 6). Turn each chosen
+5. Write `sales.json` (analysis section 6). Turn each chosen
    source's trigger on and every other source's trigger off in `sales.yaml`.
 
 ### B. After guide step 6: the system of record

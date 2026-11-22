@@ -26,7 +26,7 @@ describe('outcomeTint', () => {
       // `bg-muted` needs no alpha: it is already a low-contrast semantic token,
       // not a brand colour being softened.
       bg: 'bg-muted',
-      fg: 'text-muted-foreground/85',
+      fg: 'text-muted-foreground',
       ring: 'ring-border/70',
     });
   });

@@ -21,7 +21,7 @@
  *
  * `shouldLoadOnScroll` is a pure predicate so the paging decision is testable
  * without a real `IntersectionObserver`, react-query, or a DOM. Same split as
- * `marketplace-grid.ts:shouldFetchNextMarketplacePage`.
+ * `session-older-autoload.ts:shouldLoadOlderHistory`.
  */
 
 /**

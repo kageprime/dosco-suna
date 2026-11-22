@@ -54,8 +54,3 @@ export function loopViews(): LoopView[] {
     return [{ id, name: template.name, summary: template.summary, ...words, ...anatomy(id) }];
   });
 }
-
-/** The teams with no ready-made template: the same prompt builds them from a description. */
-export function catalogViews(): string[] {
-  return ['Research', 'Reporting', 'Operations', 'Finance', 'Legal ops', 'Procurement', 'Back office'];
-}

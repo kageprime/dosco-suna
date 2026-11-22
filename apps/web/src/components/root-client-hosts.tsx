@@ -13,6 +13,8 @@
 // Not dynamic itself: one store subscription that loads the heavy dialog body
 // on the first open. A deep import, so the root chunk does not pull the files barrel.
 import { FilePreviewHost } from '@kortix/ui/files';
+// Not dynamic: it must see the requests the first route starts at hydration.
+import { ScreenTimingHost } from '@/components/analytics/screen-timing-host';
 import { isDesktop } from '@kortix/ui/internal/lib/desktop';
 import dynamic from 'next/dynamic';
 import { useSyncExternalStore } from 'react';
@@ -106,6 +108,8 @@ export function RootQueryHosts() {
           banner has to be true everywhere too. Renders nothing when no grant
           is held. */}
       <ImpersonationBanner />
+      {/* `screen_ready`: how long each screen takes to show its data. */}
+      <ScreenTimingHost />
     </>
   );
 }

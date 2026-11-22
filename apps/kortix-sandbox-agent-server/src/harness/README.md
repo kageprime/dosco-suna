@@ -1049,6 +1049,12 @@ and project tools that governance registers, the `./` pi packages, and the
 root `AGENTS.md` (else `CLAUDE.md`). A descriptor's `config_dir` (an older
 API's) is ignored: the release manifest records `config_dir: null`.
 
+- **Retention.** Materialized release directories and manifests stay for the
+  session sandbox lifetime. Earlier system prompts and bootstrap symlinks can
+  still name them after convergence or daemon restart. Cleanup removes staging
+  entries, not historical releases. Retention does not authorize a fallback:
+  boot still requires a proven pointer and verifies release content. Releases
+  already removed by an older daemon are not restored by this retention rule.
 - **Boot.** The box never checks out the project repository. `/workspace`
   starts empty, and an agent that needs the files runs `kortix workspaces
   clone`. `lifecycle.start()` waits for the config only: the desired release
@@ -1122,8 +1128,19 @@ reads each `$(…)`, backtick, `<(…)`, `>(…)` and `( … )` body as commands
 own, and the strictest answer wins (`deny`, then `ask`, then `allow`). So
 `bash: { '*': deny, 'kortix connectors call x get *': allow }` runs that call
 and refuses `kortix connectors call x get a; env`. A line whose quotes or
-brackets do not balance is decided as a call with no subject: a restriction
-asks.
+brackets do not balance is decided as a call with no subject: a restricted
+pattern asks when its first word is a word of the line, else `*` decides.
+
+**A heredoc body is data when nothing on its line can run it.** Every command
+on the heredoc's line must be in `NEVER_RUNS_STDIN`: a data reader (`cat`,
+`tee`, `jq`, `git commit -F -`, `gh … --body-file -`) or a command that ignores
+stdin (`cd`, `mkdir`, `echo`). So `cd /tmp; cat > body.md <<'EOF'` keeps its
+markdown out of the check. The body is read as commands when the line has any
+other program (`sh <<EOF`, `cat <<EOF | bash`, a function defined on the
+line), when the line ends in a pipe (bash continues the pipeline after the
+body), or when an unquoted body runs `$(…)` or a backtick. Prod 2026-11-17: an
+agent with `kortix` rules asked a person to approve a change-request body,
+because `cd /tmp;` was not in the list.
 
 **Precedence:** the most specific matching rule wins, whatever
 order the keys are written in (`@kortix/api-contract/permission-rules`). The
@@ -1427,7 +1444,7 @@ document (its box died mid-run) leaves nothing to reuse, and the resume says
 so. The parent's record then names the new runner. A runner that still works
 refuses the resume. A structured agent whose
 answer never validates resolves to `{ schema_error, text }` (`strict: true`
-throws). Saved workflows are `.kortix/workflows/<name>.js`: the checkout's
+throws). Saved workflows are `workflows/<name>.js` at the repository root: the checkout's
 working tree, or the API's project files on a box without one.
 
 **Tool concurrency.** The root agent runs `toolExecution: 'parallel'`. Every

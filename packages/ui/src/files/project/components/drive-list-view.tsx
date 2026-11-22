@@ -48,10 +48,6 @@ import { FileDriveMenuItems, FolderDriveMenuItems } from './drive-grid-view';
 import { getFileIcon } from './file-icon';
 import { ownClicks } from './own-clicks';
 
-const ELEVATED_DIR_META: Record<string, string> = {
-  '.kortix': 'Workspace config, tasks, context',
-};
-
 function ChalkBadge({ label }: { label: string }) {
   const chalk = chalkColors(label);
 
@@ -313,29 +309,6 @@ function ListRow({
   );
 }
 
-function ElevatedDirRow({ node, onNavigate }: { node: FileNode; onNavigate: () => void }) {
-  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
-  return (
-    <TableRow onClick={onNavigate} className="cursor-pointer select-none">
-      <TableCell>
-        <div className="flex min-w-0 items-center gap-2.5">
-          <FolderCog className="text-muted-foreground size-4 shrink-0" />
-          <span className="truncate text-sm font-medium">{node.name}</span>
-          {ELEVATED_DIR_META[node.name] && (
-            <span className="text-muted-foreground hidden truncate text-xs sm:inline">
-              {ELEVATED_DIR_META[node.name]}
-            </span>
-          )}
-        </div>
-      </TableCell>
-      <TableCell>
-        <ChalkBadge label={tI18nComplete.raw('text6725e7bbcd28')} />
-      </TableCell>
-      <TableCell />
-    </TableRow>
-  );
-}
-
 interface DriveListViewProps extends DriveListingProps {
   /**
    * The rows keep the server's name order (a partly loaded folder): the
@@ -346,7 +319,6 @@ interface DriveListViewProps extends DriveListingProps {
 
 export function DriveListView(props: DriveListViewProps) {
   const {
-    elevatedDirs,
     dirs,
     files,
     onNavigateToDir,
@@ -420,10 +392,6 @@ export function DriveListView(props: DriveListViewProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {elevatedDirs.map((node) => (
-            <ElevatedDirRow key={node.path} node={node} onNavigate={() => onNavigateToDir(node)} />
-          ))}
-
           {dirs.map((node) => (
             <ListRow
               key={node.path}

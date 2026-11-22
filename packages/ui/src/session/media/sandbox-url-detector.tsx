@@ -137,7 +137,7 @@ function InlineIframePreview({ proxyUrl, port }: { proxyUrl: string; port: numbe
       {/* Mini toolbar */}
       <div className="bg-muted/40 border-border/30 flex h-8 shrink-0 items-center gap-1.5 border-b px-2.5">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <Globe className="text-muted-foreground/50 h-3 w-3 shrink-0" />
+          <Globe className="text-muted-foreground h-3 w-3 shrink-0" />
           <span className="text-muted-foreground truncate font-mono text-xs">
             {tHardcodedUi.raw('i18nComplete.text91901080526c')}
             {port}
@@ -148,7 +148,7 @@ function InlineIframePreview({ proxyUrl, port }: { proxyUrl: string; port: numbe
             type="button"
             onClick={handleRefresh}
             aria-label={tHardcodedUi.raw('i18nComplete.text5b529abadacc')}
-            className="hover:bg-muted/60 text-muted-foreground/50 hover:text-muted-foreground hit-area-2 rounded p-1 transition-colors active:scale-[0.96]"
+            className="hover:bg-muted/60 text-muted-foreground hover:text-foreground hit-area-2 rounded p-1 transition-colors active:scale-[0.96]"
           >
             {isLoading ? (
               <Loading className="in-[button]:text-muted-foreground size-3" />
@@ -173,7 +173,7 @@ function InlineIframePreview({ proxyUrl, port }: { proxyUrl: string; port: numbe
                 ? tHardcodedUi.raw('i18nComplete.text90e8d06c0309')
                 : tHardcodedUi.raw('i18nComplete.text59edd3fe9cc5')
             }
-            className="hover:bg-muted/60 text-muted-foreground/50 hover:text-muted-foreground hit-area-2 rounded p-1 transition-colors active:scale-[0.96]"
+            className="hover:bg-muted/60 text-muted-foreground hover:text-foreground hit-area-2 rounded p-1 transition-colors active:scale-[0.96]"
           >
             {expanded ? <Minimize2 className="size-3" /> : <Maximize2 className="size-3" />}
           </button>
@@ -270,7 +270,7 @@ function SandboxUrlChip({
           {detected.port}
         </span>
         {displayPath && (
-          <span className="text-muted-foreground/60 group-hover/link:text-primary/70 truncate font-mono text-xs transition-colors">
+          <span className="text-muted-foreground group-hover/link:text-primary/70 truncate font-mono text-xs transition-colors">
             {displayPath}
           </span>
         )}

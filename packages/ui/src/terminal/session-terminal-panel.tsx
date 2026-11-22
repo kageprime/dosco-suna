@@ -306,7 +306,7 @@ export function SessionTerminalPanel({
   } else if (panelState === 'empty') {
     content = (
       <div className="flex h-full w-full flex-col items-center justify-center gap-3">
-        <Terminal className="text-muted-foreground/30 size-8" />
+        <Terminal className="text-muted-foreground size-8" />
         <Button variant="outline" size="sm" onClick={ensurePty} className="gap-1.5">
           <Plus className="size-3.5" />
           {tI18nHardcoded.raw('autoFeaturesSessionSessionTerminalPanelJsxTextNewTerminaleeb6bbb9')}

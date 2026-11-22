@@ -25,7 +25,7 @@ before you change any part. A wire change edits that file in the same commit.
 | CLI | `apps/cli/src/commands/chrome.ts` |
 | Agent skill (served to sessions) | `packages/starter/templates/managed/skills/kortix-chrome/SKILL.md` |
 | SDK hooks | `packages/sdk/src/**/chrome*` (`useChromeConnections`, `useUpdateChromeConnection`, `useDeleteChromeConnection`) |
-| Web | `apps/web/src/features/chrome/`, sidebar row `project-chrome-nav.tsx`, settings tab `chrome` (`/settings/chrome`) |
+| Web | `apps/web/src/features/chrome/`, `packages/ui/src/internal/chrome/` (connect steps, Add to Chrome), Apps and extensions card, promo slide `project-chrome-nav.tsx`, settings tab `chrome` (`/settings/chrome`) |
 
 ## How one action travels
 
@@ -83,22 +83,29 @@ A sandbox runs the new kortixd and CLI only after the API serves them
 
 ## Publish to the Chrome Web Store
 
-The store rejects a manifest with `key` ("key field is not allowed in manifest").
-`key` exists only so unpacked dev builds get the same ID.
+The item is public: `https://chromewebstore.google.com/detail/gefbbnjgoiljpbnalgafbhbfdhikgjek`,
+publisher "Kortix" (non-trader). Version 1.0.1 went live on 2026-11-21, and the web, the API and
+the CLI offer Kortix in Chrome to every project from the same date. Every field of the dashboard
+(listing text, permission justifications, data disclosures, test instructions, assets) is in
+[references/store-listing.md](references/store-listing.md).
 
-1. `bun run build`, then copy `dist/` and delete `key` from the copy's `manifest.json`.
-2. **First upload only:** add `key.pem` at the zip root. The store then assigns the ID
-   `gefbbnjgoiljpbnalgafbhbfdhikgjek`, which the web app, API and docs link to. Get the key with
-   `dotenvx get BROWSER_EXTENSION_KEY_PEM_B64 -f apps/api/.env | base64 -d > key.pem`
-   (the Keychain also holds it under `kortix/BROWSER_EXTENSION_KEY_PEM_B64`).
-3. Later uploads: the same zip without `key.pem`, with a higher `version` in `src/manifest.json`.
-4. Listing text, permission justifications and data disclosures: keep them in step with
-   the permissions in `src/manifest.json`. The "Add to Chrome" buttons link to
-   `https://chromewebstore.google.com/detail/gefbbnjgoiljpbnalgafbhbfdhikgjek`.
+An approved version goes live at once unless **deferred publishing** is on. Every upload goes
+through review again.
+
+1. Raise `version` in `src/manifest.json`. The store accepts only a version higher than the last upload.
+2. `bun run package` → `release/kortix-chrome-<version>.zip`: the store build (kortix.com only)
+   without the manifest `key`, which the store rejects.
+3. Dashboard → **Package** → **Upload new package**, then **Submit for review**.
+4. Claude in Chrome cannot read or click the dashboard: Chrome blocks every extension on Web Store
+   pages ("The extensions gallery cannot be scripted"). A person clicks; the agent prepares the fields.
 5. The store fetches the Homepage and Support URLs before it allows a submit. A 404 blocks it
    ("Support URL is not reachable"). The listing uses `https://kortix.com/support`.
-6. Submit only after prod serves `/v1/chrome/connections`. Reviewers sign in at kortix.com. Before that,
-   the extension tells them "kortix.com does not have Kortix in Chrome yet".
+6. Reviewers sign in at kortix.com, so prod must serve `/v1/chrome/connections` (401, not 404).
+   `deploy-prod.yml` sets `KORTIX_CHROME_ENABLED=true`. The `chrome` flag is on by default.
+   Give the reviewer the prod reviewer account in the Test instructions tab
+   ([references/store-listing.md](references/store-listing.md#test-instructions-tab)).
+7. A brand-new item needs `key.pem` at the zip root on its first upload only:
+   `dotenvx get BROWSER_EXTENSION_KEY_PEM_B64 -f apps/api/.env | base64 -d > key.pem`.
 
 ## Extension surfaces
 

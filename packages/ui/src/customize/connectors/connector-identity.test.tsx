@@ -30,7 +30,7 @@ function visibleText(html: string): string {
 
 describe('ConnectorStatusWord', () => {
   test('a connector that needs an account says so in visible text', () => {
-    const html = renderToStaticMarkup(<ConnectorStatusWord connector={connector({ status: 'needs_account' } as Partial<AdminConnector>)} accountCount={0} />);
+    const html = renderToStaticMarkup(<ConnectorStatusWord connector={connector({ state: 'needs_account' } as Partial<AdminConnector>)} accountCount={0} />);
     expect(visibleText(html)).toBe('· Needs account');
     expect(html).not.toContain('sr-only');
   });

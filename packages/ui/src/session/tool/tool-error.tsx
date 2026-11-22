@@ -53,10 +53,10 @@ export function ToolError({ error, toolName }: { error: string; toolName?: strin
 				    so it read as a line that stopped short rather than a divider.
 				    Spacing separates the header from the issues instead. */}
         <div className="flex items-center gap-2 px-2 pt-1.5 pb-1 text-xs">
-          <Ban className="text-muted-foreground/70 size-3.5 shrink-0" />
+          <Ban className="text-muted-foreground size-3.5 shrink-0" />
           <span className="text-muted-foreground font-medium">{displayType}</span>
           {toolName && (
-            <span className="text-muted-foreground/50 ml-auto font-mono">{toolName}</span>
+            <span className="text-muted-foreground ml-auto font-mono">{toolName}</span>
           )}
         </div>
 
@@ -64,7 +64,7 @@ export function ToolError({ error, toolName }: { error: string; toolName?: strin
           {validationIssues.map((issue) => (
             <div key={`${issue.path.join('.')}:${issue.message}`} className="space-y-1.5">
               <div className="flex items-start gap-2">
-                <CircleAlert className="text-muted-foreground/60 mt-0.5 size-3.5 shrink-0" />
+                <CircleAlert className="text-muted-foreground mt-0.5 size-3.5 shrink-0" />
                 <div className="min-w-0 flex-1">
                   {issue.path.length > 0 && (
                     <Badge variant="muted" size="xs" className="mr-1.5 font-mono">
@@ -77,7 +77,7 @@ export function ToolError({ error, toolName }: { error: string; toolName?: strin
 
               {issue.values && issue.values.length > 0 && (
                 <div className="ml-5.5">
-                  <div className="text-muted-foreground/50 mb-1 text-xs">
+                  <div className="text-muted-foreground mb-1 text-xs">
                     {tHardcodedUi.raw(
                       'componentsSessionToolRenderers.line7845JsxTextExpectedOneOf',
                     )}
@@ -100,7 +100,7 @@ export function ToolError({ error, toolName }: { error: string; toolName?: strin
 
   return (
     <ToolResultCard>
-      <p className="text-muted-foreground/80 px-2 py-1.5 font-mono text-xs leading-relaxed wrap-break-word whitespace-pre-wrap">
+      <p className="text-muted-foreground px-2 py-1.5 font-mono text-xs leading-relaxed wrap-break-word whitespace-pre-wrap">
         {summary}
       </p>
       {traceback && (
@@ -110,7 +110,7 @@ export function ToolError({ error, toolName }: { error: string; toolName?: strin
           <button
             type="button"
             onClick={() => setShowTrace((v) => !v)}
-            className="text-muted-foreground/60 hover:text-foreground hover:bg-muted flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-2 py-1.5 text-left transition-colors duration-150"
+            className="text-muted-foreground hover:text-foreground hover:bg-muted flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-2 py-1.5 text-left transition-colors duration-150"
           >
             <ChevronRight
               className={cn('size-3.5 transition-transform', showTrace && 'rotate-90')}
@@ -123,7 +123,7 @@ export function ToolError({ error, toolName }: { error: string; toolName?: strin
 					    area inside a scroll area hides the end of the trace behind a
 					    gesture nobody thinks to make. */}
           {showTrace && (
-            <pre className="text-muted-foreground/50 px-2 pb-1.5 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap">
+            <pre className="text-muted-foreground px-2 pb-1.5 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap">
               {traceback}
             </pre>
           )}

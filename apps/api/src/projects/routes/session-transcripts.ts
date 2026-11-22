@@ -147,6 +147,7 @@ export function registerSessionTranscriptsRoutes(): void {
         sessionId,
         c.get('sessionId') ?? null,
         callerKortixSessionId(c),
+        { triggerReaderRead: true },
       );
       if (!visible || sessionIsTombstoned(visible.row)) return c.json({ error: 'Not found' }, 404);
 

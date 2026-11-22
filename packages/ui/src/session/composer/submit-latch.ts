@@ -8,6 +8,8 @@ export function createSubmitLatch<Draft>(
   dispatch: (stashed?: Draft) => Promise<void>,
   /** Capture and clear a distinct draft, or return null for a double-fire. */
   captureDraft: () => Draft | null,
+  /** True refuses this submit before anything is captured or cleared: the draft stays in the editor. */
+  refuse: () => boolean = () => false,
 ): () => Promise<void> {
   let inFlight = 0;
 
@@ -21,6 +23,7 @@ export function createSubmitLatch<Draft>(
   };
 
   return (): Promise<void> => {
+    if (refuse()) return Promise.resolve();
     if (inFlight > 0) {
       const draft = captureDraft();
       return draft === null ? Promise.resolve() : run(draft);

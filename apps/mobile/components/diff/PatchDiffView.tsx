@@ -19,9 +19,9 @@ import { parsePatch, type DiffRow } from '@/lib/diff/parse-patch';
 const MONO = MONO_FONT_FAMILY;
 
 export function fileStatusMeta(status: ProjectCommitFile['status'], isDark = false): { icon: AppIcon; color: string } {
-  if (status === 'added') return { icon: FilePlus, color: THEME.accent.green };
+  if (status === 'added') return { icon: FilePlus, color: THEME.accent[isDark ? 'dark' : 'light'].green };
   if (status === 'deleted') return { icon: FileMinus, color: isDark ? THEME.dark.destructive : THEME.light.destructive };
-  return { icon: FilePen, color: THEME.accent.blue };
+  return { icon: FilePen, color: THEME.accent[isDark ? 'dark' : 'light'].blue };
 }
 
 
@@ -45,15 +45,16 @@ interface DiffRowPalette {
 
 export function diffRowPalette(isDark: boolean): DiffRowPalette {
   const theme = isDark ? THEME.dark : THEME.light;
+  const accent = THEME.accent[isDark ? 'dark' : 'light'];
   return {
     fg: theme.foreground,
     muted: theme.mutedForeground,
-    add: THEME.accent.green,
+    add: accent.green,
     del: theme.destructive,
-    hunk: THEME.accent.purple,
-    addBg: withAlpha(THEME.accent.green, isDark ? 0.14 : 0.12),
+    hunk: accent.purple,
+    addBg: withAlpha(accent.green, isDark ? 0.14 : 0.12),
     delBg: withAlpha(theme.destructive, isDark ? 0.14 : 0.1),
-    hunkBg: withAlpha(THEME.accent.purple, isDark ? 0.12 : 0.08),
+    hunkBg: withAlpha(accent.purple, isDark ? 0.12 : 0.08),
   };
 }
 

@@ -153,7 +153,7 @@ export function OpenCRSheet({
                   preview && (
                     <Text style={{ fontSize: 12.5, color: fg }}>
                       {preview.files_changed} {preview.files_changed === 1 ? 'file' : 'files'} changed{'  '}
-                      <Text style={{ color: THEME.accent.green, fontFamily: 'Roobert-Medium' }}>+{preview.additions}</Text>{' '}
+                      <Text style={{ color: THEME.accent[isDark ? 'dark' : 'light'].green, fontFamily: 'Roobert-Medium' }}>+{preview.additions}</Text>{' '}
                       <Text style={{ color: isDark ? THEME.dark.destructive : THEME.light.destructive, fontFamily: 'Roobert-Medium' }}>−{preview.deletions}</Text>
                     </Text>
                   )

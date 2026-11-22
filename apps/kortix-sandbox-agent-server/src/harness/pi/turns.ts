@@ -19,10 +19,15 @@ const NOT_ROOT = answer(404, { error: 'not the session root' })
 /** The box's own session log, built from the runtime's store, and its queued prompts; null while the runtime is down.
  * No per-message hashing: a log read never consumes the hash map, and on a long session
  * digesting every entry's JSON costs more than the derivation it wraps (KRTX-4488). */
-function sessionLogOf(rt: PiRuntime) {
+function sessionLogOf(rt: PiRuntime, tail?: number) {
   const snapshot = rt.sessionLogSnapshot()
-  return snapshot ? { ...piSessionLog(snapshot, { hashes: false }), queued: piQueued(snapshot) } : null
+  return snapshot ? { ...piSessionLog(snapshot, { hashes: false, tail }), queued: piQueued(snapshot) } : null
 }
+
+/** Branch entries read per message of a newest page: a tool call, its result and a reply per turn, with room. */
+const ENTRIES_PER_MESSAGE = 4
+/** A tail that cannot prove the newest page: read the whole session instead. */
+const UNPROVEN = answer(0, null)
 
 /**
  * The `mime` the log's own attachment records give this digest: an attachment
@@ -228,38 +233,44 @@ export function createPiTurnService(runtime: () => PiRuntime | null): HarnessTur
     async readLog({ threadId, afterSeq, beforeSeq, limit, includeContext = false }) {
       const rt = runtime()
       if (!rt) return NOT_STARTED
-      const exported = sessionLogOf(rt)
-      if (!exported) return NOT_STARTED
       const id = threadId ?? rt.rootId
-      const { threads, ...session } = exported.log
-      const thread = threads.find((t) => t.thread_id === id)
-      if (!thread) return answer(404, { error: 'unknown thread' })
-      // As apps/api stores the log (its seqs, its session fields), then the queued prompts at the queued seq.
-      const view = sessionLogView()
-      const queued = id === rt.rootId ? exported.queued : []
-      // The system prompt (`kind: 'context'`, the agent's whole instructions) only for a reader that asks:
-      // no viewer renders it, and it was ~56 KB of a ~68 KB My Kortix page (finding 17).
-      const shown = includeContext ? thread.messages : thread.messages.filter((m) => m.kind !== 'context')
-      const ordered = [...shown.map((m) => view.message(m)), ...queued].sort((a, b) => a.seq - b.seq)
-      let messages: SessionLogMessage[]
-      let hasMore: boolean
-      if (afterSeq !== null) {
-        const after = ordered.filter((m) => m.seq > afterSeq)
-        messages = after.slice(0, limit)
-        hasMore = after.length > limit
-      } else {
-        const before = beforeSeq === null ? ordered : ordered.filter((m) => m.seq < beforeSeq)
-        messages = before.slice(-limit)
-        hasMore = before.length > limit
+      const page = (tail?: number): HarnessTurnResponse => {
+        const exported = sessionLogOf(rt, tail)
+        if (!exported) return NOT_STARTED
+        const { threads, ...session } = exported.log
+        const thread = threads.find((t) => t.thread_id === id)
+        if (!thread) return answer(404, { error: 'unknown thread' })
+        // As apps/api stores the log (its seqs, its session fields), then the queued prompts at the queued seq.
+        const view = sessionLogView()
+        const queued = id === rt.rootId ? exported.queued : []
+        const shown = includeContext ? thread.messages : thread.messages.filter((m) => m.kind !== 'context')
+        const ordered = [...shown.map((m) => view.message(m)), ...queued].sort((a, b) => a.seq - b.seq)
+        // A tail cannot prove the page when it is not longer than `limit` (`has_more` unknown) or a child's spawning call is before it.
+        if (tail !== undefined && (ordered.length <= limit || threads.some((t) => t.parent_thread_id !== null && t.spawned_by === null))) return UNPROVEN
+        let messages: SessionLogMessage[]
+        let hasMore: boolean
+        if (afterSeq !== null) {
+          const after = ordered.filter((m) => m.seq > afterSeq)
+          messages = after.slice(0, limit)
+          hasMore = after.length > limit
+        } else {
+          const before = beforeSeq === null ? ordered : ordered.filter((m) => m.seq < beforeSeq)
+          messages = before.slice(-limit)
+          hasMore = before.length > limit
+        }
+        return answer(200, {
+          session: view.session(session),
+          generation: view.generation,
+          threads: threads.map(({ messages: _messages, ...head }) => head),
+          thread_id: id,
+          messages,
+          has_more: hasMore,
+        })
       }
-      return answer(200, {
-        session: view.session(session),
-        generation: view.generation,
-        threads: threads.map(({ messages: _messages, ...head }) => head),
-        thread_id: id,
-        messages,
-        has_more: hasMore,
-      })
+      // The newest page of the root derives only the branch's tail: the read grew with the whole session (KRTX-4488).
+      const newestOfRoot = id === rt.rootId && afterSeq === null && beforeSeq === null
+      const tailed = newestOfRoot ? page(limit * ENTRIES_PER_MESSAGE) : UNPROVEN
+      return tailed === UNPROVEN ? page() : tailed
     },
 
     async readLogMessage(messageId) {

@@ -8,6 +8,12 @@ import {
 } from '../lib/interface-theme-defaults';
 import { createSafeJSONStorage } from '../lib/storage/managed-storage';
 import { DEFAULT_WALLPAPER_ID } from '../../theme/wallpapers';
+import type {
+  CustomWallpaperConfig,
+  GradientWallpaperId,
+  PresetOverride,
+  PresetOverrides,
+} from '../../theme/wallpaper-gradients';
 import { create } from 'zustand';
 
 // A literal here for the persisted-store registry (persisted-store-coverage.test.ts reads
@@ -49,8 +55,8 @@ export interface KeyboardShortcutPreferences {
 export interface UserPreferences {
   keyboard: KeyboardShortcutPreferences;
   /**
-   * The palette used in light mode and in dark mode — defaults 'pure-light'
-   * and 'pure-dark'. The mode itself (light / dark / system) stays in
+   * The palette used in light mode and in dark mode — defaults 'light'
+   * and 'dark' (Kortix light / Kortix dark). The mode itself (light / dark / system) stays in
    * `next-themes`; see `lib/interface-themes.ts`. Legacy persisted preferences
    * predate these keys, so read sites go through `normalizeLightTheme` /
    * `normalizeDarkTheme`.
@@ -59,6 +65,18 @@ export interface UserPreferences {
   darkTheme: DarkThemeId;
   /** Selected desktop wallpaper ID */
   wallpaperId: string;
+  /**
+   * The user's own gradient, drawn when `wallpaperId` is 'custom'. Legacy
+   * persisted preferences predate this key: read sites go through
+   * `normalizeCustomWallpaper`.
+   */
+  customWallpaper?: CustomWallpaperConfig;
+  /**
+   * Colours and finish picked for a gradient preset, by preset id. Legacy
+   * persisted preferences predate this key: read sites go through
+   * `normalizePresetOverrides`.
+   */
+  wallpaperOverrides?: PresetOverrides;
   /** Session action panel mode — defaults to 'easy' for all users */
   panelMode: PanelMode;
   /**
@@ -113,6 +131,13 @@ interface UserPreferencesState {
   /** Set the active desktop wallpaper by ID */
   setWallpaperId: (wallpaperId: string) => void;
 
+  /** Replace the custom wallpaper's pattern, finish and colors */
+  setCustomWallpaper: (customWallpaper: CustomWallpaperConfig) => void;
+
+  /** Change a gradient preset's colours or finish; null restores it as shipped */
+  setWallpaperOverride: (id: GradientWallpaperId, override: PresetOverride | null) => void;
+
+
   /** Flip between easy and advanced */
   togglePanelMode: () => void;
 
@@ -155,6 +180,14 @@ export const useUserPreferencesStore = create<UserPreferencesState>()(
       setDarkTheme: (darkTheme) => get().patchPreferences({ darkTheme }),
 
       setWallpaperId: (wallpaperId) => get().patchPreferences({ wallpaperId }),
+
+      setCustomWallpaper: (customWallpaper) => get().patchPreferences({ customWallpaper }),
+
+      setWallpaperOverride: (id, override) => {
+        const { [id]: _removed, ...rest } = get().preferences.wallpaperOverrides ?? {};
+        get().patchPreferences({ wallpaperOverrides: override ? { ...rest, [id]: override } : rest });
+      },
+
 
       togglePanelMode: () => {
         const current = get().preferences;

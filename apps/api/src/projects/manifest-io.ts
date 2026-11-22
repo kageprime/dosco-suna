@@ -290,15 +290,25 @@ export function manifestIssueSummary(issues: readonly ManifestIssue[], file: str
 /**
  * The errors `after` has that `before` does not (path + message). A Kortix
  * write is refused only for these: a file that already carries an error stays
- * editable, and no edit may add one. `after` is checked as it is written,
- * without `kortix_version`: a retired-format file is refused until its body
- * is valid.
+ * editable, and no edit may add one. List indexes are ignored and each error
+ * is counted, so removing `triggers[0]` does not turn the existing error of
+ * `triggers[1]` into a new one, and a second copy of an error is still new.
+ * `after` is checked as it is written, without `kortix_version`: a
+ * retired-format file is refused until its body is valid.
  */
 export function addedManifestErrors(before: Record<string, unknown>, after: Record<string, unknown>): ManifestIssue[] {
-  const key = (issue: ManifestIssue) => `${issue.path}\u0000${issue.message}`;
-  const existing = new Set(validateManifest(before).issues.filter((i) => i.severity === 'error').map(key));
+  const key = (issue: ManifestIssue) => `${issue.path}\u0000${issue.message}`.replace(/\[\d+\]/g, '[]');
+  const existing = new Map<string, number>();
+  for (const issue of validateManifest(before).issues) {
+    if (issue.severity === 'error') existing.set(key(issue), (existing.get(key(issue)) ?? 0) + 1);
+  }
   const { kortix_version: _obsolete, ...written } = after;
-  return validateManifest(written).issues.filter((issue) => issue.severity === 'error' && !existing.has(key(issue)));
+  return validateManifest(written).issues.filter((issue) => {
+    if (issue.severity !== 'error') return false;
+    const left = existing.get(key(issue)) ?? 0;
+    existing.set(key(issue), left - 1);
+    return left <= 0;
+  });
 }
 
 /** Serialize a parsed manifest back to text for committing. `kortix_version` is never written. */
@@ -559,10 +569,22 @@ export function manifestWriteRefusal(manifest: ParsedManifest): ManifestWriteRef
   );
 }
 
-/** A write Kortix refuses because the default branch's manifest is not YAML (409 `manifest_invalid`). */
+/** The document as it was read, before the caller edited `raw`: the merged one with `imports:`, else the root text. */
+function manifestAsRead(manifest: ParsedManifest): Record<string, unknown> {
+  if (manifest.imports) return manifest.imports.raw;
+  if (typeof manifest.source === 'string') return parseManifestText(manifest.source);
+  // A synthesized blank manifest, or a converted legacy file: no earlier error is exempt.
+  return {};
+}
+
+/**
+ * A write Kortix refuses (409 `manifest_invalid`): the default branch's
+ * manifest is not YAML, or the write adds the validation errors in `issues`.
+ * Nothing is committed.
+ */
 export class ManifestWriteRefusedError extends Error {
   readonly code = 'manifest_invalid';
-  constructor(message: string) {
+  constructor(message: string, readonly issues: ManifestIssue[] = []) {
     super(message);
     this.name = 'ManifestWriteRefusedError';
   }
@@ -583,6 +605,14 @@ export function manifestWrites(manifest: ParsedManifest, fallbackPath?: string):
   // the error (409 manifest_invalid).
   const refusal = manifestWriteRefusal(manifest);
   if (refusal) throw refusal;
+  // The complete candidate (merged with every import) must add no validation
+  // error. A compare-and-swap retry reads again and comes back here, so the
+  // tree that is committed is the tree that was checked.
+  const added = addedManifestErrors(manifestAsRead(manifest), manifest.raw);
+  if (added.length > 0) {
+    const summary = manifestIssueSummary(added, manifest.path || fallbackPath || MANIFEST_FILENAME);
+    throw new ManifestWriteRefusedError(`The change would make the project configuration invalid. ${summary}`, added);
+  }
   // A legacy file's first write saves the latest shape: `kortix.toml` becomes `kortix.yaml`,
   // and each prompt file loses its frontmatter (the overlay). Harness files left behind are no longer read.
   const rootPath = (manifest.path || fallbackPath || MANIFEST_FILENAME).replace(/\.toml$/i, manifest.legacy ? '.yaml' : '.toml');

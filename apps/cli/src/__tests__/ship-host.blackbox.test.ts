@@ -1,9 +1,17 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const CLI = resolve(import.meta.dir, '../index.ts');
+/** The checkout's workspace link: the `[kortix]` keys of its git config. */
+function gitLink(dir: string): Record<string, string> {
+  const out = Bun.spawnSync(['git', '-C', dir, 'config', '--local', '--get-regexp', '^kortix\\.'], { stdout: 'pipe' }).stdout.toString();
+  return Object.fromEntries(
+    out.split('\n').filter(Boolean).map((line) => [line.slice(0, line.indexOf(' ')), line.slice(line.indexOf(' ') + 1)]),
+  );
+}
+
 let cwd: string;
 let server: ReturnType<typeof Bun.serve>;
 let hits: Array<{ path: string; auth: string | null }>;
@@ -141,6 +149,12 @@ function link(host = 'workspace') {
     JSON.stringify({ project_id: 'workspace_project', account_id: 'account_workspace', host }),
   );
 }
+/** The link as this CLI writes it: the checkout's git config. `link()` writes the older file, which ship migrates in a commit of its own. */
+function linkInGitConfig(host = 'workspace') {
+  for (const [key, value] of [['kortix.workspace', 'workspace_project'], ['kortix.account', 'account_workspace'], ['kortix.host', host]]) {
+    expect(Bun.spawnSync(['git', 'config', '--local', key, value], { cwd }).exitCode).toBe(0);
+  }
+}
 const ship = [
   'ship',
   '--dry-run',
@@ -235,11 +249,12 @@ test.each([
   const result = await cli(['projects', 'link', ...args]);
   expect(result.code).toBe(0);
   expect(hits).toEqual([{ path: '/v1/workspaces/workspace_project', auth: 'Bearer tok_other' }]);
-  expect(JSON.parse(readFileSync(join(cwd, '.kortix/link.json'), 'utf8'))).toMatchObject({
-    project_id: 'workspace_project',
-    host: 'other',
-    host_url: `http://127.0.0.1:${server.port}`,
+  expect(gitLink(cwd)).toMatchObject({
+    'kortix.workspace': 'workspace_project',
+    'kortix.host': 'other',
+    'kortix.host-url': `http://127.0.0.1:${server.port}`,
   });
+  expect(existsSync(join(cwd, '.kortix/link.json'))).toBe(false);
 });
 test.each([false, true])('projects use then ship pushes twice without provisioning (managed=%s)', async (managed) => {
   useLocalRepo = true;
@@ -258,6 +273,28 @@ test.each([false, true])('projects use then ship pushes twice without provisioni
   expect(pushed.exitCode).toBe(0);
   expect(pushed.stdout.toString()).toBe('Synthetic second ship\n');
   expect(hits.filter((hit) => hit.path === '/v1/workspaces/chosen_project')).toHaveLength(3);
+});
+
+test('ship moves an older committed .kortix/link.json into the git config and its commit deletes the file', async () => {
+  useLocalRepo = true;
+  expect(Bun.spawnSync(['git', 'init', '--bare', bareRepo]).exitCode).toBe(0);
+  Bun.spawnSync(['git', 'config', 'user.name', 'Synthetic Agent'], { cwd });
+  Bun.spawnSync(['git', 'config', 'user.email', 'synthetic@example.test'], { cwd });
+  link();
+  Bun.spawnSync(['git', 'add', 'kortix.yaml', '.kortix/link.json'], { cwd });
+  Bun.spawnSync(['git', 'commit', '-qm', 'shipped by an older CLI'], { cwd });
+
+  const result = await cli(['ship', '--no-verify', '--no-env', '--no-connect', '-y']);
+  expect(result.code).toBe(0);
+  expect(result.stdout).toContain('moved the workspace link from .kortix/link.json');
+  expect(provisionBodies).toEqual([]);
+  expect(gitLink(cwd)).toMatchObject({ 'kortix.workspace': 'workspace_project', 'kortix.host': 'workspace' });
+  expect(existsSync(join(cwd, '.kortix'))).toBe(false);
+  const pushedTree = Bun.spawnSync(['git', '--git-dir', bareRepo, 'ls-tree', '-r', '--name-only', 'main']);
+  expect(pushedTree.exitCode).toBe(0);
+  const pushedPaths = pushedTree.stdout.toString().split('\n').filter(Boolean);
+  expect(pushedPaths).toContain('kortix.yaml');
+  expect(pushedPaths.filter((path) => path.startsWith('.kortix'))).toEqual([]);
 });
 
 test.each([false, true])('first ship dismisses onboarding without failing a push when persistence is refused=%s', async (refused) => {
@@ -297,10 +334,11 @@ test.each([false, true])('first ship dismisses onboarding without failing a push
   const pushed = Bun.spawnSync(['git', '--git-dir', bareRepo, 'show', 'main:kortix.yaml']);
   expect(pushed.exitCode).toBe(0);
   expect(pushed.stdout.toString()).toBe('name: synthetic-workspace\n');
-  expect(JSON.parse(readFileSync(join(cwd, '.kortix/link.json'), 'utf8'))).toMatchObject({
-    project_id: 'created_workspace',
-    host: 'other',
-  });
+  // The link stays in .git/config: the pushed tree holds no .kortix/ folder.
+  expect(gitLink(cwd)).toMatchObject({ 'kortix.workspace': 'created_workspace', 'kortix.host': 'other' });
+  expect(existsSync(join(cwd, '.kortix/link.json'))).toBe(false);
+  const pushedTree = Bun.spawnSync(['git', '--git-dir', bareRepo, 'ls-tree', '-r', '--name-only', 'main']);
+  expect(pushedTree.stdout.toString().split('\n').filter((path) => path.startsWith('.kortix'))).toEqual([]);
 });
 
 test('projects use binds only the named host despite session injection', async () => {
@@ -340,6 +378,7 @@ test('projects clone keeps a shipped link and README clean', async () => {
     expect(result.stderr).not.toContain('git clone failed');
     const cloned = join(cwd, destination);
     expect(readFileSync(join(cloned, '.kortix/link.json'), 'utf8')).toBe(binding);
+    expect(gitLink(cloned)).toMatchObject({ 'kortix.workspace': 'workspace_project', 'kortix.host': 'workspace' });
     expect(readFileSync(join(cloned, 'README.md'), 'utf8')).toBe('Synthetic shipped content\n');
     const status = Bun.spawnSync(['git', 'status', '--porcelain'], { cwd: cloned });
     expect(status.exitCode).toBe(0);
@@ -427,7 +466,7 @@ test('seeded managed ship merges the seeded history and ships', async () => {
 test('seeded managed ship fast-forwards a folder the remote moved past', async () => {
   useLocalRepo = true;
   managedRepo = true;
-  link();
+  linkInGitConfig();
   const git = (...args: string[]) => {
     const result = Bun.spawnSync(['git', ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
     expect(result.exitCode).toBe(0);

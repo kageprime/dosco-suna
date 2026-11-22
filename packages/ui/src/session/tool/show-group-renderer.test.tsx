@@ -86,6 +86,39 @@ describe('ShowGroupRenderer', () => {
   });
 });
 
+describe('ShowGroupRenderer: failed shows are not shown (2026-11-16 incident)', () => {
+  const URL = 'https://example.test/workspaces/synthetic/artifacts/synthetic';
+  // No quotes: the static markup escapes them, and the assertions match this text.
+  const MISSING_TYPE = 'type is required for a single item';
+  const FAILED = showPart('f', { action: 'show', url: URL, title: 'Catalog' }, 'error', { error: MISSING_TYPE });
+  const RETRY = showPart('r', { action: 'show', type: 'url', url: URL, title: 'Catalog' });
+
+  test('a failed call beside its retry: one link card, no tabs, no error, no empty media slot', () => {
+    const html = renderToStaticMarkup(withProviders(<ShowGroupRenderer calls={[toolCallBlock(FAILED), toolCallBlock(RETRY)]} />));
+
+    expect(html.match(CARD)).toHaveLength(1);
+    expect(html.match(TAB)).toBeNull();
+    expect(html).toContain(`data-testid="show-link-card"`);
+    expect(html).toContain(`href="${URL}"`);
+    expect(html).not.toContain(MISSING_TYPE);
+    expect(html).not.toContain('min-h-[420px]');
+  });
+
+  test('a group whose every call failed renders nothing', () => {
+    const html = renderToStaticMarkup(withProviders(<ShowGroupRenderer calls={[toolCallBlock(FAILED), toolCallBlock(showPart('g', { title: 'Other' }, 'error', { error: 'gone' }))]} />));
+
+    expect(html).toBe('');
+  });
+
+  test('a carousel of link cards only gets no 420px media slot', () => {
+    const OTHER = showPart('o', { type: 'url', url: 'https://example.test/docs', title: 'Docs' });
+    const html = renderToStaticMarkup(withProviders(<ShowGroupRenderer calls={[toolCallBlock(RETRY), toolCallBlock(OTHER)]} />));
+
+    expect(html.match(TAB)).toHaveLength(2);
+    expect(html).not.toContain('min-h-[420px]');
+  });
+});
+
 describe('ShowGroupRenderer file viewers', () => {
   const TXT_A = showPart('a', { type: 'file', path: '/workspace/q1.txt' });
   const TXT_B = showPart('b', { type: 'file', path: '/workspace/q2.txt' });
@@ -152,7 +185,7 @@ describe('sessionLogShowGroupCall (the merge the card renders)', () => {
     expect(items.map((i) => i.status)).toEqual(['ready', 'pending']);
   });
 
-  test('a failed call keeps its slot as an error item with the message', () => {
+  test('a failed call has no item', () => {
     const failed = showPart('4', { type: 'image', title: 'Docs' }, 'error', {
       error: 'File not found: /workspace/docs.png',
     });
@@ -160,11 +193,6 @@ describe('sessionLogShowGroupCall (the merge the card renders)', () => {
       items: Record<string, unknown>[];
     }).items;
 
-    expect(items[1]).toEqual({
-      status: 'error',
-      type: 'error',
-      title: 'Docs',
-      content: 'File not found: /workspace/docs.png',
-    });
+    expect(items.map((item) => item.title)).toEqual(['Editor']);
   });
 });

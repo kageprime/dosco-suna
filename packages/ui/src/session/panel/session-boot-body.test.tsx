@@ -312,6 +312,37 @@ async function renderHandoffs(args: Omit<HandoffArgs, 'openDetail'>, onOpen: (de
   };
 }
 
+describe.each(['show', 'oc-show'])('a %s detail opened while it runs (2026-11-16: failed shows are not presented)', (tool) => {
+  const show = (status: 'running' | 'completed' | 'error') =>
+    m.toolCallBlock({ type: 'tool', tool, callID: 'call-show', state: { status, input: { url: 'https://example.test/a', title: 'Catalog' } } } as never);
+  const step = (call: import('@kortix/sdk').ToolCallBlock) =>
+    ({ id: 'call-show', family: 'other', label: 'Showed', parts: [call], status: 'running' }) as unknown as import('@kortix/sdk').Step<import('@kortix/sdk').ToolCallBlock>;
+
+  async function openRunningShow() {
+    const state: { opened: { key: string } | null; closed: number } = { opened: null, closed: 0 };
+    const onOpen = (d: unknown) => (state.opened = d as { key: string });
+    const closeDetail = () => (state.closed += 1);
+    const running = show('running');
+    const { rerender } = await renderHandoffs({ ...handoffBaseArgs, closeDetail, steps: [step(running)], calls: [running] }, onOpen);
+    await m.act(async () => m.useKortixComputerStore.getState().focusToolCall('call-show'));
+    const detail = state.opened as never;
+    expect(state.opened?.key).toBe('step:call-show:call-show');
+    return { state, rerender: (calls: import('@kortix/sdk').ToolCallBlock[]) => rerender({ ...handoffBaseArgs, closeDetail, detail, steps: calls.map(step), calls }, onOpen) };
+  }
+
+  test('the show fails (the panel lists drop it): its detail closes', async () => {
+    const { state, rerender } = await openRunningShow();
+    await rerender([]);
+    expect(state.closed).toBe(1);
+  });
+
+  test('the show succeeds: its detail stays open', async () => {
+    const { state, rerender } = await openRunningShow();
+    await rerender([show('completed')]);
+    expect(state.closed).toBe(0);
+  });
+});
+
 describe('a chat tool-call click lands on panel content', () => {
   test('step found: the step detail opens (unchanged behavior)', async () => {
     const step: import('@kortix/sdk').Step<import('@kortix/sdk').ToolCallBlock> = {

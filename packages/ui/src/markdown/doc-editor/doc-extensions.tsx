@@ -33,6 +33,7 @@ import { SafeAttributes, attrBoolean, attrString, attrStringOrNull } from './doc
 import { LinkEmbed } from './doc-embed';
 import { MarkdownSource, PastedMarkdownSource, RAW_ATTRIBUTE } from './doc-fidelity';
 import { safeNodeView } from './doc-node-view';
+import { MarkdownPaste } from './doc-paste';
 
 // Hosts that render their own node views (the co-editing editor) use the same guards.
 export { attrBoolean, attrString, attrStringOrNull, safeNodeView };
@@ -289,6 +290,7 @@ export function docExtensions({
     RawMarkdown,
     MarkdownSource,
     PastedMarkdownSource,
+    MarkdownPaste,
     SafeAttributes,
     Placeholder.configure({ placeholder: ({ node }) => placeholder(node) }),
   ];

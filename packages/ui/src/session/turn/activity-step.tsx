@@ -74,7 +74,7 @@ export function StepLabelRow({
         </span>
         {label.object && (
           <span
-            className="text-muted-foreground/70 min-w-0 truncate font-mono text-sm leading-[1.5]"
+            className="text-muted-foreground min-w-0 truncate font-mono text-sm leading-[1.5]"
             title={label.object}
           >
             {label.object}
