@@ -1,0 +1,36 @@
+# Dosco background worker on Fly.io.
+# Runs the same image as Heroku, with start-worker.sh as the process command.
+# No public services: the worker only exposes /health/live and /health/ready
+# on PORT for the platform health check.
+app = "dosco-worker"
+primary_region = "lhr"
+
+# The worker releases its DB lease on SIGTERM; give it time to hand over.
+kill_signal = "SIGTERM"
+kill_timeout = 120
+
+[build]
+  dockerfile = "Dockerfile.heroku"
+  ignorefile = ".dockerignore"
+
+[deploy]
+  strategy = "rolling"
+  wait_timeout = "10m"
+
+[env]
+  PORT = "8008"
+  KORTIX_WORKERS_ENABLED = "true"
+  WORKER_DB_POOL_MAX = "5"
+
+[processes]
+  worker = "/app/apps/api/start-worker.sh"
+
+[checks]
+  [checks.worker_ready]
+    type = "http"
+    port = 8008
+    path = "/health/ready"
+    method = "get"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "90s"
