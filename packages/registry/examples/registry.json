@@ -1,0 +1,63 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "kortix-examples",
+  "homepage": "https://github.com/kortix-ai/CompanyOS",
+  "items": [
+    {
+      "name": "hello-skill",
+      "type": "registry:skill",
+      "title": "Hello Skill",
+      "description": "A minimal example skill, installed into skills/hello/.",
+      "categories": ["example"],
+      "files": [
+        {
+          "path": "hello/SKILL.md",
+          "type": "registry:file",
+          "target": "@skills/hello/SKILL.md",
+          "content": "---\nname: hello\ndescription: Say hello. A minimal example skill installed from the Kortix marketplace.\n---\n\n# Hello\n\nWhen asked to say hello, respond warmly and mention you were installed via `kortix marketplace install`.\n"
+        }
+      ],
+      "meta": { "source": "kortix-examples", "primitive": "skill" }
+    },
+    {
+      "name": "researcher",
+      "type": "registry:agent",
+      "title": "Researcher Agent",
+      "description": "An example agent that depends on the hello skill — installing it pulls the skill too.",
+      "registryDependencies": ["hello-skill"],
+      "files": [
+        {
+          "path": "researcher.md",
+          "type": "registry:file",
+          "target": "@agents/researcher.md",
+          "content": "You are a research agent. Use the hello skill to greet, then help with research.\n"
+        }
+      ],
+      "meta": { "source": "kortix-examples", "primitive": "agent" }
+    },
+    {
+      "name": "house-rules",
+      "type": "registry:rules",
+      "title": "House Rules (AGENTS.md)",
+      "description": "An arbitrary repo-root file — shows you can distribute any file, not just skills and agents.",
+      "files": [
+        {
+          "path": "AGENTS.md",
+          "type": "registry:file",
+          "target": "~/AGENTS.md",
+          "content": "# Project rules\n\n- Be concise.\n- Prefer existing helpers over new dependencies.\n"
+        }
+      ],
+      "meta": { "source": "kortix-examples" }
+    },
+    {
+      "name": "starter-bundle",
+      "type": "registry:bundle",
+      "title": "Example Starter Bundle",
+      "description": "A use-case bundle: one install pulls the researcher agent, the hello skill, and the house rules.",
+      "registryDependencies": ["researcher", "house-rules"],
+      "categories": ["example", "bundle"],
+      "meta": { "source": "kortix-examples" }
+    }
+  ]
+}
