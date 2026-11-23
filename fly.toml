@@ -13,6 +13,9 @@ kill_timeout = 120
   dockerfile = "Dockerfile.heroku"
   ignorefile = ".dockerignore"
 
+[build.args]
+  SERVICE = "apps/api"
+
 [deploy]
   strategy = "rolling"
   wait_timeout = "10m"

@@ -16,7 +16,7 @@ lease on SIGTERM before a forced shutdown.
 
 `fly.toml` at the repo root owns the build and process command:
 
-- `[build] dockerfile = "Dockerfile.heroku"` with repo-root context.
+- `[build] dockerfile = "Dockerfile.heroku"` with repo-root context and `[build.args] SERVICE = "apps/api"` (Heroku supplies this through `heroku.yml`; Fly does not).
 - `[processes] worker = "/app/apps/api/start-worker.sh"`.
 - No public `services`; the worker only binds a health listener on port 8008.
 - `[checks.worker_ready]` GETs `/health/ready` every 30 s.
