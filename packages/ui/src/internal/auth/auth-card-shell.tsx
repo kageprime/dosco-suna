@@ -18,6 +18,7 @@ import { useDesktopBackTarget } from '../desktop/desktop-back-button';
 import { AuthArt } from './auth-art';
 import { AuthFrameHasTopLogoContext, Rise, StepHeader } from './auth-primitives';
 import { openExternalRoute } from '../lib/desktop';
+import { cn } from '../lib/utils';
 
 // The phone-verification page builds its own frame around a sign-out control.
 export { AuthArt };
@@ -92,6 +93,7 @@ export function AuthFrame({
   footerVariant = 'default',
   backHref,
   showShowcase,
+  showcase,
   art,
 }: {
   children: React.ReactNode;
@@ -117,9 +119,17 @@ export function AuthFrame({
    * Defaults to true when art !== false and footerVariant !== 'none'.
    */
   showShowcase?: boolean;
+  /**
+   * Replaces the showcase photo with a full-bleed panel of the caller's own
+   * art (the Dosco Deep Forest on `/auth`). The panel keeps its desktop-only
+   * cell; the art fills the cell edge to edge, with no frame or radius.
+   */
+  showcase?: React.ReactNode;
 }) {
   useDesktopBackTarget(backHref);
-  const enableShowcase = showShowcase ?? (art !== false && footerVariant !== 'none');
+  const enableShowcase = showcase
+    ? true
+    : (showShowcase ?? (art !== false && footerVariant !== 'none'));
 
   if (enableShowcase) {
     return (
@@ -135,16 +145,26 @@ export function AuthFrame({
 
           <aside
             aria-hidden
-            className="hidden p-4 lg:sticky lg:top-0 lg:flex lg:h-svh lg:p-6"
+            className={cn(
+              'hidden lg:sticky lg:top-0 lg:flex lg:h-svh',
+              showcase ? 'p-0' : 'p-4 lg:p-6',
+            )}
           >
-            <div className="border-border relative h-full w-full overflow-hidden rounded-xl border">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/images/auth-editorial.jpg"
-                alt=""
-                draggable={false}
-                className="h-full w-full object-cover select-none"
-              />
+            <div
+              className={cn(
+                'relative h-full w-full overflow-hidden',
+                showcase ? '' : 'border-border rounded-xl border',
+              )}
+            >
+              {showcase ?? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src="/images/auth-editorial.jpg"
+                  alt=""
+                  draggable={false}
+                  className="h-full w-full object-cover select-none"
+                />
+              )}
             </div>
           </aside>
         </div>

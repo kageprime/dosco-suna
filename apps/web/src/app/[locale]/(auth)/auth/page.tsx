@@ -1,17 +1,17 @@
 'use client';
 
 /**
- * Unified auth — ONE flow for login and registration (email → link or
+ * Unified auth â€” ONE flow for login and registration (email â†’ link or
  * password). There is no sign-in/sign-up toggle: the visitor types an email,
  * Continue resolves whether that address already has an account, and the
- * password step renders in the mode the flow already knows — "Welcome back"
+ * password step renders in the mode the flow already knows â€” "Welcome back"
  * for existing accounts, "Create your account" for new ones. A wrong password
  * says wrong password; a new email is never told "Invalid login credentials".
  *
  * Identical in local and cloud. The only mode-dependent piece is whether
  * Supabase requires email confirmation (Supabase config, not a billing flag).
  * Email auth methods and social providers render only when listed in
- * `NEXT_PUBLIC_AUTH_METHODS` / `NEXT_PUBLIC_AUTH_PROVIDERS` — never as a
+ * `NEXT_PUBLIC_AUTH_METHODS` / `NEXT_PUBLIC_AUTH_PROVIDERS` â€” never as a
  * hardcoded surface.
  */
 
@@ -45,6 +45,7 @@ import {
   StepHeader,
 } from '@kortix/ui/internal/auth/auth-primitives';
 import { useAuth } from '@/features/providers/auth-provider';
+import { ForestScene } from '@/features/marketing/kit/forest-scene';
 import { invalidateTokenCache, setBootstrapAuthToken } from '@/lib/auth-token';
 import { ENTRY_EMAIL_STASH_KEY, ENTRY_SUBMIT_FLAG_KEY } from '@/lib/auth/entry-hydration-guard';
 import { buildMobileSessionHandoffUrl } from '@/lib/auth/mobile-handoff';
@@ -145,7 +146,7 @@ function isUnrecognizedActionError(error: unknown): boolean {
 /**
  * Recover a stale client bundle: reload the document once, so the browser
  * re-fetches the build the server is actually running and the same submit
- * succeeds. A soft refresh cannot do this — the stale action ids are baked
+ * succeeds. A soft refresh cannot do this â€” the stale action ids are baked
  * into the already-loaded chunks. One shot per document: if the skew outlives
  * the reload (e.g. an edge still serving the old page), the caller surfaces
  * the error instead of looping. Returns true when it took over.
@@ -180,7 +181,7 @@ function isSsoIdentityOf(
   return tags.some((tag) => typeof tag === 'string' && tag.startsWith('sso:'));
 }
 
-/* ─── Small shared pieces ──────────────────────────────────────────────── */
+/* â”€â”€â”€ Small shared pieces â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 function PasswordInput({
   id,
@@ -229,7 +230,7 @@ function PasswordInput({
   );
 }
 
-/* ─── The staged auth flow ─────────────────────────────────────────────── */
+/* â”€â”€â”€ The staged auth flow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 function AuthCardForm({
   returnUrl,
@@ -255,13 +256,13 @@ function AuthCardForm({
   const [email, setEmail] = useState('');
   // What the flow knows about the address by the time the password step shows:
   // 'signin' (account exists), 'signup' (new), or 'unknown' (the existence
-  // check couldn't answer — the adaptive signup action covers both).
+  // check couldn't answer â€” the adaptive signup action covers both).
   const [credMode, setCredMode] = useState<CredentialsMode>('unknown');
   // SSO interstitial state: the IdP redirect URL from the signInWithSSO probe,
   // plus what the existence check said the escape hatches should do.
   const [ssoUrl, setSsoUrl] = useState<string | null>(null);
   const ssoFallbackMode = useRef<EmailFlowMode>('unknown');
-  // Which button kicked off the in-flight request — every action button
+  // Which button kicked off the in-flight request â€” every action button
   // disables while anything is pending, but only the clicked one spins.
   const [pendingAction, setPendingAction] = useState<
     'continue' | 'link' | 'resend' | 'password' | 'sso' | null
@@ -275,7 +276,7 @@ function AuthCardForm({
   const emailCodeReturnUrl = useRef<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [sentEmail, setSentEmail] = useState<string | null>(null);
-  // The flow mode the send action resolved — which email GoTrue minted: the
+  // The flow mode the send action resolved â€” which email GoTrue minted: the
   // signup confirmation for a new address, the sign-in link otherwise. Drives
   // the link step's copy so it names the mail the mailbox receives (KRTX-2195).
   const [linkMode, setLinkMode] = useState<EmailFlowMode>('unknown');
@@ -292,7 +293,7 @@ function AuthCardForm({
   useEffect(() => {
     // The cooldown ticks on every step, not just the link step: a rate-limited
     // send cools the button that fired it (the password form's and the SSO
-    // interstitial's "Email me a code" — KRTX-1882), so the countdown
+    // interstitial's "Email me a code" â€” KRTX-1882), so the countdown
     // must keep running wherever the visitor is.
     if (resendIn <= 0) return;
     const t = setTimeout(() => setResendIn((prev) => prev - 1), 1000);
@@ -351,7 +352,7 @@ function AuthCardForm({
 
   // The bounded layers answer with submit-auth's English sentinel messages
   // (a 20 s GoTrue bound inside an action, the route's 25 s fallback, a
-  // 403/500 body) — map each sentinel back to its translated key so the
+  // 403/500 body) â€” map each sentinel back to its translated key so the
   // visitor reads the notice in their language whichever layer fired.
   const sentinelKeyFor = (message: string): string | null => {
     if (message === AUTH_TIMEOUT_MESSAGE) return t('errors.submitTimedOut');
@@ -385,7 +386,7 @@ function AuthCardForm({
     }
 
     // Establish the session on the CLIENT immediately so useAuth() sees the
-    // user synchronously and the redirect is instant — without this the
+    // user synchronously and the redirect is instant â€” without this the
     // client waits for a background refresh and bounces back to /auth.
     const tokens = result as { accessToken?: string | null; refreshToken?: string | null };
     if (tokens.accessToken && tokens.refreshToken) {
@@ -409,7 +410,7 @@ function AuthCardForm({
     // middleware bounced here for a DIFFERENT account (see
     // `shouldDemoteReturnUrl`). `setSession` above fires `onAuthStateChange`,
     // which re-renders `AuthContent` with `trustedUser === true` and runs its
-    // redirect effect — `router.replace(returnUrl)` on the RAW query param,
+    // redirect effect â€” `router.replace(returnUrl)` on the RAW query param,
     // ungated. A soft push loses that race: the later `replace` supersedes it
     // and lands this user on the previous one's project. A document navigation
     // is already in flight by the time that effect runs and a history swap
@@ -455,7 +456,7 @@ function AuthCardForm({
       if (!outcome.ok) {
         // A refused send is rate-limited, not broken: re-firing it seconds
         // later fails the same way (the dogfood run clicked through five
-        // doomed attempts — KRTX-1882). Arm the same cooldown the link step
+        // doomed attempts â€” KRTX-1882). Arm the same cooldown the link step
         // already shows, so the button that fired this send sits out the
         // window instead of hammering the refused action.
         if (outcome.status === 429) setResendIn(RESEND_COOLDOWN_SECONDS);
@@ -486,7 +487,7 @@ function AuthCardForm({
         if (result.alreadySent && result.message) setInfo(result.message);
         setStep('link');
         // The action's Set-Cookie does not always reach this browser (on the
-        // prod edge deployment a successful send left the cookie jar empty —
+        // prod edge deployment a successful send left the cookie jar empty â€”
         // KRTX-2095), so seed the cookie from the value the action returned;
         // the same pattern signInWithPassword uses for the session tokens.
         // Then snapshot it: if the cookie does not survive the mailbox detour,
@@ -498,7 +499,7 @@ function AuthCardForm({
         stashBrowserPkceVerifier();
       } else if ('message' in result) {
         // A 200 body can still carry a bounded layer's sentinel (the action's
-        // 20 s bound answers through the route as {message}) — translate it.
+        // 20 s bound answers through the route as {message}) â€” translate it.
         failWith(sentinelKeyFor(result.message as string) ?? (result.message as string));
       }
     } catch (err: any) {
@@ -513,7 +514,7 @@ function AuthCardForm({
    * Probe the address's domain for a registered SAML provider and hand the
    * browser to the IdP (or the SSO interstitial) when one exists. Shared by
    * the silent home-realm discovery in handleEntryContinue and the explicit
-   * "Use single sign-on" action — one redirect/callback construction, two
+   * "Use single sign-on" action â€” one redirect/callback construction, two
    * entry points. Returns 'handled' when navigation/step change happened,
    * 'none' when the domain has no provider (callers decide whether that is a
    * silent fall-through or a user-facing error).
@@ -536,14 +537,14 @@ function AuthCardForm({
         domain,
         // We own the redirect (below) so authRedirectUrl's desktop `?desktop=true`
         // bounce stays authoritative; without skipBrowserRedirect, auth-js also
-        // calls window.location.assign(data.url) — a redundant double-navigation.
+        // calls window.location.assign(data.url) â€” a redundant double-navigation.
         options: { redirectTo: authRedirectUrl(callbackPath), skipBrowserRedirect: true },
       });
       if (!error && data?.url) {
         // The domain is bound to a SAML provider. Ask the flow how strict
         // the org is: enforced SSO redirects straight to the IdP (no
         // password door), everything else lands on an interstitial that
-        // defaults to SSO but keeps the password/email escapes visible —
+        // defaults to SSO but keeps the password/email escapes visible â€”
         // a pre-SSO password account must never dead-end here.
         const { mode: resolved } = await resolveAuthMode(address);
         if (resolved === 'sso') {
@@ -567,11 +568,11 @@ function AuthCardForm({
   };
 
   /**
-   * Explicit "Use single sign-on" — the discoverable counterpart of the
+   * Explicit "Use single sign-on" â€” the discoverable counterpart of the
    * silent home-realm discovery above. Two deliberate differences: it skips
    * the isWorkEmail consumer-domain gate (typing the button IS the intent),
    * and a domain with no provider surfaces a real error instead of silently
-   * falling through to magic link — an invisible fall-through here reads as
+   * falling through to magic link â€” an invisible fall-through here reads as
    * "SSO is broken".
    */
   const handleSsoContinue = async (address: string = email) => {
@@ -599,7 +600,7 @@ function AuthCardForm({
   };
 
   // The mobile app collected the address natively and opened this page with
-  // `sso=1&email=…`: prefill it and run the explicit SSO action once, so the
+  // `sso=1&email=â€¦`: prefill it and run the explicit SSO action once, so the
   // user does not retype it. The ref keeps Strict Mode's effect re-run from
   // starting a second IdP navigation.
   const hasStartedMobileSso = useRef(false);
@@ -615,11 +616,11 @@ function AuthCardForm({
     if (submitInFlight.current) return;
     submitInFlight.current = true;
     // The entry field is controlled (value={email} below): what the visitor
-    // typed before React attached was wiped by the hydration reset — React 19
-    // sets the field back to the rendered value the moment hydration lands —
+    // typed before React attached was wiped by the hydration reset â€” React 19
+    // sets the field back to the rendered value the moment hydration lands â€”
     // and the mount effect above has just restored it into state. Read the
     // DOM value first so a last-keystroke race (onChange scheduled, not yet
-    // committed) never drops a character, and fall back to state — including
+    // committed) never drops a character, and fall back to state â€” including
     // environments without a DOM (unit tests).
     const domValue = emailRef.current?.value;
     const typed = typeof domValue === 'string' ? domValue : email;
@@ -632,12 +633,12 @@ function AuthCardForm({
     clearNotices();
     setPendingAction('continue');
 
-    // Enterprise home-realm discovery — zero-config. When the address is a WORK
-    // email (isWorkEmail skiplists gmail/outlook/… in-memory, so consumer logins
+    // Enterprise home-realm discovery â€” zero-config. When the address is a WORK
+    // email (isWorkEmail skiplists gmail/outlook/â€¦ in-memory, so consumer logins
     // never reach the network) whose domain is bound to a SAML provider, hand off
     // to the IdP instead of magic-link/password. signInWithSSO returns
     // { data: { url } } for a matching domain and an error otherwise, so a work
-    // domain with no provider — or a Supabase without SAML enabled — falls
+    // domain with no provider â€” or a Supabase without SAML enabled â€” falls
     // straight through to the email flow below. Runs in both sign-in and sign-up
     // (an SSO user is JIT-provisioned on first login). `emailDomain` mirrors the
     // parser isWorkEmail used, so we probe exactly the domain it validated.
@@ -647,7 +648,7 @@ function AuthCardForm({
       const domain = emailDomain(trimmed);
       if (samlEnabled && domain && isWorkEmail(trimmed)) {
         if ((await attemptSsoRedirect(trimmed)) === 'handled') return;
-        // Work domain with no SAML provider → fall through to magic/password.
+        // Work domain with no SAML provider â†’ fall through to magic/password.
       }
 
       // Keep email-first unless this browser explicitly chose password.
@@ -662,7 +663,7 @@ function AuthCardForm({
       const { mode: resolved } = await resolveAuthMode(trimmed);
       if (resolved === 'sso') {
         // Enforced-SSO domain that slipped past the probe above (e.g. SAML
-        // temporarily unreachable) — never open the password door.
+        // temporarily unreachable) â€” never open the password door.
         failWith(t('errors.ssoRequired'));
         return;
       }
@@ -692,13 +693,13 @@ function AuthCardForm({
   // during the gap vanishes from the DOM even without a submit. This effect
   // runs exactly when React is live, so it is both the guard's disarm point
   // and the recovery point: restore the guarded typing (the guard stashed
-  // every keystroke — after a mid-gap reload the DOM field starts empty too)
+  // every keystroke â€” after a mid-gap reload the DOM field starts empty too)
   // and, when the guard recorded a submit intent, replay it through the real
-  // handler — so the one press the visitor made lands in the app's submit
+  // handler â€” so the one press the visitor made lands in the app's submit
   // path. A stale intent is dropped; one recorded while the entry form is not
   // on screen yet stays for the effect's next run on the step change that
   // reveals it.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the replay must run only on hydration and on the step change that reveals the entry form — it reads the live DOM value through the ref, and re-running on every prefill would double-fire the submit.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the replay must run only on hydration and on the step change that reveals the entry form â€” it reads the live DOM value through the ref, and re-running on every prefill would double-fire the submit.
   useEffect(() => {
     // The guard disarms itself when the app's own effects start running;
     // environments without DOM events (unit tests) have no guard to disarm.
@@ -735,13 +736,13 @@ function AuthCardForm({
       if (value) setEmail(value);
       if (value.trim()) void runEntrySubmit();
     } catch {
-      // sessionStorage unavailable — the guard had nothing to hand over.
+      // sessionStorage unavailable â€” the guard had nothing to hand over.
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- replay on hydration and when the entry step appears; the submit path reads refs, not stale state
   }, [step]);
   // Password entry from either the entry or link step, without sending email.
   // The address can live in either field depending on how the step was reached,
-  // and the credentials step renders it read-only from `email` — so settle on
+  // and the credentials step renders it read-only from `email` â€” so settle on
   // one before switching, and bounce focus back if we somehow have neither.
   // Resolves existence on the way so the step opens in the right mode.
   const goToPassword = async () => {
@@ -789,7 +790,7 @@ function AuthCardForm({
     }
     const copy = credentialsCopy(credMode, tI18nComplete);
     if (copy.submitsAs === 'signup') {
-      // Single password field (with reveal toggle) — the server still expects
+      // Single password field (with reveal toggle) â€” the server still expects
       // a confirmation value, so mirror it.
       formData.set('confirmPassword', (formData.get('password') as string) || '');
       formData.set('acceptedTerms', 'true');
@@ -797,7 +798,7 @@ function AuthCardForm({
 
     try {
       // Bounded, abortable POST (see submit-auth): same rationale as the
-      // email-code submit — the visitor must always get an error they can
+      // email-code submit â€” the visitor must always get an error they can
       // retry, never a button that never comes back.
       const intent = copy.submitsAs === 'signup' ? 'signup' : 'signin';
       const outcome = await submitAuthForm(`/api/auth/password?intent=${intent}`, formData);
@@ -824,7 +825,7 @@ function AuthCardForm({
           tI18nComplete,
         );
         // The attempt itself proved the account exists (e.g. the existence
-        // check was degraded, or it raced an account created elsewhere) —
+        // check was degraded, or it raced an account created elsewhere) â€”
         // relabel the step so the retry reads as the sign-in it really is.
         if (failure.switchToSignin) setCredMode('signin');
         const localizedFailure =
@@ -917,7 +918,7 @@ function AuthCardForm({
   // Password escape off the SSO interstitial. The policy check already ran
   // when the interstitial opened, so this is a synchronous relabel + step move.
   // 'closed' opens the neutral sign-in credentials step like everywhere else,
-  // instead of dead-ending — an existing account must still be able to sign in
+  // instead of dead-ending â€” an existing account must still be able to sign in
   // with signups closed (KRTX-3504).
   const usePasswordFromSso = () => {
     const fallbackMode = ssoFallbackMode.current;
@@ -931,7 +932,7 @@ function AuthCardForm({
     setStep('credentials');
   };
 
-  /* ── SSO step (domain matched a SAML provider, org does NOT enforce it) ── */
+  /* â”€â”€ SSO step (domain matched a SAML provider, org does NOT enforce it) â”€â”€ */
   if (step === 'sso' && ssoUrl) {
     return (
       <>
@@ -1011,7 +1012,7 @@ function AuthCardForm({
     );
   }
 
-  /* ── Credentials step (password, with email-link alternative) ── */
+  /* â”€â”€ Credentials step (password, with email-link alternative) â”€â”€ */
   if (step === 'credentials') {
     const copy = credentialsCopy(credMode, tI18nComplete);
     const credentialKey =
@@ -1101,7 +1102,7 @@ function AuthCardForm({
     );
   }
 
-  /* ── Entry step ── */
+  /* â”€â”€ Entry step â”€â”€ */
   return (
     <>
       <m.div {...rise(0)}>
@@ -1138,10 +1139,10 @@ function AuthCardForm({
               size="md"
               placeholder={t('emailPlaceholder')}
               // Controlled: React owns the value. The one exception is the
-              // hydration moment — React 19 resets the field to the rendered
-              // value then, discarding pre-hydration typing — and the mount
+              // hydration moment â€” React 19 resets the field to the rendered
+              // value then, discarding pre-hydration typing â€” and the mount
               // effect above restores the guard's stash (and replays an
-              // intercepted submit) right after — see lib/auth/entry-hydration-guard.ts.
+              // intercepted submit) right after â€” see lib/auth/entry-hydration-guard.ts.
               // The submit handler reads the DOM value first, so a
               // last-keystroke race before a commit never drops a character.
               value={email}
@@ -1191,16 +1192,16 @@ function AuthCardForm({
   );
 }
 
-/* ─── Page shell ───────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Page shell â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 // How long the "signed in, redirecting" placeholder is allowed to sit on
 // screen before we stop trusting it. A legitimate redirect (the overwhelming
-// common case) leaves this page well within this window — router.replace is a
+// common case) leaves this page well within this window â€” router.replace is a
 // same-tab client transition, not a network round trip. This is a safety net
 // for the case the client's cached `user` is stale (e.g. a revoked/rotated
 // refresh token that hasn't hit its own `exp` yet, so the cheaper local
 // expiry check below doesn't catch it) and the redirect it kicks off keeps
-// bouncing back here instead of leaving — without this, the placeholder is a
+// bouncing back here instead of leaving â€” without this, the placeholder is a
 // dead end with no form, spinner, or escape hatch.
 const STALE_SESSION_FALLBACK_MS = 2500;
 
@@ -1243,7 +1244,7 @@ function AuthContent() {
     if (consumePkceResumeGuard(pkceResumeCode) || !seedPkceVerifierForResume()) {
       // The re-seeded exchange already bounced once, or this tab holds no
       // snapshot (the link was opened elsewhere) and no cookie. The exchange
-      // cannot complete here either way — the resend screen is the honest
+      // cannot complete here either way â€” the resend screen is the honest
       // landing, with the return URL preserved for the next attempt.
       window.location.assign(resendUrl.toString());
       return;
@@ -1259,7 +1260,7 @@ function AuthContent() {
   // client already had cached, and only gets corrected once something
   // (an ambient refresh timer, another API call) happens to notice it died.
   // Landing on /auth with a `redirect`/`returnUrl` param is itself a strong
-  // signal the session just failed server-side validation — so the moment we
+  // signal the session just failed server-side validation â€” so the moment we
   // can locally prove the cached session is dead (its own `expires_at` is
   // already in the past), stop trusting it immediately instead of waiting for
   // that ambient correction, which can take seconds in production and leaves
@@ -1270,7 +1271,7 @@ function AuthContent() {
   // The app asked for SSO (`sso=1`), usually after the API refused its session
   // with `sso_required` (KRTX-1716). Any session here other than this person's
   // SSO identity is that refused one: handing it back looped the app. It is
-  // signed out on this browser, and SSO starts once that has finished — a
+  // signed out on this browser, and SSO starts once that has finished â€” a
   // sign-out also clears the PKCE verifier SSO stores.
   const refusedForMobileSso = !!mobileSsoEmail && !!user && !isSsoIdentityOf(user, mobileSsoEmail);
   const [mobileSsoCleared, setMobileSsoCleared] = useState(false);
@@ -1279,7 +1280,7 @@ function AuthContent() {
 
   // A failed sign-out says so, ONCE, on the document it lands on. The
   // sign-out ends on a document load to `/auth`, so `runSignOut` cannot raise
-  // a toast in the document it is leaving — it stashes the notice instead
+  // a toast in the document it is leaving â€” it stashes the notice instead
   // (`sign-out-notice.ts`), and this effect reads and clears it. Read-and-
   // clear keeps every later `/auth` visit in the same tab silent.
   useEffect(() => {
@@ -1295,13 +1296,13 @@ function AuthContent() {
     if (isLoading) return;
 
     if (user && sessionExpired) {
-      // Dead session, proven locally — clear it now and fall through to the
+      // Dead session, proven locally â€” clear it now and fall through to the
       // real form on this same render pass rather than the placeholder.
       //
       // NOT `performSignOut()`, which every logout CONTROL goes through. This
       // is session repair, not a logout: the user is already on `/auth`, and
       // the document navigation a logout performs would reload this page
-      // without its `redirect`/`returnUrl` query — discarding the destination
+      // without its `redirect`/`returnUrl` query â€” discarding the destination
       // the middleware bounce carried here. `scope: 'local'` is the whole job,
       // because the session is already dead server-side and there is nothing
       // left to revoke.
@@ -1364,7 +1365,7 @@ function AuthContent() {
     return () => clearTimeout(timer);
   }, [trustedUser]);
 
-  // A session is already established — the effect above is redirecting (or
+  // A session is already established â€” the effect above is redirecting (or
   // handing off to mobile). This is a hand-off, not a screen, so it shows the
   // SAME frame the destination shows: `/workspaces/start` and the project access
   // boundary both render `ProjectPendingScreen`, so the redirect produces no
@@ -1373,20 +1374,20 @@ function AuthContent() {
   // It used to render `<AuthFrame footerVariant="default">` with the entry
   // step's own "Welcome to Kortix CompanyOS" / "Your AI Command Center" header. That is
   // the headline a signed-OUT visitor is greeted with, so replaying it the
-  // instant a password is accepted read as the form bouncing backwards — and
+  // instant a password is accepted read as the form bouncing backwards â€” and
   // the legal footer it pinned then vanished one navigation later. Three
   // different frames in a row is what made signing in look glitchy.
   if (trustedUser) {
     return <ProjectPendingScreen />;
   }
 
-  // Render the form immediately — even while the session check is still in
+  // Render the form immediately â€” even while the session check is still in
   // flight. Signed-out visitors (the common case) get an instantly usable
   // page; a signed-in visitor sees the form for a beat before the redirect.
   // A stale/invalidated session (sessionExpired, or forceForm from the
-  // safety-net timeout) also lands here — never a dead shell.
+  // safety-net timeout) also lands here â€” never a dead shell.
   return (
-    <AuthFrame>
+    <AuthFrame footerVariant="none" showcase={<ForestScene />}>
       <AuthCardForm
         callbackError={searchParams.get('expired') === 'true' || searchParams.has('error') || searchParams.has('error_code')}
         returnUrl={returnUrl}

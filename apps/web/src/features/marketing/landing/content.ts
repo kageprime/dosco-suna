@@ -19,11 +19,16 @@ import type { UiTranslator } from '@/i18n/translator';
  * (features/marketing/hero.tsx); every other page has its own content module.
  */
 export const hero = {
-  title: 'The production harness for autonomous agent teams.',
+  title: 'The production harness',
+  titleMuted: 'for autonomous agent teams.',
   sub: 'Give AI agents persistent workstations, real cloud computers, and access to company tools. Hand them an outcome — they execute and deliver work for human review.',
-  ctaPrimary: 'Get started',
-  ctaSecondary: 'Request demo',
+  ctaPrimary: 'Start for free',
+  ctaSecondary: 'Talk to sales',
   trust: 'Any model, your keys · Isolated cloud sandboxes · Governed review',
+  /** The band caption: what the walkthrough under the fold shows. */
+  caption: 'A workspace and command center for people.',
+  captionMuted:
+    'A backend framework for agents underneath. The same project, as files in a git repo you own.',
 } as const;
 
 /** The eyebrow renders as a row with the two competitor marks, so its parts
