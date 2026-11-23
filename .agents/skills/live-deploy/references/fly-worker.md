@@ -48,6 +48,12 @@ is copied from Heroku on purpose: it was disabled after a connection leak.
 & $fly scale vm shared-cpu-1x --memory 1024 --process-group worker --app dosco-worker
 ```
 
+The default `shared-cpu-1x:256MB` is too small: the worker booted but the
+`/health/ready` check never passed. Scale to 1024 MB immediately after the first
+deploy. The deploy command may report a health-check timeout on that first run;
+the image is still pushed and the Machine still created, so scaling and
+restarting it is enough.
+
 ## Verify
 
 ```powershell
