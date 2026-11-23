@@ -3,7 +3,8 @@
 import Link from '@/components/site-link';
 import { MARKETING_CONTAINER } from '@/features/marketing/kit/section';
 import { cn } from '@kortix/ui';
-import { ArrowUpRightIcon } from '@phosphor-icons/react';
+import { Github } from '@kortix/ui/internal/icons/github';
+import { ArrowUpRightIcon, StarIcon } from '@phosphor-icons/react';
 import { type KeyboardEvent, type Ref } from 'react';
 
 export type MegaMenuLink = { label: string; href: string; external?: boolean };
@@ -26,6 +27,10 @@ export const MEGA_MENUS: MegaMenu[] = [
   {
     id: 'product',
     label: 'Product',
+    // What the product is and what it is made of. Pricing lives in the bar
+    // only. Each pillar has its own page (/multiplayer, /framework for company
+    // as code, /sovereign); Outcomes lands on the home section; the building
+    // blocks open their Guide sections.
     groups: [
       {
         title: 'The CompanyOS',
@@ -37,6 +42,25 @@ export const MEGA_MENUS: MegaMenu[] = [
         ],
       },
       {
+        title: 'Building blocks',
+        // Each opens its Guide page (docs revamp, 2026-10-27).
+        links: [
+          { label: 'Agents', href: '/docs/guide#agents' },
+          { label: 'Skills', href: '/docs/guide#skills' },
+          // Apps: the compute platform (sites, internal tools, backends with data,
+          // functions and realtime).
+          { label: 'Apps', href: '/docs/guide#apps' },
+          // Drive: shared folders for people and agents (the Files feature).
+          { label: 'Drive', href: '/docs/guide#drive' },
+          { label: 'Connectors', href: '/docs/guide#connectors' },
+          { label: 'Automations', href: '/docs/guide#automations' },
+          { label: 'Computers', href: '/docs/guide#computers' },
+          { label: 'Models', href: '/docs/guide#models' },
+        ],
+      },
+      {
+        // ACCURACY: the channel set is Slack, Microsoft Teams and email
+        // (kortix-brand claims.md). Email has no page yet.
         title: 'Use it from',
         links: [
           { label: 'Desktop', href: '/desktop' },
@@ -49,27 +73,31 @@ export const MEGA_MENUS: MegaMenu[] = [
         title: 'Run it',
         links: [
           { label: 'Security', href: '/security' },
+          // ACCURACY: never "air-gapped" (see site-config.ts).
+          { label: 'Self-hosted', href: '/self-hosted' },
           { label: 'Enterprise', href: '/enterprise' },
           { label: 'Compliance', href: '/compliance' },
-          { label: 'Pricing', href: '/pricing' },
         ],
       },
     ],
   },
   {
     id: 'resources',
+    // /developers stays live but is in no menu (founder, 2026-10-27).
     label: 'Resources',
     groups: [
       {
         title: 'Learn',
         links: [
+          { label: 'Guide', href: '/docs/guide' },
           { label: 'Use cases', href: '/use-cases' },
           { label: 'Case studies', href: '/case-studies' },
-          ...(process.env.NEXT_PUBLIC_BLOG_ORIGIN ? [{ label: 'Blog', href: '/blog' }] : []),
+          { label: 'Blog', href: '/blog' },
+          { label: 'Changelog', href: '/changelog' },
         ],
       },
       {
-        title: 'Get Dosco',
+        title: 'Get Kortix',
         links: [
           { label: 'Download', href: '/download' },
         ],
@@ -77,7 +105,9 @@ export const MEGA_MENUS: MegaMenu[] = [
       {
         title: 'Company',
         links: [
-          { label: 'Services', href: '/services' },
+          { label: 'About', href: '/about' },
+          { label: 'Careers', href: '/careers' },
+          { label: 'Contact', href: '/contact' },
           { label: 'Legal', href: '/legal/terms' },
         ],
       },
@@ -96,25 +126,40 @@ type MegaMenuPanelProps = {
   stars?: string | null;
 };
 
+const REPO = 'kortix-ai/CompanyOS';
+const REPO_URL = `https://github.com/${REPO}`;
+
 /**
- * Feature tile in the Resources panel's fourth column.
+ * The open-source tile in the Resources panel's free fourth column: an
+ * inverted block with the GitHub mark on top, and the claim, the live star
+ * count with the repo, and the way in at the bottom. The whole tile is one link.
  */
-function PlatformCard({ onNavigate }: { onNavigate: () => void }) {
+function OpenSourceCard({ stars, onNavigate }: { stars?: string | null; onNavigate: () => void }) {
   return (
     <Link
-      href="/marketplace"
+      href={REPO_URL}
+      target="_blank"
+      rel="noopener noreferrer"
       onClick={onNavigate}
-      className="group/platform bg-foreground text-background outline-ring flex flex-col justify-between gap-8 rounded-lg p-5 focus-visible:outline-2 focus-visible:outline-offset-2"
+      className="group/repo bg-foreground text-background outline-ring flex flex-col justify-between gap-8 rounded-lg p-5 focus-visible:outline-2 focus-visible:outline-offset-2"
     >
+      <Github className="size-8 shrink-0" />
       <span className="flex flex-col">
-        <span className="text-lg font-medium">Marketplace</span>
-        <span className="text-background/80 mt-1 text-sm">
-          Discover skills, plugins, and tools to power your workspace.
+        <span className="text-lg font-medium">Kortix is open source</span>
+        <span className="text-background/60 mt-1 flex items-center gap-1.5 text-sm">
+          {stars ? (
+            <>
+              <StarIcon weight="fill" className="size-3.5 shrink-0" />
+              <span className="tabular-nums">{stars}</span>
+              <span aria-hidden>·</span>
+            </>
+          ) : null}
+          {REPO}
         </span>
-      </span>
-      <span className="group-hover/platform:text-ring inline-flex items-center gap-1.5 text-sm transition-colors duration-moderate">
-        Explore Marketplace
-        <ArrowUpRightIcon className="size-3.5 opacity-0 transition-opacity duration-moderate group-hover/platform:opacity-100 group-focus-visible/platform:opacity-100" />
+        <span className="group-hover/repo:text-ring mt-4 inline-flex items-center gap-1.5 text-sm transition-colors duration-moderate">
+          View on GitHub
+          <ArrowUpRightIcon className="size-3.5 opacity-0 transition-opacity duration-moderate group-hover/repo:opacity-100 group-focus-visible/repo:opacity-100" />
+        </span>
       </span>
     </Link>
   );
@@ -164,7 +209,7 @@ export function MegaMenuPanel({ menu, open, ref, onNavigate, onKeyDown, stars }:
             </ul>
           </div>
         ))}
-        {menu.id === 'resources' && <PlatformCard onNavigate={onNavigate} />}
+        {menu.id === 'resources' && <OpenSourceCard stars={stars} onNavigate={onNavigate} />}
       </div>
     </div>
   );

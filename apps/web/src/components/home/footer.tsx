@@ -2,13 +2,14 @@
 
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
 import Link from '@/components/site-link';
-import { CtaSection } from '@/features/marketing/landing/cta-section';
+import { CtaSection, type CtaContent } from '@/features/marketing/landing/cta-section';
 import { FOOTER_TRANSLATION_KEYS } from '@/i18n/footer-translation-keys.generated';
 import { useTranslations } from '@/i18n/use-translations';
 import { showsMarketingLink } from '@/lib/config';
 import { cn } from '@kortix/ui';
 import { localizeUiCatalog } from '@kortix/ui/i18n';
 import { ThemeToggle } from './theme-toggle';
+import type { ReactNode } from 'react';
 
 type FooterLinkItem = {
   label: string;
@@ -26,6 +27,7 @@ const FOOTER_SECTIONS: FooterSection[] = [
     title: 'Product',
     links: [
       { label: 'Security', href: '/security' },
+      { label: 'Self-hosted', href: '/self-hosted' },
       { label: 'Enterprise', href: '/enterprise' },
       { label: 'Compliance', href: '/compliance' },
       { label: 'Pricing', href: '/pricing' },
@@ -34,28 +36,36 @@ const FOOTER_SECTIONS: FooterSection[] = [
     ],
   },
   {
-    title: 'Resources',
+    title: 'Developers',
     links: [
-      { label: 'Marketplace', href: '/marketplace' },
-      { label: 'Use Cases', href: '/use-cases' },
-      { label: 'Case Studies', href: '/case-studies' },
+      // /docs/reference/cli 404s — there is no reference/ directory. The page
+      // is content/docs/cli.mdx, routed at /docs/cli.
+      { label: 'Guide', href: '/docs/guide' },
+      { label: 'CLI', href: '/docs/cli' },
     ],
   },
   {
     title: 'Company',
     links: [
       { label: 'Services', href: '/services' },
-      ...(process.env.NEXT_PUBLIC_BLOG_ORIGIN ? [{ label: 'Blog', href: '/blog' }] : []),
+      { label: 'About', href: '/about' },
+      { label: 'Careers', href: '/careers' },
+      { label: 'Blog', href: '/blog' },
+      { label: 'Changelog', href: '/changelog' },
+      { label: 'Use Cases', href: '/use-cases' },
+      { label: 'Brand', href: '/design-system' },
     ],
   },
   {
     title: 'Connect',
     links: [
+      { label: 'X', href: 'https://x.com/kortix', external: true },
+      { label: 'LinkedIn', href: 'https://linkedin.com/company/kortix', external: true },
+      { label: 'Discord', href: 'https://discord.com/invite/RvFhXUdZ9H', external: true },
+      { label: 'Status', href: 'https://status.kortix.com', external: true },
       { label: 'Contact', href: '/contact' },
-      { label: 'Support', href: 'mailto:support@dosco.live', external: true },
       { label: 'Terms', href: '/legal/terms' },
       { label: 'Privacy', href: '/legal?tab=privacy' },
-      { label: 'Subprocessors', href: '/legal/subprocessors' },
     ],
   },
 ];
@@ -80,7 +90,14 @@ function FooterLink({ label, href, external }: FooterLinkItem) {
   );
 }
 
-const Footer = () => {
+/**
+ * `cta` replaces the closing call to action's copy and actions (see `CtaSection`).
+ * `linkOrigin` prefixes the mark and every internal link: a page served on
+ * another host (loopmaxxing.sh) links to kortix.com instead of to paths that
+ * host only redirects. `themeToggle` hides the theme switch on a page that is
+ * always dark. `footerContent` replaces the footer grid below the closing CTA.
+ */
+const Footer = ({ cta, linkOrigin = '', themeToggle = true, footerContent }: { cta?: CtaContent; linkOrigin?: string; themeToggle?: boolean; footerContent?: ReactNode } = {}) => {
   const tI18nHardcoded = useTranslations('hardcodedUi');
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const footerSections = localizeUiCatalog(FOOTER_SECTIONS, tI18nComplete, FOOTER_TRANSLATION_KEYS);
@@ -88,17 +105,17 @@ const Footer = () => {
 
   return (
     <section className="from-card to-background relative overflow-hidden border-t bg-linear-to-b from-30% to-90% pt-12">
-      <CtaSection />
+      <CtaSection content={cta} />
 
       {/* Polar's layout: the mark top left, the copyright and theme switch
           pinned to the bottom of the same column; the link groups in a grid
           on the right. */}
       <footer id="site-footer" className="relative z-10">
-        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-12 px-6 pt-12 pb-16 lg:grid-cols-12">
+        {footerContent ?? <div className="mx-auto grid max-w-7xl grid-cols-1 gap-12 px-6 pt-12 pb-16 lg:grid-cols-12">
           <div className="flex flex-col justify-between gap-12 lg:col-span-5">
             <Link
-              href="/"
-              aria-label="Dosco home"
+              href={linkOrigin || '/'}
+              aria-label="Kortix home"
               className="text-foreground outline-ring w-fit rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2"
             >
               <KortixLogo size={22} variant="logomark" />
@@ -109,7 +126,7 @@ const Footer = () => {
                 {tI18nHardcoded.raw('autoComponentsHomeFooterJsxTextCopye99743e8')}
                 {currentYear} {tI18nHardcoded.raw('i18nComplete.textab54cf5e1d9d')}
               </small>
-              <ThemeToggle variant="compact" systemTheme={false} />
+              {themeToggle ? <ThemeToggle variant="compact" systemTheme={false} /> : null}
             </div>
           </div>
 
@@ -124,7 +141,7 @@ const Footer = () => {
                         link.href === '/use-cases') ||
                       !showsMarketingLink(link.href) ? null : (
                         <li key={link.label}>
-                          <FooterLink {...link} />
+                          <FooterLink {...link} href={link.external ? link.href : `${linkOrigin}${link.href}`} />
                         </li>
                       ),
                     )}
@@ -133,24 +150,8 @@ const Footer = () => {
               ))}
             </div>
           </nav>
-        </div>
+        </div>}
       </footer>
-
-      {/* Dithered wordmark: an alpha mask painted with the foreground token, so it follows the theme. */}
-      <div
-        aria-hidden
-        className="bg-foreground mx-auto mt-6 aspect-[1440/308] w-full max-w-7xl opacity-15"
-        style={{
-          maskImage: 'url(/marketing/dither-wordmark.png)',
-          WebkitMaskImage: 'url(/marketing/dither-wordmark.png)',
-          maskSize: 'contain',
-          WebkitMaskSize: 'contain',
-          maskRepeat: 'no-repeat',
-          WebkitMaskRepeat: 'no-repeat',
-          maskPosition: 'bottom',
-          WebkitMaskPosition: 'bottom',
-        }}
-      />
     </section>
   );
 };

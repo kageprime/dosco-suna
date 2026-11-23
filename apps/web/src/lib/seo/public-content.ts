@@ -81,14 +81,6 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   },
   {
     kind: 'marketing',
-    slug: 'marketplace',
-    title: 'Marketplace: agents, skills and workspace templates',
-    description:
-      'Browse skills, agents, and commands from every source. Add them to a workspace in one click.',
-    htmlPath: '/marketplace',
-  },
-  {
-    kind: 'marketing',
     slug: 'developers',
     title: 'Developers: CLI, SDK and API for AI agents',
     description:

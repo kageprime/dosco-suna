@@ -47,7 +47,7 @@ FROM oven/bun:${SANDBOX_AGENT_BUN_VERSION}-slim AS sandbox-agent
 # dependency makes `bun install --frozen-lockfile` here fail outright
 # ("Workspace dependency ... not found / Searched in ./*") and NO image can be
 # built. So mirror the repo layout and copy the one package the mapping points
-# at — the same shape apps/sandbox/Dockerfile uses.
+# at â€” the same shape apps/sandbox/Dockerfile uses.
 WORKDIR /repo/apps/kortix-sandbox-agent-server
 
 ARG KORTIX_AGENT_BUN_TARGET=bun-linux-x64
@@ -67,10 +67,10 @@ RUN BUN_COMPILE_TARGET=${KORTIX_AGENT_BUN_TARGET} bash scripts/build.sh
 
 # ---- CLI Stage ----
 # The same layered snapshots bake the `kortix` admin CLI (apps/cli) so every
-# in-sandbox agent can run `kortix cr open`, `secrets`, `sessions`, … We compile
+# in-sandbox agent can run `kortix cr open`, `secrets`, `sessions`, â€¦ We compile
 # it to a self-contained Linux binary here, the same way as the daemon above,
 # and the runner copies it to the path the snapshot builder reads
-# (apps/cli/dist/kortix → KORTIX_SNAPSHOT_CLI_BIN_PATH).
+# (apps/cli/dist/kortix â†’ KORTIX_SNAPSHOT_CLI_BIN_PATH).
 FROM oven/bun:${BUN_VERSION}-slim AS sandbox-cli
 
 WORKDIR /cli
@@ -80,7 +80,7 @@ ARG KORTIX_AGENT_BUN_TARGET=bun-linux-x64
 # Stamp the binary with the SAME version the API image bakes (the `runner` stage
 # below declares the identical ARGs, and every workflow that builds this image
 # passes both). Without this the sandbox-baked CLI compiled to the literal
-# fallback `dev` — production sandboxes reported `vdev` and nothing in the
+# fallback `dev` â€” production sandboxes reported `vdev` and nothing in the
 # system could tell that their CLI predated the API's route rename.
 #
 # Deliberately `<version>+<short-commit>`: the version alone repeats for every
@@ -95,7 +95,6 @@ ARG KORTIX_COMMIT=unknown
 COPY apps/cli ./apps/cli
 COPY packages/llm-catalog ./packages/llm-catalog
 COPY packages/manifest-schema ./packages/manifest-schema
-COPY packages/registry ./packages/registry
 COPY packages/sdk ./packages/sdk
 COPY packages/shared ./packages/shared
 COPY packages/starter ./packages/starter
@@ -119,7 +118,7 @@ COPY patches ./patches
 
 # MANIFESTS ONLY, ahead of the install. This layer is keyed on dependency
 # DECLARATIONS, so an ordinary source edit no longer invalidates `pnpm install`
-# — the single most expensive step in this file (82.5s native / 396.0s emulated
+# â€” the single most expensive step in this file (82.5s native / 396.0s emulated
 # on GitHub runners, measured on build-staging run 32293230397). The full
 # sources are copied AFTER the install, below.
 #
@@ -135,7 +134,6 @@ COPY packages/db/package.json ./packages/db/
 COPY packages/agent-tunnel/package.json ./packages/agent-tunnel/
 COPY packages/starter/package.json ./packages/starter/
 COPY packages/manifest-schema/package.json ./packages/manifest-schema/
-COPY packages/registry/package.json ./packages/registry/
 COPY packages/llm-gateway/package.json ./packages/llm-gateway/
 COPY packages/sdk/package.json ./packages/sdk/
 COPY packages/minimatch-compat/package.json ./packages/minimatch-compat/
@@ -144,15 +142,15 @@ COPY packages/minimatch-compat/package.json ./packages/minimatch-compat/
 # --shamefully-hoist flattens node_modules (no symlinks) so COPY works on all Docker versions.
 # Include devDeps because the API runs TypeScript source directly under Bun.
 # Also install the root project's deps (--filter kortix) so the migration runner
-# (node-pg-migrate, pg) is bundled in the image — self-hosters apply migrations
+# (node-pg-migrate, pg) is bundled in the image â€” self-hosters apply migrations
 # with `bun packages/db/scripts/migrate.ts up`. node-pg-migrate lives at the root
 # (not @kortix/db) to keep the db package's drizzle-orm resolution single.
 RUN corepack enable pnpm && \
     pnpm install --filter ./${SERVICE}... --filter ./apps/llm-gateway... --filter kortix --shamefully-hoist --prod=false --ignore-scripts
 
-# The Supabase CLI is a LOCAL-DEV tool. `--prod=false` above is load-bearing —
+# The Supabase CLI is a LOCAL-DEV tool. `--prod=false` above is load-bearing â€”
 # the API runs TypeScript directly and the migration runner (node-pg-migrate,
-# pg) sits in the ROOT devDependencies — but it also drags in `supabase`, whose
+# pg) sits in the ROOT devDependencies â€” but it also drags in `supabase`, whose
 # platform package vendors a ~50 MB Go binary. Nothing in apps/api or
 # packages/db imports it; only scripts/dev-local.sh and scripts/nuke-local.sh
 # invoke it, and neither runs in this image. It was carrying 14 high-severity
@@ -178,7 +176,6 @@ COPY packages/db ./packages/db
 COPY packages/agent-tunnel ./packages/agent-tunnel
 COPY packages/starter ./packages/starter
 COPY packages/manifest-schema ./packages/manifest-schema
-COPY packages/registry ./packages/registry
 COPY packages/llm-gateway ./packages/llm-gateway
 COPY packages/sdk ./packages/sdk
 
@@ -191,7 +188,7 @@ ARG SERVICE
 
 # Unified platform version (root VERSION file). Baked as a default; prod overrides
 # it with the clean X.Y.Z via the ECS task-def env. Deliberately SEPARATE from
-# SANDBOX_VERSION (which is load-bearing for snapshot content-hashing — changing
+# SANDBOX_VERSION (which is load-bearing for snapshot content-hashing â€” changing
 # that on every release would rebuild every project's sandbox image).
 ARG KORTIX_VERSION=dev
 # Exact source commit (baked once at build; never overridden at deploy, so it
@@ -234,9 +231,9 @@ COPY apps/sandbox/slack-cli ./apps/sandbox/slack-cli
 
 # Source the layered-snapshot builder fingerprints at RUNTIME. It hashes the
 # SOURCE (not the compiled binaries above, which `bun build --compile` produces
-# non-deterministically — see apps/api/src/snapshots/templates.ts), so these
+# non-deterministically â€” see apps/api/src/snapshots/templates.ts), so these
 # trees + package.json must be present in the image. Without them the Sandbox
-# panel throws "Failed to list sandbox templates: ENOENT … package.json".
+# panel throws "Failed to list sandbox templates: ENOENT â€¦ package.json".
 COPY apps/kortix-sandbox-agent-server/package.json ./apps/kortix-sandbox-agent-server/package.json
 COPY apps/kortix-sandbox-agent-server/scripts/build.sh ./apps/kortix-sandbox-agent-server/scripts/build.sh
 COPY apps/kortix-sandbox-agent-server/src ./apps/kortix-sandbox-agent-server/src

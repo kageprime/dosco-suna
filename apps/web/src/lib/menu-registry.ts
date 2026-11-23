@@ -64,7 +64,6 @@ import {
   MagnifyingGlassIcon as Search,
   ShieldCheckIcon as ShieldCheck,
   SlidersHorizontalIcon as SlidersHorizontal,
-  StorefrontIcon as Storefront,
   TargetIcon as Target,
   ChartBarIcon as ChartBar,
   CalendarBlankIcon as CalendarBlank,
@@ -491,8 +490,12 @@ export const menuRegistry: MenuItemDef[] = [
     group: 'navigation',
     showIn: ['commandPalette'],
     kind: 'navigate',
-    // Lands inside Workspace settings › Agents (`/admin/agents`).
-    href: '/workspaces/{projectId}/admin/agents',
+    // `/customize` redirects to the first capability tab the caller may open
+    // — Agents, for anyone who can read them — so this entry lands where the
+    // sidebar's Customize row lands (Marko, 2026-09-01: Customize is
+    // agent-centric). It is kept as the palette's href rather than `/agent`
+    // so the two cannot drift: one redirect owns the landing rule.
+    href: '/workspaces/{projectId}/customize',
     requiresProject: true,
     keywords: 'customize configure setup capabilities overview hub',
   },
@@ -818,17 +821,6 @@ export const menuRegistry: MenuItemDef[] = [
     requiresProject: true,
     keywords: 'apps deploy deployments serverless docker static hosting urls',
   },
-  {
-    id: 'proj-marketplace',
-    label: 'Marketplace',
-    icon: Storefront,
-    group: 'navigation',
-    showIn: ['commandPalette'],
-    kind: 'navigate',
-    href: '/workspaces/{projectId}/marketplace',
-    requiresProject: true,
-    keywords: 'marketplace skills plugins integrations registry tools extensions',
-  },
   // `proj-config-general`, `proj-config-sandbox`, `proj-config-feature-flags`
   // are gone with `/workspaces/<id>/config` (retired 2026-09-02). General,
   // Sandbox templates, Feature flags and Upgrades are Settings-overlay tabs
@@ -923,7 +915,7 @@ export const menuRegistry: MenuItemDef[] = [
   {
     // Kortix Capture is its own area: devices, install and its organization settings live under /capture.
     id: 'capture',
-    label: 'Capture',
+    label: 'Kortix Capture',
     icon: MonitorIcon,
     group: 'navigation',
     showIn: ['commandPalette'],
