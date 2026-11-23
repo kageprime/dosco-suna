@@ -507,7 +507,7 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
                   <MarketingButton variant="secondary" asChild className="hidden lg:inline-flex">
                     <Link href={CTA_LINK}>{signInLabel}</Link>
                   </MarketingButton>
-                  <MarketingButton variant="primary" asChild className="hit-area-y-3">
+                  <MarketingButton variant="accent" asChild className="hit-area-y-3">
                     <Link href={CTA_LINK} onClick={trackCtaSignup}>
                       {getStartedLabel}
                     </Link>

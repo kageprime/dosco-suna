@@ -25,6 +25,7 @@ const registry = JSON.parse(
     surface: string;
     check: Record<string, unknown>;
   }>;
+  frozenTrees?: Record<string, Record<string, string>>;
 };
 
 type Check = {
@@ -33,6 +34,7 @@ type Check = {
   text?: string;
   also?: string[];
   sha256?: string;
+  name?: string;
 };
 
 function read(rel: string): string {
@@ -81,6 +83,15 @@ function runCheck(check: Check): void {
     case 'sha256': {
       const normalized = read(rel).split('\r\n').join('\n');
       expect(createHash('sha256').update(normalized).digest('hex')).toBe(check.sha256);
+      return;
+    }
+    case 'hash-map': {
+      const map = registry.frozenTrees?.[check.name ?? ''] ?? {};
+      expect(Object.keys(map).length).toBeGreaterThan(0);
+      for (const [file, sha] of Object.entries(map)) {
+        const normalized = read(file).split('\r\n').join('\n');
+        expect({ file, sha256: createHash('sha256').update(normalized).digest('hex') }).toEqual({ file, sha256: sha });
+      }
       return;
     }
     default:

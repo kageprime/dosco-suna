@@ -111,9 +111,6 @@ export function FrameworkWindow({
         top: Math.max(0, first.offsetTop - 12),
         behavior: reduced ? 'auto' : 'smooth',
       });
-    // The observer fires once for the initial size in a browser. A synthetic
-    // DOM without it keeps the pane at its top instead of throwing.
-    if (typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(scroll);
     ro.observe(list);
     return () => ro.disconnect();

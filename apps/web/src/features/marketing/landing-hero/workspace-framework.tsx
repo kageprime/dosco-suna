@@ -113,9 +113,6 @@ export function WorkspaceFramework() {
   useEffect(() => {
     const el = root.current;
     if (!el) return;
-    // The observer is an enhancement: a synthetic or embedded DOM without it
-    // must render the walkthrough frozen rather than blank the page.
-    if (typeof IntersectionObserver === 'undefined') return;
     const io = new IntersectionObserver(([entry]) => setInView(Boolean(entry?.isIntersecting)), {
       threshold: 0.6,
     });
@@ -143,10 +140,6 @@ export function WorkspaceFramework() {
       return;
     }
     fill.pause();
-    // A cancelled animation rejects its `finished` promise. Nothing awaits it,
-    // and a synthetic DOM reports that rejection as an unhandled error (and
-    // fails the surrounding test), so consume it here.
-    void Promise.resolve(fill.finished).catch(() => undefined);
     fill.onfinish = () => go((index + 1) % TOTAL);
     timer.current = fill;
     return () => fill.cancel();

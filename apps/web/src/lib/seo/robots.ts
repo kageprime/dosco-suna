@@ -1,4 +1,3 @@
-import { renderLoopmaxxingRobotsTxt } from '@/features/marketing/one-prompt/seo';
 import { CANONICAL_ORIGIN } from '@kortix/ui/internal/lib/site-metadata';
 
 const CANONICAL_HOSTS = new Set(['dosco.live', 'www.dosco.live']);
@@ -53,10 +52,6 @@ User-agent: *
 Disallow: /
 `;
 
-/** The developer landing is its own canonical site, with its own sitemap. */
-const LOOPMAXXING_HOSTS = new Set(['loopmaxxing.sh', 'www.loopmaxxing.sh']);
-
 export function renderRobotsTxt(host: string | null): string {
-  if (host && LOOPMAXXING_HOSTS.has(host.replace(/:\d*$/, '').toLowerCase())) return renderLoopmaxxingRobotsTxt();
   return isCanonicalRobotsHost(host) ? CANONICAL_ROBOTS : NON_CANONICAL_ROBOTS;
 }

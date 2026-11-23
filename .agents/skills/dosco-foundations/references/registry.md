@@ -22,6 +22,9 @@ truth for `tests/unit/dosco-foundations.test.ts`; this file explains the rows.
   removed, retired route answers 410, no marketplace links on the home page.
 - `DSN-01 … DSN-03` — frozen home-page design, pinned by SHA-256 to the pre-sync
   `heroku-clean` state (`e8595227a3`).
+- `DSN-04` — the whole restored marketing and home surface (164 files) is pinned
+  in `frozenTrees.marketing`. A new marketing change must update that map in the
+  same PR; upstream merges may not alter it.
 
 ## Adding a foundation
 

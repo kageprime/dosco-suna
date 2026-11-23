@@ -78,6 +78,7 @@ mock.module('@/components/projects/project-pending-screen', () => ({
 const SECTION_STUB = () => null;
 for (const [moduleName, names] of [
   ['@/features/marketing/case-studies/case-studies', ['CaseStudies']],
+  ['@/features/marketing/landing-hero/sand-band-hero', ['SandBandHero']],
   ['@/features/marketing/landing-sections/faq-section', ['LandingFaqSection']],
   ['@/features/marketing/landing-sections/framework-band', ['FrameworkBand']],
   ['@/features/marketing/landing-sections/how-it-works-tabs', ['HowItWorksTabs']],

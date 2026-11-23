@@ -2,12 +2,9 @@ import { describe, expect, mock, test } from 'bun:test';
 import type { ComponentProps } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-// The hero reads the demo-dialog opener but never renders the dialog in this
-// test; the real provider would pull the whole qualifier modal into the module
-// graph.
-mock.module('@/features/contact/request-demo-provider', () => ({
-  useRequestDemo: () => () => {},
-}));
+// The pre-refactor Hero read auth for disabled CTAs. Keep this collaborator
+// stub so the same characterization runs against the base and the refactor.
+mock.module('@/features/providers/auth-provider', () => ({ useAuth: () => ({ user: null }) }));
 
 const { default: Hero, RivalEyebrow } = await import('./hero');
 const { ComplianceHero } = await import('./compliance/compliance-hero');
@@ -24,16 +21,15 @@ const eyebrow = (content: { lead: string; rivals: readonly { id: string; icon: s
   content as unknown as EyebrowContent;
 
 describe('hero characterization', () => {
-  test('Hero renders its shipped fold with the walkthrough band and both CTAs', () => {
+  test('Hero renders its shipped fold without CTA buttons', () => {
     const html = renderToStaticMarkup(<Hero />);
     expect(html).toContain('id="hero"');
-    expect(html).toContain('id="demo"');
-    expect(html).toContain('The production harness');
-    expect(html).toContain('for autonomous agent teams.');
+    expect(html).not.toContain('id="demo"');
+    expect(html).toContain('The production harness for autonomous agent teams.');
     expect(html).toContain('Give AI agents persistent workstations, real cloud computers');
     expect(html).toContain('Any model, your keys · Isolated cloud sandboxes · Governed review');
-    expect(html).toContain('Talk to sales');
-    expect(html).toContain('Start for free');
+    expect(html).not.toContain('Request demo');
+    expect(html).not.toContain('Get started');
   });
 
   test('RivalEyebrow renders both supported logos and the separator', () => {

@@ -66,9 +66,8 @@ const st = {
 // Social icons are served by the web app (apps/web/public/email), so a
 // self-hosted deployment links its own host.
 const SOCIALS = [
-  { href: 'https://x.com/kortix', icon: 'social-x.png', alt: 'X' },
-  { href: 'https://linkedin.com/company/kortix', icon: 'social-linkedin.png', alt: 'LinkedIn' },
-  { href: 'https://github.com/kortix-ai/CompanyOS', icon: 'social-github.png', alt: 'GitHub' },
+  { href: 'https://x.com/dosco', icon: 'social-x.png', alt: 'X' },
+  { href: 'https://linkedin.com/company/dosco', icon: 'social-linkedin.png', alt: 'LinkedIn' },
 ];
 
 // The web app's /download/<platform> route redirects to the App Store and

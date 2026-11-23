@@ -368,7 +368,7 @@ test('every mega-menu link points at a route, and a panel link click closes the 
 test('the drawer navigation marks a row pending on tap', async () => {
   await openDrawer();
   const drawer = () => container!.querySelector('.bg-background.fixed.inset-0');
-  const row = drawer()!.querySelector<HTMLAnchorElement>('a[href="/marketplace"]');
+  const row = drawer()!.querySelector<HTMLAnchorElement>('a[href="/download"]');
   expect(row).not.toBeNull();
   await act(async () => {
     lib.click(row!);

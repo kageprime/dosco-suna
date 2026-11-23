@@ -69,8 +69,9 @@ export const MOBILE_SHOTS = [
  * clipped at an arbitrary point mid-screenshot. That reads as a mistake rather
  * than a crop. Height-bound shows every phone whole.
  *
- * Borders, never shadows. The retired hero mobile surface framed these same
- * shots with `shadow-md`; that part is deliberately not carried over.
+ * Borders, never shadows. The `MobileSurface` treatment in `hero-surfaces.tsx`
+ * frames these same shots with `shadow-md`; that part is deliberately not
+ * carried over.
  */
 export function MobileCardImage() {
   return (

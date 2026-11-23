@@ -2,35 +2,554 @@
   "version": 1,
   "note": "One row per Dosco decision that must survive an upstream merge or pull. Add a row in the PR that introduces the decision. Run bun test tests/unit/dosco-foundations.test.ts after every merge.",
   "foundations": [
-    { "id": "SOV-01", "name": "E2B provider file exists", "status": "frozen", "surface": "apps/api/src/platform/providers/e2b.ts", "check": { "type": "file-exists", "path": "apps/api/src/platform/providers/e2b.ts" } },
-    { "id": "SOV-02", "name": "E2B domain resolver exists", "status": "frozen", "surface": "apps/api/src/platform/providers/e2b-domain.ts", "check": { "type": "file-exists", "path": "apps/api/src/platform/providers/e2b-domain.ts" } },
-    { "id": "SOV-03", "name": "E2B snapshot adapter exists", "status": "frozen", "surface": "apps/api/src/snapshots/providers/e2b.ts", "check": { "type": "file-exists", "path": "apps/api/src/snapshots/providers/e2b.ts" } },
-    { "id": "SOV-04", "name": "E2B remains a known sandbox provider", "status": "brand-locked", "surface": "apps/api/src/config.ts", "check": { "type": "contains", "path": "apps/api/src/config.ts", "text": "'e2b'" } },
-    { "id": "SOV-05", "name": "Drive storage uses the decoupled availability helper", "status": "behavior-locked", "surface": "apps/api/src/drives/volumes.ts", "check": { "type": "contains", "path": "apps/api/src/drives/volumes.ts", "text": "driveStorageAvailable" } },
-    { "id": "SOV-06", "name": "Project serializer keeps driveStorageAvailable", "status": "behavior-locked", "surface": "apps/api/src/projects/lib/serializers.ts", "check": { "type": "contains", "path": "apps/api/src/projects/lib/serializers.ts", "text": "driveStorageAvailable" } },
-    { "id": "SOV-07", "name": "Audio pipeline keeps sovereign providers", "status": "behavior-locked", "surface": "packages/llm-gateway/src/pipeline/audio.ts", "check": { "type": "contains", "path": "packages/llm-gateway/src/pipeline/audio.ts", "text": "inworld" } },
-    { "id": "SOV-08", "name": "Voice coordinator defaults to Xera", "status": "brand-locked", "surface": "packages/voice/src/name.ts", "check": { "type": "contains", "path": "packages/voice/src/name.ts", "text": "'Xera'" } },
-    { "id": "SOV-09", "name": "Heroku image pins the Bun version", "status": "frozen", "surface": "Dockerfile.heroku", "check": { "type": "contains", "path": "Dockerfile.heroku", "text": "SANDBOX_AGENT_BUN_VERSION=1.4.3" } },
-    { "id": "SOV-10", "name": "Vercel build prunes non-production routes", "status": "frozen", "surface": "apps/web/vercel.json", "check": { "type": "contains", "path": "apps/web/vercel.json", "text": "--debug-build-paths" } },
-    { "id": "SOV-11", "name": "Vercel build stays on one CPU", "status": "frozen", "surface": "apps/web/next.config.ts", "check": { "type": "contains", "path": "apps/web/next.config.ts", "text": "cpus: 1" } },
-
-    { "id": "BRD-01", "name": "No upstream repo link in marketing or home code", "status": "brand-locked", "surface": "apps/web/src/features/marketing, apps/web/src/components/home", "check": { "type": "excludes-tree", "path": "apps/web/src/features/marketing", "text": "github.com/kortix-ai", "also": ["apps/web/src/components/home"] } },
-    { "id": "BRD-02", "name": "English catalog bans Kortix workspace phrasing", "status": "brand-locked", "surface": "apps/web/translations/en.json", "check": { "type": "excludes", "path": "apps/web/translations/en.json", "text": "Kortix workspace" } },
-    { "id": "BRD-03", "name": "English catalog bans My Kortix", "status": "brand-locked", "surface": "apps/web/translations/en.json", "check": { "type": "excludes", "path": "apps/web/translations/en.json", "text": "My Kortix" } },
-    { "id": "BRD-04", "name": "English catalog bans Platinum compute claims", "status": "brand-locked", "surface": "apps/web/translations/en.json", "check": { "type": "excludes", "path": "apps/web/translations/en.json", "text": "Platinum compute" } },
-    { "id": "BRD-05", "name": "UI catalog bans Kortix workspace phrasing", "status": "brand-locked", "surface": "packages/ui/src/i18n/en.ts", "check": { "type": "excludes", "path": "packages/ui/src/i18n/en.ts", "text": "Kortix workspace" } },
-    { "id": "BRD-06", "name": "UI catalog bans My Kortix", "status": "brand-locked", "surface": "packages/ui/src/i18n/en.ts", "check": { "type": "excludes", "path": "packages/ui/src/i18n/en.ts", "text": "My Kortix" } },
-    { "id": "BRD-07", "name": "CLI installer points at the Dosco repository", "status": "brand-locked", "surface": "apps/web/src/app/(utility)/install/route.ts", "check": { "type": "contains", "path": "apps/web/src/app/(utility)/install/route.ts", "text": "kageprime/dosco-suna" } },
-    { "id": "BRD-08", "name": "Dosco wordmark asset exists", "status": "frozen", "surface": "apps/web/public/brand/dosco-wordmark-dark.png", "check": { "type": "file-exists", "path": "apps/web/public/brand/dosco-wordmark-dark.png" } },
-
-    { "id": "PRD-01", "name": "Marketplace API is retired", "status": "frozen", "surface": "apps/api/src/marketplace", "check": { "type": "file-absent", "path": "apps/api/src/marketplace" } },
-    { "id": "PRD-02", "name": "Marketplace registry package is removed", "status": "frozen", "surface": "packages/registry/package.json", "check": { "type": "file-absent", "path": "packages/registry/package.json" } },
-    { "id": "PRD-03", "name": "Retired route declares the marketplace 410", "status": "behavior-locked", "surface": "apps/api/src/routes/retired.ts", "check": { "type": "contains", "path": "apps/api/src/routes/retired.ts", "text": "/v1/marketplace" } },
-    { "id": "PRD-04", "name": "Home footer has no marketplace link", "status": "brand-locked", "surface": "apps/web/src/components/home/footer.tsx", "check": { "type": "excludes", "path": "apps/web/src/components/home/footer.tsx", "text": "/marketplace" } },
-    { "id": "PRD-05", "name": "Product menu has no marketplace link", "status": "brand-locked", "surface": "apps/web/src/components/home/product-menu.tsx", "check": { "type": "excludes", "path": "apps/web/src/components/home/product-menu.tsx", "text": "/marketplace" } },
-
-    { "id": "DSN-01", "name": "Home hero matches the approved Dosco design", "status": "frozen", "surface": "apps/web/src/features/marketing/hero.tsx", "check": { "type": "sha256", "path": "apps/web/src/features/marketing/hero.tsx", "sha256": "1d77774466f687356476a59cf6afde108128b1fa9bff4f76bae5c6bb9845b488" } },
-    { "id": "DSN-02", "name": "Home hero surfaces match the approved Dosco design", "status": "frozen", "surface": "apps/web/src/features/marketing/hero-surfaces.tsx", "check": { "type": "sha256", "path": "apps/web/src/features/marketing/hero-surfaces.tsx", "sha256": "fabbb83d49ddcf873f50aa891b03d1cb21f45cc18371136ed90b6df8a37b78ee" } },
-    { "id": "DSN-03", "name": "Landing hero matches the approved Dosco design", "status": "frozen", "surface": "apps/web/src/features/marketing/landing-hero/sand-band-hero.tsx", "check": { "type": "sha256", "path": "apps/web/src/features/marketing/landing-hero/sand-band-hero.tsx", "sha256": "874ee9fd03d572a943ea16727fcd88372c086cf8202aaf3d31ed7abef6d0cf79" } }
-  ]
+    {
+      "id": "SOV-01",
+      "name": "E2B provider file exists",
+      "status": "frozen",
+      "surface": "apps/api/src/platform/providers/e2b.ts",
+      "check": {
+        "type": "file-exists",
+        "path": "apps/api/src/platform/providers/e2b.ts"
+      }
+    },
+    {
+      "id": "SOV-02",
+      "name": "E2B domain resolver exists",
+      "status": "frozen",
+      "surface": "apps/api/src/platform/providers/e2b-domain.ts",
+      "check": {
+        "type": "file-exists",
+        "path": "apps/api/src/platform/providers/e2b-domain.ts"
+      }
+    },
+    {
+      "id": "SOV-03",
+      "name": "E2B snapshot adapter exists",
+      "status": "frozen",
+      "surface": "apps/api/src/snapshots/providers/e2b.ts",
+      "check": {
+        "type": "file-exists",
+        "path": "apps/api/src/snapshots/providers/e2b.ts"
+      }
+    },
+    {
+      "id": "SOV-04",
+      "name": "E2B remains a known sandbox provider",
+      "status": "brand-locked",
+      "surface": "apps/api/src/config.ts",
+      "check": {
+        "type": "contains",
+        "path": "apps/api/src/config.ts",
+        "text": "'e2b'"
+      }
+    },
+    {
+      "id": "SOV-05",
+      "name": "Drive storage uses the decoupled availability helper",
+      "status": "behavior-locked",
+      "surface": "apps/api/src/drives/volumes.ts",
+      "check": {
+        "type": "contains",
+        "path": "apps/api/src/drives/volumes.ts",
+        "text": "driveStorageAvailable"
+      }
+    },
+    {
+      "id": "SOV-06",
+      "name": "Project serializer keeps driveStorageAvailable",
+      "status": "behavior-locked",
+      "surface": "apps/api/src/projects/lib/serializers.ts",
+      "check": {
+        "type": "contains",
+        "path": "apps/api/src/projects/lib/serializers.ts",
+        "text": "driveStorageAvailable"
+      }
+    },
+    {
+      "id": "SOV-07",
+      "name": "Audio pipeline keeps sovereign providers",
+      "status": "behavior-locked",
+      "surface": "packages/llm-gateway/src/pipeline/audio.ts",
+      "check": {
+        "type": "contains",
+        "path": "packages/llm-gateway/src/pipeline/audio.ts",
+        "text": "inworld"
+      }
+    },
+    {
+      "id": "SOV-08",
+      "name": "Voice coordinator defaults to Xera",
+      "status": "brand-locked",
+      "surface": "packages/voice/src/name.ts",
+      "check": {
+        "type": "contains",
+        "path": "packages/voice/src/name.ts",
+        "text": "'Xera'"
+      }
+    },
+    {
+      "id": "SOV-09",
+      "name": "Heroku image pins the Bun version",
+      "status": "frozen",
+      "surface": "Dockerfile.heroku",
+      "check": {
+        "type": "contains",
+        "path": "Dockerfile.heroku",
+        "text": "SANDBOX_AGENT_BUN_VERSION=1.4.3"
+      }
+    },
+    {
+      "id": "SOV-10",
+      "name": "Vercel build prunes non-production routes",
+      "status": "frozen",
+      "surface": "apps/web/vercel.json",
+      "check": {
+        "type": "contains",
+        "path": "apps/web/vercel.json",
+        "text": "--debug-build-paths"
+      }
+    },
+    {
+      "id": "SOV-11",
+      "name": "Vercel build stays on one CPU",
+      "status": "frozen",
+      "surface": "apps/web/next.config.ts",
+      "check": {
+        "type": "contains",
+        "path": "apps/web/next.config.ts",
+        "text": "cpus: 1"
+      }
+    },
+    {
+      "id": "BRD-01",
+      "name": "No upstream repo link in marketing or home code",
+      "status": "brand-locked",
+      "surface": "apps/web/src/features/marketing, apps/web/src/components/home",
+      "check": {
+        "type": "excludes-tree",
+        "path": "apps/web/src/features/marketing",
+        "text": "github.com/kortix-ai",
+        "also": [
+          "apps/web/src/components/home"
+        ]
+      }
+    },
+    {
+      "id": "BRD-02",
+      "name": "English catalog bans Kortix workspace phrasing",
+      "status": "brand-locked",
+      "surface": "apps/web/translations/en.json",
+      "check": {
+        "type": "excludes",
+        "path": "apps/web/translations/en.json",
+        "text": "Kortix workspace"
+      }
+    },
+    {
+      "id": "BRD-03",
+      "name": "English catalog bans My Kortix",
+      "status": "brand-locked",
+      "surface": "apps/web/translations/en.json",
+      "check": {
+        "type": "excludes",
+        "path": "apps/web/translations/en.json",
+        "text": "My Kortix"
+      }
+    },
+    {
+      "id": "BRD-04",
+      "name": "English catalog bans Platinum compute claims",
+      "status": "brand-locked",
+      "surface": "apps/web/translations/en.json",
+      "check": {
+        "type": "excludes",
+        "path": "apps/web/translations/en.json",
+        "text": "Platinum compute"
+      }
+    },
+    {
+      "id": "BRD-05",
+      "name": "UI catalog bans Kortix workspace phrasing",
+      "status": "brand-locked",
+      "surface": "packages/ui/src/i18n/en.ts",
+      "check": {
+        "type": "excludes",
+        "path": "packages/ui/src/i18n/en.ts",
+        "text": "Kortix workspace"
+      }
+    },
+    {
+      "id": "BRD-06",
+      "name": "UI catalog bans My Kortix",
+      "status": "brand-locked",
+      "surface": "packages/ui/src/i18n/en.ts",
+      "check": {
+        "type": "excludes",
+        "path": "packages/ui/src/i18n/en.ts",
+        "text": "My Kortix"
+      }
+    },
+    {
+      "id": "BRD-07",
+      "name": "CLI installer points at the Dosco repository",
+      "status": "brand-locked",
+      "surface": "apps/web/src/app/(utility)/install/route.ts",
+      "check": {
+        "type": "contains",
+        "path": "apps/web/src/app/(utility)/install/route.ts",
+        "text": "kageprime/dosco-suna"
+      }
+    },
+    {
+      "id": "BRD-08",
+      "name": "Dosco wordmark asset exists",
+      "status": "frozen",
+      "surface": "apps/web/public/brand/dosco-wordmark-dark.png",
+      "check": {
+        "type": "file-exists",
+        "path": "apps/web/public/brand/dosco-wordmark-dark.png"
+      }
+    },
+    {
+      "id": "BRD-09",
+      "name": "Product menu has no upstream repo constant",
+      "status": "brand-locked",
+      "surface": "apps/web/src/components/home/product-menu.tsx",
+      "check": {
+        "type": "excludes",
+        "path": "apps/web/src/components/home/product-menu.tsx",
+        "text": "kortix-ai/CompanyOS"
+      }
+    },
+    {
+      "id": "BRD-10",
+      "name": "Product menu makes no open-source claim",
+      "status": "brand-locked",
+      "surface": "apps/web/src/components/home/product-menu.tsx",
+      "check": {
+        "type": "excludes",
+        "path": "apps/web/src/components/home/product-menu.tsx",
+        "text": "open source"
+      }
+    },
+    {
+      "id": "BRD-11",
+      "name": "Transactional email has no upstream GitHub link",
+      "status": "brand-locked",
+      "surface": "apps/api/src/lib/email/template.tsx",
+      "check": {
+        "type": "excludes",
+        "path": "apps/api/src/lib/email/template.tsx",
+        "text": "github.com/kortix-ai"
+      }
+    },
+    {
+      "id": "BRD-12",
+      "name": "English catalog makes no open-source claim",
+      "status": "brand-locked",
+      "surface": "apps/web/translations/en.json",
+      "check": {
+        "type": "excludes",
+        "path": "apps/web/translations/en.json",
+        "text": "open source"
+      }
+    },
+    {
+      "id": "BRD-13",
+      "name": "English catalog makes no self-host claim",
+      "status": "brand-locked",
+      "surface": "apps/web/translations/en.json",
+      "check": {
+        "type": "excludes",
+        "path": "apps/web/translations/en.json",
+        "text": "self-host"
+      }
+    },
+    {
+      "id": "BRD-14",
+      "name": "Home footer labels the Dosco home",
+      "status": "brand-locked",
+      "surface": "apps/web/src/components/home/footer.tsx",
+      "check": {
+        "type": "contains",
+        "path": "apps/web/src/components/home/footer.tsx",
+        "text": "aria-label=\"Dosco home\""
+      }
+    },
+    {
+      "id": "BRD-15",
+      "name": "English catalog has no host-yourself claim",
+      "status": "brand-locked",
+      "surface": "apps/web/translations/en.json",
+      "check": {
+        "type": "excludes",
+        "path": "apps/web/translations/en.json",
+        "text": "host yourself"
+      }
+    },
+    {
+      "id": "PRD-01",
+      "name": "Marketplace API is retired",
+      "status": "frozen",
+      "surface": "apps/api/src/marketplace",
+      "check": {
+        "type": "file-absent",
+        "path": "apps/api/src/marketplace"
+      }
+    },
+    {
+      "id": "PRD-02",
+      "name": "Marketplace registry package is removed",
+      "status": "frozen",
+      "surface": "packages/registry/package.json",
+      "check": {
+        "type": "file-absent",
+        "path": "packages/registry/package.json"
+      }
+    },
+    {
+      "id": "PRD-03",
+      "name": "Retired route declares the marketplace 410",
+      "status": "behavior-locked",
+      "surface": "apps/api/src/routes/retired.ts",
+      "check": {
+        "type": "contains",
+        "path": "apps/api/src/routes/retired.ts",
+        "text": "/v1/marketplace"
+      }
+    },
+    {
+      "id": "PRD-04",
+      "name": "Home footer has no marketplace link",
+      "status": "brand-locked",
+      "surface": "apps/web/src/components/home/footer.tsx",
+      "check": {
+        "type": "excludes",
+        "path": "apps/web/src/components/home/footer.tsx",
+        "text": "/marketplace"
+      }
+    },
+    {
+      "id": "PRD-05",
+      "name": "Product menu has no marketplace link",
+      "status": "brand-locked",
+      "surface": "apps/web/src/components/home/product-menu.tsx",
+      "check": {
+        "type": "excludes",
+        "path": "apps/web/src/components/home/product-menu.tsx",
+        "text": "/marketplace"
+      }
+    },
+    {
+      "id": "DSN-01",
+      "name": "Home hero matches the approved Dosco design",
+      "status": "frozen",
+      "surface": "apps/web/src/features/marketing/hero.tsx",
+      "check": {
+        "type": "sha256",
+        "path": "apps/web/src/features/marketing/hero.tsx",
+        "sha256": "1d77774466f687356476a59cf6afde108128b1fa9bff4f76bae5c6bb9845b488"
+      }
+    },
+    {
+      "id": "DSN-02",
+      "name": "Home hero surfaces match the approved Dosco design",
+      "status": "frozen",
+      "surface": "apps/web/src/features/marketing/hero-surfaces.tsx",
+      "check": {
+        "type": "sha256",
+        "path": "apps/web/src/features/marketing/hero-surfaces.tsx",
+        "sha256": "fabbb83d49ddcf873f50aa891b03d1cb21f45cc18371136ed90b6df8a37b78ee"
+      }
+    },
+    {
+      "id": "DSN-03",
+      "name": "Landing hero matches the approved Dosco design",
+      "status": "frozen",
+      "surface": "apps/web/src/features/marketing/landing-hero/sand-band-hero.tsx",
+      "check": {
+        "type": "sha256",
+        "path": "apps/web/src/features/marketing/landing-hero/sand-band-hero.tsx",
+        "sha256": "874ee9fd03d572a943ea16727fcd88372c086cf8202aaf3d31ed7abef6d0cf79"
+      }
+    },
+    {
+      "id": "DSN-04",
+      "name": "Restored marketing and home surface is unchanged",
+      "status": "frozen",
+      "surface": "apps/web/src/features/marketing, apps/web/src/components/home",
+      "check": {
+        "type": "hash-map",
+        "name": "marketing"
+      }
+    }
+  ],
+  "frozenTrees": {
+    "marketing": {
+      "apps/web/src/features/marketing/boundary-column.tsx": "38502bc05ef900ce5369e726ddccdf2d829f8d380db25e30474f619fc2220ffe",
+      "apps/web/src/features/marketing/careers/apply-modal.tsx": "dedf0336f58b8c000d819ecce7228206db77cb80196d9f8e51b96d3211650296",
+      "apps/web/src/features/marketing/careers/careers-page.tsx": "8963abbe66f5f92c3513f0e916da5617ae5e1960ad336a497fca7f1800250dcc",
+      "apps/web/src/features/marketing/careers/content.ts": "14e4f302438c6c72dc0b2ec0140bc252bd8663f216d06dedbb9d35dd0316fe9b",
+      "apps/web/src/features/marketing/case-studies/case-studies.tsx": "d5166975b4984dd774320630a31a56a027566244a1bfb6a61232bf43af82590c",
+      "apps/web/src/features/marketing/case-studies/content.ts": "44710743b67e27e3037098e1f31531c5dc9d2c41d8912d1ad55b48648fca3e1c",
+      "apps/web/src/features/marketing/code-panel.tsx": "f87787238c21ff96f263b163b7947477bdf0b73439cdbba3bec81b43a6afa520",
+      "apps/web/src/features/marketing/company-as-code/code-panel.tsx": "7b607bb2ebcfb6981313eefe848c01d972152d82c179455b8a3aadc5c5003866",
+      "apps/web/src/features/marketing/compliance/compliance-hero.tsx": "309db9471585526d08ac4e810439ba176a1ad91b665c654e06999eb3c1764477",
+      "apps/web/src/features/marketing/compliance/compliance-page.tsx": "04919c7ededa076401a1985a3a1441b627c434caed0e17044c20b23ed664513d",
+      "apps/web/src/features/marketing/compliance/content.ts": "4962c1a08afe6e4f748bbc12d321154f18faefcad3ccd9238a8fcce5d9f9b0a7",
+      "apps/web/src/features/marketing/compliance/topic-panels.tsx": "fa2e7195d85e6c63aab3af5d10f4163b28b8a77bfae219f2d9960d6bedc5e275",
+      "apps/web/src/features/marketing/component/capability-hero.tsx": "3138552bf765f8cd2203e406713b7e375fb48c5627973faba37ca85222c51a07",
+      "apps/web/src/features/marketing/component/pillars-band.tsx": "14e8589c2cd93aff146807555a452b21fd7bccdd30a8348f2c1843aeb08ff537",
+      "apps/web/src/features/marketing/component/public-route-helpers.tsx": "237ab995322521d4670d092f62a221ceb2ad7adc5ed3e994e9c4dbc3cbd86202",
+      "apps/web/src/features/marketing/component/section-header.tsx": "fcdd824f5a554efad13643b3d954e8d6532b4b4b31e673394bf577f16bec0ee5",
+      "apps/web/src/features/marketing/connectors/content.ts": "10489592f03e8d9dd7bd38753f27d0b9887bc5044bde7179fe04586edeaf6fba",
+      "apps/web/src/features/marketing/developers/cli.tsx": "d9a164fb5c192d57d00c07abeff50eae4de245aea3dbe5eecb30ada0cd89e9d7",
+      "apps/web/src/features/marketing/developers/closing.tsx": "4d21b4675671b924f501abaf716c6266f5d9448d10bf8ed43990d3155b86435c",
+      "apps/web/src/features/marketing/developers/connectors.tsx": "bfabc0719ac679e4c829ece33dc7291fae5f130d1651aa0b4037a0330325d5b0",
+      "apps/web/src/features/marketing/developers/content.ts": "f1a6e327355b33ecb67b11e844ac1283b65aad9c0c29260f7451506000af7b53",
+      "apps/web/src/features/marketing/developers/dither-field.tsx": "6e68ac42c97ead4d08b7f1a7ae281388b0da44256a9b0dcd3cdc2474aa9871d3",
+      "apps/web/src/features/marketing/developers/hero.tsx": "5403047244d86a64429d4e125bf42cfd91ef46d1568f477331a467862b0cfdc7",
+      "apps/web/src/features/marketing/developers/loop.tsx": "3319ad4d1f02852863869c8f75eb6dac0f9f21fef01ea6a9d2dc9d8d935e92b0",
+      "apps/web/src/features/marketing/developers/scale.tsx": "4d13c91d7d96bc639ec35bfc6261f20c95b3d6021a36ef668df6627942b133a8",
+      "apps/web/src/features/marketing/developers/shared.tsx": "03d2db27b6898cdf3b55ebf51dcc6b989615015c96e255ea3fa6283346ab051f",
+      "apps/web/src/features/marketing/developers/thesis.tsx": "2c0ab3f3c9298e6601da527dfa1504314404f82aa231a0da327ebe730848845f",
+      "apps/web/src/features/marketing/developers/use-developers-copy.ts": "91fe3c8927fbd69ece66ff4d0253e00b5e6f164e68e0357053907ab0c1699d0a",
+      "apps/web/src/features/marketing/download/card-images.tsx": "3dca1e49ddd31c897dc64aea58c9aec585662e069a49a262c6cd5dea831662d0",
+      "apps/web/src/features/marketing/download/close-button.tsx": "4d69cf564052db7b62ad699d3cc18f7b251e684e0f508d2de751f5b54273bc97",
+      "apps/web/src/features/marketing/download/content.ts": "c50ae742b996b573924f692e61d89608088d178782532dc688f0fc2166313881",
+      "apps/web/src/features/marketing/download/download-modal.tsx": "6ddc918445ccff97cbda8e01293dc7a73ae0c06ecad7cbcde942a94f638cdbb9",
+      "apps/web/src/features/marketing/download/download-options.tsx": "b2586f45a3f889ac7e24f95147f4e654467c73a494b2c8a2245adad860a56523",
+      "apps/web/src/features/marketing/download/mobile-qr-row.tsx": "d2a0a34c4d2ba717d39e71b82ea7e94dfa8eb8cf5678058a5ac44ee52486d9a9",
+      "apps/web/src/features/marketing/download/platform-card.tsx": "db7d99d429bbe7f8dfaf01ca513ed234d5e1e93fe48adb51fa338f93b43df0ac",
+      "apps/web/src/features/marketing/download/releases.ts": "7f4af00cfd275a4c28131133740c42749959a4a73bb558bc6f38bf8c4a752d9a",
+      "apps/web/src/features/marketing/download/terminal-block.tsx": "6d20c4dae6ded2d8919dc188e05971b961e5cd54dd28a4b0a829ac79dac0903d",
+      "apps/web/src/features/marketing/enterprise/content.ts": "2b4b4013917676b044feb1e95b4cbedad37f3fcc672ad4d1fb21dae5199c7fe2",
+      "apps/web/src/features/marketing/enterprise/enterprise-hero.tsx": "7c084c9658b0dbea4fd4cb65db529bb59cedb5b6d8a80b7e4c0af97794c79ad7",
+      "apps/web/src/features/marketing/enterprise/enterprise-page.tsx": "0fb1ebeb9af029d2b3f5a7c4aceff76418bf7a4b752d6b44a260ef5562e73260",
+      "apps/web/src/features/marketing/enterprise/parts.tsx": "01b980094c851962faa9d2f8d47b4941d640554ddf8841ed7a4b8335ae481a0a",
+      "apps/web/src/features/marketing/enterprise/sections.tsx": "07920b75599b14bed465f5a32fb4bf7aed66436f1b2247a0d9ecf9a958fe3589",
+      "apps/web/src/features/marketing/enterprise/topic-panels.tsx": "bcc77ff615029caf912ed177b869215fb8035eb39fde805a90fd5ba8de166e83",
+      "apps/web/src/features/marketing/faq/content.ts": "db62295ac216c345e65ca720db22a0a36a24a86fab4c339bf3e5edd43d0f0a01",
+      "apps/web/src/features/marketing/faq/faq-section.tsx": "840c7cf73e9960fed439a927f48297d664756271069b585881725589a19edc12",
+      "apps/web/src/features/marketing/faq/index.ts": "7f32a517d5ad96ad36c8b1cac0478fd6b0ba726c6e01a0a70baf53d2f828820b",
+      "apps/web/src/features/marketing/framework/content.ts": "320fd8668c121539459af800e51e49348d36941bba7850f4d2ad4472670ac3eb",
+      "apps/web/src/features/marketing/framework/framework-hero.tsx": "402101f7d93d5fb66d283e05121c3126b3663d999874ee11a8b9559f6f4c114c",
+      "apps/web/src/features/marketing/framework/framework-page.tsx": "7c20c8c8009caae845addd1521c3c7498c20079f55bfd2ee0589f1961be6ee8f",
+      "apps/web/src/features/marketing/framework/framework-panels.tsx": "3e0a8b5cd638e58db7ba906e9f223c1616e64aef3e3bde0a421eb2d1e814ce23",
+      "apps/web/src/features/marketing/framework/model.ts": "bcbc6f05ce977197aa1cc1463be3f501e7d92ef98cb92374495122fb4c96cbf6",
+      "apps/web/src/features/marketing/hero-background.tsx": "2eacd6d46621e8fd61943019dcb86b6d8eafd208b1f18d47ae5ba0b3e9337d98",
+      "apps/web/src/features/marketing/hero-surfaces.tsx": "fabbb83d49ddcf873f50aa891b03d1cb21f45cc18371136ed90b6df8a37b78ee",
+      "apps/web/src/features/marketing/hero.tsx": "1d77774466f687356476a59cf6afde108128b1fa9bff4f76bae5c6bb9845b488",
+      "apps/web/src/features/marketing/how-it-work/app-domains.ts": "3d3396e2d832778624cf1cba59bd1d06fdf570d1a933e67b714917964c74247a",
+      "apps/web/src/features/marketing/how-it-work/step/sand-globe.tsx": "6e3050f595f44f8692022b1f58a024250c39e9050c8eeda3ea8f961ab3eeb70e",
+      "apps/web/src/features/marketing/how-it-work/step/step-apps.tsx": "a4d4c74adf98bbe690e9f89bc1321c68f4ccee328c19a496b19495059ad69089",
+      "apps/web/src/features/marketing/how-it-work/step/step-computer.tsx": "83dcfbfbd44731635f91c3e3c7d3c2fafcaee57e21f74087754795daf3a68820",
+      "apps/web/src/features/marketing/how-it-work/step/step-connectors.tsx": "729ea9ee367f7593a8b9ccff60aa79e8465f1e40358c6b8db8f7ccfdee70dda9",
+      "apps/web/src/features/marketing/how-it-work/step/step-models.tsx": "63ed8de40159e68d7d47e15cdeb68fbf89344c214c8810d647a317035c625c28",
+      "apps/web/src/features/marketing/how-it-work/step/step-source-of-truth.tsx": "6109d0032aad71fe703e911a37803a77fb14c8fbb0fd6a8e18b135cd18449d38",
+      "apps/web/src/features/marketing/how-it-work/use-step-showcase.ts": "d55f51b681d629745cc44932f2009a9a3c245e836aa2ffe9e96ed4714fe7626a",
+      "apps/web/src/features/marketing/kit/announcement-bar.tsx": "076e29ff848d67ce27a5850e04131c080588aab1dd5ec4058597b73050f4f604",
+      "apps/web/src/features/marketing/kit/brand-glyph.tsx": "358c2ab2339b01425c34a6836234b68fec09b6b9da006bce48228f58318bb2a7",
+      "apps/web/src/features/marketing/kit/copy-row.tsx": "8a54da9dadc3e8494438fa30400878f57036286d5f1f36779ec09b07ec31f20b",
+      "apps/web/src/features/marketing/kit/dither-field.tsx": "f342947f3e4e2ff5ee25e8061639fa4dc2187bfbdaf55f03941429e3f86e3db5",
+      "apps/web/src/features/marketing/kit/english-only.ts": "d9c91fab9b7f710c179f5d61c153ac88f9c78b6f9eae3ff47dcda1257ce84663",
+      "apps/web/src/features/marketing/kit/feature-split.tsx": "80e8f8127c71d50def82bf35a67779c2d07e651b86341d94a32f12f5f133f91d",
+      "apps/web/src/features/marketing/kit/forest-scene.tsx": "bfb1e555a8fe1d3dd845e169176fd29ff2bd15a25f02a6a4fbad90797c430430",
+      "apps/web/src/features/marketing/kit/marketing-button.tsx": "8aba2d888756a35378707abd8a18ca4e9e343213ca906babfde99edc6d6d59df",
+      "apps/web/src/features/marketing/kit/page-frame.tsx": "5e14594dcc0864ba05e1f28b28f1d80014587bdd65e5781115942b184d49e737",
+      "apps/web/src/features/marketing/kit/seal.tsx": "2e715640a2a48487527626598e627aa1963a78152b140de9cdbc47b1e36da4d7",
+      "apps/web/src/features/marketing/kit/section-heading.tsx": "38a0d2853be54155f4ba89563d9ea9a03035fe32e6959e3e463cc2a8efd83377",
+      "apps/web/src/features/marketing/kit/section.tsx": "270d6fcd7e6b6dab184d4eb5fc9fcb9770f6f0569ccda071eb2effb8545cd0a2",
+      "apps/web/src/features/marketing/kit/site-switcher.tsx": "7aac86ab9b8c2a37c946bda313e93f40efbc71335b0cc9ac9c9eea82b0a15125",
+      "apps/web/src/features/marketing/kit/topic-tabs.tsx": "16fc2518f9e1e84f973340a6b727686073e941c92e36847126ba1fd1e01e8ffa",
+      "apps/web/src/features/marketing/kit/walkthrough.tsx": "6afbc21c26d7d24ee04f4dd20d2d2b950d305b3cbdce2cea5287f03cddd3e028",
+      "apps/web/src/features/marketing/kit/window.tsx": "cf62c30656ba3da778b0c47619f05f0556bdff167bf4db069f70ad33348f4e25",
+      "apps/web/src/features/marketing/landing/code-panels.tsx": "438ebf957760a8c5d29568b5031aa7c26cf15b9e96445cd131defc0bc7abaf97",
+      "apps/web/src/features/marketing/landing/content.ts": "deb9b5e92e0daddc1a56d887b39a6e8ffa152edec0143014780f773cd7b72077",
+      "apps/web/src/features/marketing/landing/cta-section.tsx": "af68ccb48936a6bfea3831da1c7a816d607a27ee32dc21ac05a4ae5f0ff96ffc",
+      "apps/web/src/features/marketing/landing/footer-cta.ts": "f9eea7afefef19cec2bb62986a0d6c951907d30c4fccc502e75faa48192c0a0d",
+      "apps/web/src/features/marketing/landing-hero/customize-glyph.tsx": "3fbd740632c1677c9acdbd8a37634ff0963f176727166373bee62fcfbe2fa530",
+      "apps/web/src/features/marketing/landing-hero/framework-window.tsx": "47001e2106f702b0de00cb83ebbfadf0708b946fcdaaeb8d4f3546d55f5d2815",
+      "apps/web/src/features/marketing/landing-hero/sand-band-hero.tsx": "874ee9fd03d572a943ea16727fcd88372c086cf8202aaf3d31ed7abef6d0cf79",
+      "apps/web/src/features/marketing/landing-hero/session-chat.tsx": "78e5642e10dbbfc9f7c540653270a51862ecea83a21a5d196c21e2555e21192e",
+      "apps/web/src/features/marketing/landing-hero/session-status-mark.tsx": "f425ced12ea85c6c3ef4afa9a925a8669182665e2e5d66b97d249ed5ce108df9",
+      "apps/web/src/features/marketing/landing-hero/session-window.tsx": "62b6c06c719ec47428901f19775b9b7432593c12aa5edbfa9fe3a93097513b32",
+      "apps/web/src/features/marketing/landing-hero/use-beats.ts": "c1e79d76e55c5c34e71ffe64cd35d104726fb0719dcda40903117fa5382af026",
+      "apps/web/src/features/marketing/landing-hero/workspace-framework.tsx": "05dec3172aa8a6f487f10de66c814fd976fb662b3667dd9c7c6abf9da8554d53",
+      "apps/web/src/features/marketing/landing-sections/content.ts": "6e3ebd6edcf6bd2a394fcaecfce3334b3beea5936e8396a62514a010f4193656",
+      "apps/web/src/features/marketing/landing-sections/dither-icon.prototype.tsx": "b1c6e86c8a5be0587781c13d81c4b068f1bab4fac2a0b75fd8836d0452edcc1d",
+      "apps/web/src/features/marketing/landing-sections/faq-section.tsx": "704369825177790a92161ee1dd92e158e80281a2a35e8f65a48f876b3c97f6a8",
+      "apps/web/src/features/marketing/landing-sections/framework-band.tsx": "55e28b1873204df6bf71ed2e5f413b90798a21ff85b7cee7b7b02af0ed9eb613",
+      "apps/web/src/features/marketing/landing-sections/how-it-works-tabs.tsx": "77ae2c57f0043aa12918c52161bff954664b5eee33b01f7126669a51ccb4e647",
+      "apps/web/src/features/marketing/landing-sections/pillars-band.tsx": "8bea8b3e9a4d8d24def0f28efe9eed8b1ef31187521db5f321213acc93ce329d",
+      "apps/web/src/features/marketing/landing-sections/problem-solution.tsx": "3076bb71216f01a16c3bf14b8468804e80c4a9cc6ba3f79363c8f7e82ce095fa",
+      "apps/web/src/features/marketing/landing-sections/trust-band.tsx": "a150b59e5a2d81de354f63c140e1e7da086de75884623423abeadc9f27c39d4b",
+      "apps/web/src/features/marketing/landing-sections/use-case-teams.ts": "0024b2415c7c49e1eef19668c2c47968216a866530aedf18cba6a3a9d4a3db03",
+      "apps/web/src/features/marketing/landing-sections/use-cases-band.tsx": "0a768ce0656bdfcd8b739f3df3b1af1515567e5cccc711bd087edcd4784105c6",
+      "apps/web/src/features/marketing/landing-sections/use-cases-section.tsx": "e8fbc9b29dc946fe5619e4ca5cb72d86c81f351f1ca6a70aaddbae7476ba1e71",
+      "apps/web/src/features/marketing/landing-sections/works-with-logos.ts": "363b1f1bb5d86a60f891746f236e0f7cc129a89f06bb271d520ce6bb268c126d",
+      "apps/web/src/features/marketing/landing-sections/works-with-strip.tsx": "a96a7fc6ceb152929fae39921db8c4a9f7afba6121598e0e3cc90fbb78bb07c5",
+      "apps/web/src/features/marketing/launch/content.ts": "c84cfc3907d4046f19c578f00531d45cf033375ff34df2e4860eccf8130868a5",
+      "apps/web/src/features/marketing/launch/launch-page.tsx": "93b6347011676ea6473f6d0d6e1b6bef18c57d7336c61d9e519ca06975be94f9",
+      "apps/web/src/features/marketing/multiplayer/model.ts": "b9caaf48b7b0536854c20378b753859224b494fdfa43bf98e5a80de5e55e0851",
+      "apps/web/src/features/marketing/multiplayer/multiplayer-hero.tsx": "1b3524ecd7994fc5a9b652efb137a1b6ccf1c2dc5575e57113cd6e85368ea772",
+      "apps/web/src/features/marketing/multiplayer/multiplayer-page.tsx": "5701a9a9d7d366cf14dfe725a70317a2af54d072efef24290d6ed45e30277356",
+      "apps/web/src/features/marketing/multiplayer/session-parts.tsx": "5e2d6adbe95088fdb20a2e3c1d228efd6c85adfdfdef2ca2edc8196961456716",
+      "apps/web/src/features/marketing/multiplayer/team-tabs.tsx": "0f78382d8c1bd578964f4374547147ee46854c8c47898e8a1ad66cd54f1bb299",
+      "apps/web/src/features/marketing/one-prompt/agent-sessions.ts": "a65345be24716b4794426c72b92d1e1621fcb8d12d886c27c38e5583887c3d1c",
+      "apps/web/src/features/marketing/one-prompt/ascii-hoop.tsx": "0b2c519644a8d0edeaaee11d7d21db56c9ceec714aedfa791e866dcb892124d4",
+      "apps/web/src/features/marketing/one-prompt/copy-guide.tsx": "a95437fb42372628ef74a17997e8f7e2f446d7fa908f470cea944a177da31bec",
+      "apps/web/src/features/marketing/one-prompt/engine-grid.tsx": "1fe477ebccf1e166fa3028da4113c11dfdb84da16137a1de5d438567fb86fb62",
+      "apps/web/src/features/marketing/one-prompt/factory-clip.tsx": "e2447afe945a5ad48643ac7c6c6e5500b3275a6112f3102cfea48eb09b22a51c",
+      "apps/web/src/features/marketing/one-prompt/factory-content.ts": "e1a96d4358905b1909147b6d4a01925b8ff5824e292e46c2e473e4f696013e47",
+      "apps/web/src/features/marketing/one-prompt/factory-home.tsx": "4ac3c19974e22048d762110eefff0958849ad0884cd24f5e30f999ead8207ec2",
+      "apps/web/src/features/marketing/one-prompt/factory-stack.tsx": "8c23f27ff7968a4301572cf4d0d92b3ae5b94b287729129fc2bc57170cb681aa",
+      "apps/web/src/features/marketing/one-prompt/hero-runs.ts": "df488dbced474a2257b951cb5aaf3138489bce178cface6dc683acfeff86fb4d",
+      "apps/web/src/features/marketing/one-prompt/hoop-palette.ts": "d33245eb89c826d1df59e11ac28501284c68fd8d172ee4c33b3b0f05e5813f6c",
+      "apps/web/src/features/marketing/one-prompt/hoop-scrollbar.tsx": "f1333c02fbbd7a94c4e4b90a3cbbbc25185b1159ebec2119ca5312af2056a71d",
+      "apps/web/src/features/marketing/one-prompt/hoop.tsx": "72479731378f9c0c7f3e9183a2fcca8a0a7f138b56a314ef21576737fb7ba97e",
+      "apps/web/src/features/marketing/one-prompt/loops-content.ts": "cdf627aea27b4dda3fd4be3a15d3342b74b05281fbaea72b2a1719913cd1a35e",
+      "apps/web/src/features/marketing/one-prompt/parts.tsx": "d9780c5dab73b4fd461f58bb093a18aec106169c5a4cdea672a181cedbb211fc",
+      "apps/web/src/features/marketing/one-prompt/plan-flow.tsx": "bfedd2a886c64577183e70b3340f6c02890b5c087217cdcef6a5b68b738cae04",
+      "apps/web/src/features/marketing/one-prompt/scenes.ts": "750ba822881b359925e959b79846bf1c2aad077067cc3041a53f9b017199c5e1",
+      "apps/web/src/features/marketing/one-prompt/section-art.tsx": "d1d69aad5dc5014995b54fc3a3b747d7dc5d028beedc502b09a19b4d75d5254f",
+      "apps/web/src/features/marketing/one-prompt/session-reel.tsx": "758f6339a4786b9c7dfdba3ec0bbdc547e84c45ca37da2c2869224e1a5ca0478",
+      "apps/web/src/features/marketing/open-source/content.ts": "bdf78fb9eac6a0edfff4e64ce2a0a4973f59494a8ef7f45e1b6f286b0eb22fdc",
+      "apps/web/src/features/marketing/pricing/compare-table.tsx": "fcdbf9ce9b71905663a5ed711bdc20d3fbf45cedd65f40ee6e5144c5940fd5f8",
+      "apps/web/src/features/marketing/pricing/credit-ladder.tsx": "e38484beae6aa747170cdf99958bdec042473908a5343c0676870cc04f04c843",
+      "apps/web/src/features/marketing/pricing/rolling-number.tsx": "46a59f155cf44dc895361aeb64176f9eef7fc0d5f2c963dad15b4adcc7b37330",
+      "apps/web/src/features/marketing/security-page/boundary-diagram.tsx": "1cf7dbbb0a4212b95b20d54ca6b00a90fc7766216b007454265cb646ccdc2813",
+      "apps/web/src/features/marketing/security-page/code-panel.tsx": "ea142fa6649f52db44ff29a2983ff4c8fdc25b96aac8dff07c3dec2b36311e48",
+      "apps/web/src/features/marketing/security-page/content.ts": "90a1412f57c22044eb4004a476a6ab00d6c9ccf8a8146427602dfc11f21a1b67",
+      "apps/web/src/features/marketing/security-page/layer-panels.tsx": "3adb47382dc358ca3c5a376dc73bc3f0231bd082bfcb4ab082faf66fe7be5c56",
+      "apps/web/src/features/marketing/security-page/model.ts": "ce4f63dff58adb5a70247dbf466739a273e7924d4e1a57d5de6a7a3ce31c850b",
+      "apps/web/src/features/marketing/security-page/parts.tsx": "9d93df80a36f5247ac231a4c91b9540890ed395de2f3c6bee2c6f29585175597",
+      "apps/web/src/features/marketing/security-page/security-hero.tsx": "27b699c9717f078315cda6adfee3a678dc0c5a76f18a809e5f77795c04340c99",
+      "apps/web/src/features/marketing/services/content.ts": "145b5e6b063e9963965e73bb57bb8dc4e3b7f8699ed1ffef4512c311087fa596",
+      "apps/web/src/features/marketing/services/sales-shell.tsx": "910a34cf67b164128b23de6cdafaa9a2723265086dd5a8c18679281f33c8fe2e",
+      "apps/web/src/features/marketing/sovereign/content.ts": "8590f6422abbdb61a110a530ae22c43336e02ea045b48edc26caae411fcc9bb1",
+      "apps/web/src/features/marketing/sovereign/sovereign-hero.tsx": "b4d8e23330e9352c6b54554b6a0f02bf06d95039c9aa5168c366b57e3e149182",
+      "apps/web/src/features/marketing/sovereign/sovereign-page.tsx": "111e828b5e4d12f41c2e1713602b3ea41a8b45de90cda7d8235e649c37a992a4",
+      "apps/web/src/features/marketing/sovereign/topic-panels.tsx": "ca57ed39ed3ce00956d76854ddfca53114a327c0986cdf2723719b6e87a91fb0",
+      "apps/web/src/features/marketing/surfaces/chat.tsx": "dffcd4616b2e774c16e28a8f4ef2ff1fd3bc68b179e95689e2f1261e0e33807f",
+      "apps/web/src/features/marketing/surfaces/content.ts": "d25b2c6d8fb18af0ee601216461d2597526a636a2e4d98fb137afec87e6222fe",
+      "apps/web/src/features/marketing/surfaces/frames.tsx": "294e8a083a5db5f9434346be6c50dfde83692093fa0b1ee788f1e845b2693ade",
+      "apps/web/src/features/marketing/surfaces/inline-code.tsx": "42f36164c7c6b396c7f5e13fa150544d7211e539d70d3db5019dbabb063fd06f",
+      "apps/web/src/features/marketing/surfaces/install-command.tsx": "de78d91d8616187598d919e6d6cf1ce2f56a0d20bc86f581b0ed820f0bfbce17",
+      "apps/web/src/features/marketing/surfaces/os-logos.tsx": "3178797da70b4f25fd8505a003031c6eb0d74e0a6826296f278242423b91a86a",
+      "apps/web/src/features/marketing/surfaces/panels.tsx": "36199f451c59b5099e030ae4bcc696fc65e131179b5c80974487c79db8b871cc",
+      "apps/web/src/features/marketing/surfaces/parts.tsx": "0ecefc162d48af799bcc542b6bd7cf1a13cb501383e3b47654b4301a4761301d",
+      "apps/web/src/features/marketing/surfaces/stages.tsx": "82080c28c026de1fe594da20329c214c0600d0c88d9af157e46242663f3d1166",
+      "apps/web/src/features/marketing/surfaces/surface-mark.tsx": "0bcea738d8789c1416fe27b4c9e87b7dbd31ae1285d5eb76ed686892744ebac8",
+      "apps/web/src/features/marketing/surfaces/surface-page.tsx": "f14eae7e170b65b3342577ae760a830c29e05c7f1aa606841703f35831c85cd8",
+      "apps/web/src/features/marketing/surfaces/surface-tabs.tsx": "8411fe2d6f3184f00ca48d1884640e48123534379454da05f07d81f04efa70ef",
+      "apps/web/src/features/marketing/white-label/content.ts": "8aa1e48023dbe7d5513169c14cf46b50979207fc609f37de4d65867b45f53569",
+      "apps/web/src/components/home/footer.tsx": "bae3c98c0bb7b538a960985ea52c105fc350fd0cbfc2e41d5e128bbcbe521b67",
+      "apps/web/src/components/home/navbar.tsx": "15efbde56c3672ee936e6538bf8f1495fd062ce6c2e925cc8662b985dcf8474a",
+      "apps/web/src/components/home/product-menu.tsx": "a6dc31b1fe572da02f14bcae87013e5e6be0df26e07a21a0f81fc913198ac903",
+      "apps/web/src/components/home/reveal.tsx": "81d6c51109c2d2dfdd733af9c7771f7565ebfc5a19455bf83fd70acfa61edd12",
+      "apps/web/src/components/home/theme-provider.tsx": "963b37b3fe7cb081bd92c11e9687b593ed81c81c13a73306634acd27e08d8170",
+      "apps/web/src/components/home/theme-toggle.tsx": "48ad9dbd0970948ba642942d2ccd7b1c2765fb773b1a556c3a6155ab0517c511"
+    }
+  }
 }
