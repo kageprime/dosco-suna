@@ -15,7 +15,6 @@ import {
   SidebarRail,
   useSidebar,
 } from '../../primitives/sidebar';
-import { Separator } from '../../primitives/separator';
 import { ComputerConnectModal } from '../../internal/tunnel/computer-connect';
 import { ConnectMcpModal } from '../../internal/layout/connect-mcp-modal';
 import { ProjectPromoCards } from './footer/project-promo-cards';
@@ -37,9 +36,8 @@ import { useFeatureFlag } from '@kortix/sdk/react';
 import { AppsModal } from '../../internal/apps-and-extensions/apps-modal';
 import { useAppsModalStore } from '../../internal/stores/apps-modal-store';
 import {
-  ChatCircleIcon,
   MagnifyingGlassIcon,
-  PlusIcon,
+  NavigationArrowIcon,
 } from '@phosphor-icons/react';
 import { UiLink as Link, useUiPathname } from '../../providers/ui-provider';
 import { SettingsReturnTracker, SidebarDrill } from './sidebar-drill';
@@ -50,7 +48,7 @@ import { SidebarGlyph as PanelLeft } from '../../icons/sidebar-toggle';
 import { Close } from '../../icons/close';
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
-const modSymbol = isMac ? '⌘' : 'Ctrl';
+const modSymbol = isMac ? 'Ã¢Å’Ëœ' : 'Ctrl';
 
 
 /**
@@ -64,7 +62,6 @@ export function ProjectSidebar({
   projectId,
   menu,
   onOpenSearch,
-  collapsible = 'offcanvas',
   onOpenDownloadApp,
 }: {
   projectId: string;
@@ -84,7 +81,6 @@ export function ProjectSidebar({
    * shows only the sidebar's own buttons.
    */
   menu?: ReactNode;
-  collapsible?: 'offcanvas' | 'icon' | 'none' | 'push';
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const t = useTranslations('sidebar');
@@ -128,11 +124,11 @@ export function ProjectSidebar({
   const newSessionRowBody = (
     <>
         <span className="shrink-0">
-          <PlusIcon className="size-4" />
+          <NavigationArrowIcon className="rotate-90" />
         </span>
-        <span className="font-medium group-data-[collapsible=icon]:hidden">{t('newSession')}</span>
+        <span>{t('newSession')}</span>
         {!isMobile && (
-          <KbdGroup className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 group-hover/menu-button:opacity-100 group-data-[collapsible=icon]:hidden">
+          <KbdGroup className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 group-hover/menu-button:opacity-100">
             <Kbd>{modSymbol}</Kbd>
             <Kbd>J</Kbd>
           </KbdGroup>
@@ -141,7 +137,7 @@ export function ProjectSidebar({
   );
 
   // Mobile: the sidebar is a Sheet, so leaving it open would stack the palette
-  // dialog on top of it. Dismiss it first — same order as opening a new
+  // dialog on top of it. Dismiss it first Ã¢â‚¬â€ same order as opening a new
   // session from here.
   const handleOpenSearch = useCallback(() => {
     if (isMobile) setOpenMobile(false);
@@ -197,29 +193,29 @@ export function ProjectSidebar({
     // The New agent modal mounts beside <Sidebar>, outside the mobile sheet.
     <NewAgentModalProvider projectId={projectId}>
     <Sidebar
-      collapsible={collapsible}
+      collapsible="offcanvas"
       variant="inset"
-      // No background here. This className lands on the sidebar CONTAINER —
-      // the square positioning box — while the visible card is the rounded
+      // No background here. This className lands on the sidebar CONTAINER Ã¢â‚¬â€
+      // the square positioning box Ã¢â‚¬â€ while the visible card is the rounded
       // inner box, which already carries `bg-sidebar`. Painting it twice put a
       // square fill behind the flyout card and it showed at all four corners.
       className="[scrollbar-width:'none'] [-ms-overflow-style:'none'] [&::-webkit-scrollbar]:hidden"
     >
       <SidebarHeader
-        className="kx-project-sidebar-header space-y-2 group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:space-y-0"
+        className="kx-project-sidebar-header space-y-2"
         data-peek={peek ? '' : undefined}
       >
         {/* Offcanvas everywhere: the whole panel slides, so the header keeps a
             single layout. Up to three controls on one 240px row, all 32px
             tall: the merged brand/switcher control, search, and the panel's
-            own collapse toggle — so the collapse control sits inside
+            own collapse toggle Ã¢â‚¬â€ so the collapse control sits inside
             the thing it collapses and the session header no longer has to
             carry a toggle while the panel is docked open.
 
             ONE control answers "who am I / where am I / where can I go". It was
             three: a `<Link>` carrying the Dosco mark fused to a separate
             dropdown trigger carrying the workspace name up here, plus the user
-            menu as a third control down in the footer — two of the three being
+            menu as a third control down in the footer Ã¢â‚¬â€ two of the three being
             dropdowns. The link is gone, because a control that is half
             navigation and half disclosure makes you guess which half you are
             pointing at. The workspace directory is now a second VIEW of this
@@ -227,19 +223,18 @@ export function ProjectSidebar({
             control below any more. */}
         <div
           className={cn(
-            'flex w-full items-center gap-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0',
+            'flex w-full items-center gap-1',
             !peek && 'kx-titlebar-row kx-titlebar-band-height kx-project-sidebar-titlebar',
           )}
         >
-          {menu ? (
-            <div className="min-w-0 group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
-              {menu}
-            </div>
-          ) : null}
-          <div className="ml-auto flex shrink-0 items-center gap-0.5 group-data-[collapsible=icon]:hidden">
-            {/* Search is the palette's only pointer-reachable entry point —
-                ⌘K is otherwise the whole discovery story. Renders on mobile
-                too: there is no keystroke to fall back on there. The ⌘K
+          {menu ? <div className="min-w-0">{menu}</div> : null}
+          <div className="ml-auto flex shrink-0 items-center gap-0.5">
+            {/* The switcher shrinks before either icon button, so the row
+                fits the 208px floor. The inbox is a row in the switcher's
+                menu (KRTX-1742), not a header control or a nav row. */}
+            {/* Search is the palette's only pointer-reachable entry point Ã¢â‚¬â€
+                Ã¢Å’ËœK is otherwise the whole discovery story. Renders on mobile
+                too: there is no keystroke to fall back on there. The Ã¢Å’ËœK
                 keycaps stay desktop-only: on a phone the press's sticky hover
                 showed a shortcut that cannot exist there (KRTX-2005). */}
             {onOpenSearch && (
@@ -263,8 +258,8 @@ export function ProjectSidebar({
                 variant="ghost"
                 size="icon"
                 onClick={handleOpenSearch}
-                // The palette's only pointer-reachable entry: the ≈26px ghost
-                // box clears the 44px floor with the vertical-only extension —
+                // The palette's only pointer-reachable entry: the Ã¢â€°Ë†26px ghost
+                // box clears the 44px floor with the vertical-only extension Ã¢â‚¬â€
                 // vertical-only because this titlebar row packs several
                 // controls side by side (KRTX-2004).
                 className="shrink-0 hit-area-y-3"
@@ -332,16 +327,14 @@ export function ProjectSidebar({
                     <SidebarMenuButton
                       disabled
                       aria-busy
-                      tooltip={t('newSession')}
-                      className="group/menu-button text-sidebar-foreground relative ring-1 ring-sidebar-border hover:ring-transparent group-data-[collapsible=icon]:ring-0"
+                      className="group/menu-button text-sidebar-foreground relative"
                     >
                       {newSessionRowBody}
                     </SidebarMenuButton>
                   ) : (
                     <SidebarMenuButton
                       asChild
-                      tooltip={t('newSession')}
-                      className="group/menu-button text-sidebar-foreground relative ring-1 ring-sidebar-border hover:ring-transparent group-data-[collapsible=icon]:ring-0"
+                      className="group/menu-button text-sidebar-foreground relative"
                     >
                       <Link href={uiRoutes().project(projectId)} prefetch onClick={handleNewSessionClick}>
                         {newSessionRowBody}
@@ -351,21 +344,6 @@ export function ProjectSidebar({
                 </SidebarMenuItem>
               )}
 
-              <SidebarMenuItem className="hidden group-data-[collapsible=icon]:block">
-                <SidebarMenuButton
-                  asChild
-                  tooltip={t('chats')}
-                  className="group/menu-button text-sidebar-foreground relative"
-                >
-                  <Link href={uiRoutes().project(projectId)} prefetch onClick={handleNewSessionClick}>
-                    <span className="shrink-0">
-                      <ChatCircleIcon />
-                    </span>
-                    <span className="group-data-[collapsible=icon]:hidden">{t('chats')}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
               {/* Customize, Apps, Files: order and
                   visibility come from "Customize sidebar". They moved up here
                   from the footer (Jay, 2026-10-12) to keep the footer short. */}
@@ -373,14 +351,15 @@ export function ProjectSidebar({
             </SidebarMenu>
           </SidebarGroup>
 
-          {/* Thin hairline separates the nav shortcuts from the session list —
-              two distinct zones, visually clear without hard borders. Hidden in
-              icon-collapsed mode where the session list is already hidden. */}
-          <Separator className="mx-2 opacity-40 group-data-[collapsible=icon]:hidden" />
-
-          <SidebarGroup className="min-h-0 flex-1 flex-col py-0 group-data-[collapsible=icon]:hidden" ref={sessionsGroupRef}>
+          <SidebarGroup className="min-h-0 flex-1 flex-col py-0" ref={sessionsGroupRef}>
             {chat ? (
               <>
+                {/* Channels and Direct messages are the core surface. The
+                    session list sits below them, closed by default: every
+                    session the viewer runs, threads included. */}
+                {/* Spaces on: Review and the Spaces are the only things up
+                    top. Everything else (Customize, Drive, Apps, Artifacts,
+                    the session list) waits in "More" at the bottom. */}
                 <div className="min-h-0 flex-1">
                   <ProjectSpacesNav projectId={projectId} />
                 </div>
@@ -395,48 +374,12 @@ export function ProjectSidebar({
             <SidebarMenu className="gap-1">
               {/* Status only, then the two connect rows (Jay, 2026-10-12).
                   Navigation lives in the top group. The ChatGPT connect row
-                  left the sidebar: it stays in Settings → Connected. */}
+                  left the sidebar: it stays in Settings Ã¢â€ â€™ Connected. */}
               <ProjectRepositoryDisconnectedAlert projectId={projectId} />
               <ProjectSandboxAlert projectId={projectId} />
               <ProjectManifestIssuesAlert projectId={projectId} />
               <SidebarBalanceWarning accountId={accountId} />
-              {/* Connect MCP over Connect your computer: one block, 1px seam,
-                  inner corners rounded-sm. Either row can be absent (dismissed,
-                  or a paired computer), so the corners come from the siblings
-                  that render and an empty block collapses. A plain <li>, not
-                  SidebarMenuItem: its `group/menu-item` would make hovering one
-                  row light up the other row's badge and dismiss. */}
-              <li className="not-has-[li]:hidden">
-                <SidebarMenu className="gap-px [&>li:not(:first-child)>[data-sidebar=menu-button]]:rounded-t-sm [&>li:not(:last-child)>[data-sidebar=menu-button]]:rounded-b-sm">
-                  <ProjectMcpNavItem onOpenConnect={() => setConnectMcpOpen(true)} />
-                  <ProjectComputerNavItem
-                    projectId={projectId}
-                    onOpenConnect={() => setComputerConnectOpen(true)}
-                  />
-                  {chrome ? (
-                    <ProjectChromeNavItem onOpenConnect={() => useAppsModalStore.getState().setOpen(true)} />
-                  ) : null}
-                </SidebarMenu>
-              </li>
-              {/* Last (Jay, 2026-09-03). It is the only paid call to action in
-                  this group, and above the nav rows it put a sell between the
-                  user and the links they actually use. */}
-              <SidebarUpgradeButton accountId={accountId} />
-              {/* Bottom expand toggle visible only in icon mode */}
-              <li className="hidden group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center pt-1">
-                <Hint side="right" label={t('expandSidebar')}>
-                  <Button
-                    type="button"
-                    aria-label={t('expandSidebar')}
-                    variant="ghost"
-                    size="icon"
-                    onClick={toggleSidebar}
-                    className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
-                  >
-                    <PanelLeft className="size-4" />
-                  </Button>
-                </Hint>
-              </li>
+              {chat ? null : connectRows}
             </SidebarMenu>
           </SidebarGroup>
         </SidebarDrill>

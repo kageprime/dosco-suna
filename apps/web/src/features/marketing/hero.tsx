@@ -1,57 +1,43 @@
 'use client';
 
-import { useRequestDemo } from '@/features/contact/request-demo-provider';
-import { HeroBackground, type HeroMediaMode } from '@/features/marketing/hero-background';
-import { MarketingButton } from '@/features/marketing/kit/marketing-button';
-import { HeroBand } from '@/features/marketing/kit/page-frame';
-import { WorkspaceFramework } from '@/features/marketing/landing-hero/workspace-framework';
-import { getLocalizedLandingContent } from '@/features/marketing/landing/content';
-import { useTranslations } from '@/i18n/use-translations';
-import { trackCtaSignup } from '@/lib/analytics/gtm';
-import { cn } from '@kortix/ui';
-import { HoverPrefetchLink } from '@kortix/ui/internal/components/hover-prefetch-link';
+import { WallpaperBackground } from '@/components/ui/wallpaper-background';
 import { Claude } from '@kortix/ui/internal/icons/claude';
 import { OpenAI } from '@kortix/ui/internal/icons/open-ai';
-import { type ReactNode, useState } from 'react';
+import { HeroSurfaces } from '@/features/marketing/hero-surfaces';
+import { getLocalizedLandingContent } from '@/features/marketing/landing/content';
+import { useTranslations } from '@/i18n/use-translations';
+import { type ReactNode } from 'react';
 
 /** `heroEyebrow.rivals[].icon` selects a logo by name at runtime, so it can't be
- *  statically resolved to a single import — this explicit map is the smallest set
+ *  statically resolved to a single import Ã¢â‚¬â€ this explicit map is the smallest set
  *  that covers it, kept in sync by hand with `landing/content.ts`. */
 const RIVAL_ICONS = { Claude, OpenAI } as const;
 
 /** Anchors the product against the two things a reader already knows, with
- *  their marks, so "CompanyOS" lands without a paragraph first. The hero reads
- *  left over the forest; `/launch` keeps the centred default. */
+ *  their marks, so "CompanyOS" lands without a paragraph first. */
 export function RivalEyebrow({
   content,
-  align = 'center',
 }: {
   content: ReturnType<typeof getLocalizedLandingContent>['heroEyebrow'];
-  align?: 'center' | 'left';
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   return (
     /* `justify-center` centres the wrapped rows as a unit; each rival stays its
        own inline `flex items-center` span, so the logo and its label never
        separate when the row wraps on a phone. */
-    <div
-      className={cn(
-        'kx-hero-text text-[color:var(--hero-ink-muted)] flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm',
-        align === 'center' ? 'justify-center text-center' : 'justify-start text-left',
-      )}
-    >
+    <div className="kx-hero-text text-muted-foreground flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 text-center text-sm">
       <span>{content.lead}</span>
       {content.rivals.map((r, i) => {
         const Glyph = RIVAL_ICONS[r.icon] as ((p: { className?: string }) => ReactNode) | undefined;
         return (
           <span key={r.id} className="flex items-center gap-1.5">
             {i > 0 && (
-              <span className="text-[color:var(--hero-ink-muted)] mr-1">
+              <span className="text-muted-foreground mr-1">
                 {tI18nComplete.raw('text6201111b83a0')}
               </span>
             )}
             {Glyph ? <Glyph className="size-4" /> : null}
-            <span className="text-[color:var(--hero-ink)] font-medium">{r.label}</span>
+            <span className="text-foreground font-medium">{r.label}</span>
           </span>
         );
       })}
@@ -62,87 +48,82 @@ export function RivalEyebrow({
 const Hero = () => {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const { hero, heroEyebrow } = getLocalizedLandingContent(tI18nComplete);
-  const openDemo = useRequestDemo();
-  /* The fold's ink follows the media, not the theme (color.md): scene mode
-     swaps in the scene-foreground pair, pending and fallback keep the theme
-     pair. The swap lives in globals.css under `data-hero-media='scene'`. */
-  const [media, setMedia] = useState<HeroMediaMode>('pending');
 
   /* The measure and the gutter belong on the same element, which is the rule the
-     navbar already follows (`mx-auto w-full max-w-7xl px-6`). Splitting them —
-     px-6 on the section, max-w-7xl on the inner containers — puts the padding
+     navbar already follows (`mx-auto w-full max-w-7xl px-6`). Splitting them Ã¢â‚¬â€
+     px-6 on the section, max-w-7xl on the inner containers Ã¢â‚¬â€ puts the padding
      outside the centred box instead of inside it, so once the viewport is wider
      than max-w-7xl the hero content starts 24px left of the navbar's and the H1
      hangs off the logo. Below max-w-7xl the two happen to agree, which is why it
      only shows on desktop. Every max-w-7xl container below therefore carries its
      own px-6. */
   return (
-    <section id="hero" className="relative">
-      {/* The forest copy block owns most of the fold and the navbar's dark
-          scope (`data-hero-band`). The copy sits on the seam with the band, so
-          the canopy reads as space above the claim and the walkthrough is the
-          first thing a scroll reveals. */}
+    /* The hero owns a full viewport and centres inside it. Before this it was
+       simply padded from the top, so on a tall display the block finished with
+       ~300px of dead space under it while the eyebrow still sat ~30px below the
+       navbar Ã¢â‚¬â€ top-heavy and cramped at the same time. `min-h-svh` plus
+       `justify-center` splits the slack above and below instead, and the top
+       padding is the floor that keeps the eyebrow clear of the fixed navbar
+       (67px) at every height. */
+    <section
+      id="hero"
+      className="relative flex min-h-svh flex-col justify-center overflow-hidden pt-32 pb-12 sm:pt-36 sm:pb-16 lg:pt-32 lg:pb-14"
+    >
       <div
-        data-hero-band
-        data-hero-media={media}
-        className="kx-hero-fold relative isolate flex min-h-[86svh] flex-col justify-end overflow-hidden pt-32 pb-14 sm:pt-36 sm:pb-18 lg:pb-20"
+        className="kx-hero-veil inset-0 z-0 hidden mask-t-from-70% lg:absolute"
+        aria-hidden
+        data-a11y-decorative
       >
-        {/* Dosco Forest & Sand architectural hero backdrop. */}
-        <div className="kx-hero-veil absolute inset-0 z-0" aria-hidden data-a11y-decorative>
-          <HeroBackground onMediaChange={setMedia} />
-        </div>
-
-        {/* Instrument Serif displays the headline (`font-serif`), Plus Jakarta
-            Sans carries the subtitle (`font-sans`), and JetBrains Mono anchors
-            the trust row (`font-mono`). */}
-        <div className="relative z-20 mx-auto w-full max-w-7xl px-6">
-          <RivalEyebrow content={heroEyebrow} align="left" />
-
-          <h1 className="kx-hero-text text-[color:var(--hero-ink)] mt-7 max-w-4xl font-serif text-[min(3rem,10.5vw)] leading-none font-normal tracking-tight text-balance [--kx-enter:70ms] sm:text-6xl lg:text-7xl">
-            <span className="block">{hero.title}</span>
-            <span className="text-[color:var(--hero-ink-muted)] block">{hero.titleMuted}</span>
-          </h1>
-
-          <p className="kx-hero-text text-[color:var(--hero-ink-muted)] mt-6 max-w-2xl font-sans text-base leading-relaxed text-pretty [--kx-enter:150ms] sm:text-lg">
-            {hero.sub}
-          </p>
-
-          {/* The dark scope flips the button pair for the forest: secondary
-              becomes a paper button and the accent keeps its emerald. */}
-          <div
-            className={cn(
-              'kx-hero-text mt-8 flex flex-wrap gap-2.5 [--kx-enter:230ms]',
-              media === 'scene' && 'dark',
-            )}
-          >
-            <MarketingButton
-              variant="secondary"
-              size="md"
-              className="hit-area-y-1"
-              onClick={() => openDemo({ source: 'landing-hero' })}
-            >
-              {hero.ctaSecondary}
-            </MarketingButton>
-            <MarketingButton variant="accent" size="md" className="hit-area-y-1" asChild>
-              <HoverPrefetchLink href="/auth" prefetch onClick={trackCtaSignup}>
-                {hero.ctaPrimary}
-              </HoverPrefetchLink>
-            </MarketingButton>
-          </div>
-
-          <p className="kx-hero-text text-[color:var(--hero-ink-muted)] mt-10 font-mono text-xs tracking-wide [--kx-enter:320ms]">
-            {hero.trust}
-          </p>
-        </div>
+        <WallpaperBackground wallpaperId="brandmark" />
       </div>
 
-      {/* Band row: hairlines top and bottom across the page, the walkthrough
-          and its caption between the rails. */}
-      <HeroBand caption={hero.caption} captionMuted={hero.captionMuted}>
-        <div id="demo" className="relative w-full max-w-304 scroll-mt-24">
-          <WorkspaceFramework />
+      {/* Six bands enter in reading order Ã¢â‚¬â€ eyebrow Ã¢â€ â€™ headline Ã¢â€ â€™ sub Ã¢â€ â€™ actions Ã¢â€ â€™
+          product Ã¢â€ â€™ trust Ã¢â‚¬â€ each with its own delay and its own distance. The
+          whole fold settles at ~1.11s: the frame starts before the trust line
+          but runs 820ms to its 620ms, so the two land together rather than the
+          frame landing after.
+
+          Delays are Tailwind arbitrary properties, not inline styles. Both the
+          keyframes and the reduced-motion fallback live in globals.css, and an
+          inline `animation-delay` would outrank the stylesheet and keep the
+          staged reveal alive after prefers-reduced-motion removed the travel.
+          Setting only `--kx-enter` leaves the stylesheet free to zero it. */}
+      <div className="relative z-20">
+        <div className="mx-auto w-full max-w-7xl px-6">
+          <RivalEyebrow content={heroEyebrow} />
+
+          {/* `mx-auto` on the measure is what actually centres the block: without
+              it `max-w-3xl` stays flush left inside max-w-7xl and only the glyphs
+              inside it centre, which leaves the headline off-axis on desktop. */}
+          <h1 className="kx-hero-text text-foreground mx-auto mt-5 max-w-3xl text-center text-4xl font-medium tracking-tight text-balance [--kx-enter:70ms] sm:text-5xl">
+            {hero.title}
+          </h1>
+
+          {/* One centred column under the headline. It was a left sub / right
+              actions row while the hero owned CTAs; with those gone the row had
+              nothing to justify against. */}
+          <div className="mt-6 flex flex-col items-center gap-5">
+            <p className="kx-hero-text text-muted-foreground mx-auto max-w-xl text-center text-base leading-relaxed text-pretty [--kx-enter:150ms] sm:text-lg">
+              {hero.sub}
+            </p>
+
+
+          </div>
         </div>
-      </HeroBand>
+
+        <div
+          id="demo"
+          className="kx-hero-frame relative z-10 mx-auto mt-10 max-w-7xl scroll-mt-24 px-6 [--kx-enter:290ms] sm:mt-12 lg:mt-8"
+        >
+          <HeroSurfaces />
+        </div>
+
+        {/* 490ms + the 620ms text ramp lands this at 1110ms Ã¢â‚¬â€ the exact moment
+            the frame (290ms + 820ms) finishes, so the fold closes on one beat. */}
+        <p className="kx-hero-text text-muted-foreground mx-auto mt-6 max-w-7xl px-6 text-center font-mono text-[11px] tracking-wide [--kx-enter:490ms]">
+          {hero.trust}
+        </p>
+      </div>
     </section>
   );
 };

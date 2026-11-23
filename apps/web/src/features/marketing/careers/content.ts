@@ -1,154 +1,137 @@
 /**
  * `/careers` copy. The page is a job board, not an essay: the openings, the
- * bar, and how to apply. Nothing else belongs here — the thesis lives on
+ * bar, and how to apply. Nothing else belongs here Ã¢â‚¬â€ the thesis lives on
  * `/about`.
  *
  * Plain English lives here, not in `apps/web/translations/*.json`, so the copy
  * can iterate before paying the 8-locale parity gate (`pnpm i18n:translations`).
  *
- * Voice rules: the `kortix-brand` skill. The bar is distilled from `CLAUDE.md`.
+ * Voice rules: the `Dosco-brand` skill.
  *
  * ACCURACY GATE for this page specifically:
  *  - INVENT NOTHING about employment. No salary band, no equity, no benefits,
- *    no headcount, no remote policy. The only two locations are **Belgrade,
- *    Serbia** and **San Francisco**; every opening is open in both, and no
- *    third location may be added.
- *  - The three openings (FDE, GTM and MTS, 2026-10-28) are the founder's own list. Keep each to
- *    one broad line: the founder wants them open, not specified. A spec belongs in a conversation.
+ *    no headcount, no remote policy beyond the locations below.
+ *    Locations (founder, 2026-11-19): Founding GTM is San Francisco, New York
+ *    or US remote; MTS and FDE are Belgrade, San Francisco, New York or remote.
+ *  - The three openings (Founding GTM, MTS, FDE, 2026-11-18) are the founder's own list and
+ *    order. The board names the role and its location only: no summary line, no role pages,
+ *    no spec. A spec belongs in a conversation.
  *  - Applications go through `ApplyModal`, which posts to the same
  *    `/api/demo-request` pipeline as "Book your demo". There is no ATS and no
- *    jobs@ alias — do not invent one. The three direct links (email, X,
+ *    jobs@ alias Ã¢â‚¬â€ do not invent one. The three direct links (email, X,
  *    LinkedIn) are the ones this page already carried.
  *  - There is NO file upload on that pipeline (JSON in, one blob into
  *    `contact_forms`). Ask for a LINK to a CV or portfolio. Never promise an
  *    attachment.
  *  - Competitor names, exactly: **Claude Cowork** (one word, lowercase `w`) and
  *    **ChatGPT Work** (two words).
- *  - Never name a licence — "open source" and stop. Never claim a certification.
+ *  - Never name a licence Ã¢â‚¬â€ "open source" and stop. Never claim a certification.
  *  - No culture-page filler. If a sentence restates the one above it, cut it.
  */
 
-/** The only two locations. Every opening is open in both. */
-export const LOCATIONS = 'Belgrade · San Francisco' as const;
-
 export const hero = {
   title: 'Open positions.',
-  lead: 'Belgrade, Serbia and San Francisco.',
-  description: 'An extremely small, talent-dense team. Every opening is open in both cities.',
+  lead: 'Belgrade, New York, San Francisco or remote.',
+  description: 'A small team building the open-source CompanyOS.',
   roleLabel: 'Role',
-  summaryLabel: 'Summary',
+  locationLabel: 'Location',
   ctaPrimary: 'Apply',
   ctaSecondary: 'Why Dosco exists',
   ctaSecondaryHref: '/about',
 } as const;
 
-/** The board: the role, its full name, one open line and the cities. Deliberately broad — the
- *  rest is a conversation. */
+/** The board: the role, its full name and its location. Deliberately broad Ã¢â‚¬â€ the rest is a
+ *  conversation. */
 export const openings = [
   {
-    id: 'fde',
-    name: 'FDE',
-    full: 'Forward Deployed Engineer',
-    summary: 'Work with customers to put Dosco to work across their company.',
-  },
-  {
     id: 'gtm',
-    name: 'GTM',
-    full: 'Go-to-market',
-    summary: 'Tell the story, find the companies that need it, and win them.',
+    name: 'Founding GTM',
+    full: 'Enterprise & Partners',
+    location: 'SF, NYC or US remote',
   },
   {
     id: 'mts',
     name: 'MTS',
     full: 'Member of Technical Staff',
-    summary: 'Build Dosco itself, anywhere in the stack.',
+    location: 'Belgrade, SF, NYC, Remote',
+  },
+  {
+    id: 'fde',
+    name: 'FDE',
+    full: 'Forward Deployed Engineer',
+    location: 'Belgrade, SF, NYC, Remote',
   },
 ] as const;
 
 export const bar = {
   title: 'What we look for.',
   titleMuted: 'Ownership, agency and skill.',
-  lead: 'An extremely small, talent-dense team. Everyone can AGI-max now, so the one chokepoint left is judgement. Either you are performing or you are not.',
+  lead: 'Each person owns a part of the product end to end.',
   items: [
     {
-      id: 'prolonged',
-      title: 'Prolonged ownership',
-      body: 'You owned something for a long stretch. Whether it worked out matters less than the stretch.',
+      id: 'ownership',
+      title: 'Ownership',
+      body: 'You take a problem from the first report to a fix in production, and you stay with it after the release.',
     },
     {
-      id: 'room',
-      title: 'The room test',
-      body: 'I hand you something at a high level, walk out, come back, and find it done well. Ideally better than I would have done it.',
+      id: 'agency',
+      title: 'Agency',
+      body: 'You find the next step without a ticket. You ask for help when you need it.',
     },
     {
-      id: 'end-to-end',
-      title: 'End to end',
-      body: 'From "we have a problem" to "nobody has to think about this again". If someone still has to track it, you did not own it.',
-    },
-    {
-      id: 'not-done',
-      title: 'It is not done if',
-      body: 'it is not implemented, the implementation is ugly, it is not documented, nobody can discover it, or you cannot market it.',
-    },
-    {
-      id: 'problem-first',
-      title: 'Problem first',
-      body: '"Move from X to Y" is a solution you pre-committed to. Slow, flaky, breaks for this one customer — those are problems.',
-    },
-    {
-      id: 'prove',
-      title: 'Prove it',
-      body: 'Not "the tests pass". Prove it, then confirm it is live in production, which is not the same as merged.',
-    },
-    {
-      id: 'no-net',
-      title: 'No PMs, no QA',
-      body: 'Ask for help, ask questions, redo things. Never quietly assume someone else will catch the part you skipped.',
+      id: 'skill',
+      title: 'Skill',
+      body: 'Your past work shows it: products, companies, open-source projects or tools you built for yourself.',
     },
   ],
 } as const;
 
 export const apply = {
-  title: 'Tell me what you have worked on.',
-  titleMuted: 'I read every application.',
-  body: 'One open question, no form to game. Products, campaigns, companies, things you built for yourself — whatever you want me to know. It comes straight to our recruiting team.',
+  title: 'Tell us what you have built.',
+  titleMuted: 'We read every application.',
+  body: 'One open question and a link to your work. No cover letter.',
   cta: 'Apply',
-  directLead: 'Or write to us directly:',
+  directLead: 'Or write to Marko directly:',
   links: [
-    { id: 'email', label: 'support@dosco.live', href: 'mailto:support@dosco.live', external: false },
-    { id: 'web', label: 'dosco.live', href: 'https://dosco.live', external: true },
+    { id: 'email', label: 'marko@Dosco.com', href: 'mailto:marko@Dosco.com', external: false },
+    { id: 'x', label: '@markokraemer', href: 'https://x.com/markokraemer', external: true },
+    {
+      id: 'linkedin',
+      label: 'linkedin.com/in/markokraemer',
+      href: 'https://linkedin.com/in/markokraemer',
+      external: true,
+    },
   ],
 } as const;
 
-/** Copy for `ApplyModal`. Short, and one open question carries the weight. */
+/** Copy for `ApplyModal`. */
 export const applyForm = {
   title: 'Apply to Dosco',
-  description: 'Short. One open question does the work.',
+  description: 'One open question and a link to your work.',
   areaLabel: 'Which opening',
   areaPlaceholder: 'Pick the closest one',
   areaOptions: [
-    'FDE — Forward Deployed Engineer',
-    'GTM — Go-to-market',
-    'MTS — Member of Technical Staff',
-    'Not sure — read it and tell me',
+    'Founding GTM Ã¢â‚¬â€ Enterprise & Partners',
+    'MTS Ã¢â‚¬â€ Member of Technical Staff',
+    'FDE Ã¢â‚¬â€ Forward Deployed Engineer',
+    'Not sure yet',
   ],
   nameLabel: 'Name',
   namePlaceholder: 'Your name',
   emailLabel: 'Email',
   emailPlaceholder: 'you@wherever.com',
   ownedLabel: 'What have you worked on?',
-  ownedPlaceholder:
-    'Products, campaigns, companies, things you built for yourself. Whatever you want to tell me.',
+  ownedPlaceholder: 'Products, companies, projects. Whatever you want us to know.',
   linkLabel: 'Link to a CV, portfolio, GitHub or profile',
   /* No attachment: the lead pipeline takes JSON only. Ask for a link. */
   linkPlaceholder: 'https://',
   submit: 'Send application',
   submitting: 'Sending',
   doneTitle: 'Application received.',
-  doneBody: 'It lands in the inbox I read every day. If it is a fit, you hear from me directly.',
+  doneBody: 'We read every application. If it is a fit, we reply by email.',
   doneCta: 'Done',
   errors: {
-    email: 'Enter an email address I can reply to.',
+    email: 'Enter an email address we can reply to.',
     owned: 'Tell me what you have worked on.',
     area: 'Pick the closest opening.',
   },
@@ -156,7 +139,7 @@ export const applyForm = {
 
 export function getLocalizedCareersContent(tI18nComplete: UiTranslator) {
   return localizeUiCatalog(
-    { LOCATIONS, hero, openings, bar, apply, applyForm },
+    { hero, openings, bar, apply, applyForm },
     tI18nComplete,
     MARKETING_SECONDARY_TRANSLATION_KEYS,
   );

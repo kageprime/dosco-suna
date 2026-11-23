@@ -18,7 +18,7 @@ const COPIED_MS = 2000;
 const noSubscription = () => () => {};
 
 /**
- * The deployment this page is served from: a prompt copied on dev.kortix.com or
+ * The deployment this page is served from: a prompt copied on dev.Dosco.com or
  * localhost points at that deployment's own guide, so it is testable there.
  * The server render uses production; the browser corrects it after hydration.
  */

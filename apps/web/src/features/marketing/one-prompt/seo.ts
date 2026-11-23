@@ -19,7 +19,7 @@ const FACTORY = { id: 'software-factory', name: 'Software Factory' };
 export const LOOPMAXXING_TITLE = 'Loopmaxxing: a software factory for your repo in 1 prompt';
 export const LOOPMAXXING_DESCRIPTION =
   'Agents that work on your repo and tools in the cloud, 24/7, without you prompting them. One prompt sets them up on Claude Code, Codex or any API key.';
-/** The hero at 1200×630. Served by loopmaxxing.sh itself: the middleware skips images. */
+/** The hero at 1200Ãƒâ€”630. Served by loopmaxxing.sh itself: the middleware skips images. */
 export const LOOPMAXXING_OG_IMAGE = {
   url: `${LOOPMAXXING_ORIGIN}/media/loopmaxxing/og.png`,
   width: 1200,
@@ -80,10 +80,10 @@ export function loopmaxxingJsonLd() {
           'Agents start on triggers: schedules, webhooks, Slack messages, issues, errors and merges.',
           'One isolated cloud sandbox per agent session.',
           'Pull requests, posts and outbound messages wait for a person until you allow more.',
-          'Everything it adds is files in your repository, kortix.yaml first.',
+          'Everything it adds is files in your repository, Dosco.yaml first.',
           'Runs on your Claude or ChatGPT subscription or any API key.',
         ],
-        sameAs: [REFERENCE_REPOS[FACTORY.id]],
+        sameAs: [REFERENCE_REPOS[FACTORY.id], 'https://github.com/Dosco-ai/CompanyOS'],
         publisher: { '@id': ORGANIZATION_ID },
         isPartOf: { '@id': `${siteMetadata.url}/#software` },
       },
@@ -148,6 +148,7 @@ export function renderLoopmaxxingLlmsTxt(): string {
     `- [Software Factory template](${REFERENCE_REPOS[FACTORY.id]}): the public template the agent adapts`,
     `- [Dosco](${siteMetadata.url}/): the platform the agents run on (${siteMetadata.url}/llms.txt)`,
     `- [Pricing](${siteMetadata.url}/pricing)`,
+    `- [Source code](https://github.com/Dosco-ai/CompanyOS)`,
     '',
   ].join('\n');
 }
