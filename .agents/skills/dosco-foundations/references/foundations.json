@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "note": "One row per Dosco decision that must survive an upstream merge or pull. Add a row in the PR that introduces the decision. Run bun test tests/unit/dosco-foundations.test.ts after every merge.",
+  "foundations": [
+    { "id": "SOV-01", "name": "E2B provider file exists", "status": "frozen", "surface": "apps/api/src/platform/providers/e2b.ts", "check": { "type": "file-exists", "path": "apps/api/src/platform/providers/e2b.ts" } },
+    { "id": "SOV-02", "name": "E2B domain resolver exists", "status": "frozen", "surface": "apps/api/src/platform/providers/e2b-domain.ts", "check": { "type": "file-exists", "path": "apps/api/src/platform/providers/e2b-domain.ts" } },
+    { "id": "SOV-03", "name": "E2B snapshot adapter exists", "status": "frozen", "surface": "apps/api/src/snapshots/providers/e2b.ts", "check": { "type": "file-exists", "path": "apps/api/src/snapshots/providers/e2b.ts" } },
+    { "id": "SOV-04", "name": "E2B remains a known sandbox provider", "status": "brand-locked", "surface": "apps/api/src/config.ts", "check": { "type": "contains", "path": "apps/api/src/config.ts", "text": "'e2b'" } },
+    { "id": "SOV-05", "name": "Drive storage uses the decoupled availability helper", "status": "behavior-locked", "surface": "apps/api/src/drives/volumes.ts", "check": { "type": "contains", "path": "apps/api/src/drives/volumes.ts", "text": "driveStorageAvailable" } },
+    { "id": "SOV-06", "name": "Project serializer keeps driveStorageAvailable", "status": "behavior-locked", "surface": "apps/api/src/projects/lib/serializers.ts", "check": { "type": "contains", "path": "apps/api/src/projects/lib/serializers.ts", "text": "driveStorageAvailable" } },
+    { "id": "SOV-07", "name": "Audio pipeline keeps sovereign providers", "status": "behavior-locked", "surface": "packages/llm-gateway/src/pipeline/audio.ts", "check": { "type": "contains", "path": "packages/llm-gateway/src/pipeline/audio.ts", "text": "inworld" } },
+    { "id": "SOV-08", "name": "Voice coordinator defaults to Xera", "status": "brand-locked", "surface": "packages/voice/src/name.ts", "check": { "type": "contains", "path": "packages/voice/src/name.ts", "text": "'Xera'" } },
+    { "id": "SOV-09", "name": "Heroku image pins the Bun version", "status": "frozen", "surface": "Dockerfile.heroku", "check": { "type": "contains", "path": "Dockerfile.heroku", "text": "SANDBOX_AGENT_BUN_VERSION=1.4.3" } },
+    { "id": "SOV-10", "name": "Vercel build prunes non-production routes", "status": "frozen", "surface": "apps/web/vercel.json", "check": { "type": "contains", "path": "apps/web/vercel.json", "text": "--debug-build-paths" } },
+    { "id": "SOV-11", "name": "Vercel build stays on one CPU", "status": "frozen", "surface": "apps/web/next.config.ts", "check": { "type": "contains", "path": "apps/web/next.config.ts", "text": "cpus: 1" } },
+
+    { "id": "BRD-01", "name": "No upstream repo link in marketing or home code", "status": "brand-locked", "surface": "apps/web/src/features/marketing, apps/web/src/components/home", "check": { "type": "excludes-tree", "path": "apps/web/src/features/marketing", "text": "github.com/kortix-ai", "also": ["apps/web/src/components/home"] } },
+    { "id": "BRD-02", "name": "English catalog bans Kortix workspace phrasing", "status": "brand-locked", "surface": "apps/web/translations/en.json", "check": { "type": "excludes", "path": "apps/web/translations/en.json", "text": "Kortix workspace" } },
+    { "id": "BRD-03", "name": "English catalog bans My Kortix", "status": "brand-locked", "surface": "apps/web/translations/en.json", "check": { "type": "excludes", "path": "apps/web/translations/en.json", "text": "My Kortix" } },
+    { "id": "BRD-04", "name": "English catalog bans Platinum compute claims", "status": "brand-locked", "surface": "apps/web/translations/en.json", "check": { "type": "excludes", "path": "apps/web/translations/en.json", "text": "Platinum compute" } },
+    { "id": "BRD-05", "name": "UI catalog bans Kortix workspace phrasing", "status": "brand-locked", "surface": "packages/ui/src/i18n/en.ts", "check": { "type": "excludes", "path": "packages/ui/src/i18n/en.ts", "text": "Kortix workspace" } },
+    { "id": "BRD-06", "name": "UI catalog bans My Kortix", "status": "brand-locked", "surface": "packages/ui/src/i18n/en.ts", "check": { "type": "excludes", "path": "packages/ui/src/i18n/en.ts", "text": "My Kortix" } },
+    { "id": "BRD-07", "name": "CLI installer points at the Dosco repository", "status": "brand-locked", "surface": "apps/web/src/app/(utility)/install/route.ts", "check": { "type": "contains", "path": "apps/web/src/app/(utility)/install/route.ts", "text": "kageprime/dosco-suna" } },
+    { "id": "BRD-08", "name": "Dosco wordmark asset exists", "status": "frozen", "surface": "apps/web/public/brand/dosco-wordmark-dark.png", "check": { "type": "file-exists", "path": "apps/web/public/brand/dosco-wordmark-dark.png" } },
+
+    { "id": "PRD-01", "name": "Marketplace API is retired", "status": "frozen", "surface": "apps/api/src/marketplace", "check": { "type": "file-absent", "path": "apps/api/src/marketplace" } },
+    { "id": "PRD-02", "name": "Marketplace registry package is removed", "status": "frozen", "surface": "packages/registry/package.json", "check": { "type": "file-absent", "path": "packages/registry/package.json" } },
+    { "id": "PRD-03", "name": "Retired route declares the marketplace 410", "status": "behavior-locked", "surface": "apps/api/src/routes/retired.ts", "check": { "type": "contains", "path": "apps/api/src/routes/retired.ts", "text": "/v1/marketplace" } },
+    { "id": "PRD-04", "name": "Home footer has no marketplace link", "status": "brand-locked", "surface": "apps/web/src/components/home/footer.tsx", "check": { "type": "excludes", "path": "apps/web/src/components/home/footer.tsx", "text": "/marketplace" } },
+    { "id": "PRD-05", "name": "Product menu has no marketplace link", "status": "brand-locked", "surface": "apps/web/src/components/home/product-menu.tsx", "check": { "type": "excludes", "path": "apps/web/src/components/home/product-menu.tsx", "text": "/marketplace" } },
+
+    { "id": "DSN-01", "name": "Home hero matches the approved Dosco design", "status": "frozen", "surface": "apps/web/src/features/marketing/hero.tsx", "check": { "type": "sha256", "path": "apps/web/src/features/marketing/hero.tsx", "sha256": "1d77774466f687356476a59cf6afde108128b1fa9bff4f76bae5c6bb9845b488" } },
+    { "id": "DSN-02", "name": "Home hero surfaces match the approved Dosco design", "status": "frozen", "surface": "apps/web/src/features/marketing/hero-surfaces.tsx", "check": { "type": "sha256", "path": "apps/web/src/features/marketing/hero-surfaces.tsx", "sha256": "fabbb83d49ddcf873f50aa891b03d1cb21f45cc18371136ed90b6df8a37b78ee" } },
+    { "id": "DSN-03", "name": "Landing hero matches the approved Dosco design", "status": "frozen", "surface": "apps/web/src/features/marketing/landing-hero/sand-band-hero.tsx", "check": { "type": "sha256", "path": "apps/web/src/features/marketing/landing-hero/sand-band-hero.tsx", "sha256": "874ee9fd03d572a943ea16727fcd88372c086cf8202aaf3d31ed7abef6d0cf79" } }
+  ]
+}

@@ -14,7 +14,7 @@ export type MarketingButtonProps = ComponentProps<'button'> & {
    * `primary` is the solid ink button (paper in dark): the main action.
    * `secondary` is the near-paper button beside it. Ink and paper only.
    */
-  variant?: 'primary' | 'secondary';
+  variant?: 'primary' | 'secondary' | 'accent';
   size?: keyof typeof SIZES;
   /** Render the child (a `Link`, an `a`) with the button's look. */
   asChild?: boolean;

@@ -288,7 +288,6 @@ export function ProjectShell({ projectId, initialSidebarOpen, children }: Projec
         sidebarContent={
           <ProjectSidebar
             projectId={projectId}
-            collapsible="offcanvas"
             menu={<WorkspaceSwitcher projectId={projectId} />}
             onOpenSearch={openCommandPalette}
             onOpenDownloadApp={openDownloadApp}

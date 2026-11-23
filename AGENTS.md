@@ -199,10 +199,12 @@ When syncing changes from upstream Kortix (`kortix-ai/CompanyOS` or `kortix-ai/s
    - Verify upstream navbar GitHub stars and `kortix-ai/CompanyOS` links are not reintroduced.
    - Verify translations in `en.json` and `packages/ui/src/i18n/en.ts` retain generic "workspace" and Dosco terms.
 4. **Mandatory gates**:
+   - Run `bun test tests/unit/dosco-foundations.test.ts`
    - Run `bun test apps/api/src/platform/providers/dosco-sovereignty.test.ts`
    - Run `bun test apps/web/src/config/turbopack-build-cache.test.ts`
    - Run `bun test tests/unit/dosco-brand-surfaces.test.ts`
-   If any fails, fix the regression immediately.
+   If any fails, fix the regression immediately. The foundations gate checks every Dosco decision recorded in `.agents/skills/dosco-foundations/references/foundations.json`; a red row blocks the sync until the Dosco decision is restored or the row is updated deliberately in the same PR. See the `dosco-foundations` skill.
+5. **Definition of done for Dosco work**: a Dosco change is not done until it has a row in `foundations.json` with a passing assertion, added in the same PR that introduces the change. After any incident where a merge broke a foundation, record a learnings entry and strengthen the row in the same session.
 
 ## Skills live in `.agents/skills/`
 
