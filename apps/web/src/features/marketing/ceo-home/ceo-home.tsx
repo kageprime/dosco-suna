@@ -2,15 +2,13 @@
 
 import { cn } from '@kortix/ui';
 import { Button } from '@kortix/ui/button';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
 import Link from 'next/link';
 
 import { YamlLine } from '@/features/marketing/code-panel';
 import { DitherField } from '@/features/marketing/kit/dither-field';
-import { DitherRidge } from '@/features/marketing/kit/dither-ridge';
 import { ENGINE, MANIFEST } from '@/features/marketing/one-prompt/factory-content';
 import type { LoopView } from '@/features/marketing/one-prompt/loops-content';
-import { Eyebrow, GhostButton, Mark } from '@/features/marketing/one-prompt/parts';
+import { Eyebrow, Mark } from '@/features/marketing/one-prompt/parts';
 
 import { RoleCards } from './role-cards';
 import { SessionCarousel } from './session-carousel';
@@ -73,15 +71,6 @@ const proof = (roles: LoopView[]) => [
   { value: '24/7', label: 'cloud work' },
 ];
 
-/** The one action of the page: an account. */
-function SignUp({ children = 'Create your account', size = 'lg' }: { children?: string; size?: 'default' | 'lg' }) {
-  return (
-    <Button asChild variant="brand" size={size}>
-      <Link href="/auth">{children}</Link>
-    </Button>
-  );
-}
-
 /**
  * The Dosco landing. One person leads; capable agents hold the roles. The
  * roles, the counts and the YAML on this page come from the build's real
@@ -89,42 +78,12 @@ function SignUp({ children = 'Create your account', size = 'lg' }: { children?: 
  *
  * The fold and the footer follow loopmaxxing.sh: a left-aligned headline over a
  * dithered sky, the agent runs as one moving strip, and a dithered ridge the
- * page scrolls over at the end. The type is Roobert (see the route layout).
+ * page scrolls over at the end. The shared chrome lives in `marketing-chrome`;
+ * this component owns only the page content and its `<main>` landmark.
  */
 export function CeoHome({ roles, catalog }: { roles: LoopView[]; catalog: string[] }) {
   return (
-    <div className="dark bg-background text-foreground relative min-h-screen overflow-x-clip">
-      <header className="border-border bg-background/80 sticky top-0 z-30 border-b backdrop-blur">
-        <div className={cn(COLUMN, 'flex h-16 items-center justify-between')}>
-          <div className="flex items-center gap-4">
-            <Link href="/" aria-label="Dosco" className="text-foreground">
-              <KortixLogo size={16} variant="logomark" />
-            </Link>
-            <span className="text-foreground hidden font-mono text-sm font-medium tracking-wider uppercase sm:inline">
-              CompanyOS
-            </span>
-          </div>
-          <nav className="text-muted-foreground hidden items-center gap-8 text-sm md:flex">
-            <Link href="#roles" className="hover:text-foreground">
-              Roles
-            </Link>
-            <Link href="#how" className="hover:text-foreground">
-              How it works
-            </Link>
-            <Link href="/pricing" className="hover:text-foreground">
-              Pricing
-            </Link>
-            <Link href="/docs/developers" className="hover:text-foreground">
-              Docs
-            </Link>
-          </nav>
-          <div className="flex items-center gap-2">
-            <GhostButton href="/auth">Sign in</GhostButton>
-            <SignUp size="default">Sign up</SignUp>
-          </div>
-        </div>
-      </header>
-
+    <>
       <main>
         {/* The fold: a dithered sky at the top edge, the headline left, the runs below. */}
         <section className="border-border relative overflow-hidden border-b">
@@ -150,7 +109,9 @@ export function CeoHome({ roles, catalog }: { roles: LoopView[]; catalog: string
                 Bring the plan you already pay for: <Mark name="Claude" /> or <Mark name="Codex" />, or any API key.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
-                <SignUp />
+                <Button asChild variant="brand" size="lg">
+                  <Link href="/auth">Create your account</Link>
+                </Button>
                 <Link href="#roles" className="text-foreground text-sm underline-offset-4 hover:underline">
                   See the roles
                 </Link>
@@ -269,42 +230,6 @@ export function CeoHome({ roles, catalog }: { roles: LoopView[]; catalog: string
           </div>
         </section>
       </main>
-
-      {/* The one footer: the close, the legal links, and the field the page
-          scrolls over. Same shape as the loopmaxxing footer: one centered
-          close, no link columns, then the ridge rises under the last screen. */}
-      <footer className="relative isolate overflow-clip bg-background">
-        <div className="relative z-10">
-          <div className={cn(COLUMN, 'flex flex-col items-center gap-7 pt-32 pb-24 text-center lg:pt-48')}>
-            <h2 className="text-foreground text-4xl tracking-tight text-balance sm:text-5xl lg:text-6xl">
-              Your company.
-              <br />
-              <span className="text-muted-foreground">Your agents.</span>
-            </h2>
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <SignUp />
-              <GhostButton href="/auth">Sign in</GhostButton>
-            </div>
-            <p className="text-muted-foreground text-sm">Free to start. Bring the model plan you already pay for.</p>
-            <nav aria-label="Legal" className="text-muted-foreground flex gap-4 text-sm">
-              <Link href="/legal?tab=privacy" className="hover:text-foreground transition-colors">
-                Privacy
-              </Link>
-              <Link href="/legal/terms" className="hover:text-foreground transition-colors">
-                Terms
-              </Link>
-            </nav>
-          </div>
-        </div>
-
-        {/* The ridge: a spacer, then a field pinned to the bottom edge as the page ends. */}
-        <div aria-hidden className="h-[56svh] min-h-[320px]" />
-        <div aria-hidden className="pointer-events-none sticky bottom-0 z-0 h-0">
-          <div className="absolute inset-x-0 bottom-0 h-[58svh] min-h-[330px] [mask-image:linear-gradient(to_top,#000_72%,transparent)]">
-            <DitherRidge />
-          </div>
-        </div>
-      </footer>
-    </div>
+    </>
   );
 }

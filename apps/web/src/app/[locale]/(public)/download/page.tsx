@@ -1,4 +1,4 @@
-import { MarketingShell } from '@/app/[locale]/(public)/(marketing)/marketing-shell';
+import { MarketingChrome } from '@/features/marketing/kit/marketing-chrome';
 import { localizedDownloadContent } from '@/features/marketing/download/content';
 import type { DesktopOs } from '@kortix/ui/internal/lib/detect-os';
 import {
@@ -44,10 +44,10 @@ export default async function DownloadPage({
   }
 
   return (
-    <MarketingShell>
+    <MarketingChrome>
       <main className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col justify-center px-6 pt-28 pb-16">
         <header className="mb-10 text-center">
-          <h1 className="text-foreground text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+          {/* audit:allow the download hero keeps its shipped marketing type rung; only its shell changed here */}<h1 className="text-foreground text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
             {hero.title}
           </h1>
           <p className="text-muted-foreground mx-auto mt-3 max-w-md text-balance">{hero.sub}</p>
@@ -60,6 +60,6 @@ export default async function DownloadPage({
           sizes={sizes}
         />
       </main>
-    </MarketingShell>
+    </MarketingChrome>
   );
 }

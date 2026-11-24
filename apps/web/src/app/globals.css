@@ -1639,19 +1639,20 @@ html {
 }
 
 /* ── Marketing type ─────────────────────────────────────────────────────────
-   The landing and loopmaxxing read in Roobert, the type system the reference
-   loopmaxxing fold uses. The four variable files load from
-   `apps/web/public/fonts/roobert` through `next/font/local`
-   (`(system)/fonts/roobert.ts` and `roobert-mono.ts`). The product app keeps
-   the Dosco display stack.
+   Every public page reads in Roobert, the type system the reference loopmaxxing
+   fold uses. The four variable files load from `apps/web/public/fonts/roobert`
+   through `next/font/local` (`(system)/fonts/roobert.ts` and `roobert-mono.ts`).
+   The product app keeps the Dosco display stack.
 
    A route opts in with `.font-marketing` plus both font variable classes on
    its shell. The font-family must be declared here: one inherited from <html>
    is already computed, so a custom property set lower in the tree would never
-   re-resolve it. Everything below that shell, including `font-sans` and
-   `font-mono` utilities, then reads Roobert. */
+   re-resolve it. The serif token is remapped too: older page heroes use the
+   `font-serif` utility, and they must not fall back to the display serif when
+   the rest of the page reads in Roobert. */
 .font-marketing {
   --font-family-sans: var(--font-roobert);
+  --font-family-serif: var(--font-roobert);
   --font-family-mono: var(--font-roobert-mono);
   font-family:
     var(--font-family-sans),

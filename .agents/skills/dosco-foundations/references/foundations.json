@@ -402,7 +402,7 @@
       "check": {
         "type": "sha256",
         "path": "apps/web/src/app/[locale]/(public)/(landing)/layout.tsx",
-        "sha256": "61b3a09ff65e2db4f49839baea7fa85efd86e3f2af50b07978d541587d69a7a1"
+        "sha256": "79bf291aa997f080661baa70f6fcf3ca882b68e0b10d4db2b6f441106495bb6b"
       }
     },
     {
@@ -426,6 +426,72 @@
         "path": "apps/web/src/app/[locale]/(public)/loopmaxxing/layout.tsx",
         "sha256": "3edf73580dfa3a422688adf11964ac03ef5a3cccbc1c195f2f5c5ae5aa0ede08"
       }
+    },
+    {
+      "id": "DSN-09",
+      "name": "Marketing pages use the shared public chrome",
+      "status": "frozen",
+      "surface": "apps/web/src/app/[locale]/(public)/(marketing)/layout.tsx",
+      "check": {
+        "type": "excludes",
+        "path": "apps/web/src/app/[locale]/(public)/(marketing)/layout.tsx",
+        "text": "MarketingShell"
+      }
+    },
+    {
+      "id": "DSN-10",
+      "name": "SEO pages use the shared public chrome",
+      "status": "frozen",
+      "surface": "apps/web/src/app/[locale]/(public)/(seo)/layout.tsx",
+      "check": {
+        "type": "excludes",
+        "path": "apps/web/src/app/[locale]/(public)/(seo)/layout.tsx",
+        "text": "SeoShell"
+      }
+    },
+    {
+      "id": "DSN-11",
+      "name": "Sales pages use the shared public chrome",
+      "status": "frozen",
+      "surface": "apps/web/src/app/[locale]/(public)/(sales)/layout.tsx",
+      "check": {
+        "type": "excludes",
+        "path": "apps/web/src/app/[locale]/(public)/(sales)/layout.tsx",
+        "text": "SalesShell"
+      }
+    },
+    {
+      "id": "DSN-12",
+      "name": "The download page uses the shared public chrome",
+      "status": "frozen",
+      "surface": "apps/web/src/app/[locale]/(public)/download/page.tsx",
+      "check": {
+        "type": "excludes",
+        "path": "apps/web/src/app/[locale]/(public)/download/page.tsx",
+        "text": "MarketingShell"
+      }
+    },
+    {
+      "id": "DSN-13",
+      "name": "One shared public chrome component exists",
+      "status": "frozen",
+      "surface": "apps/web/src/features/marketing/kit/marketing-chrome.tsx",
+      "check": {
+        "type": "contains",
+        "path": "apps/web/src/features/marketing/kit/marketing-chrome.tsx",
+        "text": "export function MarketingChrome"
+      }
+    },
+    {
+      "id": "DSN-14",
+      "name": "Public serif headings read in Roobert",
+      "status": "frozen",
+      "surface": "apps/web/src/app/globals.css",
+      "check": {
+        "type": "contains",
+        "path": "apps/web/src/app/globals.css",
+        "text": "--font-family-serif: var(--font-roobert);"
+      }
     }
   ],
   "frozenTrees": {
@@ -442,7 +508,7 @@
       "apps/web/src/features/marketing/careers/content.ts": "14e4f302438c6c72dc0b2ec0140bc252bd8663f216d06dedbb9d35dd0316fe9b",
       "apps/web/src/features/marketing/case-studies/case-studies.tsx": "d5166975b4984dd774320630a31a56a027566244a1bfb6a61232bf43af82590c",
       "apps/web/src/features/marketing/case-studies/content.ts": "44710743b67e27e3037098e1f31531c5dc9d2c41d8912d1ad55b48648fca3e1c",
-      "apps/web/src/features/marketing/ceo-home/ceo-home.tsx": "d212bf0e450d2ba80c3d5906ccfbdab34adbed545649062a72a51534ede723a6",
+      "apps/web/src/features/marketing/ceo-home/ceo-home.tsx": "decad6632921ef9f36f377201d2394a6b1e8c2a8d997a6b5512f85abf516d3bc",
       "apps/web/src/features/marketing/ceo-home/role-cards.tsx": "aec89ad385f2978b4e72e7d32526f63c37a314e7bb2a4ddc478c531668d57333",
       "apps/web/src/features/marketing/ceo-home/session-cards.tsx": "e0f59d8da028015e2a8c4370640b5019cd1c65b476b0ceb99f1d2f2ddea6cb12",
       "apps/web/src/features/marketing/ceo-home/session-carousel.tsx": "1c3bcff5a234e4fcbcead9ac14faca55f605db4ce4aaae3987bb795b521ad4ba",
@@ -511,6 +577,7 @@
       "apps/web/src/features/marketing/kit/feature-split.tsx": "80e8f8127c71d50def82bf35a67779c2d07e651b86341d94a32f12f5f133f91d",
       "apps/web/src/features/marketing/kit/forest-scene.tsx": "bfb1e555a8fe1d3dd845e169176fd29ff2bd15a25f02a6a4fbad90797c430430",
       "apps/web/src/features/marketing/kit/marketing-button.tsx": "8aba2d888756a35378707abd8a18ca4e9e343213ca906babfde99edc6d6d59df",
+      "apps/web/src/features/marketing/kit/marketing-chrome.tsx": "2610305facc51e1738eafd298f454a0a88fe403e91f69125b9eae81c0aaebcb3",
       "apps/web/src/features/marketing/kit/page-frame.tsx": "5e14594dcc0864ba05e1f28b28f1d80014587bdd65e5781115942b184d49e737",
       "apps/web/src/features/marketing/kit/seal.tsx": "2e715640a2a48487527626598e627aa1963a78152b140de9cdbc47b1e36da4d7",
       "apps/web/src/features/marketing/kit/section-heading.tsx": "38a0d2853be54155f4ba89563d9ea9a03035fe32e6959e3e463cc2a8efd83377",

@@ -12,75 +12,46 @@ exports[`shipped marketing route composition home retains its rendered sections,
     "Support",
     "Recruiting",
     "Any role you describe.",
-    "From one prompt to an operating company.",
+    "From one account to an operating company.",
     "One file defines the company.",
     "Questions.",
-    "Your company.Your agents.",
   ],
   "links": [
     [
-      "",
-      "/",
+      "Create your account",
+      "/auth",
     ],
     [
-      "Roles",
+      "See the roles",
       "#roles",
     ],
     [
-      "How it works",
-      "#how",
+      "Start with this role",
+      "/auth",
     ],
     [
-      "kortix.yaml",
-      "#engine",
+      "Start with this role",
+      "/auth",
     ],
     [
-      "Docs",
-      "/docs/developers",
+      "Start with this role",
+      "/auth",
     ],
     [
-      "Sign in",
+      "Start with this role",
+      "/auth",
+    ],
+    [
+      "Start with this role",
+      "/auth",
+    ],
+    [
+      "Describe your role",
       "/auth",
     ],
     [
       "Talk to the team",
       "/contact",
-    ],
-    [
-      "Roles",
-      "#roles",
-    ],
-    [
-      "How it works",
-      "#how",
-    ],
-    [
-      "kortix.yaml",
-      "#engine",
-    ],
-    [
-      "Docs",
-      "/docs/developers",
-    ],
-    [
-      "Setup guide",
-      "/setup.md",
-    ],
-    [
-      "Loopmaxxing",
-      "/loopmaxxing",
-    ],
-    [
-      "Dosco",
-      "/",
-    ],
-    [
-      "Contact",
-      "/contact",
-    ],
-    [
-      "Terms",
-      "/legal/terms",
     ],
   ],
   "sections": [
@@ -90,21 +61,9 @@ exports[`shipped marketing route composition home retains its rendered sections,
     "how",
     "engine",
     "",
-    "",
   ],
   "securityContent": undefined,
-  "visuals": [
-    [
-      "/brand/dosco-wordmark-light.png",
-      "Dosco Tek",
-      null,
-    ],
-    [
-      "/brand/dosco-wordmark-dark.png",
-      "Dosco Tek",
-      null,
-    ],
-  ],
+  "visuals": [],
 }
 `;
 
