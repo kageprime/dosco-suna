@@ -48,7 +48,7 @@ export function CopyButton({ size = 'md', text, label = 'Copy the prompt' }: { s
       type="button"
       onClick={copy}
       className={cn(
-        'bg-kortix-base hover:bg-kortix-base/90 rounded-md font-medium text-white transition-colors',
+        'bg-kortix-base text-primary-foreground rounded-md font-medium transition-[background-color,opacity] hover:opacity-90',
         size === 'md' ? 'h-9 px-4 text-sm' : 'h-8 px-3 text-sm',
       )}
     >
@@ -59,7 +59,7 @@ export function CopyButton({ size = 'md', text, label = 'Copy the prompt' }: { s
 
 export function GhostButton({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link href={href} className="border-border bg-card text-foreground hover:bg-accent inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium transition-colors">
+    <Link href={href} className="border-border bg-card text-foreground hover:bg-accent inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium whitespace-nowrap transition-colors">
       {children}
     </Link>
   );

@@ -402,20 +402,50 @@
       "check": {
         "type": "sha256",
         "path": "apps/web/src/app/[locale]/(public)/(landing)/layout.tsx",
-        "sha256": "7697652d645fbae663add9f671f707dd1735499d9dc2170e1a4a879e264bfb7b"
+        "sha256": "61b3a09ff65e2db4f49839baea7fa85efd86e3f2af50b07978d541587d69a7a1"
+      }
+    },
+    {
+      "id": "DSN-07",
+      "name": "Marketing routes read in Roobert",
+      "status": "frozen",
+      "surface": "apps/web/src/app/globals.css",
+      "check": {
+        "type": "contains",
+        "path": "apps/web/src/app/globals.css",
+        "text": "--font-family-sans: var(--font-roobert);"
+      }
+    },
+    {
+      "id": "DSN-08",
+      "name": "Loopmaxxing keeps its own Roobert shell",
+      "status": "frozen",
+      "surface": "apps/web/src/app/[locale]/(public)/loopmaxxing/layout.tsx",
+      "check": {
+        "type": "sha256",
+        "path": "apps/web/src/app/[locale]/(public)/loopmaxxing/layout.tsx",
+        "sha256": "3edf73580dfa3a422688adf11964ac03ef5a3cccbc1c195f2f5c5ae5aa0ede08"
       }
     }
   ],
   "frozenTrees": {
     "marketing": {
+      "apps/web/src/components/home/footer.tsx": "bae3c98c0bb7b538a960985ea52c105fc350fd0cbfc2e41d5e128bbcbe521b67",
+      "apps/web/src/components/home/navbar.tsx": "15efbde56c3672ee936e6538bf8f1495fd062ce6c2e925cc8662b985dcf8474a",
+      "apps/web/src/components/home/product-menu.tsx": "a6dc31b1fe572da02f14bcae87013e5e6be0df26e07a21a0f81fc913198ac903",
+      "apps/web/src/components/home/reveal.tsx": "81d6c51109c2d2dfdd733af9c7771f7565ebfc5a19455bf83fd70acfa61edd12",
+      "apps/web/src/components/home/theme-provider.tsx": "963b37b3fe7cb081bd92c11e9687b593ed81c81c13a73306634acd27e08d8170",
+      "apps/web/src/components/home/theme-toggle.tsx": "48ad9dbd0970948ba642942d2ccd7b1c2765fb773b1a556c3a6155ab0517c511",
       "apps/web/src/features/marketing/boundary-column.tsx": "38502bc05ef900ce5369e726ddccdf2d829f8d380db25e30474f619fc2220ffe",
       "apps/web/src/features/marketing/careers/apply-modal.tsx": "dedf0336f58b8c000d819ecce7228206db77cb80196d9f8e51b96d3211650296",
       "apps/web/src/features/marketing/careers/careers-page.tsx": "8963abbe66f5f92c3513f0e916da5617ae5e1960ad336a497fca7f1800250dcc",
       "apps/web/src/features/marketing/careers/content.ts": "14e4f302438c6c72dc0b2ec0140bc252bd8663f216d06dedbb9d35dd0316fe9b",
       "apps/web/src/features/marketing/case-studies/case-studies.tsx": "d5166975b4984dd774320630a31a56a027566244a1bfb6a61232bf43af82590c",
       "apps/web/src/features/marketing/case-studies/content.ts": "44710743b67e27e3037098e1f31531c5dc9d2c41d8912d1ad55b48648fca3e1c",
-      "apps/web/src/features/marketing/ceo-home/ceo-home.tsx": "0aeaeed48deb68d48452cb62414a2c1dd94931d077463cb481ab440eb08d16d6",
-      "apps/web/src/features/marketing/ceo-home/role-cards.tsx": "be85f8f76f441d6228eee6f3d20c29c88df7de66c78ee829a2ad377ef586f66e",
+      "apps/web/src/features/marketing/ceo-home/ceo-home.tsx": "d212bf0e450d2ba80c3d5906ccfbdab34adbed545649062a72a51534ede723a6",
+      "apps/web/src/features/marketing/ceo-home/role-cards.tsx": "aec89ad385f2978b4e72e7d32526f63c37a314e7bb2a4ddc478c531668d57333",
+      "apps/web/src/features/marketing/ceo-home/session-cards.tsx": "e0f59d8da028015e2a8c4370640b5019cd1c65b476b0ceb99f1d2f2ddea6cb12",
+      "apps/web/src/features/marketing/ceo-home/session-carousel.tsx": "1c3bcff5a234e4fcbcead9ac14faca55f605db4ce4aaae3987bb795b521ad4ba",
       "apps/web/src/features/marketing/code-panel.tsx": "f87787238c21ff96f263b163b7947477bdf0b73439cdbba3bec81b43a6afa520",
       "apps/web/src/features/marketing/company-as-code/code-panel.tsx": "7b607bb2ebcfb6981313eefe848c01d972152d82c179455b8a3aadc5c5003866",
       "apps/web/src/features/marketing/compliance/compliance-hero.tsx": "309db9471585526d08ac4e810439ba176a1ad91b665c654e06999eb3c1764477",
@@ -476,6 +506,7 @@
       "apps/web/src/features/marketing/kit/brand-glyph.tsx": "358c2ab2339b01425c34a6836234b68fec09b6b9da006bce48228f58318bb2a7",
       "apps/web/src/features/marketing/kit/copy-row.tsx": "8a54da9dadc3e8494438fa30400878f57036286d5f1f36779ec09b07ec31f20b",
       "apps/web/src/features/marketing/kit/dither-field.tsx": "f342947f3e4e2ff5ee25e8061639fa4dc2187bfbdaf55f03941429e3f86e3db5",
+      "apps/web/src/features/marketing/kit/dither-ridge.tsx": "507ca00646b50e651d2e028c1b436998541fd43339eff4047ab28ebbe00c45e0",
       "apps/web/src/features/marketing/kit/english-only.ts": "d9c91fab9b7f710c179f5d61c153ac88f9c78b6f9eae3ff47dcda1257ce84663",
       "apps/web/src/features/marketing/kit/feature-split.tsx": "80e8f8127c71d50def82bf35a67779c2d07e651b86341d94a32f12f5f133f91d",
       "apps/web/src/features/marketing/kit/forest-scene.tsx": "bfb1e555a8fe1d3dd845e169176fd29ff2bd15a25f02a6a4fbad90797c430430",
@@ -488,10 +519,6 @@
       "apps/web/src/features/marketing/kit/topic-tabs.tsx": "16fc2518f9e1e84f973340a6b727686073e941c92e36847126ba1fd1e01e8ffa",
       "apps/web/src/features/marketing/kit/walkthrough.tsx": "6afbc21c26d7d24ee04f4dd20d2d2b950d305b3cbdce2cea5287f03cddd3e028",
       "apps/web/src/features/marketing/kit/window.tsx": "cf62c30656ba3da778b0c47619f05f0556bdff167bf4db069f70ad33348f4e25",
-      "apps/web/src/features/marketing/landing/code-panels.tsx": "438ebf957760a8c5d29568b5031aa7c26cf15b9e96445cd131defc0bc7abaf97",
-      "apps/web/src/features/marketing/landing/content.ts": "deb9b5e92e0daddc1a56d887b39a6e8ffa152edec0143014780f773cd7b72077",
-      "apps/web/src/features/marketing/landing/cta-section.tsx": "af68ccb48936a6bfea3831da1c7a816d607a27ee32dc21ac05a4ae5f0ff96ffc",
-      "apps/web/src/features/marketing/landing/footer-cta.ts": "f9eea7afefef19cec2bb62986a0d6c951907d30c4fccc502e75faa48192c0a0d",
       "apps/web/src/features/marketing/landing-hero/customize-glyph.tsx": "3fbd740632c1677c9acdbd8a37634ff0963f176727166373bee62fcfbe2fa530",
       "apps/web/src/features/marketing/landing-hero/framework-window.tsx": "47001e2106f702b0de00cb83ebbfadf0708b946fcdaaeb8d4f3546d55f5d2815",
       "apps/web/src/features/marketing/landing-hero/sand-band-hero.tsx": "874ee9fd03d572a943ea16727fcd88372c086cf8202aaf3d31ed7abef6d0cf79",
@@ -513,6 +540,10 @@
       "apps/web/src/features/marketing/landing-sections/use-cases-section.tsx": "e8fbc9b29dc946fe5619e4ca5cb72d86c81f351f1ca6a70aaddbae7476ba1e71",
       "apps/web/src/features/marketing/landing-sections/works-with-logos.ts": "363b1f1bb5d86a60f891746f236e0f7cc129a89f06bb271d520ce6bb268c126d",
       "apps/web/src/features/marketing/landing-sections/works-with-strip.tsx": "a96a7fc6ceb152929fae39921db8c4a9f7afba6121598e0e3cc90fbb78bb07c5",
+      "apps/web/src/features/marketing/landing/code-panels.tsx": "438ebf957760a8c5d29568b5031aa7c26cf15b9e96445cd131defc0bc7abaf97",
+      "apps/web/src/features/marketing/landing/content.ts": "deb9b5e92e0daddc1a56d887b39a6e8ffa152edec0143014780f773cd7b72077",
+      "apps/web/src/features/marketing/landing/cta-section.tsx": "af68ccb48936a6bfea3831da1c7a816d607a27ee32dc21ac05a4ae5f0ff96ffc",
+      "apps/web/src/features/marketing/landing/footer-cta.ts": "f9eea7afefef19cec2bb62986a0d6c951907d30c4fccc502e75faa48192c0a0d",
       "apps/web/src/features/marketing/launch/content.ts": "c84cfc3907d4046f19c578f00531d45cf033375ff34df2e4860eccf8130868a5",
       "apps/web/src/features/marketing/launch/launch-page.tsx": "93b6347011676ea6473f6d0d6e1b6bef18c57d7336c61d9e519ca06975be94f9",
       "apps/web/src/features/marketing/multiplayer/model.ts": "b9caaf48b7b0536854c20378b753859224b494fdfa43bf98e5a80de5e55e0851",
@@ -533,7 +564,7 @@
       "apps/web/src/features/marketing/one-prompt/hoop-scrollbar.tsx": "f1333c02fbbd7a94c4e4b90a3cbbbc25185b1159ebec2119ca5312af2056a71d",
       "apps/web/src/features/marketing/one-prompt/hoop.tsx": "72479731378f9c0c7f3e9183a2fcca8a0a7f138b56a314ef21576737fb7ba97e",
       "apps/web/src/features/marketing/one-prompt/loops-content.ts": "cdf627aea27b4dda3fd4be3a15d3342b74b05281fbaea72b2a1719913cd1a35e",
-      "apps/web/src/features/marketing/one-prompt/parts.tsx": "d9780c5dab73b4fd461f58bb093a18aec106169c5a4cdea672a181cedbb211fc",
+      "apps/web/src/features/marketing/one-prompt/parts.tsx": "e317aaaf6cc4fbb9acbb18a04db4c994dc46d0347534461f00e723f1558c3ec2",
       "apps/web/src/features/marketing/one-prompt/plan-flow.tsx": "bfedd2a886c64577183e70b3340f6c02890b5c087217cdcef6a5b68b738cae04",
       "apps/web/src/features/marketing/one-prompt/scenes.ts": "750ba822881b359925e959b79846bf1c2aad077067cc3041a53f9b017199c5e1",
       "apps/web/src/features/marketing/one-prompt/section-art.tsx": "d1d69aad5dc5014995b54fc3a3b747d7dc5d028beedc502b09a19b4d75d5254f",
@@ -567,13 +598,7 @@
       "apps/web/src/features/marketing/surfaces/surface-mark.tsx": "0bcea738d8789c1416fe27b4c9e87b7dbd31ae1285d5eb76ed686892744ebac8",
       "apps/web/src/features/marketing/surfaces/surface-page.tsx": "f14eae7e170b65b3342577ae760a830c29e05c7f1aa606841703f35831c85cd8",
       "apps/web/src/features/marketing/surfaces/surface-tabs.tsx": "8411fe2d6f3184f00ca48d1884640e48123534379454da05f07d81f04efa70ef",
-      "apps/web/src/features/marketing/white-label/content.ts": "8aa1e48023dbe7d5513169c14cf46b50979207fc609f37de4d65867b45f53569",
-      "apps/web/src/components/home/footer.tsx": "bae3c98c0bb7b538a960985ea52c105fc350fd0cbfc2e41d5e128bbcbe521b67",
-      "apps/web/src/components/home/navbar.tsx": "15efbde56c3672ee936e6538bf8f1495fd062ce6c2e925cc8662b985dcf8474a",
-      "apps/web/src/components/home/product-menu.tsx": "a6dc31b1fe572da02f14bcae87013e5e6be0df26e07a21a0f81fc913198ac903",
-      "apps/web/src/components/home/reveal.tsx": "81d6c51109c2d2dfdd733af9c7771f7565ebfc5a19455bf83fd70acfa61edd12",
-      "apps/web/src/components/home/theme-provider.tsx": "963b37b3fe7cb081bd92c11e9687b593ed81c81c13a73306634acd27e08d8170",
-      "apps/web/src/components/home/theme-toggle.tsx": "48ad9dbd0970948ba642942d2ccd7b1c2765fb773b1a556c3a6155ab0517c511"
+      "apps/web/src/features/marketing/white-label/content.ts": "8aa1e48023dbe7d5513169c14cf46b50979207fc609f37de4d65867b45f53569"
     }
   }
 }

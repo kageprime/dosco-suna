@@ -1,12 +1,13 @@
 'use client';
 
-import { setupPromptFor, loopPrompt } from '@kortix/shared/setup-guide';
 import { cn } from '@kortix/ui';
+import { Button } from '@kortix/ui/button';
+import Link from 'next/link';
 import { useEffect, useRef, type ReactNode } from 'react';
 
 import { FactoryClip } from '@/features/marketing/one-prompt/factory-clip';
 import type { LoopView } from '@/features/marketing/one-prompt/loops-content';
-import { CopyButton, Eyebrow, useSetupTarget } from '@/features/marketing/one-prompt/parts';
+import { Eyebrow } from '@/features/marketing/one-prompt/parts';
 import { SCENES } from '@/features/marketing/one-prompt/scenes';
 
 const WORKSPACE = 'your-company';
@@ -79,7 +80,7 @@ export function RoleCards({ roles, more }: { roles: LoopView[]; more: string[] }
   );
 
   return (
-    <div className="flex flex-col gap-6 px-4 pb-24 md:px-8 lg:gap-32">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 pb-24 lg:gap-32">
       {roles.map((role, index) => slot(index, role.id, <RoleCard role={role} index={index} total={total} />))}
       {slot(roles.length, 'more', <AnyRoleCard more={more} index={roles.length} total={total} />)}
       <div aria-hidden className="hidden lg:block" />
@@ -103,7 +104,6 @@ function CardBar({ team, index, total }: { team: string; index: number; total: n
 const GRID = 'grid grid-cols-[minmax(0,1fr)] lg:h-[400px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]';
 
 function RoleCard({ role, index, total }: { role: LoopView; index: number; total: number }) {
-  const prompt = loopPrompt(role, useSetupTarget());
   const scene = SCENES[role.id];
   return (
     <>
@@ -116,7 +116,11 @@ function RoleCard({ role, index, total }: { role: LoopView; index: number; total
             <p className="text-muted-foreground max-w-sm text-base text-pretty">{role.line}</p>
           </div>
           <div className="mt-auto flex flex-col gap-4">
-            <CopyButton text={prompt} label="Copy the prompt" />
+            <div>
+              <Button asChild variant="brand" size="default" className="w-fit">
+                <Link href="/auth">Start with this role</Link>
+              </Button>
+            </div>
             <span className="text-muted-foreground font-mono text-xs">
               1 agent · {role.triggersOn} {role.triggersOn === 1 ? 'trigger' : 'triggers'} · {role.skills} {role.skills === 1 ? 'skill' : 'skills'}
             </span>
@@ -137,7 +141,6 @@ function RoleCard({ role, index, total }: { role: LoopView; index: number; total
 }
 
 function AnyRoleCard({ more, index, total }: { more: string[]; index: number; total: number }) {
-  const prompt = setupPromptFor(useSetupTarget());
   return (
     <>
       <CardBar team="any role" index={index} total={total} />
@@ -149,7 +152,9 @@ function AnyRoleCard({ more, index, total }: { more: string[]; index: number; to
             <p className="text-muted-foreground max-w-sm text-base text-pretty">Say what should happen and when. The setup writes it as code in the same file.</p>
           </div>
           <div className="mt-auto">
-            <CopyButton text={prompt} />
+            <Button asChild variant="brand" size="default" className="w-fit">
+              <Link href="/auth">Describe your role</Link>
+            </Button>
           </div>
         </div>
         <div className="flex min-w-0 flex-col justify-center gap-4 p-6 md:p-8">

@@ -1,7 +1,11 @@
+import { cn } from '@kortix/ui';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 import { requireLoopmaxxing } from '@/lib/loopmaxxing-gate';
+
+import { roobert } from '@/app/(system)/fonts/roobert';
+import { roobertMono } from '@/app/(system)/fonts/roobert-mono';
 
 // Its own site: the page is canonical at loopmaxxing.sh, and it stays out of
 // kortix.com's sitemap and public content list.
@@ -14,5 +18,6 @@ export const metadata: Metadata = {
 
 export default async function LoopmaxxingLayout({ children }: { children: ReactNode }) {
   await requireLoopmaxxing();
-  return children;
+  // The reference fold's type system, scoped to this page (globals.css: `.font-marketing`).
+  return <div className={cn(roobert.variable, roobertMono.variable, 'font-marketing')}>{children}</div>;
 }
