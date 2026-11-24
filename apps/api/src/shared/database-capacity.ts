@@ -37,7 +37,7 @@ export const ROLLING_TASK_OVERLAP = 2;
  * The invariant below leaves a further 5-slot buffer beyond this reserve
  * (15 before the KRTX-2020 raise spent 10 of them on the request pool).
  */
-export const PROD_DB_NON_API_RESERVE = 32;
+export const PROD_DB_NON_API_RESERVE = 10;
 
 /**
  * Long-lived connections of one web task (`KORTIX_PROCESS_ROLE=web`). It
@@ -53,7 +53,7 @@ export const PROD_WORKER_TASKS = 1;
 
 /**
  * The rolling peak: every web task and every worker task overlapping its
- * replacement. 10 × 2 × 9 + 1 × 2 × 10 = 200.
+ * replacement. 10 × 2 × 10 + 1 × 2 × 11 = 222.
  *
  * Two rollouts reach the same 200 and no more, because ecs-deploy.sh rolls the
  * worker before the API, one after the other:

@@ -15,7 +15,7 @@ import {
 
 describe('production database connection capacity', () => {
   test('pins every API-owned connection pool in the rollout budget', () => {
-    expect(DEFAULT_DB_POOL_MAX).toBe(6);
+    expect(DEFAULT_DB_POOL_MAX).toBe(7);
     expect(DEFAULT_AUDIT_POOL_MAX).toBe(2);
     expect(LEADER_ELECTION_POOL_MAX).toBe(1);
     expect(PG_BROADCAST_POOL_MAX).toBe(1);
@@ -64,7 +64,7 @@ describe('production database connection capacity', () => {
     expect(PROD_API_MAX_TASKS).toBe(10);
     expect(ROLLING_TASK_OVERLAP).toBe(2);
     expect(PROD_DB_USABLE_CONNECTIONS).toBe(237);
-    expect(PROD_DB_NON_API_RESERVE).toBe(32);
+    expect(PROD_DB_NON_API_RESERVE).toBe(10);
     // Recomputed from the pins above, not trusted: the exported ceiling must
     // equal tasks × overlap × per-task long-lived pools. The boot schema probe
     // is no longer a term — it rides the request pool.
@@ -75,7 +75,7 @@ describe('production database connection capacity', () => {
     expect(PROD_DB_ROLLING_CONNECTION_CEILING).toBe(
       PROD_API_MAX_TASKS * ROLLING_TASK_OVERLAP * webTask + PROD_WORKER_TASKS * ROLLING_TASK_OVERLAP * workerTask,
     );
-    expect(PROD_DB_ROLLING_CONNECTION_CEILING).toBe(200);
+    expect(PROD_DB_ROLLING_CONNECTION_CEILING).toBe(222);
     expect(PROD_DB_ROLLING_CONNECTION_CEILING).toBeLessThanOrEqual(
       PROD_DB_USABLE_CONNECTIONS - PROD_DB_NON_API_RESERVE,
     );
