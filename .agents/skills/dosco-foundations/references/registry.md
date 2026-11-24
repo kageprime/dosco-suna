@@ -40,6 +40,8 @@ truth for `tests/unit/dosco-foundations.test.ts`; this file explains the rows.
 - `DSN-15` — the landing's described roles stay tied to the public research
   cited in `use-cases-content.ts`; upstream merges may not replace them with
   invented examples.
+- `DSN-16` — the `/developers` hero says "One manifest." instead of the
+  internal manifest filename; real CLI commands stay untouched.
 
 ## Adding a foundation
 

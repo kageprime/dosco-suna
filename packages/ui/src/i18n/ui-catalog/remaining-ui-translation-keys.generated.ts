@@ -905,6 +905,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Dosco Tek builds managed autonomous agent workspaces. Every company owns its configuration and output.':
     'text5f58426c214e',
   'One kortix.yaml.': 'text52867b778586',
+  'One manifest.': 'text0389eacbf881',
   'Your AI workforce, as code.': 'textd0dfd435b2f4',
   'Agents, skills, tools, connectors and schedules are files in a repo. Edit them in your IDE, ship them with one command.':
     'text6dc0b331852f',
@@ -939,6 +940,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'text3d560e7ee7e8',
   'One line to start.': 'textbeb2f69dc6cc',
   'kortix init adds kortix.yaml, agents/ and skills/ to your repo.': 'text9df55ba340b6',
+  'One command adds the manifest, agents/ and skills/ to your repo.': 'text0052ff7e82ef',
   'Agents are markdown.': 'text8c1ec6ce30ee',
   'A persona, a model and its tools in one file you can review.': 'textb435b593a2f2',
   'Ship with one command.': 'textcbc2c5b5eca1',
@@ -969,6 +971,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Click to copy': 'text6fdb8f60b253',
   'Scaffold and ship': 'text063bbc13dd0b',
   'Scaffold kortix.yaml, agents/ and skills/': 'textda973557600d',
+  'Scaffold the manifest, agents/ and skills/': 'text24c497d520ae',
   'Commit, push, link and go live': 'text79dd44846e0d',
   'Type-check your manifest': 'text486864310b65',
   'Run and talk': 'text71fa5ca5ed8c',
@@ -997,6 +1000,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   '+ any MCP server': 'text10ba4717ff34',
   'Only a scoped token leaves the box': 'text572e2d900a45',
   'Declared once in kortix.yaml': 'text3d7f29aa61c2',
+  'Declared once in your manifest': 'textc166b8dcf538',
   'Managed from the terminal': 'textb5a285ec4167',
   'Questions, answered.': 'text7094632abbd6',
   'Which models can I use?': 'text16b672d86284',

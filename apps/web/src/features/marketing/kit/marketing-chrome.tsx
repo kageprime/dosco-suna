@@ -43,14 +43,9 @@ export function MarketingHeader() {
   return (
     <header className="border-border bg-background/80 sticky top-0 z-30 border-b backdrop-blur">
       <div className={cn(COLUMN, 'flex h-16 items-center justify-between gap-4')}>
-        <div className="flex items-center gap-4">
-          <Link href="/" aria-label="Dosco" className="text-foreground">
-            <KortixLogo size={16} variant="logomark" />
-          </Link>
-          <span className="text-foreground hidden font-mono text-sm font-medium tracking-wider uppercase sm:inline">
-            CompanyOS
-          </span>
-        </div>
+        <Link href="/" aria-label="Dosco" className="text-foreground">
+          <KortixLogo size={16} variant="logomark" />
+        </Link>
         <nav aria-label="Site" className="text-muted-foreground hidden items-center gap-8 text-sm md:flex">
           {LINKS.map((link) => (
             <Link key={link.href} href={link.href} className="hover:text-foreground">

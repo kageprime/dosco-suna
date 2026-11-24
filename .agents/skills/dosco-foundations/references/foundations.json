@@ -503,6 +503,17 @@
         "path": "apps/web/src/features/marketing/one-prompt/use-cases-content.ts",
         "text": "ILO Working Paper 140 (2025)"
       }
+    },
+    {
+      "id": "DSN-16",
+      "name": "Developer docs prose does not foreground the internal manifest name",
+      "status": "frozen",
+      "surface": "apps/web/src/features/marketing/developers/content.ts",
+      "check": {
+        "type": "contains",
+        "path": "apps/web/src/features/marketing/developers/content.ts",
+        "text": "muted: 'One manifest.'"
+      }
     }
   ],
   "frozenTrees": {
@@ -537,7 +548,7 @@
       "apps/web/src/features/marketing/developers/cli.tsx": "d9a164fb5c192d57d00c07abeff50eae4de245aea3dbe5eecb30ada0cd89e9d7",
       "apps/web/src/features/marketing/developers/closing.tsx": "4d21b4675671b924f501abaf716c6266f5d9448d10bf8ed43990d3155b86435c",
       "apps/web/src/features/marketing/developers/connectors.tsx": "bfabc0719ac679e4c829ece33dc7291fae5f130d1651aa0b4037a0330325d5b0",
-      "apps/web/src/features/marketing/developers/content.ts": "f1a6e327355b33ecb67b11e844ac1283b65aad9c0c29260f7451506000af7b53",
+      "apps/web/src/features/marketing/developers/content.ts": "f618417188c590d7e75525739c471a1f5e814d43ea907019414e923f3235b4df",
       "apps/web/src/features/marketing/developers/dither-field.tsx": "6e68ac42c97ead4d08b7f1a7ae281388b0da44256a9b0dcd3cdc2474aa9871d3",
       "apps/web/src/features/marketing/developers/hero.tsx": "5403047244d86a64429d4e125bf42cfd91ef46d1568f477331a467862b0cfdc7",
       "apps/web/src/features/marketing/developers/loop.tsx": "3319ad4d1f02852863869c8f75eb6dac0f9f21fef01ea6a9d2dc9d8d935e92b0",
@@ -588,7 +599,7 @@
       "apps/web/src/features/marketing/kit/feature-split.tsx": "80e8f8127c71d50def82bf35a67779c2d07e651b86341d94a32f12f5f133f91d",
       "apps/web/src/features/marketing/kit/forest-scene.tsx": "bfb1e555a8fe1d3dd845e169176fd29ff2bd15a25f02a6a4fbad90797c430430",
       "apps/web/src/features/marketing/kit/marketing-button.tsx": "8aba2d888756a35378707abd8a18ca4e9e343213ca906babfde99edc6d6d59df",
-      "apps/web/src/features/marketing/kit/marketing-chrome.tsx": "2610305facc51e1738eafd298f454a0a88fe403e91f69125b9eae81c0aaebcb3",
+      "apps/web/src/features/marketing/kit/marketing-chrome.tsx": "9f14239ffcfa02971f26d54218792286c918006a57003890df2063710c16a1d2",
       "apps/web/src/features/marketing/kit/page-frame.tsx": "5e14594dcc0864ba05e1f28b28f1d80014587bdd65e5781115942b184d49e737",
       "apps/web/src/features/marketing/kit/seal.tsx": "2e715640a2a48487527626598e627aa1963a78152b140de9cdbc47b1e36da4d7",
       "apps/web/src/features/marketing/kit/section-heading.tsx": "38a0d2853be54155f4ba89563d9ea9a03035fe32e6959e3e463cc2a8efd83377",

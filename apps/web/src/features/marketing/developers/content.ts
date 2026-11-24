@@ -26,7 +26,7 @@ export const DOCS_URL = '/docs';
 export const CLI_REFERENCE_URL = '/docs/cli';
 
 export const hero = {
-  headline: { muted: 'One kortix.yaml.', ink: 'Your AI workforce, as code.' } satisfies TwoTone,
+  headline: { muted: 'One manifest.', ink: 'Your AI workforce, as code.' } satisfies TwoTone,
   description:
     'Agents, skills, tools, connectors and schedules are files in a repo. Edit them in your IDE, ship them with one command.',
   installTabs: { humans: 'For humans', agents: 'For agents' },
@@ -157,7 +157,7 @@ export const cli = {
     {
       label: 'Scaffold and ship',
       cmds: [
-        ['kortix init', 'Scaffold kortix.yaml, agents/ and skills/'],
+        ['kortix init', 'Scaffold the manifest, agents/ and skills/'],
         ['kortix ship', 'Commit, push, link and go live'],
         ['kortix validate', 'Type-check your manifest'],
       ],
@@ -220,7 +220,7 @@ export const connectors = {
   ],
   facts: [
     ['Only a scoped token leaves the box', 'KORTIX_TOKEN'],
-    ['Declared once in kortix.yaml', 'connectors:'],
+    ['Declared once in your manifest', 'connectors:'],
     ['Managed from the terminal', 'kortix connectors'],
   ] as [string, string][],
 };
@@ -263,7 +263,7 @@ export const loop = {
     {
       icon: 'terminal',
       title: 'One line to start.',
-      body: 'kortix init adds kortix.yaml, agents/ and skills/ to your repo.',
+      body: 'One command adds the manifest, agents/ and skills/ to your repo.',
     },
     {
       icon: 'file',
