@@ -22,7 +22,7 @@ truth for `tests/unit/dosco-foundations.test.ts`; this file explains the rows.
   removed, retired route answers 410, no marketplace links on the home page.
 - `DSN-01 … DSN-03` — frozen home-page design, pinned by SHA-256 to the pre-sync
   `heroku-clean` state (`e8595227a3`).
-- `DSN-04` — the whole restored marketing and home surface (170 files) is pinned
+- `DSN-04` — the whole restored marketing and home surface (171 files) is pinned
   in `frozenTrees.marketing`. A new marketing change must update that map in the
   same PR; upstream merges may not alter it.
 - `DSN-05` — `/` serves the CEO landing, not the old home.
@@ -37,6 +37,9 @@ truth for `tests/unit/dosco-foundations.test.ts`; this file explains the rows.
   retired shells, and the shared chrome component exists.
 - `DSN-14` — `.font-marketing` also remaps the serif token, so pages that still
   use `font-serif` for their hero read in Roobert like the new fold.
+- `DSN-15` — the landing's described roles stay tied to the public research
+  cited in `use-cases-content.ts`; upstream merges may not replace them with
+  invented examples.
 
 ## Adding a foundation
 

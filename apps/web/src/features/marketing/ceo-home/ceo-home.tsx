@@ -9,6 +9,12 @@ import { DitherField } from '@/features/marketing/kit/dither-field';
 import { ENGINE, MANIFEST } from '@/features/marketing/one-prompt/factory-content';
 import type { LoopView } from '@/features/marketing/one-prompt/loops-content';
 import { Eyebrow, Mark } from '@/features/marketing/one-prompt/parts';
+import {
+  featuredUseCaseViews,
+  USE_CASE_GROUPS,
+  useCaseViews,
+  type UseCaseView,
+} from '@/features/marketing/one-prompt/use-cases-content';
 
 import { RoleCards } from './role-cards';
 import { SessionCarousel } from './session-carousel';
@@ -71,6 +77,54 @@ const proof = (roles: LoopView[]) => [
   { value: '24/7', label: 'cloud work' },
 ];
 
+/** Public research behind the role examples. No customer data, no estimates. */
+const EVIDENCE = [
+  {
+    value: '1 in 4',
+    text: 'workers are in an occupation with some generative-AI exposure.',
+    source: 'ILO, 2025',
+    href: 'https://www.ilo.org/publications/generative-ai-and-jobs-refined-global-index-occupational-exposure',
+  },
+  {
+    value: '36%',
+    text: 'of occupations use AI for at least a quarter of their tasks.',
+    source: 'Anthropic Economic Index, 2025',
+    href: 'https://www.anthropic.com/research/the-anthropic-economic-index',
+  },
+  {
+    value: '86%',
+    text: 'of 16,000 creators across eight countries use creative generative AI.',
+    source: 'Adobe, 2025',
+    href: 'https://news.adobe.com/news/2025/10/adobe-max-2025-creators-survey',
+  },
+] as const;
+
+/** One grouped list per audience. Every group gets one honest call to action. */
+function UseCaseGroups({ cases }: { cases: readonly UseCaseView[] }) {
+  return (
+    <div className="mx-auto grid w-full max-w-7xl gap-x-8 gap-y-12 px-6 pb-24 sm:grid-cols-2 lg:grid-cols-4 lg:pb-32">
+      {USE_CASE_GROUPS.map((group) => (
+        <div key={group} className="flex flex-col gap-3">
+          <h3 className="text-foreground text-base font-medium">{group}</h3>
+          <ul className="flex flex-col">
+            {cases
+              .filter((useCase) => useCase.group === group)
+              .map((useCase) => (
+                <li key={useCase.id} className="border-border flex flex-col gap-1 border-b py-3 last:border-b-0">
+                  <span className="text-foreground text-sm font-medium">{useCase.role}</span>
+                  <span className="text-muted-foreground text-sm text-pretty">{useCase.line}</span>
+                </li>
+              ))}
+          </ul>
+          <Link href="/auth" className="text-foreground mt-1 w-fit text-sm underline underline-offset-4">
+            Describe a role like this
+          </Link>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
  * The Dosco landing. One person leads; capable agents hold the roles. The
  * roles, the counts and the YAML on this page come from the build's real
@@ -82,6 +136,9 @@ const proof = (roles: LoopView[]) => [
  * this component owns only the page content and its `<main>` landmark.
  */
 export function CeoHome({ roles, catalog }: { roles: LoopView[]; catalog: string[] }) {
+  const cases = useCaseViews();
+  const featured = featuredUseCaseViews();
+
   return (
     <>
       <main>
@@ -115,12 +172,15 @@ export function CeoHome({ roles, catalog }: { roles: LoopView[]; catalog: string
                 <Link href="#roles" className="text-foreground text-sm underline-offset-4 hover:underline">
                   See the roles
                 </Link>
+                <Link href="#use-cases" className="text-foreground text-sm underline-offset-4 hover:underline">
+                  Browse use cases
+                </Link>
               </div>
               <p className="text-muted-foreground mt-3 text-sm">Free to start.</p>
             </div>
           </div>
           <div className="relative pb-10">
-            <SessionCarousel roles={roles} />
+            <SessionCarousel roles={roles} useCases={featured} />
           </div>
         </section>
 
@@ -136,6 +196,27 @@ export function CeoHome({ roles, catalog }: { roles: LoopView[]; catalog: string
           </dl>
         </section>
 
+        {/* Why this matters: three sourced numbers from public research. */}
+        <section aria-label="Why this matters" className="border-border border-t">
+          <div className={cn(COLUMN, 'py-12')}>
+            <Eyebrow>Why this matters</Eyebrow>
+            <div className="mt-6 grid gap-8 sm:grid-cols-3">
+              {EVIDENCE.map((item) => (
+                <div key={item.value} className="flex flex-col gap-2">
+                  <span className="text-kortix-base font-mono text-xl">{item.value}</span>
+                  <p className="text-foreground text-sm text-pretty">{item.text}</p>
+                  <a
+                    href={item.href}
+                    className="text-muted-foreground hover:text-foreground w-fit text-xs underline underline-offset-4"
+                  >
+                    {item.source}
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section id="roles" className="border-border scroll-mt-16 border-t">
           <div className={cn(COLUMN, 'flex flex-col gap-3 pt-20 pb-12 lg:pt-28')}>
             <Eyebrow>The first team</Eyebrow>
@@ -148,6 +229,19 @@ export function CeoHome({ roles, catalog }: { roles: LoopView[]; catalog: string
           <div className="pb-24 lg:pb-32">
             <RoleCards roles={roles} more={catalog} />
           </div>
+        </section>
+
+        {/* Roles people outside engineering recognise, from the research above. */}
+        <section id="use-cases" className="border-border scroll-mt-16 border-t">
+          <div className={cn(COLUMN, 'flex flex-col gap-3 pt-20 pb-12 lg:pt-28')}>
+            <Eyebrow>Beyond the first team</Eyebrow>
+            <h2 className={H2}>The work people already do, with an agent alongside.</h2>
+            <p className={BODY}>
+              A store owner, a lawyer, a designer or a teacher describes the role and the setup writes it as code. These
+              are examples to start from, not prebuilt templates. An agent returns a draft for your approval.
+            </p>
+          </div>
+          <UseCaseGroups cases={cases} />
         </section>
 
         <section id="how" className="border-border scroll-mt-16 border-t">

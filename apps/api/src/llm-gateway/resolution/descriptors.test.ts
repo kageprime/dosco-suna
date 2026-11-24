@@ -447,4 +447,19 @@ describe('antigravityDescriptor', () => {
     expect(desc.project).toBeUndefined();
     expect(desc.resolvedModel).toBe('gemini-2.5-pro');
   });
+
+  test('sends the exact Google Claude ids, with no effort suffix', () => {
+    const credential = { access: 'ya29.test', project: 'p1' };
+    const wired: Array<[string, string]> = [
+      ['antigravity/claude-opus-4.6', 'claude-opus-4-6-thinking'],
+      ['antigravity/claude-sonnet-4.6', 'claude-sonnet-4-6-thinking'],
+      ['antigravity/claude-opus-5.5', 'claude-opus-5-5'],
+      ['antigravity/claude-sonnet-5.5', 'claude-sonnet-5-5'],
+      // The resolved ids are accepted as refs too, so old sessions keep working.
+      ['antigravity/claude-opus-5-5', 'claude-opus-5-5'],
+    ];
+    for (const [ref, resolvedModel] of wired) {
+      expect(antigravityDescriptor(credential, ref).resolvedModel).toBe(resolvedModel);
+    }
+  });
 });

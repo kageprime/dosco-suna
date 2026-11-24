@@ -492,6 +492,17 @@
         "path": "apps/web/src/app/globals.css",
         "text": "--font-family-serif: var(--font-roobert);"
       }
+    },
+    {
+      "id": "DSN-15",
+      "name": "Landing role examples stay grounded in public research",
+      "status": "frozen",
+      "surface": "apps/web/src/features/marketing/one-prompt/use-cases-content.ts",
+      "check": {
+        "type": "contains",
+        "path": "apps/web/src/features/marketing/one-prompt/use-cases-content.ts",
+        "text": "ILO Working Paper 140 (2025)"
+      }
     }
   ],
   "frozenTrees": {
@@ -508,10 +519,10 @@
       "apps/web/src/features/marketing/careers/content.ts": "14e4f302438c6c72dc0b2ec0140bc252bd8663f216d06dedbb9d35dd0316fe9b",
       "apps/web/src/features/marketing/case-studies/case-studies.tsx": "d5166975b4984dd774320630a31a56a027566244a1bfb6a61232bf43af82590c",
       "apps/web/src/features/marketing/case-studies/content.ts": "44710743b67e27e3037098e1f31531c5dc9d2c41d8912d1ad55b48648fca3e1c",
-      "apps/web/src/features/marketing/ceo-home/ceo-home.tsx": "decad6632921ef9f36f377201d2394a6b1e8c2a8d997a6b5512f85abf516d3bc",
+      "apps/web/src/features/marketing/ceo-home/ceo-home.tsx": "0e90395edcf5fad18eefce20e3973644431194c9beff69808349ae80e67cb17f",
       "apps/web/src/features/marketing/ceo-home/role-cards.tsx": "aec89ad385f2978b4e72e7d32526f63c37a314e7bb2a4ddc478c531668d57333",
-      "apps/web/src/features/marketing/ceo-home/session-cards.tsx": "e0f59d8da028015e2a8c4370640b5019cd1c65b476b0ceb99f1d2f2ddea6cb12",
-      "apps/web/src/features/marketing/ceo-home/session-carousel.tsx": "1c3bcff5a234e4fcbcead9ac14faca55f605db4ce4aaae3987bb795b521ad4ba",
+      "apps/web/src/features/marketing/ceo-home/session-cards.tsx": "b892f4f04729880e60fdc42ffb3ed00df6b5ae02fc5a8cf355f300a966e52baa",
+      "apps/web/src/features/marketing/ceo-home/session-carousel.tsx": "b71b9713e1446d40a120cc7fc808694413984cf0a604e52d26269410ebffdd22",
       "apps/web/src/features/marketing/code-panel.tsx": "f87787238c21ff96f263b163b7947477bdf0b73439cdbba3bec81b43a6afa520",
       "apps/web/src/features/marketing/company-as-code/code-panel.tsx": "7b607bb2ebcfb6981313eefe848c01d972152d82c179455b8a3aadc5c5003866",
       "apps/web/src/features/marketing/compliance/compliance-hero.tsx": "309db9471585526d08ac4e810439ba176a1ad91b665c654e06999eb3c1764477",
@@ -636,6 +647,7 @@
       "apps/web/src/features/marketing/one-prompt/scenes.ts": "750ba822881b359925e959b79846bf1c2aad077067cc3041a53f9b017199c5e1",
       "apps/web/src/features/marketing/one-prompt/section-art.tsx": "d1d69aad5dc5014995b54fc3a3b747d7dc5d028beedc502b09a19b4d75d5254f",
       "apps/web/src/features/marketing/one-prompt/session-reel.tsx": "758f6339a4786b9c7dfdba3ec0bbdc547e84c45ca37da2c2869224e1a5ca0478",
+      "apps/web/src/features/marketing/one-prompt/use-cases-content.ts": "48935f92e6dc62309268d56b2527543bda1dfa2e286084de4d99ed533c4d0b3c",
       "apps/web/src/features/marketing/open-source/content.ts": "bdf78fb9eac6a0edfff4e64ce2a0a4973f59494a8ef7f45e1b6f286b0eb22fdc",
       "apps/web/src/features/marketing/pricing/compare-table.tsx": "fcdbf9ce9b71905663a5ed711bdc20d3fbf45cedd65f40ee6e5144c5940fd5f8",
       "apps/web/src/features/marketing/pricing/credit-ladder.tsx": "e38484beae6aa747170cdf99958bdec042473908a5343c0676870cc04f04c843",

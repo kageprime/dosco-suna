@@ -2,6 +2,7 @@
 
 import { sessionViews, SessionCard } from './session-cards';
 import type { LoopView } from '@/features/marketing/one-prompt/loops-content';
+import type { UseCaseView } from '@/features/marketing/one-prompt/use-cases-content';
 
 /**
  * The strip below the landing fold: the roles' runs as conversation cards,
@@ -11,8 +12,14 @@ import type { LoopView } from '@/features/marketing/one-prompt/loops-content';
  * Two identical children each translate by their own width plus the gap, so
  * the seam never shows. Reduced motion holds the strip still at the first card.
  */
-export function SessionCarousel({ roles }: { roles: LoopView[] }) {
-  const views = sessionViews(roles);
+export function SessionCarousel({
+  roles,
+  useCases,
+}: {
+  roles: LoopView[];
+  useCases: readonly UseCaseView[];
+}) {
+  const views = sessionViews(roles, useCases);
   return (
     <div
       role="region"

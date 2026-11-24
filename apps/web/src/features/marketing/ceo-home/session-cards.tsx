@@ -1,17 +1,21 @@
 'use client';
 
 import {
+  BookOpenText,
   Briefcase,
   ChatCircleDots,
   EnvelopeSimple,
   GitPullRequest,
   GithubLogo,
+  Palette,
   Receipt,
+  Storefront,
   type Icon,
 } from '@phosphor-icons/react';
 
-import { SCENES, type Scene } from '@/features/marketing/one-prompt/scenes';
 import type { LoopView } from '@/features/marketing/one-prompt/loops-content';
+import { SCENES, type Scene } from '@/features/marketing/one-prompt/scenes';
+import type { UseCaseGroup, UseCaseView } from '@/features/marketing/one-prompt/use-cases-content';
 
 /** The workspace every card sits in. Synthetic name, like the role cards. */
 const WORKSPACE = 'your-company';
@@ -67,12 +71,21 @@ const ICON: Record<string, Icon> = {
   recruiting: Briefcase,
 };
 
+/** One glyph per audience for the described roles. */
+const GROUP_ICON: Record<UseCaseGroup, Icon> = {
+  'Run a store': Storefront,
+  'Professional work': Briefcase,
+  'Creative work': Palette,
+  'Learn and plan': BookOpenText,
+};
+
 /**
- * The cards the hero carousel shows, in stack order. Every field except the
- * summary is read from the build's own scene data, so a card cannot claim a
- * run the templates do not ship.
+ * The cards the hero carousel shows, in stack order. Template cards read the
+ * build's own scene data. Described roles read the use-case catalog and are
+ * always marked as examples, so a card cannot claim work the templates do not
+ * ship.
  */
-export function sessionViews(roles: LoopView[]): SessionView[] {
+export function sessionViews(roles: LoopView[], useCases: readonly UseCaseView[] = []): SessionView[] {
   const cards = roles.flatMap((role): SessionView[] => {
     const scene = SCENES[role.id];
     const icon = ICON[role.id];
@@ -92,7 +105,21 @@ export function sessionViews(roles: LoopView[]): SessionView[] {
       },
     ];
   });
-  return roles.some((role) => role.id === 'finance') ? cards : [...cards, FINANCE];
+  const examples: SessionView[] = useCases.map((useCase) => ({
+    id: useCase.id,
+    icon: GROUP_ICON[useCase.group],
+    source: useCase.source,
+    agent: useCase.id,
+    kind: 'example',
+    signal: useCase.signal,
+    steps: useCase.steps.length,
+    summary: useCase.line,
+    ship: { kind: 'Draft', title: useCase.result, status: 'Waiting for your approval' },
+  }));
+  // The finance placeholder is only for the strip without the wider catalog:
+  // bookkeeping is already covered once `useCases` is passed.
+  const extra = useCases.length === 0 && !roles.some((role) => role.id === 'finance') ? [FINANCE] : [];
+  return [...cards, ...examples, ...extra];
 }
 
 /** A 5x5 mirrored identicon from the agent name: deterministic, no image. */

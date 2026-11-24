@@ -40,7 +40,14 @@ interface CloudCodeFetchAvailableModelsResponse {
   }>;
 }
 
+// replica-local: a 5-minute cache of Cloud Code's model list per credential.
+// Each replica may read a slightly different list; the picker only offers ids
+// and a stale list cannot send a request or spend money, so no shared store is
+// needed.
 const modelListCache = new Map<string, { models: AntigravityModel[]; fetchedAt: number }>();
+// replica-local: lookup of the live model definition for the current request.
+// A resolver only reads this after its own fetch; other replicas do not need
+// the same object, and a miss safely falls back to the curated catalog.
 const dynamicModelsByKey = new Map<string, AntigravityModel>();
 
 function staticModelFor(key: string): AntigravityModel | undefined {
@@ -331,6 +338,9 @@ export function selectCuratedAntigravityPickerModels(
     liveByName.set(live.name.trim().toLowerCase(), live);
   }
   return ANTIGRAVITY_MODELS.map((curated) => {
+    // Claude's Antigravity ids are fixed strings. A live entry may report an
+    // effort variant of one of them, but that variant is not a valid wire id.
+    if (curated.pinWireId) return curated;
     const live =
       liveByKey.get(curated.id) ??
       liveByKey.get(curated.resolved) ??

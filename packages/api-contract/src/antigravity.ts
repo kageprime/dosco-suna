@@ -117,6 +117,13 @@ export interface AntigravityModel {
    * `gpt-oss-120b-medium`).
    */
   readonly efforts?: readonly AntigravityEffort[];
+  /**
+   * Send `resolved` exactly as written. Google's Claude ids on Antigravity are
+   * fixed strings: the 4.6 ids end in `-thinking` and the 5.5 ids have no
+   * suffix. Appending an effort tier to any of them makes Cloud Code answer
+   * 404. Live `fetchAvailableModels` data may not override this either.
+   */
+  readonly pinWireId?: boolean;
   /** Display badge in model selector: 'new' | 'notice' | 'unavailable'. */
   readonly badge?: 'new' | 'notice' | 'unavailable';
   /** Whether the model is currently unavailable or in private preview. */
@@ -142,7 +149,7 @@ export const ANTIGRAVITY_LEGACY_ALIASES: Record<string, string> = {
  * `resolved` does not already carry one.
  */
 export function antigravityWireModelId(entry: AntigravityModel): string {
-  if (!entry.efforts?.length || EFFORT_SUFFIX_RE.test(entry.resolved)) return entry.resolved;
+  if (entry.pinWireId || !entry.efforts?.length || EFFORT_SUFFIX_RE.test(entry.resolved)) return entry.resolved;
   return `${entry.resolved}-${entry.defaultEffort ?? 'medium'}`;
 }
 
@@ -208,8 +215,7 @@ export const ANTIGRAVITY_MODELS: readonly AntigravityModel[] = [
     name: 'Claude Opus 5.5',
     resolved: 'claude-opus-5-5',
     description: 'Anthropic frontier partner reasoning model served via Antigravity',
-    defaultEffort: 'medium',
-    efforts: ['low', 'medium', 'high', 'max'],
+    pinWireId: true,
     badge: 'new',
     context: 1_000_000,
     output: 64_000,
@@ -219,9 +225,26 @@ export const ANTIGRAVITY_MODELS: readonly AntigravityModel[] = [
     name: 'Claude Sonnet 5.5',
     resolved: 'claude-sonnet-5-5',
     description: 'High-throughput frontier coding partner model served via Antigravity',
-    defaultEffort: 'medium',
-    efforts: ['low', 'medium', 'high', 'max'],
+    pinWireId: true,
     badge: 'new',
+    context: 1_000_000,
+    output: 64_000,
+  },
+  {
+    id: 'claude-opus-4.6',
+    name: 'Claude Opus 4.6',
+    resolved: 'claude-opus-4-6-thinking',
+    description: 'Anthropic reasoning model served via Antigravity with fixed thinking id',
+    pinWireId: true,
+    context: 1_000_000,
+    output: 64_000,
+  },
+  {
+    id: 'claude-sonnet-4.6',
+    name: 'Claude Sonnet 4.6',
+    resolved: 'claude-sonnet-4-6-thinking',
+    description: 'Anthropic coding partner served via Antigravity with fixed thinking id',
+    pinWireId: true,
     context: 1_000_000,
     output: 64_000,
   },

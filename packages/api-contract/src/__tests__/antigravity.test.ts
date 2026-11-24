@@ -18,7 +18,7 @@ describe('Google Antigravity api-contract', () => {
   });
 
   test('models catalog contains verified models and properties', () => {
-    expect(ANTIGRAVITY_MODELS.length).toBe(9);
+    expect(ANTIGRAVITY_MODELS.length).toBe(11);
 
     const argon = ANTIGRAVITY_MODELS.find((m) => m.id === 'gemini-4-argon');
     expect(argon).toBeDefined();
@@ -39,12 +39,23 @@ describe('Google Antigravity api-contract', () => {
     const opus = ANTIGRAVITY_MODELS.find((m) => m.id === 'claude-opus-5.5');
     expect(opus).toBeDefined();
     expect(opus?.badge).toBe('new');
-    expect(opus?.efforts).toContain('max');
+    expect(opus?.resolved).toBe('claude-opus-5-5');
+    expect(opus?.efforts).toBeUndefined();
+    expect(opus?.pinWireId).toBe(true);
 
     const sonnet = ANTIGRAVITY_MODELS.find((m) => m.id === 'claude-sonnet-5.5');
     expect(sonnet).toBeDefined();
     expect(sonnet?.badge).toBe('new');
-    expect(sonnet?.efforts).toContain('max');
+    expect(sonnet?.resolved).toBe('claude-sonnet-5-5');
+    expect(sonnet?.efforts).toBeUndefined();
+    expect(sonnet?.pinWireId).toBe(true);
+
+    const opus46 = ANTIGRAVITY_MODELS.find((m) => m.id === 'claude-opus-4.6');
+    expect(opus46?.resolved).toBe('claude-opus-4-6-thinking');
+    expect(opus46?.pinWireId).toBe(true);
+    const sonnet46 = ANTIGRAVITY_MODELS.find((m) => m.id === 'claude-sonnet-4.6');
+    expect(sonnet46?.resolved).toBe('claude-sonnet-4-6-thinking');
+    expect(sonnet46?.pinWireId).toBe(true);
 
     const gptOss = ANTIGRAVITY_MODELS.find((m) => m.id === 'gpt-oss-120b');
     expect(gptOss).toBeDefined();

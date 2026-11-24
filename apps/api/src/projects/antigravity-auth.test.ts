@@ -222,10 +222,11 @@ describe('fetchAvailableAntigravityModels', () => {
       'Gemini 4 Argon',
       'Gemini 4 Hydrogen',
       'Orchestrator (Neon)',
-      'Orchestrator (Argon)',
       'Gemini 3.8 Flash',
       'Claude Opus 5.5',
       'Claude Sonnet 5.5',
+      'Claude Opus 4.6',
+      'Claude Sonnet 4.6',
       'GPT-OSS 120B (Medium)',
       'Gemini 4 Carbon',
     ]);
