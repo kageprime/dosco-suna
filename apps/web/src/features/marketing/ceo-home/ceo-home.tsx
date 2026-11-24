@@ -116,7 +116,7 @@ function UseCaseGroups({ cases }: { cases: readonly UseCaseView[] }) {
                 </li>
               ))}
           </ul>
-          <Link href="/auth" className="text-foreground mt-1 w-fit text-sm underline underline-offset-4">
+          <Link href="/auth" className="text-foreground mt-auto w-fit pt-2 text-sm underline underline-offset-4">
             Describe a role like this
           </Link>
         </div>
