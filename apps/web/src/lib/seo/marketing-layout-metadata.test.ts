@@ -17,7 +17,7 @@ mock.module('next-intl/server', () => ({ ...nextIntlServer, getLocale: async () 
 // the page itself (their pass-through layout was deleted); the rest re-export
 // from a layout.
 const modules = {
-  home: await import('@/app/[locale]/(public)/(marketing)/(home)/page'),
+  home: await import('@/app/[locale]/(public)/(landing)/page'),
   'case-studies': await import('@/app/[locale]/(public)/(marketing)/case-studies/layout'),
   compliance: await import('@/app/[locale]/(public)/(marketing)/compliance/page'),
   contact: await import('@/app/[locale]/(public)/(marketing)/contact/layout'),

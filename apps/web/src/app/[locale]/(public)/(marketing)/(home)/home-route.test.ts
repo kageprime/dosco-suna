@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 
-import * as homeRoute from './page';
+import * as homeRoute from '../../(landing)/page';
 
 // KRTX-3255. The home route is `/[locale]`, the one route a one-segment path
 // such as `/security.txt` reaches. Its locales are prerendered; an unknown one

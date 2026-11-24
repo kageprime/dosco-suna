@@ -79,7 +79,7 @@ describe('templates in the setup guide', () => {
     expect(guide).not.toContain('give the person\nall of them in one message');
   });
 
-  test('the guide offers Slack and declares it with the slug Kortix writes when Slack connects', () => {
+  test('the guide offers Slack and declares it with the slug Dosco writes when Slack connects', () => {
     const guide = setupGuide();
     expect(guide).toContain('5. Slack, unless the plan shows it connected. Recommend yes');
     // apps/api/src/connectors/channel-manifest.ts writes this entry on connect: the same slug makes that a no-op.
@@ -87,11 +87,11 @@ describe('templates in the setup guide', () => {
     expect(guide).toContain('--channels\` takes the Slack channels the reply named');
   });
 
-  test('the guide lets the person keep Kortix in their repository, reuses its skills, and proves the dev environment', () => {
+  test('the guide lets the person keep Dosco in their repository, reuses its skills, and proves the dev environment', () => {
     const guide = setupGuide();
-    // Where Kortix lives: this repository for one repository or a monorepo, a new one for several.
+    // Where Dosco lives: this repository for one repository or a monorepo, a new one for several.
     expect(guide).toContain('a) this repository (recommended for one repository or a monorepo)');
-    expect(guide).toContain('b) a new repository Kortix hosts (recommended for a product over');
+    expect(guide).toContain('b) a new repository Dosco hosts (recommended for a product over');
     expect(guide).toContain('skills: { <name>: .claude/skills/<name> }');
     expect(guide).toContain('agents.<name>.prompt_file: .claude/agents/<name>.md');
     // Every app found, not only the ones a loop calls.

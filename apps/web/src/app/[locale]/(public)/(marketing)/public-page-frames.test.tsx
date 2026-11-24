@@ -48,7 +48,7 @@ mock.module('@/lib/use-cases-source', () => ({
 }));
 
 // bun hoists static imports above the mocks, so every page loads dynamically.
-const Home = (await import('./(home)/page')).default;
+const Home = (await import('../(landing)/page')).default;
 const PricingPage = (await import('./pricing/page')).default;
 const SecurityPage = (await import('./security/page')).default;
 const DesktopPage = (await import('./desktop/page')).default;
@@ -73,7 +73,6 @@ const MAIN_FRAME = 'bg-background max-w-[1440px] mx-auto relative w-full';
 
 describe('full marketing pages render in the landing frame', () => {
   for (const [name, Page] of [
-    ['home', Home],
     ['pricing', PricingPage],
     ['security', SecurityPage],
     ['desktop', DesktopPage],
@@ -135,10 +134,12 @@ describe('full marketing pages render in the landing frame', () => {
     expect(document.querySelectorAll('#trust .dark').length).toBe(1);
   });
 
-  test('home keeps its section composition', () => {
+  test('home has one header, one footer and no second marketing shell', () => {
     const document = dom(renderToStaticMarkup(<Home />));
-    const sections = [...document.querySelectorAll('main section, main > div')];
-    expect(sections.length).toBeGreaterThanOrEqual(8);
+    expect(document.querySelectorAll('header').length).toBe(1);
+    expect(document.querySelectorAll('footer').length).toBe(1);
+    expect(document.querySelector('main')).not.toBeNull();
+    expect(document.querySelectorAll('[data-kx-titlebar-owner]').length).toBe(0);
   });
 
   test('desktop keeps the surface page composition', () => {

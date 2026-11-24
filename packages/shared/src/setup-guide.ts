@@ -11,7 +11,7 @@
  * copied prompt is always testable where it was copied.
  */
 
-/** The Kortix deployment a prompt and the guide point at. */
+/** The Dosco deployment a prompt and the guide point at. */
 export interface SetupTarget {
   /** The web origin that serves the guide and the installer, without a trailing slash. */
   origin: string;
@@ -60,7 +60,7 @@ const OLD_CLI_NOTE = [
   'tell the person which one to remove, in one line.',
 ].join('\n');
 
-/** The CLI's built-in Kortix Cloud host (\`CLOUD_HOST_NAME\` in host-config): every config has it. */
+/** The CLI's built-in Dosco Cloud host (\`CLOUD_HOST_NAME\` in host-config): every config has it. */
 const CLOUD_HOST = 'cloud';
 
 /** Step 0 of the guide: install or update the CLI and point it at this deployment. */
@@ -72,20 +72,20 @@ function installBlock(target: SetupTarget): string {
       '```bash',
       `curl -fsSL ${target.origin}/install | bash   # installs the CLI, or updates an older one`,
       'kortix --version',
-      `kortix hosts use ${CLOUD_HOST}   # Kortix Cloud, ${target.apiBase}`,
+      `kortix hosts use ${CLOUD_HOST}   # Dosco Cloud, ${target.apiBase}`,
       `kortix hosts current   # must print ${CLOUD_HOST}`,
       '```',
       '',
       'The CLI keeps the host an earlier guide or command chose (a test or',
       `self-hosted deployment). \`kortix hosts use ${CLOUD_HOST}\` points every later command at`,
-      'Kortix Cloud.',
+      'Dosco Cloud.',
       '',
       OLD_CLI_NOTE,
     ].join('\n');
   }
   const host = setupHostName(target);
   return [
-    `This guide is served by the Kortix deployment at ${target.origin} (API ${target.apiBase}),`,
+    `This guide is served by the Dosco deployment at ${target.origin} (API ${target.apiBase}),`,
     'not production. Point the CLI at it before anything else; every later',
     'command then talks to this deployment.',
     '',
@@ -99,7 +99,7 @@ function installBlock(target: SetupTarget): string {
     '',
     OLD_CLI_NOTE,
     '',
-    'A test deployment may have no Kortix GitHub App. When step 6 asks the person',
+    'A test deployment may have no Dosco GitHub App. When step 6 asks the person',
     'to install the App and the link does not work, use their own token instead,',
     'with their yes: `gh auth token | kortix onboard --yes --json --github-token -`.',
   ].join('\n');
@@ -118,7 +118,7 @@ function agentBlock(target: SetupTarget): string {
 }
 
 /** The one prompt of the Software Factory: a URL, nothing to install first. */
-export const FACTORY_PROMPT = `Add a Kortix software factory to this repository with me.
+export const FACTORY_PROMPT = `Add a Dosco software factory to this repository with me.
 Follow ${FACTORY_GUIDE_URL} (curl -fsSL ${FACTORY_GUIDE_URL}) step by step.
 Ask all your questions in one message. Never print a secret value.`;
 
@@ -138,7 +138,7 @@ export const loopGuideUrl = (id: string, target: SetupTarget = PROD_TARGET) => `
 /** The prompt of one template: the setup guide, with that template chosen. */
 export function loopPrompt(loop: { id: string; name: string }, target: SetupTarget = PROD_TARGET): string {
   const url = guideUrl(target);
-  return `Set up the Kortix ${loop.name} on this repository with me.
+  return `Set up the Dosco ${loop.name} in this repository with me.
 Read ${url} (curl -fsSL ${url}) and follow it step by step. The template is ${loop.id}.
 Ask all your questions in one message. Never print a secret value.`;
 }
@@ -146,7 +146,7 @@ Ask all your questions in one message. Never print a secret value.`;
 /** What a person copies. Short on purpose: the guide it points to is versioned and served. */
 export function setupPromptFor(target: SetupTarget = PROD_TARGET): string {
   const url = guideUrl(target);
-  return `Set up Kortix cloud agents on this repository with me.
+  return `Set up Dosco agents in this repository with me.
 Read ${url} (curl -fsSL ${url}) and follow it step by step.
 Ask all your questions in one message. Never print a secret value.`;
 }
@@ -172,7 +172,7 @@ export function setupPrompt(
   if (!repository) return prompt;
   const branch = workspace?.branch?.trim() || 'its default branch';
   return `${prompt}
-The Kortix workspace exists already: it reads kortix.yaml from ${repository} on ${branch}. Push the setup there.`;
+The Dosco workspace exists already: it reads kortix.yaml from ${repository} on ${branch}. Push the setup there.`;
 }
 
 /**
@@ -189,15 +189,15 @@ export function sandboxHourlyUsd(cpu: number, memoryGb: number): number {
 
 /** The guide for one deployment, served at \`<origin>/setup.md\`. */
 export function setupGuide(target: SetupTarget = PROD_TARGET): string {
-  return `# Set up Kortix on this repository
+  return `# Set up Dosco on this repository
 
 The person pasted the setup prompt. You are the coding agent on their
-computer. You install the Kortix CLI, sign them in, read their repositories and
-the software they use, and offer the Kortix template that fits. After their one
+computer. You install the Dosco CLI, sign them in, read their repositories and
+the software they use, and offer the Dosco template that fits. After their one
 reply you set it up, run it once for real, and show them what it made. Their
 part is one reply and the clicks only a person can make.
 
-What they get: agents that run in Kortix cloud sandboxes on a copy of their dev
+What they get: agents that run in Dosco cloud sandboxes on a copy of their dev
 environment, on their Claude or ChatGPT plan or an API key. A signal starts
 each run: a new issue, a failing test, a production error, a signup, a
 schedule. The agent ships the work for a person to approve: a pull request, a
@@ -240,12 +240,12 @@ parse.
    "robust", "leverage", "powerful", "unlock", "empower", "streamline",
    "supercharge", "effortless", "magic", "game-changer", "dive in", "let's",
    "I'd be happy to", "great", "simply", "just" or "exciting". Show what the
-   agents will do in this repository, not what Kortix is.
+   agents will do in this repository, not what Dosco is.
 7. **Be brief.** One line per step while you work. Do not print what you
    investigated: no map, no inventory, no list of ideas. A finding reaches the
    person only as one line of the step 3 message or of the final report. The
    step 3 message has at most 40 lines, the final report at most 15.
-8. **A connector for every app.** Every app you found gets a Kortix connector
+8. **A connector for every app.** Every app you found gets a Dosco connector
    when the catalog has one, whether a loop calls it or not: the agents then
    reach all of the team's software. The person signs in once on the setup
    page and copies no key. Ask for an API token only for an app no connector
@@ -276,7 +276,7 @@ test and end-to-end commands, CI), every env key by class, the software it
 found (\`integrations\`: each with a category and its evidence; about 90
 products are known), the credentials it could not name
 (\`unrecognized_services\`: a key prefix each), the MCP servers the repository's
-coding tools already use (\`mcp_servers\`, names only), the Kortix state
+coding tools already use (\`mcp_servers\`, names only), the Dosco state
 (workspace, connectors, Slack, models), a dev-environment proposal and the
 reference repositories.
 
@@ -301,7 +301,7 @@ message of step 3.
    Note the ones pushed in the last 90 days and what each one is. Then name
    the shape: one repository (a monorepo is one: several apps, one
    repository), or one product over several repositories (a web app, an API,
-   services, each in its own). The shape decides where Kortix lives (step 3).
+   services, each in its own). The shape decides where Dosco lives (step 3).
    Check the person's rights on each code repository:
    \`gh api repos/<owner>/<repo> --jq .permissions\`. \`onboard\` creates the
    GitHub webhooks with their \`gh\`, which needs \`admin\`. Without it, say so on
@@ -350,7 +350,7 @@ Send the person one message in this shape. Write it as plain text, also in
 Claude Code: a question tool holds fewer questions and can hide the findings.
 
 \`\`\`text
-Kortix setup for <owner>/<repo>
+Dosco setup for <owner>/<repo>
 
 <What the agents will do here, end to end, in one or two sentences with the
  real names: "Each GitHub issue labeled kortix becomes a pull request with
@@ -395,7 +395,7 @@ The questions:
   2. what it starts with: its sources, each with its signal, output and
      approver;
   3. where work lands: the tracker or the system of record;
-  4. the software to connect as Kortix connectors: every app you found that
+  4. the software to connect as Dosco connectors: every app you found that
      the catalog has, whether a loop calls it or not (rule 8). One line that
      names them, recommended: all, and ends with "Anything missing?" so the
      reply can add one. When the plan shows a workspace, check each app first
@@ -404,14 +404,14 @@ The questions:
      is a directory's copy and can be out of date: never drop a connector for
      a tool it seems to lack. The template's steps name the connector to use;
   5. Slack, unless the plan shows it connected. Recommend yes: the team then
-     gives the agents work by mentioning @Kortix in a channel or in a direct
+     gives the agents work by mentioning @Dosco in a channel or in a direct
      message, and the reply comes back in the same thread. The answer may name
      channels for it to join (\`#eng\`); none is needed, a direct message works
-     without one. One Slack workspace runs one Kortix workspace: when theirs
+     without one. One Slack workspace runs one Dosco workspace: when theirs
      already runs another, adding it here moves it. Say so in the question;
   6. the models: the person's Claude plan, their ChatGPT plan, or an API
      key; the reviewer on the strongest model;
-  7. where Kortix lives, from the shape you named in step 2, with the
+  7. where Dosco lives, from the shape you named in step 2, with the
      workspace name:
      a) this repository (recommended for one repository or a monorepo):
         \`kortix.yaml\`, \`agents/\` and \`skills/\` go next to the code, the
@@ -419,7 +419,7 @@ The questions:
         and agents are reused where they are. Ask how the files land: a
         commit on the default branch (recommended when the team pushes
         there) or a pull request they merge;
-     b) a new repository Kortix hosts (recommended for a product over
+     b) a new repository Dosco hosts (recommended for a product over
         several repositories): the agents reach each code repository on
         GitHub;
   8. the template's questions from step 2;
@@ -429,7 +429,7 @@ The questions:
   decision, with the answer you will use, on the \`Defaults:\` line: the env
   names to upload (every \`local\` name the app reads; never a \`remote\` or
   \`prod\` one), the sandbox size with its cost ("4 vCPU, 8 GB, 30 GB disk:
-  about $${sandboxHourlyUsd(4, 8).toFixed(2)} an hour while a session runs"), the Kortix
+  about $${sandboxHourlyUsd(4, 8).toFixed(2)} an hour while a session runs"), the Dosco
   rule in \`AGENTS.md\` (default: add it).
 - **A gap is a question only when a chosen source needs it.** An
   \`unrecognized_services\` prefix or an empty category becomes one question
@@ -455,7 +455,7 @@ After the reply:
 
 ## 4. Write the configuration
 
-Where you work follows the step 3 answer "where Kortix lives".
+Where you work follows the step 3 answer "where Dosco lives".
 
 **In this repository** (one repository or a monorepo). The configuration goes
 next to the code, at the repository root (a monorepo's root, never one app's
@@ -499,7 +499,7 @@ layout. Declare every app you found under \`connectors:\` (rule 8), whether a
 loop calls it or not, with the entry the template's steps give, else the
 catalog's: \`onboard\` turns each one into a sign-in row on the setup page. An
 app reached only through a secret gets no row. Slack, when the reply says yes, is this entry in \`kortix.yaml\`, the one
-Kortix writes itself when Slack connects; \`onboard\` turns it into the "Add to
+Dosco writes itself when Slack connects; \`onboard\` turns it into the "Add to
 Slack" row:
 
 \`\`\`yaml
@@ -544,11 +544,11 @@ Fix every error and warning in the files you wrote. Two rules save a round:
   templates carry it). \`onboard\` and \`doctor\` then put the webhooks and
   labels there, and an event from any other repository never starts a run.
 
-Commit the Kortix files before step 6: \`onboard\` refuses any other
+Commit the Dosco files before step 6: \`onboard\` refuses any other
 uncommitted change, and the workspace reads the default branch. In this
 repository, the step 3 answer decides how they land:
 
-- **A commit:** commit only the Kortix files on the default branch. \`onboard\`
+- **A commit:** commit only the Dosco files on the default branch. \`onboard\`
   pushes it. A protected branch refuses the push: say so in one line and
   open a pull request instead.
 - **A pull request:** \`git switch -c kortix/setup\`, commit, push,
@@ -582,8 +582,8 @@ it out when it named none.
 **The icon.** Once \`ship\` has linked the folder, give
 the workspace an icon that says what the product is: \`kortix workspaces set
 --glyph <Name>:<color>\`. Pick the name from \`kortix workspaces glyphs --json\`,
-the icons Kortix supports: the one closest to what the product does (\`Phone\`
-for a calling tool, \`ShoppingCart\` for a shop), never one from the \`Kortix\` or
+the icons Dosco supports: the one closest to what the product does (\`Phone\`
+for a calling tool, \`ShoppingCart\` for a shop), never one from the \`Dosco\` or
 \`Brand\` group. The color is the product's brand color from the code
 repository as \`#rrggbb\`: \`theme_color\` in the web manifest, else the primary
 color of its CSS or Tailwind theme. No brand color found: one of the list's
@@ -613,7 +613,7 @@ the page is where the person makes every click (rule 10). Wait for
 command that runs in the background, and a question to the person never waits
 on a running \`onboard\`.
 
-A repository webhook that already sends the same event to another Kortix
+A repository webhook that already sends the same event to another Dosco
 workspace is left in place and reported in the \`webhooks\` detail. Tell the
 person: two workspaces would act on the same event. They pick one; delete the
 other hook with the command \`kortix doctor --loops\` prints.
@@ -621,7 +621,7 @@ other hook with the command \`kortix doctor --loops\` prints.
 A source that is off needs nothing: a disabled Slack trigger asks for no Slack
 connection.
 
-In this repository, \`ship\` links the workspace to it through the Kortix GitHub
+In this repository, \`ship\` links the workspace to it through the Dosco GitHub
 App. The first run asks for the App's install on this repository: a
 \`github_app_install\` action with its link.
 
@@ -646,7 +646,7 @@ dev environment: the image is built, but nothing has run the app in it yet.
 
 **Prove the dev environment.** Start a session on the agent that works on the
 code, so it runs on that agent's \`sandbox\` (else \`sandbox.default\`): the
-image the \`Dockerfile\` built. A session without \`--agent\` runs My Kortix on
+image the \`Dockerfile\` built. A session without \`--agent\` runs My Dosco on
 another image and proves nothing.
 
 \`\`\`bash
@@ -711,7 +711,7 @@ already use. Tell them each thing you add.
 
 ${agentBlock(target)}
 
-- The MCP server lets a coding agent start Kortix sessions, read their
+- The MCP server lets a coding agent start Dosco sessions, read their
   progress, run commands in a session's sandbox and call the workspace's
   connectors, as the person, with their permissions. The first call opens a
   consent page in the browser. A coding agent loads a new MCP server at its
@@ -719,12 +719,12 @@ ${agentBlock(target)}
 - \`kortix init --force\` runs in the repository that holds \`kortix.yaml\`. It
   links every skill \`kortix.yaml\` registers where each local tool reads
   skills (never committed). An \`AGENTS.md\` the repository already has is
-  kept: it gets one marked Kortix section at the end. A code repository
+  kept: it gets one marked Dosco section at the end. A code repository
   without \`kortix.yaml\` gets the MCP server and the rule below, nothing else.
 - Unless the person said no in step 3, add this rule to the repository's \`AGENTS.md\` (and
-  \`CLAUDE.md\` when it exists): "This repository runs Kortix loops, defined
-  in \`kortix.yaml\`. To reach an outside tool, use the Kortix connectors
-  (\`kortix connectors\` or the Kortix MCP server) before any local
+  \`CLAUDE.md\` when it exists): "This repository runs Dosco loops, defined
+  in \`kortix.yaml\`. To reach an outside tool, use the Dosco connectors
+  (\`kortix connectors\` or the Dosco MCP server) before any local
   credential. To add or change a loop, edit \`kortix.yaml\`, run \`kortix
   validate\`, then \`kortix ship\`."
 - Use the CLI for setup and scripts, the MCP server in conversation. Both
@@ -742,8 +742,8 @@ Show the result first, then how to use it. At most 15 lines:
    approves) and where work lands.
 3. How to start work by hand: the label to add, or
    \`kortix triggers fire <slug>\`. With Slack connected, first one task to send
-   in Slack, a sentence the person can paste into a direct message to @Kortix
-   or a channel it joined ("@Kortix why did the last deploy fail?").
+   in Slack, a sentence the person can paste into a direct message to @Dosco
+   or a channel it joined ("@Dosco why did the last deploy fail?").
 4. Three things to ask this agent next, each one sentence the person can
    paste, from what you found ("add a loop that turns Sentry errors into
    tickets").

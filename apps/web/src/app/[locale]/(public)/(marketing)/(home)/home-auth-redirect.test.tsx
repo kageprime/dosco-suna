@@ -4,12 +4,12 @@
  * when it may resolve the identity; for a session cookie that is expired or
  * inside the refresh margin it must not create an auth client (KRTX-2111), so
  * the request falls through to the statically prerendered landing. The browser
- * then refreshes the session — and until this gate existed, nothing navigated:
+ * then refreshes the session â€” and until this gate existed, nothing navigated:
  * the visitor stayed on the marketing home with a signed-in navbar (the
  * founder-reported screenshot state).
  *
- * This drives the REAL home page — the route that serves `/` and every locale
- * root — with the auth provider and router mocked, and pins the contract on
+ * This drives the REAL home page â€” the route that serves `/` and every locale
+ * root â€” with the auth provider and router mocked, and pins the contract on
  * both sides: a signed-in resolution leaves the landing (pending frame, then
  * `router.replace` into the app destination), a signed-out visitor gets the
  * landing unchanged.
@@ -34,6 +34,16 @@ globals.history = win.history;
 globals.requestAnimationFrame = (cb: () => void) => setTimeout(cb, 0);
 globals.cancelAnimationFrame = (id: number) => clearTimeout(id);
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', { value: true, configurable: true });
+
+// The landing's role cards render FactoryClip, which observes visibility in an
+// effect. happy-dom has no IntersectionObserver; an inert one is enough here.
+class InertIntersectionObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() { return []; }
+}
+globals.IntersectionObserver = InertIntersectionObserver;
 
 const USER_ID = '11111111-1111-1111-1111-111111111111';
 const PROJECT_ID = '319395c1-9c3f-41b4-ac6c-9539a12dbb7c';
@@ -92,7 +102,7 @@ for (const [moduleName, names] of [
   );
 }
 
-const { default: Home } = await import('./page');
+const { default: Home } = await import('../../(landing)/page');
 
 let root: Root | undefined;
 let container: HTMLElement | undefined;
@@ -181,7 +191,7 @@ describe('the home route and a signed-in visitor', () => {
 });
 
 describe('the home route and a signed-out visitor', () => {
-  test('renders the marketing landing unchanged — no hold, no redirect', async () => {
+  test('renders the marketing landing unchanged â€” no hold, no redirect', async () => {
     await mountHome();
 
     expect(landingMarker()).not.toBeNull();

@@ -34,7 +34,7 @@ mock.module('@/lib/use-cases-source', () => ({
 }));
 
 import DesktopPage from '@/app/[locale]/(public)/(marketing)/desktop/page';
-import Home from '@/app/[locale]/(public)/(marketing)/(home)/page';
+import Home from '@/app/[locale]/(public)/(landing)/page';
 import CompliancePage from '@/app/[locale]/(public)/(marketing)/compliance/page';
 import EnterprisePage from '@/app/[locale]/(public)/(marketing)/enterprise/page';
 import FrameworkPage from '@/app/[locale]/(public)/(marketing)/framework/page';
