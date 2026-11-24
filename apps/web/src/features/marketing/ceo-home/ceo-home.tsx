@@ -10,7 +10,7 @@ import { YamlLine } from '@/features/marketing/code-panel';
 import { DitherField } from '@/features/marketing/kit/dither-field';
 import { ENGINE, MANIFEST, TOOLS } from '@/features/marketing/one-prompt/factory-content';
 import type { LoopView } from '@/features/marketing/one-prompt/loops-content';
-import { CopyButton, Eyebrow, GhostButton, Mark, useCopy, useSetupTarget } from '@/features/marketing/one-prompt/parts';
+import { CopyButton, Eyebrow, GhostButton, useCopy, useSetupTarget } from '@/features/marketing/one-prompt/parts';
 
 import { RoleCards } from './role-cards';
 
@@ -293,7 +293,7 @@ export function CeoHome({ roles, catalog }: { roles: LoopView[]; catalog: string
               Your agents.
             </h2>
             <p className="text-muted-foreground max-w-md text-base">
-              Bring the <Mark name="Claude" /> or <Mark name="Codex" /> plan you already pay for, or any API key.
+              Bring the plan you already pay for: your Claude or ChatGPT subscription, or any API key.
             </p>
             <ul className="text-muted-foreground flex max-w-2xl flex-wrap justify-center gap-x-8 gap-y-3 text-sm">
               {TOOLS.filter((tool) => tool !== 'Claude Code' && tool !== 'Codex').map((tool) => (

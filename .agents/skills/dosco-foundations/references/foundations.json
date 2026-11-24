@@ -414,7 +414,7 @@
       "apps/web/src/features/marketing/careers/content.ts": "14e4f302438c6c72dc0b2ec0140bc252bd8663f216d06dedbb9d35dd0316fe9b",
       "apps/web/src/features/marketing/case-studies/case-studies.tsx": "d5166975b4984dd774320630a31a56a027566244a1bfb6a61232bf43af82590c",
       "apps/web/src/features/marketing/case-studies/content.ts": "44710743b67e27e3037098e1f31531c5dc9d2c41d8912d1ad55b48648fca3e1c",
-      "apps/web/src/features/marketing/ceo-home/ceo-home.tsx": "dd23a32ba3ea050a5d88be61f1e9f9533b1da9f53033d950156bb63151576a96",
+      "apps/web/src/features/marketing/ceo-home/ceo-home.tsx": "0aeaeed48deb68d48452cb62414a2c1dd94931d077463cb481ab440eb08d16d6",
       "apps/web/src/features/marketing/ceo-home/role-cards.tsx": "be85f8f76f441d6228eee6f3d20c29c88df7de66c78ee829a2ad377ef586f66e",
       "apps/web/src/features/marketing/code-panel.tsx": "f87787238c21ff96f263b163b7947477bdf0b73439cdbba3bec81b43a6afa520",
       "apps/web/src/features/marketing/company-as-code/code-panel.tsx": "7b607bb2ebcfb6981313eefe848c01d972152d82c179455b8a3aadc5c5003866",
