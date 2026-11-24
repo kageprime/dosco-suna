@@ -18,7 +18,7 @@ describe('Google Antigravity api-contract', () => {
   });
 
   test('models catalog contains verified models and properties', () => {
-    expect(ANTIGRAVITY_MODELS.length).toBe(8);
+    expect(ANTIGRAVITY_MODELS.length).toBe(9);
 
     const argon = ANTIGRAVITY_MODELS.find((m) => m.id === 'gemini-4-argon');
     expect(argon).toBeDefined();
@@ -31,11 +31,6 @@ describe('Google Antigravity api-contract', () => {
     expect(hydrogen?.badge).toBe('new');
     expect(hydrogen?.defaultEffort).toBe('medium');
     expect(hydrogen?.efforts).toEqual(['low', 'medium', 'high', 'extra']);
-
-    const orchestrator = ANTIGRAVITY_MODELS.find((m) => m.id === 'orchestrator-argon');
-    expect(orchestrator).toBeDefined();
-    expect(orchestrator?.badge).toBe('new');
-    expect(orchestrator?.efforts).toBeUndefined();
 
     const flash = ANTIGRAVITY_MODELS.find((m) => m.id === 'gemini-3.8-flash');
     expect(flash).toBeDefined();
@@ -58,8 +53,8 @@ describe('Google Antigravity api-contract', () => {
 
     const carbon = ANTIGRAVITY_MODELS.find((m) => m.id === 'gemini-4-carbon');
     expect(carbon).toBeDefined();
-    expect(carbon?.unavailable).toBe(true);
-    expect(carbon?.badge).toBe('unavailable');
+    expect(carbon?.unavailable).toBeUndefined();
+    expect(carbon?.badge).toBe('new');
   });
 
   test('antigravityModelId and isAntigravityModelRef resolve references correctly', () => {

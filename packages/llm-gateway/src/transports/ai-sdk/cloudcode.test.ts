@@ -191,6 +191,38 @@ describe('cloudCodeRequestFromPrompt', () => {
     ]);
   });
 
+  test('drops empty enum strings that Google Cloud Code rejects', () => {
+    const { tools } = cloudCodeRequestFromPrompt([], [
+      {
+        type: 'function',
+        name: 'show',
+        description: 'Show output',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            type: { type: 'string', enum: ['', 'file', 'image', 'url'] },
+          },
+          required: ['type'],
+        },
+      },
+    ]);
+    expect(tools).toEqual([
+      {
+        functionDeclarations: [
+          {
+            name: 'show',
+            description: 'Show output',
+            parameters: {
+              type: 'object',
+              properties: { type: { type: 'string', enum: ['file', 'image', 'url'] } },
+              required: ['type'],
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
   test('collapses TypeBox literal unions (const), nullable unions, $ref, and keeps properties named const', () => {
     const { tools } = cloudCodeRequestFromPrompt([], [
       {

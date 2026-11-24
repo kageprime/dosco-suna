@@ -114,7 +114,7 @@ const EFFORT_SUFFIX_RE = /-(low|medium|high|extra|max|tiered)$/;
 const REQUESTED_EFFORTS = new Set(['low', 'medium', 'high', 'extra', 'max']);
 // Fixed-variant Cloud Code models whose suffix is part of the bare upstream id
 // and does not accept other effort variants.
-const FIXED_EFFORT_MODEL_IDS = new Set(['gpt-oss-120b-medium', 'orchestrator-argon']);
+const FIXED_EFFORT_MODEL_IDS = new Set(['gpt-oss-120b-medium']);
 
 /** `gemini-3.8-flash-medium` → `gemini-3.8-flash` (also strips `-tiered`). */
 export function stripEffortSuffix(modelId: string): string {
@@ -348,8 +348,10 @@ function sanitizeSchemaNode(value: unknown, defs: Record<string, Json>, seen: Se
     if (key === 'enum') {
       // Cloud Code `Schema.enum` protobuf is `repeated string`.
       if (!Array.isArray(item)) continue;
-      const stringEnums = item.filter((v): v is string => typeof v === 'string');
-      if (stringEnums.length === item.length && stringEnums.length > 0) {
+      // Google rejects an empty string as an enum value ("enum[0]: cannot be
+      // empty"), so drop them: `show` carries '' to mark its own-type mode.
+      const stringEnums = item.filter((v): v is string => typeof v === 'string' && v !== '');
+      if (stringEnums.length > 0) {
         out.enum = stringEnums;
       }
       continue;

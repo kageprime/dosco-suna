@@ -1,7 +1,6 @@
 'use client';
 
 
-import { ModelSwitchHistory } from '../panel/model-switch-event';
 import { uiRoutes } from '../../lib/routes';
 import { isQuestionTool } from '@kortix/sdk';
 import { SessionAccessPrompt } from '../prompts/session-access-prompt';
@@ -4598,8 +4597,6 @@ export function SessionChat({
             live={isServerBusy}
           />
         )}
-
-        <ModelSwitchHistory history={projectSessionRow?.metadata?.model_switches} current={projectSessionRow?.metadata?.model} />
 
         {/* Context modal — triple-click the session title area to open */}
         <SessionContextModal
