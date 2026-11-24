@@ -1,13 +1,5 @@
-import { CaseStudies } from '@/features/marketing/case-studies/case-studies';
-import { PageFrame } from '@/features/marketing/kit/page-frame';
-import Hero from '@/features/marketing/hero';
-import { LandingFaqSection } from '@/features/marketing/landing-sections/faq-section';
-import { FrameworkBand } from '@/features/marketing/landing-sections/framework-band';
-import { HowItWorksTabs } from '@/features/marketing/landing-sections/how-it-works-tabs';
-import { PillarsBand } from '@/features/marketing/landing-sections/pillars-band';
-import { TrustBand } from '@/features/marketing/landing-sections/trust-band';
-import { UseCasesBand } from '@/features/marketing/landing-sections/use-cases-band';
-import { WorksWithStrip } from '@/features/marketing/landing-sections/works-with-strip';
+import { CeoHome } from '@/features/marketing/ceo-home/ceo-home';
+import { loopViews } from '@/features/marketing/one-prompt/loops-content';
 import { marketingMetadataLayout } from '@/lib/seo/metadata';
 
 import { LandingAuthGate } from './landing-auth-gate';
@@ -26,29 +18,14 @@ export { generateMetadata };
 export const dynamicParams = false;
 
 /**
- * Dosco landing page:
- * 1. Hero: dynamic ambient fold with Dosco brand proposition. It stays
- *    full-bleed, outside the 1440px column the other sections share.
- * 2. Section bands: Works with, Pillars, How it works, Framework, Use cases, Trust & FAQ.
+ * The Dosco landing. The roles come from the real starter templates at build
+ * time, so the page shows the agents this build actually ships.
  */
 export default function Home() {
+  const roles = loopViews().map(({ team, line }) => ({ team, line }));
   return (
     <LandingAuthGate>
-      <div className="bg-background relative w-full">
-        <Hero />
-        <PageFrame>
-          <WorksWithStrip />
-          <CaseStudies />
-          <PillarsBand />
-          {/* ProblemSolution ("Your know-how is everywhere.") is stashed: hidden
-              from the home page by founder call, 2026-10-27; the component stays. */}
-          <HowItWorksTabs />
-          <FrameworkBand />
-          <UseCasesBand />
-          <TrustBand />
-          <LandingFaqSection />
-        </PageFrame>
-      </div>
+      <CeoHome roles={roles} />
     </LandingAuthGate>
   );
 }
