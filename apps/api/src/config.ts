@@ -141,6 +141,12 @@ export const envSchema = z.object({
   // Debug only: append each SQL statement the API pool sends (whitespace-normalized
   // text, no params) as one line to this file. Empty = off.
   KORTIX_SQL_TRACE: optStr,
+  // The request pool size the deployment chose. 0 = the package default.
+  // The API's DB admission gate sizes its ceiling from the same number.
+  DB_POOL_MAX: optInt(0),
+  // How long a request may wait for an admission slot before it gets a
+  // retryable 503. 0 = 2 s (middleware/db-admission.ts).
+  DB_ADMISSION_WAIT_MS: optInt(0),
 
   // ── Supabase (REQUIRED) ──────────────────────────────────────────────────
   SUPABASE_URL: z
@@ -1602,6 +1608,8 @@ export const config = {
 
   // ─── Database ──────────────────────────────────────────────────────────────
   DATABASE_URL: env.DATABASE_URL,
+  DB_POOL_MAX: env.DB_POOL_MAX,
+  DB_ADMISSION_WAIT_MS: env.DB_ADMISSION_WAIT_MS,
   KORTIX_SQL_TRACE: env.KORTIX_SQL_TRACE,
 
   // ─── Supabase ──────────────────────────────────────────────────────────────

@@ -23,6 +23,7 @@ import { installFetchTiming } from './lib/server-timing';
 import { addBreadcrumb } from './lib/sentry';
 import { compressResponse } from './middleware/compress';
 import { protectResponseCache } from './middleware/cache-control';
+import { dbAdmission } from './middleware/db-admission';
 import { createCorsMiddleware } from './middleware/cors';
 import { requestDeadline } from './middleware/request-deadline';
 import { rejectOutdatedCli } from './middleware/cli-min-version';
@@ -196,6 +197,12 @@ app.use('*', async (c, next) => {
   }
   await runWithContext(c.req.method, c.req.path, withRequestFields, c.req.header('traceparent'));
 });
+
+// Bound the number of ordinary requests that may queue for the shared DB pool.
+// Without this, a short burst piles callers into postgres.js's unbounded FIFO
+// and they all hit the 25 s request deadline together. Installed before routes;
+// probes, streams and long-poll routes are excluded inside the middleware.
+app.use('*', dbAdmission);
 
 // Per-request cost attribution (`Server-Timing: up;dur=…, api;dur=…`). Mounted
 // INSIDE the request-context middleware above, because it reads the
