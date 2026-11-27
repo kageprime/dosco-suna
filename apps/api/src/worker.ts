@@ -40,6 +40,7 @@ import { primeComposioTransientClassifier } from './shared/composio-transient';
 import { eventLoopLagMs } from './replica/event-loop-lag';
 import { captureServer } from './shared/drain';
 import { runsSingletonWorkers } from './shared/leader-election';
+import { onJobReport } from './worker/runtime/heartbeat';
 
 void primeDaytonaRateLimitClassifier();
 void primeDaytonaTransientClassifier();
@@ -54,6 +55,15 @@ if (!config.KORTIX_WORKERS_ENABLED || !runsSingletonWorkers()) {
 }
 
 let booted = false;
+
+/**
+ * How long at least five scheduled jobs must stay stale before the process
+ * gives up. One slow sweep is normal; five unrelated ticks that stop
+ * completing share a resource that no tick can free. The supervisor restarts
+ * a process that exits (Fly `on-failure`, Heroku dyno, ECS task), so exiting is
+ * the only recovery a wedged worker has (2026-11-27: 35 of 43 jobs, ~6 h).
+ */
+const WEDGED_EXIT_MS = 15 * 60_000;
 
 function health(path: string): Response {
   if (path === '/health/live' || path === '/v1/health/live') {
@@ -99,3 +109,16 @@ markSchemaReady();
 await bootServices('worker');
 booted = true;
 logger.info('[worker] ready: joined the leader election for the scheduled jobs');
+
+onJobReport((jobs) => {
+  if (draining || jobs.wedgedForMs < WEDGED_EXIT_MS) return;
+  logger.error('[worker] scheduled jobs are wedged; exiting so the supervisor restarts the worker', {
+    stale_jobs: jobs.stale.length,
+    wedged_for_ms: jobs.wedgedForMs,
+  });
+  // Never let a slow log shipper hold the process open: the restart is the fix.
+  void Promise.race([
+    logger.flush().catch(() => {}),
+    new Promise<void>((resolve) => setTimeout(resolve, 2_000)),
+  ]).then(() => process.exit(1));
+});

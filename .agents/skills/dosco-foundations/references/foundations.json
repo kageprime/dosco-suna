@@ -514,6 +514,28 @@
         "path": "apps/web/src/features/marketing/developers/content.ts",
         "text": "muted: 'One manifest.'"
       }
+    },
+    {
+      "id": "OPS-01",
+      "name": "Fly worker runs only the scheduled-job process",
+      "status": "behavior-locked",
+      "surface": "fly.worker.toml",
+      "check": {
+        "type": "contains",
+        "path": "fly.worker.toml",
+        "text": "worker = \"/app/apps/api/start-worker.sh\""
+      }
+    },
+    {
+      "id": "OPS-02",
+      "name": "Fly API never joins the worker leader election",
+      "status": "behavior-locked",
+      "surface": "fly.api.toml",
+      "check": {
+        "type": "contains",
+        "path": "fly.api.toml",
+        "text": "KORTIX_WORKERS_ENABLED = \"false\""
+      }
     }
   ],
   "frozenTrees": {

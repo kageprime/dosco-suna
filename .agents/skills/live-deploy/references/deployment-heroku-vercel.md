@@ -1,10 +1,106 @@
 # Dosco Deployment: Heroku API + Vercel Frontend + Supabase
 
-Last updated: 2026-10-20
+Last updated: 2026-11-27
 
 This document records how Dosco is deployed, why the current configuration
 looks the way it does, every failure hit during bring-up, and the runbook for
 operating it. It is written to be usable by someone who was not in the room.
+
+Sections 1-12 describe the **legacy Heroku topology**. Section 0 supersedes
+them for production traffic as of 2026-11-27. Heroku `web.1` stays up only
+until mobile clients ship new binaries (see 13.2).
+
+---
+
+## 0. Current topology: two Fly accounts (2026-11-27)
+
+### 0.1 Apps
+
+| Thing | Value |
+|---|---|
+| API app | `dosco-api`, region `iad`, machine `d891d170a44e58`, shared-cpu-1x / 1 GB |
+| API process | `web = /app/apps/api/start.sh` on port 8008 |
+| API flags | `KORTIX_WORKERS_ENABLED=false`, `KORTIX_PROCESS_ROLE=web` |
+| Worker app | `dosco-worker`, region `lhr`, machine `e829456a133948`, shared-cpu-1x / 1 GB |
+| Worker process | `worker = /app/apps/api/start-worker.sh` on port 8008 |
+| Worker flags | `KORTIX_WORKERS_ENABLED=true`, `WORKER_DB_POOL_MAX=5`, `KORTIX_PROJECT_MAINTENANCE_ENABLED=false` |
+| Config files | `fly.api.toml`, `fly.worker.toml`, `.dockerignore.fly` (repo root, branch `heroku-clean`) |
+| Build | `Dockerfile.heroku`, build arg `SERVICE=apps/api`, ignorefile `.dockerignore.fly` |
+| Autostop | disabled on both apps |
+| Restart policy | `on-failure`; Fly does **not** restart a machine for a failed health check |
+
+The two apps live on **different Fly accounts** on purpose. The worker stays
+on the existing account (`hoekage`); the API uses a separate account with org
+`KAKASHINOV SZN`. Default `flyctl` auth points at the worker account, so **every
+`dosco-api` command needs `--access-token`** read from
+`$env:TEMP\fly-api-token.txt`. Do not move the API onto the worker account.
+
+Both machines connect to the same Supabase project. The worker uses the
+**direct** connection `postgres@db.<ref>.supabase.co:5432/…?sslmode=require`;
+the API still uses Supavisor on 6543. Heroku has no IPv6, so a Heroku dyno must
+stay on the pooler. Do not set the direct URL on Heroku.
+
+### 0.2 DNS and certificates
+
+`api.dosco.live`, `*.apps.dosco.live` and `*.preview.dosco.live` all CNAME to
+`j96xzge.dosco-api.fly.dev`. Fly issued certificates after the `_acme-challenge`
+CNAMEs were added. Verified 2026-11-27:
+
+- `https://api.dosco.live/health` and `/health/ready` → 200.
+- `*.preview.dosco.live` with an unknown host → 401 from the preview gate,
+  header `server: Fly/…`.
+- `*.apps.dosco.live` with an unknown App → 404 from the API handler.
+
+### 0.3 Building and deploying
+
+Local uploads to Fly ran at ~0.07 MB/s and dropped repeatedly. Build **inside
+Fly** instead: start a temporary machine on the account, clone
+`kageprime/dosco-suna`, copy `fly.worker.toml` / `fly.api.toml` and
+`.dockerignore.fly` from the repo, then run `fly deploy --depot=false`. Destroy
+the builder machine and revoke its token after the deploy.
+
+`.dockerignore.fly` cuts the build context from 3.0 GB to ~171 MB. Keep it.
+Shell scripts must stay LF-only in the git blob; the CRLF launcher failure in
+§3.1 applies to Fly too.
+
+### 0.4 The worker wedge (2026-11-27)
+
+The Fly worker reported 35 of 43 scheduled jobs stale for hours while
+`/health/ready` returned 200 and the leader lease kept renewing. Evidence:
+ticks started but never returned; seven sockets stayed established to
+Supavisor with empty queues; a fresh client from the same machine queried in
+under 100 ms; `statement_timeout` was active, so the hang sat in front of the
+backend. postgres.js has no acquire timeout, and connection recycling cannot
+free a socket the driver still considers busy.
+
+Two fixes ship together:
+
+1. The worker uses the direct Supabase connection, bypassing Supavisor.
+2. `apps/api/src/worker.ts` exits when at least five jobs stay stale for 15
+   minutes (`onJobReport` in `apps/api/src/worker/runtime/heartbeat.ts`). Fly's
+   `on-failure` policy then restarts the machine. A health-check change alone
+   would not work: Fly does not restart unhealthy machines.
+
+Watch a worker change with:
+
+```powershell
+fly logs -a dosco-worker -n --no-tail | Select-String worker_jobs
+```
+
+Require `stale_jobs: 0` with `jobs_seen >= 43` for 15 minutes before calling a
+worker fix proven. Rechecking after 18 minutes is what caught the earlier
+false recovery from connection recycling.
+
+### 0.5 Remaining cutover work
+
+- [ ] Keep the direct URL on the worker for 15+ minutes; then apply it to
+      `dosco-api` together with `DB_POOL_MAX=7` and verify health.
+- [ ] Migrate mobile EAS env and rebuild binaries. `EXPO_PUBLIC_*` is inlined
+      at build, so the Heroku URL cannot be changed by config alone.
+- [ ] Scale Heroku `web` to zero only after mobile clients stop calling
+      `https://dosco-05dd0b153705.herokuapp.com/v1`.
+- [ ] Heroku account suspension is set for 2026-12-01 17:18 GMT+0100.
+- [ ] Rotate the temporary Fly deploy token used for the in-Fly build.
 
 ---
 

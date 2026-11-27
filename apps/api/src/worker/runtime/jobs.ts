@@ -10,7 +10,7 @@ import { startJobHeartbeat } from './heartbeat';
 import type { Job } from './job';
 
 let started: readonly Job[] | null = null;
-let heartbeat: { stop(): void } | null = null;
+let heartbeat: ReturnType<typeof startJobHeartbeat> | null = null;
 
 export async function startJobs(jobs: readonly Job[] = JOBS): Promise<void> {
   if (!config.KORTIX_WORKERS_ENABLED || started) return;

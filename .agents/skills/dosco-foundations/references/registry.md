@@ -42,6 +42,9 @@ truth for `tests/unit/dosco-foundations.test.ts`; this file explains the rows.
   invented examples.
 - `DSN-16` — the `/developers` hero says "One manifest." instead of the
   internal manifest filename; real CLI commands stay untouched.
+- `OPS-01` — the Fly worker app runs only `start-worker.sh`, never the web app.
+- `OPS-02` — the Fly API app sets `KORTIX_WORKERS_ENABLED=false`, so it never
+  joins the leader election or runs a scheduled job.
 
 ## Adding a foundation
 

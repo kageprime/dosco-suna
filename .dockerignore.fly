@@ -1,0 +1,82 @@
+# Fly API-only build context. Keep every path the API image COPYs:
+# apps/api, apps/llm-gateway, apps/kortix-app-runtime, apps/kortix-sandbox-agent-server,
+# apps/cli, apps/sandbox, packages/*, patches, and the root manifests.
+
+# ── Exclude everything heavy first ──
+/.git
+.DS_Store
+**/.DS_Store
+*.log
+**/*.log
+.cache
+**/.cache
+**/.venv
+**/__pycache__
+**/.mypy_cache
+**/.pytest_cache
+**/.ruff_cache
+.turbo
+**/.turbo
+.terraform
+**/.terraform
+**/*.tfstate
+**/*.tfstate.*
+.vercel
+**/.vercel
+.buildx-cache
+**/.buildx-cache
+.local
+**/.local
+
+# ── Apps and trees the API image never COPYs ──
+/apps/web
+/apps/mobile
+/apps/desktop-electron
+/apps/tui
+/apps/white-label
+/apps/whitelabel-demo
+/apps/capture
+/apps/chrome-extension
+/apps/llm-gateway/.next
+/.agents
+/infra
+/scripts
+/output
+/scratchpad
+/tests
+
+# ── Env files ──
+**/.env
+**/.env.*
+
+# ── Test files ──
+tests
+**/tests
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+__tests__
+**/__tests__
+coverage
+**/coverage
+
+# ── Build artifacts ──
+dist
+**/dist
+docs
+**/docs
+*.md
+!apps/sandbox/MACHINE.md
+
+# ── Node modules ──
+node_modules
+**/node_modules
+
+# ── Next.js outputs ──
+.next
+**/.next

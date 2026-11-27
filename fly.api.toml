@@ -1,0 +1,43 @@
+app = "dosco-api"
+primary_region = "iad"
+kill_signal = "SIGTERM"
+kill_timeout = "2m"
+
+[build]
+  dockerfile = "Dockerfile.heroku"
+  ignorefile = ".dockerignore.fly"
+
+  [build.args]
+    SERVICE = "apps/api"
+
+[deploy]
+  strategy = "rolling"
+  wait_timeout = "10m"
+
+[env]
+  PORT = "8008"
+  KORTIX_WORKERS_ENABLED = "false"
+  KORTIX_PROCESS_ROLE = "web"
+
+[processes]
+  web = "/app/apps/api/start.sh"
+
+[http_service]
+  internal_port = 8008
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+  processes = ["web"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "1m30s"
+    method = "get"
+    path = "/health/ready"
+
+[vm]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 1024

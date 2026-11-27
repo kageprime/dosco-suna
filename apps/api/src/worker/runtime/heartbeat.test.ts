@@ -3,11 +3,14 @@ import { afterEach, describe, expect, mock, test } from 'bun:test';
 mock.module('../../config', () => ({ config: { INTERNAL_KORTIX_ENV: 'prod' } }));
 mock.module('../../lib/logger', () => ({ logger: { warn() {}, info() {}, error() {}, localWarn() {} } }));
 const { observeWorkerTicks, runWorkerTick } = await import('../../shared/audit-scope');
-const { staleTicks, startJobHeartbeat } = await import('./heartbeat');
+const { staleTicks, startJobHeartbeat, onJobReport } = await import('./heartbeat');
 
 const MIN = 60_000;
 
-afterEach(() => observeWorkerTicks(null));
+afterEach(() => {
+  observeWorkerTicks(null);
+  onJobReport(null);
+});
 
 describe('staleTicks', () => {
   test('a job is stale only after its own limit since its last success', () => {
@@ -105,5 +108,66 @@ describe('startJobHeartbeat', () => {
     expect(heartbeat.report()).toEqual([]);
     heartbeat.stop();
     expect(pings).toEqual([]);
+  });
+});
+
+describe('onJobReport', () => {
+  const names = ['a', 'b', 'c', 'd', 'e', 'f'];
+  const jobs = () => names.map((name) => ({ ticks: { [name]: 10 * MIN }, start() {}, stop() {} }));
+
+  test('counts a wedge only while at least WEDGED_STALE_JOBS ticks stay stale', async () => {
+    let now = 0;
+    const seen: { stale: readonly string[]; wedgedForMs: number }[] = [];
+    onJobReport((health) => seen.push(health));
+    const heartbeat = startJobHeartbeat(jobs(), { now: () => now, write: () => {}, intervalMs: 3_600_000 });
+    for (const name of names) await runWorkerTick(name, async () => undefined);
+    now = MIN;
+    expect(heartbeat.report()).toEqual([]);
+    expect(seen.at(-1)).toEqual({ stale: [], wedgedForMs: 0 });
+
+    now = 11 * MIN;
+    expect(heartbeat.report()).toEqual(names);
+    expect(seen.at(-1)).toEqual({ stale: names, wedgedForMs: 0 });
+
+    now = 26 * MIN;
+    expect(heartbeat.report()).toEqual(names);
+    expect(seen.at(-1)).toEqual({ stale: names, wedgedForMs: 15 * MIN });
+
+    for (const name of names) await runWorkerTick(name, async () => undefined);
+    now = 27 * MIN;
+    expect(heartbeat.report()).toEqual([]);
+    expect(seen.at(-1)).toEqual({ stale: [], wedgedForMs: 0 });
+    heartbeat.stop();
+  });
+
+  test('a single slow sweep is never a wedge, however long it runs', async () => {
+    let now = 0;
+    const seen: { stale: readonly string[]; wedgedForMs: number }[] = [];
+    onJobReport((health) => seen.push(health));
+    const heartbeat = startJobHeartbeat(jobs(), { now: () => now, write: () => {}, intervalMs: 3_600_000 });
+    for (const name of names) await runWorkerTick(name, async () => undefined);
+    now = MIN;
+    for (const name of names.slice(1)) await runWorkerTick(name, async () => undefined);
+    now = 10 * MIN + 1;
+    expect(heartbeat.report()).toEqual(['a']);
+    expect(seen.at(-1)).toEqual({ stale: ['a'], wedgedForMs: 0 });
+
+    now = 600 * MIN;
+    for (const name of names.slice(1)) await runWorkerTick(name, async () => undefined);
+    expect(heartbeat.report()).toEqual(['a']);
+    expect(seen.at(-1)?.wedgedForMs).toBe(0);
+    expect(seen.at(-1)?.stale).toHaveLength(1);
+    heartbeat.stop();
+  });
+
+  test('a stopped heartbeat calls no listener again', async () => {
+    let now = 0;
+    let reports = 0;
+    onJobReport(() => reports += 1);
+    const heartbeat = startJobHeartbeat(jobs(), { now: () => now, write: () => {}, intervalMs: 3_600_000 });
+    heartbeat.report();
+    expect(reports).toBe(1);
+    heartbeat.stop();
+    expect(reports).toBe(1);
   });
 });
