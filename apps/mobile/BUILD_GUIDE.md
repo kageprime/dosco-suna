@@ -6,8 +6,10 @@ App identity: name **Dosco**, scheme `dosco`, Android package
 `extra.eas.projectId` and `updates.url` in `app.json`).
 
 The backend the official builds talk to is the deployed Dosco stack
-(`https://dosco-05dd0b153705.herokuapp.com/v1`); its value lives in the EAS
-environment (`EXPO_PUBLIC_BACKEND_URL`), not in this repo.
+(`https://api.dosco.live/v1`, Fly since 2026-11-27); its value lives in the EAS
+environment (`EXPO_PUBLIC_BACKEND_URL`), not in this repo. `EXPO_PUBLIC_*` is
+inlined at build time, so binaries built before 2026-11-27 still call the old
+Heroku URL until a new binary is installed.
 
 ## Setup
 ```bash
@@ -38,9 +40,9 @@ the build number (EAS keeps it remotely).
 
 | Profile | Backend (from EAS environment) | EAS environment | Update channel | Artifact |
 |---|---|---|---|---|
-| `prod-store` | `https://dosco-05dd0b153705.herokuapp.com/v1` | `production` | `production` | App Store / Play (AAB) |
-| `prod-testflight` | `https://dosco-05dd0b153705.herokuapp.com/v1` | `production` | `testflight-production` | iOS TestFlight only |
-| `prod-apk` | `https://dosco-05dd0b153705.herokuapp.com/v1` | `production` | `production` | installable APK |
+| `prod-store` | `https://api.dosco.live/v1` | `production` | `production` | App Store / Play (AAB) |
+| `prod-testflight` | `https://api.dosco.live/v1` | `production` | `testflight-production` | iOS TestFlight only |
+| `prod-apk` | `https://api.dosco.live/v1` | `production` | `production` | installable APK |
 | `dev-store` | no staging deployment yet — unset | `preview` | `dev` | TestFlight / Play internal (AAB) |
 | `dev-apk` | no staging deployment yet — unset | `preview` | `dev` | installable APK |
 | `development` | local `.env` | — | `development` | dev client |
@@ -53,7 +55,7 @@ The Dosco production environment carries:
 
 | Variable | Value |
 |---|---|
-| `EXPO_PUBLIC_BACKEND_URL` | `https://dosco-05dd0b153705.herokuapp.com/v1` |
+| `EXPO_PUBLIC_BACKEND_URL` | `https://api.dosco.live/v1` (changed 2026-11-27) |
 | `EXPO_PUBLIC_SUPABASE_URL` | `https://uscgpdfrzfvfdlzesyuh.supabase.co` |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | the anon key (`heroku config -a dosco`) |
 | `EXPO_PUBLIC_ENV_MODE` | `production` |

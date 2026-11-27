@@ -103,8 +103,13 @@ false recovery from connection recycling.
       `WEDGED_EXIT_MS` and `onJobReport` in `/app/apps/api/src/worker.ts` inside
       the running container, then `stale_jobs:0, jobs_seen:34`. The builder
       machine and its deploy token were destroyed and revoked.
-- [ ] Migrate mobile EAS env and rebuild binaries. `EXPO_PUBLIC_*` is inlined
-      at build, so the Heroku URL cannot be changed by config alone.
+- [x] EAS production `EXPO_PUBLIC_BACKEND_URL` changed to
+      `https://api.dosco.live/v1` on 2026-11-27; verified with
+      `eas env:list production --scope project`. The variable also applies to
+      `preview`.
+- [ ] Rebuild and ship mobile binaries. `EXPO_PUBLIC_*` is inlined at build, so
+      installed binaries keep calling the Heroku URL until a new version is
+      installed.
 - [ ] Scale Heroku `web` to zero only after mobile clients stop calling
       `https://dosco-05dd0b153705.herokuapp.com/v1`.
 - [ ] Heroku account suspension is set for 2026-12-01 17:18 GMT+0100.
