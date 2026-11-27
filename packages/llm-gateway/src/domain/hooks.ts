@@ -57,7 +57,7 @@ export interface GatewayHooks {
     input: ModelRouteInput,
   ) => Promise<ModelRoutePlan | null>;
   resolveUpstream: (principal: AuthedPrincipal, model: string) => Promise<UpstreamDescriptor[]>;
-  notePoolRateLimit?: (principal: AuthedPrincipal, secretId: string, seconds: number) => Promise<void>;
+  notePoolRateLimit?: (principal: AuthedPrincipal, secretId: string, seconds: number, model?: string) => Promise<void>;
   /**
    * The plan usage a subscription account's response reported (ChatGPT, Claude).
    * `createGateway` throttles it per account; a failure never reaches the response.

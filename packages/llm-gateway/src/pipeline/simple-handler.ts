@@ -759,7 +759,7 @@ export async function handleChatCompletions(
       fetchImpl: fetchImpl ?? upstreamFetch,
       resolveCandidates: (model) => hooks.resolveUpstream(principal, model),
       notePoolRateLimit: hooks.notePoolRateLimit
-        ? (secretId, seconds) => hooks.notePoolRateLimit!(principal, secretId, seconds)
+        ? (secretId, seconds, model) => hooks.notePoolRateLimit!(principal, secretId, seconds, model)
         : undefined,
       notePoolUsage: hooks.notePoolUsage
         ? (secretId, usage) => hooks.notePoolUsage!(principal, secretId, usage)

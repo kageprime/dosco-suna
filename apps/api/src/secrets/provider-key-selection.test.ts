@@ -51,6 +51,10 @@ describe('providerEnvVarOf', () => {
     expect(providerEnvVarOf('anthropic')).toBe('ANTHROPIC_API_KEY');
     expect(providerEnvVarOf('unknown')).toBeNull();
   });
+
+  test('Antigravity connections are selectable as a session pool', () => {
+    expect(providerEnvVarOf('antigravity')).toBe('ANTIGRAVITY_AUTH_JSON');
+  });
 });
 
 describe('mayUseProviderKeys', () => {

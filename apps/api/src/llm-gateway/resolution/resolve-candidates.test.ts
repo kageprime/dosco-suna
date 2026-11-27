@@ -98,6 +98,17 @@ mock.module('../credentials/codex', () => ({
   CodexRefreshError,
 }));
 
+// Antigravity accounts: one descriptor per named login, resolved by secret id.
+let antigravityCredentials: Record<string, { access: string; project: string } | null> = {};
+let antigravityCalls: string[] = [];
+mock.module('../credentials/antigravity', () => ({
+  resolveAntigravityCredential: async () => null,
+  resolveAntigravityAccountCredential: async (input: { secretId: string }) => {
+    antigravityCalls.push(input.secretId);
+    return antigravityCredentials[input.secretId] ?? null;
+  },
+}));
+
 // The Bedrock URL, region, and prefix helpers are the real ones. Only the
 // managed and Codex descriptors and the pricing lookup are stubbed; the
 // pricing stub records every id it is asked for, in call order.
@@ -196,6 +207,8 @@ beforeEach(() => {
   codexCredential = null;
   codexThrows = false;
   codexAccountRefreshFails = new Set();
+  antigravityCredentials = {};
+  antigravityCalls = [];
   catalogUpstream = null;
   runtimeManagedModel = undefined;
   knownManagedModelId = null;
@@ -1158,6 +1171,38 @@ test('an explicitly empty prospective pool never borrows the legacy project cred
   pooledSecrets = { configured: true, coolingDown: false, secrets: [] };
   await expect(resolveCandidates(principal(), 'codex/gpt-6.1-sol', { providerSecretPools: { codex: [] } })).rejects.toMatchObject({ code: 'provider_not_connected' });
   expect(resolveCodexCredential).not.toHaveBeenCalled();
+});
+
+describe('resolveCandidates — Antigravity pooled accounts', () => {
+  test('a session pool returns one descriptor per login, each with poolSecretId; a model-spent login goes last', async () => {
+    const spentUsage = {
+      windows: [{ id: 'model_gemini_3_8_flash', window_minutes: null, used_percent: 100,
+        resets_at: new Date(Date.now() + 3_600_000).toISOString() }],
+      limited: false, observed_at: new Date().toISOString(), source: 'response' as const,
+    };
+    pooledSecrets = { configured: true, coolingDown: false, secrets: [
+      { secretId: 'a', label: 'A', value: 'a', updatedAt: new Date(), usage: spentUsage },
+      { secretId: 'b', label: 'B', value: 'b', updatedAt: new Date() },
+    ] };
+    antigravityCredentials = {
+      a: { access: 'a-token', project: 'proj-a' },
+      b: { access: 'b-token', project: 'proj-b' },
+    };
+    const candidates = await resolveCandidates(principal(), 'antigravity/gemini-3.8-flash',
+      { providerSecretPools: { antigravity: ['a', 'b'] } });
+    expect(candidates.map((candidate) => candidate.poolSecretId)).toEqual(['b', 'a']);
+    expect(candidates.map((candidate) => candidate.provider)).toEqual(['antigravity', 'antigravity']);
+    expect(candidates[0]!.apiKey).toBe('b-token');
+    expect(antigravityCalls).toEqual(['b', 'a']);
+  });
+
+  test('an empty Antigravity pool never falls through to the project credential', async () => {
+    pooledSecrets = { configured: true, coolingDown: false, secrets: [] };
+    await expect(resolveCandidates(principal(), 'antigravity/gemini-3.8-flash',
+      { providerSecretPools: { antigravity: [] } }))
+      .rejects.toMatchObject({ code: 'provider_not_connected' });
+    expect(antigravityCalls).toEqual([]);
+  });
 });
 
 // Incident 2026-09-26: a ChatGPT account

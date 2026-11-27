@@ -7,8 +7,8 @@
  * pick keys, a chat channel stores its conversation's keys, and a share
  * replaces keys the shared session could no longer use.
  */
+import { expectedSecretResourceName } from '../accounts/secret-resource-name';
 import { CODEX_AUTH_SECRET_NAME } from '../llm-gateway/models/codex-models';
-import { resolveCatalogUpstream } from '../llm-gateway/models/provider-registry';
 import { toWireModel } from '../llm-gateway/resolution/effective';
 import { listUsableGatewaySecrets, queryUsableGatewaySecrets } from './account-resource';
 
@@ -20,7 +20,10 @@ export function providerEnvVarOf(providerId: string): string | null {
   if (providerId === 'codex') return CODEX_AUTH_SECRET_NAME;
   // Claude accounts (claude-subscription/accounts.ts): Claude Code's logins.
   if (providerId === 'claude-agent') return 'CLAUDE_CODE_OAUTH_TOKEN';
-  return resolveCatalogUpstream(providerId)?.envVar ?? null;
+  // Subscription logins the runtime catalog does not carry (Antigravity) pin
+  // their secret name in expectedSecretResourceName. One source of truth for
+  // the name a pooled credential is stored under.
+  return expectedSecretResourceName(providerId) ?? null;
 }
 
 /** The provider whose keys pay for a model, and the key name the gateway reads. Null for a Dosco model. */

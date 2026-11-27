@@ -25,7 +25,7 @@ import { servableProjectCatalog } from './models/servable-catalog';
 import { codexConversationHeaders, resolveCandidates } from './resolution/resolve-candidates';
 import { MAX_ACCOUNT_SECRET_REST_SECONDS, coolDownAccountSecret } from '../secrets/account-resource';
 import { refreshRefusedCodexAccountLogin } from './credentials/codex';
-import { SubscriptionUsageSchema, recordSubscriptionUsage } from './subscription-usage';
+import { SubscriptionUsageSchema, noteModelQuotaLimit, recordSubscriptionUsage } from './subscription-usage';
 import { claudeCredentialsForGateway, markClaudeAccountRefused } from '../claude-subscription/accounts';
 import { refreshRefusedOpencodeLogin } from './credentials/opencode-console';
 import { codexDescriptor } from './resolution/descriptors';
@@ -150,9 +150,18 @@ export function createInternalGatewayRoutes() {
     const parsed = z.object({
       principal: z.object({ accountId: z.string().uuid() }),
       secretId: z.string().uuid(), seconds: z.number().int().min(1).max(MAX_ACCOUNT_SECRET_REST_SECONDS),
+      // A model-scoped rest names the routed model, e.g. `antigravity/gemini-3.8-flash-low`.
+      model: z.string().max(200).optional(),
     }).safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: 'Invalid pool rate limit' }, 400);
-    await coolDownAccountSecret(parsed.data.secretId, parsed.data.principal.accountId, parsed.data.seconds);
+    const { secretId, seconds, principal, model } = parsed.data;
+    if (model?.startsWith('antigravity/')) {
+      // Google quotas are per model: rest this model's window, not every model
+      // on the account, and keep the account out of the way for 60 s only.
+      await noteModelQuotaLimit(secretId, principal.accountId, model, seconds);
+    } else {
+      await coolDownAccountSecret(secretId, principal.accountId, seconds);
+    }
     return c.json({ ok: true });
   });
 

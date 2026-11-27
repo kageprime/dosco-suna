@@ -232,6 +232,36 @@ describe('dispatch: one attempt plan', () => {
     }
   });
 
+  // A prod Antigravity account hit a per-model quota (reset named by Google)
+  // and rested 30 s at a time, so every later request paid another refused call.
+  test('a Google QUOTA_EXHAUSTED 429 rests the key until its reset and moves to the next pool key', async () => {
+    const model = 'antigravity/gemini-3.8-flash-low';
+    const reset = new Date(Date.now() + 3 * 3600 * 1000).toISOString();
+    const bodies: Array<[unknown, number]> = [
+      [{ code: 429, reason: 'QUOTA_EXHAUSTED', quotaResetTimeStamp: reset }, 3 * 3600],
+      [{ error: { code: 429, status: 'RESOURCE_EXHAUSTED',
+        details: [{ reason: 'QUOTA_EXHAUSTED', metadata: { quotaResetDelay: '7200.4s' } }] } }, 7201],
+    ];
+    for (const [payload, expected] of bodies) {
+      const body = JSON.stringify(payload);
+      const key = (name: string) => ({ ...base, apiKey: name, poolSecretId: name, billingMode: 'none' as const, markup: 0 });
+      const noted: Array<[string, number, string | undefined]> = [];
+      const { run, sent } = harness(({ key: apiKey }) =>
+        apiKey === 'a' ? new Response(body, { status: 429 }) : ok(), {
+        notePoolRateLimit: async (secretId, seconds, notedModel) => {
+          noted.push([secretId, seconds, notedModel]);
+        },
+      });
+      const outcome = await run({ model, candidates: [key('a'), key('b')] });
+      expect(outcome.response?.status).toBe(200);
+      expect(sent).toHaveLength(2);
+      expect(noted).toHaveLength(1);
+      expect(noted[0]![0]).toBe('a');
+      expect(Math.abs(noted[0]![1] - expected)).toBeLessThanOrEqual(2);
+      expect(noted[0]![2]).toBe(model);
+    }
+  });
+
   test('fallback models are resolved lazily, deduplicated, and capped at eight', async () => {
     const { run, sent, resolved } = harness(() => status(503));
     await run({

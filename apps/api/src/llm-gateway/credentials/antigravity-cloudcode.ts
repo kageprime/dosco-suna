@@ -246,6 +246,20 @@ export interface CloudCodeModelQuotaWindow {
 }
 
 /**
+ * The usage-window id a routed model's quota is stored under. Must match the
+ * slug `extractCloudCodeModelQuotas` builds, so a 429 window and a
+ * `/fetchAvailableModels` window name the same allowance.
+ */
+export function antigravityModelWindowId(model: string): string {
+  const bare = model.replace(/^antigravity\//, '').replace(EFFORT_SUFFIX_RE, '');
+  const curated = ANTIGRAVITY_MODELS.find(
+    (entry) => entry.id === bare || entry.resolved === bare,
+  );
+  const rawKey = curated?.id ?? bare;
+  return `model_${rawKey.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}`;
+}
+
+/**
  * Extracts per-model remaining quota fractions and reset timestamps from a
  * Cloud Code `/v1internal:fetchAvailableModels` response payload, ordered by
  * the curated `ANTIGRAVITY_MODELS` lineup (excluding unavailable placeholders

@@ -29,7 +29,7 @@ export interface ApiClient {
     input: ModelRouteInput,
   ) => Promise<ModelRoutePlan | null>;
   resolveUpstream: (principal: AuthedPrincipal, model: string) => Promise<UpstreamDescriptor[]>;
-  notePoolRateLimit: (principal: AuthedPrincipal, secretId: string, seconds: number) => Promise<void>;
+  notePoolRateLimit: (principal: AuthedPrincipal, secretId: string, seconds: number, model?: string) => Promise<void>;
   notePoolUsage: (principal: AuthedPrincipal, secretId: string, usage: SubscriptionUsage) => Promise<void>;
   refreshCredential: (principal: AuthedPrincipal, descriptor: UpstreamDescriptor) => Promise<UpstreamDescriptor | null>;
   claudeCredentials: NonNullable<ClaudeCodeHooks['claudeCredentials']>;
@@ -216,8 +216,8 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
       }
       return result.candidates ?? [];
     },
-    notePoolRateLimit: async (principal, secretId, seconds) => {
-      await post<{ ok: boolean }>('/internal/gateway/pool-rate-limit', { principal, secretId, seconds });
+    notePoolRateLimit: async (principal, secretId, seconds, model) => {
+      await post<{ ok: boolean }>('/internal/gateway/pool-rate-limit', { principal, secretId, seconds, model });
     },
     // Only the account id crosses: the API keys the snapshot by account and secret.
     notePoolUsage: async (principal, secretId, usage) => {

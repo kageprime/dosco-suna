@@ -62,6 +62,8 @@ export interface ResolvedAccountSecret {
   label: string;
   value: string | null;
   updatedAt: Date;
+  /** Stored usage snapshot, read by model-scoped routing (Antigravity). */
+  usage?: unknown;
 }
 
 /**
@@ -78,11 +80,17 @@ export const MAX_ACCOUNT_SECRET_REST_SECONDS = 8 * 24 * 60 * 60;
  * Record a provider limit across gateway replicas: seconds for a rate limit,
  * days for a plan's usage limit. A concurrent limit never shortens the cooldown.
  */
-export async function coolDownAccountSecret(secretId: string, accountId: string, seconds: number): Promise<void> {
-  const until = new Date(Date.now() + Math.max(1, Math.min(MAX_ACCOUNT_SECRET_REST_SECONDS, Math.floor(seconds))) * 1000);
+export async function coolDownAccountSecret(
+  secretId: string, accountId: string, seconds: number, probeSeconds?: number,
+): Promise<void> {
+  const rest = Math.max(1, Math.min(MAX_ACCOUNT_SECRET_REST_SECONDS, Math.floor(seconds)));
+  const until = new Date(Date.now() + rest * 1000);
+  // `liftDueCooldowns` needs both the rest AND the probe to have elapsed. A
+  // short backstop would otherwise stay in force for the 15-minute probe.
+  const probe = probeSeconds === undefined ? COOLDOWN_PROBE_SECONDS : Math.min(probeSeconds, rest);
   await db.update(accountSecretResources).set({
     cooldownUntil: sql`greatest(coalesce(${accountSecretResources.cooldownUntil}, '-infinity'::timestamptz), ${until.toISOString()}::timestamptz)`,
-    cooldownProbeAt: new Date(Date.now() + COOLDOWN_PROBE_SECONDS * 1000),
+    cooldownProbeAt: new Date(Date.now() + probe * 1000),
   }).where(and(eq(accountSecretResources.secretId, secretId), eq(accountSecretResources.accountId, accountId)));
 }
 
@@ -428,6 +436,7 @@ export async function resolveProjectSharedProviderSecrets(input: Omit<GatewaySec
   const routed = await routeSessionAccounts(ready, { sessionId: input.sessionId, providerId: input.providerId, probe: input.probe });
   return { coolingDown: false, secrets: routed.map((row) => ({
     secretId: row.secretId, label: row.label, value: readAccountSecret(input.accountId, row.secretId, row.valueEnc), updatedAt: row.updatedAt,
+    usage: row.usage,
   })) };
 }
 
@@ -536,5 +545,6 @@ export async function resolveSessionProviderSecrets(input: {
   });
   return { configured: true, coolingDown: false, secrets: routed.map((row) => ({
     secretId: row.secretId, label: row.label, value: readAccountSecret(input.accountId, row.secretId, row.valueEnc), updatedAt: row.updatedAt,
+    usage: row.usage,
   })) };
 }

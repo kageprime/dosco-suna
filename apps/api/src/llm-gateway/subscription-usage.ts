@@ -17,11 +17,11 @@ import { and, eq, sql } from 'drizzle-orm';
 import { z } from '@hono/zod-openapi';
 import { db } from '../shared/db';
 import { logger } from '../lib/logger';
-import { readAccountSecret } from '../secrets/account-resource';
+import { coolDownAccountSecret, readAccountSecret } from '../secrets/account-resource';
 import { CODEX_USER_AGENT, resolveCodexAccountCredential } from './credentials/codex';
 import { parseCodexAuth } from './credentials/codex-core';
 import { isTokenExpired, parseAntigravityAuth, refreshAntigravityToken } from './credentials/antigravity';
-import { ANTIGRAVITY_HUB_USER_AGENT, extractCloudCodeModelQuotas } from './credentials/antigravity-cloudcode';
+import { ANTIGRAVITY_HUB_USER_AGENT, antigravityModelWindowId, extractCloudCodeModelQuotas } from './credentials/antigravity-cloudcode';
 
 export const SUBSCRIPTION_PROVIDERS = new Set(['codex', 'claude-agent', 'antigravity']);
 
@@ -148,6 +148,29 @@ export async function recordSubscriptionUsage(secretId: string, accountId: strin
     if (stored && Date.parse(stored.observed_at) > Date.parse(usage.observed_at)) return;
     await tx.update(accountSecretResources).set({ usage: mergeSubscriptionUsage(stored, usage) }).where(where);
   });
+}
+
+/**
+ * A Google `QUOTA_EXHAUSTED` 429 on one model. Store that model's exhausted
+ * window so the session leaves the account for this model only; other models
+ * on the same account stay usable. The 60 s account-wide rest stops concurrent
+ * requests stampeding the account while the window write lands.
+ */
+export async function noteModelQuotaLimit(
+  secretId: string, accountId: string, model: string, seconds: number,
+): Promise<void> {
+  await recordSubscriptionUsage(secretId, accountId, {
+    windows: [{
+      id: antigravityModelWindowId(model),
+      window_minutes: null,
+      used_percent: 100,
+      resets_at: new Date(Date.now() + seconds * 1000).toISOString(),
+    }],
+    limited: false,
+    observed_at: new Date().toISOString(),
+    source: 'response',
+  });
+  await coolDownAccountSecret(secretId, accountId, 60, 60);
 }
 
 type FetchImpl = (input: string, init: RequestInit) => Promise<Response>;
