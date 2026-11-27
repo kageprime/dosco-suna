@@ -93,8 +93,13 @@ false recovery from connection recycling.
 
 ### 0.5 Remaining cutover work
 
-- [ ] Keep the direct URL on the worker for 15+ minutes; then apply it to
-      `dosco-api` together with `DB_POOL_MAX=7` and verify health.
+- [x] Worker ran 17+ minutes with `stale_jobs: 0`, `jobs_seen: 39`, and 7 live
+      sockets on 5432 (none on 6543). Applied the same direct URL to
+      `dosco-api` with `DB_POOL_MAX=7`; `/health` and `/health/ready` returned
+      200 and the API holds 10 sockets on 5432.
+- [ ] Ship the watchdog in a new image: the code is committed on
+      `heroku-clean` but the running images were built before it. A rebuild
+      needs a push to `origin/heroku-clean` and a temporary in-Fly builder.
 - [ ] Migrate mobile EAS env and rebuild binaries. `EXPO_PUBLIC_*` is inlined
       at build, so the Heroku URL cannot be changed by config alone.
 - [ ] Scale Heroku `web` to zero only after mobile clients stop calling
