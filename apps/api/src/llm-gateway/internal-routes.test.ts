@@ -112,6 +112,15 @@ mock.module('./idempotency-replays', () => ({
   },
 }));
 
+const modelQuotaCalls: Array<[string, string, string, number]> = [];
+const actualSubscriptionUsage = await import('./subscription-usage');
+mock.module('./subscription-usage', () => ({
+  ...actualSubscriptionUsage,
+  noteModelQuotaLimit: async (secretId: string, accountId: string, model: string, seconds: number) => {
+    modelQuotaCalls.push([secretId, accountId, model, seconds]);
+  },
+}));
+
 const { createInternalGatewayRoutes } = await import('./internal-routes');
 const { gatewayModelCatalog } = await import('./models/catalog-models');
 // The lineup Platinum Inference would list.
@@ -464,6 +473,22 @@ describe('POST /pool-rate-limit', () => {
     expect((await post(30, { ...apiKeyPrincipal, accountId: 'not-a-uuid' })).status).toBe(400);
     expect((await post(30, { sessionId: SESSION_PRINCIPAL.sessionId })).status).toBe(400);
     expect(cooledDown).toHaveLength(1);
+  });
+
+  // Google quotas are per model: a 429 on one model must not rest every model
+  // on the same Antigravity account.
+  test('an Antigravity 429 rests the model, not the whole account', async () => {
+    cooledDown.length = 0;
+    modelQuotaCalls.length = 0;
+    const res = await app().request('http://test/pool-rate-limit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${TOKEN}` },
+      body: JSON.stringify({ principal: SESSION_PRINCIPAL, secretId: SECRET, seconds: 7200,
+        model: 'antigravity/gemini-3.8-flash-low' }),
+    });
+    expect(res.status).toBe(200);
+    expect(modelQuotaCalls).toEqual([[SECRET, ACCOUNT, 'antigravity/gemini-3.8-flash-low', 7200]]);
+    expect(cooledDown).toEqual([]);
   });
 });
 
