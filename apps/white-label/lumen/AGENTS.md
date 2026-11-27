@@ -217,3 +217,7 @@ This app's UI is the Kortix design system (`@kortix/ui`, source in
 `.agents/skills/kortix-design-system/SKILL.md`; token values in
 `.agents/skills/kortix-brand/SKILL.md`. Brand voice and the Roobert font do
 not apply: this is a white-label surface.
+
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.

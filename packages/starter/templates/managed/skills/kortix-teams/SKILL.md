@@ -2,6 +2,9 @@
 name: kortix-teams
 description: How to CONNECT Microsoft Teams (`kortix channels connect --platform teams`, prints a tenant-admin consent URL) and how to answer in Teams as a teammate. Covers the live Adaptive Card stream (`teams step` with --detail/--output/--source, `teams send` to finalize the answer), sending and downloading files (the consent-card upload flow + `teams download`), reading teams/channels/members through connector calls, asking the user, and the tone the bot should use. Load this when the turn is triggered from Teams (the prompt mentions a Teams tenant/conversation, or `$MS_TEAMS_CONVERSATION_ID` is set in the env), or when the user asks how to do anything in Teams.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 <skill name="teams">
 

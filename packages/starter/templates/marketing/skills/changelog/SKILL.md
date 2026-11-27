@@ -2,6 +2,9 @@
 name: changelog
 description: Turn merged pull requests and pushes on the default branch into changelog entries, in the repository's own changelog format, on one rolling pull request (`kortix/marketing-changelog`). Load for the `changelog` role (a merged pull request or the daily sweep), and whenever a person asks to update the changelog. The changelog is the source every other marketing skill reads.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Changelog
 

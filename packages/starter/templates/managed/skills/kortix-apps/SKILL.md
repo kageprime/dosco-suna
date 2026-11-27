@@ -2,6 +2,9 @@
 name: kortix-apps
 description: "Build, deploy and operate Dosco Apps through the pre-authenticated CLI or SDK: static sites and SPAs, Dockerfile or OCI servers, workers, and stateful backends (a database, a Convex backend) with persistent volumes, snapshots and built-in Dosco sign-in. Use when the user asks to publish, host, deploy, preview, inspect, scale, wake, suspend, roll back, debug, or remove an App; asks for a database, an API, a backend, a data model, auth, or 'store this'; asks for an internal tool, business app, CRM, tracker, dashboard, portal, or any app the team logs in to; before writing any Convex code; or asks what an App costs or how it runs."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Apps
 

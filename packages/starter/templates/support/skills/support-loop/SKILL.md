@@ -2,6 +2,9 @@
 name: support-loop
 description: The Support Factory contract. Sources (in-app feedback, the desk queue in Plain, Intercom, Zendesk or a JSON file, the support mailbox, Slack shared channels) bring conversations; the agent triages each, drafts an answer from the docs and the code, hands product defects to engineering (the Software Factory's store when present), clusters feedback and proposes help-center fixes. Defines the desk operations, categories, approval modes, dedup keys, markers, caps, run lines and hard rules. Load it in every run of the `support` agent and in any session that writes to the support desk.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Support Factory: the contract
 

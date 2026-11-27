@@ -2,6 +2,9 @@
 name: contributing
 description: "The pull request loop for this repo: branch → commit → verify in your own box (local tests + local stack) → PR into dev → demo video recorded with agent-browser on the local stack → `gh --attach` → self-merge → verify on dev. A PR into dev runs no CI unless a person adds the `test` or `preview` label (one run each). Load when opening, updating, or finishing a pull request; when asking what CI runs where; when adding or explaining PR labels or the per-PR preview environment; or when attaching an image or video to a PR, issue, or comment. The PR title and body are the create-pr skill."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Contributing: the pull request loop
 

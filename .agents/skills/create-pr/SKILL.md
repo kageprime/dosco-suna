@@ -2,6 +2,9 @@
 name: create-pr
 description: "Write the title and body of a Kortix pull request for a human reviewer who decides \"merge or iterate\" without reading the diff: English only, a Conventional Commits title that names the outcome, only Demo video and Quick verification, with detailed evidence linked. Uploads the video and screenshots with `gh pr create/edit --attach`. Load whenever you run `gh pr create` or `gh pr edit`, write or rewrite a PR title or description, attach a video or screenshot to a PR, or hand off finished work for review, even when the user only says \"open a PR\" or \"update the PR text\"."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Create a pull request
 

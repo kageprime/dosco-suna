@@ -2,6 +2,9 @@
 name: kortix-release
 description: "How to cut a Kortix production release — the versioning philosophy (when patch vs minor vs major) and the exact flow: one Promote to Production dispatch takes the dev HEAD through staging to a release PR into prod, whose one release suite is the only gate; fix forward on dev until it is green, then merge and verify prod. Load WHENEVER the user wants to release, promote, cut/ship a version, publish a release, bump the version, or asks why a promotion is stuck. Load it too whenever another skill or doc needs to describe the release/promotion flow — this file is the one place it is written out in full."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Kortix Release
 

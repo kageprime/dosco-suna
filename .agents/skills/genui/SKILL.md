@@ -2,6 +2,9 @@
 name: genui
 description: "Generative UI for Kortix: the agent writes typed UI blocks (cards, comparisons, charts, maps, tabs) in OpenUI Lang inside its replies, and web, mobile, and SDK hosts render them through `@kortix/sdk/genui`. Load WHENEVER you design, build, review, or debug generative UI, the `openui` code fence, the genui prompt instructions, a genui component, the `kortix-genui` system skill, or the `@kortix/sdk/genui` or `/genui/react` subpaths."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Generative UI (`genui`)
 

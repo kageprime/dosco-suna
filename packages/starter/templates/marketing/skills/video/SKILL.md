@@ -2,6 +2,9 @@
 name: video
 description: Make one captioned, on-brand product video of a shipped feature - record the real feature in the dev environment with agent-browser, compose it with HyperFrames (HTML to video, by HeyGen, Apache-2.0), render a local MP4, check its frames, deliver it in a draft pull request. Load for the `video` role and whenever a person asks for a product video, a demo clip, a launch video or a walkthrough. Load `brand` first.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Video
 

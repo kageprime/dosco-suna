@@ -4,6 +4,9 @@ description: "Write a program agent: an agent in kortix.yaml with `run: <command
 metadata:
   kortix-feature-flag: program_agents
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 <skill name="kortix-program-agents">
 

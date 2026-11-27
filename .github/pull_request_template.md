@@ -1,4 +1,5 @@
 <!--
+  Driving rule: apply `AGENTS.md` section "Deeper, not bigger. This is the most important rule." first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
   English only. Title: type(scope): <outcome>.
   Use only these two sections. Keep Quick verification to a few actionable bullets.
   Keep detailed commands/output, design detail, RCAs and risk/rollback notes in linked

@@ -2,6 +2,9 @@
 name: performance
 description: "Performance marketing, read-only by default. Pull spend and results from the ad platforms and analytics, report what changed, catch anomalies (spend spikes, CPA or ROAS drift, a dead campaign), and propose budget, bid, audience and creative changes as drafts with the numbers behind them. Never edits a live campaign, budget or bid. Load for the `performance` and `performance-watch` roles and whenever a person asks how paid channels perform."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Performance marketing
 

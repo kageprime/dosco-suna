@@ -2,6 +2,9 @@
 name: kortix-memory
 description: How to read, write, and curate workspace memory in `memory/` — the workspace brain. Load this skill whenever you (or a scheduled memory curator) need to add, update, or reorganize what this workspace knows about itself. Defines the rubric for what belongs in memory, the file structure, and the change-request flow for landing memory edits on `main`.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 <skill name="kortix-memory">
 

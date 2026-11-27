@@ -2,6 +2,9 @@
 name: kortix-design-system
 description: "Use when building or editing any visual surface in apps/web — a page, screen, list, card, badge, avatar, modal, form, empty state, toast, tooltip, table, or panel — and you need to know WHICH component to compose, which primitives are banned, and how a surface is structured (parallel slots, one name plus an info icon, the four states, hover is color only). Load kortix-brand first for the values (color, spacing, type, radius, motion budget); this file assumes those and covers components, layout shells, structural patterns, the token map and reference implementations. Source of truth: packages/ui/src/primitives, the live /design-system page (open it first), and references/."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Kortix Design System
 

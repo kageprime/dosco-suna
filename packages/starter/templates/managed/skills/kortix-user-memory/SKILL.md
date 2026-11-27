@@ -2,6 +2,9 @@
 name: kortix-user-memory
 description: "Per-user memory in the user's own Drive folder: `/drives/me/Memory`. Who this user is, how they like to work, what they corrected, what they are working on — kept across every session they start, private to them. Load at the start of a task for a person, when the user says remember / forget / you should know, when they correct how you work, or when you learn a durable fact about them."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 <skill name="kortix-user-memory">
 

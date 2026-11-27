@@ -27,3 +27,7 @@ The deepsec skill is at `node_modules/deepsec/SKILL.md` (after
 Never write customer names, people's names, emails, or real prod IDs into code,
 commits, PRs, docs, or comments. The full rule and the commit guard are in the
 root `AGENTS.md` → "NEVER write customer data or PII".
+
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.

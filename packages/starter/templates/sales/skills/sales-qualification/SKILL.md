@@ -2,6 +2,9 @@
 name: sales-qualification
 description: Score one researched lead against the ICP in sales.json (must-haves, nice-to-haves, disqualifiers, thresholds) and write the score, the tier and a cited scorecard into the system of record. Load it after lead research in the Sales Factory, and when a person asks whether a lead fits.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Qualification
 

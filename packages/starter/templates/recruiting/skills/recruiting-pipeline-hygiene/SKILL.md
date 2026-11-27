@@ -2,6 +2,9 @@
 name: recruiting-pipeline-hygiene
 description: The weekly pass over every open application in the system of record — candidates stuck in a stage, candidates with no update, applications with no owner, decisions waiting on a person, and data past the retention period. Writes notes, status drafts and one digest; never moves, rejects or archives. Load it in the Recruiting Factory from the `recruiting-pipeline-hygiene` trigger.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Pipeline hygiene
 

@@ -2,6 +2,9 @@
 name: product-analytics
 description: "Kortix product analytics and campaign attribution in PostHog (EU Cloud): which events exist, where they fire (web or API), the privacy rules every event must keep, how a promo video or ad link must be tagged, and how to verify an event. Load before adding or renaming an analytics event, touching apps/web/src/lib/analytics or apps/api/src/shared/product-analytics.ts, preparing a campaign link, or answering \"where did our users come from\"."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Product analytics
 

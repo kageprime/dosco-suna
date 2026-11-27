@@ -111,9 +111,12 @@ describe('ModelPickerPanel', () => {
     expect(html).toContain('High');
     expect(html).toContain('Auto');
     expect(html).toContain('scrollbar-hide');
+    expect(html).toContain('max-h-[300px]');
+    expect(html).not.toContain('overflow-visible');
+    expect(html).not.toContain('absolute left-full');
   });
 
-  test('groups providers inline without top tabs, opens the right-hand effort submenu, and picks an effort cleanly', async () => {
+  test('groups providers inline without top tabs, opens an in-list effort panel, and picks an effort cleanly', async () => {
     const onVariantChange = mock(() => {});
     const onPick = mock(() => {});
     let renderer!: ReactTestRenderer;
@@ -157,7 +160,7 @@ describe('ModelPickerPanel', () => {
     expect(renderedText).toContain('Google Antigravity');
     expect(renderedText).not.toContain('modelSelector.all');
 
-    // Open the Antigravity-style right-hand effort submenu for Gemini 4 Hydrogen
+    // Open the in-list effort panel for Gemini 4 Hydrogen
     const hydrogenChevron = renderer.root.find(
       (node) => node.type === 'button' && node.props['aria-label'] === 'Select effort for Gemini 4 Hydrogen',
     );

@@ -98,7 +98,7 @@ export interface ModelPickerPanelProps {
   onUpgrade?: () => void;
   /** Opens provider usage / connection management ("View Usage"). */
   onViewUsage?: () => void;
-  /** Render compactly inside a parent pane without floating outside horizontally. */
+  /** Retained for API compatibility. The panel never renders outside its own bounds. */
   inlineMode?: boolean;
   /**
    * Another dialog opened (the command palette, a modal). The popover sits
@@ -118,7 +118,7 @@ export interface ModelPickerPanelProps {
  * - Inherits Dosco's site font (`font-sans`) and theme tokens (`bg-popover`, `text-foreground`, `bg-hover`, `bg-active`, `Tag`).
  * - Groups models inline by provider (`Dosco`, `Google Antigravity`, `ChatGPT`, …) instead of a top horizontal switcher bar.
  * - Rows display model name, muted inline effort (`Medium`), theme-matched badges (`New`, `Notice`, `Unavailable`), star favorite toggle, and `✓` / `>` affordance.
- * - Floating right-hand effort submenu (`Low`, `Medium ✓`, `High`, `Extra` / `Auto`) on hover or chevron tap, plus an inline strip on narrow / `inlineMode` panels.
+ * - In-list effort panel (`Low`, `Medium ✓`, `High`, `Extra` / `Auto`) on hover or chevron tap, plus an always-visible inline effort strip.
  * - `View Usage >` footer row.
  */
 export function ModelPickerPanel({
@@ -138,7 +138,6 @@ export function ModelPickerPanel({
   onConnectChatGpt,
   connectLabel,
   onViewUsage,
-  inlineMode = false,
   effort,
   onForeignDialog,
 }: ModelPickerPanelProps) {
@@ -485,7 +484,7 @@ export function ModelPickerPanel({
   return (
     <div
       ref={rootRef}
-      className="bg-popover text-popover-foreground relative flex min-w-0 flex-col overflow-visible rounded-lg font-sans"
+      className="bg-popover text-popover-foreground relative flex min-w-0 flex-col overflow-hidden rounded-md font-sans"
       onKeyDown={onKeyDown}
       onMouseLeave={scheduleCloseSubmenu}
     >
@@ -525,20 +524,15 @@ export function ModelPickerPanel({
         ref={listRef}
         className={cn(
           SCROLLBAR_HIDE_CLASS,
-          'max-h-[min(22rem,55vh)] min-h-0 flex-1 overflow-y-auto px-1 py-1',
+          'max-h-[300px] min-h-0 flex-1 overflow-y-auto px-1 py-1',
         )}
       >
         {body}
       </CommandList>
 
-      {/* Inline narrow-screen / inlineMode effort strip */}
+      {/* Inline effort strip */}
       {effort && effort.choices.length > 0 && (
-        <div
-          className={cn(
-            'border-border/60 items-center justify-between gap-1.5 border-t px-2.5 py-1.5 text-xs',
-            inlineMode ? 'flex' : 'flex sm:hidden',
-          )}
-        >
+        <div className="border-border/60 flex items-center justify-between gap-1.5 border-t px-2.5 py-1.5 text-xs">
           <span className="text-muted-foreground shrink-0 text-xs font-medium">{t('thinking')}</span>
           <div className={cn(SCROLLBAR_HIDE_CLASS, 'flex items-center gap-1 overflow-x-auto')}>
             <button
@@ -590,45 +584,42 @@ export function ModelPickerPanel({
         </div>
       ) : null}
 
-      {/* Floating Right-Hand Effort Submenu Card (site theme tokens + font) */}
-      {!inlineMode && submenu && submenuChoices.length > 0 ? (
+      {/* In-list effort panel: no nested floating card or clipping boundary. */}
+      {submenu && submenuChoices.length > 0 ? (
         <div
           role="menu"
           aria-label={`${pickerModelName(submenu.model)} reasoning effort`}
           onMouseEnter={clearCloseTimer}
           onMouseLeave={scheduleCloseSubmenu}
-          style={{ top: `${submenu.top}px` }}
-          className="absolute left-full z-50 hidden pl-1.5 sm:block"
+          className="border-border/60 border-t p-1"
         >
-          <div className="bg-popover text-popover-foreground border-border flex w-40 flex-col gap-0.5 rounded-lg border p-1 shadow-md">
-            {submenuChoices.map((item) => {
-              const active =
-                item.value === null
-                  ? submenuCurrentEffort == null
-                  : submenuCurrentEffort === item.value;
-              return (
-                <button
-                  key={item.value ?? '__auto__'}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={active}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handlePickEffort(submenu.model, item.value);
-                  }}
-                  className={cn(
-                    'flex h-8 w-full cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 text-left text-sm transition-colors outline-none',
-                    'hover:bg-hover focus-visible:bg-hover',
-                    active ? 'bg-active text-foreground font-medium' : 'text-foreground font-normal',
-                  )}
-                >
-                  <span>{item.label}</span>
-                  {active ? <CheckIcon className="text-foreground size-3.5 shrink-0" /> : null}
-                </button>
-              );
-            })}
-          </div>
+          {submenuChoices.map((item) => {
+            const active =
+              item.value === null
+                ? submenuCurrentEffort == null
+                : submenuCurrentEffort === item.value;
+            return (
+              <button
+                key={item.value ?? '__auto__'}
+                type="button"
+                role="menuitemradio"
+                aria-checked={active}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePickEffort(submenu.model, item.value);
+                }}
+                className={cn(
+                  'flex h-8 w-full cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 text-left text-sm transition-colors outline-none',
+                  'hover:bg-hover focus-visible:bg-hover',
+                  active ? 'bg-active text-foreground font-medium' : 'text-foreground font-normal',
+                )}
+              >
+                <span>{item.label}</span>
+                {active ? <CheckIcon className="text-foreground size-3.5 shrink-0" /> : null}
+              </button>
+            );
+          })}
         </div>
       ) : null}
     </div>

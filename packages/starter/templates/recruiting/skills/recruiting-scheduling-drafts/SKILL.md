@@ -2,6 +2,9 @@
 name: recruiting-scheduling-drafts
 description: Draft the message that invites one advanced candidate to schedule the next interview, with the scheduling link or proposed times from recruiting.json and the calendar. Never sends and never books. Load it in the Recruiting Factory after the interview kit for an advanced candidate.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Scheduling drafts
 

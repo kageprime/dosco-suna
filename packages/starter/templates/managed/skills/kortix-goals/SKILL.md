@@ -4,6 +4,9 @@ description: "Work a goal until an independent verifier passes every done criter
 metadata:
   kortix-feature-flag: goals
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 <skill name="kortix-goals">
 

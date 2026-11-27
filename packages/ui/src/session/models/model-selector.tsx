@@ -847,7 +847,7 @@ export function ModelSelector({
           sectioned list earns the stronger edge under the input. */}
       {grouped.length > 1 && <CommandSeparator className="bg-border/60" />}
 
-      <CommandList className={inline ? 'max-h-none min-h-0 flex-1' : 'max-h-[380px]'}>
+      <CommandList className={inline ? 'max-h-none min-h-0 flex-1' : 'max-h-[300px]'}>
         {modelsLoading || entitlementsPending ? (
           <div
             className="flex min-h-32 items-center justify-center"
@@ -1126,14 +1126,17 @@ export function ModelSelector({
           )}
         </CommandPopoverTrigger>
 
-        {/* Antigravity-style compact model popover with right-hand effort submenu */}
+        {/* Dosco model sheet: one clipped surface, one bounded scroll region, no nested floating cards. */}
         <CommandPopoverContent
           side="top"
           align="start"
-          sideOffset={6}
-          className="w-[min(21rem,calc(100vw-1.5rem))] overflow-visible rounded-lg border border-border bg-popover p-0 text-popover-foreground shadow-md"
+          sideOffset={8}
+          className="w-[min(24rem,calc(100vw-1.5rem))] max-h-[calc(100vh-1rem)] overflow-hidden rounded-md border border-border bg-popover p-0 text-popover-foreground shadow-md"
         >
-          <div className="bg-popover text-popover-foreground flex min-w-0 flex-col overflow-visible rounded-lg">
+          <div
+            data-model-sheet="single-surface"
+            className="bg-popover text-popover-foreground flex min-w-0 flex-col overflow-hidden rounded-md"
+          >
             {usageOpen ? (
               <PickerUsageView
                 projectId={projectId}

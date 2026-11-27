@@ -2,6 +2,9 @@
 name: kortix-rollback
 description: "How to roll Kortix PRODUCTION back to an older already-released version — the inverse of a release. Covers the one-dispatch rollback-prod.yml engine (--ref prod, shares the deploy-prod concurrency group), the per-surface mechanics (api with KORTIX_PROCESS_ROLE=all and the worker scaled to 0, gateway and ECS frontend = immutable :X.Y.Z image; Vercel frontend = promote), what undoes a rollback (any deploy-prod run, any push to prod), the DB/migration-drift check that is the real blocker, and how a later promote returns prod to latest. Load WHENEVER the user wants to roll back / revert / downgrade / 'go back a version' on prod, asks how the rollback or the frontend rebuild-skip behavior works, or needs to run rollback-prod.yml. Pairs with kortix-release (the forward direction)."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Kortix Rollback
 

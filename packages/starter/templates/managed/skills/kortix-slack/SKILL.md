@@ -2,6 +2,9 @@
 name: kortix-slack
 description: How to CONNECT Slack (one command — `kortix channels connect`, prints a one-click install link) and how to answer in Slack as a teammate. Covers the live plan-block stream (`slack step` with --detail/--output, `slack send` to finalize the answer), file uploads, posting to other channels/threads, reactions, search, message editing/deletion, and the tone the bot should use. Load this when the user asks to connect/set up Slack, when the turn is triggered from Slack (the prompt mentions a Slack workspace/channel/thread, or `$SLACK_CHANNEL_ID` is set in the env), when this session messages someone in Slack and needs their reply to come back (thread binding, `slack bind-thread`), or when the user asks how to do anything in Slack.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 <skill name="slack">
 

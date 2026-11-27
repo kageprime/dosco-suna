@@ -4,6 +4,9 @@ description: "Use for creating, editing, extracting, converting, and reviewing W
 defaultProjectInstall: true
 defaultProjectInstallOrder: 50
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Word Document Skill
 

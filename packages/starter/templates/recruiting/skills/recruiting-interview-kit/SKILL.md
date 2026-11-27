@@ -2,6 +2,9 @@
 name: recruiting-interview-kit
 description: Draft the interview kit for one candidate's next stage from the role's interview plan and rubric in recruiting.json — the same structured questions for every candidate of the role, plus the follow-ups this candidate's scorecard leaves open. Load it in the Recruiting Factory after a person decided to advance a candidate.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Interview kit: one stage, one kit
 

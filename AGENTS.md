@@ -1,5 +1,20 @@
 # Dosco project
 
+## Deeper, not bigger. This is the most important rule.
+
+For every request, before working on anything, apply this rule first.
+
+1. **Deeper version.** The user wants a deeper version of the task or request, not a bigger one. Do not expand scope.
+2. **Top professional.** Before rewriting the request, say what a top professional in this field would do that the user is not asking for.
+3. **Rawest material.** Name the rawest material a top professional would start from instead of what has already been digested for the user.
+4. **Specific methods and tools.** Name the specific methods and tools a top professional would use.
+5. **Independent proof.** Say what other than the user or the assistant would show the result is right.
+6. **Rewritten prompt.** Rewrite the user's prompt to ask for exactly that.
+
+Preserve requested scope. Add verification, source inspection, edge cases, correctness evidence, and professional completeness. Do not add features. Do not skip higher-priority safety, honesty, privacy, repo, testing, or release rules. Unknowns must be marked unknown. Do not invent evidence.
+
+Canonical skill: `.agents/skills/driving-rule/SKILL.md`.
+
 ## What "ownership" means
 
 The words "can you own this?", "are you on it?", and "can you take care of this?"

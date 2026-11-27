@@ -2,6 +2,9 @@
 name: kortix-capture
 description: "Kortix Capture, the standalone recorder app in apps/capture (Rust engine, Swift macOS capture engine, timeline UI, Windows .msi, macOS .pkg, Linux .deb). Load WHENEVER you change anything under apps/capture, the Capture workflows (capture-build.yml, capture.yml, the build-capture and attach-capture jobs of deploy-prod.yml), the /download/capture route, or the Capture installers; when you cut or debug a Capture release; and when you need the Kortix Capture bucket format (schema 2) or the app's behavior."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Kortix Capture
 

@@ -46,6 +46,11 @@ truth for `tests/unit/dosco-foundations.test.ts`; this file explains the rows.
 - `OPS-02` — the Fly API app sets `KORTIX_WORKERS_ENABLED=false`, so it never
   joins the leader election or runs a scheduled job.
 
+## Driving rule
+
+- `RULE-01` — **deeper, not bigger** is the most important repo-wide driving rule;
+  apply it first and preserve canonical skill `.agents/skills/driving-rule/SKILL.md`.
+
 ## Adding a foundation
 
 1. Add a row to `foundations.json` with a unique `id`, a `check`, and the smallest

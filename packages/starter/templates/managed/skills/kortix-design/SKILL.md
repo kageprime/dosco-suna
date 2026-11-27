@@ -2,6 +2,9 @@
 name: kortix-design
 description: "How every interface you build should look: a dashboard, an analytics view, an internal tool or pipeline, a Dosco App UI, a website, a landing page, a component, a redesign. Load before you write the first className or the first user-facing string, when you review a UI, when a page looks generic or 'AI-made', when you add motion, or when you need the exact name for a design or animation concept."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # UI Design
 

@@ -2,6 +2,9 @@
 name: kortix-drives
 description: "The workspace's Drive under `/drives`: the user's own folder (their desktop, also at `~/Desktop`) and any other folder `/drives/README.md` lists, synced with the Dosco web app and every other session. A program the user wants \"on my desktop\" is not a file: the `kortix-computer` skill says where it goes. Load before you read or save a file the user should keep, look for the user's notes, preferences or context, keep memory across sessions (with `kortix-user-memory`), or when you see a file named `... (conflict <date> <time>)...`."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 <skill name="kortix-drives">
 

@@ -2,6 +2,9 @@
 name: sales-offer-creation
 description: Draft a customer offer (proposal) for one deal from the packages and prices a person approved in sales.json, the deal's notes and the company's public facts, as an HTML and PDF draft for a person to review and send. Never invents a price, a term or a discount, and never sends or opens a signing flow. Load it when a person asks for an offer, a proposal or a quote for a deal.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Offer creation
 

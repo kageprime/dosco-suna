@@ -2,6 +2,9 @@
 name: social
 description: Draft platform-native social posts (X, LinkedIn, and any platform in channels.social.platforms) from what shipped, as files in one rolling pull request that a person reviews and posts. Never posts. Load for the `social` role and whenever a person asks for an X post, a thread, a LinkedIn post or social copy for a launch or a blog post. Load `brand` first.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Social drafts
 

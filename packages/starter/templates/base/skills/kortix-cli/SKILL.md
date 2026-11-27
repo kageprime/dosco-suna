@@ -2,6 +2,9 @@
 name: kortix-cli
 description: "Drive Dosco itself from the terminal with the `kortix` CLI — preinstalled and pre-authenticated in every session sandbox. Use whenever a task means acting on THIS workspace's Dosco control plane rather than just editing files: manage secrets, list/spawn/watch/talk-to sessions, open or inspect change requests to land work on main, fire or manage triggers, set a loop to check back on this task later (`kortix loop \"…\" --in 24h --every 1h`), search the screen, action and audio timeline Capture recorded for the person this session acts for (`kortix capture search \"…\"`, when Capture is on for the account), call connectors, connect Slack, or read workspace info. This is a discovery stub — the full, always-current reference is served live via `kortix skills get kortix-system` and its reference files."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # kortix-cli
 

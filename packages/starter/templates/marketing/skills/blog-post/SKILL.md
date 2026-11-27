@@ -2,6 +2,9 @@
 name: blog-post
 description: Write one blog post from what shipped (the week's changelog entries, or one feature a person names), in the site's own blog format, with a cover from the `design` skill and screenshots of the real product, as one pull request. Load for the `blog` role and whenever a person asks for a blog post, an announcement post or a launch post. Load `brand` first.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Blog post
 

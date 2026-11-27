@@ -2,6 +2,9 @@
 name: support-feedback-clustering
 description: Cluster 30 days of support conversations and in-app feedback by surface and theme, count conversations and distinct customers, and write one weekly Review output; clusters above the bar become Software Factory feature tickets. Never quotes a customer. Load it from the support-feedback-clusters trigger, or when a person asks what customers ask for most.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Support feedback clustering
 

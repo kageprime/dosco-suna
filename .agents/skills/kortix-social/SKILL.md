@@ -2,6 +2,9 @@
 name: kortix-social
 description: "Recipe: write platform-native social content for Kortix (LinkedIn posts, X threads, carousels, Instagram, TikTok, Reels and Shorts video scripts, content calendars) and repurpose one long-form piece into many. Load kortix-brand first for voice, positioning and claims. This skill covers platform mechanics: limits, hooks, cadence, repurposing. Use when the user asks for a LinkedIn post, Twitter or X thread, carousel, social calendar, \"what should I post\", \"repurpose this\", a video hook, a reel or short-form video."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Social Content
 

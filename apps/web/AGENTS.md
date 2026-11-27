@@ -45,3 +45,7 @@ component primitives. The canonical table is in the root `AGENTS.md` →
 `packages/ui/src/primitives/` (imported as `@kortix/ui/<name>`; this app keeps no
 re-export shims), and the `/design-system` route. The Electron shell
 renders this app; native window geometry belongs in `apps/desktop-electron/`.
+
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.

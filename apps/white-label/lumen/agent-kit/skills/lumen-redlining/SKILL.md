@@ -2,6 +2,9 @@
 name: lumen-redlining
 description: Minimal, tracked-change redlines and drafting style - how to propose an edit and how to produce the DOCX with `lumen redline`.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Redlining
 

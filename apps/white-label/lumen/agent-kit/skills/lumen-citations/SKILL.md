@@ -2,6 +2,9 @@
 name: lumen-citations
 description: How Lumen cites a document - the citation object, how to get anchors, quote rules and `lumen cite check`. Load before writing any claim about a document.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Citations
 

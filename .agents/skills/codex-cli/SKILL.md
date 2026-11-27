@@ -2,6 +2,9 @@
 name: codex-cli
 description: Drive OpenAI's Codex CLI (`codex exec`) as a non-interactive coding sub-agent from inside Claude Code. Load WHENEVER you want to delegate a coding/analysis/refactor task to Codex, get a second opinion / adversarial review from another model, fan out parallel agents across files or worktrees, or run a long mechanical job while you stay the planner. Covers the exact `codex exec` flags, sandbox tiers, output capture, JSON/schema modes, session resume, parallel fan-out, and the mandatory "delegate → capture → independently verify, never trust the self-report" supervision loop.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 <skill name="codex-cli">
 

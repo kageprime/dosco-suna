@@ -2,6 +2,9 @@
 name: software-factory
 description: The Software Factory contract. Sources file tickets into one ticket store (GitHub Issues, Linear, Jira, Asana or a JSON file); intake hands each ready ticket to one worker session; workers verify on the dev environment and open a pull request with evidence; feedback, the merge gate, groom and eval keep it moving. The factory acts on GitHub as its own account (FACTORY_GITHUB_TOKEN, scripts/github-identity.sh). Defines the GitHub identity, the store operations, labels, dedup keys, upsert, states, markers, caps, ticket body, worker brief, models, pull request evidence, follow-ups and the hard rules. Load it in every factory run (every trigger of the `engineer` agent, every worker and reviewer session) and in any session that files or changes factory tickets.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Software Factory: the contract
 

@@ -4,6 +4,9 @@ description: "Use for spreadsheet creation, analysis, financial models, and poli
 defaultProjectInstall: true
 defaultProjectInstallOrder: 60
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Requirements for Outputs
 

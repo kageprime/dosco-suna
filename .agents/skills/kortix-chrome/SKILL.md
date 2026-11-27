@@ -2,6 +2,9 @@
 name: kortix-chrome
 description: "Kortix in Chrome: the Chrome extension that connects a user's own browser to Kortix so a session's sandbox drives it over CDP (`kortix chrome use` + `agent-browser --cdp 9333`). Load WHENEVER you touch apps/chrome-extension, apps/api/src/chrome, the kortixd browser bridge, `kortix browser` CLI, the browsers settings tab or connect modal, the kortix-chrome managed skill, or when you build, load, test, publish or debug the extension."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Kortix in Chrome
 

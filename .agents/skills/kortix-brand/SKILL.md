@@ -2,6 +2,9 @@
 name: kortix-brand
 description: "Load FIRST for anything that carries the Kortix look or voice: product or mobile UI, copy of any kind, decks, social, images, email, CLI output, anything with the logo, and reviews of these. Routes you to the exact files. Triggers: choosing a spacing, color, radius, shadow, duration or word that a user or buyer will read."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Kortix brand kit
 

@@ -4,6 +4,9 @@ description: "Use for distinctive production-grade websites, landing pages, and 
 defaultProjectInstall: true
 defaultProjectInstallOrder: 80
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Website Building
 

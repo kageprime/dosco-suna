@@ -2,6 +2,9 @@
 name: sales-meeting-prep
 description: Write a one-page brief for every external sales meeting on today's calendar, from the system of record and public sources, and deliver it to the Review page and the record. Load it in the `sales-meeting-prep` run and when a person asks to prepare a call with a company.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Meeting prep
 

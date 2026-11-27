@@ -1,5 +1,7 @@
 # Contributing
 
+Apply `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
+
 This guide is for humans and coding agents. Agents: load the **`contributing`** skill
 (`.agents/skills/contributing/SKILL.md`). It is the step-by-step procedure behind this page,
 with verified commands. `AGENTS.md` holds the rules every change follows.

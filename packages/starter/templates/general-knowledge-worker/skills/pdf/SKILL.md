@@ -4,6 +4,9 @@ description: "Use for creating, editing, extracting, OCRing, filling, and conver
 defaultProjectInstall: true
 defaultProjectInstallOrder: 40
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # PDF Processing
 

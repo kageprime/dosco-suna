@@ -2,6 +2,9 @@
 name: kortix-system
 description: "How Dosco works and how to change a workspace from a session: land work through a change request, drive Dosco with the in-sandbox `kortix` CLI, keep files where they last, store or request credentials, schedule work, know the computer a session runs on (its own microVM, its desktop, what lasts) and make an installed package last for every session (a sandbox template), know what the session runtime (pi) can and cannot do, and edit or fix `kortix.yaml`. Load when the user asks what Dosco can do or how it works; asks to create or change an agent, skill, tool, command, extension, permission, model, trigger or loop; asks whether an agent got better or worse, or to benchmark, eval or compare agents or models; asks to save, persist, schedule or ship work; asks what machine you run on, to install software for good, or to put something on \"my desktop\"; you just sent, submitted or started something whose result comes later (a reply, an order, a deploy, a change request, a person's answer); or your system prompt lists `kortix.yaml` issues."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 <skill name="kortix-system">
 <live-skills>
 ## Skills, served live

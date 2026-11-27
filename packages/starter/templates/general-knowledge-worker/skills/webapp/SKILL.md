@@ -3,6 +3,9 @@ name: webapp
 description: "Use for fullstack web apps built with the bundled Express, Vite, React, Tailwind, and Drizzle template."
 defaultProjectInstall: true
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Fullstack Web App
 

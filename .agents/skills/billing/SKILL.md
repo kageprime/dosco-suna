@@ -2,6 +2,9 @@
 name: billing
 description: "Kortix billing: plans (Free, Credits, Enterprise), credits and the wallet, compute and model pricing, trials, enterprise contracts, entitlement overrides and who may manage billing. Load before changing anything under apps/api/src/billing, the admin account billing routes, the web billing/pricing UI, or plan copy."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Billing
 

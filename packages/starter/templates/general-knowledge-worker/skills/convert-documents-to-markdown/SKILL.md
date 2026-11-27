@@ -6,6 +6,9 @@ defaultProjectInstallOrder: 30
 metadata:
   source: firecrawl/anydoc
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Convert documents to Markdown
 

@@ -4,6 +4,9 @@ description: "Create, manage, validate, preview, and export slide decks and pres
 defaultProjectInstall: true
 defaultProjectInstallOrder: 70
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Presentations
 

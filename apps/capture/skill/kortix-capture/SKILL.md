@@ -2,6 +2,9 @@
 name: kortix-capture
 description: Search and reconstruct the user's past on-screen activity (screenshots, OCR text, app and domain usage) with the kortix-capture CLI. Use whenever the user references something they personally did, saw, or read — "what did I do", "find that thing I saw", "how much time did I spend on X", "summarize my research on Y" — or asks to be shown / taken back to a moment.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Kortix Capture Skill
 

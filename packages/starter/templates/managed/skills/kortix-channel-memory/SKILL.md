@@ -4,6 +4,9 @@ description: "Memory of a channel or DM thread: Markdown files in the channel's 
 metadata:
   kortix-feature-flag: chat
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 <skill name="kortix-channel-memory">
 

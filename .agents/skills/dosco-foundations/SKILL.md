@@ -48,3 +48,7 @@ strengthen or add the assertion in the same session.
 3. Restore the Dosco decision. Keep upstream code-level fixes where they do not
    change the decision — a frozen file is the exception: restore it exactly.
 4. Re-run all four gates and the `apps/web` typecheck before committing.
+
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.

@@ -2,6 +2,9 @@
 name: lumen-due-diligence
 description: Due-diligence checklist per document type and the red-flag rubric, for data-room reviews and diligence reports.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Due diligence
 

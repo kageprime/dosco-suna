@@ -7,6 +7,9 @@ description: >
   "/ponytail-debt", "what did ponytail defer", "list the shortcuts", "ponytail
   ledger", or "what did we mark to do later". One-shot report, changes nothing.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 Every deliberate ponytail shortcut is marked with a `ponytail:` comment naming
 its ceiling and upgrade path. This collects them into one ledger so a deferral

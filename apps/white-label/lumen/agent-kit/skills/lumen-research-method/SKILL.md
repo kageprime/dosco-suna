@@ -2,6 +2,9 @@
 name: lumen-research-method
 description: How to answer a question from a matter's documents - scope, search, read in context, follow cross-references, answer, cite, state gaps.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Research method
 

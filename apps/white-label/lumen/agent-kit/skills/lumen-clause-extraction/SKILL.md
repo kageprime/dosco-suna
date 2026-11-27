@@ -2,6 +2,9 @@
 name: lumen-clause-extraction
 description: How to answer review-table columns - formats, normalization, "not found" rules and the commercial preset columns.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Clause extraction
 

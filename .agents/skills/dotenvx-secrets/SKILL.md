@@ -2,6 +2,9 @@
 name: dotenvx-secrets
 description: "How this repo manages API secrets and the four local-run environments (local/dev/staging/prod). They are dotenvx-ENCRYPTED in git and the keys live in Dotenv Armor. Load this WHENEVER you touch a secret, API key, token, credential, or any apps/api/.env* file; whenever the user pastes a key/token/secret to store or use; whenever choosing/switching which environment to run; and whenever adding, reading, rotating, or sharing a secret."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Secrets & environments (this repo)
 

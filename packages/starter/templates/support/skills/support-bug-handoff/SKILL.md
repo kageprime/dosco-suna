@@ -2,6 +2,9 @@
 name: support-bug-handoff
 description: Hand one product defect from a support conversation to engineering - into the Software Factory's ticket store when the repository has one (factory.json), else a GitHub issue labeled support-bug, else a Review output. One ticket per defect key, paraphrased, never customer data. Load it for contract step 4 of the support-loop skill, or when a person asks to file a bug from support.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Support bug handoff
 

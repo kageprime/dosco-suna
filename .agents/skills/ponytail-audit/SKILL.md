@@ -8,6 +8,9 @@ description: >
   "find bloat", "ponytail-audit", or "/ponytail-audit". One-shot report, does
   not apply fixes.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 ponytail-review, repo-wide. Scan the whole tree instead of a diff. Rank
 findings biggest cut first.

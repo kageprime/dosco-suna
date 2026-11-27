@@ -2,6 +2,9 @@
 name: learnings
 description: "The project's episodic memory: a timestamped ledger of rules paid for with real outages and near-misses, one entry per incident, plus `work/`: the plans, designs and open thoughts behind planned or parked work. Load WHENEVER you write or review a DB migration or schema change, touch deploy/release workflows (.github/workflows/deploy-*, promote.yml, vercel config), plan a promote/release, respond to a prod incident, or when another skill references a learning. ALSO load after resolving any incident or near-miss: it must leave a new ledger entry in the same session. ALSO load before picking up or planning a larger initiative (goals, workflows, the factory as a state machine), and to persist a plan or open thought so someone else can continue it."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Project learnings: the episodic ledger
 

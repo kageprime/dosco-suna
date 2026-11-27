@@ -638,3 +638,7 @@ that drops props silently breaks the screens that still pass them.
   no registry component imports `THEME`, `@/lib/utils` resolves via
   `lib/utils/index.ts`, and `babel.config.js:4` already has
   `nativewind/babel`. Do not "fix" them.
+
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.

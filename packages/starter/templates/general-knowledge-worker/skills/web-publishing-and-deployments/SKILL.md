@@ -3,6 +3,9 @@ name: web-publishing-and-deployments
 description: "Publish a website or web app from the sandbox to a public URL, and deploy to cloud providers — get a live link to share, ship a static site or SPA, put a built site online, or deploy a framework app / container. Use when the user says 'publish this', 'deploy it', 'put it online', 'give me a live URL', 'host this', 'share a preview link', or wants to make a site/app they (or you) just built reachable on the web. Covers the zero-account instant path (Cloudflare) and permanent hosting (Vercel, incl. any Dockerfile). Also owns the publish GUARDRAILS: never publish unprompted, how to honestly take a site down, the runtime-dependency and data-persistence checks, and the mandatory pre-publish security review. Prefers Apps (a stable Dosco URL behind Dosco sign-in) when the project has Apps on. Points at kortix-marketplace for other providers and deeper provider-specific skills."
 defaultProjectInstall: true
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Web Publishing & Deployments
 

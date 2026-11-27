@@ -4,6 +4,9 @@ description: Drive Anthropic's Claude Code CLI (`claude -p`) as a non-interactiv
 metadata:
   short-description: Delegate tasks to the Claude Code CLI
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Claude Code as a Sub-Agent
 

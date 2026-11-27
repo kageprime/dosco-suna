@@ -2,6 +2,9 @@
 name: migration
 description: "How to change the database schema in this repo. Current engine: node-pg-migrate, with SQL generated from Drizzle schema changes when possible. Load whenever you add/alter/drop a table, column, enum, index, constraint, RLS/function/grant, or any file under packages/db/migrations."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Database migrations
 

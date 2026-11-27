@@ -2,6 +2,9 @@
 name: kortix-harness-refinement
 description: The continual-harness refinement protocol — how an agent inspects its recent trajectory for failure signatures and improves its own harness (agent prompts, sub-agents, skills, memory) in place, mid-session, landing changes on the session branch immediately and promoting them to `main` only through a change request. Load this skill when a refinement prompt arrives mid-session, when a workspace's scheduled reflection agent runs, or whenever you decide your own scaffolding needs repair. The sub-agent fan-out in this skill is for a top-level reflection run only; if you loaded this as a subagent, do the four passes yourself and skip the fan-out.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 <skill name="kortix-harness-refinement">
 

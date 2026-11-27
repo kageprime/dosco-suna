@@ -2,6 +2,9 @@
 name: kortix-presentation
 description: "Recipe: build, edit, present or record a Kortix deck or film (a Next.js route under /presentations in apps/web, never a file). Load kortix-brand first. This skill covers the slide engine, builds, presenter notes, films and QA. Load WHENEVER the user asks for a deck, slides, a presentation, a walkthrough, a talk track, a guided demo, presenter notes, or a product video; and whenever editing anything under apps/web/src/app/[locale]/presentations."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Kortix Presentations
 

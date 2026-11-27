@@ -2,6 +2,9 @@
 name: sdk
 description: "The hard rules for editing `@kortix/sdk` (packages/sdk) — a PUBLISHED npm package with constraints no other package in this repo has: TDD is mandatory for the public surface and the stream/transport behavior (failing test first, gates run and pasted every turn, explicit shippable YES/NO/NOT YET); exported names INCLUDING types are a public API contract and renaming one is a breaking change; the `version` field is inert and must never be hand-bumped; adding an export requires three synchronized edits; and a static import-graph tripwire enforces the framework-free core. Load WHENEVER you add, edit, rename, move, export, test, or delete anything under packages/sdk, or touch its streaming/transport layer."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # `@kortix/sdk`
 

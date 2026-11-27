@@ -536,6 +536,17 @@
         "path": "fly.api.toml",
         "text": "KORTIX_WORKERS_ENABLED = \"false\""
       }
+    },
+    {
+      "id": "RULE-01",
+      "name": "Deeper, not bigger is the most important repo-wide driving rule",
+      "status": "behavior-locked",
+      "surface": "AGENTS.md",
+      "check": {
+        "type": "contains",
+        "path": "AGENTS.md",
+        "text": "Deeper, not bigger. This is the most important rule."
+      }
     }
   ],
   "frozenTrees": {

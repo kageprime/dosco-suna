@@ -2,6 +2,9 @@
 name: lumen-playbook-review
 description: Rule-by-rule review of a contract against a firm playbook - the playbook format, status vocabulary, severity rubric and the issues result.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Playbook review
 

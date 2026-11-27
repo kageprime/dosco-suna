@@ -2,6 +2,9 @@
 name: worktree
 description: "How to do feature work in this repo with git worktrees via `pnpm worktree`. Each worktree gets its own branch, its own block of app ports, its own node_modules, and by default shares the primary checkout's standard local Supabase DB for fast setup; pass `--db` for its own database (a copy of the primary inside the same Postgres) when the work needs migrations or destructive data changes. Load WHENEVER starting a feature, bugfix, refactor, experiment, or any change you'll want to run/test in isolation; whenever the user mentions worktrees, isolated/parallel dev instances, running multiple branches at once, or 'spin up a worktree'; and whenever you need the exact non-interactive `pnpm worktree` commands and flags. Enforces: one canonical branch per objective, one worktree per branch — join the existing worktree instead of creating another."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Worktrees (`pnpm worktree`)
 

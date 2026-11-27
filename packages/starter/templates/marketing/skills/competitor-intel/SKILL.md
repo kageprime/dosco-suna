@@ -2,6 +2,9 @@
 name: competitor-intel
 description: Write the weekly competitor digest - the few material changes (launches, features, pricing pages, integrations, funding, positioning) at the competitors in marketing.json and at new entrants in the same category, from primary sources, 5 to 10 sentences, as one GitHub issue. Load for the `competitor-intel` role and whenever a person asks what competitors shipped, a competitive landscape or a positioning check.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Competitor intelligence
 

@@ -3,6 +3,9 @@ name: design-foundations
 description: "Artifact-agnostic design guidance — works for CSS, PowerPoint, matplotlib, PDF, or any visual output. Also includes a curated catalog of named font/color themes for slides, docs, and reports (non-web assets). Not for a chart, table or cards inside a chat reply: those are kortix-genui blocks."
 defaultProjectInstall: true
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Design Foundations
 

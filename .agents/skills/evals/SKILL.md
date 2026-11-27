@@ -2,6 +2,9 @@
 name: evals
 description: "The Kortix eval system (flag `evals`): Harbor-format tasks, suites under `evals:` in kortix.yaml, the trial runner on the worker, scoring, the Evals page, `kortix evals`, and the My Kortix benchmark in evals/my-kortix. Load before you change anything under apps/api/src/projects/evals, routes/evals.ts, worker/jobs/eval-runner.ts, packages/api-contract/src/evals.ts, packages/manifest-schema/src/evals.ts, the SDK evals client or hooks, apps/cli/src/commands/evals.ts, apps/web/src/features/workspace/evals or evals/; before you change My Kortix (run its benchmark before and after); and when an eval job hangs, errors or scores wrong."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Evals
 

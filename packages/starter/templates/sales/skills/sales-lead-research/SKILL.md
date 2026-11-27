@@ -2,6 +2,9 @@
 name: sales-lead-research
 description: Research one lead (a company and a person) from public sources only, and write one cited research note into the system of record. Load it for every new lead of the Sales Factory, and whenever a person asks who a company or a contact is before a call.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Lead research
 

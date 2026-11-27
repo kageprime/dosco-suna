@@ -2,6 +2,9 @@
 name: commit-dis
 description: "Stage and commit ONLY the work done in this session, on the CURRENT branch — no new branch, no PR, no push. Load whenever the user says 'commit this', 'commit-dis', 'git add commit what we did', 'commit dis', 'save my work', or otherwise asks to commit the changes from the current thread. Enforces: stay on the already-checked-out branch, never overcommit unrelated files."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # commit-dis — commit this session's work, here, now
 

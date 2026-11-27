@@ -2,6 +2,9 @@
 name: e2e
 description: Agentic end-to-end tests with e2e, the e2e runner. Covers scaffolding e2e.config.ts, picking the Playwright browser engine or the agent-device mobile engine, starting the app under test from the config, driving flows with agent.act, judging with agent.assert, agent.waitFor, and agent.extract, pinning values with screen, app, browser, and expect, shaping the agent (context, system prompt, tools, personas), the replay cache, the e2e CLI, reading .e2e/report.json, and bug bashes (parallel explore runs proven with repro tests). Use when a project depends on e2e, when asked for end-to-end, browser, mobile, or agentic UI tests, to bug bash or hunt for bugs, or when an e2e run fails.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # e2e: agentic end-to-end tests in TypeScript
 

@@ -46,3 +46,7 @@ Each rule below comes from a test that passed while the behavior it named was br
   point `KORTIX_LLM_BASE_URL` or `apiUrl` at a local fake instead.
 - **A negative row sets every other precondition,** so the one input under test is the
   only reason it can pass.
+
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.

@@ -2,6 +2,9 @@
 name: aeo-seo
 description: Make the site findable by search engines and AI assistants. Three procedures - a weekly visibility audit of the tracked buyer questions (who gets cited, where the site is missing) as one issue; an answer page that closes the biggest gap as one pull request; a technical SEO crawl that fixes broken links, metadata, canonicals, sitemaps, robots rules and JSON-LD in code. Load for the `aeo-audit`, `aeo-answer` and `seo-fix` roles, and whenever a person asks about SEO, AEO, GEO, llms.txt, rankings or AI citations.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # AEO and SEO
 

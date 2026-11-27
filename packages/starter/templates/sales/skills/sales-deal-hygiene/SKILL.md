@@ -2,6 +2,9 @@
 name: sales-deal-hygiene
 description: Weekly pipeline hygiene over the open deals in the system of record - stale deals, missing next steps, missing owners, close dates in the past, leads over the cap waiting for research - with one task per finding and one digest for the team. Load it in the `sales-deal-hygiene` run and when a person asks for a pipeline review.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Deal hygiene
 

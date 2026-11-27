@@ -2,6 +2,9 @@
 name: support-answer-drafts
 description: Draft the reply to one triaged support conversation from the docs and the codebase, with a source for every statement (a docs URL or a repository file and line), then deliver it as the category's approval mode says - a draft and a Review output by default. Load it for contract step 5 of the support-loop skill, or when a person asks for a reply draft.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Support answer drafts
 

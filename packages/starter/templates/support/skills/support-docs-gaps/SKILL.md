@@ -2,6 +2,9 @@
 name: support-docs-gaps
 description: Close help-center gaps that support conversations reveal - questions customers ask again and again that no docs page answers - with at most one pull request a week into the help-center repository, every new sentence sourced from the code or existing docs. Load it from the support-docs-gaps trigger, or when a person asks to update the help center from support.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Support docs gaps
 

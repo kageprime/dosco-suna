@@ -2,6 +2,9 @@
 name: white-label
 description: "White-label Kortix: license it, run it on Platinum, and rebrand it as the partner's own product. Load WHENEVER a user asks to white-label, rebrand, resell, or host Kortix under their own name, logo, or domain, or asks about the white-label license or the Exclusive Compute Agreement."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # White-label Kortix
 

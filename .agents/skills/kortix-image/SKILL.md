@@ -2,6 +2,9 @@
 name: kortix-image
 description: "Recipe: produce a Kortix image (hero, OG card, social card, thumbnail, cover, blog image, illustration, UI asset). Load kortix-brand first. This skill covers sizes, tools, generation, compositing and export. Use when the user asks to create, art-direct or revise an image for Kortix, agents, sandboxes, coding workflows, launch assets, thumbnails or covers."
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Kortix image recipe
 

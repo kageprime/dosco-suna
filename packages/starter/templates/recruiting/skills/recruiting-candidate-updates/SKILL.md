@@ -2,6 +2,9 @@
 name: recruiting-candidate-updates
 description: Draft a message to a candidate — the reject a person decided, a status update when the team has been silent, an answer to a candidate's question, or a first message to a referred or sourced person a person approved. Never sends; a person approves every message. Load it in the Recruiting Factory whenever a candidate needs to hear from the team.
 ---
+## Driving rule
+
+Apply root `AGENTS.md` section **Deeper, not bigger. This is the most important rule.** first. See `.agents/skills/driving-rule/SKILL.md`. Deeper, not bigger.
 
 # Candidate updates (drafts)
 
