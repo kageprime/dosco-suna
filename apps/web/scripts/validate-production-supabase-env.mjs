@@ -3,8 +3,8 @@
 import { pathToFileURL } from 'node:url';
 
 // Dosco fork: the production frontend deploys on Vercel and the API on Fly.
-export const EXPECTED_PRODUCTION_SUPABASE_PROJECT_REF = 'uscgpdfrzfvfdlzesyuh';
-export const EXPECTED_PRODUCTION_SUPABASE_URL = 'https://uscgpdfrzfvfdlzesyuh.supabase.co';
+export const EXPECTED_PRODUCTION_SUPABASE_PROJECT_REF = 'dksypcybudtojqgsjezs';
+export const EXPECTED_PRODUCTION_SUPABASE_URL = 'https://dksypcybudtojqgsjezs.supabase.co';
 export const EXPECTED_PRODUCTION_BACKEND_URL = 'https://api.dosco.live/v1';
 
 const EXPECTED_NATIVE_URL = `https://${EXPECTED_PRODUCTION_SUPABASE_PROJECT_REF}.supabase.co`;
