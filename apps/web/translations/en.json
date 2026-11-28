@@ -1150,7 +1150,6 @@
           "name": "Stateless sandboxes",
           "description": "Every session keeps only /workspace, on its own volume. A sandbox stopped for an hour is deleted, and the next open starts a new one with the same files and conversation. Programs that ran in the old sandbox are not running. Dosco enables it per workspace."
         },
-
         "email_channel": {
           "name": "Email channel",
           "description": "Give the agent an email inbox on Resend: inbound mail starts and continues sessions, and the agent reads, replies and sends from the inbox. Bring your own Resend API key and domain."
@@ -1158,7 +1157,6 @@
         "channels": {
           "name": "Channels",
           "description": "Spaces with Dosco, the way Slack works: every message is a thread, Dosco's newest reply shows under it, Dosco can start threads, and you share spaces with people. Replaces the session list in the sidebar."
-
         },
         "session_groups": {
           "name": "Spaces",
@@ -1168,7 +1166,6 @@
           "name": "Dosco in Chrome",
           "description": "Let a session use your connected Chrome browser. You can take over or stop it at any time."
         },
-
         "agent_teams": {
           "name": "Agent teams",
           "description": "A lead session starts named teammates that share one task list. Each teammate takes a task, works on it in its own session and tells the lead when it is done. You see every teammate and its tasks under the lead's composer. Messages between sessions work without this flag."
@@ -1188,7 +1185,6 @@
         "chat_front": {
           "name": "Spaces-Router",
           "description": "With Spaces on, the agent you chat with in a thread is a router: it does quick work itself (an answer, a short text, a look at the thread files) and hands longer work to the Space's agents. It writes back like a person, in short messages. An agent saves its full result as a file in the thread, and the router links that file instead of retyping it. Show work under a message opens the work behind it. Needs Xera on in kortix.yaml."
-
         },
         "spaces_proactive": {
           "name": "Channels-Proactive",
@@ -2652,7 +2648,6 @@
       "lastChargeFailed": "The last auto top-up charge failed on {date} ({reason}). Dosco tries again; after 3 failed charges in a row, auto top-up turns off.",
       "bonusHint": "Each top-up adds {credits} credits + {bonus} bonus.",
       "bonusFrom": "Top-ups of {min} or more add bonus credits."
-
     },
     "title": "Billing & Subscription",
     "subscription": "Subscription",
@@ -26187,7 +26182,6 @@
         "memory": "Agents remember what each channel agrees on.",
         "gotIt": "Got it",
         "tabs": "Every space has its own tabs. Add, rename and reorder them, or ask Dosco to."
-
       },
       "getStarted": {
         "dismiss": "Dismiss",
@@ -26254,7 +26248,6 @@
     "newSession": "New session",
     "askMyKortix": "Ask Xera",
     "askPrompt": "I want to change the {name} space (`spaces.{slug}` in kortix.yaml): its tabs, its header or the agents in it. Ask me what to change.",
-
     "intro": {
       "title": "This is the start of #{name}",
       "body": "The place for everyone who works in this channel.",
@@ -26280,7 +26273,6 @@
       "rename": "Rename and describe",
       "personalDescription": "Your private space with Xera. Only you see it.",
       "privateDescription": "Only the people and agents in it see this space.",
-
       "noDescription": "No description yet.",
       "agents": "Agents",
       "addAgent": "Add agent",

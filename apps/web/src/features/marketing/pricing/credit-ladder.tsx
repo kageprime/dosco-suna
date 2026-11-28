@@ -3,6 +3,7 @@
 import {
   agentHoursForCredits,
   CREDIT_TIERS,
+  creditsForUsd,
   formatWholeUsd,
   monthlyCreditsForUsd,
 } from '@kortix/ui/internal/billing/compute-pricing';
@@ -37,6 +38,7 @@ export function CreditLadder({
   steps = MONTHLY_STEPS,
   suffix,
   label,
+  oneTime = false,
 }: {
   value: number;
   onChange: (monthlyUsd: number) => void;
@@ -54,6 +56,8 @@ export function CreditLadder({
   suffix?: string;
   /** The slider's accessible name. Defaults to "Monthly credits tier". */
   label?: string;
+  /** One-off top-ups use the flat rate: no plan volume bonus. */
+  oneTime?: boolean;
 }) {
   const t = useTranslations('billing.credits.tiers');
   const locale = useLocale();
@@ -62,7 +66,7 @@ export function CreditLadder({
   const LAST = steps.length - 1;
   const index = Math.max(0, steps.indexOf(value));
   const usd = steps[index];
-  const credits = monthlyCreditsForUsd(usd);
+  const credits = oneTime ? creditsForUsd(usd) : monthlyCreditsForUsd(usd);
   const select = (next: number) => {
     if (disabled) return;
     const clamped = Math.min(LAST, Math.max(0, next));

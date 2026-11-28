@@ -536,6 +536,17 @@
         "path": "fly.api.toml",
         "text": "KORTIX_WORKERS_ENABLED = \"false\""
       }
+    },
+    {
+      "id": "SYNC-01",
+      "name": "Upstream sync keeps Antigravity session pools selectable",
+      "status": "behavior-locked",
+      "surface": "apps/api/src/secrets/provider-key-selection.ts",
+      "check": {
+        "type": "contains",
+        "path": "apps/api/src/secrets/provider-key-selection.ts",
+        "text": "return expectedSecretResourceName(providerId) ?? null;"
+      }
     }
   ],
   "frozenTrees": {
@@ -683,7 +694,7 @@
       "apps/web/src/features/marketing/one-prompt/use-cases-content.ts": "48935f92e6dc62309268d56b2527543bda1dfa2e286084de4d99ed533c4d0b3c",
       "apps/web/src/features/marketing/open-source/content.ts": "bdf78fb9eac6a0edfff4e64ce2a0a4973f59494a8ef7f45e1b6f286b0eb22fdc",
       "apps/web/src/features/marketing/pricing/compare-table.tsx": "fcdbf9ce9b71905663a5ed711bdc20d3fbf45cedd65f40ee6e5144c5940fd5f8",
-      "apps/web/src/features/marketing/pricing/credit-ladder.tsx": "e38484beae6aa747170cdf99958bdec042473908a5343c0676870cc04f04c843",
+      "apps/web/src/features/marketing/pricing/credit-ladder.tsx": "efda59736135373429227a5fa158f6a0c3aa5bbb5b4fc6b934dd61bdf2ed1cc5",
       "apps/web/src/features/marketing/pricing/rolling-number.tsx": "46a59f155cf44dc895361aeb64176f9eef7fc0d5f2c963dad15b4adcc7b37330",
       "apps/web/src/features/marketing/security-page/boundary-diagram.tsx": "1cf7dbbb0a4212b95b20d54ca6b00a90fc7766216b007454265cb646ccdc2813",
       "apps/web/src/features/marketing/security-page/code-panel.tsx": "ea142fa6649f52db44ff29a2983ff4c8fdc25b96aac8dff07c3dec2b36311e48",
